@@ -476,6 +476,68 @@ test('⭐ a whole-bar REST is centred between its own barlines', async ({ score 
   expect(drawn[0].off, 'the system-opening bar centres after its header').toBeGreaterThan(2)
 })
 
+test('⭐⭐ an EMPTY bar\'s width is its DURATION\'s, not a flat default', async ({ score }) => {
+  // His report: *"the empty measure at the beginning of a line is too small… probably it is the same
+  // size as a normal empty measure, but in the first line we have the clef, and if we have also a
+  // time signature that is more space stolen. For the size we have to take into account where the
+  // measure actively begins and not where it geometrically begins."*
+  //
+  // ⭐ The cause was the last flat default left in the width path: an empty bar asked for 4 staff
+  //   spaces of note area **whatever meter it was in**, so `MIN_MEASURE_WIDTH` — a floor on the bar as
+  //   SEEN, header included — was the only thing deciding its width, and on a system's first bar the
+  //   whole of that floor went on the clef and the meter. Measured: **3.78** spaces of drawn music
+  //   against a mid-line bar's 8.85.
+  //
+  // ⭐⭐ A bar of silence has a DURATION, and the rule has an answer for a duration — LilyPond spaces a
+  //   full-bar rest the same way (`MultiMeasureRest.space-increment`: *"each doubling of the duration
+  //   adds `space-increment` to the length of the bar"*). So this asserts the ordering a flat default
+  //   cannot produce: at a line start, an empty 12/8 bar is wider than an empty 4/4 bar, which is
+  //   wider than an empty 2/4 one.
+  //
+  // ⚠️ 2/4 against 4/4 is the PURE test of the rule — both meters are one digit, so the two bars draw
+  //    the same header and every pixel of the difference is duration. 12/8 carries a wider meter glyph
+  //    too, which is why that one is asserted only as an ordering.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 8) h.engine.addMeasure()
+    const bars = async (): Promise<number[]> => {
+      await h.render()
+      const staves = h.staves()
+      const space = (staves[0].bottom - staves[0].top) / 4
+      return staves.filter(stave => stave.top === staves[0].top).map(stave => (stave.x2 - stave.x1) / space)
+    }
+    const four = await bars()
+    h.engine.setTimeSignature(1, { numerator: 12, denominator: 8 })
+    const twelve = await bars()
+    h.engine.setTimeSignature(1, { numerator: 2, denominator: 4 })
+    const two = await bars()
+    return { four, twelve, two }
+  })
+
+  for (const [label, widths] of [['4/4', drawn.four], ['12/8', drawn.twelve], ['2/4', drawn.two]] as const) {
+    console.log(`[census] empty bars in ${label}: ${widths.map(w => w.toFixed(2)).join(' ')}`)
+  }
+  expect(drawn.four.length, 'several empty bars share the system').toBeGreaterThan(3)
+
+  // ⭐⭐ The headline: a bar-long silence earns what its duration earns. The rule gives a whole 6.0
+  //     staff spaces, a half 4.8 and a dotted whole 6.7 — so the line-opening bars order by meter,
+  //     where under the old flat default all three came out the same.
+  expect(drawn.two[0], 'an empty 2/4 bar is narrower than an empty 4/4 one').toBeLessThan(drawn.four[0] - 0.5)
+  expect(drawn.twelve[0], '…and an empty 12/8 bar is wider').toBeGreaterThan(drawn.four[0] + 0.5)
+  // 6.0 − 4.8 = 1.2 spaces of duration, and nothing else differs between these two bars.
+  expect(drawn.four[0] - drawn.two[0], 'the difference is the RULE\'s, to a tenth of a space')
+    .toBeCloseTo(1.2, 1)
+
+  // ⚠️ And the bars MID-LINE are unchanged, in every meter: the rule leaves a bar-long silence under
+  //    `MIN_MEASURE_WIDTH`, so there the floor is still what answers — deliberately. He has reported
+  //    three times that empty bars do not shrink far enough (docs/bar-width-plan.md "Known issues" #1),
+  //    and a fix at the line start must not widen the ones in the middle.
+  for (const widths of [drawn.four, drawn.twelve, drawn.two]) {
+    expect(widths[1], 'a mid-line empty bar still sits on the floor').toBeCloseTo(widths[2], 1)
+    expect(widths[1]).toBeLessThan(11)
+  }
+})
+
 test('⭐⭐ the HEADER is ours: what the layout reserves is where the first note lands', async ({ score }) => {
   // `docs/vexflow-boundary.md` priority 1. The clef and the meter were laid out by VexFlow and
   // reserved for by two constants of ours with nothing connecting them: over by 0.9 staff spaces for

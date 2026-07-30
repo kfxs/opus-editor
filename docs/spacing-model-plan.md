@@ -296,8 +296,9 @@ spacing model:
   proved is a usable address — each with a notehead's extent, and the ramp's shape becomes the
   spacing rule applied to the member durations. The gap after a fan then needs no rule of its own.
 - `MIN_NOTE_SPACING` as *the* spacing rule, the `× 1.15` safety buffer (it was compensating for the
-  ink sum being the whole answer), `EMPTY_LANE_NOTE_SPACE`'s 40px (a 4/4 bar of silence becomes
-  `followingSpace(whole)` = 7 spaces, which is Gould's number instead of ours), and
+  ink sum being the whole answer), `EMPTY_LANE_NOTE_SPACE`'s 40px (✅ deleted 2026-07-30 — a 4/4 bar
+  of silence is `followingSpace(whole)`, 7 spaces under Gould's curve and **6.0** under LilyPond's,
+  which is the one that ships), and
   `MAX_MEASURE_WIDTH` as a bar's ceiling — the compressed curve is what bounds a bar's ask, so the
   cap goes back to being the preference it always claimed to be.
 - `ledgerAccidentalClearance` and `dotPlacement`'s room reservations: extents by another name,
@@ -443,6 +444,18 @@ Six decisions the writing forced:
   way on a live complaint. An empty bar's width is a default, not music, which is the argument
   `measureWidthParts` already makes about its stretch. ⚠️ A bar of AUTHORED rests is not empty and is
   spaced by the rule like anything else.
+
+  🚨 **REVERSED, 2026-07-30, and it was the right question with the wrong answer.** The complaint this
+  protected is about empty bars MID-LINE, and the flat default was never what decided those — the
+  `MIN_MEASURE_WIDTH` floor was, and still is (the rule asks 7.65 spaces for a bar-long silence in
+  4/4, under the 10-space floor). What the default *did* decide was the one bar the floor could not
+  reach: a system-opening empty bar, whose header ate the whole floor, leaving **3.78** spaces of
+  music against a mid-line bar's 8.85 — reported, and correctly. `EMPTY_LANE_NOTE_SPACE` is deleted:
+  a bar of silence is one column and the rule prices it like any other duration (6.0 spaces in 4/4,
+  4.8 in 2/4, 6.7 in 12/8), which is also what LilyPond does with a full-bar rest
+  (`MultiMeasureRest.space-increment`). Mid-line bars come out UNCHANGED, so the live complaint is
+  not pushed on. `docs/spacing-model-research.md` §6c has the measurements, the sources, and the
+  wrong fix that came first.
 - 🚨 **The VexFlow ink term is GONE, and could not be kept even as a floor.** P0 measured why: for 8
   eighths the ink term (with flags the drawing never emits) comes to more than the rule, so keeping
   it as a `max` would have preserved the inversion exactly. Deleting it also makes `MeasureLayout`

@@ -29,10 +29,6 @@ import { drawsTimeSignature } from './NoteBuilder'
  * as `EventExtent` numbers handed IN, not as a formatter called from here.
  */
 
-/** The note area a lane gets when it holds nothing at all, and the floor under a bar of pure
- *  silence — an empty bar should not collapse to the width of its one rest glyph. */
-export const EMPTY_LANE_NOTE_SPACE = 40
-
 /**
  * The horizontal space a measure's notes need — **the spacing rule, summed over its columns**
  * (docs/spacing-model-plan.md P2). Two numbers: what the music asks for, and what it will not go
@@ -50,6 +46,20 @@ export const EMPTY_LANE_NOTE_SPACE = 40
  * the *system*, so staff 1's beat 2 and staff 2's beat 2 are one column paid for once, and two
  * voices at one beat are one column rather than two. See {@link measureColumns}.
  *
+ * ⭐⭐ **AND SILENCE IS MUSIC HERE — an empty bar is spaced by the rule like everything else.** It
+ * used to be the one exception: `EMPTY_LANE_NOTE_SPACE`, a flat 4 staff spaces of note area **whatever
+ * meter the bar was in and whatever else it carried**. That default is what made a system-opening
+ * empty bar read wrong (his report): 4 spaces of music plus a 6.6-space header came to 10.25, the
+ * `MIN_MEASURE_WIDTH` floor was already past it on the header alone, and so the bar's whole minimum
+ * went on its clef and meter — **3.78** spaces of drawn music against a mid-line bar's 8.85.
+ *
+ * A bar of silence has a duration, and the rule has an answer for a duration: its one whole-bar-rest
+ * column earns `followingSpace(the bar)` — 6.0 staff spaces in 4/4, 4.8 in 2/4, 6.7 in 12/8. That is
+ * what LilyPond does (`MultiMeasureRest.space-increment` = 2.0 — *"each doubling of the duration adds
+ * `space-increment` to the length of the bar"*) and it is why an empty bar in a big meter should not be
+ * the same width as one in a small meter. `MIN_MEASURE_WIDTH` stays what it was, a floor on the bar as
+ * SEEN; it now only decides bars the rule leaves narrower than a sliver.
+ *
  * ⚠️ **The cache is not consulted here, and that is not an oversight.** `MeasureWidthCache` existed
  * to memoize the VexFlow `Formatter`, which is no longer in this path: what replaced it is a walk
  * over the slots and some exact arithmetic, and `laneFingerprint` — a `JSON.stringify` of the whole
@@ -62,20 +72,6 @@ function noteSpaceForMeasure(
   clefsByStaff: Map<string | undefined, StaffClefs>,
   firstStaffId: string | undefined,
 ): { natural: number; floor: number } {
-  // ⭐ **An EMPTY bar's width is a DEFAULT, not music, so the rule does not govern it.** Under the
-  // curve a 4/4 bar of silence would ask for `followingSpace(𝅝)` = 7 staff spaces = 70 px against
-  // today's 40 — Gould's number instead of ours, and the plan files it as an improvement (§2). It is
-  // not: he has reported three times that empty bars already do not shrink as far as he asks
-  // (docs/bar-width-plan.md "Known issues" #1), and widening them pushes the wrong way on an open
-  // complaint. `measureWidthParts` already makes exactly this argument for treating an empty bar's
-  // *stretch* differently — its width comes from defaults, so the user overruling it should win.
-  //
-  // ⚠️ A bar of AUTHORED rests is not empty (that is what {@link isEmptyBar} is careful about) and
-  // is spaced by the rule like any other music — eight eighth-rests are eight columns.
-  if (isEmptyBar(measure)) {
-    return { natural: EMPTY_LANE_NOTE_SPACE, floor: EMPTY_BAR_FLOOR_PX }
-  }
-
   // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). The bucket is still
   // called `format`; what it times is no longer a formatter but the width term it replaced.
   const probing = renderProbe().recording
@@ -91,7 +87,11 @@ function noteSpaceForMeasure(
   // one, and the reason a fanned bar was the widest thing on any page it appeared on.
   const answer = {
     natural: naturalWidth(columns) * STAFF_SPACE_PX,
-    floor: minimumWidth(columns) * STAFF_SPACE_PX,
+    // ⭐ **A bar of pure silence keeps a LOWER floor than its own ink** — {@link EMPTY_BAR_FLOOR_PX},
+    //   not the rest glyph's extent. Deliberate, and the one thing left of the old special case: an
+    //   empty bar is allowed to get out of a neighbour's way completely (docs/bar-width-plan.md §2),
+    //   which is a statement about a bar nobody has written into, not about how wide a rest is.
+    floor: isEmptyBar(measure) ? EMPTY_BAR_FLOOR_PX : minimumWidth(columns) * STAFF_SPACE_PX,
   }
   if (probing) renderProbe().layoutSub('format', performance.now() - t0)
   return answer
@@ -240,10 +240,10 @@ function calculateMinimumMeasureWidth(
  * else? It decides which way a stretch acts on the bar (see {@link measureWidthParts}).
  *
  * ⚠️ **Asked of the CONTENT, never of a measured width.** The first version asked whether the bar's
- * note space had come out at the {@link EMPTY_LANE_NOTE_SPACE} floor — which compares a number the
- * *formatter* produced. Under jsdom the text metrics are stubbed to zero, so every empty bar
- * measured 40 and the tests were green; in a real browser a whole rest measures wider than that, the
- * bar was classified as having music, and the feature silently did nothing. A structural question
+ * note space had come out at the flat empty-bar default (40 px, since deleted) — which compares a
+ * number the *formatter* produced. Under jsdom the text metrics are stubbed to zero, so every empty
+ * bar measured 40 and the tests were green; in a real browser a whole rest measures wider than that,
+ * the bar was classified as having music, and the feature silently did nothing. A structural question
  * has the same answer in both places.
  *
  * Not "has no notes": a bar of eight authored eighth-rests has eight columns and is governed by them
@@ -312,11 +312,11 @@ function measureWidthParts(
   // *claim on the line* had changed.
   //
   // For a bar with music that model is right: its music sets its claim, and shrinking stops at the
-  // engraver's own floor of `MIN_NOTE_SPACING` per column. **An empty bar has no music to set one.**
-  // Its width comes from `MIN_MEASURE_WIDTH` and the `EMPTY_LANE_NOTE_SPACE` floor — defaults, not
-  // content — so the user asking for it to be narrow is asking to overrule a default, and it should
-  // give way completely. Hence: fold the stretch INTO the intrinsic (so the share moves with it) and
-  // reserve nothing.
+  // engraver's own floor of `MIN_NOTE_SPACING` per column. **An empty bar has nobody's music to
+  // answer to.** Its width is the rule's answer for a bar-long silence and, below that,
+  // `MIN_MEASURE_WIDTH` — a floor about how a bar READS, not about anything written in it — so the
+  // user asking for it to be narrow is overruling a default, and it should give way completely.
+  // Hence: fold the stretch INTO the intrinsic (so the share moves with it) and reserve nothing.
   //
   // The overhead is kept out of the scaling for the reason §2 gives — a line-opening empty bar must
   // keep room for its clef and meter whatever its stretch — and the scalable part stops at one

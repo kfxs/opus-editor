@@ -600,15 +600,33 @@ describe('bar width — the ceiling is where the bar becomes the system', () => 
  */
 describe('bar width on a RAGGED last line', () => {
   let engine: MusicEngine
+  /** The bar sitting ALONE on the final system — see the fixture. */
+  let lone: number
 
   beforeEach(() => {
     const container = document.createElement('div')
     document.body.appendChild(container)
     engine = new MusicEngine({ container, width: 900, height: 500 })
-    // Ten empty bars: nine fill the first system, so the last system holds exactly ONE — the state
-    // that was reported as unexpandable.
-    while (engine.getScore().measures.length < 10) engine.addMeasure()
-    engine.renderScore()
+    // Empty bars until the LAST one sits ALONE on the ragged final system — the state that was
+    // reported as unexpandable.
+    //
+    // ⚠️ **COUNTED, not assumed.** It used to be a flat ten, on the arithmetic that nine empty bars
+    // fill a system at 900px. How many fit is a LAYOUT answer and it moves: it moved the day the
+    // minimum width became a minimum on the bar's MUSIC (`MIN_MEASURE_WIDTH`), because a
+    // system-opening bar then paid for its own clef and meter on top. A fixture that states the
+    // number instead of asking for it fails as though the gesture had broken.
+    lone = 1
+    while (engine.getScore().measures.length < 40) {
+      engine.addMeasure()
+      engine.renderScore()
+      lone = engine.getScore().measures.length
+      // `alone` is only meaningful once the score really has a second system — with one line, the
+      // only bar there is trivially alone on it.
+      if (engine.getElementRegistry().getStaffGeometry(1, 0)!.lineYPositions[0]
+          !== engine.getElementRegistry().getStaffGeometry(lone, 0)!.lineYPositions[0]
+          && engine.barWidthRoom(lone)?.alone) break
+    }
+    expect(engine.barWidthRoom(lone)?.alone, 'the fixture found a bar alone on a later system').toBe(true)
   })
 
   const widthOf = (measure: number): number => {
@@ -621,21 +639,21 @@ describe('bar width on a RAGGED last line', () => {
     // ceiling read "a bar alone on its system IS the line, so that is its maximum" — true while the
     // line is justified, false the moment it is not. A lone bar on a ragged line is a SHORT line,
     // with the rest of the page to grow into.
-    const room = engine.barWidthRoom(10)!
+    const room = engine.barWidthRoom(lone)!
     expect(room.alone).toBe(true)          // …the state the old ceiling capped
     expect(room.maxStretch).toBeGreaterThan(room.stretch + 1) // …and no longer does
 
-    const before = widthOf(10)
-    for (let i = 0; i < 4; i++) { engine.nudgeBarWidth(10, STEP_PX); engine.renderScore() }
-    expect(widthOf(10)).toBeGreaterThan(before)
+    const before = widthOf(lone)
+    for (let i = 0; i < 4; i++) { engine.nudgeBarWidth(lone, STEP_PX); engine.renderScore() }
+    expect(widthOf(lone)).toBeGreaterThan(before)
   })
 
   it('…and it keeps growing press after press, rather than freezing after one', () => {
     const seen: number[] = []
     for (let i = 0; i < 5; i++) {
-      engine.nudgeBarWidth(10, STEP_PX)
+      engine.nudgeBarWidth(lone, STEP_PX)
       engine.renderScore()
-      seen.push(widthOf(10))
+      seen.push(widthOf(lone))
     }
     const stuck = seen.findIndex((v, i) => i > 0 && Math.abs(v - seen[i - 1]) < 1e-9)
     expect({ stuck, seen: seen.map(v => Math.round(v)) }).toEqual({ stuck: -1, seen: seen.map(v => Math.round(v)) })

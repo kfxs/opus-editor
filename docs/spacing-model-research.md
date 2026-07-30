@@ -343,6 +343,112 @@ Two more, from his own scores rather than from fixtures:
   **4.84** spaces against the rule's 4.8. ⚠️ Gould's curve is compressed on purpose and does NOT
   make space proportional to duration — the notes are still the bulk of the bar, and should be.
 
+## 6c. ⭐⭐ THE BAR THAT OPENS A SYSTEM — what the sources actually say (2026-07-30)
+
+His report, on empty bars: *"the empty measure at the beginning of a line is too small… probably it is
+the same size as a normal empty measure, but in the first line we have the clef, and if we have also a
+time signature that is more space stolen. For the size we have to take into account **where the
+measure actively begins and not where it geometrically begins**."*
+
+Measured, before anything was changed (staff spaces, empty bars on one justified system):
+
+| empty bar | total | header it carries | the MUSIC got |
+|---|---|---|---|
+| line start, treble + 4/4 | 12.03 | 8.25 | **3.78** |
+| line start, clef only | 10.00 | 4.85 | **5.15** |
+| mid-line | 10.50 | 1.65 | **8.85** |
+
+### The wrong fix, and how it was caught
+
+Move `MIN_MEASURE_WIDTH` (10 spaces) so it floors the bar's MUSIC instead of its total, and every bar
+gets the same music room wherever it sits — 8.35 spaces. Built, and reported back by eye the same
+hour: *"now I have the sensation that it is too big… the first measure that has no time signature
+looks also larger; it's a visual effect, so it needs to be compensated."* Drawn, the line-opening bar
+had gone 12.03 → **17.77** and a clef-only line opener 10.00 → 13.20.
+
+⭐ **Both reports are right, and they are not in conflict: the minimum is about the bar as SEEN.** A
+reader judges a bar by its whole extent, and a clef standing in it is part of that extent — so a
+line-opening bar handed the same *music* as its neighbours genuinely is wider than them. What was
+wrong was never the floor's scope.
+
+### What the sources say
+
+**The header's gaps are not padded — ours are already tighter than LilyPond's.** His first hypothesis
+was that we reserve the clef's bounding box, which has slack on its right. Measured in Chrome, in
+staff spaces from the barline: the clef's ink runs 0.4→3.3, the `4/4` digits 4.7→6.6, the first
+notehead starts at 7.7. `headerExtent` reserves **6.6** — the meter's ink end, to the hundredth. The
+blank is *between* the glyphs, and LilyPond's own `space-alist` says that is where it belongs:
+
+| gap | LilyPond's default | we draw |
+|---|---|---|
+| clef → time signature | `(time-signature extra-space . 1.52)` | **1.4** |
+| time signature → first note | `(first-note fixed-space . 2.0)`, plus `extra-spacing-width '(0.0 . 0.8)` | **1.1** |
+| clef → first note (no meter) | `(first-note minimum-fixed-space . 5.0)`, counted from the clef's LEFT | **4.0** |
+
+⛔ So the clef↔meter gap must NOT be taken away — it is 1.4 against LilyPond's 1.52, and every other
+header gap we draw is already *under* the standard. (`extra-space` is measured right-edge to
+left-edge, `minimum-space` from the left edge of the first object — LilyPond, *Spacing between
+adjacent non-musical items*.)
+
+**A bar of silence is spaced by its DURATION, in every engine.** LilyPond's `MultiMeasureRest`:
+*"Multi-measure rests have a length according to their total duration, which is under the control of
+the `space-increment` property"*, default 2.0 — *"each doubling of the duration adds `space-increment`
+to the length of the bar"*. MuseScore's *Minimum measure width* is documented for exactly our case —
+*"in measures containing very little content (e.g. a single whole note or whole measure rest), the
+measure will only shrink as far as this minimum"* — and its default is **4 sp**, where ours is 10.
+
+⭐⭐ **And the compensation he asked for is a documented LilyPond override, for full-bar rests
+specifically.** `MultiMeasureRest.spacing-pair` defaults to `'(break-alignment . break-alignment)` —
+the rest is measured from *after* the prefatory matter, so the bar grows by its clef and meter — and
+the Internals Reference gives the alternative in as many words: a MultiMeasureRest *"will ignore
+prefatory items at its bounds (i.e., clefs, key signatures and time signatures)"* with
+`\override MultiMeasureRest.spacing-pair = #'(staff-bar . staff-bar)`. So both looks are known, and
+the one he is asking for is the standard tweak for bars of rest — not a fudge.
+
+### What was actually wrong, and the fix
+
+**The last flat default in the width path.** `EMPTY_LANE_NOTE_SPACE` gave an empty bar 4 staff spaces
+of note area *whatever meter it was in and whatever else it carried*, so `MIN_MEASURE_WIDTH` was the
+only thing deciding an empty bar's width — and on a system's first bar the whole of that floor went on
+the header. Deleted: a bar-long silence is one column and the rule prices it like any other duration
+(6.0 spaces in 4/4, 4.8 in 2/4, 6.7 in 12/8), with `MIN_MEASURE_WIDTH` left exactly where it was, a
+floor on the bar as seen.
+
+| empty bar, drawn | before | min-on-the-music | **the rule sizes the silence** |
+|---|---|---|---|
+| line start, treble + 4/4 | 12.03 | 17.77 | **13.97** |
+| line start, clef only | 10.00 | 13.20 | **10.40** |
+| mid-line | 10.50 | 11.18 | **10.25** |
+| line start: 12/8 · 4/4 · 2/4 | 12.03 for all three | — | **15.73 · 13.97 · 12.82** |
+
+⚠️ Mid-line empty bars are unchanged, and that is deliberate: the rule leaves a bar-long silence
+*under* the floor, so there the floor still answers. He has reported three times that empty bars do
+not shrink far enough (`docs/bar-width-plan.md` "Known issues" #1), and a fix at the line start must
+not widen the ones in the middle.
+
+### The floor itself: three values, drawn and compared
+
+Our 10 spaces against MuseScore's 4 is why a mid-line empty bar is padded from the 7.65 the rule asks
+up to 10 — so once the model prices the silence, the floor is *all* that is left of "empty bars are too
+wide". All three were drawn on his own score:
+
+| value | where it comes from | verdict |
+|---|---|---|
+| **10** | what it has always been | ✅ **kept** — *"I think 10 was nicer… as an initial setup I think it looks clear and nicely spaced"* |
+| 7.65 | ⭐ the RULE's own ask for a 4/4 bar of silence (6.0 + the 1.65 lead-in): the value at which this floor decides nothing an empty 4/4 bar does | *"it does not look bad, but…"* |
+| 4 | MuseScore's *Minimum measure width* default, documented for exactly this case | too tight to START from |
+
+⭐ **A DEFAULT and a SHRINK FLOOR are different questions**, and this is where the difference got
+stated: *"of course empty bars can shrink more (depending on the context, probably to 4?) but as an
+initial setup…"*. 4 spaces is a reasonable place for a bar of silence to *end up* when the line needs
+the room — which is already what happens, via `EMPTY_BAR_FLOOR_PX` and the transfer in
+`docs/bar-width-plan.md` §1.5 — and not where an untouched page should start.
+
+⚠️ **The one number in the width path that is taste rather than ink, so it has to stay cheap to
+revisit.** Trying 7.65 broke two specs, both because they *stated* how many empty bars a system holds
+instead of asking (`MeasureLayout.raggedLastLine.test.ts`, `MusicEngine.barWidthNudge.test.ts`). Both
+count now, so the next by-eye trial costs one constant.
+
 ## 7. Sources
 
 - Elaine Gould, *Behind Bars* (Faber 2011), p. 39 "Rhythmic spacing" — table quoted in §1, via the
@@ -370,3 +476,14 @@ Two more, from his own scores rather than from fixtures:
   [essay on automated engraving](https://lilypond.org/doc/v2.24/Documentation/essay-big-page.html).
 - Ted Ross, *The Art of Music Engraving and Processing* (1970) — the pre-computer tradition, and the
   source usually cited for 3½ spaces per quarter.
+- LilyPond's prefatory-matter distances: [Clef grob](https://lilypond.org/doc/v2.25/Documentation/internals/clef)
+  and [TimeSignature grob](https://lilypond.org/doc/v2.23/Documentation/internals/timesignature)
+  (`space-alist`, `extra-spacing-width`),
+  [Spacing between adjacent non-musical items](https://lilypond.org/doc/v2.23/Documentation/notation/spacing-between-adjacent-non_002dmusical-items)
+  (what `extra-space` / `minimum-space` are measured from).
+- Full-bar rests: [MultiMeasureRest grob](https://lilypond.org/doc/v2.25/Documentation/internals/multimeasurerest)
+  (`space-increment`, and `spacing-pair` — the documented override that makes a full-bar rest ignore
+  the clef and time signature) and [Writing rests](https://lilypond.org/doc/v2.25/Documentation/notation/writing-rests).
+- The empty-bar floor: MuseScore's *Minimum measure width* (default 4 sp),
+  [Score size and spacing](https://musescore.org/en/handbook/4/score-size-and-spacing) and
+  [Systems and horizontal spacing](https://handbook.musescore.org/formatting/systems-and-horizontal-spacing).

@@ -40,7 +40,59 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * small staff today (docs/staff-size-plan.md §6 — P3, open).
  */
 export const LAYOUT_CONFIG = {
-  /** Minimum measure width even for empty measures — 10 staff-spaces. ⚠️ WIDTH path. */
+  /**
+   * The narrowest a bar may be DRAWN — barline to barline, header included. ⚠️ WIDTH path.
+   *
+   * ⭐⭐ **10 staff spaces, and it is a DEFAULT chosen by eye — three candidates were drawn and
+   * compared (2026-07-30).** Worth knowing all three, because the next person to think this number is
+   * arbitrary will find that two better-motivated ones lost to it:
+   *
+   * | value | where it comes from | verdict |
+   * |---|---|---|
+   * | **10** | what this has always been | ✅ *"I think 10 was nicer… as an initial setup it looks clear and nicely spaced"* |
+   * | 7.65 | ⭐ **the rule's own ask** for a 4/4 bar of silence: the whole-bar rest's 6.0 plus the 1.65 the bar owes between its barline and that rest. At this value the floor decides nothing a 4/4 empty bar does | tried on screen: *"it does not look bad, but…"* |
+   * | 4 | MuseScore's equivalent default (*Minimum measure width*), documented for exactly this case | judged too tight to START from |
+   *
+   * ⭐ **A DEFAULT and a SHRINK FLOOR are different questions**, and that is the distinction he drew:
+   * *"of course empty bars can shrink more (depending on the context, probably to 4?) but as an initial
+   * setup…"*. How far a bar of silence may be *forced* is `EMPTY_BAR_FLOOR_PX` plus the transfer
+   * (docs/bar-width-plan.md §1.5) — already well below 4 spaces — and it is not this.
+   *
+   * ⚠️ So this is the one number here that is a matter of taste rather than of ink, and it is **cheap to
+   * change and expensive to change silently**: it re-casts every system, and two specs used to state
+   * how many empty bars a system holds instead of counting them (both now count).
+   *
+   * ⭐⭐ **A floor on the TOTAL, and it survived being moved.** It reads as a mistake — a minimum that
+   * counts the clef is paid for out of the bar's music, so a system-opening empty bar in 4/4 got
+   * **3.78** staff spaces of music where its mid-line neighbours got 8.85 — and that is exactly what
+   * he reported: *"the empty measure at the beginning of a line is too small… for the size we have to
+   * take into account where the measure actively begins and not where it geometrically begins."*
+   *
+   * So it was moved past the header, giving every bar the same music room wherever it sat. Reported
+   * back, by eye, the same day: *"now I have the sensation that it is too big… the first measure that
+   * has no time signature looks also larger; it's a visual effect, so it needs to be compensated."*
+   *
+   * ⭐ **He is right both times, and the two reports are not in conflict — they say the minimum is
+   * about the bar as SEEN.** A reader judges a bar by its whole extent, and a clef standing in it is
+   * part of that extent: a line-opening bar given the same *music* as its neighbours reads as wider
+   * than them, because it is. What was wrong was never this floor's scope; it was that an empty bar
+   * asked for a flat 4 spaces of music **whatever meter it was in**, so the floor was the only thing
+   * deciding its width and the header came straight off the top of it. The rule sizes the silence now
+   * (`layout/spacing.ts` — a 4/4 bar of rest earns 6.0 spaces, a 2/4 bar 4.8, a 12/8 bar 6.7), and
+   * this stays what it always was: *no bar reads as a sliver*.
+   *
+   * Drawn widths, staff spaces (empty bars, one justified system):
+   *
+   * | empty bar | flat default + this | **the rule + this** |
+   * |---|---|---|
+   * | line start, treble + 4/4 | 12.03 — **3.78 of music** | **13.97** |
+   * | line start, clef only | 10.00 (this floor) | 10.40 |
+   * | mid-line | 10.00 (this floor) | 10.25 |
+   *
+   * ⚠️ The last row is the one to watch: he has reported three times that empty bars do not shrink far
+   * enough (docs/bar-width-plan.md "Known issues" #1), so a fix at the line start must never widen the
+   * ones mid-line. This one does not.
+   */
   MIN_MEASURE_WIDTH: 10 * STAFF_SPACE_PX,
   /** Maximum measure width, so one measure can't dominate — 40 staff-spaces. ⚠️ WIDTH path. */
   MAX_MEASURE_WIDTH: 40 * STAFF_SPACE_PX,

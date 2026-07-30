@@ -489,6 +489,26 @@ Written down at the end of P1 rather than fixed, by decision. Nothing below is a
    one whole rest claimed as much of the line as a bar of four quarters and justification could not
    tell them apart. A default was reading as a claim. See §1.5 — and note that the first two fixes
    for this were both wrong in instructive ways.
+
+   ✅ **And the last number in it is now DECIDED, on screen, against two rivals.** A mid-line empty
+   bar's width is `MIN_MEASURE_WIDTH`, and three values were drawn and compared (2026-07-30):
+
+   | value | where it comes from | verdict |
+   |---|---|---|
+   | **10 spaces** | what it has always been | ✅ **kept** — *"I think 10 was nicer… as an initial setup it looks clear and nicely spaced"* |
+   | 7.65 | ⭐ the RULE's own ask for a 4/4 bar of silence (6.0 + the 1.65 lead-in), i.e. the value at which this floor decides nothing | drawn: *"it does not look bad, but…"* |
+   | 4 | MuseScore's *Minimum measure width* default, documented for exactly this case | too tight to START from |
+
+   ⭐ **The distinction he drew is the one to keep:** a *default* and a *shrink floor* are different
+   questions — *"of course empty bars can shrink more (depending on the context, probably to 4?) but as
+   an initial setup…"*. An empty bar may well end up at 4 when the line needs the room, and that is
+   already true: it is `EMPTY_BAR_FLOOR_PX` plus §1.5's transfer, which lets a bar of silence give way
+   completely. It is not where an untouched page should start.
+
+   ⚠️ Since the choice is taste, **it must stay cheap to revisit**: two specs stated how many empty
+   bars a system holds and broke when 7.65 was tried (`MeasureLayout.raggedLastLine.test.ts`,
+   `MusicEngine.barWidthNudge.test.ts`). Both count now. Sources and the measured pictures:
+   `docs/spacing-model-research.md` §6c.
 2. ✅ **CLOSED at P1.5 — "a shrink should take it out of the EMPTY bars first".** Now the rule, via
    the transfer in §1.5. ⚠️ It does NOT live where this issue assumed. A tiered version of
    `distributeLineWidths`' compression branch was built first and measured to fire **zero times**

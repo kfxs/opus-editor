@@ -43,7 +43,9 @@ describe('calculateMeasureWidths — linear mode', () => {
     const first = widths.get(1)!
     const second = widths.get(2)!
     // Same content (both empty), so the difference is exactly the clef + the meter glyph that
-    // measure 1 alone draws. Bar 2 is a bare empty bar at the width it ASKS FOR — `MIN_MEASURE_WIDTH`.
+    // measure 1 alone draws. Bar 2 is a bare empty bar at the width it ASKS FOR — the rule gives its
+    // whole-bar rest 6.0 staff spaces plus a 1.65 lead-in, which is under `MIN_MEASURE_WIDTH`, so
+    // here the floor is what answers.
     // ⚠️ That is `minWidth`, deliberately not `floorWidth`: how far the bar could be FORCED if a
     // neighbour were growing is a different number (~38 here) and belongs to a different question.
     // Briefly the two were collapsed into one, and every empty bar on every page went permanently

@@ -35,16 +35,32 @@ const lastLine = (w: ReturnType<typeof widths>) => {
   return [...w.values()].filter(i => i.lineNumber === last)
 }
 
+/**
+ * ⚠️ **COUNTED, not stated: how many empty bars a system holds.** These specs used to say
+ * `scoreWith(11)` *"wraps, so the last line is a short remainder"* — true while a system held nine
+ * empty bars, and false the moment `MIN_MEASURE_WIDTH` was tried at a different value (all eleven then
+ * fitted on one line, and a test about raggedness failed as though raggedness had broken). The floor is
+ * a matter of TASTE, decided by eye (see its doc), so anything it decides has to be asked for rather
+ * than written down.
+ *
+ * `WRAPS_TO_TWO_SYSTEMS` is therefore one bar more than a system holds — the last line is a remainder
+ * of exactly one, whatever the floor is set to.
+ */
+const barsPerSystem = (): number =>
+  [...widths(scoreWith(60), false).values()].filter(info => info.lineNumber === 0).length
+
+const WRAPS_TO_TWO_SYSTEMS = barsPerSystem() + 1
+
 describe('the last system — justified or ragged', () => {
   it('justified (the default) fills the page, however few bars it holds', () => {
-    const model = scoreWith(11) // wraps, so the last line is a short remainder
+    const model = scoreWith(WRAPS_TO_TWO_SYSTEMS)
     const line = lastLine(widths(model, true))
-    expect(line.length).toBeLessThan(9) // a remainder, or this asserts nothing
+    expect(line.length).toBe(1) // a remainder of one — or this asserts nothing
     expect(line.reduce((sum, i) => sum + i.finalWidth, 0)).toBeCloseTo(AVAILABLE, 6)
   })
 
   it('⭐ ragged leaves it at its natural width — the bars keep what they ask for', () => {
-    const model = scoreWith(11)
+    const model = scoreWith(WRAPS_TO_TWO_SYSTEMS)
     const line = lastLine(widths(model, false))
     const total = line.reduce((sum, i) => sum + i.finalWidth, 0)
     expect(total).toBeLessThan(AVAILABLE)
@@ -52,7 +68,7 @@ describe('the last system — justified or ragged', () => {
   })
 
   it('touches ONLY the last system — every full line is still justified', () => {
-    const model = scoreWith(11)
+    const model = scoreWith(WRAPS_TO_TWO_SYSTEMS)
     const w = widths(model, false)
     const last = Math.max(...[...w.values()].map(i => i.lineNumber))
     for (let line = 0; line < last; line++) {
