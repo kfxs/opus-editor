@@ -166,6 +166,20 @@ already documents.
 ⏭️ It did NOT get the lead-in below 1.2 spaces: that is still `Stave.padding`'s doing, and the
 geometry invariant that a bar's note area may not begin outside the bar.
 
+⭐⭐ **AND THE GAP AFTER THE HEADER IS LILYPOND'S NOW — `HEADER_TO_NOTE` = 2.0, 2026-07-30.** His ask:
+*"it is better to have air also in the beginning in comparison to what we have now"*, followed by
+*"do the LilyPond version"*. Two rows of LilyPond's `space-alist` decide the front of a bar and they
+agree on one number for us: `TimeSignature (first-note fixed-space . 2.0)`, and
+`Clef (first-note minimum-fixed-space . 5.0)` measured from the clef's LEFT edge, which lands 2.1 past
+our clef's ink. Drawn: the first note of a bar with clef + `4/4` moved **7.80 → 8.60** spaces past the
+barline, a two-digit meter 4.80 → 5.60, and a bar with no header is unchanged.
+
+⛔ What we did NOT take, with the reason: LilyPond's `BarLine` gap for a headerless bar is **0.9**
+mid-line (1.3 at a system start) against our 1.2 — it is TIGHTER than the drawing can go, because 1.2
+is `Stave.padding` showing through. ⏭️ And the trailing side is still open: our `note↔barline` is 1.0
+where MuseScore uses 1.5. `docs/spacing-model-research.md` §6d has all five engines contrasted,
+including the finding that a REST gets a note's gap after a barline in every one of them.
+
 ### ✅ ~~P1 — Vertical clearance / kerning~~ — DONE 2026-07-30
 `engine/layout/kerning.ts`. A column's ink stopped being one merged reach either side and became a list
 of **located boxes** — each with the vertical band it occupies — and a gap's floor became a max over box

@@ -123,10 +123,10 @@ describe('mergedReach / edgeKind — the projection the rest of the model still 
     expect(edgeKind([barline], 'left')).toBe('barline')
     expect(edgeKind([barline], 'right')).toBe('barline')
 
-    // ⏭️ A rest reaches RIGHT and not left, so its left side reads as bare — which is what the merged
-    //    edges did before the ink was located, and it means `barline↔rest` has never applied to a bar
-    //    that OPENS with a rest. Preserved on purpose: delivering it widens every such bar by 0.45
-    //    spaces and moves the measure rest off centre. See `edgeKind`'s doc.
+    // ⭐ A rest reaches RIGHT and not left, so its left side reads as bare — and that is CORRECT, which
+    //   the research settled: every engine gives a rest a note's gap after a barline (MuseScore assigns
+    //   the note's own value to that row and keeps 1.65 only for a rest BEFORE a barline). The table's
+    //   old `barline↔rest` row was a copy of the wrong direction, and it is gone.
     const rest: InkBox = { left: 0, right: 1.2, top: 0, bottom: 4, kind: 'rest', staff: undefined }
     expect(edgeKind([rest], 'left')).toBe('note')
     expect(edgeKind([rest], 'right')).toBe('rest')

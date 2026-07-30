@@ -37,6 +37,33 @@ import type { Clef, TimeSignature } from '@/types/music'
  * pairing `spacingPadding.ts` has, and the reason it is safe to predict at all.
  */
 
+/**
+ * ⭐⭐ **The gap between the header's last glyph and the first note — LilyPond's, 2.0 staff spaces.**
+ *
+ * Two rows of LilyPond's `space-alist` decide the front of a bar, and they turn out to be the same
+ * number for us:
+ *
+ * | LilyPond | what it says | ours, measured |
+ * |---|---|---|
+ * | `TimeSignature.space-alist (first-note fixed-space . 2.0)` | 2.0 after the meter | **1.1** |
+ * | `Clef.space-alist (first-note minimum-fixed-space . 5.0)` | ≥ 5.0 from the clef's LEFT edge | **4.0** |
+ *
+ * ⭐ The second row lands on the same answer: our clef's ink runs 0.4 → 3.3 spaces past the stave, so
+ * LilyPond's 5.0-from-the-left puts the note at 5.4, which is **2.1 past the clef's ink** — the meter
+ * row's 2.0 to within a rounding. So one constant reproduces both, which is why it is one constant.
+ *
+ * ⚠️ **It replaces the bar's own lead-in only where a header is DRAWN.** A bar with no clef and no meter
+ * keeps `pairPadding('barline', …)` — and there LilyPond would go TIGHTER than we can draw:
+ * `BarLine.space-alist` asks `next-note` **0.9** mid-line (and `first-note` 1.3 at a system start)
+ * against our floor of 1.2, which is VexFlow's `Stave.padding` and not a choice (see `pairPadding`).
+ *
+ * ⚠️ And it is the same for a NOTE and a REST, in every engine checked — MuseScore assigns the note's
+ * own value to the rest row (`table[BAR_LINE][REST] = barNoteDistance`), LilyPond keys on "the next
+ * musical column", Sibelius has one control for "the first note/rest in a bar", Dorico calls the whole
+ * thing note spacing for notes *and* rests, and Verovio gives a rest a note's alignment type.
+ */
+export const HEADER_TO_NOTE = 2.0
+
 /** A full-size clef, at a line start. Measured from the stave's x to the first notehead, less the lead-in. */
 const CLEF_FULL: Record<Clef, number> = {
   treble: 3.2,

@@ -449,6 +449,55 @@ revisit.** Trying 7.65 broke two specs, both because they *stated* how many empt
 instead of asking (`MeasureLayout.raggedLastLine.test.ts`, `MusicEngine.barWidthNudge.test.ts`). Both
 count now, so the next by-eye trial costs one constant.
 
+## 6d. ⭐⭐ THE FRONT OF A BAR — a rest is not special, and the gap is LilyPond's (2026-07-30)
+
+His question, after being told our table had a `barline↔rest` row that never fired: *"the question is about
+rest placement — are we following the Gould rule? It will be good to contrast this, and to know what is the
+rule in LilyPond and in other industry standards like Verovio, Sibelius or Dorico."*
+
+### The answer is unanimous: **after a barline, a rest gets a NOTE's gap**
+
+| source | the gap after a barline | rest treated differently? |
+|---|---|---|
+| **MuseScore** — `rendering/paddingtable.cpp` | `barNoteDistance`, default **1.25 sp** | **No**, and explicitly: `table[BAR_LINE][REST] = style.styleAbsolute(Sid::barNoteDistance)` — the note's own value, assigned to the rest row |
+| **LilyPond** — `BarLine.space-alist` | `(first-note semi-shrink-space . 1.3)` at a system start, `(next-note semi-fixed-space . 0.9)` mid-line | **No** — the keys name the next musical COLUMN; there is no rest entry anywhere in the alist |
+| **Sibelius** — Note Spacing Rule | one control: *"the gap before the first note/rest in a bar"* | **No** — one setting for both |
+| **Dorico** — Note Spacing | *"the positions of notes **and rests** relative to each other… are known as note spacing"*; the Spacing Gaps barline options are for clefs, time and key signatures | **No** |
+| **Verovio** — `horizontalaligner.cpp` | a rest takes `ALIGNMENT_DEFAULT`, the same alignment type as a note | **No** |
+| **Gould** | her table is by DURATION, and a rest has one | no statement found either way — ⛔ not invented here |
+
+⭐ **So where did 1.65 come from?** MuseScore's `table[REST][BAR_LINE] = 1.65 * spatium` — a rest *before* a
+barline, against a note's `noteBarDistance` = 1.5. That direction is real: a rest does get a shade more room
+before a barline. Ours had been copied onto the LEADING row as well, where MuseScore uses the note's number.
+**The row was wrong, not merely unreachable** — so it was deleted rather than made to fire, and the drawing
+(which had been giving a note's 1.2 by accident) did not move.
+
+### ⭐⭐ And the air he asked for, taken from LilyPond: `HEADER_TO_NOTE` = 2.0
+
+*"It is better to have air also in the beginning in comparison to what we have now."* Not a rest-specific
+number, then — a bigger gap for everything after a header. Two rows of LilyPond's `space-alist` decide it and
+they agree:
+
+| LilyPond | what it says | ours, measured before |
+|---|---|---|
+| `TimeSignature.space-alist (first-note fixed-space . 2.0)` | 2.0 spaces after the meter | **1.1** |
+| `Clef.space-alist (first-note minimum-fixed-space . 5.0)` | ≥ 5.0 from the clef's LEFT edge | **4.0** |
+
+Our clef's ink runs 0.4 → 3.3 spaces past the stave, so the clef row puts the note at 5.4 — **2.1 past the
+clef's ink**, i.e. the meter row's 2.0 to within a rounding. One constant reproduces both.
+
+**Drawn after**: the first note of a bar with clef + `4/4` moved from **7.80** to **8.60** spaces past the
+barline; a two-digit meter from 4.80 to 5.60; a bar with no header is **unchanged**.
+
+⛔ **What we did NOT take from LilyPond, with the reason:** its `BarLine` gap for a bar with no header is
+**0.9** mid-line (1.3 at a system start) against our 1.2 — i.e. LilyPond is TIGHTER there and we cannot
+follow. 1.2 is VexFlow's `Stave.padding` showing through: below it the note area would begin left of the
+barline, which the geometry forbids (`pairPadding` states it, `tier1Geometry.test.ts` pins it).
+
+⏭️ **Open, and bigger than the rest question ever was:** our TRAILING `note↔barline` is **1.0** where
+MuseScore uses `noteBarDistance` = **1.5**. That is the air at the end of every bar, and we are a third under
+the standard — a by-eye decision, not a bug.
+
 ## 7. Sources
 
 - Elaine Gould, *Behind Bars* (Faber 2011), p. 39 "Rhythmic spacing" — table quoted in §1, via the
@@ -487,3 +536,14 @@ count now, so the next by-eye trial costs one constant.
 - The empty-bar floor: MuseScore's *Minimum measure width* (default 4 sp),
   [Score size and spacing](https://musescore.org/en/handbook/4/score-size-and-spacing) and
   [Systems and horizontal spacing](https://handbook.musescore.org/formatting/systems-and-horizontal-spacing).
+- The FRONT of a bar, contrasted across five engines (§6d): MuseScore
+  [`rendering/paddingtable.cpp`](https://raw.githubusercontent.com/musescore/MuseScore/main/src/engraving/rendering/paddingtable.cpp)
+  and [`style/styledef.cpp`](https://raw.githubusercontent.com/musescore/MuseScore/main/src/engraving/style/styledef.cpp)
+  (`barNoteDistance` 1.25, `noteBarDistance` 1.5); MuseScore's kerning types in
+  [`rendering/score/horizontalspacing.cpp`](https://raw.githubusercontent.com/musescore/MuseScore/main/src/engraving/rendering/score/horizontalspacing.cpp)
+  (`isNeverKernable` lists `BAR_LINE`, which is the same rule as our barline band);
+  [LilyPond BarLine grob](https://lilypond.org/doc/v2.25/Documentation/internals/barline);
+  [Sibelius 8.3 Note spacing](https://manualzz.com/doc/o/2r7imf/sibelius-2021.2-reference-guide-8.3-note-spacing)
+  (one gap for "the first note/rest", and an empty bar defaulting to the space a bar-filling note would get —
+  which independently matches §6c); [Dorico note spacing](https://www.steinberg.help/r/dorico-pro/6.1/en/dorico/topics/engrave_mode/engrave_mode_note_spacing_c.html);
+  Verovio [`src/horizontalaligner.cpp`](https://raw.githubusercontent.com/rism-digital/verovio/develop/src/horizontalaligner.cpp).

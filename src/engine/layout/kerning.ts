@@ -168,12 +168,15 @@ export function mergedReach(boxes: readonly InkBox[]): { left: number; right: nu
  * - **A box that reaches only on the OTHER side leaves this side bare**, and the pair table calls a
  *   bare side `note`. A rest is the case: it reaches right and not left.
  *
- * ⏭️ **A LATENT BUG this makes visible, left alone deliberately.** That second rule is what the merged
- * `leftKind`/`rightKind` did before the ink was located — a rest's left reach is 0, so it never
- * replaced the default — which means `barline↔rest` (1.65 against a note's 1.2) has never applied to a
- * bar that OPENS with a rest, only to one that ends with one. Delivering it widens every such bar by
- * 0.45 staff spaces and moves the measure rest a quarter space off centre, so it is a change to make on
- * purpose and by eye, not a side effect of locating the ink.
+ * ✅ **This looked like a latent bug, and the RESEARCH said otherwise — resolved 2026-07-30.** The
+ * second rule is what the merged `leftKind`/`rightKind` did before the ink was located (a rest's left
+ * reach is 0, so it never replaced the default), which meant the table's `barline↔rest` row — 1.65
+ * against a note's 1.2 — had never applied to a bar that OPENS with a rest. ⭐ It should not have:
+ * **every engine gives a rest a note's gap after a barline.** MuseScore assigns the note's own style
+ * value to that row (`table[BAR_LINE][REST] = barNoteDistance`) and keeps 1.65 only for the OTHER
+ * direction, a rest *before* a barline — which is where ours had been copied from. So the row was
+ * deleted rather than made to fire, and this rule is now correct instead of accidentally so
+ * (`docs/spacing-model-research.md` §6d).
  */
 export function edgeKind(boxes: readonly InkBox[], edge: 'left' | 'right'): InkKind {
   let best: InkBox | undefined

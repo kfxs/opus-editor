@@ -271,7 +271,19 @@ export function pairPadding(left: InkKind, right: InkKind): number {
   //   between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, which is where a leading gap
   //   belongs — a barline reads as an event, and the note after it wants a shade more air than the
   //   note before it.
-  if (left === 'barline') return right === 'rest' ? 1.65 : 1.2
+  // ⭐⭐ **A REST GETS A NOTE'S GAP AFTER A BARLINE — every engine agrees, and this row used to claim
+  //   otherwise.** It said 1.65, copied from the row BELOW (a rest *before* a barline, which really is
+  //   its own bigger number: MuseScore's `table[REST][BAR_LINE] = 1.65` against a note's 1.5). Going the
+  //   other way MuseScore assigns the note's own value explicitly —
+  //   `table[BAR_LINE][REST] = barNoteDistance` — LilyPond's `BarLine.space-alist` keys on `first-note`
+  //   / `next-note`, i.e. the next musical COLUMN whatever is in it, Sibelius has a single control for
+  //   *"the gap before the first note/rest in a bar"*, Dorico calls the whole mechanism note spacing
+  //   for notes *and* rests, and Verovio gives a rest a note's alignment type.
+  //
+  // ⚠️ The wrong row never actually fired (a rest reaches nothing to its LEFT, so nothing keyed it), so
+  //   the drawing was right by accident and nothing moves by deleting it. What changes is that the table
+  //   stops disagreeing with the picture — see `kerning.edgeKind`, which is where the accident lived.
+  if (left === 'barline') return 1.2
   if (right === 'barline') return left === 'rest' ? 1.65 : 1.0
   if (left === 'rest' || right === 'rest') return 0.5
   if (left === 'dot') return 0.5

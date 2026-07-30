@@ -573,11 +573,18 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
 
   console.log(`[census] header: line-start ${drawn.trebleAndFourFour.toFixed(2)} · bare ${drawn.nothing.toFixed(2)} · 12/8 ${drawn.twoDigitMeter.toFixed(2)}`)
 
-  // A treble clef (3.2) + 1.0 between the parts + a one-digit meter (2.4), after the 1.2 lead-in.
-  expect(drawn.trebleAndFourFour, 'clef + meter').toBeCloseTo(1.2 + 3.2 + 1.0 + 2.4, 1)
+  // ⭐⭐ A treble clef (3.2) + 1.0 between the parts + a one-digit meter (2.4), and then **LilyPond's
+  //     2.0** to the first note (`HEADER_TO_NOTE`) — where this used to add the bar's own 1.2 lead-in.
+  //     His ask: *"it is better to have air also in the beginning"*, answered with the tradition's own
+  //     number rather than a taste: `TimeSignature.space-alist (first-note fixed-space . 2.0)`, which is
+  //     also where `Clef.space-alist (first-note minimum-fixed-space . 5.0)` lands measured from the
+  //     clef's left edge.
+  expect(drawn.trebleAndFourFour, 'clef + meter, then LilyPond\'s gap').toBeCloseTo(2.0 + 3.2 + 1.0 + 2.4, 1)
+  // ⛔ …and a bar with NO header is untouched: there the gap is the barline's own, and LilyPond would go
+  //    tighter than the drawing can (0.9 mid-line against our 1.2 floor — see `pairPadding`).
   expect(drawn.nothing, 'a bar drawing no header at all is just the lead-in').toBeCloseTo(1.2, 1)
   // ⭐ The case one constant could never describe: two digits are 1.2 spaces wider than one.
-  expect(drawn.twoDigitMeter, 'a two-digit meter').toBeCloseTo(1.2 + 3.6, 1)
+  expect(drawn.twoDigitMeter, 'a two-digit meter').toBeCloseTo(2.0 + 3.6, 1)
 
   // ⭐⭐ And the payoff: the system-opening bar's music is no longer stretched more than its
   //     neighbours', because the room reserved for its header is the room the header takes.

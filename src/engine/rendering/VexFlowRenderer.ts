@@ -45,7 +45,7 @@ import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn } from '@/engine/layout/measureColumns'
 import type { Column } from '@/engine/layout/spacing'
-import { headerExtent } from '@/engine/layout/headerInk'
+import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass } from './spacingPass'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -2204,13 +2204,17 @@ export class VexFlowRenderer {
     //     lead-in plus the widest header any staff of it draws (`MeasurePlacement.system`). Reading
     //     either from `measure` — which here is the staff's LANE — put a grand staff's two hands at
     //     different x's for the same beat.
-    applyLeadIn(stave, x, system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding,
-      system?.headerExtent ?? headerExtent({
-        clef: measure.number === 1 || isFirstInLine
-          ? { clef, small: false }
-          : hasClefChange ? { clef, small: true } : undefined,
-        meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
-      }))
+    // ⭐ A header pushes the note start by LilyPond's `HEADER_TO_NOTE` (2.0 spaces) rather than by the
+    //   bar's own barline lead-in — the same swap the width path makes, so the two agree by construction.
+    const systemHeader = system?.headerExtent ?? headerExtent({
+      clef: measure.number === 1 || isFirstInLine
+        ? { clef, small: false }
+        : hasClefChange ? { clef, small: true } : undefined,
+      meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
+    })
+    applyLeadIn(stave, x,
+      systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding),
+      systemHeader)
     return stave
   }
 

@@ -8,7 +8,7 @@ import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/lay
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
-import { cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
+import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
@@ -137,7 +137,6 @@ function calculateMinimumMeasureWidth(
   //   became the barline COLUMN's gap (`note↔barline`), so a bar was reserving three spaces of
   //   barline padding where it owes two.
   const leadIn = measureLeadIn(measure, clefResolverFor(measure, clefsByStaff, staffIds[0]))
-  const sharedOverhead = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
   const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
 
   // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
@@ -185,6 +184,16 @@ function calculateMinimumMeasureWidth(
     widestOverhead = Math.max(widestOverhead, staffHeader * STAFF_SPACE_PX)
   }
 
+  // ⭐⭐ **Where the first note sits after a HEADER is LilyPond's number, not the barline's**
+  //   ({@link HEADER_TO_NOTE}): `TimeSignature.space-alist (first-note fixed-space . 2.0)`, and its
+  //   `Clef.space-alist (first-note minimum-fixed-space . 5.0)` lands on the same 2.0 past the clef's
+  //   own ink. A bar drawing no header keeps its own lead-in, where LilyPond would be TIGHTER than the
+  //   drawing can go (0.9 mid-line against our 1.2 floor — `pairPadding` says why).
+  //
+  // ⚠️ Keyed on the WIDEST header, so it is one answer for the system: a clef change on one staff moves
+  //    every staff's note start together (`MeasurePlacement.system`), and the width has to reserve the
+  //    same thing the drawing places.
+  const sharedOverhead = ((widestOverhead > 0 ? HEADER_TO_NOTE : leadIn.padding) + leadIn.extent) * STAFF_SPACE_PX
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
   // must not dominate a line", which is a taste about bars that could be narrower — and it was being
