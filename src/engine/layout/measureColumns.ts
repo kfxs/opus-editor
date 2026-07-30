@@ -27,7 +27,7 @@
 import type { Measure, Fraction, ChordRest, NotePitch, Clef } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { fanSpanDemands } from './fanRampRoom'
+import { fanSpanRods } from './fanRampRoom'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
@@ -442,11 +442,11 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
   //   so no kerning rule can ever tuck ink through a barline.
   inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }])
 
-  // ⭐⭐ A FAN'S RAMP IS A DEMAND ON THE GAPS IT CROSSES, not a column of its own — see `Column.minGap`
+  // ⭐⭐ A FAN'S RAMP IS A ROD OVER THE GAPS IT CROSSES, not a column of its own — see `Column.rod`
   //   and `engine/layout/fanRampRoom.ts`. Computed here, where the final grid is known: the members
-  //   fall on rationals nobody else shares, so each gap is handed the width of the members that cross
-  //   it, and the solve floors that gap accordingly.
-  const minGaps = fanSpanDemands(measure, positions)
+  //   fall on rationals nobody else shares, so the ramp's width is imposed as a minimum over the span
+  //   its own time covers, and the solve floors those gaps accordingly.
+  const rods = fanSpanRods(measure, positions)
 
   return positions.map((beat, i) => ({
     beat,
@@ -456,6 +456,6 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
     padding: i + 1 < positions.length ? pairPadding(edgeKind(inks[i], 'right'), edgeKind(inks[i + 1], 'left')) : 0,
     ink: inks[i],
     authored: 0,
-    minGap: minGaps[i] ?? 0,
+    rod: rods[i] ?? 0,
   }))
 }

@@ -512,6 +512,70 @@ Measured, which is what made it decidable: in a sparse bar the last note sits **
 ✅ **Decided by eye: left at 1.0** — *"i think is ok now"*. So the only number in the model that differs from
 MuseScore at a barline is a floor that binds on dense bars alone, and it has been looked at.
 
+## 6e. ⭐⭐ MUSIC THAT IS NOT FIXED IN THE SCORE'S TIME-SPACE — what the field calls it (2026-07-30)
+
+Asked after his grand-staff report (a fan's members, as columns, bending the metrical staff below —
+docs/spacing-model-plan.md §3b): *"maybe you can research how contemporary music engravers deal with
+this without faking it… maybe there is a known solution"*, and then *"not just industry standard,
+maybe some academic research or niche project"*, and *"not just with fan but also with non-temporal
+notation in general"*.
+
+⭐⭐ **THE MECHANISM WE BUILT HAS A NAME: A ROD.** Renz's GUIDO spacing model (ICMC 2002; TU Darmstadt
+dissertation, 2002) is explicit — springs carry the duration-based stretch, and *"rods are introduced,
+which determine the minimum stretch for one or more springs"*. LilyPond ships the same pair:
+`Separation_item` *"compute[s] widths to generate spacing rods"*, exposed as `springs-and-rods`. A
+minimum width **spanning several columns** is the published primitive for material that occupies room
+without owning a grid position. `Column.rod` is named for it.
+
+⭐ **AND THE OTHER HALF HAS A PRECEDENT TOO.** LilyPond's `SpacingSpanner.strict-grace-spacing`:
+*"main notes are spaced normally, then grace notes are put left of the musical columns for the main
+notes."* Structurally our rule — a sub-group kept OUT of the main solve and fitted into room the grid
+has already decided. So "excluded from the columns, then fitted" is not an invention either.
+
+**The vocabulary to use, all of it borrowed:**
+
+| term | whose | what it names |
+|---|---|---|
+| **spacing column** | Dorico | the shared grid position — one x across every staff |
+| **rod** | Renz / GUIDO, LilyPond | a minimum width over one or more springs |
+| **spacing section** | LilyPond | a REGION with its own spacing law (`\newSpacingSection`, `proportionalNotationDuration`, `uniform-stretching`) |
+| **time-space / proportional notation** | Gould | x IS duration |
+| **"placing material freely within a defined time-span"** | Gould, *Behind Bars* ch. 20 | ⭐ the best existing name for our exact case |
+
+⭐ **Gould ch. 20 "Freedom and Choice" is the taxonomy to build against**, and it is bigger than the
+fan: cadenzas and solo ad libitum passages · unmeasured bars (music without metre) · independent parts
+within an ensemble · indicating synchronisation · independent repetition · **placing material freely
+within a defined time-span** · proportional spacing. Her rule for a feathered beam is the one we
+implement: a free accelerando or rallentando **within the duration of the group**, whose notes *may*
+be spaced according to their speed — the group owns its written value, and the inner spacing is a
+graphic option, not a rhythmic claim.
+
+**Formats — none of them can say it, which is worth knowing before any import/export work:**
+
+- **MusicXML** cannot express it at all. Every note needs a `<duration>`; a feathered beam is only a
+  graphic flag (`beam@fan="accel|rit"`) over notes with ordinary written values, and the only
+  horizontal freedom is `default-x` — a pure override with no model behind it.
+- **MEI** is closer but not there: `@dur` is optional in places and `@dur.ges` separates performed from
+  written duration, but a "space = duration" primitive, or an encoding for aleatoric boxes and duration
+  lines, is **not confirmed** to exist.
+- **INScore** (Fober/Orlarey, GRAME) is the one published model where *duration = spatial extent* is
+  first-class: heterogeneous objects (symbolic score, graphics, bitmaps, audio) each carry a time
+  segment, and synchronisation is done by mapping and STRETCHING GRAPHIC SPACE via segment relations.
+  ⭐ The thing to read when the boxed cells and graphic gestures arrive.
+- **Verovio** offers proportional spacing as a global switch (`--spacing-non-linear`), not a per-passage
+  region.
+
+⚠️ **What nobody was found to have done:** a solver formalised over a MIXTURE of grid-pinned and
+grid-free events. TENOR's proceedings were searched specifically; the nearest is Fournier-S'niehotta,
+*Is There a Data Model in Music Notation?* (TENOR 2016). Reported as **not found**, not as absent.
+
+Lineage, if any of this is ever cited: Gourlay, *Spacing a Line of Music* (OSU-CISRC-10/87-TR35, 1987)
+· Haken & Blostein, *A New Algorithm for Horizontal Spacing of Printed Music* (ICMC 1995, the Lime
+editor) · Byrd, *Extremes of Conventional Music Notation* (2003), which catalogues exactly these
+boundary cases.
+
+---
+
 ## 7. Sources
 
 - Elaine Gould, *Behind Bars* (Faber 2011), p. 39 "Rhythmic spacing" — table quoted in §1, via the

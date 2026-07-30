@@ -190,28 +190,40 @@ export interface Column {
    */
   authored: number
   /**
-   * ⭐⭐ **THE LEAST ROOM THE GAP AFTER THIS COLUMN MAY HAVE, in staff spaces, for ink that is NOT a
-   * column of its own** — a fan's ramp, and so far only that.
+   * ⭐⭐ **THE ROD** — the least room the gap after this column may have, in staff spaces, for material
+   * that is NOT a column of its own.
    *
-   * A fan is unmeasured music inside a measured slot: its members fall on rationals nobody else in
-   * the system shares, so they cannot be columns (as columns they dictated where every other staff's
-   * notes fell — his report). But they are real ink, and they span SEVERAL gaps of the grid they sit
-   * over. `measureColumns` therefore hands each of those gaps the share of the ramp that crosses it,
-   * and the floor takes the larger of that and the pair's own ink.
+   * ⭐ **The name is the field's, not ours.** Renz's GUIDO spacing model (ICMC 2002; TU Darmstadt
+   * dissertation, 2002) states it exactly: springs carry the duration-based stretch, and *"rods are
+   * introduced, which determine the minimum stretch for one or more springs"*. LilyPond ships the same
+   * pair — `Separation_item` *"compute[s] widths to generate spacing rods"*, exposed as
+   * `springs-and-rods`. A minimum width spanning several columns is the published primitive for this,
+   * so this field is a rod and says so; it was `minGap` for one afternoon.
    *
-   * ⭐ **This is the shape contemporary music keeps needing** (his rule): *"some music will be fixed
-   * in the time-space of the score and other elements not, and we have to be able to work with that"*.
-   * Fixed music makes COLUMNS; unfixed music makes DEMANDS on the gaps it crosses. The two live
-   * together here, and the solve does not have to know which is which.
+   * ⭐ **WHAT IT IS FOR** — his rule, and the shape contemporary notation keeps needing: *"some music
+   * will be FIXED in the time-space of the score and other elements not, and we have to be able to
+   * work with that."*
+   *
+   *   FIXED   → a COLUMN, one x for the whole system  (every ordinary note; a fan's owner)
+   *   UNFIXED → a ROD over the gaps it crosses         (a fan's members; boxed cells; gestures)
+   *
+   * A fan is the first: its members fall on rationals nobody else in the system shares, so they
+   * cannot be columns — as columns they dictated where every other staff's notes fell. But they are
+   * real ink spanning several gaps of the grid they sit over, which is precisely what a rod says.
+   * `gapsBetween` takes the larger of the rod and the pair's own ink, so the solve never learns which
+   * kind of material asked.
+   *
+   * ⚠️ The rod is over the SPAN. Handing each gap its own members' width lumps the demand where the
+   * group is densest and bends the grid there — see `engine/layout/fanRampRoom.ts`.
    *
    * 0 for every ordinary column.
    */
-  minGap: number
+  rod: number
 }
 
 /** A column with nothing authored, no ink and no padding — the shorthand a duration-only test wants. */
 export function plainColumn(beat: Fraction, duration: Fraction): Column {
-  return { beat, duration, extent: NO_EXTENT, ink: [], padding: 0, authored: 0, minGap: 0 }
+  return { beat, duration, extent: NO_EXTENT, ink: [], padding: 0, authored: 0, rod: 0 }
 }
 
 /**
@@ -241,8 +253,8 @@ function gapsBetween(columns: Column[], rule: SpacingRule): Gap[] {
         column.ink.length > 0 && next.ink.length > 0
           ? inkFloor(column.ink, next.ink)
           : column.extent.right + column.padding + next.extent.left,
-        // …and whatever crosses this gap without being a column of it (see `Column.minGap`).
-        column.minGap,
+        // …and the ROD: whatever crosses this gap without being a column of it (see `Column.rod`).
+        column.rod,
       ),
       rigid: next.authored,
     }

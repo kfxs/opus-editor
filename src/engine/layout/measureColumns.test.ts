@@ -106,12 +106,12 @@ describe('measureColumns', () => {
     expect(columns.map(c => c.beat.num / c.beat.den)).toEqual([0, 2, 4])
     expect(columns[0].duration, 'the owner spans its own written value').toEqual(frac(2, 1))
 
-    // …and the ramp is a DEMAND on the gap its own time crosses (`Column.minGap`), which is what
-    // makes the bar reserve room for it without minting a column anyone else shares.
+    // …and the ramp is a ROD over the gaps its own time crosses (`Column.rod`), which is what makes
+    // the bar reserve room for it without minting a column anyone else shares.
     const plain = new ScoreModel()
     plain.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) } as NoteParams)
-    expect(measureColumns(bar(plain))[0].minGap, 'an ordinary note demands nothing').toBe(0)
-    expect(columns[0].minGap, 'the fan asks the gap for its ramp').toBeGreaterThan(0)
+    expect(measureColumns(bar(plain))[0].rod, 'an ordinary note asks for no rod').toBe(0)
+    expect(columns[0].rod, 'the fan rods the gap by its ramp').toBeGreaterThan(0)
     expect(columns[0].extent.right, 'and its INK is still one notehead — the members are not ink here')
       .toBe(measureColumns(bar(plain))[0].extent.right)
 
@@ -121,7 +121,7 @@ describe('measureColumns', () => {
     dense.setFan(denseNote.id, { direction: 'accel', count: 12, beams: 3 })
     const denseColumns = measureColumns(bar(dense))
     expect(denseColumns.map(c => c.beat.num / c.beat.den)).toEqual([0, 2, 4])
-    expect(denseColumns[0].minGap).toBeGreaterThan(columns[0].minGap)
+    expect(denseColumns[0].rod).toBeGreaterThan(columns[0].rod)
   })
 
   it('never mints a column at or past the barline', () => {

@@ -46,8 +46,9 @@ export function fanRampSpaces(fan: FanMark, slotLength: Fraction): { ramp: numbe
 }
 
 /**
- * ⭐⭐ **THE RAMP'S WIDTH, HANDED TO THE GAPS IT CROSSES** — one number per gap of the bar's grid, in
- * staff spaces, for `Column.minGap`.
+ * ⭐⭐ **THE RAMP AS A ROD** — one minimum width per gap of the bar's grid, in staff spaces, for
+ * {@link Column.rod}. (A *rod* is the field's own word for a minimum over one or more springs — Renz's
+ * GUIDO model and LilyPond's `springs-and-rods`; see that field.)
  *
  * A fan's members fall on rationals nobody else in the system shares, so they are not columns; but
  * they are ink, and the room they need is spread over however many gaps of the grid their slot spans.
@@ -58,8 +59,8 @@ export function fanRampSpaces(fan: FanMark, slotLength: Fraction): { ramp: numbe
  * the score and other elements not"*. Fixed music makes columns. Unfixed music makes demands on the
  * gaps it crosses, and the two meet in the solve without either having to know about the other.
  */
-export function fanSpanDemands(measure: Measure, positions: Fraction[]): number[] {
-  const demands = positions.map(() => 0)
+export function fanSpanRods(measure: Measure, positions: Fraction[]): number[] {
+  const rods = positions.map(() => 0)
   for (const slot of measure.slots) {
     if (slot.type !== 'chord' || !slot.fan) continue
     const length = slotLength(slot)
@@ -91,10 +92,10 @@ export function fanSpanDemands(measure: Measure, positions: Fraction[]): number[
     if (natural >= wanted) continue
     const force = wanted / natural
     for (const k of span) {
-      demands[k] = Math.max(demands[k], followingSpace(fracSub(positions[k + 1], positions[k])) * force)
+      rods[k] = Math.max(rods[k], followingSpace(fracSub(positions[k + 1], positions[k])) * force)
     }
   }
-  return demands
+  return rods
 }
 
 /**

@@ -813,11 +813,17 @@ So the split is stated in the model itself:
 | | makes | example |
 |---|---|---|
 | **FIXED** in the score's time-space | a COLUMN — one x for the system | every ordinary note, and a fan's OWNER |
-| **UNFIXED** | a DEMAND on the gaps it crosses (`Column.minGap`) | a fan's members; the boxed cells and graphic gestures to come |
+| **UNFIXED** | a ROD over the gaps it crosses (`Column.rod`) | a fan's members; the boxed cells and graphic gestures to come |
 
-`Column.minGap` is "the least room the gap after this column may have, for ink that is not a column of
-its own". `gapsBetween` takes it as another floor input, so the solve never learns which kind of
+`Column.rod` is "the least room the gap after this column may have, for material that is not a column
+of its own". `gapsBetween` takes it as another floor input, so the solve never learns which kind of
 material asked.
+
+⭐ **The word is the field's.** A *rod* is Renz's (GUIDO) and LilyPond's own term for a minimum width
+over one or more springs, and "excluded from the columns, then fitted into the room they left" is
+LilyPond's `strict-grace-spacing`. Both, and the vocabulary that goes with them — spacing column,
+spacing section, and Gould's *"placing material freely within a defined time-span"* — are in
+docs/spacing-model-research.md §6e.
 
 ⭐ **THE DEMAND IS ON THE SPAN, NOT PER MEMBER — that distinction is the whole fix.** Handed out per
 member it lumps at the fan's dense end (an `accel.` crowds its last members into one gap of the grid),
@@ -837,9 +843,11 @@ own slot** — ⚠️ not to the next column, which on a grand staff may be anot
 later, and measuring to that crushed every member into the left of its own half note (caught by his
 screenshot mid-change).
 
-⏭️ Whether the profession has a name — or a better mechanism — for the fixed/unfixed split is out
-with a research agent: TENOR, Gourlay, Byrd, Blostein & Haken, Guido, Verovio, MEI, and the niche
-projects, rather than the industry three, which he suspects simply do not deal with it.
+✅ **Researched (§6e of the research doc).** The mechanism is a published primitive, not an invention;
+no engine or paper was found doing better, and a solver formalised over a MIXTURE of grid-pinned and
+grid-free events was not found at all. What that section also carries is the taxonomy this has to grow
+into — Gould ch. 20 "Freedom and Choice" — and the fact that no interchange format can express any of
+it, which is worth knowing before import/export work.
 
 ---
 
