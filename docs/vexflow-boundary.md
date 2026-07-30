@@ -176,8 +176,11 @@ barline, a two-digit meter 4.80 → 5.60, and a bar with no header is unchanged.
 
 ⛔ What we did NOT take, with the reason: LilyPond's `BarLine` gap for a headerless bar is **0.9**
 mid-line (1.3 at a system start) against our 1.2 — it is TIGHTER than the drawing can go, because 1.2
-is `Stave.padding` showing through. ⏭️ And the trailing side is still open: our `note↔barline` is 1.0
-where MuseScore uses 1.5. `docs/spacing-model-research.md` §6d has all five engines contrasted,
+is `Stave.padding` showing through. ✅ And the trailing side is now settled too, the other
+way: LilyPond has **no** constant before a barline — `NoteSpacing.space-to-barline` measures the last note's
+own duration space *to the line*, which is what our barline-as-a-column already does — so there was nothing
+to adopt. Our 1.0 ink floor binds only on dense bars (the last 16th sits 2.13 spaces off the line against
+MuseScore's 2.63) and was judged on screen: *"i think is ok now"*. `docs/spacing-model-research.md` §6d has all five engines contrasted,
 including the finding that a REST gets a note's gap after a barline in every one of them.
 
 ### ✅ ~~P1 — Vertical clearance / kerning~~ — DONE 2026-07-30

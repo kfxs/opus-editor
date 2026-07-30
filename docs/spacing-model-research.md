@@ -494,9 +494,23 @@ barline; a two-digit meter from 4.80 to 5.60; a bar with no header is **unchange
 follow. 1.2 is VexFlow's `Stave.padding` showing through: below it the note area would begin left of the
 barline, which the geometry forbids (`pairPadding` states it, `tier1Geometry.test.ts` pins it).
 
-⏭️ **Open, and bigger than the rest question ever was:** our TRAILING `note↔barline` is **1.0** where
-MuseScore uses `noteBarDistance` = **1.5**. That is the air at the end of every bar, and we are a third under
-the standard — a by-eye decision, not a bug.
+### ⭐⭐ And the END of a bar: LilyPond has NO number, on purpose
+
+Asked next: *"what about the space on the end? Does LilyPond say anything about it?"* Checked at the source,
+and the answer is that it says something **structural** rather than a padding:
+
+| | space before a barline |
+|---|---|
+| **LilyPond** | **no constant exists** — `BarLine.space-alist` has no note-facing entry and `BarLine` has no `extra-spacing-width`. Instead `NoteSpacing.space-to-barline` (default `#t`): *"the distance between a note and the following non-musical column will be measured **to the bar line** instead of to the beginning of the non-musical column. If there is a clef change followed by a bar line… we will try to space the non-musical column as though the clef is not there."* So the last note's DURATION space runs out to the line, and only ink stops it |
+| **MuseScore** | the only engine with a constant here: `noteBarDistance` = **1.5 sp** |
+| **ours** | the barline IS a column, so the last gap is `followingSpace(the last duration)` max'd against ink — **LilyPond's rule already, including the subtlety**: a cautionary clef cannot push the last note away from the line, because the clef is not a column |
+
+Measured, which is what made it decidable: in a sparse bar the last note sits **3.6** spaces from the barline
+(the quarter's own space — our ink floor never enters), and in a bar of 16ths the floor binds at **2.13**
+(notehead 1.13 + `note↔barline` 1.0). MuseScore's constant would make that 2.63.
+
+✅ **Decided by eye: left at 1.0** — *"i think is ok now"*. So the only number in the model that differs from
+MuseScore at a barline is a floor that binds on dense bars alone, and it has been looked at.
 
 ## 7. Sources
 

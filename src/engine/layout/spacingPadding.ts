@@ -284,6 +284,19 @@ export function pairPadding(left: InkKind, right: InkKind): number {
   //   the drawing was right by accident and nothing moves by deleting it. What changes is that the table
   //   stops disagreeing with the picture — see `kerning.edgeKind`, which is where the accident lived.
   if (left === 'barline') return 1.2
+  // ⭐⭐ **THE TRAILING SIDE — 1.0, and LilyPond has NO number to take here.** Checked at the source:
+  //   `BarLine` has no note-facing `space-alist` entry and no `extra-spacing-width`, because LilyPond
+  //   spaces the end of a bar STRUCTURALLY instead — `NoteSpacing.space-to-barline` (default on): *"the
+  //   distance between a note and the following non-musical column will be measured to the BAR LINE
+  //   instead of to the beginning of the non-musical column"*. So the last note's own duration space runs
+  //   out to the line and only ink stops it, which is exactly what our barline-as-a-column already does:
+  //   this number is the INK FLOOR under that rule, not the gap itself.
+  //
+  //   Measured: in a sparse bar the last note sits **3.6** spaces from the barline (a quarter's own
+  //   space — the floor never enters), and in a bar of 16ths the floor binds at **2.13** (notehead 1.13
+  //   plus this). MuseScore is the only engine with a constant here, `noteBarDistance` = 1.5, which would
+  //   make that 2.63. Judged on screen and left at 1.0 (*"i think is ok now"*), so ⛔ do not "correct" it
+  //   towards MuseScore without an eye on a dense bar — `docs/spacing-model-research.md` §6d.
   if (right === 'barline') return left === 'rest' ? 1.65 : 1.0
   if (left === 'rest' || right === 'rest') return 0.5
   if (left === 'dot') return 0.5
