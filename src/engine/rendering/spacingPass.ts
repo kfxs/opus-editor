@@ -47,10 +47,12 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * it: hand `applySpacingPass` a per-staff column list and it will faithfully place a per-staff grid.
  * `e2e/systems.e2e.ts` pins the two hands landing on the same x to three decimals.
  *
- * ⛔ **It does not run on a bar holding a FAN.** A fan's members are drawn by `FanPass` across a span
- * `fanRoom` bought from the formatter, and moving the group's tick context out from under that span
- * is P5's job — the one that replaces `fanRoom` with the members' own columns. Until then a fanned
- * bar keeps VexFlow's split, which is what it was engraved against.
+ * ⭐ **A bar holding a FAN is no longer an exception** (P5). It used to be skipped — a fan's members
+ * were drawn across a span `fanRoom` bought from the formatter, and moving the group's tick context
+ * out from under that span would have broken it. `fanRoom` is gone: the members are columns of this
+ * solve like anything else, the fanned slot's own context takes its first member's column, and the
+ * room the rest of them were granted is read back by `engine/layout/fanRampRoom.ts` — the only way
+ * out for a column no tick context can be written to.
  */
 
 /** What the pass needs to know about the bar it is placing, in the units each is natural in. */
@@ -73,15 +75,33 @@ export interface SpacingTarget {
 }
 
 /**
- * Place every column at the x the model gives it. Returns false when the bar could not be placed
- * (no contexts, a meter that makes no sense), leaving VexFlow's own answer untouched.
+ * ⭐ WHERE THE SOLVE PUT EVERY COLUMN — including the ones nothing is drawn at.
+ *
+ * The pass writes an x for each column that HAS a tick context, and a fan's members have none (a
+ * fanned slot is one `StaveNote`, so there is no context at member beat k). Their solved positions
+ * are computed all the same — `measureColumns` counts a member like any other column — and they are
+ * the only record of the room the bar granted the ramp. Returning them is what lets `FanPass` spend
+ * that room instead of re-deriving it from whatever happens to sit after the group
+ * (`engine/layout/fanRampRoom.ts`).
  */
-export function applySpacingPass(formatter: Formatter, voices: Voice[], target: SpacingTarget): boolean {
+export interface SpacedColumns {
+  /** The columns as handed in, barline last. */
+  columns: Column[]
+  /** `xs[i]` is column i's notehead x, in STAFF SPACES from the first column (so `xs[0] === 0`). */
+  xs: number[]
+}
+
+/**
+ * Place every column at the x the model gives it. Returns the solved columns, or `null` when the bar
+ * could not be placed (no contexts, a meter that makes no sense), leaving VexFlow's own answer
+ * untouched.
+ */
+export function applySpacingPass(formatter: Formatter, voices: Voice[], target: SpacingTarget): SpacedColumns | null {
   const { columns, firstX, targetWidth, meterQuarters } = target
-  if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0)) return false
+  if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0)) return null
 
   const contexts = formatter.getTickContexts()
-  if (!contexts) return false
+  if (!contexts) return null
   const { map, resolutionMultiplier } = contexts
 
   // Ticks per quarter, asked of VexFlow rather than assumed: a Voice's total ticks is
@@ -89,7 +109,7 @@ export function applySpacingPass(formatter: Formatter, voices: Voice[], target: 
   // cancels the resolution out — exact in 4/4, 6/8 and 7/16 alike. (`Tables.RESOLUTION` is not on
   // the package's public entry, cf. `Glyphs`, which is CJS-only and undefined in the browser.)
   const ticksPerQuarter = (voices[0].getTotalTicks().value() / meterQuarters) * resolutionMultiplier
-  if (!(ticksPerQuarter > 0)) return false
+  if (!(ticksPerQuarter > 0)) return null
 
   const xs = spaceColumns(columns, targetWidth)
 
@@ -103,5 +123,5 @@ export function applySpacingPass(formatter: Formatter, voices: Voice[], target: 
     context.setX((firstX + xs[i]) * STAFF_SPACE_PX)
     placed++
   }
-  return placed > 0
+  return placed > 0 ? { columns, xs } : null
 }

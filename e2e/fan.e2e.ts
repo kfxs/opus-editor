@@ -487,7 +487,22 @@ test('a fan collapsed out of a passage is drawn as wide as the notes it came fro
   }
 })
 
-test('…and a fan given far more room than it needs does not sprawl into it', async ({ score }) => {
+test('…and a fan in a stretched bar takes its SHARE of the room, not the room', async ({ score }) => {
+  /*
+   * ⚠️ **THIS TEST CHANGED SIDES, deliberately** — his report of 2026-07-30: *"normally the notes
+   * grow proportionally in space, in the case of fan we are just separating the bar from the fan,
+   * but the note space in the fan don't grow"*.
+   *
+   * It used to assert a CEILING (`< 1.45×` for a bar stretched ×3), written when a fan's room came
+   * from a cap constant and the model reserved nothing for its members: a group that filled whatever
+   * bar it sat in read as a rallentando nobody wrote. P5 replaced the constants with real member
+   * columns, and this is the other half of that — the ramp now takes exactly what the bar's own
+   * column solve gave those columns (`engine/layout/fanRampRoom.ts`).
+   *
+   * What is asserted instead is the part of the old guard that is still true, and the part that
+   * matters: the fan's SHARE grows with the bar, and the room after the group is still the next
+   * thing's — the ramp does not reach the barline.
+   */
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     const gaps = (xs: number[]) => xs.slice(1).map((x, i) => x - xs[i])
@@ -495,17 +510,26 @@ test('…and a fan given far more room than it needs does not sprawl into it', a
     h.engine.setFan(w.id, { direction: 'accel', count: 4, beams: 2 })
     await h.render()
     const natural = gaps(h.noteheads().map(g => g.x))
-    // Three times the bar's width — the mirror image of his report, and the one the cap answers.
+    // Three times the bar's width — the same drag he reported, at its most extreme.
     h.engine.previewBarWidth(1, 3, 0.5, 4)
     await h.render()
-    return { natural, stretched: gaps(h.noteheads().map(g => g.x)) }
+    const heads = h.noteheads().map(g => g.x)
+    const barline = h.barlines().map(b => b.x).sort((a, b) => a - b).slice(-1)[0]
+    return { natural, stretched: gaps(heads), lastHead: heads[heads.length - 1], barline }
   })
 
   const span = (gaps: number[]) => gaps.reduce((a, b) => a + b, 0)
-  expect(span(drawn.stretched), 'a stretched bar still spreads its music a little')
-    .toBeGreaterThanOrEqual(span(drawn.natural))
-  expect(span(drawn.stretched), 'but nothing like three times as far — the ramp has a natural size')
-    .toBeLessThan(span(drawn.natural) * 1.6)
+  expect(span(drawn.stretched), 'the ramp grew with the bar — his report')
+    .toBeGreaterThan(span(drawn.natural) * 1.3)
+  // …and never MORE than the bar's own factor. With the fan alone in the bar its share is the whole
+  // elastic budget, so ×3 is exactly what it gets — proportional means proportional. What it may not
+  // do is take more than the bar was stretched by, which is what "fills the bar" used to look like.
+  expect(span(drawn.stretched), 'its share, and no more than the bar itself grew')
+    .toBeLessThanOrEqual(span(drawn.natural) * 3 + 0.01)
+  // The old guard's surviving half, measured where it is actually visible: the group still stands
+  // clear of the end of its bar.
+  expect(drawn.barline - drawn.lastHead, 'the last head is still well clear of the barline')
+    .toBeGreaterThan(10)
 })
 
 /**
@@ -558,5 +582,51 @@ test('a dense fan stays INSIDE its own bar — and no longer needs to outgrow th
   const gaps = drawn.heads.slice(1).map((x, i) => x - drawn.heads[i])
   for (const [i, gap] of gaps.slice(1).entries()) {
     expect(gap, 'each gap wider than the one before').toBeGreaterThanOrEqual(gaps[i] - 0.01)
+  }
+})
+
+test('⭐ WIDENING THE BAR SPREADS THE FAN — its members take their share like any other note', async ({ score }) => {
+  /*
+   * His report: *"normally when we do that in a slot normal measure the notes grow proportionally in
+   * space, in the case of fan we are just separating the bar from the fan, but the note space in the
+   * fan don't grow in space"*.
+   *
+   * A fan's members ARE columns of the bar's solve (`measureColumns` counts them), so the bar
+   * already reserved the stretched room for them — nothing spent it, because a fanned slot has one
+   * tick context and `spacingPass` can only write x's where a context exists. `engine/layout/
+   * fanRampRoom.ts` reads those solved columns back out and `FannedBeam` scales the earned ramp to
+   * them, which is what this measures.
+   */
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setFan(note!.id, { direction: 'accel', count: 6, beams: 3 })
+    // A rest after it, so the fan is not the last thing in the bar — the case where the room after
+    // the group is a real neighbour rather than the bar's own end.
+    await h.render()
+    const natural = h.noteheads().map(head => head.x)
+
+    h.engine.setBarWidth(1, 2.5)
+    await h.render()
+    return { natural, wide: h.noteheads().map(head => head.x) }
+  })
+
+  const spanOf = (xs: number[]) => xs[xs.length - 1] - xs[0]
+  expect(drawn.natural, 'six heads before').toHaveLength(6)
+  expect(drawn.wide, 'six heads after').toHaveLength(6)
+
+  // THE POINT: the ramp itself is wider, not merely pushed along.
+  expect(spanOf(drawn.wide), 'the group spread when the bar did').toBeGreaterThan(spanOf(drawn.natural) * 1.3)
+
+  // …and it spread as a RAMP, not as a block: every gap grew, and the accelerando's gaps still
+  // shrink left to right (the shape is the fan's, the size is the bar's).
+  const gaps = (xs: number[]) => xs.slice(1).map((x, i) => x - xs[i])
+  const before = gaps(drawn.natural)
+  const after = gaps(drawn.wide)
+  for (const [i, gap] of after.entries()) {
+    expect(gap, `gap ${i} grew`).toBeGreaterThan(before[i])
+  }
+  for (let i = 1; i < after.length; i++) {
+    expect(after[i], `accel: gap ${i} still tighter than gap ${i - 1}`).toBeLessThan(after[i - 1])
   }
 })

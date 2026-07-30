@@ -39,6 +39,8 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { fracAdd } from '@/utils/fraction'
 import { fanMemberBeats } from '@/utils/fannedBeam'
+import { fanRampRoomSpaces } from '@/engine/layout/fanRampRoom'
+import type { SpacedColumns } from './spacingPass'
 import { drawFanMemberArticulations, fanArticulationPosition } from './fanArticulations'
 import { chordHeadDisplacement, displacedHeadShiftPx } from './chordHeadLayout'
 import { chordAccidentalLayout, chordAccidentalWidth, type ChordAccidentalItem } from './chordAccidentalColumns'
@@ -307,6 +309,7 @@ export function drawFannedBeams(
     const drawing = fanSlotDrawing({
       index: i,
       slot: slots[i],
+      solvedColumns: pass.solvedColumns.get(measureNumber),
       score: pass.score,
       note: staveNotes[i],
       clef: clefForBeat(slots[i].beat),
@@ -360,6 +363,9 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
       const drawing = fanSlotDrawing({
         index: i,
         slot: member.slot,
+        // The fan's OWN bar's solve — a joined chain crosses barlines, and each fan's members are
+        // columns of the bar they are in.
+        solvedColumns: pass.solvedColumns.get(member.measureNumber),
         score: pass.score,
         note: staveNotes[i]!,
         clef: member.clef,
@@ -618,9 +624,23 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
  * ⭐ The STAVE comes from the note itself. It is the one source that is right in both passes: a
  * synthetic lane spanning two bars has two staves, and each fan belongs to its own.
  */
+/**
+ * The fan's ramp room in PIXELS — `engine/layout/fanRampRoom.ts` asked about THIS slot's members,
+ * with the staff-space conversion this file already works in. Undefined when the bar was not placed
+ * by the column solve (no `solvedColumns` entry), which the geometry reads as "your durations, then".
+ */
+function fanRampRoomPx(solved: SpacedColumns | undefined, slot: Chord): number | undefined {
+  if (!solved || !slot.fan) return undefined
+  const beats = fanMemberBeats(slot.fan, slotLength(slot), slot.beat)
+  const spaces = fanRampRoomSpaces(solved.columns, solved.xs, beats)
+  return spaces === undefined ? undefined : spaces * STAFF_SPACE_PX
+}
+
 function fanSlotDrawing(input: {
   index: number
   slot: ChordRest
+  /** Where the column solve put this bar's columns — the fan's members among them. */
+  solvedColumns: SpacedColumns | undefined
   /** The score being drawn — read for the members' own authored spaces (client #10, §7). */
   score: Score
   note: StaveNote | undefined
@@ -713,10 +733,17 @@ function fanSlotDrawing(input: {
       // ⭐ **P5 — no CAP any more.** A group given more room than it needs used to spread every head
       // to the barline, which reads as a rallentando nobody wrote, so the span was clamped at
       // `fanMaxSpanPx` — one of five constants that all answered "how much room does this gesture
-      // want". The ramp has an ABSOLUTE natural size now (each gap is the spacing rule applied to
-      // that member's own duration), so a wide bar cannot make it sprawl and there is nothing to cap.
-      // What remains is the honest end of the room: the next note's ink, less any space authored
-      // before that note. It is a CLAMP for the case where the bar could not pay, not a target.
+      // want". The ramp has a natural size now (each gap is the spacing rule applied to that
+      // member's own duration), so there is nothing to cap. What remains is the honest end of the
+      // room: the next note's ink, less any space authored before that note. It is a CLAMP for the
+      // case where the bar could not pay, not a target.
+      //
+      // ⚠️ **The TARGET is `rampRoom` below** — what the bar's own column solve gave these members.
+      // This line used to say "a wide bar cannot make it sprawl", which was true and was also the
+      // bug: widen a bar by dragging its barline and every other note spread while the fan stayed
+      // exactly as it was, the extra width piling up between the group and what follows (his report,
+      // 2026-07-30). A fan spreads with its bar like anything else; what it must not do is spread
+      // into room the solve gave to somebody else, and THAT is what this clamp still says.
       spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
         - fanTrailingSpacePx(score, measureNumber, slot),
       stemOffset: note.getStemX() - headX,
@@ -731,6 +758,11 @@ function fanSlotDrawing(input: {
       // last member's own duration earns it, exactly as any other note's does, so this is the
       // spacing rule and no longer a constant standing in for one.
       trailingGap: followingSpace(fanMembers(slot.fan, slotLength(slot)).slice(-1)[0].quarters) * STAFF_SPACE_PX,
+      // ⭐ The room the BAR's own solve gave these members — what makes the ramp spread when the bar
+      // is widened, instead of leaving the extra width as air after the last head (his report).
+      // Absent when this bar was not placed by the spacing pass, and then the ramp is its durations,
+      // exactly as before.
+      rampRoom: fanRampRoomPx(input.solvedColumns, slot),
       accidentalRoom,
       headRightRoom,
       prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),

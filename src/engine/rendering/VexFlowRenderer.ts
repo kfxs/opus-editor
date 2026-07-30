@@ -46,7 +46,7 @@ import { MeasureWidthCache } from './MeasureWidthCache'
 import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn } from '@/engine/layout/measureColumns'
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
-import { applySpacingPass } from './spacingPass'
+import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
@@ -482,6 +482,8 @@ export class VexFlowRenderer {
   private suppressedTempoId: string | null = null
   /** Map of measure numbers to their layout info (including line number) */
   private measureLayoutInfo: Map<number, MeasureWidthInfo> = new Map()
+  /** Measure number → the column solve's own answer for that bar — see `RenderPass.solvedColumns`. */
+  private solvedColumns: Map<number, SpacedColumns> = new Map()
   /** Snapshot of the layout captured when frozen. While non-null, renderScore
    *  reuses it instead of recomputing line breaks/widths — used during a clef
    *  drag to stop the score reflowing. Survives clear() (kept off measureLayoutInfo). */
@@ -638,6 +640,7 @@ export class VexFlowRenderer {
       slurGroupMap: this.slurGroupMap,
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
+      solvedColumns: this.solvedColumns,
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
@@ -1853,12 +1856,15 @@ export class VexFlowRenderer {
         //     and 2.4 staff spaces apart across one bar, for the same beats.
         const leadIn = placement.system.leadIn
         const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
-        applySpacingPass(formatter, vexVoices, {
+        // ⭐ KEPT, not just applied: a fan's members are columns of this solve that no tick context
+        //   can be written to, and `FanPass` spends their room later (`RenderPass.solvedColumns`).
+        const solved = applySpacingPass(formatter, vexVoices, {
           columns: placement.system.columns,
           firstX: leadIn.extent,
           targetWidth: room - leadIn.extent,
           meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
         })
+        if (solved) pass.solvedColumns.set(measure.number, solved)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
@@ -3729,6 +3735,9 @@ export class VexFlowRenderer {
     this.slurGroupMap.clear()
     this.tieGroupMap.clear()
     this.measureGroups.clear()
+    // The solve is one render's answer: a bar that is re-laid out gets new columns, and a fan
+    // reading last render's would spread itself against a width the bar no longer has.
+    this.solvedColumns.clear()
   }
 
   /**

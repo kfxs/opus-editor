@@ -240,6 +240,21 @@ export interface FanGeometryOptions {
    */
   memberSpaces?: number[]
   /**
+   * ⭐ **THE ROOM THE BAR'S OWN COLUMN SOLVE GAVE THIS RAMP**, in pixels — first member column to
+   * last, from `engine/layout/fanRampRoom.ts`. Absent when the solve did not run (a bar VexFlow
+   * formatted alone), and then the ramp is exactly what its durations earn, as before.
+   *
+   * ⚠️ **This is what makes a fan STRETCH.** Every gap below is the spacing rule applied to a
+   * member's own duration — an absolute size, so a fan neither sprawls nor shrinks with the room it
+   * happens to sit in. That is right for the room it happens to sit in, and WRONG for the room the
+   * bar was asked to give it: drag a barline to widen a bar and every other note spreads, because
+   * the solve scales all its elastic gaps by one force. A fan's member columns are in that solve
+   * (`measureColumns` counts them) and were simply never spent, so the group stayed put while the
+   * bar around it opened — his report. Scaling the earned ramp to this number is that force,
+   * arriving by the only honest route: the bar's own answer about the fan's own columns.
+   */
+  rampRoom?: number
+  /**
    * ⭐ The user-authored horizontal OFFSET of each member, in PIXELS (+right) — 0 (or absent) where
    * the member stands on its own column (docs/note-offset-plan.md §"Inside a FAN"). Index k is
    * member k's own offset, **entry 0 included**: the fan's owner is one note of the group, not a
@@ -350,7 +365,7 @@ export interface FanGeometryOptions {
 export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const {
     members, memberHeadYs, direction, beams, headX, spanEndX, stemOffset, minHeadGap,
-    accidentalRoom, headRightRoom, memberSpaces, memberOffsets, tipY, minStemLength, stemDirection, beamWidth,
+    accidentalRoom, headRightRoom, memberSpaces, memberOffsets, rampRoom, tipY, minStemLength, stemDirection, beamWidth,
     trailingGap = minHeadGap,
   } = opts
   const prefix = opts.prefix ?? []
@@ -424,16 +439,38 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
    * drawn over it, not a claim that the page is a clock. ⭐ If it reads too flat, the knob is the
    * SPACING RULE's own ratio, one field for the whole score — never a second rule for this gesture.
    */
-  const gaps: number[] = []
+  const earned: number[] = []
+  const floors: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
     // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
     // and would otherwise land on this head — and by whatever THIS member's own heads reach
     // forward, which is a displaced second under an upward stem.
-    const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0)
-    const earned = followingSpace(members[k].quarters) * STAFF_SPACE_PX
-    gaps.push(Math.max(floor, earned + (authored[k + 1] ?? 0)))
+    floors.push(minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0))
+    earned.push(followingSpace(members[k].quarters) * STAFF_SPACE_PX)
   }
-  void rampUsable // the ramp no longer shares out the room; it asks for what its durations earn
+
+  /**
+   * ⭐⭐ **THE RAMP IS ITS DURATIONS, STRETCHED BY THE BAR'S OWN FORCE.**
+   *
+   * `earnedTotal` is the group's natural size — the spacing rule, member by member. {@link rampRoom}
+   * is what the bar's column solve granted those same members, which at a bar's natural width IS
+   * that number (the reservation and the ramp read one rule) and grows when the bar is stretched, so
+   * the ratio between them is exactly the force the solve applied to every other gap in the bar.
+   * Widening a bar therefore spreads a fan the way it spreads everything else — the thing he
+   * reported missing — with no second stretch rule anywhere.
+   *
+   * ⚠️ **NEVER past `rampUsable`.** The span is still a hard clamp: `spanEndX` is the next note's
+   * ink less any space authored before it, so a fan cannot walk into what follows and the gap bought
+   * by dragging the note AFTER a fan still opens there rather than inside the group.
+   *
+   * ⚠️ And the authored member spaces are NOT scaled — they come off the top and keep their whole
+   * width (see {@link FanGeometryOptions.memberSpaces}); only the earned part shares the room.
+   */
+  const earnedTotal = earned.reduce((a, b) => a + b, 0)
+  const rampTarget = Math.min(rampUsable, Math.max(earnedTotal, rampRoom ?? 0))
+  const rampScale = earnedTotal > 0 ? rampTarget / earnedTotal : 1
+
+  const gaps = earned.map((space, k) => Math.max(floors[k], space * rampScale + (authored[k + 1] ?? 0)))
   // Even the floored layout can outgrow the room the bar gave. Scaling every gap by the shortfall
   // keeps the group inside its span and lands it evenly short rather than letting the last members
   // walk into the next note — the least-bad answer to "there was not enough room", and the only one

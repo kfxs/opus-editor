@@ -1,6 +1,7 @@
 import type { StaveNote, Annotation, Tuplet as VexFlowTuplet, SVGContext } from 'vexflow'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
+import type { SpacedColumns } from './spacingPass'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 
 /**
@@ -72,6 +73,17 @@ export interface RenderPass {
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */
   measureLayoutInfo: Map<number, MeasureWidthInfo>
+  /**
+   * ⭐ Measure number → WHERE THE COLUMN SOLVE PUT EVERY COLUMN of that bar, filled by the spacing
+   * pass as each bar is placed.
+   *
+   * It is here rather than handed down an argument list because the reader is not the caller: a
+   * FAN's members have no tick context of their own, so the pass cannot write their x's, and
+   * `FanPass` — which draws them, several steps later and from a different loop — is the only thing
+   * that can spend the room the bar granted them (`engine/layout/fanRampRoom.ts`). A pass-scoped bag
+   * is exactly what `measureLayoutInfo` beside it is for.
+   */
+  solvedColumns: Map<number, SpacedColumns>
   /** Measure number → rendered geometry bounds (read post-render by CoordinateMapper). */
   measureBounds: Map<number, MeasureBounds>
   /** Authoritative registry of all rendered elements + positions (hit-testing). */

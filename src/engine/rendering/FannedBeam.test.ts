@@ -25,8 +25,9 @@ const MIN_STEM = 20
  * all share one pitch is what the feature drew before they could differ, and it must still come out
  * flat, unshifted and unlifted.
  */
-const geometry = (fan: FanMark, spanEndX = 400, trailingGap?: number) => fannedBeamGeometry({
+const geometry = (fan: FanMark, spanEndX = 400, trailingGap?: number, rampRoom?: number) => fannedBeamGeometry({
   trailingGap,
+  rampRoom,
   members: fanMembers(fan, frac(2, 1)),
   memberHeadYs: Array.from({ length: Math.max(1, fan.count) }, () => [100]),
   direction: fan.direction,
@@ -814,5 +815,52 @@ describe('fanBeamFarEdge', () => {
 
   it('reports null when there is no beam to clear, so the caller can fall back', () => {
     expect(fanBeamFarEdge([], 50, 1)).toBeNull()
+  })
+})
+
+/**
+ * ⭐ THE BAR'S OWN FORCE, arriving as `rampRoom` — what the column solve gave these members
+ * (`engine/layout/fanRampRoom.ts`).
+ *
+ * His report: widen a bar by dragging its barline and every note in it spreads except the fan, whose
+ * share piles up as air after the group. The ramp asks for what its durations earn; this is what
+ * lets the bar say "and here is your share of the stretch".
+ */
+describe('the ramp room', () => {
+  const span = (fan: FanMark, room?: number) => {
+    const g = geometry(fan, 4000, undefined, room)
+    return g.stems[g.stems.length - 1].headX - g.stems[0].headX
+  }
+
+  it('draws its durations when the bar says nothing — the natural size', () => {
+    expect(span(FAN)).toBe(span(FAN, undefined))
+  })
+
+  it('⭐ spreads to the room the solve gave it', () => {
+    const natural = span(FAN)
+    expect(span(FAN, natural * 2), 'twice the room, twice the ramp').toBeCloseTo(natural * 2, 6)
+  })
+
+  it('never shrinks below its natural size just because the solve was tight', () => {
+    const natural = span(FAN)
+    // A bar that could not pay is the SPAN's business (`spanEndX` clamps, and the floors hold);
+    // asking the ramp to be smaller than its durations earn is not this knob's job.
+    expect(span(FAN, natural / 4)).toBeCloseTo(natural, 6)
+  })
+
+  it('⚠️ still cannot walk into what follows — the span is the clamp', () => {
+    const natural = span(FAN)
+    // Room for miles, but the next note is at 400: the group stays inside it.
+    const g = geometry(FAN, 400, undefined, natural * 10)
+    const last = g.stems[g.stems.length - 1].headX
+    expect(last).toBeLessThan(400)
+  })
+
+  it('keeps the accelerando SHAPE while it stretches — a wider fan is still a fan', () => {
+    const wide = geometry(FAN, 4000, undefined, span(FAN) * 2)
+    const gaps = wide.stems.slice(1).map((s, i) => s.headX - wide.stems[i].headX)
+    for (let i = 1; i < gaps.length; i++) {
+      expect(gaps[i], `gap ${i} still tighter than gap ${i - 1}`).toBeLessThan(gaps[i - 1])
+    }
   })
 })

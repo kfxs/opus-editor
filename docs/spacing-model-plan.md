@@ -732,10 +732,50 @@ constants and a module), then the tremolo, then the two draw-time clearance pass
 
 ⭐ **One line did it.** `fannedBeamGeometry` computed each gap as *that member's proportional share
 of whatever room the bar gave*; it now computes `followingSpace(member.quarters)` — the same rule
-that spaces every other note, asked of an arbitrary rational. A ramp with an ABSOLUTE natural size
-cannot sprawl when the bar is wide, so the cap goes; and `measureColumns` already gives every member
-a real column, so the bar asks for exactly their room and the proxy goes. The five constants were
-five answers to one question that now has a rule.
+that spaces every other note, asked of an arbitrary rational. A ramp with a natural size does not
+sprawl into a bar that happens to be wide, so the cap goes; and `measureColumns` already gives every
+member a real column, so the bar asks for exactly their room and the proxy goes. The five constants
+were five answers to one question that now has a rule.
+
+### 3a. ⭐ …and the ramp SPENDS the room its columns were granted (2026-07-30)
+
+**His report, the same day:** *"normally when we do that in a slot normal measure the notes grow
+proportionally in space, in the case of fan we are just separating the bar from the fan, but the note
+space in the fan don't grow in space"* — drag a barline to widen a bar and everything in it spreads
+**except** a fan, whose share opens up as air between the group and whatever follows it.
+
+**The half that was missing.** The reservation was already right: `measureColumns` counts a member
+like any other column, so the spring solve stretches those gaps by the same force it applies to the
+whole bar. Nothing SPENT the answer. A fanned slot is one `StaveNote`, so there is no tick context at
+member beat *k* and `spacingPass` cannot write those x's (`if (!context) continue`); the only thing
+the solve moved was the *next* real column, which the fan reads as `spanEndX` — a clamp. So the ramp
+built itself from its members' own durations alone, in a bar that had just been told to be 3.2× as
+wide.
+
+| | before | now |
+|---|---|---|
+| what the bar reserves for the members | the solved (stretched) column gaps | unchanged |
+| what the ramp draws | `followingSpace(member)`, absolute | that, scaled to the room its own columns were granted |
+| a bar stretched ×3, fan alone in it | the group unchanged, ×3 of air after it | the group ×3, air after it unchanged |
+
+⭐ **The seam is the solve's own answer, not a second rule.** `applySpacingPass` now RETURNS its
+solved columns (`SpacedColumns`), the renderer keeps them on the pass (`RenderPass.solvedColumns`),
+and `engine/layout/fanRampRoom.ts` reads back one number: the distance between the fan's first and
+last member column. `FannedBeam` scales the earned ramp to it. The ratio between "what the members
+earn" and "what their columns were given" **is** the force the solve applied to every other gap in
+that bar, so the fan stretches with the music around it by construction.
+
+⚠️ **What did NOT change, and both are his calls:** the authored space still comes off the top
+unscaled (a nudge is a width, not a share), and `spanEndX` is still the hard clamp — the room bought
+by dragging the note AFTER a fan still opens between the group and that note
+(`FanPass.fanTrailingSpacePx`), which is what he asked for on 2026-07-29 and called "normal" again
+here.
+
+⚠️ **A guard changed sides.** `e2e/fan.e2e.ts`'s *"a fan given far more room than it needs does not
+sprawl into it"* (from `534dcc4`, ten commits BEFORE the rule above) capped a stretched bar's effect
+on the ramp at 1.6×. It was written when a fan's room came from a cap constant and the model reserved
+nothing for its members. It now asserts the rule: the ramp grows with the bar, never by more than the
+bar itself grew, and the group still stands clear of the barline.
 
 Also gone: the `fanFloor` interim in `MeasureLayout`, and `spacingPass`'s "skip any bar with a fan".
 A fanned bar is an ordinary bar now — its slot's tick context takes the first member's column like
