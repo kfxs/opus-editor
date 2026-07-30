@@ -166,12 +166,46 @@ already documents.
 ⏭️ It did NOT get the lead-in below 1.2 spaces: that is still `Stave.padding`'s doing, and the
 geometry invariant that a bar's note area may not begin outside the bar.
 
-### P1 — **Vertical clearance / kerning**
-The mechanism every other engine has and we do not: skip or reduce the pair padding when the two
-things do not overlap **vertically**. MuseScore's `computeVerticalClearance` + `KerningType`,
-LilyPond's skylines. This is the honest answer to *"accidentals in dense passages push the notes
-apart"* — an accidental low on the staff should tuck under a preceding high note. ⚠️ It needs
-`EventExtent` to gain a vertical range, which is a real change to the model's shape.
+### ✅ ~~P1 — Vertical clearance / kerning~~ — DONE 2026-07-30
+`engine/layout/kerning.ts`. A column's ink stopped being one merged reach either side and became a list
+of **located boxes** — each with the vertical band it occupies — and a gap's floor became a max over box
+PAIRS, skipping any pair that may kern and is vertically clear. MuseScore's `Shape::minHorizontalDistance`
++ `computeVerticalClearance`, LilyPond's skylines.
+
+⭐ **The vertical half of the ink table is measurable after all, and not the way we tried first.** An SVG
+`<text>`'s box is the FONT's line box — 16 staff spaces tall for every glyph in Bravura, so a height read
+that way is not a height. Canvas `TextMetrics.actualBoundingBox*` is the glyph's real ink, and is what
+VexFlow's own `Element.getBoundingBox` uses. Measured: a notehead ±0.5, a dot ±0.2, a sharp ±1.4, and a
+**flat 1.8 up against 0.8 down** — one number for "an accidental is this tall" would have been wrong for
+both signs.
+
+⭐⭐ **Where it wins, measured — and it is NOT where the complaint that named this priority was.**
+
+| case | before | after |
+|---|---|---|
+| dense right hand over a sharpened left hand | 4 of 16 gaps a space wider than their neighbours | **every gap identical** |
+| dense voice 1 over a sharpened voice 2 | the same | **every gap identical** |
+| beamed leaps, every other note sharpened | 2.88 / 1.78 alternating | **unchanged, deliberately** |
+
+The last row is the honest part. Inside a beamed group the previous note's **stem** runs to a beam whose
+height is not a width-time fact, and in a leap it really does hang through the space the accidental would
+tuck into — so the model declines. A stepwise chromatic run declines too, because a sign a step below the
+previous notehead genuinely overlaps it. So this does not narrow a dense chromatic passage; what it
+removes is ink being paid for **across staves and across voices**, which a piano score pays on every beat.
+
+⭐ Three decisions the writing forced, all in `MAY_KERN` or beside it:
+- ⛔ **Two noteheads never kern, however far apart they are** — successive heads that overlap
+  horizontally read as *simultaneous*. A rule about meaning, not about ink (MuseScore's `NON_KERNING`).
+  ⭐ And that holds ACROSS STAVES too: in a grand staff an x is a time.
+- ⭐ **The STEM joined `InkKind`** and buys no width of its own — it stands at its notehead's right edge.
+  What it does is block, which is the piece a horizontal-only model had no reason to name.
+- ⛔ **A barline's band is the whole staff**, so nothing can ever be tucked through one.
+
+⏭️ **A latent bug it made visible, left alone on purpose:** a rest reaches right and not left, so the old
+merged edge silently answered `note` there — which means `barline↔rest` (1.65 against a note's 1.2) has
+never applied to a bar that OPENS with a rest. Delivering it widens every such bar by 0.45 spaces and
+moves the measure rest a quarter space off centre, so it is a by-eye decision of its own. See
+`edgeKind`'s doc.
 
 ### P2 — **Flags and beams as ink**
 A flag hangs right of its stem and buys no room today. Small, and it removes a known blind spot in a

@@ -33,34 +33,48 @@ import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
 import { staffLineForSpelling } from '@/utils/clefUtils'
-import { INK, accidentalExtent, dotExtent, pairPadding, restExtent, type InkKind } from './spacingPadding'
-import type { Column, EventExtent } from './spacing'
+import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restExtent } from './spacingPadding'
+import { edgeKind, mergedReach, type InkBox } from './kerning'
+import type { Column } from './spacing'
 
 /** Canonical key for an exact beat — `fracCreate` reduces, so equal beats stringify equally. */
 const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
 
 /**
- * A column's ink: how far it reaches either side of its notehead x, and WHAT is at each edge — the
- * key into the pair table, since the padding after a dot is a different judgement from the padding
- * after a notehead.
+ * A column's ink: every drawn piece at that rhythmic position, **located** — each box's reach either
+ * side of the column's x plus the vertical band it occupies (`layout/kerning.ts`).
+ *
+ * ⭐ It used to be one merged reach per edge (`{left, right, leftKind, rightKind}`), which is all the
+ * width needs while ink is treated as a solid column of stuff. It cannot answer *"is this accidental
+ * clear of that notehead"*, so the pieces are kept apart and the merge became a projection
+ * ({@link mergedReach}) — one source, no second representation to disagree with the first.
+ *
+ * ⚠️ A column holds every voice AND staff at its beat, so its boxes come from several slots and each
+ * carries the staff it was measured on.
  */
-interface ColumnInk extends EventExtent {
-  leftKind: InkKind
-  rightKind: InkKind
-}
+type ColumnInk = InkBox[]
 
-const EMPTY_INK = (): ColumnInk => ({ left: 0, right: 0, leftKind: 'note', rightKind: 'note' })
+/** ⭐ The vertical axis the boxes are on: staff spaces BELOW the top stave line, so the top line is 0,
+ *  the middle 2, the bottom 4 — and a note above the staff is negative. `staffLineForSpelling` counts
+ *  the other way (1 = bottom, 5 = top), which is the whole of the conversion. */
+const yOfLine = (line: number): number => 5 - line
 
-/** The widest of two columns' ink, edge by edge — a column holds every voice and staff at its beat. */
-function widen(into: ColumnInk, add: ColumnInk): void {
-  if (add.left > into.left) {
-    into.left = add.left
-    into.leftKind = add.leftKind
-  }
-  if (add.right > into.right) {
-    into.right = add.right
-    into.rightKind = add.rightKind
-  }
+/** Which way the stem of this slot points — the same answer the drawing reaches, because the stem is
+ *  what decides most kerning questions and a guess in the wrong direction unblocks a space that has a
+ *  stem in it. Explicit first, then the multi-voice convention (odd voices up, even down), then
+ *  Gould's rule about the middle line. */
+function stemUp(slot: ChordRest, clef: Clef, multiVoice: boolean): boolean {
+  if (slot.type === 'chord' && slot.stemDirection) return slot.stemDirection === 'up'
+  const voice = voiceOf(slot)
+  if (multiVoice) return voice % 2 === 1
+  if (slot.type !== 'chord') return true
+  const positions = (slot.notes ?? []).map(pitch => spellingDiatonicPos(pitch.step, pitch.octave))
+  const outer = positions.length > 0 ? Math.max(...positions) : 0
+  return staffLineForSpelling(
+    (slot.notes ?? [])[positions.indexOf(outer)]?.step ?? 'B',
+    (slot.notes ?? [])[positions.indexOf(outer)]?.octave ?? 4,
+    clef,
+  ) < 3
 }
 
 /**
@@ -84,10 +98,12 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
  * ⚠️ **And `clef` is why this function reads where a note SITS**, which used to be forbidden in the
  * width path — see {@link measureColumns} for why that rule expired.
  */
-function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef): ColumnInk {
+function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean): ColumnInk {
+  const staff = slot.staffId
   if (slot.type !== 'chord') {
-    const width = restExtent(slot.duration)
-    return { left: 0, right: width, leftKind: 'rest', rightKind: 'rest' }
+    // A rest's own band is not modelled: nothing kerns against a rest (`MAY_KERN`), so the honest
+    // thing is a band covering the staff rather than a position we would have to predict.
+    return [{ left: 0, right: restExtent(slot.duration), top: 0, bottom: 4, kind: 'rest', staff }]
   }
 
   const pitches: NotePitch[] = slot.notes ?? []
@@ -101,21 +117,79 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef)
   const positions = pitches.map(pitch => spellingDiatonicPos(pitch.step, pitch.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
   const heads = hasSecond ? 2 * INK.notehead : INK.notehead
-
-  // ⭐ A LEDGER LINE overhangs its notehead on BOTH sides — 1.80 spaces against a head's 1.13. Under
-  //   a displaced chord it runs beneath both heads, so it is an overhang past the heads rather than a
-  //   width of its own.
-  const ledger = pitches.some(pitch => needsLedger(pitch, clef))
   const overhang = INK.ledgerRight - INK.notehead
-  const right = Math.max(heads + (ledger ? overhang : 0), dotExtent(slot.dots ?? 0))
-  const left = Math.max(accidental, ledger ? INK.ledgerLeft : 0)
+  const dots = dotExtent(slot.dots ?? 0)
 
-  return {
-    left,
-    right,
-    leftKind: left === 0 ? 'note' : accidental >= left ? 'accidental' : 'ledger',
-    rightKind: right > heads + (ledger ? overhang : 0) ? 'dot' : ledger ? 'ledger' : 'note',
+  const boxes: ColumnInk = []
+  const lineOf = (pitch: NotePitch) => staffLineForSpelling(pitch.step, pitch.octave, clef)
+
+  for (const pitch of pitches) {
+    const y = yOfLine(lineOf(pitch))
+    boxes.push({ left: 0, right: heads, top: y - INK_HEIGHT.notehead, bottom: y + INK_HEIGHT.notehead, kind: 'note', staff })
+
+    // ⭐ A LEDGER LINE overhangs its notehead on BOTH sides — 1.80 spaces against a head's 1.13. Under
+    //   a displaced chord it runs beneath both heads, so it is an overhang past the heads rather than
+    //   a width of its own. Its BAND is the run from the note back to the staff, because that is where
+    //   the lines are: one per line crossed, not one at the notehead.
+    if (needsLedger(pitch, clef)) {
+      const edge = y < 0 ? 0 : 4
+      boxes.push({
+        left: INK.ledgerLeft,
+        right: heads + overhang,
+        top: Math.min(y, edge) - INK_HEIGHT.ledger,
+        bottom: Math.max(y, edge) + INK_HEIGHT.ledger,
+        kind: 'ledger',
+        staff,
+      })
+    }
+
+    if (dots > 0) {
+      boxes.push({ left: 0, right: dots, top: y - INK_HEIGHT.dot, bottom: y + INK_HEIGHT.dot, kind: 'dot', staff })
+    }
   }
+
+  // ⭐ Each DRAWN sign gets its own box at its own pitch — the point of the exercise, since a low
+  //   accidental clearing a high notehead is the case kerning exists for.
+  //
+  // ⚠️ Every sign is given the whole chord's accidental reach rather than its own column's. That
+  //    over-reserves for a chord whose signs stack into two columns, and it is the safe direction: a
+  //    sign that cannot kern then asks for the room the drawing actually uses, and one that CAN kern
+  //    is skipped entirely, so the surplus never reaches the picture.
+  for (const { position, sign } of drawn) {
+    const pitch = pitches.find(p => spellingDiatonicPos(p.step, p.octave) === position)
+    if (!pitch) continue
+    const y = yOfLine(lineOf(pitch))
+    const height = accidentalHeight(sign)
+    boxes.push({ left: accidental, right: 0, top: y - height.up, bottom: y + height.down, kind: 'accidental', staff })
+  }
+
+  // ⭐ THE STEM — no width of its own (it stands at the notehead's right edge), and the piece that
+  //   decides most kerning questions. ⛔ A WHOLE note has none, and a BEAMED note's stem runs to a beam
+  //   whose height is not a width-time fact, so that one is treated as reaching the far side of the
+  //   staff: decline the kern rather than draw ink through ink.
+  if (slot.duration !== 'w' && pitches.length > 0) {
+    const lines = pitches.map(lineOf)
+    const up = stemUp(slot, clef, multiVoice)
+    const fromY = yOfLine(up ? Math.max(...lines) : Math.min(...lines))
+    // ⚠️ 'auto' counts as beamed: it means the beaming pass decides, and for an eighth or shorter it
+    //    usually does beam. Guessing the other way would unblock a kern that has a long stem in it.
+    const beamed = slot.duration !== 'q' && slot.duration !== 'h' && slot.beam !== 'single'
+    // A stem always reaches at least the middle line (y = 2), which for a note just outside the staff
+    // is the same statement as `STEM_REACH`.
+    const tipY = beamed
+      ? (up ? Math.min(0, fromY - STEM_REACH) : Math.max(4, fromY + STEM_REACH))
+      : (up ? Math.min(2, fromY - STEM_REACH) : Math.max(2, fromY + STEM_REACH))
+    boxes.push({
+      left: 0,
+      right: heads,
+      top: Math.min(fromY, tipY),
+      bottom: Math.max(fromY, tipY),
+      kind: 'stem',
+      staff,
+    })
+  }
+
+  return boxes
 }
 
 /**
@@ -176,7 +250,7 @@ export type ClefResolver = (slot: ChordRest) => Clef
  */
 export function measureLeadIn(measure: Measure, clefFor: ClefResolver = () => 'treble'): LeadIn {
   const opening = openingInk(measure, clefFor)
-  return { padding: pairPadding('barline', opening.leftKind), extent: opening.left }
+  return { padding: pairPadding('barline', edgeKind(opening, 'left')), extent: mergedReach(opening).left }
 }
 
 /**
@@ -194,21 +268,34 @@ export interface LeadIn {
   extent: number
 }
 
-/** The ink of whatever the bar opens with — every slot at its earliest beat, merged. */
+/** The ink of whatever the bar opens with — every slot at its earliest beat. */
 function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
   const first = measure.slots.reduce<Fraction | null>(
     (earliest, slot) => (earliest === null || fracCompare(slot.beat, earliest) < 0 ? slot.beat : earliest),
     null,
   )
-  if (first === null) return { left: 0, right: restExtent('w'), leftKind: 'rest', rightKind: 'rest' }
+  if (first === null) return [MEASURE_REST_INK()]
 
   const signs = displayedSigns(measure)
-  const ink = EMPTY_INK()
+  const multiVoice = hasSeveralVoices(measure)
+  const boxes: ColumnInk = []
   for (const slot of measure.slots) {
     if (fracCompare(slot.beat, first) !== 0) continue
-    widen(ink, slotInk(slot, signs, clefFor(slot)))
+    boxes.push(...slotInk(slot, signs, clefFor(slot), multiVoice))
   }
-  return ink
+  return boxes
+}
+
+/** The one rest an untouched bar draws, as ink — a band over the whole staff, since nothing kerns
+ *  against a rest and its drawn position is not a width-time fact. */
+const MEASURE_REST_INK = (): InkBox =>
+  ({ left: 0, right: restExtent('w'), top: 0, bottom: 4, kind: 'rest', staff: undefined })
+
+/** Does this measure hold more than one voice? The stem convention depends on it (voice 1 up, voice 2
+ *  down), and the stem is what decides whether a following accidental may tuck. */
+function hasSeveralVoices(measure: Measure): boolean {
+  const voices = new Set(measure.slots.map(voiceOf))
+  return voices.size > 1
 }
 
 /**
@@ -245,27 +332,32 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
     const key = beatKey(beat)
     if (!beats.has(key)) {
       beats.set(key, beat)
-      ink.set(key, EMPTY_INK())
+      ink.set(key, [])
     }
-    if (drawn) widen(ink.get(key)!, drawn)
+    // ⭐ Every slot's boxes are KEPT, not merged into one: a column holds each voice's and each
+    //   staff's ink separately so `inkFloor` can ask about them one pair at a time.
+    if (drawn) ink.get(key)!.push(...drawn)
   }
 
   const signs = displayedSigns(measure)
+  const multiVoice = hasSeveralVoices(measure)
 
   for (const slot of measure.slots) {
-    add(slot.beat, slotInk(slot, signs, clefFor(slot)))
+    add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice))
     if (slot.type === 'chord' && slot.fan) {
       // ⚠️ A fan's members get a bare notehead's ink. Their own accidentals are the member chords'
       //    (docs/fanned-beam-pitches-plan.md) and are not modelled here — the fan's drawn span is
       //    still bought by `fanColumns` until P5, and that claim dominates a fan's bar anyway.
-      const member: ColumnInk = { left: 0, right: INK.notehead, leftKind: 'note', rightKind: 'note' }
+      // ⚠️ A band over the whole staff: a member's own pitch is the member chord's business, so its
+      //    position is not known here and a box that claimed one would be a guess that unblocks kerns.
+      const member: ColumnInk = [{ left: 0, right: INK.notehead, top: 0, bottom: 4, kind: 'note', staff: slot.staffId }]
       for (const beat of fanMemberBeats(slot.fan, slotLength(slot), slot.beat)) add(beat, member)
     }
   }
 
   // A bar holding nothing still draws a measure rest, and it starts at the beginning.
   if (beats.size === 0) {
-    add(fracCreate(0, 1), { left: 0, right: restExtent('w'), leftKind: 'rest', rightKind: 'rest' })
+    add(fracCreate(0, 1), [MEASURE_REST_INK()])
   }
 
   const positions = [...beats.values()].sort(fracCompare)
@@ -276,13 +368,17 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
   //   two rows in the pair table (note↔barline 1.0, rest↔barline 1.65, because a rest hangs closer
   //   to the line than a notehead does).
   positions.push(capacity)
-  inks.push({ left: 0, right: 0, leftKind: 'barline', rightKind: 'barline' })
+  // ⛔ A barline's band is the whole staff on purpose: it can never be vertically clear of anything,
+  //   so no kerning rule can ever tuck ink through a barline.
+  inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }])
 
   return positions.map((beat, i) => ({
     beat,
     duration: i + 1 < positions.length ? fracSub(positions[i + 1], beat) : fracCreate(0, 1),
-    extent: { left: inks[i].left, right: inks[i].right },
-    padding: i + 1 < positions.length ? pairPadding(inks[i].rightKind, inks[i + 1].leftKind) : 0,
+    extent: mergedReach(inks[i]),
+    // Kept for the columns a FIXTURE builds by hand, which carry no located ink — see `Column.ink`.
+    padding: i + 1 < positions.length ? pairPadding(edgeKind(inks[i], 'right'), edgeKind(inks[i + 1], 'left')) : 0,
+    ink: inks[i],
     authored: 0,
   }))
 }

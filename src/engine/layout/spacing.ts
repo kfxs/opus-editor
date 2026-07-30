@@ -32,6 +32,7 @@
  */
 import type { Fraction } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
+import { inkFloor, type InkBox } from './kerning'
 
 /**
  * The rule. **One instance for the WHOLE SCORE** — see {@link DEFAULT_SPACING}.
@@ -161,8 +162,19 @@ export interface Column {
   beat: Fraction
   /** To the NEXT column, in quarters. The last column's is ignored. */
   duration: Fraction
-  /** The widest ink at this column, over every staff and voice. */
+  /** The widest ink at this column, over every staff and voice — the PROJECTION of {@link ink}. */
   extent: EventExtent
+  /**
+   * ⭐⭐ The same ink, **located**: one box per drawn piece, with the vertical band it occupies
+   * (`layout/kerning.ts`). It is what lets the floor ask *"can these two get out of each other's
+   * way?"* instead of treating a column as a solid block — an accidental low on the staff tucks under
+   * a preceding high notehead rather than buying room nobody looks at.
+   *
+   * ⚠️ **Empty for a column a FIXTURE built by hand** (`plainColumn`), and then the floor falls back to
+   * `extent.right + padding + extent.left` — the horizontal-only algebra, which is what a
+   * duration-only test means to exercise. Real columns always carry boxes (`measureColumns`).
+   */
+  ink: InkBox[]
   /**
    * The least ink-free space between this column and the next, in staff spaces — P3's pair table
    * (note↔note, note↔accidental, rest↔barline…). A property of the PAIR, which is why it is a
@@ -181,7 +193,7 @@ export interface Column {
 
 /** A column with nothing authored, no ink and no padding — the shorthand a duration-only test wants. */
 export function plainColumn(beat: Fraction, duration: Fraction): Column {
-  return { beat, duration, extent: NO_EXTENT, padding: 0, authored: 0 }
+  return { beat, duration, extent: NO_EXTENT, ink: [], padding: 0, authored: 0 }
 }
 
 /**
@@ -204,7 +216,12 @@ function gapsBetween(columns: Column[], rule: SpacingRule): Gap[] {
     const next = columns[i + 1]
     return {
       spring: followingSpace(column.duration, rule),
-      floor: column.extent.right + column.padding + next.extent.left,
+      // ⭐ The floor is a max over box PAIRS once the ink is located — so a pair that can get out of
+      //   the other's way costs nothing (`layout/kerning.ts`). With nothing clear it comes out at
+      //   exactly the merged expression below, which is why this cannot widen a bar.
+      floor: column.ink.length > 0 && next.ink.length > 0
+        ? inkFloor(column.ink, next.ink)
+        : column.extent.right + column.padding + next.extent.left,
       rigid: next.authored,
     }
   })

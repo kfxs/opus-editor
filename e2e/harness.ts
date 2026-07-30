@@ -23,7 +23,7 @@ import { MusicEngine } from '@/engine/MusicEngine'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
-import { INK, accidentalExtent, dotExtent } from '@/engine/layout/spacingPadding'
+import { INK, INK_HEIGHT, accidentalExtent, accidentalHeight, dotExtent } from '@/engine/layout/spacingPadding'
 import { fracCreate } from '@/utils/fraction'
 
 /** Re-exported so a spec can name what `columnGaps()` hands back. */
@@ -125,6 +125,11 @@ export interface Harness {
     sharps(n: number): number
     /** How far right of the head `n` augmentation dots reach. */
     dots(n: number): number
+    /** ⭐ The VERTICAL half of the same table (`INK_HEIGHT`), for the kerning gate: how far each ink
+     *  reaches above and below its own anchor. Measured with canvas `actualBoundingBox*`, never with a
+     *  bounding box — a music glyph's `<text>` reports the FONT's line box, identical for every glyph. */
+    height: { notehead: number; dot: number }
+    accidentalHeight(sign: string): { up: number; down: number }
   }
   /** Export the current score as a PDF (it downloads — the spec catches the download). */
   /**
@@ -338,6 +343,8 @@ const harness: Harness = {
     sharps: (n: number) =>
       accidentalExtent(Array.from({ length: n }, (_, i) => ({ position: i * 2, sign: '#' }))),
     dots: dotExtent,
+    height: { notehead: INK_HEIGHT.notehead, dot: INK_HEIGHT.dot },
+    accidentalHeight,
   }),
 
   ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),

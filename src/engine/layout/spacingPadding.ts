@@ -32,8 +32,13 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * What sits at one edge of a gap. Not "what the event IS" — what its ink at that edge IS, which is
  * the thing the padding is a judgement about: a dotted note ends in a DOT, a note with a sharp
  * begins with an ACCIDENTAL.
+ *
+ * ⭐ `stem` joined the union for KERNING (`layout/kerning.ts`) and buys no width of its own: a stem
+ * stands at its notehead's right edge, so it never reaches past ink that is already counted. What it
+ * does is *block* — it is the piece hanging through the space a low accidental would otherwise tuck
+ * into, and a horizontal-only ink model had no reason to name it.
  */
-export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'barline'
+export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'barline'
 
 /**
  * The ink an event's own glyphs take, in staff spaces, measured off the drawing (see the header).
@@ -66,6 +71,65 @@ export const INK = {
   /** The gap VexFlow leaves between the nearest accidental column and the notehead. */
   accidentalToHead: 0.1,
 } as const
+
+/**
+ * ⭐⭐ **HOW TALL each ink is** — staff spaces ABOVE and BELOW its own anchor, i.e. the vertical half
+ * of the same table the numbers above are the horizontal half of.
+ *
+ * It exists for KERNING (`layout/kerning.ts`): two inks only need horizontal clearance where they
+ * share a vertical band, so the model cannot answer *"may this accidental tuck under that notehead"*
+ * without knowing how far each reaches up and down.
+ *
+ * ## ⚠️ Measured with `measureText`, NOT with a bounding box
+ *
+ * A music glyph's SVG `<text>` reports the same 16-space-tall box for every glyph in the font — the
+ * line box, not the ink (which is the same trap as
+ * `reference_vexflow_annotation_pointer_rect`, one level down). Canvas `TextMetrics
+ * .actualBoundingBoxAscent/Descent` is the glyph's real ink, and is what VexFlow's own
+ * `Element.getBoundingBox` uses. `e2e/kerning.e2e.ts` re-measures these the same way.
+ *
+ * ⭐ The numbers came out as the tradition states them, which is the check worth having: a sharp is
+ * symmetric at ±1.4 spaces, a **flat reaches 1.8 up and only 0.8 down** (its bowl sits above the
+ * line), and a notehead is half a space either side.
+ */
+export const INK_HEIGHT = {
+  /** A notehead, up and down from its own line. 0.6 both ways — the measured 0.5/0.6, rounded OUT. */
+  notehead: 0.6,
+  /** An augmentation dot. */
+  dot: 0.2,
+  /** A ledger line: a hairline, but see {@link ledgerBand} — it spans head→staff, not head only. */
+  ledger: 0.15,
+} as const
+
+/** How far an accidental's ink reaches above and below the line of the note it belongs to. */
+const ACCIDENTAL_HEIGHT: Record<string, { up: number; down: number }> = {
+  '#': { up: 1.4, down: 1.4 },
+  'b': { up: 1.8, down: 0.8 },
+  'n': { up: 1.4, down: 1.4 },
+  '##': { up: 0.6, down: 0.5 },
+  'bb': { up: 1.8, down: 0.7 },
+}
+
+/** The vertical reach of one accidental sign, defaulting to a sharp's. */
+export function accidentalHeight(sign: string): { up: number; down: number } {
+  return ACCIDENTAL_HEIGHT[sign] ?? ACCIDENTAL_HEIGHT['#']
+}
+
+/**
+ * How far a STEM reaches from its notehead, in staff spaces — **and why a stem is in this table at
+ * all**: it is the ink that decides most kerning questions. An accidental low on the staff cannot
+ * tuck under a preceding high note if that note's stem is hanging through the space it wants, and
+ * the stem is exactly the piece a horizontal-only ink model never had to know about.
+ *
+ * 3.5 spaces is VexFlow's default and Gould's, and a stem also always reaches AT LEAST the middle
+ * line — the two rules coincide for a note just outside the staff, which is the common case.
+ *
+ * ⚠️ **A BEAMED note's stem is longer, by an amount no width-time code can know** (it runs to a beam
+ * whose height is decided by the whole group, after formatting). So `layout/kerning.ts` does not
+ * predict it: a beamed note's stem is treated as reaching the far side of the staff, which declines
+ * the kern rather than risking ink through ink.
+ */
+export const STEM_REACH = 3.5
 
 /**
  * One accidental COLUMN's width, in staff spaces, by the VexFlow sign string.
