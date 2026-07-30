@@ -524,6 +524,24 @@ export class Checkbox implements Widget {
   get checked(): boolean {
     return this.el?.checked ?? this.opts.checked ?? false
   }
+
+  /** Tick it from outside — a value the dialog DERIVED, not one the user clicked. */
+  setChecked(checked: boolean): void {
+    if (this.el) this.el.checked = checked
+    else this.opts.checked = checked
+  }
+
+  /** Grey it and refuse it — see {@link NumberInput.setDisabled}. The LABEL greys with it, since the
+   *  word is half of what a checkbox is. */
+  setDisabled(disabled: boolean): void {
+    if (!this.el) return
+    this.el.disabled = disabled
+    const row = this.el.parentElement
+    if (row) {
+      row.style.cursor = disabled ? 'default' : 'pointer'
+      row.style.opacity = disabled ? '0.5' : '1'
+    }
+  }
 }
 
 /** A drop-down. Options may carry `html` so a row can be a GLYPH (a note value) and not a word. */
@@ -623,6 +641,14 @@ export class NumberInput implements Widget {
     return Number(this.el?.value ?? this.opts.value ?? 0)
   }
 
+  /** Grey it and refuse it. What a field looks like when the SELECTION is answering it, not the user
+   *  — the same treatment {@link Button.setDisabled} gives. */
+  setDisabled(disabled: boolean): void {
+    if (!this.el) return
+    this.el.disabled = disabled
+    this.el.style.opacity = disabled ? '0.5' : '1'
+  }
+
   /** Take the keyboard, with the value SELECTED — a field a dialog opens on is a field you retype,
    *  not one you edit. Same as {@link TextInput.focus}. */
   focus(): void {
@@ -712,6 +738,24 @@ export class GlyphSelect implements Widget {
 
   get value(): string {
     return this.selected
+  }
+
+  /** Pick from outside — a value the dialog DERIVED (a selection's own length, approximated to the
+   *  nearest note value it offers). Unknown values are ignored, like the plain `Select`'s setter. */
+  setValue(value: string): void {
+    if (!this.choices.some(choice => choice.value === value)) return
+    this.selected = value
+    this.paint()
+  }
+
+  /** Grey it and refuse it — see {@link NumberInput.setDisabled}. Closes the list first: a disabled
+   *  button cannot be clicked shut again. */
+  setDisabled(disabled: boolean): void {
+    if (disabled) this.close()
+    if (!this.button) return
+    this.button.disabled = disabled
+    this.button.style.cursor = disabled ? 'default' : 'pointer'
+    this.button.style.opacity = disabled ? '0.5' : '1'
   }
 
   destroy(): void {

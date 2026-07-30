@@ -2,10 +2,11 @@ import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { activeVoiceToModel, armedTool } from './EditorState'
-import { multipleNotesSelected } from './selection'
-import type { ArmedFanStamp } from '@/bus'
+import { multipleNotesSelected, selectedNoteIds } from './selection'
+import type { ArmedFanStamp, FanStampContext } from '@/bus'
 import { DEFAULT_FAN_BEAMS } from '../utils/fannedBeam'
 import { fracToNumber } from '../utils/fraction'
+import { writtenLength } from '../utils/durations'
 
 /**
  * ⭐ THE FEATHER STAMP'S CLICK — one press of the mouse writes the whole gesture.
@@ -127,4 +128,22 @@ export function featherSelectedNote(
   engine.updateUndoNoteId(noteId)
   render()
   return true
+}
+
+/**
+ * ⭐ WHAT THE SELECTION ALREADY ANSWERS about a feather — how many attacks it would have, and how long
+ * it lasts — for the dialog to show and refuse editing ({@link FanStampContext}).
+ *
+ * Counted over NOTES only: a rest cannot be an attack, and a selection that is nothing but rests is
+ * not a passage to collapse. The length is the notes' own slots summed, which is exactly the span
+ * `collapseIntoFan` will give the gesture — so the number the window greys out is the number the
+ * music gets.
+ */
+export function featherContext(state: EditorState, engine: MusicEngine | null): FanStampContext {
+  if (!engine) return { notes: 0, quarters: 0 }
+  const notes = selectedNoteIds(state.selectedItems.values())
+    .map(id => engine.getNote(id))
+    .filter((note): note is NonNullable<typeof note> => !!note && !note.isRest)
+  const quarters = notes.reduce((total, note) => total + fracToNumber(writtenLength(note)), 0)
+  return { notes: notes.length, quarters }
 }

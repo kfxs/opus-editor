@@ -13,7 +13,7 @@ import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
-import { featherSelectedNote } from './fanStamp'
+import { featherSelectedNote, featherContext } from './fanStamp'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
 import { staffOf } from '@/utils/lanes'
@@ -1484,6 +1484,15 @@ export class PaletteController {
    * where the dialog put it, and the duration keys are free to go on meaning the next note.
    */
   armFanStamp(armed: ArmedFanStamp): void {
+    // ⭐⭐ A PASSAGE IS ALREADY THE GESTURE. Several notes selected means collapse them into one fan —
+    // his rule for the dialog, and the same act `pressFan` performs from the Keypad, so there is one
+    // collapse in the editor and one set of refusals (a rest inside, a gap, two bars, an existing
+    // fan). The dialog contributes the DIRECTION and nothing else: how many attacks and how long the
+    // gesture lasts are facts about what was selected, which is why the window greys those fields.
+    if (multipleNotesSelected(this.state.selectedItems.values())) {
+      this.pressFan(armed.direction)
+      return
+    }
     // ⭐ APPLY TO WHAT IS SELECTED, OTHERWISE ARM — the Time Signature window's shape, and his rule
     // for this one: one note selected means *"create the fan in the position of the note, with the
     // characteristics of the dialog and the pitch of the note"*. `featherSelectedNote` answers false
@@ -2261,6 +2270,16 @@ export class PaletteController {
     if (this.convertSelectionToRest()) return
     // (4) / (5) — …so the key arms the stamp instead, in either mode.
     this.armRestTool()
+  }
+
+  /**
+   * Push what the selection already answers about a FEATHER into {@link bus.fanStamp} — how many
+   * attacks a collapse would give it, and how long it would last. The Feathered Beam window shows
+   * those and refuses to let them be edited; only the direction stays live (his rule). Called on
+   * every state change by `keypadSync`, and the store de-dupes.
+   */
+  refreshFeatherContext(): void {
+    bus.fanStamp.setContext(featherContext(this.state, this.getEngine()))
   }
 
   /**

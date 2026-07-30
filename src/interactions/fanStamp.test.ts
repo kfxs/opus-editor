@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { stampFanAtClick, featherSelectedNote } from './fanStamp'
+import { stampFanAtClick, featherSelectedNote, featherContext } from './fanStamp'
 import { fracCreate as frac } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS } from '../utils/fannedBeam'
 
@@ -190,6 +190,36 @@ describe('stampFanAtClick', () => {
 
       expect(featherSelectedNote(state, engine, { ...ARMED, unit: 'w' }, render)).toBe(true)
       expect(engine.getNote(id)?.fan, 'the mark landed on the piece that kept the id').toBeTruthy()
+    })
+  })
+
+  /**
+   * ⭐ WHAT THE SELECTION ANSWERS — the numbers the dialog greys out and shows (his rule: with a
+   * passage selected, the attacks and the length are facts, not questions).
+   */
+  describe('featherContext', () => {
+    const select = (...ids: string[]) => {
+      state.selectedNoteId = ids[0] ?? null
+      state.selectedItems = new Map(ids.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
+    }
+
+    it('counts the notes and sums their written lengths', () => {
+      const ids = [0, 1, 2].map(k =>
+        engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(k, 2) })!.id)
+      select(...ids)
+      expect(featherContext(state, engine)).toEqual({ notes: 3, quarters: 1.5 })
+    })
+
+    it('⛔ counts NOTES only — a rest is not an attack', () => {
+      const note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const rest = engine.getScore().measures[0].slots.find(slot => slot.type === 'rest')!.id
+      select(note, rest)
+      expect(featherContext(state, engine).notes).toBe(1)
+    })
+
+    it('answers nothing for an empty selection or no engine', () => {
+      expect(featherContext(state, engine)).toEqual({ notes: 0, quarters: 0 })
+      expect(featherContext(state, null)).toEqual({ notes: 0, quarters: 0 })
     })
   })
 })

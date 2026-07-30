@@ -2,6 +2,8 @@ import type { WindowLayer } from './WindowLayer'
 import type { Window } from './Window'
 import type { NoteDuration } from '../types/music'
 import { bus } from '@/bus'
+import type { FanStampContext } from '@/bus'
+import { splitBeatsIntoLengths } from '@/utils/durations'
 import { Column, GroupBox, Row } from './content/layout'
 import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from './content/widgets'
 
@@ -23,9 +25,17 @@ import { Button, Checkbox, GlyphSelect, Label, NumberInput, RadioGroup } from '.
  * which the pointer carries a ghost NOTEHEAD of the value typed here, and one click writes the whole
  * gesture (`interactions/fanStamp`).
  *
- * ⚠️ A different act from the Keypad's `accel.`/`rit.` keys, which MARK notes that already exist
- * (and collapse a selected passage into one gesture). Two ways in, deliberately: this one is for the
- * feather you have not typed yet.
+ * ⭐ **AND WHAT OK DOES DEPENDS ON WHAT IS SELECTED** — one dialog, three acts, in his order:
+ *
+ *  - **a PASSAGE selected** → collapse it into one gesture. The notes ARE the attacks and their span
+ *    IS the length, so those two fields are greyed and merely report ({@link applyContext}); only
+ *    *Open* / *Close* is still a question. *"So the user just can select open or close."*
+ *  - **ONE note selected** → the feather lands on it, keeping its pitch and its place.
+ *  - **nothing selected** → the stamp arms, and the next click writes the gesture.
+ *
+ * The window does not decide which: it publishes the same sentence every time and
+ * `PaletteController.armFanStamp` resolves it against the selection. That is what keeps the three
+ * acts one behaviour rather than three code paths in a dialog that cannot see the score.
  */
 
 /** The written duration the attacks are squeezed into, DRAWN — a note value is a glyph, the same
@@ -76,6 +86,43 @@ export function openFeatherWindow(windows: WindowLayer): Window {
   const type = new RadioGroup(TYPES, { selected: 'accel', direction: 'column' })
 
   /**
+   * ⭐ SHOW WHAT THE SELECTION ANSWERS, AND REFUSE TO LET IT BE EDITED.
+   *
+   * With a passage selected the gesture is already decided: one attack per note, lasting exactly as
+   * long as they last. So the two fields report it and grey — *"number of notes and durations are
+   * forbidden, but somehow reflect the selection"* — and the direction is all that is left to choose.
+   *
+   * ⚠️ The length is an APPROXIMATION on purpose, and the field says so by being dead: seven
+   * sixteenths last 7/4 quarters and no single notehead spells that. `splitBeatsIntoLengths` is
+   * greedy longest-first, so its first piece is the nearest value this dialog can draw — *"just in
+   * case there is no duration in the menu to cover [it]"*. What the music gets is the passage's real
+   * span, which the collapse takes from the notes themselves, never from this field.
+   */
+  const applyContext = (context: FanStampContext): void => {
+    const passage = context.notes > 1
+    if (passage) {
+      count.setValue(context.notes)
+      const [nearest] = splitBeatsIntoLengths(context.quarters)
+      if (nearest) {
+        unit.setValue(nearest.duration)
+        unitDotted.setChecked(nearest.dots > 0)
+      }
+    }
+    count.setDisabled(passage)
+    unit.setDisabled(passage)
+    unitDotted.setDisabled(passage)
+  }
+
+  const stopContext = bus.fanStamp.onContext(applyContext)
+  /** Close, and stop listening — a window layer has no close hook, so the two go together here. The
+   *  selection can change while the dialog is up (a click behind it), and a stale subscription would
+   *  keep greying fields in a window that is gone. */
+  const dismiss = (): void => {
+    stopContext()
+    win?.close()
+  }
+
+  /**
    * Commit: ARM the feather for the next click, and get out of the way.
    *
    * The controls are read HERE, at click time, never captured — every one of them moves under this
@@ -89,7 +136,7 @@ export function openFeatherWindow(windows: WindowLayer): Window {
       dots: unitDotted.checked ? 1 : 0,
       direction: type.value as 'accel' | 'rit',
     })
-    win?.close()
+    dismiss()
   }
 
   win = windows.open({
@@ -101,7 +148,7 @@ export function openFeatherWindow(windows: WindowLayer): Window {
     // A dialog you summoned belongs where you are already looking, not on the cascade.
     center: true,
     resizable: false,
-    onCancel: () => win?.close(),
+    onCancel: dismiss,
     onAccept: accept,
     content: new Column(
       [
@@ -111,7 +158,7 @@ export function openFeatherWindow(windows: WindowLayer): Window {
         new Row([new Label('in the time of', { width: PHRASE_WIDTH }), unit, unitDotted], { gap: 6 }),
         new GroupBox('Type', [type]),
         // Cancel then OK, left to right, OK primary — the platform order.
-        new Row([new Button('Cancel', () => win?.close()), new Button('OK', accept, { variant: 'primary' })], {
+        new Row([new Button('Cancel', dismiss), new Button('OK', accept, { variant: 'primary' })], {
           gap: 8,
           align: 'end',
         }),
@@ -120,8 +167,14 @@ export function openFeatherWindow(windows: WindowLayer): Window {
     ),
   })
 
+  // AFTER open(): the widgets exist only once mounted, and greying one writes into its element.
+  // Read rather than awaited — a dialog is built after the selection was made, so the first context
+  // it needs has already been pushed.
+  applyContext(bus.fanStamp.getContext())
+
   // Opens ON the number, selected — the field the dialog exists to change. Typing 7 then Enter is
-  // then the whole interaction.
-  count.focus()
+  // then the whole interaction. ⛔ Not when the selection has answered it: focusing a dead field is
+  // an invitation to type into something that refuses, so the direction gets the keyboard instead.
+  if (bus.fanStamp.getContext().notes <= 1) count.focus()
   return win
 }

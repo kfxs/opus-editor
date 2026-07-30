@@ -375,6 +375,9 @@ export function wireKeypadSync(
     palette.refreshTremoloPairSelection()
     // …and the two feathered-beam keys beside them, engine-read for the same reason.
     palette.refreshFanSelection()
+    // …and what a selection already answers about a FEATHER — the Feathered Beam window greys those
+    // fields and shows them. Engine-read, so the palette pushes it, like every refresh above.
+    palette.refreshFeatherContext()
   }
   sync() // prime
 

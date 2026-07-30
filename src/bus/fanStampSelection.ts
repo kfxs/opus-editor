@@ -30,8 +30,30 @@ export interface ArmedFanStamp {
   direction: 'accel' | 'rit'
 }
 
+/**
+ * ⭐ **WHAT THE SELECTION ALREADY ANSWERS** — pushed the other way, for the dialog to show and to
+ * refuse editing.
+ *
+ * His rule for a MULTI-selection: *"number of notes and durations are forbidden (but somehow reflect
+ * the selection…) so the user just can select open or close"*. A passage of notes IS the gesture —
+ * how many attacks it has and how long it lasts are facts about what was selected, not choices — so
+ * the window greys those fields and shows them, and only the direction stays live.
+ *
+ * `quarters` is the passage's TOTAL length, which the window approximates to the nearest value it can
+ * draw: a run of seven sixteenths lasts 7/4 of a quarter and no single notehead spells it, which is
+ * exactly why the field is a report rather than an input.
+ */
+export interface FanStampContext {
+  /** How many NOTES are selected — 0 or 1 mean the dialog asks its own questions as usual. */
+  notes: number
+  /** Their total length in quarters, or 0 when there is nothing to measure. */
+  quarters: number
+}
+
 export class FanStampSelection {
   private listeners = new Set<(armed: ArmedFanStamp) => void>()
+  private contextListeners = new Set<(context: FanStampContext) => void>()
+  private context: FanStampContext = { notes: 0, quarters: 0 }
 
   /** The user asked for this feather. ALWAYS fires — re-choosing the armed one means "arm it again". */
   press(armed: ArmedFanStamp): void {
@@ -41,6 +63,25 @@ export class FanStampSelection {
   onPress(fn: (armed: ArmedFanStamp) => void): () => void {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
+  }
+
+  /** The editor's side: what is selected now. De-duped, since this fires on every state change and
+   *  a window that repaints on each one fights the user's own typing. */
+  setContext(context: FanStampContext): void {
+    if (context.notes === this.context.notes && context.quarters === this.context.quarters) return
+    this.context = context
+    for (const fn of this.contextListeners) fn(context)
+  }
+
+  /** What the selection says right now — read once when the window opens, since a dialog is built
+   *  after the selection was made. */
+  getContext(): FanStampContext {
+    return this.context
+  }
+
+  onContext(fn: (context: FanStampContext) => void): () => void {
+    this.contextListeners.add(fn)
+    return () => this.contextListeners.delete(fn)
   }
 }
 

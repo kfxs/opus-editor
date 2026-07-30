@@ -143,7 +143,7 @@ export const bus = createEditorBus()
 export type { ArmedClef } from './clefSelection'
 export type { ArmedTimeSignature } from './timeSignatureSelection'
 export type { ArmedTuplet } from './tupletSelection'
-export type { ArmedFanStamp } from './fanStampSelection'
+export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'

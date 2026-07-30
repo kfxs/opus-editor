@@ -115,9 +115,15 @@ pickup are three mutators and ONE act, wrapped in a `runBatch` so a dialog costs
 than three. Sharing it is the point: the click path and the selection path cannot drift, and neither
 can grow a step the other forgets.
 
-(⏭️ The **Clef** window still always arms. It should learn the same rule — the argument is identical
-— but a clef is anchored to a beat and a staff, not just a bar, so "the selected bar" is not the
-whole of its answer.)
+⭐ **The shape has since been copied, and it grew a third case.** Insert ▸ Feathered Beam (2026-07-30,
+docs/fanned-beams-plan.md §3d) applies to ONE selected note, COLLAPSES a selected passage into one
+gesture, and arms when nothing is selected — with the window publishing the same sentence every time
+and the controller resolving it against the selection. Same reason as here: a dialog that cannot see
+the score must not be the thing deciding what OK means.
+
+(⏭️ The **Clef** window still always arms. It should learn the same rule — the argument is identical,
+and there are now TWO worked examples — but a clef is anchored to a beat and a staff, not just a bar,
+so "the selected bar" is not the whole of its answer.)
 
 Three things travel with the armed meter, all of them properties of the change about to be made,
 none of which has anywhere else to wait until the target bar is known:

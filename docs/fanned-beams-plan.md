@@ -301,6 +301,44 @@ group" (docs/fan-collapse-plan.md), but a selection *containing a fan* cannot be
 into a fan is refused — so reading it that way made "turn these two round" do nothing at all. The
 collapse is offered only when NOTHING selected is a fan already.
 
+## 3d. ⭐⭐ THE THREE WAYS IN — and the Effect row leaving the dev shell (2026-07-30)
+
+A fan had one entry point when this plan was written: `accel.` / `rit.` on the dev toolbar, marking
+what was selected. There are three now, and they divide by **what you have selected when you ask**,
+not by which surface you asked from.
+
+| you have | what happens | who does it |
+|---|---|---|
+| a PASSAGE selected | it collapses into ONE gesture — the notes are the attacks, their span is the length | `collapseIntoFan`, through `pressFan` |
+| ONE note selected | the feather lands on it: its pitch, its place, the dialog's value/attacks/direction | `interactions/fanStamp.featherSelectedNote` |
+| nothing selected | the STAMP arms; the next click writes the gesture, ghosted as a bare notehead | `interactions/fanStamp.stampFanAtClick` |
+
+⭐ **Insert ▸ Feathered Beam (`Ctrl+F`) asks the same question in all three cases.** The window
+publishes one sentence — attacks, written value, direction — and `PaletteController.armFanStamp`
+resolves it against the selection. The dialog cannot see the score, which is exactly why the three
+acts stay one behaviour instead of three code paths in a window.
+
+⭐ **With a PASSAGE selected the first two fields are greyed and merely REPORT** (his rule: *"number
+of notes and durations are forbidden, but somehow reflect the selection… so the user just can select
+open or close"*). Attacks = the notes selected; the figure is the nearest value the dialog can DRAW
+(`splitBeatsIntoLengths`' first piece), because a run of seven sixteenths lasts 7/4 quarters and no
+notehead spells that — *"just in case there is no duration in the menu to cover it"*. The music gets
+the passage's real span, which the collapse reads off the notes; the field never feeds it. The seam is
+a second direction on `bus.fanStamp` (`setContext`/`onContext`), pushed by the palette on every state
+change like the other engine-read lights.
+
+⭐ **A value that does not fit goes through `updateNote`** — his call: *"the same as is done in stamp
+when the duration doesn't fit… it's a better solution and the user will fix it."* Overflow, the rests
+that fill what the slot vacates, the cross-barline split: one pipeline, no second rule.
+
+⛔ **And the dev shell's `Effect:` row is GONE.** Its own comment had declared it temporary and named
+its destination — *"the Keypad's Beams/Tremolos page is the obvious candidate … but that is a decision
+for after the numbers settle"* — and the numbers have settled: the Keypad's `accel.`/`rit.` keys call
+the very same `palette.pressFan(direction)` with the same lit rule (`fanHighlight`). Two buttons and
+one call site, duplicating a real surface. That is what `dev/` is for and what it is meant to shed.
+
+---
+
 ## 4. Deliberately NOT in this plan
 
 - **Per-note pitch** — ⏭️ now planned in **docs/fanned-beam-pitches-plan.md**. ⚠️ And the guess made
