@@ -2197,10 +2197,15 @@ export class VexFlowRenderer {
    * left, under the clef, on every system-opening bar.
    */
   private centerMeasureRests(voices: Voice[], stave: Stave): void {
-    // ⚠️ `noteStartOf`, not `getNoteStartX()` — the note area begins where the INK does, 12 px
-    //    further right (see that helper). Centring on the stave's own answer put every measure rest
-    //    6 px left of the area the registry reports, which is the offset this pass exists to remove.
-    const areaCenter = (noteStartOf(stave) + stave.getNoteEndX()) / 2
+    // ⚠️ **`getNoteStartX()` and NOT `noteStartOf`, and the difference is 6 px of visible error.**
+    //    `noteStartOf` is where a NOTE's ink begins — it carries the `Stave.padding` every note gets
+    //    — and centring on it put every measure rest **0.65 staff spaces right of its own bar**,
+    //    which he spotted by eye within a day. The bound that matters here is the stave's own start:
+    //    `applyLeadIn` sets it to the barline for a headerless bar, so this is dead centre between
+    //    the barlines, which is what a reader judges a whole-bar rest against. On a bar that DOES
+    //    draw a header it is the far side of the clef and meter, which is the case this pass has
+    //    always been for — a rest centred between the barlines there would sit under the clef.
+    const areaCenter = (stave.getNoteStartX() + stave.getNoteEndX()) / 2
     for (const voice of voices) {
       for (const tickable of voice.getTickables()) {
         if (!tickable.isCenterAligned()) continue

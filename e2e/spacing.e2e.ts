@@ -437,3 +437,41 @@ test('⭐⭐ the SAME DURATION is drawn the same width across a system', async (
   expect(drawn[0].quarter / midLine[0].quarter, 'the opening bar, still carrying the header gap')
     .toBeLessThan(1.06)
 })
+
+test('⭐ a whole-bar REST is centred between its own barlines', async ({ score }) => {
+  // His report, by eye: *"in empty bars the rest… seems to me slightly to the right"*. He was right,
+  // and by 0.65 staff spaces — six and a half pixels, on a bar with a line at each end.
+  //
+  // ⭐ The cause was one word. `centerMeasureRests` centred on `noteStartOf(stave)`, which is where a
+  //   NOTE's ink begins and therefore carries the `Stave.padding` VexFlow adds to every note; the
+  //   bound a reader actually judges a whole-bar rest against is the barline. `getNoteStartX()` is
+  //   that — `applyLeadIn` sets it to the bar's own x when there is no header to sit after.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 6) h.engine.addMeasure()
+    await h.render()
+    const staves = h.staves()
+    const space = (staves[0].bottom - staves[0].top) / 4
+    const rests = h.rests()
+    return staves.slice(0, 5).map(stave => {
+      const rest = rests.find(glyph => glyph.x > stave.x1 && glyph.x < stave.x2)!
+      // ⚠️ `inkSizes` is a text layout box, so its WIDTH is used as a size and never as a position —
+      //    which is exactly what centring needs (half a glyph), and why it is safe here.
+      const box = h.inkSizes('g.vf-notehead text').find(b => b.x > stave.x1 && b.x < stave.x2)!
+      const centre = rest.x + box.width / 2
+      return { measure: stave.measure, off: (centre - (stave.x1 + stave.x2) / 2) / space }
+    })
+  })
+
+  console.log(`[census] measure rests, off the bar's centre: ${drawn.map(b => b.off.toFixed(2)).join(' ')}`)
+
+  // ⭐ Every bar that draws no header: dead centre, to within a pixel.
+  for (const bar of drawn.filter(b => b.measure > 1)) {
+    expect(Math.abs(bar.off), `bar ${bar.measure} is centred`).toBeLessThan(0.1)
+  }
+
+  // ⏭️ And bar 1 is NOT, deliberately: it centres in the room left after its clef and meter, which is
+  //    what Gould describes and what this pass has always done. Centring it between the barlines
+  //    would put the rest under the clef.
+  expect(drawn[0].off, 'the system-opening bar centres after its header').toBeGreaterThan(2)
+})

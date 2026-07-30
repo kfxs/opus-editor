@@ -19,6 +19,9 @@ import { fracCreate } from '@/utils/fraction'
 import { MIN_COLUMN_GAP } from './layout/spacingPadding'
 import { STAFF_SPACE_PX } from './models/staffSize'
 import { SKETCH_CANVAS } from './layout/surface'
+
+/** VexFlow's `Stave.padding`: in every note's `getAbsoluteX` and in no stave's `getNoteStartX`. */
+const STAVE_PADDING_PX = 12
 import type { NoteParams } from '@/types/music'
 
 const STEP_PX = 10
@@ -355,10 +358,17 @@ describe('shrinking an EMPTY bar', () => {
     // ANCHOR against the area centre. That is still exactly what the fix moves, and the offset it
     // corrects has no glyph-width term in it — but it does mean a browser is what proves the glyph
     // itself looks centred.
+    // ⚠️ Measured against the BAR — its own two barlines — and not against the registry's note area.
+    //    Those differ by `Stave.padding`, and centring on the note area is what put every measure
+    //    rest 0.65 staff spaces right of its bar until he caught it by eye. What a reader judges a
+    //    whole-bar rest against is the space between the lines either side of it.
     const offset = (m: number): number => {
-      const g = engine.getElementRegistry().getStaffGeometry(m, 0)!
+      // The bar's own span — barline to barline. `noteStartX` would be the note AREA, which is a
+      // `Stave.padding` narrower on the left and is exactly the thing that was off.
+      const geo = engine.getElementRegistry().getStaffGeometry(m, 0)!
+      const bounds = { measureX: geo.noteStartX - STAVE_PADDING_PX, measureWidth: geo.noteEndX - geo.noteStartX + STAVE_PADDING_PX }
       const rest = engine.getElementRegistry().getByMeasure(m).find(e => e.type === 'rest')!
-      return (rest.bbox.x + rest.bbox.width / 2) - (g.noteStartX + g.noteEndX) / 2
+      return (rest.bbox.x + rest.bbox.width / 2) - (bounds.measureX + bounds.measureWidth / 2)
     }
     const wide = width(3)
     expect(offset(3)).toBeCloseTo(0, 6)
