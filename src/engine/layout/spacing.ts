@@ -33,13 +33,23 @@
 import type { Fraction } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
 
-/** The rule, as two numbers. One instance for the WHOLE SCORE — see {@link GOULD_SPACING}. */
-export interface SpacingRule {
-  /** Staff spaces an ordinary quarter earns. Gould's 3½. */
-  quarterSpace: number
-  /** How much more space a doubled duration earns. √2 — Gould's table, Dorico's default. */
-  ratio: number
-}
+/**
+ * The rule. **One instance for the WHOLE SCORE** — see {@link DEFAULT_SPACING}.
+ *
+ * A union of two SHAPES, not of two contexts: the engines do not merely disagree about a constant,
+ * they disagree about the kind of curve (research §2). Dorico, MuseScore, Verovio and Finale all use
+ * a **power** law — each doubling MULTIPLIES the space; LilyPond uses a **log** law — each doubling
+ * ADDS a fixed amount. That difference is not cosmetic: it sets how far apart the shortest and
+ * longest notes on a page may be, which is the thing a reader of dense music actually feels.
+ */
+export type SpacingRule =
+  /** `quarterSpace × t^log₂(ratio)` — Gould read as Dorico reads her. */
+  | { law: 'power'; quarterSpace: number; ratio: number }
+  /**
+   * LilyPond's: `(2 + log₂(t / shortest)) × base` above `shortest`, and a LINEAR
+   * `(1 + t / shortest) × base` below it — `lily/spacing-options.cc`, `get_duration_space`.
+   */
+  | { law: 'log'; base: number; shortest: number }
 
 /**
  * The default rule: **3.5 staff spaces for a quarter, ×√2 per doubling.**
@@ -62,14 +72,45 @@ export interface SpacingRule {
  * tolerance loose enough to swallow them. The ratio is the knob if it reads wrong by eye; it is one
  * field for the whole score, never a second rule for one gesture.
  */
-export const GOULD_SPACING: SpacingRule = { quarterSpace: 3.5, ratio: Math.SQRT2 }
+export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, ratio: Math.SQRT2 }
 
 /**
- * The space that FOLLOWS an event of this duration, in staff spaces — `quarterSpace × t^log₂(ratio)`.
+ * ⭐⭐ **THE DEFAULT — LilyPond's, his call: *"in general we should approximate to LilyPond as much
+ * as possible."*** `(2 + log₂(t / ♪)) × 1.2` staff spaces, linear below the eighth.
  *
- * ⚠️ `quarters` is ALREADY in quarters, so there is no `/ ¼` term to write: the unit of the argument
- * IS the quarter, and dividing by one would space a quarter at `3.5 × √4 = 7`. The prose name of the
- * rule ("3.5 spaces × √(duration / quarter)") is right; the code is `quarters ** log2(ratio)`.
+ * Reported by eye against the √2 curve above: *"dense passages seem too tight to me, LilyPond
+ * numbers sound better."* He is reading a real property — the two laws differ most in their
+ * **dynamic range**, the ratio between the longest note on a page and the shortest:
+ *
+ * | | 𝅘𝅥𝅰 | 𝅘𝅥𝅯 | ♪ | ♩ | 𝅗𝅥 | 𝅝 | 𝅝 ÷ 𝅘𝅥𝅰 |
+ * |---|---|---|---|---|---|---|---|
+ * | Gould | – | 2 | 2¼ | 3½ | 5 | 7 | – |
+ * | power, √2 | 1.24 | 1.75 | 2.47 | 3.50 | 4.95 | 7.00 | **5.6** |
+ * | **log (this)** | **1.50** | **1.80** | **2.40** | **3.60** | **4.80** | **6.00** | **4.0** |
+ *
+ * A log law compresses the long end hard and holds the short end open, so dense music keeps a much
+ * larger share of a line. That is exactly the complaint, answered.
+ *
+ * ⚠️ **And it is FURTHER from Gould overall**, which is worth saying plainly since she is what the
+ * model was anchored on: mean absolute error against her eight values goes from 4.1% to 7.0%. It is
+ * closer on the two shortest (16th −10% vs −12.5%, 8th +6.7% vs +10%) and worse on the two longest
+ * (dotted half −8.3%, whole −14.3%). Both are defensible houses; this is the one he chose.
+ *
+ * ⭐ **`shortest` is a FIXED reference, not "the shortest note in the system".** LilyPond's
+ * `common-shortest-duration` is a *setting* that defaults to an eighth, which is what keeps this an
+ * ABSOLUTE anchor — the property §1.1 of the plan insisted on, and what spares us MuseScore's *"every
+ * time a measure joins the system, re-lay out every previous measure"* loop.
+ */
+export const LILYPOND_SPACING: SpacingRule = { law: 'log', base: 1.2, shortest: 0.5 }
+
+/** The rule in force. ⭐ ONE for the whole score — never a per-context or per-gesture variant. */
+export const DEFAULT_SPACING: SpacingRule = LILYPOND_SPACING
+
+/**
+ * The space that FOLLOWS an event of this duration, in staff spaces.
+ *
+ * ⚠️ `quarters` is ALREADY in quarters, so there is no `/ ¼` term to write for the power law: the
+ * unit of the argument IS the quarter, and dividing by one would space a quarter at `3.5 × √4 = 7`.
  *
  * ⭐ **No floor here, on purpose.** Gould's table flattens at the bottom and the temptation is a
  * `minFollowing` constant. It is not needed: at the very short end the flattening IS the notehead
@@ -79,10 +120,15 @@ export const GOULD_SPACING: SpacingRule = { quarterSpace: 3.5, ratio: Math.SQRT2
  * ⭐ **Rests are notes.** One curve, no rest branch. What differs about a rest is its *extent* and
  * its padding to a barline, both of which are the other half's business.
  */
-export function followingSpace(quarters: Fraction, rule: SpacingRule = GOULD_SPACING): number {
+export function followingSpace(quarters: Fraction, rule: SpacingRule = DEFAULT_SPACING): number {
   const t = fracToNumber(quarters)
   if (t <= 0) return 0
-  return rule.quarterSpace * t ** Math.log2(rule.ratio)
+  if (rule.law === 'power') return rule.quarterSpace * t ** Math.log2(rule.ratio)
+  // LilyPond's, `lily/spacing-options.cc`. ⚠️ The LINEAR branch below `shortest` is the whole reason
+  // the curve does not collapse at the dense end: a log law alone reaches zero at `shortest / 4` and
+  // goes negative below it, which is why LilyPond stops using it there rather than flooring it.
+  const ratio = t / rule.shortest
+  return (ratio < 1 ? 1 + ratio : 2 + Math.log2(ratio)) * rule.base
 }
 
 /** The ink either side of a column's notehead, in staff spaces from the head's own x. */
@@ -174,7 +220,7 @@ const naturalLength = (gap: Gap): number => gap.rigid + Math.max(gap.spring, gap
  * casting-off in place of `max(vexflowInk × 1.15, columns × MIN_NOTE_SPACING)`. Include the barline
  * as the last column and it is the whole bar less its header.
  */
-export function naturalWidth(columns: Column[], rule: SpacingRule = GOULD_SPACING): number {
+export function naturalWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPACING): number {
   return gapsBetween(columns, rule).reduce((total, gap) => total + naturalLength(gap), 0)
 }
 
@@ -186,7 +232,7 @@ export function naturalWidth(columns: Column[], rule: SpacingRule = GOULD_SPACIN
  * casting-off needs to know before it decides how many bars fit on a line — and what stops a cap
  * like `MAX_MEASURE_WIDTH` from clamping a bar that genuinely cannot be narrower.
  */
-export function minimumWidth(columns: Column[], rule: SpacingRule = GOULD_SPACING): number {
+export function minimumWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPACING): number {
   return gapsBetween(columns, rule).reduce((total, gap) => total + gap.rigid + gap.floor, 0)
 }
 
@@ -213,7 +259,7 @@ export function minimumWidth(columns: Column[], rule: SpacingRule = GOULD_SPACIN
 export function spaceColumns(
   columns: Column[],
   targetWidth: number,
-  rule: SpacingRule = GOULD_SPACING,
+  rule: SpacingRule = DEFAULT_SPACING,
 ): number[] {
   if (columns.length === 0) return []
   const gaps = gapsBetween(columns, rule)

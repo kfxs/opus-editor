@@ -320,21 +320,28 @@ describe('shrinking an EMPTY bar', () => {
     const emptyBefore = width(3)
     const busyBefore = width(1)
 
-    // Two presses, while the line still holds the same bars: the empty bar gives room back and the
-    // bar with music takes it. THAT transfer is the feature, and it is what a share proportional to
-    // a lowered claim buys.
-    for (let i = 0; i < 2; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
+    // ONE press, while the line still holds the same bars: the empty bar gives room back and the bar
+    // with music takes it. THAT transfer is the feature, and it is what a share proportional to a
+    // lowered claim buys.
+    //
+    // ⚠️ One and not two, and the count is not arbitrary — it is how much room the line has spare
+    //    before another bar fits on it. It has moved twice as the spacing model landed (three
+    //    presses, then two, now one) because the model keeps changing how wide a bar of music is.
+    //    The number is a property of THIS fixture, never of the feature; the paragraph below is what
+    //    the feature actually promises.
+    engine.nudgeBarWidth(3, -10)
+    engine.renderScore()
     expect(width(3), 'the empty bar stood down').toBeLessThan(emptyBefore)
     expect(width(1), 'and the bar with music took the room').toBeGreaterThan(busyBefore)
 
-    // ⚠️ Keep pressing and bar 1 comes back DOWN — because at the third press the room given up is
-    // enough for an EIGHTH bar to join the line, and eight bars share what seven had. That is
-    // casting-off doing its job, not the transfer failing, and it is new only in scale: the spacing
-    // model made a bar of music ask for Gould's 3½ spaces a quarter instead of the flat floor's 1.8,
-    // so a 900px line holds seven bars where it used to hold nine, and a re-cast is now two presses
-    // away instead of never. The empty bar's own gesture is unaffected — it goes on shrinking to its
-    // floor, and lands at ~35% of where it started, comfortably past the 0.7 the complaint was about
-    // (the reserved-space model this replaced could manage about 6%).
+    // ⚠️ Keep pressing and bar 1 comes back DOWN — because the room given up is soon enough for an
+    // EIGHTH bar to join the line, and eight bars share what seven had. That is casting-off doing its
+    // job, not the transfer failing, and it is new only in scale: the spacing model made a bar of
+    // music ask for the room its durations earn instead of a flat 1.8 spaces an event, so a 900px
+    // line holds seven bars where it used to hold nine and a re-cast is a press or two away instead
+    // of never. The empty bar's own gesture is unaffected — it goes on shrinking to its floor and
+    // lands at ~28% of where it started, comfortably past the 0.7 the complaint was about (the
+    // reserved-space model this replaced could manage about 6%).
     for (let i = 0; i < 10; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
     expect(width(3)).toBeLessThan(emptyBefore * 0.7)
   })

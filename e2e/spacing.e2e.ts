@@ -9,11 +9,14 @@ import type { BarSpacing } from './harness'
  * plan, and **P3 added the ink**: every assertion below now has Gould's answer where it used to have
  * a constant's.
  *
- * | fixture | room, before | room, after | Gould wants |
+ * | fixture | room, before | room, after | the rule wants |
  * |---|---|---|---|
- * | 16 × 𝅘𝅥𝅯 | 32.2 (`MAX_MEASURE_WIDTH`, to the pixel) | 30.1 | 2× the quarters |
- * | 8 × ♪ | 26.1 (ink, counting flags never drawn) | 20.1 | 1.41× the quarters |
- * | 4 × ♩ | 8.3 (`MIN_MEASURE_WIDTH`, to the pixel) | 14.3 | — |
+ * | 16 × 𝅘𝅥𝅯 | 32.2 (`MAX_MEASURE_WIDTH`, to the pixel) | 30.0 | 2× the quarters |
+ * | 8 × ♪ | 26.1 (ink, counting flags never drawn) | 19.2 | 4/3 × the quarters |
+ * | 4 × ♩ | 8.3 (`MIN_MEASURE_WIDTH`, to the pixel) | 14.4 | — |
+ *
+ * ⚠️ The rule is **LilyPond's**, his call by eye — a log law, so each doubling adds 1.2 staff spaces
+ * rather than multiplying by √2. See `engine/layout/spacing.ts` for the two curves side by side.
  *
  * The last three tests are P3's: the ink is a MINIMUM under the rule (so a sharpened quarter is
  * spaced exactly like a bare one, and a sharpened 16th is not), the BARLINE is a column with a pair
@@ -75,10 +78,9 @@ test('a DENSE bar: sixteen 16ths, and the CEILING no longer decides it', async (
   //   Under the compressed curve a dense bar asks for less than the cap on its own.
   expect(dense.width, 'the bar sits under the cap of its own accord').toBeLessThan(MAX_BAR)
 
-  // Sixteen 16ths of one duration: the curve gives each 1.75 spaces and the ink asks for 1.43, so
-  // here the RULE is the wider of the two and the ink is a floor under the water. (It surfaces two
-  // durations down: a 32nd earns 1.24, and then the notehead is what decides — plan §1.1's "at the
-  // very short end the flattening IS the notehead showing through".)
+  // Sixteen 16ths of one duration: the curve gives each 1.8 spaces and the ink asks for 1.43, so
+  // here the RULE is the wider of the two and the ink is a floor under the water. Under LilyPond's
+  // curve it stays under: a 32nd earns 1.5 and only a 64th (1.35) lets the notehead show through.
   for (const gap of noteGaps(dense)) {
     expect(gap, 'a 16th sits near the short end of the table').toBeGreaterThan(1.7)
     expect(gap).toBeLessThan(2.2)
@@ -105,12 +107,12 @@ test('⭐ a SPARSE bar: four quarters, and a quarter is now Gould\'s 3½ spaces'
   //    until P4, and it hands the run-out to the barline less than it hands a note. The ROOM is the
   //    rule's; the split inside it is not yet.
   for (const gap of noteGaps(sparse)) {
-    expect(gap, 'a quarter is drawn at about Gould\'s 3½ spaces').toBeGreaterThan(GOULD_QUARTER * 0.9)
+    expect(gap, 'a quarter is drawn at about 3½ spaces').toBeGreaterThan(GOULD_QUARTER * 0.9)
     expect(gap).toBeLessThan(GOULD_QUARTER * 1.3)
   }
 })
 
-test('⭐⭐ the DEFECT UNDONE: the longer note gets the wider gap, in Gould\'s ratios', async ({ score }) => {
+test('⭐⭐ the DEFECT UNDONE: the longer note gets the wider gap, in the RULE\'s ratios', async ({ score }) => {
   const census = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addMeasure()
@@ -137,17 +139,22 @@ test('⭐⭐ the DEFECT UNDONE: the longer note gets the wider gap, in Gould\'s 
   // ⭐⭐ THE headline. It measured 0.58 before — the shorter note was drawn WIDER, because an
   //     unbeamed eighth carries a flag at width time and ink was the only quantity that varied.
   //     Gould has the quarter 1.56× the eighth; the curve gives √2 = 1.41 and the drawing agrees.
-  // ⭐⭐ P4: the drawn ratio is now the RULE's, not an approximation of it. It measured 0.58 before
-  //     the model (the shorter note drawn WIDER, on the strength of a flag that is never emitted),
-  //     1.51 after P2 — VexFlow's softmax still doing the split inside each bar — and √2 once the
-  //     renderer places the columns itself.
-  const ratio = noteGaps(quarters)[0] / noteGaps(eighths)[0]
-  expect(ratio, 'a quarter is exactly √2 of an eighth — the rule, drawn').toBeCloseTo(Math.SQRT2, 2)
+  // ⭐⭐ The drawn ratio is the RULE's now, not an approximation of it. It measured 0.58 before the
+  //     model — the shorter note drawn WIDER, on the strength of a flag that is never emitted.
+  //     ⚠️ 1.5, not √2: the rule that ships is LilyPond's log law, where each doubling ADDS 1.2
+  //     staff spaces rather than multiplying, so 3.6 ÷ 2.4 = 1.5 here and 2.4 ÷ 1.8 = 1.33 one
+  //     step down. A power law would give the same number at every step; a log law does not, and
+  //     that is precisely what keeps dense music from being squeezed (`spacing.ts`).
+  expect(noteGaps(quarters)[0], 'LilyPond\'s quarter').toBeCloseTo(3.6, 1)
+  expect(noteGaps(eighths)[0], '…and its eighth').toBeCloseTo(2.4, 1)
+  // ⚠️ Within 4% rather than to the hundredth: this bar OPENS the system, so it carries the clef
+  //    and meter and takes a slightly larger justified share than the two mid-line bars do.
+  expect(noteGaps(sixteenths)[0] / 1.8, '…and its 16th').toBeCloseTo(1, 1)
 
   // ⭐ And the bar's ROOM says the same thing, which is the half P2 actually owns. Four times the
   //   events is TWICE the room — Gould's answer — where it measured 3.9× before, i.e. ∝ event count.
   expect(room(sixteenths) / room(quarters), 'sixteen 16ths take twice four quarters').toBeCloseTo(2, 0)
-  expect(room(eighths) / room(quarters), 'and eight eighths take √2 of them').toBeCloseTo(Math.SQRT2, 1)
+  expect(room(eighths) / room(quarters), 'and eight eighths take 4/3 of them').toBeCloseTo(4 / 3, 1)
 
   // Neither end is decided by a constant any more.
   expect(sixteenths.width, 'no longer pinned at MAX_MEASURE_WIDTH').toBeLessThan(MAX_BAR)

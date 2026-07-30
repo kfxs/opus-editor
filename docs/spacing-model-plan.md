@@ -65,7 +65,45 @@ Verovio are all built the same way:
 The two are **added, never conflated**, and combined with a `max`: the duration gives the *ideal*
 gap, the ink gives the *minimum* one, and the wider of the two wins.
 
-### 1.1 The curve: `space = 3.5 spaces × √(duration / quarter)`
+### 1.0 ⭐⭐ THE CURVE THAT SHIPS IS **LILYPOND'S** — changed 2026-07-30, his call
+
+Everything in §1.1 below is the √2 power law the model was built on, and it is still in the code as
+`GOULD_SPACING`. It is no longer the default. Reported by eye once P4 landed: *"dense passages seem
+too tight to me, LilyPond numbers sound better"*, and then the standing preference — *"in general we
+should approximate to LilyPond as much as possible."*
+
+**LilyPond's law is a different SHAPE, not a different constant** (research §2, `lily/spacing-options.cc`):
+
+```
+s = (2 + log₂(t / ♪)) × 1.2 spaces        …for t ≥ an eighth
+s = (1 + t / ♪) × 1.2 spaces              …below it — a LINEAR branch, not a floor
+```
+
+Each doubling **adds** 1.2 staff spaces where a power law **multiplies**. That is the whole
+difference, and it is what he was reading:
+
+| | 𝅘𝅥𝅰 | 𝅘𝅥𝅯 | ♪ | ♩ | 𝅗𝅥 | 𝅝 | 𝅝 ÷ 𝅘𝅥𝅰 |
+|---|---|---|---|---|---|---|---|
+| Gould | – | 2 | 2¼ | 3½ | 5 | 7 | – |
+| power, √2 | 1.24 | 1.75 | 2.47 | 3.50 | 4.95 | 7.00 | **5.6** |
+| **log (ships)** | **1.50** | **1.80** | **2.40** | **3.60** | **4.80** | **6.00** | **4.0** |
+
+⭐ The **dynamic range** — longest ÷ shortest — falls from 5.6 to 4.0, so dense music keeps a far
+larger share of a line. And the ink floor stops binding at the 32nd (the curve now gives it 1.50
+against the notehead's 1.43); it takes over at the 64th, which is a better place for it.
+
+⚠️ **It is FURTHER from Gould overall, and that is worth saying plainly** since she is what the model
+was anchored on: mean absolute error over her eight values goes from **4.1% to 7.0%**. LilyPond is
+the closer of the two on the 16th and the 8th — the values he was looking at — and worse on the
+dotted half (−8.3%) and the whole (−14.3%). Both are defensible houses. ⛔ Neither the shape of the
+model nor anything else in this plan changed: it is one field, `SpacingRule`, now a union of two
+laws, and `spacing.test.ts` holds both to their own published tables.
+
+⭐ **`shortest` stays an ABSOLUTE reference** (a fixed eighth, LilyPond's own default for
+`common-shortest-duration`), so §1.1's argument against a relative anchor still holds in full — we
+never write MuseScore's *"re-lay out every previous measure"* loop.
+
+### 1.1 The curve the model was built on: `space = 3.5 spaces × √(duration / quarter)`
 
 Anchored on Gould's own number (3½ spaces per quarter), with the ratio √2 ≈ **1.4142 per doubling**.
 Justified in the research doc: it is Dorico's published default read as what it actually is, it is

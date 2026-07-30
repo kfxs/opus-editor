@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
-import { naturalWidth } from './spacing'
+import { followingSpace, naturalWidth } from './spacing'
 import { measureColumns } from './measureColumns'
 import { INK, MIN_COLUMN_GAP, pairPadding } from './spacingPadding'
 import type { Measure, NoteParams } from '@/types/music'
@@ -138,12 +138,13 @@ describe('the width these columns ask for', () => {
     // (docs/spacing-model-research.md §6, where it measured 3.9 on the page).
     const quarters = asks(evenBar(4, 'q'))
     const sixteenths = asks(evenBar(16, '16'))
-    expect(quarters, 'four quarters at Gould\'s 3½ spaces each').toBeCloseTo(14, 6)
-    // Fifteen gaps of the curve's 1.75, and then the BARLINE gap, which the ink wins: a notehead
+    // LilyPond's quarter is 3.6 spaces (Gould's 3½ + 3%) — see `spacing.ts`'s LILYPOND_SPACING.
+    expect(quarters, 'four quarters at LilyPond\'s 3.6 spaces each').toBeCloseTo(14.4, 6)
+    // Fifteen gaps of the curve's 1.8, and then the BARLINE gap, which the ink wins: a notehead
     // plus note↔barline is 2.13, wider than a 16th earns. ⭐ That extra 0.38 is the whole point of
     // making the barline a column — it is what stops the last 16th of a dense bar sitting 0.6
     // spaces from the line, which is where `BARLINE_PADDING` used to leave it.
-    expect(sixteenths).toBeCloseTo(15 * 1.75 + INK.notehead + 1.0, 6)
+    expect(sixteenths).toBeCloseTo(15 * 1.8 + INK.notehead + 1.0, 6)
     expect(sixteenths / quarters).toBeCloseTo(2, 1)
   })
 
@@ -151,8 +152,8 @@ describe('the width these columns ask for', () => {
     // On the page before P2: an eighth was drawn 3.36 staff spaces and a quarter 1.94, because an
     // unbeamed eighth carries a flag at width time and ink was the only quantity that varied.
     const perGap = (model: ScoreModel, gaps: number) => asks(model) / gaps
-    expect(perGap(evenBar(4, 'q'), 4)).toBeCloseTo(3.5, 6)
-    expect(perGap(evenBar(8, '8'), 8)).toBeCloseTo(2.475, 3)
+    expect(perGap(evenBar(4, 'q'), 4)).toBeCloseTo(3.6, 6)
+    expect(perGap(evenBar(8, '8'), 8)).toBeCloseTo(2.4, 3)
     expect(perGap(evenBar(4, 'q'), 4)).toBeGreaterThan(perGap(evenBar(8, '8'), 8))
   })
 
@@ -257,19 +258,21 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
       sharpened.updateNote(note.id, { alter: 1, forceAccidental: true })
     }
     expect(asks(sharpened)).toBeCloseTo(asks(plain), 6)
-    expect(asks(plain)).toBeCloseTo(14, 6)
+    expect(asks(plain)).toBeCloseTo(14.4, 6)
   })
 
-  it('…and it BINDS where the rule runs out: thirty-seconds stop at the notehead', () => {
-    // `followingSpace(1/8)` is 1.24 spaces, under the 1.43 two noteheads need. So the floor takes
-    // over at the 32nd and below — exactly where plan §1.1 predicts, and for the reason it gives:
-    // "at the very short end the flattening IS the notehead showing through".
+  it('…and it BINDS only below the 32nd — LilyPond\'s curve holds the short end open', () => {
+    // ⭐ The floor used to bite AT the 32nd: the √2 curve gives one 1.24 spaces, under the 1.43 two
+    //   noteheads need. LilyPond's linear branch gives it **1.50**, so the curve wins and the ink
+    //   sits underneath — which is exactly the change he asked for by eye. A 64th, at 1.35, is where
+    //   the notehead starts showing through instead.
     const gaps = columnsOf(evenBar(32, '32'))
-    // Every note-to-note gap is the floor; the run-out to the barline is its own, wider, question.
     for (const [i, column] of gaps.slice(0, 31).entries()) {
-      expect(naturalWidth([column, gaps[i + 1]])).toBeCloseTo(MIN_COLUMN_GAP, 6)
+      expect(naturalWidth([column, gaps[i + 1]]), 'the curve, not the floor').toBeCloseTo(1.5, 6)
     }
-    expect(MIN_COLUMN_GAP).toBeCloseTo(1.43, 6)
+    expect(MIN_COLUMN_GAP, 'the floor is still there, just no longer the binding term')
+      .toBeCloseTo(1.43, 6)
+    expect(followingSpace(frac(1, 16)), 'a 64th is where it takes over').toBeLessThan(MIN_COLUMN_GAP)
   })
 })
 
@@ -306,8 +309,8 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
     expect(gap(run('C', 4)), 'wider than the ledger line itself').toBeGreaterThan(LEDGER_WIDTH)
     expect(gap(run('C', 4)), 'a ledger, its pair padding, and the next ledger\'s overhang')
       .toBeCloseTo(1.5 + 0.35 + 0.3, 6)
-    expect(gap(run('B', 4)), 'a bare run is unaffected — it stays at the notehead floor')
-      .toBeCloseTo(MIN_COLUMN_GAP, 6)
+    expect(gap(run('B', 4)), 'a bare run is unaffected — it stays on the curve')
+      .toBeCloseTo(1.5, 6)
   })
 
   it('⚠️ the CLEF decides it — the same notes, read differently, need different room', () => {

@@ -6,6 +6,7 @@ import {
   spaceColumns,
   plainColumn,
   GOULD_SPACING,
+  LILYPOND_SPACING,
   NO_EXTENT,
   type Column,
   type SpacingRule,
@@ -23,7 +24,7 @@ import {
 /** One quarter, and the fractions Gould's table is written over. */
 const q = (num: number, den: number) => fracCreate(num, den)
 
-describe('followingSpace — Gould\'s table is the contract', () => {
+describe('followingSpace — the POWER law, where Gould\'s table is the contract', () => {
   /**
    * *Behind Bars* p. 39, the whole table, in staff spaces — and beside each, what `3.5 × √t` gives.
    *
@@ -48,7 +49,7 @@ describe('followingSpace — Gould\'s table is the contract', () => {
 
   for (const { name, quarters, ours } of GOULD) {
     it(`a ${name} earns ${ours} staff spaces`, () => {
-      expect(followingSpace(q(quarters[0], quarters[1]))).toBeCloseTo(ours, 2)
+      expect(followingSpace(q(quarters[0], quarters[1]), GOULD_SPACING)).toBeCloseTo(ours, 2)
     })
   }
 
@@ -56,7 +57,7 @@ describe('followingSpace — Gould\'s table is the contract', () => {
     // ⚠️ "Within 1%" as both docs put it is the ROUNDED reading: the worst of the five is 1.04%
     // (the dotted half at +1.036%, the dotted 8th at +1.037%, the half at −1.005%). Two are exact.
     // Pinned at the real number, because a spec that rounds is a spec that can drift.
-    const agrees = GOULD.filter(row => Math.abs(followingSpace(q(...row.quarters)) / row.gould - 1) <= 0.0105)
+    const agrees = GOULD.filter(row => Math.abs(followingSpace(q(...row.quarters), GOULD_SPACING) / row.gould - 1) <= 0.0105)
     expect(agrees.map(row => row.name)).toEqual([
       'dotted 8th', 'quarter', 'half', 'dotted half', 'whole',
     ])
@@ -65,7 +66,7 @@ describe('followingSpace — Gould\'s table is the contract', () => {
   it('and misses the other three by exactly this much — the fit, stated', () => {
     const error = (name: string) => {
       const row = GOULD.find(entry => entry.name === name)!
-      return Math.round((followingSpace(q(row.quarters[0], row.quarters[1])) / row.gould - 1) * 1000) / 10
+      return Math.round((followingSpace(q(row.quarters[0], row.quarters[1]), GOULD_SPACING) / row.gould - 1) * 1000) / 10
     }
     expect(error('16th'), 'tight at the short end, where the INK will lift it').toBe(-12.5)
     expect(error('8th'), 'generous — and no floor can push a value DOWN, so this is the curve').toBe(10)
@@ -75,22 +76,22 @@ describe('followingSpace — Gould\'s table is the contract', () => {
   it('is anchored on the QUARTER: 3.5 spaces, and the argument is already in quarters', () => {
     // ⚠️ The trap this pins: an earlier draft read `(quarters / ¼) ** …`, which is 4t — a quarter
     //    would have earned 3.5 × √4 = 7 spaces and every number above would be doubled.
-    expect(followingSpace(q(1, 1))).toBe(GOULD_SPACING.quarterSpace)
-    expect(followingSpace(q(4, 1))).toBeCloseTo(2 * GOULD_SPACING.quarterSpace, 9)
+    expect(followingSpace(q(1, 1), GOULD_SPACING)).toBe(3.5)
+    expect(followingSpace(q(4, 1), GOULD_SPACING)).toBeCloseTo(7, 9)
   })
 })
 
 describe('followingSpace — the invariants that make it a spacing rule at all', () => {
   it('is monotonic: a longer note never earns less room', () => {
     const ladder = [q(1, 8), q(1, 4), q(1, 2), q(3, 4), q(1, 1), q(3, 2), q(2, 1), q(4, 1)]
-    const spaces = ladder.map(f => followingSpace(f))
+    const spaces = ladder.map(f => followingSpace(f, GOULD_SPACING))
     for (const [i, space] of spaces.slice(1).entries()) expect(space).toBeGreaterThan(spaces[i])
   })
 
   it('is COMPRESSED: doubling the duration does not double the space', () => {
     for (const [num, den] of [[1, 4], [1, 2], [1, 1], [2, 1]]) {
-      const single = followingSpace(q(num, den))
-      const double = followingSpace(q(num * 2, den))
+      const single = followingSpace(q(num, den), GOULD_SPACING)
+      const double = followingSpace(q(num * 2, den), GOULD_SPACING)
       expect(double).toBeLessThan(2 * single)
       expect(double / single, 'by exactly the rule\'s ratio').toBeCloseTo(Math.SQRT2, 6)
     }
@@ -100,14 +101,15 @@ describe('followingSpace — the invariants that make it a spacing rule at all',
     // VexFlow's softmax exponent is the event's FRACTION OF THE BAR, so it spaces a quarter at 1.33×
     // an eighth in 4/4 and 1.78× in 2/4 (research §5.2). No engraver's rule has that shape. Ours
     // cannot: nothing about a bar is an argument.
-    const ratio = followingSpace(q(1, 1)) / followingSpace(q(1, 2))
+    const ratio = followingSpace(q(1, 1), GOULD_SPACING) / followingSpace(q(1, 2), GOULD_SPACING)
     expect(ratio).toBeCloseTo(Math.SQRT2, 6)
 
     // Said end to end: the same rhythm gets the same gaps whatever bar it sits in.
-    const twoFour = spaceColumns([plainColumn(q(0, 1), q(1, 1)), plainColumn(q(1, 1), q(1, 1)), plainColumn(q(2, 1), q(0, 1))], 7)
+    const twoFour = spaceColumns([plainColumn(q(0, 1), q(1, 1)), plainColumn(q(1, 1), q(1, 1)), plainColumn(q(2, 1), q(0, 1))], 7, GOULD_SPACING)
     const fourFour = spaceColumns(
       [plainColumn(q(0, 1), q(1, 1)), plainColumn(q(1, 1), q(1, 1)), plainColumn(q(2, 1), q(1, 1)), plainColumn(q(3, 1), q(1, 1)), plainColumn(q(4, 1), q(0, 1))],
       14,
+      GOULD_SPACING,
     )
     expect(fourFour.slice(0, 3)).toEqual(twoFour)
   })
@@ -118,14 +120,17 @@ describe('followingSpace — the invariants that make it a spacing rule at all',
   })
 
   it('takes the RATIO as a field, so the whole score\'s curve is one number', () => {
-    const linear: SpacingRule = { quarterSpace: 3.5, ratio: 2 }
+    const linear: SpacingRule = { law: 'power', quarterSpace: 3.5, ratio: 2 }
     expect(followingSpace(q(1, 1), linear)).toBe(3.5)
     expect(followingSpace(q(1, 2), linear), 'half the duration, half the space').toBeCloseTo(1.75, 6)
-    expect(followingSpace(q(1, 2)), '…against √2 for the default').toBeCloseTo(2.475, 3)
+    expect(followingSpace(q(1, 2), GOULD_SPACING), '…against √2 for the power rule').toBeCloseTo(2.475, 3)
   })
 })
 
 describe('naturalWidth — what a bar ASKS for', () => {
+  // ⚠️ Every assertion in this block names GOULD_SPACING. It is about the SUM — the `max` against the
+  //    ink, the rigid authored term, the pair padding — and 3.5-per-quarter keeps those legible. The
+  //    curve that actually ships is LilyPond's, and it has its own block at the end of the file.
   /** `♩ ♩ ♩ ♩ |` — four quarters and a barline column, no ink anywhere. */
   const fourQuarters = (): Column[] => [
     plainColumn(q(0, 1), q(1, 1)),
@@ -136,34 +141,34 @@ describe('naturalWidth — what a bar ASKS for', () => {
   ]
 
   it('sums the rule over the gaps: four quarters ask for 4 × 3.5', () => {
-    expect(naturalWidth(fourQuarters())).toBeCloseTo(14, 6)
+    expect(naturalWidth(fourQuarters(), GOULD_SPACING)).toBeCloseTo(14, 6)
   })
 
   it('⭐ sixteen 16ths ask for TWICE four quarters, not four times', () => {
     const sixteenths = Array.from({ length: 17 }, (_, i) =>
       plainColumn(q(i, 4), i === 16 ? q(0, 1) : q(1, 4)))
-    expect(naturalWidth(sixteenths)).toBeCloseTo(28, 6)
-    expect(naturalWidth(sixteenths) / naturalWidth(fourQuarters())).toBeCloseTo(2, 6)
+    expect(naturalWidth(sixteenths, GOULD_SPACING)).toBeCloseTo(28, 6)
+    expect(naturalWidth(sixteenths, GOULD_SPACING) / naturalWidth(fourQuarters(), GOULD_SPACING)).toBeCloseTo(2, 6)
   })
 
   it('takes the INK where the ink is wider — the max, not a sum', () => {
     const columns = fourQuarters()
     // A very wide accidental in front of the third note: 5 spaces of ink where the rule wants 3.5.
     columns[2].extent = { left: 5, right: 0 }
-    expect(naturalWidth(columns), 'the wider of the two wins, and only in that one gap')
+    expect(naturalWidth(columns, GOULD_SPACING), 'the wider of the two wins, and only in that one gap')
       .toBeCloseTo(14 - 3.5 + 5, 6)
   })
 
   it('…and ignores the ink where the rule is wider, rather than adding it', () => {
     const columns = fourQuarters()
     columns[2].extent = { left: 1.2, right: 0 }
-    expect(naturalWidth(columns)).toBeCloseTo(14, 6)
+    expect(naturalWidth(columns, GOULD_SPACING)).toBeCloseTo(14, 6)
   })
 
   it('adds authored space on TOP of whichever won', () => {
     const columns = fourQuarters()
     columns[2].authored = 2
-    expect(naturalWidth(columns)).toBeCloseTo(16, 6)
+    expect(naturalWidth(columns, GOULD_SPACING)).toBeCloseTo(16, 6)
   })
 
   it('counts a pair\'s padding as part of the gap\'s floor', () => {
@@ -171,11 +176,13 @@ describe('naturalWidth — what a bar ASKS for', () => {
     columns[0].extent = { left: 0, right: 2 }
     columns[1].extent = { left: 2, right: 0 }
     columns[0].padding = 1
-    expect(naturalWidth(columns), '2 + 1 + 2 beats the rule\'s 3.5').toBeCloseTo(14 - 3.5 + 5, 6)
+    expect(naturalWidth(columns, GOULD_SPACING), '2 + 1 + 2 beats the rule\'s 3.5').toBeCloseTo(14 - 3.5 + 5, 6)
   })
 })
 
 describe('spaceColumns — the spring solve', () => {
+  // ⚠️ Named rule again: this block is about the SOLVE (proportional share, frozen floors, rigid
+  //    authored space), and the power law's round numbers are what make its arithmetic readable.
   const barOf = (durations: [number, number][]): Column[] => {
     const columns: Column[] = []
     let beat = fracCreate(0, 1)
@@ -188,7 +195,7 @@ describe('spaceColumns — the spring solve', () => {
   }
 
   it('places the first column at 0 and the last at the target', () => {
-    const xs = spaceColumns(barOf([[1, 1], [1, 1], [1, 1], [1, 1]]), 40)
+    const xs = spaceColumns(barOf([[1, 1], [1, 1], [1, 1], [1, 1]]), 40, GOULD_SPACING)
     expect(xs).toHaveLength(5)
     expect(xs[0]).toBe(0)
     expect(xs[4]).toBeCloseTo(40, 6)
@@ -196,7 +203,7 @@ describe('spaceColumns — the spring solve', () => {
 
   it('at its natural width, changes nothing', () => {
     const columns = barOf([[1, 1], [1, 2], [1, 2], [1, 1], [1, 1]])
-    const xs = spaceColumns(columns, naturalWidth(columns))
+    const xs = spaceColumns(columns, naturalWidth(columns, GOULD_SPACING), GOULD_SPACING)
     const gaps = xs.slice(1).map((x, i) => x - xs[i])
     expect(gaps[0]).toBeCloseTo(3.5, 6)
     expect(gaps[1]).toBeCloseTo(2.475, 3)
@@ -206,7 +213,7 @@ describe('spaceColumns — the spring solve', () => {
   it('⭐ shares a surplus IN PROPORTION to natural length — the long note takes more of it', () => {
     // `♪ 𝅗𝅥 |` — natural 2.475 + 4.95 = 7.425. Stretch to double.
     const columns = barOf([[1, 2], [2, 1]])
-    const xs = spaceColumns(columns, 14.85)
+    const xs = spaceColumns(columns, 14.85, GOULD_SPACING)
     const gaps = xs.slice(1).map((x, i) => x - xs[i])
     expect(gaps[0] / gaps[1], 'the ratio between them is untouched').toBeCloseTo(2.475 / 4.95, 6)
     expect(gaps[0]).toBeCloseTo(4.95, 3)
@@ -217,10 +224,10 @@ describe('spaceColumns — the spring solve', () => {
     // so squeezing the bar must come out of the other two and never out of that one.
     const columns = barOf([[1, 1], [1, 1], [1, 1]])
     columns[1].extent = { left: 0, right: 6 }
-    const natural = naturalWidth(columns)
+    const natural = naturalWidth(columns, GOULD_SPACING)
     expect(natural).toBeCloseTo(3.5 + 6 + 3.5, 6)
 
-    const xs = spaceColumns(columns, natural - 4)
+    const xs = spaceColumns(columns, natural - 4, GOULD_SPACING)
     const gaps = xs.slice(1).map((x, i) => x - xs[i])
     expect(gaps[1], 'the rigid gap held').toBeCloseTo(6, 6)
     expect(gaps[0], 'the elastic ones paid, equally — they are equal springs').toBeCloseTo(1.5, 6)
@@ -233,7 +240,7 @@ describe('spaceColumns — the spring solve', () => {
     const columns = barOf([[1, 1], [1, 1], [1, 2]])
     columns[1].extent = { left: 0, right: 3.4 }
     columns[2].extent = { left: 0, right: 2.4 }
-    const xs = spaceColumns(columns, 7)
+    const xs = spaceColumns(columns, 7, GOULD_SPACING)
     const gaps = xs.slice(1).map((x, i) => x - xs[i])
 
     expect(gaps[1], 'held at its floor').toBeCloseTo(3.4, 6)
@@ -246,7 +253,7 @@ describe('spaceColumns — the spring solve', () => {
     const columns = barOf([[1, 1], [1, 1]])
     columns[0].extent = { left: 0, right: 4 }
     columns[1].extent = { left: 0, right: 4 }
-    const xs = spaceColumns(columns, 2)
+    const xs = spaceColumns(columns, 2, GOULD_SPACING)
 
     expect(xs[2], 'the ink is 8 spaces and 8 spaces is what it got').toBeCloseTo(8, 6)
     expect(xs[2]).toBeGreaterThan(2)
@@ -256,7 +263,7 @@ describe('spaceColumns — the spring solve', () => {
     const squeezed = (target: number): number[] => {
       const columns = barOf([[1, 1], [1, 1]])
       columns[1].authored = 3
-      const xs = spaceColumns(columns, target)
+      const xs = spaceColumns(columns, target, GOULD_SPACING)
       return xs.slice(1).map((x, i) => x - xs[i])
     }
 
@@ -275,8 +282,8 @@ describe('spaceColumns — the spring solve', () => {
   })
 
   it('handles the degenerate bars without a special case anywhere', () => {
-    expect(spaceColumns([], 10)).toEqual([])
-    expect(spaceColumns([plainColumn(q(0, 1), q(0, 1))], 10)).toEqual([0])
+    expect(spaceColumns([], 10, GOULD_SPACING)).toEqual([])
+    expect(spaceColumns([plainColumn(q(0, 1), q(0, 1))], 10, GOULD_SPACING)).toEqual([0])
   })
 
   it('a BARLINE is just the last column, with its own extent and padding', () => {
@@ -284,10 +291,78 @@ describe('spaceColumns — the spring solve', () => {
     const columns = barOf([[1, 1], [1, 1]])
     columns[1].padding = 1.5
     columns[2].extent = NO_EXTENT
-    const natural = naturalWidth(columns)
+    const natural = naturalWidth(columns, GOULD_SPACING)
     expect(natural, 'the rule still wins that gap — 3.5 beats 1.5').toBeCloseTo(7, 6)
 
     columns[1].padding = 5
-    expect(naturalWidth(columns), '…and the clearance wins when it is the wider').toBeCloseTo(8.5, 6)
+    expect(naturalWidth(columns, GOULD_SPACING), '…and the clearance wins when it is the wider').toBeCloseTo(8.5, 6)
+  })
+})
+
+describe('⭐⭐ the rule that actually SHIPS — LilyPond\'s log law', () => {
+  /**
+   * His call, by eye, against the √2 curve: *"dense passages seem too tight to me, LilyPond numbers
+   * sound better"* and *"in general we should approximate to LilyPond as much as possible."*
+   *
+   * `lily/spacing-options.cc`: `(2 + log₂(t / shortest)) × 1.2` staff spaces, and a LINEAR
+   * `(1 + t / shortest) × 1.2` below `shortest` — which defaults to an eighth. The values below are
+   * research §2's table, which is what the formula must reproduce.
+   */
+  const LILY: [name: string, quarters: [number, number], spaces: number][] = [
+    ['32nd',    [1, 8], 1.5],
+    ['16th',    [1, 4], 1.8],
+    ['8th',     [1, 2], 2.4],
+    ['quarter', [1, 1], 3.6],
+    ['half',    [2, 1], 4.8],
+    ['whole',   [4, 1], 6.0],
+  ]
+
+  for (const [name, quarters, spaces] of LILY) {
+    it(`a ${name} earns ${spaces} staff spaces`, () => {
+      expect(followingSpace(q(...quarters))).toBeCloseTo(spaces, 6)
+    })
+  }
+
+  it('⭐ each DOUBLING adds a fixed 1.2 — a log law, not a power law', () => {
+    // The structural difference, and the one his eye was reading. A power law MULTIPLIES per
+    // doubling, so the gap between the longest and shortest note on a page grows without bound; a
+    // log law ADDS, so it does not.
+    for (const [num, den] of [[1, 2], [1, 1], [2, 1]]) {
+      const step = followingSpace(q(num * 2, den)) - followingSpace(q(num, den))
+      expect(step).toBeCloseTo(1.2, 6)
+    }
+  })
+
+  it('⭐⭐ and its DYNAMIC RANGE is far narrower — which is why dense music breathes', () => {
+    const range = (rule: SpacingRule) => followingSpace(q(4, 1), rule) / followingSpace(q(1, 8), rule)
+    expect(range(GOULD_SPACING), 'a whole note is 5.6 thirty-seconds under √2').toBeCloseTo(5.65, 1)
+    expect(range(LILYPOND_SPACING), '…and only 4 under LilyPond').toBeCloseTo(4, 1)
+  })
+
+  it('the LINEAR branch below the eighth is what keeps the short end open', () => {
+    // ⚠️ Not a floor bolted on: the log law itself reaches zero at `shortest / 4` and goes NEGATIVE
+    //    below that, which is why LilyPond stops using it there. Its own values are still monotonic.
+    const ladder = [q(1, 16), q(1, 8), q(1, 4), q(1, 2), q(1, 1)]
+    const spaces = ladder.map(f => followingSpace(f))
+    for (const [i, space] of spaces.slice(1).entries()) expect(space).toBeGreaterThan(spaces[i])
+    expect(spaces[0], 'a 64th').toBeCloseTo(1.35, 6)
+  })
+
+  it('⚠️ moves FURTHER from Gould overall — closer at the short end, worse at the long', () => {
+    // Said plainly because she is what the model was anchored on. Both are defensible houses.
+    const GOULD_TABLE: [quarters: [number, number], gould: number][] = [
+      [[1, 4], 2], [[1, 2], 2.25], [[3, 4], 3], [[1, 1], 3.5],
+      [[3, 2], 4], [[2, 1], 5], [[3, 1], 6], [[4, 1], 7],
+    ]
+    const meanError = (rule: SpacingRule) =>
+      GOULD_TABLE.reduce((sum, [quarters, gould]) =>
+        sum + Math.abs(followingSpace(q(...quarters), rule) / gould - 1), 0) / GOULD_TABLE.length
+
+    expect(meanError(GOULD_SPACING), '√2 is the closer fit to her table').toBeCloseTo(0.041, 2)
+    expect(meanError(LILYPOND_SPACING)).toBeCloseTo(0.070, 2)
+    // …but on the two SHORTEST values — the ones he was looking at — LilyPond is the closer of them.
+    const at = (quarters: [number, number], rule: SpacingRule) => followingSpace(q(...quarters), rule)
+    expect(Math.abs(at([1, 4], LILYPOND_SPACING) - 2)).toBeLessThan(Math.abs(at([1, 4], GOULD_SPACING) - 2))
+    expect(Math.abs(at([1, 2], LILYPOND_SPACING) - 2.25)).toBeLessThan(Math.abs(at([1, 2], GOULD_SPACING) - 2.25))
   })
 })
