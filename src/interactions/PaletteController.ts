@@ -13,6 +13,7 @@ import { sameTimeSignature } from '../utils/meter'
 import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
+import { featherSelectedNote } from './fanStamp'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
 import { staffOf } from '@/utils/lanes'
@@ -1483,6 +1484,15 @@ export class PaletteController {
    * where the dialog put it, and the duration keys are free to go on meaning the next note.
    */
   armFanStamp(armed: ArmedFanStamp): void {
+    // ⭐ APPLY TO WHAT IS SELECTED, OTHERWISE ARM — the Time Signature window's shape, and his rule
+    // for this one: one note selected means *"create the fan in the position of the note, with the
+    // characteristics of the dialog and the pitch of the note"*. `featherSelectedNote` answers false
+    // for anything that is not a single fannable note, and then the stamp arms as it always did.
+    const engine = this.getEngine()
+    if (engine && featherSelectedNote(this.state, engine, armed, () => this.renderScore())) {
+      this.refreshFanSelection()
+      return
+    }
     this.armMarkingTool({
       kind: 'fan',
       attacks: armed.attacks,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { stampFanAtClick } from './fanStamp'
+import { stampFanAtClick, featherSelectedNote } from './fanStamp'
 import { fracCreate as frac } from '../utils/fraction'
 import { DEFAULT_FAN_BEAMS } from '../utils/fannedBeam'
 
@@ -127,5 +127,69 @@ describe('stampFanAtClick', () => {
 
     expect(stampFanAtClick(state, engine, 100, 100, render)).toBe(true)
     expect(render).not.toHaveBeenCalled()
+  })
+
+  /**
+   * ⭐ THE DIALOG'S OK WITH ONE NOTE SELECTED — his rule: *"we create the fan in the position of the
+   * note, with the characteristics of the dialog and the pitch of the note."*
+   */
+  describe('featherSelectedNote', () => {
+    const ARMED = { attacks: 6, unit: 'h' as const, dots: 0, direction: 'accel' as const }
+    /** Select one note the way a click does — the id plus the selection SET the rule reads. */
+    const select = (...ids: string[]) => {
+      state.selectedNoteId = ids[0] ?? null
+      state.selectedItems = new Map(ids.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
+    }
+
+    it('⭐ turns the SELECTED note into the dialog’s feather, keeping its pitch and its place', () => {
+      const id = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+      select(id)
+
+      expect(featherSelectedNote(state, engine, ARMED, render)).toBe(true)
+
+      const note = engine.getNote(id)!
+      expect(note.step, 'the note’s own pitch').toBe('E')
+      expect(note.octave).toBe(5)
+      expect(note.beat, 'and its own place').toEqual(frac(1, 1))
+      expect(note.duration, 'the dialog’s value').toBe('h')
+      expect(note.fan).toMatchObject({ direction: 'accel', count: 6, beams: DEFAULT_FAN_BEAMS })
+      expect(render).toHaveBeenCalled()
+    })
+
+    it('⭐ ONE undo takes the whole conversion back — the value and the mark are one act', () => {
+      const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      select(id)
+      featherSelectedNote(state, engine, ARMED, render)
+
+      engine.undo()
+
+      const note = engine.getNote(id)!
+      expect(note.duration, 'back to the quarter it was').toBe('q')
+      expect(note.fan).toBeUndefined()
+    })
+
+    it('⛔ refuses a REST, a MULTI-selection and nothing selected — the window then ARMS instead', () => {
+      expect(featherSelectedNote(state, engine, ARMED, render), 'nothing selected').toBe(false)
+
+      const a = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const b = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+      select(a, b)
+      expect(featherSelectedNote(state, engine, ARMED, render), 'two notes is not one note').toBe(false)
+
+      const restSlot = engine.getScore().measures[0].slots.find(slot => slot.type === 'rest')!
+      select(restSlot.id)
+      expect(featherSelectedNote(state, engine, ARMED, render), 'a rest carries no fan').toBe(false)
+      expect(render).not.toHaveBeenCalled()
+    })
+
+    it('a value that does not fit goes through the ORDINARY entry path, and still gets its fan', () => {
+      // A whole note asked for on the last quarter of the bar: `updateNote` decides what that means,
+      // exactly as it does for a typed note — his call, so there is no second rule here.
+      const id = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+      select(id)
+
+      expect(featherSelectedNote(state, engine, { ...ARMED, unit: 'w' }, render)).toBe(true)
+      expect(engine.getNote(id)?.fan, 'the mark landed on the piece that kept the id').toBeTruthy()
+    })
   })
 })
