@@ -5,7 +5,6 @@ import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
 import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesDrawn } from '@/utils/tremoloPair'
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
-import { shareFanRoom } from './fanRoom'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -1778,23 +1777,22 @@ export class VexFlowRenderer {
         // full ask when the bar could pay it, less when `MAX_MEASURE_WIDTH` clamped the bar. Shares
         // sum to one, which is what keeps a dense fan from pushing the notes after it through the
         // barline (`fanRoom.ts`). Per lane: each voice fills the bar, so each divides it.
-        for (const g of groups) shareFanRoom(g.slots, g.staveNotes, formatWidth)
         const formatter = new Formatter().joinVoices(vexVoices)
         formatter.format(vexVoices, formatWidth)
         // ⭐⭐ P4 — the model places the columns, and VexFlow's softmax stops deciding anything
         //     horizontal. Between `format()` and `draw()`, so beams, ties, tuplets and the registry
-        //     all follow. ⛔ Never on a bar with a FAN: its members are drawn across a span bought
-        //     from the formatter by `fanRoom`, and moving the group out from under that span is P5.
-        if (!measure.slots.some(slot => slot.type === 'chord' && slot.fan)) {
-          const leadIn = measureLeadIn(measure, () => clef)
-          const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
-          applySpacingPass(formatter, vexVoices, {
-            columns: measureColumns(measure, () => clef),
-            firstX: leadIn.extent,
-            targetWidth: room - leadIn.extent,
-            meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
-          })
-        }
+        //     all follow. ⭐ P5 — and a bar holding a FAN is no longer an exception: the group's own
+        //     tick context takes its first member's column like any other note, and `FannedBeam`
+        //     spaces the members after it by the same rule (their own durations), so there is
+        //     nothing left for `fanRoom` to buy from the formatter.
+        const leadIn = measureLeadIn(measure, () => clef)
+        const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
+        applySpacingPass(formatter, vexVoices, {
+          columns: measureColumns(measure, () => clef),
+          firstX: leadIn.extent,
+          targetWidth: room - leadIn.extent,
+          meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
+        })
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time

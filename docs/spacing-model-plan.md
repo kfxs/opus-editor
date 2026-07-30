@@ -690,9 +690,40 @@ Four decisions:
 ghost can sit where the note will not (the plan named it; `e2e/ghosts.e2e.ts` is still green because
 a cursor ghost is positioned at the pointer).
 
-### P5 — delete the workarounds
+### P5 — delete the workarounds ✅ THE FAN DONE 2026-07-30
 §2's list, one feature at a time, each with its geometry spec still green: the fan first (five
 constants and a module), then the tremolo, then the two draw-time clearance passes.
+
+**The fan, as built.** All five constants and the module are gone, and `MIN_NOTE_SPACING` with them:
+
+| deleted | what it claimed |
+|---|---|
+| `fanRoom.ts` entire — `FanStaveNote`, `shareFanRoom`, `fanRoomPx`, `fanMaxSpanPx` | the room a fan buys from the formatter, and the ceiling on its drawn span |
+| `FAN_MAX_SPAN_STRETCH` (1.5) | how far a justified bar may stretch the ramp |
+| `FAN_MIN_HEAD_GAP_RATIO` (1.25) | the closest two fanned heads may come |
+| `trailingGap` (= `MIN_NOTE_SPACING`) | what the group leaves after itself |
+| `fanColumns` / `slotColumns` / `laneColumns` | the room the bar is asked for |
+| ⭐ **`LAYOUT_CONFIG.MIN_NOTE_SPACING`** | the editor's whole spacing rule, once |
+
+⭐ **One line did it.** `fannedBeamGeometry` computed each gap as *that member's proportional share
+of whatever room the bar gave*; it now computes `followingSpace(member.quarters)` — the same rule
+that spaces every other note, asked of an arbitrary rational. A ramp with an ABSOLUTE natural size
+cannot sprawl when the bar is wide, so the cap goes; and `measureColumns` already gives every member
+a real column, so the bar asks for exactly their room and the proxy goes. The five constants were
+five answers to one question that now has a rule.
+
+Also gone: the `fanFloor` interim in `MeasureLayout`, and `spacingPass`'s "skip any bar with a fan".
+A fanned bar is an ordinary bar now — its slot's tick context takes the first member's column like
+any other note.
+
+⚠️ **The visible change, and the thing to look at by eye.** A fan of six over a half note used to
+draw its gaps at **4.63 → 1.85** staff spaces (ratio 2.5, span 16.2); it now draws **2.51 → 1.71**
+(ratio 1.47, span 10.5), and its bar went 28.8 → 25.5 spaces. **The heads fan less than the beam
+does.** That is the rule talking and it was his call in advance — *"it does not have to be linear, it
+is not symmetrical or even, we should follow Gould's rule"* — but it is exactly what §4 said to watch.
+⭐ If it reads too flat the knob is the SPACING RULE's own shape, one field for the whole score, and
+LilyPond's log law (the default) is the flatter of the two we have: it was chosen for a NARROW
+dynamic range, which is what dense music wants and what a gesture built on contrast does not.
 
 ---
 

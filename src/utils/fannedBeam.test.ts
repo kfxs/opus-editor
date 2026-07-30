@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  fanMembers, fanSpeedRatio, rampWeights, fanWeights, fanRampRange, fanColumns, normalizeFan,
+  fanMembers, fanSpeedRatio, rampWeights, fanWeights, fanRampRange, normalizeFan,
   cloneFanFresh, fanSpread, clampFanSpread, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS, MAX_FAN_SPREAD,
 } from './fannedBeam'
 import { fracCreate as frac, fracFromInt, fracAdd, fracEq, fracToNumber } from './fraction'
@@ -237,12 +237,6 @@ describe('the range, read by the three consumers', () => {
     expect(ranged[0]).toBeLessThan(spans(fan({ count: 6, beams: 3 }))[0])
   })
 
-  it('an inset wedge asks the bar for MORE room, never less', () => {
-    // The tightest gap moves INSIDE the span, where `fanColumns` counts it — it used to sit after
-    // the last head, which nothing follows.
-    const whole = fanColumns(fan({ count: 6, beams: 3 }))
-    expect(fanColumns(fan({ count: 6, beams: 3, rampFrom: 0, rampTo: 4 }))).toBeGreaterThan(whole)
-  })
 })
 
 /**
@@ -331,13 +325,14 @@ describe('fanSpread — the DRAWING\'s number, and only the drawing\'s', () => {
     expect(clampFanSpread(1.7000000000000002)).toBe(1.7)
   })
 
-  it('⭐ the SOUND does not move — spread is not in the weights, the members or the columns', () => {
+  it('⭐ the SOUND does not move — spread is not in the weights or the members', () => {
     // The exception this feature is: what a reader counts is LINES, and spreading them does not
     // change how many there are. Every other fan control is read by `fanWeights`; this one is not.
+    // (It used to say "or the columns" too, and checked `fanColumns` — that helper was deleted with
+    // the spacing model's P5, which gives every member a real column of its own instead.)
     const plain = fan({ count: 6, beams: 3 })
     const wide = fan({ count: 6, beams: 3, spread: 3 })
     expect(fanWeights(wide).map(fracToNumber)).toEqual(fanWeights(plain).map(fracToNumber))
-    expect(fanColumns(wide)).toBe(fanColumns(plain))
     expect(fanMembers(wide, frac(2, 1)).map(m => fracToNumber(m.quarters)))
       .toEqual(fanMembers(plain, frac(2, 1)).map(m => fracToNumber(m.quarters)))
   })

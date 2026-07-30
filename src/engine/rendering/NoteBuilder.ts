@@ -1,5 +1,4 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
-import { FanStaveNote } from './fanRoom'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
@@ -235,15 +234,14 @@ export function createStaveNotesFromSlots(
     const vexDuration = fanned
       ? convertDuration('q', 0)
       : convertDuration(drawnDuration, slot.dots || 0)
-    // ⭐ A fanned slot is drawn as `count` heads and must ask the FORMATTER for room enough for
-    // them: the bar is widened by `fanColumns`, but VexFlow shares that width out BY TICK, and a
-    // fanned slot holds one event's worth of ticks however many notes it draws. Built here because
-    // this function is the width path AND the draw path — the same reason the drawn value is
-    // substituted above (`fanRoom.ts` states the measurements).
+    // ⭐ **A fanned slot is an ordinary `StaveNote` now (P5).** It used to be a `FanStaveNote` that
+    // declared an inflated width from inside `preFormat`, because a fanned slot draws `count` heads
+    // while holding one event's worth of TICKS — and VexFlow shares a bar's width out by tick. The
+    // spacing model retired the whole problem: the members are ordinary COLUMNS in
+    // `measureColumns`, so the bar asks for their room directly, and `spacingPass` writes the x's
+    // rather than letting the tick-proportional formatter decide them.
     const noteStruct = { keys, duration: vexDuration, clef: slotClef, autoStem: false }
-    const staveNote = slot.type === 'chord' && slot.fan
-      ? new FanStaveNote(noteStruct, slot.fan)
-      : new StaveNote(noteStruct)
+    const staveNote = new StaveNote(noteStruct)
     // ⚠️ TICKS. The StaveNote now carries TWICE the ticks its slot has, and a FULL-mode voice handed
     // twice the bar's ticks throws. `applyTickMultiplier(1, 2)` halves them back — the same call
     // VexFlow's own `Tuplet` makes (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`) —

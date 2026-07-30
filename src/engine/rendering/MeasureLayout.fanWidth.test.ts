@@ -4,7 +4,7 @@ import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { fracCreate as frac } from '@/utils/fraction'
-import { DEFAULT_FAN_BEAMS, fanColumns, laneColumns, slotColumns } from '@/utils/fannedBeam'
+import { DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import type { Score, FanMark } from '@/types/music'
 
 /**
@@ -31,33 +31,15 @@ function blanca(): { model: ScoreModel; id: string } {
 
 const FAN: FanMark = { direction: 'accel', count: 6, beams: DEFAULT_FAN_BEAMS }
 
-describe('slotColumns / laneColumns', () => {
-  it('an ordinary slot is one column, a fanned one is what its RAMP needs', () => {
-    const { model, id } = blanca()
-    const before = model.getMeasure(1)!.slots.length
-    expect(laneColumns(model.getMeasure(1)!.slots)).toBe(before)
-
-    model.setFan(id, FAN)
-    const fanned = model.getMeasure(1)!.slots.find(s => s.type === 'chord')!
-    // ⭐ MORE than the member count, and that is the fix for the collapse reported from use: the
-    // heads are placed proportionally, so the room the group needs is set by its TIGHTEST gap.
-    expect(slotColumns(fanned)).toBe(fanColumns(FAN))
-    expect(slotColumns(fanned)).toBeGreaterThan(FAN.count)
-    expect(laneColumns(model.getMeasure(1)!.slots)).toBe(before - 1 + fanColumns(FAN))
-  })
-
-  it('a rit asks for MORE room than an accel — it opens with its fastest notes', () => {
-    // Not a quirk: for an accel the shortest note is LAST and has no gap after it, so the tightest
-    // gap is the second-shortest. A rit's shortest note is first, and its gap is inside the group.
-    expect(fanColumns({ ...FAN, direction: 'rit' })).toBeGreaterThan(fanColumns(FAN))
-  })
-
-  it('more beams mean a steeper ramp, and a steeper ramp needs more room', () => {
-    expect(fanColumns({ ...FAN, beams: 4 })).toBeGreaterThan(fanColumns({ ...FAN, beams: 2 }))
-    // No ramp at all: N even notes need N-1 gaps of one column, plus the column after the last head.
-    expect(fanColumns({ ...FAN, beams: 1 })).toBe(FAN.count)
-  })
-})
+/**
+ * ⚠️ `slotColumns` / `laneColumns` / `fanColumns` were DELETED with the spacing model's P5, and the
+ * describe that lived here went with them. They counted a fan's claim in units of "one ordinary
+ * event's column" — `ceil(span / tightest gap) + 1` — a proxy for the room a proportional ramp
+ * would want out of a tick-proportional formatter. `measureColumns` gives every member a real
+ * column at its own exact beat now, so the bar asks for the sum of what those durations earn and
+ * there is nothing left to approximate. What survives is everything below: the bar really does make
+ * room for the members, and it is measured on the bar rather than on the proxy.
+ */
 
 describe('the bar makes room for the members', () => {
   it('a fan widens its bar by its extra columns', () => {
@@ -65,12 +47,12 @@ describe('the bar makes room for the members', () => {
     const before = widthOf(model).minWidth
     model.setFan(id, FAN)
     const after = widthOf(model).minWidth
-    // Five more columns of `MIN_NOTE_SPACING`, unless the bar was already wider than its floor —
-    // so the assertion is the direction and the floor, not an exact delta.
+    // ⭐ The direction is the claim, and it is the one that matters: a bar holding a fan is wider
+    //   than the same bar holding the single note the fan was made from, because the members are
+    //   real columns in it. The old second assertion measured against `laneColumns ×
+    //   MIN_NOTE_SPACING` — the proxy P5 deleted — so it is gone with it; the members' own room is
+    //   asserted note-by-note in `FannedBeam.test.ts` and on the page in `e2e/fan.e2e.ts`.
     expect(after).toBeGreaterThan(before)
-    expect(after).toBeGreaterThanOrEqual(
-      laneColumns(model.getMeasure(1)!.slots) * LAYOUT_CONFIG.MIN_NOTE_SPACING,
-    )
   })
 
   it('a bigger count asks for more room', () => {
@@ -107,19 +89,23 @@ describe('the bar makes room for the members', () => {
  * grow more."*
  */
 describe('a bar that cannot compress outgrows MAX_MEASURE_WIDTH', () => {
-  it('a dense fan takes the room its columns need, cap or no cap', () => {
+  it('a dense fan asks for what its MEMBERS need — which is far less than `fanColumns` claimed', () => {
+    // ⚠️ This asserted `minWidth ≥ laneColumns × MIN_NOTE_SPACING` — 864 px for this fixture — and
+    //    that was the right test of the mechanism it was written for: `fanColumns` bought a fan's
+    //    drawn span as `ceil(span / tightest gap) + 1` ORDINARY COLUMNS, several times what its
+    //    heads take, and the cap then clamped the bar and the heads drew through the barline. The
+    //    spacing model (P5) deleted the proxy: the members are ordinary columns, so the bar asks for
+    //    the sum of what their durations earn — about 337 px here, and the cap never comes near it.
+    //
+    // ⭐ The requirement was never "the bar is huge". It was "the ink is inside the bar", and that is
+    //   what `e2e/fan.e2e.ts` checks on the drawing, where it can actually be seen.
     const { model, id } = blanca()
-    // 12 members at 4 beams: a ramp whose tightest gap is a quarter of its longest, so its columns
-    // come to more than the cap allows a bar to be.
     model.setFan(id, { direction: 'rit', count: 12, beams: 4 })
-    const columns = laneColumns(model.getMeasure(1)!.slots)
-    expect(columns * LAYOUT_CONFIG.MIN_NOTE_SPACING,
-      'fixture: this bar wants more than the cap')
-      .toBeGreaterThan(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
 
     const info = widthOf(model)
-    expect(info.minWidth, 'so the bar grew past it')
-      .toBeGreaterThanOrEqual(columns * LAYOUT_CONFIG.MIN_NOTE_SPACING)
+    expect(info.minWidth, 'a real bar, sized by its own content').toBeGreaterThan(200)
+    expect(info.minWidth, '…and no longer forced past the cap by a proxy')
+      .toBeLessThan(LAYOUT_CONFIG.MAX_MEASURE_WIDTH)
   })
 
   it('…and an ordinary bar is still capped — nothing else changed', () => {

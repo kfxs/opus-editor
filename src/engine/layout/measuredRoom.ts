@@ -26,7 +26,6 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { FAN_MIN_HEAD_GAP_RATIO } from '@/engine/rendering/FannedBeam'
 import { INK, MIN_COLUMN_GAP, pairPadding, restExtent } from './spacingPadding'
 
 /**
@@ -99,8 +98,11 @@ export function measuredShrinkRoom(registry: ElementRegistry, measureNumber: num
  * the SLOT's beat (so `pixelXToBeat` keeps the group on one column), so that walk dedups the whole
  * fan into a single anchor and would measure the gap before the group instead of the gap before
  * the head. The heads are drawn ink, so the honest measurement is the drawn ink: two registry
- * entries, both head CENTRES, and the floor the geometry itself refuses to cross
- * ({@link FAN_MIN_HEAD_GAP_RATIO} × the notehead's own measured width).
+ * entries, both head CENTRES, and the floor the geometry itself refuses to cross —
+ * {@link MIN_COLUMN_GAP}, the same floor any two ordinary noteheads get. ⭐ It used to be a ratio of
+ * its own (`FAN_MIN_HEAD_GAP_RATIO` × the measured notehead), one of five constants this feature
+ * carried; a fanned head is a notehead, and the spacing model already says how close two of those
+ * may come.
  *
  * ⚠️ Same staleness rule as its sibling, and the same caller enforces it — a fresh number against an
  * old picture slides the floor down one step per press, and the clamp then never bites.
@@ -123,7 +125,7 @@ export function fanMemberShrinkRoom(
 
   const geometry = registry.getStaffGeometry(measureNumber, staffOf(here))
   const staffSpacePx = geometry?.lineSpacing ?? STAFF_SPACE_PX
-  const minGap = here.bbox.width * FAN_MIN_HEAD_GAP_RATIO
+  const minGap = MIN_COLUMN_GAP * staffSpacePx
   return Math.max(0, (x - prevX - minGap) / staffSpacePx)
 }
 

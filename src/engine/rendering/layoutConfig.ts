@@ -40,22 +40,6 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * small staff today (docs/staff-size-plan.md §6 — P3, open).
  */
 export const LAYOUT_CONFIG = {
-  /**
-   * ⚠️ **THE FAN'S UNIT, and nothing else's — it dies with `fanRoom.ts` at P5.**
-   *
-   * It used to be the editor's whole spacing rule: "minimum space between notes for clickability",
-   * 1.8 staff-spaces, applied per event and (as P0 measured) not actually deciding a single bar.
-   * The spacing model replaced it — `engine/layout/spacingPadding.ts`'s {@link MIN_COLUMN_GAP} is
-   * the engraving floor now, 1.43 spaces, and it is a notehead plus note↔note padding rather than a
-   * number nobody chose. ⭐ Note what the old doc-comment conflated: *clickability* is a FINGER
-   * (see the INK vs FINGER rule above) and does not belong in the width path at all.
-   *
-   * What still reads it is `fanColumns`, which counts a fan's claim in units of "one ordinary
-   * event's column" — `fanRoom.ts` and `FanPass` buy the fan's drawn span with it, and
-   * `MeasureLayout` covers that claim so the heads do not draw through the barline. ⛔ All four go
-   * together at P5 (docs/spacing-model-plan.md §2), and this constant goes with them.
-   */
-  MIN_NOTE_SPACING: 1.8 * STAFF_SPACE_PX,
   /** Minimum measure width even for empty measures — 10 staff-spaces. ⚠️ WIDTH path. */
   MIN_MEASURE_WIDTH: 10 * STAFF_SPACE_PX,
   /** Maximum measure width, so one measure can't dominate — 40 staff-spaces. ⚠️ WIDTH path. */
@@ -268,7 +252,7 @@ export interface MeasureWidthInfo {
   /**
    * The narrowest this bar's **intrinsic** part may be pushed when something else on the line needs
    * the room: its overhead (clef, meter, barline padding — none of it compressible) plus
-   * `MIN_NOTE_SPACING` per column. Excludes `userSpace`/`stretchSpace`, which are reserved off the
+   * the ink floor per column ({@link MIN_COLUMN_GAP}). Excludes `userSpace`/`stretchSpace`, which are reserved off the
    * top and never squeezed.
    *
    * The second half of a **two-number** width. `minWidth` is what the bar ASKS FOR when nothing

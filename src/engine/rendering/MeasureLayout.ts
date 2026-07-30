@@ -3,7 +3,6 @@ import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
-import { laneColumns } from '@/utils/fannedBeam'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { MeasureWidthCache } from './MeasureWidthCache'
@@ -84,20 +83,14 @@ function noteSpaceForMeasure(
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
   // casting-off works in px. ⚠️ A staff drawn small should multiply this by its own size — the same
   // open P3 as the four width constants in `layoutConfig` (docs/staff-size-plan.md §6).
-  // ⚠️ **TEMPORARY — a fan still buys its drawn span with `fanColumns`, so the bar must still cover
-  // it.** Under the model a fan's members are ordinary columns and ask for exactly the room their
-  // heads take; `fanColumns` asks for `ceil(span / tightest gap) + 1`, a proxy invented to force the
-  // tick-proportional formatter to give way, and for a steep ramp it is several times larger. The
-  // WIDTH may adopt the model now, but `FanPass`/`fanRoom` will not until P5 — and a bar narrower
-  // than the span the drawing insists on is the exact failure he reported with a screenshot: the
-  // heads drawn straight through the barline. So while both live, a bar holding a fan takes the
-  // wider claim. ⛔ Deleted with `fanRoom.ts` at P5, not before, and only together.
-  const fanFloor = measure.slots.some(slot => slot.type === 'chord' && slot.fan)
-    ? laneColumns(measure.slots) * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    : 0
+  // ⭐ P5 — no fan term. A fanned slot's members are ordinary columns in `columns` (their beats come
+  // from `fanMemberBeats`), so the sum above already asks for exactly the room their heads take.
+  // What used to be here was `laneColumns × MIN_NOTE_SPACING`, covering the span `fanRoom` bought
+  // from the formatter on the fan's behalf — a proxy several times larger than the ramp for a steep
+  // one, and the reason a fanned bar was the widest thing on any page it appeared on.
   const answer = {
-    natural: Math.max(naturalWidth(columns) * STAFF_SPACE_PX, fanFloor),
-    floor: Math.max(minimumWidth(columns) * STAFF_SPACE_PX, fanFloor),
+    natural: naturalWidth(columns) * STAFF_SPACE_PX,
+    floor: minimumWidth(columns) * STAFF_SPACE_PX,
   }
   if (probing) renderProbe().layoutSub('format', performance.now() - t0)
   return answer

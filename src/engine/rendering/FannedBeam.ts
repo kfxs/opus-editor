@@ -10,6 +10,8 @@
  * and the two-note tremolo's stroke stack.
  */
 import { clampFanSpread, rampRange, type FanMember } from '@/utils/fannedBeam'
+import { followingSpace } from '@/engine/layout/spacing'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** One filled quad, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */
 export interface FanQuad {
@@ -110,16 +112,6 @@ export interface FanGeometry {
    */
   stemLift: number
 }
-
-/**
- * The closest two fanned noteheads may come, as a multiple of the notehead's own width.
- *
- * ⚠️ PROVISIONAL like every other number in this feature (docs/fanned-beams-plan.md §1), and the one
- * to turn if a dense fan still reads crowded — or if it now reads too airy. A ratio rather than a
- * pixel count so it follows the staff size, and above 1 so two heads always have daylight between
- * them rather than merely not overlapping.
- */
-export const FAN_MIN_HEAD_GAP_RATIO = 1.25
 
 /**
  * The steepest the beam line may run, as rise over run.
@@ -413,31 +405,35 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
   const rampUsable = Math.max(0, usable - authoredTotal)
 
   /**
-   * ⭐ **THE HEADS FILL THE SPAN — the last member's own duration is not drawn as white space.**
+   * ⭐⭐ **EACH GAP IS THE SPACING RULE, APPLIED TO THAT MEMBER'S OWN DURATION** — the same rule that
+   * spaces every other note in the score (`engine/layout/spacing.ts`), asked of an arbitrary
+   * rational rather than of a written value.
    *
-   * `startFraction` runs over the whole group, so the last head sits at `1 - w_last/Σw` of the way
-   * along and the remainder is air INSIDE the fan's room. On an accel the last member is the
-   * shortest and the leftover is invisible; on a `rit` it is the LONGEST — four columns of white
-   * between the group and the note after it, which is what he saw and what made the two directions
-   * look like different features. Dividing by that fraction re-normalizes the shares onto the gaps
-   * alone, which is exactly what `fanColumns` reserves room for at the other end.
+   * This used to be each member's *proportional share of the room the bar happened to give*, which
+   * is why the feature carried five constants that all answered one question — `fanColumns` bought
+   * the room, `FAN_MAX_SPAN_STRETCH` capped it, `fanMaxSpanPx` re-derived it, `trailingGap` held the
+   * end open, `FAN_MIN_HEAD_GAP_RATIO` floored the crowding — each right on the screenshot it was
+   * measured against (docs/spacing-model-plan.md §0). A ramp with an ABSOLUTE natural size needs
+   * none of them: it does not sprawl when the bar is wide, and the bar asks for exactly what its
+   * member columns need because `measureColumns` counts them like any other columns.
    *
-   * ⚠️ **The picture still says what the sound does.** Every gap keeps its PROPORTION — this scales
-   * them all by one number — so the crowding a reader sees is the ramp they hear. What changes is
-   * only where the group's own space stops and the next note's begins, which is a layout question
-   * and never a rhythmic one (playback reads `startFraction` itself, untouched).
+   * ⚠️ **The crowding is GENTLER than it was, and that is the rule talking, not a bug.** A
+   * 32nd→8th ramp now spaces its members 1.5 → 2.4 staff spaces (×1.6) where a truly proportional
+   * one gives ×4. His call, made before this was built: *"it does not have to be linear, it is not
+   * symmetrical or even, we should follow Gould's rule"* — a fan is metrical notation with a ramp
+   * drawn over it, not a claim that the page is a clock. ⭐ If it reads too flat, the knob is the
+   * SPACING RULE's own ratio, one field for the whole score — never a second rule for this gesture.
    */
-  const headSpan = members[members.length - 1].startFraction
   const gaps: number[] = []
   for (let k = 0; k + 1 < members.length; k++) {
     // The floor grows by whatever sign the NEXT head wears, since an accidental hangs to its left
     // and would otherwise land on this head — and by whatever THIS member's own heads reach
     // forward, which is a displaced second under an upward stem.
     const floor = minHeadGap + (accidentalRoom?.[k + 1] ?? 0) + (headRightRoom?.[k] ?? 0)
-    const proportion = (members[k + 1].startFraction - members[k].startFraction)
-      / (headSpan > 0 ? headSpan : 1)
-    gaps.push(Math.max(floor, proportion * rampUsable + (authored[k + 1] ?? 0)))
+    const earned = followingSpace(members[k].quarters) * STAFF_SPACE_PX
+    gaps.push(Math.max(floor, earned + (authored[k + 1] ?? 0)))
   }
+  void rampUsable // the ramp no longer shares out the room; it asks for what its durations earn
   // Even the floored layout can outgrow the room the bar gave. Scaling every gap by the shortfall
   // keeps the group inside its span and lands it evenly short rather than letting the last members
   // walk into the next note — the least-bad answer to "there was not enough room", and the only one

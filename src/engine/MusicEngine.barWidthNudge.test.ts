@@ -16,7 +16,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fracCreate } from '@/utils/fraction'
-import { LAYOUT_CONFIG } from './rendering/layoutConfig'
 import { MIN_COLUMN_GAP } from './layout/spacingPadding'
 import { STAFF_SPACE_PX } from './models/staffSize'
 import { SKETCH_CANVAS } from './layout/surface'
@@ -418,7 +417,7 @@ describe('shrinking an EMPTY bar', () => {
     let last = 1
     for (let i = 0; i < 40; i++) { last = engine.nudgeBarWidth(3, -10)!; engine.renderScore() }
     expect(engine.nudgeBarWidth(3, -10)).toBeCloseTo(last, 6)
-    expect(width(3)).toBeGreaterThan(LAYOUT_CONFIG.MIN_NOTE_SPACING)
+    expect(width(3)).toBeGreaterThan(MIN_COLUMN_GAP * STAFF_SPACE_PX)
   })
 
   it('a bar WITH music keeps the floor as planned — its music still sets its claim', () => {

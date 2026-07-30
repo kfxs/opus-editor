@@ -68,10 +68,10 @@ Two things worth saying before the list, because they change how it reads:
 
 ### 2.3 The three places we are simply blind
 
-1. **Any bar holding a FAN.** `spacingPass` skips it: a fan's members are drawn across a span
-   `fanRoom` buys from the formatter, and moving the group's tick context out from under that span
-   would break the drawing. So inside a fanned bar the spacing is still VexFlow's softmax plus five
-   hand-tuned constants. **This is the largest blind spot left.**
+1. ✅ ~~**Any bar holding a FAN.**~~ **Closed 2026-07-30 (plan P5.)** A fanned bar is an ordinary bar
+   now: its slot's tick context takes the first member's column, and each member's gap is the spacing
+   rule applied to its own duration. `fanRoom.ts`, `FAN_MAX_SPAN_STRETCH`, `FAN_MIN_HEAD_GAP_RATIO`,
+   `trailingGap`, `fanColumns` and `MIN_NOTE_SPACING` were all deleted with it.
 2. **The preview GHOST.** It formats its own temporary stave and does not run the spacing pass, so a
    ghost can sit where the note will not.
 3. **Flags and beams as INK.** Neither is in `spacingPadding.ts`, so neither buys horizontal room.
@@ -98,7 +98,7 @@ Two things worth saying before the list, because they change how it reads:
   bar's note area may not begin outside the bar.
 - **The gap after a clef or a meter.** Ours reserves, theirs places.
 - **Accidental-to-notehead distance inside a column.** `Accidental.format`'s, not ours.
-- **Anything at all inside a fanned bar.**
+- ~~Anything at all inside a fanned bar~~ — ✅ closed 2026-07-30.
 
 ---
 
@@ -141,31 +141,30 @@ of ours it blocks.
 Ordered by *how much of a stated rule is currently unsayable*, which is the test above — not by
 effort and not by how much control each buys.
 
-### P1 — **The fan** (plan §P5)
-The one place where a whole bar is outside the model, and where five hand-tuned constants still
-negotiate one boundary (`fanColumns`, `FAN_MAX_SPAN_STRETCH`, `FAN_MIN_HEAD_GAP_RATIO`,
-`trailingGap`, `MIN_NOTE_SPACING`). The rule we want to state is already written down and already
-true of every other bar — *a fan's members are ordinary columns* — so this is not new design, it is
-finishing. It also deletes a module and the last reader of `MIN_NOTE_SPACING`.
+### ✅ ~~P1 — The fan~~ — DONE 2026-07-30
+All five constants and `fanRoom.ts` deleted, and `MIN_NOTE_SPACING` with them. The rule was already
+written down and already true of every other bar — *a fan's members are ordinary columns* — so it
+was finishing rather than design. ⚠️ It changed how every fan looks: the heads crowd by ×1.47 where
+they crowded by ×2.5, which is the spacing rule rather than a proportional ramp. Worth an eye.
 
-### P2 — **The header as columns** (plan §4)
+### P1 — **The header as columns** (plan §4)
 Kills the two-sets-of-numbers problem outright: `CLEF_WIDTH`, `CLEF_CHANGE_WIDTH` and
 `TIME_SIG_WIDTH` become real extents on real columns, and the gap after a clef becomes a row in the
 pair table like every other gap. ⭐ It is also what would let the lead-in go below 1.2 spaces, since
 we would then own `noteStartX` for every bar rather than only the headerless ones.
 
-### P3 — **Vertical clearance / kerning**
+### P2 — **Vertical clearance / kerning**
 The mechanism every other engine has and we do not: skip or reduce the pair padding when the two
 things do not overlap **vertically**. MuseScore's `computeVerticalClearance` + `KerningType`,
 LilyPond's skylines. This is the honest answer to *"accidentals in dense passages push the notes
 apart"* — an accidental low on the staff should tuck under a preceding high note. ⚠️ It needs
 `EventExtent` to gain a vertical range, which is a real change to the model's shape.
 
-### P4 — **Flags and beams as ink**
+### P3 — **Flags and beams as ink**
 A flag hangs right of its stem and buys no room today. Small, and it removes a known blind spot in a
 table that is otherwise complete.
 
-### P5 — **The preview ghost runs the spacing pass**
+### P4 — **The preview ghost runs the spacing pass**
 Correctness, not engraving: a ghost should stand where the note will.
 
 ### ⏭️ Not on this list, deliberately

@@ -17,7 +17,7 @@
  * No VexFlow, no DOM — pure, and unit-tested as such.
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, ChordRest, FanMark, FanMemberChord, NotePitch } from '@/types/music'
+import type { Chord, FanMark, FanMemberChord, NotePitch } from '@/types/music'
 import { type Fraction, fracCreate, fracFromInt, fracAdd, fracMul, fracDiv, fracSub, fracToNumber } from './fraction'
 
 /**
@@ -48,7 +48,7 @@ export type FanCurve = 'linear'
  *
  * `MAX_FAN_BEAMS` is where the two meet notation anyway: beam lines are note values, so 4 is a 64th
  * and past that there is nothing left to name. The ceiling on the count is pure arithmetic — at that
- * many members `fanColumns` is already asking for more width than a system has, and the drawing has
+ * many members the group is already asking for more width than a system has, and the drawing has
  * been compressing evenly for a while.
  */
 export const MAX_FAN_COUNT = 32
@@ -105,7 +105,7 @@ export function fanCount(fan: FanMark): number {
  * said. A spread of 0 would stack every line on the primary and a negative one would draw the wedge
  * inside out; both cost one call to make impossible.
  *
- * ⚠️ It is the DRAWING's number and no one else's — nothing in `fanWeights`, `fanColumns` or
+ * ⚠️ It is the DRAWING's number and no one else's — nothing in `fanWeights` or
  * `fanMembers` may read it. See {@link FanMark.spread}.
  */
 export function fanSpread(fan: FanMark): number {
@@ -156,7 +156,7 @@ export function rampRange(count: number, rampFrom?: number, rampTo?: number): { 
 
 /**
  * ⭐ **THE ONE OWNER OF THE WEIGHT SHAPE** — count, ratio, direction *and* range, resolved into one
- * duration weight per member. `fanMembers` (playback, head spacing) and `fanColumns` (bar width) both
+ * duration weight per member. `fanMembers` (playback, head spacing) and `measureColumns` (bar width) both
  * read it, and neither knows what a range is.
  *
  * - outside `[rampFrom, rampTo]`: weight `1` — the base, and the note value the wedge's narrow end
@@ -192,66 +192,6 @@ export function fanWeights(fan: FanMark): Fraction[] {
  */
 export function fanSpeedRatio(beams: number): number {
   return 2 ** (Math.max(1, Math.round(beams)) - 1)
-}
-
-/**
- * ⭐ How many COLUMNS of horizontal space a FAN needs — **counting from the ramp, not from the
- * member count**, which is the difference between a fan that reads and one that collapses.
- *
- * The heads are placed PROPORTIONALLY to their durations, so the group's tightest gap is its
- * shortest note: `gap_k / span = w_k / Σw`. For the tightest of them to be one ordinary column wide,
- * the whole span must therefore be `Σw / w_tightest` columns — which is a much bigger number than
- * `count`, and the reason a `rit.` was the worst case reported (a rallentando OPENS with its fastest
- * notes, so its tightest gaps are at the very start).
- *
- * ⭐ **Only the gaps BETWEEN heads count — the last member's weight is in neither term.** It is not
- * in the minimum (nothing follows it inside the group) and it is not in the SUM either, which is the
- * half this got wrong: counted in, the group reserved the last member's own duration as blank space
- * after its last head. On an accel that is 0.9 of a column and invisible; on a `rit`, whose last
- * member is its LONGEST, it is four columns of white — his report, *"a lot of space between the end
- * of the fan and the rest… interesting that it happens with rit but not with accel"*, and the room
- * came out of the notes that had to share the bar with it. What follows the last head is one
- * ordinary column, the `+ 1`, exactly as after any other note.
- *
- * ⚠️ The unit is `MIN_NOTE_SPACING`: one column is what an ordinary event gets, and that is exactly
- * the claim being made — *a fanned note takes the room of this many notes.* It has to be a count
- * rather than a measured width because the width pass runs where glyphs cannot be measured.
- *
- * A RANGE is already in the answer, because {@link fanWeights} is: an inset mark holds its outside
- * members at weight 1, so the ramp asking for the room is the one actually drawn. It can ask for
- * MORE, not less — a wedge that ends before the group does puts the tightest gap inside the span
- * instead of after the last head, where it was not counted.
- */
-export function fanColumns(fan: FanMark): number {
-  const n = fanCount(fan)
-  if (n < 2) return 1
-  const weights = fanWeights(fan).map(fracToNumber)
-  const gaps = weights.slice(0, n - 1) // the gaps, not the members: nothing follows the last head
-  const span = gaps.reduce((a, b) => a + b, 0)
-  const tightest = Math.min(...gaps)
-  return Math.ceil(span / tightest) + 1
-}
-
-/**
- * How many COLUMNS of horizontal space a slot claims — 1 for an ordinary event, {@link fanColumns}
- * for a fanned one.
- *
- * 🚨 **The width computation, not the width key.** The key is free: `laneFingerprint` stringifies
- * `lane.slots` whole, so a new slot field reaches both keys by construction. The NUMBER is not: bar
- * width floors at `slots.length × MIN_NOTE_SPACING` (18px — "the floor is what actually spaces
- * music"), and a fanned slot is one slot, so its members would be asked to live in one note's 18px.
- *
- * ⚠️ It must be used by **both** counts in `MeasureLayout` — the width's own floor and the
- * incompressible `spacingFloor` — because a floor larger than the width it floors makes the bar
- * incompressible. See docs/fanned-beams-plan.md §3 (P1).
- */
-export function slotColumns(slot: ChordRest): number {
-  return slot.type === 'chord' && slot.fan ? fanColumns(slot.fan) : 1
-}
-
-/** The columns a whole lane claims — `slots.length` with every fan counted out. */
-export function laneColumns(slots: ChordRest[]): number {
-  return slots.reduce((n, slot) => n + slotColumns(slot), 0)
 }
 
 /**

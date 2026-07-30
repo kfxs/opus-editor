@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { fannedBeamGeometry, fanBeamFarEdge, fanJoinQuads, fanStemExtension, FAN_MAX_BEAM_SLOPE } from './FannedBeam'
-import { fanColumns, fanMembers } from '@/utils/fannedBeam'
-import { LAYOUT_CONFIG } from './layoutConfig'
+import { fanMembers } from '@/utils/fannedBeam'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { FanMark } from '@/types/music'
 
@@ -65,17 +64,21 @@ describe('the members', () => {
     expect(g.stems[g.stems.length - 1].headX).toBeLessThanOrEqual(400 - MIN_GAP)
   })
 
-  it('⭐ stands off the next note by an ORDINARY column, not by its own crowded gap', () => {
+  it('⭐ stands off the next note by AT LEAST an ordinary column — and now usually by more', () => {
     // His report, twice: *"the last note is almost touching the barline"*, and *"here it is almost
     // touching the rest"*. Inside the group the heads crowd — that IS the notation — but the group
-    // as a whole keeps its distance like any other note. `fanColumns` reserves that column; this is
-    // the option that leaves it.
+    // as a whole keeps its distance like any other note.
+    //
+    // ⚠️ It used to land EXACTLY on `spanEndX − trailingGap`, because the ramp shared out whatever
+    //    room the bar gave it and therefore always filled the span. Under the spacing model (P5) the
+    //    ramp has an ABSOLUTE natural size — each gap is the rule applied to that member's own
+    //    duration — so a group in a roomy bar simply stops where its durations run out and the rest
+    //    is air. The promise is now a floor rather than an equality, and it is a stronger one.
     const TRAILING = 18
     const g = geometry(FAN, 400, TRAILING)
     const last = g.stems[g.stems.length - 1].headX
-    expect(400 - last).toBeCloseTo(TRAILING, 6)
-    // …and the group is that much tighter for it — the room comes off the ramp, not out of the bar.
-    expect(last).toBeLessThan(geometry(FAN).stems[g.stems.length - 1].headX)
+    expect(400 - last, 'at least the column it was always owed').toBeGreaterThanOrEqual(TRAILING)
+    expect(last, 'and the group never walks past the room it was given').toBeLessThanOrEqual(400)
   })
 
   it('crowds toward the FAST end — the drawing says what the playback does', () => {
@@ -292,7 +295,7 @@ describe('⭐ the heads never collapse onto each other', () => {
   /**
    * The bug reported from use: with the heads placed purely proportionally, a `rit.` — which OPENS
    * with its fastest notes — piled its first noteheads on top of one another. Proportional stays;
-   * the gaps have a floor, and `fanColumns` asks the bar for the width that floor implies.
+   * the gaps have a floor, and the bar asks for the width the members' own durations imply.
    */
   const gapsOf = (fan: FanMark, spanEndX?: number) => {
     const xs = geometry(fan, spanEndX).stems.map(s => s.headX)
@@ -307,7 +310,8 @@ describe('⭐ the heads never collapse onto each other', () => {
       for (const count of [2, 6, 12]) {
         for (const beams of [1, 3, 5]) {
           const fan: FanMark = { direction, count, beams }
-          const span = 100 + fanColumns(fan) * LAYOUT_CONFIG.MIN_NOTE_SPACING
+          // Generous, so the FLOOR is what is under test rather than the room running out.
+          const span = 100 + count * 40
           for (const gap of gapsOf(fan, span)) {
             expect(gap, `${direction} ${count}×${beams}`).toBeGreaterThanOrEqual(MIN_GAP - 1e-9)
           }
@@ -323,11 +327,13 @@ describe('⭐ the heads never collapse onto each other', () => {
     const total = gaps.reduce((a, b) => a + b, 0)
     expect(total).toBeLessThanOrEqual(160 - 100 - MIN_GAP + 1e-9)
     for (const gap of gaps) expect(gap).toBeGreaterThan(0)
-    // NEARLY even, and never piled up at one end — which is the claim that matters. (It used to come
-    // out exactly even, because every gap hit the floor and was then scaled by one number. With the
-    // trailing air gone the group has no slack, so the widest gaps stay a little above the floor and
-    // the ramp is still faintly legible under the compression. Better, and the same promise.)
-    expect(Math.max(...gaps) / Math.min(...gaps)).toBeLessThan(1.3)
+    // Never piled up at one end — which is the claim that matters. ⚠️ The bound was 1.3 while the
+    // gaps were a proportional share of the room with a floor under them: in a short span every gap
+    // hit the floor and the ramp flattened out. Under the spacing model the gaps are the rule's,
+    // and a span too short for them scales every one by the SAME number — so the ratio between the
+    // widest and the tightest is preserved instead of being crushed. The ramp stays legible under
+    // compression, which is better; what must not happen is one end taking everything.
+    expect(Math.max(...gaps) / Math.min(...gaps), 'the ramp survives the squeeze').toBeLessThan(2)
   })
 
   it('stays proportional when the room IS there', () => {

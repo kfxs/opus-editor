@@ -124,9 +124,17 @@ describe('a fanned slot renders', () => {
     const spans = beamSpans(r2.container)
     expect(spans).toHaveLength(3)
     for (const w of spans) expect(w).toBeCloseTo(spans[0], 6)
-    // ⭐ …and the RANGED one's group is WIDER, not narrower: an inset wedge puts the tightest gap
-    // inside the span where `fanColumns` counts it, so the bar is asked for more room (P0).
-    expect(primary).toBeGreaterThan(spans[0])
+    // ⚠️ The two groups are now a comparable WIDTH, and the old assertion (the ranged one WIDER) was
+    //    about a mechanism that is gone: `fanColumns` counted an inset wedge's tightest gap and asked
+    //    the bar for more room, so the ranged group got a bigger share to spread into. Under the
+    //    spacing model a group's width is the sum of what its members' own DURATIONS earn, and the
+    //    range reaches the heads only through the members' own DURATIONS — an inset mark holds its
+    //    outside members at weight 1, and those members then earn what that duration earns. So it
+    //    still moves them (it is a rhythmic fact, and it should), but by a few per cent rather than
+    //    by whatever a proxy for "how many columns is this gesture worth" happened to say.
+    expect(primary / spans[0], 'the range moves the heads only by what the durations earn')
+      .toBeGreaterThan(0.85)
+    expect(primary / spans[0]).toBeLessThan(1.15)
   })
 
   it('renders on a fanned note that is not the only thing in the bar', () => {

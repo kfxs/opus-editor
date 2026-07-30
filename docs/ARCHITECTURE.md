@@ -32,10 +32,14 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > test for whether a decision is worth taking (⭐ *is there a rule we want to state and can't?* —
 > never *do we control this?*).
 >
-> ⏭️ Still owed: **P5**, the fan's five constants (where `MIN_NOTE_SPACING` finally dies with
-> `fanRoom.ts`, and until then the spacing pass skips any bar holding a fan); the preview **ghost**,
-> which formats its own stave and does not run the pass; **vertical clearance** (an accidental that
-> does not overlap its neighbour vertically should not pay the padding).
+> ⭐ **P5 closed the fan**: `fanRoom.ts`, `FAN_MAX_SPAN_STRETCH`, `FAN_MIN_HEAD_GAP_RATIO`,
+> `trailingGap`, `fanColumns` and **`MIN_NOTE_SPACING` itself** are all deleted — a fan's members are
+> ordinary columns, and each gap is the rule applied to that member's own duration.
+>
+> ⏭️ Still owed: the **header as columns** (`CLEF_WIDTH`/`TIME_SIG_WIDTH` are reserved by us and
+> placed by VexFlow — two sets of numbers that agree by hand); **vertical clearance** (an accidental
+> that does not overlap its neighbour vertically should not pay the padding); flags and beams as ink;
+> and the preview **ghost**, which formats its own stave and does not run the pass.
 > ⛔ Resist adding another per-feature constant: that is the pattern the model exists to end.
 > **A new element that draws ink adds a ROW to the pair table**, never a constant of its own.
 

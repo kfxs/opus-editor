@@ -518,7 +518,7 @@ test('…and a fan given far more room than it needs does not sprawl into it', a
  * question was the fix: *"there is still space in the line… the bar can grow more."* The cap is a
  * preference about bars that could be narrower; a bar's incompressible demand now wins over it.
  */
-test('a dense fan grows its bar past the cap rather than spilling out of it', async ({ score }) => {
+test('a dense fan stays INSIDE its own bar — and no longer needs to outgrow the cap', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'] as const
@@ -542,8 +542,14 @@ test('a dense fan grows its bar past the cap rather than spilling out of it', as
   expect(drawn.heads.length, 'eight attacks are drawn').toBe(8)
   expect(drawn.bar.x2 - drawn.heads[7], 'and the last head keeps an ordinary column off the barline')
     .toBeGreaterThanOrEqual(15)
-  expect(drawn.bar.x2 - drawn.bar.x1, 'the bar took the room its content needs, past the 40-space cap')
-    .toBeGreaterThan(40 * 10)
+  // ⚠️ It used to assert the bar grew PAST `MAX_MEASURE_WIDTH`, and that was true of the world where
+  //    a fan bought its room with `fanColumns` — `ceil(span / tightest gap) + 1` ordinary columns,
+  //    which for a steep ramp is several times what its heads need. His screenshot came from the cap
+  //    then clamping it and the heads drawing through the barline. Under the spacing model the
+  //    members are ordinary columns and the ramp has an absolute natural size, so this fan asks for
+  //    about half what it did and the cap never comes near it. The requirement was never "the bar is
+  //    huge" — it was "the ink is inside the bar", which is what the loop below has always checked.
+  expect(drawn.bar.x2 - drawn.bar.x1, 'the bar is sized by its own content').toBeGreaterThan(20 * 10)
   for (const x of drawn.glyphs) {
     expect(x, 'every glyph is inside its own bar').toBeGreaterThanOrEqual(drawn.bar.x1)
     expect(x, 'every glyph is inside its own bar').toBeLessThanOrEqual(drawn.bar.x2)
