@@ -381,5 +381,7 @@ the cap, and the last member's duration is no longer drawn as white space — bu
 
 ⛔ **Do not add a sixth constant.** Five already negotiate that one boundary, each tuned against one
 screenshot. This is a symptom of the editor having no spacing rule at all, and it is now tracked as
-a whole-editor priority: **`docs/spacing-model-plan.md`** — notes, deliberately NOT a plan yet; it
-needs to be thought through before it becomes one.
+a whole-editor priority: **`docs/spacing-model-plan.md`** (evidence in
+`docs/spacing-model-research.md`). ⭐ It ends this specific symptom by construction: a fan's members
+become **ordinary columns** at the beats `fanMemberBeats` already gives them, so the gap after a
+group is decided by the same rule as every other gap, and all five constants above go with it.

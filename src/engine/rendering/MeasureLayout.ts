@@ -1,34 +1,31 @@
-import { Voice, Formatter } from 'vexflow'
-import type { Score, Measure, Clef } from '@/types/music'
-import { fracCompare, fracIsZero } from '@/utils/fraction'
+import type { Score, Measure } from '@/types/music'
+import { fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { laneColumns } from '@/utils/fannedBeam'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
+import { laneColumns } from '@/utils/fannedBeam'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
-import { laneFingerprint, type MeasureWidthCache } from './MeasureWidthCache'
-import { voiceOf } from '@/utils/lanes'
+import type { MeasureWidthCache } from './MeasureWidthCache'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { measureColumns } from '@/engine/layout/measureColumns'
+import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
-import {
-  createStaveNotesFromSlots,
-  makeClefResolver,
-  createTupletsForMeasure,
-  chooseVoiceMode,
-  drawsTimeSignature,
-} from './NoteBuilder'
+import { drawsTimeSignature } from './NoteBuilder'
 
 /**
  * Measure-width math — the two-pass proportional layout that decides each measure's
  * minimum/final width and which line it lands on, plus the cautionary clef/TS width
  * reservations at line breaks.
  *
- * Pure over `(score, clefsByStaff)`: holds no renderer state and writes no
- * per-render lookup maps. It does build throwaway VexFlow voices and uses
- * `Formatter.preCalculateMinTotalWidth`, so it is NOT framework-agnostic — it
- * quarantines that VexFlow coupling rather than removing it. The note-building it
- * needs comes from {@link ./NoteBuilder}.
+ * Pure over `(score, clefsByStaff)`: holds no renderer state and writes no per-render lookup maps.
+ *
+ * ⭐ **And framework-agnostic again as of P2.** It used to build throwaway VexFlow voices and ask
+ * `Formatter.preCalculateMinTotalWidth` how wide a bar's ink was — a coupling this file quarantined
+ * rather than removed. The spacing model removed it: a bar's width is now the rule
+ * (`engine/layout/spacing.ts`) summed over its columns (`engine/layout/measureColumns.ts`), and
+ * neither knows what VexFlow is. ⚠️ P3 brings a measurement back when real ink extents arrive — but
+ * as `EventExtent` numbers handed IN, not as a formatter called from here.
  */
 
 /** The note area a lane gets when it holds nothing at all, and the floor under a bar of pure
@@ -36,106 +33,89 @@ import {
 export const EMPTY_LANE_NOTE_SPACE = 40
 
 /**
- * The horizontal space **one staff's lane** needs for its notes — the expensive half of the
- * width calc, and the only half that depends on the staff.
+ * The horizontal space a measure's notes need — **the spacing rule, summed over its columns**
+ * (docs/spacing-model-plan.md P2). Two numbers: what the music asks for, and what it will not go
+ * below.
  *
- * `laneView` is a {@link staffMeasureView}: the measure narrowed to one staff, so its slots,
- * clefs and tuplets are that staff's only. Voices *within* the lane are still grouped and
- * formatted together — a two-voice bar must reserve room for both interleaved streams.
+ * ⭐⭐ **This is where DURATION finally enters bar width.** It used to be
+ * `max(preCalculateMinTotalWidth × 1.15, laneColumns × MIN_NOTE_SPACING)` — pure ink and a flat
+ * floor, with no duration term anywhere, and P0 measured what that produced: an eighth drawn 3.36
+ * staff spaces against a quarter's 1.94, because an unbeamed eighth carries a *flag* at width time
+ * and a quarter carries nothing, so ink was the only quantity that varied and it varied the wrong
+ * way (docs/spacing-model-research.md §6). Now a quarter earns Gould's 3½ spaces because it is a
+ * quarter.
  *
- * Memoized on the lane's content when a cache is given (P2). This is the ONLY expensive step in
- * the layout, and it is exactly the one that doesn't change when you edit some other bar — so
- * with a cache the formatter runs on the measure you touched and on nothing else. The overhead
- * (clefs, meter, line position) deliberately stays outside the memo: see {@link MeasureWidthCache}.
+ * ⚠️ **PER MEASURE, not per lane** — the max-over-staves became a MERGE. A column is a position in
+ * the *system*, so staff 1's beat 2 and staff 2's beat 2 are one column paid for once, and two
+ * voices at one beat are one column rather than two. See {@link measureColumns}.
+ *
+ * ⚠️ **The cache is not consulted here, and that is not an oversight.** `MeasureWidthCache` existed
+ * to memoize the VexFlow `Formatter`, which is no longer in this path: what replaced it is a walk
+ * over the slots and some exact arithmetic, and `laneFingerprint` — a `JSON.stringify` of the whole
+ * measure — costs more than the thing it would be saving. It comes back at P3, when measuring real
+ * ink makes this expensive again. ⛔ Do not re-add it before then on the assumption that a memo is
+ * free; the render-perf census exists to answer that with a number.
  */
-function noteSpaceForLane(laneView: Measure, clef: Clef, cache?: MeasureWidthCache): number {
-  // A lane is empty when it holds NO SLOTS. It used to ask "no chords?", which called a bar of
-  // rests empty: eight eighth-rests were measured as an empty bar and drew crammed on top of each
-  // other, narrower than a bar holding ONE whole rest (reported, with a screenshot). That was true
-  // while an all-rest bar could only ever be a single auto-filled measure rest; the rest tool made
-  // bars of authored rests and the assumption broke.
-  if (laneView.slots.length === 0) return EMPTY_LANE_NOTE_SPACE
-  const hasNotes = laneView.slots.some(s => s.type === 'chord')
+function noteSpaceForMeasure(measure: Measure): { natural: number; floor: number } {
+  // ⭐ **An EMPTY bar's width is a DEFAULT, not music, so the rule does not govern it.** Under the
+  // curve a 4/4 bar of silence would ask for `followingSpace(𝅝)` = 7 staff spaces = 70 px against
+  // today's 40 — Gould's number instead of ours, and the plan files it as an improvement (§2). It is
+  // not: he has reported three times that empty bars already do not shrink as far as he asks
+  // (docs/bar-width-plan.md "Known issues" #1), and widening them pushes the wrong way on an open
+  // complaint. `measureWidthParts` already makes exactly this argument for treating an empty bar's
+  // *stretch* differently — its width comes from defaults, so the user overruling it should win.
+  //
+  // ⚠️ A bar of AUTHORED rests is not empty (that is what {@link isEmptyBar} is careful about) and
+  // is spaced by the rule like any other music — eight eighth-rests are eight columns.
+  if (isEmptyBar(measure)) {
+    return { natural: EMPTY_LANE_NOTE_SPACE, floor: LAYOUT_CONFIG.MIN_NOTE_SPACING }
+  }
 
-  // TEMPORARY probes — the §9 question (see {@link RenderProbe.layoutSub}). `recording` is false in every
-  // ordinary session, so this is one boolean read, not a clock call.
+  // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). The bucket is still
+  // called `format`; what it times is no longer a formatter but the width term it replaced.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
-  const key = cache ? laneFingerprint(laneView) : undefined
-  if (probing) renderProbe().layoutSub('fingerprint', performance.now() - t0)
-  if (key !== undefined) {
-    const hit = cache!.get(key)
-    renderProbe().layoutCacheProbe(hit !== undefined)
-    if (hit !== undefined) return hit
+  const columns = measureColumns(measure)
+  // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
+  // casting-off works in px. ⚠️ A staff drawn small should multiply this by its own size — the same
+  // open P3 as the four width constants in `layoutConfig` (docs/staff-size-plan.md §6).
+  // ⚠️ **TEMPORARY — a fan still buys its drawn span with `fanColumns`, so the bar must still cover
+  // it.** Under the model a fan's members are ordinary columns and ask for exactly the room their
+  // heads take; `fanColumns` asks for `ceil(span / tightest gap) + 1`, a proxy invented to force the
+  // tick-proportional formatter to give way, and for a steep ramp it is several times larger. The
+  // WIDTH may adopt the model now, but `FanPass`/`fanRoom` will not until P5 — and a bar narrower
+  // than the span the drawing insists on is the exact failure he reported with a screenshot: the
+  // heads drawn straight through the barline. So while both live, a bar holding a fan takes the
+  // wider claim. ⛔ Deleted with `fanRoom.ts` at P5, not before, and only together.
+  const fanFloor = measure.slots.some(slot => slot.type === 'chord' && slot.fan)
+    ? laneColumns(measure.slots) * LAYOUT_CONFIG.MIN_NOTE_SPACING
+    : 0
+  const answer = {
+    natural: Math.max(naturalWidth(columns) * STAFF_SPACE_PX, fanFloor),
+    floor: Math.max(minimumWidth(columns) * STAFF_SPACE_PX, fanFloor),
   }
-  const tFormat = probing ? performance.now() : 0
-
-  const sorted = [...laneView.slots].sort((a, b) => fracCompare(a.beat, b.beat))
-  const clefResolver = makeClefResolver(laneView, clef)
-  const capacity = measureCapacityFrac(laneView)
-  const voiceIds = [...new Set(sorted.map(s => voiceOf(s)))].sort((a, b) => a - b)
-
-  const voices = voiceIds.map(v => {
-    const slots = sorted.filter(s => voiceOf(s) === v)
-    const sn = createStaveNotesFromSlots(slots, clefResolver)
-    // Create VexFlow Tuplets BEFORE adding notes to voice (adjusts tick values)
-    createTupletsForMeasure(laneView, slots, sn)
-    const voice = new Voice({
-      numBeats: laneView.timeSignature.numerator,
-      beatValue: laneView.timeSignature.denominator,
-    }).setMode(chooseVoiceMode(slots, capacity))
-    voice.addTickables(sn)
-    return voice
-  })
-
-  try {
-    const formatter = new Formatter()
-    formatter.joinVoices(voices)
-    const minNoteWidth = formatter.preCalculateMinTotalWidth(voices)
-
-    // Safety buffer (15%), floored at a minimum spacing per EVENT — and the floor is what actually
-    // spaces music: VexFlow's own minimum is ~9px an event, far too tight to read, so this is the
-    // number that decides how wide a bar is. It counted CHORDS, so rests earned no space at all and
-    // a bar of them collapsed. A rest occupies a beat exactly as a note does.
-    //
-    // 🚨 COLUMNS, not slots: a FANNED slot is drawn as `fan.count` noteheads across its own span
-    // (docs/fanned-beams-plan.md §3), so it claims that many events' worth of room. One slot's 18px
-    // for six heads is the silent version of this bug — the formatter's own answer above cannot see
-    // the fan either, because the fan is drawn by us and not by VexFlow.
-    const minSpacingWidth = laneColumns(laneView.slots) * LAYOUT_CONFIG.MIN_NOTE_SPACING
-    // …and a bar of pure SILENCE keeps its presence: one whole rest formats to less than this, and
-    // an empty bar should not collapse to the width of its one glyph. Only for lanes with no notes,
-    // though — as a floor on EVERY lane it clamps small bars and hides real differences (it swallowed
-    // the ~1px an accidental adds to a two-note bar, which the width control tests caught at once).
-    const silenceFloor = hasNotes ? 0 : EMPTY_LANE_NOTE_SPACE
-    const noteSpace = Math.max(minNoteWidth * 1.15, minSpacingWidth, silenceFloor)
-    if (key !== undefined) cache!.set(key, noteSpace)
-    if (probing) renderProbe().layoutSub('format', performance.now() - tFormat)
-    return noteSpace
-  } catch (error) {
-    console.warn(`Could not calculate width for measure ${laneView.number}:`, error)
-    return EMPTY_LANE_NOTE_SPACE
-  }
+  if (probing) renderProbe().layoutSub('format', performance.now() - t0)
+  return answer
 }
 
 /**
- * Minimum width of a measure — **the max over its staves**, not the sum of them.
+ * Minimum width of a measure — its columns' own demand, plus **the widest staff's** overhead.
  *
- * A measure spans every staff (they share barlines), so its width is the width of its *widest*
- * staff. The old code poured every staff's notes into one voice set and formatted them together,
- * which is both wrong (it engraves a width nobody asked for — a 25-staff bar reserved room for
- * 25 staves' notes interleaved into one imaginary stream) and the reason layout cost scaled with
- * the staff axis: the formatter was fed N× the notes. See docs/render-performance-plan.md §3.
+ * ⭐ **The note space is a MERGE over the staves, and used to be a max** (docs/spacing-model-plan.md
+ * §1.2). A measure spans every staff and they share barlines, so a rhythmic position is a position
+ * in the *system*: beat 2 on staff 1 and beat 2 on staff 2 are ONE column at ONE x, paid for once.
+ * The old max-over-staves was the best available answer while each staff was formatted alone — it
+ * replaced something worse still (pouring every staff's notes into one voice set, which reserved
+ * room for 25 staves interleaved into an imaginary stream, docs/render-performance-plan.md §3) — but
+ * it cannot express "these two staves want the same x", which is what a grand staff is.
  *
- * The clef terms live *inside* the max because a clef is per-staff (staff 1 may change clef where
- * staff 2 does not). The time-signature and barline padding are shared by every staff, so they sit
- * outside it.
+ * The clef terms stay per-staff and OUTSIDE that, because a clef really is per-staff (staff 1 may
+ * change clef where staff 2 does not). The time-signature and barline padding are shared by every
+ * staff, so they sit outside too.
  *
- * Returns **two** numbers, not one: the clamped total the layout casts off on, and — beside it —
- * the widest lane's *note space alone*, which is what a bar stretch multiplies (client #11,
- * docs/bar-width-plan.md §2). The extra max costs nothing (same loop), and the two maxima may
- * legitimately land on different staves: `noteSpace` is "the most room any lane's music needs",
- * which is exactly what a stretch stretches. The overhead is deliberately NOT in it — a bar pays a
+ * Returns **four** numbers, not one: the clamped total the layout casts off on, the measure's note
+ * space alone (what a bar stretch multiplies — client #11, docs/bar-width-plan.md §2), its overhead,
+ * and its incompressible floor. The overhead is deliberately NOT in the note space — a bar pays a
  * full clef only while it opens a line, so a stretch over the overhead would buy a different number
  * of pixels after every re-wrap.
  */
@@ -144,7 +124,6 @@ function calculateMinimumMeasureWidth(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-  cache?: MeasureWidthCache,
 ): { total: number; noteSpace: number; overhead: number; spacingFloor: number } {
   // Shared by every staff: the barline padding, and the meter glyph where one is drawn
   // (measure 1 + changes).
@@ -157,17 +136,15 @@ function calculateMinimumMeasureWidth(
   // it would copy four arrays per measure per render to arrive back at what it was given.
   const single = staffIds.length === 1
 
-  let widest = 0
-  let widestNoteSpace = 0
+  // ⭐ ONE answer for the whole measure — the columns are the system's, not a staff's. Both numbers
+  //   come out of the same column list, and they MUST: the floor is the sum of the gaps' minimums
+  //   and the width is the sum of `max(rule, minimum)`, so a floor counted any other way could
+  //   exceed the width it is a floor on and make the bar incompressible. (That is exactly what the
+  //   old pair did the other way round — it counted SLOTS in both, so a two-voice bar's floor
+  //   matched its slot-built width.)
+  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure)
+
   let widestOverhead = 0
-  // The incompressible part of the note area: `MIN_NOTE_SPACING` per column, the same rule
-  // `noteSpaceForLane` floors its answer with — counted the same way (per SLOT, so two voices at one
-  // beat count twice) precisely BECAUSE that is how the width was built. Count columns properly here
-  // and the floor could exceed the width it is a floor on, making a two-voice bar incompressible. A
-  // lane with no slots still gets one column: something is drawn there.
-  // ⚠️ Which is also why `laneColumns` — the fan's extra columns — has to be applied to BOTH: it
-  // widens the number above, so a floor still counting raw slots would no longer be the same rule.
-  let widestSpacingFloor = 0
   for (const staffId of staffIds) {
     // TEMPORARY probe — see {@link RenderProbe.layoutSub}.
     const probe = renderProbe()
@@ -196,14 +173,10 @@ function calculateMinimumMeasureWidth(
     const midClefs = (lane.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
     clefOverhead += midClefs * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
 
-    const noteSpace = noteSpaceForLane(lane, clef, cache)
-    widest = Math.max(widest, noteSpace + clefOverhead)
-    widestNoteSpace = Math.max(widestNoteSpace, noteSpace)
     widestOverhead = Math.max(widestOverhead, clefOverhead)
-    widestSpacingFloor = Math.max(widestSpacingFloor, Math.max(1, laneColumns(lane.slots)) * LAYOUT_CONFIG.MIN_NOTE_SPACING)
   }
 
-  const totalWidth = widest + sharedOverhead
+  const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
   // must not dominate a line", which is a taste about bars that could be narrower — and it was being
   // applied last, so it also clamped bars that could NOT. A fan of eight thirty-seconds asks for 21
@@ -213,7 +186,7 @@ function calculateMinimumMeasureWidth(
   // more."* So the incompressible demand — every lane's columns, plus the clefs and meter that must
   // be drawn — is the floor under the cap, and a bar that genuinely needs more room takes it. The
   // line then carries fewer bars, which is what casting-off is for.
-  const incompressible = widestSpacingFloor + widestOverhead + sharedOverhead
+  const incompressible = spacingFloor + widestOverhead + sharedOverhead
   return {
     total: Math.max(
       Math.min(
@@ -222,9 +195,9 @@ function calculateMinimumMeasureWidth(
       ),
       incompressible,
     ),
-    noteSpace: widestNoteSpace,
+    noteSpace,
     overhead: widestOverhead + sharedOverhead,
-    spacingFloor: widestSpacingFloor,
+    spacingFloor,
   }
 }
 
@@ -289,10 +262,9 @@ function measureWidthParts(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-  cache?: MeasureWidthCache,
 ): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean; floorWidth: number; naturalWidth: number } {
   const empty = isEmptyBar(measure)
-  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, cache)
+  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff)
   const { total: intrinsic, noteSpace, overhead, spacingFloor } = parts
   const userSpace = measureUserSpacePx(score, measure.id)
   const stretch = measureStretch(score, measure.id)
@@ -727,12 +699,11 @@ function lineIsClaimingRoom(line: MeasureWidthInfo[], incoming: SqueezableWidth)
 function calculateLinearMeasureWidths(
   score: Score,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-  cache?: MeasureWidthCache,
 ): Map<number, MeasureWidthInfo> {
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff)
 
     results.set(measure.number, {
       measureNumber: measure.number,
@@ -756,6 +727,13 @@ function calculateLinearMeasureWidths(
  *  a fifth `, undefined, true` at a call site says nothing about what it turns on. */
 export interface MeasureWidthOptions {
   mode?: ViewMode
+  /**
+   * ⚠️ **Accepted and NOT consulted, since P2 of the spacing model.** The memo existed for the
+   * VexFlow `Formatter`, which is no longer in the width path at all — see
+   * {@link noteSpaceForMeasure}, which explains why fingerprinting a measure now costs more than
+   * the arithmetic it would save. It stays on the API because P3 puts it back: measuring real ink
+   * extents makes this expensive again, and the renderer's cache is already wired to arrive here.
+   */
   cache?: MeasureWidthCache
   justifyLastLine?: boolean
   /**
@@ -781,8 +759,8 @@ export function calculateMeasureWidths(
   clefsByStaff: Map<string | undefined, StaffClefs>,
   options: MeasureWidthOptions = {},
 ): Map<number, MeasureWidthInfo> {
-  const { mode = 'wrapped', cache, justifyLastLine = false, surface = resolveSurface(SKETCH_CANVAS) } = options
-  if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff, cache)
+  const { mode = 'wrapped', justifyLastLine = false, surface = resolveSurface(SKETCH_CANVAS) } = options
+  if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff)
 
   const results = new Map<number, MeasureWidthInfo>()
   const availableWidth = surface.contentWidthPx
@@ -795,7 +773,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, cache)
+    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff)
 
     const incoming = { minWidth, naturalWidth, floorWidth, userSpace, stretchSpace }
     // **How many bars fit is decided GROWTH-BLIND** — on `naturalWidth`, what each bar would ask
@@ -826,7 +804,7 @@ export function calculateMeasureWidths(
 
       // Recalculate width for new line (first-in-line gets a full clef, so a
       // clef change is absorbed into the line-start clef — no extra width)
-      const newParts = measureWidthParts(score, measure, true, clefsByStaff, cache)
+      const newParts = measureWidthParts(score, measure, true, clefsByStaff)
 
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,

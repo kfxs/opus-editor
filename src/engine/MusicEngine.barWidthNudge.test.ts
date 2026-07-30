@@ -317,13 +317,24 @@ describe('shrinking an EMPTY bar', () => {
   it('⭐ it gets out of the way — and the room goes to the bar that has music', () => {
     const emptyBefore = width(3)
     const busyBefore = width(1)
-    for (let i = 0; i < 12; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
-    // 0.7, and the bar lands on the SAME pixels it did at 0.5 — ~87px either way, its floor. What
-    // changed is the number it is a fraction OF: an unstretched empty bar is no longer inflated to
-    // `MIN_MEASURE_WIDTH`, so it starts nearer where it ends. Still nothing like the ~6% the
-    // reserved-space model could manage.
+
+    // Two presses, while the line still holds the same bars: the empty bar gives room back and the
+    // bar with music takes it. THAT transfer is the feature, and it is what a share proportional to
+    // a lowered claim buys.
+    for (let i = 0; i < 2; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
+    expect(width(3), 'the empty bar stood down').toBeLessThan(emptyBefore)
+    expect(width(1), 'and the bar with music took the room').toBeGreaterThan(busyBefore)
+
+    // ⚠️ Keep pressing and bar 1 comes back DOWN — because at the third press the room given up is
+    // enough for an EIGHTH bar to join the line, and eight bars share what seven had. That is
+    // casting-off doing its job, not the transfer failing, and it is new only in scale: the spacing
+    // model made a bar of music ask for Gould's 3½ spaces a quarter instead of the flat floor's 1.8,
+    // so a 900px line holds seven bars where it used to hold nine, and a re-cast is now two presses
+    // away instead of never. The empty bar's own gesture is unaffected — it goes on shrinking to its
+    // floor, and lands at ~35% of where it started, comfortably past the 0.7 the complaint was about
+    // (the reserved-space model this replaced could manage about 6%).
+    for (let i = 0; i < 10; i++) { engine.nudgeBarWidth(3, -10); engine.renderScore() }
     expect(width(3)).toBeLessThan(emptyBefore * 0.7)
-    expect(width(1)).toBeGreaterThan(busyBefore)
   })
 
   it('⭐ the rest stays CENTRED however narrow the bar gets', () => {
@@ -404,9 +415,18 @@ describe('shrinking an EMPTY bar', () => {
   it('a bar WITH music keeps the floor as planned — its music still sets its claim', () => {
     // The scoping the user drew: only the empty case changed. Bar 1 is busy, so shrinking it stops
     // at the measured MIN_NOTE_SPACING-per-column floor, well short of an empty bar's range.
+    //
+    // ⚠️ Asserted against the FLOOR itself, not against a fraction of where the bar started. It used
+    // to say `> before × 0.5`, which held only while the two numbers happened to be close: the
+    // spacing model widened a bar of eight eighths (2.475 spaces each, Gould's curve) while leaving
+    // the provisional floor at 1.8 per gap, so the same bar now has more to give and lands at 46% of
+    // where it began. Its floor did not move, and the floor is the claim.
     const before = width(1)
     for (let i = 0; i < 40; i++) { engine.nudgeBarWidth(1, -10); engine.renderScore() }
-    expect(width(1)).toBeGreaterThan(before * 0.5)
+    // Eight eighths are eight columns and a barline — so eight GAPS, each floored at MIN_NOTE_SPACING.
+    const floor = 8 * LAYOUT_CONFIG.MIN_NOTE_SPACING
+    expect(width(1), 'it stopped exactly on the engraver\'s own floor').toBeCloseTo(floor, 6)
+    expect(width(1)).toBeLessThan(before)
   })
 
   it('is reversible — widening puts it back', () => {

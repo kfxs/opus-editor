@@ -83,12 +83,14 @@ src/
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector
-    layout/               # WHAT the music is drawn on, and derived-view arithmetic off
-                          #   the LAST RENDER: surface (canvas vs page — authored input,
-                          #   the one member here that isn't derived) + pageCastOff
-                          #   (the VERTICAL casting-off) + barWidthRoom (the gesture's
-                          #   closed form) + measuredRoom (what the ElementRegistry says
-                          #   a column/bar can still give up)
+    layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
+                          #   derived-view arithmetic off the LAST RENDER: surface (canvas
+                          #   vs page — authored input, the one member here that isn't
+                          #   derived) + pageCastOff (the VERTICAL casting-off) + spacing
+                          #   (⭐ THE SPACING RULE — Gould's 3.5×√t + the ink + the spring
+                          #   solve, pure) + measureColumns (a measure → its COLUMNS) +
+                          #   barWidthRoom (the gesture's closed form) + measuredRoom (what
+                          #   the ElementRegistry says a column/bar can still give up)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
                           #   PagePass (the sheets, drawn behind the music)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)

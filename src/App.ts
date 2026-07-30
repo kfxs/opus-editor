@@ -23,6 +23,7 @@ import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
+import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { setRenderProbe } from './engine/RenderProbe'
 import { mountDevToolbar } from './dev/devToolbar'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
@@ -530,8 +531,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
         dbg(`[perf] loaded ${bars} bars × ${staves} staves`)
       },
     }
+    // The spacing model's own P0 instrument (docs/spacing-model-plan.md P0) — the census of the
+    // DRAWN gaps, in staff spaces, for the score actually on screen. Scoped to the score container
+    // so it measures the music and not a window's preview.
+    w.__spacing = {
+      dump: () => dumpSpacingCensus(document.querySelector('.score-container') ?? document),
+      bars: () => spacingBars(document.querySelector('.score-container') ?? document),
+    }
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
+    dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
   }
 
   return {

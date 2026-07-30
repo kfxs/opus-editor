@@ -144,9 +144,17 @@ describe('bar width — justification (§3)', () => {
     const before = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     stretch(model, 2, 2)
     const after = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
-    // The bar is wider; its own justified share is smaller (it paid its part of its own stretch).
+    // The bar is wider by exactly the stretch: its own justified share is UNTOUCHED, and the whole
+    // bill lands on the neighbours.
+    //
+    // ⚠️ This used to assert `<` — that the stretcher paid a part of its own stretch — and passed on
+    // a floating-point accident: the two numbers differed in the 14th digit (205.56745182012844 vs
+    // …47) and never by anything else. `distributeLineWidths` says the opposite in as many words —
+    // *"A grown bar never pays: being wide is the thing that was asked for"* — so the equality is
+    // the real behaviour and the `<` was reading noise. The spacing model changed the arithmetic
+    // upstream, the noise landed on zero, and the accident showed itself.
     expect(after.get(2)!.finalWidth).toBeGreaterThan(before.get(2)!.finalWidth)
-    expect(after.get(2)!.finalWidth - after.get(2)!.stretchSpace!).toBeLessThan(before.get(2)!.finalWidth)
+    expect(after.get(2)!.finalWidth - after.get(2)!.stretchSpace!).toBeCloseTo(before.get(2)!.finalWidth, 6)
     for (const n of [1, 3, 4]) {
       if (after.get(n)!.lineNumber !== after.get(2)!.lineNumber) continue
       expect(after.get(n)!.finalWidth).toBeLessThan(before.get(n)!.finalWidth)
@@ -331,7 +339,12 @@ describe('bar width — asked-for vs forced (§3)', () => {
     }
     const widthsOf = () => calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'wrapped', justifyLastLine: true })
     const before = widthsOf()
-    stretch(model, 1, 4)
+    // ⚠️ ×3, and it used to be ×4. The spacing model made a bar of four quarters ask for Gould's 3½
+    // spaces per note instead of the flat floor's 1.8, so the same multiplier is now a much bigger
+    // demand in pixels — at ×4 the six empty bars really are spent and bar 4 starts paying, which is
+    // the NEXT test's subject, not this one. The tier ordering is untouched; the fixture's scale is
+    // what moved.
+    stretch(model, 1, 3)
     const after = widthsOf()
     const lost = (n: number) => before.get(n)!.finalWidth - after.get(n)!.finalWidth
     // The empty bars pay the WHOLE bill and the bar of music does not move at all. Not "pays less" —

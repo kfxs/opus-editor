@@ -3,13 +3,21 @@
 A map of the codebase for humans. For *what to build next*, see the `docs/*-plan.md`
 files (historical/working plans). For *how the pieces fit together*, read this.
 
-> ⭐⭐ **THE STANDING PRIORITY: this editor has no spacing rule.** Horizontal space is decided by
-> VexFlow's tick-proportional formatter plus one floor per event, so every feature that draws its
-> own ink re-derives "how much room does this need" by hand — and each has done it differently. A
-> real model (Gould: an event's own extent + the space its duration earns) is written up in
-> **`docs/spacing-model-plan.md`** — notes, not a plan yet — and is the biggest piece of work this
-> editor has left. ⛔ Until it exists, resist adding another per-feature constant: that is the
-> pattern it is there to end.
+> ⭐⭐ **THE STANDING PRIORITY: the spacing model, half built.** Horizontal space used to be decided
+> by VexFlow's tick-proportional formatter plus one floor per event, so every feature that draws its
+> own ink re-derived "how much room does this need" by hand — and each did it differently. The real
+> model (Gould: an event's own extent + the space its duration earns) is planned in
+> **`docs/spacing-model-plan.md`**, on the evidence in **`docs/spacing-model-research.md`** (Gould's
+> table, the four engines' formulas, and what our own code measures). The rule is
+> **`3.5 staff spaces × √(duration / quarter)`**, plus each event's own ink, combined with a `max`.
+>
+> **Built so far — P0–P2.** `engine/layout/spacing.ts` is the rule and the spring solve;
+> `engine/layout/measureColumns.ts` turns a measure into columns; `MeasureLayout` asks them for a
+> bar's width, so **duration decides bar width** and a drawn quarter is Gould's 3½ spaces. ⏭️ Still
+> owed: the **ink half** (P3 — extents and a pair table, which is what finally deletes
+> `MIN_NOTE_SPACING`) and the **renderer taking over x** (P4 — the gaps *inside* a bar are still
+> VexFlow's softmax). ⛔ Until those land, resist adding another per-feature constant: that is the
+> pattern the whole model is there to end.
 
 > **The one rule:** dependencies point **inward and downward**. The app shell
 > lives at the very top; the music engine at the bottom never knows it exists.
@@ -81,6 +89,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 │                              page each system lands on          │
 │      layout/{barWidthRoom,measuredRoom} . derived-view          │
 │                              arithmetic off the LAST RENDER     │
+│      layout/{spacing,measureColumns} . THE SPACING RULE —       │
+│                              how much room an event earns       │
 │      ElementRegistry ....... rendered-element geometry + hit   │
 │                              testing (authoritative)           │
 │      ViewportModel ......... scroll/zoom box over the content  │
@@ -285,6 +295,7 @@ editor?"* — if yes, it is a core module.
 | Adding a selectable on-score element (a new thing a click can pick) | ⭐ ONE new module: `interactions/elements/<kind>.ts` (its hit-test AND how it paints), a row in `ELEMENT_SPECS` and — if a press can land on it — a position in `ELEMENT_HIT_ORDER` (`elements/chain.ts`; the ORDER is the content, and `chain.test.ts` pins it). Then `EditorState.SelectedElement` + build: `assertNeverElement` still names the two sites that stay switches, Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` — the pass ORDER and the per-bar work. One family per module beside it, each a free function over `RenderPass`: `TieRenderer`, `SlurRenderer`, `DynamicsLayout`, `TempoLayout`, `FanPass`, `GhostRenderer`. ⭐ A new drawn family joins that list; it does not join the renderer |
 | A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts` — a `draw*Ghost`, a `ToolGhost` member (`ghostTypes.ts`), a `GHOST_DRAWERS` row, and a case in `interactions/toolGhost.ts`. ⚠️ The payload is ENGINE-owned, never the editor's `MarkingTool`: `lint:boundary` fences `src/engine/**` off from `@/interactions`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
+| How much room an event earns, and how a bar's surplus is shared | `engine/layout/spacing.ts` — Gould's rule (`3.5 × √t`), the ink as a `max` under it, and Gourlay's spring solve. PURE: `Fraction` in, staff spaces out, no VexFlow and no DOM, so it is testable against *Behind Bars* in node. Its input comes from `engine/layout/measureColumns.ts`, which merges a measure into COLUMNS — one x per rhythmic position across every voice AND staff, with a fan's members ordinary columns and the barline the last one. ⭐ A new element that takes horizontal room adds an `EventExtent` and a row in the pair table; ⛔ never a constant of its own |
 | How far a column / a bar may still be squeezed | `engine/layout/measuredRoom.ts` — MEASURED off the last render through `ElementRegistry`, never predicted. ⚠️ The caller owns the staleness rule (`modelDirty` ⇒ decline): a fresh number against an old picture slides the floor one step per press |
 | What a bar-width gesture may do (slopes, floors, the ceiling) | `engine/layout/barWidthRoom.ts` — a PURE function of the casting-off + the stored stretch + the view mode + the surface + one measured slack, so `docs/bar-width-plan.md` §4–§5 can be stated in a unit test |
 | Which PAGE a system lands on, and where on it | `engine/layout/pageCastOff.ts` — the whole vertical algorithm, and short because system heights are already known. It asks the surface ONE question (`contentHeightPx`; `null` ⇒ never break, which is the canvas), and never how the sheets are ARRANGED — that is a drawing decision and lives in `engine/rendering/PagePass.ts`, which draws them and owns the axis (`PAGE_FLOW`: side by side today, `'vertical'` a real option) in `pageOriginPx`/`surfaceSizePx` and nowhere else. ⚠️ A system taller than a page takes one and overflows it; the `used > 0` guard is what stops that being an infinite loop |

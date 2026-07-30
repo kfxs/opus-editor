@@ -22,7 +22,11 @@
 import { MusicEngine } from '@/engine/MusicEngine'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
+import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
 import { fracCreate } from '@/utils/fraction'
+
+/** Re-exported so a spec can name what `columnGaps()` hands back. */
+export type { BarSpacing, CensusColumn } from '@/dev/spacingCensus'
 
 /** A glyph as drawn: its SMuFL codepoint (lower-case hex) and the anchor VexFlow placed it at. */
 export interface Glyph {
@@ -96,6 +100,15 @@ export interface Harness {
   barlines(): { x: number; y: number; height: number }[]
   /** Every drawn bar of every staff — the source for "which system is this bar on?". */
   staves(): StaveBox[]
+  /**
+   * The SPACING census (docs/spacing-model-plan.md P0): per bar, where every column landed and how
+   * wide the gap after it is, **in staff spaces** — the unit Gould's table is written in.
+   *
+   * Built from `staves()` + `noteheads()` + `rests()` and the shared arithmetic in
+   * `dev/spacingCensus`, which is the same function `__spacing.dump()` uses in a dev build, so the
+   * number a spec pins and the number he reads off his own score cannot drift apart.
+   */
+  columnGaps(): BarSpacing[]
   /** Export the current score as a PDF (it downloads — the spec catches the download). */
   /**
    * The GHOST groups currently on the page, by class — the overlay contract in one reader
@@ -300,6 +313,8 @@ const harness: Harness = {
       }]
     }).sort((a, b) => a.top - b.top || a.x1 - b.x1)
   },
+
+  columnGaps: () => censusColumns(harness.staves(), [...harness.noteheads(), ...harness.rests()]),
 
   ghosts: () => all<SVGGElement>(GHOST_SELECTOR).map(g => g.getAttribute('class') ?? ''),
 

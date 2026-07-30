@@ -68,20 +68,34 @@ function redrawnMeasures(before: Map<number, SVGGElement | null>, after: Map<num
  * wrong thing, and only for bars that happened to move. Comparing whole elements is what makes that
  * impossible to miss.
  */
+/**
+ * ⚠️ Coordinates are compared to **nine decimals**, not bit-for-bit.
+ *
+ * A translated bar computes `x + delta` where a freshly drawn one computes the absolute x, so the
+ * two agree only as well as floating-point addition does — and whether they happen to agree exactly
+ * is a property of the arithmetic upstream, not of the translate. They were bit-identical until the
+ * spacing model changed the shape of the width sum, and then differed in the 13th digit: two
+ * ten-thousandths of a nanometre, on a picture measured in pixels. Nine decimals is far tighter than
+ * anything that could move a hit-box and still catches a field that was never shifted at all, which
+ * is what this snapshot is for.
+ */
+const roundCoords = (_key: string, value: unknown): unknown =>
+  typeof value === 'number' ? Math.round(value * 1e9) / 1e9 : value
+
 function registrySnapshot(renderer: VexFlowRenderer, bars: number, staves = 1) {
   const registry = renderer.getElementRegistry()
   const geometry: string[] = []
   for (let m = 1; m <= bars; m++) {
     for (let s = 0; s < staves; s++) {
       const geo = registry.getStaffGeometry(m, s)
-      if (geo) geometry.push(JSON.stringify(geo))
+      if (geo) geometry.push(JSON.stringify(geo, roundCoords))
     }
   }
   return {
-    elements: registry.getAll().map(el => JSON.stringify(el)).sort(),
+    elements: registry.getAll().map(el => JSON.stringify(el, roundCoords)).sort(),
     geometry: geometry.sort(),
     bounds: [...renderer.getAllMeasureBounds().entries()]
-      .map(([n, b]) => `${n}:${JSON.stringify(b)}`)
+      .map(([n, b]) => `${n}:${JSON.stringify(b, roundCoords)}`)
       .sort(),
   }
 }

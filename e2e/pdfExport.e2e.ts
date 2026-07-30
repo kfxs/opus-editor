@@ -72,8 +72,12 @@ test('under a layout the PDF is real A4 pages; without one it is the tall column
   // ---- Layout off: unchanged. One page, as tall as the music came out, and NOT any paper size.
   const canvas = mediaBoxes((await exportedBytes(score)).bytes)
   expect(canvas, 'the canvas prints as one page').toHaveLength(1)
-  // 15 systems' worth: 1717 pt, twice an A4 page and no paper size at all — which is the point.
-  expect(canvas[0].heightPt, 'as tall as the whole column').toBeGreaterThan(1500)
+  // A dozen systems' worth — well over an A4 page and no paper size at all, which is the point.
+  // ⚠️ It used to be 1717 pt and is now ~1380: the spacing model made a bar of eight eighths ask for
+  // √2 of a bar of quarters instead of what its *phantom flags* measured at width time, so these
+  // bars came out NARROWER, more of them fit a line, and the column is shorter. The claim is "taller
+  // than any sheet of paper", so it is written against A4 rather than against last month's pixels.
+  expect(canvas[0].heightPt, 'as tall as the whole column').toBeGreaterThan(841.9 * 1.5)
   expect(canvas[0].heightPt).not.toBeCloseTo(841.9, 0)
 
   // ---- Layout on: one sheet per page, at A4's real size.
