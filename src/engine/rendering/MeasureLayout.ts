@@ -301,7 +301,7 @@ function measureWidthParts(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
-): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; stretchScalesShare: boolean; floorWidth: number; naturalWidth: number } {
+): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; overhead: number; stretchScalesShare: boolean; floorWidth: number; naturalWidth: number } {
   const empty = isEmptyBar(measure)
   const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff)
   const { total: intrinsic, noteSpace, overhead, spacingFloor } = parts
@@ -355,6 +355,7 @@ function measureWidthParts(
     return {
       minWidth: overhead + scaled + userSpace,
       userSpace,
+      overhead,
       stretchSpace: 0, // nothing reserved — the stretch IS the share
       noteSpace: scalable, // what the multiplier multiplies, so px↔ratio still converts
       stretchScalesShare: true,
@@ -383,6 +384,7 @@ function measureWidthParts(
     userSpace,
     stretchSpace,
     noteSpace,
+    overhead,
     stretchScalesShare: false,
     floorWidth,
     naturalWidth: stretch >= 1 ? intrinsic + userSpace : intrinsic + userSpace + stretchSpace,
@@ -500,10 +502,49 @@ function distributeLineWidths(
   const naturalOf = (m: MeasureWidthInfo) => (m.naturalWidth ?? m.minWidth) - (m.userSpace ?? 0)
   const totalNatural = measureInfos.reduce((sum, m) => sum + naturalOf(m), 0)
   if (totalNatural <= 0) return
-  // `natural × room / total` IS the old formula written shorter: `n + (room − T)·n/T` collapses to
-  // it. So an untouched line comes out pixel-identical to what it always did, in both directions
-  // (this one expression replaces the old squeeze/stretch branch pair).
-  const widths = new Map(measureInfos.map(m => [m, naturalOf(m) * room / totalNatural]))
+  const surplus = room - totalNatural
+
+  /**
+   * ⭐⭐ **A LINE'S SURPLUS IS SHARED BY THE MUSIC, because only the music can absorb it.**
+   *
+   * This used to be `natural × room / total` — every bar's WHOLE width scaled by one factor. But a
+   * bar's width is *music + overhead*, and **overhead does not stretch**: a clef is 4.5 staff spaces
+   * whether the line is justified or not. So the whole of a bar's share landed on its music, and a
+   * bar's music actually stretched by `k + (k−1) × overhead/music` — the more clef and meter it
+   * carried, the more its notes were pulled apart.
+   *
+   * ⚠️ **Measured on his own fragment**, one line, two bars of the same music: a quarter came out
+   * **4.28** staff spaces in the system-opening bar and **3.96** two bars later, where the rule says
+   * 3.6 for both. Bar 1 carried 8.1 spaces of clef, meter and lead-in against 14.4 of music, so it
+   * was handed a share sized for a 22.5-space bar with only 14.4 spaces to put it in — `1.122 +
+   * 0.122 × 8.1/14.4` = **×1.19** against bar 2's ×1.10. It hits every system-opening bar, always in
+   * the same direction, and hardest when that bar has the least music.
+   *
+   * ⭐ Sharing by `noteSpace` — the part that CAN stretch — makes every bar's music stretch by the
+   * same factor, so **the same duration is drawn the same width everywhere on a line**. That is the
+   * consistency rule MuseScore 4's whole rewrite existed to establish
+   * (docs/spacing-model-research.md §4), and the clef then costs exactly what a clef costs.
+   *
+   * ⛔ **Only a SURPLUS is shared this way; a DEFICIT keeps the old proportional squeeze.** They are
+   * different questions. Handing out room is a spring problem — the springs take it. Taking room
+   * back is a *policy* problem, and this editor already has a policy for it, reported into existence:
+   * empty bars give way before bars of music (the tiers below). Squeezing by `noteSpace` would
+   * invert it, taking most from the bar with the most music.
+   */
+  // ⚠️ `natural − overhead`, NOT `noteSpace`. For an EMPTY bar `noteSpace` is deliberately the
+  //    UNSCALED multiplicand (so px↔ratio still converts for the gesture), so a bar shrunk to 0.3
+  //    would still claim a full share of the surplus and undo its own shrink — measured, on the
+  //    "the empty bar gets OUT OF THE WAY" test. `natural − overhead` is the music the bar is
+  //    actually claiming right now, which is the thing that can stretch.
+  const stretchOf = (m: MeasureWidthInfo) => Math.max(0, naturalOf(m) - (m.overhead ?? 0))
+  const totalStretch = measureInfos.reduce((sum, m) => sum + stretchOf(m), 0)
+  const widths = new Map(measureInfos.map(m => [
+    m,
+    surplus > 0 && totalStretch > 0
+      ? naturalOf(m) + surplus * (stretchOf(m) / totalStretch)
+      // The squeeze, unchanged: `natural × room / total` is `n + (room − T)·n/T` written shorter.
+      : naturalOf(m) * room / totalNatural,
+  ]))
 
   // ── 2. The transfer: hand out the growth, then take it back from the others ───────────────────
   const growthOf = (m: MeasureWidthInfo) => (m.minWidth - (m.userSpace ?? 0)) - naturalOf(m)
@@ -756,7 +797,7 @@ function calculateLinearMeasureWidths(
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff)
+    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff)
 
     results.set(measure.number, {
       measureNumber: measure.number,
@@ -764,6 +805,7 @@ function calculateLinearMeasureWidths(
       userSpace,
       stretchSpace,
       noteSpace,
+      overhead,
       stretchScalesShare,
       floorWidth,
       naturalWidth,
@@ -826,7 +868,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const { minWidth, userSpace, stretchSpace, noteSpace, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff)
+    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff)
 
     const incoming = { minWidth, naturalWidth, floorWidth, userSpace, stretchSpace }
     // **How many bars fit is decided GROWTH-BLIND** — on `naturalWidth`, what each bar would ask
@@ -865,6 +907,7 @@ export function calculateMeasureWidths(
         userSpace: newParts.userSpace,
         stretchSpace: newParts.stretchSpace,
         noteSpace: newParts.noteSpace,
+        overhead: newParts.overhead,
         stretchScalesShare: newParts.stretchScalesShare,
         floorWidth: newParts.floorWidth,
         naturalWidth: newParts.naturalWidth,
@@ -880,6 +923,7 @@ export function calculateMeasureWidths(
         userSpace,
         stretchSpace,
         noteSpace,
+        overhead,
         stretchScalesShare,
         floorWidth,
         naturalWidth,

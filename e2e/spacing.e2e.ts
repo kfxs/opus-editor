@@ -391,3 +391,49 @@ test('⭐⭐ LEDGER LINES no longer draw on top of each other (P3.1)', async ({ 
 
   console.log(`[census] ledgered 32nds: width ${drawn.census.width} gaps ${drawn.census.columns.map(c => c.gap.toFixed(2)).join(' ')}`)
 })
+
+test('⭐⭐ the SAME DURATION is drawn the same width across a system', async ({ score }) => {
+  // The consistency rule MuseScore 4's whole rewrite existed to establish
+  // (docs/spacing-model-research.md §4), and the bug he found by eye: *"bar 1 is not dense at all…
+  // there is a lot of space in the line"*. Measured on his own fragment, one line, two bars of the
+  // same music — a quarter came out **4.28** staff spaces in the opening bar and **3.96** two bars
+  // later. 8% apart, for the same note.
+  //
+  // ⭐ The cause was in `distributeLineWidths`: a line's surplus was shared in proportion to each
+  //   bar's TOTAL width, and then only its MUSIC could absorb it — a clef is 4.5 spaces whether the
+  //   line is justified or not. So a bar's music actually stretched by `k + (k−1) × overhead/music`,
+  //   and the more clef and meter a bar carried the more its notes were pulled apart. The surplus is
+  //   shared by `natural − overhead` now, so every bar's music stretches by the same factor.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 14) h.engine.addMeasure()
+    for (let measure = 1; measure <= 14; measure++) {
+      for (const beat of [0, 1, 2, 3]) {
+        h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure, beat: h.frac(beat, 1) })
+      }
+    }
+    await h.render()
+    const staves = h.staves()
+    const line = staves.filter(stave => stave.top === staves[0].top).map(stave => stave.measure)
+    return h.columnGaps().filter(bar => line.includes(bar.measure))
+      .map(bar => ({ measure: bar.measure, lead: bar.lead, quarter: bar.columns[0].gap }))
+  })
+
+  console.log(`[census] one quarter, bar by bar: ${drawn.map(b => `m${b.measure}=${b.quarter.toFixed(3)}`).join(' ')}`)
+  expect(drawn.length, 'several bars share the line').toBeGreaterThan(3)
+
+  // ⭐ Every bar that carries NO header draws the quarter identically — to three decimals.
+  const midLine = drawn.filter(bar => bar.measure > 1)
+  for (const bar of midLine) {
+    expect(bar.quarter, `bar ${bar.measure} matches bar ${midLine[0].measure}`)
+      .toBeCloseTo(midLine[0].quarter, 3)
+  }
+
+  // ⏭️ The system-OPENING bar is still a little wider, and by a known amount that is NOT this bug:
+  //    we reserve `CLEF_WIDTH + TIME_SIG_WIDTH` for the header while VexFlow places the glyphs and
+  //    needs about 0.9 staff spaces less, and the difference lands in that bar's music. That is the
+  //    header-as-columns work (docs/vexflow-boundary.md, priority 2) — pinned here at 6% so it
+  //    cannot quietly grow, and so that finishing it turns this line green at a tighter tolerance.
+  expect(drawn[0].quarter / midLine[0].quarter, 'the opening bar, still carrying the header gap')
+    .toBeLessThan(1.06)
+})

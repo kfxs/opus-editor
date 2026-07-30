@@ -254,6 +254,18 @@ export interface MeasureWidthInfo {
    */
   stretchScalesShare?: boolean
   /**
+   * The bar's INCOMPRESSIBLE, UNSTRETCHABLE part — clef, meter and barline padding — in px.
+   *
+   * ⭐ It exists so justification can share a line's surplus **by the music alone**: a clef is 4.5
+   * staff spaces whether the line is justified or not, so `naturalWidth − overhead` is the only part
+   * of a bar that can absorb anything. Sharing by the whole width instead over-stretched every
+   * system-opening bar — see the long note in `distributeLineWidths`.
+   *
+   * ⚠️ Not the same as {@link floorWidth}, which is this PLUS the per-column ink floor: overhead is
+   * what cannot move in EITHER direction, the floor is how far the music may be forced.
+   */
+  overhead?: number
+  /**
    * The narrowest this bar's **intrinsic** part may be pushed when something else on the line needs
    * the room: its overhead (clef, meter, barline padding — none of it compressible) plus
    * `MIN_NOTE_SPACING` per column. Excludes `userSpace`/`stretchSpace`, which are reserved off the

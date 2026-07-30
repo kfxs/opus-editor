@@ -175,11 +175,25 @@ Correctness, not engraving: a ghost should stand where the note will.
 
 ---
 
-## 6. Also owed, and not a VexFlow question at all
+## 6. ✅ Also owed, and not a VexFlow question at all — FIXED 2026-07-30
 
-Worth naming here so it is not mistaken for one: **the line's surplus is shared in proportion to
-each bar's TOTAL width, while only its MUSIC can stretch.** A bar carrying a clef and a meter is
-therefore systematically over-stretched — measured on his own fragment, bar 1's music stretched
-×1.28 against bar 2's ×1.045 on the same line. That is entirely our own arithmetic
-(`distributeLineWidths`), it is a bug rather than a boundary, and it is probably more visible on a
-real page than items P3–P5 above.
+**The line's surplus was shared in proportion to each bar's TOTAL width, while only its MUSIC can
+stretch.** Measured on his own fragment, one line: a quarter came out **4.28** staff spaces in the
+system-opening bar and **3.96** two bars later — 8% apart, for the same note. The mechanism was one
+expression in `distributeLineWidths`: every bar's whole width scaled by one factor `k`, and since
+overhead cannot stretch, a bar's music actually stretched by `k + (k−1) × overhead / music`. It hit
+every system-opening bar, always in the same direction, hardest when that bar had the least music.
+
+Sharing by `naturalWidth − overhead` instead makes every bar's music stretch by the same factor.
+Measured after: five bars of identical music on one line draw the quarter at **4.130, 4.130, 4.130,
+4.130** — identical to three decimals.
+
+⚠️ **What is left of it belongs to §5's priority 2.** The opening bar still draws **4.350**, 5%
+wider, and the cause is now exactly known: we reserve `CLEF_WIDTH + TIME_SIG_WIDTH` for the header
+while VexFlow places the glyphs and needs about **0.9 staff spaces less**, so the difference lands in
+that bar's music. It is the two-sets-of-numbers problem, and the header-as-columns work is what ends
+it. `e2e/spacing.e2e.ts` pins it at 6% so it cannot quietly grow.
+
+⭐ One field was added to make this sayable: `MeasureWidthInfo.overhead` — *the part of a bar that
+cannot move in either direction*. It is not `floorWidth`, which is that plus the per-column ink floor
+(how far the music may be FORCED, a different question).
