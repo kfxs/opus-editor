@@ -11,6 +11,7 @@
  */
 import { clampFanSpread, rampRange, type FanMember } from '@/utils/fannedBeam'
 import { followingSpace } from '@/engine/layout/spacing'
+import { beamLevelSpans } from '@/utils/beamLevels'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** One filled quad, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */
@@ -300,11 +301,17 @@ export interface FanGeometryOptions {
    */
   prefix?: FanPrefixNote[]
   /**
-   * How many beam LINES the prefix's own durations ask for — the MINIMUM across it, so a mixed
-   * prefix draws the lines they all agree on. Levels past the first run from the prefix's first stem
-   * to the fan's owner and stop there, which is what a partial beam looks like anywhere else.
+   * ⭐ How many beam LINES each prefix note's own duration asks for — **one number per note**, in the
+   * same order as {@link prefix} (an eighth 1, a sixteenth 2, a thirty-second 3).
+   *
+   * ⚠️ It used to be ONE number, the minimum across the whole prefix, *"so a mixed prefix draws the
+   * lines they all agree on"* — which drew his three sixteenths and two thirty-seconds all at two
+   * lines: *"where are the fusas in the first group? why we are not showing them? this is wrong"*.
+   * A beamed group is not one thickness; a line exists between two notes where BOTH have it, and a
+   * level nobody shares is a fractional beam. {@link beamLevelSpans} owns that arithmetic, and this
+   * is the input it needs — which the minimum had already thrown away.
    */
-  prefixBeams?: number
+  prefixLevels?: number[]
   /**
    * This fan is part of a JOINED group even though nothing ordinary precedes it — the FIRST fan of a
    * chain (P2). A prefix already implies it; this says so where there is none.
@@ -607,32 +614,46 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
       thickness,
     })
   }
-  // The PREFIX's own extra levels — a 16th group joined to a fan keeps its second beam. A `rit.`
-  // therefore shows a thickness change where they meet (1 line in, `fan.beams` out); an `accel.`
-  // meeting eighths is the clean case.
+  // ⭐ THE PREFIX'S OWN EXTRA LEVELS, PER GAP — a line runs between two of its notes where both of
+  // them carry it, so three 16ths beamed to two 32nds show two lines over the five and a third over
+  // the pair alone ({@link beamLevelSpans}). A `rit.` still shows a thickness change where prefix
+  // meets fan (1 line in, `fan.beams` out); an `accel.` meeting eighths is the clean case.
   //
   // ⭐ **WHERE THEY STOP IS THE SUBDIVISION.** At the last PREFIX stem, leaving the primary alone to
-  // carry the boundary — see {@link FanGeometryOptions.subdivideJoin}. They used to run on to the
-  // fan's own first stem, which is what made the two groups read as one band.
+  // carry the boundary — see {@link FanGeometryOptions.subdivideJoin}. Unsubdivided, whatever level
+  // reaches the last prefix note runs on into the fan's own first stem, which is the band the join
+  // used to draw always.
   //
-  // ⚠️ A prefix of ONE note has no span to draw: first stem and last are the same x, so the level
-  // becomes a fractional beam — a stub reaching back from the note into the group it belongs to,
-  // the same shape VexFlow draws for a lone 16th under a beam. Without it the note simply loses its
-  // second beam, which is a different rhythm.
+  // ⚠️ A SPAN OF ONE NOTE IS A STUB — a fractional beam, reaching back from the note into the group
+  // it belongs to (forward when it is the group's first, since there is nothing behind it). The same
+  // shape VexFlow draws for a lone 16th under a beam, and without it that note is drawn as an 8th,
+  // which is a different rhythm.
   //
   // ⚠️ `1.5`, NOT `step`: these are ordinary beams that happen to lead into a fan, and an ordinary
   // beam group's lines sit at the ordinary gap however far the wedge beside them is pulled open.
-  const prefixEndX = subdivideJoin && prefix.length ? prefix[prefix.length - 1].stemX : rampStartX
-  const prefixStartX = subdivideJoin && prefix.length === 1
-    ? prefixEndX - Math.min(SUBDIVIDE_STUB_PX, Math.max(0, rampStartX - prefixEndX))
-    : lineStartX
-  for (let k = 1; k < Math.max(0, Math.round(opts.prefixBeams ?? 0)); k++) {
-    const offset = k * thickness * 1.5
+  const prefixLevels = opts.prefixLevels ?? []
+  const lastPrefix = prefix.length - 1
+  for (const span of beamLevelSpans(prefixLevels.slice(0, prefix.length))) {
+    const offset = span.level * thickness * 1.5
+    // A stub has no span of its own, so it borrows one: back toward the note before it, or forward
+    // when it opens the group. Never past the neighbour it points at.
+    const stubBack = span.from > 0
+    const reach = (a: number, b: number) => Math.min(SUBDIVIDE_STUB_PX, Math.abs(prefix[a].stemX - prefix[b].stemX))
+    let startX = prefix[span.from].stemX
+    let endX = prefix[span.to].stemX
+    if (span.from === span.to) {
+      if (stubBack) startX -= reach(span.from, span.from - 1)
+      else if (lastPrefix > 0) endX += reach(span.from, span.from + 1)
+      else startX -= Math.min(SUBDIVIDE_STUB_PX, Math.max(0, rampStartX - endX))
+    }
+    // The join: subdivided, the levels stop where the prefix does. Otherwise the one that reaches
+    // its last note carries on into the fan.
+    if (!subdivideJoin && span.to === lastPrefix) endX = rampStartX
     lines.push({
-      startX: prefixStartX,
-      startY: lineAt(prefixStartX) + offset,
-      endX: prefixEndX,
-      endY: lineAt(prefixEndX) + offset,
+      startX,
+      startY: lineAt(startX) + offset,
+      endX,
+      endY: lineAt(endX) + offset,
       thickness,
     })
   }

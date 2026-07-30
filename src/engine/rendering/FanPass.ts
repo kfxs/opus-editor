@@ -707,9 +707,14 @@ function fanSlotDrawing(input: {
   // Their x's and head y's are the FORMATTER's, settled and read here like everything else in this
   // pass; what the join changes is only where their stems end.
   const prefixNotes = input.prefixNotes.filter(n => !!n && !!n.getStem())
-  // The lines they ask for: the count their own duration carries, the MINIMUM across them so a
-  // mixed prefix draws only what they all agree on.
-  const prefixBeams = prefixNotes.length ? Math.min(...prefixNotes.map(n => n.getBeamCount())) : 0
+  // ⭐ The lines they ask for, **one number per note** — VexFlow's own answer from each note's
+  // duration. It used to be `Math.min` across the whole prefix, which drew a mixed group at its
+  // thinnest and lost the fusas' third beam (his report); a beamed group is not one thickness, and
+  // `beamLevelSpans` is what turns these counts into the lines that actually run.
+  const prefixLevels = prefixNotes.map(n => n.getBeamCount())
+  // The DEEPEST of them is what the stems must clear: the third line reaches furthest, even where
+  // only two notes carry it.
+  const prefixBeams = prefixLevels.length ? Math.max(...prefixLevels) : 0
 
   return {
     index, slot, note, stave, clef, forcedStemDirection: input.forcedStemDirection, measureNumber, staffIndex,
@@ -773,7 +778,7 @@ function fanSlotDrawing(input: {
       accidentalRoom,
       headRightRoom,
       prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),
-      prefixBeams,
+      prefixLevels,
       // Every fan on a joined beam draws flat, prefix or no prefix — a chain's FIRST fan has none.
       joined,
       tipY: topY,

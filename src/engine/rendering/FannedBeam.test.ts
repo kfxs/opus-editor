@@ -476,7 +476,7 @@ describe('a fan joined to the group on its left', () => {
   const joined = (opts: {
     fan?: FanMark
     prefix?: { stemX: number; headYs: number[] }[]
-    prefixBeams?: number
+    prefixLevels?: number[]
     memberStep?: number
     subdivideJoin?: boolean
   } = {}) => {
@@ -488,7 +488,7 @@ describe('a fan joined to the group on its left', () => {
       direction: fan.direction, beams: fan.beams,
       headX: 100, spanEndX: 400, stemOffset: 10, minHeadGap: MIN_GAP,
       prefix: opts.prefix ?? PREFIX,
-      prefixBeams: opts.prefixBeams ?? 1,
+      prefixLevels: opts.prefixLevels ?? [1, 1],
       subdivideJoin: opts.subdivideJoin,
       tipY: 60, minStemLength: MIN_STEM, stemDirection: 1, beamWidth: BEAM_WIDTH,
     })
@@ -534,12 +534,12 @@ describe('a fan joined to the group on its left', () => {
   it('⭐ the prefix keeps its OWN beam levels, and they stop where the SUBDIVISION is', () => {
     // A 16th prefix: two lines arrive, and the second is the prefix's alone. It ends at the LAST
     // PREFIX stem (70), not at the fan's owner (100) — the gap between them is the subdivision.
-    const g = joined({ prefixBeams: 2 })
+    const g = joined({ prefixLevels: [2, 2] })
     const prefixLevels = g.beams.filter(line => line.startX === 40 && line.endX === 70)
     expect(prefixLevels).toHaveLength(1)
     expect(prefixLevels[0].startY).toBeCloseTo(g.beams[0].startY + BEAM_WIDTH * 1.5, 6)
     // An eighth prefix asks for one line, which IS the primary — nothing extra.
-    expect(joined({ prefixBeams: 1 }).beams).toHaveLength(3)
+    expect(joined({ prefixLevels: [1, 1] }).beams).toHaveLength(3)
   })
 
   /**
@@ -547,7 +547,7 @@ describe('a fan joined to the group on its left', () => {
    * straight through, and *"the fan is not distinguishable from semicorcheas"*.
    */
   it('⭐ subdivides by DEFAULT: the secondary stops short of the fan, the primary carries on', () => {
-    const g = joined({ prefixBeams: 2 })
+    const g = joined({ prefixLevels: [2, 2] })
     const secondary = g.beams.find(line => line.startX === 40 && line !== g.beams[0])!
     expect(secondary.endX, 'ends at the last prefix stem').toBe(70)
     expect(secondary.endX, 'and NOT at the fan’s own first stem').not.toBe(g.stems[0].stemX)
@@ -555,13 +555,39 @@ describe('a fan joined to the group on its left', () => {
   })
 
   it('…and `subdivideJoin: false` draws the old unbroken band', () => {
-    const g = joined({ prefixBeams: 2, subdivideJoin: false })
+    const g = joined({ prefixLevels: [2, 2], subdivideJoin: false })
     const secondary = g.beams.find(line => line.startX === 40 && line !== g.beams[0])!
     expect(secondary.endX).toBe(g.stems[0].stemX)
   })
 
+  /**
+   * ⭐ HIS REPORT: three 16ths beamed to two 32nds drew everything at two lines — *"where are the
+   * fusas in the first group? why we are not showing them?"*. A beamed group is not one thickness.
+   */
+  it('⭐ a MIXED prefix keeps every note\'s own lines — the fusas get their third beam', () => {
+    const five = [40, 60, 80, 100, 115].map(stemX => ({ stemX, headYs: [100] }))
+    const g = joined({ prefix: five, prefixLevels: [2, 2, 2, 3, 3] })
+    const extra = g.beams.filter(line => line !== g.beams[0] && line.startX < g.stems[0].stemX)
+
+    // Two lines over all five notes… and a THIRD over the two thirty-seconds alone.
+    const second = extra.find(l => Math.abs(l.startY - (g.beams[0].startY + BEAM_WIDTH * 1.5)) < 0.001)!
+    expect([second.startX, second.endX], 'the second line spans the group').toEqual([40, 115])
+    const third = extra.find(l => Math.abs(l.startY - (g.beams[0].startY + 2 * BEAM_WIDTH * 1.5)) < 0.001)!
+    expect([third.startX, third.endX], 'the third covers the fusas only').toEqual([100, 115])
+  })
+
+  it('⭐ …and a level nobody shares is a STUB, not a lost beam', () => {
+    // 16 32 16: the third line lives on the middle note alone, reaching BACK into the group.
+    const three = [40, 70, 100].map(stemX => ({ stemX, headYs: [100] }))
+    const g = joined({ prefix: three, prefixLevels: [2, 3, 2] })
+    const third = g.beams.find(l => Math.abs(l.startY - (g.beams[0].startY + 2 * BEAM_WIDTH * 1.5)) < 0.001)!
+    expect(third.endX, 'it ends at the note that asked for it').toBe(70)
+    expect(third.startX, 'and reaches back toward the one before').toBeGreaterThan(40)
+    expect(third.startX).toBeLessThan(70)
+  })
+
   it('⚠️ a prefix of ONE note keeps its level as a STUB — losing it would be a different rhythm', () => {
-    const g = joined({ prefix: [{ stemX: 70, headYs: [100] }], prefixBeams: 2 })
+    const g = joined({ prefix: [{ stemX: 70, headYs: [100] }], prefixLevels: [2] })
     const secondary = g.beams.find(line => line !== g.beams[0] && line.endX === 70)!
     expect(secondary.endX, 'it ends at the note').toBe(70)
     expect(secondary.startX, 'and reaches BACK from it, into the group it belongs to').toBeLessThan(70)
@@ -589,7 +615,7 @@ describe('a fan joined to the group on its left', () => {
       memberHeadYs: Array.from({ length: 6 }, () => [100]),
       direction: 'accel', beams: 3,
       headX: 100, spanEndX: 400, stemOffset: 0, minHeadGap: MIN_GAP,
-      prefix: PREFIX, prefixBeams: 2,
+      prefix: PREFIX, prefixLevels: [2, 2],
       tipY: 140, minStemLength: MIN_STEM, stemDirection: -1, beamWidth: BEAM_WIDTH,
     })
     const extra = g.beams.find(line => line.startX === 40 && line.endX === 70)!

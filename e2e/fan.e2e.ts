@@ -682,3 +682,47 @@ test('⭐ A JOINED FAN SUBDIVIDES: the secondary beam breaks where the gesture s
   expect(drawn.band.every(q => q.right < lastPrefixHead || q.right > firstFanHead),
     'unsubdivided, no level ends inside the join').toBe(true)
 })
+
+test('⭐ A MIXED PREFIX KEEPS ITS FUSAS — 16 16 16 32 32 into a fan draws three lines over the pair', async ({ score }) => {
+  /*
+   * His score, exactly: three sixteenths, two thirty-seconds, then a fanned half joined to them
+   * (`beam: 'continue'`). It drew every prefix note at TWO lines — *"where are the fusas in the first
+   * group? why we are not showing them? this is wrong"* — because the prefix's level count was one
+   * `Math.min` across the whole group.
+   *
+   * A beamed group is not one thickness: a line runs between two notes where both carry it
+   * (`utils/beamLevels.ts`). So the second line spans all five and the third covers the fusas alone.
+   */
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (const [beat, duration] of [[0, '16'], [1 / 4, '16'], [1 / 2, '16'], [3 / 4, '32'], [7 / 8, '32']] as const) {
+      h.engine.addNoteAtBeat({
+        step: 'C', octave: 4, duration, measure: 1,
+        beat: h.frac(Math.round(beat * 8), 8),
+      })
+    }
+    const owner = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(1, 1) })!
+    h.engine.setFan(owner.id, { direction: 'accel', count: 6, beams: 3 })
+    h.engine.updateNote(owner.id, { beam: 'continue' })
+    await h.render()
+    return { quads: h.quads('g.vf-fan path'), heads: h.noteheads().map(n => n.x) }
+  })
+
+  // Five prefix heads, then the fan's six.
+  expect(drawn.heads.length).toBe(11)
+  const [n0, , , n3, n4, fanStart] = drawn.heads
+
+  // The lines the PREFIX drew: everything that ends before the fan begins.
+  const prefix = drawn.quads.filter(q => q.right < fanStart)
+  const levels = [...new Set(prefix.map(q => Math.round(q.yLeft * 10) / 10))].sort((a, b) => a - b)
+  expect(levels.length, 'the prefix draws more than one thickness').toBeGreaterThan(1)
+
+  // The DEEPEST prefix line is the fusas' third beam: it must start at the first 32nd, not at the
+  // group's first note — that is the whole bug, in one number.
+  const deepest = prefix.filter(q => Math.round(q.yLeft * 10) / 10 === levels[levels.length - 1])
+  expect(deepest.length, 'the third beam is drawn at all').toBeGreaterThan(0)
+  const third = deepest[0]
+  expect(third.left, 'it starts at the first fusa, not at the group').toBeGreaterThan(n0 + 1)
+  expect(Math.abs(third.left - n3), 'at the first fusa').toBeLessThan(12)
+  expect(Math.abs(third.right - n4), 'and ends at the second').toBeLessThan(12)
+})
