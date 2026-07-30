@@ -182,6 +182,45 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
   const columnsOf = (model: ScoreModel) => measureColumns(bar(model))
   const asks = (model: ScoreModel) => naturalWidth(columnsOf(model))
 
+  it('⭐⭐ a FLAG is ink — an UNBEAMED short note reaches a space past its notehead', () => {
+    // `docs/vexflow-boundary.md` §5 P2. A flag hangs off the stem TIP and the column never counted it:
+    // measured in Chrome, an eighth's up-flag reaches **2.15** staff spaces past the head's anchor
+    // against the head's own 1.13, so a bar of unbeamed 32nds — gap 1.50 by the rule — drew every flag
+    // **0.65 spaces THROUGH** the next notehead. Seven collisions in one bar.
+    const model = new ScoreModel()
+    for (let i = 0; i < 8; i++) {
+      model.addNote({ step: 'D', octave: 4, duration: '32', measure: 1, beat: frac(i, 8), beam: 'single' } as NoteParams)
+    }
+    const flags = columnsOf(model).flatMap(column => column.ink.filter(box => box.kind === 'flag'))
+    expect(flags, 'every unbeamed 32nd draws one').toHaveLength(8)
+    expect(flags[0].right, 'and it reaches a space past the notehead')
+      .toBeCloseTo(INK.notehead + INK.flagReach, 6)
+  })
+
+  it('⛔ …and a BEAMED note has none, because none is DRAWN', () => {
+    // The opposite error, and the one the old ink path actually made: VexFlow's
+    // `preCalculateMinTotalWidth` counted a flag on every eighth including beamed ones, which is why an
+    // eighth measured WIDER than a quarter (research §6). So this asks the BEAMING rule — `beamRoleAt`,
+    // the same answer the drawing reaches — and not the duration.
+    const beamed = new ScoreModel()
+    for (let i = 0; i < 8; i++) {
+      beamed.addNote({ step: 'D', octave: 4, duration: '32', measure: 1, beat: frac(i, 8) } as NoteParams)
+    }
+    expect(columnsOf(beamed).flatMap(c => c.ink.filter(b => b.kind === 'flag')), 'no flags under a beam')
+      .toEqual([])
+
+    const unbeamed = new ScoreModel()
+    for (let i = 0; i < 8; i++) {
+      unbeamed.addNote({ step: 'D', octave: 4, duration: '32', measure: 1, beat: frac(i, 8), beam: 'single' } as NoteParams)
+    }
+    expect(asks(unbeamed), 'so the unbeamed bar asks for more room than the beamed one')
+      .toBeGreaterThan(asks(beamed))
+  })
+
+  it('a QUARTER never has one, flaggable or not', () => {
+    expect(columnsOf(evenBar(4, 'q')).flatMap(c => c.ink.filter(b => b.kind === 'flag'))).toEqual([])
+  })
+
   it('a sharp reaches left of its notehead, and the gap in front of it is note↔accidental', () => {
     const model = evenBar(4, 'q')
     const note = model.getNotesInMeasure(1)[1]

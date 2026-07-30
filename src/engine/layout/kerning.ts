@@ -91,6 +91,10 @@ const MAY_KERN: readonly (readonly [InkKind, InkKind])[] = [
   ['dot', 'accidental'],
   ['ledger', 'accidental'],
   ['stem', 'accidental'],
+  // ⭐ A FLAG is the case this table was waiting for: it hangs from the stem TIP, three staff spaces
+  //   from the notehead, so a following accidental at the other end of the staff is plainly clear of
+  //   it — and a flag is the widest thing an unbeamed short note draws.
+  ['flag', 'accidental'],
 ]
 
 const mayKern = (left: InkKind, right: InkKind): boolean =>

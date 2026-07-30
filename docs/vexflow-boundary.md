@@ -207,9 +207,36 @@ never applied to a bar that OPENS with a rest. Delivering it widens every such b
 moves the measure rest a quarter space off centre, so it is a by-eye decision of its own. See
 `edgeKind`'s doc.
 
-### P2 — **Flags and beams as ink**
-A flag hangs right of its stem and buys no room today. Small, and it removes a known blind spot in a
-table that is otherwise complete.
+### ✅ ~~P2 — Flags and beams as ink~~ — DONE 2026-07-30
+`INK.flagReach` + `INK_HEIGHT.flagFromTip`, and a `flag` box in `measureColumns`.
+
+⭐⭐ **The flag was a real collision, measured.** An eighth's up-flag runs from 1.05 to **2.15** staff
+spaces past the notehead's anchor (the head's own width is 1.13), and the column claimed 1.13. So a bar
+of unbeamed 32nds — gap 1.50 by the rule — drew every flag **0.65 spaces THROUGH** the next notehead:
+seven collisions in one bar. The gap is now the flag's own ink (2.43 = notehead + flag + `note↔note`)
+and the flags clear by 0.28.
+
+⚠️ **And the opposite error is the one the OLD ink path made**, which is why this had to be gated
+properly: VexFlow's `preCalculateMinTotalWidth` counted a flag on every eighth *including beamed ones*,
+where none is drawn — the single biggest reason an eighth once measured wider than a quarter
+(docs/spacing-model-research.md §6). So the box is added exactly where a flag is DRAWN, asked of
+`beamRoleAt` (`'single'` = nothing beams it) rather than guessed from the duration. A beamed 32nd's gap
+is unchanged at the rule's 1.50.
+
+⭐ Two more findings worth keeping:
+
+- **A DOWN flag buys nothing.** Its stem stands at the notehead's LEFT edge, so its 1.2 spaces of ink
+  land inside the head's own width (measured: box right 1.3 against the head's 1.2). Only the up-flag
+  reaches past anything.
+- ⛔ **BEAMS need no width at all, and that is a conclusion rather than a punt.** A beam's ink lies
+  BETWEEN two columns, at the stem-tip end — three-plus staff spaces above the noteheads — and so does a
+  partial beam (a hook): measured on a dotted-eighth + sixteenth pair, the hook is ~1.0 space inside a
+  gap that is already 1.8 and is vertically clear of everything at head level. What a beam really costs
+  the model is **stem LENGTH**, which is a kerning input and not a width — and that is now taken from
+  the same `beamRoleAt` answer instead of a guess from the duration.
+
+⏭️ Still not modelled, with its number: a hook on a note whose gap is at the ink floor. It cannot
+collide today (the vertical clearance is three spaces), so it is a completeness item, not a defect.
 
 ### P3 — **The preview ghost runs the spacing pass**
 Correctness, not engraving: a ghost should stand where the note will.

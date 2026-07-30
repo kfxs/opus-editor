@@ -88,8 +88,8 @@ src/
                           #   vs page — authored input, the one member here that isn't
                           #   derived) + pageCastOff (the VERTICAL casting-off) + spacing
                           #   (⭐ THE SPACING RULE — Gould's 3.5×√t + the spring solve, pure)
-                          #   + spacingPadding (the INK: measured extents, HEIGHTS + a padding
-                          #   table keyed by the PAIR; ⛔ a new drawn element adds a ROW here,
+                          #   + spacingPadding (the INK: measured extents (incl. FLAGS), HEIGHTS
+                          #   + a padding table keyed by the PAIR; ⛔ a new drawn element adds a ROW here,
                           #   never a constant elsewhere) + kerning (⭐ two inks only clash where
                           #   they share a vertical BAND — the located ink boxes and what may
                           #   tuck under what) + measureColumns (a measure → its COLUMNS)

@@ -38,7 +38,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * does is *block* — it is the piece hanging through the space a low accidental would otherwise tuck
  * into, and a horizontal-only ink model had no reason to name it.
  */
-export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'barline'
+export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem' | 'flag' | 'barline'
 
 /**
  * The ink an event's own glyphs take, in staff spaces, measured off the drawing (see the header).
@@ -70,6 +70,23 @@ export const INK = {
   dotWidth: 0.4,
   /** The gap VexFlow leaves between the nearest accidental column and the notehead. */
   accidentalToHead: 0.1,
+  /**
+   * ⭐ **How far a FLAG reaches past its notehead's right edge** — 1.0 staff space, measured: an
+   * eighth's up-flag runs from 1.05 to **2.15** spaces past the head's anchor, against the head's own
+   * 1.13.
+   *
+   * ⚠️ **It was a real blind spot, and in BOTH directions.** Today the column claims 1.13 and the flag
+   * draws to 2.15, so a bar of unbeamed 32nds — whose rule-given gap is 1.50 — draws each flag through
+   * the next notehead. And the OLD ink path (VexFlow's `preCalculateMinTotalWidth`) had the opposite
+   * error: it counted a flag on every eighth *including beamed ones*, where none is drawn, which is
+   * what made an eighth measure WIDER than a quarter (docs/spacing-model-research.md §6). The answer to
+   * both is to count it exactly when it is drawn — see {@link measureColumns}, which asks
+   * `beamRoleAt` rather than guessing from the duration.
+   *
+   * A DOWN flag adds nothing: its stem stands at the head's LEFT edge, so its 1.2 spaces of ink land
+   * inside the head's own 1.13 (measured: box right 1.3 against the head's 1.2).
+   */
+  flagReach: 1.0,
 } as const
 
 /**
@@ -97,8 +114,17 @@ export const INK_HEIGHT = {
   notehead: 0.6,
   /** An augmentation dot. */
   dot: 0.2,
-  /** A ledger line: a hairline, but see {@link ledgerBand} — it spans head→staff, not head only. */
+  /** A ledger line: a hairline, but its BAND spans head→staff rather than the head alone. */
   ledger: 0.15,
+  /**
+   * ⭐ A FLAG hangs **3.3 staff spaces from the stem TIP back toward the notehead** — down for an
+   * up-stem, up for a down-stem — which is nearly the whole stem. Measured, and the same for the 8th,
+   * 16th and 32nd flags (each extra hook thickens the glyph rather than lengthening it).
+   *
+   * ⚠️ It is a band from the TIP, not around an anchor, which is why the flag box is built from the
+   * stem's own geometry in `measureColumns` rather than from a `± height` like the others.
+   */
+  flagFromTip: 3.3,
 } as const
 
 /** How far an accidental's ink reaches above and below the line of the note it belongs to. */

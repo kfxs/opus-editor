@@ -32,6 +32,8 @@ import { fanMemberBeats } from '@/utils/fannedBeam'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
+import { beamRoleAt, isBeamableDuration } from '@/utils/beaming'
+import { getMeterInfo } from '@/utils/meter'
 import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
@@ -98,7 +100,7 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
  * ⚠️ **And `clef` is why this function reads where a note SITS**, which used to be forbidden in the
  * width path — see {@link measureColumns} for why that rule expired.
  */
-function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean): ColumnInk {
+function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
     // A rest's own band is not modelled: nothing kerns against a rest (`MAY_KERN`), so the honest
@@ -171,11 +173,9 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     const lines = pitches.map(lineOf)
     const up = stemUp(slot, clef, multiVoice)
     const fromY = yOfLine(up ? Math.max(...lines) : Math.min(...lines))
-    // ⚠️ 'auto' counts as beamed: it means the beaming pass decides, and for an eighth or shorter it
-    //    usually does beam. Guessing the other way would unblock a kern that has a long stem in it.
-    const beamed = slot.duration !== 'q' && slot.duration !== 'h' && slot.beam !== 'single'
     // A stem always reaches at least the middle line (y = 2), which for a note just outside the staff
     // is the same statement as `STEM_REACH`.
+    const beamed = isBeamableDuration(slot.duration) && !flagged
     const tipY = beamed
       ? (up ? Math.min(0, fromY - STEM_REACH) : Math.max(4, fromY + STEM_REACH))
       : (up ? Math.min(2, fromY - STEM_REACH) : Math.max(2, fromY + STEM_REACH))
@@ -187,6 +187,25 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
       kind: 'stem',
       staff,
     })
+
+    // ⭐⭐ THE FLAG — the last piece of drawn ink the model could not see. It hangs from the stem TIP
+    //   back toward the notehead ({@link INK_HEIGHT.flagFromTip}), and an UP flag is the one that buys
+    //   room: its stem stands at the head's RIGHT edge, so the glyph reaches `INK.flagReach` past it.
+    //   A DOWN flag's stem is at the head's LEFT edge, so its ink lands inside the head's own width.
+    //
+    // ⚠️ **Only where one is DRAWN**, which is `flagged` — the beaming rule's answer, not a guess from
+    //    the duration. Counting a flag on every eighth is precisely the old ink path's error, and it is
+    //    what made an eighth measure wider than a quarter (research §6).
+    if (flagged) {
+      boxes.push({
+        left: 0,
+        right: up ? INK.notehead + INK.flagReach : heads,
+        top: up ? tipY : tipY - INK_HEIGHT.flagFromTip,
+        bottom: up ? tipY + INK_HEIGHT.flagFromTip : tipY,
+        kind: 'flag',
+        staff,
+      })
+    }
   }
 
   return boxes
@@ -278,10 +297,11 @@ function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
 
   const signs = displayedSigns(measure)
   const multiVoice = hasSeveralVoices(measure)
+  const flagged = flaggedSlots(measure)
   const boxes: ColumnInk = []
   for (const slot of measure.slots) {
     if (fracCompare(slot.beat, first) !== 0) continue
-    boxes.push(...slotInk(slot, signs, clefFor(slot), multiVoice))
+    boxes.push(...slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id)))
   }
   return boxes
 }
@@ -290,6 +310,40 @@ function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
  *  against a rest and its drawn position is not a width-time fact. */
 const MEASURE_REST_INK = (): InkBox =>
   ({ left: 0, right: restExtent('w'), top: 0, bottom: 4, kind: 'rest', staff: undefined })
+
+/**
+ * ⭐ **Which slots DRAW A FLAG** — by slot id, resolved the way the drawing resolves it: per LANE
+ * (staff + voice), because a beam group is a run inside one voice of one staff.
+ *
+ * A flag is drawn on a flaggable duration that no beam claims — `beamRoleAt` answering `'single'`. ⛔
+ * Not derivable from `slot.beam`: `auto` means *nobody authored anything*, and on four auto eighths
+ * beamed 2+2 every one of them reads `auto` while two begin beams and two end them.
+ */
+function flaggedSlots(measure: Measure): Set<string> {
+  const flagged = new Set<string>()
+  const meter = getMeterInfo(measure.timeSignature)
+  for (const lane of lanesOf(measure).values()) {
+    const ordered = [...lane].sort((a, b) => fracCompare(a.beat, b.beat))
+    ordered.forEach((slot, index) => {
+      if (slot.type !== 'chord' || !isBeamableDuration(slot.duration)) return
+      if (beamRoleAt(ordered, meter, index) === 'single') flagged.add(slot.id)
+    })
+  }
+  return flagged
+}
+
+/** The measure's slots grouped by LANE — `staffId:voice`, the scope a beam group and a running
+ *  accidental are both resolved in. */
+function lanesOf(measure: Measure): Map<string, ChordRest[]> {
+  const lanes = new Map<string, ChordRest[]>()
+  for (const slot of measure.slots) {
+    const key = `${slot.staffId ?? ''}:${voiceOf(slot)}`
+    const lane = lanes.get(key) ?? []
+    lane.push(slot)
+    lanes.set(key, lane)
+  }
+  return lanes
+}
 
 /** Does this measure hold more than one voice? The stem convention depends on it (voice 1 up, voice 2
  *  down), and the stem is what decides whether a following accidental may tuck. */
@@ -306,14 +360,7 @@ function hasSeveralVoices(measure: Measure): boolean {
  */
 function displayedSigns(measure: Measure): Map<string, string | null> {
   const signs = new Map<string, string | null>()
-  const lanes = new Map<string, ChordRest[]>()
-  for (const slot of measure.slots) {
-    const key = `${slot.staffId ?? ''}:${voiceOf(slot)}`
-    const lane = lanes.get(key) ?? []
-    lane.push(slot)
-    lanes.set(key, lane)
-  }
-  for (const lane of lanes.values()) {
+  for (const lane of lanesOf(measure).values()) {
     const ordered = [...lane].sort((a, b) => fracCompare(a.beat, b.beat))
     for (const [id, sign] of displayedAccidentals(ordered)) signs.set(id, sign)
   }
@@ -372,9 +419,10 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
 
   const signs = displayedSigns(measure)
   const multiVoice = hasSeveralVoices(measure)
+  const flagged = flaggedSlots(measure)
 
   for (const slot of measure.slots) {
-    add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice))
+    add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id)))
     if (slot.type === 'chord' && slot.fan) {
       // ⚠️ A fan's members get a bare notehead's ink. Their own accidentals are the member chords'
       //    (docs/fanned-beam-pitches-plan.md) and are not modelled here — the fan's drawn span is

@@ -159,3 +159,56 @@ test('⛔ …but inside a BEAM the previous stem is in the way, and the accident
   const beforePlain = gaps.filter((_, i) => i % 2 === 1)
   expect(beforeSharp[0], 'the sharpened columns still buy their room').toBeGreaterThan(beforePlain[0] + 0.5)
 })
+
+test('⭐⭐ a FLAG no longer draws through the next notehead — and a beamed note pays nothing for one', async ({ score }) => {
+  // `docs/vexflow-boundary.md` §5 P2, the last blind spot in the ink table. A flag hangs off the stem
+  // TIP and the column never counted it, so a bar of UNBEAMED 32nds — whose gap the rule sets at 1.50
+  // staff spaces — drew each flag **0.65 spaces through** the next notehead. Seven collisions in one bar.
+  //
+  // ⚠️ And the opposite error is the one the old ink path made: VexFlow's `preCalculateMinTotalWidth`
+  //    counted a flag on every eighth, beamed ones included, which is why an eighth once measured WIDER
+  //    than a quarter (docs/spacing-model-research.md §6). So both halves are asserted here.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const bar = async (beamed: boolean) => {
+      for (const slot of [...h.engine.getScore().measures[0].slots]) {
+        for (const note of (slot as { notes?: { id: string }[] }).notes ?? []) h.engine.deleteNote(note.id)
+      }
+      for (let i = 0; i < 8; i++) {
+        h.engine.addNoteAtBeat({
+          step: 'D', octave: 4, duration: '32', measure: 1, beat: h.frac(i, 8),
+          ...(beamed ? {} : { beam: 'single' as const }),
+        })
+      }
+      await h.render()
+      const stave = h.staves()[0]
+      const space = (stave.bottom - stave.top) / 4
+      const heads = h.noteheads()
+      const codes = h.glyphs('g.vf-notehead text, g.vf-stavenote text')
+      const boxes = h.inkSizes('g.vf-notehead text, g.vf-stavenote text')
+      const flags = boxes.filter((_, i) => codes[i].code === 'e244' || codes[i].code === 'e245')
+      return {
+        gaps: h.columnGaps()[0].columns.map(column => column.gap),
+        flags: flags.length,
+        // Positive = the flag's ink reaches PAST the next notehead's left edge, i.e. a collision.
+        worst: Math.max(...flags.map((box, i) => heads[i + 1] === undefined ? -Infinity
+          : ((box.x + box.width) - heads[i + 1].x) / space)),
+      }
+    }
+    return { unbeamed: await bar(false), beamed: await bar(true) }
+  })
+
+  console.log(`[census] 32nds unbeamed: gaps ${drawn.unbeamed.gaps.slice(0, 3).map(g => g.toFixed(2)).join(' ')} ` +
+    `worst flag overlap ${drawn.unbeamed.worst.toFixed(2)} · beamed: ` +
+    `${drawn.beamed.gaps.slice(0, 3).map(g => g.toFixed(2)).join(' ')}`)
+
+  expect(drawn.unbeamed.flags, 'eight unbeamed 32nds draw eight flags').toBe(8)
+  expect(drawn.beamed.flags, '…and eight beamed ones draw none').toBe(0)
+
+  // ⭐⭐ The flag clears the next notehead. It measured +0.65 (a collision) before the flag was ink.
+  expect(drawn.unbeamed.worst, 'no flag reaches the next notehead').toBeLessThan(0)
+  // The gap is the flag's own ink now — notehead + flag + note↔note — where the rule alone said 1.50.
+  expect(drawn.unbeamed.gaps[0], 'the unbeamed bar is spaced by its flags').toBeCloseTo(2.43, 1)
+  // ⛔ …and the beamed bar is untouched: the rule's 1.50, because no flag is drawn.
+  expect(drawn.beamed.gaps[0], 'a beamed 32nd still gets the rule\'s answer').toBeCloseTo(1.5, 1)
+})
