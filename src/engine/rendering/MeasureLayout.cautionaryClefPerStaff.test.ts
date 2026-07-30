@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { calculateMeasureWidths } from './MeasureLayout'
-import { LAYOUT_CONFIG } from './layoutConfig'
+import { cautionaryExtent } from '@/engine/layout/headerInk'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { fracCreate } from '@/utils/fraction'
 import type { Score } from '@/types/music'
@@ -95,6 +96,10 @@ describe('cautionary clef, per staff', () => {
 
     expect(warned.cautionaryEndClefs?.[0]).toBe('bass')
     expect(warned.cautionaryEndClefs?.[1]).toBe('alto')
-    expect(warned.minWidth).toBe(widthBefore + LAYOUT_CONFIG.CLEF_CHANGE_WIDTH)
+    // ⭐ ONCE, which is the claim — and now at the WIDEST warning clef's own measured width rather
+    //   than at a flat `CLEF_CHANGE_WIDTH`: an alto courtesy is 2.7 staff spaces plus its 1.0 of
+    //   padding, a bass 2.6 (`engine/layout/headerInk.ts`). Two staves warn here and the bar pays
+    //   for one of them.
+    expect(warned.minWidth).toBe(widthBefore + cautionaryExtent({ clef: 'alto' }) * STAFF_SPACE_PX)
   })
 })

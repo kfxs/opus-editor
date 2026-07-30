@@ -36,10 +36,14 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > `trailingGap`, `fanColumns` and **`MIN_NOTE_SPACING` itself** are all deleted — a fan's members are
 > ordinary columns, and each gap is the rule applied to that member's own duration.
 >
-> ⏭️ Still owed: the **header as columns** (`CLEF_WIDTH`/`TIME_SIG_WIDTH` are reserved by us and
-> placed by VexFlow — two sets of numbers that agree by hand); **vertical clearance** (an accidental
-> that does not overlap its neighbour vertically should not pay the padding); flags and beams as ink;
-> and the preview **ghost**, which formats its own stave and does not run the pass.
+> ⭐ **And the HEADER** (`engine/layout/headerInk.ts`): what a clef and a meter cost is measured, the
+> layout reserves it and the drawing places the first note from the same number — so a line-opening
+> bar's music is no longer stretched more than its neighbours', and a two-digit meter gets the room
+> it actually takes.
+>
+> ⏭️ Still owed: **vertical clearance** (an accidental that does not overlap its neighbour vertically
+> should not pay the padding); flags and beams as ink; and the preview **ghost**, which formats its
+> own stave and does not run the pass.
 > ⛔ Resist adding another per-feature constant: that is the pattern the model exists to end.
 > **A new element that draws ink adds a ROW to the pair table**, never a constant of its own.
 
@@ -324,6 +328,7 @@ editor?"* — if yes, it is a core module.
 | A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts` — a `draw*Ghost`, a `ToolGhost` member (`ghostTypes.ts`), a `GHOST_DRAWERS` row, and a case in `interactions/toolGhost.ts`. ⚠️ The payload is ENGINE-owned, never the editor's `MarkingTool`: `lint:boundary` fences `src/engine/**` off from `@/interactions`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail |
 | How much room an event earns, and how a bar's surplus is shared | `engine/layout/spacing.ts` — the duration curve (LilyPond's log law by default, Gould's √2 power law beside it), the ink as a `max` under it, and Gourlay's spring solve. PURE: `Fraction` in, staff spaces out, no VexFlow and no DOM, so it is testable against *Behind Bars* in node. Its input comes from `engine/layout/measureColumns.ts`, which merges a measure into COLUMNS — one x per rhythmic position across every voice AND staff, with a fan's members ordinary columns and the barline the last one |
 | WHERE each column is drawn inside a bar | `engine/rendering/spacingPass.ts` — the model's x's written onto the tick contexts after `format()`. ⭐ Nothing between `format()` and `draw()` reads `TickContext.x`, so the last `setX` wins and beams, ties, tuplets and the `ElementRegistry` all follow for free. ⭐ Staves align because every one is handed the SAME merged column list, not because they share a `Formatter`. ⛔ Skipped on a bar holding a fan until P5 |
+| What a CLEF and a METER cost at the front of a bar | `engine/layout/headerInk.ts` — measured per clef, and **1.2 staff spaces per meter DIGIT plus 1.2**, with 1.0 between adjacent parts. ⭐ The layout reserves it and `applyLeadIn` places the first note from the same number, so the two cannot disagree. ⚠️ `LAYOUT_CONFIG.CLEF_HIT_WIDTH` and friends are hit-boxes — a FINGER, not this |
 | How much room an event's own GLYPHS need | `engine/layout/spacingPadding.ts` — the extents (notehead, accidental stacks, dots) and the least space between two adjacent things, **keyed by the pair**. ⭐ Every extent was MEASURED off our own drawing in Chrome and is re-measured by `e2e/spacing.e2e.ts`, which fails if the table stops describing the ink — the alternative is predicting one thing and drawing another. ⭐ A new element that takes horizontal room adds a ROW here; ⛔ never a constant of its own. `MIN_COLUMN_GAP` (1.43 spaces) is the model's own floor and the number every drag gesture stops at |
 | How far a column / a bar may still be squeezed | `engine/layout/measuredRoom.ts` — MEASURED off the last render through `ElementRegistry`, never predicted. ⚠️ The caller owns the staleness rule (`modelDirty` ⇒ decline): a fresh number against an old picture slides the floor one step per press |
 | What a bar-width gesture may do (slopes, floors, the ceiling) | `engine/layout/barWidthRoom.ts` — a PURE function of the casting-off + the stored stretch + the view mode + the surface + one measured slack, so `docs/bar-width-plan.md` §4–§5 can be stated in a unit test |

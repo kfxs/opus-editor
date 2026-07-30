@@ -56,7 +56,7 @@ Two things worth saying before the list, because they change how it reads:
 | what | the constraint | does it cost us anything today? |
 |---|---|---|
 | **`Stave.padding` = 12px** | added to every note by `getAbsoluteX`, **no public setter**; `getNoteStartX` does not carry it | ⚠️ **Yes, visibly.** It is why `barline↔note` is **1.2** staff spaces and not 1.0 |
-| **The HEADER** — clef, key, meter | VexFlow places the glyphs and derives `noteStartX`; we reserve `CLEF_WIDTH` / `CLEF_CHANGE_WIDTH` / `TIME_SIG_WIDTH` separately for the layout | ⚠️ **Yes.** Two sets of numbers that must agree **by hand**, and no rule connects them |
+| ~~**The HEADER**~~ | ✅ **Taken 2026-07-30.** `engine/layout/headerInk.ts` measures what a clef and a meter actually cost, the layout reserves it and `applyLeadIn` sets `noteStartX` from the same number | ⭐ No — they agree by construction now |
 | **Ordinary chord layout** — accidental stacking, head displacement | `Accidental.format`, `StaveNote` | ⚠️ Mostly fine; we *model* the extents and re-measure them in `e2e`, but the drawing is theirs |
 | **Ordinary beams** — slope, thickness, and the stem lengths they imply | `new Beam(...)` | ⭐ No complaint yet. Their slope cap is a number we already borrow (`FAN_MAX_BEAM_SLOPE`) |
 | **Stem length** | `Stem.getExtents` | ⭐ No complaint. We extend it in three special cases and accept it otherwise |
@@ -95,8 +95,10 @@ Two things worth saying before the list, because they change how it reads:
 **These still need arithmetic on both sides:**
 
 - **A lead-in tighter than 1.2 staff spaces.** Blocked by `Stave.padding` + the invariant that a
-  bar's note area may not begin outside the bar.
-- **The gap after a clef or a meter.** Ours reserves, theirs places.
+  bar's note area may not begin outside the bar. ⚠️ Taking the header did NOT unblock this, as this
+  document predicted it might: the 12 px is added to every note by `getAbsoluteX` and there is still
+  no setter.
+- ~~The gap after a clef or a meter~~ — ✅ closed 2026-07-30; ours reserves AND places.
 - **Accidental-to-notehead distance inside a column.** `Accidental.format`'s, not ours.
 - ~~Anything at all inside a fanned bar~~ — ✅ closed 2026-07-30.
 
@@ -147,24 +149,35 @@ written down and already true of every other bar — *a fan's members are ordina
 was finishing rather than design. ⚠️ It changed how every fan looks: the heads crowd by ×1.47 where
 they crowded by ×2.5, which is the spacing rule rather than a proportional ramp. Worth an eye.
 
-### P1 — **The header as columns** (plan §4)
-Kills the two-sets-of-numbers problem outright: `CLEF_WIDTH`, `CLEF_CHANGE_WIDTH` and
-`TIME_SIG_WIDTH` become real extents on real columns, and the gap after a clef becomes a row in the
-pair table like every other gap. ⭐ It is also what would let the lead-in go below 1.2 spaces, since
-we would then own `noteStartX` for every bar rather than only the headerless ones.
+### ✅ ~~P1 — The header as columns~~ — DONE 2026-07-30
+`engine/layout/headerInk.ts`. The disagreement went **both ways**, and the second direction was the
+one that mattered: we over-reserved 0.9 staff spaces for a line-opening bar (its music came out 5%
+wider than the same music two bars later) and **under-reserved 0.6 for a two-digit meter**, where the
+bar got less room than its own header takes. One number cannot describe a glyph whose width depends
+on how many digits are in it.
 
-### P2 — **Vertical clearance / kerning**
+⭐ The header turned out to be **a row of ink with a padding between the parts** — the model's own
+vocabulary, no new idea. Measured part by part, then *predicted before being believed*: a small bass
+clef with a `3/4` was predicted at 7.2 spaces and drew 7.2; a line-opening alto with `12/8` was
+predicted at 9.4 and drew 9.4. `CLEF_WIDTH`/`CLEF_CHANGE_WIDTH`/`TIME_SIG_WIDTH` kept only their
+hit-box role and were renamed `*_HIT_WIDTH` to say so — the INK-vs-FINGER split `layoutConfig`
+already documents.
+
+⏭️ It did NOT get the lead-in below 1.2 spaces: that is still `Stave.padding`'s doing, and the
+geometry invariant that a bar's note area may not begin outside the bar.
+
+### P1 — **Vertical clearance / kerning**
 The mechanism every other engine has and we do not: skip or reduce the pair padding when the two
 things do not overlap **vertically**. MuseScore's `computeVerticalClearance` + `KerningType`,
 LilyPond's skylines. This is the honest answer to *"accidentals in dense passages push the notes
 apart"* — an accidental low on the staff should tuck under a preceding high note. ⚠️ It needs
 `EventExtent` to gain a vertical range, which is a real change to the model's shape.
 
-### P3 — **Flags and beams as ink**
+### P2 — **Flags and beams as ink**
 A flag hangs right of its stem and buys no room today. Small, and it removes a known blind spot in a
 table that is otherwise complete.
 
-### P4 — **The preview ghost runs the spacing pass**
+### P3 — **The preview ghost runs the spacing pass**
 Correctness, not engraving: a ghost should stand where the note will.
 
 ### ⏭️ Not on this list, deliberately

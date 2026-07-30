@@ -44,13 +44,26 @@ export const LAYOUT_CONFIG = {
   MIN_MEASURE_WIDTH: 10 * STAFF_SPACE_PX,
   /** Maximum measure width, so one measure can't dominate — 40 staff-spaces. ⚠️ WIDTH path. */
   MAX_MEASURE_WIDTH: 40 * STAFF_SPACE_PX,
-  /** Room for the clef on the first measure of a line — 4.5 staff-spaces. ⚠️ WIDTH path, and also
-   *  the clef's hit-box at draw time (where it scales with the staff, being inside its group). */
-  CLEF_WIDTH: 4.5 * STAFF_SPACE_PX,
-  /** Room for a mid-line clef change (smaller than a line-start clef) — 3 staff-spaces. */
-  CLEF_CHANGE_WIDTH: 3 * STAFF_SPACE_PX,
-  /** Room for the time signature — 3 staff-spaces. */
-  TIME_SIG_WIDTH: 3 * STAFF_SPACE_PX,
+  /**
+   * ⚠️ **A HIT-BOX, not a width.** The clef's clickable rectangle at draw time — a FINGER, in this
+   * file's own INK-vs-FINGER terms, so it is deliberately generous and deliberately not the glyph.
+   *
+   * ⭐ It used to be the room the LAYOUT reserved for a clef as well, which is why it was renamed:
+   * that job belongs to `engine/layout/headerInk.ts`, where the clef's real width is measured per
+   * clef (treble 3.2 staff spaces, bass 3.5, alto and tenor 3.6) and the drawing reads the same
+   * number. ⛔ Do not reach for this one to reserve room with; it is 4.5 because a finger is.
+   */
+  CLEF_HIT_WIDTH: 4.5 * STAFF_SPACE_PX,
+  /** The same, for the smaller clef a mid-line change draws. ⚠️ A hit-box — see above. */
+  CLEF_CHANGE_HIT_WIDTH: 3 * STAFF_SPACE_PX,
+  /**
+   * The time signature's hit-box. ⚠️ A finger again, and the renderer already clamps it against the
+   * real `getNoteStartX` because it over-estimates the glyph — which was the first clue that one
+   * number could not be both things. Its width lives in `headerInk.ts` now: **1.2 staff spaces per
+   * DIGIT plus 1.2**, so `3/4` is 2.4 and `12/8` is 3.6, and a flat 3 was over on one and under on
+   * the other.
+   */
+  TIME_SIG_HIT_WIDTH: 3 * STAFF_SPACE_PX,
   /** Padding before/after barlines — 1 staff-space. */
   BARLINE_PADDING: 1 * STAFF_SPACE_PX,
   /** The vertical room one staff takes, five lines plus what hangs off them — 12 staff-spaces.
@@ -107,7 +120,7 @@ export type ViewMode = 'wrapped' | 'linear'
  * Width of the frozen left gutter in linear view (layout px): a clef, with a little breathing
  * room. No meter — the music draws its own wherever it changes, and repeating it here is noise.
  */
-export const GUTTER_WIDTH = LAYOUT_CONFIG.CLEF_WIDTH + 35
+export const GUTTER_WIDTH = LAYOUT_CONFIG.CLEF_HIT_WIDTH + 35
 
 /** One staff's worth of what the frozen gutter shows: where it sits, and the clef in force. */
 export interface GutterStaffState {

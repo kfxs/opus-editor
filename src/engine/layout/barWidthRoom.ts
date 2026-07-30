@@ -12,7 +12,9 @@
  * This is LAYOUT, not the model — it lives outside the core fence (`engine/models/**`, `utils/**`)
  * because it reasons about a drawing (docs/DESIGN-PRINCIPLES.md principle 3).
  */
-import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from '@/engine/rendering/layoutConfig'
+import type { MeasureWidthInfo, ViewMode } from '@/engine/rendering/layoutConfig'
+import { lineOpeningClefPremium } from './headerInk'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { EMPTY_BAR_FLOOR_PX } from './spacingPadding'
 import type { SurfaceMetrics } from './surface'
 import { authoredScales, growthPayerShares, squeezedWidth } from '@/engine/rendering/MeasureLayout'
@@ -278,7 +280,10 @@ export function barWidthRoom(input: {
       // never comes up — and a threshold press that changes nothing repeats forever, since it
       // returns the same target every time. Assume the worst case (it pays the change width), so
       // the jump always clears: the cost is that pushing the bar back down can take a second press.
-      const clefPremium = LAYOUT_CONFIG.CLEF_WIDTH - LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+      // ⭐ The real difference between the clef this bar draws now and the full one it would draw
+      //   at a line start, from the measured header table — it was `CLEF_WIDTH − CLEF_CHANGE_WIDTH`,
+      //   two constants that never described a particular clef.
+      const clefPremium = lineOpeningClefPremium('treble') * STAFF_SPACE_PX
       const stretchForWidth = (target: number) => stretch + (target - info.minWidth) / info.noteSpace!
       // Smooth, and by the bar's own music rather than by its (immovable) barline.
       const continuous = (d: number) => stretch + d / info.noteSpace!

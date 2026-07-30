@@ -1,4 +1,4 @@
-import type { Score, Measure } from '@/types/music'
+import type { Score, Measure, Clef } from '@/types/music'
 import { fracCompare, fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
@@ -8,6 +8,7 @@ import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/lay
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { measureColumns, measureLeadIn, type ClefResolver } from '@/engine/layout/measureColumns'
+import { cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
@@ -161,8 +162,8 @@ function calculateMinimumMeasureWidth(
   //   became the barline COLUMN's gap (`note↔barline`), so a bar was reserving three spaces of
   //   barline padding where it owes two.
   const leadIn = measureLeadIn(measure, clefForSlot(measure, clefsByStaff, staffIds[0]))
-  let sharedOverhead = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
-  if (drawsTimeSignature(measure)) sharedOverhead += LAYOUT_CONFIG.TIME_SIG_WIDTH
+  const sharedOverhead = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
+  const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
 
   // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
   // it would copy four arrays per measure per render to arrive back at what it was given.
@@ -186,26 +187,27 @@ function calculateMinimumMeasureWidth(
     const staffClefs = clefsByStaff.get(staffId)
     const clef = staffClefs?.opening.get(measure.number) ?? 'treble'
 
-    // This staff's own clef overhead. A line-opening measure draws a full clef on every staff;
-    // mid-line, a staff draws a small clef only where ITS clef changes across the barline — i.e.
-    // differs from the previous measure's *ending* clef (a mid-measure change already showed its
-    // clef inline in that measure).
-    let clefOverhead = 0
-    if (isFirstInLine) {
-      clefOverhead += LAYOUT_CONFIG.CLEF_WIDTH
-    } else {
-      const prevEndClef = measure.number > 1
-        ? staffClefs?.ending.get(measure.number - 1)
+    // ⭐ This staff's HEADER, as ink (`engine/layout/headerInk.ts`) rather than as two constants. A
+    //   line-opening measure draws a full clef on every staff; mid-line, a staff draws a small clef
+    //   only where ITS clef changes across the barline — i.e. differs from the previous measure's
+    //   *ending* clef (a mid-measure change already showed its clef inline in that measure).
+    //
+    // ⚠️ The clef and the meter are measured TOGETHER, and that is the point: a meter costs 2.4
+    //   staff spaces alone and 3.4 after a clef, so summing two constants could not have been right
+    //   whatever the constants were.
+    const prevEndClef = measure.number > 1 ? staffClefs?.ending.get(measure.number - 1) : undefined
+    const headerClef = isFirstInLine
+      ? { clef, small: false }
+      : prevEndClef !== undefined && clef !== prevEndClef
+        ? { clef, small: true }
         : undefined
-      if (prevEndClef !== undefined && clef !== prevEndClef) {
-        clefOverhead += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
-      }
-    }
-    // Each mid-measure (inline) clef change on THIS staff draws its own small clef.
+    // Each mid-measure (inline) clef change on THIS staff draws its own small clef — inside the
+    // music, so it is not part of the header, only of the room the bar needs.
     const midClefs = (lane.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
-    clefOverhead += midClefs * LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+    const staffHeader = headerExtent({ clef: headerClef, meter })
+      + midClefs * inlineClefExtent(clef)
 
-    widestOverhead = Math.max(widestOverhead, clefOverhead)
+    widestOverhead = Math.max(widestOverhead, staffHeader * STAFF_SPACE_PX)
   }
 
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
@@ -651,6 +653,8 @@ function applyCautionaryClefs(
     // though, is charged ONCE — the courtesies sit at the same x on different staves, so one
     // clef's width covers however many of them there are.
     let anyOnThisMeasure = false
+    /** The widest courtesy clef any staff draws here — they sit at one x, so the bar pays once. */
+    let widestCautionaryClef: Clef = 'treble'
 
     staffIds.forEach((staffId, staffIndex) => {
       const clefs = clefsByStaff.get(staffId)
@@ -666,14 +670,18 @@ function applyCautionaryClefs(
 
       current.cautionaryEndClefs ??= []
       current.cautionaryEndClefs[staffIndex] = nextOpeningClef
+      if (cautionaryExtent({ clef: nextOpeningClef }) > cautionaryExtent({ clef: widestCautionaryClef })) {
+        widestCautionaryClef = nextOpeningClef
+      }
       anyOnThisMeasure = true
     })
 
     if (!anyOnThisMeasure) continue
-    current.minWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+    const cautionaryClefPx = cautionaryExtent({ clef: widestCautionaryClef }) * STAFF_SPACE_PX
+    current.minWidth += cautionaryClefPx
     // …and the FLOOR with it: a courtesy clef is overhead, not note space, so it is not room the
     // justifier may take back.
-    if (current.floorWidth !== undefined) current.floorWidth += LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+    if (current.floorWidth !== undefined) current.floorWidth += cautionaryClefPx
     linesToRedistribute.add(current.lineNumber)
   }
 
@@ -717,9 +725,10 @@ function applyCautionaryTimeSignatures(
     if (!cautionaryAllowedOf(score, nextMeasure.id)) continue
 
     current.cautionaryEndTimeSig = nextMeasure.timeSignature
-    current.minWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
+    const cautionaryMeterPx = cautionaryExtent({ meter: nextMeasure.timeSignature }) * STAFF_SPACE_PX
+    current.minWidth += cautionaryMeterPx
     // Overhead, like the cautionary clef above — the floor rises with it.
-    if (current.floorWidth !== undefined) current.floorWidth += LAYOUT_CONFIG.TIME_SIG_WIDTH
+    if (current.floorWidth !== undefined) current.floorWidth += cautionaryMeterPx
     linesToRedistribute.add(current.lineNumber)
   }
 

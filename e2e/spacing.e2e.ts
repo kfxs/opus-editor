@@ -475,3 +475,51 @@ test('⭐ a whole-bar REST is centred between its own barlines', async ({ score 
   //    would put the rest under the clef.
   expect(drawn[0].off, 'the system-opening bar centres after its header').toBeGreaterThan(2)
 })
+
+test('⭐⭐ the HEADER is ours: what the layout reserves is where the first note lands', async ({ score }) => {
+  // `docs/vexflow-boundary.md` priority 1. The clef and the meter were laid out by VexFlow and
+  // reserved for by two constants of ours with nothing connecting them: over by 0.9 staff spaces for
+  // a line-opening bar (its music came out 5% wider than the same music two bars later) and UNDER by
+  // 0.6 for a two-digit meter, where the bar was reserved less room than its own header takes.
+  //
+  // ⚠️ These numbers ARE `engine/layout/headerInk.ts`, re-measured. If the drawing moves, this fails
+  //    rather than the table quietly stopping to describe it.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 8) h.engine.addMeasure()
+    for (let measure = 1; measure <= 8; measure++) {
+      for (const beat of [0, 1, 2, 3]) {
+        h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure, beat: h.frac(beat, 1) })
+      }
+    }
+    const headOf = (measure: number) => {
+      const stave = h.staves().find(s => s.measure === measure)!
+      const space = (stave.bottom - stave.top) / 4
+      const head = h.noteheads()
+        .filter(g => g.x > stave.x1 - 1 && g.x < stave.x2 && Math.abs(g.y - stave.top) < 60)
+        .sort((a, b) => a.x - b.x)[0]
+      return (head.x - stave.x1) / space
+    }
+    await h.render()
+    const trebleAndFourFour = headOf(1)
+    const nothing = headOf(2)
+    const quarters = h.columnGaps().filter(b => b.measure <= 4).map(b => b.columns[0].gap)
+    h.engine.setTimeSignature(3, { numerator: 12, denominator: 8 })
+    await h.render()
+    return { trebleAndFourFour, nothing, twoDigitMeter: headOf(3), quarters }
+  })
+
+  console.log(`[census] header: line-start ${drawn.trebleAndFourFour.toFixed(2)} · bare ${drawn.nothing.toFixed(2)} · 12/8 ${drawn.twoDigitMeter.toFixed(2)}`)
+
+  // A treble clef (3.2) + 1.0 between the parts + a one-digit meter (2.4), after the 1.2 lead-in.
+  expect(drawn.trebleAndFourFour, 'clef + meter').toBeCloseTo(1.2 + 3.2 + 1.0 + 2.4, 1)
+  expect(drawn.nothing, 'a bar drawing no header at all is just the lead-in').toBeCloseTo(1.2, 1)
+  // ⭐ The case one constant could never describe: two digits are 1.2 spaces wider than one.
+  expect(drawn.twoDigitMeter, 'a two-digit meter').toBeCloseTo(1.2 + 3.6, 1)
+
+  // ⭐⭐ And the payoff: the system-opening bar's music is no longer stretched more than its
+  //     neighbours', because the room reserved for its header is the room the header takes.
+  for (const quarter of drawn.quarters) {
+    expect(quarter, 'one quarter, the same in every bar of the line').toBeCloseTo(drawn.quarters[1], 2)
+  }
+})

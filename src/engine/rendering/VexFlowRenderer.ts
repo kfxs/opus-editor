@@ -44,6 +44,7 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
+import { headerExtent, type Header } from '@/engine/layout/headerInk'
 import { applySpacingPass } from './spacingPass'
 import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
@@ -2133,8 +2134,12 @@ export class VexFlowRenderer {
       stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
     }
 
-    const drawsHeader = measure.number === 1 || isFirstInLine || hasClefChange || drawsTimeSignature(measure)
-    applyLeadIn(stave, measure, clef, x, drawsHeader)
+    applyLeadIn(stave, measure, clef, x, {
+      clef: measure.number === 1 || isFirstInLine
+        ? { clef, small: false }
+        : hasClefChange ? { clef, small: true } : undefined,
+      meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
+    })
     return stave
   }
 
@@ -2950,7 +2955,7 @@ export class VexFlowRenderer {
         beat: 0,
         // The big line-start clef is anchored to the line and cannot be dragged.
         immovable: true,
-        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_WIDTH, height: staffSpan + 2 * clefPad },
+        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_HIT_WIDTH, height: staffSpan + 2 * clefPad },
       })
     } else if (hasClefChange) {
       this.elementRegistry.add({
@@ -2958,7 +2963,7 @@ export class VexFlowRenderer {
         measure: measure.number,
         staff: staffIndex,
         beat: 0,
-        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_CHANGE_WIDTH, height: staffSpan + 2 * clefPad },
+        bbox: { x, y: lineTop - clefPad, width: LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH, height: staffSpan + 2 * clefPad },
       })
     }
 
@@ -2966,16 +2971,16 @@ export class VexFlowRenderer {
       // Position after whatever clef glyph (if any) was drawn at the measure start.
       const clefOffset =
         measure.number === 1 || isFirstInLine
-          ? LAYOUT_CONFIG.CLEF_WIDTH
+          ? LAYOUT_CONFIG.CLEF_HIT_WIDTH
           : hasClefChange
-            ? LAYOUT_CONFIG.CLEF_CHANGE_WIDTH
+            ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
             : 0
       // Clamp the TS hit-box so its right edge never crosses noteStartX. The
-      // approximate TIME_SIG_WIDTH over-estimates the real glyph and would
+      // approximate TIME_SIG_HIT_WIDTH over-estimates the real glyph and would
       // otherwise bleed into the note-entry zone, swallowing clicks that land
       // just right of the glyph (rejected as "clicked on timeSignature").
       const tsX = x + clefOffset
-      const tsWidth = Math.min(LAYOUT_CONFIG.TIME_SIG_WIDTH, stave.getNoteStartX() - tsX)
+      const tsWidth = Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, stave.getNoteStartX() - tsX)
       if (tsWidth > 0) {
         this.elementRegistry.add({
           type: 'timeSignature',
@@ -4001,15 +4006,17 @@ function noteStartOf(stave: Stave): number {
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
 }
 
-function applyLeadIn(stave: Stave, measure: Measure, clef: Clef, staveX: number, drawsHeader: boolean): void {
-  // ⚠️ `drawsHeader` is passed IN, not asked of the stave: every `Stave` carries a begin-position
-  //    modifier of its own (its barline), so "does it have begin modifiers?" is always yes and the
-  //    first version of this guard silently did nothing.
-  if (drawsHeader) return
+function applyLeadIn(stave: Stave, measure: Measure, clef: Clef, staveX: number, header: Header): void {
   // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
   //    context right by that column's own left ink, so adding the extent here pays for the
   //    accidental twice — measured, and it made the blank WIDER than the one it was fixing.
-  const leadIn = measureLeadIn(measure, () => clef).padding * STAFF_SPACE_PX
+  //
+  // ⭐ **The HEADER is ours now too** (`headerInk.ts`). It used to be VexFlow's alone: this function
+  //   returned early for any bar drawing a clef or a meter, and the layout reserved two constants of
+  //   its own that agreed with the drawing by nobody's arrangement — over by 0.9 staff spaces for a
+  //   line-opening bar, UNDER by 0.6 for a two-digit meter. Reading the same number here as the
+  //   layout reserved makes them agree by construction rather than by luck.
+  const leadIn = (measureLeadIn(measure, () => clef).padding + headerExtent(header)) * STAFF_SPACE_PX
   // ⚠️ Never left of the barline: `getNoteStartX` is what the hit-testing and the shrink-room read,
   //    and a note area that begins outside its own bar is a bug (`tier1Geometry.test.ts`). The pair
   //    table is chosen so this clamp does not bite — it is here so that a future row which forgets

@@ -3,6 +3,8 @@ import { ScoreModel } from '../models/ScoreModel'
 import { barWidthKey, spacingPositionKey, BAR_STRETCH_MIN } from '../models/engravingOverrides'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { LAYOUT_CONFIG } from './layoutConfig'
+import { headerExtent } from '@/engine/layout/headerInk'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { resolveSurface, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { fracCreate } from '@/utils/fraction'
@@ -277,7 +279,10 @@ describe('bar width — an empty bar scales its SHARE (§2)', () => {
     const model = emptyScore(2)
     stretch(model, 1, 0.25)
     const info = calculateMeasureWidths(model.getScore(), clefs(model.getScore()), { mode: 'linear' }).get(1)!
-    expect(info.minWidth).toBeGreaterThan(LAYOUT_CONFIG.CLEF_WIDTH + LAYOUT_CONFIG.TIME_SIG_WIDTH)
+    // The header's own measured ink (`headerInk.ts`), not the hit-box constants it used to name.
+    expect(info.minWidth).toBeGreaterThan(
+      headerExtent({ clef: { clef: 'treble', small: false }, meter: { numerator: 4, denominator: 4 } }) * STAFF_SPACE_PX,
+    )
   })
 
   it('the line still lands exactly on the available width with a shrunken empty bar', () => {
