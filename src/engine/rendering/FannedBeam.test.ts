@@ -646,51 +646,61 @@ describe('two fans on one beam', () => {
     expect([rit.startLevels, rit.endLevels]).toEqual([3, 1])
   })
 
-  it('⭐ SUBDIVIDES by default: the primary crosses and nothing else does', () => {
+  it('⭐ crosses with the PRIMARY, whatever the two sides carry', () => {
     const accel = ramp({ direction: 'accel', count: 6, beams: 3 }) // ends wide: 3
     const rit = ramp({ direction: 'rit', count: 6, beams: 4 })     // starts wide: 4
     const thickness = BEAM_WIDTH
 
-    // However many lines the two sides share, ONE crosses — the boundary is a subdivision.
+    // Every pairing, one line. Where two wide ends meet — accel → rit, the only case that ever
+    // wanted more — the extra levels are the JOINING fan's ramp, reaching back to the apex
+    // (`rampApexX`); drawing them here as well would double the ink.
     expect(fanJoinQuads({ left: accel, right: rit, toX: 500, thickness })).toHaveLength(1)
     expect(fanJoinQuads({ left: rit, right: accel, toX: 500, thickness })).toHaveLength(1)
+    expect(fanJoinQuads({ left: accel, right: accel, toX: 500, thickness })).toHaveLength(1)
   })
 
-  it('…and unsubdivided it crosses with the lines BOTH sides have, and no more', () => {
-    const accel = ramp({ direction: 'accel', count: 6, beams: 3 }) // ends wide: 3
-    const rit = ramp({ direction: 'rit', count: 6, beams: 4 })     // starts wide: 4
-    const thickness = BEAM_WIDTH
-    const band = { toX: 500, thickness, subdivide: false }
-
-    // accel → rit is the thick join: min(3, 4) = 3.
-    expect(fanJoinQuads({ left: accel, right: rit, ...band })).toHaveLength(3)
-    // rit → accel is the clean one: 1 line out, 1 line in.
-    expect(fanJoinQuads({ left: rit, right: accel, ...band })).toHaveLength(1)
-    // accel → accel: 3 out, 1 in ⇒ one line crosses and the other two stop at their own stem.
-    expect(fanJoinQuads({ left: accel, right: accel, ...band })).toHaveLength(1)
-  })
-
-  it('runs them flat, from the left fan’s LAST stem to the right fan’s owner', () => {
+  it('runs it flat, from the left fan’s LAST stem to the right fan’s owner', () => {
     const left = ramp({ direction: 'accel', count: 6, beams: 3 })
     const right = ramp({ direction: 'rit', count: 6, beams: 3 })
-    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, subdivide: false })
-    for (const q of quads) {
-      expect(q.startX).toBe(left.stems[left.stems.length - 1].stemX)
-      expect(q.endX).toBe(500)
-      expect(q.startY).toBe(q.endY) // the joined line is flat
-    }
-    expect(quads[0].startY).toBe(right.lineY)
-    expect(quads[1].startY).toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
+    const [primary] = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH })
+    expect(primary.startX).toBe(left.stems[left.stems.length - 1].stemX)
+    expect(primary.endX).toBe(500)
+    expect(primary.startY).toBe(primary.endY) // the joined line is flat
+    expect(primary.startY).toBe(right.lineY)
+  })
+
+  /**
+   * ⭐⭐ THE TRIANGLE. His report on an accel. joined to a rit.: *"we are doing straight lines in the
+   * middle and not the traditional triangle"* — both fans reached full spread at their own outermost
+   * member, so the band ran LEVEL across the gap between them.
+   */
+  it('⭐ the joining fan reaches BACK to the apex, so the band never runs level', () => {
+    const apexX = 40 // the last member of the fan before, well left of this one's own first stem
+    const rit = ramp({ direction: 'rit', count: 6, beams: 3 }, { rampApexX: apexX })
+    const extra = rit.beams.slice(1)
+
+    // A rit is wide at its START, so that is the end that moves: every extra level now begins at the
+    // apex instead of at member 0's stem, and still converges onto the primary at the far end.
+    for (const line of extra) expect(line.startX).toBe(apexX)
+    for (const line of extra) expect(line.endY).toBeCloseTo(rit.beams[0].endY, 6)
+    // The primary is untouched — it spans this fan, and the gap is `fanJoinQuads`' one flat line.
+    expect(rit.beams[0].startX).toBe(rit.stems[0].stemX)
+  })
+
+  it('…and an accel’s apex moves its END, the other wide side', () => {
+    const apexX = 900
+    const accel = ramp({ direction: 'accel', count: 6, beams: 3 }, { rampApexX: apexX })
+    for (const line of accel.beams.slice(1)) expect(line.endX).toBe(apexX)
+    expect(accel.beams[0].endX, 'the primary still stops at the group').toBe(accel.stems[5].stemX)
   })
 
   it('the crossing lines keep the RIGHT fan’s spread — they land on its stems', () => {
     const left = ramp({ direction: 'accel', count: 6, beams: 3 })
     const right = ramp({ direction: 'rit', count: 6, beams: 3 })
-    const quads = fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, spread: 2, subdivide: false })
-    expect(quads[1].startY).toBeCloseTo(right.lineY + 2 * BEAM_WIDTH * 1.5, 6)
-    // Absent is the ordinary gap here too, so an unspread join is untouched.
-    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, subdivide: false })[1].startY)
-      .toBeCloseTo(right.lineY + BEAM_WIDTH * 1.5, 6)
+    // The crossing line is the primary, which sits ON the right fan's own line height whatever its
+    // spread — the spread moves the levels ABOVE it, and those are the joining fan's own ramp now.
+    expect(fanJoinQuads({ left, right, toX: 500, thickness: BEAM_WIDTH, spread: 2 })[0].startY)
+      .toBe(right.lineY)
   })
 
   it('⭐ a line handed down by the group overrides anchor, slope AND floor', () => {

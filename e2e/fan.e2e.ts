@@ -726,3 +726,51 @@ test('⭐ A MIXED PREFIX KEEPS ITS FUSAS — 16 16 16 32 32 into a fan draws thr
   expect(Math.abs(third.left - n3), 'at the first fusa').toBeLessThan(12)
   expect(Math.abs(third.right - n4), 'and ends at the second').toBeLessThan(12)
 })
+
+test('⭐⭐ ACCEL INTO RIT IS A TRIANGLE, not a band with a flat top', async ({ score }) => {
+  /*
+   * The contemporary gesture: open out, then close in, ONE point at the widest. It came out with a
+   * plateau — his report, *"we are doing straight lines in the middle and not the traditional
+   * triangle"* — because each fan reached full spread at its own outermost member and the gap
+   * between those two stems was crossed by flat parallel lines (measured on his score: the band ran
+   * level from x=225 to x=243).
+   *
+   * ⭐ The apex is the LAST MEMBER OF THE FAN BEFORE (his call): the accel finishes on its own last
+   * note and the joining rit starts its spread from there, so the two ramps meet on a notehead.
+   */
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const a = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
+    h.engine.setFan(a.id, { direction: 'accel', count: 6, beams: 3 })
+    const b = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
+    // Unsubdivided: the two gestures are meant to read as one shape.
+    h.engine.setFan(b.id, { direction: 'rit', count: 6, beams: 3, joinSubdivide: false })
+    h.engine.updateNote(b.id, { beam: 'continue' })
+    await h.render()
+    return { quads: h.quads('g.vf-fan path'), heads: h.noteheads().map(n => n.x) }
+  })
+
+  expect(drawn.heads, 'six members each').toHaveLength(12)
+  const lastOfFirstFan = drawn.heads[5]
+
+  // The primary is the one line that runs flat all the way; every OTHER line must be sloped. A flat
+  // line above it is the plateau, and there must not be one.
+  const flatLevels = drawn.quads.filter(q => Math.abs(q.yLeft - q.yRight) < 0.01)
+  const primaryY = Math.min(...drawn.quads.map(q => Math.min(q.yLeft, q.yRight)))
+  for (const q of flatLevels) {
+    expect(Math.abs(q.yLeft - primaryY), 'nothing runs level except the primary').toBeLessThan(0.01)
+  }
+
+  // …and the ramps MEET: the accel's levels end where the rit's begin, at one x — the last member of
+  // the fan before, within a stem's width of its notehead.
+  const sloped = drawn.quads.filter(q => Math.abs(q.yLeft - q.yRight) >= 0.01)
+  const opening = sloped.filter(q => q.yRight > q.yLeft) // widening to the right: the accel
+  const closing = sloped.filter(q => q.yRight < q.yLeft) // narrowing: the rit
+  expect(opening.length, 'the accel opens').toBeGreaterThan(0)
+  expect(closing.length, 'the rit closes').toBeGreaterThan(0)
+
+  const apex = Math.max(...opening.map(q => q.right))
+  expect(Math.min(...closing.map(q => q.left)), 'they meet at one x').toBeCloseTo(apex, 1)
+  expect(Math.abs(apex - lastOfFirstFan), 'and that x is the last member of the fan before')
+    .toBeLessThan(15)
+})

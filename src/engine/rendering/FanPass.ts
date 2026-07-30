@@ -427,9 +427,6 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           thickness: CROSS_SYSTEM_BEAM_WIDTH * stemDirection,
           // THIS fan's spread — the crossing lines land on its stems, so they keep its gap.
           spread: slot.fan?.spread,
-          // …and THIS fan's subdivision: the break is in front of the group that starts here, so the
-          // right-hand fan is the one that carries the decision.
-          subdivide: slot.fan ? fanJoinSubdivides(slot.fan) : true,
         })
       : []
 
@@ -815,15 +812,50 @@ function reconcileFanJoinLines(drawings: FanSlotDrawing[], fanJoins: FanJoin[]):
   for (const join of fanJoins) {
     const members = drawings.filter(d => join.fans.includes(d.index))
     if (members.length < 2) continue // one fan settles its own line; the floor already heard the prefix
-    const tentative = members
-      .map(d => fannedBeamGeometry(d.options))
-      .filter(geometry => geometry.beams.length > 0)
-    if (!tentative.length) continue
+    const tentative = members.map(d => fannedBeamGeometry(d.options))
+    const drawn = tentative.filter(geometry => geometry.beams.length > 0)
+    if (!drawn.length) continue
     const up = members[0].stemDirection > 0
     const lineY = up
-      ? Math.min(...tentative.map(geometry => geometry.lineY))
-      : Math.max(...tentative.map(geometry => geometry.lineY))
+      ? Math.min(...drawn.map(geometry => geometry.lineY))
+      : Math.max(...drawn.map(geometry => geometry.lineY))
     for (const d of members) d.options.lineY = lineY
+
+    setFanJoinApexes(members, tentative)
+  }
+}
+
+/**
+ * ⭐⭐ **WHERE TWO FANS MEET — the apex, and why the middle used to go flat.**
+ *
+ * An `accel.` beamed onto a `rit.` is the contemporary gesture: open out, then close in, one point
+ * at the widest. It came out with a FLAT TOP instead — his report, *"we are doing straight lines in
+ * the middle and not the traditional triangle"* — because each fan reached full spread at its own
+ * outermost member and the gap between those two stems was crossed by parallel lines.
+ *
+ * ⭐ **THE APEX IS THE LAST MEMBER OF THE FAN BEFORE** (his call). The earlier fan is untouched: it
+ * finishes its ramp on its own last note. The JOINING fan — the one carrying `continue` — starts its
+ * spread from that note instead of from its own first, so the two ramps meet on a notehead and the
+ * band never runs level.
+ *
+ * ⛔ ONLY where a WIDE end meets a WIDE start, which is `accel.` → `rit.` and nothing else: every
+ * other pairing already has one line at the boundary and converges onto it at its own stem, so there
+ * is no plateau to remove and nothing to reach back for.
+ *
+ * ⛔ …and only while the join is NOT subdivided. A subdivided join is a deliberate break — the whole
+ * point is that the two gestures read apart ({@link fanJoinSubdivides}) — so reaching across it
+ * would undo the thing that was asked for.
+ */
+function setFanJoinApexes(members: FanSlotDrawing[], tentative: FanGeometry[]): void {
+  for (let i = 1; i < members.length; i++) {
+    const left = tentative[i - 1]
+    const right = tentative[i]
+    if (!left?.stems.length || !right?.stems.length) continue
+    // The gesture's own shape decides it: wide out of the left, wide into the right.
+    if (left.endLevels < 2 || right.startLevels < 2) continue
+    const fan = members[i].slot.type === 'chord' ? members[i].slot.fan : undefined
+    if (!fan || fanJoinSubdivides(fan)) continue
+    members[i].options.rampApexX = left.stems[left.stems.length - 1].stemX
   }
 }
 

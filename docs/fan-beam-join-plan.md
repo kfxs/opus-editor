@@ -195,6 +195,77 @@ smaller than a placeholder waiting for a beam that never comes (a note with no f
 Joining on the RIGHT (his rule — the last member is not a slot, so nothing can address it); a fan
 inside a tuplet; mixed beam counts in the prefix; and any change to what a fan sounds like.
 
+## 4b. What the join DRAWS — subdivision, and the triangle (2026-07-30)
+
+Two reports, one week after the join was built, and both about the same thing: **what the boundary
+between two beamed gestures is supposed to look like.**
+
+### The join SUBDIVIDES by default (`f2db9ab`)
+
+*"The fan is not distinguishable from semicorcheas"* — a run of 16ths beamed into a fan drew every
+level straight through the boundary, and at an accel.'s narrow end the wedge's own lines still sit on
+the primary, so what the eye met was one thick band that thinned. The fan began somewhere inside it,
+unmarked.
+
+⭐ The prefix's secondary levels now stop at the **last prefix stem**, leaving the primary alone to
+carry the boundary — the ordinary meaning of a subdivision. A prefix of ONE note keeps its level as a
+**stub** reaching back from the note; losing it would be a different rhythm.
+
+⭐⭐ **Default ON, stored as a REFUSAL.** `FanMark.joinSubdivide`: absent = subdivided, and
+`normalizeFan` drops a `true`, so only the refusal is ever written — the rule `spread` and the ramp
+range already follow, and for the cache-key reason (`laneFingerprint` stringifies the slot).
+
+⚠️ **It could not be `Chord.secondaryBreak`**, the obvious home: `ScoreModel.updateNote` stores that
+flag as ABSENT when false, so under a default-ON rule "do not subdivide" reads back as "subdivide".
+Making it storable would mint a second spelling of "no break" for every ordinary note in the score.
+**A default-ON flag cannot live in a field whose `false` is normalised away** — check the writer
+before choosing the home.
+
+The Keypad's subdivide key takes a JOINED fan and only a joined one (an unjoined fan's beam lines are
+its ramp — §2's sentence still stands), opens LIT because it reports the EFFECTIVE value, and writes
+one field onto the mark through `engine.setFan` in a `runBatch`.
+
+### A mixed prefix keeps its own lines (`acfcc6d`)
+
+*"Where are the fusas in the first group?"* — `16 16 16 32 32` beamed into a fan drew everything at
+two lines, because `FanPass` reduced the prefix to ONE count, `Math.min(...map(getBeamCount))`.
+Present since the join's own first commit (`981c63e`).
+
+⭐⭐ A beamed group is not one thickness: **a line runs between two notes where BOTH carry it, and a
+level nobody shares is a fractional beam.** `utils/beamLevels.ts` owns that arithmetic — its own
+module because this is the third caller (`CrossBarBeams.crossingAfter` does the same per-pair min,
+and VexFlow does it internally for ordinary groups). The stem reserve now clears the DEEPEST level
+rather than the collapsed one.
+
+⚠️ The prefix is drawn by US: a group holding a fan skips `new Beam(…)` and each prefix note wears
+`PLACEHOLDER_BEAM`, so VexFlow's own partial-beam logic never sees it.
+
+### ⭐⭐ Accel into rit is a TRIANGLE, and the apex is a NOTEHEAD
+
+*"We are doing straight lines in the middle and not the traditional triangle."* With the join
+unsubdivided, each fan reached full spread at its own outermost member and the gap between those two
+stems was crossed by flat parallel lines — a hexagon with a flat top instead of the rhombus the
+gesture is. Measured on his score: the band ran level from x=225 to x=243.
+
+⭐ **THE APEX IS THE LAST MEMBER OF THE FAN BEFORE** (his call — *"probably makes more sense like this
+while composing, in the mind of the user"*). The earlier fan is untouched: it finishes its ramp on its
+own last note. The JOINING fan — the one carrying `continue` — starts its spread from that note
+instead of from its own first, so the two ramps meet on a notehead and nothing runs level.
+`FanGeometryOptions.rampApexX` is that x; `FanPass.setFanJoinApexes` decides it.
+
+⛔ Only where a WIDE end meets a WIDE start, which is `accel.` → `rit.` and nothing else — every other
+pairing already has one line at the boundary and converges onto it at its own stem. ⛔ And only while
+the join is NOT subdivided: a subdivided join is a deliberate break, so reaching across it would undo
+what was asked for.
+
+⭐ One simplification fell out. **`fanJoinQuads` now crosses with the PRIMARY alone**, always. It used
+to cross with `min(endLevels, startLevels)`, which is more than one only in this very case — and
+those lines are now the joining fan's own ramp, so drawing them again would double the ink. (⚠️ §5
+below quotes that `min` as the rule a cross-SYSTEM join would need; it is still the right question
+there, but the answer now lives in the ramp rather than in the crossing.)
+
+---
+
 ## 5. ⏭️ WANTED, NOT BUILT — the join across a SYSTEM BREAK
 
 **His call, 2026-07-26: "we should do it, but not now."** So this is a future phase, not a rejection —

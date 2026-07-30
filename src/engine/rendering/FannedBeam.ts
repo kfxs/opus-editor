@@ -277,6 +277,27 @@ export interface FanGeometryOptions {
    */
   subdivideJoin?: boolean
   /**
+   * ⭐⭐ **WHERE THE WEDGE REACHES ITS FULL SPREAD, when that is not this group's own outermost
+   * stem** — the meeting point of two fans beamed together.
+   *
+   * His report, on an `accel.` joined to a `rit.` with the join unsubdivided: *"we are doing straight
+   * lines in the middle and not the traditional triangle"*. Each fan opened to full width at its OWN
+   * outermost member, and the gap between those two stems was crossed by flat parallel lines — so
+   * the outline was a hexagon with a flat top, not the rhombus the gesture is. Measured on his score:
+   * the band ran level from x=225 to x=243.
+   *
+   * ⭐ **THE APEX IS THE LAST MEMBER OF THE FAN BEFORE** (his call, and *"probably makes more sense
+   * like this while composing, in the mind of the user"*): the earlier fan finishes its ramp on its
+   * own last note, as it always did, and the JOINING fan starts its spread from there instead of
+   * from its own first member. One point at the widest, on a notehead, where a composer put the
+   * fastest note.
+   *
+   * ⛔ Only ever the WIDE end (an accel's right, a rit's left), and only where the fan across the
+   * join is wide too — `FanPass` decides that. A narrow end already converges onto the primary at
+   * its own stem, so there is nothing there to meet.
+   */
+  rampApexX?: number
+  /**
    * ⭐ The user-authored horizontal OFFSET of each member, in PIXELS (+right) — 0 (or absent) where
    * the member stands on its own column (docs/note-offset-plan.md §"Inside a FAN"). Index k is
    * member k's own offset, **entry 0 included**: the fan's owner is one note of the group, not a
@@ -600,8 +621,11 @@ export function fannedBeamGeometry(opts: FanGeometryOptions): FanGeometry {
     // ⭐ The PRIMARY is one straight edge over the WHOLE group — every member is beamed, and it
     // reaches back over the prefix besides. Only the EXTRA levels are the wedge, and they span the
     // range: outside it a member keeps this one line, which is the base speed, drawn.
-    const sX = k === 0 ? lineStartX : rampFromX
-    const eX = k === 0 ? endX : rampToX
+    // ⭐ The wedge's WIDE end may reach past this group — see {@link FanGeometryOptions.rampApexX}.
+    // Its narrow end never moves: that is where every line sits on the primary.
+    const wideX = opts.rampApexX
+    const sX = k === 0 ? lineStartX : (!wideAtEnd && wideX !== undefined ? wideX : rampFromX)
+    const eX = k === 0 ? endX : (wideAtEnd && wideX !== undefined ? wideX : rampToX)
     lines.push({
       // The convergence point: at the NARROW end every line sits on the primary. Only the wide end
       // spreads. k = 0 IS the primary — it carries the slope and nothing else.
@@ -706,12 +730,6 @@ export function fanJoinQuads(opts: {
   /** Signed by the stem direction, as everywhere else here. */
   thickness: number
   /**
-   * ⭐ SUBDIVIDE the join: only the PRIMARY crosses, and the secondary levels stop on their own side.
-   * Default true, the same rule and the same reason as {@link FanGeometryOptions.subdivideJoin} —
-   * two fans sharing one unbroken band are as unreadable as a group flowing into one.
-   */
-  subdivide?: boolean
-  /**
    * ⭐ The RIGHT fan's {@link FanMark.spread} — whose gap the crossing lines have to match, because
    * they are drawn from its own `lineY` and land on its stems.
    *
@@ -726,11 +744,11 @@ export function fanJoinQuads(opts: {
   if (!left.stems.length) return []
   const fromX = left.stems[left.stems.length - 1].stemX
   const step = thickness * 1.5 * clampFanSpread(opts.spread ?? 1)
-  const quads: FanQuad[] = []
-  const crossing = opts.subdivide === false ? Math.min(left.endLevels, right.startLevels) : 1
-  for (let k = 0; k < crossing; k++) {
-    const y = right.lineY + k * step
-    quads.push({ startX: fromX, startY: y, endX: toX, endY: y, thickness })
-  }
-  return quads
+  // ⭐ THE PRIMARY, AND THE PRIMARY ALONE. It used to cross with every level the two ramps shared,
+  // which is more than one only where a wide end meets a wide start (an `accel.` into a `rit.`) — and
+  // that is exactly the case now drawn as the joining fan's wedge REACHING BACK to the apex
+  // ({@link FanGeometryOptions.rampApexX}), so those lines already span this gap and drawing them
+  // again would double the ink. Every other pairing crossed with one line anyway.
+  void step // the gap's own lines are the ramp's now; only the primary is drawn flat across it
+  return [{ startX: fromX, startY: right.lineY, endX: toX, endY: right.lineY, thickness }]
 }
