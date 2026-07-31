@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Opus Editor</title>
+    <!-- Bravura's own alto clef, outlined from the shipped font (see public/favicon.svg). The path
+         is `/favicon.svg` because the file EXISTS in public/ — Vite rewrites root-relative URLs to
+         the base only when it can find them, which is why the old `/vite.svg` link never moved. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The words people search for come first — "score editor", "sheet music", "notation". They
+         are the trade's plain names; "engraving" is what the trade calls the craft, and it earns
+         its place at the end as the claim about QUALITY, not as the way in. -->
+    <meta
+      name="description"
+      content="A browser-based score editor for writing, editing and playing back sheet music — properly engraved notation, nothing to install."
+    />
+    <title>Opus Editor — music engraving and notation in the browser</title>
   </head>
   <body>
     <div id="app"></div>
