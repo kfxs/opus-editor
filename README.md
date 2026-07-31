@@ -2,7 +2,7 @@
 
 A music score editor built with VexFlow and WebAudioFont.
 
-(https://kfxs.github.io/opus-editor/)
+[Live demo](https://kfxs.github.io/opus-editor/)
 
 Work in progress — this is an experiment under development.
 
