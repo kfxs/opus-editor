@@ -46,7 +46,6 @@ export const PAGE_GAP_PX = 24
  */
 const PAPER = '#ffffff'
 const DESK = '#e2e8f0'
-const SHEET_EDGE = '#cbd5e1'
 
 /** The class on the underlay group — swept and redrawn every render, like the ties above it. */
 export const PAGE_GROUP_CLASS = 'score-pages'
@@ -115,10 +114,14 @@ export function drawPages(
     r.setAttribute('height', String(h))
     r.setAttribute('fill', fill)
     if (cls) r.setAttribute('class', cls)
-    if (stroke) {
-      r.setAttribute('stroke', stroke)
-      r.setAttribute('stroke-width', '1')
-    }
+    // ⚠️ ALWAYS state the stroke, `none` included. Omitting the attribute does NOT mean "no
+    // outline": something upstream sets `stroke` on these shapes, so an unstated stroke computes to
+    // BLACK 1px and the rect draws a hard border. That is where the line across the spread came
+    // from — the desk rect has never named a stroke, so it has always been outlining itself, and
+    // the top of that outline runs the full width of the spread, straight across the gaps between
+    // sheets. A sheet only looked innocent because its own `#cbd5e1` was masking the same default.
+    r.setAttribute('stroke', stroke ?? 'none')
+    if (stroke) r.setAttribute('stroke-width', '1')
     group.appendChild(r)
   }
 
@@ -126,9 +129,13 @@ export function drawPages(
   // between sheets would be the same white as the sheets and the pages would not read as pages.
   const spread = surfaceSizePx(surface, pageCount, 0)
   rect(0, 0, spread.width, spread.height, DESK)
+  // NO edge rule on a sheet. Paper against desk is already a boundary — white against not-white —
+  // so an outline only adds a second, competing edge. Across a spread it read worst of all: the
+  // sheets' top edges are collinear, so the rule ran the full width of the window and looked like a
+  // LINE JOINING the pages rather than the top of each one.
   for (let page = 0; page < pageCount; page++) {
     const at = pageOriginPx(surface, page)
-    rect(at.x, at.y, surface.widthPx, surface.heightPx, PAPER, SHEET_EDGE, PAGE_SHEET_CLASS)
+    rect(at.x, at.y, surface.widthPx, surface.heightPx, PAPER, undefined, PAGE_SHEET_CLASS)
   }
 
   svg.insertBefore(group, svg.firstChild)
