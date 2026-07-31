@@ -36,7 +36,14 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      # `npm install`, not `npm ci`. The stricter command is the usual CI idiom, but it demands the
+      # lockfile account for the tree EXACTLY, and npm will not produce such a lock here: rolldown's
+      # optional wasm32 fallback binding has peer deps (@emnapi/*) that npm's resolver treats as
+      # lock-worthy on the runner and unnecessary on this machine. Regenerating locally only moved
+      # the disagreement around — a from-scratch lock deletes the very entries `npm ci` asks for.
+      #
+      # The lock is still honoured: `npm install` only reaches past it for what it cannot satisfy.
+      - run: npm install --no-audit --no-fund
 
       # The project's own gate: lint:boundary + lint:testnames + lint:singletons + eslint + tsc,
       # ending in `vite build`. So this one step both checks and produces `dist/`.
