@@ -1,6 +1,9 @@
 import { windows } from '@/windows'
 import { MenuLayer } from './MenuLayer'
 import { installInsertMenu, type InsertMenuActions } from './insertMenu'
+import { buildEditMenu, type EditMenuActions } from './editMenu'
+import { buildDemoMenus } from './demoMenus'
+import type { MenuBarTitle } from './menuBar'
 import type { MenuItem } from './MenuItem'
 
 /**
@@ -22,7 +25,31 @@ export const menus = new MenuLayer()
  * Keeping it here — not in App.ts — is what keeps "add a menu" from meaning "edit App.ts"; the app
  * only hands over the callback, it does not know the menu's shape.
  */
-export const menuActions: InsertMenuActions = {}
+export const menuActions: InsertMenuActions & EditMenuActions = {}
+
+/**
+ * THE MENU BAR'S RUNNING ORDER — the one list that says what is on the bar and in what sequence.
+ *
+ * Real titles and placeholders sit side by side here on purpose: a menu graduates by being written
+ * as a module and swapped in on this line, and nothing else moves. Everything not named by a builder
+ * is still lorem (`demoMenus.ts`) — inert, and obviously so.
+ *
+ * The fallback on a missing placeholder is an EMPTY menu rather than a throw: a bar with one dead
+ * title is a far better failure than an editor that will not start.
+ */
+export function buildMenuBarTitles(): MenuBarTitle[] {
+  const demo = buildDemoMenus()
+  const lorem = (label: string): MenuBarTitle => demo.get(label) ?? { label, items: [] }
+  return [
+    lorem('File'),
+    buildEditMenu(menuActions),
+    lorem('View'),
+    lorem('Create'),
+    lorem('Staff'),
+    lorem('Play'),
+    lorem('Window'),
+  ]
+}
 
 windows.whenMounted((host) => {
   menus.mount(host)

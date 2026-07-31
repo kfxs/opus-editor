@@ -29,9 +29,11 @@ import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instr
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
 import { mountDevToolbar } from './dev/devToolbar'
+import { mountLiveBoundaryMark } from './dev/liveBoundaryMark'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
 import { windows } from './windows'
-import { menus, menuActions, openMenuAtViewport } from './menus'
+import { menus, menuActions, buildMenuBarTitles, openMenuAtViewport } from './menus'
+import { mountMenuBar } from './menus/menuBar'
 import { A4_NORMAL } from './engine/layout/surface'
 
 /**
@@ -80,7 +82,7 @@ const ZOOM_WHEEL_K = 0.0015
  * panel that failed to fit rather than as the page you are working on.
  */
 const SCORE_CANVAS_CLASS = IS_DEV
-  ? 'score-container bg-slate-200 rounded-lg overflow-auto'
+  ? 'score-container bg-slate-200 rounded-b-lg overflow-auto'
   : 'score-container bg-slate-200 overflow-auto'
 
 export interface EditorApp {
@@ -113,10 +115,22 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     ? div('min-h-screen bg-gray-900 text-white p-8')
     : div('h-screen overflow-hidden bg-gray-900 text-white')
   const upper = div(IS_DEV ? 'mb-8' : 'h-full')
-  const card = div(IS_DEV ? 'bg-gray-800 p-4 rounded-lg' : 'h-full bg-gray-800')
+  // A column in a built site, so the menu bar takes its own height off the top and the score gets
+  // exactly the rest — `flex-1 min-h-0` below is what stops the music pushing the window taller than
+  // the screen. In the dev shell the score already states a fixed height, so nothing is being divided.
+  const card = div(IS_DEV ? 'bg-gray-800 p-4 rounded-lg' : 'h-full bg-gray-800 flex flex-col')
 
   // The dev toolbar fills this itself (src/dev/devToolbar.ts).
   const toolbarHost = div('')
+
+  // The dev-only "live build ↓" rule fills this itself (src/dev/liveBoundaryMark.ts) — everything
+  // BELOW it is what a built site ships, everything above is scaffolding.
+  const liveMarkHost = div('')
+
+  // The menu bar fills this itself (src/menus/menuBar.ts). It sits directly on top of the score box —
+  // that adjacency is not cosmetic: the menu layer fills the SCORE viewport, so a dropdown opens at
+  // that box's top edge, which reads as hanging from the bar only while the two actually touch.
+  const menuBarHost = div(IS_DEV ? 'rounded-t-lg overflow-hidden' : 'flex-none')
 
   /*
    * Score area = fixed-size viewport (owns scroll) + inner content surface (holds the SVG).
@@ -132,7 +146,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    * viewport scroll. See docs/navigation-viewport-plan.md §4.
    */
   const scoreViewport = div(
-    IS_DEV ? 'relative overflow-hidden rounded-lg' : 'relative overflow-hidden h-full',
+    IS_DEV ? 'relative overflow-hidden rounded-b-lg' : 'relative overflow-hidden flex-1 min-h-0',
   )
   const scoreCanvas = div(SCORE_CANVAS_CLASS)
   // A fixed height is a DEV measurement — the score is one card in a column, so it needs a stated
@@ -179,7 +193,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   scoreViewport.append(scoreCanvas, scoreGutter)
   // The two dev hosts are not merely left empty in a built site, they are never ADDED: `jsonHost`
   // carries its own padding and background, so an empty one would draw a grey slab under the score.
-  if (IS_DEV) card.appendChild(toolbarHost)
+  if (IS_DEV) card.append(toolbarHost, liveMarkHost)
+  card.appendChild(menuBarHost)
   card.appendChild(scoreViewport)
   upper.appendChild(card)
   page.appendChild(upper)
@@ -337,6 +352,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     () => { void togglePlayback() },
   )
 
+  // The Edit menu's commands. ⭐ Each is the REGISTERED ACTION the accelerator runs, invoked by name
+  // — not a second call into the controllers. `deleteSelected` alone is a switch over every
+  // selectable element kind, and the day a menu row grows its own copy of that is the day the two
+  // start disagreeing. The menu shows the key and runs the key's handler; that is all it does.
+  menuActions.undo = () => shortcuts.run('undo')
+  menuActions.redo = () => shortcuts.run('redo')
+  menuActions.copy = () => shortcuts.run('copySelection')
+  menuActions.paste = () => shortcuts.run('pasteClipboard')
+  menuActions.deleteSelection = () => shortcuts.run('deleteSelected')
+
   // ---------------------------------------------------------------------------------------------
   // State-driven view updates — the whole of it
   // ---------------------------------------------------------------------------------------------
@@ -430,6 +455,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
           state, palette, getEngine, onStateChange, togglePlayback,
           renderScore: () => renderer.renderScore(),
         }),
+        mountLiveBoundaryMark(liveMarkHost),
         mountScoreJsonPanel(jsonHost, {
           getEngine,
           onBeforeLoad: () => selection.deselectAll(),
@@ -442,6 +468,13 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // lives in the score area — clipped to it, and clamped to it when dragged — while sitting outside
   // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
   windows.mount(scoreViewport)
+
+  // The menu bar. Edit is REAL (`menus/editMenu.ts`); the rest are still PLACEHOLDERS
+  // (`menus/demoMenus.ts`) — what those commands should be is not decided. `buildMenuBarTitles` is
+  // the running order. Mounted after the layers, because a title's dropdown opens in the menu layer.
+  const menuBar = mountMenuBar(menuBarHost, menus, buildMenuBarTitles(), {
+    brand: 'Opus Editor',
+  })
 
   // ⭐ The editor opens **on a page**: you are writing music for paper, and `Use layout` off is the
   // deliberate step away from it rather than the way back. Stated here rather than defaulted in the
@@ -648,6 +681,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       articulationStemAlign.destroy()
       fanEdit.destroy()
       for (const part of devShell) part.destroy()
+      menuBar.destroy()
       viewport.detach()
       gutter.detach()
       mouse.teardown()

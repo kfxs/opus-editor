@@ -260,6 +260,14 @@ export interface MenuOptions {
    * for it; the layer cannot tell.
    */
   viaKeyboard?: boolean
+  /**
+   * This menu has gone — dismissed, Escaped, committed, or replaced by another. Fires exactly once.
+   *
+   * The MENU BAR is why it exists: the title that owns the open menu stays lit while the pointer is
+   * anywhere else, and the five ways a menu can die are all the LAYER's business, not the opener's.
+   * Whoever anchors a menu to something visible needs to be told when to put that thing out.
+   */
+  onClose?: () => void
 }
 
 export class MenuLayer {
@@ -277,6 +285,9 @@ export class MenuLayer {
    *  that spot is what hands control back — see {@link onPointerMove}. */
   private pointerAt: Point | null = null
   private pointerArmedAt: Point | null = null
+  /** The current menu's `onClose`, held until it fires. Cleared as it fires, so it cannot fire twice
+   *  (a `close()` on an already-closed layer is a no-op, and must stay one). */
+  private onClose: (() => void) | null = null
 
   /** @param host the score viewport — the same box the app already donated to the window layer. */
   mount(host: HTMLElement): void {
@@ -343,6 +354,8 @@ export class MenuLayer {
     })
     this.layer.appendChild(scrim)
     this.scrim = scrim
+    // AFTER the close() above, which is what fires the previous menu's own onClose.
+    this.onClose = opts.onClose ?? null
 
     this.pushPanel(opts.items, null, (size) => placeRoot({ x: opts.x, y: opts.y }, size, this.bounds()))
     // After pushPanel, so the class lands on a layer that already holds the panel — and after the
@@ -357,6 +370,11 @@ export class MenuLayer {
     while (this.chain.length) this.popPanel()
     this.scrim?.remove()
     this.scrim = null
+    // LAST, and taken off the field first: the callback may open another menu (the menu bar's
+    // slide-along does exactly that), and it must find a layer that is already fully closed.
+    const notify = this.onClose
+    this.onClose = null
+    notify?.()
   }
 
   /** The world is the layer's box — the viewport, never the browser. */

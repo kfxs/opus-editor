@@ -20,8 +20,13 @@ import { SHORTCUTS, type ShortcutDefinition } from './ShortcutConfig'
  * The event is passed for the handler that serves MORE THAN ONE key — the Keypad's, where every numpad
  * code runs the same action and the `code` is what says which cell was pressed. Handlers that own a
  * single key ignore it, as they always have.
+ *
+ * ⚠️ OPTIONAL, because a key is no longer the only way in: {@link ShortcutManager.run} invokes an
+ * action from a MENU ROW, where there is no keypress to pass. A handler that actually reads the event
+ * must therefore say what it does without one — the Keypad's declines, which is the truthful answer
+ * ("no code, no cell").
  */
-export type ActionHandler = (event: KeyboardEvent) => boolean | void
+export type ActionHandler = (event?: KeyboardEvent) => boolean | void
 
 export class ShortcutManager {
   private handlers: Map<string, ActionHandler> = new Map()
@@ -49,6 +54,27 @@ export class ShortcutManager {
     for (const [action, handler] of Object.entries(actions)) {
       this.registerAction(action, handler)
     }
+  }
+
+  /**
+   * Run a bound action WITHOUT a keypress — how a MENU ROW invokes a command.
+   *
+   * ⭐ This is the whole point: Edit ▸ Delete must not be a second implementation of what `Delete`
+   * does, it must be the SAME one. The alternative — the menu calling the controllers itself —
+   * duplicates handlers that are anything but trivial (`deleteSelected` is a switch over every
+   * selectable element kind), and a duplicate drifts silently the day one of them is fixed.
+   *
+   * No `preventDefault` and no decline: there is no key to give back. A handler returning `false`
+   * simply means it chose not to act, which from a menu is nothing more than a command that did
+   * nothing — the same as pressing the key with nothing selected.
+   */
+  run(action: string): void {
+    const handler = this.handlers.get(action)
+    if (!handler) {
+      console.warn(`Shortcut action "${action}" has no registered handler`)
+      return
+    }
+    handler()
   }
 
   /**

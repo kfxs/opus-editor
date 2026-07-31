@@ -44,7 +44,7 @@ export function wireShortcuts(
   /** Start playback, or stop it if it is running — the SAME toggle the dev shell's ▶ button runs
    *  (`App.togglePlayback`), so one gesture cannot drift from the other. */
   togglePlayback: () => void,
-): { enable: () => void; disable: () => void } {
+): { enable: () => void; disable: () => void; run: (action: string) => void } {
   const shortcutManager = new ShortcutManager()
 
   // Focal point for keyboard zoom = the viewport center (screen coords); the keys carry no
@@ -566,6 +566,9 @@ export function wireShortcuts(
     // meaning is the LAYOUT's to know, never this table's. A code the pad doesn't define declines
     // (`false`), leaving the key to the browser.
     keypadKey: (event) => {
+      // No event = invoked from a menu (`ShortcutManager.run`), which cannot name a cell. Decline:
+      // this action's whole input IS the key code.
+      if (!event) return false
       const cell = keypadCellForCode(keypadPageSelection.get(), event.code)
       if (!cell) return false
       pressKeypadCell(cell)
@@ -755,5 +758,8 @@ export function wireShortcuts(
   return {
     enable: () => shortcutManager.enable(),
     disable: () => shortcutManager.disable(),
+    // A MENU ROW runs its command through here — the same handler the accelerator runs, never a
+    // copy of it. See `ShortcutManager.run`.
+    run: (action: string) => shortcutManager.run(action),
   }
 }
