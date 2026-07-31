@@ -216,7 +216,11 @@ function callerFrame(): string {
   return 'unknown'
 }
 
-export const renderCensus = new RenderCensus()
+// `/*#__PURE__*/` so a production build can drop this module entirely. Constructing a census only
+// initialises fields — it touches nothing outside itself — but a bundler cannot know that about a
+// module-level `new`, so without the annotation the instrument ships to a site that never installs
+// it (App.ts calls installPerfInstruments only in dev).
+export const renderCensus = /*#__PURE__*/ new RenderCensus()
 
 /**
  * Load a synthetic score of `bars` measures × `staves` staves, 4 quarter notes per bar per

@@ -19,6 +19,7 @@ import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { FanEditController } from './interactions/FanEditController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
+import { PASTEBOARD_MARGIN } from './engine/pasteboard'
 import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
@@ -48,6 +49,17 @@ import { A4_NORMAL } from './engine/layout/surface'
  * linear-view gutter's presence, and the Keypad/Properties windows (already wired this way while
  * Vue was still here). Each is one `onStateChange` subscriber.
  */
+
+/**
+ * `npm run dev` gets the dev shell; a built site gets the viewport alone.
+ *
+ * ⚠️ Written as a plain `import.meta.env.DEV` on purpose. Vite substitutes that exact expression
+ * with the literal `false` when building, which is what lets Rollup drop the dead branches AND
+ * tree-shake `dev/` out of the bundle entirely — the shell is ABSENT from a production build, not
+ * merely hidden. Optional-chaining it (`env?.DEV`) would defeat the substitution and ship the code.
+ * The cast is only because the project carries no `vite/client` types.
+ */
+const IS_DEV: boolean = (import.meta as unknown as { env: { DEV: boolean } }).env.DEV
 
 /** scoreContent's own padding (`p-4` = 1rem), applied in app.css. Measure bounds are in the SVG's
  *  space, which starts inside this padding, so anything positioned against them shifts by it. */
@@ -138,9 +150,13 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   scoreSizer.appendChild(scoreZoomLayer)
   scoreCanvas.appendChild(scoreSizer)
   scoreViewport.append(scoreCanvas, scoreGutter)
-  card.append(toolbarHost, scoreViewport)
+  // The two dev hosts are not merely left empty in a built site, they are never ADDED: `jsonHost`
+  // carries its own padding and background, so an empty one would draw a grey slab under the score.
+  if (IS_DEV) card.appendChild(toolbarHost)
+  card.appendChild(scoreViewport)
   upper.appendChild(card)
-  page.append(upper, jsonHost)
+  page.appendChild(upper)
+  if (IS_DEV) page.appendChild(jsonHost)
   host.appendChild(page)
 
   // ---------------------------------------------------------------------------------------------
@@ -167,6 +183,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     () => scoreCanvas, () => scoreContent, () => scoreSizer, () => scoreZoomLayer,
     () => onViewChange(),
   )
+  // ⭐ The page floats on a PASTEBOARD and the editor opens looking at the middle of it — the score
+  // is an object on a desk, not content flush to a box's top-left corner. Stated here, by the app,
+  // for the same reason the opening surface is (`MusicEngineConfig.surface` above): the engine
+  // defaults the margin to 0 and has no opinion about how much desk a person wants.
+  viewport.model.setPasteboard(PASTEBOARD_MARGIN)
 
   /**
    * Scroll / zoom / resize settled. Two things hang off it.
@@ -365,17 +386,20 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   mouse.setup()
   window.addEventListener('wheel', handleZoomWheel, { passive: false })
 
-  const devShell = [
-    mountDevToolbar(toolbarHost, {
-      state, palette, getEngine, onStateChange, togglePlayback,
-      renderScore: () => renderer.renderScore(),
-    }),
-    mountScoreJsonPanel(jsonHost, {
-      getEngine,
-      onBeforeLoad: () => selection.deselectAll(),
-      onAfterLoad: () => renderer.renderScore(),
-    }),
-  ]
+  // Empty in a built site — `destroy()` iterates it either way, so there is nothing to special-case.
+  const devShell = IS_DEV
+    ? [
+        mountDevToolbar(toolbarHost, {
+          state, palette, getEngine, onStateChange, togglePlayback,
+          renderScore: () => renderer.renderScore(),
+        }),
+        mountScoreJsonPanel(jsonHost, {
+          getEngine,
+          onBeforeLoad: () => selection.deselectAll(),
+          onAfterLoad: () => renderer.renderScore(),
+        }),
+      ]
+    : []
 
   // Mounted INSIDE the viewport wrapper but OUTSIDE the scroll box (a sibling of it), so a window
   // lives in the score area — clipped to it, and clamped to it when dragged — while sitting outside
@@ -433,7 +457,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // explicitly rather than waiting for the next scroll/resize observer to fire keeps the moment
   // culling switches on deterministic.
   onViewChange()
-  installPerfInstruments()
+  // Guarded at the CALL, not inside the function: an early `return` leaves the body reachable as far
+  // as the bundler is concerned, so the instruments shipped. Never calling it makes them droppable.
+  if (IS_DEV) installPerfInstruments()
 
   function initializeEmptyScore(): void {
     if (!engine) return
@@ -468,8 +494,6 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    *   __census.dump()       // a table: renders per cause, and the layout:draw split per render
    */
   function installPerfInstruments(): void {
-    // Cast: this project has no vite/client types, and a temporary instrument shouldn't add one.
-    if (!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) return
     const w = window as unknown as Record<string, unknown>
     // The engine only knows the `RenderProbe` seam and defaults it to a no-op, so it compiles with
     // `dev/` deleted (docs/refactor-plan-2026-07-27.md 3a). App.ts is the one place allowed to know

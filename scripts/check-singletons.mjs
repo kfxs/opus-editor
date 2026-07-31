@@ -33,8 +33,13 @@ import { join, relative } from 'node:path'
 const SRC = 'src'
 const DOC = 'docs/DESIGN-PRINCIPLES.md'
 
-/** A module-level `export const camelCase = new X(…)`, `= { … }` or `= createX(…)`. */
-const SINGLETON = /^export const ([a-z][A-Za-z0-9_$]*)(?::[^=]+)? = (?:new [A-Za-z]|\{|[a-z][A-Za-z0-9_$]*\()/
+/** A module-level `export const camelCase = new X(…)`, `= { … }` or `= createX(…)`.
+ *
+ *  `/*#__PURE__*` + `/` is allowed to sit between the `=` and the value: it is a note to the
+ *  BUNDLER that constructing this is side-effect free (so a build can drop it), and it says nothing
+ *  about whether the binding is a singleton — which it still is. Without this the annotation would
+ *  silently hide a singleton from the count, i.e. make the ratchet read as loosening. */
+const SINGLETON = /^export const ([a-z][A-Za-z0-9_$]*)(?::[^=]+)? = (?:\/\*#__PURE__\*\/ )?(?:new [A-Za-z]|\{|[a-z][A-Za-z0-9_$]*\()/
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
