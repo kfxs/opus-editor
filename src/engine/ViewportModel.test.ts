@@ -230,6 +230,71 @@ describe('ViewportModel', () => {
     })
   })
 
+  describe('the pinned gutter narrows the scroll range', () => {
+    // Linear view's frozen gutter, pinned over the viewport's left edge. It names the bar UNDER it,
+    // so the range must keep it against the paper: pasteboard 400 + inset 16 + music 2000 + inset 16
+    // + pasteboard 400 = a 2832px surface, with an 80px strip pinned at the leading edge, allowed to
+    // hang 20px past the paper (the gutter's own rule — see GutterController).
+    beforeEach(() => {
+      m = new ViewportModel()
+      m.setViewportSize(1000, 340)
+      m.setPasteboard({ x: 400, y: 400 })
+      m.setContentSize(2832, 1500)
+      m.setPinnedGutter({ width: 80, inset: 16, overhang: 20 })
+    })
+
+    it('stops with the gutter against the music, not adrift in the pasteboard', () => {
+      m.scrollTo(0, 0)
+      // margin + inset − overhang: the strip may hang 20px past the paper's left edge and no more.
+      expect(m.getScroll().x).toBe(396)
+    })
+
+    it('a strip with no overhang stops flush against the paper', () => {
+      m.setPinnedGutter({ width: 80, inset: 16, overhang: 0 })
+      m.scrollTo(0, 0)
+      expect(m.getScroll().x).toBe(416) // margin + inset — the paper's left edge, at the viewport's
+    })
+
+    it('leaves the other axis alone — the limit is the pinned edge, not both of them', () => {
+      m.scrollTo(0, 0)
+      expect(m.getScroll().y).toBe(0)
+    })
+
+    it('pulls a scroll already past the limit back when the gutter is turned ON', () => {
+      m.setPinnedGutter(null)
+      m.scrollTo(0, 0)
+      m.setPinnedGutter({ width: 80, inset: 16, overhang: 20 })
+      expect(m.getScroll().x).toBe(396)
+    })
+
+    it('scales with zoom, like every other layout-space number here', () => {
+      m.setZoom(2) // surface and scroll both double; the margin is layout px, so it doubles too
+      m.scrollTo(0, 0)
+      expect(m.getScroll().x).toBe(792)
+    })
+
+    it('stops the music running out from under the gutter on the right, at 4×', () => {
+      // At 4× the left pasteboard alone is wider than the viewport, so the RIGHT end of the range
+      // binds before the surface's own end does: one gutter-width of music must remain.
+      m.setZoom(4)
+      m.scrollTo(999999, 0)
+      const content = m.getContentSize().w // 2832 × 4
+      expect(m.getScroll().x).toBe(content - (400 + 16 + 80) * 4)
+    })
+
+    it('clears back to the whole surface when nothing is pinned (wrapped view)', () => {
+      m.setPinnedGutter(null)
+      m.scrollTo(0, 0)
+      expect(m.getScroll().x).toBe(0)
+    })
+
+    it('never asks for a scroll the surface cannot give — a page that fits stays at 0', () => {
+      m.setContentSize(900, 300) // narrower than the viewport: nothing to scroll
+      expect(m.getMaxScroll()).toEqual({ x: 0, y: 0 })
+      expect(m.getScroll()).toEqual({ x: 0, y: 0 })
+    })
+  })
+
   describe('expandRect / rectContains — the overscan contract', () => {
     it('grows the rect by a fraction of its own size on all four sides', () => {
       expect(expandRect({ x: 100, y: 100, width: 200, height: 100 }, 0.5)).toEqual({

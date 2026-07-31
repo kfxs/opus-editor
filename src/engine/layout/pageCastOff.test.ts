@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pageCastOff } from './pageCastOff'
+import { pageCastOff, opensPage } from './pageCastOff'
 import { resolveSurface, SKETCH_CANVAS, A4_NORMAL } from './surface'
 
 const CANVAS = resolveSurface(SKETCH_CANVAS)
@@ -67,5 +67,39 @@ describe('pageCastOff — the degenerate cases', () => {
     // Float noise must not push it over: 1526.0000000001 > 1526 is not a page break.
     const cast = pageCastOff([A4.contentHeightPx! / 2, A4.contentHeightPx! / 2], A4)
     expect(cast.pageOfLine).toEqual([0, 0])
+  })
+})
+
+/**
+ * `opensPage` — which systems have the SHEET above them rather than another system. Asked by the
+ * staff-spacing floor: the gap above such a system is paper, and closing it walks the music off the
+ * top of the page (`MIN_SPACING_ABOVE_AT_PAGE_TOP` in ./staffStride).
+ */
+describe('opensPage — what sits above a system', () => {
+  it('the very first system opens its page', () => {
+    expect(opensPage(pageCastOff(systems(3), A4).pageOfLine, 0)).toBe(true)
+  })
+
+  it('a system that follows another on the SAME page does not', () => {
+    const cast = pageCastOff(systems(3), A4)
+    expect(cast.pageOfLine).toEqual([0, 0, 0])
+    expect(opensPage(cast.pageOfLine, 1)).toBe(false)
+  })
+
+  it('the first system AFTER a page break opens its page — the break is the whole question', () => {
+    // Three systems of half a page each: the third is pushed onto page 1 and lands at its top.
+    const cast = pageCastOff(systems(3, A4.contentHeightPx! / 2), A4)
+    expect(cast.pageOfLine).toEqual([0, 0, 1])
+    expect(opensPage(cast.pageOfLine, 2)).toBe(true)
+  })
+
+  it('a canvas has exactly one page-opening system, however long the score', () => {
+    const cast = pageCastOff(systems(40), CANVAS)
+    expect(cast.pageOfLine.filter((_, line) => opensPage(cast.pageOfLine, line))).toEqual([0])
+  })
+
+  it('answers false off the end rather than guessing — an unrendered line is not a page top', () => {
+    expect(opensPage([0, 0], 5)).toBe(false)
+    expect(opensPage([], 0)).toBe(false)
   })
 })

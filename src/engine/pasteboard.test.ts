@@ -3,11 +3,11 @@ import { paddedSize, openingScroll, PASTEBOARD_MARGIN } from './pasteboard'
 
 describe('paddedSize', () => {
   it('adds the margin to BOTH sides of both axes', () => {
-    expect(paddedSize({ w: 800, h: 1000 }, 400)).toEqual({ w: 1600, h: 1800 })
+    expect(paddedSize({ w: 800, h: 1000 }, { x: 400, y: 400 })).toEqual({ w: 1600, h: 1800 })
   })
 
   it('is the identity at margin 0 — the model default, so a host that never opts in is unchanged', () => {
-    expect(paddedSize({ w: 800, h: 1000 }, 0)).toEqual({ w: 800, h: 1000 })
+    expect(paddedSize({ w: 800, h: 1000 }, { x: 0, y: 0 })).toEqual({ w: 800, h: 1000 })
   })
 })
 
@@ -33,6 +33,15 @@ describe('openingScroll', () => {
   it('leaves exactly topGap of pasteboard showing above the page', () => {
     const { y } = openingScroll({ w: 1600, h: 1800 }, viewport, 400, 24)
     expect(400 - y).toBe(24)
+  })
+
+  it("aligned to the START, opens at 0 — the strip's beginning, not the desk's middle", () => {
+    // Linear view: the music runs off to the right, so there is no middle to centre on. It asks for
+    // 0 rather than for the gutter's pan limit — placing the view against that limit is the
+    // viewport's job (ViewportModel.setPinnedGutter), and clamping 0 lands exactly there.
+    const { x, y } = openingScroll({ w: 1600, h: 1800 }, viewport, 400, 24, 'start')
+    expect(x).toBe(0)
+    expect(y).toBe(376) // the vertical is the same decision either way: the top of the music
   })
 
   it('never returns a negative scroll when the viewport is larger than the surface', () => {

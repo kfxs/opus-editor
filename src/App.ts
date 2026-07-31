@@ -220,20 +220,35 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // ---------------------------------------------------------------------------------------------
   const highlight = new HighlightController(getEngine, () => scoreCanvas, state)
 
+  /**
+   * Set when linear view is entered, consumed by the first render that follows — see the render
+   * hook below. ⚠️ It cannot be done at the moment the mode is switched: what the gutter may hang
+   * over is read off the LAST render, and that is still the paged one, whose left margin is a
+   * different number entirely. Acting on it lands the view at the wrong limit, with the opening
+   * meter hidden behind the gutter.
+   */
+  let pendingLinearStart = false
+
   // A render can move the music under a fixed scroll-x, so the gutter refreshes after each one.
-  const renderer = new RenderController(getEngine, state, highlight, () => gutter.refresh())
+  const renderer = new RenderController(getEngine, state, highlight, () => {
+    gutter.refresh()
+    if (pendingLinearStart) {
+      pendingLinearStart = false
+      // The gutter has just re-declared its limit from THIS render's geometry, so asking for 0 puts
+      // the view exactly on it: bar 1, with its clef and meter clear of the gutter.
+      viewport.scrollTo(0, viewport.model.getScroll().y)
+    }
+  })
 
   // ViewportModel ⇄ DOM scroll wiring — the only DOM-aware viewport piece.
   const viewport = createViewportHost(
     () => scoreCanvas, () => scoreContent, () => scoreSizer, () => scoreZoomLayer,
     () => onViewChange(),
+    // Linear view opens at the START of the music, not centred on the desk: the strip runs off to
+    // the right for as long as the score lasts, so its middle is bar 40-something and its beginning
+    // is where you read from. The pinned gutter's limit then places it exactly.
+    () => (state.viewMode === 'linear' ? 'start' : 'center'),
   )
-  // ⭐ The page floats on a PASTEBOARD and the editor opens looking at the middle of it — the score
-  // is an object on a desk, not content flush to a box's top-left corner. Stated here, by the app,
-  // for the same reason the opening surface is (`MusicEngineConfig.surface` above): the engine
-  // defaults the margin to 0 and has no opinion about how much desk a person wants.
-  viewport.model.setPasteboard(PASTEBOARD_MARGIN)
-
   /**
    * Scroll / zoom / resize settled. Two things hang off it.
    *
@@ -278,7 +293,22 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     () => (state.viewMode === 'linear' ? scoreGutter : null),
     () => scoreContent,
     viewport.model,
+    // ⭐ A pinned gutter is also a LIMIT ON PANNING — it names the bar underneath it, so it may
+    // never be panned off the paper and left describing a bar from the middle of the pasteboard.
+    // The controller works out how far it may hang over (from where the score's opening meter is
+    // engraved); the viewport turns that into a scroll range.
+    gutter => viewport.setPinnedGutter(gutter),
   )
+
+  // ⭐ The page floats on a PASTEBOARD and the editor opens looking at the middle of it — the score
+  // is an object on a desk, not content flush to a box's top-left corner. Stated here, by the app,
+  // for the same reason the opening surface is (`MusicEngineConfig.surface` above): the engine
+  // defaults the margin to 0 and has no opinion about how much desk a person wants.
+  //
+  // ⚠️ AFTER the gutter, not with the rest of the viewport wiring: sizing the desk re-sizes the
+  // surface, which notifies, and `onViewChange` repaints the gutter — reaching a `const` that does
+  // not exist yet. (Caught by App.smoke.test and by the app refusing to boot.)
+  viewport.setPasteboard(PASTEBOARD_MARGIN)
 
   const selection = new SelectionController(
     getEngine,
@@ -440,8 +470,18 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     if (showGutter !== lastGutterShown) {
       lastGutterShown = showGutter
       scoreGutter.style.display = showGutter ? '' : 'none'
-      if (showGutter) gutter.refresh()
-      else gutter.detach()
+      if (showGutter) {
+        // Refresh FIRST: painting the gutter is also what declares it to the viewport, and the
+        // scroll below is clamped by the limit that declaration sets up.
+        gutter.refresh()
+        // ⭐ Entering linear view puts you at the BEGINNING of the music. The strip runs off to the
+        // right for as long as the score lasts, so wherever the page-view scroll happened to be is
+        // an arbitrary place to land — and the one position that is never arbitrary is the one the
+        // gutter's own limit defines: bar 1, with its clef and meter in the clear. Asking for 0 and
+        // letting the clamp place it keeps that in ONE place (ViewportModel.pinnedBandX) — but only
+        // once the score has been RE-ENGRAVED as a strip, hence the flag.
+        pendingLinearStart = true
+      } else gutter.detach()
     }
     // While a hand/grab pan is active, hide the OS pointer everywhere — not just over the score —
     // so it stays hidden when the drag crosses the viewport edge. (The score element also carries

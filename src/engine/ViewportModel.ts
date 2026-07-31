@@ -15,6 +15,8 @@
  * docs/linear-view-plan.md §5, P0.
  */
 
+import type { Margins } from './pasteboard'
+
 export interface Size {
   w: number
   h: number
@@ -78,6 +80,23 @@ export function rectContains(outer: Rect, inner: Rect): boolean {
   )
 }
 
+/**
+ * A strip pinned over the viewport's LEADING edge, described to the viewport in layout px — see
+ * {@link ViewportModel.setPinnedGutter}. Linear view's frozen gutter is the only one today.
+ */
+export interface PinnedGutter {
+  /** How much of the viewport the strip covers. */
+  width: number
+  /** How far the content sits inside the scroll surface — the content host's own padding. */
+  inset: number
+  /**
+   * How far the strip may hang PAST the content's leading edge, out over the pasteboard. 0 pins it
+   * flush; `width` would let it drift off entirely. The owner of the strip decides — it is the only
+   * one that knows what the strip must not cover (for the gutter: the score's opening meter).
+   */
+  overhang: number
+}
+
 /** Zoom range — the layout→screen scalar is clamped to `[ZOOM_MIN, ZOOM_MAX]` (25%–400%). */
 export const ZOOM_MIN = 0.25
 export const ZOOM_MAX = 4
@@ -125,21 +144,45 @@ export class ViewportModel {
   zoom = 1
 
   /**
-   * The pasteboard margin in LAYOUT px (see `./pasteboard`) — the empty surface the page floats in.
+   * The pasteboard margins in LAYOUT px, per axis (see `./pasteboard`) — the empty surface the page
+   * floats in. ⚠️ Not one number: the vertical desk is a viewport tall so the music can be placed
+   * anywhere in the window, while the horizontal one is the plain margin.
    *
    * Defaults to 0, so the model behaves exactly as it did until a host opts in. It is held here
    * rather than in the host because it displaces the LAYOUT ORIGIN: content coords now start one
    * margin in from the scroll surface, and the two conversions below are the only places that care.
    */
-  private pasteboard = 0
+  private pasteboard: Margins = { x: 0, y: 0 }
 
-  setPasteboard(marginLayoutPx: number): void {
-    this.pasteboard = marginLayoutPx
+  setPasteboard(margins: Margins): void {
+    this.pasteboard = { ...margins }
     this.clampScroll()
   }
 
-  getPasteboard(): number {
-    return this.pasteboard
+  getPasteboard(): Margins {
+    return { ...this.pasteboard }
+  }
+
+  /**
+   * An opaque strip pinned over the LEADING edge of the viewport — linear view's frozen gutter
+   * (`interactions/GutterController`). Null whenever nothing is pinned there (wrapped view).
+   *
+   * The model has to be told, because a pinned strip changes what a legal scroll offset IS. The
+   * gutter reports the clef and bar *under it*, so it is only honest while it is against the music;
+   * panned off into the pasteboard it becomes a staff floating in empty space, naming a bar it is
+   * nowhere near. The fix is a scroll RANGE, not a drawing rule — one strip-width of slack at each
+   * end of the paper, and no more. See {@link pinnedBandX}.
+   */
+  private pinnedGutter: PinnedGutter | null = null
+
+  /**
+   * Declare (or clear, with `null`) the pinned leading strip. Every number is LAYOUT px, like
+   * {@link pasteboard}. Re-clamps at once, so turning it on — or narrowing the overhang after a
+   * re-render — pulls a scroll that is already past the limit back onto the paper.
+   */
+  setPinnedGutter(gutter: PinnedGutter | null): void {
+    this.pinnedGutter = gutter
+    this.clampScroll()
   }
 
   // --- Size setters (re-clamp scroll so it can never point past the content) ---
@@ -184,10 +227,38 @@ export class ViewportModel {
 
   scrollTo(x: number, y: number): void {
     const max = this.getMaxScroll()
+    const bandX = this.pinnedBandX(max.x)
     this.scroll = {
-      x: clamp(x, 0, max.x),
+      x: clamp(x, bandX.lo, bandX.hi),
       y: clamp(y, 0, max.y),
     }
+  }
+
+  /**
+   * The horizontal scroll range, narrowed by {@link pinnedGutter} — `[0, maxScroll.x]` when nothing
+   * is pinned.
+   *
+   * The statement is *the strip stays against the paper* — it may sit on the music or flush beside
+   * it, never adrift in the pasteboard with music nowhere near it.
+   *
+   * ⭐ The two ends are NOT symmetrical, and the asymmetry is the point. Scrolled fully LEFT the
+   * strip may hang `overhang` past the content's edge, out over the pasteboard: the score engraves
+   * its opening header there, once, and the gutter — which exists to repeat a clef the music can no
+   * longer show — must not be the thing that covers what it does not repeat. At the right end there
+   * is nothing underneath to reveal, so it stops one strip-width inside instead: the music never
+   * runs out from under it. Both are derived here rather than stored, so a zoom, a re-render or a
+   * grown score updates them for free — every one of those ends in a `clampScroll`.
+   *
+   * Clamped into `[0, maxX]` last: on a surface narrower than the viewport there is no scrolling
+   * to do, and a limit outside the scrollable range would put the model where the DOM cannot go.
+   */
+  private pinnedBandX(maxX: number): { lo: number; hi: number } {
+    if (!this.pinnedGutter) return { lo: 0, hi: maxX }
+    const { width, inset, overhang } = this.pinnedGutter
+    const z = this.zoom
+    const lo = clamp((this.pasteboard.x + inset - overhang) * z, 0, maxX)
+    const hi = clamp(this.contentSize.w - (this.pasteboard.x + inset + width) * z, lo, maxX)
+    return { lo, hi }
   }
 
   scrollBy(dx: number, dy: number): void {
@@ -263,8 +334,8 @@ export class ViewportModel {
     // starts one margin in from it. Without this the cull window is offset by a whole margin — the
     // kind of error overscan hides until someone tightens the overscan.
     return {
-      x: this.scroll.x / z - this.pasteboard,
-      y: this.scroll.y / z - this.pasteboard,
+      x: this.scroll.x / z - this.pasteboard.x,
+      y: this.scroll.y / z - this.pasteboard.y,
       width: this.viewportSize.w / z,
       height: this.viewportSize.h / z,
     }
@@ -283,18 +354,17 @@ export class ViewportModel {
     const z = this.zoom
     // Plus the pasteboard, the mirror of getVisibleRect: a layout coord is one margin further along
     // the scroll surface than it is into the music.
-    const inset = this.pasteboard * z
     const nextX = this.ensureAxis(
       this.scroll.x,
       this.viewportSize.w,
-      rect.x * z + inset,
+      rect.x * z + this.pasteboard.x * z,
       rect.width * z,
       padding,
     )
     const nextY = this.ensureAxis(
       this.scroll.y,
       this.viewportSize.h,
-      rect.y * z + inset,
+      rect.y * z + this.pasteboard.y * z,
       rect.height * z,
       padding,
     )

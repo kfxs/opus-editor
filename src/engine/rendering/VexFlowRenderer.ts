@@ -55,7 +55,7 @@ import { staffSpacesToPixels } from './staffSpace'
 import { getStaves, staffMeasureView, firstStaffId, staffIndexOfId, staffIdAtIndex } from '@/engine/models/staffContent'
 import { LAYOUT_CONFIG, VIEWPORT_HEIGHT, LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type Surface, type SurfaceMetrics } from '@/engine/layout/surface'
-import { pageCastOff } from '@/engine/layout/pageCastOff'
+import { pageCastOff, opensPage } from '@/engine/layout/pageCastOff'
 import { inScaledStaffGroup } from './staffScaleGroup'
 import { staveHeightPx, systemStaffTops, spacingAbovePx } from '@/engine/layout/staffStride'
 import { drawPages, pageOriginPx, surfaceSizePx } from './PagePass'
@@ -418,6 +418,10 @@ export class VexFlowRenderer {
    *  stacking, and two derivations of one number is how a PDF ends up a page short. */
   private lastPageCount = 1
 
+  /** `pageOfLine` from the LAST render's casting-off — which sheet each system landed on. Kept for
+   *  the same reason as {@link lastPageCount}, and read by exactly one caller: {@link systemOpensPage}. */
+  private lastPageOfLine: readonly number[] = []
+
   /**
    * **The casting-off of the last render, kept so a scroll doesn't recompute it.**
    *
@@ -621,6 +625,21 @@ export class VexFlowRenderer {
       if (other.lineNumber === info.lineNumber && num < opener) opener = num
     }
     return opener
+  }
+
+  /**
+   * Does the system containing `measureNumber` sit at the TOP OF ITS SHEET, per the last render —
+   * i.e. is the thing above its first staff the page's top margin rather than another system?
+   * A derived read off the casting-off, like the two above; false before the first render, which
+   * callers must take as "I don't know" (the same contract as `getMeasureLayoutInfo`).
+   *
+   * Asked by the staff-spacing floor: the gap above such a system is paper, not ink, and closing it
+   * draws the music off the sheet (`MIN_SPACING_ABOVE_AT_PAGE_TOP` in `layout/staffStride`).
+   */
+  systemOpensPage(measureNumber: number): boolean {
+    const info = this.measureLayoutInfo.get(measureNumber)
+    if (!info) return false
+    return opensPage(this.lastPageOfLine, info.lineNumber)
   }
 
   /**
@@ -3307,6 +3326,7 @@ export class VexFlowRenderer {
     // It also casts the systems off into PAGES, which is why the SVG's size comes after it.
     const spacing = this.staffSpacingLayout(score, measureWidths)
     this.lastPageCount = spacing.pageCount
+    this.lastPageOfLine = spacing.pageOfLine
 
     // The whole drawing: one page-wide column on a canvas, the SPREAD when there is paper — pages
     // side by side, so the SVG is as wide as all of them.

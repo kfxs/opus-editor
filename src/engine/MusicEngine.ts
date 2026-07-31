@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize } from './models/staffSize'
-import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx } from './layout/staffStride'
+import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
@@ -1749,17 +1749,27 @@ export class MusicEngine {
    * between staff `staffIndex` and the one ABOVE it: it is the upper staff's ink you would collide
    * with (so the floor comes from *its* size), while `above` itself is authored in the dragged
    * staff's own spaces. The top staff of a system has no staff above it inside the system — that
-   * gap runs to the previous system's last staff, a casting-off fact this write path does not have
-   * — so it floors against its own, which is exactly what every staff did while there was one
-   * size. See docs/staff-size-plan.md §5.
+   * gap runs to the previous system's last staff — so it floors against its own, which is exactly
+   * what every staff did while there was one size. See docs/staff-size-plan.md §5.
+   *
+   * ⭐ **Unless that system opens a PAGE, where there is no staff above it at all** — only the
+   * sheet's top margin, which `above = 0` already sits against. A collision floor prices ink you
+   * could bump into; here the thing above is paper, so the floor is 0 and the music cannot be
+   * dragged off the top of the page (`MIN_SPACING_ABOVE_AT_PAGE_TOP`). That is a casting-off fact,
+   * so it is asked of the last render — and answered `false` before there is one, which only ever
+   * loosens the clamp back to what it was.
    */
-  private clampSpacingAbove(above: number, staffIndex: number): number {
+  private clampSpacingAbove(above: number, staffIndex: number, measureNumber: number): number {
     const score = this.scoreModel.getScore()
     const sizeOf = (index: number): number => {
       const id = staffIdAtIndex(score, index)
       return id ? resolveStaffSize(score, id) : 1
     }
-    return Math.max(above, minSpacingAboveSpaces(sizeOf(Math.max(0, staffIndex - 1)), sizeOf(staffIndex)))
+    const atPageTop = staffIndex === 0 && this.renderer.systemOpensPage(measureNumber)
+    const floor = atPageTop
+      ? MIN_SPACING_ABOVE_AT_PAGE_TOP
+      : minSpacingAboveSpaces(sizeOf(Math.max(0, staffIndex - 1)), sizeOf(staffIndex))
+    return Math.max(above, floor)
   }
 
   // ---- Linear view's staff-spacing VIEW KNOB (docs/linear-view-plan.md §4.2b) ----
@@ -1806,7 +1816,7 @@ export class MusicEngine {
     if (this.viewMode === 'linear') {
       const staffId = this.staffIdForSpacing(staffIndex)
       if (!staffId) return false
-      const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta, staffIndex)
+      const above = this.clampSpacingAbove(this.getStaffSpacingAbove(staffIndex, measureNumber) + delta, staffIndex, measureNumber)
       this.linearStaffSpacing.set(staffId, above)
       this.syncLinearStaffSpacing()
       dbg(`[Staff/linear] ${delta > 0 ? '↓' : '↑'} view spacing above staff ${staffIndex} by ${delta} → ${above} ss (view only, not saved)`)
@@ -1814,7 +1824,7 @@ export class MusicEngine {
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta, staffIndex)
+    const above = this.clampSpacingAbove(resolveStaffSpacingAbove(this.scoreModel.getScore(), t.staffId, t.openingMeasureId) + delta, staffIndex, measureNumber)
     this.scoreModel.setStaffSpacing(t.key, above) // absolute; clears at 0
     this.saveOnly('Nudge staff spacing')
     dbg(`[Staff] ${delta > 0 ? '↓' : '↑'} space above staff ${staffIndex} @sys(${t.openingMeasureId}) by ${delta} → ${above} ss`)
@@ -1882,13 +1892,13 @@ export class MusicEngine {
     if (this.viewMode === 'linear') {
       const staffId = this.staffIdForSpacing(staffIndex)
       if (!staffId) return false
-      this.linearStaffSpacing.set(staffId, this.clampSpacingAbove(above, staffIndex))
+      this.linearStaffSpacing.set(staffId, this.clampSpacingAbove(above, staffIndex, measureNumber))
       this.syncLinearStaffSpacing()
       return true
     }
     const t = this.staffSpacingTarget(staffIndex, measureNumber)
     if (!t) return false
-    return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above, staffIndex))
+    return this.scoreModel.setStaffSpacing(t.key, this.clampSpacingAbove(above, staffIndex, measureNumber))
   }
 
   /** Record one undo entry after a staff-spacing drag settles. A no-op in linear view: the drag
@@ -2810,7 +2820,17 @@ export class MusicEngine {
     })
     if (gutterStaves.length === 0) return null
 
-    return { measureNumber, staves: gutterStaves }
+    // Where the score's own opening meter is drawn — the fact the far-left pan limit is read off
+    // (GUTTER_METER_AIR). The FIRST measure's, whatever it is numbered: linear view has one system,
+    // so that is the only bar drawing a header, and it is the only one the gutter can ever cover.
+    const firstNumber = score.measures[0].number
+    const openingMeter = registry
+      .getByType('timeSignature')
+      .filter(el => el.measure === firstNumber)
+      .map(el => el.bbox.x)
+    const openingMeterX = openingMeter.length > 0 ? Math.min(...openingMeter) : null
+
+    return { measureNumber, staves: gutterStaves, openingMeterX }
   }
 
   /**

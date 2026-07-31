@@ -174,6 +174,21 @@ export type ViewMode = 'wrapped' | 'linear'
  */
 export const GUTTER_WIDTH = LAYOUT_CONFIG.CLEF_HIT_WIDTH + 35
 
+/**
+ * Air (layout px) between the gutter's right edge and the score's opening TIME SIGNATURE, at the
+ * far-left end of the pan.
+ *
+ * ⭐ This is what decides how far left linear view may be panned, and it is stated against the
+ * MUSIC rather than as a distance from the paper's edge: the gutter repeats the clef, so covering
+ * the engraved one costs nothing — but the meter it deliberately does *not* show must never be the
+ * thing that disappears behind it. Read the opening meter's x off the last render, back off by
+ * this much, and the limit follows for any header (a wider clef, a key signature one day).
+ *
+ * One staff space. `ViewportModel.setPinnedGutter` takes the result; `GutterController` does the
+ * arithmetic.
+ */
+export const GUTTER_METER_AIR = STAFF_SPACE_PX
+
 /** One staff's worth of what the frozen gutter shows: where it sits, and the clef in force. */
 export interface GutterStaffState {
   /** Y of the staff's TOP line, in layout (unzoomed) coords — straight off the last render. */
@@ -188,6 +203,13 @@ export interface GutterState {
   /** The measure you are currently looking at — the gutter's "where am I". */
   measureNumber: number
   staves: GutterStaffState[]
+  /**
+   * Layout x of the score's OPENING time signature — the first thing the header draws that the
+   * gutter does not repeat. Null when the opening bar draws no meter (nothing to protect, so the
+   * gutter may sit flush against the paper). The far-left pan limit is derived from it; see
+   * {@link GUTTER_METER_AIR}.
+   */
+  openingMeterX: number | null
 }
 
 /**

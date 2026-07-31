@@ -26,6 +26,21 @@ export interface PageCastOff {
 /** Float noise only — a system must not fall off a page because a sum landed on 1525.9999999999. */
 const EPSILON = 1e-6
 
+/**
+ * Does system `line` OPEN its page — is what sits above it the page's top MARGIN rather than
+ * another system?
+ *
+ * The one question the staff-spacing floor asks of the casting-off, and it has to be asked here
+ * because only this pass knows where the breaks fell. A system's "space above" tightens the gap to
+ * whatever is above it; where that is another system there is room to take, and where it is the
+ * top of the sheet there is none — taking it walks the music off the paper. See
+ * `MIN_SPACING_ABOVE_AT_PAGE_TOP` in `./staffStride`.
+ */
+export function opensPage(pageOfLine: readonly number[], line: number): boolean {
+  if (line < 0 || line >= pageOfLine.length) return false
+  return line === 0 || pageOfLine[line] !== pageOfLine[line - 1]
+}
+
 export function pageCastOff(
   /** Each system's drawn height, in score order — `StaffSpacingLayout.lineHeightPx`. */
   lineHeightPx: readonly number[],

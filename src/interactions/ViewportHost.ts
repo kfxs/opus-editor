@@ -1,11 +1,17 @@
-import { ViewportModel, type Point, type Rect } from '../engine/ViewportModel'
-import { openingScroll, paddedSize } from '../engine/pasteboard'
+import { ViewportModel, type PinnedGutter, type Point, type Rect } from '../engine/ViewportModel'
+import { openingScroll, paddedSize, pasteboardMargins, type OpeningAlign } from '../engine/pasteboard'
 
 /** Pasteboard left showing above the page when the score first appears, in layout px. */
 const OPENING_TOP_GAP = 24
 
 /** An element this host reads at call time. The app owns the DOM; the host only observes it. */
 type ElementSource = () => HTMLElement | null
+
+/** Is this the same pinned strip, field for field? (Both null counts.) See `setPinnedGutter`. */
+function samePin(a: PinnedGutter | null, b: PinnedGutter | null): boolean {
+  if (a === null || b === null) return a === b
+  return a.width === b.width && a.inset === b.inset && a.overhang === b.overhang
+}
 
 /**
  * DOM host for {@link ViewportModel} — the *only* DOM-aware piece of the viewport stack.
@@ -41,6 +47,17 @@ export interface ViewportHost {
   scrollBy(dx: number, dy: number): void
   /** Scroll `rect` (layout coords) into view via the model, then apply to the element. */
   ensureVisible(rect: Rect, padding?: number): void
+  /**
+   * How much desk the page floats on, in layout px — the app's decision (`PASTEBOARD_MARGIN`). The
+   * host turns it into the per-axis margins the surface actually uses and re-sizes everything.
+   */
+  setPasteboard(baseLayoutPx: number): void
+  /**
+   * Declare (or clear) the strip pinned over the viewport's leading edge — linear view's frozen
+   * gutter. It narrows the model's horizontal scroll range, so the element is re-synced: switching
+   * it on while the music is panned off to the right pulls the view back onto the paper.
+   */
+  setPinnedGutter(gutter: PinnedGutter | null): void
   /** Set absolute zoom (keeps the top-left content corner fixed) and re-apply to the DOM. */
   setZoom(z: number): void
   /** Zoom by `factor` about `focal` (viewport-relative screen point) and re-apply to the DOM. */
@@ -64,6 +81,13 @@ export function createViewportHost(
    * screen that scrolling changes without the score itself re-rendering.
    */
   onViewChange?: () => void,
+  /**
+   * How the FIRST view of the score is aligned horizontally, read at opening time (not at
+   * construction — the view mode is live). Linear view answers `'start'`: the music runs off to the
+   * right and its frozen gutter is pinned at the leading edge, so the beginning is the only place
+   * worth opening at. Everything else gets the page centred on its desk. See `openingScroll`.
+   */
+  openingAlign?: () => OpeningAlign,
 ): ViewportHost {
   const model = new ViewportModel()
   const notify = () => onViewChange?.()
@@ -75,6 +99,11 @@ export function createViewportHost(
   const naturalSize = { w: 0, h: 0 }
   /** Latched by the first real natural size — the opening scroll happens once, never on re-render. */
   let hasOpened = false
+  /** The strip currently pinned over the leading edge, as last declared — see `setPinnedGutter`. */
+  let pinned: PinnedGutter | null = null
+  /** The app's stated desk width in layout px; `pasteboardMargins` turns it into the two margins
+   *  actually used, which is why this is kept rather than the pair. 0 until the app opts in. */
+  let pasteboardBase = 0
   let viewportRO: ResizeObserver | null = null
   let svgRO: ResizeObserver | null = null
   let contentMO: MutationObserver | null = null
@@ -86,8 +115,10 @@ export function createViewportHost(
     const el = viewportEl()
     if (!el) return
     model.setViewportSize(el.clientWidth, el.clientHeight)
+    // The vertical desk is a viewport tall, so a resize changes the SURFACE — not just what is
+    // visible of it. applyZoom re-derives the margins, re-sizes the sizer and re-clamps.
+    applyZoom()
     syncScrollFromElement()
-    notify()
   }
 
   // --- Natural SVG size → naturalSize, then re-apply zoom (the single contentSize writer) ---
@@ -123,12 +154,17 @@ export function createViewportHost(
     const z = model.getZoom()
     // The scroll surface is the page PLUS the pasteboard it floats in (src/engine/pasteboard.ts).
     // The margin is layout-space, so it is multiplied by zoom here exactly like the music: the
-    // pasteboard is a fixed amount of paper, not a fixed amount of screen.
-    const margin = model.getPasteboard()
+    // pasteboard is a fixed amount of paper, not a fixed amount of screen. Per axis, and the
+    // VERTICAL one depends on the viewport (a window's worth of desk, so the music can be placed
+    // anywhere in it) — which is why a viewport resize comes back through here.
+    const vp = model.getViewportSize()
+    const margin = pasteboardMargins(pasteboardBase, { w: vp.w / z, h: vp.h / z })
+    model.setPasteboard(margin)
     const padded = paddedSize(naturalSize, margin)
     const w = padded.w * z
     const h = padded.h * z
-    const inset = margin * z
+    const insetX = margin.x * z
+    const insetY = margin.y * z
     const sizer = sizerEl()
     if (sizer) {
       sizer.style.width = `${w}px`
@@ -140,19 +176,20 @@ export function createViewportHost(
       // translate BEFORE scale reading left-to-right: the point is scaled, then pushed in by the
       // already-scaled margin. One transform, so the layer keeps its single containing-block role
       // for the play cursor.
-      layer.style.transform = `translate(${inset}px, ${inset}px) scale(${z})`
+      layer.style.transform = `translate(${insetX}px, ${insetY}px) scale(${z})`
     }
     model.setContentSize(w, h)
     // The opening view: centred horizontally, page-top vertically. Once only — after that the
     // scroll position is the user's, and a re-render (which changes natural size whenever a bar
     // grows) must never yank the view back.
-    if (!hasOpened && naturalSize.w > 0 && naturalSize.h > 0 && margin > 0) {
+    if (!hasOpened && naturalSize.w > 0 && naturalSize.h > 0 && pasteboardBase > 0) {
       hasOpened = true
       const open = openingScroll(
         { w, h },
-        model.getViewportSize(),
-        inset,
+        vp,
+        insetY,
         OPENING_TOP_GAP * z,
+        openingAlign?.() ?? 'center',
       )
       model.scrollTo(open.x, open.y)
     }
@@ -166,6 +203,19 @@ export function createViewportHost(
     const el = viewportEl()
     if (!el || applying) return
     model.scrollTo(el.scrollLeft, el.scrollTop)
+    // The model may have CLAMPED what the element reported — the pinned gutter narrows the range
+    // to less than the surface (see ViewportModel.setPinnedGutter), and a wheel or a scrollbar drag
+    // reaches the surface's own end regardless. Push the clamp back, or the element sits where the
+    // model says it does not and the two disagree for as long as the user keeps scrolling.
+    //
+    // ⚠️ To the nearest PIXEL, not exactly. A limit is a fractional number (a layout px times the
+    // zoom) and `scrollLeft` holds what the element can actually hold, so exact equality can be
+    // false forever — and this branch writes, which notifies, which lands back here.
+    const { x, y } = model.getScroll()
+    if (Math.abs(el.scrollLeft - x) > 0.5 || Math.abs(el.scrollTop - y) > 0.5) {
+      applyScrollToElement()
+      return
+    }
     notify()
   }
 
@@ -246,6 +296,25 @@ export function createViewportHost(
     ensureVisible(rect, padding) {
       model.ensureVisible(rect, padding)
       applyScrollToElement()
+    },
+    setPasteboard(baseLayoutPx) {
+      pasteboardBase = baseLayoutPx
+      applyZoom()
+    },
+    setPinnedGutter(gutter) {
+      // ⚠️ **Declaring the same strip again is not an event.** The owner of the strip re-declares it
+      // on every repaint — which happens on every view change — so this is called constantly, and
+      // the re-sync below notifies, which is itself a view change. Without this guard that is an
+      // infinite recursion (refresh → apply → notify → refresh), and it will not terminate on
+      // "the scroll didn't move" either: the limit is fractional and `scrollLeft` rounds.
+      if (samePin(pinned, gutter)) return
+      pinned = gutter
+      const before = model.getScroll()
+      model.setPinnedGutter(gutter)
+      const after = model.getScroll()
+      // Only when the new limit actually MOVED the view: the element must be put where the model
+      // now says it is, and nothing else has any reason to touch the DOM.
+      if (after.x !== before.x || after.y !== before.y) applyScrollToElement()
     },
     setZoom(z) {
       model.setZoom(z)

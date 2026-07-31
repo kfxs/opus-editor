@@ -68,6 +68,21 @@ export function minSpacingAboveSpaces(sizeAbove: number, sizeOwn: number): numbe
 }
 
 /**
+ * The floor for the top staff of a system that OPENS A PAGE — where {@link minSpacingAboveSpaces}
+ * does not apply, because there is no staff up there to collide with.
+ *
+ * What is above such a system is the sheet's top margin, and `above = 0` already places it exactly
+ * against that margin: every negative value from there is music drawn off the paper, where the SVG
+ * clips it away. The collision floor would happily hand out −6 spaces (it is pricing a gap that
+ * does not exist here), which is how a staff dragged up ends with its clef sliced off.
+ *
+ * ⭐ Zero, and stated as a named constant rather than folded into the clamp as a literal: it is a
+ * different RULE, not a tighter number — "you may not take room the page has not got" against
+ * "you may not close a gap onto the ink above it". Widening is untouched, as everywhere else here.
+ */
+export const MIN_SPACING_ABOVE_AT_PAGE_TOP = 0
+
+/**
  * An authored "space above staff" (client #7, stored in staff-spaces) in pixels, on a staff drawn
  * at `size`.
  *
