@@ -208,6 +208,12 @@ export class MusicEngine {
     this.renderer.clearGhosts()
   }
 
+  /** Re-place the barline ink on the pixel grid after a ZOOM — two attributes per barline, no
+   *  re-engraving. See {@link VexFlowRenderer.hintBarlines}. */
+  hintBarlines(force = false): void {
+    this.renderer.hintBarlines(force)
+  }
+
   /** How many times an undo snapshot has been ASKED for — incremented even when the ask is
    *  suppressed inside a batch. {@link runBatch} reads it to answer "did `fn` change anything?"
    *  without serializing the score. @see runBatch */

@@ -25,6 +25,7 @@ import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
+import { dumpBarlineCensus } from './dev/barlineCensus' // barline pixel-grid census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
 import { mountDevToolbar } from './dev/devToolbar'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
@@ -226,6 +227,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    */
   function onViewChange(): void {
     if (engine) {
+      // ⭐ Zoom changes what a pixel is, and the barlines are drawn ON pixels. A zoom is a CSS
+      // transform over a finished SVG — nothing re-renders — so this is the one thing that has to
+      // be told: two attributes per barline, no engraving (`engine/rendering/barlineInk.ts`).
+      //
+      // Called unconditionally, on scroll as much as on zoom. ⛔ Do NOT re-add a "did the zoom
+      // change?" guard here: the model's zoom and the scale the score is DRAWN at are not the same
+      // thing at startup — the SVG exists before the layer's transform is written — and a guard on
+      // the model's number is exactly what made the first render stay wrong until the user zoomed.
+      // The pass gates itself on the MEASURED scale, and costs one matrix read when nothing moved.
+      engine.hintBarlines()
       const v = viewport.model.getVisibleRect()
       // The viewport rect is measured from the zoom layer's origin, which sits CONTENT_PADDING
       // inside the SVG's; measure boxes are in the SVG's own space. Shift to match.
@@ -587,9 +598,17 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       dump: () => dumpSpacingCensus(document.querySelector('.score-container') ?? document),
       bars: () => spacingBars(document.querySelector('.score-container') ?? document),
     }
+    // Where each barline's ink lands ON THE DEVICE PIXEL GRID — the instrument for "some barlines
+    // look thicker than others", which no headless check can see (src/dev/barlineCensus.ts).
+    // `rehint` re-runs the hinting pass by hand, so its effect can be watched happening.
+    w.__barlines = {
+      dump: () => dumpBarlineCensus(document.querySelector('.score-container') ?? document),
+      rehint: () => { engine?.hintBarlines(true); dumpBarlineCensus(document.querySelector('.score-container') ?? document) },
+    }
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
+    dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
   }
 
   return {

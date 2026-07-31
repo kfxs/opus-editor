@@ -900,7 +900,8 @@ export class HighlightController {
 
     const registry = engine.getElementRegistry()
     const staffCount = engine.getScore().staves?.length ?? 1
-    // Just wide enough to cover the engraved line under it (1px, 2 for a thick end bar), so the
+    // Just wide enough to cover the engraved line under it (1.6px — `rendering/barlineInk.ts` —
+    // and 3 for a thick end bar, which this deliberately does not fully cover), so the
     // result reads as an orange barline rather than an orange fringe around a black one. Any wider
     // and the selected barline looks heavier than every other line on the page, which reads as the
     // music changing rather than as a selection.

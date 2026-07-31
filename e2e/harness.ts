@@ -97,8 +97,15 @@ export interface Harness {
    * child of the `<svg>` — exactly the handle `CrossBarBeams.test.ts` identifies them by.
    */
   crossBarBeams(): Quad[][]
-  /** Every barline, left to right (VexFlow draws a thin barline as a `<rect>`). */
-  barlines(): { x: number; y: number; height: number }[]
+  /**
+   * Every barline, left to right (VexFlow draws a thin barline as a `<rect>`).
+   *
+   * ⚠️ `x` is where the barline **is** — the bar boundary the layout put it on. `inkX`/`width` are
+   * where its ink actually landed, which is not the same number: `engine/rendering/barlineInk.ts`
+   * hints the ink onto whole device pixels, moving it by up to half a pixel. Ask for `x` unless the
+   * question is specifically about the drawing.
+   */
+  barlines(): { x: number; y: number; inkX: number; width: number; height: number }[]
   /** Every drawn bar of every staff — the source for "which system is this bar on?". */
   staves(): StaveBox[]
   /**
@@ -298,7 +305,15 @@ const harness: Harness = {
 
   barlines: () =>
     all<SVGRectElement>('g.vf-stavebarline rect')
-      .map(r => ({ x: num(r, 'x'), y: num(r, 'y'), height: num(r, 'height') }))
+      .map(r => ({
+        // `data-baseline-x` is the asked-for boundary, latched by the hinting pass before it moved
+        // the ink; absent until that pass has run, when the drawn x IS the asked one.
+        x: parseFloat(r.dataset.baselineX ?? String(num(r, 'x'))),
+        y: num(r, 'y'),
+        inkX: num(r, 'x'),
+        width: num(r, 'width'),
+        height: num(r, 'height'),
+      }))
       .sort((a, b) => a.x - b.x),
 
   staves(): StaveBox[] {

@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -10,6 +10,7 @@ import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
+import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -1662,8 +1663,12 @@ export class VexFlowRenderer {
     if (placement.scale !== 1) group.setAttribute('transform', `scale(${placement.scale})`)
     try {
       // Everything inside draws in the staff's own space, which is where its `stave` already is.
-      return this.elementRegistry.withScale(placement.scale, () =>
+      const stave = this.elementRegistry.withScale(placement.scale, () =>
         this.drawMeasureContent(pass, localPlacement(placement), beamPlan))
+      // The one engraving rule VexFlow hard-codes past: a barline is 0.16 staff spaces, not the 1px
+      // it draws (`./barlineInk`). Applied to the group's own rects, so it rides the staff's scale.
+      inkBarlines(group)
+      return stave
     } finally {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
       // target; leaving it open would nest the entire rest of the score — every later measure, the
@@ -2185,6 +2190,20 @@ export class VexFlowRenderer {
   ): Stave {
     const stave = new Stave(x, y, width)
     stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
+
+    // ⭐ **A barline belongs to the END of a bar, and is drawn ONCE.** VexFlow gives every stave both
+    // a begin and an end barline, so every interior boundary was being drawn TWICE — bar N's end and
+    // bar N+1's begin, at the same x, exactly on top of each other. Two coincident lines are not
+    // invisible: the pixels along their soft edges are covered twice, so an interior barline came out
+    // materially darker than the one opening or closing a system, which is drawn once. Measured at
+    // the editor's own default zoom, an interior line read 84%/78% black across two pixel columns
+    // where the same line drawn once reads 60%/53% — "some barlines look thicker than others",
+    // and it is the *duplicate* that made them so.
+    //
+    // The rule reads off this bar alone — no asking whether the neighbour happens to be drawn — so it
+    // survives culling and group reuse unchanged: the only bar that owns an opening line is one that
+    // has no predecessor on its line to end into it.
+    if (!(measure.number === 1 || isFirstInLine)) stave.setBegBarType(Barline.type.NONE)
 
     if (measure.number === 1 || isFirstInLine) {
       // Line start: full-size clef showing the effective clef for this measure
@@ -3545,8 +3564,26 @@ export class VexFlowRenderer {
       }
     }
 
+    // Last, once every bar is standing: put the barlines on whole device pixels so they all look
+    // alike (`./barlineInk`). The EDITOR audience only — hinting is a defence against a coarse
+    // pixel grid, and a print render has no such grid; the PDF keeps the true 0.16 spaces.
+    if (this.audience === 'editor') this.hintBarlines(true)
+
     renderProbe().endRender() // P0 instrument
     return ghostNoteRendered
+  }
+
+  /**
+   * Re-hint the barlines already on screen — see {@link hintBarlines}.
+   *
+   * Public because hinting depends on the ZOOM, and zoom does not re-render: it is a CSS transform
+   * over a finished SVG (docs/zoom-plan.md §3). This re-reads where each barline now falls on the
+   * pixel grid and rewrites two attributes per line. No engraving, no VexFlow, no layout solve —
+   * which is what makes it affordable to run on a zoom change.
+   */
+  hintBarlines(force = false): void {
+    const svg = this.getSVGElement()
+    if (svg) hintBarlines(svg, { force })
   }
 
   /** The drawn `<g>` for one (measure, staff) — the handle P5's incremental redraw and P6's culling
@@ -3630,8 +3667,9 @@ export class VexFlowRenderer {
    *
    * The line itself is what VexFlow's `singleLeft` draws — `fillRect(x, topY, 1, height)`
    * (staveconnector.js:70, :144) — so nothing is lost by drawing it: it is a rectangle, not an
-   * engraved glyph. Its 1px width is deliberately NOT scaled; a system bracket belongs to the
-   * system, not to either staff's ink.
+   * engraved glyph. Its width is deliberately NOT scaled; a system bracket belongs to the system,
+   * not to either staff's ink. It takes the same {@link THIN_BARLINE_PX} the barlines it joins do,
+   * so the join and the lines it joins read as one continuous stroke.
    */
   private drawSystemConnector(top: MeasurePlacement, bottom: MeasurePlacement): void {
     const ctx = this.context
@@ -3643,7 +3681,16 @@ export class VexFlowRenderer {
     const bottomY = (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
     // The staves share an x (barlines align), and it is already in SVG coordinates on the
     // placement — no need to take the scaled staff's word for it.
-    ctx.fillRect(top.x, topY, 1, bottomY - topY)
+    //
+    // ⚠️ Drawn inside a `stavebarline` group ON PURPOSE, though VexFlow is not drawing it: that is
+    // the handle `hintBarlines` collects, and a connector left outside it would be the one line of
+    // the system still landing between pixels while every barline it joins is crisp.
+    ctx.openGroup('stavebarline')
+    try {
+      ctx.fillRect(top.x, topY, THIN_BARLINE_PX, bottomY - topY)
+    } finally {
+      ctx.closeGroup()
+    }
   }
 
   /** Is any staff of this measure being painted? (The system connector's own two staves may both be
