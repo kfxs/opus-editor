@@ -25,7 +25,8 @@
  */
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
-  BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride, StaffSpacingOverride, FanMemberChord,
+  BarlineSpaceOverride, BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride,
+  StaffSpacingOverride, FanMemberChord,
 } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import {
@@ -149,6 +150,29 @@ export function toggleRestHidden(score: Score, posKey: string): boolean {
  * {@link nudgeDynamicOffset}. A model-level snapshot would push one undo entry per drag frame.
  * @returns the space actually stored, after the clamp.
  */
+/**
+ * Set the authored **space before the barline** for one bar (see {@link BarlineSpaceOverride}), in
+ * staff-spaces, signed. Keyed by `barlineSpaceKey`.
+ *
+ * The same shape as {@link setNoteSpacing} and for the same reasons — `minSpace` is the caller's
+ * measured floor (only the last render knows how close the bar's final glyph already stands to the
+ * line), zero clears the entry, and no undo snapshot is taken here because the facade owns it.
+ *
+ * What differs is only the address: a leading space names a column and shifts it, this names the
+ * bar's end and shifts nothing. See {@link measureUserSpacePx} for why that is all it takes.
+ * @returns the space actually stored, after the clamp.
+ */
+export function setBarlineSpace(score: Score, key: string, space: number, minSpace: number): number {
+  const clamped = Math.max(space, minSpace)
+  if (clamped === 0) {
+    clearEngravingOverride(score, key, 'barlineSpace')
+  } else {
+    const next: BarlineSpaceOverride = { kind: 'barlineSpace', space: clamped }
+    setEngravingOverride(score, key, next)
+  }
+  return clamped
+}
+
 export function setNoteSpacing(score: Score, posKey: string, space: number, minSpace: number): number {
   const clamped = Math.max(space, minSpace)
   if (clamped === 0) {

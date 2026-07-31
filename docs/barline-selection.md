@@ -115,7 +115,47 @@ Two details that cost a round-trip each, both about SVG rather than music:
   line on the page. With no stroke, `WIDTH` means what it says: 2px, just enough to cover the
   engraved line (1px, 2 for a thick end bar) without the selection reading as a change to the music.
 
+## 4. The three things you can do to a selected barline
+
+They are three different quantities and they use three different keys, coarse to fine:
+
+| | key | what moves |
+|---|---|---|
+| **Bar width** | `Ctrl+←/→` | the bar's whole note space, ×; the music inside re-spaces proportionally |
+| **Barline gap** | `Shift+←/→` | the line alone — the music keeps its spacing (`Shift+Backspace` resets) |
+| — | `←/→` | nothing; walks to the previous/next barline |
+
+⭐ **The barline gap** (2026-07-31) is the space between the bar's last element and the line that
+ends it — *"like placing a rod between the last element and the barline"*, on top of the engraver's
+own `space-to-barline` default of 1.0 staff space. A quarter-space a press.
+
+**It is the same quantity as a note-spacing nudge, at the one address that gesture cannot name.** A
+leading space is keyed by the *column* it opens a gap before; the barline is not a column, it is the
+bar's end. So it gets its own key (`{measureId}:barlinespace`, id-keyed like a bar width, so a rebar
+carries it), and that is very nearly the whole implementation:
+
+- `measureUserSpacePx` sums it → `MeasureLayout` widens the bar → justification transfers the room
+  from the bar's neighbours, so **the system still ends where it did**;
+- the renderer formats the music into `noteArea − userSpace`, so the music keeps its own spacing;
+- the shift pass (`applyLeadingSpaces`) walks *column* addresses and finds none, so nothing moves —
+  ⛔ which is why the barline key must never be reachable through `measureLeadingSpaces`;
+- `MeasureRedrawKey` sweeps `{measureId}:` keys, so the bar re-renders itself.
+
+Measured at four staff spaces asked: the gap grew ~38px of the 40 (a justified bar pays for part of
+its own growth — the same inversion bar width documents), the bar's first note did not move at all,
+and the note-to-note spacing changed by under a pixel.
+
+⚠️ **Naming.** He proposed *rod*, and it is the right metaphor — but `rod` is already a technical
+term in this codebase (`Column.rod`: a minimum width spanning several columns, from Gourlay 2002 and
+LilyPond's `springs-and-rods`), and this is not a minimum, it is an authored addition. Hence
+*barline gap*.
+
+The negative side is clamped by `measuredBarlineGapRoom` — the drawn distance from the last column
+to the line, less the pair's own ink padding, minimum across staves. A rest may not stand as close
+to a barline as a notehead may, and that asymmetry is the padding table's, not a constant here.
+
 ## Out of scope
 
 Editing a barline (repeats, double bars, final bars) — the selection is a handle for width, and the
-*kind* of barline is music, not layout. Multi-barline selection.
+*kind* of barline is music, not layout. Multi-barline selection. A mouse drag for the gap: the
+barline's drag is already the bar-width gesture, so this one is keyboard-only for now.

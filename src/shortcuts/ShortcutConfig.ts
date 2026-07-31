@@ -197,6 +197,26 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Widen space above the selected staff (fine)',
   },
 
+  // The BARLINE GAP — how far a bar's last element stands off the line that ends it, authored on
+  // top of the engraver's own `space-to-barline`. On a selected barline, ¼ space a press.
+  //
+  // ⭐ Shift+←/→ **because** Shift+↑/↓ is already the fine staff-spacing nudge: Shift+arrows are
+  // this editor's "fine spacing" chord, vertical between staves and horizontal at the barline. The
+  // easy key (Ctrl+←/→) is the bar's WIDTH, which is the other, coarser thing you do to a barline —
+  // it re-spaces the bar's whole music, where this moves nothing but the line.
+  'Shift+ArrowLeft': {
+    action: 'barlineGapTighten',
+    description: 'Tighten the gap before the selected barline (fine)',
+  },
+  'Shift+ArrowRight': {
+    action: 'barlineGapWiden',
+    description: 'Widen the gap before the selected barline (fine)',
+  },
+  'Shift+Backspace': {
+    action: 'resetBarlineGap',
+    description: 'Reset the gap before the selected barline',
+  },
+
   // Add one measure after the selected measure box (Sibelius Ctrl+Shift+B single-bar insert;
   // "before" is palette-only). Ctrl+Shift+click a bar first — see PaletteController.addMeasureAfter.
   'Ctrl+Shift+b': {

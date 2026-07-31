@@ -75,6 +75,10 @@ export function wireShortcuts(
   // one by different amounts under the same key.
   const BAR_WIDTH_STEP_PX = 10
 
+  // Barline-gap step (staff-spaces). The same quarter-space as the note-spacing nudge, because it
+  // is the same quantity at a different address — and because Shift+arrows are the FINE chord here.
+  const BARLINE_GAP_STEP_SS = 0.25
+
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
@@ -228,6 +232,35 @@ export function wireShortcuts(
     const measure = selectedOf(state, 'barline')?.measure
     if (!eng || measure === undefined) return false
     if (!eng.resetBarWidth(measure)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * The BARLINE GAP — the space between the bar's last element and the line that ends it.
+   *
+   * The third thing you can do to a selected barline, and deliberately the smallest: bar width
+   * (Ctrl+←/→) re-spaces the bar's whole music, this moves the line alone and leaves every note
+   * where it was. It rides Shift+←/→ because Shift+↑/↓ is already the fine staff-spacing nudge.
+   *
+   * DECLINEs (false) when no barline is selected, so the key falls through, and when the engine
+   * cannot measure the floor from the last render — the same "I don't know" contract as every
+   * other measured gesture.
+   */
+  const nudgeSelectedBarlineGap = (deltaSs: number): boolean => {
+    const eng = getEngine()
+    const measure = selectedOf(state, 'barline')?.measure
+    if (!eng || measure === undefined) return false
+    if (eng.nudgeBarlineSpace(measure, deltaSs) === null) return false
+    renderer.renderScore()
+    return true
+  }
+
+  const resetSelectedBarlineGap = (): boolean => {
+    const eng = getEngine()
+    const measure = selectedOf(state, 'barline')?.measure
+    if (!eng || measure === undefined) return false
+    if (!eng.resetBarlineSpace(measure)) return false
     renderer.renderScore()
     return true
   }
@@ -590,6 +623,10 @@ export function wireShortcuts(
     // needed; Shift+Arrow is otherwise unbound).
     staffSpacingFineUp: () => { nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS) },
     staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
+    // Shift+←/→ = the barline gap, the fine horizontal partner of Shift+↑/↓ above.
+    barlineGapTighten: () => { nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS) },
+    barlineGapWiden: () => { nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS) },
+    resetBarlineGap: () => { resetSelectedBarlineGap() },
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.

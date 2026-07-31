@@ -1,12 +1,12 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize } from './models/staffSize'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
-import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx } from './layout/measuredRoom'
+import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
@@ -1387,6 +1387,65 @@ export class MusicEngine {
     this.scoreModel.setNoteSpacing(key, 0, 0)
     this.saveOnly('Reset note spacing')
     dbg(`[Spacing] reset bar ${measureNumber} beat ${beat.num}/${beat.den}`)
+    return true
+  }
+
+  /**
+   * How much of its barline gap this bar can still give back, in staff-spaces — the negative limit
+   * of {@link nudgeBarlineSpace}. Measured off the last render (`measuredBarlineGapRoom`).
+   *
+   * ⚠️ Refuses on a dirty model, exactly like {@link barWidthRoom} and for the same reason: the
+   * drawn gap already contains the stored space, so the picture and the number have to come from
+   * the same moment. Null is "I don't know" and the caller must decline, not guess.
+   */
+  barlineGapRoom(measureNumber: number): number | null {
+    if (this.modelDirty) return null
+    return measuredBarlineGapRoom(this.renderer.getElementRegistry(), measureNumber)
+  }
+
+  /** The authored gap before this bar's barline, in staff-spaces. 0 = the engraver's own. */
+  getBarlineSpace(measureNumber: number): number {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    return measure ? barlineSpaceOf(this.scoreModel.getScore(), measure.id) : 0
+  }
+
+  /**
+   * Widen or tighten the gap between a bar's last element and its barline by `delta` staff-spaces,
+   * and save ONE undo step. The keyboard gesture (`Shift+←/→` on a selected barline).
+   *
+   * **Not a bar width and not an offset.** A bar width multiplies the whole note space and re-spaces
+   * the music proportionally; this adds a fixed distance at one end and moves no note at all. It is
+   * the same quantity as a note-spacing nudge, at the one address that gesture cannot reach — see
+   * {@link BarlineSpaceOverride}.
+   *
+   * @returns the space now stored, or null when the last render cannot measure the floor.
+   */
+  nudgeBarlineSpace(measureNumber: number, delta: number): number | null {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return null
+    const room = this.barlineGapRoom(measureNumber)
+    if (room === null) {
+      dbg(`[BarlineGap] declined bar ${measureNumber} — no drawn gap to measure the floor against`)
+      return null
+    }
+    const current = barlineSpaceOf(this.scoreModel.getScore(), measure.id)
+    // The floor is relative: `room` is what the CURRENT gap can still give up, so the stored value
+    // may go down by that much and no further.
+    const stored = this.scoreModel.setBarlineSpace(barlineSpaceKey(measure.id), current + delta, current - room)
+    this.saveOnly('Barline gap')
+    dbg(`[BarlineGap] bar ${measureNumber} ${delta > 0 ? '→' : '←'} ${stored} staff-space(s) (room ${room.toFixed(2)})`)
+    return stored
+  }
+
+  /** Drop the bar's authored barline gap, back to the engraver's own. One undo step.
+   *  @returns true if anything was there to reset. */
+  resetBarlineSpace(measureNumber: number): boolean {
+    const measure = this.scoreModel.getMeasure(measureNumber)
+    if (!measure) return false
+    if (barlineSpaceOf(this.scoreModel.getScore(), measure.id) === 0) return false
+    this.scoreModel.setBarlineSpace(barlineSpaceKey(measure.id), 0, 0)
+    this.saveOnly('Reset barline gap')
+    dbg(`[BarlineGap] reset bar ${measureNumber}`)
     return true
   }
 

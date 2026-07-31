@@ -878,6 +878,32 @@ export interface LeadingSpaceOverride extends EngravingOverride {
 }
 
 /**
+ * The **space before the BARLINE** — how far the bar's last element stands off the line that ends
+ * it (LilyPond calls the rule `space-to-barline`; our default is 1.0 staff space, set by eye in
+ * `layout/spacingPadding`). Authored per bar, on top of that default.
+ *
+ * ⭐ **The same quantity as {@link LeadingSpaceOverride}, at the one address it cannot name.** A
+ * leading space is keyed by the *column* it opens a gap before, and the barline is not a column —
+ * it is the bar's end. So this is its own key (`{measureId}:barlinespace`) rather than a beat, and
+ * it is id-keyed for the reason a bar width is: it names the bar itself, so a rebar carries it
+ * forward, where a beat address would move under a meter change.
+ *
+ * ⚠️ **Not a note offset and not a bar width**, though all three widen the same picture. A bar
+ * width multiplies the bar's whole note space and re-spaces the music inside it proportionally; an
+ * offset moves one note off its column and leaves the bar alone; this adds a fixed distance at one
+ * end and moves nothing at all — the music keeps its spacing and the barline steps away from it.
+ *
+ * In **staff-spaces**, signed (principle 3, never pixels). Zero clears the entry, so "absent = the
+ * engraver's own gap" holds. The negative side is clamped by the caller against the *measured*
+ * run-out, because only the last render knows how close the final glyph already is to the line.
+ */
+export interface BarlineSpaceOverride extends EngravingOverride {
+  kind: 'barlineSpace'
+  /** Staff-spaces of extra room before the barline, signed. + = further off, − = tighter. */
+  space: number
+}
+
+/**
  * Client #11 of the engraving-overrides compartment: user-authored **bar stretch** — the bar's
  * music gets `stretch ×` the room the engraver gave it, re-spaced proportionally (see
  * docs/bar-width-plan.md).

@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -241,14 +241,40 @@ export function measureLeadingSpaces(score: Score, measureId: string): { beat: F
 }
 
 /**
+ * The compartment key for the **space before a bar's BARLINE** (see {@link BarlineSpaceOverride}):
+ * `{measureId}:barlinespace`. Id-keyed, like {@link barWidthKey} and for the same reason — it names
+ * the bar's own end, so a rebar carries it forward, where a beat address would move under a meter
+ * change. The `{measureId}:` prefix puts it in the bar's shape key for free.
+ *
+ * ⚠️ It must NOT be reachable by {@link measureLeadingSpaces}, which enumerates *column* addresses
+ * and hands them to the renderer's shift pass — a gap before the barline shifts no column, it just
+ * widens the bar. `:barlinespace` cannot match that function's `:space:b` prefix, nor collide with
+ * `:barwidth` or `restPositionKey`'s segments.
+ */
+export function barlineSpaceKey(measureId: string): string {
+  return `${measureId}:barlinespace`
+}
+
+/** The authored gap before this bar's barline, in staff-spaces, signed. 0 = the engraver's own. */
+export function barlineSpaceOf(score: Score, measureId: string): number {
+  const o = engravingOverrideOf(score, barlineSpaceKey(measureId), 'barlineSpace') as BarlineSpaceOverride | undefined
+  return o?.space ?? 0
+}
+
+/**
  * A measure's total authored space in **pixels** — the number the width math adds to the bar and
  * the render subtracts from the format width, so both sides are derived here and cannot disagree.
  *
  * Converted at the layout's own default staff-space, not against a live stave: this is asked
  * during casting-off, before any stave exists — see {@link STAFF_SPACE_PX}.
+ *
+ * ⭐ The barline gap is summed in here **and nowhere else**, which is the whole of its plumbing: the
+ * bar grows by it (`MeasureLayout`), the music is formatted into the area MINUS it
+ * (`VexFlowRenderer`), and the shift pass finds no column to move — so the room it bought lands
+ * where it was asked for, between the last element and the barline.
  */
 export function measureUserSpacePx(score: Score, measureId: string): number {
-  let total = 0
+  let total = barlineSpaceOf(score, measureId)
   for (const { space } of measureLeadingSpaces(score, measureId)) total += space
   return total * STAFF_SPACE_PX
 }

@@ -733,6 +733,13 @@ export class ScoreModel {
   }
 
   /**
+   * Set the authored space between a bar's last element and its barline, in staff-spaces.
+   *  See {@link overrideOps.setBarlineSpace} for the why. */
+  setBarlineSpace(key: string, space: number, minSpace: number): number {
+    return overrideOps.setBarlineSpace(this.score, key, space, minSpace)
+  }
+
+  /**
    * Set a bar's authored **stretch** — the multiplier on its own note space (client #11 — see
    * docs/bar-width-plan.md).
    *  See {@link overrideOps.setBarWidth} for the why. */

@@ -130,6 +130,54 @@ export function fanMemberShrinkRoom(
 }
 
 /**
+ * How much of the **gap before the barline** this bar can still give up, in staff-spaces — the
+ * floor the barline-gap gesture clamps against (see `BarlineSpaceOverride`).
+ *
+ * The distance measured is from the last drawn column to the bar's `noteEndX` (where the barline
+ * stands), and what may be *kept* is the pair's own ink padding: a rest stands further off the line
+ * than a notehead does, which is the same asymmetry {@link measuredBarShrinkPx} applies and the
+ * same table (`spacingPadding`). Everything beyond that padding is authored air and can go.
+ *
+ * ⚠️ **Measured, never predicted**, for the reason the whole of this module exists: the drawn gap
+ * already contains whatever space is stored here, plus the line's justification, so only the last
+ * render knows how close the final glyph actually stands to the line.
+ *
+ * The **minimum across staves** — the barline is one line for the system, so the tightest staff
+ * decides for all of them.
+ *
+ * @returns null when the last render cannot answer (nothing drawn in that bar, or no geometry).
+ */
+export function measuredBarlineGapRoom(registry: ElementRegistry, measureNumber: number): number | null {
+  /** Per staff: the last drawn column's x, and whether it is nothing but rests. */
+  const byStaff = new Map<number, { lastX: number; lastBeat: number; lastIsRest: boolean }>()
+  for (const el of registry.getByMeasure(measureNumber)) {
+    if ((el.type !== 'note' && el.type !== 'rest') || el.beat === undefined) continue
+    const staff = staffOf(el)
+    const seen = byStaff.get(staff)
+    if (!seen || el.beat > seen.lastBeat) {
+      byStaff.set(staff, { lastX: el.bbox.x + el.bbox.width, lastBeat: el.beat, lastIsRest: el.type === 'rest' })
+    } else if (el.beat === seen.lastBeat) {
+      // Same column, another voice or another notehead: take the ink that reaches furthest right,
+      // and let a NOTE outvote a rest — a notehead may stand closer to the line than a rest may.
+      seen.lastX = Math.max(seen.lastX, el.bbox.x + el.bbox.width)
+      if (el.type !== 'rest') seen.lastIsRest = false
+    }
+  }
+  if (byStaff.size === 0) return null
+
+  let room: number | null = null
+  for (const [staff, { lastX, lastIsRest }] of byStaff) {
+    const geometry = registry.getStaffGeometry(measureNumber, staff)
+    if (!geometry) return null
+    const spacePx = geometry.lineSpacing ?? STAFF_SPACE_PX
+    const keep = pairPadding(lastIsRest ? 'rest' : 'note', 'barline')
+    const mine = Math.max(0, (geometry.noteEndX - lastX) / spacePx - keep)
+    room = room === null ? mine : Math.min(room, mine)
+  }
+  return room
+}
+
+/**
  * How many pixels of width the **drawn** bar can give back before its music is tighter than the
  * engraver's own floor — {@link MIN_COLUMN_GAP} per column, the same rule `noteSpaceForMeasure`
  * applies when it decides how wide a bar needs to be, but measured on the picture instead of
