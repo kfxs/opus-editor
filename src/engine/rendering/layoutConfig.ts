@@ -194,6 +194,15 @@ export interface GutterStaffState {
   /** Y of the staff's TOP line, in layout (unzoomed) coords — straight off the last render. */
   topLineY: number
   lineSpacing: number
+  /**
+   * The size this staff is DRAWN at (1 = full) — a small staff must be repeated small, or the
+   * gutter's clef is a different instrument's from the one under it.
+   *
+   * ⭐ Derived from the last render's own `lineSpacing`, not resolved from the score: the gutter
+   * mirrors the picture, and between a size change and the re-engraving that follows it those two
+   * disagree. Same reason `topLineY` beside it is measured rather than computed.
+   */
+  size: number
   /** The clef in force at the gutter's x — mid-measure changes included. */
   clef: Clef
 }

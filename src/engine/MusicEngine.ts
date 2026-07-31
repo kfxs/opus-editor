@@ -1,7 +1,7 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
-import { resolveStaffSize } from './models/staffSize'
+import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -2815,6 +2815,9 @@ export class MusicEngine {
       gutterStaves.push({
         topLineY: geo.lineYPositions[0],
         lineSpacing: geo.lineSpacing,
+        // What the staff was DRAWN at: the registry holds the real (scaled-out) spacing, so a staff
+        // engraved at 0.7 reports 7 where a full one reports STAFF_SPACE_PX.
+        size: geo.lineSpacing / STAFF_SPACE_PX,
         clef: registry.clefAtX(geo, x) as Clef,
       })
     })

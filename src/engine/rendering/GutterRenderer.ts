@@ -1,6 +1,7 @@
-import { Renderer, Stave, StaveConnector, Barline } from 'vexflow'
+import { Renderer, Stave, Barline } from 'vexflow'
 import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
+import { THIN_BARLINE_PX } from './barlineInk'
 
 /**
  * The gutter's ink. Sibelius tints its Panorama gutter blue, and the tint is doing real work: it
@@ -10,7 +11,7 @@ import { INDICATOR_INK } from '../../utils/selectionColors'
  */
 const GUTTER_INK = INDICATOR_INK
 
-/** Left inset of the gutter's staves (layout px) — see the StaveConnector note in `render`. */
+/** Left inset of the gutter's staves (layout px) — see the system-connector note in `render`. */
 const GUTTER_INSET = 10
 
 /**
@@ -96,36 +97,66 @@ export class GutterRenderer {
     const probe = new Stave(0, 0, GUTTER_WIDTH)
     const lineOffset = probe.getYForLine(0)
 
-    const staves: Stave[] = []
+    const staves: { stave: Stave; size: number }[] = []
     for (const staff of state.staves) {
-      // Inset by GUTTER_INSET, not 0: StaveConnector draws at the stave's own x, so a stave
+      // ⭐ A SMALL staff is repeated small. Same mechanism as the score's, and for the same reason
+      // it is a transform rather than a set of smaller numbers: the lines, the clef and the spacing
+      // between them all have to shrink together (docs/staff-size-plan.md §4.1). So the stave is
+      // built in the STAFF'S OWN space — every coordinate divided by `k` — inside a group carrying
+      // `scale(k)`, and lands exactly where the full-size arithmetic put it when `k` is 1.
+      const k = staff.size
+      // Inset by GUTTER_INSET, not 0: the system connector draws at the stave's own x, so a stave
       // flush against the SVG's left edge puts the system line half outside the viewBox, where
       // it is clipped to nothing. (The score never hits this — its staves start at the margin.)
-      const stave = new Stave(GUTTER_INSET, staff.topLineY - lineOffset, GUTTER_WIDTH - GUTTER_INSET)
+      const stave = new Stave(
+        GUTTER_INSET / k,
+        staff.topLineY / k - lineOffset,
+        (GUTTER_WIDTH - GUTTER_INSET) / k,
+      )
       stave.addClef(staff.clef)
       // No barlines: the gutter is a window onto the music, not a measure of its own.
       stave.setBegBarType(Barline.type.NONE)
       stave.setEndBarType(Barline.type.NONE)
-      stave.setContext(ctx).draw()
-      staves.push(stave)
+      const group = ctx.openGroup('gutterstaff') as SVGGElement
+      try {
+        if (k !== 1) group.setAttribute('transform', `scale(${k})`)
+        stave.setContext(ctx).draw()
+      } finally {
+        ctx.closeGroup()
+      }
+      staves.push({ stave, size: k })
     }
 
     // The system connector — the vertical line down the left edge joining the staves. It belongs
     // here for the same reason the clef does: once the system's opening has scrolled away, this
-    // is the only thing still saying "these staves are one system". Mirrors the score's own
-    // StaveConnector (VexFlowRenderer draws the same 'singleLeft' at each system's first measure).
+    // is the only thing still saying "these staves are one system".
+    //
+    // ⛔ Drawn by hand rather than with `StaveConnector`, exactly as the score draws its own
+    // (`VexFlowRenderer.drawSystemConnector`): it runs from the top staff's first line to the
+    // bottom staff's last, and those two may be drawn at DIFFERENT SIZES, so there is no single
+    // scale to put it in — each end has to be composed through its own staff's. Nothing is lost:
+    // VexFlow's `singleLeft` is a `fillRect`, not an engraved glyph.
     if (staves.length > 1) {
-      new StaveConnector(staves[0], staves[staves.length - 1])
-        .setType('singleLeft')
-        .setContext(ctx)
-        .draw()
+      const first = staves[0]
+      const last = staves[staves.length - 1]
+      const topY = first.stave.getYForLine(0) * first.size
+      // `+ 1` for the bottom line's own thickness, in that staff's ink and so at its scale.
+      const bottomY = (last.stave.getYForLine(last.stave.getNumLines() - 1) + 1) * last.size
+      // Its width is deliberately NOT scaled: a system line belongs to the system, not to either
+      // staff's ink — the same call the score makes.
+      ctx.fillRect(GUTTER_INSET, topY, THIN_BARLINE_PX, bottomY - topY)
     }
 
     // The bar number: the clef says WHAT you are reading, this says WHERE you are — the other
     // half of the question linear view makes hard to answer. Sits above the top staff, where an
-    // engraved measure number goes.
+    // engraved measure number goes — and at that staff's size, since the score's own number is
+    // drawn inside the bar's scaled group.
     const top = state.staves[0]
-    ctx.setFont(GUTTER_NUMBER_FONT, GUTTER_NUMBER_SIZE_PX)
-    ctx.fillText(String(state.measureNumber), GUTTER_INSET, top.topLineY - GUTTER_NUMBER_LIFT_PX)
+    ctx.setFont(GUTTER_NUMBER_FONT, GUTTER_NUMBER_SIZE_PX * top.size)
+    ctx.fillText(
+      String(state.measureNumber),
+      GUTTER_INSET,
+      top.topLineY - GUTTER_NUMBER_LIFT_PX * top.size,
+    )
   }
 }
