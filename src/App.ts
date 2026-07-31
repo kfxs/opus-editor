@@ -19,6 +19,7 @@ import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { FanEditController } from './interactions/FanEditController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
+import { playbackStartMeasure } from './interactions/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
 import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
@@ -507,11 +508,29 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     }
   }
 
+  /**
+   * Play / stop — the `p` key and the toolbar's button, one function so they cannot drift.
+   *
+   * ⭐ **Playback starts at what you have selected** (`interactions/playbackStart.ts`): the bar the
+   * selected element belongs to, the earliest bar of a selected group, the bar AFTER a selected
+   * barline, or the top when nothing is selected. Sibelius's behaviour, and the reason `p` is the
+   * play key here.
+   *
+   * ⭐ …and starting **clears the selection**, deliberately. What is selected is what an edit would
+   * act on, and during playback the thing you are attending to is the music going past, not the note
+   * you left picked — a stray key would otherwise edit it. Also: the play cursor and the selection
+   * highlight are two marks competing to say "here", and only one of them is telling the truth once
+   * the music is moving.
+   */
   async function togglePlayback(): Promise<void> {
     if (!engine) return
     if (state.playbackState === 'playing') {
       engine.stop()
     } else {
+      // Read the start BEFORE clearing — the selection is the question and the answer both.
+      engine.seekToMeasure(playbackStartMeasure(state, engine))
+      selection.deselectAll()
+      renderer.renderScore()
       try {
         await engine.play()
       } catch (error) {

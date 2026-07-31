@@ -34,7 +34,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   },
   'Escape': {
     action: 'setSelectionMode',
-    description: 'Switch to selection mode / clear selection',
+    description: 'Stop playback / switch to selection mode / clear selection',
   },
   // The space bar has TWO meanings, decided by where you are — one key, because both are the same
   // gesture: get on with entering. In SELECTION mode it starts keyboard entry at the selected note.
@@ -52,9 +52,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // above, and that is a per-keystroke gesture where playback is a per-session one. MuseScore
   // spends `p` on its piano-keyboard panel instead — the two apps disagree, so there is no key
   // here that is right by convention alone, and `p` for "play" at least says what it does.
+  // ⭐ Plays FROM THE SELECTION (Sibelius again — that is the whole reason `p` is the key here):
+  // the bar the selected element is in, the earliest bar of a selected group, the bar AFTER a
+  // selected barline, or the top when nothing is selected. Starting clears the selection.
+  // `Escape` also stops — see `setSelectionMode`, which takes the key while music is playing.
   'p': {
     action: 'togglePlayback',
-    description: 'Play the score, or stop it if it is playing',
+    description: 'Play from the selection, or stop if it is playing',
   },
 
   // Note durations (for future use)

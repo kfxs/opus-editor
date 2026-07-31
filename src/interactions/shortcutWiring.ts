@@ -340,7 +340,16 @@ export function wireShortcuts(
     },
     toggleViewMode: () => palette.toggleViewMode(),
     setSelectionMode: () => {
-      // Esc first cancels a pending (armed) paste, if any.
+      // ⭐ Esc STOPS PLAYBACK, before anything else it might mean. It is the universal "stop what
+      // is happening" key, and while music is playing that is what is happening — `p` toggles, but
+      // reaching for Escape is the reflex. Nothing is lost by taking the key here: starting
+      // playback clears the selection (`App.togglePlayback`), so there is nothing left for Esc's
+      // other duties to clear, and a second press does them anyway.
+      if (state.playbackState === 'playing') {
+        togglePlayback() // toggling WHILE PLAYING is a stop — one seam, so the two cannot drift
+        return
+      }
+      // Esc then cancels a pending (armed) paste, if any.
       if (state.pastePlacementArmed) {
         clipboard.cancelArmedPaste()
         return
