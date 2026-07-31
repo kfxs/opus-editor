@@ -3,10 +3,14 @@
  * (docs/json-io-plan.md); this is not the final file format and is expected to be replaced
  * wholesale when a real document model lands.
  *
- * Why it lives in `dev/` and not in the engine: `MusicEngine.exportJSON()` / `loadJSON()` are
- * pure model↔string and should stay that way. An *envelope* — "which app wrote this, when, in
- * what version" — is a file concern. Keeping it here means the provisional part stays
- * provisional, and deleting it one day is an `rm` rather than an excavation.
+ * Why it is not in the engine: `MusicEngine.exportJSON()` / `loadJSON()` are pure model↔string and
+ * should stay that way. An *envelope* — "which app wrote this, when, in what version" — is a file
+ * concern, and this module is pure string-in/string-out, which is what puts it in `utils/`.
+ *
+ * ⚠️ It lived in `dev/` until File ▸ Export JSON put it on the menu bar. Nothing that ships may
+ * import the shell, so it moved rather than being copied — same graduation as
+ * `interactions/staffSizeToggle`. Provisional it remains; it is simply provisional in a place a
+ * built site is allowed to reach.
  *
  * The job is narrow. There are no users and the score model changes constantly, so the point is
  * NOT to preserve old files perfectly — it is that an export taken today still opens tomorrow,

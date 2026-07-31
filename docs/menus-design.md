@@ -1,9 +1,40 @@
 # Menus — the second primitive
 
-**Status: BUILT** (`src/menus/`) — P0–P2, and its first REAL commands have landed. Sibling to `Window`
-(docs/windows-design.md), not a kind of it. Right-click the score → the Insert menu: Clef, `Text ▸
-Expression` (Ctrl+E), `Text ▸ Tempo` (Alt+Shift+T), Time Signature and Tuplet. The lorem placeholders
-are GONE — every row is now a real command. P3 (keyboard navigation) is not done.
+**Status: BUILT** (`src/menus/`) — P0–P4. Sibling to `Window` (docs/windows-design.md), not a kind of
+it. Right-click the score → the Insert menu: Clef, `Text ▸ Expression` (Ctrl+E), `Text ▸ Tempo`
+(Alt+Shift+T), Time Signature and Tuplet. And since P4 there is a **menu bar** across the top of the
+app: File · Edit · View · Create · Staff · Play · Window. Every row on it is a real command.
+
+> # ⚠️ THE MENU BAR IS THE DEMO'S. IT IS NOT THE APP'S UI.
+>
+> Read the next section before touching it, and before treating any part of it as decided.
+
+## ⚠️ The menu bar is PROVISIONAL — the demo's chrome, not a design
+
+The editor is published to GitHub Pages so it can be tried, and so the production bundle can be
+watched running. That page is a **demo**. **What the editor's real UI will be is not decided, and
+nobody has claimed it will have a menu bar at all.**
+
+So everything about the bar is provisional, and deliberately so:
+
+- **The TITLES are provisional.** File · Edit · View · Create · Staff · Play · Window are the words a
+  notation editor conventionally uses. They are not a taxonomy anyone chose; they are what makes a
+  strip of chrome legible as a menu bar while we learn whether we want one.
+- **The GROUPING is provisional.** Staff carrying both the staff and measure commands, Create being
+  the right-click tree under another name, the transport living under Play — each is a reasonable
+  guess and none is a decision.
+- **What is NOT provisional is the behaviour behind each row.** A row runs the same registered action
+  its accelerator runs (`ShortcutManager.run`), or the same `PaletteController` method the dev
+  toolbar's button calls, or the same function the dev panel's button calls. Nothing was reimplemented
+  for the bar. So if the bar goes, or is replaced by something completely different, **what goes is a
+  list of labels** — the commands stay where they live.
+- **`buildMenuBarTitles()` in `src/menus/index.ts` is the whole running order**, one line per title.
+  Deleting the bar is deleting that function and the `mountMenuBar` call in `App.ts`.
+
+The bar started as pure lorem ipsum (`demoMenus.ts`, since deleted) precisely so that no row could be
+mistaken for a promise, and each title graduated to real commands only when its contents were asked
+for. That is the pattern to keep: **a row that cannot yet do what it says should not be on the bar,
+and a row that works is still not a claim that it belongs there.**
 
 ## What this is
 
@@ -56,8 +87,17 @@ is nonsense, and the union makes that nonsense *unspellable* rather than merely 
 pure display string echoing `ShortcutConfig`, rendered right-aligned and muted-italic, so `Expression`
 shows `Ctrl+E` and `Tempo` shows `Alt+Shift+T`. It is a display echo, not the binding — keep the two in step.
 
-**Still not in the vocabulary, on purpose:** checkmarks, radio groups, disabled rows, icons. Each goes
-in when a menu actually wants it — the same guard the widget toolkit lives under.
+**Three more fields have since earned their place** — each when a menu actually wanted it, which is
+the guard, and each read as the row is PAINTED (items are built once, at mount, so a captured value
+would show whatever was true that morning):
+
+| field | who wanted it | why |
+|---|---|---|
+| `checked?: () => boolean` | View, Window, Play ▸ Score Sound | a toggle whose state you cannot see is a button you press twice to find out what it did. A panel with no checkable row grows no tick column at all. |
+| `disabled?: () => boolean` | Staff | its commands need a bar selected *by a specific gesture*, and nothing on screen says so. A greyed row is the menu saying the command is real and its target is missing. It is skipped by the arrow keys, not merely un-clickable. |
+| `label: string \| (() => string)` | Play | one command, one key, and a word that has to say which way it will go: *Play* ⇄ *Stop*. For a row that changes what it SAYS — never one that changes what it DOES. |
+
+**Still not in the vocabulary, on purpose:** radio groups and icons.
 
 **And it is emphatically not `new Column([new Button(...)])`.** Reusing the widget toolkit would make
 a menu "a chromeless window full of buttons", and then hover-to-open-flyout, the roving highlight and
@@ -111,9 +151,17 @@ so a `.vue` file never learns that menus exist. Same shape as `installKeypad`.
 | `src/menus/placement.ts` | pure: (anchor, size, host box) → position, flipped. Testable with no browser. |
 | `src/menus/MenuLayer.ts` | the DOM: the scrim, the root list, the flyouts, dismissal. No framework. |
 | `src/menus/index.ts` | the app's one layer instance + the `menuActions` command seam (below). |
-| `src/menus/insertMenu.ts` | the Insert item tree (all real commands) + the `contextmenu`/Menu-key listeners. |
+| `src/menus/insertMenu.ts` | the Insert item tree (all real commands) + the `contextmenu`/Menu-key listeners, **and** `buildCreateMenu` — the bar's Create title is this same tree, not a copy. |
+| `src/menus/menuBar.ts` | the BAR: buttons, the lit title, slide-along-to-switch. Knows nothing about what is in the menus. |
+| `src/menus/menuCommands.ts` | `MenuToggle` / `MenuCommand` — what a menu module asks the app for: a callback plus the readings the row needs while it is painted. |
+| `src/menus/fileMenu.ts` `editMenu.ts` `viewMenu.ts` `staffMenu.ts` `playMenu.ts` `windowMenu.ts` | one module per bar title. Each is a `build…(actions) → MenuBarTitle` and nothing else. |
 
 All of it under `npm run lint:boundary`.
+
+⚠️ **A menu that ships may not import `dev/`.** The shell has to keep deleting cleanly, so two
+modules graduated out of it when the bar reached them: `dev/staffSizeToggle` → `interactions/`, and
+`dev/scoreFile` → `utils/` with the actions it needed collected into `interactions/scoreFileIo.ts`
+(one implementation, called by the dev panel, the dev toolbar button and the File menu alike).
 
 ## The look, and the three things that were wrong before they were right
 
@@ -155,14 +203,21 @@ know you were running.** The menu didn't create this; it revealed it.
 - ✅ **P2 — the Insert menu.** `insertMenu.ts`: right-click the viewport (or the Menu key) → the Insert
   menu, with submenus. Native context menu suppressed on the viewport only. It began all-lorem; real
   commands replaced the rows one at a time (`Text ▸ Expression/Tempo` first) until none were left.
+- ✅ **P4 — the menu bar.** `menuBar.ts` + one module per title, mounted above the score viewport. It
+  needed no new placement rule: a button's bottom edge is a negative y in the layer's box, and
+  `placement.ts` clamps it to the top of the score, which is where a dropdown belongs. `MenuLayer`
+  gained exactly one option, `onClose`, because the lit title outlives the click that opened it.
+  ⚠️ **Provisional — see the warning at the top of this file.**
 - **P3 — keyboard, not done.** ↑↓ to move, → to open a flyout, ← to leave it, Enter to select. Listed
   so the design isn't shaped *around* its absence; the roving highlight is already a data attribute
   the layer sets, not `:hover`, which is what P3 will need.
 
 ## What this is NOT
 
-- **Not a menu bar.** `open({x, y, items})` stays anchor-based, so a File/Edit bar is just another item
-  tree anchored at a button's corner when it comes — but it is not built.
+- **Not a *committed* menu bar.** One exists (P4) and it is the demo's, not a design — the warning at
+  the top of this file is the whole story. What the primitive promised has held, though: `open({x, y,
+  items})` stayed anchor-based, and the bar turned out to be exactly "another item tree anchored at a
+  button's corner", with no change to the layer beyond one `onClose` callback.
 - **Not a right-click dispatcher.** Deciding *which* menu belongs to what was clicked (empty paper vs.
   a note vs. a slur) is the caller's job, and lives with the caller — `interactions/`, when there is
   ever a real menu. The menu system only takes `(x, y, items)`.

@@ -10,8 +10,20 @@
  * callback and a submenu is nonsense, and this makes that nonsense unspellable rather than merely
  * discouraged.
  *
- * ⚠️ Checkmarks, radio groups, disabled rows and icons are deliberately NOT here. Each earns its
- * place when a menu actually wants it — the same guard the widget toolkit lives under. Two have:
+ * ⚠️ Radio groups and icons are deliberately NOT here. Each earns its place when a menu actually
+ * wants it — the same guard the widget toolkit lives under. Four have:
+ *
+ * `disabled` — the Staff menu's rows need a bar selected, by a SPECIFIC gesture (a plain click for
+ * the staff commands, Ctrl+Shift+click for the measure ones). A row that looks pressable and does
+ * nothing is worse than one that says it cannot: the user's report about the dev toolbar's `Small`
+ * button was exactly that, which is why those buttons carry `isEnabled` already. A greyed row is the
+ * menu telling you the command exists but its target does not.
+ *
+ * `checked` — the View menu is nothing but toggles (linear view, justify-last, pages), and a toggle
+ * whose state you cannot see is a button you press twice to find out what it did. A FUNCTION, not a
+ * boolean, for the same reason `onSelect` is one: the items are built once, at mount, and a captured
+ * boolean would show whatever was true that morning. It is read when the row is PAINTED, which is
+ * enough — a menu never survives the action that changes its answer.
  *
  * `shortcut` — Insert ▸ Text ▸ Expression shows its `Ctrl+E` accelerator so the menu teaches the
  * keystroke. A pure display string; the binding itself lives in ShortcutConfig and this only echoes it.
@@ -39,8 +51,26 @@
  */
 export type LabelFont = 'music' | 'note' | 'italic' | 'bold'
 
+/**
+ * A row's text — or a function read as the row is PAINTED, for the row whose label IS its state.
+ * Play ⇄ Stop is the case: one command, one key, and a word that has to tell you which way it will
+ * go. Same late-read rule as `checked`, and the same reason (items are built once, at mount).
+ *
+ * ⚠️ A dynamic label is for a row that CHANGES WHAT IT SAYS, never for one that changes what it
+ * does. Two commands hiding behind one row that renames itself is how a menu stops being readable.
+ */
+export type MenuLabel = string | (() => string)
+
 export type MenuItem =
-  | { label: string; onSelect: () => void; shortcut?: string; labelFont?: LabelFont }
+  | {
+      label: MenuLabel
+      onSelect: () => void
+      shortcut?: string
+      labelFont?: LabelFont
+      checked?: () => boolean
+      /** Greyed, unclickable, and skipped by the arrow keys. Read once, as the panel is built. */
+      disabled?: () => boolean
+    }
   | { label: string; items: MenuItem[] }
   | { separator: true }
   | { columnBreak: true }

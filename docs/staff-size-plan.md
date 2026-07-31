@@ -261,7 +261,8 @@ size between `1` and `0.7`. **Scaffolding, in `dev/`, deliberately crude** — i
 the infrastructure while it is iterated on, not to be the UI. It writes a *number*; the two values
 are the button's business, never the model's.
 
-> `dev/staffSizeToggle.ts` (target / light / press) + a `Small` button in the toolbar's `Staff:`
+> `interactions/staffSizeToggle.ts` (target / light / press — it left `dev/` when the demo's Staff
+> menu offered `Small Staff`, since nothing that ships may import the shell) + a `Small` button in the toolbar's `Staff:`
 > group, on the **plain-click box** — the same gesture and the same target as `+ Above` / `+ Below`
 > beside it. `MusicEngine.setStaffSize(staffIndex, size)` is the one facade line, there for the one
 > reason a write is ever on the facade: undo.

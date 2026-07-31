@@ -4,6 +4,7 @@ import { openFeatherWindow } from '@/windows/featherWindow'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import { openTupletWindow } from '@/windows/tupletWindow'
 import type { MenuLayer } from './MenuLayer'
+import type { MenuBarTitle } from './menuBar'
 import type { MenuItem } from './MenuItem'
 
 /**
@@ -61,6 +62,25 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
     // own tuplet dialog; U is the one its manual suggests for a tuplet command.)
     { label: 'Tuplet', shortcut: 'U', onSelect: () => openTupletWindow(windows) },
   ]
+}
+
+/**
+ * The bar's **Create** title — THE SAME TREE as the right-click menu, built from the same function.
+ *
+ * ⭐ Deliberately not a copy. Two lists of the same commands drift the first time one of them gains a
+ * row, and the drift is silent: both menus keep working, they just stop agreeing. This is the Edit
+ * menu's rule ("a row is not a second implementation of its key") applied to a whole tree.
+ *
+ * ⚠️ WHICH ONE IS REAL: the right-click menu. It is where these commands have always lived, it is at
+ * the pointer — which is where you are inserting — and it is not going away. The bar title is the
+ * DEMO's copy of it, kept while we learn whether a menu bar is wanted at all; sharing the tree is
+ * what makes dropping it a one-line deletion instead of an audit.
+ *
+ * Sibelius names this menu Create and reaches it by right-click, which is why the same tree can wear
+ * the two names without either being a lie.
+ */
+export function buildCreateMenu(actions: InsertMenuActions, windows: WindowLayer): MenuBarTitle {
+  return { label: 'Create', items: buildInsertItems(actions, windows) }
 }
 
 /**

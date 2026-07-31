@@ -76,6 +76,15 @@ src/
                     #   seams that `interactions/` and `windows/` both pin to, so neither
                     #   imports the other. Import `{ bus }` from '@/bus' — never a store
                     #   by name. Per-store modules keep their doc comments.
+  menus/            # The menu primitive (MenuLayer + MenuItem + placement), the score's
+                    #   right-click Insert menu — and the MENU BAR. ⚠️ THE BAR IS THE DEMO'S
+                    #   CHROME, NOT THE APP'S UI: the real interface is undecided and may have
+                    #   no bar at all, so its titles/grouping are provisional guesses. Every ROW
+                    #   runs a command that already existed (a registered shortcut action, a
+                    #   PaletteController method, a window's own toggle) — nothing is
+                    #   reimplemented for it, so deleting the bar deletes a list of LABELS.
+                    #   `buildMenuBarTitles()` in menus/index.ts is the whole running order.
+                    #   Read docs/menus-design.md before treating any of it as settled.
   shortcuts/        # Keyboard shortcut definitions
   engine/           # Framework-agnostic music engine
     MusicEngine.ts        # Facade — coordinates the components below

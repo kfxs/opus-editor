@@ -124,6 +124,16 @@ const CSS = `
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The tick column. Present on EVERY row of a panel that has any checkable row, empty ones included —
+   otherwise the labels step in and out as things are switched on, and a menu whose text moves while
+   you read it is unreadable. A panel with nothing checkable never grows the column at all, so an
+   ordinary menu pays nothing. */
+.menu-row-check {
+  flex: none;
+  width: 14px;
+  margin-left: -4px;
+  color: ${CHROME.ink};
+}
 /* A label that IS music: set in the score's own font so the row shows the mark you will get, not a
    description of it. Bravura leads here — unlike anywhere text is being SET, where a music font
    first would lend its notation-sized spaces and line box to ordinary type (see utils/fontStack).
@@ -206,6 +216,16 @@ const CSS = `
 .menu-row:hover .menu-row-shortcut,
 .menu-row[data-active="true"] .menu-row-shortcut,
 .menu-row[data-highlight="true"] .menu-row-shortcut { color: #dbeafe; }
+/* A command whose target is not there. Greyed and inert — no hover, no keyboard highlight, no click.
+   It stays VISIBLE because the row is the only place the editor says the command exists at all; the
+   grey is the answer to "why can't I?", and hiding it would be no answer. */
+.menu-row-disabled,
+.menu-row-disabled:hover {
+  color: ${CHROME.inkMuted};
+  opacity: 0.55;
+  background: transparent;
+  pointer-events: none;
+}
 .menu-separator {
   height: 1px;
   margin: 4px 6px;
@@ -407,6 +427,10 @@ export class MenuLayer {
       sink = this.startColumn(el)
     }
 
+    // Decided ONCE per panel, not per row: the tick column is a property of the menu, so every row
+    // in it is indented equally and the labels stand still as things are switched on and off.
+    const checkable = items.some((i) => 'checked' in i && i.checked !== undefined)
+
     let column = 0
     let rowInColumn = 0
     for (const item of items) {
@@ -416,9 +440,12 @@ export class MenuLayer {
         rowInColumn = 0
         continue
       }
-      const rowEl = this.buildRow(item, depth)
+      const rowEl = this.buildRow(item, depth, checkable)
       sink.appendChild(rowEl)
-      if (!isSeparator(item)) rows.push({ el: rowEl, item, column, row: rowInColumn++ })
+      // A disabled row is painted but is NOT in `rows` — that list is what the arrow keys walk and
+      // what Enter commits, and a row the pointer cannot press must not be reachable by key either.
+      const inert = !isSeparator(item) && 'disabled' in item && item.disabled?.() === true
+      if (!isSeparator(item) && !inert) rows.push({ el: rowEl, item, column, row: rowInColumn++ })
     }
 
     // Off-screen for the measure, so a panel is never seen at 0,0 before it is placed.
@@ -453,7 +480,7 @@ export class MenuLayer {
     return col
   }
 
-  private buildRow(item: RowItem, depth: number): HTMLElement {
+  private buildRow(item: RowItem, depth: number, checkable = false): HTMLElement {
     if (isSeparator(item)) {
       const sep = document.createElement('div')
       sep.className = 'menu-separator'
@@ -463,11 +490,28 @@ export class MenuLayer {
     const row = document.createElement('div')
     row.className = 'menu-row'
 
+    // Asked once, here, as the panel is built — the same moment `checked` and a dynamic label are
+    // read. `pointer-events: none` in the CSS is what makes the handlers below unreachable, so they
+    // are still attached and there is no second code path for an inert row.
+    if ('disabled' in item && item.disabled?.() === true) row.classList.add('menu-row-disabled')
+
+    if (checkable) {
+      const tick = document.createElement('div')
+      tick.className = 'menu-row-check'
+      // Read HERE, as the row is painted — the items were built at mount, and the answer is only
+      // true as of now. A submenu row is never checkable (`checked` rides the leaf), so it simply
+      // gets the empty cell that keeps its label in line with the rest.
+      const on = 'checked' in item && item.checked?.() === true
+      tick.textContent = on ? '✓' : ''
+      row.appendChild(tick)
+    }
+
     const label = document.createElement('div')
     // `labelFont` rides the leaf variant only — a submenu is a word.
     const labelFont = 'labelFont' in item ? item.labelFont : undefined
     label.className = labelFont ? `menu-row-label menu-row-label-${labelFont}` : 'menu-row-label'
-    label.textContent = item.label
+    // Read as the row is painted, like `checked` — a label may BE state ("Play" ⇄ "Stop").
+    label.textContent = typeof item.label === 'function' ? item.label() : item.label
     row.appendChild(label)
 
     if (isSubmenu(item)) {

@@ -5,7 +5,9 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
-import { isSelectedStaffSmall, toggleSelectedStaffSize } from './staffSizeToggle'
+import { bus } from '../bus'
+import { exportScorePdfFile } from '../interactions/scoreFileIo'
+import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -147,15 +149,9 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     exportPdf.disabled = true
     exportPdf.textContent = 'Exporting…'
     try {
-      // Imported on demand: the PDF writer and the outliner are ~600kB of machinery nobody who
-      // never exports should download. The button is the only door to them.
-      const { exportScorePdf } = await import('../engine/export/pdfExport')
-      // On the surface the editor is showing: a page layout prints as real pages, the sketching
-      // canvas as the one tall column it has always been (docs/layout-plan.md P2).
-      await exportScorePdf(engine.getScore(), engine.getSurface())
-    } catch (error) {
-      console.error('PDF export failed:', error)
-      window.alert(`PDF export failed: ${error instanceof Error ? error.message : String(error)}`)
+      // Both doors — this button and File ▸ Export PDF — go through the one function, which is also
+      // where the on-demand import of the ~600kB PDF machinery lives.
+      await exportScorePdfFile(engine)
     } finally {
       exportPdf.disabled = false
       exportPdf.textContent = 'Export PDF'
@@ -310,8 +306,14 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     opt.textContent = s.label
     sound.appendChild(opt)
   }
-  sound.value = String(DEV_SOUNDS[0].program)
-  sound.addEventListener('change', () => getEngine()?.setInstrumentProgram(Number(sound.value)))
+  // ⭐ The picker no longer HOLDS the choice, it shows it. The bar's Play ▸ Score Sound offers the
+  // same list, so the value moved to `bus.sound` and both surfaces became readers of it — press to
+  // choose, `onHighlight` to follow someone else choosing. `interactions/soundSync.ts` is the one
+  // place that turns a press into an engine call; this dropdown never touches the engine again.
+  const soundHighlight = () => { sound.value = String(bus.sound.get() ?? DEV_SOUNDS[0].program) }
+  soundHighlight()
+  const stopSound = bus.sound.onHighlight(soundHighlight)
+  sound.addEventListener('change', () => bus.sound.press(Number(sound.value)))
   soundLabel.appendChild(sound)
   row.appendChild(soundLabel)
 
@@ -343,6 +345,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     destroy(): void {
       unsubscribe()
       unsubscribeAttach()
+      stopSound()
       stopModel?.()
       row.remove()
     },

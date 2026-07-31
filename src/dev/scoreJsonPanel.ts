@@ -1,5 +1,5 @@
 import type { MusicEngine } from '../engine/MusicEngine'
-import { readScoreFile, scoreFilename, wrapScoreJson } from './scoreFile'
+import { exportScoreJson, importScoreJson } from '../interactions/scoreFileIo'
 
 /**
  * The live Score-JSON panel — development scaffolding, deliberately kept (docs/remove-vue-plan.md).
@@ -11,7 +11,12 @@ import { readScoreFile, scoreFilename, wrapScoreJson } from './scoreFile'
  *
  * It also carries the Import / Export buttons (docs/json-io-plan.md). They are here, next to the
  * dump, because they are the same provisional thing: a way to get the model in and out while it is
- * still changing weekly. They will not ship here.
+ * still changing weekly. They will not ship here — and since the bar's File menu now offers the same
+ * two commands, what they DO is no longer here either: both surfaces call
+ * `interactions/scoreFileIo`, and these buttons keep only the status line.
+ *
+ * `Copy` stays local, because it is the panel's own: it exists because the `<pre>` below is
+ * re-rendered every 400ms and so cannot be drag-selected. A menu has no dump to copy.
  */
 const POLL_MS = 400
 
@@ -51,13 +56,7 @@ export function mountScoreJsonPanel(
   const status = document.createElement('span')
   status.className = 'text-sm text-gray-400'
 
-  // The file picker is a real input kept out of sight — `showOpenFilePicker` is Chromium-only.
-  const picker = document.createElement('input')
-  picker.type = 'file'
-  picker.accept = 'application/json,.json'
-  picker.className = 'hidden'
-
-  header.append(heading, copyBtn, exportBtn, importBtn, status, picker)
+  header.append(heading, copyBtn, exportBtn, importBtn, status)
 
   const pre = document.createElement('pre')
   pre.className = 'bg-gray-900 p-4 rounded overflow-auto text-xs max-h-96'
@@ -65,23 +64,9 @@ export function mountScoreJsonPanel(
 
   host.append(header, pre)
 
-  /**
-   * ⚠️ The export is the MODEL, via `exportJSON()` — never `pre.textContent`. The dump below is a
-   * 400ms-stale *view* of the same string, which is exactly what makes reaching for it tempting
-   * and wrong (docs/json-io-plan.md).
-   */
-  function onExport(): void {
+  const onExport = (): void => {
     const engine = getEngine()
-    if (!engine) return
-
-    const text = wrapScoreJson(engine.exportJSON(), new Date().toISOString())
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = scoreFilename(engine.getScore().title)
-    link.click()
-    URL.revokeObjectURL(url)
-    setStatus(`exported ${link.download}`)
+    if (engine) exportScoreJson(engine, { status: setStatus })
   }
 
   /**
@@ -116,36 +101,9 @@ export function mountScoreJsonPanel(
     }
   }
 
-  async function onPicked(): Promise<void> {
-    const file = picker.files?.[0]
-    // Reset first: picking the SAME file twice must fire `change` again (re-importing after an
-    // edit is the normal case here).
-    picker.value = ''
-    if (!file) return
-
+  const onImportClick = (): void => {
     const engine = getEngine()
-    if (!engine) return
-
-    const { scoreJson, summary } = readScoreFile(await file.text())
-    if (scoreJson === null) {
-      setStatus(summary)
-      return
-    }
-
-    // Clear the selection BEFORE the swap: `loadJSON` renders as part of loading, and by then the
-    // ids in `selectedItems` name notes that no longer exist. `loadJSON` builds the new model and
-    // only then assigns it, so a throw leaves the open score untouched — you are left deselected
-    // on a score that is still yours, which is the cheap half of the trade.
-    try {
-      onBeforeLoad()
-      engine.loadJSON(scoreJson)
-    } catch (err) {
-      console.error('[score-file] the engine rejected this score — the open score is unchanged.', err)
-      setStatus('refused: rejected by the engine (see console)')
-      return
-    }
-    onAfterLoad()
-    setStatus(summary)
+    if (engine) importScoreJson(engine, { status: setStatus, beforeLoad: onBeforeLoad, afterLoad: onAfterLoad })
   }
 
   let statusTimer: ReturnType<typeof setTimeout> | undefined
@@ -155,11 +113,9 @@ export function mountScoreJsonPanel(
     statusTimer = setTimeout(() => { status.textContent = '' }, 6000)
   }
 
-  const onImportClick = () => picker.click()
   copyBtn.addEventListener('click', onCopy)
   exportBtn.addEventListener('click', onExport)
   importBtn.addEventListener('click', onImportClick)
-  picker.addEventListener('change', onPicked)
 
   const timer = setInterval(() => {
     pre.textContent = getEngine()?.exportJSON() || '{}'
@@ -172,7 +128,6 @@ export function mountScoreJsonPanel(
       copyBtn.removeEventListener('click', onCopy)
       exportBtn.removeEventListener('click', onExport)
       importBtn.removeEventListener('click', onImportClick)
-      picker.removeEventListener('change', onPicked)
       header.remove()
       pre.remove()
     },

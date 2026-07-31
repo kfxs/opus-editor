@@ -1,8 +1,12 @@
 import { windows } from '@/windows'
 import { MenuLayer } from './MenuLayer'
-import { installInsertMenu, type InsertMenuActions } from './insertMenu'
+import { buildCreateMenu, installInsertMenu, type InsertMenuActions } from './insertMenu'
+import { buildFileMenu, type FileMenuActions } from './fileMenu'
 import { buildEditMenu, type EditMenuActions } from './editMenu'
-import { buildDemoMenus } from './demoMenus'
+import { buildViewMenu, type ViewMenuActions } from './viewMenu'
+import { buildStaffMenu, type StaffMenuActions } from './staffMenu'
+import { buildPlayMenu, type PlayMenuActions } from './playMenu'
+import { buildWindowMenu } from './windowMenu'
 import type { MenuBarTitle } from './menuBar'
 import type { MenuItem } from './MenuItem'
 
@@ -25,29 +29,34 @@ export const menus = new MenuLayer()
  * Keeping it here — not in App.ts — is what keeps "add a menu" from meaning "edit App.ts"; the app
  * only hands over the callback, it does not know the menu's shape.
  */
-export const menuActions: InsertMenuActions & EditMenuActions = {}
+export const menuActions: InsertMenuActions & FileMenuActions & EditMenuActions & ViewMenuActions & StaffMenuActions & PlayMenuActions = {}
 
 /**
  * THE MENU BAR'S RUNNING ORDER — the one list that says what is on the bar and in what sequence.
  *
- * Real titles and placeholders sit side by side here on purpose: a menu graduates by being written
- * as a module and swapped in on this line, and nothing else moves. Everything not named by a builder
- * is still lorem (`demoMenus.ts`) — inert, and obviously so.
+ * ⚠️⚠️ **PROVISIONAL — the demo's chrome, not the app's UI.** These seven titles and their grouping
+ * are conventional guesses, not a taxonomy anyone chose; the real interface is undecided and may have
+ * no menu bar at all. See the banner in `./menuBar` and docs/menus-design.md §"The menu bar is
+ * PROVISIONAL". **This function is where the bar is deleted from**: it and the `mountMenuBar` call in
+ * App.ts are the whole of it, because no row here implements anything — each runs a command that
+ * already existed, through the seam that already ran it.
  *
- * The fallback on a missing placeholder is an EMPTY menu rather than a throw: a bar with one dead
- * title is a far better failure than an editor that will not start.
+ * ⭐ Every title is REAL, though. The bar began as lorem (`demoMenus.ts`, now deleted — the way the
+ * Insert menu began, and the Lorem window before it): placeholders proved the shape, and each was
+ * replaced by a module as its commands were asked for. A title graduates by being written as a
+ * builder and swapped in on one line here, and nothing else moves. Nothing on the bar lies; that it
+ * works is still not a claim that it belongs there.
  */
 export function buildMenuBarTitles(): MenuBarTitle[] {
-  const demo = buildDemoMenus()
-  const lorem = (label: string): MenuBarTitle => demo.get(label) ?? { label, items: [] }
   return [
-    lorem('File'),
+    buildFileMenu(menuActions),
     buildEditMenu(menuActions),
-    lorem('View'),
-    lorem('Create'),
-    lorem('Staff'),
-    lorem('Play'),
-    lorem('Window'),
+    buildViewMenu(menuActions),
+    // The right-click menu's own tree, under its other name — one list, two ways in.
+    buildCreateMenu(menuActions, windows),
+    buildStaffMenu(menuActions),
+    buildPlayMenu(menuActions),
+    buildWindowMenu(windows),
   ]
 }
 

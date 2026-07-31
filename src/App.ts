@@ -4,7 +4,7 @@ import { MusicEngine } from './engine/MusicEngine'
 import { ScoreModel } from './engine/models/ScoreModel'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
-import { createObservableEditorState, scoreCursorClass } from './interactions/EditorState'
+import { createObservableEditorState, scoreCursorClass, selectedOf } from './interactions/EditorState'
 import { HighlightController } from './interactions/HighlightController'
 import { RenderController } from './interactions/RenderController'
 import { SelectionController } from './interactions/SelectionController'
@@ -24,6 +24,9 @@ import { PASTEBOARD_MARGIN } from './engine/pasteboard'
 import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
+import { wireSoundSync } from './interactions/soundSync'
+import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/staffSizeToggle'
+import { exportScoreJson, exportScorePdfFile, importScoreJson } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
@@ -362,6 +365,62 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   menuActions.paste = () => shortcuts.run('pasteClipboard')
   menuActions.deleteSelection = () => shortcuts.run('deleteSelected')
 
+  // The View menu's toggles — the dev shell's `View:` palette, driving the SAME PaletteController
+  // calls those buttons drive, so the two surfaces cannot disagree and the shell can go whenever it
+  // goes. `isOn` reads the state as the row is painted; the tick is never a remembered copy.
+  menuActions.linearView = {
+    isOn: () => state.viewMode === 'linear',
+    toggle: () => palette.toggleViewMode(),
+  }
+  menuActions.justifyLastSystem = {
+    isOn: () => state.justifyLastLine,
+    toggle: () => palette.setJustifyLastLine(!state.justifyLastLine),
+  }
+  menuActions.useLayout = {
+    isOn: () => state.useLayout,
+    toggle: () => palette.setUseLayout(!state.useLayout),
+  }
+
+  // File — the same three doors the dev shell has, through the one implementation
+  // (`interactions/scoreFileIo.ts`). ⚠️ Import REPLACES the open score with no confirmation; see the
+  // warning on `fileMenu.ts`.
+  const withEngine = (fn: (e: MusicEngine) => void) => () => { const e = getEngine(); if (e) fn(e) }
+  menuActions.exportPdf = { run: withEngine(e => { void exportScorePdfFile(e) }) }
+  menuActions.exportJson = { run: withEngine(e => exportScoreJson(e)) }
+  menuActions.importJson = {
+    run: withEngine(e => importScoreJson(e, {
+      beforeLoad: () => selection.deselectAll(),
+      afterLoad: () => renderer.renderScore(),
+    })),
+  }
+
+  // The Staff menu — the dev shell's `Staff:` and `Measure:` palettes, driving the same palette
+  // methods. ⭐ `enabled` is the same question the toolbar's buttons ask, and it is two different
+  // questions: the staff commands want a PLAIN-clicked bar (the single box), the measure commands a
+  // Ctrl+Shift+click span (the double box). That is why the rows grey out separately.
+  const singleBox = () => selectedOf(state, 'measureRange')?.boxStyle === 'single'
+  const doubleBox = () => selectedOf(state, 'measureRange')?.boxStyle === 'double'
+  menuActions.addStaffAbove = { run: () => palette.addStaffAbove(), enabled: singleBox }
+  menuActions.addStaffBelow = { run: () => palette.addStaffBelow(), enabled: singleBox }
+  menuActions.smallStaff = {
+    // An ENGINE read, not a state one: the size lives on the staff, so this is the same pair of
+    // functions the toolbar's `Small` button uses (`interactions/staffSizeToggle.ts` owns the rule — it
+    // left `dev/` when this menu shipped, since nothing in a built site may import the shell).
+    isOn: () => isSelectedStaffSmall(state, getEngine()),
+    toggle: () => { if (toggleSelectedStaffSize(state, getEngine())) renderer.renderScore() },
+    enabled: singleBox,
+  }
+  menuActions.addMeasureBefore = { run: () => palette.addMeasureBefore(), enabled: doubleBox }
+  // The one with a key: Ctrl+Shift+B, so it goes through the registered action like every Edit row.
+  menuActions.addMeasureAfter = { run: () => shortcuts.run('addMeasureAfter'), enabled: doubleBox }
+
+  // Play ▸ Play/Stop — the transport the `p` key and the toolbar's ▶ already share. The row's LABEL
+  // is the state (Play ⇄ Stop), so it reads the same field the toolbar's button lights from.
+  menuActions.playback = {
+    isOn: () => state.playbackState === 'playing',
+    toggle: () => shortcuts.run('togglePlayback'),
+  }
+
   // ---------------------------------------------------------------------------------------------
   // State-driven view updates — the whole of it
   // ---------------------------------------------------------------------------------------------
@@ -397,6 +456,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // still here, which is why neither needed touching to lose it.
   const stopKeypadSync = wireKeypadSync(state, palette, onStateChange, getEngine)
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
+  // The playback sound: `bus.sound` ⇄ the engine. Two surfaces choose it (the dev picker, Play ▸
+  // Score Sound) and neither talks to the engine — this is the one place that does.
+  const stopSoundSync = wireSoundSync(getEngine)
 
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
   // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
@@ -469,9 +531,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // the transform: scale(zoom) layer: it neither scrolls away with the music nor zooms with it.
   windows.mount(scoreViewport)
 
-  // The menu bar. Edit is REAL (`menus/editMenu.ts`); the rest are still PLACEHOLDERS
-  // (`menus/demoMenus.ts`) — what those commands should be is not decided. `buildMenuBarTitles` is
-  // the running order. Mounted after the layers, because a title's dropdown opens in the menu layer.
+  // The menu bar. ⚠️ DEMO CHROME, not the app's UI — the titles and their grouping are provisional
+  // guesses (docs/menus-design.md §"The menu bar is PROVISIONAL"); every ROW, though, runs a command
+  // that already existed, so dropping the bar is deleting these three lines and `buildMenuBarTitles`.
+  // Mounted after the layers, because a title's dropdown opens in the menu layer.
   const menuBar = mountMenuBar(menuBarHost, menus, buildMenuBarTitles(), {
     brand: 'Opus Editor',
   })
@@ -677,6 +740,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopStateSync()
       stopKeypadSync()
       stopSelectionInspection()
+      stopSoundSync()
       noteOffset.destroy()
       articulationStemAlign.destroy()
       fanEdit.destroy()

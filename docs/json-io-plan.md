@@ -1,6 +1,6 @@
 # JSON import / export — a sketch, on purpose
 
-**Status:** built. `src/dev/scoreFile.ts` (envelope + read/refuse, unit-tested) and the two buttons
+**Status:** built. `src/utils/scoreFile.ts` (envelope + read/refuse, unit-tested) and the two buttons
 in `src/dev/scoreJsonPanel.ts`. The two decisions at the bottom are still open — the code took the
 default on both, and says so at the point where it did.
 
@@ -42,7 +42,15 @@ being deleted. Those files are genuinely dead. That is what the console message 
 
 ## The sketch
 
-1. **An envelope, in `src/dev/scoreFile.ts` — not in the engine.** Today the file is a bare
+> ⚠️ **2026-07-31 — it moved, and it SHIPS now.** The demo's File menu offers Export PDF / Export
+> JSON / Import JSON, and nothing that ships may import `dev/`. So the envelope went to `utils/`
+> (pure, unchanged) and the three actions to `interactions/scoreFileIo.ts`, called by the dev panel,
+> the dev toolbar and the menu alike. **None of it got more finished by moving.** In particular:
+> *Import still REPLACES the open score with no confirmation*, which mattered less when the only door
+> was a dev button. That guard is the first thing this should grow. The File menu itself is demo
+> chrome — see the warning at the top of docs/menus-design.md.
+
+1. **An envelope, in `src/utils/scoreFile.ts` — not in the engine.** Today the file is a bare
    `Score` with no self-description, so an import has no way to say "this isn't mine".
    `{ format: "opus-editor-score", version, savedAt, score: {…} }`. Keeping it in `dev/` leaves
    `exportJSON`/`loadJSON` pure model↔string, and keeps the provisional part provisional.

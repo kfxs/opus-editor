@@ -1,13 +1,19 @@
-import type { EditorState } from '../interactions/EditorState'
-import { selectedOf } from '../interactions/EditorState'
+import type { EditorState } from './EditorState'
+import { selectedOf } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { resolveStaffSize, DEFAULT_STAFF_SIZE } from '../engine/models/staffSize'
 import { staffIdAtIndex } from '../engine/models/staffContent'
 import { dbg } from '../utils/debug'
 
 /**
- * The dev-shell staff-size control — **SCAFFOLDING, deliberately crude** (docs/staff-size-plan.md
- * P1). It exists to exercise the infrastructure while it is iterated on, not to be the UI.
+ * The staff-size control — still **deliberately crude** (docs/staff-size-plan.md P1): two values, one
+ * of which is this module's choice, exercising the infrastructure while it is iterated on.
+ *
+ * ⚠️ It lived in `dev/` until the bar's Staff menu offered it (Staff ▸ Small Staff). That menu SHIPS,
+ * and nothing that ships may import `dev/` — the shell has to stay deletable — so the rule moved here
+ * and the dev toolbar's button became the second caller rather than the only one. The crudeness is
+ * unchanged and so is the plan: whatever the real control turns out to be writes the same ratio
+ * through the same `MusicEngine.setStaffSize`.
  *
  * Click empty space in a bar (the SINGLE box) to say which staff, then press it: that staff flips
  * between full size and small. Same gesture and same target as the `+ Above` / `+ Below` staff

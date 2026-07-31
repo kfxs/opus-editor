@@ -47,6 +47,11 @@ export function openPropertiesWindow(windows: WindowLayer): Window {
   return properties
 }
 
+/** Is the panel up? Exported so a MENU ROW can tick itself — see the Keypad's twin. */
+export function isPropertiesOpen(windows: WindowLayer): boolean {
+  return isOpen(windows)
+}
+
 export function togglePropertiesWindow(windows: WindowLayer): void {
   if (isOpen(windows)) {
     properties!.close()

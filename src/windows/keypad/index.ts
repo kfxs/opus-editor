@@ -51,6 +51,12 @@ export function openKeypadWindow(windows: WindowLayer): Window {
   return keypad
 }
 
+/** Is the panel up? Exported so a MENU ROW can tick itself — the window's own state, asked of the
+ *  window, rather than a second copy of it kept by whoever drew the row. */
+export function isKeypadOpen(windows: WindowLayer): boolean {
+  return isOpen(windows)
+}
+
 export function toggleKeypad(windows: WindowLayer): void {
   if (isOpen(windows)) {
     keypad!.close()

@@ -13,6 +13,7 @@ import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
+import { createSoundSelection } from './soundSelection'
 import { createSubdivideSelection } from './subdivideSelection'
 import { createTieSelection } from './tieSelection'
 import { createTimeSignatureSelection } from './timeSignatureSelection'
@@ -81,6 +82,8 @@ export interface EditorBus {
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
   /** Whether what is selected IS A REST — the other half of the duration keys' statement. */
   rest: ReturnType<typeof createRestSelection>
+  /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. TEMPORARY. */
+  sound: ReturnType<typeof createSoundSelection>
   /** The subdivide key (secondary beam break). */
   subdivide: ReturnType<typeof createSubdivideSelection>
   /** The tie key. */
@@ -120,6 +123,7 @@ export function createEditorBus(): EditorBus {
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     rest: createRestSelection(),
+    sound: createSoundSelection(),
     subdivide: createSubdivideSelection(),
     tie: createTieSelection(),
     timeSignature: createTimeSignatureSelection(),

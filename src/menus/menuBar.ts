@@ -9,9 +9,23 @@ import type { MenuItem } from './MenuItem'
  * day it was written: *"a File menu is just another item tree, anchored at the bottom-left corner of
  * a button instead of at a click."* This file is that anchor and nothing more.
  *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+ * │  ⚠️⚠️  THIS BAR IS THE DEMO'S CHROME — IT IS NOT THE APP'S UI.                                │
+ * │                                                                                              │
+ * │  The editor is published so it can be TRIED; what its real interface will be is not decided,  │
+ * │  and nobody has claimed it will have a menu bar at all. The titles, the grouping and the      │
+ * │  running order are conventional guesses that make a strip of chrome legible as a menu bar     │
+ * │  while we learn whether we want one. What is NOT a guess is the behaviour behind each row:    │
+ * │  every one runs a command that already existed, through the seam that already ran it. So if   │
+ * │  this bar is replaced wholesale, WHAT GOES IS A LIST OF LABELS.                               │
+ * │                                                                                              │
+ * │  Read docs/menus-design.md §"The menu bar is PROVISIONAL" before treating any of it as        │
+ * │  settled. The running order is `buildMenuBarTitles()` in ./index — one line per title.        │
+ * └──────────────────────────────────────────────────────────────────────────────────────────────┘
+ *
  * ⚠️ It knows NOTHING about what is in the menus. The trees arrive as a parameter, the same way the
- * Insert menu receives its actions — so the placeholder set the demo currently shows
- * ({@link ./demoMenus}) can be replaced wholesale without this file changing a line.
+ * Insert menu receives its actions — which is how the bar's whole contents were replaced, title by
+ * title, from lorem to real commands, without this file changing a line.
  *
  * WHERE THE PANEL LANDS. The bar sits directly ABOVE the box the menu layer fills (the score
  * viewport), so a button's bottom edge is at a NEGATIVE y in the layer's coordinates and
