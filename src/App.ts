@@ -70,8 +70,16 @@ const CONTENT_PADDING = 16
  *  trackpad pinch stays smooth. See docs/zoom-plan.md §7 Phase 3. */
 const ZOOM_WHEEL_K = 0.0015
 
-/** The score box's fixed classes; `scoreCursorClass` appends the one that varies. */
-const SCORE_CANVAS_CLASS = 'score-container bg-slate-200 rounded-lg overflow-auto'
+/**
+ * The score box's fixed classes; `scoreCursorClass` appends the one that varies.
+ *
+ * Rounded only in the dev shell, where the score is a card sitting among other controls. A built
+ * site gives the score the whole window, and a full-bleed surface with rounded corners reads as a
+ * panel that failed to fit rather than as the page you are working on.
+ */
+const SCORE_CANVAS_CLASS = IS_DEV
+  ? 'score-container bg-slate-200 rounded-lg overflow-auto'
+  : 'score-container bg-slate-200 overflow-auto'
 
 export interface EditorApp {
   destroy(): void
@@ -90,9 +98,20 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // Built up-front and in one place, so every controller below can be handed a real element rather
   // than a maybe-null ref that populates a render pass later.
   // ---------------------------------------------------------------------------------------------
-  const page = div('min-h-screen bg-gray-900 text-white p-8')
-  const upper = div('mb-8')
-  const card = div('bg-gray-800 p-4 rounded-lg')
+  /*
+   * Two shapes, one policy (the same `IS_DEV` that decides the shell exists at all).
+   *
+   * The dev shell is a PAGE: a padded column with the score as one card among the toolbar and the
+   * JSON dump, free to grow taller than the window and scroll. A built site is an APPLICATION: the
+   * score takes the whole window and nothing else is on screen, so the outer box is exactly one
+   * viewport tall and does not scroll — the only thing that scrolls is the music, inside its own
+   * box. Every wrapper is then `h-full` so that single definite height reaches the score.
+   */
+  const page = IS_DEV
+    ? div('min-h-screen bg-gray-900 text-white p-8')
+    : div('h-screen overflow-hidden bg-gray-900 text-white')
+  const upper = div(IS_DEV ? 'mb-8' : 'h-full')
+  const card = div(IS_DEV ? 'bg-gray-800 p-4 rounded-lg' : 'h-full bg-gray-800')
 
   // The dev toolbar fills this itself (src/dev/devToolbar.ts).
   const toolbarHost = div('')
@@ -110,9 +129,15 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    * be the outer scroll box. Padding stays on the inner surface so bbox coords stay aligned with the
    * viewport scroll. See docs/navigation-viewport-plan.md §4.
    */
-  const scoreViewport = div('relative overflow-hidden rounded-lg')
+  const scoreViewport = div(
+    IS_DEV ? 'relative overflow-hidden rounded-lg' : 'relative overflow-hidden h-full',
+  )
   const scoreCanvas = div(SCORE_CANVAS_CLASS)
-  scoreCanvas.style.height = `${VIEWPORT_HEIGHT}px`
+  // A fixed height is a DEV measurement — the score is one card in a column, so it needs a stated
+  // size. Given the whole window, the box takes what the window has; `VIEWPORT_HEIGHT` would then
+  // be an arbitrary crop with dead space under it. The host's ResizeObserver feeds either one to
+  // the model the same way, so nothing downstream can tell the difference.
+  scoreCanvas.style.height = IS_DEV ? `${VIEWPORT_HEIGHT}px` : '100%'
 
   /*
    * Zoom DOM (docs/zoom-plan.md §3): the `sizer` takes an explicit size = naturalSvgSize × zoom so
