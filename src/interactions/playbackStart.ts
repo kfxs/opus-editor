@@ -90,11 +90,22 @@ function measureOfId(engine: MusicEngine, id: string | undefined): number | null
  * `selectedItems` is a Map, so its iteration order is the order things were added to the selection;
  * shift-clicking backwards through a phrase, or ctrl-clicking a chord's notes out of order, would
  * otherwise start playback in the middle of what you picked.
+ *
+ * ⚠️ **Read the VALUES, never the keys.** A key is `itemKey(item)` — `"note:abc-123"`, a dedup
+ * string — and the ids that go to the engine are on the items themselves. Reading the keys is why
+ * this shipped broken: every `getNote` lookup missed, the whole branch fell through, and playback
+ * started at bar 1 for any note selection. My own test passed because it built the Map by hand with
+ * bare ids, so it asserted the bug rather than the behaviour.
+ *
+ * ⚠️ And the Map is not only notes: a passage selection sweeps in the dynamics and slurs the box
+ * covered. Those are not where the music starts — the notes are.
  */
 function earliestSelectedNoteMeasure(state: EditorState, engine: MusicEngine): number | null {
-  const ids = state.selectedItems.size > 0
-    ? [...state.selectedItems.keys()]
-    : state.selectedNoteId ? [state.selectedNoteId] : []
+  const ids: string[] = []
+  for (const item of state.selectedItems.values()) {
+    if (item.kind === 'note') ids.push(item.id)
+  }
+  if (ids.length === 0 && state.selectedNoteId) ids.push(state.selectedNoteId)
 
   let best: { measure: number; beat: number } | null = null
   for (const id of ids) {

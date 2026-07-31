@@ -111,6 +111,58 @@ export function scoreTotalBeats(score: Score): number {
   return total
 }
 
+/** A note to hand the instrument: when to strike it, relative to the moment playback begins. */
+export interface PlayableNote {
+  midi: number
+  /** Seconds from the start of THIS play — 0 is the instant `play()` was called. */
+  atSeconds: number
+  /** Sounding length in seconds. */
+  durationSeconds: number
+  velocity: number
+}
+
+/**
+ * The notes one play actually sounds, in seconds from the moment it starts — the beats→seconds
+ * conversion and **where the play begins**, together, because they are one decision.
+ *
+ * ⭐ Playing from bar N is an ORIGIN SHIFT and nothing more: drop every note attacked before N, and
+ * move the rest earlier by the time N sits at. Extracted from `PlaybackEngine.play()` so it can be
+ * tested at all — that method needs an AudioContext, and the bug this function exists to prevent
+ * was invisible without one: `seekToMeasure` set a field, `play()` never read it, and every play
+ * began at bar 1 however the caller had seeked ("I select bar 3 and it starts from the beginning").
+ *
+ * ⚠️ A note still SOUNDING across the start point is dropped with the rest. It was attacked in a bar
+ * we are not playing, and re-striking it here would put an onset where the score has none — Sibelius
+ * plays from a bar the same way.
+ *
+ * ⚠️ A duration is the DIFFERENCE of two map lookups, never a beat-length times one rate: a note may
+ * straddle a tempo change, and one rate would use the onset's tempo for the whole note.
+ */
+export function playableFrom(
+  notes: Iterable<ScheduledNote>,
+  tempoMap: TempoSegment[],
+  /** Absolute beat this play starts at — `measureStartQuarters(score.measures, bar)`. 0 = the top. */
+  startBeats: number,
+): PlayableNote[] {
+  // Half a thousandth of a beat: `startBeats` is a sum of floats, and a note landing exactly on the
+  // downbeat must sound rather than be rounded out of its own bar.
+  const EPSILON = 5e-4
+  const startSeconds = beatsToSeconds(tempoMap, startBeats)
+  const out: PlayableNote[] = []
+  for (const ev of notes) {
+    if (ev.startBeats < startBeats - EPSILON) continue
+    const onsetSeconds = beatsToSeconds(tempoMap, ev.startBeats)
+    const endSeconds = beatsToSeconds(tempoMap, ev.startBeats + ev.durationBeats)
+    out.push({
+      midi: ev.midi,
+      atSeconds: onsetSeconds - startSeconds,
+      durationSeconds: endSeconds - onsetSeconds,
+      velocity: ev.velocity,
+    })
+  }
+  return out
+}
+
 /**
  * Flatten a score into the notes to sound, in schedule order. Absolute onsets come from a
  * shared per-measure clock (accumulated ONCE per measure, reused across staves), so parallel

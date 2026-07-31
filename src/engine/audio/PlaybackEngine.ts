@@ -1,5 +1,5 @@
 import type { Score, Note } from '@/types/music'
-import { measureCapacityQuarters } from '@/utils/measureCapacity'
+import { measureCapacityQuarters, measureStartQuarters } from '@/utils/measureCapacity'
 import {
   buildTempoMap,
   beatsToSeconds,
@@ -8,7 +8,7 @@ import {
   DEFAULT_TEMPO,
   type TempoSegment,
 } from '@/utils/tempoMap'
-import { collectScheduledNotes, scoreTotalBeats } from './playbackSchedule'
+import { collectScheduledNotes, playableFrom, scoreTotalBeats } from './playbackSchedule'
 import { WebAudioFontInstrument } from './WebAudioFontInstrument'
 import type { InstrumentPlayer } from './InstrumentPlayer'
 
@@ -204,22 +204,35 @@ export class PlaybackEngine {
     // Read the clock AFTER the awaits so onsets aren't scheduled in the past.
     const now = ctx.currentTime
 
+    // ⭐ WHERE THIS PLAY STARTS. `seekToMeasure` set `currentMeasure`; until 2026-07-31 nothing read
+    // it, so every play began at bar 1 however the caller had seeked — the seek moved the position
+    // READOUT and not a single scheduled note. Reported as "I select bar 3 and it starts from the
+    // beginning", which was the literal truth.
+    //
+    // The whole of it is one origin shift. Notes are scheduled against absolute score beats, so
+    // playing from bar N means dropping everything before N and moving the rest earlier by exactly
+    // the time N sits at. Bar 1 gives `startSeconds` 0 and the arithmetic disappears.
+    const startBeats = measureStartQuarters(this.score.measures, this.currentMeasure)
+    const startSeconds = beatsToSeconds(this.tempoMap, startBeats)
+
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
     // here we only convert beats→seconds and hand each note (MIDI straight in) to the player.
     // The map goes IN: an unmeasured tremolo's period is physical (seconds), so the collector needs
     // the same clock this loop converts with — see UNMEASURED_PERIOD_SECONDS.
-    for (const ev of collectScheduledNotes(this.score, this.tempoMap)) {
-      const startSeconds = beatsToSeconds(this.tempoMap, ev.startBeats)
-      // A note may STRADDLE a tempo change, so its sounding length is the DIFFERENCE of two
-      // map lookups — not its beat-length times one rate (that would use the tempo at the
-      // onset for the whole note and overrun the next change).
-      const endSeconds = beatsToSeconds(this.tempoMap, ev.startBeats + ev.durationBeats)
-      instrument.noteOn(ev.midi, now + startSeconds, endSeconds - startSeconds, ev.velocity)
+    // Which notes sound, and when — including where this play begins (`playableFrom`). Kept there
+    // rather than inline because this method cannot be tested without an AudioContext, and the seek
+    // it applies is exactly the thing that was silently not happening.
+    for (const note of playableFrom(collectScheduledNotes(this.score, this.tempoMap), this.tempoMap, startBeats)) {
+      instrument.noteOn(note.midi, now + note.atSeconds, note.durationSeconds, note.velocity)
     }
 
     this.state = 'playing'
-    this.playbackStartTime = now
+    // ⭐ The origin goes BACK by where we started, so `updatePosition` — which measures elapsed time
+    // from the top of the score and walks the bars to find the playhead — needs no notion of a seek
+    // at all. The cursor lands on the right bar and `progress` stays a fraction of the whole piece,
+    // both for free.
+    this.playbackStartTime = now - startSeconds
 
     if (this.callbacks.onStateChange) {
       this.callbacks.onStateChange(this.state)
@@ -230,10 +243,12 @@ export class PlaybackEngine {
     // loop never starts and onPositionChange never fires.
     this.updatePosition()
 
-    // Schedule auto-stop at the end of the score (totalDuration is kept current by setScore).
+    // Schedule auto-stop at the end of the SCORE (totalDuration is kept current by setScore) — so
+    // what is left to play is that, less the part we started past. Timing it from the full length
+    // would leave a play from bar 40 sitting in silence for the thirty-nine bars it skipped.
     this.playbackTimeoutId = setTimeout(() => {
       this.stop()
-    }, this.totalDuration * 1000)
+    }, Math.max(0, this.totalDuration - startSeconds) * 1000)
   }
 
   /**

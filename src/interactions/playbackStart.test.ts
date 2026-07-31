@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { playbackStartMeasure } from './playbackStart'
 import { createEditorState } from './EditorState'
+import { itemKey, type SelectionItem } from './selection'
 import { MusicEngine } from '../engine/MusicEngine'
 import { fracCreate } from '@/utils/fraction'
 import type { NoteParams } from '@/types/music'
@@ -25,6 +26,24 @@ describe('playbackStartMeasure', () => {
     while (engine.getScore().measures.length < 8) engine.addMeasure()
   })
 
+  /**
+   * Select notes the way the app does — through `itemKey`, so the Map is keyed `"note:<id>"`.
+   *
+   * ⚠️ **The point of this helper.** The first version of this spec built the Map with bare ids as
+   * keys, which no code path ever produces; the implementation read the KEYS, every engine lookup
+   * missed, and playback started at bar 1 for every note selection while these tests stayed green.
+   * A fixture that invents its own data shape tests the fixture.
+   */
+  const select = (...ids: string[]) => {
+    state.selectedItems = new Map(
+      ids.map(id => {
+        const item: SelectionItem = { kind: 'note', id }
+        return [itemKey(item), item]
+      }),
+    )
+    state.selectedNoteId = ids[ids.length - 1] ?? null
+  }
+
   /** One quarter at beat 0 of `measure`; returns its id. */
   const noteIn = (measure: number, beat = 0): string =>
     engine.addNoteAtBeat({
@@ -36,23 +55,39 @@ describe('playbackStartMeasure', () => {
   })
 
   it('starts at the selected note\'s bar', () => {
-    const id = noteIn(5)
-    state.selectedNoteId = id
+    select(noteIn(5))
     expect(playbackStartMeasure(state, engine)).toBe(5)
+  })
+
+  it('…and from the anchor alone, when nothing populated the item map', () => {
+    // Some paths set only `selectedNoteId` (the entry cursor's note, for one).
+    state.selectedNoteId = noteIn(4)
+    expect(playbackStartMeasure(state, engine)).toBe(4)
+  })
+
+  it('⚠️ ignores the non-note items a passage selection sweeps in', () => {
+    const note = noteIn(6)
+    const items = new Map<string, SelectionItem>()
+    const dyn: SelectionItem = { kind: 'dynamic', id: 'some-dynamic' }
+    const n: SelectionItem = { kind: 'note', id: note }
+    items.set(itemKey(dyn), dyn)
+    items.set(itemKey(n), n)
+    state.selectedItems = items
+    expect(playbackStartMeasure(state, engine), 'the NOTES say where the music starts').toBe(6)
   })
 
   it('⭐ starts at the EARLIEST of a group, whichever order it was clicked in', () => {
     const late = noteIn(6)
     const early = noteIn(3)
     // Selected back-to-front, as a shift-click backwards through a phrase would.
-    state.selectedItems = new Map([[late, {} as never], [early, {} as never]])
+    select(late, early)
     expect(playbackStartMeasure(state, engine)).toBe(3)
   })
 
   it('breaks a same-bar tie by BEAT, not by click order', () => {
     const onFour = noteIn(4, 3)
     const onOne = noteIn(4, 0)
-    state.selectedItems = new Map([[onFour, {} as never], [onOne, {} as never]])
+    select(onFour, onOne)
     expect(playbackStartMeasure(state, engine)).toBe(4)
   })
 
@@ -95,7 +130,7 @@ describe('playbackStartMeasure', () => {
   })
 
   it('the ELEMENT wins over the note selection — it is the more specific answer', () => {
-    state.selectedNoteId = noteIn(2)
+    select(noteIn(2))
     state.selectedElement = { kind: 'barline', measure: 6 }
     expect(playbackStartMeasure(state, engine)).toBe(7)
   })

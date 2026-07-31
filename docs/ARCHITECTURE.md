@@ -352,6 +352,7 @@ editor?"* — if yes, it is a core module.
 | All editor UI state | `interactions/EditorState.ts` |
 | A keybinding | `shortcuts/ShortcutConfig.ts` |
 | Starting PLAYBACK | `p` (`togglePlayback`) — Sibelius's own key for it, and like Sibelius it plays **from the selection**: `interactions/playbackStart.ts` answers which bar, ⭐ with a selected BARLINE meaning the bar that starts AFTER it (the line *ends* bar N) and a group meaning its EARLIEST member by position, not by click order. Starting **clears the selection** — during playback the thing you are attending to is the music, and a stray key must not edit the note you left picked. ⭐ `Escape` stops too, ahead of everything else it means. MuseScore spends `p` on its piano-keyboard panel; ⚠️ Space is not available to us, it is note entry's typewriter key. The shortcut calls the SAME `App.togglePlayback` the dev shell's ▶ button runs — a second way to press it, never a second implementation |
+| **Playing from somewhere other than the top** | `PlaybackEngine.seekToMeasure` sets the bar; `play()` turns it into an **origin shift** via `playableFrom` (`audio/playbackSchedule.ts`): drop every note attacked before it, move the rest earlier by the seconds that bar sits at, and set `playbackStartTime = now − startSeconds` so the position loop — which measures from the top of the score — needs no notion of a seek at all. The auto-stop timer subtracts the same offset. ⚠️ For months `seekToMeasure` set a field **nothing read**: it moved the position READOUT and not one scheduled note, so every play began at bar 1. It cannot be caught by a unit test (`play()` needs an AudioContext), which is why the decision lives in a pure function that has one |
 | What a NUMPAD key does | `windows/keypad/keypadLayouts.ts` — **not** ShortcutConfig, which binds all 16 pad keys to one `keypadKey` action. The pad is the Keypad panel: a key presses the cell under it *on the page that is showing*. See `docs/keypad.md` |
 | A pure music calculation (durations, meter, fractions) | `utils/` |
 | "which lane is this in?" / "how long is this?" | Four accessors, never a hand-written `?? 0`: `utils/lanes.ts` `voiceOf` / `staffOf` (absent = the first voice/staff) and `utils/durations.ts` `writtenLength` / `slotLength` (`slotLength` prefers `actualDuration`, so a tuplet member and a measure rest time correctly). They resolve an absent FIELD, not an absent OBJECT — `maybeNote?.voice ?? 0` is a different question and stays written out |
@@ -390,6 +391,27 @@ fallbacks. Don't reinvent "where is this note on screen" — ask the registry.
 Every mutation in `MusicEngine` must push the new score into `PlaybackEngine`
 *and* snapshot for undo. Forgetting the resync silently desyncs audio from the
 score — this is exactly the class of bug the `commit()` helper exists to prevent.
+
+### ⚠️ A setter nobody reads is not a feature
+
+`PlaybackEngine.seekToMeasure` stored `currentMeasure` and `play()` never looked at it. The method
+existed, was called, returned cleanly, and moved the position *readout* — while every play began at
+bar 1. It stayed that way until someone said *"I select bar 3 and it starts from the beginning"*.
+
+Two things make this class of bug survive, and both are worth checking for by name:
+
+- **The write side looks finished.** A field is set, a comment says "sets the starting point for the
+  next play()", and nothing anywhere is red. Whenever a method's whole body is an assignment,
+  **follow the field to its reader** before believing it.
+- **The reader was untestable.** `play()` needs an `AudioContext`, so no unit test could have caught
+  it. That is an argument for moving the decision OUT: `playableFrom` is now a pure function over
+  (notes, tempo map, start beat), and it has the test the method could never have.
+
+The same shape bit the caller: `playbackStart.ts` read `selectedItems`' KEYS (`"note:abc-123"`,
+built by `itemKey`) instead of its values, so every engine lookup missed and every note selection
+fell through to bar 1 — **and the spec passed**, because it built the Map by hand with bare ids. ⭐ A
+fixture that invents its own data shape tests the fixture. Build test data through the same function
+the app builds it with.
 
 ### ⚠️ A unit test cannot measure a glyph
 

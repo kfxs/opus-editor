@@ -61,3 +61,24 @@ export function measureCapacityFrac(measure: Measure): Fraction {
 export function measureCapacityQuarters(measure: Measure): number {
   return fracToNumber(measureCapacityFrac(measure))
 }
+
+/**
+ * How far into the score a bar STARTS, in quarter-note beats — the sum of every bar's capacity
+ * before it. Bar 1 starts at 0.
+ *
+ * The address playback seeks with: "start at bar 12" is only actionable as a number of beats from
+ * the top, because that is the space the tempo map converts to seconds. Summing CAPACITIES rather
+ * than counting nominal bar lengths is what makes it right across a pickup bar and a meter change
+ * ({@link measureCapacityQuarters} already resolves both).
+ *
+ * A number past the end returns the whole score's length, and one below 1 returns 0 — this answers
+ * where a bar begins, and it is not the place to decide whether the bar exists.
+ */
+export function measureStartQuarters(measures: Measure[], measureNumber: number): number {
+  let beats = 0
+  for (const measure of measures) {
+    if (measure.number >= measureNumber) break
+    beats += measureCapacityQuarters(measure)
+  }
+  return beats
+}

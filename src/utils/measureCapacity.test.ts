@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getMeasureDuration, getMeasureDurationFrac, measureCapacityFrac, measureCapacityQuarters } from './measureCapacity'
+import { getMeasureDuration, getMeasureDurationFrac, measureCapacityFrac, measureCapacityQuarters, measureStartQuarters } from './measureCapacity'
 import { fracCreate, fracEq } from './fraction'
 import type { Measure, TimeSignature } from '@/types/music'
 
@@ -83,5 +83,44 @@ describe('measureCapacity (pickup-aware bar length)', () => {
     const pickup = bar({ numerator: 4, denominator: 4 }, { num: 1, den: 1 })
     expect(measureCapacityQuarters(pickup)).toBe(1)
     expect(measureCapacityFrac(pickup)).toEqual(fracCreate(1, 1))
+  })
+})
+
+/**
+ * WHERE A BAR STARTS — the address playback seeks with. "Start at bar 12" is only actionable as a
+ * number of beats from the top, because that is the space the tempo map turns into seconds.
+ */
+describe('measureStartQuarters', () => {
+  const numbered = (specs: { ts: TimeSignature; pickup?: { num: number; den: number } }[]): Measure[] =>
+    specs.map((spec, i) => ({
+      id: `m${i + 1}`, number: i + 1, slots: [], tuplets: [], timeSignature: spec.ts,
+      ...(spec.pickup ? { actualDurationOverride: fracCreate(spec.pickup.num, spec.pickup.den) } : {}),
+    }))
+
+  const fourFour = { numerator: 4, denominator: 4 }
+
+  it('bar 1 starts at the top', () => {
+    expect(measureStartQuarters(numbered([{ ts: fourFour }, { ts: fourFour }]), 1)).toBe(0)
+  })
+
+  it('sums the bars before it', () => {
+    const bars = numbered([{ ts: fourFour }, { ts: fourFour }, { ts: fourFour }])
+    expect(measureStartQuarters(bars, 3), 'two bars of 4/4 come first').toBe(8)
+  })
+
+  it('⭐ counts CAPACITY, so a pickup bar does not lie about where bar 2 begins', () => {
+    const bars = numbered([{ ts: fourFour, pickup: { num: 1, den: 1 } }, { ts: fourFour }])
+    expect(measureStartQuarters(bars, 2), 'the pickup is one beat long, not four').toBe(1)
+  })
+
+  it('…and follows a meter change', () => {
+    const bars = numbered([{ ts: fourFour }, { ts: { numerator: 3, denominator: 4 } }, { ts: fourFour }])
+    expect(measureStartQuarters(bars, 3)).toBe(7)
+  })
+
+  it('answers where a bar begins, and does not police whether it exists', () => {
+    const bars = numbered([{ ts: fourFour }, { ts: fourFour }])
+    expect(measureStartQuarters(bars, 99), 'past the end = the whole length').toBe(8)
+    expect(measureStartQuarters(bars, 0), 'before the start = the top').toBe(0)
   })
 })
