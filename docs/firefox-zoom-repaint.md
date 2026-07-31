@@ -1,9 +1,28 @@
 # Barlines vanish while zooming in Firefox (stale raster)
 
-**Status:** the *stale raster* is diagnosed, not fixed. A SECOND, separate defect was found and
-**fixed** on 2026-07-31 — the barlines themselves were drawn wrongly, and that was what made them
-look uneven in Firefox even when nothing was moving. See §"The barline ink" below before reading
-the rest: some of the symptom this document was written about belonged to that, not to the raster.
+**Status:** the *stale raster* is diagnosed and **deliberately not being fixed** — see §"The
+decision" immediately below. A SECOND, separate defect was found and **fixed** on 2026-07-31 — the
+barlines themselves were drawn wrongly, and that was what made them look uneven in Firefox even when
+nothing was moving. See §"The barline ink": most of the symptom this document was written about
+belonged to that, not to the raster.
+
+## The decision (2026-07-31) — ⛔ do not start the zoom rework
+
+With the barlines fixed, the remaining symptom is the **vertical mismatch while the wheel is
+moving**: during a zoom gesture Firefox is still compositing a scaled bitmap, so the music sits
+slightly out of place until the re-raster lands. His verdict, having looked at it:
+
+> *"we still have the mismatch in the vertical but is minor and we are not going to do this now…
+> what we have is not a bad UX"*
+
+So the three options below stay on the shelf. **Barlines vanishing is gone** — a hinted barline is a
+whole number of whole pixels, which is far harder for a resample to dissolve than the half-covered
+hairline it used to be. What is left is a transient displacement during the gesture only, and it is
+not worth the cost of any of the three until it is.
+
+⭐ Read that as a decision about the *rework*, not about the diagnosis: everything measured here
+still holds, and the pivotal unknown in option 1 is still unmeasured. Whoever picks it up starts
+from §Options, not from scratch.
 
 Everything below was measured, not assumed.
 

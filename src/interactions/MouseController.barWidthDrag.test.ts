@@ -72,6 +72,9 @@ describe('bar-width drag', () => {
       findStemAt: () => null,
       findTremoloAt: () => null,
       getByType: (t: string) => (t === 'barline' ? [BARLINE_EL] : []),
+      // This bar is on screen — the case every test in this file is about. A press may only reach
+      // ink (`ElementRegistry.painted`); an unpainted bar declining the press is `barline.test.ts`.
+      isPainted: () => true,
       getByMeasure: () => [],
       getTupletById: () => null,
       staffIndexAtY: () => 0,
@@ -85,6 +88,8 @@ describe('bar-width drag', () => {
       getScore: () => ({ measures: [] }),
       pixelToMeasure: () => 1,
       barWidthRoom: vi.fn(() => room),
+      // Read only by the refusal's diagnostic line, which names WHICH of the three causes it was.
+      isRenderStale: () => false,
       barWidthLineKey: vi.fn(() => lineKey),
       previewBarWidth: vi.fn(() => true),
       commitBarWidth: vi.fn(),

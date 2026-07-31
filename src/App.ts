@@ -25,7 +25,7 @@ import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
-import { dumpBarlineCensus } from './dev/barlineCensus' // barline pixel-grid census — temporary
+import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
 import { mountDevToolbar } from './dev/devToolbar'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
@@ -604,6 +604,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     w.__barlines = {
       dump: () => dumpBarlineCensus(document.querySelector('.score-container') ?? document),
       rehint: () => { engine?.hintBarlines(true); dumpBarlineCensus(document.querySelector('.score-container') ?? document) },
+      // Which barlines can be CLICKED, which can be SEEN, and which will refuse a width drag.
+      boxes: () => engine && barlineBoxes(engine, document.querySelector('.score-container') ?? document),
     }
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')

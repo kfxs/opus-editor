@@ -90,6 +90,86 @@ export function dumpBarlineCensus(root: ParentNode = document): void {
       'crisp': l.crisp ? 'yes' : 'NO — splits across two columns',
     })),
   )
+  reportGrid(lines, blurry)
+}
+
+/**
+ * `__barlines.boxes()` — every barline you can CLICK, against every barline you can SEE.
+ *
+ * The question this answers is *"is the selection landing on a barline that isn't there?"*. The two
+ * are separate facts and can disagree:
+ *
+ *  - the **hit-box** is registered by tier 1, which runs for **every bar in the score**, drawn or
+ *    not — that is what keeps hit-testing honest for music scrolled off-screen;
+ *  - the **ink** is tier 2's, and a culled bar has none.
+ *
+ * A row with `ink: NO` is a barline you can select and cannot see. A row with `drag: —` is one the
+ * bar-width gesture will refuse, silently, because the room cannot be measured: `barWidthRoom`
+ * declines on a dirty model, on a bar with nothing drawn, and on a bar with no note space to
+ * multiply. The two failures look identical from the outside — the barline lights up and will not
+ * move — so this prints both, and which bar each belongs to.
+ */
+export function barlineBoxes(engine: BarlineEngine, root: ParentNode = document): void {
+  const registered = engine.getElementRegistry().getByType('barline')
+  if (registered.length === 0) {
+    console.log('[barlines] no barline hit-boxes registered')
+    return
+  }
+
+  // Where ink actually is, by its asked-for x (the hinting pass moves the drawn x, never this one).
+  const ink = new Set(
+    [...root.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')].map(r =>
+      Math.round(parseFloat(r.dataset.baselineX ?? r.getAttribute('x') ?? '0')),
+    ),
+  )
+
+  const rows = registered.map(el => {
+    const measure = el.measure
+    // The registered box straddles the line: `x + width - 2`, 4 wide. Its centre is the boundary.
+    const boundary = Math.round(el.bbox.x + el.bbox.width / 2)
+    const room = measure === undefined ? null : engine.barWidthRoom(measure)
+    return {
+      bar: measure ?? '?',
+      staff: el.staff ?? 0,
+      'boundary x': boundary,
+      'ink': [boundary - 1, boundary, boundary + 1].some(x => ink.has(x)) ? 'yes' : 'NO — invisible',
+      'drag': room ? `${room.minStretch.toFixed(2)}…${room.maxStretch.toFixed(2)}` : '— REFUSES',
+      'now': measure === undefined ? '?' : engine.getBarWidth(measure).toFixed(3),
+      'barline moves': room ? (room.barlineSlope > 0 ? 'yes' : 'pinned (ends its system)') : '—',
+    }
+  })
+
+  const invisible = rows.filter(r => r.ink !== 'yes')
+  const stuck = rows.filter(r => r.drag === '— REFUSES')
+  console.log(
+    `[barlines] ${rows.length} clickable · ${ink.size} drawn · ` +
+      `${invisible.length} clickable-but-invisible · ${stuck.length} that refuse the drag`,
+  )
+  console.table(rows)
+  if (invisible.length > 0) {
+    console.log(
+      `[barlines] ⚠️ bars ${invisible.map(r => r.bar).join(', ')} have a hit-box with no line under ` +
+        'it. Clicking there selects a barline you cannot see.',
+    )
+  }
+  if (stuck.length > 0) {
+    console.log(
+      `[barlines] ⚠️ bars ${stuck.map(r => r.bar).join(', ')} will not drag: the room cannot be ` +
+        'measured (nothing drawn for the bar, or the model is dirty). The selection still happens.',
+    )
+  }
+}
+
+/** What the census needs of the engine — named here so `dev/` states its own dependency. */
+export interface BarlineEngine {
+  getElementRegistry(): {
+    getByType(type: 'barline'): { measure?: number; staff?: number; bbox: { x: number; width: number } }[]
+  }
+  barWidthRoom(measure: number): { minStretch: number; maxStretch: number; barlineSlope: number } | null
+  getBarWidth(measure: number): number
+}
+
+function reportGrid(lines: BarlineOnScreen[], blurry: BarlineOnScreen[]): void {
   if (blurry.length === 0) {
     console.log(
       `[barlines] ✅ all ${lines.length} land on whole pixels at one width. ` +

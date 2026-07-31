@@ -3490,6 +3490,9 @@ export class VexFlowRenderer {
       const draw = draws[i]
       if (draw) {
         this.renderMeasure(pass, placement, beamPlan)
+        // This lane has ink. Only a painted lane may answer a press — see `ElementRegistry.painted`
+        // for the bar that was selectable, invisible and immovable before this was recorded.
+        this.elementRegistry.markPainted(plan.measureNumber, plan.staffIndex)
         redrawn++
       }
 
@@ -3827,6 +3830,10 @@ export class VexFlowRenderer {
     }
 
     this.elementRegistry.addAll(snapshot.elements, dx, dy)
+    // A reused bar is painted exactly when it still HAS a group: the culled branch of the reuse
+    // decision replays a bar whose `<g>` is null, and that one is invisible however complete its
+    // registry entries look (`ElementRegistry.painted`).
+    if (snapshot.group) this.elementRegistry.markPainted(snapshot.measureNumber, snapshot.staffIndex)
 
     if (snapshot.staffGeometry) {
       this.elementRegistry.setStaffGeometry(

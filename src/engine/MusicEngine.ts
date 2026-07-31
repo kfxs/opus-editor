@@ -1361,10 +1361,14 @@ export class MusicEngine {
     const key = spacingPositionKey(measure.id, beat)
     const before = leadingSpaceOverrideOf(this.scoreModel.getScore(), key)?.space ?? 0
     const after = this.scoreModel.setNoteSpacing(key, space, minSpace)
+    const changed = after !== before
     // A spacing change re-runs the casting-off, unlike the weightless previews — so the dirty flag
     // is what makes the bar re-measure at all, not just repaint. See docs/note-spacing-plan.md §2.
-    this.markModelDirty()
-    return after !== before
+    // ⚠️ Only when it CHANGED — a no-op frame that marks the model dirty is never rendered (the
+    // caller repaints on `true`) and so never cleaned, and `noteSpacingRoom` then refuses every
+    // later gesture. See {@link previewBarWidth} for the report that found it.
+    if (changed) this.markModelDirty()
+    return changed
   }
 
   /** Record one undo entry after a note-spacing drag settles (the drop of a live drag whose every
@@ -1544,10 +1548,20 @@ export class MusicEngine {
     const key = barWidthKey(measure.id)
     const before = measureStretch(this.scoreModel.getScore(), measure.id)
     const after = this.scoreModel.setBarWidth(key, Math.min(maxStretch, stretch), minStretch)
+    const changed = after !== before
     // A stretch re-runs the casting-off, unlike the weightless previews — the dirty flag is what
     // makes the bar re-measure at all rather than just repaint.
-    this.markModelDirty()
-    return after !== before
+    //
+    // ⚠️ **Only when it CHANGED, and that is not a tidiness point.** `modelDirty` means "the model
+    // has moved on from the picture", and only a render clears it. A frame that stored the same
+    // value has not moved on from anything — but marking it anyway left the model permanently dirty
+    // whenever a drag's LAST frame was a no-op, which is what a drag pushed past its clamp always
+    // ends with. The caller only repaints when this returns true, so nothing ever cleared it, and
+    // the next gesture to ask {@link barWidthRoom} — which refuses on a dirty model, rightly — got
+    // "I don't know" forever. Reported as: drag one barline hard, and the NEXT barline you grab
+    // will not move. Same shape in {@link previewNoteSpacing}.
+    if (changed) this.markModelDirty()
+    return changed
   }
 
   /** Record one undo entry after a bar-width drag settles (a drag whose every frame went through

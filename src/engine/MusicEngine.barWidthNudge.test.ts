@@ -66,6 +66,38 @@ describe('MusicEngine.barWidthRoom', () => {
     expect(engine.barWidthRoom(1)).toBeNull()
   })
 
+  /**
+   * ⭐ **A preview frame that stores nothing must leave nothing behind.**
+   *
+   * Reported from use, twice, as *"I drag one barline and then the NEXT one refuses to move"*, with
+   * the console showing the previous drag's last frame as a no-op. `modelDirty` says "the model has
+   * moved on from the picture" and only a render clears it; the drag repaints only on a frame that
+   * CHANGED something. So one no-op frame — which is how every drag pushed past its clamp ends —
+   * used to mark the model dirty forever, and `barWidthRoom` (which refuses on a dirty model, and
+   * should) answered null from then on.
+   */
+  it('a no-op preview frame does not poison the NEXT gesture', () => {
+    bars(8)
+    const room = engine.barWidthRoom(1)!
+
+    // A real frame, then the same value again — the drag has hit its clamp and the pointer is still
+    // moving. The second call must report "nothing changed" AND leave the model answerable.
+    expect(engine.previewBarWidth(1, 1.5, room.minStretch, room.maxStretch)).toBe(true)
+    engine.renderScore()
+    expect(engine.previewBarWidth(1, 1.5, room.minStretch, room.maxStretch), 'stored the same value').toBe(false)
+
+    expect(engine.barWidthRoom(1), 'the next drag can still measure its room').not.toBeNull()
+  })
+
+  it('…and the same for note spacing, which has the same preview shape', () => {
+    bars(4)
+    const beat = fracCreate(1, 1)
+    engine.previewNoteSpacing(1, beat, 6, 0)
+    engine.renderScore()
+    expect(engine.previewNoteSpacing(1, beat, 6, 0), 'stored the same value').toBe(false)
+    expect(engine.noteSpacingRoom(1, beat), 'the next drag can still measure its room').not.toBeNull()
+  })
+
   it('reports the system-ending barline as PINNED — slope 0, but still an answer', () => {
     // It cannot move (justification holds it at the right margin), and that must not be read as
     // "this bar cannot be resized": resizing it is how music moves between systems.

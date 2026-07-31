@@ -471,6 +471,27 @@ export class ElementRegistry {
    *  geometry per stacked staff (multi-staff); at N=1 there is just `(measure, 0)`. */
   private staffGeometries: Map<string, StaffGeometry> = new Map()
 
+  /**
+   * ⭐ The `(measure, staff)` lanes tier 2 actually **painted** this render — and so, exactly, the
+   * ones a person can see.
+   *
+   * It exists because the registry is deliberately NOT a record of the drawing: tier 1 runs for
+   * every bar in the score and registers the staff, the opening clef, the meter and the barline for
+   * all of them, drawn or not, which is what keeps pixel↔position honest for music off-screen. Tier
+   * 2 — the notes, and the ink — runs only inside the cull window. The gap between those two is a
+   * bar with **a hit-box and nothing to look at**.
+   *
+   * That gap was reported from use: *"the selection is in a hidden barline and is not possible to
+   * move it"*. A culled bar's barline box still answered a press, so it selected; the bar-width drag
+   * then measured the room from its drawn columns, found none, and declined in silence. Selectable,
+   * invisible, immovable. **A press may only reach ink**, so a hit-test asks this first.
+   *
+   * ⚠️ Tier-1-only facts stay available on purpose — {@link getStaffGeometry} answers for an unseen
+   * bar, and must, or pitch↔pixel breaks the moment a bar scrolls out. This is the narrower
+   * question, "is it *drawn*", asked only by the things a human aims at.
+   */
+  private painted: Set<string> = new Set()
+
   /** Composite key for {@link staffGeometries}: a measure has one geometry per staff. */
   private geomKey(measure: number, staff: number): string {
     return `${measure}:${staff}`
@@ -482,6 +503,18 @@ export class ElementRegistry {
   clear(): void {
     this.elements = []
     this.staffGeometries.clear()
+    this.painted.clear()
+  }
+
+  /** Tier 2 painted this lane — the renderer says so once per drawn (measure, staff). */
+  markPainted(measure: number, staff: number): void {
+    this.painted.add(this.geomKey(measure, staff))
+  }
+
+  /** Is there ink on screen for this lane? See {@link painted} — the question every hit-test that a
+   *  human aims with has to ask, because a registered box does not imply a drawn one. */
+  isPainted(measure: number, staff: number = 0): boolean {
+    return this.painted.has(this.geomKey(measure, staff))
   }
 
   /**

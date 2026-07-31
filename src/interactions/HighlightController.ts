@@ -909,7 +909,11 @@ export class HighlightController {
     const SELECTION_COLOR = ELEMENT_SELECTION_FILL
 
     for (let staff = 0; staff < staffCount; staff++) {
-      // Culled / never-drawn measures have no geometry — nothing on screen to mark.
+      // ⚠️ Geometry is NOT the test for "is this bar on screen". Tier 1 registers a staff geometry
+      // for every bar in the score, culled or not, so this loop used to paint an orange mark across
+      // a bar that had scrolled out of the window — a selection highlight with no barline under it.
+      // `isPainted` is the narrower question, and the right one (`ElementRegistry.painted`).
+      if (!registry.isPainted(measure, staff)) continue
       const geometry = registry.getStaffGeometry(measure, staff)
       if (!geometry) continue
 

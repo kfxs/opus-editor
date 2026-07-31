@@ -86,6 +86,9 @@ export class MouseController {
    *  note drag there is no axis contest and no dominant-axis rule to run. */
   private barWidthDragStartX = 0
   private barWidthDragChanged = false
+  /** True while the drag is tracking but the bar is refusing the value — logged on the transition
+   *  in, not per frame. Reset on every accepted move and when the drag ends. */
+  private barWidthDragBlocked = false
   /** The casting-off the captured room describes (`MusicEngine.barWidthLineKey`). When the drag
    *  re-wraps the system this changes, and the room has to be re-taken — see the drag handler. */
   private barWidthDragLineKey: string | null = null
@@ -1000,13 +1003,34 @@ export class MouseController {
     this.barWidthDragChanged = false
     this.isDraggingBarWidth = false
     const room = engine.barWidthRoom(measure)
-    if (!room) return
+    if (!room) {
+      // ⚠️ Was a silent return, and silence is the wrong answer here: from the outside a refusal
+      // and a working drag that happens to have no room look identical — the barline lights up and
+      // will not move. `barWidthRoom` declines on a dirty model, on a bar with nothing DRAWN (a
+      // culled bar still has a hit-box: tier 1 registers every bar in the score), and on a bar with
+      // no note space. `__barlines.boxes()` says which of those it is, for every bar at once.
+      // ⚠️ Say WHICH of the three reasons it was. `barWidthRoom` returns a bare null — "I don't
+      // know", by design — and the three causes are indistinguishable from the outside while
+      // looking identical to the user: the barline lights up and will not move. Naming them here is
+      // what turned "sometimes the drag dies" into a one-line diagnosis twice over.
+      const registry = engine.getElementRegistry()
+      const columns = registry.getByMeasure(measure)
+        .filter(el => (el.type === 'note' || el.type === 'rest') && el.beat !== undefined).length
+      dbg(`Bar width | bar ${measure} REFUSES the drag — no room. `
+        + `painted:${registry.isPainted(measure, 0)} · drawn columns:${columns} · `
+        + `geometry:${!!registry.getStaffGeometry(measure, 0)} · render stale:${engine.isRenderStale()} `
+        + '— Try __barlines.boxes()')
+      return
+    }
     if (room.barlineSlope <= 0) {
       dbg(`Bar width | bar ${measure} ends its system — its barline is pinned, so the drag moves the bar's own music`)
     }
     this.barWidthDrag = { measure, room }
     this.barWidthDragStartX = x
     this.barWidthDragLineKey = engine.barWidthLineKey(measure)
+    dbg(`Bar width | armed on bar ${measure} · now ×${engine.getBarWidth(measure).toFixed(3)} · `
+      + `room ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)} · `
+      + `barline slope ${room.barlineSlope.toFixed(3)} · line ${this.barWidthDragLineKey}`)
   }
 
   /**
@@ -1038,9 +1062,17 @@ export class MouseController {
     const { measure, room } = this.barWidthDrag
     const target = room.stretchForBarlineDelta(dx)
     if (engine.previewBarWidth(measure, target, room.minStretch, room.maxStretch)) {
+      this.barWidthDragBlocked = false
       this.barWidthDragChanged = true
       this.render.renderScore()
       this.reanchorIfRewrapped(engine, measure, x)
+    } else if (!this.barWidthDragBlocked) {
+      // Once per stall, not once per frame: a mousemove fires ~60×/s and the interesting event is
+      // the TRANSITION into "the drag is armed and tracking, but the bar will not take the value".
+      this.barWidthDragBlocked = true
+      dbg(`Bar width | bar ${measure} not moving · asked ×${target.toFixed(3)} · `
+        + `clamp ×${room.minStretch.toFixed(2)}…×${room.maxStretch.toFixed(2)} · `
+        + `now ×${engine.getBarWidth(measure).toFixed(3)} · dx ${dx.toFixed(1)}px`)
     }
     return true
   }
@@ -1085,6 +1117,7 @@ export class MouseController {
     if (canvas) canvas.style.cursor = ''
     this.barWidthDrag = null
     this.barWidthDragChanged = false
+    this.barWidthDragBlocked = false
     this.isDraggingBarWidth = false
     this.barWidthDragLineKey = null
   }

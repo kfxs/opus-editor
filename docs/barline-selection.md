@@ -17,6 +17,42 @@ Two consequences fall out of that and neither is incidental:
 - **Navigation is arithmetic.** The barline after the one ending bar *n* is the one ending bar
   *n + 1*. `SelectionController.navigateBarline` needs no geometry at all.
 
+> ⚠️ *"…and both bars draw one there"* was true of the DRAWING until 2026-07-31 and is not any more
+> — the boundary is drawn once, by the bar it ends (`src/engine/rendering/barlineInk.ts`). The
+> identity above is unaffected: it was always about the model, where a barline has no object at all.
+
+## 1a. ⭐ A press may only reach INK
+
+The hit-boxes and the drawing come from different tiers and do not agree:
+
+- **Tier 1** registers the staff, the opening clef, the meter and the barline for **every bar in the
+  score**, drawn or not. That is deliberate — it is what keeps pixel↔position honest for music
+  scrolled out of the window.
+- **Tier 2** paints only the bars inside the cull window.
+
+So a culled bar has a barline hit-box and no barline. Reported from use as *"the selection is in a
+hidden barline and is not possible to move it"*: the press selected the invisible line, and the
+bar-width drag then measured its room from the bar's drawn columns, found none, and declined in
+silence — selectable, invisible, immovable.
+
+`ElementRegistry.isPainted(measure, staff)` is the fix and the rule: **a hit-test that a human aims
+with asks it first**, and the press falls through to whatever is genuinely under it. It applies to
+the three kinds tier 1 registers — barline, clef, time signature — and to the barline highlight,
+which would otherwise paint an orange mark across a bar that had scrolled away. Everything else is
+tier 2 and cannot have the problem.
+
+Two more things the same report turned up, both fixed:
+
+- **Nearest, not first-registered.** Two padded 4px boxes can cover one press; `find` handed it to
+  whichever bar was numbered lower. Between two real barlines the answer is the one you aimed at.
+- **⚠️ A no-op preview frame used to poison the next gesture.** `previewBarWidth` marked the model
+  dirty on every frame, including ones that stored the same value — which is how every drag pushed
+  past its clamp ends. The drag repaints only on a frame that *changed* something, and only a render
+  clears the flag, so the model stayed dirty and `barWidthRoom` (which refuses on a dirty model,
+  correctly) answered null for every later drag. **Drag one barline hard and the next one would not
+  move.** Now the flag is set only when the stored value actually changes. `previewNoteSpacing` had
+  the identical shape and got the identical fix.
+
 ## 2. Navigation
 
 `←`/`→` are dispatched on **what is selected** — the same seam that makes `Shift+Alt+←/→` mean note
@@ -40,6 +76,13 @@ never a painting one. Four of them, all reported from use:
 
 1. **One barline on screen is TWO drawn rects.** Bar *n*'s end and bar *n+1*'s begin sit at the same
    x; the later group paints over the earlier, so colouring one left a faint shadow.
+
+   > ⚠️ **No longer true of the drawing, as of 2026-07-31** (`src/engine/rendering/barlineInk.ts`):
+   > the duplicate was a defect in its own right — two coincident lines cover their shared
+   > anti-aliased edge pixels twice, so every interior barline came out heavier than the one opening
+   > or closing a system — and a bar now draws only the barline that ENDS it. It stays on this list
+   > because the *lesson* is what the rest of this section is built on, and because it was true for
+   > every reader of this file until that commit.
 2. **The second rect is not always in the next measure's group.** Reaching in there for it found
    nothing, and the black half stayed black.
 3. **⚠️ The coordinates lie.** A render that REUSES a measure it did not redraw moves it with a
