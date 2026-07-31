@@ -36,6 +36,13 @@ jobs:
           node-version: 24
           cache: npm
 
+      # TEMPORARY, and the whole point of it. `npm ci` failed here because the runner's npm and the
+      # npm that writes the lockfile disagree about whether rolldown's optional wasm32 binding needs
+      # @emnapi/* entries — and that version is not knowable from a laptop. Read it off a run, then
+      # regenerate the lock with `npx npm@<that version> install --package-lock-only`, restore
+      # `npm ci` below, and delete this step.
+      - run: node -v && npm -v
+
       # `npm install`, not `npm ci`. The stricter command is the usual CI idiom, but it demands the
       # lockfile account for the tree EXACTLY, and npm will not produce such a lock here: rolldown's
       # optional wasm32 fallback binding has peer deps (@emnapi/*) that npm's resolver treats as
