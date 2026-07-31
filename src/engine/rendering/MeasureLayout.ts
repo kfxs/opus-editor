@@ -6,8 +6,8 @@ import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSp
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { MeasureWidthCache } from './MeasureWidthCache'
-import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { clefResolverFor, measureColumns, measureLeadIn } from '@/engine/layout/measureColumns'
+import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { clefResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
@@ -71,15 +71,18 @@ function noteSpaceForMeasure(
   measure: Measure,
   clefsByStaff: Map<string | undefined, StaffClefs>,
   firstStaffId: string | undefined,
+  sizeFor: StaffSizeResolver,
 ): { natural: number; floor: number } {
   // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). The bucket is still
   // called `format`; what it times is no longer a formatter but the width term it replaced.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
-  const columns = measureColumns(measure, clefResolverFor(measure, clefsByStaff, firstStaffId))
+  const columns = measureColumns(measure, clefResolverFor(measure, clefsByStaff, firstStaffId), sizeFor)
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
-  // casting-off works in px. ⚠️ A staff drawn small should multiply this by its own size — the same
-  // open P3 as the four width constants in `layoutConfig` (docs/staff-size-plan.md §6).
+  // casting-off works in px.
+  // ⭐ A staff drawn small now multiplies its own INK by its size, inside `measureColumns` — the
+  //   spine stays global and size-blind, which is what LilyPond, Verovio and GUIDO all do
+  //   (docs/staff-size-plan.md §6a). The width and the drawing read the same columns, so they agree.
   // ⭐ P5 — no fan term. A fanned slot's members are ordinary columns in `columns` (their beats come
   // from `fanMemberBeats`), so the sum above already asks for exactly the room their heads take.
   // What used to be here was `laneColumns × MIN_NOTE_SPACING`, covering the span `fanRoom` bought
@@ -136,7 +139,11 @@ function calculateMinimumMeasureWidth(
   // ⚠️ And it replaces `BARLINE_PADDING × 2`, which was DOUBLE-COUNTING since P3: the trailing side
   //   became the barline COLUMN's gap (`note↔barline`), so a bar was reserving three spaces of
   //   barline padding where it owes two.
-  const leadIn = measureLeadIn(measure, clefResolverFor(measure, clefsByStaff, staffIds[0]))
+  const sizeFor: StaffSizeResolver = staffId => {
+    const id = staffId ?? staffIds[0]
+    return id ? resolveStaffSize(score, id) : 1
+  }
+  const leadIn = measureLeadIn(measure, clefResolverFor(measure, clefsByStaff, staffIds[0]), sizeFor)
   const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
 
   // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
@@ -149,7 +156,7 @@ function calculateMinimumMeasureWidth(
   //   exceed the width it is a floor on and make the bar incompressible. (That is exactly what the
   //   old pair did the other way round — it counted SLOTS in both, so a two-voice bar's floor
   //   matched its slot-built width.)
-  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, staffIds[0])
+  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, staffIds[0], sizeFor)
 
   let widestOverhead = 0
   for (const staffId of staffIds) {

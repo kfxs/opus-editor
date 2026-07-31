@@ -97,10 +97,23 @@ export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, rat
  * closer on the two shortest (16th −10% vs −12.5%, 8th +6.7% vs +10%) and worse on the two longest
  * (dotted half −8.3%, whole −14.3%). Both are defensible houses; this is the one he chose.
  *
- * ⭐ **`shortest` is a FIXED reference, not "the shortest note in the system".** LilyPond's
- * `common-shortest-duration` is a *setting* that defaults to an eighth, which is what keeps this an
- * ABSOLUTE anchor — the property §1.1 of the plan insisted on, and what spares us MuseScore's *"every
- * time a measure joins the system, re-lay out every previous measure"* loop.
+ * 🚨 **`shortest` is a FIXED reference here, and that is OURS, not LilyPond's.** This comment used to
+ * say *"LilyPond's `common-shortest-duration` is a setting that defaults to an eighth"*. **Both halves
+ * are false** (checked against the source, 2026-07-31): it is COMPUTED —
+ * `Spacing_spanner::calc_common_shortest_duration` takes the *mode over measures* of each measure's
+ * shortest starter — and the value it is capped at is `base-shortest-duration`, whose shipped default
+ * is **3/16 of a whole, a dotted eighth**, not an eighth. LilyPond's own manual is stale about this
+ * too, which is presumably where the belief came from.
+ *
+ * ⭐ Keeping it fixed is still a real choice — an ABSOLUTE anchor is what spares us MuseScore's *"every
+ * time a measure joins the system, re-lay out every previous measure"* loop (plan §1.1). But it is a
+ * choice with a measured cost at both ends of the range: a 32nd-dominated passage comes out 25–37%
+ * too tight and a piece of nothing shorter than a crotchet ~24% too loose, because the anchor is a
+ * duration neither of them contains. **`docs/shortest-duration-plan.md` is the fix, decided and not
+ * yet built.**
+ *
+ * ⛔ What deriving it does NOT do is even out equal durations — that is `proportionalNotationDuration`,
+ * i.e. FIXED time-space, i.e. a preset. See that plan's §9.
  */
 export const LILYPOND_SPACING: SpacingRule = { law: 'log', base: 1.2, shortest: 0.5 }
 

@@ -329,3 +329,61 @@ test('a slur ACROSS A SYSTEM BREAK still reaches the margin on a small staff', a
   expect(spans.after.slur.x + spans.after.slur.width, 'and small: still out to the same margin')
     .toBeCloseTo(spans.after.systemRight, 0)
 })
+
+test('the HEADER is laid out in the SYSTEM’s space — the two meters line up', async ({ score }) => {
+  // A stave's own modifier layout is scale-blind: clef then meter, at the same numbers whatever `k`
+  // is. Multiplied by 0.7 on the way to the page that puts a small staff's time signature 30% nearer
+  // the barline than its neighbour's — *"the time signature is not aligned"*, reported by eye.
+  // The glyphs still draw small; only where each piece SITS is the system's.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    // ⚠️ `placed`, not the raw attribute: inside a scaled group the two differ by exactly the factor
+    // this test is about.
+    const at = (staffIndex: number, part: string) =>
+      h.placed(`g.vf-measure[id="vf-m1-s${staffIndex}"] .vf-${part} text`).map(g => g.x)
+    return {
+      clef: [at(0, 'clef')[0], at(1, 'clef')[0]],
+      meter: [at(0, 'timesignature')[0], at(1, 'timesignature')[0]],
+      staves: h.staves().filter(s => s.measure === 1),
+    }
+  })
+
+  console.log(`[census] header: clefs ${drawn.clef.map(x => x.toFixed(1)).join(' / ')} · ` +
+    `meters ${drawn.meter.map(x => x.toFixed(1)).join(' / ')}`)
+  // The premise: one staff really is drawn small.
+  const height = (i: number) => drawn.staves[i].bottom - drawn.staves[i].top
+  expect(height(0), 'the upper staff is 0.7 of the lower').toBeCloseTo(height(1) * 0.7, 1)
+  expect(drawn.clef[0], 'the clefs start at one x').toBeCloseTo(drawn.clef[1], 1)
+  expect(drawn.meter[0], 'and so do the meters').toBeCloseTo(drawn.meter[1], 1)
+})
+
+test('…and the header’s HIT BOXES follow the ink, so what reads them is not lied to', async ({ score }) => {
+  // The boxes are registered in the staff's own space and scaled back out, so the STEP from the clef
+  // to the meter has to be the system's exactly as the drawing's is — or a 0.7 staff's meter box
+  // sits 30% nearer the barline than its own glyph. The linear-view gutter reads this box to decide
+  // how far it may hang over the paper and believed the smaller number, which put it out over the
+  // pasteboard with the score's own clef sticking out from under it. Reported by eye.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.setStaffSize(0, 0.7)
+    await h.render()
+    const reg = h.engine.getElementRegistry()
+    const box = (staff: number) =>
+      reg.getByType('timeSignature').filter(e => e.measure === 1 && e.staff === staff).map(e => e.bbox.x)[0]
+    const glyph = (staff: number) =>
+      h.placed(`g.vf-measure[id="vf-m1-s${staff}"] .vf-timesignature text`)[0].x
+    return { boxes: [box(0), box(1)], glyphs: [glyph(0), glyph(1)] }
+  })
+
+  console.log(`[census] meter boxes ${drawn.boxes.map(x => x.toFixed(1)).join(' / ')} · ` +
+    `glyphs ${drawn.glyphs.map(x => x.toFixed(1)).join(' / ')}`)
+  expect(drawn.boxes[0], 'one meter box x for the system').toBeCloseTo(drawn.boxes[1], 1)
+  // …and it is where the ink is, not merely self-consistent: within a hit-box's slack of the glyph.
+  for (const [i, box] of drawn.boxes.entries()) {
+    expect(Math.abs(box - drawn.glyphs[i]), `staff ${i}: the box is on its glyph`).toBeLessThan(6)
+  }
+})

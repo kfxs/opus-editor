@@ -294,6 +294,9 @@ export function drawFannedBeams(
   crossingFans: number[] = [],
   /** The lane's forced stem in multi-voice — see {@link FanSlotDrawing.forcedStemDirection}. */
   forcedStemDirection?: number,
+  /** This staff's drawn scale — see {@link fanRampRoomPx}, the one number here that is the SYSTEM's
+   *  and has to be brought into the staff's own space. 1 for a full-size staff. */
+  scale: number = 1,
 ): void {
   // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
   // a member's accidental obeys one rule with the notes around it, including holding for the rest
@@ -310,6 +313,7 @@ export function drawFannedBeams(
       index: i,
       slot: slots[i],
       solvedColumns: pass.solvedColumns.get(measureNumber),
+      scale,
       score: pass.score,
       note: staveNotes[i],
       clef: clefForBeat(slots[i].beat),
@@ -366,6 +370,10 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
         // The fan's OWN bar's solve — a joined chain crosses barlines, and each fan's members are
         // columns of the bar they are in.
         solvedColumns: pass.solvedColumns.get(member.measureNumber),
+        // A crossing group is drawn outside every measure group, but still inside its staff's scale
+        // wrapper (`inScaledStaffGroup` below), so the room the solve granted converts exactly as it
+        // does inside a bar.
+        scale: pass.staffScale(join.staffIndex),
         score: pass.score,
         note: staveNotes[i]!,
         clef: member.clef,
@@ -630,10 +638,15 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
  * with the staff-space conversion this file already works in. Undefined when the bar was not placed
  * by the column solve (no `solvedColumns` entry), which the geometry reads as "your durations, then".
  */
-function fanRampRoomPx(solved: SpacedColumns | undefined, slot: Chord): number | undefined {
+function fanRampRoomPx(solved: SpacedColumns | undefined, slot: Chord, scale: number): number | undefined {
   if (!solved || !slot.fan) return undefined
   const spaces = fanRampRoomSpaces(solved.columns, solved.xs, slot.beat, slot.fan, slotLength(slot))
-  return spaces === undefined ? undefined : spaces * STAFF_SPACE_PX
+  // ⭐ ÷ scale, and this is the one number in this file that needs it. The room the solve granted is
+  //   a distance on the PAGE — the columns are the system's — while everything else here (the stem
+  //   x, the stave's note end, `minHeadGap`) is the staff's own space, which a `scale(k)` group
+  //   multiplies on the way out. Left undivided, a fan on a 0.7 staff draws its ramp 30% short of
+  //   the room its own bar gave it.
+  return spaces === undefined ? undefined : (spaces * STAFF_SPACE_PX) / scale
 }
 
 function fanSlotDrawing(input: {
@@ -641,6 +654,8 @@ function fanSlotDrawing(input: {
   slot: ChordRest
   /** Where the column solve put this bar's columns — the fan's members among them. */
   solvedColumns: SpacedColumns | undefined
+  /** The staff's drawn scale, for the one SYSTEM-space number here ({@link fanRampRoomPx}). */
+  scale: number
   /** The score being drawn — read for the members' own authored spaces (client #10, §7). */
   score: Score
   note: StaveNote | undefined
@@ -770,7 +785,7 @@ function fanSlotDrawing(input: {
       // is widened, instead of leaving the extra width as air after the last head (his report).
       // Absent when this bar was not placed by the spacing pass, and then the ramp is its durations,
       // exactly as before.
-      rampRoom: fanRampRoomPx(input.solvedColumns, slot),
+      rampRoom: fanRampRoomPx(input.solvedColumns, slot, input.scale),
       accidentalRoom,
       headRightRoom,
       prefix: prefixNotes.map(n => ({ stemX: n.getStemX(), headYs: n.getYs() })),

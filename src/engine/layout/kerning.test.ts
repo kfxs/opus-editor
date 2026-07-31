@@ -13,7 +13,8 @@ import { INK, INK_HEIGHT, pairPadding, accidentalExtent } from './spacingPadding
  */
 
 /** A box, with the boring fields defaulted — `y` is the band's centre in staff spaces below the top line. */
-const box = (kind: InkBox['kind'], y: number, reach: { left?: number; right?: number; height?: number; staff?: string }): InkBox => ({
+const box = (kind: InkBox['kind'], y: number, reach: { left?: number; right?: number; height?: number; staff?: string; size?: number }): InkBox => ({
+  size: reach.size ?? 1,
   left: reach.left ?? 0,
   right: reach.right ?? 0,
   top: y - (reach.height ?? INK_HEIGHT.notehead),
@@ -66,7 +67,7 @@ describe('inkFloor — the floor is a max over box PAIRS', () => {
   })
 
   it('⛔ nothing kerns through a BARLINE — its band is the whole staff', () => {
-    const barline: InkBox = { left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }
+    const barline: InkBox = { left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined, size: 1 }
     // A high note's run-out to the barline is the same whatever the pitch: `note↔barline`.
     for (const y of [-3, 2, 7]) {
       expect(inkFloor([head(y)], [barline])).toBeCloseTo(INK.notehead + pairPadding('note', 'barline'), 10)
@@ -119,7 +120,7 @@ describe('mergedReach / edgeKind — the projection the rest of the model still 
   it('⚠️ a box reaching NOWHERE names itself; one reaching only the other way leaves a BARE side', () => {
     // The barline is a marker: answer `note` for it and every bar's closing gap becomes `note↔note`
     // (0.3) instead of `note↔barline` (1.0) — the run-out at the end of each bar, deleted.
-    const barline: InkBox = { left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }
+    const barline: InkBox = { left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined, size: 1 }
     expect(edgeKind([barline], 'left')).toBe('barline')
     expect(edgeKind([barline], 'right')).toBe('barline')
 
@@ -127,7 +128,7 @@ describe('mergedReach / edgeKind — the projection the rest of the model still 
     //   the research settled: every engine gives a rest a note's gap after a barline (MuseScore assigns
     //   the note's own value to that row and keeps 1.65 only for a rest BEFORE a barline). The table's
     //   old `barline↔rest` row was a copy of the wrong direction, and it is gone.
-    const rest: InkBox = { left: 0, right: 1.2, top: 0, bottom: 4, kind: 'rest', staff: undefined }
+    const rest: InkBox = { left: 0, right: 1.2, top: 0, bottom: 4, kind: 'rest', staff: undefined, size: 1 }
     expect(edgeKind([rest], 'left')).toBe('note')
     expect(edgeKind([rest], 'right')).toBe('rest')
     expect(edgeKind([], 'left')).toBe('note')

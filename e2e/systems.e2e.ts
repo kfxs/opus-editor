@@ -184,3 +184,60 @@ test('⭐ …and a CLEF CHANGE on one staff alone does not move that staff\'s mu
     expect(x, `beat ${i} agrees across the staves`).toBeCloseTo(drawn.upper[i], 3)
   }
 })
+
+test('⭐ …and a staff drawn SMALL keeps the system’s columns — the full-size staff wins', async ({ score }) => {
+  // The same rule, third half — and the one where "the same beat is the same x" and "this staff's
+  // ink is 0.7 of that one's" pull against each other. A small staff is drawn inside a `scale(k)`
+  // group, so every distance written into it is multiplied by k on the way to the page: write the
+  // system's column x undivided and a 0.7 staff lays the bar out 30% narrow, starting 30% early.
+  // Reported as *"issues with the column or the vertical alignment between small staff and normal
+  // staff — in any case, normal staff should win always"*.
+  //
+  // ⚠️ Read with `placed`, NOT `noteheads()`: that one reports the `x` ATTRIBUTE, which for a scaled
+  // staff is the number written INSIDE the group rather than where the ink landed — it reported
+  // these two staves 43% apart while they were in fact drawn on top of each other.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addMeasure()
+    for (const beat of [0, 1, 2, 3]) {
+      for (const staff of [0, 1]) {
+        h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 2, beat: h.frac(beat, 1), staff })
+      }
+    }
+    h.engine.setStaffSize(0, 0.7) // the UPPER staff is small; the lower stays full size
+    await h.render()
+    const staves = h.staves().filter(stave => stave.measure === 2)
+    const upper = staves.find(stave => stave.staff === 0)!
+    const lower = staves.find(stave => stave.staff === 1)!
+    // ⚠️ ONE unit for both staves, and it is the FULL staff's space — a small staff's own space is
+    // 0.7 of it, so measuring each staff in its own would make any two positions agree by
+    // construction, which is the trap this whole test is about.
+    const space = (lower.bottom - lower.top) / 4
+    const headsOf = (staffIndex: number) =>
+      h.placed(`g.vf-measure[id="vf-m2-s${staffIndex}"] .vf-notehead text`)
+        .map(g => (g.x - upper.x1) / space)
+        .sort((a, b) => a - b)
+    const noteStart = (staff: number) =>
+      (h.engine.getElementRegistry().getStaffGeometry(2, staff)!.noteStartX - upper.x1) / space
+    return {
+      upper: headsOf(0),
+      lower: headsOf(1),
+      lines: [upper.bottom - upper.top, lower.bottom - lower.top],
+      noteStart: [noteStart(0), noteStart(1)],
+    }
+  })
+
+  console.log(`[census] small staff: upper ${drawn.upper.map(x => x.toFixed(2)).join(' ')} · ` +
+    `lower ${drawn.lower.map(x => x.toFixed(2)).join(' ')} · note starts ${drawn.noteStart.map(x => x.toFixed(2)).join(' ')}`)
+  // The premise: the upper staff really is drawn small. Without it the rest passes vacuously.
+  expect(drawn.lines[0], 'the upper staff is 0.7 of the lower').toBeCloseTo(drawn.lines[1] * 0.7, 1)
+  expect(drawn.upper, 'four quarters above').toHaveLength(4)
+  expect(drawn.lower, 'four quarters below').toHaveLength(4)
+  // The music starts at one x for the SYSTEM — the small staff's own header is narrower, and the
+  // slack sits after it rather than pulling its music left.
+  expect(drawn.noteStart[0], 'one note start for the system').toBeCloseTo(drawn.noteStart[1], 1)
+  for (const [i, x] of drawn.upper.entries()) {
+    expect(x, `beat ${i} agrees across the staves`).toBeCloseTo(drawn.lower[i], 1)
+  }
+})

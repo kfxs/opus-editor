@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
+import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -44,7 +44,7 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
-import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn } from '@/engine/layout/measureColumns'
+import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
@@ -540,10 +540,10 @@ export class VexFlowRenderer {
    * which is precisely why an ordinary scroll still renders nothing. `MusicEngine.setVisibleRect`
    * only hands a new window down when the visible rect escapes the old one.
    */
-  viewStateKey(): string {
+  viewStateKey(score: Score): string {
     const w = this.cullWindow
     return JSON.stringify([
-      this.layoutStateKey(),
+      this.layoutStateKey(score),
       w && [Math.round(w.x), Math.round(w.y), Math.round(w.width), Math.round(w.height)],
     ])
   }
@@ -555,9 +555,16 @@ export class VexFlowRenderer {
    * view state that cannot change a single measure's width or which system it lands on. So a
    * scroll-only render may reuse the layout wholesale. See {@link layoutCache}.
    */
-  private layoutStateKey(): string {
+  private layoutStateKey(score: Score): string {
     return JSON.stringify([
       this.viewMode,
+      // ⭐ THE STAFF SIZES, and they belong here the day a staff's size becomes a WIDTH input — which
+      //   is the day its ink started being measured at its own size (docs/staff-size-plan.md §6a).
+      //   Before that they were invisible to this key and it did not matter; after it, leaving them
+      //   out means shrinking a staff reuses the casting-off it had at full size and NOTHING about
+      //   the spacing moves. Measured exactly that way: bar 1's minWidth stayed 257.5 either side of
+      //   a `setStaffSize(0, 0.7)`. §7 of the plan named this trap for all three of the render keys.
+      getStaves(score).map(staff => resolveStaffSize(score, staff.id)),
       this.justifyLastLine,
       this.surface,
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
@@ -1373,6 +1380,11 @@ export class VexFlowRenderer {
       //   column is a position in the SYSTEM (see `MeasurePlacement.system`). It also stops the
       //   column walk being repeated per staff.
       const clefFor = clefResolverFor(measure, clefsByStaff, staffList[0]?.id)
+      /** How big each staff of THIS system is drawn — the sizes the casting-off already resolved. */
+      const sizeFor: StaffSizeResolver = staffId => {
+        const index = staffList.findIndex(staff => staff.id === staffId)
+        return spacing.staffSize[currentLine]?.[index < 0 ? 0 : index] ?? 1
+      }
       const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
       /** Each staff's own header — resolved here so the WIDEST is known before any placement is made. */
       const headers = staffList.map((staff, staffIndex) => {
@@ -1392,8 +1404,10 @@ export class VexFlowRenderer {
         }
       })
       const system = {
-        columns: measureColumns(measure, clefFor),
-        leadIn: measureLeadIn(measure, clefFor),
+        // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/staff-size-plan.md §6a).
+        //   The width path builds the same resolver, so the room reserved is the room asked for.
+        columns: measureColumns(measure, clefFor, sizeFor),
+        leadIn: measureLeadIn(measure, clefFor, sizeFor),
         headerExtent: Math.max(0, ...headers.map(h => h.extent)),
       }
 
@@ -1616,7 +1630,7 @@ export class VexFlowRenderer {
     // transform is one multiplication about the origin — no offset term anywhere downstream
     // (docs/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
     const k = p.scale
-    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.system)
+    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.system, k)
 
     this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k)
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
@@ -1624,7 +1638,7 @@ export class VexFlowRenderer {
     // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY). Everything it reads off
     // the stave is local, so the registry scales it back out on the way in.
     this.elementRegistry.withScale(k, () => {
-      this.registerStaffAndGeometry(stave, p.view, p.x / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex)
+      this.registerStaffAndGeometry(stave, p.view, p.x / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.staffIndex, k)
     })
 
     // This measure's REAL system height, so pixelToMeasure's vertical band matches the drawn layout
@@ -1879,7 +1893,12 @@ export class VexFlowRenderer {
         //     it spaced each staff as if it were alone: a grand staff's two hands came out 1.0, 1.7
         //     and 2.4 staff spaces apart across one bar, for the same beats.
         const leadIn = placement.system.leadIn
-        const room = (stave.getNoteEndX() - noteStartOf(stave) - userSpacePx) / STAFF_SPACE_PX
+        // ⭐ × scale: the stave answers in its OWN space, and the room a column solve divides up is
+        //   a distance on the PAGE — the same one for every staff of the system, or a small staff
+        //   would spread the same columns over its own (larger, in its own units) note area and
+        //   drift from its neighbour bar by bar.
+        const room =
+          ((stave.getNoteEndX() - noteStartOf(stave)) * placement.scale - userSpacePx) / STAFF_SPACE_PX
         // ⭐ KEPT, not just applied: a fan's members are columns of this solve that no tick context
         //   can be written to, and `FanPass` spends their room later (`RenderPass.solvedColumns`).
         const solved = applySpacingPass(formatter, vexVoices, {
@@ -1887,6 +1906,7 @@ export class VexFlowRenderer {
           firstX: leadIn.extent,
           targetWidth: room - leadIn.extent,
           meterQuarters: (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator,
+          scale: placement.scale,
         })
         if (solved) pass.solvedColumns.set(measure.number, solved)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
@@ -1960,6 +1980,7 @@ export class VexFlowRenderer {
             clefForBeat, built[gi].fanJoins,
             (laneOfGroup?.fanned ?? []).flatMap(owners => owners.slots),
             groups[gi].forcedStem,
+            placement.scale,
           )
         }
 
@@ -2206,6 +2227,9 @@ export class VexFlowRenderer {
     cautionaryEndClef?: Clef,
     cautionaryEndTimeSig?: TimeSignature,
     system?: MeasurePlacement['system'],
+    /** The staff's drawn scale — the stave arrives in its OWN space, while the system's lead-in and
+     *  header extent are distances on the page. See {@link applyLeadIn}. */
+    scale: number = 1,
   ): Stave {
     const stave = new Stave(x, y, width)
     stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
@@ -2258,7 +2282,8 @@ export class VexFlowRenderer {
     })
     applyLeadIn(stave, x,
       systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding),
-      systemHeader)
+      systemHeader, scale)
+    spreadHeaderToSystem(stave, scale)
     return stave
   }
 
@@ -3021,6 +3046,11 @@ export class VexFlowRenderer {
     clef: Clef,
     hasClefChange: boolean = false,
     staffIndex: number = 0,
+    /** This staff's drawn scale. The boxes below are registered in the staff's OWN space (the
+     *  registry scales them out again), but the header is laid out in the SYSTEM's — see
+     *  `spreadHeaderToSystem`. So the STEP from one header piece to the next is divided by it,
+     *  while each box's own WIDTH is not: a width is that staff's ink and its finger. */
+    scale: number = 1,
   ): void {
     try {
       const staveBox = stave.getBoundingBox()
@@ -3088,12 +3118,17 @@ export class VexFlowRenderer {
 
     if (drawsTimeSignature(measure)) {
       // Position after whatever clef glyph (if any) was drawn at the measure start.
+      // ÷ scale: how far the meter sits past the clef is a SYSTEM distance now (the header is laid
+      // out in the system's space so the meters of a mixed-size system line up), and this box has to
+      // land on the glyph it is the handle for. Without it a 0.7 staff's meter box sits 30% nearer
+      // the barline than its own ink — and the linear-view gutter, which reads this box to decide
+      // how far it may hang over the paper, believed the smaller number.
       const clefOffset =
-        measure.number === 1 || isFirstInLine
+        (measure.number === 1 || isFirstInLine
           ? LAYOUT_CONFIG.CLEF_HIT_WIDTH
           : hasClefChange
             ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
-            : 0
+            : 0) / scale
       // Clamp the TS hit-box so its right edge never crosses noteStartX. The
       // approximate TIME_SIG_HIT_WIDTH over-estimates the real glyph and would
       // otherwise bleed into the note-entry zone, swallowing clicks that land
@@ -3300,7 +3335,7 @@ export class VexFlowRenderer {
     //      window moved, and the window cannot change a single width. (See `layoutCache`.)
     //   3. compute it.
     renderProbe().beginLayout()
-    const layoutKey = this.layoutStateKey()
+    const layoutKey = this.layoutStateKey(score)
     const cachedLayout =
       this.layoutReusable && this.layoutCache?.key === layoutKey ? this.layoutCache.widths : null
     const measureWidths = this.frozenLayout
@@ -4164,7 +4199,33 @@ function noteStartOf(stave: Stave): number {
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
 }
 
-function applyLeadIn(stave: Stave, staveX: number, padding: number, header: number): void {
+/**
+ * ⭐ **The header is laid out in the SYSTEM's space; only its GLYPHS are drawn small.**
+ *
+ * A stave's own modifier layout knows nothing about the scale it will be drawn at — clef, then meter,
+ * each at the same own-space x whatever `k` is. Multiplied by `k` on the way to the page, that puts a
+ * 0.7 staff's time signature 30% nearer the barline than the full-size staff's beside it, and a
+ * reader sees two meters that do not line up. (Reported by eye, twice.)
+ *
+ * So each BEGIN modifier is pushed back out about the stave's left edge: its distance from the
+ * barline is divided by `k`, which is exactly the distance the full-size staff has. The glyph itself
+ * still draws at `k` — a small staff's clef IS smaller — so what changes is only where each piece
+ * sits, and a bar of staves that share a clef comes out with one clef column and one meter column.
+ *
+ * ⚠️ Modifier x's exist only after `Stave.format()`, which `applyLeadIn`'s `setNoteStartX` has just
+ * forced; and nothing re-formats afterwards (`draw` checks the flag), so these survive to the page.
+ * ⛔ BEGIN only: the cautionary clef and meter at the END hang off the closing barline, which is the
+ * other edge of the same bar and not this rule's anchor.
+ */
+function spreadHeaderToSystem(stave: Stave, scale: number): void {
+  if (scale === 1) return
+  const x0 = stave.getX()
+  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
+    modifier.setX(x0 + (modifier.getX() - x0) / scale)
+  }
+}
+
+function applyLeadIn(stave: Stave, staveX: number, padding: number, header: number, scale: number): void {
   // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
   //    context right by that column's own left ink, so adding the extent here pays for the
   //    accidental twice — measured, and it made the blank WIDER than the one it was fixing.
@@ -4174,7 +4235,14 @@ function applyLeadIn(stave: Stave, staveX: number, padding: number, header: numb
   //   its own that agreed with the drawing by nobody's arrangement — over by 0.9 staff spaces for a
   //   line-opening bar, UNDER by 0.6 for a two-digit meter. Reading the same number here as the
   //   layout reserved makes them agree by construction rather than by luck.
-  const leadIn = (padding + header) * STAFF_SPACE_PX
+  // ⭐ ÷ scale, and this is the whole of "a small staff keeps the system's columns". The lead-in
+  //   and the header extent are the SYSTEM's — the widest header any staff of the bar draws — so
+  //   they are distances on the PAGE, while this stave lives in a `scale(k)` group. Written
+  //   undivided, a 0.7 staff starts its music 30% nearer the barline than its neighbour and every
+  //   column after it is out. What the small staff gets instead is its own smaller clef sitting in
+  //   the system's header room, with the slack after it: the full-size staff decides where the
+  //   music starts, which is the way round a reader needs it.
+  const leadIn = ((padding + header) * STAFF_SPACE_PX) / scale
   // ⚠️ Never left of the barline: `getNoteStartX` is what the hit-testing and the shrink-room read,
   //    and a note area that begins outside its own bar is a bug (`tier1Geometry.test.ts`). The pair
   //    table is chosen so this clamp does not bite — it is here so that a future row which forgets

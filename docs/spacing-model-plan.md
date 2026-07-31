@@ -65,6 +65,11 @@ Verovio are all built the same way:
 The two are **added, never conflated**, and combined with a `max`: the duration gives the *ideal*
 gap, the ink gives the *minimum* one, and the wider of the two wins.
 
+> ⏭️ **The `shortest` in that curve is a hard-coded eighth, and LilyPond derives it** — a *mode over
+> measures*, capped at a dotted eighth. Ours is 25–37% too tight for a 32nd-heavy passage and ~24% too
+> loose for a piece of crotchets. Decided, not yet built: `docs/shortest-duration-plan.md`, whose §9
+> also records what the research overturned (our uneven-looking quavers ARE LilyPond's own answer).
+
 ### 1.0 ⭐⭐ THE CURVE THAT SHIPS IS **LILYPOND'S** — changed 2026-07-30, his call
 
 Everything in §1.1 below is the √2 power law the model was built on, and it is still in the code as
@@ -186,6 +191,12 @@ Four decisions inside that one line:
 
 A column is a rhythmic position at which something starts, holding every event that starts there —
 across all voices **and all staves**. One x per column, shared by every staff in the system.
+
+⭐ **And when those staves are drawn at different SIZES, the split is: the spine is global and
+size-blind, only the INK is per staff (at that staff's own size) and a column takes the MAX of the
+staves' ink demands.** That is LilyPond's, Verovio's and GUIDO's behaviour alike, with sources and
+the measured numbers off our own drawing, in `docs/staff-size-plan.md` §6a — read it before changing
+this model for staff size.
 
 This is the part that is not just a formula change. Today each staff formats in its **own**
 `Formatter` (`drawMeasureContent` runs per placement), so staff 1's `♩♩♩♩` and staff 2's `𝅗𝅥𝅗𝅥` are

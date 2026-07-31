@@ -200,7 +200,7 @@ export class MusicEngine {
    * so taking it down is a DOM removal ({@link clearGhosts}), not a reason to re-engrave.
    */
   isRenderStale(): boolean {
-    return this.modelDirty || this.renderer.viewStateKey() !== this.lastViewStateKey
+    return this.modelDirty || this.renderer.viewStateKey(this.scoreModel.getScore()) !== this.lastViewStateKey
   }
 
   /** Take down the preview ghost, if any. O(1) — see {@link VexFlowRenderer.clearGhosts}. */
@@ -2855,7 +2855,7 @@ export class MusicEngine {
     this.renderer.renderScore(this.scoreModel.getScore())
     // The SVG now matches the model AND this view state — record the latter so the next
     // render can tell whether anything but the selection moved (see isRenderStale).
-    this.lastViewStateKey = this.renderer.viewStateKey()
+    this.lastViewStateKey = this.renderer.viewStateKey(this.scoreModel.getScore())
     // Update coordinate mapper with actual VexFlow bounds
     this.syncCoordinateMapperBounds()
   }

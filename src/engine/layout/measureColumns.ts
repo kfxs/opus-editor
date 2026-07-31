@@ -55,6 +55,27 @@ const beatKey = (beat: Fraction): string => `${beat.num}/${beat.den}`
  */
 type ColumnInk = InkBox[]
 
+/** A box as the builders below write it — in the staff's OWN spaces, before {@link sized}. */
+type RawInk = Omit<InkBox, 'size'>[]
+
+/**
+ * ⭐ **The one place a staff's SIZE enters the spacing model.** A staff drawn at 0.7 has 0.7 of the
+ * ink, so it asks for 0.7 of the room: every reach is multiplied here, once, and everything
+ * downstream reads system staff spaces without knowing a size exists.
+ *
+ * ⛔ The BAND (`top`/`bottom`) is deliberately not touched — it is measured in the staff's own spaces
+ * and only ever compared with another band on the same staff (`kerning.sameBand`).
+ *
+ * The rule and its sources (LilyPond skylines, Verovio's `staffSize/100`, GUIDO's rods) are in
+ * docs/staff-size-plan.md §6a: the SPINE is global and size-blind, only the INK is per staff — and
+ * because `inkFloor` refuses to compare boxes across staves, a column shared by a small staff and a
+ * big one takes the big one's demand for free.
+ */
+function sized(boxes: RawInk, size: number): ColumnInk {
+  if (size === 1) return boxes.map(box => ({ ...box, size }))
+  return boxes.map(box => ({ ...box, size, left: box.left * size, right: box.right * size }))
+}
+
 /** ⭐ The vertical axis the boxes are on: staff spaces BELOW the top stave line, so the top line is 0,
  *  the middle 2, the bottom 4 — and a note above the staff is negative. `staffLineForSpelling` counts
  *  the other way (1 = bottom, 5 = top), which is the whole of the conversion. */
@@ -99,12 +120,12 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
  * ⚠️ **And `clef` is why this function reads where a note SITS**, which used to be forbidden in the
  * width path — see {@link measureColumns} for why that rule expired.
  */
-function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean): ColumnInk {
+function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
     // A rest's own band is not modelled: nothing kerns against a rest (`MAY_KERN`), so the honest
     // thing is a band covering the staff rather than a position we would have to predict.
-    return [{ left: 0, right: restExtent(slot.duration), top: 0, bottom: 4, kind: 'rest', staff }]
+    return sized([{ left: 0, right: restExtent(slot.duration), top: 0, bottom: 4, kind: 'rest', staff }], size)
   }
 
   const pitches: NotePitch[] = slot.notes ?? []
@@ -121,7 +142,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   const overhang = INK.ledgerRight - INK.notehead
   const dots = dotExtent(slot.dots ?? 0)
 
-  const boxes: ColumnInk = []
+  const boxes: RawInk = []
   const lineOf = (pitch: NotePitch) => staffLineForSpelling(pitch.step, pitch.octave, clef)
 
   for (const pitch of pitches) {
@@ -207,7 +228,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
     }
   }
 
-  return boxes
+  return sized(boxes, size)
 }
 
 /**
@@ -215,6 +236,15 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
  * needs the whole score's clef inheritance, which this module deliberately does not import.
  */
 export type ClefResolver = (slot: ChordRest) => Clef
+
+/**
+ * ⭐ How big the staff a slot is on is DRAWN (1 = full size) — the model's one size input.
+ *
+ * Supplied by the caller for the same reason {@link ClefResolver} is: resolving it needs the whole
+ * score (and, one day, the system), which this module does not import. Defaults to 1 everywhere, so
+ * a caller that has no sizes gets exactly the arithmetic it got before this existed.
+ */
+export type StaffSizeResolver = (staffId: string | undefined) => number
 
 /**
  * Every column in this measure, in order, with the BARLINE as the last one.
@@ -266,8 +296,12 @@ export type ClefResolver = (slot: ChordRest) => Clef
  * notes 1.7 staff spaces in (5 px of stave start + a 12 px `Stave.padding`), whatever we reserve,
  * and moving that is the renderer taking over x — P4.
  */
-export function measureLeadIn(measure: Measure, clefFor: ClefResolver = () => 'treble'): LeadIn {
-  const opening = openingInk(measure, clefFor)
+export function measureLeadIn(
+  measure: Measure,
+  clefFor: ClefResolver = () => 'treble',
+  sizeFor: StaffSizeResolver = () => 1,
+): LeadIn {
+  const opening = openingInk(measure, clefFor, sizeFor)
   return { padding: pairPadding('barline', edgeKind(opening, 'left')), extent: mergedReach(opening).left }
 }
 
@@ -287,7 +321,7 @@ export interface LeadIn {
 }
 
 /** The ink of whatever the bar opens with — every slot at its earliest beat. */
-function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
+function openingInk(measure: Measure, clefFor: ClefResolver, sizeFor: StaffSizeResolver): ColumnInk {
   const first = measure.slots.reduce<Fraction | null>(
     (earliest, slot) => (earliest === null || fracCompare(slot.beat, earliest) < 0 ? slot.beat : earliest),
     null,
@@ -300,7 +334,7 @@ function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
   const boxes: ColumnInk = []
   for (const slot of measure.slots) {
     if (fracCompare(slot.beat, first) !== 0) continue
-    boxes.push(...slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id)))
+    boxes.push(...slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id), sizeFor(slot.staffId)))
   }
   return boxes
 }
@@ -308,7 +342,9 @@ function openingInk(measure: Measure, clefFor: ClefResolver): ColumnInk {
 /** The one rest an untouched bar draws, as ink — a band over the whole staff, since nothing kerns
  *  against a rest and its drawn position is not a width-time fact. */
 const MEASURE_REST_INK = (): InkBox =>
-  ({ left: 0, right: restExtent('w'), top: 0, bottom: 4, kind: 'rest', staff: undefined })
+  // Size 1: this is the bar NOBODY has written into, so there is no staff whose size to ask. The
+  // moment a bar holds slots, every box goes through `sized` with its own staff's.
+  ({ left: 0, right: restExtent('w'), top: 0, bottom: 4, kind: 'rest', staff: undefined, size: 1 })
 
 /**
  * ⭐ **Which slots DRAW A FLAG** — by slot id, resolved the way the drawing resolves it: per LANE
@@ -397,7 +433,11 @@ export function clefResolverFor(
   }
 }
 
-export function measureColumns(measure: Measure, clefFor: ClefResolver = () => 'treble'): Column[] {
+export function measureColumns(
+  measure: Measure,
+  clefFor: ClefResolver = () => 'treble',
+  sizeFor: StaffSizeResolver = () => 1,
+): Column[] {
   const capacity = measureCapacityFrac(measure)
   const beats = new Map<string, Fraction>()
   const ink = new Map<string, ColumnInk>()
@@ -421,7 +461,7 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
   const flagged = flaggedSlots(measure)
 
   for (const slot of measure.slots) {
-    add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id)))
+    add(slot.beat, slotInk(slot, signs, clefFor(slot), multiVoice, flagged.has(slot.id), sizeFor(slot.staffId)))
 
   }
 
@@ -440,13 +480,14 @@ export function measureColumns(measure: Measure, clefFor: ClefResolver = () => '
   positions.push(capacity)
   // ⛔ A barline's band is the whole staff on purpose: it can never be vertically clear of anything,
   //   so no kerning rule can ever tuck ink through a barline.
-  inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined }])
+  //   Size 1 and it reaches nowhere anyway: a barline belongs to the system, not to a staff.
+  inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined, size: 1 }])
 
   // ⭐⭐ A FAN'S RAMP IS A ROD OVER THE GAPS IT CROSSES, not a column of its own — see `Column.rod`
   //   and `engine/layout/fanRampRoom.ts`. Computed here, where the final grid is known: the members
   //   fall on rationals nobody else shares, so the ramp's width is imposed as a minimum over the span
   //   its own time covers, and the solve floors those gaps accordingly.
-  const rods = fanSpanRods(measure, positions)
+  const rods = fanSpanRods(measure, positions, sizeFor)
 
   return positions.map((beat, i) => ({
     beat,

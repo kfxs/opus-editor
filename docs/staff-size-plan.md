@@ -219,6 +219,148 @@ that has been stretched. Neither looks like "the widths are wrong"; they look li
 ⭐ This is the same shape as §5 — a per-staff number that used to be one number — but it is a
 different pass, and it is why the transform is not the last phase.
 
+## 6a. What the other engines actually do — researched 2026-07-31
+
+⭐ Written down because §6 above was reasoned from first principles before the spacing model existed,
+and because the question *"does a small staff's music get less horizontal room?"* has an answer in
+three engines that agree with each other. **Read this before changing the spacing model for staff
+size** — the shape below is not a preference, it is what LilyPond, Verovio and GUIDO each do.
+
+### The rule the three of them share
+
+> **The SPINE is global and size-blind; only the INK is per staff, at that staff's own size, and a
+> column takes the MAX of the staves' ink demands.**
+
+A small staff can therefore *relax* an ink floor — it can never shorten a duration spring.
+
+**LilyPond.** The duration arithmetic runs entirely on Score-level properties: `Spacing_options::
+init_from_grob` reads `spacing-increment` (1.2) and `shortest-duration-space` (2.0) off the
+`SpacingSpanner`, a Score grob, and grepping the spacing sources for `staff_space` finds only two
+hits, both *vertical* (`lily/spacing-options.cc`, `lily/spacing-basic.cc`, `lily/note-spacing.cc`).
+The minimum is pure measured ink — `Paper_column::minimum_distance` is a horizontal-**skyline**
+distance built from the drawn stencils' extents (`lily/paper-column.cc`, `lily/separation-item.cc`),
+and a magnified staff's glyphs really are smaller (`\magnifyStaff` ⇒ `fontSize += 6·log₂(mag)` ⇒ a
+smaller optical size, `scm/lily-library.scm`). Where two staves both wish at a column, `merge_springs`
+takes **ideal = arithmetic MEAN, minimum = MAX** (`lily/spring.cc`).
+
+**Verovio.** The spine is computed once per measure with no staff loop, in a hard-coded global unit —
+`m_previousXRel = m_doc->GetDrawingUnit(100)`, the *default* staff size, not the staff's
+(`src/calcalignmentxposfunctor.cpp`). The ink pass then walks the same aligner **once per staff** with
+that staff's size (`for (auto staffN : m_staffNs) { m_staffSize = staffAlignment->GetStaffSize(); … }`,
+`src/adjustxposfunctor.cpp`), and `Doc::GetGlyphWidth(code, staffSize)` scales every glyph by
+`staffSize / 100`. The adjustment only ever *increases* `XRel`, so over the staff loop it is a max.
+
+**GUIDO** (Renz's spring–rod model). One spring chain per line of music, shared by every staff, with a
+spring constant that has no size term (`c = di / (ds · φ(di) · space(dmin))`, diss. §4.5 eq. 4.4) —
+and **rods per voice/staff**, whose length is literally the size-scaled ink:
+`mLeftSpace = halfExtent * getSize()` (`GRStdNoteHead.cpp`), `mLength = r1 + r2` (`GRRod.cpp`).
+
+### Where they differ — and it is a feature we do not have
+
+**Dorico** adds a *deliberate* extra contraction for CUE notes on top of the smaller glyphs —
+Layout Options ▸ Note Spacing, *"Scale space for cue notes by"*, default 70% (and 75% for the cue
+glyph scale itself). Verovio and GUIDO make cue material narrower only as a side effect of smaller
+ink. ⛔ **A cue is not a small staff**: if that look is ever wanted it is a second, named knob, not a
+change to this rule.
+
+### Headers, and the one place Verovio is stricter
+
+All three give each header kind (clef, key, meter) **one column across the system, sized by the union
+over staves**, with each staff's glyph drawn at its own size inside it — left edges together, the next
+column after the widest. LilyPond's `BreakAlignGroup` is documented as existing for exactly this:
+*"to group several breakable items of the same type (clefs, time signatures, etc.) across staves so
+that they will be aligned horizontally"* (`scm/define-grobs.scm`); `Clef` has no `X-offset`, so a
+small clef sits at the group's origin and simply falls short of the big one's right edge. Verovio
+gives the header items measure-wide alignment types (`ALIGNMENT_SCOREDEF_CLEF`, `…_KEYSIG`,
+`…_METERSIG`, `src/alignfunctor.cpp`).
+
+⚠️ **Verovio's exception, worth stealing later:** an OSSIA staff's clef and key get *negative*
+alignment types (`ALIGNMENT_SCOREDEF_OSSIA_CLEF = -2`) and negative `XRel`, so they hang left of the
+bar and never widen the main staves' header (`src/adjustossiastaffdeffunctor.cpp`). We have no ossia
+concept yet; when we do, this is the answer.
+
+### 6a (cont.) Whole-bar rests
+
+Same span, same centre, glyph scaled — LilyPond measures the mmrest's span between the system-wide
+break-align groups (`lily/multi-measure-rest.cc`, `Paper_column::break_align_width`, relative to the
+System) and centres in it. ✅ Ours already matches: measured 2026-07-31, the two rests' centres agree
+to the pixel and only their widths differ.
+
+### 6a (cont.) ⛔ What LilyPond does that we should NOT copy
+
+`\magnifyStaff` scales `SpacingSpanner.spacing-increment` **at Score level** — a per-staff command
+with a system-wide side effect, so the magnified staff sets the spacing unit for every staff and the
+last one applied wins (`ly/music-functions-init.ly`, `scm/music-functions.scm`; it ends with
+`\newSpacingSection` and the source comment *"this might cause problems until Issue 3990 is fixed"*).
+The research agent flagged it as the one place LilyPond's own behaviour would surprise a user. Our
+size knob is per staff and must stay out of the global unit.
+
+### 6a (cont.) Where this leaves our model
+
+`engine/layout/spacing.ts` already solves in SYSTEM staff spaces and `measureColumns` already merges
+every staff into one column list — the spine half is right, and 2026-07-31's `/ scale` fixes made the
+DRAWING agree with it (`spacingPass`, `applyLeadIn`, `spreadHeaderToSystem`).
+
+✅ **The ink is now measured at each staff's own size** (2026-07-31). `InkBox` carries `size`, and
+`measureColumns.sized` multiplies every reach ONCE where the boxes are built, so everything downstream
+reads system staff spaces without knowing a size exists; `inkFloor` scales the pair PADDING by the
+larger of the two boxes' sizes, and its `sameBand` already refused to compare boxes across staves, so
+max-over-staves comes out for free. The fan's rod scales with it (`fanSpanRods`), and the width path
+and the drawing build the same resolver, so the room reserved is the room asked for.
+
+⚠️ **And it moved less than expected, which is worth recording so nobody re-derives the hope.** On his
+own score — a bar with 16ths on a 0.7 staff over quavers on a full one — the lower staff's quavers
+were **3.65 3.60 2.40 2.40** and stayed there. The bar's FLOOR dropped (213.2 → 203.2 px) but its
+natural width did not move: those 16th columns were never ink-floored. `followingSpace` gives a 16th
+**1.8** by the RULE (LilyPond's linear branch below the reference), and the ink floor is ~1.45 — under
+it. The ink scaling pays where ink actually binds (accidentals, chords, dense 32nds); the unevenness
+he reported is the duration law and belongs to `docs/shortest-duration-plan.md`.
+
+⛔ **Do not "fix" this by dropping cross-staff ink pairs.** Tried and reverted the same day: two
+noteheads at successive columns are charged `MIN_COLUMN_GAP` across staves on purpose, because in a
+grand staff an x is a TIME and a bass note under a treble note reads as simultaneous with it
+(`kerning.test.ts` states it). LilyPond has the same system-wide minimum in `spacing-increment`.
+
+## ⏭️ 6b. THE REAL ISSUE — a small staff should not drive the spine
+
+⭐⭐ **His words, and they are the specification** (2026-07-31, after the ink work landed and did not
+answer it):
+
+> *"in general the big measure looks good, my complaint is for the problem when normal staff lives
+> with small staff… that is the real issue."*
+> *"the big staff should win or should rule… the small staff have more space for squishing and
+> enlarge… the music priority is always the big stave, we should have pretty engraving there."*
+
+**What he is describing has a name in every other engine, and it is not "staff size" — it is a
+SECONDARY staff** (ossia / cue). The precedents, all from the 2026-07-31 research:
+
+- **LilyPond**, Learning Manual 5.3.3, on an ossia with an overridden `staff-space`: *"changing
+  `staff-space` affects the scale of the ossia, **it does not affect the horizontal spacing – this is
+  determined by the layout of the main music in order to remain synchronized with it**."* That is his
+  sentence, in their manual.
+- **Verovio** gives an ossia's clef and key NEGATIVE alignment types (`ALIGNMENT_SCOREDEF_OSSIA_CLEF
+  = -2`) so it hangs left of the bar and cannot widen the main staves.
+- **Dorico** contracts cue spacing deliberately — Layout Options ▸ *"Scale space for cue notes by"*,
+  default 70%.
+
+**The shape of the rule, for when it is built:** a secondary staff's events still get COLUMNS (they
+need an x, and the ink floor still has to keep them off each other), but they contribute **no
+duration demand** to the spring — the spine is the full-size staves' alone, and the small staff's
+notes take whatever room that spine leaves, floored by their own (already size-scaled) ink. That is
+literally *"more space for squishing"*.
+
+⏭️ **Predicted, not measured** — on his bar the 16th columns would fall from 1.8 spaces (the duration
+law) to their ink floor (~1.3), so the lower staff's quaver pairs would read about 2.6 against 2.4
+instead of 3.6 against 2.4. ⚠️ Measure it before believing it.
+
+⛔ **Two things this must not be confused with**, both already tried and excluded on the day:
+scaling the small staff's INK (built, correct, and it moved those gaps by 0.01 spaces — §6a), and the
+reference duration (`docs/shortest-duration-plan.md` — a real defect at the dense end, and not this).
+
+⚠️ **The open question is the MARKER.** Today the only signal is `staff.size < 1`, and using it means
+"drawn small" and "secondary" are the same statement. Verovio and Dorico both keep them apart (an
+ossia/cue is a role; size is a consequence). His call, and it belongs in the plan for this, not here.
+
 ## 7. ⚠️ Two memos will answer *clean*, and nothing will redraw
 
 The renderer does not redraw what it believes is unchanged, and **staff size is invisible to every

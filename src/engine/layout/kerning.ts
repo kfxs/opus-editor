@@ -63,6 +63,19 @@ export interface InkBox {
   /** Which staff's band this is measured on — the `staffId`, absent meaning the first staff, as
    *  everywhere else. Boxes on different staves are never compared (see {@link sameBand}). */
   staff: string | undefined
+  /**
+   * ⭐ The SIZE its staff is drawn at (1 = full). A staff drawn at 0.7 has 0.7 of the ink, so it
+   * needs 0.7 of the room — LilyPond measures the drawn stencils' skylines, Verovio measures the
+   * glyphs at `staffSize/100`, GUIDO's rod is `halfExtent * getSize()` (docs/staff-size-plan.md §6a).
+   *
+   * ⚠️ `left`/`right` arrive **already multiplied by it** — they are system staff spaces, which is
+   * what the column arithmetic speaks. This field is kept for the one thing that cannot be folded
+   * in: the PAIR PADDING between two boxes, which is air on a staff and shrinks with that staff.
+   * ⛔ Do not multiply the reaches by it a second time. `top`/`bottom` are NOT scaled and must not
+   * be: a band is measured in its own staff's spaces and only ever compared with another band on
+   * the same staff ({@link sameBand}).
+   */
+  size: number
 }
 
 /**
@@ -132,7 +145,10 @@ export function inkFloor(left: readonly InkBox[], right: readonly InkBox[]): num
   for (const a of left) {
     for (const b of right) {
       if (mayKern(a.kind, b.kind) && !sameBand(a, b)) continue
-      const need = a.right + pairPadding(a.kind, b.kind) + b.left
+      // ⭐ The padding is AIR ON A STAFF, so it shrinks with the staff. The larger of the two sizes,
+      //   because the pair has to clear the bigger ink; for the ordinary same-staff pair that is
+      //   simply that staff's own size. (The reaches are already in system spaces — see `InkBox`.)
+      const need = a.right + pairPadding(a.kind, b.kind) * Math.max(a.size, b.size) + b.left
       if (need > floor) floor = need
     }
   }

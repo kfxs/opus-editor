@@ -59,7 +59,13 @@ export function fanRampSpaces(fan: FanMark, slotLength: Fraction): { ramp: numbe
  * the score and other elements not"*. Fixed music makes columns. Unfixed music makes demands on the
  * gaps it crosses, and the two meet in the solve without either having to know about the other.
  */
-export function fanSpanRods(measure: Measure, positions: Fraction[]): number[] {
+export function fanSpanRods(
+  measure: Measure,
+  positions: Fraction[],
+  /** How big the fan's own staff is drawn — its members are ink, so they scale with it. See
+   *  `measureColumns.sized` and docs/staff-size-plan.md §6a. */
+  sizeFor: (staffId: string | undefined) => number = () => 1,
+): number[] {
   const rods = positions.map(() => 0)
   for (const slot of measure.slots) {
     if (slot.type !== 'chord' || !slot.fan) continue
@@ -87,8 +93,11 @@ export function fanSpanRods(measure: Measure, positions: Fraction[]): number[] {
     // around it, which is his rule (*"the source of truth in the time space is the staff below"*). If
     // it does not, every gap in the span grows by the same factor, so the bar opens EVENLY rather
     // than at the fan's dense end.
+    // ⭐ × the staff's size: a fan drawn at 0.7 has 0.7 of the heads and 0.7 of the ramp, so it
+    //   demands 0.7 of the room. Left out, a small staff's fan keeps charging the bar full price —
+    //   the very thing the ink scaling is for, and the fan is the densest ink there is.
     const { ramp, tail } = fanRampSpaces(slot.fan, length)
-    const wanted = ramp + tail
+    const wanted = (ramp + tail) * sizeFor(slot.staffId)
     if (natural >= wanted) continue
     const force = wanted / natural
     for (const k of span) {

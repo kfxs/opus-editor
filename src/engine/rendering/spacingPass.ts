@@ -72,6 +72,19 @@ export interface SpacingTarget {
   targetWidth: number
   /** The bar's length in quarters — how a column's beat becomes a VexFlow tick. */
   meterQuarters: number
+  /**
+   * ⭐ The staff's drawn SCALE (1 = full size) — the one number that keeps a small staff in the
+   * same columns as a full one.
+   *
+   * Everything above is a fact about the SYSTEM, measured in the system's staff spaces: beat 2 is
+   * one x on every staff of it. But a staff drawn small is drawn inside a `scale(k)` group, so the
+   * x written here is multiplied by `k` on its way to the page — write the system's number and a
+   * 0.7 staff lays the same bar out 30% narrower, starting 30% earlier. Dividing by `k` here is
+   * what makes the DRAWN result the system's number on every staff, which is the only space in
+   * which "the same beat is the same x" can be true. ⛔ Not the same thing as writing the small
+   * staff's own spaces: a staff space is that staff's ink, a column is the system's geometry.
+   */
+  scale: number
 }
 
 /**
@@ -97,8 +110,8 @@ export interface SpacedColumns {
  * untouched.
  */
 export function applySpacingPass(formatter: Formatter, voices: Voice[], target: SpacingTarget): SpacedColumns | null {
-  const { columns, firstX, targetWidth, meterQuarters } = target
-  if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0)) return null
+  const { columns, firstX, targetWidth, meterQuarters, scale } = target
+  if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0) || !(scale > 0)) return null
 
   const contexts = formatter.getTickContexts()
   if (!contexts) return null
@@ -120,7 +133,8 @@ export function applySpacingPass(formatter: Formatter, voices: Voice[], target: 
     const tick = Math.round((column.beat.num / column.beat.den) * ticksPerQuarter)
     const context = map[tick]
     if (!context) continue // this staff has nothing starting here — another one does
-    context.setX((firstX + xs[i]) * STAFF_SPACE_PX)
+    // ÷ scale: the column is a SYSTEM position, and this staff's group multiplies by `scale`.
+    context.setX(((firstX + xs[i]) * STAFF_SPACE_PX) / scale)
     placed++
   }
   return placed > 0 ? { columns, xs } : null
