@@ -34,7 +34,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}/e2e/harness.html`,
+    // The base from vite.config.ts is part of the path: the dev server serves the harness under it.
+    url: `http://localhost:${PORT}/opus-editor/e2e/harness.html`,
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',

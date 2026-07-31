@@ -1,0 +1,62 @@
+# Publish the editor to GitHub Pages at https://kfxs.github.io/opus-editor/.
+#
+# The URL's `/opus-editor/` path IS `base` in vite.config.ts — a project Pages site is served from
+# a subdirectory, so every asset URL has to carry that prefix. If this repo is ever renamed, the
+# base has to be renamed with it or the built page will ask for its assets at the wrong path.
+#
+# The artifact deploy (upload-pages-artifact → deploy-pages) publishes `dist/` as-is: no Jekyll, no
+# branch to keep in sync, nothing committed back to the repo.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So a deploy can be re-run by hand from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time. `cancel-in-progress: false` on purpose: a running deploy is finished rather
+# than abandoned half-published, and the newer commit simply queues behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # The project's own gate: lint:boundary + lint:testnames + lint:singletons + eslint + tsc,
+      # ending in `vite build`. So this one step both checks and produces `dist/`.
+      #
+      # It deliberately does NOT include `npm run test:e2e` — that suite drives a real browser, and
+      # build:check is kept browser-free (see CLAUDE.md §Testing).
+      - run: npm run build:check
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -14,7 +14,8 @@ export const test = base.extend<{ score: Page }>({
   score: async ({ page }, use) => {
     const crashes: string[] = []
     page.on('pageerror', error => crashes.push(String(error)))
-    await page.goto('/e2e/harness.html')
+    // `/opus-editor/` is vite.config.ts's `base`, which the dev server honours as a path prefix.
+    await page.goto('/opus-editor/e2e/harness.html')
     await page.waitForFunction(() => !!window.__h)
 
     await use(page)
