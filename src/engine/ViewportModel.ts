@@ -124,6 +124,24 @@ export class ViewportModel {
    */
   zoom = 1
 
+  /**
+   * The pasteboard margin in LAYOUT px (see `./pasteboard`) — the empty surface the page floats in.
+   *
+   * Defaults to 0, so the model behaves exactly as it did until a host opts in. It is held here
+   * rather than in the host because it displaces the LAYOUT ORIGIN: content coords now start one
+   * margin in from the scroll surface, and the two conversions below are the only places that care.
+   */
+  private pasteboard = 0
+
+  setPasteboard(marginLayoutPx: number): void {
+    this.pasteboard = marginLayoutPx
+    this.clampScroll()
+  }
+
+  getPasteboard(): number {
+    return this.pasteboard
+  }
+
   // --- Size setters (re-clamp scroll so it can never point past the content) ---
 
   setViewportSize(w: number, h: number): void {
@@ -241,9 +259,12 @@ export class ViewportModel {
    */
   getVisibleRect(): Rect {
     const z = this.zoom
+    // Minus the pasteboard: scroll is measured from the scroll SURFACE's corner, and the music
+    // starts one margin in from it. Without this the cull window is offset by a whole margin — the
+    // kind of error overscan hides until someone tightens the overscan.
     return {
-      x: this.scroll.x / z,
-      y: this.scroll.y / z,
+      x: this.scroll.x / z - this.pasteboard,
+      y: this.scroll.y / z - this.pasteboard,
       width: this.viewportSize.w / z,
       height: this.viewportSize.h / z,
     }
@@ -260,17 +281,20 @@ export class ViewportModel {
    */
   ensureVisible(rect: Rect, padding: number = ENSURE_VISIBLE_PADDING): void {
     const z = this.zoom
+    // Plus the pasteboard, the mirror of getVisibleRect: a layout coord is one margin further along
+    // the scroll surface than it is into the music.
+    const inset = this.pasteboard * z
     const nextX = this.ensureAxis(
       this.scroll.x,
       this.viewportSize.w,
-      rect.x * z,
+      rect.x * z + inset,
       rect.width * z,
       padding,
     )
     const nextY = this.ensureAxis(
       this.scroll.y,
       this.viewportSize.h,
-      rect.y * z,
+      rect.y * z + inset,
       rect.height * z,
       padding,
     )

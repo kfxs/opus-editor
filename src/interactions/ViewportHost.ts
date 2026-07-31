@@ -1,4 +1,8 @@
 import { ViewportModel, type Point, type Rect } from '../engine/ViewportModel'
+import { openingScroll, paddedSize } from '../engine/pasteboard'
+
+/** Pasteboard left showing above the page when the score first appears, in layout px. */
+const OPENING_TOP_GAP = 24
 
 /** An element this host reads at call time. The app owns the DOM; the host only observes it. */
 type ElementSource = () => HTMLElement | null
@@ -69,6 +73,8 @@ export function createViewportHost(
   // The natural (unscaled) extent of the rendered SVG — the layout-space content size. Screen-space
   // content size is always this × zoom; that product is the single source for sizer + contentSize.
   const naturalSize = { w: 0, h: 0 }
+  /** Latched by the first real natural size — the opening scroll happens once, never on re-render. */
+  let hasOpened = false
   let viewportRO: ResizeObserver | null = null
   let svgRO: ResizeObserver | null = null
   let contentMO: MutationObserver | null = null
@@ -115,8 +121,14 @@ export function createViewportHost(
    */
   function applyZoom(): void {
     const z = model.getZoom()
-    const w = naturalSize.w * z
-    const h = naturalSize.h * z
+    // The scroll surface is the page PLUS the pasteboard it floats in (src/engine/pasteboard.ts).
+    // The margin is layout-space, so it is multiplied by zoom here exactly like the music: the
+    // pasteboard is a fixed amount of paper, not a fixed amount of screen.
+    const margin = model.getPasteboard()
+    const padded = paddedSize(naturalSize, margin)
+    const w = padded.w * z
+    const h = padded.h * z
+    const inset = margin * z
     const sizer = sizerEl()
     if (sizer) {
       sizer.style.width = `${w}px`
@@ -125,9 +137,25 @@ export function createViewportHost(
     const layer = zoomLayerEl()
     if (layer) {
       layer.style.transformOrigin = '0 0'
-      layer.style.transform = `scale(${z})`
+      // translate BEFORE scale reading left-to-right: the point is scaled, then pushed in by the
+      // already-scaled margin. One transform, so the layer keeps its single containing-block role
+      // for the play cursor.
+      layer.style.transform = `translate(${inset}px, ${inset}px) scale(${z})`
     }
     model.setContentSize(w, h)
+    // The opening view: centred horizontally, page-top vertically. Once only — after that the
+    // scroll position is the user's, and a re-render (which changes natural size whenever a bar
+    // grows) must never yank the view back.
+    if (!hasOpened && naturalSize.w > 0 && naturalSize.h > 0 && margin > 0) {
+      hasOpened = true
+      const open = openingScroll(
+        { w, h },
+        model.getViewportSize(),
+        inset,
+        OPENING_TOP_GAP * z,
+      )
+      model.scrollTo(open.x, open.y)
+    }
     applyScrollToElement()
     notify()
   }

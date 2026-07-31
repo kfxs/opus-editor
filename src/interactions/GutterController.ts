@@ -65,7 +65,11 @@ export class GutterController {
     // by a gutter's width of scrolling: a barline slides under the gutter and stays hidden there
     // while the gutter still names the bar before it. The first VISIBLE music is the honest
     // answer to "where am I".
-    const layoutX = x / zoom - pad.x + GUTTER_WIDTH
+    // Minus the pasteboard (src/engine/pasteboard.ts): scroll is measured from the scroll surface,
+    // and the music starts one margin into it. Without this the gutter names the bar a margin's
+    // worth of music ahead of the one actually under it.
+    const margin = this.viewport.getPasteboard()
+    const layoutX = x / zoom - margin - pad.x + GUTTER_WIDTH
     const state = svgHeight > 0 ? this.getEngine()?.getGutterState(layoutX) ?? null : null
     if (!state) {
       this.renderer.clear() // wrapped view, or nothing rendered yet
@@ -76,7 +80,8 @@ export class GutterController {
     // gutter's white "paper" coincides with the music's instead of running past the end of it
     // (top and bottom edges must line up — the two whites read as one sheet). This is also what
     // lets the renderer work in plain layout y: the element already carries the pad + scroll.
-    el.style.top = `${pad.y * zoom - y}px`
+    // Same displacement on the vertical: the paper's top is a margin down the surface.
+    el.style.top = `${(margin + pad.y) * zoom - y}px`
     el.style.height = `${svgHeight * zoom}px`
 
     this.renderer.render(state, zoom, svgHeight)
