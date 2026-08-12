@@ -8,6 +8,7 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
+import { LINE_TOOLS } from './linePalette'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -276,6 +277,20 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // Nothing to act on until a bar is clicked — the same gesture `+ Above` / `+ Below` wait for.
     hasStaffContext)
   row.appendChild(staffBox)
+  row.appendChild(divider())
+
+  // --- Lines: the spanners drawn BETWEEN notes — the slur today, the hairpin / octave line /
+  //     glissando when they exist. The family is a TABLE in dev/linePalette.ts, so the next line is
+  //     a ROW there and this loop stays the whole wiring. Sits here rather than beside `Duration:`
+  //     only because `action` (and its `ACTION_BTN`) is declared above this point. ---
+  const lineBox = group('Lines:')
+  for (const tool of LINE_TOOLS) {
+    // A `toggle`, not an `action`: a line whose stamp can be ARMED needs the button to say so, and
+    // the light is a question about state (`isArmed`) like every other lit button in the strip.
+    toggle(lineBox, TOOL_BTN, tool.label, tool.title,
+      () => tool.isArmed(state), () => tool.press(palette), ON, () => tool.isEnabled(state))
+  }
+  row.appendChild(lineBox)
   row.appendChild(divider())
 
   // --- Playback ---

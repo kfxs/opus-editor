@@ -181,12 +181,12 @@
   fill: #F59E0B !important;
 }
 
-/* Click-to-type entry cursor: a blue pointer (navy-outlined for contrast on the slate score) that
-   signals "click here to place a mark and type it" — a recolored arrow rather than a ghost. Applied
-   to the score canvas when a text-entry marking tool is armed: expression (Ctrl+E, 'dynamicEntry')
-   or tempo (Ctrl+Alt+T, 'tempoEntry') — see EditorState scoreCursorClass. Lives here, with the other
-   interaction presentation, so it travels with the renderer and carries no UI-framework coupling.
-   Hotspot at the arrow tip (4,2). */
-.cursor-text-entry {
+/* Placement cursor: a blue pointer (navy-outlined for contrast on the slate score) that signals
+   "click here to place something" — a recolored arrow rather than a ghost. Applied to the score
+   canvas when a marking tool with NO ghost is armed: expression (Ctrl+E, 'dynamicEntry'), tempo
+   (Ctrl+Alt+T, 'tempoEntry') and the slur stamp ('slur') — see EditorState scoreCursorClass, which
+   holds the list. Lives here, with the other interaction presentation, so it travels with the
+   renderer and carries no UI-framework coupling. Hotspot at the arrow tip (4,2). */
+.cursor-place {
   cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M4 2 L4 19 L8.5 14.8 L11.3 20.5 L14 19.2 L11.2 13.7 L17 13.7 Z' fill='%232563eb' stroke='%231e3a8a' stroke-width='1.3' stroke-linejoin='round'/></svg>") 4 2, crosshair;
 }

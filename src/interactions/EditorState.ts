@@ -97,6 +97,16 @@ export type MarkingTool =
    *  pointer. Always the custom-text/inline flavour, so it carries nothing. See
    *  MouseController.placeDynamicEntryAtClick. */
   | { kind: 'dynamicEntry' }
+  /**
+   * VALUELESS — the SLUR stamp, armed by `s` (or the Lines palette) with no notes selected. A slur
+   * is a relation between notes that already exist, so there is nothing to carry: WHICH notes it
+   * spans is resolved at click time, exactly as the tie stamp's is.
+   *
+   * It previews NO ghost — the blue pointer says "click a note to place one" — because a slur is
+   * drawn between two notes and there is no such pair until the click picks the first. See
+   * {@link scoreCursorClass} and `interactions/slurStamp.ts`.
+   */
+  | { kind: 'slur' }
   /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
    *  placeholder tempo mark and opens the edit box BLANK to type the whole mark. Same NO-ghost +
    *  blue-cursor treatment. See MouseController.placeTempoEntryAtClick. */
@@ -139,6 +149,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   articulation: false, // the four stamps mark notes that ALREADY have their length
   accidental: false,
   tie: false,
+  slur: false,        // a relation between notes that already have their lengths, like the tie
   dot: false,
   tremolo: false,     // marks a note that already has its length, like the accidental stamp
 }
@@ -385,15 +396,22 @@ export function assertNeverElement(element: never): never {
  * The score canvas's cursor, DERIVED from state — the one place the cursor decision lives, so the
  * view only binds the result. Framework-agnostic on purpose: the class names are the layer contract
  * (the app applies them to the score box and supplies the matching styles), and the rule
- * — panning hides the pointer; the click-to-type entry tools (expression Ctrl+E, tempo Ctrl+Alt+T)
- * show the blue "click to place & type" pointer; otherwise the default arrow — is not something the
- * template should reimplement inline. Returns a class name, not a boolean, so a fourth cursor never
- * means touching the view again.
+ * — panning hides the pointer; a tool that places WITHOUT a ghost shows the blue pointer; otherwise
+ * the default arrow — is not something the template should reimplement inline. Returns a class
+ * name, not a boolean, so a fourth cursor never means touching the view again.
+ *
+ * ⭐ THE BLUE POINTER IS THE GHOSTLESS TOOL'S GHOST. Every other armed tool draws a preview at the
+ * pointer and needs no cursor to say it is armed; these three have nothing to draw — the two
+ * click-to-type entry tools (expression Ctrl+E, tempo Ctrl+Alt+T) because the mark is text you have
+ * not typed yet, the slur stamp because a slur is drawn between two notes and the click has not
+ * picked the first. So the list here is exactly {@link toolGhost}'s `null` cases, which is why the
+ * class is no longer named for text. Keep the two in step: a tool with no ghost and no pointer is
+ * armed invisibly.
  */
-export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-text-entry' | 'cursor-default' {
+export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-place' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
   const kind = state.selectedMarkingTool?.kind
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry') return 'cursor-text-entry'
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur') return 'cursor-place'
   return 'cursor-default'
 }
 

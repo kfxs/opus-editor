@@ -946,6 +946,7 @@ export class PaletteController {
         // tool carrying its own length exists to prevent (see MarkingTool's `fan` member).
         return 0
       case 'tie':          // valueless — there is no armed entry-mode tie to become
+      case 'slur':         // valueless too: a slur is a span between notes, not a property of one
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':
@@ -1239,17 +1240,46 @@ export class PaletteController {
   }
 
   /**
-   * Add a phrasing slur over the current selection (key `s`). Reads the
-   * multi-select set (range) and falls back to the scalar anchor (single note);
-   * the engine resolves endpoints (single→next slot, range→first/last, voice 0).
-   * Create-only and idempotent — removal is select-the-arc + Delete.
+   * The slur key `s` (and the Lines palette's button), routed by context — the same split the tie
+   * key has, and for the same reason:
+   *
+   *  0. The slur STAMP is already armed → disarm it. A re-press of an armed tool turns it off.
+   *  1. Notes are selected → SLUR THEM. Reads the multi-select set (range) and falls back to the
+   *     scalar anchor (single note); the engine resolves endpoints (single→next slot, range→
+   *     first/last, voice 0). Create-only and idempotent — removal is select-the-arc + Delete.
+   *  2. Nothing note-like is selected → ARM THE STAMP, whichever mode we are in. In selection mode
+   *     the press cannot mean "slur this"; in ENTRY mode `selectedNoteId` is the cursor, so an empty
+   *     set means a duration is armed and no note entered yet — the press cannot be about a note
+   *     either. Arming goes through {@link armMarkingTool}, so whatever else was armed is cleared by
+   *     construction (arming IS clearing) and the mode becomes `entry`.
+   *
+   * ⚠️ It is the SET that decides, not the anchor — `selectionHoldsNotes`, the rule the accidental
+   * and articulation stamps use: after note entry, Select/Esc leaves the cursor note in the anchor
+   * with an empty set, and that reads as "nothing selected".
    */
   createSlur(): void {
     const engine = this.getEngine()
     if (!engine) return
+    // (0) A re-press of the armed stamp turns it off — and falls back to selection mode, the
+    // `disarmMarkingTool` half of the split, like every other key-armed stamp.
+    if (armedTool(this.state, 'slur')) {
+      dbg('[Slur] stamp disarmed (re-press)')
+      this.disarmMarkingTool()
+      return
+    }
+    // (1) Something note-like is selected → the press is about it. The scalar anchor counts only in
+    // ENTRY mode, where it IS the cursor note; in selection mode an empty set means empty selection
+    // (the tie key's rule, `pressTie`).
     const ids = selectedNoteIds(this.state.selectedItems.values())
-    const noteIds = ids.length ? ids : (this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
-    if (noteIds.length === 0) return
+    const noteIds = ids.length
+      ? ids
+      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) {
+      // (2) Nothing to slur → the only thing the press can sensibly mean is "I meant the slur tool".
+      dbg('[Slur] nothing selected → arming the slur stamp')
+      this.armMarkingTool({ kind: 'slur' })
+      return
+    }
     const slur = engine.createSlur(noteIds)
     dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
     this.renderScore()

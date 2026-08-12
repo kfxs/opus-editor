@@ -71,6 +71,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // Click-to-type entry: a blue cursor, no ghost. See the header.
     case 'dynamicEntry':
     case 'tempoEntry': return null
+    // The slur stamp, ghostless for its OWN reason: a slur is drawn BETWEEN two notes, and until a
+    // click picks the first there is no pair to preview — an arc at the pointer would have to invent
+    // both ends. Same blue cursor (scoreCursorClass), which is the tool's only indicator.
+    case 'slur': return null
     default: return assertNeverTool(tool)
   }
 }
