@@ -29,19 +29,16 @@ rows, a stamp, `Ctrl+←/→` to resize, Delete to remove.
   `bound-padding` applies at a hairpin's bounds always. The `hairpinNeighbours` machinery the
   conditional needed was deleted.
 
-⏭️ **What is deliberately NOT built** (§10 "Later"): the aperture and slant as user controls (the
-resolver is in place for them), move-the-line, `cresc.`-with-dashes, niente, the playback ramp,
-per-voice lines, and the vocal-above / keyboard-between placements.
+🔎 **The research is done and recorded: four ENGINES at source (§2.4b) and the published
+AUTHORITIES after them (§2.4c).** They back what was built — Gould p. 104 on where a wedge starts
+and ends, a published rule that short hairpins take a smaller opening (which is our angle cap), and
+1.33 sp as the practitioners' aperture. ⛔ Don't redo either survey.
 
-🔎 **The published AUTHORITIES were read too (§2.4c)** — and they back what was built, including
-Gould p. 104 on where a wedge starts and ends, a *published* rule that short hairpins take a smaller
-opening (which is our angle cap), and 1.33 sp as the practitioners' aperture. ⏭️ Two things they
-leave open: our abutting-wedge air (0.5 sp) is narrower than Dorico's notehead-width gap, and Ross
-and Stone could not be obtained. Analysis complete (2026-08-12), then
-**checked against the code** the same day — the amendments from that pass are folded in below,
-marked 🔎 where they corrected or extended what the analysis had written. §11.1 is settled by P1
-(**(c)**); §11.2, .3, .6, .8 and .9 are settled by P2, all as recommended. §11.4, .7 and .10 remain
-open and belong to P3/P4.
+**How to read the rest of this document.** It was written as a plan, then checked against the code,
+then amended by his testing as each phase landed. 🔎 marks every place a later pass corrected or
+extended what the analysis had first written — those marks are the most valuable thing here, because
+each one is a place the reasoning was wrong in a way that looked right. §11's decisions are all
+settled except .10; §13 says what is left.
 
 Two features, deliberately in one document and one order: **the dynamics line first, the hairpin
 second.** The hairpin is the small half. The line is the half that changes something already on
@@ -1045,3 +1042,68 @@ score's dynamics use the same rung machinery flipped. What is missing, and stays
 deliberately, is the **ordering among families** on a side. Do not fold tempo marks into this work;
 do keep the line's module free of the assumption that its side has exactly one rung, so the ladder is
 a generalisation of it rather than a replacement for it.
+
+---
+
+## 13. Where this stands, and what is left
+
+**Parked here deliberately** (his call, 2026-08-12): *"we can leave the hairpin like this for now —
+more things will be added in the future but we don't need to think about it now."* Nothing below is
+blocking; this section exists so none of it has to be re-derived.
+
+### 13.1 Two numbers to settle BY EYE — one line each
+
+Both are constants in `rendering/hairpinShape.ts`, and both are places where our number and a
+reference engine's disagree by a knowable amount:
+
+| what | ours | the comparison |
+|---|---|---|
+| air between two abutting wedges | `END_INSET` 0.25 sp per end → **0.5 sp** total | Dorico leaves a **notehead width** (~1.18 sp) — so ours may be too tight (§2.4c) |
+| stroke | **0.16 sp**, the shared thin-line weight (`thinLineWeight.ts`) | the engravers say **0.125–0.15** for hairpins specifically; Verovio draws 0.1, GUIDO 0.08 |
+
+⭐ The aperture (**1.33 sp**) is NOT in this table any more: §2.4c settled it. LilyPond agrees and the
+notat.io engravers arrived at it independently (1.5 *too wide*, 1.25 too narrow, 1.33 *"a more
+natural feel"*).
+
+### 13.2 Paths NOT hand-tested
+
+Everything in the list has unit or browser coverage; what none of it has is his eye. Recorded
+because the automated suites cannot see a bad-looking result, only a changed one:
+
+- a hairpin on the **second staff**, and one in **voice 2**
+- **copy/paste** of a passage containing one (the clip carries it; the enclosure rule is
+  fully-inside-only)
+- a **meter change** over one (the rebar seam re-anchors it and re-mints its id)
+- **undo/redo** of create / resize / flip / delete
+- **PDF export** — the wedge is stroked in the render pass, and print takes a different audience
+  path (it keeps the true 0.16 where the editor hints its barlines)
+
+### 13.3 The one open decision
+
+**§11.10, the suppressed-mark skyline.** A wedge stops short of the letter it runs into by reading
+that letter's DRAWN ink — and a mark being text-edited is not drawn, so the wedge grows by about a
+glyph's width while you type into it and snaps back when you finish. Small and self-correcting. The
+fix is the recommended one: keep the mark's last registered bbox, which needs the previous render's
+snapshot threaded into the pass.
+
+### 13.4 Deferred, with what is now known about each
+
+- **The aperture and the slant as user controls** — the resolver (`resolveHairpinShape`) exists
+  precisely so this is a compartment client plus a drag, with no geometry rewritten (§6). Two
+  endpoint deltas, never an `angle` field.
+- **Move the line** per system / per staff — the key shape is `staffSystemSpacingKey`'s (§6). ⛔ Its
+  score-wide flavour stays BLOCKED by DESIGN-PRINCIPLES' open boundary case, not by this plan.
+- **`cresc.` / `dim.` as dashed text** (§11.7) — and §2.4c now gives the rule for WHEN: wedges for no
+  more than a couple of bars, text beyond, *"because an extended hairpin is almost, but not quite,
+  parallel to the staff lines."*
+- **Niente** (the circled tip) — Gould p. 108 per MEI's citation.
+- **The playback ramp** (§9) — needs `resolveChordLevels` to return a number rather than an enum;
+  a genuine change to the resolution pass, not a slice on it.
+- **Per-voice lines**, and the **vocal-above / keyboard-between** placements — both are values of the
+  line's existing `(system, staff, placement)` key rather than new machinery (§12).
+
+### 13.5 The research gap that remains
+
+**Ted Ross (1970) and Kurt Stone (1980) were not obtained** — the Internet Archive copies are
+lending-only. Everything else in §2.4b and §2.4c was read. ⛔ Nothing built depends on them: every
+number in the code carries a source.
