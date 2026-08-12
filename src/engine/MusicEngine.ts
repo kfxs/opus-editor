@@ -19,12 +19,12 @@ import { getStaves, staffIdAtIndex, staffSlots } from './models/staffContent'
 import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
-import { quantizeBeat } from '@/utils/durations'
+import { quantizeBeat, slotLength } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, TempoMark, Slur, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -716,6 +716,136 @@ export class MusicEngine {
   /** Find a dynamic anywhere in the score by id (live reference), or null. */
   getDynamicById(id: string): Dynamic | null {
     return this.scoreModel.getDynamicById(id)
+  }
+
+  // ==================== Hairpin operations ====================
+  //
+  // One-line delegations. Everything a hairpin IS lives in `engine/models/hairpinOps`; what these
+  // add is the editor's own concern and nothing else: an undo entry per edit.
+
+  /**
+   * Add a hairpin starting at (measure, `hairpin.beat`) and covering `hairpin.length` of music.
+   * `beat` must be a slot-boundary beat. Saves undo state when added.
+   * @returns the stored Hairpin, or null if the measure is missing or the length is not positive.
+   */
+  addHairpin(measureNumber: number, hairpin: Omit<Hairpin, 'id'>): Hairpin | null {
+    const created = this.scoreModel.addHairpin(measureNumber, hairpin)
+    if (created) {
+      this.commit(`Add ${created.type === 'cresc' ? 'crescendo' : 'diminuendo'} at measure ${measureNumber}`)
+    }
+    return created
+  }
+
+  /**
+   * ⭐ **Create a hairpin over the notes the user meant** — the `H` / `Shift+H` key, the Lines
+   * palette rows and the armed stamp's click all arrive here, so a wedge made one way is the wedge
+   * the other two would have made.
+   *
+   * The note resolution is `createSlur`'s: a hairpin lives in ONE voice on ONE staff, taken from
+   * the first resolved note, and notes in other lanes are dropped rather than silently widening the
+   * span.
+   *
+   * ⭐⭐ **THE WEDGE COVERS EXACTLY THE MUSIC SELECTED — never a note more.** From the first
+   * selected note's onset to the END of the last selected one, so with ONE note it covers that note
+   * and stops where the next begins. His report on seeing the first build, 2026-08-12: selecting a
+   * whole-note E and pressing `H` drew a wedge running to the far edge of the F after it —
+   * *"what is expected for me is that it end when the F starts"*. He is right, and it is what a
+   * hairpin MEANS: the wedge is the approach, and the note you arrive on is where the new level is
+   * reached, not part of the climb.
+   *
+   * ⛔ This deliberately drops the plan's §11.4 sketch ("this note → the end of the NEXT slot").
+   * That was reasoned from minimum-length — a wedge over one quarter is short — but the fix for a
+   * short wedge is the angle cap (`rendering/hairpinShape.ts`), not silently covering music the
+   * user did not select. `Ctrl+→` is how a wedge grows, and it is the only thing that should.
+   *
+   * ⛔ **A REST cannot anchor one.** A hairpin says the sounding music is getting louder; the engine
+   * resolves by slot and would happily span from silence, so the refusal is here.
+   *
+   * Idempotent (`addHairpinOverNotes` returns an identical existing wedge). Saves undo state.
+   * @returns the stored Hairpin, or null when there is no usable span.
+   */
+  createHairpin(noteIds: string[], type: Hairpin['type']): Hairpin | null {
+    const resolved = noteIds
+      .map(id => this.scoreModel.getNote(id))
+      .filter((n): n is Note => !!n && !n.isRest)
+    if (resolved.length === 0) return null
+
+    const voice = voiceOf(resolved[0])
+    const staff = staffOf(resolved[0])
+    const selected = resolved
+      .filter(n => voiceOf(n) === voice && staffOf(n) === staff)
+      .sort((a, b) => this.compareForSpan(a, b))
+    if (selected.length === 0) return null
+
+    const startNote = selected[0]
+    // The LAST SELECTED note, even when that is the only one — the span is the selection's, and
+    // `addHairpinOverNotes` adds that note's own length so the wedge ends where the next begins.
+    const endNote = selected[selected.length - 1]
+
+    const created = this.scoreModel.addHairpinOverNotes(
+      type,
+      { measure: startNote.measure, beat: startNote.beat },
+      { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
+      { voice, ...(this.staffIdForIndex(staff) !== undefined ? { staffId: this.staffIdForIndex(staff) } : {}) },
+    )
+    if (created) this.saveOnly(`Add ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
+    return created
+  }
+
+  /** Remove a hairpin by id. Saves undo state when removed. @returns true if one was removed. */
+  removeHairpin(id: string): boolean {
+    const removed = this.scoreModel.removeHairpin(id)
+    if (removed) this.commit('Remove hairpin')
+    return removed
+  }
+
+  /** Edit a hairpin by id. Saves undo state when found. @returns the updated Hairpin, or null. */
+  updateHairpin(id: string, updates: Partial<Omit<Hairpin, 'id'>>): Hairpin | null {
+    const updated = this.scoreModel.updateHairpin(id, updates)
+    if (updated) this.commit('Edit hairpin')
+    return updated
+  }
+
+  /**
+   * Set how much music a hairpin covers — the model write behind lengthen/shorten. ⚠️ This is a
+   * CONTENT edit, not an engraving nudge: the same key on a slur endpoint one branch over writes
+   * an override instead (docs/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
+   * @returns true if the hairpin exists and the length is positive.
+   */
+  setHairpinLength(id: string, length: Fraction): boolean {
+    const ok = this.scoreModel.setHairpinLength(id, length)
+    if (ok) this.commit('Change hairpin length')
+    return ok
+  }
+
+  /**
+   * Grow (+1) or shrink (−1) the hairpin by one slot of its own lane — `Ctrl+→` / `Ctrl+←`.
+   * ⚠️ A CONTENT edit: it rewrites `length`, where the same key on a slur endpoint writes an
+   * engraving override (docs/dynamics-line-and-hairpins-plan.md §4). Saves undo state.
+   * @returns true when the wedge changed; false (declining the key) when there is nothing to
+   *   reach, or when shrinking would leave it covering no music.
+   */
+  resizeHairpinBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.resizeHairpinBySlot(id, direction)
+    if (ok) this.commit(direction === 1 ? 'Lengthen hairpin' : 'Shorten hairpin')
+    return ok
+  }
+
+  /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */
+  toggleHairpinType(id: string): 'cresc' | 'dim' | null {
+    const type = this.scoreModel.toggleHairpinType(id)
+    if (type) this.commit(`Change to ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
+    return type
+  }
+
+  /** The hairpins STARTING in a measure, sorted by beat (a wedge may run past the bar's end). */
+  getHairpins(measureNumber: number): Hairpin[] {
+    return this.scoreModel.getHairpins(measureNumber)
+  }
+
+  /** Find a hairpin anywhere in the score by id (live reference), or null. */
+  getHairpinById(id: string): Hairpin | null {
+    return this.scoreModel.getHairpinById(id)
   }
 
   // ==================== Tempo Mark Operations ====================
@@ -3377,6 +3507,11 @@ export class MusicEngine {
    * Get the rendered SVG group (`<g class="vf-slur">`) for a slur, to recolor
    * exactly one slur for the selection highlight (no document-wide bbox scan).
    */
+  /** The `<g class="vf-hairpin">` of one hairpin, for a scoped highlight. */
+  getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
+    return this.renderer.getHairpinSVGGroup(hairpinId)
+  }
+
   getSlurSVGGroup(slurId: string): SVGGElement | null {
     return this.renderer.getSlurSVGGroup(slurId)
   }

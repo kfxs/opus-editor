@@ -21,6 +21,7 @@ import type {
   ChordRest,
   ClefChange,
   Dynamic,
+  Hairpin,
   Tuplet,
 } from '@/types/music'
 
@@ -87,6 +88,7 @@ export interface StaffContentView {
   slots: ChordRest[]
   clefs: ClefChange[]
   dynamics: Dynamic[]
+  hairpins: Hairpin[]
   tuplets: Tuplet[]
 }
 
@@ -110,6 +112,12 @@ export function staffTuplets(measure: Measure, staffId: string | undefined, scor
   return (measure.tuplets ?? []).filter((t) => matchesStaff(t.staffId, staffId, score))
 }
 
+/** One staff's hairpins within a measure — the ones that START here (a wedge may run past the
+ *  bar's end; see {@link Hairpin}). */
+export function staffHairpins(measure: Measure, staffId: string | undefined, score: Score): Hairpin[] {
+  return (measure.hairpins ?? []).filter((h) => matchesStaff(h.staffId, staffId, score))
+}
+
 /**
  * The whole per-staff lane of a measure — slots + clefs + dynamics + tuplets filtered to
  * one staff. This is the primitive the plan (§4) names `staffContent(measure, staffId)`;
@@ -121,6 +129,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
     slots: staffSlots(measure, staffId, score),
     clefs: staffClefs(measure, staffId, score),
     dynamics: staffDynamics(measure, staffId, score),
+    hairpins: staffHairpins(measure, staffId, score),
     tuplets: staffTuplets(measure, staffId, score),
   }
 }
@@ -140,5 +149,12 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
  */
 export function staffMeasureView(measure: Measure, staffId: string | undefined, score: Score): Measure {
   const c = staffContent(measure, staffId, score)
-  return { ...measure, slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, tuplets: c.tuplets }
+  // ⚠️ EVERY per-staff array must be named here. What is not named rides the spread, so a
+  // measure-level list the filters don't know about lands UNFILTERED on every staff's lane —
+  // silently, since nothing imports differently and nothing throws. That is why `hairpins` is
+  // in this list and not merely in `StaffContentView`.
+  return {
+    ...measure,
+    slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, tuplets: c.tuplets,
+  }
 }

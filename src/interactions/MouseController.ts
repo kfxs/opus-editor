@@ -17,6 +17,7 @@ import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
+import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
@@ -1455,6 +1456,7 @@ export class MouseController {
     if (stampFanAtClick(this.state, engine, x, y, () => this.render.renderScore())) return
     // The slur stamp's click lives in its own module too (interactions/slurStamp); this is its turn.
     if (stampSlurAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    if (stampHairpinAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

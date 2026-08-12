@@ -15,6 +15,7 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
  *   - `measureBounds`     → `getMeasureBounds` / `getAllMeasureBounds` (CoordinateMapper, pixel↔position)
  *   - `staveNoteMap`      → `renderPendingTie` (tie preview), `getStaveNoteSVGGroup` (drag/highlight)
  *   - `slurGroupMap`      → `getSlurSVGGroup` (slur drag/highlight)
+ *   - `hairpinGroupMap`   → `getHairpinSVGGroup` (hairpin highlight)
  *   - `tieGroupMap`       → `getTieSVGGroup` (tie highlight)
  *   - `tupletObjectMap`   → `getTupletSVGGroup`
  *   - `dynamicObjectMap`  → `getDynamicSVGGroup`
@@ -69,6 +70,10 @@ export interface RenderPass {
   dynamicObjectMap: Map<string, Annotation>
   /** Slur id → its `<g class="vf-slur">` SVG group, for scoped highlight. */
   slurGroupMap: Map<string, SVGGElement>
+  /** Hairpin id → its `<g class="vf-hairpin">` SVG group, for scoped highlight. Like the slur's,
+   *  one group per hairpin even when the wedge is split across systems — the fragments are drawn
+   *  into the same group, so recolouring it colours the whole wedge. */
+  hairpinGroupMap: Map<string, SVGGElement>
   /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */

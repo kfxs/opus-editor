@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark,
+  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin,
   Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
   LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
@@ -66,6 +66,9 @@ type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; offset?: { x: number; y: number } }
   | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark }
+  // Only the START is captured: `length` is an amount of MUSIC, and a rebar leaves the region's
+  // total music unchanged, so the extent is invariant and only the anchor needs re-finding.
+  | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin }
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -299,6 +302,7 @@ export function pasteEvents(
   const { lanes: clipLanes, spanBeats } = clip
   const clipDynamics = clip.dynamics ?? []
   const clipSlurs = clip.slurs ?? []
+  const clipHairpins = clip.hairpins ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -364,12 +368,17 @@ export function pasteEvents(
   // the paste window ON A DESTINATION (staff, voice) lane is dropped here so the clip's dynamics
   // replace it (rather than stacking). Dynamics outside the window, or on passthrough lanes,
   // survive via the normal restoreBeatAnchors path below.
+  // Hairpins take the same rule, keyed on where the wedge STARTS: a destination hairpin starting
+  // inside the paste window on a destination lane is replaced by the clip's, and one starting
+  // outside it survives even if it runs THROUGH the window — its extent is a count of music, and
+  // the paste does not change how much music the region holds.
   const survivingAnchors = anchors.filter((a) => {
-    if (a.kind !== 'dynamic') return true
+    if (a.kind !== 'dynamic' && a.kind !== 'hairpin') return true
     const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
     if (!inWindow) return true
-    const dv = destByStaff.get(staffIndexOfId(score, a.dyn.staffId))
-    return !dv || !dv.has(voiceOf(a.dyn))
+    const lane = a.kind === 'dynamic' ? a.dyn : a.hairpin
+    const dv = destByStaff.get(staffIndexOfId(score, lane.staffId))
+    return !dv || !dv.has(voiceOf(lane))
   })
 
   const meter = getMeterInfo(ts)
@@ -451,6 +460,25 @@ export function pasteEvents(
       ...(staffId !== undefined ? { staffId } : {}),
     }
     clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn, ...(cd.engravingOffset ? { offset: cd.engravingOffset } : {}) })
+  }
+  // The clip's hairpins ride the identical road — re-based start, rel→abs staff, single-voice
+  // re-voicing — with `length` copied through: it is an amount of music, not an address, so the
+  // paste position cannot change it. (Only fully-enclosed hairpins are ever in the clip, so a
+  // pasted wedge cannot run past the material that came with it.)
+  for (const ch of clipHairpins) {
+    const absStaff = targetStaff + ch.staff
+    if (absStaff < 0 || absStaff >= staffCount) continue // overflow — already warned for its lane
+    const staffId = staffIdAtIndex(score, absStaff)
+    const hairpin: Hairpin = {
+      id: uuidv4(),
+      type: ch.type,
+      beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+      length: ch.length,
+      voice: (singleVoice ? targetVoice : ch.voice) as 0 | 1 | 2 | 3,
+      ...(ch.placement !== undefined ? { placement: ch.placement } : {}),
+      ...(staffId !== undefined ? { staffId } : {}),
+    }
+    clipAnchors.push({ kind: 'hairpin', absBeat: fracAdd(pasteStart, ch.offset), hairpin })
   }
   restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
@@ -635,6 +663,12 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
     for (const t of m.tempos ?? []) {
       out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t })
     }
+    // Hairpins ride the same seam as the dynamics above, for the same reason and with one extra:
+    // clearMeasureForRebar deletes the array, so anything not captured here is gone. The wedge's
+    // `length` travels verbatim (see the CapturedAnchor comment).
+    for (const h of m.hairpins ?? []) {
+      out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h })
+    }
   })
   return out
 }
@@ -674,6 +708,16 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       if (dup !== -1) m.tempos.splice(dup, 1)
       m.tempos.push({ ...a.mark, id: uuidv4(), beat })
       m.tempos.sort((x, y) => fracCompare(x.beat, y.beat))
+    } else if (a.kind === 'hairpin') {
+      // Hairpins take the DYNAMICS rule, not the clef one: they may stack at a beat, so no dedupe.
+      // Only the start moves — `length` is carried through untouched.
+      //
+      // ⚠️ The id is regenerated here, exactly as a dynamic's is. Any override keyed by a hairpin
+      // id must therefore be captured and re-stamped the way the dynamic offset is a few lines
+      // down; nothing writes one today, and the day one does, THIS is the site.
+      if (!m.hairpins) m.hairpins = []
+      m.hairpins.push({ ...a.hairpin, id: uuidv4(), beat })
+      m.hairpins.sort((x, y) => fracCompare(x.beat, y.beat))
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
@@ -1234,6 +1278,13 @@ function clearMeasureForRebar(measure: Measure): void {
   delete measure.clefs // mid-bar clefs anchored to moved beats are dropped (Phase 8 limitation)
   delete measure.dynamics // dynamics share the clef limitation: beat anchors don't survive a rebar
   delete measure.tempos // ditto — re-anchored by absolute offset in restoreBeatAnchors
+  // ⚠️⚠️ AND HAIRPINS, and this line is load-bearing in a way the others are not. A new
+  // measure-level array that is NOT deleted here does not vanish — it SURVIVES the wipe holding
+  // its old beat while the bar's music is re-tiled around it, i.e. a wedge left pointing at music
+  // that moved, with no error and with "it's still there" passing any test that counts them.
+  // Deleting it makes captureBeatAnchors/restoreBeatAnchors the only road back, so a missed
+  // capture is a visible loss instead of a silent lie.
+  delete measure.hairpins
 }
 
 /**

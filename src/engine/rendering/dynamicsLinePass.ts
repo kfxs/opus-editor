@@ -32,7 +32,8 @@
 import type { Stave } from 'vexflow'
 import type { Measure } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
-import { dynamicsLineAt, type DynamicMarkInk } from '@/engine/layout/dynamicsLine'
+import { type DynamicMarkInk } from '@/engine/layout/dynamicsLine'
+import type { DynamicsLinePlan } from './dynamicsLinePlan'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicMarkAnchorShift } from './dynamicMarkAnchor'
@@ -68,7 +69,7 @@ export interface DynamicsLinePlacement {
  * jsdom, so the honest measurement lives in the browser suite. They are also the numbers the tight
  * hit-box is already built from, which is what keeps the box and the line agreeing.
  */
-const MARK_INK: DynamicMarkInk = {
+export const MARK_INK: DynamicMarkInk = {
   above: DYNAMIC_GLYPH_INK_ABOVE / STAFF_SPACE_PX,
   below: DYNAMIC_GLYPH_INK_BELOW / STAFF_SPACE_PX,
 }
@@ -76,8 +77,9 @@ const MARK_INK: DynamicMarkInk = {
 /**
  * Put every drawn dynamic of every system onto its line.
  *
- * `staffIds` is the score's staves in order — `staffIds[0]` is what an absent `staffId` means, both
- * in the ink boxes and in the line's key (`engine/layout/dynamicsLine.ts`).
+ * ⚠️ It takes NO staff ids any more, and that absence is the shape of the change: deciding a
+ * baseline needed them (whose ink is mine?), APPLYING one does not. The whole vertical decision —
+ * the local rule, the per-staff normalisation, the chain levelling — is `./dynamicsLinePlan`'s.
  *
  * Pure no-op without a DOM (the marks have no `<text>` to read a baseline from), like every other
  * pass that repositions rendered SVG.
@@ -85,12 +87,11 @@ const MARK_INK: DynamicMarkInk = {
 export function placeDynamicsOnLine(
   pass: RenderPass,
   placements: readonly DynamicsLinePlacement[],
-  staffIds: readonly (string | undefined)[],
+  plan: DynamicsLinePlan,
 ): void {
   for (const placement of placements) {
     const dynamics = placement.view.dynamics
     if (!dynamics?.length) continue
-    const staffId = staffIds[placement.staffIndex]
 
     /** Marks sharing a beat are laid out as a ROW, and that row owns their x (`dynamicMarkAnchor`). */
     const atBeat = new Map<string, number>()
@@ -112,14 +113,12 @@ export function placeDynamicsOnLine(
         const drawn = parseFloat(text?.getAttribute('y') ?? '')
         if (!el || !Number.isFinite(drawn)) continue
 
-        const baseline = dynamicsLineAt(
-          placement.system.columns,
-          dyn.beat,
-          staffId,
-          staffIds[0],
-          dyn.placement === 'above' ? 'above' : 'below',
-          MARK_INK,
-        )
+        // ⭐ Looked up, never recomputed: a mark's baseline depends on the CHAIN it belongs to —
+        //   the wedge it runs into, the letter at that wedge's far end — which no walk of one
+        //   measure can see. `dynamicsLinePlan` decides it once for the whole render, and this
+        //   pass only moves things (see the header). A mark with no entry is one nothing drew.
+        const baseline = plan.get(dyn.id)
+        if (baseline === undefined) continue
 
         // ⚠️ Both sides are in the STAVE's own coordinates, which is what makes this correct for a
         //    measure that merely MOVED: its stave and its ink both keep the coordinates they were

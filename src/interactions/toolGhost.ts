@@ -75,6 +75,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // click picks the first there is no pair to preview — an arc at the pointer would have to invent
     // both ends. Same blue cursor (scoreCursorClass), which is the tool's only indicator.
     case 'slur': return null
+    // …and the hairpin joins it for exactly that reason: a wedge is drawn BETWEEN two points and the
+    // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
+    // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
+    case 'hairpin': return null
     default: return assertNeverTool(tool)
   }
 }

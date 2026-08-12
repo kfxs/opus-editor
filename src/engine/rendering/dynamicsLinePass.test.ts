@@ -6,7 +6,9 @@ import { fracCreate as frac } from '@/utils/fraction'
 import { plainColumn, type Column } from '@/engine/layout/spacing'
 import type { InkBox } from '@/engine/layout/kerning'
 import type { RenderPass } from './RenderPass'
-import { placeDynamicsOnLine, type DynamicsLinePlacement } from './dynamicsLinePass'
+import type { Score } from '@/types/music'
+import { placeDynamicsOnLine, MARK_INK, type DynamicsLinePlacement } from './dynamicsLinePass'
+import { planDynamicsLines } from './dynamicsLinePlan'
 
 /**
  * THE DYNAMICS LINE PASS — the routing, not the geometry
@@ -57,8 +59,28 @@ function passWith(marks: Map<string, SVGGraphicsElement>, suppressedDynamicId?: 
   } as unknown as RenderPass
 }
 
-const measureWith = (dynamics: Dynamic[]): Measure =>
-  ({ id: 'm', number: 1, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], dynamics } as unknown as Measure)
+const measureWith = (dynamics: Dynamic[], number = 1): Measure =>
+  ({ id: `m${number}`, number, slots: [], timeSignature: { numerator: 4, denominator: 4 }, tuplets: [], dynamics } as unknown as Measure)
+
+/**
+ * Run the pass the way the renderer does — build the render's line PLAN first, then apply it.
+ *
+ * ⚠️ Since the chaining work the baseline arithmetic lives in `dynamicsLinePlan` and this pass only
+ * MOVES things, so a spec about the pass has to go through the plan to be about anything. What that
+ * buys: every assertion below still reads as "columns in, drawn y out", and the two halves are
+ * exercised together, which is the only way they can be checked to agree.
+ */
+function place(
+  pass: RenderPass,
+  placements: DynamicsLinePlacement[],
+  staffIds: (string | undefined)[],
+): void {
+  const numbered = placements.map(p => ({ ...p, measureNumber: p.view.number }))
+  const bars = new Map<number, Measure>()
+  for (const p of numbered) if (!bars.has(p.measureNumber)) bars.set(p.measureNumber, p.view)
+  const score = { measures: [...bars.values()] } as unknown as Score
+  placeDynamicsOnLine(pass, placements, planDynamicsLines(score, numbered, staffIds, MARK_INK))
+}
 
 describe('placeDynamicsOnLine', () => {
   it('⭐⭐ two marks drawn at DIFFERENT heights end on one baseline', () => {
@@ -76,7 +98,7 @@ describe('placeDynamicsOnLine', () => {
       scale: 1,
     }
 
-    placeDynamicsOnLine(pass, [placement], [undefined])
+    place(pass, [placement], [undefined])
 
     expect(high.y()).toBe(low.y())
     // Below the staff — the bottom line is at 140 here.
@@ -90,16 +112,16 @@ describe('placeDynamicsOnLine', () => {
       view, line: 0, staffIndex: 0, system: { columns: columnsWith(...ink) }, stave: staveAt(100), scale: 1,
     })
 
-    placeDynamicsOnLine(
+    place(
       passWith(new Map([['a', alone.group]])),
       [bar(measureWith([dynamicAt('a')]), [noteBox(2, 3.2)])],
       [undefined],
     )
-    placeDynamicsOnLine(
+    place(
       passWith(new Map([['a', withNeighbour.group]])),
       [
         bar(measureWith([dynamicAt('a')]), [noteBox(2, 3.2)]),
-        bar(measureWith([]), [noteBox(8, 9.2)]), // bar 2 dives below the staff; it holds no mark
+        bar(measureWith([], 2), [noteBox(8, 9.2)]), // bar 2 dives below the staff; it holds no mark
       ],
       [undefined],
     )
@@ -117,7 +139,7 @@ describe('placeDynamicsOnLine', () => {
       { ...plainColumn(frac(2, 1), frac(2, 1)), ink: [noteBox(8, 9.2)] },
     ]
 
-    placeDynamicsOnLine(pass, [{
+    place(pass, [{
       view: measureWith([dynamicAt('a'), { ...dynamicAt('b'), beat: frac(2, 1) }]),
       line: 0, staffIndex: 0, system: { columns }, stave: staveAt(100), scale: 1,
     }], [undefined])
@@ -130,9 +152,9 @@ describe('placeDynamicsOnLine', () => {
     const second = drawnMark(350)
     const pass = passWith(new Map([['a', first.group], ['b', second.group]]))
 
-    placeDynamicsOnLine(pass, [
+    place(pass, [
       { view: measureWith([dynamicAt('a')]), line: 0, staffIndex: 0, system: { columns: columnsWith(noteBox(2, 3.2)) }, stave: staveAt(100), scale: 1 },
-      { view: measureWith([dynamicAt('b')]), line: 1, staffIndex: 0, system: { columns: columnsWith(noteBox(8, 9.2)) }, stave: staveAt(300), scale: 1 },
+      { view: measureWith([dynamicAt('b')], 2), line: 1, staffIndex: 0, system: { columns: columnsWith(noteBox(8, 9.2)) }, stave: staveAt(300), scale: 1 },
     ], [undefined])
 
     // Relative to each system's own top line, the second sits lower — it is clearing more ink.
@@ -143,7 +165,7 @@ describe('placeDynamicsOnLine', () => {
     const edited = drawnMark(150)
     const pass = passWith(new Map([['a', edited.group]]), 'a')
 
-    placeDynamicsOnLine(pass, [{
+    place(pass, [{
       view: measureWith([dynamicAt('a')]),
       line: 0, staffIndex: 0, system: { columns: columnsWith(noteBox(2, 3.2)) }, stave: staveAt(100), scale: 1,
     }], [undefined])
@@ -156,7 +178,7 @@ describe('placeDynamicsOnLine', () => {
     const below = drawnMark(150)
     const pass = passWith(new Map([['a', above.group], ['b', below.group]]))
 
-    placeDynamicsOnLine(pass, [{
+    place(pass, [{
       view: measureWith([dynamicAt('a', 'above'), dynamicAt('b')]),
       line: 0, staffIndex: 0, system: { columns: columnsWith(noteBox(2, 3.2)) }, stave: staveAt(100), scale: 1,
     }], [undefined])
@@ -174,7 +196,7 @@ describe('placeDynamicsOnLine', () => {
     // convention), the lower staff's carry its id.
     const columns = columnsWith(noteBox(2, 3.2), noteBox(8, 9.2, 'lower'))
 
-    placeDynamicsOnLine(pass, [
+    place(pass, [
       { view: measureWith([dynamicAt('a')]), line: 0, staffIndex: 0, system: { columns }, stave: staveAt(100), scale: 1 },
       { view: measureWith([dynamicAt('b')]), line: 0, staffIndex: 1, system: { columns }, stave: staveAt(300), scale: 1 },
     ], ['upper', 'lower'])

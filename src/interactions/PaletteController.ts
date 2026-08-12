@@ -947,6 +947,7 @@ export class PaletteController {
         return 0
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'slur':         // valueless too: a slur is a span between notes, not a property of one
+      case 'hairpin':      // a span as well — and its length is the MUSIC's, never the armed one
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':
@@ -1282,6 +1283,64 @@ export class PaletteController {
     }
     const slur = engine.createSlur(noteIds)
     dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
+    this.renderScore()
+  }
+
+  /** `H` / the Lines palette's *Cresc.* row — see {@link createHairpin}. */
+  createCrescendo(): void {
+    this.createHairpin('cresc')
+  }
+
+  /** `Shift+H` / the Lines palette's *Dim.* row — see {@link createHairpin}. */
+  createDiminuendo(): void {
+    this.createHairpin('dim')
+  }
+
+  /**
+   * One hairpin-key press, routed by context — `createSlur`'s split exactly, which is Sibelius's
+   * gesture (`H` = cresc., `Shift+H` = dim. over the selection):
+   *  0. THIS wedge's stamp is already armed → disarm it (a re-press toggles the tool off).
+   *  1. Notes selected → create the wedge over them.
+   *  2. Nothing selected → arm the stamp; a click then places one.
+   *
+   * ⭐ **Two public methods over one private, not one method with a flag.** Each key and each
+   * palette row is then a single call with no argument to get wrong, and — the part that matters —
+   * pressing `H` while the DIM stamp is armed must ARM THE CRESC one rather than disarm, which is
+   * what step 0's `tool.type === type` test buys and a shared `kind === 'hairpin'` test would lose.
+   */
+  private createHairpin(type: 'cresc' | 'dim'): void {
+    // ⚠️ The engine is fetched in the CREATE branch, not here: arming and disarming are decisions
+    // about the editor's own state and touch no score, so guarding on an engine up front would
+    // make the tool unarmable in any context that has none — and would say, wrongly, that these
+    // branches depend on one.
+    const name = type === 'cresc' ? 'Cresc' : 'Dim'
+
+    const armed = this.state.selectedMarkingTool
+    // (0) A re-press of THIS wedge's stamp turns it off. The OTHER wedge's falls through to (2),
+    // where `armMarkingTool` replaces it — pressing Shift+H with cresc. armed switches tools.
+    if (armed?.kind === 'hairpin' && armed.type === type) {
+      dbg(`[${name}] stamp disarmed (re-press)`)
+      this.disarmMarkingTool()
+      return
+    }
+
+    // (1) Something note-like is selected → the press is about it. The scalar anchor counts only in
+    // ENTRY mode, where it IS the cursor note (the tie/slur rule).
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length
+      ? ids
+      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) {
+      // (2) Nothing to cover → the press can only mean "I meant the hairpin tool".
+      dbg(`[${name}] nothing selected → arming the ${type} stamp`)
+      this.armMarkingTool({ kind: 'hairpin', type })
+      return
+    }
+
+    const engine = this.getEngine()
+    if (!engine) return
+    const hairpin = engine.createHairpin(noteIds, type)
+    dbg(`[${name}] createHairpin on ${noteIds.length} note(s) → ${hairpin ? hairpin.id : 'no valid span'}`)
     this.renderScore()
   }
 

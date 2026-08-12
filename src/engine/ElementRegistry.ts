@@ -54,6 +54,14 @@ export type ElementType =
   | 'slur-handle'
   | 'slur-endpoint'
   | 'slur-segment-endpoint'
+  /**
+   * A HAIRPIN wedge. ⚠️ ONE ENTRY PER DRAWN FRAGMENT — a wedge split across a system break
+   * registers twice (or more), each carrying the same hairpin id, because each piece is separately
+   * clickable and the id is what a hit resolves to. `points` are its outline, walked by
+   * `interactions/elements/hairpin.ts`; the bbox alone would be a wide flat band under every note
+   * the wedge spans.
+   */
+  | 'hairpin'
   | 'accidental'
   | 'dot'
   | 'tuplet'

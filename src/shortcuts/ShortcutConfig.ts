@@ -109,6 +109,20 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Add a phrasing slur over the selection',
   },
 
+  // Hairpins — Sibelius's keys (`H` = cresc., `Shift+H` = dim.), and both were free: `Ctrl+Shift+h`
+  // (rest hide/show) is the ONLY other `h` binding in this file, and `h` sits just outside the
+  // a–g note-entry block. ⚠️ Lowercase in the key on purpose — the manager lowercases single keys,
+  // which is why the rest-hide entry is spelled `Ctrl+Shift+h` too. Create-only, like the slur:
+  // removal is select-the-wedge + Delete.
+  'h': {
+    action: 'createCrescendo',
+    description: 'Add a crescendo over the selection (or arm the crescendo stamp)',
+  },
+  'Shift+h': {
+    action: 'createDiminuendo',
+    description: 'Add a diminuendo over the selection (or arm the diminuendo stamp)',
+  },
+
   // Selection navigation
   'ArrowRight': {
     action: 'selectNextNote',

@@ -520,6 +520,50 @@ export interface Dynamic {
 }
 
 /**
+ * A HAIRPIN — the crescendo (open) or diminuendo (close) wedge. A member of the dynamics
+ * family: it lives on the same line as the letters and the expression words, and it rides the
+ * measure spine exactly as a {@link Dynamic} does. See docs/dynamics-line-and-hairpins-plan.md.
+ *
+ * ⭐ **It is addressed POSITIONALLY — a start plus an AMOUNT OF MUSIC — never by note identity.**
+ * That is what every standard does (MusicXML pairs a wedge with a separate stop, MEI uses a
+ * relative `@tstamp2`, MuseScore and Dorico both store tick/position + duration), and here it is
+ * load-bearing rather than a fidelity point: a re-bar re-mints every slot id, which is why
+ * `repairDanglingSlurs` has to exist. A slur severed by a re-bar is tolerable; a dynamic-family
+ * mark severed by one is not. Stored this way it simply travels with its measure, and the only
+ * thing that needs re-anchoring is the START — {@link length} is invariant under a re-bar,
+ * because the region's total music is unchanged.
+ *
+ * ⭐ **Nothing here names another bar.** No end-measure number to renumber on insert, no measure
+ * id to dangle on delete. The honest cost of that: deleting a bar *inside* the span does NOT
+ * shorten the count, so the end lands on different music (clamped to the score's end when it
+ * runs past it) — the same clamp `restoreBeatAnchors` already applies to an over-running offset.
+ *
+ * ⛔ **No `y`, no aperture, no angle, no stored break point.** How the wedge LOOKS is derived from
+ * the render (the dynamics line, the columns it spans) or authored into the engraving-overrides
+ * compartment keyed by this id — never a field here (DESIGN-PRINCIPLES §3; the resolved `Slur.cps`
+ * boundary case). The mouth's opening angle in particular is *derived* from the aperture and the
+ * length in every engine, so there is nothing to store even when it becomes a user control.
+ */
+export interface Hairpin {
+  /** Unique identifier. ⚠️ NOT stable across a re-bar — `rebarOps` re-creates the hairpin with a
+   *  fresh id at the re-anchored position, exactly as it does for a {@link Dynamic}. */
+  id: string
+  /** Which wedge: 'cresc' opens to the right, 'dim' closes to the right. */
+  type: 'cresc' | 'dim'
+  /** Start beat within the owning measure (lands on a slot boundary, like clefs/dynamics). */
+  beat: Fraction
+  /** How much music the wedge covers, in quarter-note beats — the same unit as {@link beat}.
+   *  Always > 0. The drawn pixel length is derived from this every render, never stored. */
+  length: Fraction
+  /** Governed voice/stream; default 0. See {@link Note.voice}. */
+  voice?: 0 | 1 | 2 | 3
+  /** Vertical placement relative to the staff; default 'below' (as {@link Dynamic}). */
+  placement?: 'above' | 'below'
+  /** Staff this hairpin belongs to (a {@link StaffInfo} id); absent = staff 0. */
+  staffId?: string
+}
+
+/**
  * A tempo mark: a verbal indication ('Allegro'), a metronome mark (♩ = 120), or both
  * ('Allegro (♩ = 120)'). ONE object — not three types.
  *
@@ -1417,6 +1461,14 @@ export interface Measure {
    * Resolution helpers live in utils/tempoMap (buildTempoMap, effectiveTempoAt).
    */
   tempos?: TempoMark[]
+  /**
+   * Hairpins (crescendo / diminuendo wedges) STARTING in this measure, sorted ascending by
+   * beat. A hairpin is stored on the bar its start lands in and carries its own extent
+   * ({@link Hairpin.length}), so it may run past this bar's end. Multiple hairpins may share a
+   * (beat, voice) — nothing is replaced. Optional/absent = none.
+   * See docs/dynamics-line-and-hairpins-plan.md §5; ops in `engine/models/hairpinOps`.
+   */
+  hairpins?: Hairpin[]
   /** Tuplets in this measure */
   tuplets: Tuplet[]
 }

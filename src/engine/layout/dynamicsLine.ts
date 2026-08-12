@@ -208,6 +208,38 @@ export function columnsUnder(columns: readonly Column[], beat: Fraction): Column
 }
 
 /**
+ * ⭐ **The columns a SPANNER covers** — the wider slice the module note promises, and the hairpin's
+ * answer to {@link columnsUnder}.
+ *
+ * Every column in `[from, to)` — half-open, because a wedge covering "two beats from beat 1" reaches
+ * to beat 3 without standing over whatever begins there. A hairpin ending at a bar's barline hands
+ * in that bar's capacity as `to` and so takes every column of it, which is what the eye expects.
+ *
+ * ⚠️ It takes ONE measure's columns, because that is the unit they come in — a wedge crossing bars
+ * asks each bar for its own and the caller merges the bands. Merging is the caller's job on purpose:
+ * a wedge split over a system break has one band per SEGMENT, not one for the whole span, or a low
+ * note on the second system would push the first system's fragment down.
+ */
+export function columnsBetween(columns: readonly Column[], from: Fraction, to: Fraction): Column[] {
+  return columns.filter(c => fracCompare(c.beat, from) >= 0 && fracCompare(c.beat, to) < 0)
+}
+
+/**
+ * The widest band of two — either may be `null` (a staff with no ink over that slice), and two
+ * `null`s stay `null` so {@link dynamicsLineBaseline}'s floor still answers.
+ *
+ * ⭐ Exists because a hairpin's band is the union over the bars it crosses, and "the lowest ink
+ * anywhere under this wedge" has to be ONE number: the wedge is a straight line, so a dip under its
+ * middle has to move the whole segment or the line would cross the notes it spans. That is not the
+ * system-wide rule the local one replaced — the scope is still exactly what the mark covers.
+ */
+export function mergeInkBands(a: InkBand | null, b: InkBand | null): InkBand | null {
+  if (!a) return b
+  if (!b) return a
+  return { top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom) }
+}
+
+/**
  * The line for ONE mark: the rule, over the ink under it.
  *
  * The whole of the local rule in one call — and it is why every mark over ordinary music comes out

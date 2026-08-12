@@ -1,4 +1,5 @@
 import { STAFF_SPACE_PX } from '../models/staffSize'
+import { THIN_LINE_SPACES } from './thinLineWeight'
 
 /**
  * **How thick a barline is inked** — the one engraving rule VexFlow gives no seam for.
@@ -25,7 +26,7 @@ import { STAFF_SPACE_PX } from '../models/staffSize'
  * already tried and reverted: it ruins the staff-line spacing, and it would move the barline off
  * the bar boundary the spacing model puts it on.
  */
-export const THIN_BARLINE_SPACES = 0.16
+export const THIN_BARLINE_SPACES = THIN_LINE_SPACES
 
 /** The thin barline in px at staff size 1. A bar's `<g>` carries the staff's scale, so a rect
  *  written in this unit inside that group is already proportional to its staff. */

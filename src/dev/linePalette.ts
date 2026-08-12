@@ -43,4 +43,26 @@ export const LINE_TOOLS: readonly LineTool[] = [
     isArmed: (state) => armedTool(state, 'slur') !== null,
     press: (palette) => palette.createSlur(),
   },
+  {
+    label: 'Cresc.',
+    title: 'Crescendo hairpin (key `H`). With notes selected it opens a wedge over them; with '
+      + 'nothing selected it ARMS the crescendo stamp — the blue pointer — and a click on a note '
+      + 'places one running through the next slot. Press again to disarm. Select a wedge and '
+      + 'Ctrl+←/→ to shorten/lengthen it, Delete to remove it.',
+    isEnabled: () => true,
+    isArmed: (state) => state.selectedMarkingTool?.kind === 'hairpin'
+      && state.selectedMarkingTool.type === 'cresc',
+    press: (palette) => palette.createCrescendo(),
+  },
+  {
+    label: 'Dim.',
+    title: 'Diminuendo hairpin (key `Shift+H`). The crescendo row\'s mirror in every respect — '
+      + 'selection creates, nothing selected arms the stamp, Ctrl+←/→ resizes, Delete removes.',
+    isEnabled: () => true,
+    // ⚠️ Two rows, two independent lights — which is why the tool carries its TYPE. A single
+    // `armedTool(state, 'hairpin')` here would light both buttons whichever one was armed.
+    isArmed: (state) => state.selectedMarkingTool?.kind === 'hairpin'
+      && state.selectedMarkingTool.type === 'dim',
+    press: (palette) => palette.createDiminuendo(),
+  },
 ]

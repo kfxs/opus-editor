@@ -103,6 +103,35 @@ export interface ClipDynamic {
   engravingOffset?: { x: number; y: number }
 }
 
+/**
+ * A hairpin inside the clip window, re-anchored on paste. Staff is a RELATIVE index
+ * (0 = topmost copied staff), like {@link ClipLane.staff}; `offset` is relative to the clip start
+ * (quarter beats) and `length` travels verbatim, since it is an amount of music and not an address.
+ *
+ * ⭐ Carried at all because DESIGN-PRINCIPLES §2 requires it: a hairpin is part of a passage, so
+ * copying four bars and pasting them WITHOUT their hairpins would be a feature operating on
+ * bar-anchored data while conceptually operating on a run of music — the forbidden clause, word for
+ * word. Dynamics are here for the same reason ({@link ClipDynamic}).
+ *
+ * Only hairpins lying FULLY inside the window travel — both the start AND the end, matching the
+ * fully-enclosed-only rule the dynamics and slurs already follow. So copying the *middle* of a long
+ * crescendo leaves the wedge behind rather than silently truncating it to the selection: a clip
+ * says what it holds, and half a wedge would claim a shape the music never had.
+ */
+export interface ClipHairpin {
+  /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
+  staff: number
+  /** Governed voice (0-based). */
+  voice: number
+  /** Start offset from the clip start (same basis as {@link ClipLane.events}). */
+  offset: Fraction
+  /** How much music the wedge covers, in quarter beats — position-independent, so it is copied
+   *  through unchanged. */
+  length: Fraction
+  type: 'cresc' | 'dim'
+  placement?: 'above' | 'below'
+}
+
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
 export interface ClipSlurPitch { step: string; alter: number; octave: number }
 
@@ -135,6 +164,8 @@ export interface Clip {
   dynamics?: ClipDynamic[]
   /** Slurs fully inside the clip window, re-anchored on paste. Absent/empty = none. */
   slurs?: ClipSlur[]
+  /** Hairpins fully inside the clip window (start AND end), re-anchored on paste. Absent/empty = none. */
+  hairpins?: ClipHairpin[]
   /**
    * User-authored horizontal spaces (client #10) whose column falls inside the clip window,
    * offsets relative to the clip start (same basis as {@link ClipLane.events}).

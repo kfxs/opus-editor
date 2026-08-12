@@ -14,13 +14,13 @@
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 12 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 13 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 14 entries, total over the union, so a fifteenth kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 15 entries, total over the union, so a sixteenth kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -47,6 +47,7 @@ import { TEMPO_ELEMENT } from './tempo'
 import { DYNAMIC_ELEMENT } from './dynamic'
 import { TIE_ELEMENT } from './tie'
 import { SLUR_ELEMENT } from './slur'
+import { HAIRPIN_ELEMENT } from './hairpin'
 import { ACCIDENTAL_ELEMENT } from './accidental'
 import { ARTICULATION_ELEMENT } from './articulation'
 import { DOT_ELEMENT } from './dot'
@@ -149,6 +150,11 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   DYNAMIC_ELEMENT,
   TIE_ELEMENT,
   SLUR_ELEMENT,
+  // The hairpin immediately after the slur: both are spanners hit-tested by proximity to their own
+  // ink, and where they overlap (a slur below the staff over a wedge) the ARC wins — it is the
+  // thinner target and the one drawn closer to the notes, so a press that could be either was
+  // almost certainly aimed at it.
+  HAIRPIN_ELEMENT,
   ACCIDENTAL_ELEMENT,
   ARTICULATION_ELEMENT,
   // Dots last of the sub-elements: they sit right beside the notehead, so a dot must never win a
@@ -170,7 +176,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A fifteenth kind is a
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A sixteenth kind is a
  * compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
@@ -185,6 +191,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   dynamic: DYNAMIC_ELEMENT,
   tie: TIE_ELEMENT,
   slur: SLUR_ELEMENT,
+  hairpin: HAIRPIN_ELEMENT,
   accidental: ACCIDENTAL_ELEMENT,
   articulation: ARTICULATION_ELEMENT,
   dot: DOT_ELEMENT,

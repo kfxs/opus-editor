@@ -1080,6 +1080,34 @@ export class HighlightController {
     this.addNode(svg, line)
   }
 
+  /**
+   * Paint the selected hairpin in the voice's colour, inside its OWN `<g class="vf-hairpin">` group.
+   *
+   * ⭐ Simpler than the slur's twin above in exactly two ways, both of them real rather than
+   * accidental. There is no multi-select branch: a Shift-click box pulls dynamics and slurs into
+   * `selectedItems`, and a hairpin is not among them yet — when it is, this grows the same loop.
+   * And there are no HANDLES: a slur's endpoints are draggable because its shape is cosmetic, while
+   * a hairpin's extent is musical and moves with `Ctrl+←/→` on the model
+   * (docs/dynamics-line-and-hairpins-plan.md §4).
+   */
+  applyHairpinSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const id = selectedOf(this.state, 'hairpin')?.id
+    if (!engine || !id) return
+    const group = engine.getHairpinSVGGroup(id)
+    if (!group) return
+
+    const hairpin = engine.getHairpinById(id)
+    const SELECTION_COLOR = voiceFillColor(hairpin?.voice ?? 0)
+    // The wedge is STROKED, never filled (two open polylines — see `HairpinRenderer`), so unlike the
+    // slur only the stroke needs overriding. Setting `fill` as well would paint the triangle the
+    // two arms enclose, which is not ink the score has.
+    group.querySelectorAll('path').forEach(el => {
+      this.setAttr(el, 'stroke', SELECTION_COLOR)
+      this.setStyleProp(el, 'stroke', SELECTION_COLOR)
+    })
+  }
+
   applySlurSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

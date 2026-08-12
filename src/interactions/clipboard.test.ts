@@ -321,6 +321,64 @@ describe('clipboard — multi-staff copy/paste', () => {
   })
 })
 
+describe('clipboard — hairpins travel', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** A measure's hairpins as `type@beat+length`. */
+  const hairpinsOf = (m: number) =>
+    engine.getHairpins(m).map(h => `${h.type}@${fracToNumber(h.beat)}+${fracToNumber(h.length)}`)
+
+  /** Four quarters in bar 1, returned as their note ids. */
+  const fourNotes = () => [0, 1, 2, 3].map(b =>
+    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+
+  it('copies a hairpin under the selection and re-bases it on paste', () => {
+    const ids = fourNotes()
+    engine.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.hairpins).toHaveLength(1)
+    expect(payload.hairpins[0]).toMatchObject({ staff: 0, voice: 0, type: 'cresc' })
+    expect(fracToNumber(payload.hairpins[0].offset)).toBe(1)
+    expect(fracToNumber(payload.hairpins[0].length)).toBe(2)
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(hairpinsOf(2)).toEqual(['cresc@1+2'])
+  })
+
+  it('leaves a hairpin STRADDLING the window behind rather than truncating it', () => {
+    // Copy only C@0 + D@1 → window [0,2). The wedge starts inside it but runs to beat 3.
+    const ids = fourNotes().slice(0, 2)
+    engine.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    // Half a wedge is not a wedge: dropping matches the dynamics/slurs rule, and a truncated
+    // copy would claim a shape the copied music never had.
+    expect(payload.hairpins).toHaveLength(0)
+  })
+
+  it('counts a wedge ending exactly on the window edge as enclosed', () => {
+    // Window [0,2); wedge [0,2] — its end lands on the first beat NOT copied, which is where
+    // the copied music stops sounding, so it fits. (A dynamic AT beat 2 would not.)
+    const ids = fourNotes().slice(0, 2)
+    engine.addHairpin(1, { type: 'dim', beat: frac(0, 1), length: frac(2, 1), voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.hairpins).toHaveLength(1)
+  })
+
+  it('overwrites a destination hairpin starting in the paste window', () => {
+    const ids = fourNotes()
+    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
+    engine.addHairpin(2, { type: 'dim', beat: frac(0, 1), length: frac(1, 1), voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(hairpinsOf(2)).toEqual(['cresc@0+1']) // the clip's, not both
+  })
+})
+
 describe('clipboard — dynamics travel (Phase 2)', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })

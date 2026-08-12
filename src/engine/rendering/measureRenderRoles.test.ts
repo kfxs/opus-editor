@@ -60,6 +60,7 @@ const PERTURB: Record<keyof Measure, (m: Measure) => void> = {
   clefs: m => { m.clefs = [{ id: 'c1', beat: frac(2, 1), clef: 'bass' }] },
   dynamics: m => { m.dynamics = [{ id: 'd1', beat: frac(0, 1), level: 'f', voice: 0 }] as never },
   tempos: m => { m.tempos = [{ id: 't1', beat: frac(0, 1), text: 'Allegro' }] as never },
+  hairpins: m => { m.hairpins = [{ id: 'h1', type: 'cresc', beat: frac(0, 1), length: frac(2, 1) }] },
   tuplets: m => { m.tuplets = [{ id: 'tp1', numNotes: 3, notesOccupied: 2 }] as never },
 }
 

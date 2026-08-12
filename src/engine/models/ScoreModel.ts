@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -36,6 +36,7 @@ import * as clefOps from './clefOps'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
+import * as hairpinOps from './hairpinOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
@@ -544,6 +545,67 @@ export class ScoreModel {
       if (dyn) return dyn
     }
     return null
+  }
+
+  // ==================== Hairpin operations ====================
+  //
+  // Thin delegators to `hairpinOps` (the clefOps/slurOps idiom) — the logic is a SCORE
+  // operation and lives in the score layer, reachable with no renderer and no editor.
+  // See docs/dynamics-line-and-hairpins-plan.md §6a, principle 5.
+
+  /** Add a hairpin starting at (measure, beat) covering `length` of music; null if the measure
+   *  does not exist or the length is not positive. See {@link hairpinOps.addHairpin}. */
+  addHairpin(measureNumber: number, hairpin: Omit<Hairpin, 'id'>): Hairpin | null {
+    return hairpinOps.addHairpin(this.score, measureNumber, hairpin)
+  }
+
+  /** Create a hairpin covering `start` through the END of `end` (a note plus its own length).
+   *  Idempotent. See {@link hairpinOps.addHairpinOverNotes}. */
+  addHairpinOverNotes(
+    type: Hairpin['type'],
+    start: { measure: number; beat: Fraction },
+    end: { measure: number; beat: Fraction; length: Fraction },
+    lane?: { voice?: 0 | 1 | 2 | 3; staffId?: string },
+  ): Hairpin | null {
+    return hairpinOps.addHairpinOverNotes(this.score, type, start, end, lane)
+  }
+
+  /** Remove a hairpin by id (and any override keyed to it). @returns true if one was removed. */
+  removeHairpin(id: string): boolean {
+    return hairpinOps.removeHairpin(this.score, id)
+  }
+
+  /** Edit a hairpin by id. @returns the updated Hairpin, or null if missing. */
+  updateHairpin(id: string, updates: Partial<Omit<Hairpin, 'id'>>): Hairpin | null {
+    return hairpinOps.updateHairpin(this.score, id, updates)
+  }
+
+  /** Set how much music a hairpin covers (the model write behind `Ctrl+←/→`, NOT an override —
+   *  see {@link hairpinOps.setHairpinLength}). @returns true if it exists and was updated. */
+  setHairpinLength(id: string, length: Fraction): boolean {
+    return hairpinOps.setHairpinLength(this.score, id, length)
+  }
+
+  /** Grow (+1) or shrink (−1) a hairpin by one slot of its own lane — the model write behind
+   *  `Ctrl+←/→`. See {@link hairpinOps.resizeHairpinBySlot}. */
+  resizeHairpinBySlot(id: string, direction: 1 | -1): boolean {
+    return hairpinOps.resizeHairpinBySlot(this.score, id, direction)
+  }
+
+  /** Flip a hairpin between crescendo and diminuendo. @returns the new type, or null. */
+  toggleHairpinType(id: string): 'cresc' | 'dim' | null {
+    return hairpinOps.toggleHairpinType(this.score, id)
+  }
+
+  /** The hairpins STARTING in a measure, sorted by beat (empty if none or no such measure). */
+  getHairpins(measureNumber: number): Hairpin[] {
+    const measure = this.getMeasure(measureNumber)
+    return measure ? hairpinOps.measureHairpins(measure) : []
+  }
+
+  /** Find a hairpin anywhere in the score by id (live reference), or null. */
+  getHairpinById(id: string): Hairpin | null {
+    return hairpinOps.getHairpinById(this.score, id)
   }
 
   // ==================== Tempo Mark Operations ====================

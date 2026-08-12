@@ -7,8 +7,10 @@ import { plainColumn, type Column } from './spacing'
 import type { InkBox } from './kerning'
 import {
   DYNAMICS_LINE,
+  columnsBetween,
   columnsUnder,
   dynamicsLineAt,
+  mergeInkBands,
   dynamicsLineBaseline,
   staffInkBand,
   type DynamicMarkInk,
@@ -198,5 +200,46 @@ describe('columnsUnder — which ink a mark is measured against', () => {
     const below = dynamicsLineAt(columns, frac(0, 1), lower, upper, 'below', MARK)
     expect(above).toBeCloseTo(4 + DYNAMICS_LINE.MIN_FROM_STAFF + MARK.above, 10)
     expect(below).toBeGreaterThan(above)
+  })
+})
+
+describe('columnsBetween + mergeInkBands — the SPANNER\'s wider slice', () => {
+  /** Four columns, one per quarter of a 4/4 bar. */
+  const bar = (): Column[] => [0, 1, 2, 3].map(b => ({ ...plainColumn(frac(b, 1), frac(1, 1)), ink: [] }))
+
+  it('takes [from, to) — a wedge reaches to its end without standing over what begins there', () => {
+    const taken = columnsBetween(bar(), frac(1, 1), frac(3, 1))
+    expect(taken.map(c => c.beat.num)).toEqual([1, 2])
+  })
+
+  it('takes the whole bar when handed the bar\'s capacity as the end', () => {
+    expect(columnsBetween(bar(), frac(0, 1), frac(4, 1))).toHaveLength(4)
+  })
+
+  it('is empty when the slice contains no column', () => {
+    expect(columnsBetween(bar(), frac(1, 2), frac(3, 4))).toHaveLength(0)
+  })
+
+  it('⭐ a wedge is measured against every column it covers, not just its first', () => {
+    // A dip in the MIDDLE of the span has to move the whole wedge: it is a straight line, so a
+    // band that ignored the middle would draw it through the notes it spans.
+    const columns: Column[] = [
+      { ...plainColumn(frac(0, 1), frac(1, 1)), ink: [box(2, 4)] },
+      { ...plainColumn(frac(1, 1), frac(1, 1)), ink: [box(2, 11)] }, // the dip
+      { ...plainColumn(frac(2, 1), frac(1, 1)), ink: [box(2, 4)] },
+    ]
+    const spanned = columnsBetween(columns, frac(0, 1), frac(3, 1))
+    const band = staffInkBand(spanned, undefined, undefined)
+    expect(band).toEqual({ top: 2, bottom: 11 })
+    // …and the line clears it, rather than sitting at the floor as it would over the first column.
+    const line = dynamicsLineBaseline(band, 'below', MARK)
+    expect(line).toBeCloseTo(11 + DYNAMICS_LINE.PADDING + MARK.above, 5)
+  })
+
+  it('mergeInkBands widens, and survives either side being null', () => {
+    expect(mergeInkBands(null, null)).toBeNull()
+    expect(mergeInkBands({ top: 1, bottom: 5 }, null)).toEqual({ top: 1, bottom: 5 })
+    expect(mergeInkBands(null, { top: 1, bottom: 5 })).toEqual({ top: 1, bottom: 5 })
+    expect(mergeInkBands({ top: 2, bottom: 5 }, { top: -1, bottom: 4 })).toEqual({ top: -1, bottom: 5 })
   })
 })

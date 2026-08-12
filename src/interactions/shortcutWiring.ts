@@ -227,6 +227,35 @@ export function wireShortcuts(
     return true
   }
 
+  /**
+   * ⭐⭐ **Lengthen / shorten the selected hairpin by one SLOT** — Sibelius spells this Space; we
+   * already have the gesture, since `Ctrl+←/→` is one action routed by what is selected.
+   *
+   * ⚠️ **On a hairpin this key writes the MODEL, where one branch over (a slur endpoint, a dynamic)
+   * it writes a cosmetic override.** That is not an inconsistency to tidy away — it is §4's rule:
+   * a hairpin's EXTENT is musical (it says which notes get louder) and its height is not. Letting
+   * this write an offset instead would give us two ways to say "three beats long" that can
+   * disagree, with playback believing the one the eye does not. It follows that `Ctrl+Backspace`
+   * (`resetMove`) does NOT apply to a hairpin: nothing cosmetic was written, so there is nothing to
+   * reset.
+   *
+   * ⭐ **By a SLOT, not by a fixed fraction.** The step is the duration of the note the wedge
+   * currently ends on (growing) or the one it would end on after shrinking — so the end always
+   * lands on a notehead, which is the only place a wedge can honestly stop. A fixed step of, say,
+   * a quarter would leave the end mid-triplet.
+   *
+   * DECLINEs (false) when no hairpin is selected, or when the edit would make the wedge non-positive
+   * — `setHairpinLength` refuses that rather than deleting the thing being shortened.
+   */
+  const resizeSelectedHairpin = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const id = selectedOf(state, 'hairpin')?.id
+    if (!eng || !id) return false
+    if (!eng.resizeHairpinBySlot(id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
   const resetSelectedBarWidth = (): boolean => {
     const eng = getEngine()
     const measure = selectedOf(state, 'barline')?.measure
@@ -483,6 +512,12 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'hairpin':
+            // The wedge only — never the notes it spans, the slur's rule exactly.
+            eng.removeHairpin(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'tuplet':
             eng.deleteTuplet(element.id)
             state.selectedElement = null
@@ -577,6 +612,8 @@ export function wireShortcuts(
     // the same one the panel and the numpad read, so the pad follows whether or not it is open.
     keypadNoteEntryPage: () => keypadPageSelection.set('noteEntry'),
     createSlur: () => palette.createSlur(),
+    createCrescendo: () => palette.createCrescendo(),
+    createDiminuendo: () => palette.createDiminuendo(),
     // Ctrl+Shift+B: keyboard accelerator for the "Add Measure" button — inserts one bar
     // after the Ctrl+Shift-selected measure span (Sibelius's single-bar shortcut). No-op
     // (logged) unless a measure box is selected; PaletteController owns the gating.
@@ -653,11 +690,16 @@ export function wireShortcuts(
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
     //    Left = tighten/narrow, right = widen. DECLINEs (false) when nothing applicable is selected,
     //    keeping the key free. One undo per press.
+    //    ⚠️ A selected HAIRPIN joins this chain, and it is the one branch that writes the MODEL
+    //    rather than an override — see `resizeSelectedHairpin` for why that is the rule and not a
+    //    slip. All the selections remain disjoint, so it is one more branch and no reordering.
     ctrlArrowLeft: () =>
       nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
+      || resizeSelectedHairpin(-1)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
+      || resizeSelectedHairpin(1)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),

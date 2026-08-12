@@ -138,6 +138,17 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
 
+    case 'hairpin':
+      // The whole model object — `beat` + `length` ARE the report, since a hairpin's extent is
+      // musical and there is nothing cosmetic to show beside it (yet: an aperture or slant override
+      // would appear under `overrides`, which is why it is asked for now).
+      out.push({
+        kind: 'hairpin',
+        data: engine.getHairpinById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
     // The four kinds below have no object of their own in the model — an articulation, an
     // accidental, a dot and a tie are PROPERTIES of a note, not entries in a list. Their locator IS
     // the truth, so the locator is what is reported, with the note it hangs on.

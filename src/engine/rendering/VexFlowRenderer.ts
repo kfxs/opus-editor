@@ -29,8 +29,11 @@ import { spellingToMidi, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
+import { renderHairpins } from './HairpinRenderer'
+import { planDynamicsLines } from './dynamicsLinePlan'
+import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
-import { placeDynamicsOnLine } from './dynamicsLinePass'
+import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
 import {
   chooseVoiceMode,
@@ -479,6 +482,7 @@ export class VexFlowRenderer {
   private dynamicObjectMap: Map<string, Annotation> = new Map()
   /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
   private slurGroupMap: Map<string, SVGGElement> = new Map()
+  private hairpinGroupMap: Map<string, SVGGElement> = new Map()
   /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
   private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
@@ -666,6 +670,7 @@ export class VexFlowRenderer {
       tupletObjectMap: this.tupletObjectMap,
       dynamicObjectMap: this.dynamicObjectMap,
       slurGroupMap: this.slurGroupMap,
+      hairpinGroupMap: this.hairpinGroupMap,
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       solvedColumns: this.solvedColumns,
@@ -1551,6 +1556,22 @@ export class VexFlowRenderer {
     // Slurs name their endpoints by note id.
     for (const slur of score.slurs ?? []) {
       add(homeOfPitch.get(slur.startNoteId), homeOfPitch.get(slur.endNoteId))
+    }
+
+    // ⭐ Hairpins. Their ends are POSITIONS, not note ids, so the far bar is derived by walking the
+    // bars' capacities (`hairpinSpan`) rather than looked up in `homeOfPitch` — but what it buys is
+    // exactly what a slur's lookup buys, and the plan flags it as the question `MEASURE_RENDER_ROLE`
+    // cannot ask (a span lives across bars; a per-measure key only ever sees one). Without it, two
+    // silent failures: the endpoint bar is TRANSLATED rather than re-engraved, so `HairpinRenderer`
+    // reads `StaveNote`s still holding last render's coordinates and the wedge draws detached; and
+    // under culling the bar's `<g>` is deleted outright, so the wedge vanishes on scroll.
+    for (const measure of score.measures) {
+      for (const hairpin of measure.hairpins ?? []) {
+        const span = hairpinSpan(score, hairpin.id)
+        if (!span) continue
+        const staffIndex = staffIndexOfId(score, hairpin.staffId)
+        add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
+      }
     }
 
     // Cross-barline beams. Their bars are known directly (the plan resolved them against this
@@ -3621,13 +3642,24 @@ export class VexFlowRenderer {
     // system, so the bar whose line changed is usually not the bar that was edited
     // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
     // same line for a hairpin's ends.
-    placeDynamicsOnLine(pass, placements, staffList.map(staff => staff.id))
+    // ⭐⭐ ONE answer for the whole family, before either pass draws: every letter, word and wedge
+    // fragment gets its own baseline from the local rule and is then LEVELLED WITH WHATEVER IT
+    // TOUCHES (`layout/dynamicsChain.ts`). It cannot be decided inside either pass — what a wedge's
+    // baseline is depends on the mark at its far end, which no walk of one measure can see.
+    const dynamicsPlan = planDynamicsLines(score, placements, staffList.map(staff => staff.id), MARK_INK)
+    placeDynamicsOnLine(pass, placements, dynamicsPlan)
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)
 
     // Render phrasing slurs (top-level spans) after ties, in the same post-measure pass
     renderSlurs(pass, score)
+
+    // ⭐ And the hairpins — after `placeDynamicsOnLine` above, deliberately: a wedge is a member of
+    // the dynamics family, so it asks the same module for the same line, and it reads where the
+    // letters actually landed in order to stop short of them (docs/dynamics-line-and-hairpins-plan.md
+    // P3). Its endpoint bars are span anchors, so their notes are drawn rather than translated.
+    renderHairpins(pass, score, placements, dynamicsPlan)
 
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
@@ -3856,6 +3888,7 @@ export class VexFlowRenderer {
     this.tupletObjectMap.clear()
     this.dynamicObjectMap.clear()
     this.slurGroupMap.clear()
+    this.hairpinGroupMap.clear()
     this.tieGroupMap.clear()
     this.measureGroups.clear()
     // The solve is one render's answer: a bar that is re-laid out gets new columns, and a fan
@@ -3962,6 +3995,10 @@ export class VexFlowRenderer {
 
   /** The rendered SVG group (`<g class="vf-slur">`) for a slur, or null. Scoped
    *  highlight uses this to recolor exactly one slur. Must be called after a render. */
+  getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
+    return this.hairpinGroupMap.get(hairpinId) ?? null
+  }
+
   getSlurSVGGroup(slurId: string): SVGGElement | null {
     return this.slurGroupMap.get(slurId) ?? null
   }

@@ -173,3 +173,93 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     expect(model.getDynamics(1)).toHaveLength(0)
   })
 })
+
+/**
+ * HAIRPINS on the same seam — and the reason this chapter exists at all is that the failure it
+ * guards is not a deletion. `clearMeasureForRebar` wipes a measure by NAMING its arrays, so an
+ * array it does not name survives the wipe holding its old beat while the bar's music is re-tiled
+ * around it: a wedge left pointing at music that moved, with nothing thrown and "it's still there"
+ * passing any test that only counts them. Hence the assertions below check WHERE each hairpin
+ * landed, never just how many there are.
+ */
+describe('rebar preserves beat-anchored annotations (hairpins)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  const only = (measureNumber: number) => model.getMeasure(measureNumber)!.hairpins ?? []
+
+  it('keeps a hairpin in place when its start still fits the new bar', () => {
+    model.addHairpin(2, { type: 'cresc', beat: frac(2, 1), length: frac(1, 1) })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].type).toBe('cresc')
+    expect(fracToNumber(only(2)[0].beat)).toBe(2) // a 3/4 bar still holds beat 2
+  })
+
+  it('moves a hairpin to the next bar when its start overflows the new bar', () => {
+    model.addHairpin(1, { type: 'dim', beat: frac(3, 1), length: frac(2, 1) })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(0)
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].type).toBe('dim')
+    expect(fracToNumber(only(2)[0].beat)).toBe(0)
+  })
+
+  it('carries LENGTH through untouched — the region holds the same music', () => {
+    // An amount of music is invariant under a re-bar; only the START needs re-anchoring.
+    model.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(7, 2) })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const all = model.getScore().measures.flatMap(m => m.hairpins ?? [])
+    expect(all).toHaveLength(1)
+    expect(fracToNumber(all[0].length)).toBe(3.5)
+  })
+
+  it('re-mints the id, exactly as a dynamic’s (nothing may rely on it surviving)', () => {
+    const before = model.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const after = model.getScore().measures.flatMap(m => m.hairpins ?? [])
+    expect(after).toHaveLength(1)
+    expect(after[0].id).not.toBe(before.id)
+  })
+
+  it('lets two hairpins stack on one beat (the dynamics rule, not the clef rule)', () => {
+    model.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(1, 1), voice: 0 })
+    model.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(2, 1), voice: 1 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(2)
+  })
+
+  it('a paste OVERWRITES a hairpin starting inside its window, and spares one outside it', () => {
+    model.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) }) // inside
+    model.addHairpin(2, { type: 'dim', beat: frac(0, 1), length: frac(1, 1) })   // outside
+
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(1)).toHaveLength(0) // replaced by the clip's (which carried none)
+    expect(only(2)).toHaveLength(1) // untouched — same rule the dynamics follow
+    expect(only(2)[0].type).toBe('dim')
+  })
+
+  it('a clip carries its hairpins, re-based to the paste position', () => {
+    model.pasteEvents(
+      {
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        spanBeats: frac(4, 1),
+        hairpins: [{ staff: 0, voice: 0, offset: frac(1, 1), length: frac(2, 1), type: 'cresc' }],
+      },
+      { measure: 2, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].type).toBe('cresc')
+    expect(fracToNumber(only(2)[0].beat)).toBe(1)    // clip offset 1 + paste start 0
+    expect(fracToNumber(only(2)[0].length)).toBe(2)  // an amount of music — copied through
+  })
+})

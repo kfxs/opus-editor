@@ -198,6 +198,11 @@ export function measureShapeKey(
       ? s.fan.members.map(m => (m.pitches[0] ? score.engravingOverrides?.[m.pitches[0].id] ?? null : null))
       : null)),
     view.tempos ?? null,
+    // A hairpin is drawn and weightless, exactly like a dynamic — and this covers only the bar the
+    // wedge STARTS in, which is all a per-measure key can cover. The bar holding the far end is
+    // pulled in by `VexFlowRenderer.spanAnchors` instead: a span's other end is not a fact about
+    // this bar's content, so no key here can ask about it (see measureRenderRoles' header).
+    view.hairpins ?? null,
     view.timeSignatureChange ?? false,
     view.timeSignatureHidden ?? false,
 

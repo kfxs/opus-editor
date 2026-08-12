@@ -93,6 +93,16 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
   /** Drawn, weightless (and system-level, not per-staff). */
   tempos: 'shape',
 
+  /** Drawn, weightless — the `dynamics` row above, as its comment invites. A wedge takes no
+   *  horizontal space (this file's own example of one that does not), so it must never reach the
+   *  width key; but it IS a picture change, so the bar it starts in re-engraves when it changes.
+   *
+   *  ⚠️ 'shape' is the *sufficient* answer, not the whole one: a hairpin SPANS bars, and the bar
+   *  holding the far end is not named by any key here. Both endpoint bars must also be
+   *  `VexFlowRenderer.spanAnchors` — the third question this file's header describes and the one
+   *  the compiler cannot ask. */
+  hairpins: 'shape',
+
   /** Rewrites tick values *before* the formatter runs, and draws a bracket/number. */
   tuplets: 'width',
 }

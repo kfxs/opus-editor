@@ -14,12 +14,12 @@ import type { SelectedElement } from '../EditorState'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [
-  'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'accidental', 'articulation',
-  'dot', 'tremolo', 'stem', 'barline', 'tuplet', 'measureRange',
+  'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'accidental',
+  'articulation', 'dot', 'tremolo', 'stem', 'barline', 'tuplet', 'measureRange',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all fourteen kinds, and nothing else', () => {
+  it('answers for all fifteen kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -28,7 +28,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — a fifteenth cannot be added without deciding', () => {
+  it('every kind says how it paints — a sixteenth cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -41,7 +41,9 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // Then the marks above and below the staff, each guarded against stealing a note press.
       'tempo', 'dynamic',
       // Then the curves, then the sub-elements hanging off a notehead.
-      'tie', 'slur', 'accidental', 'articulation',
+      // The hairpin sits with the slur: both are spanners hit by proximity to their own ink, and
+      // where they overlap the thinner, closer-to-the-notes ARC wins.
+      'tie', 'slur', 'hairpin', 'accidental', 'articulation',
       // Dots after the other sub-elements: they sit right beside the head.
       'dot',
       // The tremolo immediately before the stem it is drawn ON, so it wins only inside its own ink.

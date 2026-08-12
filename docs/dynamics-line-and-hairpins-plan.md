@@ -1,10 +1,47 @@
 # The Dynamics Line, and Hairpins — Plan
 
-Status: **P0 + P1 BUILT** (2026-08-12) — the line exists and every dynamic is on it. Analysis complete
-(2026-08-12), then **checked against the code** the same day — the amendments from that pass are
-folded in below, marked 🔎 where they corrected or extended what the analysis had written. §11.1 is
-settled by the build (**(c)**, as recommended); the rest of §11 is still open and the hairpin (P2–P4)
-waits on it.
+Status: **ALL PHASES BUILT — P0, P1, P2, P3, P4** (2026-08-12). The line exists, every dynamic is on
+it, and the hairpin is drawn, selectable, resizable and deletable: `H` / `Shift+H`, two Lines-palette
+rows, a stamp, `Ctrl+←/→` to resize, Delete to remove.
+
+🔎 **Two rules HIS TESTING added after P4, both now built** (2026-08-12):
+
+- ⭐⭐ **THINGS THAT TOUCH SHARE A LINE — the CHAIN** (`engine/layout/dynamicsChain.ts`). A `< >` pair
+  over a low C came out stepped: each wedge cleared its own ink and they were one gesture drawn at
+  two heights. *"The hairpins are not aligned… there must be a way in which this should be
+  adjusted."* He asked whether the unit should be the MEASURE; it should not — a bar is a spelling
+  convenience, so it breaks both ways (a hairpin crossing a barline belongs to no bar, and two
+  unrelated marks sharing one would be yoked). The unit both reference engines use is CONNECTIVITY:
+  MuseScore's `alignItemsWithTheirSnappingChain` moves a snapped chain to a single OUTERMOST y,
+  LilyPond covers a connected run with one `DynamicLineSpanner`. Built that way, **chaining across
+  barlines** (his call over a bar-bounded variant). Marks that touch nothing keep P1's local rule
+  untouched.
+  ⚠️ It forced a real restructure: the answer cannot be reached inside either drawing pass, because
+  what a wedge's baseline is depends on a mark at its far end. `rendering/dynamicsLinePlan.ts` now
+  decides every mark's y ONCE per render and both passes look it up.
+- ⭐⭐ **A WEDGE ALWAYS SITS A LITTLE INSIDE ITS SPAN** (`HAIRPIN.END_INSET`, 0.25 sp per end). Two
+  abutting wedges met at a point and read as one diamond: *"here both should not touch… normally in
+  music there is a tiny space."* The first build asked the model whether a neighbour abutted and
+  inset only then. ⭐ **He rejected the conditional and he was right**: *"maybe instead of an IF
+  statement it is better to hardcode the air… since we will give the user the faculty of modifying,
+  making logic will make things too complicated."* An unconditional inset needs no rule about
+  neighbours, gives two abutting wedges twice the air for free, and is what LilyPond does —
+  `bound-padding` applies at a hairpin's bounds always. The `hairpinNeighbours` machinery the
+  conditional needed was deleted.
+
+⏭️ **What is deliberately NOT built** (§10 "Later"): the aperture and slant as user controls (the
+resolver is in place for them), move-the-line, `cresc.`-with-dashes, niente, the playback ramp,
+per-voice lines, and the vocal-above / keyboard-between placements.
+
+🔎 **The published AUTHORITIES were read too (§2.4c)** — and they back what was built, including
+Gould p. 104 on where a wedge starts and ends, a *published* rule that short hairpins take a smaller
+opening (which is our angle cap), and 1.33 sp as the practitioners' aperture. ⏭️ Two things they
+leave open: our abutting-wedge air (0.5 sp) is narrower than Dorico's notehead-width gap, and Ross
+and Stone could not be obtained. Analysis complete (2026-08-12), then
+**checked against the code** the same day — the amendments from that pass are folded in below,
+marked 🔎 where they corrected or extended what the analysis had written. §11.1 is settled by P1
+(**(c)**); §11.2, .3, .6, .8 and .9 are settled by P2, all as recommended. §11.4, .7 and .10 remain
+open and belong to P3/P4.
 
 Two features, deliberately in one document and one order: **the dynamics line first, the hairpin
 second.** The hairpin is the small half. The line is the half that changes something already on
@@ -144,6 +181,118 @@ grid). So the hairpin's stroke is not a new constant to invent: it is that one, 
 idea expressed relatively; Bravura's staff line is 0.13, so its hairpin is ~1.2× a staff line. Either
 convention lands in the same place, and ours already picked 0.16.)
 
+### 2.4b 🔎🔎 DOES A LONGER HAIRPIN OPEN WIDER? — four engines read AT SOURCE
+
+His question, 2026-08-12: *"I remember Sibelius makes the mouth wider in relation with the length…
+look on internet for it."* Two research agents read the actual C++ of LilyPond, Verovio and GUIDO.
+⛔ **Don't redo this.** The findings changed the code twice.
+
+| engine | full aperture | grows with length? | split at a system break |
+|---|---|---|---|
+| **LilyPond** | `height` 0.6666 **per side** → **1.333 sp** | **NO.** `Hairpin::print` computes `width` and the arm heights independently; length is only the endpoints' x | first **0 → ⅔**, continuation **⅓ → 1**, middle **⅓ → ⅔** — hard-coded |
+| **Verovio** | `hairpinSize` 3 MEI units → **1.5 sp** | **DOWNWARD ONLY** — caps the included angle at **16°**, shrinking the aperture below ≈5.3 sp | the SAME thirds, independently |
+| **GUIDO** | `deltaY` 3 half-spaces → **1.5 sp** | **NO** — no `atan`, no ratio, no cap anywhere | 0 → 0.588, then 0.25 → 1 |
+| **MuseScore** | `hairpinHeight` **1.15 sp** (the FULL mouth) | **NO** — `len` is only the far endpoint's x; the arm heights are `±h1` regardless | first 0 → **FULL**, continuation `hairpinContHeight` **0.5 sp** → full |
+| Dorico / Sibelius / Finale | — | no documented formula: Finale one global *"Crescendo Opening Width"*, Sibelius a setting + a per-hairpin property, Dorico a min AND max aperture | Dorico's docs mention apertures *"across system and page breaks"* |
+
+🔎 **MuseScore, read at source 2026-08-12** (`src/engraving/rendering/score/tlayout.cpp`
+`layoutHairpinSegment`, `style/styledef.cpp`), and it is the fourth independent "no":
+`double h1 = hairpinHeight().val() * _spatium * .5;` with the arms at `±h1` — length enters only as
+`l1.setLine(x1, 0.0, len, h1)`. Three further facts worth keeping:
+- ⭐ **Its minimum is on the LENGTH, not the mouth**: `if (x < _spatium) x = _spatium;` — a wedge
+  shorter than one staff space is *drawn* one space long at the FULL aperture. So MuseScore, like
+  LilyPond, would rather stretch than narrow. Verovio's angle cap remains the only rule available to
+  an engine that can do neither.
+- ⚠️ **Its split convention is a THIRD one, and the opposite of the others**: a broken crescendo's
+  first fragment reaches the FULL 1.15 sp at the system edge and the continuation restarts at
+  `hairpinContHeight` = 0.5 sp. LilyPond and Verovio stop the first at ⅔ and resume at ⅓. All three
+  agree only on this: **the continuation is narrower than where the first fragment ended.** That
+  agreement is what we built to.
+- ⭐ **No angle field, and no per-hairpin slant** — vertical resize is gated on `line()->diagonal()`,
+  which is `false` for a hairpin and set by nothing. Its wedge is always symmetric about one
+  horizontal axis. Confirms §2.4a from a fourth engine.
+- 🔎 A note for §3: MuseScore's "dynamics line" is a **snapping chain** aligned to the OUTERMOST y
+  (`AlignmentLayout::alignItemsWithTheirSnappingChain`), not a per-system rule — and a wedge gets no
+  optical-centre correction there, because its axis IS its optical centre. Ours reaches the same
+  place from the letters' ink, which is what lets a lone wedge land on the same line as a lone `p`.
+
+⭐⭐ **So "longer opens wider" is NOT standard**, and in LilyPond it is a deliberate omission rather
+than an oversight: that engine implements length-dependent geometry where it wants it and documents
+it — `Slur.height-limit`, *"the longer the slur, the closer it is to this height"*, consumed in
+`slur-scoring.cc`. Slurs asymptote with length; hairpins were not given the same treatment. If we
+ever want it, a slur-style asymptote is the shape to copy, and `resolveHairpinShape` is the one line
+that changes.
+
+⭐⭐ **What IS real is the ANGLE CAP, and it is the rule for an engine in our position.** Everyone
+agrees a short wedge must not become an arrowhead; they differ in how they fix it. LilyPond states
+it as `minimum-length` 2.0 and enforces it by handing the spacer a **`Rod`** that pushes the two
+columns apart — *the hairpin gets longer and its mouth is untouched*. ⛔ **We cannot do that**: our
+length is musical, not cosmetic (§4), so the columns are not ours to move. Verovio, which also
+cannot, caps the included angle at 16° and shrinks the aperture instead
+(`Hairpin::CalcHeight`: *"if the angle is too big, restrict endY"*). **That is what P3 built.**
+
+⭐⭐ **And the split STEPS, in every engine read.** LilyPond and Verovio arrive at the identical
+thirds independently; GUIDO does the same shape with different constants. In all three the
+continuation starts NARROWER than the first fragment ended, and the fractions ignore where the break
+actually fell. Once seen it is obvious why: each fragment has to read as a wedge in its own right,
+and a continuation resuming at exactly the width it left off would begin as a near-parallel pair of
+lines. (Gould's *"keep the same angle either side"* is about a hairpin broken for an interim
+DYNAMIC — a different case, and not this one.)
+
+⚠️ **The aperture number itself is now a by-eye call with a split vote**: LilyPond 1.33, Verovio and
+GUIDO 1.5. We took LilyPond's; two of three say 1.5, so this is the first thing to try if it reads
+thin. `HAIRPIN.APERTURE` is the one place it lives.
+
+⚠️ Two stroke-weight notes from the same read, since they do NOT agree with our 0.16: Verovio draws
+hairpins at 0.1 sp, GUIDO at 0.08 sp. Ours is SMuFL's `hairpinThickness` (Bravura, 0.16), which is
+the same weight as our barlines and ledger lines — a house decision, now knowingly heavier than two
+other engines'.
+
+### 2.4c 🔎 THE PUBLISHED AUTHORITIES — what the BOOKS say (2026-08-12)
+
+The engine survey above is about implementations; this is the other half. ⛔ Don't redo it.
+
+- ✅ **Gould, *Behind Bars* p. 104, verbatim**: *"Good practice is to start the hairpin on the
+  left-hand edge of the note and to finish it on the right-hand edge of a note."* Exactly what P3
+  built.
+- ⭐⭐ ✅ **AN AUTHORITY DOES TIE APERTURE TO LENGTH — and it is the NARROWING direction we built.**
+  Jürgen Gedan, *Notenschrift für Fortgeschrittene* pp. 18–19: *"Die Form der Gabeln hängt immer
+  auch von ihrer Länge ab, denn kurze Gabeln müssen eine geringere Öffnung erhalten"* (the shape
+  always depends on the length: **short hairpins must get a smaller opening**), and *"Zwar verträgt
+  die lange Gabel eine Verengung, die kurze aber keine Weitung"* (a long wedge tolerates being
+  narrowed; a short one tolerates no widening). So his instinct that length matters was right, the
+  direction is DOWNWARD only, and Verovio's 16° cap now has a published rule behind it rather than
+  just one engine's code. ❌ No authority says a long hairpin opens WIDER.
+- ⭐ ⚠️ **1.33 sp is the practitioners' number too.** notat.io thread 55 (Ruggero, Knut, West):
+  Finale's 1.5 sp is *too wide*, 1.25 felt narrow, **1.33 "has a more natural feel"**. That settles
+  §2.4b's split vote in favour of what we already took. Their stroke is **0.125–0.15 sp**; ours is
+  SMuFL's 0.16, knowingly at the heavy end.
+- ✅ **The dynamics line is a published rule.** Sydney Symphony *Guidelines for Student Composers*
+  §4.4 (hosted by MOLA): *"Hairpins should begin and end about half-way up the x-height of the
+  dynamics."* And Gedan pp. 18–19 shows a hairpin *"ohne Grund auf anderer Höhe als die
+  Lautstärke-Bezeichnungen"* — at a different height from the letters for no reason — as **wrong**.
+  Both back the optical-centre axis (§3) and the chaining.
+- ⚠️ **Dorico's abutting-hairpin gap is a NOTEHEAD WIDTH** (5.1.20 notes: one ends at the note's
+  left side, the next starts at its right). Ours is `END_INSET`×2 = 0.5 sp, where a notehead is
+  ~1.18 sp. ⏭️ So our air may be too tight — a by-eye call, and the constant is one line.
+- ⚠️ **Minimum length**: Dorico's default is **3 spaces**, because *"when hairpins are shorter than
+  this, they can sometimes be confused with the accent articulation mark"* — a better reason than
+  any given for LilyPond's 2.0.
+- ✅ **§11.7 has an answer**: SSO §4.4 — *"Hairpins are preferred for no more than a couple of bars;
+  for a crescendo lasting more than a few bars, use `cresc.` or `dim.` … an extended hairpin can be
+  visually confusing because it is almost, but not quite, parallel to the staff lines."*
+- ✅ **A hairpin does NOT break at a barline**: Gerou, *Essentials of Music Notation* — *"For
+  crescendo and diminuendo signs, the barline is left intact"*, unlike other spanners. Also
+  *"Horizontal placement is preferred… although an angled placement is acceptable"* — the horizontal
+  default plus the authored slant, from a fifth source.
+- ✅ **Placement**, MPA *Standard Music Notation Practice* p. 9: below for single-staff instrumental,
+  between the staves for keyboard/harp, **above for vocal** (to clear the text). Confirms §3's
+  "what is on the line" split from a published standard.
+- ❌ **MOLA's own guidelines say nothing about hairpins** (full text extracted; dynamics appear once,
+  about language). It cites Gould/Ross/Stone rather than restating them.
+- ❌ **Ross (1970) and Stone (1980)**: not obtainable — Archive copies are lending-only. Their
+  hairpin geometry, if any, remains unread.
+
 **Gould's own rules about the gradient**, which are consequences of the above rather than extra
 numbers: start the hairpin at the **left-hand edge** of its first note and finish at the
 **right-hand edge** of its last (*Behind Bars* p.104 — which is the same "read to the SLOT'S END"
@@ -151,7 +300,9 @@ that §5 needs for the x); **avoid steep gradients**, i.e. lengthen rather than 
 what the minimum-length rule is protecting; and when a hairpin is **broken for an interim dynamic**,
 **keep the same angle either side** so it still reads as one gradual change.
 - Very long spans take `cresc.` + dashes instead of a wedge.
-- At a system break the wedge splits; the continuation resumes at the width it left off.
+- 🚨 ~~At a system break the wedge splits; the continuation resumes at the width it left off.~~
+  **WRONG, corrected 2026-08-12 by reading three engines' source — see §2.4b.** It splits, but the
+  continuation resumes NARROWER: LilyPond and Verovio both cut it at hard-coded thirds.
 
 ### 2.5 Creation gestures in the field
 
@@ -722,21 +873,85 @@ Each is separately visible and separately testable.
   because it touches something that already works. Offsets keep working, now measured from the line
   (§3a). 🔎 Also here: drop `layoutCoLocatedDynamics`' vertical centring, which is what makes
   `p dolce` share a baseline instead of a centre (§3a).
-- **P2 — the model.** `Measure.hairpins`, the ops (add / remove / set length) — 🔎 **in the SCORE
-  layer, `engine/models/hairpinOps.ts`, not on `MusicEngine`** (§6a, principle 5) — undo, JSON
-  round-trip. 🔎 And four seams the compiler or a silent failure will otherwise find first:
-  `MEASURE_RENDER_ROLE` + its `PERTURB` row (§7), `staffHairpins` in `staffLaneOf` (§5),
-  `clearMeasureForRebar` + `captureBeatAnchors`/`restoreBeatAnchors` incl. the id-keyed override
-  (§5), and `ClipHairpin` + the copy/paste window rule (§6a principle 2, §11.9). No rendering yet.
-- **P3 — draw it.** Own pass, on the line, mouth from the line's optical centre, ends stopping short
-  of a neighbouring mark via the skyline, **including the system-break split**. 🔎 Plus the two
-  endpoint bars into `spanAnchors` (§7), the x resolution off the registry (§5), the 0.16 sp
-  thin-line stroke (§2.4a), and the geometry read through a **resolver** — `{ aperture, startY,
-  endY }` with defaults — rather than constants at the draw site, so the future aperture/slant
-  controls are a compartment client and nothing is rewritten (§6).
-- **P4 — the UX.** Palette rows, `H` / `Shift+H`, selection→create, the stamp (**no ghost** — the
-  blue pointer, §8), 🔎 **`Ctrl+←/→` to shorten/lengthen a selected hairpin** (§8 — in scope, because
-  the stamp is unusable without it), selection / highlight / Delete, Properties report.
+- **P2 — the model. ✅ BUILT.** `Measure.hairpins`, the ops (add / remove / set length / toggle /
+  update) in the SCORE layer — `engine/models/hairpinOps.ts` + its spec, with thin delegators on
+  `ScoreModel` and a commit-only facade on `MusicEngine` (§6a, principle 5). All four seams joined:
+  `MEASURE_RENDER_ROLE` + `PERTURB` + the shape key itself, `staffHairpins` in `staffContent` **and
+  named in `staffMeasureView`**, `clearMeasureForRebar` + `captureBeatAnchors`/`restoreBeatAnchors`,
+  and `ClipHairpin` + copy/paste. JSON round-trips for free (a `Fraction` is `{num,den}`). Nothing
+  is drawn.
+
+  🔎 **Five things the build settled or turned up.**
+  (i) **§11.2 as recommended** — start + `length` on the start measure, which is also how he
+  described it unprompted (*"the point where the hairpin starts is where that note is… the extension
+  is to the next note"*), i.e. a position plus an amount of music. That his description and the
+  recommendation are the same object is the useful fact: the alternative (two note ids, like a slur)
+  is the one nobody reaches for by instinct.
+  (ii) **§11.8 `'shape'`**, and it is now enforced twice — the role row AND a real entry in
+  `measureShapeKey` (`view.hairpins`), because the role table only *claims* a classification and the
+  `PERTURB` test checks the claim is true.
+  (iii) **§11.9 dropped, with an edge the question did not have**: enclosure is `start >= spanStart`
+  AND `end <= spanEnd` — the END test is INCLUSIVE where the start's is half-open. A wedge finishing
+  exactly on the last copied beat is enclosed; a *mark* at `spanEnd` sits on the first beat not
+  copied. Same asymmetry, two different right answers.
+  (iv) ⭐ **A non-positive `length` is REFUSED, never clamped and never destructive.** `addHairpin`
+  returns null; `setHairpinLength` returns false and leaves the wedge as it was. Shortening past
+  nothing must not delete the thing being shortened — that is `removeHairpin`'s job, and P4's
+  `Ctrl+←` inherits the guarantee rather than having to implement it.
+  (v) ⛔ **No hairpin-keyed override TYPE was added** — the plan's P2 bullet said "incl. the id-keyed
+  override", but nothing writes one yet and a field with no writer is a field that gets believed.
+  What IS built is the two sites it needs: `removeHairpin` clears the whole id (so an override can
+  never orphan), and `restoreBeatAnchors` carries a ⚠️ naming itself as the re-stamp site, next to
+  the dynamic's, for the day the aperture or the vertical nudge arrives (§6).
+- **P3 — draw it. ✅ BUILT.** `rendering/HairpinRenderer.ts` (the pass) + `rendering/hairpinShape.ts`
+  (the resolver) + `rendering/thinLineWeight.ts` (the shared 0.16) + `models/hairpinOps.hairpinSpan`
+  (beat+length → two addresses) + `layout/dynamicsLine.columnsBetween`/`mergeInkBands` (the
+  spanner's wider slice), specs for each, and `e2e/hairpin.e2e.ts` for the drawn geometry. Both
+  endpoint bars are in `spanAnchors`.
+
+  🔎 **Five things the build settled or corrected.**
+  (i) ⭐⭐ **The plan was WRONG about the system break** — it said the continuation resumes at the
+  width it left off; three engines say it STEPS. Built to LilyPond's and Verovio's identical thirds
+  (§2.4b), and the e2e pins the step rather than the continuity.
+  (ii) ⭐⭐ **The short-wedge rule is Verovio's 16° ANGLE CAP**, not a gradient invented here — and
+  the reason we need one at all is that LilyPond's answer (lengthen the wedge with a spacing `Rod`)
+  is unavailable to us: our length is musical (§2.4b).
+  (iii) ⚠️ **The x source is `staveNoteMap`, not the registry** — the plan recommended the registry
+  because a translated bar's `StaveNote`s hold stale coordinates. Being a `spanAnchor` already
+  forbids translating those bars, so the slur's own road works and there is no second one to
+  maintain. The plan's warning about `CoordinateMapper.beatToPixelX` stands and is obeyed.
+  (iv) ⭐ **A fragment's stave, line and staff-space size are facts about ITS system, not about
+  where the wedge began.** Drawing every piece against the start bar's stave put the continuation on
+  top of the first system — caught by the browser suite, invisible to every unit test, and the
+  reason `WedgePiece` carries a `line`.
+  (v) ⭐ `planSlurSegments` is REUSED verbatim: nothing in it is about slurs, and its four segment
+  types map one-to-one onto a fragment's role. No second planner to drift out of step.
+- **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
+  selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
+  `Ctrl+←/→` resize, selection + highlight + Delete, the Properties report. The fifteenth
+  `SelectedElement` kind, `interactions/elements/hairpin.ts`, rows in `ELEMENT_SPECS` and
+  `ELEMENT_HIT_ORDER`, a `MARKING_TOOL_USES_ARMED_LENGTH` row, `hairpinGroupMap` +
+  `getHairpinSVGGroup`, and `PaletteController.hairpin.test.ts` for the routing.
+
+  🔎 **⭐⭐ §11.4 IS SETTLED — but NOT the way the plan sketched it, and HIS TESTING is why.** The
+  plan said one click makes "this note → the end of the next slot". Built literally, selecting a
+  whole-note E and pressing `H` drew a wedge running to the far edge of the F after it. His report:
+  *"the hairpin extends till the end of F… what is expected for me is that it end when the F
+  starts."* **The rule is now: a wedge covers EXACTLY the music selected — never a note more.** One
+  note → that note, ending where the next begins. It is what a hairpin means: the wedge is the
+  approach, and the note you arrive on is where the new level is reached, not part of the climb.
+  ⛔ The plan's version was reasoned from minimum-length (a wedge over one quarter is short) — but
+  the answer to a short wedge is the ANGLE CAP (§2.4b), never silently covering music nobody
+  selected. `Ctrl+→` is how a wedge grows, and it should be the only thing that does.
+
+  🔎 **Three smaller build notes.** (i) The stamp carries its TYPE (`{ kind:'hairpin'; type }`)
+  where the slur's carries nothing — two keys, two palette rows that must light independently, and
+  pressing `H` with the dim. stamp armed must SWITCH rather than disarm. That is why
+  `createCrescendo`/`createDiminuendo` are two methods and not one with a flag. (ii) `Ctrl+←/→`
+  resizes by a SLOT of the hairpin's own lane, so the end always lands on a notehead; it DECLINES
+  rather than deleting when it cannot shrink further. (iii) Arming needs no engine, so the engine is
+  fetched in the create branch only — guarding at the top made the tool unarmable in any context
+  without one, and said wrongly that arming depends on a score.
 
 **Later, not in this plan:** move-the-line as a user control (§4 — and its score-wide flavour is
 BLOCKED, §6a), 🔎 **the aperture and the slant as user controls** (§6 — not built, but the resolver
@@ -757,18 +972,23 @@ here struck through, so the answer travels with the question; 1 and 4 have moved
    `layoutCoLocatedDynamics` / `applyDynamicOffsets` already do, keeps the overlay + hit-testing
    working), with **(b)** — dynamics become ink in a system-level pass — left open as the end state.
    **(a)** the line's y in every measure's shape key is still available and still the blunt one.
-2. **The model** — start + length on the measure (recommended, §5), or the score-level spanner?
-3. **v1 scope** — notation only, no playback ramp (recommended)?
-4. **The stamp's click** — a hairpin needs a span, so what does one click mean? 🔎 Now that
-   **extending is in scope** (§8, `Ctrl+←/→`), the slur's answer costs nothing: one click makes the
-   shortest honest wedge (this note → the end of the next slot) and the arrows grow it. Two clicks or
-   a drag remain available; the argument for them got weaker.
+2. ~~**The model** — start + length on the measure (recommended, §5), or the score-level spanner?~~
+   🔎 **SETTLED by P2 (2026-08-12): start + length**, as recommended and as he described it in his
+   own words. See P2's note (i).
+3. ~~**v1 scope** — notation only, no playback ramp (recommended)?~~ 🔎 **SETTLED: notation only.**
+   Nothing in P2 touches `resolveChordLevels`; §9 still records what a ramp would cost.
+4. ~~**The stamp's click** — a hairpin needs a span, so what does one click mean?~~ 🔎 **SETTLED by
+   P4 and HIS TESTING (2026-08-12): the clicked note, and nothing more.** The recommendation here
+   (*"this note → the end of the next slot"*) was BUILT and REJECTED on sight — see P4's note. Two
+   clicks or a drag remain available and are still unneeded.
 5. ~~**Keys** — `h` / `Shift+H` as Sibelius, and two rows in the Lines palette?~~ 🔎 **YES, both**
    (2026-08-12) — spelled out in §8's table, and verified free in `ShortcutConfig`.
    ~~**The ghost** — a real wedge at the pointer?~~ 🔎 **NO** (2026-08-12) — the blue pointer, like
    the slur. No `ToolGhost` member, no `GHOST_DRAWERS` row.
-6. **Default placement** — always `below` with a flip, or infer per staff kind (vocal above, keyboard
-   between) later?
+6. ~~**Default placement** — always `below` with a flip, or infer per staff kind?~~ 🔎 **SETTLED by
+   P2: `below` by default**, exactly as `Dynamic` — absent means below, and `above` is a legal value
+   from day one. Inferring per staff kind (vocal above, keyboard between) stays a later *value* of
+   the same field, not a new rule.
 7. **`cresc.` as text.** Musically it is the same object as the wedge, and every model treats the
    dashed-word form as an *appearance* of the gradual dynamic rather than free text. Do we want
    `style: 'wedge' | 'text'` on the hairpin later? ⛔ Either way, do **not** retro-interpret
@@ -776,18 +996,19 @@ here struck through, so the answer travels with the question; 1 and 4 have moved
 
 🔎 Three the code check opened:
 
-8. **The `MEASURE_RENDER_ROLE` row** (§7) — `'shape'`, following the house rule and the row comment
-   that literally says "copy this row for a hairpin"? Or `'ignored'`, which is the truthful answer
-   *if* the hairpin's pass never draws inside a measure `<g>` and never will? `'shape'` costs a
-   redraw of the start bar when a hairpin changes; `'ignored'` costs nothing until the day something
-   hairpin-shaped IS drawn in the bar, and then it costs a stale picture. **Recommended: `'shape'`.**
-9. **A hairpin STRADDLING a copy window** (§6a principle 2) — dropped, like a clip dynamic that is
-   not fully inside? Or truncated to the window? Dropping matches `clip.ts` today and is the smaller
-   promise; truncating is what a user copying "the middle of a crescendo" probably means. ⚠️ Whichever
-   it is, it must be the same answer for the paste side. **Recommended: dropped**, matching dynamics,
-   until someone asks otherwise.
+8. ~~**The `MEASURE_RENDER_ROLE` row** (§7) — `'shape'` or `'ignored'`?~~ 🔎 **SETTLED by P2:
+   `'shape'`**, plus the matching `view.hairpins` entry in `measureShapeKey` — the role table only
+   states a claim, and the `PERTURB` test then checks the claim is TRUE, so the row alone would have
+   failed. ⚠️ It covers only the bar the wedge STARTS in; the far end is `spanAnchors`' job in P3.
+9. ~~**A hairpin STRADDLING a copy window** — dropped or truncated?~~ 🔎 **SETTLED by P2: dropped**,
+   matching dynamics and slurs. See P2's note (iii) for the inclusive-end edge the question missed.
 10. **The suppressed-mark skyline source** (§3) — the last registered bbox (recommended), the
     overlay's rect through the inverse CTM, or freeze the wedge's end while an edit is open?
+    🔎 **Still open after P3, and now it has a visible symptom to weigh it against**: the skyline is
+    built from the letters as DRAWN, and a mark being text-edited is not drawn — so the wedge grows
+    by one glyph's width while you type into the mark it stops against, and snaps back when you
+    finish. Recorded in `HairpinRenderer.markInkX`. It is a small, self-correcting wobble, which is
+    an argument for leaving it until someone is annoyed by it.
 
 ---
 

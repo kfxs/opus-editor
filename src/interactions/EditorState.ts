@@ -107,6 +107,21 @@ export type MarkingTool =
    * {@link scoreCursorClass} and `interactions/slurStamp.ts`.
    */
   | { kind: 'slur' }
+  /**
+   * The HAIRPIN stamp, armed by `H` (cresc.) / `Shift+H` (dim.) — or the Lines palette — with
+   * nothing selected. A click on a note places a wedge from it through the end of the next slot.
+   *
+   * ⭐ It CARRIES ITS TYPE, where the slur beside it carries nothing, and the difference is real:
+   * `cresc` and `dim` are two tools with two keys and two palette rows, not one tool with a
+   * setting. Arming the other one must replace this (which `armMarkingTool` does by reassigning the
+   * field), and the palette's two buttons must be able to light independently.
+   *
+   * ⛔ NO ghost — the blue pointer, like the slur, and for the slur's reason: a wedge is drawn
+   * BETWEEN two points and the click has only picked one, so a ghost wedge at the pointer would be
+   * previewing a length the click is not going to make. See {@link scoreCursorClass} and
+   * `interactions/hairpinStamp.ts`.
+   */
+  | { kind: 'hairpin'; type: 'cresc' | 'dim' }
   /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
    *  placeholder tempo mark and opens the edit box BLANK to type the whole mark. Same NO-ghost +
    *  blue-cursor treatment. See MouseController.placeTempoEntryAtClick. */
@@ -150,6 +165,9 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   accidental: false,
   tie: false,
   slur: false,        // a relation between notes that already have their lengths, like the tie
+  hairpin: false,     // ⭐ it HAS a length — but a MUSICAL one, taken from the notes it is placed
+                      //    over, never from the armed duration. The rest stamp's `true` means "read
+                      //    the lit duration keys"; a hairpin never does.
   dot: false,
   tremolo: false,     // marks a note that already has its length, like the accidental stamp
 }
@@ -317,6 +335,13 @@ export type SelectedElement =
       segmentEndpoint?: SlurSegmentEndpoint
       segmentSpanCount?: number
     }
+  /**
+   * A hairpin wedge, by id. Flat, unlike the slur above: a hairpin has no endpoint handles and no
+   * per-segment edits to arm, because its extent is MUSICAL — `Ctrl+←/→` rewrites `length` on the
+   * model rather than arming a cosmetic nudge (docs/dynamics-line-and-hairpins-plan.md §4). If a
+   * vertical nudge ever arrives it is an override keyed by this id, and still not a field here.
+   */
+  | { kind: 'hairpin'; id: string }
   /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
   | { kind: 'tie'; fromNoteId: string }
   /**
@@ -411,7 +436,7 @@ export function assertNeverElement(element: never): never {
 export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-place' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
   const kind = state.selectedMarkingTool?.kind
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur') return 'cursor-place'
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin') return 'cursor-place'
   return 'cursor-default'
 }
 

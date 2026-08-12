@@ -1,7 +1,7 @@
 import type { Fraction, Score } from '../types/music'
-import type { Clip, ClipLane, ClipDynamic, ClipSlur, ClipSlurPitch, ClipTarget } from '../utils/clip'
+import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipSlur, ClipSlurPitch, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
-import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
+import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { measureCapacityFrac } from '../utils/measureCapacity'
 import { formatPitch } from '../utils/pitchSpelling'
@@ -29,7 +29,7 @@ import { slotLength } from '../utils/durations'
  */
 export interface ClipboardPayload extends Clip {
   format: 'opus-editor/clipboard'
-  version: 3
+  version: 4
   /** Where it was copied from (reference / debugging only). */
   origin: { measure: number; beat: Fraction }
   /** Number of staves the selection covered (for clamp math / UX). 1 for a single-staff clip. */
@@ -38,6 +38,8 @@ export interface ClipboardPayload extends Clip {
   dynamics: ClipDynamic[]
   /** Slurs fully inside the copy window (Phase 3) — always present on a built payload. */
   slurs: ClipSlur[]
+  /** Hairpins fully inside the copy window — always present on a built payload. */
+  hairpins: ClipHairpin[]
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -292,6 +294,49 @@ function dynamicsInWindow(
 }
 
 /**
+ * Hairpins lying FULLY inside the copy window — start at or after `spanStart`, end at or before
+ * `spanEnd` — and on staves within the copied span, as {@link ClipHairpin}s with the staff re-based
+ * to `topStaff` (relative) and the start re-based to the window start. `length` is an amount of
+ * music, so it copies through untouched.
+ *
+ * A hairpin STRADDLING the window is left behind, not truncated: same rule as the dynamics and
+ * slurs above, and the smaller promise — truncating would hand the paste a wedge whose shape the
+ * copied music never had. ⚠️ Note the end test is inclusive (`<=`), unlike the start's half-open
+ * `<`: a wedge finishing exactly on the last copied beat is enclosed, whereas a mark AT `spanEnd`
+ * sits on the first beat not copied.
+ */
+function hairpinsInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipHairpin[] {
+  const starts = measureStartOffsets(score)
+  const out: ClipHairpin[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const h of m.hairpins ?? []) {
+      const abs = fracAdd(mStart, h.beat)
+      if (!fracGte(abs, spanStart)) continue
+      if (!fracLte(fracAdd(abs, h.length), spanEnd)) continue
+      const staffIdx = staffIndexOfId(score, h.staffId)
+      if (staffIdx < topStaff || staffIdx > maxStaff) continue
+      out.push({
+        staff: staffIdx - topStaff,
+        voice: voiceOf(h),
+        offset: fracSub(abs, spanStart),
+        length: h.length,
+        type: h.type,
+        ...(h.placement !== undefined ? { placement: h.placement } : {}),
+      })
+    }
+  }
+  return out
+}
+
+/**
  * Slurs with BOTH endpoints fully inside the copy window `[spanStart, spanEnd)` and on staves
  * within the copied span, as {@link ClipSlur}s: each endpoint addressed by relative staff /
  * voice / offset / pitch so paste can re-find the freshly-pasted note. A slur with an endpoint
@@ -404,6 +449,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   // to the topmost copied staff.
   const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -423,7 +469,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   }
 
   return {
-    format: 'opus-editor/clipboard', version: 3, origin, spanBeats, spanStaves, lanes, dynamics, slurs,
+    format: 'opus-editor/clipboard', version: 4, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins,
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
   }
