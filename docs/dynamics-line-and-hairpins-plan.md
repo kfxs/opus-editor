@@ -1,7 +1,10 @@
 # The Dynamics Line, and Hairpins — Plan
 
-Status: **NOT STARTED.** Analysis complete (2026-08-12); the decisions in §11 are open and the build
-waits on them. No code has been written for any phase.
+Status: **P0 + P1 BUILT** (2026-08-12) — the line exists and every dynamic is on it. Analysis complete
+(2026-08-12), then **checked against the code** the same day — the amendments from that pass are
+folded in below, marked 🔎 where they corrected or extended what the analysis had written. §11.1 is
+settled by the build (**(c)**, as recommended); the rest of §11 is still open and the hairpin (P2–P4)
+waits on it.
 
 Two features, deliberately in one document and one order: **the dynamics line first, the hairpin
 second.** The hairpin is the small half. The line is the half that changes something already on
@@ -49,9 +52,24 @@ we would inherit is three `lineTo`s. **Draw it ourselves**, in a score-level pas
 ### 2.2 Our dynamics do not sit on a line today, and it is a defect
 
 VexFlow 5's `annotation.js:181` places a `below` annotation from `note.getYs()` — **the note's own
-lowest point**, with a branch that snaps it to the stave bottom only when the note is high enough.
+lowest point**:
+
+```js
+y  = ys.reduce((a, b) => (a > b ? a : b))          // the note's LOWEST head
+y += (this.textLine + 1) * STAVE_LINE_DISTANCE + textHeight
+if (hasStem && stemDirection === DOWN) y = Math.max(y, stemExt.topY + textHeight + spacing * textLine)
+```
+
 So two `p`s in one bar sit at different heights whenever their notes differ in pitch, and a passage
 that dips below the staff drags its dynamic down while its neighbour stays put.
+
+🔎 **And it is worse than "wobble": there is NO stave-bottom clamp in that branch at all.** The
+analysis first wrote this as "a branch that snaps it to the stave bottom when the note is high
+enough"; the code has no such branch — the only conditional is the *stem* one above, which pushes a
+down-stem note's mark below its stem tip. A high note therefore gets its dynamic a fixed ~24 px below
+its own head, which can be **inside the staff**. What P1 changes is consequently bigger than tidying
+a ragged line: on high passages the marks move out of the staff entirely. Say so before the
+hand-testing, so the change is read as the fix rather than as a regression.
 
 This is already true with no hairpins in the score. The hairpin is what makes it impossible to
 ignore: a wedge is a long horizontal object, so any disagreement between it and the letters at
@@ -72,6 +90,12 @@ Not one anchors to note identity the way our `Slur` does. That matters for us be
 A slur severed by a re-bar is tolerable; a dynamic-family mark severed by one is not — dynamics ride
 their measure at their beat and simply survive, and a hairpin must too.
 
+🔎 **"Simply survive" is a description of the OUTCOME, not of the mechanism — and the mechanism is
+not free.** A rebar does not leave a dynamic alone: `clearMeasureForRebar` (`rebarOps.ts:1231`)
+deletes the whole `dynamics` array, and `captureBeatAnchors` / `restoreBeatAnchors` re-create every
+mark at its absolute offset **with a fresh `uuidv4()` id**. The positional address is what survives;
+the object and its id do not. Two consequences the hairpin inherits, both spelled out in §5 and §6.
+
 ### 2.4 Engraving rules (Gould, *Behind Bars*, dynamics)
 
 - Below the staff for instrumental music; **above** for vocal (words live below); **between the
@@ -81,6 +105,51 @@ their measure at their beat and simply survive, and a hairpin must too.
 - Mouth roughly 1–1.5 spaces (LilyPond's default `height` is 0.67 sp per side ≈ 1.33 total). ⚠️ A
   number to settle **by eye**, like the spacing model's — not to be taken from this document.
 - A minimum length, so a short wedge still reads as one (LilyPond: 2 sp).
+
+### 2.4a 🔎 THE ANGLE, and the numbers behind it
+
+Researched 2026-08-12, on his question; the first draft had the mouth and the minimum length but
+nothing about the angle.
+
+⭐⭐ **No engine stores an angle, because in every one of them the angle is DERIVED.** The authored
+quantity is the **aperture** (the mouth); the length comes from the music; the opening angle is just
+`atan((aperture/2) / length)` and nobody keeps it. Build it the other way round — an angle constant
+that the length is fitted to — and a long crescendo would open into a funnel.
+
+⚠️ **"Angle" means a SECOND thing in Dorico, and it is not that one.** There, *aperture* is the mouth
+(min/max settable project-wide) and *angle* is the **vertical slant of the whole wedge** — its axis
+tilting off horizontal. **By default hairpins are horizontal**, and the slant is authored per-hairpin
+by moving the two end handles' Y independently (`Start offset Y` / `End offset Y`); changing only the
+start does nothing, which tells you it is genuinely a two-endpoint quantity and not one "angle"
+field. So the two words name the *derived* opening and the *authored* tilt, and this plan should use
+them that way.
+
+The measured defaults, so the by-eye tuning starts somewhere real:
+
+| quantity | value | source |
+|---|---|---|
+| **stroke width** | **0.16 staff spaces** | SMuFL `engravingDefaults.hairpinThickness`, Bravura |
+| stroke width, the other convention | 1.0 × staff-line thickness (≈0.1 sp) | LilyPond `Hairpin.thickness` |
+| mouth (total) | 1.33 sp (`height` 0.6666 per side) | LilyPond `Hairpin.height` |
+| minimum length | 2 sp / 3 sp | LilyPond `minimum-length` / Dorico's default |
+| gap to a bounding dynamic | 1 sp | LilyPond `Hairpin.bound-padding` |
+| axis | **horizontal by default** | Dorico, LilyPond, MuseScore |
+
+⭐ **0.16 sp is a number we already draw with.** It is Bravura's `thinBarlineThickness`,
+`legerLineThickness`, `octaveLineThickness` and `tupletBracketThickness` too — the whole thin-line
+family is one weight — and it is the same 0.16 our barline ink already uses
+(`rendering/barlineInk.ts`, and the PDF keeps the true 0.16 where the editor hints it to the pixel
+grid). So the hairpin's stroke is not a new constant to invent: it is that one, and it should be
+*named* as the shared thin-line weight rather than re-typed. (LilyPond's 1.0 × staff-line is the same
+idea expressed relatively; Bravura's staff line is 0.13, so its hairpin is ~1.2× a staff line. Either
+convention lands in the same place, and ours already picked 0.16.)
+
+**Gould's own rules about the gradient**, which are consequences of the above rather than extra
+numbers: start the hairpin at the **left-hand edge** of its first note and finish at the
+**right-hand edge** of its last (*Behind Bars* p.104 — which is the same "read to the SLOT'S END"
+that §5 needs for the x); **avoid steep gradients**, i.e. lengthen rather than open wider, which is
+what the minimum-length rule is protecting; and when a hairpin is **broken for an interim dynamic**,
+**keep the same angle either side** so it still reads as one gradual change.
 - Very long spans take `cresc.` + dashes instead of a wedge.
 - At a system break the wedge splits; the continuation resumes at the width it left off.
 
@@ -106,12 +175,26 @@ baseline*, so the line states one baseline and each mark derives its ink extent 
 hairpin's mouth then centres not on the baseline but on the glyphs' optical centre — about a quarter
 of the glyph size above it, from those same two constants.
 
-**The rule:** the lowest ink of that system+staff, plus a padding, floored at a minimum distance
-below the bottom line — all in staff-spaces, so a small staff scales with it.
+**The rule:** ~~the lowest ink of that system+staff~~ the ink UNDER THE MARK, plus a padding, floored
+at a minimum distance below the bottom line — all in staff-spaces, so a small staff scales with it.
 
-⚠️ **One low note moves the whole system's dynamics down.** That is what every program does, and
-engravers expect it; the alternative — each mark dodging on its own — is what makes a line of
-dynamics look drunk. §4's "move the line" is the remedy when the music makes it too generous.
+🔎 **AMENDED 2026-08-12, his call after seeing P1: the deviation is LOCAL — LilyPond's default, not
+Dorico's.** The line is stated from the STAFF, so every mark over ordinary music lands on the same y
+and they read as one line; a mark standing over a genuine dip clears that dip and *only that mark*
+moves. The rejected alternative — clearing the lowest ink anywhere in the system — is level but
+generous: one low note in bar 3 drops bar 1's `p`, and by eye the local rule reads better. *"By
+default it is better to have a line and a deviation of the line for notes that are too low."*
+
+⭐ **What "its own music" means: the mark's own COLUMN** (`columnsUnder`) — the same scope LilyPond's
+`DynamicLineSpanner` covers for a lone dynamic. Not its bar (a dip three beats later is not under the
+mark), not the system. A hairpin will hand in the columns it SPANS: same function, wider slice.
+
+⭐⭐ **And the floor is what makes it a line, so it is derived, not chosen.** A note on the middle line
+stems down 1.5 spaces below the staff — the deepest ink single-voice music inside the staff makes —
+so the floor is that plus the padding: **2.1 spaces**. Every mark over staff-resident music, stem up
+or stem down, then comes out at exactly the floor. Set it to LilyPond's own `minimum-space` of 1.2
+instead and a down-stemmed note beats the floor by 0.9, so a bar of ordinary notes steps its dynamics
+as the stems flip — the drunk line, arrived at from the other direction.
 
 **What is ON the line:** dynamic letters, expression words, hairpins. In our model these are the
 same object already — an expression word IS a `Dynamic` (text-as-truth); `dolce` differs from `p`
@@ -119,6 +202,10 @@ only in that `isInterpreted()` is false (so `resolveChordLevels` skips it) and `
 sends it to the serif italic face. So the line covers expression text with no second rule, and
 `p dolce` is already laid out left-to-right by `layoutCoLocatedDynamics` — that becomes a
 line-local concern instead of a special case.
+
+🔎 **One half of `layoutCoLocatedDynamics` must then GO, not be kept** — P1 keeps its horizontal half
+(the left-to-right row and the `GAP`) and drops its vertical `dy`, because the line is the y for both
+marks. Why that is a fix and not just a simplification: §3a.
 
 **What is NOT on it:** technique text (`pizz.`, `con sord.` — the open Alt+T item). Gould's split is
 dynamics and *qualifying* expression below, playing technique above. Saying so now is what stops the
@@ -131,19 +218,92 @@ letters and the words move together or the pairing `p dolce` breaks. Then:
 - ⭐ **The inline editor follows for free.** `TextEditController` positions the DOM overlay from
   `source.getScreenRect()`, and `DynamicTextSource` builds that from the mark's **registry bbox**
   mapped through the SVG's CTM — so as long as `registerDynamics` keeps taking the bbox from the
-  *rendered* SVG, moving the glyph moves the editor with it. Better than free, in fact: `DomTextEdit`
-  already aligns on a **baselineY**, which is the same quantity §3 makes the line, so the two agree
-  by construction.
+  *rendered* SVG, moving the glyph moves the editor with it.
+
+  🔎 **"For free" was wrong, and P1 had to pay for it (2026-08-12).** `DomTextEdit` aligns on a
+  `baselineY` — but only `TempoTextSource` supplied one; the dynamics overlay was TOP-aligned on the
+  registry box, and a box's top only means the same thing while everything in it is the same height.
+  It is not: a glyph chip is 2.14× the words. Three symptoms, one cause — **the overlay's line box is
+  sized by its tallest content, so its baseline moves whenever the content's height changes**:
+  the mark dropped ~20px when a glyph went in, the box lurched when the text was deleted, and the
+  caret took the line box's height (twice the text's) and the wrong line after a chip was removed.
+  The fixes are the cause removed, and all four are in `interactions/`:
+  **(i)** `DynamicTextSource.getBaselineY()`, measured off the engraved `<text>`'s own CTM — the
+  quantity §3 makes the line, so the two now agree by construction; **(ii)** the overlay's
+  `line-height` set to a MEASURED PIXEL value (the CSS had a unitless `1`, which inherits as a
+  *factor*, so a 2.14em chip got a 2.14em line box); **(iii)** `line-height: 0` on the chip itself,
+  because an inline box's *position* about the baseline still derives from its own font's ascent —
+  pinning the box alone left 5px of growth and 2.7px of baseline drop; **(iv)** the drawn caret takes
+  its height and line from the box (one pinned line, one answer) and only its x from the range or a
+  neighbour, and it syncs on `input` as well as `selectionchange`, because the caret's place depends
+  on the CONTENT and not only on the selection.
 - ⚠️ **The suppressed-while-editing trap.** A mark being edited is dropped from the engraving
   (`pass.suppressedDynamicId`) and drawn by the overlay instead. If the hairpin's end stops against
   that word's skyline, the word vanishing mid-edit would make the wedge grow and shrink as you type.
   The skyline must include a suppressed mark's box, not the drawn ink.
+
+  🔎 **…and there is no such box today, which is the part that needs deciding.** A suppressed mark is
+  never drawn, so it has no SVG element and `registerDynamics` never registers it — the skyline has
+  nothing to read. Three sources, in order of preference: **(i)** keep the mark's LAST registered
+  bbox (it is already in the previous render's `MeasureSnapshot.elements`, and a mark being typed
+  into has not moved); **(ii)** map the overlay's own client rect back through the SVG's *inverse*
+  CTM, the mirror of `DynamicTextSource.computeScreenRect`; **(iii)** freeze the wedge's end while an
+  edit is open. (i) is cheapest and needs no new plumbing; (iii) is the honest fallback if the
+  skyline turns out not to want a stale box.
 
 **It also owns a horizontal skyline**, not just a y. "The hairpin stops short of the dynamic it runs
 into" is easy against a glyph and awkward against a *word*: `dolce` is wide, and our dynamics
 deliberately have zero layout width (`setWidth(0)`) so text never pushes notes apart. Once the line
 owns everything on it, it owns their x-extents, and the wedge can stop against a word as easily as
 against an `f`.
+
+### 3a. 🔎 "So is our expression text CORRECTED by this?"
+
+His question, 2026-08-12. Three answers, because it is three questions.
+
+**✅ Vertically, yes — and TWICE, not once.**
+
+1. Every word stops taking its y from its own note's lowest point (§2.2) and takes the system's
+   baseline, so words line up with each other and with the letters. One rule, no second family.
+2. ⭐ **`p dolce` stops being CENTRE-aligned**, which is a defect nobody had named. Two marks on one
+   note are laid into a row by `layoutCoLocatedDynamics`, aligned on the first mark's vertical
+   *centre* (`DynamicsLayout.ts:111`) — so a 14 px italic word is centred against a 30 px glyph's box
+   instead of sitting on its baseline. ⚠️ Within a SINGLE mark the baseline is already right (every
+   mark is drawn at the TEXT size and its glyph runs grown UPWARD by `applyMixedDynamicRuns` — that
+   is what `buildDynamicAnnotation`'s comment is protecting, so do not "fix" it there); it is only
+   the co-located pair that is wrong. Dropping that `dy` in P1 is the fix, because the line is then
+   the y for both.
+
+🔎 **AMENDED 2026-08-12 — horizontally, SOMETHING changed after all: a LEVEL is now centred on its
+notehead** (`rendering/dynamicMarkAnchor.ts`). His report while testing P1: *"the text is entered
+more to the right of the anchored note… for me the initial position should be before the note in
+x."* He is right and every source agrees — Gould (*centrally below the note*), LilyPond's
+`DynamicText self-alignment-X = CENTER`, MuseScore and Dorico both centred by default. The rule
+built is the simple half: **all-glyph centres, anything containing prose stays anchored**, because a
+word centred on a notehead reaches back over the previous beat. Mixed `p dolce` counts as prose —
+strictly its `p` should straddle, which needs the leading run measured alone; ⏭️ that is the first
+thing to revisit. Two facts the build turned up: VexFlow's own `CENTER` justification is unusable
+(it subtracts `getWidth()`, which we deliberately zero), and a Bravura dynamic has a **negative left
+side bearing** — its ink starts ~5 px left of its origin — so the shift is the ink's own centre, not
+half its width. The paragraph below stands for everything else:
+
+**⛔ Otherwise horizontally NO — and it is worth saying out loud.** A mark is left-justified
+from its note and has `setWidth(0)`, so a long word overflows freely to the right and can still run
+into whatever is next. The line's horizontal **skyline** (above) teaches the *wedge* where the word
+is — it does **not** move the word. Word-vs-word collisions, and the convention question of whether a
+bare dynamic should be centred under its notehead rather than left-anchored, are both untouched and
+out of scope here.
+
+**A nudged mark moves with its origin, and that is the design, not an event.** `applyDynamicOffsets`
+adds a stored staff-space delta to the mark's automatic placement, so changing the placement moves
+the nudged mark with it — which is exactly what anchor-relative means, and §4's argument arriving
+(the origin stops being a side effect and becomes a rule). ⛔ Nothing to migrate and nothing to
+rebase: there are no users and no files in the wild, and this repo does not build migrations
+(`docs/no-json-migration.md`). Worth a line only so a hand-nudged mark sitting somewhere new in the
+test score after P1 reads as the rule landing rather than a regression.
+
+**⛔ Not corrected here at all:** technique text (`pizz.` — Gould puts it above), tempo marks (their
+own rule in `TempoLayout.ts`, §12's ladder), and per-voice lines.
 
 ---
 
@@ -208,10 +368,49 @@ Hairpin = {
 ```
 
 **No foreign key at all.** Nothing names another bar, so inserting or deleting a measure needs no
-fix-up pass and the hairpin travels with its measure exactly as a `Dynamic` does. Honest costs:
-deleting a bar *inside* the span silently shortens what it covers (arguably right — it covers less
-music because there is less music), and finding the end's x means walking forward from the start
-measure at render time.
+*renumbering* fix-up and the hairpin travels with its measure exactly as a `Dynamic` does.
+
+🔎 **Two honest costs, both restated after the code check — the first one was written down wrong.**
+
+- **Deleting a bar inside the span does NOT shorten what it covers.** `length` is a count of music,
+  so removing music from the middle leaves the count unchanged and the *end* lands on different
+  music — or past the end of the score. (The original text claimed it "silently shortens… arguably
+  right"; it does not shorten, and the clamp `restoreBeatAnchors` already uses for an over-running
+  offset is the model to copy.)
+- **Finding the end's x means walking forward from the start measure at render time** — see the
+  geometry note below, which names what to walk.
+
+🔎 **⚠️ THE X'S NEED A NAMED SOURCE, and the obvious one is wrong.** `CoordinateMapper.beatToPixelX`
+(`CoordinateMapper.ts:130`) divides the bar's usable width by `barQuarters` — a **linear**
+interpolation that has nothing to do with where the spacing solve actually put the columns. A wedge
+drawn from it would visibly disagree with the notes it spans. Use instead the resolution
+`attachDynamicsToSlots` already implements: the slot at `(voice, beat)`, else fall forward to the
+next slot in that voice, and take its x from the render. Two sources for that x, and the second is
+better: `pass.staveNoteMap` (fresh only for a bar that was re-engraved) or the **`ElementRegistry`
+entry**, which `replaySnapshot` shifts by `dx/dy` and is therefore correct for a bar that merely
+MOVED. ⚠️ And the END address means the **end of that slot** — the next column's x, else the bar's
+`noteEndX` — not the start of the next column (`project_fixed_vs_unfixed_time_space`).
+
+🔎 **⚠️⚠️ IT MUST JOIN THE REBAR SEAM, and the failure if it does not is SILENT and worse than
+deletion.** `clearMeasureForRebar` (`rebarOps.ts:1231`) wipes the measure **by naming four fields**:
+`slots`, `tuplets`, `clefs`, `dynamics`, `tempos`. A new `hairpins` array is not in that list, so it
+**survives the wipe holding its old `beat` and `length`** while the bar's music is re-tiled around
+it — a hairpin left pointing at music that moved, with no error and with "it's still there" passing
+any test that only counts them. So:
+
+- capture it in `captureBeatAnchors` by absolute offset from the region start, exactly as a dynamic
+  is, and re-create it in `restoreBeatAnchors` (`length` is invariant under a rebar — the region's
+  total music is unchanged — so only the START needs re-anchoring, with the same clamp);
+- **add `hairpins` to `clearMeasureForRebar`'s delete list**, so the capture/restore pair is the only
+  road back and a missed capture is a visible loss rather than a silent lie;
+- ⚠️ **the id is regenerated** (`id: uuidv4()`), so §6's hairpin-id-keyed vertical override must ride
+  the same capture-and-re-stamp trick `DynamicOffsetOverride` already does (`rebarOps.ts:628`), and
+  a `selectedElement` naming a hairpin by id goes stale across a rebar exactly as a dynamic's does.
+
+🔎 **The per-staff lane will not filter it either.** `staffLaneOf` (`staffContent.ts:143`) builds a
+staff's view as `{ ...measure, slots, clefs, dynamics, tuplets }` — four arrays named, everything
+else riding the spread. `hairpins` would land unfiltered on EVERY staff's lane. Add a
+`staffHairpins(measure, staffId, score)` beside `staffDynamics` and name it in that object.
 
 **Rejected: note-id anchored (`startNoteId` / `endNoteId`, like `Slur`).** Maximum machinery reuse,
 but wrong on two counts — it is not what a hairpin is in any standard (§2.3), and in our engine note
@@ -249,9 +448,30 @@ override — is not merely a UX preference: a hairpin's extent is musical, its h
 
 **In the overrides compartment (authored geometry).** Anything the user hand-tunes about how it
 *looks*: a vertical nudge off the line (keyed by the hairpin's id, exactly as `DynamicOffsetOverride`
-is), and — if we ever want it — a custom mouth. ⛔ **The mouth does not go on the model.** MusicXML
+is — 🔎 and therefore, exactly as that one does, it must be captured and re-stamped across a rebar,
+because the id it is keyed by does not survive one: §5), and — if we ever want it — a custom mouth. ⛔ **The mouth does not go on the model.** MusicXML
 carries it as `spread` in tenths, which is a page measurement; ours would be a staff-space override,
 one client of the compartment, and absent by default.
+
+🔎 **⭐ NOT BUILT NOW, BUT NOT PRECLUDED: the aperture and the slant as user controls** (his note,
+2026-08-12 — *"probably in the future the user will be able to change the angle; just take it into
+account so it is easy to add"*). Both are already sorted by this section — authored geometry, so:
+compartment, id-keyed, staff-spaces, absent by default. So the only thing P3 must get right is **not
+hard-coding either one at the drawing site**, and the house pattern for exactly that is the slur's,
+one family over:
+
+- `resolveCps(override, stave, p0, p1, …)` (`SlurRenderer.ts:286`) — *a hand-edited shape converted
+  to pixels against the live stave, **else** the auto arch*. One function, so the staff-space→pixel
+  step lives in one place and the automatic shape is a fallback rather than the only path;
+- `slurEndpointOffsetPx(offset, fromStave, toStave)` — per-END deltas that yield 0 for a missing
+  offset, so the caller adds them unconditionally without a branch.
+
+Copy that: a `resolveHairpinShape(...)` answering `{ aperture, startY, endY }` from an absent
+override plus §2.4a's defaults. The day the aperture or the slant becomes a control it is then a
+compartment client plus a drag — no geometry rewritten, because the drawing already asks a resolver
+instead of reading a constant. ⚠️ And copy **Dorico's shape for the slant: two independent endpoint Y
+deltas, not an `angle` field.** An angle would have to name a pivot; the two ends are what the user
+actually grabs, and it is why changing only the start does nothing there.
 
 **Derived, stored nowhere (layout).** The line's y itself, the wedge's pixel endpoints, where it
 splits at a system break, and the gap it leaves before a neighbouring mark. This is why P0 is a
@@ -271,12 +491,89 @@ the system. An entry whose anchor measure no longer opens a system is simply nev
 "the line is at 42px" cached in the score. If a value cannot be re-derived from the content plus the
 current render, it is either an override with a durable anchor or it does not exist.
 
+### 6a. 🔎 Sorted against all six principles, not only §3
+
+The section above answered principle 3 thoroughly and left the other five unasked. Read against
+`docs/DESIGN-PRINCIPLES.md`, two of them change what gets built and one BLOCKS a piece of §4.
+
+**1 — a score is a value, not a singleton.** ⛔ The line module holds no state between renders: no
+module-level `Map` memoising a system's y, no "the current line". It is a pure function called with
+the render's own inputs, thrown away after. (Any lookup table it wants — a padding table keyed by
+what sits on the line — is SCREAMING_SNAKE, or `scripts/check-singletons.mjs` reads it as new mutable
+state and fails `build:check`.)
+
+**2 — position-independent material is first-class.** ⭐ **This makes the clip work mandatory, not
+optional.** A hairpin is part of a passage; `Clip` (`utils/clip.ts`) already carries `ClipDynamic[]`
+for exactly that reason. Copying four bars and pasting them without their hairpins would be a feature
+that operates on bar-anchored data while conceptually operating on a run of music — the *forbidden*
+clause of principle 2, word for word. So `ClipHairpin` travels with the clip, offset-relative like a
+clip dynamic; the only thing left open (§11.9) is what a hairpin STRADDLING the window does.
+
+**3 — content and presentation are separate.** Answered above. Held.
+
+**4 — staves are composable (1..N).** `staffId` on the model, `staffHairpins` in the lane (§5), one
+line per `(system, STAFF, placement)`, and the keyboard-between-staves case a deferred *value* of
+that key rather than a special case bolted on. ⛔ Nothing may assume staff 0.
+
+**5 — the score is independent of the editor.** ⭐⭐ **The plan's P2 says "the engine ops (add /
+remove / set length)", and "the engine" must not mean `MusicEngine`.** Adding, removing and
+re-lengthening a hairpin are SCORE operations — they belong in the score layer
+(`engine/models/hairpinOps.ts`, in the style of `clefOps` / `markOps` / `voiceOps`), reachable with
+no renderer and no DOM, with at most a one-line delegation on `MusicEngine`. Principle 5 names this
+exact failure as the mundane one: *someone adds it to `MusicEngine` because that is where the menu
+action lands. It works, ships, and is invisible.* CLAUDE.md's rule says the same thing from the other
+side.
+
+🔎 A pleasant consequence of dropping the ghost (§8): with no `ToolGhost` member and no
+`GHOST_DRAWERS` row, this feature never touches the engine↔editor vocabulary seam
+(`engine/rendering/ghostTypes.ts` ⇄ `interactions/toolGhost.ts`) at all. One fewer arrow to get
+backwards.
+
+**6 — a statement that can change mid-score is positional.** The hairpin is positional by
+construction (§2.3, §5), and "move the line" per system is keyed by the durable
+`staffSystemSpacingKey`-shaped anchor rather than by a layout index (§6).
+
+⛔ **But §4's third flavour — "move the line … per SCORE" — is BLOCKED, and not by this plan.** A
+document-wide dynamics-line padding is a document-wide *engraving* setting, which is DESIGN-PRINCIPLES'
+still-OPEN boundary case #1. That entry has two members already (the surface, and `justifyLastLine`)
+and says in as many words: *"Do not add a second document-wide look setting without settling this;
+two of them arriving by different routes is how the compartment stops meaning anything"* — with a ⛔
+noting the warning stands unchanged for a THIRD. So: per-system and per-staff are ours to build when
+wanted; **score-wide waits for the engraving object**, and this plan must not quietly become the
+third route.
+
 ## 7. Rendering
 
-- **Its own pass**, after the measures, like `renderSlurs(pass, score)`. That also keeps hairpins out
-  of `MeasureRedrawKey` entirely — they never need a shape-key row, the way dynamics did.
-- **No width.** `docs/ARCHITECTURE.md` §"Adding a new engraved element" answers it outright: *"An
-  accidental does. A hairpin does not."*
+`docs/ARCHITECTURE.md` §"Adding a new engraved element" asks a new drawn thing **three** questions,
+and warns that every wrong answer is silent. 🔎 The first draft of this section answered two.
+
+- **1. Does it take horizontal space? No.** That section answers it outright: *"An accidental does. A
+  hairpin does not."*
+- **2. Does it change how the bar LOOKS?** 🔎 **This is not optional and not skippable.** The section
+  above first said an own pass "keeps hairpins out of `MeasureRedrawKey` entirely — they never need a
+  shape-key row". The compiler disagrees: `MEASURE_RENDER_ROLE` is a `Record<keyof Measure, …>`
+  (`measureRenderRoles.ts`), so adding `Measure.hairpins` **stops that file compiling** until it is
+  classified, stops `measureRenderRoles.test.ts`'s `PERTURB` record compiling until it is perturbed,
+  and the test then checks the claim is TRUE. The `dynamics` row reads, verbatim: *"Drawn, weightless.
+  The canonical 'shape only' element — **copy this row for a hairpin**."* `'ignored'` is defensible
+  ONLY if nothing hairpin-related is ever drawn inside a measure's `<g>`; the house rule when unsure
+  is the one that file states — *include it; correct-and-slow is recoverable, a stale picture is
+  not.* Decide it in §11.8, do not inherit it by omission.
+- **3. Does it SPAN bars? YES — so it must be a span anchor.** 🔎 Missing entirely from the first
+  draft, and `measureRenderRoles.ts:32` is explicit that **the compiler cannot catch this one**
+  (spans live on `Score`, hairpins will not). Both endpoint bars must be added to
+  `VexFlowRenderer.spanAnchors`, or two things break: a bar that merely MOVED is translated rather
+  than re-engraved and its VexFlow objects keep their stale drawn coordinates
+  (`VexFlowRenderer.replaySnapshot`), and under culling the endpoint bar's `<g>` is deleted outright
+  so the wedge draws detached or vanishes on scroll. Ties and slurs are already in there for exactly
+  this. (⚠️ It also feeds `forcedSpanGroups`, which is what drags an off-screen anchor back into the
+  drawn set for a span crossing the window.)
+- **Its own pass**, after the measures, like `renderSlurs(pass, score)`.
+- 🔎 **The stroke is 0.16 staff spaces — the thin-line weight we already draw with** (§2.4a), not a
+  new constant. ⚠️ In *staff spaces*, so it scales inside a small staff's `scale(k)` group like
+  everything else drawn there, and ⚠️ it is a hairline: the half-pixel rule applies
+  (`reference_thin_lines_need_half_pixel_offset` — a hairline straddling two pixel rows looks fat),
+  which is the same defence `barlineInk` already runs for the editor audience and skips for print.
 - **System breaks.** `SlurRenderer` already owns a segment planner and the system-margin helpers
   (`planSlurSegments`, the left/right margin lookups); a hairpin wants the same idea, with the mouth
   continuing at the width it left off. A four-bar crescendo *will* cross a break in ordinary use, so
@@ -291,12 +588,30 @@ the measure group and `MeasureRedrawKey` answers "does this bar still look the s
 own content. So either
 
 - **(a)** the line's y goes **into the shape key** of every measure in the system, or
-- **(b)** dynamics move **out of the measure group** into a system-level pass, as slurs already are.
+- **(b)** dynamics move **out of the measure group** into a system-level pass, as slurs already are, or
+- **(c)** 🔎 **the marks stay exactly where they are and a post-measure system pass TRANSLATES them
+  onto the line.**
 
-(b) is cleaner, is the same shape the hairpin wants anyway, and we are already halfway there —
-`layoutCoLocatedDynamics` overrides VexFlow's placement for stacked marks, and every annotation is
-stashed in `dynamicObjectMap`. Its cost is that dynamics stop being VexFlow `Annotation` modifiers
-and become ink we place, which is a bigger change than the hairpin itself.
+🔎 **(c) was missing, and it is the cheap one — because it is what the code already does twice.**
+`layoutCoLocatedDynamics` and `applyDynamicOffsets` (`DynamicsLayout.ts:93`, `:242`) both move a
+rendered mark by writing a `translate(...)` on its `<g>` and calling `elementRegistry.shiftById` so
+hit-testing follows. A line pass is the same move with a different number, run once per
+`(system, staff, placement)` after every bar is standing. Everything downstream keeps working
+unchanged: the mark is still a VexFlow `Annotation`, still registered from its rendered SVG, so the
+text-edit overlay (§3), the selection hit-box and the dashed anchor line all follow for free.
+
+⚠️ **Its one condition:** the transform must be recomputed **absolutely** each render — composed from
+(co-location + offset + line) into one `translate` — not PREPENDED to whatever is already on the
+element. Prepending is safe today only because those two passes run on a freshly drawn group; a
+REUSED measure's mark still carries last render's transform, and prepending to it accumulates.
+
+🔎 **And (b) has a cost the first draft did not price.** With dynamics out of the measure group their
+x must come from the anchor `StaveNote` — whose coordinates are stale for any bar that was
+*translated* rather than re-engraved. That makes **every dynamic-bearing bar a span anchor**, i.e. no
+longer translatable: the exact optimisation that measured at 53% of all render time. (b) is still the
+cleaner end state and the same shape the hairpin wants; it is not the cheap first step, and P1 does
+not have to be the phase that pays for it. **Recommended: (c) for P1, with (b) left open as the end
+state** — the hairpin's own pass is system-level from day one either way.
 
 ---
 
@@ -304,17 +619,47 @@ and become ink we place, which is a bigger change than the hairpin itself.
 
 Following the slur, which is already routed this way (`PaletteController.createSlur`, `171b1bb`):
 
-- **Two rows in the Lines palette** — open (cresc.) and close (dim.) — plus `h` / `Shift+H`
-  (Sibelius's keys, both free).
-- **Selection → create** over the selected range: start = the first selected note's address, length
-  = to the last. **Nothing selected → arm the stamp.** **Armed → a re-press disarms.**
-- **The ghost is a real wedge.** Unlike the slur, a hairpin has a previewable shape, so the armed
-  tool can draw a short wedge at the pointer rather than only showing the blue placement pointer —
-  a row in `GHOST_DRAWERS` + `ToolGhost` (and so it does **not** join `scoreCursorClass`'s
-  ghostless list).
+- **Two rows in the Lines palette** — open (cresc.) and close (dim.). It is a TABLE whose own header
+  already names the hairpin as its next row (`dev/linePalette.ts`), so this is two rows and no
+  `devToolbar` slice. Each row's `press` calls a `PaletteController` method that the key also calls,
+  so the palette reimplements nothing.
+- **THE KEYS, Sibelius's, and they are free.** 🔎 Written out so there is nothing to infer:
+
+  | key | in `ShortcutConfig` | action | means |
+  |---|---|---|---|
+  | `H` | `'h'` | `createCrescendo` | the OPEN wedge (cresc.) |
+  | `Shift+H` | `'Shift+h'` | `createDiminuendo` | the CLOSE wedge (dim.) |
+
+  ⚠️ Lowercase in the table on purpose: the shortcut manager lowercases single keys, which is why the
+  rest-hide entry is spelled `'Ctrl+Shift+h'` (`ShortcutConfig.ts:449`). Checked against the whole
+  config — `Ctrl+Shift+h` is the **only** `h` binding that exists; `a`–`g` and `Shift+a`–`g` are note
+  and chord entry, and `h` sits just outside that block.
+- **Each key routes three ways, `createSlur`'s split exactly** (`PaletteController.createSlur`): a
+  re-press of the armed stamp **disarms**; notes selected → **create** over that range (start = the
+  first selected note's address, length = to the end of the last one's slot); nothing selected →
+  **arm the stamp**. Two methods, not one with a flag, so each palette row and each key is one call.
+- 🔎 **NO GHOST — the blue pointer, like the slur.** (His call, 2026-08-12; the first draft argued for
+  a real wedge preview because a hairpin, unlike a slur, has a previewable shape.) So there is **no**
+  `ToolGhost` member and **no** `GHOST_DRAWERS` row, and the hairpin **joins** `scoreCursorClass`'s
+  ghostless list beside `slur` / `dynamicEntry` / `tempoEntry`. It also fits their stated reason: a
+  wedge is drawn BETWEEN two points and the click has only picked one, so a ghost wedge at the
+  pointer would be previewing a length the click is not going to make. `MARKING_TOOL_USES_ARMED_LENGTH`
+  still gets its row — `false`, for the slur's reason.
 - **The stamp's click** — open, see §11.4.
-- **Extending** an existing hairpin (Sibelius's Space, Dorico's Shift+Alt+→) is deferred; note that
-  `Ctrl+←/→` is already taken by the slur-endpoint / dynamic / bar-width nudges.
+- 🔎 **EXTENDING is IN, in P4** (his call, 2026-08-12 — the first draft deferred it). It is what makes
+  the stamp usable at all: one click can only make a one-slot wedge, which is shorter than the
+  minimum length a wedge reads at (§2.4), so a stamp with no way to lengthen what it placed is a door
+  that opens onto nothing. **`Ctrl+→` lengthens the selected hairpin by one slot, `Ctrl+←` shortens
+  it** — Sibelius spells this Space, but we already have the gesture: `ctrlArrowRight` /
+  `ctrlArrowLeft` are SINGLE actions routed by what is selected (`ShortcutConfig.ts:154`), which the
+  slur endpoint, the dynamic and the bar width already share. So a selected hairpin joins that
+  dispatch and needs no key of its own.
+
+  ⚠️ **On a hairpin that key changes `length` ON THE MODEL** — it does not write a cosmetic offset,
+  which is what the same key does on a slur endpoint one branch over. That is §4's rule (time comes
+  from the address, engraving from the compartment), and one key carrying both categories is exactly
+  where it would get broken. `Ctrl+Backspace` (`resetMove`) therefore does **not** apply to a
+  hairpin's length: there is nothing to reset, because nothing cosmetic was written.
 
 ---
 
@@ -334,43 +679,115 @@ to the resolution pass, not a slice on top of it.
 
 Each is separately visible and separately testable.
 
-- **P0 — the line as a pure function.** Its own module: in, the system's note extents + the staff's
-  ratio; out, one baseline y per `(system, staff, placement)`. Unit-testable without a renderer —
-  note y's come from pitch, not from fonts, so the jsdom trap does not bite (⚠️ the *ink heights* of
-  the letters do need the browser, and stay in the e2e suite). Nothing reads it yet.
-- **P1 — dynamics read the line.** The only visible change: letters and words stop wobbling and line
-  up per system. This is where §11.1 is decided and where the hand-testing matters, because it
-  touches something that already works. Offsets keep working, now measured from the line.
-- **P2 — the model.** `Measure.hairpins`, the engine ops (add / remove / set length), undo, JSON
-  round-trip, the rebar + copy/paste behaviour, no rendering yet.
-- **P3 — draw it.** Own pass, on the line, mouth from the line's optical centre, ends stopping short
-  of a neighbouring mark via the skyline, **including the system-break split**.
-- **P4 — the UX.** Palette rows, `h` / `Shift+H`, selection→create, stamp + wedge ghost, selection /
-  highlight / Delete, Properties report.
+- **P0 — the line as a pure function. ✅ BUILT.** Its own module — `engine/layout/dynamicsLine.ts`, beside the
+  other derived-view arithmetic. In, the system's ink + the staff's ratio; out, one baseline y per
+  `(system, staff, placement)`. Unit-testable without a renderer, and 🔎 **its input already exists,
+  which the first draft did not know**: `MeasurePlacement.system.columns` is `measureColumns(...)`
+  (`VexFlowRenderer.ts:1409`), a per-column list of located `InkBox`es carrying `top`/`bottom` **in
+  staff spaces below the top stave line, tagged per staff** — noteheads, ledgers, dots, accidentals,
+  stems and flags. The line is `max(bottom)` over the boxes of one `(line, staffIndex)`, plus padding,
+  floored at a minimum. Pure, pre-draw, already on the right axis for a small staff, and no new
+  measurement. (⚠️ It does not cover articulations, beams or tuplet brackets; if those need to push
+  the line, they are ROWS in that ink model — not a second extent computed here.) The *ink heights of
+  the letters* still need the browser and stay in the e2e suite. Nothing reads it yet.
 
-**Later, not in this plan:** move-the-line as a user control (§4), the `cresc.`-with-dashes style,
-niente, the playback ramp, extending a hairpin from the keyboard, per-voice lines, and the
+  🔎 **Two things the build found.** (i) ⭐ **The staff's RATIO is NOT an input** — this bullet asked
+  for one and it would be a bug: an `InkBox`'s band is deliberately unscaled (`kerning.ts`) and the
+  mark is drawn *inside* the staff's `scale(k)` group, so everything is already in one staff's own
+  spaces and a ratio would land a small staff's line twice-scaled. (ii) ⚠️⚠️ **A box's `staff` is
+  `undefined` for the FIRST staff even when the score has staff ids** — `slotInk` copies
+  `slot.staffId`, and adding a staff *below* does not stamp the existing music (only a prepend does,
+  `solidifyFirstStaffContent`). So both sides are normalised through the first staff's id, exactly as
+  `models/staffContent.matchesStaff` does; comparing strictly — as `kerning.sameBand` does — hands
+  the upper staff of a grand staff an empty band and its dynamics the floor.
+- **P1 — dynamics read the line. ✅ BUILT** — `rendering/dynamicsLinePass.ts` (the system pass) +
+  `rendering/dynamicMarkTransform.ts` (who owns the mark's `translate`), specs for both, and
+  `e2e/dynamicsLine.e2e.ts` for the drawn geometry. §11.1 answered **(c)**.
+
+  🔎 **The one thing the build added to the plan: a transform OWNER.** (c) makes three passes move
+  the same `<g>` — the co-located row, the hand nudge and now the line — and the line pass is the
+  first that runs over bars it did not draw. `applyDynamicOffsets` used to PREPEND to whatever
+  attribute it found, which is safe only on a freshly drawn group; on a reused one it would add a
+  line's worth of drop per render and drag the registry box with it. So the components are kept
+  (on the element, the one thing that survives a render it took no part in) and the transform is
+  recomposed from them — which is the plan's ⚠️ in §7, and it makes the pass idempotent.
+
+  🔎 **Two more things his testing changed** (both above): the deviation became **LOCAL** (§3), and
+  the **x** rule arrived — a level is centred on its notehead (§3a). Plus the four editor-overlay
+  fixes the line's y exposed (§3).
+
+  Visible change: letters and words line up per system — and 🔎 on
+  high passages they move OUT of the staff, which is the §2.2 defect being fixed, not a regression.
+  This is where §11.1 is decided (recommendation now **(c)**, §7) and where the hand-testing matters,
+  because it touches something that already works. Offsets keep working, now measured from the line
+  (§3a). 🔎 Also here: drop `layoutCoLocatedDynamics`' vertical centring, which is what makes
+  `p dolce` share a baseline instead of a centre (§3a).
+- **P2 — the model.** `Measure.hairpins`, the ops (add / remove / set length) — 🔎 **in the SCORE
+  layer, `engine/models/hairpinOps.ts`, not on `MusicEngine`** (§6a, principle 5) — undo, JSON
+  round-trip. 🔎 And four seams the compiler or a silent failure will otherwise find first:
+  `MEASURE_RENDER_ROLE` + its `PERTURB` row (§7), `staffHairpins` in `staffLaneOf` (§5),
+  `clearMeasureForRebar` + `captureBeatAnchors`/`restoreBeatAnchors` incl. the id-keyed override
+  (§5), and `ClipHairpin` + the copy/paste window rule (§6a principle 2, §11.9). No rendering yet.
+- **P3 — draw it.** Own pass, on the line, mouth from the line's optical centre, ends stopping short
+  of a neighbouring mark via the skyline, **including the system-break split**. 🔎 Plus the two
+  endpoint bars into `spanAnchors` (§7), the x resolution off the registry (§5), the 0.16 sp
+  thin-line stroke (§2.4a), and the geometry read through a **resolver** — `{ aperture, startY,
+  endY }` with defaults — rather than constants at the draw site, so the future aperture/slant
+  controls are a compartment client and nothing is rewritten (§6).
+- **P4 — the UX.** Palette rows, `H` / `Shift+H`, selection→create, the stamp (**no ghost** — the
+  blue pointer, §8), 🔎 **`Ctrl+←/→` to shorten/lengthen a selected hairpin** (§8 — in scope, because
+  the stamp is unusable without it), selection / highlight / Delete, Properties report.
+
+**Later, not in this plan:** move-the-line as a user control (§4 — and its score-wide flavour is
+BLOCKED, §6a), 🔎 **the aperture and the slant as user controls** (§6 — not built, but the resolver
+in P3 is what keeps them a small addition), the `cresc.`-with-dashes style, niente, the playback ramp, per-voice lines, and the
 vocal-above / keyboard-between-staves placement variants.
 
 ---
 
 ## 11. Open decisions
 
-Nothing is built until these have his word.
+Nothing is built until these have his word. 🔎 **5 and the ghost are SETTLED** (2026-08-12) and kept
+here struck through, so the answer travels with the question; 1 and 4 have moved on.
 
-1. **§7's fork** — dynamics into a system-level pass (recommended), or the line's y folded into every
-   measure's shape key?
+1. ~~**§7's fork**~~ — 🔎 **SETTLED by P1 (2026-08-12): (c)**, built as recommended. **(b)** stays the
+   end state and is still unpaid for; the hairpin's own pass is system-level from day one either way.
+   The question as it stood: 🔎 now a THREE-way, and the recommendation changed: **(c)** a post-measure system
+   pass that TRANSLATES the existing annotations onto the line (cheap, reuses what
+   `layoutCoLocatedDynamics` / `applyDynamicOffsets` already do, keeps the overlay + hit-testing
+   working), with **(b)** — dynamics become ink in a system-level pass — left open as the end state.
+   **(a)** the line's y in every measure's shape key is still available and still the blunt one.
 2. **The model** — start + length on the measure (recommended, §5), or the score-level spanner?
 3. **v1 scope** — notation only, no playback ramp (recommended)?
-4. **The stamp's click** — a hairpin needs a span, so what does one click mean? The slur's answer
-   (this note → the next slot, extend later), two clicks (start, then end), or a drag?
-5. **Keys** — `h` / `Shift+H` as Sibelius, and two rows in the Lines palette?
+4. **The stamp's click** — a hairpin needs a span, so what does one click mean? 🔎 Now that
+   **extending is in scope** (§8, `Ctrl+←/→`), the slur's answer costs nothing: one click makes the
+   shortest honest wedge (this note → the end of the next slot) and the arrows grow it. Two clicks or
+   a drag remain available; the argument for them got weaker.
+5. ~~**Keys** — `h` / `Shift+H` as Sibelius, and two rows in the Lines palette?~~ 🔎 **YES, both**
+   (2026-08-12) — spelled out in §8's table, and verified free in `ShortcutConfig`.
+   ~~**The ghost** — a real wedge at the pointer?~~ 🔎 **NO** (2026-08-12) — the blue pointer, like
+   the slur. No `ToolGhost` member, no `GHOST_DRAWERS` row.
 6. **Default placement** — always `below` with a flip, or infer per staff kind (vocal above, keyboard
    between) later?
 7. **`cresc.` as text.** Musically it is the same object as the wedge, and every model treats the
    dashed-word form as an *appearance* of the gradual dynamic rather than free text. Do we want
    `style: 'wedge' | 'text'` on the hairpin later? ⛔ Either way, do **not** retro-interpret
    expression text that is already typed in a score — report, never repair; no migration.
+
+🔎 Three the code check opened:
+
+8. **The `MEASURE_RENDER_ROLE` row** (§7) — `'shape'`, following the house rule and the row comment
+   that literally says "copy this row for a hairpin"? Or `'ignored'`, which is the truthful answer
+   *if* the hairpin's pass never draws inside a measure `<g>` and never will? `'shape'` costs a
+   redraw of the start bar when a hairpin changes; `'ignored'` costs nothing until the day something
+   hairpin-shaped IS drawn in the bar, and then it costs a stale picture. **Recommended: `'shape'`.**
+9. **A hairpin STRADDLING a copy window** (§6a principle 2) — dropped, like a clip dynamic that is
+   not fully inside? Or truncated to the window? Dropping matches `clip.ts` today and is the smaller
+   promise; truncating is what a user copying "the middle of a crescendo" probably means. ⚠️ Whichever
+   it is, it must be the same answer for the paste side. **Recommended: dropped**, matching dynamics,
+   until someone asks otherwise.
+10. **The suppressed-mark skyline source** (§3) — the last registered bbox (recommended), the
+    overlay's rect through the inverse CTM, or freeze the wedge's end while an edit is open?
 
 ---
 

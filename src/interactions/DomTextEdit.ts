@@ -47,6 +47,8 @@ export class DomTextEdit implements TextEditDom {
   private savedRange: Range | null = null
   /** The drawn italic caret (the native one is suppressed in CSS). Null while unmounted. */
   private caretEl: HTMLElement | null = null
+  /** How tall the caret may be: the BASE font's own inline box, measured at mount. 0 = no cap. */
+  private caretCapPx = 0
 
   /**
    * @param openMenu opens the word menu; omit and the gesture stays the browser's.
@@ -95,6 +97,22 @@ export class DomTextEdit implements TextEditDom {
     document.body.appendChild(el)
     this.el = el
 
+    // ⭐⭐ **PIN THE LINE BOX, so the baseline cannot move at all.**
+    //
+    // Everything the box holds sits on one line, and by default that line is as tall as the TALLEST
+    // thing on it — so a 2.14em dynamics glyph chip going in (or the last character coming out)
+    // changes the line's height and therefore where its baseline falls. That is one bug with three
+    // faces, all reported: the mark jumped down when a glyph was inserted, the box lurched when the
+    // text was deleted, and re-seating it afterwards meant chasing the layout on every keystroke.
+    //
+    // A line-height in ABSOLUTE units inherits as the same length into the chips, so the strut — and
+    // with it the baseline — is the base font's whatever the content does. The big glyph simply
+    // overflows the line box, which is what it does in the engraving too. Measured rather than
+    // computed, so family, size and zoom are all folded in. It also makes the caret's range rect the
+    // base height instead of the chip's, which is the other half of the caret cap below.
+    this.caretCapPx = this.measureBaseTextHeight(el)
+    if (this.caretCapPx > 0) s.lineHeight = `${this.caretCapPx}px`
+
     // Our own caret: no CSS can slant the native one, and expression text is italic. It leans only
     // as far as THIS box's font does — upright for a tempo mark, slanted for a dynamic.
     // `selectionchange` is the only event that fires for every way the caret can move — typing,
@@ -105,10 +123,15 @@ export class DomTextEdit implements TextEditDom {
     document.body.appendChild(caret)
     this.caretEl = caret
     document.addEventListener('selectionchange', this.syncCaret)
+    el.addEventListener('input', this.syncCaret)
 
-    // Only now that it's laid out can we ask where its baseline landed, and slide the box
-    // so that baseline sits exactly where the engraved one did.
-    if (opts.baselineY !== undefined) this.alignBaseline(el, rect.y, opts.baselineY)
+    // Only now that it's laid out can we ask where its baseline landed, and slide the box so that
+    // baseline sits exactly where the engraved one did.
+    //
+    // ⭐ **ONCE is enough, because the line box above is pinned.** An earlier version re-ran this on
+    // every keystroke to chase a baseline that kept moving; the baseline moving was the bug, not
+    // something to keep correcting.
+    if (opts.baselineY !== undefined) this.alignBaseline(el, opts.baselineY)
 
     // Focus + place the caret at the end on the next frame: doing it synchronously
     // inside the opening mousedown can race with the browser's own focus handling.
@@ -129,6 +152,7 @@ export class DomTextEdit implements TextEditDom {
     const el = this.el
     if (el) {
       el.removeEventListener('keydown', this.onKeyDown)
+      el.removeEventListener('input', this.syncCaret)
       el.remove()
     }
     document.removeEventListener('contextmenu', this.onContextMenu, true)
@@ -136,6 +160,7 @@ export class DomTextEdit implements TextEditDom {
     document.removeEventListener('selectionchange', this.syncCaret)
     this.caretEl?.remove()
     this.caretEl = null
+    this.caretCapPx = 0
     this.el = null
     this.opts = null
     this.savedRange = null
@@ -185,9 +210,15 @@ export class DomTextEdit implements TextEditDom {
   }
 
   /**
-   * Move the drawn caret to wherever the real (invisible) one is. Bound to `selectionchange`, which
-   * covers every way it can move — typing, arrows, clicking, our own insertions — so nothing has to
-   * remember to call this.
+   * Move the drawn caret to wherever the real (invisible) one is. Bound to `selectionchange` AND to
+   * `input`, which between them cover every way it can move.
+   *
+   * ⚠️ **`selectionchange` alone does NOT**, and the claim that it did was wrong in one exact case:
+   * where the CONTENT moves under a selection that does not itself change. Delete the last thing in
+   * the box and the caret is still "offset 0 of the box" — no selection event — while the box it is
+   * measured against has just shrunk. So the drawn caret stayed out at the old right edge with
+   * nothing beside it (reported 2026-08-12: *"it deletes the f but the caret doesn't go back"*).
+   * The caret's place is a function of the content as well as the selection, so it listens to both.
    *
    * Hidden when the caret is not in this box, or when text is SELECTED: a caret drawn at the edge of
    * a highlight looks like a second, stationary one, and the selection already shows where you are.
@@ -228,54 +259,89 @@ export class DomTextEdit implements TextEditDom {
    * failure mode to avoid.
    */
   private caretRect(range: Range, el: HTMLElement): { left: number; top: number; height: number } | null {
-    if (typeof range.getBoundingClientRect !== 'function') return null // no layout (tests)
-    const r = range.getBoundingClientRect()
-    if (r.height > CARET_MIN_HEIGHT_PX) return { left: r.left, top: r.top, height: r.height }
-
-    // A collapsed range at a node BOUNDARY — just after an inserted note glyph or a dynamics chip —
-    // often reports an empty rect. Recover the caret from the edge of a neighbouring character
-    // rather than falling through to the box edge below, which flings the caret to the END of what
-    // was actually a mid-string insert. (This is why a shortcut inserted mid-string looked like it
-    // jumped to the end — in BOTH the tempo and the expression editor.)
-    const boundary = this.boundaryCaretRect(range)
-    if (boundary) return boundary
-
+    if (typeof el.getBoundingClientRect !== 'function') return null // no layout (tests)
     const box = el.getBoundingClientRect()
     if (box.height <= CARET_MIN_HEIGHT_PX) return null
-    // Nothing to measure at all (an empty box): the start edge when empty, the end otherwise.
-    const atEnd = (el.textContent ?? '').length > 0
-    return { left: atEnd ? box.right : box.left, top: box.top, height: box.height }
+
+    // ⭐⭐ **The caret's HEIGHT and its LINE come from the box, always; only its X is looked up.**
+    //
+    // The box holds one line whose height is pinned to the base font (see `mount`), so its bottom IS
+    // that line's bottom and its height IS the height of the text you are typing — for every caret
+    // position, whatever is in the box. Taking the vertical from whatever happened to be beside the
+    // caret is what made it twice too tall next to a glyph chip, and what left it stranded at the
+    // old edge when the chip was deleted: three sources, three answers, drifting apart (both
+    // reported 2026-08-12). There is one line here, so there is one answer.
+    const height = this.caretCapPx > 0 ? Math.min(box.height, this.caretCapPx) : box.height
+    const left = this.caretLeft(range, el, box)
+    return { left: left.x, top: box.bottom - height, height }
   }
 
   /**
-   * The x/height of a collapsed range that has no rect of its own, taken from the character on one
-   * side of it: the RIGHT edge of the text just before the caret, else the LEFT edge of the text
-   * just after. Covers a caret inside a text node AND one at an element boundary (between child
-   * nodes — where `insertNodeAtCaret`'s `setStartAfter` leaves it). Null when neither side is text
-   * (an empty box, or a caret wedged between two non-text nodes) — the box fallback takes over.
+   * WHERE ALONG THE LINE the caret sits: from the range's own rect, else from the edge of whatever
+   * is next to it, else from the box.
    */
-  private boundaryCaretRect(range: Range): { left: number; top: number; height: number } | null {
+  private caretLeft(range: Range, el: HTMLElement, box: DOMRect): { x: number; from: string } {
+    if (typeof range.getBoundingClientRect === 'function') {
+      const r = range.getBoundingClientRect()
+      if (r.height > CARET_MIN_HEIGHT_PX) return { x: r.left, from: 'range' }
+    }
+
+    // A collapsed range at a node BOUNDARY — just after an inserted note glyph or a dynamics chip —
+    // often reports an empty rect. Recover the caret from the edge of its neighbour rather than
+    // falling through to the box edge below, which flings the caret to the END of what was actually
+    // a mid-string insert. (This is why a shortcut inserted mid-string looked like it jumped to the
+    // end — in BOTH the tempo and the expression editor.)
+    const boundary = this.boundaryCaretLeft(range)
+    if (boundary !== null) return { x: boundary, from: 'neighbour' }
+
+    // Nothing to measure at all (an empty box): the start edge when empty, the end otherwise.
+    return { x: (el.textContent ?? '').length > 0 ? box.right : box.left, from: 'box' }
+  }
+
+  /**
+   * The x of a collapsed range that has no rect of its own, taken from whatever is beside it: the
+   * RIGHT edge of what is just before the caret, else the LEFT edge of what is just after. Covers a
+   * caret inside a text node AND one at an element boundary (between child nodes — where
+   * `insertNodeAtCaret`'s `setStartAfter` leaves it). Null when neither side can be measured (an
+   * empty box) — the box fallback takes over.
+   *
+   * ⚠️ **Only the x.** The vertical is the line's, from the box (see {@link caretRect}) — asking a
+   * 2.14em glyph chip where the line sits is how the caret ended up 8px below its neighbours.
+   */
+  private boundaryCaretLeft(range: Range): number | null {
     if (typeof document.createRange !== 'function') return null
-    const edge = (node: Node, from: number, to: number, side: 'left' | 'right') => {
+    const len = (n: Node) => n.textContent?.length ?? 0
+
+    const textEdge = (node: Node, from: number, to: number, side: 'left' | 'right') => {
       const probe = document.createRange()
       try { probe.setStart(node, from); probe.setEnd(node, to) } catch { return null }
       const r = probe.getBoundingClientRect()
-      if (r.height <= CARET_MIN_HEIGHT_PX) return null
-      return { left: side === 'right' ? r.right : r.left, top: r.top, height: r.height }
+      return r.height > CARET_MIN_HEIGHT_PX ? (side === 'right' ? r.right : r.left) : null
     }
-    const len = (n: Node) => n.textContent?.length ?? 0
+
+    /**
+     * ⚠️ The neighbour may be an ELEMENT, and until this it was skipped — which is precisely the
+     * dynamics case: a glyph chip is a `<span>`, so a caret sitting beside one found no text either
+     * side and fell through to the BOX, i.e. to the far edge of everything in it. With a chip and
+     * words in the same box that is simply the wrong place. An element has its own rect; use it.
+     */
+    const sideOf = (node: Node | undefined, side: 'left' | 'right'): number | null => {
+      if (!node) return null
+      if (node.nodeType === Node.TEXT_NODE) return textEdge(node, 0, len(node), side)
+      if (node.nodeType !== Node.ELEMENT_NODE) return null
+      const box = (node as Element).getBoundingClientRect?.()
+      if (!box || box.height <= CARET_MIN_HEIGHT_PX) return null
+      return side === 'right' ? box.right : box.left
+    }
+
     const c = range.startContainer
     const o = range.startOffset
-
     if (c.nodeType === Node.TEXT_NODE) {
-      const before = o > 0 ? edge(c, 0, o, 'right') : null
-      return before ?? (o < len(c) ? edge(c, o, len(c), 'left') : null)
+      const before = o > 0 ? textEdge(c, 0, o, 'right') : null
+      return before ?? (o < len(c) ? textEdge(c, o, len(c), 'left') : null)
     }
     // Element container: the caret sits between children o-1 and o.
-    const prev = c.childNodes[o - 1]
-    const next = c.childNodes[o]
-    const fromPrev = prev?.nodeType === Node.TEXT_NODE ? edge(prev, 0, len(prev), 'right') : null
-    return fromPrev ?? (next?.nodeType === Node.TEXT_NODE ? edge(next, 0, len(next), 'left') : null)
+    return sideOf(c.childNodes[o - 1], 'right') ?? sideOf(c.childNodes[o], 'left')
   }
 
   /** The live caret, but only if it is actually inside this box — a range pointing anywhere else is
@@ -470,15 +536,39 @@ export class DomTextEdit implements TextEditDom {
    * one in, read where the baseline actually is, shift the box by the difference, take it
    * out. True by construction for any font, any zoom.
    */
-  private alignBaseline(el: HTMLElement, top: number, baselineY: number): void {
+  /**
+   * How tall a line of the box's OWN font is, in px — the caret's cap.
+   *
+   * Measured rather than computed from the font size: a probe span inheriting the box's font
+   * reports its own inline box, which is the thing a caret should match. Line-height, family and
+   * zoom are all folded in for free, and a box whose base font changes measures again next mount.
+   */
+  private measureBaseTextHeight(el: HTMLElement): number {
+    if (typeof el.getBoundingClientRect !== 'function') return 0 // no layout (tests)
+    const probe = document.createElement('span')
+    probe.textContent = 'Mg' // an ascender and a descender, so the box is the full one
+    probe.style.cssText = 'visibility:hidden;white-space:pre'
+    el.appendChild(probe)
+    const height = probe.getBoundingClientRect().height
+    probe.remove()
+    return Number.isFinite(height) ? height : 0
+  }
+
+  private alignBaseline(el: HTMLElement, baselineY: number): void {
     if (typeof el.getBoundingClientRect !== 'function') return // no layout (tests)
     const probe = document.createElement('span')
     probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline'
     el.appendChild(probe)
     const measured = probe.getBoundingClientRect().bottom
     probe.remove()
-    if (!Number.isFinite(measured) || measured === 0) return
-    el.style.top = `${top + (baselineY - measured)}px`
+    // ⚠️ **Corrected from where the box IS, never from where it started.** `measured` is a client
+    // coordinate, so it already includes every adjustment made so far — re-running this against the
+    // original mount rect subtracts a correction that has already been applied, and the box
+    // oscillates by that amount on every keystroke (visible in the logs as an alternating ±1px).
+    // Relative, it converges: once the baselines agree the delta is 0 and nothing moves.
+    const current = parseFloat(el.style.top)
+    if (!Number.isFinite(measured) || measured === 0 || !Number.isFinite(current)) return
+    el.style.top = `${current + (baselineY - measured)}px`
   }
 
   /** Place the caret at the end of the seeded text (collapsed — nothing selected). */

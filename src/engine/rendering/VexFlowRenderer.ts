@@ -30,6 +30,7 @@ import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
+import { placeDynamicsOnLine } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
 import {
   chooseVoiceMode,
@@ -1380,9 +1381,19 @@ export class VexFlowRenderer {
       //   column is a position in the SYSTEM (see `MeasurePlacement.system`). It also stops the
       //   column walk being repeated per staff.
       const clefFor = clefResolverFor(measure, clefsByStaff, staffList[0]?.id)
-      /** How big each staff of THIS system is drawn — the sizes the casting-off already resolved. */
+      /**
+       * How big each staff of THIS system is drawn — the sizes the casting-off already resolved.
+       *
+       * ⚠️ **An absent `staffId` IS the first staff, and it is asked for constantly**: the ink boxes
+       * come from `slot.staffId`, which the first staff's content never carries (`utils/lanes`;
+       * only a PREPEND stamps it, `solidifyFirstStaffContent`). So it is normalised here, the way
+       * `MeasureLayout`'s twin resolver and `models/staffContent.matchesStaff` both do it. It used to
+       * arrive at the same answer through the not-found branch below, which reads as a guard against
+       * a stale id and is one — leaving the convention to ride on it meant the two resolvers agreed
+       * by accident rather than by saying the same thing.
+       */
       const sizeFor: StaffSizeResolver = staffId => {
-        const index = staffList.findIndex(staff => staff.id === staffId)
+        const index = staffList.findIndex(staff => staff.id === (staffId ?? staffList[0]?.id))
         return spacing.staffSize[currentLine]?.[index < 0 ? 0 : index] ?? 1
       }
       const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
@@ -3604,6 +3615,13 @@ export class VexFlowRenderer {
     // bar's group with everything drawn into it — and after it, so a fan joined behind an ordinary
     // cross-barline beam finds its neighbour's stems already settled.
     drawCrossBarFanBeams(pass, beamPlan.fanJoins)
+
+    // ⭐ Every dynamic onto its system's line, now that every bar of every system is standing —
+    // including the ones this render REUSED, which is the point: a mark's y is a fact about its
+    // system, so the bar whose line changed is usually not the bar that was edited
+    // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
+    // same line for a hairpin's ends.
+    placeDynamicsOnLine(pass, placements, staffList.map(staff => staff.id))
 
     // Render ties between measures after all measures are drawn
     renderTies(pass, score)

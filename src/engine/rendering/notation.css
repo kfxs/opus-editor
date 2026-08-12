@@ -119,6 +119,11 @@
   /* Transparent — the engraved glyph is removed from the render while editing
      (renderer skips the suppressed dynamic), so there's nothing underneath. */
   background: transparent;
+  /* ⚠️ A FALLBACK ONLY — `DomTextEdit.mount` overwrites this with a measured PIXEL value, and the
+     difference is the whole bug it fixes. Unitless, this inherits as a FACTOR: a dynamics glyph chip
+     at 2.14em gets a 2.14em line box, so putting one in (or taking the last character out) changes
+     the line's height and moves its baseline — the mark jumps as you type. An absolute length
+     inherits as the same length, pinning the strut whatever the content does. */
   line-height: 1;
   white-space: pre;
   min-width: 1px;

@@ -48,7 +48,7 @@ describe('stampSlurAtClick', () => {
   beforeEach(() => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
-    ids = ['C', 'D', 'E', 'F'].map((step, i) =>
+    ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     state = createEditorState()
     state.selectedMarkingTool = { kind: 'slur' }

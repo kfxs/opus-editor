@@ -19,6 +19,7 @@ import { fracEq, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
+import { shiftDynamicMark } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
@@ -81,12 +82,19 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
 
 /**
  * Lay co-located dynamics out on one row, left-to-right in PLACEMENT ORDER
- * (so the newest mark sits on the right), centered on their anchor and aligned
- * on a common vertical center. VexFlow stacks multiple annotations vertically
- * and its modifier offsets are awkward to control, so we reposition the rendered
- * SVG groups directly (a translate), then update each one's registry bbox so
- * hit-testing follows. Must run AFTER {@link registerDynamics}. Pure no-op in
- * non-DOM tests (getBBox unavailable → entries skipped).
+ * (so the newest mark sits on the right), centered on their anchor. VexFlow stacks
+ * multiple annotations vertically and its modifier offsets are awkward to control,
+ * so we reposition the rendered SVG groups directly (a translate), then update each
+ * one's registry bbox so hit-testing follows. Must run AFTER {@link registerDynamics}.
+ * Pure no-op in non-DOM tests (getBBox unavailable → entries skipped).
+ *
+ * ⭐ **HORIZONTAL ONLY, since P1 of docs/dynamics-line-and-hairpins-plan.md.** It used to align the
+ * row on the first mark's vertical CENTRE, which put a 14 px italic word against a 30 px glyph's box
+ * instead of on its baseline — `p dolce` sat visibly stepped, and only in the co-located case (a mark
+ * on its own has always been drawn at the text size and grown upward from one baseline, which is what
+ * {@link buildDynamicAnnotation}'s comment protects). ⛔ The vertical belongs to the LINE now
+ * (`dynamicsLinePass`), which gives both marks the same baseline for free — so putting a `dy` back
+ * here would be two answers to one question.
  *
  * @param groups dynamic-id groups (placement order) from {@link attachDynamicsToSlots}.
  */
@@ -106,28 +114,22 @@ export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): v
     }
     if (items.length < 2) continue
 
-    // Center the row where the group currently sits; align on the first mark's
-    // vertical center (placement-order first = leftmost).
+    // Center the row where the group currently sits (placement-order first = leftmost).
     const centerX = items[0].box.x + items[0].box.width / 2
-    const centerY = items[0].box.y + items[0].box.height / 2
     const total = items.reduce((s, it) => s + it.box.width, 0) + GAP * (items.length - 1)
 
     let cursor = 0
     for (const it of items) {
       const targetX = centerX - total / 2 + cursor
-      const dx = targetX - it.box.x
-      const dy = centerY - (it.box.y + it.box.height / 2)
-      it.el.setAttribute('transform', `translate(${dx}, ${dy})`)
       cursor += it.box.width + GAP
 
-      // Shift the TIGHT bbox registerDynamics already stored (rebuilt from the <text> baseline for
-      // level glyphs) by this translate — do NOT write back `it.box`, which is the raw getBBox group
-      // box that re-unions VexFlow's inflated pointer-rect (the very thing registerDynamics stripped).
-      // Writing it.box back re-inflated co-located level marks, throwing off hit-testing and the
-      // attachment line's dynamic-side endpoint. Mirrors applyDynamicOffsets' shift-in-place.
-      // A LOCAL delta (the translate rides inside the staff's own group), so the registry applies
-      // the staff's scale on the way in — see ElementRegistry.shiftById.
-      pass.elementRegistry.shiftById(it.id, dx, dy)
+      // The TIGHT bbox registerDynamics already stored (rebuilt from the <text> baseline for level
+      // glyphs) is shifted by this translate — do NOT write back `it.box`, which is the raw getBBox
+      // group box that re-unions VexFlow's inflated pointer-rect (the very thing registerDynamics
+      // stripped). Writing it.box back re-inflated co-located level marks, throwing off hit-testing
+      // and the attachment line's dynamic-side endpoint. `shiftDynamicMark` does both, and owns the
+      // element's transform so this and the line pass cannot overwrite each other.
+      shiftDynamicMark(pass, it.id, it.el, targetX - it.box.x, 0)
     }
   }
 }
@@ -233,11 +235,16 @@ export function enlargeDynamicGlyphRuns(text: SVGTextElement, dyn: Dynamic): voi
  * stave and translate the rendered SVG group, then shift its registry bbox so hit-testing follows.
  *
  * Uses the same SVG-transform technique as {@link layoutCoLocatedDynamics} (VexFlow's modifier
- * shifts are awkward to control for annotations), and COMPOSES with it: a co-located mark already
- * carries a `translate(...)`, so the offset is PREPENDED — both are pure translations, so they add
- * commutatively and the co-location layout is preserved. Must run AFTER `registerDynamics` (needs
- * the bbox) and `layoutCoLocatedDynamics` (to compose on top of its transform). Pure no-op in
- * non-DOM tests (no SVG element) and when no offset is stored.
+ * shifts are awkward to control for annotations), and COMPOSES with it: both are pure translations,
+ * so a co-located AND nudged mark keeps its place in the row. ⭐ The composition is
+ * `dynamicMarkTransform`'s now rather than a PREPEND onto whatever attribute it found — see that
+ * module for why the arrival of the line pass made prepending unsafe. Must run AFTER
+ * `registerDynamics` (needs the bbox). Pure no-op in non-DOM tests (no SVG element) and when no
+ * offset is stored.
+ *
+ * ⭐ **The offset is measured from the LINE now**, not from wherever VexFlow dropped the annotation —
+ * the stored delta is unchanged and anchor-relative as it always was, but its origin is finally a
+ * rule instead of a side effect (plan §4).
  */
 export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: Stave): void {
   if (!measure.dynamics?.length) return
@@ -247,12 +254,7 @@ export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: S
     const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
     if (!el) continue
 
-    const dx = staffSpacesToPixels(off.x, stave)
-    const dy = staffSpacesToPixels(off.y, stave)
-    const existing = el.getAttribute('transform')
-    el.setAttribute('transform', existing ? `translate(${dx}, ${dy}) ${existing}` : `translate(${dx}, ${dy})`)
-
-    pass.elementRegistry.shiftById(dyn.id, dx, dy)
+    shiftDynamicMark(pass, dyn.id, el, staffSpacesToPixels(off.x, stave), staffSpacesToPixels(off.y, stave))
   }
 }
 

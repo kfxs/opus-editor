@@ -39,7 +39,14 @@ const GLYPH_EM = DYNAMIC_GLYPH_SIZE / DYNAMIC_TEXT_SIZE
  * typed in the editor read back identically to one loaded from the model.
  */
 function glyphChipHtml(glyph: string): string {
-  return `<span contenteditable="false" style="font-size:${GLYPH_EM}em;font-style:normal">${escapeHtml(glyph)}</span>`
+  // ⚠️⚠️ **`line-height: 0` is load-bearing, not cosmetic.** An inline box's height is its
+  // line-height, but its POSITION about the baseline is computed from its own font's ascent — so a
+  // 2.14em chip in a 15px line still reaches ~5px higher than the words beside it, growing the line
+  // box and pushing its baseline down. That is the mark visibly dropping when a glyph goes in, and
+  // it survives pinning the line-height on the box (measured: h 15 → 20, baseline down 2.7px). At
+  // zero the chip contributes no height at all and simply overflows, which is what an oversized
+  // glyph should do — the line is the words', and the glyph hangs off it.
+  return `<span contenteditable="false" style="font-size:${GLYPH_EM}em;font-style:normal;line-height:0">${escapeHtml(glyph)}</span>`
 }
 
 /**
@@ -91,6 +98,10 @@ export class DynamicTextSource implements EditableTextSource {
    *  bbox, so we must snapshot it while it's still drawn. */
   private readonly screenRect: { x: number; y: number; width: number; height: number }
 
+  /** The engraved mark's own text BASELINE, snapshotted beside the rect — see
+   *  {@link DynamicTextSource.measureBaseline}. */
+  private readonly baselineY: number | undefined
+
   constructor(
     readonly targetId: string,
     readonly isNew: boolean,
@@ -108,6 +119,7 @@ export class DynamicTextSource implements EditableTextSource {
     private seedText?: string,
   ) {
     this.screenRect = this.computeScreenRect()
+    this.baselineY = this.measureBaseline()
   }
 
   getText(): string {
@@ -201,6 +213,42 @@ export class DynamicTextSource implements EditableTextSource {
     const s1 = p1.matrixTransform(ctm)
     const s2 = p2.matrixTransform(ctm)
     return { x: s1.x, y: s1.y, width: s2.x - s1.x, height: s2.y - s1.y }
+  }
+
+  /**
+   * ⭐⭐ **The screen Y the engraved mark SITS ON**, so the overlay can put its own text on the same
+   * line instead of merely starting in the same place. The tempo editor has always done this
+   * ({@link TempoTextSource.measureBaseline}); the dynamic editor did not, and the difference shows
+   * the moment the box holds something taller than its base font.
+   *
+   * ⚠️ **The bug it fixes, since it is not obvious from the code.** Without a baseline the overlay is
+   * TOP-aligned, on the registry box — which for a level mark is `baseline − DYNAMIC_GLYPH_INK_ABOVE`.
+   * Inside the box the browser then puts the first line's baseline wherever the tallest thing on that
+   * line demands: typed words (14pt) land near the top and look right, but the moment a glyph CHIP
+   * (2.14em) joins them the line box grows and the baseline — with everything on it — drops ~20px.
+   * So the mark you were typing MOVED as you typed it, and did not match a normally-entered one.
+   * Reported 2026-08-12. Aligning on the baseline makes the box's own height irrelevant.
+   *
+   * A dynamic is ONE `<text>` node (its glyph runs are `<tspan>`s that keep the node's baseline —
+   * `applyMixedDynamicRuns`), so unlike a tempo mark there is no choosing between pieces. The node's
+   * own `y`, pushed through its screen CTM, folds in scroll, the zoom transform, the staff's scale
+   * AND the dynamics-line translate. `undefined` outside a real browser — the overlay then falls
+   * back to top-alignment, as before.
+   */
+  private measureBaseline(): number | undefined {
+    const group = this.engine.getDynamicSVGGroup(this.targetId)
+    const text = group?.querySelector?.('text') as SVGTextElement | null
+    if (!text || typeof text.getScreenCTM !== 'function' || typeof DOMPoint !== 'function') return undefined
+    const ctm = text.getScreenCTM()
+    if (!ctm) return undefined
+    const y = text.y?.baseVal?.numberOfItems ? text.y.baseVal.getItem(0).value : 0
+    const x = text.x?.baseVal?.numberOfItems ? text.x.baseVal.getItem(0).value : 0
+    return new DOMPoint(x, y).matrixTransform(ctm).y
+  }
+
+  /** The engraved baseline, snapshotted at construction (see {@link measureBaseline}). */
+  getBaselineY(): number | undefined {
+    return this.baselineY
   }
 
   /**
