@@ -744,6 +744,18 @@ export function wireShortcuts(
         renderer.renderScore()
         return
       }
+      // ⚠️ A selected HAIRPIN flips its TYPE — crescendo ↔ diminuendo — and it is the one branch of
+      // this key that changes what a mark MEANS rather than which side of the staff it sits on.
+      // (His call, 2026-08-12.) It is not an inconsistency to tidy away later: a hairpin's side is
+      // `placement`, which it shares with every dynamic on its line and which moving one of would
+      // have to move, while `<` vs `>` is the only thing about a wedge you would ever want one key
+      // for. Flipping it is a CONTENT edit, hence the undo entry `toggleHairpinType` commits.
+      const hairpinId = selectedOf(state, 'hairpin')?.id
+      if (hairpinId) {
+        eng.toggleHairpinType(hairpinId)
+        renderer.renderScore()
+        return
+      }
       // A selected tie flips its curve direction (up ↔ below), staying notehead-anchored.
       const tieFromNoteId = selectedOf(state, 'tie')?.fromNoteId
       if (tieFromNoteId) {

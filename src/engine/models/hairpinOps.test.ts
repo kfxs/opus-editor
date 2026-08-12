@@ -122,3 +122,21 @@ describe('hairpinOps — storage', () => {
     expect(fracEq(hp.length, frac(5, 3))).toBe(true)
   })
 })
+
+describe('toggleHairpinType — the `x` key', () => {
+  it('flips cresc ↔ dim and leaves everything else alone', () => {
+    // ⚠️ The one thing `x` does that is not a SIDE flip: it changes what the mark MEANS. Its
+    // address, extent and lane must survive untouched, or the key would be moving music.
+    const model = new ScoreModel()
+    const score = model.getScore()
+    const before = addHairpin(score, 1, {
+      type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 1, placement: 'above',
+    })!
+    const snapshot = { beat: before.beat, length: before.length, voice: before.voice, placement: before.placement }
+
+    expect(toggleHairpinType(score, before.id)).toBe('dim')
+    const after = getHairpinById(score, before.id)!
+    expect(after.type).toBe('dim')
+    expect({ beat: after.beat, length: after.length, voice: after.voice, placement: after.placement }).toEqual(snapshot)
+  })
+})

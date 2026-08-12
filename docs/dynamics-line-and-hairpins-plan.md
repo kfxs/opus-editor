@@ -928,7 +928,11 @@ Each is separately visible and separately testable.
   types map one-to-one onto a fragment's role. No second planner to drift out of step.
 - **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
   selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
-  `Ctrl+←/→` resize, selection + highlight + Delete, the Properties report. The fifteenth
+  `Ctrl+←/→` resize, selection + highlight + Delete, the Properties report, and 🔎 **`x` to flip
+  cresc. ↔ dim.** (his call, 2026-08-12 — added after the phase, when `toggleHairpinType` turned out
+  to be model API with no way to reach it). ⚠️ It is the one branch of that key that changes what a
+  mark MEANS rather than which SIDE of the staff it sits on; a hairpin's side is `placement`, shared
+  with every dynamic on its line, and `<` vs `>` is the only thing about a wedge worth one key. The fifteenth
   `SelectedElement` kind, `interactions/elements/hairpin.ts`, rows in `ELEMENT_SPECS` and
   `ELEMENT_HIT_ORDER`, a `MARKING_TOOL_USES_ARMED_LENGTH` row, `hairpinGroupMap` +
   `getHairpinSVGGroup`, and `PaletteController.hairpin.test.ts` for the routing.
