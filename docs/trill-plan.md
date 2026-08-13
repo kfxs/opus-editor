@@ -446,8 +446,29 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   ⭐ **The palette row carries BOTH behaviours** (trill the selection / arm the stamp) because it is
   the trill's only door — there is no key. The Lines palette's own header had to widen too: it
   described a family "drawn BETWEEN notes rather than on one", which the trill disproves.
-- **P5 — playback.** The `Map<slotId, Trill>` prepass, `trillAttacks`, and the fan/tremolo
-  precedence check.
+- **P5 — playback. ✅ BUILT 2026-08-13.** `engine/audio/trillAttacks.ts` (pure), the
+  `trilledSlotIds` prepass, `auxiliaryMidiFor`, and the branch in `collectScheduledNotes`. — 9 specs
+  in `trillAttacks.test.ts`, 15 in `playbackSchedule.trill.test.ts`.
+
+  ⭐ **The precedence is REACHABILITY, not a condition.** The trill branch sits AFTER the tremolo's,
+  which `continue`s, and after the fan's, which branches on the slot even earlier — so a note
+  carrying either never reaches the trill. Nothing tests "does this note also have a tremolo", which
+  means there is no third rule to keep in step when a fourth re-attack pattern arrives.
+
+  ⭐ **The auxiliary is computed PER PITCH, not once per trill.** A trill covering four different
+  notes trills each with its own upper neighbour — the interval is a consequence of where the note
+  sits in the scale. `trillOps.trillAuxiliaryOf` answers for the START note and is the renderer's
+  and Properties'; playback needs the per-pitch one.
+
+  ⭐ The rate is PHYSICAL (`TRILL_PERIOD_SECONDS` 0.08, ~12 notes/sec, **by ear**) — a trill on a
+  semibreve and one on a quaver run at the same speed and differ only in length. Converting seconds
+  → beats at the onset is now `physicalPeriodBeats`, **shared with the unmeasured tremolo**, whose
+  three identical lines were collapsed into it.
+
+  ⚠️ **A chord trills WHOLE.** Every non-continuation pitch of a covered slot alternates. Engraving
+  convention usually means the top note alone, and `Trill` does carry the pitch it was anchored to —
+  so narrowing it later is a FILTER in `auxiliaryMidiFor`'s caller, not a model change. Stated
+  because it is what the code does, not because it is settled.
 
 ---
 

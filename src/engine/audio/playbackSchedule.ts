@@ -25,6 +25,12 @@ import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
 import { voiceOf } from '@/utils/lanes'
+import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
+import { trillSpan } from '@/engine/models/trillOps'
+import { trillAuxiliary } from '@/utils/trillPitch'
+import { keyAt } from '@/utils/keySignature'
+import { prevailingAlterations } from '@/utils/accidentalState'
+import { measureAccidentalNotes } from '@/utils/musicUtils'
 
 /** A single sounding note to schedule, in tempo-independent beat units. */
 export interface ScheduledNote {
@@ -204,6 +210,12 @@ export function collectScheduledNotes(
   const chordLevels = resolveChordLevels(score)
   const legatoChords = legatoChordIds(score)
 
+  // ⭐ WHICH SLOTS TRILL — resolved ONCE, not asked per slot. A trill lives in `score.trills` rather
+  // than on the slot it marks (unlike a tremolo, which the branch below reads straight off the
+  // chord), so without this the loop would rescan a list at every event. `trillSpan` walks the score
+  // per trill; there are few trills and many slots, so the prepass is the cheap direction.
+  const trilledSlots = trilledSlotIds(score)
+
   const events: ScheduledNote[] = []
   let currentTimeInBeats = 0
   for (const measure of score.measures) {
@@ -339,6 +351,37 @@ export function collectScheduledNotes(
             t += step
           }
           continue
+        }
+
+        // ⭐⭐ A TRILL turns one sounding note into an alternation with the note above it.
+        //
+        // ⭐ **AFTER the tremolo branch, and that IS the precedence rule** (docs/trill-plan.md §7):
+        // a note carrying a tremolo `continue`s above and never reaches here, and a FAN branches on
+        // the slot even earlier. Two re-attack patterns over one span is not a sound, it is a mess —
+        // and expressing that as reachability rather than as a condition means there is no third
+        // rule to keep in step when a fourth pattern arrives.
+        //
+        // ⭐ It fills the SOUNDING length (`durationBeats`, already tie-extended, with the
+        // continuation suppressed above) — so a trill on a note tied over the barline keeps going,
+        // which is what makes the one-note trill need no end anchor.
+        if (trilledSlots.has(chord.id)) {
+          const aux = auxiliaryMidiFor(score, measure, chord, np)
+          if (aux !== null) {
+            const period = physicalPeriodBeats(TRILL_PERIOD_SECONDS, startBeats, tempoMap)
+            if (period !== null) {
+              for (const attack of trillAttacks({
+                mainMidi: midi,
+                auxMidi: aux,
+                startBeats,
+                durationBeats,
+                periodBeats: period,
+                durationFactor: artic.durationFactor,
+              })) {
+                events.push({ ...attack, velocity })
+              }
+              continue
+            }
+          }
         }
 
         events.push({
@@ -632,17 +675,66 @@ function tremoloPeriodFrom(
   tempoMap: TempoSegment[],
 ): number | null {
   if (totalBeams >= UNMEASURED_THRESHOLD) {
-    // Rule 2: a physical period. Convert seconds → beats AT THIS ONSET (the tempo there is what a
-    // second is worth), by asking the map where one period later lands.
-    const onsetSeconds = beatsToSeconds(tempoMap, startBeats)
-    const beatsAtPeriodEnd = secondsToBeats(tempoMap, onsetSeconds + UNMEASURED_PERIOD_SECONDS)
-    const period = beatsAtPeriodEnd - startBeats
-    return period > 0 ? period : null
+    // Rule 2: a physical period, converted at THIS onset. ⭐ Shared with the trill, which is the only
+    // other mark whose speed is a speed rather than a subdivision — the three lines this used to
+    // hold are `physicalPeriodBeats`, and two copies would be two answers to "what is a second worth
+    // here" the first time the conversion is corrected.
+    return physicalPeriodBeats(UNMEASURED_PERIOD_SECONDS, startBeats, tempoMap)
   }
 
   // Rule 1: subdivide the WRITTEN note, then scale into what actually sounds (the tuplet ratio).
   if (writtenBeats <= 0) return null
   return soundingBeats / (writtenBeats * 2 ** totalBeams)
+}
+
+/**
+ * ⭐ Every SLOT covered by a trill, resolved once for the whole collection.
+ *
+ * ⚠️ A slot is in here if ANY trill covers it, and nothing records WHICH — deliberately. Two trills
+ * cannot meaningfully overlap on one slot (a note alternates with one neighbour, not two), so the
+ * set is the whole of the question this collector asks.
+ */
+function trilledSlotIds(score: Score): Set<string> {
+  const out = new Set<string>()
+  for (const trill of score.trills ?? []) {
+    const span = trillSpan(score, trill.id)
+    if (!span) continue // a dangling trill sounds as nothing, exactly as it draws as nothing
+    for (const id of span.slotIds) out.add(id)
+  }
+  return out
+}
+
+/**
+ * ⭐ **THE NOTE A TRILLED PITCH ALTERNATES WITH** — the diatonic step above, resolved against the
+ * key in force and the accidentals already used in this bar (`utils/trillPitch`).
+ *
+ * ⚠️ **Computed PER PITCH, not once per trill.** A trill covering four different notes trills each
+ * of them with ITS OWN upper neighbour — the interval is a consequence of where the note sits in the
+ * scale, never a property of the trill (docs/trill-plan.md §3). `trillOps.trillAuxiliaryOf` answers
+ * for the trill's START note and is what the renderer and the Properties panel want; playback needs
+ * this one.
+ *
+ * ⭐ **Every non-continuation pitch of a covered slot trills**, which on a CHORD means the whole
+ * chord alternates. Engraving convention usually means the top note alone, and `Trill` does carry
+ * the pitch it was anchored to — so narrowing this later is a FILTER here, not a model change.
+ * Stated rather than assumed, because "trill the chord" is what the code does today.
+ */
+function auxiliaryMidiFor(score: Score, measure: Measure, chord: Chord, np: NotePitch): number | null {
+  const key = keyAt(score, measure.number, chord.staffId)
+  const inBar = prevailingAlterations(measureAccidentalNotes(measure), chord.beat)
+  const aux = trillAuxiliary({ step: np.step, octave: np.octave }, key, inBar)
+  return spellingToMidi(aux.step, aux.alter, aux.octave)
+}
+
+/**
+ * Convert a PHYSICAL period (seconds) into beats at a given onset — the tempo there is what a second
+ * is worth. Shared by the unmeasured tremolo and the trill, which are the two marks whose speed is a
+ * speed rather than a subdivision.
+ */
+function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: TempoSegment[]): number | null {
+  const onsetSeconds = beatsToSeconds(tempoMap, startBeats)
+  const period = secondsToBeats(tempoMap, onsetSeconds + seconds) - startBeats
+  return period > 0 ? period : null
 }
 
 /** Do two note-pitches sound the same MIDI? (The tie-chase only follows true same-pitch ties.) */
