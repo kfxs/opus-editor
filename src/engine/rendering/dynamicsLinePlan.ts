@@ -23,9 +23,12 @@
 import type { Score, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import {
-  columnsBetween, columnsUnder, dynamicsLineBaseline, mergeInkBands, staffInkBand,
-  type DynamicsPlacement, type DynamicMarkInk, type InkBand,
+  dynamicsLineBaseline, type DynamicsPlacement,
 } from '@/engine/layout/dynamicsLine'
+import {
+  columnsBetween, columnsUnder, mergeInkBands, staffInkBand,
+  type MarkInk, type InkBand,
+} from '@/engine/layout/inkBand'
 import { levelDynamicsChains, type ChainItem } from '@/engine/layout/dynamicsChain'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -93,7 +96,7 @@ export function planDynamicsLines(
   score: Score,
   placements: readonly DynamicsPlanPlacement[],
   staffIds: readonly (string | undefined)[],
-  markInk: DynamicMarkInk,
+  markInk: MarkInk,
 ): DynamicsLinePlan {
   const starts = measureStartOffsets(score)
   const items: ChainItem[] = []

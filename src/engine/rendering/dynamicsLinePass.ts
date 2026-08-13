@@ -32,7 +32,7 @@
 import type { Stave } from 'vexflow'
 import type { Measure } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
-import { type DynamicMarkInk } from '@/engine/layout/dynamicsLine'
+import { type MarkInk } from '@/engine/layout/inkBand'
 import type { DynamicsLinePlan } from './dynamicsLinePlan'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
@@ -69,7 +69,7 @@ export interface DynamicsLinePlacement {
  * jsdom, so the honest measurement lives in the browser suite. They are also the numbers the tight
  * hit-box is already built from, which is what keeps the box and the line agreeing.
  */
-export const MARK_INK: DynamicMarkInk = {
+export const MARK_INK: MarkInk = {
   above: DYNAMIC_GLYPH_INK_ABOVE / STAFF_SPACE_PX,
   below: DYNAMIC_GLYPH_INK_BELOW / STAFF_SPACE_PX,
 }

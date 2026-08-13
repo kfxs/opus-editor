@@ -57,9 +57,11 @@
  * is a legal value on day one, and the ordering AMONG families is what stays missing.
  */
 import type { Dynamic, Fraction } from '@/types/music'
-import { fracCompare } from '@/utils/fraction'
 import type { Column } from './spacing'
-import type { InkBox } from './kerning'
+import {
+  clearanceBaseline, columnsUnder, staffInkBand,
+  type Clearance, type InkBand, type MarkInk,
+} from './inkBand'
 
 /** Which side of the staff a line serves — the model's own word, so the two cannot drift. */
 export type DynamicsPlacement = NonNullable<Dynamic['placement']>
@@ -71,17 +73,17 @@ export type DynamicsPlacement = NonNullable<Dynamic['placement']>
  * Both are LilyPond's `DynamicLineSpanner` defaults, which is the one engine that states them as
  * numbers: `padding` 0.6 and `minimum-space` 1.2.
  */
-export const DYNAMICS_LINE = {
+export const DYNAMICS_LINE: Clearance = {
   /** Clearance between the music's lowest (or highest) ink and the marks' ink. LilyPond's
    *  `DynamicLineSpanner.padding`. */
-  PADDING: 0.6,
+  padding: 0.6,
   /**
    * ⭐⭐ **The least distance from the staff's near line to the marks' ink — and the number that
    * MAKES the line a line.**
    *
    * It is not a taste value: it is *one ordinary stem, cleared*. A note on the middle line stems
    * down to `STEM_REACH` (3.5) past its head, i.e. 1.5 spaces below the bottom line, and that is the
-   * deepest ink single-voice music inside the staff produces. Add {@link DYNAMICS_LINE.PADDING} and
+   * deepest ink single-voice music inside the staff produces. Add {@link DYNAMICS_LINE}.padding and
    * you have 2.1 — so every mark over staff-resident music, stem up or stem down, comes out at
    * EXACTLY this floor and they share one line by construction.
    *
@@ -91,152 +93,25 @@ export const DYNAMICS_LINE = {
    * from the other direction. Below this, only genuinely low ink — a ledger line, a second voice —
    * moves a mark, which is the rule he asked for.
    */
-  MIN_FROM_STAFF: 2.1,
-} as const
-
-/** The staff's own lines on {@link InkBox}'s axis — the top line is 0 and the bottom is 4. */
-const STAFF_TOP = 0
-const STAFF_BOTTOM = 4
-
-/**
- * How far a mark's ink reaches from its own text baseline, in the staff's own spaces — positive both
- * ways, since each names a direction rather than a signed coordinate.
- *
- * Supplied by the caller because it is a FONT measurement: a glyph measures 0×0 in jsdom
- * (`reference_jsdom_cannot_measure_glyphs`), so a number computed here would be a number agreeing
- * with itself. `rendering/dynamicStyle.ts` holds the current proportions of the glyph size.
- */
-export interface DynamicMarkInk {
-  /** Baseline → the mark's topmost ink (upward). */
-  above: number
-  /** Baseline → the mark's lowest ink (downward). */
-  below: number
+  minFromStaff: 2.1,
 }
 
-/** The vertical band one staff's music occupies — its highest and lowest ink, in that staff's own
- *  spaces below its top line. */
-export interface InkBand {
-  top: number
-  bottom: number
-}
 
 /**
- * What one staff's music reaches over the columns handed in — `null` when that staff drew nothing
- * there. The SCOPE is the caller's: one column for a lone mark, a span's worth for a hairpin.
- *
- * ⚠️⚠️ **A box's `staff` is `undefined` for the FIRST staff even when the score has staff ids**, so
- * both sides are normalised through `firstStaffId` before they are compared. This is not
- * hypothetical and it is silent: on a two-staff score the upper staff's noteheads carry no `staff`
- * while the lower staff's carry its id (`slotInk` copies `slot.staffId`, and "absent means the first
- * one" is the convention everywhere — `utils/lanes`; a staff added *below* deliberately does not
- * stamp the existing music, only a prepend does). Compare strictly, as `kerning.sameBand` does, and
- * the upper staff's line is computed from an empty band the moment its caller knows the staff by its
- * real id.
- *
- * ⭐ It is `models/staffContent.matchesStaff` — the membership test every per-staff filter already
- * shares — with the first staff's id passed in instead of the whole `Score`, because a derived-view
- * function that has the ink in hand has no other use for the score.
- *
- * ⭐ The staff-LESS boxes that are genuinely system-wide — the barline, an empty bar's measure rest —
- * therefore fold into the first staff's band. Harmless by construction: both span exactly the staff
- * itself (0…4), which is inside {@link DYNAMICS_LINE.MIN_FROM_STAFF} either way, so neither can move
- * a line.
- *
- * @param columns the columns to measure — a measure's are the MERGED ones, holding every staff's ink
- *   at each position, which is why each box carries the staff it was measured on.
- */
-export function staffInkBand(
-  columns: readonly Column[],
-  staffId: string | undefined,
-  firstStaffId: string | undefined,
-): InkBand | null {
-  const wanted = staffId ?? firstStaffId
-  let top = Infinity
-  let bottom = -Infinity
-  for (const column of columns) {
-    for (const box of column.ink as readonly InkBox[]) {
-      if ((box.staff ?? firstStaffId) !== wanted) continue
-      if (box.top < top) top = box.top
-      if (box.bottom > bottom) bottom = box.bottom
-    }
-  }
-  return Number.isFinite(top) ? { top, bottom } : null
-}
-
-/**
- * ⭐ **THE RULE.** Clear the staff's ink by {@link DYNAMICS_LINE.PADDING}, floor that at
- * {@link DYNAMICS_LINE.MIN_FROM_STAFF} from the staff itself, and put the baseline where the mark's
- * own ink starts exactly there. Mirrored for `above`.
- *
- * `band` is `null` for a staff with no ink at all (an empty system), and the floor is then the whole
- * answer — so there is always a line, and it is where a mark on a silent staff would want to be
- * anyway.
+ * ⭐ **THE RULE, for the dynamics family** — {@link clearanceBaseline} with {@link DYNAMICS_LINE}'s
+ * two numbers, and nothing else. The arithmetic moved to `./inkBand` when the trill became its
+ * second client (docs/trill-plan.md §4): the rule is one sentence for every outside-staff family
+ * and only the constants differ, so a copy here with two other numbers would be a second answer to
+ * "how far from the staff".
  *
  * @returns the shared text baseline, in staff spaces below the staff's top line.
  */
 export function dynamicsLineBaseline(
   band: InkBand | null,
   placement: DynamicsPlacement,
-  markInk: DynamicMarkInk,
+  markInk: MarkInk,
 ): number {
-  if (placement === 'above') {
-    const clear = Math.min(band?.top ?? STAFF_TOP, STAFF_TOP) - DYNAMICS_LINE.PADDING
-    return Math.min(clear, STAFF_TOP - DYNAMICS_LINE.MIN_FROM_STAFF) - markInk.below
-  }
-  const clear = Math.max(band?.bottom ?? STAFF_BOTTOM, STAFF_BOTTOM) + DYNAMICS_LINE.PADDING
-  return Math.max(clear, STAFF_BOTTOM + DYNAMICS_LINE.MIN_FROM_STAFF) + markInk.above
-}
-
-/**
- * ⭐ **The columns a mark standing at `beat` is measured against** — its own, and nothing else.
- *
- * The column exactly at that beat, else the next one after it: the same fall-forward
- * `attachDynamicsToSlots` uses to pick the note a mark hangs off, so the ink the line clears is the
- * ink of the note the mark is actually attached to. Empty past the last column.
- *
- * ⛔ Deliberately not a WINDOW around the beat, and not the bar. A mark is a few spaces wide and
- * belongs to its note; a dip three beats later is not underneath it, and clearing it would put the
- * mark down there for no visible reason — which is the whole complaint against the system-wide rule.
- */
-export function columnsUnder(columns: readonly Column[], beat: Fraction): Column[] {
-  let best: Column | undefined
-  for (const column of columns) {
-    if (fracCompare(column.beat, beat) < 0) continue
-    if (!best || fracCompare(column.beat, best.beat) < 0) best = column
-  }
-  return best ? [best] : []
-}
-
-/**
- * ⭐ **The columns a SPANNER covers** — the wider slice the module note promises, and the hairpin's
- * answer to {@link columnsUnder}.
- *
- * Every column in `[from, to)` — half-open, because a wedge covering "two beats from beat 1" reaches
- * to beat 3 without standing over whatever begins there. A hairpin ending at a bar's barline hands
- * in that bar's capacity as `to` and so takes every column of it, which is what the eye expects.
- *
- * ⚠️ It takes ONE measure's columns, because that is the unit they come in — a wedge crossing bars
- * asks each bar for its own and the caller merges the bands. Merging is the caller's job on purpose:
- * a wedge split over a system break has one band per SEGMENT, not one for the whole span, or a low
- * note on the second system would push the first system's fragment down.
- */
-export function columnsBetween(columns: readonly Column[], from: Fraction, to: Fraction): Column[] {
-  return columns.filter(c => fracCompare(c.beat, from) >= 0 && fracCompare(c.beat, to) < 0)
-}
-
-/**
- * The widest band of two — either may be `null` (a staff with no ink over that slice), and two
- * `null`s stay `null` so {@link dynamicsLineBaseline}'s floor still answers.
- *
- * ⭐ Exists because a hairpin's band is the union over the bars it crosses, and "the lowest ink
- * anywhere under this wedge" has to be ONE number: the wedge is a straight line, so a dip under its
- * middle has to move the whole segment or the line would cross the notes it spans. That is not the
- * system-wide rule the local one replaced — the scope is still exactly what the mark covers.
- */
-export function mergeInkBands(a: InkBand | null, b: InkBand | null): InkBand | null {
-  if (!a) return b
-  if (!b) return a
-  return { top: Math.min(a.top, b.top), bottom: Math.max(a.bottom, b.bottom) }
+  return clearanceBaseline(band, placement, markInk, DYNAMICS_LINE)
 }
 
 /**
@@ -244,7 +119,7 @@ export function mergeInkBands(a: InkBand | null, b: InkBand | null): InkBand | n
  *
  * The whole of the local rule in one call — and it is why every mark over ordinary music comes out
  * on the same y without anything having to compute "the system's line": the floor
- * ({@link DYNAMICS_LINE.MIN_FROM_STAFF}) is the same number for all of them.
+ * ({@link DYNAMICS_LINE}.minFromStaff) is the same number for all of them.
  */
 export function dynamicsLineAt(
   columns: readonly Column[],
@@ -252,7 +127,7 @@ export function dynamicsLineAt(
   staffId: string | undefined,
   firstStaffId: string | undefined,
   placement: DynamicsPlacement,
-  markInk: DynamicMarkInk,
+  markInk: MarkInk,
 ): number {
   return dynamicsLineBaseline(staffInkBand(columnsUnder(columns, beat), staffId, firstStaffId), placement, markInk)
 }
