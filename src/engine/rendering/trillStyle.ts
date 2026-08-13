@@ -157,6 +157,30 @@ export const TRILL_LINE: Clearance = {
   minFromStaff: 1.0,
 }
 
+/**
+ * ⭐⭐ **How far LEFT of the music a parenthesised CONTINUATION `(tr)` sits**, in staff spaces.
+ *
+ * ⚠️ **This file used to CLAIM the behaviour it did not have.** The rule (his, 2026-08-13) is that a
+ * bracketed label is a REMINDER and so belongs at the system's left edge — where an `(8)` sits — and
+ * the renderer put it at `planSlurSegments`' left edge, which is `noteStartX`: after the clef, key
+ * and meter, i.e. where the NOTES begin. Right for a slur (an arc resumes where the music does) and
+ * wrong for a reminder, which is read before the first note rather than with it. `e2e/trill.e2e.ts`
+ * had already measured the consequence and written it down as "an honest limit" — the label and the
+ * first notehead came out a bracket's width apart.
+ *
+ * ⭐ Found while fixing the identical defect on the octave line, and fixed the same way
+ * (`OTTAVA_CONTINUATION_INSET`): a shift from `noteStartX`, clamped at the bar's own left edge at
+ * the draw site so it can never reach back onto the clef.
+ *
+ * ⛔ **Only the PARENTHESISED label moves.** A plain restarted `tr` is THE SIGN RESTARTING and sits
+ * ON its note — his rule, and LilyPond's and the Cotta plates' — so it is anchored to the note and
+ * has nothing to do with the margin.
+ *
+ * ⚠️ Its own number rather than a shared one, like every other constant in this file: the two
+ * families are tuned separately by eye. It starts equal to the ottava's.
+ */
+export const TRILL_CONTINUATION_INSET = 2.0
+
 /** Gap between the `tr` and the start of the wiggle, in staff spaces — so the line reads as leaving
  *  the sign rather than as touching it. LilyPond's `bound-padding` for the same join. */
 export const TRILL_SIGN_GAP = 0.3

@@ -270,6 +270,10 @@ async function continuationOf(score: import('@playwright/test').Page, label: 'pa
     return {
       glyphs: h.placed('g.vf-trill text'),
       firstNoteOfRow2: Math.min(...secondRow.map(g => g.x)),
+      /** The second system's stave left edge — what a reminder must never reach back past. */
+      staveLeftOfRow2: Math.min(...h.staves().filter(s => s.measure > onFirstRow).map(s => s.x1)),
+      /** One staff space in px, so the separation can be asserted in the unit the constant is in. */
+      spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4,
       row1Y: firstRowY,
     }
   }, label)
@@ -293,26 +297,28 @@ test('⭐⭐ label `plain` — a bare `tr`, ON its note rather than at the margi
 })
 
 test('⭐ label `(tr)` — parenthesised, its bracket at the margin and the sign pushed right of it', async ({ score }) => {
-  const { glyphs, firstNoteOfRow2, row1Y } = await continuationOf(score, 'parenthesised')
+  const { glyphs, firstNoteOfRow2, staveLeftOfRow2, spacing, row1Y } = await continuationOf(score, 'parenthesised')
   const onRow2 = glyphs.filter(g => g.y > row1Y + 5)
   const paren = onRow2.find(g => g.code === '28')
   const sign = onRow2.find(g => g.code === SIGN)
   expect(paren, 'parenthesised').toBeDefined()
   expect(sign).toBeDefined()
 
-  // The label starts at the fragment's own left edge…
-  expect(paren!.x).toBeLessThanOrEqual(firstNoteOfRow2 + 1)
-  // …so the SIGN inside it is pushed right by the bracket's width — which is the only difference
-  // from `plain` in this fixture.
+  // ⭐ The label starts CLEARLY left of the music it reminds you about (TRILL_CONTINUATION_INSET).
+  // ⚠️ Asserted as a GAP in staff spaces, not as "less than": `noteStartX` is already a few px left
+  // of the notehead's own x, so a bare `<` passed with the inset deleted — proved by break-test.
+  expect(firstNoteOfRow2 - paren!.x, 'a real separation, not a rounding one')
+    .toBeGreaterThan(1.5 * spacing)
+  // …and the SIGN inside it is pushed right by the bracket's width.
   expect(sign!.x).toBeGreaterThan(paren!.x)
 
-  // ⚠️⚠️ **A HONEST LIMIT, measured rather than assumed.** The system's left content edge and the
-  // first notehead sit at very nearly the SAME x (a whole note begins each bar right after the
-  // clef), so "at the margin" and "on the note" are only a bracket's width apart HERE. The position
-  // rule is still right — it separates them whenever the first note is not hard against the margin
-  // (a bar opening with a rest, a key signature, a pickup) — but it is not the dramatic difference
-  // the rule's wording might suggest, and this test says so rather than implying otherwise.
-  expect(Math.abs(paren!.x - firstNoteOfRow2)).toBeLessThan(12)
+  // ⚠️ **This assertion used to record a DEFECT as a limit, and it is worth remembering why.** It
+  // read "at the margin and on the note are only a bracket's width apart" — measured, honestly, and
+  // wrong about the cause: `planSlurSegments`' left edge is `noteStartX`, i.e. where NOTES may begin
+  // (after the clef and meter), so the "margin" the rule asked for was never reached. The identical
+  // defect on the octave line is what exposed it (docs/ottava-plan.md, his eye §5). The label now
+  // genuinely precedes the music — and still never reaches back onto the clef.
+  expect(paren!.x, 'never back past the stave').toBeGreaterThanOrEqual(staveLeftOfRow2)
 })
 
 test('⭐⭐ a trill crossing a system break repeats its SIGN on the new system (rule 6)', async ({ score }) => {

@@ -51,7 +51,8 @@ import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import {
-  TRILL_END_INSET, TRILL_GLYPH_SIZE, TRILL_LINE, TRILL_MARK_INK, TRILL_PAREN_LEFT, TRILL_PAREN_RIGHT,
+  TRILL_CONTINUATION_INSET, TRILL_END_INSET, TRILL_GLYPH_SIZE, TRILL_LINE, TRILL_MARK_INK,
+  TRILL_PAREN_LEFT, TRILL_PAREN_RIGHT,
   TRILL_PAREN_FONT, TRILL_PAREN_RAISE, TRILL_PAREN_SCALE, TRILL_SIGN_GAP, TRILL_SIGN_GLYPH,
   TRILL_WIGGLE_GLYPH,
 } from './trillStyle'
@@ -400,7 +401,18 @@ function drawTrill(
     // is announced at its note, not led up to — drawing wiggle first and the sign after it would
     // read as a line that acquires a label halfway along.
     const restartOnNote = piece.continuation && label === 'plain'
-    const signX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? piece.x0
+    // ⭐ A PARENTHESISED reminder sits LEFT of where the music begins — see
+    // {@link TRILL_CONTINUATION_INSET} for why `piece.x0` alone was not the margin it claimed to be.
+    // ⚠️ Clamped at the bar's own left edge, so it can never reach back onto the clef; and ⛔ never
+    // applied to a plain restart, which is anchored to its note by the rule above.
+    const remindsAtMargin = piece.continuation && label === 'parenthesised'
+    const barLeft = here[0] ? pass.measureBounds.get(here[0].measureNumber)?.measureX : undefined
+    const marginX = remindsAtMargin
+      ? (barLeft === undefined
+        ? piece.x0 - px(TRILL_CONTINUATION_INSET)
+        : Math.max(piece.x0 - px(TRILL_CONTINUATION_INSET), barLeft / (here[0]?.scale ?? 1)))
+      : piece.x0
+    const signX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? marginX
     const signWidth = drawsSign
       ? drawSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
       : 0
