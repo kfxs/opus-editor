@@ -103,6 +103,28 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    *  the compiler cannot ask. */
   hairpins: 'shape',
 
+  /**
+   * ⭐ **The one row that answers "neither", and it needs its reasons out loud** — this file's
+   * standing advice when unsure is *include it*, so declining both keys is a claim, not a shrug
+   * (docs/ottava-plan.md §8 P3, which was written to satisfy exactly this file).
+   *
+   * NOT in the width key: an ottava changes what a note SOUNDS, never where its head sits — we
+   * store WRITTEN pitch ({@link Ottava}) — so no bar gets wider or narrower for having one.
+   *
+   * NOT in the shape key: the bracket is drawn by a score-level pass OUTSIDE every measure group,
+   * as the hairpin's, slur's and trill's ink is, and that pass is rebuilt from scratch on each
+   * render. No measure's cached `<g>` can hold a stale octave line, because none of them ever
+   * holds one at all. (Contrast the `hairpins` row above, which is 'shape' anyway: a wedge's
+   * *dynamics-line* neighbours are drawn inside the group.)
+   *
+   * ⚠️ **Both halves are conditional, and this is where the condition is checked.** If any part of
+   * the bracket is ever drawn inside a measure group, this becomes 'shape'; if an ottava is ever
+   * allowed to move a notehead, it becomes 'width'. And 'ignored' does NOT excuse it from the third
+   * question in this file's header — an octave line spans bars, so both endpoint bars must be
+   * `VexFlowRenderer.spanAnchors` or culling will drop the ink.
+   */
+  ottavas: 'ignored',
+
   /** Rewrites tick values *before* the formatter runs, and draws a bracket/number. */
   tuplets: 'width',
 }

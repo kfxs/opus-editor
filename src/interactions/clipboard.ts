@@ -1,5 +1,5 @@
 import type { Fraction, Score } from '../types/music'
-import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
+import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -42,6 +42,13 @@ export interface ClipboardPayload extends Clip {
   hairpins: ClipHairpin[]
   /** Trills whose SIGN is inside the copy window — always present on a built payload. */
   trills: ClipTrill[]
+  /**
+   * Octave lines fully inside the copy window. ⚠️ Unlike its four siblings above it is OMITTED
+   * when empty (the `spaces` convention), so the `version` does not move: a payload from a score
+   * with no ottava is byte-identical to a v4 one, and a reader that predates the field defaults it
+   * to none — which is what it would have found anyway. Inherited from {@link Clip.ottavas}.
+   */
+  ottavas?: ClipOttava[]
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -339,6 +346,39 @@ function hairpinsInWindow(
 }
 
 /**
+ * Octave lines lying FULLY inside the copy window, as {@link ClipOttava}s — {@link hairpinsInWindow}
+ * with the voice dropped (an ottava governs the staff, so it has none to record) and the same
+ * inclusive end test.
+ *
+ * ⚠️ The fully-enclosed rule matters more here than anywhere else it is applied. A truncated wedge
+ * would merely look wrong; a truncated octave line would change the PITCH of every note past the
+ * cut, silently, in the pasted copy only.
+ */
+function ottavasInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipOttava[] {
+  const starts = measureStartOffsets(score)
+  const out: ClipOttava[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const o of m.ottavas ?? []) {
+      const abs = fracAdd(mStart, o.beat)
+      if (!fracGte(abs, spanStart)) continue
+      if (!fracLte(fracAdd(abs, o.length), spanEnd)) continue
+      const staffIdx = staffIndexOfId(score, o.staffId)
+      if (staffIdx < topStaff || staffIdx > maxStaff) continue
+      out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: o.length, shift: o.shift })
+    }
+  }
+  return out
+}
+
+/**
  * Slurs with BOTH endpoints fully inside the copy window `[spanStart, spanEnd)` and on staves
  * within the copied span, as {@link ClipSlur}s: each endpoint addressed by relative staff /
  * voice / offset / pitch so paste can re-find the freshly-pasted note. A slur with an endpoint
@@ -511,6 +551,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -533,6 +574,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     format: 'opus-editor/clipboard', version: 4, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
+    ...(ottavas.length ? { ottavas } : {}),
   }
 }
 

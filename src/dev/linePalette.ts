@@ -4,8 +4,8 @@ import type { PaletteController } from '../interactions/PaletteController'
 
 /**
  * The **Lines** palette of the dev shell — the family of marks that run ALONG the music rather than
- * standing at one point: the slur, the hairpins and the trill today, and (when they exist) the
- * octave line, the glissando, the pedal line.
+ * standing at one point: the slur, the hairpins, the trill and the octave lines today, and (when
+ * they exist) the glissando and the pedal line.
  *
  * ⚠️ It said "drawn BETWEEN notes rather than on one" until the trill arrived and disproved it: a
  * trill's sign sits ON one note and its wavy line is an optional extension. The family is still the
@@ -83,5 +83,32 @@ export const LINE_TOOLS: readonly LineTool[] = [
     isEnabled: () => true,
     isArmed: (state) => armedTool(state, 'trill') !== null,
     press: (palette) => palette.createTrill(),
+  },
+  {
+    label: '8va',
+    title: 'Octave line up — the notes SOUND an octave higher, and the noteheads do not move. With '
+      + 'notes selected it puts a line over them; with nothing selected it ARMS the 8va stamp — the '
+      + 'blue pointer — and a click on a note raises that note. Press again to disarm. ⭐ The bracket '
+      + 'stops at the last NOTEHEAD, not at the end of its duration. Delete removes it — which drops '
+      + 'the passage back an octave.',
+    // ⚠️ NO keyboard shortcut, like the Trill row above and for his stated reason: Sibelius has none
+    // either, so there is no muscle memory to honour. These two buttons are the octave line's only
+    // door, which is why they must always be pressable — the press always means something (line the
+    // selection, or arm the tool).
+    isEnabled: () => true,
+    isArmed: (state) => (armedTool(state, 'ottava')?.shift ?? 0) > 0,
+    press: (palette) => palette.createOttava(1),
+  },
+  {
+    label: '8vb',
+    title: 'Octave line down — the notes SOUND an octave lower, and the noteheads do not move. With '
+      + 'notes selected it puts a line under them; with nothing selected it ARMS the 8vb stamp. '
+      + 'Press again to disarm. ⭐ The side of the staff is DERIVED from the direction — an 8vb is '
+      + 'drawn below, with its hook turning up.',
+    isEnabled: () => true,
+    // ⭐ The two rows light independently, the cresc./dim. pair's rule: pressing one while the other
+    // is armed SWAPS the tool rather than disarming it.
+    isArmed: (state) => (armedTool(state, 'ottava')?.shift ?? 0) < 0,
+    press: (palette) => palette.createOttava(-1),
   },
 ]

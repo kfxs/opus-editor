@@ -24,7 +24,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -718,6 +718,95 @@ export class MusicEngine {
   /** Find a dynamic anywhere in the score by id (live reference), or null. */
   getDynamicById(id: string): Dynamic | null {
     return this.scoreModel.getDynamicById(id)
+  }
+
+  // ==================== Ottava operations ====================
+  //
+  // One-line delegations, the hairpin block's arrangement below. Everything an octave line IS lives
+  // in `engine/models/ottavaOps`; what these add is the editor's own concern and nothing else — an
+  // undo entry per edit. ⚠️ There is no `createOttava` here yet: *which notes did the user mean* is
+  // the entry phase's question (docs/ottava-plan.md P5), and inventing it early would give the
+  // palette and the stamp two different answers to it.
+
+  /**
+   * Add an octave line starting at (measure, `ottava.beat`) covering `ottava.length` of music,
+   * REPLACING any line already on that (beat, staff) — the clef's rule, see
+   * {@link ottavaOps.addOttava}. `beat` must be a slot-boundary beat. Saves undo state when added.
+   * @returns the stored Ottava, or null if the measure is missing or the length is not positive.
+   */
+  addOttava(measureNumber: number, ottava: Omit<Ottava, 'id'>): Ottava | null {
+    const created = this.scoreModel.addOttava(measureNumber, ottava)
+    if (created) this.commit(`Add ${created.shift > 0 ? '8va' : '8vb'} at measure ${measureNumber}`)
+    return created
+  }
+
+  /**
+   * ⭐ **Create an octave line over the notes the user meant** — the Lines palette row and the armed
+   * stamp's click both arrive here, so a line made one way is the line the other would have made.
+   *
+   * ⭐⭐ **The lane is a STAFF, not a (staff, voice) pair** — the one place this parts company with
+   * `createSlur` / `createHairpin` / `createTrill`, all of which narrow to the first note's voice
+   * and drop the rest. An ottava governs the staff, so a selection spanning two voices of one staff
+   * produces ONE line covering both, and narrowing would silently leave half the selection sounding
+   * where it was. Notes on OTHER staves are still dropped: an octave line cannot govern two.
+   *
+   * ⭐ **The span COVERS the last note** (`addOttavaOverNotes` adds that note's own length), which
+   * for one selected note means the line covers exactly that note. Unlike the hairpin's — where "end
+   * where the next note begins" was his correction — that is not a matter of taste here: the span is
+   * half-open, so an end on the last note's onset would leave it drawn under the bracket and
+   * sounding un-shifted.
+   *
+   * ⛔ **A REST cannot anchor one**, the hairpin's refusal and for its reason: an octave line
+   * displaces sounding music, and the engine resolves by slot, so it would happily start from
+   * silence.
+   *
+   * ⏭️ **§7.3, THE OPEN QUESTION, and this is where it is answered by hand.** Selecting a high
+   * passage and pressing 8va can either (a) leave the noteheads and let the passage sound an octave
+   * higher — Sibelius's, and what this does — or (b) drop every covered note's written pitch an
+   * octave in the same batch so the SOUND is unchanged and the noteheads come down off their ledger
+   * lines — Dorico's. (b) is one added loop over the covered notes calling `updateNote`, inside this
+   * same `runBatch`, and it is **not a stored flag** either way (docs/ottava-plan.md §2's tail).
+   * Shipping (a) first because it is the literal reading of the gesture — the command adds a MARK —
+   * and because it is not destructive: (b) rewrites pitches, and a wrong default there is undone one
+   * `Ctrl+Z` at a time on real music.
+   *
+   * @returns the stored Ottava, or null when there is no usable span.
+   */
+  createOttava(noteIds: string[], shift: Ottava['shift']): Ottava | null {
+    const resolved = noteIds
+      .map(id => this.scoreModel.getNote(id))
+      .filter((n): n is Note => !!n && !n.isRest)
+    if (resolved.length === 0) return null
+
+    const staff = staffOf(resolved[0])
+    const selected = resolved
+      .filter(n => staffOf(n) === staff)
+      .sort((a, b) => this.compareForSpan(a, b))
+    if (selected.length === 0) return null
+
+    const startNote = selected[0]
+    const endNote = selected[selected.length - 1]
+
+    const created = this.scoreModel.addOttavaOverNotes(
+      shift,
+      { measure: startNote.measure, beat: startNote.beat },
+      { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
+      this.staffIdForIndex(staff),
+    )
+    if (created) this.saveOnly(`Add ${shift > 0 ? '8va' : '8vb'}`)
+    return created
+  }
+
+  /** Remove an octave line by id. Saves undo state when one was removed. */
+  removeOttava(id: string): boolean {
+    const removed = this.scoreModel.removeOttava(id)
+    if (removed) this.commit('Remove octave line')
+    return removed
+  }
+
+  /** The octave lines STARTING in a measure, sorted by beat (empty if none or no such measure). */
+  getOttavas(measureNumber: number): Ottava[] {
+    return this.scoreModel.getOttavas(measureNumber)
   }
 
   // ==================== Hairpin operations ====================
@@ -3636,6 +3725,22 @@ export class MusicEngine {
    *  per trill even when it repeats on a later system, so colouring it colours the whole ornament. */
   getTrillSVGGroup(trillId: string): SVGGElement | null {
     return this.renderer.getTrillSVGGroup(trillId)
+  }
+
+  /** The rendered SVG group for an octave line, for scoped highlight. */
+  getOttavaSVGGroup(ottavaId: string): SVGGElement | null {
+    return this.renderer.getOttavaSVGGroup(ottavaId)
+  }
+
+  /** Find an octave line anywhere in the score by id (live reference), or null. */
+  getOttavaById(id: string): Ottava | null {
+    return this.scoreModel.getOttavaById(id)
+  }
+
+  /** The two (measure, beat) addresses an octave line covers — the MUSICAL span, ⚠️ not the drawn
+   *  one (the bracket's ink stops at the last notehead; see `ottavaOps.ottavaSpan`). */
+  getOttavaSpan(id: string) {
+    return this.scoreModel.getOttavaSpan(id)
   }
 
   getSlurSVGGroup(slurId: string): SVGGElement | null {

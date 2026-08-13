@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -39,6 +39,7 @@ import * as slurOps from './slurOps'
 import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as hairpinOps from './hairpinOps'
+import * as ottavaOps from './ottavaOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
@@ -609,6 +610,62 @@ export class ScoreModel {
   /** Find a hairpin anywhere in the score by id (live reference), or null. */
   getHairpinById(id: string): Hairpin | null {
     return hairpinOps.getHairpinById(this.score, id)
+  }
+
+  // ==================== Ottava operations ====================
+  //
+  // Thin delegators to `ottavaOps` — the hairpin block above with ONE rule changed: an ottava
+  // UPSERTS per (beat, staff), where a hairpin stacks. See docs/ottava-plan.md §4.
+
+  /** Add an octave line starting at (measure, beat) covering `length` of music, REPLACING any
+   *  ottava already on that (beat, staff). Null if the measure is missing or the length is not
+   *  positive. See {@link ottavaOps.addOttava}. */
+  addOttava(measureNumber: number, ottava: Omit<Ottava, 'id'>): Ottava | null {
+    return ottavaOps.addOttava(this.score, measureNumber, ottava)
+  }
+
+  /** Create an octave line covering `start` through the END of `end` (a note plus its own length).
+   *  See {@link ottavaOps.addOttavaOverNotes}. */
+  addOttavaOverNotes(
+    shift: Ottava['shift'],
+    start: { measure: number; beat: Fraction },
+    end: { measure: number; beat: Fraction; length: Fraction },
+    staffId?: string,
+  ): Ottava | null {
+    return ottavaOps.addOttavaOverNotes(this.score, shift, start, end, staffId)
+  }
+
+  /** Remove an ottava by id (and any override keyed to it). @returns true if one was removed. */
+  removeOttava(id: string): boolean {
+    return ottavaOps.removeOttava(this.score, id)
+  }
+
+  /** Edit an ottava by id. @returns the updated Ottava, or null if missing. */
+  updateOttava(id: string, updates: Partial<Omit<Ottava, 'id'>>): Ottava | null {
+    return ottavaOps.updateOttava(this.score, id, updates)
+  }
+
+  /** Set how much music an ottava covers (the MODEL, not an override — see
+   *  {@link ottavaOps.setOttavaLength}). @returns true if it exists and was updated. */
+  setOttavaLength(id: string, length: Fraction): boolean {
+    return ottavaOps.setOttavaLength(this.score, id, length)
+  }
+
+  /** The ottavas STARTING in a measure, sorted by beat (empty if none or no such measure). */
+  getOttavas(measureNumber: number): Ottava[] {
+    const measure = this.getMeasure(measureNumber)
+    return measure ? ottavaOps.measureOttavas(measure) : []
+  }
+
+  /** Find an ottava anywhere in the score by id (live reference), or null. */
+  getOttavaById(id: string): Ottava | null {
+    return ottavaOps.getOttavaById(this.score, id)
+  }
+
+  /** The two (measure, beat) addresses an ottava covers — the MUSICAL span, not the drawn one.
+   *  See {@link ottavaOps.ottavaSpan}. */
+  getOttavaSpan(id: string): ottavaOps.OttavaSpan | null {
+    return ottavaOps.ottavaSpan(this.score, id)
   }
 
   // ==================== Tempo Mark Operations ====================

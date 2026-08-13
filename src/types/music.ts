@@ -564,6 +564,59 @@ export interface Hairpin {
 }
 
 /**
+ * An OTTAVA — the octave line: `8va` / `8vb` (and `15ma` / `22ma`), the numeral plus its dashed
+ * bracket. See docs/ottava-plan.md.
+ *
+ * ⭐ **It is a CLEF-shaped statement wearing a {@link Hairpin}'s address.** What it *says* is what a
+ * clef says: it governs a REGION of a STAFF — every voice in it, and every note typed into it
+ * afterwards. That last clause is why it cannot be note-anchored: a pair of note ids has no way to
+ * mean *"and whatever else lands in here"*. How it is STORED is the hairpin's answer — measure-owned,
+ * beat-anchored, carrying its own extent — because that is the shape that survives a re-bar
+ * ({@link Hairpin}'s note on why, verbatim: only the START needs re-finding, {@link length} is
+ * invariant because the region's total music is unchanged).
+ *
+ * ⭐ **The written pitch is the stored pitch, here as everywhere.** An ottava does not change what
+ * `octave: 5` means; it changes what that notehead SOUNDS. The octave lives in exactly one place —
+ * the point where written pitch becomes sound (`soundingShiftAt`, docs/ottava-plan.md §6) — which is
+ * the answer `docs/octave-clefs-plan.md` already gave for octave clefs, and it must be the same
+ * answer or one score has two rules for where an octave lives. Dorico, LilyPond and MusicXML store
+ * the sounding pitch instead; Sibelius and MuseScore store the written one, and so do we.
+ * (Dorico's nicer *gesture* — press 8va and watch the noteheads drop an octave — is still available,
+ * as a COMMAND that writes the span and re-spells the notes in one batch. ⛔ Not a stored flag.)
+ */
+export interface Ottava {
+  /** Unique identifier. ⚠️ NOT stable across a re-bar — `rebarOps` re-creates the ottava with a
+   *  fresh id at the re-anchored position, exactly as it does for a {@link Hairpin}. */
+  id: string
+  /** Start beat within the owning measure (lands on a slot boundary, like clefs/dynamics). */
+  beat: Fraction
+  /** How much music the line covers, in quarter-note beats — the same unit as {@link beat}.
+   *  Always > 0. ⚠️ This is the span's MUSICAL extent, not the drawn one: Gould's rule is that the
+   *  bracket stops at the last NOTEHEAD inside it rather than at the end of that note's duration,
+   *  so where the ink ends is derived by the render (docs/ottava-plan.md §1 rule 2). */
+  length: Fraction
+  /**
+   * ⭐ **THE WHOLE STATEMENT: octaves of shift.** +1 = 8va, −1 = 8vb, +2 = 15ma, −3 = 22mb.
+   *
+   * One signed number, and deliberately not three fields. The SIDE of the staff is derived from its
+   * sign (up → above), because the side is half of what tells a reader the direction and a stored
+   * side could contradict the stored shift; the NUMERAL is derived from `|shift|` (8 / 15 / 22),
+   * never stored as a printed string — Gould warns about the French `16`, and a score that stores
+   * both a size and a shift is `score.clef`'s mistake in miniature.
+   */
+  shift: -3 | -2 | -1 | 1 | 2 | 3
+  /**
+   * Staff this ottava governs (a {@link StaffInfo} id); absent = staff 0.
+   *
+   * ⭐ **There is no `voice`, and that is the one place this differs from every other span we
+   * store.** {@link Hairpin}, {@link Slur} and {@link Trill} all carry one; an octave line governs
+   * the STAFF, so a voice field would let one voice of a staff sound an octave from another under a
+   * single bracket.
+   */
+  staffId?: string
+}
+
+/**
  * A tempo mark: a verbal indication ('Allegro'), a metronome mark (♩ = 120), or both
  * ('Allegro (♩ = 120)'). ONE object — not three types.
  *
@@ -1542,6 +1595,15 @@ export interface Measure {
    * See docs/dynamics-line-and-hairpins-plan.md §5; ops in `engine/models/hairpinOps`.
    */
   hairpins?: Hairpin[]
+  /**
+   * Octave lines (8va / 8vb / 15ma …) STARTING in this measure, sorted ascending by beat. Stored
+   * on the bar its start lands in and carrying its own extent ({@link Ottava.length}), exactly as
+   * a hairpin is, so it may run past this bar's end. ⚠️ At most ONE per (beat, staff) — the CLEF
+   * rule, not the hairpin's: two wedges on a beat are two readable marks, two octave shifts
+   * governing one staff from one beat are a contradiction. Optional/absent = none.
+   * See docs/ottava-plan.md §4; ops in `engine/models/ottavaOps`.
+   */
+  ottavas?: Ottava[]
   /** Tuplets in this measure */
   tuplets: Tuplet[]
 }

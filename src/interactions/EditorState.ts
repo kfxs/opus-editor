@@ -123,6 +123,24 @@ export type MarkingTool =
    */
   | { kind: 'hairpin'; type: 'cresc' | 'dim' }
   /**
+   * The OTTAVA stamp, armed from the Lines palette with nothing selected. A click on a note puts an
+   * octave line over that note.
+   *
+   * ⭐ **It CARRIES ITS SHIFT**, like the hairpin beside it and for the hairpin's reason: `8va` and
+   * `8vb` are two tools with two palette rows that must light independently, not one tool with a
+   * setting. ⚠️ Signed and ranged exactly as `Ottava.shift`, so `15ma` is a third row and not a
+   * second field — the same "one signed number IS the statement" the model rests on.
+   *
+   * ⛔ It carries no LENGTH: a click's line covers the note it lands on, and a longer one takes its
+   * extent from the notes it is placed over — never from the armed duration (`false` in
+   * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   *
+   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin and the trill. A bracket is drawn
+   * ABOVE music the click has not picked yet, so a ghost at the pointer would preview a position the
+   * click is not going to make. See {@link scoreCursorClass} and `interactions/ottavaStamp.ts`.
+   */
+  | { kind: 'ottava'; shift: -3 | -2 | -1 | 1 | 2 | 3 }
+  /**
    * VALUELESS — the TRILL stamp, armed from the Lines palette with nothing selected. A click on a
    * note trills that note.
    *
@@ -183,6 +201,8 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   slur: false,        // a relation between notes that already have their lengths, like the tie
   trill: false,       // ⭐ a one-note trill is COMPLETE, and a longer one takes its extent from the
                       //    notes it is placed over — never from the armed duration
+  ottava: false,      // ⭐ it HAS a length — the MUSIC's, taken from the notes it is placed over.
+                      //    Identical to the hairpin below, and for exactly the same reason.
   hairpin: false,     // ⭐ it HAS a length — but a MUSICAL one, taken from the notes it is placed
                       //    over, never from the armed duration. The rest stamp's `true` means "read
                       //    the lit duration keys"; a hairpin never does.
@@ -367,6 +387,13 @@ export type SelectedElement =
    * about the side needs to live in the selection.
    */
   | { kind: 'trill'; id: string }
+  /**
+   * An OCTAVE LINE — the numeral and its dashed bracket. Named by id alone, the trill's and
+   * hairpin's shape: everything about it (which staff, how much music, which way) is on the stored
+   * object, and ⭐ unlike every other span here it has no VOICE to carry — an ottava governs the
+   * whole staff (see `Ottava.staffId`).
+   */
+  | { kind: 'ottava'; id: string }
   /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
   | { kind: 'tie'; fromNoteId: string }
   /**
@@ -461,7 +488,11 @@ export function assertNeverElement(element: never): never {
 export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-place' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
   const kind = state.selectedMarkingTool?.kind
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin' || kind === 'trill') return 'cursor-place'
+  // ⚠️ Every GHOSTLESS stamp must be listed here, and the list is why: these tools draw nothing at
+  // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to
+  // `toolGhost`'s `return null` arm and forgotten here arms invisibly.
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin'
+    || kind === 'trill' || kind === 'ottava') return 'cursor-place'
   return 'cursor-default'
 }
 

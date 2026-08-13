@@ -947,6 +947,7 @@ export class PaletteController {
         return 0
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'slur':         // valueless too: a slur is a span between notes, not a property of one
+      case 'ottava':       // a span too, and its length is the MUSIC's — the hairpin's answer exactly
       case 'hairpin':      // a span as well — and its length is the MUSIC's, never the armed one
       case 'trill':        // an ornament ON a note, whose extent is the ties' — nothing to carry
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
@@ -1299,6 +1300,43 @@ export class PaletteController {
    * enough to earn one. So this row is the trill's whole entry surface, which is why it carries both
    * behaviours rather than half of them (docs/trill-plan.md §6).
    */
+  /**
+   * ⭐ The OCTAVE LINE's palette door — `8va` (shift +1) and `8vb` (−1) are two rows into one method.
+   *
+   * `createTrill`'s shape below: with notes selected it puts a line over them; with nothing selected
+   * it ARMS the stamp; pressed again while armed it disarms. ⭐ Two rows must arm INDEPENDENTLY, so
+   * the re-press check compares the SHIFT too — pressing `8vb` while `8va` is armed swaps the tool
+   * rather than turning it off, exactly as the two hairpin rows do.
+   */
+  createOttava(shift: -3 | -2 | -1 | 1 | 2 | 3): void {
+    // ⚠️ The engine is fetched in the CREATE branch, not here — `createHairpin`'s rule, and its
+    // comment says why: arming and disarming are decisions about the editor's own state and touch
+    // no score, so guarding on an engine up front would make the tool unarmable in any context that
+    // has none, and would say (wrongly) that these branches depend on one.
+    const armed = armedTool(this.state, 'ottava')
+    if (armed && armed.shift === shift) {
+      dbg('[Ottava] stamp disarmed (re-press)')
+      this.disarmMarkingTool()
+      return
+    }
+    // Something note-like is selected → the press is about it. The scalar anchor counts only in
+    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin/trill rule).
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length
+      ? ids
+      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) {
+      dbg(`[Ottava] nothing selected → arming the ${shift > 0 ? '8va' : '8vb'} stamp`)
+      this.armMarkingTool({ kind: 'ottava', shift })
+      return
+    }
+    const engine = this.getEngine()
+    if (!engine) return
+    const ottava = engine.createOttava(noteIds, shift)
+    dbg(`[Ottava] createOttava on ${noteIds.length} note(s) → ${ottava ? `ottava ${ottava.id}` : 'no valid anchor'}`)
+    this.renderScore()
+  }
+
   createTrill(): void {
     const engine = this.getEngine()
     if (!engine) return

@@ -1120,6 +1120,36 @@ export class HighlightController {
    * (`trillGroupMap`), so colouring the group colours the whole trill — which is right, because the
    * repeat is one ornament and selecting either piece selects it.
    */
+  /**
+   * ⭐ **The one selected element drawn in BOTH kinds of ink**, and the reason this cannot be either
+   * neighbour's function: the numeral (and its continuation parens) are `<text>` that must be
+   * FILLED, while the dashed line and the hook are `<path>`s that must be STROKED. The trill
+   * recolours text only (its wiggle is glyphs); the hairpin recolours stroke only (its wedge is two
+   * open polylines, and filling them would paint the triangle they enclose — ink the score does not
+   * have). An octave line is both at once, so it sets each on the elements that carry it.
+   *
+   * ⚠️ The colour is voice 0's rather than the object's, because an ottava HAS no voice: it governs
+   * the staff, whose music may be in any of them (see `Ottava.staffId`). Colouring it by the voice
+   * of whatever happened to be under it would say something the model does not.
+   */
+  applyOttavaSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const id = selectedOf(this.state, 'ottava')?.id
+    if (!engine || !id) return
+    const group = engine.getOttavaSVGGroup(id)
+    if (!group) return
+
+    const SELECTION_COLOR = voiceFillColor(0)
+    group.querySelectorAll('text').forEach(el => {
+      this.setAttr(el, 'fill', SELECTION_COLOR)
+      this.setStyleProp(el, 'fill', SELECTION_COLOR)
+    })
+    group.querySelectorAll('path').forEach(el => {
+      this.setAttr(el, 'stroke', SELECTION_COLOR)
+      this.setStyleProp(el, 'stroke', SELECTION_COLOR)
+    })
+  }
+
   applyTrillSelectionHighlight(): void {
     const engine = this.getEngine()
     const id = selectedOf(this.state, 'trill')?.id

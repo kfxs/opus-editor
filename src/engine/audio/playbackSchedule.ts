@@ -25,6 +25,7 @@ import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
 import { voiceOf } from '@/utils/lanes'
+import { soundingShiftBySlot } from '@/utils/soundingShift'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
 import { trillSpan } from '@/engine/models/trillOps'
 import { trillAuxiliary } from '@/utils/trillPitch'
@@ -216,6 +217,13 @@ export function collectScheduledNotes(
   // per trill; there are few trills and many slots, so the prepass is the cheap direction.
   const trilledSlots = trilledSlotIds(score)
 
+  // ⭐⭐ HOW FAR EACH SLOT IS FROM ITS OWN NOTATION — the octave lines, resolved once per slot rather
+  // than asked per pitch (docs/ottava-plan.md §6). ⚠️ **Every `spellingToMidi` below takes its slot's
+  // shift, except `sameMidi`** — that is the rule, and it is checkable by grep precisely because the
+  // shift is one lookup rather than a resolver called from four places on three emit paths. Empty for
+  // any score with no ottava in it, which is the whole of the un-shifted path.
+  const shifts = soundingShiftBySlot(score)
+
   const events: ScheduledNote[] = []
   let currentTimeInBeats = 0
   for (const measure of score.measures) {
@@ -231,6 +239,10 @@ export function collectScheduledNotes(
 
       // Articulation bends attack (velocity) and length (duration) on top of the dynamic.
       const artic = articulationEffect(chord.articulations)
+      /** This slot's octave-line shift in semitones (0 = the ordinary note). Added to every midi
+       *  derived below — the slot is the grain because a tremolo, a fan and a trill all re-attack
+       *  inside ONE slot's position. */
+      const shift = shifts.get(chord.id) ?? 0
       const baseVelocity = DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC]
       const velocity = Math.min(1, baseVelocity * artic.velocityScale)
       const startBeats = measureStartBeats + fracToNumber(chord.beat)
@@ -257,6 +269,7 @@ export function collectScheduledNotes(
           firstSoundingBeats: baseDurationBeats,
           chordLevels,
           tempoMap,
+          shifts,
         })
         continue
       }
@@ -312,6 +325,9 @@ export function collectScheduledNotes(
           // ⚠️ The dynamic WITHOUT the slot's articulation baked in: inside a fan the articulation is
           // per member, so folding the slot's into the velocity here would spend it on all six.
           baseVelocity,
+          // ONE number for the whole group — a fan sounds inside one slot's position, so every
+          // member is under the same octave line or none of them is.
+          shift,
         })
         continue
       }
@@ -321,7 +337,7 @@ export function collectScheduledNotes(
         if (isContinuation(np)) continue
 
         const durationBeats = soundingBeatsOf(np)
-        const midi = spellingToMidi(np.step, np.alter, np.octave)
+        const midi = spellingToMidi(np.step, np.alter, np.octave) + shift
 
         // A tremolo turns ONE sounding note into N re-attacks. It fills the note's whole SOUNDING
         // length — including any tie-extension above, because the head carries the chain's length and
@@ -365,7 +381,7 @@ export function collectScheduledNotes(
         // continuation suppressed above) — so a trill on a note tied over the barline keeps going,
         // which is what makes the one-note trill need no end anchor.
         if (trilledSlots.has(chord.id)) {
-          const aux = auxiliaryMidiFor(score, measure, chord, np)
+          const aux = auxiliaryMidiFor(score, measure, chord, np, shift)
           if (aux !== null) {
             const period = physicalPeriodBeats(TRILL_PERIOD_SECONDS, startBeats, tempoMap)
             if (period !== null) {
@@ -466,9 +482,12 @@ function collectFanAttacks(
     suppressed: Set<string>
     /** The slot's dynamic as a velocity, BEFORE any articulation — each member scales it by its own. */
     baseVelocity: number
+    /** The slot's octave-line shift in semitones (see {@link soundingShiftBySlot}). A scalar, not a
+     *  map, because a fan is ONE slot — contrast {@link collectPairAttacks}, which spans two. */
+    shift: number
   },
 ): void {
-  const { chord, fan, startBeats, spanBeats, suppressed, baseVelocity } = opts
+  const { chord, fan, startBeats, spanBeats, suppressed, baseVelocity, shift } = opts
   const sounding = chord.notes.filter(np => !suppressed.has(np.id))
   const members = fanMembers(fan, slotLength(chord))
   const pitches = fanMemberPitches(sounding, fan)
@@ -482,7 +501,7 @@ function collectFanAttacks(
     const velocity = Math.min(1, baseVelocity * artic.velocityScale)
     for (const p of pitches[k] ?? sounding) {
       events.push({
-        midi: spellingToMidi(p.step, p.alter, p.octave),
+        midi: spellingToMidi(p.step, p.alter, p.octave) + shift,
         startBeats: startBeats + from * spanBeats,
         // Each member lasts until the next one starts — they are a run of notes, back to back — and
         // takes its OWN articulation's length factor, so one staccato member is short and the rest
@@ -521,9 +540,13 @@ function collectPairAttacks(
     firstSoundingBeats: number
     chordLevels: Map<string, DynamicLevel>
     tempoMap: TempoSegment[]
+    /** Octave-line shift per slot, in semitones (see {@link soundingShiftBySlot}). The MAP, not a
+     *  scalar, because a pair is TWO slots and an octave line may start between them — each side
+     *  reads its own, exactly as each side already reads its own dynamic from `chordLevels`. */
+    shifts: Map<string, number>
   },
 ): void {
-  const { first, second, startBeats, firstSoundingBeats, chordLevels, tempoMap } = opts
+  const { first, second, startBeats, firstSoundingBeats, chordLevels, tempoMap, shifts } = opts
 
   const secondSounding = second.actualDuration
     ? fracToNumber(second.actualDuration)
@@ -538,7 +561,7 @@ function collectPairAttacks(
         1,
         DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC] * artic.velocityScale,
       ),
-      midis: chord.notes.map(np => spellingToMidi(np.step, np.alter, np.octave)),
+      midis: chord.notes.map(np => spellingToMidi(np.step, np.alter, np.octave) + (shifts.get(chord.id) ?? 0)),
     }
   })
 
@@ -718,12 +741,19 @@ function trilledSlotIds(score: Score): Set<string> {
  * chord alternates. Engraving convention usually means the top note alone, and `Trill` does carry
  * the pitch it was anchored to — so narrowing this later is a FILTER here, not a model change.
  * Stated rather than assumed, because "trill the chord" is what the code does today.
+ *
+ * ⚠️⚠️ **`shift` is why this takes a parameter it could have ignored** (docs/ottava-plan.md §6 names
+ * this exact site as the trap). The auxiliary is derived from the WRITTEN neighbour — the key and
+ * the bar's accidentals are notation, and an octave line changes neither — so the shift is applied
+ * *after* that derivation, here, at the last step. Leave it out and a trill under an 8va alternates
+ * between a note an octave up and a note that is not: the ugliest possible failure, and one that
+ * nothing in the suite would have thrown on.
  */
-function auxiliaryMidiFor(score: Score, measure: Measure, chord: Chord, np: NotePitch): number | null {
+function auxiliaryMidiFor(score: Score, measure: Measure, chord: Chord, np: NotePitch, shift: number): number | null {
   const key = keyAt(score, measure.number, chord.staffId)
   const inBar = prevailingAlterations(measureAccidentalNotes(measure), chord.beat)
   const aux = trillAuxiliary({ step: np.step, octave: np.octave }, key, inBar)
-  return spellingToMidi(aux.step, aux.alter, aux.octave)
+  return spellingToMidi(aux.step, aux.alter, aux.octave) + shift
 }
 
 /**
@@ -737,7 +767,16 @@ function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: Temp
   return period > 0 ? period : null
 }
 
-/** Do two note-pitches sound the same MIDI? (The tie-chase only follows true same-pitch ties.) */
+/**
+ * Do two note-pitches sound the same MIDI? (The tie-chase only follows true same-pitch ties.)
+ *
+ * ⛔ **THE ONE `spellingToMidi` HERE THAT TAKES NO OCTAVE SHIFT, and that is deliberate** — every
+ * other one in this file does (docs/ottava-plan.md §6's table). This is a COMPARISON, and it is
+ * shift-invariant in the case that matters: a tie joins two slots, and asking whether they are the
+ * same note is a question about the NOTATION. Shifting both sides changes nothing; shifting only
+ * the side that happens to fall under a bracket would break the tie chain at an 8va's edge — where
+ * the notation says one held note and the ear would get a re-attack — for no gain.
+ */
 function sameMidi(a: NotePitch, b: NotePitch): boolean {
   return spellingToMidi(a.step, a.alter, a.octave) === spellingToMidi(b.step, b.alter, b.octave)
 }

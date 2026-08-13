@@ -132,6 +132,31 @@ export interface ClipHairpin {
   placement?: 'above' | 'below'
 }
 
+/**
+ * An octave line inside the clip window, re-anchored on paste. {@link ClipHairpin}'s shape — a
+ * relative staff, a clip-relative start and a verbatim `length` — with the two differences the
+ * model has: **no voice** (an ottava governs the staff) and a signed `shift` instead of a type.
+ *
+ * ⭐ Carried at all for {@link ClipHairpin}'s reason, which is DESIGN-PRINCIPLES §2 word for word.
+ * And here the omission would be louder than a missing wedge: an 8va passage pasted without its
+ * bracket does not merely look plainer, it **sounds an octave wrong**.
+ *
+ * Only ottavas lying FULLY inside the window travel — both the start AND the end, matching the
+ * hairpin's fully-enclosed rule. Half an octave line is not an octave line: a clip that truncated
+ * one would claim a span the music never had, and every note past the cut would change pitch.
+ */
+export interface ClipOttava {
+  /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
+  staff: number
+  /** Start offset from the clip start (same basis as {@link ClipLane.events}). */
+  offset: Fraction
+  /** How much music the line covers, in quarter beats — position-independent, so it is copied
+   *  through unchanged. */
+  length: Fraction
+  /** Octaves of shift: +1 = 8va, −1 = 8vb, … See `Ottava.shift`. */
+  shift: -3 | -2 | -1 | 1 | 2 | 3
+}
+
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
 export interface ClipSlurPitch { step: string; alter: number; octave: number }
 
@@ -190,6 +215,9 @@ export interface Clip {
   trills?: ClipTrill[]
   /** Hairpins fully inside the clip window (start AND end), re-anchored on paste. Absent/empty = none. */
   hairpins?: ClipHairpin[]
+  /** Octave lines fully inside the clip window (start AND end), re-anchored on paste.
+   *  Absent/empty = none. */
+  ottavas?: ClipOttava[]
   /**
    * User-authored horizontal spaces (client #10) whose column falls inside the clip window,
    * offsets relative to the clip start (same basis as {@link ClipLane.events}).

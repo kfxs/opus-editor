@@ -18,6 +18,7 @@ import { staffOf } from '@/utils/lanes'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { stampTrillAtClick } from './trillStamp'
+import { stampOttavaAtClick } from './ottavaStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { articulationHit } from './elements/articulation'
@@ -1461,6 +1462,7 @@ export class MouseController {
     // …and the trill's (interactions/trillStamp). Last of the spanner stamps; each answers only for
     // its own armed tool, so the order among them decides nothing.
     if (stampTrillAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    if (stampOttavaAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

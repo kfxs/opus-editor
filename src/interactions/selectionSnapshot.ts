@@ -165,6 +165,24 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
 
+    case 'ottava':
+      // ⭐ The report carries the DERIVED span and the sounding shift beside the stored object, for
+      // the trill's reason: `shift` alone does not say which music is governed (the end is derived
+      // from `length` by walking the bars) and does not say what it SOUNDS in semitones — the two
+      // questions a reader of this panel actually has.
+      out.push({
+        kind: 'ottava',
+        data: engine.getOttavaById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          span: engine.getOttavaSpan(element.id),
+          semitones: engine.getOttavaById(element.id)
+            ? engine.getOttavaById(element.id)!.shift * 12
+            : null,
+        },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
     case 'hairpin':
       // The whole model object — `beat` + `length` ARE the report, since a hairpin's extent is
       // musical and there is nothing cosmetic to show beside it (yet: an aperture or slant override

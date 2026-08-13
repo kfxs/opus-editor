@@ -22,6 +22,7 @@ import type {
   ClefChange,
   Dynamic,
   Hairpin,
+  Ottava,
   Tuplet,
 } from '@/types/music'
 
@@ -89,6 +90,7 @@ export interface StaffContentView {
   clefs: ClefChange[]
   dynamics: Dynamic[]
   hairpins: Hairpin[]
+  ottavas: Ottava[]
   tuplets: Tuplet[]
 }
 
@@ -118,6 +120,13 @@ export function staffHairpins(measure: Measure, staffId: string | undefined, sco
   return (measure.hairpins ?? []).filter((h) => matchesStaff(h.staffId, staffId, score))
 }
 
+/** One staff's ottavas within a measure — the ones that START here (an octave line may run past
+ *  the bar's end; see {@link Ottava}). Unlike every other filter in this file it has no voice to
+ *  consider: an ottava governs the whole staff. */
+export function staffOttavas(measure: Measure, staffId: string | undefined, score: Score): Ottava[] {
+  return (measure.ottavas ?? []).filter((o) => matchesStaff(o.staffId, staffId, score))
+}
+
 /**
  * The whole per-staff lane of a measure — slots + clefs + dynamics + tuplets filtered to
  * one staff. This is the primitive the plan (§4) names `staffContent(measure, staffId)`;
@@ -130,6 +139,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
     clefs: staffClefs(measure, staffId, score),
     dynamics: staffDynamics(measure, staffId, score),
     hairpins: staffHairpins(measure, staffId, score),
+    ottavas: staffOttavas(measure, staffId, score),
     tuplets: staffTuplets(measure, staffId, score),
   }
 }
@@ -155,6 +165,7 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   // in this list and not merely in `StaffContentView`.
   return {
     ...measure,
-    slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, tuplets: c.tuplets,
+    slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, ottavas: c.ottavas,
+    tuplets: c.tuplets,
   }
 }

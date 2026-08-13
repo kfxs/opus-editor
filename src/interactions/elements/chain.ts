@@ -1,5 +1,5 @@
 /**
- * THE FIFTEEN SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
+ * THE SEVENTEEN SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
  *
  * `SelectedElement` made an element's **type** one thing (2026-07-27 Phase 1: 23 scalar fields → one
  * discriminated union). Its **behaviour** stayed spread over four files: `handle*MouseDown` ×12 in
@@ -9,18 +9,18 @@
  * kind was a thin slice across five files (docs/modularity-plan-2026-07-28.md §4, Phase 1).
  *
  * Now each kind is one module in this directory, holding what a press does with it and what it
- * looks like selected. Adding a seventeenth is one new file plus one row here.
+ * looks like selected. Adding an eighteenth is one new file plus one row here.
  *
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 14 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 15 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 16 entries, total over the union, so a seventeenth kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 17 entries, total over the union, so an eighteenth kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -49,6 +49,7 @@ import { TIE_ELEMENT } from './tie'
 import { SLUR_ELEMENT } from './slur'
 import { HAIRPIN_ELEMENT } from './hairpin'
 import { TRILL_ELEMENT } from './trill'
+import { OTTAVA_ELEMENT } from './ottava'
 import { ACCIDENTAL_ELEMENT } from './accidental'
 import { ARTICULATION_ELEMENT } from './articulation'
 import { DOT_ELEMENT } from './dot'
@@ -161,6 +162,13 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // in practice they cannot both cover a press. Where a trill and a slur-above do overlap, the ARC
   // wins for the slur's usual reason — it is the thinner target, drawn nearer the notes.
   TRILL_ELEMENT,
+  // ⭐ The ottava AFTER the trill, and for a sharper version of the trill's own reason: the two
+  // really can both cover a press — an 8va is drawn directly above the `tr` it clears, so their
+  // bands are stacked rather than merely adjacent. The INNER one wins, which is the rule the slur
+  // already sets against both: a press that could be either was aimed at the mark nearer the notes.
+  // ⚠️ It is also the only pair here whose overlap is guaranteed rather than incidental, so this
+  // row's position is load-bearing in a way `TRILL_ELEMENT`'s is not.
+  OTTAVA_ELEMENT,
   ACCIDENTAL_ELEMENT,
   ARTICULATION_ELEMENT,
   // Dots last of the sub-elements: they sit right beside the notehead, so a dot must never win a
@@ -182,8 +190,8 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A sixteenth kind is a
- * compile error here until someone decides how it shows.
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. An eighteenth kind is
+ * a compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
  * class's privates (`highlightGlyphsInBBox`, `colorNoteArticulations`, `colorNoteDots`, `setAttr`,
@@ -199,6 +207,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   slur: SLUR_ELEMENT,
   hairpin: HAIRPIN_ELEMENT,
   trill: TRILL_ELEMENT,
+  ottava: OTTAVA_ELEMENT,
   accidental: ACCIDENTAL_ELEMENT,
   articulation: ARTICULATION_ELEMENT,
   dot: DOT_ELEMENT,

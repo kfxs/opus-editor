@@ -31,8 +31,10 @@ import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
 import { renderTrills } from './TrillRenderer'
+import { renderOttavas } from './OttavaRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
+import { ottavaSpan } from '@/engine/models/ottavaOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -486,6 +488,7 @@ export class VexFlowRenderer {
   private slurGroupMap: Map<string, SVGGElement> = new Map()
   private hairpinGroupMap: Map<string, SVGGElement> = new Map()
   private trillGroupMap: Map<string, SVGGElement> = new Map()
+  private ottavaGroupMap: Map<string, SVGGElement> = new Map()
   /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
   private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
@@ -675,6 +678,7 @@ export class VexFlowRenderer {
       slurGroupMap: this.slurGroupMap,
       hairpinGroupMap: this.hairpinGroupMap,
       trillGroupMap: this.trillGroupMap,
+      ottavaGroupMap: this.ottavaGroupMap,
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       solvedColumns: this.solvedColumns,
@@ -1577,6 +1581,25 @@ export class VexFlowRenderer {
         const span = hairpinSpan(score, hairpin.id)
         if (!span) continue
         const staffIndex = staffIndexOfId(score, hairpin.staffId)
+        add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
+      }
+    }
+
+    // ⭐ Octave lines. POSITIONAL like a hairpin, so the far bar comes from walking the capacities
+    // (`ottavaSpan`) rather than from `homeOfPitch` — and needed for the hairpin's same two silent
+    // failures: without it the endpoint bar is TRANSLATED rather than re-engraved, so
+    // `OttavaRenderer` reads `StaveNote`s holding last render's coordinates and the bracket draws
+    // detached from the notes it governs; and under culling that bar's `<g>` is deleted outright, so
+    // the line vanishes on scroll.
+    //
+    // ⚠️ It pins BOTH endpoint bars even though the ottava's ink stops at the last NOTEHEAD rather
+    // than at the bar's end (docs/ottava-plan.md §1 rule 2): the last notehead is found by walking
+    // the covered bars backwards, so any of them may be the one the end x is read from.
+    for (const measure of score.measures) {
+      for (const ottava of measure.ottavas ?? []) {
+        const span = ottavaSpan(score, ottava.id)
+        if (!span) continue
+        const staffIndex = staffIndexOfId(score, ottava.staffId)
         add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
       }
     }
@@ -3702,6 +3725,13 @@ export class VexFlowRenderer {
     // rather than translated.
     renderTrills(pass, score, placements, staffList.map(staff => staff.id))
 
+    // ⭐⭐ …then the OCTAVE LINES, and this position IS their rung. An ottava sits outside both
+    // families above (LilyPond's `outside-staff-priority` 400 against the dynamics' 250 and the
+    // trill's 50; Gould: octave lines go *outside all other notations*), so it is the first pass
+    // that both READS `pass.occupiedBands` and writes to it — the middle of the ladder
+    // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
+    renderOttavas(pass, score, placements, staffList.map(staff => staff.id))
+
     // ⭐⭐ …and LAST, the tempo marks onto their row — after every other outside-staff family,
     // because tempo is the OUTERMOST (LilyPond's MetronomeMark 1300 against the dynamics' 250 and
     // the trill's 50) and this is where the ladder's order lives: each family filed what it took in
@@ -3939,6 +3969,7 @@ export class VexFlowRenderer {
     this.slurGroupMap.clear()
     this.hairpinGroupMap.clear()
     this.trillGroupMap.clear()
+    this.ottavaGroupMap.clear()
     this.tieGroupMap.clear()
     this.measureGroups.clear()
     // The solve is one render's answer: a bar that is re-laid out gets new columns, and a fan
@@ -4053,6 +4084,12 @@ export class VexFlowRenderer {
    *  render. Like the hairpin's, ONE group per trill even when it repeats on a later system. */
   getTrillSVGGroup(trillId: string): SVGGElement | null {
     return this.trillGroupMap.get(trillId) ?? null
+  }
+
+  /** The rendered SVG group (`<g class="vf-ottava">`) for an octave line, or null. Must be called
+   *  after a render. ONE group per line even when the bracket is split across systems. */
+  getOttavaSVGGroup(ottavaId: string): SVGGElement | null {
+    return this.ottavaGroupMap.get(ottavaId) ?? null
   }
 
   getSlurSVGGroup(slurId: string): SVGGElement | null {

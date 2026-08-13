@@ -263,3 +263,125 @@ describe('rebar preserves beat-anchored annotations (hairpins)', () => {
     expect(fracToNumber(only(2)[0].length)).toBe(2)  // an amount of music — copied through
   })
 })
+
+/**
+ * OCTAVE LINES on the same seam, and the chapter exists for the hairpin chapter's reason plus one
+ * of its own. `clearMeasureForRebar` wipes a measure by NAMING its arrays, so an unnamed one
+ * survives the wipe holding its old beat while the music is re-tiled around it. For a wedge that is
+ * a shape pointing at the wrong notes; for an ottava it is **the wrong PITCHES** — the passage it
+ * used to govern sounds an octave away and nothing throws.
+ *
+ * ⭐ And one rule differs from the hairpin's, deliberately: an ottava DEDUPES per (beat, staff) on
+ * the way back in — the clef's rule (docs/ottava-plan.md §7.8).
+ */
+describe('rebar preserves beat-anchored annotations (ottavas)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  const only = (measureNumber: number) => model.getMeasure(measureNumber)!.ottavas ?? []
+
+  it('keeps an octave line in place when its start still fits the new bar', () => {
+    model.addOttava(2, { beat: frac(2, 1), length: frac(1, 1), shift: 1 })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].shift).toBe(1)
+    expect(fracToNumber(only(2)[0].beat)).toBe(2) // a 3/4 bar still holds beat 2
+  })
+
+  it('moves an octave line to the next bar when its start overflows the new bar', () => {
+    model.addOttava(1, { beat: frac(3, 1), length: frac(2, 1), shift: -1 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(0)
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].shift).toBe(-1)
+    expect(fracToNumber(only(2)[0].beat)).toBe(0)
+  })
+
+  it('carries LENGTH and SHIFT through untouched — the region holds the same music', () => {
+    model.addOttava(1, { beat: frac(0, 1), length: frac(7, 2), shift: 2 })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const all = model.getScore().measures.flatMap(m => m.ottavas ?? [])
+    expect(all).toHaveLength(1)
+    expect(fracToNumber(all[0].length)).toBe(3.5)
+    expect(all[0].shift).toBe(2)
+  })
+
+  it('re-mints the id, exactly as a hairpin’s (nothing may rely on it surviving)', () => {
+    const before = model.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const after = model.getScore().measures.flatMap(m => m.ottavas ?? [])
+    expect(after).toHaveLength(1)
+    expect(after[0].id).not.toBe(before.id)
+  })
+
+  it('DEDUPES two lines that land on one (beat, staff) — the clef rule, not the hairpin one', () => {
+    // ⚠️ The fixture is hand-built on purpose: `addOttava` upserts, so the model itself cannot
+    // produce this state. Hand-written JSON can, and the restore branch is the only thing standing
+    // between it and a bar whose two octave signs contradict each other.
+    model.getMeasure(1)!.ottavas = [
+      { id: 'o-first', beat: frac(1, 1), length: frac(1, 1), shift: 1 },
+      { id: 'o-last', beat: frac(1, 1), length: frac(2, 1), shift: -1 },
+    ]
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const all = model.getScore().measures.flatMap(m => m.ottavas ?? [])
+    expect(all).toHaveLength(1)
+    expect(all[0].shift).toBe(-1) // last wins
+    expect(fracToNumber(all[0].length)).toBe(2)
+  })
+
+  it('keeps two lines that land on one beat of DIFFERENT staves', () => {
+    const lower = model.addStaffBelow(0)
+    model.addOttava(1, { beat: frac(1, 1), length: frac(1, 1), shift: 1 })
+    model.addOttava(1, { beat: frac(1, 1), length: frac(1, 1), shift: -1, staffId: lower })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(2)
+  })
+
+  it('a paste OVERWRITES a line starting inside its window, and spares one outside it', () => {
+    model.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })  // inside
+    model.addOttava(2, { beat: frac(0, 1), length: frac(1, 1), shift: -1 }) // outside
+
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(1)).toHaveLength(0) // replaced by the clip's (which carried none)
+    expect(only(2)).toHaveLength(1) // untouched
+    expect(only(2)[0].shift).toBe(-1)
+  })
+
+  it('⭐ that overwrite ignores VOICE — a paste into voice 1 still clears the staff’s line', () => {
+    // An ottava governs the STAFF, so the hairpin's "…and on a destination (staff, VOICE) lane"
+    // test cannot be reused: a voiceless anchor reads as voice 0, and a paste into voice 1 would
+    // leave a stale 8va governing the notes it had just overwritten.
+    model.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })
+
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 1 },
+    )
+
+    expect(only(1)).toHaveLength(0)
+  })
+
+  it('a clip carries its octave lines, re-based to the paste position', () => {
+    model.pasteEvents(
+      {
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        spanBeats: frac(4, 1),
+        ottavas: [{ staff: 0, offset: frac(1, 1), length: frac(2, 1), shift: 1 }],
+      },
+      { measure: 2, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(2)).toHaveLength(1)
+    expect(only(2)[0].shift).toBe(1)
+    expect(fracToNumber(only(2)[0].beat)).toBe(1)   // clip offset 1 + paste start 0
+    expect(fracToNumber(only(2)[0].length)).toBe(2) // an amount of music — copied through
+  })
+})

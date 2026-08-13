@@ -1,7 +1,12 @@
 # OTTAVA — 8va / 8vb, the numeral and its bracket
 
-Research, 2026-08-13. **Nothing built.** This file is the reading, the model proposal and the open
-decisions; it is not a plan he has agreed to.
+Research 2026-08-13, and **ALL SIX PHASES BUILT the same day** — P0a/P0b (the above-staff ladder),
+P1 (the model), P2 (sound), P3 (drawing), P4 (editing), P5 (entry). §8 carries what each one landed
+and what it found; the section after it carries the five calls his eye made once an ottava was
+reachable. ⛔ The research below is not to be redone.
+
+⏭️ **What is still open:** §7.3 (does `createOttava` re-spell the selection down an octave?) — only
+real music answers that — and a handful of taste constants listed at the end of §8.
 
 Two things came out of the research that are bigger than the feature, and **he has decided both**:
 
@@ -569,36 +574,208 @@ band machinery.
   silently fell back to the ballooned group box it exists to replace. ⭐ Fixed as a MODULE, not three
   patches — `engine/rendering/drawnText.ts` owns the rule and keeps "no element" and "no attribute"
   as different answers. ⛔ Do not read those attributes off drawn ink anywhere else.
-- **P1 — the model.** `Ottava` (§4), `Measure.ottavas`, `engine/models/ottavaOps.ts` in the
-  `hairpinOps` idiom, thin `ScoreModel` delegators, **plus the four table rows §4 lists** — the
-  `rebarOps` anchor member + capture + restore (dedupe rule, §7.8) and `Clip.ottavas` + its paste
-  re-anchor. *Done when*: an ottava round-trips through JSON and survives a meter change and a
-  copy/paste with **no capture/restore MODULE and no note ids anywhere in it** — that is the claim
-  the positional shape actually buys, and it is the narrowed version of the one this plan first made.
-- **P2 — sound.** `soundingShiftAt` in `utils/` (§6) + the per-slot prepass. *Done when*: a passage
-  under 8va plays an octave up **and so does a trill inside it** — `playbackSchedule.ts:726`, the
-  site that fails silently, tested rather than assumed. ⚠️ Three of the file's five
-  `spellingToMidi` calls change; the comparison at `:742` must not (§6's table).
-- **P3 — drawing.** `OTTAVA_LINE` (one row in P0's table), `engine/rendering/OttavaRenderer.ts` on
+- ✅ **P1 — THE MODEL. BUILT 2026-08-13.** `Ottava` (§4 verbatim — id, beat, length, signed `shift`,
+  optional `staffId`, and no voice), `Measure.ottavas`, `engine/models/ottavaOps.ts` in the
+  `hairpinOps` idiom, thin `ScoreModel` delegators. **The claim held**: no capture/restore module,
+  no note id anywhere in it, and every re-bar/paste behaviour is a row in a table that already
+  existed.
+  ⭐ **§4 said four rows; there are SIX, and the two it missed are the interesting ones.**
+  - `rebarOps`: the `CapturedAnchor` member, the capture loop, the restore branch, the
+    `clearMeasureForRebar` delete, the paste overwrite filter, the clip re-anchor.
+  - `utils/clip.ts` `ClipOttava` + `Clip.ottavas`, and — a row §4 did not name — the COPY side
+    (`clipboard.ts`'s `ottavasInWindow`), without which nothing would ever fill the field. It is
+    OMITTED when empty, so `ClipboardPayload.version` stays **4**: a payload from an ottava-free
+    score is byte-identical to what it was.
+  - ⚠️ **`staffContent.ts`, the row nothing in the plan predicted** — and its own header says why it
+    was compulsory: *"EVERY per-staff array must be named here. What is not named rides the spread"*,
+    i.e. an unfiltered `ottavas` would land on every staff's lane, silently.
+  - ⚠️ **`measureRenderRoles.ts` — the compiler asked P3's question during P1**, because
+    `Record<keyof Measure, …>` stops compiling until a new field is classified. Answered **`'ignored'`**
+    with §8 P3's reasoning written into the row, plus the two conditions that would change it. That
+    file's standing advice is *when unsure, include it*, so "neither key" is a claim, and
+    `measureRenderRoles.test.ts` perturbs the field and checks it.
+  - ⭐ **The one genuine decision (§7.8) is now in TWO places, deliberately**: `addOttava` upserts per
+    (beat, staff) and so does `restoreBeatAnchors`. They are different doors — the model's own write,
+    and a re-bar re-landing anchors — and a state the first refuses can still arrive through JSON.
+  *Proved by*: `ottavaOps.test.ts` (19) + an `rebarOps.anchors.test.ts` chapter (8) + a
+  `clipboard.test.ts` chapter (4) + the `measureRenderRoles` row; unit **3288** green, browser
+  **126/126** (nothing draws yet, so that number is the "no bar moved" claim).
+  ⚠️ **Break-tested, seven of them** — `matchesStaff` → `===`, the staff test dropped entirely, the
+  span's `<=` → `<`, the paste filter reverted to the hairpin's voice rule, the restore dedupe
+  removed, `delete measure.ottavas` commented out, the clip's fully-enclosed test dropped. Each
+  failed exactly the assertion written for it and nothing else.
+  ⏭️ **Deliberately NOT in P1, so the next phase does not think it is owed them**: no `MusicEngine`
+  delegators (nothing can create an ottava yet — that door is P5), no `addOttavaOverNotes` (§P5's
+  `createOttava`), no resize-by-slot (P4), and ⚠️ **OVERLAP is unpoliced** — `addOttava` refuses a
+  contradiction *at one beat*, but two lines on one staff whose spans merely overlap are storable.
+  Truncate-or-refuse is an entry-time question about a gesture that does not exist yet, and `ottavaOps`'
+  header says so; **P2's `soundingShiftAt` is the reader that will have to pick one**, so it is P2 that
+  decides what "the effective shift" means when two claim the beat.
+- ✅ **P2 — SOUND. BUILT 2026-08-13.** `utils/soundingShift.ts`: `soundingShiftAt(score, measure,
+  beat, staffId?) → semitones` (the shared seam, `effectiveTempoAt`'s shape) + `soundingShiftBySlot`,
+  the `trilledSlotIds`-style prepass. **Semitones, not octaves**, because it is a sum waiting to
+  happen — the octave clef becomes a second TERM in that function, never a second resolver.
+  ⭐ **§6's table held exactly**: FOUR of the five `spellingToMidi` calls now take their slot's shift
+  and the comparison (`sameMidi`) does not, with the reason written at each. The three emit paths
+  each take it differently, and the difference is the point: the chord loop and the fan take a
+  SCALAR (one slot), `collectPairAttacks` takes the MAP — a pair is two slots and an octave line may
+  start between them, so each side reads its own exactly as it already reads its own dynamic.
+  ⭐⭐ **P2 settled the question P1 left open — what OVERLAPPING ottavas mean.** `ottavaOps` refuses
+  two lines that *start* on one (beat, staff); two that merely overlap are storable, so the reader
+  had to choose. **The latest-starting line that still covers the position wins**, which is
+  `effectiveClefAt`'s rule — and it follows from §4's whole argument, that an ottava is a
+  clef-shaped statement. A 15ma opening inside an 8va takes over; when it ends, the 8va **resumes**,
+  because the question is *what covers this note*, not *what was declared last*. ⛔ Never a sum: two
+  lines over one note is a contradiction, and adding them would turn the least reliable input into
+  the loudest wrong answer.
+  *Proved by*: `soundingShift.test.ts` (15) + `playbackSchedule.ottava.test.ts` (11); unit **3314**,
+  browser 126/126, `build:check` clean.
+  ⚠️ **Break-tested nine ways**, and the four that matter most are one per emit path — the shift
+  removed from the chord loop, from `collectFanAttacks`, from the pair's `midis`, and from
+  `auxiliaryMidiFor` — each failing **only** its own test. That last one is §6's named trap and it
+  behaves exactly as advertised: with the auxiliary unshifted the trill still trills, still fills
+  the note, still sounds musical, and is a ninth wide. Also broken: the half-open end test, the
+  latest-start tie-break, and the per-staff filter.
+  ⏭️ Nothing here is audible yet — no ottava can be created (P5). The tests write one through
+  `ottavaOps` directly, which is also what makes them a real contract rather than a UI check.
+- ✅ **P3 — DRAWING. BUILT 2026-08-13.** `engine/rendering/ottavaStyle.ts` + `OttavaRenderer.ts`, on
   the `TrillRenderer` pattern: `planSlurSegments` fragments, SMuFL numeral, dashed line, hook, and
-  the parenthesised `(8)` at each continuation system's left edge (§1 rule 6). *Done when*: the line
-  ends at the **last notehead** (§1 rule 2 — ⚠️ not the trill's rule), the hook is never dangling,
-  and the numeral repeats parenthesised across a break. e2e, because it is all geometry.
+  the parenthesised `(8)` at each continuation system's left edge. Wired in **after `renderTrills`
+  and before `placeTempoMarksOnLine`** — the ladder's order IS the pass order — plus the two rows
+  outside the renderer: `spanAnchors` (positional, `ottavaSpan`, the hairpin's road) and
+  `ElementType`/`RenderPass.ottavaGroupMap`.
+  ⭐⭐ **It is the ladder's first MIDDLE rung**, and that is what makes it different from the trill it
+  copies: it READS `occupiedBands` (what the dynamics line and the trill took) *and* writes its own
+  claim, because tempo is outside it. `tempoLinePass` is where the read came from.
+  ⭐ **§1 rule 2 is built and TESTED as the opposite of its neighbours**: the bracket stops at the
+  last NOTEHEAD's right edge, not at the end of that note's duration — so `spanX` searches the
+  covered bars BACKWARDS for the last drawn head, and the e2e says out loud that it exists to fail
+  the day someone makes the three families consistent.
+  ⭐ **Verified, not remembered**: every SMuFL codepoint was read out of the table VexFlow itself
+  ships (`build/esm/src/glyphs.js`) — `ottava` E510, `quindicesima` E514, `ventiduesima` E517,
+  `octaveParensLeft/Right` E51A/E51B. ⭐ Unlike the trill's `(tr)`, the parens here are the glyphs the
+  spec provides *for this*, so none of `trillStyle`'s second-font / italic / raise apparatus is needed.
+  ⚠️ **One rule had to be added that the plan did not foresee: `OTTAVA_MIN_LINE`.** A continuation
+  fragment carrying `(8)` is wider than the single notehead it may cover on that system, so rule 2 put
+  the line's end LEFT of the numeral — and the bracket drew a numeral, no horizontal and (under rule
+  3) no hook, leaving the reader nothing saying where the displacement stops. A fragment carrying the
+  span's END is now never shorter than one space past its numeral. ⭐ It is the one place the drawing
+  knowingly overruns rule 2, and only where obeying it exactly would leave the statement unclosed.
+  *Proved by*: `e2e/ottava.e2e.ts` (11) + `OttavaRenderer.ladder.test.ts` (10); unit **3324**, browser
+  **137/137**, `build:check` clean.
+  ⚠️ **Break-tested five ways**, each failing only its own assertion: the `bandOver` read deleted (the
+  8va lands on the trill), rule 2 reduced to the notehead's LEFT edge, the hook drawn on every
+  fragment, the continuation flag forced false, and the side hard-coded to `above`. ⚠️ The ladder test
+  uses a note four ledger lines up for `e2e/ladder.e2e.ts`'s reason — over staff-resident music the
+  floors alone produce the right order and the test would prove the constants, not the mechanism.
   ⭐ **The width/shape-key question, answered out loud** because
   `reference_render_width_key_vs_shape_key` requires it of every engraved element: **neither key
-  gains a row.** The ottava draws in a score-level pass *outside* the measure groups, exactly as the
-  hairpin, slur and trill do, so it is rebuilt from scratch every render and no measure's cached `<g>`
-  can hold a stale one; and written pitch means no notehead moves, so no bar gets wider. ⚠️ If P3
-  ever draws any part of the bracket *inside* a measure group, that sentence stops being true.
-- **P4 — editing.** `{ kind: 'ottava'; id }` in `SelectedElement` (17 — confirmed: 16 kinds today),
-  rows in `ELEMENT_SPECS` and `ELEMENT_HIT_ORDER`, highlight, Delete (`shortcutWiring`'s switch),
-  the Properties row (`selectionSnapshot`'s switch) — the two sites `assertNeverElement` names.
-- **P5 — entry.** `createOttava`, `{ kind: 'ottava' }` in the `MarkingTool` union + its row in
-  `MARKING_TOOL_USES_ARMED_LENGTH` (⭐ **`false`** — its extent is the MUSIC's, the hairpin's and
-  trill's answer verbatim), `ottavaStamp.ts`, the `dev/linePalette.ts` row. ⭐ **No `GHOST_DRAWERS`
-  row and no `ToolGhost` member**: the slur, hairpin and trill have none either — a span tool's
-  press needs a selection or a note under it, not a floating preview. ⛔ No shortcut (§7.9).
-  ⏭️ §7.3 (does it re-spell?) is answered here, by hand, on real music.
+  gained a row** — settled in P1 as `MEASURE_RENDER_ROLE.ottavas = 'ignored'`, and the e2e checks the
+  half that could rot (adding an 8va moves no notehead). ⚠️ If any part of the bracket is ever drawn
+  *inside* a measure group, that stops being true.
+  ⚠️ **Owed to his eye, all taste**: `OTTAVA_LINE` (0.5 / 2.5), `OTTAVA_GLYPH_SIZE` 26,
+  `OTTAVA_DASH_LENGTH`/`GAP` (0.5 / 0.4), `OTTAVA_HOOK` 0.8, `OTTAVA_MIN_LINE` 1.0 — and **§7.4, the
+  bare numeral**: Gould's `8` is drawn, where Sibelius and MuseScore default to `8va`/`8vb`. One row
+  of `OTTAVA_NUMERAL_GLYPHS` to change.
+  ⭐ `MusicEngine.addOttava` / `removeOttava` / `getOttavas` landed here as one-line delegations,
+  because the drawing needed a door to be testable at all. ⛔ Still NO `createOttava` — *which notes
+  did the user mean* is P5's question, and answering it early would give the palette and the stamp
+  two different answers.
+- ✅ **P4 — EDITING. BUILT 2026-08-13.** `{ kind: 'ottava'; id }` is the **17th** `SelectedElement`
+  (as predicted), `interactions/elements/ottava.ts` is its module, and both tables gained their row.
+  ⭐ **The two `assertNeverElement` sites did their job**: adding the union member broke
+  `selectionSnapshot` and `shortcutWiring` at compile time, which is exactly the guarantee they are
+  there for — neither was found by reading.
+  ⭐⭐ **The `ELEMENT_HIT_ORDER` position is load-bearing here in a way no other row's is.** Every
+  other pair in that array is a tie-break that may never fire; this one overlaps by CONSTRUCTION —
+  the ladder draws the 8va directly above the trill it clears, so their bands are stacked and a press
+  near the `tr` is inside the ottava's padded band. The inner mark wins (the slur's standing rule),
+  and `ottava.test.ts` asserts the adjacency itself rather than trusting `chain.test.ts`'s list.
+  ⭐ **Two differences from the trill it copies, each a rule rather than a preference:**
+  - **The hit-test must answer on CONTAINMENT, not proximity.** The bracket's ink is a numeral and a
+    *dashed* line, so most of its band is empty — a distance-to-ink rule would make the gaps between
+    dashes cold, and nothing tells the reader where those are.
+  - **The highlight paints BOTH kinds of ink.** It is the only selected element that does: the
+    numeral and its continuation parens are `<text>` that must be FILLED, the dashes and the hook are
+    `<path>`s that must be STROKED. The trill recolours text only; the hairpin stroke only.
+    ⚠️ And it uses voice 0's colour deliberately — an ottava has no voice, so colouring it by
+    whatever happened to be under it would say something the model does not.
+  ⚠️ **Delete has the biggest audible consequence of any kind in that switch**, and it is written at
+  the site: removing the bracket leaves the written pitch alone, so the passage drops back an octave.
+  That is what storing written pitch MEANS, not a surprise to guard against.
+  ⭐ The Properties report carries the derived SPAN and the shift in SEMITONES beside the stored
+  object, for the trill's reason: `shift` alone answers neither "which music" nor "how far".
+  *Proved by*: `interactions/elements/ottava.test.ts` (7, incl. the chain-adjacency assertion) +
+  the updated `chain.test.ts`; unit **3331**, browser 137/137, `build:check` clean.
+  ⚠️ **Break-tested two ways**: the ottava moved BEFORE the trill in the chain (both specs go red),
+  and the containment test dropped so only proximity answers (the gap-between-dashes press goes cold).
+- ✅ **P5 — ENTRY. BUILT 2026-08-13.** `MusicEngine.createOttava` + `ottavaOps.addOttavaOverNotes`,
+  `{ kind: 'ottava'; shift }` in the `MarkingTool` union + its `false` row in
+  `MARKING_TOOL_USES_ARMED_LENGTH`, `interactions/ottavaStamp.ts`, and **two** `dev/linePalette.ts`
+  rows (`8va` / `8vb` — the cresc./dim. pair's arrangement, so they light and swap independently).
+  ⛔ No `GHOST_DRAWERS` row, no `ToolGhost` member, no shortcut (§7.9) — all three as planned.
+  ⭐⭐ **The one thing P5 found that the plan had not said out loud: THE LANE IS A STAFF.**
+  `createSlur` / `createHairpin` / `createTrill` all narrow a selection to the first note's
+  `(staff, voice)` and drop the rest. `createOttava` must not — a selection across two voices of one
+  staff is ONE line covering both, or half the selected music stays where it was under a bracket
+  drawn over all of it. ⚠️ **Found by break-test, not by reading**: the voice filter could be added
+  and the entire suite stayed green, which is why `MusicEngine.createOttava.test.ts` exists.
+  ⚠️ A second break-test found the same hole in the palette rows (the two-row switch-not-disarm rule),
+  hence `PaletteController.ottava.test.ts`.
+  ⭐ `createOttava` also fetches the engine in the CREATE branch, not up front — `createHairpin`'s
+  rule, whose comment explains it: arming and disarming touch no score, so an up-front guard makes
+  the tool unarmable without one. (⏭️ `createTrill` still guards up front; harmless in the app,
+  untestable outside it.)
+  *Proved by*: `ottavaStamp.test.ts` (10), `MusicEngine.createOttava.test.ts` (9),
+  `PaletteController.ottava.test.ts` (7), + `addOttavaOverNotes` in `ottavaOps.test.ts`.
+
+## ✅ HIS EYE, 2026-08-13 — the taste that was owed, and what it changed
+
+The numbers P3 shipped as first cuts went to his eye the moment P5 made an ottava reachable. Five
+calls, each recorded at the constant it set:
+
+1. ⭐⭐ **§7.4 ANSWERED — `8va` / `8ba`, not the bare numeral.** *"unicode for ottava alta should be
+   `\uE511`… for bassa should be `\uE513`."* SMuFL `ottavaAlta` / `ottavaBassaBa`. ⛔ This overrules
+   Gould, deliberately: her argument is that the suffix is redundant because the side and the hook
+   already say the direction. He wants it, and Sibelius/MuseScore agree. ⭐ `8ba` is still one of her
+   own four forms — the bare numeral was rejected, not the vocabulary — and it is ⛔ NOT `8vb`
+   (E51C), the one form her list excludes.
+   ⚠️ **It made `OTTAVA_NUMERAL_GLYPHS` SIGNED**: alta and bassa are different glyphs, so the sign
+   is now part of the lookup. The ±2/±3 rows are extrapolated from his two picks, not his call.
+2. ⭐ **AIR BEFORE THE HOOK** (`OTTAVA_END_AIR`) — *"we should add air after the end of the note…
+   im talking about the hook."* The hook is a vertical stroke turning toward the staff at the span's
+   end; flush against the notehead it puts a line beside the note it is meant to enclose. ⭐ It
+   SOFTENS §1 rule 2 rather than breaking it — half a space is still "at the last note"; what stays
+   refused is running on to the barline.
+3. ⭐ **ITALIC continuation parens** — *"lets try the parenthesis of the continuation in italic."*
+   ⚠️ **This forced the glyphs to change and the trade is real**: `font-style: italic` on a music
+   font does nothing (no italic face — `trillStyle`'s recorded lesson from his *"no italic"*
+   report), so the parens are now TEXT in the serif stack. That gives up SMuFL's `octaveParensLeft`/
+   `Right`, which aligned with the numerals BY CONSTRUCTION; `OTTAVA_PAREN_SCALE`/`_RAISE` now do by
+   hand what the font did for free. ⏭️ Reverting is three constants.
+4. ⭐⭐ **THE LINE'S Y IS PER SIDE** — two reports, and the second corrected the first. Mirrored
+   (`baseline + raise`) it was *"too low"*, which was a REAL BUG: a glyph grows the same way from its
+   baseline on either side (`markBand` says so), so the 8vb's line hung under its own numeral.
+   Un-mirrored, both sides became identical — **measured: 8.06 px above the baseline, 0.442 of the
+   ink box, on both** — and then *"now the line for ottava bassa is too up."*
+   ⭐ So it is not mirroring at all: **the bracket closes TOWARD the staff**, so an 8va's hook turns
+   down and its horizontal runs along the numeral's TOP, while an 8vb's turns up and its horizontal
+   runs along the numeral's FOOT. `OTTAVA_LINE_RAISE_ABOVE` / `_BELOW`.
+5. ⭐ **THE CONTINUATION SITS FURTHER LEFT** (`OTTAVA_CONTINUATION_INSET`) — *"the x position of the
+   continuation is more to the right than i expected."* ⚠️ Cause: `planSlurSegments`' left edge is
+   `noteStartX`, i.e. after the clef and meter — right for a SLUR (an arc resumes where the music
+   does) and wrong for a REMINDER, which is read before the first note. Now shifted left of the
+   music and clamped at the bar's own left edge so it can never reach the clef.
+   ⏭️ **The TRILL's `(tr)` has the identical defect** — `trillStyle` claims its label sits "at the
+   system's left edge" and it is really at `noteStartX` too. Not touched; worth carrying over.
+
+⏭️ **Still open after his pass**: `OTTAVA_PAREN_SCALE`/`_RAISE` (0.52 / 0.22, borrowed from the
+trill and not yet tuned against `8va`, which is a wider mark than a `tr`), `OTTAVA_CONTINUATION_INSET`
+(2.0), `OTTAVA_LINE` (0.5 / 2.5), the glyph size, the dash pattern, the hook, the min line — and
+⭐⭐ **§7.3, which only real music can answer**: pressing 8va over a high passage currently leaves the
+noteheads and lets it sound higher (Sibelius's). Dropping them an octave so the sound is unchanged
+(Dorico's) is one loop inside the same `runBatch`, and `MusicEngine.createOttava.test.ts` carries the
+assertion that would have to change.
 
 ---
 

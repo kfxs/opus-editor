@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin,
+  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
   LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
@@ -72,6 +72,9 @@ type CapturedAnchor =
   // Only the START is captured: `length` is an amount of MUSIC, and a rebar leaves the region's
   // total music unchanged, so the extent is invariant and only the anchor needs re-finding.
   | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin }
+  // Same again for the octave line — with the CLEF's collision rule on the way back in, not the
+  // hairpin's (docs/ottava-plan.md §7.8). See restoreBeatAnchors.
+  | { kind: 'ottava'; absBeat: Fraction; ottava: Ottava }
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -325,6 +328,7 @@ export function pasteEvents(
   const clipSlurs = clip.slurs ?? []
   const clipTrills = clip.trills ?? []
   const clipHairpins = clip.hairpins ?? []
+  const clipOttavas = clip.ottavas ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -395,10 +399,15 @@ export function pasteEvents(
   // inside the paste window on a destination lane is replaced by the clip's, and one starting
   // outside it survives even if it runs THROUGH the window — its extent is a count of music, and
   // the paste does not change how much music the region holds.
+  // ⭐ Ottavas take the same rule with the VOICE test dropped, because they have no voice: a
+  // destination octave line starting inside the paste window on a destination STAFF is replaced by
+  // the clip's, whichever voices the paste actually landed in. Anything narrower would let a paste
+  // into voice 2 leave a stale 8va governing the notes it just overwrote.
   const survivingAnchors = anchors.filter((a) => {
-    if (a.kind !== 'dynamic' && a.kind !== 'hairpin') return true
+    if (a.kind !== 'dynamic' && a.kind !== 'hairpin' && a.kind !== 'ottava') return true
     const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
     if (!inWindow) return true
+    if (a.kind === 'ottava') return !destByStaff.has(staffIndexOfId(score, a.ottava.staffId))
     const lane = a.kind === 'dynamic' ? a.dyn : a.hairpin
     const dv = destByStaff.get(staffIndexOfId(score, lane.staffId))
     return !dv || !dv.has(voiceOf(lane))
@@ -506,6 +515,23 @@ export function pasteEvents(
       ...(staffId !== undefined ? { staffId } : {}),
     }
     clipAnchors.push({ kind: 'hairpin', absBeat: fracAdd(pasteStart, ch.offset), hairpin })
+  }
+  // The clip's octave lines take the same road minus the re-voicing, since an ottava has no voice
+  // to re-voice. `length` copies through for the hairpin's reason (an amount of music, not an
+  // address), and only fully-enclosed ottavas are ever in a clip — so a pasted bracket cannot run
+  // past the material that came with it and transpose music the copy never covered.
+  for (const co of clipOttavas) {
+    const absStaff = targetStaff + co.staff
+    if (absStaff < 0 || absStaff >= staffCount) continue // overflow — already warned for its lane
+    const staffId = staffIdAtIndex(score, absStaff)
+    const ottava: Ottava = {
+      id: uuidv4(),
+      beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+      length: co.length,
+      shift: co.shift,
+      ...(staffId !== undefined ? { staffId } : {}),
+    }
+    clipAnchors.push({ kind: 'ottava', absBeat: fracAdd(pasteStart, co.offset), ottava })
   }
   restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
@@ -696,6 +722,12 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
     for (const h of m.hairpins ?? []) {
       out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h })
     }
+    // Octave lines ride it too, and the cost of missing this loop is the loudest on the seam: an
+    // ottava dropped by a meter change does not merely disappear from the page, it silently
+    // transposes the passage back an octave.
+    for (const o of m.ottavas ?? []) {
+      out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o })
+    }
   })
   return out
 }
@@ -745,6 +777,20 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       if (!m.hairpins) m.hairpins = []
       m.hairpins.push({ ...a.hairpin, id: uuidv4(), beat })
       m.hairpins.sort((x, y) => fracCompare(x.beat, y.beat))
+    } else if (a.kind === 'ottava') {
+      // ⭐ Ottavas take the CLEF rule, not the hairpin one that stands two branches up: at most one
+      // per (beat, STAFF), last wins. Two wedges at a beat are two readable marks; two octave
+      // shifts governing one staff from one beat is a contradiction nothing downstream can resolve
+      // — `soundingShiftAt` would have to pick, and it would pick by array order.
+      // ⚠️ Dedupe within the SAME staff only, exactly as the clef branch does: a staff-0 and a
+      // staff-1 octave line may share a beat and mean different things.
+      if (!m.ottavas) m.ottavas = []
+      const dup = m.ottavas.findIndex((o) => fracCompare(o.beat, beat) === 0 && matchesStaff(o.staffId, a.ottava.staffId, score))
+      if (dup !== -1) m.ottavas.splice(dup, 1)
+      // The id is regenerated here, as a hairpin's is — the same warning applies to anything ever
+      // keyed by an ottava id.
+      m.ottavas.push({ ...a.ottava, id: uuidv4(), beat })
+      m.ottavas.sort((x, y) => fracCompare(x.beat, y.beat))
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
@@ -1487,6 +1533,7 @@ function clearMeasureForRebar(measure: Measure): void {
   // Deleting it makes captureBeatAnchors/restoreBeatAnchors the only road back, so a missed
   // capture is a visible loss instead of a silent lie.
   delete measure.hairpins
+  delete measure.ottavas // …and the octave lines, for that same load-bearing reason
 }
 
 /**

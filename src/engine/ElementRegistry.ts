@@ -69,6 +69,14 @@ export type ElementType =
    * ornament. `points` are its drawn band, walked by `interactions/elements/trill.ts`.
    */
   | 'trill'
+  /**
+   * An OTTAVA — the octave numeral and its dashed bracket. ⚠️ ONE ENTRY PER DRAWN FRAGMENT, the
+   * trill's rule and for its reason: a bracket crossing a system break registers once per system,
+   * each carrying the same ottava id, so either piece is clickable and a hit resolves to the whole
+   * line. `points` are its drawn band — the bbox alone would be a wide flat strip over every note
+   * the line governs.
+   */
+  | 'ottava'
   | 'accidental'
   | 'dot'
   | 'tuplet'

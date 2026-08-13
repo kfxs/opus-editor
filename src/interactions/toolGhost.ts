@@ -83,6 +83,11 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // at a height that comes from the ink of the notes the click has not picked yet. A `tr` at the
     // pointer would be previewing a POSITION nothing has decided (docs/trill-plan.md §6).
     case 'trill': return null
+    // …and the OTTAVA, for the trill's reason at a greater distance: the bracket's height comes from
+    // the ladder — the ink of the notes, plus whatever the dynamics line and the trill already took
+    // over them — none of which the click has picked. There is nothing honest to draw at the
+    // pointer (docs/ottava-plan.md P5).
+    case 'ottava': return null
     default: return assertNeverTool(tool)
   }
 }

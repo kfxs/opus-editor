@@ -80,6 +80,10 @@ export interface RenderPass {
    *  when the ornament repeats on a continuation system — the fragments are drawn into the same
    *  group, so recolouring it colours the whole trill (`hairpinGroupMap`'s arrangement). */
   trillGroupMap: Map<string, SVGGElement>
+  /** Ottava id → its `<g class="vf-ottava">` SVG group, for scoped highlight. One group per octave
+   *  line even when the bracket is split across systems, so recolouring it colours every fragment
+   *  including the parenthesised continuation numeral (`trillGroupMap`'s arrangement). */
+  ottavaGroupMap: Map<string, SVGGElement>
   /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */

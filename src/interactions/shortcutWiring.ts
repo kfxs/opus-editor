@@ -524,6 +524,15 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'ottava':
+            // The bracket only — never the notes it governs. ⚠️ Deleting it CHANGES WHAT THEY
+            // SOUND (the written pitch stays, so the passage drops back an octave), which is the
+            // one Delete here whose audible effect is bigger than its visible one. That is the
+            // whole point of storing written pitch, not a surprise to guard against.
+            eng.removeOttava(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'tuplet':
             eng.deleteTuplet(element.id)
             state.selectedElement = null
