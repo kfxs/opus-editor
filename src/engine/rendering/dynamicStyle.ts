@@ -10,7 +10,30 @@
  */
 
 export const DYNAMIC_GLYPH_SIZE = 30
-export const DYNAMIC_TEXT_SIZE = 14
+/**
+ * ⭐ The size of the ITALIC PROSE beside a level — `dolce`, `espressivo`, `sempre` — in points.
+ *
+ * ⭐⭐ **Set from the references, 2026-08-13** (his report: the text read too small). Every program
+ * states text against a REFERENCE STAFF HEIGHT, so the portable unit is the staff space:
+ *
+ * | | stated | staff spaces |
+ * |---|---|---|
+ * | MuseScore `expressionFontSize` (source: `styledef.cpp`, with `spatium` 24.8 = 1.75 mm) | 10 pt | **2.02** |
+ * | MuseScore `staffTextFontSize` / `systemTextFontSize` / `dynamicsFontSize` | 10 pt | 2.02 |
+ * | LilyPond `TextScript` — which IS its expressive text; it declares **no** `font-size`, so it takes
+ *   the default `staff-height / 20 * 11` | 11 pt @ 20 pt staff | **2.20** |
+ *
+ * ⚠️ Our staff space is `STAFF_SPACE_PX` 10 px = 7.5 pt, so the band is 15.1–16.5 pt. 16 sits near
+ * the top of it. It was **14 = 1.87 spaces — below every reference**.
+ *
+ * ⭐ **Raising this does NOT resize the glyphs nor move the dynamics line**, and that is by
+ * construction rather than luck: the glyph runs are grown by the RATIO
+ * {@link DYNAMIC_GLYPH_SIZE}/this (`DynamicsLayout`, `DynamicTextSource`), so a `p` lands at
+ * `DYNAMIC_GLYPH_SIZE` whatever the prose does; and the line is stated off
+ * {@link DYNAMIC_GLYPH_INK_ABOVE}/`_BELOW`, which are fractions of the glyph size alone.
+ * ⛔ So do not "fix" that ratio into a constant — it is what keeps the two independent.
+ */
+export const DYNAMIC_TEXT_SIZE = 16
 
 /*
  * Tight VERTICAL ink extent of a level glyph, measured from its text baseline, in px.

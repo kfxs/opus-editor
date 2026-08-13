@@ -26,22 +26,26 @@ import type { ChordRest, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { textFirstFamily } from '@/utils/fontStack'
+import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT_SIZE } from './tempoStyle'
 import type { RenderPass } from './RenderPass'
 
 /**
- * The size of the metronome's note glyph (`♩`), overriding VexFlow's default.
- *
- * VexFlow engraves it at 25 against a 14 word — nearly 1.8× — so the notehead dwarfs the text it
- * sits in. Printed metronome marks size the note to roughly the word's own height; 16 puts it just
- * above the caps, which is what `Allegro (♩ = 144)` is supposed to look like.
+ * Apply the mark's two sizes (`./tempoStyle`, where they live because the ink extents and the row's
+ * clearance are stated against them).
  *
  * `MetricsDefaults` is VexFlow's override surface, but it is GLOBAL and read at `Element`
  * construction, so this is a one-time write at import. `Metrics.getFontInfo` memoizes per key, so
- * the stale FontInfo must be evicted or the write is silently ignored.
+ * the stale FontInfo must be evicted or the write is silently ignored — and **both** keys need
+ * evicting, since `StaveTempo.name` inherits its size from `StaveTempo` rather than declaring one.
+ *
+ * ⭐ The WORDS' size is ours now too. It used to be whatever VexFlow's metric said (14), which
+ * measured ~15% under the engraving standard for our staff — see {@link TEMPO_TEXT_FONT_SIZE} for
+ * the derivation.
  */
-export const TEMPO_GLYPH_FONT_SIZE = 16
+MetricsDefaults.StaveTempo.fontSize = TEMPO_TEXT_FONT_SIZE
 MetricsDefaults.StaveTempo.glyph.fontSize = TEMPO_GLYPH_FONT_SIZE
 Metrics.clear('StaveTempo.glyph')
+Metrics.clear('StaveTempo.name')
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
@@ -242,6 +246,14 @@ export function drawTempoMarks(
     if (mark.id === pass.suppressedTempoId) continue // being edited in the text overlay
     if (!mark.text) continue // nothing printed (a mark that only sounds)
 
+    // ⚠️ **NOT the mark's row — only where it is drawn before one is decided.** Until P0b of
+    // docs/ottava-plan.md this WAS the answer, and it was a constant: `getYForTopText(1)` resolves
+    // to a baseline 2 staff spaces above the top line, blind to ledger lines, to a dynamic above the
+    // staff, to a trill and to an 8va bracket. `./tempoLinePass` now translates every mark onto the
+    // row its music leaves free, so what survives here is an ORIGIN — the pass measures its move
+    // from the `<text>` baseline this puts down. ⛔ Do not compute the real y here: it is a fact
+    // about the SYSTEM, and a measure-scope answer would have to join `MeasureRedrawKey`'s shape key
+    // (see that pass's header for what that costs).
     const y = stave.getYForTopText(1)
     const x = anchorX(mark, slots, staveNotes, stave)
 
@@ -262,7 +274,22 @@ export function drawTempoMarks(
           id: mark.id,
           measure: measure.number,
           beat: fracToNumber(mark.beat),
-          bbox: { x: box.x, y: box.y, width: box.width, height: box.height },
+          // ⚠️⚠️ **HORIZONTAL from the group, VERTICAL from the BASELINE — never the group's y/height.**
+          // A mark containing a metronome glyph has a MUSIC-font run in it, and `getBBox` unions that
+          // run's full em box: measured at **86 px tall** for one 14 pt line of text
+          // (`Allegretto ♩ = 60`), reaching from above the mark all the way down past the staff's top
+          // line. His report, 2026-08-13: clicking a `tr` selected the tempo mark, because the trill's
+          // box sat entirely inside that one and `ELEMENT_HIT_ORDER` asks tempo first.
+          // ⭐ So the box is rebuilt from the number that actually says where the ink is — the
+          // baseline we just drew at — plus `tempoStyle`'s tight extents. Exactly what
+          // `DynamicsLayout` does for the same reason (`reference_vexflow_annotation_pointer_rect`),
+          // and it is why those two constants are shared with the row rather than private to it.
+          bbox: {
+            x: box.x,
+            y: y - TEMPO_INK_ABOVE,
+            width: box.width,
+            height: TEMPO_INK_ABOVE + TEMPO_INK_BELOW,
+          },
         })
       }
     } catch {

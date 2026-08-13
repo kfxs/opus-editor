@@ -36,6 +36,7 @@ import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
+import { placeTempoMarksOnLine } from './tempoLinePass'
 import {
   chooseVoiceMode,
   createStaveNotesFromSlots,
@@ -677,6 +678,9 @@ export class VexFlowRenderer {
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       solvedColumns: this.solvedColumns,
+      // ⭐ A FRESH array per render, and it must stay that way: a claim is a fact about where a mark
+      //   landed THIS time, so one carried over would clear a mark that is no longer there.
+      occupiedBands: [],
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
@@ -3569,6 +3573,24 @@ export class VexFlowRenderer {
     // draws nothing at all on a canvas.
     if (svg) drawPages(svg, surface, spacing.pageCount, this.audience)
 
+    // ⭐⭐ ONE answer for the whole dynamics family, decided BEFORE the measure loop — every letter,
+    // word and wedge fragment gets its own baseline from the local rule and is then LEVELLED WITH
+    // WHATEVER IT TOUCHES (`layout/dynamicsChain.ts`). It cannot be decided inside either drawing
+    // pass: what a wedge's baseline is depends on the mark at its far end, which no walk of one
+    // measure can see.
+    //
+    // ⭐ It runs on `plans` rather than on `placements`, and that is the whole of the hoist
+    // (docs/ottava-plan.md P0a): `DynamicsPlanPlacement` asks for `view`, `measureNumber`,
+    // `staffIndex`, `line` and `system.columns` — **no `stave`** — and every `placements` entry
+    // below is exactly its `plans` entry plus a stave, pushed one-for-one in this same order. So the
+    // plan is byte-identical to the one computed after the loop, and it now exists early enough for
+    // a family drawn INSIDE the loop to read it (P0b: the tempo mark).
+    //
+    // ⭐ The last argument is the render's LADDER collector: the family records what it took, for
+    // whatever is placed outside it (`layout/outsideStaffBand.ts`). Nothing reads it yet.
+    const dynamicsPlan = planDynamicsLines(
+      score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
+
     const placements: MeasurePlacement[] = []
     let redrawn = 0
 
@@ -3658,12 +3680,7 @@ export class VexFlowRenderer {
     // including the ones this render REUSED, which is the point: a mark's y is a fact about its
     // system, so the bar whose line changed is usually not the bar that was edited
     // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
-    // same line for a hairpin's ends.
-    // ⭐⭐ ONE answer for the whole family, before either pass draws: every letter, word and wedge
-    // fragment gets its own baseline from the local rule and is then LEVELLED WITH WHATEVER IT
-    // TOUCHES (`layout/dynamicsChain.ts`). It cannot be decided inside either pass — what a wedge's
-    // baseline is depends on the mark at its far end, which no walk of one measure can see.
-    const dynamicsPlan = planDynamicsLines(score, placements, staffList.map(staff => staff.id), MARK_INK)
+    // same line for a hairpin's ends. The plan it applies was decided above the measure loop.
     placeDynamicsOnLine(pass, placements, dynamicsPlan)
 
     // Render ties between measures after all measures are drawn
@@ -3684,6 +3701,14 @@ export class VexFlowRenderer {
     // (docs/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
     // rather than translated.
     renderTrills(pass, score, placements, staffList.map(staff => staff.id))
+
+    // ⭐⭐ …and LAST, the tempo marks onto their row — after every other outside-staff family,
+    // because tempo is the OUTERMOST (LilyPond's MetronomeMark 1300 against the dynamics' 250 and
+    // the trill's 50) and this is where the ladder's order lives: each family filed what it took in
+    // `pass.occupiedBands` as it was placed, and this one clears whatever it finds
+    // (docs/ottava-plan.md P0b). ⛔ There is no priority table; move this call and you change the
+    // order.
+    placeTempoMarksOnLine(pass, placements, staffList.map(staff => staff.id))
 
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false

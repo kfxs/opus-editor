@@ -43,8 +43,9 @@ import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
+import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { fracCompare, fracGt } from '@/utils/fraction'
+import { fracAdd, fracCompare, fracGt } from '@/utils/fraction'
 import { voiceOf } from '@/utils/lanes'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
@@ -168,18 +169,73 @@ function baselineFor(
 ): number {
   let band: InkBand | null = null
   for (const p of covered) {
-    // ⭐ Each bar contributes the slice the trill actually covers IN THAT BAR: from its start beat
-    // in the first, from 0 thereafter; and in the LAST bar only to where the trill stops — which is
-    // the onset of the slot after the last trilled one, since the trill runs to that slot's edge.
-    // Reading the whole last bar would let a low note the trill does not cover push the sign up.
-    const capacity = measureCapacityFrac(p.view)
-    const from = p.measureNumber === span.startMeasure ? span.startBeat : ZERO
-    const to = p.measureNumber === span.endMeasure
-      ? (beatAfter(p.view, voice, span.endBeat) ?? capacity)
-      : capacity
+    const { from, to } = barSlice(p, span, voice)
     band = mergeInkBands(band, staffInkBand(columnsBetween(p.system.columns, from, to), staffId, firstStaffId))
   }
   return clearanceBaseline(band, side, TRILL_MARK_INK, TRILL_LINE)
+}
+
+/**
+ * ⭐ The slice of ONE bar the trill actually covers: from its start beat in the first bar, from 0
+ * thereafter; and in the LAST bar only to where the trill stops — the onset of the slot after the
+ * last trilled one, since the trill runs to that slot's edge. Reading the whole last bar would let a
+ * low note the trill does not cover push the sign up.
+ *
+ * Shared by {@link baselineFor} (which asks what ink is in there) and the ladder claim (which asks
+ * what beats the fragment took), so the two cannot come to disagree about the trill's own extent.
+ */
+function barSlice(
+  p: Pick<TrillPlacement, 'view' | 'measureNumber'>,
+  span: TrillSpan,
+  voice: number,
+): { from: Fraction; to: Fraction } {
+  const capacity = measureCapacityFrac(p.view)
+  return {
+    from: p.measureNumber === span.startMeasure ? span.startBeat : ZERO,
+    to: p.measureNumber === span.endMeasure
+      ? (beatAfter(p.view, voice, span.endBeat) ?? capacity)
+      : capacity,
+  }
+}
+
+/**
+ * ⭐ **What one fragment took**, on the ladder's absolute-beat axis
+ * (`engine/layout/outsideStaffBand.ts`) — `null` when the fragment covers no bar this render drew.
+ *
+ * The fragment's musical extent is the trill's span clipped to the bars it landed on: the first
+ * bar's {@link barSlice} start to the last bar's end. ⭐ That is the SAME slice {@link baselineFor}
+ * measured the ink over, so what the trill CLEARED and what it CLAIMS are one stretch of music and
+ * cannot drift apart.
+ *
+ * Pure, and exported for its spec: the beats are the part of this that can be wrong, and they are
+ * arithmetic rather than geometry — so they belong in a unit test rather than in the browser suite
+ * with the drawing.
+ */
+export function trillFragmentClaim(
+  here: readonly Pick<TrillPlacement, 'view' | 'measureNumber'>[],
+  span: TrillSpan,
+  voice: number,
+  line: number,
+  staffId: string | undefined,
+  side: 'above' | 'below',
+  baseline: number,
+  starts: Map<number, Fraction>,
+): OccupiedSpan | null {
+  const bars = [...here].sort((a, b) => a.measureNumber - b.measureNumber)
+  const first = bars[0]
+  const last = bars[bars.length - 1]
+  if (!first || !last) return null
+  const firstStart = starts.get(first.measureNumber)
+  const lastStart = starts.get(last.measureNumber)
+  if (!firstStart || !lastStart) return null
+  return {
+    line,
+    staffId,
+    side,
+    from: fracAdd(firstStart, barSlice(first, span, voice).from),
+    to: fracAdd(lastStart, barSlice(last, span, voice).to),
+    band: markBand(baseline, TRILL_MARK_INK),
+  }
 }
 
 const ZERO: Fraction = { num: 0, den: 1 }
@@ -238,6 +294,9 @@ export function renderTrills(
   const trills = score.trills
   if (!trills?.length) return
 
+  // The ladder's shared horizontal axis, walked once for the render rather than per trill.
+  const starts = measureStartOffsets(score)
+
   for (const trill of trills) {
     const span = trillSpan(score, trill.id)
     if (!span) continue
@@ -265,7 +324,7 @@ export function renderTrills(
       // would yield `class="vf-vf-trill"`, the mistake the slur's comment records.
       const group = pass.context.openGroup?.('trill', `trill-${trill.id}`) as SVGGElement | undefined
       inStaffSpace(pass, from.staffIndex, group, () => {
-        drawTrill(pass, trill, span, voice, x, covered, from, to, staffIds[from.staffIndex], staffIds[0])
+        drawTrill(pass, trill, span, voice, x, covered, from, to, staffIds[from.staffIndex], staffIds[0], starts)
       })
       pass.context.closeGroup?.()
       if (group) pass.trillGroupMap.set(trill.id, group)
@@ -287,6 +346,7 @@ function drawTrill(
   to: TrillPlacement,
   staffId: string | undefined,
   firstStaffId: string | undefined,
+  starts: Map<number, Fraction>,
 ): void {
   const side = trill.placement ?? 'above'
   const ctx = pass.context
@@ -309,6 +369,15 @@ function drawTrill(
     const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
     const baseline = baselineFor(here.length ? here : covered, span, voice, staffId, firstStaffId, side)
     const y = stave.getYForLine(0) + px(baseline)
+
+    // ⭐ THE LADDER CLAIM (docs/ottava-plan.md P0a). The trill is the INNERMOST outside-staff family,
+    //   so it never reads this collection — but being innermost is no excuse for not WRITING to it:
+    //   an 8va bracket (LilyPond 400 against the trill's 50) has to clear exactly this fragment.
+    //   ⚠️ Per FRAGMENT, in that fragment's own beats — one claim for the whole trill would put the
+    //   second system's `tr` on the first system's beats.
+    const claim = trillFragmentClaim(
+      here.length ? here : covered, span, voice, piece.line, staffId, side, baseline, starts)
+    if (claim) pass.occupiedBands.push(claim)
 
     // ⭐ EVERY FRAGMENT DRAWS ITS OWN SIGN (rule 6) — a continuation system has to say what the
     // wavy line means, so this is outside any "first piece only" condition on purpose.

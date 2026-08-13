@@ -30,6 +30,7 @@ import {
   type MarkInk, type InkBand,
 } from '@/engine/layout/inkBand'
 import { levelDynamicsChains, type ChainItem } from '@/engine/layout/dynamicsChain'
+import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCreate } from '@/utils/fraction'
@@ -51,18 +52,6 @@ export type DynamicsLinePlan = Map<string, number>
 /** The key a hairpin fragment's baseline is filed under — its id and the system it landed on. */
 export function hairpinLineKey(id: string, line: number): string {
   return `${id}@${line}`
-}
-
-/** Cumulative quarter-beat offset of each measure's start. The shared axis chaining needs: two
- *  marks either side of a barline can only be compared on one. */
-function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
 }
 
 /** The band a wedge's fragment must clear: the ink of every bar it covers ON THIS SYSTEM, sliced to
@@ -91,12 +80,22 @@ function hairpinBand(
  * `markInk` is how far a mark's ink reaches either side of its baseline — a FONT measurement the
  * caller supplies, because a glyph measures 0×0 in jsdom and a number computed here would agree
  * with itself.
+ *
+ * ⭐ `occupied` is the render's LADDER collector (`engine/layout/outsideStaffBand.ts`): the family's
+ * claims are appended to it, so a family placed later — an 8va bracket, a tempo mark — can clear
+ * marks that no ink model knows about. Optional and never read back, so this stays a pure function
+ * of its inputs for everything it RETURNS; omit it and the plan is unchanged.
+ *
+ * ⚠️ The claims are written from the **LEVELLED** baselines, not the per-mark ones: a wedge dragged
+ * down by the `f` it runs into occupies where it actually ended up, and that is the whole reason
+ * this is written here and not by either drawing pass.
  */
 export function planDynamicsLines(
   score: Score,
   placements: readonly DynamicsPlanPlacement[],
   staffIds: readonly (string | undefined)[],
   markInk: MarkInk,
+  occupied?: OccupiedSpan[],
 ): DynamicsLinePlan {
   const starts = measureStartOffsets(score)
   const items: ChainItem[] = []
@@ -161,5 +160,29 @@ export function planDynamicsLines(
     }
   }
 
-  return levelDynamicsChains(items)
+  const plan = levelDynamicsChains(items)
+
+  // ⭐ THE FAMILY'S CLAIM ON THE SPACE, for whatever is placed outside it. One entry per item, from
+  //   the levelled baseline — `items` already carries every field an `OccupiedSpan` needs, on the
+  //   same absolute-beat axis, which is what makes this six lines rather than a second walk.
+  if (occupied) {
+    for (const item of items) {
+      const baseline = plan.get(item.key)
+      if (baseline === undefined) continue
+      // ⚠️ A wedge FRAGMENT is addressed by the whole wedge's span (see the note where `items` is
+      //   built), so its claim runs past its own system's bars. Harmless, and worth saying why: a
+      //   consumer is filtered to one `line` first, and the overhang only covers beats belonging to
+      //   OTHER lines — beats that line's consumers can never ask about.
+      occupied.push({
+        line: item.line,
+        staffId: item.staffId,
+        side: item.placement,
+        from: item.start,
+        to: item.end,
+        band: markBand(baseline, markInk),
+      })
+    }
+  }
+
+  return plan
 }

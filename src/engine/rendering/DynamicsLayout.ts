@@ -20,6 +20,7 @@ import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dy
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { shiftDynamicMark } from './dynamicMarkTransform'
+import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
@@ -300,12 +301,15 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         const hasGlyphRun = splitDynamicRuns(dynamicLabel(dyn)).some(r => r.glyph && r.text.trim() !== '')
         let bx = box.x, by = box.y, bw = box.width, bh = box.height
         if (hasGlyphRun) {
-          const textEl = el?.querySelector('text') as SVGGraphicsElement | null
+          const textEl = firstDrawnText(el) as SVGGraphicsElement | null
           const textBox = textEl?.getBBox ? textEl.getBBox() : null
           if (textBox) { bx = textBox.x; bw = textBox.width }
-          const baseline = parseFloat(textEl?.getAttribute('y') ?? '')
-          if (Number.isFinite(baseline)) {
-            by = baseline - DYNAMIC_GLYPH_INK_ABOVE
+          // ⚠️ Through `./drawnText`: a missing `y` means ZERO, not "not drawn". Read off the
+          //    attribute this silently fell back to the BALLOONED group box — the very box the
+          //    rebuild exists to replace — for any mark VexFlow happened to place at y=0.
+          const origin = drawnTextOrigin(textEl)
+          if (origin) {
+            by = origin.y - DYNAMIC_GLYPH_INK_ABOVE
             bh = DYNAMIC_GLYPH_INK_ABOVE + DYNAMIC_GLYPH_INK_BELOW
           }
         }

@@ -2,6 +2,7 @@ import type { StaveNote, Annotation, Tuplet as VexFlowTuplet, SVGContext } from 
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
 import type { SpacedColumns } from './spacingPass'
+import type { OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 
 /**
@@ -94,6 +95,18 @@ export interface RenderPass {
    * is exactly what `measureLayoutInfo` beside it is for.
    */
   solvedColumns: Map<number, SpacedColumns>
+  /**
+   * ⭐⭐ **WHAT THE OUTSIDE-STAFF FAMILIES HAVE ALREADY TAKEN**, appended to by each as it is placed
+   * and read by the ones placed after it (`engine/layout/outsideStaffBand.ts`, docs/ottava-plan.md
+   * P0a). This is the LADDER: the order is the order the passes run in, and there is no priority
+   * table anywhere.
+   *
+   * Here for `solvedColumns`' reason — the writer and the reader are different passes several steps
+   * apart, and neither calls the other. ⚠️ Unlike its neighbours it is **throwaway scratch**: a
+   * fresh array per render, referenced by nothing after it (see the lifetime note above, which does
+   * not apply to this one).
+   */
+  occupiedBands: OccupiedSpan[]
   /** Measure number → rendered geometry bounds (read post-render by CoordinateMapper). */
   measureBounds: Map<number, MeasureBounds>
   /** Authoritative registry of all rendered elements + positions (hit-testing). */

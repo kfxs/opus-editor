@@ -37,6 +37,7 @@ import type { DynamicsLinePlan } from './dynamicsLinePlan'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicMarkAnchorShift } from './dynamicMarkAnchor'
+import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { placeDynamicMark } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
@@ -105,13 +106,16 @@ export function placeDynamicsOnLine(
       for (const dyn of dynamics) {
         if (dyn.id === pass.suppressedDynamicId) continue // drawn by the text overlay instead
         const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
-        const text = el?.querySelector?.('text') as SVGTextElement | null
+        const text = firstDrawnText(el)
         // ⭐ Where the mark WAS drawn, read from the one number that says so: the `<text>`'s own
         //   baseline. Not its bbox — the glyph runs are grown upward from that baseline
         //   (`applyMixedDynamicRuns`), so a bare `p` and a `p dolce` have different boxes and the
         //   same baseline, which is exactly the quantity the line is stated in.
-        const drawn = parseFloat(text?.getAttribute('y') ?? '')
-        if (!el || !Number.isFinite(drawn)) continue
+        //   ⚠️ Through `./drawnText`, never off the attribute: a missing `y` means ZERO, not "not
+        //   drawn", and reading it directly silently left marks off the line (see that module).
+        const origin = drawnTextOrigin(text)
+        if (!el || !origin) continue
+        const drawn = origin.y
 
         // ⭐ Looked up, never recomputed: a mark's baseline depends on the CHAIN it belongs to —
         //   the wedge it runs into, the letter at that wedge's far end — which no walk of one
@@ -130,9 +134,8 @@ export function placeDynamicsOnLine(
         //   nothing knows the real ink before this point — and RELATIVE to the text's own x, because
         //   a Bravura dynamic overhangs its origin to the left (`dynamicMarkAnchor`).
         const box = text?.getBBox ? text.getBBox() : null
-        const anchorX = parseFloat(text?.getAttribute('x') ?? '')
-        const ink = box && Number.isFinite(anchorX)
-          ? { left: box.x - anchorX, width: box.width }
+        const ink = box
+          ? { left: box.x - origin.x, width: box.width }
           : { left: 0, width: 0 }
         const shared = (atBeat.get(`${dyn.beat.num}/${dyn.beat.den}`) ?? 1) > 1
 
