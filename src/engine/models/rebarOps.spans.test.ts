@@ -87,6 +87,104 @@ describe('rebar preserves slurs (phrasing spans)', () => {
   })
 })
 
+describe('⭐⭐ rebar preserves TRILLS (docs/trill-plan.md §2.1)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  const steps: Array<[NoteParams['step'], number]> = [
+    ['C', 4], ['D', 4], ['E', 4], ['F', 4], ['G', 4], ['A', 4], ['B', 4], ['C', 5],
+  ]
+  const fillBar = () =>
+    steps.map(([step, octave], i) =>
+      model.addNote({ step, alter: 0, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
+    )
+
+  // ⚠️ THE TEST THAT MATTERS. A trill is anchored by note IDENTITY and a re-bar re-mints every id
+  // in the region, so an implementation that only ran the dangling sweep would delete this trill —
+  // and would still pass a test that merely asserted "no trill points at a missing note". Assert
+  // that the SAME trill is still there, on the same music.
+  it('re-attaches a trill to the rebar\'d notes across a time-signature change', () => {
+    const notes = fillBar()
+    const trill = model.addTrill({ startNoteId: notes[0].id, endNoteId: notes[7].id, voice: 0 })!
+
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 }) // 4/4 content → two 3/4 bars
+
+    const trills = model.getTrills()
+    expect(trills).toHaveLength(1)
+    expect(trills[0].id).toBe(trill.id) // same trill, re-anchored — NOT dropped and re-made
+
+    expect(trills[0].startNoteId).not.toBe(notes[0].id) // the ids really were re-minted
+    expect(trills[0].endNoteId).not.toBe(notes[7].id)
+
+    const start = model.getNote(trills[0].startNoteId)
+    const end = model.getNote(trills[0].endNoteId!)
+    expect(start!.step).toBe('C')
+    expect(start!.octave).toBe(4)
+    expect(start!.measure).toBe(1)
+    expect(fracToNumber(start!.beat)).toBe(0)
+    expect(end!.step).toBe('C')
+    expect(end!.octave).toBe(5)
+    expect(end!.measure).toBe(2)   // offset 3.5 lands in the second 3/4 bar…
+    expect(fracToNumber(end!.beat)).toBe(0.5) // …at beat 0.5
+  })
+
+  it('the ONE-NOTE trill survives too, and stays one-note (no end invented)', () => {
+    const notes = fillBar()
+    const trill = model.addTrill({ startNoteId: notes[4].id })!
+
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+    const trills = model.getTrills()
+    expect(trills).toHaveLength(1)
+    expect(trills[0].id).toBe(trill.id)
+    expect(trills[0].endNoteId).toBeUndefined()
+    expect(model.getNote(trills[0].startNoteId)!.step).toBe('G')
+  })
+
+  it('⭐ a lost END degrades to the one-note trill; a lost START drops the whole thing', () => {
+    const notes = fillBar()
+    // Two trills: one whose end is at 3.5 (about to be overwritten), one whose SIGN is there.
+    const spanning = model.addTrill({ startNoteId: notes[0].id, endNoteId: notes[7].id, voice: 0 })!
+    const doomed = model.addTrill({ startNoteId: notes[7].id, voice: 0 })!
+
+    // Overwrite the whole bar with one long G4 — nothing at 3.5 survives.
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 })
+
+    expect(model.getTrillById(doomed.id)).toBeNull() // its own note is gone
+    // The spanning one lost only its far end — the sign's note (C4 @0) was overwritten too here,
+    // so it goes as well; what must NEVER happen is a trill left pointing at a missing note.
+    const ids = new Set<string>()
+    for (const m of model.getScore().measures) {
+      for (const s of m.slots) if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+    }
+    for (const t of model.getTrills()) {
+      expect(ids.has(t.startNoteId)).toBe(true)
+      if (t.endNoteId !== undefined) expect(ids.has(t.endNoteId)).toBe(true)
+    }
+    expect(model.getTrillById(spanning.id)).toBeNull()
+  })
+
+  it('keeps a voice-1 trill on its own voice when voice 0 is a unison at the same beats', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const t0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const t1 = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const trill = model.addTrill({ startNoteId: t0.id, endNoteId: t1.id, voice: 1 })!
+
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+
+    const live = model.getTrillById(trill.id)!
+    expect(model.getNote(live.startNoteId)!.voice).toBe(1)
+    expect(model.getNote(live.endNoteId!)!.voice).toBe(1)
+  })
+})
+
 describe('rebar voice-scopes ties and slurs (P2)', () => {
   let model: ScoreModel
   beforeEach(() => {

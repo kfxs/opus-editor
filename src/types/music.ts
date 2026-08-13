@@ -656,6 +656,54 @@ export interface Slur {
 }
 
 /**
+ * A TRILL — the `tr` sign plus the wavy extension line it may carry. Top-level (`score.trills`),
+ * beside {@link Slur} and for the same reason: it is anchored to NOTES and crosses barlines and
+ * systems freely, so a measure-owned span would have to be split and re-joined by every re-bar.
+ * See docs/trill-plan.md.
+ *
+ * ⭐ **A trill is TWO things in every format** — a sign on a note and a span — and this models both
+ * with one object. MusicXML pairs `<trill-mark/>` with a separate `<wavy-line>`; LilyPond has
+ * `\trill` against `\startTrillSpan`; MuseScore's `Trill` is an `SLine` carrying an `Ornament*`.
+ * Here an **absent {@link endNoteId} is the trill on one note** and a present one is the span, so
+ * "does it get a line?" is answered by the span rather than by a flag.
+ *
+ * ⭐ **Note identity, not position — the opposite of {@link Hairpin}, and the difference is real.**
+ * A hairpin covers an AMOUNT of music from a start beat, so it survives a re-bar untouched. A
+ * trill's ends are notes ("there is no trill without a note"), which is what MusicXML and LilyPond
+ * both anchor to. The cost is that a re-bar re-mints every id — paid by `rebarOps`' capture/restore
+ * pass, exactly as it is paid for a slur (docs/trill-plan.md §2.1). ⛔ It is NOT paid by dropping
+ * the trill: that would delete every trill in the region on any meter change.
+ *
+ * ⛔ **Nothing else here.** No length in beats (a trill's ends are notes), no interval — the
+ * auxiliary is the diatonic step above, DERIVED against the key in force and the bar's accidentals
+ * (docs/trill-plan.md §3), so storing it would be a second answer that goes stale on a
+ * transposition. No y, no angle, no wiggle count, no stored break point: how it LOOKS is derived
+ * from the render or authored into the engraving-overrides compartment keyed by this id
+ * (DESIGN-PRINCIPLES §3), never a field here.
+ */
+export interface Trill {
+  /** Unique identifier. ⚠️ Stable across a re-bar (the object is re-anchored in place, not
+   *  re-created) — unlike a {@link Hairpin}'s, which is re-minted. */
+  id: string
+  /** Anchor: the note the sign sits on (a {@link NotePitch} id, as used by selection).
+   *  ⛔ Never a rest, and never a FANNED MEMBER — `trillOps.addTrill` refuses both. */
+  startNoteId: string
+  /**
+   * The LAST trilled note. **ABSENT = the start note's own sounding duration, through ties** —
+   * which is the engraving rule as well as the model's simplest case: a single note needs no wavy
+   * line, and on tied notes the line runs to the last tied note. The line exists exactly when the
+   * reader must know how long to keep trilling.
+   */
+  endNoteId?: string
+  /** Voice; both anchors share it. Default 0. See {@link Note.voice}. (Slur's field, same meaning —
+   *  and kept in step by `voiceOps` when a move changes an anchor's voice.) */
+  voice?: 0 | 1 | 2 | 3
+  /** Vertical side; default 'above'. `'below'` is the multi-voice case: a trill goes above the
+   *  notes unless the staff carries more than one voice. Flipped by `x`, like a slur's. */
+  placement?: 'above' | 'below'
+}
+
+/**
  * One authored engraving adjustment on a score element — an entry in the
  * **engraving-overrides compartment** (see docs/engraving-overrides-plan.md).
  *
@@ -1576,6 +1624,13 @@ export interface Score {
    * (backward-compatible JSON). See {@link Slur} and docs/slur-plan.md.
    */
   slurs?: Slur[]
+  /**
+   * Trills — the `tr` sign and its wavy extension. Top-level for {@link Slur}'s reason (a span
+   * anchored to notes, crossing barlines and systems), and stored beside it rather than on a
+   * measure. Optional/absent = no trills (backward-compatible JSON). See {@link Trill} and
+   * docs/trill-plan.md; ops in `engine/models/trillOps`.
+   */
+  trills?: Trill[]
   /**
    * Authored engraving overrides — hand-positioning that is NOT musical content: an
    * id-keyed compartment of staff-space, anchor-relative geometry. A sub-tree of

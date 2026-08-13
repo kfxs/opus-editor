@@ -79,6 +79,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
     // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
+    // …and the trill, for a THIRD reason rather than the wedge's: a trill is drawn ABOVE the music,
+    // at a height that comes from the ink of the notes the click has not picked yet. A `tr` at the
+    // pointer would be previewing a POSITION nothing has decided (docs/trill-plan.md §6).
+    case 'trill': return null
     default: return assertNeverTool(tool)
   }
 }

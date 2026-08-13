@@ -13,7 +13,7 @@
  */
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin,
-  Slur, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
+  Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
   LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
@@ -21,7 +21,7 @@ import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
-import type { Clip, ClipSlur, ClipSlurPitch, ClipTarget } from '@/utils/clip'
+import type { Clip, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, keyStaffId, staffMeasureView } from './staffContent'
@@ -29,6 +29,7 @@ import { laneOfSlot, pairIsValid } from '@/utils/tremoloPair'
 import { cloneFanFresh, chordStoredPitches, fanMemberBeats } from '@/utils/fannedBeam'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
+import { dbg } from '@/utils/debug'
 
 // ==================== Callback surface + captured-state types ====================
 
@@ -50,11 +51,13 @@ export interface RebarDeps {
   pushRestSlot(measure: Measure, rest: RestSlot, voice: number, staffId?: string): void
   staffIdForParams(staff: number | undefined): string | undefined
   addSlur(slur: Omit<Slur, 'id'>): Slur
+  addTrill(trill: Omit<Trill, 'id'>): Trill | null
   findSlot(noteId: string): FindSlotResult | undefined
   setEngravingOverride(elementId: string, override: EngravingOverride): void
   clearEngravingOverride(elementId: string, kind?: string): boolean
   repairDanglingTies(): void
   repairDanglingSlurs(): void
+  repairDanglingTrills(): void
 }
 
 /**
@@ -117,6 +120,19 @@ type CapturedSlurEnd =
  */
 type CapturedSlur = { slur: Slur; start: CapturedSlurEnd; end: CapturedSlurEnd }
 
+/**
+ * A trill (live ref) with at least one anchor inside the rebar region, captured before ids are
+ * regenerated. The same shape as {@link CapturedSlur} and deliberately so — a trill is anchored on
+ * a slur's terms, so it is re-found on a slur's terms.
+ *
+ * ⭐ `end` is **undefined** for the one-note trill (no `endNoteId`), which is a third state neither
+ * a slur nor a hairpin has: the span is derived from the ties, so there is nothing to snapshot and
+ * nothing to re-find. Distinct from a captured end that fails to resolve later — that one degrades
+ * INTO this state, and the difference is why `end` is optional rather than a `CapturedSlurEnd` with
+ * an empty body.
+ */
+type CapturedTrill = { trill: Trill; start: CapturedSlurEnd; end?: CapturedSlurEnd }
+
 // ==================== Small local helpers ====================
 
 /** Find a measure by its number (mirrors `ScoreModel.getMeasure`). */
@@ -163,6 +179,9 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // Capture slurs anchored inside the region before ids are regenerated, so they can
   // be re-attached to the rebar'd notes (otherwise they'd dangle and vanish).
   const slurState = captureSlurs(score, regionMeasures)
+
+  // …and trills, on exactly the same terms and for exactly the same reason (docs/trill-plan.md §2.1).
+  const trillState = captureTrills(score, regionMeasures)
 
   // Capture beat-anchored annotations (clef changes + dynamics) by their ABSOLUTE
   // offset from the region start, using the OLD capacities — before the meter is
@@ -255,6 +274,8 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   // that can't be re-found, so none is left pointing at a regenerated/deleted id.
   restoreSlurs(score, deps, regionNumbers, slurState)
   deps.repairDanglingSlurs()
+  restoreTrills(score, deps, regionNumbers, trillState)
+  deps.repairDanglingTrills()
 
   // Re-anchor the captured clef changes / dynamics into the new bar layout,
   // mapping each absolute offset to the (measure, beat) it now lands on.
@@ -302,6 +323,7 @@ export function pasteEvents(
   const { lanes: clipLanes, spanBeats } = clip
   const clipDynamics = clip.dynamics ?? []
   const clipSlurs = clip.slurs ?? []
+  const clipTrills = clip.trills ?? []
   const clipHairpins = clip.hairpins ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
@@ -324,6 +346,7 @@ export function pasteEvents(
 
   const boundary = captureBoundaryTies(score, regionMeasures)
   const slurState = captureSlurs(score, regionMeasures)
+  const trillState = captureTrills(score, regionMeasures)
   const anchors = captureBeatAnchors(score, deps, regionMeasures)
   // Preserve the destination's own rest shifts across the rebar (those outside the paste
   // window survive; ones whose rest the paste overwrites are dropped). The clip's shifts
@@ -438,9 +461,13 @@ export function pasteEvents(
   deps.repairDanglingTies()
   restoreSlurs(score, deps, regionNumbers, slurState)
   deps.repairDanglingSlurs()
+  restoreTrills(score, deps, regionNumbers, trillState)
+  deps.repairDanglingTrills()
   // Re-anchor the clip's own slurs onto the freshly-pasted notes (Phase 3), mapping rel→abs
   // staff (drop overflow) + re-voicing single-voice clips — the slur analogue of clip dynamics.
   restoreClipSlurs(score, deps, regionNumbers, clipSlurs, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
+  // …and the clip's own trills, on the same staff-aware lookup (docs/trill-plan.md §2.3).
+  restoreClipTrills(score, deps, regionNumbers, clipTrills, targetStaff, targetVoice, singleVoice, pasteStart, staffCount)
   restoreBeatAnchors(score, deps, regionNumbers, survivingAnchors)
   // Re-anchor the clip's own dynamics on top (Phase 2): re-base each clip-relative offset by the
   // paste start, map the RELATIVE staff onto an absolute one (clamped — drop overflow lanes), and
@@ -1194,6 +1221,181 @@ function restoreSlurs(score: Score, deps: RebarDeps, regionNumbers: number[], ca
     }
     c.slur.startNoteId = newStart
     c.slur.endNoteId = newEnd
+  }
+}
+
+// ==================== Capture / restore: trills ====================
+
+/**
+ * Snapshot every trill with at least one anchor inside the region BEFORE re-barring regenerates
+ * note ids — the slur's pass, on the slur's key, for the same reason.
+ *
+ * ⚠️⚠️ **Without this, a meter change deletes every trill it touches.** A trill is anchored by note
+ * identity ({@link Trill}), a re-bar re-mints every id in the region, and the dangling sweep would
+ * then find nothing to point at — so "just let the belt handle it" is not a lighter-touch option,
+ * it is the feature silently removing the user's marks. This is the whole of docs/trill-plan.md §2.1
+ * and the amendment that plan needed most.
+ *
+ * The key is `captureSlurs`' — absolute onset offset from the region start (pre-rebar capacities)
+ * + pitch + voice — because the question is identical: *which note is this, once the barlines have
+ * moved?* An anchor OUTSIDE the region keeps its id verbatim (those are not regenerated), and an
+ * absent `endNoteId` captures as `undefined` rather than as an unresolvable end.
+ */
+function captureTrills(score: Score, regionMeasures: Measure[]): CapturedTrill[] {
+  const trills = score.trills
+  if (!trills || trills.length === 0) return []
+
+  const inRegion = new Map<string, { offset: Fraction; pitch: SlurPitch; voice: number }>()
+  let base = fracCreate(0, 1)
+  for (const m of regionMeasures) {
+    const cap = measureCapacityFrac(m)
+    for (const s of m.slots) {
+      if (s.type !== 'chord') continue
+      const offset = fracAdd(base, s.beat)
+      const voice = voiceOf(s)
+      for (const p of s.notes) {
+        inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
+      }
+    }
+    base = fracAdd(base, cap)
+  }
+
+  const captured: CapturedTrill[] = []
+  for (const trill of trills) {
+    const start = inRegion.get(trill.startNoteId)
+    const end = trill.endNoteId !== undefined ? inRegion.get(trill.endNoteId) : undefined
+    if (!start && !end) continue // wholly outside the region — untouched
+    captured.push({
+      trill,
+      start: start ? { offset: start.offset, pitch: start.pitch, voice: start.voice } : { externalId: trill.startNoteId },
+      end: trill.endNoteId === undefined
+        ? undefined
+        : end
+          ? { offset: end.offset, pitch: end.pitch, voice: end.voice }
+          : { externalId: trill.endNoteId },
+    })
+  }
+  return captured
+}
+
+/**
+ * Re-attach captured trills to the rebar'd region — {@link restoreSlurs}'s pass, with one
+ * difference that matters.
+ *
+ * ⭐ **A trill whose START cannot be re-found is dropped; one whose END cannot be is DEGRADED** to
+ * the one-note trill rather than removed. The sign belongs to a note that is still there, so the
+ * mark is still true and only the line's length was in doubt — and `Trill.endNoteId` being optional
+ * is exactly the state to fall back to. A slur has no such fallback (an arc needs two ends), which
+ * is why it drops on either.
+ */
+function restoreTrills(score: Score, deps: RebarDeps, regionNumbers: number[], captured: CapturedTrill[]): void {
+  if (captured.length === 0) return
+  const trills = score.trills
+  if (!trills) return
+
+  const lookup = new Map<string, string>()
+  let base = fracCreate(0, 1)
+  for (const num of regionNumbers) {
+    const m = getMeasure(score, num)
+    if (!m) continue
+    const cap = measureCapacityFrac(m)
+    for (const s of m.slots) {
+      if (s.type !== 'chord') continue
+      const offset = fracAdd(base, s.beat)
+      const voice = voiceOf(s)
+      for (const p of s.notes) {
+        const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voice)
+        if (!lookup.has(key)) lookup.set(key, p.id)
+      }
+    }
+    base = fracAdd(base, cap)
+  }
+
+  const resolve = (end: CapturedSlurEnd): string | undefined =>
+    end.externalId !== undefined
+      ? end.externalId
+      : lookup.get(slurAnchorKey(end.offset, end.pitch, end.voice))
+
+  for (const c of captured) {
+    const idx = trills.indexOf(c.trill)
+    if (idx === -1) continue
+    const newStart = resolve(c.start)
+    if (!newStart) {
+      trills.splice(idx, 1)
+      deps.clearEngravingOverride(c.trill.id) // auto-reset (§3.3): the sign's own note is unrecoverable
+      dbg('[rebar.restoreTrills] start unrecoverable — trill dropped')
+      continue
+    }
+    c.trill.startNoteId = newStart
+    const newEnd = c.end ? resolve(c.end) : undefined
+    if (newEnd !== undefined && newEnd !== newStart) c.trill.endNoteId = newEnd
+    else delete c.trill.endNoteId
+  }
+}
+
+/**
+ * Create the clip's own trills on the freshly-pasted notes — {@link restoreClipSlurs}'s twin, on
+ * the same staff-aware lookup, because a multi-staff paste must anchor on the intended staff.
+ *
+ * A trill whose start can't be re-found is skipped entirely; one whose END can't be lands as the
+ * one-note trill, for {@link restoreTrills}'s reason.
+ */
+function restoreClipTrills(
+  score: Score,
+  deps: RebarDeps,
+  regionNumbers: number[],
+  clipTrills: ClipTrill[],
+  targetStaff: number,
+  targetVoice: number,
+  singleVoice: boolean,
+  pasteStart: Fraction,
+  staffCount: number,
+): void {
+  if (clipTrills.length === 0) return
+
+  const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
+  const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
+    `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
+
+  const lookup = new Map<string, string>()
+  let base = fracCreate(0, 1)
+  for (const num of regionNumbers) {
+    const m = getMeasure(score, num)
+    if (!m) continue
+    const cap = measureCapacityFrac(m)
+    for (const s of m.slots) {
+      if (s.type !== 'chord') continue
+      const staff = staffIndexOfId(score, s.staffId)
+      const voice = voiceOf(s)
+      const offset = fracAdd(base, s.beat)
+      for (const p of s.notes) {
+        const k = key(staff, voice, offset, { step: p.step, alter: p.alter, octave: p.octave })
+        if (!lookup.has(k)) lookup.set(k, p.id)
+      }
+    }
+    base = fracAdd(base, cap)
+  }
+
+  const resolve = (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch): string | undefined => {
+    const absStaff = targetStaff + relStaff
+    if (absStaff < 0 || absStaff >= staffCount) return undefined
+    const voice = singleVoice ? targetVoice : endVoice
+    return lookup.get(key(absStaff, voice, fracAdd(pasteStart, relOffset), pitch))
+  }
+
+  for (const ct of clipTrills) {
+    const startId = resolve(ct.startStaff, ct.startVoice, ct.startOffset, ct.startPitch)
+    if (!startId) continue
+    const endId = ct.endOffset !== undefined && ct.endPitch !== undefined
+      ? resolve(ct.endStaff ?? ct.startStaff, ct.endVoice ?? ct.startVoice, ct.endOffset, ct.endPitch)
+      : undefined
+    const voice = (singleVoice ? targetVoice : ct.startVoice) as 0 | 1 | 2 | 3
+    deps.addTrill({
+      startNoteId: startId,
+      ...(endId !== undefined && endId !== startId ? { endNoteId: endId } : {}),
+      voice,
+      ...(ct.placement !== undefined ? { placement: ct.placement } : {}),
+    })
   }
 }
 

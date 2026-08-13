@@ -122,6 +122,22 @@ export type MarkingTool =
    * `interactions/hairpinStamp.ts`.
    */
   | { kind: 'hairpin'; type: 'cresc' | 'dim' }
+  /**
+   * VALUELESS — the TRILL stamp, armed from the Lines palette with nothing selected. A click on a
+   * note trills that note.
+   *
+   * It carries nothing, unlike the hairpin beside it: `cresc` and `dim` are two tools, but there is
+   * only one trill. And it carries no LENGTH either — a one-note trill is a finished ornament whose
+   * extent comes from the ties, so there is nothing for a click to size (`false` in
+   * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   *
+   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin. A trill is drawn ABOVE music that
+   * the click has not picked yet, so a ghost `tr` at the pointer would be previewing a position the
+   * click is not going to use. See {@link scoreCursorClass} and `interactions/trillStamp.ts`.
+   *
+   * ⛔ And no keyboard shortcut arms it — his call, 2026-08-13. See docs/trill-plan.md §6.
+   */
+  | { kind: 'trill' }
   /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
    *  placeholder tempo mark and opens the edit box BLANK to type the whole mark. Same NO-ghost +
    *  blue-cursor treatment. See MouseController.placeTempoEntryAtClick. */
@@ -165,6 +181,8 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   accidental: false,
   tie: false,
   slur: false,        // a relation between notes that already have their lengths, like the tie
+  trill: false,       // ⭐ a one-note trill is COMPLETE, and a longer one takes its extent from the
+                      //    notes it is placed over — never from the armed duration
   hairpin: false,     // ⭐ it HAS a length — but a MUSICAL one, taken from the notes it is placed
                       //    over, never from the armed duration. The rest stamp's `true` means "read
                       //    the lit duration keys"; a hairpin never does.
@@ -342,6 +360,13 @@ export type SelectedElement =
    * vertical nudge ever arrives it is an override keyed by this id, and still not a field here.
    */
   | { kind: 'hairpin'; id: string }
+  /**
+   * A TRILL, by id. Flat, like the hairpin — a trill has no endpoint handles to arm, and its extent
+   * is musical (the notes it covers), not cosmetic. ⚠️ There is no `placement` here even though the
+   * model carries one: `x` flips it on the MODEL, exactly as it flips a hairpin's type, so nothing
+   * about the side needs to live in the selection.
+   */
+  | { kind: 'trill'; id: string }
   /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
   | { kind: 'tie'; fromNoteId: string }
   /**
@@ -436,7 +461,7 @@ export function assertNeverElement(element: never): never {
 export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-place' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
   const kind = state.selectedMarkingTool?.kind
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin') return 'cursor-place'
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin' || kind === 'trill') return 'cursor-place'
   return 'cursor-default'
 }
 

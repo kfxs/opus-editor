@@ -46,6 +46,17 @@ export interface InspectedElement {
    * two would show a shape the model does not have. Absent when the element has none.
    */
   overrides?: EngravingOverride[]
+  /**
+   * Facts COMPUTED from the model for this element, which the model deliberately does not store.
+   *
+   * ⭐ A SEPARATE field for exactly {@link overrides}' reason, one step further: folding these into
+   * `data` would show a shape the model does not have. The first client is the TRILL, whose
+   * auxiliary pitch is derived from the key and the bar's accidentals rather than stored
+   * (docs/trill-plan.md §3) — so "what does this trill actually play?" is unanswerable from `data`
+   * alone, and it is the one question a reader of this panel will have. Absent when there is
+   * nothing derived worth reporting.
+   */
+  derived?: Record<string, unknown>
 }
 
 /** The compartment's entries under one key, or undefined when there are none (never an empty list —
@@ -134,6 +145,22 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       out.push({
         kind: 'slur',
         data: engine.getSlurById(element.id) ?? { id: element.id, missing: true },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
+    case 'trill':
+      // ⭐ The report carries the DERIVED auxiliary beside the stored object, because the stored
+      // object deliberately has no interval (docs/trill-plan.md §3) — so "what does this trill
+      // actually play?" is unanswerable from `data` alone, and that is the one question a reader of
+      // this panel will have. `span` is derived for the same reason: `endNoteId` may be absent.
+      out.push({
+        kind: 'trill',
+        data: engine.getTrillById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          auxiliary: engine.trillAuxiliaryOf(element.id),
+          span: engine.trillSpan(element.id),
+        },
         overrides: overridesAt(score, element.id),
       })
       break

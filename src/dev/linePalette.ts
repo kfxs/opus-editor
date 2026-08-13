@@ -3,9 +3,14 @@ import { armedTool } from '../interactions/EditorState'
 import type { PaletteController } from '../interactions/PaletteController'
 
 /**
- * The **Lines** palette of the dev shell — the family of spanners drawn BETWEEN notes rather than
- * on one: the slur today, and (when they exist) the hairpin, the octave line, the glissando, the
- * pedal line.
+ * The **Lines** palette of the dev shell — the family of marks that run ALONG the music rather than
+ * standing at one point: the slur, the hairpins and the trill today, and (when they exist) the
+ * octave line, the glissando, the pedal line.
+ *
+ * ⚠️ It said "drawn BETWEEN notes rather than on one" until the trill arrived and disproved it: a
+ * trill's sign sits ON one note and its wavy line is an optional extension. The family is still the
+ * right home for it — Dorico and Sibelius both file the trill under Lines — but the sentence had to
+ * widen rather than be left describing a palette that no longer matches its own rows.
  *
  * It is a TABLE, not a row of buttons written out: adding the next line adds a ROW here, not a
  * slice of `devToolbar` (CLAUDE.md — "a slice too thin to be logic is still a slice"). Every row
@@ -64,5 +69,19 @@ export const LINE_TOOLS: readonly LineTool[] = [
     isArmed: (state) => state.selectedMarkingTool?.kind === 'hairpin'
       && state.selectedMarkingTool.type === 'dim',
     press: (palette) => palette.createDiminuendo(),
+  },
+  {
+    label: 'Trill',
+    title: 'Trill — `tr` with its wavy extension line. With notes selected it trills them; with nothing '
+      + 'selected it ARMS the trill stamp — the blue pointer — and a click on a note trills that '
+      + 'note. Press again to disarm. ⭐ One note is a COMPLETE trill — the line still draws, to the '
+      + 'end of that note; over tied notes it runs to the last of them. Delete removes it, `x` '
+      + 'flips it above/below.',
+    // ⚠️ NO keyboard shortcut, unlike every other row here — his call. This button is the trill's
+    // only door, which is why it must always be pressable: the press always means something
+    // (trill the selection, or arm the tool).
+    isEnabled: () => true,
+    isArmed: (state) => armedTool(state, 'trill') !== null,
+    press: (palette) => palette.createTrill(),
   },
 ]

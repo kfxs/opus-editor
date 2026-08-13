@@ -1108,6 +1108,33 @@ export class HighlightController {
     })
   }
 
+  /**
+   * A selected TRILL, recoloured.
+   *
+   * ⚠️ **The trill is drawn as TEXT, not as paths** — the `tr` and every wiggle repeat are `<text>`
+   * glyphs (`TrillRenderer`) — so unlike the hairpin beside it, `fill` is what carries the colour
+   * and `stroke` would do nothing. Getting this backwards fails silently: the selection simply
+   * would not show.
+   *
+   * ⭐ Every fragment lives in the SAME group even when the ornament repeats on a later system
+   * (`trillGroupMap`), so colouring the group colours the whole trill — which is right, because the
+   * repeat is one ornament and selecting either piece selects it.
+   */
+  applyTrillSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const id = selectedOf(this.state, 'trill')?.id
+    if (!engine || !id) return
+    const group = engine.getTrillSVGGroup(id)
+    if (!group) return
+
+    const trill = engine.getTrillById(id)
+    const SELECTION_COLOR = voiceFillColor(trill?.voice ?? 0)
+    group.querySelectorAll('text').forEach(el => {
+      this.setAttr(el, 'fill', SELECTION_COLOR)
+      this.setStyleProp(el, 'fill', SELECTION_COLOR)
+    })
+  }
+
   applySlurSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

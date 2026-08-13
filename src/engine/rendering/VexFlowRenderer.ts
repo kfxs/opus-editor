@@ -30,6 +30,7 @@ import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies, getTieDirection } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
+import { renderTrills } from './TrillRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
@@ -483,6 +484,7 @@ export class VexFlowRenderer {
   /** Map of slur IDs to their rendered SVG group (`<g class="vf-slur">`) for scoped highlight */
   private slurGroupMap: Map<string, SVGGElement> = new Map()
   private hairpinGroupMap: Map<string, SVGGElement> = new Map()
+  private trillGroupMap: Map<string, SVGGElement> = new Map()
   /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
   private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
@@ -671,6 +673,7 @@ export class VexFlowRenderer {
       dynamicObjectMap: this.dynamicObjectMap,
       slurGroupMap: this.slurGroupMap,
       hairpinGroupMap: this.hairpinGroupMap,
+      trillGroupMap: this.trillGroupMap,
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       solvedColumns: this.solvedColumns,
@@ -1572,6 +1575,20 @@ export class VexFlowRenderer {
         const staffIndex = staffIndexOfId(score, hairpin.staffId)
         add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
       }
+    }
+
+    // ⭐⭐ Trills. Note-anchored like a slur, so `homeOfPitch` answers both ends directly — and
+    // needed for exactly the hairpin's two silent failures above: without it the endpoint bar is
+    // TRANSLATED rather than re-engraved, so `TrillRenderer` reads `StaveNote`s still holding last
+    // render's coordinates and the sign draws detached from its note; and under culling that bar's
+    // `<g>` is deleted outright, so the trill vanishes on scroll (docs/trill-plan.md §4).
+    //
+    // ⚠️ A ONE-NOTE trill has no `endNoteId`, and its bar must still be pinned — so the start id is
+    // passed for both ends rather than the pair being skipped. `add` marks each resolvable end
+    // independently, so that degenerate pair pins the one bar it names and forces no range.
+    for (const trill of score.trills ?? []) {
+      const start = homeOfPitch.get(trill.startNoteId)
+      add(start, homeOfPitch.get(trill.endNoteId ?? trill.startNoteId) ?? start)
     }
 
     // Cross-barline beams. Their bars are known directly (the plan resolved them against this
@@ -3661,6 +3678,13 @@ export class VexFlowRenderer {
     // P3). Its endpoint bars are span anchors, so their notes are drawn rather than translated.
     renderHairpins(pass, score, placements, dynamicsPlan)
 
+    // ⭐ And the trills. AFTER the hairpins but sharing nothing with them: a trill is not a member
+    // of the dynamics family, so it takes no `dynamicsPlan` — it reads the ink band over its own
+    // span and takes its own rung, which is the whole of its vertical story
+    // (docs/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
+    // rather than translated.
+    renderTrills(pass, score, placements, staffList.map(staff => staff.id))
+
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
     if (ghostNote) {
@@ -3889,6 +3913,7 @@ export class VexFlowRenderer {
     this.dynamicObjectMap.clear()
     this.slurGroupMap.clear()
     this.hairpinGroupMap.clear()
+    this.trillGroupMap.clear()
     this.tieGroupMap.clear()
     this.measureGroups.clear()
     // The solve is one render's answer: a bar that is re-laid out gets new columns, and a fan
@@ -3997,6 +4022,12 @@ export class VexFlowRenderer {
    *  highlight uses this to recolor exactly one slur. Must be called after a render. */
   getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
     return this.hairpinGroupMap.get(hairpinId) ?? null
+  }
+
+  /** The rendered SVG group (`<g class="vf-trill">`) for a trill, or null. Must be called after a
+   *  render. Like the hairpin's, ONE group per trill even when it repeats on a later system. */
+  getTrillSVGGroup(trillId: string): SVGGElement | null {
+    return this.trillGroupMap.get(trillId) ?? null
   }
 
   getSlurSVGGroup(slurId: string): SVGGElement | null {

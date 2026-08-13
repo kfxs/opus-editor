@@ -16,6 +16,7 @@ import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
  *   - `staveNoteMap`      → `renderPendingTie` (tie preview), `getStaveNoteSVGGroup` (drag/highlight)
  *   - `slurGroupMap`      → `getSlurSVGGroup` (slur drag/highlight)
  *   - `hairpinGroupMap`   → `getHairpinSVGGroup` (hairpin highlight)
+ *   - `trillGroupMap`     → `getTrillSVGGroup` (trill highlight)
  *   - `tieGroupMap`       → `getTieSVGGroup` (tie highlight)
  *   - `tupletObjectMap`   → `getTupletSVGGroup`
  *   - `dynamicObjectMap`  → `getDynamicSVGGroup`
@@ -74,6 +75,10 @@ export interface RenderPass {
    *  one group per hairpin even when the wedge is split across systems — the fragments are drawn
    *  into the same group, so recolouring it colours the whole wedge. */
   hairpinGroupMap: Map<string, SVGGElement>
+  /** Trill id → its `<g class="vf-trill">` SVG group, for scoped highlight. One group per trill even
+   *  when the ornament repeats on a continuation system — the fragments are drawn into the same
+   *  group, so recolouring it colours the whole trill (`hairpinGroupMap`'s arrangement). */
+  trillGroupMap: Map<string, SVGGElement>
   /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */

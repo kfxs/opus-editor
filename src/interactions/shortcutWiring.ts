@@ -518,6 +518,12 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'trill':
+            // The ornament only — never the notes it covers, the hairpin's rule exactly.
+            eng.removeTrill(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'tuplet':
             eng.deleteTuplet(element.id)
             state.selectedElement = null
@@ -736,8 +742,9 @@ export function wireShortcuts(
     flipStemDirection: () => {
       const eng = getEngine()
       if (!eng) return
-      // A selected slur flips side (above ↔ below); a selected articulation flips its
-      // side; otherwise x flips a note's stem.
+      // A selected slur flips side (above ↔ below); a selected trill, tie or tuplet the same; a
+      // selected hairpin flips its TYPE; a selected articulation flips its side; otherwise x flips
+      // a note's stem.
       const slurId = selectedOf(state, 'slur')?.id
       if (slurId) {
         eng.flipSlur(slurId)
@@ -753,6 +760,17 @@ export function wireShortcuts(
       const hairpinId = selectedOf(state, 'hairpin')?.id
       if (hairpinId) {
         eng.toggleHairpinType(hairpinId)
+        renderer.renderScore()
+        return
+      }
+      // ⭐ A selected TRILL flips its SIDE (above ↔ below) — and unlike the hairpin immediately
+      // above, it really is a side rather than a meaning. `placement` is the trill's own field and
+      // it shares no line with anything (a trill is not a baseline family), so moving it moves
+      // nothing else. `below` is the multi-voice case (docs/trill-plan.md §1 rule 2), which is
+      // exactly when a user reaches for this key.
+      const trillId = selectedOf(state, 'trill')?.id
+      if (trillId) {
+        eng.toggleTrillPlacement(trillId)
         renderer.renderScore()
         return
       }

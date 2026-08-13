@@ -948,6 +948,7 @@ export class PaletteController {
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'slur':         // valueless too: a slur is a span between notes, not a property of one
       case 'hairpin':      // a span as well — and its length is the MUSIC's, never the armed one
+      case 'trill':        // an ornament ON a note, whose extent is the ties' — nothing to carry
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
       case 'dynamic':
@@ -1283,6 +1284,42 @@ export class PaletteController {
     }
     const slur = engine.createSlur(noteIds)
     dbg(`[Slur] createSlur on ${noteIds.length} note(s) → ${slur ? `slur ${slur.id}` : 'no valid span'}`)
+    this.renderScore()
+  }
+
+  /**
+   * The Lines palette's *Trill* row — `createSlur`'s split exactly:
+   *  0. the trill stamp is already armed → disarm it (a re-press toggles the tool off);
+   *  1. notes selected → trill them;
+   *  2. nothing selected → arm the stamp; a click then trills the note it lands on.
+   *
+   * ⛔ **No keyboard shortcut reaches this** — his call, 2026-08-13. The first draft proposed
+   * `Shift+T`, which was never Sibelius's (Sibelius has no default trill key; its trill line lives
+   * in the Lines gallery). A key invented for us is a key to remember, and the trill is not frequent
+   * enough to earn one. So this row is the trill's whole entry surface, which is why it carries both
+   * behaviours rather than half of them (docs/trill-plan.md §6).
+   */
+  createTrill(): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    if (armedTool(this.state, 'trill')) {
+      dbg('[Trill] stamp disarmed (re-press)')
+      this.disarmMarkingTool()
+      return
+    }
+    // Something note-like is selected → the press is about it. The scalar anchor counts only in
+    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin rule).
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length
+      ? ids
+      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) {
+      dbg('[Trill] nothing selected → arming the trill stamp')
+      this.armMarkingTool({ kind: 'trill' })
+      return
+    }
+    const trill = engine.createTrill(noteIds)
+    dbg(`[Trill] createTrill on ${noteIds.length} note(s) → ${trill ? `trill ${trill.id}` : 'no valid anchor'}`)
     this.renderScore()
   }
 

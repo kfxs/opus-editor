@@ -62,6 +62,13 @@ export type ElementType =
    * the wedge spans.
    */
   | 'hairpin'
+  /**
+   * A TRILL — the `tr` and its wavy extension. ⚠️ ONE ENTRY PER DRAWN FRAGMENT, like the hairpin's
+   * and for the same reason: a trill repeated on a continuation system registers once per system,
+   * each carrying the same trill id, so either piece is clickable and a hit resolves to the whole
+   * ornament. `points` are its drawn band, walked by `interactions/elements/trill.ts`.
+   */
+  | 'trill'
   | 'accidental'
   | 'dot'
   | 'tuplet'

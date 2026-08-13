@@ -1,0 +1,465 @@
+# TRILLS — the sign, the line, and the two notes it means
+
+Plan, 2026-08-13. The research is in two places: §1 below (the findings that decide code, with
+sources) and `docs/above-staff-ladder.md` (where a trill sits vertically, and why we are NOT
+building a ladder for it).
+
+> **Amended 2026-08-13, after reading the plan against the code.** The model, the module placement
+> and the rejection of VexFlow's `Ornament`/`VibratoBracket` all survived; every amendment is at a
+> SEAM the first draft did not name. The load-bearing four, each marked in place:
+> **§2.1** a trill must be CAPTURED and RESTORED across a re-bar, not merely dropped (the first draft
+> had it backwards, and the belt alone would delete trills on every meter change);
+> **§2.3** it travels in the `Clip`, as slurs and hairpins already do;
+> **§4** the y rule is `dynamicsLineBaseline` with two other constants — parameterise it, do not copy
+> it — and `VexFlowRenderer.spanAnchors` needs a trill loop or the trill draws detached and vanishes
+> on scroll;
+> **§7** playback needs a prepass map, and a stated precedence against the fan and the tremolo.
+
+**What we are building:** the trill — `tr` plus its wavy extension line — note-anchored, with a
+derived auxiliary pitch, drawn across system breaks, selectable and deletable, and **played**.
+
+**What we are not:** mordents, turns, pralls (his call — those are the articulation family, and only
+the trill has a line); the trill sign *without* a line as a separate thing; user-chosen trill steps;
+per-trill speed control; drag handles. Every one of those is additive to what is below — §9 says how.
+
+---
+
+## 1. The rules this is built from
+
+Verified, with sources at the end. These are the ones that decide code:
+
+1. **A trill is TWO things** in every format: a SIGN on a note, and a SPAN. MusicXML: `<trill-mark/>`
+   + a separate `<wavy-line type="start|stop">`. LilyPond: `\trill` vs `\startTrillSpan`. MuseScore:
+   `class Trill final : public SLine` carrying an `Ornament*`.
+2. **Above the notes; below only when the staff has multiple voices.**
+3. **Outside slurs, and further from the noteheads than articulations.**
+   ⚠️ **We do not honour this yet, and that is deliberate.** The ink model holds noteheads, ledgers,
+   dots, accidentals, stems and flags — *not* articulations, slurs or tuplet brackets
+   (`engine/layout/measureColumns.ts`), so §4's y clears the stems honestly and is blind to an accent
+   under it, exactly as the dynamics line below is blind to a staccato dot. `docs/above-staff-ladder.md`
+   §"Known and accepted limitation" books this, with its fix: **a row in the ink model**, never a
+   private extent computed at the draw site. Read rule 3 as the convention, not as P2's contract.
+4. ⭐ **The trill sign LEFT-aligns to the LEFT edge of the notehead** — every *other* ornament centres
+   on it. ⛔ Do not reuse the dynamics rule ("a level is CENTRED on its notehead"): the families
+   genuinely differ.
+5. ~~**A single note needs no wavy line.**~~ **On tied notes the line runs to the last tied note.**
+   ⛔⛔ **OVERRULED BY HIM, 2026-08-13, with the drawing in front of him: THE LINE ALWAYS SHOWS.**
+   The struck-through half is LilyPond's and Gould's, and it is what P2 first built — a bare `tr` on
+   one note. His verdict on seeing it: *"that is wrong, we should always show the line."* A `tr`
+   alone leaves the duration implied, and he wants it shown, on one note as much as on twenty.
+   ⭐ Note the rule's own stated principle actually argues HIS way — *the line exists exactly when
+   the reader must know how long to keep trilling* — and on a semibreve the reader does. The sources
+   drew the line at "more than one note"; he draws it at "always", which is the same principle with
+   the threshold at zero.
+   ⛔ **Do not restore the flag from the sources.** `TrillSpan` carries a permanent note saying so,
+   and `e2e/trill.e2e.ts`'s first test asserts the wiggle on a single note. The only thing that can
+   suppress the line is having no room left after the sign, which is geometry, not a rule.
+6. **At a system break the sign is repeated** on the new system, **parenthesised — `(tr)`**. A
+   cross-system trill is NOT a slur in fragments: every fragment gets its own head, and the brackets
+   tell the reader the ornament began earlier.
+   ⭐ **His decision, 2026-08-13**, taken with the drawing in front of him: *"I like to use the
+   `(tr)` convention of Sibelius, is good for the reader."*
+   ⚠️ **The attribution is a separate question from the decision, and it is UNVERIFIED.** "Sibelius
+   prints a parenthesised `(tr)`" came from this plan's first research pass and was never checked at
+   source; LilyPond restarts a plain `tr`; Dorico reportedly makes it an option; **SMuFL has no
+   parenthesised trill glyph at all**. Research is in flight on all of it, including whether
+   historical engraved editions repeat the sign at all — ⛔ if they do not, `(tr)` is a modern
+   software convention and this document must say so rather than imply a lineage it does not have.
+   The research can change what we CLAIM and which glyphs we use; it cannot unmake the choice.
+7. **The auxiliary is the diatonic step above**, resolved against the key signature and the
+   accidentals earlier in the bar. It is *semantic*: it changes playback.
+8. **Numbers to start from** (LilyPond's `TrillSpanner`, the way we took `DynamicLineSpanner`'s
+   0.6/1.2 for the dynamics line): `padding` **0.5 sp**, `staff-padding` **1.0 sp**, direction up.
+9. **Glyphs**: sign `ornamentTrill` **U+E566**; line = repeated `wiggleTrill` **U+EAA4**.
+   ⚠️ VexFlow's `Vibrato` defaults to U+EAB0, the *vibrato* wiggle — the wrong glyph, and one of five
+   reasons `VibratoBracket` is rejected (§4).
+
+---
+
+## 2. The model — one object, anchored to a note
+
+> *"There is no trill without a note"* — his call, and it is MusicXML's and LilyPond's anchoring too.
+
+`Score.trills?: Trill[]`, top-level beside `slurs` and for the same reason: it crosses barlines and
+systems freely.
+
+```ts
+interface Trill {
+  id: string
+  /** The note the sign sits on (a NotePitch id, as selection uses). */
+  startNoteId: string
+  /** The last trilled note. ABSENT = the start note's own sounding duration, through ties. */
+  endNoteId?: string
+  /** Voice; both anchors share it. Default 0. (Slur's field, same meaning.) */
+  voice?: 0 | 1 | 2 | 3
+  /** Vertical side; default 'above'. 'below' is the multi-voice case (rule 2). */
+  placement?: 'above' | 'below'
+}
+```
+
+⭐ **Absent `endNoteId` is what makes the tied case free**: a trill on one note is the same object as
+a trill over five bars, and how far it reaches is answered by the span, not by a flag.
+
+⚠️ It no longer answers "does it get a line?" — since 2026-08-13 the line always draws (rule 5), so
+`TrillSpan` has no `hasLine` and a field that would always be true was removed rather than kept.
+
+⛔ **Nothing else.** No length in beats (that is the hairpin's answer to a problem trills do not
+have — a trill's ends are notes), no interval (§3), no y, no angle, no wiggle count, no stored break
+point (`Hairpin`'s rule, verbatim).
+
+**Ops:** `engine/models/trillOps.ts` — `addTrill` / `removeTrill` / `measureTrills` / `trillSpan`, in
+the `hairpinOps` / `slurOps` idiom, with `ScoreModel` keeping thin delegators. ⛔ Not on
+`MusicEngine` (DESIGN-PRINCIPLES §5).
+
+### 2.1 ⭐⭐ Re-bar: a trill is CAPTURED and RESTORED, not dropped
+
+⚠️ **"It dangles exactly as a slur does" is false, and believing it would delete the feature in
+use.** A slur does not merely dangle: `rebarOps` snapshots every slur with an endpoint inside the
+region *before* the ids are re-minted (`captureSlurs`, `rebarOps.ts:1110`) and re-finds each anchor
+afterwards by **(absolute onset offset + exact pitch + voice)** (`restoreSlurs`, `:1156`).
+`repairDanglingSlurs` is only the **defensive belt** behind that — its own doc comment says so.
+
+A trill is note-anchored on exactly the slur's terms, so it needs exactly the slur's treatment:
+
+- **`captureTrills` / `restoreTrills`**, beside the slur pair and reusing `CapturedSlurEnd`'s key
+  shape (one end may be absent — a trill's `endNoteId` is optional, and an end *outside* the region
+  keeps its id, which is what `externalId` already means).
+- **`dropDanglingTrills`** stays, as the belt — and it joins `repairDanglingSlurs` at **all four**
+  places, not one: `ScoreModel.ts:387` (`removeMeasure`), `rebarOps.ts:257` (`rebarRegion`),
+  `rebarOps.ts:440` (`pasteEvents`), plus a row in the `RebarDeps` interface (`rebarOps.ts:57`).
+
+⛔ **Belt only is not an option.** Without capture/restore, every meter change and every paste
+silently deletes every trill in the region — worse than a slur, and worse than a hairpin, which
+survives a re-bar because it is positional (`Hairpin`'s doc comment, `types/music.ts`). The hairpin's
+argument against note identity is real; the answer to it is the slur's machinery, not a shrug.
+
+**Voice, after a move.** `voiceOps.resyncSlurVoiceForPitch` (`voiceOps.ts:235`) keeps a slur's stored
+`voice` in step when Alt+1/2 moves an anchor. `Trill.voice` is the same field with the same meaning
+and goes stale the same way — so that function generalises to "the spans anchored on this pitch", or
+gains a twin.
+
+**A single deleted note** leaves a dangling trill exactly as it leaves a dangling slur (nothing
+sweeps `deleteNote`). The renderer and `trillAttacks` both resolve-or-skip, which is what
+`SlurRenderer` already does; that is the accepted behaviour, not an oversight to fix here.
+
+### 2.2 ⭐ Can a trill anchor to a FANNED MEMBER? — decide, don't look it up
+
+The two comments in the code disagree, so this is a real decision. `ScoreModel.isFanMember`'s doc
+names the commands that must **refuse** a member — *"a tie, a slur, an articulation, a duration
+change: they attach to the SLOT — the whole gesture — and a member is not one"* — while
+`repairDanglingSlurs` includes members precisely so a slur *can* span them (*"member 2 → member 5 is
+a span"*).
+
+**Our answer: refuse.** A trill is a sign ON one note plus a duration, i.e. the articulation family's
+attachment, not the slur's span-between-two-points. `addTrill` calls `isFanMember` and returns null,
+so the stamp's near-miss consumes the click and nothing half-writes. ⏭️ If his ear later wants a
+trilled member, it is the same additive change the fan plan made for slurs.
+
+### 2.3 The clipboard — a trill travels with its passage
+
+`utils/clip.ts` already carries `ClipSlur` **and** `ClipHairpin`, and its own comment states why
+(DESIGN-PRINCIPLES §2): copying four bars and pasting them *without* their hairpins would be "a
+feature operating on part of the music". A trill is no different, so **`ClipTrill` joins them** —
+the `ClipSlur` shape (relative staff + voice + onset offset + pitch at each end), **fully enclosed
+only**, matching the rule dynamics, slurs and hairpins already share. Restored by the
+`restoreClipSlurs` twin at `rebarOps.ts:443`.
+
+⛔ The alternative — "copy/paste drops trills for now" — is not free and is not silent: it is a
+principle §2 violation, and it would have to be written into §9 as a known hole rather than left
+unsaid.
+
+---
+
+## 3. The auxiliary pitch — derived, through key-signature machinery
+
+His call: build it as if key signatures existed, and let "no key" mean C major.
+
+- **`utils/keySignature.ts`** (new): `keyAt(score, measureNumber, staffId)` → the key in force,
+  resolved **positionally** and bottoming out in the constant `C major` — the shape `types/music.ts`
+  already wrote down for `Measure.keys?: KeyChange[]` (DESIGN-PRINCIPLES §6). Today it has one
+  branch; the day key signatures land it grows a lookup and nothing else changes.
+- **`utils/trillPitch.ts`** (new): `trillAuxiliary(main, key, barAccidentals)` → the spelling a step
+  above, and **whether an accidental is printed** — printed when the auxiliary's alter differs from
+  what the key alone would give. So in C major an F♯ earlier in the bar makes a trill on E print a
+  ♯ above the `tr`, which is real, testable, and reachable in v1 with no key signatures at all.
+- **Stored: nothing.** The trill carries no interval. When the user gets to choose the step, that is
+  an optional override on `Trill`, added then.
+
+---
+
+## 4. Drawing it — `engine/rendering/TrillRenderer.ts`
+
+A score-level pass after the measures, exactly like `SlurRenderer` and `HairpinRenderer`, and for
+the same reason: it spans bars, so it cannot live in one bar's group.
+
+**⛔ Not VexFlow's `Ornament` for the sign, and not `VibratoBracket` for the line.**
+`Ornament` positions from *the note's own top* — the exact defect the dynamics line exists to fix —
+and a note modifier cannot produce a repeated head on each system. `VibratoBracket`: wrong glyph
+(U+EAB0), y from `stave.getYForTopText()` (a fixed rung that knows nothing), both ends on ONE stave
+(no system break), a length quantised to whole glyph repeats, and `setVibratoWidth` **throws** when
+the glyph measures 0 — which is what jsdom does. What we would inherit is one `renderText`.
+
+So we draw both, with `Element` + written-out SMuFL codepoints — the `TempoLayout` idiom (`Glyphs`
+is CJS-only and resolves to `undefined` in the browser).
+
+- **x**: sign at the **left edge of the start notehead** (rule 4). Line starts after the sign + a
+  small gap, ends at the end of the last trilled note's sounding span (the next column's x, or the
+  bar end) — the same "read to the slot's END" the hairpin uses.
+- **The wiggle**: repeat the glyph `N = round(span / unit)` times and distribute the ≤ half-unit
+  remainder into the spacing BETWEEN repeats, so the glyphs stay unscaled and the line ends exactly
+  where it should. (Repeating without that is what makes VexFlow's vibrato overshoot.)
+- **System breaks**: fragments from `planSlurSegments` — already ours, already used by
+  `HairpinRenderer`, already handles the staff `scale(k)` conversion. **Each fragment draws its own
+  sign** (rule 6). Plain, not parenthesised: LilyPond's default; Sibelius's `(tr)` is a one-constant
+  change if his eye prefers it.
+- **y**: clear the ink band over the trill's own columns by `0.5`, floor at `1.0` from the staff,
+  mirrored for `below`. ⚠️ **This is not a baseline** — the trill is not read as a row, so it clears
+  its own span and nothing else. See `docs/above-staff-ladder.md` for why that is the whole vertical
+  story here.
+
+  ⛔ **NOT a new copy of the arithmetic.** `dynamicsLineBaseline` (`layout/dynamicsLine.ts:177`)
+  *already is* that rule — clear the band by `PADDING`, floor at `MIN_FROM_STAFF`, mirrored for
+  `above`, which it already takes as a parameter. Only the two CONSTANTS differ (0.6/1.2 against our
+  0.5/1.0). A `trillPlacement.ts` holding the same six lines with two other numbers would be a second
+  answer to *how far from the staff*, which is the exact thing the dynamics-line plan exists to
+  prevent — and no lint can see it, because a duplicated rule imports nothing.
+
+  So: **`engine/layout/inkBand.ts`** (new) takes `staffInkBand` / `columnsUnder` / `columnsBetween` /
+  `mergeInkBands` **and the baseline function**, which grows a `{ padding, minFromStaff }` argument.
+  `DYNAMICS_LINE` and a new `TRILL_LINE` are its two callers, and the numbers stay where a number
+  belongs — in a named constant beside the family that owns it. ⭐ A spec moves with its module:
+  `dynamicsLine.test.ts` splits in the same commit.
+
+  ⚠️ **Where the trill's own ink comes from.** The baseline needs `DynamicMarkInk` — how far the
+  mark's glyph reaches from its baseline — and that is a FONT measurement the layout module may not
+  compute (a glyph measures 0×0 in jsdom, `reference_jsdom_cannot_measure_glyphs`; the dynamics get
+  theirs handed in from `rendering/dynamicStyle.ts`). The `tr` needs the same: a proportion of the
+  glyph size, stated in the rendering layer, passed in — never measured in `inkBand.ts`.
+- **Registration**: each fragment registers a polyline in `ElementRegistry` under `'trill'` with the
+  same `points` shape the hairpin uses, and each carries the same trill id.
+- ⚠️⚠️ **`VexFlowRenderer.spanAnchors` gets a trill loop** — and getting this wrong is silent.
+  A span's far bar is the one question `MEASURE_RENDER_ROLE` cannot ask, so ties (`:1540`), slurs
+  (`:1556`), hairpins (`:1568`) and cross-bar beams each pin their bars there. The hairpin's comment
+  names both failures: the endpoint bar is **translated** rather than re-engraved, so the span
+  renderer reads `StaveNote`s still holding last render's coordinates and the trill draws detached
+  from its notes; and under culling that bar's `<g>` is deleted outright, so the trill **vanishes on
+  scroll**. A trill names its ends by note id, so it is the slur's two-line form —
+  `add(homeOfPitch.get(t.startNoteId), homeOfPitch.get(t.endNoteId ?? t.startNoteId))` — and the
+  `measures.add` on each resolvable end protects a half-resolvable trill the same way.
+
+---
+
+## 5. Selecting and deleting
+
+- `interactions/elements/trill.ts` — hit-test against the drawn outline with the hairpin's pad
+  (a wavy line's bbox is a wide flat band; selecting inside it would steal presses from the music).
+- Row in `ELEMENT_SPECS` (15 → 16) and a position in `ELEMENT_HIT_ORDER` (13 → 14), beside the
+  hairpin; `{ kind: 'trill'; id: string }` joins `SelectedElement`.
+- Delete in `shortcutWiring`'s switch; a row in `selectionSnapshot` for the Properties window;
+  a highlight in `HighlightController` (paint, don't recolour).
+- ⭐ **`x` flips `placement`**, joining the branch that already flips a hairpin's type and a
+  selected slur's / tie's / tuplet's / articulation's side. Without it `Trill.placement` is a field
+  with no way to set it — a dead field, and rule 2's `below` unreachable.
+
+---
+
+## 6. Entering one
+
+Mirrors the hairpin exactly, so there is nothing new to learn and nothing new to write — **minus
+its key**:
+
+- ⛔ **NO KEYBOARD SHORTCUT — his call, 2026-08-13.** The first draft proposed `Shift+T`; that was
+  never Sibelius's (Sibelius has no default trill key at all — its trill line lives in the Notations
+  ▸ Lines gallery, which `L` opens), only a free letter picked to sit beside `s` and `h`. A key
+  invented for us is not muscle memory, it is a key to remember, and the trill is not frequent
+  enough to earn one. The palette row below is the whole of the trill's entry surface.
+  ⏭️ If one is ever wanted, `l` is free in `ShortcutConfig.ts` and is the Sibelius-shaped choice.
+- **The palette row is the command.** With notes selected, `createTrill(noteIds)` spans them (the
+  `createHairpin` / `createSlur` resolution: one voice, one staff, from the anchor note). With
+  nothing selected it ARMS the trill stamp — `{ kind: 'trill' }` joins the `MarkingTool` union with
+  `false` in `MARKING_TOOL_USES_ARMED_LENGTH` (a trill's length comes from its notes, never from the
+  keypad). ⭐ Both behaviours are the row's, not a key's, and that is the slur row's own arrangement
+  already (`isEnabled: () => true` — "the press always means something: apply, or arm").
+- **`interactions/trillStamp.ts`** — one click on a note trills that note (the `slurStamp` shape: a
+  hit-test, idempotent, ADD-only, a near-miss is consumed).
+- A row in `dev/linePalette.ts` — ⚠️ **and an edit to its header, which does not name the trill.**
+  That file calls the Lines family *"spanners drawn BETWEEN notes rather than on one: the slur today,
+  and (when they exist) the hairpin, the octave line, the glissando, the pedal line"* — a sentence
+  the trill contradicts, since its sign sits on ONE note and the line is an optional extension. The
+  trill belongs in the palette (it is where Dorico and Sibelius file it), so the header widens to say
+  "on one note or between two", with the trill named. ⛔ Leaving a doc comment that the row beneath
+  it disproves is the rot `reference_repo_fact_comments_need_a_check` is about.
+
+---
+
+## 7. Playback — now, per his call
+
+`engine/audio/trillAttacks.ts` (new, pure): main note + sounding span + rate → the alternating
+attacks. Called from `collectScheduledNotes` beside the tremolo branch, which is the precedent this
+follows in every respect — but ⚠️ **a branch alone will not do**:
+
+- **A PREPASS, then the branch.** The tremolo branch reads `chord.tremolo` off the slot already in
+  hand; a trill lives in `score.trills`, so the same shape would rescan a list at every slot. The
+  collector takes the whole `Score`, so it builds `Map<slotId, Trill>` **once** at the top from
+  `trillSpan` — the walk `spanAnchors` does for the same reason, at the other end of the render.
+- ⭐ **Precedence, stated.** A fan and a tremolo are mutually exclusive *in the model*
+  (`ScoreModel.setFan` clears the tremolo and vice versa) and the collector's order between them is
+  a decision it writes down. A trill is a THIRD, and it is not excluded by either: **a note carrying
+  a fan or a tremolo does not also trill** — the re-attack pattern is already spoken for, and two
+  patterns over one sounding span is not a sound, it is a mess. `trillAttacks` is skipped and the
+  existing branch wins, checked where the fan/tremolo order is already decided.
+
+- **The rate is a PHYSICAL speed in seconds, not a note value** — a trill is not measured, the same
+  reasoning as `UNMEASURED_PERIOD_SECONDS`. Starting number **0.08 s** (~12 notes/sec), by ear.
+- **Starts on the main note** (the modern default; MuseScore's "Baroque" option is the other one) and
+  alternates with the auxiliary from §3.
+- **Fills what SOUNDS**, through ties — the tremolo's rule, so a trill across tied notes keeps going.
+- Velocity and articulation length factors come from the note, unchanged.
+
+---
+
+## 8. Tests
+
+- **Unit**: `trillOps` (add/remove/dangling, and the fan-member refusal of §2.2), `keySignature`
+  (C major constant + positional shape), `trillPitch` (auxiliary + when the accidental prints),
+  `inkBand` (the parameterised baseline, both constant sets), `trillAttacks` (count, alternation,
+  tie fill), `chain.test.ts` (the two tables stay in step).
+- ⭐ **The re-bar tests are the ones that matter**, because §2.1 is the amendment most easily lost:
+  `rebarOps.spans.test.ts` gains a trill beside its slur cases — **a trill survives a meter change**,
+  a trill survives a paste, a trill whose anchor genuinely left is dropped. A test that only asserts
+  "dropped" would pass against the wrong implementation.
+- **Clipboard**: a copied passage carries its fully-enclosed trills and drops the half-covered one
+  (`clipboard.test.ts`'s existing slur/hairpin cases, one row wider).
+- **e2e geometry** (`e2e/trill.e2e.ts`) — everything about where ink landed, because jsdom measures
+  every glyph as 0×0: sign left-aligned to the notehead, line reaching the span's end, clearance
+  above stems and flags, one sign per system fragment.
+
+---
+
+## 9. What this leaves open, and how each lands additively
+
+| later | where it goes |
+|---|---|
+| contemporary sharp / flat / natural / ½ / whole-tone trill signs | ⭐ mostly §3 already — it IS the interval, printed as an accidental. A genuinely different SIGN is one row in the glyph table + an optional `sign?` on `Trill`, undefined = the ordinary trill (MuseScore's `TrillType`). |
+| user chooses the step | an optional interval override on `Trill`; the resolver in §3 already returns what it would replace |
+| per-trill speed | an optional field, read by `trillAttacks` where the constant is now |
+| lengthen / shorten by dragging the end | the hairpin's handles, on the registered polyline |
+| the trill sign with no line as its own thing | a separate mark in the articulation family, per his framing — not this object |
+| mordents, turns, pralls | the articulation family; VexFlow's `Ornament` table already has 13 glyphs |
+| ⭐ the PLAIN repeated `tr` on continuations, instead of `(tr)` | **`(tr)` is now the default — his call, 2026-08-13**: *"I like to use the `(tr)` convention of Sibelius, is good for the reader."* The old convention becomes an optional field on `Trill` (or an engraving preset, score-wide) — his own suggestion in the same breath. ⚠️ The one item in this table that is a MODEL change rather than a constant. |
+| the above-staff ladder | `docs/above-staff-ladder.md` §4 — its trigger is 8va or technique text, not this |
+
+---
+
+## 10. Phases
+
+- **P0 — model. ✅ BUILT 2026-08-13.** `Trill`, `Score.trills`, `trillOps` (with §2.2's refusal),
+  `ScoreModel` + four `MusicEngine` delegators, `captureTrills`/`restoreTrills` +
+  `repairDanglingTrills` at all four sites (§2.1), `resyncTrillVoiceForPitch`, and `ClipTrill`
+  (§2.3). *Done when*: a trill round-trips through JSON, **survives a meter change and a
+  copy/paste**, and is dropped only when its anchor is genuinely gone. — 17 specs in
+  `trillOps.test.ts`, 4 in `rebarOps.spans.test.ts`, 4 in `clipboard.test.ts`, 1 in
+  `voiceOps.test.ts`; the re-bar four were break-tested (disable `restoreTrills` → 3 fail).
+
+  ⭐ **Two rules the build settled, beyond what §2 wrote down.** A dangling **END degrades** to the
+  one-note trill rather than dropping the object — the sign's own note is still there, so the mark
+  is still true, and `endNoteId` being optional is exactly the state to fall back to. And
+  `MusicEngine.addTrill`/`removeTrill` use **`commit`, not the slur's `saveOnly`**: a trill changes
+  what PLAYS (§7), so playback is resynced.
+- **P1 — the pitch. ✅ BUILT 2026-08-13.** `utils/keySignature.ts` (`KeySignature` as `fifths`,
+  `keyAlterOf`, `keyAt` → `C_MAJOR`), `utils/trillPitch.ts` (`trillAuxiliary`), and
+  `trillOps.trillAuxiliaryOf` as the score-level address, delegated through `ScoreModel` and
+  `MusicEngine`. *Done when*: a trill on E in a bar with F♯ reports F♯ and "print the accidental". —
+  14 specs across the two utils, 6 more in `trillOps.test.ts`.
+
+  ⭐ **The two questions came apart, and the split is the whole of §3.** What SOUNDS follows the
+  bar's running accidental (`prevailingAlterations` over `measureAccidentalNotes` — the whole bar,
+  every voice, fanned members included, the same list `getPrevailingAlter` feeds); what is PRINTED
+  is only what the KEY does not already say. They differ in exactly one case — an accidental earlier
+  in the bar — and that case is the reason a trill needs a printed sign at all.
+
+  ⚠️ `keyAt`'s parameters are underscore-prefixed: the ADDRESS is real and the call sites are
+  already positional, but nothing is read yet. ⛔ `Measure.keys` was **not** added — a field with no
+  feature is a field nothing maintains; the trigger is the key-signature feature itself.
+- **P2 — drawing. ✅ BUILT 2026-08-13.** `engine/layout/inkBand.ts` (readers **and** the
+  parameterised `clearanceBaseline`, §4), `rendering/trillStyle.ts`, `rendering/TrillRenderer.ts`,
+  the `'trill'` registry type + `trillGroupMap`, and the `spanAnchors` loop. *Done when*: `tr` +
+  wiggle draw over a span, clear the stems, repeat the sign on each system. — 7 specs in
+  `e2e/trill.e2e.ts`; the whole browser suite (115) re-run because the extraction touched the
+  dynamics line's own arithmetic.
+
+  ⚠️⚠️ **A BUG HE CAUGHT, 2026-08-13 — worth keeping because of HOW it hid.** A trill on a note at
+  the end of a system, tied over the break, drew **nothing at all**. Cause: a guard I added to
+  `spanX`, `if (endX <= startX) return null`, which `HairpinRenderer.spanX` deliberately does not
+  have. Across a system break the two x's are in DIFFERENT systems' coordinates — a span starting
+  late on one row and ending early on the next legitimately has `endX < startX` — so the guard threw
+  away exactly the case the cross-system machinery exists for. The end-inset clamp had the same
+  wrong assumption and is now same-system only.
+
+  ⭐⭐ **And the cross-system e2e test PASSED throughout.** It spanned bars 1→24, where the end lands
+  at the LAST system's right margin — numerically greater than bar 1's left edge, so the guard never
+  fired. A cross-system test only proves something if the span **starts late on one system and ends
+  early on the next**; the regression test now finds the break at runtime and builds exactly that,
+  and was break-tested against the restored guard.
+
+  ⭐ **The extraction paid for itself immediately.** `dynamicsLineBaseline` is now three lines
+  delegating to `clearanceBaseline(band, side, ink, DYNAMICS_LINE)`, and the trill passes
+  `TRILL_LINE` — so the LADDER (docs/above-staff-ladder.md §3: LilyPond's `TrillSpanner` 50 against
+  `DynamicLineSpanner` 250) is **exactly those two constant pairs**, with no priority table anywhere.
+  `inkBand.test.ts` pins that ordering as a property of the numbers, and the browser suite pins it
+  as drawn ink.
+
+  ⚠️ **Two numbers now waiting on his eye**, and they are not the same kind of number. The dynamics'
+  2.1 floor is DERIVED (one cleared stem: 1.5 + 0.6), because that family is read as a row and its
+  marks must agree with each other. The trill's 1.0 is a TASTE value — a trill is read individually
+  at its note, so nothing has to line up and the floor is only a minimum. Same for the sign's ink
+  proportions (0.62/0.04 of the glyph), which are a first cut, not a measurement.
+- **P3 — editing. ✅ BUILT 2026-08-13.** `interactions/elements/trill.ts` + rows in `ELEMENT_SPECS`
+  (16) and `ELEMENT_HIT_ORDER` (14), `{ kind: 'trill'; id }` in `SelectedElement`,
+  `applyTrillSelectionHighlight`, the Delete case, the Properties row, and `x` flipping `placement`.
+  — 6 specs in `elements/trill.test.ts`, the two pinned tables updated in `chain.test.ts`.
+
+  ⭐ **The union's totality guarantee worked exactly as advertised**: adding the member broke the
+  build at three sites (the specs table, the Properties report, the Delete switch) and named each
+  one. Nothing had to be searched for.
+
+  ⚠️ **Two places where the trill is NOT the hairpin, and both fail silently if copied:**
+  the highlight recolours **`fill` on `<text>`**, not `stroke` on `<path>` — a trill is drawn as
+  glyphs, so the hairpin's stroke recolour would simply not show. And the hit-test tests
+  **containment first**, proximity second: a wedge is two thin arms, but a trill is a solid run of
+  glyphs, so `distToSegment` alone would leave the middle of a tall band cold.
+
+  ⭐ `InspectedElement` gained a **`derived`** slot for the Properties panel, for the same reason it
+  keeps `overrides` separate from `data`: the trill's auxiliary is computed, not stored, so folding
+  it into `data` would show a shape the model does not have — and "what does this trill play?" is
+  the one question a reader of that panel will have.
+- **P4 — entry. ✅ BUILT 2026-08-13.** `MusicEngine.createTrill`, `{ kind: 'trill' }` in the
+  `MarkingTool` union (+ `MARKING_TOOL_USES_ARMED_LENGTH`, `toolGhost`, `scoreCursorClass`,
+  `promoteStampToNoteEntry`), `interactions/trillStamp.ts` wired into `MouseController`'s dispatch,
+  `PaletteController.createTrill`, and the Lines palette row + its corrected header. ⛔ No shortcut.
+  — 8 specs in `trillStamp.test.ts`.
+
+  ⭐ **`createTrill([oneNote])` makes a COMPLETE trill with no end anchor**, where `createSlur` has
+  to reach forward to the next slot because an arc needs two ends. So a stamped trill never invents
+  a span, and the last note of the score can carry one where a slur stamp makes nothing.
+
+  ⭐ **The palette row carries BOTH behaviours** (trill the selection / arm the stamp) because it is
+  the trill's only door — there is no key. The Lines palette's own header had to widen too: it
+  described a family "drawn BETWEEN notes rather than on one", which the trill disproves.
+- **P5 — playback.** The `Map<slotId, Trill>` prepass, `trillAttacks`, and the fan/tremolo
+  precedence check.
+
+---
+
+## Sources
+
+MusicXML [`trill-mark`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/trill-mark/) ·
+[`wavy-line`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/wavy-line/) ·
+LilyPond [trill spanners](https://lilypond.org/doc/v2.24/Documentation/notation/expressive-marks-as-lines)
++ [`TrillSpanner` internals](https://lilypond.org/doc/v2.24/Documentation/internals/trillspanner) ·
+MuseScore [`trill.h`](https://github.com/musescore/MuseScore/blob/master/src/engraving/dom/trill.h)
++ [`ornament.h`](https://github.com/musescore/MuseScore/blob/master/src/engraving/dom/ornament.h) ·
+Dorico [ornament placement conventions](https://archive.steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_ornaments_general_placement_conventions_c.html),
+[trills](https://archive.steinberg.help/dorico/v3/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_c.html),
+[trill extension lines](https://archive.steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_ornaments_trill_lines_hiding_t.html) ·
+[SMuFL multi-segment lines](http://smufl.formats.music/latest/tables/multi-segment-lines.html)

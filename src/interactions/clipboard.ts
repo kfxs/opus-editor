@@ -1,5 +1,5 @@
 import type { Fraction, Score } from '../types/music'
-import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipSlur, ClipSlurPitch, ClipTarget } from '../utils/clip'
+import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -40,6 +40,8 @@ export interface ClipboardPayload extends Clip {
   slurs: ClipSlur[]
   /** Hairpins fully inside the copy window — always present on a built payload. */
   hairpins: ClipHairpin[]
+  /** Trills whose SIGN is inside the copy window — always present on a built payload. */
+  trills: ClipTrill[]
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -388,6 +390,64 @@ function slursInWindow(
 }
 
 /**
+ * Trills whose SIGN sits inside the copy window `[spanStart, spanEnd)`, as {@link ClipTrill}s.
+ *
+ * ⭐ **The rule here is "the sign is enclosed", not "both ends are"** — the one place this family
+ * departs from the fully-enclosed rule that dynamics, slurs and hairpins share, and deliberately.
+ * Those three are shapes: half a wedge or half an arc would claim geometry the music never had, so
+ * the clip leaves them behind. A trill with its end outside the window is not half a shape; it is a
+ * note that is genuinely trilled, and the honest thing to carry is the trill on that note — which
+ * the model already has a state for (an absent `endNoteId`). Leaving it behind would silently drop
+ * an ornament from the copied music.
+ */
+function trillsInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipTrill[] {
+  const trills = score.trills
+  if (!trills || trills.length === 0) return []
+
+  type EP = { abs: Fraction; staff: number; voice: number; pitch: ClipSlurPitch }
+  const info = new Map<string, EP>()
+  const starts = measureStartOffsets(score)
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const n of getMeasureNotes(m, score)) {
+      if (n.isRest || n.step === undefined || n.octave === undefined) continue
+      info.set(n.id, {
+        abs: fracAdd(mStart, n.beat),
+        staff: staffOf(n),
+        voice: voiceOf(n),
+        pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
+      })
+    }
+  }
+
+  const enclosed = (e: EP | undefined): e is EP =>
+    !!e && fracGte(e.abs, spanStart) && fracLt(e.abs, spanEnd) && e.staff >= topStaff && e.staff <= maxStaff
+
+  const out: ClipTrill[] = []
+  for (const trill of trills) {
+    const s = info.get(trill.startNoteId)
+    if (!enclosed(s)) continue
+    const e = trill.endNoteId !== undefined ? info.get(trill.endNoteId) : undefined
+    const carryEnd = enclosed(e) && e !== s
+    out.push({
+      startStaff: s.staff - topStaff, startVoice: s.voice, startOffset: fracSub(s.abs, spanStart), startPitch: s.pitch,
+      ...(carryEnd
+        ? { endStaff: e.staff - topStaff, endVoice: e.voice, endOffset: fracSub(e.abs, spanStart), endPitch: e.pitch }
+        : {}),
+      ...(trill.placement !== undefined ? { placement: trill.placement } : {}),
+    })
+  }
+  return out
+}
+
+/**
  * Build a {@link ClipboardPayload} from a note selection. Copies the contiguous
  * musical span from the first to the last selected note (so a Shift range copies
  * exactly; a scattered Ctrl selection copies the whole span between its endpoints,
@@ -450,6 +510,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -469,7 +530,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   }
 
   return {
-    format: 'opus-editor/clipboard', version: 4, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins,
+    format: 'opus-editor/clipboard', version: 4, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
   }

@@ -477,6 +477,77 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   })
 })
 
+describe('⭐ clipboard — trills travel (docs/trill-plan.md §2.3)', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  const idAt = (m: number, staff: number, label: string) => {
+    const score = engine.getScore()
+    const meas = score.measures.find(x => x.number === m)!
+    return getMeasureNotes(meas, score)
+      .find(n => !n.isRest && (n.staff ?? 0) === staff && `${n.step}${n.octave}@${fracToNumber(n.beat)}` === label)?.id
+  }
+
+  const fill = (m: number, staff = 0) => (['C', 'D', 'E', 'F'] as const).map((s, b) =>
+    engine.addNoteAtBeat({ step: s, alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
+
+  it('copies a trill and re-anchors both ends onto the pasted notes', () => {
+    const ids = fill(1)
+    engine.addTrill({ startNoteId: ids[0], endNoteId: ids[3], voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.trills).toHaveLength(1)
+    expect(payload.trills[0].startPitch).toMatchObject({ step: 'C', octave: 4 })
+    expect(payload.trills[0].endPitch).toMatchObject({ step: 'F', octave: 4 })
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+
+    const pasted = (engine.getScore().trills ?? []).filter(t => t.startNoteId === idAt(2, 0, 'C4@0'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBe(idAt(2, 0, 'F4@3'))
+  })
+
+  it('carries the ONE-NOTE trill, and does not invent an end for it', () => {
+    const ids = fill(1)
+    engine.addTrill({ startNoteId: ids[1], voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.trills).toHaveLength(1)
+    expect(payload.trills[0].endPitch).toBeUndefined()
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    const pasted = (engine.getScore().trills ?? []).filter(t => t.startNoteId === idAt(2, 0, 'D4@1'))
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0].endNoteId).toBeUndefined()
+  })
+
+  // ⭐ The one place this family departs from the fully-enclosed rule its neighbours share: half a
+  // wedge or half an arc is a SHAPE the music never had, but a trill whose end is outside the
+  // window is a note that is genuinely trilled — so the sign travels and the line is dropped.
+  it('a trill whose END is outside the window travels as the one-note trill', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    engine.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
+
+    // Copy only C+D → window [0,2); E@2 is outside it.
+    const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
+    expect(payload.trills).toHaveLength(1)
+    expect(payload.trills[0].startPitch).toMatchObject({ step: 'C', octave: 4 })
+    expect(payload.trills[0].endPitch).toBeUndefined()
+  })
+
+  it('a trill whose SIGN is outside the window is left behind entirely', () => {
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    engine.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [d, e])!
+    expect(payload.trills).toHaveLength(0)
+  })
+})
+
 describe('clipboard — slurs travel (Phase 3)', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })

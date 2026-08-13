@@ -133,6 +133,23 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
     expect(model.getSlurs().find(s => s.id === slur.id)!.voice).toBe(1)
   })
 
+  it("syncs a TRILL's stored voice — with the one-note trill needing only ONE anchor to move", () => {
+    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const spanning = model.addTrill({ startNoteId: a.id, endNoteId: b.id, voice: 0 })!
+    const lone = model.addTrill({ startNoteId: b.id, voice: 0 })!
+    // (Both trills are on b, but only one names it as its START; `trillOnNote` keys on the start.)
+
+    model.moveNoteToVoice(a.id, 1)
+    // The SPANNING trill now straddles two voices → ambiguous, stored field left as-is.
+    expect(model.getTrillById(spanning.id)!.voice ?? 0).toBe(0)
+
+    model.moveNoteToVoice(b.id, 1)
+    expect(model.getTrillById(spanning.id)!.voice).toBe(1)
+    // ⭐ The ONE-NOTE trill has nothing to disagree with, so its one anchor moving is enough.
+    expect(model.getTrillById(lone.id)!.voice).toBe(1)
+  })
+
   it('ignores a rest id (returns false)', () => {
     const rest = slotsOf(model, 1).find(s => s.type === 'rest')!
     expect(model.moveNoteToVoice(rest.id, 1)).toBe(false)

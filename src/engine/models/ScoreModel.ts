@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, TempoMark, Slur, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, TempoMark, Slur, Trill, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -36,6 +36,8 @@ import * as clefOps from './clefOps'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
+import * as trillOps from './trillOps'
+import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as hairpinOps from './hairpinOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
@@ -385,6 +387,7 @@ export class ScoreModel {
     // slur editing/rendering can't hit a hole. (Same sweeps rebar uses.)
     this.repairDanglingTies()
     this.repairDanglingSlurs()
+    this.repairDanglingTrills()
     return true
   }
 
@@ -961,6 +964,53 @@ export class ScoreModel {
     return resolveActiveLevel(this.score, measureNumber, beat, voice)
   }
 
+  // ==================== Trills (top-level note-anchored ornament spans) ====================
+
+  /** All trills (the live array; empty if none). See {@link Trill}. */
+  getTrills(): Trill[] {
+    return trillOps.getTrills(this.score)
+  }
+
+  /** Add a trill — idempotent, and refused on a rest or a fanned member. See {@link trillOps.addTrill}. */
+  addTrill(trill: Omit<Trill, 'id'>): Trill | null {
+    return trillOps.addTrill(this.score, trill)
+  }
+
+  /** Remove a trill by id. @returns true if one was removed. */
+  removeTrill(id: string): boolean {
+    return trillOps.removeTrill(this.score, id)
+  }
+
+  /** Find a trill anywhere by id (live reference), or null. */
+  getTrillById(id: string): Trill | null {
+    return trillOps.getTrillById(this.score, id)
+  }
+
+  /** The trill whose sign sits on this note, or undefined. A note carries at most one. */
+  trillOnNote(startNoteId: string): Trill | undefined {
+    return trillOps.trillOnNote(this.score, startNoteId)
+  }
+
+  /** Re-anchor a trill's END (null = back to the one-note trill). See {@link trillOps.setTrillEnd}. */
+  setTrillEnd(id: string, noteId: string | null): boolean {
+    return trillOps.setTrillEnd(this.score, id, noteId)
+  }
+
+  /** Flip a trill between above and below the staff. @returns the new side. */
+  toggleTrillPlacement(id: string): 'above' | 'below' | null {
+    return trillOps.toggleTrillPlacement(this.score, id)
+  }
+
+  /** What music a trill actually covers, right now. See {@link trillOps.trillSpan}. */
+  trillSpan(id: string): trillOps.TrillSpan | null {
+    return trillOps.trillSpan(this.score, id)
+  }
+
+  /** What a trill alternates WITH — derived, never stored. See {@link trillOps.trillAuxiliaryOf}. */
+  trillAuxiliaryOf(id: string): TrillAuxiliary | null {
+    return trillOps.trillAuxiliaryOf(this.score, id)
+  }
+
   // ==================== Time signature operations ====================
 
   /**
@@ -1177,11 +1227,13 @@ export class ScoreModel {
       pushRestSlot: (m, rest, voice, staffId) => this.pushRestSlot(m, rest, voice, staffId),
       staffIdForParams: (staff) => this.staffIdForParams(staff),
       addSlur: (slur) => this.addSlur(slur),
+      addTrill: (trill) => this.addTrill(trill),
       findSlot: (id) => this.findSlot(id),
       setEngravingOverride: (id, override) => this.setEngravingOverride(id, override),
       clearEngravingOverride: (id, kind) => this.clearEngravingOverride(id, kind),
       repairDanglingTies: () => this.repairDanglingTies(),
       repairDanglingSlurs: () => this.repairDanglingSlurs(),
+      repairDanglingTrills: () => this.repairDanglingTrills(),
     }
   }
 
@@ -1236,6 +1288,45 @@ export class ScoreModel {
       if (!ids.has(slurs[i].startNoteId) || !ids.has(slurs[i].endNoteId)) {
         const [dropped] = slurs.splice(i, 1)
         this.clearEngravingOverride(dropped.id) // auto-reset (§3.3): slur points at a missing note → dropped
+      }
+    }
+  }
+
+  /**
+   * Drop any trill whose START note is no longer in the score — the defensive BELT behind
+   * `rebarOps`' {@link restoreTrills}, exactly as {@link repairDanglingSlurs} is the belt behind
+   * `restoreSlurs`.
+   *
+   * ⚠️⚠️ **This is not how a trill survives a re-bar, and reading it as such would delete the
+   * feature in use.** A re-bar re-mints every note id in the region, so if this sweep were the only
+   * thing that ran, every meter change and every paste would silently remove every trill it touched.
+   * The trill is CAPTURED before the ids go and RE-FOUND afterwards by (onset offset + pitch +
+   * voice); this only cleans up what genuinely could not be re-found. See docs/trill-plan.md §2.1.
+   *
+   * ⭐ A dangling END degrades rather than drops: the sign is still true and only the line's length
+   * was in doubt, so the field is cleared and the trill becomes the one-note trill. Dropping the
+   * whole object because its far end went would lose a mark the user can still see a reason for.
+   *
+   * ⛔ FANNED MEMBERS are deliberately NOT in the id set, unlike `repairDanglingSlurs`' — a trill
+   * refuses to anchor to one in the first place (`trillOps.addTrill`), so an id that resolves only
+   * as a member is one this sweep should be dropping.
+   */
+  private repairDanglingTrills(): void {
+    const trills = this.score.trills
+    if (!trills || trills.length === 0) return
+    const ids = new Set<string>()
+    for (const m of this.score.measures) {
+      for (const s of m.slots) {
+        if (s.type === 'chord') for (const p of s.notes) ids.add(p.id)
+      }
+    }
+    for (let i = trills.length - 1; i >= 0; i--) {
+      const trill = trills[i]
+      if (!ids.has(trill.startNoteId)) {
+        trills.splice(i, 1)
+        this.clearEngravingOverride(trill.id) // auto-reset (§3.3): the sign's own note is gone
+      } else if (trill.endNoteId !== undefined && !ids.has(trill.endNoteId)) {
+        delete trill.endNoteId
       }
     }
   }

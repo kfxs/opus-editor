@@ -24,11 +24,13 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, Trill, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
+import type { TrillAuxiliary } from '@/utils/trillPitch'
+import type { TrillSpan } from '@/engine/models/trillOps'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
 /**
@@ -1283,6 +1285,112 @@ export class MusicEngine {
     const removed = this.scoreModel.removeSlur(id)
     if (removed) this.saveOnly('Remove slur')
     return removed
+  }
+
+  // ==================== Trills ====================
+  // P0 of docs/trill-plan.md — the model reaching the facade, nothing more. The COMMANDS
+  // (`createTrill` over a selection, the stamp) are P4 and resolve notes the way `createSlur`
+  // above does; these four are one-line delegations, as CLAUDE.md's rule allows.
+
+  /** All trills (the live array; empty if none). See {@link Trill}. */
+  getTrills(): Trill[] {
+    return this.scoreModel.getTrills()
+  }
+
+  /** Find a trill anywhere by id (live reference), or null. */
+  getTrillById(id: string): Trill | null {
+    return this.scoreModel.getTrillById(id)
+  }
+
+  /**
+   * Add a trill on a note — idempotent, and refused on a rest or a fanned member
+   * ({@link trillOps.addTrill}). @returns the stored Trill, the existing one, or null.
+   *
+   * ⚠️ `commit`, not `saveOnly`, and unlike the slur beside it: a trill CHANGES WHAT PLAYS
+   * (docs/trill-plan.md §7 — it turns one sounding note into alternating attacks), so playback has
+   * to be resynced. A slur is a phrasing curve with no attacks of its own, which is why it gets the
+   * cheaper snapshot.
+   */
+  addTrill(trill: Omit<Trill, 'id'>): Trill | null {
+    const created = this.scoreModel.addTrill(trill)
+    if (created) this.commit('Add trill')
+    return created
+  }
+
+  /**
+   * ⭐ **Create a trill over the notes the user meant** — the Lines palette row and the armed
+   * stamp's click both arrive here, so a trill made one way is the trill the other would have made.
+   *
+   * The note resolution is `createSlur`'s, with two differences that are the trill's own:
+   *
+   *  - ⭐ **ONE note is a complete trill**, where one note only gives a slur something to reach
+   *    FROM. A slur must span two points, so a single selected note resolves to "this note and the
+   *    next slot"; a trill on one note is a finished ornament, and its span comes from the ties
+   *    (`trillSpan`) rather than from a second anchor. So a single selection gets **no
+   *    `endNoteId`** — deliberately not "this note to the next", which would draw a wavy line the
+   *    user did not ask for.
+   *  - ⛔ **A fanned member is refused**, where a slur accepts one. `trillOps.addTrill` is where
+   *    that decision lives and why (docs/trill-plan.md §2.2); this method simply lets it answer.
+   *
+   * A trill lives in ONE voice on ONE staff, taken from the first resolved note — notes in other
+   * lanes are dropped rather than silently widening the span, `createSlur`'s rule exactly.
+   *
+   * Create-only and **idempotent**: a note already carrying a trill gets that trill back and
+   * nothing is added. Removal is select-the-ornament + Delete.
+   *
+   * @returns the created (or pre-existing) Trill, or null if no valid anchor resolved.
+   */
+  createTrill(noteIds: string[]): Trill | null {
+    const resolved = noteIds
+      .map(id => this.scoreModel.getNote(id))
+      .filter((n): n is Note => !!n && !n.isRest)
+    if (resolved.length === 0) return null
+
+    const voice = voiceOf(resolved[0])
+    const staff = staffOf(resolved[0])
+    const inLane = resolved
+      .filter(n => voiceOf(n) === voice && staffOf(n) === staff)
+      .sort((a, b) => this.compareForSpan(a, b))
+    if (inLane.length === 0) return null
+
+    const start = inLane[0]
+    const end = inLane.length >= 2 ? inLane[inLane.length - 1] : undefined
+    const created = this.scoreModel.addTrill({
+      startNoteId: start.id,
+      ...(end && end.id !== start.id ? { endNoteId: end.id } : {}),
+      voice,
+    })
+    if (created) this.commit('Add trill')
+    return created
+  }
+
+  /** Remove a trill by id (the ornament only — never the anchored notes). Saves undo state and
+   *  resyncs playback when removed. @returns true if one was removed. */
+  removeTrill(id: string): boolean {
+    const removed = this.scoreModel.removeTrill(id)
+    if (removed) this.commit('Remove trill')
+    return removed
+  }
+
+  /** What music a trill actually covers, right now — its slots, and where it starts and stops.
+   *  Derived every time; nothing about a span is stored. See {@link trillOps.trillSpan}. */
+  trillSpan(id: string): TrillSpan | null {
+    return this.scoreModel.trillSpan(id)
+  }
+
+  /** Flip a trill between above and below the staff — the `x` key's trill branch. Saves undo state.
+   *  ⚠️ `saveOnly`, unlike {@link addTrill}: a side is notation, and it changes nothing audible. */
+  toggleTrillPlacement(id: string): 'above' | 'below' | null {
+    const side = this.scoreModel.toggleTrillPlacement(id)
+    if (side) this.saveOnly('Flip trill side')
+    return side
+  }
+
+  /** ⭐ What a trill alternates WITH — the diatonic step above, resolved against the key and the
+   *  bar's accidentals. DERIVED every time, never stored (docs/trill-plan.md §3). The renderer asks
+   *  for the printed sign; playback asks for the sounding pitch. @returns null if it does not resolve. */
+  trillAuxiliaryOf(id: string): TrillAuxiliary | null {
+    return this.scoreModel.trillAuxiliaryOf(id)
   }
 
   /** Set (or clear with `null`) a slur's user-edited curve shape (the two cubic
@@ -3510,6 +3618,12 @@ export class MusicEngine {
   /** The `<g class="vf-hairpin">` of one hairpin, for a scoped highlight. */
   getHairpinSVGGroup(hairpinId: string): SVGGElement | null {
     return this.renderer.getHairpinSVGGroup(hairpinId)
+  }
+
+  /** The rendered `<g class="vf-trill">` for a trill, or null — scoped highlight's target. One group
+   *  per trill even when it repeats on a later system, so colouring it colours the whole ornament. */
+  getTrillSVGGroup(trillId: string): SVGGElement | null {
+    return this.renderer.getTrillSVGGroup(trillId)
   }
 
   getSlurSVGGroup(slurId: string): SVGGElement | null {

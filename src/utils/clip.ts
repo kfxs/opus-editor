@@ -148,6 +148,28 @@ export interface ClipSlur {
 }
 
 /**
+ * A trill inside the clip window, re-anchored on paste — {@link ClipSlur}'s shape, since a trill is
+ * anchored on a slur's terms (note identity, re-found by relative staff / voice / offset / pitch).
+ *
+ * ⭐ Carried at all for {@link ClipHairpin}'s reason, which is DESIGN-PRINCIPLES §2 word for word: a
+ * trill is part of a passage, so copying four bars and pasting them without their trills would be a
+ * feature operating on bar-anchored data while conceptually operating on a run of music.
+ *
+ * ⭐ **The END is optional here as it is on the model** — an absent one is the trill on a single
+ * note, whose span comes from the ties rather than from a stored anchor, so there is nothing to
+ * address. A trill whose SIGN is inside the window but whose end note is outside it travels as the
+ * one-note trill rather than being left behind: unlike half a wedge, that is a mark the music
+ * genuinely still carries, and the fully-enclosed rule exists to stop a clip claiming a SHAPE the
+ * music never had. A trill whose sign is outside the window does not travel at all.
+ */
+export interface ClipTrill {
+  startStaff: number; startVoice: number; startOffset: Fraction; startPitch: ClipSlurPitch
+  /** Absent together = the one-note trill (see the type note). */
+  endStaff?: number;  endVoice?: number;  endOffset?: Fraction;  endPitch?: ClipSlurPitch
+  placement?: 'above' | 'below'
+}
+
+/**
  * A run of musical material, detached from where it came from and where it is going.
  * See the module comment for why the target is not in here.
  */
@@ -164,6 +186,8 @@ export interface Clip {
   dynamics?: ClipDynamic[]
   /** Slurs fully inside the clip window, re-anchored on paste. Absent/empty = none. */
   slurs?: ClipSlur[]
+  /** Trills whose SIGN is inside the clip window, re-anchored on paste. Absent/empty = none. */
+  trills?: ClipTrill[]
   /** Hairpins fully inside the clip window (start AND end), re-anchored on paste. Absent/empty = none. */
   hairpins?: ClipHairpin[]
   /**

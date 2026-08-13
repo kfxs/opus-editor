@@ -177,8 +177,9 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
     collapseEmptyVoices(score, measure.number)
   }
 
-  // Keep any slur's stored voice in sync with its (now-moved) anchors.
+  // Keep any slur's or trill's stored voice in sync with its (now-moved) anchors.
   resyncSlurVoiceForPitch(score, pitch.id)
+  resyncTrillVoiceForPitch(score, pitch.id)
 
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
 
@@ -242,6 +243,34 @@ export function resyncSlurVoiceForPitch(score: Score, pitchId: string): void {
     if (sv !== undefined && sv === ev && voiceOf(slur) !== sv) {
       dbg(`[Model.resyncSlurVoice] slur ${slur.id.slice(0, 8)} voice ${voiceOf(slur)}→${sv}`)
       slur.voice = sv as 0 | 1 | 2 | 3
+    }
+  }
+}
+
+/**
+ * The same for a trill — its `voice` is the same cached field with the same meaning, so a move that
+ * changes an anchor's voice leaves it stale in the same way (docs/trill-plan.md §2.1).
+ *
+ * ⭐ **Two anchors, and a one-note trill has only one**, so the agreement test is over the ends that
+ * exist: an absent `endNoteId` means the start's voice IS the trill's voice, with nothing to
+ * disagree with. That is the only difference from the slur above, and it is the reason this is a
+ * twin rather than a shared loop — the slur's `sv === ev` has no meaningful reading when there is
+ * no `ev`.
+ */
+export function resyncTrillVoiceForPitch(score: Score, pitchId: string): void {
+  for (const trill of score.trills ?? []) {
+    if (trill.startNoteId !== pitchId && trill.endNoteId !== pitchId) continue
+    const start = findSlot(score, trill.startNoteId)
+    const sv = start?.type === 'chord' ? voiceOf(start.chord) : undefined
+    if (sv === undefined) continue
+    if (trill.endNoteId !== undefined) {
+      const end = findSlot(score, trill.endNoteId)
+      const ev = end?.type === 'chord' ? voiceOf(end.chord) : undefined
+      if (ev !== sv) continue // spanning two voices — ambiguous, nothing to reassign
+    }
+    if (voiceOf(trill) !== sv) {
+      dbg(`[Model.resyncTrillVoice] trill ${trill.id.slice(0, 8)} voice ${voiceOf(trill)}→${sv}`)
+      trill.voice = sv as 0 | 1 | 2 | 3
     }
   }
 }
@@ -391,8 +420,9 @@ export function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Me
     measure.tuplets = measure.tuplets.filter(t => measure.slots.some(s => s.tupletId === t.id))
   }
 
-  // Keep any slur's stored voice in sync with its (now-moved) anchors.
+  // Keep any slur's or trill's stored voice in sync with its (now-moved) anchors.
   resyncSlurVoiceForPitch(score, pitch.id)
+  resyncTrillVoiceForPitch(score, pitch.id)
 
   measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
 
