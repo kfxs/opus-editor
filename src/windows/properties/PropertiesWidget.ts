@@ -2,6 +2,7 @@ import type { Widget } from '../content/Widget'
 import { bus } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
+import type { TrillContinuationLabel } from '../../types/music'
 import type { ArticulationType, FanMark } from '../../types/music'
 
 /**
@@ -123,6 +124,14 @@ export class PropertiesWidget implements Widget {
         }
       }
 
+      // A selected TRILL gets its one stored choice. Same boundary as the fan row above.
+      if (element.kind === 'trill') {
+        const trill = element.data as { id?: string; missing?: boolean; continuationLabel?: TrillContinuationLabel }
+        if (trill.id && !trill.missing) {
+          body.appendChild(this.buildTrillLabelSelect(trill.id, trill.continuationLabel ?? 'parenthesised'))
+        }
+      }
+
       const dump = document.createElement('div')
       dump.textContent = stringify(element.data)
       body.appendChild(dump)
@@ -229,6 +238,62 @@ export class PropertiesWidget implements Widget {
    *
    * Committing (Enter or blur) re-draws and re-plays at once, because both read the same field.
    */
+  /**
+   * ⭐ **How a trill labels itself on a CONTINUATION system** — the three real behaviours in the
+   * field, offered as a choice because there is no single right one (see
+   * {@link Trill.continuationLabel} for who does which, and docs/trill-plan.md §1 rule 6).
+   *
+   * ⚠️ The window is a DUMB PUBLISHER: it writes to `bus.trillEdit` and never touches the engine —
+   * `TrillEditController` owns the apply, the same boundary the fan inputs keep.
+   *
+   * ⭐ It CHANGES a trill, never makes one. The row appears only on a selected trill; creating and
+   * removing them is the Lines palette and Delete.
+   */
+  private buildTrillLabelSelect(trillId: string, current: TrillContinuationLabel): HTMLElement {
+    const wrap = document.createElement('label')
+    const ws = wrap.style
+    ws.display = 'flex'
+    ws.alignItems = 'center'
+    ws.gap = '6px'
+    ws.color = BISHOP
+    ws.margin = '2px 0 4px'
+    wrap.title = 'What a new system shows when this trill carries over from the previous one.'
+
+    const caption = document.createElement('span')
+    caption.textContent = 'on a new system'
+    wrap.appendChild(caption)
+
+    const select = document.createElement('select')
+    const ss = select.style
+    ss.font = 'inherit'
+    ss.color = BISHOP
+    ss.background = 'transparent'
+    ss.border = `1px solid ${BISHOP}`
+    ss.borderRadius = '2px'
+    ss.padding = '1px 4px'
+
+    // ⚠️ The labels say what is DRAWN, not who does it — a user picking one is choosing a picture,
+    // not siding with a publisher. The provenance belongs in the docs, and is in them.
+    const options: Array<[TrillContinuationLabel, string]> = [
+      ['parenthesised', '(tr)'],
+      ['plain', 'tr'],
+      ['none', 'line only'],
+    ]
+    for (const [value, text] of options) {
+      const option = document.createElement('option')
+      option.value = value
+      option.textContent = text
+      if (value === current) option.selected = true
+      select.appendChild(option)
+    }
+    select.addEventListener('change', () => {
+      bus.trillEdit.set({ trillId, continuationLabel: select.value as TrillContinuationLabel })
+    })
+
+    wrap.appendChild(select)
+    return wrap
+  }
+
   private buildFanInputs(noteId: string, fan: FanMark): HTMLElement {
     const row = document.createElement('div')
     const rs = row.style

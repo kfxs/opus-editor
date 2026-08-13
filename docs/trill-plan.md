@@ -59,13 +59,61 @@ Verified, with sources at the end. These are the ones that decide code:
    tell the reader the ornament began earlier.
    ⭐ **His decision, 2026-08-13**, taken with the drawing in front of him: *"I like to use the
    `(tr)` convention of Sibelius, is good for the reader."*
-   ⚠️ **The attribution is a separate question from the decision, and it is UNVERIFIED.** "Sibelius
-   prints a parenthesised `(tr)`" came from this plan's first research pass and was never checked at
-   source; LilyPond restarts a plain `tr`; Dorico reportedly makes it an option; **SMuFL has no
-   parenthesised trill glyph at all**. Research is in flight on all of it, including whether
-   historical engraved editions repeat the sign at all — ⛔ if they do not, `(tr)` is a modern
-   software convention and this document must say so rather than imply a lineage it does not have.
-   The research can change what we CLAIM and which glyphs we use; it cannot unmake the choice.
+   ⭐⭐ **RESEARCHED 2026-08-13, and the answer is worth having exactly.** `(tr)` is a real house
+   style with a real citation — and it is **NOT the engraving tradition**:
+
+   - ✅ **The precedent is *G. Schirmer's Manual of Style and Usage*** (Schirmer's own manual for its
+     copyists, never publicly published): *"When a trill is tied onto another line, use parentheses:
+     **(tr)**. The extension line is not necessary, unless the note is tied for additional
+     measures."* So this is a 20th-century AMERICAN PUBLISHER house style. ⛔ Cite that, never
+     "everyone does it".
+   - ✅ **19th-century engraving does the OPPOSITE.** Beethoven Op. 111, Cotta edition
+     (Bülow/Lebert, Schuberth 1892, IMSLP #02023, pp. 142–3), read at 300 dpi: the sign IS repeated,
+     **plain, with no parentheses**, placed **above the first note** of the new system — and on the
+     BROKEN system the wiggle runs on past the last notehead **to the right margin**, which is the
+     "still going" cue. Three instances on one page.
+   - ✅ **MuseScore 4 repeats NO sign at all** — only the wiggle continues
+     (`TLayout::layoutTrillSegment`: begin/single get `ornamentTrill` + `wiggleTrill`, middle/end get
+     `wiggleTrill` as both start and fill). No setting.
+   - ✅ **LilyPond restarts a PLAIN `tr`, above the first note** ("a trill spanner crossing a line
+     break will restart exactly above the first note on the new line").
+   - ✅ **Dorico makes it an option, three ways**: *Engraving Options → Ornaments → Trills → "Label
+     for start of new system"* → **Symbol without parentheses / Symbol in parentheses / No symbol**.
+     Its parens are **UPRIGHT**, not italic. Default appears to be the plain symbol.
+   - ⚠️ **SIBELIUS IS STILL UNVERIFIED — do not repeat the claim as fact.** The sentence circulating
+     ("Sibelius automatically puts the letters tr in brackets…") traces to a single user post; it is
+     **not in Avid's Reference Guide** (2019.1 and 2023.5 both full-text searched). What IS
+     documented: every Sibelius line has an optional *continuation symbol* and the shipped example is
+     parenthesised, and Avid lists paren symbols "for placing around symbols (e.g. accidentals, 8va,
+     **trills**)". Likely, not established.
+
+   ⭐ **So `(tr)` is a modern refinement, not a lineage** — and it is still his choice, now with a
+   citation behind it rather than a rumour.
+
+   ### ⭐⭐ ALL THREE ARE OFFERED — `Trill.continuationLabel` (built 2026-08-13)
+   His call, on seeing the research: *"probably we give 3 options: `(tr)` default; no sign just the
+   line; and `tr` like LilyPond, and the user can choose."* Since no behaviour is right and three
+   real programs disagree, the choice is STORED rather than constant — a `<select>` on the selected
+   trill in Properties, publishing through `bus.trillEdit` to `TrillEditController`.
+
+   ⭐ **The DEFAULT is stored as ABSENCE**, never as the string. A score of ordinary trills carries no
+   `continuationLabel` at all, so when engraving presets arrive the preset moves the DEFAULT
+   score-wide (which is where Dorico puts it) and this field remains the per-trill OVERRIDE. The two
+   layer; neither replaces the other.
+
+   ### ⭐⭐ …and WHERE the resumed sign goes depends on WHICH sign it is
+   His rule, and a real distinction rather than a tidy-up:
+   - **`(tr)` is a REMINDER** that a trill is still running → it belongs at the system's left edge,
+     exactly where an `(8)` continuation sits. That is what a bracketed label IS.
+   - **a plain `tr` is THE SIGN RESTARTING** → it belongs on its note, which is what both independent
+     sources do (LilyPond: "restart exactly above the first note on the new line"; the Cotta plates:
+     hard against the first notehead). Under `'plain'` the stretch from margin to note draws nothing.
+
+   ⚠️ **Measured limit, not assumed:** the system's left content edge and the first notehead sit
+   within about a bracket's width of each other when a bar opens with its note right after the clef,
+   so in the common case the two positions nearly coincide. The rule separates them only when the
+   first note is NOT hard against the margin (a bar opening with a rest, a key signature, a pickup).
+   `e2e/trill.e2e.ts` says so rather than implying a bigger difference.
 7. **The auxiliary is the diatonic step above**, resolved against the key signature and the
    accidentals earlier in the bar. It is *semantic*: it changes playback.
 8. **Numbers to start from** (LilyPond's `TrillSpanner`, the way we took `DynamicLineSpanner`'s
@@ -94,6 +142,8 @@ interface Trill {
   voice?: 0 | 1 | 2 | 3
   /** Vertical side; default 'above'. 'below' is the multi-voice case (rule 2). */
   placement?: 'above' | 'below'
+  /** How a CONTINUATION system labels it. ABSENT = '(tr)'. See rule 6. */
+  continuationLabel?: 'parenthesised' | 'plain' | 'none'
 }
 ```
 
@@ -346,7 +396,7 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
 | lengthen / shorten by dragging the end | the hairpin's handles, on the registered polyline |
 | the trill sign with no line as its own thing | a separate mark in the articulation family, per his framing — not this object |
 | mordents, turns, pralls | the articulation family; VexFlow's `Ornament` table already has 13 glyphs |
-| ⭐ the PLAIN repeated `tr` on continuations, instead of `(tr)` | **`(tr)` is now the default — his call, 2026-08-13**: *"I like to use the `(tr)` convention of Sibelius, is good for the reader."* The old convention becomes an optional field on `Trill` (or an engraving preset, score-wide) — his own suggestion in the same breath. ⚠️ The one item in this table that is a MODEL change rather than a constant. |
+| ~~the plain repeated `tr`, or no sign, on continuations~~ | ✅ **BUILT 2026-08-13** — all three are offered as `Trill.continuationLabel`, chosen per trill in Properties. See rule 6. ⏭️ What remains is the score-wide DEFAULT, which is an engraving-preset row, not a trill one. |
 | the above-staff ladder | `docs/above-staff-ladder.md` §4 — its trigger is 8va or technique text, not this |
 
 ---
@@ -446,6 +496,12 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   ⭐ **The palette row carries BOTH behaviours** (trill the selection / arm the stamp) because it is
   the trill's only door — there is no key. The Lines palette's own header had to widen too: it
   described a family "drawn BETWEEN notes rather than on one", which the trill disproves.
+- **P6 — the continuation label. ✅ BUILT 2026-08-13** (unplanned; it came out of the research).
+  `Trill.continuationLabel`, `trillOps.setTrillContinuationLabel`, `bus/trillEditSelection.ts`,
+  `interactions/TrillEditController.ts`, and a `<select>` row in `PropertiesWidget`. The renderer
+  honours both the label AND its position rule (rule 6). — 2 model specs, 3 browser specs.
+  ⭐ A bus seam + a controller + one widget row: no per-kind slice anywhere, and the widget stays a
+  dumb publisher that cannot reach the engine.
 - **P5 — playback. ✅ BUILT 2026-08-13.** `engine/audio/trillAttacks.ts` (pure), the
   `trilledSlotIds` prepass, `auxiliaryMidiFor`, and the branch in `collectScheduledNotes`. — 9 specs
   in `trillAttacks.test.ts`, 15 in `playbackSchedule.trill.test.ts`.

@@ -243,6 +243,78 @@ test('⭐⭐ a trill ENDING on the next system still draws — the x\'s are in d
   expect(rows.size, 'ink on both rows').toBeGreaterThan(1)
 })
 
+/**
+ * The three CONTINUATION LABELS (`Trill.continuationLabel`), each drawn. ⭐ Their POSITIONS differ,
+ * and that is his rule rather than a tidy-up: `(tr)` is a REMINDER so it sits at the system's left
+ * edge like an `(8)`, while a plain `tr` is THE SIGN RESTARTING so it sits on its note — which is
+ * what LilyPond and the Cotta Op. 111 plates both do.
+ */
+async function continuationOf(score: import('@playwright/test').Page, label: 'parenthesised' | 'plain' | 'none') {
+  return score.evaluate(async (lab) => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let m = 1; m <= 20; m++) {
+      if (m > 1) h.engine.addMeasure()
+      ids.push(h.engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
+    }
+    await h.render()
+    const heads = h.placed('g.vf-notehead text')
+    const firstRowY = Math.min(...heads.map(g => g.y))
+    const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
+    const trill = h.engine.addTrill({ startNoteId: ids[onFirstRow - 1], endNoteId: ids[onFirstRow] })!
+    if (lab !== 'parenthesised') h.engine.setTrillContinuationLabel(trill.id, lab)
+    await h.render()
+    // The second row's first notehead — what a plain restart must sit on.
+    const after = h.placed('g.vf-notehead text')
+    const secondRow = after.filter(g => g.y > firstRowY + 5)
+    return {
+      glyphs: h.placed('g.vf-trill text'),
+      firstNoteOfRow2: Math.min(...secondRow.map(g => g.x)),
+      row1Y: firstRowY,
+    }
+  }, label)
+}
+
+test('⭐ label `none` — the wavy line continues with NO sign at all (MuseScore\'s)', async ({ score }) => {
+  const { glyphs, row1Y } = await continuationOf(score, 'none')
+  const onRow2 = glyphs.filter(g => g.y > row1Y + 5)
+  expect(onRow2.length, 'the line does continue').toBeGreaterThan(0)
+  expect(onRow2.every(g => g.code === WIGGLE), 'and it is ALL wiggle — no sign, no parens').toBe(true)
+})
+
+test('⭐⭐ label `plain` — a bare `tr`, ON its note rather than at the margin', async ({ score }) => {
+  const { glyphs, firstNoteOfRow2, row1Y } = await continuationOf(score, 'plain')
+  const onRow2 = glyphs.filter(g => g.y > row1Y + 5)
+  const sign = onRow2.find(g => g.code === SIGN)
+  expect(sign, 'the sign is repeated').toBeDefined()
+  expect(onRow2.some(g => g.code === '28'), 'and NOT parenthesised').toBe(false)
+  // ⭐ THE POSITION RULE: on the note, not at the left edge.
+  expect(sign!.x).toBeCloseTo(firstNoteOfRow2, 0)
+})
+
+test('⭐ label `(tr)` — parenthesised, its bracket at the margin and the sign pushed right of it', async ({ score }) => {
+  const { glyphs, firstNoteOfRow2, row1Y } = await continuationOf(score, 'parenthesised')
+  const onRow2 = glyphs.filter(g => g.y > row1Y + 5)
+  const paren = onRow2.find(g => g.code === '28')
+  const sign = onRow2.find(g => g.code === SIGN)
+  expect(paren, 'parenthesised').toBeDefined()
+  expect(sign).toBeDefined()
+
+  // The label starts at the fragment's own left edge…
+  expect(paren!.x).toBeLessThanOrEqual(firstNoteOfRow2 + 1)
+  // …so the SIGN inside it is pushed right by the bracket's width — which is the only difference
+  // from `plain` in this fixture.
+  expect(sign!.x).toBeGreaterThan(paren!.x)
+
+  // ⚠️⚠️ **A HONEST LIMIT, measured rather than assumed.** The system's left content edge and the
+  // first notehead sit at very nearly the SAME x (a whole note begins each bar right after the
+  // clef), so "at the margin" and "on the note" are only a bracket's width apart HERE. The position
+  // rule is still right — it separates them whenever the first note is not hard against the margin
+  // (a bar opening with a rest, a key signature, a pickup) — but it is not the dramatic difference
+  // the rule's wording might suggest, and this test says so rather than implying otherwise.
+  expect(Math.abs(paren!.x - firstNoteOfRow2)).toBeLessThan(12)
+})
+
 test('⭐⭐ a trill crossing a system break repeats its SIGN on the new system (rule 6)', async ({ score }) => {
   const lines = await score.evaluate(async () => {
     const h = window.__h

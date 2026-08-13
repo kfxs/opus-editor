@@ -701,7 +701,32 @@ export interface Trill {
   /** Vertical side; default 'above'. `'below'` is the multi-voice case: a trill goes above the
    *  notes unless the staff carries more than one voice. Flipped by `x`, like a slur's. */
   placement?: 'above' | 'below'
+  /**
+   * ⭐ **How a CONTINUATION system labels this trill** when it crosses a break. Absent =
+   * `'parenthesised'`.
+   *
+   * The three real behaviours in the field, and there is no single right one — which is exactly why
+   * this is a stored choice rather than a constant (his call, 2026-08-13, after seeing all three
+   * researched):
+   *
+   *  - `'parenthesised'` — `(tr)`. **Our default.** *G. Schirmer's Manual of Style and Usage*:
+   *    "When a trill is tied onto another line, use parentheses: (tr)." A 20th-century American
+   *    publisher house style, and the clearest for the reader, which is why he picked it.
+   *  - `'plain'` — a bare `tr`. **What the engraved tradition does** (Beethoven Op. 111, Cotta
+   *    1892: the sign repeated plain above the first note) and what **LilyPond** does.
+   *  - `'none'` — no sign; only the wavy line continues. **What MuseScore 4 does.**
+   *
+   * ⚠️ **PER TRILL, not per score — for now.** Dorico puts the same three choices in *Engraving
+   * Options → Ornaments → Trills → "Label for start of new system"*, i.e. score-wide, which is the
+   * shape a house style really has. ⏭️ When engraving presets land, the preset sets the DEFAULT and
+   * this field stays as the per-trill OVERRIDE — absent meaning "whatever the score says". The two
+   * layer; neither replaces the other. See docs/trill-plan.md §1 rule 6.
+   */
+  continuationLabel?: 'parenthesised' | 'plain' | 'none'
 }
+
+/** How a continuation system labels a resumed trill — see {@link Trill.continuationLabel}. */
+export type TrillContinuationLabel = NonNullable<Trill['continuationLabel']>
 
 /**
  * One authored engraving adjustment on a score element — an entry in the

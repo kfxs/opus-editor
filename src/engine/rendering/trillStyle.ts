@@ -34,13 +34,12 @@ export const TRILL_WIGGLE_GLYPH = ''
  * use the `(tr)` convention of Sibelius, is good for the reader."* A reader must be able to tell a
  * trill that CARRIES OVER from one that starts here, and a bare repeated `tr` says the wrong thing.
  *
- * ⚠️ **Keep the DECISION and the ATTRIBUTION apart.** The plan's §1 rule 6 says "Sibelius prints a
- * parenthesised `(tr)`", which came from its first research pass and has never been checked at
- * source; research is in flight on it, along with what MuseScore's C++ emits and whether historical
- * engraved editions repeat the sign at all (they may well not — in which case `(tr)` is a modern
- * software convention, and our docs must say so rather than imply a lineage). ⭐ **None of that can
- * unmake the choice** — he chose it on readability, having seen it drawn. What the research can
- * change is what we CLAIM about it, and possibly the glyphs.
+ * ⭐ **The precedent, researched 2026-08-13 and now exact:** *G. Schirmer's Manual of Style and
+ * Usage* — *"When a trill is tied onto another line, use parentheses: (tr)."* A 20th-century
+ * American publisher house style. ⛔ **NOT an engraving tradition**: Beethoven Op. 111 (Cotta 1892)
+ * repeats the sign PLAIN above the first note, MuseScore repeats no sign at all, LilyPond repeats a
+ * plain one, and Dorico offers all three. ⚠️ The old claim that Sibelius brackets it is still
+ * unverified — it is not in Avid's Reference Guide. See docs/trill-plan.md §1 rule 6.
  *
  * ⏭️ **A future per-trill property switches it off** (his call, same message): the plain repeated
  * `tr` is the other convention, and a `Trill` may later carry an optional field — or an engraving
@@ -75,9 +74,18 @@ export const TRILL_PAREN_RIGHT = ')'
  * slants."* So these take {@link DYNAMIC_TEXT_FONT}. ⚠️ A DOM assertion that `font-style` is italic
  * therefore proves nothing on its own — mine passed while the picture was upright.
  *
- * ⭐ **Not `accidentalParensLeft`/`Right`** (U+E26A/E26B), the attempt before that: they are
- * specified to bracket an ACCIDENTAL, which straddles the baseline where a `tr` sits almost entirely
- * above it, so they hung visibly low (*"not align vertically"*).
+ * ⭐ **Not `accidentalParensLeft`/`Right`** (U+E26A/E26B), the attempt before that — and the reject
+ * now has a MEASURED number behind it rather than an eye. From Bravura's own `glyphBBoxes`:
+ * `ornamentTrill` runs y −0.04…+1.56 sp (it SITS ON the baseline, ink centre +0.76), while
+ * `accidentalParensLeft` runs −0.992…+0.988 (centred on y = 0). Share a baseline and the bracket is
+ * **0.76 sp too low and 24% too tall** — his *"not align vertically"* was exactly half a glyph out.
+ * ⛔ A wrong-glyph problem, not a tuning one.
+ *
+ * ⚠️ **Dorico's parens are UPRIGHT.** Ours are italic and stay so deliberately: SMuFL itself ships
+ * `fingeringLeftParenthesisItalic` and `tupletParenthesisLeftItalic`, so italic brackets around
+ * italic content are a principle the spec endorses — it simply never applied it to ornaments. ⭐ And
+ * SMuFL has NO parenthesised trill glyph and no general-purpose bracket pair (verified across all
+ * 2940 glyphs), so every program that draws `(tr)` is improvising.
  */
 
 /**

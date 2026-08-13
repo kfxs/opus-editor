@@ -17,6 +17,7 @@ import { GutterController } from './interactions/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { FanEditController } from './interactions/FanEditController'
+import { TrillEditController } from './interactions/TrillEditController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { playbackStartMeasure } from './interactions/playbackStart'
@@ -510,6 +511,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Properties fan inputs publish to `fanEditSelection`; this controller owns the engine apply
   // (docs/fanned-beams-plan.md §3, P4), the same boundary as the two above.
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
+  // …and the Properties trill control, on the same boundary (docs/trill-plan.md §1 rule 6).
+  const trillEdit = new TrillEditController(getEngine, () => renderer.renderScore())
 
   // ---------------------------------------------------------------------------------------------
   // Start
@@ -785,6 +788,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       noteOffset.destroy()
       articulationStemAlign.destroy()
       fanEdit.destroy()
+      trillEdit.destroy()
       for (const part of devShell) part.destroy()
       menuBar.destroy()
       viewport.detach()

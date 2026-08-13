@@ -96,6 +96,26 @@ describe('trillOps — anchoring', () => {
     expect(model.getTrillById(trill.id)!.placement).toBe('above')
   })
 
+  it('⭐ the continuation LABEL defaults to `(tr)` by ABSENCE, not by storing the string', () => {
+    const trill = model.addTrill({ startNoteId: notes[0].id })!
+    expect(trill.continuationLabel).toBeUndefined()
+
+    expect(model.setTrillContinuationLabel(trill.id, 'plain')).toBe(true)
+    expect(model.getTrillById(trill.id)!.continuationLabel).toBe('plain')
+    expect(model.setTrillContinuationLabel(trill.id, 'none')).toBe(true)
+    expect(model.getTrillById(trill.id)!.continuationLabel).toBe('none')
+
+    // ⭐ Setting the DEFAULT clears the field rather than writing it — so a score full of ordinary
+    // trills carries no `continuationLabel` at all, and a future score-wide preset can move the
+    // default without rewriting every one of them.
+    expect(model.setTrillContinuationLabel(trill.id, 'parenthesised')).toBe(true)
+    expect('continuationLabel' in model.getTrillById(trill.id)!).toBe(false)
+  })
+
+  it('setting the label on an unknown trill answers false', () => {
+    expect(model.setTrillContinuationLabel('ghost', 'plain')).toBe(false)
+  })
+
   it('flipping an unknown trill answers null rather than throwing', () => {
     expect(model.toggleTrillPlacement('ghost')).toBeNull()
   })

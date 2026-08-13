@@ -24,7 +24,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, Trill, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -1376,6 +1376,18 @@ export class MusicEngine {
    *  Derived every time; nothing about a span is stored. See {@link trillOps.trillSpan}. */
   trillSpan(id: string): TrillSpan | null {
     return this.scoreModel.trillSpan(id)
+  }
+
+  /**
+   * Set how a CONTINUATION system labels a trill — `(tr)` (default), a plain `tr`, or nothing.
+   * See {@link Trill.continuationLabel} for the three, and who does which.
+   *
+   * ⚠️ `saveOnly`: a label is notation, and it changes nothing audible.
+   */
+  setTrillContinuationLabel(id: string, label: TrillContinuationLabel): boolean {
+    const ok = this.scoreModel.setTrillContinuationLabel(id, label)
+    if (ok) this.saveOnly('Trill continuation label')
+    return ok
   }
 
   /** Flip a trill between above and below the staff — the `x` key's trill branch. Saves undo state.

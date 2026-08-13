@@ -16,7 +16,7 @@
  * a fact the model holds — it is derived, through {@link trillSpan}, from where the anchors landed
  * this instant. `hairpinOps.measureHairpins` exists because a hairpin genuinely lives on a bar.
  */
-import type { Score, Trill, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
+import type { Score, Trill, TrillContinuationLabel, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { findSlot } from './slotLookup'
 import { clearEngravingOverride } from './overrideOps'
@@ -116,6 +116,21 @@ export function setTrillEnd(score: Score, id: string, noteId: string | null): bo
   }
   if (!isTrillable(score, noteId) || !precedes(score, trill.startNoteId, noteId)) return false
   trill.endNoteId = noteId
+  return true
+}
+
+/**
+ * Set how a CONTINUATION system labels this trill — see {@link Trill.continuationLabel}.
+ * @returns true if the trill exists and was updated.
+ */
+export function setTrillContinuationLabel(score: Score, id: string, label: TrillContinuationLabel): boolean {
+  const trill = getTrillById(score, id)
+  if (!trill) return false
+  // ⭐ The DEFAULT is stored as absence, not as the string: a score full of trills should carry no
+  // `continuationLabel` at all, so the field appears only where someone departed from the default.
+  // That is what keeps a future score-wide preset able to move the default without rewriting them.
+  if (label === 'parenthesised') delete trill.continuationLabel
+  else trill.continuationLabel = label
   return true
 }
 

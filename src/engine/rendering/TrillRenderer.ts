@@ -39,7 +39,7 @@
  */
 import type { Stave } from 'vexflow'
 import { Element } from 'vexflow'
-import type { Score, Trill, Measure, Fraction } from '@/types/music'
+import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
@@ -313,11 +313,32 @@ function drawTrill(
     // ⭐ EVERY FRAGMENT DRAWS ITS OWN SIGN (rule 6) — a continuation system has to say what the
     // wavy line means, so this is outside any "first piece only" condition on purpose.
     //
-    // ⭐⭐ …and a RESUMED fragment parenthesises it: `(tr)`, Sibelius's convention, so the reader can
-    // tell a trill that carries over from one that starts here (his call — see TRILL_PAREN_LEFT).
-    const signWidth = drawSign(ctx, piece.x0, y, piece.continuation)
+    // ⭐⭐ …and a RESUMED fragment labels itself by the trill's OWN choice — `(tr)` by default, a
+    // plain `tr`, or nothing at all (see `Trill.continuationLabel` for who does which).
+    const label: TrillContinuationLabel = trill.continuationLabel ?? 'parenthesised'
+    const drawsSign = !(piece.continuation && label === 'none')
 
-    const lineStart = piece.x0 + signWidth + px(TRILL_SIGN_GAP)
+    // ⭐⭐ **WHERE the resumed sign goes depends on WHICH sign it is** — his rule, 2026-08-13, and it
+    // is a real distinction rather than a tidy-up:
+    //
+    //  - `(tr)` is a REMINDER that a trill is still running, so it belongs at the system's left
+    //    edge, exactly where an `(8)` continuation sits. That is what a bracketed label IS.
+    //  - a plain `tr` is THE SIGN RESTARTING, so it belongs on its note — which is also what both
+    //    independent sources do: LilyPond ("restart exactly above the first note on the new line")
+    //    and the Cotta Op. 111 plates, where the repeated `tr` sits hard against the first notehead.
+    //
+    // ⚠️ Under `'plain'` the stretch from the margin to that note therefore draws NOTHING. The trill
+    // is announced at its note, not led up to — drawing wiggle first and the sign after it would
+    // read as a line that acquires a label halfway along.
+    const restartOnNote = piece.continuation && label === 'plain'
+    const signX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? piece.x0
+    const signWidth = drawsSign
+      ? drawSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
+      : 0
+
+    // ⚠️ No sign means no GAP either — the gap exists to separate the line from the sign, so keeping
+    // it under `'none'` would indent the wiggle from the margin for no visible reason.
+    const lineStart = drawsSign ? signX + signWidth + px(TRILL_SIGN_GAP) : piece.x0
     const lineEnd = piece.x1
     // ⭐⭐ **THE LINE ALWAYS DRAWS — his call, 2026-08-13**, overruling docs/trill-plan.md §1 rule 5
     // ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr` leaves the
@@ -347,6 +368,23 @@ function drawTrill(
       ],
     })
   }
+}
+
+/**
+ * Where the FIRST note of a system sits, in the trill's own lane — the anchor a plain restarted `tr`
+ * hangs off (see the rule in {@link drawTrill}).
+ *
+ * ⚠️ `undefined` when the bar was not drawn or the lane is empty there, and the caller falls back to
+ * the margin. A restart that cannot find its note is better at the edge than not at all.
+ */
+function firstNoteXOnLine(
+  pass: RenderPass,
+  onThisLine: readonly TrillPlacement[],
+  voice: number,
+): number | undefined {
+  const first = [...onThisLine].sort((a, b) => a.measureNumber - b.measureNumber)[0]
+  if (!first) return undefined
+  return noteLeftX(pass, slotIdAt(first.view, voice, ZERO))
 }
 
 /**
