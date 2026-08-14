@@ -156,6 +156,27 @@ export type MarkingTool =
    * ⛔ And no keyboard shortcut arms it — his call, 2026-08-13. See docs/trill-plan.md §6.
    */
   | { kind: 'trill' }
+  /**
+   * VALUELESS — the SUSTAIN PEDAL stamp, armed from the Lines palette with nothing selected. A click
+   * on a note puts a pedal under it, held through that note.
+   *
+   * It carries nothing, like the trill above and unlike the two hairpin rows: `cresc` and `dim` are
+   * two tools with two buttons, but there is only one sustain pedal — sostenuto and una corda, when
+   * they come, are two more ROWS and a `type` on the model, not a field here.
+   *
+   * ⛔ It carries no LENGTH either: a click's pedal holds the note it lands on, and a longer one
+   * takes its extent from the notes it is placed over — never from the armed duration (`false` in
+   * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   *
+   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin, the trill and the ottava. It is truer
+   * of this tool than of any of them: a pedal is not even drawn where the pointer is, but on a rung
+   * below the staff, so a ghost `Ped.` at the cursor would preview a place the click will not put it.
+   * See {@link scoreCursorClass} and `interactions/pedalStamp.ts`.
+   *
+   * ⛔ And no keyboard shortcut arms it — his call, the trill's and the ottava's. Sibelius spells it
+   * `P`, and ours is taken: `p` is PLAY (docs/pedal-plan.md §7).
+   */
+  | { kind: 'pedal' }
   /** VALUELESS — Ctrl+Alt+T with nothing selected. The tempo twin of `dynamicEntry`: places a
    *  placeholder tempo mark and opens the edit box BLANK to type the whole mark. Same NO-ghost +
    *  blue-cursor treatment. See MouseController.placeTempoEntryAtClick. */
@@ -203,6 +224,8 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
                       //    notes it is placed over — never from the armed duration
   ottava: false,      // ⭐ it HAS a length — the MUSIC's, taken from the notes it is placed over.
                       //    Identical to the hairpin below, and for exactly the same reason.
+  pedal: false,       // ⭐ …and so does the pedal, on the same terms: how long the damper is down is
+                      //    a fact about the music it is placed over, ⛔ never the lit duration keys.
   hairpin: false,     // ⭐ it HAS a length — but a MUSICAL one, taken from the notes it is placed
                       //    over, never from the armed duration. The rest stamp's `true` means "read
                       //    the lit duration keys"; a hairpin never does.
@@ -394,6 +417,21 @@ export type SelectedElement =
    * whole staff (see `Ottava.staffId`).
    */
   | { kind: 'ottava'; id: string }
+  /**
+   * A SUSTAIN PEDAL — `Ped.` and its release `✻`. Named by id alone, the ottava's shape and for its
+   * reasons: everything about it (which staff, how much music) is on the stored object, and it has
+   * no VOICE — one damper serves the whole staff.
+   *
+   * ⚠️ **The id names the PEDAL, not the sign that was clicked**, and that is deliberate: the two
+   * glyphs register separately so a press can only land on ink (docs/pedal-plan.md §6.2), but they
+   * are one statement, so pressing either selects the whole thing. There is nothing here to say
+   * which was hit, because nothing may act on one sign alone — `Ctrl+←/→` moves the LIFT whichever
+   * glyph you picked.
+   *
+   * ⛔ And no `placement`, unlike the trill's row: a pedal is always below, so `x` has nothing to
+   * flip.
+   */
+  | { kind: 'pedal'; id: string }
   /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
   | { kind: 'tie'; fromNoteId: string }
   /**
@@ -492,7 +530,7 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to
   // `toolGhost`'s `return null` arm and forgotten here arms invisibly.
   if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin'
-    || kind === 'trill' || kind === 'ottava') return 'cursor-place'
+    || kind === 'trill' || kind === 'ottava' || kind === 'pedal') return 'cursor-place'
   return 'cursor-default'
 }
 

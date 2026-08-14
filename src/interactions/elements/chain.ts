@@ -14,13 +14,13 @@
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 15 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 16 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 17 entries, total over the union, so an eighteenth kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 18 entries, total over the union, so a nineteenth kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -50,6 +50,7 @@ import { SLUR_ELEMENT } from './slur'
 import { HAIRPIN_ELEMENT } from './hairpin'
 import { TRILL_ELEMENT } from './trill'
 import { OTTAVA_ELEMENT } from './ottava'
+import { PEDAL_ELEMENT } from './pedal'
 import { ACCIDENTAL_ELEMENT } from './accidental'
 import { ARTICULATION_ELEMENT } from './articulation'
 import { DOT_ELEMENT } from './dot'
@@ -169,6 +170,13 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // ⚠️ It is also the only pair here whose overlap is guaranteed rather than incidental, so this
   // row's position is load-bearing in a way `TRILL_ELEMENT`'s is not.
   OTTAVA_ELEMENT,
+  // ⭐ The pedal AFTER the ottava, and unlike that row this one's position is nearly free: a pedal is
+  // drawn BELOW the staff and an 8va above it, so the two can only both cover a press on an 8vb —
+  // where the inner mark wins for the reason the whole run of spanners shares (a press that could be
+  // either was aimed at the mark nearer the notes, and the pedal is the outermost of all).
+  // ⚠️ What DOES matter is that it is hit-tested on its two glyph boxes and nothing between them, so
+  // it claims far less area than its neighbours here (`./pedal`).
+  PEDAL_ELEMENT,
   ACCIDENTAL_ELEMENT,
   ARTICULATION_ELEMENT,
   // Dots last of the sub-elements: they sit right beside the notehead, so a dot must never win a
@@ -190,7 +198,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. An eighteenth kind is
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A nineteenth kind is
  * a compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
@@ -208,6 +216,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   hairpin: HAIRPIN_ELEMENT,
   trill: TRILL_ELEMENT,
   ottava: OTTAVA_ELEMENT,
+  pedal: PEDAL_ELEMENT,
   accidental: ACCIDENTAL_ELEMENT,
   articulation: ARTICULATION_ELEMENT,
   dot: DOT_ELEMENT,

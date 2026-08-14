@@ -88,6 +88,11 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // over them — none of which the click has picked. There is nothing honest to draw at the
     // pointer (docs/ottava-plan.md P5).
     case 'ottava': return null
+    // …and the PEDAL, which is the clearest case on this list: it is not drawn where the pointer is
+    // at all. `Ped.` goes on a rung BELOW the staff, outside every other family there, at a height
+    // that depends on what those families took over notes the click has not picked. A ghost at the
+    // cursor would preview a place the click will not put it (docs/pedal-plan.md §7).
+    case 'pedal': return null
     default: return assertNeverTool(tool)
   }
 }

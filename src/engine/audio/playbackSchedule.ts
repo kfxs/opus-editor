@@ -26,6 +26,7 @@ import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
 import { voiceOf } from '@/utils/lanes'
 import { soundingShiftBySlot } from '@/utils/soundingShift'
+import { pedalWindows, pedalWindowCovers, type PedalWindow } from '@/utils/pedalScope'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
 import { trillSpan } from '@/engine/models/trillOps'
 import { trillAuxiliary } from '@/utils/trillPitch'
@@ -43,6 +44,17 @@ export interface ScheduledNote {
   durationBeats: number
   /** Normalized velocity 0–1 (dynamic level × articulation scale). */
   velocity: number
+  /**
+   * The staff this event was emitted on — an INTERNAL routing field, not part of the public API
+   * ({@link PlayableNote} does not carry it).
+   *
+   * ⭐ It exists for the sustain pedal, which is the first rule here that is about a STAFF rather
+   * than about a note (docs/pedal-plan.md §9): the damper holds every note of an instrument, so
+   * "which events does this pedal hold" cannot be asked without it. ⚠️ Absent = the first staff, the
+   * model's convention everywhere (`utils/lanes`), so it is normalised rather than compared
+   * directly — `pedalWindowCovers`.
+   */
+  staffId?: string
 }
 
 /** Legato (slur) binds a note slightly past its nominal end so it meets the next onset. */
@@ -225,6 +237,18 @@ export function collectScheduledNotes(
   const shifts = soundingShiftBySlot(score)
 
   const events: ScheduledNote[] = []
+  /**
+   * ⭐⭐ **WHICH STAFF EACH EVENT CAME FROM, recorded at ONE site.** A slot's events are contiguous
+   * in `events` — every branch below appends and none reorders — so one mark per slot dates the
+   * whole run that follows it, and `stampStaffIds` fills them in afterwards.
+   *
+   * ⚠️ **This is deliberately not a `staffId` argument threaded through the emitters.** There are
+   * six push sites (the plain note, the tremolo fill, the trill attacks, the fan's, and two inside
+   * the pair's), three of them in helpers with their own signatures, and any of them missed would be
+   * a note the pedal silently fails to hold. A mark cannot be missed by a `continue`, and a seventh
+   * emit path inherits it by construction (docs/pedal-plan.md §9).
+   */
+  const staffMarks: Array<{ from: number; staffId?: string }> = []
   let currentTimeInBeats = 0
   for (const measure of score.measures) {
     const measureStartBeats = currentTimeInBeats
@@ -236,6 +260,9 @@ export function collectScheduledNotes(
     for (const slot of measure.slots) {
       if (slot.type === 'rest') continue
       const chord = slot
+      // Everything appended from here until the next mark belongs to this slot's staff. Before any
+      // branch, so the two `continue`s below (a tremolo pair's second slot, a fan) cannot skip it.
+      staffMarks.push({ from: events.length, staffId: chord.staffId })
 
       // Articulation bends attack (velocity) and length (duration) on top of the dynamic.
       const artic = articulationEffect(chord.articulations)
@@ -412,7 +439,68 @@ export function collectScheduledNotes(
     currentTimeInBeats += measureCapacityQuarters(measure)
   }
 
+  stampStaffIds(events, staffMarks)
+  // ⭐⭐ …and LAST, the damper. A post-pass over what was emitted, deliberately — see
+  // {@link holdUnderPedals}.
+  holdUnderPedals(events, score)
+
   return events
+}
+
+/** Fill in each event's staff from the contiguous run its slot opened. See `staffMarks`. */
+function stampStaffIds(events: ScheduledNote[], marks: ReadonlyArray<{ from: number; staffId?: string }>): void {
+  for (let i = 0; i < marks.length; i++) {
+    const staffId = marks[i].staffId
+    if (staffId === undefined) continue // absent IS the first staff — nothing to write
+    const to = i + 1 < marks.length ? marks[i + 1].from : events.length
+    for (let k = marks[i].from; k < to; k++) events[k].staffId = staffId
+  }
+}
+
+/**
+ * ⭐⭐ **THE SUSTAIN PEDAL, and it is the whole of P1** — every event attacked under a depressed
+ * damper rings until the foot comes up (docs/pedal-plan.md §9).
+ *
+ * WebAudioFont has no CC64, so "damper up" means exactly one thing here: the note's RELEASE moves to
+ * the lift. `Math.max`, because a pedal never shortens anything.
+ *
+ * ## ⚠️⚠️ Why it is a POST-PASS and not a longer slot
+ *
+ * The obvious implementation — extend the slot's sounding length before it is expanded — is wrong,
+ * and silently. The repeat families GENERATE their subdivisions from that length: a trill fills
+ * `durationBeats` with alternations, a tremolo with re-attacks, a fan with its ramp. Lengthen it
+ * upstream and a pedalled trill grows extra alternations, i.e. the pedal changes the NOTES. Extend
+ * the emitted events instead and each attack simply rings on, which is what a real damper does.
+ * `playbackSchedule.pedal.test.ts` break-tests exactly that.
+ *
+ * ## ⭐ The pedal beats the articulation
+ *
+ * It runs after `artic.durationFactor` has already been applied at every push site, so a staccato
+ * note under the pedal rings: the damper is up, and the key having been released early changes
+ * nothing about a string whose damper is off it.
+ *
+ * ## ⭐ ONSET-membership, and overlap resolved as the foot resolves it
+ *
+ * An event belongs to the window its ONSET falls in, half-open — a note struck before the press is
+ * not caught (its key is up by then), which is also why legato/tie tails reaching past a press are
+ * not caught. And when two stored pedals overlap (the model permits it; only the entry door
+ * truncates — docs/pedal-plan.md §3.3), the LATEST press at or before the onset wins and its lift is
+ * the one that counts: re-pressing the pedal is the pianist lifting first.
+ */
+function holdUnderPedals(events: ScheduledNote[], score: Score): void {
+  const windows = pedalWindows(score)
+  if (windows.length === 0) return
+
+  for (const ev of events) {
+    let held: PedalWindow | null = null
+    for (const w of windows) {
+      if (ev.startBeats < w.from || ev.startBeats >= w.to) continue
+      if (!pedalWindowCovers(w, ev.staffId, score)) continue
+      // The latest press wins — later `from`, and on a tie the one that lifts last.
+      if (!held || w.from > held.from || (w.from === held.from && w.to > held.to)) held = w
+    }
+    if (held) ev.durationBeats = Math.max(ev.durationBeats, held.to - ev.startBeats)
+  }
 }
 
 /**

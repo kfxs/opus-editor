@@ -12,7 +12,7 @@ import {
   DEFAULT_STAFF_INDEX,
 } from './staffContent'
 import { measureOpeningClef, measureEndingClef } from '@/utils/clefUtils'
-import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, Hairpin, Tuplet } from '@/types/music'
+import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, Hairpin, Pedal, Tuplet } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /**
@@ -49,6 +49,10 @@ function twoStaffScore(): Score {
     { id: 'h0', type: 'cresc', beat: frac(0, 1), length: frac(2, 1) }, // → staff 0
     { id: 'h1', type: 'dim', beat: frac(0, 1), length: frac(2, 1), staffId: S1 },
   ]
+  const pedals: Pedal[] = [
+    { id: 'pd0', beat: frac(0, 1), length: frac(4, 1) }, // → staff 0
+    { id: 'pd1', beat: frac(0, 1), length: frac(4, 1), staffId: S1 },
+  ]
   const tuplets: Tuplet[] = [
     { id: 't0', startBeat: frac(0, 1), baseDuration: 'q', numNotes: 3, notesOccupied: 2 }, // → staff 0
     { id: 't1', startBeat: frac(0, 1), baseDuration: 'q', numNotes: 3, notesOccupied: 2, staffId: S1 },
@@ -66,6 +70,7 @@ function twoStaffScore(): Score {
     clefs,
     dynamics,
     hairpins,
+    pedals,
     tuplets,
   }
   return {
@@ -96,6 +101,8 @@ describe('staffContent primitive (N>1 partitioning)', () => {
     expect(bottom.dynamics.map((d) => dynamicLevelOf(d))).toEqual(['p'])
     expect(top.hairpins.map((h) => h.id)).toEqual(['h0'])
     expect(bottom.hairpins.map((h) => h.id)).toEqual(['h1'])
+    expect(top.pedals.map((p) => p.id)).toEqual(['pd0'])
+    expect(bottom.pedals.map((p) => p.id)).toEqual(['pd1'])
     expect(top.tuplets.map((t) => t.id)).toEqual(['t0'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
@@ -147,6 +154,10 @@ describe('staffMeasureView (per-staff Measure narrowing — the render seam)', (
     // staff does NOT see the bottom's wedge, not merely that the bottom sees its own.
     expect((bottom.hairpins ?? []).map((h) => h.id)).toEqual(['h1'])
     expect((staffMeasureView(measure, S0, score).hairpins ?? []).map((h) => h.id)).toEqual(['h0'])
+    // …and the same trap for the pedal, where riding the spread would draw one pedal under every
+    // staff AND — once P1 lands — sustain a staff nobody put a foot on.
+    expect((bottom.pedals ?? []).map((p) => p.id)).toEqual(['pd1'])
+    expect((top.pedals ?? []).map((p) => p.id)).toEqual(['pd0'])
     expect(bottom.tuplets.map((t) => t.id)).toEqual(['t1'])
   })
 

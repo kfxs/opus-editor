@@ -385,3 +385,116 @@ describe('rebar preserves beat-anchored annotations (ottavas)', () => {
     expect(fracToNumber(only(2)[0].length)).toBe(2) // an amount of music — copied through
   })
 })
+
+/**
+ * ⭐⭐ SUSTAIN PEDALS — the ottava's chapter, and the cost of missing this seam is heard as well as
+ * seen. `clearMeasureForRebar` deletes `measure.pedals`, so a pedal not captured here is GONE; and
+ * a pedal that survived the wipe uncaptured would be worse — a press holding its old beat while the
+ * music is re-tiled around it, sustaining notes that are no longer there (docs/pedal-plan.md §8).
+ *
+ * The restore takes the CLEF's rule, as the ottava's does: at most one per (beat, staff), last wins.
+ * ⛔ Not the hairpin's stack-freely rule — one damper, one foot.
+ */
+describe('rebar preserves beat-anchored annotations (pedals)', () => {
+  let model: ScoreModel
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    model.addMeasure()
+  })
+
+  const only = (measureNumber: number) => model.getMeasure(measureNumber)!.pedals ?? []
+
+  it('keeps a pedal in place when its start still fits the new bar', () => {
+    model.addPedal(2, { beat: frac(2, 1), length: frac(1, 1) })
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+    expect(only(2)).toHaveLength(1)
+    expect(fracToNumber(only(2)[0].beat)).toBe(2) // a 3/4 bar still holds beat 2
+  })
+
+  it('moves a pedal to the next bar when its start overflows the new bar', () => {
+    model.addPedal(1, { beat: frac(3, 1), length: frac(2, 1) })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(0)
+    expect(only(2)).toHaveLength(1)
+  })
+
+  it('carries `length` through untouched — the region holds the same music either side of a rebar', () => {
+    model.addPedal(1, { beat: frac(0, 1), length: frac(7, 2) })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const all = model.getScore().measures.flatMap(m => m.pedals ?? [])
+    expect(all).toHaveLength(1)
+    expect(fracToNumber(all[0].length)).toBe(3.5)
+  })
+
+  it('⚠️ regenerates the id, exactly as a hairpin\'s and an ottava\'s are', () => {
+    const before = model.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })!
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const after = model.getScore().measures.flatMap(m => m.pedals ?? [])
+    expect(after).toHaveLength(1)
+    expect(after[0].id).not.toBe(before.id)
+  })
+
+  it('⭐ DEDUPES two pedals landing on one beat of one staff — the clef rule, not the hairpin\'s', () => {
+    // ⚠️ Hand-built on purpose: `addPedal` upserts, so the model itself cannot produce this state.
+    // Hand-written JSON can, and the restore branch is the only thing standing between it and a bar
+    // asking for two feet.
+    model.getMeasure(1)!.pedals = [
+      { id: 'pd-first', beat: frac(1, 1), length: frac(1, 1) },
+      { id: 'pd-last', beat: frac(1, 1), length: frac(2, 1) },
+    ]
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    const all = model.getScore().measures.flatMap(m => m.pedals ?? [])
+    expect(all).toHaveLength(1)
+    expect(fracToNumber(all[0].length)).toBe(2) // last wins
+  })
+
+  it('keeps two pedals that land on one beat of DIFFERENT staves', () => {
+    const lower = model.addStaffBelow(0)
+    model.addPedal(1, { beat: frac(1, 1), length: frac(1, 1) })
+    model.addPedal(1, { beat: frac(1, 1), length: frac(1, 1), staffId: lower })
+    model.setTimeSignature(1, { numerator: 3, denominator: 4 })
+    expect(only(1)).toHaveLength(2)
+  })
+
+  it('a paste OVERWRITES a pedal starting inside its window, and spares one outside it', () => {
+    model.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })  // inside
+    model.addPedal(2, { beat: frac(0, 1), length: frac(1, 1) })  // outside
+
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(1)).toHaveLength(0) // replaced by the clip's (which carried none)
+    expect(only(2)).toHaveLength(1) // untouched
+  })
+
+  it('⭐ that overwrite ignores VOICE — a paste into voice 1 still clears the staff\'s pedal', () => {
+    // A pedal governs the STAFF (there is one foot), so a voiceless anchor reading as voice 0 would
+    // leave a stale press SUSTAINING the notes the paste had just overwritten.
+    model.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })
+
+    model.pasteEvents(
+      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { measure: 1, beat: frac(0, 1), voice: 1 },
+    )
+
+    expect(only(1)).toHaveLength(0)
+  })
+
+  it('a clip carries its pedals, re-based to the paste position', () => {
+    model.pasteEvents(
+      {
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        spanBeats: frac(4, 1),
+        pedals: [{ staff: 0, offset: frac(1, 1), length: frac(2, 1) }],
+      },
+      { measure: 2, beat: frac(0, 1), voice: 0 },
+    )
+
+    expect(only(2)).toHaveLength(1)
+    expect(fracToNumber(only(2)[0].beat)).toBe(1)   // clip offset 1 + paste start 0
+    expect(fracToNumber(only(2)[0].length)).toBe(2) // an amount of music — copied through
+  })
+})

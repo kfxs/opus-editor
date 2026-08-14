@@ -32,9 +32,11 @@ import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
 import { renderTrills } from './TrillRenderer'
 import { renderOttavas } from './OttavaRenderer'
+import { renderPedals } from './PedalRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { ottavaSpan } from '@/engine/models/ottavaOps'
+import { pedalSpan } from '@/engine/models/pedalOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -489,6 +491,7 @@ export class VexFlowRenderer {
   private hairpinGroupMap: Map<string, SVGGElement> = new Map()
   private trillGroupMap: Map<string, SVGGElement> = new Map()
   private ottavaGroupMap: Map<string, SVGGElement> = new Map()
+  private pedalGroupMap: Map<string, SVGGElement> = new Map()
   /** Map of tie from-note IDs to their rendered SVG group (`<g class="vf-tie">`) for scoped highlight */
   private tieGroupMap: Map<string, SVGGElement> = new Map()
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
@@ -679,6 +682,7 @@ export class VexFlowRenderer {
       hairpinGroupMap: this.hairpinGroupMap,
       trillGroupMap: this.trillGroupMap,
       ottavaGroupMap: this.ottavaGroupMap,
+      pedalGroupMap: this.pedalGroupMap,
       tieGroupMap: this.tieGroupMap,
       measureLayoutInfo: this.measureLayoutInfo,
       solvedColumns: this.solvedColumns,
@@ -1600,6 +1604,25 @@ export class VexFlowRenderer {
         const span = ottavaSpan(score, ottava.id)
         if (!span) continue
         const staffIndex = staffIndexOfId(score, ottava.staffId)
+        add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
+      }
+    }
+
+    // ⭐ Sustain pedals. POSITIONAL like a hairpin and an octave line, so the far bar comes from
+    // walking the capacities (`pedalSpan`) — and needed for the hairpin's same two silent failures:
+    // without it the endpoint bar is TRANSLATED rather than re-engraved, so `PedalRenderer` reads
+    // `StaveNote`s holding last render's coordinates and the signs draw detached from the music they
+    // hold; and under culling that bar's `<g>` is deleted outright, so the pedal vanishes on scroll.
+    //
+    // ⚠️ The END bar matters MORE here than for any neighbour, and that is worth saying: an ottava's
+    // ink stops at the last notehead, but a pedal's `✻` is placed from the end bar's own geometry —
+    // the column at the lift beat, or that bar's `noteEndX` when the lift is the barline
+    // (docs/pedal-plan.md §5.2). An unpinned end bar is a release drawn from stale x's.
+    for (const measure of score.measures) {
+      for (const pedal of measure.pedals ?? []) {
+        const span = pedalSpan(score, pedal.id)
+        if (!span) continue
+        const staffIndex = staffIndexOfId(score, pedal.staffId)
         add({ measure: span.startMeasure, staffIndex }, { measure: span.endMeasure, staffIndex })
       }
     }
@@ -3732,6 +3755,18 @@ export class VexFlowRenderer {
     // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
     renderOttavas(pass, score, placements, staffList.map(staff => staff.id))
 
+    // ⭐⭐ …then the SUSTAIN PEDALS, and this position IS their rung — the LAST of the below-staff
+    // families. A pedal line goes below the bottom staff and outside EVERYTHING (Dorico, *Positions
+    // of pedal lines*; LilyPond's pedal spanners are `outside-staff-priority` 1000 against the
+    // dynamics' 250 and the trill's 50), so it must read `pass.occupiedBands` after every other
+    // family below the staff has filed its claim (docs/pedal-plan.md §4).
+    //
+    // ⚠️ Being after `renderOttavas` is what makes it outside an 8vb; being after
+    // `placeDynamicsOnLine` and `renderHairpins` is what makes it outside a `p` and a wedge. ⛔ Move
+    // this call and you change the ladder; there is no table. (Tempo below is ABOVE-side only, so
+    // the two never meet — their order relative to each other says nothing.)
+    renderPedals(pass, score, placements, staffList.map(staff => staff.id))
+
     // ⭐⭐ …and LAST, the tempo marks onto their row — after every other outside-staff family,
     // because tempo is the OUTERMOST (LilyPond's MetronomeMark 1300 against the dynamics' 250 and
     // the trill's 50) and this is where the ladder's order lives: each family filed what it took in
@@ -3970,6 +4005,7 @@ export class VexFlowRenderer {
     this.hairpinGroupMap.clear()
     this.trillGroupMap.clear()
     this.ottavaGroupMap.clear()
+    this.pedalGroupMap.clear()
     this.tieGroupMap.clear()
     this.measureGroups.clear()
     // The solve is one render's answer: a bar that is re-laid out gets new columns, and a fan
@@ -4090,6 +4126,13 @@ export class VexFlowRenderer {
    *  after a render. ONE group per line even when the bracket is split across systems. */
   getOttavaSVGGroup(ottavaId: string): SVGGElement | null {
     return this.ottavaGroupMap.get(ottavaId) ?? null
+  }
+
+  /** The rendered SVG group (`<g class="vf-pedal">`) for a sustain pedal, or null. Must be called
+   *  after a render. ONE group per pedal, holding every sign it drew — `Ped.`, any `(Ped.)`
+   *  resumption, and the `✻`. */
+  getPedalSVGGroup(pedalId: string): SVGGElement | null {
+    return this.pedalGroupMap.get(pedalId) ?? null
   }
 
   getSlurSVGGroup(slurId: string): SVGGElement | null {

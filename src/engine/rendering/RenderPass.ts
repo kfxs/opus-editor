@@ -84,6 +84,11 @@ export interface RenderPass {
    *  line even when the bracket is split across systems, so recolouring it colours every fragment
    *  including the parenthesised continuation numeral (`trillGroupMap`'s arrangement). */
   ottavaGroupMap: Map<string, SVGGElement>
+  /** Pedal id → its `<g class="vf-pedal">` SVG group, for scoped highlight. One group per pedal even
+   *  when it is split across systems — every fragment's signs are drawn into it, so recolouring the
+   *  group colours the `Ped.`, its `(Ped.)` resumptions and the `✻` together
+   *  (`ottavaGroupMap`'s arrangement). */
+  pedalGroupMap: Map<string, SVGGElement>
   /** Tie from-note id → its `<g class="vf-tie">` SVG group, for scoped highlight. */
   tieGroupMap: Map<string, SVGGElement>
   /** Measure number → computed width/line info (which line a measure landed on, etc.). */

@@ -23,6 +23,7 @@ import type {
   Dynamic,
   Hairpin,
   Ottava,
+  Pedal,
   Tuplet,
 } from '@/types/music'
 
@@ -91,6 +92,7 @@ export interface StaffContentView {
   dynamics: Dynamic[]
   hairpins: Hairpin[]
   ottavas: Ottava[]
+  pedals: Pedal[]
   tuplets: Tuplet[]
 }
 
@@ -127,6 +129,15 @@ export function staffOttavas(measure: Measure, staffId: string | undefined, scor
   return (measure.ottavas ?? []).filter((o) => matchesStaff(o.staffId, staffId, score))
 }
 
+/** One staff's sustain pedals within a measure — the ones that START here (a pedal may run past the
+ *  bar's end; see {@link Pedal}). Like the ottava's filter it has no voice to consider — a pedal
+ *  governs the whole staff, because there is one foot. ⚠️ It filters on the ATTACHED staff, which is
+ *  a question about storage; *which staves it sustains* and *which it is drawn under* are
+ *  `utils/pedalScope`'s, and are not the same answer. */
+export function staffPedals(measure: Measure, staffId: string | undefined, score: Score): Pedal[] {
+  return (measure.pedals ?? []).filter((p) => matchesStaff(p.staffId, staffId, score))
+}
+
 /**
  * The whole per-staff lane of a measure — slots + clefs + dynamics + tuplets filtered to
  * one staff. This is the primitive the plan (§4) names `staffContent(measure, staffId)`;
@@ -140,6 +151,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
     dynamics: staffDynamics(measure, staffId, score),
     hairpins: staffHairpins(measure, staffId, score),
     ottavas: staffOttavas(measure, staffId, score),
+    pedals: staffPedals(measure, staffId, score),
     tuplets: staffTuplets(measure, staffId, score),
   }
 }
@@ -166,6 +178,6 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   return {
     ...measure,
     slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, ottavas: c.ottavas,
-    tuplets: c.tuplets,
+    pedals: c.pedals, tuplets: c.tuplets,
   }
 }

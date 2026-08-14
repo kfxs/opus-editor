@@ -157,6 +157,29 @@ export interface ClipOttava {
   shift: -3 | -2 | -1 | 1 | 2 | 3
 }
 
+/**
+ * A sustain pedal inside the clip window, re-anchored on paste. {@link ClipOttava}'s shape exactly —
+ * a relative staff, a clip-relative start, a verbatim `length`, no voice — with nothing left to
+ * carry, since a pedal's whole statement is *where it goes down and where it comes up*.
+ *
+ * ⭐ Carried at all for {@link ClipHairpin}'s reason (DESIGN-PRINCIPLES §2), and the omission would
+ * be audible as well as visible: a passage pasted without its pedal does not merely lose a sign,
+ * every note in it stops ringing.
+ *
+ * Only pedals lying FULLY inside the window travel — the hairpin's and ottava's rule. Half a pedal
+ * is worse than none: a clip carrying a press whose lift was left behind would sustain to whatever
+ * happens to follow the paste.
+ */
+export interface ClipPedal {
+  /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
+  staff: number
+  /** Start offset from the clip start (same basis as {@link ClipLane.events}). */
+  offset: Fraction
+  /** How much music it holds, in quarter beats — position-independent, so it is copied through
+   *  unchanged. `offset + length` is the lift. */
+  length: Fraction
+}
+
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
 export interface ClipSlurPitch { step: string; alter: number; octave: number }
 
@@ -218,6 +241,9 @@ export interface Clip {
   /** Octave lines fully inside the clip window (start AND end), re-anchored on paste.
    *  Absent/empty = none. */
   ottavas?: ClipOttava[]
+  /** Sustain pedals fully inside the clip window (press AND lift), re-anchored on paste.
+   *  Absent/empty = none. */
+  pedals?: ClipPedal[]
   /**
    * User-authored horizontal spaces (client #10) whose column falls inside the clip window,
    * offsets relative to the clip start (same basis as {@link ClipLane.events}).

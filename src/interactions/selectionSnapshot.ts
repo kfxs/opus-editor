@@ -183,6 +183,20 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
 
+    case 'pedal':
+      // ⭐ The DERIVED span beside the stored object, for the ottava's reason: `length` is a count of
+      // music, so it does not say WHERE the foot comes up — that address is walked from the bars.
+      // The lift is the one thing a reader of this panel is actually asking about.
+      out.push({
+        kind: 'pedal',
+        data: engine.getPedalById(element.id) ?? { id: element.id, missing: true },
+        derived: {
+          span: engine.getPedalSpan(element.id),
+        },
+        overrides: overridesAt(score, element.id),
+      })
+      break
+
     case 'hairpin':
       // The whole model object — `beat` + `length` ARE the report, since a hairpin's extent is
       // musical and there is nothing cosmetic to show beside it (yet: an aperture or slant override

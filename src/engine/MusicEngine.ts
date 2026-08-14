@@ -24,7 +24,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo } from './ElementRegistry'
@@ -807,6 +807,104 @@ export class MusicEngine {
   /** The octave lines STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getOttavas(measureNumber: number): Ottava[] {
     return this.scoreModel.getOttavas(measureNumber)
+  }
+
+  // ==================== Sustain pedal operations ====================
+  //
+  // One-line delegations, the ottava block's arrangement above. Everything a pedal IS lives in
+  // `engine/models/pedalOps`; what these add is the editor's own concern and nothing else — an undo
+  // entry per edit. ⚠️ There is no `createPedal` here yet, for `createOttava`'s reason: *which notes
+  // did the user mean* is the entry phase's question (docs/pedal-plan.md P4), and inventing it early
+  // would give the palette and the stamp two different answers to it.
+
+  /**
+   * Add a sustain pedal starting at (measure, `pedal.beat`) holding `pedal.length` of music,
+   * REPLACING any pedal already on that (beat, staff) — the clef's rule, see {@link pedalOps.addPedal}.
+   * `beat` must be a slot-boundary beat. Saves undo state when added.
+   *
+   * ⚠️ This is the LOW-level door: it stores, it does not make room. Lifting a pedal that was still
+   * down is the ENTRY door's job (`addPedalOverNotes`), which is P4's (docs/pedal-plan.md §3.3).
+   * @returns the stored Pedal, or null if the measure is missing or the length is not positive.
+   */
+  addPedal(measureNumber: number, pedal: Omit<Pedal, 'id'>): Pedal | null {
+    const created = this.scoreModel.addPedal(measureNumber, pedal)
+    if (created) this.commit(`Add pedal at measure ${measureNumber}`)
+    return created
+  }
+
+  /**
+   * ⭐⭐ **Put a pedal under the notes the user meant** — the Lines palette row and the armed stamp's
+   * click both arrive here, so a pedal made one way is the pedal the other would have made.
+   *
+   * ⭐ **The lane is a STAFF, not a (staff, voice) pair** — `createOttava`'s exception, for a
+   * physical rather than a notational reason: an octave line governs a staff because a bracket says
+   * so, a pedal governs it because there is one foot. So a selection spanning two voices of one
+   * staff makes ONE pedal holding both. Notes on OTHER staves are still dropped: one damper cannot
+   * belong to two instruments.
+   *
+   * ⭐ **The span COVERS the last note** (`addPedalOverNotes` adds that note's own length), and here
+   * that is literal rather than a matter of taste: the span is half-open (`holdUnderPedals`), so a
+   * lift on the last note's onset would release the very note the user pointed at.
+   *
+   * ⭐⭐ **It also LIFTS whatever was still down** — the truncation rule lives in `addPedalOverNotes`
+   * (docs/pedal-plan.md §3.3), so both doors make room the same way and neither invents it. That is
+   * the whole reason the entry phase has a door of its own rather than calling `addPedal`.
+   *
+   * ⛔ **A REST cannot anchor one**, the ottava's and hairpin's refusal — the engine resolves by
+   * slot, so a rest would happily start a pedal from silence, and the gesture means *hold these
+   * notes*.
+   *
+   * @returns the stored Pedal, or null when there is no usable span.
+   */
+  createPedal(noteIds: string[]): Pedal | null {
+    const resolved = noteIds
+      .map(id => this.scoreModel.getNote(id))
+      .filter((n): n is Note => !!n && !n.isRest)
+    if (resolved.length === 0) return null
+
+    const staff = staffOf(resolved[0])
+    const selected = resolved
+      .filter(n => staffOf(n) === staff)
+      .sort((a, b) => this.compareForSpan(a, b))
+    if (selected.length === 0) return null
+
+    const startNote = selected[0]
+    const endNote = selected[selected.length - 1]
+
+    const created = this.scoreModel.addPedalOverNotes(
+      { measure: startNote.measure, beat: startNote.beat },
+      { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
+      this.staffIdForIndex(staff),
+    )
+    if (created) this.saveOnly('Add pedal')
+    return created
+  }
+
+  /** Remove a sustain pedal by id. Saves undo state when one was removed. */
+  removePedal(id: string): boolean {
+    const removed = this.scoreModel.removePedal(id)
+    if (removed) this.commit('Remove pedal')
+    return removed
+  }
+
+  /** Move the LIFT — set how much music a pedal holds. Saves undo state when it changed. */
+  setPedalLength(id: string, length: Fraction): boolean {
+    const ok = this.scoreModel.setPedalLength(id, length)
+    if (ok) this.commit('Resize pedal')
+    return ok
+  }
+
+  /** Grow or shrink a pedal by one slot of its staff — `Ctrl+→` / `Ctrl+←`. Saves undo state when it
+   *  changed. See {@link pedalOps.resizePedalBySlot}. */
+  resizePedalBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.resizePedalBySlot(id, direction)
+    if (ok) this.commit(direction === 1 ? 'Lengthen pedal' : 'Shorten pedal')
+    return ok
+  }
+
+  /** The sustain pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */
+  getPedals(measureNumber: number): Pedal[] {
+    return this.scoreModel.getPedals(measureNumber)
   }
 
   // ==================== Hairpin operations ====================
@@ -3730,6 +3828,23 @@ export class MusicEngine {
   /** The rendered SVG group for an octave line, for scoped highlight. */
   getOttavaSVGGroup(ottavaId: string): SVGGElement | null {
     return this.renderer.getOttavaSVGGroup(ottavaId)
+  }
+
+  /** The rendered SVG group for a sustain pedal, for scoped highlight — one group per pedal,
+   *  holding `Ped.`, every `(Ped.)` resumption and the `✻`. */
+  getPedalSVGGroup(pedalId: string): SVGGElement | null {
+    return this.renderer.getPedalSVGGroup(pedalId)
+  }
+
+  /** Find a sustain pedal anywhere in the score by id (live reference), or null. */
+  getPedalById(id: string): Pedal | null {
+    return this.scoreModel.getPedalById(id)
+  }
+
+  /** The two (measure, beat) addresses a pedal covers — the press and ⭐ the LIFT, which `length`
+   *  alone does not name (see `pedalOps.pedalSpan`). */
+  getPedalSpan(id: string) {
+    return this.scoreModel.getPedalSpan(id)
   }
 
   /** Find an octave line anywhere in the score by id (live reference), or null. */

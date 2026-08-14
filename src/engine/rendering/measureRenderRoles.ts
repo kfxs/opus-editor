@@ -125,6 +125,26 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    */
   ottavas: 'ignored',
 
+  /**
+   * ⭐ The SECOND row that answers "neither", on the ottava's reasoning above and for its two halves
+   * (docs/pedal-plan.md §5.4, written to satisfy exactly this file).
+   *
+   * NOT in the width key: a pedal is drawn BELOW the staff and costs no horizontal room — the same
+   * "drawn but weightless" this file's header opens with.
+   *
+   * NOT in the shape key: `Ped.` and `✻` are drawn by a score-level pass outside every measure
+   * group (`PedalRenderer`, as the hairpin's, slur's, trill's and ottava's ink is), rebuilt from
+   * scratch on each render. No measure's cached `<g>` can hold a stale pedal, because none of them
+   * ever holds one. ⚠️ Contrast `dynamics` above, which IS 'shape' — a letter is drawn inside the
+   * group, and copying that row here (the first draft of the pedal plan did) would be merely slow
+   * rather than wrong.
+   *
+   * ⚠️ And 'ignored' does NOT excuse it from the third question in this file's header — a pedal
+   * spans bars, so both endpoint bars must be `VexFlowRenderer.spanAnchors` or culling will drop the
+   * ink. The end bar matters more here than for an ottava: the `✻`'s x is read from that bar.
+   */
+  pedals: 'ignored',
+
   /** Rewrites tick values *before* the formatter runs, and draws a bracket/number. */
   tuplets: 'width',
 }

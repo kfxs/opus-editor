@@ -617,6 +617,54 @@ export interface Ottava {
 }
 
 /**
+ * A SUSTAIN PEDAL — the damper, drawn `Ped. … ✻`. See docs/pedal-plan.md.
+ *
+ * ⭐ **{@link Ottava}'s twin in shape and its opposite in effect.** Both are CLEF-shaped statements
+ * wearing a {@link Hairpin}'s address — measure-owned, beat-anchored, carrying their own extent,
+ * governing a REGION rather than a set of notes, so notes typed into one afterwards are governed
+ * too. What they differ in is which half of a sounding note they touch: an ottava moves the PITCH
+ * (`soundingShiftAt`), a pedal moves the RELEASE (docs/pedal-plan.md §9). Neither is stored on the
+ * notes it governs.
+ *
+ * ⛔ **No `type`, no `style`, no `placement`, no retake, no `endNoteId`** — each refused for its own
+ * reason in docs/pedal-plan.md §3.1, and the one worth repeating here is `style`: `Ped.✻` vs the
+ * bracket vs mixed is PRESENTATION (DESIGN-PRINCIPLES §3), so the day the bracket arrives it is a
+ * renderer's default and an engraving preset, and no JSON written today becomes wrong. Sostenuto and
+ * una corda, when they come, add ONE optional field (`type?`, absent = sustain), additively.
+ */
+export interface Pedal {
+  /** Unique identifier. ⚠️ NOT stable across a re-bar — `rebarOps` re-creates the pedal with a
+   *  fresh id at the re-anchored position, exactly as it does for a {@link Hairpin}. */
+  id: string
+  /** Start beat within the owning measure (lands on a slot boundary, like clefs/dynamics) — where
+   *  the foot goes DOWN. */
+  beat: Fraction
+  /**
+   * How much music it holds, in quarter-note beats — the same unit as {@link beat}. Always > 0.
+   *
+   * ⭐ **`beat + length` is the LIFT, and the lift is a point in TIME** — not a note, which is why
+   * there is no end id to store. It is also the one thing a reader has to get right: Gould's rule
+   * puts the release at or before the barline, never after it, and a lift landing exactly on a
+   * barline belongs to THAT bar's end (docs/pedal-plan.md §5.2).
+   */
+  length: Fraction
+  /**
+   * Staff this pedal is ATTACHED to (a {@link StaffInfo} id); absent = staff 0.
+   *
+   * ⚠️⚠️ **ATTACHED is not GOVERNS, and it is not DRAWN-UNDER either.** One damper serves a whole
+   * instrument, so a real piano pedal sustains every staff of it and is drawn below the BOTTOM one —
+   * neither of which is knowable while `Score.staffGroups` is unrendered content. So both questions
+   * are asked of `utils/pedalScope` (`pedalStavesAt` / `pedalDrawStaff`), which today answer with
+   * this field and change together the day the piano exists. ⛔ Never read this field directly at a
+   * playback or a draw site (docs/pedal-plan.md §3.2).
+   *
+   * ⭐ **There is no `voice`** — the {@link Ottava}'s exception, harder: an octave line governs a
+   * staff because a bracket says so, a pedal governs it because there is only one foot.
+   */
+  staffId?: string
+}
+
+/**
  * A tempo mark: a verbal indication ('Allegro'), a metronome mark (♩ = 120), or both
  * ('Allegro (♩ = 120)'). ONE object — not three types.
  *
@@ -1604,6 +1652,16 @@ export interface Measure {
    * See docs/ottava-plan.md §4; ops in `engine/models/ottavaOps`.
    */
   ottavas?: Ottava[]
+  /**
+   * Sustain pedals STARTING in this measure, sorted ascending by beat. Stored on the bar its start
+   * lands in and carrying its own extent ({@link Pedal.length}), exactly as a hairpin is, so it may
+   * run past this bar's end. ⚠️ At most ONE per (beat, staff) — the CLEF rule, as for an
+   * {@link Ottava}, and here the reason is physical: one damper, one foot. ⚠️ Overlap that does not
+   * share a start beat is NOT policed by the model (docs/pedal-plan.md §3.3) — the entry door
+   * truncates, and playback resolves positionally. Optional/absent = none.
+   * See docs/pedal-plan.md §3; ops in `engine/models/pedalOps`.
+   */
+  pedals?: Pedal[]
   /** Tuplets in this measure */
   tuplets: Tuplet[]
 }

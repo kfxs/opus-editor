@@ -111,4 +111,19 @@ export const LINE_TOOLS: readonly LineTool[] = [
     isArmed: (state) => (armedTool(state, 'ottava')?.shift ?? 0) < 0,
     press: (palette) => palette.createOttava(-1),
   },
+  {
+    label: 'Ped.',
+    title: 'Sustain pedal — `Ped.` where the foot goes down, `✻` where it comes up, and the notes '
+      + 'RING to the lift. With notes selected it holds them; with nothing selected it ARMS the '
+      + 'pedal stamp — the blue pointer — and a click on a note holds that note. Press again to '
+      + 'disarm. ⭐ Pressing again over a pedal already down LIFTS it there (the pianist\'s re-take). '
+      + 'Select it and Ctrl+←/→ to move the lift, Delete to remove it — which stops the ringing.',
+    // ⚠️ NO keyboard shortcut, like the Trill and 8va rows above — and here there is a second
+    // reason beside his call: Sibelius spells the pedal `P`, and ours is taken (`p` is PLAY). This
+    // button is the pedal's only door, so it must always be pressable — the press always means
+    // something (hold the selection, or arm the tool).
+    isEnabled: () => true,
+    isArmed: (state) => armedTool(state, 'pedal') !== null,
+    press: (palette) => palette.createPedal(),
+  },
 ]

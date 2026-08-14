@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -40,6 +40,7 @@ import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
+import * as pedalOps from './pedalOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
@@ -666,6 +667,68 @@ export class ScoreModel {
    *  See {@link ottavaOps.ottavaSpan}. */
   getOttavaSpan(id: string): ottavaOps.OttavaSpan | null {
     return ottavaOps.ottavaSpan(this.score, id)
+  }
+
+  // ==================== Sustain pedal operations ====================
+  //
+  // Thin delegators to `pedalOps` — the ottava block above with the SHIFT dropped and one rule
+  // added: overlap is a contradiction, and it is the ENTRY door (`addPedalOverNotes`) that resolves
+  // it, never `addPedal`. See docs/pedal-plan.md §3.3.
+
+  /** Add a sustain pedal starting at (measure, beat) holding `length` of music, REPLACING any pedal
+   *  already on that (beat, staff). Null if the measure is missing or the length is not positive.
+   *  See {@link pedalOps.addPedal}. */
+  addPedal(measureNumber: number, pedal: Omit<Pedal, 'id'>): Pedal | null {
+    return pedalOps.addPedal(this.score, measureNumber, pedal)
+  }
+
+  /** Put a pedal under `start` through the END of `end` (a note plus its own length), lifting any
+   *  pedal that was still down. See {@link pedalOps.addPedalOverNotes}. */
+  addPedalOverNotes(
+    start: { measure: number; beat: Fraction },
+    end: { measure: number; beat: Fraction; length: Fraction },
+    staffId?: string,
+  ): Pedal | null {
+    return pedalOps.addPedalOverNotes(this.score, start, end, staffId)
+  }
+
+  /** Remove a pedal by id (and any override keyed to it). @returns true if one was removed. */
+  removePedal(id: string): boolean {
+    return pedalOps.removePedal(this.score, id)
+  }
+
+  /** Edit a pedal by id. @returns the updated Pedal, or null if missing. */
+  updatePedal(id: string, updates: Partial<Omit<Pedal, 'id'>>): Pedal | null {
+    return pedalOps.updatePedal(this.score, id, updates)
+  }
+
+  /** Move the LIFT — set how much music a pedal holds (the MODEL, not an override; see
+   *  {@link pedalOps.setPedalLength}). @returns true if it exists and was updated. */
+  setPedalLength(id: string, length: Fraction): boolean {
+    return pedalOps.setPedalLength(this.score, id, length)
+  }
+
+  /** Move the LIFT by one slot of the pedal's STAFF — the model write behind `Ctrl+←/→`. See
+   *  {@link pedalOps.resizePedalBySlot}. */
+  resizePedalBySlot(id: string, direction: 1 | -1): boolean {
+    return pedalOps.resizePedalBySlot(this.score, id, direction)
+  }
+
+  /** The pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */
+  getPedals(measureNumber: number): Pedal[] {
+    const measure = this.getMeasure(measureNumber)
+    return measure ? pedalOps.measurePedals(measure) : []
+  }
+
+  /** Find a pedal anywhere in the score by id (live reference), or null. */
+  getPedalById(id: string): Pedal | null {
+    return pedalOps.getPedalById(this.score, id)
+  }
+
+  /** The two (measure, beat) addresses a pedal covers — press and lift.
+   *  See {@link pedalOps.pedalSpan}. */
+  getPedalSpan(id: string): pedalOps.PedalSpan | null {
+    return pedalOps.pedalSpan(this.score, id)
   }
 
   // ==================== Tempo Mark Operations ====================

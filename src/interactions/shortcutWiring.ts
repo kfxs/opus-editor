@@ -256,6 +256,27 @@ export function wireShortcuts(
     return true
   }
 
+  /**
+   * ⭐ **Move a selected pedal's LIFT by one slot** — `resizeSelectedHairpin`'s twin, and it is a
+   * separate branch rather than a shared one because the two step through different lanes: a wedge
+   * walks its own VOICE, a pedal walks its whole STAFF (one damper — `pedalOps.resizePedalBySlot`).
+   *
+   * ⚠️ It writes the MODEL, like the hairpin's and for a sharper reason: how long the damper is down
+   * is what the notes SOUND (docs/pedal-plan.md §9), so a cosmetic offset would leave playback
+   * believing a lift the eye does not see. `Ctrl+Backspace` therefore has nothing to reset here.
+   *
+   * DECLINEs (false) when no pedal is selected, or when the edit would leave it holding no music —
+   * `setPedalLength` refuses that rather than deleting the thing being shortened.
+   */
+  const resizeSelectedPedal = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const id = selectedOf(state, 'pedal')?.id
+    if (!eng || !id) return false
+    if (!eng.resizePedalBySlot(id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
   const resetSelectedBarWidth = (): boolean => {
     const eng = getEngine()
     const measure = selectedOf(state, 'barline')?.measure
@@ -533,6 +554,14 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'pedal':
+            // The pedal only — never the notes it holds. ⚠️ Like the ottava above, deleting it
+            // CHANGES WHAT THEY SOUND: the notes stop ringing to the lift and fall back to their own
+            // written lengths (docs/pedal-plan.md §9). Visible and audible, and both intended.
+            eng.removePedal(element.id)
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'tuplet':
             eng.deleteTuplet(element.id)
             state.selectedElement = null
@@ -708,13 +737,15 @@ export function wireShortcuts(
     //    ⚠️ A selected HAIRPIN joins this chain, and it is the one branch that writes the MODEL
     //    rather than an override — see `resizeSelectedHairpin` for why that is the rule and not a
     //    slip. All the selections remain disjoint, so it is one more branch and no reordering.
+    //    ⭐ A selected PEDAL joins it beside the hairpin, on the same terms and for a stronger
+    //    version of the same reason: its extent is how long the notes RING (`resizeSelectedPedal`).
     ctrlArrowLeft: () =>
       nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
-      || resizeSelectedHairpin(-1)
+      || resizeSelectedHairpin(-1) || resizeSelectedPedal(-1)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
-      || resizeSelectedHairpin(1)
+      || resizeSelectedHairpin(1) || resizeSelectedPedal(1)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),

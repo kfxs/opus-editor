@@ -948,6 +948,7 @@ export class PaletteController {
       case 'tie':          // valueless — there is no armed entry-mode tie to become
       case 'slur':         // valueless too: a slur is a span between notes, not a property of one
       case 'ottava':       // a span too, and its length is the MUSIC's — the hairpin's answer exactly
+      case 'pedal':        // …and the pedal: how long the damper is down is a fact about the MUSIC
       case 'hairpin':      // a span as well — and its length is the MUSIC's, never the armed one
       case 'trill':        // an ornament ON a note, whose extent is the ties' — nothing to carry
       case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
@@ -1334,6 +1335,41 @@ export class PaletteController {
     if (!engine) return
     const ottava = engine.createOttava(noteIds, shift)
     dbg(`[Ottava] createOttava on ${noteIds.length} note(s) → ${ottava ? `ottava ${ottava.id}` : 'no valid anchor'}`)
+    this.renderScore()
+  }
+
+  /**
+   * The Lines palette's **Pedal** row (⛔ and its ONLY door — no keyboard shortcut, his call; `p` is
+   * PLAY). `createOttava`'s shape above, minus the second row: with notes selected it puts a pedal
+   * under them; with nothing selected it ARMS the stamp; pressed again while armed it disarms.
+   *
+   * ⭐ There is only one sustain pedal, so unlike the two hairpin rows and the two ottava rows the
+   * re-press check has no value to compare — arming and disarming is the whole of it. Sostenuto and
+   * una corda, when they arrive, are two more ROWS calling this with a type, not a setting on it.
+   */
+  createPedal(): void {
+    // ⚠️ The engine is fetched in the CREATE branch, not here — `createOttava`'s rule and its reason:
+    // arming and disarming are decisions about the editor's own state and touch no score.
+    if (armedTool(this.state, 'pedal')) {
+      dbg('[Pedal] stamp disarmed (re-press)')
+      this.disarmMarkingTool()
+      return
+    }
+    // Something note-like is selected → the press is about it. The scalar anchor counts only in
+    // ENTRY mode, where it IS the cursor note (the tie/slur/hairpin/trill/ottava rule).
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const noteIds = ids.length
+      ? ids
+      : (this.state.selectedTool === 'entry' && this.state.selectedNoteId ? [this.state.selectedNoteId] : [])
+    if (noteIds.length === 0) {
+      dbg('[Pedal] nothing selected → arming the pedal stamp')
+      this.armMarkingTool({ kind: 'pedal' })
+      return
+    }
+    const engine = this.getEngine()
+    if (!engine) return
+    const pedal = engine.createPedal(noteIds)
+    dbg(`[Pedal] createPedal on ${noteIds.length} note(s) → ${pedal ? `pedal ${pedal.id}` : 'no valid anchor'}`)
     this.renderScore()
   }
 

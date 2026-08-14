@@ -12,7 +12,7 @@
  * motion out of ScoreModel; the rebar / paste / time-signature test suites are the net.
  */
 import type {
-  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava,
+  Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
   LeadingSpaceOverride, NoteOffsetOverride,
 } from '@/types/music'
@@ -75,6 +75,9 @@ type CapturedAnchor =
   // Same again for the octave line — with the CLEF's collision rule on the way back in, not the
   // hairpin's (docs/ottava-plan.md §7.8). See restoreBeatAnchors.
   | { kind: 'ottava'; absBeat: Fraction; ottava: Ottava }
+  // …and for the sustain pedal, which takes the ottava's road entire: start-only capture, the clef's
+  // collision rule on the way back, no voice (docs/pedal-plan.md §8).
+  | { kind: 'pedal'; absBeat: Fraction; pedal: Pedal }
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -329,6 +332,7 @@ export function pasteEvents(
   const clipTrills = clip.trills ?? []
   const clipHairpins = clip.hairpins ?? []
   const clipOttavas = clip.ottavas ?? []
+  const clipPedals = clip.pedals ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -404,10 +408,15 @@ export function pasteEvents(
   // the clip's, whichever voices the paste actually landed in. Anything narrower would let a paste
   // into voice 2 leave a stale 8va governing the notes it just overwrote.
   const survivingAnchors = anchors.filter((a) => {
-    if (a.kind !== 'dynamic' && a.kind !== 'hairpin' && a.kind !== 'ottava') return true
+    if (a.kind !== 'dynamic' && a.kind !== 'hairpin' && a.kind !== 'ottava' && a.kind !== 'pedal') return true
     const inWindow = fracGte(a.absBeat, pasteStart) && fracLt(a.absBeat, pasteEnd)
     if (!inWindow) return true
     if (a.kind === 'ottava') return !destByStaff.has(staffIndexOfId(score, a.ottava.staffId))
+    // ⭐ Pedals take the ottava's voice-less rule, and it is the same argument one degree stronger:
+    // a destination pedal starting inside the paste window on a destination STAFF is replaced,
+    // whichever voices the paste landed in. Anything narrower would leave a stale `Ped.` HOLDING —
+    // sustaining, audibly — notes the paste has just overwritten.
+    if (a.kind === 'pedal') return !destByStaff.has(staffIndexOfId(score, a.pedal.staffId))
     const lane = a.kind === 'dynamic' ? a.dyn : a.hairpin
     const dv = destByStaff.get(staffIndexOfId(score, lane.staffId))
     return !dv || !dv.has(voiceOf(lane))
@@ -532,6 +541,22 @@ export function pasteEvents(
       ...(staffId !== undefined ? { staffId } : {}),
     }
     clipAnchors.push({ kind: 'ottava', absBeat: fracAdd(pasteStart, co.offset), ottava })
+  }
+  // The clip's sustain pedals take the ottava's road exactly — no re-voicing (a pedal has no voice),
+  // `length` copied through as an amount of music, and only fully-enclosed pedals are ever in a clip,
+  // so a pasted press always arrives with the lift that ends it and cannot hold down music the copy
+  // never covered.
+  for (const cp of clipPedals) {
+    const absStaff = targetStaff + cp.staff
+    if (absStaff < 0 || absStaff >= staffCount) continue // overflow — already warned for its lane
+    const staffId = staffIdAtIndex(score, absStaff)
+    const pedal: Pedal = {
+      id: uuidv4(),
+      beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+      length: cp.length,
+      ...(staffId !== undefined ? { staffId } : {}),
+    }
+    clipAnchors.push({ kind: 'pedal', absBeat: fracAdd(pasteStart, cp.offset), pedal })
   }
   restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
@@ -728,6 +753,12 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
     for (const o of m.ottavas ?? []) {
       out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o })
     }
+    // Sustain pedals, on the same terms — and clearMeasureForRebar deletes their array too, so a
+    // pedal missing from this loop is gone rather than stale. What that costs is heard as well as
+    // seen: the notes it held stop ringing.
+    for (const p of m.pedals ?? []) {
+      out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p })
+    }
   })
   return out
 }
@@ -791,6 +822,24 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       // keyed by an ottava id.
       m.ottavas.push({ ...a.ottava, id: uuidv4(), beat })
       m.ottavas.sort((x, y) => fracCompare(x.beat, y.beat))
+    } else if (a.kind === 'pedal') {
+      // ⭐ Pedals take the CLEF rule the branch above takes, and the reason is physical rather than
+      // notational: two octave shifts on a beat are a contradiction a reader cannot resolve, two
+      // pedal presses on a beat are a contradiction the PIANIST cannot perform. One damper, one
+      // foot (docs/pedal-plan.md §3.3).
+      // ⚠️ Per STAFF, as the clef and ottava branches are — and ⛔ NOT per staff-and-voice: a pedal
+      // has no voice to compare (docs/pedal-plan.md §3.1).
+      // ⚠️ Overlap that does NOT share a beat is left standing, exactly as `pedalOps.addPedal`
+      // leaves it: a rebar re-anchors, it does not adjudicate gestures, and playback resolves
+      // positionally.
+      if (!m.pedals) m.pedals = []
+      const dup = m.pedals.findIndex((p) => fracCompare(p.beat, beat) === 0 && matchesStaff(p.staffId, a.pedal.staffId, score))
+      if (dup !== -1) m.pedals.splice(dup, 1)
+      // The id is regenerated here, as a hairpin's and an ottava's are — the day anything is keyed
+      // by a pedal id (a hand-moved `✻`, docs/pedal-plan.md §6.3), THIS is the site that must
+      // re-stamp it.
+      m.pedals.push({ ...a.pedal, id: uuidv4(), beat })
+      m.pedals.sort((x, y) => fracCompare(x.beat, y.beat))
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
@@ -1534,6 +1583,7 @@ function clearMeasureForRebar(measure: Measure): void {
   // capture is a visible loss instead of a silent lie.
   delete measure.hairpins
   delete measure.ottavas // …and the octave lines, for that same load-bearing reason
+  delete measure.pedals // …and the sustain pedals, likewise (docs/pedal-plan.md §8)
 }
 
 /**

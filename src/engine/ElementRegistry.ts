@@ -77,6 +77,17 @@ export type ElementType =
    * the line governs.
    */
   | 'ottava'
+  /**
+   * A SUSTAIN PEDAL's sign — `Ped.` or its release `✻`. ⚠️⚠️ **ONE ENTRY PER DRAWN GLYPH**, which is
+   * one grain FINER than the hairpin's, trill's and ottava's per-fragment rule, and deliberately: a
+   * `Ped.✻` pedal has no ink at all between its two signs, so a fragment-wide box would claim every
+   * press over the music it merely passes over (*a press may only reach INK*). So an unbroken pedal
+   * registers twice, and one crossing a break registers its `(Ped.)` resumptions too — every entry
+   * carrying the same pedal id, so a hit on any sign resolves to the whole pedal.
+   * ⭐ The day the bracket style arrives the line becomes ink and this returns to one box per
+   * fragment (docs/pedal-plan.md §5.3/§6.2).
+   */
+  | 'pedal'
   | 'accidental'
   | 'dot'
   | 'tuplet'

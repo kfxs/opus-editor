@@ -1,5 +1,5 @@
 import type { Fraction, Score } from '../types/music'
-import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
+import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -49,6 +49,9 @@ export interface ClipboardPayload extends Clip {
    * to none — which is what it would have found anyway. Inherited from {@link Clip.ottavas}.
    */
   ottavas?: ClipOttava[]
+  /** Sustain pedals fully inside the copy window. OMITTED when empty, on the `ottavas` rule above
+   *  and for its reason. Inherited from {@link Clip.pedals}. */
+  pedals?: ClipPedal[]
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
@@ -379,6 +382,38 @@ function ottavasInWindow(
 }
 
 /**
+ * Sustain pedals lying FULLY inside the copy window, as {@link ClipPedal}s — {@link ottavasInWindow}
+ * with the shift dropped, since a pedal's statement is its two ends and nothing else.
+ *
+ * ⚠️ The fully-enclosed rule is load-bearing here for its own reason: a press whose lift fell outside
+ * the window would arrive in the paste holding down whatever happens to follow it, so the copy would
+ * sustain music it never covered.
+ */
+function pedalsInWindow(
+  score: Score,
+  topStaff: number,
+  maxStaff: number,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+): ClipPedal[] {
+  const starts = measureStartOffsets(score)
+  const out: ClipPedal[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const p of m.pedals ?? []) {
+      const abs = fracAdd(mStart, p.beat)
+      if (!fracGte(abs, spanStart)) continue
+      if (!fracLte(fracAdd(abs, p.length), spanEnd)) continue
+      const staffIdx = staffIndexOfId(score, p.staffId)
+      if (staffIdx < topStaff || staffIdx > maxStaff) continue
+      out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: p.length })
+    }
+  }
+  return out
+}
+
+/**
  * Slurs with BOTH endpoints fully inside the copy window `[spanStart, spanEnd)` and on staves
  * within the copied span, as {@link ClipSlur}s: each endpoint addressed by relative staff /
  * voice / offset / pitch so paste can re-find the freshly-pasted note. A slur with an endpoint
@@ -552,6 +587,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
   const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const pedals = pedalsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -575,6 +611,7 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
     ...(ottavas.length ? { ottavas } : {}),
+    ...(pedals.length ? { pedals } : {}),
   }
 }
 

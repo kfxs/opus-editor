@@ -1150,6 +1150,35 @@ export class HighlightController {
     })
   }
 
+  /**
+   * A SUSTAIN PEDAL — `Ped.`, any `(Ped.)` resumption, and the `✻`, coloured together.
+   *
+   * ⭐ **TEXT only**, which is the simplest case on this wall and worth saying why: the pedal draws no
+   * `path` at all (docs/pedal-plan.md — the two-glyph dress), so unlike the ottava's neighbour above
+   * there is no stroke half. ⚠️ The day the bracket style arrives this needs the ottava's second
+   * loop, and the `PedalRenderer` change that brings the line is what will make it necessary.
+   *
+   * ⭐ One group holds every sign the pedal drew, including the ones on other systems, so a broken
+   * pedal lights up whole — `pedalGroupMap`'s arrangement.
+   *
+   * ⚠️ The colour is voice 0's, for the ottava's reason: a pedal HAS no voice — one damper serves the
+   * staff, whose music may be in any of them — so colouring it by whatever happened to be under it
+   * would say something the model does not.
+   */
+  applyPedalSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const id = selectedOf(this.state, 'pedal')?.id
+    if (!engine || !id) return
+    const group = engine.getPedalSVGGroup(id)
+    if (!group) return
+
+    const SELECTION_COLOR = voiceFillColor(0)
+    group.querySelectorAll<SVGElement>('text').forEach(el => {
+      this.setAttr(el, 'fill', SELECTION_COLOR)
+      this.setStyleProp(el, 'fill', SELECTION_COLOR)
+    })
+  }
+
   applyTrillSelectionHighlight(): void {
     const engine = this.getEngine()
     const id = selectedOf(this.state, 'trill')?.id

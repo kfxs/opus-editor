@@ -5,6 +5,7 @@ import { buildClipboardFromSelection } from './clipboard'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { addOttava } from '../engine/models/ottavaOps'
+import { addPedal } from '../engine/models/pedalOps'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 
 const fakeRegistry = {
@@ -434,6 +435,62 @@ describe('clipboard — octave lines travel', () => {
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     expect(ottavasOf(2)).toEqual(['1@0+1']) // the clip's, not both
+  })
+})
+
+describe('clipboard — sustain pedals travel', () => {
+  let engine: MusicEngine
+  beforeEach(() => { engine = makeEngine() })
+
+  /** A measure's pedals as `beat+length`. ⚠️ Written through `pedalOps` for `ottavasOf`'s reason:
+   *  the editor facade has no pedal door yet (docs/pedal-plan.md P4). The clipboard is the subject
+   *  here, not the way in. */
+  const pedalsOf = (m: number) =>
+    (engine.getScore().measures.find(x => x.number === m)!.pedals ?? [])
+      .map(p => `${fracToNumber(p.beat)}+${fracToNumber(p.length)}`)
+
+  const fourNotes = () => [0, 1, 2, 3].map(b =>
+    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+
+  it('copies a pedal under the selection and re-bases it on paste', () => {
+    const ids = fourNotes()
+    addPedal(engine.getScore(), 1, { beat: frac(1, 1), length: frac(2, 1) })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.pedals).toHaveLength(1)
+    expect(payload.pedals![0]).toMatchObject({ staff: 0 })
+    expect(fracToNumber(payload.pedals![0].offset)).toBe(1)
+    expect(fracToNumber(payload.pedals![0].length)).toBe(2)
+    // No `voice` — one foot governs the staff, and the clip must not invent one.
+    expect('voice' in payload.pedals![0]).toBe(false)
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(pedalsOf(2)).toEqual(['1+2'])
+  })
+
+  it('leaves a pedal STRADDLING the window behind rather than truncating it', () => {
+    // Window [0,2); the press is inside it but the lift is at beat 3. A truncated pedal would
+    // arrive holding down whatever happened to follow the paste.
+    const ids = fourNotes().slice(0, 2)
+    addPedal(engine.getScore(), 1, { beat: frac(1, 1), length: frac(2, 1) })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.pedals ?? []).toHaveLength(0)
+  })
+
+  it('omits the section entirely when there is none — a v4 payload is unchanged', () => {
+    const payload = buildClipboardFromSelection(engine.getScore(), fourNotes())!
+    expect(payload.pedals).toBeUndefined()
+  })
+
+  it('overwrites a destination pedal starting in the paste window', () => {
+    const ids = fourNotes()
+    addPedal(engine.getScore(), 1, { beat: frac(0, 1), length: frac(1, 1) })
+    addPedal(engine.getScore(), 2, { beat: frac(0, 1), length: frac(2, 1) })
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(pedalsOf(2)).toEqual(['0+1']) // the clip's, not both
   })
 })
 

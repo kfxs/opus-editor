@@ -1,5 +1,5 @@
 /**
- * The two tables in {@link chain} — what they say about the seventeen selectable kinds.
+ * The two tables in {@link chain} — what they say about the eighteen selectable kinds.
  *
  * These are not decorative assertions. {@link ELEMENT_HIT_ORDER} is an ARRAY whose ORDER IS THE
  * CONTENT: it decides who wins a press two glyphs both cover, and that order was argued for one pair
@@ -14,12 +14,12 @@ import type { SelectedElement } from '../EditorState'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [
-  'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill', 'ottava',
+  'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal',
   'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'tuplet', 'measureRange',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all seventeen kinds, and nothing else', () => {
+  it('answers for all eighteen kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -28,7 +28,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — an eighteenth cannot be added without deciding', () => {
+  it('every kind says how it paints — a nineteenth cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -48,7 +48,10 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // ⭐ The ottava follows the trill, and that pair is the only one here whose overlap is
       // GUARANTEED rather than incidental: an 8va is drawn directly above the `tr` it clears, so
       // their bands are stacked. The inner one wins — the rule the slur already sets against both.
-      'tie', 'slur', 'hairpin', 'trill', 'ottava', 'accidental', 'articulation',
+      // ⭐ The pedal follows the ottava, and its position is nearly free: the pedal is drawn BELOW
+      // the staff and an 8va above it, so only an 8vb can contend — where the inner mark wins, as
+      // everywhere in this run. What matters more is that it claims only its two GLYPH boxes.
+      'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'accidental', 'articulation',
       // Dots after the other sub-elements: they sit right beside the head.
       'dot',
       // The tremolo immediately before the stem it is drawn ON, so it wins only inside its own ink.
