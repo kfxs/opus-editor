@@ -19,7 +19,8 @@
  * `./hairpinShape`'s resolver, so the day either becomes a user control it is a compartment client
  * and nothing here is rewritten (plan §6). The stroke is `./thinLineWeight`'s shared 0.16 — the
  * same weight as the thin barline, the ledger line and the tuplet bracket, because they are one
- * family and a page reads as one hand.
+ * family and a page reads as one hand. ⚠️ A lighter hairpin was tried and rejected by eye on
+ * 2026-08-15 against all four reference engines; that module records it, so it is not retried.
  *
  * ⛔ **Not VexFlow's `StaveHairpin`.** Rejected in §2.1: a fixed 20 px below the staff (so a small
  * staff breaks it), a fixed 10 px mouth, x from `getModifierStartXY` (which throws pre-draw), both

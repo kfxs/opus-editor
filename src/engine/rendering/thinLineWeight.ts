@@ -14,6 +14,24 @@
  * separate question of *hinting* one onto the device-pixel grid); this is that same value under the
  * name that says why anything else may use it.
  *
+ * ⭐⭐ **THE HAIRPIN WAS TAKEN OUT OF THIS FAMILY ON 2026-08-15 AND PUT BACK THE SAME DAY. Do not
+ * try it again without new evidence.**
+ *
+ * The case for leaving looked strong. All four reference engines override SMuFL downward for that
+ * one mark, by about half — LilyPond `thickness 1.0` against a thin barline's `hair-thickness 1.9`;
+ * MuseScore `hairpinLineWidth 0.12_sp` against `barWidth 0.18_sp`; Verovio 0.1 sp; GUIDO 0.08 sp —
+ * and a hairpin has a property no other line here has: **its two strokes CONVERGE**, so near the
+ * closed end they land closer together than their own width and read as one heavy line rather than
+ * a wedge. A long crescendo of his did exactly that, and the stretch it happens over is directly
+ * proportional to this number.
+ *
+ * ⛔ **His eye rejected it twice.** Verovio's and LilyPond's 0.10: *"now the line is too thin."*
+ * MuseScore's 0.12: put back to *"the size of the beginning."* So the engines are outvoted here by
+ * the only test that decides a taste number, and 0.16 — SMuFL's own figure, and this family's — is
+ * what a hairpin is drawn at. The convergence is real and unfixed; the lever for it is the MOUTH
+ * (`hairpinShape`'s `HAIRPIN.APERTURE`, which did move, 1.33 → 1.5) or a minimum opening angle,
+ * **not the stroke**.
+ *
  * ⚠️ In **staff spaces**, never pixels — so it scales with a small staff's `scale(k)` group like
  * everything else drawn there. Convert at the draw site against the stave you are drawing on.
  *

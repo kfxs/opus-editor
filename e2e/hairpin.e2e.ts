@@ -90,9 +90,74 @@ test('⭐⭐ the mouth opens to the aperture, in STAFF SPACES', async ({ score }
 
   const arms = await armsOf(score)
   const staff = await staffOf(score)
-  // 1.33 spaces total (LilyPond's `Hairpin.height` 0.6666 per side) — the default in
-  // `rendering/hairpinShape.ts`, which is where this number is allowed to change.
-  expect(Math.abs(arms[0].y2 - arms[1].y2) / staff.spacing).toBeCloseTo(1.33, 1)
+  // 1.5 spaces total — Verovio's `hairpinSize` 3 MEI units and GUIDO's `deltaY` 3 half-spaces,
+  // the majority of the four engines. The default lives in `rendering/hairpinShape.ts`, which is
+  // where this number is allowed to change.
+  expect(Math.abs(arms[0].y2 - arms[1].y2) / staff.spacing).toBeCloseTo(1.5, 1)
+})
+
+test('⭐⭐ the wedge is stroked at the shared THIN-LINE weight — a settled decision, not a default', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    await h.render()
+    const arm = document.querySelector('g.vf-hairpin path') as SVGPathElement
+    const first = window.__h.staves()[0]
+    return {
+      strokePx: parseFloat(getComputedStyle(arm).strokeWidth),
+      spacing: (first.bottom - first.top) / 4,
+    }
+  })
+
+  // ⭐ 0.16 spaces — `thinLineWeight`'s shared family weight, and SMuFL's own `hairpinThickness`.
+  // ⚠️ This test exists because the hairpin nearly left that family on 2026-08-15: all four
+  // reference engines draw it at roughly half a barline's weight (LilyPond 1.0 vs 1.9, MuseScore
+  // 0.12 vs 0.18, Verovio 0.1, GUIDO 0.08), and a lighter stroke measurably shortens the stretch
+  // near the closed end where the two converging arms read as one heavy line. Both 0.10 and 0.12
+  // were drawn and rejected by eye. So the number is a settled taste decision, not an oversight,
+  // and this pins it — `thinLineWeight.ts` carries the readings and the verdict.
+  expect(drawn.strokePx / drawn.spacing).toBeCloseTo(0.16, 2)
+})
+
+test('⭐⭐ a LONG wedge opens wider than an ordinary one — measured in STAFF SPACES, not bars', async ({ score }) => {
+  // ⚠️ The rule's input is drawn ink in staff spaces, which is why this fixture has to be a browser
+  // one: how long nine bars of whole notes actually come out is the spacing model's answer, not
+  // arithmetic anyone can do in jsdom. His correction, and the reason it is not a bar count —
+  // four bars of sixteenths and four of whole notes are wedges of very different lengths.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 1; m <= 9; m++) {
+      if (m > 1) h.engine.addMeasure()
+      h.engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'w', measure: m, beat: h.frac(0, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(36, 1) })
+    await h.render()
+    const first = window.__h.staves()[0]
+    return {
+      arms: window.__h.segments('g.vf-hairpin path'),
+      spacing: (first.bottom - first.top) / 4,
+    }
+  })
+
+  expect(drawn.arms.length, 'one wedge, on one system').toBe(2)
+  const [a, b] = drawn.arms
+  const lengthSpaces = (a.x2 - a.x1) / drawn.spacing
+  const mouth = Math.abs(a.y2 - b.y2) / drawn.spacing
+
+  // The premise: this really is a long wedge by the only measure the rule uses.
+  expect(lengthSpaces).toBeGreaterThan(60)
+  // ⭐ The growth ramp — flat 1.5 to 36 spaces, then +0.012 per space, clamped at Gould's 2.0
+  // ("the open end should not be more than two stave-spaces wide", Behind Bars p.103). Without it
+  // this wedge would carry the ordinary 1.5 mouth and its first 10.7% would be two strokes laid on
+  // top of each other. Two clamps and a ramp is also Dorico's shape, found after ours was built —
+  // `hairpinShape.ts` carries the readings and the seven cases he judged by eye.
+  const expected = Math.min(2.0, 1.5 + 0.012 * Math.max(0, lengthSpaces - 36))
+  expect(mouth).toBeCloseTo(expected, 1)
+  expect(mouth, 'wider than an ordinary wedge').toBeGreaterThan(1.5)
+  expect(mouth, "and never past Gould's two spaces").toBeLessThanOrEqual(2.0 + 0.01)
 })
 
 test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters beside it', async ({ score }) => {
@@ -187,10 +252,15 @@ test('⭐⭐ a wedge crossing a system break is SPLIT, and it STEPS at the break
   // step is what lets each fragment read as a wedge in its own right.
   const first = fragments[0]
   const last = fragments[fragments.length - 1]
-  expect(first.open0 / drawn.spacing).toBeCloseTo(0, 1)             // the first fragment starts closed
-  expect(first.open1 / drawn.spacing).toBeCloseTo(1.33 * 2 / 3, 1)  // …and reaches ⅔ at the break
-  expect(last.open0 / drawn.spacing).toBeCloseTo(1.33 / 3, 1)       // the last RESUMES at ⅓ — the step
-  expect(last.open1 / drawn.spacing).toBeCloseTo(1.33, 1)           // …and ends at the full aperture
+  // ⚠️ The thirds are measured against the wedge's OWN full aperture, read off the last fragment's
+  // open end — not against `HAIRPIN.APERTURE`. This test used to pin the literal 1.5 and broke the
+  // day the min-angle rule made a long wedge open wider (2026-08-15): it was asserting the aperture
+  // by accident while claiming to assert the step. The aperture has its own tests.
+  const aperture = last.open1 / drawn.spacing
+  expect(aperture, 'a full mouth at the far end').toBeGreaterThan(1)
+  expect(first.open0 / drawn.spacing).toBeCloseTo(0, 1)                  // the first fragment starts closed
+  expect(first.open1 / drawn.spacing).toBeCloseTo(aperture * 2 / 3, 1)   // …and reaches ⅔ at the break
+  expect(last.open0 / drawn.spacing).toBeCloseTo(aperture / 3, 1)        // the last RESUMES at ⅓ — the step
   expect(last.open0).toBeLessThan(first.open1)
 })
 
@@ -238,7 +308,7 @@ test('⭐⭐ a wedge starting LATE in a system does not drag its continuation ac
   // …and the second symptom of the same cause: with the two ends a space apart, the angle cap
   // crushed the aperture to nothing and BOTH fragments drew as flat lines.
   const mouth = Math.abs(continuation[0].y2 - continuation[1].y2)
-  expect(mouth / drawn.spacing, 'the continuation still ends at the full aperture').toBeCloseTo(1.33, 1)
+  expect(mouth / drawn.spacing, 'the continuation still ends at the full aperture').toBeCloseTo(1.5, 1)
 })
 
 test('⭐ P4: a wedge registers its OUTLINE, so it is clickable on its own ink', async ({ score }) => {

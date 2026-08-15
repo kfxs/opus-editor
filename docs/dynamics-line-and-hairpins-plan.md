@@ -190,7 +190,7 @@ look on internet for it."* Two research agents read the actual C++ of LilyPond, 
 | **Verovio** | `hairpinSize` 3 MEI units → **1.5 sp** | **DOWNWARD ONLY** — caps the included angle at **16°**, shrinking the aperture below ≈5.3 sp | the SAME thirds, independently |
 | **GUIDO** | `deltaY` 3 half-spaces → **1.5 sp** | **NO** — no `atan`, no ratio, no cap anywhere | 0 → 0.588, then 0.25 → 1 |
 | **MuseScore** | `hairpinHeight` **1.15 sp** (the FULL mouth) | **NO** — `len` is only the far endpoint's x; the arm heights are `±h1` regardless | first 0 → **FULL**, continuation `hairpinContHeight` **0.5 sp** → full |
-| Dorico / Sibelius / Finale | — | no documented formula: Finale one global *"Crescendo Opening Width"*, Sibelius a setting + a per-hairpin property, Dorico a min AND max aperture | Dorico's docs mention apertures *"across system and page breaks"* |
+| Dorico / Sibelius / Finale | Dorico **1.0 → 1.5 sp** | 🚨 **YES — all three, and it is ON by default in Dorico.** ⚠️ This row said "no documented formula" until 2026-08-15; see §2.4d for Spreadbury's own statement of Dorico's ramp (1.0→1.5 sp over lengths 8→36 sp) and Sibelius's/Finale's two-step threshold settings | Dorico's docs mention apertures *"across system and page breaks"*; its closed end keeps *"a small gap so that the hairpin is not misread as two separate hairpins"* |
 
 🔎 **MuseScore, read at source 2026-08-12** (`src/engraving/rendering/score/tlayout.cpp`
 `layoutHairpinSegment`, `style/styledef.cpp`), and it is the fourth independent "no":
@@ -259,11 +259,17 @@ The engine survey above is about implementations; this is the other half. ⛔ Do
   die lange Gabel eine Verengung, die kurze aber keine Weitung"* (a long wedge tolerates being
   narrowed; a short one tolerates no widening). So his instinct that length matters was right, the
   direction is DOWNWARD only, and Verovio's 16° cap now has a published rule behind it rather than
-  just one engine's code. ❌ No authority says a long hairpin opens WIDER.
+  just one engine's code. 🚨 ~~No authority says a long hairpin opens WIDER.~~ **FALSE, corrected
+  2026-08-15**: Avid's own Sibelius manual says *"in some published music… the aperture of the
+  hairpin widens slightly the longer the hairpin is"*, and Dorico ships that behaviour on by
+  default. See §2.4d — Gedan's downward rule and this upward one are both real, and we now do both.
 - ⭐ ⚠️ **1.33 sp is the practitioners' number too.** notat.io thread 55 (Ruggero, Knut, West):
-  Finale's 1.5 sp is *too wide*, 1.25 felt narrow, **1.33 "has a more natural feel"**. That settles
-  §2.4b's split vote in favour of what we already took. Their stroke is **0.125–0.15 sp**; ours is
-  SMuFL's 0.16, knowingly at the heavy end.
+  Finale's 1.5 sp is *too wide*, 1.25 felt narrow, **1.33 "has a more natural feel"**; house values
+  quoted there are 0.8 (Durand/Salabert), 1.2 (Boosey & Hawkes), 1.3 (Music Sales). Their stroke is
+  **0.125–0.15 sp**; ours is SMuFL's 0.16, knowingly at the heavy end.
+  ⚠️ **We went to 1.5 anyway on 2026-08-15, by his eye** (§2.4d) — 1.5 at 15.5 spaces is the one he
+  called *"very good"*. So this paragraph is the field's number, not ours; the disagreement is
+  recorded rather than resolved.
 - ✅ **The dynamics line is a published rule.** Sydney Symphony *Guidelines for Student Composers*
   §4.4 (hosted by MOLA): *"Hairpins should begin and end about half-way up the x-height of the
   dynamics."* And Gedan pp. 18–19 shows a hairpin *"ohne Grund auf anderer Höhe als die
@@ -300,6 +306,118 @@ what the minimum-length rule is protecting; and when a hairpin is **broken for a
 - 🚨 ~~At a system break the wedge splits; the continuation resumes at the width it left off.~~
   **WRONG, corrected 2026-08-12 by reading three engines' source — see §2.4b.** It splits, but the
   continuation resumes NARROWER: LilyPond and Verovio both cut it at hard-coded thirds.
+
+### 2.4d 🔎🔎 THE LONG-HAIRPIN PROBLEM — and the rule we shipped (2026-08-15)
+
+His report: a crescendo over nine whole notes *"is not exactly bad… but graphically i see too much
+black (the lines are overlapped) in the beguening"*. ⛔ Don't redo this; it went four rounds against
+his eye and two research agents.
+
+**THE ARITHMETIC, and it is the whole thing.** Two arms opening by `aperture` over `length` are
+closer together than their own stroke for the first **`thickness ÷ aperture`** of the wedge — a
+FRACTION, with the length divided out. At 0.16 and 1.5 that is 10.7% of *every hairpin ever drawn*.
+On a one-bar wedge it is one staff space and invisible; on his nine-bar one it was 9.1 spaces of ink
+laid down twice, which reads as a solid black bar under the staff. The wedge is scale-invariant, so
+its defect scales with it — **and therefore any fix must break that scale-invariance.** Exactly two
+things can: open the mouth on long wedges, or bend the arms so they leave the tip faster.
+
+⛔ **BENT ARMS REJECTED, and it was his call.** `(x/L)^p` opens a `√` arm to 32% a tenth of the way
+along where a straight one is at 10%, and essentially eliminates the black. But all four engines and
+every printed edition draw two STRAIGHT lines. *"hairpin are straight line… maybe is a good
+possibiliti for the future as a feature for contemporary custom graphic score, but in any case the
+user should be able to draw classic hairpin and this is priority now."* ⏭️ So it is a candidate
+authored `shape`, alongside the aperture and slant in `HairpinShapeOverrideLike` (§6) — never a
+default.
+
+⛔ **A LIGHTER STROKE REJECTED, twice, by eye.** The other half of the fraction. All four engines
+draw a hairpin at roughly half a barline's weight against SMuFL's own `hairpinThickness: 0.16`
+(LilyPond `thickness 1.0` vs `hair-thickness 1.9`; MuseScore `0.12_sp` vs `barWidth 0.18_sp`;
+Verovio 0.1; GUIDO 0.08). Verovio's 0.10 drew *"now the line is too thin"*; MuseScore's 0.12 drew
+*"make the line stroke at the size of the beguining"*. Stays at **0.16**, and `thinLineWeight.ts`
+records the verdict so it is not attempted a third time. His reason is worth keeping: *"it match
+better with other elements, for example the stroke of the slur."*
+
+⚠️⚠️ **PROVISIONAL, in his own words** (2026-08-15): *"so im not sure if this is the definite rule
+we should apply but it is much better than before, and i guess for the moment is ok."* So the SHAPE
+below is accepted and the numbers are a resting point, not a conclusion — the ceiling excepted, which
+is Gould's. Anyone re-opening it should start from the arithmetic above and his seven cases below,
+not from a blank sheet.
+
+**THE RULE — an affine RAMP, not an angle**, in `rendering/hairpinShape.ts`:
+
+```
+aperture = min(MAX_APERTURE, APERTURE + GROWTH_PER_SPACE × max(0, lengthSpaces − GROWTH_FROM_SPACES))
+        = min(2.0,          1.5      + 0.012            × max(0, lengthSpaces − 36))
+```
+
+…then the steepness cap (now **11.5°**, not Verovio's 16) applies on top, narrowing very short
+wedges. Four straight pieces in all: a ramp through the origin below ≈7.4 spaces, flat 1.5 through
+the ordinary range, this ramp, then flat 2.0 from ≈78 spaces on.
+
+⭐⭐ **WHY A RAMP AND NOT AN ANGLE — the one structural lesson.** It was a minimum ANGLE first,
+mirroring the cap: `2·length·tan(θmin/2)`, clamped. That is a line **through the origin**, so it has
+ONE degree of freedom, and *where growth starts* and *how fast it climbs* are the same number. His
+verdicts need them separate — a 45-space wedge *"can be a little more wider"* while a 65-space one at
+2.29 was *"definitely too wide"*. Two constraints, one parameter: unsatisfiable at any θ. ⚠️ The
+angle form had one virtue the ramp gives up: it made the black a CONSTANT (`thickness ÷ 2·tan(θ/2)`,
+no length in it). The ramp does not — above ≈78 spaces the black grows with length again.
+
+**HIS SEVEN VERDICTS**, measured in the browser suite (whole notes, one wedge each):
+
+| length | he saw | he said | shipped |
+|---|---|---|---|
+| 5.5 sp | 1.50, then 1.25 | *"too wide… a little less"*, then *"also here can be less wider"* | **1.11** (the cap) |
+| 15.5 | 1.50 | ***"very good"*** | 1.50 |
+| 35.5 | 1.50 | *"good"* | 1.50 |
+| 45.5 | 1.50 | *"can be a little more wider"* | **1.61** |
+| 65.5 | 2.29 | *"definitely too wide… this should be the end case"* | **1.85** |
+| 85.5 | 2.50, then 2.24 | *"ok… if the aperture before is less wide we can try to go for it"* | **2.00** |
+
+⚠️ **`lengthSpaces` is DRAWN INK, never bars** — his correction: *"4 bars with whole note is
+different that 4 bars with 16th."* Four bars of sixteenths earn far more room from the spacing model,
+so they are a much longer wedge. For a split wedge it is the sum of the fragments drawn.
+
+**🚨 A CORRECTION TO §2.4c.** That section ends *"❌ No authority says a long hairpin opens WIDER."*
+**That is now false**, from Avid's own Sibelius Reference Guide 2024.3 §4.7: *"By default, Sibelius
+makes the aperture… the same, regardless of the length of the hairpin. **In some published music,
+however, the aperture of the hairpin widens slightly the longer the hairpin is**, and Sibelius lets
+you reproduce this appearance."* His memory from 2026-08-12 — *"sibelius solve this jumping the mouth
+height from one value to another in certain length"* — was **exactly right**: the settings are
+literally *"Small aperture"*, *"Large aperture"* and *"Large aperture if wider than n spaces"*.
+Finale has the same three (*"Short span opening width"* / *"Maximum short span length"* / *"Long span
+opening width"*).
+
+⭐⭐ **AND THE STRUCTURE IS DORICO'S, verbatim — found AFTER ours was built.** Daniel Spreadbury
+(Dorico's product manager), Steinberg forum: *"The aperture of a hairpin is scaled between the value
+of 'Minimum hairpin aperture' (1 space by default) and 'Maximum hairpin aperture' (1½ spaces by
+default) **for hairpins between 8 and 36 spaces in length**."* Two clamps and a linear ramp keyed to
+staff spaces — the same shape, arrived at independently, and ON by default there.
+⛔ **We do not take their numbers**: their ramp is over 8→36 spaces, so 15.5 would give ≈1.13, and
+1.5 at 15.5 is the one he called *"very good"*. Their ramp ends where ours begins; the two answer
+different halves of the range, and only ours reaches a system-long wedge. ⚠️ Engravers on both
+forums call length-varying apertures *"not standard practice"* and advise turning it off; the one
+Dorico thread about it is a user asking how to disable it.
+
+⭐⭐ **THE CEILING IS GOULD'S, and 2.5 and 2.3 were both over it.** *Behind Bars* p.103, verbatim:
+**"Hairpins are the thickness of a stave-line. The open end should not be more than two stave-spaces
+wide."** A ceiling, not a value — she gives no preferred aperture and no floor, and adds that the
+mouth *"maintains the same width regardless of dynamic"*. `MAX_APERTURE` is now 2.0 because a book
+says so. His eye had been walking it down independently.
+
+⚠️ **NOBODY HAS PUBLICLY DIAGNOSED THIS DEFECT.** Searched: notat.io, the Steinberg/MuseScore/Finale/
+Sibelius forums, music.stackexchange, Scoring Notes. The nearest anyone gets is Gould's own *"long
+hairpins confuse the eye, as the long lines are virtually parallel to the stave"* and SSO's *"almost,
+but not quite, parallel to the staff lines"* — the whole shape, not the tip. So the rule above
+contradicts no convention, and implements none either: **every constant in it is a taste number
+except the 2.0.**
+
+⏭️ **What the books actually prescribe is still §11.7**, and he has ruled it out as *automatic*
+behaviour (*"the user must write the music however they want"*). Gould p.106: *"Instead, use the
+terms crescendo (abbrev. cresc.), diminuendo (abbrev. dim.)… Widely spaced dashes or dots following
+on from these indications may be used to identify the duration… A reminder in brackets (cresc.) is
+useful at the beginning of a new system."* As a form the USER can choose it remains the documented
+answer, and MuseScore models it as the same `Hairpin` with a line style (`isLineType()`) rather than
+a new element — the shape to copy when it is built.
 
 ### 2.5 Creation gestures in the field
 
@@ -923,6 +1041,20 @@ Each is separately visible and separately testable.
   reason `WedgePiece` carries a `line`.
   (v) ⭐ `planSlurSegments` is REUSED verbatim: nothing in it is about slurs, and its four segment
   types map one-to-one onto a fragment's role. No second planner to drift out of step.
+  (vi) 🚨🚨 **TWO X'S FROM TWO SYSTEMS ARE NOT ONE RULER** — his report, fixed 2026-08-15. A wedge
+  from the last bar of one system to the first bar of the next has `endX < startX`, because every
+  system restarts at the left margin. The "never past each other" rescue (`if (endX <= startX)`,
+  which keeps a wedge squeezed by its neighbours from turning inside out) fired on that perfectly
+  well-formed span and replaced the end with a number from the START system. The continuation was
+  then drawn from the left margin out to that foreign x — most of the second system — and, with the
+  two ends left ~1 space apart, the angle cap crushed the aperture to nothing, so **both** fragments
+  drew as flat lines. One cause, two symptoms. The rescue now asks `from.line === to.line` first,
+  each end insets against its OWN stave, and the length feeding the aperture rule is the **sum of
+  the fragments actually drawn** rather than a subtraction across a break — which is why the pieces
+  are cut *before* the shape is resolved. ⚠️ The browser suite already crossed a break and passed
+  through this for weeks: its fixture starts in bar 1, where `startX` is the smaller number anyway.
+  **Luck of geometry** — the regression test starts in the LAST bar of a system and was break-tested
+  against the old code.
 - **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
   selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
   `Ctrl+←/→` resize, selection + highlight + Delete, the Properties report, and 🔎 **`x` to flip
@@ -1051,19 +1183,19 @@ a generalisation of it rather than a replacement for it.
 more things will be added in the future but we don't need to think about it now."* Nothing below is
 blocking; this section exists so none of it has to be re-derived.
 
-### 13.1 Two numbers to settle BY EYE — one line each
+### 13.1 The numbers, and which of them his eye has now settled
 
-Both are constants in `rendering/hairpinShape.ts`, and both are places where our number and a
-reference engine's disagree by a knowable amount:
+All are constants in `rendering/hairpinShape.ts`. **Most of this table was settled on 2026-08-15**
+(§2.4d) — recorded so nobody re-opens a decision he already made against a screen.
 
-| what | ours | the comparison |
+| what | ours | status |
 |---|---|---|
-| air between two abutting wedges | `END_INSET` 0.25 sp per end → **0.5 sp** total | Dorico leaves a **notehead width** (~1.18 sp) — so ours may be too tight (§2.4c) |
-| stroke | **0.16 sp**, the shared thin-line weight (`thinLineWeight.ts`) | the engravers say **0.125–0.15** for hairpins specifically; Verovio draws 0.1, GUIDO 0.08 |
-
-⭐ The aperture (**1.33 sp**) is NOT in this table any more: §2.4c settled it. LilyPond agrees and the
-notat.io engravers arrived at it independently (1.5 *too wide*, 1.25 too narrow, 1.33 *"a more
-natural feel"*).
+| stroke | **0.16 sp**, the shared thin-line weight (`thinLineWeight.ts`) | ✅ **SETTLED, against all four engines.** 0.10 → *"too thin"*; 0.12 → *"the size of the beguining"*. ⛔ Do not retry |
+| aperture, ordinary | **1.5 sp** | ✅ **SETTLED** — *"very good"* at 15.5 spaces, *"good"* at 35.5. The field says 1.33; we knowingly differ |
+| aperture, long wedges | ramp from **36 sp** at **0.012/sp** | ⚠️ **PROVISIONAL** — *"not sure if this is the definite rule… much better than before, and for the moment is ok"*. Taste numbers fitted to seven cases he judged; no source for either |
+| aperture, ceiling | **2.0 sp** | ✅ **PUBLISHED** — Gould p.103, *"should not be more than two stave-spaces wide"*. The only number here an authority states |
+| steepness cap | **11.5°** | ⚠️ Was Verovio's 16°; his eye twice. Lands on Dorico's 1-space minimum by a different route |
+| air between two abutting wedges | `END_INSET` 0.25 sp per end → **0.5 sp** total | ⏭️ **STILL OPEN.** Dorico leaves a **notehead width** (~1.18 sp) — so ours may be too tight (§2.4c) |
 
 ### 13.2 Paths NOT hand-tested
 
