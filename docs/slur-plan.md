@@ -950,6 +950,12 @@ The books are much more prescriptive about ties than slurs, and the difference i
 ⭐ So the slur/tie split we already have is the published one: **a slur tilts, a tie stays level and
 symmetrical**, and a tie never touches a stem.
 
+🚨🚨 **⛔ THE CLAIM BELOW IS WITHDRAWN — SEE §13.1–13.2.** It was written before any engine's tie code
+had been read. Reading all three showed that **none of them draws 1 sp of apex at any ordinary
+length**, so *"deep"* is almost certainly the TOTAL REACH (endpoint lift + apex), under which ours is
+**1.10 sp — inside her band**. And ⭐ **his call, 2026-08-15: we keep our height.** The paragraph
+stays because the quote is right and only the inference from it was wrong.
+
 🚨 **But the one number she gives says our tie is 2.5–3.75× too flat:**
 
 > p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
@@ -1003,7 +1009,7 @@ Nothing in this list was decided; it is the analysis input, not a plan.
 
 | # | what | the rule, and who says it | where | size |
 |---|---|---|---|---|
-| 1 | **Tie arc height** | Gould p.61: *"a shallow tie is **1–1½ stave-spaces deep**"*, under a space when very short or squeezed, flattened when long. Ours: a flat **0.40 sp** apex with **no length dependence at all** | `TieRenderer.TIE_BOW` | **small** — one constant, or three regimes |
+| 1 | ~~**Tie arc height**~~ ⛔ **WITHDRAWN — §13.1–13.2 + his call.** Ours is 0.40 sp constant; LilyPond peaks at 0.75, **Verovio is a constant too**, and only MuseScore climbs past 1. Replaced in §12 by the tie-vs-**staff-line** phase, which is what Gould's sentence is actually about | `TieRenderer.TIE_BOW` | — |
 | 2 | **Slant rules** | Gedan p.17 (*must follow the melodic line*; a horizontal slur over a descending melody is a labelled fault) + LilyPond's `same-slope-penalty` / `non-horizontal-penalty` / `steeper-slope-factor`. Ours tilts by `±0.25·dy`, **unbounded and unrelated to the interval** | `slurArchCps` | **small** — three clamps on a number we already compute |
 | 3 | **Broken-slur tilt** | Gould p.112: *"must be **angled in the direction of the final pitch** on the new system"*. Verovio: `pitchDiff × 0.25 sp` per diatonic step. Ours: a flat `SLUR_ARC` 1.4 sp, no pitch input | `SlurRenderer` BEGIN/END segments | **small–medium** |
 | 4 | **Taper** | Bravura: **0.10 sp** at the tip, **0.22 sp** at the middle. Ours: one `CURVE_THICKNESS` 0.27, heavier than the published *midpoint* and with no taper. ⚠️ VexFlow's `Curve` cannot do it (§9.3) — needs a self-rolled tapered cubic | `curveArc.ts` | **medium** |
@@ -1073,12 +1079,14 @@ Two of the columns matter more than the numbers. **Rule** says what kind of chan
 |---|---|---|---|
 | 1 | The stem-end endpoint — stop the slur contradicting the melody | **PUBLISHED** (Gould p. 111) | small |
 | 2 | Short slurs are too tall (and therefore hooky) | **TASTE** | small, one constant |
-| 3 | The tie is 2.5–3.75× too flat, in both of its two drawing paths | **PUBLISHED** (Gould p. 61) | small–medium |
-| 4 | Curve weight against Bravura | **PUBLISHED** (Bravura) — but see the hairpin note | one constant |
+| 3 | ⭐ **A tie must not sit on a staff line** — the majority behaviour, and we have nothing (**§13.4**) | **PUBLISHED** (Gould p. 61) + 2 of 3 engines | medium — new machinery |
+| 3b | A broken tie changes weight at the system break — migrate it off raw `StaveTie` | consistency | small |
+| 4 | Curve weight — a taste call **inside** a 0.17–0.30 sp range (**§13.6**) | ~~PUBLISHED~~ **TASTE** — see the hairpin note | one constant |
 | 5 | A broken slur has no opinion about pitch | **PUBLISHED** (Gould p. 112) | small–medium |
 | 6 | A maximum slant — **60°, his call**, and a short steep slur made rounder | **TASTE, no source at all** | small |
 | 7 | Four small ones: px→staff-spaces, the chord anchor, the tie's hit-target, Gould's beam exception | mixed | small each |
 | 8 | Interior notes — collision avoidance | constraints published, algorithm nobody's | **a project** |
+| ⛔ | ~~The tie is 2.5–3.75× too flat~~ — **WITHDRAWN**, his call on the three-engine table (**§13.1–13.2**) | — | — |
 
 ### Phase 1 — the stem-end endpoint (Gould p. 111)
 
@@ -1136,23 +1144,44 @@ which is right. Lower the short height and the angle falls with it (≈49° at 0
 law that behaves at both ends and agrees with Gould's direction; (c) leave it. ⛔ No slur arc height
 is published anywhere, by anyone — this cannot be settled by research, only by his eye.
 
-### Phase 3 — the tie's arc, in BOTH paths (Gould p. 61)
+### Phase 3 — ⭐ a tie must not sit on a staff line (REWRITTEN by §13.4)
 
 > p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
-> stave-line**. Ideally, **a shallow tie is 1–1½ stave-spaces deep**."*
+> stave-line**."*
 
-Ours is a **0.40 sp** apex (`TIE_BOW` 5.3 px → 0.75×) with **no length dependence at all**, where she
-has three regimes: under a space when very short or flattened to clear another part; 1–1½ normally;
-*"the curve of a long tie is flattened to prevent excessively variable curve heights between ties."*
+⛔ **This phase used to be "the tie is 2.5–3.75× too flat". That is withdrawn** — §13.1 (his call on
+the three-engine table) and §13.2 (Gould's number may be a total depth, under which ours is already
+inside her band). What her sentence is *actually* about is the line, and there we have nothing.
 
-🚨 **And it has to land twice.** A same-line tie goes through `drawCurveArc`; the two halves of a tie
-crossing a **system break** are raw VexFlow `StaveTie`s — a quadratic with `cp1:8 / cp2:12`, i.e. a
-4px belly against our `CURVE_THICKNESS` 2.7. So today a tie changes weight when it crosses a break,
-and a height fix applied to one path would make them disagree about shape too. Gould p. 65 wants the
-open-ended tie to keep the **same** symmetrical shape. **Migrate the two halves onto `drawCurveArc`
-in the same phase** — the slur did exactly this in its Phase 3 and the tie was left behind.
+**Two of three engines position a tie against the staff lines**, and it is the only tie behaviour
+where an engine majority, the book and our own absence all agree:
 
-**Verify:** `e2e` — apex in staff spaces for a same-line tie and for both halves of a broken one.
+- **LilyPond** scores it — `staff-line-collision-penalty` **5**, applied to the apex
+  (`center-staff-line-clearance` **0.3 sp**) and again to the tips (`tip-staff-line-clearance`
+  **0.225 sp**) — and a short tie inside a space is re-centred bodily by `center_tie_vertically()`.
+- **MuseScore** repairs it — an endpoint protruding less than **0.15 sp** through a line moves both
+  ends off it; then the arc is fattened or flattened (up to `0.75 × tieHeight`) to lift the apex
+  clear; a tie under 2.0 sp long and 0.7 sp tall is translated whole into a space.
+- **Verovio** does nothing but thin the arc by the line width.
+
+⭐ **This is new machinery, not a constant.** Our tie's y is one derived number (`TIE_LIFT` off the
+notehead) with no candidates and no scoring; LilyPond's warning is that porting a shape law without
+the search is exactly how you get ties sitting on lines. Start with the smallest thing that works —
+MuseScore's shape, not LilyPond's: test the two endpoints and the apex against the nearest line, and
+move the whole tie by the shortfall.
+
+**Verify:** `e2e` — a tie whose notehead sits *on* a line, and one in a space, measuring the drawn
+ink's distance to the nearest staff line.
+
+### Phase 3b — the broken tie changes weight (small, independent)
+
+A same-line tie goes through `drawCurveArc`; the two halves of a tie crossing a **system break** are
+raw VexFlow `StaveTie`s — a quadratic with `cp1:8 / cp2:12`, i.e. a 4 px belly against our
+`CURVE_THICKNESS` 2.7. So a tie visibly changes weight when it crosses a break. ⚠️ §13.7 corrected
+the *shape* half of this: all three engines draw two independent flat arcs and none makes the halves
+match, so Gould's *"keeps its symmetrical shape"* is about symmetry **within** each half, which ours
+already has. **The migration is worth doing for the weight, not the shape.** The slur did exactly
+this in its own Phase 3 and the tie was left behind.
 
 ### Phase 4 — the weight (Bravura), and the one thing to weigh first
 
@@ -1161,12 +1190,23 @@ taper" and calls the fix medium, needing a self-rolled tapered cubic. Read off t
 `renderCurve` draws a **closed lens** — an outer cubic at `cp.y`, a return at `cp.y + thickness` —
 then strokes *and* fills it. So we already taper, and one end is already exact:
 
-| | ours (measured) | Bravura |
+| | tip | middle |
 |---|---|---|
-| tip | **0.10 sp** (the curves meet; ink = the 1 px outline) | `slurEndpointThickness` **0.10** |
-| middle | **0.30 sp** (fill gap `0.75 × 2.7px` = 0.20, + outline 0.10) | `slurMidpointThickness` **0.22** |
+| **ours (measured)** | **0.10 sp** (the curves meet; ink = the 1 px outline) | **0.30 sp** (fill gap `0.75 × 2.7px` = 0.20, + outline 0.10) |
+| Bravura | 0.10 | 0.22 |
+| LilyPond | 0.08 | 0.17 |
+| Verovio | 0.05 | 0.25 (its **slur** is 0.30) |
+| MuseScore | 0.05 | 0.21 nominal, ≈**0.29 drawn** |
 
-`CURVE_THICKNESS` **2.7 → 1.6 px** puts us on the published number at *both* ends. No new primitive.
+`CURVE_THICKNESS` **2.7 → 1.6 px** would put us on Bravura's number at *both* ends. No new primitive.
+
+⚠️ **§13.6 downgraded this from PUBLISHED to TASTE.** The three engines span **0.17 → 0.30 sp** at
+the middle and MuseScore's *drawn* value is 0.29, a hair under ours — so we are at the top of a real
+range, not outside it. ✅ Our decision to share one weight between tie and slur is *confirmed*:
+LilyPond and MuseScore use identical numbers for both, and only Verovio draws its tie thinner.
+⭐ Whatever we choose, steal Verovio's `GetBezierThicknessCoefficient`: it **narrows the fill by the
+stroke width** so fill + outline equals the nominal exactly, where we simply add the two — which is
+why our drawn middle is a third above its own nominal.
 
 ⚠️ **Weigh this against the hairpin before touching it.** He set the hairpin stroke by matching this
 curve — *"i like the stroke with this size (cause it match better with other elements, for example
@@ -1265,3 +1305,189 @@ is here as a **first cut to be tweaked by eye**, exactly like the pedal's §12 n
 rule applies to it as to those — ⛔ a taste number never acquires a source by sitting in the codebase
 long enough. If a future session wants to defend 60°, the honest citation is *"Verovio's default,
 adopted by him 2026-08-15"*, and nothing more.
+
+---
+
+## 13. ⭐⭐ THE TIE, READ AT SOURCE IN THREE ENGINES (2026-08-15) — ⛔ don't redo this
+
+His call: *"do the tie research on the three engines"*. §11's agents were briefed on SLURS, so
+everything we knew about how an engine builds a TIE was one incidental line. Three fresh agents read
+**LilyPond** (`944f400e`, 2026-08-03), **MuseScore** (`e68a83b4`, 2026-08-14) and **Verovio**
+(`fb5c4db7`, 2026-08-02) at source, each blind to the others, ten identical questions.
+
+**⭐ It overturned two things §11.11 and §12 asserted, and it found a bigger gap than either.**
+
+### 13.1 🚨 THE HEIGHT — and HIS CALL, which settles it
+
+Drawn apex above the tie's own endpoint line, in staff spaces. Ours measured off real ink; the other
+three computed from the formulae below.
+
+| tie width | **ours** | LilyPond | Verovio | MuseScore |
+|---|---|---|---|---|
+| 2 sp | **0.40** | 0.39 | 0.54 | 0.45 |
+| 4 | **0.40** | 0.54 | 0.54 | 0.62 |
+| 8 | **0.40** | 0.64 | 0.54 | 0.82 |
+| 16 | **0.40** | 0.69 | 0.54 | 1.10 |
+| ceiling | **0.40** | 0.75 | 0.54 | 1.50 (at ≥33 sp) |
+
+- **LilyPond** — the same `slur_shape()` as its slur, with a tie's own constants: `height-limit`
+  **1.0**, `ratio` **0.333** (`define-grobs.scm:3880, 3890`) against the slur's 2.0 / 0.25. So its
+  tie can never exceed a **0.75 sp** apex, half its slur's ceiling.
+- **Verovio** — ⭐ **a CONSTANT**: `height = (1.6 − staffLineWidth) × unit` (`src/tie.cpp:226`),
+  = 1.45 units = 0.725 sp of control rise → **0.544 sp apex at every width**. The span is used only
+  to place the shoulders at ¼ and ¾. Its comment says the staff-line-width subtraction is there *"to
+  make sure that the tie does not overlap with them"*.
+- **MuseScore** — `clamp(0.3 + 0.3·√|L−1|, 0.3, 2.0)` spatia of shoulder
+  (`slurtielayout.cpp:2701`), the only one that keeps climbing; the cap bites at L ≈ 33 sp.
+- **ours** — `TIE_BOW` 5.3 px → **0.40 sp**, constant.
+
+⭐⭐ **HIS CALL, 2026-08-15, on seeing this table:** *"if we are flatter than musescore i can tell you
+i already prefer what we have no that"* — **we keep our height. ⛔ Phase 3's height change is
+withdrawn; do not re-propose it.** Two facts support it beyond taste: at a short tie we are already
+**identical to LilyPond** (0.40 vs 0.39), and **Verovio's tie height is a constant too**, so
+"no length dependence at all" — §11.8's and §12's charge — is not a defect but a design two engines
+share. MuseScore is the outlier.
+
+### 13.2 ⚠️ AND GOULD'S ONE NUMBER MAY NOT MEAN WHAT WE READ IT TO MEAN
+
+> p. 61: *"a shallow tie is **1–1½ stave-spaces deep**"* — §11.8 called ours "2.5–3.75× too flat"
+> against it.
+
+**No engine draws 1 sp of apex at an ordinary length.** LilyPond never exceeds 0.75, Verovio is
+fixed at 0.54, MuseScore needs a 14 sp tie to reach 1.0. Either all three are wrong, or *deep* is not
+the apex. Measure instead the **total reach from the notehead centre** — endpoint lift plus apex,
+which is what a reader actually sees as the tie's depth:
+
+| | endpoint lift | + apex | **total reach** |
+|---|---|---|---|
+| **ours** | 0.70 sp (`TIE_LIFT`) | 0.40 | **1.10 sp** |
+| LilyPond | 0.50 (head position + 1 half-space) | 0.39–0.75 | 0.89–1.25 |
+| MuseScore | 0.70 (0.20 beyond the head's edge) | 0.45–1.50 | 1.15–2.20 |
+| Verovio | 0.25 (from the head **centre**) | 0.544 | 0.79 |
+
+⭐ Under that reading **ours is 1.10 sp — inside Gould's band**, and so is LilyPond. ⛔ So the
+"2.5–3.75× too flat" line in §11.8 and §12 is **withdrawn**: it compared an apex against a figure
+that, on the only reading under which any engine complies, is a total depth. We cannot settle her
+wording from source code, and both readings are recorded here so nobody re-derives one of them
+alone.
+
+### 13.3 THE ENDPOINTS — three different answers to Gould p. 62
+
+> p. 62: *"the tie starts and finishes at the **centre of the notehead**"* where there is room,
+> aligning with its **edge** when it must come closer.
+
+| | x attachment | gap |
+|---|---|---|
+| **ours** | the notehead's **tie edges** (`getTieRightX`/`getTieLeftX`) | ~0.05 sp, incidental |
+| MuseScore | the notehead's **optical centre** — the mean of the SMuFL `cutOutNW`/`NE` anchors (`:1746, :1768`) | 0.1 sp inward (0.2 for an inside tie, 0.45 beside a displaced second) |
+| LilyPond | a **skyline** of the whole chord; above the top head that resolves to **¾ across the head** (`0.25·L + 0.75·R`, `tie-formatting-problem.cc:251`) | `note-head-gap` **0.2 sp** inward |
+| Verovio | the notehead's **outer edge** (`:380, :390`) | **0.25 sp** outward |
+
+So the field runs centre → ¾ → edge, and **we are at the edge with no deliberate gap at all** —
+Verovio, our nearest neighbour in law, leaves a quarter space. ⚠️ Verovio also does the opposite of
+Gould for a *short* tie: under 1.5 sp of head-to-head clearance it abandons the insets and runs
+**centre to centre straight over both heads**, lifting the tie 0.75 sp instead (`:358–360, :218`).
+
+**The y, by contrast, we already have exactly right.** `TIE_LIFT` is 0.70 sp from the head's centre
+= **0.20 sp clear of its edge**, which is MuseScore's `yOffset = 0.20 * spatium` from the notehead
+bbox edge (`:1761`) to the digit. ✅ §11.12's finding stands; ⛔ don't touch it.
+
+### 13.4 ⭐⭐ THE REAL GAP: STAFF LINES. Two of three engines position a tie against them; we do not
+
+This is what Gould's *"sufficiently round to be **conspicuous through a stave-line**"* is actually
+about, and it is a bigger hole than any constant in §12.
+
+- **LilyPond — the tie is a SEARCH, not a formula.** The Bézier is a pure function of width; every
+  interesting decision is a discrete search over `(position, direction)` candidates scored by **15
+  penalty terms**, two of which are staff lines: `staff-line-collision-penalty` **5** applied to the
+  apex (`center-staff-line-clearance` 0.6 half-sp = **0.3 sp**) and again to the tips
+  (`tip-staff-line-clearance` 0.45 half-sp = **0.225 sp**). A short tie sitting in a space gets
+  `center_tie_vertically()` — the whole arch is translated so the midpoint of (tip, apex) lands on
+  the space's centre. ⭐ The agent's own summary of the risk: an implementation that ports the shape
+  formula but not the search *"will produce ties that sit on staff lines"*. **That is us.**
+- **MuseScore — a three-pass repair.** `adjustY` (`:2392`): if an endpoint protrudes less than
+  `badIntersectionLimit` **0.15 sp** through a line, both endpoints move together to clear it; then
+  the *arc* is either fattened or flattened (whichever moves less, up to `0.75 × tieHeight`) to keep
+  the apex off a line; and a *small* tie (< 2.0 sp long, < 0.7 sp tall) is translated whole into a
+  staff space rather than deformed. Ledger lines get their own pass at a **0.4 sp** margin.
+- **Verovio — nothing, deliberately.** It subtracts the staff-line width from its height constant
+  and stops there.
+- **ours — nothing at all.**
+
+⭐ This is the one place where an engine majority, the book, and our own absence line up, and it is
+**new work, not a constant**: it wants a small vertical search (our tie's y is a single derived
+number today), not a tweak.
+
+### 13.5 DIRECTION — what we shipped, checked against all three
+
+| | single note | multi-voice | **two opposite stems** | chord |
+|---|---|---|---|---|
+| **ours** | away from the drawn stems, **both ends** | voice parity (upper over, lower under) | ⭐ away from the **clef's middle line** (Gould p. 64) | outward by position |
+| LilyPond | opposite the stem; both up → down; both down → falls through | `\voiceOne/\voiceTwo` pin it outright | **UP**, by fall-through to `neutral-direction`, *"And why not return UP if both stems are DOWN?"* says its own source comment | `Tie_column`: bottom DOWN, top UP, seconds pushed apart, then the optimiser |
+| MuseScore | `!primaryChord->up()` — the **START** chord only | **with** the stem (`chord->up()`) | **always UP** (`:3082–3083`) | pivot on a second/unison, else count ties above vs below |
+| Verovio | opposite the stem — the **START** note only | layer direction, i.e. **with** the stem | **not handled** — the end note's stem is never read | `PositionInChord`: lower half below, upper half above, middle away from the stem |
+
+✅ **Our multi-voice rule matches both engines**: upper voice ties above = its stem side, lower voice
+below = its stem side. ✅ **And we read both ends where MuseScore and Verovio read only the start** —
+only LilyPond does what we now do.
+⚠️ **But nobody implements Gould's middle-line tiebreak.** All three answer the opposite-stem case
+with a flat *up*, and LilyPond's source questions its own answer in a comment. Ours follows the book
+instead. ⛔ Not a defect and not to be "fixed" — recorded so a future session knows we are alone
+there on purpose.
+🚨 One thing **not** to copy: Verovio's `isAboveStaffCenter` fallback is **dead code** — it compares
+the staff's top line against its centre and is unconditionally true (`src/tie.cpp:194`).
+
+### 13.6 THICKNESS — we are the heaviest, but inside a real range
+
+| | tip | middle |
+|---|---|---|
+| **ours (measured)** | **0.10** | **0.30** |
+| Bravura | 0.10 | 0.22 |
+| LilyPond | 0.08 | 0.17 |
+| Verovio | 0.05 | 0.25 (its **slur** is 0.30) |
+| MuseScore | 0.05 | 0.21 nominal, ≈**0.29 drawn** |
+
+⚠️ **So §12 Phase 4's "one constant → 0.22" is downgraded from PUBLISHED to a taste call inside a
+published range.** MuseScore's *drawn* middle is 0.29, within a hair of our 0.30; the field spans
+0.17 to 0.30 and we are at its top edge, not outside it. ✅ Our one-weight-for-both decision is
+confirmed correct — LilyPond and MuseScore use identical numbers for tie and slur, and only Verovio
+draws its tie **thinner** than its slur.
+
+⭐ A technique worth stealing whatever we choose: Verovio's `GetBezierThicknessCoefficient`
+(`boundingbox.cpp:945`) **narrows the fill by the stroke width** so that fill + outline equals the
+nominal midpoint thickness exactly. Ours simply adds the two (0.20 fill + 0.10 outline = 0.30), which
+is why our number is a third above its own nominal.
+
+### 13.7 THE THINGS WE HAD NEVER ASKED
+
+- **A tie can claim horizontal space, and ours claims none.** MuseScore reserves `minTieLength`
+  **1.0 sp** (`minHangingTieLength` 1.5) in its spacing pass; Verovio pushes the second note right to
+  guarantee `tieMinLength` **1.0 sp**, but only when a chord or a flag is involved. LilyPond
+  deliberately does **not** — it has no rod and merely demerits a short tie (weight 26, its largest
+  single-tie penalty).
+- **The broken tie: all three draw two independent flat arcs**, each shaped from its own length, and
+  none makes the halves match. So Gould's *"keeps its symmetrical shape"* is satisfied by symmetry
+  *within* each half, which is what ours does too. ✅ Our Phase 3 migration is still worth doing, but
+  for the **weight** mismatch (`StaveTie`'s 4px belly against our 2.7), not the shape.
+- **Chord ties: we sit at Verovio's level, which is the floor.** LilyPond scores tie-vs-tie
+  collisions (penalty 25 within 0.45 sp, monotonicity 100); MuseScore has
+  `resolveVerticalTieCollisions` (0.15 sp clearance, snapping the pair's midpoint to a half-line);
+  **Verovio has none, and its own comment admits inner ties can overlap.** Ours likewise.
+- **Both other engines have l.v. / partial ties as first-class objects** (`LaissezVibrerTie`,
+  `LaissezVib`, `PartialTie`, `Lv`). Our `toggleTie` already ties into a rest for let-ring, so we
+  have the model without the engraving.
+- **MuseScore masks ties**: `maskTies` true — a tie punches a hole in itself where a clef, key or
+  time signature crosses it (`masklayout.cpp:371–431`).
+
+### 13.8 ⏭️ WHAT THIS CHANGES IN §12
+
+1. **Phase 3 loses its height half — his call (§13.1).** What remains is real but smaller: migrate
+   the broken tie off raw `StaveTie` so it stops changing weight at a system break.
+2. **Phase 4 is downgraded** from a published correction to a taste call inside a 0.17–0.30 range
+   (§13.6).
+3. **A new phase enters, and it outranks both**: staff-line clearance (§13.4) — the majority
+   behaviour, the thing Gould's sentence is actually about, and the only one that needs new machinery
+   rather than a new number.
+4. ⛔ **Three things are now settled and must not be re-opened**: the tie's height (his call), the
+   0.20 sp endpoint lift (already correct), and one weight shared with the slur (confirmed by two
+   engines and Bravura).
