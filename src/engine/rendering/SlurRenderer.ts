@@ -18,6 +18,7 @@ import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
+import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs.
@@ -379,6 +380,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     //  - otherwise (single voice) follow the stems, notehead-side (Gould): stems up →
     //    slur below, stems down → slur above. VexFlow getStemDirection() is 1 (up) /
     //    -1 (down), which maps directly onto our +1 (below) / -1 (above).
+    //    ⭐ Read across EVERY note the slur covers (`./slurDirection`), not just its first —
+    //    LilyPond, MuseScore and Verovio all scan, and a one-note sample makes the answer
+    //    depend on which end you started from.
     const fromMeasureData = score.measures.find(m => m.number === fromMeasure)
     const startSlot = fromMeasureData?.slots.find(
       s => s.type === 'chord' && (
@@ -389,9 +393,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     const multiVoice = fromMeasureData
       ? new Set(fromMeasureData.slots.map(s => voiceOf(s))).size > 1
       : false
+    // The stems as DRAWN, over the whole span: a beam forces its group's direction, so the model's
+    // answer and VexFlow's differ. A covered chord that was not rendered contributes nothing.
+    const coveredStems = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
+      .map(id => pass.staveNoteMap.get(id)?.staveNote.getStemDirection?.())
+      .filter((d): d is number => d !== undefined)
     const autoDir = multiVoice
       ? (slurVoice % 2 === 0 ? -1 : 1)
-      : (fromEnd.stemDirection === 1 ? 1 : -1)
+      : slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.stemDirection])
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
       : autoDir
