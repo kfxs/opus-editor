@@ -581,6 +581,11 @@ job of **draggable handles (Phase 7)**, not more constants — this is exactly t
 already learned (see 9.2). Do not re-litigate the formula; improve it only via genuinely
 context-free best-practices (like span-scaling) or move the work into handles/collision passes.
 
+⏭️ **§11 (2026-08-15) reopens this with evidence rather than another iteration.** The four attempts
+above were tuned by eye against no reference; three engines have since been read at source, and the
+one thing they agree on is that #4's *structure* is right (a symmetric arc rotated onto the chord)
+while its *numbers* are ours alone. Read §11 before touching a constant here.
+
 ### 9.2 What the industry does
 
 All three editors model a slur as a **cubic Bézier with editable control points** — the same `cps`
@@ -624,17 +629,26 @@ collision avoidance. So:
 - **Collision avoidance** (MuseScore-style iterative nudging around noteheads/beams/articulations) is a
   large, separate future project; explicitly out of scope.
 
-### 9.4 Our current calibration (the only knobs; `VexFlowRenderer.ts`)
+### 9.4 Our current calibration (the only knobs; `rendering/SlurRenderer.ts`)
 
-| Constant | Value | Role |
-|---|---|---|
-| `SLUR_BOW` | 9.3 | base arch height; short slurs ≈ the old quadratic peak (`LIFT + 0.75·H ≈ 17px`) |
-| `SLUR_BOW_PER_PX` | 0.06 | arch height grows with horizontal span (Gould: longer → taller) |
-| `SLUR_BOW_MAX` | 22 | ceiling so long slurs don't balloon |
-| `SLUR_THICKNESS` | 1.5 | `renderCurve` return-pass offset = mid-body swell |
-| `SLUR_OUTLINE` | 1 | pinned stroke width around the curve (sharp tips, not inherited-thick) |
-| `SLUR_LIFT` | 10 | gap from notehead to the arc endpoints |
-| `SLUR_ARC` | 14 | cross-system half-arc apex rise above its endpoint line |
+⚠️ **This table said `VexFlowRenderer.ts` and listed two constants that no longer exist** — the
+slur code moved to its own module and the weight moved again, to `rendering/curveArc.ts`, shared
+with ties. Corrected 2026-08-15.
+
+| Constant | Value | in staff spaces | Role |
+|---|---|---|---|
+| `SLUR_BOW` | 9.3 | 0.93 | base arch height (a cubic's apex is 0.75·H) |
+| `SLUR_BOW_PER_PX` | 0.06 | 0.06 /sp | arch height grows with span (Gould: longer → taller) |
+| `SLUR_BOW_MAX` | 22 | 2.2 | ceiling so long slurs don't balloon — ⭐ the CAP is Gould's (*"the curve of a long slur is flattened"*, p.109); the GROWTH is not, see §11.7 |
+| `SLUR_LIFT` | 10 | 1.0 | gap from notehead to the arc endpoints |
+| `SLUR_ARC` | 14 | 1.4 | cross-system half-arc apex rise above its endpoint line |
+| `SLUR_NEST_GAP` | 10 | 1.0 | extra bow height per nesting level |
+| `CURVE_THICKNESS` | 2.7 | 0.27 | in `curveArc.ts`, **shared with ties** — one weight, only the arch differs |
+
+⚠️ **They are written in PIXELS and behave as staff spaces**, because the drawing runs inside the
+staff's own `scale(k)` group where 10 px = 1 space at default size. It works, but they are the only
+geometry in the renderer that does not *say* what unit it is in — which is why §11's comparison had
+to convert every one of them by hand. Worth restating in spaces regardless of what §11 changes.
 
 Shape math lives in `slurArchCps(p0, p1, direction)` (vertical-above-chord-line + span height) and the
 draw/sample in `drawSlurArc(...)` (calls `renderCurve`, then reconstructs the cubic for the bbox +
@@ -666,3 +680,588 @@ session — see `docs/multi-voice-plan.md`):
   (V1 blue / V2 green) not orange. `Slur.voice` is unreliable (created 0 historically), so the
   highlight derives the voice from the start note. Group-scoped recolor + dual fill+stroke override
   unchanged.
+
+---
+
+## 11. 🔎🔎 THREE ENGINES READ AT SOURCE (2026-08-15) — ⛔ don't redo this
+
+His call, and the reason: *"lets think in the slur and the curve we are selecting as default, i
+think we got this number by trial and error… i think sometime the curve should take into acount the
+entonation or shape of the melody and it maybe behaive diferent on up or down of the stem."* Three
+agents read LilyPond, MuseScore and Verovio C++ in parallel, each blind to the others. A fourth is
+reading the published treatises (Gould, Ross, Stone, Read, Chlapik) and **has not reported yet** —
+§11.7 lists what is still waiting on it.
+
+### 11.1 ⭐⭐ THE CONTOUR QUESTION — the answer is no, unanimously, and it is not the obvious no
+
+**No engine has a melodic-contour concept.** There is no rising/falling/arch/valley classifier
+anywhere in any of the three. Contour reaches the shape by exactly two routes:
+
+1. **The two ENDPOINTS tilt it.** All three place each end at its own note and let the chord between
+   them be the axis. Verovio is the clearest: it computes `atan2(p2.y − p1.y, …)`, rotates the curve
+   so the chord is horizontal, builds a **symmetric** arc, and rotates back — *a slur is a horizontal
+   slur rigidly rotated onto the line between its ends.* LilyPond's `musical_dy_` is literally
+   `y(last head) − y(first head)`. ⭐ **So an ARCH and a VALLEY with the same first and last notes get
+   identical curves in all three.**
+2. **INTERIOR notes push it — but as INK, not as pitch.** They enter only as bounding boxes that
+   collide with the drawn ribbon. A contour that happens not to collide gets no response at all.
+
+⭐ **The one exception, and it is worth having**: MuseScore's *"float along the stem"* rule
+(`slurtielayout.cpp:683–721`, its comment says `// see for example Gould p. 111`) — when the two
+chords have **opposite** stem directions and the slur is on the stem side of one, that endpoint
+slides along its stem by **half** the vertical distance between the two slur-side notes, clamped at
+the stem end + 1 space. That is a published rule in which the melodic interval directly moves an
+endpoint.
+
+**We already do route 1** (`slurArchCps` adds `±0.25·dy` so the arch follows the chord) and **nothing
+of route 2** — no interior note can affect our curve. That is the real gap, and it is a large one.
+
+### 11.2 ⭐⭐ THE DIRECTION QUESTION — two separate answers
+
+**(a) Which SIDE: scan every note, and we did not.** All three scan the whole span; ours read the
+START note's stem alone.
+
+| engine | rule |
+|---|---|
+| LilyPond | `Slur::calc_direction` — `d = DOWN`; over every note column, `if (!has_rests(col) && dir(col) == DOWN) { d = UP; break; }` |
+| MuseScore | `computeUp` — `setUp(!startCR->up())`, **then** `else if (isDirectionMixture(chord1, chord2, ctx)) setUp(true)`, walking every chord between |
+| Verovio | `CalcSlurDirectionFunctor` — `if (system->HasMixedDrawingStemDir(start, end))` force above |
+
+⭐ MuseScore's first line **is** our whole rule, so ours was theirs minus the scan. ✅ **BUILT
+2026-08-15** as `rendering/slurDirection.ts` (`slurSideFromStems` + `coveredChordIds`), reading the
+stems VexFlow actually DREW (beaming forces a group, so the model's answer differs) and scoped to the
+slur's own lane — MuseScore scopes the same scan by `c1->track()`. The voice-parity rule (§10) still
+outranks it. ⚠️ The **mixed → above** tie-break is provisional: three implementations agreeing is not
+a published rule, and the literature agent is still out. One line, one test.
+⚠️ Untouched and still arbitrary: **no stems anywhere** (a slur between two whole notes) returns
+above. Verovio answers that from the pitch (`isAboveStaffCenter`); LilyPond would say below.
+
+**(b) Is an above-slur a MIRROR of a below-slur? The arc is; the problem is not** — and both
+LilyPond and MuseScore say so independently. The Bézier arithmetic is a pure `±1` sign flip in all
+three. What is not mirrored:
+
+- **the attachment**: notehead side vs stem tip depends on whether the slur's side *agrees* with the
+  stem, so the same slur attaches at a stem tip on one chord and a notehead on another. MuseScore:
+  notehead side is 0.9 sp out, stem side is 0.5 sp **inside** the stem tip;
+- **the horizontal stem dodge** lands on the start for stem-up and the end for stem-down (MuseScore
+  `672–681` vs `807–819`) — mirrored only under the *combined* up↔down **and** start↔end flip;
+- **which note of a CHORD is the anchor** (top for an up-slur, bottom for a down-slur), which changes
+  LilyPond's `musical_dy_` itself, so above and below can differ by more than a reflection;
+- LilyPond has one scoring rule that is **point**-symmetric rather than mirror-symmetric: an up-slur
+  gets a 5× discount for cutting the LEFT edge's stem, a down-slur the RIGHT (`slur-configuration.cc:295–302`).
+
+**We do (b) correctly already** — `slurEndpointY` attaches at the notehead on the notehead side and
+the stem tip on the stem side — but with no inset numbers of our own to compare.
+
+### 11.3 ⭐⭐ THE HEIGHT LAW — three serious engines, three different answers
+
+Drawn apex in staff spaces (a cubic's apex is 0.75 × control height in all four, so these are
+comparable):
+
+| slur width | LilyPond | Verovio | MuseScore | **ours** |
+|---|---|---|---|---|
+| 4 sp | 0.64 | 0.60 | 0.75 | **0.88** |
+| 8 | 0.96 | 1.13 | 1.06 | **1.06** |
+| 16 | 1.21 | 1.13 | 1.50 | **1.42** |
+| 32 | 1.35 | 1.13 | 2.12 | **1.65** |
+| 64 | 1.42 | 1.13 | 3.00 | **1.65** |
+
+- **LilyPond** — `slur_height(w) = h_inf · (2/π)·atan(π·r₀·w / 2h_inf)` (`bezier-bow.cc:28–38`), with
+  `height-limit` **2.0** and `ratio` **0.25**. Linear with slope `ratio` at small widths, asymptotic
+  to `height-limit`. The authors state that intent in a comment. (`PhrasingSlur` uses ratio 0.333.)
+- **Verovio** — `clamp(dist/5, 1.2, 3.0)` MEI units = `clamp(w/5, 0.6, 1.5)` sp, × `slurCurveFactor`
+  (default 1.0). **Saturates at 7.5 sp and never grows again.**
+- **MuseScore** — `sqrt(d/4)` spatia, **unclamped**: a 64-space slur arcs 3 spaces high. (Its TIES
+  *are* clamped, `tieMinShoulderHeight` 0.3 / `tieMaxShoulderHeight` 2.0 — slurs are not.)
+- **ours** — `min(0.93 + 0.06·w, 2.2)`, i.e. a floor plus a slope. We are the only one with a
+  non-zero intercept, and we are taller than LilyPond and Verovio at every width.
+
+⏭️ **No decision taken.** There is no consensus to adopt, so this is a taste call and the treatises
+may or may not settle it. ⛔ Do not "fix" our numbers to any one engine's on the strength of this
+table alone.
+
+### 11.4 The INDENT — a second shape knob we do not have
+
+How far in the control points sit, as a fraction of the span, decides the shoulders independently of
+the height:
+
+- **ours**: fixed `w/4` each side (so the inner pair spans half the chord), at every length;
+- **LilyPond**: grows and then saturates around 3–4 sp absolute — its comment says a fixed fraction
+  *"gives a certain hookiness at the end"* on long slurs (`bezier-bow.cc:78–104`);
+- **Verovio**: `dist/6` for short slurs sliding to `dist/3` for long ones, via `baseVal = 8 − log₂(ratio)`;
+- **MuseScore**: a four-branch step table on length — 0.60 / 0.5 / 0.6 / 0.7 of the chord.
+
+So all three vary it with length and we do not. On a 32-space slur our control points sit 8 spaces in
+where LilyPond's sit ~2.9 — a visible difference in the shoulders at identical height.
+
+### 11.5 ⭐ THE SLANT RULES — the actionable part, and the one place they agree in substance
+
+LilyPond never computes a slant; it enumerates candidate endpoint pairs on a half-space grid out to
+`region-size` 4 sp, scores each, and takes the cheapest. But its scoring *states* the rules, and they
+are implementable directly against a formula:
+
+| rule | constant | forbids |
+|---|---|---|
+| `steeper-slope-factor` | 50 | the slur rising **more** than the first-to-last interval does (+0.2 sp) |
+| `same-slope-penalty` | 20 | the slur leaning **against** the melody |
+| `non-horizontal-penalty` | 15 | a tilted slur when the two end notes are level |
+| `max-slope` | 1.1 (≈48°) | a diagonal stroke |
+
+Verovio's equivalent is a single `slurMaxSlope` = **60°**, enforced by *raising the lower endpoint*
+rather than rotating (`GetAdjustedSlurAngle`). MuseScore has **no global slant clamp at all** — only a
+45° `STEEP_LIMIT` that biases which endpoint moves during collision avoidance.
+
+⚠️ **We have none of these.** `slurArchCps` tilts by `±0.25·dy` with no bound and no relation to the
+melodic interval. ⭐ Two small findings worth keeping: LilyPond's `max-slope` term is **added twice**
+(lines 495–498 and 509–512 are identical — effectively factor 20, and it looks like a copy-paste
+slip); and its manual's descriptions of `non-horizontal-penalty` and `same-slope-penalty` are
+**swapped relative to the code** — trust the code.
+
+⭐ And Verovio has a genuine slant→shape coupling we could copy cheaply: `GetMinControlPointAngle`
+raises the minimum control angle from 30° by up to +15° in proportion to how steeply the slur is
+tilted, scaled by a length factor that is full below 4 sp and zero above 8 — **a short, steeply
+tilted slur is deliberately made rounder.** Nothing does the reverse.
+
+### 11.6 INTERIOR NOTES — what "collision avoidance" actually costs
+
+All three have it; we have none. Their shapes differ, which matters if we ever build one:
+
+- **LilyPond** — no repair pass at all: candidates are *scored* against every covered head and stem
+  (`head-encompass-penalty` **1000** is a veto; `stem-encompass-penalty` 30 is a strong preference),
+  plus a `head-slur-distance-factor` **variance** term that rewards an *even* distance from all
+  covered heads. Interior notes can only ever raise the arc, and only symmetrically (`fit_factor`).
+- **MuseScore** — an **iterative** solve, up to **30 iterations**, alternating *even iterations
+  deform the shape / odd iterations move the endpoints*, with a `balance` per end deciding which
+  gives. The slur is sampled as 20 rectangles, collisions localized to left/mid/right thirds, and a
+  third-collision moves that shoulder a full step and the other **half** a step — so its arch really
+  does become **asymmetric**, which is the one thing LilyPond refuses to do.
+- **Verovio** — a **single feed-forward pass**: filter obstacles, maybe switch to a secondary
+  endpoint, shift endpoints, offset control points horizontally, then solve a set of linear
+  constraints `3(1−t)²t·x + 3(1−t)t²·y ≥ intersection` (the Bézier's own sensitivity to each control
+  point) and walk out along the averaged normal. No loop; nothing re-checks an over-correction.
+
+### 11.7 ⭐⭐ WHAT THE BOOKS SAY — Gould, Gedan, Ross (2026-08-15) — ⛔ don't redo
+
+A fourth agent read the published literature. **Obtained**: Gould, *Behind Bars* (full OCR + page
+scans, `archive.org/details/behind-bars-by-elaine-gould`); Gedan, *Notenschrift für Fortgeschrittene*
+(German, PDF); Byrd, *Music Notation by Computer* (1984); the notat.io engravers' forum; SMuFL/Bravura.
+**Not obtainable** (lending-restricted, so *unknown* rather than silent): **Ross**, **Read**, **Stone**,
+**Chlapik**, and Boosey & Hawkes' house manual. ❌ **MOLA's guidelines are genuinely silent** — checked
+in full, no slur or tie content at all.
+
+**⭐⭐ THE DIRECTION SCAN IS GOULD'S RULE, and so is the tie-break.** Both were built on three
+implementations agreeing; the book says both outright.
+
+> p. 112: *"**Take all the notes within the slur into account** when determining whether the slur goes
+> above or below the stave — do not swap position between systems."*
+> p. 110: *"When all stems within the slur are in the same direction, the slur is usually placed
+> between the outer noteheads."* … *"When groups of **mixed stem direction** are encompassed by a
+> slur, place the slur **above the stave**, except when a beam may be in the way."*
+
+✅ So §11.2a's provisional flag is **cleared**: mixed → above is published, and the scan is the rule
+rather than an implementation detail three engines happened to share. ⏭️ *"except when a beam may be
+in the way"* is a further exception none of the three engines implements and we do not either.
+
+**✅ AND THE STEMLESS CASE TURNS OUT TO BE BUILT ALREADY.** p. 110: *"For **stemless notes**, place
+the slur as if the notes were stemmed (a). Slurs for **notes on the centre line** … are **usually
+treated as if the notes had down-stems** (b)."* Verovio does this explicitly (`isAboveStaffCenter`).
+⭐ We get it for free and had not noticed: a whole note draws no stem but `NoteBuilder` still assigns
+it a stem **direction** from its pitch, so `getStemDirection()` answers like any other note and the
+pitch decides. **Measured through the real render pipeline** (2026-08-15, `e2e/slur.e2e.ts`): two
+high whole notes slur ABOVE, two low ones slur BELOW. ⚠️ So the `[]` branch of `slurSideFromStems`
+is a defence, NOT our stemless rule — it fires only when a covered chord is missing from
+`staveNoteMap` entirely. ⛔ Do not "implement the stemless case"; it is done, and a second rule would
+fight the first.
+
+⚠️ A trap worth recording: a bare `new StaveNote(...)` reports stem direction **1 for every pitch**,
+so a headless check of this agrees with itself and proves nothing. It had to be measured in the
+browser for exactly that reason.
+
+**🚨 GOULD SAYS A LONG SLUR IS FLATTER, NOT TALLER — and §9.4's comment claims the opposite.**
+
+> p. 109: *"**The curve of a long slur is flattened** in order to be as close to the stave as
+> possible. In fact, **a long slur may be completely flat in the middle**, since a rounded one
+> extends too far from the stave."*
+
+Our `SLUR_BOW_MAX` comment says *"(Gould: longer → taller, capped)"*. The *cap* is hers; the
+*growth* is not — she never says a longer slur arcs higher, and MuseScore's unbounded `sqrt(d/4)`
+(§11.3) is flatly against her. ⭐ It also means our capped law and LilyPond's asymptote are the two
+that agree with the book, and the practitioner table below saturates the same way.
+
+**⚠️ GOULD GIVES NO SLUR ARC HEIGHT AT ALL** — no minimum, no maximum, no ratio, and no slur
+thickness either (she specifies thickness for beams, hairpins, tenuto lines, barlines, ledger lines
+and rests, but for slurs only *"tapered arc"*). The numbers that exist are a working engraver's
+(John Ruggero, notat.io t=107), and they are worth having because they are a *length→height table*:
+
+| span | height | control-point inset |
+|---|---|---|
+| short | 0.7 sp | 30% |
+| medium | 2 sp | 25% |
+| long | 3 sp | 20% |
+| extra long | 3.25 sp | 18% |
+
+Note both trends: height **saturates** (3 → 3.25) and the inset **falls** with length — which is
+§11.4's indent, moving the way LilyPond and Verovio move it and we do not.
+
+**⭐⭐ THE SLANT RULES ARE PUBLISHED — Gedan, not just LilyPond.** §11.5 asked whether they had a
+source; they do, and it is explicit about the two failure modes:
+
+> Gedan p. 17: *"Gleichzeitig müssen sie **dem Melodieverlauf folgen**."* (they must follow the
+> melodic line), with two labelled faults: *"[c] Die Melodie bewegt sich abwärts, der Bogen aber
+> bleibt horizontal"* (the melody descends but the slur stays horizontal) and *"[b] Die Bogenrichtung
+> **widerspricht** dem Melodieverlauf"* (the slur's direction contradicts the melodic line).
+
+Those are exactly LilyPond's `non-horizontal-penalty` and `same-slope-penalty`. ✅ Both have an
+authority. ❌ **A maximum slant does not** — no source gives one, so LilyPond's `max-slope` 1.1 and
+Verovio's 60° are inventions. Gedan's only remedy for extreme cases is qualitative: *"Man bringt die
+Spitzen solcher Bögen auf **Distanzposition**"* (move the tips away from the noteheads to soften the
+difference), and practitioners report hand engravers shifting a steep slur **half a notehead**
+sideways (notat.io t=861, from Cortot's and Mikuli's Chopin).
+
+**⭐ MuseScore's `// see for example Gould p. 111` checks out**, verbatim:
+
+> p. 111: *"When outer notes have opposite stem directions, move the slur at the stem end towards the
+> noteheads **so it does not tilt contrary to the direction of the pitches**."*
+
+**⭐⭐ AND THE BROKEN-SLUR RULE SAYS OUR CONSTANT IS WRONG.**
+
+> p. 112: *"**The whole slur should tilt in the direction of the pitches.** A slur starting on the
+> last note of a system or finishing on the first note of a system must be **angled in the direction
+> of the final pitch** on the new system, so as to look clearly open-ended (this differentiates an
+> open-ended slur from an open-ended tie)."*
+
+We use a flat `SLUR_ARC` = 1.4 sp rise for every half-arc, with no reference to pitch. Verovio does
+implement this (`ConsiderMelodicDirection`, `pitchDiff × 0.25 sp` per diatonic step); LilyPond
+explicitly switches all melodic slope rules **off** for a broken half. ⏭️ Ours is the one that has no
+opinion at all, and Gould says it should.
+
+### 11.8 ⭐⭐ TIES ARE A DIFFERENT SHAPE — and ours is far too flat
+
+The books are much more prescriptive about ties than slurs, and the difference is load-bearing:
+
+> p. 60: *"A tie is a **tapered arc, symmetrical in shape**"* … *"**ties tend to have a flatter arc,
+> to allow room for slurs and to differentiate the two**"* … *"The tie extends from notehead to
+> notehead: **if one or both ends point to a stem, the arc becomes a slur**."*
+> p. 68: *"A tie by nature should be **kept as flat as possible**, to distinguish it from a slur."*
+> p. 65 (system break): *"the open-ended tie **keeps its symmetrical shape**. This symmetrical curve
+> ensures it is not mistaken for a slur nor a glissando line"* — the "not" example is labelled
+> **"ties too flat"**.
+
+⭐ So the slur/tie split we already have is the published one: **a slur tilts, a tie stays level and
+symmetrical**, and a tie never touches a stem.
+
+🚨 **But the one number she gives says our tie is 2.5–3.75× too flat:**
+
+> p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
+> stave-line**. Ideally, **a shallow tie is 1–1½ stave-spaces deep**."*
+
+Ours is `TIE_BOW` 0.53 sp of control height → a drawn apex of **0.40 sp**. And a working engraver
+independently reports the same failure in Finale's defaults — Knut, notat.io t=107: ties whose curve
+spans *"only a single space in height"* are too flat. ⚠️ Our tie also has **no length dependence at
+all**, where Gould has three regimes: under a space when very short or when flattened to clear
+another part; 1–1½ normally; and *"the curve of a long tie is flattened to prevent excessively
+variable curve heights between ties."* ⏭️ Unbuilt; the single most actionable number in this whole
+section.
+
+Other tie rules we should check ourselves against, all Gould, all verbatim: *"The tie should almost
+touch each notehead"* (p. 61); *"the tie starts and finishes at the centre of the notehead"* where
+there is room, aligning with its **edge** when it must come closer (p. 62); *"A tie curves away from
+the stems"* and, for consecutive opposite stems, *"**Ties curve away from the middle stave-line**"*
+(p. 64); double-stemmed parts take *"the upper part … upward-curving ties, the lower part
+downward-curving"* (p. 67); and with a slur present, *"place **ties and slurs in opposite
+directions**"* (p. 71).
+
+### 11.9 The other numbers the books gave, against ours
+
+| quantity | published | ours |
+|---|---|---|
+| slur endpoint ↔ notehead centre, **minimum** | **½ sp** (Gould p. 110) | `SLUR_LIFT` 1.0 sp — above her floor, fine |
+| slur endpoint ↔ staff line | ¼ sp, must not touch (Dorico docs, and Gedan states the rule) | ⏭️ we have no such rule |
+| slur/tie thickness at the **tip** | **0.10 sp** (Bravura `slurEndpointThickness`) | — |
+| slur/tie thickness at the **middle** | **0.22 sp** (Bravura `slurMidpointThickness`) | `CURVE_THICKNESS` 0.27 sp, a **single** value — no taper, and heavier than the published midpoint |
+| long slur endpoints | *"Long slurs always start and end over or under the **centre of a notehead**"* (Ross p. 141, via notat.io t=861 — the one sentence recovered from Ross) | we attach at the tie edges |
+
+### 11.10 ⏭️ WHAT IS STILL OPEN AFTER ALL FOUR
+
+- **Arc height**: no consensus and no published number for slurs. Gould says long ⇒ flatter, which
+  rules out MuseScore's unbounded law but not much else. Our floor-plus-slope-capped shape is
+  defensible; the constants are still ours alone.
+- **Interior notes**: §11.6. All three engines have collision avoidance and we have none; the books
+  state the *constraints* (*"always remain outside a beam"*, *"must not obscure a ledger line"*,
+  *"all notes must appear to be included in a slur"* p. 322) but never say interior notes shape the
+  arc. A large, separate project.
+- **The tie height number** (§11.8) — small, concrete, and the clearest single improvement available.
+- **The broken-slur tilt** (§11.7) — Gould is explicit and we have a constant.
+- **Taper** — Bravura's 0.10/0.22 against our single 0.27. §9.3's "dual-thickness taper" gap, now
+  with numbers.
+- ❌ **Not open, because no authority exists**: a maximum slant.
+
+### 11.11 ⏭️⏭️ THE SHORTLIST — what the research says we could improve, ranked
+
+Everything here is *unbuilt*. Each row names the published rule, the file, and an honest size. ⛔
+Nothing in this list was decided; it is the analysis input, not a plan.
+
+| # | what | the rule, and who says it | where | size |
+|---|---|---|---|---|
+| 1 | **Tie arc height** | Gould p.61: *"a shallow tie is **1–1½ stave-spaces deep**"*, under a space when very short or squeezed, flattened when long. Ours: a flat **0.40 sp** apex with **no length dependence at all** | `TieRenderer.TIE_BOW` | **small** — one constant, or three regimes |
+| 2 | **Slant rules** | Gedan p.17 (*must follow the melodic line*; a horizontal slur over a descending melody is a labelled fault) + LilyPond's `same-slope-penalty` / `non-horizontal-penalty` / `steeper-slope-factor`. Ours tilts by `±0.25·dy`, **unbounded and unrelated to the interval** | `slurArchCps` | **small** — three clamps on a number we already compute |
+| 3 | **Broken-slur tilt** | Gould p.112: *"must be **angled in the direction of the final pitch** on the new system"*. Verovio: `pitchDiff × 0.25 sp` per diatonic step. Ours: a flat `SLUR_ARC` 1.4 sp, no pitch input | `SlurRenderer` BEGIN/END segments | **small–medium** |
+| 4 | **Taper** | Bravura: **0.10 sp** at the tip, **0.22 sp** at the middle. Ours: one `CURVE_THICKNESS` 0.27, heavier than the published *midpoint* and with no taper. ⚠️ VexFlow's `Curve` cannot do it (§9.3) — needs a self-rolled tapered cubic | `curveArc.ts` | **medium** |
+| 5 | **Height law + indent** | No consensus: LilyPond `h_inf·(2/π)atan(π·r₀·w/2h_inf)` asymptotic to 2.0; Verovio saturates at 1.5; MuseScore unbounded `sqrt(d/4)`; a working engraver's table saturates at ~3. ⭐ Gould only constrains the *direction*: *"the curve of a long slur is **flattened**"*. Our indent is a fixed `w/4` where **all three vary it with length** | `slurArchCps` | **medium**, and a taste call |
+| 6 | **Constants in pixels** | Hygiene, not engraving: `SLUR_*` and `TIE_*` are px that behave as staff spaces because the draw runs inside the staff's scale group. Every comparison in §11 had to convert them by hand | `SlurRenderer`, `TieRenderer` | **small** |
+| 7 | **Gould's beam exception** | p.110: mixed stems go above *"**except when a beam may be in the way**"*. No engine implements it; nor do we | `slurDirection` | **small–medium** |
+| 8 | **Interior notes** | All three engines have collision avoidance; we have none, so nothing between the endpoints can affect our curve. The books state only *constraints* (*"always remain outside a beam"*, *"must not obscure a ledger line"*, *"all notes must appear to be included"* p.322), never that interior notes shape the arc | new module | **large** — a project |
+
+⚠️ **Tie rules we have NOT checked ourselves against** (all Gould, all verbatim, all in §11.8): *"A
+tie curves away from the stems"*; for consecutive opposite stems *"**Ties curve away from the middle
+stave-line**"* (p.64); double-stemmed parts take upward ties in the upper voice and downward in the
+lower (p.67); with a slur present, *"place **ties and slurs in opposite directions**"* (p.71); *"the
+tie starts and finishes at the **centre of the notehead**"*, aligning with its **edge** when it must
+come closer (p.62). ⛔ Read `TieRenderer` before assuming any of these is missing *or* present.
+✅ **The first two of those are now checked and BUILT — §11.12.**
+
+⭐ **The one thing the research settled outright is already built**: the direction scan (§11.2a,
+§11.7). Everything else above is open.
+
+### 11.12 ✅ THE CODE READ BACK (2026-08-15) — and the one thing that was a BUG, not a taste call
+
+§11.11 was written from the literature inwards. Reading our own two renderers outwards against it
+turned up what the research had not been looking for. **⛔ Don't re-derive this list; the numbers in
+it were measured, not estimated.**
+
+**🚨 BUILT: the tie curved the wrong way on three clefs out of four.** `getTieDirection` decided
+from the note's **diatonic distance to the middle line** — and asked for that middle line with a
+literal `middleLineDiatonicPos('treble')`, diatonic **34**, inside a function whose `Measure`
+argument carried the clefs it needed. Bass's middle line is **22**. So on a bass staff every note
+from **D3 to A4** — nearly the whole staff — measured as *below the middle line* and curved **down**,
+which above the real middle line is the side its own down-stem already occupies: Gould p. 64
+inverted. Alto (28) and tenor (26) were wrong the same way. **There was no spec naming the function
+anywhere.** Now `rendering/tieDirection.ts` + `tieDirection.test.ts` + `e2e/tie.e2e.ts`, the twin of
+`slurDirection`, with Gould p. 64's two rules in her order: **away from the stems as DRAWN** (both
+ends — beaming forces a group, so the model's own direction is not the drawn one), and only when the
+two stems **disagree**, away from the **middle line of the clef in force**. The flip override and the
+multi-voice parity rule still outrank both. ⚠️ In the live pipeline the clef branch fires *only* for
+opposite stems — a drawn note always reports a direction — which is why it is pinned headless.
+
+**⏭️ Still open, found the same way:**
+
+| what | measured | size |
+|---|---|---|
+| **A broken tie is drawn by a DIFFERENT primitive** — same-line ties go through `drawCurveArc`, the two cross-system halves are raw VexFlow `StaveTie`s: quadratic, apex `cp1/2` = 4px (which *matches* our 0.40 sp), but a belly of `cp2−cp1` = **4px against our `CURVE_THICKNESS` 2.7**, and a `cp1Short/cp2Short` shape that swaps in silently under the short cutoff. Gould p. 65 wants the open-ended tie to keep the **same** shape. ⚠️ So §11.11 #1 has to land in **two** places | 1.5× weight mismatch | small–medium |
+| **A tie's hit-target is a padded RECTANGLE** (`elements/tie.ts`), where a slur registers 16 sampled cubic points. The one span element still selectable by the empty air under its arc | — | small |
+| **A slur attaches to whichever chord note the user anchored**, not the outer one — `slurEndpointY` uses `ys[noteIndex]`, and §11.2b records that all three engines take the top note for an up-slur and the bottom for a down-slur | — | small |
+| ⭐ **The slant faults are reachable only through the STEM-TIP attachment** — and this *replaces* §11.11 #2. `slurArchCps` lifts the arch vertically above the chord line between the endpoints, so the arc always follows the interval between whatever it attaches to: Gedan's [b] and [c] cannot come from the arc math. They come from `slurEndpointY` attaching one end at a stem tip and the other at a notehead, which can tilt a rising melody's slur downwards. That is exactly Gould p. 111 and exactly MuseScore's *float along the stem* (§11.1) — better-sourced and smaller than three clamps on `dy` | — | small |
+| **Slurs are outside the above-staff ladder** — `layout/inkBand.ts` says so in words, so a slur and a trill or ottava can share space | — | belongs with #8 |
+
+✅ **And two things turned out to be RIGHT, so ⛔ don't "fix" them**: `TIE_LIFT` 7px is 0.7 sp from
+the notehead *centre*, i.e. 0.2 sp clear of its edge — Gould's *"should almost touch each notehead"*;
+and the multi-voice parity rule (p. 67's double-stemmed parts) was already there in both renderers.
+
+---
+
+## 12. ⭐⭐ THE CURVE PLAN (2026-08-15) — what to fix, in order
+
+Everything in §11 turned into one ordered list. **⛔ Nothing here is built.** Each phase is
+independent and lands on its own; the order is by *how visible the fault is*, not by how easy.
+
+Two of the columns matter more than the numbers. **Rule** says what kind of change it is —
+`PUBLISHED` (a book or Bravura gives the number, so it is correctness and my call is enough) or
+`TASTE` (nobody publishes one, three engines disagree, so it needs HIS EYE before it lands).
+**Measured** means the "ours" figure came off drawn ink in the browser, not off the constants.
+
+| # | fix | rule | size |
+|---|---|---|---|
+| 1 | The stem-end endpoint — stop the slur contradicting the melody | **PUBLISHED** (Gould p. 111) | small |
+| 2 | Short slurs are too tall (and therefore hooky) | **TASTE** | small, one constant |
+| 3 | The tie is 2.5–3.75× too flat, in both of its two drawing paths | **PUBLISHED** (Gould p. 61) | small–medium |
+| 4 | Curve weight against Bravura | **PUBLISHED** (Bravura) — but see the hairpin note | one constant |
+| 5 | A broken slur has no opinion about pitch | **PUBLISHED** (Gould p. 112) | small–medium |
+| 6 | A maximum slant — **60°, his call**, and a short steep slur made rounder | **TASTE, no source at all** | small |
+| 7 | Four small ones: px→staff-spaces, the chord anchor, the tie's hit-target, Gould's beam exception | mixed | small each |
+| 8 | Interior notes — collision avoidance | constraints published, algorithm nobody's | **a project** |
+
+### Phase 1 — the stem-end endpoint (Gould p. 111)
+
+**The fault, measured on drawn ink:** a rising step `A4 → B4` across the middle line has mixed stems,
+so the slur goes above, attaches at A4's **stem tip** and B4's **notehead** — and **descends 3.0 staff
+spaces while the melody rises**. A rising tenth `C4 → E5` rises only **1.0 sp**. Those are Gedan
+p. 17's two labelled faults ([b] the slur contradicts the melodic line, [c] it stays horizontal under
+a moving one), reachable through ordinary music.
+
+⭐ **The arc math is not at fault and must not be touched.** `slurArchCps` lifts the arch vertically
+above the line between the endpoints, so the curve always follows the interval **between whatever it
+attaches to**. The stem tip is what substitutes a stem end for a pitch.
+
+> p. 111: *"When outer notes have opposite stem directions, move the slur at the stem end towards the
+> noteheads **so it does not tilt contrary to the direction of the pitches**."*
+
+**The change** (`slurEndpointY`, `SlurRenderer`): MuseScore's rule, whose own comment cites this page
+(`slurtielayout.cpp:683–721`) — when the two chords have **opposite** stem directions and the slur is
+on the stem side of one, that endpoint **slides along its stem by half the vertical distance between
+the two slur-side notes**, clamped at the stem end + 1 space. Applied to the two cases above: the A4
+end lands 0.25 sp above its notehead (flat-to-rising), the C4 end 2.25 sp up instead of 3.5 (the
+tenth rises 2.25 sp instead of 1).
+
+**Verify:** `e2e` — both cases above, asserting the *sign* of the tilt against the melodic interval.
+⛔ Not headless: it is stem geometry.
+
+### Phase 2 — the short-slur height (TASTE — needs his eye)
+
+Measured drawn apex, ours against all three (a cubic's apex is 0.75 × control height in all four, so
+these are comparable). Four of our five rows were measured off real paths; the 4 sp row is the
+formula, which the other four confirmed exactly.
+
+| span | **ours** | LilyPond | Verovio | MuseScore |
+|---|---|---|---|---|
+| 2.4 sp | **0.81** | 0.42 | 0.45 | 0.58 |
+| 4 | **0.88** | 0.64 | 0.60 | 0.75 |
+| 10.8 | **1.18** | 1.08 | 1.13 | 1.23 |
+| 18 | **1.51** | 1.24 | 1.13 | 1.59 |
+| 25.2 | **1.65** | 1.31 | 1.13 | 1.88 |
+
+⭐ **From medium spans up we are in the middle of the pack, and our cap agrees with Gould's *"the
+curve of a long slur is flattened"* — ⛔ don't touch that end.** The outlier is the **short** slur:
+at a two-note step we are **1.9× LilyPond, 1.8× Verovio, 1.4× MuseScore** — and short slurs are the
+commonest ones on a page. One constant causes it: the **`0.93` sp intercept**, a floor no other
+engine has.
+
+⭐ **It also causes the hookiness**, so this is one change fixing two symptoms. Our control-point
+indent is a fixed **25%** at every length (measured: 6/24, 27/108, 45/180, 63/252 px). Combined with
+the height that gives a launch angle of **61°** at 2.4 sp — nearly vertical, which is what LilyPond's
+own comment calls *"a certain hookiness at the end"* — against **19°** at 25.2 sp, a long flat middle,
+which is right. Lower the short height and the angle falls with it (≈49° at 0.7 sp apex).
+
+**His call, three options:** (a) lower the intercept only (~0.55 keeps the shape of our law);
+(b) adopt LilyPond's `h_inf·(2/π)·atan(π·r₀·w/2h_inf)`, `height-limit` 2.0 / `ratio` 0.25 — the one
+law that behaves at both ends and agrees with Gould's direction; (c) leave it. ⛔ No slur arc height
+is published anywhere, by anyone — this cannot be settled by research, only by his eye.
+
+### Phase 3 — the tie's arc, in BOTH paths (Gould p. 61)
+
+> p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
+> stave-line**. Ideally, **a shallow tie is 1–1½ stave-spaces deep**."*
+
+Ours is a **0.40 sp** apex (`TIE_BOW` 5.3 px → 0.75×) with **no length dependence at all**, where she
+has three regimes: under a space when very short or flattened to clear another part; 1–1½ normally;
+*"the curve of a long tie is flattened to prevent excessively variable curve heights between ties."*
+
+🚨 **And it has to land twice.** A same-line tie goes through `drawCurveArc`; the two halves of a tie
+crossing a **system break** are raw VexFlow `StaveTie`s — a quadratic with `cp1:8 / cp2:12`, i.e. a
+4px belly against our `CURVE_THICKNESS` 2.7. So today a tie changes weight when it crosses a break,
+and a height fix applied to one path would make them disagree about shape too. Gould p. 65 wants the
+open-ended tie to keep the **same** symmetrical shape. **Migrate the two halves onto `drawCurveArc`
+in the same phase** — the slur did exactly this in its Phase 3 and the tie was left behind.
+
+**Verify:** `e2e` — apex in staff spaces for a same-line tie and for both halves of a broken one.
+
+### Phase 4 — the weight (Bravura), and the one thing to weigh first
+
+🚨 **§11.11 #4 is wrong and this phase is not what it says.** It claims we have "one thickness, no
+taper" and calls the fix medium, needing a self-rolled tapered cubic. Read off the real emitted path:
+`renderCurve` draws a **closed lens** — an outer cubic at `cp.y`, a return at `cp.y + thickness` —
+then strokes *and* fills it. So we already taper, and one end is already exact:
+
+| | ours (measured) | Bravura |
+|---|---|---|
+| tip | **0.10 sp** (the curves meet; ink = the 1 px outline) | `slurEndpointThickness` **0.10** |
+| middle | **0.30 sp** (fill gap `0.75 × 2.7px` = 0.20, + outline 0.10) | `slurMidpointThickness` **0.22** |
+
+`CURVE_THICKNESS` **2.7 → 1.6 px** puts us on the published number at *both* ends. No new primitive.
+
+⚠️ **Weigh this against the hairpin before touching it.** He set the hairpin stroke by matching this
+curve — *"i like the stroke with this size (cause it match better with other elements, for example
+the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's middle to 0.22 moves it
+**toward** the hairpin, not away, so it should still hold together; but it is his eye's call.
+
+### Phase 5 — a broken slur must lean toward its own music (Gould p. 112)
+
+> p. 112: *"**The whole slur should tilt in the direction of the pitches.** A slur starting on the
+> last note of a system or finishing on the first note of a system must be **angled in the direction
+> of the final pitch** on the new system, so as to look clearly open-ended (this differentiates an
+> open-ended slur from an open-ended tie)."*
+
+Ours is a flat `SLUR_ARC` = 1.4 sp rise on every half-arc, identical for BEGIN and END, with no pitch
+input at all. Verovio implements her rule as `ConsiderMelodicDirection`, **0.25 sp per diatonic step**;
+LilyPond switches all melodic slope rules **off** for a broken half. We are the only one of the three
+with no opinion, and she says we should have one.
+
+### Phase 6 — a maximum slant (HIS CALL, 2026-08-15 — Verovio's 60°, provisional)
+
+> *"in this case we beguin with verovio choice… but it should not be a truth.. maybe we tweak it
+> later… but for the plan this is a good number i guess"*
+
+⚠️ **This is the ONLY constant in §12 with no published source, and the code must say so where it
+lives.** No book gives a maximum slant — LilyPond's slope 1.1 (≈48°, a scoring *penalty*, so steep
+still wins if every alternative is worse) and Verovio's 60° (a *hard* correction) are each engine's
+own invention, and MuseScore has none at all. We take **60°** because it is the number of the engine
+whose shape maths we already resemble. ⛔ The comment beside it names it as ours and provisional —
+never as an engraving rule — or the next reader (him or me) will find it in six months and treat it
+as one.
+
+⛔ **Land it AFTER Phase 1, never before.** Our worst slants today are not the music's: the stem-tip
+attachment invents them, drawing a rising second as a **3 sp descent**. A ceiling put on top of that
+would clamp a fault instead of fixing it, and would hide the evidence that the fault is there.
+
+**How to enforce it, and the trade-off.** Verovio's `GetAdjustedSlurAngle` **raises the lower
+endpoint** rather than rotating the curve — so the slur leaves its notehead. Gould gives a *minimum*
+of ½ sp from the notehead centre and no maximum, and the practitioners' remedy for a steep slur was
+to shift the tip **sideways** by half a notehead (notat.io t=861, from Cortot's and Mikuli's Chopin),
+not to lift it. So: raise the lower end as Verovio does, but cap how far it may travel from its own
+note, and record that this cap is ours too.
+
+⭐ **Same phase, and this half IS Verovio's own and worth copying outright:**
+`GetMinControlPointAngle` raises the minimum control angle from 30° by up to **+15°** in proportion
+to how steeply the slur is tilted, scaled by a length factor that is full below 4 sp and zero above
+8 — **a short, steeply tilted slur is deliberately made rounder.** Nothing in any of the three does
+the reverse. It is the only genuine slant→shape coupling anywhere in the research, and it pairs
+directly with Phase 2, which is also about the short end.
+
+**Verify:** `e2e` — a leap steep enough to trip the ceiling, and a short steep slur measured rounder
+than a short flat one of the same span.
+
+### Phase 7 — four small ones, independent of each other
+
+- **Constants in pixels.** `SLUR_*` / `TIE_*` are px that behave as staff spaces only because the
+  draw runs inside the staff's scale group. Every comparison in §11 and §12 had to be converted by
+  hand. Hygiene, not engraving — but it is why the research's "ours" column was wrong twice.
+- **The chord anchor.** `slurEndpointY` uses `ys[noteIndex]` — the pitch the user anchored to — so a
+  slur from a chord's middle note springs from inside the chord. All three engines take the **top**
+  note for an up-slur and the **bottom** for a down-slur (§11.2b), and in LilyPond it changes
+  `musical_dy_` itself.
+- **The tie's hit-target is a padded rectangle** (`elements/tie.ts`), where the slur registers 16
+  sampled cubic points. The last span element selectable by the empty air under its arc.
+- **Gould's beam exception.** p. 110: mixed stems go above *"except when a beam may be in the way"*.
+  None of the three engines implements it; `slurDirection` doesn't either.
+
+### Phase 8 — interior notes (the project)
+
+Nothing between our endpoints can affect our curve; the only thing that reshapes a slur today is
+**another slur** (`slurNestDepths`). All three engines have collision avoidance, and their algorithms
+are genuinely different — LilyPond scores candidate endpoint pairs on a grid (`head-encompass-penalty`
+**1000** is a veto), MuseScore iterates up to **30** times alternating shape and endpoints over 20
+sampled rectangles, Verovio does a **single feed-forward pass** solving `3(1−t)²·x + 3(1−t)t²·y ≥
+intersection`. See §11.6.
+
+⭐ **The books state the constraints, never the algorithm** — *"always remain outside a beam"*,
+*"must not obscure a ledger line"*, *"all notes must appear to be included in a slur"* (p. 322).
+LilyPond's 1000-point veto is that last sentence turned into a number.
+
+Two things are already in our favour when we do build it: **the obstacle boxes exist** (`layout/kerning`
+already thinks in located ink boxes, `spacingPadding` measures real extents, `ElementRegistry` knows
+where everything landed), and **our `cps` model can express asymmetry** — the two control points are
+independent `{x,y}` deltas, so MuseScore's lopsided shoulders and Verovio's horizontal offsets are
+both sayable in the data we already store and already let the user drag. Two rules it must respect: a
+**hand-edited shape opts out** (the rule the nest lift already follows), and it runs post-layout.
+
+⭐ If we build it, copy **Verovio's**: one pass, no loop, and its constraint math is written for
+exactly our shape — a cubic driven by two control points. LilyPond's moves the *endpoints*, which
+would fight the endpoint-offset override compartment.
+
+### ⚠️ The one thing on this list that research cannot check
+
+**The maximum slant is in the plan by his call (Phase 6), not by evidence** — §11.10 recorded it as
+*"not open, because no authority exists"*, and that finding has not changed: the number is ours. It
+is here as a **first cut to be tweaked by eye**, exactly like the pedal's §12 numbers, and the same
+rule applies to it as to those — ⛔ a taste number never acquires a source by sitting in the codebase
+long enough. If a future session wants to defend 60°, the honest citation is *"Verovio's default,
+adopted by him 2026-08-15"*, and nothing more.
