@@ -43,7 +43,7 @@ import { fracCompare, fracEq, fracGte } from '@/utils/fraction'
 import { hairpinLineKey, type DynamicsLinePlan } from './dynamicsLinePlan'
 import { voiceOf } from '@/utils/lanes'
 import { MARK_INK } from './dynamicsLinePass'
-import { HAIRPIN, fragmentOpening, resolveHairpinShape } from './hairpinShape'
+import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from './hairpinShape'
 import { THIN_LINE_SPACES } from './thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
@@ -168,20 +168,22 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
 }
 
 /**
- * One drawn piece of a wedge: an x range, how open the mouth is at each end (staff spaces), and
- * — the part that is easy to forget — WHICH SYSTEM it is on.
+ * One drawn piece of a wedge: an x range, WHICH SYSTEM it is on, and which fragment of the whole it
+ * is (the role that decides how far its mouth is open — {@link fragmentOpening}).
  *
  * ⚠️ `line` is here because everything vertical is a fact about the system, not about the wedge: its
  * stave, its own dynamics line, and the pixel size of a staff space. Drawing every fragment against
  * the START bar's stave puts the continuation on top of the first system, which is exactly what the
  * browser suite caught.
+ *
+ * ⚠️ And no APERTURE here, deliberately: the mouth is sized from the wedge's total DRAWN length,
+ * which is only known once every piece exists. See {@link drawWedge}.
  */
 interface WedgePiece {
   x0: number
   x1: number
-  openStart: number
-  openEnd: number
   line: number
+  role: WedgeRole
 }
 
 /**
@@ -195,8 +197,6 @@ interface WedgePiece {
  */
 function cutIntoPieces(
   pass: RenderPass,
-  hairpin: Hairpin,
-  aperture: number,
   fromLine: number,
   toLine: number,
   startX: number,
@@ -212,8 +212,7 @@ function cutIntoPieces(
         : seg.type === 'middle' ? { x0: seg.leftX, x1: seg.rightX, line: seg.line }
           : { x0: seg.leftX, x1: seg.lastX, line: toLine }
     if (range.x1 <= range.x0) continue
-    const open = fragmentOpening(seg.type, hairpin.type)
-    pieces.push({ ...range, openStart: aperture * open.start, openEnd: aperture * open.end })
+    pieces.push({ ...range, role: seg.type })
   }
   return pieces
 }
@@ -292,23 +291,41 @@ function drawWedge(
 
   // ⭐⭐ …and a little air at BOTH ends, always: a wedge never quite touches what it runs up
   // against, so two wedges that abut leave twice this between them and neither has to know the
-  // other exists (his call — see `HAIRPIN.END_INSET`).
-  const inset = px(HAIRPIN.END_INSET, from.stave)
-  startX += inset
-  endX -= inset
+  // other exists (his call — see `HAIRPIN.END_INSET`). Each end is inset against ITS OWN stave,
+  // because the two ends of a split wedge can be on differently-sized staves.
+  startX += px(HAIRPIN.END_INSET, from.stave)
+  endX -= px(HAIRPIN.END_INSET, to.stave)
   // …but never past each other: a wedge squeezed to nothing by its neighbours keeps a sliver rather
   // than turning inside out, which is what a negative width would draw.
-  if (endX <= startX) { startX = x.startX; endX = Math.max(x.endX, startX + px(1, from.stave)) }
+  //
+  // ⚠️⚠️ **Only when both ends are on the SAME SYSTEM — the two x's are otherwise not comparable.**
+  // Every system restarts at the left margin, so a wedge from late in one system to early in the
+  // next has `endX < startX` while being perfectly well-formed. Running the rescue on it replaced
+  // the END's x with a number from the START's system, and the continuation was then drawn from the
+  // left margin out to that foreign x — a fragment stretching most of the second system, and (since
+  // the two now sat a space apart) an aperture the angle cap crushed to nothing, so BOTH fragments
+  // drew as flat lines. The browser suite missed it because its fixture starts in bar 1, where
+  // `startX` happens to be the smaller number anyway.
+  if (from.line === to.line && endX <= startX) {
+    startX = x.startX
+    endX = Math.max(x.endX, startX + px(1, from.stave))
+  }
 
   // ⚠️ The aperture is decided ONCE, from the whole span, and then divided among the fragments —
   // never per fragment. Sizing each piece by its own width would open the short half of a split
   // wedge differently from the long half, i.e. two wedges rather than one broken one.
-  const lengthSpaces = (endX - startX) / from.stave.getSpacingBetweenLines()
-  const shape = resolveHairpinShape(undefined, lengthSpaces)
+  //
+  // ⭐ Which is why the pieces are cut FIRST: the length that feeds the angle cap is how much wedge
+  // is actually DRAWN — the sum of the fragments — and `endX − startX` is only that number when the
+  // span fits on one system.
+  const pieces = cutIntoPieces(pass, from.line, to.line, startX, endX, from.scale)
+  const drawnWidth = pieces.reduce((sum, p) => sum + (p.x1 - p.x0), 0)
+  const shape = resolveHairpinShape(undefined, drawnWidth / from.stave.getSpacingBetweenLines())
   if (!(shape.aperture > 0)) return
 
   const ctx = pass.context
-  for (const piece of cutIntoPieces(pass, hairpin, shape.aperture, from.line, to.line, startX, endX, from.scale)) {
+  for (const piece of pieces) {
+    const open = fragmentOpening(piece.role, hairpin.type)
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its dynamics line, its staff-space size. All three
     // are facts about the system the piece landed on, not about where the wedge began.
     const here = covered.filter(p => p.line === piece.line)
@@ -324,8 +341,8 @@ function drawWedge(
     // each end's y is the axis plus its own — never one angle about a pivot.
     const y0 = axis + px(shape.startY, stave)
     const y1 = axis + px(shape.endY, stave)
-    const h0 = px(piece.openStart, stave) / 2
-    const h1 = px(piece.openEnd, stave) / 2
+    const h0 = px(shape.aperture * open.start, stave) / 2
+    const h1 = px(shape.aperture * open.end, stave) / 2
     ctx.setLineWidth(px(THIN_LINE_SPACES, stave))
     for (const sign of [-1, 1]) {
       ctx.beginPath()

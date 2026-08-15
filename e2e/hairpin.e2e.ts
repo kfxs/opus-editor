@@ -194,6 +194,53 @@ test('⭐⭐ a wedge crossing a system break is SPLIT, and it STEPS at the break
   expect(last.open0).toBeLessThan(first.open1)
 })
 
+test('⭐⭐ a wedge starting LATE in a system does not drag its continuation across the next one', async ({ score }) => {
+  // ⚠️ The sibling test above crosses a break too — and passed through this defect for weeks, by
+  // LUCK OF GEOMETRY. Its wedge starts in bar 1, so its start x is the smaller of the two numbers
+  // and the "never past each other" rescue never fired. THIS is the shape that breaks it: the last
+  // bar of one system to the first bar of the next, where the end's x is numerically SMALLER than
+  // the start's because every system restarts at the left margin.
+  const layout = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 1; m <= 12; m++) {
+      if (m > 1) h.engine.addMeasure()
+      h.engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'w', measure: m, beat: h.frac(0, 1) })
+    }
+    await h.render()
+    const bars = window.__h.staves()
+    const secondSystemTop = [...new Set(bars.map(b => b.top))].sort((p, q) => p - q)[1]
+    const second = bars.filter(b => b.top === secondSystemTop).sort((p, q) => p.x1 - q.x1)
+    return { firstOfSecondSystem: second[0].measure, rightEdge: second[0].x2 }
+  })
+  // A second system is the premise of the test, not a thing it tolerates missing.
+  expect(layout.firstOfSecondSystem).toBeGreaterThan(1)
+
+  const drawn = await score.evaluate(async (firstOfSecond: number) => {
+    const h = window.__h
+    // Two whole notes: the last bar of system one, then the first bar of system two.
+    h.engine.addHairpin(firstOfSecond - 1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(8, 1) })
+    await h.render()
+    const first = window.__h.staves()[0]
+    return {
+      arms: window.__h.segments('g.vf-hairpin path'),
+      spacing: (first.bottom - first.top) / 4,
+    }
+  }, layout.firstOfSecondSystem)
+
+  expect(drawn.arms.length, 'two fragments, two arms each').toBe(4)
+
+  // ⭐ THE BUG: the continuation ran from the left margin out to an x borrowed from the PREVIOUS
+  // system — a fragment covering most of system two, when the music it covers is bar one of it.
+  const continuation = [...drawn.arms].sort((p, q) => (p.y1 + p.y2) - (q.y1 + q.y2)).slice(2)
+  const reach = Math.max(...continuation.map(a => a.x2))
+  expect(reach, 'the continuation stops inside the bar it ends in').toBeLessThanOrEqual(layout.rightEdge + 1)
+
+  // …and the second symptom of the same cause: with the two ends a space apart, the angle cap
+  // crushed the aperture to nothing and BOTH fragments drew as flat lines.
+  const mouth = Math.abs(continuation[0].y2 - continuation[1].y2)
+  expect(mouth / drawn.spacing, 'the continuation still ends at the full aperture').toBeCloseTo(1.33, 1)
+})
+
 test('⭐ P4: a wedge registers its OUTLINE, so it is clickable on its own ink', async ({ score }) => {
   const arms = await score.evaluate(async () => {
     const h = window.__h
