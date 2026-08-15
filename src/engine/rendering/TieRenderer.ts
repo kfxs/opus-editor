@@ -4,17 +4,15 @@
  * engine's free-function module idiom.
  *
  * Same-line ties draw a flat cubic arc (via the shared {@link drawCurveArc}); ties
- * spanning a line break draw two partial `StaveTie`s. `getTieDirection` is also used
- * by the renderer's pending-tie preview, so it is exported.
+ * spanning a line break draw two partial `StaveTie`s. WHICH WAY the arc bows is not
+ * decided here — that is {@link ./tieDirection}, shared with the pending-tie preview.
  */
 import { StaveNote, StaveTie } from 'vexflow'
-import type { Score, Measure, Chord, NotePitch, Fraction } from '@/types/music'
-import { fracEq } from '@/utils/fraction'
-import { spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { middleLineDiatonicPos } from '@/utils/clefUtils'
+import type { Score } from '@/types/music'
+import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
-import { voiceOf } from '@/utils/lanes'
+import { tieSide } from './tieDirection'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 
@@ -30,62 +28,6 @@ const TIE_LIFT = 7               // gap between the notehead and the flat tie en
 // Exported so the ghost tie (VexFlowRenderer.renderScoreWithTieGhost) is engraved from the SAME
 // numbers as a real tie — arm the tool and the arc under the cursor IS the arc you get.
 export const TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
-
-/**
- * Determine tie direction for a pitch within a chord.
- * Returns: -1 for UP (top note), 1 for DOWN (bottom note).
- * @param notePitch - the pitch being tied
- * @param beat - Beat position of the chord containing this pitch
- * @param measure - The measure to look up chord info in
- */
-export function getTieDirection(notePitch: NotePitch, beat: Fraction, measure: Measure): number | undefined {
-  // An explicit override (set by flipping the tie with `x`) wins over auto placement.
-  if (notePitch.tieDirection !== undefined) return notePitch.tieDirection
-
-  // Find the chord slot that CONTAINS this pitch. In a multi-voice bar each voice
-  // has its own chord at the same beat, so matching on beat alone returns the wrong
-  // voice's slot (usually voice 1's) — match by the pitch id, then fall back to beat.
-  const chordAtBeat = (
-    measure.slots.find(
-      s => s.type === 'chord' && s.notes.some(p => p.id === notePitch.id),
-    ) ?? measure.slots.find(s => s.type === 'chord' && fracEq(s.beat, beat))
-  ) as Chord | undefined
-
-  // Multi-voice default: a tie follows its VOICE's outer side so the voices'
-  // ties never collide in the middle — stems-up voices (V1/V3, model 0/2) curve
-  // one way, stems-down voices (V2/V4, model 1/3) the other — regardless of the
-  // pitch's staff position. Mirrors the forced stem / articulation side /
-  // tuplet-bracket rule (Gould). The pitch-based rule below only applies when the
-  // bar has a single voice. (`x` override handled above.)
-  const voiceCount = new Set(measure.slots.map(s => voiceOf(s))).size
-  if (voiceCount > 1) {
-    const voice = chordAtBeat?.voice ?? 0
-    return voice % 2 === 0 ? -1 : 1
-  }
-
-  const thisDiatonic = spellingDiatonicPos(notePitch.step, notePitch.octave)
-
-  if (!chordAtBeat || chordAtBeat.notes.length <= 1) {
-    // Single note — tie direction based on diatonic distance from middle line (treble B4=34)
-    const middleDiatonic = middleLineDiatonicPos('treble')
-    return thisDiatonic >= middleDiatonic ? -1 : 1
-  }
-
-  // Sort all chord notes by diatonic staff position
-  const sortedDiatonics = chordAtBeat.notes
-    .map(n => spellingDiatonicPos(n.step, n.octave))
-    .sort((a, b) => a - b)
-  const lowestDiatonic  = sortedDiatonics[0]
-  const highestDiatonic = sortedDiatonics[sortedDiatonics.length - 1]
-
-  if (thisDiatonic === highestDiatonic) return -1  // Top note: tie curves UP
-  if (thisDiatonic === lowestDiatonic)  return 1   // Bottom note: tie curves DOWN
-
-  // Middle note: follow nearest outer voice
-  const distToTop    = highestDiatonic - thisDiatonic
-  const distToBottom = thisDiatonic    - lowestDiatonic
-  return distToTop <= distToBottom ? -1 : 1
-}
 
 /**
  * Draw a tie arc where both endpoints share the source note's Y position.
@@ -177,7 +119,18 @@ export function renderTies(pass: RenderPass, score: Score): void {
             const toLine = toLayout?.lineNumber ?? 0
             const sameLine = fromLine === toLine
 
-            const tieDirection = getTieDirection(pitch, slot.beat, measure)
+            // WHICH WAY IT BOWS (`./tieDirection`): away from the stems as DRAWN — both of them,
+            // since a tie has two ends and Gould's fallback (p. 64) is the case where they
+            // disagree — and, when they do, away from the middle line of the clef in force. That
+            // clef is read positionally like every other; it used to be the literal 'treble'.
+            const stems = [fromInfo.staveNote, toInfo.staveNote]
+              .map(n => n.getStemDirection?.())
+              .filter((d): d is number => d !== undefined)
+            const tieDirection = tieSide(
+              pitch, slot.beat, measure,
+              effectiveClefAt(score, fromMeasure, slot.beat, slot.staffId),
+              stems,
+            )
             // note alias for registry callbacks below
             const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
@@ -196,7 +149,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
               if (sameLine) {
                 // Same line: draw flat arc anchored at the source note's Y
                 // (ties always connect the same pitch, so both endpoints share the same Y)
-                const bbox = drawFlatTie(pass, fromInfo, toInfo, tieDirection ?? 1)
+                const bbox = drawFlatTie(pass, fromInfo, toInfo, tieDirection)
                 if (bbox) {
                   pass.elementRegistry.add({
                     type: 'tie',
@@ -204,7 +157,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     toNoteId: note.tiedTo!,
                     fromMeasure: fromMeasure,
                     toMeasure: toMeasure!,
-                    tieDirection: tieDirection ?? 1,
+                    tieDirection: tieDirection,
                     bbox,
                 })
               }
@@ -215,9 +168,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 firstNote: fromInfo.staveNote,
                 firstIndexes: [fromInfo.noteIndex],
               })
-              if (tieDirection !== undefined) {
-                firstPartialTie.setDirection(tieDirection)
-              }
+              firstPartialTie.setDirection(tieDirection)
               firstPartialTie.setContext(pass.context!).draw()
 
               // Register first partial tie
@@ -232,7 +183,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     toMeasure: toMeasure!,
                     isPartial: true,
                     partialType: 'end', // ends at line break
-                    tieDirection: tieDirection ?? 1,
+                    tieDirection: tieDirection,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
                 }
@@ -245,9 +196,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 lastNote: toInfo.staveNote,
                 lastIndexes: [toInfo.noteIndex],
               })
-              if (tieDirection !== undefined) {
-                secondPartialTie.setDirection(tieDirection)
-              }
+              secondPartialTie.setDirection(tieDirection)
               secondPartialTie.setContext(pass.context!).draw()
 
               // Register second partial tie
@@ -262,7 +211,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     toMeasure: toMeasure!,
                     isPartial: true,
                     partialType: 'start', // starts at line break
-                    tieDirection: tieDirection ?? 1,
+                    tieDirection: tieDirection,
                     bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
                   })
                 }

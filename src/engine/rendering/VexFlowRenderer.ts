@@ -17,7 +17,7 @@ import type { SVGContext } from 'vexflow'
 import './notation.css'
 import type { Score, Measure, Clef, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
-import { effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
@@ -27,7 +27,8 @@ import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSeg
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
-import { renderTies, getTieDirection } from './TieRenderer'
+import { renderTies } from './TieRenderer'
+import { tieSide } from './tieDirection'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
 import { renderTrills } from './TrillRenderer'
@@ -4178,14 +4179,18 @@ export class VexFlowRenderer {
 
     if (!foundNotePitch || !foundBeat || !foundMeasure) return
 
-    const tieDirection = getTieDirection(foundNotePitch, foundBeat, foundMeasure)
+    // A pending tie has only ITS OWN end, so it offers the one stem it has (`./tieDirection`
+    // rule 4 — one stem trivially agrees with itself) and the clef in force under it.
+    const tieDirection = tieSide(
+      foundNotePitch, foundBeat, foundMeasure,
+      effectiveClefAt(score, foundMeasure.number, foundBeat, foundStaffId),
+      [info.staveNote.getStemDirection?.()].filter((d): d is number => d !== undefined),
+    )
     const pendingTie = new StaveTie({
       firstNote: info.staveNote,
       firstIndexes: [info.noteIndex],
     })
-    if (tieDirection !== undefined) {
-      pendingTie.setDirection(tieDirection)
-    }
+    pendingTie.setDirection(tieDirection)
     // Drawn from the note's own coordinates, so it belongs in that note's staff space — the same
     // rule as the engraved ties next door (docs/staff-size-plan.md §4.3).
     inScaledStaffGroup(
