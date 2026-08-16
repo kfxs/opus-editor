@@ -5,7 +5,8 @@
  *
  * Same-line spans draw a single cubic arc; cross-system spans draw two half-arcs.
  * Arc drawing routes through the shared {@link drawCurveArc} primitive (also used by
- * ties). Nesting, stem-aware endpoints and the auto arch shape live here.
+ * ties). Nesting and the auto arch shape live here; WHICH SIDE the slur sits on is
+ * `./slurDirection` and WHERE IT ATTACHES at each end is `./slurStemEndpoint`.
  */
 import { StaveNote } from 'vexflow'
 import type { Stave } from 'vexflow'
@@ -20,6 +21,7 @@ import { CURVE_PX, SLUR_BOW_PER_SPAN } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
+import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -65,10 +67,32 @@ interface SlurEnd {
   /** Where the arc springs from / lands: the note's tie edges, or the member head's own. */
   firstX: number
   lastX: number
-  /** Stem-aware anchor y for a slur on `direction` (-1 above / +1 below). */
-  endpointY: (direction: number) => number
-  /** +1 up / −1 down — for the auto placement, which follows the stems. */
-  stemDirection: number
+  /** The head, the stem's far end and its direction — what {@link slurAttachmentYs} decides from,
+   *  and the one shape a fanned member and a real note can both be stated in. */
+  attach: SlurAttachment
+}
+
+/**
+ * The far end of a note's stem, or undefined when it has none to offer — so the attachment rule can
+ * take absence as an answer rather than as a coordinate.
+ *
+ * 🚨 **`hasStem()` FIRST, and it is not defensive — it is the whole point.** A whole note has no
+ * stem, but VexFlow builds a `Stem` object for it anyway and `getStemExtents()` answers with the
+ * coordinates that stem WOULD have had. Asking a stemless note where its stem ends therefore returns
+ * a number rather than nothing, and the endpoint rule then floats the slur up a stem the reader
+ * cannot see: a slur between two whole notes a sixth apart left its first notehead by 2.25 sp of
+ * empty air (his report, 2026-08-16). Both engines answer this the same way and neither by accident
+ * — MuseScore skips its whole stem block when `stem1` is null (`slurtielayout.cpp:617`), and Verovio
+ * tests `startStemLen == 0` in the *same condition* as a stem pointing away (`slur.cpp:677`).
+ */
+function stemTipOf(staveNote: StaveNote): number | undefined {
+  try {
+    if (!staveNote.hasStem?.()) return undefined
+    const tipY = staveNote.getStemExtents?.()?.topY
+    return tipY !== undefined && !isNaN(tipY) ? tipY : undefined
+  } catch (_e) {
+    return undefined
+  }
 }
 
 function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
@@ -78,21 +102,24 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
       staveNote: member.staveNote,
       firstX: member.rightX,
       lastX: member.leftX,
-      // The same Gould rule as a real note's: notehead side attaches at the head, stem side at the
-      // stem tip — and a member's stem tip is where its own stem meets the beam.
-      endpointY: (direction) => ((direction === -1) === (member.stemDirection === 1) ? member.tipY : member.headY),
-      stemDirection: member.stemDirection,
+      // A member's head and the point where its stem meets the beam mean exactly what a real note's
+      // do, so the same rule reaches it with no branch of its own (docs/slur-plan.md §12.0 #7).
+      attach: { headY: member.headY, stemTipY: member.tipY, stemDirection: member.stemDirection },
     }
   }
   const info = pass.staveNoteMap.get(noteId)
   if (!info?.staveNote) return undefined
   const { staveNote, noteIndex } = info
+  const ys = staveNote.getYs()
   return {
     staveNote,
     firstX: staveNote.getTieRightX(),
     lastX: staveNote.getTieLeftX(),
-    endpointY: (direction) => slurEndpointY(staveNote, noteIndex, direction),
-    stemDirection: staveNote.getStemDirection?.() ?? -1,
+    attach: {
+      headY: ys[noteIndex] ?? ys[0],
+      stemTipY: stemTipOf(staveNote),
+      stemDirection: staveNote.getStemDirection?.() ?? -1,
+    },
   }
 }
 
@@ -217,28 +244,6 @@ function representativeStaveOnLine(
     }
   }
   return undefined
-}
-
-/**
- * Stem-aware slur endpoint Y for one anchor note (Gould): if the slur sits on the
- * **notehead side** (opposite the stems) it attaches at the notehead; if it sits on
- * the **stem side** (same side as the stems) it attaches at the **stem tip** instead,
- * so the arc springs from the stem end rather than crossing it. `direction` is the
- * slur's side (-1 above / +1 below); the note's own `getStemDirection()` (1 up / -1
- * down) decides which side the stem is on. Falls back to the notehead if there's no
- * usable stem extent (e.g. whole notes).
- */
-function slurEndpointY(staveNote: StaveNote, noteIndex: number, direction: number): number {
-  const ys = staveNote.getYs()
-  const headY = ys[noteIndex] ?? ys[0]
-  const stemUp = (staveNote.getStemDirection?.() ?? -1) === 1
-  const slurAbove = direction === -1
-  if (slurAbove === stemUp) {
-    // Slur is on the stem side → attach at the stem tip.
-    const tipY = staveNote.getStemExtents?.()?.topY
-    if (tipY !== undefined && !isNaN(tipY)) return tipY
-  }
-  return headY
 }
 
 /**
@@ -402,16 +407,19 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       .filter((d): d is number => d !== undefined)
     const autoDir = multiVoice
       ? (slurVoice % 2 === 0 ? -1 : 1)
-      : slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.stemDirection])
+      : slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.attach.stemDirection])
     const direction = slur.placement === 'below' ? 1
       : slur.placement === 'above' ? -1
       : autoDir
 
-    // Endpoint anchor Ys — stem-aware (Gould): a slur on the NOTEHEAD side attaches at
-    // the notehead; on the STEM side it attaches at the stem tip. Each endpoint uses
-    // its own note's stem, so a flipped (stem-side) slur springs from the stem tips.
-    let fromY = fromEnd.endpointY(direction)
-    let toY = toEnd.endpointY(direction)
+    // Endpoint anchor Ys — `./slurStemEndpoint`, which owns all three of Gould's cases at once: the
+    // notehead side attaches at the notehead, the stem side at the stem end, and when the two stems
+    // OPPOSE (p. 111) the stem-side end slides down its stem until the slur tilts at half the
+    // melodic interval instead of contradicting it. ⭐ It takes both ends together because that
+    // last rule cannot be answered one end at a time.
+    const placement = slurAttachments(fromEnd.attach, toEnd.attach, direction, LIFT)
+    let fromY = placement.from.y
+    let toY = placement.to.y
     if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
     const registerPartial = (
@@ -454,9 +462,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // not-yet-laid-out stave (no throw). The note tie-edge Xs are identical in both
         // branches, so lift them out here; Y folds into fromY/toY (both branches derive from
         // those).
+        // …and the stem dodge (`./slurStemEndpoint`) rides along on the same two x's: an endpoint
+        // that landed beside a stem steps past it, so the arc leaves from beyond the stem rather
+        // than across it. It is 0 for every end with no stem in the way.
         const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
-        const firstX = fromEnd.firstX + off.startX
-        const lastX = toEnd.lastX + off.endX
+        const firstX = fromEnd.firstX + off.startX + placement.from.dx
+        const lastX = toEnd.lastX + off.endX + placement.to.dx
         fromY += off.startY
         toY += off.endY
 

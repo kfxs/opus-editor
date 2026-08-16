@@ -48,6 +48,25 @@ export const CURVE = {
   slurBowMax: 2.2,
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
+  /**
+   * ⭐⭐ **How far a slur's endpoint stands CLEAR of the stem it sits beside** (`./slurStemEndpoint`,
+   * §12.1) — sideways, so the arc leaves from *beyond* the stem instead of across it.
+   *
+   * ⭐ **A convergence, not a taste call**: LilyPond **0.3** (`slur-scoring.cc:751`, its x becomes
+   * the stem's far edge ∓ 0.3 whenever a candidate endpoint falls inside the stem's y extent) and
+   * MuseScore **0.35** (`stemOffsetX`, `slurtielayout.cpp:398`, applied in every stem-side case).
+   * Verovio moves its endpoint a whole space sideways with the comment *"Primary endpoint on the
+   * side, move it right"*. We take MuseScore's, because the vertical half of this phase is
+   * MuseScore's rule and the two should not disagree about the same figure by 0.05 sp.
+   */
+  slurStemDodge: 0.35,
+  /** How far outside the stem's own y extent an endpoint still counts as *beside* it, and so still
+   *  wants the dodge above — LilyPond's `stem_y.widen(0.25 * staff_space)` (`slur-scoring.cc:747`). */
+  slurStemNearBand: 0.25,
+  /** ⭐ How far PAST the stem end a slid endpoint may travel (`./slurStemEndpoint`, §12 Phase 1).
+   *  MuseScore's clamp on the same rule — a leap wide enough to want more would otherwise launch the
+   *  arc off the end of a stem it has left behind. ⚠️ NEW in Phase 1: it replaced no pixel literal. */
+  slurStemOvershoot: 1.0,
   /** Gap from the notehead CENTRE to a tie's endpoints. ✅ §13.3: 0.70 from the centre is 0.20 clear
    *  of the head's edge = MuseScore's `yOffset` exactly, and Gould's *"should almost touch"*.
    *  ⛔ SETTLED — do not "fix". */

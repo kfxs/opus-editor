@@ -14,7 +14,9 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  */
 describe('curveStyle — the staff-space table', () => {
   it('derives exactly the pixel literals it replaced', () => {
-    const before: Record<keyof typeof CURVE, number> = {
+    // ⚠️ Not every row has a predecessor: `slurStemOvershoot` arrived WITH §12 Phase 1 and replaced
+    // nothing, so it is absent here by design rather than by omission.
+    const before: Partial<Record<keyof typeof CURVE, number>> = {
       slurLift: 10,     // SlurRenderer.SLUR_LIFT
       slurArc: 14,      // SlurRenderer.SLUR_ARC
       slurBow: 9.3,     // SlurRenderer.SLUR_BOW

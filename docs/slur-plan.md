@@ -1153,7 +1153,138 @@ transform, not a smaller stave), so the conversion preserves `CURVE_THICKNESS`'s
 by the staff size* property — and the taste numbers then get proposed in the units the research
 measured them in.
 
-### Phase 1 — the stem-end endpoint (Gould p. 111)
+### Phase 1 — the stem-end endpoint (Gould p. 111) — ✅ BUILT 2026-08-16 (not committed)
+
+> ✅ **`rendering/slurStemEndpoint.ts`** + `slurStemEndpoint.test.ts` + four cases in
+> `e2e/slur.e2e.ts`. `SlurRenderer` no longer decides an attachment: `slurEndpointY` is gone, and
+> `SlurEnd` carries a `SlurAttachment` (head, stem tip, stem direction) for both a real note and a
+> fanned member, so the pair goes to one module and comes back as two Ys.
+>
+> **Measured on drawn ink, and both numbers are the ones predicted below**: the rising step
+> `A4 → B4` now **rises 0.25 sp** where it descended 3.0, the rising tenth `C4 → E5` **rises 2.25 sp**
+> where it rose 1.0, and a falling step tilts down by 0.25. The control — two same-direction stems —
+> is untouched and follows its noteheads exactly (a third = 1.0 sp).
+>
+> ⭐ **The rule is easier to hold as its effect: the slur tilts at HALF the melodic interval.** Both
+> worked examples fall out of that one sentence, and it is what "slide by half the vertical distance
+> between the two notes" amounts to.
+>
+> ✅ **§12.0 #7 answered — fanned members are included**, with no branch of their own: a member's head
+> and its stem-meets-beam point mean what a real note's do, which is why the module takes coordinates.
+> ✅ **§12.0 #6 honoured** — the slide is computed before the endpoint-offset override is added, so a
+> hand nudge is still the last word and the blue squares follow the ink.
+> ✅ **§12.0 #1 honoured** — the arithmetic is unit-tested (numbers in, numbers out); the browser only
+> pins what VexFlow resolved. ⭐ The four e2e cases were **break-tested against the old attachment**:
+> exactly the three tilt cases fail and the control does not, so they measure the change and not the
+> geometry they happen to sit in.
+>
+> 🚨 **ONE BUG THIS PHASE INTRODUCED, found by his eye and fixed the same day: a WHOLE NOTE has no
+> stem to float up.** Two whole notes a sixth apart (E4 → C5) are a *mixed* pair by stem DIRECTION —
+> which is what places the slur — but neither draws a stem, and the rule floated the first endpoint
+> **1.25 sp into empty air** above its notehead. ⚠️ The cause is a VexFlow trap worth remembering:
+> **`getStemExtents()` answers for a whole note**, returning the coordinates the stem *would* have
+> had, so `stemTipOf`'s "no stem → no tip" guard never fired. `hasStem()` is the question that has
+> to be asked first (`durationCodes['1'].stem === false`). ✅ Both engines confirm the fix rather
+> than merely permitting it: MuseScore skips its entire stem block when `stem1` is null
+> (`slurtielayout.cpp:617`), and Verovio tests `startStemLen == 0` in the **same condition** as a
+> stem pointing away (`slur.cpp:677`). ⭐ Break-tested: the e2e case fails at exactly his 1.25 sp
+> without the guard.
+>
+> ✅ **AND ITS SECOND HALF, the same day: the tip no longer TOUCHES THE STEM.** He spotted it the
+> moment it drew — the arc left from the notehead's tie edge, which is exactly where an up stem is
+> drawn. Three engines read at source (§12.1) say the vertical half of this phase is right and the
+> horizontal was the gap: **0.35 sp of sideways clearance**, LilyPond 0.3 / MuseScore 0.35 agreeing
+> within 0.05.
+
+### 12.1 ⭐⭐ THE STEM DODGE, READ AT SOURCE (2026-08-16) — ⛔ don't redo this
+
+His question on seeing Phase 1 draw: *"for the whole note is [correct], but for the half note that
+have stem looks a little weird… I don't know if the slur should be placed up the stem or maybe the
+problem is simply that the slur is touching the stem."* **The second guess is the right one**, and
+both engines say so in code. MuseScore `e68a83b4` `slurtielayout.cpp`, Verovio `fb5c4db7`
+`src/slur.cpp` — the same commits §11 and §13 were read at.
+
+**✅ FIRST, THE PART THAT CONFIRMS WHAT WE BUILT.** MuseScore's `slurPos` is our Phase 1 line for
+line, and reading it settles three things we had taken on trust from the plan's summary:
+
+- **The stem TIP is only used when both stems AGREE.** `sa1 = SlurAnchor::STEM` requires
+  `scr->up() == ecr->up() && scr->up() == item->up()` (`:495–501`). With **opposite** stems neither
+  end is stem-anchored: both start from the notehead default and the stem-side one is floated. That
+  is exactly our `!opposed → stemTipY` branch.
+- **The float is from the NOTEHEAD, by half the interval** — `yd = (n2.y − n1.y) × .5`, then
+  `po.y + yd` (`:695–710`), from a default of *notehead + 0.9 sp outward* (`:606–611`). Ours floats
+  from the notehead and adds `slurLift` 1.0 sp: the same construction, 0.1 sp apart.
+- **The clamp is the stem end plus one space**, `max(po.y + yd, downNote.y − stemHeight − 1 sp)` —
+  our `slurStemOvershoot`, confirmed. ⚠️ MuseScore measures the stem from the chord's *outer* note,
+  which only differs from ours on a CHORD (⏭️ §12 Phase 7's chord-anchor item).
+- ⚠️ **Its two one-sided conditions are one rule.** Start floats when `yd < 0`, end when `yd > 0` —
+  which both mean *this stem-side end is the LOWER of the two notes* (for an up slur). Ours floats
+  whichever end is on the stem side, in the direction of the melody, which comes to the same thing
+  in every case a fixed slur side allows. ✅ No change needed.
+
+**⭐⭐ AND THE PART WE ARE MISSING — the horizontal clearance. Neither engine puts the tip on the stem.**
+
+| | where the stem-side tip goes | in staff spaces |
+|---|---|---|
+| **MuseScore**, unanchored (opposite stems) | `po.x = hw1 + 0.35 sp` (`:672–681`), where the default was `hw1 × 0.5` (the head's **centre**) and the stem stands at `hw1` | **0.35 sp clear of the stem**, min 0.2 (`stemOffsetX = 0.35`, `minOffset = 0.2`, `:398–402`) |
+| **MuseScore**, stem-anchored (stems agree) | stem tip `+ (0.35 sp, −0.5 sp)` (`:520–532`) | the **same 0.35 sp** clear, and **0.5 sp INSIDE the tip** (`stemSideInset`) |
+| **MuseScore**, down-stem end | `po.x = note2.x − 0.35 sp` (`:807–815`) | mirrored |
+| **Verovio**, `d(^)` — *our exact figure* | *"Primary endpoint on the side, move it right"*: `x1 += 2 units`, `y1 = note.y + 3 units` (`:717–720`) | **1.0 sp right of the note's x, 1.5 sp above the head** |
+| **Verovio**, same figure on collision | *"Secondary endpoint on top"*: `x1 += radius − stemWidth`, y = the drawn top (`:713–715`) | flush with the stem, at the **tip** |
+| **LilyPond** (his ask, read after the other two) | when a candidate endpoint's y falls **inside the stem's y extent** (widened 0.25 sp), `os[d].x = stem_extent[X][−d] − d × 0.3` (`slur-scoring.cc:748–752`) | **0.3 sp clear of the stem** |
+| **ours** | `getTieRightX()` — the head's right edge | **0.0 — on the stem** |
+
+⭐⭐ **AND LILYPOND WAS WORTH READING — it converges with MuseScore to within 0.05 sp.** His question
+was whether LilyPond even uses this rule; the answer is that it reaches the same place by a different
+road, which is the strongest evidence this project accepts:
+
+- **Its base attachment is the NOTEHEAD, not the stem end** — `get_base_attachments()` uses the
+  stem's y *only when the note is beamed* (`Stem::get_beaming && Stem::get_beam`, `:550–554`);
+  otherwise the head's own extent **+ 0.5 sp** (`:555–558`). MuseScore's equivalent is 0.9, ours 1.0.
+  So all three build this figure from the notehead outward, and only we start from a stem tip.
+- **Its x is the first notehead's `.center()`** (`:562–566`) — the **third** source for the head's
+  CENTRE against our edge, after MuseScore and Ross p. 141.
+- **Then, if the endpoint ends up beside the stem, it clears it by 0.3 sp** — and marks that
+  candidate `attach_to_stem`. It also *abandons* the stem attachment entirely and returns to the
+  head's centre when the result would be too short or steeper than `max_slope` (`:766–775`), which
+  is the same instinct as Verovio's collision fallback, pointing the other way.
+- ⭐ Bonus for **§12 Phase 3**: `move_away_from_staffline()` (`:640–658`) — if an endpoint lands
+  within 0.2 half-spaces of a staff line *and* on one, it is pushed **0.15 sp** further out. LilyPond
+  keeps SLUR ends off staff lines too, not just ties.
+
+**⏭️ So the dodge is no longer one engine's constant: LilyPond 0.3 · MuseScore 0.35 · Verovio ~0.4
+(under the head-centre reading of its 1.0 sp). ⭐ 0.3–0.35 sp is a convergence, not a taste call.**
+
+⭐⭐ **Verovio's primary answer for a stem-up note under an up slur is a LOW attachment beside the
+stem**, and it reaches for the stem tip only when that low one would collide — the opposite of the
+instinct that the tip is the "proper" place. And its 1.5 sp above the notehead is, for a third,
+**exactly where ours lands** (0.5 float + 1.0 lift). ⚠️ Verovio's `x1` arrives from
+`curve->GetCachedX12()`; I did not chase which edge of the head that is, so read its 1.0 sp as *"a
+space to the right of the note's x"* — under the head-centre reading it is 0.4 sp clear of the stem,
+a hair off MuseScore's 0.35, and under the left-edge reading it would still be on the stem, which its
+own comment says it is moving off.
+
+**✅ BUILT 2026-08-16, his call (*"do you think we should fix it now"* → now, as Phase 1's
+completion): `CURVE.slurStemDodge` 0.35 sp, in `slurStemEndpoint.slurAttachments`.** Both halves are
+the engines':
+
+- **WHEN** — LilyPond's test: only if the endpoint's y falls inside the stem's own y extent, widened
+  by `CURVE.slurStemNearBand` 0.25 sp. ⛔ So the stem-END attachment (agreeing stems) is left exactly
+  as it was: the arc's lift already carries it past the tip, where there is nothing to clear.
+- **WHICH END** — MuseScore's two conditions, which turn out to be geometry rather than special
+  cases: the arc STARTS at the head's right edge, where an **up** stem stands, and ENDS at its left
+  edge, where a **down** stem hangs. The other two combinations are a whole notehead clear already.
+- **Measured on drawn ink** (`e2e/slur.e2e.ts`): the gap from the stem was **0.075 sp** — the arc
+  effectively on the stem — and is now **0.425 sp**, with the endpoint verified to be beside the
+  stem rather than above it. ⭐ Break-tested: the case fails at 0.075 with the dodge removed.
+
+Two smaller deviations found in the same read, both
+his call: our stem-tip attachment sits exactly AT the tip where MuseScore sits 0.5 sp inside it, and
+our notehead-side x is the head's EDGE where MuseScore uses the head's **centre** — which is also
+Ross p. 141's *"long slurs always start and end over or under the centre of a notehead"* (§11.9), so
+that one has two sources agreeing against us.
+
+**The plan as written (kept for the reasoning):**
 
 **The fault, measured on drawn ink:** a rising step `A4 → B4` across the middle line has mixed stems,
 so the slur goes above, attaches at A4's **stem tip** and B4's **notehead** — and **descends 3.0 staff
