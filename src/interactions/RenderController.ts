@@ -6,6 +6,7 @@ import { ELEMENT_SPECS } from './elements/chain'
 import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
+import { musicFontReady } from '../engine/rendering/musicFontReady'
 
 /**
  * Orchestrates score rendering and ghost-note preview.
@@ -21,6 +22,11 @@ export class RenderController {
      *  may change even though the viewport never moved. Optional — nothing else needs it. */
     private afterRender?: () => void,
   ) {}
+
+  /** Has the music font landed? Until it has, {@link renderScore} defers instead of engraving. */
+  private fontReady = false
+  /** The one deferred render, so N asks while the font decodes cost one render and not N. */
+  private fontPending?: Promise<void>
 
   private applyHighlights(): void {
     // The passes that read the multi-selection SET (`selectedItems`), so they run whatever the
@@ -72,6 +78,28 @@ export class RenderController {
   renderScore(): void {
     const engine = this.getEngine()
     if (!engine) return
+    // ⭐⭐ **Nothing is ENGRAVED before the music font exists** — see
+    // `engine/rendering/musicFontReady.ts` for the measurement. VexFlow has no metrics table: it
+    // measures every glyph off a canvas, so a render that beats Bravura engraves to the FALLBACK
+    // face and each empty bar's whole rest lands ~9.7px (about a staff space) left of its centre.
+    //
+    // ⛔ The gate belongs HERE and not at App's boot render, which is what the first attempt got
+    //    wrong: the editor's real first render is not the one App asks for, it is `ViewportHost`'s
+    //    MutationObserver noticing the SVG appear and calling back through `onViewChange` —
+    //    measured at t=312ms against the font's t=410ms. This method is the ONE funnel every
+    //    render in the app goes through, so it is the only place that can promise it.
+    //
+    // ⚠️ NOT a silent early return: the deferred call re-enters this method, so the render is
+    //    postponed and never dropped. Coalesced on purpose — several renders can be asked for while
+    //    the font decodes, and each would draw the same picture from the same state, so the one
+    //    that runs afterwards is all of them.
+    if (!this.fontReady) {
+      this.fontPending ??= musicFontReady().then(() => {
+        this.fontReady = true
+        this.renderScore()
+      })
+      return
+    }
     // P0 instrument (temporary): no cause given — the census recovers the call site from the
     // stack, which is the whole point: an edit and a selection both arrive through this method.
     renderProbe().setCause()

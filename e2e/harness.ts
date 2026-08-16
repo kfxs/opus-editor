@@ -20,6 +20,7 @@
  * layout box (160px tall for a notehead), not its ink.
  */
 import { MusicEngine } from '@/engine/MusicEngine'
+import { musicFontReady } from '@/engine/rendering/musicFontReady'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
@@ -250,20 +251,15 @@ const inRange = (first: number, last: number) => (glyph: Glyph): boolean => {
   return code >= first && code <= last
 }
 
-let fontsReady = false
-
 const harness: Harness = {
   engine,
   frac: fracCreate,
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that
-    // beats `document.fonts.ready` measures FALLBACK metrics and engraves to them — the same
-    // requirement `renderScoreSvg` documents for the PDF path.
-    if (!fontsReady) {
-      await document.fonts.ready
-      fontsReady = true
-    }
+    // beats the font measures FALLBACK metrics and engraves to them — the same requirement the
+    // editor's own first render and the PDF path wait on (`engine/rendering/musicFontReady.ts`).
+    await musicFontReady()
     engine.renderScore()
   },
 

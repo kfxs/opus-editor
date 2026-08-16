@@ -1,4 +1,5 @@
 import { VexFlowRenderer, LAYOUT_CONFIG } from '../rendering/VexFlowRenderer'
+import { musicFontReady } from '../rendering/musicFontReady'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from '@/engine/layout/surface'
 import type { Score } from '@/types/music'
 
@@ -61,7 +62,7 @@ export async function renderScoreSvg(score: Score, surface: Surface = SKETCH_CAN
   const dispose = () => host.remove()
 
   try {
-    await document.fonts?.ready
+    await musicFontReady()
     const renderer = new VexFlowRenderer(host)
     // Paper, not screen: hidden elements are omitted rather than grayed. See the ⚠️ in
     // `hiddenElements.ts` — they still take their space, they just leave no ink.
