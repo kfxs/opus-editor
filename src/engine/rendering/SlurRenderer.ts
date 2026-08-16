@@ -17,11 +17,12 @@ import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc } from './curveArc'
-import { CURVE_PX, SLUR_BOW_PER_SPAN } from './curveStyle'
+import { CURVE_PX } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
+import { slurArchHeight } from './slurArchHeight'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -30,11 +31,9 @@ import { voiceOf } from '@/utils/lanes'
 // LIFT + ARC/2 peak. Phase 2 of §12 is the one that may replace this height law outright.
 const SLUR_LIFT = CURVE_PX.slurLift       // gap between the notehead and the arc's endpoints
 const SLUR_ARC = CURVE_PX.slurArc         // cross-system half-arc apex rise above its endpoint line
-const SLUR_BOW = CURVE_PX.slurBow         // base arch height (short slurs ≈ old look)
-const SLUR_BOW_MAX = CURVE_PX.slurBowMax  // …up to this ceiling (Gould: longer → FLATTER, capped)
 const SLUR_NEST_GAP = CURVE_PX.slurNestGap // extra bow height per nesting level (concentric slurs)
-// ⭐ `SLUR_BOW_PER_SPAN` (the growth ratio) needs no px twin — it is dimensionless, so it is
-// imported as it stands. The slur's WEIGHT is not here either: it is `CURVE_PX.thickness`, shared
+// ⭐ The arch HEIGHT is no longer here either: `./slurArchHeight` owns the law that turns a span into
+// a bow. The slur's WEIGHT is not here: it is `CURVE_PX.thickness`, shared
 // with ties, because the two are one weight and only the arch differs. This file used to set
 // `SLUR_THICKNESS = 1.5` against the tie's 2.7, which drew visibly undernourished slurs beside
 // well-fed ties.
@@ -64,9 +63,15 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
  */
 interface SlurEnd {
   staveNote: StaveNote
-  /** Where the arc springs from / lands: the note's tie edges, or the member head's own. */
-  firstX: number
-  lastX: number
+  /**
+   * ⭐ Where the arc springs from / lands: the **CENTRE of the notehead** (docs/slur-plan.md §12
+   * Phase 2). It used to be the note's tie EDGES — `getTieRightX()`/`getTieLeftX()` — which made a
+   * slur span the gap BETWEEN two heads instead of reaching over them, roughly 0.6 sp short at each
+   * end. All three engines anchor at the centre by three different constructions (MuseScore
+   * `hw1 × 0.5`, LilyPond `first_head.extent.center()`, Verovio `drawingX += startRadius`), and Ross
+   * p. 141 says it in words. ⛔ The TIE keeps the edges: its field is genuinely split (§13.3).
+   */
+  centerX: number
   /** The head, the stem's far end and its direction — what {@link slurAttachmentYs} decides from,
    *  and the one shape a fanned member and a real note can both be stated in. */
   attach: SlurAttachment
@@ -100,25 +105,33 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
   if (member) {
     return {
       staveNote: member.staveNote,
-      firstX: member.rightX,
-      lastX: member.leftX,
+      centerX: (member.leftX + member.rightX) / 2,
       // A member's head and the point where its stem meets the beam mean exactly what a real note's
       // do, so the same rule reaches it with no branch of its own (docs/slur-plan.md §12.0 #7).
-      attach: { headY: member.headY, stemTipY: member.tipY, stemDirection: member.stemDirection },
+      attach: {
+        headY: member.headY,
+        stemTipY: member.tipY,
+        stemDirection: member.stemDirection,
+        headHalfWidth: (member.rightX - member.leftX) / 2,
+      },
     }
   }
   const info = pass.staveNoteMap.get(noteId)
   if (!info?.staveNote) return undefined
   const { staveNote, noteIndex } = info
   const ys = staveNote.getYs()
+  // The head's own extent, which is where the arc belongs — NOT `getTieRightX()`, which adds the
+  // glyph width AND any modifier shift, i.e. the far side of everything hanging off the note.
+  const headLeft = staveNote.getNoteHeadBeginX()
+  const headRight = staveNote.getNoteHeadEndX()
   return {
     staveNote,
-    firstX: staveNote.getTieRightX(),
-    lastX: staveNote.getTieLeftX(),
+    centerX: (headLeft + headRight) / 2,
     attach: {
       headY: ys[noteIndex] ?? ys[0],
       stemTipY: stemTipOf(staveNote),
       stemDirection: staveNote.getStemDirection?.() ?? -1,
+      headHalfWidth: (headRight - headLeft) / 2,
     },
   }
 }
@@ -270,14 +283,10 @@ function slurArchCps(
   extraHeight = 0,
 ): [{ x: number; y: number }, { x: number; y: number }] {
   const dy = p1.y - p0.y
-  // Arch height grows with horizontal span (Gould/MuseScore: a longer slur arcs higher),
-  // floored at the base bow so seconds stay modest and capped so long slurs don't balloon.
-  // `extraHeight` lifts an outer slur clear of the slur(s) nested inside it (Phase 8).
-  const span = Math.abs(p1.x - p0.x)
-  const H = Math.min(
-    SLUR_BOW + span * SLUR_BOW_PER_SPAN,
-    SLUR_BOW_MAX,
-  ) + extraHeight
+  // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
+  // published source (docs/slur-plan.md §12 Phase 2). `extraHeight` lifts an outer slur clear of the
+  // slur(s) nested inside it (Phase 8).
+  const H = slurArchHeight(p1.x - p0.x, extraHeight)
   return [
     { x: 0, y: H + 0.25 * dy * direction },
     { x: 0, y: H - 0.25 * dy * direction },
@@ -466,8 +475,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that landed beside a stem steps past it, so the arc leaves from beyond the stem rather
         // than across it. It is 0 for every end with no stem in the way.
         const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
-        const firstX = fromEnd.firstX + off.startX + placement.from.dx
-        const lastX = toEnd.lastX + off.endX + placement.to.dx
+        const firstX = fromEnd.centerX + off.startX + placement.from.dx
+        const lastX = toEnd.centerX + off.endX + placement.to.dx
         fromY += off.startY
         toY += off.endY
 

@@ -52,6 +52,12 @@ export interface SlurAttachment {
   /** The stem's far end (`getStemExtents().topY` — the TIP for either direction). Absent = no stem. */
   stemTipY?: number
   stemDirection: number
+  /**
+   * Half the notehead's drawn width, in px — the distance from the x the caller anchors to (the
+   * head's **centre**, §12 Phase 2) out to the edge where a stem stands. The dodge is stated from
+   * the STEM, so it needs to know where the stem is relative to the anchor.
+   */
+  headHalfWidth: number
 }
 
 /** Is the slur on the same side as this note's stem? `direction` is −1 above / +1 below. */
@@ -93,7 +99,11 @@ function stemDodge(a: SlurAttachment, direction: number, endpointY: number, end:
   if (endpointY < near || endpointY > far) return 0
   const stemOnThisSide = end === 'from' ? a.stemDirection === 1 : a.stemDirection === -1
   if (!stemOnThisSide) return 0
-  return end === 'from' ? CURVE_PX.slurStemDodge : -CURVE_PX.slurStemDodge
+  // Out to the edge the stem stands on, then clear of the stem — so the number IS the clearance,
+  // whatever the anchor x happens to be (MuseScore states its `hw1 + 0.35` from the head's origin
+  // for the same reason).
+  const past = a.headHalfWidth + CURVE_PX.slurStemDodge
+  return end === 'from' ? past : -past
 }
 
 /**

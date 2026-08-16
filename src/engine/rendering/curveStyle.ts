@@ -40,12 +40,16 @@ export const CURVE = {
   /** A cross-system half-arc's apex rise above its own endpoint line. ⏭️ §12 Phase 5 gives this an
    *  opinion about pitch — today it is the same flat number for BEGIN and END. */
   slurArc: 1.4,
-  /** Base arch height (the cubic control rise; a cubic's drawn apex is 0.75× it).
-   *  ⏭️ §12 Phase 2 — the SHORT-slur outlier, and the one intercept no other engine has. */
-  slurBow: 0.93,
-  /** Ceiling on the arch. ✅ Gould p. 109: *"the curve of a long slur is flattened"* — ⛔ our long
-   *  end is in the middle of the pack (§12 Phase 2's table); don't touch it. */
-  slurBowMax: 2.2,
+  /**
+   * ⭐⭐ **LilyPond's `height-limit`** — the arch height the law approaches but never reaches, and
+   * therefore the flattest a long slur can get (`define-grobs.scm:3178`, the `Slur` grob).
+   *
+   * ⭐ **HIS CALL, 2026-08-16, option (b) of §12 Phase 2**: adopt LilyPond's law whole, replacing our
+   * own floor-plus-slope-with-a-cap. Ours drew a short two-note slur **1.9× taller than LilyPond's**
+   * — the commonest slur on a page, and the source of the hookiness — while its long end sat pinned
+   * against a ceiling, which is a law running out of road rather than a shape.
+   */
+  slurHeightLimit: 2.0,
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
   /**
@@ -99,14 +103,17 @@ export const CURVE = {
 } as const
 
 /**
- * How much the slur's arch grows per staff space of horizontal span — **dimensionless**, so it has
- * no px twin below and needs no conversion (spaces per space = pixels per pixel).
+ * ⭐ **LilyPond's `ratio`** — how steeply the arch climbs before the limit above starts to bite
+ * (`define-grobs.scm:3181`). **Dimensionless**, so it has no px twin and needs no conversion.
  *
- * ⚠️ Ours is the only floor-plus-slope law in the field: LilyPond's is an atan asymptote, Verovio
- * saturates, MuseScore is unbounded (§11.3). ⏭️ §12 Phase 2 may replace the whole law, in which case
- * this constant goes with it.
+ * ⚠️ **0.25 is the SLUR's; 0.333 is the PHRASING slur's, and the tie's** (with `height-limit` 1.0) —
+ * three grobs, three pairs. We take the slur's for the slur and ⛔ leave the tie's height alone, his
+ * call of 2026-08-15 (§13.1).
+ *
+ * ⛔ The constants this replaced — a 0.93 sp floor, a 0.06 slope and a 2.2 cap — are gone with the
+ * law that used them; §12 Phase 2's table records what they drew.
  */
-export const SLUR_BOW_PER_SPAN = 0.06
+export const SLUR_HEIGHT_RATIO = 0.25
 
 /** Staff spaces → pixels for this family: against the score's staff space, ⛔ never a scaled stave
  *  (see the file note). The one place the curve family leaves engraving units. */

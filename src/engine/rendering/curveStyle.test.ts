@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CURVE, CURVE_PX, SLUR_BOW_PER_SPAN, curvePx } from './curveStyle'
+import { CURVE, CURVE_PX, SLUR_HEIGHT_RATIO, curvePx } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
@@ -19,8 +19,6 @@ describe('curveStyle — the staff-space table', () => {
     const before: Partial<Record<keyof typeof CURVE, number>> = {
       slurLift: 10,     // SlurRenderer.SLUR_LIFT
       slurArc: 14,      // SlurRenderer.SLUR_ARC
-      slurBow: 9.3,     // SlurRenderer.SLUR_BOW
-      slurBowMax: 22,   // SlurRenderer.SLUR_BOW_MAX
       slurNestGap: 10,  // SlurRenderer.SLUR_NEST_GAP
       tieLift: 7,       // TieRenderer.TIE_LIFT
       tieBow: 5.3,      // TieRenderer.TIE_BOW
@@ -43,9 +41,20 @@ describe('curveStyle — the staff-space table', () => {
     expect(CURVE.tieBow * 0.75).toBeCloseTo(0.40, 2)
   })
 
-  it('leaves the growth ratio dimensionless — no conversion, no px twin', () => {
-    expect(SLUR_BOW_PER_SPAN).toBe(0.06)
-    expect(CURVE_PX).not.toHaveProperty('slurBowPerSpan')
+  it('leaves the height ratio dimensionless — no conversion, no px twin', () => {
+    // LilyPond's `ratio` for the Slur grob (`define-grobs.scm:3181`). ⚠️ 0.333 is the PHRASING
+    // slur's and the tie's — three grobs, three pairs (`./slurArchHeight`).
+    expect(SLUR_HEIGHT_RATIO).toBe(0.25)
+    expect(CURVE_PX).not.toHaveProperty('slurHeightRatio')
+  })
+
+  it('⭐ carries the retired law\'s replacement, not the law itself', () => {
+    // §12 Phase 2 (his call, option b) swapped a floor + slope + cap for LilyPond's saturation, so
+    // `slurBow` / `slurBowMax` / `SLUR_BOW_PER_SPAN` went WITH the law that used them. What is left
+    // is the pair LilyPond states, and the px twin is derived like every other row.
+    expect(CURVE.slurHeightLimit).toBe(2.0)
+    expect(CURVE_PX.slurHeightLimit).toBeCloseTo(20, 10)
+    expect(CURVE).not.toHaveProperty('slurBow')
   })
 
   it('converts against the score staff space, not a stave', () => {

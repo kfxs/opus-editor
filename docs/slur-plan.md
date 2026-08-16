@@ -1078,7 +1078,7 @@ Two of the columns matter more than the numbers. **Rule** says what kind of chan
 | # | fix | rule | size |
 |---|---|---|---|
 | 1 | The stem-end endpoint — stop the slur contradicting the melody | **PUBLISHED** (Gould p. 111) | small |
-| 2 | Short slurs are too tall (and therefore hooky) | **TASTE** | small, one constant |
+| 2 | Short slurs are too tall (and therefore hooky) — **+ the endpoint x: the head's CENTRE, not its edge** (queued here 2026-08-16, §12.1) | **TASTE** + **PUBLISHED** (Ross p. 141; all 3 engines) | small, one constant + one x |
 | 3 | ⭐ **A tie must not sit on a staff line** — the majority behaviour, and we have nothing (**§13.4**) | **PUBLISHED** (Gould p. 61) + 2 of 3 engines | ~~medium~~ **small** — §12.0 #3 |
 | 3b | A broken tie changes weight at the system break — migrate it off raw `StaveTie` (and **two more** tie primitives, §12.0 #2) | consistency | ~~small~~ **small–medium** |
 | 4 | Curve weight — a taste call **inside** a 0.17–0.30 sp range (**§13.6**) | ~~PUBLISHED~~ **TASTE** — see the hairpin note | one constant |
@@ -1258,11 +1258,16 @@ road, which is the strongest evidence this project accepts:
 ⭐⭐ **Verovio's primary answer for a stem-up note under an up slur is a LOW attachment beside the
 stem**, and it reaches for the stem tip only when that low one would collide — the opposite of the
 instinct that the tip is the "proper" place. And its 1.5 sp above the notehead is, for a third,
-**exactly where ours lands** (0.5 float + 1.0 lift). ⚠️ Verovio's `x1` arrives from
-`curve->GetCachedX12()`; I did not chase which edge of the head that is, so read its 1.0 sp as *"a
-space to the right of the note's x"* — under the head-centre reading it is 0.4 sp clear of the stem,
-a hair off MuseScore's 0.35, and under the left-edge reading it would still be on the stem, which its
-own comment says it is moving off.
+**exactly where ours lands** (0.5 float + 1.0 lift).
+
+✅ **Its reference x is the notehead's CENTRE — chased and settled 2026-08-16** (at his question,
+*"is this verified just by musescore or also by verovio and lilypond?"*). `x1` reaches
+`CalcEndPoints` through `curve->GetCachedX12()`, which `View::CalcInitialSlur` stores from
+`View::DrawSlur`'s arguments, which `DrawControlElementConnector` builds under the comment
+*"adjust the position according to the radius"*: `drawingX1 += startRadius`
+(`view_control.cpp:302–306`). A radius past the head's origin **is** its centre. So its `x1 += 2
+units` dodge lands ~0.41 sp past the head's right edge — beside MuseScore's 0.35 and LilyPond's 0.3,
+not merely compatible with them.
 
 **✅ BUILT 2026-08-16, his call (*"do you think we should fix it now"* → now, as Phase 1's
 completion): `CURVE.slurStemDodge` 0.35 sp, in `slurStemEndpoint.slurAttachments`.** Both halves are
@@ -1278,11 +1283,11 @@ the engines':
   effectively on the stem — and is now **0.425 sp**, with the endpoint verified to be beside the
   stem rather than above it. ⭐ Break-tested: the case fails at 0.075 with the dodge removed.
 
-Two smaller deviations found in the same read, both
-his call: our stem-tip attachment sits exactly AT the tip where MuseScore sits 0.5 sp inside it, and
-our notehead-side x is the head's EDGE where MuseScore uses the head's **centre** — which is also
-Ross p. 141's *"long slurs always start and end over or under the centre of a notehead"* (§11.9), so
-that one has two sources agreeing against us.
+Two smaller deviations found in the same read: our
+stem-tip attachment sits exactly AT the tip where MuseScore sits 0.5 sp inside it (⏭️ open, his
+call), and our notehead-side x is the head's EDGE where all three use its **CENTRE** — ➡️ **QUEUED
+INTO PHASE 2 (his call, 2026-08-16)**, because it changes the drawn arc's geometry and belongs in the
+same pass as the height law.
 
 **The plan as written (kept for the reasoning):**
 
@@ -1330,7 +1335,33 @@ combinations with known ys (§12.0 #1: this is arithmetic over given numbers, no
 measurement). The *drawn consequence* in `e2e` — both cases above, asserting the **sign** of the tilt
 against the melodic interval.
 
-### Phase 2 — the short-slur height (TASTE — needs his eye)
+### Phase 2 — the short-slur height (TASTE — needs his eye) — ✅ BUILT 2026-08-16, option (b)
+
+> ⭐⭐ **HIS CALL on the costed table below: option (b), LilyPond's law adopted whole.**
+> `rendering/slurArchHeight.ts` now computes `F0_1(w·r₀/h_inf)·h_inf` with the `Slur` grob's own pair
+> — `height-limit` **2.0**, `ratio` **0.25**. The floor + slope + cap it replaced (0.93 / 0.06 / 2.2)
+> is gone, and its three constants went with it.
+>
+> ⚠️ **The formula was VERIFIED AT SOURCE before it was ported, and the plan's transcription was
+> right** where my own recollection was not: `static Real F0_1 (Real x) { return 2 / M_PI * atan
+> (M_PI * x / 2); }` and `slur_height = F0_1(width · r_0 / h_inf) · h_inf`
+> (`lily/bezier-bow.cc:29–38`), with `(height-limit . 2.0) (ratio . 0.25)` on the `Slur` grob
+> (`define-grobs.scm:3178, 3181`). ⚠️ 0.333 is the PHRASING slur's and the TIE's — three grobs, three
+> pairs, and ⛔ the tie's height is settled separately (§13.1).
+>
+> ⭐ **Its spec is a cross-check, not a restatement**: the five apexes it asserts are LilyPond's
+> column of the table below, computed by an agent reading the C++ *before* this port existed, and the
+> port reproduces them to 0.01. And `slurArchHeight(100 sp)` is still short of the limit — a
+> saturation where the old law hit its wall at an 18 sp span and drew every longer slur identically.
+>
+> ✅ **Also built: the queued endpoint x** (the head's **CENTRE**, sub-block below) — measured on
+> drawn ink, both ends now land inside their own notehead's extent where they sat beyond it.
+> ⭐ The centre anchor and the §12.1 dodge are coupled — the dodge is now stated from the head's
+> centre out past the stem — so the e2e break-test fails BOTH cases if either is reverted.
+>
+> ⏭️ **What it does NOT do: the INDENT.** LilyPond's `get_slur_indent_height` varies the control
+> points' horizontal inset with width (`2·h_inf − q²·max_fraction/(w+q)`, `max_fraction 1/3.1`) where
+> ours is a fixed 25% — §11.11 #5, still open, and the other half of what makes a short slur round.
 
 Measured drawn apex, ours against all three (a cubic's apex is 0.75 × control height in all four, so
 these are comparable). Four of our five rows were measured off real paths; the 4 sp row is the
@@ -1361,10 +1392,68 @@ which is right. Lower the short height and the angle falls with it (≈49° at 0
 law that behaves at both ends and agrees with Gould's direction; (c) leave it. ⛔ No slur arc height
 is published anywhere, by anyone — this cannot be settled by research, only by his eye.
 
+**⭐ The three options costed, in DRAWN APEXES (staff spaces), 2026-08-16:**
+
+| span | **(c) ours today** | **(a)** intercept 0.55 | **(b)** LilyPond's law | MuseScore, for scale |
+|---|---|---|---|---|
+| 2.4 sp | 0.81 | 0.52 | **0.42** | 0.58 |
+| 4 | 0.88 | 0.59 | 0.64 | 0.75 |
+| 10.8 | 1.18 | 0.90 | 1.08 | 1.23 |
+| 18 | 1.51 | 1.22 | 1.24 | 1.59 |
+| 25.2 | 1.65 | 1.55 | **1.31** | 1.88 |
+| launch angle at 2.4 sp | **61°** | 49° | 43° | — |
+
+⚠️ **(a) and (b) differ at the LONG end, not the short one** — they are within 0.1 sp of each other
+up to a 4 sp span. (a) keeps our shape and simply lowers everything by the same 0.28 sp of apex,
+which also drops the long end off its cap (1.65 → 1.55). (b) reproduces LilyPond's column *exactly*
+at all five spans (the formula was checked against the measured table and agrees to 0.01), so it
+flattens long slurs considerably more — 1.31 against our 1.65 — which is Gould's direction pushed
+further than we have ever drawn it.
+
+✅ **The centre anchor does not disturb this question**: it lengthens every arc by ~1.2 sp, which
+under our law adds 0.05 sp of apex — inside the rounding of the table.
+
 ⭐ **Whichever he picks, it is `rendering/slurArchHeight.ts`** (§12.0 #1) — span in, arch height out,
 with a spec that pins the table above at both ends. Option (b) is a *law*, not a constant, and a law
 living inline in `slurArchCps` is the slice the ⭐ rule refuses. ✅ The ghost tie follows this and
 Phase 4 for free (§12.0 #2); ⚠️ show it to him **together with Phases 4 and 6** (§12.0 #8).
+
+#### ➡️ QUEUED HERE (his call, 2026-08-16): the endpoint x — the head's CENTRE, not its edge
+
+From the §12.1 engine read, and queued into this phase rather than shipped alone **because the two
+changes cannot be judged apart**: moving both ends inward lengthens every arc by ~1.2 sp, and our
+arch height is span-proportional, so the height he is being asked to judge moves with it.
+
+**The deviation.** Both curves attach at VexFlow's tie edges — `getTieRightX()` is
+`absoluteX + glyphWidth + …`, the head's **right** edge, and `getTieLeftX()` its left. So a slur
+spans the GAP BETWEEN the noteheads. A notehead is ~1.18 sp wide, so each end sits **~0.6 sp short**
+and the arc never overhangs its own notes.
+
+⭐⭐ **Verified in ALL THREE at source, each by a different construction** — his question,
+2026-08-16, and the third one had to be chased before the claim was honest:
+
+| | the notehead-side x | where |
+|---|---|---|
+| MuseScore | `po.rx() = hw1 × 0.5`, under the comment *"default position: horizontal: middle of notehead"* | `slurtielayout.cpp:601–606` |
+| LilyPond | `x = first_head->extent(…).center()` | `slur-scoring.cc:562–566` |
+| Verovio | `drawingX1 += startRadius`, under *"adjust the position according to the radius"* — a radius past the head's origin is its centre | `view_control.cpp:302–306` |
+| Ross p. 141 | *"long slurs always start and end over or under the centre of a notehead"* (§11.9) | the book |
+| **ours** | the head's **edge** | `getTieRightX/LeftX` |
+
+⭐ **Only the NOTEHEAD-side ends are affected.** On the stem side, §12.1's dodge already sets the x
+past the stem — which is what MuseScore's `hw1 + 0.35` does absolutely — so that end already lands
+where theirs does. This is one end of most slurs, not both.
+
+⛔ **SLURS ONLY — do not touch the tie.** §13.3 found the tie field genuinely split: MuseScore uses
+the head's optical centre, LilyPond ¾ across, but **Verovio goes 0.25 sp OUTWARD from the edge**, and
+Gould's own sentence allows the edge *"when it must come closer"*. Ties share `getTieRightX` with
+slurs today, so the change has to be scoped to `SlurRenderer` deliberately rather than to the shared
+helper. ✅ The centre is already in hand: `(getNoteHeadBeginX() + getNoteHeadEndX()) / 2`, which
+`GhostRenderer` uses for exactly this reason.
+
+**Verify:** `e2e` — the drawn arc's first x sits INSIDE the first notehead's own x extent (and the
+last inside the last), where today it is beyond it; plus the existing dodge case, which must still
+clear the stem, since the two rules meet on the same end.
 
 ### Phase 3 — ⭐ a tie must not sit on a staff line (REWRITTEN by §13.4)
 

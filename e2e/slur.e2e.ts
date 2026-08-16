@@ -211,3 +211,29 @@ test('⭐⭐ the arc leaves BEYOND the stem, not across it (§12.1)', async ({ s
   expect(r.startY).toBeGreaterThan(r.stemTop)
   expect(r.startY).toBeLessThan(r.stemBottom)
 })
+
+test('⭐⭐ the arc starts OVER the notehead, not past it (§12 Phase 2)', async ({ score }) => {
+  // Ross p. 141: "long slurs always start and end over or under the centre of a notehead", and all
+  // three engines anchor there by three different constructions. Ours used the tie EDGES, so the
+  // arc spanned the GAP BETWEEN the heads — about 0.6 sp short at each end.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    // Two high notes: both stems DOWN, slur ABOVE on the notehead side, so neither end dodges and
+    // what is measured is the anchor itself.
+    const a = h.engine.addNoteAtBeat({ step: 'F', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
+    const b = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
+    h.engine.createSlur([a.id, b.id])
+    await h.render()
+    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const pts = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)]
+      .map(m => ({ x: parseFloat(m[1]), y: parseFloat(m[2]) }))
+    const heads = h.noteheads().sort((p, q) => p.x - q.x)
+    return { startX: pts[0].x, endX: pts[3].x, firstHeadX: heads[0].x, lastHeadX: heads[heads.length - 1].x }
+  })
+  // A notehead glyph's `x` is its LEFT edge and it is ~1.18 sp wide, so a centre anchor lands within
+  // a hair of half a space to its right — and, decisively, LEFT of where the tie edge used to be.
+  expect(r.startX - r.firstHeadX).toBeGreaterThan(3)
+  expect(r.startX - r.firstHeadX).toBeLessThan(9)
+  expect(r.endX - r.lastHeadX).toBeGreaterThan(3)
+  expect(r.endX - r.lastHeadX).toBeLessThan(9)
+})

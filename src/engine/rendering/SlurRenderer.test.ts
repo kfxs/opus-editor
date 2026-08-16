@@ -12,6 +12,7 @@ import {
 } from './SlurRenderer'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 import type { Stave } from 'vexflow'
+import { slurArchHeight } from './slurArchHeight'
 import type { SlurEndpointOffsetOverride } from '@/types/music'
 
 /**
@@ -157,10 +158,16 @@ describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
   const p0 = { x: 0, y: 0 }
   const p1 = { x: 100, y: 0 } // flat 100px span
 
+  // ⭐ The arch HEIGHT is `./slurArchHeight`'s and is pinned in ITS spec — these tests are about
+  // resolveCps's BRANCHING (override vs auto vs nest lift), so they ask the law rather than restate
+  // it. They used to hardcode 15.3, which is what the pre-2026-08-16 law drew for this span; that
+  // number moving is a Phase 2 decision, not a regression here.
+  const autoH = slurArchHeight(p1.x - p0.x)
+
   it('no override → the auto arch (slurArchCps), independent of any stave', () => {
-    // Flat 100px span, above: H = 9.3 + 100·0.06 = 15.3, symmetric, no sideways shift.
+    // Flat 100px span, above: symmetric, no sideways shift.
     expect(resolveCps(undefined, stave(10), p0, p1, -1, 0)).toEqual([
-      { x: 0, y: 15.3 }, { x: 0, y: 15.3 },
+      { x: 0, y: autoH }, { x: 0, y: autoH },
     ])
   })
 
@@ -178,13 +185,13 @@ describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
   it('override present but NO stave → falls back to the auto arch (defensive)', () => {
     const override: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 9, y: 9 }, { x: 9, y: 9 }]
     expect(resolveCps(override, undefined, p0, p1, -1, 0)).toEqual([
-      { x: 0, y: 15.3 }, { x: 0, y: 15.3 },
+      { x: 0, y: autoH }, { x: 0, y: autoH },
     ])
   })
 
   it('extraHeight (nest lift) raises ONLY the auto arch, never a manual override', () => {
     const auto = resolveCps(undefined, stave(10), p0, p1, -1, 10)
-    expect(auto).toEqual([{ x: 0, y: 25.3 }, { x: 0, y: 25.3 }]) // 15.3 + 10
+    expect(auto).toEqual([{ x: 0, y: autoH + 10 }, { x: 0, y: autoH + 10 }])
     const override: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 1, y: 1 }, { x: 1, y: 1 }]
     expect(resolveCps(override, stave(10), p0, p1, -1, 10)).toEqual([
       { x: 10, y: 10 }, { x: 10, y: 10 }, // extraHeight ignored — fully authored

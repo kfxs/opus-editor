@@ -16,11 +16,15 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  */
 const SP = STAFF_SPACE_PX
 const STEM = 3.5 * SP
+/** Half a Bravura notehead, the distance from the anchor (its CENTRE) out to the stem's edge. */
+const HALF_HEAD = 0.59 * SP
 
 /** A note with an up stem (tip above the head) — low notes, in treble. */
-const up = (headY: number): SlurAttachment => ({ headY, stemTipY: headY - STEM, stemDirection: 1 })
+const up = (headY: number): SlurAttachment =>
+  ({ headY, stemTipY: headY - STEM, stemDirection: 1, headHalfWidth: HALF_HEAD })
 /** A note with a down stem (tip below the head) — high notes. */
-const down = (headY: number): SlurAttachment => ({ headY, stemTipY: headY + STEM, stemDirection: -1 })
+const down = (headY: number): SlurAttachment =>
+  ({ headY, stemTipY: headY + STEM, stemDirection: -1, headHalfWidth: HALF_HEAD })
 
 const ABOVE = -1
 const BELOW = 1
@@ -99,7 +103,7 @@ describe('slurAttachmentYs — the cases it must leave alone', () => {
   it('falls back to the notehead for a note that draws no stem', () => {
     // A whole note: `NoteBuilder` still gives it a stem DIRECTION (which is what placed the slur),
     // but there is no tip to climb, so the head is the attachment.
-    const whole: SlurAttachment = { headY: 105, stemDirection: 1 }
+    const whole: SlurAttachment = { headY: 105, stemDirection: 1, headHalfWidth: HALF_HEAD }
     const { fromY, toY } = slurAttachmentYs(whole, down(100), ABOVE)
 
     expect(fromY).toBe(105)
@@ -118,15 +122,17 @@ describe('slurAttachments — the sideways clearance (§12.1)', () => {
 
   it('⭐⭐ steps the START past an up stem it would otherwise leave from the middle of', () => {
     // His report: the arc left from ON the stem. LilyPond 0.3 sp, MuseScore 0.35 — we take 0.35.
+    // ⭐ The dx is measured from the ANCHOR, which is the head's CENTRE (§12 Phase 2): out to the
+    // edge the stem stands on, then 0.35 sp clear of it.
     const { from, to } = slurAttachments(up(105), down(100), ABOVE, LIFT)
-    expect(from.dx).toBeCloseTo(0.35 * SP, 6)
+    expect(from.dx).toBeCloseTo(HALF_HEAD + 0.35 * SP, 6)
     expect(to.dx, 'the notehead-side end has no stem in its way').toBe(0)
   })
 
   it('steps the END past a DOWN stem, the mirror case', () => {
     // Slur BELOW ending on a down-stem note: the stem hangs where the arc lands, so it steps LEFT.
     const { from, to } = slurAttachments(up(100), down(140), BELOW, LIFT)
-    expect(to.dx).toBeCloseTo(-0.35 * SP, 6)
+    expect(to.dx).toBeCloseTo(-(HALF_HEAD + 0.35 * SP), 6)
     expect(from.dx).toBe(0)
   })
 
@@ -148,7 +154,7 @@ describe('slurAttachments — the sideways clearance (§12.1)', () => {
   })
 
   it('⛔ leaves a stemless note alone, and still reports its y', () => {
-    const whole: SlurAttachment = { headY: 105, stemDirection: 1 }
+    const whole: SlurAttachment = { headY: 105, stemDirection: 1, headHalfWidth: HALF_HEAD }
     const { from } = slurAttachments(whole, down(100), ABOVE, LIFT)
     expect(from.dx).toBe(0)
     expect(from.y).toBe(105)
