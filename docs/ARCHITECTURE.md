@@ -188,6 +188,29 @@ may not import a renderer, audio, the facade, an interaction controller or the b
 and one does (`ScoreModel.tremoloPair.test.ts` builds a clip through
 `interactions/clipboard`).
 
+### ⭐⭐ …and a fifth: THE INK HALF DOES NOT MEASURE AT RUNTIME
+
+`engine/layout/**` and `engine/fonts/**` may not touch `document`, `window`, `navigator`,
+`getComputedStyle`, `OffscreenCanvas` or `ResizeObserver` — the same `no-restricted-globals`
+ratchet the score layer has, for a different reason (docs/font-metrics-plan.md F4).
+
+How much room a glyph needs is answered from **Bravura's own metrics** (`engine/fonts/`),
+synchronously, in jsdom, with no font loaded. That is what makes every width unit-testable
+without a browser, and what keeps the layout out from behind the font race that
+`rendering/musicFontReady.ts` exists to survive — ⚠️ a race that is real and still costs the
+*drawing* a deferred first render, because **VexFlow has no metrics table and measures every
+glyph off a canvas** (`reference_vexflow_measures_glyphs_at_render_time`). One `measureText`
+in a spacing module would quietly put our half back behind it.
+
+Two import arrows come with it:
+
+- **`engine/fonts/` may not import `vexflow` or `engine/rendering/*`.** The font is data and must
+  not know who draws with it — it is the one module a future engine keeps unchanged when the
+  drawing moves (docs/own-engraving-engine.md P2/P3).
+- **`engine/layout/` may not import `vexflow`.** ⚠️ It *may* still import
+  `engine/rendering/layoutConfig` and `MeasureLayout` (`barWidthRoom`, `staffStride` do), which is
+  an older arrow this rule deliberately does not touch.
+
 ---
 
 ## The framework-agnostic boundary

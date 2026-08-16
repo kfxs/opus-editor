@@ -14,6 +14,22 @@
 > it drags two floors with it · **§3.1b** `flagReach` is a composition, so F1 needs one · **§3.4a**
 > the rest row NARROWS, and its real question is a `MAY_KERN` row · **§4.1** "derived" and §4's own
 > unit test cannot both be had · **§F4** the payoff it claimed is already true.
+>
+> ---
+>
+> ## ✅ BUILT 2026-08-16 — F1, F2, F3, F4. **P2 of the engine project is complete.**
+>
+> | | what it did | where it landed |
+> |---|---|---|
+> | **F1** | `engine/fonts/` — 60 glyphs' boxes, anchors, 29 engraving defaults, generated from the OTF we ship | §5 F1 |
+> | **F2** | the ink table **held against** the font (not derived), `INK.notehead` split, rests given a band, the browser check re-pointed at the dependency | §5 F2 |
+> | **F3** | the weights **derive** from `engravingDefaults`; the ledger turned out to be a RATIO, not a weight | §5 F3 |
+> | **F4** | already true, so made **checkable**: the ink half is fenced off from the DOM by `lint:boundary` | §5 F4 |
+>
+> ⭐⭐ **And it changed the picture once** — §3.4b: asking which line a rest sits on found the whole
+> rest a staff space too low in every empty bar. Researched before deciding, then fixed.
+>
+> ⏭️ **What is left is his eye**: the six taste calls in §3.6, none blocking, each one line to flip.
 
 ---
 
@@ -494,10 +510,49 @@ never the generated data.
 
 ⛔ Not done until §4 is done.
 
-### F3 — adopt `engravingDefaults` for the weights
+### F3 — adopt `engravingDefaults` for the weights ✅ **BUILT 2026-08-16**
 `THIN_LINE_SPACES`, the curve thicknesses, ledger, barline, beam. ⭐ Mostly deleting hand-typed
 copies of numbers whose comments already name their source (§2). No visible change by construction —
 if anything moves, a transcription was wrong, and that is worth knowing.
+
+> **No transcription was wrong.** Every weight came out identical: `THIN_LINE_SPACES` 0.16 =
+> `thinBarlineThickness`, `CURVE.thickness` 0.22 = `slurMidpointThickness`, `CURVE.outline` 0.10 =
+> `slurEndpointThickness`, and `CROSS_SYSTEM_BEAM_WIDTH` 5 px = `beamThickness` 0.5 sp × 10 exactly.
+> The contract is `rendering/__tests__/engravingWeights.test.ts`.
+>
+> #### ⭐⭐ The one real finding: a LEDGER LINE is a RATIO, not a weight
+>
+> `LEDGER_LINE_STYLE.lineWidth` was 1.25 px, and taking the font's `legerLineThickness` for it would
+> have been **wrong** — 0.16 spaces is 1.6 px here, against the **1 px** staff line VexFlow actually
+> draws (the SVG context's default `stroke-width`, *not* the font's `staffLineThickness` of 0.13 sp).
+>
+> ⭐ **An absolute weight from a font only agrees with its neighbours while the neighbours come from
+> that font too**, and our staff lines do not. So what is adopted is the font's RATIO —
+> `legerLineThickness / staffLineThickness` = 1.23 — applied to the staff line on the page. That is
+> what the constant's own comment already said in words; it now says it in arithmetic.
+> ⏭️ When P3 draws staff lines itself this collapses back to the plain weight.
+>
+> #### ⚠️ Why these DERIVE while §4.1 keeps the ink table's literals
+>
+> Not an inconsistency — two kinds of number. An **ink extent** is our own measurement of what we
+> draw and diverges from the font on purpose in places (a clearance is rounded OUT), so the literal
+> is a claim and stays. A **weight** is a transcription of the font's own statement: there is no
+> independent claim, so the only thing a literal can add is a typo.
+>
+> ⚠️ And the tests are honest about their limit: a derivation agreeing with its source proves
+> nothing, so what they actually assert is **the font's internal agreements** — that the five
+> thin-line names really are one value, that `tie*Thickness` really equals `slur*Thickness`, that
+> `hairpinThickness` really is in the family. Those are what justify one constant serving a family,
+> and they are facts about Bravura rather than about us.
+>
+> ⛔ **The hairpin stays in the thin-line family by HIS EYE, not by the font.** All four engines
+> override SMuFL downward for it; he rejected 0.10 and 0.12 and put it back at 0.16 the same day.
+> The font agrees, which is what makes deriving safe — ⚠️ if one ever disagreed, his answer wins and
+> the hairpin leaves the family with its own constant.
+>
+> ⏭️ **Noticed, not acted on:** VexFlow draws staff lines at 1 px where the font says 0.13 sp
+> (1.3 px). Changing that is visible, so it is not F3's — it belongs with P5 (the staff), and it is
+> the reason the ledger needs a ratio at all.
 
 ### F4 — the payoff
 ⚠️ **Checked, and this was overstated: it is already true.** Nothing in `layout/` calls
@@ -518,6 +573,32 @@ The `musicFontReady` gate stays while VexFlow draws — it must, because VexFlow
 
 ⭐ **Stop after F2 and it was worth it** (payoffs 1 and 2 are both in F2). F3 is tidying. F4 is a
 paragraph in a doc, not a piece of work.
+
+> ### ✅ BUILT 2026-08-16 — and it turned out to have exactly one piece of work in it
+>
+> Re-verified first: `grep` finds `measureText` in `engine/layout/` **only inside comments**, and the
+> single runtime measurer left in `src/` is `rendering/musicFontReady.ts`. So the payoff really was
+> already banked, and writing a paragraph claiming it would have been the whole of F4.
+>
+> ⭐⭐ **A claim nobody checks is how this drifts back.** So F4 is a RATCHET, in the shape this repo
+> already uses for the framework boundary: `engine/layout/**` and `engine/fonts/**` join the
+> `no-restricted-globals` fence that the score layer has had — no `document`, `window`, `navigator`,
+> `getComputedStyle`, `OffscreenCanvas`, `ResizeObserver` — each with a message saying *why* rather
+> than *what*, and pointing at `scripts/generate-font-metrics.mjs` as the thing to do instead.
+>
+> Two import arrows came with it, both true today and both verified before being written:
+> **`engine/fonts/` may not import `vexflow` or `engine/rendering/*`** (the font is data and must not
+> know who draws with it — it is the module a future engine keeps unchanged), and **`engine/layout/`
+> may not import `vexflow`**. ⚠️ Layout keeps its existing `layoutConfig` / `MeasureLayout` imports;
+> that older arrow is not F4's to close.
+>
+> Break-tested: a `document.createElement` in `kerning.ts` and a `vexflow` import in either directory
+> each fail the gate with their own message. Documented in `docs/ARCHITECTURE.md` beside the other
+> four rules.
+>
+> ⏭️ **What is still NOT bought, and why the gate stays:** the *drawing* is as far behind the font as
+> it ever was — VexFlow has no metrics table and measures every glyph off a canvas, so
+> `musicFontReady` still defers the first render. That is P1/P3's to remove, not F4's.
 
 ---
 

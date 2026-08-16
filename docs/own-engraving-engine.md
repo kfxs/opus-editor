@@ -194,6 +194,8 @@ The sentence stays true of *stems, beams and articulation placement* — see §6
 
 Not one project. Five, each standalone, each leaving the editor working.
 
+> ✅ **P2 is DONE (2026-08-16).** ⏭️ **P3 is next** — the note itself, and the big one.
+>
 > 🚨 **THE ORDER BELOW WAS WRONG, corrected 2026-08-16 — see `docs/font-metrics-plan.md` §0.**
 > **P2 goes first, and P1 moves to after P3.** P1's claim was that it *"makes everything else
 > optional"*; it does not, because while VexFlow objects still paint themselves our context has to
@@ -214,8 +216,25 @@ VexFlow objects only have to hand us numbers, never paint. It also closes four s
 once: `save`/`restore` being no-ops, the `setStyle` context leak, `openGroup`'s `vf-` prefix, and
 `getSVGElement`'s document-wide `getElementById`.
 
-### P2 — Glyphs and font metrics ⭐ START HERE
-📄 **`docs/font-metrics-plan.md`** — the decision record.
+### P2 — Glyphs and font metrics ✅ **DONE 2026-08-16 (F1–F4)**
+📄 **`docs/font-metrics-plan.md`** — the decision record, and the log of what each phase found.
+
+> `engine/fonts/` holds Bravura's metrics for the 60 glyphs we draw, generated from the OTF we
+> already ship. The ink table keeps its literals and is **held against the font** in jsdom, with
+> every deliberate difference an override carrying its reason; the browser check was re-pointed so
+> its subject is now **the dependency** — and it says the woff2 VexFlow draws with is the same
+> Bravura we measure. The weights derive from `engravingDefaults` outright. The ink half is fenced
+> off from the DOM by `lint:boundary`, so *"our numbers do not wait for a font"* is checked rather
+> than claimed.
+>
+> ⭐⭐ **And it changed the picture once, which was the argument for doing it at all.** Asking which
+> line a rest is drawn on — a question the font cannot answer — found that every rest was keyed to
+> the middle line, leaving the **whole rest a staff space too low in every empty bar**. Researched
+> (Gould p. 34, Byrd 1984, and all three reference engines), then fixed: `layout/restPlacement.ts`
+> owns the rule and the model *and* the drawing both read it.
+>
+> ⏭️ **What P2 leaves for his eye**: six taste calls batched in that plan's §3.6 — none of them
+> blocking, and each one line to flip.
 
 Ship Bravura's SMuFL metadata ourselves (`Bravura.json`: 3,434 glyph boxes, 643 anchor sets, 30
 engraving defaults). Kills the §3 bug class for our own numbers. Turns `spacingPadding.ts` from a

@@ -96,6 +96,55 @@
       }
     },
     {
+      "files": ["src/engine/layout/**/*.ts", "src/engine/fonts/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          { "name": "document", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME. How much room a glyph needs is answered from Bravura's own metrics (src/engine/fonts/), synchronously, in jsdom, with no font loaded — docs/font-metrics-plan.md F4. Reaching for a canvas here would put the layout back behind the font race that `musicFontReady` exists to survive, and would make every width untestable without a browser. Add a row to the metrics instead: `node scripts/generate-font-metrics.mjs`." },
+          { "name": "window", "message": "The ink half is pure: staff spaces in, staff spaces out, no DOM — docs/font-metrics-plan.md F4." },
+          { "name": "navigator", "message": "The ink half is pure: no browser APIs — docs/font-metrics-plan.md F4." },
+          { "name": "getComputedStyle", "message": "The ink half does not read the page to decide a width. The font's metrics are the source — src/engine/fonts/, docs/font-metrics-plan.md F4." },
+          { "name": "OffscreenCanvas", "message": "THE INK HALF DOES NOT MEASURE AT RUNTIME — src/engine/fonts/ has the numbers, and they need no canvas. See docs/font-metrics-plan.md F4." },
+          { "name": "ResizeObserver", "message": "The ink half is pure: no DOM — docs/font-metrics-plan.md F4." }
+        ]
+      }
+    },
+    {
+      "files": ["src/engine/fonts/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*"],
+                "message": "src/engine/fonts is the FONT AS DATA and must not know who draws with it: no VexFlow, no renderer. It is the one module a future engine keeps unchanged when the drawing moves (docs/own-engraving-engine.md P2/P3)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/engine/layout/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["vexflow"],
+                "message": "The ink half must not consult the drawing library to decide how much room ink needs — that is the coupling docs/font-metrics-plan.md §3.1 is about (a table calibrated to VexFlow's BEHAVIOUR describes nothing the day VexFlow stops drawing). Measure the font instead: src/engine/fonts/. ⚠️ Importing engine/rendering/layoutConfig is still allowed and is a separate, older arrow."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/utils/**/*.ts", "src/types/**/*.ts", "src/engine/models/**/*.ts"],
       "excludedFiles": ["**/*.test.ts"],
       "rules": {
