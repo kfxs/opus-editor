@@ -34,7 +34,7 @@ import { voiceOf } from '@/utils/lanes'
 import { beamRoleAt, isBeamableDuration } from '@/utils/beaming'
 import { getMeterInfo } from '@/utils/meter'
 import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
-import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restExtent } from './spacingPadding'
+import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
 
@@ -123,9 +123,12 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
 function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef, multiVoice: boolean, flagged: boolean, size: number): ColumnInk {
   const staff = slot.staffId
   if (slot.type !== 'chord') {
-    // A rest's own band is not modelled: nothing kerns against a rest (`MAY_KERN`), so the honest
-    // thing is a band covering the staff rather than a position we would have to predict.
-    return sized([{ left: 0, right: restExtent(slot.duration), top: 0, bottom: 4, kind: 'rest', staff }], size)
+    // ⭐ A rest's band is its own, at last (`restBand`, docs/font-metrics-plan.md §3.4). It used to
+    //   be the WHOLE STAFF — the honest answer while the extents were unknown, and a maximally
+    //   conservative one. ⚠️ Nothing kerns against a rest yet (`MAY_KERN` has no rest row), so this
+    //   moves no width; it makes the question askable.
+    const band = restBand(slot.duration)
+    return sized([{ left: 0, right: restExtent(slot.duration), ...band, kind: 'rest', staff }], size)
   }
 
   const pitches: NotePitch[] = slot.notes ?? []
@@ -138,7 +141,11 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
   // one place a chord is wider than a single note without any modifier being involved.
   const positions = pitches.map(pitch => spellingDiatonicPos(pitch.step, pitch.octave)).sort((a, b) => a - b)
   const hasSecond = positions.some((position, i) => i > 0 && position - positions[i - 1] === 1)
-  const heads = hasSecond ? 2 * INK.notehead : INK.notehead
+  // ⚠️ TWO quantities, and they were one row until F2 (docs/font-metrics-plan.md §3.1a): the second
+  //    head is DISPLACED by `secondDisplacement` — the head's ink less half the stem they share —
+  //    and then draws its own full `notehead` of ink from there. ⛔ Not `2 × notehead`, which would
+  //    count the shared stem twice the moment the ink row takes the font's 1.18.
+  const heads = hasSecond ? INK.secondDisplacement + INK.notehead : INK.notehead
   const overhang = INK.ledgerRight - INK.notehead
   const dots = dotExtent(slot.dots ?? 0)
 

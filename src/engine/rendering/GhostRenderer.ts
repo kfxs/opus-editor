@@ -42,7 +42,7 @@ import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { drawTempoText } from './TempoLayout'
-import { convertDuration, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
+import { convertDuration, restKey, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
@@ -244,7 +244,7 @@ export function drawNoteGhost(
     const noteEnd = fracAdd(noteStart, writtenLength(ghostNote))
 
     const makeRest = (r: RestSlot) => {
-      const sn = new StaveNote({ keys: ['b/4'], duration: durationToVexflow(r.duration, r.dots) + 'r' })
+      const sn = new StaveNote({ keys: [restKey(r.duration)], duration: durationToVexflow(r.duration, r.dots) + 'r' })
       if (r.dots) Dot.buildAndAttach([sn], { all: true })
       return sn
     }
@@ -426,9 +426,9 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
     tempStave.setEndBarType(Barline.type.NONE)
     tempStave.setContext(ctx)
 
-    // 'b/4' anchors a rest to the middle line under the default clef — the same key NoteBuilder
-    // uses, so the ghost is positioned by the same rule as the real thing.
-    const rest = new StaveNote({ keys: ['b/4'], duration: convertDuration(duration, dots) + 'r' })
+    // ⭐ Placed by `restKey`, the same rule NoteBuilder uses, so the ghost lands where the real rest
+    //   will — a whole rest on the fourth line, everything shorter on the middle one.
+    const rest = new StaveNote({ keys: [restKey(duration)], duration: convertDuration(duration, dots) + 'r' })
     for (let d = 0; d < dots; d++) Dot.buildAndAttach([rest], { all: true })
     rest.setStave(tempStave)
     rest.setContext(ctx)

@@ -9,7 +9,7 @@
  * one), which is why a quarter with a sharp in front of it and a bare quarter were asked to live in
  * the same column.
  *
- * ## ⭐ Every number here was MEASURED off our own drawing, in Chrome
+ * ## ⭐ Every number here was MEASURED off our own drawing, in Chrome — and is now CHECKED
  *
  * Not read out of a font spec and not invented: rendered, then read back with `e2e/harness.ts`'s
  * glyph readers, so the table says what VexFlow actually does. `e2e/spacing.e2e.ts` re-measures them
@@ -17,6 +17,18 @@
  * and drawing the other silently"* (plan §P3). The paddings BETWEEN events are a different kind of
  * number — a judgement, not a measurement — and are seeded from MuseScore's published table
  * (docs/spacing-model-research.md §3).
+ *
+ * ⭐⭐ **F2 added the other side of that pairing**: `spacingPadding.font.test.ts` holds every extent
+ * here against **Bravura's own metrics** (`engine/fonts/`), in jsdom, with no browser. So the table
+ * now answers to two things that cannot both be wrong in the same direction — what we DRAW and what
+ * the FONT says — and a row that agrees with neither is a failing test.
+ * ⛔ **A deliberate difference is an OVERRIDE carrying its sentence**, declared in that file. Never a
+ * silent one: a silent difference is how a rounded-out clearance gets "corrected" by the next reader.
+ *
+ * ⚠️ **Three quantities live in this one table and always have** — an ink extent, a placement, and a
+ * distance measured off VexFlow's BEHAVIOUR (docs/font-metrics-plan.md §3.1). `notehead` and
+ * `secondDisplacement` are the pair that shows why it matters: they were one row until F2, and the
+ * font agrees with only one of them.
  *
  * ## ⛔ A new element that draws ink adds a ROW here
  *
@@ -27,6 +39,7 @@
 
 import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { restStaffLine } from './restPlacement'
 
 /**
  * What sits at one edge of a gap. Not "what the event IS" — what its ink at that edge IS, which is
@@ -48,8 +61,26 @@ export type InkKind = 'note' | 'rest' | 'accidental' | 'dot' | 'ledger' | 'stem'
  * the first augmentation dot is placed.
  */
 export const INK = {
-  /** A notehead's own width. Measured as the offset of the DISPLACED head of a second: 11.3 px. */
+  /**
+   * ⭐⭐ **A notehead's own INK** — how wide the drawn head is. ⚠️ **Bravura says 1.18**
+   * (`fonts/fontMetrics.noteheadInk`), and this is 1.13 as an **OVERRIDE pending his eye**
+   * (docs/font-metrics-plan.md §3.6 item 2): it moves every note-to-note gap in the score by 0.05
+   * spaces, and it drags {@link MIN_COLUMN_GAP} — and therefore the drag floors — with it.
+   *
+   * ⛔ **1.13 is not this quantity, and that is the point of the split.** It was measured as the
+   * offset of the DISPLACED head of a second (11.3 px), which is the head's ink LESS HALF A STEM —
+   * see {@link INK.secondDisplacement}, which is what that measurement actually answers. The 0.05
+   * was never an error; it was a second question wearing this one's name (plan §3.1a).
+   */
   notehead: 1.13,
+  /**
+   * ⭐ **How far a chord displaces the second of two adjacent noteheads** — the two heads share the
+   * stem they hang on, so they overlap by its width instead of sitting edge to edge.
+   *
+   * FONT: 1.12 (`noteheadInk 1.18 − stemThickness 0.12 / 2`). Ours is the 1.13 measured in Chrome,
+   * kept because 0.01 spaces is a tenth of a pixel and re-measuring it is not worth a redraw.
+   */
+  secondDisplacement: 1.13,
   /**
    * ⭐ A LEDGER LINE reaches from **−0.30 to +1.50** of the notehead's anchor — 1.80 spaces wide,
    * against the notehead's own 1.13, so a ledgered note is **0.67 spaces wider than a bare one** and
@@ -85,6 +116,13 @@ export const INK = {
    *
    * A DOWN flag adds nothing: its stem stands at the head's LEFT edge, so its 1.2 spaces of ink land
    * inside the head's own 1.13 (measured: box right 1.3 against the head's 1.2).
+   *
+   * ⚠️ **This is a COMPOSITION, not a glyph width** (docs/font-metrics-plan.md §3.1b): the font's
+   * `flag8thUp` is 1.056 measured from the STEM's x, so the reach past the head is
+   * `noteheadInk − stemThickness + flag`, i.e. **0.94** past a 1.18 head — 2.12 from the anchor,
+   * against the 2.13 this 1.0 gives on a 1.13 head. ⛔ It cannot be re-sourced on its own: it rides
+   * on whichever notehead ink is chosen (§3.6 item 2), so it is an OVERRIDE until that is settled.
+   * `fonts/fontMetrics.flagInkRight` is the formula, and the check test holds the two together.
    */
   flagReach: 1.0,
 } as const
@@ -108,6 +146,14 @@ export const INK = {
  * ⭐ The numbers came out as the tradition states them, which is the check worth having: a sharp is
  * symmetric at ±1.4 spaces, a **flat reaches 1.8 up and only 0.8 down** (its bowl sits above the
  * line), and a notehead is half a space either side.
+ *
+ * ⭐⭐ **And they are now CHECKED, not only measured**: `spacingPadding.font.test.ts` holds every row
+ * of this file against Bravura's own metrics (`engine/fonts/`), so a number that drifts from the
+ * font is a failing test rather than a discovery years later. ⛔ A row that deliberately differs is
+ * an **override carrying its sentence** — never a silent difference (docs/font-metrics-plan.md §3.5).
+ *
+ * ⚠️ **A REST is not in this table** — it is not drawn at a pitch, so it has a BAND rather than a
+ * reach. See {@link restBand}.
  */
 export const INK_HEIGHT = {
   /** A notehead, up and down from its own line. 0.6 both ways — the measured 0.5/0.6, rounded OUT. */
@@ -126,6 +172,52 @@ export const INK_HEIGHT = {
    */
   flagFromTip: 3.3,
 } as const
+
+/**
+ * ⭐⭐ **A REST'S HEIGHT — the row this table never had** (docs/font-metrics-plan.md §3.4).
+ *
+ * Every other ink here is a `± reach` around its own anchor. A rest cannot be: **it is not drawn at
+ * a pitch**, it is drawn at a fixed place on the staff that depends on its duration, so what the
+ * model needs is the BAND itself. Hence {@link restBand} rather than a pair of numbers.
+ *
+ * ## ⚠️ It takes TWO facts, and the font supplies only one of them
+ *
+ * The font gives the **extent** — how far the glyph's ink runs either side of its own origin. Where
+ * that origin SITS is a placement, and a placement is the drawing's, not the font's: a whole rest
+ * hangs from the second line down, everything else centres on the middle line. ⭐ That is the same
+ * *"name the quantity"* trap the notehead row carries (plan §3.1), and it is why `restPlacement.ts`
+ * is a separate MODULE with its own source — one the DRAWING reads too, so the band and the glyph
+ * cannot land on different lines (they did: see that module's header).
+ *
+ * ## ⭐ The asymmetry is the whole reason to have it
+ *
+ * A whole rest hangs almost entirely BELOW its line (0.04 up, 0.54 down) and a half rest sits
+ * entirely above it (0.57 up, 0.01 down) — the same glyph shape, the same width, on opposite sides
+ * of the line. One number for *"a rest is this tall"* would be wrong for both.
+ */
+const REST_HEIGHT: Record<NoteDuration, { up: number; down: number }> = {
+  w: { up: 0.036, down: 0.54 },
+  h: { up: 0.568, down: 0.008 },
+  q: { up: 1.492, down: 1.5 },
+  '8': { up: 0.696, down: 1.004 },
+  '16': { up: 0.716, down: 2.0 },
+  '32': { up: 1.704, down: 2.0 },
+}
+
+/**
+ * The vertical band a rest of this duration occupies, in staff spaces below the top stave line.
+ *
+ * ⚠️ **Nothing kerns against a rest today** (`MAY_KERN` in `layout/kerning.ts` has no rest row), so
+ * this changes no width until that row is added — which is a decision and not a consequence
+ * (plan §3.6 item 6). It exists so that the question *"may this accidental tuck under that rest?"*
+ * becomes answerable at all: before it, a rest claimed the WHOLE staff as its band, which is the
+ * most conservative answer there is and the honest one while the extents were unknown.
+ */
+export function restBand(duration: NoteDuration): { top: number; bottom: number } {
+  const line = restStaffLine(duration)
+  const height = REST_HEIGHT[duration] ?? REST_HEIGHT.q
+  return { top: line - height.up, bottom: line + height.down }
+}
 
 /** How far an accidental's ink reaches above and below the line of the note it belongs to. */
 const ACCIDENTAL_HEIGHT: Record<string, { up: number; down: number }> = {

@@ -9,6 +9,7 @@ import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { restStaffLine } from '@/engine/layout/restPlacement'
 
 /**
  * Note/measure building helpers shared by the renderer and the measure-width math.
@@ -20,6 +21,34 @@ import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/uti
  * `calculateMinimumMeasureWidth` (width side) call them, and the future per-voice
  * render loop will call them once per voice group.
  */
+
+/**
+ * The VexFlow key that puts a glyph on each stave LINE, bottom to top, on a treble stave.
+ *
+ * ⚠️ VexFlow numbers its lines 1 (bottom) to 5 (top); `layout/restPlacement` counts staff spaces
+ * DOWN from the top line. `restKey` is the whole of the conversion, and it is one subtraction.
+ */
+const TREBLE_LINE_KEYS = ['e/4', 'g/4', 'b/4', 'd/5', 'f/5']
+
+/**
+ * ⭐ **Where a REST goes, asked of the one module that decides it** (`layout/restPlacement`) — a
+ * whole rest hangs from the fourth line, everything shorter is anchored to the middle.
+ *
+ * ⛔ **Do not hard-code a key here again.** Every rest used to be given `b/4`, which is right for a
+ * half rest and one staff space too low for a whole one; the model meanwhile described the band it
+ * *should* have had. Two places owning the same rule is how they came to disagree, and this function
+ * exists so there is only one.
+ *
+ * ⚠️ Rests stay INDEPENDENT OF CLEF, which is why no clef is passed to the `StaveNote`: VexFlow adds
+ * `clefProperties(clef).lineShift` to a key's line, so the same key under a bass clef would put the
+ * rest six lines away. The keys above are therefore treble spellings used as line NUMBERS, not as
+ * pitches — the rest has no pitch.
+ */
+export function restKey(duration: NoteDuration): string {
+  // `restStaffLine` is spaces below the TOP line (0…4); VexFlow counts 1…5 from the BOTTOM.
+  const vexLine = 5 - restStaffLine(duration)
+  return TREBLE_LINE_KEYS[vexLine - 1] ?? 'b/4'
+}
 
 /**
  * Articulation render order — from note outward (first = closest to note head).
@@ -136,16 +165,18 @@ export function createStaveNotesFromSlots(
         // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
         // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
         // the whole rest's fixed tick value never clashes with the bar capacity.
-        const measureRest = new StaveNote({ keys: ['b/4'], duration: 'wr', alignCenter: true })
+        //
+        // ⭐ Placed by the same rule as any other whole rest ({@link restKey}) — the FOURTH line.
+        //   All three reference engines place a measure rest exactly where they place a duration
+        //   whole rest, and two of them do not even distinguish the cases: MuseScore's `V_MEASURE`
+        //   falls through to `V_WHOLE`, and its `isWholeRest()` answers true for both.
+        const measureRest = new StaveNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true })
         if (shift) measureRest.setKeyLine(0, measureRest.getLineForRest() + shift)
         staveNotes.push(measureRest)
         continue
       }
       const vexDuration = convertDuration(slot.duration, slot.dots || 0)
-      // Rests are positioned at fixed staff positions independent of clef.
-      // The 'b/4' key anchors the rest to the middle line under the default
-      // (treble) clef — passing a clef would shift it (e.g. high in bass clef).
-      const staveNote = new StaveNote({ keys: ['b/4'], duration: vexDuration + 'r' })
+      const staveNote = new StaveNote({ keys: [restKey(slot.duration)], duration: vexDuration + 'r' })
       for (let d = 0; d < (slot.dots || 0); d++) {
         Dot.buildAndAttach([staveNote], { all: true })
       }

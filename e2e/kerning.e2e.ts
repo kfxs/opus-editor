@@ -1,4 +1,12 @@
 import { test, expect } from './fixtures'
+import { glyphBox } from '../src/engine/fonts/fontMetrics'
+import { restStaffLine } from '../src/engine/layout/restPlacement'
+import type { NoteDuration } from '../src/types/music'
+
+/** The rest glyphs by the codepoint VexFlow draws — so a drawn rest can be asked its duration. */
+const REST_DURATIONS: Record<string, NoteDuration> = {
+  e4e3: 'w', e4e4: 'h', e4e5: 'q', e4e6: '8', e4e7: '16', e4e8: '32',
+}
 
 /**
  * KERNING, on the page — two inks only need horizontal clearance where they share a vertical band
@@ -6,21 +14,53 @@ import { test, expect } from './fixtures'
  *
  * Three things live here, and only the browser can hold any of them:
  *
- *  1. **The vertical ink table, re-measured** — the anti-drift gate `spacingPadding.ts` already has for
- *     its horizontal half. ⚠️ Measured with canvas `TextMetrics.actualBoundingBox*` and NEVER with a
- *     bounding box: a music glyph's SVG `<text>` reports the FONT's line box, which comes out the same
- *     16 staff spaces tall for every glyph in Bravura, so a "height" read that way is not a height.
+ *  1. **THE FONT AGAINST THE DRAWING** — ⚠️ read the note below, because this test changed its
+ *     subject in F2 and that was the point.
  *  2. **What kerning WINS** — a left-hand accidental no longer buys room in the right hand's gaps.
  *  3. **What it deliberately DOES NOT win** — inside a beamed group the previous stem really is in the
  *     way, so a leap's accidental keeps its room. A test for the decline as much as for the win: the
  *     failure mode of a shape-based spacer is tucking ink into ink.
+ *
+ * ## 🚨 What (1) asserts changed in F2 — deliberately, and it would not have noticed
+ *
+ * It used to re-measure the drawing and compare it to `INK_HEIGHT`: **"the table describes what
+ * VexFlow draws"**. Since F2 the table is also held against Bravura's own metrics in jsdom
+ * (`spacingPadding.font.test.ts`), and leaving this file untouched would have quietly turned it into
+ * **"our drawing agrees with the font"** — a different claim, green either way
+ * (docs/font-metrics-plan.md §4).
+ *
+ * ⭐⭐ So the check is now split on purpose, and this half is the interesting one: **the subject is
+ * the DEPENDENCY.** There are three copies of Bravura in play — the woff2 VexFlow bundles and draws
+ * with, the `public/fonts/Bravura.otf` we measure and outline for the PDF, and Steinberg's metadata
+ * (§4.2). The first two are checked against each other HERE, in the only place a drawn glyph exists.
+ * When this fails it is telling us something real about the dependency rather than about us.
  */
 
 /** Every gap but the last — the last one is the run-out to the barline, a different question. */
 const noteGaps = (gaps: number[]): number[] => gaps.slice(0, -1)
 
-test('⭐⭐ the VERTICAL ink table still matches the drawing — the anti-drift gate', async ({ score }) => {
-  const drawn = await score.evaluate(async () => {
+/**
+ * The glyphs this file holds the dependency to, by SMuFL name and the codepoint VexFlow draws.
+ * ⭐ The rests are here because their heights are what F2 added to the model (plan §3.4) and they had
+ * never been measured on the page at all.
+ */
+const CHECKED = [
+  { name: 'noteheadBlack', code: 'e0a4' },
+  { name: 'augmentationDot', code: 'e1e7' },
+  { name: 'accidentalSharp', code: 'e262' },
+  { name: 'accidentalFlat', code: 'e260' },
+  { name: 'accidentalNatural', code: 'e261' },
+  { name: 'restWhole', code: 'e4e3' },
+  { name: 'restHalf', code: 'e4e4' },
+  { name: 'restQuarter', code: 'e4e5' },
+  { name: 'rest16th', code: 'e4e7' },
+] as const
+
+test('🚨 the Bravura the BROWSER draws with is the Bravura we MEASURED', async ({ score }) => {
+  // ⭐⭐ THE DEPENDENCY IS THE SUBJECT (see the header). Our metrics come from
+  //     `public/fonts/Bravura.otf`; the page is drawn in the woff2 VexFlow bundles. Nothing else
+  //     checks that those are the same font, and every number the spacing model uses assumes it.
+  const drawn = await score.evaluate(async (codes: string[]) => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
@@ -32,53 +72,121 @@ test('⭐⭐ the VERTICAL ink table still matches the drawing — the anti-drift
     const style = window.getComputedStyle(glyph)
     const context = document.createElement('canvas').getContext('2d')!
     context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
-    const measure = (code: string) => {
-      const m = context.measureText(String.fromCodePoint(parseInt(code, 16)))
-      return { up: m.actualBoundingBoxAscent / space, down: m.actualBoundingBoxDescent / space }
-    }
 
-    const table = h.ink()
+    // ⚠️ Canvas `TextMetrics.actualBoundingBox*` and NEVER an SVG bounding box: a music glyph's
+    //    `<text>` reports the FONT's line box, the same 16 staff spaces tall for every glyph in
+    //    Bravura, so a "height" read that way is not a height.
+    return codes.map(code => {
+      const m = context.measureText(String.fromCodePoint(parseInt(code, 16)))
+      return {
+        code,
+        up: m.actualBoundingBoxAscent / space,
+        down: m.actualBoundingBoxDescent / space,
+        right: m.actualBoundingBoxRight / space,
+      }
+    })
+  }, CHECKED.map(g => g.code))
+
+  console.log('[census] drawn ink: ' + JSON.stringify(drawn))
+
+  // ⚠️ **0.15 spaces, and the number is forced rather than chosen.** A staff space is 10 px on the
+  //    harness and Chrome reports `actualBoundingBox*` in WHOLE PIXELS, rounded outward — so the
+  //    measurement's own resolution is 0.1 spaces before any question of fonts arises. (It shows in
+  //    the census: every value comes back a multiple of 0.1.) Tightening this would be pinning the
+  //    rasteriser; loosening it would stop catching a different face.
+  const RASTER = 0.15
+
+  for (const [i, { name }] of CHECKED.entries()) {
+    const font = glyphBox(name)
+    const ink = drawn[i]
+    expect(Math.abs(ink.up - font.up), `${name} reaches up as far as the font says`).toBeLessThan(RASTER)
+    expect(Math.abs(ink.down - font.down), `${name} reaches down as far as the font says`).toBeLessThan(RASTER)
+    expect(Math.abs(ink.right - font.right), `${name} is as wide as the font says`).toBeLessThan(RASTER)
+  }
+
+  // ⭐ And the two facts the vertical model was built on, said by the drawing itself rather than by
+  //   our table: a sharp is symmetric about its line, a flat is not.
+  const sharp = drawn[CHECKED.findIndex(g => g.name === 'accidentalSharp')]
+  const flat = drawn[CHECKED.findIndex(g => g.name === 'accidentalFlat')]
+  expect(sharp.up, 'a sharp is symmetric').toBeCloseTo(sharp.down, 1)
+  expect(flat.up, 'a flat reaches higher than it descends').toBeGreaterThan(flat.down + 0.5)
+})
+
+test('⭐⭐ a REST is drawn where the model says it is — the half the font cannot give', async ({ score }) => {
+  // Plan §3.4a: `glyphBBoxes` gives a rest's EXTENT around its own origin and says nothing about
+  // where that origin sits on the staff. `spacingPadding.REST_LINE` supplies that, and this is the
+  // only place the claim can be checked, because only the browser has a drawn rest.
+  //
+  // 🚨 **And it found something.** All six rests are keyed `b/4` in `NoteBuilder`, so all six land on
+  //    the MIDDLE line — which is right for a minim rest and **one staff space too low for a
+  //    semibreve rest**, which should hang from the fourth line. The model was made to describe the
+  //    drawing rather than the tradition, deliberately and out loud (`REST_LINE`'s note), and this
+  //    test is the pin that holds them together: ⭐ **fix the drawing and this fails**, which is
+  //    exactly when the table has to move with it.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    // An eighth at the top of a 4/4 bar leaves the fill to make the rest of the bar. ⭐ Whatever mix
+    // of rests that produces is what gets checked — plus a reference the staff cannot fudge.
+    h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+    const stave = h.staves()[0]
+    const space = (stave.bottom - stave.top) / 4
     return {
-      table: {
-        notehead: table.height.notehead,
-        dot: table.height.dot,
-        sharp: table.accidentalHeight('#'),
-        flat: table.accidentalHeight('b'),
-        natural: table.accidentalHeight('n'),
-      },
-      drawn: {
-        notehead: measure('e0a4'),
-        dot: measure('e1e7'),
-        sharp: measure('e262'),
-        flat: measure('e260'),
-        natural: measure('e261'),
-      },
+      rests: h.rests().map(rest => ({ code: rest.code, line: (rest.y - stave.top) / space })),
+      // ⚠️ B4 in treble IS the middle line, so this is the drawing's own answer to "where is line 2"
+      //    — and it absorbs the half-pixel the stave's top edge carries
+      //    (`reference_thin_lines_need_half_pixel_offset`), which a bare `stave.top` does not.
+      middleLine: h.noteheads().map(head => (head.y - stave.top) / space)[0],
     }
   })
 
-  console.log('[census] vertical ink: ' + JSON.stringify(drawn.drawn))
+  console.log('[census] rest placement: ' + JSON.stringify(drawn))
 
-  // ⭐ A notehead is half a space either side of its line, and the table rounds that OUT to 0.6 — a
-  //   minimum should be generous, never tight.
-  expect(drawn.table.notehead, 'a notehead').toBeGreaterThanOrEqual(drawn.drawn.notehead.up)
-  expect(drawn.table.notehead).toBeGreaterThanOrEqual(drawn.drawn.notehead.down)
-  expect(drawn.table.notehead, '…and not generous by more than a third of a space')
-    .toBeLessThan(drawn.drawn.notehead.down + 0.35)
+  // ⛔ Break-test guard: an empty list, or one kind of rest, would pass the loop vacuously.
+  expect(drawn.rests.length, 'the bar really drew some rests').toBeGreaterThan(1)
+  expect(new Set(drawn.rests.map(r => r.code)).size, 'and more than one KIND of rest').toBeGreaterThan(1)
+  // ⚠️ 1.95, not 2.00 — `stave.top` is the top line's drawn edge and a hairline is nudged half a
+  //    pixel onto the device grid (`reference_thin_lines_need_half_pixel_offset`). A staff space is
+  //    10 px here, so that half pixel IS 0.05 spaces. ⛔ Hence an explicit tolerance and not
+  //    `toBeCloseTo(2, 1)`, which lands exactly on the boundary.
+  expect(Math.abs(drawn.middleLine - 2), 'and B4 really is the middle line').toBeLessThan(0.1)
 
-  expect(drawn.table.dot, 'a dot').toBeCloseTo(drawn.drawn.dot.up, 1)
-
-  // ⭐⭐ The one that carries the model: a sharp is SYMMETRIC at ±1.4 spaces while a flat reaches 1.8
-  //     UP and 0.8 down — its bowl sits above the line. One number for "an accidental is this tall"
-  //     would be wrong for both.
-  expect(drawn.table.sharp.up, 'a sharp, up').toBeCloseTo(drawn.drawn.sharp.up, 1)
-  expect(drawn.table.sharp.down, 'a sharp, down').toBeCloseTo(drawn.drawn.sharp.down, 1)
-  expect(drawn.table.flat.up, 'a flat, up').toBeCloseTo(drawn.drawn.flat.up, 1)
-  expect(drawn.table.flat.down, 'a flat, down').toBeCloseTo(drawn.drawn.flat.down, 1)
-  expect(drawn.table.natural.up, 'a natural, up').toBeCloseTo(drawn.drawn.natural.up, 1)
-  expect(drawn.drawn.flat.up, 'and a flat really does reach higher than it descends')
-    .toBeGreaterThan(drawn.drawn.flat.down + 0.5)
+  for (const rest of drawn.rests) {
+    const duration = REST_DURATIONS[rest.code]
+    expect(duration, `U+${rest.code.toUpperCase()} is a rest we know`).toBeDefined()
+    // ⭐ Measured as an OFFSET from the middle line, so the half pixel the stave's top edge carries
+    //   cancels: `restStaffLine` is 2 at the middle, and a whole rest's 1 means one space higher.
+    const expected = drawn.middleLine - (2 - restStaffLine(duration))
+    expect(Math.abs(rest.line - expected), `the ${duration} rest sits where the model puts it`)
+      .toBeLessThan(0.1)
+  }
 })
 
+test('⭐⭐ a WHOLE rest hangs from the FOURTH line — the case every empty bar shows', async ({ score }) => {
+  // The defect F2 found, now fixed and pinned. A semibreve rest hangs from the fourth line counting
+  // up — the second from the top — one staff space above the middle line where every other rest is
+  // anchored. All three reference engines agree (LilyPond `staff-position +2`, MuseScore `line 1`,
+  // Verovio `loc 6`), and none of them treats a whole-BAR rest as a special case, which is what this
+  // fixture draws: an EMPTY BAR.
+  //
+  // ⚠️ VexFlow has no rule of its own here — it puts a rest exactly where its key says — so this is
+  //    OUR placement being checked, not the library's (`layout/restPlacement`, `NoteBuilder.restKey`).
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    await h.render() // the bar as it loads: empty, so the app draws its measure rest
+    const stave = h.staves()[0]
+    const space = (stave.bottom - stave.top) / 4
+    return h.rests().map(rest => ({ code: rest.code, line: (rest.y - stave.top) / space }))
+  })
+
+  expect(drawn, 'an empty bar draws exactly one rest').toHaveLength(1)
+  expect(drawn[0].code, 'and it is a whole rest').toBe('e4e3')
+  // ⚠️ An explicit tolerance rather than `toBeCloseTo(1, 1)`: `stave.top` is the top line's drawn
+  //    edge and a hairline is nudged half a pixel onto the device grid, which at 10 px per staff
+  //    space IS 0.05 spaces — exactly on that matcher's boundary.
+  expect(Math.abs(drawn[0].line - 1), 'it hangs from the fourth line, not the middle')
+    .toBeLessThan(0.1)
+})
 test('⭐⭐ a LEFT-HAND accidental buys no room in the RIGHT hand — the piano case', async ({ score }) => {
   // A column holds every staff, so before kerning a low sharpened quarter in the left hand widened the
   // gap between two right-hand 16ths four spaces above it — ink that cannot touch, paid for on every
