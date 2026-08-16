@@ -11,7 +11,8 @@ import { StaveNote, StaveTie } from 'vexflow'
 import type { Score } from '@/types/music'
 import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
-import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
+import { drawCurveArc } from './curveArc'
+import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
@@ -19,15 +20,18 @@ import { inStaffSpace } from './staffScaleGroup'
 // Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
 // and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
 // (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
-// peak is 0.75·H, so BOW 5.3 → ~4px apex (old 0.5·cp1).
+// peak is 0.75·H, so a 0.53 sp BOW → a 0.40 sp apex (old 0.5·cp1).
 //
-// The BOW is the tie's own — flat, hugging the noteheads, where a slur arches. The WEIGHT is not:
-// it moved to {@link CURVE_THICKNESS}, shared with slurs, when the two were reconciled (this file
-// used to carry `TIE_THICKNESS = 2.7` and claim ties should read heavier; they should not).
-const TIE_LIFT = 7               // gap between the notehead and the flat tie endpoints
-// Exported so the ghost tie (VexFlowRenderer.renderScoreWithTieGhost) is engraved from the SAME
-// numbers as a real tie — arm the tool and the arc under the cursor IS the arc you get.
-export const TIE_BOW = 5.3       // cubic control height → ~4px apex above the endpoint line
+// ⛔ **The numbers themselves are `./curveStyle`, in STAFF SPACES** — with the research each one
+// answers to (§13.1 the height, §13.3 the lift, §13.6 the weight, all `docs/slur-plan.md`). The BOW
+// is the tie's own — flat, hugging the noteheads, where a slur arches. The WEIGHT is not: it is
+// shared with slurs, because the two are one weight (this file used to carry `TIE_THICKNESS = 2.7`
+// and claim ties should read heavier; they should not).
+// ⭐ The ghost tie (`GhostRenderer.drawTieGhost`) reads the SAME two numbers straight from
+// `./curveStyle` — arm the tool and the arc under the cursor IS the arc you get. It used to import
+// `TIE_BOW` from here, which made this renderer look like the owner of a number it merely uses.
+const TIE_LIFT = CURVE_PX.tieLift  // gap between the notehead and the flat tie endpoints
+const TIE_BOW = CURVE_PX.tieBow    // cubic control height → a 0.40 sp apex above the endpoints
 
 /**
  * Draw a tie arc where both endpoints share the source note's Y position.
@@ -62,7 +66,7 @@ function drawFlatTie(
       { x: 0, y: bow },
     ]
     const arc = drawCurveArc(
-      pass, p0, p1, cps, direction, CURVE_THICKNESS,
+      pass, p0, p1, cps, direction, CURVE_PX.thickness,
       fromInfo.staveNote, toInfo.staveNote,
     )
     return arc.bbox

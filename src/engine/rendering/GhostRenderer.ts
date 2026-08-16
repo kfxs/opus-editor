@@ -43,8 +43,8 @@ import { CenteredTremolo } from './CenteredTremolo'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
 import { drawTempoText } from './TempoLayout'
 import { convertDuration, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
-import { TIE_BOW } from './TieRenderer'
-import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
+import { drawCurveArc } from './curveArc'
+import { CURVE_PX } from './curveStyle'
 import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
@@ -908,7 +908,7 @@ export function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: numb
  * Draw ONE translucent ghost tie following the cursor — the preview for the armed tie stamp tool.
  * A tie is a RELATION between two notes, not a glyph, so there is no `draw()` to borrow the way
  * the articulation/accidental ghosts borrow theirs. Instead it is engraved as a REAL tie: the same
- * {@link drawCurveArc} primitive, with the same {@link TIE_BOW} / {@link CURVE_THICKNESS} an
+ * {@link drawCurveArc} primitive, with the same `CURVE_PX.tieBow` / `.thickness` (`./curveStyle`) an
  * engraved tie uses — a proper cubic that swells at the belly and pinches to a point at each tip.
  * Change those constants and the ghost follows. It says "tie tool armed" and no more: WHICH note
  * ties to WHICH is resolved at click time by {@link MusicEngine.toggleTie} (and logged there),
@@ -944,8 +944,8 @@ export function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number):
     // Throwaway anchor: renderCurve never reads it (see above), it only satisfies the ctor.
     const anchor = new StaveNote({ keys: ['b/4'], duration: 'q' })
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [
-      { x: 0, y: TIE_BOW },
-      { x: 0, y: TIE_BOW },
+      { x: 0, y: CURVE_PX.tieBow },
+      { x: 0, y: CURVE_PX.tieBow },
     ]
 
     const group = ctx.openGroup('ghost-tie') as SVGGElement
@@ -953,7 +953,7 @@ export function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number):
       drawCurveArc(
         { context: ctx },
         { x: x0, y }, { x: x0 + WIDTH, y },
-        cps, DIRECTION, CURVE_THICKNESS, anchor, anchor,
+        cps, DIRECTION, CURVE_PX.thickness, anchor, anchor,
       )
     } finally {
       ctx.closeGroup()

@@ -15,25 +15,27 @@ import type { ElementInfo } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
-import { drawCurveArc, CURVE_THICKNESS } from './curveArc'
+import { drawCurveArc } from './curveArc'
+import { CURVE_PX, SLUR_BOW_PER_SPAN } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { voiceOf } from '@/utils/lanes'
 
-// Vertical geometry shared by all slur arcs.
-const SLUR_LIFT = 10   // gap between the notehead and the arc's endpoints
-const SLUR_ARC = 14    // cross-system half-arc apex rise above its endpoint line
-// Default cubic control-point bow height (the two symmetric `cps` deltas fed to
-// Curve.renderCurve). A cubic's peak deviation is 0.75·H, so H≈9.3 reproduces the
-// old quadratic's LIFT + ARC/2 = 17px peak. Phase 6 will let a slur override this.
-const SLUR_BOW = 9.3        // base arch height (short slurs ≈ old look)
-const SLUR_BOW_PER_PX = 0.06 // arch height grows with horizontal span…
-const SLUR_BOW_MAX = 22      // …up to this ceiling (Gould: longer → taller, capped)
-const SLUR_NEST_GAP = 10     // extra bow height per nesting level (concentric slurs)
-// The slur's WEIGHT is not here: it is {@link CURVE_THICKNESS}, shared with ties, because the two
-// are one weight and only the arch differs. This file used to set `SLUR_THICKNESS = 1.5` against
-// the tie's 2.7, which drew visibly undernourished slurs beside well-fed ties.
+// Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
+// `./curveStyle`, where each number carries the research it answers to (docs/slur-plan.md §11–§13).
+// A cubic's peak deviation is 0.75·H, so the 0.93 sp BOW reproduces the old quadratic's
+// LIFT + ARC/2 peak. Phase 2 of §12 is the one that may replace this height law outright.
+const SLUR_LIFT = CURVE_PX.slurLift       // gap between the notehead and the arc's endpoints
+const SLUR_ARC = CURVE_PX.slurArc         // cross-system half-arc apex rise above its endpoint line
+const SLUR_BOW = CURVE_PX.slurBow         // base arch height (short slurs ≈ old look)
+const SLUR_BOW_MAX = CURVE_PX.slurBowMax  // …up to this ceiling (Gould: longer → FLATTER, capped)
+const SLUR_NEST_GAP = CURVE_PX.slurNestGap // extra bow height per nesting level (concentric slurs)
+// ⭐ `SLUR_BOW_PER_SPAN` (the growth ratio) needs no px twin — it is dimensionless, so it is
+// imported as it stands. The slur's WEIGHT is not here either: it is `CURVE_PX.thickness`, shared
+// with ties, because the two are one weight and only the arch differs. This file used to set
+// `SLUR_THICKNESS = 1.5` against the tie's 2.7, which drew visibly undernourished slurs beside
+// well-fed ties.
 
 /** Measure number containing the chord-head / rest id, or undefined if absent. */
 function measureOfNoteId(score: Score, noteId: string): number | undefined {
@@ -268,7 +270,7 @@ function slurArchCps(
   // `extraHeight` lifts an outer slur clear of the slur(s) nested inside it (Phase 8).
   const span = Math.abs(p1.x - p0.x)
   const H = Math.min(
-    SLUR_BOW + span * SLUR_BOW_PER_PX,
+    SLUR_BOW + span * SLUR_BOW_PER_SPAN,
     SLUR_BOW_MAX,
   ) + extraHeight
   return [
@@ -469,7 +471,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // deltas to pixels against the live stave (resolution-independent storage).
           const stave = fromNote.getStave()
           const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
-          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote)
+          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -539,7 +541,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p1.x += o.x; p1.y += o.y
               const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'end', { p0, p1, direction }, stave, 'begin',
               )
             } else if (seg.type === 'end') {
@@ -554,7 +556,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += o.x; p0.y += o.y
               const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'start', { p0, p1, direction }, stave, 'end',
               )
             } else if (seg.type === 'middle') {
@@ -578,7 +580,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p1.x += or.x; p1.y += or.y
               const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_THICKNESS, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'middle', { p0, p1, direction }, stave, 'middle', ordinal,
               )
             }

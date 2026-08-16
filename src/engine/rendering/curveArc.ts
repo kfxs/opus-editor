@@ -1,26 +1,15 @@
 import { Curve, StaveNote } from 'vexflow'
 import type { RenderPass } from './RenderPass'
-
-/** Stroke width pinned around the curve so its fill taper reads as sharp tips. */
-const CURVE_OUTLINE = 1
+import { CURVE_PX } from './curveStyle'
 
 /**
- * The belly swell shared by slurs AND ties — ONE number, because they are one weight.
+ * The stroke pinned around the curve so its fill taper reads as sharp tips — and, where the two
+ * passes meet at each tip, it IS the ink (0.10 sp = Bravura's `slurEndpointThickness`).
  *
- * These used to be tuned apart: `SLUR_THICKNESS = 1.5` against `TIE_THICKNESS = 2.7`, the tie 1.8×
- * fatter, on the reasoning that "ties read heavier and hug the head". Engraving does not draw that
- * distinction — in Bravura's SMuFL `engravingDefaults`, `slurMidpointThickness` and
- * `tieMidpointThickness` are the same value, as are the two endpoint thicknesses. On screen the
- * mismatch showed as thin, undernourished slurs next to well-fed ties.
- *
- * What legitimately differs between them is the ARCH, not the weight: a tie is flat and hugs the
- * noteheads (`TIE_BOW`), a slur bows and grows taller with its span (`SLUR_BOW`…`SLUR_BOW_MAX`).
- * Those stay separate. This does not.
- *
- * The value is the tie's old one, which was the one that looked right.
+ * ⛔ Authored in STAFF SPACES next door (`./curveStyle`), with the belly swell every caller passes
+ * as `thickness`. This file DRAWS; it does not decide how heavy a curve is.
  */
-export const CURVE_THICKNESS = 2.7 // ≈0.27 staff-spaces; INK, so a small staff's own group scales
-// it — ⛔ never multiply by the staff size here (docs/staff-size-plan.md §1).
+const CURVE_OUTLINE = CURVE_PX.outline
 
 /**
  * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's
@@ -34,7 +23,7 @@ export const CURVE_THICKNESS = 2.7 // ≈0.27 staff-spaces; INK, so a small staf
  * is -1 (above) / +1 (below). `thickness` is the belly swell — `renderCurve`
  * strokes a forward pass at `cp.y` and a return pass at `cp.y + thickness`, so the
  * fill bows out by `thickness` at center and pinches to a point at each endpoint
- * (both slurs and ties pass {@link CURVE_THICKNESS} — one weight). We pass
+ * (both slurs and ties pass `CURVE_PX.thickness` — one weight). We pass
  * `xShift:0`/`yShift:0` so `p0`/`p1` (which already fold in the LIFT) are exact.
  * `renderCurve` strokes **and** fills, so each emitted `<path>` carries both — the
  * selection highlight must override both (see HighlightController).
