@@ -219,7 +219,12 @@ once: `save`/`restore` being no-ops, the `setStyle` context leak, `openGroup`'s 
 
 Ship Bravura's SMuFL metadata ourselves (`Bravura.json`: 3,434 glyph boxes, 643 anchor sets, 30
 engraving defaults). Kills the §3 bug class for our own numbers. Turns `spacingPadding.ts` from a
-hand-measured table into a derived one.
+hand-measured table into a **checked** one.
+
+⭐⭐ **Revised: the glyph BOXES need no download** — `public/fonts/Bravura.otf` is already in the
+repo under `OFL.txt` and already parsed by `opentype.js` for the PDF export, so the generation
+script measures the font *we ship and outline*. Only `engravingDefaults` and the anchors need the
+JSON. See that plan's §1.1.
 
 ⭐ **Our table is already right** — dot 0.40/±0.20 and sharp ±1.4 match the font exactly — so this is
 not re-litigating taste, it is re-sourcing agreed numbers from something that cannot drift.

@@ -37,6 +37,8 @@ const NO_SPEC_EXPECTED = [
   /\/layoutConfig\.ts$/,
   /\/main\.ts$/,
   /\/ghostTypes\.ts$/,       // a `type` union and nothing else — no runtime to have a contract
+  /\/bravuraMetrics\.ts$/,   // GENERATED font data — its contract is `fontMetrics.test.ts`, and a
+                             //   spec of its own could only restate what the script emitted
 ]
 
 function walk(dir, out = []) {
