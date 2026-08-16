@@ -48,7 +48,12 @@ import { CURVE_PX } from './curveStyle'
  * downward, in the staff's own space.
  */
 export interface SlurAttachment {
-  headY: number
+  /**
+   * ⭐ **Every notehead in the chord**, not just the one the slur is anchored to (§12 Phase 7).
+   * WHICH of them the arc springs from depends on the side it ends up on, and that is decided after
+   * the ends are resolved — so the choice belongs here, with the other attachment rules.
+   */
+  headYs: readonly number[]
   /** The stem's far end (`getStemExtents().topY` — the TIP for either direction). Absent = no stem. */
   stemTipY?: number
   stemDirection: number
@@ -58,6 +63,18 @@ export interface SlurAttachment {
    * the STEM, so it needs to know where the stem is relative to the anchor.
    */
   headHalfWidth: number
+}
+
+/**
+ * ⭐ **The chord note the arc attaches to: the TOP for a slur above, the BOTTOM for one below.**
+ *
+ * All three engines agree (§11.2b) — and in LilyPond it changes `musical_dy_` itself, i.e. the
+ * slur's own idea of the melodic interval. Ours used the head the user happened to anchor to
+ * (`ys[noteIndex]`), so a slur from a chord's middle note sprang from inside the chord and the arc
+ * crossed the notes above it. A single note has one candidate and this is a no-op.
+ */
+function headOn(a: SlurAttachment, direction: number): number {
+  return direction === -1 ? Math.min(...a.headYs) : Math.max(...a.headYs)
 }
 
 /** Is the slur on the same side as this note's stem? `direction` is −1 above / +1 below. */
@@ -94,8 +111,9 @@ export interface SlurEndpointPlacement {
 function stemDodge(a: SlurAttachment, direction: number, endpointY: number, end: 'from' | 'to'): number {
   if (!onStemSide(a, direction) || a.stemTipY === undefined) return 0
   // The stem's own y band, widened a quarter space (LilyPond's `stem_y.widen(0.25 * staff_space)`).
-  const near = Math.min(a.headY, a.stemTipY) - CURVE_PX.slurStemNearBand
-  const far = Math.max(a.headY, a.stemTipY) + CURVE_PX.slurStemNearBand
+  const head = headOn(a, direction)
+  const near = Math.min(head, a.stemTipY) - CURVE_PX.slurStemNearBand
+  const far = Math.max(head, a.stemTipY) + CURVE_PX.slurStemNearBand
   if (endpointY < near || endpointY > far) return 0
   const stemOnThisSide = end === 'from' ? a.stemDirection === 1 : a.stemDirection === -1
   if (!stemOnThisSide) return 0
@@ -147,16 +165,17 @@ export function slurAttachmentYs(
     && from.stemDirection !== to.stemDirection
   // The tilt the slid endpoint aims for: half the distance between the two NOTEHEADS, which is the
   // melodic interval as drawn (the arc is what the reader compares against the pitches).
-  const halfInterval = Math.abs(to.headY - from.headY) / 2
+  const halfInterval = Math.abs(headOn(to, direction) - headOn(from, direction)) / 2
 
   const attach = (a: SlurAttachment): number => {
-    if (!onStemSide(a, direction)) return a.headY
-    if (a.stemTipY === undefined) return a.headY
+    const headY = headOn(a, direction)
+    if (!onStemSide(a, direction)) return headY
+    if (a.stemTipY === undefined) return headY
     if (!opposed) return a.stemTipY
     // Slide from the notehead toward the slur's side, but never further than the stem reaches plus
     // one space — a long leap would otherwise launch the arc off the end of a stem it left behind.
-    const reach = Math.abs(a.stemTipY - a.headY) + CURVE_PX.slurStemOvershoot
-    return a.headY + Math.min(halfInterval, reach) * direction
+    const reach = Math.abs(a.stemTipY - headY) + CURVE_PX.slurStemOvershoot
+    return headY + Math.min(halfInterval, reach) * direction
   }
 
   return { fromY: attach(from), toY: attach(to) }

@@ -53,6 +53,16 @@ export const CURVE = {
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
   /**
+   * ⭐ **The air a slur leaves above (or below) a note it has to clear** — §12 Phase 8.
+   *
+   * ⚠️ Ours: the books state the CONSTRAINT and no engine publishes a margin as a number you can
+   * quote. Gould p. 322 says *"all notes must appear to be included in a slur"*, LilyPond turns that
+   * into a 1000-point veto rather than a distance, and MuseScore and Verovio both work from box
+   * intersections. A quarter space is what the slur's own tip clearance (0.25) and the tie's
+   * staff-line air (0.225) already read as, so it starts there. ⛔ Tune by eye, not by argument.
+   */
+  slurObstacleMargin: 0.25,
+  /**
    * ⚠️⚠️ **OURS, and provisional** — how far the slant ceiling may lift an endpoint away from its own
    * note (`./slurSlantLimit`, §12 Phase 6). Verovio's `GetAdjustedSlurAngle` has no such bound and
    * will walk an endpoint as far as the arithmetic asks; Gould gives a MINIMUM of ½ sp from the
@@ -198,6 +208,18 @@ export const SLUR_HEIGHT_RATIO = 0.25
  * him 2026-08-16"*.
  */
 export const SLUR_MAX_SLANT_DEG = 60
+
+/**
+ * ⭐ **How much the arch LEANS with its own interval** — each control point is offset by
+ * `±this × dy`, so the arch follows the line between the endpoints instead of sitting square on it
+ * (`slurArchCps`; the two offsets are equal and opposite, so the apex is unmoved).
+ *
+ * ⚠️ **It is exported because the obstacle solve has to know it** (§12 Phase 8). Evaluating a
+ * SYMMETRIC cubic there under-lifts a slur whose obstacles sit toward the low end — his report,
+ * 2026-08-16: *"the top note is slightly too near the edge of the slur"*, where the tilt term was
+ * 0.44 sp against a 0.25 sp margin. Two readers, one authored number.
+ */
+export const SLUR_ARCH_TILT = 0.25
 
 /**
  * ⏭️ **Verovio's minimum control angle, kept here as the RECORD of a rule we costed and did not

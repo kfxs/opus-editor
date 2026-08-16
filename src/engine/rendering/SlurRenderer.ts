@@ -17,13 +17,14 @@ import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc } from './curveArc'
-import { CURVE_PX } from './curveStyle'
+import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
+import { slurArchClearance, type SlurObstacle } from './slurObstacles'
 import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
 
@@ -111,7 +112,7 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
       // A member's head and the point where its stem meets the beam mean exactly what a real note's
       // do, so the same rule reaches it with no branch of its own (docs/slur-plan.md §12.0 #7).
       attach: {
-        headY: member.headY,
+        headYs: [member.headY],
         stemTipY: member.tipY,
         stemDirection: member.stemDirection,
         headHalfWidth: (member.rightX - member.leftX) / 2,
@@ -120,7 +121,10 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
   }
   const info = pass.staveNoteMap.get(noteId)
   if (!info?.staveNote) return undefined
-  const { staveNote, noteIndex } = info
+  const { staveNote } = info
+  // ⭐ ALL the chord's head ys — the arc springs from the OUTER one on the side it takes, which is
+  // `slurStemEndpoint`'s call to make (§12 Phase 7). `noteIndex` is the pitch the user anchored to
+  // and no longer decides the geometry.
   const ys = staveNote.getYs()
   // The head's own extent, which is where the arc belongs — NOT `getTieRightX()`, which adds the
   // glyph width AND any modifier shift, i.e. the far side of everything hanging off the note.
@@ -130,7 +134,7 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
     staveNote,
     centerX: (headLeft + headRight) / 2,
     attach: {
-      headY: ys[noteIndex] ?? ys[0],
+      headYs: ys.length ? ys : [0],
       stemTipY: stemTipOf(staveNote),
       stemDirection: staveNote.getStemDirection?.() ?? -1,
       headHalfWidth: (headRight - headLeft) / 2,
@@ -217,6 +221,40 @@ export function slurTrueEndpoints(
 }
 
 /**
+ * ⭐ **WHAT THE SLUR HAS TO CLEAR — collected from what VexFlow actually DREW** (§12 Phase 8).
+ *
+ * The covered chords come from `coveredChordIds`, the same scan `./slurDirection` uses to decide the
+ * side: one lane, one span, rests excluded. For each, the note's own bounding box — which VexFlow
+ * fills in post-draw and which deliberately spans head + stem + beam, so a beam over a run is in the
+ * list without us hunting for `Beam` objects the render pass never kept.
+ *
+ * ⚠️ **Post-layout, and only post-layout.** These boxes are meaningless before the notes are drawn;
+ * slurs render last, which is what makes this legal at all.
+ * ⚠️ A note missing from `staveNoteMap` — anything that failed to draw — contributes nothing rather
+ * than a zero box at the origin.
+ */
+function slurObstaclesOf(
+  pass: RenderPass,
+  score: Score,
+  slur: { startNoteId: string; endNoteId: string },
+): SlurObstacle[] {
+  const boxes: SlurObstacle[] = []
+  for (const id of coveredChordIds(score, slur.startNoteId, slur.endNoteId)) {
+    const note = pass.staveNoteMap.get(id)?.staveNote
+    if (!note) continue
+    try {
+      const b = note.getBoundingBox?.()
+      if (b && !isNaN(b.x) && !isNaN(b.y) && b.w > 0) {
+        boxes.push({ x: b.x, y: b.y, width: b.w, height: b.h })
+      }
+    } catch (_e) {
+      // A note whose geometry VexFlow cannot answer for is simply not an obstacle.
+    }
+  }
+  return boxes
+}
+
+/**
  * A live `Stave` from any chord/rest rendered on `line`, used only for a MIDDLE
  * segment's vertical reference (staff top/bottom line). Returns undefined if the
  * line has no rendered element in `staveNoteMap` (e.g. not yet laid out).
@@ -257,6 +295,7 @@ function slurArchCps(
   p1: { x: number; y: number },
   direction: number,
   extraHeight = 0,
+  lift: { c0: number; c1: number } = { c0: 0, c1: 0 },
 ): [{ x: number; y: number }, { x: number; y: number }] {
   const dy = p1.y - p0.y
   // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
@@ -267,9 +306,11 @@ function slurArchCps(
   // angle) — measured, costed and NOT built: see the tail of `./slurSlantLimit` for why it is a
   // shape decision rather than an import.
   const H = slurArchHeight(p1.x - p0.x, extraHeight)
+  // ⭐ The two obstacle lifts are per-CONTROL (`./slurObstacles`) — the whole point of solving them
+  // separately is that they may differ, so they are added here rather than folded into `H`.
   return [
-    { x: 0, y: H + 0.25 * dy * direction },
-    { x: 0, y: H - 0.25 * dy * direction },
+    { x: 0, y: H + SLUR_ARCH_TILT * dy * direction + lift.c0 },
+    { x: 0, y: H - SLUR_ARCH_TILT * dy * direction + lift.c1 },
   ]
 }
 
@@ -287,6 +328,7 @@ export function resolveCps(
   p1: { x: number; y: number },
   direction: number,
   extraHeight: number,
+  lift: { c0: number; c1: number } = { c0: 0, c1: 0 },
 ): [{ x: number; y: number }, { x: number; y: number }] {
   if (override && stave) {
     return [
@@ -294,7 +336,7 @@ export function resolveCps(
       { x: staffSpacesToPixels(override[1].x, stave), y: staffSpacesToPixels(override[1].y, stave) },
     ]
   }
-  return slurArchCps(p0, p1, direction, extraHeight)
+  return slurArchCps(p0, p1, direction, extraHeight, lift)
 }
 
 /**
@@ -477,7 +519,15 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
           // deltas to pixels against the live stave (resolution-independent storage).
           const stave = fromNote.getStave()
-          const cps = resolveCps(curveShapeOverrideOf(score, slur.id)?.cps, stave, p0, p1, direction, nestLift)
+          // ⭐ PHASE 8, first pass: raise the arch over anything it covers (`./slurObstacles`).
+          // ⛔ Only the AUTO arch — a hand-edited shape is the user's and opts out, the same rule the
+          // nest lift follows, so the lift is folded in as extra height rather than applied after.
+          const shapeOverride = curveShapeOverrideOf(score, slur.id)?.cps
+          const clearance = shapeOverride
+            ? { c0: 0, c1: 0 }
+            : slurArchClearance(p0, p1, slurArchHeight(p1.x - p0.x, nestLift), direction,
+              slurObstaclesOf(pass, score, slur))
+          const cps = resolveCps(shapeOverride, stave, p0, p1, direction, nestLift, clearance)
           const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle

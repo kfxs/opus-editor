@@ -237,3 +237,108 @@ test('⭐⭐ the arc starts OVER the notehead, not past it (§12 Phase 2)', asyn
   expect(r.endX - r.lastHeadX).toBeGreaterThan(3)
   expect(r.endX - r.lastHeadX).toBeLessThan(9)
 })
+
+test('⭐ a slur from a CHORD springs from its outer note, not the one you clicked (§12 Phase 7)', async ({ score }) => {
+  // All three engines take the top note for an up-slur and the bottom for a down-slur (§11.2b) —
+  // in LilyPond it changes `musical_dy_`, the slur's own idea of the interval. Ours used the head
+  // the user anchored to, so a slur from a chord's middle note sprang from INSIDE the chord and the
+  // arc crossed the notes above it.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    // A high chord, so its stems point down and the slur goes above.
+    const top = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })!
+    h.engine.addChordNote({ step: 'E', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    const middle = h.engine.addChordNote({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    const next = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })!
+    // Anchor the slur to the chord's MIDDLE note — the case that used to spring from inside it.
+    h.engine.createSlur([middle?.id ?? top.id, next.id])
+    await h.render()
+    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+    const heads = h.noteheads().filter(n => n.x < p[3].x - 5).map(n => n.y).sort((a, b) => a - b)
+    return { startY: p[0].y, topHeadY: heads[0], bottomHeadY: heads[heads.length - 1] }
+  })
+  // The arc starts ABOVE the chord's top head — it would start below it if the middle note decided.
+  expect(r.startY).toBeLessThan(r.topHeadY)
+})
+
+test('⭐⭐ a slur over a rising RUN clears the notes it covers (§12 Phase 8, first pass)', async ({ score }) => {
+  // His case, 2026-08-16: twelve sixteenths climbing from C5 to G6, slurred from the first of them
+  // to a note in the bar after. Both ends are LOW and the middle of the run is an octave above, so
+  // an arc that knows only its endpoints passes straight through its own music — Gould p. 322,
+  // "all notes must appear to be included in a slur".
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+    const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
+      step, octave: i < 7 ? 5 : 6, duration: '16', measure: 1, beat: h.frac(i, 4),
+    })!.id)
+    h.engine.addMeasure()
+    const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    h.engine.createSlur([ids[0], last.id])
+    await h.render()
+
+    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+    const at = (t: number) => {
+      const mt = 1 - t
+      return {
+        x: mt ** 3 * p[0].x + 3 * mt * mt * t * p[1].x + 3 * mt * t * t * p[2].x + t ** 3 * p[3].x,
+        y: mt ** 3 * p[0].y + 3 * mt * mt * t * p[1].y + 3 * mt * t * t * p[2].y + t ** 3 * p[3].y,
+      }
+    }
+    // The highest notehead the slur covers, and where the curve runs above it.
+    const covered = h.noteheads().filter(n => n.x > p[0].x && n.x < p[3].x)
+    const peak = covered.reduce((best, n) => (n.y < best.y ? n : best), covered[0])
+    let over = Infinity
+    for (let i = 0; i <= 100; i++) {
+      const s = at(i / 100)
+      if (Math.abs(s.x - peak.x) < 8) over = Math.min(over, s.y)
+    }
+    const staff = h.staves()[0]
+    return { clearance: (peak.y - over) / ((staff.bottom - staff.top) / 4), covered: covered.length }
+  })
+  expect(r.covered, 'the run is under the slur').toBeGreaterThan(8)
+  // Break-tested: without the clearance pass the curve runs 1.94 sp BELOW the peak notehead.
+  // ⭐ And the margin has to actually arrive: his second look — *"the top note is slightly too near
+  // the edge"* — was the solve evaluating a SYMMETRIC cubic where the drawn arch LEANS, plus reading
+  // `t` off an obstacle's x as though x ran linearly with it. Both are sampled now, so the air over
+  // the peak is the margin we asked for rather than whatever those two errors left.
+  expect(r.clearance).toBeGreaterThan(0.2)
+})
+
+test('⭐ …and a run that ENDS in a rest keeps the same air over its peak', async ({ score }) => {
+  // His second figure, 2026-08-16: the same climb with a REST in the twelfth slot, so the peak (F6)
+  // sits at about four fifths of the span — the region where the arch's lean is strongest and where
+  // solving against a symmetric cubic under-lifted it.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F']
+    const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
+      step, octave: i < 7 ? 5 : 6, duration: '16', measure: 1, beat: h.frac(i, 4),
+    })!.id)
+    h.engine.addMeasure()
+    const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    h.engine.createSlur([ids[0], last.id])
+    await h.render()
+    const d = document.querySelector('g.vf-slur path')?.getAttribute('d') ?? ''
+    const p = [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] }))
+    const at = (t: number) => {
+      const mt = 1 - t
+      return {
+        x: mt ** 3 * p[0].x + 3 * mt * mt * t * p[1].x + 3 * mt * t * t * p[2].x + t ** 3 * p[3].x,
+        y: mt ** 3 * p[0].y + 3 * mt * mt * t * p[1].y + 3 * mt * t * t * p[2].y + t ** 3 * p[3].y,
+      }
+    }
+    const covered = h.noteheads().filter(n => n.x > p[0].x && n.x < p[3].x)
+    const peak = covered.reduce((best, n) => (n.y < best.y ? n : best), covered[0])
+    let over = Infinity
+    for (let i = 0; i <= 200; i++) {
+      const s = at(i / 200)
+      if (Math.abs(s.x - peak.x) < 8) over = Math.min(over, s.y)
+    }
+    const staff = h.staves()[0]
+    return { clearance: (peak.y - over) / ((staff.bottom - staff.top) / 4) }
+  })
+  expect(r.clearance).toBeGreaterThan(0.2)
+})

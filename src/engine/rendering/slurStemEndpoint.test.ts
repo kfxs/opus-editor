@@ -21,10 +21,10 @@ const HALF_HEAD = 0.59 * SP
 
 /** A note with an up stem (tip above the head) — low notes, in treble. */
 const up = (headY: number): SlurAttachment =>
-  ({ headY, stemTipY: headY - STEM, stemDirection: 1, headHalfWidth: HALF_HEAD })
+  ({ headYs: [headY], stemTipY: headY - STEM, stemDirection: 1, headHalfWidth: HALF_HEAD })
 /** A note with a down stem (tip below the head) — high notes. */
 const down = (headY: number): SlurAttachment =>
-  ({ headY, stemTipY: headY + STEM, stemDirection: -1, headHalfWidth: HALF_HEAD })
+  ({ headYs: [headY], stemTipY: headY + STEM, stemDirection: -1, headHalfWidth: HALF_HEAD })
 
 const ABOVE = -1
 const BELOW = 1
@@ -103,7 +103,7 @@ describe('slurAttachmentYs — the cases it must leave alone', () => {
   it('falls back to the notehead for a note that draws no stem', () => {
     // A whole note: `NoteBuilder` still gives it a stem DIRECTION (which is what placed the slur),
     // but there is no tip to climb, so the head is the attachment.
-    const whole: SlurAttachment = { headY: 105, stemDirection: 1, headHalfWidth: HALF_HEAD }
+    const whole: SlurAttachment = { headYs: [105], stemDirection: 1, headHalfWidth: HALF_HEAD }
     const { fromY, toY } = slurAttachmentYs(whole, down(100), ABOVE)
 
     expect(fromY).toBe(105)
@@ -154,7 +154,7 @@ describe('slurAttachments — the sideways clearance (§12.1)', () => {
   })
 
   it('⛔ leaves a stemless note alone, and still reports its y', () => {
-    const whole: SlurAttachment = { headY: 105, stemDirection: 1, headHalfWidth: HALF_HEAD }
+    const whole: SlurAttachment = { headYs: [105], stemDirection: 1, headHalfWidth: HALF_HEAD }
     const { from } = slurAttachments(whole, down(100), ABOVE, LIFT)
     expect(from.dx).toBe(0)
     expect(from.y).toBe(105)
@@ -166,5 +166,39 @@ describe('slurAttachments — the sideways clearance (§12.1)', () => {
     const both = slurAttachments(a, b, ABOVE, LIFT)
     expect(both.from.y).toBe(ys.fromY)
     expect(both.to.y).toBe(ys.toY)
+  })
+})
+
+describe('the CHORD anchor — the outer note, not the one the user clicked (§12 Phase 7)', () => {
+  /** A three-note chord: heads at 100, 105, 110 (top to bottom), one up stem. */
+  const chord: SlurAttachment = {
+    headYs: [100, 105, 110],
+    stemTipY: 100 - STEM,
+    stemDirection: 1,
+    headHalfWidth: HALF_HEAD,
+  }
+
+  it('⭐ an ABOVE slur springs from the TOP note', () => {
+    // Notehead side (stem down would be needed for the stem side) — the point is WHICH head.
+    const { fromY } = slurAttachmentYs({ ...chord, stemDirection: -1 }, down(100), ABOVE)
+    expect(fromY).toBe(100)
+  })
+
+  it('⭐ …and a BELOW slur from the BOTTOM one', () => {
+    const { fromY } = slurAttachmentYs(chord, up(100), BELOW)
+    expect(fromY).toBe(110)
+  })
+
+  it('changes the INTERVAL the p. 111 slide measures, which is LilyPond\'s `musical_dy_`', () => {
+    // Stem side with opposing stems: the slide is half the distance between the two SLUR-SIDE
+    // notes, so picking the outer head changes how far the endpoint travels.
+    const anchoredMiddle = slurAttachmentYs(chord, down(80), ABOVE)
+    const single = slurAttachmentYs({ ...chord, headYs: [105] }, down(80), ABOVE)
+    expect(anchoredMiddle.fromY).not.toBe(single.fromY)
+  })
+
+  it('is a no-op for a single note', () => {
+    expect(slurAttachmentYs(up(105), down(100), ABOVE)).toEqual(
+      slurAttachmentYs({ ...up(105), headYs: [105] }, down(100), ABOVE))
   })
 })

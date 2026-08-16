@@ -1763,16 +1763,81 @@ and three separate approval gates cost three round trips where one side-by-side 
   small staff is a `<g>` transform, not a smaller stave), so it preserves `CURVE_THICKNESS`'s ⛔
   *never multiply by the staff size here* property — the same route the slur's `cps` overrides
   already take inside the group.
-- **The chord anchor.** `slurEndpointY` uses `ys[noteIndex]` — the pitch the user anchored to — so a
-  slur from a chord's middle note springs from inside the chord. All three engines take the **top**
-  note for an up-slur and the **bottom** for a down-slur (§11.2b), and in LilyPond it changes
-  `musical_dy_` itself.
-- **Gould's beam exception.** p. 110: mixed stems go above *"except when a beam may be in the way"*.
-  None of the three engines implements it; `slurDirection` doesn't either.
+- ✅ **The chord anchor — BUILT 2026-08-16**, ahead of Phase 8 and because of it: it moves the
+  ENDPOINTS, and Phase 8 fits a curve between endpoints, so building the expensive consumer first
+  would have meant measuring it twice. `SlurAttachment` carries every head y now and
+  `./slurStemEndpoint` picks the **top** for an up-slur and the **bottom** for a down one (§11.2b —
+  all three engines; in LilyPond it changes `musical_dy_`, the slur's own idea of the interval).
+  Break-tested: with the anchored head deciding, the drawn arc starts *inside* the chord.
+- ➡️ **Gould's beam exception — MOVED INTO PHASE 8** (his question, 2026-08-16: *"is it better to do
+  8 before 5 and 7?"*). p. 110's *"except when a beam may be in the way"* is a collision statement in
+  a placement rule's clothing, and *"is a beam in the way"* is exactly what Phase 8's obstacle pass
+  answers generically. ⭐ None of the three engines implements her exception — weak evidence that it
+  falls out of collision avoidance rather than needing a rule of its own.
 - ➡️ **Moved out:** the tie's padded-rectangle hit-target now lands in **Phase 3b**, where
   `drawCurveArc` hands us the sampled points as a by-product (§12.0 #2).
 
-### Phase 8 — interior notes (the project)
+### Phase 8 — interior notes — ⏳ FIRST PASS BUILT 2026-08-16
+
+> ⭐⭐ **His case, and the reason it started:** twelve sixteenths climbing C5 → G6, slurred from the
+> first of them to a note in the bar after. Both ends are LOW; the run's middle is an octave above;
+> an arc that knows only its endpoints runs straight through its own music. Measured before the fix:
+> the curve passed **1.94 sp BELOW** the highest notehead it covered.
+>
+> ✅ **`rendering/slurObstacles.ts` — Verovio's single feed-forward pass**, solving
+> `3(1−t)²·x + 3(1−t)t²·y ≥ intersection` for the control lifts; with our two lifts equal that is
+> `3t(1−t)`, so one division answers each obstacle and the worst one wins. No loop, no search.
+> ✅ **The obstacles are what VexFlow DREW**: `coveredChordIds` (the same scan `slurDirection` uses)
+> → each note's own bounding box, which spans head + stem + beam — so a beam over a run is in the
+> list without hunting for `Beam` objects the pass never kept.
+> ✅ **A hand-edited shape opts out**, the rule the nest lift already follows, and the lift is folded
+> in as extra height so the override path is untouched.
+> ⭐ `CURVE.slurObstacleMargin` **0.25 sp** of air — ⚠️ ours: the books state the constraint (*"all
+> notes must appear to be included in a slur"*, p. 322) and no engine publishes a distance. LilyPond
+> turns it into a 1000-point veto instead.
+>
+> ⭐⭐ **HIS SECOND LOOK CORRECTED THE SOLVE ITSELF** (*"the top note is slightly too near the edge of
+> the slur"*, on the same run with a rest in the last slot, so its peak sits at t ≈ 0.64). The pass
+> was solving against a curve we do not draw, in two ways, and **both were assumptions I had written
+> into the module as if they were measurements**:
+> 1. **The arch LEANS.** `slurArchCps` offsets its controls by `±SLUR_ARCH_TILT · dy`; the solve used
+>    a symmetric cubic. The module's comment claimed the difference "shifts the rest by less than the
+>    margin" — measured, it is **0.44 sp against a 0.25 sp margin**, and worth **0.13 sp** of air over
+>    his peak.
+> 2. **x does not run linearly with t.** With controls a quarter of the span in, `x(0.25)` lands at
+>    **0.227** of the span, so reading `t` off an obstacle's x misplaces it by ~2% — most of a staff
+>    space on a long slur, and worst where the curve is steepest.
+>
+> Both are gone: the solve samples the real curve (64 points) and matches each obstacle against the
+> samples inside its own x range. Measured over his peak: **0.89 sp** of air. ⭐ The constant is
+> exported from `curveStyle` rather than duplicated — two readers, one authored number.
+>
+> ✅ **AND THE TWO LIFTS ARE NOW SOLVED SEPARATELY — his hand-edit is what asked for it.** The first
+> pass added ONE lift to both controls, which cleared the music but kept the arch's LEAN, and the
+> lean lowers the control on the side the obstacle is usually on. He dragged the curve into the shape
+> he wanted and sent the override back:
+>
+> | | control 1 | control 2 |
+> |---|---|---|
+> | ours, one lift | 5.67 | 4.67 |
+> | **his hand-edit** | **5.674** | **5.40** |
+> | ours, two lifts | 4.22 | **5.37** |
+>
+> He left control 1 **identical to ours to three decimals** and raised control 2 — a diagnosis, not a
+> preference. Solving Verovio's constraint for both (`x` on the first control, `y` on the second,
+> least total movement) puts the lift where the obstacle is: at his peak, t ≈ 0.64, the second
+> control has **1.8×** the say and takes 1.8× the lift. **It lands within 0.03 sp of his hand.**
+> ⭐ Two properties make one pass enough: at t = 0.5 the pair collapses to the old symmetric answer,
+> and the componentwise MAX across obstacles is safe (if each control has what every obstacle asked,
+> every obstacle clears). The module can be fed its own answer back and returns zero — its spec does.
+>
+> ⏭️ **The remaining fork is TASTE, not correctness:** control 1 is now 4.22 where his hand left 5.67,
+> because the left half of the run is low and nothing there needs clearing — a shaped arch rather
+> than a dome. Flooring each lift at a fraction of the larger would keep it fuller. ⛔ His call.
+> ⏭️ Also open: ledger lines and articulations as obstacles in their own right, and Gould's beam
+> exception (moved here from Phase 7).
+
+**The plan as written:**
 
 Nothing between our endpoints can affect our curve; the only thing that reshapes a slur today is
 **another slur** (`slurNestDepths`). All three engines have collision avoidance, and their algorithms
