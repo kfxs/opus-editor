@@ -39,6 +39,12 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > test for whether a decision is worth taking (⭐ *is there a rule we want to state and can't?* —
 > never *do we control this?*).
 >
+> 📄 **…and whether the DRAWING should move too: `docs/own-engraving-engine.md`** — the 2026-08-16
+> audit. The measurements (all 38 `vexflow` imports live in ONE directory; `Stave` is a coordinate
+> system and `StaveNote` a ruler), the five separable pieces, and ⭐⭐ **the target architecture:
+> three stages with a typed SCENE between engraving and painting**, so geometry becomes a unit test
+> and the ghost and the PDF stop being second and third drawing paths.
+>
 > ⭐ **P5 closed the fan**: `fanRoom.ts`, `FAN_MAX_SPAN_STRETCH`, `FAN_MIN_HEAD_GAP_RATIO`,
 > `trailingGap`, `fanColumns` and **`MIN_NOTE_SPACING` itself** are all deleted — a fan's members are
 > ordinary columns, and each gap is the rule applied to that member's own duration.

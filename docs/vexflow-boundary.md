@@ -8,6 +8,20 @@
 > Short answer to the second: **yes, but not as a programme.** The test that has worked every time so
 > far is at the bottom (§5), and it is not "do we control this?" — it is *"is there a rule we want to
 > state and can't?"* Every module we already took over passes that test. Nothing we left behind does.
+>
+> ---
+>
+> 📄 ⭐⭐ **SEQUEL, 2026-08-16 — `docs/own-engraving-engine.md`.** This document asks *which DECISION
+> to take next*; that one asks *whether the DRAWING should move too*, and carries the target
+> architecture (a typed SCENE between engraving and painting) and folder structure.
+>
+> ⚠️ **It corrects §4 below on one point.** The claim *"VexFlow is years of accumulated correctness
+> about glyphs… and fonts"* is **not true of fonts**: VexFlow 5 carries **no SMuFL anchor data at
+> all** — `MetricsDefaults` is style constants and pixel paddings, and every glyph extent comes from
+> a runtime `canvas.measureText`. Bravura ships `bravura_metadata.json` with the real anchors under
+> SIL OFL. That is what caused the 2026-08-16 measure-rest bug, and it means our own font layer could
+> be *more* correct than VexFlow's, not less. §4's claim stands for **stems, beams and articulation
+> placement**.
 
 ---
 
