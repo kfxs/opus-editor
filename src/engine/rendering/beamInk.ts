@@ -8,6 +8,8 @@
  * Nothing here reads renderer state — a quad is four points and a fill.
  */
 import type { SVGContext } from 'vexflow'
+import { engravingDefault } from '@/engine/fonts/fontMetrics'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
  * The half-beam a cross-*system* fragment hangs over its open end (docs/cross-barline-beaming-plan.md):
@@ -34,7 +36,16 @@ import type { SVGContext } from 'vexflow'
 export const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
 export const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
 export const CROSS_SYSTEM_BEAM_MARGIN = 10
-export const CROSS_SYSTEM_BEAM_WIDTH = 5
+/**
+ * ⭐ **A BEAM'S OWN THICKNESS — Bravura's `beamThickness`, 0.5 staff spaces**, which is where the 5
+ * this used to be came from: VexFlow's default `beamWidth` is that same half space, and at
+ * {@link STAFF_SPACE_PX} it is 5 px exactly (F3, docs/font-metrics-plan.md).
+ *
+ * ⚠️ In PIXELS, not spaces, unlike the rest of the font's weights — because its three callers draw
+ * beam quads in the staff's own scale-group coordinates (see the note above), not in staff spaces.
+ * The conversion belongs here, once, rather than at each of them.
+ */
+export const CROSS_SYSTEM_BEAM_WIDTH = engravingDefault('beamThickness') * STAFF_SPACE_PX
 
 /** The stub length for an open end, by the direction it points: right (+1) runs off the line end. */
 export const crossSystemStub = (direction: number): number =>

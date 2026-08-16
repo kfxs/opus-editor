@@ -1,5 +1,6 @@
 import type { Clef, TimeSignature } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { engravingDefault } from '@/engine/fonts/fontMetrics'
 
 /**
  * Layout configuration for proportional measure spacing.
@@ -222,6 +223,16 @@ export interface GutterState {
 }
 
 /**
+ * ⚠️ **How wide VexFlow actually draws a staff line: 1 px.** Not a choice of ours and not the font's
+ * number — it is the SVG context's default `stroke-width`, which the stave lines inherit because
+ * VexFlow never sets one. Named so that {@link LEDGER_LINE_STYLE} can be a ratio against the thing
+ * on the page rather than a number that only agrees with a font we are not drawing the staff from.
+ *
+ * ⛔ Nothing else should reach for this. It is a fact about the dependency, and it goes away with it.
+ */
+const VEXFLOW_STAFF_LINE_PX = 1
+
+/**
  * How a ledger line is inked. VexFlow's own default is `{ strokeStyle: '#444', lineWidth: 2 }` —
  * grey, and twice the weight of a staff line (which inherits the context's `stroke-width: 1`).
  * Neither matches engraving practice, and at high zoom both are plainly visible.
@@ -229,13 +240,32 @@ export interface GutterState {
  * A ledger line is part of the staff: same ink as everything else on the page, so **black**. It IS
  * drawn slightly heavier than a staff line, deliberately — Bravura's SMuFL `engravingDefaults` put
  * `staffLineThickness` at 0.13 staff spaces and `legerLineThickness` at 0.16, a ratio of ~1.23, and
- * Gould (*Behind Bars*) says the same in words. So 1.25 against the staff's 1, not 2.
+ * Gould (*Behind Bars*) says the same in words. So ~1.23 against the staff's 1, not 2.
+ *
+ * ## ⭐⭐ A RATIO from the font, not a weight from the font — and the difference matters
+ *
+ * F3 (docs/font-metrics-plan.md) took the other weights straight out of `engravingDefaults`. ⛔ Not
+ * this one, and taking it would make the line too heavy: the font's 0.16 spaces is **1.6 px** here,
+ * but the thing it has to look right against is **VexFlow's staff line, which is 1 px** — the
+ * context's default `stroke-width`, not the font's 0.13 spaces (1.3 px). Absolute weights from the
+ * font only agree with each other while everything on the page comes from the font, and the staff
+ * lines do not.
+ *
+ * ⭐ So what is adopted is the font's **RATIO** — `legerLineThickness / staffLineThickness` — applied
+ * to the staff line VexFlow actually draws. That is exactly what the paragraph above said in words,
+ * now said in arithmetic, and it stays right if either number in the font moves.
+ * ⏭️ When P3 draws staff lines itself, this becomes the plain `legerLineThickness` and
+ * {@link VEXFLOW_STAFF_LINE_PX} disappears with it.
  *
  * Applied per Stave, since that is the only seam VexFlow offers
  * ({@link Stave.setDefaultLedgerLineStyle}) — every stave that can carry a note off the staff needs
  * it, including the ghost's.
  */
-export const LEDGER_LINE_STYLE = { strokeStyle: '#000000', lineWidth: 1.25 }
+export const LEDGER_LINE_STYLE = {
+  strokeStyle: '#000000',
+  lineWidth: VEXFLOW_STAFF_LINE_PX
+    * (engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')),
+}
 
 /**
  * Where every SYSTEM starts vertically, once the per-system staff-spacing overrides (Client #7 —

@@ -29,6 +29,7 @@
  * change a curve's look (§12 Phases 2, 4, 6) changes the staff-space number here, and says so.
  */
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { engravingDefault } from '@/engine/fonts/fontMetrics'
 
 /**
  * ⭐ **The numbers, in STAFF SPACES.** Where a phase of docs/slur-plan.md §12 will touch one, the
@@ -230,6 +231,11 @@ export const CURVE = {
    * (`boundingbox.cpp:945`) — it narrows the fill by the stroke so fill + outline equals the nominal
    * exactly, where we simply added the two.
    *
+   * ⭐⭐ **And it is now READ from Bravura rather than typed** (F3, docs/font-metrics-plan.md) —
+   * `engravingDefault('slurMidpointThickness')`, which is where this sentence already said it came
+   * from. ⛔ It is still ONE number and still a taste call inside a real range: if it reads thin, the
+   * answer is an override here with its reason, not a second constant somewhere else.
+   *
    * ⭐ **The value is Bravura's `slurMidpointThickness`**, and the field is: LilyPond 0.17 · Bravura
    * **0.22** · MuseScore 0.21 nominal (0.29 drawn) · Verovio 0.25 (0.30 for its slur) · ours 0.30
    * until today. §13.6 downgraded this from a correction to a TASTE call inside a real range — we
@@ -240,11 +246,11 @@ export const CURVE = {
    * with this size (cause it match better with other elements, for example the stroke of the slur)"*
    * — at 0.16 sp. Thinning the slur's middle moves it TOWARD the hairpin, not away.
    */
-  thickness: 0.22,
+  thickness: engravingDefault('slurMidpointThickness'),
   /** Stroke width pinned around the curve so its fill taper reads as sharp tips — and, at the tip
    *  where the two passes meet, it IS the ink: 0.10 sp = Bravura's `slurEndpointThickness` exactly
    *  (§13.6). ✅ Already correct; ⛔ don't change it to fix the middle. */
-  outline: 0.10,
+  outline: engravingDefault('slurEndpointThickness'),
 } as const
 
 /**

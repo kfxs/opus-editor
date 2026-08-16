@@ -7,6 +7,17 @@
  * coincidence in the font — it is the statement that these marks are one weight, so that a score
  * reads as having been drawn by one hand.
  *
+ * ⭐⭐ **And it is now READ from the font rather than typed** (F3, docs/font-metrics-plan.md):
+ * `engravingDefault('thinBarlineThickness')` out of `engine/fonts/`. The five names above are one
+ * value in Bravura, so any of them would do; the barline is named because it is the member this
+ * family was first extracted from.
+ *
+ * ⚠️ **Deriving is right HERE and wrong for the ink table**, which keeps its literals and merely
+ * checks them (`layout/spacingPadding.font.test.ts`). The difference is what the number IS: an ink
+ * extent is our own MEASUREMENT of what we draw, and it diverges from the font on purpose in places
+ * (a clearance is rounded out). A weight is a TRANSCRIPTION of the font's own statement — there is
+ * no independent claim to preserve, so the only thing a literal could add is a typo.
+ *
  * ⛔ **So a new thin line does not get to pick a number.** It imports this one. The alternative is
  * what a codebase drifts into on its own: a 0.16 here, a 1.5 px there, and a page whose ledger
  * lines, tuplet brackets and hairpins each look like they came from a different edition. The
@@ -41,4 +52,6 @@
  * `reference_thin_lines_need_half_pixel_offset` in the memory index. The defence is the editor's;
  * a print render keeps the true 0.16, because paper has no pixel grid to lose the line to.
  */
-export const THIN_LINE_SPACES = 0.16
+import { engravingDefault } from '@/engine/fonts/fontMetrics'
+
+export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
