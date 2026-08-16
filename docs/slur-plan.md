@@ -1079,14 +1079,79 @@ Two of the columns matter more than the numbers. **Rule** says what kind of chan
 |---|---|---|---|
 | 1 | The stem-end endpoint — stop the slur contradicting the melody | **PUBLISHED** (Gould p. 111) | small |
 | 2 | Short slurs are too tall (and therefore hooky) | **TASTE** | small, one constant |
-| 3 | ⭐ **A tie must not sit on a staff line** — the majority behaviour, and we have nothing (**§13.4**) | **PUBLISHED** (Gould p. 61) + 2 of 3 engines | medium — new machinery |
-| 3b | A broken tie changes weight at the system break — migrate it off raw `StaveTie` | consistency | small |
+| 3 | ⭐ **A tie must not sit on a staff line** — the majority behaviour, and we have nothing (**§13.4**) | **PUBLISHED** (Gould p. 61) + 2 of 3 engines | ~~medium~~ **small** — §12.0 #3 |
+| 3b | A broken tie changes weight at the system break — migrate it off raw `StaveTie` (and **two more** tie primitives, §12.0 #2) | consistency | ~~small~~ **small–medium** |
 | 4 | Curve weight — a taste call **inside** a 0.17–0.30 sp range (**§13.6**) | ~~PUBLISHED~~ **TASTE** — see the hairpin note | one constant |
 | 5 | A broken slur has no opinion about pitch | **PUBLISHED** (Gould p. 112) | small–medium |
 | 6 | A maximum slant — **60°, his call**, and a short steep slur made rounder | **TASTE, no source at all** | small |
-| 7 | Four small ones: px→staff-spaces, the chord anchor, the tie's hit-target, Gould's beam exception | mixed | small each |
+| 7 | Three small ones: px→staff-spaces, the chord anchor, Gould's beam exception (the tie's hit-target **moved into 3b**) | mixed | small each |
 | 8 | Interior notes — collision avoidance | constraints published, algorithm nobody's | **a project** |
 | ⛔ | ~~The tie is 2.5–3.75× too flat~~ — **WITHDRAWN**, his call on the three-engine table (**§13.1–13.2**) | — | — |
+
+### 12.0 ⭐⭐ THE SECOND CODE READ (2026-08-16) — eight things that change how these phases land
+
+§11.12 read the code for *faults*. This pass read it for *where each fix goes*, and turned up eight
+corrections. They are folded into the phases below; this is the summary, and the two starred ones
+change the plan's shape rather than its numbers.
+
+**⭐⭐ #1 — every phase here is a MODULE, not an edit.** As written, each phase named a site *inside*
+`SlurRenderer` / `TieRenderer` ("the change: `slurEndpointY`, `SlurRenderer`"). That is precisely the
+growth CLAUDE.md's ⭐ rule exists to stop, and these two files are the likeliest to absorb it. The
+rule's own words: *a slice too thin to be logic is still a slice*. So:
+
+| phase | the module it adds | pure? |
+|---|---|---|
+| 1 | `rendering/slurStemEndpoint.ts` | **yes** — head ys + stem dirs + tips in, adjusted ys out |
+| 2 | `rendering/slurArchHeight.ts` (the height law, both ends of the length range) | **yes** — span in, arch height out |
+| 3 | `rendering/tieStaffLineClearance.ts` | **yes** — tie y + the stave's line ys in, a shift out |
+| 5 | `rendering/brokenSlurTilt.ts` | **yes** — diatonic difference in, half-arc rise out |
+| 6 | `rendering/slurSlantLimit.ts` | **yes** — the two endpoints in, the raised one out |
+
+⭐ **And that overturns one line in Phase 1**: *"⛔ Not headless: it is stem geometry"* is true of the
+**integration** only. Each rule above is arithmetic over numbers it is *handed*, so it gets a
+`*.test.ts` beside it (a spec moves with its module) and the `e2e` pins only the drawn consequence —
+the sign of the tilt, the distance to the nearest line. ⚠️ The jsdom trap (`docs/ARCHITECTURE.md`)
+bites when a test *measures* glyphs, not when it feeds a pure function known coordinates.
+
+**⭐⭐ #2 — the tie is drawn by FOUR primitives, not the two Phase 3b names.**
+
+| where | primitive | in the plan? |
+|---|---|---|
+| same-line tie | `TieRenderer.drawFlatTie` → `drawCurveArc` | ✅ |
+| the two cross-system halves | raw `StaveTie` (`TieRenderer.ts:167, :195`) | ✅ Phase 3b |
+| **the PENDING-tie preview** | raw `StaveTie` (`VexFlowRenderer.ts:4189`) | ❌ **missed** |
+| the armed tool's GHOST | `drawCurveArc`, same `TIE_BOW`/`CURVE_THICKNESS` (`GhostRenderer.ts:932`) | ❌ **missed** |
+
+So a tie **changes shape at the moment you commit it** — the pending preview is the same defect as
+the broken tie's, and it belongs in the same phase. The ghost is the opposite case: it already
+follows Phases 2 and 4 for free, under the invariant its own doc comment states — *arm the tool and
+the arc under the cursor IS the arc you get*. ⚠️ **Phase 3 breaks that invariant on purpose**: the
+ghost floats at a cursor with no staff under it, so there are no lines to clear. That exemption has
+to be written where the ghost lives, or a later reader finds the disagreement and "fixes" it.
+
+**#3 — Phase 3 is smaller than "new machinery", because our tie shape is a CONSTANT.** Worked out
+from `TIE_LIFT` 0.70 sp + `TIE_BOW`'s 0.40 sp apex, there are exactly two cases and neither needs a
+search — see the phase.
+
+**#4 — Phase 3b is bigger than "small".** `StaveTie` computes its own run-to-the-system-edge x; we
+would compute it, and the helpers exist only as `SlurRenderer` exports.
+
+**#5 — Phase 5 must read PITCH, not y.** The two ends are on different systems, and 🚨 cross-system
+coordinates are not one ruler (the hairpin taught us this the hard way, `docs/dynamics-line-and-hairpins-plan.md`).
+
+**#6 — Phases 1 and 6 need a stated place in the endpoint order**, ahead of the user's endpoint
+offset, or the blue handles disagree with the ink.
+
+**#7 — Phase 1 is silent about FANNED MEMBERS**, which have their own endpoint branch and their own
+stem tip (`SlurRenderer.resolveSlurEnd`).
+
+**#8 — Phases 2, 4 and 6 are all TASTE and all change what he sees.** Three separate approval gates
+cost three round trips; one rendering with the candidates side by side settles all three. ⭐ And
+Phase 7's px→staff-spaces conversion is safe to land *first*: `staffSpacesToPixels` reads
+`stave.getSpacingBetweenLines()`, which is the **unscaled** spacing (a small staff is a `<g>`
+transform, not a smaller stave), so the conversion preserves `CURVE_THICKNESS`'s ⛔ *never multiply
+by the staff size* property — and the taste numbers then get proposed in the units the research
+measured them in.
 
 ### Phase 1 — the stem-end endpoint (Gould p. 111)
 
@@ -1103,15 +1168,36 @@ attaches to**. The stem tip is what substitutes a stem end for a pitch.
 > p. 111: *"When outer notes have opposite stem directions, move the slur at the stem end towards the
 > noteheads **so it does not tilt contrary to the direction of the pitches**."*
 
-**The change** (`slurEndpointY`, `SlurRenderer`): MuseScore's rule, whose own comment cites this page
-(`slurtielayout.cpp:683–721`) — when the two chords have **opposite** stem directions and the slur is
-on the stem side of one, that endpoint **slides along its stem by half the vertical distance between
-the two slur-side notes**, clamped at the stem end + 1 space. Applied to the two cases above: the A4
-end lands 0.25 sp above its notehead (flat-to-rising), the C4 end 2.25 sp up instead of 3.5 (the
-tenth rises 2.25 sp instead of 1).
+**The change** — ⭐ **a new module, `rendering/slurStemEndpoint.ts`** (§12.0 #1), not a widened
+`slurEndpointY`: MuseScore's rule, whose own comment cites this page (`slurtielayout.cpp:683–721`) —
+when the two chords have **opposite** stem directions and the slur is on the stem side of one, that
+endpoint **slides along its stem by half the vertical distance between the two slur-side notes**,
+clamped at the stem end + 1 space. Applied to the two cases above: the A4 end lands 0.25 sp above its
+notehead (flat-to-rising), the C4 end 2.25 sp up instead of 3.5 (the tenth rises 2.25 sp instead
+of 1).
 
-**Verify:** `e2e` — both cases above, asserting the *sign* of the tilt against the melodic interval.
-⛔ Not headless: it is stem geometry.
+⚠️ **The signature is the point.** `slurEndpointY(staveNote, noteIndex, direction)` answers for
+**one** end — and `SlurEnd.endpointY` is a per-end closure — while this rule needs *both* ends' head
+ys and *both* stem directions. That is why it cannot be a line inside the existing function: the
+module takes the pair and returns the pair.
+
+⚠️ **Where it lands in the endpoint order** (§12.0 #6): after the stem-tip choice, **before**
+`slurEndpointOffsetPx` adds the user's nudge (`SlurRenderer`, the `off.startY`/`off.endY` add). A
+hand nudge is the last word — the same rule the nest lift already follows — and `slurTrueEndpoints`
+reads the result, so the blue squares follow the ink for free.
+
+⚠️ **Fanned members** (§12.0 #7): `resolveSlurEnd`'s member branch has its own `endpointY` over
+`member.tipY`/`headY` and no `StaveNote` at all. A member's stem tip is where its stem meets the
+beam, so the rule *can* apply — but the phase must say whether it does. Unstated means it gets found
+by a slur that behaves differently over a fan.
+
+✅ **Timing is not a risk:** ties and slurs render at `VexFlowRenderer.ts:3734/3737`, after every
+`Beam.draw`, so `getStemExtents().topY` is already the post-format tip of a beamed group.
+
+**Verify:** the *rule* headless — `slurStemEndpoint.test.ts`, fed the four (stem, stem, direction)
+combinations with known ys (§12.0 #1: this is arithmetic over given numbers, not a glyph
+measurement). The *drawn consequence* in `e2e` — both cases above, asserting the **sign** of the tilt
+against the melodic interval.
 
 ### Phase 2 — the short-slur height (TASTE — needs his eye)
 
@@ -1144,6 +1230,11 @@ which is right. Lower the short height and the angle falls with it (≈49° at 0
 law that behaves at both ends and agrees with Gould's direction; (c) leave it. ⛔ No slur arc height
 is published anywhere, by anyone — this cannot be settled by research, only by his eye.
 
+⭐ **Whichever he picks, it is `rendering/slurArchHeight.ts`** (§12.0 #1) — span in, arch height out,
+with a spec that pins the table above at both ends. Option (b) is a *law*, not a constant, and a law
+living inline in `slurArchCps` is the slice the ⭐ rule refuses. ✅ The ghost tie follows this and
+Phase 4 for free (§12.0 #2); ⚠️ show it to him **together with Phases 4 and 6** (§12.0 #8).
+
 ### Phase 3 — ⭐ a tie must not sit on a staff line (REWRITTEN by §13.4)
 
 > p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
@@ -1170,10 +1261,34 @@ the search is exactly how you get ties sitting on lines. Start with the smallest
 MuseScore's shape, not LilyPond's: test the two endpoints and the apex against the nearest line, and
 move the whole tie by the shortfall.
 
-**Verify:** `e2e` — a tie whose notehead sits *on* a line, and one in a space, measuring the drawn
-ink's distance to the nearest staff line.
+⭐⭐ **REVISED SIZE, 2026-08-16 (§12.0 #3): small, not medium — because our tie's shape is a
+CONSTANT.** `TIE_LIFT` is 0.70 sp and the apex is a fixed 0.40 sp above the endpoint line, so the
+total reach is always **1.10 sp** and there are exactly **two** cases, both predictable without
+measuring anything:
 
-### Phase 3b — the broken tie changes weight (small, independent)
+| the notehead | endpoints | apex | verdict |
+|---|---|---|---|
+| **ON a line** | 0.70 sp off it — clear | **1.10 sp** = 0.10 sp *past* the next line, with 0.20 sp of fill reaching back to 0.90 | 🚨 **the apex straddles that line — every time** |
+| **in a space** | 1.20 sp — 0.20 sp past the line, clear | 1.60 sp = the **middle** of the next space | ✅ correct, every time |
+
+So the fault is not diffuse and it is not a search: **it is the on-line notehead, always.** A lift of
+≈0.20 sp puts the tip at LilyPond's `tip-staff-line-clearance` 0.225 and the apex 0.25 sp clear of
+the line. ⛔ That does **not** make it a magic constant in `TieRenderer`: it is
+`rendering/tieStaffLineClearance.ts` (§12.0 #1) — tie y + the stave's line ys in, a shift out — so it
+stays honest on the day the shape stops being constant (Phase 2's law, a hand-edited tie, a small
+staff). The two-case table is what its spec asserts.
+
+⚠️ **The GHOST is exempt, and that must be written down** (§12.0 #2). `GhostRenderer.drawTieGhost`
+draws at the cursor, where there is no stave and no lines to clear, so for the first time it will
+*not* match the engraved tie. Its doc comment states the opposite invariant today — *arm the tool and
+the arc under the cursor IS the arc you get* — so amend that comment in this phase, or a later reader
+"fixes" the disagreement back.
+
+**Verify:** the *rule* headless — the two rows above, fed line ys directly. The *drawn ink* in `e2e`:
+a tie whose notehead sits **on** a line, and one in a space, measuring the path's distance to the
+nearest staff line (`harness.paths()` + `harness.staves()` give both).
+
+### Phase 3b — the broken tie changes weight, AND SO DOES THE PENDING ONE (small–medium)
 
 A same-line tie goes through `drawCurveArc`; the two halves of a tie crossing a **system break** are
 raw VexFlow `StaveTie`s — a quadratic with `cp1:8 / cp2:12`, i.e. a 4 px belly against our
@@ -1182,6 +1297,24 @@ the *shape* half of this: all three engines draw two independent flat arcs and n
 match, so Gould's *"keeps its symmetrical shape"* is about symmetry **within** each half, which ours
 already has. **The migration is worth doing for the weight, not the shape.** The slur did exactly
 this in its own Phase 3 and the tie was left behind.
+
+⭐ **A THIRD `StaveTie` was missed, and it is the one the user sees first** (§12.0 #2): the
+**pending-tie preview** — the arc hanging off a selected note while the tie is being made
+(`VexFlowRenderer.ts:4189`) — is a raw `StaveTie` too. So **a tie changes shape at the moment you
+commit it**, which is the same defect as the broken tie's, in the same primitive, and it belongs in
+this phase. ✅ The armed tool's ghost is already on `drawCurveArc` and needs nothing.
+
+⚠️ **Why this is no longer "small": `StaveTie` computes its own x.** It runs itself to the system
+edge; we would have to say where that edge is, and the two helpers that know
+(`lineLeftEdgeX`/`lineRightEdgeX`) are exports of **`SlurRenderer`**. ⛔ `TieRenderer` must not import
+`SlurRenderer` — extract them to `rendering/systemEdges.ts` first (one move, both callers), which is
+the ⭐ rule's answer here as well.
+
+⭐ **Fold Phase 7's "the tie's hit-target is a padded rectangle" into this phase.** `drawCurveArc`
+returns the 17 sampled cubic points as a *by-product* (`curveArc.ts`), which is exactly what
+`elements/tie.ts` needs to stop selecting the empty air under the arc — and the registry's `points`
+path already exists, because the slur uses it. Doing it here costs one field; doing it in Phase 7
+means re-plumbing all four tie sites a second time.
 
 ### Phase 4 — the weight (Bravura), and the one thing to weigh first
 
@@ -1208,6 +1341,19 @@ LilyPond and MuseScore use identical numbers for both, and only Verovio draws it
 stroke width** so fill + outline equals the nominal exactly, where we simply add the two — which is
 why our drawn middle is a third above its own nominal.
 
+✅ **The arithmetic was re-checked against the emitted path (2026-08-16) and it holds exactly**:
+drawn middle = `0.75 × fill gap + outline`, i.e. `0.75×2.7px + 1px` = 3.03px = **0.30 sp** today, and
+`0.75×1.6px + 1px` = 2.2px = **0.22 sp** = Bravura. The tip is the 1 px outline alone = 0.10 sp,
+already exact.
+
+⭐ **So steal Verovio's coefficient as a DERIVATION, not as a second constant.** The two numbers that
+make the middle are `CURVE_THICKNESS` and `CURVE_OUTLINE` (`curveArc.ts`), and today they are simply
+added — which is why our drawn middle sits a third above its own nominal. Write the nominal
+midpoint thickness as the authored number and derive the fill gap as `(nominal − outline) / 0.75`;
+then the constant in the file is the one the research tables are written in, and Phase 7's
+px→staff-spaces pass has something meaningful to convert. ✅ The armed tool's **ghost tie follows for
+free** — it draws through the same primitive with the same constants (§12.0 #2).
+
 ⚠️ **Weigh this against the hairpin before touching it.** He set the hairpin stroke by matching this
 curve — *"i like the stroke with this size (cause it match better with other elements, for example
 the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's middle to 0.22 moves it
@@ -1224,6 +1370,22 @@ Ours is a flat `SLUR_ARC` = 1.4 sp rise on every half-arc, identical for BEGIN a
 input at all. Verovio implements her rule as `ConsiderMelodicDirection`, **0.25 sp per diatonic step**;
 LilyPond switches all melodic slope rules **off** for a broken half. We are the only one of the three
 with no opinion, and she says we should have one.
+
+🚨 **The input is PITCH, not y** (§12.0 #5) — and this is the one way to build this phase wrong while
+it looks right. The two ends are on **different systems**, so `toY − fromY` is not a melodic
+interval; it is the distance between two staves, plus whatever the page cast-off did. Cross-system
+coordinates are not one ruler — the hairpin already cost us this bug
+(`docs/dynamics-line-and-hairpins-plan.md`, *a late-start wedge's `endX < startX`*). The rise comes
+from the **diatonic difference between the two anchored notes in the model**, which the renderer has
+in hand (`score` + the two note ids), times Verovio's 0.25 sp per step.
+
+⭐ **The module is `rendering/brokenSlurTilt.ts`** (§12.0 #1): diatonic difference + which half
+(BEGIN or END) in, the half-arc's open-end rise out. Pure, so the whole of Gould's sentence — *angled
+in the direction of the final pitch* — is one spec beside it.
+
+⛔ **MIDDLE segments stay flat.** A system the slur merely passes over has no pitch of its own; ours
+draws it as a symmetric bow at a staff-relative baseline (`SlurRenderer`, the `middle` branch) and
+that is right. The rule is about the two *open ends that face music*, not about every half-arc.
 
 ### Phase 6 — a maximum slant (HIS CALL, 2026-08-15 — Verovio's 60°, provisional)
 
@@ -1256,22 +1418,41 @@ to how steeply the slur is tilted, scaled by a length factor that is full below 
 the reverse. It is the only genuine slant→shape coupling anywhere in the research, and it pairs
 directly with Phase 2, which is also about the short end.
 
-**Verify:** `e2e` — a leap steep enough to trip the ceiling, and a short steep slur measured rounder
-than a short flat one of the same span.
+⭐ **Both halves live in `rendering/slurSlantLimit.ts`** (§12.0 #1) — the two endpoints in, the raised
+one plus the minimum control angle out. That module is also where the ⛔ *this number is ours, not an
+engraving rule* comment belongs, since it is the file a future reader will open.
 
-### Phase 7 — four small ones, independent of each other
+⚠️ **Where it lands in the endpoint order** (§12.0 #6): like Phase 1, **before**
+`slurEndpointOffsetPx`. A ceiling that fires *after* the user's nudge would silently undo a
+deliberate drag — and `slurTrueEndpoints` (the blue squares) reads the same values, so a clamp on the
+wrong side of the add puts the handles somewhere the ink is not.
 
-- **Constants in pixels.** `SLUR_*` / `TIE_*` are px that behave as staff spaces only because the
-  draw runs inside the staff's scale group. Every comparison in §11 and §12 had to be converted by
-  hand. Hygiene, not engraving — but it is why the research's "ours" column was wrong twice.
+**Verify:** the ceiling and the control-angle rule headless (given endpoints, given angles); `e2e` —
+a leap steep enough to trip the ceiling, and a short steep slur measured rounder than a short flat
+one of the same span.
+
+⚠️ **Show it with Phases 2 and 4** (§12.0 #8): all three are TASTE, all three change what he sees,
+and three separate approval gates cost three round trips where one side-by-side rendering costs one.
+
+### Phase 7 — three small ones, independent of each other
+
+- ⭐ **Constants in pixels — and this one is worth doing FIRST** (§12.0 #8). `SLUR_*` / `TIE_*` are px
+  that behave as staff spaces only because the draw runs inside the staff's scale group. Every
+  comparison in §11 and §12 had to be converted by hand. Hygiene, not engraving — but it is why the
+  research's "ours" column was wrong twice, and doing it before Phases 2/4/6 means the taste numbers
+  reach his eye in the units the research measured them in. ✅ **The conversion is safe**:
+  `staffSpacesToPixels` reads `stave.getSpacingBetweenLines()`, which is the **unscaled** spacing (a
+  small staff is a `<g>` transform, not a smaller stave), so it preserves `CURVE_THICKNESS`'s ⛔
+  *never multiply by the staff size here* property — the same route the slur's `cps` overrides
+  already take inside the group.
 - **The chord anchor.** `slurEndpointY` uses `ys[noteIndex]` — the pitch the user anchored to — so a
   slur from a chord's middle note springs from inside the chord. All three engines take the **top**
   note for an up-slur and the **bottom** for a down-slur (§11.2b), and in LilyPond it changes
   `musical_dy_` itself.
-- **The tie's hit-target is a padded rectangle** (`elements/tie.ts`), where the slur registers 16
-  sampled cubic points. The last span element selectable by the empty air under its arc.
 - **Gould's beam exception.** p. 110: mixed stems go above *"except when a beam may be in the way"*.
   None of the three engines implements it; `slurDirection` doesn't either.
+- ➡️ **Moved out:** the tie's padded-rectangle hit-target now lands in **Phase 3b**, where
+  `drawCurveArc` hands us the sampled points as a by-product (§12.0 #2).
 
 ### Phase 8 — interior notes (the project)
 
