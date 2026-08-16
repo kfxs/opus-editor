@@ -342,3 +342,89 @@ test('⭐ …and a run that ENDS in a rest keeps the same air over its peak', as
   })
   expect(r.clearance).toBeGreaterThan(0.2)
 })
+
+test('⭐⭐ a slur broken by a system break leans toward its own music (§12 Phase 5, Gould p. 112)', async ({ score }) => {
+  // "A slur starting on the last note of a system … must be angled in the direction of the final
+  // pitch on the new system, so as to look clearly open-ended." Ours was a flat rise on both halves
+  // with no pitch input at all — the only one of the three engines with no opinion.
+  const half = async (endOctave: number) => score.evaluate(async (endOctave: number) => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let m = 1; m <= 40; m++) {
+      if (m > 1) h.engine.addMeasure()
+      ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: m === 1 ? 5 : 5, duration: 'w', measure: m, beat: h.frac(0, 1) })!.id)
+    }
+    await h.render()
+    // The first bar that opens a system — measures on one system share their stave's top y.
+    const tops = h.staves().map(s => s.top)
+    let broken = -1
+    for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) { broken = i; break }
+    if (broken < 1) return { rise: NaN }
+    // Re-pitch the note that OPENS the new system, so the interval across the break is the variable.
+    h.engine.updateNote(ids[broken], { step: 'C', octave: endOctave })
+    h.engine.createSlur([ids[broken - 1], ids[broken]])
+    await h.render()
+    // The BEGIN half is the one whose path starts on the earlier system (smaller y overall).
+    const paths = [...document.querySelectorAll('g.vf-slur path')].map(p => p.getAttribute('d') ?? '')
+    const parsed = paths.map(d => [...d.matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
+    const begin = parsed.reduce((best, p) => (p[0].y < best[0].y ? p : best), parsed[0])
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    // How far the OPEN (right) end sits above the anchored (left) one.
+    return { rise: (begin[0].y - begin[3].y) / sp }
+  }, endOctave)
+
+  const higher = await half(6)   // the music resumes an octave UP
+  const lower = await half(4)    // …and an octave DOWN
+  expect(higher.rise).toBeGreaterThan(lower.rise)
+  // Break-tested: with the flat `slurArc` both measure the SAME, so this pair is the rule itself.
+  // ⚠️ The spread is bounded by the two clamps his eye asked for — a 1.0 sp floor (never a tie) and
+  // a 2.0 sp ceiling (never a hole at the margin) — so an octave either way differs by 1.0, not by
+  // the 3.5 the raw per-step lean would give.
+  expect(higher.rise - lower.rise).toBeGreaterThan(0.5)
+})
+
+test('⭐⭐ a continuation starts at the barline AND clears the clef — the two go together', async ({ score }) => {
+  // His two reports on the same figure, 2026-08-16: first that the continuation was too short (a
+  // 0.6 sp comma — a slur whose end note is the system's FIRST note has almost no room after the
+  // clef), then that reaching back to the barline drew the arc THROUGH the clef. ⛔ Each half alone
+  // is a fault; the pair is the answer — start at the barline, and put the open end outside the
+  // clef's published ink reach (Bravura `gClef`, since measuring a glyph's box returns the FONT's
+  // ascent and descent instead).
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let m = 1; m <= 40; m++) {
+      if (m > 1) h.engine.addMeasure()
+      // ⭐ LOW notes, so the slur hangs BELOW and the clef's TAIL is what it would cross — his
+      // figure. A slur above clears the clef by accident; this one does not.
+      ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: m, beat: h.frac(0, 1) })!.id)
+    }
+    await h.render()
+    const tops = h.staves().map(s => s.top)
+    let broken = -1
+    for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) { broken = i; break }
+    if (broken < 1) return { lengthSp: NaN, clearsClef: false, clefCount: 0 }
+    h.engine.updateNote(ids[broken], { step: 'G', octave: 4 })
+    h.engine.createSlur([ids[broken - 1], ids[broken]])
+    await h.render()
+    const parsed = [...document.querySelectorAll('g.vf-slur path')]
+      .map(p => [...(p.getAttribute('d') ?? '').matchAll(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)].map(m => ({ x: +m[1], y: +m[2] })))
+    // The END half is the one on the LOWER system — compare by the ANCHORED end, which sits on its
+    // own note (the open end is the one that moves).
+    const end = parsed.reduce((best, p) => (p[3].y > best[3].y ? p : best), parsed[0])
+    // The clef glyph on that system — the fragment must start to the RIGHT of its ink.
+    const clefs = h.glyphs('g.vf-clef text').filter(g => g.y > tops[broken] - 40 && g.y < tops[broken] + 60)
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    const box = h.staves().find(b => Math.abs(b.top - tops[broken]) < 1)!
+    // Bravura's gClef reaches 1.63 sp BELOW the bottom line; the open end must be past that.
+    return {
+      lengthSp: Math.abs(end[3].x - end[0].x) / sp,
+      clearsClef: end[0].y > box.bottom + 1.63 * sp,
+      clefCount: clefs.length,
+    }
+  })
+  // ⭐ It starts at the BARLINE — so it is a real curve, not a comma — and clears the clef
+  // VERTICALLY instead of dodging it horizontally.
+  expect(r.lengthSp, 'a real fragment, not a 0.6 sp comma').toBeGreaterThan(2)
+  expect(r.clearsClef, 'and outside the clef\'s published ink reach').toBe(true)
+})

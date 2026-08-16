@@ -17,7 +17,7 @@ import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc } from './curveArc'
-import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
+import { BROKEN_SLUR_MAX_SLOPE, CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
@@ -25,7 +25,9 @@ import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
-import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
+import { brokenSlurOpenRise, clearOfClef } from './brokenSlurTilt'
+import { spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { lineLeftMarginX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -187,10 +189,15 @@ export function planSlurSegments(
       const rightX = toLocal(lineRightEdgeX(pass, line))
       if (rightX !== undefined) segments.push({ type: 'begin', firstX, rightX })
     } else if (line === toLine) {
-      const leftX = toLocal(lineLeftEdgeX(pass, line))
+      // ⭐ The system's left BARLINE (Verovio's x), so a fragment whose note is the first on the
+      // system is a real curve rather than a 0.6 sp comma. ⚠️ That puts it in the CLEF's column by
+      // construction, which is why its open end is then pushed clear of the clef's published ink
+      // reach (`./brokenSlurTilt.clearOfClef`) — the two go together, and the first version shipped
+      // only the first half.
+      const leftX = toLocal(lineLeftMarginX(pass, line))
       if (leftX !== undefined) segments.push({ type: 'end', leftX, lastX })
     } else {
-      const leftX = toLocal(lineLeftEdgeX(pass, line))
+      const leftX = toLocal(lineLeftMarginX(pass, line))
       const rightX = toLocal(lineRightEdgeX(pass, line))
       if (leftX !== undefined && rightX !== undefined) segments.push({ type: 'middle', leftX, rightX, line })
     }
@@ -252,6 +259,35 @@ function slurObstaclesOf(
     }
   }
   return boxes
+}
+
+/**
+ * ⭐ **The slur's own melodic interval, in DIATONIC STEPS** — positive when the music resumes higher.
+ *
+ * 🚨 **From the MODEL, never from the drawn ys** (§12.0 #5): the two ends of a broken slur are on
+ * different systems, so their y's differ by the distance between two staves and whatever the page
+ * cast-off did. Cross-system coordinates are not one ruler.
+ *
+ * `undefined` when either end is not a pitched note — a slur anchored to a rest has no interval, and
+ * the caller falls back to the flat base rise.
+ */
+function slurDiatonicInterval(score: Score, startNoteId: string, endNoteId: string): number | undefined {
+  const posOf = (noteId: string): number | undefined => {
+    for (const m of score.measures) {
+      for (const slot of m.slots) {
+        if (slot.type !== 'chord') continue
+        const pitch = slot.notes.find(p => p.id === noteId)
+          ?? (slot.fan?.members ?? []).flatMap(mm => mm.pitches).find(p => p.id === noteId)
+        if (pitch?.step !== undefined && pitch.octave !== undefined) {
+          return spellingDiatonicPos(pitch.step, pitch.octave)
+        }
+      }
+    }
+    return undefined
+  }
+  const from = posOf(startNoteId)
+  const to = posOf(endNoteId)
+  return from === undefined || to === undefined ? undefined : to - from
 }
 
 /**
@@ -585,13 +621,21 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // durable, middles dropped on a count change. Added to each segment's OPEN end below,
           // BEFORE resolveCps, so the arch follows the moved point (mirrors the true-end offset).
           const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
+          // ⭐ Gould p. 112: each open end leans toward the pitch on the other side of the break —
+          // read from the MODEL, since the two ends' y's are on different systems (§12.0 #5). A slur
+          // anchored to a rest has no interval, and keeps the flat base rise.
+          const steps = slurDiatonicInterval(score, slur.startNoteId, slur.endNoteId)
+          const openRise = (half: 'begin' | 'end', lengthPx: number) =>
+            steps === undefined ? Math.min(ARC, lengthPx * BROKEN_SLUR_MAX_SLOPE)
+              : brokenSlurOpenRise(steps, half, direction, lengthPx)
           let middleOrdinal = 0
           for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex))) {
             if (seg.type === 'begin') {
-              // Start note → system right edge, rising to an open (flat-ish) right end.
+              // Start note → system right edge, rising to an OPEN right end that leans toward the
+              // music on the next system (`./brokenSlurTilt`, Gould p. 112).
               const startY = fromY + LIFT * direction
               const p0 = { x: seg.firstX, y: startY }
-              const p1 = { x: seg.rightX, y: startY + ARC * direction }
+              const p1 = { x: seg.rightX, y: startY + openRise('begin', seg.rightX - seg.firstX) * direction }
               const stave = fromNote.getStave()
               // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
@@ -603,11 +647,20 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               )
             } else if (seg.type === 'end') {
               // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
-              // fix: leftX is the SYSTEM's left margin, not the end note's measure edge.
+              // fix: leftX is the SYSTEM's left margin, not the end note's measure edge. Its open
+              // LEFT end leans the opposite way, so the two fragments point at each other.
               const endY = toY + LIFT * direction
-              const p0 = { x: seg.leftX, y: endY + ARC * direction }
-              const p1 = { x: seg.lastX, y: endY }
               const stave = toNote.getStave()
+              // ⭐ The open end leans by the interval, then steps outside the CLEF — which this
+              // fragment crosses because it starts at the barline (`./brokenSlurTilt.clearOfClef`).
+              const leaned = endY + openRise('end', seg.lastX - seg.leftX) * direction
+              const p0 = {
+                x: seg.leftX,
+                y: stave
+                  ? clearOfClef(leaned, direction, stave.getTopLineTopY(), stave.getBottomLineBottomY())
+                  : leaned,
+              }
+              const p1 = { x: seg.lastX, y: endY }
               // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.end, stave)
               p0.x += o.x; p0.y += o.y

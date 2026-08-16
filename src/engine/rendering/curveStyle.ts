@@ -37,9 +37,47 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 export const CURVE = {
   /** Gap from the notehead (or stem tip) to a slur's endpoint. Gould's minimum is ½ sp. */
   slurLift: 1.0,
-  /** A cross-system half-arc's apex rise above its own endpoint line. ⏭️ §12 Phase 5 gives this an
-   *  opinion about pitch — today it is the same flat number for BEGIN and END. */
+  /** A cross-system half-arc's open end, above its own endpoint line — the BASE that §12 Phase 5's
+   *  pitch tilt is measured from (`./brokenSlurTilt`). */
   slurArc: 1.4,
+  /**
+   * ⭐ **How far a broken slur's open end leans per diatonic step** of the interval between its two
+   * anchored notes — Verovio's `pitchDiff * unit / 2` (`src/slur.cpp:929`), where its `unit` is half
+   * a staff space. Gould p. 112 asks for the lean and gives no number; this is the only one anybody
+   * publishes in code.
+   */
+  brokenSlurTiltPerStep: 0.25,
+  /**
+   * ⭐ **The least a broken half may rise** — Verovio's *"Make sure that broken slurs do not look like
+   * ties"* (`src/slur.cpp:941`), which is Gould's own parenthesis as a number: *"so as to look
+   * clearly open-ended (this differentiates an open-ended slur from an open-ended tie)"*.
+   */
+  brokenSlurMinRise: 1.0,
+  /**
+   * ⭐⭐ **How far the CLEF's ink reaches beyond the staff, above and below** — Bravura's published
+   * `gClef` glyph box: `bBoxNE (2.684, 4.392)`, `bBoxSW (0.0, −2.632)`, measured from its origin on
+   * the G line, which is one space above the bottom line. So the ink runs from **1.63 sp below the
+   * bottom line** to **1.39 sp above the top line**.
+   *
+   * 🚨 **Published, because MEASURING it is a trap.** A `getBBox()` on the drawn `<text>` returns the
+   * FONT's ascent and descent, not the glyph's ink — it reports the clef reaching 5.05 sp above the
+   * staff and 6.95 below, which is nonsense (`reference_jsdom_cannot_measure_glyphs` and the
+   * annotation-rect note record the same trap twice already).
+   *
+   * ⭐ It is here because a slur's CONTINUATION starts at the system's barline, so it crosses the
+   * clef's column by construction: its open end has to sit beyond this reach or draw straight
+   * through the clef (his report, 2026-08-16).
+   */
+  clefReachAbove: 1.4,
+  clefReachBelow: 1.65,
+  /**
+   * ⚠️ **How far a broken half's open end may travel from its own note — OURS, and provisional.**
+   * Without it, a wide interval leans the fragment so far that a hole opens between the last note
+   * and the margin (his report, 2026-08-16: *"the split point in the upper system has much air"*).
+   * Verovio's equivalent is geometric — it clamps the open end at the staff's own edge — which does
+   * nothing for music already outside the staff, which is exactly when it looks worst.
+   */
+  brokenSlurMaxRise: 2.0,
   /**
    * ⭐⭐ **LilyPond's `height-limit`** — the arch height the law approaches but never reaches, and
    * therefore the flattest a long slur can get (`define-grobs.scm:3178`, the `Slur` grob).
@@ -208,6 +246,18 @@ export const SLUR_HEIGHT_RATIO = 0.25
  * him 2026-08-16"*.
  */
 export const SLUR_MAX_SLANT_DEG = 60
+
+/**
+ * ⚠️ **The steepest a SHORT continuation may lean — rise per unit of its own length.** Dimensionless,
+ * so it needs no conversion.
+ *
+ * A slur ending on the FIRST note of a system has almost no horizontal room, and a full space of
+ * drop across 0.6 of one is a 60° tick that reads as a comma (his report, 2026-08-16). MuseScore
+ * meets the same case with `constrainLeftAnchor`, which flattens the open end to 0.25 sp when the
+ * system's first chord IS the slur's end note; this is that idea as a slope, so it scales with
+ * whatever room there happens to be instead of naming one case.
+ */
+export const BROKEN_SLUR_MAX_SLOPE = 0.5
 
 /**
  * ⭐ **How much the arch LEANS with its own interval** — each control point is offset by

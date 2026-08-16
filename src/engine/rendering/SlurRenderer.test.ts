@@ -22,7 +22,7 @@ import type { SlurEndpointOffsetOverride } from '@/types/music'
  */
 function makeLookup(
   lines: Record<number, number>,
-  bounds: Record<number, { noteStartX: number; noteEndX: number }>,
+  bounds: Record<number, { noteStartX: number; noteEndX: number; measureX?: number }>,
 ): SystemEdgeLookup {
   const measureLayoutInfo = new Map<number, MeasureWidthInfo>()
   for (const [num, lineNumber] of Object.entries(lines)) {
@@ -33,7 +33,10 @@ function makeLookup(
   const measureBounds = new Map<number, MeasureBounds>()
   for (const [num, b] of Object.entries(bounds)) {
     measureBounds.set(Number(num), {
-      measureX: 0, measureY: 0, measureWidth: 0,
+      // ⭐ A system's left BARLINE, which is where an open-ended continuation begins — 20px left of
+      // where the notes start unless a fixture says otherwise (`./systemEdges`).
+      measureX: b.measureX ?? b.noteStartX - 20,
+      measureY: 0, measureWidth: 0,
       noteStartX: b.noteStartX, noteEndX: b.noteEndX,
     })
   }
@@ -80,6 +83,13 @@ describe('SlurRenderer system-edge helpers', () => {
   })
 })
 
+/**
+ * ⚠️ **An open-ended segment starts at the system's BARLINE** — 80 here against a `noteStartX` of
+ * 100 — so a fragment whose note is the system's first is a real curve rather than a 0.6 sp comma.
+ * ⭐ It therefore crosses the CLEF's column, and its open end is pushed clear of the clef's published
+ * ink reach at the draw site (`./brokenSlurTilt.clearOfClef`). The two halves of that answer belong
+ * together: shipping only this one drew the arc through the clef.
+ */
 describe('planSlurSegments', () => {
   const pass = makeLookup(LINES, BOUNDS)
   const FIRST_X = 250 // start note tie-right X
@@ -98,14 +108,14 @@ describe('planSlurSegments', () => {
     expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 })
     // END regression guard: leftX is the END line's SYSTEM left margin (first measure
     // 4 = 100), NOT the end note's own measure edge. This is the original bug.
-    expect(segs[1]).toEqual({ type: 'end', leftX: 100, lastX: LAST_X })
+    expect(segs[1]).toEqual({ type: 'end', leftX: 80, lastX: LAST_X })
   })
 
   it('three lines → begin + middle + end, middle spans the full crossed system', () => {
     const segs = planSlurSegments(pass, 0, 2, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'end'])
     // MIDDLE is line 1's full width: left margin (measure 4 = 100) → right (measure 5 = 480).
-    expect(segs[1]).toEqual({ type: 'middle', leftX: 100, rightX: 480, line: 1 })
+    expect(segs[1]).toEqual({ type: 'middle', leftX: 80, rightX: 480, line: 1 })
   })
 
   it('a SMALL staff: the system edges come back in the staff’s own space', () => {
@@ -114,14 +124,14 @@ describe('planSlurSegments', () => {
     // system break on a 0.7 staff stopped 30% short of the margin. See the `scale` parameter.
     const segs = planSlurSegments(pass, 0, 1, FIRST_X, LAST_X, 0.5)
     expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 * 2 })
-    expect(segs[1]).toEqual({ type: 'end', leftX: 100 * 2, lastX: LAST_X })
+    expect(segs[1]).toEqual({ type: 'end', leftX: 80 * 2, lastX: LAST_X })
   })
 
   it('four lines → begin + 2×middle + end (N-system generality)', () => {
     const segs = planSlurSegments(pass, 0, 3, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'middle', 'end'])
-    expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 100, rightX: 480 })
-    expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 100, rightX: 470 })
+    expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 80, rightX: 480 })
+    expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 80, rightX: 470 })
   })
 })
 

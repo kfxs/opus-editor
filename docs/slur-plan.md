@@ -1653,7 +1653,28 @@ curve — *"i like the stroke with this size (cause it match better with other e
 the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's middle to 0.22 moves it
 **toward** the hairpin, not away, so it should still hold together; but it is his eye's call.
 
-### Phase 5 — a broken slur must lean toward its own music (Gould p. 112)
+### Phase 5 — a broken slur must lean toward its own music — ✅ BUILT 2026-08-16
+
+> ✅ **`rendering/brokenSlurTilt.ts`** — the last of the plan's *published* rules to be built. The open
+> end of each half moves **0.25 sp per diatonic step** of the interval between the slur's two
+> anchored notes (Verovio's `pitchDiff * unit / 2`, `src/slur.cpp:929`, read at source): the BEGIN
+> half's open end rises when the music resumes higher, the END half's *falls* by the same amount, so
+> the two fragments point at each other across the break and read as one gesture.
+>
+> 🚨 **PITCH, never the drawn y** (§12.0 #5) — the two ends are on different systems, so `toY − fromY`
+> is the distance between two staves plus the cast-off, not a melodic interval. The interval comes
+> from the model via `spellingDiatonicPos`; a slur anchored to a rest has none and keeps the flat base.
+>
+> ⭐ **And the floor turns out to be Gould's own justification, in code.** Verovio's comment reads
+> *"Make sure that broken slurs do not look like ties"* — which is her parenthesis, *"so as to look
+> clearly open-ended (this differentiates an open-ended slur from an open-ended tie)"*, as a number.
+> `CURVE.brokenSlurMinRise` 1.0 sp.
+>
+> ⛔ **MIDDLE segments stay flat**: a system a slur merely passes over has no pitch of its own.
+> **Measured** (`e2e/slur.e2e.ts`, break-tested): an octave up against an octave down now differ by
+> more than a space at the open end, where both drew the same flat 1.4 before.
+
+**The plan as written:**
 
 > p. 112: *"**The whole slur should tilt in the direction of the pitches.** A slur starting on the
 > last note of a system or finishing on the first note of a system must be **angled in the direction
