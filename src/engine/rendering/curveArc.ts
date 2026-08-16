@@ -12,6 +12,17 @@ import { CURVE_PX } from './curveStyle'
 const CURVE_OUTLINE = CURVE_PX.outline
 
 /**
+ * ⭐ **Verovio's thickness coefficient** (`boundingbox.cpp:945`), and the reason the authored weight
+ * finally means what it says: `renderCurve` bows the FILL out by a gap and then strokes the outline
+ * around it, so the ink at the middle measures `0.75 × gap + outline`. Deriving the gap from the
+ * nominal — rather than authoring the gap and adding the outline, which is what we did — makes
+ * `CURVE.thickness` the number a book can be read against.
+ */
+export function curveFillGap(nominalThickness: number): number {
+  return (nominalThickness - CURVE_OUTLINE) / 0.75
+}
+
+/**
  * Draw a curved arc (slur **or** tie) as a cubic Bézier via VexFlow's
  * `Curve.renderCurve`, driven by **our own** endpoint geometry (we never call
  * `Curve.draw()`, which would re-derive endpoints from stems and discard our
@@ -20,10 +31,11 @@ const CURVE_OUTLINE = CURVE_PX.outline
  * for both {@link TieRenderer} and {@link SlurRenderer}.
  *
  * `cps` are the two control-point deltas (the editable handle data); `direction`
- * is -1 (above) / +1 (below). `thickness` is the belly swell — `renderCurve`
- * strokes a forward pass at `cp.y` and a return pass at `cp.y + thickness`, so the
- * fill bows out by `thickness` at center and pinches to a point at each endpoint
- * (both slurs and ties pass `CURVE_PX.thickness` — one weight). We pass
+ * is -1 (above) / +1 (below). ⚠️ `thickness` is the NOMINAL drawn midpoint (`CURVE.thickness`); the
+ * fill gap it needs is derived here. `renderCurve`
+ * strokes a forward pass at `cp.y` and a return pass at `cp.y + gap`, so the fill
+ * bows out at center and pinches to a point at each endpoint (both slurs and ties
+ * pass `CURVE_PX.thickness` — one weight). We pass
  * `xShift:0`/`yShift:0` so `p0`/`p1` (which already fold in the LIFT) are exact.
  * `renderCurve` strokes **and** fills, so each emitted `<path>` carries both — the
  * selection highlight must override both (see HighlightController).
@@ -44,7 +56,8 @@ export function drawCurveArc(
 ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } } {
   const curve = new Curve(fromNote, toNote, {
     cps,
-    thickness,
+    // The nominal the caller asked for, turned into the gap `renderCurve` wants (see above).
+    thickness: curveFillGap(thickness),
     xShift: 0,
     yShift: 0,
   })

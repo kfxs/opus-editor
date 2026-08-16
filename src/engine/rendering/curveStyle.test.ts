@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { CURVE, CURVE_PX, SLUR_HEIGHT_RATIO, curvePx } from './curveStyle'
+import { curveFillGap } from './curveArc'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
@@ -22,7 +23,6 @@ describe('curveStyle — the staff-space table', () => {
       slurNestGap: 10,  // SlurRenderer.SLUR_NEST_GAP
       tieLift: 7,       // TieRenderer.TIE_LIFT
       tieBow: 5.3,      // TieRenderer.TIE_BOW
-      thickness: 2.7,   // curveArc.CURVE_THICKNESS
       outline: 1,       // curveArc.CURVE_OUTLINE
     }
     for (const [key, px] of Object.entries(before)) {
@@ -30,9 +30,18 @@ describe('curveStyle — the staff-space table', () => {
     }
   })
 
+  it('⭐ the WEIGHT is now the drawn midpoint, and it is Bravura\'s', () => {
+    // §12 Phase 4: this used to be `renderCurve`'s FILL GAP (0.27), so the ink measured
+    // `0.75 × 0.27 + 0.10` = 0.30 — a third more than the number said. `curveArc` derives the gap
+    // from this now (Verovio's coefficient), so what is authored is what lands on the page.
+    expect(CURVE.thickness, 'Bravura slurMidpointThickness').toBe(0.22)
+    expect(0.75 * curveFillGap(CURVE_PX.thickness) + CURVE_PX.outline).toBeCloseTo(CURVE_PX.thickness, 10)
+    expect(curveFillGap(CURVE_PX.thickness)).toBeCloseTo(1.6, 10) // the px the plan predicted
+  })
+
   it('states the published numbers in the unit they are published in', () => {
     // Bravura engravingDefaults: slurEndpointThickness 0.10 — the tip IS the outline, where the
-    // curve's two passes meet (§13.6).
+    // curve's two passes meet (§13.6). ✅ Already exact before Phase 4 and untouched by it.
     expect(CURVE.outline).toBe(0.10)
     // §13.3: 0.70 sp from the notehead CENTRE is 0.20 clear of its edge — MuseScore's number, and
     // Gould's "should almost touch each notehead". His call: settled.

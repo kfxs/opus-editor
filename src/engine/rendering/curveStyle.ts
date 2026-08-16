@@ -53,6 +53,14 @@ export const CURVE = {
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
   /**
+   * ⚠️⚠️ **OURS, and provisional** — how far the slant ceiling may lift an endpoint away from its own
+   * note (`./slurSlantLimit`, §12 Phase 6). Verovio's `GetAdjustedSlurAngle` has no such bound and
+   * will walk an endpoint as far as the arithmetic asks; Gould gives a MINIMUM of ½ sp from the
+   * notehead and no maximum, and the practitioners' remedy for a steep slur was a SIDEWAYS shift of
+   * half a notehead, not a lift (notat.io t=861). ⛔ No source: a number to tune by eye.
+   */
+  slurSlantMaxTravel: 1.0,
+  /**
    * ⭐⭐ **How far a slur's endpoint stands CLEAR of the stem it sits beside** (`./slurStemEndpoint`,
    * §12.1) — sideways, so the arc leaves from *beyond* the stem instead of across it.
    *
@@ -139,13 +147,24 @@ export const CURVE = {
    * mismatch showed as thin, undernourished slurs next to well-fed ties. ✅ §13.6 confirmed the
    * decision at source: LilyPond and MuseScore share one weight between the two as well.
    *
-   * ⚠️ **This is the FILL GAP, not the drawn thickness.** `renderCurve` strokes a forward pass at
-   * `cp.y` and a return at `cp.y + this`, then strokes AND fills, so the ink at the middle measures
-   * `0.75 × this + outline` = **0.30 sp** today, against Bravura's 0.22. ⏭️ §12 Phase 4 (TASTE,
-   * inside a real 0.17–0.30 range) — and it should become a NOMINAL midpoint thickness with the fill
-   * gap derived from it, which is Verovio's `GetBezierThicknessCoefficient`.
+   * ⭐⭐ **This IS the drawn midpoint thickness now** — §12 Phase 4, 2026-08-16. It used to be the
+   * `renderCurve` FILL GAP, so the ink actually measured `0.75 × gap + outline` and the authored
+   * number was a third under what landed on the page: 0.27 written, **0.30 drawn**. The gap is
+   * derived from this in `./curveArc`, which is Verovio's `GetBezierThicknessCoefficient`
+   * (`boundingbox.cpp:945`) — it narrows the fill by the stroke so fill + outline equals the nominal
+   * exactly, where we simply added the two.
+   *
+   * ⭐ **The value is Bravura's `slurMidpointThickness`**, and the field is: LilyPond 0.17 · Bravura
+   * **0.22** · MuseScore 0.21 nominal (0.29 drawn) · Verovio 0.25 (0.30 for its slur) · ours 0.30
+   * until today. §13.6 downgraded this from a correction to a TASTE call inside a real range — we
+   * sat at its top edge, and this puts us on the published number. ⛔ One constant: if it reads thin,
+   * 0.30 is where it was.
+   *
+   * ⚠️ **It touches the HAIRPIN's taste, which he set by matching this curve** — *"i like the stroke
+   * with this size (cause it match better with other elements, for example the stroke of the slur)"*
+   * — at 0.16 sp. Thinning the slur's middle moves it TOWARD the hairpin, not away.
    */
-  thickness: 0.27,
+  thickness: 0.22,
   /** Stroke width pinned around the curve so its fill taper reads as sharp tips — and, at the tip
    *  where the two passes meet, it IS the ink: 0.10 sp = Bravura's `slurEndpointThickness` exactly
    *  (§13.6). ✅ Already correct; ⛔ don't change it to fix the middle. */
@@ -164,6 +183,33 @@ export const CURVE = {
  * law that used them; §12 Phase 2's table records what they drew.
  */
 export const SLUR_HEIGHT_RATIO = 0.25
+
+/**
+ * ⚠️⚠️ **THE MAXIMUM SLANT, IN DEGREES — HIS CALL, 2026-08-16, AND THE ONE CONSTANT IN THIS FILE
+ * WITH NO PUBLISHED SOURCE AT ALL.**
+ *
+ * *"in this case we beguin with verovio choice… but it should not be a truth.. maybe we tweak it
+ * later… but for the plan this is a good number i guess"*. It is Verovio's `slurMaxSlope` default
+ * (`src/slur.cpp:570`), taken because Verovio's shape maths is the one ours most resembles.
+ *
+ * ⛔ **Never write this up as an engraving rule.** No book caps a slur's angle — Gould, Gedan and
+ * Ross all say only that a slur must FOLLOW the melodic line (§11.10). LilyPond's `max-slope` 1.1
+ * (≈48°) is a scoring penalty, not a limit. The honest citation is *"Verovio's default, adopted by
+ * him 2026-08-16"*.
+ */
+export const SLUR_MAX_SLANT_DEG = 60
+
+/**
+ * ⏭️ **Verovio's minimum control angle, kept here as the RECORD of a rule we costed and did not
+ * build** (`GetMinControlPointAngle`, `adjustslursfunctor.cpp:944`): a short, steeply tilted slur is
+ * made rounder — 30° at least, +15° in proportion to the tilt, fading out from 4 sp of span to 8.
+ *
+ * ⛔ Unused on purpose. The tail of `./slurSlantLimit` records the three things that stopped it: our
+ * arch is lifted vertically where Verovio measures perpendicular to the chord, the honest
+ * requirement is asymmetric between the two ends, and solved on a real fixture it asks for a 2.5 sp
+ * apex on a 3.5 sp span. It is a shape decision needing his eye, not an import.
+ */
+export const SLUR_CONTROL_ANGLE = { min: 30, boostMax: 15, fullBelowSpaces: 4 } as const
 
 /** Staff spaces → pixels for this family: against the score's staff space, ⛔ never a scaled stave
  *  (see the file note). The one place the curve family leaves engraving units. */

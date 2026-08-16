@@ -1600,7 +1600,17 @@ returns the 17 sampled cubic points as a *by-product* (`curveArc.ts`), which is 
 path already exists, because the slur uses it. Doing it here costs one field; doing it in Phase 7
 means re-plumbing all four tie sites a second time.
 
-### Phase 4 — the weight (Bravura), and the one thing to weigh first
+### Phase 4 — the weight (Bravura) — ✅ BUILT 2026-08-16
+
+> ✅ **`CURVE.thickness` is the DRAWN midpoint now, and it is Bravura's 0.22.** It used to be
+> `renderCurve`'s fill GAP, so the ink measured `0.75 × gap + outline` — 0.27 authored, **0.30
+> drawn**, a third more than the number said. `curveArc.curveFillGap()` derives the gap from the
+> nominal, which is Verovio's `GetBezierThicknessCoefficient` (`boundingbox.cpp:945`); the fill gap
+> lands at exactly the **1.6 px** this phase predicted. ⛔ One constant: if it reads thin, 0.30 is
+> where it was, and MuseScore draws 0.29.
+> ⚠️ It moves the curve TOWARD the hairpin's 0.16 stroke, which he set by matching this weight.
+
+### Phase 4 — the plan as written
 
 🚨 **§11.11 #4 is wrong and this phase is not what it says.** It claims we have "one thickness, no
 taper" and calls the fix medium, needing a self-rolled tapered cubic. Read off the real emitted path:
@@ -1671,7 +1681,31 @@ in the direction of the final pitch* — is one spec beside it.
 draws it as a symmetric bow at a staff-relative baseline (`SlurRenderer`, the `middle` branch) and
 that is right. The rule is about the two *open ends that face music*, not about every half-arc.
 
-### Phase 6 — a maximum slant (HIS CALL, 2026-08-15 — Verovio's 60°, provisional)
+### Phase 6 — a maximum slant — ✅ CEILING BUILT 2026-08-16 · ⏭️ the roundness half COSTED, NOT BUILT
+
+> ✅ **`rendering/slurSlantLimit.ts`** — Verovio's `GetAdjustedSlurAngle`: past **60°** the LOWER
+> endpoint rises until the tilt is the ceiling, so the arc keeps its shape and only an end moves.
+> ⚠️ With a cap Verovio has no equivalent of — `CURVE.slurSlantMaxTravel` 1.0 sp, ⛔ ours and
+> provisional, because Gould gives a MINIMUM distance from the notehead and no maximum. It lands
+> after Phase 1 and before the endpoint override, exactly as §12.0 #6 requires.
+>
+> ⏭️⏭️ **The roundness half was built, measured, and taken back out** — and the three reasons are
+> worth more than the code was:
+> 1. 🚨 **The FRAME.** Verovio rotates the curve flat and measures there; our arch is lifted
+>    VERTICALLY above the endpoint line, so a slur tilted by θ deviates perpendicular by `H·cos θ`. A
+>    floor written in our frame moved the drawn control angle from 20° to 26° where the rule asks for
+>    39.6 — it looked implemented and was not.
+> 2. 🚨 **The ASYMMETRY.** Done honestly the requirement is `H ≥ (span/4)·tan(θ + minAngle) −
+>    0.25·|dy|`: the tilt eats the angle at one end and adds it at the other. Verovio has two rules
+>    (`minSlopeLeft`/`minSlopeRight`); we have one arch.
+> 3. 🚨 **The SIZE.** On a real fixture — 3.5 sp span, 38° tilt — it asks for a **2.5 sp apex**, three
+>    times the height law. Verovio's escape valve is a `shiftedMidpoint` that stops the rule once the
+>    midpoint would rise 3 sp; porting the rule without it draws a semicircle over a leap.
+>
+> ⛔ So it is a shape decision needing his eye, not an import. The record lives in
+> `slurSlantLimit.ts`'s tail, and `SLUR_CONTROL_ANGLE` keeps its numbers.
+
+**The plan as written:**
 
 > *"in this case we beguin with verovio choice… but it should not be a truth.. maybe we tweak it
 > later… but for the plan this is a good number i guess"*

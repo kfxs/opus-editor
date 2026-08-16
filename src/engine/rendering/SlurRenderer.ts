@@ -23,6 +23,7 @@ import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { slurArchHeight } from './slurArchHeight'
+import { limitSlurSlant } from './slurSlantLimit'
 import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
 
@@ -261,6 +262,10 @@ function slurArchCps(
   // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
   // published source (docs/slur-plan.md §12 Phase 2). `extraHeight` lifts an outer slur clear of the
   // slur(s) nested inside it (Phase 8).
+  //
+  // ⏭️ A short, steeply tilted slur should be rounder than this law asks (Verovio's minimum control
+  // angle) — measured, costed and NOT built: see the tail of `./slurSlantLimit` for why it is a
+  // shape decision rather than an import.
   const H = slurArchHeight(p1.x - p0.x, extraHeight)
   return [
     { x: 0, y: H + 0.25 * dy * direction },
@@ -402,8 +407,15 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // melodic interval instead of contradicting it. ⭐ It takes both ends together because that
     // last rule cannot be answered one end at a time.
     const placement = slurAttachments(fromEnd.attach, toEnd.attach, direction, LIFT)
-    let fromY = placement.from.y
-    let toY = placement.to.y
+    // ⚠️⚠️ A CEILING ON THE SLANT (`./slurSlantLimit`, §12 Phase 6) — HIS number, not an engraving
+    // rule, and it lands HERE: after the attachment (Phase 1, which is what fixed our real slant
+    // faults) and BEFORE the user's endpoint nudge, so a hand drag is still the last word.
+    const slanted = limitSlurSlant(
+      { x: fromEnd.centerX, y: placement.from.y },
+      { x: toEnd.centerX, y: placement.to.y },
+    )
+    let fromY = slanted.fromY
+    let toY = slanted.toY
     if (fromY === undefined || toY === undefined || isNaN(fromY) || isNaN(toY)) continue
 
     const registerPartial = (
