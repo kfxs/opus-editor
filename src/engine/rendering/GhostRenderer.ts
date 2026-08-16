@@ -934,7 +934,9 @@ export function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number):
     // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
     // starts at the note you click and reaches forward to the next, so its head belongs where the
     // click will land. Nudged clear of the pointer on both axes so the arrow doesn't cover it.
-    const WIDTH = 20      // a short tie — roughly the span between two adjacent noteheads
+    // Shared with the PENDING tie's stub (`VexFlowRenderer.renderPendingTie`), so the armed
+    // preview and the committed-but-unfinished one are one shape (§12 Phase 3b).
+    const WIDTH = CURVE_PX.tieStubLength
     const START_GAP_PX = 4
     const LIFT_PX = 4
     const DIRECTION = 1   // +1 = below/sagging, like the Keypad's tie key

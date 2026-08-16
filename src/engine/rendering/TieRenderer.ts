@@ -3,75 +3,93 @@
  * passed-in {@link RenderPass} + score (no renderer-instance state), matching the
  * engine's free-function module idiom.
  *
- * Same-line ties draw a flat cubic arc (via the shared {@link drawCurveArc}); ties
- * spanning a line break draw two partial `StaveTie`s. WHICH WAY the arc bows is not
- * decided here — that is {@link ./tieDirection}, shared with the pending-tie preview.
+ * ⭐⭐ **ONE PRIMITIVE FOR EVERY TIE** (docs/slur-plan.md §12 Phase 3b, his call 2026-08-16:
+ * *"vexflow draw something and us another? i dont like this inconsistence"*). A same-line tie, both
+ * halves of one crossing a system break, the pending preview and the armed tool's ghost all draw
+ * through {@link drawCurveArc} with the same bow and the same weight. Three of those four used to be
+ * VexFlow `StaveTie`s — a **quadratic** with `cp1: 8 / cp2: 12`, i.e. a 4 px belly against our 2.7,
+ * and below a length cutoff it silently swapped in `cp1Short: 2`, an apex of 0.1 sp where ours is
+ * 0.4. The same tie changed shape when it crossed a break, and again the moment you committed it.
+ *
+ * WHICH WAY the arc bows is {@link ./tieDirection}; WHERE it attaches is {@link ./tieEndpoints};
+ * whether a staff line runs through it is {@link ./tieStaffLineClearance}. This file draws.
  */
-import { StaveNote, StaveTie } from 'vexflow'
+import { StaveNote } from 'vexflow'
+import type { Stave } from 'vexflow'
 import type { Score } from '@/types/music'
 import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
+import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
+import { tieArcGrowth } from './tieStaffLineClearance'
+import { lineLeftEdgeX, lineRightEdgeX } from './systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 
-// Tie geometry (same-line, flat). A tie joins one pitch, so both endpoints share a Y
-// and the apex sits at the X midpoint. These reproduce the old hand-drawn quadratic
-// (drawFlatTie: yShift 7, cp1 8, cp2 12) on the shared cubic path: a cubic's symmetric
-// peak is 0.75·H, so a 0.53 sp BOW → a 0.40 sp apex (old 0.5·cp1).
-//
-// ⛔ **The numbers themselves are `./curveStyle`, in STAFF SPACES** — with the research each one
-// answers to (§13.1 the height, §13.3 the lift, §13.6 the weight, all `docs/slur-plan.md`). The BOW
-// is the tie's own — flat, hugging the noteheads, where a slur arches. The WEIGHT is not: it is
-// shared with slurs, because the two are one weight (this file used to carry `TIE_THICKNESS = 2.7`
-// and claim ties should read heavier; they should not).
-// ⭐ The ghost tie (`GhostRenderer.drawTieGhost`) reads the SAME two numbers straight from
-// `./curveStyle` — arm the tool and the arc under the cursor IS the arc you get. It used to import
-// `TIE_BOW` from here, which made this renderer look like the owner of a number it merely uses.
-const TIE_LIFT = CURVE_PX.tieLift  // gap between the notehead and the flat tie endpoints
-const TIE_BOW = CURVE_PX.tieBow    // cubic control height → a 0.40 sp apex above the endpoints
+/** A cubic's drawn apex is 0.75 × its control height — the tie's 0.53 sp bow gives 0.40 sp. */
+const APEX_OF_BOW = 0.75
+
+/** The head extent + y a tie attaches to, for one end of it. */
+function headOf(info: { staveNote: StaveNote; noteIndex: number }): TieHead | null {
+  const ys = info.staveNote.getYs()
+  const headY = ys[info.noteIndex] ?? ys[0]
+  if (headY === undefined || isNaN(headY)) return null
+  return {
+    leftX: info.staveNote.getNoteHeadBeginX(),
+    rightX: info.staveNote.getNoteHeadEndX(),
+    headY,
+  }
+}
+
+/** Every staff line's y, for the clearance test. Empty when the stave isn't laid out yet. */
+function staffLineYs(stave: Stave | undefined): number[] {
+  if (!stave) return []
+  const ys: number[] = []
+  for (let line = 0; line < stave.getNumLines(); line++) ys.push(stave.getYForLine(line))
+  return ys
+}
 
 /**
- * Draw a tie arc where both endpoints share the source note's Y position.
- * Ties always connect the same pitch, so the arc is horizontally flat with its
- * apex at the X midpoint. Routes through the shared cubic `drawCurveArc` (same
- * `Curve.renderCurve` path as slurs); flat endpoints + symmetric `cps` keep the
- * peak centered, while tie-specific BOW/THICKNESS reproduce the old hand-drawn
- * quadratic look. Returns the bounding box of the drawn arc, or null on failure.
+ * Draw ONE tie arc — flat, symmetric, its apex at the X midpoint — and answer where its ink landed.
+ *
+ * A tie joins one pitch, so both endpoints share a y; each drawn piece is symmetric **within
+ * itself**, which is what Gould's *"keeps its symmetrical shape"* across a system break asks for
+ * (§13.7: all three engines draw the two halves as independent flat arcs, and none makes them
+ * match). `stave` is only for the staff-line clearance — pass undefined to skip it, which is what
+ * the cursor previews do.
  */
-function drawFlatTie(
-  pass: RenderPass,
-  fromInfo: { staveNote: StaveNote; noteIndex: number },
-  toInfo: { staveNote: StaveNote; noteIndex: number },
-  direction: number,
-): { x: number; y: number; width: number; height: number } | null {
+export function drawTieArc(
+  pass: Pick<RenderPass, 'context'>,
+  geom: { firstX: number; lastX: number; y: number; direction: number },
+  notes: { from: StaveNote; to: StaveNote },
+  stave?: Stave,
+): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
   if (!pass.context) return null
   try {
-    const firstX = fromInfo.staveNote.getTieRightX()
-    const lastX = toInfo.staveNote.getTieLeftX()
-    const ys = fromInfo.staveNote.getYs()
-    const y = ys[fromInfo.noteIndex] ?? ys[0]
-    if (y === undefined || isNaN(y)) return null
-
-    // Flat endpoints, both lifted off the notehead by TIE_LIFT. Symmetric control
-    // heights (same Y, dy=0) → the cubic's peak lands exactly at the X midpoint.
-    const tieY = y + TIE_LIFT * direction
-    const p0 = { x: firstX, y: tieY }
-    const p1 = { x: lastX, y: tieY }
-    const bow = TIE_BOW
+    // A staff line running ALONGSIDE the arc is the fault (Gould p. 61). The repair makes the arc
+    // ROUNDER and leaves the tips on their noteheads — his eye, 2026-08-16, on a translation that
+    // had lifted them off (`./tieStaffLineClearance`).
+    const growth = tieArcGrowth({
+      endpointY: geom.y,
+      apexRise: APEX_OF_BOW * CURVE_PX.tieBow,
+      inkThickness: APEX_OF_BOW * CURVE_PX.thickness + CURVE_PX.outline,
+      direction: geom.direction,
+      lineYs: staffLineYs(stave),
+    })
+    const bow = CURVE_PX.tieBow + growth / APEX_OF_BOW
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [
       { x: 0, y: bow },
       { x: 0, y: bow },
     ]
     const arc = drawCurveArc(
-      pass, p0, p1, cps, direction, CURVE_PX.thickness,
-      fromInfo.staveNote, toInfo.staveNote,
+      pass, { x: geom.firstX, y: geom.y }, { x: geom.lastX, y: geom.y }, cps,
+      geom.direction, CURVE_PX.thickness, notes.from, notes.to,
     )
-    return arc.bbox
+    return { bbox: arc.bbox, points: arc.points }
   } catch (e) {
-    console.error('Could not draw flat tie:', e)
+    console.error('Could not draw tie arc:', e)
     return null
   }
 }
@@ -138,6 +156,10 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // note alias for registry callbacks below
             const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
+            const fromHead = headOf(fromInfo)
+            const toHead = headOf(toInfo)
+            if (!fromHead || !toHead) continue
+
             // One SVG group per tie (keyed by its from-note id; both cross-line partials
             // live inside it) so the selection highlight can recolor exactly this tie
             // without a document-wide bbox path-scan — that scan bled onto staff lines
@@ -149,80 +171,63 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // space — so the tie is drawn in it too (docs/staff-size-plan.md §4.3). Both ends of a
             // tie are the same pitch on the same staff, including across a system break, so one
             // scale covers the whole thing.
-            inStaffSpace(pass, staffIndexOfId(score, slot.staffId), tieGroup, () => {
-              if (sameLine) {
-                // Same line: draw flat arc anchored at the source note's Y
-                // (ties always connect the same pitch, so both endpoints share the same Y)
-                const bbox = drawFlatTie(pass, fromInfo, toInfo, tieDirection)
-                if (bbox) {
-                  pass.elementRegistry.add({
-                    type: 'tie',
-                    fromNoteId: note.id,
-                    toNoteId: note.tiedTo!,
-                    fromMeasure: fromMeasure,
-                    toMeasure: toMeasure!,
-                    tieDirection: tieDirection,
-                    bbox,
+            const staffIndex = staffIndexOfId(score, slot.staffId)
+            inStaffSpace(pass, staffIndex, tieGroup, () => {
+              const notes = { from: fromInfo.staveNote, to: toInfo.staveNote }
+              const register = (
+                arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null,
+                partial?: 'start' | 'end',
+              ) => {
+                if (!arc) return
+                pass.elementRegistry.add({
+                  type: 'tie',
+                  fromNoteId: note.id,
+                  toNoteId: note.tiedTo!,
+                  fromMeasure,
+                  toMeasure: toMeasure!,
+                  tieDirection,
+                  bbox: arc.bbox,
+                  // ⭐ The sampled arc, so a press lands on the INK — a tie used to be the one span
+                  // element selectable by the empty air under its curve (§12 Phase 7, folded in
+                  // here because the migration hands us these points for free).
+                  points: arc.points,
+                  ...(partial ? { isPartial: true, partialType: partial } : {}),
                 })
               }
-            } else {
-              // Different lines (line break): two partial ties
-              // First partial: from note to end of line
-              const firstPartialTie = new StaveTie({
-                firstNote: fromInfo.staveNote,
-                firstIndexes: [fromInfo.noteIndex],
-              })
-              firstPartialTie.setDirection(tieDirection)
-              firstPartialTie.setContext(pass.context!).draw()
 
-              // Register first partial tie
-              try {
-                const box = firstPartialTie.getBoundingBox()
-                if (box) {
-                  pass.elementRegistry.add({
-                    type: 'tie',
-                    fromNoteId: note.id,
-                    toNoteId: note.tiedTo!,
-                    fromMeasure: fromMeasure,
-                    toMeasure: toMeasure!,
-                    isPartial: true,
-                    partialType: 'end', // ends at line break
-                    tieDirection: tieDirection,
-                    bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                  })
+              if (sameLine) {
+                register(drawTieArc(pass, {
+                  firstX: tieEndpointX(fromHead, 'from'),
+                  lastX: tieEndpointX(toHead, 'to'),
+                  y: tieEndpointY(fromHead.headY, tieDirection),
+                  direction: tieDirection,
+                }, notes, fromInfo.staveNote.getStave()))
+              } else {
+                // ⭐ Across a system break: two independent flat arcs, each running to its own
+                // system's margin — the same construction the SLUR uses (`./systemEdges`), where
+                // this used to be VexFlow's `StaveTie` deciding its own extent. A system edge comes
+                // from `measureBounds`, i.e. where the bar landed in the SVG, so it is converted
+                // into the staff's own space here (the small-staff rule, docs/staff-size-plan.md).
+                const scale = pass.staffScale(staffIndex)
+                const rightEdge = lineRightEdgeX(pass, fromLine)
+                const leftEdge = lineLeftEdgeX(pass, toLine)
+                if (rightEdge !== undefined) {
+                  register(drawTieArc(pass, {
+                    firstX: tieEndpointX(fromHead, 'from'),
+                    lastX: rightEdge / scale,
+                    y: tieEndpointY(fromHead.headY, tieDirection),
+                    direction: tieDirection,
+                  }, notes, fromInfo.staveNote.getStave()), 'end')
                 }
-              } catch (_e) {
-                // getBoundingBox may fail
-              }
-
-              // Second partial: from start of line to note
-              const secondPartialTie = new StaveTie({
-                lastNote: toInfo.staveNote,
-                lastIndexes: [toInfo.noteIndex],
-              })
-              secondPartialTie.setDirection(tieDirection)
-              secondPartialTie.setContext(pass.context!).draw()
-
-              // Register second partial tie
-              try {
-                const box = secondPartialTie.getBoundingBox()
-                if (box) {
-                  pass.elementRegistry.add({
-                    type: 'tie',
-                    fromNoteId: note.id,
-                    toNoteId: note.tiedTo!,
-                    fromMeasure: fromMeasure,
-                    toMeasure: toMeasure!,
-                    isPartial: true,
-                    partialType: 'start', // starts at line break
-                    tieDirection: tieDirection,
-                    bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                  })
+                if (leftEdge !== undefined) {
+                  register(drawTieArc(pass, {
+                    firstX: leftEdge / scale,
+                    lastX: tieEndpointX(toHead, 'to'),
+                    y: tieEndpointY(toHead.headY, tieDirection),
+                    direction: tieDirection,
+                  }, notes, toInfo.staveNote.getStave()), 'start')
                 }
-              } catch (_e) {
-                // getBoundingBox may fail
               }
-            }
             })
 
             pass.context.closeGroup?.()

@@ -1455,7 +1455,51 @@ helper. ✅ The centre is already in hand: `(getNoteHeadBeginX() + getNoteHeadEn
 last inside the last), where today it is beyond it; plus the existing dodge case, which must still
 clear the stem, since the two rules meet on the same end.
 
-### Phase 3 — ⭐ a tie must not sit on a staff line (REWRITTEN by §13.4)
+### Phase 3 — ⭐ a tie must not sit on a staff line — ✅ BUILT 2026-08-16 (with 3b)
+
+> ✅ **`rendering/tieStaffLineClearance.ts`** — and it took THREE corrections on the way, each from
+> reading rather than reasoning. ⛔ Don't re-derive them:
+>
+> 1. **A rigid shift cannot satisfy both of LilyPond's clearances** (tip 0.225, apex 0.3): clearing
+>    the apex brings the tips to 0.1 sp of the line above, clearing both wants half a space and
+>    leaves the tie hanging off its notehead. That dead end is why MuseScore DEFORMS and LilyPond
+>    NUDGES. I first built MuseScore's fatten-or-flatten repair (`adjustY`, `:2392–2490`) and then
+>    dropped it: deforming re-opens the tie height his call settled (§13.1), and ours is LilyPond's
+>    shape, not MuseScore's.
+> 2. **🚨 The ink swells AWAY from the notehead.** `renderCurve`'s closed lens draws the arc, then
+>    returns `thickness` FURTHER OUT — so the band runs from the arc outward, not inward. The first
+>    version tested the band on the wrong side, found no line inside it, and **passed its own
+>    break-test with the rule removed**. Measured off a real path, not assumed.
+> 3. **Only the line on the NOTEHEAD's side matters.** A line on the arc's far side must be left
+>    alone: nudging outward drives the tie into it. That is why LilyPond nudges only when the head is
+>    on a line and centres otherwise — and, on our geometry, why there is exactly ONE case.
+>
+> 4. **⭐⭐ HIS EYE OVERTURNED THE REPAIR ITSELF.** It first TRANSLATED the tie outward (LilyPond's
+>    0.225 sp nudge). He looked at a tied G4 — a line note — and asked *"isn't the edge of the tie
+>    too low?"* It was: moving a tie moves its TIPS, from 0.20 sp clear of the notehead's edge to
+>    0.42, and that 0.20 is Gould's *"should almost touch each notehead"* (§13.3). **Two settled
+>    things collided and the translation spent the one Gould states outright.** So the repair is
+>    MuseScore's after all — grow the ARC, leave the tips alone — and Gould's sentence turns out to
+>    describe exactly that: *sufficiently round to be conspicuous through a stave-line*.
+>
+> **The rule:** if a staff line lies within `CURVE.tieLineClearance` **0.15 sp** (MuseScore's
+> `badArcIntersectionLimit`) of the arc's inner edge, grow the apex until it has
+> `CURVE.tieLineApexClearance` **0.3 sp** of daylight (LilyPond's `center-staff-line-clearance`),
+> capped at `CURVE.tieLineMaxGrowth` **0.75 ×** the arc's own height (MuseScore's
+> `maxArcCorrection`). Three sources, four roles: MuseScore says WHEN and CAPS it, LilyPond says HOW
+> FAR, Gould says WHAT TO CHANGE. A line-note tie's apex goes **0.40 → 0.60 sp**; a space-note tie is
+> untouched; ⛔ the DEFAULT height is still 0.40 (§13.1, settled) — this is a local repair.
+>
+> **Measured on drawn ink** (`e2e/tie.e2e.ts`, break-tested): a tie on a LINE note had a staff line
+> running **0.15 sp** under its flat middle for the tie's whole length — MuseScore's threshold
+> exactly — and now clears by **more than 0.3 sp**, with its tips still on their noteheads. A tie on
+> a SPACE note is untouched, and its nearest inner line is 0.65 sp away.
+>
+> ⏭️ **Not done, and now measured:** for a space note the tie's ink passes **0.15 sp** from the line
+> on its FAR side. Fixing that is not a nudge — it is a per-case LIFT (LilyPond's
+> `center_tie_vertically`), which changes the 0.70 sp his call settled. ⛔ His decision, not mine.
+
+#### The plan as written (kept for the reasoning)
 
 > p. 61: *"The curve of the tie should be sufficiently round to be **conspicuous through a
 > stave-line**."*
@@ -1508,7 +1552,27 @@ the arc under the cursor IS the arc you get* — so amend that comment in this p
 a tie whose notehead sits **on** a line, and one in a space, measuring the path's distance to the
 nearest staff line (`harness.paths()` + `harness.staves()` give both).
 
-### Phase 3b — the broken tie changes weight, AND SO DOES THE PENDING ONE (small–medium)
+### Phase 3b — the broken tie changes weight, AND SO DOES THE PENDING ONE — ✅ BUILT 2026-08-16
+
+> ⭐⭐ **HIS CALL, on seeing the audit:** *"vexflow draw something and us another? i dont like this
+> inconsistence"* — and then the sharper framing that reordered the work: *"aren't we talking control
+> of the slur in general? why not talking control of the tie too?"* So 3b landed BEFORE Phase 3, and
+> the clearance rule then applied to every tie instead of only same-line ones.
+>
+> ✅ **One primitive for all four paths.** Same-line, both cross-system halves, the pending preview
+> and the ghost now draw through `drawCurveArc`. What VexFlow was drawing, measured: a **quadratic**
+> with `cp1: 8 / cp2: 12` — a 4 px belly against our 2.7 — and, under a length cutoff,
+> `cp1Short: 2`, an apex of **0.1 sp where ours is 0.4**. The same tie changed shape when it crossed
+> a break, and again the moment you committed it.
+> ✅ **`rendering/systemEdges.ts`** — `lineLeftEdgeX`/`lineRightEdgeX` extracted from `SlurRenderer`,
+> since `TieRenderer` must not import it and a shared answer belongs to neither.
+> ✅ **The hit-target** (§12 Phase 7's item, folded in): a tie is hit-tested against its sampled arc
+> like the slur, where it was a padded rectangle — the last span element selectable by empty air.
+> ✅ **The tie's x is now ours too** — Verovio's, his call: `./tieEndpoints`, the head's centre ± 0.25
+> sp, where we used VexFlow's `getTieRightX/LeftX` (the outer edges, plus any modifier shift). 🚨 And
+> §13.3 recorded Verovio's rule as *"the outer edge, 0.25 sp OUTWARD"*, which is a **misreading** —
+> `startPoint.x += r1 + unit/2` (`src/tie.cpp:381`) moves INWARD from the centre. Reading it again to
+> implement it is what caught that.
 
 A same-line tie goes through `drawCurveArc`; the two halves of a tie crossing a **system break** are
 raw VexFlow `StaveTie`s — a quadratic with `cp1:8 / cp2:12`, i.e. a 4 px belly against our

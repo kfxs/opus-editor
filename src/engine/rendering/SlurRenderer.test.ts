@@ -1,22 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import {
-  lineLeftEdgeX,
-  lineRightEdgeX,
   planSlurSegments,
   slurTrueEndpoints,
   resolveCps,
   slurEndpointOffsetPx,
   segmentEndpointOffsetPx,
-  type SlurLayoutLookup,
   type SlurSegment,
 } from './SlurRenderer'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import type { Stave } from 'vexflow'
 import { slurArchHeight } from './slurArchHeight'
 import type { SlurEndpointOffsetOverride } from '@/types/music'
 
 /**
- * Fabricate the narrow {@link SlurLayoutLookup} slice the system-edge helpers + the
+ * Fabricate the narrow {@link SystemEdgeLookup} slice the system-edge helpers + the
  * segment planner read. We only set the fields they touch (`lineNumber`,
  * `noteStartX`, `noteEndX`), so the rest of MeasureWidthInfo/MeasureBounds is filled
  * with throwaway values. `lines` maps measureNumber → lineNumber; `bounds` maps
@@ -25,7 +23,7 @@ import type { SlurEndpointOffsetOverride } from '@/types/music'
 function makeLookup(
   lines: Record<number, number>,
   bounds: Record<number, { noteStartX: number; noteEndX: number }>,
-): SlurLayoutLookup {
+): SystemEdgeLookup {
   const measureLayoutInfo = new Map<number, MeasureWidthInfo>()
   for (const [num, lineNumber] of Object.entries(lines)) {
     measureLayoutInfo.set(Number(num), {

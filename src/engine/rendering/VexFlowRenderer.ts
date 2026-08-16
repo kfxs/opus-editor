@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, StaveTie, ClefNote, Metrics } from 'vexflow'
+import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, ClefNote, Metrics } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -27,7 +27,9 @@ import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSeg
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
-import { renderTies } from './TieRenderer'
+import { renderTies, drawTieArc } from './TieRenderer'
+import { tieEndpointX, tieEndpointY } from './tieEndpoints'
+import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
@@ -4148,8 +4150,12 @@ export class VexFlowRenderer {
   }
 
   /**
-   * Render a dangling (pending) tie from a note with no target yet.
-   * Draws a partial arc extending to the right — same as the first half of a cross-barline tie.
+   * Render a dangling (pending) tie from a note with no target yet — a stub arc reaching right.
+   *
+   * ⭐ **Drawn by the SAME primitive as a real tie** (§12 Phase 3b, his call): this used to be a raw
+   * VexFlow `StaveTie`, whose quadratic is a different shape and a heavier weight than the arc it
+   * previews — so a tie visibly changed the moment you committed it. It shares its length with the
+   * armed tool's ghost, so the two previews are one shape too.
    */
   renderPendingTie(noteId: string, score: Score): void {
     if (!this.context) return
@@ -4186,18 +4192,32 @@ export class VexFlowRenderer {
       effectiveClefAt(score, foundMeasure.number, foundBeat, foundStaffId),
       [info.staveNote.getStemDirection?.()].filter((d): d is number => d !== undefined),
     )
-    const pendingTie = new StaveTie({
-      firstNote: info.staveNote,
-      firstIndexes: [info.noteIndex],
-    })
-    pendingTie.setDirection(tieDirection)
+    const ys = info.staveNote.getYs()
+    const headY = ys[info.noteIndex] ?? ys[0]
+    if (headY === undefined || isNaN(headY)) return
+    const head = {
+      leftX: info.staveNote.getNoteHeadBeginX(),
+      rightX: info.staveNote.getNoteHeadEndX(),
+      headY,
+    }
+    const firstX = tieEndpointX(head, 'from')
     // Drawn from the note's own coordinates, so it belongs in that note's staff space — the same
     // rule as the engraved ties next door (docs/staff-size-plan.md §4.3).
     inScaledStaffGroup(
       this.createRenderPass(score),
       staffIndexOfId(score, foundStaffId),
       `pendingtie-${noteId}`,
-      () => pendingTie.setContext(this.context!).draw(),
+      () => drawTieArc(
+        { context: this.context! },
+        {
+          firstX,
+          lastX: firstX + CURVE_PX.tieStubLength,
+          y: tieEndpointY(head.headY, tieDirection),
+          direction: tieDirection,
+        },
+        { from: info.staveNote, to: info.staveNote },
+        info.staveNote.getStave(),
+      ),
     )
   }
 

@@ -67,10 +67,60 @@ export const CURVE = {
   /** How far outside the stem's own y extent an endpoint still counts as *beside* it, and so still
    *  wants the dodge above — LilyPond's `stem_y.widen(0.25 * staff_space)` (`slur-scoring.cc:747`). */
   slurStemNearBand: 0.25,
+  /**
+   * ⭐ **How close a staff line may come to a tie's arc before it counts as running alongside it** —
+   * MuseScore's `badArcIntersectionLimit` (`slurtielayout.cpp:2447`). The TRIGGER.
+   */
+  tieLineClearance: 0.15,
+  /**
+   * ⭐⭐ **How much daylight the repair leaves between that line and the arc** — LilyPond's
+   * `center-staff-line-clearance` 0.6 half-spaces = **0.3 sp** (`define-grobs.scm:3877`), the number
+   * it holds an apex to. Three sources, three roles: MuseScore says WHEN, LilyPond says HOW FAR, and
+   * Gould says WHAT TO CHANGE.
+   *
+   * ⭐⭐ **HIS EYE, 2026-08-16, and it overturned the first build.** Phase 3 originally TRANSLATED
+   * the whole tie outward (LilyPond's own repair for a shallow tie, 0.225 sp). He looked at a tied
+   * G4 — a line note — and asked *"isn't the edge of the tie too low?"* It was: moving the tie moves
+   * its TIPS, which were 0.20 sp clear of the notehead's edge (Gould's *"should almost touch"*,
+   * §13.3) and became 0.42. Two settled things were in conflict and the translation spent the one
+   * Gould states outright.
+   *
+   * ⭐ So the repair is MuseScore's instead — **grow the ARC and leave the tips alone** — and Gould's
+   * sentence turns out to describe exactly that: *"sufficiently round to be conspicuous through a
+   * stave-line"*. A line-note tie's apex goes 0.40 → 0.60 sp; a space-note tie is untouched. ⛔ This
+   * does not re-open the DEFAULT height (§13.1, settled): it is a local repair at one collision,
+   * which is what all three engines do.
+   */
+  tieLineApexClearance: 0.3,
+  /** Ceiling on that growth, as a fraction of the arc's own height — MuseScore's `maxArcCorrection`
+   *  (`slurtielayout.cpp:2480`). Ours needs a third of it; the cap is what stops a pathological
+   *  staff (a huge line distance) from turning a tie into a balloon. */
+  tieLineMaxGrowth: 0.75,
+  /** How long the PENDING tie's preview stub is — the arc that hangs off a selected note while the
+   *  tie is being made. Shared with the armed tool's ghost so the two previews are one shape. */
+  tieStubLength: 2.0,
   /** ⭐ How far PAST the stem end a slid endpoint may travel (`./slurStemEndpoint`, §12 Phase 1).
    *  MuseScore's clamp on the same rule — a leap wide enough to want more would otherwise launch the
    *  arc off the end of a stem it has left behind. ⚠️ NEW in Phase 1: it replaced no pixel literal. */
   slurStemOvershoot: 1.0,
+  /**
+   * ⭐⭐ **How far a tie's tips sit from the notehead's CENTRE, horizontally** — Verovio's, his call
+   * of 2026-08-16, and read at source rather than from the research summary.
+   *
+   * `startPoint.x += r1 + unit/2` and `endPoint.x -= r2 + unit/2` (`src/tie.cpp:381, 391`), where
+   * `x` arrives at the head's centre and `unit` is half a staff space: so a tie runs from **the
+   * start head's centre + 0.25 sp** to **the end head's centre − 0.25 sp**, its tips OVER the two
+   * noteheads rather than in the gap between them. That is Gould p. 62 — *"the tie starts and
+   * finishes at the centre of the notehead"* — moderated by a quarter space.
+   *
+   * 🚨 **§13.3 recorded this as "the outer edge, 0.25 sp OUTWARD" and that is a misreading**; the
+   * code moves INWARD from the centre. Ours was the head's outer edge with no deliberate gap, so
+   * this shortens every tie by ~0.68 sp and puts its ends over the heads.
+   *
+   * ⏭️ Not taken: Verovio's stem-side variant for a SHORT tie, which runs from the head's outer edge
+   * + 0.25 sp when the stem is on the tie's side (`:88–98`).
+   */
+  tieEndpointInset: 0.25,
   /** Gap from the notehead CENTRE to a tie's endpoints. ✅ §13.3: 0.70 from the centre is 0.20 clear
    *  of the head's edge = MuseScore's `yOffset` exactly, and Gould's *"should almost touch"*.
    *  ⛔ SETTLED — do not "fix". */

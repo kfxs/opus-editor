@@ -23,6 +23,7 @@ import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { slurArchHeight } from './slurArchHeight'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -136,32 +137,6 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
   }
 }
 
-/** The post-render lookup data the system-edge helpers + segment planner need. A
- *  narrow slice of {@link RenderPass} so they stay pure & trivially unit-testable. */
-export type SlurLayoutLookup = Pick<RenderPass, 'measureLayoutInfo' | 'measureBounds'>
-
-/** X of a system's LEFT margin = the `noteStartX` of the **first** measure that
- *  landed on `line`. Undefined if no measure (or no bounds) on that line. */
-export function lineLeftEdgeX(pass: SlurLayoutLookup, line: number): number | undefined {
-  let firstMeasure: number | undefined
-  for (const [num, info] of pass.measureLayoutInfo) {
-    if (info.lineNumber !== line) continue
-    if (firstMeasure === undefined || num < firstMeasure) firstMeasure = num
-  }
-  return firstMeasure === undefined ? undefined : pass.measureBounds.get(firstMeasure)?.noteStartX
-}
-
-/** X of a system's RIGHT margin = the `noteEndX` of the **last** measure that
- *  landed on `line`. Undefined if no measure (or no bounds) on that line. */
-export function lineRightEdgeX(pass: SlurLayoutLookup, line: number): number | undefined {
-  let lastMeasure: number | undefined
-  for (const [num, info] of pass.measureLayoutInfo) {
-    if (info.lineNumber !== line) continue
-    if (lastMeasure === undefined || num > lastMeasure) lastMeasure = num
-  }
-  return lastMeasure === undefined ? undefined : pass.measureBounds.get(lastMeasure)?.noteEndX
-}
-
 /**
  * One drawn piece of a slur. A same-line slur is a single `single`; a slur crossing
  * N systems is `begin` + (N−2)×`middle` + `end`, each anchored to the **system**
@@ -182,7 +157,7 @@ export type SlurSegment =
  * can't be resolved is skipped (defensive; shouldn't happen for a rendered line).
  */
 export function planSlurSegments(
-  pass: SlurLayoutLookup,
+  pass: SystemEdgeLookup,
   fromLine: number,
   toLine: number,
   firstX: number,
