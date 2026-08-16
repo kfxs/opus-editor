@@ -194,7 +194,16 @@ The sentence stays true of *stems, beams and articulation placement* — see §6
 
 Not one project. Five, each standalone, each leaving the editor working.
 
-### P1 — Our own render context ⭐ START HERE
+> 🚨 **THE ORDER BELOW WAS WRONG, corrected 2026-08-16 — see `docs/font-metrics-plan.md` §0.**
+> **P2 goes first, and P1 moves to after P3.** P1's claim was that it *"makes everything else
+> optional"*; it does not, because while VexFlow objects still paint themselves our context has to
+> implement **VexFlow's** `RenderContext` interface anyway — so it re-implements their interface
+> rather than escaping it, *and* it swaps the whole paint layer in one commit. It is the
+> **highest**-blast-radius of the five, not the lowest. P2 is additive, risk-free, jsdom-testable
+> and a prerequisite for P3. P1's real job — *stop calling `.draw()` on VexFlow objects* — only
+> becomes available after P3.
+
+### P1 — Our own render context ⏭️ AFTER P3
 Our renderers already use **20 primitives**: `openGroup`/`closeGroup`, `beginPath`/`moveTo`/
 `lineTo`/`closePath`/`stroke`/`fill`/`fillRect`, `setLineWidth`/`setStrokeStyle`/`setFillStyle`/
 `setLineDash`, `setFont`/`fillText`/`measureText`, `save`/`restore`, `scale`, `pointerRect`.
@@ -205,10 +214,18 @@ VexFlow objects only have to hand us numbers, never paint. It also closes four s
 once: `save`/`restore` being no-ops, the `setStyle` context leak, `openGroup`'s `vf-` prefix, and
 `getSVGElement`'s document-wide `getElementById`.
 
-### P2 — Glyphs and font metrics
-Ship Bravura and `bravura_metadata.json` ourselves. Kills the §3 bug class outright. Turns
-`spacingPadding.ts` from a hand-measured table into a derived one, with `e2e/kerning.e2e.ts`'s
-re-measurement staying exactly as the check (⭐ *predicting is fine; predicting silently is not*).
+### P2 — Glyphs and font metrics ⭐ START HERE
+📄 **`docs/font-metrics-plan.md`** — the decision record.
+
+Ship Bravura's SMuFL metadata ourselves (`Bravura.json`: 3,434 glyph boxes, 643 anchor sets, 30
+engraving defaults). Kills the §3 bug class for our own numbers. Turns `spacingPadding.ts` from a
+hand-measured table into a derived one.
+
+⭐ **Our table is already right** — dot 0.40/±0.20 and sharp ±1.4 match the font exactly — so this is
+not re-litigating taste, it is re-sourcing agreed numbers from something that cannot drift.
+⚠️ But the rows mean **three different quantities** today (ink extent, advance, a behavioural
+distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
+re-sourced. Both are why that plan exists.
 
 ### P3 — The note — ⚠️ THE BIG ONE
 Notehead, stem, flag, ledger lines, dots. **We have already built this once:** `FanPass` draws
