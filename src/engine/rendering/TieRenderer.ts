@@ -24,7 +24,7 @@ import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { tieEndpointX, tieEndpointY, type TieHead } from './tieEndpoints'
 import { tieArcGrowth } from './tieStaffLineClearance'
-import { lineLeftEdgeX, lineRightEdgeX } from './systemEdges'
+import { lineLeftCurveX, lineRightEdgeX } from './systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 
@@ -210,7 +210,10 @@ export function renderTies(pass: RenderPass, score: Score): void {
                 // into the staff's own space here (the small-staff rule, docs/staff-size-plan.md).
                 const scale = pass.staffScale(staffIndex)
                 const rightEdge = lineRightEdgeX(pass, fromLine)
-                const leftEdge = lineLeftEdgeX(pass, toLine)
+                // ⭐ Gould p. 65 gives the tie the slur's own rule — *"at the start of a new system
+                // the tie begins after the clef, key signature and time signature"* — so it resumes
+                // after the header's INK, not at the padded `noteStartX` (`./systemEdges`).
+                const leftEdge = lineLeftCurveX(pass, toLine)
                 if (rightEdge !== undefined) {
                   register(drawTieArc(pass, {
                     firstX: tieEndpointX(fromHead, 'from'),

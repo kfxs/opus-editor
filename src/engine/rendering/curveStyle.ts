@@ -37,9 +37,12 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 export const CURVE = {
   /** Gap from the notehead (or stem tip) to a slur's endpoint. Gould's minimum is ½ sp. */
   slurLift: 1.0,
-  /** A cross-system half-arc's open end, above its own endpoint line — the BASE that §12 Phase 5's
-   *  pitch tilt is measured from (`./brokenSlurTilt`). */
-  slurArc: 1.4,
+  // ⛔ `slurArc` (1.4) was here: a cross-system half's open end, that far outward of its own
+  //    ANCHORED endpoint, and it is DELETED rather than tuned. A base measured off the anchor
+  //    is measured off the wrong note — see `./brokenSlurTilt`, where LilyPond's rule replaced it
+  //    with the height of the music beside the open end (his eye, 2026-08-16: *"the air in the
+  //    measure before"*). A constant nobody can state a rule for is the thing this file exists
+  //    to keep out.
   /**
    * ⭐ **How far a broken slur's open end leans per diatonic step** of the interval between its two
    * anchored notes — Verovio's `pitchDiff * unit / 2` (`src/slur.cpp:929`), where its `unit` is half
@@ -54,22 +57,16 @@ export const CURVE = {
    */
   brokenSlurMinRise: 1.0,
   /**
-   * ⭐⭐ **How far the CLEF's ink reaches beyond the staff, above and below** — Bravura's published
-   * `gClef` glyph box: `bBoxNE (2.684, 4.392)`, `bBoxSW (0.0, −2.632)`, measured from its origin on
-   * the G line, which is one space above the bottom line. So the ink runs from **1.63 sp below the
-   * bottom line** to **1.39 sp above the top line**.
+   * ⭐ **How short a broken half has to be before it could be mistaken for a tie** — Verovio's own
+   * condition for the rule above, which I had copied as if it were unconditional:
+   * `(abs(y1 - y2) < 2 * unit) && (abs(x1 - x2) < 2 * staffSize)` (`src/slur.cpp`), where a staff
+   * is 4 spaces tall, so `2 * staffSize` is **8 staff spaces**.
    *
-   * 🚨 **Published, because MEASURING it is a trap.** A `getBBox()` on the drawn `<text>` returns the
-   * FONT's ascent and descent, not the glyph's ink — it reports the clef reaching 5.05 sp above the
-   * staff and 6.95 below, which is nonsense (`reference_jsdom_cannot_measure_glyphs` and the
-   * annotation-rect note record the same trap twice already).
-   *
-   * ⭐ It is here because a slur's CONTINUATION starts at the system's barline, so it crosses the
-   * clef's column by construction: its open end has to sit beyond this reach or draw straight
-   * through the clef (his report, 2026-08-16).
+   * ⚠️ Applying the floor to a LONG fragment was half of the *"air in the measure before"*: a
+   * fragment running 14.9 spaces across his figure was given a space of drop it had no need of, on
+   * top of a base measured from the wrong note (`./brokenSlurTilt`'s `brokenSlurOpenRise`).
    */
-  clefReachAbove: 1.4,
-  clefReachBelow: 1.65,
+  brokenSlurTieLikeSpan: 8.0,
   /**
    * ⚠️ **How far a broken half's open end may travel from its own note — OURS, and provisional.**
    * Without it, a wide interval leans the fragment so far that a hole opens between the last note
@@ -78,6 +75,37 @@ export const CURVE = {
    * nothing for music already outside the staff, which is exactly when it looks worst.
    */
   brokenSlurMaxRise: 2.0,
+  /**
+   * ⭐⭐ **WHERE A CONTINUATION BEGINS: this far past the header's INK**, at a system start — the gap
+   * between the last header glyph (clef, key, meter) and the open end of the fragment that resumes.
+   *
+   * Gould gives the boundary and no number — p. 112 for the slur (*"at the beginning of the new
+   * system, the slur starts after the clef, key signature and time signature, but before any
+   * accidental"*), p. 65 for the tie. **"After the clef" means after the GLYPH**, and that is the
+   * whole of this number: our own boundary was `noteStartX`, a PADDED box that measured *equal to the
+   * first notehead's x* (his figure, 2026-08-16 — the fragment came out 0.6 sp long, *"almost over
+   * the note"*). The 2.0 spaces of air the header already leaves (`layout/headerInk.ts`'s
+   * `HEADER_TO_NOTE`) were unreachable to the curve.
+   *
+   * ⭐ **All three engines read at source, and they bracket this value:**
+   * | engine | where the broken end goes | margin |
+   * |---|---|---|
+   * | **MuseScore** `Measure::firstNoteRestSegmentX(leading)` — `min(headerElement.bbox().right() + Sid::headerToLineStartDistance, firstNoteX)` | header **bbox** right + margin, clamped at the note | **1.0 sp** (`styledef.cpp:621`) |
+   * | **LilyPond** `Slur_score_state::breakable_bound_extent` — unites the X extents of the `encompass-objects` in the bound's own paper column, `x = ext[RIGHT]` | flush at the header's extent | **0** |
+   * | **Verovio** `View::DrawTimeSpanningElement` — `SPANNING_END` starts at `measure->GetLeftBarLineXRel()`, and the alignment enum orders CLEF → KEYSIG → MENSUR → METERSIG → **LEFT_BARLINE** | just past the meter's column | its own alignment spacing |
+   *
+   * ⭐ LilyPond's grob set is Gould's sentence implemented literally: `avoid-slur 'inside` is on
+   * Clef, KeySignature and TimeSignature (`define-grobs.scm`) — and on Accidental too, which is NOT
+   * in the bound's column (an accidental belongs to its note's column), so the slur passes in front
+   * of it exactly as she says.
+   *
+   * ⭐ **HIS EYE, 2026-08-16: LilyPond's 0 — flush at the header's ink.** Shown MuseScore's 1.0 first
+   * (fragment 0.6 → 1.6 sp on his figure) he answered *"still more space at the right of the clef
+   * that the continuation can take, it looks too short for me"*, which is the remaining margin
+   * exactly. At 0 the fragment is **2.6 sp** and every space the header leaves is the curve's.
+   * ⚠️ The range is real and both ends are published: raise this to 1.0 for MuseScore's behaviour.
+   */
+  curveFromHeader: 0,
   /**
    * ⭐⭐ **LilyPond's `height-limit`** — the arch height the law approaches but never reaches, and
    * therefore the flattest a long slur can get (`define-grobs.scm:3178`, the `Slur` grob).

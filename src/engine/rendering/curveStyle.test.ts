@@ -19,7 +19,6 @@ describe('curveStyle — the staff-space table', () => {
     // nothing, so it is absent here by design rather than by omission.
     const before: Partial<Record<keyof typeof CURVE, number>> = {
       slurLift: 10,     // SlurRenderer.SLUR_LIFT
-      slurArc: 14,      // SlurRenderer.SLUR_ARC
       slurNestGap: 10,  // SlurRenderer.SLUR_NEST_GAP
       tieLift: 7,       // TieRenderer.TIE_LIFT
       tieBow: 5.3,      // TieRenderer.TIE_BOW

@@ -11,14 +11,30 @@
  * `StaveTie` and needed the same two numbers (§12 Phase 3b) — ⛔ `TieRenderer` must not import
  * `SlurRenderer`, and a shared answer belongs to neither of them.
  */
+import { HEADER_TO_NOTE } from '@/engine/layout/headerInk'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { CURVE } from './curveStyle'
 import type { RenderPass } from './RenderPass'
 
 /** The post-render lookup data the system-edge helpers + segment planner need. A
  *  narrow slice of {@link RenderPass} so they stay pure & trivially unit-testable. */
 export type SystemEdgeLookup = Pick<RenderPass, 'measureLayoutInfo' | 'measureBounds'>
 
-/** X of a system's LEFT margin = the `noteStartX` of the **first** measure that
- *  landed on `line`. Undefined if no measure (or no bounds) on that line. */
+/**
+ * X of a system's LEFT margin = the `noteStartX` of the **first** measure that landed on `line` —
+ * i.e. **after the clef, key signature and time signature**. Undefined if no measure (or no bounds)
+ * on that line.
+ *
+ * ⭐⭐ **That boundary is where an open-ended span BEGINS, and it is published** — Gould p. 112 for
+ * the slur (*"the slur starts after the clef, key signature and time signature, but before any
+ * accidental"*) and p. 65 for the tie, with Gerou & Lusk agreeing independently. All three engines
+ * land here too: LilyPond by uniting the extents of grobs marked `avoid-slur 'inside`
+ * (`define-grobs.scm` gives Clef, KeySignature, TimeSignature and Accidental that property),
+ * MuseScore via `firstNoteRestSegmentX`, and ⚠️ **Verovio too** — its `GetLeftBarLineXRel` sounds
+ * like the barline but its alignment enum puts the score-def clef BEFORE the left barline, so that x
+ * is already past the header. ⛔ A version of this file briefly took the bar's own `measureX`,
+ * believing it was Verovio's rule; it drew the arc through the clef.
+ */
 export function lineLeftEdgeX(pass: SystemEdgeLookup, line: number): number | undefined {
   let firstMeasure: number | undefined
   for (const [num, info] of pass.measureLayoutInfo) {
@@ -29,42 +45,36 @@ export function lineLeftEdgeX(pass: SystemEdgeLookup, line: number): number | un
 }
 
 /**
- * ⭐⭐ **X of a system's LEFT BARLINE** — where an OPEN-ENDED span begins on a system it continues
- * into, as opposed to {@link lineLeftEdgeX}, which is where the NOTES begin.
+ * ⭐⭐ **X where an open-ended CURVE begins on `line`** — a slur's or tie's continuation, which starts
+ * after the header's **INK** rather than at the padded boundary the music starts at.
  *
- * 🚨 **The difference is the clef, the key and the meter, and it is the whole fragment.** A slur
- * whose end note is the FIRST note of a system had `leftX` and the note's own x almost coincide, so
- * the continuation drew **0.6 staff spaces wide with a full space of drop** — a comma, not a slur
- * (his report, 2026-08-16). Verovio starts it at `measure->GetDrawingX() +
- * measure->GetLeftBarLineXRel()` (`view_control.cpp:259`), i.e. here.
+ * ⚠️ **The two are not the same number, and believing they were is what this fixes.**
+ * {@link lineLeftEdgeX} is `noteStartX`, and his figure measured it *equal to the first notehead's
+ * own x* — so the fragment had no length to be drawn at (0.6 sp, *"almost over the note"*,
+ * 2026-08-16). Gould's *"after the clef"* means after the GLYPH: `docs/slur-plan.md` §12 Phase 5, and
+ * `CURVE.curveFromHeader` carries the three engines' agreement on how far past it to start.
  *
- * ⭐ The same lesson the TRILL and the OTTAVA learned about their continuation labels: a mark that
- * RESUMES belongs at the margin, where a reader looks before the first note, not where the notes
- * start (`trillStyle.TRILL_CONTINUATION_INSET`). This is that rule for a curve.
+ * ⭐ **The header's ink edge is already published, and needs no glyph measuring**:
+ * `applyLeadIn` sets `noteStartX = staveX + (HEADER_TO_NOTE + headerExtent) × STAFF_SPACE_PX`
+ * (`VexFlowRenderer.ts`), and a line-opening bar always draws a clef, so its lead-in is always
+ * `HEADER_TO_NOTE`. Subtracting it lands exactly on `headerInk.ts`'s measured extent — the same
+ * number two ways, which is the promise that file makes about every measurement in it.
  *
- * ⚠️⚠️ **NO BOOK SAYS THIS, and the engines disagree — his question, 2026-08-16.** Gould p. 112 is
- * about the ANGLE of an open-ended slur (*"angled in the direction of the final pitch … so as to
- * look clearly open-ended"*) and p. 65 about the open-ended TIE's shape; neither says where a
- * continuation begins. §2.2 of docs/slur-plan.md says *"the second begins at the left of the next
- * system"*, but that is our own 2026-06 paraphrase of "the convention", and *the left* is exactly
- * the ambiguity. ⛔ So this is **Verovio's choice, adopted** — not an engraving rule:
+ * ⚠️ **A page distance, so no `scale` here.** Both terms are already in SVG px and neither is divided
+ * by the staff's ratio: the header is laid out in the SYSTEM's space so a small staff's clef sits in
+ * the same header column (`spreadHeaderToSystem`). The caller converts into a staff's own space, once.
  *
- * - **Verovio**: the system's left BARLINE (what this does).
- * - **MuseScore**: the first note/rest SEGMENT — i.e. what we did before — but it then flattens the
- *   open end (`constrainLeftAnchor`, 0.25 sp) and finally forces a **1.0 sp** minimum height
- *   difference (`adjustSlurFloatingEndPointAngles`). Short, but not a comma.
- * - **LilyPond**: switches its melodic slope rules off for a broken half entirely.
- *
- * ⭐ Two of the three DO agree on the height floor: MuseScore's 1.0 sp is the same number as
- * `CURVE.brokenSlurMinRise`, which came from Verovio. The x is where they part.
+ * ⛔ **The LINE families keep {@link lineLeftEdgeX}.** A resumed `(8va)` / `(Ped.)` / `(tr)` is a
+ * REMINDER that already shifts 2.0 spaces left of the music to sit in the clef's own column — which
+ * is this very boundary — so moving their edge too would push them onto the clef's ink.
  */
-export function lineLeftMarginX(pass: SystemEdgeLookup, line: number): number | undefined {
-  let firstMeasure: number | undefined
-  for (const [num, info] of pass.measureLayoutInfo) {
-    if (info.lineNumber !== line) continue
-    if (firstMeasure === undefined || num < firstMeasure) firstMeasure = num
-  }
-  return firstMeasure === undefined ? undefined : pass.measureBounds.get(firstMeasure)?.measureX
+export function lineLeftCurveX(pass: SystemEdgeLookup, line: number): number | undefined {
+  const musicX = lineLeftEdgeX(pass, line)
+  if (musicX === undefined) return undefined
+  const headerInkX = musicX - HEADER_TO_NOTE * STAFF_SPACE_PX
+  // MuseScore's own clamp, verbatim in shape (`Measure::firstNoteRestSegmentX`): the margin may
+  // never carry the curve past the note it is running to, however the two numbers are tuned.
+  return Math.min(headerInkX + CURVE.curveFromHeader * STAFF_SPACE_PX, musicX)
 }
 
 /** X of a system's RIGHT margin = the `noteEndX` of the **last** measure that

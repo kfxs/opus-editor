@@ -17,7 +17,7 @@ import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc } from './curveArc'
-import { BROKEN_SLUR_MAX_SLOPE, CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
+import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
@@ -25,9 +25,9 @@ import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
-import { brokenSlurOpenRise, clearOfClef } from './brokenSlurTilt'
+import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
-import { lineLeftMarginX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
+import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -35,7 +35,6 @@ import { voiceOf } from '@/utils/lanes'
 // A cubic's peak deviation is 0.75·H, so the 0.93 sp BOW reproduces the old quadratic's
 // LIFT + ARC/2 peak. Phase 2 of §12 is the one that may replace this height law outright.
 const SLUR_LIFT = CURVE_PX.slurLift       // gap between the notehead and the arc's endpoints
-const SLUR_ARC = CURVE_PX.slurArc         // cross-system half-arc apex rise above its endpoint line
 const SLUR_NEST_GAP = CURVE_PX.slurNestGap // extra bow height per nesting level (concentric slurs)
 // ⭐ The arch HEIGHT is no longer here either: `./slurArchHeight` owns the law that turns a span into
 // a bow. The slur's WEIGHT is not here: it is `CURVE_PX.thickness`, shared
@@ -180,6 +179,16 @@ export function planSlurSegments(
    * INTO that space here — the one place both kinds of number meet.
    */
   scale: number,
+  /**
+   * ⭐ **Which left boundary this family resumes at** — the one thing a CURVE and a LINE disagree
+   * about at a system start, so it is the caller's to say and everything else here is shared.
+   *
+   * A slur or tie resumes after the header's INK ({@link lineLeftCurveX}, Gould p. 112 / p. 65). The
+   * bracket families — ottava, pedal, trill, hairpin — keep the default, the MUSIC's own margin: each
+   * already shifts its resumed label left of it by its own eye-tuned inset, and a boundary that moved
+   * under them would move the labels onto the clef.
+   */
+  leftEdgeX: (pass: SystemEdgeLookup, line: number) => number | undefined = lineLeftEdgeX,
 ): SlurSegment[] {
   if (fromLine === toLine) return [{ type: 'single' }]
   const toLocal = (x: number | undefined): number | undefined => (x === undefined ? undefined : x / scale)
@@ -189,15 +198,17 @@ export function planSlurSegments(
       const rightX = toLocal(lineRightEdgeX(pass, line))
       if (rightX !== undefined) segments.push({ type: 'begin', firstX, rightX })
     } else if (line === toLine) {
-      // ⭐ The system's left BARLINE (Verovio's x), so a fragment whose note is the first on the
-      // system is a real curve rather than a 0.6 sp comma. ⚠️ That puts it in the CLEF's column by
-      // construction, which is why its open end is then pushed clear of the clef's published ink
-      // reach (`./brokenSlurTilt.clearOfClef`) — the two go together, and the first version shipped
-      // only the first half.
-      const leftX = toLocal(lineLeftMarginX(pass, line))
+      // ⭐⭐ **AFTER the clef, key and meter** — Gould p. 112, verbatim: *"At the beginning of the new
+      // system, the slur starts after the clef, key signature and time signature, but before any
+      // accidental."* Gerou & Lusk say the same independently, and all three engines land there
+      // (⚠️ including Verovio, whose `GetLeftBarLineXRel` is AFTER the header — its alignment enum
+      // orders the score-def clef before the left barline, which I misread as "before the clef" and
+      // briefly copied). ⚠️ Which x that IS is `leftEdgeX`'s to say: `noteStartX` is the padded
+      // boundary and measured equal to the first notehead, so a curve passes `lineLeftCurveX`.
+      const leftX = toLocal(leftEdgeX(pass, line))
       if (leftX !== undefined) segments.push({ type: 'end', leftX, lastX })
     } else {
-      const leftX = toLocal(lineLeftMarginX(pass, line))
+      const leftX = toLocal(leftEdgeX(pass, line))
       const rightX = toLocal(lineRightEdgeX(pass, line))
       if (leftX !== undefined && rightX !== undefined) segments.push({ type: 'middle', leftX, rightX, line })
     }
@@ -259,6 +270,50 @@ function slurObstaclesOf(
     }
   }
   return boxes
+}
+
+/**
+ * ⭐⭐ **WHAT A BROKEN HALF'S OPEN END HAS TO CLEAR — the nearest note ON ITS OWN SYSTEM**
+ * (LilyPond's broken-bound rule; see `./brokenSlurTilt`). Returns that note's outer edge on the
+ * slur's own side, in the same space the endpoint ys are in.
+ *
+ * ⭐ **The system is identified by the STAVE'S OWN TOP LINE, not by a measure number.** Every bar on
+ * one system shares it, and it is a number the renderer already has for every drawn note — which is
+ * the same reason `planSlurSegments` works off drawn edges rather than off the model.
+ *
+ * ⚠️ `getBoundingBox()` deliberately spans head + stem + beam, so on the stem side the edge is the
+ * stem tip and on the notehead side the notehead — which is exactly what the curve must clear.
+ * ⚠️ Undefined when nothing on that system could be measured; the caller then falls back to
+ * LilyPond's own one-note case, a flat fragment.
+ */
+function nearestCoveredOuterY(
+  pass: RenderPass,
+  score: Score,
+  slur: { startNoteId: string; endNoteId: string },
+  /** The `getYForLine(0)` of the fragment's own stave — the system's identity. */
+  systemTopY: number,
+  /** `begin` takes the LAST covered note on that system, `end` the FIRST — the one its open end leaves. */
+  half: 'begin' | 'end',
+  /** −1 above / +1 below: which edge of the box is the slur's side. */
+  direction: number,
+): number | undefined {
+  const found: { x: number; outer: number }[] = []
+  for (const id of coveredChordIds(score, slur.startNoteId, slur.endNoteId)) {
+    const note = pass.staveNoteMap.get(id)?.staveNote
+    if (!note) continue
+    try {
+      const stave = note.getStave?.()
+      if (!stave || Math.abs(stave.getYForLine(0) - systemTopY) > 1) continue
+      const b = note.getBoundingBox?.()
+      if (!b || isNaN(b.x) || isNaN(b.y) || !(b.w > 0)) continue
+      found.push({ x: b.x, outer: direction === -1 ? b.y : b.y + b.h })
+    } catch (_e) {
+      // A note whose geometry VexFlow cannot answer for simply does not constrain the open end.
+    }
+  }
+  if (found.length === 0) return undefined
+  found.sort((a, b) => a.x - b.x)
+  return (half === 'begin' ? found[found.length - 1] : found[0]).outer
 }
 
 /**
@@ -429,7 +484,6 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
   if (!pass.context || !score.slurs) return
 
   const LIFT = SLUR_LIFT
-  const ARC = SLUR_ARC
   // Nesting level per slur → extra bow height so concentric slurs don't collide.
   const nestDepths = slurNestDepths(score)
 
@@ -623,20 +677,29 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           const segEndOff = reconcileSegmentEndpointOffset(segmentEndpointOffsetOverrideOf(score, slur.id), spanCount)
           // ⭐ Gould p. 112: each open end leans toward the pitch on the other side of the break —
           // read from the MODEL, since the two ends' y's are on different systems (§12.0 #5). A slur
-          // anchored to a rest has no interval, and keeps the flat base rise.
+          // anchored to a rest has no interval, and leans by nothing.
           const steps = slurDiatonicInterval(score, slur.startNoteId, slur.endNoteId)
-          const openRise = (half: 'begin' | 'end', lengthPx: number) =>
-            steps === undefined ? Math.min(ARC, lengthPx * BROKEN_SLUR_MAX_SLOPE)
-              : brokenSlurOpenRise(steps, half, direction, lengthPx)
+          // ⭐⭐ …and it leans from the height of the music BESIDE it (LilyPond), not from a constant
+          // off the far anchor — `nearestCoveredOuterY` + `./brokenSlurTilt`. `startY` is the
+          // fragment's own anchored endpoint, so the clearance comes back in the same rise unit.
+          const openRise = (half: 'begin' | 'end', lengthPx: number, startY: number, stave: Stave | undefined) => {
+            const outer = stave === undefined ? undefined
+              : nearestCoveredOuterY(pass, score, slur, stave.getYForLine(0), half, direction)
+            const clearance = outer === undefined ? 0 : (outer - startY) * direction + LIFT
+            return brokenSlurOpenRise(steps ?? 0, half, direction, lengthPx, clearance)
+          }
           let middleOrdinal = 0
-          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex))) {
+          for (const seg of planSlurSegments(pass, fromLine, toLine, firstX, lastX, pass.staffScale(slurStaffIndex), lineLeftCurveX)) {
             if (seg.type === 'begin') {
               // Start note → system right edge, rising to an OPEN right end that leans toward the
               // music on the next system (`./brokenSlurTilt`, Gould p. 112).
               const startY = fromY + LIFT * direction
-              const p0 = { x: seg.firstX, y: startY }
-              const p1 = { x: seg.rightX, y: startY + openRise('begin', seg.rightX - seg.firstX) * direction }
               const stave = fromNote.getStave()
+              const p0 = { x: seg.firstX, y: startY }
+              const p1 = {
+                x: seg.rightX,
+                y: startY + openRise('begin', seg.rightX - seg.firstX, startY, stave) * direction,
+              }
               // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
               const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
               p1.x += o.x; p1.y += o.y
@@ -651,14 +714,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // LEFT end leans the opposite way, so the two fragments point at each other.
               const endY = toY + LIFT * direction
               const stave = toNote.getStave()
-              // ⭐ The open end leans by the interval, then steps outside the CLEF — which this
-              // fragment crosses because it starts at the barline (`./brokenSlurTilt.clearOfClef`).
-              const leaned = endY + openRise('end', seg.lastX - seg.leftX) * direction
+              // ⛔ NO vertical dodge around the clef: the fragment starts after it, so there is
+              // nothing to dodge. LilyPond makes the same point in the strongest available form — it
+              // EXCLUDES Clef, KeySignature and TimeSignature from the code that lifts a slur's
+              // endpoint (`slur-scoring.cc:302–308`), while still letting them score against the
+              // curve. Raising a slur to clear the clef is the wrong fix, and I shipped it once.
               const p0 = {
                 x: seg.leftX,
-                y: stave
-                  ? clearOfClef(leaned, direction, stave.getTopLineTopY(), stave.getBottomLineBottomY())
-                  : leaned,
+                y: endY + openRise('end', seg.lastX - seg.leftX, endY, stave) * direction,
               }
               const p1 = { x: seg.lastX, y: endY }
               // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).

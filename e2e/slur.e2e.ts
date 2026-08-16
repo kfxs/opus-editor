@@ -383,13 +383,21 @@ test('⭐⭐ a slur broken by a system break leans toward its own music (§12 Ph
   expect(higher.rise - lower.rise).toBeGreaterThan(0.5)
 })
 
-test('⭐⭐ a continuation starts at the barline AND clears the clef — the two go together', async ({ score }) => {
-  // His two reports on the same figure, 2026-08-16: first that the continuation was too short (a
-  // 0.6 sp comma — a slur whose end note is the system's FIRST note has almost no room after the
-  // clef), then that reaching back to the barline drew the arc THROUGH the clef. ⛔ Each half alone
-  // is a fault; the pair is the answer — start at the barline, and put the open end outside the
-  // clef's published ink reach (Bravura `gClef`, since measuring a glyph's box returns the FONT's
-  // ascent and descent instead).
+test('⭐⭐ a continuation starts AFTER the clef, key and meter (Gould p. 112, verbatim)', async ({ score }) => {
+  // ⭐⭐ "At the beginning of the new system, the slur starts after the clef, key signature and time
+  // signature, but before any accidental" — Gould p. 112, found only after I had told him twice that
+  // no book stated it. `noteStartX` IS that boundary, so this pins the sourced rule.
+  // ⛔ NOT the bar's left edge: that version drew the arc through the clef, and no engine does it —
+  // Verovio's `GetLeftBarLineXRel` only sounds like the barline, its alignment enum putting the
+  // score-def clef first.
+  // ⭐⭐ **AFTER THE CLEF MEANS AFTER THE GLYPH.** `noteStartX` is that boundary PADDED, and it
+  // measured EQUAL to the first notehead's own x (his figure, 2026-08-16) — a fragment 0.6 sp long,
+  // *"almost over the note"*. `lineLeftCurveX` starts it at the header's ink instead, which is where
+  // LilyPond attaches a broken bound (`breakable_bound_extent` → `ext[RIGHT]`, no margin) and 1.0 sp
+  // inside where MuseScore does (`firstNoteRestSegmentX` + `headerToLineStartDistance`).
+  // ⏭️ Still open, and sourced: BUY room. Gerou & Lusk — "be sure the first note is far enough to the
+  // right so that it is very clear that the slur does not begin on the note" — and a notat.io
+  // engraver, "when the situation is too tight, I expand the space before first note".
   const r = await score.evaluate(async () => {
     const h = window.__h
     const ids: string[] = []
@@ -403,7 +411,7 @@ test('⭐⭐ a continuation starts at the barline AND clears the clef — the tw
     const tops = h.staves().map(s => s.top)
     let broken = -1
     for (let i = 1; i < tops.length; i++) if (Math.abs(tops[i] - tops[i - 1]) > 1) { broken = i; break }
-    if (broken < 1) return { lengthSp: NaN, clearsClef: false, clefCount: 0 }
+    if (broken < 1) return { startsAfterClefInk: false, clefCount: 0, lengthSp: NaN, clearOfNoteSp: NaN }
     h.engine.updateNote(ids[broken], { step: 'G', octave: 4 })
     h.engine.createSlur([ids[broken - 1], ids[broken]])
     await h.render()
@@ -412,19 +420,27 @@ test('⭐⭐ a continuation starts at the barline AND clears the clef — the tw
     // The END half is the one on the LOWER system — compare by the ANCHORED end, which sits on its
     // own note (the open end is the one that moves).
     const end = parsed.reduce((best, p) => (p[3].y > best[3].y ? p : best), parsed[0])
-    // The clef glyph on that system — the fragment must start to the RIGHT of its ink.
-    const clefs = h.glyphs('g.vf-clef text').filter(g => g.y > tops[broken] - 40 && g.y < tops[broken] + 60)
+    const onLine = (y: number) => y > tops[broken] - 40 && y < tops[broken] + 60
+    // ⭐ The clef's INK, not its box: `inkSizes` reads the drawn `<g>`, whose width is the glyph's
+    // own advance — the number `noteStartX` pads and this rule does not.
+    const clefs = h.inkSizes('g.vf-clef').filter(b => onLine(b.y + b.height / 2))
     const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
-    const box = h.staves().find(b => Math.abs(b.top - tops[broken]) < 1)!
-    // Bravura's gClef reaches 1.63 sp BELOW the bottom line; the open end must be past that.
+    // The note the fragment runs TO — the first on the new system.
+    const head = h.noteheads().filter(g => onLine(g.y)).sort((a, b) => a.x - b.x)[0]
     return {
-      lengthSp: Math.abs(end[3].x - end[0].x) / sp,
-      clearsClef: end[0].y > box.bottom + 1.63 * sp,
+      // Flush at the ink, so allow the tip to sit ON the clef's right edge but never left of it.
+      startsAfterClefInk: clefs.every(c => end[0].x >= c.x + c.width - 1.5),
       clefCount: clefs.length,
+      lengthSp: (end[3].x - end[0].x) / sp,
+      clearOfNoteSp: head ? (head.x - end[0].x) / sp : NaN,
     }
   })
-  // ⭐ It starts at the BARLINE — so it is a real curve, not a comma — and clears the clef
-  // VERTICALLY instead of dodging it horizontally.
-  expect(r.lengthSp, 'a real fragment, not a 0.6 sp comma').toBeGreaterThan(2)
-  expect(r.clearsClef, 'and outside the clef\'s published ink reach').toBe(true)
+  expect(r.clefCount, 'the fixture has a clef at the system start').toBeGreaterThan(0)
+  // The fragment begins at the header's ink — never inside the clef.
+  expect(r.startsAfterClefInk).toBe(true)
+  // ⭐⭐ THE REGRESSION THIS EXISTS FOR: at `noteStartX` this was 0.6 sp, because that boundary IS
+  // the notehead's x. Anything under ~2 sp means the padded box is back.
+  expect(r.lengthSp).toBeGreaterThan(2)
+  // …and it visibly does not begin on the note (Gerou & Lusk's own test of the figure).
+  expect(r.clearOfNoteSp).toBeGreaterThan(1.5)
 })

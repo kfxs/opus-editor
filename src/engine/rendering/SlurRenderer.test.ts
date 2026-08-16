@@ -8,14 +8,13 @@ import {
   type SlurSegment,
 } from './SlurRenderer'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
-import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
+import { type SystemEdgeLookup } from './systemEdges'
 import type { Stave } from 'vexflow'
 import { slurArchHeight } from './slurArchHeight'
 import type { SlurEndpointOffsetOverride } from '@/types/music'
 
 /**
- * Fabricate the narrow {@link SystemEdgeLookup} slice the system-edge helpers + the
- * segment planner read. We only set the fields they touch (`lineNumber`,
+ * Fabricate the narrow {@link SystemEdgeLookup} slice the segment planner reads. We only set the fields they touch (`lineNumber`,
  * `noteStartX`, `noteEndX`), so the rest of MeasureWidthInfo/MeasureBounds is filled
  * with throwaway values. `lines` maps measureNumber → lineNumber; `bounds` maps
  * measureNumber → { noteStartX, noteEndX }.
@@ -54,41 +53,12 @@ const BOUNDS = {
   9: { noteStartX: 100, noteEndX: 280 }, 10: { noteStartX: 290, noteEndX: 460 },
 }
 
-describe('SlurRenderer system-edge helpers', () => {
-  const pass = makeLookup(LINES, BOUNDS)
-
-  it('lineLeftEdgeX = noteStartX of the FIRST measure on the line', () => {
-    expect(lineLeftEdgeX(pass, 0)).toBe(100) // measure 1
-    expect(lineLeftEdgeX(pass, 1)).toBe(100) // measure 4
-    expect(lineLeftEdgeX(pass, 2)).toBe(100) // measure 6
-  })
-
-  it('lineRightEdgeX = noteEndX of the LAST measure on the line', () => {
-    expect(lineRightEdgeX(pass, 0)).toBe(390) // measure 3
-    expect(lineRightEdgeX(pass, 1)).toBe(480) // measure 5
-    expect(lineRightEdgeX(pass, 2)).toBe(470) // measure 8
-  })
-
-  it('returns undefined for a line with no measures', () => {
-    expect(lineLeftEdgeX(pass, 99)).toBeUndefined()
-    expect(lineRightEdgeX(pass, 99)).toBeUndefined()
-  })
-
-  it('returns undefined when the boundary measure has no bounds', () => {
-    // measure 2 is on line 0 but we omit its bounds → first measure (1) still has
-    // bounds, so left edge resolves; drop measure 1's bounds to break it.
-    const broken = makeLookup({ 1: 0, 2: 0 }, { 2: { noteStartX: 200, noteEndX: 290 } })
-    expect(lineLeftEdgeX(broken, 0)).toBeUndefined() // first measure (1) lacks bounds
-    expect(lineRightEdgeX(broken, 0)).toBe(290)      // last measure (2) has bounds
-  })
-})
-
 /**
- * ⚠️ **An open-ended segment starts at the system's BARLINE** — 80 here against a `noteStartX` of
- * 100 — so a fragment whose note is the system's first is a real curve rather than a 0.6 sp comma.
- * ⭐ It therefore crosses the CLEF's column, and its open end is pushed clear of the clef's published
- * ink reach at the draw site (`./brokenSlurTilt.clearOfClef`). The two halves of that answer belong
- * together: shipping only this one drew the arc through the clef.
+ * ⭐⭐ **An open-ended segment starts AFTER the clef, key and meter** — Gould p. 112 states it
+ * verbatim, and all three engines land there. ⛔ Not the bar's own left edge: a version that took
+ * `measureX` drew the arc through the clef. ⚠️ WHICH x that boundary is belongs to `./systemEdges`
+ * (and is tested there): the planner takes it as `leftEdgeX`, because a CURVE resumes after the
+ * header's INK while the bracket families resume at the music's own margin.
  */
 describe('planSlurSegments', () => {
   const pass = makeLookup(LINES, BOUNDS)
@@ -108,14 +78,14 @@ describe('planSlurSegments', () => {
     expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 })
     // END regression guard: leftX is the END line's SYSTEM left margin (first measure
     // 4 = 100), NOT the end note's own measure edge. This is the original bug.
-    expect(segs[1]).toEqual({ type: 'end', leftX: 80, lastX: LAST_X })
+    expect(segs[1]).toEqual({ type: 'end', leftX: 100, lastX: LAST_X })
   })
 
   it('three lines → begin + middle + end, middle spans the full crossed system', () => {
     const segs = planSlurSegments(pass, 0, 2, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'end'])
     // MIDDLE is line 1's full width: left margin (measure 4 = 100) → right (measure 5 = 480).
-    expect(segs[1]).toEqual({ type: 'middle', leftX: 80, rightX: 480, line: 1 })
+    expect(segs[1]).toEqual({ type: 'middle', leftX: 100, rightX: 480, line: 1 })
   })
 
   it('a SMALL staff: the system edges come back in the staff’s own space', () => {
@@ -124,14 +94,25 @@ describe('planSlurSegments', () => {
     // system break on a 0.7 staff stopped 30% short of the margin. See the `scale` parameter.
     const segs = planSlurSegments(pass, 0, 1, FIRST_X, LAST_X, 0.5)
     expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 * 2 })
-    expect(segs[1]).toEqual({ type: 'end', leftX: 80 * 2, lastX: LAST_X })
+    expect(segs[1]).toEqual({ type: 'end', leftX: 100 * 2, lastX: LAST_X })
+  })
+
+  it('⭐ the LEFT boundary is the caller’s: a curve resumes after the header’s ink', () => {
+    // The slur passes `lineLeftCurveX`; the bracket families keep the default. Any line-start edge
+    // the planner produces — the END half and every MIDDLE — comes from it, and nothing else does.
+    const curveEdge = (_p: SystemEdgeLookup, line: number) => 40 + line
+    const segs = planSlurSegments(pass, 0, 2, FIRST_X, LAST_X, 1, curveEdge)
+    expect(segs[1]).toEqual({ type: 'middle', leftX: 41, rightX: 480, line: 1 })
+    expect(segs[2]).toEqual({ type: 'end', leftX: 42, lastX: LAST_X })
+    // ⛔ and not the RIGHT one: a BEGIN half still trails off the music's own margin.
+    expect(segs[0]).toEqual({ type: 'begin', firstX: FIRST_X, rightX: 390 })
   })
 
   it('four lines → begin + 2×middle + end (N-system generality)', () => {
     const segs = planSlurSegments(pass, 0, 3, FIRST_X, LAST_X, 1)
     expect(segs.map(s => s.type)).toEqual(['begin', 'middle', 'middle', 'end'])
-    expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 80, rightX: 480 })
-    expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 80, rightX: 470 })
+    expect(segs[1]).toMatchObject({ type: 'middle', line: 1, leftX: 100, rightX: 480 })
+    expect(segs[2]).toMatchObject({ type: 'middle', line: 2, leftX: 100, rightX: 470 })
   })
 })
 

@@ -1673,6 +1673,129 @@ the stroke of the slur)"* — and it settled at **0.16 sp**. Thinning the slur's
 > ⛔ **MIDDLE segments stay flat**: a system a slur merely passes over has no pitch of its own.
 > **Measured** (`e2e/slur.e2e.ts`, break-tested): an octave up against an octave down now differ by
 > more than a space at the open end, where both drew the same flat 1.4 before.
+>
+> ### ⭐⭐ …and then four faults from his eye, of which three were mine (2026-08-16)
+>
+> | what he saw | why | what it took |
+> |---|---|---|
+> | *"the continuation looks too short"* — **0.60 sp** wide with a full space of drop, a comma at 60° (the BEGIN half, for scale: 12.97 sp) | a slur ending on the system's FIRST note has almost no room after the header | ⛔ my answer — start at the bar's left edge — was WRONG; see the rule below. What stayed is **`BROKEN_SLUR_MAX_SLOPE` 0.5**: the rise may not outgrow the fragment's own length, so a cramped one is flat rather than a tick |
+> | *"the continuation collides the clef"* | that bar-left-edge start put the arc in the clef's column | reverted, twice over: the x is the header boundary again AND the vertical dodge I built to compensate is gone |
+> | *"the split point has much air"* | 🚨 **a real BUG**: the lean ignored WHICH SIDE the slur is on. `rise` runs along the slur's own side, so a rising continuation BELOW the staff was pushed further DOWN, away from its own music | the lean is multiplied by **`-direction`**. Measured on his figure: the open end's drop **2.00 → 1.00 sp** — half of the 2.25 sp he had corrected by hand |
+> | a wide interval opening a hole at the margin | the per-step lean is unbounded | **`CURVE.brokenSlurMaxRise` 2.0 sp** (⚠️ ours; Verovio's ceiling is geometric and does nothing outside the staff) |
+>
+> 🚨🚨 **I TOLD HIM TWICE THAT NO BOOK SAYS WHERE A CONTINUATION BEGINS. GOULD SAYS IT VERBATIM**
+> (found by the agent he asked for; ⛔ don't re-derive, and ⛔ never repeat the claim):
+>
+> > p. 112: *"At the end of a system, the slur finishes just short of the last barline, and not
+> > beyond it. **At the beginning of the new system, the slur starts after the clef, key signature
+> > and time signature, but before any accidental.**"*
+> > p. 65 (ties): *"At the start of a new system the tie begins **after the clef, key signature and
+> > time signature**."*
+>
+> ✅ **Gerou & Lusk agree independently** (*Essential Dictionary of Music Notation*): *"Continue the
+> slur in the lower staff immediately after the key signature (or clef), also at an angle."*
+> ✅ **And so do all three engines** — ⚠️ including Verovio, which I had misread: its
+> `GetLeftBarLineXRel` sounds like the barline, but its alignment enum puts the score-def clef BEFORE
+> the left barline, so that x is already past the header. LilyPond unites the extents of grobs marked
+> `avoid-slur 'inside` — Clef, KeySignature, TimeSignature **and Accidental**, which is her *"but
+> before any accidental"* clause implemented literally; MuseScore uses `firstNoteRestSegmentX`.
+> ⛔ **`noteStartX` IS that boundary**, so our original x was right all along.
+>
+> ⭐⭐ **And the vertical dodge is positively WRONG, not merely unnecessary:** LilyPond EXCLUDES
+> Clef/KeySignature/TimeSignature from the code that lifts a slur's endpoint
+> (`slur-scoring.cc:302–308`) while still letting them score against the curve. No engine has any
+> vertical clef handling for a line-start fragment, and Gould pairs slur with clef nowhere.
+>
+> ### ⏭️⏭️ WHERE THIS STOPS, AND THE TWO THINGS THE NEXT SESSION SHOULD DO
+>
+> The fragment is still *"starting at a bad position, too near to the notehead"* (his words). Two
+> separate causes, and **his own measurement identified the first**:
+>
+> **1. ⭐⭐ `noteStartX` IS NOT THE CLEF'S INK — it is a PADDED boundary, and using it steals empty
+> space.** His finding, 2026-08-16: *"i checked the bbox of the clef and on the right side it is not
+> tight to the clef, so if you are taking that as space it is wrong — it is stealing empty space."*
+> Confirmed in code: `noteStartOf(stave) = stave.getNoteStartX() + Metrics.get('Stave.padding')`
+> (`VexFlowRenderer.ts:4414`), i.e. VexFlow's modifier-box width plus stave padding — and the clef's
+> own registered box is `CLEF_HIT_WIDTH = 4.5 sp` (`layoutConfig.ts:108`), a HIT box, wider still.
+> The clef's INK ends well before either. ⭐ Gould's rule is *"after the clef"* — the glyph, not the
+> box — so a fragment may legitimately begin where the clef's ink ends, which is the room this figure
+> is missing. ⚠️ The ink is NOT measurable with `getBBox()` (it returns the font's ascent/descent:
+> it claims the clef reaches 5.05 sp above the staff); use Bravura's published `glyphBBoxes`, the
+> way `spacingPadding` and `kerning` already do — `gClef` bBoxNE.x is **2.684 sp** from its origin.
+>
+> **2. And the sources also say to buy horizontal room when it is still tight.** **Gerou & Lusk**:
+> *"Be sure the first note is far enough to the right so that it is very clear that the slur does not
+> begin on the note."* A notat.io engraver: *"when the situation is too tight, I use to expand the
+> space before first note."* MuseScore encodes it as
+> `min(headerRight + Sid::headerToLineStartDistance 1.0 sp, firstNoteX)` — a clamp that, on our
+> spacing, collapses onto the note, which IS the measurement of the fault. ⏭️ A slur or tie
+> continuing into a system's first note should widen that gap — a SPACING-pass rule, unbuilt.
+>
+> ⛔ **Nothing else about the continuation should be tuned by eye until those two land.** Everything
+> else here is now either verbatim from Gould or measured; the remaining ugliness is a box-vs-ink
+> problem and a spacing problem, not a curve problem.
+>
+> ### ✅ 2026-08-16 (later the same day) — #1 IS BUILT, AND IT PULLED A SECOND FAULT OUT WITH IT
+>
+> **A. The continuation now starts at the header's INK** (`rendering/systemEdges.ts`'s
+> `lineLeftCurveX`, `CURVE.curveFromHeader`). ⭐ **And it needed no glyph measuring at all**: the
+> header's ink edge is `noteStartX − HEADER_TO_NOTE × STAFF_SPACE_PX`, because `applyLeadIn` builds
+> `noteStartX` as `staveX + (HEADER_TO_NOTE + headerExtent) × STAFF_SPACE_PX` and a line-opening bar
+> always draws a clef. Measured on his figure: `20 + 3.2·10 + 2.0·10 = 72`, and the clef's Bravura
+> ink ends at 51.84 against the modelled 52.0 — **0.02 sp apart**, the same number two ways.
+>
+> | | before | after |
+> |---|---|---|
+> | fragment start x | 72 — *equal to the notehead's own x* | 52 |
+> | fragment length | **0.6 sp** | **2.6 sp** |
+>
+> ⭐ The three engines, read at source, bracket the margin: **MuseScore** `min(headerBox.right +
+> Sid::headerToLineStartDistance, firstNoteX)` = **1.0 sp** (`styledef.cpp:621`); **LilyPond**
+> `breakable_bound_extent` → `x = ext[RIGHT]`, i.e. **flush, 0**; **Verovio** the left-barline
+> alignment, which its enum orders after CLEF → KEYSIG → MENSUR → METERSIG. **His eye took
+> LilyPond's 0** — shown MuseScore's 1.0 first he said *"still more space at the right of the clef
+> that the continuation can take, it looks too short for me"*.
+> ⛔ The clef's `CLEF_HIT_WIDTH` (4.5 sp) is NOT involved and never was: it is the click target and
+> the gutter's width, nothing in spacing and nothing in the curve. ⏭️ It is 1.3 sp wider than the
+> glyph on the right and could be tightened on its own day.
+>
+> **B. 🚨 …and then his eye caught the OTHER half: *"now the air in the measure before"*, and
+> *"it looks to me like a complete slur and not a cutted slur"*.** The BEGIN half of his figure —
+> a slur BELOW a rising `C4 D4 E4 F4` — was anchored at the LOW C4 and pushed its open end
+> **2.95 sp below the bottom line** while the music it was leaving had climbed to F4. He corrected it
+> by hand by 1.0 sp and asked for *"no black magic, better a robust solution"*.
+>
+> ⭐⭐ **The cause was `slurArc`: a FIXED 1.4 sp base measured off the ANCHORED note** — a note that
+> may be at the far end of the system. **LilyPond does not have such a constant**, and its rule is the
+> fix (`slur-scoring.cc`, the broken bound): the open end takes
+> `col = (d == LEFT) ? note_columns_[0] : note_columns_.back()` — **the nearest note column on its own
+> system** — and sits at `robust_relative_extent(col)[dir_] + dir_ × 0.5 sp`. It hugs the music it is
+> leaving. (When that column IS the other end, it falls back to the anchored end's own height: flat.)
+>
+> ⭐ **And Verovio's anti-tie floor is CONDITIONAL, which I had copied as if it were not**:
+> `(abs(y1-y2) < 2*unit) && (abs(x1-x2) < 2*staffSize)` — a fragment under **8 sp**. His was 14.9 sp
+> and was being given a space of drop it had no need of. `CURVE.brokenSlurTieLikeSpan` 8.0.
+>
+> So `brokenSlurOpenRise` is now **`clearance + max(tilt, 0)`**, clamped by the two ceilings:
+> LilyPond gives the height, Gould's cross-break lean adds to it, and ⭐ **the lean may only push the
+> open end OUTWARD — inward is where the music is**. `slurArc` is **deleted**, not tuned.
+>
+> | his figure, BEGIN half | before | after |
+> |---|---|---|
+> | anchored end (over C4) | 1.95 sp below the bottom line | 1.95 (unchanged) |
+> | open end (at the margin) | **2.95 sp below** — falling away from the music | **1.05 sp below** — rising with it |
+>
+> ⚠️ The END half is untouched by this (1.3 sp), because its nearest covered note IS its anchor —
+> LilyPond's own flat case — and he had already approved that half.
+>
+> ⭐ **On the SHAPE question he asked** (*"do we have a source that the half has the real shape? it
+> looks like a complete slur"*): **no engine draws a special cut shape.** LilyPond fits a broken half
+> with the same bezier scoring as any slur (`is_broken_` only zeroes `musical_dy_`), and Verovio
+> builds a symmetric bow between the two endpoints and rotates it by the fragment's own angle
+> (`CalcInitialControlPointParams`, both control points on the same side). **The "cut" reading is
+> bought entirely by WHERE the open end sits** — which is why fixing its height fixed the look.
+>
+> ⏭️ Still open, unchanged: #2, buying horizontal room before a system's first note.
 
 **The plan as written:**
 
