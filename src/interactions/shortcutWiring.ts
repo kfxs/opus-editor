@@ -13,6 +13,7 @@ import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
+import { flipSelection } from './flipSelection'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
@@ -779,67 +780,13 @@ export function wireShortcuts(
         renderer.renderScore()
       }
     },
+    // `x` = turn the selected thing around. WHICH thing, and what "around" means for it, is
+    // `interactions/flipSelection.ts`'s table — it used to be a six-branch chain here, and the
+    // octave line would have made it seven. ⚠️ The repaint is conditional: a decline means the key
+    // did nothing, and rendering to show no change is the reflex to avoid.
     flipStemDirection: () => {
       const eng = getEngine()
-      if (!eng) return
-      // A selected slur flips side (above ↔ below); a selected trill, tie or tuplet the same; a
-      // selected hairpin flips its TYPE; a selected articulation flips its side; otherwise x flips
-      // a note's stem.
-      const slurId = selectedOf(state, 'slur')?.id
-      if (slurId) {
-        eng.flipSlur(slurId)
-        renderer.renderScore()
-        return
-      }
-      // ⚠️ A selected HAIRPIN flips its TYPE — crescendo ↔ diminuendo — and it is the one branch of
-      // this key that changes what a mark MEANS rather than which side of the staff it sits on.
-      // (His call, 2026-08-12.) It is not an inconsistency to tidy away later: a hairpin's side is
-      // `placement`, which it shares with every dynamic on its line and which moving one of would
-      // have to move, while `<` vs `>` is the only thing about a wedge you would ever want one key
-      // for. Flipping it is a CONTENT edit, hence the undo entry `toggleHairpinType` commits.
-      const hairpinId = selectedOf(state, 'hairpin')?.id
-      if (hairpinId) {
-        eng.toggleHairpinType(hairpinId)
-        renderer.renderScore()
-        return
-      }
-      // ⭐ A selected TRILL flips its SIDE (above ↔ below) — and unlike the hairpin immediately
-      // above, it really is a side rather than a meaning. `placement` is the trill's own field and
-      // it shares no line with anything (a trill is not a baseline family), so moving it moves
-      // nothing else. `below` is the multi-voice case (docs/trill-plan.md §1 rule 2), which is
-      // exactly when a user reaches for this key.
-      const trillId = selectedOf(state, 'trill')?.id
-      if (trillId) {
-        eng.toggleTrillPlacement(trillId)
-        renderer.renderScore()
-        return
-      }
-      // A selected tie flips its curve direction (up ↔ below), staying notehead-anchored.
-      const tieFromNoteId = selectedOf(state, 'tie')?.fromNoteId
-      if (tieFromNoteId) {
-        eng.flipTie(tieFromNoteId)
-        renderer.renderScore()
-        return
-      }
-      // A selected tuplet flips its bracket/number side (above ↔ below).
-      const tupletId = selectedOf(state, 'tuplet')?.id
-      if (tupletId) {
-        eng.flipTuplet(tupletId)
-        renderer.renderScore()
-        return
-      }
-      const artNoteIds = selectedArticulationNoteIds(state.selectedItems.values())
-      if (artNoteIds.length) {
-        // Flip the side of every selected articulation group as ONE undoable action.
-        eng.runBatch(`Flip articulations on ${artNoteIds.length} note(s)`, () => {
-          for (const noteId of artNoteIds) eng.flipArticulation(noteId)
-        })
-        renderer.renderScore()
-        return
-      }
-      if (!state.selectedNoteId) return
-      eng.flipStemDirection(state.selectedNoteId)
-      renderer.renderScore()
+      if (eng && flipSelection(state, eng)) renderer.renderScore()
     },
     toggleDot: () => palette.toggleDot(),
     // One handler per preset, generated from the SAME table the keys are — see tupletPresets. The M

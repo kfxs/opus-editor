@@ -646,6 +646,13 @@ export class ScoreModel {
     return ottavaOps.updateOttava(this.score, id, updates)
   }
 
+  /** Flip an octave line between alta and bassa — 8va ↔ 8vb (see
+   *  {@link ottavaOps.toggleOttavaDirection}, which negates the shift and so keeps the distance).
+   *  ⚠️ A CONTENT edit: it moves what the covered notes SOUND. @returns the new shift, or null. */
+  toggleOttavaDirection(id: string): Ottava['shift'] | null {
+    return ottavaOps.toggleOttavaDirection(this.score, id)
+  }
+
   /** Set how much music an ottava covers (the MODEL, not an override — see
    *  {@link ottavaOps.setOttavaLength}). @returns true if it exists and was updated. */
   setOttavaLength(id: string, length: Fraction): boolean {

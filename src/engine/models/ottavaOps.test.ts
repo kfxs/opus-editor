@@ -17,7 +17,7 @@ import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
-  addOttava, removeOttava, updateOttava, setOttavaLength,
+  addOttava, removeOttava, updateOttava, setOttavaLength, toggleOttavaDirection,
   getOttavaById, ottavaMeasure, measureOttavas, ottavaEndBeat, ottavaSpan, addOttavaOverNotes,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
@@ -128,6 +128,30 @@ describe('ottavaOps — one (beat, staff) holds at most one line (the CLEF rule)
     const stored = measureOttavas(score.measures[0])
     expect(stored).toHaveLength(1)
     expect(stored[0].id).toBe(named.id)
+  })
+
+  it('⭐ toggleOttavaDirection NEGATES the shift — 8va ↔ 8vb, and the DISTANCE survives', () => {
+    // His request, 2026-08-17: `x` switches a selected 8va to an 8vb. The signed shift is the whole
+    // statement, so "switch" is a negation — a 15ma the user flips means 15mb, never 8vb.
+    const alta = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(toggleOttavaDirection(score, alta.id)).toBe(-1)
+    expect(toggleOttavaDirection(score, alta.id)).toBe(1)
+
+    const quindicesima = addOttava(score, 2, { beat: frac(0, 1), length: frac(4, 1), shift: 2 })!
+    expect(toggleOttavaDirection(score, quindicesima.id), 'two octaves, the other way').toBe(-2)
+  })
+
+  it('⭐⭐ the flip moves what the passage SOUNDS — it is a content edit, not a side-swap', () => {
+    // The reason `MusicEngine.toggleOttavaDirection` commits (playback resync) where the trill's
+    // branch of the same key only records undo: an octave line displaces sounding pitch.
+    const ottava = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(soundingShiftAtBeat(score, 1, 0)).toBe(12)
+    toggleOttavaDirection(score, ottava.id)
+    expect(soundingShiftAtBeat(score, 1, 0), 'two octaves lower than before').toBe(-12)
+  })
+
+  it('declines an id that names no ottava, leaving the score alone', () => {
+    expect(toggleOttavaDirection(score, 'ghost')).toBeNull()
   })
 
   it('does NOT upsert on updateOttava — moving one onto an occupied beat leaves both', () => {

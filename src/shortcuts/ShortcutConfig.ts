@@ -455,7 +455,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   },
 
   // Stem direction
-  'x': { action: 'flipStemDirection', description: 'Flip: hairpin cresc./dim., selected slur/trill/tie/tuplet side, articulation side, else note stem direction' },
+  'x': { action: 'flipStemDirection', description: 'Flip: hairpin cresc./dim., octave line 8va/8vb, selected slur/trill/tie/tuplet side, articulation side, else note stem direction' },
 
   // Rest entry in keyboard mode
   // Hide/show selected rest(s) — Sibelius-style. Single keys are lowercased by the manager,

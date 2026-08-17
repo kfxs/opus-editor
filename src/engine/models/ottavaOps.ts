@@ -130,6 +130,31 @@ export function setOttavaLength(score: Score, id: string, length: Fraction): boo
 }
 
 /**
+ * ⭐ **Flip an octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's branch.** His
+ * request, 2026-08-17: *"we should use shortcut x to switch 8va to 8vb when selected."*
+ *
+ * ⭐ **It NEGATES the shift and so keeps the DISTANCE**, which is the only reading of "switch" that
+ * generalises: `shift` is one signed number saying both how far and which way (see {@link Ottava}),
+ * and a `15ma` the user asked to flip means `15mb`, not `8vb`. ⛔ Not a `direction` field and not a
+ * pair of "make it alta / make it bassa" calls — there is one statement here, and it already has a
+ * sign.
+ *
+ * ⚠️⚠️ **This CHANGES WHAT THE PASSAGE SOUNDS, by two octaves, and that is not a bug.** An octave
+ * line displaces the sounding pitch of the notes it covers (`soundingShiftAt`, and the (a) reading
+ * of §7.3 that `MusicEngine.createOttava` records): the noteheads stay put and the sound moves. So
+ * flipping is a CONTENT edit, exactly as {@link toggleHairpinType} is — hence the undo entry its
+ * caller commits — and not the side-swap that `toggleTrillPlacement` performs.
+ *
+ * @returns the new shift, or null if no ottava has that id.
+ */
+export function toggleOttavaDirection(score: Score, id: string): Ottava['shift'] | null {
+  const ottava = getOttavaById(score, id)
+  if (!ottava) return null
+  ottava.shift = -ottava.shift as Ottava['shift']
+  return ottava.shift
+}
+
+/**
  * Edit an ottava by id (beat / length / shift / staff). The owning measure's list is re-sorted in
  * case the beat changed. A non-positive `length` is refused, as in {@link setOttavaLength}.
  *

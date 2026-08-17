@@ -797,6 +797,22 @@ export class MusicEngine {
     return created
   }
 
+  /**
+   * ⭐ Flip a selected octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's ottava
+   * branch (`interactions/flipSelection.ts`). His request, 2026-08-17.
+   *
+   * ⚠️⚠️ **`commit`, not `saveOnly`, and that is the whole difference from the trill's branch of the
+   * same key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An
+   * ottava's shift is what the covered notes SOUND (`soundingShiftAt`), so this moves the passage by
+   * two octaves and the playback engine must be handed the new score, or the next press of `p` plays
+   * the picture from before the flip. @returns the new shift, or null if no ottava has that id.
+   */
+  toggleOttavaDirection(id: string): Ottava['shift'] | null {
+    const shift = this.scoreModel.toggleOttavaDirection(id)
+    if (shift) this.commit(`Flip octave line to ${shift > 0 ? '8va' : '8vb'}`)
+    return shift
+  }
+
   /** Remove an octave line by id. Saves undo state when one was removed. */
   removeOttava(id: string): boolean {
     const removed = this.scoreModel.removeOttava(id)
