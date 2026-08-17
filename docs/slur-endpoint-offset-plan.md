@@ -19,6 +19,8 @@ only *re-anchor* the slur onto another note when dragged). This feature adds:
 
 Out of scope for this pass: a "reset to default position" command (trivial later —
 clear the `endpointOffset` kind); arrow-nudging the amber **curve-shape** dots.
+**Both were built on 2026-08-17 — see [P3](#p3--the-arc-dots-the-reset-and-the-typed-twin) below**,
+where the "trivial later" turned out to hold for the squares and *not* for the arc.
 
 ## Settled decisions
 
@@ -274,5 +276,110 @@ for that move. And all of it dies with the slur.
   verified.
 - **P2 — keyboard nudge:** `ShortcutManager` decline mechanism + `Ctrl+←→` bindings +
   modal routing of all arrow combos in `useShortcuts`. Full feature live.
-- **P3 (deferred):** "reset endpoint to default" command; extend the same selection +
-  nudge machinery to the amber curve-shape dots.
+- **P3 — the arc dots, the reset, and the typed twin:** ✅ **BUILT 2026-08-17.** See the
+  section below.
+
+## P3 — the arc dots, the reset, and the typed twin
+
+Three asks in one afternoon, each one the next thing the previous one made obvious:
+*"i want to be able to change slur control arc point with the arrow key when selected"* →
+*"how do i revert the editing on the slur control point?"* → *"this modification we do for
+the control and endpoints of the slur we should be able to do it also in the property
+window"*. The result is that every one of a slur's grabbable points now answers to all
+three surfaces — mouse, keyboard, typed number — and none of them is a second copy of the
+geometry.
+
+Modules: `interactions/slurHandleNudge.ts` (+ its spec), `interactions/SlurGeometryController.ts`,
+`bus/slurGeometrySelection.ts`, rows in `windows/properties/PropertiesWidget.ts`,
+`slurOps.resetSlurShape` / `resetSlurEndpointOffset` / `resetSlurSegmentEndpointOffset`.
+
+### ⭐⭐ The drawn shape is the baseline — why the arc could not reuse P2's arithmetic
+
+An `endpointOffset` **adds** to the automatic position, so nudging it is `stored + delta`
+and an absent entry is a true zero. A `curveShape` **replaces** the automatic arch
+(`resolveCps`), so the same arithmetic would read an un-edited slur's shape as `(0,0)` and
+the first arrow press would fling the control point down onto the chord line.
+
+So the arc's baseline is what the last render actually **drew**: the control points the
+`ElementRegistry` carries, inverted back through `renderCurve`'s math
+(`cpsFromDrawnControlPoints`) — which is exactly what a drag does on mousedown. One press
+reads the arc on screen, moves one control point, and writes **both** back. Consequences:
+
+- the FIRST press freezes the auto arch (nest lift and obstacle clearance included) into an
+  explicit shape, precisely as the first pixel of a drag does — one conversion, no second rule;
+- LINEAR view draws no handles, so the registry holds none and every arc surface DECLINES
+  there without needing to know why;
+- a cross-system slur edits the segment whose dot is **armed**, because the armed dot names
+  its segment and that segment's own endpoints ride on the same registry entry.
+
+The inversion moved out of `MouseController` into the module and is imported back, so the
+mouse and the arrows can never drift onto different arcs.
+
+### ⚠️ Two coordinate spaces, deliberately
+
+`cps.y` is **arc space** — `drawCurveArc` draws it at `p.y + cps.y · direction` — while an
+endpoint offset is plain screen-down. The keyboard therefore multiplies its `dy` by
+`direction` (without it, ↑ raises a slur above the staff and *lowers* one below it), and the
+Properties inputs do **not**: they show the number the model holds, because the override's own
+JSON is printed a few lines below the input and a control that disagreed in sign with the dump
+under it would be unreadable. Keyboard speaks screen; the panel speaks model.
+
+### The reset (`Ctrl+Backspace`)
+
+The reset half of the nudges, on the key every other nudge in `shortcutWiring` resets with —
+"one value, a matching backspace per arrow-chord". It takes back **whatever is armed**: an
+amber arc dot drops the shape, a blue square that end's nudge, an orange join that join's.
+Each model-side reset returns **false when nothing was authored**, which is what lets
+`Ctrl+Backspace` fall through to the note-spacing / bar-width resets it shares the key with.
+
+⚠️ **The arc returns as a whole, both dots** — the one place "the armed handle" is not exactly
+what goes back. A shape override is ONE pair, and the automatic value of a single dot exists
+only inside the renderer's arch law (span, slant, nest/obstacle lift), so the model cannot say
+"this dot is automatic and that one is not". Invisible in the ordinary case: the untouched dot
+was written at the value the arch had given it. The two square kinds have no such caveat —
+their offsets are per-side in the model.
+
+### The Properties rows
+
+Four rows for a selected slur — `start end`, `end end`, `arc 1`, `arc 2` — each an x/y pair in
+staff-spaces plus a reset, on the `NoteOffsetController` boundary: the window publishes to
+`bus.slurGeometry` and never holds the engine.
+
+- **Blank means AUTO, and blank is not zero.** `0` is a hand-authored position that happens to
+  sit at the anchor; `auto` is no authorship at all. Reset returns a row to blank.
+- **Each box publishes its own axis** (`{x}` or `{y}`, never a synthesised pair). A row that
+  insisted on both would be unusable from `auto`: the first commit would have to invent the
+  second number, and for the arc that invention is destructive. The controller fills the
+  unnamed axis from the model.
+- **Absolute in, relative out** for the ends (`delta = wanted − stored`, read from the
+  compartment rather than from the panel, so a stale panel cannot write a wrong delta);
+  the arc hands its absolute straight to `setSlurControlPoint`, which resolves the other dot
+  from the drawn arc — so typing 2.5 and nudging to 2.5 land on identical model state.
+- **A split slur's arc rows address the armed segment** and name it in the caption; with no dot
+  armed there is no system to write to, so they are disabled rather than guessing. The end rows
+  stay live — a true end belongs to the whole slur.
+- `selectionSnapshot` resolves which override kind the arc numbers come from (`curveShape` vs
+  the armed segment of `segmentCurveShape`) and reports it under `derived.arc`, so the window
+  never has to know.
+
+### ⏭️ Not built
+
+- No Properties row for the **open joins** (the orange squares of a cross-system slur); the
+  keyboard and its reset reach them, the panel does not.
+- In LINEAR view the arc rows accept input that silently declines — no handles are drawn there,
+  so there is no baseline to write against.
+
+### Tests added
+
+- `slurHandleNudge.test.ts` — the drawn baseline (2 → 2.25, not 0.25); the `direction` flip
+  asserted as a PAIR (drop the factor and both sides read 1.75, which each half alone accepts);
+  segment routing; one undo per press; the reset dispatch across all three handle kinds; every
+  decline.
+- `slurOps.test.ts` — `resetSlurShape` (whole vs addressed, and "false when nothing authored",
+  including a stale-count MIDDLE); `resetSlurEndpointOffset` (per-side, prunes); 
+  `resetSlurSegmentEndpointOffset` (per join and side, prunes the slot then the override).
+- `SlurGeometryController.test.ts` — absolute → relative; an absent axis is a zero delta, never
+  a move to 0; re-typing the same number leaves no undo entry; null resets; arc requests never
+  touch the endpoint verbs.
+- `PropertiesWidget.slur.test.ts` — the four rows; blank ≠ 0; one axis per commit; a
+  non-number restores only its own box; reset publishes `null`; the disabled split-slur case.

@@ -124,6 +124,15 @@ export class PropertiesWidget implements Widget {
         }
       }
 
+      // ⭐ A selected SLUR gets its four handles as numbers — the two ends' offsets and the two arc
+      // control points, the same points the mouse drags and the arrows nudge (his ask, 2026-08-17).
+      // Same boundary as every row here: it publishes to `bus.slurGeometry` and never touches the
+      // engine. See `buildSlurGeometryRows` for what the numbers mean.
+      if (element.kind === 'slur') {
+        const slur = element.data as { id?: string; missing?: boolean }
+        if (slur.id && !slur.missing) body.appendChild(this.buildSlurGeometryRows(slur.id, element))
+      }
+
       // A selected TRILL gets its one stored choice. Same boundary as the fan row above.
       if (element.kind === 'trill') {
         const trill = element.data as { id?: string; missing?: boolean; continuationLabel?: TrillContinuationLabel }
@@ -382,6 +391,160 @@ export class PropertiesWidget implements Widget {
       'how far apart the beam lines spread — 1 is the normal beam gap; drawing only, the playback does not change',
       0.25,
     ))
+    return row
+  }
+
+  /**
+   * ⭐ **THE SLUR'S FOUR HANDLES, AS NUMBERS** — one row per grabbable point: the blue square at each
+   * end, then the two amber arc dots. Each row is an x/y pair in **staff-spaces** and a reset,
+   * publishing to {@link bus.slurGeometry}; `SlurGeometryController` applies.
+   *
+   * ⚠️ **These are the MODEL's numbers, not screen positions**, and the two differ in sign for the
+   * arc: an endpoint offset is screen-down-positive, while an arc control point's `y` bows the curve
+   * OUTWARD whichever side the slur sits on. That is deliberate — the override's own JSON is printed
+   * a few lines below this control, and an input that disagreed with the dump under it would be
+   * unreadable. The keyboard is the surface that speaks screen ("↑ lifts the dot"); this one speaks
+   * model.
+   *
+   * ⭐ **Blank means AUTO, and blank is not zero.** An unedited handle has no entry in the overrides
+   * compartment at all, so its input shows a placeholder rather than `0` — the arc especially, whose
+   * automatic shape is a whole arch and nothing like a zero pair. Reset returns a row to blank.
+   *
+   * ⚠️ On a cross-system slur the ARC rows address the segment whose dot is armed (the caption says
+   * which); with none armed there is no system to write to, so they are shown disabled rather than
+   * offered as a guess. The END rows are always live — a true end belongs to the whole slur.
+   */
+  private buildSlurGeometryRows(slurId: string, element: InspectedElement): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.margin = '2px 0 4px'
+
+    const ends = (element.overrides?.find((o) => o.kind === 'endpointOffset') ?? {}) as {
+      start?: { x: number; y: number }
+      end?: { x: number; y: number }
+    }
+    const arc = (element.derived?.arc ?? {}) as {
+      cps?: [{ x: number; y: number }, { x: number; y: number }] | null
+      segment?: string | null
+      armed?: 0 | 1 | null
+    }
+
+    wrap.appendChild(this.buildPointRow('start end (sp)', ends.start, (value) =>
+      bus.slurGeometry.set({ slurId, target: { kind: 'endpoint', which: 'start' }, value })))
+    wrap.appendChild(this.buildPointRow('end end (sp)', ends.end, (value) =>
+      bus.slurGeometry.set({ slurId, target: { kind: 'endpoint', which: 'end' }, value })))
+
+    // A cross-system slur with nothing armed: the caption says why the rows are dead rather than
+    // leaving the user to wonder which system a number would have gone to.
+    const segment = arc.segment ?? null
+    const armedOnly = segment !== null && arc.armed === null
+    for (const cpIndex of [0, 1] as const) {
+      const label = `arc ${cpIndex + 1}${segment ? ` (${segment})` : ''} (sp)`
+      wrap.appendChild(this.buildPointRow(
+        label,
+        arc.cps?.[cpIndex],
+        (value) => bus.slurGeometry.set({ slurId, target: { kind: 'controlPoint', cpIndex }, value }),
+        armedOnly ? 'select an arc handle first — a split slur shapes one system at a time' : undefined,
+      ))
+    }
+    return wrap
+  }
+
+  /**
+   * One x/y pair plus a reset, in staff-spaces. `current` absent = the handle is automatic, which
+   * shows as a blank input with an `auto` placeholder (see {@link buildSlurGeometryRows}).
+   *
+   * ⭐ **Each box publishes its OWN axis and says nothing about the other** — `{x}` or `{y}`, never a
+   * synthesised pair. An automatic handle has no numbers at all, so a row that insisted on both would
+   * be unusable from `auto`: the first box committed would have to invent the second, and for an ARC
+   * that invention is destructive (a blank `y` is a whole arch, not zero). The controller fills the
+   * unnamed axis from the model, which is the only place the real value lives.
+   */
+  private buildPointRow(
+    caption: string,
+    current: { x: number; y: number } | undefined,
+    publish: (value: { x?: number; y?: number } | null) => void,
+    disabledReason?: string,
+  ): HTMLElement {
+    const row = document.createElement('div')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.flexWrap = 'wrap'
+    rs.color = BISHOP
+    rs.margin = '0 0 3px'
+    if (disabledReason) {
+      row.title = disabledReason
+      rs.opacity = '0.5'
+    }
+
+    const label = document.createElement('span')
+    label.textContent = caption
+    row.appendChild(label)
+
+    const boxes: HTMLInputElement[] = []
+
+    for (const axis of ['x', 'y'] as const) {
+      const cell = document.createElement('label')
+      cell.style.display = 'flex'
+      cell.style.alignItems = 'center'
+      cell.style.gap = '3px'
+
+      const tag = document.createElement('span')
+      tag.textContent = axis
+      cell.appendChild(tag)
+
+      const input = document.createElement('input')
+      input.type = 'number'
+      input.step = '0.25'
+      input.value = current ? String(axis === 'x' ? current.x : current.y) : ''
+      input.placeholder = 'auto'
+      input.disabled = !!disabledReason
+      const is = input.style
+      is.width = '4.5em'
+      is.font = 'inherit'
+      is.color = BISHOP
+      is.background = 'transparent'
+      is.border = `1px solid ${BISHOP}`
+      is.borderRadius = '2px'
+      is.padding = '1px 4px'
+      // Enter commits (and blurs, which would otherwise commit twice — the offset input's rule).
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+      })
+      input.addEventListener('change', () => {
+        const n = parseFloat(input.value)
+        // Not a number is not an edit: put this box's own value back rather than guessing at what
+        // was meant (the offset input's rule). Only this box — the other one was never in question.
+        if (!Number.isFinite(n)) {
+          input.value = current ? String(axis === 'x' ? current.x : current.y) : ''
+          return
+        }
+        publish({ [axis]: n })
+      })
+      cell.appendChild(input)
+      boxes.push(input)
+      row.appendChild(cell)
+    }
+
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = 'reset'
+    reset.title = 'Back to the automatic engraving'
+    reset.disabled = !!disabledReason
+    const bs = reset.style
+    bs.font = 'inherit'
+    bs.color = BISHOP
+    bs.background = 'transparent'
+    bs.border = `1px solid ${BISHOP}`
+    bs.borderRadius = '2px'
+    bs.padding = '1px 6px'
+    bs.cursor = 'pointer'
+    reset.addEventListener('click', () => {
+      for (const b of boxes) b.value = ''
+      publish(null)
+    })
+    row.appendChild(reset)
     return row
   }
 

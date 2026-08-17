@@ -32,6 +32,7 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementInfo } from '../engine/ElementRegistry'
+import type { SlurSegmentAddress } from '../types/music'
 import type { EditorState, SlurControlPointHandle } from './EditorState'
 import { selectedOf } from './EditorState'
 import { dbg } from '../utils/debug'
@@ -63,15 +64,66 @@ export function cpsFromDrawnControlPoints(
   ]
 }
 
-/** The drawn handle for the armed dot: matched on the SEGMENT too, since a cross-system slur draws a
- *  pair per system and `cpIndex` alone would find the first system's. */
-function armedSlurHandleEntry(
+/** The drawn handle for one arc dot: matched on the SEGMENT too, since a cross-system slur draws a
+ *  pair per system and `cpIndex` alone would find the first system's. The segment comes from the
+ *  ARMED dot — a caller addressing `cpIndex` alone (the Properties input) inherits the armed
+ *  segment, so it can never write onto a system the user is not looking at. */
+function slurHandleEntry(
   handles: readonly ElementInfo[],
-  armed: SlurControlPointHandle,
   slurId: string,
+  cpIndex: 0 | 1,
+  armed: SlurControlPointHandle | undefined,
 ): ElementInfo | undefined {
-  return handles.find(el => el.slurId === slurId && el.cpIndex === armed.cpIndex
-    && el.segmentRole === armed.segmentRole && el.segmentOrdinal === armed.segmentOrdinal)
+  return handles.find(el => el.slurId === slurId && el.cpIndex === cpIndex
+    && el.segmentRole === armed?.segmentRole && el.segmentOrdinal === armed?.segmentOrdinal)
+}
+
+/**
+ * What the last render DREW under one arc dot, ready to write back: the pair in **staff-spaces**,
+ * the side the slur is bowed, and the address the override needs.
+ *
+ * ⭐ This is the baseline both editing surfaces share (the header's rule): the arrows add a delta to
+ * it, the Properties input replaces one member of it, and both then write the WHOLE pair — because
+ * the override is a pair and the auto value of the other dot exists nowhere else.
+ */
+interface ArcBaseline {
+  cps: [{ x: number; y: number }, { x: number; y: number }]
+  direction: number
+  segment?: SlurSegmentAddress
+  spanCount?: number
+}
+
+function arcBaseline(
+  engine: ShapeEngine,
+  slurId: string,
+  cpIndex: 0 | 1,
+  armed: SlurControlPointHandle | undefined,
+): ArcBaseline | null {
+  const handle = slurHandleEntry(engine.getElementRegistry().getByType('slur-handle'), slurId, cpIndex, armed)
+  // ⛔ No fallback staff-space size. The stored shape is in staff-spaces, so guessing the scale here
+  // would write a shape that renders at the wrong height — quietly, and only on the staff that guessed.
+  if (!handle?.controlPoints || !handle.slurEndpoints || !handle.staffSpacePx) return null
+  const ss = handle.staffSpacePx
+  const drawn = cpsFromDrawnControlPoints(handle.controlPoints, handle.slurEndpoints)
+  return {
+    cps: [{ x: drawn[0].x / ss, y: drawn[0].y / ss }, { x: drawn[1].x / ss, y: drawn[1].y / ss }],
+    direction: handle.slurEndpoints.direction,
+    // A cross-system slur routes the edit to its segment's own override, keyed by the live span count
+    // (the reset signature); a same-line arc passes neither and reshapes the whole `curveShape`.
+    segment: handle.segmentRole === undefined ? undefined
+      : handle.segmentRole === 'middle' ? { role: 'middle', ordinal: handle.segmentOrdinal ?? 0 }
+      : { role: handle.segmentRole },
+    spanCount: handle.slurSpanCount,
+  }
+}
+
+/** The drag's own pair: `preview…` takes the change (and flags the model dirty), `commit…` records
+ *  exactly one undo entry for it. A press — or a typed value — is already a whole gesture, so the two
+ *  run back to back. */
+function writeArc(engine: ShapeEngine, slurId: string, cps: ArcBaseline['cps'], base: ArcBaseline): boolean {
+  if (!engine.previewSlurShape(slurId, cps, base.segment, base.spanCount)) return false
+  engine.commitSlurShape()
+  return true
 }
 
 /**
@@ -96,33 +148,55 @@ export function nudgeArmedSlurControlPoint(
   const armed = selected?.controlPoint
   if (!selected || !armed) return false
 
-  const handle = armedSlurHandleEntry(engine.getElementRegistry().getByType('slur-handle'), armed, selected.id)
-  // ⛔ No fallback staff-space size. The stored shape is in staff-spaces, so guessing the scale here
-  // would write a shape that renders at the wrong height — quietly, and only on the staff that guessed.
-  if (!handle?.controlPoints || !handle.slurEndpoints || !handle.staffSpacePx) return false
-
-  const ss = handle.staffSpacePx
-  const drawn = cpsFromDrawnControlPoints(handle.controlPoints, handle.slurEndpoints)
+  const base = arcBaseline(engine, selected.id, armed.cpIndex, armed)
+  if (!base) return false
   // Screen → arc space for the vertical (see the header); the horizontal needs no flip, `cps.x` adds
   // straight onto the control point's x whichever side the slur is on.
-  const moved = (cp: { x: number; y: number }) => ({
-    x: cp.x / ss + dx,
-    y: cp.y / ss + dy * handle.slurEndpoints!.direction,
-  })
-  const cps: [{ x: number; y: number }, { x: number; y: number }] = armed.cpIndex === 0
-    ? [moved(drawn[0]), { x: drawn[1].x / ss, y: drawn[1].y / ss }]
-    : [{ x: drawn[0].x / ss, y: drawn[0].y / ss }, moved(drawn[1])]
+  const moved = { x: base.cps[armed.cpIndex].x + dx, y: base.cps[armed.cpIndex].y + dy * base.direction }
+  const cps: ArcBaseline['cps'] = armed.cpIndex === 0 ? [moved, base.cps[1]] : [base.cps[0], moved]
 
-  // A cross-system slur routes the edit to its segment's own override, keyed by the live span count
-  // (the reset signature); a same-line arc passes neither and reshapes the whole `curveShape`.
-  const segment = handle.segmentRole === undefined ? undefined
-    : handle.segmentRole === 'middle' ? { role: 'middle' as const, ordinal: handle.segmentOrdinal ?? 0 }
-    : { role: handle.segmentRole }
-  // The drag's own pair: `preview…` takes the change (and flags the model dirty), `commit…` records
-  // exactly one undo entry for it. A press is a whole gesture, so the two run back to back here.
-  if (!engine.previewSlurShape(selected.id, cps, segment, handle.slurSpanCount)) return false
-  engine.commitSlurShape()
-  dbg(`Slur control point nudged | id:${selected.id} cp:${armed.cpIndex} seg:${handle.segmentRole ?? 'single'} d:(${dx},${dy})ss`)
+  if (!writeArc(engine, selected.id, cps, base)) return false
+  dbg(`Slur control point nudged | id:${selected.id} cp:${armed.cpIndex} seg:${base.segment?.role ?? 'single'} d:(${dx},${dy})ss`)
+  return true
+}
+
+/**
+ * ⭐ **THE TYPED TWIN OF THE NUDGE** — put one arc control point at an ABSOLUTE value (the Properties
+ * panel's inputs, via `bus.slurGeometry`; his ask, 2026-08-17). Same baseline, same write, same one
+ * undo entry — only the arithmetic differs: the arrows add, this replaces.
+ *
+ * ⚠️ `value` is the number the MODEL holds, not a screen position: `x` runs right, and `y` bows the
+ * arc OUTWARD (away from the notes) whichever side the slur sits on. That is deliberate — the panel
+ * prints the override's own JSON two lines below the input, and a control that disagreed in sign with
+ * the dump right under it would be unreadable. The keyboard is the surface that speaks screen.
+ *
+ * Pass `null` to hand the arc back to the automatic engraving (the whole pair — see
+ * {@link resetArmedSlurHandle} for why a single dot cannot go back alone).
+ *
+ * ⚠️ DECLINES when the addressed dot is not drawn — which on a cross-system slur includes "no dot is
+ * armed, so there is no segment to write to".
+ */
+export function setSlurControlPoint(
+  state: EditorState,
+  engine: ShapeEngine,
+  cpIndex: 0 | 1,
+  value: { x?: number; y?: number } | null,
+): boolean {
+  const selected = selectedOf(state, 'slur')
+  if (!selected) return false
+  const base = arcBaseline(engine, selected.id, cpIndex, selected.controlPoint)
+  if (!base) return false
+
+  if (!value) {
+    const ok = engine.resetSlurShape(selected.id, base.segment, base.spanCount)
+    if (ok) dbg(`Slur arc reset to auto (Properties) | id:${selected.id} seg:${base.segment?.role ?? 'single'}`)
+    return ok
+  }
+  // An absent axis keeps the DRAWN one, so editing x alone never flattens the arch y was holding.
+  const moved = { x: value.x ?? base.cps[cpIndex].x, y: value.y ?? base.cps[cpIndex].y }
+  const cps: ArcBaseline['cps'] = cpIndex === 0 ? [moved, base.cps[1]] : [base.cps[0], moved]
+  if (!writeArc(engine, selected.id, cps, base)) return false
+  dbg(`Slur control point set (Properties) | id:${selected.id} cp:${cpIndex} → (${moved.x},${moved.y})ss`)
   return true
 }
 
@@ -178,12 +252,9 @@ export function resetArmedSlurHandle(state: EditorState, engine: ShapeEngine): b
     return ok
   }
   // A segment's edit is keyed by the live span count, which only the drawn handle knows.
-  const handle = armedSlurHandleEntry(engine.getElementRegistry().getByType('slur-handle'), armed, selected.id)
-  if (handle?.slurSpanCount === undefined) return false
-  const segment = armed.segmentRole === 'middle'
-    ? { role: 'middle' as const, ordinal: armed.segmentOrdinal ?? 0 }
-    : { role: armed.segmentRole }
-  const ok = engine.resetSlurShape(selected.id, segment, handle.slurSpanCount)
+  const base = arcBaseline(engine, selected.id, armed.cpIndex, armed)
+  if (!base?.segment || base.spanCount === undefined) return false
+  const ok = engine.resetSlurShape(selected.id, base.segment, base.spanCount)
   if (ok) dbg(`Slur segment shape reset to auto | id:${selected.id} seg:${armed.segmentRole}`)
   return ok
 }

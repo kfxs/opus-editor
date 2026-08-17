@@ -2,7 +2,10 @@ import type { EditorState } from './EditorState'
 import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
-import { cautionaryClefKey, cautionaryKey, restPositionKey } from '../engine/models/engravingOverrides'
+import {
+  cautionaryClefKey, cautionaryKey, restPositionKey,
+  curveShapeOverrideOf, segmentCurveShapeOverrideOf,
+} from '../engine/models/engravingOverrides'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
@@ -141,13 +144,41 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
         overrides: overridesAt(score, element.id),
       })
       break
-    case 'slur':
+    case 'slur': {
+      // ⭐ The ARC's authored shape, resolved to the ONE address the panel's inputs write to (his
+      // ask, 2026-08-17). A slur's shape lives under two different override kinds — `curveShape` for
+      // a same-line arc, `segmentCurveShape` keyed by segment for a cross-system one — so a panel
+      // reading the compartment itself would have to know which, and on a split slur would have to
+      // pick a system. The ARMED dot already answers both, so the answer is resolved here and the
+      // window stays a reader. `null` = nothing authored, i.e. the automatic arch, which is a
+      // different statement from "0,0" and the reason this is nullable rather than defaulted.
+      const armed = element.controlPoint
+      const segments = armed?.segmentRole
+        ? segmentCurveShapeOverrideOf(score, element.id)
+        : undefined
+      const cps = armed?.segmentRole === 'middle'
+        ? segments?.middles?.[armed.segmentOrdinal ?? 0]
+        : armed?.segmentRole === 'begin' ? segments?.begin
+        : armed?.segmentRole === 'end' ? segments?.end
+        : curveShapeOverrideOf(score, element.id)?.cps
       out.push({
         kind: 'slur',
         data: engine.getSlurById(element.id) ?? { id: element.id, missing: true },
         overrides: overridesAt(score, element.id),
+        derived: {
+          arc: {
+            cps: cps ?? null,
+            // Which system's arc those numbers belong to — absent on a same-line slur, and absent on
+            // a cross-system one until a dot is armed, which is exactly when the inputs can write.
+            segment: armed?.segmentRole
+              ? (armed.segmentRole === 'middle' ? `middle ${(armed.segmentOrdinal ?? 0) + 1}` : armed.segmentRole)
+              : null,
+            armed: armed ? armed.cpIndex : null,
+          },
+        },
       })
       break
+    }
 
     case 'trill':
       // ⭐ The report carries the DERIVED auxiliary beside the stored object, because the stored

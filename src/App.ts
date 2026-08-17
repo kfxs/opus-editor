@@ -18,6 +18,7 @@ import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
+import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { playbackStartMeasure } from './interactions/playbackStart'
@@ -513,6 +514,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
   // …and the Properties trill control, on the same boundary (docs/trill-plan.md §1 rule 6).
   const trillEdit = new TrillEditController(getEngine, () => renderer.renderScore())
+  // …and the Properties SLUR HANDLE inputs — each end's offset and each arc control point. It takes
+  // `state` as well as the engine, the one of these that does: which system a split slur's arc row
+  // writes to is the ARMED dot's business, and that lives in the selection.
+  const slurGeometry = new SlurGeometryController(state, getEngine, () => renderer.renderScore())
 
   // ---------------------------------------------------------------------------------------------
   // Start
@@ -789,6 +794,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       articulationStemAlign.destroy()
       fanEdit.destroy()
       trillEdit.destroy()
+      slurGeometry.destroy()
       for (const part of devShell) part.destroy()
       menuBar.destroy()
       viewport.detach()
