@@ -990,8 +990,31 @@ ones that bite.
   second door past that gate.
 - ⚠️ Both branches (an end, and the vertical) are two `return`s, so they need **two** refusal cases: a
   break-test that dropped only the vertical branch's guard passed the end's case untouched.
-- ⏭️ Not built: a whole-bracket move with nothing armed; a Properties row for the EXTENT (deliberately
-  — it is measured in notes, and a staff-space box would be a second, lossy way to say it).
+- ✅ **The whole-bracket move landed too** — see below. ⏭️ Still not built: a Properties row for the
+  EXTENT (deliberately — it is measured in notes, and a staff-space box would be a second, lossy way
+  to say it).
+
+### ✅⭐⭐ Nothing armed, and the arrows move the whole bracket
+
+His last ask of 2026-08-17, and the wedge's arrangement verbatim: **something armed → that end moves;
+nothing armed → the whole bracket does.** One chord, read by what you picked. `Ctrl+Backspace` with
+nothing armed drops every nudge.
+
+🚨🚨 **It is NOT `setHairpinOffset` with a different name, and this is the trap.** The wedge's
+whole-move calls its per-end setter twice with the SAME `{dx, dy}` — right there, because each of its
+ends owns a separate `y`. Here the vertical is ONE shared field, so passing it to both calls applies it
+**twice**: the bracket jumps a double step while the horizontal beside it, which really is per end,
+looks perfectly correct. `setOttavaOffset` passes 0 on the second call, and a spec case pins exactly
+that.
+
+⭐ The gestures COMPOSE, like the wedge's: nudge one end, then move the whole thing, and the model
+holds exactly that (pinned).
+
+⚠️ **The `!ottava.endpoint` gate has exactly one observable case**, and it took a break-test to find:
+while the armed branch answers, the chain short-circuits and the gate is never consulted. It matters
+when the armed branch **DECLINES** — which the page limit makes it do at the edge of the paper.
+Without the gate, pressing into that edge would stop moving the end and silently start moving the
+whole bracket instead.
 
 ---
 

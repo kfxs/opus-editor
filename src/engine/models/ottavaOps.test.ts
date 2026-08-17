@@ -20,7 +20,7 @@ import {
   addOttava, removeOttava, updateOttava, setOttavaLength, toggleOttavaDirection,
   getOttavaById, ottavaMeasure, measureOttavas, ottavaEndBeat, ottavaSpan, addOttavaOverNotes,
   resizeOttavaBySlot, moveOttavaStartBySlot, applyOttavaDrag,
-  setOttavaEndpointOffset, resetOttavaEndpointOffset,
+  setOttavaEndpointOffset, resetOttavaEndpointOffset, setOttavaOffset, resetOttavaOffset,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
 
@@ -730,5 +730,63 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
     setOttavaEndpointOffset(score, id, 'start', 1, -1)
     removeOttava(score, id)
     expect(ottavaOffsetOverrideOf(score, id)).toBeUndefined()
+  })
+})
+
+/**
+ * ⭐⭐ The WHOLE bracket — {@link setOttavaOffset}, the arrows with an ottava selected and no square
+ * armed (his ask, 2026-08-17).
+ *
+ * ⭐ The chapter exists for ONE case, and it is the second one below: this is **not** the wedge's
+ * `setHairpinOffset` with a different name. That one calls its per-end setter twice with the same
+ * `{dx, dy}`, which is right because each of its ends owns a separate `y`. Here the vertical is one
+ * shared field, so passing it to both calls applies it TWICE — and the horizontal beside it, which
+ * really is per end, would look perfectly correct while the bracket jumped a double step.
+ */
+describe('ottavaOps — moving the whole bracket', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    score = model.getScore()
+    id = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!.id
+  })
+  const off = () => ottavaOffsetOverrideOf(score, id)
+
+  it('⭐ puts the SAME horizontal on both ends — the bracket slides, it does not stretch', () => {
+    setOttavaOffset(score, id, 1.5, 0)
+    expect(off()).toEqual({ kind: 'ottavaOffset', startX: 1.5, endX: 1.5 })
+  })
+
+  it('⭐⭐ applies the shared VERTICAL exactly ONCE — not once per end', () => {
+    setOttavaOffset(score, id, 0, 2)
+    expect(off(), 'two, not four').toEqual({ kind: 'ottavaOffset', outward: 2 })
+  })
+
+  it('…and both axes together still move the vertical once', () => {
+    setOttavaOffset(score, id, 1, -1)
+    expect(off()).toEqual({ kind: 'ottavaOffset', startX: 1, endX: 1, outward: -1 })
+  })
+
+  it('ACCUMULATES onto an existing per-end nudge rather than replacing it', () => {
+    setOttavaEndpointOffset(score, id, 'end', 2, 0)
+    setOttavaOffset(score, id, 1, 0)
+    // ⭐ The gestures COMPOSE: the end keeps its own extra reach and the whole thing moved one more.
+    expect(off()).toEqual({ kind: 'ottavaOffset', startX: 1, endX: 3 })
+  })
+
+  it('declines for an id no ottava has, and writes nothing', () => {
+    expect(setOttavaOffset(score, 'nope', 1, 1)).toBe(false)
+    expect(ottavaOffsetOverrideOf(score, 'nope')).toBeUndefined()
+  })
+
+  it('the RESET drops everything, and declines when there is nothing to drop', () => {
+    expect(resetOttavaOffset(score, id), 'nothing yet').toBe(false)
+    setOttavaOffset(score, id, 1, -1)
+    setOttavaEndpointOffset(score, id, 'end', 2, 0)
+    expect(resetOttavaOffset(score, id)).toBe(true)
+    expect(off()).toBeUndefined()
   })
 })

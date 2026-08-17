@@ -734,6 +734,17 @@ export class ScoreModel {
     return ottavaOps.resetOttavaEndpointOffset(this.score, id, which)
   }
 
+  /** Move the WHOLE bracket by a staff-space delta — ⚠️ NOT the per-end setter twice; the vertical is
+   *  shared. See {@link ottavaOps.setOttavaOffset}. */
+  setOttavaOffset(id: string, dx: number, outward: number): boolean {
+    return ottavaOps.setOttavaOffset(this.score, id, dx, outward)
+  }
+
+  /** Drop every nudge on an ottava. @returns false when it carries none. */
+  resetOttavaOffset(id: string): boolean {
+    return ottavaOps.resetOttavaOffset(this.score, id)
+  }
+
   /** Apply one frame of an ottava endpoint-square DRAG — see {@link ottavaOps.applyOttavaDrag}. */
   applyOttavaDrag(id: string, write: ottavaOps.OttavaDragWrite): boolean {
     return ottavaOps.applyOttavaDrag(this.score, id, write)

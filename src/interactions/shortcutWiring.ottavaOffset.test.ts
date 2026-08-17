@@ -18,11 +18,16 @@ import type { MusicEngine } from '../engine/MusicEngine'
  *
  * The engine is a stub — what is under test is the ROUTING.
  */
+/** The wiring's own steps, so a change to either is a compile-visible change here too. */
+const NUDGE_FINE = 0.25
+const NUDGE_COARSE = 1.0
+
 describe('nudging an octave bracket\'s ink from the keyboard', () => {
   let state: EditorState
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let reset: Mock<(id: string, which: 'start' | 'end') => boolean>
   let resize: Mock<(id: string, direction: 1 | -1) => boolean>
+  let whole: Mock<(id: string, dx: number, outward: number) => boolean>
   let adjustPitch: Mock<(delta: number) => void>
   let run: (action: string) => void
   let teardown: () => void
@@ -32,11 +37,14 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
   beforeEach(() => {
     side = 1
     nudge = vi.fn(() => true)
+    whole = vi.fn(() => true)
     reset = vi.fn(() => true)
     resize = vi.fn(() => true)
     adjustPitch = vi.fn()
     const engine = {
       nudgeOttavaEndpoint: nudge,
+      nudgeOttava: whole,
+      resetOttavaOffset: vi.fn(() => true),
       // ⚠️ The wiring asks which SIDE the bracket is on, to turn the key's screen direction into the
       // model's outward-from-the-staff one. An 8va here; the 8vb case has its own test below.
       getOttavaById: () => ({ id: 'O1', shift: side }),
@@ -128,13 +136,55 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
     expect(adjustPitch).not.toHaveBeenCalled()
   })
 
-  it('⛔ does NOTHING with no square armed — the arrows are not the bracket\'s until you pick an end', () => {
+  it('⭐⭐ with NO square armed the arrows move the WHOLE bracket — the armed square is the difference', () => {
+    // His ask, 2026-08-17, and the wedge's arrangement verbatim: something armed → that end moves;
+    // nothing armed → the whole thing does. One chord, read by what you picked.
     armed()
+    run('selectNextNote')
+    run('pitchUp')
+    run('ctrlArrowLeft')
+    expect(nudge, '⛔ never the per-end write').not.toHaveBeenCalled()
+    // ⚠️ `+ 0` normalises the -0 that negating a zero produces — `Object.is(-0, 0)` is false.
+    expect(whole.mock.calls.map(([, dx, outward]) => [dx + 0, outward + 0])).toEqual([
+      [NUDGE_FINE, 0],
+      [0, NUDGE_FINE],       // ⭐ `↑` on an 8va is further OUT, so the sign flips on the way in
+      [-NUDGE_COARSE, 0],
+    ])
+  })
+
+  it('⭐ …and on an 8vb `↑` is further IN — the same conversion the armed version makes', () => {
+    armed()
+    side = -1
+    run('pitchUp')
+    expect(whole.mock.calls[0][2] as number).toBeLessThan(0)
+  })
+
+  it('⭐ the whole-bracket branch DECLINES once a square is armed, so the two never both fire', () => {
+    armed('end')
     run('pitchUp')
     run('selectNextNote')
-    run('ctrlArrowLeft')
+    expect(whole).not.toHaveBeenCalled()
+    expect(nudge).toHaveBeenCalledTimes(2)
+  })
+
+  it('⭐⭐ an armed nudge the ENGINE REFUSES must not fall through to moving the whole bracket', () => {
+    // ⚠️ THE CASE THE `!ottava.endpoint` GATE EXISTS FOR, and the only one that can see it: while the
+    // armed branch answers, the chain short-circuits and the gate is never consulted. It is consulted
+    // exactly when the armed branch DECLINES — which the page limit makes it do at the edge of the
+    // paper. Without the gate, pressing into that edge would stop moving the end and silently start
+    // moving the whole bracket instead.
+    nudge.mockReturnValue(false)
+    armed('end')
+    run('pitchUp')
+    expect(nudge, 'asked, and was refused').toHaveBeenCalled()
+    expect(whole, '⛔ and nothing else picked the key up').not.toHaveBeenCalled()
+  })
+
+  it('⛔ …and neither fires for another kind, leaving the key to its other tenants', () => {
+    state.selectedElement = null
+    run('pitchUp')
     expect(nudge).not.toHaveBeenCalled()
-    // …and the key goes on to its other tenants rather than being swallowed.
+    expect(whole).not.toHaveBeenCalled()
     expect(adjustPitch).toHaveBeenCalled()
   })
 

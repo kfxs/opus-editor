@@ -902,6 +902,29 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **Move the WHOLE octave bracket** by a staff-space delta and save ONE undo step — the arrows
+   * with an ottava selected and NO square armed.
+   *
+   * ⚠️ `outward` is a distance FROM THE STAFF, like its per-end twin, and the page limit needs a
+   * SCREEN delta to predict where the ink lands — so the same negation happens here.
+   */
+  nudgeOttava(id: string, dx: number, outward: number): boolean {
+    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
+    if (!this.nudgeStaysOnPage('ottava', id, dx, above ? -outward : outward)) return false
+    const ok = this.scoreModel.setOttavaOffset(id, dx, outward)
+    if (ok) this.saveOnly('Nudge octave line')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
+   *  it carries none. */
+  resetOttavaOffset(id: string): boolean {
+    const ok = this.scoreModel.resetOttavaOffset(id)
+    if (ok) this.saveOnly('Reset octave line nudge')
+    return ok
+  }
+
   /** `Ctrl+Backspace` on an armed square: that end's `x` and the shared `y` back to the engraver's
    *  own. @returns false when it carries no nudge, so the key falls through. */
   resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {

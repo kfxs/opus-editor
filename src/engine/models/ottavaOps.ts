@@ -206,6 +206,42 @@ function writeOttavaOffset(
 }
 
 /**
+ * ⭐⭐ **MOVE THE WHOLE BRACKET** — the same delta onto BOTH ends, accumulating: the arrows with an
+ * ottava selected and NO square armed (his ask, 2026-08-17). `dx`/`outward` in staff-spaces.
+ *
+ * ⭐ So the armed square is the whole of the difference, exactly as it is for the wedge: **something
+ * armed → that end moves; nothing armed → the bracket does.** One chord read by what you picked.
+ *
+ * 🚨🚨 **AND IT IS NOT `setHairpinOffset` TWICE, THOUGH IT LOOKS IT.** The wedge's whole-move calls
+ * its per-end setter twice with the SAME `{dx, dy}`, and that is right there because each of its ends
+ * owns a separate `y`. Here the vertical is ONE field shared by both ends
+ * ({@link OttavaOffsetOverride}), so passing `outward` to both calls would apply it TWICE and the
+ * bracket would jump a double step — with the horizontal, which really is per end, looking perfectly
+ * correct beside it. The second call therefore passes 0. ⚠️ A spec case pins exactly this.
+ *
+ * @returns true if the ottava exists.
+ */
+export function setOttavaOffset(score: Score, id: string, dx: number, outward: number): boolean {
+  if (!getOttavaById(score, id)) return false
+  setOttavaEndpointOffset(score, id, 'start', dx, outward)
+  // ⛔ 0, not `outward` — see the note above. The vertical is already written.
+  setOttavaEndpointOffset(score, id, 'end', dx, 0)
+  return true
+}
+
+/**
+ * Drop the bracket's nudges entirely — `Ctrl+Backspace` with it selected and no square armed, the
+ * matching backspace for {@link setOttavaOffset}.
+ *
+ * @returns false when it carries none, so the key falls through to its other tenants.
+ */
+export function resetOttavaOffset(score: Score, id: string): boolean {
+  if (!ottavaOffsetOverrideOf(score, id)) return false
+  clearEngravingOverride(score, id, 'ottavaOffset')
+  return true
+}
+
+/**
  * `Ctrl+Backspace` on an armed square: that end back to the engraver's own position.
  *
  * ⚠️ **It drops that end's `x` AND the shared `outward`** — which follows from the vertical being one
