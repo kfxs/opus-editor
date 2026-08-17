@@ -76,6 +76,22 @@ that matters**, not the file. A PDF nobody knows we have is worth the same as no
 reads as authority and cannot be checked, which is the exact failure mode this whole discipline
 exists to prevent.
 
+### ⭐ What an agent SHOULD pick up, and where the budget goes to die
+
+**Take what you legitimately find.** A publicly readable archive.org item, a Google Books volume, a
+publisher's sample, a PDF a project hosts openly (which is how we have Gerou & Lusk), a page a
+library or a forum reproduces under quotation — use it, keep it, add its row. ⛔ **This directory
+existing is not a reason to skip a source you found in passing**; the archive.org copy of *Behind
+Bars* was exactly that kind of find, and it carried the slur and hairpin research for two days.
+
+⛔ **What is NOT worth an agent's time is the file-locker sweep.** On 2026-08-17 one agent worked
+through idoc.pub, vdoc.pub, kupdf, pdfcoffee, pdfdrive and a row of libgen mirrors looking for
+*Behind Bars*. It spent the larger part of a **2.9-million-token, 50-minute** run on it and came back
+with **nothing** — while the two routes that actually produced verbatim, page-numbered quotations
+that same hour were Google Books and a forum thread. So: if a source is openly and plainly
+available, take it; if it is only on mirrors, that is the signal to change tactic, not to keep
+digging. The rules we need are answerable from snippets, scans and engravers who own the book.
+
 ## Still missing — UNKNOWN, not silent
 
 **Ted Ross** *The Art of Music Engraving*, **Kurt Stone** *Music Notation in the Twentieth Century*,
