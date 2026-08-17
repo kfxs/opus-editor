@@ -824,7 +824,14 @@ tilted slur is deliberately made rounder.** Nothing does the reverse.
 
 ### 11.6 INTERIOR NOTES — what "collision avoidance" actually costs
 
-All three have it; we have none. Their shapes differ, which matters if we ever build one:
+⚠️ **"we have none" was true when this was written and is not any more** — and it misled a reader on
+2026-08-17, who repeated it back to him as a live fact. The ARCH half shipped as §12 Phase 8
+(`rendering/slurObstacles.ts`, Verovio's constraint solve); the ENDPOINT half shipped 2026-08-17
+(`rendering/slurEncompass.ts` + the ceiling in `slurStemEndpoint`). ⛔ Do not read the paragraph
+below as a statement of what we lack; it is a comparison of the three engines' MECHANISMS, which is
+still accurate and still worth having.
+
+All three have it. Their shapes differ, which matters if we ever build one:
 
 - **LilyPond** — no repair pass at all: candidates are *scored* against every covered head and stem
   (`head-encompass-penalty` **1000** is a veto; `stem-encompass-penalty` 30 is a strong preference),

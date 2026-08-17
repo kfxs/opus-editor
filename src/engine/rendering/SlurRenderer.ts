@@ -22,6 +22,8 @@ import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShap
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
+import { encompassCeiling } from './slurEncompass'
+import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
@@ -523,9 +525,21 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       : false
     // The stems as DRAWN, over the whole span: a beam forces its group's direction, so the model's
     // answer and VexFlow's differ. A covered chord that was not rendered contributes nothing.
-    const coveredStems = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
+    const coveredIds = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
+    const coveredStems = coveredIds
       .map(id => pass.staveNoteMap.get(id)?.staveNote.getStemDirection?.())
       .filter((d): d is number => d !== undefined)
+    // ⭐⭐ …and the same scan, one step further: the covered notes as INK, so the attachment can be
+    // told what the slur has to get over (`./slurEncompass`). The two ANCHORED columns drop out —
+    // the slur is attached to them, and an anchor that counted as an obstacle would push the slur
+    // off its own note (LilyPond excludes them by the same test).
+    // ⚠️ Identified by the STAVE NOTE, not by id: a covered id and an anchor id can be two pitches
+    // of the same chord, and that column is the anchor's — one drawn note, one obstacle or none.
+    const interiorInk = coveredIds
+      .map(id => resolveSlurEnd(pass, id))
+      .filter((e): e is SlurEnd =>
+        e !== undefined && e.staveNote !== fromEnd.staveNote && e.staveNote !== toEnd.staveNote)
+      .map(e => e.attach)
     const autoDir = multiVoice
       ? (slurVoice % 2 === 0 ? -1 : 1)
       : slurSideFromStems(coveredStems.length ? coveredStems : [fromEnd.attach.stemDirection])
@@ -538,13 +552,22 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // OPPOSE (p. 111) the stem-side end slides down its stem until the slur tilts at half the
     // melodic interval instead of contradicting it. ⭐ It takes both ends together because that
     // last rule cannot be answered one end at a time.
-    const placement = slurAttachments(fromEnd.attach, toEnd.attach, direction, LIFT)
+    const placement = slurAttachments(
+      fromEnd.attach, toEnd.attach, direction, LIFT,
+      encompassCeiling(interiorInk, direction),
+    )
     // ⚠️⚠️ A CEILING ON THE SLANT (`./slurSlantLimit`, §12 Phase 6) — HIS number, not an engraving
     // rule, and it lands HERE: after the attachment (Phase 1, which is what fixed our real slant
     // faults) and BEFORE the user's endpoint nudge, so a hand drag is still the last word.
+    // ⭐⭐ …and then the slur is not allowed to run DOWNHILL against a rising phrase
+    // (`./slurMelodicTilt`, Gould p. 112). It lands between the attachment and the slant ceiling
+    // because it can only ever REDUCE the slant — the limiter below has less to do, never more.
+    const tilted = tiltWithThePitches(
+      fromEnd.attach, toEnd.attach, placement.from.y, placement.to.y, direction,
+    )
     const slanted = limitSlurSlant(
-      { x: fromEnd.centerX, y: placement.from.y },
-      { x: toEnd.centerX, y: placement.to.y },
+      { x: fromEnd.centerX, y: tilted.fromY },
+      { x: toEnd.centerX, y: tilted.toY },
     )
     let fromY = slanted.fromY
     let toY = slanted.toY

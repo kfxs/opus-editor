@@ -37,7 +37,25 @@
  * already follows — the user owns that curve), and it runs **post-layout**, on where the ink
  * actually landed rather than on where the model thinks the notes are.
  */
-import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
+import { CURVE_PX, SLUR_ARCH_TILT, SLUR_OBSTACLE_MARGIN_RATIO } from './curveStyle'
+
+/**
+ * ⭐⭐ **HOW MUCH AIR THIS slur leaves over what it covers** — MuseScore's length law
+ * (`computeArcClearance`, `slurtielayout.cpp:1359`): a fraction of the span, floored and capped.
+ * `spanPx` and the answer are both in pixels; the bounds and the ratio are argued in `curveStyle`.
+ *
+ * ⭐ **Why a long slur wants MORE air, and it is not arbitrary.** A long slur is FLATTER (Gould
+ * p. 109: *"the curve of a long slur is flattened… a long slur may be completely flat in the
+ * middle"*), so its ink runs nearly parallel to whatever it passes over — and two near-parallel
+ * lines a quarter space apart read as touching, where the same gap under a steep arc reads as
+ * clearance. The ratio prices that.
+ */
+export function slurObstacleMarginPx(spanPx: number): number {
+  return Math.min(
+    Math.max(Math.abs(spanPx) * SLUR_OBSTACLE_MARGIN_RATIO, CURVE_PX.slurObstacleMarginMin),
+    CURVE_PX.slurObstacleMarginMax,
+  )
+}
 
 /** One thing in the way, as a rectangle in the staff's own space. y grows DOWN. */
 export interface SlurObstacle {
@@ -74,6 +92,7 @@ export function slurArchClearance(
 ): SlurArchLift {
   const span = p1.x - p0.x
   if (span === 0) return { c0: 0, c1: 0 }
+  const margin = slurObstacleMarginPx(span)
 
   // ⚠️⚠️ **SAMPLE THE REAL CURVE, both times it would have been tempting not to.**
   //
@@ -110,7 +129,7 @@ export function slurArchClearance(
     const right = Math.max(box.x, box.x + box.width)
     // The obstacle's edge facing the slur, plus air.
     const edge = direction === -1 ? box.y : box.y + box.height
-    const wanted = edge + direction * CURVE_PX.slurObstacleMargin
+    const wanted = edge + direction * margin
 
     for (const s of samples) {
       if (s.t <= 0 || s.t >= 1) continue

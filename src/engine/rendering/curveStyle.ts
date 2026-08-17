@@ -120,15 +120,31 @@ export const CURVE = {
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
   /**
-   * ⭐ **The air a slur leaves above (or below) a note it has to clear** — §12 Phase 8.
+   * ⭐⭐ **The air a slur leaves above (or below) a note it has to clear** — §12 Phase 8, and since
+   * 2026-08-17 a RANGE rather than one number, because the amount depends on how long the slur is.
    *
-   * ⚠️ Ours: the books state the CONSTRAINT and no engine publishes a margin as a number you can
-   * quote. Gould p. 322 says *"all notes must appear to be included in a slur"*, LilyPond turns that
-   * into a 1000-point veto rather than a distance, and MuseScore and Verovio both work from box
-   * intersections. A quarter space is what the slur's own tip clearance (0.25) and the tie's
-   * staff-line air (0.225) already read as, so it starts there. ⛔ Tune by eye, not by argument.
+   * ⚠️ The first version was a flat 0.25 sp and said *"no engine publishes a margin as a number you
+   * can quote… ⛔ tune by eye"*. That was wrong, and the reading that found it is on record: **both
+   * MuseScore and Verovio publish 0.5 sp**, by different constructions that land on the same number.
+   * Verovio's `slurMargin` is `1.0` in units of a HALF staff space (`options.cpp:1461`) — 0.5 sp
+   * flat. MuseScore's `computeArcClearance` (`slurtielayout.cpp:1359`) scales it with length:
+   * `CLEARANCE_TO_LENGTH_RATIO` **0.04**, `MIN_CLEARANCE` **0.1**, `MAX_CLEARANCE` **0.5**, so
+   * anything from 12.5 sp long asks for the full half space. LilyPond's `free-head-distance` **0.3**
+   * is the outlier and it is doing a different job (it pads the avoid-points a fit-factor is solved
+   * against, not a collision test).
+   *
+   * ⭐ **We take MuseScore's law**, because his report of 2026-08-17 was about a LONG slur — a
+   * quarter space over an interior stem read as *"the arc also collide with the A stem (or
+   * almost)"*, and it was clearing by exactly 0.243 sp, i.e. doing precisely what it was told.
+   *
+   * ⛔ **Not ported: MuseScore's `cos²θ` term**, which shrinks the clearance as the slur tilts. Our
+   * arch is lifted VERTICALLY where MuseScore measures perpendicular to the chord — the same
+   * mismatch that keeps {@link SLUR_CONTROL_ANGLE} unused — so the term would be measuring an angle
+   * against the wrong axis. On a near-level slur it is 1 either way.
    */
-  slurObstacleMargin: 0.25,
+  slurObstacleMarginMin: 0.1,
+  /** …and the ceiling, reached at 12.5 sp of span — see {@link CURVE.slurObstacleMarginMin}. */
+  slurObstacleMarginMax: 0.5,
   /**
    * ⚠️⚠️ **OURS, and provisional** — how far the slant ceiling may lift an endpoint away from its own
    * note (`./slurSlantLimit`, §12 Phase 6). Verovio's `GetAdjustedSlurAngle` has no such bound and
@@ -316,6 +332,16 @@ export const SLUR_ARCH_TILT = 0.25
  * apex on a 3.5 sp span. It is a shape decision needing his eye, not an import.
  */
 export const SLUR_CONTROL_ANGLE = { min: 30, boostMax: 15, fullBelowSpaces: 4 } as const
+
+/**
+ * ⭐ **How the obstacle margin grows with the slur's length** — MuseScore's
+ * `CLEARANCE_TO_LENGTH_RATIO` (`slurtielayout.cpp:1359`), between the two bounds in {@link CURVE}.
+ *
+ * A RATIO and not a distance, which is why it is here and not in the table above: every entry there
+ * is in staff spaces and gets converted to pixels wholesale, and a dimensionless number run through
+ * that conversion would silently become a length.
+ */
+export const SLUR_OBSTACLE_MARGIN_RATIO = 0.04
 
 /** Staff spaces → pixels for this family: against the score's staff space, ⛔ never a scaled stave
  *  (see the file note). The one place the curve family leaves engraving units. */

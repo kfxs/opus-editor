@@ -139,8 +139,10 @@ export function slurAttachments(
   to: SlurAttachment,
   direction: number,
   lift: number,
+  /** How far out the covered notes between the two ends reach — see {@link slurAttachmentYs}. */
+  ceiling?: number,
 ): { from: SlurEndpointPlacement; to: SlurEndpointPlacement } {
-  const { fromY, toY } = slurAttachmentYs(from, to, direction)
+  const { fromY, toY } = slurAttachmentYs(from, to, direction, ceiling)
   return {
     from: { y: fromY, dx: stemDodge(from, direction, fromY + lift * direction, 'from') },
     to: { y: toY, dx: stemDodge(to, direction, toY + lift * direction, 'to') },
@@ -159,6 +161,12 @@ export function slurAttachmentYs(
   from: SlurAttachment,
   to: SlurAttachment,
   direction: number,
+  /**
+   * ⭐⭐ **How far out the notes BETWEEN the two ends reach** (`./slurEncompass`), or `undefined`
+   * when there are none — which is every two-note slur, and so the case the p. 111 slide was
+   * measured on in the first place.
+   */
+  ceiling?: number,
 ): { fromY: number; toY: number } {
   const stemmed = (d: number) => d === 1 || d === -1
   const opposed = stemmed(from.stemDirection) && stemmed(to.stemDirection)
@@ -166,6 +174,9 @@ export function slurAttachmentYs(
   // The tilt the slid endpoint aims for: half the distance between the two NOTEHEADS, which is the
   // melodic interval as drawn (the arc is what the reader compares against the pitches).
   const halfInterval = Math.abs(headOn(to, direction) - headOn(from, direction)) / 2
+  /** Which of two ys is further out on the slur's side (up for a slur above). */
+  const further = (a: number, b: number) => (direction === -1 ? Math.min(a, b) : Math.max(a, b))
+  const nearer = (a: number, b: number) => (direction === -1 ? Math.max(a, b) : Math.min(a, b))
 
   const attach = (a: SlurAttachment): number => {
     const headY = headOn(a, direction)
@@ -175,7 +186,22 @@ export function slurAttachmentYs(
     // Slide from the notehead toward the slur's side, but never further than the stem reaches plus
     // one space — a long leap would otherwise launch the arc off the end of a stem it left behind.
     const reach = Math.abs(a.stemTipY - headY) + CURVE_PX.slurStemOvershoot
-    return headY + Math.min(halfInterval, reach) * direction
+    const slid = headY + Math.min(halfInterval, reach) * direction
+    // ⭐⭐ **…but the notes UNDERNEATH outrank the tilt** (his report, 2026-08-17). The p. 111 slide
+    // answers a question about two notes — *does the slur contradict the melody?* — and it was
+    // measured on two notes. Over a GROUP there is a second question it cannot see, and LilyPond
+    // prices the two against each other rather than choosing between them: failing to clear an
+    // interior stem costs a flat 30 demerits, while climbing to this end's own stem tip costs 0.8
+    // per staff space when the stem is unbeamed and points the slur's way. The climb wins by more
+    // than an order of magnitude, every time — so where an interior note reaches past the slide,
+    // the endpoint goes back out to the STEM TIP, which is exactly where the un-opposed rule above
+    // would have put it.
+    // ⛔ Never PAST the tip: that is the ceiling the whole slide was clamped by, and the interior
+    // demand cannot buy more stem than the note has. And with no interior notes there is no demand
+    // at all, so a two-note slur keeps the slide untouched — which is the case p. 111 is about.
+    if (ceiling === undefined) return slid
+    const demand = nearer(ceiling, a.stemTipY)
+    return further(slid, demand)
   }
 
   return { fromY: attach(from), toY: attach(to) }

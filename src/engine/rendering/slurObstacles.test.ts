@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { slurArchClearance, type SlurObstacle } from './slurObstacles'
+import { slurArchClearance, slurObstacleMarginPx, type SlurObstacle } from './slurObstacles'
 import { CURVE_PX } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -75,7 +75,38 @@ describe('slurArchClearance — Verovio\'s single pass (§12 Phase 8)', () => {
     expect(below.c1).toBeCloseTo(above.c1, 6)
   })
 
-  it('leaves the margin where a reader can find it', () => {
-    expect(CURVE_PX.slurObstacleMargin).toBeCloseTo(0.25 * SP, 10)
+  // ── The margin is MuseScore's length law now, not a flat quarter space (2026-08-17). Its two
+  //    bounds are the number a reader looks for; the ratio is what puts a slur between them.
+  it('leaves the bounds where a reader can find them', () => {
+    expect(CURVE_PX.slurObstacleMarginMin).toBeCloseTo(0.1 * SP, 10)
+    expect(CURVE_PX.slurObstacleMarginMax).toBeCloseTo(0.5 * SP, 10)
+  })
+
+  it('the margin grows with the span, floored and capped', () => {
+    expect(slurObstacleMarginPx(1 * SP)).toBeCloseTo(0.1 * SP, 10)    // 0.04 sp → the floor
+    expect(slurObstacleMarginPx(5 * SP)).toBeCloseTo(0.2 * SP, 10)    // 0.04 × 5 sp, in the middle
+    expect(slurObstacleMarginPx(12.5 * SP)).toBeCloseTo(0.5 * SP, 10) // exactly at the cap
+    expect(slurObstacleMarginPx(40 * SP)).toBeCloseTo(0.5 * SP, 10)   // …and stays there
+  })
+
+  it('a NEGATIVE span (a right-to-left pair) asks for the same margin', () => {
+    // The caller passes `p1.x - p0.x`; nothing guarantees the sign, and a signed margin would be
+    // subtracted from the obstacle instead of added to it.
+    expect(slurObstacleMarginPx(-5 * SP)).toBeCloseTo(slurObstacleMarginPx(5 * SP), 10)
+  })
+
+  it('⭐ a LONG slur clears an interior stem by more than a short one does', () => {
+    // His report, 2026-08-17: a 15.6 sp slur cleared an interior stem by 0.243 sp and read as
+    // touching it. Same obstacle, same arch, two spans — the long one must ask for more.
+    // ⚠️ The obstacle sits at the MIDPOINT of each span, so the two controls have equal say in both
+    // and the only difference left is the margin — 0.24 sp for the short one, the 0.5 sp cap for the
+    // long. Put it at a fixed x instead and the comparison measures Bézier weights, not clearance.
+    const box = (x: number) => ({ x: x - 0.5 * SP, y: -3 * SP, width: SP, height: SP })
+    const shortSpan = slurArchClearance({ x: 0, y: 0 }, { x: 6 * SP, y: 0 }, ARCH, ABOVE, [box(3 * SP)])
+    const longSpan = slurArchClearance({ x: 0, y: 0 }, { x: 20 * SP, y: 0 }, ARCH, ABOVE, [box(10 * SP)])
+    // ⛔ The ORDERING is all this can claim. The difference is not the margin difference divided by
+    // 0.75: the worst sample is the one at the box's EDGE, and a 1 sp box covers a wider stretch of
+    // a short span's curve than of a long one's, so the two deficits differ for a second reason too.
+    expect(longSpan.c1).toBeGreaterThan(shortSpan.c1)
   })
 })
