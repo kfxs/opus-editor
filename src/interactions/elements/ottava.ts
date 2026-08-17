@@ -46,5 +46,10 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
   // Recoloured, plus the attachment guide (the fifth kind, 2026-08-17). ⭐ At the bracket's BEGINNING
   // only, and to a PLACE rather than a note — an octave line governs a region, so it belongs to no
   // single pitch. Its side follows the shift, like everything else about the bracket.
-  highlight: h => { h.applyOttavaSelectionHighlight(); h.applyAnchorGuideLine() },
+  // …and the two endpoint squares, one beyond each end (`./ottavaHandles`) — the hairpin's pair.
+  highlight: h => {
+    h.applyOttavaSelectionHighlight()
+    h.applyAnchorGuideLine()
+    h.applyOttavaHandles()
+  },
 }

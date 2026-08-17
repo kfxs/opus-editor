@@ -8,6 +8,7 @@ import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
+import { ottavaEndpointHandles } from './elements/ottavaHandles'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -87,6 +88,7 @@ export class HighlightController {
     registry?.removeByType('slur-endpoint')
     registry?.removeByType('slur-segment-endpoint')
     registry?.removeByType('hairpin-endpoint')
+    registry?.removeByType('ottava-endpoint')
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
@@ -1235,6 +1237,57 @@ export class HighlightController {
       this.setAttr(el, 'stroke', SELECTION_COLOR)
       this.setStyleProp(el, 'stroke', SELECTION_COLOR)
     })
+  }
+
+  /**
+   * ⭐ **THE SELECTED OTTAVA'S TWO ENDPOINT SQUARES** — one beyond the beginning of the bracket, one
+   * beyond its end (his ask, 2026-08-17). {@link applyHairpinHandles} verbatim but for the geometry
+   * it reads, and that is the point: the editor has ONE look for "this is an end of a span", so the
+   * same blue, the same sizes, the same armed-reads-as-picked rule.
+   *
+   * ⭐ **They sit on the bracket's own line and OUTSIDE its ink**, which is what the module's
+   * `OTTAVA_HANDLE_GAP_PX` buys: a square centred on the end would cover the closing hook, and one
+   * centred on the beginning would cover the `8va` — the two marks that state the displacement.
+   *
+   * ⛔ Each square registers an `ottava-endpoint` entry so a press can find it — and
+   * `clearHighlights` removes them again, since the highlight pass owns them (the render never
+   * draws one). They ride the highlight layer's undo log like every node here.
+   */
+  applyOttavaHandles(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'ottava')
+    if (!engine || !scoreCanvas || !selected) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    for (const handle of ottavaEndpointHandles(registry.getByType('ottava'), selected.id)) {
+      const armed = handle.which === selected.endpoint
+      const half = armed ? S + 2 : S
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      sq.setAttribute('x', String(handle.x - half))
+      sq.setAttribute('y', String(handle.y - half))
+      sq.setAttribute('width', String(half * 2))
+      sq.setAttribute('height', String(half * 2))
+      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
+      sq.setAttribute('stroke', '#ffffff')
+      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
+      sq.setAttribute('class', armed
+        ? `ottava-endpoint-handle ottava-endpoint-handle--${handle.which} ottava-endpoint-handle--selected`
+        : `ottava-endpoint-handle ottava-endpoint-handle--${handle.which}`)
+      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
+      this.addNode(svg, sq)
+
+      registry.add({
+        type: 'ottava-endpoint',
+        ottavaId: selected.id,
+        endpoint: handle.which,
+        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
+    }
   }
 
   /**

@@ -440,12 +440,19 @@ export type SelectedElement =
    */
   | { kind: 'trill'; id: string }
   /**
-   * An OCTAVE LINE — the numeral and its dashed bracket. Named by id alone, the trill's and
-   * hairpin's shape: everything about it (which staff, how much music, which way) is on the stored
-   * object, and ⭐ unlike every other span here it has no VOICE to carry — an ottava governs the
-   * whole staff (see `Ottava.staffId`).
+   * An OCTAVE LINE — the numeral and its dashed bracket — plus WHICH END (if any) is armed.
+   *
+   * The id is the whole address, the trill's and hairpin's shape: everything about the line (which
+   * staff, how much music, which way) is on the stored object, and ⭐ unlike every other span here
+   * it has no VOICE to carry — an ottava governs the whole staff (see `Ottava.staffId`).
+   *
+   * ⭐ `endpoint` arrived 2026-08-17 with the two blue squares a selected bracket now draws, reached
+   * by clicking one or by Tab (`./elements/ottavaHandles`). ⛔ It arms NOTHING yet — the hairpin's
+   * own first step, and the same reason to expect the same answer later: a bracket's extent is
+   * MUSICAL (which notes are displaced), so an edit off one of these squares would rewrite
+   * `beat`/`length` on the model rather than nudge a cosmetic offset.
    */
-  | { kind: 'ottava'; id: string }
+  | { kind: 'ottava'; id: string; endpoint?: 'start' | 'end' }
   /**
    * A SUSTAIN PEDAL — `Ped.` and its release `✻`. Named by id alone, the ottava's shape and for its
    * reasons: everything about it (which staff, how much music) is on the stored object, and it has

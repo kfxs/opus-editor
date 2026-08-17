@@ -3,6 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite } from './models/hairpinOps'
+import type { OttavaDragWrite } from './models/ottavaOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -814,6 +815,49 @@ export class MusicEngine {
     const shift = this.scoreModel.toggleOttavaDirection(id)
     if (shift) this.commit(`Flip octave line to ${shift > 0 ? '8va' : '8vb'}`)
     return shift
+  }
+
+  /**
+   * Re-anchor an octave line's END by one slot of its staff — `Ctrl+Shift+→` / `←` with its end
+   * square armed. Saves undo state when it changed. See {@link ottavaOps.resizeOttavaBySlot}.
+   *
+   * ⚠️ **A CONTENT edit, like the flip above it**: the notes the bracket newly covers (or lets go)
+   * change octave when they SOUND. Hence `commit`, not `saveOnly`.
+   */
+  resizeOttavaBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.resizeOttavaBySlot(id, direction)
+    if (ok) this.commit(direction === 1 ? 'Lengthen octave line' : 'Shorten octave line')
+    return ok
+  }
+
+  /**
+   * Move an octave line's BEGINNING by one slot of its staff, holding its end — `Ctrl+Shift+←/→`
+   * with its start square armed. Saves undo state when it changed. See
+   * {@link ottavaOps.moveOttavaStartBySlot}.
+   */
+  moveOttavaStartBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.moveOttavaStartBySlot(id, direction)
+    if (ok) this.commit('Move octave line start')
+    return ok
+  }
+
+  /**
+   * Live (preview) end-move used **while dragging one of an ottava's squares** — writes the model
+   * but does NOT record undo; call {@link commitOttavaDrag} on the drop for the single entry. The
+   * hairpin's `previewHairpinEnd` / `commitHairpinDrag` pair verbatim, and for its reason: every
+   * frame of a drag would otherwise be its own undo step.
+   *
+   * `write` carries the address AND which end of the bracket lands on it — two cases, not the
+   * wedge's three (see {@link OttavaDragWrite}). @returns true when the model changed.
+   */
+  previewOttavaEnd(id: string, write: OttavaDragWrite): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
+    return this.scoreModel.applyOttavaDrag(id, write)
+  }
+
+  /** Record ONE undo entry after an ottava-square drag settles. */
+  commitOttavaDrag(which: 'start' | 'end'): void {
+    this.commitPreviewed(which === 'start' ? 'Move octave line start' : 'Resize octave line')
   }
 
   /** Remove an octave line by id. Saves undo state when one was removed. */

@@ -24,6 +24,7 @@ import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
+import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -146,6 +147,16 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinDragChanged = false
   private hairpinDragStartTime: number | null = null
+
+  // --- Ottava endpoint square drag (the bracket's own two ends — docs/ottava-plan.md). The RIGHT
+  //     square re-anchors the end, the LEFT one moves the beginning and holds the end: the drag twin
+  //     of `Ctrl+Shift+←/→`, snapping to onsets of its STAFF. ---
+  private isDraggingOttavaEnd = false
+  private draggedOttavaId: string | null = null
+  private draggedOttavaEnd: 'start' | 'end' | undefined = undefined
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private ottavaDragChanged = false
+  private ottavaDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -632,6 +643,24 @@ export class MouseController {
       this.draggedHairpinEnd = armed?.endpoint
       this.hairpinDragChanged = false
       this.hairpinDragStartTime = Date.now()
+      this.render.renderScore()
+      event.preventDefault()
+      return
+    }
+    // …and the same for a selected OTTAVA's two squares. ⚠️ A pre-step for the hairpin's reason with
+    // a different overlap behind it: the bracket sits on the outside-staff ladder directly above what
+    // it clears, so a square can land inside a TRILL's or a TEMPO mark's box — and both run ahead of
+    // `OTTAVA_ELEMENT` in the chain.
+    if (armOttavaEndpointAt(this.state, registry, coords.x, coords.y)) {
+      // Click = pick the square; drag (decided on move, past the same time threshold every other
+      // handle uses) re-anchors that end. The square stays armed after either, so the arrows can
+      // carry on from where the mouse stopped.
+      const armed = selectedOf(this.state, 'ottava')
+      this.isDraggingOttavaEnd = true
+      this.draggedOttavaId = armed?.id ?? null
+      this.draggedOttavaEnd = armed?.endpoint
+      this.ottavaDragChanged = false
+      this.ottavaDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1306,6 +1335,9 @@ export class MouseController {
     if (this.isDraggingHairpinEnd) {
       this.endHairpinEndDrag()
     }
+    if (this.isDraggingOttavaEnd) {
+      this.endOttavaEndDrag()
+    }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
     }
@@ -1424,6 +1456,21 @@ export class MouseController {
     this.draggedHairpinEnd = undefined
     this.hairpinDragChanged = false
     this.hairpinDragStartTime = null
+  }
+
+  /** Finish an ottava-square drag: record one undo entry if the bracket actually moved, then
+   *  reset. The square stays armed — the drop ends the gesture, not the selection. */
+  private endOttavaEndDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.ottavaDragChanged && this.draggedOttavaEnd) {
+      engine.commitOttavaDrag(this.draggedOttavaEnd)
+      dbg(`Ottava ${this.draggedOttavaEnd} dragged | id:${this.draggedOttavaId}`)
+    }
+    this.isDraggingOttavaEnd = false
+    this.draggedOttavaId = null
+    this.draggedOttavaEnd = undefined
+    this.ottavaDragChanged = false
+    this.ottavaDragStartTime = null
   }
 
   /** Finish a slur-endpoint drag: record one undo entry if it re-anchored, clear the
@@ -2020,6 +2067,7 @@ export class MouseController {
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
+    if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2209,6 +2257,27 @@ export class MouseController {
     if (!write) return true
     if (engine.previewHairpinEnd(this.draggedHairpinId, write)) {
       this.hairpinDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * One frame of an OTTAVA square drag — the bracket's twin of the handler above, and the same three
+   * steps: wait out the click threshold, ask the module which onset the cursor is over, preview it.
+   *
+   * ⚠️ The candidate EDGE differs per end (`ottavaDragTargetAt`) — the numeral is drawn at a
+   * notehead's left edge and the hook at one's right — but nothing here needs to know that; the
+   * module answers with an address.
+   */
+  private handleOttavaEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingOttavaEnd && this.draggedOttavaId && this.draggedOttavaEnd)) return false
+    if (this.ottavaDragStartTime !== null
+        && Date.now() - this.ottavaDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const write = ottavaDragTargetAt(engine, this.draggedOttavaId, this.draggedOttavaEnd, x, y)
+    if (!write) return true
+    if (engine.previewOttavaEnd(this.draggedOttavaId, write)) {
+      this.ottavaDragChanged = true
       this.render.renderScore()
     }
     return true

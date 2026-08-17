@@ -19,6 +19,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addOttava, removeOttava, updateOttava, setOttavaLength, toggleOttavaDirection,
   getOttavaById, ottavaMeasure, measureOttavas, ottavaEndBeat, ottavaSpan, addOttavaOverNotes,
+  resizeOttavaBySlot, moveOttavaStartBySlot, applyOttavaDrag,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
 
@@ -344,5 +345,274 @@ describe('ottavaOps — addOttavaOverNotes', () => {
     // ⭐ No voice — the one span in this model that has none. If a `voice` ever appears on an
     // `Ottava`, this assertion is the first thing that should have to be deleted.
     expect('voice' in created).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ `Ctrl+Shift+←/→` with the bracket's END square armed — the model write behind the key
+ * (his ask, 2026-08-17).
+ *
+ * ⭐ **The lane is the STAFF**, which is the one place this differs from the hairpin's resize and
+ * the reason it is its own function: an octave line has no voice, so every voice's onset is a step
+ * it can take. The chapter's last two cases are what would go wrong if it walked a voice instead —
+ * and both are audible, not cosmetic, because the span decides which notes SOUND displaced.
+ */
+describe('ottavaOps — resizeOttavaBySlot', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    score = model.getScore()
+  })
+
+  /** Four quarters in bar `m`. */
+  const quarters = (m: number) =>
+    [0, 1, 2, 3].map(b =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+
+  const lengthOf = (id: string) => fracToNumber(getOttavaById(score, id)!.length)
+
+  it('GROWS through the next slot — its onset PLUS its own length, so the note is covered', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
+    expect(lengthOf(o.id)).toBe(2)
+    // ⭐ The point of "through", not "to": the beat-1 quarter now SOUNDS an octave up. An end that
+    // stopped ON its onset would draw a bracket over a note the half-open span leaves alone.
+    expect(soundingShiftAtBeat(score, 1, 1)).toBe(12)
+    expect(soundingShiftAtBeat(score, 1, 2)).toBe(0)
+  })
+
+  it('SHRINKS by dropping the last slot it holds', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(3, 1), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, -1)).toBe(true)
+    expect(lengthOf(o.id)).toBe(2)
+    expect(soundingShiftAtBeat(score, 1, 2), 'let go of the beat-2 quarter').toBe(0)
+  })
+
+  it('⛔ REFUSES to shrink to nothing rather than deleting the line', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, -1)).toBe(false)
+    expect(getOttavaById(score, o.id), 'still there — a shortening gesture never destroys').not.toBeNull()
+    expect(lengthOf(o.id)).toBe(1)
+  })
+
+  it('grows ACROSS a barline into the next bar\'s music', () => {
+    quarters(1)
+    quarters(2)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
+    expect(lengthOf(o.id)).toBe(5) // through bar 2's first quarter
+    expect(soundingShiftAtBeat(score, 2, 0)).toBe(-12)
+  })
+
+  it('declines when there is nothing further in the score at all', () => {
+    quarters(1)
+    quarters(2)
+    const o = addOttava(score, 2, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(false)
+  })
+
+  it('declines for an id no ottava has', () => {
+    quarters(1)
+    expect(resizeOttavaBySlot(score, 'nope', 1)).toBe(false)
+  })
+
+  it('⭐⭐ steps through EVERY VOICE of its staff — a hairpin walks one voice, an octave line the staff', () => {
+    // An eighth in voice 2 between the voice-1 quarters IS a step, because the line displaces it too.
+    // Walking voice 1 alone would jump the end from beat ½ straight to beat 1 and silently re-octave
+    // a note the key never passed.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 2), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
+    expect(lengthOf(o.id), 'the voice-2 eighth: ½ + ½').toBe(1)
+  })
+
+  it('⭐ two voices attacking TOGETHER are one step, and it reaches through the LONGER of them', () => {
+    // Voice 1 takes a quarter at beat 2, voice 2 a half. Reaching through the quarter would put the
+    // end at beat 3 — a position no onset occupies, so the bracket would stop inside a sounding
+    // note and the next press would have to skip the rest of it. The longer slot is the one that
+    // makes the end a boundary again.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 })
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
+    expect(lengthOf(o.id), 'through the HALF at beat 2, not the quarter beside it').toBe(4)
+  })
+
+  it('⭐ stays on ITS OWN staff — the other staff\'s onsets are not steps', () => {
+    // ⚠️ Built so the two lanes give DIFFERENT answers, or it would agree with itself: the LOWER
+    // staff holds one semibreve, so after beat 0 it has no onset until bar 2, while the upper staff
+    // has one every quarter. A line on the lower staff that leaked into the upper would stop at
+    // beat 1; reading its own staff it must reach bar 2.
+    const lower = model.addStaffBelow(0)
+    quarters(1)
+    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1, staffId: lower })!
+    expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
+    expect(lengthOf(o.id), 'past the semibreve into bar 2, not the upper staff\'s beat 1').toBe(8)
+  })
+})
+
+/**
+ * ⭐⭐ `Ctrl+Shift+←/→` with the bracket's BEGINNING square armed — the other half of the pair
+ * (his ask, 2026-08-17).
+ *
+ * ⭐ **What every case here is really checking is that the END DID NOT MOVE.** The model stores a
+ * start and an AMOUNT, so holding the end is `length' = end − start'` — arithmetic that is easy to
+ * get right in one direction and wrong in the other, and whose failure looks like the whole bracket
+ * sliding. Each case therefore asserts the end address, not just the length.
+ */
+describe('ottavaOps — moveOttavaStartBySlot', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    score = model.getScore()
+  })
+
+  const quarters = (m: number) =>
+    [0, 1, 2, 3].map(b =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+
+  /** The span's END, as (measure, beat) — the quantity these gestures must never disturb. */
+  const endOf = (id: string) => {
+    const s = ottavaSpan(score, id)!
+    return [s.endMeasure, fracToNumber(s.endBeat)]
+  }
+
+  it('⭐ REACHES BACK a slot and the end stays put — the length grows by exactly the step', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(2, 1), length: frac(2, 1), shift: 1 })!
+    expect(moveOttavaStartBySlot(score, o.id, -1)).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(1)
+    expect(endOf(o.id), 'the end has not moved').toEqual([1, 4])
+    expect(soundingShiftAtBeat(score, 1, 1), 'the note it reached back over is now displaced').toBe(12)
+  })
+
+  it('⭐ STEPS IN a slot and the end stays put', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(moveOttavaStartBySlot(score, o.id, 1)).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(1)
+    expect(endOf(o.id)).toEqual([1, 4])
+    expect(soundingShiftAtBeat(score, 1, 0), 'the note it let go of is back to written pitch').toBe(0)
+  })
+
+  it('⛔ REFUSES to step the beginning onto or past the end, rather than deleting the line', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(2, 1), length: frac(1, 1), shift: 1 })!
+    expect(moveOttavaStartBySlot(score, o.id, 1)).toBe(false)
+    expect(getOttavaById(score, o.id), 'still there').not.toBeNull()
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(2)
+  })
+
+  it('declines when there is no earlier slot to reach back to', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(moveOttavaStartBySlot(score, o.id, -1)).toBe(false)
+  })
+
+  it('⭐⭐ a beginning crossing a BARLINE re-files the line, keeping the SAME id', () => {
+    quarters(1)
+    quarters(2)
+    const o = addOttava(score, 2, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })!
+    expect(moveOttavaStartBySlot(score, o.id, -1)).toBe(true)
+    // It now lives on bar 1 — the list it sits in IS "the lines that start here".
+    expect(measureOttavas(score.measures[0]).map(x => x.id)).toEqual([o.id])
+    expect(measureOttavas(score.measures[1])).toHaveLength(0)
+    expect(score.measures[1].ottavas, 'an emptied array is DELETED, not left as []').toBeUndefined()
+    // ⭐ Same id — a re-created line would deselect itself mid-gesture, taking the square with it.
+    expect(getOttavaById(score, o.id)).not.toBeNull()
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(3)
+    expect(endOf(o.id), 'and the end still has not moved').toEqual([2, 4])
+  })
+
+  it('⭐ steps through EVERY VOICE of its staff, like the end does', () => {
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    const o = addOttava(score, 1, { beat: frac(1, 1), length: frac(3, 1), shift: 1 })!
+    expect(moveOttavaStartBySlot(score, o.id, -1)).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat), 'the voice-2 eighth at ½').toBe(0.5)
+    expect(endOf(o.id)).toEqual([1, 4])
+  })
+
+  it('declines for an id no ottava has', () => {
+    quarters(1)
+    expect(moveOttavaStartBySlot(score, 'nope', -1)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ One frame of a DRAG — {@link applyOttavaDrag}, the mouse's road to the same two model writes
+ * the keyboard reaches by stepping.
+ *
+ * ⭐ **The claim worth pinning is that there are TWO cases and not the hairpin's three.** A wedge's
+ * tip is drawn at the first UNCOVERED note, so a drag has to say "end before this slot" as well as
+ * "cover it"; a bracket ends ON its last notehead, so every address a drag can name is a covered
+ * slot. Porting the third case would end the line one note early, pointing at nothing.
+ */
+describe('ottavaOps — applyOttavaDrag', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    score = model.getScore()
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+  })
+
+  const spanOf = (id: string) => {
+    const sp = ottavaSpan(score, id)!
+    return [sp.startMeasure, fracToNumber(sp.startBeat), sp.endMeasure, fracToNumber(sp.endBeat)]
+  }
+
+  it('⭐ an END drop COVERS the slot it names — its onset PLUS its own length', () => {
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    expect(applyOttavaDrag(score, o.id, { at: 'end', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(spanOf(o.id)).toEqual([1, 0, 1, 3])
+    expect(soundingShiftAtBeat(score, 1, 2), 'the note dropped on is displaced').toBe(12)
+    expect(soundingShiftAtBeat(score, 1, 3)).toBe(0)
+  })
+
+  it('⭐ an END drop SHORTENS as readily as it lengthens — a drag has no direction', () => {
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(applyOttavaDrag(score, o.id, { at: 'end', measure: 1, beat: frac(1, 1) })).toBe(true)
+    expect(spanOf(o.id)).toEqual([1, 0, 1, 2])
+  })
+
+  it('⭐ a START drop holds the END, exactly as the arrow key does', () => {
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(spanOf(o.id)).toEqual([1, 2, 1, 4])
+  })
+
+  it('⛔ refuses a drop that would leave the line covering nothing, and one off its staff', () => {
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    // A start dropped ON or past the end: refused rather than deleting the line.
+    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(3, 1) })).toBe(false)
+    // An address with no slot at it — bar 9 does not exist, and beat 7 of bar 1 holds nothing.
+    expect(applyOttavaDrag(score, o.id, { at: 'end', measure: 9, beat: frac(0, 1) })).toBe(false)
+    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(7, 1) })).toBe(false)
+    expect(spanOf(o.id), 'untouched by all three').toEqual([1, 0, 1, 2])
+  })
+
+  it('⭐ a START dragged across a BARLINE re-files the line, keeping the same id', () => {
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(b, 1) })
+    }
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(6, 1), shift: 1 })!
+    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 2, beat: frac(1, 1) })).toBe(true)
+    expect(measureOttavas(score.measures[1]).map(x => x.id)).toEqual([o.id])
+    expect(score.measures[0].ottavas).toBeUndefined()
+    expect(spanOf(o.id), 'and the end has not moved').toEqual([2, 1, 2, 2])
   })
 })

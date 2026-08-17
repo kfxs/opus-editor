@@ -469,6 +469,13 @@ function drawOttava(
         { x: right, y: bottom },
         { x: startX, y: bottom },
       ],
+      // ⭐ THE BRACKET'S AXIS on this system, for the two endpoint handles a SELECTED ottava draws
+      // (`interactions/elements/ottavaHandles`). ⚠️ Measured here rather than derived from the band
+      // above, because `lineY` is NOT the band's middle: it rides the numeral's top under an 8va and
+      // its foot under an 8vb — see {@link ElementInfo.ottavaAxis}.
+      // ⭐ `startX` is the NUMERAL's left edge (the bracket's beginning as the reader sees it), not
+      // `lineStart`, which is the dashed line's — the handle belongs beside the whole mark.
+      ottavaAxis: { y: lineY, startX, endX: right },
       // ⭐⭐ THE ATTACHMENT GUIDE — the fifth kind (docs/dynamic-offset-plan.md).
       //
       // ⭐ **Its far end is a PLACE, not a note**, which puts the octave line with the hairpin and

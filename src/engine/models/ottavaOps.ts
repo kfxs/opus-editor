@@ -24,6 +24,7 @@ import type { Fraction, Score, Ottava, Measure } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
+import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
 import { clearEngravingOverride } from './overrideOps'
 
@@ -127,6 +128,250 @@ export function setOttavaLength(score: Score, id: string, length: Fraction): boo
   if (!fracIsPositive(length)) return false
   ottava.length = length
   return true
+}
+
+/**
+ * ⭐⭐ **RE-ANCHOR THE BRACKET'S END BY ONE SLOT** — the model write behind `Ctrl+Shift+→` / `←` on a
+ * selected ottava's END square (his ask, 2026-08-17). Growing reaches through the next slot at or
+ * after the current end; shrinking drops the last slot the line holds.
+ *
+ * ⭐ **By a SLOT, not by a fixed amount of time** — {@link resizePedalBySlot}'s rule and
+ * {@link resizeHairpinBySlot}'s before it. Here it is more than tidiness: the span is HALF-OPEN
+ * (`soundingShiftAt`), so an end landing between two onsets shifts exactly the same notes as one
+ * landing on the later onset while drawing a longer bracket — the picture and the sound would
+ * disagree about music neither of them changed. Ending on a boundary is the only statement the model
+ * can make twice over.
+ *
+ * ⭐⭐ **The lane is the STAFF, every voice** — the pedal's line, not the hairpin's, and for the
+ * reason the ottava exists: an octave line has no voice (see {@link Ottava}), it displaces whatever
+ * the staff plays. Stepping through one voice's onsets would let the key walk PAST a note in the
+ * other voice that the bracket then silently covers or uncovers. Two voices attacking together are
+ * ONE step, de-duplicated by beat, so a chord across voices does not cost two presses.
+ *
+ * ⚠️ **This is the MODEL, not an override** — {@link setOttavaLength}'s point. Which notes are
+ * displaced is what the passage SOUNDS, so there is nothing for `Ctrl+Backspace` to reset and the
+ * caller commits a real undo entry.
+ *
+ * ⛔ **Never deletes.** Shrinking past the last held slot is refused rather than removing the line:
+ * a gesture that destroys the thing it is shortening is a trap. Also declines when there is nothing
+ * further on the staff to reach, and when no such ottava exists.
+ */
+export function resizeOttavaBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs: fromAbs, endAbs, lane } = placed
+
+  let nextEnd: Fraction
+  if (direction === 1) {
+    // Reach THROUGH the next slot beginning at or after the current end — its onset plus its own
+    // length, so the note the bracket grows over is covered rather than merely touched
+    // (`addOttavaOverNotes`' rule, and the half-open span's requirement).
+    const next = lane.find(s => fracCompare(s.abs, endAbs) >= 0)
+    if (!next) return false // nothing further on this staff — the line already reaches the end
+    nextEnd = fracAdd(next.abs, next.length)
+  } else {
+    // Drop the LAST slot the line holds: its onset becomes the new end.
+    const held = lane.filter(s => fracCompare(s.abs, fromAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
+    const last = held[held.length - 1]
+    if (!last) return false
+    nextEnd = last.abs
+  }
+
+  return setOttavaLength(score, id, fracSub(nextEnd, fromAbs))
+}
+
+/**
+ * ⭐⭐ **MOVE THE BRACKET'S BEGINNING BY ONE SLOT, HOLDING ITS END** — the model write behind
+ * `Ctrl+Shift+←/→` with the START square armed (his ask, 2026-08-17). `←` reaches the beginning back
+ * a slot (the line grows at the front), `→` steps it in (the line shrinks from the front); in both
+ * cases the far end stays exactly where it is.
+ *
+ * ⭐⭐ **Which the model expresses in ONE write, though it looks as if it could not.** An `Ottava`
+ * stores a start and an AMOUNT ({@link Ottava.length}), so "hold the end" has no field to hold —
+ * and does not need one: the two shapes are the same information, and the end stays put iff
+ * `length' = end − start'`, both assigned together here. {@link moveHairpinStartBySlot} says this at
+ * length; it is repeated rather than shared because the LANE differs (a staff, not a voice) and the
+ * lane is the whole of what these two functions disagree about.
+ *
+ * ⭐ **A beginning moved across a barline MOVES THE LINE to the bar it now starts in** — the list it
+ * is stored in *is* "the octave lines that start here" — keeping the same object and the same id.
+ * A re-created ottava would silently deselect itself mid-gesture, and the square the user is
+ * pressing arrows on would vanish.
+ *
+ * ⚠️ **No upsert on the way in**, unlike {@link addOttava}: moving a beginning onto a beat another
+ * line already starts at leaves both in place. {@link updateOttava} states the reason — a move is
+ * not a claim about which of two should win, and deleting the one already there would destroy a
+ * span the user never named.
+ *
+ * Declines (false) when there is no slot to step to, when the beginning would reach or pass the END,
+ * or when no such ottava exists. ⛔ Never deletes.
+ */
+export function moveOttavaStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const next = direction === -1
+    // Reach BACK: the last onset before the current beginning.
+    ? [...lane].reverse().find(s => fracCompare(s.abs, startAbs) < 0)
+    // Step IN: the first onset after it — and never as far as the end, which the length check inside
+    // {@link setOttavaStartAtSlot} refuses one step later.
+    : lane.find(s => fracCompare(s.abs, startAbs) > 0)
+  if (!next) return false
+  return setOttavaStartAtSlot(score, id, next)
+}
+
+/** A lane slot named by its address — what a DRAG hands the two ops below, having found it from the
+ *  cursor rather than by stepping. `HairpinSlotTarget`'s twin. */
+export interface OttavaSlotTarget {
+  measure: number
+  beat: Fraction
+}
+
+/**
+ * ⭐ **Put the bracket's BEGINNING on `target`, holding its end** — the drag's half of
+ * {@link moveOttavaStartBySlot}, which now steps by finding a slot and calling this.
+ *
+ * The two-fields-one-write invariant is kept HERE, which is why the stepping op delegates rather
+ * than repeating it. Declines when `target` is not an onset of the ottava's own staff, or when the
+ * beginning would reach or pass the end.
+ */
+export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { ottava, startMeasure, endAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  const length = fracSub(endAbs, slot.abs)
+  if (!fracIsPositive(length)) return false
+
+  // ⭐ Both fields, one step. See {@link moveOttavaStartBySlot}.
+  if (slot.measure !== startMeasure && !moveOttavaToMeasure(score, ottava, slot.measure)) return false
+  ottava.beat = slot.beat
+  ottava.length = length
+  ottavaMeasure(score, id)?.ottavas?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/**
+ * ⭐⭐ **Put the bracket's END so that it COVERS `target`, holding its beginning** — the drag's half
+ * of {@link resizeOttavaBySlot}'s growing branch.
+ *
+ * ⭐⭐ **There is only ONE end case here, where the hairpin needs three, and the difference is
+ * Gould's rule 2.** A wedge's tip is drawn at the first UNCOVERED note's left edge, so dragging it
+ * has to distinguish "end before this slot" from "cover this slot" — two writes for one cursor
+ * position. An octave bracket stops at the LAST COVERED notehead's RIGHT edge, so every position the
+ * end can be dragged to *is* a covered slot: the address the cursor picks and the note the hook
+ * closes around are the same note. ⛔ Do not port `setHairpinEndBeforeSlot` — it would make the
+ * bracket end one note early and there is nothing on screen it could point at.
+ *
+ * Declines when `target` is not an onset of the ottava's own staff, or when the line would cover no
+ * music. Only `length` moves — the beginning is a field nobody touches here.
+ */
+export function setOttavaEndAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  return setOttavaLength(score, id, fracSub(fracAdd(slot.abs, slot.length), startAbs))
+}
+
+/**
+ * What one frame of an ottava drag asks for — an address plus WHICH END of the bracket is being put
+ * on it.
+ *
+ * ⭐ TWO cases, not the hairpin's three — see {@link setOttavaEndAtSlot} for why the bracket's end
+ * has no "before this slot" reading.
+ */
+export type OttavaDragWrite = OttavaSlotTarget & { at: 'start' | 'end' }
+
+/** Apply one frame of a drag. See {@link OttavaDragWrite}. */
+export function applyOttavaDrag(score: Score, id: string, write: OttavaDragWrite): boolean {
+  const target = { measure: write.measure, beat: write.beat }
+  return write.at === 'start'
+    ? setOttavaStartAtSlot(score, id, target)
+    : setOttavaEndAtSlot(score, id, target)
+}
+
+/** Everything the three span-editing ops above read: the line, where it currently reaches, and the
+ *  onsets of its STAFF it may be moved between. */
+function locate(score: Score, id: string): {
+  ottava: Ottava
+  startMeasure: number
+  startAbs: Fraction
+  endAbs: Fraction
+  lane: ReturnType<typeof staffOnsets>
+} | null {
+  const span = ottavaSpan(score, id)
+  const ottava = span ? getOttavaById(score, id) : null
+  if (!span || !ottava) return null
+
+  const starts = measureStartOffsets(score)
+  const base = starts.get(span.startMeasure)
+  if (base === undefined) return null
+  const startAbs = fracAdd(base, span.startBeat)
+
+  return {
+    ottava,
+    startMeasure: span.startMeasure,
+    startAbs,
+    endAbs: fracAdd(startAbs, ottava.length),
+    lane: staffOnsets(score, ottava.staffId, starts),
+  }
+}
+
+/** Re-file an ottava under a different measure, keeping the SAME object (and so the same id, which
+ *  is what the selection holds). `hairpinOps`' twin, including the ⭐ `delete` of an emptied array —
+ *  an absent `ottavas` and an empty one must not both be reachable, or the JSON round trip has two
+ *  spellings of "none". */
+function moveOttavaToMeasure(score: Score, ottava: Ottava, measureNumber: number): boolean {
+  const target = score.measures.find(m => m.number === measureNumber)
+  if (!target) return false
+  for (const measure of score.measures) {
+    const idx = measure.ottavas?.findIndex(o => o.id === ottava.id) ?? -1
+    if (idx === -1) continue
+    measure.ottavas!.splice(idx, 1)
+    if (measure.ottavas!.length === 0) delete measure.ottavas
+    break
+  }
+  if (!target.ottavas) target.ottavas = []
+  target.ottavas.push(ottava)
+  return true
+}
+
+/**
+ * Every onset of one STAFF, by absolute quarter-beat, with the slot's own length and address —
+ * de-duplicated by beat (two voices attacking together are one onset) and sorted.
+ *
+ * ⚠️ De-duplicating keeps the LONGEST slot at a shared onset, which is what "reach through the next
+ * slot" has to mean when two voices start together and one is longer: the shorter one's end is
+ * inside the longer one's note, so stopping there would put the bracket's end at a position no
+ * onset occupies — and the next press would then have to skip the rest of that note.
+ */
+function staffOnsets(
+  score: Score,
+  staffId: string | undefined,
+  starts: Map<number, Fraction>,
+): Array<{ abs: Fraction; length: Fraction; measure: number; beat: Fraction }> {
+  const at = new Map<string, { abs: Fraction; length: Fraction; measure: number; beat: Fraction }>()
+  for (const measure of score.measures) {
+    const base = starts.get(measure.number)
+    if (base === undefined) continue
+    for (const slot of measure.slots) {
+      if (!matchesStaff(slot.staffId, staffId, score)) continue
+      const abs = fracAdd(base, slot.beat)
+      const length = slotLength(slot)
+      const key = `${abs.num}/${abs.den}`
+      const seen = at.get(key)
+      if (!seen || fracCompare(length, seen.length) > 0) {
+        at.set(key, { abs, length, measure: measure.number, beat: slot.beat })
+      }
+    }
+  }
+  return [...at.values()].sort((a, b) => fracCompare(a.abs, b.abs))
 }
 
 /**

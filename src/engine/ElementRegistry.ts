@@ -86,6 +86,14 @@ export type ElementType =
    */
   | 'ottava'
   /**
+   * One of the two blue SQUARES a selected ottava draws, one beyond each end of the bracket. The
+   * `'hairpin-endpoint'` above verbatim, one family and one look: registered by the HIGHLIGHT pass
+   * so it exists only while its ottava is selected, removed again by `clearHighlights`, and carrying
+   * `ottavaId` + `endpoint` rather than `id` for that entry's reason — {@link getById} answers with
+   * the FIRST entry holding an id, and a handle sharing the bracket's would shadow the bracket.
+   */
+  | 'ottava-endpoint'
+  /**
    * A SUSTAIN PEDAL's sign — `Ped.` or its release `✻`. ⚠️⚠️ **ONE ENTRY PER DRAWN GLYPH**, which is
    * one grain FINER than the hairpin's, trill's and ottava's per-fragment rule, and deliberately: a
    * `Ped.✻` pedal has no ink at all between its two signs, so a fragment-wide box would claim every
@@ -349,7 +357,8 @@ export interface ElementInfo {
   slurId?: string
   cpIndex?: 0 | 1
   /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. Also carried by a
-   *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms. */
+   *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms — and by an
+   *  'ottava-endpoint' square, where it is which end of the BRACKET. */
   endpoint?: 'start' | 'end'
   /** For a 'hairpin' fragment: the mouth it was DRAWN at (staff-spaces, after the automatic rule,
    *  any authored override and the steepness cap), and the drawn length that decided it. The
@@ -360,6 +369,22 @@ export interface ElementInfo {
   /** For a 'hairpin-endpoint' square: the wedge it belongs to. Its own field rather than `id`, so a
    *  lookup for the hairpin cannot find a handle's small box instead (the `stem` trap next door). */
   hairpinId?: string
+  /** For an 'ottava-endpoint' square: the bracket it belongs to. `hairpinId`'s twin, its own field
+   *  for that field's reason. */
+  ottavaId?: string
+  /**
+   * ⭐ For an 'ottava' fragment: the BRACKET'S OWN AXIS on this system — the y the dashed line runs
+   * at, and the x's of the fragment's ink at either end (`startX` is the numeral's left edge, not
+   * the line's start; `endX` is the far edge of whichever of line and numeral reaches further).
+   *
+   * ⚠️ **It is not derivable from `points`, and that is why it exists.** `points` are the fragment's
+   * BAND — the numeral's ink box stretched along the line — and the line does not run down its
+   * middle: the bracket closes toward the staff, so an 8va's horizontal rides the numeral's TOP and
+   * an 8vb's its FOOT ({@link OTTAVA_LINE_RAISE_ABOVE}). Reading the band's midpoint would put the
+   * endpoint handles three quarters of a space off the line under the staff, and dead on it above —
+   * a bug that looks like a one-sided mistake and is really a missing measurement.
+   */
+  ottavaAxis?: { y: number; startX: number; endX: number }
   /** For a 'slur-segment-endpoint' handle (the orange open-join squares): which side of a
    *  MIDDLE segment this open end is. Begin/end open joins need no side (one each). Combined
    *  with `segmentRole` + `segmentOrdinal` + `slurSpanCount` it forms the nudge address. */
@@ -434,6 +459,15 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
 
   // Sampled arc points (slur proximity hit-testing).
   if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
+
+  // The ottava bracket's axis — three coordinates on the element, so all three move with it.
+  if (element.ottavaAxis) {
+    moved.ottavaAxis = {
+      y: element.ottavaAxis.y + dy,
+      startX: element.ottavaAxis.startX + dx,
+      endX: element.ottavaAxis.endX + dx,
+    }
+  }
 
   // Slur handle geometry.
   if (element.controlPoints) {
@@ -513,6 +547,15 @@ export function scaleElement(element: ElementInfo, k: number): ElementInfo {
     }))
   }
   if (element.points) scaled.points = element.points.map(p => ({ x: p.x * k, y: p.y * k }))
+  // The ottava bracket's axis — three coordinates, so all three scale (a small staff draws its
+  // numeral and line in its own space, and a handle left unscaled would sit off the bracket).
+  if (element.ottavaAxis) {
+    scaled.ottavaAxis = {
+      y: element.ottavaAxis.y * k,
+      startX: element.ottavaAxis.startX * k,
+      endX: element.ottavaAxis.endX * k,
+    }
+  }
   if (element.controlPoints) {
     scaled.controlPoints = [
       { x: element.controlPoints[0].x * k, y: element.controlPoints[0].y * k },

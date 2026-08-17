@@ -17,6 +17,7 @@ import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
+import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -128,6 +129,16 @@ export function wireShortcuts(
   const walkHairpinHandles = (step: 1 | -1): boolean => {
     const eng = getEngine()
     if (!eng || !cycleHairpinEndpoint(state, eng.getElementRegistry(), step)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // …and a selected OTTAVA's two endpoint squares (`elements/ottavaHandles`). Chained on for the
+  // hairpin's reason: `selectedElement` is ONE thing, so each walk declines whenever another kind
+  // is what is selected.
+  const walkOttavaHandles = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !cycleOttavaEndpoint(state, eng.getElementRegistry(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -465,6 +476,54 @@ export function wireShortcuts(
     const id = selectedOf(state, 'pedal')?.id
     if (!eng || !id) return false
     if (!eng.resizePedalBySlot(id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **RE-ANCHOR THE SELECTED OTTAVA'S END by one slot** — the same chord with the bracket's END
+   * square armed (his ask, 2026-08-17: *"lets add ctrl shift arrow to the last point for change
+   * anchoring"*).
+   *
+   * ⭐ **The armed square is the GATE, exactly as it is for the hairpin's pair** — which is what
+   * makes one chord able to mean "this end" at all: the same keys, and WHICH SQUARE IS ARMED decides
+   * which end of the bracket they move.
+   *
+   * ⚠️ It walks the whole STAFF, not a voice — the pedal's lane and for its reason, spelled out in
+   * `ottavaOps.resizeOttavaBySlot`: an octave line has no voice, so a step that skipped the other
+   * voice's onsets would displace notes the key never passed.
+   *
+   * DECLINEs (false) when no ottava is selected, when its end square is not the armed one, when
+   * there is nothing further on the staff, or when shrinking would leave it covering no music —
+   * refused rather than deleting the line.
+   */
+  const resizeSelectedOttava = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const ottava = selectedOf(state, 'ottava')
+    if (!eng || ottava?.endpoint !== 'end') return false
+    if (!eng.resizeOttavaBySlot(ottava.id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **Move the selected ottava's BEGINNING by one slot, WITHOUT moving its end** — the same chord
+   * with the bracket's LEFT square armed (his ask, 2026-08-17: *"now lets do the same reanchor with
+   * the left square"*). `←` reaches the beginning back a slot, `→` steps it in; the far end holds,
+   * which the model does by writing `beat` and `length` together (`ottavaOps`).
+   *
+   * ⚠️ **A beginning that crosses a barline re-files the line under the bar it now starts in**, same
+   * object and same id — otherwise the selection this gesture is being driven from would evaporate
+   * mid-press. `moveOttavaStartBySlot` owns that; this only repaints.
+   *
+   * DECLINEs (false) when the left square is not the armed one, when there is no slot to step to, or
+   * when the beginning would reach the end.
+   */
+  const moveSelectedOttavaStart = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const ottava = selectedOf(state, 'ottava')
+    if (!eng || ottava?.endpoint !== 'start') return false
+    if (!eng.moveOttavaStartBySlot(ottava.id, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -873,8 +932,8 @@ export function wireShortcuts(
     // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
     // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
     // when a handler does not answer false.
-    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1),
-    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1),
+    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1),
+    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1),
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
@@ -970,11 +1029,17 @@ export function wireShortcuts(
     //    spanner. The RIGHT square resizes; the LEFT one moves the start and holds the end. Two
     //    branches rather than one because they are two model writes, and both DECLINE unless their
     //    square is the armed one. Disjoint from the note offset: one `selectedElement`, one kind.
+    //    ⭐ …and the same pair again for an armed OTTAVA square, his ask of the same day: the RIGHT
+    //    square re-anchors the end, the LEFT one moves the beginning and holds the end. Two branches
+    //    for the hairpin's reason (two model writes), and both walk the whole STAFF rather than a
+    //    voice, because an octave line has none.
     ctrlShiftArrowLeft: () =>
       reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
+      || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
+      || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),

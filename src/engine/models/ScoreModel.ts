@@ -710,6 +710,23 @@ export class ScoreModel {
     return ottavaOps.setOttavaLength(this.score, id, length)
   }
 
+  /** Re-anchor an ottava's END by one slot of its STAFF (every voice) — see
+   *  {@link ottavaOps.resizeOttavaBySlot}. @returns true if it changed. */
+  resizeOttavaBySlot(id: string, direction: 1 | -1): boolean {
+    return ottavaOps.resizeOttavaBySlot(this.score, id, direction)
+  }
+
+  /** Move an ottava's BEGINNING by one slot of its STAFF, holding its end — see
+   *  {@link ottavaOps.moveOttavaStartBySlot}. @returns true if it changed. */
+  moveOttavaStartBySlot(id: string, direction: 1 | -1): boolean {
+    return ottavaOps.moveOttavaStartBySlot(this.score, id, direction)
+  }
+
+  /** Apply one frame of an ottava endpoint-square DRAG — see {@link ottavaOps.applyOttavaDrag}. */
+  applyOttavaDrag(id: string, write: ottavaOps.OttavaDragWrite): boolean {
+    return ottavaOps.applyOttavaDrag(this.score, id, write)
+  }
+
   /** The ottavas STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getOttavas(measureNumber: number): Ottava[] {
     const measure = this.getMeasure(measureNumber)
