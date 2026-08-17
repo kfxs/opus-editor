@@ -642,16 +642,29 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
 
   const off = () => ottavaOffsetOverrideOf(score, id)
 
-  it('⭐⭐ a dy from EITHER square lands on the ONE shared y — the line cannot tilt', () => {
-    setOttavaEndpointOffset(score, id, 'start', 0, -1)
+  it('⭐⭐ a vertical nudge from EITHER square lands on the ONE shared number — no tilt', () => {
+    setOttavaEndpointOffset(score, id, 'start', 0, 1)
     // ⭐ Zeros are not stored — a purely vertical nudge leaves no `startX` behind. See
-    // `writeOttavaOffset` for why the shared `y` makes that necessary rather than merely tidy.
-    expect(off()).toEqual({ kind: 'ottavaOffset', y: -1 })
+    // `writeOttavaOffset` for why the shared vertical makes that necessary rather than merely tidy.
+    expect(off()).toEqual({ kind: 'ottavaOffset', outward: 1 })
     // …and the far square adds to the SAME number rather than getting one of its own.
-    setOttavaEndpointOffset(score, id, 'end', 0, -0.5)
-    expect(off()).toEqual({ kind: 'ottavaOffset', y: -1.5 })
-    // ⛔ The structural half of the claim: there is nowhere a second height could live.
-    expect(Object.keys(off()!).filter(k => k.toLowerCase().includes('y'))).toEqual(['y'])
+    setOttavaEndpointOffset(score, id, 'end', 0, 0.5)
+    expect(off()).toEqual({ kind: 'ottavaOffset', outward: 1.5 })
+    // ⛔ The structural half of the claim: there is nowhere a second vertical could live.
+    expect(Object.keys(off()!).filter(k => k !== 'kind' && !k.endsWith('X'))).toEqual(['outward'])
+  })
+
+  it('⭐⭐ the vertical is OUTWARD from the staff, so it is not a screen y', () => {
+    // His correction, 2026-08-17: *"the height is not intuitive… for 8vb it works, because increasing
+    // makes it higher, but with 8va alta it does not."* Stored as a distance from the staff, ONE
+    // positive number means "further out" on both sides — and, the model-level reason, `x` (flip
+    // direction) can no longer invert a nudge that already exists.
+    setOttavaEndpointOffset(score, id, 'start', 0, 2)
+    expect(off()).toMatchObject({ outward: 2 })
+    // Flip the bracket to an 8vb: the stored intent is untouched, and still means "2 further out".
+    toggleOttavaDirection(score, id)
+    expect(getOttavaById(score, id)!.shift).toBe(-1)
+    expect(off(), 'the nudge survived the flip meaning the same thing').toMatchObject({ outward: 2 })
   })
 
   it('⭐ x stays PER END — the beginning pulls the numeral, the end pulls the hook', () => {
@@ -673,7 +686,7 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
     }
     setOttavaEndpointOffset(score, id, 'end', 1.5, -1)
     resizeOttavaBySlot(score, id, -1)
-    expect(off(), 'untouched by the extent edit').toMatchObject({ endX: 1.5, y: -1 })
+    expect(off(), 'untouched by the extent edit').toMatchObject({ endX: 1.5, outward: -1 })
   })
 
   it('declines for an id no ottava has, and writes nothing', () => {
@@ -685,7 +698,7 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
     setOttavaEndpointOffset(score, id, 'start', 1, -1)
     setOttavaEndpointOffset(score, id, 'end', 2, 0)
     expect(resetOttavaEndpointOffset(score, id, 'start')).toBe(true)
-    // ⭐ There is no "reset only this end's height", because there is no such height.
+    // ⭐ There is no "reset only this end's vertical", because there is no such per-end vertical.
     expect(off()).toEqual({ kind: 'ottavaOffset', endX: 2 })
   })
 
@@ -697,8 +710,8 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
 
   it('⭐ the reset DECLINES when that square carries nothing, so the key falls through', () => {
     expect(resetOttavaEndpointOffset(score, id, 'start')).toBe(false)
-    // ⭐⭐ THE CASE THAT FORCED ZERO-PRUNING: a purely horizontal nudge of the END computes a `y` of
-    // 0, and storing that zero would make the untouched START square claim a nudge — so
+    // ⭐⭐ THE CASE THAT FORCED ZERO-PRUNING: a purely horizontal nudge of the END computes an
+    // `outward` of 0, and storing that zero would make the untouched START square claim a nudge — so
     // Ctrl+Backspace there would answer instead of falling through to the note-spacing reset.
     setOttavaEndpointOffset(score, id, 'end', 1, 0)
     expect(resetOttavaEndpointOffset(score, id, 'start'), 'the start carries nothing').toBe(false)

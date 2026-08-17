@@ -880,16 +880,24 @@ export class MusicEngine {
    * ⭐⭐ **Nudge the armed end of an octave bracket's INK** — a plain or `Ctrl` arrow with that square
    * armed. Staff-spaces; screen-down is +y.
    *
-   * ⭐ **`dy` moves the WHOLE bracket** however it is asked for, because an octave line is a straight
-   * horizontal rule and {@link OttavaOffsetOverride} has nowhere to put a second height. That is his
-   * rule, kept in the model's SHAPE rather than in the code that writes it.
+   * ⭐ **`outward` moves the WHOLE bracket** however it is asked for, because an octave line is a
+   * straight horizontal rule and {@link OttavaOffsetOverride} has nowhere to put a second height.
+   * That is his rule, kept in the model's SHAPE rather than in the code that writes it.
+   *
+   * ⭐⭐ **`outward` is a distance FROM THE STAFF, not a screen delta** — `+` is up for an 8va and
+   * down for an 8vb (his correction: a screen value reads backwards on one side). ⚠️ Callers that
+   * speak screen convert on the way in; `shortcutWiring` is the one that does, because `↑` is a
+   * screen direction. `dx` is unaffected — right is right on both sides of the staff.
    *
    * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, unlike
    * the extent edits above it.
    */
-  nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
-    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, dy)
+  nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
+    // ⚠️ The PAGE LIMIT predicts where ink lands, so it needs a SCREEN delta — the second of the two
+    // places that convert (the renderer is the other). Above the staff, further out is further UP.
+    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
+    if (!this.nudgeStaysOnPage('ottava', id, dx, above ? -outward : outward)) return false
+    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
     if (ok) this.saveOnly('Nudge octave line')
     return ok
   }

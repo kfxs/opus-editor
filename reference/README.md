@@ -21,13 +21,36 @@ rediscovering that it was gone. This directory is so the third one does not.
 
 | file | what it is | where it came from |
 |---|---|---|
-| `gerou-lusk-essential-dictionary-of-music-notation.pdf` / `.txt` | **Gerou & Lusk, *Essential Dictionary of Music Notation*** (Alfred, 1996), 82pp, complete. The one full treatise we hold. Slurs at pp. 121–124: placement by stem direction, "starts mid-stem, to the right of the stem", "never cross the beam with a slur", slope follows the phrase. | openly hosted: `musescore.org/sites/musescore.org/files/2022-02/EssentialDictionaryOfMusicNotation_0.pdf` |
+| ⭐⭐ `Behind Bars The Definitive Guide to Music Notation (Elaine Gould) (z-library.sk, 1lib.sk, z-lib.sk) (2).pdf` | **Gould, *Behind Bars*, THE WHOLE BOOK** — 696 PDF pages, 249 MB, scanned with an OCR text layer. Added **2026-08-17 16:25**, i.e. *after* the "how to reach Gould" section below was written. ⭐ **This is now the first stop for any Gould question.** What it has answered so far: the BELOW-STAFF LADDER (p. 29 octave signs incl. the whole-system exception; p. 101–102 dynamics go OUTSIDE octave signs, with the drawn correct/incorrect pair; p. 332–333 pedal below all other notation + Table 2's pedal stacking order; p. 337 a drawn `8`-under-`Ped.`-under-`Sost. Ped.` stack). | added by hand, 2026-08-17 |
+| `gerou-lusk-essential-dictionary-of-music-notation.pdf` / `.txt` | **Gerou & Lusk, *Essential Dictionary of Music Notation*** (Alfred, 1996), 82pp, complete. The one full treatise we hold **besides Gould**. Slurs at pp. 121–124: placement by stem direction, "starts mid-stem, to the right of the stem", "never cross the beam with a slur", slope follows the phrase. Also: **damper pedal, p. 105** — *"always placed below the grand staff and are usually placed below all other musical elements"* (our second, independent source for the pedal being the outermost family); **octave signs, p. 98** — *"as close to the notes affected as possible"*, `8vb` is *"only a copyist's shorthand and should not be used in engraved music"*, and a drawn example putting the `8va` outside a slur. ⭐ The `.txt` is already extracted — grep it before opening the PDF. | openly hosted: `musescore.org/sites/musescore.org/files/2022-02/EssentialDictionaryOfMusicNotation_0.pdf` |
 | `gould-scans/gould.png`, `gould_good.png`, `gould_bad.png` | **Gould, *Behind Bars*, p. 111** — a scan of the printed page: the opposite-stem rule AND both music examples. ⭐ The examples are the payoff: they can be MEASURED, which is how we learned her drawing disagrees with the formula attributed to her. | scoringnotes.com, "Better Sibelius slurs for opposite stem direction on outer notes" |
 | `gould-scans/att2528.jpg`, `att2528_music.png` | **p. 111, a second scan** carrying the qualifier sentence *"The slur should not, however, move too close to noteheads if there is room for it to be further away."* | notat.io thread `t=635`, posted by John Ruggero |
 | `musescore-slurs-and-ties-handout.pdf` | 4pp MuseScore user handout. Minor; kept for completeness. | MuseScore docs |
 | `using-sibelius-effectively-sample.pdf` | 20pp **SAMPLE** of *Using Sibelius Effectively*. ⚠️ A sample, not the book. | publisher sample |
 
-## ⭐⭐ How to reach Gould now — the routes that work, and the one that does not
+## ⭐⭐ Gould is ON DISK — how to page into 249 MB without drowning
+
+**Added 2026-08-17.** ⛔ **Read this before the web section below it**, which was written on 2026-08-17
+at 12:09, four hours before the book arrived, and which sent one agent at Google Books for a question
+the PDF answers directly.
+
+- **⭐ THE PAGE OFFSET: `PDF page = printed page + 20`.** Calibrated against three landmarks — PDF 50 =
+  printed 30 (*Across a system break*), PDF 122 = printed 102 (*Dynamics and articulation*), PDF 353 =
+  printed 333 (*Piano notation: Pedalling*). 696 PDF pages, printed body runs to ~676.
+- **Find the page cheaply, in text.** `pdftotext -f <pdf> -l <pdf> "<file>" -` on a range, or extract
+  the whole book once — `pdftotext "<file>" gould.txt` takes ~1 s and yields ~980 KB — and grep that
+  **in the scratch dir, never in the repo**. ⚠️ It is OCR: italics, music glyphs and the tables come
+  out as noise (`ottavn bassn`, `92w` for `Ped.`), so grep on plain prose words.
+- **⛔ The Read tool cannot open this PDF** — "exceeds maximum allowed size for text extraction
+  (100MB)". **Render the page to PNG instead** and Read *that*:
+  `pdftoppm -f <pdf> -l <pdf> -r 450 -png "<file>" out` (~0.2 s/page at 450 dpi, ~2765×4147 px).
+- **⭐⭐ Then MEASURE it.** At 450 dpi one stave-space is **20 px**, so a per-row ink profile over an
+  x-window turns any figure into stave-spaces: find the five staff lines (the rows with a huge ink
+  count), then read off the rungs below them. That is how p. 102's and p. 337's ladders were measured
+  (`docs/`-facing numbers, 2026-08-17). ⛔ `numpy` is not installed — plain PIL `load()` loops are
+  fast enough on one page.
+
+## ⭐⭐ How to reach Gould when the PDF is not to hand — the routes that work, and the one that does not
 
 ⛔ **`archive.org/details/behind-bars-by-elaine-gould` IS DEAD** (HTTP 200 with an empty `{}`
 metadata body = a darkened item; `/download/` 404s, and the stale search index still lists it, which
@@ -44,6 +67,9 @@ https://books.google.de/books?id=yBK_DwAAQBAJ&jscmd=SearchWithinVolume&num=100&q
 with a browser User-Agent and `Referer: https://books.google.de/`. Returns
 `{page_number, snippet_text}`. Caveats that decide whether it works:
 
+- ✅ **Re-verified live 2026-08-17 ~18:45** (`q=octave+sign`, `q=pedal+line`, `q=pedal+dynamics` all
+  returned page-numbered snippets). It is how printed pp. 29 / 101 / 332 were *located* before the
+  local PDF was known about — a good index, a poor reader.
 - ⛔ **Not** `googleapis.com/books/v1` — quota-exhausted, returns 429.
 - ⚠️ **Short terms only.** A long exact phrase returns zero hits; search two or three words and read
   the snippet around them.
@@ -54,6 +80,21 @@ with a browser User-Agent and `Referer: https://books.google.de/`. Returns
 question is *what did she draw*, find a scan. `scoringnotes.com` and the `notat.io` forum (needs a
 browser UA — `WebFetch` gets 403) both reproduce printed pages, and notat.io additionally quotes
 house styles **with numbers** and Ross with page numbers.
+
+### What was asked of it on 2026-08-17, and what came back
+
+The question was the **below-staff ladder**: does an `8vb` bracket, and does the sustain pedal, sit
+inside or outside the dynamics? Recorded here because the answer contradicted our pass order.
+
+| asked | source | answer |
+|---|---|---|
+| 8vb vs dynamics, below the staff | **Gould p. 101** (prose) | *"other markings — such as those for articulation, slurs, **octave signs** and tuplet brackets — are **required to be closer to notes**, so add these markings to the music **before positioning dynamics**"*. So the bracket is INSIDE. |
+| the same, as a PICTURE | **Gould p. 102** (top figure) | The drawn correct/incorrect pair, and it is an ottava **bassa** under the staff with hairpins. Correct: slurs · `8- - -⌐` · `f< sf> p<` outward. **"but not"**: the dynamics tucked under the staff and the `8` pushed outside them. Measured at 450 dpi: dashed line **4.0 sp** below the bottom staff-line, dynamic ink from **≈5.5 sp**. |
+| the exception | **Gould p. 29** | *"Place an extension line **for a whole system** outside all other notation (notes, short slurs, articulation and dynamics) … information that potentially changes (e.g. dynamics) is better placed closer to the stave. **Only tempo markings and piano pedal indications remain outside** an octave extension line that continues for a whole system."* ⭐ A whole-system line INVERTS the p. 101 order. |
+| pedal vs everything | **Gould p. 332** | *"Place these beneath the lowest stave of the system, **below all other notation including an 8va bassa sign**."* Table 2's order = damper, sostenuto, una corda, staff-outward, *"this reflects their physical layout"*. |
+| the same, as a PICTURE | **Gould p. 337** (2nd figure) | `8- - -⌐` under the bass staff, `Ped.` line below it, `Sost. Ped.` line below that. Measured: **3.25 / 7.25 / 10.5 sp** below the bottom staff-line. |
+| the same, second source | **Gerou & Lusk p. 105** | *"always placed below the grand staff and are **usually placed below all other musical elements**."* |
+| ⛔ pedal vs dynamics **as a picture** | — | **UNKNOWN.** Every pedal figure in Gould pp. 333–338 is piano, where dynamics go *between* the staves (p. 323), so the two never share a side. Only the prose above covers it. |
 
 ## ⭐ Adding a source
 

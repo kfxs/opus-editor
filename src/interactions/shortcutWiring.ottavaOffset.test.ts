@@ -26,14 +26,20 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
   let adjustPitch: Mock<(delta: number) => void>
   let run: (action: string) => void
   let teardown: () => void
+  /** Which side the fixture's bracket is on — +1 an 8va (above), −1 an 8vb (below). */
+  let side: 1 | -1
 
   beforeEach(() => {
+    side = 1
     nudge = vi.fn(() => true)
     reset = vi.fn(() => true)
     resize = vi.fn(() => true)
     adjustPitch = vi.fn()
     const engine = {
       nudgeOttavaEndpoint: nudge,
+      // ⚠️ The wiring asks which SIDE the bracket is on, to turn the key's screen direction into the
+      // model's outward-from-the-staff one. An 8va here; the 8vb case has its own test below.
+      getOttavaById: () => ({ id: 'O1', shift: side }),
       resetOttavaEndpointOffset: reset,
       resizeOttavaBySlot: resize,
       moveOttavaStartBySlot: vi.fn(() => true),
@@ -72,8 +78,8 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
   const armed = (endpoint?: 'start' | 'end') => {
     state.selectedElement = { kind: 'ottava', id: 'O1', endpoint }
   }
-  /** The (which, dx, dy) of every nudge call, dropping the id. */
-  const calls = () => nudge.mock.calls.map(([, which, dx, dy]) => [which, dx, dy])
+  /** The (which, dx, outward) of every nudge call, dropping the id. */
+  const calls = () => nudge.mock.calls.map(([, which, dx, outward]) => [which, dx, outward])
 
   it('⭐ the armed square moves horizontally — plain arrow FINE, Ctrl+arrow COARSE', () => {
     armed('end')
@@ -83,10 +89,11 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
     expect(fine[0]).toBe('end')
     expect(fine[1] as number).toBeGreaterThan(0)
     expect(coarse[1] as number).toBeGreaterThan(fine[1] as number) // Ctrl is the bigger step
-    expect(fine[2], 'a horizontal key sends no dy').toBe(0)
+    // ⚠️ `toBeCloseTo`, not `toBe`: negating a 0 gives -0, and `Object.is(-0, 0)` is false.
+    expect(fine[2] as number, 'a horizontal key sends no vertical').toBeCloseTo(0)
   })
 
-  it('⭐⭐ ↑/↓ route the SAME dy from EITHER square — the bracket is one straight line', () => {
+  it('⭐⭐ ↑/↓ route the SAME vertical from EITHER square — the bracket is one straight line', () => {
     armed('start')
     run('pitchUp')
     armed('end')
@@ -94,11 +101,25 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
     const [fromStart, fromEnd] = calls()
     expect(fromStart[0]).toBe('start')
     expect(fromEnd[0]).toBe('end')
-    // ⭐ Same delta, and screen-down is +y, so "up" is negative. The two squares are two doors to one
-    // quantity; the model has nowhere to put a second, so nothing here has to keep them equal.
+    // ⭐ Same delta from both. The two squares are two doors to one quantity; the model has nowhere to
+    // put a second, so nothing here has to keep them equal.
     expect(fromStart[2]).toBe(fromEnd[2])
-    expect(fromStart[2] as number).toBeLessThan(0)
     expect(fromStart[1], 'a vertical key sends no dx').toBe(0)
+  })
+
+  it('⭐⭐ ↑ means FURTHER FROM THE STAFF — so its sign FLIPS with the side', () => {
+    // His correction, 2026-08-17: *"the height is not intuitive… for 8vb it works, because increasing
+    // makes it higher, but with 8va alta it does not."* The stored number is a distance from the
+    // staff, so this wiring — the one place that speaks SCREEN, because a key is a screen direction —
+    // converts. ⭐ `↑` must lift the ink on BOTH sides, which is why the two rows below differ.
+    armed('end')
+    run('pitchUp')
+    expect(calls()[0][2] as number, '8va: up is further out').toBeGreaterThan(0)
+
+    nudge.mockClear()
+    side = -1 // an 8vb, below the staff
+    run('pitchUp')
+    expect(calls()[0][2] as number, '8vb: up is further IN').toBeLessThan(0)
   })
 
   it('⭐ ↑/↓ CONSUME the key when a square is armed — the selection is not a note to re-pitch', () => {

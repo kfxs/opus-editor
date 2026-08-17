@@ -205,16 +205,22 @@ export function wireShortcuts(
    *
    * ⭐⭐ **`↑`/`↓` move the WHOLE bracket, whichever square is armed** — his rule, *"ottava is a
    * straight line, so offset in y should result in offset the two points in y"*. Nothing here
-   * enforces it: `OttavaOffsetOverride` has ONE `y`, so there is no second height to write. ⛔ Do not
-   * "fix" this into a per-end pair to match the hairpin — a tilted octave bracket is not a shape.
+   * enforces it: `OttavaOffsetOverride` has ONE vertical, so there is no second height to write. ⛔ Do
+   * not "fix" this into a per-end pair to match the hairpin — a tilted octave bracket is not a shape.
    *
-   * ⚠️ Screen-down is +y, so "up lifts the bracket" passes a negative dy.
+   * ⭐⭐ **This is the one place that converts screen to OUTWARD-from-the-staff**, and it converts
+   * because a KEY is a screen direction: `↑` must lift the bracket on both sides of the staff, while
+   * the stored number means "further from the staff" so that flipping 8va↔8vb cannot invert a nudge
+   * the user already made (see `OttavaOffsetOverride`). Above the staff the two agree up to a sign.
+   *
+   * ⚠️ Screen-down is +dy, so "up" arrives negative and becomes a POSITIVE outward for an 8va.
    */
   const nudgeArmedOttavaEnd = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const ottava = selectedOf(state, 'ottava')
     if (!eng || !ottava?.endpoint) return false
-    if (!eng.nudgeOttavaEndpoint(ottava.id, ottava.endpoint, dx, dy)) return false
+    const above = (eng.getOttavaById(ottava.id)?.shift ?? 1) > 0
+    if (!eng.nudgeOttavaEndpoint(ottava.id, ottava.endpoint, dx, above ? -dy : dy)) return false
     renderer.renderScore()
     return true
   }

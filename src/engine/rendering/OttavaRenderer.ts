@@ -422,7 +422,13 @@ function drawOttava(
     // ⭐⭐ THE SHARED VERTICAL NUDGE, applied to every fragment alike — which is what makes "offset in
     // y offsets BOTH points" true across a system break as well as within one. It moves the numeral,
     // the dashes and the hook together, because all three are measured off this baseline.
-    const y = stave.getYForLine(0) + px(baseline + (nudge?.y ?? 0))
+    //
+    // ⭐⭐ **`outward` is a distance FROM THE STAFF, so it is negated above it** — this is one of the
+    // two places that convert (the other is the page limit). `baseline` is screen-relative and already
+    // signed per side; the stored number is not, so that `x` (flip direction) cannot invert a nudge
+    // the user already made. See {@link OttavaOffsetOverride}.
+    const lift = (nudge?.outward ?? 0) * (side === 'above' ? -1 : 1)
+    const y = stave.getYForLine(0) + px(baseline + lift)
 
     // ⭐ THE LADDER CLAIM — so the tempo mark, which is placed after every family, clears this
     //   bracket. ⚠️ Per FRAGMENT, in that fragment's own beats.

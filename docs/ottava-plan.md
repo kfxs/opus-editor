@@ -70,8 +70,32 @@ Gould's.
    horizontal line above it does not occur in Gould's examples.
 4. **Direction decides the side.** Up → above the staff; down → below. (Dorico states it as a rule,
    and it follows from rule 1: the side is half of what tells the reader the direction.)
-5. **Octave lines are placed OUTSIDE all other notations** — with one exception: they may sit
-   *inside* a slur or a tuplet bracket **when the slur or bracket is longer than the octave line**.
+5. 🚨🚨 **CORRECTED 2026-08-17, from the book itself — this rule was cited from the wrong sentence
+   and it is the wrong way round against DYNAMICS.**
+
+   What Gould p. 29 actually says, opening the octave-signs section, is *"Usually the octave sign will
+   be outside all other notation. It must never cut through other symbols"* — a **don't-collide**
+   rule, not a ranking. The ranking against dynamics is elsewhere and goes the other way:
+
+   - ⭐⭐ **p. 101** (*Placing dynamics relative to the stave*): *"other markings — such as those for
+     articulation, slurs, **octave signs** and tuplet brackets — are **required to be closer to
+     notes**, so add these markings to the music **before positioning dynamics**"*.
+   - ⭐⭐ **p. 102, top figure — DRAWN, and it is exactly our case**: an ottava bassa under a treble
+     staff with hairpins, as a correct/incorrect pair. **Correct** = staff → slurs → the `8` bracket
+     and tuplet bracket → dynamics furthest out. The one marked *"but not"* is the dynamics tucked
+     under the staff with the `8` pushed outside them — **which is the drawing our renderer produces
+     today.** Measured off her engraving at 450 dpi (1 sp = 20 px): `8` line 4.0 sp below the bottom
+     staff-line, dynamic ink from ≈5.5 sp, so ≈1.5 sp of clearance.
+   - ⭐ **The one exception, p. 29**: an extension line running **for a whole system** goes outside
+     everything after all — *"only tempo markings and piano pedal indications remain outside"* it —
+     because a dotted line across the whole width visually cuts off anything beyond it. We implement
+     nothing like this today.
+
+   ⚠️ **The slur/tuplet exception below is unaffected**: they may sit *inside* a slur or tuplet bracket
+   when that bracket is longer than the octave line.
+
+   ⏭️ **The code has NOT been changed.** See §5's correction for why it is not a one-line move, and
+   `docs/ottava-plan.md` is the record until it is decided.
 6. ⭐ **They continue across system and page breaks, and the numeral is shown again at the start of
    each system as a reminder.** Dorico's own words: *"Cautionary numerals at breaks are usually
    parenthesized and the suffix is optional."*
@@ -261,7 +285,33 @@ interface Ottava {
 **OttavaBracket 400** · TextScript 450 · MetronomeMark **1300**.
 
 ⭐ **Two independent sources agree on the ottava's rung**: LilyPond puts it outside dynamics (400 vs
-250), and Gould says octave lines sit *outside all other notations* (§1 rule 5). So the order is
+250), and Gould was read as saying octave lines sit *outside all other notations* (§1 rule 5).
+
+🚨🚨 **THAT SECOND SOURCE HAS BEEN WITHDRAWN, 2026-08-17.** The sentence quoted is p. 29's
+don't-collide rule; Gould's actual ranking against dynamics is p. 101–102 and puts the octave bracket
+**INSIDE** them (see the corrected §1 rule 5). So the two sources DISAGREE, and what is built follows
+LilyPond alone:
+
+| pair | Gould | LilyPond `outside-staff-priority` |
+|---|---|---|
+| ottava vs dynamics | ottava **INSIDE** (p. 101–102), unless it runs a whole system (p. 29) | ottava **OUTSIDE** — 400 vs 250 |
+| pedal vs both | pedal **OUTSIDE** both (p. 332) | agrees — pedal spanners 1000 |
+
+⭐ **The pedal half is confirmed twice over** and needs no change: Gould p. 332 — *"place these
+beneath the lowest stave of the system, **below all other notation including an 8va bassa sign**"* —
+and, independently, Gerou & Lusk p. 105: damper markings are *"usually placed below all other musical
+elements"*. p. 337 draws the stack: `8` at 3.25 sp, `Ped.` at 7.25, `Sost. Ped.` at 10.5.
+⛔ **UNKNOWN**: no figure in Gould shows a pedal and a dynamic on the same side of one staff (her pedal
+figures are piano, where dynamics sit *between* the staves), so that half rests on prose, not a
+picture.
+
+⏭️ **OPEN DECISION — not a one-line pass move.** Putting the ottava inside the dynamics means its
+claim must be filed BEFORE the dynamics line reads the band, and `planDynamicsLines` runs *above* the
+measure loop — the same hoist problem this section already describes for tempo. The trill (innermost,
+50) is unaffected. It also changes where every existing score draws its dynamics, so it waits on his
+call.
+
+So the order as BUILT is
 real, and it is settled.
 
 ### The good news: it is STILL ink, not a priority table
@@ -894,6 +944,57 @@ family-wide rule that refuses the write rather than clamping the drawing.
   hand nudge is the engraver overruling automatic placement, and making it shove the tempo mark would
   turn one deliberate move into a cascade nobody asked for.
 - ⏭️ **Not built:** Properties rows for the three offsets, and a whole-bracket move with nothing armed.
+
+---
+
+## ✅⭐⭐ P8 — THE OFFSETS IN PROPERTIES, and the VERTICAL's two meanings (2026-08-17, BUILT)
+
+His ask: *"now we need to be able to edit the offset of the two points in properties."* Modules:
+`bus/ottavaGeometrySelection.ts` + `interactions/OttavaGeometryController.ts` +
+`PropertiesWidget.buildOttavaOffsetRows` — the hairpin end rows' arrangement exactly.
+
+### ⭐⭐ THREE rows, not two points
+
+`start x (sp)` · `end x (sp)` · `vertical (sp)`. ⛔ Copying the wedge's `start (x, y)` / `end (x, y)`
+would offer two verticals for a mark that has ONE, and the two boxes could then disagree about it. The
+panel's shape is the model's, and that is how a reader learns the rule.
+
+⭐ **0 is the automatic position**, so the boxes show `0` rather than a blank *auto* — unlike the
+wedge's MOUTH, whose automatic is a computed width no single number stands for. `reset` therefore
+publishes 0 and the model's zero-pruning drops the entry; there is no `null` case on this seam.
+
+### ⭐⭐ The vertical is stored one way and shown another — both on purpose
+
+Two of his corrections landed on the same number and pulled in opposite directions. Both are right,
+and the conversion between them is one negation.
+
+| | meaning | why |
+|---|---|---|
+| **stored** (`OttavaOffsetOverride.outward`) | distance **FROM THE STAFF**; `+` = further out | ⭐⭐ `x` flips an ottava's direction, and the side is DERIVED from `shift`. With a screen-signed field, flipping an 8va you had nudged clear of the music turns that nudge into a shove **toward** it. Stated as a distance, the intent survives the flip. |
+| **shown** (the `vertical` box) | screen; `+` = **UP**, always | ⭐⭐ *"For me, increasing the number is go up and decreasing go down always… the arrow of the properties should reflect the movement on screen."* A typed box has no arrow on it to say which side of the staff you are on. |
+
+⚠️ So the displayed number **flips sign when the bracket is flipped**, which is honest: the ink really
+did move to the other side of the staff.
+
+⚠️ **Exactly three places convert, and each is an edge that genuinely speaks screen** — the RENDERER
+(negates above the staff), the PAGE LIMIT (needs a screen delta to predict where ink lands), and the
+KEYBOARD (`↑` must lift on both sides). Everything else — seam, controller, model, JSON — reads
+`outward` as written.
+
+🚨 **Every pre-existing test used an 8va, where the conversion is the identity**, so all of them passed
+with it deleted. The 8vb cases in `PropertiesWidget.ottava.test.ts` and `e2e/ottava.e2e.ts` are the
+ones that bite.
+
+### The rest
+
+- ⭐ The typed value goes through **`nudgeOttavaEndpoint`** (absolute → `next − current`), never
+  straight to the compartment — that is what puts the panel behind the same PAGE LIMIT as the arrows
+  (`docs/engraving-overrides-plan.md` §8). ⛔ A controller writing the override itself would be a
+  second door past that gate.
+- ⚠️ Both branches (an end, and the vertical) are two `return`s, so they need **two** refusal cases: a
+  break-test that dropped only the vertical branch's guard passed the end's case untouched.
+- ⏭️ Not built: a whole-bracket move with nothing armed; a Properties row for the EXTENT (deliberately
+  — it is measured in notes, and a staff-space box would be a second, lossy way to say it).
 
 ---
 

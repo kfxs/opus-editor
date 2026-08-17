@@ -3753,7 +3753,9 @@ export class VexFlowRenderer {
 
     // ⭐⭐ …then the OCTAVE LINES, and this position IS their rung. An ottava sits outside both
     // families above (LilyPond's `outside-staff-priority` 400 against the dynamics' 250 and the
-    // trill's 50; Gould: octave lines go *outside all other notations*), so it is the first pass
+    // trill's 50 — ⚠️ LilyPond ALONE: the Gould sentence once cited beside it was withdrawn on
+    // 2026-08-17, and her actual ranking p. 101–102 puts the bracket INSIDE the dynamics. Open
+    // decision, see docs/ottava-plan.md §5), so it is the first pass
     // that both READS `pass.occupiedBands` and writes to it — the middle of the ladder
     // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
     renderOttavas(pass, score, placements, staffList.map(staff => staff.id))

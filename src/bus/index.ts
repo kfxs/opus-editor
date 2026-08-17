@@ -13,6 +13,7 @@ import { createFanStampSelection } from './fanStampSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createDynamicOffsetSelection } from './dynamicOffsetSelection'
+import { createOttavaGeometrySelection } from './ottavaGeometrySelection'
 import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
 import { createSlurGeometrySelection } from './slurGeometrySelection'
@@ -87,6 +88,8 @@ export interface EditorBus {
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
   /** The Properties dynamic/expression offset inputs — `noteOffset`'s twin, two axes. */
   dynamicOffset: ReturnType<typeof createDynamicOffsetSelection>
+  /** The Properties ottava offset inputs — two horizontals and ONE shared height. */
+  ottavaGeometry: ReturnType<typeof createOttavaGeometrySelection>
   /** Properties' slur-handle inputs (each end's offset, each arc control point). Command-only. */
   slurGeometry: ReturnType<typeof createSlurGeometrySelection>
   /** Properties' hairpin-end inputs — the wedge's RESHAPE only, never its extent. Command-only. */
@@ -135,6 +138,7 @@ export function createEditorBus(): EditorBus {
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     dynamicOffset: createDynamicOffsetSelection(),
+    ottavaGeometry: createOttavaGeometrySelection(),
     slurGeometry: createSlurGeometrySelection(),
     hairpinGeometry: createHairpinGeometrySelection(),
     rest: createRestSelection(),
@@ -167,6 +171,7 @@ export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'
+export type { OttavaGeometryRequest, OttavaEndRequest, OttavaHeightRequest } from './ottavaGeometrySelection'
 export type { SlurGeometryRequest, SlurGeometryTarget } from './slurGeometrySelection'
 export type { HairpinGeometryRequest, HairpinEndRequest, HairpinApertureRequest } from './hairpinGeometrySelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'

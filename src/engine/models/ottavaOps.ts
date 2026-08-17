@@ -136,12 +136,17 @@ export function setOttavaLength(score: Score, id: string, length: Fraction): boo
  * fine, `Ctrl`+arrow coarse, with that square armed (his ask, 2026-08-17). `dx`/`dy` are in
  * **staff-spaces**.
  *
- * ⭐⭐ **`dy` LANDS ON THE WHOLE BRACKET, whichever square asked for it** — his rule, and the reason
- * {@link OttavaOffsetOverride} has three numbers instead of two pairs: *"ottava is a straight line,
- * so offset in y should result in offset the two points in y."* There is no per-end `y` to write, so
- * ↑ from either square lifts the numeral, the dashes and the hook together and the rule stays
+ * ⭐⭐ **`outward` LANDS ON THE WHOLE BRACKET, whichever square asked for it** — his rule, and the
+ * reason {@link OttavaOffsetOverride} has three numbers instead of two pairs: *"ottava is a straight
+ * line, so offset in y should result in offset the two points in y."* There is no per-end vertical to
+ * write, so one press moves the numeral, the dashes and the hook together and the rule stays
  * horizontal by construction. ⛔ The hairpin's per-end `y` is right THERE because tilting a wedge is
  * a shape that exists; here it is not.
+ *
+ * ⭐⭐ **`outward` is a DISTANCE FROM THE STAFF, not a screen `y`** — `+` is up for an 8va and down
+ * for an 8vb. His second correction, and the model's own protection against `x` (flip direction)
+ * silently inverting a nudge that already exists. See {@link OttavaOffsetOverride} for the argument.
+ * ⚠️ Callers that speak SCREEN convert before they get here.
  *
  * ⭐ `dx` stays per end — the beginning pulls the numeral, the end pulls the hook.
  *
@@ -156,7 +161,8 @@ export function setOttavaEndpointOffset(
   id: string,
   which: 'start' | 'end',
   dx: number,
-  dy: number,
+  /** ⭐ OUTWARD from the staff, not screen-down — see this function's note. */
+  outward: number,
 ): boolean {
   if (!getOttavaById(score, id)) return false
   const prev = ottavaOffsetOverrideOf(score, id)
@@ -165,7 +171,7 @@ export function setOttavaEndpointOffset(
   writeOttavaOffset(score, id, {
     [xKey]: (prev?.[xKey] ?? 0) + dx,
     [otherKey]: prev?.[otherKey],
-    y: (prev?.y ?? 0) + dy,
+    outward: (prev?.outward ?? 0) + outward,
   })
   return true
 }
@@ -184,15 +190,15 @@ export function setOttavaEndpointOffset(
 function writeOttavaOffset(
   score: Score,
   id: string,
-  next: { startX?: number; endX?: number; y?: number },
+  next: { startX?: number; endX?: number; outward?: number },
 ): void {
   const kept: OttavaOffsetOverride = {
     kind: 'ottavaOffset',
     ...(next.startX ? { startX: next.startX } : {}),
     ...(next.endX ? { endX: next.endX } : {}),
-    ...(next.y ? { y: next.y } : {}),
+    ...(next.outward ? { outward: next.outward } : {}),
   }
-  if (kept.startX === undefined && kept.endX === undefined && kept.y === undefined) {
+  if (kept.startX === undefined && kept.endX === undefined && kept.outward === undefined) {
     clearEngravingOverride(score, id, 'ottavaOffset')
     return
   }
@@ -202,7 +208,7 @@ function writeOttavaOffset(
 /**
  * `Ctrl+Backspace` on an armed square: that end back to the engraver's own position.
  *
- * ⚠️ **It drops that end's `x` AND the shared `y`** — which follows from the vertical being one
+ * ⚠️ **It drops that end's `x` AND the shared `outward`** — which follows from the vertical being one
  * number for the bracket rather than being a second decision. The square you armed controls exactly
  * two quantities; the reset gives back exactly those two, and the OTHER end's `x` survives. There is
  * no way to "reset only this end's height" because there is no such height.
@@ -214,7 +220,7 @@ export function resetOttavaEndpointOffset(score: Score, id: string, which: 'star
   const prev = ottavaOffsetOverrideOf(score, id)
   if (!prev) return false
   const xKey = which === 'start' ? 'startX' : 'endX'
-  if (prev[xKey] === undefined && prev.y === undefined) return false
+  if (prev[xKey] === undefined && prev.outward === undefined) return false
 
   const otherKey = which === 'start' ? 'endX' : 'startX'
   writeOttavaOffset(score, id, { [otherKey]: prev[otherKey] })

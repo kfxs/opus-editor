@@ -1022,9 +1022,31 @@ export interface OttavaOffsetOverride extends EngravingOverride {
   startX?: number
   /** The END's horizontal nudge, staff-spaces (+ right). Moves the closing hook alone. */
   endX?: number
-  /** ⭐⭐ The WHOLE bracket's vertical nudge, staff-spaces (+ down) — ONE number, because the
-   *  bracket is a straight line. See this interface's own note. */
-  y?: number
+  /**
+   * ⭐⭐ **The WHOLE bracket's vertical nudge, staff-spaces — `+` moves it FURTHER FROM THE STAFF**
+   * (up for an 8va, down for an 8vb). ONE number, because the bracket is a straight line.
+   *
+   * 🚨 **Deliberately NOT a screen `y`, which every other override in this compartment is**, and the
+   * exception is earned twice over:
+   *
+   * ⭐ **His hand found the first reason** (2026-08-17): *"the height is not intuitive… for 8vb it
+   * works, because increasing makes it higher, but with 8va alta it does not. Better to use an
+   * intuitive way that follows the real geometry."* A screen `y` means "further out" on one side of
+   * the staff and "further in" on the other, so one control reads backwards half the time — and a
+   * typed box, unlike an arrow key, has no direction on it to say which.
+   *
+   * ⭐⭐ **The second reason is a real bug and is why this lives in the MODEL rather than being fixed
+   * in the panel**: an ottava's side is DERIVED from `shift`, and `x` flips it (`toggleOttavaDirection`).
+   * With a screen `y`, flipping an 8va you had nudged clear of the music turns that nudge into a shove
+   * toward it — the stored number stops meaning what it was written to mean. Stated as a distance from
+   * the staff, the intent survives the flip.
+   *
+   * ⚠️ So exactly two places convert, and both are edges that genuinely speak screen: the RENDERER
+   * (`OttavaRenderer`, which negates it above the staff) and the PAGE LIMIT (`MusicEngine`, which
+   * needs a screen delta to predict where the ink lands). The keyboard converts on the way in, since
+   * `↑` is a screen direction. Everything else reads it as written.
+   */
+  outward?: number
 }
 
 /**

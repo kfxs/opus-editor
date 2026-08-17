@@ -129,10 +129,17 @@ export const OTTAVA_MARK_INK: MarkInk = {
  *
  * ⭐⭐ **Its RUNG is not these numbers — it is the pass order**, and that distinction is the ladder.
  * The ottava is drawn after the dynamics line and the trill and reads what they claimed
- * (`layout/outsideStaffBand`), so it clears them whatever their floors are. Two independent sources
- * put it there: LilyPond's `outside-staff-priority` (OttavaBracket **400** against
- * DynamicLineSpanner 250 and TrillSpanner 50) and Gould, who says octave lines sit *outside all other
- * notations* (§1 rule 5). ⛔ There is no priority table and there must never be one.
+ * (`layout/outsideStaffBand`), so it clears them whatever their floors are. That follows LilyPond's
+ * `outside-staff-priority` (OttavaBracket **400** against DynamicLineSpanner 250 and TrillSpanner 50).
+ * ⛔ There is no priority table and there must never be one.
+ *
+ * 🚨🚨 **The SECOND source once cited here has been WITHDRAWN (2026-08-17).** This comment used to add
+ * "and Gould, who says octave lines sit *outside all other notations*" — that sentence is real (p. 29)
+ * but it is her general *don't collide with anything* rule, not a ranking. Her ranking against
+ * DYNAMICS is p. 101–102 and puts the octave bracket **INSIDE** them, with a drawn correct/incorrect
+ * pair whose "incorrect" half is what we draw today. So the two sources disagree and this follows
+ * LilyPond alone. ⏭️ Changing it is an open decision, not a tidy-up — see docs/ottava-plan.md §1 rule
+ * 5 and §5, which carry the pages, the measurements and why the fix is not a one-line pass move.
  *
  * ⚠️ So `minFromStaff` is only the FLOOR for a bar where nothing else is above the staff — it is not
  * what puts the ottava above a dynamic. It is set between the dynamics' 2.1 and the tempo's 3.0 so

@@ -324,14 +324,14 @@ test('an 8va does NOT move a notehead — written pitch, so no bar gets wider', 
  */
 async function nudgedBracket(
   score: import('@playwright/test').Page,
-  offset: { startX?: number; endX?: number; y?: number },
+  offset: { startX?: number; endX?: number; outward?: number; shift?: 1 | -1 },
 ) {
   return score.evaluate(async (offset) => {
     const h = window.__h
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    const ottava = h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
+    const ottava = h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: offset.shift ?? 1 })!
     await h.render()
     const before = {
       glyphs: h.placed('g.vf-ottava text'),
@@ -340,7 +340,8 @@ async function nudgedBracket(
     // The two squares' own writes, through the same door the arrow keys use.
     if (offset.startX) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', offset.startX, 0)
     if (offset.endX) h.engine.nudgeOttavaEndpoint(ottava.id, 'end', offset.endX, 0)
-    if (offset.y) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', 0, offset.y)
+    // ⭐ The vertical is OUTWARD from the staff, not a screen y — see `OttavaOffsetOverride`.
+    if (offset.outward) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', 0, offset.outward)
     await h.render()
     return {
       before,
@@ -353,9 +354,9 @@ async function nudgedBracket(
   }, offset)
 }
 
-test('⭐⭐ a `y` nudge moves BOTH ends of the bracket by the SAME amount — it stays straight', async ({ score }) => {
-  // −1 staff space: up, since y grows downward.
-  const { before, after, spacing } = await nudgedBracket(score, { y: -1 })
+test('⭐⭐ an OUTWARD nudge moves BOTH ends by the SAME amount — the bracket stays straight', async ({ score }) => {
+  // +1 staff space further FROM the staff. On an 8va that is up the screen.
+  const { before, after, spacing } = await nudgedBracket(score, { outward: 1 })
   const lineBefore = horizontalOf(before.segments)!
   const lineAfter = horizontalOf(after.segments)!
   const hookBefore = hookOf(before.segments)!
@@ -451,4 +452,19 @@ test('⭐ the END may still not be pulled shorter than a bracket that can CLOSE'
   expect(line, 'there is still a line').toBeDefined()
   expect(line!.x2).toBeGreaterThan(line!.x1)
   expect(hookOf(after.segments), 'and it still closes').toBeDefined()
+})
+
+
+test('⭐⭐ …and on an 8vb, further OUT is further DOWN — the stored number is not a screen y', async ({ score }) => {
+  // ⚠️ The case that fails if the renderer stops negating above the staff, or starts negating below
+  // it. His correction, 2026-08-17: the model stores a distance FROM the staff so that flipping an
+  // ottava's direction cannot invert a nudge the user already made; the two sides therefore move in
+  // OPPOSITE screen directions for the same positive number, and only a drawn test can say so.
+  const { before, after, spacing } = await nudgedBracket(score, { outward: 1, shift: -1 })
+  const lineBefore = horizontalOf(before.segments)!
+  const lineAfter = horizontalOf(after.segments)!
+  expect(lineAfter.y1 - lineBefore.y1, 'one staff space DOWN, away from the staff').toBeCloseTo(spacing, 0)
+  expect(lineAfter.y1, 'and still level').toBeCloseTo(lineAfter.y2, 1)
+  // The numeral came too, so the mark is still one object.
+  expect(after.glyphs[0].y - before.glyphs[0].y).toBeCloseTo(spacing, 0)
 })

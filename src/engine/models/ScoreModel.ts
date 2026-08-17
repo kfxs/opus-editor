@@ -722,10 +722,10 @@ export class ScoreModel {
     return ottavaOps.moveOttavaStartBySlot(this.score, id, direction)
   }
 
-  /** Nudge one drawn END of an ottava, accumulating — ⭐ `dy` lands on the WHOLE bracket, since it
-   *  is a straight line. See {@link ottavaOps.setOttavaEndpointOffset}. */
-  setOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    return ottavaOps.setOttavaEndpointOffset(this.score, id, which, dx, dy)
+  /** Nudge one drawn END of an ottava, accumulating — ⭐ `outward` (a distance FROM THE STAFF) lands
+   *  on the WHOLE bracket, since it is a straight line. See {@link ottavaOps.setOttavaEndpointOffset}. */
+  setOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
+    return ottavaOps.setOttavaEndpointOffset(this.score, id, which, dx, outward)
   }
 
   /** Drop the armed square's nudge — that end's `x` AND the shared `y`. @returns false when it
