@@ -243,13 +243,17 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // measure box is selected; the coarse step rides Alt+↑/↓ (chordNoteUp/Down overloaded by
   // selection kind). Shift+↑/↓ (not Ctrl+Alt, which Linux WMs grab for workspace switching).
   // See docs/staff-spacing-plan.md.
+  // ⭐ …and, with a HAIRPIN's mouth-bearing square armed (right on a crescendo, left on a diminuendo),
+  // this pair OPENS and closes the MOUTH — ↑ wider (his call after trying Shift+←/→ in the hand and
+  // finding it unintuitive, 2026-08-17; `interactions/elements/hairpinHandles`). Disjoint from the
+  // staff spacing, which needs a selected measure box.
   'Shift+ArrowUp': {
     action: 'staffSpacingFineUp',
-    description: 'Tighten space above the selected staff (fine)',
+    description: 'Open the armed hairpin mouth, or tighten space above the selected staff (fine)',
   },
   'Shift+ArrowDown': {
     action: 'staffSpacingFineDown',
-    description: 'Widen space above the selected staff (fine)',
+    description: 'Close the armed hairpin mouth, or widen space above the selected staff (fine)',
   },
 
   // The BARLINE GAP — how far a bar's last element stands off the line that ends it, authored on
@@ -259,17 +263,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // this editor's "fine spacing" chord, vertical between staves and horizontal at the barline. The
   // easy key (Ctrl+←/→) is the bar's WIDTH, which is the other, coarser thing you do to a barline —
   // it re-spaces the bar's whole music, where this moves nothing but the line.
-  // ⭐ …and, with a HAIRPIN's mouth-bearing square armed (right on a crescendo, left on a diminuendo),
-  // the same pair opens and closes the MOUTH — grow/shrink, because the aperture is a symmetric spread
-  // about the axis and no vertical direction means "open" (2026-08-17;
-  // `interactions/elements/hairpinHandles`). Disjoint from the barline gap, which needs a barline.
   'Shift+ArrowLeft': {
     action: 'barlineGapTighten',
-    description: 'Close the armed hairpin mouth, or tighten the gap before the selected barline (fine)',
+    description: 'Tighten the gap before the selected barline (fine)',
   },
   'Shift+ArrowRight': {
     action: 'barlineGapWiden',
-    description: 'Open the armed hairpin mouth, or widen the gap before the selected barline (fine)',
+    description: 'Widen the gap before the selected barline (fine)',
   },
   'Shift+Backspace': {
     action: 'resetBarlineGap',

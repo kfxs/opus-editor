@@ -198,14 +198,19 @@ export function wireShortcuts(
   }
 
   /**
-   * ⭐⭐ **Shift+←/→ opens and closes the MOUTH** of the selected wedge, with its mouth-bearing square
-   * armed — the right-hand one on a crescendo, the left on a diminuendo (his ask and his chord,
-   * 2026-08-17). `Shift+Backspace` puts it back to automatic, the matching backspace every arrow-chord
-   * here has.
+   * ⭐⭐ **Shift+↑/↓ opens and closes the MOUTH** of the selected wedge, with its mouth-bearing square
+   * armed — the right-hand one on a crescendo, the left on a diminuendo (his ask, 2026-08-17).
+   * `Shift+Backspace` puts it back to automatic, the matching backspace every arrow-chord here has.
    *
-   * ⭐ Free, and disjoint: `Shift+←/→` and `Shift+Backspace`'s only other tenant is the BARLINE GAP,
-   * which needs a selected barline where this needs a selected hairpin. The module owns every reason
-   * it can decline — see `elements/hairpinHandles` for why the pair is horizontal.
+   * ⚠️ It rode `Shift+←/→` for an hour first, on an argument about the mouth being a symmetric spread
+   * that no vertical direction describes. He tried it: *"i test it and is not intuitive, lets try
+   * arrow up down instead"* — and in the hand ↑ = wider is immediate, because what you are reaching
+   * for is the ARM, not the pair. The reasoning was sound and the hand still won; see
+   * `elements/hairpinHandles`.
+   *
+   * ⭐ Disjoint on both keys: `Shift+↑/↓`'s other tenant is the fine STAFF-SPACING nudge, which needs a
+   * selected measure box, and `Shift+Backspace`'s is the barline gap, which needs a selected barline.
+   * The module owns every reason this can decline.
    */
   const nudgeArmedMouth = (delta: number): boolean => {
     const eng = getEngine()
@@ -876,13 +881,13 @@ export function wireShortcuts(
     chordNoteDown: () => { if (nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_COARSE_SS)) return; selection.navigateChord(-1) },
     // Shift+↑/↓ fine staff-spacing (only fires on a single measure box → no fallthrough
     // needed; Shift+Arrow is otherwise unbound).
-    staffSpacingFineUp: () => { nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS) },
-    staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
+    // ⭐ Shift+↑/↓ = OPEN / close the armed wedge's mouth, else the fine staff-spacing nudge on a
+    //   selected measure box. Disjoint selections, so it is one more branch and no reordering.
+    staffSpacingFineUp: () => nudgeArmedMouth(MOUTH_STEP_SS) || nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS),
+    staffSpacingFineDown: () => nudgeArmedMouth(-MOUTH_STEP_SS) || nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS),
     // Shift+←/→ = the barline gap, the fine horizontal partner of Shift+↑/↓ above.
-    // ⭐ Shift+←/→ = close / open the armed wedge's MOUTH, else tighten / widen a selected barline's
-    //   gap. Disjoint selections, so it is one more branch and no reordering.
-    barlineGapTighten: () => nudgeArmedMouth(-MOUTH_STEP_SS) || nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS),
-    barlineGapWiden: () => nudgeArmedMouth(MOUTH_STEP_SS) || nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS),
+    barlineGapTighten: () => { nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS) },
+    barlineGapWiden: () => { nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS) },
     resetBarlineGap: () => resetArmedMouth() || resetSelectedBarlineGap(),
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),

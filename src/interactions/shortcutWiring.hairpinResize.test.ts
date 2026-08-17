@@ -128,18 +128,26 @@ describe('resizing a hairpin from the keyboard', () => {
     expect(nudge).not.toHaveBeenCalled()
   })
 
-  it('⭐⭐ Shift+←/→ is a THIRD category on the same square — the MOUTH, not the ink and not the music', () => {
+  it('⭐⭐ Shift+↑/↓ is a THIRD category on the same square — the MOUTH, not the ink and not the music', () => {
     armed('end')                 // a crescendo's mouth is its right-hand end
-    run('barlineGapWiden')       // Shift+→
-    run('barlineGapTighten')     // Shift+←
+    run('staffSpacingFineUp')    // Shift+↑ — ↑ opens
+    run('staffSpacingFineDown')  // Shift+↓
     expect(mouth.mock.calls).toEqual([['H1', 1.55], ['H1', 1.45]])
     expect(resize).not.toHaveBeenCalled()
     expect(nudge).not.toHaveBeenCalled()
   })
 
-  it('⛔ …and it declines on the CLOSED end, leaving Shift+←/→ to the barline gap', () => {
+  it('⛔ …and it declines on the CLOSED end, leaving Shift+↑/↓ to the staff spacing', () => {
     armed('start')               // the tip of a crescendo
+    run('staffSpacingFineUp')
+    expect(mouth).not.toHaveBeenCalled()
+  })
+
+  it('⛔ nor does it answer the HORIZONTAL Shift pair, which it rode for an hour and lost', () => {
+    // Shift+←/→ was tried and rejected in the hand; it is the barline gap's again.
+    armed('end')
     run('barlineGapWiden')
+    run('barlineGapTighten')
     expect(mouth).not.toHaveBeenCalled()
   })
 

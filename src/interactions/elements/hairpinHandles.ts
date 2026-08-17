@@ -251,15 +251,21 @@ function drawnMouth(engine: MouthEngine, hairpinId: string): { value: number; mi
 }
 
 /**
- * ⭐⭐ **OPEN OR CLOSE THE MOUTH BY ONE STEP** — `Shift+→` / `Shift+←` with the mouth-bearing square
- * armed (his ask and his chord, 2026-08-17).
+ * ⭐⭐ **OPEN OR CLOSE THE MOUTH BY ONE STEP** — `Shift+↑` / `Shift+↓` with the mouth-bearing square
+ * armed (his ask, 2026-08-17).
  *
- * ⭐ **Why a horizontal pair for a vertical quantity.** The mouth is a SYMMETRIC spread about the
- * wedge's axis: pressing ↑ would move the top arm up and the bottom arm *down*, so no vertical
- * direction means "open". Grow / shrink is the honest verb pair, and a modified `←/→` is already this
- * editor's idiom for it (bar width, note spacing, the wedge's own extent, a pedal's length). It also
- * leaves the plain and `Ctrl` arrows — which move that same square's OFFSET in both axes — the only
- * meaning the vertical has on this handle.
+ * ⚠️ **It was `Shift+←/→` first, and the argument for that was wrong in the hand.** The reasoning:
+ * the mouth is a SYMMETRIC spread about the wedge's axis, so pressing ↑ moves the top arm up and the
+ * bottom arm *down* and no vertical direction really means "open"; grow / shrink on a modified `←/→`
+ * is the editor's idiom for size (bar width, note spacing, the extent, a pedal's length). He tried it
+ * and said *"i test it and is not intuitive, lets try arrow up down instead"*. ⭐ Which is the better
+ * answer, and the flaw in the argument is visible once you know: you do not reach for "the pair", you
+ * reach for the ARM under the cursor — the mouth's own square sits at the open end, and ↑ = wider is
+ * what the hand expects there. Recorded because the reasoning was sound and still lost to a test.
+ *
+ * ⚠️ It therefore shares an axis with the plain and `Ctrl` arrows, which move this same square's
+ * OFFSET. That is a real cost of the choice, paid because the gesture reads better: the modifier is
+ * what separates "move this end" from "open the wedge".
  *
  * ⭐ **It steps from what is DRAWN**, authored or automatic, for the reason the Properties input does:
  * a first press must continue the shape on screen rather than jump to a bound (his correction on the

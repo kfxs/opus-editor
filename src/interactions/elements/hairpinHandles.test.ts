@@ -290,8 +290,9 @@ describe('hairpinDragTargetAt', () => {
 })
 
 /**
- * ⭐⭐ THE MOUTH KEYS — `Shift+←/→` and `Shift+Backspace` on the mouth-bearing square (his ask and his
- * chord, 2026-08-17).
+ * ⭐⭐ THE MOUTH KEYS — `Shift+↑/↓` and `Shift+Backspace` on the mouth-bearing square (his ask,
+ * 2026-08-17; the chord moved from `Shift+←/→` after he tried it, so the direction lives in
+ * `shortcutWiring` and this module only takes a signed delta).
  *
  * Two claims carry the feature. **WHICH square answers**: the open end, which is the wedge's TYPE
  * rather than a side of the score — a tip has no aperture, so the closed end declines and the key

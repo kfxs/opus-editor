@@ -1461,23 +1461,28 @@ answer and the range collapses to it. ⚠️ The panel CLAMPS a typed value into
 publishing: `min`/`max` on a number input only constrain its spinner, and publishing a value the
 renderer would cap stores a shape the score never draws.
 
-### ⭐⭐ …and `Shift+←/→` opens the mouth from the square that HAS one
+### ⭐⭐ …and `Shift+↑/↓` opens the mouth from the square that HAS one
 
-His chord and his rule, an hour later: *"the endpoint that control the mouth is the one who has the
-mouth (right for cresc, left for dim)… i'm thinking to use shift arrow left right for that"*, plus
-*"shift backspace for reset"*.
+His rule and, after one revision, his chord: *"the endpoint that control the mouth is the one who has
+the mouth (right for cresc, left for dim)"*, with *"shift backspace for reset"*.
 
-**Why a horizontal pair for a vertical quantity** — the question worth answering, since ↑/↓ looks
-like the obvious mapping. The mouth is a SYMMETRIC spread about the wedge's axis: pressing ↑ would
-move the top arm up and the bottom arm *down*, so no vertical direction means "open". Grow / shrink is
-the honest verb pair, and a modified `←/→` is already this editor's idiom for it (bar width, note
-spacing, the wedge's own extent, a pedal's length). It also leaves the vertical on that handle meaning
-one thing only — the end's own offset, which the plain and `Ctrl` arrows move.
+**⚠️ It shipped on `Shift+←/→` first and he changed it within the hour** — *"i test it and is not
+intuitive, lets try arrow up down instead"*. The argument for the horizontal pair was not bad: the
+mouth is a SYMMETRIC spread about the axis, so pressing ↑ moves the top arm up and the bottom arm
+*down* and no vertical direction really means "open"; grow / shrink on a modified `←/→` is this
+editor's idiom for size (bar width, note spacing, the extent, a pedal's length). What it missed is
+that you do not reach for "the pair" — you reach for the ARM under the cursor, and the mouth's square
+sits at the open end, where ↑ = wider is immediate. **Recorded because the reasoning was sound and
+lost to a test anyway**, which is the only way that argument could have been settled.
+
+⚠️ The cost, accepted: the mouth now shares an axis with the plain and `Ctrl` arrows, which move that
+same square's OFFSET. The modifier is what separates "move this end" from "open the wedge".
 
 **Which square** — the OPEN end, so `hairpinMouthEnd(type)`: right on a crescendo, left on a
-diminuendo. On the closed end the keys DECLINE, because a tip has no aperture; `Shift+←/→` and
-`Shift+Backspace` then fall through to the barline gap, their only other tenant (which needs a selected
-barline, so the two can never both apply).
+diminuendo. On the closed end the keys DECLINE, because a tip has no aperture — and then `Shift+↑/↓`
+falls through to the fine staff-spacing nudge (which needs a selected measure box) and
+`Shift+Backspace` to the barline gap's reset (which needs a selected barline), so no pair can ever
+both apply.
 
 **Where a step starts** — from the mouth as DRAWN, authored or automatic, clamped into
 `authoredApertureRange`, so the keys and the Properties input cannot reach different values. At a bound
@@ -1489,7 +1494,7 @@ So one pair of squares now carries THREE categories of edit, each on its own cho
 |---|---|---|
 | `Ctrl+Shift+←/→`, drag | which notes get louder | the model (`beat`/`length`) |
 | arrow, `Ctrl`+arrow | where that end's ink sits | override (`hairpinEndpointOffset`) |
-| `Shift+←/→` | how far the wedge opens | override (`hairpinAperture`) |
+| `Shift+↑/↓` | how far the wedge opens | override (`hairpinAperture`) |
 
 …and each has its matching backspace: `Ctrl+Backspace` for the end nudge, `Shift+Backspace` for the
 mouth.
