@@ -243,23 +243,34 @@ coordinate-bearing field on `ElementInfo` was checked against the three handlers
 | `slurEndpoints` | ✅ | ✅ | — |
 | `tupletGeometry` | ✅ | ✅ | — |
 | `guides` | ✅ | ✅ | ✅ (`from` ends only) |
-| **`segmentEndpoints`** | 🚨 **NO** | 🚨 **NO** | — |
+| `segmentEndpoints` | ✅ *(fixed 2026-08-17)* | ✅ *(fixed 2026-08-17)* | — |
 
 ⚠️ **`shiftById`'s dashes are not holes**: it exists for marks that are translated AFTER being
 registered, which today is dynamics only — a slur has no post-registration transform. Adding a field
 there is only required when some pass moves an element carrying it.
 
-🚨 **`segmentEndpoints` is a real gap.** It holds `{ p0, p1 }` in pixels, is written by
-`SlurRenderer` for each segment of a CROSS-SYSTEM slur (`SlurRenderer.ts:660`) and read by
-`HighlightController` to place and drag that segment's round handles — and its own sibling
-`slurEndpoints` (the same shape, for a same-line arc) is handled by both functions. So the predicted
-symptoms are: a cross-system slur's segment handles land at **full-size coordinates on a reduced
-staff**, and go **stale when a bar is translated** rather than re-engraved (P5.4b). ⏭️ NOT fixed here
-— the fix is mechanical (mirror `slurEndpoints`' two blocks) but it is slur-handle geometry with no
-browser test of its own on a scaled staff, so it wants its own look and its own test.
+🚨 **`segmentEndpoints` was a real gap — FIXED 2026-08-17, his call.** It holds `{ p0, p1 }` in
+pixels, is written by `SlurRenderer` for each segment of a CROSS-SYSTEM slur (`SlurRenderer.ts:660`)
+and read by `HighlightController` to place and drag that segment's round handles — while its own
+sibling `slurEndpoints` (the same shape, for a same-line arc) was in both functions. The symptoms it
+had: a cross-system slur's segment handles at **full-size coordinates on a reduced staff**, and
+**stale after a bar was translated** rather than re-engraved (P5.4b). Both blocks now mirror
+`slurEndpoints`', `direction` carried across untouched because it is a SIGN and not a length.
+
+⚠️⚠️ **AND THERE WAS ALREADY A GUARD THAT SHOULD HAVE CAUGHT IT.**
+`VexFlowRenderer.incrementalRedraw.test.ts` compares a translated bar against a freshly drawn one
+**element for element** — exactly the shape of check this needed. It never fired because its fixture
+renders in **linear** view: one system, therefore no cross-system slur, therefore no entry in it has
+ever carried a `segmentEndpoints`. ⭐ **A whole-object comparison is only as total as the fixture
+feeding it** — the same lesson as "a test can pass by luck of geometry", one level up. So the fix
+came with `src/engine/ElementRegistry.coordinates.test.ts`, which tests the two pure functions
+directly off a fixture built to carry **every** coordinate field at once, and which was break-tested
+(both new blocks disabled → two assertions red).
+
 ⭐ The general lesson is the one this table exists for: **a coordinate on a registry entry is not
 finished when it is written** — three separate functions have to be taught about it, and nothing in
-the type system says so.
+the type system says so. The executable half of the checklist is now that fixture; add a field to it
+first.
 
 ### What MuseScore does (read from its C++, 2026-08-17)
 

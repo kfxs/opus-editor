@@ -67,6 +67,14 @@ function redrawnMeasures(before: Map<number, SVGGElement | null>, after: Map<num
  * and does not look wrong — it drifts the *hit-box* away from the *glyph*, so clicks land on the
  * wrong thing, and only for bars that happened to move. Comparing whole elements is what makes that
  * impossible to miss.
+ *
+ * ⚠️⚠️ **…as far as the FIXTURE reaches, and that is a real limit — it missed one.**
+ * `segmentEndpoints` (a cross-system slur segment's arc ends) went unshifted for months and this
+ * comparison stayed green, because the fixture below renders in **linear** view: one system, so no
+ * slur here is ever cut into segments and no entry ever carries that field. ⭐ A whole-object check
+ * is only as total as what the fixture puts in the objects. The direct guard is
+ * `src/engine/ElementRegistry.coordinates.test.ts`, whose fixture carries every coordinate field at
+ * once; ⏭️ a wrapped-view case here would be the belt to its braces.
  */
 /**
  * ⚠️ Coordinates are compared to **nine decimals**, not bit-for-bit.

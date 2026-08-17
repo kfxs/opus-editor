@@ -431,6 +431,20 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
       direction: element.slurEndpoints.direction,
     }
   }
+  // 🚨 …AND THE PER-SEGMENT ONES, which were missing until 2026-08-17. A cross-system slur's round
+  // handles are placed and dragged from `segmentEndpoints`, not from `slurEndpoints` (that one holds
+  // the true note ends, for the square re-anchor handles) — so a segment on a bar that MOVED rather
+  // than re-engraved put its handles where the bar used to be. Found by auditing every coordinate
+  // field on `ElementInfo` against this function, `scaleElement` and `shiftById`; the table and the
+  // reasoning are in docs/dynamic-offset-plan.md. ⛔ A coordinate here is not finished when it is
+  // written — three functions have to be taught about it, and nothing in the types says so.
+  if (element.segmentEndpoints) {
+    moved.segmentEndpoints = {
+      p0: { x: element.segmentEndpoints.p0.x + dx, y: element.segmentEndpoints.p0.y + dy },
+      p1: { x: element.segmentEndpoints.p1.x + dx, y: element.segmentEndpoints.p1.y + dy },
+      direction: element.segmentEndpoints.direction,
+    }
+  }
 
   // Tuplet bracket: x/y/notationCenterX are absolute; width and the *Offset fields are relative.
   if (element.tupletGeometry) {
@@ -492,6 +506,18 @@ export function scaleElement(element: ElementInfo, k: number): ElementInfo {
       p0: { x: element.slurEndpoints.p0.x * k, y: element.slurEndpoints.p0.y * k },
       p1: { x: element.slurEndpoints.p1.x * k, y: element.slurEndpoints.p1.y * k },
       direction: element.slurEndpoints.direction,
+    }
+  }
+  // 🚨 …and this one's twin, missing until 2026-08-17 (see {@link offsetElement} for the audit that
+  // found it). ⚠️ The symptom was staff-size-only: a cross-system slur on a REDUCED staff registers
+  // its arc in that staff's own scaled space, so unscaled segment endpoints put the round handles at
+  // full-size coordinates — off the arc they belong to by a factor of `k`. `direction` is a SIGN,
+  // never a length, so it is carried across untouched exactly as `slurEndpoints`' is.
+  if (element.segmentEndpoints) {
+    scaled.segmentEndpoints = {
+      p0: { x: element.segmentEndpoints.p0.x * k, y: element.segmentEndpoints.p0.y * k },
+      p1: { x: element.segmentEndpoints.p1.x * k, y: element.segmentEndpoints.p1.y * k },
+      direction: element.segmentEndpoints.direction,
     }
   }
   // The tuplet bracket: positions AND the lengths, since every one of them is ink.
