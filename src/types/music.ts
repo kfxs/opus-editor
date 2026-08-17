@@ -933,6 +933,38 @@ export interface SlurEndpointOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * A free positional nudge of a HAIRPIN's drawn end(s) — the wedge's own reshape (his ask,
+ * 2026-08-17: *"when an endpoint is selected and i ctrl+arrow i want to be able to offset, so is an
+ * override, and that means the user is able to reshape the hairpin"*).
+ *
+ * ⭐⭐ **This is the line between the two edits on the same two squares, and it is the whole reason a
+ * hairpin now has an override at all.** `Ctrl+Shift+←/→` (and a drag) change WHICH NOTES the wedge
+ * covers — musical, so they write `beat`/`length` on the model. The arrows here change only where the
+ * ink is drawn: how far the tip reaches, and how open or slanted the wedge looks. Nothing about the
+ * music moves, playback cannot tell, and the span the model reports is unchanged
+ * (docs/dynamics-line-and-hairpins-plan.md §4 — the rule that used to say a hairpin had *nothing*
+ * cosmetic, which was true only until there was a way to author it).
+ *
+ * ⭐ Per END, in **staff-spaces**, relative to the drawn position: `x` moves that end along the
+ * wedge (± its reach), `y` moves it off the dynamics line — so a `y` on ONE end is what tilts the
+ * wedge, and a `y` on both lifts it whole. Structurally the slur's {@link SlurEndpointOffsetOverride}
+ * exactly; a separate kind because it hangs off a different element and answers to a different reset.
+ *
+ * ⚠️ It SURVIVES a resize or a drag of the extent, deliberately: the nudge says "two spaces further
+ * out than wherever this end lands", which is a statement about the shape rather than about the note
+ * it happened to be near. (The slur's is cleared on a re-anchor for the opposite reason — there the
+ * nudge was tuned against one notehead's ink.) `Ctrl+Backspace` resets the armed end; both die with
+ * the hairpin.
+ */
+export interface HairpinEndpointOffsetOverride extends EngravingOverride {
+  kind: 'hairpinEndpointOffset'
+  /** Left-hand end offset, staff-spaces (+x right, +y down). */
+  start?: { x: number; y: number }
+  /** Right-hand end offset, staff-spaces. */
+  end?: { x: number; y: number }
+}
+
+/**
  * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
  * point where the slur leaves one system and resumes on the next). BEGIN has only an
  * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.

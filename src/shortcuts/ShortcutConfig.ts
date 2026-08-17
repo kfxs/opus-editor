@@ -179,20 +179,25 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // ⚠️ A selected HAIRPIN used to resize on this chord, ungated, so a selected wedge ate Ctrl+←/→
   // outright. Its resize now rides Ctrl+Shift+←/→ and only while the wedge's right-hand square is
   // armed (his call, 2026-08-17). The PEDAL's still lives here — it has no endpoint handles to arm.
+  // ⭐ An armed HAIRPIN square joins this chain too (2026-08-17), and it is the one place two chords
+  // on ONE handle mean two categories: Ctrl+Shift+←/→ changes which notes the wedge covers (the
+  // model), while the plain and Ctrl arrows RESHAPE the drawn wedge (an override) — how far the end
+  // reaches, and how tilted it sits. Playback cannot tell the difference, which is the test.
   'Ctrl+ArrowLeft': {
     action: 'ctrlArrowLeft',
-    description: 'Nudge the selected slur endpoint / dynamic left, shorten the pedal, or tighten the note-spacing / barline',
+    description: 'Nudge the selected slur endpoint / hairpin end / dynamic left, shorten the pedal, or tighten the note-spacing / barline',
   },
   'Ctrl+ArrowRight': {
     action: 'ctrlArrowRight',
-    description: 'Nudge the selected slur endpoint / dynamic right, lengthen the pedal, or widen the note-spacing / barline',
+    description: 'Nudge the selected slur endpoint / hairpin end / dynamic right, lengthen the pedal, or widen the note-spacing / barline',
   },
   // ⭐ …and the RESET of the same chord. It also takes the armed SLUR HANDLE — arc dot, true end or
-  // open join — back to the automatic engraving (`interactions/slurHandleNudge`): Ctrl+←/→ nudges
-  // those points, so Ctrl+Backspace undoes the nudging, the rule every other pair here follows.
+  // open join — back to the automatic engraving (`interactions/slurHandleNudge`), and the armed
+  // HAIRPIN end back to the engraver's own position: Ctrl+←/→ nudges those points, so Ctrl+Backspace
+  // undoes the nudging, the rule every other pair here follows.
   'Ctrl+Backspace': {
     action: 'resetMove',
-    description: 'Reset the armed slur handle / the space before the selected note / the bar’s width',
+    description: 'Reset the armed slur handle / hairpin end / the space before the selected note / the bar’s width',
   },
 
   // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single

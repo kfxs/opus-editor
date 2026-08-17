@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -93,6 +93,13 @@ export function reconcileSegmentShape(
  */
 export function segmentEndpointOffsetOverrideOf(score: Score, elementId: string): SegmentEndpointOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'segmentEndpointOffset') as SegmentEndpointOffsetOverride | undefined
+}
+
+/** A hairpin's per-end drawn nudge (the wedge's reshape), or undefined when it has none. A straight
+ *  read: both ends are positions on the drawn wedge, so there is no staleness rule to reconcile.
+ *  See {@link HairpinEndpointOffsetOverride}. */
+export function hairpinEndpointOffsetOverrideOf(score: Score, elementId: string): HairpinEndpointOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'hairpinEndpointOffset') as HairpinEndpointOffsetOverride | undefined
 }
 
 /** The open-join offsets to apply per segment of a cross-system slur, after the staleness

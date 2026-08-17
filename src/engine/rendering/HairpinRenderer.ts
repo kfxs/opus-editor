@@ -36,9 +36,10 @@
  * (a cross-system slur on a small staff used to stop 30% short of the margin).
  */
 import type { Stave } from 'vexflow'
-import type { Score, Measure, Hairpin, Fraction } from '@/types/music'
+import type { Score, Measure, Hairpin, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { hairpinSpan, type HairpinSpan } from '@/engine/models/hairpinOps'
+import { hairpinEndpointOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracCompare, fracEq, fracGte } from '@/utils/fraction'
 import { hairpinLineKey, type DynamicsLinePlan } from './dynamicsLinePlan'
@@ -269,6 +270,29 @@ export function renderHairpins(
   }
 }
 
+/**
+ * ⭐⭐ **THE WEDGE'S RESHAPE, resolved to pixels** — a {@link HairpinEndpointOffsetOverride} (staff-
+ * spaces, per end) against each end's OWN stave, since a split wedge's two ends can be on
+ * differently-sized ones. A missing offset — or a not-yet-laid-out stave — yields 0, so the caller
+ * adds it unconditionally without risking a throw inside `staffSpacesToPixels`.
+ *
+ * Pure, and exported for its own spec: jsdom measures no glyphs, but this is arithmetic on two
+ * numbers the model holds and one the stave reports. The twin of `slurEndpointOffsetPx`.
+ */
+export function hairpinEndpointOffsetPx(
+  offset: HairpinEndpointOffsetOverride | undefined,
+  fromStave: Stave | undefined,
+  toStave: Stave | undefined,
+): { startX: number; startY: number; endX: number; endY: number } {
+  const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
+    o && stave
+      ? { x: staffSpacesToPixels(o.x, stave), y: staffSpacesToPixels(o.y, stave) }
+      : { x: 0, y: 0 }
+  const s = conv(offset?.start, fromStave)
+  const e = conv(offset?.end, toStave)
+  return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
+}
+
 /** The drawing itself, once the span and the two x's are known. */
 function drawWedge(
   pass: RenderPass,
@@ -296,6 +320,16 @@ function drawWedge(
   // because the two ends of a split wedge can be on differently-sized staves.
   startX += px(HAIRPIN.END_INSET, from.stave)
   endX -= px(HAIRPIN.END_INSET, to.stave)
+
+  // ⭐⭐ THE USER'S OWN RESHAPE, on top of everything the engraver decided — his ask, 2026-08-17.
+  // Applied HERE, after the automatic placement and before the pieces are cut, so a nudged end
+  // carries through the cut, the aperture (which is sized from the DRAWN width) and the registered
+  // outline — and therefore through the handles, which are read off that outline. An offset applied
+  // per piece afterwards would move the ink and leave the squares behind.
+  const nudge = hairpinEndpointOffsetPx(
+    hairpinEndpointOffsetOverrideOf(pass.score, hairpin.id), from.stave, to.stave)
+  startX += nudge.startX
+  endX += nudge.endX
   // …but never past each other: a wedge squeezed to nothing by its neighbours keeps a sliver rather
   // than turning inside out, which is what a negative width would draw.
   //
@@ -340,8 +374,11 @@ function drawWedge(
 
     // The two arms, mirrored about the axis. The slant is TWO endpoint deltas (`hairpinShape`), so
     // each end's y is the axis plus its own — never one angle about a pivot.
-    const y0 = axis + px(shape.startY, stave)
-    const y1 = axis + px(shape.endY, stave)
+    // ⚠️ The vertical nudge belongs to the wedge's TRUE ends, so a split wedge takes the start's on
+    // its first piece and the end's on its last — a middle fragment has neither, and applying both
+    // to every piece would bend the wedge at each system break.
+    const y0 = axis + px(shape.startY, stave) + (piece === pieces[0] ? nudge.startY : 0)
+    const y1 = axis + px(shape.endY, stave) + (piece === pieces[pieces.length - 1] ? nudge.endY : 0)
     const h0 = px(shape.aperture * open.start, stave) / 2
     const h1 = px(shape.aperture * open.end, stave) / 2
     ctx.setLineWidth(px(THIN_LINE_SPACES, stave))

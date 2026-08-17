@@ -13,13 +13,14 @@
  * ⚠️ Re-anchoring hairpins across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `slurOps`.
  */
-import type { Fraction, Score, Hairpin, Measure } from '@/types/music'
+import type { Fraction, Score, Hairpin, Measure, HairpinEndpointOffsetOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
-import { clearEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { hairpinEndpointOffsetOverrideOf } from './engravingOverrides'
 
 /** A measure's hairpins (the live array; empty if none), sorted ascending by start beat. */
 export function measureHairpins(measure: Measure): Hairpin[] {
@@ -127,6 +128,58 @@ export function updateHairpin(score: Score, id: string, updates: Partial<Omit<Ha
     return hairpin
   }
   return null
+}
+
+/**
+ * ⭐⭐ **Nudge one drawn END of a hairpin, accumulating** — the wedge's RESHAPE (`←/→/↑/↓` fine,
+ * `Ctrl`+arrow coarse, with that end's square armed). `dx`/`dy` are in **staff-spaces**.
+ *
+ * ⭐ **The one thing on a hairpin that is an OVERRIDE rather than the model**, and the distinction is
+ * the whole of §4: the extent says which notes get louder and lives on the content model; where the
+ * ink is drawn does not, and lives in the engraving-overrides compartment. Same two squares, two
+ * different chords, two different categories of edit — `Ctrl+Shift+arrow` moves the music, a plain
+ * or `Ctrl` arrow moves the drawing. See {@link HairpinEndpointOffsetOverride}.
+ *
+ * @returns true if the hairpin exists (the caller then re-renders).
+ */
+export function setHairpinEndpointOffset(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  dx: number,
+  dy: number,
+): boolean {
+  if (!getHairpinById(score, id)) return false
+  const prev = hairpinEndpointOffsetOverrideOf(score, id)
+  const base = which === 'start' ? prev?.start : prev?.end
+  const next: HairpinEndpointOffsetOverride = {
+    kind: 'hairpinEndpointOffset',
+    ...(prev?.start ? { start: prev.start } : {}),
+    ...(prev?.end ? { end: prev.end } : {}),
+    [which]: { x: (base?.x ?? 0) + dx, y: (base?.y ?? 0) + dy },
+  }
+  setEngravingOverride(score, id, next)
+  return true
+}
+
+/**
+ * Drop ONE end's nudge, keeping the other's — `Ctrl+Backspace` with that square armed. Prunes the
+ * whole entry when the other end has none either, so "absent = none" still holds.
+ * @returns false when that end carries no offset, so the key falls through.
+ */
+export function resetHairpinEndpointOffset(score: Score, id: string, which: 'start' | 'end'): boolean {
+  const prev = hairpinEndpointOffsetOverrideOf(score, id)
+  if (!prev?.[which]) return false
+  const other = which === 'start' ? prev.end : prev.start
+  if (!other) {
+    clearEngravingOverride(score, id, 'hairpinEndpointOffset')
+    return true
+  }
+  const kept: HairpinEndpointOffsetOverride = which === 'start'
+    ? { kind: 'hairpinEndpointOffset', end: other }
+    : { kind: 'hairpinEndpointOffset', start: other }
+  setEngravingOverride(score, id, kept)
+  return true
 }
 
 /**

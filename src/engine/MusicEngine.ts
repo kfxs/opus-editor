@@ -1075,6 +1075,29 @@ export class MusicEngine {
     this.commitPreviewed(which === 'start' ? 'Move hairpin start' : 'Resize hairpin')
   }
 
+  /**
+   * Nudge one drawn END of a hairpin by a staff-space delta and save ONE undo step — the wedge's
+   * RESHAPE (plain arrow fine, `Ctrl`+arrow coarse, with that square armed).
+   *
+   * ⚠️ An ENGRAVING OVERRIDE, where `resizeHairpinBySlot` one method up writes the model: same two
+   * squares, two chords, two categories. Nothing about the music moves — playback cannot tell — and
+   * that is exactly why it may not be stored as a shorter `length`
+   * (docs/dynamics-line-and-hairpins-plan.md §4).
+   */
+  nudgeHairpinEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    const ok = this.scoreModel.setHairpinEndpointOffset(id, which, dx, dy)
+    if (ok) this.saveOnly('Reshape hairpin')
+    return ok
+  }
+
+  /** Drop ONE end's reshape and save ONE undo step (`Ctrl+Backspace` with that square armed).
+   *  @returns false when that end has no offset, so the key falls through. */
+  resetHairpinEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    const ok = this.scoreModel.resetHairpinEndpointOffset(id, which)
+    if (ok) this.saveOnly('Reset hairpin end')
+    return ok
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     const type = this.scoreModel.toggleHairpinType(id)

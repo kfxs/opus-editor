@@ -17,9 +17,10 @@ import { fracCreate as frac, fracToNumber, fracEq } from '@/utils/fraction'
 import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
+  setHairpinEndpointOffset, resetHairpinEndpointOffset,
 } from './hairpinOps'
 import { setEngravingOverride } from './overrideOps'
-import { engravingOverridesOf } from './engravingOverrides'
+import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf } from './engravingOverrides'
 
 describe('hairpinOps — storage', () => {
   let model: ScoreModel
@@ -138,5 +139,82 @@ describe('toggleHairpinType — the `x` key', () => {
     const after = getHairpinById(score, before.id)!
     expect(after.type).toBe('dim')
     expect({ beat: after.beat, length: after.length, voice: after.voice, placement: after.placement }).toEqual(snapshot)
+  })
+})
+
+/**
+ * ⭐⭐ THE WEDGE'S RESHAPE — {@link setHairpinEndpointOffset} / {@link resetHairpinEndpointOffset}.
+ *
+ * The claim worth a chapter is the CATEGORY: this is the one hairpin edit that writes the engraving-
+ * overrides compartment and not the wedge. So every case checks the model is untouched — a reshape
+ * that quietly shortened `length` would put the drawing and the playback into disagreement, which is
+ * the exact failure §4 forbids.
+ */
+describe('setHairpinEndpointOffset — reshaping the drawn wedge', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const offset = () => hairpinEndpointOffsetOverrideOf(score, id)
+
+  it('⭐ writes the OVERRIDE and leaves the extent exactly as it was', () => {
+    expect(setHairpinEndpointOffset(score, id, 'end', 1.5, -1)).toBe(true)
+    expect(offset()).toEqual({ kind: 'hairpinEndpointOffset', end: { x: 1.5, y: -1 } })
+    const h = getHairpinById(score, id)!
+    expect([fracToNumber(h.beat), fracToNumber(h.length)]).toEqual([0, 2])
+  })
+
+  it('ACCUMULATES, so a held arrow key walks the end out', () => {
+    setHairpinEndpointOffset(score, id, 'start', 0.25, 0)
+    setHairpinEndpointOffset(score, id, 'start', 0.25, -0.5)
+    expect(offset()!.start).toEqual({ x: 0.5, y: -0.5 })
+  })
+
+  it('keeps the two ends independent — which is what lets one `y` TILT the wedge', () => {
+    setHairpinEndpointOffset(score, id, 'start', 0, 1)
+    setHairpinEndpointOffset(score, id, 'end', 0, -1)
+    expect(offset()).toEqual({
+      kind: 'hairpinEndpointOffset', start: { x: 0, y: 1 }, end: { x: 0, y: -1 },
+    })
+  })
+
+  it('resets ONE end and keeps the other, then prunes the entry when the last goes', () => {
+    setHairpinEndpointOffset(score, id, 'start', 1, 1)
+    setHairpinEndpointOffset(score, id, 'end', 2, 2)
+    expect(resetHairpinEndpointOffset(score, id, 'start')).toBe(true)
+    expect(offset()).toEqual({ kind: 'hairpinEndpointOffset', end: { x: 2, y: 2 } })
+    expect(resetHairpinEndpointOffset(score, id, 'end')).toBe(true)
+    expect(offset()).toBeUndefined()
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+
+  it('⛔ a reset with nothing authored answers false, so the key falls through', () => {
+    expect(resetHairpinEndpointOffset(score, id, 'end')).toBe(false)
+    setHairpinEndpointOffset(score, id, 'start', 1, 0)
+    expect(resetHairpinEndpointOffset(score, id, 'end')).toBe(false)
+  })
+
+  it('⚠️ SURVIVES a resize — the nudge is about the shape, not about the note it sat near', () => {
+    // The slur's endpoint nudge dies on a re-anchor because it was tuned against one notehead's ink.
+    // A wedge's says "this far out from wherever the end lands", so moving the extent keeps it.
+    setHairpinEndpointOffset(score, id, 'end', 1, 0)
+    setHairpinLength(score, id, frac(3, 1))
+    expect(offset()!.end).toEqual({ x: 1, y: 0 })
+  })
+
+  it('dies with the hairpin', () => {
+    setHairpinEndpointOffset(score, id, 'end', 1, 0)
+    removeHairpin(score, id)
+    expect(offset()).toBeUndefined()
+  })
+
+  it('returns false for an unknown hairpin rather than orphaning an override', () => {
+    expect(setHairpinEndpointOffset(score, 'ghost', 'end', 1, 0)).toBe(false)
+    expect(score.engravingOverrides).toBeUndefined()
   })
 })

@@ -26,13 +26,17 @@ describe('resizing a hairpin from the keyboard', () => {
   let state: EditorState
   let resize: Mock<(id: string, direction: 1 | -1) => boolean>
   let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
+  let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let run: (action: string) => void
   let teardown: () => void
 
   beforeEach(() => {
     resize = vi.fn(() => true)
     moveStart = vi.fn(() => true)
+    nudge = vi.fn(() => true)
     const engine = {
+      nudgeHairpinEndpoint: nudge,
+      resetHairpinEndpointOffset: vi.fn(() => false),
       resizeHairpinBySlot: resize,
       moveHairpinStartBySlot: moveStart,
       resizePedalBySlot: vi.fn(() => false),
@@ -47,7 +51,7 @@ describe('resizing a hairpin from the keyboard', () => {
     const wiring = wireShortcuts(
       state,
       () => engine,
-      { selectNote: vi.fn(), deselectAll: vi.fn() } as never,
+      { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch: vi.fn(), navigateNext: vi.fn() } as never,
       { clearArmedArticulations: vi.fn() } as never,
       {} as never,
       { renderScore: vi.fn() } as never,
@@ -89,15 +93,29 @@ describe('resizing a hairpin from the keyboard', () => {
     expect(resize).not.toHaveBeenCalled()
   })
 
-  it('⭐ has left Ctrl+←/→ alone — a selected wedge no longer eats that chord', () => {
+  it('⭐⭐ Ctrl+←/→ is the OTHER category — it reshapes the ink, and never the extent', () => {
+    // The two chords on one pair of squares: Ctrl+Shift says which notes get louder (the model),
+    // Ctrl says where the ink goes (an override). A key that did both would make them one thing.
     armed('end')
     run('ctrlArrowRight')
     run('ctrlArrowLeft')
-    armed('start')
-    run('ctrlArrowRight')
-    run('ctrlArrowLeft')
+    expect(nudge.mock.calls).toEqual([['H1', 'end', 1, 0], ['H1', 'end', -1, 0]])
     expect(resize).not.toHaveBeenCalled()
     expect(moveStart).not.toHaveBeenCalled()
+  })
+
+  it('the plain arrows are the FINE step of that same reshape, on either square', () => {
+    armed('start')
+    run('selectNextNote')      // →
+    run('pitchUp')             // ↑
+    expect(nudge.mock.calls).toEqual([['H1', 'start', 0.25, 0], ['H1', 'start', 0, -0.25]])
+  })
+
+  it('⛔ …and neither arrow reshapes anything while NO square is armed', () => {
+    armed()
+    run('ctrlArrowRight')
+    run('pitchUp')
+    expect(nudge).not.toHaveBeenCalled()
   })
 
   it('declines for a selection that is not a hairpin at all', () => {

@@ -1359,3 +1359,40 @@ registers an element per notehead.
 ⛔ And a drag still cannot put an end between two notes: the cursor picks a slot, the slot decides the
 geometry. A wedge's extent is musical, and the model has nowhere to store "two thirds of the way to
 the next quaver".
+
+
+## 2026-08-17 (later still) — the wedge gets an OVERRIDE, and §4 gains its other half
+
+*"when an endpoint is selected and i ctrl+arrow i want to be able to offset, so is an override, and
+that means the user is able to reshape the hairpin"*, then: *"ctrl+arrow and arrow, similar to slur
+offset"*. So the armed square now nudges the wedge's DRAWN end — plain arrow ¼ space, `Ctrl`+arrow
+one space, `Ctrl+Backspace` back to the engraver's position — stored as a
+`HairpinEndpointOffsetOverride` (staff-spaces, per end) in the engraving-overrides compartment.
+
+### ⭐⭐ Two chords, two categories, one pair of handles
+
+§4 said a hairpin's extent is musical and its height is not, and used that to explain why the resize
+writes the MODEL. What it could not say, while the extent owned the only horizontal gesture, was what
+the cosmetic half would look like. Now both exist on the same two squares, told apart by the chord:
+
+| gesture | changes | where it lives |
+|---|---|---|
+| `Ctrl+Shift+←/→`, and a drag of the square | WHICH NOTES get louder | `beat` / `length` on the model |
+| arrow (fine) / `Ctrl`+arrow (coarse) | where the INK is drawn | `hairpinEndpointOffset` override |
+
+⭐ `x` moves that end along the wedge (± its reach), `y` moves it off the dynamics line — so a `y` on
+ONE end is what TILTS the wedge and a `y` on both lifts it whole. Playback cannot tell the difference,
+which is precisely the test of whether an edit belongs here or on the model.
+
+⚠️ **The offset is applied where the engraver's own decisions end** — after the dynamic skyline and
+the `END_INSET` air, before the pieces are cut. So a nudged end carries through the cut, through the
+aperture (sized from the DRAWN width) and through the registered outline — and therefore through the
+handles, which are read off that outline. Applied per piece afterwards, the ink would move and the
+squares would stay behind. On a split wedge the vertical nudge belongs to the TRUE ends: the start's
+on the first fragment, the end's on the last, or the wedge would bend at every system break.
+
+⚠️ **It SURVIVES a resize or a drag**, unlike the slur's endpoint nudge, and the difference is the
+reason: a slur's was tuned against one notehead's ink, so a re-anchor makes it unwanted; a wedge's
+says "this far out from wherever this end lands", which stays true when the extent moves.
+`Ctrl+Backspace` now has something to reset on a hairpin after all — the line in P4 saying it does not
+is superseded by this section.

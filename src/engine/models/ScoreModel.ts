@@ -620,6 +620,17 @@ export class ScoreModel {
     return hairpinOps.applyHairpinDrag(this.score, id, write)
   }
 
+  /** Nudge one drawn END of a hairpin (the wedge's RESHAPE — an override, not the extent), in
+   *  staff-spaces, accumulating. See {@link hairpinOps.setHairpinEndpointOffset}. */
+  setHairpinEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    return hairpinOps.setHairpinEndpointOffset(this.score, id, which, dx, dy)
+  }
+
+  /** Drop ONE end's reshape, keeping the other's. See {@link hairpinOps.resetHairpinEndpointOffset}. */
+  resetHairpinEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    return hairpinOps.resetHairpinEndpointOffset(this.score, id, which)
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. @returns the new type, or null. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     return hairpinOps.toggleHairpinType(this.score, id)

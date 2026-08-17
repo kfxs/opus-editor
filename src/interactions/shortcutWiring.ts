@@ -158,6 +158,40 @@ export function wireShortcuts(
     return true
   }
 
+  /**
+   * ⭐⭐ **Nudge the armed HAIRPIN end — the wedge's RESHAPE** (his ask, 2026-08-17: *"when an
+   * endpoint is selected and i ctrl+arrow i want to be able to offset, so is an override, and that
+   * means the user is able to reshape the hairpin"*). Plain arrow fine, `Ctrl`+arrow coarse —
+   * the slur endpoint's own pair, on the same squares that already resize with `Ctrl+Shift`.
+   *
+   * ⭐ **Two chords, two CATEGORIES, one pair of handles.** `Ctrl+Shift+←/→` says which notes get
+   * louder (the model); this says where the ink goes (an override). Getting them onto separate keys
+   * is what lets the second exist at all — §4 refused a cosmetic write while the only horizontal
+   * gesture was the extent's.
+   *
+   * ⚠️ Screen-down is +y, so "up lifts this end" passes a negative dy. A `y` on ONE end tilts the
+   * wedge; on both, it lifts it off the dynamics line.
+   */
+  const nudgeArmedHairpinEnd = (dx: number, dy: number): boolean => {
+    const eng = getEngine()
+    const hairpin = selectedOf(state, 'hairpin')
+    if (!eng || !hairpin?.endpoint) return false
+    if (!eng.nudgeHairpinEndpoint(hairpin.id, hairpin.endpoint, dx, dy)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /** `Ctrl+Backspace` on an armed hairpin end: back to the engraver's own position. DECLINEs when
+   *  that end was never nudged, so the key falls through to the note-spacing / bar-width resets. */
+  const resetArmedHairpinEnd = (): boolean => {
+    const eng = getEngine()
+    const hairpin = selectedOf(state, 'hairpin')
+    if (!eng || !hairpin?.endpoint) return false
+    if (!eng.resetHairpinEndpointOffset(hairpin.id, hairpin.endpoint)) return false
+    renderer.renderScore()
+    return true
+  }
+
   // The arrow keys serve ANY armed slur handle — blue true end, orange open join, or amber arc dot.
   // The three are mutually exclusive (one `selectedElement`, one field set), so they chain in the
   // order they were built. Returns true if one consumed the key (so the caller skips its default
@@ -303,9 +337,10 @@ export function wireShortcuts(
    * it writes a cosmetic override.** That is not an inconsistency to tidy away — it is §4's rule:
    * a hairpin's EXTENT is musical (it says which notes get louder) and its height is not. Letting
    * this write an offset instead would give us two ways to say "three beats long" that can
-   * disagree, with playback believing the one the eye does not. It follows that `Ctrl+Backspace`
-   * (`resetMove`) does NOT apply to a hairpin: nothing cosmetic was written, so there is nothing to
-   * reset.
+   * disagree, with playback believing the one the eye does not. ⚠️ What DOES write a cosmetic
+   * override is the plain / `Ctrl` arrow on the same square (`nudgeArmedHairpinEnd`, 2026-08-17) —
+   * two chords, two categories — so `Ctrl+Backspace` now has something to reset on a hairpin, which
+   * this comment used to say it never would.
    *
    * ⭐ **By a SLOT, not by a fixed fraction.** The step is the duration of the note the wedge
    * currently ends on (growing) or the one it would end on after shrinking — so the end always
@@ -777,6 +812,7 @@ export function wireShortcuts(
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
+      if (nudgeArmedHairpinEnd(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
       // A selected BARLINE walks to the next one — same dispatch-on-selection as Shift+Alt+←/→.
       if (selection.navigateBarline(1)) return
@@ -792,6 +828,7 @@ export function wireShortcuts(
     selectPreviousNote: () => {
       // Armed slur point / selected dynamic → fine nudge left instead of navigating.
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
+      if (nudgeArmedHairpinEnd(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
       if (selection.navigateBarline(-1)) return
       if (state.selectedTool === 'entry') {
@@ -821,10 +858,10 @@ export function wireShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -838,15 +875,16 @@ export function wireShortcuts(
     //    chord outright. It moved to `Ctrl+Shift+←/→`, and only while its right-hand square is armed
     //    (his call, 2026-08-17; see `resizeSelectedHairpin`).
     ctrlArrowLeft: () =>
-      nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
-      || resizeSelectedPedal(-1)
+      nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(-NUDGE_COARSE_SS, 0)
+      || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || resizeSelectedPedal(-1)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
-      nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
-      || resizeSelectedPedal(1)
+      nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(NUDGE_COARSE_SS, 0)
+      || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || resizeSelectedPedal(1)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetArmedSlurPoint() || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
+    resetMove: () => resetArmedSlurPoint() || resetArmedHairpinEnd()
+      || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
 
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
     //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that
