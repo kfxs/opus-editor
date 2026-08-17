@@ -481,28 +481,47 @@ export class PropertiesWidget implements Widget {
       wrap.appendChild(this.buildPointRow(`${which} (sp)`, offsets[which], (value) =>
         bus.hairpinGeometry.set({ hairpinId, which, value })))
     }
-    // …and the MOUTH — one number for the whole wedge, so a row of its own rather than a third
-    // point (his ask, 2026-08-17). Blank = the automatic, LENGTH-AWARE aperture, which is why the
-    // placeholder cannot show a number: the default depends on how long the wedge is drawn, and the
-    // panel does not measure ink.
-    const mouth = (element.overrides?.find((o) => o.kind === 'hairpinAperture') ?? {}) as { aperture?: number }
-    wrap.appendChild(this.buildNumberRow(
-      'mouth (sp)', mouth.aperture, 0.25,
-      (aperture) => bus.hairpinGeometry.set({ hairpinId, aperture }),
-      'how far the wedge opens — blank is the automatic width for its length',
-    ))
+    // …and the MOUTH — one number for the whole wedge, so a row of its own rather than a third point.
+    //
+    // ⭐⭐ **It shows the EFFECTIVE aperture, authored or not** (his correction, 2026-08-17: *"if i'm
+    // in auto and increase i don't start from 0, i start from current value and increase"*). A blank
+    // box would have made the first press of a spinner jump to the minimum, which is the opposite of
+    // a nudge. So the number on screen is what is on the page, and `reset` is what says "go back to
+    // automatic" — the distinction the model keeps (absent vs authored) is reported in the row's
+    // title and in the overrides dump below, not by an empty box.
+    //
+    // ⚠️ Its BOUNDS come from the snapshot, not from a constant here: the upper one depends on the
+    // wedge's DRAWN length through the steepness cap (`authoredApertureRange`), so on a short wedge it
+    // is well under the engine's nominal maximum. Offering a number the renderer would silently pull
+    // back is a control that lies about what it did.
+    const mouth = element.derived?.mouth as
+      { value: number; authored: boolean; min: number; max: number } | null | undefined
+    if (mouth) {
+      wrap.appendChild(this.buildNumberRow(
+        // ⭐ A 0.05-space step: the whole authorable range is half a space wide (1.5–2.0 at ordinary
+        // lengths), so a quarter-space step would offer three stops in it.
+        'mouth (sp)', mouth.value, 0.05, mouth.min, mouth.max,
+        (aperture) => bus.hairpinGeometry.set({ hairpinId, aperture }),
+        mouth.authored
+          ? `how far the wedge opens — yours; reset returns it to the automatic width (${mouth.min}–${mouth.max})`
+          : `how far the wedge opens — currently the automatic width for its length (${mouth.min}–${mouth.max})`,
+      ))
+    }
     return wrap
   }
 
   /**
-   * ONE number plus a reset, in staff-spaces — the single-value sibling of {@link buildPointRow},
-   * with its rules: blank means "the engraver decides" and is not zero, a non-number puts the model's
-   * own value back, and reset publishes `null`.
+   * ONE number plus a reset, in staff-spaces — the single-value sibling of {@link buildPointRow}.
+   * A non-number puts the current value back rather than guessing, `reset` publishes `null` ("let the
+   * engraver decide"), and a value outside `[min, max]` is CLAMPED before it is published: those
+   * bounds are the caller's, and the caller knows why they are what they are.
    */
   private buildNumberRow(
     caption: string,
     current: number | undefined,
     step: number,
+    min: number,
+    max: number,
     publish: (value: number | null) => void,
     hint?: string,
   ): HTMLElement {
@@ -522,7 +541,8 @@ export class PropertiesWidget implements Widget {
     const input = document.createElement('input')
     input.type = 'number'
     input.step = String(step)
-    input.min = '0'
+    input.min = String(min)
+    input.max = String(max)
     input.value = current === undefined ? '' : String(current)
     input.placeholder = 'auto'
     const is = input.style
@@ -539,7 +559,12 @@ export class PropertiesWidget implements Widget {
     input.addEventListener('change', () => {
       const n = parseFloat(input.value)
       if (!Number.isFinite(n)) { input.value = current === undefined ? '' : String(current); return }
-      publish(n)
+      // ⚠️ CLAMPED here, where the bounds are known. `min`/`max` on a number input only constrain its
+      // spinner — a typed or pasted value still arrives — and publishing one the engine would cap
+      // would store a shape the score never draws.
+      const bounded = Math.min(max, Math.max(min, n))
+      if (bounded !== n) input.value = String(bounded)
+      publish(bounded)
     })
     row.appendChild(input)
 

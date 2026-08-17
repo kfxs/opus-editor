@@ -4,8 +4,9 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
 import {
   cautionaryClefKey, cautionaryKey, restPositionKey,
-  curveShapeOverrideOf, segmentCurveShapeOverrideOf,
+  curveShapeOverrideOf, segmentCurveShapeOverrideOf, hairpinApertureOverrideOf,
 } from '../engine/models/engravingOverrides'
+import { authoredApertureRange } from '../engine/rendering/hairpinShape'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
@@ -100,6 +101,12 @@ function noteOverrideKeys(score: Score, engine: MusicEngine, note: Note): string
   const measure = score.measures.find((m) => m.number === note.measure)
   if (measure) keys.push(restPositionKey(measure.id, voiceOf(note), note.beat, score.staves?.[staffOf(note)]?.id))
   return keys
+}
+
+/** Two decimals — the drawn aperture is a float off a pixel division, and a control showing
+ *  `1.4999999999999998` is a control nobody trusts. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 export function selectedElements(state: EditorState, engine: MusicEngine | null): InspectedElement[] {
@@ -228,16 +235,35 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
 
-    case 'hairpin':
+    case 'hairpin': {
       // The whole model object — `beat` + `length` ARE the report, since a hairpin's extent is
-      // musical and there is nothing cosmetic to show beside it (yet: an aperture or slant override
-      // would appear under `overrides`, which is why it is asked for now).
+      // musical; what is cosmetic (the end nudges, the mouth) appears under `overrides`.
+      //
+      // ⭐⭐ …plus the mouth AS DRAWN, and the range it may be authored in. Both are his corrections
+      // (2026-08-17): *"if i'm in auto and increase i don't start from 0, i start from current value
+      // and increase"*, and *"we have a max mouth and a min mouth value, so this should be the
+      // boundaries also in properties"*. Neither number is in the model — the effective aperture is
+      // the automatic rule's answer for the wedge's DRAWN length, and the upper bound is that same
+      // length through the steepness cap — so both come off the last render, which is the only thing
+      // that knows how long the wedge came out.
+      const drawn = engine.getElementRegistry().getByType('hairpin').find(e => e.id === element.id)
+      const authored = hairpinApertureOverrideOf(score, element.id)?.aperture
       out.push({
         kind: 'hairpin',
         data: engine.getHairpinById(element.id) ?? { id: element.id, missing: true },
         overrides: overridesAt(score, element.id),
+        derived: {
+          mouth: drawn?.apertureSpaces === undefined ? null : {
+            /** What is on screen now — authored or automatic. A control steps from THIS. */
+            value: round2(drawn.apertureSpaces),
+            /** Whether that number is the user's or the engraver's. */
+            authored: authored !== undefined,
+            ...authoredApertureRange(drawn.hairpinLengthSpaces ?? 0),
+          },
+        },
       })
       break
+    }
 
     // The four kinds below have no object of their own in the model — an articulation, an
     // accidental, a dot and a tie are PROPERTIES of a note, not entries in a list. Their locator IS

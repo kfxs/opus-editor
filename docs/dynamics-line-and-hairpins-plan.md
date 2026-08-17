@@ -1432,8 +1432,34 @@ there is nothing to accumulate onto.
   apply — an authored mouth is a human fixing that very problem by eye.
 - ⛔ A non-positive mouth is REFUSED at the model, because the renderer draws nothing at all for one
   (`shape.aperture > 0`) and the wedge would vanish with nothing on screen to explain why.
-- Blank in the panel means the automatic, LENGTH-AWARE aperture. The placeholder cannot show that
-  number: it depends on how long the wedge is drawn, and the panel does not measure ink.
+### ⭐⭐ The mouth control shows what is DRAWN, and its bounds come from this file's own constants
+
+Two corrections of his, both of which the first cut got wrong:
+
+**1. *"if i'm in auto and increase i don't start from 0, i start from current value and increase."***
+A blank box meant the first press of the spinner jumped to the minimum, which is the opposite of a
+nudge. So the row shows the EFFECTIVE aperture — authored or automatic — and `reset` is what says
+"back to automatic"; the model's own distinction (absent vs authored) is reported in the row's title
+and in the overrides dump, not by an empty box. The effective number and the wedge's drawn length both
+ride the registry from the last render (`apertureSpaces`, `hairpinLengthSpaces`), because neither is in
+the model: the automatic aperture is a function of how long the wedge came out.
+
+**2. *"0.25 for min mouth aperture? this is not right, it does not look like an hairpin… it should be
+in our hairpin formula."*** It was an invented number, and the file's own physics says why it fails:
+the arms are inside their own stroke for `thickness ÷ aperture` OF THE WEDGE, so 0.25 at 0.16
+thickness is solid ink for 64% of its length. `authoredApertureRange(lengthSpaces)` now derives both
+ends from constants that already exist:
+
+| bound | value | why |
+|---|---|---|
+| max | `MAX_APERTURE` 2.0 | the end of the growth ramp; the widest he accepted at 85 spaces |
+| min | `AUTHORED_MIN_APERTURE` 1.0 | *"lets try 1 for our properties"* — and it is **Dorico's own "Minimum hairpin aperture" default**, quoted in this file already |
+| both | ↓ pulled down by `2·L·tan(MAX_ANGLE/2)` | the steepness cap, the length-dependent part |
+
+So a 45-space wedge offers 1–2, a 5.5-space one 1–1.11, and under ~5 spaces the cap is the whole
+answer and the range collapses to it. ⚠️ The panel CLAMPS a typed value into the range before
+publishing: `min`/`max` on a number input only constrain its spinner, and publishing a value the
+renderer would cap stores a shape the score never draws.
 
 ⏭️ Not built: a keyboard gesture for the mouth (it has no obvious chord, and nothing has asked), and
 a drag of it — the aperture handle would be a third square, on the mouth rather than at an end.

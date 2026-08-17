@@ -9,7 +9,7 @@
  * lands is P3's, in the browser suite.
  */
 import { describe, it, expect } from 'vitest'
-import { HAIRPIN, fragmentOpening, resolveHairpinShape } from './hairpinShape'
+import { HAIRPIN, fragmentOpening, resolveHairpinShape, authoredApertureRange } from './hairpinShape'
 
 describe('resolveHairpinShape', () => {
   /** Long enough that the gradient cap cannot bite. */
@@ -142,5 +142,66 @@ describe('fragmentOpening — a split wedge STEPS at the break', () => {
     expect(begin.end).toBeCloseTo(1 / 3, 10)
     expect(end.start).toBeCloseTo(2 / 3, 10)
     expect(end.end).toBeCloseTo(0, 10)
+  })
+})
+
+/**
+ * ⭐ {@link authoredApertureRange} — the bounds the Properties mouth control offers (his ask,
+ * 2026-08-17: *"we have a max mouth and a min mouth value, so this should be the boundaries also in
+ * properties"*).
+ *
+ * ⭐ The claim worth pinning: the MAXIMUM is length-dependent. `MAX_APERTURE` is the widest the
+ * automatic rule ever asks for, but on a SHORT wedge the steepness cap is far the smaller of the two —
+ * and offering the constant there would let a number be typed that `resolveHairpinShape` silently
+ * pulls back, which is a control that lies about what it did.
+ */
+describe('authoredApertureRange', () => {
+  const ceiling = (len: number) =>
+    2 * len * Math.tan((Math.PI / 180) * (HAIRPIN.MAX_ANGLE_DEGREES / 2))
+
+  it('is bounded above by the engine\'s own maximum on an ordinary wedge', () => {
+    expect(authoredApertureRange(60).max).toBe(HAIRPIN.MAX_APERTURE)
+  })
+
+  it('⭐ …but by the STEEPNESS CAP on a short one, which is the smaller of the two', () => {
+    const short = 8
+    expect(ceiling(short)).toBeLessThan(HAIRPIN.MAX_APERTURE)
+    expect(authoredApertureRange(short).max).toBeCloseTo(ceiling(short), 5)
+  })
+
+  it('⭐⭐ both ends are CONSTANTS OF THIS FILE — no number invented for the UI', () => {
+    // 0.25 was tried and rejected on sight: at 0.16 thickness it is solid ink for 64% of the wedge.
+    // The floor is Dorico's own "Minimum hairpin aperture" default of one space — a little under the
+    // 1.5 the automatic rule never goes below, which is the point of a HUMAN bound.
+    expect(authoredApertureRange(40).min).toBe(HAIRPIN.AUTHORED_MIN_APERTURE)
+    expect(authoredApertureRange(40).max).toBe(HAIRPIN.MAX_APERTURE)
+    expect(HAIRPIN.AUTHORED_MIN_APERTURE).toBeLessThan(HAIRPIN.APERTURE)
+  })
+
+  it('⚠️ on a SHORT wedge the CAP is the ceiling — a wider bound would invite a capped value', () => {
+    // At 5.5 spaces the cap is 1.11, which is the mouth the automatic rule gives there too. The floor
+    // still stands, so the range narrows rather than moving: 1 … 1.11.
+    const short = 5.5
+    const r = authoredApertureRange(short)
+    expect(r.max).toBeCloseTo(ceiling(short), 5)
+    expect(r.max).toBeLessThan(HAIRPIN.APERTURE)
+    expect(r.min).toBe(HAIRPIN.AUTHORED_MIN_APERTURE)
+  })
+
+  it('…and on a wedge shorter than the floor itself, the range COLLAPSES to the cap', () => {
+    // Under about 5 spaces the angle limit is below one space, and then it is the whole answer: there
+    // is nothing to author, which is honest rather than awkward.
+    const tiny = 3
+    const r = authoredApertureRange(tiny)
+    expect(ceiling(tiny)).toBeLessThan(HAIRPIN.AUTHORED_MIN_APERTURE)
+    expect(r.min).toBe(r.max)
+    expect(r.max).toBeCloseTo(ceiling(tiny), 5)
+  })
+
+  it('never inverts — min ≤ max at every length', () => {
+    for (const len of [0, 0.1, 3, 5.5, 12, 36, 60, 200]) {
+      const r = authoredApertureRange(len)
+      expect(r.min).toBeLessThanOrEqual(r.max)
+    }
   })
 })

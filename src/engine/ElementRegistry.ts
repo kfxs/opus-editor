@@ -351,6 +351,12 @@ export interface ElementInfo {
   /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. Also carried by a
    *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms. */
   endpoint?: 'start' | 'end'
+  /** For a 'hairpin' fragment: the mouth it was DRAWN at (staff-spaces, after the automatic rule,
+   *  any authored override and the steepness cap), and the drawn length that decided it. The
+   *  Properties mouth control reads both — the effective value to step from, and the bound it may be
+   *  typed up to. ⚠️ Facts about the last RENDER, like every other measurement here. */
+  apertureSpaces?: number
+  hairpinLengthSpaces?: number
   /** For a 'hairpin-endpoint' square: the wedge it belongs to. Its own field rather than `id`, so a
    *  lookup for the hairpin cannot find a handle's small box instead (the `stem` trap next door). */
   hairpinId?: string

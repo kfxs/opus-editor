@@ -51,6 +51,25 @@ export const HAIRPIN = {
    */
   APERTURE: 1.5,
   /**
+   * ⭐⭐ **The narrowest mouth a USER may author — one space, and it is Dorico's number, not ours**
+   * (his call, 2026-08-17: *"i think the user should be able to go down that 1.5, lets try 1 for our
+   * properties"*).
+   *
+   * The automatic rule never goes below {@link HAIRPIN.APERTURE}; this says how much further a human
+   * may close a wedge by hand. The value has a source, which is why it is 1 and not the 0.25 a first
+   * cut invented and he rejected on sight: Dorico's *"Minimum hairpin aperture"* defaults to **1
+   * space** — the same number, for the same job, quoted verbatim in
+   * {@link HAIRPIN.GROWTH_PER_SPACE}'s note on how our ramp turned out to be Dorico's structure.
+   *
+   * ⚠️ At one space the arms are inside their own stroke for `thickness ÷ aperture` = 16% of the
+   * wedge, against 10.7% at the automatic 1.5 — visibly tighter, still a hairpin. Below it that
+   * fraction climbs fast (64% at 0.25), which is what "does not look like an hairpin" was.
+   *
+   * ⛔ Not a floor on the DRAWN aperture, and nothing clamps UP to it: the steepness cap can and does
+   * take a short wedge below this, because there the angle limit is the mouth.
+   */
+  AUTHORED_MIN_APERTURE: 1.0,
+  /**
    * ⭐⭐ **THE SHALLOWEST a wedge may open — the mirror of {@link HAIRPIN.MAX_ANGLE_DEGREES}, and
    * the one number in this file that NO ENGINE HAS. Ours, and his call (2026-08-15).**
    *
@@ -340,6 +359,42 @@ export function resolveHairpinShape(
     aperture: Math.min(asked, ceiling),
     startY: override?.startY ?? 0,
     endY: override?.endY ?? 0,
+  }
+}
+
+/**
+ * ⭐⭐ **The range a user may AUTHOR a mouth in, for a wedge of this drawn length** — the bounds the
+ * Properties input offers (his ask, 2026-08-17: *"we have a max mouth and a min mouth value, so this
+ * should be the boundaries also in properties"*).
+ *
+ * ## ⭐⭐ It is THIS FILE'S OWN RANGE, and nothing new
+ *
+ * A first cut invented a floor of 0.25 spaces and he rejected it on sight — *"0.25 for min mouth
+ * aperture? this is not right, it does not look like an hairpin… it should be in our hairpin
+ * formula"*. He was right, and the reason is written a few lines up: the two arms are inside their own
+ * stroke for `thickness ÷ aperture` **of the wedge**, so a mouth of 0.25 at 0.16 thickness is solid
+ * ink for 64% of its length. It is not a narrow hairpin, it is a bar with a corner.
+ *
+ * The bounds come from this file's own constants, each with its own reason: the ceiling is
+ * {@link HAIRPIN.MAX_APERTURE} — the end of the growth ramp, and the widest he accepted at 85 spaces —
+ * and the floor is {@link HAIRPIN.AUTHORED_MIN_APERTURE}, one space, which is Dorico's *"Minimum
+ * hairpin aperture"* default and sits a little under the {@link HAIRPIN.APERTURE} the automatic rule
+ * never goes below. So **an authored mouth spans the whole range the engraver's own rules move in,
+ * plus the half-space of extra tightness a human may ask for and the machine may not.**
+ *
+ * ⚠️ **Both are then pulled down by the STEEPNESS CAP**, which is the length-dependent part and the
+ * reason this is a function rather than a pair of constants: a 5.5-space wedge is capped at 1.11, and
+ * on it the range collapses to that single value. That is honest rather than awkward — at that length
+ * the angle limit IS the mouth, and offering a wider number would let one be typed that
+ * {@link resolveHairpinShape} silently pulls back.
+ *
+ * Pure, so the panel's bounds and the renderer's clamp cannot drift.
+ */
+export function authoredApertureRange(lengthSpaces: number): { min: number; max: number } {
+  const ceiling = 2 * Math.max(0, lengthSpaces) * Math.tan((Math.PI / 180) * (HAIRPIN.MAX_ANGLE_DEGREES / 2))
+  return {
+    min: Math.min(HAIRPIN.AUTHORED_MIN_APERTURE, ceiling),
+    max: Math.min(HAIRPIN.MAX_APERTURE, ceiling),
   }
 }
 

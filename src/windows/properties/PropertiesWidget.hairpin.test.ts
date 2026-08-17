@@ -16,6 +16,9 @@ import type { InspectedElement } from '../../interactions/selectionSnapshot'
  * How many notes it covers is musical and measured in notes; a staff-space input would be a second,
  * lossy way to say it, and the two could then disagree.
  */
+/** The mouth as the snapshot reports it for an un-authored wedge: what is DRAWN, plus its range. */
+const AUTO_MOUTH = { value: 1.5, authored: false, min: 1, max: 2 }
+
 const hairpinElement = (over: Partial<InspectedElement> = {}): InspectedElement[] => ([{
   kind: 'hairpin',
   data: { id: 'H1', type: 'cresc', beat: { num: 0, den: 1 }, length: { num: 2, den: 1 } },
@@ -65,32 +68,59 @@ describe('the hairpin end rows', () => {
   })
 
   it('⛔ offers NO box for the extent — that quantity is measured in notes, not in spaces', () => {
-    bus.inspection.set(hairpinElement())
+    bus.inspection.set(hairpinElement({ derived: { mouth: AUTO_MOUTH } }))
     // Four boxes for the two ends and one for the mouth, so a `length` input cannot creep in unnoticed.
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(5)
   })
 
-  it('⭐ has a MOUTH row — one number for the whole wedge, not a third point', () => {
-    bus.inspection.set(hairpinElement())
+  it('⭐⭐ the MOUTH shows the EFFECTIVE width even when it is the engraver\'s, so a step starts THERE', () => {
+    // His correction: a blank box would make the first press of the spinner jump to the minimum,
+    // which is the opposite of a nudge. The number on screen is what is on the page; `reset` is what
+    // says "back to automatic".
+    bus.inspection.set(hairpinElement({ derived: { mouth: AUTO_MOUTH } }))
     const { inputs } = row('mouth')
     expect(inputs).toHaveLength(1)
-    // Blank = the automatic LENGTH-AWARE aperture; the panel cannot show that number because it
-    // depends on how long the wedge is drawn, and the panel does not measure ink.
-    expect([inputs[0].value, inputs[0].placeholder]).toEqual(['', 'auto'])
+    expect(inputs[0].value).toBe('1.5')
   })
 
-  it('the mouth shows an authored width, and publishes the absolute value', () => {
+  it('⭐ takes its BOUNDS from the snapshot — length-dependent, not a constant in the panel', () => {
+    // A 45-space wedge: the steepness cap has not bitten, so the range is the formula's own
+    // 1.5…MAX, and on a shorter one both ends come down with the cap.
+    bus.inspection.set(hairpinElement({ derived: { mouth: { ...AUTO_MOUTH, min: 1.11, max: 1.11 } } }))
+    const { inputs } = row('mouth')
+    expect([inputs[0].min, inputs[0].max]).toEqual(['1.11', '1.11'])
+  })
+
+  it('⛔ CLAMPS a typed value into those bounds rather than publishing one the engine would cap', () => {
+    // `max` on a number input only constrains the spinner — a typed or pasted value still arrives.
+    bus.inspection.set(hairpinElement({ derived: { mouth: { ...AUTO_MOUTH, min: 1, max: 1.61 } } }))
+    const { inputs } = row('mouth')
+    type(inputs[0], '9')
+    expect(published).toEqual([{ hairpinId: 'H1', aperture: 1.61 }])
+    expect(inputs[0].value).toBe('1.61')
+    // …and the same at the bottom: a mouth narrower than the floor is a black bar, not a hairpin.
+    type(inputs[0], '0.25')
+    expect(published[1]).toEqual({ hairpinId: 'H1', aperture: 1 })
+  })
+
+  it('publishes the absolute value, and reset hands the mouth back to automatic', () => {
     bus.inspection.set(hairpinElement({
-      overrides: [{ kind: 'hairpinAperture', aperture: 2.5 }] as unknown as InspectedElement['overrides'],
+      derived: { mouth: { value: 1.75, authored: true, min: 1, max: 2 } },
+      overrides: [{ kind: 'hairpinAperture', aperture: 1.75 }] as unknown as InspectedElement['overrides'],
     }))
     const { inputs, reset } = row('mouth')
-    expect(inputs[0].value).toBe('2.5')
-    type(inputs[0], '1.75')
+    expect(inputs[0].value).toBe('1.75')
+    type(inputs[0], '1.9')
     reset!.click()
     expect(published).toEqual([
-      { hairpinId: 'H1', aperture: 1.75 },
+      { hairpinId: 'H1', aperture: 1.9 },
       { hairpinId: 'H1', aperture: null },
     ])
+  })
+
+  it('no mouth row for a wedge the last render did not draw — nothing to step from', () => {
+    bus.inspection.set(hairpinElement({ derived: { mouth: null } }))
+    expect(row('mouth').inputs).toHaveLength(0)
   })
 
   it('shows an authored reshape, read from the overrides compartment', () => {

@@ -358,10 +358,8 @@ function drawWedge(
   // ⭐ The hand-set mouth where there is one, else the automatic length-aware aperture. The steepness
   // cap inside `resolveHairpinShape` applies to both, so an authored mouth on a short wedge is still
   // pulled back from an arrowhead.
-  const shape = resolveHairpinShape(
-    hairpinApertureOverrideOf(pass.score, hairpin.id),
-    drawnWidth / from.stave.getSpacingBetweenLines(),
-  )
+  const lengthSpaces = drawnWidth / from.stave.getSpacingBetweenLines()
+  const shape = resolveHairpinShape(hairpinApertureOverrideOf(pass.score, hairpin.id), lengthSpaces)
   if (!(shape.aperture > 0)) return
 
   const ctx = pass.context
@@ -405,6 +403,12 @@ function drawWedge(
       id: hairpin.id,
       staff: from.staffIndex,
       measure: from.measureNumber,
+      // ⭐ What the wedge was actually DRAWN at, in staff-spaces — the resolved mouth (authored or
+      // automatic, after the steepness cap) and the length that decided it. The Properties mouth
+      // input reads both: it shows the effective number so stepping starts from what is on screen
+      // rather than from zero, and the length gives its upper bound (`authoredApertureRange`).
+      apertureSpaces: shape.aperture,
+      hairpinLengthSpaces: lengthSpaces,
       bbox: {
         x: piece.x0,
         y: Math.min(y0 - h0, y1 - h1),
