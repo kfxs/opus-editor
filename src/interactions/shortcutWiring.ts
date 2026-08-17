@@ -15,6 +15,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
+import { cycleSlurHandle } from './slurHandleCycle'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
@@ -101,6 +102,15 @@ export function wireShortcuts(
     const slur = selectedOf(state, 'slur')
     if (!eng || !slur?.segmentEndpoint) return false
     eng.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
+    renderer.renderScore()
+    return true
+  }
+
+  // Tab / Shift+Tab: walk the selected slur's drawn handles. The registry is the list, so this
+  // declines wherever none are drawn (no slur selected, or linear view) — see `slurHandleCycle`.
+  const walkSlurHandles = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !cycleSlurHandle(state, eng.getElementRegistry(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -690,6 +700,11 @@ export function wireShortcuts(
       })
       renderer.renderScore()
     },
+    // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
+    // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
+    // when a handler does not answer false.
+    nextSlurHandle: () => walkSlurHandles(1),
+    previousSlurHandle: () => walkSlurHandles(-1),
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
