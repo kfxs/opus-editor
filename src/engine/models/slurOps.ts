@@ -12,9 +12,10 @@
  * break are all engraving overrides keyed by the slur id (`overrideOps` / `engravingOverrides`), not
  * fields on the `Slur`: pixels stay out of the content model (docs/engraving-overrides-plan.md
  * Phase 1). So most of this module is the WRITE half of that arrangement, and the reason a slur has
- * four setters rather than one is that they clear each other on different rules —
- * re-anchoring drops the span-relative edits and keeps the note-anchored one, which is a musical
- * decision written into {@link setSlurEndpoint}.
+ * four setters rather than one is that they clear each other on different rules — re-anchoring an
+ * end drops every edit that was authored against it (the span-relative shapes AND that end's own
+ * nudge) while leaving the OTHER end's nudge alone, which is a musical decision written into
+ * {@link setSlurEndpoint}.
  *
  * ⚠️ Re-attaching slurs across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving.
@@ -83,10 +84,11 @@ export function setSlurShape(score: Score, id: string, cps: CurveControlPointDel
 }
 
 /**
- * Re-anchor one end of a slur onto a different note (used by the draggable endpoint
- * handles). Rewrites `startNoteId` or `endNoteId` and **drops any custom shape** — the
- * hand-tuned arc was relative to the old span, so it re-bows to the auto arch for the
- * new endpoints. Rejected (returns false) if the slur is missing, the target equals
+ * Re-anchor one end of a slur onto a different note (the draggable endpoint handles, and the
+ * Ctrl+Shift+←/→ walk in `interactions/slurReanchor`). Rewrites `startNoteId` or `endNoteId` and
+ * **drops any custom shape** — the hand-tuned arc was relative to the old span, so it re-bows to
+ * the auto arch for the new endpoints — **and the moved end's own nudge**, which was tuned against
+ * the note it is leaving. Rejected (returns false) if the slur is missing, the target equals
  * the current anchor, or it would collapse the span (start === end).
  */
 export function setSlurEndpoint(score: Score, id: string, which: 'start' | 'end', noteId: string): boolean {
@@ -99,24 +101,51 @@ export function setSlurEndpoint(score: Score, id: string, which: 'start' | 'end'
   else slur.endNoteId = noteId
   // auto-reset (§3.3): endpoint re-pointed onto a different element → both the single-arc
   // shape AND the cross-system per-segment shape were authored against the OLD anchors.
-  // NOTE: 'endpointOffset' is deliberately NOT cleared here — it is anchor-relative, so
-  // the nudge rides onto the new anchor and stays meaningful (slur-endpoint-offset-plan).
   clearEngravingOverride(score, id, 'curveShape')
   clearEngravingOverride(score, id, 'segmentCurveShape')
   // The open-join nudges are margin-bound and span-relative (like segmentCurveShape), so a
-  // re-anchor — which can change the span — wipes them too. The durable note-anchored
-  // 'endpointOffset' above is the only override that survives a re-anchor.
+  // re-anchor — which can change the span — wipes them too.
   clearEngravingOverride(score, id, 'segmentEndpointOffset')
+  // ⭐ …and so does the MOVED end's own nudge (his call, 2026-08-17), reversing what
+  // docs/slur-endpoint-offset-plan.md §"survives" first decided. Anchor-relative makes the offset
+  // *transferable*, not *wanted*: it was tuned to clear the notehead, stem and accidentals of the
+  // note it used to sit on, and a re-anchor is the user saying "not that note" — so carrying the
+  // nudge along re-applies an answer to a question nobody asked again. Only the end that MOVED is
+  // cleared; the other end never changed anchor, so its nudge is still the answer to its own note.
+  // ⚠️ Both re-anchor paths run through here — the drag and the Ctrl+Shift+←/→ walk — deliberately:
+  // it is the same gesture on two devices. What does NOT run through here is `reanchorSlurs`, where
+  // an edit ELSEWHERE (a re-bar, a note→rest) re-points the span without the user touching the end.
+  clearEndpointOffsetSide(score, id, which)
   return true
+}
+
+/**
+ * Drop ONE end's {@link SlurEndpointOffsetOverride}, keeping the other's — the per-side clear
+ * {@link setSlurEndpoint} needs, since the two ends share a single override object. Prunes the
+ * whole entry when the other end has no offset either, so "absent = none" still holds.
+ */
+function clearEndpointOffsetSide(score: Score, id: string, which: 'start' | 'end'): void {
+  const prev = engravingOverrideOf(score, id, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
+  if (!prev?.[which]) return
+  const other = which === 'start' ? prev.end : prev.start
+  if (!other) {
+    clearEngravingOverride(score, id, 'endpointOffset')
+    return
+  }
+  const kept: SlurEndpointOffsetOverride = which === 'start'
+    ? { kind: 'endpointOffset', end: other }
+    : { kind: 'endpointOffset', start: other }
+  setEngravingOverride(score, id, kept)
 }
 
 /**
  * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing
  * offset (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).
  * Stored as a {@link SlurEndpointOffsetOverride} in the engraving-overrides compartment
- * (staff-spaces, anchor-relative — so it survives a re-anchor and any font/zoom/reflow).
- * `dx`/`dy` are in staff-spaces. A future "reset" simply calls
- * `clearEngravingOverride(id, 'endpointOffset')`. @returns true if the slur exists.
+ * (staff-spaces, anchor-relative — so it survives any font/zoom/reflow; ⚠️ it does NOT survive a
+ * re-anchor of its own end, see {@link setSlurEndpoint}). `dx`/`dy` are in staff-spaces. A future
+ * "reset" simply calls `clearEngravingOverride(id, 'endpointOffset')`.
+ * @returns true if the slur exists.
  */
 export function setSlurEndpointOffset(score: Score, id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
   if (!getSlurById(score, id)) return false

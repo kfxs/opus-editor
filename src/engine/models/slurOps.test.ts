@@ -3,7 +3,8 @@
  *
  * All three chapters here are about the same decision: WHICH hand-authored edits survive which
  * change. A re-anchor drops the span-relative shapes (they were drawn against the old endpoints)
- * and keeps the note-anchored `endpointOffset` (it rides onto the new anchor); a segment edit made
+ * AND the moved end's own `endpointOffset` (it was tuned against the note being left), while the
+ * other end's nudge stands; a segment edit made
  * against a different system count drops its stale MIDDLES and keeps begin/end. None of that is
  * geometry — it is storage plus a staleness rule, which is why it can be checked with no renderer.
  *
@@ -109,8 +110,8 @@ describe('ScoreModel.setSlurEndpointOffset', () => {
     })
   })
 
-  it('SURVIVES a re-anchor (anchor-relative) while curveShape/segmentCurveShape are cleared', () => {
-    model.setSlurEndpointOffset(slurId, 'start', 0.5, 0.5)
+  it('the MOVED end’s nudge dies with the re-anchor, along with curveShape/segmentCurveShape', () => {
+    model.setSlurEndpointOffset(slurId, 'end', 0.5, 0.5)
     model.setSlurShape(slurId, [{ x: 1, y: 1 }, { x: 1, y: 1 }])
     model.setSlurSegmentShape(slurId, { role: 'begin' }, [{ x: 2, y: 2 }, { x: 2, y: 2 }], 3)
 
@@ -119,8 +120,27 @@ describe('ScoreModel.setSlurEndpointOffset', () => {
     // The span-relative shapes were authored against the old geometry → gone.
     expect(curveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
     expect(segmentCurveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
-    // The endpoint nudge is anchor-relative → it rides onto the new anchor, untouched.
-    expect(off(slurId)!.start).toEqual({ x: 0.5, y: 0.5 })
+    // …and so is the nudge on the end that MOVED: it was tuned against the note just left behind
+    // (his call, 2026-08-17 — reversing the plan's original "anchor-relative, so it rides along").
+    // The whole compartment is pruned, since that was the only override left.
+    expect(off(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('the OTHER end’s nudge survives — only the end that moved is cleared', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 0.5, 0.5)
+    model.setSlurEndpointOffset(slurId, 'end', -1, 2)
+
+    model.setSlurEndpoint(slurId, 'end', 'n-z')
+
+    // 'start' never changed anchor, so its nudge is still the answer to its own note.
+    expect(off(slurId)).toEqual({ kind: 'endpointOffset', start: { x: 0.5, y: 0.5 } })
+  })
+
+  it('a re-anchor of an end with NO nudge leaves the other end untouched', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 0.5, 0.5)
+    model.setSlurEndpoint(slurId, 'end', 'n-z') // the moved end had nothing to clear
+    expect(off(slurId)).toEqual({ kind: 'endpointOffset', start: { x: 0.5, y: 0.5 } })
   })
 
   it('dies with the slur (removeSlur clears all kinds, including the offset)', () => {

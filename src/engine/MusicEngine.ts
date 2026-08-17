@@ -1649,16 +1649,18 @@ export class MusicEngine {
     this.commitPreviewed('Reshape slur')
   }
 
-  /** Live (preview) re-anchor used **while dragging a slur endpoint handle** — moves
-   *  one end of the slur onto `noteId` and resets its custom shape, WITHOUT recording
-   *  undo. Returns false (no-op) when the target is invalid (collapses the span or is
-   *  unchanged). Call {@link commitSlurEndpoint} on drop for the single undo entry. */
+  /** Re-anchor without undo — moves one end of the slur onto `noteId` and resets the edits that
+   *  were authored against the old anchor (see `slurOps.setSlurEndpoint`). Returns false (no-op)
+   *  when the target is invalid (collapses the span or is unchanged). Pair it with
+   *  {@link commitSlurEndpoint} for the single undo entry: every FRAME of an endpoint drag, or the
+   *  one step of a Ctrl+Shift+←/→ press (`interactions/slurReanchor`, where the two run back to
+   *  back — a press is already a whole gesture). */
   previewSlurEndpoint(id: string, which: 'start' | 'end', noteId: string): boolean {
     this.markModelDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
     return this.scoreModel.setSlurEndpoint(id, which, noteId)
   }
 
-  /** Record one undo entry after a slur-endpoint re-anchor drag settles. */
+  /** Record one undo entry for a re-anchor: after the drag settles, or per keyboard step. */
   commitSlurEndpoint(): void {
     this.commitPreviewed('Re-anchor slur')
   }

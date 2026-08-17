@@ -179,13 +179,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // chords, NOT the easy key ("should not offset that much"): WIDE (1 space) on Ctrl+Shift+←/→, FINE
   // (¼ space) on Shift+Alt+←/→. Both Ctrl+Shift+Backspace and Shift+Alt+Backspace reset it to the
   // natural column (one value, a matching backspace per arrow-chord).
+  //
+  // ⭐ An armed SLUR ENDPOINT re-anchors on this chord instead — one note earlier/later — because
+  // Ctrl+←/→ already nudges that same point by pixels, so Shift keeps the axis and means "stop
+  // nudging, move the anchor" (the keyboard twin of dragging the blue square; his ask, 2026-08-17).
+  // Disjoint from the offset branch and so not a conflict: arming an endpoint clears the note
+  // multi-select the offset requires. `interactions/slurReanchor.ts` owns the walk.
   'Ctrl+Shift+ArrowLeft': {
-    action: 'nudgeNoteOffsetCoarseLeft',
-    description: 'Nudge the selected note left (offset, wide)',
+    action: 'ctrlShiftArrowLeft',
+    description: 'Re-anchor the armed slur endpoint one note left, or nudge the selected note left (offset, wide)',
   },
   'Ctrl+Shift+ArrowRight': {
-    action: 'nudgeNoteOffsetCoarseRight',
-    description: 'Nudge the selected note right (offset, wide)',
+    action: 'ctrlShiftArrowRight',
+    description: 'Re-anchor the armed slur endpoint one note right, or nudge the selected note right (offset, wide)',
   },
   'Ctrl+Shift+Backspace': {
     action: 'resetNoteOffset',

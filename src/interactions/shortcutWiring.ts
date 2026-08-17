@@ -14,6 +14,7 @@ import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
+import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
@@ -100,6 +101,16 @@ export function wireShortcuts(
     const slur = selectedOf(state, 'slur')
     if (!eng || !slur?.segmentEndpoint) return false
     eng.nudgeSlurSegmentEndpoint(slur.id, slur.segmentEndpoint, dx, dy, slur.segmentSpanCount ?? 0)
+    renderer.renderScore()
+    return true
+  }
+
+  // Ctrl+Shift+←/→ on an armed TRUE endpoint: walk the anchor one note, instead of nudging it by
+  // pixels. The module owns every reason it can decline (no armed end, off the lane, at the other
+  // end); this just repaints on a yes. See `slurReanchor`.
+  const reanchorArmedEndpoint = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !reanchorArmedSlurEndpoint(state, eng, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -755,8 +766,11 @@ export function wireShortcuts(
     //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that
     //    much" → the deliberate chords, not the easy key. Each DECLINEs when no single note/rest is
     //    selected. See docs/note-offset-plan.md §C.
-    nudgeNoteOffsetCoarseLeft: () => nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
-    nudgeNoteOffsetCoarseRight: () => nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
+    //    ⭐ An armed slur ENDPOINT gets the chord first: it re-anchors one note left/right instead
+    //    (Ctrl+←/→ already nudges that point by pixels, so Shift on the same axis means "move the
+    //    anchor" — see `slurReanchor`). Disjoint from the offset, which needs a selected NOTE.
+    ctrlShiftArrowLeft: () => reanchorArmedEndpoint(-1) || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+    ctrlShiftArrowRight: () => reanchorArmedEndpoint(1) || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
     // Ctrl+Shift+Backspace AND Shift+Alt+Backspace both reset the offset — it is one value, and each

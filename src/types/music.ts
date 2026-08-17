@@ -917,11 +917,12 @@ export interface SegmentCurveShapeOverride extends EngravingOverride {
  * Client #3 of the engraving-overrides compartment: a free positional nudge of a slur's
  * in/out endpoint(s), on top of its note anchor (see docs/slur-endpoint-offset-plan.md).
  * Each offset is in **staff-spaces**, anchor-relative — added to the auto endpoint
- * position at render against that end's own stave. Unlike {@link CurveShapeOverride} /
- * {@link SegmentCurveShapeOverride}, this is **durable across a re-anchor**: both ends are
- * note-anchored on same-line AND cross-system slurs (no `spanCount` staleness), and the
- * relative nudge rides onto the new anchor. Read straight through (no reconcile rule);
- * cleared only when the slur is deleted.
+ * position at render against that end's own stave. Both ends are note-anchored on same-line
+ * AND cross-system slurs, so unlike {@link SegmentCurveShapeOverride} there is no `spanCount`
+ * staleness and no reconcile rule — it is read straight through. ⚠️ It is nevertheless cleared
+ * when its OWN end is re-anchored (`slurOps.setSlurEndpoint`, revised 2026-08-17): the nudge was
+ * tuned against the ink of the note it sat on, and being anchor-relative makes it transferable,
+ * not wanted. The other end's nudge is untouched, and both die with the slur.
  */
 export interface SlurEndpointOffsetOverride extends EngravingOverride {
   kind: 'endpointOffset'

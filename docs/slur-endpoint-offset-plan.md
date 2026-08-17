@@ -25,12 +25,17 @@ clear the `endpointOffset` kind); arrow-nudging the amber **curve-shape** dots.
 - **Blue squares only.** The amber curve-bend dots stay drag-only for now.
 - **Both behaviors coexist on the same selected slur.** Dragging a square
   re-anchors; clicking + arrows nudges. One does not disable the other.
-- **Re-anchor does NOT clear the endpoint offset.** The offset is stored
-  *anchor-relative* (dx/dy from the anchor note), so it stays meaningful after a
-  re-anchor — the point carries the same relative nudge onto the new note. This is a
-  deliberate exception to the §3.3 auto-reset: `setSlurEndpoint` keeps clearing the
-  span-relative `curveShape`/`segmentCurveShape` (those were authored against the old
-  geometry) but **leaves `endpointOffset` intact**.
+- ~~**Re-anchor does NOT clear the endpoint offset.**~~ **REVERSED 2026-08-17 (his call):
+  a re-anchor CLEARS the moved end's offset.** The original reasoning — the offset is
+  stored *anchor-relative*, so it stays meaningful on the new note — proved to be about
+  the wrong word: anchor-relative makes the nudge *transferable*, not *wanted*. It was
+  tuned to clear the notehead, stem and accidentals of the note it sat on, and a
+  re-anchor is the user saying "not that note". So `setSlurEndpoint` now clears the
+  **moved** end's offset alongside `curveShape`/`segmentCurveShape` — no longer an
+  exception to the §3.3 auto-reset — while the OTHER end's nudge stands, since that end
+  never changed anchor. Both re-anchor gestures go through it (the drag and the
+  Ctrl+Shift+←/→ walk); `reanchorSlurs` does not, since there the span is re-pointed by
+  an edit elsewhere and the user never touched the end.
 - **Step sizes:** plain arrow = fine `NUDGE_FINE_SS = 0.25` staff-space (≈2.5 px at the
   default 10 px/space), `Ctrl`+arrow = coarse `NUDGE_COARSE_SS = 1.0` staff-space (≈10 px).
   A whole staff-space is a usable coarse step and 0.25 is fine without being so small it
@@ -55,8 +60,8 @@ clear the `endpointOffset` kind); arrow-nudging the amber **curve-shape** dots.
  * slur's in/out endpoint(s), on top of its note anchor. Each offset is in
  * **staff-spaces**, anchor-relative (added to the auto endpoint position at render).
  * Durable — both ends are note-anchored on same-line AND cross-system slurs, so there
- * is no spanCount staleness. Survives re-anchoring (the relative nudge rides onto the
- * new anchor); cleared only when the slur is deleted.
+ * is no spanCount staleness. Cleared when the slur is deleted — and, per the 2026-08-17
+ * revision, when its OWN end is re-anchored.
  */
 export interface SlurEndpointOffsetOverride extends EngravingOverride {
   kind: 'endpointOffset'
@@ -96,9 +101,9 @@ Reads the current `endpointOffset` override (or {}), adds the delta to the
 `start`/`end` field, upserts via `setEngravingOverride`. (A future "reset" simply
 calls `clearEngravingOverride(id, 'endpointOffset')`.)
 
-**`setSlurEndpoint` change:** it currently clears `curveShape` + `segmentCurveShape`.
-Leave that untouched — do **not** add `endpointOffset` to that clear list (decision
-above). Add a one-line code comment stating the offset deliberately survives re-anchor.
+**`setSlurEndpoint` change:** it clears `curveShape` + `segmentCurveShape` — and, since
+the 2026-08-17 reversal above, the **moved end's** `endpointOffset` too (a per-side
+clear, `clearEndpointOffsetSide`, since the two ends share one override object).
 
 **Deletion already handled:** slur delete (`ScoreModel.removeSlur` →
 `clearEngravingOverride(id)` with no kind) and the `reanchorSlurs` drop paths clear
@@ -236,12 +241,14 @@ point" → dy negative.
 | Event | curveShape / segmentCurveShape | endpointOffset |
 |-------|-------------------------------|----------------|
 | Slur deleted | cleared (all kinds) | cleared (all kinds) |
-| Endpoint re-anchored (`setSlurEndpoint`) | cleared | **kept** |
+| Endpoint re-anchored (`setSlurEndpoint`) | cleared | **the MOVED end cleared, the other kept** |
 | `reanchorSlurs` drop | cleared (all) | cleared (all) |
 | `reanchorSlurs` re-point | curveShape cleared | **kept** |
 
-The only new rule: `endpointOffset` survives a re-anchor/re-point (anchor-relative),
-and otherwise dies with the slur.
+The rule (as revised 2026-08-17): a nudge dies with the anchor it was tuned against —
+so the end the USER re-anchors loses it, the end that merely sat still keeps it, and a
+re-point forced by an edit elsewhere (`reanchorSlurs`) keeps it too, since nobody asked
+for that move. And all of it dies with the slur.
 
 ## Tests
 
