@@ -182,9 +182,12 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     action: 'ctrlArrowRight',
     description: 'Nudge the selected slur endpoint / dynamic right, or widen the note-spacing / barline',
   },
+  // ⭐ …and the RESET of the same chord. It also takes the armed SLUR HANDLE — arc dot, true end or
+  // open join — back to the automatic engraving (`interactions/slurHandleNudge`): Ctrl+←/→ nudges
+  // those points, so Ctrl+Backspace undoes the nudging, the rule every other pair here follows.
   'Ctrl+Backspace': {
     action: 'resetMove',
-    description: 'Reset the space before the selected note / the selected bar’s width',
+    description: 'Reset the armed slur handle / the space before the selected note / the bar’s width',
   },
 
   // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single

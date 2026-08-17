@@ -17,6 +17,7 @@ import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
+import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { stampTrillAtClick } from './trillStamp'
 import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
@@ -863,7 +864,9 @@ export class MouseController {
       this.draggedSlurId = handle.slurId
       this.draggedCpIndex = handle.cpIndex
       this.draggedSlurEndpoints = handle.slurEndpoints
-      this.draggedSlurBaselineCps = this.cpsFromControlPoints(handle.controlPoints, handle.slurEndpoints)
+      // The keyboard nudge inverts the same math from the same registry fields, so the conversion
+      // lives next to it (`./slurHandleNudge`) rather than being kept twice.
+      this.draggedSlurBaselineCps = cpsFromDrawnControlPoints(handle.controlPoints, handle.slurEndpoints)
       this.draggedStaffSpacePx = handle.staffSpacePx ?? 10
       this.draggedSlurSegment = handle.segmentRole === undefined ? undefined
         : handle.segmentRole === 'middle' ? { role: 'middle', ordinal: handle.segmentOrdinal ?? 0 }
@@ -1303,26 +1306,6 @@ export class MouseController {
       engine.setLayoutFrozen(false)
       this.render.renderScore()
     }
-  }
-
-  /**
-   * Invert `Curve.renderCurve`'s control-point math (the same math `drawCurveArc` uses
-   * forward) to recover the **pixel** control-point deltas from the two on-screen control
-   * points and the arc's endpoint geometry (the caller converts to staff-spaces before
-   * storing). With xShift/yShift = 0 and `cps.length === 2`,
-   * `spacing = (p1.x - p0.x) / 4`, `C0 = (p0.x+spacing+cp0.x, p0.y+cp0.y·dir)` and
-   * `C1 = (p1.x-spacing+cp1.x, p1.y+cp1.y·dir)`.
-   */
-  private cpsFromControlPoints(
-    cps: [{ x: number; y: number }, { x: number; y: number }],
-    ep: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
-  ): [{ x: number; y: number }, { x: number; y: number }] {
-    const { p0, p1, direction } = ep
-    const spacing = (p1.x - p0.x) / 4
-    return [
-      { x: cps[0].x - p0.x - spacing, y: (cps[0].y - p0.y) * direction },
-      { x: cps[1].x - p1.x + spacing, y: (cps[1].y - p1.y) * direction },
-    ]
   }
 
   /** Finish a slur-handle drag: record one undo entry if the shape changed, then reset. */

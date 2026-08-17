@@ -16,6 +16,7 @@ import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { cycleSlurHandle } from './slurHandleCycle'
+import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
 import { toggleSymbolsWindow } from '../windows/symbols'
@@ -125,11 +126,33 @@ export function wireShortcuts(
     return true
   }
 
-  // The arrow keys serve EITHER kind of armed slur point (blue true end OR orange open join);
-  // the two are mutually exclusive, so try the true end first, then the open join. Returns
-  // true if either consumed the key (so the caller skips its default action / DECLINEs).
+  // Same again for an armed round SHAPE handle (the amber arc dot) — the module owns the whole
+  // conversion, because unlike the two offsets above its baseline is the DRAWN arc rather than the
+  // stored value. See `slurHandleNudge`.
+  const nudgeArmedControlPoint = (dx: number, dy: number): boolean => {
+    const eng = getEngine()
+    if (!eng || !nudgeArmedSlurControlPoint(state, eng, dx, dy)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // Ctrl+Backspace on ANY armed slur handle — arc dot, true end or open join: back to the automatic
+  // engraving, the reset half of the three nudges above. Chains ahead of the note-spacing /
+  // bar-width resets on the same key — disjoint, since arming a slur handle clears the note
+  // selection those need — and DECLINEs when there is nothing authored to reset.
+  const resetArmedSlurPoint = (): boolean => {
+    const eng = getEngine()
+    if (!eng || !resetArmedSlurHandle(state, eng)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // The arrow keys serve ANY armed slur handle — blue true end, orange open join, or amber arc dot.
+  // The three are mutually exclusive (one `selectedElement`, one field set), so they chain in the
+  // order they were built. Returns true if one consumed the key (so the caller skips its default
+  // action / DECLINEs).
   const nudgeArmedSlurPoint = (dx: number, dy: number): boolean =>
-    nudgeArmedEndpoint(dx, dy) || nudgeArmedSegmentEndpoint(dx, dy)
+    nudgeArmedEndpoint(dx, dy) || nudgeArmedSegmentEndpoint(dx, dy) || nudgeArmedControlPoint(dx, dy)
 
   // ↑/↓ on a SINGLE selected rest = nudge its vertical shift by one staff-step (+up), instead
   // of the pitch edit (which skips rests anyway). One undo per press. See docs/rest-shift-plan.md.
@@ -775,7 +798,7 @@ export function wireShortcuts(
       || resizeSelectedHairpin(1) || resizeSelectedPedal(1)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetSelectedNoteSpacing() || resetSelectedBarWidth(),
+    resetMove: () => resetArmedSlurPoint() || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
 
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
     //    Ctrl+Shift+←/→ = WIDE (1 space), Shift+Alt+←/→ = FINE (¼ space). "Should not offset that

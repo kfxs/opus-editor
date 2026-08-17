@@ -1665,6 +1665,33 @@ export class MusicEngine {
     this.commitPreviewed('Re-anchor slur')
   }
 
+  /** Drop a slur's hand-edited ARC shape and save ONE undo step — the reset half of the handle
+   *  nudges, on the key that resets everything else (`interactions/slurHandleReset`). Pass a
+   *  `segment` + live `spanCount` for one segment of a cross-system slur, neither for the whole
+   *  slur. @returns false when there was nothing authored to reset — the caller then DECLINEs and
+   *  the key falls through. */
+  resetSlurShape(id: string, segment?: SlurSegmentAddress, spanCount?: number): boolean {
+    const ok = this.scoreModel.resetSlurShape(id, segment, spanCount)
+    if (ok) this.saveOnly('Reset slur shape')
+    return ok
+  }
+
+  /** Drop ONE true end's nudge and save ONE undo step — the reset half of {@link nudgeSlurEndpoint}.
+   *  @returns false if that end has no offset, so the caller DECLINEs and the key falls through. */
+  resetSlurEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    const ok = this.scoreModel.resetSlurEndpointOffset(id, which)
+    if (ok) this.saveOnly('Reset slur endpoint')
+    return ok
+  }
+
+  /** Drop ONE open join's nudge and save ONE undo step — the reset half of
+   *  {@link nudgeSlurSegmentEndpoint}. @returns false if that join has no offset. */
+  resetSlurSegmentEndpointOffset(id: string, address: SlurSegmentEndpointAddress, spanCount: number): boolean {
+    const ok = this.scoreModel.resetSlurSegmentEndpointOffset(id, address, spanCount)
+    if (ok) this.saveOnly('Reset slur segment endpoint')
+    return ok
+  }
+
   /** Nudge a slur endpoint by a staff-space delta and save ONE undo step (the keyboard
    *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
    *  arrow press is already a discrete commit, so there is no preview/commit split. */

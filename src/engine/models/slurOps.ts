@@ -211,6 +211,105 @@ export function setSlurSegmentShape(
 }
 
 /**
+ * ⭐ **THE UNDO OF A HAND EDIT** — drop what was authored on ONE slur handle and let the automatic
+ * engraving take the point back (his ask, 2026-08-17: *"how do i revert the editing on the slur
+ * control point?"*). Three functions rather than one, for the same reason the four setters above are
+ * four: each handle's edit is a different override, and "reset" has to name which one.
+ *
+ * ⚠️ Each returns **false when there was nothing to reset**, not just when the slur is missing. That
+ * is what lets the keyboard chain fall through to whatever else the reset key does — a reset that
+ * always claimed success would swallow the key on every unedited slur.
+ *
+ * ## The ARC's shape ({@link resetSlurShape})
+ *
+ * Pass a `segment` (+ the live `spanCount`) to drop ONE segment's edit on a cross-system slur; pass
+ * neither to drop every shape edit the slur carries — both the single-arc `curveShape` and the
+ * per-segment one. The whole-slur form clears both deliberately: a slur that was reshaped on one line
+ * and later reflowed across a break has a `curveShape` that nothing draws any more, and "reset this
+ * slur's shape" that left it behind would leave a ghost to resurrect at the next reflow.
+ */
+export function resetSlurShape(
+  score: Score,
+  id: string,
+  segment?: SlurSegmentAddress,
+  spanCount?: number,
+): boolean {
+  if (!getSlurById(score, id)) return false
+  if (segment && spanCount !== undefined) {
+    const prev = engravingOverrideOf(score, id, 'segmentCurveShape') as SegmentCurveShapeOverride | undefined
+    // A MIDDLE authored against a different system count is already stale (the write path drops it
+    // too), so there is nothing to take back.
+    const authored = segment.role === 'middle'
+      ? (prev?.spanCount === spanCount ? prev?.middles?.[segment.ordinal] : undefined)
+      : segment.role === 'begin' ? prev?.begin : prev?.end
+    if (!authored) return false
+    return setSlurSegmentShape(score, id, segment, null, spanCount)
+  }
+  const had = engravingOverrideOf(score, id, 'curveShape') !== undefined
+    || engravingOverrideOf(score, id, 'segmentCurveShape') !== undefined
+  if (!had) return false
+  clearEngravingOverride(score, id, 'curveShape')
+  clearEngravingOverride(score, id, 'segmentCurveShape')
+  return true
+}
+
+/**
+ * Drop ONE true end's nudge ({@link setSlurEndpointOffset}), keeping the other's — the same per-side
+ * clear a re-anchor makes, on purpose: both are "this end goes back where the engraver put it".
+ * ⚠️ Unlike the arc's shape, an endpoint offset IS per-side in the model, so this resets exactly the
+ * square that is armed and nothing else. @returns false if that end carries no offset.
+ */
+export function resetSlurEndpointOffset(score: Score, id: string, which: 'start' | 'end'): boolean {
+  if (!getSlurById(score, id)) return false
+  const prev = engravingOverrideOf(score, id, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
+  if (!prev?.[which]) return false
+  clearEndpointOffsetSide(score, id, which)
+  return true
+}
+
+/**
+ * Drop ONE open join's nudge ({@link setSlurSegmentEndpointOffset}), keeping the other joins'.
+ * Prunes the whole override once the last one goes, so "absent = none" still holds.
+ * @returns false if that join carries no offset (a stale-count MIDDLE included).
+ */
+export function resetSlurSegmentEndpointOffset(
+  score: Score,
+  id: string,
+  address: SlurSegmentEndpointAddress,
+  spanCount: number,
+): boolean {
+  if (!getSlurById(score, id)) return false
+  const prev = engravingOverrideOf(score, id, 'segmentEndpointOffset') as SegmentEndpointOffsetOverride | undefined
+  if (!prev) return false
+  const fresh = prev.spanCount === spanCount
+  const authored = address.role === 'middle'
+    ? (fresh ? prev.middles?.[address.ordinal]?.[address.side] : undefined)
+    : address.role === 'begin' ? prev.begin : prev.end
+  if (!authored) return false
+  // Rebuilt rather than mutated, exactly as the write path does — and on the same count rule, so a
+  // stale-count reset also sheds the middles the next nudge would have shed.
+  const next: SegmentEndpointOffsetOverride = {
+    kind: 'segmentEndpointOffset',
+    spanCount,
+    ...(prev.begin ? { begin: prev.begin } : {}),
+    ...(prev.end ? { end: prev.end } : {}),
+    middles: fresh ? { ...(prev.middles ?? {}) } : {},
+  }
+  if (address.role === 'begin') delete next.begin
+  else if (address.role === 'end') delete next.end
+  else {
+    const slot = { ...(next.middles![address.ordinal] ?? {}) }
+    delete slot[address.side]
+    if (slot.left || slot.right) next.middles![address.ordinal] = slot
+    else delete next.middles![address.ordinal]
+  }
+  const remains = next.begin || next.end || Object.keys(next.middles ?? {}).length > 0
+  if (remains) setEngravingOverride(score, id, next)
+  else clearEngravingOverride(score, id, 'segmentEndpointOffset')
+  return true
+}
+
+/**
  * Nudge one OPEN join of a cross-system slur by a staff-space delta, **accumulating** onto
  * any existing offset (keyboard fine-positioning — see
  * docs/multisystem-slur-segment-endpoint-offset-plan.md). Stored as a

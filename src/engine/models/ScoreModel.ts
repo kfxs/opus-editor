@@ -909,6 +909,24 @@ export class ScoreModel {
   }
 
   /**
+   * Drop a slur's hand-edited ARC shape — one segment's, or every one it carries.
+   *  See {@link slurOps.resetSlurShape} for the why (and why false ≠ "missing"). */
+  resetSlurShape(id: string, segment?: SlurSegmentAddress, spanCount?: number): boolean {
+    return slurOps.resetSlurShape(this.score, id, segment, spanCount)
+  }
+
+  /** Drop ONE true end's nudge, keeping the other's. See {@link slurOps.resetSlurEndpointOffset}. */
+  resetSlurEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    return slurOps.resetSlurEndpointOffset(this.score, id, which)
+  }
+
+  /** Drop ONE open join's nudge, keeping the other joins'.
+   *  See {@link slurOps.resetSlurSegmentEndpointOffset}. */
+  resetSlurSegmentEndpointOffset(id: string, address: SlurSegmentEndpointAddress, spanCount: number): boolean {
+    return slurOps.resetSlurSegmentEndpointOffset(this.score, id, address, spanCount)
+  }
+
+  /**
    * Nudge a rest's manual vertical shift by `delta` whole staff-steps, **accumulating** onto any
    * existing shift (the ↑/↓ keyboard fine-positioning — see docs/rest-shift-plan.md).
    *  See {@link overrideOps.nudgeRestShift} for the why. */

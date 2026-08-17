@@ -409,10 +409,10 @@ export type SelectedElement =
    * to be cleared together at seven sites. `segmentSpanCount` is the live system count captured when
    * the join was armed, passed to `nudgeSlurSegmentEndpoint` as the override's reset signature.
    *
-   * ⭐ `controlPoint` is there to be SEEN, not to be nudged: grabbing a round handle already
-   * disarmed whatever square was armed, and the only thing missing was that nothing on screen said
-   * which dot you had picked (his ask, 2026-08-17). If the arrows ever reach the curve dots, this is
-   * already the field they would read.
+   * ⭐ `controlPoint` began as a field to be SEEN rather than nudged — grabbing a round handle
+   * already disarmed whatever square was armed, and the only thing missing was that nothing on
+   * screen said which dot you had picked (his ask, 2026-08-17). The arrows reached the curve dots
+   * later the same day (`./slurHandleNudge`), and they read exactly this field.
    */
   | {
       kind: 'slur'

@@ -210,3 +210,125 @@ describe('ScoreModel.setSlurSegmentEndpointOffset', () => {
     expect(model.getScore().engravingOverrides).toBeUndefined()
   })
 })
+
+describe('ScoreModel.resetSlurShape', () => {
+  let model: ScoreModel
+  let slurId: string
+  const cp = (n: number): CurveControlPointDeltas => [{ x: n, y: n }, { x: -n, y: n }]
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score')
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('drops a same-line arc\'s hand-edited shape, so the auto arch draws it again', () => {
+    model.setSlurShape(slurId, cp(1))
+    expect(model.resetSlurShape(slurId)).toBe(true)
+    expect(curveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
+  })
+
+  it('⚠️ the no-address form clears the PER-SEGMENT shape too — a reflowed slur leaves both behind', () => {
+    model.setSlurShape(slurId, cp(1))
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(2), 2)
+    expect(model.resetSlurShape(slurId)).toBe(true)
+    expect(curveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
+    expect(segmentCurveShapeOverrideOf(model.getScore(), slurId)).toBeUndefined()
+  })
+
+  it('addressed, it resets ONE segment and leaves the other systems edited', () => {
+    model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+    model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+    expect(model.resetSlurShape(slurId, { role: 'middle', ordinal: 0 }, 3)).toBe(true)
+    const seg = segmentCurveShapeOverrideOf(model.getScore(), slurId)!
+    expect(seg.middles).toEqual({})
+    expect(seg.begin).toEqual(cp(1))
+  })
+
+  describe('⭐ returns false when there is nothing to take back (the key must fall through)', () => {
+    it('an unknown slur', () => {
+      expect(model.resetSlurShape('ghost')).toBe(false)
+    })
+
+    it('a slur that was never reshaped', () => {
+      expect(model.resetSlurShape(slurId)).toBe(false)
+    })
+
+    it('a segment its neighbour was edited on, not this one', () => {
+      model.setSlurSegmentShape(slurId, { role: 'begin' }, cp(1), 3)
+      expect(model.resetSlurShape(slurId, { role: 'end' }, 3)).toBe(false)
+    })
+
+    it('a MIDDLE authored against a different system count — already stale', () => {
+      model.setSlurSegmentShape(slurId, { role: 'middle', ordinal: 0 }, cp(3), 3)
+      expect(model.resetSlurShape(slurId, { role: 'middle', ordinal: 0 }, 2)).toBe(false)
+    })
+  })
+})
+
+describe('ScoreModel.resetSlurEndpointOffset', () => {
+  let model: ScoreModel
+  let slurId: string
+  const off = (id: string) => endpointOffsetOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score')
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('⭐ drops the armed end\'s nudge and KEEPS the other end\'s', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 1, -2)
+    model.setSlurEndpointOffset(slurId, 'end', 3, 4)
+    expect(model.resetSlurEndpointOffset(slurId, 'start')).toBe(true)
+    expect(off(slurId)).toEqual({ kind: 'endpointOffset', end: { x: 3, y: 4 } })
+  })
+
+  it('prunes the whole override when the last end goes', () => {
+    model.setSlurEndpointOffset(slurId, 'end', 3, 4)
+    expect(model.resetSlurEndpointOffset(slurId, 'end')).toBe(true)
+    expect(off(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('returns false when that end was never nudged (the key must fall through)', () => {
+    model.setSlurEndpointOffset(slurId, 'start', 1, -2)
+    expect(model.resetSlurEndpointOffset(slurId, 'end')).toBe(false)
+    expect(model.resetSlurEndpointOffset('ghost', 'start')).toBe(false)
+  })
+})
+
+describe('ScoreModel.resetSlurSegmentEndpointOffset', () => {
+  let model: ScoreModel
+  let slurId: string
+  const segOff = (id: string) => segmentEndpointOffsetOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score')
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('⭐ drops ONE join and keeps the others, on both roles and sides', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'begin' }, 1, 1, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 2, 2, 3)
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'right' }, 3, 3, 3)
+    expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 3)).toBe(true)
+    expect(segOff(slurId)).toEqual({
+      kind: 'segmentEndpointOffset', spanCount: 3,
+      begin: { x: 1, y: 1 },
+      middles: { 0: { right: { x: 3, y: 3 } } },
+    })
+  })
+
+  it('prunes an emptied middle slot, then the override itself', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 1, side: 'right' }, 2, 2, 2)
+    expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 1, side: 'right' }, 2)).toBe(true)
+    expect(segOff(slurId)).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('returns false for a join that was never nudged, or a stale-count MIDDLE', () => {
+    model.setSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 2, 2, 3)
+    expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'end' }, 3)).toBe(false)
+    // Authored at 3 systems, asked at 2: already stale, so there is nothing to take back.
+    expect(model.resetSlurSegmentEndpointOffset(slurId, { role: 'middle', ordinal: 0, side: 'left' }, 2)).toBe(false)
+  })
+})
