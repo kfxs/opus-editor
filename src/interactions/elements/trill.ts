@@ -46,5 +46,8 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'trill', id: trillAt.id })
   },
 
-  highlight: h => h.applyTrillSelectionHighlight(),
+  // Recoloured, and — since 2026-08-17 — the attachment guide to the note it ornaments (the third
+  // kind, after the dynamic and the tempo mark). ⭐ A trill's anchor is genuinely a NOTE: its
+  // auxiliary is a step above that pitch, so the note is what the ornament is computed from.
+  highlight: h => { h.applyTrillSelectionHighlight(); h.applyAnchorGuideLine() },
 }

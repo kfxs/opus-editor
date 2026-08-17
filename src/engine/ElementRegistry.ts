@@ -455,6 +455,10 @@ export function scaleElement(element: ElementInfo, k: number): ElementInfo {
 
   if (element.headX !== undefined) scaled.headX = element.headX * k
   if (element.anchor) scaled.anchor = { x: element.anchor.x * k, y: element.anchor.y * k }
+  // ⚠️ …and the guide's OTHER end, or a reduced staff's attachment line would start at full-size
+  // coordinates while its element sits at `k` — the bug class `project_staff_size_plan` calls
+  // "visual coords in a scaled scope", and one every new coordinate field here has to answer for.
+  if (element.guideFrom) scaled.guideFrom = { x: element.guideFrom.x * k, y: element.guideFrom.y * k }
   if (element.points) scaled.points = element.points.map(p => ({ x: p.x * k, y: p.y * k }))
   if (element.controlPoints) {
     scaled.controlPoints = [

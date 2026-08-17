@@ -362,6 +362,16 @@ function drawTrill(
   const insetEnd = x.endX - inset
   const endX = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
 
+  // ⭐⭐ THE ATTACHMENT GUIDE'S FAR END — the trilled NOTE, captured once for the whole ornament.
+  //
+  // ⭐ **A trill's anchor really is a note**, which puts it with the dynamic and against the tempo
+  // mark (whose anchor is a place in time — see docs/dynamic-offset-plan.md). The distinction is not
+  // a style choice: this ornament is DEFINED by that note. Its auxiliary is a step above THAT pitch
+  // (`utils/trillPitch`), so a guide that pointed at a staff line instead would be pointing away
+  // from the thing the trill is computed from.
+  const anchor = trilledNoteAnchor(pass, from, voice, span, x.startX, side === 'above')
+
+  let firstPiece = true
   for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own ink band, its staff-space size. All three
     // are facts about the system the piece landed on, not about where the trill began.
@@ -447,8 +457,49 @@ function drawTrill(
         { x: Math.max(lineEnd, piece.x0 + signWidth), y: bottom },
         { x: piece.x0, y: bottom },
       ],
+      // ⭐ The guide's two ends, on the FIRST fragment only — `getById` answers with the first entry
+      // registered under an id, and the first fragment is the one holding the start note. ⛔ Putting
+      // them on every fragment would be writing a second answer nothing reads; a continuation `(tr)`
+      // on a later system is a reminder, not a second attachment.
+      // ⚠️ Both are in this staff's own scaled space, like every other coordinate here.
+      ...(firstPiece && anchor
+        ? {
+          anchor,
+          // The sign's ink corner NEAREST the staff — its BOTTOM for an above-staff trill, its top
+          // for a `below` one. The same rule the dynamic and the tempo mark follow, which is what
+          // keeps the guide from crossing the glyph it leaves.
+          guideFrom: { x: signX, y: side === 'above' ? bottom : top },
+        }
+        : {}),
     })
+    firstPiece = false
   }
+}
+
+/**
+ * Where the guide points: the trilled note's own notehead, nearest the sign.
+ *
+ * ⚠️ `undefined` when the start note was not drawn (its bar is culled, or the lane is empty there) —
+ * the caller then registers no guide at all rather than one ending at a guessed point. A guide is
+ * never a guess (`feedback` on fallbacks that get believed).
+ *
+ * ⭐ The x is the SPAN's own start — the notehead's left edge (rule 4), already computed for the
+ * drawing — so the guide and the sign agree about where the trill begins by construction.
+ */
+function trilledNoteAnchor(
+  pass: RenderPass,
+  from: TrillPlacement,
+  voice: number,
+  span: TrillSpan,
+  startX: number,
+  above: boolean,
+): { x: number; y: number } | undefined {
+  const note = pass.staveNoteMap.get(slotIdAt(from.view, voice, span.startBeat) ?? '')?.staveNote
+  const ys = note?.getYs?.()
+  if (!ys?.length) return undefined
+  // The notehead FACING the sign: the topmost for a trill above the staff, the lowest for one below
+  // — a chord's other heads are further from it, and the guide should stop at the first ink it meets.
+  return { x: startX, y: above ? Math.min(...ys) : Math.max(...ys) }
 }
 
 /**

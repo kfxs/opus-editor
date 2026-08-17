@@ -91,3 +91,33 @@ test('⭐⭐ the near end TRAVELS with the element — the defect that shipped',
     expect(el.guideY, `${name}: nor below it`).toBeLessThanOrEqual(el.bottom + 0.5)
   }
 })
+
+test('⭐⭐ a TRILL points at the NOTE it ornaments — the pitch its auxiliary is computed from', async ({ score }) => {
+  const seen = await score.evaluate(async () => {
+    const h = window.__h
+    const note = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    const trill = h.engine.createTrill([note.id])!
+    await h.render()
+
+    const e = h.engine.getElementRegistry().getById(trill.id)!
+    const heads = h.noteheads()
+    return {
+      box: { x: e.bbox.x, y: e.bbox.y, bottom: e.bbox.y + e.bbox.height },
+      anchor: e.anchor!,
+      guideFrom: e.guideFrom!,
+      firstHead: heads[0],
+    }
+  })
+
+  // ⭐ The far end is the NOTEHEAD — this is where a trill parts company with a tempo mark, whose
+  // anchor is a place in time. A trill's auxiliary is a step above THIS pitch, so pointing at a
+  // staff line would point away from what the ornament is computed from.
+  expect(Math.abs(seen.anchor.y - seen.firstHead.y), 'the trilled notehead’s own y').toBeLessThan(6)
+  expect(Math.abs(seen.anchor.x - seen.firstHead.x), 'and its x').toBeLessThan(20)
+
+  // ⭐ The near end is the sign's ink, at the corner nearest the staff — its BOTTOM, since the trill
+  // is engraved above. And the guide points DOWN to the note.
+  expect(seen.guideFrom.y, 'the sign’s foot, not its head').toBeGreaterThan(seen.box.y)
+  expect(seen.anchor.y, 'the note is below the sign').toBeGreaterThan(seen.guideFrom.y)
+})

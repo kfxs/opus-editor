@@ -313,6 +313,26 @@ is CJS-only and resolves to `undefined` in the browser).
 
 ---
 
+### ⭐ The attachment guide (2026-08-17, his call)
+
+A selected trill draws the dashed line to the note it ornaments — the third kind to use the
+kind-agnostic guide (`docs/dynamic-offset-plan.md`), and two edits: `drawTrill` captures the
+endpoints onto the fragment's registry entry, and the `trill` row in `ELEMENT_SPECS` calls
+`applyAnchorGuideLine`.
+
+⭐⭐ **Its anchor is the NOTE, not a place in time** — the distinction kind 2 (tempo) opened, and the
+trill lands on the dynamic's side of it for a reason particular to this ornament: the auxiliary is a
+step above THAT pitch (§3), so the note is what the trill is computed from. The point is the notehead
+facing the sign (topmost for an above-staff trill), at the span's own start x — the notehead's left
+edge §1 rule 4 already aligns the sign to, so the guide and the sign cannot disagree about where the
+trill begins.
+
+⚠️ **First fragment only**: a split trill registers one entry per system under one id and `getById`
+answers with the first, which is the one holding the start note. A continuation `(tr)` is a reminder,
+not a second attachment. Measured in `e2e/anchorGuide.e2e.ts`.
+
+---
+
 ## 6. Entering one
 
 Mirrors the hairpin exactly, so there is nothing new to learn and nothing new to write — **minus

@@ -173,6 +173,39 @@ Both kinds' endpoints are measured in `e2e/anchorGuide.e2e.ts` — including the
 the `shiftById` defect above (the near end must stay INSIDE its element's box, however far the pass
 moved the mark).
 
+### ⭐ Kind 3 — the TRILL (2026-08-17)
+
+Two edits again, and the interesting part is that it lands on the *other* side of the split kind 2
+opened:
+
+- ⭐⭐ **Its anchor is a NOTE, like the dynamic's and unlike the tempo mark's** — and here that is
+  not a matter of taste. A trill is DEFINED by its note: the auxiliary it alternates with is a step
+  above THAT pitch (`utils/trillPitch`), so a guide ending on a staff line would point away from the
+  thing the ornament is computed from. The point is the trilled notehead FACING the sign — the
+  topmost of a chord for a trill above the staff, the lowest for a `below` one — at the span's own
+  start x, which is the notehead's left edge the sign is already aligned to (§1 rule 4).
+- **Its near end is the sign's ink corner nearest the staff**: the bottom for an above-staff trill,
+  the top for a below one. Same sentence as the other two kinds.
+- ⚠️ **On the FIRST fragment only.** A trill registers one entry per system fragment, all under one
+  id, and `getById` answers with the first — which is the fragment holding the start note. A
+  continuation `(tr)` on a later system is a REMINDER, not a second attachment, so giving it a guide
+  would be a second answer to a question that has one.
+- ⚠️ `undefined` when the start note was not drawn (its bar culled, the lane empty): the entry then
+  carries no guide at all. ⛔ A guide is never a guess.
+
+### 🚨 The checklist a new COORDINATE field on `ElementInfo` has to answer
+
+`guideFrom` needed all three of these, and each was found by a different means — worth writing down
+because the next coordinate field will need them too:
+
+1. **`offsetElement`** — a bar that moves takes its points with it (P5.4b).
+2. **`shiftById`** — an element that is translated after registration takes ITS OWN points with it,
+   but not the ones on other objects. ⛔ `anchor` must NOT move; `guideFrom` must. *(Found by the
+   browser test — his report was "completely broken".)*
+3. **`scaleElement`** — a reduced staff registers in its own scaled space, so every coordinate is
+   multiplied by `k`. *(Found by reading, while adding the trill; it would have shown only on a
+   small staff — the bug class `docs/staff-size-plan.md` calls "visual coords in a scaled scope".)*
+
 ### What MuseScore does (read from its C++, 2026-08-17)
 
 ⭐ **It never picks a bbox corner** — `EngravingItem::genericDragAnchorLines`
