@@ -13,8 +13,9 @@ The fifth line, after the slur, the hairpin, the trill and the ottava. **Sustain
 > the highlight method §6.1, three tool-union rows §7); three claims it made were WRONG and are
 > corrected in place, each keeping the wrong version visible so it cannot come back: the redraw key
 > is `'ignored'` and not `'shape'` (§5.4), `Ctrl+←/→` is BUILT here and not inherited from an ottava
-> that never had it (§6.3), and the stamp draws NO ghost (§7). Three decisions it left open are now
-> decided: the overlap split (§3.3), the lift's x (§5.2) and the glyphs' alignment (§5.1a).
+> that never had it (§6.3), and the stamp draws NO ghost (§7 — ⚠️ itself amended 2026-08-17: the
+> stamp DOES draw one, and that amendment carries the position rule every sign ghost now shares).
+> Three decisions it left open are now decided: the overlap split (§3.3), the lift's x (§5.2) and the glyphs' alignment (§5.1a).
 
 ---
 
@@ -448,7 +449,8 @@ rows in tables that are exhaustive over that union:
 
 - `MARKING_TOOL_USES_ARMED_LENGTH` → **`false`**. The pedal's length is the MUSIC's, not the
   note-entry duration.
-- `scoreCursorClass` → **`cursor-place`**, the blue pointer.
+- `scoreCursorClass` → **`cursor-place`**, the blue pointer. ⚠️ **No longer true after §7's
+  2026-08-17 amendment** — a tool that draws a ghost does not also take the caret.
 - `promoteStampToNoteEntry` → the valueless case beside `slur` / `hairpin` / `ottava` / `trill`:
   a span is not a property of a note, so a duration press disarms it and promotes nothing.
 
@@ -459,6 +461,42 @@ click has not picked yet, so a ghost at the pointer would preview a position the
 to make*. It is truer of the pedal than of any of them — the `Ped.` does not even go where the
 pointer is, it goes on the ladder rung below the staff. The blue pointer is the whole preview, and
 two table rows are saved by not being wrong.
+
+### ⭐⭐ AMENDED 2026-08-17 — the ghost IS built, and the first draft was right
+
+> *"now the pedal, we should see the ghost ped for stamping."* — his call, after the trill's and the
+> ottava's the same day. The paragraph above stays because being wrong in a specific way is what
+> makes the correction usable: what it argues about is WHERE the finished mark goes, which is the
+> renderer's answer AFTER the click. What a cursor has to answer is WHAT the click makes, and a blue
+> caret does that no better under this tool than under any other.
+
+`engine/rendering/PedalGhost.ts` — its own module, a `GHOST_DRAWERS` row, `{ kind: 'pedal' }` on
+`ToolGhost`, and the sign drawn through the pass's own (now exported) `drawPedalSign`, so the preview
+cannot become a different glyph from the engraved mark. The tool also leaves `scoreCursorClass`'s
+blue-pointer list, since a caret on top of the glyph it stood in for is two indicators for one tool.
+
+⛔ **Only `Ped.` — never the lift (`✻`) and never the span.** A pedalling has a LENGTH the click has
+not picked, so drawing both signs would promise a release the click is not going to make. (The
+ottava's bracket is left out for the same reason.)
+
+### 🚨 THE POSITION RULE THIS FEATURE PRODUCED — one place for all sign ghosts
+
+The first build parked `Ped.` BELOW the pointer, reasoning that a pedal is engraved below the staff.
+That put the glyph under the arrow:
+
+> *"the position of the ghost ped is wrong, the pointer covers [it]; the position should be normal
+> ghost position like tr and 8va and 8vb — this is a sign for the user, of course a ghost [does] not
+> take into account the position of the real sign in the score."* …and then, on which position that
+> is: *"maybe you should take the position of the ghost accidental as reference."*
+
+⭐⭐ So a ghost's offset may **never** be derived from where its mark is engraved. Two bugs in one day
+came from doing exactly that: this one (covered by the pointer) and the ottava's (`8va` above,
+`8vb` below, so the eye had to re-find it on every switch). The accidental ghost's position — just
+LEFT of the pointer, centred on its line — is the reference, and it now lives in
+`engine/rendering/ghostCursor.ts` as ONE definition that the accidental, the `tr`, the octave
+numerals and `Ped.` all draw through. ⛔ The dot ghost's mirror (parking RIGHT) is not an exception:
+that pair says which side of a NOTEHEAD the gesture works on, which is about the gesture, not about
+a rung above or below the staff.
 
 ---
 
@@ -594,7 +632,9 @@ Five things this must get right, and each is a trap:
   is where the §3.3 truncation reaches the user), `interactions/pedalStamp.ts` + its dispatch line in
   `MouseController`, and the four tool-union rows (the valueless member,
   `MARKING_TOOL_USES_ARMED_LENGTH` `false`, `scoreCursorClass` → `cursor-place`, `toolGhost` → null,
-  `promoteStampToNoteEntry`). ⛔ No ghost, ⛔ no shortcut. Specs: `pedalStamp.test.ts`,
+  `promoteStampToNoteEntry`). ⛔ No ghost, ⛔ no shortcut. ⚠️ **Two of those five rows changed on
+  2026-08-17** (§7's amendment): `toolGhost` returns a `{ kind: 'pedal' }` ghost and the tool is no
+  longer in `scoreCursorClass`. No shortcut still stands. Specs: `pedalStamp.test.ts`,
   `PaletteController.pedal.test.ts`, `MusicEngine.createPedal.test.ts`.
   ⭐ Stamping along a run leaves a CHAIN of abutting pedals rather than a stack — the re-take,
   arriving as a consequence of the truncation rule rather than as a feature.

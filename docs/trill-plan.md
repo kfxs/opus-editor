@@ -332,6 +332,21 @@ its key**:
   already (`isEnabled: () => true` — "the press always means something: apply, or arm").
 - **`interactions/trillStamp.ts`** — one click on a note trills that note (the `slurStamp` shape: a
   hit-test, idempotent, ADD-only, a near-miss is consumed).
+- ⭐⭐ **THE ARMED STAMP DRAWS A `tr` AT THE POINTER — amended 2026-08-17, his call**, and the wrong
+  version stays here so it cannot come back. This plan said the trill previews NOTHING (the blue
+  place-cursor, like the slur and the hairpin), on the argument that a trill is drawn ABOVE the music
+  at a height taken from the ink of notes the click has not picked — so a `tr` at the pointer would
+  preview a position nothing had decided. His answer: *"we really want to see a tr ghost; this is
+  much better."*
+  ⭐ **The argument was about the wrong question.** WHERE the mark lands is the renderer's answer
+  after the click; what a cursor has to say is WHAT the click makes — the licence the accidental, dot
+  and tie ghosts already take. `engine/rendering/TrillGhost.ts` (its own module + a `GHOST_DRAWERS`
+  row) draws the sign through the pass's own `drawTrillSign`, so preview and engraved mark cannot
+  drift; plain, never `(tr)`, since the brackets are a fact about a trill on an EARLIER system.
+  ⚠️ And the tool LEAVES `scoreCursorClass`'s blue-pointer list in the same edit: that list is exactly
+  `toolGhost`'s `null` cases, and a caret on top of the glyph it stood in for is two indicators for
+  one tool. The ottava and the pedal followed the same day; see `docs/ottava-plan.md` P5 and
+  `docs/pedal-plan.md` §7 for the position rule the three now share.
 - A row in `dev/linePalette.ts` — ⚠️ **and an edit to its header, which does not name the trill.**
   That file calls the Lines family *"spanners drawn BETWEEN notes rather than on one: the slur today,
   and (when they exist) the hairpin, the octave line, the glissando, the pedal line"* — a sentence

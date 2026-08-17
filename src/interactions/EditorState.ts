@@ -173,10 +173,11 @@ export type MarkingTool =
    * takes its extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin, and now the last of the ladder
-   * tools with none: a pedal is not even drawn where the pointer is, but on a rung
-   * below the staff, so a ghost `Ped.` at the cursor would preview a place the click will not put it.
-   * See {@link scoreCursorClass} and `interactions/pedalStamp.ts`.
+   * ⭐ It DOES ghost — `Ped.` follows the pointer (`engine/rendering/PedalGhost.ts`), parked BELOW it
+   * since that is the side of the staff the mark goes, so this tool is NOT in
+   * {@link scoreCursorClass}'s blue-pointer list. His call, 2026-08-17, completing the ladder family
+   * the trill and the ottava started that day. ⛔ The LIFT (`✻`) is not previewed — a pedalling has a
+   * length the click has not picked. See {@link toolGhost} and `interactions/pedalStamp.ts`.
    *
    * ⛔ And no keyboard shortcut arms it — his call, the trill's and the ottava's. Sibelius spells it
    * `P`, and ours is taken: `p` is PLAY (docs/pedal-plan.md §7).
@@ -534,11 +535,13 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // ⚠️ Every GHOSTLESS stamp must be listed here, and the list is why: these tools draw nothing at
   // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to
   // `toolGhost`'s `return null` arm and forgotten here arms invisibly.
-  // ⚠️ The TRILL and the OTTAVA are deliberately NOT here: both grew ghosts on 2026-08-17 (see
-  // {@link toolGhost}), and a tool that draws at the pointer must not ALSO take the place-cursor —
-  // two indicators for one armed tool, the blue caret sitting on the very glyph it stood in for.
-  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin'
-    || kind === 'pedal') return 'cursor-place'
+  // ⚠️ The whole LADDER family left this list on 2026-08-17 — trill, ottava, pedal all grew ghosts
+  // (see {@link toolGhost}) — and a tool that draws at the pointer must not ALSO take the
+  // place-cursor: two indicators for one armed tool, the blue caret sitting on the very glyph it
+  // stood in for. What is left are the tools with genuinely nothing to draw.
+  if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin') {
+    return 'cursor-place'
+  }
   return 'cursor-default'
 }
 

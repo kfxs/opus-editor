@@ -68,6 +68,13 @@ export type ToolGhost =
    * picked neither end. The numeral is the part the click certainly stamps. See `./OttavaGhost`.
    */
   | { kind: 'ottava'; shift: Ottava['shift'] }
+  /**
+   * `Ped.` — VALUELESS, and the LIFT is not part of it: a pedalling has a length the click has not
+   * picked, so previewing `✻` too would promise a release the click will not make. See
+   * `./PedalGhost`, which also records why this member exists against the argument that the pedal
+   * was the clearest case for having no ghost at all.
+   */
+  | { kind: 'pedal' }
   /** The one ghost with a value to show, and it is the armed length: a rest IS its duration. */
   | { kind: 'rest'; duration: NoteDuration; dots: number }
   /**

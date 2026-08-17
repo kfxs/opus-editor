@@ -37,14 +37,15 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
     expect(toolGhost({ kind: 'trill' }, ARMED)).toEqual({ kind: 'trill' })
   })
 
-  it('⭐ the TRILL and the OTTAVA preview — the two tools that changed their minds (his calls, 2026-08-17)', () => {
-    // Both used to answer null, on the argument that the mark is drawn above music the click has not
-    // picked. What the cursor answers is WHAT the click makes, not where the mark ends up.
+  it('⭐ the whole LADDER family previews — the three tools that changed their minds (his calls, 2026-08-17)', () => {
+    // All three used to answer null, on the argument that the mark is drawn away from the pointer at
+    // a height the click has not decided. What the cursor answers is WHAT the click makes.
     expect(toolGhost({ kind: 'trill' }, ARMED)).not.toBeNull()
     expect(toolGhost({ kind: 'ottava', shift: 1 }, ARMED)).not.toBeNull()
-    // …and the three spanner stamps beside them still do not: both ends unpicked (slur, hairpin), or
-    // a mark on a rung the click has not decided (pedal).
-    for (const tool of [{ kind: 'slur' }, { kind: 'hairpin', type: 'cresc' }, { kind: 'pedal' }] as MarkingTool[]) {
+    expect(toolGhost({ kind: 'pedal' }, ARMED)).not.toBeNull()
+    // …and the two spanner stamps beside them still do not, for the one reason left on the list:
+    // both ends unpicked, so an arc or a wedge at the pointer would have to invent them.
+    for (const tool of [{ kind: 'slur' }, { kind: 'hairpin', type: 'cresc' }] as MarkingTool[]) {
       expect(toolGhost(tool, ARMED), `${tool.kind} still has no ghost`).toBeNull()
     }
   })
@@ -123,8 +124,8 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       { kind: 'ottava', shift: -1 },
       { kind: 'pedal' },
     ]
-    // Thirteen draw, five deliberately do not — and nothing throws on the way past.
-    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(13)
+    // Fourteen draw, four deliberately do not — and nothing throws on the way past.
+    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(14)
   })
 })
 
@@ -135,7 +136,7 @@ describe('GHOST_CAUSE — the census labels', () => {
       { kind: 'dynamic', dynamic: 'p' }, { kind: 'tempo', tempo: { text: 'Largo' } },
       { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'b' },
       { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot' }, { kind: 'rest' },
-      { kind: 'trill' }, { kind: 'ottava', shift: 1 },
+      { kind: 'trill' }, { kind: 'ottava', shift: 1 }, { kind: 'pedal' },
     ] as MarkingTool[]) {
       const ghost = toolGhost(tool, ARMED)!
       expect(GHOST_CAUSE[ghost.kind], `${ghost.kind} has a cause`).toMatch(/^ghost:/)

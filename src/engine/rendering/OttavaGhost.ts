@@ -16,8 +16,9 @@
  * ottava is the only stamp armed from two palette rows that differ in a single signed number: with
  * only a blue caret on screen, `8va` and `8vb` armed identically, and the sole way to tell which was
  * live was to look back at which button was lit. The GLYPH at the pointer says it — and the glyph is
- * the only thing that changes with the shift: where it parks is fixed (see {@link CURSOR_LIFT_PX},
- * which is where the first attempt got that wrong).
+ * the only thing that changes with the shift: where it parks is fixed (see
+ * {@link ghostCursorOffset}, which is where the first attempt got that wrong, and where his rule
+ * about a ghost's position is written down).
  *
  * ⛔ **The BRACKET is not drawn, and that is deliberate.** A dashed line with a hook has a LENGTH,
  * and the click has picked neither end — a ghost bracket would preview an extent the click is not
@@ -31,29 +32,13 @@
 import type { SVGContext } from 'vexflow'
 import type { Ottava } from '@/types/music'
 import { drawOttavaNumeral } from './OttavaRenderer'
+import { ghostCursorOffset } from './ghostCursor'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
  *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given
  *  (`reference_vexflow_opengroup_prefix`). */
 export const OTTAVA_GHOST_GROUP_CLASS = 'vf-ghost-ottava'
-
-/**
- * Px the numeral is parked ABOVE the pointer — the trill ghost's lift, and the SAME for every shift.
- *
- * ⚠️⚠️ **IT USED TO FLIP: up for an 8va, down for an 8vb — HIS REPORT KILLED IT, 2026-08-17.**
- * *"the position of the ghost 8vb in relation with the pointer is different than the position of
- * ghost 8va in relation with the pointer, this is not good."* The idea was that an octave line is
- * engraved above the staff going up and below it going down (§1 rule 4), so the ghost should park on
- * its own side.
- *
- * ⭐ **What that got wrong is what a cursor ghost is.** It is one indicator, and its position is how
- * the eye finds it — a preview that jumps across the pointer when you switch palette rows makes the
- * READER re-find it every time, to restate a direction the glyph itself already spells out (`8va`
- * against `8ba`). The side belongs to the engraved mark, where the staff gives it a meaning; at the
- * pointer there is no staff, so it is just movement. ⛔ Do not restore the flip.
- */
-const CURSOR_LIFT_PX = 14
 
 /**
  * Draw the octave numeral at the cursor. Returns false when nothing measurable was drawn — which is
@@ -86,9 +71,8 @@ export function drawOttavaGhost(
     })
 
     // ⚠️ The SHIFT chooses the glyph and nothing else — every numeral parks the same way, whatever
-    // its direction (see {@link CURSOR_LIFT_PX} for the report that settled it).
-    const dx = cursorX - (gbox.x + gbox.width / 2)
-    const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_LIFT_PX
+    // its direction (see {@link ghostCursorOffset} for the report that settled it).
+    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
     group.setAttribute('transform', `translate(${dx}, ${dy})`)
     return true
   } catch (_e) {

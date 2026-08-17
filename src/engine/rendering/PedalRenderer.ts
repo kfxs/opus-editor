@@ -391,7 +391,7 @@ function drawPedal(
       ? piece.x0 - inset
       : Math.max(piece.x0 - inset, barLeft / (here[0]?.scale ?? 1))
 
-    const downWidth = drawSign(ctx, signX, y, piece.continuation)
+    const downWidth = drawPedalSign(ctx, signX, y, piece.continuation)
     registerGlyph(pass, pedal.id, from, signX, y, downWidth, px)
 
     if (!piece.final) continue
@@ -431,8 +431,13 @@ function drawPedal(
  * this job (U+E676/E677), so there is no second font and no raise to tune — see {@link
  * PEDAL_PAREN_LEFT} for the trade, and for the ottava's warning that his eye may still move this to
  * italic text.
+ *
+ * ⚠️ Exported for ONE caller outside this pass: the cursor ghost (`./PedalGhost`), which draws the
+ * plain sign at the pointer. It goes through this rather than through {@link PEDAL_DOWN_GLYPH} so
+ * the preview and the engraved mark are the same glyph at the same size by construction — the same
+ * arrangement `TrillRenderer.drawTrillSign` and `OttavaRenderer.drawOttavaNumeral` make.
  */
-function drawSign(
+export function drawPedalSign(
   ctx: RenderPass['context'],
   x: number,
   y: number,

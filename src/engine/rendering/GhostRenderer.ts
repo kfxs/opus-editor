@@ -49,6 +49,8 @@ import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } fro
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
+import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
+import { ghostCursorOffset } from './ghostCursor'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 
 /**
@@ -63,7 +65,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -827,9 +829,12 @@ export function drawAccidentalGhost(ctx: SVGContext, cursorX: number, cursorY: n
     // the left of its notehead, so this reads as where the sign will land (the mirror of the dot
     // ghost, which sits right for the same reason), and the arrow stops covering the very glyph
     // it is previewing. Covers all three signs: ♯ ♭ ♮ share this one draw.
-    const GAP_X = 10
-    const dx = cursorX - GAP_X - (gbox.x + gbox.width / 2)
-    const dy = cursorY - (gbox.y + gbox.height / 2)
+    //
+    // ⭐⭐ And this position is now THE REFERENCE for every sign-shaped ghost — his call, 2026-08-17:
+    // *"maybe you should take the position of the ghost accidental as reference."* The `tr`, the
+    // octave numerals and `Ped.` all park through {@link ghostCursorOffset}, which is why the
+    // arithmetic moved there instead of staying a local `GAP_X` two files would have to agree about.
+    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
     group.setAttribute('transform', `translate(${dx}, ${dy})`)
     return true
   } catch (_e) {
@@ -1082,6 +1087,7 @@ export const GHOST_DRAWERS: {
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
+  pedal: (ctx, _svg, x, y) => drawPedalGhost(ctx, x, y),
 }
 
 /**

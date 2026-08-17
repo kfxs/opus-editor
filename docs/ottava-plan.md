@@ -714,6 +714,30 @@ band machinery.
   `MARKING_TOOL_USES_ARMED_LENGTH`, `interactions/ottavaStamp.ts`, and **two** `dev/linePalette.ts`
   rows (`8va` / `8vb` — the cresc./dim. pair's arrangement, so they light and swap independently).
   ⛔ No `GHOST_DRAWERS` row, no `ToolGhost` member, no shortcut (§7.9) — all three as planned.
+  ⭐⭐ **AMENDED 2026-08-17, TWICE, both his calls — the ghost row and the shortcut are now BUILT**,
+  with the planned version kept above so it cannot creep back:
+  - **A NUMERAL GHOST** (*"now the 8va and 8vb, same thing, we should show the ghost for stamp"*).
+    `engine/rendering/OttavaGhost.ts` + a `GHOST_DRAWERS` row + `{ kind: 'ottava'; shift }` on
+    `ToolGhost`, drawn through the pass's own (now exported) `drawOttavaNumeral`. ⭐ **This is the
+    tool a ghost helps most**: `8va` and `8vb` are two palette rows differing in ONE signed number,
+    so behind a blue caret they armed identically and the only way to tell was which button was lit.
+    The SHIFT therefore travels — E511 and E513 are different glyphs. ⛔ The BRACKET is never
+    previewed: a dashed line has a length the click has not picked. The tool also leaves
+    `scoreCursorClass`'s blue-pointer list.
+  - 🚨 **…and the ghost's POSITION must not come from the mark's.** The first build parked `8va`
+    above the pointer and `8vb` below it, mirroring where each line is engraved: *"the position of
+    the ghost 8vb in relation with the pointer is different than the position of ghost 8va — this is
+    not good."* A cursor ghost is ONE indicator and its position is how the eye finds it; the
+    direction is the GLYPH's to state. Both now park through `engine/rendering/ghostCursor.ts`, the
+    accidental ghost's position, which is his stated reference for the whole family
+    (`docs/pedal-plan.md` §7 carries the rule in full).
+  - **`x` FLIPS A SELECTED OTTAVA'S DIRECTION** (*"we should use shortcut x to switch 8va to 8vb when
+    selected"*) — `ottavaOps.toggleOttavaDirection` NEGATES the shift, so a `15ma` flips to `15mb`
+    and never to `8vb`: the signed number is the whole statement. ⚠️ It COMMITS (audible: an ottava's
+    shift is what the covered notes sound) where the trill's branch of the same key only records
+    undo. ⭐ The key's handler became a TABLE at the same time — `interactions/flipSelection.ts`,
+    six branches in `shortcutWiring` having been one `if` away from seven. ⛔ Still no shortcut that
+    ARMS the tool; §7.9 stands.
   ⭐⭐ **The one thing P5 found that the plan had not said out loud: THE LANE IS A STAFF.**
   `createSlur` / `createHairpin` / `createTrill` all narrow a selection to the first note's
   `(staff, voice)` and drop the rest. `createOttava` must not — a selection across two voices of one

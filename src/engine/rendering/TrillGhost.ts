@@ -15,9 +15,11 @@
  * stub between two notes it does not know. WHERE is the renderer's answer after the click; WHAT is
  * the cursor's, and a bare blue caret answers neither.
  *
- * ⛔ The ottava, pedal, slur and hairpin keep their `null` — not because the reasoning above still
- * holds for them, but because nobody has asked. A slur and a hairpin genuinely have nothing to draw
- * (both ends unpicked); the two BRACKETS are the ones to revisit if he wants the same treatment.
+ * ⭐ The OTTAVA and the PEDAL followed within the day, on the same argument ({@link OttavaGhost},
+ * {@link PedalGhost}), and the three share one position at the pointer — see
+ * {@link ghostCursorOffset}, which is where his rule about that is written down. The slur and the
+ * hairpin keep their `null` for the one reason left: both ends unpicked, so there is genuinely
+ * nothing honest to draw.
  *
  * The sign comes from {@link drawTrillSign}, the pass's own — so the preview cannot drift from the
  * mark. Plain, never parenthesised: the brackets mean "this trill CARRIES OVER from the last
@@ -25,22 +27,13 @@
  */
 import type { SVGContext } from 'vexflow'
 import { drawTrillSign } from './TrillRenderer'
+import { ghostCursorOffset } from './ghostCursor'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
  *  ⚠️ `vf-`-prefixed, because `openGroup` prefixes every class it is given
  *  (`reference_vexflow_opengroup_prefix`). */
 export const TRILL_GHOST_GROUP_CLASS = 'vf-ghost-trill'
-
-/**
- * Px the sign is lifted ABOVE the pointer, on top of being centred on it.
- *
- * A trill is engraved over its note, and the click lands ON the note — so the ghost sits where the
- * mark goes rather than under the arrow, which would cover the very glyph it is previewing. The same
- * reasoning as the articulation ghost's `CURSOR_GAP_PX`, at the trill's larger distance: this is one
- * mark that is always read above the staff.
- */
-const CURSOR_LIFT_PX = 14
 
 /**
  * Draw the `tr` at the cursor. Returns false when nothing measurable was drawn — which is what jsdom
@@ -70,8 +63,7 @@ export function drawTrillGhost(ctx: SVGContext, cursorX: number, cursorY: number
       if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
     })
 
-    const dx = cursorX - (gbox.x + gbox.width / 2)
-    const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_LIFT_PX
+    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
     group.setAttribute('transform', `translate(${dx}, ${dy})`)
     return true
   } catch (_e) {

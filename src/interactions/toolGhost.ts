@@ -74,6 +74,13 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // a blue caret on screen they armed identically. The NUMERAL is what travels (the two are
     // different glyphs), and never the bracket: a dashed line has a length the click has not picked.
     case 'ottava': return { kind: 'ottava', shift: tool.shift }
+    // ⭐ …and the PEDAL completes the ladder family, same day, same reasoning (*"we should see the
+    // ghost ped for stamping"*). This file used to call it the CLEAREST case for drawing nothing —
+    // `Ped.` is not merely at an undecided height, it is not at the pointer at all, but on a rung
+    // below the staff. That argued about WHERE, which is the renderer's answer after the click; the
+    // cursor's job is WHAT. ⛔ The LIFT (`✻`) is never previewed: a pedalling has a length the click
+    // has not picked. See `engine/rendering/PedalGhost`.
+    case 'pedal': return { kind: 'pedal' }
     // The one stamp whose ghost carries a VALUE, and it reads it from the ARMED length rather than
     // from the tool: a rest IS its duration + dots, and those are the note-entry fields the
     // duration/dot keys go on setting while this tool is live (MARKING_TOOL_USES_ARMED_LENGTH).
@@ -92,13 +99,6 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
     // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
-    // …and the PEDAL, the last of the ladder tools still ghostless — ⏭️ and the obvious one to ask
-    // him about next, now that the trill and the ottava have gone the other way. `Ped.` is one glyph
-    // a click certainly stamps, exactly like the `tr`; what it is NOT is drawn where the pointer is,
-    // since it goes on a rung BELOW the staff outside every other family there (docs/pedal-plan.md
-    // §7). The ottava ghost answers that by parking on the side the mark will land, so the argument
-    // for leaving this one alone is now only that nobody has asked.
-    case 'pedal': return null
     default: return assertNeverTool(tool)
   }
 }
@@ -126,4 +126,5 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   fan: 'ghost:fan',
   trill: 'ghost:trill',
   ottava: 'ghost:ottava',
+  pedal: 'ghost:pedal',
 }

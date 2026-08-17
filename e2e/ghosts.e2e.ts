@@ -156,7 +156,7 @@ test('the TIE ghost draws a real arc, and the TEMPO ghost its own words', async 
   expect(drawn.tempo.texts.join(''), 'the tempo ghost previews the mark’s own text').toContain('Allegro')
 })
 
-test('the TRILL ghost is the `tr` itself, lifted above the pointer', async ({ score }) => {
+test('the TRILL ghost is the `tr` itself, parked clear of the pointer', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
@@ -175,12 +175,12 @@ test('the TRILL ghost is the `tr` itself, lifted above the pointer', async ({ sc
   expect(drawn.glyphs.length, 'no parentheses around it').toBe(1)
 
   const [tr] = drawn.glyphs
-  expect(Math.abs(tr.x - CURSOR.x), 'centred on the cursor in x').toBeLessThan(NEAR)
+  expect(Math.abs(tr.x - CURSOR.x), 'near the cursor in x').toBeLessThan(NEAR)
   expect(Math.abs(tr.y - CURSOR.y), 'near the cursor in y').toBeLessThan(NEAR)
-  // A trill is engraved OVER its note and the click lands ON the note, so the ghost sits above the
-  // pointer rather than under the arrow (smaller y is higher). The RELATION is the assertion; the
-  // lift itself is tunable.
-  expect(tr.y, 'and lifted clear of it').toBeLessThan(CURSOR.y)
+  // The standard sign-ghost position, taken from the accidental's (his call): LEFT of the pointer,
+  // so the arrow cannot cover it, and centred on the pointer's line. See `ghostCursorOffset` — and
+  // the pedal test below, which pins that all three ladder ghosts share it.
+  expect(tr.x, 'parked left of the pointer').toBeLessThan(CURSOR.x)
 })
 
 test('the OTTAVA ghost is the NUMERAL — and 8va and 8vb park IDENTICALLY, differing only in glyph', async ({ score }) => {
@@ -211,7 +211,7 @@ test('the OTTAVA ghost is the NUMERAL — and 8va and 8vb park IDENTICALLY, diff
 
   for (const [name, ghost] of Object.entries(drawn)) {
     const [numeral] = ghost.glyphs
-    expect(Math.abs(numeral.x - CURSOR.x), `${name}: centred on the cursor in x`).toBeLessThan(NEAR)
+    expect(Math.abs(numeral.x - CURSOR.x), `${name}: near the cursor in x`).toBeLessThan(NEAR)
     expect(Math.abs(numeral.y - CURSOR.y), `${name}: near the cursor in y`).toBeLessThan(NEAR)
   }
   // ⭐⭐ HIS REPORT, 2026-08-17: the first build parked 8va above the pointer and 8vb below it, on
@@ -222,9 +222,48 @@ test('the OTTAVA ghost is the NUMERAL — and 8va and 8vb park IDENTICALLY, diff
     .toBeLessThan(4)
   expect(Math.abs(drawn.alta.glyphs[0].x - drawn.bassa.glyphs[0].x), 'and the same x')
     .toBeLessThan(4)
-  // Both lifted clear of the arrow, which extends down-right from its tip (smaller y is higher).
-  expect(drawn.alta.glyphs[0].y, 'above the pointer').toBeLessThan(CURSOR.y)
-  expect(drawn.bassa.glyphs[0].y, 'above the pointer').toBeLessThan(CURSOR.y)
+  // Both in the standard position — left of the pointer, clear of an arrow whose body extends
+  // down-right from its tip (`ghostCursorOffset`, taken from the accidental ghost's).
+  expect(drawn.alta.glyphs[0].x, 'left of the pointer').toBeLessThan(CURSOR.x)
+  expect(drawn.bassa.glyphs[0].x, 'left of the pointer').toBeLessThan(CURSOR.x)
+})
+
+test('⭐⭐ the PEDAL ghost is `Ped.` alone — and the three LADDER ghosts share ONE position', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+
+    const at = { x: 200, y: 100 }
+    h.engine.renderScoreWithToolGhost(at, { kind: 'pedal' })
+    const pedal = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-pedal text') }
+    h.engine.renderScoreWithToolGhost(at, { kind: 'trill' })
+    const trill = h.placed('.vf-ghost-trill text')
+    h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: -1 })
+    const ottava = h.placed('.vf-ghost-ottava text')
+    return { pedal, trill, ottava }
+  })
+
+  expect(drawn.pedal.groups).toEqual(['vf-ghost-pedal'])
+  // U+E650 is SMuFL's `keyboardPedalPed` — the sign the pass itself draws (`drawPedalSign`).
+  expect(drawn.pedal.glyphs.map(g => g.code), 'the Ped. glyph').toEqual(['e650'])
+  // ⛔ ONE glyph: no lift (`✻`, U+E655) and no parentheses. A pedalling's length is not the click's
+  // to promise, and the brackets mean "carried over from the last system".
+  expect(drawn.pedal.glyphs.length, 'the sign alone').toBe(1)
+
+  // ⭐⭐ HIS RULE, 2026-08-17, given when this one was parked BELOW the pointer because a pedal is
+  // engraved below the staff — which put it under the arrow: *"this is a sign for the user, of
+  // course a ghost [does] not take into account the position of the real sign in the score"*, and
+  // then *"take the position of the ghost accidental as reference."* So all three park like the
+  // accidental — left of the pointer, centred on its line — whatever side of the staff their marks
+  // end up on. ⛔ Do not re-derive any of these offsets from the engraved placement.
+  const [ped] = drawn.pedal.glyphs
+  for (const [name, glyphs] of Object.entries({ trill: drawn.trill, ottava: drawn.ottava })) {
+    expect(Math.abs(glyphs[0].y - ped.y), `${name} sits at the same height as Ped.`).toBeLessThan(8)
+    expect(glyphs[0].x, `${name} parks left of the pointer`).toBeLessThan(CURSOR.x)
+  }
+  expect(ped.x, 'Ped. parks left of the pointer too').toBeLessThan(CURSOR.x)
+  expect(Math.abs(ped.y - CURSOR.y), 'and on the pointer’s own line').toBeLessThan(12)
 })
 
 test('the FEATHER ghost is a bare notehead — dot included, stem and flag dropped', async ({ score }) => {
