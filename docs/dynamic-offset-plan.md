@@ -108,13 +108,70 @@ overlay in the same family as the slur handles / keyboard cursor / paste caret:
   note when its pitch moves** — a pitch change redraws the bar, recapturing at the new Y. It also
   rides the P5.4b translate (`offsetElement` shifts it with the bar), so the line tracks a measure
   that only moved.
-- `HighlightController.applyDynamicAnchorLine()` draws the dashed `<line>` (pointer-events none,
+- `HighlightController.applyAnchorGuideLine()` draws the dashed `<line>` (pointer-events none,
   cleared by the next render), wired into `RenderController` next to the dynamic highlight.
 - Only the **single-click** selection draws it (a Shift-box of many dynamics would fan out lines).
 
 Style is deliberately provisional (blue `#2563EB`, **dotted** — `stroke-dasharray 0.1 6` + round
 linecap so each segment is a round dot — width 2, 75% opacity) — to be tweaked. Kept as its own
 method so a future family of toggleable guides (rulers, markers…) has a place to grow.
+
+### ⭐⭐ AMENDED 2026-08-17 — where it leaves the MARK, and who else may draw one
+
+Three of his reports in one sitting, and the third is the general rule:
+
+1. **It leaves the mark's BEGINNING, not its end.** *"The line starts in the x axis at the end of the
+   expression… change that point to the beginning of the expression."* It was the box's top-RIGHT
+   corner; on an expression WORD that sent the guide back across the whole word to reach a note
+   sitting near its start.
+2. 🚨 **And it leaves the INK, not the box.** *"For dynamic letters there is too much air, so it is
+   an empty space; somehow the anchor line should be measuring ink and not bbox."* The registry box's
+   top is `DYNAMIC_GLYPH_INK_ABOVE` = `0.68 × the glyph size` — **one fraction for every letter** —
+   while Bravura's real reaches are `f` 1.776 sp and `p` 1.096 sp. So the guide began ~9 px above
+   anything drawn over a `p`. The point is now measured per letter off the font
+   (`engine/rendering/dynamicMarkInk.ts` → `engine/fonts`), captured at render as
+   `ElementInfo.guideFrom`, and it is the ink corner **nearest the staff** — top for a mark below,
+   bottom for one above — so the guide never crosses the letter it points at.
+   ⛔ **The BOX deliberately keeps the constant**: it is the hit-box, the text-overlay's placement and
+   the dynamics line's clearance at once, and a row of marks reads as a row by sharing ONE height.
+   ⚠️ `guideFrom` is absent for PROSE (Bravura cannot speak for a serif word) and the box is used —
+   right there anyway, since a text box's top is about its cap height.
+   🚨 **`ElementRegistry.shiftById` must move it.** It moved `bbox` only, so the guide stayed at the
+   raw VexFlow drop position while the mark travelled to the dynamics line — *"at this point the
+   anchor line is completely broken"*. ⛔ It must NOT move `anchor`, which is a point on the NOTE.
+   ⚠️ Invisible to jsdom (every mark sits at 0 there); the browser suite is what caught it.
+3. **The guide is KIND-AGNOSTIC now.** *"What about the rest of the elements? The anchor line is not
+   just for dynamic."* `applyDynamicAnchorLine` → `applyAnchorGuideLine`: it reads whatever is
+   selected and draws if the render captured endpoints for it. **A second kind is two edits, neither
+   in the guide** — the pass that draws the element captures `anchor` (+ `guideFrom`) into its
+   registry entry, and the kind's row in `ELEMENT_SPECS` calls `applyAnchorGuideLine` from its
+   `highlight`. Only `DynamicsLayout` supplies points today.
+
+### What MuseScore does (read from its C++, 2026-08-17)
+
+⭐ **It never picks a bbox corner** — `EngravingItem::genericDragAnchorLines`
+(`engravingitem.cpp:2341-2368`) takes the element's `canvasPos()`, its ORIGIN, and layout has already
+put that origin ON the ink: `xAdj = leftMargin - textBlock.boundingRect().left()` moves ink-left to
+x = 0 (`textlayout.cpp:221`), the dynamics align is `BASELINE` (`styledef.cpp:1180`), and a dynamic's
+shape comes from the SMuFL outline with cutouts rather than a font line box (`textlayout.cpp:376-383`).
+They need no anti-air trick because there is no air. ⚠️ We cannot renormalise our origin (VexFlow
+places the mark), which is why we derive the ink from the metrics table instead — the same answer
+from the other side. Their glyph boxes are read from the font **on the fly** and cached per symbol
+(`engravingfont.cpp:853`); ours is a table generated from the shipped OTF, keyed by the seven
+dynamics LETTERS because that is what a level is stored as.
+
+⏭️ **For the other kinds, when they come**, their dispatch is worth copying:
+
+| MuseScore class | its anchor line connects |
+|---|---|
+| `EngravingItem` (the generic helper) | element origin ↔ the **segment's x at the staff's near line** (top, or bottom when placed below) |
+| `TextBase` (Dynamic, Expression, Tempo, Lyrics, Fingering, Harmony — none override) | the generic one; a bbox corner is added only for frame/page texts |
+| `Articulation`, `Fermata` | the **parent chord's** origin, not the staff |
+| `LineSegment` (hairpin, ottava, pedal, trill) | **two** lines, one per end, PER SEGMENT, with system-clamped ends across a break |
+| `SlurTieSegment` | grips only (start/end) |
+
+⚠️ And one deliberate divergence: MuseScore draws these **only while dragging or grip-editing**
+(`notationinteraction.cpp:1211-1220`), never on a plain click-selection. We draw on selection.
 
 ## The redraw-key gotcha (found in hand-testing — the picture didn't move)
 

@@ -176,3 +176,44 @@ test('⭐ `p dolce` shares a baseline — the co-located pair is no longer centr
   expect(marks[1].y).toBeCloseTo(marks[0].y, 1)
   expect(marks[1].x).toBeGreaterThan(marks[0].x) // still a left-to-right row
 })
+
+test('⭐⭐ the GUIDE POINT sits on the ink, not on the box — and it differs per letter', async ({ score }) => {
+  // The attachment line a selected mark draws (`HighlightController.applyAnchorGuideLine`) leaves
+  // `guideFrom`, captured here at render. Its whole reason is his report of 2026-08-17: the box's
+  // top is `0.68 × the glyph size` for EVERY letter, so over a `p` the guide began nine pixels above
+  // anything drawn — *"too much air, so it is an empty space… should be measuring ink and not bbox."*
+  //
+  // ⚠️ Browser-only, and this is the half jsdom cannot state: the box's top comes from the DRAWN
+  // text's baseline, which has no meaning without fonts. What a unit test pins is the font table
+  // (`dynamicMarkInk.test.ts`); what this pins is that the render used it.
+  const seen = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    const p = h.engine.addDynamic(1, { beat: h.frac(0, 1), text: '', placement: 'below' })!
+    const f = h.engine.addDynamic(1, { beat: h.frac(1, 1), text: '', placement: 'below' })!
+    await h.render()
+
+    const reg = h.engine.getElementRegistry()
+    const read = (id: string) => {
+      const e = reg.getById(id)!
+      return { boxTop: e.bbox.y, guideY: e.guideFrom!.y, guideX: e.guideFrom!.x, boxLeft: e.bbox.x }
+    }
+    return { p: read(p.id), f: read(f.id) }
+  })
+
+  for (const [name, mark] of Object.entries(seen)) {
+    // Below the box's top means INSIDE the box — the air has been given back.
+    expect(mark.guideY, `${name}: the guide starts below the box top`).toBeGreaterThan(mark.boxTop)
+    // Horizontally the box already IS ink (the browser measures a <text>'s outline), so this end
+    // is unchanged — the fix was vertical only.
+    expect(mark.guideX, `${name}: x is still the box's left`).toBeCloseTo(mark.boxLeft, 5)
+  }
+
+  // ⭐⭐ THE POINT OF DOING IT PER LETTER: `f` is much taller than `p` (1.776 sp against 1.096), so a
+  // constant cannot fit both. The `p` must give back MORE air than the `f`.
+  const pAir = seen.p.guideY - seen.p.boxTop
+  const fAir = seen.f.guideY - seen.f.boxTop
+  expect(pAir, 'the p reclaims several pixels').toBeGreaterThan(5)
+  expect(pAir, '…and more than the f, which nearly filled its box').toBeGreaterThan(fAir + 3)
+})

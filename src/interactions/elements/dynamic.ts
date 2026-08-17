@@ -44,5 +44,8 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
   },
 
   // The mark is already coloured by the set pass; the anchor line is the single-click extra.
-  highlight: h => h.applyDynamicAnchorLine(),
+  // ⭐ The guide is kind-agnostic now (his question, 2026-08-17: *"the anchor line is not just for
+  // dynamic"*) — a second kind adds this same call to ITS row, plus the two endpoints in the pass
+  // that draws it. Nothing about the line itself is dynamic-shaped any more.
+  highlight: h => h.applyAnchorGuideLine(),
 }

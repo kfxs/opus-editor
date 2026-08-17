@@ -1036,32 +1036,64 @@ export class HighlightController {
   }
 
   /**
-   * Draw the dashed ATTACHMENT LINE from a selected dynamic to the rhythmic anchor it hangs off
+   * Draw the dashed ATTACHMENT LINE from the selected element to the rhythmic anchor it hangs off
    * (Dorico/MuseScore style — the mark to the note/beat it belongs to). It is a pure VISUALIZATION,
    * never part of the score: not engraved, not hit-tested, not serialized — just a hint that reads
-   * "this dynamic is attached HERE", which matters once the mark has been nudged away from its note
-   * (docs/dynamic-offset-plan.md). The anchor point is captured at render (DynamicsLayout) and
-   * shifted with the bar (offsetElement), so the line tracks a translated measure. Cleared by the
-   * next render like every other decoration.
+   * "this is attached HERE", which matters once the mark has been nudged away from its note
+   * (docs/dynamic-offset-plan.md). Both endpoints are captured at render and shifted with the bar
+   * (`offsetElement`), so the line tracks a translated measure. Cleared by the next render like
+   * every other decoration.
+   *
+   * ⭐⭐ **KIND-AGNOSTIC, and that is the 2026-08-17 change** — his question: *"what about the rest
+   * of the elements? the anchor line is not just for dynamic."* It was `applyDynamicAnchorLine` and
+   * asked the state for a selected DYNAMIC. It now asks for whatever is selected and draws the line
+   * if the render captured a pair of endpoints for it, so a second kind is TWO edits and neither is
+   * here: the renderer that draws it captures `anchor` (+ `guideFrom`) into its registry entry, and
+   * the kind's row in `ELEMENT_SPECS` calls this from its `highlight`. ⛔ Not a per-kind method
+   * each, and ⛔ not a switch — the two families of guide MuseScore has (to the staff at the
+   * segment's x, or to the parent chord) are a choice made where the points are measured.
+   *
+   * ⏭️ What is still dynamic-only is the SUPPLY: only `DynamicsLayout` captures the points today.
    *
    * Only the single-click element selection gets the line — a Shift-box that swept up several
    * dynamics would otherwise draw a fan of lines. This is the first of what may become a family of
    * toggleable "guide" overlays (rulers, markers…); keeping it its own method keeps that door open.
    */
-  applyDynamicAnchorLine(): void {
+  applyAnchorGuideLine(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    const dynamicId = selectedOf(this.state, 'dynamic')?.id
-    if (!engine || !scoreCanvas || !dynamicId) return
+    const selected = this.state.selectedElement
+    // ⚠️ `id` rather than a kind: most members of the union carry one, and the ones that do not (a
+    // measure range, a tie keyed by its start note) simply never register an anchor, so they fall
+    // out here without this having to know which they are.
+    const id = selected && 'id' in selected ? selected.id : null
+    if (!engine || !scoreCanvas || !id) return
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const entry = engine.getElementRegistry().getById(dynamicId)
-    if (entry?.type !== 'dynamic' || !entry.anchor) return
+    // The gate is the DATA, not the kind: an entry with no captured anchor has nothing to point at.
+    const entry = engine.getElementRegistry().getById(id)
+    if (!entry?.anchor) return
 
-    // From the TOP-RIGHT corner of the dynamic's box up to its note anchor point.
-    const fromX = entry.bbox.x + entry.bbox.width
-    const fromY = entry.bbox.y
+    // From the START of the mark's INK up to its note anchor point.
+    //
+    // ⭐ **The LEFT edge — his call, 2026-08-17**, and it was the top-RIGHT until then: *"the line
+    // starts in the x axis at the end of the expression… change that point to the beginning of the
+    // expression."* The mark's beginning is where it is anchored in the reader's mind — text is read
+    // from its start, and the engraved anchor x is the note's own left edge (`note.getAbsoluteX()`,
+    // captured in `DynamicsLayout`), so a line from the mark's start to the note's is a short, nearly
+    // vertical hint rather than one that crosses back over the whole word.
+    //
+    // ⭐⭐ **And the point is the INK's, not the box's** — his follow-up the same day: *"for dynamic
+    // letters there is too much air, so it is an empty space; somehow the anchor line should be
+    // measuring ink and not bbox."* It is measured now, per letter, off the font
+    // (`engine/rendering/dynamicMarkInk.ts`), and arrives as `guideFrom` beside the anchor it pairs
+    // with — the render measures, this draws. ⚠️ The fallback is the old corner and is REACHED: an
+    // expression WORD is prose the Bravura table cannot speak for, and for prose the box top is
+    // about right, which is why he said that half *"does not look bad"*.
+    const from = entry.guideFrom ?? { x: entry.bbox.x, y: entry.bbox.y }
+    const fromX = from.x
+    const fromY = from.y
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
     line.setAttribute('x1', String(fromX))
     line.setAttribute('y1', String(fromY))
@@ -1074,6 +1106,9 @@ export class HighlightController {
     line.setAttribute('stroke-dasharray', '0.1 6')
     line.setAttribute('stroke-linecap', 'round')
     line.setAttribute('stroke-opacity', '0.75')
+    // ⚠️ Still `dynamic-anchor-line`: it is the class the sweep and the specs already know, and a
+    // rename buys nothing while the dynamic is the only kind supplying points. ⏭️ Widen it when a
+    // second kind does.
     line.setAttribute('class', 'dynamic-anchor-line')
     // A guide never eats a click meant for the music underneath it.
     ;(line as SVGElement & { style: CSSStyleDeclaration }).style.pointerEvents = 'none'

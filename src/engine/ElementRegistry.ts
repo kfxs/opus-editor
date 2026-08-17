@@ -252,6 +252,22 @@ export interface ElementInfo {
    * coordinate field it is shifted by {@link offsetElement} when a bar is translated (P5.4b).
    */
   anchor?: { x: number; y: number }
+  /**
+   * For a 'dynamic': the point ON THE MARK that the attachment line leaves from — the corner of its
+   * INK nearest the staff, in pixels. {@link anchor}'s other end, and used by the same guide alone.
+   *
+   * ⭐ **Why it is not just a corner of {@link bbox}.** That box's top is a single fraction of the
+   * glyph size for every letter, so over a `p` it floats nine pixels above anything drawn and the
+   * guide appeared to start in blank space (his report, 2026-08-17). This one is derived from the
+   * FONT, per letter (`rendering/dynamicMarkInk.ts`). ⛔ It is not a hit-box and must never become
+   * one: the box stays generous on purpose, because a row of marks reads as a row by sharing ONE
+   * height.
+   *
+   * ⚠️ Absent for a mark the font table cannot speak for (an expression WORD, set in a serif face) —
+   * the caller falls back to the box, which for prose is about right. Shifted by
+   * {@link offsetElement} with every other coordinate here.
+   */
+  guideFrom?: { x: number; y: number }
   // Tie-specific properties
   /** ID of the note this tie starts from (for ties) */
   fromNoteId?: string
@@ -377,6 +393,9 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
 
   // Dynamic attachment-line anchor (visualization only) — a coordinate, so it moves with the bar.
   if (element.anchor) moved.anchor = { x: element.anchor.x + dx, y: element.anchor.y + dy }
+  // …and the point on the MARK the same line leaves from. ⚠️ Both ends or neither: shifting one of
+  // them would leave the guide stretching to where the mark used to be.
+  if (element.guideFrom) moved.guideFrom = { x: element.guideFrom.x + dx, y: element.guideFrom.y + dy }
 
   // Sampled arc points (slur proximity hit-testing).
   if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
@@ -700,6 +719,19 @@ export class ElementRegistry {
       y: entry.bbox.y + dy * this.scale,
       width: entry.bbox.width,
       height: entry.bbox.height,
+    }
+    // ⭐⭐ Anything else that is a point ON THE ELEMENT moves with it. Today that is {@link guideFrom},
+    // the attachment line's mark-side end — and forgetting it is invisible until you look: the box
+    // moved onto the dynamics line while the guide stayed where VexFlow first dropped the mark, so
+    // the line pointed at a place the mark had left. Found by the browser test, because every mark
+    // in jsdom sits at 0.
+    // ⛔ NOT {@link anchor}: that one is a point on the NOTE, and the whole purpose of the guide is
+    // to keep showing it while the mark is moved away from it.
+    if (entry.guideFrom) {
+      entry.guideFrom = {
+        x: entry.guideFrom.x + dx * this.scale,
+        y: entry.guideFrom.y + dy * this.scale,
+      }
     }
   }
 

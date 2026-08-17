@@ -600,6 +600,25 @@ paragraph in a doc, not a piece of work.
 > it ever was — VexFlow has no metrics table and measures every glyph off a canvas, so
 > `musicFontReady` still defers the first render. That is P1/P3's to remove, not F4's.
 
+### ⭐ The first consumer OUTSIDE layout — 2026-08-17
+
+`engine/rendering/dynamicMarkInk.ts` asks the table how far a dynamic mark's ink reaches, per letter,
+because a GUIDE has to touch the letter it points at and the mark's box top is one fraction of the
+glyph size for every letter (`f` 1.776 sp against `p` 1.096 — see `docs/dynamic-offset-plan.md`). It
+is worth recording for two reasons:
+
+- ⭐ **Payoff 2, banked for real**: the number arrived as a lookup, in a unit test, with no browser
+  measuring session — which is the whole argument for F1 being a checked-in module.
+- ⭐ **The dynamics group's glyph list was already right.** It holds the seven LETTERS (`p m f r s z
+  n`) with the comment *"the letters a dynamic mark is composed of"*, and that is exactly what makes
+  every level answerable: `levelToGlyphString` stores a level per letter, so `sffz` and `ffff` are
+  those seven. ⏭️ The gap is a PRECOMPOSED dynamics glyph arriving from outside that path (the
+  Symbols window can paste one) — not in the table, so the caller gets `null` and falls back. Closing
+  it is a line in the generator's list plus a re-run; ⛔ not a hand-edit of the generated file.
+  ⚠️ MuseScore has no such gap because it reads glyph boxes from the font at runtime and caches them
+  per symbol (`engravingfont.cpp:853`); our table is synchronous on purpose (§F1: layout reads it
+  inside jsdom, where there is no canvas and nothing to await), and this is the price of that.
+
 ---
 
 ## 6. Licence

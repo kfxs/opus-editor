@@ -21,6 +21,11 @@ import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { shiftDynamicMark } from './dynamicMarkTransform'
 import { drawnTextOrigin, firstDrawnText } from './drawnText'
+import { dynamicInkReachSpaces } from './dynamicMarkInk'
+// ⚠️ The UNSCALED staff space, exactly as `DYNAMIC_GLYPH_INK_ABOVE` is an unscaled px constant: the
+// boxes here are read from `getBBox`, i.e. in the mark's OWN user space, inside whatever `scale(k)`
+// group its staff carries. Converting through `staffSpacesToPixels` would apply k twice.
+import { STAFF_SPACE_PX } from '../models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
@@ -284,7 +289,7 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // line) makes the attachment line TRACK the note when its pitch moves — the bar redraws
         // on a pitch change, so this recaptures at the new position. Drives the dashed
         // attachment-line visualization when the dynamic is selected
-        // (HighlightController.applyDynamicAnchorLine) — never hit-testing. The annotation carries
+        // (HighlightController.applyAnchorGuideLine) — never hit-testing. The annotation carries
         // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
         const note = annotation.getNote() as StaveNote | undefined
         const ys = note?.getYs?.()
@@ -300,25 +305,53 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // both (a mixed mark used to sit too high). Ignores the group height.
         const hasGlyphRun = splitDynamicRuns(dynamicLabel(dyn)).some(r => r.glyph && r.text.trim() !== '')
         let bx = box.x, by = box.y, bw = box.width, bh = box.height
+        // ⚠️ Through `./drawnText`: a missing `y` means ZERO, not "not drawn". Read off the
+        //    attribute this silently fell back to the BALLOONED group box — the very box the
+        //    rebuild exists to replace — for any mark VexFlow happened to place at y=0.
+        // ⭐ Hoisted out of the glyph branch below because the guide point reads it too: the mark's
+        //    BASELINE is what both the rebuilt box and the ink top are measured from.
+        const origin = hasGlyphRun ? drawnTextOrigin(firstDrawnText(el)) : null
         if (hasGlyphRun) {
           const textEl = firstDrawnText(el) as SVGGraphicsElement | null
           const textBox = textEl?.getBBox ? textEl.getBBox() : null
           if (textBox) { bx = textBox.x; bw = textBox.width }
-          // ⚠️ Through `./drawnText`: a missing `y` means ZERO, not "not drawn". Read off the
-          //    attribute this silently fell back to the BALLOONED group box — the very box the
-          //    rebuild exists to replace — for any mark VexFlow happened to place at y=0.
-          const origin = drawnTextOrigin(textEl)
           if (origin) {
             by = origin.y - DYNAMIC_GLYPH_INK_ABOVE
             bh = DYNAMIC_GLYPH_INK_ABOVE + DYNAMIC_GLYPH_INK_BELOW
           }
         }
+        // ⭐⭐ WHERE A GUIDE MAY TOUCH THIS MARK — a point ON THE INK, which the box is not.
+        //
+        // The box's top is `baseline − DYNAMIC_GLYPH_INK_ABOVE`, one fraction for every letter, and
+        // over a `p` that is nine pixels above anything drawn: *"for dynamic letters there is too
+        // much air, so it is an empty space"* (his report of the attachment line, 2026-08-17). The
+        // font knows better per letter, so ask it — `./dynamicMarkInk`, whose header carries both
+        // the numbers and why the BOX itself deliberately keeps the constant.
+        //
+        // ⭐ THE CORNER NEAREST THE STAFF, so the guide never crosses the letter it points at: the
+        // ink's TOP for a mark below the staff (the line rises to the note), its BOTTOM for one
+        // above. MuseScore's is the same idea from the other end — its anchor line runs to the
+        // staff's near line, and leaves the element's own origin, which their layout has already put
+        // on the ink (`textlayout.cpp:221`; see `./dynamicMarkInk`).
+        //
+        // ⚠️ `null` for prose (`dolce`): the table is Bravura's and a serif word is not in it. The
+        // box is then used as before — right for prose anyway, since a text box's top IS roughly its
+        // cap height, which is the case he said *"does not look bad"*.
+        const ink = dynamicInkReachSpaces(dynamicLabel(dyn))
+        const above = dyn.placement === 'above'
+        const guideY = ink && origin
+          ? origin.y + (above ? ink.below : -ink.above) * STAFF_SPACE_PX
+          : (above ? by + bh : by)
         pass.elementRegistry.add({
           type: 'dynamic',
           id: dyn.id,
           measure: measure.number,
           beat: fracToNumber(dyn.beat),
           bbox: { x: bx, y: by, width: bw, height: bh },
+          // ⚠️ x is the BOX's left, and that is not a shortcut: horizontally the box already IS ink
+          // (the `<text>`'s own `getBBox`, which a browser measures from the glyph outlines — the
+          // vertical is the layout box, which is why only the vertical had to be asked of the font).
+          guideFrom: { x: bx, y: guideY },
           ...(anchor ? { anchor } : {}),
         })
       }
