@@ -1322,14 +1322,23 @@ export class HighlightController {
       const dragEnds = partial.segmentEndpoints ?? partial.slurEndpoints
       if (!dragEnds) continue
       partial.controlPoints.forEach((cp, i) => {
+        // ⭐ The dot you grabbed reads as PICKED — bigger, a darker amber, a thicker white ring —
+        // the round handles' half of what the blue squares have had since the endpoint nudge (his
+        // ask, 2026-08-17: *"we do not know when the control points for the arc is selected"*).
+        // Matched on the SEGMENT too, not just the index: a cross-system slur draws a pair per
+        // system and `cpIndex` alone would light one on each. Cosmetic only — the registry bbox
+        // below is untouched, so what you can grab does not change.
+        const picked = slur.controlPoint?.cpIndex === i
+          && slur.controlPoint.segmentRole === partial.segmentRole
+          && slur.controlPoint.segmentOrdinal === partial.segmentOrdinal
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
         dot.setAttribute('cx', String(cp.x))
         dot.setAttribute('cy', String(cp.y))
-        dot.setAttribute('r', String(R))
-        dot.setAttribute('fill', '#F59E0B')
+        dot.setAttribute('r', String(picked ? R + 1.5 : R))
+        dot.setAttribute('fill', picked ? '#B45309' : '#F59E0B')
         dot.setAttribute('stroke', '#ffffff')
-        dot.setAttribute('stroke-width', '1.5')
-        dot.setAttribute('class', 'slur-handle')
+        dot.setAttribute('stroke-width', picked ? '2.5' : '1.5')
+        dot.setAttribute('class', picked ? 'slur-handle slur-handle--selected' : 'slur-handle')
         ;(dot as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'grab'
         this.addNode(svg, dot)
 

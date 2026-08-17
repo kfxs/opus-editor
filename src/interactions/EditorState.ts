@@ -333,6 +333,20 @@ export type SlurSegmentEndpoint =
   | { role: 'middle'; ordinal: number; side: 'left' | 'right' }
 
 /**
+ * WHICH round (amber) shape handle is picked — the pair of Bézier control points that bend the arc.
+ *
+ * ⭐ Addressed by SEGMENT, not just by index: a cross-system slur draws its own pair of dots per
+ * segment, so `cpIndex` alone would light up one dot on every system at once. `segmentRole` absent
+ * means the single-arc case, which has exactly one pair. (Same address the drag already reads off
+ * the handle — `MouseController.handleSlurHandleMouseDown` — so nothing new is being derived.)
+ */
+export interface SlurControlPointHandle {
+  cpIndex: 0 | 1
+  segmentRole?: 'begin' | 'middle' | 'end'
+  segmentOrdinal?: number
+}
+
+/**
  * The ONE on-score element that is selected, or none — the single-select half of the selection.
  *
  * WHY ONE FIELD, the same argument as {@link MarkingTool} one axis over. These were twenty-odd
@@ -390,10 +404,15 @@ export type SelectedElement =
    * An on-score slur, plus WHICH of its handles (if any) the arrows nudge.
    *
    * `endpoint` is a true end (a blue square); `segmentEndpoint` is an OPEN join of a cross-system
-   * slur (an orange one). Mutually exclusive — arming one disarms the other — which is now one
-   * object's business rather than two fields that had to be cleared together at seven sites.
-   * `segmentSpanCount` is the live system count captured when the join was armed, passed to
-   * `nudgeSlurSegmentEndpoint` as the override's reset signature.
+   * slur (an orange one); `controlPoint` is a round SHAPE handle. All three are mutually exclusive —
+   * picking one drops the others — which is now one object's business rather than fields that had
+   * to be cleared together at seven sites. `segmentSpanCount` is the live system count captured when
+   * the join was armed, passed to `nudgeSlurSegmentEndpoint` as the override's reset signature.
+   *
+   * ⭐ `controlPoint` is there to be SEEN, not to be nudged: grabbing a round handle already
+   * disarmed whatever square was armed, and the only thing missing was that nothing on screen said
+   * which dot you had picked (his ask, 2026-08-17). If the arrows ever reach the curve dots, this is
+   * already the field they would read.
    */
   | {
       kind: 'slur'
@@ -401,6 +420,7 @@ export type SelectedElement =
       endpoint?: 'start' | 'end'
       segmentEndpoint?: SlurSegmentEndpoint
       segmentSpanCount?: number
+      controlPoint?: SlurControlPointHandle
     }
   /**
    * A hairpin wedge, by id. Flat, unlike the slur above: a hairpin has no endpoint handles and no

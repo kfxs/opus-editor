@@ -871,13 +871,22 @@ export class MouseController {
       this.draggedSlurSpanCount = handle.slurSpanCount
       this.slurDragChanged = false
       this.slurDragStartTime = Date.now()
-      // Grabbing a round (angle) handle disarms any armed endpoint square — the two are
-      // different editing targets, so the arrows shouldn't keep nudging an endpoint after
-      // you reach for the curve shape (slur-endpoint-offset-plan).
-      if (selectedSlur.endpoint !== undefined || selectedSlur.segmentEndpoint !== undefined) {
-        this.state.selectedElement = { kind: 'slur', id: selectedSlur.id }
-        this.render.renderScore()
+      // Grabbing a round (angle) handle PICKS that dot, and by construction disarms any armed
+      // endpoint square — the two are different editing targets, so the arrows shouldn't keep
+      // nudging an endpoint after you reach for the curve shape (slur-endpoint-offset-plan).
+      // ⭐ The dot is recorded by segment as well as index so a cross-system slur lights the one you
+      // grabbed rather than one per system, and re-rendered UNCONDITIONALLY (it used to repaint only
+      // when a square had been armed) so the picked dot shows the moment you touch it.
+      this.state.selectedElement = {
+        kind: 'slur',
+        id: selectedSlur.id,
+        controlPoint: {
+          cpIndex: handle.cpIndex,
+          segmentRole: handle.segmentRole,
+          segmentOrdinal: handle.segmentOrdinal,
+        },
       }
+      this.render.renderScore()
       dbg(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
       event.preventDefault()
       return true

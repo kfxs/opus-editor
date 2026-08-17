@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { HighlightController } from './HighlightController'
-import { createEditorState, type SlurSegmentEndpoint } from './EditorState'
+import { createEditorState, type SlurSegmentEndpoint, type SlurControlPointHandle } from './EditorState'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -26,6 +26,7 @@ function runPartials(
   selectedEndpoint: 'start' | 'end' | null = null,
   selectedSegment: EditorStateSegmentSel = null,
   viewMode: ViewMode = 'wrapped',
+  selectedControlPoint: SlurControlPointHandle | null = null,
 ) {
   const registry = new ElementRegistry()
   for (const extra of partialExtras) {
@@ -46,6 +47,7 @@ function runPartials(
     id: 'S1',
     endpoint: selectedEndpoint ?? undefined,
     segmentEndpoint: selectedSegment ?? undefined,
+    controlPoint: selectedControlPoint ?? undefined,
   }
 
   const hc = new HighlightController(() => engine, () => canvas, state)
@@ -58,6 +60,7 @@ function runPartials(
     segSquares: registry.getByType('slur-segment-endpoint'),
     circles: svg.querySelectorAll('circle').length,
     rects: svg.querySelectorAll('rect').length,
+    selectedCircles: svg.querySelectorAll('.slur-handle--selected').length,
     selectedRects: svg.querySelectorAll('.slur-endpoint-handle--selected').length,
     selectedSegRects: svg.querySelectorAll('.slur-segment-endpoint-handle--selected').length,
   }
@@ -148,6 +151,44 @@ describe('HighlightController slur-handle gate', () => {
     expect(r.handles.map(h => h.segmentRole).sort()).toEqual(
       ['begin', 'begin', 'end', 'end', 'middle', 'middle'],
     )
+  })
+
+  // ── The PICKED round handle (his ask, 2026-08-17). Cosmetic only: the count of drawn dots and
+  //    the registry entries behind them must not move, so each of these checks both.
+  it('no control point picked → every round handle draws plain', () => {
+    const r = run({ controlPoints: CPS, slurEndpoints: ENDS })
+    expect(r.circles).toBe(2)
+    expect(r.selectedCircles).toBe(0)
+  })
+
+  it('a picked control point draws exactly ONE dot selected, and still registers two', () => {
+    const r = runPartials([{ controlPoints: CPS, slurEndpoints: ENDS }], null, null, 'wrapped',
+      { cpIndex: 1 })
+    expect(r.circles).toBe(2)
+    expect(r.selectedCircles).toBe(1)
+    expect(r.rounds).toBe(2) // the hit-boxes are untouched — what you can grab did not change
+  })
+
+  it('⭐ on a cross-system slur the pick is per SEGMENT — one dot lights, not one per system', () => {
+    // All three segments carry cpIndex 0 and 1. Addressing by index alone would light three dots.
+    const seg = (extra: Partial<ElementInfo>) => ({
+      controlPoints: CPS, segmentEndpoints: SEG_ENDS, staffSpacePx: 10, slurSpanCount: 3, ...extra,
+    })
+    const partials = [
+      seg({ slurEndpoints: ENDS, segmentRole: 'begin' }),
+      seg({ segmentRole: 'middle', segmentOrdinal: 0 }),
+      seg({ segmentRole: 'end' }),
+    ]
+    const r = runPartials(partials, null, null, 'wrapped',
+      { cpIndex: 0, segmentRole: 'middle', segmentOrdinal: 0 })
+    expect(r.circles).toBe(6)
+    expect(r.selectedCircles).toBe(1)
+  })
+
+  it('a pick addressed to a segment that is not drawn lights nothing', () => {
+    const r = runPartials([{ controlPoints: CPS, slurEndpoints: ENDS }], null, null, 'wrapped',
+      { cpIndex: 0, segmentRole: 'middle', segmentOrdinal: 2 })
+    expect(r.selectedCircles).toBe(0)
   })
 
   it('neither field → no handles drawn (nothing to draw)', () => {
