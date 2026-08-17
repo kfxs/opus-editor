@@ -801,11 +801,13 @@ export class MusicEngine {
    * ⭐ Flip a selected octave line's DIRECTION — 8va ↔ 8vb, 15ma ↔ 15mb — the `x` key's ottava
    * branch (`interactions/flipSelection.ts`). His request, 2026-08-17.
    *
-   * ⚠️⚠️ **`commit`, not `saveOnly`, and that is the whole difference from the trill's branch of the
-   * same key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An
-   * ottava's shift is what the covered notes SOUND (`soundingShiftAt`), so this moves the passage by
-   * two octaves and the playback engine must be handed the new score, or the next press of `p` plays
-   * the picture from before the flip. @returns the new shift, or null if no ottava has that id.
+   * ⚠️ **`commit`, not `saveOnly`, and that is the difference from the trill's branch of the same
+   * key.** Flipping a trill swaps a SIDE — nothing audible — so it only records undo. An ottava's
+   * shift is what the covered notes SOUND (`soundingShiftAt`), which is `commit`'s stated condition
+   * and the hairpin's reason for using it too. ⚠️ The resync inside `commit` re-hands the SAME live
+   * score object today (`ScoreModel.getScore` returns the model's own), so what this actually buys
+   * is the convention, not a fix for a stale-playback bug — but the classification is the part a
+   * future non-live score would depend on. @returns the new shift, or null if no ottava has that id.
    */
   toggleOttavaDirection(id: string): Ottava['shift'] | null {
     const shift = this.scoreModel.toggleOttavaDirection(id)
