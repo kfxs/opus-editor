@@ -20,6 +20,7 @@
  * guessing fallback gets believed. Either the file loads as written, or it is refused and the
  * open score is left exactly as it was.
  */
+import type { Score } from '@/types/music'
 
 /** Identifies a file as ours. A file without it is treated as a bare pre-envelope `Score`. */
 export const SCORE_FILE_FORMAT = 'opus-editor-score'
@@ -38,14 +39,29 @@ export const SCORE_FILE_VERSION = 1
 /**
  * Top-level keys of `Score` that this build knows about.
  *
- * ⚠️ A new `Score` field must be added here too. If it isn't, importing a file written by this
- * build warns "ignored: <field>" — which is noisy, but the failure is loud and self-explaining.
- * The alternative (no list) silently loses the one signal this whole file exists to give: that
- * a NEWER build wrote something this one dropped on the floor.
+ * ⚠️ A new `Score` field must be named here too. If it isn't, importing a file written by THIS
+ * build warns about a field it models perfectly well — which is worse than noisy, because the
+ * warning's whole job is to say *a NEWER build wrote something this one dropped on the floor*, and
+ * a false one teaches the reader to ignore the true ones.
+ *
+ * ⭐⭐ **Which is exactly what happened**: `trills` landed on `Score` and never landed here, so
+ * every score containing one reported *"top-level field(s) this build does not know: trills"* (his
+ * report, 2026-08-17). ⭐ So the list is no longer written by hand — it is the keys of a
+ * `Record<keyof Score, true>`, `measureRenderRoles`' device: a new `Score` field now fails to
+ * COMPILE until it is classified, and the drift that produced the false warning cannot recur.
+ * ⚠️ Do not "simplify" this back to a string array; the table is doing the work, not the list.
  */
-const KNOWN_SCORE_KEYS = [
-  'id', 'title', 'composer', 'measures', 'staves', 'staffGroups', 'slurs', 'engravingOverrides',
-] as const
+const KNOWN_SCORE_KEYS = Object.keys({
+  id: true,
+  title: true,
+  composer: true,
+  measures: true,
+  staves: true,
+  staffGroups: true,
+  slurs: true,
+  trills: true,
+  engravingOverrides: true,
+} satisfies Record<keyof Score, true>)
 
 export interface ScoreFileEnvelope {
   format: string

@@ -74,6 +74,23 @@ describe('scoreFile', () => {
       expect(warns[0]?.[0]).toContain('hairpins')
     })
 
+    // ⭐⭐ The other half of that signal, and the one that had rotted: a field this build DOES model
+    // must not be reported. `trills` landed on `Score` and never landed in the known-keys table, so
+    // every score with an ornament in it warned about a field the build understands perfectly (his
+    // report, 2026-08-17) — and a warning that cries wolf is worse than none, because it teaches the
+    // reader to skip the real ones. The list is now the keys of a `Record<keyof Score, true>`, so
+    // the next omission fails to COMPILE; this pins the behaviour that table buys.
+    it('⭐ says NOTHING about a top-level field this build models — every one of them', () => {
+      const full = {
+        ...MINIMAL,
+        composer: 'x', staves: [], staffGroups: [], slurs: [], trills: [], engravingOverrides: {},
+      }
+      const { scoreJson, summary } = readScoreFile(JSON.stringify(full))
+      expect(scoreJson).not.toBeNull()
+      expect(warns, 'no warning at all').toHaveLength(0)
+      expect(summary).not.toContain('unknown field')
+    })
+
     it('refuses a file whose format is not ours', () => {
       const text = JSON.stringify({ format: 'musicxml-ish', version: 1, score: MINIMAL })
       expect(readScoreFile(text).scoreJson).toBeNull()
