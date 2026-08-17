@@ -390,6 +390,7 @@ function drawOttava(
   // the margin is created by the cut, so it never sees this.
   const endX = x.endX + staffSpacesToPixels(OTTAVA_END_AIR, from.stave)
 
+  let firstPiece = true
   for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
     const here = covered.filter(p => p.line === piece.line)
@@ -468,7 +469,35 @@ function drawOttava(
         { x: right, y: bottom },
         { x: startX, y: bottom },
       ],
+      // ⭐⭐ THE ATTACHMENT GUIDE — the fifth kind (docs/dynamic-offset-plan.md).
+      //
+      // ⭐ **Its far end is a PLACE, not a note**, which puts the octave line with the hairpin and
+      // the tempo mark: it governs a REGION — every voice, every note in it, including notes typed
+      // into it later (§4's "clef-shaped statement") — so there is no one note it belongs to. ⛔ The
+      // trill's rule is the other one, and for its own reason: an ornament's auxiliary is computed
+      // from its note's pitch.
+      //
+      // ⭐ **And the SIDE follows the shift**, as everything else about this bracket does: an 8va
+      // hangs above the staff, so the guide runs down to the TOP line; an 8vb runs up to the BOTTOM
+      // one. The numeral's end is its ink corner facing that same line, so the guide never crosses
+      // the glyph it leaves.
+      //
+      // ⚠️ Beginning only, first fragment only — his rule for the hairpin, and the same reasons: a
+      // bracket's extent is already visible as ink, and a continuation `(8va)` is a reminder rather
+      // than a second attachment.
+      ...(firstPiece
+        ? {
+          guides: [{
+            from: {
+              x: startX,
+              y: side === 'above' ? y + px(OTTAVA_MARK_INK.below) : y - px(OTTAVA_MARK_INK.above),
+            },
+            to: { x: x.startX, y: stave.getYForLine(side === 'above' ? 0 : 4) },
+          }],
+        }
+        : {}),
     })
+    firstPiece = false
   }
 }
 

@@ -161,3 +161,48 @@ test('⭐⭐ a HAIRPIN draws ONE guide, at its BEGINNING — his call, where Mus
   // …and it points UP from the wedge to the staff.
   expect(guide.to.y).toBeLessThan(guide.from.y)
 })
+
+test('⭐⭐ an OTTAVA guide follows the SHIFT — 8va points down to the top line, 8vb up to the bottom', async ({ score }) => {
+  const seen = await score.evaluate(async () => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let i = 0; i < 4; i++) {
+      ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1) })!.id)
+    }
+    const read = (shift: 1 | -1) => {
+      const line = h.engine.createOttava([ids[1], ids[2]], shift)!
+      return line.id
+    }
+    const alta = read(1)
+    await h.render()
+    const reg = h.engine.getElementRegistry()
+    const a = reg.getAll().filter(e => e.id === alta)
+    const altaSeen = { guides: a.flatMap(e => e.guides ?? []), box: { y: a[0].bbox.y, bottom: a[0].bbox.y + a[0].bbox.height } }
+
+    // ⭐ The SAME (beat, staff) upserts, so arming the other direction REPLACES the line — which is
+    // also how the palette's two rows behave.
+    const bassa = read(-1)
+    await h.render()
+    const b = h.engine.getElementRegistry().getAll().filter(e => e.id === bassa)
+    const bassaSeen = { guides: b.flatMap(e => e.guides ?? []), box: { y: b[0].bbox.y, bottom: b[0].bbox.y + b[0].bbox.height } }
+
+    const staff = h.staves()[0]
+    return { alta: altaSeen, bassa: bassaSeen, staffTop: staff.top, staffBottom: staff.bottom }
+  })
+
+  // ⛔ ONE line each, at the beginning — the hairpin's rule.
+  expect(seen.alta.guides, '8va: the beginning only').toHaveLength(1)
+  expect(seen.bassa.guides, '8vb: the beginning only').toHaveLength(1)
+  const [alta] = seen.alta.guides
+  const [bassa] = seen.bassa.guides
+
+  // ⭐ The far end is a PLACE — the staff line on the bracket's own side — never a notehead.
+  expect(Math.abs(alta.to.y - seen.staffTop), '8va reaches the TOP line').toBeLessThanOrEqual(1)
+  expect(Math.abs(bassa.to.y - seen.staffBottom), '8vb reaches the BOTTOM line').toBeLessThanOrEqual(1)
+
+  // …and each leaves the numeral's ink on the side facing that line, so it points TOWARD the staff.
+  expect(alta.from.y, '8va sits above the staff').toBeLessThan(seen.staffTop)
+  expect(alta.to.y, 'so its guide points down').toBeGreaterThan(alta.from.y)
+  expect(bassa.from.y, '8vb sits below the staff').toBeGreaterThan(seen.staffBottom)
+  expect(bassa.to.y, 'so its guide points up').toBeLessThan(bassa.from.y)
+})

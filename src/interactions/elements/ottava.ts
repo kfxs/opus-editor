@@ -43,5 +43,8 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'ottava', id: ottavaAt.id })
   },
 
-  highlight: h => h.applyOttavaSelectionHighlight(),
+  // Recoloured, plus the attachment guide (the fifth kind, 2026-08-17). ⭐ At the bracket's BEGINNING
+  // only, and to a PLACE rather than a note — an octave line governs a region, so it belongs to no
+  // single pitch. Its side follows the shift, like everything else about the bracket.
+  highlight: h => { h.applyOttavaSelectionHighlight(); h.applyAnchorGuideLine() },
 }

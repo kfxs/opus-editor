@@ -731,6 +731,16 @@ band machinery.
     direction is the GLYPH's to state. Both now park through `engine/rendering/ghostCursor.ts`, the
     accidental ghost's position, which is his stated reference for the whole family
     (`docs/pedal-plan.md` §7 carries the rule in full).
+  - ⭐ **THE ATTACHMENT GUIDE** — a selected bracket draws the dashed line to where it is anchored
+    (the fifth kind on the kind-agnostic guide, `docs/dynamic-offset-plan.md`). Two edits:
+    `drawOttava` registers it on the FIRST fragment, and the `ottava` row in `ELEMENT_SPECS` calls
+    `applyAnchorGuideLine`. ⭐⭐ **Its far end is a PLACE, not a note** — an octave line governs a
+    REGION (§4's clef-shaped statement), so it belongs to no single pitch, unlike a trill whose
+    auxiliary is computed from one. ⭐ **And the SIDE follows the shift**: an 8va's guide runs down to
+    the staff's TOP line, an 8vb's up to the BOTTOM one, each leaving the numeral's ink on the side
+    facing it. ⛔ At the BEGINNING only (the hairpin's rule): a bracket's extent is already ink, and a
+    continuation `(8va)` is a reminder rather than a second attachment. Measured in
+    `e2e/anchorGuide.e2e.ts`.
   - **`x` FLIPS A SELECTED OTTAVA'S DIRECTION** (*"we should use shortcut x to switch 8va to 8vb when
     selected"*) — `ottavaOps.toggleOttavaDirection` NEGATES the shift, so a `15ma` flips to `15mb`
     and never to `8vb`: the signed number is the whole statement. ⚠️ It COMMITS (audible: an ottava's

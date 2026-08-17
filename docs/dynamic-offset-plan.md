@@ -216,6 +216,29 @@ what the handlers turn on: `from` is ON the element (it travels with it), `to` i
   rather than the first — a span is registered per system fragment, and each fragment's coordinates
   belong to its own system.
 
+### ⭐ Kind 5 — the OTTAVA (2026-08-17)
+
+The second span, and the first guide whose SIDE is decided by the model rather than by the family:
+
+- **Its far end is a PLACE** — like the hairpin's and the tempo mark's. An octave line is a
+  clef-shaped statement (§4 of `docs/ottava-plan.md`): it governs a REGION, every voice and every
+  note in it, including notes typed into it afterwards, so there is no one note it belongs to.
+- ⭐ **The side follows the SHIFT**, as everything else about this bracket does. An 8va hangs above,
+  so its guide runs DOWN to the staff's TOP line; an 8vb runs UP to the BOTTOM one. The numeral's own
+  end is its ink corner facing that same line, so the line never crosses the glyph it leaves.
+- Beginning only, first fragment only — the hairpin's rule and its reasons.
+
+⭐ **Five kinds, and the mechanism has not changed since the hairpin made it a list.** The only
+question a new kind answers is the one this table states: a NOTE or a PLACE.
+
+| kind | its far end | why |
+|---|---|---|
+| dynamic | the anchor NOTE (lowest notehead) | the mark belongs to that note; the guide follows a pitch change |
+| trill | the trilled NOTE (notehead facing the sign) | the auxiliary is computed from that pitch |
+| tempo | a PLACE: the mark's own x at the staff's top line | it governs the clock, not a pitch |
+| hairpin | a PLACE: the start beat at the staff's bottom line | it governs a region |
+| ottava | a PLACE: the start beat at the staff line on its own side | it governs a region, and the side is the shift's |
+
 ### 🚨 The checklist a new COORDINATE field on `ElementInfo` has to answer
 
 `guideFrom` needed all three of these, and each was found by a different means — worth writing down
