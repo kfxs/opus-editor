@@ -141,16 +141,31 @@ export const OTTAVA_MARK_INK: MarkInk = {
  * LilyPond alone. ⏭️ Changing it is an open decision, not a tidy-up — see docs/ottava-plan.md §1 rule
  * 5 and §5, which carry the pages, the measurements and why the fix is not a one-line pass move.
  *
- * ⚠️ So `minFromStaff` is only the FLOOR for a bar where nothing else is above the staff — it is not
- * what puts the ottava above a dynamic. It is set between the dynamics' 2.1 and the tempo's 3.0 so
- * that even on an empty system the four families come out in their proper order, which is a
+ * ⚠️ So `minFromStaff` is only the FLOOR for a bar where nothing else is beside the staff — it is not
+ * what orders the ottava against a dynamic. It is set between the TRILL's 1.0 and the DYNAMICS' 2.1
+ * so that even on an empty system the families come out in their proper order, which is a
  * belt-and-braces reading of the ladder rather than the mechanism.
+ *
+ * **It was 2.5 until 2026-08-17**, chosen to sit between the dynamics' 2.1 and the tempo's 3.0 while
+ * the bracket was OUTSIDE the dynamics. 1.5 puts it between the trill's 1.0 and the dynamics' 2.1,
+ * which is where the rung now is.
+ *
+ * ⚠️⚠️ **BUT IT IS NOT LOAD-BEARING, and the honest record matters more than the tidy story.** I
+ * predicted this constant would go silently backwards when the rung moved, and BREAK-TESTED IT: with
+ * 2.5 restored, the below-staff order still comes out right, in both the bare-floors case and the
+ * lopsided one. The reason is that the dynamics now READ this bracket's claim — so wherever its floor
+ * puts it, they go outside it. The floor stopped deciding the ORDER on the day it stopped needing to.
+ * ⭐ So this is a number about how close a bracket sits to bare music, and nothing else. Taste, and
+ * OWED TO HIS EYE, as 2.5 was before it.
+ *
+ * ⚠️ Gould's p. 102 engraving, measured, puts the bracket's line 4.0 sp from the staff and the
+ * dynamic's ink at ≈5.5 — but that is with music between them, so it prices the PADDING, not this.
  *
  * ⚠️ **Taste, and owed to his eye** — the trill's 0.5/1.0 were too, and were tuned by looking.
  */
 export const OTTAVA_LINE: Clearance = {
   padding: 0.5,
-  minFromStaff: 2.5,
+  minFromStaff: 1.5,
 }
 
 /** Gap between the numeral and the start of the dashed line, in staff spaces — the trill's

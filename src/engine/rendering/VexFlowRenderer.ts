@@ -33,8 +33,8 @@ import { CURVE_PX } from './curveStyle'
 import { tieSide } from './tieDirection'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
-import { renderTrills } from './TrillRenderer'
-import { renderOttavas } from './OttavaRenderer'
+import { planTrillBands, renderTrills } from './TrillRenderer'
+import { planOttavaBands, renderOttavas } from './OttavaRenderer'
 import { renderPedals } from './PedalRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
@@ -3637,6 +3637,20 @@ export class VexFlowRenderer {
     //
     // ⭐ The last argument is the render's LADDER collector: the family records what it took, for
     // whatever is placed outside it (`layout/outsideStaffBand.ts`). Nothing reads it yet.
+    // ⭐⭐ THE BELOW-STAFF LADDER IS BUILT HERE, INNERMOST FIRST, AND THE ORDER OF THESE THREE CALLS
+    // IS THE LADDER. All three are pixel-free — they read the layout's columns and beats, never a
+    // drawn x — which is what lets them run above the measure loop at all.
+    //
+    // 🚨 **Reordered 2026-08-17, from Gould p. 101–102**: octave signs (and articulation, slurs,
+    // tuplet brackets) are *"required to be closer to notes, so add these markings to the music
+    // BEFORE positioning dynamics"*, and p. 102 draws the correct/incorrect pair. We previously had
+    // the dynamics innermost and the trill and ottava outside them, on LilyPond's priorities plus a
+    // misread sentence of hers. ⛔ Move these three lines and you change the engraving; there is no
+    // priority table and there must never be one.
+    const trillBands = planTrillBands(pass, score, plans, staffList.map(staff => staff.id))
+    const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
+    // …and the dynamics now READ what those two claimed. The parameter was always here; until this
+    // change nothing read it, and this comment used to say so.
     const dynamicsPlan = planDynamicsLines(
       score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
 
@@ -3749,7 +3763,7 @@ export class VexFlowRenderer {
     // span and takes its own rung, which is the whole of its vertical story
     // (docs/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
     // rather than translated.
-    renderTrills(pass, score, placements, staffList.map(staff => staff.id))
+    renderTrills(pass, score, placements, staffList.map(staff => staff.id), trillBands)
 
     // ⭐⭐ …then the OCTAVE LINES, and this position IS their rung. An ottava sits outside both
     // families above (LilyPond's `outside-staff-priority` 400 against the dynamics' 250 and the
@@ -3758,7 +3772,7 @@ export class VexFlowRenderer {
     // decision, see docs/ottava-plan.md §5), so it is the first pass
     // that both READS `pass.occupiedBands` and writes to it — the middle of the ladder
     // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
-    renderOttavas(pass, score, placements, staffList.map(staff => staff.id))
+    renderOttavas(pass, score, placements, staffList.map(staff => staff.id), ottavaBands)
 
     // ⭐⭐ …then the SUSTAIN PEDALS, and this position IS their rung — the LAST of the below-staff
     // families. A pedal line goes below the bottom staff and outside EVERYTHING (Dorico, *Positions

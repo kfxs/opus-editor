@@ -30,7 +30,7 @@ import {
   type MarkInk, type InkBand,
 } from '@/engine/layout/inkBand'
 import { levelDynamicsChains, type ChainItem } from '@/engine/layout/dynamicsChain'
-import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
+import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCreate } from '@/utils/fraction'
@@ -116,8 +116,16 @@ export function planDynamicsLines(
         placement: placementSide,
         start: at,
         end: at,
+        // ⭐⭐ THE MUSIC'S INK, MERGED WITH WHATEVER IS ALREADY CLAIMED THERE — the trill and the
+        // octave bracket, both of which Gould places CLOSER to the notes than dynamics (p. 101:
+        // *"octave signs … are required to be closer to notes, so add these markings before
+        // positioning dynamics"*). Until 2026-08-17 this read the music alone and those two families
+        // were placed outside it instead; `occupied` was passed in and never read.
         baseline: dynamicsLineBaseline(
-          staffInkBand(columnsUnder(placement.system.columns, dyn.beat), staffId, staffIds[0]),
+          mergeInkBands(
+            staffInkBand(columnsUnder(placement.system.columns, dyn.beat), staffId, staffIds[0]),
+            bandOver(occupied ?? [], placement.line, staffId, placementSide, at, at, staffIds[0]),
+          ),
           placementSide,
           markInk,
         ),
@@ -150,8 +158,12 @@ export function planDynamicsLines(
           // clipping the range to the system would stop it chaining with the mark it runs into.
           start: startAbs,
           end: endAbs,
+          // ⭐ …and the same for a wedge, over ITS OWN system's stretch of the span.
           baseline: dynamicsLineBaseline(
-            hairpinBand(here, span.startMeasure, span.startBeat, span.endMeasure, span.endBeat, staffId, staffIds[0]),
+            mergeInkBands(
+              hairpinBand(here, span.startMeasure, span.startBeat, span.endMeasure, span.endBeat, staffId, staffIds[0]),
+              bandOver(occupied ?? [], line, staffId, placementSide, startAbs, endAbs, staffIds[0]),
+            ),
             placementSide,
             markInk,
           ),

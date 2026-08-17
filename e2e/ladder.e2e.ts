@@ -179,3 +179,95 @@ test('⚠️ rendering again does not move the mark — the translate is idempot
   expect(second).toBeCloseTo(first, 3)
   expect(third).toBeCloseTo(first, 3)
 })
+
+/**
+ * ⭐⭐ **THE BELOW-STAFF LADDER, AND THE ONE PAIR THAT CHANGED SIDES ON 2026-08-17.**
+ *
+ * 🚨 **Gould p. 101**: *"other markings — such as those for articulation, slurs, **octave signs** and
+ * tuplet brackets — are **required to be closer to notes**, so add these markings to the music
+ * **before positioning dynamics**"*, with p. 102 drawing the correct/incorrect pair. We had it the
+ * other way round on LilyPond's priorities (OttavaBracket 400 vs DynamicLineSpanner 250) plus a
+ * misread sentence of hers, and the "incorrect" half of her figure is what this renderer produced.
+ *
+ * ⚠️⚠️ **IT HAS TO BE AN 8v*B* AND A DYNAMIC PLACED BELOW, and that is why the whole above-staff
+ * suite above missed this.** An 8va lives above the staff and dynamics default below it, so the two
+ * never compete — every existing ottava and ladder case stayed green through the reorder because
+ * none of them put the pair on the same side. Gould's own figure is an ottava *bassa* for exactly
+ * this reason.
+ *
+ * ⚠️⚠️ **AND THE MUSIC IS LOPSIDED ON PURPOSE — the first fixture here was not, and proved less than
+ * it looked.** With every note equally low, the bracket and the dynamic compute the SAME big ink band
+ * from the same columns, and the dynamic lands outside simply because its own clearance is the larger
+ * of the two. That version passed with the dynamics' ladder read deleted. So: one very low note at the
+ * START of the bar, which only the bracket spans, and the dynamic on a STAFF-RESIDENT note at the end,
+ * where its own ink would put it near its 2.1 floor. It can then only end up outside the bracket by
+ * having read the bracket's claim.
+ */
+async function belowStaffPair(score: import('@playwright/test').Page) {
+  return score.evaluate(async () => {
+    const h = window.__h
+    // ⭐ The low note is the BRACKET's problem alone; the dynamic's column is ordinary music.
+    h.engine.addNoteAtBeat({ step: 'C', octave: 2, duration: 'h', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(2, 1) })
+    h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(3, 1) })
+    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
+    h.engine.addDynamic(1, { beat: h.frac(3, 1), text: 'p' })
+    await h.render()
+    const stave = h.staves()[0]
+    const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
+    return {
+      ottavaLine: h.segments('g.vf-ottava path').filter(flat)[0],
+      dynamic: h.placed('g.vf-annotation text')[0],
+      bottom: stave.bottom,
+      spacing: (stave.bottom - stave.top) / 4,
+    }
+  })
+}
+
+test('⭐⭐ below the staff, the 8vb sits INSIDE the dynamic — Gould p. 101–102', async ({ score }) => {
+  const { ottavaLine, dynamic, bottom, spacing } = await belowStaffPair(score)
+
+  expect(ottavaLine, 'the bracket drew').toBeDefined()
+  expect(dynamic, 'the dynamic drew').toBeDefined()
+
+  // y grows DOWNWARD, and both are below the staff — so "closer to the notes" is the SMALLER y.
+  expect(ottavaLine.y1, 'the bracket is below the staff at all').toBeGreaterThan(bottom)
+  expect(dynamic.y, '⭐⭐ the dynamic is FURTHER out than the bracket').toBeGreaterThan(ottavaLine.y1)
+
+  // ⭐⭐ THE DISCRIMINATING HALF. The dynamic sits on staff-resident music, so its OWN ink band would
+  // put it around its 2.1-space floor. It is further out than that only because it cleared the
+  // bracket, which the low note at the start of the bar pushed well past it.
+  expect(ottavaLine.y1 - bottom, 'the low note pushed the bracket past the dynamics\' floor')
+    .toBeGreaterThan(spacing * 2.1)
+  expect(dynamic.y - bottom, 'so the dynamic had to travel past its own floor too')
+    .toBeGreaterThan(spacing * 2.1)
+})
+
+/**
+ * ⭐ The FLOORS, on their own — an empty-handed check that the order survives where there is no ink to
+ * read. This is the case `OTTAVA_LINE.minFromStaff` exists for, and the one that catches it being left
+ * behind by a pass reorder: 1.5 sits between the trill's 1.0 and the dynamics' 2.1, where 2.5 (its
+ * value until 2026-08-17) sat outside the dynamics and was correct for the OLD rung.
+ *
+ * ⚠️ Deliberately staff-resident music, i.e. exactly the fixture the case above may NOT use.
+ */
+test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ score }) => {
+  const { ottavaLine, dynamic, bottom } = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: -1 })
+    h.engine.addDynamic(1, { beat: h.frac(0, 1), text: 'p' })
+    await h.render()
+    const stave = h.staves()[0]
+    const flat = (seg: { x1: number; y1: number; x2: number; y2: number }) => Math.abs(seg.y2 - seg.y1) < 1
+    return {
+      ottavaLine: h.segments('g.vf-ottava path').filter(flat)[0],
+      dynamic: h.placed('g.vf-annotation text')[0],
+      bottom: stave.bottom,
+    }
+  })
+  expect(ottavaLine.y1).toBeGreaterThan(bottom)
+  expect(dynamic.y, 'the dynamic is still the outer of the two').toBeGreaterThan(ottavaLine.y1)
+})

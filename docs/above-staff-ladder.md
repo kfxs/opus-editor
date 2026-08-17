@@ -9,6 +9,16 @@ closes the part that can be closed and states the **trigger** for the part that 
 
 ---
 
+> 🚨 **BELOW the staff the order is NOT this file's, since 2026-08-17.** Gould p. 101–102 places an
+> octave bracket (and articulation, slurs, tuplet brackets) CLOSER to the notes than dynamics, so the
+> below-staff rungs run **trill → ottava → dynamics → pedal**. Above the staff nothing changed. The
+> reorder, the evidence and the two hazards that turned out not to be hazards are in
+> `docs/ottava-plan.md` §1 rule 5, §5 and P9.
+>
+> ⚠️ LilyPond's `outside-staff-priority` numbers quoted below are still LilyPond's — we now disagree
+> with them on the ottava, deliberately.
+
+
 ## 1. "The ladder" is not one mechanism. It is three.
 
 Every reference engine uses all three, for different families. Conflating them is what makes the

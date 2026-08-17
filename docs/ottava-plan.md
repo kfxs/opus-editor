@@ -94,8 +94,7 @@ Gould's.
    ⚠️ **The slur/tuplet exception below is unaffected**: they may sit *inside* a slur or tuplet bracket
    when that bracket is longer than the octave line.
 
-   ⏭️ **The code has NOT been changed.** See §5's correction for why it is not a one-line move, and
-   `docs/ottava-plan.md` is the record until it is decided.
+   ✅ **BUILT 2026-08-17** — see §5, and P9 at the end of this file for how.
 6. ⭐ **They continue across system and page breaks, and the numeral is shown again at the start of
    each system as a reminder.** Dorico's own words: *"Cautionary numerals at breaks are usually
    parenthesized and the suffix is optional."*
@@ -305,11 +304,9 @@ elements"*. p. 337 draws the stack: `8` at 3.25 sp, `Ped.` at 7.25, `Sost. Ped.`
 figures are piano, where dynamics sit *between* the staves), so that half rests on prose, not a
 picture.
 
-⏭️ **OPEN DECISION — not a one-line pass move.** Putting the ottava inside the dynamics means its
-claim must be filed BEFORE the dynamics line reads the band, and `planDynamicsLines` runs *above* the
-measure loop — the same hoist problem this section already describes for tempo. The trill (innermost,
-50) is unaffected. It also changes where every existing score draws its dynamics, so it waits on his
-call.
+✅ **DECIDED AND BUILT, 2026-08-17 — we follow GOULD, not LilyPond.** And it did NOT need the hoist
+this section feared: see **P9** below. The trill moved with it, because leaving it outside the
+dynamics while the bracket went inside would have matched neither source.
 
 So the order as BUILT is
 real, and it is settled.
@@ -995,6 +992,66 @@ ones that bite.
   break-test that dropped only the vertical branch's guard passed the end's case untouched.
 - ⏭️ Not built: a whole-bracket move with nothing armed; a Properties row for the EXTENT (deliberately
   — it is measured in notes, and a staff-space box would be a second, lossy way to say it).
+
+---
+
+## ✅⭐⭐ P9 — THE LADDER REORDERED, below the staff (2026-08-17, BUILT)
+
+The research correction in §1 rule 5 / §5, acted on. Order below the staff is now
+**trill → ottava → dynamics → pedal → tempo**; above it, unchanged.
+
+### ⭐⭐ It was NOT the hoist this plan predicted
+
+§5 said the fix meant hoisting the renderer above the measure loop, because `planDynamicsLines` runs
+there. Wrong, and the reason is worth keeping: **an octave bracket's VERTICAL is pixel-free.**
+`baselineFor` and `ottavaFragmentClaim` read the layout's columns and absolute beats — never
+`staveNoteMap`, never `measureBounds`, never a `stave`. Only `spanX`, i.e. the DRAWING, needs pixels.
+
+So the height splits off cleanly and the drawing stays where it was. `OttavaBandPlacement` and
+`TrillBandPlacement` are named for what they LACK, and they are `DynamicsPlanPlacement`'s shape
+exactly — the three passes ask the same question of the same data, one rung apart.
+
+- `planTrillBands` → `planOttavaBands` → `planDynamicsLines`, all above the measure loop. **Those three
+  lines ARE the ladder.**
+- `planDynamicsLines` gained the READ it was always given the argument for. Its own comment used to
+  say *"Nothing reads it yet."*
+- ⛔ `renderTrills` / `renderOttavas` now **read a plan and file no claim**. Recomputing would read the
+  dynamics' fresh claims and push the mark back outside — the exact bug being fixed.
+
+### ⚠️ The trill had a hole nobody had noticed
+
+The trill is innermost and reads nothing, so its claim's TIMING never mattered — it filed while
+drawing, long after the dynamics were planned. Harmless while the dynamics read nothing; the moment
+they did, it meant **the dynamics did not clear trills at all**. So the trill's split is not tidying:
+it is what makes that true for the first time.
+
+### ⭐⭐ The fixture is most of the work, and the first one proved nothing
+
+⚠️ **An 8va is ABOVE the staff and dynamics default BELOW it — the two never compete.** Every existing
+ottava and ladder case stayed green through the reorder for that reason alone. Gould's own p. 102
+figure is an ottava *bassa*, and so is the new test.
+
+⚠️ **And it must be LOPSIDED.** The first version used uniformly low notes: both families then compute
+the same big ink band, and the dynamic lands outside because its own clearance is larger — it passed
+with the dynamics' read DELETED. The fixture is now one very low note at the start of the bar, which
+only the bracket spans, and the dynamic on staff-resident music at the end, where its own ink would
+leave it near its 2.1 floor.
+
+### The two things I expected to break and which did NOT
+
+Recorded because a tidy story here would be a lie, and both are traps for the next person:
+
+- **`OTTAVA_LINE.minFromStaff`** (2.5 → 1.5). Predicted to go silently backwards with the rung.
+  Break-tested with 2.5 restored: **the order still comes out right**, because the dynamics now read
+  the bracket wherever its floor puts it. The floor stopped deciding the order on the day it stopped
+  needing to. 1.5 is kept as the coherent value for the new rung — taste, owed to his eye.
+- **A double claim from `drawOttava`.** Predicted to push everything outward. It cannot: it runs after
+  `planDynamicsLines`, and a duplicate is the same band, which merges to itself. ⚠️ So that `⛔` in the
+  code has **no test behind it** — the suite will not stop someone re-adding it.
+
+⏭️ **Still not built: Gould's whole-system exception (p. 29)** — an extension line spanning a full
+system goes outside everything after all, with only tempo and pedal beyond it, because a dotted line
+across the whole width visually cuts off what is past it.
 
 ---
 

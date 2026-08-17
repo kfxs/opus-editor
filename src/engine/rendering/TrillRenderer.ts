@@ -62,6 +62,22 @@ import type { RenderPass } from './RenderPass'
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
  * is not imported back by it — the shape `HairpinRenderer` already uses.
  */
+/**
+ * ⭐⭐ What computing a trill's HEIGHT needs — and, as with the ottava's twin, the point is what is
+ * ABSENT: no `stave`, no `scale`, no drawn x. A trill's vertical comes from the layout's columns and
+ * from beats, so {@link planTrillBands} can run above the measure loop.
+ */
+export type TrillBandPlacement =
+  Pick<TrillPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>
+
+/** Where a fragment's height is filed — one trill, one entry per SYSTEM it crosses. */
+export function trillBandKey(trillId: string, line: number): string {
+  return `${trillId}@${line}`
+}
+
+/** What {@link planTrillBands} hands the drawing: the baseline each fragment was placed at. */
+export type TrillBandPlan = Map<string, number>
+
 export interface TrillPlacement {
   /** This staff's own lane. */
   view: Measure
@@ -161,7 +177,7 @@ function spanX(
  * push the first system's `tr` up for no visible reason. Same rule the hairpin's fragments follow.
  */
 function baselineFor(
-  covered: readonly TrillPlacement[],
+  covered: readonly TrillBandPlacement[],
   span: TrillSpan,
   voice: number,
   staffId: string | undefined,
@@ -286,18 +302,70 @@ function glyphWidth(el: Element): number {
 /**
  * Draw every trill in the score, above (or below) the music it covers, split at system breaks.
  */
+/**
+ * ⭐⭐ **WHERE EVERY TRILL SITS — computed before anything is drawn, and before the dynamics line is
+ * planned.** `renderTrills` below only draws what this decided.
+ *
+ * ⭐ **The trill is the INNERMOST outside-staff family**, so this reads nothing; it exists only to
+ * FILE the claim early enough for the families outside it to see. Until 2026-08-17 the trill claimed
+ * while drawing — after `planDynamicsLines` had already run — which was harmless while the dynamics
+ * read nothing, and became a hole the moment they started to. ⚠️ So this pass is not a refactor: it
+ * is what makes *"dynamics clear a trill"* true at all.
+ *
+ * ⚠️ One entry per SYSTEM ({@link trillBandKey}) — a low note on the second system must not lift the
+ * first system's `tr`.
+ */
+export function planTrillBands(
+  pass: RenderPass,
+  score: Score,
+  placements: readonly TrillBandPlacement[],
+  staffIds: readonly (string | undefined)[],
+): TrillBandPlan {
+  const plan: TrillBandPlan = new Map()
+  const trills = score.trills
+  if (!trills?.length) return plan
+  const starts = measureStartOffsets(score)
+
+  for (const trill of trills) {
+    const span = trillSpan(score, trill.id)
+    if (!span) continue
+    // The staff the trill lives on is its START note's — resolved through the placement holding it.
+    const from = placements.find(p =>
+      p.measureNumber === span.startMeasure && p.view.slots.some(s => s.id === span.slotIds[0]))
+    if (!from) continue
+
+    const voice = voiceOf(trill)
+    const side = trill.placement ?? 'above'
+    const staffId = staffIds[from.staffIndex]
+    const covered = placements.filter(p =>
+      p.staffIndex === from.staffIndex
+      && p.measureNumber >= span.startMeasure
+      && p.measureNumber <= span.endMeasure)
+
+    for (const line of new Set(covered.map(p => p.line))) {
+      const here = covered.filter(p => p.line === line)
+      const baseline = baselineFor(here, span, voice, staffId, staffIds[0], side)
+      plan.set(trillBandKey(trill.id, line), baseline)
+      const claim = trillFragmentClaim(here, span, voice, line, staffId, side, baseline, starts)
+      if (claim) pass.occupiedBands.push(claim)
+    }
+  }
+  return plan
+}
+
 export function renderTrills(
   pass: RenderPass,
   score: Score,
   placements: readonly TrillPlacement[],
   staffIds: readonly (string | undefined)[],
+  /** Where {@link planTrillBands} put each fragment. ⛔ Not recomputed here. */
+  bands: TrillBandPlan,
 ): void {
   const trills = score.trills
   if (!trills?.length) return
 
-  // The ladder's shared horizontal axis, walked once for the render rather than per trill.
-  const starts = measureStartOffsets(score)
-
+  // ⛔ No `measureStartOffsets` here any more: the ladder's beat axis belongs to `planTrillBands`,
+  // which files the claims. This pass only draws.
   for (const trill of trills) {
     const span = trillSpan(score, trill.id)
     if (!span) continue
@@ -325,7 +393,7 @@ export function renderTrills(
       // would yield `class="vf-vf-trill"`, the mistake the slur's comment records.
       const group = pass.context.openGroup?.('trill', `trill-${trill.id}`) as SVGGElement | undefined
       inStaffSpace(pass, from.staffIndex, group, () => {
-        drawTrill(pass, trill, span, voice, x, covered, from, to, staffIds[from.staffIndex], staffIds[0], starts)
+        drawTrill(pass, trill, span, voice, x, covered, from, to, staffIds[from.staffIndex], staffIds[0], bands)
       })
       pass.context.closeGroup?.()
       if (group) pass.trillGroupMap.set(trill.id, group)
@@ -347,7 +415,7 @@ function drawTrill(
   to: TrillPlacement,
   staffId: string | undefined,
   firstStaffId: string | undefined,
-  starts: Map<number, Fraction>,
+  bands: TrillBandPlan,
 ): void {
   const side = trill.placement ?? 'above'
   const ctx = pass.context
@@ -378,17 +446,12 @@ function drawTrill(
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
     const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
-    const baseline = baselineFor(here.length ? here : covered, span, voice, staffId, firstStaffId, side)
+    // ⛔ READ, never recomputed — and ⛔ NO CLAIM IS FILED HERE. `planTrillBands` did both before the
+    // dynamics line was planned, which is what lets the dynamics clear this `tr`. A second claim for
+    // one fragment would push everything outside it a band further out, and would compile.
+    const baseline = bands.get(trillBandKey(trill.id, piece.line))
+      ?? baselineFor(here.length ? here : covered, span, voice, staffId, firstStaffId, side)
     const y = stave.getYForLine(0) + px(baseline)
-
-    // ⭐ THE LADDER CLAIM (docs/ottava-plan.md P0a). The trill is the INNERMOST outside-staff family,
-    //   so it never reads this collection — but being innermost is no excuse for not WRITING to it:
-    //   an 8va bracket (LilyPond 400 against the trill's 50) has to clear exactly this fragment.
-    //   ⚠️ Per FRAGMENT, in that fragment's own beats — one claim for the whole trill would put the
-    //   second system's `tr` on the first system's beats.
-    const claim = trillFragmentClaim(
-      here.length ? here : covered, span, voice, piece.line, staffId, side, baseline, starts)
-    if (claim) pass.occupiedBands.push(claim)
 
     // ⭐ EVERY FRAGMENT DRAWS ITS OWN SIGN (rule 6) — a continuation system has to say what the
     // wavy line means, so this is outside any "first piece only" condition on purpose.

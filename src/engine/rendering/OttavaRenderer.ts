@@ -82,6 +82,26 @@ export interface OttavaPlacement {
   scale: number
 }
 
+/**
+ * ⭐⭐ What computing an octave line's HEIGHT needs — and the point of naming it is what is ABSENT:
+ * no `stave`, no `scale`, no drawn x. **The bracket's vertical is pixel-free**, derived from the
+ * layout's columns and from beats alone, which is what lets {@link planOttavaBands} run beside
+ * `planDynamicsLines` above the measure loop instead of inside the drawing.
+ *
+ * ⚠️ It is exactly `DynamicsPlanPlacement`'s shape, and that is not a coincidence: the two passes ask
+ * the same question of the same data one rung apart.
+ */
+export type OttavaBandPlacement =
+  Pick<OttavaPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>
+
+/** Where a fragment's height is filed — one bracket, one entry per SYSTEM it crosses. */
+export function ottavaBandKey(ottavaId: string, line: number): string {
+  return `${ottavaId}@${line}`
+}
+
+/** What {@link planOttavaBands} hands the drawing: the baseline each fragment was placed at. */
+export type OttavaBandPlan = Map<string, number>
+
 /** One drawn piece of an octave line: an x range, WHICH SYSTEM, and the two things a fragment has to
  *  know about itself — whether it is a resumption and whether it carries the span's true end. */
 interface OttavaPiece {
@@ -206,7 +226,7 @@ function spanX(
  */
 function baselineFor(
   pass: RenderPass,
-  here: readonly OttavaPlacement[],
+  here: readonly OttavaBandPlacement[],
   span: OttavaSpan,
   staffId: string | undefined,
   firstStaffId: string | undefined,
@@ -320,6 +340,75 @@ function glyphWidth(el: Element): number {
   }
 }
 
+/**
+ * ⭐⭐ **WHERE EVERY OCTAVE BRACKET SITS — computed BEFORE anything is drawn, and before the dynamics
+ * line is planned.** This pass is the ottava's rung on the outside-staff ladder; `renderOttavas`
+ * below only draws what this decided.
+ *
+ * ## Why it is a pass of its own (2026-08-17)
+ *
+ * 🚨 **Gould p. 101–102 puts an octave bracket INSIDE the dynamics** — *"octave signs … are required
+ * to be closer to notes, so add these markings to the music before positioning dynamics"* — and p. 102
+ * draws the correct/incorrect pair, whose incorrect half is what this renderer used to produce. We had
+ * the ottava OUTSIDE on LilyPond's authority (OttavaBracket 400 vs DynamicLineSpanner 250) plus a
+ * misread sentence of hers (p. 29's *don't collide with anything*, which is not a ranking).
+ *
+ * ⭐ Being inside the dynamics means the dynamics must be able to READ this bracket's band, and
+ * `planDynamicsLines` runs above the measure loop. That looked like it needed the whole renderer
+ * hoisted. It does not: {@link OttavaBandPlacement} is the proof — the vertical needs columns and
+ * beats, never a pixel, so only the HEIGHT moves early and the drawing stays where it was.
+ *
+ * ⛔ **The drawing must not recompute this.** By the time `renderOttavas` runs, the dynamics have
+ * filed their own claims; asking `baselineFor` again would read them and push the bracket back
+ * outside — the exact bug this pass exists to fix. Hence a plan handed forward, `dynamicsLinePlan`'s
+ * arrangement and for the same reason.
+ *
+ * ⚠️ **One entry per SYSTEM**, keyed by {@link ottavaBandKey}: a bracket crossing a break has a
+ * fragment on each, and a low note on the second system must not lift the first system's numeral.
+ * ⚠️ The lines come from the covered placements rather than from `cutIntoPieces`, which needs x's —
+ * so a fragment the cut would drop as degenerate still claims. `planDynamicsLines` over-claims the
+ * same way for a wedge, harmlessly: a consumer filters to one line first.
+ */
+export function planOttavaBands(
+  pass: RenderPass,
+  score: Score,
+  placements: readonly OttavaBandPlacement[],
+  staffIds: readonly (string | undefined)[],
+): OttavaBandPlan {
+  const starts = measureStartOffsets(score)
+  const plan: OttavaBandPlan = new Map()
+
+  for (const measure of score.measures) {
+    for (const ottava of measure.ottavas ?? []) {
+      const span = ottavaSpan(score, ottava.id)
+      if (!span) continue
+      const staffIndex = staffIds.findIndex(id => (id ?? staffIds[0]) === (ottava.staffId ?? staffIds[0]))
+      if (staffIndex < 0) continue
+
+      const covered = placements.filter(p => p.staffIndex === staffIndex
+        && p.measureNumber >= span.startMeasure
+        && p.measureNumber <= span.endMeasure)
+      if (!covered.length) continue
+
+      // ⭐ DERIVED, never stored (§1 rule 4): up → above the staff, down → below.
+      const side: 'above' | 'below' = ottava.shift > 0 ? 'above' : 'below'
+      for (const line of new Set(covered.map(p => p.line))) {
+        const here = covered.filter(p => p.line === line)
+        const baseline = baselineFor(
+          pass, here, span, staffIds[staffIndex], staffIds[0], side, line, starts)
+        plan.set(ottavaBandKey(ottava.id, line), baseline)
+
+        // ⭐ THE LADDER CLAIM — filed HERE and nowhere else, so the dynamics line (planned next) and
+        //   the pedal and tempo (placed later) all clear this bracket. ⛔ `drawOttava` must not push
+        //   a second one; two claims for one fragment drift everything outside it.
+        const claim = ottavaFragmentClaim(here, span, line, staffIds[staffIndex], side, baseline, starts)
+        if (claim) pass.occupiedBands.push(claim)
+      }
+    }
+  }
+  return plan
+}
+
 /** Draw every octave line in the score, above (8va) or below (8vb) the music it governs, split at
  *  system breaks. */
 export function renderOttavas(
@@ -327,6 +416,8 @@ export function renderOttavas(
   score: Score,
   placements: readonly OttavaPlacement[],
   staffIds: readonly (string | undefined)[],
+  /** Where {@link planOttavaBands} put each fragment. ⛔ Not recomputed here — see that function. */
+  bands: OttavaBandPlan,
 ): void {
   // The ladder's shared horizontal axis, walked once for the render rather than per ottava.
   const starts = measureStartOffsets(score)
@@ -358,7 +449,7 @@ export function renderOttavas(
         // would yield `class="vf-vf-ottava"`, the mistake the slur's comment records.
         const group = pass.context.openGroup?.('ottava', `ottava-${ottava.id}`) as SVGGElement | undefined
         inStaffSpace(pass, staffIndex, group, () => {
-          drawOttava(pass, ottava, span, x, covered, from, to, staffIds[staffIndex], staffIds[0], starts)
+          drawOttava(pass, ottava, span, x, covered, from, to, staffIds[staffIndex], staffIds[0], starts, bands)
         })
         pass.context.closeGroup?.()
         if (group) pass.ottavaGroupMap.set(ottava.id, group)
@@ -381,6 +472,7 @@ function drawOttava(
   staffId: string | undefined,
   firstStaffId: string | undefined,
   starts: Map<number, Fraction>,
+  bands: OttavaBandPlan,
 ): void {
   // ⭐ DERIVED, never stored (§1 rule 4 / §4): up → above the staff, down → below.
   const side: 'above' | 'below' = ottava.shift > 0 ? 'above' : 'below'
@@ -417,7 +509,12 @@ function drawOttava(
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
     const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
-    const baseline = baselineFor(
+    // ⛔⛔ READ, never recomputed. `planOttavaBands` decided this before the dynamics were planned;
+    // by now they have filed their own claims, so asking `baselineFor` again would read them and push
+    // the bracket back OUTSIDE the dynamics — the very thing the split exists to prevent. ⚠️ The
+    // fallback recomputes only for a fragment the plan never saw, which cannot happen through the
+    // renderer's own call order and would otherwise draw at the top of the staff.
+    const baseline = bands.get(ottavaBandKey(ottava.id, piece.line)) ?? baselineFor(
       pass, here.length ? here : covered, span, staffId, firstStaffId, side, piece.line, starts)
     // ⭐⭐ THE SHARED VERTICAL NUDGE, applied to every fragment alike — which is what makes "offset in
     // y offsets BOTH points" true across a system break as well as within one. It moves the numeral,
@@ -430,15 +527,19 @@ function drawOttava(
     const lift = (nudge?.outward ?? 0) * (side === 'above' ? -1 : 1)
     const y = stave.getYForLine(0) + px(baseline + lift)
 
-    // ⭐ THE LADDER CLAIM — so the tempo mark, which is placed after every family, clears this
-    //   bracket. ⚠️ Per FRAGMENT, in that fragment's own beats.
-    // ⚠️ **From the UN-nudged baseline, deliberately** — `HairpinRenderer` files its claim before its
-    // own endpoint offsets too. A hand nudge is the engraver overruling the automatic placement, and
-    // making it push the tempo mark above would turn one deliberate move into a cascade nobody asked
-    // for. The cost is the honest one: nudge a bracket up far enough and it is yours to keep clear.
-    const claim = ottavaFragmentClaim(
-      here.length ? here : covered, span, piece.line, staffId, side, baseline, starts)
-    if (claim) pass.occupiedBands.push(claim)
+    // ⛔ NO CLAIM IS FILED HERE — `planOttavaBands` already did, before the dynamics line was planned.
+    //
+    // ⚠️ Break-tested, and the result is worth recording because it is NOT what I expected: filing a
+    // second claim here changes nothing. It runs after `planDynamicsLines`, so the dynamics cannot
+    // see it, and the duplicate is the SAME band, which merges to itself for the pedal and tempo that
+    // do. So this is a correctness rule with no test behind it — the harm it prevents is confusion,
+    // not geometry, and anyone tempted to "restore" the claim here should know that the suite will
+    // not stop them.
+    //
+    // ⚠️ **The claim is on the UN-nudged baseline, deliberately** (`HairpinRenderer` does the same):
+    // a hand nudge is the engraver overruling automatic placement, and letting it shove the tempo
+    // mark would turn one deliberate move into a cascade nobody asked for. Since the claim is now
+    // filed before this function even runs, that property holds by construction.
 
     // ⭐ EVERY FRAGMENT DRAWS ITS NUMERAL, parenthesised when it is a resumption (§1 rule 6) — the
     // reader arriving on a new system has to be told the passage is still displaced, and the
