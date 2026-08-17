@@ -133,6 +133,14 @@ export class PropertiesWidget implements Widget {
         if (slur.id && !slur.missing) body.appendChild(this.buildSlurGeometryRows(slur.id, element))
       }
 
+      // ⭐ A selected HAIRPIN gets its two ENDS as numbers — the wedge's reshape, and only that: the
+      // extent is musical and has its own gestures (`bus/hairpinGeometrySelection` says why a
+      // staff-space box is the wrong instrument for it).
+      if (element.kind === 'hairpin') {
+        const hairpin = element.data as { id?: string; missing?: boolean }
+        if (hairpin.id && !hairpin.missing) body.appendChild(this.buildHairpinEndRows(hairpin.id, element))
+      }
+
       // A selected TRILL gets its one stored choice. Same boundary as the fan row above.
       if (element.kind === 'trill') {
         const trill = element.data as { id?: string; missing?: boolean; continuationLabel?: TrillContinuationLabel }
@@ -445,6 +453,33 @@ export class PropertiesWidget implements Widget {
         (value) => bus.slurGeometry.set({ slurId, target: { kind: 'controlPoint', cpIndex }, value }),
         armedOnly ? 'select an arc handle first — a split slur shapes one system at a time' : undefined,
       ))
+    }
+    return wrap
+  }
+
+  /**
+   * ⭐ **THE WEDGE'S TWO ENDS, AS NUMBERS** — one row each, x/y in staff-spaces plus a reset,
+   * publishing to {@link bus.hairpinGeometry}; `HairpinGeometryController` applies.
+   *
+   * ⭐ **The RESHAPE, not the extent.** `+x` reaches that end further along the wedge and `+y` moves
+   * it down, so a `y` on one end tilts the wedge and a `y` on both lifts it off the dynamics line —
+   * all of it drawing, none of it music. How many notes the wedge covers is the model's, and this
+   * panel deliberately offers no box for it: that quantity is measured in notes, and its instruments
+   * are `Ctrl+Shift+←/→` and dragging the square.
+   *
+   * Blank means the engraver's own position (see {@link buildPointRow}) — not zero, which here would
+   * be a hand-authored "exactly where it already was".
+   */
+  private buildHairpinEndRows(hairpinId: string, element: InspectedElement): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.margin = '2px 0 4px'
+    const offsets = (element.overrides?.find((o) => o.kind === 'hairpinEndpointOffset') ?? {}) as {
+      start?: { x: number; y: number }
+      end?: { x: number; y: number }
+    }
+    for (const which of ['start', 'end'] as const) {
+      wrap.appendChild(this.buildPointRow(`${which} (sp)`, offsets[which], (value) =>
+        bus.hairpinGeometry.set({ hairpinId, which, value })))
     }
     return wrap
   }

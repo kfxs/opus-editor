@@ -15,6 +15,7 @@ import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
 import { createSlurGeometrySelection } from './slurGeometrySelection'
+import { createHairpinGeometrySelection } from './hairpinGeometrySelection'
 import { createSoundSelection } from './soundSelection'
 import { createSubdivideSelection } from './subdivideSelection'
 import { createTieSelection } from './tieSelection'
@@ -85,6 +86,8 @@ export interface EditorBus {
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
   /** Properties' slur-handle inputs (each end's offset, each arc control point). Command-only. */
   slurGeometry: ReturnType<typeof createSlurGeometrySelection>
+  /** Properties' hairpin-end inputs — the wedge's RESHAPE only, never its extent. Command-only. */
+  hairpinGeometry: ReturnType<typeof createHairpinGeometrySelection>
   /** Whether what is selected IS A REST — the other half of the duration keys' statement. */
   rest: ReturnType<typeof createRestSelection>
   /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. TEMPORARY. */
@@ -129,6 +132,7 @@ export function createEditorBus(): EditorBus {
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     slurGeometry: createSlurGeometrySelection(),
+    hairpinGeometry: createHairpinGeometrySelection(),
     rest: createRestSelection(),
     sound: createSoundSelection(),
     subdivide: createSubdivideSelection(),
@@ -159,4 +163,5 @@ export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { SlurGeometryRequest, SlurGeometryTarget } from './slurGeometrySelection'
+export type { HairpinGeometryRequest } from './hairpinGeometrySelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'

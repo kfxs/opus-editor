@@ -19,6 +19,7 @@ import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
+import { HairpinGeometryController } from './interactions/HairpinGeometryController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { playbackStartMeasure } from './interactions/playbackStart'
@@ -518,6 +519,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // `state` as well as the engine, the one of these that does: which system a split slur's arc row
   // writes to is the ARMED dot's business, and that lives in the selection.
   const slurGeometry = new SlurGeometryController(state, getEngine, () => renderer.renderScore())
+  // …and the Properties HAIRPIN END inputs — the wedge's reshape (the override), never its extent.
+  const hairpinGeometry = new HairpinGeometryController(getEngine, () => renderer.renderScore())
 
   // ---------------------------------------------------------------------------------------------
   // Start
@@ -795,6 +798,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       fanEdit.destroy()
       trillEdit.destroy()
       slurGeometry.destroy()
+      hairpinGeometry.destroy()
       for (const part of devShell) part.destroy()
       menuBar.destroy()
       viewport.detach()
