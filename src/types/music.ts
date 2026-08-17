@@ -965,6 +965,30 @@ export interface HairpinEndpointOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * A hand-set MOUTH for one hairpin — how far the wedge opens, in **staff-spaces** (his ask,
+ * 2026-08-17: *"in the property i also want to control the mouth aperture"*).
+ *
+ * ⭐ **A property of the WEDGE, not of an end**, which is why it is its own kind rather than a third
+ * field on {@link HairpinEndpointOffsetOverride}: the aperture is one number for the whole span, and
+ * a split wedge divides it among its fragments (`fragmentOpening`) rather than each piece having one.
+ *
+ * ⭐ It REPLACES the automatic, length-aware default (`automaticAperture` — flat, then a ramp, then
+ * flat) rather than adding to it: a hand-set mouth is a human answering the question the default
+ * exists to guess at. ⚠️ The STEEPNESS CAP still applies on top (`resolveHairpinShape`), so a very
+ * short wedge cannot be authored into an arrowhead — Verovio caps an authored aperture too.
+ *
+ * ⛔ It carries no `startY`/`endY`, though `HairpinShapeOverrideLike` in the renderer has room for
+ * them: the vertical belongs to {@link HairpinEndpointOffsetOverride}, which is per END and also
+ * carries x. Two ways to say "this end sits half a space lower" is exactly the disagreement the
+ * compartment exists to avoid.
+ */
+export interface HairpinApertureOverride extends EngravingOverride {
+  kind: 'hairpinAperture'
+  /** Staff-spaces, > 0. The mouth's full opening — each arm is half of it, mirrored about the axis. */
+  aperture: number
+}
+
+/**
  * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
  * point where the slur leaves one system and resumes on the next). BEGIN has only an
  * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.

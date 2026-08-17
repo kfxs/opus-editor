@@ -481,7 +481,83 @@ export class PropertiesWidget implements Widget {
       wrap.appendChild(this.buildPointRow(`${which} (sp)`, offsets[which], (value) =>
         bus.hairpinGeometry.set({ hairpinId, which, value })))
     }
+    // …and the MOUTH — one number for the whole wedge, so a row of its own rather than a third
+    // point (his ask, 2026-08-17). Blank = the automatic, LENGTH-AWARE aperture, which is why the
+    // placeholder cannot show a number: the default depends on how long the wedge is drawn, and the
+    // panel does not measure ink.
+    const mouth = (element.overrides?.find((o) => o.kind === 'hairpinAperture') ?? {}) as { aperture?: number }
+    wrap.appendChild(this.buildNumberRow(
+      'mouth (sp)', mouth.aperture, 0.25,
+      (aperture) => bus.hairpinGeometry.set({ hairpinId, aperture }),
+      'how far the wedge opens — blank is the automatic width for its length',
+    ))
     return wrap
+  }
+
+  /**
+   * ONE number plus a reset, in staff-spaces — the single-value sibling of {@link buildPointRow},
+   * with its rules: blank means "the engraver decides" and is not zero, a non-number puts the model's
+   * own value back, and reset publishes `null`.
+   */
+  private buildNumberRow(
+    caption: string,
+    current: number | undefined,
+    step: number,
+    publish: (value: number | null) => void,
+    hint?: string,
+  ): HTMLElement {
+    const row = document.createElement('label')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '0 0 3px'
+    if (hint) row.title = hint
+
+    const label = document.createElement('span')
+    label.textContent = caption
+    row.appendChild(label)
+
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.step = String(step)
+    input.min = '0'
+    input.value = current === undefined ? '' : String(current)
+    input.placeholder = 'auto'
+    const is = input.style
+    is.width = '4.5em'
+    is.font = 'inherit'
+    is.color = BISHOP
+    is.background = 'transparent'
+    is.border = `1px solid ${BISHOP}`
+    is.borderRadius = '2px'
+    is.padding = '1px 4px'
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+    })
+    input.addEventListener('change', () => {
+      const n = parseFloat(input.value)
+      if (!Number.isFinite(n)) { input.value = current === undefined ? '' : String(current); return }
+      publish(n)
+    })
+    row.appendChild(input)
+
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = 'reset'
+    reset.title = 'Back to the automatic engraving'
+    const bs = reset.style
+    bs.font = 'inherit'
+    bs.color = BISHOP
+    bs.background = 'transparent'
+    bs.border = `1px solid ${BISHOP}`
+    bs.borderRadius = '2px'
+    bs.padding = '1px 6px'
+    bs.cursor = 'pointer'
+    reset.addEventListener('click', () => { input.value = ''; publish(null) })
+    row.appendChild(reset)
+    return row
   }
 
   /**

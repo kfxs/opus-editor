@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -100,6 +100,12 @@ export function segmentEndpointOffsetOverrideOf(score: Score, elementId: string)
  *  See {@link HairpinEndpointOffsetOverride}. */
 export function hairpinEndpointOffsetOverrideOf(score: Score, elementId: string): HairpinEndpointOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'hairpinEndpointOffset') as HairpinEndpointOffsetOverride | undefined
+}
+
+/** A hairpin's hand-set MOUTH, or undefined when the automatic (length-aware) aperture stands.
+ *  See {@link HairpinApertureOverride}. */
+export function hairpinApertureOverrideOf(score: Score, elementId: string): HairpinApertureOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'hairpinAperture') as HairpinApertureOverride | undefined
 }
 
 /** The open-join offsets to apply per segment of a cross-system slur, after the staleness

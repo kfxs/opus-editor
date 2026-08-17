@@ -1396,3 +1396,44 @@ reason: a slur's was tuned against one notehead's ink, so a re-anchor makes it u
 says "this far out from wherever this end lands", which stays true when the extent moves.
 `Ctrl+Backspace` now has something to reset on a hairpin after all — the line in P4 saying it does not
 is superseded by this section.
+
+
+## 2026-08-17 (last) — Properties types the wedge's drawing, mouth included
+
+*"these two offsets i want to be able to do it from property"*, then *"i also want to control the
+mouth aperture (another override)"*. So a selected hairpin's panel now carries its whole COSMETIC
+half: a row per end (x/y, staff-spaces) and one for the mouth.
+
+```
+HAIRPIN
+  start (sp)   x [    ] y [    ] [reset]
+  end   (sp)   x [1.5 ] y [-1  ] [reset]
+  mouth (sp)     [2.5 ]          [reset]
+```
+
+Wiring is the note-offset arrangement: the window publishes to `bus.hairpinGeometry` and holds no
+engine; `HairpinGeometryController` applies. The two shapes on that one seam differ in a way worth
+naming — an END is **absolute in, relative out** (`nudgeHairpinEndpoint` accumulates, so
+`delta = wanted − current`, read from the compartment rather than from the panel, and re-typing the
+same number is a no-op), while the MOUTH is stored as asked: it REPLACES the automatic aperture, so
+there is nothing to accumulate onto.
+
+### The mouth is a third override, and its own kind
+
+`HairpinApertureOverride` — one number for the whole wedge, which is why it is not a third field on
+`HairpinEndpointOffsetOverride`: a split wedge divides one aperture among its fragments
+(`fragmentOpening`) rather than each piece carrying one.
+
+- ⛔ It carries no `startY`/`endY`, though `HairpinShapeOverrideLike` in the renderer has room for
+  them. The vertical belongs to the endpoint offsets, which are per END and also carry x — two ways
+  to say "this end sits half a space lower" is the disagreement the compartment exists to prevent.
+- ⚠️ The **steepness cap still applies over it** (`resolveHairpinShape`), so a short wedge cannot be
+  authored into an arrowhead; Verovio caps an authored aperture too. The min-angle FLOOR does not
+  apply — an authored mouth is a human fixing that very problem by eye.
+- ⛔ A non-positive mouth is REFUSED at the model, because the renderer draws nothing at all for one
+  (`shape.aperture > 0`) and the wedge would vanish with nothing on screen to explain why.
+- Blank in the panel means the automatic, LENGTH-AWARE aperture. The placeholder cannot show that
+  number: it depends on how long the wedge is drawn, and the panel does not measure ink.
+
+⏭️ Not built: a keyboard gesture for the mouth (it has no obvious chord, and nothing has asked), and
+a drag of it — the aperture handle would be a third square, on the mouth rather than at an end.

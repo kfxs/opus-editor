@@ -17,10 +17,10 @@ import { fracCreate as frac, fracToNumber, fracEq } from '@/utils/fraction'
 import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
-  setHairpinEndpointOffset, resetHairpinEndpointOffset,
+  setHairpinEndpointOffset, resetHairpinEndpointOffset, setHairpinAperture,
 } from './hairpinOps'
 import { setEngravingOverride } from './overrideOps'
-import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf } from './engravingOverrides'
+import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
 
 describe('hairpinOps — storage', () => {
   let model: ScoreModel
@@ -215,6 +215,66 @@ describe('setHairpinEndpointOffset — reshaping the drawn wedge', () => {
 
   it('returns false for an unknown hairpin rather than orphaning an override', () => {
     expect(setHairpinEndpointOffset(score, 'ghost', 'end', 1, 0)).toBe(false)
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+})
+
+/**
+ * ⭐ {@link setHairpinAperture} — the wedge's MOUTH, its third override and the only one that is one
+ * number for the whole span (his ask, 2026-08-17).
+ */
+describe('setHairpinAperture — the mouth', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const mouth = () => hairpinApertureOverrideOf(score, id)
+
+  it('stores what was asked for — it REPLACES the automatic width, it does not accumulate', () => {
+    expect(setHairpinAperture(score, id, 2.5)).toBe(true)
+    expect(mouth()).toEqual({ kind: 'hairpinAperture', aperture: 2.5 })
+    setHairpinAperture(score, id, 1.75)
+    expect(mouth()!.aperture).toBe(1.75)
+  })
+
+  it('null hands the mouth back to the automatic, length-aware default', () => {
+    setHairpinAperture(score, id, 2.5)
+    expect(setHairpinAperture(score, id, null)).toBe(true)
+    expect(mouth()).toBeUndefined()
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+
+  it('⛔ REFUSES a non-positive mouth — the renderer draws nothing for one, silently', () => {
+    expect(setHairpinAperture(score, id, 0)).toBe(false)
+    expect(setHairpinAperture(score, id, -1)).toBe(false)
+    expect(mouth()).toBeUndefined()
+  })
+
+  it('a reset with nothing authored answers false', () => {
+    expect(setHairpinAperture(score, id, null)).toBe(false)
+  })
+
+  it('leaves the extent alone — a wider mouth is not a longer wedge', () => {
+    setHairpinAperture(score, id, 3)
+    const h = getHairpinById(score, id)!
+    expect([fracToNumber(h.beat), fracToNumber(h.length)]).toEqual([0, 2])
+  })
+
+  it('lives alongside the end nudges, and all of them die with the hairpin', () => {
+    setHairpinAperture(score, id, 2)
+    setHairpinEndpointOffset(score, id, 'end', 1, 0)
+    expect(engravingOverridesOf(score, id)).toHaveLength(2)
+    removeHairpin(score, id)
+    expect(engravingOverridesOf(score, id)).toEqual([])
+  })
+
+  it('returns false for an unknown hairpin rather than orphaning an override', () => {
+    expect(setHairpinAperture(score, 'ghost', 2)).toBe(false)
     expect(score.engravingOverrides).toBeUndefined()
   })
 })

@@ -43,8 +43,10 @@ describe('the hairpin end rows', () => {
     bus.inspection.set([])
   })
 
+  // ⚠️ `div, label` — the two-box rows are divs and the single-number one is a label (it wraps its
+  // input, so a click on the caption focuses it). Searching only divs silently finds no mouth row.
   const row = (startsWith: string) => {
-    const found = [...host.querySelectorAll('div')].find(d =>
+    const found = [...host.querySelectorAll('div, label')].find(d =>
       d.firstElementChild?.tagName === 'SPAN' && d.firstElementChild.textContent?.startsWith(startsWith))
     return {
       inputs: [...(found?.querySelectorAll('input[type=number]') ?? [])] as HTMLInputElement[],
@@ -64,8 +66,31 @@ describe('the hairpin end rows', () => {
 
   it('⛔ offers NO box for the extent — that quantity is measured in notes, not in spaces', () => {
     bus.inspection.set(hairpinElement())
-    // Exactly the four reshape boxes, so a `length` input cannot creep in unnoticed.
-    expect(host.querySelectorAll('input[type=number]')).toHaveLength(4)
+    // Four boxes for the two ends and one for the mouth, so a `length` input cannot creep in unnoticed.
+    expect(host.querySelectorAll('input[type=number]')).toHaveLength(5)
+  })
+
+  it('⭐ has a MOUTH row — one number for the whole wedge, not a third point', () => {
+    bus.inspection.set(hairpinElement())
+    const { inputs } = row('mouth')
+    expect(inputs).toHaveLength(1)
+    // Blank = the automatic LENGTH-AWARE aperture; the panel cannot show that number because it
+    // depends on how long the wedge is drawn, and the panel does not measure ink.
+    expect([inputs[0].value, inputs[0].placeholder]).toEqual(['', 'auto'])
+  })
+
+  it('the mouth shows an authored width, and publishes the absolute value', () => {
+    bus.inspection.set(hairpinElement({
+      overrides: [{ kind: 'hairpinAperture', aperture: 2.5 }] as unknown as InspectedElement['overrides'],
+    }))
+    const { inputs, reset } = row('mouth')
+    expect(inputs[0].value).toBe('2.5')
+    type(inputs[0], '1.75')
+    reset!.click()
+    expect(published).toEqual([
+      { hairpinId: 'H1', aperture: 1.75 },
+      { hairpinId: 'H1', aperture: null },
+    ])
   })
 
   it('shows an authored reshape, read from the overrides compartment', () => {

@@ -33,9 +33,19 @@ export class HairpinGeometryController {
     this.unsubscribe = bus.hairpinGeometry.onSet((req) => this.apply(req))
   }
 
-  private apply({ hairpinId, which, value }: HairpinGeometryRequest): void {
+  private apply(req: HairpinGeometryRequest): void {
     const engine = this.getEngine()
     if (!engine) return
+
+    // The MOUTH is absolute already — the model stores what the user asked for, so there is no delta
+    // to take (and no accumulation to read back). It also lets the model refuse a non-positive one.
+    if ('aperture' in req) {
+      if (!engine.setHairpinAperture(req.hairpinId, req.aperture)) return
+      this.renderScore()
+      dbg(`[Hairpin] Properties set the mouth → ${req.aperture ?? 'auto'} | id:${req.hairpinId}`)
+      return
+    }
+    const { hairpinId, which, value } = req
 
     if (!value) {
       if (!engine.resetHairpinEndpointOffset(hairpinId, which)) return

@@ -17,7 +17,8 @@
  * overrides reset on different rules. One channel per kind keeps each seam's doc true about its own.
  */
 
-export interface HairpinGeometryRequest {
+/** Move one of the wedge's two drawn ENDS. */
+export interface HairpinEndRequest {
   /** The selected hairpin whose end to move. */
   hairpinId: string
   /** Which drawn end — the left-hand square or the right-hand one. */
@@ -32,6 +33,22 @@ export interface HairpinGeometryRequest {
    */
   value: { x?: number; y?: number } | null
 }
+
+/**
+ * Set the wedge's MOUTH — how far it opens, in staff-spaces — or `null` to hand it back to the
+ * automatic, length-aware aperture.
+ *
+ * ⭐ On the SAME seam as the end nudges, and not on one of its own, because it is the same category
+ * of statement about the same element: this channel carries a hairpin's DRAWING. It is a separate
+ * shape only because the mouth is one number for the whole wedge where an end is a point.
+ */
+export interface HairpinApertureRequest {
+  hairpinId: string
+  /** Staff-spaces, > 0 — or `null` to reset. The controller lets the model refuse the rest. */
+  aperture: number | null
+}
+
+export type HairpinGeometryRequest = HairpinEndRequest | HairpinApertureRequest
 
 export class HairpinGeometrySelection {
   private listeners = new Set<(req: HairpinGeometryRequest) => void>()

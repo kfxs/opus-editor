@@ -39,7 +39,7 @@ import type { Stave } from 'vexflow'
 import type { Score, Measure, Hairpin, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { hairpinSpan, type HairpinSpan } from '@/engine/models/hairpinOps'
-import { hairpinEndpointOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from '@/engine/models/engravingOverrides'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracCompare, fracEq, fracGte } from '@/utils/fraction'
 import { hairpinLineKey, type DynamicsLinePlan } from './dynamicsLinePlan'
@@ -355,7 +355,13 @@ function drawWedge(
   // span fits on one system.
   const pieces = cutIntoPieces(pass, from.line, to.line, startX, endX, from.scale)
   const drawnWidth = pieces.reduce((sum, p) => sum + (p.x1 - p.x0), 0)
-  const shape = resolveHairpinShape(undefined, drawnWidth / from.stave.getSpacingBetweenLines())
+  // ⭐ The hand-set mouth where there is one, else the automatic length-aware aperture. The steepness
+  // cap inside `resolveHairpinShape` applies to both, so an authored mouth on a short wedge is still
+  // pulled back from an arrowhead.
+  const shape = resolveHairpinShape(
+    hairpinApertureOverrideOf(pass.score, hairpin.id),
+    drawnWidth / from.stave.getSpacingBetweenLines(),
+  )
   if (!(shape.aperture > 0)) return
 
   const ctx = pass.context

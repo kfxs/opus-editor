@@ -16,12 +16,14 @@ import type { Score } from '../types/music'
 function stubEngine(score: Score) {
   const nudge = vi.fn(() => true)
   const reset = vi.fn(() => true)
+  const mouth = vi.fn(() => true)
   const engine = {
     getScore: () => score,
     nudgeHairpinEndpoint: nudge,
     resetHairpinEndpointOffset: reset,
+    setHairpinAperture: mouth,
   } as unknown as MusicEngine
-  return { engine, nudge, reset }
+  return { engine, nudge, reset, mouth }
 }
 
 /** A score whose wedge already carries a reshape on its right-hand end. */
@@ -89,6 +91,32 @@ describe('HairpinGeometryController', () => {
     ;(reset as unknown as { mockReturnValue: (v: boolean) => void }).mockReturnValue(false)
     wire(engine)
     bus.hairpinGeometry.set({ hairpinId: 'H1', which: 'start', value: null })
+    expect(rendered).toBe(0)
+  })
+
+  it('⭐ the MOUTH goes through ABSOLUTE — there is nothing to accumulate onto', () => {
+    // Unlike an end nudge, the model stores the aperture the user asked for, so the controller must
+    // NOT turn it into a delta: it is one number replacing the automatic one.
+    const { engine, mouth, nudge } = stubEngine(scoreWithOffset())
+    wire(engine)
+    bus.hairpinGeometry.set({ hairpinId: 'H1', aperture: 2.5 })
+    expect(mouth).toHaveBeenCalledWith('H1', 2.5)
+    expect(nudge).not.toHaveBeenCalled()
+    expect(rendered).toBe(1)
+  })
+
+  it('a null mouth hands it back to the automatic width', () => {
+    const { engine, mouth } = stubEngine(scoreWithOffset())
+    wire(engine)
+    bus.hairpinGeometry.set({ hairpinId: 'H1', aperture: null })
+    expect(mouth).toHaveBeenCalledWith('H1', null)
+  })
+
+  it('does not repaint when the model refuses the mouth (a non-positive one)', () => {
+    const { engine, mouth } = stubEngine(scoreWithOffset())
+    ;(mouth as unknown as { mockReturnValue: (v: boolean) => void }).mockReturnValue(false)
+    wire(engine)
+    bus.hairpinGeometry.set({ hairpinId: 'H1', aperture: 0 })
     expect(rendered).toBe(0)
   })
 

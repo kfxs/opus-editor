@@ -13,14 +13,14 @@
  * ⚠️ Re-anchoring hairpins across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `slurOps`.
  */
-import type { Fraction, Score, Hairpin, Measure, HairpinEndpointOffsetOverride } from '@/types/music'
+import type { Fraction, Score, Hairpin, Measure, HairpinEndpointOffsetOverride, HairpinApertureOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
-import { hairpinEndpointOffsetOverrideOf } from './engravingOverrides'
+import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
 
 /** A measure's hairpins (the live array; empty if none), sorted ascending by start beat. */
 export function measureHairpins(measure: Measure): Hairpin[] {
@@ -54,8 +54,8 @@ export function addHairpin(score: Score, measureNumber: number, hairpin: Omit<Ha
  * Remove a hairpin by id, cleaning up the array when it becomes empty.
  *
  * Clears any engraving override keyed by that id on the way out — an override must not outlive
- * its anchor (the `removeSlur` / `removeDynamic` rule). Nothing writes one yet; the call is here
- * so the day a vertical nudge or a custom aperture arrives it cannot orphan.
+ * its anchor (the `removeSlur` / `removeDynamic` rule). Since 2026-08-17 a hairpin really has some:
+ * the two end nudges and the hand-set mouth, all of which die here.
  * @returns true if a hairpin was removed.
  */
 export function removeHairpin(score: Score, id: string): boolean {
@@ -134,11 +134,11 @@ export function updateHairpin(score: Score, id: string, updates: Partial<Omit<Ha
  * ⭐⭐ **Nudge one drawn END of a hairpin, accumulating** — the wedge's RESHAPE (`←/→/↑/↓` fine,
  * `Ctrl`+arrow coarse, with that end's square armed). `dx`/`dy` are in **staff-spaces**.
  *
- * ⭐ **The one thing on a hairpin that is an OVERRIDE rather than the model**, and the distinction is
- * the whole of §4: the extent says which notes get louder and lives on the content model; where the
- * ink is drawn does not, and lives in the engraving-overrides compartment. Same two squares, two
- * different chords, two different categories of edit — `Ctrl+Shift+arrow` moves the music, a plain
- * or `Ctrl` arrow moves the drawing. See {@link HairpinEndpointOffsetOverride}.
+ * ⭐ **An OVERRIDE, not the model**, and the distinction is the whole of §4: the extent says which
+ * notes get louder and lives on the content model; where the ink is drawn does not, and lives in the
+ * engraving-overrides compartment. Same two squares, two different chords, two different categories
+ * of edit — `Ctrl+Shift+arrow` moves the music, a plain or `Ctrl` arrow moves the drawing. See
+ * {@link HairpinEndpointOffsetOverride}, and {@link setHairpinAperture} for the wedge's other one.
  *
  * @returns true if the hairpin exists (the caller then re-renders).
  */
@@ -179,6 +179,28 @@ export function resetHairpinEndpointOffset(score: Score, id: string, which: 'sta
     ? { kind: 'hairpinEndpointOffset', end: other }
     : { kind: 'hairpinEndpointOffset', start: other }
   setEngravingOverride(score, id, kept)
+  return true
+}
+
+/**
+ * ⭐ **Set (or clear) a hairpin's MOUTH** — the third of its overrides, and the only one that is one
+ * number for the whole wedge rather than a per-end pair. `aperture` is in **staff-spaces**; pass
+ * `null` to hand the mouth back to the automatic, length-aware default.
+ *
+ * ⛔ A non-positive mouth is REFUSED rather than stored: the renderer draws nothing at all for one
+ * (`shape.aperture > 0`), so accepting it would make the wedge disappear with no way to see why.
+ * @returns true if the hairpin exists and the value was taken.
+ */
+export function setHairpinAperture(score: Score, id: string, aperture: number | null): boolean {
+  if (!getHairpinById(score, id)) return false
+  if (aperture === null) {
+    if (!hairpinApertureOverrideOf(score, id)) return false
+    clearEngravingOverride(score, id, 'hairpinAperture')
+    return true
+  }
+  if (!(aperture > 0)) return false
+  const override: HairpinApertureOverride = { kind: 'hairpinAperture', aperture }
+  setEngravingOverride(score, id, override)
   return true
 }
 

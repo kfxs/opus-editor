@@ -631,6 +631,12 @@ export class ScoreModel {
     return hairpinOps.resetHairpinEndpointOffset(this.score, id, which)
   }
 
+  /** Set (or clear with `null`) a hairpin's hand-set mouth, in staff-spaces.
+   *  See {@link hairpinOps.setHairpinAperture}. */
+  setHairpinAperture(id: string, aperture: number | null): boolean {
+    return hairpinOps.setHairpinAperture(this.score, id, aperture)
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. @returns the new type, or null. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     return hairpinOps.toggleHairpinType(this.score, id)

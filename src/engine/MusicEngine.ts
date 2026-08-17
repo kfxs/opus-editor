@@ -1098,6 +1098,22 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * Set (or clear with `null`) the selected hairpin's MOUTH, in staff-spaces, and save ONE undo step
+   * (the Properties input).
+   *
+   * ⚠️ An ENGRAVING OVERRIDE, like the end nudges and unlike the extent — how wide a wedge opens is
+   * drawing, and the loudness it means is the same either way. It replaces the automatic length-aware
+   * aperture; the steepness cap still applies over it, so a short wedge cannot be authored into an
+   * arrowhead. @returns false when the hairpin is unknown, the value is not positive, or there was
+   * nothing to clear.
+   */
+  setHairpinAperture(id: string, aperture: number | null): boolean {
+    const ok = this.scoreModel.setHairpinAperture(id, aperture)
+    if (ok) this.saveOnly(aperture === null ? 'Reset hairpin mouth' : 'Set hairpin mouth')
+    return ok
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     const type = this.scoreModel.toggleHairpinType(id)
