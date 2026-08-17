@@ -11,6 +11,7 @@ import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
+import { nudgeFitsOnPage } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -29,7 +30,7 @@ import { naturalStemDirection } from '@/utils/clefUtils'
 import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
-import type { ElementRegistry, ElementInfo } from './ElementRegistry'
+import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import type { TrillSpan } from '@/engine/models/trillOps'
@@ -298,6 +299,40 @@ export class MusicEngine {
    * Snapshot for undo WITHOUT a playback resync. Use only for changes that do not
    * affect audible output (title, display-only flags, slur/tie/clef visual edits).
    */
+  /**
+   * ⭐⭐ **THE PAGE LIMIT — may this hand-nudge be WRITTEN?** His report, 2026-08-17: *"all the
+   * objects that we offset, when in wrapped mode, can go out of the page… when we have boundaries
+   * there must be a limit."*
+   *
+   * ⭐ **It refuses the WRITE, which is the whole point** — see `layout/pageBounds` for his own
+   * argument. A limit applied only where the ink is drawn lets the stored offset run on invisibly
+   * (his ottava log reached −45 spaces with the numeral standing still), and then coming back needs
+   * forty presses that do nothing.
+   *
+   * ⭐ **`type` + `id` is a ROW, and every offset client has exactly one.** Which drawn ink an
+   * override moves is the only thing the clients disagree about; the rule itself is one module.
+   *
+   * ⚠️ **`dx`/`dy` are STAFF SPACES here and PIXELS in the rule** — the conversion is this one line,
+   * because what is drawn is `automatic + offset` and the rule has to predict where the ink lands.
+   * A client counting in something else converts at its own row (the rest counts staff STEPS).
+   *
+   * ⛔ Silently ALLOWS when the surface is not paper (canvas, linear view — his call) and when the
+   * element has no drawn ink to measure. See `nudgeFitsOnPage`.
+   */
+  private nudgeStaysOnPage(type: ElementType, id: string, dx: number, dy: number): boolean {
+    // ⚠️ `getByType` is called through an optional chain because the registry is STUBBED in several
+    // engine specs (a partial object with the handful of methods those files need). No entries means
+    // no drawn ink, which this rule already treats as "allow" — so a stub degrades to the same
+    // answer it gives for an element that is simply off-screen, rather than throwing.
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    const drawn = (registry.getByType?.(type) ?? [])
+      .filter((e: ElementInfo) => e.id === id).map((e: ElementInfo) => e.bbox)
+    return nudgeFitsOnPage(
+      resolveSurface(this.surface), drawn, dx * STAFF_SPACE_PX, dy * STAFF_SPACE_PX)
+  }
+
   private saveOnly(description: string): void {
     this.saveUndoState(description)
   }
@@ -853,6 +888,7 @@ export class MusicEngine {
    * the extent edits above it.
    */
   nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
     const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge octave line')
     return ok
@@ -1154,6 +1190,7 @@ export class MusicEngine {
    * (docs/dynamics-line-and-hairpins-plan.md §4).
    */
   nudgeHairpinEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
     const ok = this.scoreModel.setHairpinEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Reshape hairpin')
     return ok
@@ -1168,6 +1205,7 @@ export class MusicEngine {
    * notes it covers is `Ctrl+Shift+←/→` on a square, which writes the model instead.
    */
   nudgeHairpin(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
     const ok = this.scoreModel.setHairpinOffset(id, dx, dy)
     if (ok) this.saveOnly('Move hairpin')
     return ok
@@ -1863,6 +1901,7 @@ export class MusicEngine {
    *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
    *  arrow press is already a discrete commit, so there is no preview/commit split. */
   nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
     const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge slur endpoint')
     return ok
@@ -1876,6 +1915,10 @@ export class MusicEngine {
    * @returns true if a rest was nudged.
    */
   nudgeRestShift(restId: string, delta: number): boolean {
+    // ⚠️ `delta` counts whole staff STEPS — half a space each — and counts them UPWARD, while
+    // screen-down is +y. So the row converts and flips: this is the one client that does not hand
+    // the guard staff spaces.
+    if (!this.nudgeStaysOnPage('rest', restId, 0, -delta / 2)) return false
     const note = this.scoreModel.getNote(restId)
     if (!note || !note.isRest) return false
     const measure = this.scoreModel.getMeasure(note.measure)
@@ -2300,6 +2343,7 @@ export class MusicEngine {
    * @returns true if the dynamic was nudged.
    */
   nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('dynamic', dynamicId, dx, dy)) return false
     if (!this.scoreModel.getDynamicById(dynamicId)) return false
     const ok = this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
     if (ok) {
@@ -2319,6 +2363,7 @@ export class MusicEngine {
    * @returns true if the note was nudged.
    */
   nudgeNoteOffset(noteId: string, dx: number): boolean {
+    if (!this.nudgeStaysOnPage('note', noteId, dx, 0)) return false
     const target = this.scoreModel.offsetTargetOf(noteId)
     if (!target) return false
     const ok = this.scoreModel.nudgeNoteOffset(target.key, dx)
@@ -2631,6 +2676,7 @@ export class MusicEngine {
    *  docs/multisystem-slur-segment-endpoint-offset-plan.md). `spanCount` is the live system
    *  count at the time of the edit (the override's reset signature). */
   nudgeSlurSegmentEndpoint(id: string, address: SlurSegmentEndpointAddress, dx: number, dy: number, spanCount: number): boolean {
+    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
     const ok = this.scoreModel.setSlurSegmentEndpointOffset(id, address, dx, dy, spanCount)
     if (ok) this.saveOnly('Nudge slur segment endpoint')
     return ok

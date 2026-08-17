@@ -349,6 +349,10 @@ No teardown of earlier work at any step; adding element K never touches element 
 - **Identity is durable *for the elements that have overrides*.** An override is only as stable as the id
   it hangs off. Checked per element at add-time (see "Adding an element"), not globally up front — slur is
   fine as-is; rest-fill/beaming must not orphan an override only once rests/beams actually become clients.
+- **⭐⭐ A nudge that would push ink off the PAPER is REFUSED, never clamped.** Added 2026-08-17 on his
+  report — *"all the objects that we offset, when in wrapped mode, can go out of the page… when we have
+  boundaries there must be a limit"*. The rule and its argument are §8 below; the invariant is that
+  **no override accumulates past the edge**, so every offset client asks before it writes.
 
 ---
 
@@ -366,3 +370,122 @@ No teardown of earlier work at any step; adding element K never touches element 
   vs entries-in-the-payload — decided by the **first in-stream client**, scoped to it; determines whether
   that element's overrides survive paste/rebar/transpose/assemble. Slur never hits it, so it is **not**
   on the near-term (Phase 0–2) path.
+
+---
+
+## 8. ⭐⭐ The page limit — where a hand nudge stops (2026-08-17, BUILT)
+
+> **His report:** *"mmm… I discover something. All the objects that we offset, when in wrapped mode, it
+> can go out of the 'page'. We should put a limit for the wrapped mode… (probably not for the linear
+> view, but when we have boundaries there must be a limit)."*
+>
+> **And then the half that decided the design:** *"actually the limit is not just a boundary — the
+> offset value should not rise or decrease otherwise, we have the problem that if we go so far we are
+> out of the boundaries and have to go back till the boundary number until the change makes effect."*
+
+### 8.1 ⭐⭐ It refuses the WRITE. It does not clamp the drawing.
+
+This is the whole design, and it is the half that is easy to get wrong. A limit applied where the ink
+is *painted* leaves the stored override running on behind it: the ottava bug the same afternoon
+produced a log with the offset at **−45 staff spaces while the numeral stood still**, and coming back
+from that needs forty presses that visibly do nothing. **A limit you can walk past invisibly is a dead
+zone, not a limit.** So the refusal happens at the nudge, and the value never accumulates past the edge
+in the first place.
+
+The observable consequence, and the thing to protect: **the first press back always moves the ink.**
+
+### 8.2 ⭐⭐ The rule: a nudge may never INCREASE how far the ink hangs off its sheet
+
+One sentence, and it does both jobs. Ink inside the sheet hangs off by nothing, so any step that would
+take it out increases the overhang and is refused — **the object simply cannot leave the paper.** Ink
+that a reflow has already left hanging off can still be moved back, because coming home reduces the
+overhang. There is no separate "already out" case and no dead zone in either direction.
+
+🚨 **It had to become a FORWARD test, and his third report is why.** The first version compared only the
+ink's *current* position against the edge, which is enough for a keypress (a step is small, so it stops
+within one of the edge) — but Properties writes a **typed** value, which the controller turns into
+`next − current`, and one such delta can be arbitrarily large: *"the offset limit should also be true of
+properties… I now test with note offset and I see we can go out of the page."* A backwards-looking test
+waves that through, because the ink was still on the sheet when it was asked.
+
+⭐ Predicting is safe here for one specific reason — **what is drawn is `automatic + offset`, so a delta
+in the offset moves the ink by exactly that delta.** ⛔ Nothing else about placement is re-derived; the
+automatic half stays the renderer's alone.
+
+⚠️ The predicted box is judged against the sheet the ink is on **now**, never the one it would land on —
+otherwise a big enough jump sails across the gap and reads as "inside" the next page.
+
+⚠️ Deltas reach the rule in **pixels**; callers hold staff-spaces (the rest holds whole staff STEPS, half
+a space each) and convert at their row. The two axes are judged independently and a step is refused if
+**either** is blocked: storing "the part that fits" would write a delta the user never pressed.
+
+### 8.3 ⛔ No paper, no limit
+
+`SurfaceMetrics.heightPx === null` **is** "this is not paper" (`engine/layout/surface.ts`) — the
+sketching canvas and the linear view. His call: *"probably not for the linear view."* Nothing is
+refused there, and that falls out of the surface model rather than needing a view-mode flag.
+
+⚠️ Each drawn fragment is judged against **its own sheet**: a span cut across a page break has pieces on
+two of them, and one sheet's edges say nothing about the other's.
+
+### 8.4 Where it lives
+
+- `engine/layout/pageBounds.ts` — the rule: `pageBoxAt` (which sheet a point is on, inverting
+  `pageOriginPx` and reading `PAGE_FLOW` rather than assuming the spread runs sideways), `stepLeavesPage`,
+  `nudgeFitsOnPage`.
+- `MusicEngine.nudgeStaysOnPage(type, id, dx, dy)` — one private guard, and **one ROW per offset
+  client**. Which drawn ink an override moves is the only thing the clients disagree about.
+
+| client | registry type | entry point |
+|---|---|---|
+| ottava | `ottava` | `nudgeOttavaEndpoint` |
+| hairpin (one end / whole wedge) | `hairpin` | `nudgeHairpinEndpoint`, `nudgeHairpin` |
+| slur (true ends / open joins) | `slur` | `nudgeSlurEndpoint`, `nudgeSlurSegmentEndpoint` |
+| dynamic + expression | `dynamic` | `nudgeDynamicOffset` — ⭐ also the Properties row's road, via `bus.dynamicOffset` → `DynamicOffsetController` |
+| note | `note` | `nudgeNoteOffset` — likewise, via `bus.noteOffset` → `NoteOffsetController` |
+| rest | `rest` | `nudgeRestShift` ⚠️ its `delta` counts steps **upward**, so the sign flips on the way in |
+
+⭐⭐ **Routing the panel's typed value through the same NUDGE is what puts it behind the same limit** —
+the controllers turn an absolute into `next − current` rather than writing the override directly, so
+there is one gate and not two.
+
+⛔ **Not** `nudgeNoteSpacing` / `nudgeBarlineSpace` / `nudgeBarWidth` / `nudgeStaffSpacing`: those are
+layout quantities the cast-off answers for, not an object being moved off a sheet.
+
+⚠️ A client with **no drawn ink** is allowed through — refusing on no evidence makes an object
+unmovable for a reason the user cannot see.
+
+### 8.5 Testing
+
+`layout/pageBounds.test.ts` (the arithmetic) + `MusicEngine.pageLimit.test.ts` (**the table** — one case
+per client, since a new client forgetting its row would be invisible until a user pushed something off a
+page). ⚠️ The engine spec **seeds the registry by hand**: in jsdom every glyph measures 0×0, so a
+rendered fixture puts every box at the origin — comfortably inside the sheet — and every case would pass
+without the rule existing at all.
+
+### 8.6 ⭐⭐ The panel is part of the limit, and two of his reports say how
+
+A typed control has two failure modes a key press does not, and both were found by hand within the hour:
+
+1. **A box must never keep a number the model refused.** *"The number doesn't stop but keeps on
+   changing after the limit, so to go back we have to do the whole path."* A refused write changes
+   nothing, so `bus.inspection` never fires and the row is never rebuilt — leaving a value on screen the
+   score does not have, and a spinner you must wind all the way back down through. So **every offset box
+   is put back to the last known value on commit**; a write that landed repaints the row over the top of
+   it. ⛔ The alternative — a success flag back through the seam — would make the window read the
+   engine's answer, which is the boundary the Properties window exists to defend.
+   ⚠️ The RESET buttons are exempt and blank immediately: a reset only ever *reduces* an offset, so the
+   limit cannot refuse it.
+2. **⭐⭐ One click of a spinner is ONE commit; the auto-repeat and the release do nothing.** *"Committing
+   on mouse down, and release makes no action."* A number input steps on mouse-down and then repeats
+   while held, firing `change` each time — a write and a render per step, all of them refused past the
+   limit, so the number runs away from the score. ⛔ Committing on RELEASE instead was the first attempt
+   and is worse: holding then ramps the number silently, with no render to judge it by, and lands the
+   whole jump at once. What he asked for is a press that moves it one step, renders, and stops.
+   `PropertiesWidget.commitOnFirstStep` is the whole of it, and typing is untouched.
+
+### 8.7 Open
+
+⏭️ the limit is the **paper's edge**, not the printable margin — the literal reading of *"out
+of the page"*, and the one that cannot be wrong (ink off the sheet is lost). Tightening it to the margin
+box is a two-line change in `pageBoxAt`, and is his call whenever he wants to look at it.

@@ -813,6 +813,90 @@ assertion that would have to change.
 
 ---
 
+## ✅⭐⭐ P7 — THE TWO ENDPOINT SQUARES (2026-08-17, BUILT)
+
+Four asks in one afternoon, and the shape is the HAIRPIN's (`docs/dynamics-line-and-hairpins-plan.md`,
+the 2026-08-17 sections): **one pair of squares, and the ARMED SQUARE decides.** Same blue, same sizes,
+same Tab walk, same registry-is-the-list rule.
+
+| gesture | needs | changes | where |
+|---|---|---|---|
+| `Ctrl+Shift+←/→`, drag the RIGHT square | that square armed | which notes are displaced | MODEL (`length`) |
+| `Ctrl+Shift+←/→`, drag the LEFT square | that square armed | ditto, holding the end | MODEL (`beat` + `length`, one write) |
+| `←/→` fine, `Ctrl+←/→` coarse | a square armed | that end's ink, horizontally | `ottavaOffset.startX` / `.endX` |
+| `↑/↓` fine, `Ctrl+↑/↓` coarse | **either** square armed | the WHOLE bracket's height | `ottavaOffset.y` — ⭐ ONE number |
+| `Ctrl+Backspace` | a square armed | that end's `x` **and** the shared `y` | — |
+
+### ⭐⭐ 1. The handle's y is a MEASURED field, not the band's midpoint
+
+`ElementInfo.ottavaAxis {y, startX, endX}`, written by the renderer. A wedge's square is the midpoint of
+its two arms, so its drawn outline suffices; the ottava's `points` are the **numeral's ink box**, and the
+dashed line does not run down its middle — it rides the numeral's TOP under an 8va and its FOOT under an
+8vb (`OTTAVA_LINE_RAISE_ABOVE`/`_BELOW`). Band-midpoint is **dead right above the staff and 0.75sp wrong
+below it**: a bug that reads as one-sided and is really a missing measurement. The spec's first case is
+an 8vb whose band is byte-identical to an 8va's.
+
+### ⭐⭐ 2. Three offset numbers, not two pairs — because the bracket is a straight line
+
+> *"take into consideration that ottava is a straight line, so offset in y should result in offset the
+> two points in y."*
+
+`OttavaOffsetOverride` has `startX`, `endX` and **one** `y`. ↑ from either square lifts the numeral, the
+dashes and the hook together — not because the writer keeps two numbers in step, but because **there is
+nowhere to put a second**. ⛔ The hairpin's per-end `{x, y}` is right THERE precisely because tilting a
+wedge is a legitimate shape; copying it here would be two numbers able to disagree about a quantity the
+notation only has one of.
+
+⚠️ Zeros are **pruned on write** (a divergence from `setHairpinEndpointOffset`, forced by the shared `y`):
+a purely horizontal nudge computes `y = 0`, and storing that zero makes the OTHER square report a nudge
+of its own, so `Ctrl+Backspace` there would answer instead of falling through.
+
+### ⭐⭐ 3. The two ends snap to DIFFERENT EDGES
+
+`spanX` draws the numeral at the first covered notehead's **left** edge and the hook at the last one's
+**right** edge (§1 rule 2 — the opposite of the wedge, whose tips are both left edges). So the drag
+measures the start against left edges and the end against right ones. One edge for both would track the
+cursor at one end and lag it by a notehead at the other — the hairpin's *"it jumps before x mouse reach
+the target"* arriving by a new route.
+
+⚠️ The drag has **two** cases where the wedge needs three: a bracket ends ON its last notehead, so every
+address a drag can name is a covered slot. ⛔ Do not port `setHairpinEndBeforeSlot`.
+
+### 🚨 4. The bug his hand found within the hour — and the rule it produced
+
+> *"I cannot offset the right side from a limit"* — with a log showing `numeralX` frozen at 350.0 while
+> the ask ran on to −45 spaces.
+
+Cause: `Math.max(piece.x0 − inset, barLeft)`, a clamp that exists to stop the **automatic** continuation
+inset reaching back onto the clef, was applied to the hand's nudge as well.
+
+⭐⭐ **A machine's guess is worth clamping; the engraver's own instruction is not.** Both x nudges now land
+AFTER every automatic decision — and after the CUT, so a cosmetic pixel cannot re-fragment a bracket by
+moving which system it begins on. The one floor that still overrules the hand is `OTTAVA_MIN_LINE`,
+because a bracket too short to close is not a drawing.
+
+⚠️ **The e2e case for it is mostly FIXTURE**, and the first version proved nothing: an 8va in bar 1 starts
+nine spaces right of the barline (the clef and meter push the first note along), so a six-space nudge
+never reached the clamp and the test passed against the broken code. His score had the bracket on a later
+bar, two pixels off the barline.
+
+⚠️ The outer limit — off the **page** — is not this file's: see `docs/engraving-overrides-plan.md` §8, the
+family-wide rule that refuses the write rather than clamping the drawing.
+
+### 5. The rest of it, briefly
+
+- The lane for every extent edit is the **STAFF, every voice** (the pedal's rule, ⛔ not the hairpin's):
+  an octave line has no voice, so stepping one voice's onsets would displace notes the key never passed.
+- The press on a square is a **PRE-STEP** in `MouseController`, not a row in `ELEMENT_HIT_ORDER`: the
+  bracket sits on the ladder directly above what it clears, so a square lands inside a trill's or a
+  tempo mark's box — both ahead of `OTTAVA_ELEMENT`.
+- The ladder claim stays on the **un-nudged** baseline (`HairpinRenderer` files its own the same way): a
+  hand nudge is the engraver overruling automatic placement, and making it shove the tempo mark would
+  turn one deliberate move into a cascade nobody asked for.
+- ⏭️ **Not built:** Properties rows for the three offsets, and a whole-bracket move with nothing armed.
+
+---
+
 ## Sources
 
 Gould, *Behind Bars* pp. 28–34 (contents + second-hand quotations via

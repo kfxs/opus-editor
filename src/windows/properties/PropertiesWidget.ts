@@ -124,6 +124,18 @@ export class PropertiesWidget implements Widget {
         }
       }
 
+      // ⭐ A selected DYNAMIC or expression gets its offset as two numbers (his ask, 2026-08-17:
+      // *"we also should be able to control the offset of expression (dynamics) on the properties"*).
+      // Two axes where the note above has one — a note's vertical is its PITCH, while a dynamic rides
+      // the dynamics line and may be lifted off it. Publishes to `bus.dynamicOffset`; the widget
+      // never touches the engine.
+      if (element.kind === 'dynamic') {
+        const id = (element.data as { id?: string; missing?: boolean }).id
+        if (id && !(element.data as { missing?: boolean }).missing) {
+          body.appendChild(this.buildDynamicOffsetRow(id, currentDynamicOffset(element)))
+        }
+      }
+
       // ⭐ A selected SLUR gets its four handles as numbers — the two ends' offsets and the two arc
       // control points, the same points the mouse drags and the arrows nudge (his ask, 2026-08-17).
       // Same boundary as every row here: it publishes to `bus.slurGeometry` and never touches the
@@ -174,6 +186,42 @@ export class PropertiesWidget implements Widget {
   }
 
   /**
+   * ⭐⭐ **ONE CLICK OF A SPINNER IS ONE COMMIT — the auto-repeat does nothing, and so does the
+   * release.** His rule, 2026-08-17: *"committing on mouse down, and release makes no action."*
+   *
+   * A native number input steps on mouse-down and then **auto-repeats while held**, firing `change`
+   * each time. Left alone that ramps the value and fires a write — and a render — per step; past the
+   * page limit every one of those is refused, so the number runs away from the score while the ink
+   * stands still. The same dead-zone shape as the offsets themselves, arriving through the widget.
+   *
+   * ⛔ **Committing on RELEASE instead was the first attempt and is worse**, which is why it is
+   * written down: holding then ramps the number silently, with no render to judge it by, and lands
+   * the whole jump at once. What he asked for is a press that MOVES it one step, renders, and stops —
+   * so you see each step and can correct it.
+   *
+   * ⭐ Typing is untouched: no pointer is down, so Enter and blur commit exactly as they always did.
+   *
+   * ⚠️ The release is watched on the DOCUMENT (dragging off the arrow releases elsewhere) and only to
+   * clear the flag — it never commits. `once`, so nothing survives the row being rebuilt on the next
+   * repaint.
+   */
+  private commitOnFirstStep(input: HTMLInputElement, commit: () => void): void {
+    let held = false
+    let committedThisPress = false
+    input.addEventListener('pointerdown', () => {
+      held = true
+      committedThisPress = false
+      document.addEventListener('pointerup', () => { held = false }, { once: true })
+    })
+    input.addEventListener('change', () => {
+      if (!held) { commit(); return }        // typing, Enter, blur
+      if (committedThisPress) return          // the auto-repeat ramp — ignored
+      committedThisPress = true
+      commit()
+    })
+  }
+
+  /**
    * The absolute horizontal-offset control for one note/rest. A labelled number input in
    * staff-spaces; committing (Enter or blur) publishes `{id, x}` to {@link bus.noteOffset}.
    * The window holds no engine — the controller reads the current value and applies the delta — so
@@ -209,12 +257,21 @@ export class PropertiesWidget implements Widget {
       const x = parseFloat(input.value)
       if (!Number.isFinite(x)) { input.value = String(current); return }
       bus.noteOffset.set(noteId, x)
+      // ⭐⭐ THE BOX NEVER KEEPS A NUMBER THE MODEL REFUSED — his report, 2026-08-17: *"the number
+      // doesn't stop but keeps on changing after the limit, so to go back we have to do the whole
+      // path."* The page limit can decline the write, and a declined write changes nothing, so
+      // `bus.inspection` never fires and this row is never rebuilt — leaving a value on screen the
+      // score does not have, and a spinner you must wind all the way back down through. So the box
+      // is put back to the last KNOWN value on every commit; a write that landed repaints the row
+      // over the top of it with the new one. ⛔ The alternative — a success flag back through the
+      // seam — would make the window read the engine's answer, which is the boundary it defends.
+      input.value = String(current)
     }
     // Enter commits (and blurs, which would otherwise commit a second time — so guard on the blur).
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur() }
     })
-    input.addEventListener('change', commit)
+    this.commitOnFirstStep(input, commit)
     row.appendChild(input)
 
     // A little reset: publish offset 0 through the same seam (the controller turns it into the nudge
@@ -232,8 +289,98 @@ export class PropertiesWidget implements Widget {
     bs.padding = '1px 6px'
     bs.cursor = 'pointer'
     reset.addEventListener('click', () => {
+      // Zeroed immediately — a reset only reduces an offset, so the limit cannot refuse it.
       input.value = '0'
       bus.noteOffset.set(noteId, 0)
+    })
+    row.appendChild(reset)
+    return row
+  }
+
+  /**
+   * A dynamic's (or expression's) absolute offset — **two** number inputs in staff-spaces, +right and
+   * +down, committing to {@link bus.dynamicOffset}.
+   *
+   * ⭐ **Both axes commit TOGETHER**, on either input's change, and that is not tidiness: the
+   * controller turns the pair into one nudge, so one commit is one undo entry — and the page limit
+   * judges the whole move rather than letting a refused diagonal through on its x.
+   *
+   * ⚠️ It reports the DESIRED absolute and nothing more; the controller reads the current value and
+   * applies the delta, and the panel repaints from `onModelChange`. So a value the page limit refuses
+   * simply comes back on the repaint, which is the honest report that nothing moved.
+   */
+  private buildDynamicOffsetRow(dynamicId: string, current: { x: number; y: number }): HTMLElement {
+    const row = document.createElement('div')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '2px 0 4px'
+
+    const label = document.createElement('span')
+    label.textContent = 'offset (sp)'
+    row.appendChild(label)
+
+    const field = (value: number, title: string): HTMLInputElement => {
+      const input = document.createElement('input')
+      input.type = 'number'
+      input.step = '0.25'
+      input.title = title
+      input.value = String(value)
+      const is = input.style
+      is.width = '4em'
+      is.font = 'inherit'
+      is.color = BISHOP
+      is.background = 'transparent'
+      is.border = `1px solid ${BISHOP}`
+      is.borderRadius = '2px'
+      is.padding = '1px 4px'
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+      })
+      return input
+    }
+
+    const xInput = field(current.x, 'Horizontal offset, + is right')
+    const yInput = field(current.y, 'Vertical offset, + is DOWN')
+    const commit = () => {
+      const x = parseFloat(xInput.value)
+      const y = parseFloat(yInput.value)
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        xInput.value = String(current.x)
+        yInput.value = String(current.y)
+        return
+      }
+      bus.dynamicOffset.set(dynamicId, x, y)
+      // Both boxes back to the last known values — see `buildOffsetInput`'s note: a write the page
+      // limit refuses repaints nothing, so the panel must not keep showing what was typed.
+      xInput.value = String(current.x)
+      yInput.value = String(current.y)
+    }
+    this.commitOnFirstStep(xInput, commit)
+    this.commitOnFirstStep(yInput, commit)
+    row.appendChild(xInput)
+    row.appendChild(yInput)
+
+    // The same one-click "put it back" the note offset has, through the same seam.
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = 'reset'
+    reset.title = 'Reset offset to 0'
+    const bs = reset.style
+    bs.font = 'inherit'
+    bs.color = BISHOP
+    bs.background = 'transparent'
+    bs.border = `1px solid ${BISHOP}`
+    bs.borderRadius = '2px'
+    bs.padding = '1px 6px'
+    bs.cursor = 'pointer'
+    reset.addEventListener('click', () => {
+      // Zeroed immediately, the note offset's rule: a reset only reduces, so it is never refused.
+      xInput.value = '0'
+      yInput.value = '0'
+      bus.dynamicOffset.set(dynamicId, 0, 0)
     })
     row.appendChild(reset)
     return row
@@ -648,7 +795,7 @@ export class PropertiesWidget implements Widget {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); input.blur() }
       })
-      input.addEventListener('change', () => {
+      this.commitOnFirstStep(input, () => {
         const n = parseFloat(input.value)
         // Not a number is not an edit: put this box's own value back rather than guessing at what
         // was meant (the offset input's rule). Only this box — the other one was never in question.
@@ -657,6 +804,10 @@ export class PropertiesWidget implements Widget {
           return
         }
         publish({ [axis]: n })
+        // Back to the last known value — `buildOffsetInput`'s rule, and the same reason: a refused
+        // write repaints nothing, and a box holding a number the model never took is a spinner you
+        // have to wind back through before anything moves again.
+        input.value = current ? String(axis === 'x' ? current.x : current.y) : ''
       })
       cell.appendChild(input)
       boxes.push(input)
@@ -677,6 +828,8 @@ export class PropertiesWidget implements Widget {
     bs.padding = '1px 6px'
     bs.cursor = 'pointer'
     reset.addEventListener('click', () => {
+      // ⭐ Blanked immediately, unlike the typed commit above: a reset only ever REDUCES an offset,
+      // so the page limit cannot refuse it and there is no unwritten value to guard against.
       for (const b of boxes) b.value = ''
       publish(null)
     })
@@ -719,6 +872,15 @@ export class PropertiesWidget implements Widget {
 function currentNoteOffset(element: InspectedElement): number {
   const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
   return entry?.x ?? 0
+}
+
+/** The dynamic's current offset in staff-spaces (0,0 when none), read from its own overrides — the
+ *  same entry `nudgeDynamicOffset` accumulates into, so the panel and the arrow keys always agree
+ *  about what is stored. */
+function currentDynamicOffset(element: InspectedElement): { x: number; y: number } {
+  const entry = element.overrides?.find((o) => o.kind === 'dynamicOffset') as
+    { x?: number; y?: number } | undefined
+  return { x: entry?.x ?? 0, y: entry?.y ?? 0 }
 }
 
 /** The note's current articulation stem-align state (false when unset), read from its own object. */

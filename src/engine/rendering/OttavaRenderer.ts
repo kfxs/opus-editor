@@ -54,7 +54,6 @@ import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type In
 import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare } from '@/utils/fraction'
-import { dbg } from '@/utils/debug'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
@@ -475,28 +474,6 @@ function drawOttava(
     const lineEnd = piece.final ? Math.max(nudgedX1, lineStart + px(OTTAVA_MIN_LINE)) : piece.x1
     const hasLine = lineEnd > lineStart
     if (hasLine) drawDashes(ctx, lineStart, lineEnd, lineY, px)
-
-    // ⚠️ THE NUDGE TRACE — his ask, 2026-08-17 (*"give logs for offset and 8va position x"*), after
-    // reporting that the RIGHT end stops moving at some limit. Everything that can eat an `endX`
-    // nudge is named here, in the order it can fire:
-    //   `asked`   — the offset the model holds, in staff spaces
-    //   `spanEnd` — the note-derived end + air + nudge, BEFORE the cut
-    //   `pieceX1` — after the cut: SMALLER than `spanEnd` means `planSlurSegments` clipped it to the
-    //               system's right MARGIN, which is the clamp a rightward nudge runs into
-    //   `lineEnd` — after `OTTAVA_MIN_LINE`: LARGER than `pieceX1` means a leftward nudge hit the
-    //               floor that keeps the bracket long enough to close
-    // ⭐ `numeralX` is the `8va`'s own x, the other half of what he asked for.
-    if (nudge) {
-      const floor = piece.final && lineEnd - nudgedX1 > 0.5
-        ? ` ⚠️MIN-LINE floor +${(lineEnd - nudgedX1).toFixed(1)}px (too short to close)` : ''
-      dbg(
-        `[ottava] id:${ottava.id.slice(0, 6)} line:${piece.line} final:${piece.final}`
-        + ` | asked startX:${nudge.startX ?? 0} endX:${nudge.endX ?? 0} y:${nudge.y ?? 0} (spaces, 1sp=${px(1).toFixed(1)}px)`
-        + ` | numeralX:${autoStartX.toFixed(1)}→${startX.toFixed(1)} w:${numeralWidth.toFixed(1)} lineStart:${lineStart.toFixed(1)}`
-        + ` | pieceX1:${piece.x1.toFixed(1)}→${nudgedX1.toFixed(1)} → lineEnd:${lineEnd.toFixed(1)}`
-        + floor,
-      )
-    }
 
     // ⭐⭐ §1 rule 3 — NEVER A DANGLING HOOK. Only the fragment carrying the span's true end may
     // close, and only if it actually drew a horizontal to close: a hook alone would tell the reader

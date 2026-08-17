@@ -12,6 +12,7 @@ import { createFanSelection } from './fanSelection'
 import { createFanStampSelection } from './fanStampSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
+import { createDynamicOffsetSelection } from './dynamicOffsetSelection'
 import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
 import { createSlurGeometrySelection } from './slurGeometrySelection'
@@ -84,6 +85,8 @@ export interface EditorBus {
   mode: ReturnType<typeof createModeSelection>
   /** Properties' horizontal note-offset input. Command-only. */
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
+  /** The Properties dynamic/expression offset inputs — `noteOffset`'s twin, two axes. */
+  dynamicOffset: ReturnType<typeof createDynamicOffsetSelection>
   /** Properties' slur-handle inputs (each end's offset, each arc control point). Command-only. */
   slurGeometry: ReturnType<typeof createSlurGeometrySelection>
   /** Properties' hairpin-end inputs — the wedge's RESHAPE only, never its extent. Command-only. */
@@ -131,6 +134,7 @@ export function createEditorBus(): EditorBus {
     fanStamp: createFanStampSelection(),
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
+    dynamicOffset: createDynamicOffsetSelection(),
     slurGeometry: createSlurGeometrySelection(),
     hairpinGeometry: createHairpinGeometrySelection(),
     rest: createRestSelection(),
@@ -162,6 +166,7 @@ export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
+export type { DynamicOffsetRequest } from './dynamicOffsetSelection'
 export type { SlurGeometryRequest, SlurGeometryTarget } from './slurGeometrySelection'
 export type { HairpinGeometryRequest, HairpinEndRequest, HairpinApertureRequest } from './hairpinGeometrySelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'
