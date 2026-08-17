@@ -1280,7 +1280,32 @@ what exists; §4's rule stands, so there is no cosmetic offset behind it.
 - The GATE is what the two new squares make possible, and it fixes something that was wrong before
   them: on the bare `Ctrl+←/→` with no gate, a selected wedge ate that chord outright. Now the key
   edits the end you are POINTING AT, and declines otherwise.
-- ⚠️ It is always the END that moves — `→` lengthens, `←` shortens. A start-anchored version would
-  move the wedge's BEAT, which is a different edit from its length, and is not built.
 - The PEDAL's resize stays on `Ctrl+←/→`: it has no endpoint handles to arm, so there is nothing to
   gate on. The two spanners' keys differ now, and that is the reason.
+
+**…and the LEFT square moves the START, holding the end** (same day, same chord). So the pair is one
+claim: ONE CHORD, and the armed square decides which end of the span it moves. `←` reaches the start
+back a slot (the wedge grows at the front), `→` steps it in (it shrinks from the front), and in both
+the right-hand end stays exactly where it was.
+
+### ⭐⭐ Why that did NOT change the model, though it looks like it should
+
+*"i don't know if the model that i think just have position and duration is good for this"* — his
+question, and the answer is that `{beat, length}` and `{start, end}` are the same information:
+holding the end still is `length' = end − start'`, written in ONE operation
+(`hairpinOps.moveHairpinStartBySlot`). Storing two addresses would not buy the gesture; it would move
+the two-field write to the OTHER one — dragging the whole wedge, which today is a single `beat`.
+
+What decided the stored shape is a different axis, and it is untouched: **survival**. After a re-bar
+only the START needs re-finding, because the extent is invariant — the music inside the span did not
+change when the barlines moved ({@link Hairpin}, and the same argument verbatim on `Ottava`, `Pedal`
+and `Trill`, which all copy this shape). Two addresses would need both re-found, and a
+half-succeeding re-anchor leaves a span whose end precedes its start.
+
+⚠️ **So what the model gained is an invariant about EDITS, not a new shape: an edit that holds one
+end fixed writes `beat` and `length` together, atomically.** Split them and the wedge visibly jumps
+between the two writes — and an undo entry taken in between stores a span nobody asked for.
+
+⭐ A start reaching back across a barline **re-files the hairpin under the bar it now begins in** (the
+list it lives in *is* "the wedges that start here"), keeping the same object and the same id — the id
+is what the selection holds, and a re-created hairpin would deselect itself mid-gesture.

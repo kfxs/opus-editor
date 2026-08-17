@@ -1038,6 +1038,22 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * Move the hairpin's START one slot earlier (−1) or later (+1) **without moving its end** —
+   * `Ctrl+Shift+←/→` with the wedge's left square armed.
+   *
+   * ⚠️ A CONTENT edit like the resize beside it, and the one that writes BOTH of the model's fields:
+   * holding the end still means `length' = end − start'` (see `hairpinOps.moveHairpinStartBySlot`
+   * for why that is not a sign the model wants two addresses). Saves ONE undo state for the pair.
+   * @returns true when the start moved; false (declining the key) when there is no slot to reach, or
+   *   when it would reach the end.
+   */
+  moveHairpinStartBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.moveHairpinStartBySlot(id, direction)
+    if (ok) this.commit(direction === -1 ? 'Extend hairpin start' : 'Trim hairpin start')
+    return ok
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     const type = this.scoreModel.toggleHairpinType(id)

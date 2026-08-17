@@ -597,6 +597,12 @@ export class ScoreModel {
     return hairpinOps.resizeHairpinBySlot(this.score, id, direction)
   }
 
+  /** Move a hairpin's START back (−1) or in (+1) by one slot of its own lane, HOLDING ITS END —
+   *  `beat` and `length` written together. See {@link hairpinOps.moveHairpinStartBySlot}. */
+  moveHairpinStartBySlot(id: string, direction: 1 | -1): boolean {
+    return hairpinOps.moveHairpinStartBySlot(this.score, id, direction)
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. @returns the new type, or null. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     return hairpinOps.toggleHairpinType(this.score, id)

@@ -326,6 +326,28 @@ export function wireShortcuts(
   }
 
   /**
+   * ⭐⭐ **Move the selected hairpin's START by one slot, WITHOUT moving its end** — the same chord
+   * with the wedge's LEFT square armed (his ask, 2026-08-17: *"we don't move the endpoint position,
+   * we just move the first position"*).
+   *
+   * The gate is the whole point of the pair: one chord, and WHICH END IS ARMED decides which end it
+   * moves. `←` reaches the start back a slot (the wedge grows at the front), `→` steps it in (the
+   * wedge shrinks from the front) — in both cases the right-hand end stays exactly where it is,
+   * which the model does by writing `beat` and `length` together (`hairpinOps`).
+   *
+   * DECLINEs (false) when the left square is not the armed one, when there is no earlier slot to
+   * reach, or when the start would reach the end.
+   */
+  const moveSelectedHairpinStart = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const hairpin = selectedOf(state, 'hairpin')
+    if (!eng || hairpin?.endpoint !== 'start') return false
+    if (!eng.moveHairpinStartBySlot(hairpin.id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
    * ⭐ **Move a selected pedal's LIFT by one slot** — `resizeSelectedHairpin`'s twin, and it is a
    * separate branch rather than a shared one because the two step through different lanes: a wedge
    * walks its own VOICE, a pedal walks its whole STAFF (one damper — `pedalOps.resizePedalBySlot`).
@@ -833,14 +855,16 @@ export function wireShortcuts(
     //    ⭐ An armed slur ENDPOINT gets the chord first: it re-anchors one note left/right instead
     //    (Ctrl+←/→ already nudges that point by pixels, so Shift on the same axis means "move the
     //    anchor" — see `slurReanchor`). Disjoint from the offset, which needs a selected NOTE.
-    //    ⭐ …and an armed hairpin RIGHT-HAND square lengthens/shortens the wedge by a slot on the
-    //    same chord (his call, 2026-08-17): the same sentence — "move this end of the span" — about
-    //    the other kind of spanner. Disjoint again: one `selectedElement`, one kind.
+    //    ⭐ …and an armed hairpin square moves ITS OWN end by a slot on the same chord (his call,
+    //    2026-08-17): the same sentence — "move this end of the span" — about the other kind of
+    //    spanner. The RIGHT square resizes; the LEFT one moves the start and holds the end. Two
+    //    branches rather than one because they are two model writes, and both DECLINE unless their
+    //    square is the armed one. Disjoint from the note offset: one `selectedElement`, one kind.
     ctrlShiftArrowLeft: () =>
-      reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1)
+      reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
-      reanchorArmedEndpoint(1) || resizeSelectedHairpin(1)
+      reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),

@@ -15,6 +15,9 @@ import type { MusicEngine } from '../engine/MusicEngine'
  *  2. and only while its **right-hand square is armed** — it used to fire on any selected hairpin,
  *     so a selected wedge ate `Ctrl+←/→` outright, gate-free.
  *
+ * The LEFT square then takes the same chord to move the wedge's START (holding its end), so the pair
+ * is really one claim: ONE CHORD, and the armed square decides which end of the span it moves.
+ *
  * The engine is a stub: what is under test is the ROUTING, not the resize (`resizeHairpinBySlot` has
  * its own spec). Actions are run through the wiring's own `run`, which is the same map the key
  * dispatch reads — so this pins the branch without depending on a real KeyboardEvent chord.
@@ -22,13 +25,16 @@ import type { MusicEngine } from '../engine/MusicEngine'
 describe('resizing a hairpin from the keyboard', () => {
   let state: EditorState
   let resize: Mock<(id: string, direction: 1 | -1) => boolean>
+  let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
   let run: (action: string) => void
   let teardown: () => void
 
   beforeEach(() => {
     resize = vi.fn(() => true)
+    moveStart = vi.fn(() => true)
     const engine = {
       resizeHairpinBySlot: resize,
+      moveHairpinStartBySlot: moveStart,
       resizePedalBySlot: vi.fn(() => false),
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
@@ -70,12 +76,16 @@ describe('resizing a hairpin from the keyboard', () => {
     armed()
     run('ctrlShiftArrowRight')
     expect(resize).not.toHaveBeenCalled()
+    expect(moveStart).not.toHaveBeenCalled()
   })
 
-  it('⛔ nor with the LEFT square armed — moving the start is a different edit from the length', () => {
+  it('⭐⭐ the LEFT square moves the START instead — one chord, and the armed end decides', () => {
     armed('start')
-    run('ctrlShiftArrowRight')
     run('ctrlShiftArrowLeft')
+    run('ctrlShiftArrowRight')
+    expect(moveStart.mock.calls).toEqual([['H1', -1], ['H1', 1]])
+    // ⚠️ and never the resize: the two are different model writes, and the wedge's right-hand end
+    // must not move while the left square is the one armed.
     expect(resize).not.toHaveBeenCalled()
   })
 
@@ -83,12 +93,17 @@ describe('resizing a hairpin from the keyboard', () => {
     armed('end')
     run('ctrlArrowRight')
     run('ctrlArrowLeft')
+    armed('start')
+    run('ctrlArrowRight')
+    run('ctrlArrowLeft')
     expect(resize).not.toHaveBeenCalled()
+    expect(moveStart).not.toHaveBeenCalled()
   })
 
   it('declines for a selection that is not a hairpin at all', () => {
     state.selectedElement = { kind: 'pedal', id: 'P1' }
     run('ctrlShiftArrowRight')
     expect(resize).not.toHaveBeenCalled()
+    expect(moveStart).not.toHaveBeenCalled()
   })
 })

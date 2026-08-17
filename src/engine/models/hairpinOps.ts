@@ -214,6 +214,126 @@ export function addHairpinOverNotes(
   })
 }
 
+/** One slot of a hairpin's own lane, with the address it sits at — enough to step either end of the
+ *  wedge onto it. */
+interface LaneSlot {
+  abs: Fraction
+  length: Fraction
+  measure: number
+  /** Beat WITHIN `measure` — what a hairpin's own `beat` is, so a start moved here needs no
+   *  reverse walk through the bars' capacities. */
+  beat: Fraction
+}
+
+/**
+ * A hairpin resolved for a step: the object, where it currently begins and ends on the score's one
+ * absolute timeline, and every slot of its own lane.
+ *
+ * ⭐ **The lane, not the bar and not the score.** A wedge governs one voice on one staff — the lane
+ * its notes are in — so the slots of any other are not steps it can take. Shared by both stepping
+ * ops below, which differ only in WHICH end they move.
+ */
+function locate(score: Score, id: string): {
+  hairpin: Hairpin
+  startAbs: Fraction
+  endAbs: Fraction
+  lane: LaneSlot[]
+} | null {
+  const span = hairpinSpan(score, id)
+  const hairpin = span ? getHairpinById(score, id) : null
+  if (!span || !hairpin) return null
+
+  const starts = measureStartOffsets(score)
+  const startAbs = fracAdd(starts.get(span.startMeasure)!, span.startBeat)
+  const endAbs = fracAdd(startAbs, hairpin.length)
+
+  const lane: LaneSlot[] = []
+  for (const measure of score.measures) {
+    const base = starts.get(measure.number)
+    if (base === undefined) continue
+    for (const slot of measure.slots) {
+      if ((slot.voice ?? 0) !== (hairpin.voice ?? 0)) continue
+      if (!matchesStaff(slot.staffId, hairpin.staffId, score)) continue
+      lane.push({ abs: fracAdd(base, slot.beat), length: slotLength(slot), measure: measure.number, beat: slot.beat })
+    }
+  }
+  lane.sort((a, b) => fracCompare(a.abs, b.abs))
+  return { hairpin, startAbs, endAbs, lane }
+}
+
+/**
+ * ⭐⭐ **Move a hairpin's START by one slot of its own lane, HOLDING ITS END** — the model write
+ * behind `Ctrl+Shift+←/→` with the wedge's LEFT square armed (his ask, 2026-08-17: *"we don't move
+ * the endpoint position, we just move the first position"*).
+ *
+ * ## ⭐⭐ Why this needs no change to the model, though it looks like it does
+ *
+ * A `Hairpin` stores a start and an AMOUNT ({@link Hairpin.length}), so "move the start and leave
+ * the end where it is" reads at first like a gesture the model cannot express — the end is not a
+ * field, so nothing can hold it still. It is: the two shapes are the same information, and holding
+ * the end fixed is `length' = end − start'`, written here in ONE operation. Storing two addresses
+ * instead would not buy the gesture; it would move the two-field write to the OTHER one (dragging
+ * the whole wedge, which today is a single `beat`).
+ *
+ * ⭐ What decided the stored shape is a different axis, and it is unchanged: **survival**. After a
+ * re-bar only the START needs re-finding, because the extent is invariant — the music inside the
+ * span did not change when the barlines moved ({@link Hairpin}, and the same argument verbatim on
+ * {@link Ottava}). Two addresses would need both re-found, and a half-succeeding re-anchor leaves a
+ * span whose end precedes its start.
+ *
+ * ⚠️ **So the invariant this op adds is a rule about EDITS, not about storage: an edit that holds one
+ * end fixed writes `beat` and `length` together, atomically.** Split them and the wedge visibly
+ * jumps between the two writes — and an undo entry taken between them stores a span nobody asked for.
+ *
+ * ⭐ A start moved across a barline MOVES THE HAIRPIN to the bar it now begins in (the list it is
+ * stored in *is* "the wedges that start here"), keeping the same object and the same id — the id is
+ * what the selection holds, and a re-created hairpin would silently deselect itself mid-gesture.
+ *
+ * Declines (false) when there is no earlier slot to reach back to, when the start would reach or
+ * pass the END (which is {@link setHairpinLength}'s refusal, one step earlier), or when the hairpin
+ * does not exist. Never deletes.
+ */
+export function moveHairpinStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { hairpin, startAbs, endAbs, lane } = placed
+
+  const next = direction === -1
+    // Reach BACK: the last slot beginning before the current start.
+    ? [...lane].reverse().find(s => fracCompare(s.abs, startAbs) < 0)
+    // Step IN: the first slot beginning after it — and never as far as the end.
+    : lane.find(s => fracCompare(s.abs, startAbs) > 0)
+  if (!next) return false
+  const length = fracSub(endAbs, next.abs)
+  if (!fracIsPositive(length)) return false
+
+  // ⭐ Both fields, one step. See the invariant above.
+  if (next.measure !== hairpinMeasure(score, id)?.number) {
+    if (!moveHairpinToMeasure(score, hairpin, next.measure)) return false
+  }
+  hairpin.beat = next.beat
+  hairpin.length = length
+  hairpinMeasure(score, id)?.hairpins?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/** Re-file a hairpin under the measure it now starts in, keeping the SAME object (and id) so a
+ *  selection holding it survives the move. @returns false if the target measure does not exist. */
+function moveHairpinToMeasure(score: Score, hairpin: Hairpin, measureNumber: number): boolean {
+  const target = score.measures.find(m => m.number === measureNumber)
+  if (!target) return false
+  for (const measure of score.measures) {
+    const idx = measure.hairpins?.findIndex(h => h.id === hairpin.id) ?? -1
+    if (idx === -1) continue
+    measure.hairpins!.splice(idx, 1)
+    if (measure.hairpins!.length === 0) delete measure.hairpins
+    break
+  }
+  if (!target.hairpins) target.hairpins = []
+  target.hairpins.push(hairpin)
+  return true
+}
+
 /**
  * ⭐ **Grow or shrink a hairpin by ONE SLOT of its own lane** — the model write behind `Ctrl+→` /
  * `Ctrl+←`.
@@ -233,27 +353,9 @@ export function addHairpinOverNotes(
  * is a trap.
  */
 export function resizeHairpinBySlot(score: Score, id: string, direction: 1 | -1): boolean {
-  const span = hairpinSpan(score, id)
-  const hairpin = span ? getHairpinById(score, id) : null
-  if (!span || !hairpin) return false
-
-  const starts = measureStartOffsets(score)
-  const startAbs = fracAdd(starts.get(span.startMeasure)!, span.startBeat)
-  const endAbs = fracAdd(startAbs, hairpin.length)
-
-  // Every slot of the hairpin's own lane, by absolute onset. A wedge governs one voice on one
-  // staff — the lane its notes are in — so the slots of any other are not steps it can take.
-  const lane: Array<{ abs: Fraction; length: Fraction }> = []
-  for (const measure of score.measures) {
-    const base = starts.get(measure.number)
-    if (base === undefined) continue
-    for (const slot of measure.slots) {
-      if ((slot.voice ?? 0) !== (hairpin.voice ?? 0)) continue
-      if (!matchesStaff(slot.staffId, hairpin.staffId, score)) continue
-      lane.push({ abs: fracAdd(base, slot.beat), length: slotLength(slot) })
-    }
-  }
-  lane.sort((a, b) => fracCompare(a.abs, b.abs))
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, endAbs, lane } = placed
 
   let nextEnd: Fraction
   if (direction === 1) {

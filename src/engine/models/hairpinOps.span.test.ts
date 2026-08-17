@@ -13,7 +13,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { addHairpin, addHairpinOverNotes, getHairpinById, hairpinSpan, resizeHairpinBySlot } from './hairpinOps'
+import {
+  addHairpin, addHairpinOverNotes, getHairpinById, hairpinSpan, resizeHairpinBySlot,
+  moveHairpinStartBySlot,
+} from './hairpinOps'
 
 describe('hairpinSpan', () => {
   let model: ScoreModel
@@ -250,5 +253,85 @@ describe('a wedge covers exactly the music selected', () => {
       { measure: 1, beat: frac(1, 1) },
       { measure: 1, beat: frac(1, 1), length: frac(1, 1) })!
     expect(fracToNumber(h.length)).toBe(1)
+  })
+})
+
+/**
+ * ⭐⭐ {@link moveHairpinStartBySlot} — `Ctrl+Shift+←/→` with the wedge's LEFT square armed.
+ *
+ * ⭐ **The claim under test is the one that looks impossible from the model's shape**: a `Hairpin`
+ * stores a start and an AMOUNT, so "move the start and leave the end alone" has no field to hold the
+ * end still — and it holds anyway, because the op writes `beat` and `length` together
+ * (`length' = end − start'`). Every case here asserts the END, not just the start; asserting the
+ * start alone would pass for an op that dragged the whole wedge, which is the bug this shape invites.
+ */
+describe('moveHairpinStartBySlot — the start moves, the end does not', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    for (const m of [1, 2]) {
+      for (const b of [0, 1, 2, 3]) {
+        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+      }
+    }
+    score = model.getScore()
+    // Bar 1 beat 2 → bar 1 beat 4 (the barline).
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(2, 1), length: frac(2, 1) })!.id
+  })
+
+  const span = (hairpinId: string) => {
+    const s = hairpinSpan(score, hairpinId)!
+    return `${s.startMeasure}@${fracToNumber(s.startBeat)} → ${s.endMeasure}@${fracToNumber(s.endBeat)}`
+  }
+
+  it('⭐ reaches BACK a slot and grows at the front — the end is untouched', () => {
+    expect(moveHairpinStartBySlot(score, id, -1)).toBe(true)
+    expect(span(id)).toBe('1@1 → 1@4')
+    expect(fracToNumber(getHairpinById(score, id)!.length)).toBe(3)
+  })
+
+  it('⭐ steps IN a slot and shrinks from the front — the end is untouched again', () => {
+    expect(moveHairpinStartBySlot(score, id, 1)).toBe(true)
+    expect(span(id)).toBe('1@3 → 1@4')
+    expect(fracToNumber(getHairpinById(score, id)!.length)).toBe(1)
+  })
+
+  it('⭐ a start reaching back across a BARLINE re-files the wedge under the bar it now begins in', () => {
+    // The list a hairpin lives in IS "the wedges that start here", so crossing the line is a move
+    // between two measures' lists — not a beat that quietly goes negative.
+    const late = addHairpin(score, 2, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+    expect(moveHairpinStartBySlot(score, late, -1)).toBe(true)
+    expect(span(late)).toBe('1@3 → 2@2')
+    expect(score.measures[0].hairpins?.some(h => h.id === late)).toBe(true)
+    // …and the bar it left drops the list entirely once it empties, the `removeHairpin` rule.
+    expect(score.measures[1].hairpins).toBeUndefined()
+  })
+
+  it('⚠️ keeps the SAME id across that move — the selection is holding it', () => {
+    const late = addHairpin(score, 2, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+    moveHairpinStartBySlot(score, late, -1)
+    expect(getHairpinById(score, late)).not.toBeNull()
+  })
+
+  it('⛔ DECLINES rather than collapsing the wedge onto its own end', () => {
+    moveHairpinStartBySlot(score, id, 1)          // now one slot long, 1@3 → 1@4
+    expect(moveHairpinStartBySlot(score, id, 1)).toBe(false)
+    expect(span(id)).toBe('1@3 → 1@4')
+  })
+
+  it('⛔ DECLINES when there is no earlier slot in its lane to reach back to', () => {
+    const first = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!.id
+    expect(moveHairpinStartBySlot(score, first, -1)).toBe(false)
+    expect(span(first)).toBe('1@0 → 1@1')
+  })
+
+  it('walks its OWN LANE — a slot in another voice is not a step it can take', () => {
+    // Voice 1 has a note at beat 1.5; the voice-0 wedge must step over it to beat 1.
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
+    expect(moveHairpinStartBySlot(score, id, -1)).toBe(true)
+    expect(span(id)).toBe('1@1 → 1@4')
   })
 })
