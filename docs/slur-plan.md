@@ -903,12 +903,19 @@ and rests, but for slurs only *"tapered arc"*). The numbers that exist are a wor
 | span | height | control-point inset |
 |---|---|---|
 | short | 0.7 sp | 30% |
-| medium | 2 sp | 25% |
+| medium | 1.7 sp | 25% |
 | long | 3 sp | 20% |
 | extra long | 3.25 sp | 18% |
 
 Note both trends: height **saturates** (3 → 3.25) and the inset **falls** with length — which is
 §11.4's indent, moving the way LilyPond and Verovio move it and we do not.
+
+⚠️ *Medium was transcribed here as 2 sp and the thread says **1.7**; corrected 2026-08-17 when a
+second agent re-read t=107.* Two other numbers it recovered for the same table: **Finale's factory
+heights** ≈ 0.583 / 1.75 / 3.0 / 3.0 sp — the same saturation — and **Sibelius**, which states the
+law rather than a table: *"a short slur (two spaces in length) will be one space high… exponential
+function that approaches an asymptote… never taller than four spaces"*. So the asymptote our
+`slurArchHeight` uses is three independent sources' shape, not only LilyPond's.
 
 **⭐⭐ THE SLANT RULES ARE PUBLISHED — Gedan, not just LilyPond.** §11.5 asked whether they had a
 source; they do, and it is explicit about the two failure modes:

@@ -22,6 +22,22 @@
  * the endpoint goes to its stem tip whenever an interior note demands it, and the search only ever
  * confirms that. This module is the measurement half: **where the covered ink reaches**.
  *
+ * ## ⭐⭐ AND GOULD NAMES THIS EXACT MOVE — recovered 2026-08-17, after the code was written
+ *
+ * > **p. 322:** *"…notes **must appear to be included in a slur** — notes a long way from the slur
+ * > (marked ↑↓) fail to do this. **A slur may be placed at the stem end of the group's outer notes
+ * > in order to achieve the required inclusive appearance**: rather than"*
+ *
+ * That is the case verbatim: over a GROUP the endpoints go to the outer notes' **stem ends**, and
+ * the reason given is the interior notes — the same reason this module exists.
+ *
+ * ⭐ **And p. 111 is headed "SLURS AT STEM END", which reverses how we had been reading it.** The
+ * stem end is the DEFAULT; coming down toward the noteheads is a concession she guards twice:
+ * *"**Where other notes or stems will not be obstructed**, the slur may move slightly closer to the
+ * noteheads"* … *"The slur should not, however, **move too close to noteheads if there is room for
+ * it to be further away**."* So the ceiling below is not an addition to her rule — **it is her
+ * guard**, and the version without it was the concession applied unconditionally.
+ *
  * ⛔ **The two ANCHORED columns are not obstacles.** LilyPond excludes them explicitly
  * (`generate_avoid_offsets`: `if (extremes_[LEFT].note_column_ == encompasses[i] …) continue`), and
  * it is not a detail — the slur is *attached* to those notes, so counting them as ink to clear would

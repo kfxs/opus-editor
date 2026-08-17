@@ -22,6 +22,17 @@ This file provides guidance to Claude Code when working with this repository.
   first version of the rule protected only the three files it named while the growth moved to the
   five it did not.
 
+- **⭐ An engraving-convention question starts at `reference/README.md`, before any web search.** It
+  is the tracked manifest of the engraving library — which treatises we hold on disk (gitignored),
+  *what each one answered*, the routes that still work, and **the dead ones, marked as dead**. On
+  2026-08-17 the archive.org copy of Gould's *Behind Bars* went dark mid-investigation, and two
+  agents spent most of their budget rediscovering that; the stale search index still lists it, which
+  is what makes the mistake repeatable. ⛔ When a source cannot be reached, the honest report is
+  **UNKNOWN** — never "the books are silent", and never a plausible rule with no source behind it.
+  ⭐ And a SCAN beats an OCR whenever the question is *what did they draw*:
+  a book's engraving can be measured, which is how Gould's p. 111 examples were found to disagree
+  with the formula attributed to her.
+
 ## Project Overview
 
 A music score editor built with VexFlow and WebAudioFont, in plain TypeScript (no UI framework —

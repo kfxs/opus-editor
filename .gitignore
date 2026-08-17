@@ -36,3 +36,10 @@ coverage
 test-results/
 playwright-report/
 playwright/.cache/
+
+# The engraving library (`reference/`) — third-party publications, held as LOCAL research copies
+# only. The MANIFEST is tracked and the bytes are not: `reference/README.md` records what each
+# source answered and how to fetch it again, which is the part that keeps costing agent-hours to
+# rediscover (the archive.org copy of Behind Bars went dark mid-investigation on 2026-08-17).
+reference/*
+!reference/README.md
