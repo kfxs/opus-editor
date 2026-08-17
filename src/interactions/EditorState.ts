@@ -423,12 +423,15 @@ export type SelectedElement =
       controlPoint?: SlurControlPointHandle
     }
   /**
-   * A hairpin wedge, by id. Flat, unlike the slur above: a hairpin has no endpoint handles and no
-   * per-segment edits to arm, because its extent is MUSICAL — `Ctrl+←/→` rewrites `length` on the
-   * model rather than arming a cosmetic nudge (docs/dynamics-line-and-hairpins-plan.md §4). If a
-   * vertical nudge ever arrives it is an override keyed by this id, and still not a field here.
+   * A hairpin wedge, by id — plus WHICH END (if any) is armed.
+   *
+   * ⭐ `endpoint` arrived 2026-08-17 with the two blue squares a selected wedge now draws, reached by
+   * clicking one or by Tab (`./elements/hairpinHandles`). ⛔ It arms NOTHING yet: a hairpin's extent
+   * is MUSICAL — `Ctrl+←/→` rewrites `length` on the model rather than nudging a cosmetic offset
+   * (docs/dynamics-line-and-hairpins-plan.md §4) — so unlike the slur's `endpoint` there is no
+   * override behind it. It is the selection an edit would read when there is one to make.
    */
-  | { kind: 'hairpin'; id: string }
+  | { kind: 'hairpin'; id: string; endpoint?: 'start' | 'end' }
   /**
    * A TRILL, by id. Flat, like the hairpin — a trill has no endpoint handles to arm, and its extent
    * is musical (the notes it covers), not cosmetic. ⚠️ There is no `placement` here even though the

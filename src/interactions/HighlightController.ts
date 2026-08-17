@@ -7,6 +7,7 @@ import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selec
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
+import { hairpinEndpointHandles } from './elements/hairpinHandles'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -85,6 +86,7 @@ export class HighlightController {
     registry?.removeByType('slur-handle')
     registry?.removeByType('slur-endpoint')
     registry?.removeByType('slur-segment-endpoint')
+    registry?.removeByType('hairpin-endpoint')
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
@@ -1138,6 +1140,59 @@ export class HighlightController {
       this.setAttr(el, 'stroke', SELECTION_COLOR)
       this.setStyleProp(el, 'stroke', SELECTION_COLOR)
     })
+  }
+
+  /**
+   * ⭐ **THE SELECTED HAIRPIN'S TWO ENDPOINT SQUARES** — one at the beginning, one at the end (his
+   * ask, 2026-08-17). Drawn in the slur's blue so the editor has ONE look for "this is an end of a
+   * span", and placed by `hairpinEndpointHandles`, which owns the arithmetic (and the split-wedge
+   * trap: the two ends come from different fragments).
+   *
+   * ⭐ The armed square reads as PICKED — larger, a darker blue, a thicker white ring — the slur
+   * squares' own rule and the same three numbers, because they are one family: "this is an end of a
+   * span, and this is the one you have". Cosmetic only; the registered hit-box below never changes,
+   * so what you can grab does not move when you grab it.
+   *
+   * ⛔ Each square registers a `hairpin-endpoint` entry so a press can find it — and `clearHighlights`
+   * removes them again, since the highlight pass owns them (the render never draws one).
+   *
+   * They ride the highlight layer's undo log like every node here, so the next render clears them.
+   */
+  applyHairpinHandles(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'hairpin')
+    if (!engine || !scoreCanvas || !selected) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    for (const handle of hairpinEndpointHandles(registry.getByType('hairpin'), selected.id)) {
+      const armed = handle.which === selected.endpoint
+      const half = armed ? S + 2 : S
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      sq.setAttribute('x', String(handle.x - half))
+      sq.setAttribute('y', String(handle.y - half))
+      sq.setAttribute('width', String(half * 2))
+      sq.setAttribute('height', String(half * 2))
+      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
+      sq.setAttribute('stroke', '#ffffff')
+      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
+      sq.setAttribute('class', armed
+        ? `hairpin-endpoint-handle hairpin-endpoint-handle--${handle.which} hairpin-endpoint-handle--selected`
+        : `hairpin-endpoint-handle hairpin-endpoint-handle--${handle.which}`)
+      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
+      this.addNode(svg, sq)
+
+      registry.add({
+        type: 'hairpin-endpoint',
+        hairpinId: selected.id,
+        endpoint: handle.which,
+        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
+    }
   }
 
   /**

@@ -63,6 +63,14 @@ export type ElementType =
    */
   | 'hairpin'
   /**
+   * One of the two blue SQUARES a selected hairpin draws, at each end of the wedge. Registered by
+   * the HIGHLIGHT pass (not the render) like the slur's handles, so it exists only while its hairpin
+   * is selected — and is removed again by `clearHighlights`. Carries `hairpinId` + `endpoint`;
+   * ⛔ deliberately NOT `id`, since {@link getById} answers with the FIRST entry holding one and a
+   * handle sharing the wedge's id would shadow the wedge itself.
+   */
+  | 'hairpin-endpoint'
+  /**
    * A TRILL — the `tr` and its wavy extension. ⚠️ ONE ENTRY PER DRAWN FRAGMENT, like the hairpin's
    * and for the same reason: a trill repeated on a continuation system registers once per system,
    * each carrying the same trill id, so either piece is clickable and a hit resolves to the whole
@@ -340,8 +348,12 @@ export interface ElementInfo {
   /** For a 'slur-handle' element: the slur it belongs to and which control point. */
   slurId?: string
   cpIndex?: 0 | 1
-  /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. */
+  /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. Also carried by a
+   *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms. */
   endpoint?: 'start' | 'end'
+  /** For a 'hairpin-endpoint' square: the wedge it belongs to. Its own field rather than `id`, so a
+   *  lookup for the hairpin cannot find a handle's small box instead (the `stem` trap next door). */
+  hairpinId?: string
   /** For a 'slur-segment-endpoint' handle (the orange open-join squares): which side of a
    *  MIDDLE segment this open end is. Begin/end open joins need no side (one each). Combined
    *  with `segmentRole` + `segmentOrdinal` + `slurSpanCount` it forms the nudge address. */

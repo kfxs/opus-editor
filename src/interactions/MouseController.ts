@@ -23,6 +23,7 @@ import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
+import { armHairpinEndpointAt } from './elements/hairpinHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -607,6 +608,15 @@ export class MouseController {
     if (this.handleModifierMouseDown(ctx)) return
     if (this.handleTupletMouseDown(ctx)) return
     if (this.handleSlurHandleMouseDown(ctx)) return
+    // A press on one of a selected hairpin's blue squares ARMS that end. A pre-step for the slur
+    // handles' reason and one of its own: a square can sit inside the box of the dynamic at the
+    // wedge's mouth, and `DYNAMIC_ELEMENT` runs ahead of `HAIRPIN_ELEMENT` in the chain — a handle
+    // you can see must win the press. The module owns everything but the repaint.
+    if (armHairpinEndpointAt(this.state, registry, coords.x, coords.y)) {
+      this.render.renderScore()
+      event.preventDefault()
+      return
+    }
     if (this.handleStaffSpacingMouseDown(ctx)) return
 
     // Whatever was picked is gone; the handlers below each set what this press picked instead.

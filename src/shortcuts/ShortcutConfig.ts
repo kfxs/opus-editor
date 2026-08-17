@@ -123,17 +123,19 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Add a diminuendo over the selection (or arm the diminuendo stamp)',
   },
 
-  // ⭐ TAB WALKS A SELECTED SLUR'S HANDLES — the two blue ends, the round shape dots, and a
-  // cross-system slur's orange open joins — in reading order, wrapping at both ends (his ask,
-  // 2026-08-17; `interactions/slurHandleCycle.ts`). Shift+Tab walks back. Both DECLINE when no slur
-  // is selected, which is what leaves Tab as the browser's own focus key everywhere else in the app.
+  // ⭐ TAB WALKS THE SELECTED ELEMENT'S HANDLES, in reading order and wrapping at both ends (his ask,
+  // 2026-08-17). A SLUR's are its two blue ends, its round shape dots and, when it is split, its
+  // orange open joins (`interactions/slurHandleCycle.ts`); a HAIRPIN's are the two blue squares at
+  // the ends of the wedge (`interactions/elements/hairpinHandles.ts`). Shift+Tab walks back. Both
+  // DECLINE when nothing with handles is selected, which is what leaves Tab as the browser's own
+  // focus key everywhere else in the app.
   'Tab': {
-    action: 'nextSlurHandle',
-    description: 'Select the next handle of the selected slur',
+    action: 'nextHandle',
+    description: 'Select the next handle of the selected element',
   },
   'Shift+Tab': {
-    action: 'previousSlurHandle',
-    description: 'Select the previous handle of the selected slur',
+    action: 'previousHandle',
+    description: 'Select the previous handle of the selected element',
   },
 
   // Selection navigation

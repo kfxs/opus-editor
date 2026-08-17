@@ -16,6 +16,7 @@ import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { cycleSlurHandle } from './slurHandleCycle'
+import { cycleHairpinEndpoint } from './elements/hairpinHandles'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -112,6 +113,16 @@ export function wireShortcuts(
   const walkSlurHandles = (step: 1 | -1): boolean => {
     const eng = getEngine()
     if (!eng || !cycleSlurHandle(state, eng.getElementRegistry(), step)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // …and the same key walks a selected HAIRPIN's two endpoint squares (`elements/hairpinHandles`).
+  // Chained rather than merged: the two kinds are mutually exclusive in `selectedElement`, so each
+  // walk declines whenever the other's element is the one selected.
+  const walkHairpinHandles = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !cycleHairpinEndpoint(state, eng.getElementRegistry(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -726,8 +737,8 @@ export function wireShortcuts(
     // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
     // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
     // when a handler does not answer false.
-    nextSlurHandle: () => walkSlurHandles(1),
-    previousSlurHandle: () => walkSlurHandles(-1),
+    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1),
+    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1),
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
