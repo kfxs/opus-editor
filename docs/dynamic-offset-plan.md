@@ -238,6 +238,18 @@ question a new kind answers is the one this table states: a NOTE or a PLACE.
 | tempo | a PLACE: the mark's own x at the staff's top line | it governs the clock, not a pitch |
 | hairpin | a PLACE: the start beat at the staff's bottom line | it governs a region |
 | ottava | a PLACE: the start beat at the staff line on its own side | it governs a region, and the side is the shift's |
+| pedal | a PLACE: the start beat at the staff's bottom line | it governs a region — every voice, every note struck while the damper is down |
+
+### ⭐ Kind 6 — the PEDAL (2026-08-17): the family is complete
+
+Nothing new in the mechanism; two details particular to this family:
+
+- **It rides the `Ped.`, not the lift** — the sign the gesture BEGINS with, which is the same "at the
+  beginning" rule the hairpin and the ottava follow.
+- ⚠️ **A pedal registers one entry per GLYPH, not per fragment** (`Ped.` and `✻` are separately
+  clickable, because there is no ink between them and a box spanning both would steal every press
+  over the music inside). So the guide is attached to the FIRST fragment's `Ped.` and the other
+  entries carry none — which the drawer already handles, since it reads every entry under the id.
 
 ### 🚨 The checklist a new COORDINATE field on `ElementInfo` has to answer
 

@@ -206,3 +206,40 @@ test('⭐⭐ an OTTAVA guide follows the SHIFT — 8va points down to the top li
   expect(bassa.from.y, '8vb sits below the staff').toBeGreaterThan(seen.staffBottom)
   expect(bassa.to.y, 'so its guide points up').toBeLessThan(bassa.from.y)
 })
+
+test('⭐⭐ a PEDAL guide rides the `Ped.` and runs UP to the staff — never the lift', async ({ score }) => {
+  const seen = await score.evaluate(async () => {
+    const h = window.__h
+    const ids: string[] = []
+    for (let i = 0; i < 4; i++) {
+      ids.push(h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1) })!.id)
+    }
+    const pedal = h.engine.createPedal([ids[1], ids[3]])!
+    await h.render()
+
+    const entries = h.engine.getElementRegistry().getAll().filter(e => e.id === pedal.id)
+    return {
+      // ⚠️ A pedal registers ONE ENTRY PER GLYPH (`Ped.` and `✻`), not one per fragment — there is no
+      // ink between them, so a box spanning both would steal every press over the music inside.
+      entryCount: entries.length,
+      withGuides: entries.filter(e => e.guides?.length).length,
+      guides: entries.flatMap(e => e.guides ?? []),
+      signBox: { x: entries[0].bbox.x, y: entries[0].bbox.y, bottom: entries[0].bbox.y + entries[0].bbox.height },
+      liftX: entries[entries.length - 1].bbox.x,
+      staffBottom: h.staves()[0].bottom,
+    }
+  })
+
+  expect(seen.entryCount, 'the two signs are registered separately').toBe(2)
+  expect(seen.withGuides, 'and only the `Ped.` carries the guide').toBe(1)
+  const [guide] = seen.guides
+
+  // It leaves the SIGN's ink top — the corner facing the staff, since a pedal is engraved below it.
+  expect(Math.abs(guide.from.y - seen.signBox.y), 'the sign’s top').toBeLessThanOrEqual(1)
+  expect(Math.abs(guide.from.x - seen.signBox.x), 'at the sign’s left').toBeLessThan(2)
+  expect(guide.from.x, '⛔ not the lift').toBeLessThan(seen.liftX)
+
+  // ⭐ …and reaches UP to the staff's bottom line: a PLACE, not a notehead.
+  expect(Math.abs(guide.to.y - seen.staffBottom), 'the staff’s bottom line').toBeLessThanOrEqual(1)
+  expect(guide.to.y, 'pointing up out of the sign').toBeLessThan(guide.from.y)
+})

@@ -479,6 +479,22 @@ blue-pointer list, since a caret on top of the glyph it stood in for is two indi
 not picked, so drawing both signs would promise a release the click is not going to make. (The
 ottava's bracket is left out for the same reason.)
 
+### ⭐ The attachment guide (2026-08-17, his call)
+
+A selected pedal draws the dashed line to where it is anchored — the sixth and last kind on the
+kind-agnostic guide (`docs/dynamic-offset-plan.md`). Two edits: `drawPedal` registers it on the FIRST
+fragment's `Ped.`, and the `pedal` row in `ELEMENT_SPECS` calls `applyAnchorGuideLine`.
+
+⭐ **Its far end is a PLACE** — the staff's BOTTOM line at the start beat — because a pedal governs a
+REGION: every voice on the staff, every note struck while the damper is down. ⛔ Not a notehead; that
+rule belongs to the dynamic and the trill, whose marks are computed from a particular pitch.
+
+⚠️ **It rides the `Ped.` and never the lift**, and it goes on the first fragment only: a `(Ped.)` on
+a later system says the damper is still down, which is a reminder rather than a second attachment.
+⚠️ Remember this family registers **one entry per GLYPH** rather than one per fragment (§6.2), so the
+`✻` and every resumed sign carry no guide at all — the drawer reads every entry under the id, so
+that is exactly right. Measured in `e2e/anchorGuide.e2e.ts`.
+
 ### 🚨 THE POSITION RULE THIS FEATURE PRODUCED — one place for all sign ghosts
 
 The first build parked `Ped.` BELOW the pointer, reasoning that a pedal is engraved below the staff.

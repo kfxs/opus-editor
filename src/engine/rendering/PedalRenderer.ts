@@ -42,6 +42,7 @@ import type { Stave } from 'vexflow'
 import { Element } from 'vexflow'
 import type { Score, Pedal, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
+import type { GuideLine } from '@/engine/ElementRegistry'
 import { pedalSpan, type PedalSpan } from '@/engine/models/pedalOps'
 import { pedalDrawStaff } from '@/utils/pedalScope'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
@@ -362,6 +363,7 @@ function drawPedal(
 ): void {
   const ctx = pass.context
 
+  let firstPiece = true
   for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, x.endX, from.scale)) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
     const here = covered.filter(p => p.line === piece.line)
@@ -392,7 +394,25 @@ function drawPedal(
       : Math.max(piece.x0 - inset, barLeft / (here[0]?.scale ?? 1))
 
     const downWidth = drawPedalSign(ctx, signX, y, piece.continuation)
-    registerGlyph(pass, pedal.id, from, signX, y, downWidth, px)
+    // ⭐⭐ THE ATTACHMENT GUIDE — the sixth kind (docs/dynamic-offset-plan.md), and it rides the
+    // `Ped.` because that is the sign the gesture BEGINS with.
+    //
+    // ⭐ Its far end is a PLACE, like the hairpin's and the octave line's: a pedal governs a region —
+    // every voice on the staff, every note struck while the damper is down — so it belongs to no one
+    // pitch. ⛔ Not the trill's rule, whose ornament is computed from its note.
+    //
+    // ⭐ It runs UP to the staff's BOTTOM line, this being the one family engraved BELOW everything,
+    // and it leaves the sign's ink TOP — the corner facing that line, so it never crosses the glyph.
+    // ⚠️ First fragment only: a `(Ped.)` on a later system is a reminder that the damper is still
+    // down, not a second attachment.
+    const guides = firstPiece
+      ? [{
+        from: { x: signX, y: y - px(PEDAL_MARK_INK.above) },
+        to: { x: x.startX, y: stave.getYForLine(4) },
+      }]
+      : undefined
+    registerGlyph(pass, pedal.id, from, signX, y, downWidth, px, guides)
+    firstPiece = false
 
     if (!piece.final) continue
 
@@ -474,6 +494,9 @@ function registerGlyph(
   baselineY: number,
   width: number,
   px: (spaces: number) => number,
+  /** The attachment guide, on the `Ped.` of the FIRST fragment only — the lift and every resumed
+   *  sign register without one, and the drawer reads every entry under the id. */
+  guides?: GuideLine[],
 ): void {
   const top = baselineY - px(PEDAL_MARK_INK.above)
   const bottom = baselineY + px(PEDAL_MARK_INK.below)
@@ -489,5 +512,6 @@ function registerGlyph(
       { x: x + width, y: bottom },
       { x, y: bottom },
     ],
+    ...(guides ? { guides } : {}),
   })
 }

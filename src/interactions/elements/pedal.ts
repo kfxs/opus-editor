@@ -44,5 +44,8 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'pedal', id: pedalAt.id })
   },
 
-  highlight: h => h.applyPedalSelectionHighlight(),
+  // Recoloured, plus the attachment guide (the sixth kind, 2026-08-17). ⭐ It rides the `Ped.` — the
+  // sign the gesture begins with — and runs UP to the staff's bottom line: a PLACE, since a pedal
+  // governs a region (every voice, every note struck while the damper is down) rather than a pitch.
+  highlight: h => { h.applyPedalSelectionHighlight(); h.applyAnchorGuideLine() },
 }
