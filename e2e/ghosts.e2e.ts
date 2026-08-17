@@ -156,6 +156,33 @@ test('the TIE ghost draws a real arc, and the TEMPO ghost its own words', async 
   expect(drawn.tempo.texts.join(''), 'the tempo ghost previews the mark’s own text').toContain('Allegro')
 })
 
+test('the TRILL ghost is the `tr` itself, lifted above the pointer', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'trill' })
+    return { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-trill text') }
+  })
+
+  expect(drawn.groups).toEqual(['vf-ghost-trill'])
+  // U+E566 is SMuFL's `ornamentTrill` — the sign the pass itself draws (`drawTrillSign`), which is
+  // the point of sharing it: the preview cannot become a different glyph from the engraved mark.
+  expect(drawn.glyphs.map(g => g.code), 'the tr glyph').toEqual(['e566'])
+  // ⛔ And PLAIN: the parenthesised `(tr)` means "carried over from the last system", which is a
+  // fact about a trill that does not exist yet.
+  expect(drawn.glyphs.length, 'no parentheses around it').toBe(1)
+
+  const [tr] = drawn.glyphs
+  expect(Math.abs(tr.x - CURSOR.x), 'centred on the cursor in x').toBeLessThan(NEAR)
+  expect(Math.abs(tr.y - CURSOR.y), 'near the cursor in y').toBeLessThan(NEAR)
+  // A trill is engraved OVER its note and the click lands ON the note, so the ghost sits above the
+  // pointer rather than under the arrow (smaller y is higher). The RELATION is the assertion; the
+  // lift itself is tunable.
+  expect(tr.y, 'and lifted clear of it').toBeLessThan(CURSOR.y)
+})
+
 test('the FEATHER ghost is a bare notehead — dot included, stem and flag dropped', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h

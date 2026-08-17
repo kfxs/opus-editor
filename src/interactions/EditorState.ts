@@ -135,9 +135,10 @@ export type MarkingTool =
    * extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin and the trill. A bracket is drawn
-   * ABOVE music the click has not picked yet, so a ghost at the pointer would preview a position the
-   * click is not going to make. See {@link scoreCursorClass} and `interactions/ottavaStamp.ts`.
+   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin. ⚠️ The trill left this list on
+   * 2026-08-17 and this one did not: a `tr` is one glyph the click definitely stamps, while a
+   * bracket has a LENGTH as well as a rung, and the click has picked neither. See
+   * {@link scoreCursorClass} and `interactions/ottavaStamp.ts`.
    */
   | { kind: 'ottava'; shift: -3 | -2 | -1 | 1 | 2 | 3 }
   /**
@@ -149,9 +150,11 @@ export type MarkingTool =
    * extent comes from the ties, so there is nothing for a click to size (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin. A trill is drawn ABOVE music that
-   * the click has not picked yet, so a ghost `tr` at the pointer would be previewing a position the
-   * click is not going to use. See {@link scoreCursorClass} and `interactions/trillStamp.ts`.
+   * ⭐ It DOES ghost — a `tr` follows the pointer (`engine/rendering/TrillGhost.ts`), and so it is
+   * NOT in {@link scoreCursorClass}'s blue-pointer list. It was, until his call of 2026-08-17: the
+   * old reading was that a trill is drawn ABOVE music the click has not picked, so a ghost would
+   * preview a position nothing has chosen — but what the cursor has to say is WHAT the click makes.
+   * See {@link toolGhost} and `interactions/trillStamp.ts`.
    *
    * ⛔ And no keyboard shortcut arms it — his call, 2026-08-13. See docs/trill-plan.md §6.
    */
@@ -168,8 +171,8 @@ export type MarkingTool =
    * takes its extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin, the trill and the ottava. It is truer
-   * of this tool than of any of them: a pedal is not even drawn where the pointer is, but on a rung
+   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin and the ottava. It is truer of this
+   * tool than of any of them: a pedal is not even drawn where the pointer is, but on a rung
    * below the staff, so a ghost `Ped.` at the cursor would preview a place the click will not put it.
    * See {@link scoreCursorClass} and `interactions/pedalStamp.ts`.
    *
@@ -529,8 +532,11 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // ⚠️ Every GHOSTLESS stamp must be listed here, and the list is why: these tools draw nothing at
   // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to
   // `toolGhost`'s `return null` arm and forgotten here arms invisibly.
+  // ⚠️ The TRILL is deliberately NOT here: it grew a ghost on 2026-08-17 (see {@link toolGhost}),
+  // and a tool that draws at the pointer must not ALSO take the place-cursor — two indicators for
+  // one armed tool, the blue caret sitting on top of the very `tr` it was standing in for.
   if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin'
-    || kind === 'trill' || kind === 'ottava' || kind === 'pedal') return 'cursor-place'
+    || kind === 'ottava' || kind === 'pedal') return 'cursor-place'
   return 'cursor-default'
 }
 

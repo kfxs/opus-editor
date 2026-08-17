@@ -28,9 +28,25 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       .toEqual({ kind: 'tremolo', mark: 'penderecki' })
   })
 
-  it('the two valueless stamps carry nothing but their kind', () => {
+  it('the valueless stamps carry nothing but their kind', () => {
     expect(toolGhost({ kind: 'tie' }, ARMED)).toEqual({ kind: 'tie' })
     expect(toolGhost({ kind: 'dot' }, ARMED)).toEqual({ kind: 'dot' })
+    // The `tr` joined them on 2026-08-17 — a stamped trill is ONE note's, so there is no length to
+    // carry, and no `continuation` either: the parenthesised `(tr)` is a fact about a trill that
+    // already exists on an earlier system.
+    expect(toolGhost({ kind: 'trill' }, ARMED)).toEqual({ kind: 'trill' })
+  })
+
+  it('⭐ the TRILL previews — the one tool on the list that changed its mind (his call, 2026-08-17)', () => {
+    // It used to answer null, on the argument that a `tr` is drawn above music the click has not
+    // picked. What the cursor answers is WHAT the click makes, not where the mark ends up.
+    expect(toolGhost({ kind: 'trill' }, ARMED)).not.toBeNull()
+    // …and the four spanner stamps beside it still do not: both ends unpicked (slur, hairpin), or a
+    // bracket whose length and rung the click has not decided (ottava, pedal).
+    for (const tool of [{ kind: 'slur' }, { kind: 'hairpin', type: 'cresc' }, { kind: 'ottava', shift: 1 },
+      { kind: 'pedal' }] as MarkingTool[]) {
+      expect(toolGhost(tool, ARMED), `${tool.kind} still has no ghost`).toBeNull()
+    }
   })
 
   it('⭐ the REST ghost takes the ARMED length, not anything on the tool', () => {
@@ -90,11 +106,17 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       { kind: 'tie' },
       { kind: 'dot' },
       { kind: 'rest' },
+      { kind: 'fan', attacks: 4, unit: '16', dots: 0, direction: 'accel' },
+      { kind: 'trill' },
       { kind: 'dynamicEntry' },
       { kind: 'tempoEntry' },
+      { kind: 'slur' },
+      { kind: 'hairpin', type: 'dim' },
+      { kind: 'ottava', shift: -1 },
+      { kind: 'pedal' },
     ]
-    // Ten draw, two deliberately do not — and nothing throws on the way past.
-    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(10)
+    // Twelve draw, six deliberately do not — and nothing throws on the way past.
+    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(12)
   })
 })
 
@@ -105,6 +127,7 @@ describe('GHOST_CAUSE — the census labels', () => {
       { kind: 'dynamic', dynamic: 'p' }, { kind: 'tempo', tempo: { text: 'Largo' } },
       { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'b' },
       { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot' }, { kind: 'rest' },
+      { kind: 'trill' },
     ] as MarkingTool[]) {
       const ghost = toolGhost(tool, ARMED)!
       expect(GHOST_CAUSE[ghost.kind], `${ghost.kind} has a cause`).toMatch(/^ghost:/)

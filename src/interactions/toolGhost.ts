@@ -61,6 +61,14 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // note it lands on is resolved at click time.
     case 'tie': return { kind: 'tie' }
     case 'dot': return { kind: 'dot' }
+    // ⭐ The `tr` joins those two — valueless for their reason (a stamped trill is ONE note's), and
+    // the one tool on this list that CHANGED ITS MIND. HIS call, 2026-08-17: *"we really want to see
+    // a tr ghost; this is much better"*. It used to return null on the argument that a trill is
+    // drawn ABOVE the music at a height the click has not decided, so a `tr` at the pointer previews
+    // a position nothing has chosen. What that missed is that a cursor ghost answers WHAT the click
+    // makes and not where the engraver will put it — the same licence the accidental, dot and tie
+    // ghosts already take. See `engine/rendering/TrillGhost`.
+    case 'trill': return { kind: 'trill' }
     // The one stamp whose ghost carries a VALUE, and it reads it from the ARMED length rather than
     // from the tool: a rest IS its duration + dots, and those are the note-entry fields the
     // duration/dot keys go on setting while this tool is live (MARKING_TOOL_USES_ARMED_LENGTH).
@@ -79,14 +87,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
     // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
-    // …and the trill, for a THIRD reason rather than the wedge's: a trill is drawn ABOVE the music,
-    // at a height that comes from the ink of the notes the click has not picked yet. A `tr` at the
-    // pointer would be previewing a POSITION nothing has decided (docs/trill-plan.md §6).
-    case 'trill': return null
-    // …and the OTTAVA, for the trill's reason at a greater distance: the bracket's height comes from
-    // the ladder — the ink of the notes, plus whatever the dynamics line and the trill already took
-    // over them — none of which the click has picked. There is nothing honest to draw at the
-    // pointer (docs/ottava-plan.md P5).
+    // …and the OTTAVA, which was the trill's neighbour here until the trill grew a ghost: the
+    // bracket's height comes from the ladder — the ink of the notes, plus whatever the dynamics line
+    // and the trill already took over them — none of which the click has picked, and unlike the `tr`
+    // a bracket has a LENGTH it would have to invent as well (docs/ottava-plan.md P5).
     case 'ottava': return null
     // …and the PEDAL, which is the clearest case on this list: it is not drawn where the pointer is
     // at all. `Ped.` goes on a rung BELOW the staff, outside every other family there, at a height
@@ -118,4 +122,5 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   dot: 'ghost:dot',
   rest: 'ghost:rest',
   fan: 'ghost:fan',
+  trill: 'ghost:trill',
 }

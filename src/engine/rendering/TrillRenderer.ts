@@ -414,7 +414,7 @@ function drawTrill(
       : piece.x0
     const signX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? marginX
     const signWidth = drawsSign
-      ? drawSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
+      ? drawTrillSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
       : 0
 
     // ⚠️ No sign means no GAP either — the gap exists to separate the line from the sign, so keeping
@@ -476,8 +476,13 @@ function firstNoteXOnLine(
  * fixed step would leave a visible gap in one font and an overlap in another. In jsdom every width
  * is 0, so all three land at the same x and the total is 0 — which is why the parenthesis assertion
  * lives in the browser suite.
+ *
+ * ⚠️ Exported for ONE caller outside this pass: the cursor ghost (`./TrillGhost`), which draws the
+ * plain sign at the pointer. It goes through this rather than through the two constants so the
+ * preview and the engraved mark are the same glyph at the same size by construction — the tempo
+ * ghost shares `drawTempoText` for the same reason.
  */
-function drawSign(ctx: RenderPass['context'], x: number, y: number, parenthesised: boolean): number {
+export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, parenthesised: boolean): number {
   const glyph = (text: string, at: number): number => {
     const el = new Element('TrillRenderer.sign')
     el.setText(text)

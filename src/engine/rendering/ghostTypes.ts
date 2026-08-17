@@ -49,6 +49,17 @@ export type ToolGhost =
   /** VALUELESS — the mark itself; WHICH note it lands on is resolved at click time. */
   | { kind: 'tie' }
   | { kind: 'dot' }
+  /**
+   * The `tr`, valueless for the same reason — and the one member added AFTER its family had settled
+   * on showing nothing.
+   *
+   * ⚠️ It carries no length, and that is not an omission: a stamped trill is ONE note's
+   * (`interactions/trillStamp.ts`), and how long it sounds comes from the ties. It carries no
+   * `continuation` either — the parenthesised `(tr)` says "carried over from the last system", which
+   * is a fact about a trill that does not exist yet. See `./TrillGhost` for why this exists at all,
+   * against what §6 of the plan had decided.
+   */
+  | { kind: 'trill' }
   /** The one ghost with a value to show, and it is the armed length: a rest IS its duration. */
   | { kind: 'rest'; duration: NoteDuration; dots: number }
   /**
