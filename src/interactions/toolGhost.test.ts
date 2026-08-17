@@ -37,16 +37,24 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
     expect(toolGhost({ kind: 'trill' }, ARMED)).toEqual({ kind: 'trill' })
   })
 
-  it('⭐ the TRILL previews — the one tool on the list that changed its mind (his call, 2026-08-17)', () => {
-    // It used to answer null, on the argument that a `tr` is drawn above music the click has not
+  it('⭐ the TRILL and the OTTAVA preview — the two tools that changed their minds (his calls, 2026-08-17)', () => {
+    // Both used to answer null, on the argument that the mark is drawn above music the click has not
     // picked. What the cursor answers is WHAT the click makes, not where the mark ends up.
     expect(toolGhost({ kind: 'trill' }, ARMED)).not.toBeNull()
-    // …and the four spanner stamps beside it still do not: both ends unpicked (slur, hairpin), or a
-    // bracket whose length and rung the click has not decided (ottava, pedal).
-    for (const tool of [{ kind: 'slur' }, { kind: 'hairpin', type: 'cresc' }, { kind: 'ottava', shift: 1 },
-      { kind: 'pedal' }] as MarkingTool[]) {
+    expect(toolGhost({ kind: 'ottava', shift: 1 }, ARMED)).not.toBeNull()
+    // …and the three spanner stamps beside them still do not: both ends unpicked (slur, hairpin), or
+    // a mark on a rung the click has not decided (pedal).
+    for (const tool of [{ kind: 'slur' }, { kind: 'hairpin', type: 'cresc' }, { kind: 'pedal' }] as MarkingTool[]) {
       expect(toolGhost(tool, ARMED), `${tool.kind} still has no ghost`).toBeNull()
     }
+  })
+
+  it('⭐⭐ the OTTAVA ghost carries the SIGNED shift — `8va` and `8ba` are different glyphs', () => {
+    // The whole point of previewing this one: two palette rows differ in a single number, and behind
+    // a blue caret they armed identically. A ghost that dropped the sign would too.
+    expect(toolGhost({ kind: 'ottava', shift: 1 }, ARMED)).toEqual({ kind: 'ottava', shift: 1 })
+    expect(toolGhost({ kind: 'ottava', shift: -1 }, ARMED)).toEqual({ kind: 'ottava', shift: -1 })
+    expect(toolGhost({ kind: 'ottava', shift: -2 }, ARMED)).toEqual({ kind: 'ottava', shift: -2 })
   })
 
   it('⭐ the REST ghost takes the ARMED length, not anything on the tool', () => {
@@ -115,8 +123,8 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
       { kind: 'ottava', shift: -1 },
       { kind: 'pedal' },
     ]
-    // Twelve draw, six deliberately do not — and nothing throws on the way past.
-    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(12)
+    // Thirteen draw, five deliberately do not — and nothing throws on the way past.
+    expect(all.filter(t => toolGhost(t, ARMED) !== null)).toHaveLength(13)
   })
 })
 
@@ -127,7 +135,7 @@ describe('GHOST_CAUSE — the census labels', () => {
       { kind: 'dynamic', dynamic: 'p' }, { kind: 'tempo', tempo: { text: 'Largo' } },
       { kind: 'articulation', types: ['accent'] }, { kind: 'accidental', sign: 'b' },
       { kind: 'tremolo', tremolo: 2 }, { kind: 'tie' }, { kind: 'dot' }, { kind: 'rest' },
-      { kind: 'trill' },
+      { kind: 'trill' }, { kind: 'ottava', shift: 1 },
     ] as MarkingTool[]) {
       const ghost = toolGhost(tool, ARMED)!
       expect(GHOST_CAUSE[ghost.kind], `${ghost.kind} has a cause`).toMatch(/^ghost:/)

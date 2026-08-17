@@ -48,6 +48,7 @@ import { CURVE_PX } from './curveStyle'
 import { LEDGER_LINE_STYLE, type MeasureWidthInfo, type StaffSpacingLayout } from './layoutConfig'
 import { drawFanGhost, FAN_GHOST_GROUP_CLASS } from './FanGhost'
 import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
+import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 
 /**
@@ -62,7 +63,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -1080,6 +1081,7 @@ export const GHOST_DRAWERS: {
   rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
+  ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
 }
 
 /**

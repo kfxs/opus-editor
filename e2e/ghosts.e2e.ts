@@ -183,6 +183,50 @@ test('the TRILL ghost is the `tr` itself, lifted above the pointer', async ({ sc
   expect(tr.y, 'and lifted clear of it').toBeLessThan(CURSOR.y)
 })
 
+test('the OTTAVA ghost is the NUMERAL — and 8va and 8vb park IDENTICALLY, differing only in glyph', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+
+    const at = { x: 200, y: 100 }
+    h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: 1 })
+    const alta = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-ottava text') }
+    h.engine.renderScoreWithToolGhost(at, { kind: 'ottava', shift: -1 })
+    const bassa = { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-ottava text') }
+    return { alta, bassa }
+  })
+
+  expect(drawn.alta.groups).toEqual(['vf-ghost-ottava'])
+  expect(drawn.bassa.groups).toEqual(['vf-ghost-ottava'])
+
+  // ⭐⭐ The two are DIFFERENT GLYPHS, which is the whole reason this tool wanted a ghost: `8va` and
+  // `8vb` are two palette rows differing in one signed number, and behind a blue caret they armed
+  // identically. E511 is `ottavaAlta`, E513 `ottavaBassaBa` — his two picks (see OTTAVA_NUMERAL_GLYPHS).
+  expect(drawn.alta.glyphs.map(g => g.code), '8va').toEqual(['e511'])
+  expect(drawn.bassa.glyphs.map(g => g.code), '8ba').toEqual(['e513'])
+  // ⛔ PLAIN: the parenthesised numeral means "carried over from the last system", which is a fact
+  // about an ottava that does not exist yet — so one glyph, never three.
+  expect(drawn.alta.glyphs.length, 'no parentheses around it').toBe(1)
+
+  for (const [name, ghost] of Object.entries(drawn)) {
+    const [numeral] = ghost.glyphs
+    expect(Math.abs(numeral.x - CURSOR.x), `${name}: centred on the cursor in x`).toBeLessThan(NEAR)
+    expect(Math.abs(numeral.y - CURSOR.y), `${name}: near the cursor in y`).toBeLessThan(NEAR)
+  }
+  // ⭐⭐ HIS REPORT, 2026-08-17: the first build parked 8va above the pointer and 8vb below it, on
+  // the engraved mark's own sides — *"this is not good"*. A cursor ghost is ONE indicator, and its
+  // position is how the eye finds it; the direction is the glyph's to say. So the two must sit in
+  // the same place, and only their glyph may differ. ⛔ Do not restore the flip.
+  expect(Math.abs(drawn.alta.glyphs[0].y - drawn.bassa.glyphs[0].y), 'same height off the pointer')
+    .toBeLessThan(4)
+  expect(Math.abs(drawn.alta.glyphs[0].x - drawn.bassa.glyphs[0].x), 'and the same x')
+    .toBeLessThan(4)
+  // Both lifted clear of the arrow, which extends down-right from its tip (smaller y is higher).
+  expect(drawn.alta.glyphs[0].y, 'above the pointer').toBeLessThan(CURSOR.y)
+  expect(drawn.bassa.glyphs[0].y, 'above the pointer').toBeLessThan(CURSOR.y)
+})
+
 test('the FEATHER ghost is a bare notehead — dot included, stem and flag dropped', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h

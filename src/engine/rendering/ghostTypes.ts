@@ -31,7 +31,7 @@
  * for the two families.
  */
 import type {
-  Clef, TimeSignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration,
+  Clef, TimeSignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 
@@ -60,6 +60,14 @@ export type ToolGhost =
    * against what §6 of the plan had decided.
    */
   | { kind: 'trill' }
+  /**
+   * The octave numeral — `8va` or `8ba`, and it CARRIES THE SIGNED SHIFT because those are two
+   * different glyphs (`OTTAVA_NUMERAL_GLYPHS`, and his call that made them so).
+   *
+   * ⚠️ The BRACKET is not part of it: a dashed line with a hook has a length, and the click has
+   * picked neither end. The numeral is the part the click certainly stamps. See `./OttavaGhost`.
+   */
+  | { kind: 'ottava'; shift: Ottava['shift'] }
   /** The one ghost with a value to show, and it is the armed length: a rest IS its duration. */
   | { kind: 'rest'; duration: NoteDuration; dots: number }
   /**

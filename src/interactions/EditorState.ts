@@ -135,10 +135,12 @@ export type MarkingTool =
    * extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin. ⚠️ The trill left this list on
-   * 2026-08-17 and this one did not: a `tr` is one glyph the click definitely stamps, while a
-   * bracket has a LENGTH as well as a rung, and the click has picked neither. See
-   * {@link scoreCursorClass} and `interactions/ottavaStamp.ts`.
+   * ⭐ It DOES ghost — the NUMERAL follows the pointer (`engine/rendering/OttavaGhost.ts`), so this
+   * tool is NOT in {@link scoreCursorClass}'s blue-pointer list. His call, 2026-08-17, the day after
+   * the trill's and in the same words (*"same thing"*), and this is the tool it helps most: two
+   * palette rows differing in one signed number armed IDENTICALLY behind a blue caret. ⛔ The
+   * BRACKET is not previewed — a dashed line has a length the click has not picked. See
+   * {@link toolGhost} and `interactions/ottavaStamp.ts`.
    */
   | { kind: 'ottava'; shift: -3 | -2 | -1 | 1 | 2 | 3 }
   /**
@@ -171,8 +173,8 @@ export type MarkingTool =
    * takes its extent from the notes it is placed over — never from the armed duration (`false` in
    * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⛔ NO ghost — the blue pointer, like the slur, the hairpin and the ottava. It is truer of this
-   * tool than of any of them: a pedal is not even drawn where the pointer is, but on a rung
+   * ⛔ NO ghost — the blue pointer, like the slur and the hairpin, and now the last of the ladder
+   * tools with none: a pedal is not even drawn where the pointer is, but on a rung
    * below the staff, so a ghost `Ped.` at the cursor would preview a place the click will not put it.
    * See {@link scoreCursorClass} and `interactions/pedalStamp.ts`.
    *
@@ -532,11 +534,11 @@ export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-pl
   // ⚠️ Every GHOSTLESS stamp must be listed here, and the list is why: these tools draw nothing at
   // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to
   // `toolGhost`'s `return null` arm and forgotten here arms invisibly.
-  // ⚠️ The TRILL is deliberately NOT here: it grew a ghost on 2026-08-17 (see {@link toolGhost}),
-  // and a tool that draws at the pointer must not ALSO take the place-cursor — two indicators for
-  // one armed tool, the blue caret sitting on top of the very `tr` it was standing in for.
+  // ⚠️ The TRILL and the OTTAVA are deliberately NOT here: both grew ghosts on 2026-08-17 (see
+  // {@link toolGhost}), and a tool that draws at the pointer must not ALSO take the place-cursor —
+  // two indicators for one armed tool, the blue caret sitting on the very glyph it stood in for.
   if (kind === 'dynamicEntry' || kind === 'tempoEntry' || kind === 'slur' || kind === 'hairpin'
-    || kind === 'ottava' || kind === 'pedal') return 'cursor-place'
+    || kind === 'pedal') return 'cursor-place'
   return 'cursor-default'
 }
 

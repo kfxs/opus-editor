@@ -419,7 +419,7 @@ function drawOttava(
       ? piece.x0 - inset
       : Math.max(piece.x0 - inset, barLeft / (here[0]?.scale ?? 1))
 
-    const numeralWidth = drawNumeral(ctx, startX, y, ottava.shift, piece.continuation)
+    const numeralWidth = drawOttavaNumeral(ctx, startX, y, ottava.shift, piece.continuation)
 
     // The dashed line runs from after the numeral to the fragment's end, at the numeral's mid-height.
     //
@@ -484,8 +484,13 @@ function drawOttava(
  * family that owns a true italic (see {@link OTTAVA_PAREN_LEFT} for why they cannot be the SMuFL
  * ones), raised off the numeral's baseline because a text paren descends and `8va` does not. This is
  * `TrillRenderer.drawSign`'s apparatus, arrived at from the same requirement.
+ *
+ * ⚠️ Exported for ONE caller outside this pass: the cursor ghost (`./OttavaGhost`), which draws the
+ * plain numeral at the pointer. It goes through this rather than through {@link OTTAVA_NUMERAL_GLYPHS}
+ * so the preview and the engraved mark are the same glyph at the same size by construction — exactly
+ * why `TrillRenderer.drawTrillSign` is exported beside it.
  */
-function drawNumeral(
+export function drawOttavaNumeral(
   ctx: RenderPass['context'],
   x: number,
   y: number,
