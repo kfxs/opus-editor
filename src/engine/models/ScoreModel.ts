@@ -603,6 +603,23 @@ export class ScoreModel {
     return hairpinOps.moveHairpinStartBySlot(this.score, id, direction)
   }
 
+  /** Put a hairpin's START on the lane slot at `target`, holding its END (the left square's DRAG).
+   *  See {@link hairpinOps.setHairpinStartAtSlot}. */
+  setHairpinStartAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {
+    return hairpinOps.setHairpinStartAtSlot(this.score, id, target)
+  }
+
+  /** Put a hairpin's END at the right edge of the lane slot at `target`, holding its start (the
+   *  right square's DRAG). See {@link hairpinOps.setHairpinEndAtSlot}. */
+  setHairpinEndAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {
+    return hairpinOps.setHairpinEndAtSlot(this.score, id, target)
+  }
+
+  /** Apply one frame of a hairpin-square drag. See {@link hairpinOps.applyHairpinDrag}. */
+  applyHairpinDrag(id: string, write: hairpinOps.HairpinDragWrite): boolean {
+    return hairpinOps.applyHairpinDrag(this.score, id, write)
+  }
+
   /** Flip a hairpin between crescendo and diminuendo. @returns the new type, or null. */
   toggleHairpinType(id: string): 'cresc' | 'dim' | null {
     return hairpinOps.toggleHairpinType(this.score, id)

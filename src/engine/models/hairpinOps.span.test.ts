@@ -15,7 +15,7 @@ import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addHairpin, addHairpinOverNotes, getHairpinById, hairpinSpan, resizeHairpinBySlot,
-  moveHairpinStartBySlot,
+  moveHairpinStartBySlot, setHairpinStartAtSlot, setHairpinEndAtSlot,
 } from './hairpinOps'
 
 describe('hairpinSpan', () => {
@@ -333,5 +333,67 @@ describe('moveHairpinStartBySlot — the start moves, the end does not', () => {
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
     expect(moveHairpinStartBySlot(score, id, -1)).toBe(true)
     expect(span(id)).toBe('1@1 → 1@4')
+  })
+})
+
+/**
+ * ⭐ {@link setHairpinStartAtSlot} / {@link setHairpinEndAtSlot} — the DRAG's two writes, where the
+ * cursor has already chosen a slot and the op only has to land the wedge on it.
+ *
+ * ⚠️ The pair that matters is the reckoning: the START goes to the slot's ONSET, the END to its RIGHT
+ * EDGE. Same address, two different beats, and getting the end wrong leaves the wedge stopping one
+ * note short of what you pointed at — which looks like a rendering bug and is not one.
+ */
+describe('setHairpinStartAtSlot / setHairpinEndAtSlot — landing on a dragged-to slot', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    for (const m of [1, 2]) {
+      for (const b of [0, 1, 2, 3]) {
+        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+      }
+    }
+    score = model.getScore()
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1) })!.id // 1@1 → 1@3
+  })
+
+  const span = () => {
+    const s = hairpinSpan(score, id)!
+    return `${s.startMeasure}@${fracToNumber(s.startBeat)} → ${s.endMeasure}@${fracToNumber(s.endBeat)}`
+  }
+
+  it('⭐ the END lands on the slot\'s RIGHT EDGE — the note you dragged onto is COVERED', () => {
+    // Gould's "finish at the right-hand edge of the last note". Aiming at the onset would stop the
+    // wedge one note short of the cursor, every time.
+    expect(setHairpinEndAtSlot(score, id, { measure: 2, beat: frac(1, 1) })).toBe(true)
+    expect(span()).toBe('1@1 → 2@2')
+  })
+
+  it('⭐ the START lands on the slot\'s ONSET, and the end does not move', () => {
+    expect(setHairpinStartAtSlot(score, id, { measure: 1, beat: frac(0, 1) })).toBe(true)
+    expect(span()).toBe('1@0 → 1@3')
+  })
+
+  it('drags the end BACK as readily as forward — one op, either direction', () => {
+    setHairpinEndAtSlot(score, id, { measure: 2, beat: frac(3, 1) })
+    expect(setHairpinEndAtSlot(score, id, { measure: 1, beat: frac(1, 1) })).toBe(true)
+    expect(span()).toBe('1@1 → 1@2')
+  })
+
+  it('⛔ declines a target that would leave the wedge covering no music', () => {
+    // Dragging the START onto the slot the wedge already ends on.
+    expect(setHairpinStartAtSlot(score, id, { measure: 1, beat: frac(3, 1) })).toBe(false)
+    expect(span()).toBe('1@1 → 1@3')
+  })
+
+  it('⛔ declines an address that is not a slot of this wedge\'s LANE', () => {
+    // Between two quarters: a place the keyboard could not reach either, so the drag may not.
+    expect(setHairpinEndAtSlot(score, id, { measure: 1, beat: frac(3, 2) })).toBe(false)
+    // …and a bar that does not exist.
+    expect(setHairpinStartAtSlot(score, id, { measure: 9, beat: frac(0, 1) })).toBe(false)
+    expect(span()).toBe('1@1 → 1@3')
   })
 })

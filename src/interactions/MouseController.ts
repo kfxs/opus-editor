@@ -23,7 +23,7 @@ import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
-import { armHairpinEndpointAt } from './elements/hairpinHandles'
+import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -136,6 +136,16 @@ export class MouseController {
   /** True once a preview re-anchor fired, so the drop records one undo entry. */
   private slurEndpointDragChanged = false
   private slurEndpointDragStartTime: number | null = null
+
+  // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
+  //     plan.md, the 2026-08-17 note). The RIGHT square re-lengths the wedge, the LEFT one moves its
+  //     start and holds the end: the drag twin of `Ctrl+Shift+←/→`, snapping to slots of its lane. ---
+  private isDraggingHairpinEnd = false
+  private draggedHairpinId: string | null = null
+  private draggedHairpinEnd: 'start' | 'end' | undefined = undefined
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private hairpinDragChanged = false
+  private hairpinDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -613,6 +623,15 @@ export class MouseController {
     // wedge's mouth, and `DYNAMIC_ELEMENT` runs ahead of `HAIRPIN_ELEMENT` in the chain — a handle
     // you can see must win the press. The module owns everything but the repaint.
     if (armHairpinEndpointAt(this.state, registry, coords.x, coords.y)) {
+      // Click = pick the square; drag (decided on move, past the same time threshold every other
+      // handle uses) moves that end. The square stays armed after either, so the arrows can carry on
+      // from where the mouse stopped.
+      const armed = selectedOf(this.state, 'hairpin')
+      this.isDraggingHairpinEnd = true
+      this.draggedHairpinId = armed?.id ?? null
+      this.draggedHairpinEnd = armed?.endpoint
+      this.hairpinDragChanged = false
+      this.hairpinDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1284,6 +1303,9 @@ export class MouseController {
     if (this.isDraggingSlurEndpoint) {
       this.endSlurEndpointDrag()
     }
+    if (this.isDraggingHairpinEnd) {
+      this.endHairpinEndDrag()
+    }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
     }
@@ -1387,6 +1409,21 @@ export class MouseController {
       if (d < bestDist) { bestDist = d; bestId = el.id }
     }
     return bestId
+  }
+
+  /** Finish a hairpin-square drag: record one undo entry if the wedge actually moved, then reset.
+   *  The square stays armed — the drop is the end of the gesture, not of the selection. */
+  private endHairpinEndDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.hairpinDragChanged && this.draggedHairpinEnd) {
+      engine.commitHairpinDrag(this.draggedHairpinEnd)
+      dbg(`Hairpin ${this.draggedHairpinEnd} dragged | id:${this.draggedHairpinId}`)
+    }
+    this.isDraggingHairpinEnd = false
+    this.draggedHairpinId = null
+    this.draggedHairpinEnd = undefined
+    this.hairpinDragChanged = false
+    this.hairpinDragStartTime = null
   }
 
   /** Finish a slur-endpoint drag: record one undo entry if it re-anchored, clear the
@@ -1982,6 +2019,7 @@ export class MouseController {
     if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
+    if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2146,6 +2184,31 @@ export class MouseController {
     ]
     if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces, this.draggedSlurSegment, this.draggedSlurSpanCount)) {
       this.slurDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * ⭐ Hairpin square drag: snap the grabbed end onto the nearest SLOT of the wedge's own lane and
+   * write it live (no undo), so the wedge follows the cursor in whole notes.
+   *
+   * ⭐ **Which end moves is which square you grabbed**, and the two are different model writes: the
+   * RIGHT one re-lengths the wedge, the LEFT one moves its start and HOLDS the end
+   * (`hairpinOps` — `beat` and `length` written together). Exactly the pair `Ctrl+Shift+←/→` runs,
+   * so the mouse and the keyboard cannot drift onto different wedges.
+   *
+   * ⚠️ The engine's preview declines a target that would collapse the wedge, so the drag simply
+   * stops at one slot rather than needing a clamp of its own. Returns true while a drag is active.
+   */
+  private handleHairpinEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingHairpinEnd && this.draggedHairpinId && this.draggedHairpinEnd)) return false
+    if (this.hairpinDragStartTime !== null
+        && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const write = hairpinDragTargetAt(engine, this.draggedHairpinId, this.draggedHairpinEnd, x, y)
+    if (!write) return true
+    if (engine.previewHairpinEnd(this.draggedHairpinId, write)) {
+      this.hairpinDragChanged = true
       this.render.renderScore()
     }
     return true

@@ -296,7 +296,7 @@ function locate(score: Score, id: string): {
 export function moveHairpinStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
   const placed = locate(score, id)
   if (!placed) return false
-  const { hairpin, startAbs, endAbs, lane } = placed
+  const { startAbs, lane } = placed
 
   const next = direction === -1
     // Reach BACK: the last slot beginning before the current start.
@@ -304,17 +304,111 @@ export function moveHairpinStartBySlot(score: Score, id: string, direction: 1 | 
     // Step IN: the first slot beginning after it — and never as far as the end.
     : lane.find(s => fracCompare(s.abs, startAbs) > 0)
   if (!next) return false
-  const length = fracSub(endAbs, next.abs)
+  return setHairpinStartAtSlot(score, id, next)
+}
+
+/** A lane slot named by its address — what a DRAG hands the two ops below, having found it from the
+ *  cursor rather than by stepping. */
+export interface HairpinSlotTarget {
+  measure: number
+  beat: Fraction
+}
+
+/**
+ * ⭐ **Put the wedge's START on `target`, holding its END** — the drag's half of
+ * {@link moveHairpinStartBySlot}, which now steps by finding a slot and calling this.
+ *
+ * Same invariant, and this is where it is actually kept: `beat` and `length` are written together,
+ * so the end does not move. Declines when `target` is not a slot of the hairpin's own lane, or when
+ * it would reach or pass the end.
+ */
+export function setHairpinStartAtSlot(score: Score, id: string, target: HairpinSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { hairpin, endAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  const length = fracSub(endAbs, slot.abs)
   if (!fracIsPositive(length)) return false
 
   // ⭐ Both fields, one step. See the invariant above.
-  if (next.measure !== hairpinMeasure(score, id)?.number) {
-    if (!moveHairpinToMeasure(score, hairpin, next.measure)) return false
+  if (slot.measure !== hairpinMeasure(score, id)?.number) {
+    if (!moveHairpinToMeasure(score, hairpin, slot.measure)) return false
   }
-  hairpin.beat = next.beat
+  hairpin.beat = slot.beat
   hairpin.length = length
   hairpinMeasure(score, id)?.hairpins?.sort((a, b) => fracCompare(a.beat, b.beat))
   return true
+}
+
+/**
+ * ⭐ **Put the wedge's END at the RIGHT EDGE of `target`, holding its start** — i.e. COVER that slot.
+ * The drag's way of reaching past the last note in the lane, and the reckoning
+ * {@link resizeHairpinBySlot} grows by (Gould's "finish at the right-hand edge of the last note").
+ *
+ * Declines when `target` is not a slot of the hairpin's own lane, or when the wedge would cover no
+ * music. Only `length` moves here — the start is a field nobody touches.
+ */
+export function setHairpinEndAtSlot(score: Score, id: string, target: HairpinSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  return setHairpinLength(score, id, fracSub(fracAdd(slot.abs, slot.length), startAbs))
+}
+
+/**
+ * ⭐⭐ **Put the wedge's END just BEFORE `target` — its tip lands on that slot's left edge, and the
+ * slot is NOT covered.** The drag's ordinary write, and the one that makes a dragged tip track the
+ * cursor.
+ *
+ * ⭐ **Because that is where the renderer puts the tip.** `HairpinRenderer.spanX` draws the end at
+ * `noteLeftX(endBeat)` — the left edge of the first UNCOVERED note — so the tip's possible positions
+ * on screen are exactly the lane's onsets. Ending "at the right edge of the slot you pointed at"
+ * (which is what {@link setHairpinEndAtSlot} does, and what a first cut of the drag used) therefore
+ * draws the tip one whole note to the RIGHT of the note under the cursor: *"sometimes it jumps
+ * before x mouse reach the target"*, his report, 2026-08-17. Snapping the drag to the drawn boundary
+ * instead makes the jump land where the pointer is.
+ *
+ * ⚠️ It follows that the two writes are not redundant: this one is "the tip goes here", the other is
+ * "this note is covered". A drag past the last note in the lane has no onset to aim at and uses that
+ * one; every other frame uses this.
+ *
+ * Declines when `target` is not a slot of the hairpin's own lane, or when the wedge would cover no
+ * music (dragging the tip back onto its own start).
+ */
+export function setHairpinEndBeforeSlot(score: Score, id: string, target: HairpinSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  return setHairpinLength(score, id, fracSub(slot.abs, startAbs))
+}
+
+/**
+ * What one frame of a hairpin drag asks for — an address plus WHICH BOUNDARY of it the grabbed
+ * square is being put on.
+ *
+ * ⭐ Three cases rather than two, because the tip and the start read a slot differently: a start
+ * takes a slot's onset as its own, a tip takes an onset as its (exclusive) end, and only a drag
+ * running off the last note in the lane asks for a slot to be COVERED. Naming them here keeps that
+ * geometry in the model, beside the ops that implement it, rather than in the mouse handler.
+ */
+export type HairpinDragWrite = HairpinSlotTarget & {
+  at: 'start' | 'endBefore' | 'endCovering'
+}
+
+/** Apply one frame of a drag. See {@link HairpinDragWrite}. */
+export function applyHairpinDrag(score: Score, id: string, write: HairpinDragWrite): boolean {
+  const target = { measure: write.measure, beat: write.beat }
+  if (write.at === 'start') return setHairpinStartAtSlot(score, id, target)
+  if (write.at === 'endBefore') return setHairpinEndBeforeSlot(score, id, target)
+  return setHairpinEndAtSlot(score, id, target)
 }
 
 /** Re-file a hairpin under the measure it now starts in, keeping the SAME object (and id) so a

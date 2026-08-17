@@ -2,6 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
+import type { HairpinDragWrite } from './models/hairpinOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -1052,6 +1053,26 @@ export class MusicEngine {
     const ok = this.scoreModel.moveHairpinStartBySlot(id, direction)
     if (ok) this.commit(direction === -1 ? 'Extend hairpin start' : 'Trim hairpin start')
     return ok
+  }
+
+  /**
+   * Live (preview) end-move used **while dragging a hairpin's square** — writes the model but does
+   * NOT record undo; call {@link commitHairpinDrag} on the drop for the single entry (the
+   * `previewSlurEndpoint` / `commitSlurEndpoint` pair, and for its reason: every frame of a drag
+   * would otherwise be its own undo step).
+   *
+   * `write` carries the address AND which boundary of it the grabbed square lands on — the tip sits
+   * where the renderer draws it, which is a note's left edge rather than its head (see
+   * {@link HairpinDragWrite}). @returns true when the model changed.
+   */
+  previewHairpinEnd(id: string, write: HairpinDragWrite): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitHairpinDrag — see previewSlurShape
+    return this.scoreModel.applyHairpinDrag(id, write)
+  }
+
+  /** Record ONE undo entry after a hairpin-square drag settles. */
+  commitHairpinDrag(which: 'start' | 'end'): void {
+    this.commitPreviewed(which === 'start' ? 'Move hairpin start' : 'Resize hairpin')
   }
 
   /** Flip a hairpin between crescendo and diminuendo. Saves undo state. @returns the new type. */

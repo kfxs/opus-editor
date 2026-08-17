@@ -1309,3 +1309,53 @@ between the two writes — and an undo entry taken in between stores a span nobo
 ⭐ A start reaching back across a barline **re-files the hairpin under the bar it now begins in** (the
 list it lives in *is* "the wedges that start here"), keeping the same object and the same id — the id
 is what the selection holds, and a re-created hairpin would deselect itself mid-gesture.
+
+
+## 2026-08-17 (later) — the squares DRAG, and the snap rule that makes them land where you point
+
+*"i want to be able to do the last two operations with the endpoints dragging with the mouse, similar
+to what we do in slur… take into account the current x position of the mouse and the target anchor to
+make the jump so it match the movement."* So each square now drags: the RIGHT one re-lengths the
+wedge, the LEFT one moves its start and holds the end — the same two model writes `Ctrl+Shift+←/→`
+makes, so the mouse and the keyboard cannot land on different wedges. One undo per drop
+(`previewHairpinEnd` / `commitHairpinDrag`, the `previewSlurEndpoint` pair's arrangement).
+
+### ⭐⭐ Snap to the BOUNDARY the renderer draws, not to the notehead
+
+The first cut copied the slur's rule — nearest notehead by distance — and he found it twice wrong:
+*"sometimes it jumps before x mouse reach the target"* (the right square), then *"with the left point
+is not that accurate either"*, and *"i tried the slur and in the slur is much more accurate"*. That
+last one is the diagnosis. **The slur's rule is right FOR THE SLUR because a slur's endpoint is drawn
+ON the notehead it snaps to**, so the ink follows the cursor. A wedge's tips are not:
+
+    spanX():  startX = noteLeftX(first COVERED note)
+              endX   = noteLeftX(first UNCOVERED note)   // …or the bar's end
+
+Both tips sit on a note's **left edge**, and the end's is the edge of the note it does *not* cover. So
+snapping to notehead CENTRES was wrong twice over: half a notehead early on both ends, and a whole
+note late on the tip — the wedge grew past the pointer, which is exactly what "jumps before the mouse
+reaches the target" looks like.
+
+The fix is to snap to what is actually drawn. The candidates are the lane's **onsets** (each the left
+edge of a note), and the answer is read differently by the two squares:
+
+| grabbed square | nearest boundary → | model write |
+|---|---|---|
+| left  | that onset is the wedge's new START | `setHairpinStartAtSlot` |
+| right | the tip lands on that onset, so the note there is NOT covered | `setHairpinEndBeforeSlot` |
+| right, dragged past the last note | there is no onset after the music | `setHairpinEndAtSlot` (covers it) |
+
+⭐ That third row is why "cover this slot" and "end before this slot" are two ops rather than one:
+every boundary but the last is an onset, and the final note could otherwise never be included.
+
+⚠️ The distance is measured in BOTH axes even though only x carries the answer within a system — the
+y term is what stops a drag on system 2 snapping to a similar x on system 1 (cross-system x's are not
+one ruler). The radius is generous, because the cursor rides the wedge's line several spaces BELOW
+the noteheads it is choosing between.
+
+⚠️ A CHORD is ONE boundary — its leftmost head, the edge the wedge is drawn against — though it
+registers an element per notehead.
+
+⛔ And a drag still cannot put an end between two notes: the cursor picks a slot, the slot decides the
+geometry. A wedge's extent is musical, and the model has nowhere to store "two thirds of the way to
+the next quaver".
