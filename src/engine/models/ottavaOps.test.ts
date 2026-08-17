@@ -20,6 +20,7 @@ import {
   addOttava, removeOttava, updateOttava, setOttavaLength, toggleOttavaDirection,
   getOttavaById, ottavaMeasure, measureOttavas, ottavaEndBeat, ottavaSpan, addOttavaOverNotes,
   resizeOttavaBySlot, moveOttavaStartBySlot, applyOttavaDrag,
+  setOttavaEndpointOffset, resetOttavaEndpointOffset,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
 
@@ -28,6 +29,7 @@ import { soundingShiftAt } from '@/utils/soundingShift'
 const soundingShiftAtBeat = (score: Score, measure: number, beat: number) =>
   soundingShiftAt(score, measure, frac(beat, 1))
 import { setEngravingOverride } from './overrideOps'
+import { ottavaOffsetOverrideOf } from './engravingOverrides'
 import { engravingOverridesOf } from './engravingOverrides'
 
 describe('ottavaOps — storage', () => {
@@ -614,5 +616,106 @@ describe('ottavaOps — applyOttavaDrag', () => {
     expect(measureOttavas(score.measures[1]).map(x => x.id)).toEqual([o.id])
     expect(score.measures[0].ottavas).toBeUndefined()
     expect(spanOf(o.id), 'and the end has not moved').toEqual([2, 1, 2, 2])
+  })
+})
+
+/**
+ * ⭐⭐ The bracket's INK — {@link setOttavaEndpointOffset}, the endpoint squares' OTHER category of
+ * edit (the plain and `Ctrl` arrows, where `Ctrl+Shift` moves the music).
+ *
+ * ⭐⭐ **Every case here exists to pin ONE claim: there is no per-end `y`.** His rule — *"ottava is a
+ * straight line, so offset in y should result in offset the two points in y"* — is kept in the SHAPE
+ * of {@link OttavaOffsetOverride} rather than by the code that writes it, so what these assert is
+ * that a `dy` asked for from either square lands on one shared number and that nothing can put a
+ * second one anywhere.
+ */
+describe('ottavaOps — the endpoint squares\' ink offsets', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    score = model.getScore()
+    id = addOttava(score, 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!.id
+  })
+
+  const off = () => ottavaOffsetOverrideOf(score, id)
+
+  it('⭐⭐ a dy from EITHER square lands on the ONE shared y — the line cannot tilt', () => {
+    setOttavaEndpointOffset(score, id, 'start', 0, -1)
+    // ⭐ Zeros are not stored — a purely vertical nudge leaves no `startX` behind. See
+    // `writeOttavaOffset` for why the shared `y` makes that necessary rather than merely tidy.
+    expect(off()).toEqual({ kind: 'ottavaOffset', y: -1 })
+    // …and the far square adds to the SAME number rather than getting one of its own.
+    setOttavaEndpointOffset(score, id, 'end', 0, -0.5)
+    expect(off()).toEqual({ kind: 'ottavaOffset', y: -1.5 })
+    // ⛔ The structural half of the claim: there is nowhere a second height could live.
+    expect(Object.keys(off()!).filter(k => k.toLowerCase().includes('y'))).toEqual(['y'])
+  })
+
+  it('⭐ x stays PER END — the beginning pulls the numeral, the end pulls the hook', () => {
+    setOttavaEndpointOffset(score, id, 'start', 1, 0)
+    setOttavaEndpointOffset(score, id, 'end', -2, 0)
+    expect(off()).toMatchObject({ startX: 1, endX: -2 })
+  })
+
+  it('ACCUMULATES, so a held arrow key walks rather than re-setting', () => {
+    setOttavaEndpointOffset(score, id, 'end', 0.25, 0)
+    setOttavaEndpointOffset(score, id, 'end', 0.25, 0)
+    setOttavaEndpointOffset(score, id, 'end', 0.25, 0)
+    expect(off()).toMatchObject({ endX: 0.75 })
+  })
+
+  it('⚠️ SURVIVES a re-anchor of the extent — the nudge is about the drawing, not about a note', () => {
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+    setOttavaEndpointOffset(score, id, 'end', 1.5, -1)
+    resizeOttavaBySlot(score, id, -1)
+    expect(off(), 'untouched by the extent edit').toMatchObject({ endX: 1.5, y: -1 })
+  })
+
+  it('declines for an id no ottava has, and writes nothing', () => {
+    expect(setOttavaEndpointOffset(score, 'nope', 'start', 1, 1)).toBe(false)
+    expect(ottavaOffsetOverrideOf(score, 'nope')).toBeUndefined()
+  })
+
+  it('⭐ the RESET drops that end\'s x AND the shared y, keeping the other end\'s x', () => {
+    setOttavaEndpointOffset(score, id, 'start', 1, -1)
+    setOttavaEndpointOffset(score, id, 'end', 2, 0)
+    expect(resetOttavaEndpointOffset(score, id, 'start')).toBe(true)
+    // ⭐ There is no "reset only this end's height", because there is no such height.
+    expect(off()).toEqual({ kind: 'ottavaOffset', endX: 2 })
+  })
+
+  it('PRUNES the whole entry when nothing is left, so "absent = none" holds', () => {
+    setOttavaEndpointOffset(score, id, 'end', 1, -1)
+    expect(resetOttavaEndpointOffset(score, id, 'end')).toBe(true)
+    expect(off()).toBeUndefined()
+  })
+
+  it('⭐ the reset DECLINES when that square carries nothing, so the key falls through', () => {
+    expect(resetOttavaEndpointOffset(score, id, 'start')).toBe(false)
+    // ⭐⭐ THE CASE THAT FORCED ZERO-PRUNING: a purely horizontal nudge of the END computes a `y` of
+    // 0, and storing that zero would make the untouched START square claim a nudge — so
+    // Ctrl+Backspace there would answer instead of falling through to the note-spacing reset.
+    setOttavaEndpointOffset(score, id, 'end', 1, 0)
+    expect(resetOttavaEndpointOffset(score, id, 'start'), 'the start carries nothing').toBe(false)
+    // …and once the bracket IS lifted, either square resets it — the height belongs to both.
+    setOttavaEndpointOffset(score, id, 'end', 0, -1)
+    expect(resetOttavaEndpointOffset(score, id, 'start')).toBe(true)
+  })
+
+  it('⭐ nudging back to zero leaves the score EXACTLY as it was found', () => {
+    setOttavaEndpointOffset(score, id, 'start', 0.5, -0.5)
+    setOttavaEndpointOffset(score, id, 'start', -0.5, 0.5)
+    expect(off(), 'no entry, not an entry full of zeros').toBeUndefined()
+  })
+
+  it('⚠️ dies with the ottava — an override may not outlive its anchor', () => {
+    setOttavaEndpointOffset(score, id, 'start', 1, -1)
+    removeOttava(score, id)
+    expect(ottavaOffsetOverrideOf(score, id)).toBeUndefined()
   })
 })

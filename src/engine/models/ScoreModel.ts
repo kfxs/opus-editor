@@ -722,6 +722,18 @@ export class ScoreModel {
     return ottavaOps.moveOttavaStartBySlot(this.score, id, direction)
   }
 
+  /** Nudge one drawn END of an ottava, accumulating — ⭐ `dy` lands on the WHOLE bracket, since it
+   *  is a straight line. See {@link ottavaOps.setOttavaEndpointOffset}. */
+  setOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    return ottavaOps.setOttavaEndpointOffset(this.score, id, which, dx, dy)
+  }
+
+  /** Drop the armed square's nudge — that end's `x` AND the shared `y`. @returns false when it
+   *  carries none. See {@link ottavaOps.resetOttavaEndpointOffset}. */
+  resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    return ottavaOps.resetOttavaEndpointOffset(this.score, id, which)
+  }
+
   /** Apply one frame of an ottava endpoint-square DRAG — see {@link ottavaOps.applyOttavaDrag}. */
   applyOttavaDrag(id: string, write: ottavaOps.OttavaDragWrite): boolean {
     return ottavaOps.applyOttavaDrag(this.score, id, write)

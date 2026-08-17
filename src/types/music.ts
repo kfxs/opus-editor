@@ -989,6 +989,45 @@ export interface HairpinApertureOverride extends EngravingOverride {
 }
 
 /**
+ * A hand-nudged OCTAVE BRACKET — where its ink is drawn, in **staff-spaces**, reached from either of
+ * its two endpoint squares (his ask, 2026-08-17: *"the square points offset"*).
+ *
+ * ⭐⭐ **THREE numbers, not two pairs, and the missing fourth IS the rule.** His words: *"take into
+ * consideration that ottava is a straight line, so offset in y should result in offset the two points
+ * in y."* An octave bracket is a horizontal rule with a hook — a `y` on one end and a different `y`
+ * on the other would TILT it, which is not a shape this notation has. So the vertical is **one
+ * number for the whole bracket** and there is nowhere to store a second: the illegal state is
+ * unrepresentable rather than merely avoided by the code that writes it.
+ *
+ * ⛔ **This is the one place it differs from {@link HairpinEndpointOffsetOverride}**, whose per-end
+ * `{x, y}` pairs are right for a wedge precisely because a `y` on ONE end tilting it is a legitimate
+ * shape there. Copying that structure here and writing both `y`s together would be two numbers that
+ * can disagree about a quantity the notation only has one of — the disagreement this whole
+ * compartment exists to prevent.
+ *
+ * ⭐ The horizontal stays PER END, because the two ends do different jobs: `startX` pulls the numeral
+ * (and the line that leaves it), `endX` pulls the closing hook. Shortening the drawn bracket without
+ * changing which notes are displaced is exactly what an override is for.
+ *
+ * ⚠️ It SURVIVES a resize, a start-move or a drag of the extent, {@link HairpinEndpointOffsetOverride}'s
+ * rule and for its reason: the nudge says "half a space higher than wherever this bracket lands",
+ * which is a statement about the drawing rather than about the note it happened to be near.
+ * `Ctrl+Backspace` on an armed square drops that end's `x` **and** the shared `y`; it all dies with
+ * the ottava.
+ */
+export interface OttavaOffsetOverride extends EngravingOverride {
+  kind: 'ottavaOffset'
+  /** The BEGINNING's horizontal nudge, staff-spaces (+ right). Moves the numeral and the line
+   *  leaving it; the far end stays where it is. */
+  startX?: number
+  /** The END's horizontal nudge, staff-spaces (+ right). Moves the closing hook alone. */
+  endX?: number
+  /** ⭐⭐ The WHOLE bracket's vertical nudge, staff-spaces (+ down) — ONE number, because the
+   *  bracket is a straight line. See this interface's own note. */
+  y?: number
+}
+
+/**
  * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
  * point where the slur leaves one system and resumes on the next). BEGIN has only an
  * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.

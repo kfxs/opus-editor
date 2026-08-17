@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -100,6 +100,13 @@ export function segmentEndpointOffsetOverrideOf(score: Score, elementId: string)
  *  See {@link HairpinEndpointOffsetOverride}. */
 export function hairpinEndpointOffsetOverrideOf(score: Score, elementId: string): HairpinEndpointOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'hairpinEndpointOffset') as HairpinEndpointOffsetOverride | undefined
+}
+
+/** An octave bracket's hand-nudged ink, or undefined when it has none. A straight read, the
+ *  hairpin's above — but ⭐ THREE numbers rather than two pairs, because the bracket is a straight
+ *  line and its `y` is one quantity for the whole span. See {@link OttavaOffsetOverride}. */
+export function ottavaOffsetOverrideOf(score: Score, elementId: string): OttavaOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'ottavaOffset') as OttavaOffsetOverride | undefined
 }
 
 /** A hairpin's hand-set MOUTH, or undefined when the automatic (length-aware) aperture stands.

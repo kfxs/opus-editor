@@ -49,10 +49,12 @@ import { Element } from 'vexflow'
 import type { Score, Ottava, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { ottavaSpan, type OttavaSpan } from '@/engine/models/ottavaOps'
+import { ottavaOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
 import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare } from '@/utils/fraction'
+import { dbg } from '@/utils/debug'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
@@ -385,10 +387,30 @@ function drawOttava(
   const side: 'above' | 'below' = ottava.shift > 0 ? 'above' : 'below'
   const ctx = pass.context
 
+  // ⭐⭐ THE HAND-NUDGED INK — the two endpoint squares' own category of edit (`OttavaOffsetOverride`).
+  // Three numbers, not two pairs: `y` is ONE quantity for the whole bracket, because an octave line
+  // is a straight horizontal rule and a per-end `y` would tilt it. That is why the vertical is
+  // applied to `baseline` INSIDE the loop below — every fragment gets the same lift, in its own
+  // staff's spaces — while the two x's are applied here, to the span's ends.
+  const nudge = ottavaOffsetOverrideOf(pass.score, ottava.id)
+
   // ⭐ AIR AFTER THE LAST NOTE — his call; see {@link OTTAVA_END_AIR}. ⚠️ Added to the SPAN's end
   // BEFORE cutting into pieces, which is what keeps it off a system break: a fragment that ends at
   // the margin is created by the cut, so it never sees this.
   const endX = x.endX + staffSpacesToPixels(OTTAVA_END_AIR, from.stave)
+
+  // ⛔⛔ **THE HAND NUDGE IS DELIBERATELY NOT IN THE NUMBERS ABOVE**, and both halves of that matter.
+  //
+  // ⭐ It must not reach the CUT: which system a bracket begins and ends on is a fact about the music
+  // it covers, and a cosmetic nudge that could push its start onto the previous system would make a
+  // pixel adjustment re-fragment the drawing.
+  // 🚨 And it must not be CLAMPED. Applied here, the start's nudge went through
+  // `Math.max(…, barLeft)` below — a clamp that exists to stop the AUTOMATIC continuation inset
+  // reaching back onto the clef — so `←` moved the `8va` exactly one space and then silently stopped
+  // dead at the barline (his report, 2026-08-17: *"i cannot offset the right side from a limit"*,
+  // with a log showing `numeralX` frozen at 350.0 while the ask ran on to −45). A machine's guess is
+  // worth clamping; the engraver's own instruction is not. Both x's are therefore added AFTER every
+  // automatic decision, at the two sites marked below.
 
   let firstPiece = true
   for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)) {
@@ -398,10 +420,17 @@ function drawOttava(
     const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
     const baseline = baselineFor(
       pass, here.length ? here : covered, span, staffId, firstStaffId, side, piece.line, starts)
-    const y = stave.getYForLine(0) + px(baseline)
+    // ⭐⭐ THE SHARED VERTICAL NUDGE, applied to every fragment alike — which is what makes "offset in
+    // y offsets BOTH points" true across a system break as well as within one. It moves the numeral,
+    // the dashes and the hook together, because all three are measured off this baseline.
+    const y = stave.getYForLine(0) + px(baseline + (nudge?.y ?? 0))
 
     // ⭐ THE LADDER CLAIM — so the tempo mark, which is placed after every family, clears this
     //   bracket. ⚠️ Per FRAGMENT, in that fragment's own beats.
+    // ⚠️ **From the UN-nudged baseline, deliberately** — `HairpinRenderer` files its claim before its
+    // own endpoint offsets too. A hand nudge is the engraver overruling the automatic placement, and
+    // making it push the tempo mark above would turn one deliberate move into a cascade nobody asked
+    // for. The cost is the honest one: nudge a bracket up far enough and it is yours to keep clear.
     const claim = ottavaFragmentClaim(
       here.length ? here : covered, span, piece.line, staffId, side, baseline, starts)
     if (claim) pass.occupiedBands.push(claim)
@@ -416,9 +445,13 @@ function drawOttava(
     // never reach back past the stave and collide with the clef.
     const barLeft = here[0] ? pass.measureBounds.get(here[0].measureNumber)?.measureX : undefined
     const inset = piece.continuation ? px(OTTAVA_CONTINUATION_INSET) : 0
-    const startX = barLeft === undefined
+    const autoStartX = barLeft === undefined
       ? piece.x0 - inset
       : Math.max(piece.x0 - inset, barLeft / (here[0]?.scale ?? 1))
+    // ⭐ …and the START square's own nudge on top of that clamp, never inside it — see the note above
+    // the loop. ⚠️ Only on the piece carrying the real beginning: a continuation `(8va)` is a
+    // reminder the reader gets for free, not the end the user grabbed.
+    const startX = autoStartX + (piece.continuation ? 0 : px(nudge?.startX ?? 0))
 
     const numeralWidth = drawOttavaNumeral(ctx, startX, y, ottava.shift, piece.continuation)
 
@@ -436,9 +469,34 @@ function drawOttava(
     // numeral, so the bracket can always CLOSE — see that constant for the case that forces it (a
     // `(8)` wider than the single notehead it covers) and for why this is the one place the drawing
     // knowingly overruns Gould's rule 2. A non-final fragment runs to the margin and needs nothing.
-    const lineEnd = piece.final ? Math.max(piece.x1, lineStart + px(OTTAVA_MIN_LINE)) : piece.x1
+    // ⭐ The END square's nudge, on the piece carrying the real end — again after the cut, and before
+    // the only floor that legitimately overrules it: a bracket too short to CLOSE is not a drawing.
+    const nudgedX1 = piece.final ? piece.x1 + px(nudge?.endX ?? 0) : piece.x1
+    const lineEnd = piece.final ? Math.max(nudgedX1, lineStart + px(OTTAVA_MIN_LINE)) : piece.x1
     const hasLine = lineEnd > lineStart
     if (hasLine) drawDashes(ctx, lineStart, lineEnd, lineY, px)
+
+    // ⚠️ THE NUDGE TRACE — his ask, 2026-08-17 (*"give logs for offset and 8va position x"*), after
+    // reporting that the RIGHT end stops moving at some limit. Everything that can eat an `endX`
+    // nudge is named here, in the order it can fire:
+    //   `asked`   — the offset the model holds, in staff spaces
+    //   `spanEnd` — the note-derived end + air + nudge, BEFORE the cut
+    //   `pieceX1` — after the cut: SMALLER than `spanEnd` means `planSlurSegments` clipped it to the
+    //               system's right MARGIN, which is the clamp a rightward nudge runs into
+    //   `lineEnd` — after `OTTAVA_MIN_LINE`: LARGER than `pieceX1` means a leftward nudge hit the
+    //               floor that keeps the bracket long enough to close
+    // ⭐ `numeralX` is the `8va`'s own x, the other half of what he asked for.
+    if (nudge) {
+      const floor = piece.final && lineEnd - nudgedX1 > 0.5
+        ? ` ⚠️MIN-LINE floor +${(lineEnd - nudgedX1).toFixed(1)}px (too short to close)` : ''
+      dbg(
+        `[ottava] id:${ottava.id.slice(0, 6)} line:${piece.line} final:${piece.final}`
+        + ` | asked startX:${nudge.startX ?? 0} endX:${nudge.endX ?? 0} y:${nudge.y ?? 0} (spaces, 1sp=${px(1).toFixed(1)}px)`
+        + ` | numeralX:${autoStartX.toFixed(1)}→${startX.toFixed(1)} w:${numeralWidth.toFixed(1)} lineStart:${lineStart.toFixed(1)}`
+        + ` | pieceX1:${piece.x1.toFixed(1)}→${nudgedX1.toFixed(1)} → lineEnd:${lineEnd.toFixed(1)}`
+        + floor,
+      )
+    }
 
     // ⭐⭐ §1 rule 3 — NEVER A DANGLING HOOK. Only the fragment carrying the span's true end may
     // close, and only if it actually drew a horizontal to close: a hook alone would tell the reader

@@ -842,6 +842,31 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐⭐ **Nudge the armed end of an octave bracket's INK** — a plain or `Ctrl` arrow with that square
+   * armed. Staff-spaces; screen-down is +y.
+   *
+   * ⭐ **`dy` moves the WHOLE bracket** however it is asked for, because an octave line is a straight
+   * horizontal rule and {@link OttavaOffsetOverride} has nowhere to put a second height. That is his
+   * rule, kept in the model's SHAPE rather than in the code that writes it.
+   *
+   * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, unlike
+   * the extent edits above it.
+   */
+  nudgeOttavaEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, dy)
+    if (ok) this.saveOnly('Nudge octave line')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` on an armed square: that end's `x` and the shared `y` back to the engraver's
+   *  own. @returns false when it carries no nudge, so the key falls through. */
+  resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    const ok = this.scoreModel.resetOttavaEndpointOffset(id, which)
+    if (ok) this.saveOnly('Reset octave line nudge')
+    return ok
+  }
+
+  /**
    * Live (preview) end-move used **while dragging one of an ottava's squares** — writes the model
    * but does NOT record undo; call {@link commitOttavaDrag} on the drop for the single entry. The
    * hairpin's `previewHairpinEnd` / `commitHairpinDrag` pair verbatim, and for its reason: every

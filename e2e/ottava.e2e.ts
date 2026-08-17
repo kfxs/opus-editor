@@ -311,3 +311,144 @@ test('an 8va does NOT move a notehead — written pitch, so no bar gets wider', 
   // an octave line changes what a note SOUNDS, never where its head sits.
   expect(after).toEqual(before)
 })
+
+/**
+ * ⭐⭐ **THE ENDPOINT SQUARES' INK NUDGE — and the one claim that can only be made here** (his ask,
+ * 2026-08-17: *"take into consideration that ottava is a straight line, so offset in y should result
+ * in offset the two points in y"*).
+ *
+ * The model half is unit-tested (`ottavaOps.test.ts`: there is one `y` and both squares write it).
+ * What a headless test cannot say is that the DRAWING stayed straight — that the numeral, the dashes
+ * and the hook all moved together and by the same amount. Every one of those is measured ink, and
+ * measured ink is 0 in jsdom.
+ */
+async function nudgedBracket(
+  score: import('@playwright/test').Page,
+  offset: { startX?: number; endX?: number; y?: number },
+) {
+  return score.evaluate(async (offset) => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    const ottava = h.engine.addOttava(1, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
+    await h.render()
+    const before = {
+      glyphs: h.placed('g.vf-ottava text'),
+      segments: h.segments('g.vf-ottava path'),
+    }
+    // The two squares' own writes, through the same door the arrow keys use.
+    if (offset.startX) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', offset.startX, 0)
+    if (offset.endX) h.engine.nudgeOttavaEndpoint(ottava.id, 'end', offset.endX, 0)
+    if (offset.y) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', 0, offset.y)
+    await h.render()
+    return {
+      before,
+      after: {
+        glyphs: h.placed('g.vf-ottava text'),
+        segments: h.segments('g.vf-ottava path'),
+      },
+      spacing: (h.staves()[0].bottom - h.staves()[0].top) / 4,
+    }
+  }, offset)
+}
+
+test('⭐⭐ a `y` nudge moves BOTH ends of the bracket by the SAME amount — it stays straight', async ({ score }) => {
+  // −1 staff space: up, since y grows downward.
+  const { before, after, spacing } = await nudgedBracket(score, { y: -1 })
+  const lineBefore = horizontalOf(before.segments)!
+  const lineAfter = horizontalOf(after.segments)!
+  const hookBefore = hookOf(before.segments)!
+  const hookAfter = hookOf(after.segments)!
+
+  const lifted = lineBefore.y1 - lineAfter.y1
+  expect(lifted, 'one staff space up').toBeCloseTo(spacing, 0)
+  // ⭐⭐ THE CLAIM: the far end of the same line rose by the same amount, so it is still level…
+  expect(lineAfter.y1).toBeCloseTo(lineAfter.y2, 1)
+  expect(lineBefore.y2 - lineAfter.y2).toBeCloseTo(lifted, 1)
+  // …and the hook and the NUMERAL came with it, rather than the line detaching from its own mark.
+  expect(hookBefore.y1 - hookAfter.y1).toBeCloseTo(lifted, 1)
+  expect(before.glyphs[0].y - after.glyphs[0].y).toBeCloseTo(lifted, 1)
+  // ⛔ And nothing moved sideways: a vertical nudge is vertical.
+  expect(after.glyphs[0].x).toBeCloseTo(before.glyphs[0].x, 1)
+  expect(lineAfter.x2).toBeCloseTo(lineBefore.x2, 1)
+})
+
+test('⭐ an `endX` nudge pulls the HOOK alone, leaving the numeral where it was', async ({ score }) => {
+  const { before, after, spacing } = await nudgedBracket(score, { endX: -1 })
+  const lineBefore = horizontalOf(before.segments)!
+  const lineAfter = horizontalOf(after.segments)!
+  expect(lineBefore.x2 - lineAfter.x2, 'the far end came in one space').toBeCloseTo(spacing, 0)
+  expect(lineAfter.x1, 'the line still leaves the numeral where it did').toBeCloseTo(lineBefore.x1, 1)
+  expect(after.glyphs[0].x).toBeCloseTo(before.glyphs[0].x, 1)
+  expect(hookOf(after.segments)!.x1).toBeCloseTo(lineAfter.x2, 1) // the hook rode with it
+})
+
+test('⭐ a `startX` nudge pulls the NUMERAL and the line that leaves it, holding the hook', async ({ score }) => {
+  const { before, after, spacing } = await nudgedBracket(score, { startX: 1 })
+  const lineBefore = horizontalOf(before.segments)!
+  const lineAfter = horizontalOf(after.segments)!
+  expect(after.glyphs[0].x - before.glyphs[0].x, 'the numeral moved right one space').toBeCloseTo(spacing, 0)
+  expect(lineAfter.x1 - lineBefore.x1).toBeCloseTo(spacing, 0)
+  expect(lineAfter.x2, 'the far end stayed put').toBeCloseTo(lineBefore.x2, 1)
+})
+
+/**
+ * 🚨🚨 **HIS BUG, 2026-08-17: the nudge stopped dead at the barline** — *"i cannot offset the right
+ * side from a limit"*, with a log showing `numeralX` frozen at 350.0 while the ask ran on to −45
+ * spaces. The cause was `Math.max(piece.x0 − inset, barLeft)`, a clamp that exists to stop the
+ * AUTOMATIC continuation inset reaching back onto the clef, applied to the hand's nudge as well.
+ *
+ * ⭐ **A machine's guess is worth clamping; the engraver's own instruction is not.** The three cases
+ * above all nudge by ONE space and passed throughout — they never reached the clamp, which is
+ * precisely why this one nudges far enough to leave the bar.
+ */
+test('⭐⭐ a big nudge is NOT clamped at the barline — the hand overrules the automatic inset', async ({ score }) => {
+  // ⚠️⚠️ **THE FIXTURE IS THE TEST HERE, and the first version of it proved nothing.** Put the
+  // bracket in bar 1 and its numeral starts ~9 spaces right of the barline, because the clef and
+  // meter push the first note along — so a six-space nudge never reaches the clamp and the case
+  // passed against the BROKEN code. His score had the 8va on a later bar, where the numeral sits
+  // roughly 2px off the bar's left edge and `←` hits the clamp on the second press.
+  const { before, after, spacing, barLeft } = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addMeasure()
+    for (const measure of [1, 2]) {
+      for (const beat of [0, 1, 2, 3]) {
+        h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure, beat: h.frac(beat, 1) })
+      }
+    }
+    const ottava = h.engine.addOttava(2, { beat: h.frac(0, 1), length: h.frac(4, 1), shift: 1 })!
+    await h.render()
+    const before = { glyphs: h.placed('g.vf-ottava text'), segments: h.segments('g.vf-ottava path') }
+    // Six presses of `←`, one staff space each — the gesture, not one big write.
+    for (let i = 0; i < 6; i++) h.engine.nudgeOttavaEndpoint(ottava.id, 'start', -1, 0)
+    await h.render()
+    const stave = h.staves()[0]
+    return {
+      before,
+      after: { glyphs: h.placed('g.vf-ottava text'), segments: h.segments('g.vf-ottava path') },
+      spacing: (stave.bottom - stave.top) / 4,
+      // Bar 2's own left edge — the clamp that used to freeze the numeral.
+      barLeft: h.barlines().map(b => b.x).sort((a, b) => a - b)[1],
+    }
+  })
+
+  const moved = before.glyphs[0].x - after.glyphs[0].x
+  expect(moved, 'six spaces left, all six of them').toBeCloseTo(6 * spacing, 0)
+  // …and it really did leave the bar, or the clamp was simply never in the way.
+  expect(before.glyphs[0].x - barLeft, 'the fixture starts hard against the barline').toBeLessThan(2 * spacing)
+  expect(after.glyphs[0].x, 'past it — where the old clamp stopped dead').toBeLessThan(barLeft)
+  // The line that leaves the numeral came too, so the mark is still one object.
+  expect(horizontalOf(before.segments)!.x1 - horizontalOf(after.segments)!.x1).toBeCloseTo(moved, 1)
+})
+
+test('⭐ the END may still not be pulled shorter than a bracket that can CLOSE', async ({ score }) => {
+  // The one floor that legitimately overrules the hand: `OTTAVA_MIN_LINE`. Pulled far left, the line
+  // stops with a space of horizontal still past the numeral — a numeral, no rule and no hook would
+  // leave the reader with nothing saying where the displacement ends.
+  const { after } = await nudgedBracket(score, { endX: -40 })
+  const line = horizontalOf(after.segments)
+  expect(line, 'there is still a line').toBeDefined()
+  expect(line!.x2).toBeGreaterThan(line!.x1)
+  expect(hookOf(after.segments), 'and it still closes').toBeDefined()
+})

@@ -20,13 +20,14 @@
  * ⚠️ Re-anchoring ottavas across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `hairpinOps`.
  */
-import type { Fraction, Score, Ottava, Measure } from '@/types/music'
+import type { Fraction, Score, Ottava, Measure, OttavaOffsetOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
-import { clearEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { ottavaOffsetOverrideOf } from './engravingOverrides'
 
 /** A measure's ottavas (the live array; empty if none), sorted ascending by start beat. */
 export function measureOttavas(measure: Measure): Ottava[] {
@@ -127,6 +128,96 @@ export function setOttavaLength(score: Score, id: string, length: Fraction): boo
   if (!ottava) return false
   if (!fracIsPositive(length)) return false
   ottava.length = length
+  return true
+}
+
+/**
+ * ⭐⭐ **NUDGE THE BRACKET'S DRAWN INK from one of its endpoint squares, accumulating** — `←/→/↑/↓`
+ * fine, `Ctrl`+arrow coarse, with that square armed (his ask, 2026-08-17). `dx`/`dy` are in
+ * **staff-spaces**.
+ *
+ * ⭐⭐ **`dy` LANDS ON THE WHOLE BRACKET, whichever square asked for it** — his rule, and the reason
+ * {@link OttavaOffsetOverride} has three numbers instead of two pairs: *"ottava is a straight line,
+ * so offset in y should result in offset the two points in y."* There is no per-end `y` to write, so
+ * ↑ from either square lifts the numeral, the dashes and the hook together and the rule stays
+ * horizontal by construction. ⛔ The hairpin's per-end `y` is right THERE because tilting a wedge is
+ * a shape that exists; here it is not.
+ *
+ * ⭐ `dx` stays per end — the beginning pulls the numeral, the end pulls the hook.
+ *
+ * ⭐ **An OVERRIDE, not the model** — {@link setHairpinEndpointOffset}'s distinction, and the same
+ * two-chords-two-categories arrangement on one pair of squares: `Ctrl+Shift+arrow` says which notes
+ * are displaced (content, and audible), a plain or `Ctrl` arrow says where the ink goes.
+ *
+ * @returns true if the ottava exists (the caller then re-renders).
+ */
+export function setOttavaEndpointOffset(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  dx: number,
+  dy: number,
+): boolean {
+  if (!getOttavaById(score, id)) return false
+  const prev = ottavaOffsetOverrideOf(score, id)
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writeOttavaOffset(score, id, {
+    [xKey]: (prev?.[xKey] ?? 0) + dx,
+    [otherKey]: prev?.[otherKey],
+    y: (prev?.y ?? 0) + dy,
+  })
+  return true
+}
+
+/**
+ * Store the three numbers, ⭐ **dropping any that came out ZERO** — and pruning the whole entry when
+ * all three did, so an offset nudged back to nothing leaves the score exactly as it was found.
+ *
+ * ⚠️ **This is a real divergence from `setHairpinEndpointOffset`, which stores its zeros, and the
+ * shared `y` is what forces it.** A purely horizontal nudge computes `y = 0 + 0`; written down, that
+ * zero is a number the OTHER square then reports as a nudge of its own — so `Ctrl+Backspace` on an
+ * untouched square would answer instead of falling through to the note-spacing and bar-width resets.
+ * Found by the spec case that asserts exactly that decline. ⭐ It also keeps "absent = none" literally
+ * true for this kind, which is what every reader of the compartment assumes.
+ */
+function writeOttavaOffset(
+  score: Score,
+  id: string,
+  next: { startX?: number; endX?: number; y?: number },
+): void {
+  const kept: OttavaOffsetOverride = {
+    kind: 'ottavaOffset',
+    ...(next.startX ? { startX: next.startX } : {}),
+    ...(next.endX ? { endX: next.endX } : {}),
+    ...(next.y ? { y: next.y } : {}),
+  }
+  if (kept.startX === undefined && kept.endX === undefined && kept.y === undefined) {
+    clearEngravingOverride(score, id, 'ottavaOffset')
+    return
+  }
+  setEngravingOverride(score, id, kept)
+}
+
+/**
+ * `Ctrl+Backspace` on an armed square: that end back to the engraver's own position.
+ *
+ * ⚠️ **It drops that end's `x` AND the shared `y`** — which follows from the vertical being one
+ * number for the bracket rather than being a second decision. The square you armed controls exactly
+ * two quantities; the reset gives back exactly those two, and the OTHER end's `x` survives. There is
+ * no way to "reset only this end's height" because there is no such height.
+ *
+ * Prunes the whole entry when nothing is left, so "absent = none" still holds.
+ * @returns false when that square carries no nudge at all, so the key falls through.
+ */
+export function resetOttavaEndpointOffset(score: Score, id: string, which: 'start' | 'end'): boolean {
+  const prev = ottavaOffsetOverrideOf(score, id)
+  if (!prev) return false
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  if (prev[xKey] === undefined && prev.y === undefined) return false
+
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writeOttavaOffset(score, id, { [otherKey]: prev[otherKey] })
   return true
 }
 
