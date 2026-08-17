@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   hairpinEndpointHandles, armHairpinEndpointAt, cycleHairpinEndpoint, hairpinDragTargetAt,
+  hairpinMouthEnd, nudgeArmedHairpinMouth, resetArmedHairpinMouth,
   HAIRPIN_HANDLE_GAP_PX as GAP,
 } from './hairpinHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
@@ -285,5 +286,121 @@ describe('hairpinDragTargetAt', () => {
 
   it('answers null when nothing in the lane is near enough — no jump across the page', () => {
     expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'end', 900, 800)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE MOUTH KEYS — `Shift+←/→` and `Shift+Backspace` on the mouth-bearing square (his ask and his
+ * chord, 2026-08-17).
+ *
+ * Two claims carry the feature. **WHICH square answers**: the open end, which is the wedge's TYPE
+ * rather than a side of the score — a tip has no aperture, so the closed end declines and the key
+ * stays the barline gap's. And **where a step starts**: from what is DRAWN, authored or not, clamped
+ * into `authoredApertureRange`, so the keyboard and the Properties input cannot reach different values.
+ */
+function mouthEngine(
+  type: 'cresc' | 'dim',
+  drawn?: { apertureSpaces?: number; hairpinLengthSpaces?: number },
+) {
+  const registry = new ElementRegistry()
+  if (drawn) registry.add({ type: 'hairpin', id: 'H1', bbox: { x: 0, y: 0, width: 10, height: 10 }, ...drawn } as ElementInfo)
+  const set = vi.fn((_id: string, _aperture: number | null) => true)
+  const engine = {
+    getHairpinById: () => ({ id: 'H1', type }),
+    getElementRegistry: () => registry,
+    setHairpinAperture: set,
+  } as unknown as Parameters<typeof nudgeArmedHairpinMouth>[1]
+  return { engine, set }
+}
+
+describe('hairpinMouthEnd', () => {
+  it('⭐ is the OPEN end — right on a crescendo, left on a diminuendo', () => {
+    expect(hairpinMouthEnd('cresc')).toBe('end')
+    expect(hairpinMouthEnd('dim')).toBe('start')
+  })
+})
+
+describe('nudgeArmedHairpinMouth', () => {
+  let state: EditorState
+  const DRAWN = { apertureSpaces: 1.5, hairpinLengthSpaces: 40 } // range 1 … 2
+
+  beforeEach(() => {
+    state = createEditorState()
+    state.selectedElement = { kind: 'hairpin', id: 'H1', endpoint: 'end' }
+  })
+
+  it('⭐ steps from what is DRAWN, in either direction', () => {
+    const { engine, set } = mouthEngine('cresc', DRAWN)
+    expect(nudgeArmedHairpinMouth(state, engine, 0.05)).toBe(true)
+    expect(set).toHaveBeenCalledWith('H1', 1.55)
+    nudgeArmedHairpinMouth(state, engine, -0.05)
+    expect(set).toHaveBeenLastCalledWith('H1', 1.45)
+  })
+
+  it('⛔ declines on the CLOSED end — a tip has no aperture', () => {
+    // The same armed square that answers on a crescendo is the tip of a diminuendo.
+    const { engine, set } = mouthEngine('dim', DRAWN)
+    expect(nudgeArmedHairpinMouth(state, engine, 0.05)).toBe(false)
+    expect(set).not.toHaveBeenCalled()
+    // …and its own open end does answer.
+    state.selectedElement = { kind: 'hairpin', id: 'H1', endpoint: 'start' }
+    expect(nudgeArmedHairpinMouth(state, engine, 0.05)).toBe(true)
+  })
+
+  it('⚠️ CLAMPS into the authored range, so the keys and the panel cannot disagree', () => {
+    const { engine, set } = mouthEngine('cresc', { apertureSpaces: 1.98, hairpinLengthSpaces: 40 })
+    nudgeArmedHairpinMouth(state, engine, 0.05)
+    expect(set).toHaveBeenCalledWith('H1', 2) // not 2.03
+  })
+
+  it('⛔ declines AT the bound rather than writing the same value again', () => {
+    const { engine, set } = mouthEngine('cresc', { apertureSpaces: 2, hairpinLengthSpaces: 40 })
+    expect(nudgeArmedHairpinMouth(state, engine, 0.05)).toBe(false)
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('⛔ declines when no square is armed, and when the wedge is not on screen to measure', () => {
+    const { engine } = mouthEngine('cresc', DRAWN)
+    state.selectedElement = { kind: 'hairpin', id: 'H1' }
+    expect(nudgeArmedHairpinMouth(state, engine, 0.05)).toBe(false)
+
+    state.selectedElement = { kind: 'hairpin', id: 'H1', endpoint: 'end' }
+    expect(nudgeArmedHairpinMouth(state, mouthEngine('cresc').engine, 0.05)).toBe(false)
+  })
+
+  it('does not accumulate float dust across steps', () => {
+    const { engine, set } = mouthEngine('cresc', { apertureSpaces: 1.6500000000000001, hairpinLengthSpaces: 40 })
+    nudgeArmedHairpinMouth(state, engine, 0.05)
+    expect(set).toHaveBeenCalledWith('H1', 1.7)
+  })
+})
+
+describe('resetArmedHairpinMouth', () => {
+  let state: EditorState
+  beforeEach(() => {
+    state = createEditorState()
+    state.selectedElement = { kind: 'hairpin', id: 'H1', endpoint: 'end' }
+  })
+
+  it('hands the mouth back to automatic from the mouth-bearing square', () => {
+    const { engine, set } = mouthEngine('cresc')
+    expect(resetArmedHairpinMouth(state, engine)).toBe(true)
+    expect(set).toHaveBeenCalledWith('H1', null)
+  })
+
+  it('⛔ declines on the closed end, so Shift+Backspace stays the barline gap\'s', () => {
+    const { engine, set } = mouthEngine('dim')
+    expect(resetArmedHairpinMouth(state, engine)).toBe(false)
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('⛔ …and declines when the engine says there was nothing authored', () => {
+    const registry = new ElementRegistry()
+    const engine = {
+      getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
+      getElementRegistry: () => registry,
+      setHairpinAperture: () => false,
+    } as unknown as Parameters<typeof resetArmedHairpinMouth>[1]
+    expect(resetArmedHairpinMouth(state, engine)).toBe(false)
   })
 })

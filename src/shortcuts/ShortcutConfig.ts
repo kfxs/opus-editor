@@ -259,17 +259,21 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // this editor's "fine spacing" chord, vertical between staves and horizontal at the barline. The
   // easy key (Ctrl+←/→) is the bar's WIDTH, which is the other, coarser thing you do to a barline —
   // it re-spaces the bar's whole music, where this moves nothing but the line.
+  // ⭐ …and, with a HAIRPIN's mouth-bearing square armed (right on a crescendo, left on a diminuendo),
+  // the same pair opens and closes the MOUTH — grow/shrink, because the aperture is a symmetric spread
+  // about the axis and no vertical direction means "open" (2026-08-17;
+  // `interactions/elements/hairpinHandles`). Disjoint from the barline gap, which needs a barline.
   'Shift+ArrowLeft': {
     action: 'barlineGapTighten',
-    description: 'Tighten the gap before the selected barline (fine)',
+    description: 'Close the armed hairpin mouth, or tighten the gap before the selected barline (fine)',
   },
   'Shift+ArrowRight': {
     action: 'barlineGapWiden',
-    description: 'Widen the gap before the selected barline (fine)',
+    description: 'Open the armed hairpin mouth, or widen the gap before the selected barline (fine)',
   },
   'Shift+Backspace': {
     action: 'resetBarlineGap',
-    description: 'Reset the gap before the selected barline',
+    description: 'Reset the armed hairpin mouth / the gap before the selected barline',
   },
 
   // Add one measure after the selected measure box (Sibelius Ctrl+Shift+B single-bar insert;

@@ -16,7 +16,7 @@ import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { cycleSlurHandle } from './slurHandleCycle'
-import { cycleHairpinEndpoint } from './elements/hairpinHandles'
+import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -83,6 +83,11 @@ export function wireShortcuts(
   // Barline-gap step (staff-spaces). The same quarter-space as the note-spacing nudge, because it
   // is the same quantity at a different address — and because Shift+arrows are the FINE chord here.
   const BARLINE_GAP_STEP_SS = 0.25
+
+  // ⭐ Hairpin MOUTH step (staff-spaces). Small on purpose: the whole authorable range is about one
+  // space wide (`authoredApertureRange`), so a quarter-space step would offer four stops in it. The
+  // Properties input uses the same number.
+  const MOUTH_STEP_SS = 0.05
 
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
@@ -188,6 +193,30 @@ export function wireShortcuts(
     const hairpin = selectedOf(state, 'hairpin')
     if (!eng || !hairpin?.endpoint) return false
     if (!eng.resetHairpinEndpointOffset(hairpin.id, hairpin.endpoint)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **Shift+←/→ opens and closes the MOUTH** of the selected wedge, with its mouth-bearing square
+   * armed — the right-hand one on a crescendo, the left on a diminuendo (his ask and his chord,
+   * 2026-08-17). `Shift+Backspace` puts it back to automatic, the matching backspace every arrow-chord
+   * here has.
+   *
+   * ⭐ Free, and disjoint: `Shift+←/→` and `Shift+Backspace`'s only other tenant is the BARLINE GAP,
+   * which needs a selected barline where this needs a selected hairpin. The module owns every reason
+   * it can decline — see `elements/hairpinHandles` for why the pair is horizontal.
+   */
+  const nudgeArmedMouth = (delta: number): boolean => {
+    const eng = getEngine()
+    if (!eng || !nudgeArmedHairpinMouth(state, eng, delta)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  const resetArmedMouth = (): boolean => {
+    const eng = getEngine()
+    if (!eng || !resetArmedHairpinMouth(state, eng)) return false
     renderer.renderScore()
     return true
   }
@@ -850,9 +879,11 @@ export function wireShortcuts(
     staffSpacingFineUp: () => { nudgeStaffSpacingIfBoxSelected(-STAFF_SPACING_FINE_SS) },
     staffSpacingFineDown: () => { nudgeStaffSpacingIfBoxSelected(STAFF_SPACING_FINE_SS) },
     // Shift+←/→ = the barline gap, the fine horizontal partner of Shift+↑/↓ above.
-    barlineGapTighten: () => { nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS) },
-    barlineGapWiden: () => { nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS) },
-    resetBarlineGap: () => { resetSelectedBarlineGap() },
+    // ⭐ Shift+←/→ = close / open the armed wedge's MOUTH, else tighten / widen a selected barline's
+    //   gap. Disjoint selections, so it is one more branch and no reordering.
+    barlineGapTighten: () => nudgeArmedMouth(-MOUTH_STEP_SS) || nudgeSelectedBarlineGap(-BARLINE_GAP_STEP_SS),
+    barlineGapWiden: () => nudgeArmedMouth(MOUTH_STEP_SS) || nudgeSelectedBarlineGap(BARLINE_GAP_STEP_SS),
+    resetBarlineGap: () => resetArmedMouth() || resetSelectedBarlineGap(),
     voiceNavUp: () => selection.navigateVoice(1),
     voiceNavDown: () => selection.navigateVoice(-1),
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.

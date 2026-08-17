@@ -39,6 +39,7 @@ import type { Score } from '../../types/music'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
 import { staffOf, voiceOf } from '../../utils/lanes'
+import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
 import { fracCompare } from '../../utils/fraction'
 import { dbg } from '../../utils/debug'
 
@@ -224,6 +225,91 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
   if (!staffId) return 0
   const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
   return at === -1 ? 0 : at
+}
+
+/**
+ * ⭐⭐ **WHICH SQUARE HAS THE MOUTH** — the right-hand one on a crescendo, the left on a diminuendo
+ * (his rule, 2026-08-17: *"the endpoint that control the mouth is the one who has the mouth"*).
+ *
+ * A wedge is closed at one end and open at the other, and only the open end has an aperture to
+ * change; the tip is a point. So the mouth keys answer on ONE of the two squares, and the choice is
+ * the wedge's TYPE rather than a side of the score.
+ */
+export function hairpinMouthEnd(type: 'cresc' | 'dim'): 'start' | 'end' {
+  return type === 'cresc' ? 'end' : 'start'
+}
+
+/** What the mouth keys need off the engine. */
+type MouthEngine = Pick<MusicEngine, 'getHairpinById' | 'getElementRegistry' | 'setHairpinAperture'>
+
+/** The mouth as the last render DREW it, plus the range it may be authored in — both facts about the
+ *  drawn wedge, since the automatic aperture is a function of its length. */
+function drawnMouth(engine: MouthEngine, hairpinId: string): { value: number; min: number; max: number } | null {
+  const drawn = engine.getElementRegistry().getByType('hairpin').find(e => e.id === hairpinId)
+  if (drawn?.apertureSpaces === undefined) return null
+  return { value: drawn.apertureSpaces, ...authoredApertureRange(drawn.hairpinLengthSpaces ?? 0) }
+}
+
+/**
+ * ⭐⭐ **OPEN OR CLOSE THE MOUTH BY ONE STEP** — `Shift+→` / `Shift+←` with the mouth-bearing square
+ * armed (his ask and his chord, 2026-08-17).
+ *
+ * ⭐ **Why a horizontal pair for a vertical quantity.** The mouth is a SYMMETRIC spread about the
+ * wedge's axis: pressing ↑ would move the top arm up and the bottom arm *down*, so no vertical
+ * direction means "open". Grow / shrink is the honest verb pair, and a modified `←/→` is already this
+ * editor's idiom for it (bar width, note spacing, the wedge's own extent, a pedal's length). It also
+ * leaves the plain and `Ctrl` arrows — which move that same square's OFFSET in both axes — the only
+ * meaning the vertical has on this handle.
+ *
+ * ⭐ **It steps from what is DRAWN**, authored or automatic, for the reason the Properties input does:
+ * a first press must continue the shape on screen rather than jump to a bound (his correction on the
+ * panel, applied here by construction). And it CLAMPS into `authoredApertureRange`, so the keyboard
+ * and the panel cannot reach different values.
+ *
+ * ⚠️ DECLINES when no hairpin end is armed, when the armed one is the CLOSED end (a tip has no
+ * aperture), when the wedge is not on screen to measure, or when the step would leave the range —
+ * which is what keeps `Shift+←/→` the barline gap's everywhere else.
+ */
+export function nudgeArmedHairpinMouth(
+  state: EditorState,
+  engine: MouthEngine,
+  delta: number,
+): boolean {
+  const selected = selectedOf(state, 'hairpin')
+  if (!selected?.endpoint) return false
+  const hairpin = engine.getHairpinById(selected.id)
+  if (!hairpin || selected.endpoint !== hairpinMouthEnd(hairpin.type)) return false
+
+  const mouth = drawnMouth(engine, selected.id)
+  if (!mouth) return false
+  const next = Math.min(mouth.max, Math.max(mouth.min, round2(mouth.value + delta)))
+  if (next === round2(mouth.value)) return false // already at that bound — decline rather than no-op
+  if (!engine.setHairpinAperture(selected.id, next)) return false
+  dbg(`Hairpin mouth ${delta > 0 ? 'opened' : 'closed'} | id:${selected.id} → ${next}sp`)
+  return true
+}
+
+/**
+ * `Shift+Backspace` with the mouth-bearing square armed: back to the automatic, length-aware
+ * aperture — the matching backspace this editor gives every arrow-chord.
+ *
+ * ⚠️ DECLINES when nothing is authored (the engine's own answer), so the key still falls through to
+ * the barline gap's reset.
+ */
+export function resetArmedHairpinMouth(state: EditorState, engine: MouthEngine): boolean {
+  const selected = selectedOf(state, 'hairpin')
+  if (!selected?.endpoint) return false
+  const hairpin = engine.getHairpinById(selected.id)
+  if (!hairpin || selected.endpoint !== hairpinMouthEnd(hairpin.type)) return false
+  if (!engine.setHairpinAperture(selected.id, null)) return false
+  dbg(`Hairpin mouth reset to auto | id:${selected.id}`)
+  return true
+}
+
+/** Two decimals — the drawn aperture is a float off a pixel division, and stepping it must not
+ *  accumulate `1.6500000000000001`. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 /**

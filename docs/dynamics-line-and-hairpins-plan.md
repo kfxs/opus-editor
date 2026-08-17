@@ -1461,5 +1461,37 @@ answer and the range collapses to it. ⚠️ The panel CLAMPS a typed value into
 publishing: `min`/`max` on a number input only constrain its spinner, and publishing a value the
 renderer would cap stores a shape the score never draws.
 
-⏭️ Not built: a keyboard gesture for the mouth (it has no obvious chord, and nothing has asked), and
-a drag of it — the aperture handle would be a third square, on the mouth rather than at an end.
+### ⭐⭐ …and `Shift+←/→` opens the mouth from the square that HAS one
+
+His chord and his rule, an hour later: *"the endpoint that control the mouth is the one who has the
+mouth (right for cresc, left for dim)… i'm thinking to use shift arrow left right for that"*, plus
+*"shift backspace for reset"*.
+
+**Why a horizontal pair for a vertical quantity** — the question worth answering, since ↑/↓ looks
+like the obvious mapping. The mouth is a SYMMETRIC spread about the wedge's axis: pressing ↑ would
+move the top arm up and the bottom arm *down*, so no vertical direction means "open". Grow / shrink is
+the honest verb pair, and a modified `←/→` is already this editor's idiom for it (bar width, note
+spacing, the wedge's own extent, a pedal's length). It also leaves the vertical on that handle meaning
+one thing only — the end's own offset, which the plain and `Ctrl` arrows move.
+
+**Which square** — the OPEN end, so `hairpinMouthEnd(type)`: right on a crescendo, left on a
+diminuendo. On the closed end the keys DECLINE, because a tip has no aperture; `Shift+←/→` and
+`Shift+Backspace` then fall through to the barline gap, their only other tenant (which needs a selected
+barline, so the two can never both apply).
+
+**Where a step starts** — from the mouth as DRAWN, authored or automatic, clamped into
+`authoredApertureRange`, so the keys and the Properties input cannot reach different values. At a bound
+it declines rather than re-writing the same number. Step: 0.05 space, the panel's own.
+
+So one pair of squares now carries THREE categories of edit, each on its own chord:
+
+| chord | changes | category |
+|---|---|---|
+| `Ctrl+Shift+←/→`, drag | which notes get louder | the model (`beat`/`length`) |
+| arrow, `Ctrl`+arrow | where that end's ink sits | override (`hairpinEndpointOffset`) |
+| `Shift+←/→` | how far the wedge opens | override (`hairpinAperture`) |
+
+…and each has its matching backspace: `Ctrl+Backspace` for the end nudge, `Shift+Backspace` for the
+mouth.
+
+⏭️ Not built: a DRAG of the mouth — it would want a third square, on the mouth rather than at an end.

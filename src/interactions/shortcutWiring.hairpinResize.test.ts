@@ -27,6 +27,7 @@ describe('resizing a hairpin from the keyboard', () => {
   let resize: Mock<(id: string, direction: 1 | -1) => boolean>
   let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
+  let mouth: Mock<(id: string, aperture: number | null) => boolean>
   let run: (action: string) => void
   let teardown: () => void
 
@@ -34,13 +35,22 @@ describe('resizing a hairpin from the keyboard', () => {
     resize = vi.fn(() => true)
     moveStart = vi.fn(() => true)
     nudge = vi.fn(() => true)
+    mouth = vi.fn(() => true)
     const engine = {
       nudgeHairpinEndpoint: nudge,
       resetHairpinEndpointOffset: vi.fn(() => false),
+      setHairpinAperture: mouth,
+      getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
       resizeHairpinBySlot: resize,
       moveHairpinStartBySlot: moveStart,
       resizePedalBySlot: vi.fn(() => false),
-      getElementRegistry: () => ({ getByType: () => [] }),
+      // One drawn fragment, so the mouth keys have something to measure (aperture 1.5, length 40 →
+      // the authorable range is 1…2).
+      getElementRegistry: () => ({
+        getByType: (t: string) => t === 'hairpin'
+          ? [{ type: 'hairpin', id: 'H1', apertureSpaces: 1.5, hairpinLengthSpaces: 40 }]
+          : [],
+      }),
       getSlurById: () => null,
       getNote: () => null,
     } as unknown as MusicEngine
@@ -116,6 +126,27 @@ describe('resizing a hairpin from the keyboard', () => {
     run('ctrlArrowRight')
     run('pitchUp')
     expect(nudge).not.toHaveBeenCalled()
+  })
+
+  it('⭐⭐ Shift+←/→ is a THIRD category on the same square — the MOUTH, not the ink and not the music', () => {
+    armed('end')                 // a crescendo's mouth is its right-hand end
+    run('barlineGapWiden')       // Shift+→
+    run('barlineGapTighten')     // Shift+←
+    expect(mouth.mock.calls).toEqual([['H1', 1.55], ['H1', 1.45]])
+    expect(resize).not.toHaveBeenCalled()
+    expect(nudge).not.toHaveBeenCalled()
+  })
+
+  it('⛔ …and it declines on the CLOSED end, leaving Shift+←/→ to the barline gap', () => {
+    armed('start')               // the tip of a crescendo
+    run('barlineGapWiden')
+    expect(mouth).not.toHaveBeenCalled()
+  })
+
+  it('Shift+Backspace hands the mouth back to automatic from that same square', () => {
+    armed('end')
+    run('resetBarlineGap')
+    expect(mouth).toHaveBeenCalledWith('H1', null)
   })
 
   it('declines for a selection that is not a hairpin at all', () => {
