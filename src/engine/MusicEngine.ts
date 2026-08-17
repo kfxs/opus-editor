@@ -1090,6 +1090,28 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * Move the WHOLE selected wedge by a staff-space delta and save ONE undo step — the arrows with a
+   * hairpin selected and NO square armed.
+   *
+   * ⚠️ An ENGRAVING OVERRIDE like the per-end nudge it is made of (both ends, same delta): the wedge
+   * moves on the page and covers the same notes, so nothing about the music changes. Moving WHICH
+   * notes it covers is `Ctrl+Shift+←/→` on a square, which writes the model instead.
+   */
+  nudgeHairpin(id: string, dx: number, dy: number): boolean {
+    const ok = this.scoreModel.setHairpinOffset(id, dx, dy)
+    if (ok) this.saveOnly('Move hairpin')
+    return ok
+  }
+
+  /** Drop BOTH ends' reshapes and save ONE undo step (`Ctrl+Backspace`, nothing armed).
+   *  @returns false when neither end carries one, so the key falls through. */
+  resetHairpinOffset(id: string): boolean {
+    const ok = this.scoreModel.resetHairpinOffset(id)
+    if (ok) this.saveOnly('Reset hairpin position')
+    return ok
+  }
+
   /** Drop ONE end's reshape and save ONE undo step (`Ctrl+Backspace` with that square armed).
    *  @returns false when that end has no offset, so the key falls through. */
   resetHairpinEndpointOffset(id: string, which: 'start' | 'end'): boolean {

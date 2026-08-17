@@ -163,6 +163,38 @@ export function setHairpinEndpointOffset(
 }
 
 /**
+ * ⭐⭐ **Move the WHOLE wedge** — the same staff-space delta onto BOTH ends, accumulating (his ask,
+ * 2026-08-17: the arrows with a hairpin selected but NO square armed).
+ *
+ * ⭐ **It is the end nudges twice, and deliberately not a field of its own.** What is drawn is
+ * `automatic + offset` at each end, so moving the pair by an equal amount IS moving the wedge — and a
+ * separate "whole-hairpin offset" would be a second place the same pixels could come from, i.e. two
+ * numbers that can disagree about where the wedge is. It also means the two gestures compose: nudge
+ * the whole thing, then open one end, and the model holds exactly what you did.
+ *
+ * ⚠️ So a whole-wedge move is visible per END afterwards (Properties shows both rows changed), which
+ * is honest rather than lossy: there was never a "whole wedge" quantity to preserve.
+ *
+ * @returns true if the hairpin exists.
+ */
+export function setHairpinOffset(score: Score, id: string, dx: number, dy: number): boolean {
+  if (!getHairpinById(score, id)) return false
+  setHairpinEndpointOffset(score, id, 'start', dx, dy)
+  setHairpinEndpointOffset(score, id, 'end', dx, dy)
+  return true
+}
+
+/**
+ * Drop BOTH ends' nudges at once — `Ctrl+Backspace` with the wedge selected and no square armed, the
+ * matching backspace for {@link setHairpinOffset}. @returns false when neither end carries one.
+ */
+export function resetHairpinOffset(score: Score, id: string): boolean {
+  if (!hairpinEndpointOffsetOverrideOf(score, id)) return false
+  clearEngravingOverride(score, id, 'hairpinEndpointOffset')
+  return true
+}
+
+/**
  * Drop ONE end's nudge, keeping the other's — `Ctrl+Backspace` with that square armed. Prunes the
  * whole entry when the other end has none either, so "absent = none" still holds.
  * @returns false when that end carries no offset, so the key falls through.

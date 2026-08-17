@@ -626,6 +626,17 @@ export class ScoreModel {
     return hairpinOps.setHairpinEndpointOffset(this.score, id, which, dx, dy)
   }
 
+  /** Move the WHOLE wedge by a staff-space delta — both ends at once, accumulating.
+   *  See {@link hairpinOps.setHairpinOffset}. */
+  setHairpinOffset(id: string, dx: number, dy: number): boolean {
+    return hairpinOps.setHairpinOffset(this.score, id, dx, dy)
+  }
+
+  /** Drop both ends' reshapes at once. See {@link hairpinOps.resetHairpinOffset}. */
+  resetHairpinOffset(id: string): boolean {
+    return hairpinOps.resetHairpinOffset(this.score, id)
+  }
+
   /** Drop ONE end's reshape, keeping the other's. See {@link hairpinOps.resetHairpinEndpointOffset}. */
   resetHairpinEndpointOffset(id: string, which: 'start' | 'end'): boolean {
     return hairpinOps.resetHairpinEndpointOffset(this.score, id, which)

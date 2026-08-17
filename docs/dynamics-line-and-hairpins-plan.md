@@ -1499,4 +1499,32 @@ So one pair of squares now carries THREE categories of edit, each on its own cho
 …and each has its matching backspace: `Ctrl+Backspace` for the end nudge, `Shift+Backspace` for the
 mouth.
 
+### ⭐⭐ …and with NOTHING armed, the arrows move the WHOLE wedge
+
+His ask, the same afternoon: *"when the hairpin is selected but no endpoint is selected and i use the
+arrow or control arrow i want to offset the whole hairpin"*. Plain arrow fine, `Ctrl`+arrow coarse —
+the same pair that moves ONE end when a square is armed, and `Ctrl+Backspace` resets both ends.
+
+⭐ **So the armed square is the whole of the difference: something armed → that end moves; nothing
+armed → the wedge does.** One chord read by what you picked, which is what lets both gestures share the
+plain arrows at all.
+
+⚠️ **It writes the two END offsets by the same delta, not a field of its own.** What is drawn is
+`automatic + offset` at each end, so moving the pair equally IS moving the wedge — while a separate
+"whole-hairpin offset" would be a second place the same pixels come from, i.e. two numbers that can
+disagree about where the wedge is. Two consequences, both wanted: the gestures COMPOSE (nudge the whole
+thing, then open one end, and the model holds exactly that), and a whole-wedge move shows up per END in
+Properties afterwards — honest rather than lossy, since there was never a "whole wedge" quantity to
+preserve.
+
+### The whole surface, once
+
+| gesture | needs | changes | where it lives |
+|---|---|---|---|
+| `Ctrl+Shift+←/→`, drag a square | a square armed | which notes get louder | model (`beat`/`length`) |
+| arrow / `Ctrl`+arrow · `Ctrl+Backspace` | a square armed | that end's ink | `hairpinEndpointOffset` |
+| arrow / `Ctrl`+arrow · `Ctrl+Backspace` | nothing armed | the whole wedge's ink | both ends of the same |
+| `Shift+↑/↓` · `Shift+Backspace` | the MOUTH's square armed | how far it opens | `hairpinAperture` |
+| Properties rows | a hairpin selected | ends + mouth, by number | the two overrides |
+
 ⏭️ Not built: a DRAG of the mouth — it would want a third square, on the mouth rather than at an end.

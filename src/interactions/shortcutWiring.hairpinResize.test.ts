@@ -28,6 +28,7 @@ describe('resizing a hairpin from the keyboard', () => {
   let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let mouth: Mock<(id: string, aperture: number | null) => boolean>
+  let whole: Mock<(id: string, dx: number, dy: number) => boolean>
   let run: (action: string) => void
   let teardown: () => void
 
@@ -36,7 +37,10 @@ describe('resizing a hairpin from the keyboard', () => {
     moveStart = vi.fn(() => true)
     nudge = vi.fn(() => true)
     mouth = vi.fn(() => true)
+    whole = vi.fn(() => true)
     const engine = {
+      nudgeHairpin: whole,
+      resetHairpinOffset: vi.fn(() => false),
       nudgeHairpinEndpoint: nudge,
       resetHairpinEndpointOffset: vi.fn(() => false),
       setHairpinAperture: mouth,
@@ -155,6 +159,24 @@ describe('resizing a hairpin from the keyboard', () => {
     armed('end')
     run('resetBarlineGap')
     expect(mouth).toHaveBeenCalledWith('H1', null)
+  })
+
+  it('⭐⭐ with NOTHING armed the arrows move the WHOLE wedge — the armed square is the difference', () => {
+    armed()                    // selected, no square
+    run('selectNextNote')      // →   fine
+    run('pitchUp')             // ↑   fine
+    run('ctrlArrowLeft')       // ←   coarse
+    expect(whole.mock.calls).toEqual([['H1', 0.25, 0], ['H1', 0, -0.25], ['H1', -1, 0]])
+    // …and never the per-end nudge, which needs a square.
+    expect(nudge).not.toHaveBeenCalled()
+  })
+
+  it('⛔ …and with one armed it is that END, never the wedge', () => {
+    armed('end')
+    run('selectNextNote')
+    run('pitchUp')
+    expect(nudge.mock.calls).toEqual([['H1', 'end', 0.25, 0], ['H1', 'end', 0, -0.25]])
+    expect(whole).not.toHaveBeenCalled()
   })
 
   it('declines for a selection that is not a hairpin at all', () => {

@@ -18,6 +18,7 @@ import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
   setHairpinEndpointOffset, resetHairpinEndpointOffset, setHairpinAperture,
+  setHairpinOffset, resetHairpinOffset,
 } from './hairpinOps'
 import { setEngravingOverride } from './overrideOps'
 import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
@@ -275,6 +276,68 @@ describe('setHairpinAperture — the mouth', () => {
 
   it('returns false for an unknown hairpin rather than orphaning an override', () => {
     expect(setHairpinAperture(score, 'ghost', 2)).toBe(false)
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+})
+
+/**
+ * ⭐ {@link setHairpinOffset} / {@link resetHairpinOffset} — moving the WHOLE wedge (the arrows with a
+ * hairpin selected and no square armed).
+ *
+ * ⭐ The claim: it is the per-end nudge applied TWICE, not a field of its own. So the assertions are
+ * about the two ends staying equal under it, and about it composing with a per-end nudge rather than
+ * competing with one — two places the same pixels could come from is the thing this avoids.
+ */
+describe('setHairpinOffset — the whole wedge', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const offset = () => hairpinEndpointOffsetOverrideOf(score, id)
+
+  it('⭐ moves BOTH ends by the same delta — which IS moving the wedge', () => {
+    expect(setHairpinOffset(score, id, 0.5, -1)).toBe(true)
+    expect(offset()).toEqual({
+      kind: 'hairpinEndpointOffset', start: { x: 0.5, y: -1 }, end: { x: 0.5, y: -1 },
+    })
+  })
+
+  it('accumulates, so a held arrow walks the wedge across the page', () => {
+    setHairpinOffset(score, id, 0.25, 0)
+    setHairpinOffset(score, id, 0.25, 0)
+    expect(offset()!.start).toEqual({ x: 0.5, y: 0 })
+    expect(offset()!.end).toEqual({ x: 0.5, y: 0 })
+  })
+
+  it('⭐ COMPOSES with a per-end nudge instead of overwriting it', () => {
+    // Open the right end, then move the whole thing: the difference between the ends survives, which
+    // is what a separate "whole wedge" field could not have promised.
+    setHairpinEndpointOffset(score, id, 'end', 1, 0)
+    setHairpinOffset(score, id, 0.5, 0)
+    expect(offset()!.start).toEqual({ x: 0.5, y: 0 })
+    expect(offset()!.end).toEqual({ x: 1.5, y: 0 })
+  })
+
+  it('leaves the extent alone — the wedge covers the same notes wherever it is drawn', () => {
+    setHairpinOffset(score, id, 2, 2)
+    const h = getHairpinById(score, id)!
+    expect([fracToNumber(h.beat), fracToNumber(h.length)]).toEqual([0, 2])
+  })
+
+  it('resets both ends at once, and declines when neither carries one', () => {
+    expect(resetHairpinOffset(score, id)).toBe(false)
+    setHairpinOffset(score, id, 1, 1)
+    expect(resetHairpinOffset(score, id)).toBe(true)
+    expect(offset()).toBeUndefined()
+  })
+
+  it('returns false for an unknown hairpin rather than orphaning an override', () => {
+    expect(setHairpinOffset(score, 'ghost', 1, 1)).toBe(false)
     expect(score.engravingOverrides).toBeUndefined()
   })
 })
