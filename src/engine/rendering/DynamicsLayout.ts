@@ -351,8 +351,8 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
           // ⚠️ x is the BOX's left, and that is not a shortcut: horizontally the box already IS ink
           // (the `<text>`'s own `getBBox`, which a browser measures from the glyph outlines — the
           // vertical is the layout box, which is why only the vertical had to be asked of the font).
-          guideFrom: { x: bx, y: guideY },
-          ...(anchor ? { anchor } : {}),
+          // ⚠️ One guide, and only when the anchor note was found: ⛔ a guide is never a guess.
+          ...(anchor ? { guides: [{ from: { x: bx, y: guideY }, to: anchor }] } : {}),
         })
       }
     } catch (_e) { /* getBBox may fail before layout in some envs */ }

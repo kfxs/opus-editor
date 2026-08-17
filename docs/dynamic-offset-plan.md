@@ -193,6 +193,29 @@ opened:
 - ⚠️ `undefined` when the start note was not drawn (its bar culled, the lane empty): the entry then
   carries no guide at all. ⛔ A guide is never a guess.
 
+### ⭐ Kind 4 — the HAIRPIN (2026-08-17), and why the pair became a LIST
+
+A hairpin is the first SPAN to draw a guide, and a span has two ends — so `anchor` + `guideFrom`
+became **`guides: GuideLine[]`**, one `{ from, to }` per line. The three existing kinds each register
+a single-element array; nothing about them changed. The roles are what the list makes explicit and
+what the handlers turn on: `from` is ON the element (it travels with it), `to` is on something else
+(it must not).
+
+- ⛔ **ONE line, at the BEGINNING — his call**, where MuseScore draws one per END
+  (`LineSegment::gripAnchorLines` returns two). A wedge's extent is already visible as ink, so what
+  the guide adds is where the gesture is ANCHORED. ⛔ Do not add the end line "for symmetry": it was
+  considered and declined.
+- Its own end is the wedge's LEFT END on the side facing the staff (the upper arm — a hairpin lives
+  below). ⚠️ For a CRESCENDO that end is the closed tip, so it sits mid-box vertically: the entry's
+  box height is the OPEN end's aperture, which is at the other end of the wedge entirely.
+- Its far end is a PLACE — the staff's bottom line at the start beat — like the tempo mark's and
+  unlike the trill's. The rule that decides which: **is the element defined by a NOTE, or does it
+  govern a REGION?** A trill's auxiliary comes from its note's pitch; a hairpin and a tempo mark
+  apply to whatever is in their span.
+- ⚠️ On the FIRST fragment only, and the drawer now reads **every entry registered under the id**
+  rather than the first — a span is registered per system fragment, and each fragment's coordinates
+  belong to its own system.
+
 ### 🚨 The checklist a new COORDINATE field on `ElementInfo` has to answer
 
 `guideFrom` needed all three of these, and each was found by a different means — worth writing down
@@ -205,6 +228,38 @@ because the next coordinate field will need them too:
 3. **`scaleElement`** — a reduced staff registers in its own scaled space, so every coordinate is
    multiplied by `k`. *(Found by reading, while adding the trill; it would have shown only on a
    small staff — the bug class `docs/staff-size-plan.md` calls "visual coords in a scaled scope".)*
+
+#### 🚨 THE AUDIT — run 2026-08-17, and it found one field that is already wrong
+
+His call: *"write the bug somewhere in the documentation, we have to go and analyze this."* So every
+coordinate-bearing field on `ElementInfo` was checked against the three handlers:
+
+| field | `offsetElement` | `scaleElement` | `shiftById` |
+|---|---|---|---|
+| `bbox` | ✅ | ✅ | ✅ |
+| `headX` | ✅ | ✅ | — (never a dynamic's) |
+| `points` | ✅ | ✅ | — |
+| `controlPoints` | ✅ | ✅ | — |
+| `slurEndpoints` | ✅ | ✅ | — |
+| `tupletGeometry` | ✅ | ✅ | — |
+| `guides` | ✅ | ✅ | ✅ (`from` ends only) |
+| **`segmentEndpoints`** | 🚨 **NO** | 🚨 **NO** | — |
+
+⚠️ **`shiftById`'s dashes are not holes**: it exists for marks that are translated AFTER being
+registered, which today is dynamics only — a slur has no post-registration transform. Adding a field
+there is only required when some pass moves an element carrying it.
+
+🚨 **`segmentEndpoints` is a real gap.** It holds `{ p0, p1 }` in pixels, is written by
+`SlurRenderer` for each segment of a CROSS-SYSTEM slur (`SlurRenderer.ts:660`) and read by
+`HighlightController` to place and drag that segment's round handles — and its own sibling
+`slurEndpoints` (the same shape, for a same-line arc) is handled by both functions. So the predicted
+symptoms are: a cross-system slur's segment handles land at **full-size coordinates on a reduced
+staff**, and go **stale when a bar is translated** rather than re-engraved (P5.4b). ⏭️ NOT fixed here
+— the fix is mechanical (mirror `slurEndpoints`' two blocks) but it is slur-handle geometry with no
+browser test of its own on a scaled staff, so it wants its own look and its own test.
+⭐ The general lesson is the one this table exists for: **a coordinate on a registry entry is not
+finished when it is written** — three separate functions have to be taught about it, and nothing in
+the type system says so.
 
 ### What MuseScore does (read from its C++, 2026-08-17)
 

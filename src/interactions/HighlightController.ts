@@ -1071,48 +1071,45 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    // The gate is the DATA, not the kind: an entry with no captured anchor has nothing to point at.
-    const entry = engine.getElementRegistry().getById(id)
-    if (!entry?.anchor) return
+    // ⭐ EVERY entry registered under this id, not just the first: a SPAN is registered per system
+    // fragment, and each fragment's guides are in that system's own coordinates. A fragment with
+    // nothing attached simply carries none.
+    // ⚠️ The gate is the DATA, not the kind — an element whose render measured no guide has nothing
+    // to point at, and a guide is never a guess.
+    const guides = engine.getElementRegistry().getAll()
+      .filter(el => el.id === id)
+      .flatMap(el => el.guides ?? [])
+    if (guides.length === 0) return
 
     // From the START of the mark's INK up to its note anchor point.
     //
-    // ⭐ **The LEFT edge — his call, 2026-08-17**, and it was the top-RIGHT until then: *"the line
-    // starts in the x axis at the end of the expression… change that point to the beginning of the
-    // expression."* The mark's beginning is where it is anchored in the reader's mind — text is read
-    // from its start, and the engraved anchor x is the note's own left edge (`note.getAbsoluteX()`,
-    // captured in `DynamicsLayout`), so a line from the mark's start to the note's is a short, nearly
-    // vertical hint rather than one that crosses back over the whole word.
-    //
-    // ⭐⭐ **And the point is the INK's, not the box's** — his follow-up the same day: *"for dynamic
-    // letters there is too much air, so it is an empty space; somehow the anchor line should be
-    // measuring ink and not bbox."* It is measured now, per letter, off the font
-    // (`engine/rendering/dynamicMarkInk.ts`), and arrives as `guideFrom` beside the anchor it pairs
-    // with — the render measures, this draws. ⚠️ The fallback is the old corner and is REACHED: an
-    // expression WORD is prose the Bravura table cannot speak for, and for prose the box top is
-    // about right, which is why he said that half *"does not look bad"*.
-    const from = entry.guideFrom ?? { x: entry.bbox.x, y: entry.bbox.y }
-    const fromX = from.x
-    const fromY = from.y
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-    line.setAttribute('x1', String(fromX))
-    line.setAttribute('y1', String(fromY))
-    line.setAttribute('x2', String(entry.anchor.x))
-    line.setAttribute('y2', String(entry.anchor.y))
-    line.setAttribute('stroke', '#2563EB')
-    line.setAttribute('stroke-width', '2')
-    // Dotted, not dashed: a near-zero dash with a ROUND linecap renders each segment as a round
-    // dot of diameter = stroke-width, spaced by the gap.
-    line.setAttribute('stroke-dasharray', '0.1 6')
-    line.setAttribute('stroke-linecap', 'round')
-    line.setAttribute('stroke-opacity', '0.75')
-    // ⚠️ Still `dynamic-anchor-line`: it is the class the sweep and the specs already know, and a
-    // rename buys nothing while the dynamic is the only kind supplying points. ⏭️ Widen it when a
-    // second kind does.
-    line.setAttribute('class', 'dynamic-anchor-line')
-    // A guide never eats a click meant for the music underneath it.
-    ;(line as SVGElement & { style: CSSStyleDeclaration }).style.pointerEvents = 'none'
-    this.addNode(svg, line)
+    // ⭐ **THE ENDS ARE THE RENDER'S ANSWER, not this method's**, and that is what makes the guide
+    // kind-agnostic: `from` is a point on the element's own INK (measured per letter off the font
+    // for a dynamic, from the tight extents for a tempo mark, from the drawn tip for a wedge) and
+    // `to` is whatever it hangs off (a notehead for a dynamic or a trill, a beat's column at the
+    // staff's edge for a tempo mark or a hairpin). Both were his corrections, 2026-08-17: *"change
+    // that point to the beginning of the expression"* and *"the anchor line should be measuring ink
+    // and not bbox"* — see `docs/dynamic-offset-plan.md` for which kind attaches to what.
+    for (const guide of guides) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', String(guide.from.x))
+      line.setAttribute('y1', String(guide.from.y))
+      line.setAttribute('x2', String(guide.to.x))
+      line.setAttribute('y2', String(guide.to.y))
+      line.setAttribute('stroke', '#2563EB')
+      line.setAttribute('stroke-width', '2')
+      // Dotted, not dashed: a near-zero dash with a ROUND linecap renders each segment as a round
+      // dot of diameter = stroke-width, spaced by the gap.
+      line.setAttribute('stroke-dasharray', '0.1 6')
+      line.setAttribute('stroke-linecap', 'round')
+      line.setAttribute('stroke-opacity', '0.75')
+      // ⚠️ Still `dynamic-anchor-line`, though four kinds draw it now: it is the class the sweep and
+      // the specs already know, and renaming it is a rename in three places for no behaviour.
+      line.setAttribute('class', 'dynamic-anchor-line')
+      // A guide never eats a click meant for the music underneath it.
+      ;(line as SVGElement & { style: CSSStyleDeclaration }).style.pointerEvents = 'none'
+      this.addNode(svg, line)
+    }
   }
 
   /**

@@ -179,7 +179,7 @@ test('⭐ `p dolce` shares a baseline — the co-located pair is no longer centr
 
 test('⭐⭐ the GUIDE POINT sits on the ink, not on the box — and it differs per letter', async ({ score }) => {
   // The attachment line a selected mark draws (`HighlightController.applyAnchorGuideLine`) leaves
-  // `guideFrom`, captured here at render. Its whole reason is his report of 2026-08-17: the box's
+  // its `from` end, captured here at render. Its whole reason is his report of 2026-08-17: the box's
   // top is `0.68 × the glyph size` for EVERY letter, so over a `p` the guide began nine pixels above
   // anything drawn — *"too much air, so it is an empty space… should be measuring ink and not bbox."*
   //
@@ -197,7 +197,7 @@ test('⭐⭐ the GUIDE POINT sits on the ink, not on the box — and it differs 
     const reg = h.engine.getElementRegistry()
     const read = (id: string) => {
       const e = reg.getById(id)!
-      return { boxTop: e.bbox.y, guideY: e.guideFrom!.y, guideX: e.guideFrom!.x, boxLeft: e.bbox.x }
+      return { boxTop: e.bbox.y, guideY: e.guides![0].from.y, guideX: e.guides![0].from.x, boxLeft: e.bbox.x }
     }
     return { p: read(p.id), f: read(f.id) }
   })

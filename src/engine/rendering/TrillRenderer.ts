@@ -462,14 +462,11 @@ function drawTrill(
       // them on every fragment would be writing a second answer nothing reads; a continuation `(tr)`
       // on a later system is a reminder, not a second attachment.
       // ⚠️ Both are in this staff's own scaled space, like every other coordinate here.
+      // The sign's ink corner NEAREST the staff — its BOTTOM for an above-staff trill, its top for a
+      // `below` one. The same rule the dynamic and the tempo mark follow, which is what keeps the
+      // guide from crossing the glyph it leaves.
       ...(firstPiece && anchor
-        ? {
-          anchor,
-          // The sign's ink corner NEAREST the staff — its BOTTOM for an above-staff trill, its top
-          // for a `below` one. The same rule the dynamic and the tempo mark follow, which is what
-          // keeps the guide from crossing the glyph it leaves.
-          guideFrom: { x: signX, y: side === 'above' ? bottom : top },
-        }
+        ? { guides: [{ from: { x: signX, y: side === 'above' ? bottom : top }, to: anchor }] }
         : {}),
     })
     firstPiece = false

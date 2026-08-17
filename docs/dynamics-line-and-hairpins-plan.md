@@ -883,6 +883,18 @@ state** — the hairpin's own pass is system-level from day one either way.
 
 ## 8. UX
 
+⭐ **The ATTACHMENT GUIDE (added 2026-08-17, his call).** A selected wedge draws the dashed line to
+where it is anchored — the fourth kind on the kind-agnostic guide (`docs/dynamic-offset-plan.md`),
+and the first SPAN, which is what turned that mechanism's single point-pair into a list of lines.
+Two edits, as the rule promises: `drawHairpins` registers the guide on the FIRST fragment, and the
+`hairpin` row in `ELEMENT_SPECS` calls `applyAnchorGuideLine`.
+
+⛔ **At the BEGINNING only — his call**, where MuseScore draws one line per END of a spanner
+(`LineSegment::gripAnchorLines`). A wedge's extent is already visible as ink; what the guide adds is
+where the gesture is ANCHORED. ⚠️ Its far end is a PLACE (the staff's bottom line at the start beat),
+not a note — a hairpin governs a region, exactly as the tempo mark does and unlike the trill, whose
+auxiliary is computed from its note's pitch.
+
 Following the slur, which is already routed this way (`PaletteController.createSlur`, `171b1bb`):
 
 - **Two rows in the Lines palette** — open (cresc.) and close (dim.). It is a TABLE whose own header

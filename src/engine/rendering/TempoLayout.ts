@@ -302,14 +302,13 @@ export function drawTempoMarks(
           // guide tracks a pitch change: a tempo does not belong to a pitch, and following one up and
           // down would say it did. It is also what MuseScore's generic `dragAnchorLines` does — the
           // parent segment's x at the staff's near edge (`engravingitem.cpp:2343-2366`).
-          anchor: { x, y: stave.getYForLine(0) },
           // The mark's own end: the ink corner NEAREST the staff, i.e. its BOTTOM-left, since a tempo
           // is engraved above. The mirror of the below-staff dynamic's top-left, and the reason the
           // rule is "nearest the staff" rather than "the top".
           // ⚠️ From the tight extents rather than the font table: a tempo mark is mostly PROSE in a
           // serif face, which Bravura cannot speak for (`./dynamicMarkInk` answers null for exactly
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
-          guideFrom: { x: box.x, y: y + TEMPO_INK_BELOW },
+          guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: stave.getYForLine(0) } }],
         })
       }
     } catch {

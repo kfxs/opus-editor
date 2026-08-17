@@ -218,6 +218,21 @@ export interface TupletGeometry {
 /**
  * Information about a rendered element
  */
+/**
+ * One dashed ATTACHMENT GUIDE — a segment from a point on an ELEMENT to the thing it is attached to.
+ *
+ * ⭐ The two ends are not interchangeable, and the difference is what {@link ElementRegistry.shiftById}
+ * turns on: `from` is ON the element and travels with it when a pass translates it; `to` is on
+ * something else — a notehead, a beat's column at the staff's edge — and staying put while the
+ * element is nudged away is the whole point of drawing the line.
+ */
+export interface GuideLine {
+  /** On the element's own INK, at the corner nearest what it points at. */
+  from: { x: number; y: number }
+  /** What the element hangs off. ⛔ Never moved by the element's own transform. */
+  to: { x: number; y: number }
+}
+
 export interface ElementInfo {
   /** Type of element */
   type: ElementType
@@ -246,28 +261,27 @@ export interface ElementInfo {
    */
   headX?: number
   /**
-   * For a 'dynamic': the rhythmic ANCHOR point on the staff (the note/beat it attaches to),
-   * in pixels. Used only to draw the dashed attachment-line visualization when the dynamic is
-   * selected (Dorico/MuseScore style) — never for hit-testing or engraving. Like every other
-   * coordinate field it is shifted by {@link offsetElement} when a bar is translated (P5.4b).
-   */
-  anchor?: { x: number; y: number }
-  /**
-   * For a 'dynamic': the point ON THE MARK that the attachment line leaves from — the corner of its
-   * INK nearest the staff, in pixels. {@link anchor}'s other end, and used by the same guide alone.
+   * ⭐⭐ **THE ATTACHMENT GUIDES** — the dashed lines a SELECTED element draws to whatever it hangs
+   * off (Dorico/MuseScore style). Pure visualization: never engraved, never hit-tested, never
+   * serialized. Measured HERE, at render, because both ends are facts about drawn ink; drawn by
+   * `HighlightController.applyAnchorGuideLine`, which is the only reader.
    *
-   * ⭐ **Why it is not just a corner of {@link bbox}.** That box's top is a single fraction of the
-   * glyph size for every letter, so over a `p` it floats nine pixels above anything drawn and the
-   * guide appeared to start in blank space (his report, 2026-08-17). This one is derived from the
-   * FONT, per letter (`rendering/dynamicMarkInk.ts`). ⛔ It is not a hit-box and must never become
-   * one: the box stays generous on purpose, because a row of marks reads as a row by sharing ONE
-   * height.
+   * ⭐ **A LIST, because a SPANNER has two ends.** A dynamic, a tempo mark and a trill each attach at
+   * one place and carry one line; a hairpin attaches at a start beat AND an end beat, and drawing one
+   * of them would say the wedge's other end floats free. ⚠️ For a span cut across a system break the
+   * lines live on the FRAGMENT they belong to — the first fragment's entry carries the start, the
+   * last's the end — because two x's from different systems are not on one ruler. The drawer reads
+   * every entry registered under the id, so a fragment with nothing to say simply carries none.
    *
-   * ⚠️ Absent for a mark the font table cannot speak for (an expression WORD, set in a serif face) —
-   * the caller falls back to the box, which for prose is about right. Shifted by
-   * {@link offsetElement} with every other coordinate here.
+   * ⚠️ Absent — not empty, not a guessed point — when the render could not measure an end (the
+   * anchor note's bar was culled, a font the metrics cannot speak for). ⛔ A guide is never a guess.
+   *
+   * 🚨 **A coordinate field here has THREE handlers to satisfy**, and each was found a different way:
+   * {@link offsetElement} (a translated bar), {@link ElementRegistry.shiftById} (an element moved
+   * after registration — ⛔ only the `from` ends move) and {@link scaleElement} (a reduced staff).
+   * See `docs/dynamic-offset-plan.md`.
    */
-  guideFrom?: { x: number; y: number }
+  guides?: GuideLine[]
   // Tie-specific properties
   /** ID of the note this tie starts from (for ties) */
   fromNoteId?: string
@@ -391,11 +405,14 @@ export function offsetElement(element: ElementInfo, dx: number, dy: number): Ele
   // True notehead-centre X — the hit-box selection actually uses (not the bbox centre).
   if (element.headX !== undefined) moved.headX = element.headX + dx
 
-  // Dynamic attachment-line anchor (visualization only) — a coordinate, so it moves with the bar.
-  if (element.anchor) moved.anchor = { x: element.anchor.x + dx, y: element.anchor.y + dy }
-  // …and the point on the MARK the same line leaves from. ⚠️ Both ends or neither: shifting one of
-  // them would leave the guide stretching to where the mark used to be.
-  if (element.guideFrom) moved.guideFrom = { x: element.guideFrom.x + dx, y: element.guideFrom.y + dy }
+  // The attachment guides (visualization only) — coordinates, so they move with the bar. ⚠️ BOTH ends
+  // here, unlike `shiftById`: a bar that moves takes the element AND what it is attached to with it.
+  if (element.guides) {
+    moved.guides = element.guides.map(g => ({
+      from: { x: g.from.x + dx, y: g.from.y + dy },
+      to: { x: g.to.x + dx, y: g.to.y + dy },
+    }))
+  }
 
   // Sampled arc points (slur proximity hit-testing).
   if (element.points) moved.points = element.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
@@ -454,11 +471,15 @@ export function scaleElement(element: ElementInfo, k: number): ElementInfo {
   }
 
   if (element.headX !== undefined) scaled.headX = element.headX * k
-  if (element.anchor) scaled.anchor = { x: element.anchor.x * k, y: element.anchor.y * k }
-  // ⚠️ …and the guide's OTHER end, or a reduced staff's attachment line would start at full-size
-  // coordinates while its element sits at `k` — the bug class `project_staff_size_plan` calls
-  // "visual coords in a scaled scope", and one every new coordinate field here has to answer for.
-  if (element.guideFrom) scaled.guideFrom = { x: element.guideFrom.x * k, y: element.guideFrom.y * k }
+  // ⚠️ The guides, BOTH ends of each: a reduced staff registers in its own scaled space, so a line
+  // left at full-size coordinates would point off the staff it belongs to — the bug class
+  // `docs/staff-size-plan.md` calls "visual coords in a scaled scope".
+  if (element.guides) {
+    scaled.guides = element.guides.map(g => ({
+      from: { x: g.from.x * k, y: g.from.y * k },
+      to: { x: g.to.x * k, y: g.to.y * k },
+    }))
+  }
   if (element.points) scaled.points = element.points.map(p => ({ x: p.x * k, y: p.y * k }))
   if (element.controlPoints) {
     scaled.controlPoints = [
@@ -724,18 +745,17 @@ export class ElementRegistry {
       width: entry.bbox.width,
       height: entry.bbox.height,
     }
-    // ⭐⭐ Anything else that is a point ON THE ELEMENT moves with it. Today that is {@link guideFrom},
-    // the attachment line's mark-side end — and forgetting it is invisible until you look: the box
-    // moved onto the dynamics line while the guide stayed where VexFlow first dropped the mark, so
-    // the line pointed at a place the mark had left. Found by the browser test, because every mark
-    // in jsdom sits at 0.
-    // ⛔ NOT {@link anchor}: that one is a point on the NOTE, and the whole purpose of the guide is
-    // to keep showing it while the mark is moved away from it.
-    if (entry.guideFrom) {
-      entry.guideFrom = {
-        x: entry.guideFrom.x + dx * this.scale,
-        y: entry.guideFrom.y + dy * this.scale,
-      }
+    // ⭐⭐ Anything else that is a point ON THE ELEMENT moves with it — every guide's `from` end.
+    // Forgetting it is invisible until you look: the box moved onto the dynamics line while the
+    // guide stayed where VexFlow first dropped the mark, so the line pointed at a place the mark had
+    // left. Found by the browser test, because every mark in jsdom sits at 0.
+    // ⛔ NOT the `to` ends: those are points on a NOTEHEAD or a staff edge, and the whole purpose of
+    // the guide is to keep showing them while the element is moved away.
+    if (entry.guides) {
+      entry.guides = entry.guides.map(g => ({
+        from: { x: g.from.x + dx * this.scale, y: g.from.y + dy * this.scale },
+        to: g.to,
+      }))
     }
   }
 

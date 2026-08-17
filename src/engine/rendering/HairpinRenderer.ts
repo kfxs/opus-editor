@@ -374,6 +374,25 @@ function drawWedge(
         { x: piece.x1, y: y1 + h1 },
         { x: piece.x0, y: y0 + h0 },
       ],
+      // ⭐⭐ THE ATTACHMENT GUIDE — the fourth kind (his call, 2026-08-17), and the first SPAN to
+      // draw one.
+      //
+      // ⭐ **AT THE BEGINNING ONLY — his call**, where MuseScore draws one line per END of a
+      // spanner (`LineSegment::gripAnchorLines` returns two). A wedge's extent is already visible as
+      // ink, so what the guide adds is where the gesture is ANCHORED, and that is its start. ⛔ Do
+      // not add the end line "for symmetry": it was asked for and declined.
+      //
+      // ⚠️ On the FIRST fragment, which is where the start beat is — a wedge cut across a system
+      // break has fragments in different systems' coordinates, and the drawer reads every entry
+      // under the id, so a continuation fragment simply carries none.
+      //
+      // The two ends: the wedge's own tip at its near-staff side (a hairpin lives BELOW the staff,
+      // so that is the TOP arm), and the staff's BOTTOM line at the beat the span starts on — a
+      // POSITIONAL span attaches to a place, like the tempo mark and unlike the trill (which is
+      // defined by a note's pitch). See docs/dynamic-offset-plan.md for that split.
+      ...(piece === pieces[0]
+        ? { guides: [{ from: { x: piece.x0, y: y0 - h0 }, to: { x: x.startX, y: stave.getYForLine(4) } }] }
+        : {}),
     })
   }
 }

@@ -34,5 +34,8 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'hairpin', id: hairpinAt.id })
   },
 
-  highlight: h => h.applyHairpinSelectionHighlight(),
+  // Recoloured, plus the attachment guide (the fourth kind, 2026-08-17). ⭐ At the wedge's BEGINNING
+  // only — his call, where MuseScore draws one line per END of a spanner: the extent is already
+  // visible as ink, so what the guide adds is where the gesture is anchored.
+  highlight: h => { h.applyHairpinSelectionHighlight(); h.applyAnchorGuideLine() },
 }

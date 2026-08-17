@@ -18,13 +18,14 @@ import { createEditorState } from './EditorState'
 import { ElementRegistry } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 
-/** A selected dynamic whose box, ink point and anchor are given, and the line that comes out. */
-function anchorLineFor(
-  bbox: { x: number; y: number; width: number; height: number },
-  guideFrom?: { x: number; y: number },
-) {
+/** A selected dynamic with the given guide, and the line that comes out. */
+function anchorLineFor(from: { x: number; y: number }, to = { x: 140, y: 60 }) {
   const registry = new ElementRegistry()
-  registry.add({ type: 'dynamic', id: 'D1', bbox, anchor: { x: 140, y: 60 }, ...(guideFrom ? { guideFrom } : {}) })
+  registry.add({
+    type: 'dynamic', id: 'D1',
+    bbox: { x: 100, y: 80, width: 100, height: 12 },
+    guides: [{ from, to }],
+  })
   const engine = { getElementRegistry: () => registry } as unknown as MusicEngine
 
   const canvas = document.createElement('div')
@@ -38,38 +39,18 @@ function anchorLineFor(
   return svg.querySelector('line.dynamic-anchor-line')
 }
 
-describe('the dynamic anchor line', () => {
-  it('⭐ leaves the mark’s BEGINNING — its LEFT edge, not the right (his call)', () => {
-    // A wide mark, so the two corners are 100px apart and the assertion cannot pass by luck of
-    // geometry: an expression word is exactly the case where the old corner read wrong.
-    const line = anchorLineFor({ x: 100, y: 80, width: 100, height: 12 })
-    expect(line).not.toBeNull()
-    expect(line!.getAttribute('x1'), 'the left edge, not 200').toBe('100')
-  })
-
-  it('⭐⭐ leaves the INK point when the render captured one — not the box top (his second report)', () => {
-    // The box top is one fraction of the glyph size for every letter, so over a `p` it floats ~9px
-    // above anything drawn and the guide started in blank space. `DynamicsLayout` measures the real
-    // reach off the font and hands it over as `guideFrom`; this is the half that USES it.
-    const line = anchorLineFor({ x: 100, y: 80, width: 20, height: 26 }, { x: 100, y: 89.4 })!
-    expect(line.getAttribute('y1'), 'the ink’s top, not the box’s 80').toBe('89.4')
+describe('the attachment guide', () => {
+  it('draws exactly the segment the render measured — both ends, no arithmetic of its own', () => {
+    // ⭐ The whole division of labour: the RENDER decides where a guide starts and ends (per letter
+    // off the font for a dynamic, off the drawn tip for a wedge), and this method only draws it.
+    const line = anchorLineFor({ x: 100, y: 89.4 })!
     expect(line.getAttribute('x1')).toBe('100')
-  })
-
-  it('falls back to the box for a mark the font cannot speak for — an expression WORD', () => {
-    // Prose is set in a serif face the Bravura table knows nothing about, so no ink point is
-    // captured; the box top is about right there, which is the half he said "does not look bad".
-    const line = anchorLineFor({ x: 100, y: 80, width: 100, height: 12 })!
-    expect(line.getAttribute('y1')).toBe('80')
-  })
-
-  it('ends at the note anchor the render captured', () => {
-    const line = anchorLineFor({ x: 100, y: 80, width: 100, height: 12 })!
+    expect(line.getAttribute('y1'), 'the ink point, not a box corner').toBe('89.4')
     expect(line.getAttribute('x2')).toBe('140')
     expect(line.getAttribute('y2')).toBe('60')
   })
 
-  it('draws nothing for a dynamic with no captured anchor — a guide is never a guess', () => {
+  it('draws nothing when the render measured none — a guide is never a guess', () => {
     const registry = new ElementRegistry()
     registry.add({ type: 'dynamic', id: 'D1', bbox: { x: 100, y: 80, width: 20, height: 12 } })
     const engine = { getElementRegistry: () => registry } as unknown as MusicEngine
@@ -81,5 +62,28 @@ describe('the dynamic anchor line', () => {
 
     new HighlightController(() => engine, () => canvas, state).applyAnchorGuideLine()
     expect(svg.querySelector('line.dynamic-anchor-line')).toBeNull()
+  })
+
+  it('⭐ draws EVERY fragment’s guides — a span is registered once per system', () => {
+    // A hairpin cut across a break registers an entry per fragment under one id, and each carries
+    // the guides belonging to ITS system. Reading only the first entry would drop them.
+    const registry = new ElementRegistry()
+    registry.add({
+      type: 'hairpin', id: 'H1', bbox: { x: 0, y: 0, width: 10, height: 10 },
+      guides: [{ from: { x: 1, y: 2 }, to: { x: 3, y: 4 } }],
+    })
+    registry.add({
+      type: 'hairpin', id: 'H1', bbox: { x: 500, y: 0, width: 10, height: 10 },
+      guides: [{ from: { x: 501, y: 2 }, to: { x: 503, y: 4 } }],
+    })
+    const engine = { getElementRegistry: () => registry } as unknown as MusicEngine
+    const canvas = document.createElement('div')
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    canvas.appendChild(svg)
+    const state = createEditorState()
+    state.selectedElement = { kind: 'hairpin', id: 'H1' }
+
+    new HighlightController(() => engine, () => canvas, state).applyAnchorGuideLine()
+    expect(svg.querySelectorAll('line.dynamic-anchor-line')).toHaveLength(2)
   })
 })
