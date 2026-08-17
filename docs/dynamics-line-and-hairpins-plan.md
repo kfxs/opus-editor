@@ -2,7 +2,7 @@
 
 Status: **ALL PHASES BUILT — P0, P1, P2, P3, P4** (2026-08-12). The line exists, every dynamic is on
 it, and the hairpin is drawn, selectable, resizable and deletable: `H` / `Shift+H`, two Lines-palette
-rows, a stamp, `Ctrl+←/→` to resize, Delete to remove.
+rows, a stamp, `Ctrl+Shift+←/→` to resize (see the 2026-08-17 note below), Delete to remove.
 
 🔎 **Two rules HIS TESTING added after P4, both now built** (2026-08-12):
 
@@ -1069,7 +1069,8 @@ Each is separately visible and separately testable.
   against the old code.
 - **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
   selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
-  `Ctrl+←/→` resize, selection + highlight + Delete, the Properties report, and 🔎 **`x` to flip
+  `Ctrl+←/→` resize (**moved to `Ctrl+Shift+←/→` on 2026-08-17** — see the end of this file),
+  selection + highlight + Delete, the Properties report, and 🔎 **`x` to flip
   cresc. ↔ dim.** (his call, 2026-08-12 — added after the phase, when `toggleHairpinType` turned out
   to be model API with no way to reach it). ⚠️ It is the one branch of that key that changes what a
   mark MEANS rather than which SIDE of the staff it sits on; a hairpin's side is `placement`, shared
@@ -1092,8 +1093,8 @@ Each is separately visible and separately testable.
   🔎 **Three smaller build notes.** (i) The stamp carries its TYPE (`{ kind:'hairpin'; type }`)
   where the slur's carries nothing — two keys, two palette rows that must light independently, and
   pressing `H` with the dim. stamp armed must SWITCH rather than disarm. That is why
-  `createCrescendo`/`createDiminuendo` are two methods and not one with a flag. (ii) `Ctrl+←/→`
-  resizes by a SLOT of the hairpin's own lane, so the end always lands on a notehead; it DECLINES
+  `createCrescendo`/`createDiminuendo` are two methods and not one with a flag. (ii) the resize
+  (`Ctrl+←/→` then, `Ctrl+Shift+←/→` now) steps by a SLOT of the hairpin's own lane, so the end always lands on a notehead; it DECLINES
   rather than deleting when it cannot shrink further. (iii) Arming needs no engine, so the engine is
   fetched in the create branch only — guarding at the top made the tool unarmable in any context
   without one, and said wrongly that arming depends on a score.
@@ -1251,3 +1252,35 @@ snapshot threaded into the pass.
 **Ted Ross (1970) and Kurt Stone (1980) were not obtained** — the Internet Archive copies are
 lending-only. Everything else in §2.4b and §2.4c was read. ⛔ Nothing built depends on them: every
 number in the code carries a source.
+
+
+## 2026-08-17 — the wedge grows two ends, and the resize moves off `Ctrl+←/→`
+
+Two of his asks, and the second follows from the first.
+
+**The ends.** A selected hairpin now draws a blue square at each end of the wedge, stepped outward
+along the span so the shape reads between them, and either one can be picked — by clicking it or with
+Tab / Shift+Tab, which walks the handles of whatever is selected (a slur's, or these). One module
+owns all of it: `interactions/elements/hairpinHandles.ts` — where they sit (the fragment's edge at
+the midpoint between the two arms, ⚠️ the two ends coming from DIFFERENT registry entries on a split
+wedge), what a press on one does, and the walk order. The press is a PRE-STEP in `MouseController`
+rather than a row in `ELEMENT_HIT_ORDER`, because a square can land inside the box of the dynamic at
+the wedge's mouth and `DYNAMIC_ELEMENT` runs ahead of `HAIRPIN_ELEMENT`: a handle you can see must win
+the press over the glyph it happens to sit on.
+
+⛔ An armed end still edits NOTHING by itself. The selection (`selectedElement.hairpin.endpoint`) is
+what exists; §4's rule stands, so there is no cosmetic offset behind it.
+
+**The resize.** It rides **`Ctrl+Shift+←/→`**, and only while the RIGHT-HAND square is armed.
+
+- The CHORD comes from the slur, where `Ctrl+Shift+←/→` already means "stop nudging, move the
+  anchor" (`interactions/slurReanchor.ts`). Resizing a wedge is the same sentence about the other
+  kind of spanner, so it is the same key — the widest step on the horizontal, above the ¼-space plain
+  arrows and the 1-space `Ctrl` pair.
+- The GATE is what the two new squares make possible, and it fixes something that was wrong before
+  them: on the bare `Ctrl+←/→` with no gate, a selected wedge ate that chord outright. Now the key
+  edits the end you are POINTING AT, and declines otherwise.
+- ⚠️ It is always the END that moves — `→` lengthens, `←` shortens. A start-anchored version would
+  move the wedge's BEAT, which is a different edit from its length, and is not built.
+- The PEDAL's resize stays on `Ctrl+←/→`: it has no endpoint handles to arm, so there is nothing to
+  gate on. The two spanners' keys differ now, and that is the reason.

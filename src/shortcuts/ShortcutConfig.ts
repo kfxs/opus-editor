@@ -176,13 +176,16 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Ctrl+←/→ = MOVE (docs/note-offset-plan.md §C): the space before a selected note's column, or a
   // selected barline's bar width — "move a lot" on the easy key. Joins the slur-endpoint / dynamic
   // coarse chain that already owned Ctrl+←/→ (all selections disjoint, so it just adds branches).
+  // ⚠️ A selected HAIRPIN used to resize on this chord, ungated, so a selected wedge ate Ctrl+←/→
+  // outright. Its resize now rides Ctrl+Shift+←/→ and only while the wedge's right-hand square is
+  // armed (his call, 2026-08-17). The PEDAL's still lives here — it has no endpoint handles to arm.
   'Ctrl+ArrowLeft': {
     action: 'ctrlArrowLeft',
-    description: 'Nudge the selected slur endpoint / dynamic left, or tighten the note-spacing / barline',
+    description: 'Nudge the selected slur endpoint / dynamic left, shorten the pedal, or tighten the note-spacing / barline',
   },
   'Ctrl+ArrowRight': {
     action: 'ctrlArrowRight',
-    description: 'Nudge the selected slur endpoint / dynamic right, or widen the note-spacing / barline',
+    description: 'Nudge the selected slur endpoint / dynamic right, lengthen the pedal, or widen the note-spacing / barline',
   },
   // ⭐ …and the RESET of the same chord. It also takes the armed SLUR HANDLE — arc dot, true end or
   // open join — back to the automatic engraving (`interactions/slurHandleNudge`): Ctrl+←/→ nudges
@@ -203,13 +206,18 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // nudging, move the anchor" (the keyboard twin of dragging the blue square; his ask, 2026-08-17).
   // Disjoint from the offset branch and so not a conflict: arming an endpoint clears the note
   // multi-select the offset requires. `interactions/slurReanchor.ts` owns the walk.
+  //
+  // ⭐ …and an armed HAIRPIN right-hand square lengthens / shortens the wedge by one slot on the very
+  // same chord (his call, 2026-08-17) — the same sentence, "move THIS end of the span", about the
+  // other kind of spanner. Gated on that square being the armed one, so the key edits the end you
+  // are pointing at rather than resizing from whichever end the model happens to grow.
   'Ctrl+Shift+ArrowLeft': {
     action: 'ctrlShiftArrowLeft',
-    description: 'Re-anchor the armed slur endpoint one note left, or nudge the selected note left (offset, wide)',
+    description: 'Re-anchor the armed slur endpoint one note left, shorten the hairpin, or nudge the selected note left (offset, wide)',
   },
   'Ctrl+Shift+ArrowRight': {
     action: 'ctrlShiftArrowRight',
-    description: 'Re-anchor the armed slur endpoint one note right, or nudge the selected note right (offset, wide)',
+    description: 'Re-anchor the armed slur endpoint one note right, lengthen the hairpin, or nudge the selected note right (offset, wide)',
   },
   'Ctrl+Shift+Backspace': {
     action: 'resetNoteOffset',

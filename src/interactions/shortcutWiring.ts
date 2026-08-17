@@ -284,8 +284,20 @@ export function wireShortcuts(
   }
 
   /**
-   * ⭐⭐ **Lengthen / shorten the selected hairpin by one SLOT** — Sibelius spells this Space; we
-   * already have the gesture, since `Ctrl+←/→` is one action routed by what is selected.
+   * ⭐⭐ **Lengthen / shorten the selected hairpin by one SLOT**, on `Ctrl+Shift+←/→` and only while
+   * its RIGHT-HAND square is armed (his call, 2026-08-17).
+   *
+   * ⭐ **Both halves of that come from the slur.** The chord, because `Ctrl+Shift+←/→` already means
+   * "stop nudging, move the anchor" there (`slurReanchor`) and this is the same sentence about a
+   * different span — the widest step on the horizontal, above the ¼-space plain arrows and the
+   * 1-space Ctrl pair. And the GATE, because a wedge now has two grabbable ends: the key edits the
+   * end you are pointing at, so with nothing (or the left square) armed it declines and the wedge is
+   * not silently resized from the other end. It used to ride the bare `Ctrl+←/→` with no gate at all,
+   * which meant a selected hairpin ate that chord outright.
+   *
+   * ⚠️ It is the END that grows, whichever direction is pressed — `→` lengthens, `←` shortens. There
+   * is no "resize from the left" yet; a start-anchored version would move the wedge's beat, which is
+   * a different edit from its length.
    *
    * ⚠️ **On a hairpin this key writes the MODEL, where one branch over (a slur endpoint, a dynamic)
    * it writes a cosmetic override.** That is not an inconsistency to tidy away — it is §4's rule:
@@ -300,14 +312,15 @@ export function wireShortcuts(
    * lands on a notehead, which is the only place a wedge can honestly stop. A fixed step of, say,
    * a quarter would leave the end mid-triplet.
    *
-   * DECLINEs (false) when no hairpin is selected, or when the edit would make the wedge non-positive
-   * — `setHairpinLength` refuses that rather than deleting the thing being shortened.
+   * DECLINEs (false) when no hairpin is selected, when its right-hand square is not the armed one,
+   * or when the edit would make the wedge non-positive — `setHairpinLength` refuses that rather than
+   * deleting the thing being shortened.
    */
   const resizeSelectedHairpin = (direction: 1 | -1): boolean => {
     const eng = getEngine()
-    const id = selectedOf(state, 'hairpin')?.id
-    if (!eng || !id) return false
-    if (!eng.resizeHairpinBySlot(id, direction)) return false
+    const hairpin = selectedOf(state, 'hairpin')
+    if (!eng || hairpin?.endpoint !== 'end') return false
+    if (!eng.resizeHairpinBySlot(hairpin.id, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -795,18 +808,20 @@ export function wireShortcuts(
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
     //    Left = tighten/narrow, right = widen. DECLINEs (false) when nothing applicable is selected,
     //    keeping the key free. One undo per press.
-    //    ⚠️ A selected HAIRPIN joins this chain, and it is the one branch that writes the MODEL
-    //    rather than an override — see `resizeSelectedHairpin` for why that is the rule and not a
-    //    slip. All the selections remain disjoint, so it is one more branch and no reordering.
-    //    ⭐ A selected PEDAL joins it beside the hairpin, on the same terms and for a stronger
-    //    version of the same reason: its extent is how long the notes RING (`resizeSelectedPedal`).
+    //    ⭐ A selected PEDAL joins this chain, and it is the one branch here that writes the MODEL
+    //    rather than an override: its extent is how long the notes RING (`resizeSelectedPedal`), so
+    //    a cosmetic offset would leave playback believing a lift the eye does not see. All the
+    //    selections remain disjoint, so it is one more branch and no reordering.
+    //    ⚠️ The HAIRPIN's resize used to sit here beside it, ungated — so a selected wedge ate this
+    //    chord outright. It moved to `Ctrl+Shift+←/→`, and only while its right-hand square is armed
+    //    (his call, 2026-08-17; see `resizeSelectedHairpin`).
     ctrlArrowLeft: () =>
       nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
-      || resizeSelectedHairpin(-1) || resizeSelectedPedal(-1)
+      || resizeSelectedPedal(-1)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
-      || resizeSelectedHairpin(1) || resizeSelectedPedal(1)
+      || resizeSelectedPedal(1)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetArmedSlurPoint() || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
@@ -818,8 +833,15 @@ export function wireShortcuts(
     //    ⭐ An armed slur ENDPOINT gets the chord first: it re-anchors one note left/right instead
     //    (Ctrl+←/→ already nudges that point by pixels, so Shift on the same axis means "move the
     //    anchor" — see `slurReanchor`). Disjoint from the offset, which needs a selected NOTE.
-    ctrlShiftArrowLeft: () => reanchorArmedEndpoint(-1) || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
-    ctrlShiftArrowRight: () => reanchorArmedEndpoint(1) || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
+    //    ⭐ …and an armed hairpin RIGHT-HAND square lengthens/shortens the wedge by a slot on the
+    //    same chord (his call, 2026-08-17): the same sentence — "move this end of the span" — about
+    //    the other kind of spanner. Disjoint again: one `selectedElement`, one kind.
+    ctrlShiftArrowLeft: () =>
+      reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1)
+      || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+    ctrlShiftArrowRight: () =>
+      reanchorArmedEndpoint(1) || resizeSelectedHairpin(1)
+      || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
     // Ctrl+Shift+Backspace AND Shift+Alt+Backspace both reset the offset — it is one value, and each
