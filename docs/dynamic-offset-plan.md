@@ -147,6 +147,32 @@ Three of his reports in one sitting, and the third is the general rule:
    registry entry, and the kind's row in `ELEMENT_SPECS` calls `applyAnchorGuideLine` from its
    `highlight`. Only `DynamicsLayout` supplies points today.
 
+### ⭐ Kind 2 — the TEMPO mark (2026-08-17, his call the same day)
+
+*"So we have anchor line for expression but not for tempo; let's apply it to tempo."* It cost exactly
+the two edits the rule promises — `TempoLayout.drawTempoMarks` captures the pair, and the `tempo` row
+in `ELEMENT_SPECS` calls `applyAnchorGuideLine` — and **nothing in the guide changed**.
+
+What differs is what the two ends MEAN, and both differences are the point:
+
+- ⭐⭐ **Its anchor is a PLACE IN TIME, not a note**: the mark's own {@link anchorX} (the bar's opening
+  for a downbeat mark, the note at-or-after the beat for a later one) at the **staff's top line**.
+  ⛔ Deliberately unlike the dynamic's, whose anchor is the NOTE — including its lowest notehead's y —
+  so that guide tracks a pitch change. A tempo does not belong to a pitch, and following one up and
+  down would say that it did. ⭐ It is also what MuseScore's generic `dragAnchorLines` does: the
+  parent segment's x at the staff's near edge.
+- **Its near end is the ink's BOTTOM-left**, because a tempo is engraved ABOVE the staff. That is why
+  the rule is *the ink corner NEAREST THE STAFF* rather than *the top* — one sentence covering both
+  kinds and every kind after them.
+- ⚠️ **From the tight extents, not the font table.** A tempo mark is mostly PROSE in a serif face and
+  `dynamicMarkInk` answers `null` for exactly that; `TEMPO_INK_BELOW` is the descender depth
+  `tempoStyle` already states. The font table is for glyphs, and a mark that is mostly words does not
+  need it.
+
+Both kinds' endpoints are measured in `e2e/anchorGuide.e2e.ts` — including the invariant that caught
+the `shiftById` defect above (the near end must stay INSIDE its element's box, however far the pass
+moved the mark).
+
 ### What MuseScore does (read from its C++, 2026-08-17)
 
 ⭐ **It never picks a bbox corner** — `EngravingItem::genericDragAnchorLines`

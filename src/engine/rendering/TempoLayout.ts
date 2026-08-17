@@ -290,6 +290,26 @@ export function drawTempoMarks(
             width: box.width,
             height: TEMPO_INK_ABOVE + TEMPO_INK_BELOW,
           },
+          // ⭐⭐ THE ATTACHMENT GUIDE'S TWO ENDS — the second kind to draw one (his call, 2026-08-17,
+          // the dynamic's having been the first). Both are captured here because both are
+          // measurements, and `HighlightController.applyAnchorGuideLine` only draws what the render
+          // measured (docs/dynamic-offset-plan.md).
+          //
+          // ⭐ **What a tempo mark is attached to is a PLACE IN TIME, not a note** — which is why
+          // this end is `x` (the same {@link anchorX} the mark is drawn from: the bar's opening for a
+          // downbeat mark, the note at-or-after the beat for a later one) at the staff's TOP LINE,
+          // and not a notehead. ⛔ Deliberately unlike the dynamic's, whose anchor IS its note so the
+          // guide tracks a pitch change: a tempo does not belong to a pitch, and following one up and
+          // down would say it did. It is also what MuseScore's generic `dragAnchorLines` does — the
+          // parent segment's x at the staff's near edge (`engravingitem.cpp:2343-2366`).
+          anchor: { x, y: stave.getYForLine(0) },
+          // The mark's own end: the ink corner NEAREST the staff, i.e. its BOTTOM-left, since a tempo
+          // is engraved above. The mirror of the below-staff dynamic's top-left, and the reason the
+          // rule is "nearest the staff" rather than "the top".
+          // ⚠️ From the tight extents rather than the font table: a tempo mark is mostly PROSE in a
+          // serif face, which Bravura cannot speak for (`./dynamicMarkInk` answers null for exactly
+          // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
+          guideFrom: { x: box.x, y: y + TEMPO_INK_BELOW },
         })
       }
     } catch {

@@ -256,6 +256,13 @@ arrow-nudge later: `engravingOverrides` client #8 (geometry never goes on the ma
   `<g>` (from §6.1 — via DOM `setAttribute('fill', …)`, **never** VexFlow `setStyle`, which leaks
   into the shared draw context and grays the whole score); (d) the Delete-key path in
   `KeyboardController`.
+- ⭐ **The ATTACHMENT GUIDE (added 2026-08-17, his call).** A selected mark draws the dashed line to
+  what it hangs off, as a selected dynamic does. Two edits, both named by the general rule in
+  `docs/dynamic-offset-plan.md`: `drawTempoMarks` captures the endpoints onto the registry entry, and
+  the `tempo` row in `ELEMENT_SPECS` calls `applyAnchorGuideLine`. ⭐⭐ **Its anchor is a PLACE IN
+  TIME** — the mark's own `anchorX` at the staff's TOP LINE — ⛔ never a notehead: a dynamic's guide
+  follows its note's pitch on purpose, and a tempo mark belongs to no pitch. Measured in
+  `e2e/anchorGuide.e2e.ts`.
 - **Edit the word** (Sibelius-style): double-click → the existing `DomTextEdit` overlay
   (`TextEditController`, `docs/text-editing-plan.md`). Must preserve the mark's id and leave `bpm`
   untouched. *(Ship in P4 — the model already supports it; it is pure reuse.)*

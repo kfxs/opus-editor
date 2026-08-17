@@ -38,5 +38,9 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'tempo', id: tempoAt.id })
   },
 
-  highlight: h => h.applyTempoSelectionHighlight(),
+  // The mark is recoloured, and — since 2026-08-17 — it also draws the attachment guide to the place
+  // in time it governs (his call; the dynamic was the first kind, this is the second). ⭐ The row is
+  // ONE of the two edits a kind needs: the other is capturing the two endpoints in the pass that
+  // draws it (`TempoLayout.drawTempoMarks`). Nothing about the guide itself is per-kind.
+  highlight: h => { h.applyTempoSelectionHighlight(); h.applyAnchorGuideLine() },
 }
