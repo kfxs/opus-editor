@@ -184,11 +184,30 @@ test('a tie and a slur on a small staff are drawn AT that staff, at its size', a
 
   // The tie's and slur's own INK shrank with the staff — their bow depth and their thickness are
   // staff-space geometry, so this is the scale reaching them. (Their WIDTH is note SPACING, which
-  // is still full-size until P3 — see the note above.)
+  // does NOT shrink with one staff — see the slur note below.)
   expect(after.tie.height).toBeCloseTo(before.tie.height * 0.7, 0)
-  // The slur only APPROXIMATELY: its arch is a function of the span it has to cover, and the span
-  // is still full-size spacing until P3 — so it is a slightly different curve, drawn small.
-  expect(after.slur.height).toBeLessThan(before.slur.height * 0.85)
+
+  // ⚠️⚠️ **THE SLUR'S HEIGHT IS NOT A 0.7 QUANTITY, and no bound near 0.7 will ever hold.** This
+  // used to demand `< 0.85` and went red on 2026-08-18 at 0.866; the bound was the artefact, not
+  // the drawing.
+  //
+  // ⭐ An arch is a function of the SPAN, and the span does not shrink with the staff. That is the
+  // rule, not a gap: the spacing SPINE is global and size-blind, only the INK is per staff, and a
+  // column takes the max of the staves' demands (docs/staff-size-plan.md §6a, read out of LilyPond,
+  // Verovio and GUIDO). A small staff sharing a system with a full-size one must ALIGN with it —
+  // simultaneous notes line up — so in its own spaces its music is 1/k wider, and the arc over it is
+  // longer and flatter. ⛔ The comment here used to blame "full-size spacing until P3"; P3 is built
+  // (`measureColumns.sized`), and this is what the built rule does.
+  //
+  // ⭐ Since `54e5482` ("a slur reaches over the notes it covers") that flatter arc also gets LIFTED
+  // to clear the interior notehead — which the full-size arc clears by itself, so the rule fires on
+  // one staff and not the other. Measured on this fixture: **0.726** before that rule, **0.866**
+  // after; with no interior note under the slur at all, **0.84**.
+  //
+  // ⛔ So this asserts only that the slur was drawn SMALLER, never by how much. The real claim —
+  // *drawn AT the small staff, at its size* — is carried by the `gap` assertion below, which is
+  // exact, and by the tie above.
+  expect(after.slur.height).toBeLessThan(before.slur.height * 0.95)
   expect(after.slur.height).toBeGreaterThan(before.slur.height * 0.5)
   // …and they are drawn AT the small staff. The telling number is how far the slur arches above
   // its OWN top line: that gap is staff-space geometry, so it shrinks with the staff. Left

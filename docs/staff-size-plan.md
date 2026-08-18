@@ -1,14 +1,30 @@
 # Staff size — a staff is drawn at a size, and it is not the same size for every staff
 
-**Status: EVERY PHASE BUILT EXCEPT P3** (2026-07-29) — P0, P1, P2, P4, P5, P6. The value, the
-resolver, the renamed constant, the dev button, the per-staff vertical stride, **the transform**,
-**everything drawn outside a bar's group**, and the constants sweep. A small staff is drawn small,
-with its ties, slurs, beams, connector and ghost.
+**Status: EVERY PHASE BUILT** — P0, P1, P2, P4, P5, P6 (2026-07-29), **and P3 too** (see below). The
+value, the resolver, the renamed constant, the dev button, the per-staff vertical stride, **the
+transform**, **everything drawn outside a bar's group**, the constants sweep, and the horizontal
+room. A small staff is drawn small, with its ties, slurs, beams, connector and ghost.
 
-⚠️ **P3 — the horizontal room (§6) — was skipped and is the one thing left.** A small staff's music
-is still *spaced* for a full-size staff, so it reads as stretched, and §7's `laneFingerprint` +
-`layoutStateKey` are owed with it (`measureShapeKey` landed in P4 — see the P2 note). The other open
-item is smaller: the **marking-tool ghosts** still preview at full size over a small staff (see P5).
+> ✅ **P3 IS BUILT — status corrected 2026-08-18, and the correction is the point.** This line said
+> *"P3 was skipped and is the one thing left"* for three weeks after it stopped being true, and it
+> was believed: it was quoted back as the cause of an unrelated failing test, and `e2e/staffSize`'s
+> own comments still said *"until P3"*. What happened is that P3 was skipped **at his request** on
+> 2026-07-29, then §6a's research (2026-07-31) rewrote what it should be, and that version landed
+> **inside the spacing model** rather than as a phase carrying this name — so nobody came back here.
+>
+> Where it lives: `engine/layout/measureColumns.ts`'s `sized(boxes, size)` — *"the one place a
+> staff's SIZE enters the spacing model"*, citing §6a — plus `measureLeadIn`'s `StaffSizeResolver`
+> for the header, and the staff sizes inside `layoutStateKey` (§7's memo trap, closed). Measured
+> 2026-08-18: one staff of dense music shrunk to 0.7 narrows its bar 244 → 239.8 px.
+>
+> ⚠️ **A small staff still reads "stretched" beside a full-size one, and that is the RULE, not a
+> gap** (§6a): the spine is global and size-blind, only the ink is per staff, and a column takes the
+> MAX. A small staff sharing a system must ALIGN with the big one, so in its own spaces its music is
+> `1/k` wider. ⛔ Do not "fix" it — LilyPond, Verovio and GUIDO all do this. Only the ink relaxes,
+> which is why the lone-staff measurement above moves 1.7% and not 30%.
+
+⚠️ **What IS still open** is smaller: the **marking-tool ghosts** still preview at full size over a
+small staff (see P5).
 
 The review that produced the plan: the model was already proportional (staff-spaces, pixel-free),
 the **rendering** was not.
@@ -463,8 +479,16 @@ Each key becomes true in the phase that makes it true, and the trap is real in b
 per-staff. Still no glyph scaling: the bar is now the right *width* for a small staff drawn large,
 which looks wrong on purpose and is the last cheap step.
 
-**P4 — the transform**, **with `measureShapeKey`** (§7). **✅ BUILT** (out of order — P3 is still
-open, see below). The per-staff group transform (§4.1) + the `ElementRegistry` composition (§4.2) +
+> ✅ **BUILT — out of order, and not under this name.** Skipped here at his request on 2026-07-29,
+> then rewritten by §6a's research two days later and landed inside the spacing model:
+> `layout/measureColumns.ts`'s `sized(boxes, size)` scales each staff's ink demands, `measureLeadIn`
+> takes a `StaffSizeResolver` for the header, and `layoutStateKey` carries the staff sizes (§7's
+> memo trap for this phase). ⚠️ §6's "the lane contributes × sizeₛ" survived; its *"a small staff
+> gets 1/k more room than it asked for"* did not — see §6a. A column is shared, so the big staff's
+> demand wins it, and the small staff is stretched **by design**.
+
+**P4 — the transform**, **with `measureShapeKey`** (§7). **✅ BUILT** (out of order — P3 was still
+open the day this was written; it has since been built too, see its entry above). The per-staff group transform (§4.1) + the `ElementRegistry` composition (§4.2) +
 `replaySnapshot`. This is where a small staff actually looks small.
 
 > **The mechanism is one attribute and one division.** `renderMeasure` sets `transform="scale(k)"`
@@ -499,7 +523,10 @@ open, see below). The per-staff group transform (§4.1) + the `ElementRegistry` 
 >
 > ⚠️ **P3 is still open and it shows**: a small staff's music is spaced for a full-size staff, so
 > inside its scaled group it gets `1/k` more room than it asked for and reads as *stretched* —
-> exactly what §6 describes. **P5 is open too**: everything in §4.3 draws full size in the wrong
+> exactly what §6 describes.
+> *(⭐ Written at P4. P3 has since been built, and the stretch is still there — because §6a's rule
+> says a shared column is the big staff's. Only the INK relaxed: a LONE small staff's bar narrows
+> 244 → 239.8 px. ⛔ The "1/k more room than it asked for" reading was wrong.)* **P5 is open too**: everything in §4.3 draws full size in the wrong
 > place on a scaled staff. Tempo marks turned out NOT to be one of them — `drawTempoMarks` runs
 > inside `drawMeasureContent`, so its group nests in the measure's and scales with it.
 >
@@ -563,6 +590,8 @@ last: until P4 there is nothing to be wrong about.
 > **casting-off**, before any group exists — the spacing model's own numbers (⚠️ `MIN_NOTE_SPACING`
 > is deleted; the ink table and `MIN_COLUMN_GAP` replace it), `CLEF_WIDTH`, `TIME_SIG_WIDTH`,
 > `BARLINE_PADDING` — and those belong to **P3**, which is still open.
+> *(✅ Since built — `measureLeadIn` takes the size resolver, and the ink table is scaled per staff
+> in `measureColumns.sized`.)*
 >
 > So what landed:
 >
