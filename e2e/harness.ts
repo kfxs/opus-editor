@@ -161,6 +161,18 @@ export interface Harness {
   placed(selector: string): Glyph[]
   /** The raw `d` of every path matching `selector` — for ink whose SHAPE is the point (a tie's bow). */
   paths(selector: string): string[]
+  /**
+   * ⭐⭐ **A CURVE'S OWN INK, sampled** — every path matching `selector`, walked with
+   * `getPointAtLength` and composed through its CTM into score coordinates.
+   *
+   * ⚠️ **Not the `d` attribute.** A slur or tie is one cubic: its `d` carries four points, all near
+   * the ends, so asking "how high does the arc run between these two x's" of the raw string finds
+   * nothing at all in mid-span and answers a confident zero. The layout it is checking against reads
+   * a SAMPLED curve (`engine/layout/curveObstacleBand.ts`), and so must this.
+   *
+   * ⚠️ The CTM, for `staves()`' reason: a curve on a small staff is drawn inside a `scale(k)` group.
+   */
+  curveSamples(selector: string, steps?: number): { x: number; y: number }[]
   /** The text of every `<text>` matching `selector`, in document order — for WORDS, where
    *  {@link Harness.glyphs} would only report the first character's codepoint. */
   texts(selector: string): string[]
@@ -392,6 +404,23 @@ const harness: Harness = {
   },
 
   paths: (selector: string) => all<SVGPathElement>(selector).map(p => p.getAttribute('d') ?? ''),
+
+  curveSamples(selector: string, steps = 64): { x: number; y: number }[] {
+    const root = svg()
+    const toScore = root.getScreenCTM()!.inverse()
+    return all<SVGPathElement>(selector).flatMap(path => {
+      const length = path.getTotalLength()
+      if (!(length > 0)) return []
+      const ctm = path.getScreenCTM()!
+      return Array.from({ length: steps + 1 }, (_, i) => {
+        const at = path.getPointAtLength((i / steps) * length)
+        const point = root.createSVGPoint()
+        point.x = at.x
+        point.y = at.y
+        return point.matrixTransform(ctm).matrixTransform(toScore)
+      }).map(p => ({ x: p.x, y: p.y }))
+    })
+  },
 
   texts: (selector: string) => all<SVGTextElement>(selector).map(t => t.textContent ?? ''),
 

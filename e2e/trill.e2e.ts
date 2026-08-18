@@ -454,3 +454,215 @@ test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `be
   })
   expect(await signY(), 'below the staff, further out is DOWN the screen').toBeGreaterThan(belowBefore)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * ⭐⭐ **THE TRILL AND THE CURVE UNDER IT** — docs/trill-slur-clearance-plan.md, his report of
+ * 2026-08-18: *a `tr` on a note inside a slur's span collides with the arc.*
+ *
+ * > **Gould p. 135**: the sign sits *"further from the note than any articulation marks. Only a long
+ * > slur, a pause or octave sign goes further from the stave."* Her p. 138 (d) draws the hardest
+ * > case — a slur STARTING on the trilled note — and the `tr` is outside there too, by 0.55–1.35 sp
+ * > measured at 450 dpi.
+ *
+ * ⚠️ **These cannot be unit tests, and not only for the usual font reason.** The obstacle IS the
+ * drawn curve: in jsdom there is no arc to be over.
+ */
+
+/**
+ * Every y the drawn curves reach inside an x-window — the same question the layout pass asks of
+ * `curveObstacleBand`, put to the ink instead of to the model.
+ *
+ * ⚠️ **Sampled ink, via `h.curveSamples`, ⛔ never the `d` attribute.** A slur is ONE cubic whose four
+ * stored points all sit near its ends: parsing the string found nothing inside a window over the
+ * middle of the bar and reported a confident zero, which is how this test first "passed" its way to a
+ * wrong answer. The points cross the boundary and are windowed HERE, since a helper declared in this
+ * file does not exist inside `page.evaluate`.
+ */
+const curveYsIn = (points: { x: number; y: number }[], x0: number, x1: number): number[] => {
+  const [left, right] = x0 <= x1 ? [x0, x1] : [x1, x0]
+  return points.filter(p => p.x >= left && p.x <= right).map(p => p.y)
+}
+
+/**
+ * ⭐ **THE LOPSIDED FIXTURE, and it is lopsided on purpose** — the ladder's own recorded lesson
+ * (`ladder.e2e.ts`: over staff-resident music every family lands on its own floor, so the order
+ * comes out right *whether or not anything reads anything*). Here the trilled note is a low B4 whose
+ * own ink cannot lift the sign at all, while the slur leaps to C6 either side of it — so the arc
+ * passes high over the `tr`, and only a pass that actually reads the curve can get out of its way.
+ *
+ * ⭐ It carries a DYNAMIC as well, at the trilled note. That is the second half of the claim: the
+ * families outside the trill are placed after it, so a lifted `tr` must push the `p` out too.
+ */
+async function slurOverTrill(score: import('@playwright/test').Page, opts: { slur: boolean }) {
+  return score.evaluate(async ({ slur }: { slur: boolean }) => {
+    const h = window.__h
+    const pitches = [{ step: 'C', octave: 6 }, { step: 'B', octave: 4 },
+      { step: 'B', octave: 4 }, { step: 'C', octave: 6 }]
+    const ids = pitches.map((p, beat) => h.engine.addNoteAtBeat({
+      step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
+    })!.id)
+    if (slur) h.engine.createSlur([ids[0], ids[3]])
+    h.engine.addTrill({ startNoteId: ids[1] })
+    h.engine.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
+    await h.render()
+
+    const stave = h.staves()[0]
+    const marks = h.placed('g.vf-trill text')
+    const xs = marks.map(m => m.x)
+    return {
+      sign: marks[0],
+      // ⭐ The window is the trill's OWN drawn ink — sign and wiggle — which is the stretch of x the
+      //   layout pass looked for a curve over.
+      from: Math.min(...xs),
+      to: Math.max(...xs),
+      arcs: h.curveSamples('g.vf-slur path'),
+      dynamic: h.placed('g.vf-annotation text')[0],
+      top: stave.top,
+      spacing: (stave.bottom - stave.top) / 4,
+    }
+  }, opts)
+}
+
+test('⭐⭐ a `tr` inside a slur’s span sits OUTSIDE the arc — Gould p. 135', async ({ score }) => {
+  const r = await slurOverTrill(score, { slur: true })
+  const arcYs = curveYsIn(r.arcs, r.from, r.to)
+
+  expect(arcYs.length, 'the fixture really does draw an arc over the sign').toBeGreaterThan(0)
+  const arcTop = Math.min(...arcYs)
+  // y grows DOWN, so "outside" is a smaller y.
+  expect(r.sign.y, 'the sign clears the arc').toBeLessThan(arcTop)
+
+  // ⭐ And by the family's own padding, which is the 0.5 sp the three engines agree on (MuseScore's
+  // `Sid::trillMinDistance`, Verovio's margin, LilyPond's 0.46) — read as air, not as a constant.
+  //
+  // ⚠️ **A HAIR under 0.5, and the reason is worth knowing: the two are not sampling the same curve
+  // at the same rate.** `drawCurveArc` records 17 points for the layout to read; this test walks the
+  // drawn path at 64, so it finds a point slightly higher on the arch than the model ever saw
+  // (measured: 0.488 sp, i.e. 0.012 short). Asserting an exact 0.5 would be asserting our own
+  // arithmetic back to us; what the picture owes is *about half a space, and never zero*.
+  const air = (arcTop - r.sign.y) / r.spacing
+  expect(air, 'there is real air between the two').toBeGreaterThan(0.4)
+  expect(air, 'and it is the padding, not a flight off the page').toBeLessThan(1.5)
+})
+
+test('🚨 …and the SLUR is what put it there — the same bar without one keeps its floor', async ({ score }) => {
+  // The break-test for the fixture itself: if the trilled note's own ink were doing this work, the
+  // two would come out the same and the test above would pass with the curve read deleted.
+  const withSlur = await slurOverTrill(score, { slur: true })
+  const without = await slurOverTrill(score, { slur: false })
+
+  expect(without.sign.y, 'no arc to clear → the sign sits nearer the staff').toBeGreaterThan(withSlur.sign.y)
+  expect((without.sign.y - withSlur.sign.y) / withSlur.spacing,
+    'and the difference is the arc, not a rounding wobble').toBeGreaterThan(1)
+})
+
+test('⭐⭐ the DYNAMIC above it moves too — the ladder reads the LIFTED trill, not a snapshot', async ({ score }) => {
+  // The cascade, which is where the first design of this went wrong: the dynamics used to be planned
+  // (and drawn) before any slur existed, so a lifted `tr` would have been pushed through the `p`
+  // above it. The families are now planned after the curves, in ladder order, so this is true by
+  // construction rather than by a repair pass.
+  const withSlur = await slurOverTrill(score, { slur: true })
+  const without = await slurOverTrill(score, { slur: false })
+
+  expect(withSlur.dynamic.y, 'the `p` stays outside the trill it clears').toBeLessThan(withSlur.sign.y)
+  expect(without.dynamic.y, 'and it followed the trill outward when the slur lifted it')
+    .toBeGreaterThan(withSlur.dynamic.y)
+})
+
+test('⭐ the ENDPOINT case: a slur STARTING on the trilled note — Gould p. 138 (d)', async ({ score }) => {
+  // ⛔ An ornament does NOT follow the articulation rule (Gould p. 121–122), which flips an accent
+  // INSIDE a slur mid-span and outside at its ends. The trill has its own rung and does not flip:
+  // her p. 138 (d) is an endpoint case and the `tr` is outside there too.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [{ step: 'B', octave: 4 }, { step: 'C', octave: 6 },
+      { step: 'C', octave: 6 }, { step: 'B', octave: 4 }].map((p, beat) =>
+      h.engine.addNoteAtBeat({
+        step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
+      })!.id)
+    h.engine.createSlur([ids[0], ids[3]])   // the slur STARTS on the note that is trilled
+    h.engine.addTrill({ startNoteId: ids[0] })
+    await h.render()
+    const marks = h.placed('g.vf-trill text')
+    const xs = marks.map(m => m.x)
+    return {
+      sign: marks[0],
+      from: Math.min(...xs),
+      to: Math.max(...xs),
+      arcs: h.curveSamples('g.vf-slur path'),
+    }
+  })
+
+  const arcYs = curveYsIn(r.arcs, r.from, r.to)
+  expect(arcYs.length).toBeGreaterThan(0)
+  expect(r.sign.y, 'the trill is outside its own slur’s first note').toBeLessThan(Math.min(...arcYs))
+})
+
+test('⭐ a TIE under the wavy line is an obstacle too — Gould p. 139', async ({ score }) => {
+  // *Change of trilling note* draws ties hugging the noteheads with the wavy line above them — and a
+  // trill's span runs THROUGH ties by definition (`Trill.endNoteId` absent = the start note's own
+  // sounding duration, through ties), so this is the commoner of the two collisions.
+  const read = async (tied: boolean) => score.evaluate(async (tie: boolean) => {
+    const h = window.__h
+    const first = h.engine.addNoteAtBeat({
+      step: 'C', octave: 6, duration: 'w', measure: 1, beat: h.frac(0, 1) })!.id
+    h.engine.addMeasure()
+    const second = h.engine.addNoteAtBeat({
+      step: 'C', octave: 6, duration: 'w', measure: 2, beat: h.frac(0, 1) })!.id
+    if (tie) h.engine.updateNote(first, { tiedTo: second })
+    h.engine.addTrill({ startNoteId: first })
+    await h.render()
+    const marks = h.placed('g.vf-trill text')
+    const xs = marks.map(m => m.x)
+    return {
+      sign: marks[0],
+      from: Math.min(...xs),
+      to: Math.max(...xs),
+      arcs: h.curveSamples('g.vf-tie path'),
+    }
+  }, tied)
+
+  const tied = await read(true)
+  const tieYs = curveYsIn(tied.arcs, tied.from, tied.to)
+  expect(tieYs.length, 'the tie is drawn above these stemless high notes').toBeGreaterThan(0)
+  expect(tied.sign.y, 'the sign clears the tie').toBeLessThan(Math.min(...tieYs))
+  expect((await read(false)).sign.y, 'and without the tie it sits nearer the staff')
+    .toBeGreaterThan(tied.sign.y)
+})
+
+test('🚨🚨 the BELOW mirror: flip both, and the `tr` goes UNDER the arc', async ({ score }) => {
+  // ⛔ NOT optional, and ⛔ not "a second voice" — a trill's side is STORED and flipped by `x`
+  // (`trillOps.toggleTrillPlacement`), so any trill in any score can be on this side. A lift written
+  // with an implicit "up" in it passes every case above with the side term deleted; this is the one
+  // that bites, exactly as the ottava's 8vb did.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    // Low outer notes → stems up → the slur goes BELOW, on the notehead side.
+    const ids = [{ step: 'C', octave: 4 }, { step: 'G', octave: 4 },
+      { step: 'G', octave: 4 }, { step: 'C', octave: 4 }].map((p, beat) =>
+      h.engine.addNoteAtBeat({
+        step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
+      })!.id)
+    h.engine.createSlur([ids[0], ids[3]])
+    const trill = h.engine.addTrill({ startNoteId: ids[1] })!
+    h.engine.toggleTrillPlacement(trill.id)
+    await h.render()
+    const stave = h.staves()[0]
+    const marks = h.placed('g.vf-trill text')
+    const xs = marks.map(m => m.x)
+    return {
+      sign: marks[0],
+      from: Math.min(...xs),
+      to: Math.max(...xs),
+      arcs: h.curveSamples('g.vf-slur path'),
+      bottom: stave.bottom,
+    }
+  })
+
+  const arcYs = curveYsIn(r.arcs, r.from, r.to)
+  expect(arcYs.length, 'the arc is drawn under the notes').toBeGreaterThan(0)
+  expect(r.sign.y, 'the sign is below the staff at all').toBeGreaterThan(r.bottom)
+  expect(r.sign.y, 'and OUTSIDE the arc, which below the staff means a LARGER y')
+    .toBeGreaterThan(Math.max(...arcYs))
+})

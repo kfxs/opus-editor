@@ -599,6 +599,20 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // note's staff is the slur's.
       inStaffSpace(pass, slurStaffIndex, group, () => {
 
+        // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/trill-slur-clearance-plan.md P1. Every drawn
+        // arc (this slur's, or each of a split slur's segments) goes on the render's curve
+        // collection, so the outside-staff ladder planned after this pass can clear it: Gould p. 135
+        // puts the trill outside all but a long slur, and until now nothing above the staff knew a
+        // slur existed at all.
+        //
+        // ⚠️ **Filed HERE, inside `inStaffSpace`, on purpose.** These are the numbers the curve was
+        // drawn from — the staff's own space — which is the space the reading families work in. The
+        // registry's copies of the very same points are SCALED into SVG space by `withScale`, and
+        // carry neither the staff nor the system, so they cannot answer this question
+        // (`engine/layout/curveObstacleBand.ts` explains both).
+        const fileCurve = (points: { x: number; y: number }[], line: number) =>
+          pass.drawnCurves.push({ staff: slurStaffIndex, line, points })
+
         const fromNote = fromEnd.staveNote
         const toNote = toEnd.staveNote
         // Outer slurs (those enclosing nested slurs) arch higher so concentric arcs
@@ -642,6 +656,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               slurObstaclesOf(pass, score, slur))
           const cps = resolveCps(shapeOverride, stave, p0, p1, direction, nestLift, clearance)
           const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
+          fileCurve(arc.points, fromLine)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -673,11 +688,16 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           const registerSeg = (
             arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
             partialType: 'start' | 'end' | 'middle',
+            /** ⭐ THIS SEGMENT's own system — the one thing the registry entry cannot say, since
+             *  every partial carries the whole slur's `fromMeasure`/`toMeasure`. The obstacle
+             *  collection needs it, so it is passed rather than re-derived. */
+            line: number,
             segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
             stave: Stave | undefined,
             segmentRole: 'begin' | 'middle' | 'end',
             segmentOrdinal?: number,
           ) => {
+            fileCurve(arc.points, line)
             registerPartial(arc, partialType, {
               controlPoints: [arc.c0, arc.c1],
               segmentEndpoints: segEnds,
@@ -729,7 +749,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'end', { p0, p1, direction }, stave, 'begin',
+                'end', fromLine, { p0, p1, direction }, stave, 'begin',
               )
             } else if (seg.type === 'end') {
               // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
@@ -753,7 +773,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'start', { p0, p1, direction }, stave, 'end',
+                'start', toLine, { p0, p1, direction }, stave, 'end',
               )
             } else if (seg.type === 'middle') {
               // A full-width bow across a system the slur merely passes over. Both ends
@@ -777,7 +797,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'middle', { p0, p1, direction }, stave, 'middle', ordinal,
+                'middle', seg.line, { p0, p1, direction }, stave, 'middle', ordinal,
               )
             }
           }

@@ -40,8 +40,12 @@ and none of the three engines implements the exemption.
 
 ## 2. Why this is not a one-liner
 
-The above-staff ladder is planned **before anything is drawn**, and a slur's arc does not exist until
-after. That is the whole difficulty:
+✅ **FIXED 2026-08-18 by P1 — this section describes the order as it WAS.** The ladder is now planned
+after `renderTies`/`renderSlurs`; see §4 P1's "what shipped". It is kept because it is the argument
+for the move, and because the table below is what made the cascade look buildable when it was not.
+
+The above-staff ladder was planned **before anything was drawn**, and a slur's arc does not exist
+until after. That was the whole difficulty:
 
 ```
 3650  planTrillBands        ← PIXEL-FREE: layout columns and beats only
@@ -83,33 +87,77 @@ not know about articulations, slurs or tuplet brackets"*.
 
 ## 3. The three designs, and the choice
 
+⭐⭐ **THE CHOICE CHANGED, 2026-08-18: it is #3, the main road.** #2 was chosen on the belief that #3
+undid a render-time win. It does not — see the re-costing in §6 and the measurement in P0 below. The
+list is kept whole because the *reasons* are still the reasons.
+
 1. **Predict the arc** inside the pixel-free plan — compute the arch height from the spacing model
    without drawing it. ⛔ Rejected: a second answer to a height the drawing already computes, and the
    two would disagree the moment a hand-nudged endpoint or a `curveShape` override moved the real arc.
-2. **⭐ Draw, then TRANSLATE** — trills draw where they always did; a later pass lifts them off the
-   slur arcs that are by then on screen. **Chosen.** Precedent: `tempoLinePass` and `dynamicsLinePass`
+2. **Draw, then TRANSLATE** — trills draw where they always did; a later pass lifts them off the
+   slur arcs that are by then on screen. Precedent: `tempoLinePass` and `dynamicsLinePass`
    are exactly this shape, built for exactly this reason (a system-scope y must not enter
-   `measureShapeKey`, which cost 53% of render time when it did).
-3. **Hoist the ladder** to after the measure loop — undoes the split and its render-time win.
-   ⛔ Rejected — ⚠️ **and that rejection was measured wrong; see §6's "the main road, re-costed".**
-   The render-time win (53%) is about a system-scope y entering `measureShapeKey`, which is a fact
-   about where the dynamics are *drawn*, not about where the three plans are *computed*. Nothing
-   inside the measure loop reads any of the three plans today (`grep dynamicsPlan`: two consumers,
-   both after the loop), so moving them is not the loss this line claims.
+   `measureShapeKey`, which cost 53% of render time when it did). ⛔ **Was chosen; now rejected** —
+   it is MuseScore's repair path, and it can only repair two of the five families (§2's table).
+3. ⭐⭐ **Move the ladder below the curves** — draw the ties and slurs first, then plan the ladder, so
+   every family clears a real arc. **CHOSEN, and built as P1.** ⚠️ The first draft rejected this as
+   *"undoes the split and its render-time win"*; that was measured wrong. The 53% is about a
+   system-scope y entering `measureShapeKey` — a fact about where the dynamics are *drawn*, not about
+   where the three plans are *computed* — and nothing inside the measure loop reads any of the three
+   plans (`grep dynamicsPlan`: two consumers, both after the loop). It is also what all three engines
+   do (§6).
+
+### P0 — the spike that decided it, 2026-08-18
+
+Before committing to the move, the three plan calls and `renderSlurs` were reordered and both suites
+run against the seat change alone:
+
+| | before | after the move |
+|---|---|---|
+| `build:check` | ✓ | ✓ |
+| unit | 4187 passed | 4187 passed |
+| e2e | 199 passed, 1 failed | 199 passed, 1 failed |
+
+⭐ The one failure is `staffSize.e2e.ts:203` (a slur's height, 21.284 against a 20.894 threshold),
+**pre-existing on `main` and byte-identical either side of the move** — so it is not this work, and it
+is worth someone's eye separately. ⚠️ What the green proves is *no regression*, nothing more: at that
+point nothing yet read a curve. The two things the suites cannot see are the cull/reuse path
+(`replaySnapshot`) and the picture itself.
 
 ---
 
 ## 4. What gets built
 
-### P1 — the slur becomes an obstacle the ladder can see
+### P1 — the slur becomes an obstacle the ladder can see ✅ BUILT 2026-08-18
 
-`renderSlurs` (3753) already registers, per drawn slur half/segment, a `points` array of **sampled
-cubic points** (`curveArc.ts` computes them for arc-proximity hit-testing). ⭐ **The obstacle data
-therefore already exists** — nothing new is measured, and the sample is the drawn curve, which is
-what MuseScore (20 rects) and Verovio (a thickened bezier) both use rather than a bounding box.
+**What shipped**, four pieces:
 
-New: `engine/layout/curveObstacleBand.ts` — given the drawn curves and an x-window on one system, the
-arc's extreme y on the trill's side. ⛔ Not the bbox: a slur's box spans its whole arch, so a `tr`
+1. ⭐⭐ **The pass order.** `renderTies` and `renderSlurs` (in that order, unchanged relative to each
+   other) moved from below `placeDynamicsOnLine` to **above the three plan calls**, and the plan
+   calls moved from above the measure loop to below the curves. The ladder now clears drawn arcs by
+   construction — ⛔ and the cascade problem of §6 does not arise, because nothing is placed before
+   the lift is known.
+2. **`RenderPass.drawnCurves`** — a fresh array per render, `occupiedBands`' arrangement and for its
+   reason: the writer and the reader are different passes several steps apart and neither calls the
+   other. ⛔ Deliberately NOT a read of the `ElementRegistry`, for the two reasons below.
+3. **`engine/layout/curveObstacleBand.ts`** — pure, and named for the CURVE: `SlurRenderer` and
+   `TieRenderer` both file into it, since a trill's span runs *through* ties (Gould p. 139).
+4. **`curveObstacleBand.test.ts`** — 12 cases, ⭐ including the three break-tests that matter: delete
+   the `line` filter and the other-system case goes red, delete the `staff` filter and the
+   other-staff case goes red, stop clipping to the window (i.e. use the bbox) and the near-endpoint
+   case goes red. All three were run.
+
+⏭️ Nothing reads `drawnCurves` yet — that is P2.
+
+#### Why it is built this way
+
+`drawCurveArc` already samples every arc it draws — 17 points reconstructing the cubic, for
+arc-proximity hit-testing. ⭐ **The obstacle data therefore already existed** — nothing new is
+measured, and the sample is the drawn curve, which is what MuseScore (20 rects) and Verovio (a
+thickened bezier) both use rather than a bounding box.
+
+`curveObstacleBand` takes the drawn curves and an x-window on one system, and answers the band they
+occupy there. ⛔ Not the bbox: a slur's box spans its whole arch, so a `tr`
 near an endpoint would be pushed by ink that is nowhere near it. ⚠️ **Named for the CURVE, not the
 slur** — `engine/rendering/slurObstacles.ts` already exists next door (the arch clearance that lifts
 a slur over the notes it covers), and two files a letter apart answering opposite questions is a trap
@@ -120,28 +168,52 @@ for the next reader. `engine/layout/` is the right home: `measuredRoom.ts` alrea
 *through ties* (`Trill.endNoteId` absent = the start note's own sounding duration, through ties), so a
 tie under a wavy line is ordinary writing — and it is drawn in the book: Gould **p. 139**, *Change of
 trilling note*, *"ties hugging the noteheads with the wavy line above them"* (`reference/README.md`,
-third Q&A table). `TieRenderer.ts:182-194` registers the same sampled `points` from the same
-`drawCurveArc`, so it is one more type in the same query and no new measurement.
+third Q&A table). `TieRenderer` draws through the same `drawCurveArc`, so it files the same sampled
+points beside the slur's — one collection, no new measurement.
 
-### ✅ The coordinate question, ANSWERED — and it had a second half
+### ✅ The coordinate question, ANSWERED — and it is why the registry is not the source
 
-**The registered points are in SVG space, not staff space.** `inStaffSpace` wraps the drawing in
-`elementRegistry.withScale(k, …)` (`staffScaleGroup.ts:71-77`) and `scaleElement` scales `points`
-(`ElementRegistry.ts:582`), while `TrillRenderer`'s own arithmetic is in the staff's scaled space. So
-divide by `k` on the way in — the conversion `planSlurSegments` already makes.
+**The registry's copies of these points are in SVG space, not staff space.** `inStaffSpace` wraps the
+drawing in `elementRegistry.withScale(k, …)` (`staffScaleGroup.ts:71-77`) and `scaleElement` scales
+`points` (`ElementRegistry.ts:582`), while every family's arithmetic is in the staff's own space.
 
 🚨 **And the registry cannot tell you WHICH staff or WHICH system an arc is on.** `registerPartial`
-stamps every partial of a cross-system slur with the whole slur's `fromMeasure`/`toMeasure`
-(`SlurRenderer.ts:580-585`) and no `staff` at all. An x-window alone will therefore happily select an
-arc from another system (x's repeat down the page) or from the staff below. Two ways out:
+stamps every partial of a cross-system slur with the whole slur's `fromMeasure`/`toMeasure` and no
+`staff` at all. An x-window alone would therefore select an arc from another system (x's repeat down
+the page) or from the staff below.
 
-- add `staff` and the segment's own `line` to the slur registration (cheap, explicit); or
-- ⭐ **preferred** — have `renderSlurs`/`renderTies` push their arcs onto a `RenderPass` collector
-  carrying `(staffIndex, line, points)`, exactly as `pass.occupiedBands` collects claims. The
-  registry is the HIT-TESTING list; overloading it with a layout question is what makes the two
-  drift.
+⭐ **Both are answered by filing at the draw site instead**: `pass.drawnCurves` receives the points
+in the space they were drawn in — no conversion at either end — with the `staff` and the segment's
+own `line` beside them. `SlurRenderer`'s `registerSeg` and `TieRenderer`'s `register` each gained a
+`line` parameter for exactly the thing that cannot be recovered afterwards. ⛔ The registry stays the
+HIT-TESTING list; overloading it with a layout question is what makes the two drift.
 
-### P2 — the trill's baseline clears it, ON EITHER SIDE
+### P2 — the trill's baseline clears it, ON EITHER SIDE ✅ BUILT 2026-08-18
+
+**What shipped:**
+
+1. **`planTrillBands` takes `placements`, not `plans`** — it needs each bar's stave to turn an arc's
+   pixels into staff spaces. ⛔ `TrillBandPlacement` is DELETED, and `TrillRenderer` carries the note
+   saying why: the narrow type existed to keep the pass pixel-free, the pixel-freeness bought the
+   hoist, and the hoist bought nothing anyone used.
+2. **`curveBandUnder`** merges the curve band into `baselineFor`'s existing merge, before
+   `clearanceBaseline`. ⭐ So both sides mirror for free and there is no new constant — the 0.5 sp is
+   `TRILL_LINE.padding`, already the family's own.
+3. **`trillGeometry`** — the trill's two x's and its system pieces, computed ONCE and asked by both
+   passes. The plan needs the pieces to know which stretch of x to look for a curve over; the drawing
+   needs them to draw. ⛔ Two copies would be two answers to *where is this trill*.
+4. **Six browser tests** (`e2e/trill.e2e.ts`) + a new `h.curveSamples` harness reader.
+
+⚠️ **The harness reader is a finding in itself.** The first version of these tests parsed the slur's
+`d` attribute, and a slur is ONE cubic whose four stored points all sit near its ends — so a window
+over the middle of the bar found nothing and reported a confident **zero**. It would have "passed"
+two of the six tests by measuring nothing at all. `curveSamples` walks the path with
+`getPointAtLength` and composes the CTM, the way `staves()` does.
+
+⭐ **Measured air: 0.488 sp** where the padding is 0.5. The 0.012 is a sampling difference — the
+layout reads the 17 points `drawCurveArc` records, the test walks the drawn ink at 64 and finds a
+point slightly higher on the arch. ⛔ Not worth chasing; the test asserts *about half a space, and
+never zero* rather than asserting our own arithmetic back to us.
 
 🚨 **BOTH SIDES, in the same commit — his call, and it is not thoroughness for its own sake.**
 
@@ -185,14 +257,19 @@ calls `clearanceBaseline` with its own two numbers. It does NOT copy these six l
 existing line at `TrillRenderer.ts:476`. The engraver's instruction is never clamped by a machine's
 guess (that scar is recorded at `TrillRenderer.ts:449-453`).
 
-🚨 **The lift makes the FILED CLAIM stale, and the claim is what the ladder reads.**
-`planTrillBands` pushes the trill's `OccupiedSpan` at `TrillRenderer.ts:352` with the **un-lifted**
-baseline, and returns only `Map<string, number>`. A lift must rewrite that entry's `band`
-(`markBand(liftedBaseline, TRILL_MARK_INK)`) or the pedal and the tempo mark — the two families that
-*can* still see it — will clear a `tr` that is no longer there. So `planTrillBands` must hand back the
-claim objects alongside the baselines, keyed by `trillBandKey`.
+✅ **The stale-claim problem is GONE, and P1 is why.** It was: `planTrillBands` files the trill's
+`OccupiedSpan` (`TrillRenderer.ts:352`) with the un-lifted baseline, so a lift applied later in
+`renderTrills` would leave every outer family clearing a `tr` that had moved. With the ladder planned
+*after* the curves, the lift happens **inside `planTrillBands`** — `baselineFor` merges the curve band
+with the music band before `clearanceBaseline` is called — so the baseline that is filed IS the lifted
+one, and there is nothing to rewrite. ⭐ The whole cascade section below is superseded by the same
+move: the ottava, the dynamics, the pedal and the tempo mark all read the lifted claim because none of
+them has been placed yet.
 
-🚨 **And the cascade reaches only two of the five families — §2's table, and §6's amended decision.**
+⚠️ So P2 is now a change to `planTrillBands`, not to `renderTrills`: it needs `placements` rather than
+`plans` (for the stave — the arc's pixels become staff spaces against `getYForLine(0)` and
+`getSpacingBetweenLines()`), and `renderTrills` keeps reading the band it is handed. ⭐ `placements`
+already satisfies `TrillBandPlacement` structurally, so that is a one-word change at the call site.
 
 ⚠️ **Do not reach for `HairpinRenderer`'s and `OttavaRenderer`'s "the claim stays on the UN-nudged
 baseline" rule here.** That rule is about a HAND nudge — the engraver overruling placement, which
@@ -253,7 +330,14 @@ accumulator with `inside_staff_skylines`, which is where a slur lives; MuseScore
 trills, so they read the lifted one; Verovio orders `SLUR` before `TRILL`. **Nobody plans the band
 stack first and lifts afterwards**, which is exactly what §2 describes us doing.
 
-### So the decision — 🚨 AMENDED 2026-08-18, after reading the pass order
+### So the decision — ✅ SETTLED 2026-08-18: THE MAIN ROAD, and P1 built it
+
+⭐⭐ **Everything from here to the end of §6 is the argument that led there, kept as the record.** The
+cascade table below describes a problem that P1 removed by construction: with the ties and slurs drawn
+before the ladder is planned, no family is placed against an un-lifted band, so nothing needs
+translating afterwards. ⛔ Do not build the repair path it describes.
+
+### The decision as first amended — 🚨 superseded by the above
 
 The decision as first written was: **do it as §4 says (draw, then translate), AND translate the
 ladder entries above by the same Δ** — MuseScore's `SystemLayout::updateSkylineForElement`
@@ -315,8 +399,8 @@ problem rather than a modelling one.
 
 ### Still open
 
-0. 🚨 **The three families the cascade cannot reach** — see the amended decision above. Either they
-   stay a documented hole, or the main road is spiked and the hole closes by construction.
+0. ✅ **CLOSED 2026-08-18** — *the three families the cascade cannot reach*. The main road was spiked
+   (§3 P0) and built (§4 P1), and the hole closed by construction rather than by a repair path.
 1. **The long slur.** §7.
 2. ⭐ **Does a HAND nudge cascade?** Ours does not, deliberately. The field splits: an explicit
    opt-out silences the object entirely (LilyPond's `extra-offset`, applied at stencil-emit time so
@@ -341,12 +425,13 @@ problem rather than a modelling one.
 
 ## 8. Proving it
 
-- **Unit** — `curveObstacleBand`: the extreme over an x-window, the window that misses the arc
-  entirely, the bbox-vs-arc discriminator (a `tr` near an endpoint must NOT be pushed by the apex),
-  and 🚨 **an arc on ANOTHER SYSTEM / ANOTHER STAFF sharing the x-window is not an obstacle** — the
-  registry cannot distinguish them (§4 P1), so this is the test that fails if the discriminator is
-  dropped.
-- **Browser (`e2e/`)** — the picture is the point, and jsdom measures every glyph as 0×0:
+- **Unit** ✅ — `curveObstacleBand.test.ts`, 12 cases: the extreme over an x-window, the window that
+  misses the arc entirely, the bbox-vs-arc discriminator (a `tr` near an endpoint must NOT be pushed
+  by the apex), 🚨 **an arc on ANOTHER SYSTEM / ANOTHER STAFF sharing the x-window is not an
+  obstacle**, the reversed window (a cross-system fragment's two x's are not one ruler), the
+  un-laid-out stave, and the small staff answering in its own spaces.
+- **Browser (`e2e/trill.e2e.ts`)** ✅ six tests — the picture is the point, and jsdom measures every
+  glyph as 0×0:
   - 🚨 **the fixture must be LOPSIDED**, the ladder's own recorded lesson: over staff-resident music
     the trill's floor and the slur's arch come out in order *whether anything reads anything*. It
     needs a slur whose arch genuinely rises into the trill's band — a wide leap under a short slur.
@@ -360,6 +445,7 @@ problem rather than a modelling one.
   - 🚨 **the `below` MIRROR** — the trill flipped with `x` (⛔ not "a second voice": a trill's side is
     stored, not voice-derived — see P2). ⛔ Not optional: a one-sided implementation passes every
     above-staff case with the side term deleted.
-- **Break-tests** — delete the read, and the lopsided fixture must go red; replace the sampled arc
-  with the bbox, and the near-endpoint case must go red; ⭐ delete the claim rewrite (P2), and a
-  fixture with a `Ped.` or a tempo mark under the lifted `tr` must go red.
+- **Break-tests** ✅ all run, 2026-08-18 — `curveBandUnder` stubbed to `null`: **all six** browser
+  tests go red, the dynamic one included. In the unit spec: drop the `line` filter → the other-system
+  case reddens; drop `staff` → the other-staff case; stop clipping to the window → the near-endpoint
+  case plus two more.

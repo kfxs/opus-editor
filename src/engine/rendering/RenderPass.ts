@@ -3,6 +3,7 @@ import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
 import type { SpacedColumns } from './spacingPass'
 import type { OccupiedSpan } from '@/engine/layout/outsideStaffBand'
+import type { DrawnCurve } from '@/engine/layout/curveObstacleBand'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 
 /**
@@ -116,6 +117,22 @@ export interface RenderPass {
    * not apply to this one).
    */
   occupiedBands: OccupiedSpan[]
+  /**
+   * ⭐⭐ **THE CURVES THAT HAVE BEEN DRAWN** — every slur arc, slur segment and tie, filed by the
+   * pass that drew it so the outside-staff families can clear one
+   * (`engine/layout/curveObstacleBand.ts`, docs/trill-slur-clearance-plan.md P1).
+   *
+   * ⭐ Its own collection rather than a read of the `ElementRegistry`, which holds the same sampled
+   * points for hit-testing. Two reasons, and both bit: the registry stores them SCALED into SVG
+   * space (`withScale`) while every family's arithmetic is in the staff's own space, and a registry
+   * slur entry cannot say which staff or which system it is on — each partial of a cross-system
+   * slur carries the whole slur's `fromMeasure`/`toMeasure`. Filing them here keeps the layout
+   * question and the hit-testing question apart, which is what stops the two drifting.
+   *
+   * ⚠️ Throwaway scratch, like `occupiedBands`: a fresh array per render, and ⛔ **only meaningful
+   * to a pass that runs after `renderSlurs`** — which is why the ladder is now planned after it.
+   */
+  drawnCurves: DrawnCurve[]
   /** Measure number → rendered geometry bounds (read post-render by CoordinateMapper). */
   measureBounds: Map<number, MeasureBounds>
   /** Authoritative registry of all rendered elements + positions (hit-testing). */

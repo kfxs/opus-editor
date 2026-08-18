@@ -45,6 +45,7 @@ import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
 import { trillOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
+import { curveObstacleBand } from '@/engine/layout/curveObstacleBand'
 import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare, fracGt } from '@/utils/fraction'
@@ -65,12 +66,23 @@ import type { RenderPass } from './RenderPass'
  * is not imported back by it — the shape `HairpinRenderer` already uses.
  */
 /**
- * ⭐⭐ What computing a trill's HEIGHT needs — and, as with the ottava's twin, the point is what is
- * ABSENT: no `stave`, no `scale`, no drawn x. A trill's vertical comes from the layout's columns and
- * from beats, so {@link planTrillBands} can run above the measure loop.
+ * ⛔⛔ **`TrillBandPlacement` IS GONE, 2026-08-18, and that is a deliberate trade worth recording.**
+ *
+ * It was `Pick<TrillPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>` — the
+ * point being what was ABSENT: no `stave`, no `scale`, no drawn x. A trill's vertical came from the
+ * layout's columns and from beats alone, which is what let {@link planTrillBands} run above the
+ * measure loop.
+ *
+ * ⭐ **We gave that up to clear the SLUR** (docs/trill-slur-clearance-plan.md). An arc's height is
+ * not derivable from columns and beats — it exists only once drawn — so the plan now runs after
+ * `renderTies`/`renderSlurs` and takes the full {@link TrillPlacement}, stave and all. ⚠️ The
+ * pixel-freeness bought exactly one thing, the hoist; the hoist bought exactly one thing, an early
+ * plan for a family drawn inside the measure loop — and no such family ever existed (`VexFlowRenderer`
+ * records the measurement). What it cost was the `tr` drawn through the arc, which is a picture he
+ * can see.
+ *
+ * ⛔ So do not "restore" the narrow type: it would put the plan back above the curves.
  */
-export type TrillBandPlacement =
-  Pick<TrillPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>
 
 /** Where a fragment's height is filed — one trill, one entry per SYSTEM it crosses. */
 export function trillBandKey(trillId: string, line: number): string {
@@ -171,27 +183,104 @@ function spanX(
 }
 
 /**
- * ⭐ **THE TRILL'S OWN Y** — clear the ink over the columns it covers, floored at
- * {@link TRILL_LINE}'s minimum, mirrored for `below`.
+ * ⭐⭐ **WHERE THE TRILL IS DRAWN, ONCE** — its two x's and the pieces the systems cut it into.
+ *
+ * ⚠️ **Both passes ask this, and that is the point.** {@link planTrillBands} needs the pieces to know
+ * which stretch of drawn x to look for a slur over; {@link drawTrill} needs them to draw. Computing
+ * them in each would be two answers to *where is this trill*, and the pair would drift the first time
+ * one of them learned about a new inset — the same argument {@link barSlice} makes for the beats.
+ *
+ * Deterministic between the two calls: it reads `staveNoteMap` and `measureBounds`, both filled by
+ * the measure loop and untouched by anything between the two passes.
+ *
+ * ⭐ `TRILL_END_INSET` is applied to the SPAN's end BEFORE cutting, which is what keeps the air off a
+ * system break: a fragment that ends at the margin is created by the cut, so it never sees it.
+ * ⚠️ The "never past the start" clamp is SAME-SYSTEM ONLY, for `spanX`'s reason — across a break the
+ * two x's are in different systems' coordinates, so `startX + inset` is a number from another row.
+ */
+function trillGeometry(
+  pass: RenderPass,
+  span: TrillSpan,
+  voice: number,
+  from: TrillPlacement,
+  to: TrillPlacement,
+): { startX: number; endX: number; pieces: TrillPiece[] } | null {
+  const x = spanX(pass, span, voice, from, to)
+  if (!x) return null
+  const inset = staffSpacesToPixels(TRILL_END_INSET, from.stave)
+  const insetEnd = x.endX - inset
+  const endX = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
+  return {
+    startX: x.startX,
+    endX,
+    pieces: cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale),
+  }
+}
+
+/**
+ * ⭐ **THE TRILL'S OWN Y** — clear the ink over the columns it covers **and any curve arching over
+ * them**, floored at {@link TRILL_LINE}'s minimum, mirrored for `below`.
  *
  * ⚠️ **The band is the union over the bars of THIS FRAGMENT, not of the whole span.** A trill split
  * over a system break has one band per SEGMENT — otherwise a low note on the second system would
  * push the first system's `tr` up for no visible reason. Same rule the hairpin's fragments follow.
  */
 function baselineFor(
-  covered: readonly TrillBandPlacement[],
+  pass: RenderPass,
+  covered: readonly TrillPlacement[],
   span: TrillSpan,
   voice: number,
   staffId: string | undefined,
   firstStaffId: string | undefined,
   side: 'above' | 'below',
+  /** ⭐ THIS fragment's drawn x range ({@link trillGeometry}) — what the curve band is read over.
+   *  Absent only when the fragment was not drawn, and then the curves are simply not consulted. */
+  piece?: Pick<TrillPiece, 'x0' | 'x1'>,
 ): number {
   let band: InkBand | null = null
   for (const p of covered) {
     const { from, to } = barSlice(p, span, voice)
     band = mergeInkBands(band, staffInkBand(columnsBetween(p.system.columns, from, to), staffId, firstStaffId))
   }
-  return clearanceBaseline(band, side, TRILL_MARK_INK, TRILL_LINE)
+  return clearanceBaseline(
+    mergeInkBands(band, curveBandUnder(pass, covered, piece)), side, TRILL_MARK_INK, TRILL_LINE)
+}
+
+/**
+ * ⭐⭐ **THE SLUR (AND THE TIE) AS INK** — docs/trill-slur-clearance-plan.md P2, and the whole reason
+ * this pass runs after the curves are drawn.
+ *
+ * > Gould p. 135: the trill sits *"further from the note than any articulation marks. Only a long
+ * > slur, a pause or octave sign goes further from the stave."* Her p. 138 (d) draws it at the hardest
+ * > case — a slur STARTING on the trilled note — and the `tr` is still outside, by 0.55–1.35 sp.
+ *
+ * ⭐ **Merged, not maxed, and there is no new constant.** The arc becomes a third band beside the
+ * music's and (for families outside this one) the ladder's, and `clearanceBaseline` applies the
+ * family's own `TRILL_LINE` to all of them together. That gives the 0.5 sp gap the three engines
+ * agree on — MuseScore's `Sid::trillMinDistance` 0.5, Verovio's margin 0.5, LilyPond's 0.46 — from
+ * the padding the trill already uses to clear a notehead. ⛔ A second constant of the same value,
+ * tuned separately, is two answers to one question (`inkBand`'s rule).
+ *
+ * ⭐ **Both sides for free**, which is what P2 asked for: the band is the arc's real extent, and
+ * `clearanceBaseline` mirrors. Nothing here knows which way is out.
+ *
+ * ⚠️ Read over the fragment's UN-NUDGED x's. A hand nudge moves the ink and not the claim — the
+ * family's rule (`HairpinRenderer`, `OttavaRenderer`), so that dragging a `tr` sideways cannot shove
+ * its neighbours.
+ */
+function curveBandUnder(
+  pass: RenderPass,
+  covered: readonly TrillPlacement[],
+  piece?: Pick<TrillPiece, 'x0' | 'x1'>,
+): InkBand | null {
+  const here = covered[0]
+  if (!piece || !here) return null
+  const spacePx = here.stave.getSpacingBetweenLines()
+  return curveObstacleBand(
+    pass.drawnCurves,
+    { staff: here.staffIndex, line: here.line, fromX: piece.x0, toX: piece.x1 },
+    { topLineY: here.stave.getYForLine(0), spacePx },
+  )
 }
 
 /**
@@ -305,22 +394,28 @@ function glyphWidth(el: Element): number {
  * Draw every trill in the score, above (or below) the music it covers, split at system breaks.
  */
 /**
- * ⭐⭐ **WHERE EVERY TRILL SITS — computed before anything is drawn, and before the dynamics line is
- * planned.** `renderTrills` below only draws what this decided.
+ * ⭐⭐ **WHERE EVERY TRILL SITS — computed after the curves are drawn and before every other
+ * outside-staff family is placed.** `renderTrills` below only draws what this decided.
  *
- * ⭐ **The trill is the INNERMOST outside-staff family**, so this reads nothing; it exists only to
- * FILE the claim early enough for the families outside it to see. Until 2026-08-17 the trill claimed
- * while drawing — after `planDynamicsLines` had already run — which was harmless while the dynamics
- * read nothing, and became a hole the moment they started to. ⚠️ So this pass is not a refactor: it
- * is what makes *"dynamics clear a trill"* true at all.
+ * ⭐ **The trill is the INNERMOST outside-staff family**, so of the LADDER it reads nothing; it exists
+ * to FILE the claim early enough for the families outside it to see. Until 2026-08-17 the trill
+ * claimed while drawing — after `planDynamicsLines` had already run — which was harmless while the
+ * dynamics read nothing, and became a hole the moment they started to. ⚠️ So this pass is not a
+ * refactor: it is what makes *"dynamics clear a trill"* true at all.
  *
- * ⚠️ One entry per SYSTEM ({@link trillBandKey}) — a low note on the second system must not lift the
- * first system's `tr`.
+ * ⭐⭐ **…and since 2026-08-18 it reads the DRAWN CURVES** ({@link curveBandUnder}) — the one input
+ * that cannot be had from columns and beats. That is why it no longer runs above the measure loop,
+ * and why the trill's lift needs no cascade: everything that has to clear a lifted `tr` is placed
+ * after this, so it reads the lifted number rather than a snapshot of where the `tr` used to be.
+ * ⛔ Move this above `renderSlurs` and the trill goes back through the arc.
+ *
+ * ⚠️ One entry per SYSTEM ({@link trillBandKey}) — a low note, or a high arc, on the second system
+ * must not lift the first system's `tr`.
  */
 export function planTrillBands(
   pass: RenderPass,
   score: Score,
-  placements: readonly TrillBandPlacement[],
+  placements: readonly TrillPlacement[],
   staffIds: readonly (string | undefined)[],
 ): TrillBandPlan {
   const plan: TrillBandPlan = new Map()
@@ -344,9 +439,17 @@ export function planTrillBands(
       && p.measureNumber >= span.startMeasure
       && p.measureNumber <= span.endMeasure)
 
+    // ⭐ WHERE IT WILL BE DRAWN — the same arithmetic the drawing does ({@link trillGeometry}), asked
+    // here because a curve is found by its x. ⚠️ `null` when the span's bars were not drawn; the
+    // fragment then keeps its music-only band rather than losing its claim.
+    const to = placements.find(p =>
+      p.measureNumber === span.endMeasure && p.staffIndex === from.staffIndex)
+    const geometry = to ? trillGeometry(pass, span, voice, from, to) : null
+
     for (const line of new Set(covered.map(p => p.line))) {
       const here = covered.filter(p => p.line === line)
-      const baseline = baselineFor(here, span, voice, staffId, staffIds[0], side)
+      const piece = geometry?.pieces.find(p => p.line === line)
+      const baseline = baselineFor(pass, here, span, voice, staffId, staffIds[0], side, piece)
       plan.set(trillBandKey(trill.id, line), baseline)
       const claim = trillFragmentClaim(here, span, voice, line, staffId, side, baseline, starts)
       if (claim) pass.occupiedBands.push(claim)
@@ -382,8 +485,10 @@ export function renderTrills(
     if (!from || !to) continue
 
     const voice = voiceOf(trill)
-    const x = spanX(pass, span, voice, from, to)
-    if (!x) continue
+    // ⭐ The same geometry `planTrillBands` measured the curves over — one answer to where this trill
+    // is, asked by both passes (see {@link trillGeometry}).
+    const geometry = trillGeometry(pass, span, voice, from, to)
+    if (!geometry) continue
 
     const covered = placements.filter(p =>
       p.staffIndex === from.staffIndex
@@ -395,7 +500,7 @@ export function renderTrills(
       // would yield `class="vf-vf-trill"`, the mistake the slur's comment records.
       const group = pass.context.openGroup?.('trill', `trill-${trill.id}`) as SVGGElement | undefined
       inStaffSpace(pass, from.staffIndex, group, () => {
-        drawTrill(pass, trill, span, voice, x, covered, from, to, staffIds[from.staffIndex], staffIds[0], bands)
+        drawTrill(pass, trill, span, voice, geometry, covered, from, staffIds[from.staffIndex], staffIds[0], bands)
       })
       pass.context.closeGroup?.()
       if (group) pass.trillGroupMap.set(trill.id, group)
@@ -405,16 +510,15 @@ export function renderTrills(
   }
 }
 
-/** The drawing itself, once the span and the two x's are known. */
+/** The drawing itself, once {@link trillGeometry} has said where the ornament goes. */
 function drawTrill(
   pass: RenderPass,
   trill: Trill,
   span: TrillSpan,
   voice: number,
-  x: { startX: number; endX: number },
+  geometry: { startX: number; endX: number; pieces: TrillPiece[] },
   covered: readonly TrillPlacement[],
   from: TrillPlacement,
-  to: TrillPlacement,
   staffId: string | undefined,
   firstStaffId: string | undefined,
   bands: TrillBandPlan,
@@ -422,15 +526,9 @@ function drawTrill(
   const side = trill.placement ?? 'above'
   const ctx = pass.context
 
-  // ⭐ AIR AT THE END — stand the line off whatever it runs up to (his call; see TRILL_END_INSET).
-  // ⚠️ Applied to the SPAN's end BEFORE cutting into pieces, which is what keeps it off a system
-  // break: a fragment that ends at the margin is created by the cut, so it never sees this.
-  const inset = staffSpacesToPixels(TRILL_END_INSET, from.stave)
-  // ⚠️ The "never past the start" clamp is SAME-SYSTEM ONLY, for `spanX`'s reason: across a break
-  // the two x's are in different systems' coordinates, so `startX + inset` is not a floor — it is a
-  // number from another row, and clamping to it threw the end of the line back to the wrong place.
-  const insetEnd = x.endX - inset
-  const endX = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
+  // ⭐ AIR AT THE END, and the cut into system fragments, both live in {@link trillGeometry} — this
+  // pass no longer computes either, because `planTrillBands` needs the same answer to know which
+  // stretch of x to look for a slur over. ⛔ Do not re-derive them here.
 
   // ⭐⭐ THE ATTACHMENT GUIDE'S FAR END — the trilled NOTE, captured once for the whole ornament.
   //
@@ -439,7 +537,7 @@ function drawTrill(
   // a style choice: this ornament is DEFINED by that note. Its auxiliary is a step above THAT pitch
   // (`utils/trillPitch`), so a guide that pointed at a staff line instead would be pointing away
   // from the thing the trill is computed from.
-  const anchor = trilledNoteAnchor(pass, from, voice, span, x.startX, side === 'above')
+  const anchor = trilledNoteAnchor(pass, from, voice, span, geometry.startX, side === 'above')
 
   // ⭐⭐ THE HAND-NUDGED INK — the two squares' own category of edit ({@link TrillOffsetOverride}).
   // Three numbers, not two pairs: `outward` is ONE quantity for the ornament, because the sign and
@@ -453,7 +551,7 @@ function drawTrill(
   // engraver's own instruction is not.
   const nudge = trillOffsetOverrideOf(pass.score, trill.id)
 
-  const pieces = cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)
+  const pieces = geometry.pieces
   let firstPiece = true
   for (const [pieceIndex, piece] of pieces.entries()) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own ink band, its staff-space size. All three
@@ -465,7 +563,7 @@ function drawTrill(
     // dynamics line was planned, which is what lets the dynamics clear this `tr`. A second claim for
     // one fragment would push everything outside it a band further out, and would compile.
     const baseline = bands.get(trillBandKey(trill.id, piece.line))
-      ?? baselineFor(here.length ? here : covered, span, voice, staffId, firstStaffId, side)
+      ?? baselineFor(pass, here.length ? here : covered, span, voice, staffId, firstStaffId, side, piece)
     // ⭐⭐ THE SHARED VERTICAL NUDGE, on every fragment alike — which is what keeps the sign and the
     // wiggle on one baseline across a system break as well as within one.
     //

@@ -692,6 +692,9 @@ export class VexFlowRenderer {
       // ⭐ A FRESH array per render, and it must stay that way: a claim is a fact about where a mark
       //   landed THIS time, so one carried over would clear a mark that is no longer there.
       occupiedBands: [],
+      // ⭐ …and the same rule for the drawn arcs: a curve filed last render is a curve from a layout
+      //   that no longer exists, and the ladder would clear a ghost.
+      drawnCurves: [],
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
@@ -3622,37 +3625,19 @@ export class VexFlowRenderer {
     // draws nothing at all on a canvas.
     if (svg) drawPages(svg, surface, spacing.pageCount, this.audience)
 
-    // ⭐⭐ ONE answer for the whole dynamics family, decided BEFORE the measure loop — every letter,
-    // word and wedge fragment gets its own baseline from the local rule and is then LEVELLED WITH
-    // WHATEVER IT TOUCHES (`layout/dynamicsChain.ts`). It cannot be decided inside either drawing
-    // pass: what a wedge's baseline is depends on the mark at its far end, which no walk of one
-    // measure can see.
+    // ⭐⭐ **THE LADDER WAS PLANNED HERE UNTIL 2026-08-18, AND IS NOW PLANNED AFTER THE SLURS** —
+    // see the three calls below `renderSlurs`. What moved, and why, is
+    // docs/trill-slur-clearance-plan.md §6 ("the main road"): a slur's arc does not exist until it is
+    // drawn, so a ladder planned up here can clear the music but never the curve over it — which is
+    // the collision he reported (a `tr` through a slur).
     //
-    // ⭐ It runs on `plans` rather than on `placements`, and that is the whole of the hoist
-    // (docs/ottava-plan.md P0a): `DynamicsPlanPlacement` asks for `view`, `measureNumber`,
-    // `staffIndex`, `line` and `system.columns` — **no `stave`** — and every `placements` entry
-    // below is exactly its `plans` entry plus a stave, pushed one-for-one in this same order. So the
-    // plan is byte-identical to the one computed after the loop, and it now exists early enough for
-    // a family drawn INSIDE the loop to read it (P0b: the tempo mark).
-    //
-    // ⭐ The last argument is the render's LADDER collector: the family records what it took, for
-    // whatever is placed outside it (`layout/outsideStaffBand.ts`). Nothing reads it yet.
-    // ⭐⭐ THE BELOW-STAFF LADDER IS BUILT HERE, INNERMOST FIRST, AND THE ORDER OF THESE THREE CALLS
-    // IS THE LADDER. All three are pixel-free — they read the layout's columns and beats, never a
-    // drawn x — which is what lets them run above the measure loop at all.
-    //
-    // 🚨 **Reordered 2026-08-17, from Gould p. 101–102**: octave signs (and articulation, slurs,
-    // tuplet brackets) are *"required to be closer to notes, so add these markings to the music
-    // BEFORE positioning dynamics"*, and p. 102 draws the correct/incorrect pair. We previously had
-    // the dynamics innermost and the trill and ottava outside them, on LilyPond's priorities plus a
-    // misread sentence of hers. ⛔ Move these three lines and you change the engraving; there is no
-    // priority table and there must never be one.
-    const trillBands = planTrillBands(pass, score, plans, staffList.map(staff => staff.id))
-    const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
-    // …and the dynamics now READ what those two claimed. The parameter was always here; until this
-    // change nothing read it, and this comment used to say so.
-    const dynamicsPlan = planDynamicsLines(
-      score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
+    // ⭐ The hoist it replaced was real but had outlived its client: the three plans take `plans`
+    // rather than `placements` (no `stave`), and `placements` is each `plans` entry plus a stave
+    // pushed one-for-one in the same order, so computing them after the loop is byte-identical
+    // (docs/ottava-plan.md P0a said so, and the move was measured against both suites before it was
+    // made: 4187 unit + 199 e2e, unchanged). The comment here used to claim they ran early enough
+    // "for a family drawn INSIDE the loop to read it (P0b: the tempo mark)" — ⚠️ nothing in the loop
+    // ever read one; the tempo mark is placed at the end of this method with everything else.
 
     const placements: MeasurePlacement[] = []
     let redrawn = 0
@@ -3739,18 +3724,56 @@ export class VexFlowRenderer {
     // cross-barline beam finds its neighbour's stems already settled.
     drawCrossBarFanBeams(pass, beamPlan.fanJoins)
 
+    // ⭐⭐ **THE SLURS ARE DRAWN BEFORE THE LADDER IS PLANNED — 2026-08-18, and this seat is the
+    // whole of docs/trill-slur-clearance-plan.md's P1.** An arc exists only once it is drawn, so
+    // every family that has to clear one must be placed after this line.
+    //
+    // ⭐ It is what all three engines do (that plan's §6, read in source): LilyPond seeds the
+    // accumulator with `inside_staff_skylines`, where a slur lives; MuseScore runs
+    // `processLines(slurs)` before `processLines(trills)`; Verovio orders `SLUR` before `TRILL`.
+    // ⛔ Move this below the three plans and the trill goes back through the slur.
+    //
+    // ⚠️ The TIE comes up here with it, in the same order the two always had. A tie is the commoner
+    // obstacle of the two — a trill's span runs *through* ties, and Gould p. 139 draws exactly that
+    // — so both curve families must be on `pass.drawnCurves` before anything is planned.
+    renderTies(pass, score)
+    renderSlurs(pass, score)
+
+    // ⭐⭐ THE BELOW-STAFF LADDER IS BUILT HERE, INNERMOST FIRST, AND THE ORDER OF THESE THREE CALLS
+    // IS THE LADDER. Each reads what the families inside it took (`layout/outsideStaffBand.ts`) and
+    // files its own claim; the ORDER of the calls is the only thing that says which is inside which.
+    //
+    // 🚨 **Reordered 2026-08-17, from Gould p. 101–102**: octave signs (and articulation, slurs,
+    // tuplet brackets) are *"required to be closer to notes, so add these markings to the music
+    // BEFORE positioning dynamics"*, and p. 102 draws the correct/incorrect pair. We previously had
+    // the dynamics innermost and the trill and ottava outside them, on LilyPond's priorities plus a
+    // misread sentence of hers. ⛔ Move these three lines and you change the engraving; there is no
+    // priority table and there must never be one.
+    //
+    // ⭐⭐ ONE answer for the whole dynamics family — every letter, word and wedge fragment gets its
+    // own baseline from the local rule and is then LEVELLED WITH WHATEVER IT TOUCHES
+    // (`layout/dynamicsChain.ts`). It cannot be decided inside either drawing pass: what a wedge's
+    // baseline is depends on the mark at its far end, which no walk of one measure can see. Its last
+    // argument is the ladder collector — what the trill and the ottava above have just claimed.
+    // ⚠️ `placements`, not `plans` — the trill's plan is the one that reads the DRAWN curves
+    // (docs/trill-slur-clearance-plan.md P2), so it needs each bar's stave to turn an arc's pixels
+    // into staff spaces. The other two are still pixel-free and take `plans`; ⛔ that difference is
+    // the whole reason the trill's seat matters and theirs does not.
+    const trillBands = planTrillBands(pass, score, placements, staffList.map(staff => staff.id))
+    const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
+    const dynamicsPlan = planDynamicsLines(
+      score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
+
     // ⭐ Every dynamic onto its system's line, now that every bar of every system is standing —
     // including the ones this render REUSED, which is the point: a mark's y is a fact about its
     // system, so the bar whose line changed is usually not the bar that was edited
     // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
-    // same line for a hairpin's ends. The plan it applies was decided above the measure loop.
+    // same line for a hairpin's ends. The plan it applies was decided just above.
     placeDynamicsOnLine(pass, placements, dynamicsPlan)
 
-    // Render ties between measures after all measures are drawn
-    renderTies(pass, score)
-
-    // Render phrasing slurs (top-level spans) after ties, in the same post-measure pass
-    renderSlurs(pass, score)
+    // ⚠️ `renderTies` and `renderSlurs` were here, in this order, until 2026-08-18. Both now run
+    // before the ladder is planned — see their seat above `planTrillBands`, and why they have to be
+    // there. Their order relative to each other is unchanged.
 
     // ⭐ And the hairpins — after `placeDynamicsOnLine` above, deliberately: a wedge is a member of
     // the dynamics family, so it asks the same module for the same line, and it reads where the

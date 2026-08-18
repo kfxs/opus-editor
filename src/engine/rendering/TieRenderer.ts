@@ -176,9 +176,21 @@ export function renderTies(pass: RenderPass, score: Score): void {
               const notes = { from: fromInfo.staveNote, to: toInfo.staveNote }
               const register = (
                 arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null,
+                /** ⭐ THIS arc's own system — a cross-system tie draws one on each, and the obstacle
+                 *  collection cannot tell them apart afterwards (the registry entry carries the
+                 *  whole tie's two measures). */
+                line: number,
                 partial?: 'start' | 'end',
               ) => {
                 if (!arc) return
+                // ⭐⭐ **THE ARC, FILED AS AN OBSTACLE** — docs/trill-slur-clearance-plan.md P1, the
+                // slur's twin next door. The tie is the case Gould draws (p. 139, *Change of
+                // trilling note*: ties hugging the noteheads with the wavy line above them), and a
+                // trill's span runs *through* ties by definition, so this is the commoner of the
+                // two collisions rather than the exotic one.
+                // ⚠️ In the staff's own space — these are the drawn numbers, not the registry's
+                // scaled copies (`engine/layout/curveObstacleBand.ts`).
+                pass.drawnCurves.push({ staff: staffIndex, line, points: arc.points })
                 pass.elementRegistry.add({
                   type: 'tie',
                   fromNoteId: note.id,
@@ -201,7 +213,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   lastX: tieEndpointX(toHead, 'to'),
                   y: tieEndpointY(fromHead.headY, tieDirection),
                   direction: tieDirection,
-                }, notes, fromInfo.staveNote.getStave()))
+                }, notes, fromInfo.staveNote.getStave()), fromLine)
               } else {
                 // ⭐ Across a system break: two independent flat arcs, each running to its own
                 // system's margin — the same construction the SLUR uses (`./systemEdges`), where
@@ -220,7 +232,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: rightEdge / scale,
                     y: tieEndpointY(fromHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, notes, fromInfo.staveNote.getStave()), 'end')
+                  }, notes, fromInfo.staveNote.getStave()), fromLine, 'end')
                 }
                 if (leftEdge !== undefined) {
                   register(drawTieArc(pass, {
@@ -228,7 +240,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: tieEndpointX(toHead, 'to'),
                     y: tieEndpointY(toHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, notes, toInfo.staveNote.getStave()), 'start')
+                  }, notes, toInfo.staveNote.getStave()), toLine, 'start')
                 }
               }
             })
