@@ -428,8 +428,8 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
 | contemporary sharp / flat / natural / ½ / whole-tone trill signs | ⭐ mostly §3 already — it IS the interval, printed as an accidental. A genuinely different SIGN is one row in the glyph table + an optional `sign?` on `Trill`, undefined = the ordinary trill (MuseScore's `TrillType`). |
 | user chooses the step | an optional interval override on `Trill`; the resolver in §3 already returns what it would replace |
 | per-trill speed | an optional field, read by `trillAttacks` where the constant is now |
-| lengthen / shorten by dragging the end | the hairpin's handles, on the registered polyline |
-| the trill sign with no line as its own thing | a separate mark in the articulation family, per his framing — not this object |
+| ~~lengthen / shorten by dragging the end~~ | ✅ **BUILT 2026-08-18** — the two endpoint squares, `Ctrl+Shift+←/→` and the drag. See §11. |
+| ~~the trill sign with no line as its own thing~~ | ✅ **BUILT 2026-08-18, and NOT as a separate mark** — the framing here said the articulation family; what he asked for was one step further left on the END square, which makes it a state of THIS object (`Trill.extension`). See §11. |
 | mordents, turns, pralls | the articulation family; VexFlow's `Ornament` table already has 13 glyphs |
 | ~~the plain repeated `tr`, or no sign, on continuations~~ | ✅ **BUILT 2026-08-13** — all three are offered as `Trill.continuationLabel`, chosen per trill in Properties. See rule 6. ⏭️ What remains is the score-wide DEFAULT, which is an engraving-preset row, not a trill one. |
 | the above-staff ladder | `docs/above-staff-ladder.md` §4 — its trigger is 8va or technique text, not this |
@@ -560,6 +560,97 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   convention usually means the top note alone, and `Trill` does carry the pitch it was anchored to —
   so narrowing it later is a FILTER in `auxiliaryMidiFor`'s caller, not a model change. Stated
   because it is what the code does, not because it is settled.
+
+---
+
+## 11. The two endpoint squares, and everything they edit — BUILT 2026-08-18
+
+The fifth span to get the family's pair, after the slur, the hairpin, the ottava and the pedal.
+Commits `6cd183d` · `97604e5` · `a97a5d6` · `b44567f` (+ the Properties rows).
+
+| gesture | needs | changes | where |
+|---|---|---|---|
+| click a square, `Tab` / `Shift+Tab` | — | arms that end | `selectedElement.endpoint` |
+| `Ctrl+Shift+←/→` | a square armed | which notes are TRILLED (audible) | `setTrillStart` / `setTrillEnd` |
+| drag a square | — | the same two writes | `trillDragTargetAt` → `previewTrillAnchor` |
+| plain / `Ctrl` arrow, `Ctrl+Backspace` | a square armed | that end's INK | `TrillOffsetOverride` |
+| plain / `Ctrl` arrow, `Ctrl+Backspace` | NOTHING armed | the whole ornament's ink | both ends, one delta |
+| Properties: `start x` / `end x` / `vertical` | a trill selected | the same three numbers, typed | `bus.trillGeometry` |
+| `Ctrl+Shift+←` once past the collapse | the END square | **the bare `tr`, no line** | `Trill.extension` |
+
+### ⭐⭐ THE TRILL IS THE SLUR'S FAMILY, NOT THE PEDAL'S
+
+Its anchors are NOTES, where a hairpin's, an ottava's and a pedal's are positions in TIME. So the
+chord that steps those three by a SLOT steps this one by a NOTE (`interactions/trillReanchor.ts`,
+`slurReanchor`'s twin), and the drag answers with a note id rather than an address.
+
+### ⭐⭐ …and it has a state none of the other four has: NO END AT ALL
+
+An absent `endNoteId` means *the start note's own sounding duration, through ties* — a finished
+ornament. That gives the END square two edges: stepping back onto the start CLEARS it, and stepping
+forward from a trill with no end starts from where the LINE stops (`trillSpan`), not from the start
+note. 🚨 The second needs a **TIED fixture** to prove: without ties the tie chain's end IS the start
+note, and the whole lookup deletes green.
+
+### 🚨 Reaching an end is not passing it
+
+His report: *"i can move the first point (tr) to the left but not to the right"* — on a trill whose
+end was the very NEXT note, so every rightward step reached it and the clamp (`>=`) refused. The
+start now COLLAPSES the trill onto that note, which is `addTrill`'s own normalisation (*an end equal
+to the start is spelled by omitting it*) arriving by a move instead of an add. ⭐ That makes the two
+squares mirror each other. ⚠️ Delete the end BEFORE writing the start, or `precedes` refuses.
+
+### ⭐⭐ One step past the collapse is the bare `tr`
+
+His ask: *"there are cases where the user wants `tr` without the line."* It fills a step that was
+DEAD — a test asserted the decline. Leftward: end on a later note → … → end on the START (clears) →
+**no line**; `→` restores it on the same note. The drag reaches it by dragging the end LEFT PAST the
+start, judged by index in the lane, ⛔ not by raw x.
+
+⛔⛔ `extension: 'none'` and an `endNoteId` CONTRADICT: the line is the only thing that says how long
+to keep trilling, so turning it off CLEARS the end and setting an end RESTORES the line.
+
+⚠️⚠️ **This is the ONE place `Ctrl+Shift+arrow` writes something COSMETIC.** The chord otherwise
+means *move this end through the music*; a plain arrow means *move the ink*. Defensible only because
+at that end of the walk the trill covers one note and there is no musical extent left to change.
+⛔ Do not generalise it to the other four spans.
+
+### ⭐⭐ The offsets: `outward`, and the rule that settles the family
+
+`TrillOffsetOverride` = `startX` + `endX` + ONE **`outward`**.
+
+> **Store `outward` iff the mark can CHANGE SIDES.** Trill and ottava flip (`x`) ⇒ `outward`, a
+> distance from the staff, so a flip cannot invert a nudge the user already made. A pedal never
+> flips ⇒ a screen `y`, because `outward` there would be a distinction with no observable
+> difference.
+
+⭐ ONE vertical (the sign and the wiggle share a baseline) ⇒ `setTrillOffset` passes **0** on its
+second call, or the ornament takes a double step. ⛔⛔ Both x nudges land AFTER every automatic
+decision — the `barLeft` clamp and the `TRILL_END_INSET` arithmetic — the bracket's *"i cannot offset
+the right side from a limit"* scar.
+
+🚨 **His bug, mid-build: *"the left endpoint does not move with the offset."*** The registry entry was
+built from `piece.x0` — the fragment's SPAN start — at BOTH ends, so a `startX` nudge moved the drawn
+`tr` and left its hit-box, and the square hanging off it, behind. The END moved all along (`lineEnd`
+carries its own nudge), so **exactly one of the two looked broken**, and a test checking only "the box
+moved" would have passed. ⭐ **The registry describes the INK**: the box begins where the SIGN is
+drawn. That also fixed a pre-existing lie — a continuation `(tr)`'s box never covered the inset it is
+drawn back by.
+
+### ⚠️ Every above-staff case passes with the conversion deleted
+
+The `outward`→screen conversion is the IDENTITY for an `above` trill, and almost every trill is one.
+The `below` cases — one in `e2e/trill.e2e.ts`, one in `PropertiesWidget.trill.test.ts` — are the only
+ones that bite, exactly as the ottava's 8vb did.
+
+### ⏭️ Left open
+
+- The trill/slur COLLISION — its own plan, `docs/trill-slur-clearance-plan.md`.
+- A `shortcutWiring.trillOffset` ROUTING spec (the pedal has one; the model, the panel and the
+  drawing are all covered).
+- ⚠️ The squares ride the registered band's MIDDLE, and that band is lopsided (the `tr`'s ink runs
+  1.6 sp up and 0.1 down), so they sit ~0.75 sp above the wiggle's own line. **His eye not yet on
+  it**; if it reads high the fix is a measured axis field, the ottava's `ottavaAxis` case.
 
 ---
 

@@ -140,6 +140,15 @@ export class PropertiesWidget implements Widget {
       // of the arrows on its two endpoint squares. ⭐⭐ THREE rows, not two points: an octave bracket
       // is a straight rule, so the two ends have a horizontal each and the HEIGHT is one number for
       // the whole line. See `buildOttavaOffsetRows`.
+      // ⭐ …and a selected TRILL the same three (his ask, 2026-08-18) — with the BRACKET's vertical
+      // rather than the pedal's, since `x` flips a trill's side.
+      if (element.kind === 'trill') {
+        const id = (element.data as { id?: string; missing?: boolean }).id
+        if (id && !(element.data as { missing?: boolean }).missing) {
+          body.appendChild(this.buildTrillOffsetRows(id, element))
+        }
+      }
+
       // ⭐ …and a selected PEDAL the same three (his ask, 2026-08-18). Its vertical is one number for
       // the same reason the bracket's is — a pedal and its own release share a baseline — reached by
       // a different road: an engraving convention rather than the geometry of a straight line.
@@ -538,6 +547,48 @@ export class PropertiesWidget implements Widget {
       + 'it is on. One number, because an octave line is a straight rule',
       // ⭐ `toScreen` is its own inverse (a negation), so one helper does both directions.
       (up) => bus.ottavaGeometry.set({ ottavaId, outward: toScreen(up) })))
+    return wrap
+  }
+
+  /**
+   * ⭐⭐ **A TRILL'S INK: two horizontals and ONE vertical.** His ask, 2026-08-18 — the typed twin of
+   * the arrows on the ornament's two squares.
+   *
+   * ⛔ **Not two point rows**, the family's rule: the `tr` and its wavy line are drawn on one
+   * baseline, so two height boxes would offer two answers to a question the notation has one of.
+   *
+   * ⭐⭐ **The store is `outward` and the box speaks SCREEN** — the BRACKET's arrangement, ⛔ not the
+   * pedal's. A trill's side is stored and `x` flips it, so a screen-signed field would turn a nudge
+   * that meant *clear of the music* into a shove toward it; the model therefore keeps the intent and
+   * this line converts. ⚠️ So the displayed number FLIPS SIGN when the ornament is flipped, which is
+   * honest — the ink genuinely moved to the other side of the staff.
+   */
+  private buildTrillOffsetRows(trillId: string, element: InspectedElement): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.margin = '2px 0 4px'
+    const off = (element.overrides?.find((o) => o.kind === 'trillOffset') ?? {}) as {
+      startX?: number
+      endX?: number
+      outward?: number
+    }
+
+    wrap.appendChild(this.scalarOffsetRow(
+      'start x (sp)', off.startX ?? 0,
+      'the tr sign, and the wavy line leaving it — + reaches right; the far end stays put',
+      (x) => bus.trillGeometry.set({ trillId, which: 'start', x })))
+    wrap.appendChild(this.scalarOffsetRow(
+      'end x (sp)', off.endX ?? 0,
+      'where the wavy line stops — + reaches right; the sign stays put',
+      (x) => bus.trillGeometry.set({ trillId, which: 'end', x })))
+    // ⭐ `+` is UP on screen whichever side the ornament is on — his standing rule for every offset
+    // box. `toScreen` is its own inverse (a negation), so one helper does both directions.
+    const above = ((element.data as { placement?: 'above' | 'below' }).placement ?? 'above') === 'above'
+    const toScreen = (n: number) => (above ? n : -n)
+    wrap.appendChild(this.scalarOffsetRow(
+      'vertical (sp)', toScreen(off.outward ?? 0),
+      'the WHOLE ornament — + moves it UP on screen and − moves it down, whichever side of the staff '
+      + 'it is on. One number, because the sign and its line share a baseline',
+      (up) => bus.trillGeometry.set({ trillId, outward: toScreen(up) })))
     return wrap
   }
 
