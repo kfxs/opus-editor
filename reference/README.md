@@ -26,6 +26,8 @@ rediscovering that it was gone. This directory is so the third one does not.
 | `gerou-lusk-essential-dictionary-of-music-notation.pdf` / `.txt` | **Gerou & Lusk, *Essential Dictionary of Music Notation*** (Alfred, 1996), 82pp, complete. The one full treatise we hold **besides Gould**. Slurs at pp. 121–124: placement by stem direction, "starts mid-stem, to the right of the stem", "never cross the beam with a slur", slope follows the phrase. Also: **damper pedal, p. 105** — *"always placed below the grand staff and are usually placed below all other musical elements"* (our second, independent source for the pedal being the outermost family); **octave signs, p. 98** — *"as close to the notes affected as possible"*, `8vb` is *"only a copyist's shorthand and should not be used in engraved music"*, and a drawn example putting the `8va` outside a slur. ⭐⭐ **pedal marks, pp. 105–107** — the one source that states the horizontal anchor OUTRIGHT: pedal-down at the notehead's **left edge**, pedal-change at its **centre**, pedal-up **flush left** with it, end-of-piece at the **final double barline's thin line**. ⭐ The `.txt` is already extracted — grep it before opening the PDF. | openly hosted: `musescore.org/sites/musescore.org/files/2022-02/EssentialDictionaryOfMusicNotation_0.pdf` |
 | `gould-scans/gould.png`, `gould_good.png`, `gould_bad.png` | **Gould, *Behind Bars*, p. 111** — a scan of the printed page: the opposite-stem rule AND both music examples. ⭐ The examples are the payoff: they can be MEASURED, which is how we learned her drawing disagrees with the formula attributed to her. | scoringnotes.com, "Better Sibelius slurs for opposite stem direction on outer notes" |
 | `gould-scans/att2528.jpg`, `att2528_music.png` | **p. 111, a second scan** carrying the qualifier sentence *"The slur should not, however, move too close to noteheads if there is room for it to be further away."* | notat.io thread `t=635`, posted by John Ruggero |
+| ⭐ `the art of music engraving and processing (ted ross) (z-library.sk, 1lib.sk, z-lib.sk).pdf` / `ross-art-of-music-engraving-fulltext.txt` | **Ted Ross, *The Art of Music Engraving and Processing*, THE WHOLE BOOK** — 292 PDF pages, 13.6 MB, clean OCR layer; the `.txt` is 387 KB, extracted 2026-08-18. ⭐ **PAGE OFFSET: PDF page = printed page + 12** (calibrated PDF 199 = printed 187). What it has answered: **dynamics typography, p. 186** — *"the height of the ƒ is two and a half spaces, the **p** two spaces and the **m** one space"* (independently confirms Gould p. 101); **the wedge, p. 187** — *"Each of the lines that form the wedge shape is no thicker than a staff line. The width of the open end of the wedge is no more than a space and a half"* (⚠️ **Ross 1.5 sp vs Gould's 2 sp maximum, p. 103** — a real disagreement, and Gould's own drawings measure 1.51/1.56 sp, i.e. she engraves Ross's number), plus *"a sign is generally not used for a passage longer than three measures"*; **the four sign-with-mark rules, pp. 187–188**, of which ⭐⭐ **rule 3 — *"A mark should be aligned horizontally with a sign"*** — is the clearest one-sentence statement of the dynamics-line rule in any book we hold; p. 188 rule 4 covers hairpins across a system break. ⛔ The old second-hand p. 141 slur sentence below is superseded — read the book. | added by hand, 2026-08-18 10:00 |
+| `Music Notation in the Twentieth Century A Practical Guidebook (Kurt Stone) (…).pdf` / `stone-notation-20th-century-fulltext.txt` | **Kurt Stone, *Music Notation in the Twentieth Century*, THE WHOLE BOOK** — 189 PDF pages, 88 MB; `.txt` 504 KB, extracted 2026-08-18. ⚠️ Dirtier OCR than Gould's (`Iyp ical`, `sp ace`). ❌ **What it does NOT answer, checked 2026-08-18 so nobody repeats it: hairpins.** His index has **no entry at all** for crescendo, diminuendo, wedge or hairpin; dynamics are pp. 16–19 (absolute vs individual, boxed, `±`, *subito*, niente, note-size dynamics) and pp. 32–33 (which side of the stave). Nothing on hairpin geometry or on a dynamic colliding with one. | added by hand, 2026-08-18 10:00 |
 | `musescore-slurs-and-ties-handout.pdf` | 4pp MuseScore user handout. Minor; kept for completeness. | MuseScore docs |
 | `using-sibelius-effectively-sample.pdf` | 20pp **SAMPLE** of *Using Sibelius Effectively*. ⚠️ A sample, not the book. | publisher sample |
 
@@ -137,6 +139,32 @@ the articulation rule alone does not settle it.
 | ⛔ MORDENT / TURN / other ornaments | — | **UNKNOWN.** Gould's index sends `ORNAMENT 84–5, 504` → *see also trill*, and pp. 84–85 are about **accidentals** affecting ornaments, not placement. Only the trill gets a ladder rung. Gerou & Lusk's Trill entry likewise says only that *"the tr is always placed above the note, regardless of stem direction"* — silent on slurs. |
 | ⛔ Read / Stone / Ross on this | — | **UNKNOWN** — not on disk; the archive.org routes are dead (above). Not checked online. |
 
+### What was asked of it on 2026-08-18 (third question), and what came back
+
+The question was the **DYNAMIC vs the HAIRPIN**: what happens when a dynamic mark falls inside a
+hairpin's span, or hard against one of its ends? Answered from Gould (prose **and** measured
+engravings), Ross and Gerou & Lusk — ⭐ the first question this library has answered from **four**
+books at once, and the first where **Ross and Stone were read from disk**.
+
+⭐⭐ **Gould's hairpin chapter is printed pp. 103–108** (index: `HAIRPINS 103–8, 323–4`), PDF 123–128
+at the standing +20 offset: p. 103 typography/aperture/barline breaks · p. 104 horizontal placing +
+**the shortening parenthesis** · p. 105 through barlines + **HORIZONTAL ALIGNMENT, with an
+`incorrect` counter-example** · p. 106 signs vs text · **p. 107 INTERIM DYNAMICS** · p. 108 separator
+strokes. ⛔ pp. 323–4 is keyboard-only (hairpins vs double-stemmed beams) and does not bear on this.
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ a dynamic INSIDE a hairpin's span | **Gould p. 107** (prose + a drawn `and`/`not` pair) | *"A hairpin may be broken for an interim dynamic. **Maintain the same angle for the hairpin either side of the interim dynamic**, so that the hairpin is clearly one gradual dynamic change. It is unnecessary in this case to enclose the interim dynamic in brackets…"*. ⭐⭐ MEASURED at 450 dpi: extrapolating the first wedge's two edges across the `mf` lands within **0.14 sp** of where the second wedge's edges start — the two halves are **one wedge with a slice cut out of it**. The `not` drawing collapses 2.06 sp → 0.55 sp across the letter and doubles the angle. |
+| the glyph inside the wedge's MOUTH | **Gerou & Lusk p. 61** + **Ross p. 187** | *"Musical elements should not be placed within the opening of the signs"* (drawn struck-through); *"A term should not be hidden inside a wedge; nor should it destroy the artistry of the work by causing the wedge to open too wide."* Gould p. 106 says the same of qualifying TEXT. |
+| ⛔ a NON-transitional dynamic mid-span (an isolated `sf` inside a cresc.) | — | **UNKNOWN.** No prose and no drawing in Gould pp. 101–108, Ross pp. 186–188 or Gerou & Lusk pp. 60–65. What transfers is the collision prohibition, not the semantics. |
+| ⭐⭐ do they share ONE horizontal line? | **Gould p. 105** (prose + an `incorrect` drawing) | *"When a sequence of changing dynamics involves hairpins, **keep such markings on the same horizontal plane** whenever possible. The eye most easily follows a progression of dynamics running parallel to the stave"* — and the counter-example, *"A sequence of dynamics at different vertical positions should be avoided as the dynamics will appear unconnected and be difficult to follow"*, is exactly vertical displacement, labelled **incorrect**. Second source: **Ross p. 188 rule 3**, *"A mark should be aligned horizontally with a sign."* Third: **Gould p. 494**. |
+| ⭐⭐ aligned on WHAT, exactly | **Gould p. 105** (measured) | The wedge's centre-line and the dynamic's **x-height centre** coincide to **0.08 sp** (all four wedges share axis y = 2125; glyph bodies centre 2126–2127). ⛔ **NOT the baseline** — the descender of `p` hangs below the axis. Confirmed on p. 107 (0.1 sp). |
+| ⭐ is the hairpin SHORTENED for it? | **Gould p. 104** (prose) | *"(If a dynamic symbol is present, **the hairpin starts later and finishes earlier**, so that the dynamic centres on the notehead or chord.)"* — the dynamic keeps its anchor, the wedge yields. There is no reciprocal permission to move a dynamic off its notehead; the only sanctioned move is **left, never right** (p. 103). |
+| the gap, as a NUMBER | — (measured; no source states one) | **No book gives a number.** MEASURED across four figures: **0.25–1.10 sp**, and the gap at the closed TIP is consistently ≤ the gap at the open MOUTH (tip median ≈0.55 sp, mouth ≈0.80 sp). Ross p. 188's abstract figure is the cleanest: tips 0.34/0.41 sp vs mouths 1.10/0.83 sp. ⚠️ In Gould every gap is a RESIDUAL of two independent anchors, which is why she lets one get as tight as 0.25 sp. |
+| when there is no room at all | **Gould p. 108** | *"Where there is not space to include* sub.*, use a vertical stroke or dotted line between each sudden dynamic change"* — a separator stroke, still on the one line. ⛔ Never a vertical displacement. |
+| the aperture (the two books DISAGREE) | **Gould p. 103** vs **Ross p. 187** | Gould: *"The open end should not be more than two stave-spaces wide."* Ross: *"no more than a space and a half."* ⭐ MEASURED, Gould's own drawings are **1.51 / 1.56 sp** — she engraves Ross's number. |
+| ❌ Stone on any of this | **Stone, whole book** | **Nothing.** His index has no crescendo / diminuendo / wedge / hairpin entry at all; dynamics are pp. 16–19 and 32–33. Checked 2026-08-18 — ⛔ do not check again. |
+
 ## ⭐ Adding a source
 
 When a hunt turns up something real, it lands here — and **the row in the table above is the part
@@ -176,12 +204,15 @@ digging. The rules we need are answerable from snippets, scans and engravers who
 
 ## Still missing — UNKNOWN, not silent
 
-**Ted Ross** *The Art of Music Engraving*, **Kurt Stone** *Music Notation in the Twentieth Century*,
-**Gardner Read** *Music Notation*, **Chlapik** *Die Praxis des Notengraphikers* (no digital copy is
-known to exist), and Boosey & Hawkes' house manual. ⛔ When one of these would have answered a
-question, the honest report is **UNKNOWN** — never "the books are silent". The single sentence of
-Ross we hold is second-hand, relayed by Ruggero on notat.io: *"Long slurs always start and end over
-or under the center of a notehead"* (p. 141).
+✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the
+table above). ⚠️ Every "⛔ Read / Stone / Ross — UNKNOWN, not on disk" line in the Q&A tables above
+was written BEFORE that and has **not** been re-checked against the books; treat those as *not yet
+asked*, not as *asked and silent*.
+
+Still genuinely missing: **Gardner Read** *Music Notation*, **Chlapik** *Die Praxis des
+Notengraphikers* (no digital copy is known to exist), and Boosey & Hawkes' house manual. ⛔ When one
+of these would have answered a question, the honest report is **UNKNOWN** — never "the books are
+silent".
 
 ❌ **MOLA's Guidelines for Music Preparation genuinely say nothing** about slurs, ties or hairpins —
 verified by extracting the whole PDF twice. Stop checking it.
