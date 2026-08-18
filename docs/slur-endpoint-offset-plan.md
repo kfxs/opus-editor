@@ -488,12 +488,72 @@ Sibelius ships a *Check Attachments* plug-in because a wrong attachment is other
 - The per-frame `dbg` deviation instrument (`cursorΣ`/`inkΣ`/`DEVIATION`) is deliberately kept: it is
   what found both real bugs. ⚠️ It once lied — frames wholly absorbed by the hold returned early
   without counting their cursor travel, and it reported its own arithmetic as drift.
-- **No vertical limit exists.** A drag put `end.y` at **54.86 sp**, the arc running clean across other
-  systems, and nothing refused it: `nudgeFitsOnPage` only forbids a step that pushes ink FURTHER off
-  its sheet, and 550 px down from mid-page is still on the page. A slur also has no vote in vertical
-  spacing — `RenderPass.drawnCurves` feeds only `TrillRenderer`'s clearance within its own system — so
-  a displaced arc overlaps its neighbours without pushing anything. Both are open questions.
 - Midpoint instead of arrival is one comparison in `arrivedAt`, if the feel argues for it.
+- **Reaching a mark whose ink is off-screen at all.** The limit below stops NEW cases; a file already
+  carrying a wild offset still needs a route in, and every affordance for repairing one lives ON the
+  ink (both squares, both arc dots, and the arc as a hit target), so a large offset carries the whole
+  repair kit out of the viewport. What survives: `Ctrl+Z`; `Ctrl+Backspace` while the endpoint is
+  still ARMED (it reads the model, never pixels); the Properties reset while the slur is still
+  SELECTED. ⚠️ So the bottleneck is SELECTION — click away and the only way back is the ink you cannot
+  see. The general form is selecting from the MUSIC (click the anchor note, reach its spanners), and it
+  will be wanted for hairpins, ottavas and pedals too.
+
+## P5 — THE VERTICAL LIMIT: half the gap to the nearest staff
+
+His report, 2026-08-18: a drag put `end.y` at **54.86 sp**, then **66 sp**, the arc a near-vertical
+hairline across five systems with its handles off-canvas — *"we should not allow the user to do
+this"*. Then, after the first attempt, `y: −11` upward — *"we should never go this way either"*.
+
+⚠️ **`nudgeFitsOnPage` was not at fault.** It forbids a step that pushes ink FURTHER off its SHEET, and
+660 px down from mid-page is still on the page. The missing rule is about the ink's NEIGHBOURS.
+
+### ⭐⭐ Why MuseScore needs no such rule and we do — read from its source, 2026-08-18
+
+- **There is no clamp anywhere.** `SlurSegment::dragGrip` opens with `ups(g).off += ed.delta`
+  (`slur.cpp:286`); the property setter is a bare assignment (`slurtie.cpp:273-284`); `propertyDefault`
+  is `PointF()` and the reset goes through `undoResetProperty` (`slurtie.cpp:320`). A grep for
+  `clamp|std::min|std::max` across `slur.cpp`, `slurtie.cpp` and `tie.cpp` returns **zero hits**.
+- **It does not need one, because a user-moved slur still takes part in vertical layout.** `fillShape`
+  builds the segment's shape by sampling the cubic through `ups(Grip::…).pos()` — which is `p + off`,
+  so the user's offset is inside the shape (`slurtielayout.cpp:3257-3267`) — and every spanner segment
+  is then added to its staff's skyline (`systemlayout.cpp:1967-1973`), gated only by `addToSkyline()`
+  = `!(INVISIBLE | NO_AUTOPLACE) && !isSkipDraw()` (`engravingitem.h:438`). ⭐ **There is no
+  "user-modified ⇒ excluded" condition**, so the systems open up and the arc always has room.
+- No page or system bound in the drag path either: the only `constrain` there is direction-locking for
+  barlines (`notationinteraction.cpp:1152`).
+- Slur arch height is **uncapped** — `computeShoulderHeight` is `sqrt(slurLengthInSp / 4) · spatium`,
+  ×0.75 over beams, minus the shoulder offset (`slurtielayout.cpp:2910-2931`). ⚠️ TIES are capped, by
+  the style default `tieMaxShoulderHeight = 2`; slurs have no equivalent.
+
+⛔ **We do not reflow** (a slur has no vote in vertical spacing — `RenderPass.drawnCurves` feeds only
+`TrillRenderer`'s clearance), so a limit is our honest substitute, and it is a **UI safety rule, not an
+engraving one**: no treatise discusses a slur 66 spaces from its notes because no engraver draws one.
+
+### The rule (`engine/layout/systemBand.ts`)
+
+**Halfway to the nearest staff.** A mark may leave its own staff freely and use up to half the gap to
+whatever is painted above or below it — derived from the render (`ElementRegistry.staffBands()`,
+deduplicated by extent), not a chosen number. ⭐ It makes no distinction between a piano's other staff
+and the next system's: both are somebody else's room.
+
+🚨 **A side with NO neighbour gets the room a neighbour WOULD have given** — half the TIGHTEST gap
+between any two painted staves — and never infinity. The first version made it unbounded, and that is
+exactly how `y: −11` got past the guard: bar 3 is in the top system. The minimum and not the mean,
+because the limit has to hold where the systems are closest. Last resort, with no second staff on the
+page at all: the staff's own height.
+
+Three properties inherited from the page limit, each load-bearing:
+
+- it **refuses the write and never clamps the drawing** (a forward test);
+- it judges whether the overhang gets **worse**, never whether the ink is outside — so a score already
+  carrying a wild offset can still be dragged BACK, and a limit that trapped it would be worse than
+  the bug it fixes;
+- **no drawn ink ⇒ allowed**, since refusing on no evidence makes an object unmovable invisibly.
+
+⭐ The arithmetic is `pageBounds`' own: the band is handed to `stepLeavesPage` as a sheet with
+unbounded x, so "would this push the ink further out" exists once, for both limits. Both are behind one
+gate (`slurEndpointOffsetAllowed`) that the keyboard nudge and every drag frame share, so the two
+devices cannot disagree about what is allowed.
 
 ### Tests added
 
@@ -505,5 +565,11 @@ Sibelius ships a *Check Attachments* plug-in because a wrong attachment is other
   drag frame recording no undo entry; one undo entry per crossing press.
 - `SlurRenderer.endpointGuide.test.ts` — from the ink back to the un-nudged point, a vertical-only
   nudge included, and nothing at all for an unmoved end.
+- `systemBand.test.ts` — half the gap on each side; the NEAREST neighbour, not the first or furthest;
+  the no-neighbour fallback and that it is the tightest gap rather than an average; the
+  no-second-staff last resort; an overlapping band ignored; the 66-space step refused; already-outside
+  ink allowed back; no-ink allowed; the vertical judged alone.
+- `slurHandlePick.test.ts` — the nearest handle wins whichever family it belongs to, a dead heat goes
+  to the square, another slur's handle never answers, nor an entry lacking its gesture's fields.
 - `HighlightController.slurAnchor.test.ts` — start vs end vs nothing armed, and that one pass now
   serves both devices.

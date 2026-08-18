@@ -13,6 +13,7 @@ import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
+import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
 import { nudgeFitsOnPage } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -333,6 +334,55 @@ export class MusicEngine {
       .filter((e: ElementInfo) => e.id === id).map((e: ElementInfo) => e.bbox)
     return nudgeFitsOnPage(
       resolveSurface(this.surface), drawn, dx * STAFF_SPACE_PX, dy * STAFF_SPACE_PX)
+  }
+
+  /**
+   * ⭐⭐ **THE BAND LIMIT — would this nudge put the ink in a NEIGHBOUR's room?** His report,
+   * 2026-08-18: a dragged slur endpoint reached 66 staff-spaces, the arc a near-vertical hairline
+   * across five systems, and nothing refused it.
+   *
+   * ⚠️ **The page limit was not at fault** — it forbids a step that pushes ink further off its SHEET,
+   * and 660 px down from mid-page is still on the page. The missing rule is about the ink's
+   * neighbours, and it lives in `layout/systemBand` (which also records why MuseScore needs no such
+   * rule and we do: its user-moved slurs enter the skyline and the systems open up).
+   *
+   * ⚠️ `dy` is STAFF SPACES here and pixels in the rule, exactly as in {@link nudgeStaysOnPage}; the
+   * horizontal is not judged, since a band is a vertical extent and the page limit already answers
+   * for x. ⛔ Allows when the anchor staff was not painted (nothing to measure) — same rule as the
+   * page limit, for the same reason.
+   */
+  private nudgeStaysInBand(type: ElementType, id: string, measure: number, staff: number, dy: number): boolean {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+      getStaffGeometry?: (m: number, s: number) => { lineYPositions: readonly number[] } | undefined
+      staffBands?: () => { top: number; bottom: number }[]
+    }
+    const geometry = registry.getStaffGeometry?.(measure, staff)
+    if (!geometry) return true
+    const mine = { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] }
+    const others = (registry.staffBands?.() ?? []).filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
+    const drawn = (registry.getByType?.(type) ?? [])
+      .filter((e: ElementInfo) => e.id === id).map((e: ElementInfo) => e.bbox)
+    return stepStaysInBand(neighbourBandOf(mine, others), drawn, dy * STAFF_SPACE_PX)
+  }
+
+  /** Where the slur end being moved is anchored, for {@link nudgeStaysInBand}. Null when the anchor
+   *  is not resolvable, which the caller treats as "no limit to apply". */
+  private slurEndpointLane(id: string, which: 'start' | 'end'): { measure: number; staff: number } | null {
+    const slur = this.scoreModel.getSlurById(id)
+    if (!slur) return null
+    const note = this.scoreModel.getNote(which === 'start' ? slur.startNoteId : slur.endNoteId)
+    return note ? { measure: note.measure, staff: note.staff ?? 0 } : null
+  }
+
+  /** Both limits an endpoint offset must satisfy: it may not leave its SHEET
+   *  ({@link nudgeStaysOnPage}) and it may not enter a neighbouring staff's room
+   *  ({@link nudgeStaysInBand}). Shared by the keyboard nudge and every drag frame, so the two
+   *  devices cannot disagree about what is allowed. */
+  private slurEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
+    const lane = this.slurEndpointLane(id, which)
+    return !lane || this.nudgeStaysInBand('slur', id, lane.measure, lane.staff, dy)
   }
 
   private saveOnly(description: string): void {
@@ -2172,7 +2222,7 @@ export class MusicEngine {
   /** The undo-free twin of {@link nudgeSlurEndpoint} — accumulates the same way, keeps the same page
    *  limit, records no undo step. One frame of an endpoint drag. */
   previewSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
+    if (!this.slurEndpointOffsetAllowed(id, which, dx, dy)) return false
     this.markModelDirty()
     return this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
   }
@@ -2208,7 +2258,7 @@ export class MusicEngine {
    *  fine-positioning — see docs/slur-endpoint-offset-plan.md). Unlike a mouse drag each
    *  arrow press is already a discrete commit, so there is no preview/commit split. */
   nudgeSlurEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
+    if (!this.slurEndpointOffsetAllowed(id, which, dx, dy)) return false
     const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge slur endpoint')
     return ok

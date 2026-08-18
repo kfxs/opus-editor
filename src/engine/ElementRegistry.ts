@@ -778,6 +778,23 @@ export class ElementRegistry {
   }
 
   /**
+   * ⭐ The [top, bottom] LINE BAND of every staff this render painted, deduplicated by extent.
+   *
+   * For `engine/layout/systemBand`, which asks "what is nearest to this staff, above and below" and
+   * does not care which measure or system the answer belongs to — a piano's other staff and the next
+   * system's staff are both simply somebody else's room. Deduplicated because a band repeats once per
+   * measure in its system, and the question is about DISTINCT staves.
+   */
+  staffBands(): { top: number; bottom: number }[] {
+    const seen = new Map<string, { top: number; bottom: number }>()
+    for (const g of this.staffGeometries.values()) {
+      const band = { top: g.lineYPositions[0], bottom: g.lineYPositions[4] }
+      seen.set(`${band.top}:${band.bottom}`, band)
+    }
+    return [...seen.values()]
+  }
+
+  /**
    * Which staff (0-based index) does a click Y fall on, within a measure? Picks the staff
    * whose lines are vertically nearest the click (by distance to the staff's [top,bottom]
    * band, so a click in the gap between two staves resolves to the closer one, and a click
