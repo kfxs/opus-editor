@@ -3,6 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite } from './models/hairpinOps'
+import type { DynamicSlotTarget } from './models/dynamicOps'
 import type { OttavaDragWrite } from './models/ottavaOps'
 import type { PedalDragWrite } from './models/pedalOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -767,6 +768,26 @@ export class MusicEngine {
       dbg(`[Dynamic] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one slot`)
     }
     return ok
+  }
+
+  /**
+   * Live (preview) re-anchor used **while dragging a dynamic** — writes the model but does NOT
+   * record undo; call {@link commitDynamicDrag} on the drop for the single entry. The hairpin's
+   * `previewHairpinEnd` / `commitHairpinDrag` pair verbatim, and for its reason: every frame of a
+   * drag would otherwise be its own undo step.
+   *
+   * ⚠️ The model refuses a target off the mark's own lane and a target it is already on, so a frame
+   * that has not moved the mark answers false and the caller repaints nothing.
+   * @returns true when the model changed.
+   */
+  previewDynamicSlot(id: string, target: DynamicSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
+    return this.scoreModel.setDynamicAtSlot(id, target)
+  }
+
+  /** Record ONE undo entry after a dynamic drag settles. */
+  commitDynamicDrag(): void {
+    this.commitPreviewed('Move dynamic')
   }
 
   /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */

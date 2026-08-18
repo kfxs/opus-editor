@@ -24,6 +24,7 @@ import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
+import { dynamicDragTargetAt } from './elements/dynamicDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt, trillDragTargetAt } from './elements/trillHandles'
@@ -139,6 +140,15 @@ export class MouseController {
   /** True once a preview re-anchor fired, so the drop records one undo entry. */
   private slurEndpointDragChanged = false
   private slurEndpointDragStartTime: number | null = null
+
+  // --- Dynamic drag (docs/dynamic-offset-plan.md, the RE-ANCHOR section). ⚠️ No square and nothing
+  //     to arm first: a dynamic is a POINT, so the MARK is its own handle and this arms on the very
+  //     press that selects it. The drag walks the mark's lane, the mouse twin of `Ctrl+Shift+←/→`. ---
+  private isDraggingDynamic = false
+  private draggedDynamicId: string | null = null
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private dynamicDragChanged = false
+  private dynamicDragStartTime: number | null = null
 
   // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
   //     plan.md, the 2026-08-17 note). The RIGHT square re-lengths the wedge, the LEFT one moves its
@@ -538,6 +548,7 @@ export class MouseController {
       const engine = this.getEngine()
       if (engine) this.armBarWidthDrag(engine, measure, x)
     },
+    armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
       if (mark === 'tempo') this.openTempoTextEditor(id, false)
@@ -569,6 +580,24 @@ export class MouseController {
     this.clefDragStartTime = Date.now()
     engine.setLayoutFrozen(true)
     engine.setDraggingClef({ measure: clefAt.measure, beat: change.beat })
+    event.preventDefault()
+  }
+
+  /**
+   * ⭐ Arm the drag that walks a selected dynamic along its lane — the mouse twin of
+   * `Ctrl+Shift+←/→` (his ask, 2026-08-18).
+   *
+   * ⚠️ **It arms on the SELECTING press, where the four span families arm on a press of an already
+   * drawn square.** A dynamic has no handle but itself, so there is nothing to click first; what
+   * separates a click from a drag is the same time threshold every other handle uses, applied on
+   * MOVE. ⛔ That is also why this must not consume the press: the double-click that opens the text
+   * editor has already been decided one branch above, and a plain click still selects.
+   */
+  private armDynamicDrag(dynamicId: string, event: MouseEvent): void {
+    this.isDraggingDynamic = true
+    this.draggedDynamicId = dynamicId
+    this.dynamicDragChanged = false
+    this.dynamicDragStartTime = Date.now()
     event.preventDefault()
   }
 
@@ -1392,6 +1421,9 @@ export class MouseController {
     if (this.isDraggingSlurEndpoint) {
       this.endSlurEndpointDrag()
     }
+    if (this.isDraggingDynamic) {
+      this.endDynamicDrag()
+    }
     if (this.isDraggingHairpinEnd) {
       this.endHairpinEndDrag()
     }
@@ -1507,6 +1539,21 @@ export class MouseController {
       if (d < bestDist) { bestDist = d; bestId = el.id }
     }
     return bestId
+  }
+
+  /** Finish a dynamic drag: record one undo entry if the mark actually moved, then reset. The mark
+   *  stays selected — the drop ends the gesture, not the selection — so the arrows can carry on
+   *  from where the mouse stopped. */
+  private endDynamicDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.dynamicDragChanged) {
+      engine.commitDynamicDrag()
+      dbg(`Dynamic dragged | id:${this.draggedDynamicId}`)
+    }
+    this.isDraggingDynamic = false
+    this.draggedDynamicId = null
+    this.dynamicDragChanged = false
+    this.dynamicDragStartTime = null
   }
 
   /** Finish a hairpin-square drag: record one undo entry if the wedge actually moved, then reset.
@@ -2162,6 +2209,7 @@ export class MouseController {
     if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
+    if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
@@ -2330,6 +2378,31 @@ export class MouseController {
     ]
     if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces, this.draggedSlurSegment, this.draggedSlurSpanCount)) {
       this.slurDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * ⭐ One frame of a DYNAMIC drag: snap the mark onto the nearest note of its own lane and write it
+   * live (no undo), so the mark follows the cursor from notehead to notehead.
+   *
+   * ⭐ **Which note, not which pixel** — a dynamic's position is a beat, so a drag may not put it
+   * between two notes any more than the keyboard may: the model has nowhere to store "two thirds of
+   * the way to the next quaver". That is also what makes the drag and `Ctrl+Shift+←/→` land on
+   * identical model states rather than on two roads to nearly-the-same score.
+   *
+   * ⚠️ The model declines a target off the lane AND the one the mark is already on, so a frame that
+   * changed nothing repaints nothing. Returns true while a drag is active.
+   */
+  private handleDynamicDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingDynamic && this.draggedDynamicId)) return false
+    if (this.dynamicDragStartTime !== null
+        && Date.now() - this.dynamicDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const target = dynamicDragTargetAt(engine, this.draggedDynamicId, x, y)
+    if (!target) return true
+    if (engine.previewDynamicSlot(this.draggedDynamicId, target)) {
+      this.dynamicDragChanged = true
       this.render.renderScore()
     }
     return true

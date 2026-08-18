@@ -550,6 +550,12 @@ export class ScoreModel {
     return dynamicOps.moveDynamicBySlot(this.score, id, direction)
   }
 
+  /** Put a dynamic on the lane slot at `target` — the DRAG's write, and the one the step above runs
+   *  through. See {@link dynamicOps.setDynamicAtSlot}. */
+  setDynamicAtSlot(id: string, target: dynamicOps.DynamicSlotTarget): boolean {
+    return dynamicOps.setDynamicAtSlot(this.score, id, target)
+  }
+
   /** Find a dynamic anywhere in the score by id (live reference), or null. Used by
    *  the in-canvas text editor to seed the overlay with the mark's current text. */
   getDynamicById(id: string): Dynamic | null {

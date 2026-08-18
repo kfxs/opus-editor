@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { moveDynamicBySlot } from './dynamicOps'
+import { moveDynamicBySlot, setDynamicAtSlot } from './dynamicOps'
 import { setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 import { levelToGlyphString } from '@/utils/dynamics'
@@ -121,5 +121,68 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
     moveDynamicBySlot(score, id, 1) // 1@3
     moveDynamicBySlot(score, id, 1) // 2@0, in front of the one already there
     expect(score.measures[1].dynamics?.map(d => fracToNumber(d.beat))).toEqual([0, 2])
+  })
+})
+
+/**
+ * ⭐⭐ {@link setDynamicAtSlot} — the write BOTH doors run through: the keyboard's step, and the
+ * mouse drag, which finds a slot from the cursor instead of counting one along.
+ *
+ * ⭐ The claims here are the ones a drag can break that a step cannot: an address the cursor
+ * invented (off the lane, or off the music entirely) has to be REFUSED rather than stored, and a
+ * frame that lands on the mark's current address must answer false — a drag repaints on a true, so a
+ * yes for "nothing changed" is a repaint per mouse move.
+ */
+describe('setDynamicAtSlot — the drag\'s write', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    for (const m of [1, 2]) {
+      for (const b of [0, 1, 2, 3]) {
+        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+      }
+    }
+    score = model.getScore()
+    id = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f') })!.id
+  })
+
+  const at = (dynamicId: string) => {
+    for (const measure of score.measures) {
+      const dyn = measure.dynamics?.find(d => d.id === dynamicId)
+      if (dyn) return `${measure.number}@${fracToNumber(dyn.beat)}`
+    }
+    return 'gone'
+  }
+
+  it('⭐ lands the mark on any slot of its lane, however far — a drag is not a step', () => {
+    expect(setDynamicAtSlot(score, id, { measure: 2, beat: frac(3, 1) })).toBe(true)
+    expect(at(id)).toBe('2@3')
+  })
+
+  it('⭐⭐ CLEARS the nudge here, so the drag cannot keep an offset the keyboard drops', () => {
+    const nudged: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 1.5, y: -2 }
+    setEngravingOverride(score, id, nudged)
+    setDynamicAtSlot(score, id, { measure: 1, beat: frac(3, 1) })
+    expect(dynamicOffsetOverrideOf(score, id)).toBeUndefined()
+  })
+
+  it('⛔ REFUSES an address that is not a slot of its lane — the cursor can invent one', () => {
+    expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(5, 2) })).toBe(false)   // mid-slot
+    expect(setDynamicAtSlot(score, id, { measure: 99, beat: frac(0, 1) })).toBe(false)  // no such bar
+    expect(at(id)).toBe('1@2')
+  })
+
+  it('⛔ …and refuses the address it is already on — a drag repaints on a true', () => {
+    expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(2, 1) })).toBe(false)
+  })
+
+  it('⛔ refuses a slot in ANOTHER VOICE, so the drag cannot reach what the walk cannot', () => {
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(5, 2) })).toBe(false)
+    expect(at(id)).toBe('1@2')
   })
 })

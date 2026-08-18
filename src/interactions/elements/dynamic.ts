@@ -39,8 +39,15 @@ export const DYNAMIC_ELEMENT: ClickableElementSpec = {
       return true
     }
 
+    // ⭐ Click = select; drag (decided on move, past the same time threshold every other handle
+    // uses) walks the mark through the music. The MARK is its own handle — a dynamic is a point, so
+    // there are no squares to arm first, unlike the four span families. Armed inside `pick` so the
+    // order matches the clef's: assignment, then arm, then repaint.
     dbg(`✓ Dynamic selected | id:${dynamicAt.id}`)
-    return deps.pick({ kind: 'dynamic', id: dynamicAt.id })
+    return deps.pick(
+      { kind: 'dynamic', id: dynamicAt.id },
+      () => deps.armDynamicDrag(dynamicAt.id!, event),
+    )
   },
 
   // The mark is already coloured by the set pass; the anchor line is the single-click extra.

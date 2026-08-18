@@ -98,7 +98,8 @@ function moveDynamicToMeasure(score: Score, dynamic: Dynamic, measureNumber: num
  * *is* "the dynamics that happen here" — keeping the same object and the same id, so the selection
  * the user is pressing arrows on survives the step ({@link moveDynamicToMeasure}).
  *
- * ⭐⭐ **And the step CLEARS the mark's own nudge** (his call, 2026-08-18) — `setSlurEndpoint`'s
+ * ⭐⭐ **And the step CLEARS the mark's own nudge** (his call, 2026-08-18) — in {@link
+ * setDynamicAtSlot}, the write this and the drag both run through — `setSlurEndpoint`'s
  * rule, arriving here for its reason verbatim: anchor-relative storage makes an offset
  * *transferable*, not *wanted*. It was tuned to clear the stem, the ledgers and whatever else stood
  * around the note it used to sit under, and a re-anchor is the user saying "not that note", so
@@ -122,8 +123,43 @@ export function moveDynamicBySlot(score: Score, id: string, direction: 1 | -1): 
     : stops.find(s => compare(s, here) > 0)
   if (!dest) return false
 
-  if (dest.measure !== measure.number && !moveDynamicToMeasure(score, dynamic, dest.measure)) return false
-  dynamic.beat = dest.beat
+  return setDynamicAtSlot(score, id, dest)
+}
+
+/** A lane stop named by its address — what a DRAG hands {@link setDynamicAtSlot}, having found it
+ *  from the cursor rather than by stepping. `HairpinSlotTarget`'s twin. */
+export interface DynamicSlotTarget {
+  measure: number
+  beat: Fraction
+}
+
+/**
+ * ⭐ **PUT THE MARK ON `target`** — the write both doors run through: the keyboard's step above, and
+ * the mouse DRAG (`interactions/elements/dynamicDrag.ts`), which finds a slot from the cursor
+ * instead of counting one along.
+ *
+ * ⭐ **One write, deliberately, because it is ONE GESTURE on two devices** — `slurOps.setSlurEndpoint`'s
+ * arrangement and its reason. Everything that makes a re-anchor more than a `beat` assignment lives
+ * here rather than in either caller: the re-file across a barline, the re-sort, and the ⭐⭐ CLEAR of
+ * the mark's own nudge. Put the clear in the stepping op instead and a dragged mark would silently
+ * keep an offset the keyboard drops.
+ *
+ * ⚠️ Declines (false) when `target` is not a stop of the mark's OWN LANE — so a drag cannot land it
+ * anywhere the keyboard could not walk it — or when there is no such dynamic. ⛔ A no-op target
+ * (the mark's current address) is refused too: nothing to do, and a caller that repainted on a true
+ * would repaint every frame of a drag that has not moved.
+ */
+export function setDynamicAtSlot(score: Score, id: string, target: DynamicSlotTarget): boolean {
+  const found = locate(score, id)
+  if (!found) return false
+  const { dynamic, measure } = found
+
+  const here: Stop = { measure: measure.number, beat: dynamic.beat }
+  if (compare(target, here) === 0) return false
+  if (!laneStops(score, dynamic).some(s => compare(s, target) === 0)) return false
+
+  if (target.measure !== measure.number && !moveDynamicToMeasure(score, dynamic, target.measure)) return false
+  dynamic.beat = target.beat
   locate(score, id)?.measure.dynamics?.sort((a, b) => fracCompare(a.beat, b.beat))
   clearEngravingOverride(score, id, 'dynamicOffset')
   return true

@@ -103,6 +103,10 @@ export interface ElementChainDeps {
   armClefDrag(clef: ElementInfo, event: MouseEvent): void
   /** Arm the drag that stretches the bar to the LEFT of the grabbed barline. */
   armBarWidthDrag(measure: number, x: number): void
+  /** Arm the drag that walks a dynamic along its lane. ⚠️ The mark is its own handle, so this arms
+   *  on the SELECTING press — the time threshold, not a second click, is what separates a drag from
+   *  a click. The event travels because arming must also `preventDefault`. */
+  armDynamicDrag(dynamicId: string, event: MouseEvent): void
   /**
    * Record this press and answer whether it was the SECOND on the same mark inside the double-click
    * window — consuming it when it was, so a third click is not another double.
