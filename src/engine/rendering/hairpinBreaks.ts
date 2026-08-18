@@ -72,6 +72,17 @@ export interface WedgeGap {
 export interface WedgeSegment extends WedgePiece {
   t0: number
   t1: number
+  /**
+   * ⭐⭐ **WHICH of the caller's pieces this was cut from**, by index.
+   *
+   * 🚨 Because "is this the wedge's first/last piece?" is a question about the PIECES, and after a
+   * cut it can no longer be answered by looking at the segments: a wedge broken for an interim
+   * dynamic has two segments and ONE piece, so both `segments[0]` and `segments[1]` belong to a
+   * piece that is both the first and the last. Reading it off the segment array instead gave the
+   * end nudge to the second half only and none to the first half's right edge, and the wedge
+   * zigzagged (his report, 2026-08-18: *"if I offset the hairpin the drawing is completely crazy"*).
+   */
+  piece: number
 }
 
 /**
@@ -94,7 +105,7 @@ export function breakWedgeAtGaps(
   minWidth: number,
 ): WedgeSegment[] {
   const out: WedgeSegment[] = []
-  for (const piece of pieces) {
+  for (const [index, piece] of pieces.entries()) {
     const width = piece.x1 - piece.x0
     if (!(width > 0)) continue
 
@@ -106,10 +117,10 @@ export function breakWedgeAtGaps(
 
     let cursor = piece.x0
     for (const gap of here) {
-      push(out, piece, cursor, Math.min(gap.left, piece.x1), width, minWidth)
+      push(out, piece, index, cursor, Math.min(gap.left, piece.x1), width, minWidth)
       cursor = Math.max(cursor, gap.right)
     }
-    push(out, piece, cursor, piece.x1, width, minWidth)
+    push(out, piece, index, cursor, piece.x1, width, minWidth)
   }
   return out
 }
@@ -118,6 +129,7 @@ export function breakWedgeAtGaps(
 function push(
   out: WedgeSegment[],
   piece: WedgePiece,
+  index: number,
   x0: number,
   x1: number,
   width: number,
@@ -126,6 +138,7 @@ function push(
   if (x1 - x0 < minWidth) return
   out.push({
     ...piece,
+    piece: index,
     x0,
     x1,
     // ⭐ Against the piece's FULL extent, gap included — the collinearity. See the header.

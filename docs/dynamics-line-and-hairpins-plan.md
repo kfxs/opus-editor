@@ -1645,3 +1645,29 @@ since it owns the attribute.
 translate, no bug. The three break tests now use `'\ue522'` (`dynamicForte`), i.e. the case that
 actually breaks. ⭐ **A fixture that cannot express the defect is not a test of it**, and this one had
 been green all along.
+
+### 2026-08-18 (last) — a nudged wedge that is also broken
+
+His screenshot: with `hairpinEndpointOffset` on both ends and a mark cutting the wedge in two, *"the
+drawing is completely crazy"* — a zigzag.
+
+🚨🚨 **The nudge was applied per DRAWN SEGMENT.** The first half took `startY` at its left and nothing
+at its right; the second took nothing at its left and `endY` at its right. That rule was written for
+SYSTEM BREAKS, where each fragment is a piece of its own and the middles legitimately take neither —
+and it survived the break work because the question it asks, *"is this the first/last piece?"*, could
+still be answered from the segment array **right up until a piece could be cut in two**. After a cut,
+one piece is both the first and the last, and `segments[0]` is only half of it.
+
+Fixed in two parts:
+
+- `WedgeSegment` now carries **`piece`**, the index of the piece it came from, so the ends stay a
+  property of the PIECES;
+- the nudge is a **ramp** across the piece, like the slant and the opening beside it —
+  `rampAt(startNudge, endNudge, t)`. Equal nudges therefore move the whole wedge and change nothing
+  about its shape, which is the case he hit.
+
+⭐ Uncut pieces are unaffected: `t0 = 0, t1 = 1` gives back exactly `startY` and `endY`.
+
+Guarded in the browser (`e2e/hairpin.e2e.ts`): a wedge that is nudged **and** broken keeps its halves
+collinear, and every arm's left edge moves by the same three spaces. Verified to fail with the
+per-segment rule restored.

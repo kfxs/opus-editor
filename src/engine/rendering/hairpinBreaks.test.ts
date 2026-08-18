@@ -26,14 +26,14 @@ describe('breakWedgeAtGaps', () => {
     // The backwards-compatibility claim: t0/t1 of 0→1 interpolate to exactly the numbers the
     // renderer used before this module existed, so a wedge with nothing in its way is unchanged.
     expect(breakWedgeAtGaps(WHOLE, [], 1)).toEqual([
-      { x0: 0, x1: 100, line: 0, role: 'single', t0: 0, t1: 1 },
+      { x0: 0, x1: 100, line: 0, role: 'single', t0: 0, t1: 1, piece: 0 },
     ])
   })
 
   it('⭐ cuts a slice out for a mark in the middle', () => {
     expect(breakWedgeAtGaps(WHOLE, [gap(40, 60)], 1)).toEqual([
-      { x0: 0, x1: 40, line: 0, role: 'single', t0: 0, t1: 0.4 },
-      { x0: 60, x1: 100, line: 0, role: 'single', t0: 0.6, t1: 1 },
+      { x0: 0, x1: 40, line: 0, role: 'single', t0: 0, t1: 0.4, piece: 0 },
+      { x0: 60, x1: 100, line: 0, role: 'single', t0: 0.6, t1: 1, piece: 0 },
     ])
   })
 
@@ -81,7 +81,7 @@ describe('breakWedgeAtGaps', () => {
 
   it('🚨 a gap on ANOTHER SYSTEM cuts nothing — two systems\' x\'s are not one ruler', () => {
     expect(breakWedgeAtGaps(WHOLE, [gap(40, 60, 1)], 1)).toEqual([
-      { x0: 0, x1: 100, line: 0, role: 'single', t0: 0, t1: 1 },
+      { x0: 0, x1: 100, line: 0, role: 'single', t0: 0, t1: 1, piece: 0 },
     ])
   })
 
@@ -93,10 +93,19 @@ describe('breakWedgeAtGaps', () => {
       { x0: 0, x1: 100, line: 1, role: 'end' },
     ]
     expect(breakWedgeAtGaps(split, [gap(40, 60, 1)], 1)).toEqual([
-      { x0: 0, x1: 100, line: 0, role: 'begin', t0: 0, t1: 1 },
-      { x0: 0, x1: 40, line: 1, role: 'end', t0: 0, t1: 0.4 },
-      { x0: 60, x1: 100, line: 1, role: 'end', t0: 0.6, t1: 1 },
+      { x0: 0, x1: 100, line: 0, role: 'begin', t0: 0, t1: 1, piece: 0 },
+      { x0: 0, x1: 40, line: 1, role: 'end', t0: 0, t1: 0.4, piece: 1 },
+      { x0: 60, x1: 100, line: 1, role: 'end', t0: 0.6, t1: 1, piece: 1 },
     ])
+  })
+
+  it('🚨🚨 both halves of a cut piece report THAT PIECE — which is first AND last', () => {
+    // The hand nudge belongs to the wedge's two TRUE ends, so the renderer asks "is this the first
+    // piece? the last?" — a question about the PIECES. Answering it from the segment array gave the
+    // start's delta to the first half's left and the end's to the second half's right, with nothing
+    // between: *"if I offset the hairpin the drawing is completely crazy"*.
+    const segs = breakWedgeAtGaps(WHOLE, [gap(40, 60)], 1)
+    expect(segs.map(s => s.piece)).toEqual([0, 0])
   })
 
   it('ignores a piece of no width rather than dividing by zero', () => {

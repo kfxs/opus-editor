@@ -456,10 +456,21 @@ function drawWedge(
     // to every piece would bend the wedge at each system break.
     // ⭐ The slant is a ramp too, and interpolating it at the cut is what keeps the ARMS collinear —
     // giving every segment the whole span's two deltas would step the wedge at each gap.
+    //
+    // 🚨🚨 **And so is the hand NUDGE, for the same reason** (his report, 2026-08-18: *"if I offset
+    // the hairpin the drawing is completely crazy"*). A vertical nudge belongs to the wedge's two
+    // TRUE ends, so between them it is a straight line like everything else here. Applied per drawn
+    // segment instead, a wedge broken for a dynamic got the start's delta on its first half's LEFT
+    // and the end's on its second half's RIGHT, with nothing in between — a zigzag.
+    //
+    // ⚠️ The ends are a property of the PIECE, not of the segment: after a cut, one piece can be
+    // both the first and the last (`WedgeSegment.piece`). ⛔ Reading `segments[0]` here is the bug.
+    const startNudge = piece.piece === 0 ? nudge.startY : 0
+    const endNudge = piece.piece === pieces.length - 1 ? nudge.endY : 0
     const y0 = axis + px(rampAt(shape.startY, shape.endY, piece.t0), stave)
-      + (piece === segments[0] ? nudge.startY : 0)
+      + rampAt(startNudge, endNudge, piece.t0)
     const y1 = axis + px(rampAt(shape.startY, shape.endY, piece.t1), stave)
-      + (piece === segments[segments.length - 1] ? nudge.endY : 0)
+      + rampAt(startNudge, endNudge, piece.t1)
     const h0 = px(shape.aperture * open.start, stave) / 2
     const h1 = px(shape.aperture * open.end, stave) / 2
     ctx.setLineWidth(px(THIN_LINE_SPACES, stave))

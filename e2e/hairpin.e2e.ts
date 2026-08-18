@@ -550,3 +550,41 @@ test('⭐⭐ the hole is a WINDOW, not a gap — a small padding either side of 
   // Her drawing measures 10 px on both sides.
   expect(Math.abs(before - after)).toBeLessThan(0.1)
 })
+
+test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not zigzag', async ({ score }) => {
+  // His report, 2026-08-18: *"if I offset the hairpin the drawing is completely crazy"*. A vertical
+  // nudge belongs to the wedge's two TRUE ends, so between them it is a straight line like the slant
+  // — applied per drawn segment instead, the first half got the start's delta on its LEFT and the
+  // second the end's on its RIGHT, with nothing in between.
+  const before = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })
+    await h.render()
+    const was = h.segments('g.vf-hairpin path').map(a => a.y1)
+    // Both ends lifted by the same amount — his JSON's `{start: {y: -3}, end: {y: -3}}`.
+    h.engine.nudgeHairpin(hp.id, 0, -3)
+    await h.render()
+    return was
+  })
+
+  const arms = await armsOf(score)
+  const { spacing } = await staffOf(score)
+  expect(arms.length, 'still two fragments × two arms').toBe(4)
+
+  // ⭐ Equal nudges move the WHOLE wedge and change nothing about its shape, so the halves are still
+  // collinear — which is the assertion that fails outright on a zigzag.
+  const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
+  const first = arms.filter(a => Math.round(a.x1) === starts[0]).sort((a, b) => a.y2 - b.y2)
+  const second = arms.filter(a => Math.round(a.x1) === starts[1]).sort((a, b) => a.y2 - b.y2)
+  for (const [a, b] of [[first[0], second[0]], [first[1], second[1]]] as const) {
+    const slope = (a.y2 - a.y1) / (a.x2 - a.x1)
+    expect(a.y2 + slope * (b.x1 - a.x2)).toBeCloseTo(b.y1, -Math.log10(spacing * 0.5))
+  }
+  // …and the WHOLE thing moved up by three spaces rather than one end of it: every arm's left y
+  // shifted by the same amount. ⛔ On the zigzag the second fragment's left edge did not move at all.
+  for (const [i, a] of arms.entries()) expect((before[i] - a.y1) / spacing).toBeCloseTo(3, 1)
+})
