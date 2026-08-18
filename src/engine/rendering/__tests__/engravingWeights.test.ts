@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
-import { THIN_LINE_SPACES } from '../thinLineWeight'
+import { THIN_LINE_SPACES, HAIRPIN_LINE_SPACES } from '../thinLineWeight'
 import { THIN_BARLINE_SPACES } from '../barlineInk'
 import { CURVE } from '../curveStyle'
 import { CROSS_SYSTEM_BEAM_WIDTH } from '../beamInk'
@@ -38,8 +38,10 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * - the five thin-line names really are one value, which is what lets one constant serve all of
  *   them;
  * - `tie*Thickness` really does equal `slur*Thickness`, which is what lets one `CURVE` serve both;
- * - `hairpinThickness` really does sit in the family, which is what makes deriving it safe given
- *   that his eye, not the font, is the authority there.
+ * - ⭐⭐ `hairpinThickness` sits in the thin-line family in the FONT and **we no longer draw it
+ *   there** — a hairpin takes `staffLineThickness` instead, because Gould p. 103 and Ross p. 187
+ *   both state its weight by name and both name the STAFF LINE. The assertion below now pins the
+ *   disagreement rather than the agreement, so a font upgrade cannot quietly make it moot.
  *
  * If a font upgrade broke any of those, the constant it justifies would have to split — and that is
  * exactly when these fail.
@@ -67,14 +69,17 @@ describe('the thin-line family', () => {
     expect(THIN_BARLINE_SPACES).toBe(THIN_LINE_SPACES)
   })
 
-  it('⚠️ the HAIRPIN is in this family by HIS EYE, not only by the font', () => {
-    // ⛔ Read `thinLineWeight.ts` before touching this. All four reference engines override SMuFL
-    //    downward for a hairpin by about half, it was taken out of the family on 2026-08-15 on that
-    //    evidence, and his eye rejected both Verovio/LilyPond's 0.10 ("now the line is too thin")
-    //    and MuseScore's 0.12 — so it went back the same day. The font agrees with him here, which
-    //    is why deriving the family is safe; ⚠️ if a font ever disagreed, HIS answer wins and the
-    //    hairpin leaves the family with its own constant.
-    expect(engravingDefault('hairpinThickness')).toBe(THIN_LINE_SPACES)
+  it('⭐⭐ the HAIRPIN is NOT drawn at this weight — it takes a STAFF LINE\'s (Gould p. 103)', () => {
+    // ⛔ Read `thinLineWeight.ts` before touching this — it carries both quotations, the measurement
+    //    of 11 of her wedges (ratio to her own staff line: 1.00), and the two earlier attempts his
+    //    eye rejected (0.10 "too thin", 0.12 likewise) when the case was only the engines' numbers.
+    //
+    // ⚠️ The FONT still puts `hairpinThickness` in the thin-line family; we deliberately disagree,
+    //    because the treatises name the staff line and the font's own thin-line family is about
+    //    BARLINES. Pinning both halves means a font upgrade that changed either one fails here.
+    expect(engravingDefault('hairpinThickness')).toBe(THIN_LINE_SPACES) // the font's grouping…
+    expect(HAIRPIN_LINE_SPACES).toBe(engravingDefault('staffLineThickness')) // …and our rule
+    expect(HAIRPIN_LINE_SPACES).not.toBe(THIN_LINE_SPACES)
   })
 })
 

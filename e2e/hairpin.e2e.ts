@@ -96,7 +96,7 @@ test('⭐⭐ the mouth opens to the aperture, in STAFF SPACES', async ({ score }
   expect(Math.abs(arms[0].y2 - arms[1].y2) / staff.spacing).toBeCloseTo(1.5, 1)
 })
 
-test('⭐⭐ the wedge is stroked at the shared THIN-LINE weight — a settled decision, not a default', async ({ score }) => {
+test('⭐⭐ the wedge is stroked at a STAFF LINE\'s weight — Gould p. 103, stated', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     for (const beat of [0, 1, 2, 3]) {
@@ -112,14 +112,16 @@ test('⭐⭐ the wedge is stroked at the shared THIN-LINE weight — a settled d
     }
   })
 
-  // ⭐ 0.16 spaces — `thinLineWeight`'s shared family weight, and SMuFL's own `hairpinThickness`.
-  // ⚠️ This test exists because the hairpin nearly left that family on 2026-08-15: all four
-  // reference engines draw it at roughly half a barline's weight (LilyPond 1.0 vs 1.9, MuseScore
-  // 0.12 vs 0.18, Verovio 0.1, GUIDO 0.08), and a lighter stroke measurably shortens the stretch
-  // near the closed end where the two converging arms read as one heavy line. Both 0.10 and 0.12
-  // were drawn and rejected by eye. So the number is a settled taste decision, not an oversight,
-  // and this pins it — `thinLineWeight.ts` carries the readings and the verdict.
-  expect(drawn.strokePx / drawn.spacing).toBeCloseTo(0.16, 2)
+  // ⭐⭐ 0.13 spaces — the font's `staffLineThickness`, because **Gould p. 103 says so by name**:
+  // *"Hairpins are the thickness of a stave-line."* Ross p. 187 says it independently, and her own
+  // drawings measure a hairpin-to-staff-line ratio of 1.00 across 11 wedges.
+  //
+  // ⚠️ It was 0.16 — `thinLineWeight`'s barline family — until 2026-08-18, when he said ours read
+  // heavy beside her page. It did: our staff line is VexFlow's 1 px default, so 0.16 spaces drew at
+  // 1.60× the line beside it where every source in the field sits between 1.00 and 1.33.
+  // `thinLineWeight.ts` carries the quotations, the measurements and the two earlier rejected
+  // attempts — ⛔ read it before moving this number again.
+  expect(drawn.strokePx / drawn.spacing).toBeCloseTo(0.13, 2)
 })
 
 test('⭐⭐ a LONG wedge opens wider than an ordinary one — measured in STAFF SPACES, not bars', async ({ score }) => {

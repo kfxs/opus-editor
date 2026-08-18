@@ -50,7 +50,7 @@ import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from '.
 import { breakWedgeAtGaps, inksClash, rampAt, type InkBand, type WedgeGap } from './hairpinBreaks'
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 import { dynamicLabel } from '@/utils/dynamics'
-import { THIN_LINE_SPACES } from './thinLineWeight'
+import { HAIRPIN_LINE_SPACES } from './thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
@@ -596,7 +596,7 @@ function drawWedge(
       + rampAt(startNudge, endNudge, piece.t1)
     const h0 = px(shape.aperture * open.start, stave) / 2
     const h1 = px(shape.aperture * open.end, stave) / 2
-    ctx.setLineWidth(px(THIN_LINE_SPACES, stave))
+    ctx.setLineWidth(px(HAIRPIN_LINE_SPACES, stave))
     for (const sign of [-1, 1]) {
       ctx.beginPath()
       ctx.moveTo(piece.x0, y0 + sign * h0)

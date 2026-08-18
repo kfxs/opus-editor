@@ -1741,3 +1741,34 @@ render. The guard for it is therefore a unit test on `viewStateKey`
 — the editor really is covering that much wedge), and programmatic insertions (glyph chips, the word
 menu) go through `insertNodeAtCaret` and fire no `input`, so they do not report a width until the
 next ordinary keystroke.
+
+### 2026-08-18 — the wedge's STROKE: a hairpin is the thickness of a stave-line
+
+His report, comparing our render with her page: *"why her hairpin looks better? maybe because of the
+stroke of my hairpin that is too thick"*.
+
+⭐⭐ **He was right, and it turned out to be a RULE with a source rather than a taste number.**
+**Gould, printed p. 103**, the opening line of the hairpin section: *"Hairpins are the thickness of a
+stave-line. The open end should not be more than two stave-spaces wide."* **Ross, printed p. 187**,
+independently: *"Each of the lines that form the wedge shape is no thicker than a staff line."*
+Measured across **11 wedges on three of her figures**, the ratio of arm to her own staff line is
+**1.00** (0.97–1.03 at every anti-aliasing threshold — the absolute swings by 2×, the ratio does not).
+
+So the wedge takes `HAIRPIN_LINE_SPACES = engravingDefault('staffLineThickness')` = **0.13**, and
+leaves `THIN_LINE_SPACES` (0.16) to the barlines, ledger lines, octave lines and tuplet brackets it
+actually belongs to. ⚠️ This REVERSES the 2026-08-15 note that said *"do not try again without new
+evidence"* after his eye rejected 0.10 and 0.12 — that round had only the engines' numbers, and he
+was on the wrong number because it was the wrong FAMILY.
+
+🚨 **What made ours read heavy is the row nobody had looked at: our staff line is not the font's.**
+VexFlow never sets a stroke width for a stave, so a staff line is the SVG default **1 px** while the
+hairpin converted 0.16 spaces against the stave — **1.6 px**. A drawn ratio of **1.60**, where Gould
+is 1.00 and the widest engine (Verovio) is 1.33. ⭐ The LEDGER LINE hit the identical trap and solved
+it with a RATIO (`layoutConfig.ts`); nobody applied that reading to the wedge. ⏭️ The real fix is his
+(*"take control of the staff line width, so everything looks neat"*) and is now written into
+docs/font-metrics-plan.md under P5 — draw staves at the font's 0.13 and the hairpin's 0.13 IS the
+staff line, at Gould's 1.00, with no compensation anywhere.
+
+⚠️ It also explains the earlier rejections: a staff line is pixel-HINTED onto the device grid and
+stays solid black, while a DIAGONAL hairpin cannot be and smears into grey — so 0.10 read thin beside
+a crisp 1 px line. Same cause, opposite symptom.

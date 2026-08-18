@@ -545,14 +545,32 @@ if anything moves, a transcription was wrong, and that is worth knowing.
 > `hairpinThickness` really is in the family. Those are what justify one constant serving a family,
 > and they are facts about Bravura rather than about us.
 >
-> ⛔ **The hairpin stays in the thin-line family by HIS EYE, not by the font.** All four engines
-> override SMuFL downward for it; he rejected 0.10 and 0.12 and put it back at 0.16 the same day.
-> The font agrees, which is what makes deriving safe — ⚠️ if one ever disagreed, his answer wins and
-> the hairpin leaves the family with its own constant.
+> ⛔ ~~The hairpin stays in the thin-line family by HIS EYE, not by the font.~~ **REVERSED
+> 2026-08-18** — it now takes `staffLineThickness` (0.13) and has its own constant,
+> `HAIRPIN_LINE_SPACES`. The earlier note recorded that he had rejected 0.10 and 0.12 *"without new
+> evidence, do not try again"*; the new evidence is a RULE, not another vote: **Gould p. 103**
+> (*"Hairpins are the thickness of a stave-line"*) and **Ross p. 187** (*"no thicker than a staff
+> line"*) both name the weight, and both name the STAFF LINE — so the hairpin was in the wrong
+> family, not on the wrong number. Her own drawings measure a ratio of **1.00** over 11 wedges.
+> `thinLineWeight.ts` carries the quotations and the measurements.
 >
-> ⏭️ **Noticed, not acted on:** VexFlow draws staff lines at 1 px where the font says 0.13 sp
-> (1.3 px). Changing that is visible, so it is not F3's — it belongs with P5 (the staff), and it is
-> the reason the ledger needs a ratio at all.
+> 🚨 **And it is the second time the same missing row has bitten.** Ours drew at **1.60×** the staff
+> line beside it (0.16 sp = 1.6 px against VexFlow's 1 px default) where Gould is 1.00 and the widest
+> engine is 1.33 — the identical trap the LEDGER LINE hit, which is why that one adopted a RATIO.
+> ⚠️ Two clients now compensate for the same thing in two different ways.
+>
+> ⏭️⏭️ **TAKE CONTROL OF THE STAFF LINE'S WIDTH** (his call, 2026-08-18: *"we should somehow at some
+> point in the future take control of the staff line width, so everything looks neat"*). VexFlow
+> never sets a stroke width for a stave, so a staff line is the SVG context default — **1 px** — where
+> the font says **0.13 sp**. Draw it ourselves and three things collapse at once: the ledger's ratio
+> becomes the plain `legerLineThickness`, the hairpin's 0.13 becomes literally the staff line
+> (Gould's 1.00, with no conversion anywhere), and `VEXFLOW_STAFF_LINE_PX` disappears. It is visible,
+> so it is not F3's — it belongs with **P5 (the staff)**, and it is now the reason TWO weights are
+> compensated rather than one.
+>
+> ⚠️ Whoever does it: a staff line is pixel-HINTED onto the device grid today (that is why 1 px reads
+> solid); 1.3 px will not be, so the hinting pass has to move with it or the staff goes grey. That is
+> the same hazard `barlineInk` already owns.
 
 ### F4 — the payoff
 ⚠️ **Checked, and this was overstated: it is already true.** Nothing in `layout/` calls
