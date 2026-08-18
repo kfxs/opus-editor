@@ -444,3 +444,52 @@ test('⭐⭐ a continuation starts AFTER the clef, key and meter (Gould p. 112, 
   // …and it visibly does not begin on the note (Gerou & Lusk's own test of the figure).
   expect(r.clearOfNoteSp).toBeGreaterThan(1.5)
 })
+
+test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his ask, 2026-08-18)', async ({ score }) => {
+  // *"the slur selected but no control point or endpoints so with arrow/ctr arrow we offset it (and
+  // the arc conserve the same shape, so we dont recalculate)"*. The fixture is the rising run,
+  // deliberately: its arch carries an OBSTACLE LIFT (§12 Phase 8), which is the only thing that can
+  // tell a rigid translate apart from two endpoint offsets — an equal pair of those feeds
+  // `slurArchClearance` moved endpoints, and the lift is re-solved from where they now are.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
+    const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
+      step, octave: i < 7 ? 5 : 6, duration: '16', measure: 1, beat: h.frac(i, 4),
+    })!.id)
+    h.engine.addMeasure()
+    const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    const slur = h.engine.createSlur([ids[0], last.id])!
+    await h.render()
+
+    const sp = (h.staves()[0].bottom - h.staves()[0].top) / 4
+    const sample = () => h.curveSamples('g.vf-slur path', 60)
+    const before = sample()
+    // How far the samples deviate from a pure translation by (dx, dy) staff-spaces.
+    const deviation = (after: { x: number; y: number }[], dx: number, dy: number) =>
+      Math.max(...after.map((p, i) => Math.max(
+        Math.abs(p.x - before[i].x - dx * sp), Math.abs(p.y - before[i].y - dy * sp))))
+
+    h.engine.nudgeSlur(slur.id, 1.5, -2)
+    await h.render()
+    const rigid = deviation(sample(), 1.5, -2)
+
+    // ⭐ The same delta the other way — as two endpoint offsets — for the comparison the feature
+    // exists to make. Reset first, so the two are measured from the same drawing.
+    h.engine.resetSlurOffset(slur.id)
+    h.engine.nudgeSlurEndpoint(slur.id, 'start', 1.5, -2)
+    h.engine.nudgeSlurEndpoint(slur.id, 'end', 1.5, -2)
+    await h.render()
+    const asEndpoints = deviation(sample(), 1.5, -2)
+    return { rigid, asEndpoints, sp, samples: before.length }
+  })
+  expect(r.samples, 'the arc was sampled').toBeGreaterThan(50)
+  // ⭐ THE CLAIM: every sample landed exactly where the old one was, plus the offset. A tenth of a
+  // staff-space of slack covers the sampler walking a marginally longer curve, nothing more.
+  expect(r.rigid).toBeLessThan(r.sp * 0.1)
+  // ⭐⭐ …and the break-test, permanently: doing it the hairpin's way instead — both endpoints — moves
+  // the ink by the same vector and CHANGES THE ARCH on the way, because the obstacle lift is solved
+  // again from the raised ends. If this ever falls to zero, the two paths have become one and the
+  // rigid claim above is no longer being tested by anything.
+  expect(r.asEndpoints).toBeGreaterThan(r.sp * 0.5)
+})

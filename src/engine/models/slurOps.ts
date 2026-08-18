@@ -21,7 +21,7 @@
  * beat-anchored thing that has to survive the barlines moving.
  */
 import type {
-  Score, Slur, CurveControlPointDeltas, CurveShapeOverride, SlurEndpointOffsetOverride,
+  Score, Slur, CurveControlPointDeltas, CurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride,
   SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress,
   SlurSegmentEndpointAddress,
 } from '@/types/music'
@@ -189,6 +189,41 @@ export function setSlurEndpointOffset(score: Score, id: string, which: 'start' |
     [which]: moved,
   }
   setEngravingOverride(score, id, next)
+  return true
+}
+
+/**
+ * ⭐⭐ **Nudge the WHOLE curve, shape intact** — the arrows' write when the slur is selected and no
+ * handle is armed (his ask, 2026-08-18), **accumulating** onto any existing offset. Stored as a
+ * {@link SlurOffsetOverride} (staff-spaces, screen-signed).
+ *
+ * ⛔ **Not two {@link setSlurEndpointOffset} calls, which is the whole reason it is its own kind**:
+ * those feed the arch solve, so an equal pair still re-runs the obstacle lift and the curve changes
+ * shape as it moves. This one is added after the solve, in the renderer. See {@link SlurOffsetOverride}.
+ * @returns true if the slur exists.
+ */
+export function setSlurOffset(score: Score, id: string, dx: number, dy: number): boolean {
+  if (!getSlurById(score, id)) return false
+  const prev = engravingOverrideOf(score, id, 'slurOffset') as SlurOffsetOverride | undefined
+  const next: SlurOffsetOverride = {
+    kind: 'slurOffset',
+    x: (prev?.x ?? 0) + dx,
+    y: (prev?.y ?? 0) + dy,
+  }
+  setEngravingOverride(score, id, next)
+  return true
+}
+
+/**
+ * Drop the whole curve's offset — `Ctrl+Backspace` with the slur selected and nothing armed, the
+ * matching backspace for {@link setSlurOffset}. ⚠️ It leaves the per-END nudges and the arc's shape
+ * alone: three separate statements about the drawing, three separate resets, exactly as the hairpin's
+ * whole-wedge reset leaves its aperture alone. @returns false when the curve carries no offset.
+ */
+export function resetSlurOffset(score: Score, id: string): boolean {
+  if (!getSlurById(score, id)) return false
+  if (!engravingOverrideOf(score, id, 'slurOffset')) return false
+  clearEngravingOverride(score, id, 'slurOffset')
   return true
 }
 

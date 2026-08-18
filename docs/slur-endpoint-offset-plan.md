@@ -627,3 +627,64 @@ slur attaches, a dot only bends it.
   note and an unfindable bar.
 - `HighlightController.slurAnchor.test.ts` — start vs end vs nothing armed, and that one pass now
   serves both devices.
+
+## P7 — THE WHOLE CURVE (2026-08-18)
+
+His ask, and it names its own requirement: *"what we dont have is total slur offset (similar to the
+hairpin) the slur selected but no control point or endpoints so with arrow/ctr arrow we offset it (and
+the arc conserve the same shape, so we dont recalculate)"*.
+
+⭐ It closes a family. A hairpin, an octave bracket, a pedal and a trill all move WHOLE when nothing of
+theirs is armed (`nudgeSelectedHairpin` / `…Ottava` / `…Pedal` / `…Trill`); the slur had only
+`nudgeArmedSlurPoint`, so with a curve selected and no handle armed the arrows did nothing of the sort.
+Now: **armed handle → that handle; nothing armed → the whole curve**, on the same four chords, with
+`Ctrl+Backspace` resetting whichever of the two the selection is pointing at.
+
+### 🚨 Why it is NOT the hairpin's implementation
+
+`setHairpinOffset` writes both of its endpoint offsets and is done — a wedge has no shape to lose. Doing
+that here would **recalculate the arc**: `slurArchClearance` raises the arch over whatever the slur
+covers, and that solve runs from the endpoints, so an equal pair of endpoint offsets re-solves it from
+wherever the ends now are. A slur lifted clear of the noteheads it was arched over FLATTENS as it rises;
+pushed down, the obstacles push back. The span and the slant survive an equal move — the obstacle lift
+does not.
+
+⭐ So `SlurOffsetOverride` is its own kind, and the renderer adds it to the endpoints **after**
+`resolveCps`. The cps are endpoint-relative deltas (`slurArchCps`), so two additions at the end translate
+the drawn curve and change nothing about it: same arch, same tilt, same hand-edited shape, same obstacle
+lift, no re-solve. ⚠️ On a cross-system slur it is applied per FRAGMENT after each one's own resolve,
+because a fragment's open end is margin-bound and its lean is measured off its anchored end — translating
+before the solve would restretch and re-lean the piece instead of moving it. The true-end SQUARES take
+the same delta once, before any fragment registers.
+
+- **Screen-signed** (`x` right, `y` down), staff-spaces, accumulating. ⛔ Deliberately not the `outward`
+  of the bracket and the trill, though a slur's side flips too: this offset is SUMMED with
+  `SlurEndpointOffsetOverride` on the same two points, and two offsets one of which flips with the side
+  would move opposite ways after `x`. Changing that convention is a job for both kinds at once.
+- ⚠️ It SURVIVES a re-anchor of either end (the hairpin's rule — it is a statement about the drawing,
+  not about the notehead being left), and it resets on its own: three separate edits of a slur's
+  picture — the whole curve, each end, the arch — three separate resets.
+- **The guide line undoes BOTH displacements.** `endpointGuide` is handed the per-end offset PLUS the
+  whole-curve one, so the dotted line still lands on the anchor note rather than stopping short of it by
+  exactly the whole-curve move.
+- **Both limits, and the band one END BY END.** The page limit reads the whole slur's ink (a sheet cares
+  about all of it). The BAND limit reads each end's own handle in its OWN system's band — §P5's
+  correction twice over: judging the arc's bbox would refuse every vertical move of a curve whose arch
+  already overhangs, and on a split slur the two ends do not share a band.
+- **Properties** gets a `whole curve (sp)` row above the two end rows, through the same
+  `bus.slurGeometry` seam with a third target kind (`{ kind: 'whole' }`). It is also the way back for a
+  curve whose ink is off screen, alongside §P6.
+
+⏭️ **Not built:** the mouse. A drag of the arc body (rather than of a handle) is the obvious gesture and
+nobody asked for it yet; if it comes, it is `dragArmedSlurEndpoint`'s preview/commit split over
+`nudgeSlur`, with no walk and no latch — a whole-curve move has no anchor to arrive at.
+
+### The test
+
+`e2e/slur.e2e.ts` — *the WHOLE curve moves RIGIDLY*. The fixture is the rising run whose arch carries an
+obstacle lift, because that is the only shape that can tell the two implementations apart: 60 samples of
+the drawn cubic must land exactly where they were plus the offset (under 0.1 sp of slack), and the SAME
+delta written as two endpoint offsets must deviate by more than half a space. ⭐ That second assertion is
+a permanent break-test: if it ever reaches zero, the two paths have become one and the first assertion is
+no longer testing anything. `slurOps.test.ts` covers the storage, the independence from the per-end
+nudges, the survival of a re-anchor, and each reset's decline.

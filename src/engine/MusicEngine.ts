@@ -406,6 +406,18 @@ export class MusicEngine {
     return !lane || this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)
   }
 
+  /** The same two limits for a move of the WHOLE curve ({@link nudgeSlur}) — ⭐ the band one applied
+   *  to EACH end in its own band, since a rigid translate moves both and a cross-system slur's ends
+   *  live in different systems. ⛔ Still not the arc's bbox: `slurEndpointInk`'s note says why. */
+  private slurOffsetAllowed(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
+    for (const which of ['start', 'end'] as const) {
+      const lane = this.slurEndpointLane(id, which)
+      if (lane && !this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)) return false
+    }
+    return true
+  }
+
   private saveOnly(description: string): void {
     this.saveUndoState(description)
   }
@@ -2282,6 +2294,33 @@ export class MusicEngine {
     if (!this.slurEndpointOffsetAllowed(id, which, dx, dy)) return false
     const ok = this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge slur endpoint')
+    return ok
+  }
+
+  /**
+   * ⭐⭐ **Nudge the WHOLE curve** by a staff-space delta and save ONE undo step — the arrows with the
+   * slur selected and no handle armed (his ask, 2026-08-18), the family's rule that a hairpin, a
+   * bracket, a pedal and a trill already follow. The shape does not change: see
+   * {@link SlurOffsetOverride} for why this is one rigid translate rather than two endpoint nudges.
+   *
+   * ⚠️ **Both limits, judged END BY END.** The page limit reads the whole slur's ink (a sheet cares
+   * about all of it, and each drawn fragment is judged against its own page). The BAND limit reads
+   * each end's own handle in its OWN system's band — the correction of 2026-08-18 twice over: the
+   * arc's bbox spans the arch, so judging it would refuse every vertical move of a curve whose arch
+   * already overhangs, and on a cross-system slur the two ends do not even share a band.
+   */
+  nudgeSlur(id: string, dx: number, dy: number): boolean {
+    if (!this.slurOffsetAllowed(id, dx, dy)) return false
+    const ok = this.scoreModel.setSlurOffset(id, dx, dy)
+    if (ok) this.saveOnly('Nudge slur')
+    return ok
+  }
+
+  /** Drop the whole curve's offset and save ONE undo step — `Ctrl+Backspace` with nothing armed.
+   *  @returns false when it carries none, so the caller DECLINEs and the key falls through. */
+  resetSlurOffset(id: string): boolean {
+    const ok = this.scoreModel.resetSlurOffset(id)
+    if (ok) this.saveOnly('Reset slur offset')
     return ok
   }
 

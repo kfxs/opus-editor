@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -48,6 +48,14 @@ export function segmentCurveShapeOverrideOf(score: Score, elementId: string): Se
  */
 export function endpointOffsetOverrideOf(score: Score, elementId: string): SlurEndpointOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'endpointOffset') as SlurEndpointOffsetOverride | undefined
+}
+
+/** ⭐ The WHOLE slur's own offset, if any — one screen-signed `{x,y}` in **staff-spaces**, added to
+ *  both endpoints AFTER the arch is solved so the curve moves rigidly. ⛔ Not the same thing as the
+ *  pair above, and not interchangeable with it: see {@link SlurOffsetOverride} for why two endpoint
+ *  nudges would re-solve the arch. Absent = the curve sits where the engraver put it. */
+export function slurOffsetOverrideOf(score: Score, elementId: string): SlurOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'slurOffset') as SlurOffsetOverride | undefined
 }
 
 /** The cps to apply per segment of a cross-system slur, after the staleness rule. A field

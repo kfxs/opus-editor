@@ -1024,6 +1024,18 @@ export class ScoreModel {
     return slurOps.setSlurEndpointOffset(this.score, id, which, dx, dy)
   }
 
+  /** Nudge the WHOLE curve by a staff-space delta, accumulating — the arrows with nothing armed.
+   *  ⛔ Not the pair above applied twice: see {@link slurOps.setSlurOffset}. */
+  setSlurOffset(id: string, dx: number, dy: number): boolean {
+    return slurOps.setSlurOffset(this.score, id, dx, dy)
+  }
+
+  /** Drop the whole curve's offset, leaving both ends' nudges and the arc's shape.
+   *  See {@link slurOps.resetSlurOffset}. */
+  resetSlurOffset(id: string): boolean {
+    return slurOps.resetSlurOffset(this.score, id)
+  }
+
   /**
    * Set (or clear) the shape of ONE segment of a cross-system slur (BEGIN, END, or a MIDDLE
    * addressed by ordinal).

@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentCurveShapeOverrideOf, segmentEndpointOffsetOverrideOf } from './engravingOverrides'
 import type { CurveControlPointDeltas } from '@/types/music'
 
 describe('ScoreModel.setSlurSegmentShape + setSlurEndpoint clear (P0 storage)', () => {
@@ -293,6 +293,61 @@ describe('ScoreModel.resetSlurEndpointOffset', () => {
     model.setSlurEndpointOffset(slurId, 'start', 1, -2)
     expect(model.resetSlurEndpointOffset(slurId, 'end')).toBe(false)
     expect(model.resetSlurEndpointOffset('ghost', 'start')).toBe(false)
+  })
+})
+
+describe('ScoreModel.setSlurOffset + resetSlurOffset — the WHOLE curve', () => {
+  // His ask, 2026-08-18: the arrows move the whole slur when nothing of it is armed, *"and the arc
+  // conserve the same shape, so we dont recalculate"*. That last clause is why this is a THIRD kind
+  // rather than both endpoint offsets written at once — the geometry half of the claim is in
+  // `e2e/slur.e2e.ts`, this chapter is the storage and the reset rules.
+  let model: ScoreModel
+  let slurId: string
+  const whole = (id: string) => slurOffsetOverrideOf(model.getScore(), id)
+
+  beforeEach(() => {
+    model = new ScoreModel('Test Score')
+    slurId = model.addSlur({ startNoteId: 'n-a', endNoteId: 'n-b' }).id
+  })
+
+  it('accumulates one screen-signed pair, and returns false for an unknown slur', () => {
+    expect(model.setSlurOffset(slurId, 1, -2)).toBe(true)
+    model.setSlurOffset(slurId, 0.5, -0.5)
+    expect(whole(slurId)).toEqual({ kind: 'slurOffset', x: 1.5, y: -2.5 })
+    expect(model.setSlurOffset('ghost', 1, 1)).toBe(false)
+  })
+
+  it('⭐ is INDEPENDENT of the per-end nudges — neither writes the other', () => {
+    model.setSlurOffset(slurId, 2, 0)
+    model.setSlurEndpointOffset(slurId, 'start', 1, -1)
+    expect(whole(slurId)).toEqual({ kind: 'slurOffset', x: 2, y: 0 })
+    expect(endpointOffsetOverrideOf(model.getScore(), slurId))
+      .toEqual({ kind: 'endpointOffset', start: { x: 1, y: -1 } })
+  })
+
+  it('⚠️ SURVIVES a re-anchor of either end, unlike that end\'s own nudge', () => {
+    // The hairpin's rule: it says "the whole curve sits a space higher than wherever it lands",
+    // which is about the drawing rather than about the notehead being left behind.
+    model.setSlurOffset(slurId, 0, -1)
+    model.setSlurEndpointOffset(slurId, 'start', 1, -1)
+    model.setSlurEndpoint(slurId, 'start', 'n-c')
+    expect(whole(slurId)).toEqual({ kind: 'slurOffset', x: 0, y: -1 })
+    expect(endpointOffsetOverrideOf(model.getScore(), slurId)?.start).toBeUndefined()
+  })
+
+  it('resets on its own, leaving the ends\' nudges and the arc\'s shape', () => {
+    model.setSlurOffset(slurId, 2, 3)
+    model.setSlurEndpointOffset(slurId, 'end', 1, 1)
+    model.setSlurShape(slurId, [{ x: 1, y: 2 }, { x: -1, y: 2 }])
+    expect(model.resetSlurOffset(slurId)).toBe(true)
+    expect(whole(slurId)).toBeUndefined()
+    expect(endpointOffsetOverrideOf(model.getScore(), slurId)?.end).toEqual({ x: 1, y: 1 })
+    expect(curveShapeOverrideOf(model.getScore(), slurId)).toBeDefined()
+  })
+
+  it('returns false when the curve was never moved (the key must fall through)', () => {
+    expect(model.resetSlurOffset(slurId)).toBe(false)
+    expect(model.resetSlurOffset('ghost')).toBe(false)
   })
 })
 

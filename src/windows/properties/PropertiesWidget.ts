@@ -837,6 +837,14 @@ export class PropertiesWidget implements Widget {
       armed?: 0 | 1 | null
     }
 
+    // ⭐ The WHOLE curve first, because it is the coarsest thing on the panel and the one that
+    // answers "this slur sits in the wrong place" — the two ends below answer "this END does".
+    const whole = (element.overrides?.find((o) => o.kind === 'slurOffset') ?? {}) as { x?: number; y?: number }
+    wrap.appendChild(this.buildPointRow(
+      'whole curve (sp)',
+      whole.x === undefined && whole.y === undefined ? undefined : { x: whole.x ?? 0, y: whole.y ?? 0 },
+      (value) => bus.slurGeometry.set({ slurId, target: { kind: 'whole' }, value }),
+    ))
     wrap.appendChild(this.buildPointRow('start end (sp)', ends.start, (value) =>
       bus.slurGeometry.set({ slurId, target: { kind: 'endpoint', which: 'start' }, value })))
     wrap.appendChild(this.buildPointRow('end end (sp)', ends.end, (value) =>

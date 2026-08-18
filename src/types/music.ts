@@ -951,6 +951,51 @@ export interface SlurEndpointOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * ⭐⭐ **THE WHOLE CURVE MOVED, SHAPE INTACT** — a slur's own offset, the arrows' answer when the slur
+ * is selected and no handle is armed (his ask, 2026-08-18: *"what we dont have is total slur offset
+ * (similar to the hairpin) the slur selected but no control point or endpoints so with arrow/ctr arrow
+ * we offset it (and the arc conserve the same shape, so we dont recalculate)"*).
+ *
+ * ⭐ It completes a family: a hairpin, an octave line, a pedal and a trill all move whole when nothing
+ * of theirs is armed, and the slur was the one kind left out.
+ *
+ * ## 🚨 Why it is NOT two {@link SlurEndpointOffsetOverride}s
+ *
+ * `setHairpinOffset` writes both of its ends and is done — a wedge has no shape to lose. Doing that
+ * here would **recalculate the arc**: the arch is raised over whatever it covers, and that solve
+ * (`slurArchClearance`, from the endpoints inward) re-runs from wherever the ends now are. A slur
+ * lifted clear of the noteheads it was arched over FLATTENS as it rises, and pushed down it fights
+ * back. The span and the slant survive an equal move; the obstacle lift does not.
+ *
+ * ⭐ So it is a **rigid translate applied after the shape is resolved**: the cubic's `cps` are
+ * endpoint-relative deltas (`slurArchCps`), so adding this to both endpoints at the end moves the
+ * drawn curve and nothing else — same arch, same hand-edited shape, same obstacle lift, no re-solve.
+ * ⚠️ On a cross-system slur it is applied per FRAGMENT, after each one's own resolve, for the same
+ * reason: a fragment's open end is margin-bound, and translating before the solve would restretch it.
+ *
+ * ## The numbers
+ *
+ * ⭐ **Screen-signed** (`x` right, `y` down), in staff-spaces — ⛔ deliberately NOT the `outward` of
+ * {@link OttavaOffsetOverride} / {@link TrillOffsetOverride}, though a slur's side flips (`x`) which
+ * is exactly what that rule is for. It **adds to `SlurEndpointOffsetOverride` on the same two points**,
+ * and two offsets summed into one position must not disagree about which way is up: one screen-signed
+ * and one outward-signed would move opposite ways after a flip, which is worse than either convention
+ * alone. Changing the pair is a job for both kinds at once, not for this one.
+ *
+ * ⚠️ It SURVIVES a re-anchor of either end — {@link HairpinEndpointOffsetOverride}'s rule: the nudge
+ * says *"the whole curve sits a space higher than wherever it lands"*, which is about the drawing and
+ * not about one notehead's ink (the reason the per-end nudge is dropped instead). `Ctrl+Backspace` with
+ * nothing armed drops it; it dies with the slur.
+ */
+export interface SlurOffsetOverride extends EngravingOverride {
+  kind: 'slurOffset'
+  /** The whole curve's horizontal nudge, staff-spaces (+ right). */
+  x?: number
+  /** The whole curve's vertical nudge, staff-spaces (+ DOWN, screen-signed — see above). */
+  y?: number
+}
+
+/**
  * A free positional nudge of a HAIRPIN's drawn end(s) — the wedge's own reshape (his ask,
  * 2026-08-17: *"when an endpoint is selected and i ctrl+arrow i want to be able to offset, so is an
  * override, and that means the user is able to reshape the hairpin"*).

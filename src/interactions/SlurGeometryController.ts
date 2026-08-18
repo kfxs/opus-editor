@@ -2,7 +2,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { bus } from '@/bus'
 import type { SlurGeometryRequest } from '@/bus'
-import { endpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { endpointOffsetOverrideOf, slurOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { setSlurControlPoint } from './slurHandleNudge'
 import { dbg } from '../utils/debug'
 
@@ -46,6 +46,25 @@ export class SlurGeometryController {
       // typing 2.5 and nudging to 2.5 land on identical model state.
       if (!setSlurControlPoint(this.state, engine, target.cpIndex, value)) return
       this.renderScore()
+      return
+    }
+
+    if (target.kind === 'whole') {
+      // ⭐ The same absolute→relative arithmetic as an endpoint, against the whole curve's own
+      // override — and `null` resets it, leaving both ends' nudges and the arc's shape alone.
+      if (!value) {
+        if (!engine.resetSlurOffset(slurId)) return
+        this.renderScore()
+        dbg(`[Slur] Properties reset whole-curve offset | id:${slurId}`)
+        return
+      }
+      const whole = slurOffsetOverrideOf(engine.getScore(), slurId)
+      const dx = value.x === undefined ? 0 : value.x - (whole?.x ?? 0)
+      const dy = value.y === undefined ? 0 : value.y - (whole?.y ?? 0)
+      if (dx === 0 && dy === 0) return
+      if (!engine.nudgeSlur(slurId, dx, dy)) return
+      this.renderScore()
+      dbg(`[Slur] Properties set whole-curve offset → (${value.x}, ${value.y}) staff-space(s) | id:${slurId}`)
       return
     }
 

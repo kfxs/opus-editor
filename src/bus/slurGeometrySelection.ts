@@ -24,6 +24,10 @@ export type SlurGeometryTarget =
   | { kind: 'endpoint'; which: 'start' | 'end' }
   /** An arc control point — an amber dot. Writes the (armed segment's) curve shape. */
   | { kind: 'controlPoint'; cpIndex: 0 | 1 }
+  /** ⭐ The WHOLE curve — no handle at all, the panel's twin of the arrows with nothing armed. Writes
+   *  the slur's own `slurOffset`, which moves the arc rigidly (2026-08-18). ⚠️ It is a THIRD thing
+   *  beside the two above, not a shorthand for writing both endpoints: those feed the arch solve. */
+  | { kind: 'whole' }
 
 export interface SlurGeometryRequest {
   /** The selected slur whose handle to move. */

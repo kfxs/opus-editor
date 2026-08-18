@@ -18,7 +18,7 @@ import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
-import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
+import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
@@ -455,6 +455,32 @@ export function slurEndpointOffsetPx(
 }
 
 /**
+ * ⭐⭐ **THE WHOLE CURVE'S OWN OFFSET, IN PIXELS** — a {@link SlurOffsetOverride} (staff-spaces,
+ * screen-signed) against one stave. `{0,0}` for a slur that carries none, or a stave that has not been
+ * laid out yet, so a caller adds it unconditionally (`slurEndpointOffsetPx`'s rule).
+ *
+ * 🚨 **WHERE it is added is the entire feature.** It goes on the endpoints AFTER `resolveCps`, never
+ * before: the cps are endpoint-relative deltas, so adding it last translates the drawn curve rigidly,
+ * while adding it first would feed `slurArchClearance` moved endpoints and re-solve the obstacle lift —
+ * a slur raised clear of the noteheads it was arched over would FLATTEN as it rose. His words for the
+ * requirement (2026-08-18): *"the arc conserve the same shape, so we dont recalculate"*.
+ *
+ * ⚠️ Converted per STAVE rather than once, because the two ends of a cross-system slur can sit on
+ * staves of different sizes (`project_small_staff_spacing`) and a staff-space is not the same number of
+ * pixels on both.
+ */
+export function slurOffsetPx(
+  offset: { x?: number; y?: number } | undefined,
+  stave: Stave | undefined,
+): { x: number; y: number } {
+  if (!offset || !stave) return { x: 0, y: 0 }
+  return {
+    x: staffSpacesToPixels(offset.x ?? 0, stave),
+    y: staffSpacesToPixels(offset.y ?? 0, stave),
+  }
+}
+
+/**
  * ⭐⭐ **THE LINE BACK TO THE ENGRAVER'S POINT** — a displaced slur endpoint draws a dotted guide
  * from where it IS to where it would have been, or none at all when it has not been moved.
  *
@@ -659,6 +685,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // that landed beside a stem steps past it, so the arc leaves from beyond the stem rather
         // than across it. It is 0 for every end with no stem in the way.
         const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
+        // ⭐⭐ …and the WHOLE curve's own offset (`SlurOffsetOverride`), which is NOT folded in here:
+        // it is added to the resolved endpoints below, once each branch has solved its shape, so the
+        // curve translates instead of re-arching. See `slurOffsetPx` for why the order is the feature.
+        const wholeOffset = slurOffsetOverrideOf(score, slur.id)
+        const wholeFrom = slurOffsetPx(wholeOffset, fromNote.getStave())
+        const wholeTo = slurOffsetPx(wholeOffset, toNote.getStave())
         const firstX = fromEnd.centerX + off.startX + placement.from.dx
         const lastX = toEnd.centerX + off.endX + placement.to.dx
         fromY += off.startY
@@ -683,6 +715,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             : slurArchClearance(p0, p1, slurArchHeight(p1.x - p0.x, nestLift), direction,
               slurObstaclesOf(pass, score, slur))
           const cps = resolveCps(shapeOverride, stave, p0, p1, direction, nestLift, clearance)
+          // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
+          // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-
+          // relative, so translating both endpoints now moves the drawn curve and changes nothing
+          // about it. Above the clearance solve it would re-arch instead. Both ends take the same
+          // delta — one offset, one curve — converted against each end's own stave.
+          p0.x += wholeFrom.x; p0.y += wholeFrom.y
+          p1.x += wholeTo.x; p1.y += wholeTo.y
           const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
           fileCurve(arc.points, fromLine)
           // Store the on-screen control points + endpoint geometry so a selected slur can
@@ -691,9 +730,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // only — a split slur shares one shape, so it gets no handles.
           // Both true ends can be displaced independently, so each contributes its own guide (or
           // none). `p0`/`p1` already carry the nudge, and the offsets are the pixels that went in.
+          // ⚠️ The guide points back to the ANCHOR, so it must undo BOTH displacements — the end's own
+          // nudge and the whole curve's offset. A guide drawn off the per-end offset alone would stop
+          // short of the note by exactly the whole-curve move.
           const guides = [
-            endpointGuide(p0, { x: off.startX, y: off.startY }),
-            endpointGuide(p1, { x: off.endX, y: off.endY }),
+            endpointGuide(p0, { x: off.startX + wholeFrom.x, y: off.startY + wholeFrom.y }),
+            endpointGuide(p1, { x: off.endX + wholeTo.x, y: off.endY + wholeTo.y }),
           ].filter((g): g is GuideLine => g !== null)
           registerPartial(arc, undefined, {
             controlPoints: [arc.c0, arc.c1],
@@ -713,6 +755,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // can't assume the BEGIN partial exists. NO controlPoints/staffSpacePx, so the
           // round shape handles stay off for a split slur (it has no single shared shape).
           const trueEnds = slurTrueEndpoints(firstX, lastX, fromY, toY, LIFT, direction)
+          // ⭐ The whole-curve offset moves the SQUARES with the ink they belong to — done once, here,
+          // rather than inside the fragment loop, because the registry keeps this object by reference
+          // and a fragment that registered before its own end was translated would have published a
+          // handle at the old place.
+          trueEnds.p0.x += wholeFrom.x; trueEnds.p0.y += wholeFrom.y
+          trueEnds.p1.x += wholeTo.x; trueEnds.p1.y += wholeTo.y
           const spanCount = toLine - fromLine + 1
           let endpointsAttached = false
           // Register one segment partial: its round-handle context (controlPoints + the
@@ -740,8 +788,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             // this system's. An open JOIN's own nudge draws none — it is margin-bound, so there is
             // no anchor for it to have left.
             const trueEndGuide
-              = segmentRole === 'begin' ? endpointGuide(trueEnds.p0, { x: off.startX, y: off.startY })
-              : segmentRole === 'end' ? endpointGuide(trueEnds.p1, { x: off.endX, y: off.endY })
+              = segmentRole === 'begin' ? endpointGuide(trueEnds.p0, { x: off.startX + wholeFrom.x, y: off.startY + wholeFrom.y })
+              : segmentRole === 'end' ? endpointGuide(trueEnds.p1, { x: off.endX + wholeTo.x, y: off.endY + wholeTo.y })
               : null
             registerPartial(arc, partialType, {
               controlPoints: [arc.c0, arc.c1],
@@ -793,6 +841,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
               p1.x += o.x; p1.y += o.y
               const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
+              // ⭐ The whole-curve offset, after this fragment's own resolve — the same-line branch's
+              // rule (see `slurOffsetPx`), and it matters MORE here: this fragment's open end is
+              // margin-bound and its rise is measured off `startY`, so translating before the solve
+              // would restretch and re-lean the piece instead of moving it.
+              p0.x += wholeFrom.x; p0.y += wholeFrom.y
+              p1.x += wholeFrom.x; p1.y += wholeFrom.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'end', fromLine, { p0, p1, direction }, stave, 'begin',
@@ -817,6 +871,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const o = segmentEndpointOffsetPx(segEndOff.end, stave)
               p0.x += o.x; p0.y += o.y
               const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
+              p0.x += wholeTo.x; p0.y += wholeTo.y
+              p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'start', toLine, { p0, p1, direction }, stave, 'end',
@@ -841,6 +897,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += ol.x; p0.y += ol.y
               p1.x += or.x; p1.y += or.y
               const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
+              // ⚠️ A MIDDLE is anchored to nothing but its system's margins, and it takes the offset
+              // all the same: the user moved the CURVE, and a fragment of it left behind would break
+              // the line the eye follows across the break.
+              const wholeMid = slurOffsetPx(wholeOffset, stave)
+              p0.x += wholeMid.x; p0.y += wholeMid.y
+              p1.x += wholeMid.x; p1.y += wholeMid.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
                 'middle', seg.line, { p0, p1, direction }, stave, 'middle', ordinal,

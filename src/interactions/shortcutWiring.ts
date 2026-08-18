@@ -191,6 +191,39 @@ export function wireShortcuts(
     return true
   }
 
+  /**
+   * ⭐⭐ **The arrows move the WHOLE CURVE when nothing of the slur is armed** (his ask, 2026-08-18:
+   * *"what we dont have is total slur offset (similar to the hairpin)… and the arc conserve the same
+   * shape, so we dont recalculate"*) — the family's rule, which a hairpin, a bracket, a pedal and a
+   * trill already followed and the slur was the one kind missing from.
+   *
+   * ⚠️ It DECLINES whenever any of the three handle families is armed, so it can only ever run after
+   * `nudgeArmedSlurPoint` has passed: one selection, one meaning per key.
+   *
+   * ⭐ Screen-signed straight through, no conversion — unlike the trill beside it. The offset it writes
+   * is added to the same two endpoints as the per-end nudges, and those speak screen (see
+   * `SlurOffsetOverride`).
+   */
+  const nudgeSelectedSlur = (dx: number, dy: number): boolean => {
+    const eng = getEngine()
+    const slur = selectedOf(state, 'slur')
+    if (!eng || !slur || slur.endpoint || slur.segmentEndpoint || slur.controlPoint) return false
+    if (!eng.nudgeSlur(slur.id, dx, dy)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /** `Ctrl+Backspace` with a slur selected and nothing armed: the whole curve back where the engraver
+   *  put it. ⚠️ It leaves the per-end nudges and the arc's shape — three statements, three resets. */
+  const resetSelectedSlur = (): boolean => {
+    const eng = getEngine()
+    const slur = selectedOf(state, 'slur')
+    if (!eng || !slur || slur.endpoint || slur.segmentEndpoint || slur.controlPoint) return false
+    if (!eng.resetSlurOffset(slur.id)) return false
+    renderer.renderScore()
+    return true
+  }
+
   // Ctrl+Backspace on ANY armed slur handle — arc dot, true end or open join: back to the automatic
   // engraving, the reset half of the three nudges above. Chains ahead of the note-spacing /
   // bar-width resets on the same key — disjoint, since arming a slur handle clears the note
@@ -1223,6 +1256,7 @@ export function wireShortcuts(
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedSlur(NUDGE_FINE_SS, 0)) return
       if (nudgeArmedHairpinEnd(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedHairpin(NUDGE_FINE_SS, 0)) return
       if (nudgeArmedOttavaEnd(NUDGE_FINE_SS, 0)) return
@@ -1246,6 +1280,7 @@ export function wireShortcuts(
     selectPreviousNote: () => {
       // Armed slur point / selected dynamic → fine nudge left instead of navigating.
       if (nudgeArmedSlurPoint(-NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedSlur(-NUDGE_FINE_SS, 0)) return
       if (nudgeArmedHairpinEnd(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedHairpin(-NUDGE_FINE_SS, 0)) return
       if (nudgeArmedOttavaEnd(-NUDGE_FINE_SS, 0)) return
@@ -1285,10 +1320,10 @@ export function wireShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_FINE_SS) || nudgeSelectedHairpin(0, -NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_FINE_SS) || nudgeSelectedOttava(0, -NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, -NUDGE_FINE_SS) || nudgeSelectedPedal(0, -NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, -NUDGE_FINE_SS) || nudgeSelectedTrill(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, NUDGE_FINE_SS) || nudgeSelectedHairpin(0, NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, NUDGE_FINE_SS) || nudgeSelectedOttava(0, NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, NUDGE_FINE_SS) || nudgeSelectedPedal(0, NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, NUDGE_FINE_SS) || nudgeSelectedTrill(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, -NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedOttava(0, -NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedPedal(0, -NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedTrill(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, NUDGE_COARSE_SS) || nudgeSelectedOttava(0, NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, NUDGE_COARSE_SS) || nudgeSelectedPedal(0, NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, NUDGE_COARSE_SS) || nudgeSelectedTrill(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_FINE_SS) || nudgeSelectedHairpin(0, -NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_FINE_SS) || nudgeSelectedOttava(0, -NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, -NUDGE_FINE_SS) || nudgeSelectedPedal(0, -NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, -NUDGE_FINE_SS) || nudgeSelectedTrill(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, NUDGE_FINE_SS) || nudgeSelectedHairpin(0, NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, NUDGE_FINE_SS) || nudgeSelectedOttava(0, NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, NUDGE_FINE_SS) || nudgeSelectedPedal(0, NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, NUDGE_FINE_SS) || nudgeSelectedTrill(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, -NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedOttava(0, -NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedPedal(0, -NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedTrill(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, NUDGE_COARSE_SS) || nudgeSelectedOttava(0, NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, NUDGE_COARSE_SS) || nudgeSelectedPedal(0, NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, NUDGE_COARSE_SS) || nudgeSelectedTrill(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -1314,21 +1349,21 @@ export function wireShortcuts(
     //    gated: armed square → that sign, nothing armed → both. It is the fourth family to read the
     //    same way here (slur point, wedge, bracket, pedal).
     ctrlArrowLeft: () =>
-      nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(-NUDGE_COARSE_SS, 0)
+      nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(-NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedHairpin(-NUDGE_COARSE_SS, 0) || nudgeArmedOttavaEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
       || nudgeArmedPedalEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(-NUDGE_COARSE_SS, 0)
       || nudgeArmedTrillEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
-      nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(NUDGE_COARSE_SS, 0)
+      nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(NUDGE_COARSE_SS, 0)
       || nudgeSelectedHairpin(NUDGE_COARSE_SS, 0) || nudgeArmedOttavaEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(NUDGE_COARSE_SS, 0)
       || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
       || nudgeArmedPedalEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(NUDGE_COARSE_SS, 0)
       || nudgeArmedTrillEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(NUDGE_COARSE_SS, 0)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
-    resetMove: () => resetArmedSlurPoint() || resetArmedHairpinEnd() || resetSelectedHairpin()
+    resetMove: () => resetArmedSlurPoint() || resetSelectedSlur() || resetArmedHairpinEnd() || resetSelectedHairpin()
       || resetArmedOttavaEnd() || resetSelectedOttava() || resetArmedPedalEnd() || resetSelectedPedal()
       || resetArmedTrillEnd() || resetSelectedTrill()
       || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
