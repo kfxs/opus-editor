@@ -19,6 +19,7 @@ import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
+import { pickSlurHandleAt } from './slurHandlePick'
 import { stampTrillAtClick } from './trillStamp'
 import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
@@ -1162,19 +1163,22 @@ export class MouseController {
     const selectedSlur = selectedOf(this.state, 'slur')
     if (!selectedSlur) return false
 
+    // ⭐⭐ ONE decision for all three handle families: the NEAREST one wins (`./slurHandlePick`).
+    // This used to be three `.find()`s in a row, so a press that touched both an arc dot and an end
+    // square always took the dot — his report, 2026-08-18: *"im trying to get the endpoint but i'm
+    // getting the control point"*. The boxes genuinely overlap on a short slur.
+    const pick = pickSlurHandleAt(registry, selectedSlur.id, x, y)
+
     // Slur control-point handle drag.
-    const handle = registry.getByType('slur-handle').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    })
     // The handle carries its OWN segment's drag context (endpoints + control points +
     // staff spacing + segment address + span count), so we read everything straight off it
     // — no re-lookup of a 'slur' partial, which on a cross-system slur would ambiguously
     // resolve to the wrong segment (§4a). cpIndex disambiguates the two dots within it.
-    if (handle?.slurId === selectedSlur.id && handle.cpIndex !== undefined
-        && handle.slurEndpoints && handle.controlPoints) {
+    if (pick?.kind === 'control') {
+      const handle = pick.entry
+      if (handle.cpIndex !== undefined && handle.slurEndpoints && handle.controlPoints) {
       this.isDraggingSlurHandle = true
-      this.draggedSlurId = handle.slurId
+      this.draggedSlurId = selectedSlur.id
       this.draggedCpIndex = handle.cpIndex
       this.draggedSlurEndpoints = handle.slurEndpoints
       // The keyboard nudge inverts the same math from the same registry fields, so the conversion
@@ -1204,19 +1208,17 @@ export class MouseController {
       }
       this.render.renderScore()
       dbg(`Slur handle drag ready | id:${handle.slurId} cp:${handle.cpIndex} seg:${handle.segmentRole ?? 'single'}${handle.segmentRole === 'middle' ? `#${handle.segmentOrdinal}` : ''}`)
-      event.preventDefault()
-      return true
+        event.preventDefault()
+        return true
+      }
     }
 
     // Slur endpoint (square) handle drag — re-anchor the in/out point onto a
     // different note.
-    const endHandle = registry.getByType('slur-endpoint').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    })
-    if (endHandle?.slurId === selectedSlur.id && endHandle.endpoint) {
+    if (pick?.kind === 'endpoint' && pick.entry.endpoint) {
+      const endHandle = pick.entry
       this.isDraggingSlurEndpoint = true
-      this.draggedEndpointSlurId = endHandle.slurId
+      this.draggedEndpointSlurId = selectedSlur.id
       this.draggedEndpoint = endHandle.endpoint
       this.slurEndpointDragChanged = false
       this.slurEndpointDragStartTime = Date.now()
@@ -1245,11 +1247,8 @@ export class MouseController {
     // it for keyboard nudging; there is NO drag/re-anchor (no note to anchor onto). Arming
     // disarms the blue endpoint (mutually exclusive). See
     // docs/multisystem-slur-segment-endpoint-offset-plan.md.
-    const segEndHandle = registry.getByType('slur-segment-endpoint').find(el => {
-      const b = el.bbox
-      return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
-    })
-    if (segEndHandle?.slurId === selectedSlur.id && segEndHandle.segmentRole) {
+    if (pick?.kind === 'segmentEndpoint' && pick.entry.segmentRole) {
+      const segEndHandle = pick.entry
       const role = segEndHandle.segmentRole
       this.state.selectedElement = {
         kind: 'slur',
