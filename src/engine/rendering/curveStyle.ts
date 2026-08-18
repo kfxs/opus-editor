@@ -343,6 +343,31 @@ export const SLUR_CONTROL_ANGLE = { min: 30, boostMax: 15, fullBelowSpaces: 4 } 
  */
 export const SLUR_OBSTACLE_MARGIN_RATIO = 0.04
 
+/**
+ * ⭐⭐ **THE MOST A CONTROL POINT MAY BE ASKED TO MOVE PER UNIT OF DEFICIT** — the bound that stops
+ * the obstacle solver demanding the impossible near an endpoint.
+ *
+ * 🚨 **A cubic is PINNED at its two ends.** Raising the controls does nothing at all at `t = 0` or
+ * `t = 1`, and very little just inside them, so the least-movement solution
+ * (`x = deficit·w₀/(w₀²+w₁²)`, see `./slurObstacles`) **diverges like 1/(3t)** as an obstacle
+ * approaches an endpoint. Measured, 2026-08-18: one notehead-sized box, one 200 px slur, margin
+ * unchanged — the demanded first-control lift runs 3.35 px with the box comfortably inside the span,
+ * 12 px at a fifth of the way in, 51 px at a tenth, and **354 px once the endpoint sits on the box**.
+ * The drawn result is a near-vertical departure that reads as a stroke, not a slur.
+ *
+ * ⚠️ It became reachable when an endpoint could be nudged onto a neighbouring notehead (the offset
+ * override, and then `interactions/slurEndpointWalk`), but it was always there: the arithmetic has no
+ * answer to "clear this thing I start on top of", because there is none — the curve must pass
+ * through its endpoint. So the honest response is to stop asking, and let that one obstacle be
+ * uncleared.
+ *
+ * ⭐ **A ratio, not a t-band**, though it implies one (≈ the first and last 8% of the parameter):
+ * this is the quantity that actually misbehaves, it reads as the sentence above, and it bounds both
+ * ends without naming either. The value is a bound, not a rule from a book — no treatise discusses
+ * a slur that begins on top of a note, because an engraver would not draw one.
+ */
+export const SLUR_OBSTACLE_MAX_LIFT_RATIO = 4
+
 /** Staff spaces → pixels for this family: against the score's staff space, ⛔ never a scaled stave
  *  (see the file note). The one place the curve family leaves engraving units. */
 export function curvePx(staffSpaces: number): number {

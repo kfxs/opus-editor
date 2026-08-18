@@ -37,7 +37,7 @@
  * already follows — the user owns that curve), and it runs **post-layout**, on where the ink
  * actually landed rather than on where the model thinks the notes are.
  */
-import { CURVE_PX, SLUR_ARCH_TILT, SLUR_OBSTACLE_MARGIN_RATIO } from './curveStyle'
+import { CURVE_PX, SLUR_ARCH_TILT, SLUR_OBSTACLE_MARGIN_RATIO, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
 
 /**
  * ⭐⭐ **HOW MUCH AIR THIS slur leaves over what it covers** — MuseScore's length law
@@ -142,6 +142,12 @@ export function slurArchClearance(
       const w1 = 3 * mt * s.t * s.t
       const norm = w0 * w0 + w1 * w1
       if (norm <= 0) continue
+      // 🚨 …and NOT at any price. Both weights vanish toward an endpoint, so this quotient diverges
+      // like 1/(3t) — 354 px of lift for a box the endpoint sits on, where the same box mid-span
+      // costs 3 px (measured; {@link SLUR_OBSTACLE_MAX_LIFT_RATIO} carries the table). The curve is
+      // pinned at its ends and genuinely cannot clear anything there, so an obstacle that close is
+      // left uncleared rather than answered with a lift that turns the arc into a stroke.
+      if (Math.max(w0, w1) / norm > SLUR_OBSTACLE_MAX_LIFT_RATIO) continue
       lift.c0 = Math.max(lift.c0, (deficit * w0) / norm)
       lift.c1 = Math.max(lift.c1, (deficit * w1) / norm)
     }

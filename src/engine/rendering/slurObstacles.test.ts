@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { slurArchClearance, slurObstacleMarginPx, type SlurObstacle } from './slurObstacles'
-import { CURVE_PX } from './curveStyle'
+import { CURVE_PX, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const SP = STAFF_SPACE_PX
@@ -93,6 +93,29 @@ describe('slurArchClearance — Verovio\'s single pass (§12 Phase 8)', () => {
     // The caller passes `p1.x - p0.x`; nothing guarantees the sign, and a signed margin would be
     // subtracted from the obstacle instead of added to it.
     expect(slurObstacleMarginPx(-5 * SP)).toBeCloseTo(slurObstacleMarginPx(5 * SP), 10)
+  })
+
+  it('🚨 asks for NOTHING from an obstacle its own endpoint sits on — the curve is pinned there', () => {
+    // His report, 2026-08-18: a slur whose start had been walked onto the next notehead drew a
+    // near-vertical stroke instead of an arc. Cause: both Bézier weights vanish toward an endpoint,
+    // so the least-movement solution diverges like 1/(3t) and the solver demanded a 354 px lift for
+    // a box the same slur clears with 3 px mid-span. A cubic MUST pass through its endpoint, so
+    // there is no lift that clears anything there — the honest answer is to leave it uncleared.
+    const onTheEndpoint = slurArchClearance(p0, p1, ARCH, ABOVE, [head(0.1 * SP, -3 * SP)])
+    expect(onTheEndpoint).toEqual({ c0: 0, c1: 0 })
+    // …and the mirror at the far end, which the same bound covers without naming it.
+    expect(slurArchClearance(p0, p1, ARCH, ABOVE, [head(9.9 * SP, -3 * SP)])).toEqual({ c0: 0, c1: 0 })
+  })
+
+  it('⭐ …while an obstacle the curve CAN act on is still cleared, and by no more than the bound', () => {
+    // The point of the bound is that it only bites where the arithmetic was diverging. A head at a
+    // quarter of the span is ordinary music under an ordinary slur and must still be lifted over.
+    const { c0, c1 } = slurArchClearance(p0, p1, ARCH, ABOVE, [head(2.5 * SP, -3 * SP)])
+    expect(c0).toBeGreaterThan(0)
+    expect(c1).toBeGreaterThan(0)
+    // ⚠️ A ceiling, not an equality: `deficit` is measured off the worst sample in the box, so the
+    // claim is that the answer stays in the same order as the gap it closes, not a fixed multiple.
+    expect(c0).toBeLessThan(SLUR_OBSTACLE_MAX_LIFT_RATIO * 4 * SP)
   })
 
   it('⭐ a LONG slur clears an interior stem by more than a short one does', () => {
