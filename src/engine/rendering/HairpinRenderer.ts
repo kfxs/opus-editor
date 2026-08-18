@@ -36,7 +36,7 @@
  * (a cross-system slur on a small staff used to stop 30% short of the margin).
  */
 import type { Stave } from 'vexflow'
-import type { Score, Measure, Hairpin, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
+import type { Score, Measure, Hairpin, Dynamic, Fraction, HairpinEndpointOffsetOverride } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { hairpinSpan, type HairpinSpan } from '@/engine/models/hairpinOps'
 import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from '@/engine/models/engravingOverrides'
@@ -47,7 +47,9 @@ import { voiceOf } from '@/utils/lanes'
 import { MARK_INK } from './dynamicsLinePass'
 import { dynamicMarkTranslate } from './dynamicMarkTransform'
 import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from './hairpinShape'
-import { breakWedgeAtGaps, rampAt, type WedgeGap } from './hairpinBreaks'
+import { breakWedgeAtGaps, inksClash, rampAt, type InkBand, type WedgeGap } from './hairpinBreaks'
+import { dynamicInkReachSpaces } from './dynamicMarkInk'
+import { dynamicLabel } from '@/utils/dynamics'
 import { THIN_LINE_SPACES } from './thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
@@ -180,6 +182,43 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
 }
 
 /**
+ * ⭐⭐ **HOW FAR A MARK'S INK REACHES VERTICALLY, in the staff's own pixels** — what decides whether
+ * the wedge passes through it at all (his rule, 2026-08-18: lift either one clear and the wedge is
+ * drawn whole).
+ *
+ * ⛔ **NOT the box's height.** `getBBox()` on a `<text>` holding a SMuFL glyph reports the FONT's
+ * line metrics — measured at **160 px for a 10 px staff space**, sixteen times the ink — where the
+ * same mark as prose measures a believable 24. The truth is in the font table
+ * (`dynamicMarkInk.dynamicInkReachSpaces`, built for exactly this question one family over), which
+ * answers per letter and in staff spaces.
+ *
+ * ⭐ Prose falls back to the box, and that is right rather than a compromise: a serif face's line box
+ * IS roughly its ink, which is why nothing ever looked wrong for `dolce`.
+ *
+ * ⚠️ The baseline is the drawn `y` PLUS the mark's own translate — the same trap as `markInkX`, one
+ * axis over (`dynamicMarkTransform.dynamicMarkTranslate`).
+ */
+function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null {
+  const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
+  const text = el?.querySelector?.('text') as SVGTextElement | null
+  if (!text) return null
+  const moved = el ? dynamicMarkTranslate(el).y : 0
+
+  const reach = dynamicInkReachSpaces(dynamicLabel(dyn))
+  if (reach) {
+    const baseline = Number(text.getAttribute('y') ?? 0) + moved
+    return {
+      top: baseline - staffSpacesToPixels(reach.above, stave),
+      bottom: baseline + staffSpacesToPixels(reach.below, stave),
+    }
+  }
+  // Prose: the box is honest, and it is all we have — the table knows no serif face.
+  const box = text.getBBox ? text.getBBox() : null
+  if (!box || box.height === 0) return null
+  return { top: box.y + moved, bottom: box.y + box.height + moved }
+}
+
+/**
  * ⭐⭐ **THE SLICES A WEDGE IS BROKEN AT — every dynamic INSIDE its span** (Gould printed p. 107,
  * *"A hairpin may be broken for an interim dynamic"*; `./hairpinBreaks` carries the quotation and
  * the measurement).
@@ -204,6 +243,7 @@ function interiorMarkGaps(
   span: HairpinSpan,
   covered: readonly HairpinPlacement[],
   pad: number,
+  wedgeBandAt: (line: number, x: number) => InkBand | null,
 ): WedgeGap[] {
   const voice = voiceOf(hairpin)
   const after = (measure: number, beat: Fraction, m: number, b: Fraction) =>
@@ -220,7 +260,14 @@ function interiorMarkGaps(
       if (seen.some(b => fracEq(b, dyn.beat))) continue
       seen.push(dyn.beat)
       const ink = markInkX(pass, placement.view, dyn.beat)
-      if (ink) gaps.push({ line: placement.line, left: ink.left - pad, right: ink.right + pad })
+      if (!ink) continue
+      // ⭐⭐ …and only where the two inks actually CLASH. A mark lifted clear of the wedge — or a
+      // wedge nudged clear of the mark — is not in its way, and a hole cut for nothing is worse
+      // than nothing: the break exists to let a letter THROUGH (`hairpinBreaks.inksClash`).
+      const wedge = wedgeBandAt(placement.line, (ink.left + ink.right) / 2)
+      const mark = markInkY(pass, dyn, placement.stave)
+      if (wedge && mark && !inksClash(wedge, mark)) continue
+      gaps.push({ line: placement.line, left: ink.left - pad, right: ink.right + pad })
     }
   }
   return gaps
@@ -425,11 +472,30 @@ function drawWedge(
   // of the pieces; each remaining segment remembers WHERE it sat, so the two arms carry straight
   // across the gap instead of restarting. ⛔ Browser-only, like the endpoint skyline above and for
   // the same reason: in jsdom a glyph measures 0×0, there are no gaps, and the wedge draws whole.
+  // ⭐ Where the wedge's OWN ink is, at any x on any of its systems — what the vertical test compares
+  // a mark against. ⚠️ It has to be a lookup rather than a number: the wedge slants, its mouth opens,
+  // and both ends may be hand-nudged, so "the wedge's band" is only ever a band AT AN X.
+  const wedgeBandAt = (line: number, atX: number): InkBand | null => {
+    const piece = pieces.find(p => p.line === line && atX >= p.x0 && atX <= p.x1)
+    const stave = covered.find(p => p.line === line)?.stave
+    const baseline = plan.get(hairpinLineKey(hairpin.id, line))
+    if (!piece || !stave || baseline === undefined) return null
+    const t = (atX - piece.x0) / (piece.x1 - piece.x0)
+    const open = fragmentOpening(piece.role, hairpin.type)
+    const startNudge = piece === pieces[0] ? nudge.startY : 0
+    const endNudge = piece === pieces[pieces.length - 1] ? nudge.endY : 0
+    const centre = stave.getYForLine(0) + px(baseline + axisOffsetSpaces(), stave)
+      + px(rampAt(shape.startY, shape.endY, t), stave)
+      + rampAt(startNudge, endNudge, t)
+    const half = px(shape.aperture * rampAt(open.start, open.end, t), stave) / 2
+    return { top: centre - half, bottom: centre + half }
+  }
+
   const segments = breakWedgeAtGaps(
     pieces,
     // ⚠️ `HAIRPIN.BREAK_PADDING`, ⛔ never the `pad` the two ENDS use: a window cut in a continuous
     // wedge needs far less air than the gap between two separate objects (his call, 2026-08-18).
-    interiorMarkGaps(pass, hairpin, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave)),
+    interiorMarkGaps(pass, hairpin, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave), wedgeBandAt),
     px(HAIRPIN.MIN_FRAGMENT, from.stave))
 
   const ctx = pass.context

@@ -67,6 +67,30 @@ export interface WedgeGap {
   right: number
 }
 
+/** A vertical ink extent in drawn pixels, `top` above `bottom` (screen y grows downward). */
+export interface InkBand {
+  top: number
+  bottom: number
+}
+
+/**
+ * ⭐⭐ **DO TWO INKS ACTUALLY CLASH?** — his rule, 2026-08-18: *"if the hairpin is offset vertical or
+ * the dynamic is offset vertical, so none of them touch each other (if and only if) then we should
+ * draw the normal hairpin"*.
+ *
+ * ⭐ **The house principle, one family further out**: `layout/kerning` already says *two inks only
+ * clash where they share a vertical BAND*. A wedge broken for a mark it no longer passes through is
+ * a hole cut for nothing — and worse than nothing, because Gould breaks a hairpin to let a letter
+ * through, and a letter that has been lifted clear is not in the way any more.
+ *
+ * ⚠️ **Touching counts as clashing** (`>=`/`<=`), so a mark resting exactly on the wedge's arm still
+ * cuts. ⛔ And there is no tolerance beyond that — *"if and only if"* was the ask, so a hair's
+ * breadth of daylight is enough to make the wedge whole again.
+ */
+export function inksClash(a: InkBand, b: InkBand): boolean {
+  return a.top <= b.bottom && b.top <= a.bottom
+}
+
 /** A piece of wedge that will actually be drawn, plus where it sits inside the piece it was cut
  *  from — see the header. `t0`/`t1` run 0→1 across that piece's own x extent. */
 export interface WedgeSegment extends WedgePiece {

@@ -565,8 +565,10 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
     h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })
     await h.render()
     const was = h.segments('g.vf-hairpin path').map(a => a.y1)
-    // Both ends lifted by the same amount — his JSON's `{start: {y: -3}, end: {y: -3}}`.
-    h.engine.nudgeHairpin(hp.id, 0, -3)
+    // ⚠️ Both ends lifted by the same SMALL amount — his JSON's shape (`{start: {y}, end: {y}}`) but
+    // not its size: three spaces would lift the wedge clear of the letter and it would be drawn
+    // whole (the test below), leaving nothing broken to check for a zigzag.
+    h.engine.nudgeHairpin(hp.id, 0, -0.5)
     await h.render()
     return was
   })
@@ -586,5 +588,56 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
   }
   // …and the WHOLE thing moved up by three spaces rather than one end of it: every arm's left y
   // shifted by the same amount. ⛔ On the zigzag the second fragment's left edge did not move at all.
-  for (const [i, a] of arms.entries()) expect((before[i] - a.y1) / spacing).toBeCloseTo(3, 1)
+  for (const [i, a] of arms.entries()) expect((before[i] - a.y1) / spacing).toBeCloseTo(0.5, 1)
+})
+
+test('⭐⭐ lift the WEDGE clear of the mark and it is drawn WHOLE — no hole cut for nothing', async ({ score }) => {
+  // His rule, 2026-08-18: *"if the hairpin is offset vertical or the dynamic is offset vertical, so
+  // none of them touch each other (if and only if) then we should draw the normal hairpin"*. The
+  // break exists to let a letter THROUGH; a letter that is no longer in the way needs no window.
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })
+    await h.render()
+    h.engine.nudgeHairpin(hp.id, 0, -3)   // three spaces up: past the top of the `f`'s ink
+    await h.render()
+  })
+
+  expect((await armsOf(score)).length, 'ONE fragment — two arms, not four').toBe(2)
+})
+
+test('⭐ …and lifting the MARK instead does it too — either one moving is enough', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })!
+    await h.render()
+    h.engine.nudgeDynamicOffset(dyn.id, 0, 3)   // the mark DOWN, away from the wedge
+    await h.render()
+  })
+
+  expect((await armsOf(score)).length, 'ONE fragment again').toBe(2)
+})
+
+test('🚨 …but a mark still ON the wedge keeps its hole — the test is CLASH, not "was nudged"', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })!
+    await h.render()
+    h.engine.nudgeDynamicOffset(dyn.id, 0, 0.25)  // a quarter space: still through the arms
+    await h.render()
+  })
+
+  expect((await armsOf(score)).length, 'still broken').toBe(4)
 })

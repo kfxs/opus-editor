@@ -1671,3 +1671,33 @@ Fixed in two parts:
 Guarded in the browser (`e2e/hairpin.e2e.ts`): a wedge that is nudged **and** broken keeps its halves
 collinear, and every arm's left edge moves by the same three spaces. Verified to fail with the
 per-segment rule restored.
+
+### 2026-08-18 — the break is now conditional on the two inks actually CLASHING
+
+His rule: *"if the hairpin is offset vertical or the dynamic is offset vertical, so none of them touch
+each other (if and only if) then we should draw the normal hairpin."*
+
+⭐ **The house principle, one family further out.** `layout/kerning` already says *two inks only clash
+where they share a vertical BAND*; this is that sentence applied to the wedge and the letters on its
+own line. Gould breaks a hairpin **to let a letter through** — so a letter that has been lifted clear,
+or a wedge nudged clear of it, is not in the way, and the hole would be cut for nothing.
+
+`interiorMarkGaps` now takes a `wedgeBandAt(line, x)` lookup and drops any mark whose ink does not
+overlap the wedge's there. Two measurements it needs, and each had a trap:
+
+- **the wedge's band at that x** has to be a LOOKUP, not a number: the wedge slants, its mouth opens
+  along its length, and either end may be hand-nudged — so it is `axis + slant(t) ± aperture(t)/2`
+  with the nudge ramp included, i.e. the same arithmetic the draw loop runs, hoisted;
+- **the mark's band** comes from the FONT TABLE (`dynamicMarkInk.dynamicInkReachSpaces`), ⛔ never the
+  box: `getBBox()` on a `<text>` holding a SMuFL glyph reports the font's line metrics — **160 px for
+  a 10 px staff space**, sixteen times the ink. Prose falls back to the box, which is honest for a
+  serif face and is why nothing ever looked wrong for `dolce`.
+
+⚠️ **Touching counts as clashing, and there is no tolerance beyond that** — *"if and only if"* was the
+ask, so a hair's breadth of daylight makes the wedge whole again. If that ever reads cramped, the
+place to add clearance is `inksClash`, not the caller.
+
+Guarded by three browser tests: lift the WEDGE clear → one fragment; lift the MARK clear → one
+fragment; nudge the mark a quarter space, still through the arms → still broken (the test is CLASH,
+not "was nudged"). ⚠️ The zigzag fixture had to shrink its nudge to half a space for the same reason:
+at three spaces the wedge now clears the letter and there is nothing left to zigzag.
