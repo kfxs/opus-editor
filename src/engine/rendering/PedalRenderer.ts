@@ -44,6 +44,7 @@ import type { Score, Pedal, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import type { GuideLine } from '@/engine/ElementRegistry'
 import { pedalSpan, type PedalSpan } from '@/engine/models/pedalOps'
+import { pedalOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { pedalDrawStaff } from '@/utils/pedalScope'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
 import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
@@ -363,6 +364,20 @@ function drawPedal(
 ): void {
   const ctx = pass.context
 
+  // ⭐⭐ THE HAND-NUDGED INK — the two squares' own category of edit ({@link PedalOffsetOverride}).
+  // Three numbers, not two pairs: `y` is ONE quantity for the pair, because a pedal and its own
+  // release share a baseline (Gould p. 333). So the vertical is applied to `baseline` inside the
+  // loop — every fragment alike, in its own staff's spaces — and the two x's at the two sites marked
+  // below.
+  //
+  // ⛔⛔ **THE X NUDGES ARE APPLIED AFTER EVERY AUTOMATIC DECISION, AND THAT IS A RECORDED SCAR.**
+  // The bracket's start nudge was once added before `Math.max(…, barLeft)` — a clamp that exists to
+  // stop the automatic continuation inset reaching back onto the clef — and it ate the hand nudge
+  // dead (*"i cannot offset the right side from a limit"*). Both of this pass's x's go through
+  // exactly such a `Math.max`, so both nudges land outside them. ⭐ A machine's guess is worth
+  // clamping; the engraver's own instruction is not.
+  const nudge = pedalOffsetOverrideOf(pass.score, pedal.id)
+
   let firstPiece = true
   for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, x.endX, from.scale)) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
@@ -371,7 +386,11 @@ function drawPedal(
     const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
     const baseline = baselineFor(
       pass, here.length ? here : covered, span, staffId, firstStaffId, piece.line, starts)
-    const y = stave.getYForLine(0) + px(baseline)
+    // ⭐⭐ THE SHARED VERTICAL NUDGE, on every fragment alike — which is what keeps the pair on one
+    // baseline across a system break as well as within one. ⚠️ Screen-signed and added as it is
+    // stored: a pedal is always BELOW, so there is no side to convert for (the bracket's `outward`
+    // exists only because `x` can flip its side).
+    const y = stave.getYForLine(0) + px(baseline) + px(nudge?.y ?? 0)
 
     // ⭐ THE LADDER CLAIM — filed for whatever is placed outside this one day. ⚠️ Per FRAGMENT, in
     // that fragment's own beats.
@@ -389,9 +408,13 @@ function drawPedal(
     // collide with the clef.
     const barLeft = here[0] ? pass.measureBounds.get(here[0].measureNumber)?.measureX : undefined
     const inset = piece.continuation ? px(PEDAL_CONTINUATION_INSET) : 0
-    const signX = barLeft === undefined
+    const autoSignX = barLeft === undefined
       ? piece.x0 - inset
       : Math.max(piece.x0 - inset, barLeft / (here[0]?.scale ?? 1))
+    // ⭐ …and the START square's own nudge on top of that clamp, never inside it — see the note above
+    // the loop. ⚠️ Only on the piece carrying the real press: a continuation `(Ped.)` is a reminder
+    // the reader gets for free, not the sign the user grabbed.
+    const signX = autoSignX + (piece.continuation ? 0 : px(nudge?.startX ?? 0))
 
     const downWidth = drawPedalSign(ctx, signX, y, piece.continuation)
     // ⭐⭐ THE ATTACHMENT GUIDE — the sixth kind (docs/dynamic-offset-plan.md), and it rides the
@@ -429,11 +452,14 @@ function drawPedal(
     // the `Ped.`'s own ink ({@link PEDAL_SIGN_GAP}) and a least total width for the pair
     // ({@link PEDAL_MIN_SPAN}) — the one place this drawing knowingly overruns the lift x, and only
     // where obeying it exactly would print one smudge.
+    // ⭐ …and the END square's nudge OUTSIDE those three floors, for the start's reason: the floors
+    // are the machine keeping two glyphs from printing one smudge, and a hand that asks for less air
+    // than that has said so deliberately.
     const upX = Math.max(
       piece.x1 - upWidth,
       signX + downWidth + px(PEDAL_SIGN_GAP),
       signX + px(PEDAL_MIN_SPAN) - upWidth,
-    )
+    ) + px(nudge?.endX ?? 0)
     up.renderText(ctx, upX, y)
     registerGlyph(pass, pedal.id, from, upX, y, upWidth, px, 'up')
   }

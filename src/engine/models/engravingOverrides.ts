@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -107,6 +107,13 @@ export function hairpinEndpointOffsetOverrideOf(score: Score, elementId: string)
  *  line and its `y` is one quantity for the whole span. See {@link OttavaOffsetOverride}. */
 export function ottavaOffsetOverrideOf(score: Score, elementId: string): OttavaOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'ottavaOffset') as OttavaOffsetOverride | undefined
+}
+
+/** A sustain pedal's hand-nudged ink, or undefined when it has none. The bracket's above — three
+ *  numbers, ⭐ but the vertical is SCREEN-signed here: a pedal has one side permanently, so there is
+ *  no flip for `outward` to survive. See {@link PedalOffsetOverride}. */
+export function pedalOffsetOverrideOf(score: Score, elementId: string): PedalOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'pedalOffset') as PedalOffsetOverride | undefined
 }
 
 /** A hairpin's hand-set MOUTH, or undefined when the automatic (length-aware) aperture stands.

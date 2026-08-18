@@ -1083,6 +1083,52 @@ export class MusicEngine {
     this.commitPreviewed(which === 'start' ? 'Move pedal start' : 'Move pedal lift')
   }
 
+  /**
+   * ⭐⭐ **Nudge the armed SIGN's ink** — a plain or `Ctrl` arrow with that square armed.
+   * Staff-spaces, screen-signed (+ down).
+   *
+   * ⭐ `dy` moves BOTH signs however it is asked for: a pedal and its own release share one baseline
+   * (Gould p. 333), so {@link PedalOffsetOverride} has nowhere to put a second height. That is an
+   * engraving rule kept in the model's SHAPE rather than in the code that writes it.
+   *
+   * ⚠️ **No screen→outward conversion here, unlike the bracket's twin** — a pedal has one side
+   * permanently, so `+ down` means the same thing everywhere it can be drawn.
+   *
+   * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, which is
+   * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
+   */
+  nudgePedalEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
+    const ok = this.scoreModel.setPedalEndpointOffset(id, which, dx, dy)
+    if (ok) this.saveOnly('Nudge pedal')
+    return ok
+  }
+
+  /** ⭐⭐ **Move the WHOLE pedal** by a staff-space delta — the arrows with a pedal selected and NO
+   *  square armed. One undo step. */
+  nudgePedal(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
+    const ok = this.scoreModel.setPedalOffset(id, dx, dy)
+    if (ok) this.saveOnly('Nudge pedal')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
+   *  carries none. */
+  resetPedalOffset(id: string): boolean {
+    const ok = this.scoreModel.resetPedalOffset(id)
+    if (ok) this.saveOnly('Reset pedal nudge')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` on an armed square: that sign's `x` and the shared `y` back to the engraver's
+   *  own. @returns false when it carries no nudge, so the key falls through. */
+  resetPedalEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    const ok = this.scoreModel.resetPedalEndpointOffset(id, which)
+    if (ok) this.saveOnly('Reset pedal nudge')
+    return ok
+  }
+
   /** The sustain pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getPedals(measureNumber: number): Pedal[] {
     return this.scoreModel.getPedals(measureNumber)

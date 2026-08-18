@@ -823,6 +823,27 @@ export class ScoreModel {
     return pedalOps.applyPedalDrag(this.score, id, write)
   }
 
+  /** Nudge one of a pedal's two signs — its ink, not its extent. ⭐ `dy` moves BOTH signs: they share
+   *  one baseline. See {@link pedalOps.setPedalEndpointOffset}. */
+  setPedalEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    return pedalOps.setPedalEndpointOffset(this.score, id, which, dx, dy)
+  }
+
+  /** Nudge the WHOLE pedal — both signs, one delta. See {@link pedalOps.setPedalOffset}. */
+  setPedalOffset(id: string, dx: number, dy: number): boolean {
+    return pedalOps.setPedalOffset(this.score, id, dx, dy)
+  }
+
+  /** Drop every ink nudge on a pedal. @returns false when it carries none. */
+  resetPedalOffset(id: string): boolean {
+    return pedalOps.resetPedalOffset(this.score, id)
+  }
+
+  /** Drop one sign's `x` and the shared `y`. @returns false when it carries none. */
+  resetPedalEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    return pedalOps.resetPedalEndpointOffset(this.score, id, which)
+  }
+
   /** The pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getPedals(measureNumber: number): Pedal[] {
     const measure = this.getMeasure(measureNumber)

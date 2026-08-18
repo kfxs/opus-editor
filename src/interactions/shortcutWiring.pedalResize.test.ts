@@ -12,10 +12,11 @@ import type { MusicEngine } from '../engine/MusicEngine'
  * `Ctrl+Shift+←/→`, and the ARMED SQUARE decides which end it moves.** The right square moves the
  * LIFT, the left one moves the press and holds the lift.
  *
- * 🚨 **And one claim the other two chapters do not have to make: `Ctrl+←/→` no longer touches the
- * pedal.** The lift move shipped on that chord in P3 and was ungated, which put an AUDIBLE model
- * write on the key this editor reserves for nudging ink. The regression case below is the one that
- * would go red if it were ever chained back on.
+ * 🚨 **And one claim the other two chapters do not have to make: `Ctrl+←/→` never moves the LIFT.**
+ * The lift move shipped on that chord in P3 and was ungated, which put an AUDIBLE model write on the
+ * key this editor reserves for nudging ink. That key now carries the pedal's own ink offset instead
+ * (`.pedalOffset.test.ts`); the regression case below is the one that would go red if the model
+ * write were ever chained back onto it.
  *
  * The engine is a stub — what is under test is the ROUTING.
  */
@@ -24,7 +25,7 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
   let resize: Mock<(id: string, direction: 1 | -1) => boolean>
   let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
   let noteOffset: Mock<(id: string, dx: number) => boolean>
-  let noteSpacing: Mock<(id: string, dx: number) => boolean>
+  let nudgeWhole: Mock<(id: string, dx: number, dy: number) => boolean>
   let run: (action: string) => void
   let teardown: () => void
 
@@ -32,13 +33,13 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
     resize = vi.fn(() => true)
     moveStart = vi.fn(() => true)
     noteOffset = vi.fn(() => true)
-    noteSpacing = vi.fn(() => true)
+    nudgeWhole = vi.fn(() => true)
     const engine = {
       resizePedalBySlot: resize,
       movePedalStartBySlot: moveStart,
       nudgeNoteOffset: noteOffset,
-      nudgeNoteSpacing: noteSpacing,
-      spacingColumnOf: () => ({ measure: 1, beat: { num: 0, den: 1 } }),
+      nudgePedal: nudgeWhole,
+      nudgePedalEndpoint: vi.fn(() => true),
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),
       resizeOttavaBySlot: vi.fn(() => false),
@@ -106,9 +107,14 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
     expect(noteOffset).toHaveBeenCalled()
   })
 
-  it('🚨 `Ctrl+←/→` NO LONGER TOUCHES THE PEDAL — that chord nudges INK, and a pedal has none', () => {
-    // The regression guard for the 2026-08-18 move. It fires with the END square armed, AND with no
-    // square armed, which is the state the old ungated branch answered in.
+  it('🚨 `Ctrl+←/→` NEVER MOVES THE LIFT — that chord nudges INK, this one is audible', () => {
+    // The regression guard for the 2026-08-18 move, and it outlived the sentence it was written
+    // with: that day the pedal had no ink offsets, so "no longer touches the pedal" and "no longer
+    // moves the lift" were the same assertion. Hours later `Ctrl+arrow` came back as an OFFSET
+    // (`.pedalOffset.test.ts`), and only the second half was ever the point.
+    //
+    // It fires with the END square armed, AND with no square armed, which is the state the old
+    // ungated branch answered in.
     armed('end')
     run('ctrlArrowRight')
     armed()
@@ -117,11 +123,9 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
     expect(moveStart).not.toHaveBeenCalled()
 
     // ⚠️ …and the chord is LIVE, which this case has to prove itself: an unregistered action name
-    // only warns, so "nothing happened" is exactly what a typo here would also look like. With a
-    // single note selected the same key reaches the note-spacing branch behind the pedal's old one.
-    state.selectedItems = new Map([['N1', { kind: 'note', id: 'N1' }]]) as never
-    run('ctrlArrowRight')
-    expect(noteSpacing).toHaveBeenCalled()
+    // only warns, so "nothing happened" is exactly what a typo here would also look like. The ink
+    // branch answering is that proof — and it is the very branch that must not be the model write.
+    expect(nudgeWhole).toHaveBeenCalled()
   })
 
   it('⛔ answers for a PEDAL only — a selected ottava does not reach these branches', () => {

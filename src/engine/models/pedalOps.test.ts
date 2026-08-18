@@ -19,7 +19,8 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addPedal, removePedal, updatePedal, setPedalLength, getPedalById, pedalMeasure, measurePedals,
   pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot, movePedalStartBySlot,
-  applyPedalDrag,
+  applyPedalDrag, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
+  resetPedalEndpointOffset,
 } from './pedalOps'
 import { setEngravingOverride } from './overrideOps'
 import { engravingOverridesOf } from './engravingOverrides'
@@ -512,5 +513,93 @@ describe('pedalOps — applyPedalDrag', () => {
 
   it('is false for an unknown id', () => {
     expect(applyPedalDrag(score, 'nope', { at: 'start', measure: 1, beat: frac(0, 1) })).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ THE HAND-NUDGED INK — `PedalOffsetOverride`, the last thing docs/pedal-plan.md §6.3 left for
+ * later. The claim under test is the SHAPE: two horizontals and ONE vertical, because a pedal and
+ * its own release share a baseline (Gould p. 333, `reference/` on disk).
+ */
+describe('pedalOps — the ink offsets', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    id = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+  const off = () => engravingOverridesOf(score, id)[0]
+
+  it('accumulates per SIGN horizontally, and shares ONE vertical', () => {
+    expect(setPedalEndpointOffset(score, id, 'start', 1, 0)).toBe(true)
+    setPedalEndpointOffset(score, id, 'start', 0.5, 0)
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1.5 })
+    // The other sign's x is its own…
+    setPedalEndpointOffset(score, id, 'end', -2, 0)
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1.5, endX: -2 })
+    // …but the vertical asked for at EITHER square is the pair's one number.
+    setPedalEndpointOffset(score, id, 'end', 0, 0.25)
+    setPedalEndpointOffset(score, id, 'start', 0, 0.25)
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1.5, endX: -2, y: 0.5 })
+  })
+
+  it('⭐ PRUNES zeros, so a horizontal-only nudge writes no `y` for the other square to find', () => {
+    setPedalEndpointOffset(score, id, 'start', 1, 0)
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1 })
+    expect('y' in off()).toBe(false)
+    // …and nudged back to nothing, the entry goes entirely.
+    setPedalEndpointOffset(score, id, 'start', -1, 0)
+    expect(engravingOverridesOf(score, id)).toHaveLength(0)
+  })
+
+  it('🚨 the WHOLE-pedal move applies the shared vertical ONCE, not twice', () => {
+    expect(setPedalOffset(score, id, 1, 2)).toBe(true)
+    // ⭐⭐ THE BREAK-TEST for `setPedalOffset`'s second call passing 0: handing `dy` to both per-sign
+    // writes gives y: 4 — a double step vertically, with the horizontal (which really is per sign)
+    // looking perfectly correct beside it.
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1, endX: 1, y: 2 })
+  })
+
+  it('⭐ `Ctrl+Backspace` on a square drops THAT sign\'s x and the shared y, keeping the other\'s', () => {
+    setPedalOffset(score, id, 1, 2)
+    setPedalEndpointOffset(score, id, 'end', 2, 0) // end is now 3
+    expect(resetPedalEndpointOffset(score, id, 'start')).toBe(true)
+    expect(off()).toEqual({ kind: 'pedalOffset', endX: 3 })
+  })
+
+  it('⚠️ that reset DECLINES when the square carries nothing, so the key falls through', () => {
+    // ⭐ The case the zero-pruning exists for: a purely horizontal nudge on the OTHER sign must not
+    // leave a `y: 0` here for this square to claim as a nudge of its own.
+    setPedalEndpointOffset(score, id, 'end', 2, 0)
+    expect(resetPedalEndpointOffset(score, id, 'start')).toBe(false)
+    expect(off()).toEqual({ kind: 'pedalOffset', endX: 2 })
+    expect(resetPedalEndpointOffset(score, 'nope', 'start')).toBe(false)
+  })
+
+  it('the whole-pedal reset drops everything, and declines when there is nothing to drop', () => {
+    expect(resetPedalOffset(score, id)).toBe(false)
+    setPedalOffset(score, id, 1, 1)
+    expect(resetPedalOffset(score, id)).toBe(true)
+    expect(engravingOverridesOf(score, id)).toHaveLength(0)
+  })
+
+  it('⚠️ the nudge DIES WITH THE PEDAL — an override may not outlive its anchor', () => {
+    setPedalOffset(score, id, 1, 1)
+    removePedal(score, id)
+    expect(engravingOverridesOf(score, id)).toHaveLength(0)
+  })
+
+  it('⚠️ SURVIVES an extent edit — the nudge is a statement about the drawing', () => {
+    setPedalOffset(score, id, 1, 1)
+    setPedalLength(score, id, frac(3, 1))
+    expect(off()).toEqual({ kind: 'pedalOffset', startX: 1, endX: 1, y: 1 })
+  })
+
+  it('is false for an unknown id', () => {
+    expect(setPedalEndpointOffset(score, 'nope', 'start', 1, 1)).toBe(false)
+    expect(setPedalOffset(score, 'nope', 1, 1)).toBe(false)
+    expect(resetPedalOffset(score, 'nope')).toBe(false)
   })
 })

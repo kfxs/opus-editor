@@ -31,13 +31,14 @@
  * ⚠️ Re-anchoring pedals across a re-bar is NOT here — that is `rebarOps`, which owns every
  * beat-anchored thing that has to survive the barlines moving. The same split as `hairpinOps`.
  */
-import type { Fraction, Score, Pedal, Measure } from '@/types/music'
+import type { Fraction, Score, Pedal, Measure, PedalOffsetOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
-import { clearEngravingOverride } from './overrideOps'
+import { pedalOffsetOverrideOf } from './engravingOverrides'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 
 /** A measure's pedals (the live array; empty if none), sorted ascending by start beat. */
 export function measurePedals(measure: Measure): Pedal[] {
@@ -483,6 +484,117 @@ function staffOnsets(
     }
   }
   return [...at.values()].sort((a, b) => fracCompare(a.abs, b.abs))
+}
+
+/**
+ * ⭐⭐ **NUDGE ONE SIGN'S INK** — a plain or `Ctrl` arrow with that square armed. Staff-spaces,
+ * accumulating on whatever is already there. {@link setOttavaEndpointOffset}'s twin.
+ *
+ * ⭐ **An OVERRIDE, not the model**, and on a pedal that line is at its sharpest: `Ctrl+Shift+arrow`
+ * says when the damper falls and rises — audible, it decides how long the notes ring — while this
+ * says where two glyphs sit on the page. Two chords, two categories, one pair of squares.
+ *
+ * ⭐ `dx` is per sign; `dy` moves BOTH, because a pedal and its own release share one baseline
+ * (Gould p. 333, {@link PedalOffsetOverride}). Screen-signed: + is down, and there is no side to
+ * convert for.
+ *
+ * @returns true if the pedal exists (the caller then re-renders).
+ */
+export function setPedalEndpointOffset(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  dx: number,
+  dy: number,
+): boolean {
+  if (!getPedalById(score, id)) return false
+  const prev = pedalOffsetOverrideOf(score, id)
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writePedalOffset(score, id, {
+    [xKey]: (prev?.[xKey] ?? 0) + dx,
+    [otherKey]: prev?.[otherKey],
+    y: (prev?.y ?? 0) + dy,
+  })
+  return true
+}
+
+/**
+ * Store the three numbers, ⭐ **dropping any that came out ZERO** — and pruning the whole entry when
+ * all three did, so an offset nudged back to nothing leaves the score exactly as it was found.
+ *
+ * ⚠️ The shared `y` is what forces this, exactly as it does for the bracket (`writeOttavaOffset`): a
+ * purely horizontal nudge computes `y = 0 + 0`, and written down that zero is a number the OTHER
+ * square then reports as a nudge of its own — so `Ctrl+Backspace` on an untouched square would
+ * answer instead of falling through.
+ */
+function writePedalOffset(
+  score: Score,
+  id: string,
+  next: { startX?: number; endX?: number; y?: number },
+): void {
+  const kept: PedalOffsetOverride = {
+    kind: 'pedalOffset',
+    ...(next.startX ? { startX: next.startX } : {}),
+    ...(next.endX ? { endX: next.endX } : {}),
+    ...(next.y ? { y: next.y } : {}),
+  }
+  if (kept.startX === undefined && kept.endX === undefined && kept.y === undefined) {
+    clearEngravingOverride(score, id, 'pedalOffset')
+    return
+  }
+  setEngravingOverride(score, id, kept)
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE PEDAL** — the same `dx` onto both signs, accumulating: the arrows with a
+ * pedal selected and NO square armed. So the armed square is the whole of the difference:
+ * **something armed → that sign moves; nothing armed → the pair does.**
+ *
+ * 🚨 **The second call passes 0 for `dy`** — `setOttavaOffset`'s trap verbatim, and it is not
+ * theoretical: the vertical is ONE field shared by both signs, so handing it to both calls applies
+ * it TWICE and the pair jumps a double step, with the horizontal (which really is per sign) looking
+ * perfectly correct beside it. ⛔ Do not "tidy" this into two identical calls the way the wedge's is
+ * — a hairpin's ends each own a separate `y` and this pair does not.
+ *
+ * @returns true if the pedal exists.
+ */
+export function setPedalOffset(score: Score, id: string, dx: number, dy: number): boolean {
+  if (!getPedalById(score, id)) return false
+  setPedalEndpointOffset(score, id, 'start', dx, dy)
+  // ⛔ 0, not `dy` — see the note above. The vertical is already written.
+  setPedalEndpointOffset(score, id, 'end', dx, 0)
+  return true
+}
+
+/**
+ * Drop the pedal's nudges entirely — `Ctrl+Backspace` with it selected and no square armed.
+ * @returns false when it carries none, so the key falls through to its other tenants.
+ */
+export function resetPedalOffset(score: Score, id: string): boolean {
+  if (!pedalOffsetOverrideOf(score, id)) return false
+  clearEngravingOverride(score, id, 'pedalOffset')
+  return true
+}
+
+/**
+ * `Ctrl+Backspace` on an armed square: that sign back where the engraver put it.
+ *
+ * ⚠️ **It drops that sign's `x` AND the shared `y`** — which follows from the vertical being one
+ * number for the pair rather than a second decision. There is no way to "reset only this sign's
+ * height" because there is no such height. The OTHER sign's `x` survives.
+ *
+ * @returns false when it carries no nudge, so the key falls through.
+ */
+export function resetPedalEndpointOffset(score: Score, id: string, which: 'start' | 'end'): boolean {
+  const prev = pedalOffsetOverrideOf(score, id)
+  if (!prev) return false
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  if (prev[xKey] === undefined && prev.y === undefined) return false
+
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writePedalOffset(score, id, { [otherKey]: prev[otherKey] })
+  return true
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */

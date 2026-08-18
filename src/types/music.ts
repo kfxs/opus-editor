@@ -1050,6 +1050,45 @@ export interface OttavaOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * The hand-nudged INK of a SUSTAIN PEDAL — the `Ped.` and the `✻` moved off where the engraver put
+ * them, without changing when the damper goes down or comes up. {@link OttavaOffsetOverride}'s
+ * shape, and the last thing docs/pedal-plan.md §6.3 left for later (*"a hand-nudged `✻`"*).
+ *
+ * ⭐ The horizontal stays PER SIGN, because the two signs are two separate glyphs with two separate
+ * jobs — and unlike the bracket's ends there is no line between them that a nudge could stretch.
+ *
+ * ⭐⭐ **The vertical is ONE number, and here that is an ENGRAVING RULE rather than a geometric
+ * one.** Gould p. 333: *an individual pedal-and-release instruction should always align, for
+ * clarity* — a pedal and its own release share one baseline (the bracket's shared `y` is merely
+ * because a straight line cannot tilt; this is a convention about how the pair reads). So there is
+ * nowhere to put a second height, and `Ctrl+Backspace` on either square gives back that one.
+ *
+ * 🚨 **Screen `y`, NOT the ottava's `outward` — and the difference is a fact about pedals, not an
+ * inconsistency.** `outward` exists because an octave line's side is DERIVED from `shift` and `x`
+ * flips it, so a screen number would invert a nudge the user had already made. A pedal has ONE side,
+ * permanently (`PedalRenderer` §3 — always below, *nothing to derive and nothing to flip*), so the
+ * two spellings would differ by a sign that never changes. ⚠️ Writing `outward` here would be a
+ * distinction with no observable difference — untestable ceremony, and the ottava's own spec records
+ * what those cost: every test there used an 8va, where the conversion is the identity, and they all
+ * passed with it deleted.
+ *
+ * ⚠️ It SURVIVES a resize, a press-move or a drag of the extent, {@link OttavaOffsetOverride}'s rule:
+ * the nudge says *half a space further from wherever this pedal lands*, which is a statement about
+ * the drawing. It all dies with the pedal.
+ */
+export interface PedalOffsetOverride extends EngravingOverride {
+  kind: 'pedalOffset'
+  /** The `Ped.`'s horizontal nudge, staff-spaces (+ right). ⚠️ The FIRST one only — a `(Ped.)`
+   *  resumption on a later system is a reminder, not the end the user grabbed. */
+  startX?: number
+  /** The release `✻`'s horizontal nudge, staff-spaces (+ right). */
+  endX?: number
+  /** ⭐ The WHOLE pedal's vertical nudge, staff-spaces, SCREEN-signed (+ down) — one number for both
+   *  signs; see this interface's note for why it is screen where the bracket's is `outward`. */
+  y?: number
+}
+
+/**
  * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
  * point where the slur leaves one system and resumes on the next). BEGIN has only an
  * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.
