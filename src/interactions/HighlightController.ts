@@ -1488,6 +1488,15 @@ export class HighlightController {
   private static readonly SLUR_HANDLE_R = 5
   private static readonly SLUR_HANDLE_HIT = 9
 
+  /** The tint a note wears while it is a slur endpoint's ANCHOR — the blue-square blue, so the note
+   *  and the square that points at it read as one thing. Both tinting paths share it: the drag's
+   *  candidate and the armed end's standing anchor are the same statement ("this note"), made once
+   *  by the mouse and once by the keyboard, and a second hex here would let them drift apart.
+   *  ⚠️ NOT `selectionColors`' element blue: this is the slur handles' own colour language (that
+   *  module says so — orange = open join, blue = true end), not "something is selected". */
+  private static readonly SLUR_ANCHOR_FILL = '#2563EB'
+  private static readonly SLUR_ANCHOR_STROKE = '#1D4ED8'
+
   /**
    * Draw draggable handles for the selected slur and register them for hit-testing.
    * Two independent kinds: **round** control-point handles that reshape the arc, and
@@ -1656,6 +1665,41 @@ export class HighlightController {
    *  anchor) a distinct blue so it's clear where the end will land on release. */
   applySlurEndpointCandidate(): void {
     if (!this.state.slurEndpointCandidateNoteId) return
-    this.highlightNote(this.state.slurEndpointCandidateNoteId, '#2563EB', '#1D4ED8')
+    this.highlightNote(
+      this.state.slurEndpointCandidateNoteId,
+      HighlightController.SLUR_ANCHOR_FILL,
+      HighlightController.SLUR_ANCHOR_STROKE,
+    )
+  }
+
+  /**
+   * ⭐ **Tint the note an ARMED slur endpoint is anchored TO** — the keyboard's half of the drag's
+   * candidate tint above (his ask, 2026-08-18: *"when reanchoring with keyboard we dont highlight
+   * the note, i think we should, that is the way to let know the user the new anchor"*).
+   *
+   * ⭐ **Standing, not a flash.** A `Ctrl+Shift+←/→` re-anchor could have blinked the note it landed
+   * on, but a blink needs a timer, an undo of itself, and a rule for what a second press mid-blink
+   * does — and it would answer the question only for the half-second after you asked it. Painting
+   * the anchor for as long as the square stays armed is the same information with no lifecycle at
+   * all: it is DERIVED from `selectedElement` + the slur, so nothing has to be set, cleared, or kept
+   * in step, and a re-anchor shows simply as the tint being on a different note afterwards. It also
+   * answers the question BEFORE the first press, which a flash cannot.
+   *
+   * ⚠️ Yields to a live drag: `slurEndpointCandidateNoteId` is set only while one runs, and the two
+   * disagree exactly when the model DECLINED the candidate (the cursor is over the other end, or off
+   * the lane) — the moment the drag's own tint is the one worth trusting, since it is saying "not
+   * there". Two blues in that frame would read as two anchors.
+   */
+  applyArmedSlurAnchorNote(): void {
+    const engine = this.getEngine()
+    const armed = selectedOf(this.state, 'slur')
+    if (!engine || !armed?.endpoint || this.state.slurEndpointCandidateNoteId) return
+    const slur = engine.getSlurById(armed.id)
+    if (!slur) return
+    this.highlightNote(
+      armed.endpoint === 'start' ? slur.startNoteId : slur.endNoteId,
+      HighlightController.SLUR_ANCHOR_FILL,
+      HighlightController.SLUR_ANCHOR_STROKE,
+    )
   }
 }

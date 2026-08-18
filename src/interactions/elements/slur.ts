@@ -52,6 +52,11 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
     return deps.pick({ kind: 'slur', id: slurAt.id })
   },
 
-  // The arc is already coloured by the set pass; the handles are the single-click extra.
-  highlight: h => h.applySlurHandles(),
+  // The arc is already coloured by the set pass; the handles are the single-click extra — and,
+  // once one of the blue squares is ARMED, the note that square is anchored to wears the same blue,
+  // so a keyboard re-anchor is visible as the tint moving on (`applyArmedSlurAnchorNote`).
+  highlight: h => {
+    h.applySlurHandles()
+    h.applyArmedSlurAnchorNote()
+  },
 }
