@@ -47,5 +47,12 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   // Recoloured, plus the attachment guide (the sixth kind, 2026-08-17). ⭐ It rides the `Ped.` — the
   // sign the gesture begins with — and runs UP to the staff's bottom line: a PLACE, since a pedal
   // governs a region (every voice, every note struck while the damper is down) rather than a pitch.
-  highlight: h => { h.applyPedalSelectionHighlight(); h.applyAnchorGuideLine() },
+  //
+  // …and the two endpoint squares, one beyond each sign (`./pedalHandles`, 2026-08-18) — the
+  // ottava's pair, one look for every span in the editor.
+  highlight: h => {
+    h.applyPedalSelectionHighlight()
+    h.applyAnchorGuideLine()
+    h.applyPedalHandles()
+  },
 }

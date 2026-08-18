@@ -411,7 +411,7 @@ function drawPedal(
         to: { x: x.startX, y: stave.getYForLine(4) },
       }]
       : undefined
-    registerGlyph(pass, pedal.id, from, signX, y, downWidth, px, guides)
+    registerGlyph(pass, pedal.id, from, signX, y, downWidth, px, 'down', guides)
     firstPiece = false
 
     if (!piece.final) continue
@@ -435,7 +435,7 @@ function drawPedal(
       signX + px(PEDAL_MIN_SPAN) - upWidth,
     )
     up.renderText(ctx, upX, y)
-    registerGlyph(pass, pedal.id, from, upX, y, upWidth, px)
+    registerGlyph(pass, pedal.id, from, upX, y, upWidth, px, 'up')
   }
 }
 
@@ -485,6 +485,12 @@ export function drawPedalSign(
  * ⚠️ **Per GLYPH, not per fragment**, which is where this family parts from the trill's and the
  * ottava's: there is no ink at all between the two signs, and a box spanning both would claim every
  * press over the music between them (§6.2 — *a press may only reach INK*).
+ *
+ * ⭐ …and because the grain is the glyph, each box says WHICH SIGN it is: the endpoint squares of a
+ * selected pedal are beyond two different MARKS rather than at two ends of one fragment, so
+ * `interactions/elements/pedalHandles` reads {@link ElementInfo.pedalSign} instead of counting
+ * entries. ⚠️ A `(Ped.)` resumption is a `'down'` like the press it restates — it is the same sign,
+ * and what makes it not the beginning is that an earlier one exists.
  */
 function registerGlyph(
   pass: RenderPass,
@@ -494,6 +500,7 @@ function registerGlyph(
   baselineY: number,
   width: number,
   px: (spaces: number) => number,
+  sign: 'down' | 'up',
   /** The attachment guide, on the `Ped.` of the FIRST fragment only — the lift and every resumed
    *  sign register without one, and the drawer reads every entry under the id. */
   guides?: GuideLine[],
@@ -503,6 +510,7 @@ function registerGlyph(
   pass.elementRegistry.add({
     type: 'pedal',
     id,
+    pedalSign: sign,
     staff: from.staffIndex,
     measure: from.measureNumber,
     bbox: { x, y: top, width, height: bottom - top },

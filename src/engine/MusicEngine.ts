@@ -4,6 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite } from './models/hairpinOps'
 import type { OttavaDragWrite } from './models/ottavaOps'
+import type { PedalDragWrite } from './models/pedalOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -1049,12 +1050,37 @@ export class MusicEngine {
     return ok
   }
 
-  /** Grow or shrink a pedal by one slot of its staff — `Ctrl+→` / `Ctrl+←`. Saves undo state when it
-   *  changed. See {@link pedalOps.resizePedalBySlot}. */
+  /** Move a pedal's LIFT by one slot of its staff — `Ctrl+Shift+→` / `←` with its END square armed.
+   *  Saves undo state when it changed. See {@link pedalOps.resizePedalBySlot}. */
   resizePedalBySlot(id: string, direction: 1 | -1): boolean {
     const ok = this.scoreModel.resizePedalBySlot(id, direction)
     if (ok) this.commit(direction === 1 ? 'Lengthen pedal' : 'Shorten pedal')
     return ok
+  }
+
+  /** Move a pedal's PRESS by one slot, holding its lift — the same chord with the START square
+   *  armed. ⚠️ `commit`, like its twin: when the damper falls is AUDIBLE, so this is never a
+   *  save-only cosmetic write. See {@link pedalOps.movePedalStartBySlot}. */
+  movePedalStartBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.movePedalStartBySlot(id, direction)
+    if (ok) this.commit(direction === 1 ? 'Move pedal start later' : 'Move pedal start earlier')
+    return ok
+  }
+
+  /**
+   * Live (preview) end-move used **while dragging one of a pedal's squares** — writes the model but
+   * does NOT record undo; call {@link commitPedalDrag} on the drop for the single entry.
+   * {@link previewOttavaEnd}'s twin, and for its reason: every frame of a drag would otherwise be
+   * its own undo step. @returns true when the model changed.
+   */
+  previewPedalEnd(id: string, write: PedalDragWrite): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitPedalDrag
+    return this.scoreModel.applyPedalDrag(id, write)
+  }
+
+  /** Record ONE undo entry after a pedal-square drag settles. */
+  commitPedalDrag(which: 'start' | 'end'): void {
+    this.commitPreviewed(which === 'start' ? 'Move pedal start' : 'Move pedal lift')
   }
 
   /** The sustain pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */

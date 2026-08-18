@@ -104,6 +104,14 @@ export type ElementType =
    * fragment (docs/pedal-plan.md §5.3/§6.2).
    */
   | 'pedal'
+  /**
+   * One of the blue SQUARES a selected pedal draws, one beyond each of its two signs. The
+   * `'ottava-endpoint'` above verbatim, one family and one look: registered by the HIGHLIGHT pass so
+   * it exists only while its pedal is selected, removed again by `clearHighlights`, and carrying
+   * `pedalId` + `endpoint` rather than `id` for that entry's reason — {@link getById} answers with
+   * the FIRST entry holding an id, and a handle sharing the pedal's would shadow the signs.
+   */
+  | 'pedal-endpoint'
   | 'accidental'
   | 'dot'
   | 'tuplet'
@@ -357,8 +365,9 @@ export interface ElementInfo {
   slurId?: string
   cpIndex?: 0 | 1
   /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. Also carried by a
-   *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms — and by an
-   *  'ottava-endpoint' square, where it is which end of the BRACKET. */
+   *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms — by an
+   *  'ottava-endpoint' square, where it is which end of the BRACKET — and by a 'pedal-endpoint'
+   *  square, where it is the press or the lift. */
   endpoint?: 'start' | 'end'
   /** For a 'hairpin' fragment: the mouth it was DRAWN at (staff-spaces, after the automatic rule,
    *  any authored override and the steepness cap), and the drawn length that decided it. The
@@ -372,6 +381,20 @@ export interface ElementInfo {
   /** For an 'ottava-endpoint' square: the bracket it belongs to. `hairpinId`'s twin, its own field
    *  for that field's reason. */
   ottavaId?: string
+  /** For a 'pedal-endpoint' square: the pedal it belongs to. `ottavaId`'s twin, same reason. */
+  pedalId?: string
+  /**
+   * ⭐ For a 'pedal' entry: WHICH SIGN this box is — the `Ped.` that presses the damper (`'down'`,
+   * and a `(Ped.)` resumption is one too) or the `✻` that lifts it (`'up'`).
+   *
+   * ⚠️ **It exists because this family's grain is the GLYPH, not the fragment.** Every other span
+   * registers one box per drawn piece, so its two ends are coordinates OF an entry; a pedal's ends
+   * are two separate MARKS, and `interactions/elements/pedalHandles` has to tell them apart to put a
+   * square beyond each. ⛔ Not by counting entries: the first is the press only because a
+   * resumption comes later, and the last is the release only when the cutter kept the final
+   * fragment — both true today, neither a fact about pedals.
+   */
+  pedalSign?: 'down' | 'up'
   /**
    * ⭐ For an 'ottava' fragment: the BRACKET'S OWN AXIS on this system — the y the dashed line runs
    * at, and the x's of the fragment's ink at either end (`startX` is the numeral's left edge, not

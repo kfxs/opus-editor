@@ -255,31 +255,9 @@ export function addPedalOverNotes(
  * refused, because a gesture that destroys the thing it is shortening is a trap.
  */
 export function resizePedalBySlot(score: Score, id: string, direction: 1 | -1): boolean {
-  const span = pedalSpan(score, id)
-  const pedal = span ? getPedalById(score, id) : null
-  if (!span || !pedal) return false
-
-  const starts = measureStartOffsets(score)
-  const startAbs = fracAdd(starts.get(span.startMeasure)!, span.startBeat)
-  const endAbs = fracAdd(startAbs, pedal.length)
-
-  // Every slot of the pedal's STAFF, by absolute onset — every voice, and de-duplicated by beat so
-  // two voices attacking together are ONE step rather than two presses of the key for one move.
-  const seen = new Set<string>()
-  const lane: Array<{ abs: Fraction; length: Fraction }> = []
-  for (const measure of score.measures) {
-    const base = starts.get(measure.number)
-    if (base === undefined) continue
-    for (const slot of measure.slots) {
-      if (!matchesStaff(slot.staffId, pedal.staffId, score)) continue
-      const abs = fracAdd(base, slot.beat)
-      const key = `${abs.num}/${abs.den}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      lane.push({ abs, length: slotLength(slot) })
-    }
-  }
-  lane.sort((a, b) => fracCompare(a.abs, b.abs))
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, endAbs, lane } = placed
 
   let nextLift: Fraction
   if (direction === 1) {
@@ -296,6 +274,215 @@ export function resizePedalBySlot(score: Score, id: string, direction: 1 | -1): 
   }
 
   return setPedalLength(score, id, fracSub(nextLift, startAbs))
+}
+
+/**
+ * ⭐⭐ **MOVE THE PRESS BY ONE SLOT, HOLDING THE LIFT** — the model write behind `Ctrl+Shift+←/→`
+ * with the pedal's START square armed (his ask, 2026-08-18, the same afternoon as the squares).
+ * `←` reaches the press back a slot (the pedal grows at the front), `→` steps it in (it shrinks from
+ * the front); in both cases the lift stays exactly where it is.
+ *
+ * ⭐⭐ **Which the model expresses in ONE write, though it looks as if it could not.** A `Pedal`
+ * stores a start and an AMOUNT, so "hold the lift" has no field to hold — and needs none: the end
+ * stays put iff `length' = lift − start'`, both assigned together below. {@link
+ * moveOttavaStartBySlot} argues this at length; it is repeated rather than shared for that
+ * function's own reason, and here there is a second: what the two moves MEAN is different. An
+ * octave line's start decides which notes are re-pitched; a pedal's decides when the damper falls,
+ * so this write changes where notes begin to ring.
+ *
+ * ⭐ **A press moved across a barline MOVES THE PEDAL to the bar it now starts in** — the list it is
+ * stored in *is* "the pedals that go down here" — keeping the same object and the same id, so the
+ * selection the user is pressing arrows on survives the step.
+ *
+ * ⭐ **The lane is the STAFF, every voice** — {@link resizePedalBySlot}'s rule, and it must be the
+ * same lane at both ends or the two squares would step to different sets of positions.
+ *
+ * ⚠️ **The MODEL, not an override**, like everything else about a pedal's extent: this is audible.
+ *
+ * Declines (false) when there is no slot to step to, when the press would reach the lift, or when no
+ * such pedal exists. ⛔ Never deletes — shrinking to nothing is refused rather than removing the
+ * pedal, {@link resizePedalBySlot}'s rule.
+ */
+export function movePedalStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const next = direction === -1
+    // Reach BACK: the last onset before the current press.
+    ? [...lane].reverse().find(s => fracCompare(s.abs, startAbs) < 0)
+    // Step IN: the first onset after it. Reaching the lift is refused inside the write below.
+    : lane.find(s => fracCompare(s.abs, startAbs) > 0)
+  if (!next) return false
+  return setPedalStartAtSlot(score, id, next)
+}
+
+/** A lane slot named by its address — what a DRAG hands the ops below, having found it from the
+ *  cursor rather than by stepping. `OttavaSlotTarget`'s twin. */
+export interface PedalSlotTarget {
+  measure: number
+  beat: Fraction
+}
+
+/**
+ * ⭐ **Put the PRESS on `target`, holding the lift** — the drag's half of
+ * {@link movePedalStartBySlot}, which now steps by finding a slot and calling this.
+ *
+ * The two-fields-one-write invariant is kept HERE, which is why the stepping op delegates rather
+ * than repeating it. Declines when `target` is not an onset of the pedal's own staff, or when the
+ * press would reach the lift.
+ */
+export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { pedal, startMeasure, endAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  const length = fracSub(endAbs, slot.abs)
+  if (!fracIsPositive(length)) return false
+
+  // ⭐ Both fields, one step — see {@link movePedalStartBySlot}. The re-file comes first: it can
+  // fail, and a pedal left with a beat belonging to a bar it is not stored in would draw somewhere
+  // nothing put it.
+  if (slot.measure !== startMeasure && !movePedalToMeasure(score, pedal, slot.measure)) return false
+  pedal.beat = slot.beat
+  pedal.length = length
+  pedalMeasure(score, id)?.pedals?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/**
+ * ⭐⭐ **Put the LIFT at `target`'s onset — or at the END of it — holding the press.**
+ *
+ * ⚠️⚠️ **`after` is not a convenience, it is the pedal's THIRD end rule showing through.** A trill
+ * ends at the end of a DURATION and an octave bracket at the last NOTEHEAD, but a pedal's end is a
+ * moment in TIME (docs/pedal-plan.md §5.2), and a moment can be named two ways at the last note of
+ * a passage: *the damper comes up as this note is struck* (`after: false` — the note is dry) or
+ * *when it finishes* (`after: true`). Everywhere else the two coincide, because the end of a slot
+ * IS the next onset; only past the final note does `after` reach an address nothing else can name.
+ *
+ * ⭐ That is also exactly what the drag sees: cross the LEFT edge of a notehead and the `✻` lands
+ * before it, cross its RIGHT edge and the pedal holds the note. `setHairpinEndBeforeSlot`'s pair by
+ * a different route — ⛔ and not portable to the ottava, whose every draggable address is a covered
+ * slot.
+ *
+ * Declines when `target` is not an onset of the pedal's own staff, or when the pedal would hold no
+ * music. Only `length` moves — the press is a field nobody touches here.
+ */
+export function setPedalEndAtSlot(
+  score: Score,
+  id: string,
+  target: PedalSlotTarget,
+  after: boolean,
+): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { startAbs, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  const lift = after ? fracAdd(slot.abs, slot.length) : slot.abs
+  return setPedalLength(score, id, fracSub(lift, startAbs))
+}
+
+/** One frame of an endpoint-square DRAG: which end the cursor is holding, and the address it is
+ *  over. `OttavaDragWrite`'s twin — ⚠️ with the extra `after` bit the octave line has no use for
+ *  ({@link setPedalEndAtSlot} says why). */
+export type PedalDragWrite =
+  | ({ at: 'start' } & PedalSlotTarget)
+  | ({ at: 'end'; after: boolean } & PedalSlotTarget)
+
+/**
+ * Apply one frame of an endpoint-square drag — the mouse's road to the same two model writes the
+ * keyboard reaches with `Ctrl+Shift+←/→`, so a pedal cannot be dragged into a state the keys could
+ * not have produced. @returns true when the model changed.
+ */
+export function applyPedalDrag(score: Score, id: string, write: PedalDragWrite): boolean {
+  return write.at === 'start'
+    ? setPedalStartAtSlot(score, id, write)
+    : setPedalEndAtSlot(score, id, write, write.after)
+}
+
+/** Re-file a pedal under a different measure, keeping the SAME object (and so the same id, which is
+ *  what the selection holds). `ottavaOps`' twin, including the ⭐ `delete` of an emptied array — an
+ *  absent `pedals` and an empty one must not both be reachable, or the JSON round trip has two
+ *  spellings of "none". */
+function movePedalToMeasure(score: Score, pedal: Pedal, measureNumber: number): boolean {
+  const target = score.measures.find(m => m.number === measureNumber)
+  if (!target) return false
+  for (const measure of score.measures) {
+    const idx = measure.pedals?.findIndex(p => p.id === pedal.id) ?? -1
+    if (idx === -1) continue
+    measure.pedals!.splice(idx, 1)
+    if (measure.pedals!.length === 0) delete measure.pedals
+    break
+  }
+  if (!target.pedals) target.pedals = []
+  target.pedals.push(pedal)
+  return true
+}
+
+/** Where a pedal is now and what it can step to — the shared read behind both endpoint gestures, so
+ *  the two squares cannot come to disagree about the lane they walk. `ottavaOps.locate`'s twin. */
+function locate(score: Score, id: string): {
+  pedal: Pedal
+  startMeasure: number
+  startAbs: Fraction
+  endAbs: Fraction
+  lane: ReturnType<typeof staffOnsets>
+} | null {
+  const span = pedalSpan(score, id)
+  const pedal = span ? getPedalById(score, id) : null
+  if (!span || !pedal) return null
+
+  const starts = measureStartOffsets(score)
+  const base = starts.get(span.startMeasure)
+  if (base === undefined) return null
+  const startAbs = fracAdd(base, span.startBeat)
+
+  return {
+    pedal,
+    startMeasure: span.startMeasure,
+    startAbs,
+    endAbs: fracAdd(startAbs, pedal.length),
+    lane: staffOnsets(score, pedal.staffId, starts),
+  }
+}
+
+/**
+ * Every onset of the pedal's STAFF, by absolute quarter-beat, with the slot's own length and address
+ * — every VOICE (a pedal has none of its own: one damper, one foot), de-duplicated by beat so two
+ * voices attacking together are ONE step rather than two presses of the key for one move, and
+ * sorted.
+ *
+ * ⚠️ De-duplicating keeps the LONGEST slot at a shared onset, which is what "reach through the next
+ * slot" has to mean when two voices start together and one is longer: the shorter one's end is
+ * inside the longer one's note, so lifting there would put the release at a position no onset
+ * occupies — and the next press would have to skip the rest of that note. `ottavaOps.staffOnsets`'
+ * rule, which the inline lane this replaced did not have (it kept whichever slot it met first).
+ */
+function staffOnsets(
+  score: Score,
+  staffId: string | undefined,
+  starts: Map<number, Fraction>,
+): Array<{ abs: Fraction; length: Fraction; measure: number; beat: Fraction }> {
+  const at = new Map<string, { abs: Fraction; length: Fraction; measure: number; beat: Fraction }>()
+  for (const measure of score.measures) {
+    const base = starts.get(measure.number)
+    if (base === undefined) continue
+    for (const slot of measure.slots) {
+      if (!matchesStaff(slot.staffId, staffId, score)) continue
+      const abs = fracAdd(base, slot.beat)
+      const length = slotLength(slot)
+      const key = `${abs.num}/${abs.den}`
+      const seen = at.get(key)
+      if (!seen || fracCompare(length, seen.length) > 0) {
+        at.set(key, { abs, length, measure: measure.number, beat: slot.beat })
+      }
+    }
+  }
+  return [...at.values()].sort((a, b) => fracCompare(a.abs, b.abs))
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */

@@ -806,10 +806,21 @@ export class ScoreModel {
     return pedalOps.setPedalLength(this.score, id, length)
   }
 
-  /** Move the LIFT by one slot of the pedal's STAFF — the model write behind `Ctrl+←/→`. See
-   *  {@link pedalOps.resizePedalBySlot}. */
+  /** Move the LIFT by one slot of the pedal's STAFF — the model write behind `Ctrl+Shift+←/→` with
+   *  the pedal's END square armed. See {@link pedalOps.resizePedalBySlot}. */
   resizePedalBySlot(id: string, direction: 1 | -1): boolean {
     return pedalOps.resizePedalBySlot(this.score, id, direction)
+  }
+
+  /** Move the PRESS by one slot of the pedal's staff, holding the lift — the same chord with the
+   *  START square armed. See {@link pedalOps.movePedalStartBySlot}. */
+  movePedalStartBySlot(id: string, direction: 1 | -1): boolean {
+    return pedalOps.movePedalStartBySlot(this.score, id, direction)
+  }
+
+  /** Apply one frame of a pedal endpoint-square DRAG — see {@link pedalOps.applyPedalDrag}. */
+  applyPedalDrag(id: string, write: pedalOps.PedalDragWrite): boolean {
+    return pedalOps.applyPedalDrag(this.score, id, write)
   }
 
   /** The pedals STARTING in a measure, sorted by beat (empty if none or no such measure). */

@@ -454,20 +454,25 @@ export type SelectedElement =
    */
   | { kind: 'ottava'; id: string; endpoint?: 'start' | 'end' }
   /**
-   * A SUSTAIN PEDAL — `Ped.` and its release `✻`. Named by id alone, the ottava's shape and for its
-   * reasons: everything about it (which staff, how much music) is on the stored object, and it has
-   * no VOICE — one damper serves the whole staff.
+   * A SUSTAIN PEDAL — `Ped.` and its release `✻` — plus WHICH END (if any) is armed. Named by id,
+   * the ottava's shape and for its reasons: everything about it (which staff, how much music) is on
+   * the stored object, and it has no VOICE — one damper serves the whole staff.
    *
    * ⚠️ **The id names the PEDAL, not the sign that was clicked**, and that is deliberate: the two
    * glyphs register separately so a press can only land on ink (docs/pedal-plan.md §6.2), but they
-   * are one statement, so pressing either selects the whole thing. There is nothing here to say
-   * which was hit, because nothing may act on one sign alone — `Ctrl+←/→` moves the LIFT whichever
-   * glyph you picked.
+   * are one statement, so pressing either selects the whole thing.
+   *
+   * ⭐ `endpoint` arrived 2026-08-18 with the two blue squares a selected pedal now draws, reached by
+   * clicking one or by Tab (`./elements/pedalHandles`) — the ottava's row verbatim, and ⛔ it arms
+   * NOTHING yet. ⚠️ It is not how the pedal is EDITED today either: `Ctrl+←/→` moves the LIFT
+   * whichever glyph you picked and whether or not a square is armed (`resizeSelectedPedal`), which
+   * predates these squares. So a selection with no `endpoint` is the ordinary one, not a degenerate
+   * case.
    *
    * ⛔ And no `placement`, unlike the trill's row: a pedal is always below, so `x` has nothing to
    * flip.
    */
-  | { kind: 'pedal'; id: string }
+  | { kind: 'pedal'; id: string; endpoint?: 'start' | 'end' }
   /** A tie arc, named by the note it starts FROM (a tie is a property of that note). */
   | { kind: 'tie'; fromNoteId: string }
   /**

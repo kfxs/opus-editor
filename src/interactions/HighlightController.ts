@@ -9,6 +9,7 @@ import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
+import { pedalEndpointHandles } from './elements/pedalHandles'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -89,6 +90,7 @@ export class HighlightController {
     registry?.removeByType('slur-segment-endpoint')
     registry?.removeByType('hairpin-endpoint')
     registry?.removeByType('ottava-endpoint')
+    registry?.removeByType('pedal-endpoint')
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
@@ -1317,6 +1319,57 @@ export class HighlightController {
       this.setAttr(el, 'fill', SELECTION_COLOR)
       this.setStyleProp(el, 'fill', SELECTION_COLOR)
     })
+  }
+
+  /**
+   * ⭐ **THE SELECTED PEDAL'S TWO ENDPOINT SQUARES** — one beyond the `Ped.`, one beyond the `✻`
+   * (his ask, 2026-08-18). {@link applyOttavaHandles} verbatim but for the geometry it reads, and
+   * that is the point: the editor has ONE look for "this is an end of a span", so the same blue, the
+   * same sizes, the same armed-reads-as-picked rule.
+   *
+   * ⭐ **They sit OUTSIDE the signs**, which is what the module's `PEDAL_HANDLE_GAP_PX` buys — and a
+   * pedal has less to spare than its neighbours: the two glyphs ARE the mark, with no line, hook or
+   * wedge to fall back on, so a square centred on one would hide half the statement.
+   *
+   * ⛔ Each square registers a `pedal-endpoint` entry so a press can find it — and `clearHighlights`
+   * removes them again, since the highlight pass owns them (the render never draws one). They ride
+   * the highlight layer's undo log like every node here.
+   */
+  applyPedalHandles(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'pedal')
+    if (!engine || !scoreCanvas || !selected) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    for (const handle of pedalEndpointHandles(registry.getByType('pedal'), selected.id)) {
+      const armed = handle.which === selected.endpoint
+      const half = armed ? S + 2 : S
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      sq.setAttribute('x', String(handle.x - half))
+      sq.setAttribute('y', String(handle.y - half))
+      sq.setAttribute('width', String(half * 2))
+      sq.setAttribute('height', String(half * 2))
+      sq.setAttribute('fill', armed ? '#1D4ED8' : '#2563EB')
+      sq.setAttribute('stroke', '#ffffff')
+      sq.setAttribute('stroke-width', armed ? '2.5' : '1.5')
+      sq.setAttribute('class', armed
+        ? `pedal-endpoint-handle pedal-endpoint-handle--${handle.which} pedal-endpoint-handle--selected`
+        : `pedal-endpoint-handle pedal-endpoint-handle--${handle.which}`)
+      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
+      this.addNode(svg, sq)
+
+      registry.add({
+        type: 'pedal-endpoint',
+        pedalId: selected.id,
+        endpoint: handle.which,
+        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
+    }
   }
 
   applyTrillSelectionHighlight(): void {

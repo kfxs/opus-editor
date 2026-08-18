@@ -18,6 +18,7 @@ import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
+import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -139,6 +140,16 @@ export function wireShortcuts(
   const walkOttavaHandles = (step: 1 | -1): boolean => {
     const eng = getEngine()
     if (!eng || !cycleOttavaEndpoint(state, eng.getElementRegistry(), step)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // …and a selected PEDAL's squares (`elements/pedalHandles`), chained on for the same reason.
+  // ⚠️ This walk can have ONE stop rather than two — a pedal whose release was not drawn — which the
+  // module's wrap arithmetic already answers.
+  const walkPedalHandles = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !cyclePedalEndpoint(state, eng.getElementRegistry(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -537,14 +548,49 @@ export function wireShortcuts(
    * is what the notes SOUND (docs/pedal-plan.md §9), so a cosmetic offset would leave playback
    * believing a lift the eye does not see. `Ctrl+Backspace` therefore has nothing to reset here.
    *
-   * DECLINEs (false) when no pedal is selected, or when the edit would leave it holding no music —
-   * `setPedalLength` refuses that rather than deleting the thing being shortened.
+   * 🚨 **IT MOVED OFF `Ctrl+←/→` ONTO `Ctrl+Shift+←/→`, AND GAINED THE ARMED-SQUARE GATE
+   * (his call, 2026-08-18).** It shipped on the plain `Ctrl` chord in P3, when a pedal had no
+   * endpoint squares and nothing else to bind — and that put a MODEL write on the chord this editor
+   * reserves for nudging INK. On every other span `Ctrl+arrow` moves the drawing and
+   * `Ctrl+Shift+arrow` moves the end through the music; the pedal had the pair inverted, so the one
+   * family whose "resize" is audible was the one you could trigger by reaching for a cosmetic nudge.
+   * ⭐ It also frees `Ctrl+arrow` on a pedal for the ink offset it does not have yet — the day a
+   * hand-moved `✻` arrives (docs/pedal-plan.md §6.3) there is a key waiting and no collision.
+   *
+   * DECLINEs (false) when no pedal is selected, when its END square is not the armed one, or when
+   * the edit would leave it holding no music — `setPedalLength` refuses that rather than deleting
+   * the thing being shortened.
    */
   const resizeSelectedPedal = (direction: 1 | -1): boolean => {
     const eng = getEngine()
-    const id = selectedOf(state, 'pedal')?.id
-    if (!eng || !id) return false
-    if (!eng.resizePedalBySlot(id, direction)) return false
+    const pedal = selectedOf(state, 'pedal')
+    if (!eng || pedal?.endpoint !== 'end') return false
+    if (!eng.resizePedalBySlot(pedal.id, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **Move the selected pedal's PRESS by one slot, WITHOUT moving its lift** — the same chord
+   * with the START square armed (his ask, 2026-08-18), and `moveSelectedOttavaStart`'s twin down to
+   * the shape of the function.
+   *
+   * The gate is the whole point of the pair: one chord, and WHICH SQUARE IS ARMED decides which end
+   * it moves. `←` reaches the press back a slot, `→` steps it in; the lift holds either way, which
+   * the model does by writing `beat` and `length` together (`pedalOps`).
+   *
+   * ⚠️ **A press that crosses a barline re-files the pedal under the bar it now starts in**, same
+   * object and same id — otherwise the selection this gesture is driven from would evaporate
+   * mid-press. `movePedalStartBySlot` owns that; this only repaints.
+   *
+   * DECLINEs (false) when the start square is not the armed one, when there is no slot to step to,
+   * or when the press would reach the lift.
+   */
+  const moveSelectedPedalStart = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const pedal = selectedOf(state, 'pedal')
+    if (!eng || pedal?.endpoint !== 'start') return false
+    if (!eng.movePedalStartBySlot(pedal.id, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -1001,8 +1047,8 @@ export function wireShortcuts(
     // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
     // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
     // when a handler does not answer false.
-    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1),
-    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1),
+    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1) || walkPedalHandles(1),
+    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1) || walkPedalHandles(-1),
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
@@ -1069,22 +1115,20 @@ export function wireShortcuts(
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
     //    Left = tighten/narrow, right = widen. DECLINEs (false) when nothing applicable is selected,
     //    keeping the key free. One undo per press.
-    //    ⭐ A selected PEDAL joins this chain, and it is the one branch here that writes the MODEL
-    //    rather than an override: its extent is how long the notes RING (`resizeSelectedPedal`), so
-    //    a cosmetic offset would leave playback believing a lift the eye does not see. All the
-    //    selections remain disjoint, so it is one more branch and no reordering.
-    //    ⚠️ The HAIRPIN's resize used to sit here beside it, ungated — so a selected wedge ate this
-    //    chord outright. It moved to `Ctrl+Shift+←/→`, and only while its right-hand square is armed
-    //    (his call, 2026-08-17; see `resizeSelectedHairpin`).
+    //    ⭐⭐ EVERY BRANCH HERE WRITES AN OFFSET — this chord moves INK, and the model write that
+    //    moves a span through the music is `Ctrl+Shift+←/→` below. Two families have been moved out
+    //    of here to keep that true: the HAIRPIN's resize (2026-08-17) and the PEDAL's lift
+    //    (2026-08-18), both ungated, so a selected wedge or pedal ate this chord outright and did
+    //    something AUDIBLE with it. ⛔ Do not put a model write back on this key.
     ctrlArrowLeft: () =>
       nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedHairpin(-NUDGE_COARSE_SS, 0) || nudgeArmedOttavaEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(-NUDGE_COARSE_SS, 0)
-      || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || resizeSelectedPedal(-1)
+      || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(NUDGE_COARSE_SS, 0)
       || nudgeSelectedHairpin(NUDGE_COARSE_SS, 0) || nudgeArmedOttavaEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(NUDGE_COARSE_SS, 0)
-      || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || resizeSelectedPedal(1)
+      || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetArmedSlurPoint() || resetArmedHairpinEnd() || resetSelectedHairpin()
@@ -1106,13 +1150,20 @@ export function wireShortcuts(
     //    square re-anchors the end, the LEFT one moves the beginning and holds the end. Two branches
     //    for the hairpin's reason (two model writes), and both walk the whole STAFF rather than a
     //    voice, because an octave line has none.
+    //    ⭐ …and the same pair a third time for an armed PEDAL square (2026-08-18): the RIGHT one
+    //    moves the LIFT, the LEFT one moves the press and holds the lift. 🚨 The lift move ARRIVED
+    //    HERE FROM `Ctrl+←/→`, where it had been ungated since P3 — the pedal was the family whose
+    //    "resize" is audible sitting on the chord that nudges ink. The three pairs now read the
+    //    same, which is the point: one sentence, one chord, whichever spanner is selected.
     ctrlShiftArrowLeft: () =>
       reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
       || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
+      || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
+      || resizeSelectedPedal(1) || moveSelectedPedalStart(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),

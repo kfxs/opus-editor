@@ -18,7 +18,8 @@ import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addPedal, removePedal, updatePedal, setPedalLength, getPedalById, pedalMeasure, measurePedals,
-  pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot,
+  pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot, movePedalStartBySlot,
+  applyPedalDrag,
 } from './pedalOps'
 import { setEngravingOverride } from './overrideOps'
 import { engravingOverridesOf } from './engravingOverrides'
@@ -362,5 +363,154 @@ describe('pedalOps — resizePedalBySlot', () => {
 
   it('is false for an unknown id', () => {
     expect(resizePedalBySlot(score, 'nope', 1)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ `Ctrl+Shift+←/→` with the pedal's START square armed — **move the press, hold the lift**.
+ *
+ * The claim under test is the one the model shape makes non-obvious: a `Pedal` stores a start and an
+ * AMOUNT, so "hold the lift" is `length' = lift − start'`, two fields written together. Every case
+ * here therefore asserts the LIFT'S ABSOLUTE POSITION as well as the length — a length that is right
+ * while the press moved the wrong way looks correct in `length` alone.
+ */
+describe('pedalOps — movePedalStartBySlot', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    score = model.getScore()
+  })
+
+  const quarters = (m: number, staff?: number) =>
+    [0, 1, 2, 3].map(b =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), ...(staff !== undefined ? { staff } : {}) }))
+
+  /** The press and the lift as absolute quarter-beats, so "the far end held" is directly assertable
+   *  (bar 1 starts at 0, bar 2 at 4 in 4/4). */
+  const span = (id: string) => {
+    const p = getPedalById(score, id)!
+    const measure = pedalMeasure(score, id)!
+    const base = (measure.number - 1) * 4
+    return { press: base + fracToNumber(p.beat), lift: base + fracToNumber(pedalEndBeat(p)) }
+  }
+
+  it('⭐ reaches the press BACK a slot and holds the lift', () => {
+    quarters(1)
+    const p = addPedal(score, 1, { beat: frac(2, 1), length: frac(1, 1) })!
+    expect(movePedalStartBySlot(score, p.id, -1)).toBe(true)
+    expect(span(p.id)).toEqual({ press: 1, lift: 3 })
+  })
+
+  it('⭐ steps the press IN and holds the lift', () => {
+    quarters(1)
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(3, 1) })!
+    expect(movePedalStartBySlot(score, p.id, 1)).toBe(true)
+    expect(span(p.id)).toEqual({ press: 1, lift: 3 })
+  })
+
+  it('⛔ REFUSES to step the press onto the lift rather than deleting the pedal', () => {
+    quarters(1)
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
+    expect(movePedalStartBySlot(score, p.id, 1)).toBe(false)
+    expect(span(p.id), 'untouched').toEqual({ press: 0, lift: 1 })
+  })
+
+  it('declines when there is no earlier onset to reach', () => {
+    quarters(1)
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+    expect(movePedalStartBySlot(score, p.id, -1)).toBe(false)
+  })
+
+  it('⭐ a press crossing a BARLINE re-files the pedal under its new bar, SAME id', () => {
+    quarters(1)
+    quarters(2)
+    const p = addPedal(score, 2, { beat: frac(0, 1), length: frac(2, 1) })!
+    expect(movePedalStartBySlot(score, p.id, -1)).toBe(true)
+    // ⚠️ The id survives — the selection the gesture is driven from would otherwise evaporate
+    // mid-press, taking the square the user is holding with it.
+    expect(pedalMeasure(score, p.id)!.number).toBe(1)
+    expect(getPedalById(score, p.id)!.id).toBe(p.id)
+    expect(span(p.id), 'press back one quarter, lift held at 6').toEqual({ press: 3, lift: 6 })
+    // …and bar 2's emptied array is DELETED, not left as `[]` — one spelling of "none" in the JSON.
+    expect(score.measures.find(m => m.number === 2)!.pedals).toBeUndefined()
+  })
+
+  it('⭐⭐ steps through EVERY VOICE of its staff — the same lane the lift walks', () => {
+    // If the two ends walked different lanes, one square could reach a position the other could not
+    // pass through, and a pedal's two signs would sit on different grids.
+    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
+    expect(movePedalStartBySlot(score, p.id, -1)).toBe(true)
+    expect(span(p.id), 'the voice-2 eighth at ½ is a step the foot can take').toEqual({ press: 0.5, lift: 2 })
+  })
+
+  it('is false for an unknown id', () => {
+    expect(movePedalStartBySlot(score, 'nope', -1)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ One frame of a DRAG — {@link applyPedalDrag}, the mouse's road to the two writes above, so a
+ * dragged pedal cannot land where the keys could not put it.
+ *
+ * ⭐ The case this family has and its neighbours do not is **`after`**: a pedal's end is a moment in
+ * TIME, so the last note of a passage can be cut off as it is struck or left ringing, and only
+ * `after` names the second one.
+ */
+describe('pedalOps — applyPedalDrag', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    }
+  })
+
+  const spanOf = (id: string) => {
+    const p = getPedalById(score, id)!
+    return { press: fracToNumber(p.beat), lift: fracToNumber(pedalEndBeat(p)) }
+  }
+
+  it('the START lands on the dragged slot, holding the lift', () => {
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(3, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(spanOf(p.id)).toEqual({ press: 2, lift: 3 })
+  })
+
+  it('⭐ the LIFT lands ON the dragged onset — that note is NOT held', () => {
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(spanOf(p.id), 'the damper comes up as the beat-2 note is struck').toEqual({ press: 0, lift: 2 })
+  })
+
+  it('⭐⭐ `after` holds the note instead — the address no onset can name at the last note', () => {
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'end', after: true, measure: 1, beat: frac(3, 1) })).toBe(true)
+    // The last quarter of the bar rings to the barline. With `after: false` this same target would
+    // have given 3 — the note dry — and there is no onset after it to ask for instead.
+    expect(spanOf(p.id)).toEqual({ press: 0, lift: 4 })
+  })
+
+  it('⛔ refuses a lift at or before the press, and a press at or after the lift', () => {
+    const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(1, 1) })).toBe(false)
+    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(0, 1) })).toBe(false)
+    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(false)
+    expect(spanOf(p.id), 'untouched by all three').toEqual({ press: 1, lift: 2 })
+  })
+
+  it('⛔ refuses an address that is not an onset of the pedal\'s own staff', () => {
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(5, 2) })).toBe(false)
+    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 9, beat: frac(0, 1) })).toBe(false)
+  })
+
+  it('is false for an unknown id', () => {
+    expect(applyPedalDrag(score, 'nope', { at: 'start', measure: 1, beat: frac(0, 1) })).toBe(false)
   })
 })

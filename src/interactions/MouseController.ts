@@ -25,6 +25,7 @@ import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
+import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -157,6 +158,16 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private ottavaDragChanged = false
   private ottavaDragStartTime: number | null = null
+
+  // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
+  //     moves the LIFT, the LEFT one moves the press and holds the lift: the drag twin of
+  //     `Ctrl+Shift+←/→`, snapping to onsets of its STAFF. ---
+  private isDraggingPedalEnd = false
+  private draggedPedalId: string | null = null
+  private draggedPedalEnd: 'start' | 'end' | undefined = undefined
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private pedalDragChanged = false
+  private pedalDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -661,6 +672,24 @@ export class MouseController {
       this.draggedOttavaEnd = armed?.endpoint
       this.ottavaDragChanged = false
       this.ottavaDragStartTime = Date.now()
+      this.render.renderScore()
+      event.preventDefault()
+      return
+    }
+    // …and a selected PEDAL's two squares. ⚠️ A pre-step with the strongest case of the three: the
+    // pedal is the OUTERMOST below-staff family, so its squares sit beyond everything the ladder put
+    // inside it — a dynamic, a hairpin, a trill, an octave line — and every one of those runs ahead
+    // of `PEDAL_ELEMENT` in the chain.
+    if (armPedalEndpointAt(this.state, registry, coords.x, coords.y)) {
+      // Click = pick the square; drag (decided on move, past the same time threshold every other
+      // handle uses) moves that end through the music. The square stays armed after either, so the
+      // arrows can carry on from where the mouse stopped.
+      const armed = selectedOf(this.state, 'pedal')
+      this.isDraggingPedalEnd = true
+      this.draggedPedalId = armed?.id ?? null
+      this.draggedPedalEnd = armed?.endpoint
+      this.pedalDragChanged = false
+      this.pedalDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1338,6 +1367,9 @@ export class MouseController {
     if (this.isDraggingOttavaEnd) {
       this.endOttavaEndDrag()
     }
+    if (this.isDraggingPedalEnd) {
+      this.endPedalEndDrag()
+    }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
     }
@@ -1471,6 +1503,21 @@ export class MouseController {
     this.draggedOttavaEnd = undefined
     this.ottavaDragChanged = false
     this.ottavaDragStartTime = null
+  }
+
+  /** Finish a pedal-square drag: record one undo entry if the pedal actually moved, then reset. The
+   *  square stays armed — the drop ends the gesture, not the selection. */
+  private endPedalEndDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.pedalDragChanged && this.draggedPedalEnd) {
+      engine.commitPedalDrag(this.draggedPedalEnd)
+      dbg(`Pedal ${this.draggedPedalEnd} dragged | id:${this.draggedPedalId}`)
+    }
+    this.isDraggingPedalEnd = false
+    this.draggedPedalId = null
+    this.draggedPedalEnd = undefined
+    this.pedalDragChanged = false
+    this.pedalDragStartTime = null
   }
 
   /** Finish a slur-endpoint drag: record one undo entry if it re-anchored, clear the
@@ -2068,6 +2115,7 @@ export class MouseController {
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
+    if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2278,6 +2326,28 @@ export class MouseController {
     if (!write) return true
     if (engine.previewOttavaEnd(this.draggedOttavaId, write)) {
       this.ottavaDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * One frame of a PEDAL square drag — the two signs' twin of the handler above, and the same three
+   * steps: wait out the click threshold, ask the module which address the cursor is over, preview
+   * it.
+   *
+   * ⚠️ The candidates are not the bracket's (`pedalDragTargetAt`): both of a pedal's signs are drawn
+   * on a column's LEFT edge, and the lift has one address more than there are onsets — but nothing
+   * here needs to know that, because the module answers with a write.
+   */
+  private handlePedalEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingPedalEnd && this.draggedPedalId && this.draggedPedalEnd)) return false
+    if (this.pedalDragStartTime !== null
+        && Date.now() - this.pedalDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const write = pedalDragTargetAt(engine, this.draggedPedalId, this.draggedPedalEnd, x, y)
+    if (!write) return true
+    if (engine.previewPedalEnd(this.draggedPedalId, write)) {
+      this.pedalDragChanged = true
       this.render.renderScore()
     }
     return true
