@@ -18,6 +18,7 @@ import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { DynamicOffsetController } from './interactions/DynamicOffsetController'
 import { OttavaGeometryController } from './interactions/OttavaGeometryController'
+import { PedalGeometryController } from './interactions/PedalGeometryController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
@@ -513,6 +514,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const dynamicOffset = new DynamicOffsetController(getEngine, () => renderer.renderScore())
   // …and the octave bracket's three offset numbers (two ends + the one shared height).
   const ottavaGeometry = new OttavaGeometryController(getEngine, () => renderer.renderScore())
+  const pedalGeometry = new PedalGeometryController(getEngine, () => renderer.renderScore())
   // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this
   // controller owns the engine apply, same boundary as the note-offset input above.
   const articulationStemAlign = new ArticulationStemAlignController(getEngine, () => renderer.renderScore())
@@ -802,6 +804,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       noteOffset.destroy()
       dynamicOffset.destroy()
       ottavaGeometry.destroy()
+      pedalGeometry.destroy()
       articulationStemAlign.destroy()
       fanEdit.destroy()
       trillEdit.destroy()

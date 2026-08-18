@@ -140,6 +140,16 @@ export class PropertiesWidget implements Widget {
       // of the arrows on its two endpoint squares. ⭐⭐ THREE rows, not two points: an octave bracket
       // is a straight rule, so the two ends have a horizontal each and the HEIGHT is one number for
       // the whole line. See `buildOttavaOffsetRows`.
+      // ⭐ …and a selected PEDAL the same three (his ask, 2026-08-18). Its vertical is one number for
+      // the same reason the bracket's is — a pedal and its own release share a baseline — reached by
+      // a different road: an engraving convention rather than the geometry of a straight line.
+      if (element.kind === 'pedal') {
+        const id = (element.data as { id?: string; missing?: boolean }).id
+        if (id && !(element.data as { missing?: boolean }).missing) {
+          body.appendChild(this.buildPedalOffsetRows(id, element))
+        }
+      }
+
       if (element.kind === 'ottava') {
         const id = (element.data as { id?: string; missing?: boolean }).id
         if (id && !(element.data as { missing?: boolean }).missing) {
@@ -398,6 +408,81 @@ export class PropertiesWidget implements Widget {
   }
 
   /**
+   * One caption + one number box + a `reset`, in the offset family's dress — the row BOTH span
+   * panels are built from (the bracket's three and the pedal's three).
+   *
+   * ⚠️ Shared because the two are the same control, ⛔ not because the two MARKS are the same: what
+   * each row means, and which way its `+` points, is decided by the caller. The bracket's vertical
+   * is stored as a distance from the staff and the pedal's as a screen y; both arrive here as a
+   * number with a caption.
+   *
+   * ⚠️ Every box commits through {@link commitOnFirstStep} and puts itself back on commit — the two
+   * rules the page limit forced on this panel (docs/engraving-overrides-plan.md §8.6).
+   */
+  private scalarOffsetRow(
+    caption: string,
+    current: number,
+    hint: string,
+    publish: (n: number) => void,
+  ): HTMLElement {
+    const row = document.createElement('label')
+    const rs = row.style
+    rs.display = 'flex'
+    rs.alignItems = 'center'
+    rs.gap = '6px'
+    rs.color = BISHOP
+    rs.margin = '0 0 3px'
+    row.title = hint
+
+    const label = document.createElement('span')
+    label.textContent = caption
+    row.appendChild(label)
+
+    const input = document.createElement('input')
+    input.type = 'number'
+    input.step = '0.25'
+    input.value = String(current)
+    const is = input.style
+    is.width = '4.5em'
+    is.font = 'inherit'
+    is.color = BISHOP
+    is.background = 'transparent'
+    is.border = `1px solid ${BISHOP}`
+    is.borderRadius = '2px'
+    is.padding = '1px 4px'
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur() }
+    })
+    this.commitOnFirstStep(input, () => {
+      const n = parseFloat(input.value)
+      if (!Number.isFinite(n)) { input.value = String(current); return }
+      publish(n)
+      input.value = String(current) // a refused write repaints nothing — see `buildOffsetInput`
+    })
+    row.appendChild(input)
+
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = 'reset'
+    reset.title = 'Back to the engraver\'s own position'
+    const bs = reset.style
+    bs.font = 'inherit'
+    bs.color = BISHOP
+    bs.background = 'transparent'
+    bs.border = `1px solid ${BISHOP}`
+    bs.borderRadius = '2px'
+    bs.padding = '1px 6px'
+    bs.cursor = 'pointer'
+    reset.addEventListener('click', () => {
+      // Zeroed at once: a reset only ever reduces an offset, so the page limit cannot refuse it.
+      input.value = '0'
+      publish(0)
+    })
+    row.appendChild(reset)
+    return row
+    }
+
+  /**
    * ⭐⭐ **AN OCTAVE BRACKET'S INK, AS THE MODEL SHAPES IT: two horizontals and ONE height.**
    * His ask, 2026-08-17 — the typed twin of the arrows on the bracket's two endpoint squares.
    *
@@ -423,70 +508,12 @@ export class PropertiesWidget implements Widget {
       outward?: number
     }
 
-    /** One caption + one number box, in the offset family's dress. */
-    const scalarRow = (caption: string, current: number, hint: string, publish: (n: number) => void) => {
-      const row = document.createElement('label')
-      const rs = row.style
-      rs.display = 'flex'
-      rs.alignItems = 'center'
-      rs.gap = '6px'
-      rs.color = BISHOP
-      rs.margin = '0 0 3px'
-      row.title = hint
 
-      const label = document.createElement('span')
-      label.textContent = caption
-      row.appendChild(label)
-
-      const input = document.createElement('input')
-      input.type = 'number'
-      input.step = '0.25'
-      input.value = String(current)
-      const is = input.style
-      is.width = '4.5em'
-      is.font = 'inherit'
-      is.color = BISHOP
-      is.background = 'transparent'
-      is.border = `1px solid ${BISHOP}`
-      is.borderRadius = '2px'
-      is.padding = '1px 4px'
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur() }
-      })
-      this.commitOnFirstStep(input, () => {
-        const n = parseFloat(input.value)
-        if (!Number.isFinite(n)) { input.value = String(current); return }
-        publish(n)
-        input.value = String(current) // a refused write repaints nothing — see `buildOffsetInput`
-      })
-      row.appendChild(input)
-
-      const reset = document.createElement('button')
-      reset.type = 'button'
-      reset.textContent = 'reset'
-      reset.title = 'Back to the engraver\'s own position'
-      const bs = reset.style
-      bs.font = 'inherit'
-      bs.color = BISHOP
-      bs.background = 'transparent'
-      bs.border = `1px solid ${BISHOP}`
-      bs.borderRadius = '2px'
-      bs.padding = '1px 6px'
-      bs.cursor = 'pointer'
-      reset.addEventListener('click', () => {
-        // Zeroed at once: a reset only ever reduces an offset, so the page limit cannot refuse it.
-        input.value = '0'
-        publish(0)
-      })
-      row.appendChild(reset)
-      return row
-    }
-
-    wrap.appendChild(scalarRow(
+    wrap.appendChild(this.scalarOffsetRow(
       'start x (sp)', off.startX ?? 0,
       'the numeral and the line leaving it — + reaches right; the far end stays put',
       (x) => bus.ottavaGeometry.set({ ottavaId, which: 'start', x })))
-    wrap.appendChild(scalarRow(
+    wrap.appendChild(this.scalarOffsetRow(
       'end x (sp)', off.endX ?? 0,
       'the closing hook — + reaches right; the numeral stays put',
       (x) => bus.ottavaGeometry.set({ ottavaId, which: 'end', x })))
@@ -502,7 +529,7 @@ export class PropertiesWidget implements Widget {
     // because the ink genuinely moved to the other side of the staff.
     const above = ((element.data as { shift?: number }).shift ?? 1) > 0
     const toScreen = (n: number) => (above ? n : -n)
-    wrap.appendChild(scalarRow(
+    wrap.appendChild(this.scalarOffsetRow(
       // ⚠️ Named for the AXIS, not the direction — his call: *"instead of up, better something like
       // vertical position."* `up` read as a verb, and it sits beside two rows named for an axis.
       // Which way `+` goes is the tooltip's job, and the tooltip is unambiguous.
@@ -511,6 +538,54 @@ export class PropertiesWidget implements Widget {
       + 'it is on. One number, because an octave line is a straight rule',
       // ⭐ `toScreen` is its own inverse (a negation), so one helper does both directions.
       (up) => bus.ottavaGeometry.set({ ottavaId, outward: toScreen(up) })))
+    return wrap
+  }
+
+  /**
+   * ⭐⭐ **A SUSTAIN PEDAL'S INK: two horizontals and ONE vertical.** His ask, 2026-08-18 — the typed
+   * twin of the arrows on its two squares, and the bracket's panel above verbatim in shape.
+   *
+   * ⛔ **Not two point rows**, for a reason that is this family's own rather than the bracket's
+   * borrowed: a pedal and its own release share one baseline, so two height boxes could disagree
+   * about a quantity the notation has one of (Gould p. 333, the copy in `reference/`). An octave
+   * line's single height is geometry — a straight rule cannot tilt; this one is a CONVENTION about
+   * how the pair reads, and it is the stronger of the two reasons.
+   *
+   * ⭐ **0 is the automatic position**, so the boxes show `0` rather than a blank "auto", and `reset`
+   * publishes 0 through the same seam — the model's zero-pruning then drops the entry.
+   *
+   * ⚠️ **`+` is UP in the box and DOWN in the model**, so this is the one line that negates. The
+   * bracket's row does the same flip from the other direction (its store is a distance from the
+   * staff), which is the point: every offset box in this panel reads *+ is up on screen*, whatever
+   * its model happens to store.
+   */
+  private buildPedalOffsetRows(pedalId: string, element: InspectedElement): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.style.margin = '2px 0 4px'
+    const off = (element.overrides?.find((o) => o.kind === 'pedalOffset') ?? {}) as {
+      startX?: number
+      endX?: number
+      y?: number
+    }
+
+    wrap.appendChild(this.scalarOffsetRow(
+      'start x (sp)', off.startX ?? 0,
+      'the Ped. sign — + reaches right; the release stays put',
+      (x) => bus.pedalGeometry.set({ pedalId, which: 'start', x })))
+    wrap.appendChild(this.scalarOffsetRow(
+      'end x (sp)', off.endX ?? 0,
+      'the release ✻ — + reaches right; the Ped. stays put',
+      (x) => bus.pedalGeometry.set({ pedalId, which: 'end', x })))
+    // ⭐ A negation is its own inverse, so ONE helper converts both ways. ⚠️ `0` is special-cased only
+    // to keep `-0` out of the model and off the screen — it is the same number, and nobody wants to
+    // read it.
+    const flip = (n: number) => (n === 0 ? 0 : -n)
+    wrap.appendChild(this.scalarOffsetRow(
+      // ⚠️ Named for the AXIS, not the direction — the bracket's row's rule and his wording.
+      'vertical (sp)', flip(off.y ?? 0),
+      'BOTH signs — + moves them UP on screen and − moves them down. One number, because a pedal '
+      + 'and its own release share a baseline',
+      (up) => bus.pedalGeometry.set({ pedalId, y: flip(up) })))
     return wrap
   }
 
