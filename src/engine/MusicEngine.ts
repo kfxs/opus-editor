@@ -1356,6 +1356,29 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * Live (preview) whole-wedge move used **while dragging a hairpin's BODY** — writes the model but
+   * does NOT record undo; call {@link commitHairpinOffsetDrag} on the drop for the single entry.
+   * `previewHairpinEnd` / `commitHairpinDrag`'s pair, and for its reason: every frame of a drag
+   * would otherwise be its own undo step.
+   *
+   * ⚠️ It is {@link nudgeHairpin} without the undo — an ACCUMULATING nudge, so the caller passes the
+   * delta since the last accepted frame rather than a total. And the PAGE LIMIT still refuses the
+   * write, so a wedge dragged off the sheet simply stops moving (⛔ the drawing is never clamped —
+   * see `nudgeStaysOnPage`).
+   * @returns true when the model changed.
+   */
+  previewHairpinOffset(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    this.markModelDirty() // live drag, undo deferred to commitHairpinOffsetDrag
+    return this.scoreModel.setHairpinOffset(id, dx, dy)
+  }
+
+  /** Record ONE undo entry after a hairpin BODY drag settles. */
+  commitHairpinOffsetDrag(): void {
+    this.commitPreviewed('Move hairpin')
+  }
+
   /** Drop BOTH ends' reshapes and save ONE undo step (`Ctrl+Backspace`, nothing armed).
    *  @returns false when neither end carries one, so the key falls through. */
   resetHairpinOffset(id: string): boolean {

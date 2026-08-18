@@ -219,6 +219,25 @@ export function hairpinDragTargetAt(
  *  several staff-spaces below the noteheads it is choosing between. */
 const HAIRPIN_DRAG_SNAP_PX = 150
 
+/**
+ * ⭐ **THE SCALE FOR A BODY DRAG** — the staff-line spacing (px) of the staff the wedge was DRAWN on,
+ * which is the divisor that turns a cursor's pixel delta into the staff-spaces its offset override
+ * is stored in (his ask, 2026-08-18: dragging a selected hairpin with NO square armed).
+ *
+ * ⭐ **Read off the drawn entry, not off a constant**, because a staff may be SMALL: a wedge on a
+ * `scale(k)` staff moves k times fewer pixels per staff-space, and a fixed 10 would make the same
+ * gesture move a cue staff's hairpin twice as far as a full one's
+ * (`project_small_staff_spacing` — visual coordinates inside a scaled scope are the bug class).
+ *
+ * @returns null when the wedge is not on screen or its staff has no measured geometry — no picture,
+ *   no scale, so the caller must not start a drag at all rather than guess one.
+ */
+export function hairpinStaffSpacePx(registry: ElementRegistry, hairpinId: string): number | null {
+  const drawn = registry.getByType('hairpin').find(e => e.id === hairpinId)
+  if (!drawn || drawn.measure === undefined) return null
+  return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
+}
+
 /** The staff INDEX a hairpin's `staffId` names (absent = the first staff), so a drawn element's own
  *  `staff` can be compared against it. */
 function staffIndexOf(score: Score, staffId: string | undefined): number {

@@ -23,7 +23,7 @@ import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
-import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
+import { armHairpinEndpointAt, hairpinDragTargetAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dynamicDragTargetAt } from './elements/dynamicDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
@@ -159,6 +159,24 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinDragChanged = false
   private hairpinDragStartTime: number | null = null
+
+  // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
+  //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
+  //     cursor's delta is converted to staff-spaces and accumulated frame by frame. ---
+  private isDraggingHairpinBody = false
+  private draggedHairpinBodyId: string | null = null
+  /** The last ACCEPTED cursor position, in SVG px — the anchor each frame's delta is measured from.
+   *  ⚠️ Not advanced on a refusal (the page limit), so a wedge stopped at the sheet's edge picks the
+   *  cursor up again exactly where it left it rather than jumping the distance it did not travel. */
+  private hairpinBodyLastX = 0
+  private hairpinBodyLastY = 0
+  /** Staff-line spacing (px) where the grabbed wedge was drawn — the px→staff-space divisor. Its OWN
+   *  field for `spacingDragStaffSpacePx`'s reason: borrowing another gesture's would silently scale
+   *  this one by whatever was dragged last. */
+  private hairpinBodyStaffSpacePx = 10
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private hairpinBodyDragChanged = false
+  private hairpinBodyDragStartTime: number | null = null
 
   // --- Ottava endpoint square drag (the bracket's own two ends — docs/ottava-plan.md). The RIGHT
   //     square re-anchors the end, the LEFT one moves the beginning and holds the end: the drag twin
@@ -549,6 +567,7 @@ export class MouseController {
       if (engine) this.armBarWidthDrag(engine, measure, x)
     },
     armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
+    armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
       if (mark === 'tempo') this.openTempoTextEditor(id, false)
@@ -598,6 +617,34 @@ export class MouseController {
     this.draggedDynamicId = dynamicId
     this.dynamicDragChanged = false
     this.dynamicDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
+  /**
+   * ⭐⭐ Arm the drag that moves a whole hairpin's INK — a press on the wedge's BODY (his ask,
+   * 2026-08-18: *"we are not doing drag offset on the hairpin when no endpoint active"*).
+   *
+   * ⭐ **One wedge, two gestures, told apart by WHERE you grabbed it**: a square moves that end
+   * through the music (a model write, audible), the body moves the drawing (an override, silent).
+   * That is the arrows' own split arriving on the mouse — `Ctrl+Shift+←/→` versus the plain arrows,
+   * and `nudgeSelectedHairpin`'s *nothing armed → the whole thing*.
+   *
+   * ⚠️ DECLINES to arm when the wedge's staff has no measured geometry: with no picture there is no
+   * px→staff-space scale, and a guessed one would move a small staff's hairpin by the wrong amount.
+   * The press stays an ordinary selection.
+   */
+  private armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const spacePx = hairpinStaffSpacePx(engine.getElementRegistry(), hairpinId)
+    if (!spacePx) return
+    this.isDraggingHairpinBody = true
+    this.draggedHairpinBodyId = hairpinId
+    this.hairpinBodyStaffSpacePx = spacePx
+    this.hairpinBodyLastX = x
+    this.hairpinBodyLastY = y
+    this.hairpinBodyDragChanged = false
+    this.hairpinBodyDragStartTime = Date.now()
     event.preventDefault()
   }
 
@@ -1427,6 +1474,9 @@ export class MouseController {
     if (this.isDraggingHairpinEnd) {
       this.endHairpinEndDrag()
     }
+    if (this.isDraggingHairpinBody) {
+      this.endHairpinBodyDrag()
+    }
     if (this.isDraggingOttavaEnd) {
       this.endOttavaEndDrag()
     }
@@ -2211,6 +2261,7 @@ export class MouseController {
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
+    if (this.handleHairpinBodyDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handleTrillEndDrag(engine, x, y)) return
@@ -2406,6 +2457,50 @@ export class MouseController {
       this.render.renderScore()
     }
     return true
+  }
+
+  /**
+   * ⭐⭐ One frame of a hairpin BODY drag: move the whole wedge's INK by the cursor's delta, in
+   * staff-spaces, live (no undo).
+   *
+   * ⭐ **Free pixels, where every other drag in this file snaps.** The wedge's EXTENT is musical and
+   * must land on notes, so the square drags snap to slots; its POSITION is cosmetic — an offset
+   * override in staff-spaces — and there is nothing for it to land on. Two categories, two
+   * behaviours, one wedge.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, because `previewHairpinOffset`
+   * accumulates rather than sets. On a refusal (the page limit) the anchor is deliberately left
+   * where it was, so the gesture re-synchronises when the cursor comes back instead of the wedge
+   * jumping by the distance it never travelled.
+   */
+  private handleHairpinBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingHairpinBody && this.draggedHairpinBodyId)) return false
+    if (this.hairpinBodyDragStartTime !== null
+        && Date.now() - this.hairpinBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const dx = (x - this.hairpinBodyLastX) / this.hairpinBodyStaffSpacePx
+    const dy = (y - this.hairpinBodyLastY) / this.hairpinBodyStaffSpacePx
+    if (dx === 0 && dy === 0) return true
+    if (engine.previewHairpinOffset(this.draggedHairpinBodyId, dx, dy)) {
+      this.hairpinBodyLastX = x
+      this.hairpinBodyLastY = y
+      this.hairpinBodyDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a hairpin BODY drag: one undo entry if the wedge actually moved, then reset. The wedge
+   *  stays selected, so the arrows can carry on from where the mouse stopped. */
+  private endHairpinBodyDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.hairpinBodyDragChanged) {
+      engine.commitHairpinOffsetDrag()
+      dbg(`Hairpin moved | id:${this.draggedHairpinBodyId}`)
+    }
+    this.isDraggingHairpinBody = false
+    this.draggedHairpinBodyId = null
+    this.hairpinBodyDragChanged = false
+    this.hairpinBodyDragStartTime = null
   }
 
   /**

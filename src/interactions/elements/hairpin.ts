@@ -15,7 +15,7 @@ import { distToSegment } from './slur'
 export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   kind: 'hairpin',
   /** Select a wedge for edit or removal (hit-tested against its outline). */
-  hit({ registry, x, y }, deps) {
+  hit({ event, registry, x, y }, deps) {
     // The same pad as the slur's: a hairline is 0.16 staff spaces, far thinner than a pointer can
     // be aimed, so both arms carry a few px of grace. It also covers the wedge's INTERIOR, which is
     // never more than half an aperture (~0.66 spaces) from an arm.
@@ -30,8 +30,16 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
     }) ?? null
     if (!hairpinAt?.id) return false
 
+    // ⭐ Click = select; drag = move the WHOLE wedge's ink (his ask, 2026-08-18). ⚠️ The BODY, so
+    // nothing is armed by it and nothing needs to be: **something armed → that end, nothing armed →
+    // the whole thing** is already the arrows' rule (`nudgeSelectedHairpin`), and this is the same
+    // sentence with the mouse. A press on one of the SQUARES never reaches here — `armHairpinEndpointAt`
+    // is a pre-step in `MouseController` and consumes it.
     dbg(`✓ Hairpin selected | id:${hairpinAt.id}`)
-    return deps.pick({ kind: 'hairpin', id: hairpinAt.id })
+    return deps.pick(
+      { kind: 'hairpin', id: hairpinAt.id },
+      () => deps.armHairpinOffsetDrag(hairpinAt.id!, x, y, event),
+    )
   },
 
   // Recoloured, plus the attachment guide (the fourth kind, 2026-08-17). ⭐ At the wedge's BEGINNING

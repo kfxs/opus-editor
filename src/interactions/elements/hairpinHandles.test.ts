@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   hairpinEndpointHandles, armHairpinEndpointAt, cycleHairpinEndpoint, hairpinDragTargetAt,
-  hairpinMouthEnd, nudgeArmedHairpinMouth, resetArmedHairpinMouth,
+  hairpinMouthEnd, nudgeArmedHairpinMouth, resetArmedHairpinMouth, hairpinStaffSpacePx,
   HAIRPIN_HANDLE_GAP_PX as GAP,
 } from './hairpinHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
@@ -403,5 +403,56 @@ describe('resetArmedHairpinMouth', () => {
       setHairpinAperture: () => false,
     } as unknown as Parameters<typeof resetArmedHairpinMouth>[1]
     expect(resetArmedHairpinMouth(state, engine)).toBe(false)
+  })
+})
+
+/**
+ * ⭐ {@link hairpinStaffSpacePx} — the divisor a BODY drag converts its pixels with (his ask,
+ * 2026-08-18: dragging a selected wedge with no square armed moves the whole thing's ink).
+ *
+ * ⭐⭐ The claim is that it comes off the DRAWN staff, not off a constant: a wedge on a small staff
+ * moves fewer pixels per staff-space, and a hard-coded 10 would move a cue staff's hairpin twice as
+ * far as a full one's for the same gesture.
+ */
+describe('hairpinStaffSpacePx', () => {
+  const registryWith = (opts: { lineSpacing?: number; measure?: number; staff?: number } = {}) => {
+    const registry = new ElementRegistry()
+    registry.add({
+      type: 'hairpin', id: 'H1', measure: opts.measure ?? 1, staff: opts.staff ?? 0,
+      bbox: { x: 0, y: 0, width: 100, height: 10 },
+    } as ElementInfo)
+    if (opts.lineSpacing !== undefined) {
+      registry.setStaffGeometry({
+        measure: opts.measure ?? 1, staff: opts.staff ?? 0,
+        lineYPositions: [0, 10, 20, 30, 40], lineSpacing: opts.lineSpacing,
+        noteStartX: 50, noteEndX: 400, clef: 'treble',
+      })
+    }
+    return registry
+  }
+
+  it('⭐ answers with the spacing of the staff the wedge was DRAWN on', () => {
+    expect(hairpinStaffSpacePx(registryWith({ lineSpacing: 10 }), 'H1')).toBe(10)
+  })
+
+  it('⭐⭐ …so a SMALL staff scales the gesture — the number is not a constant', () => {
+    expect(hairpinStaffSpacePx(registryWith({ lineSpacing: 7.5 }), 'H1')).toBe(7.5)
+  })
+
+  it('⭐ reads the wedge\'s OWN staff in a multi-staff system', () => {
+    const registry = registryWith({ lineSpacing: 10, staff: 1 })
+    registry.setStaffGeometry({
+      measure: 1, staff: 0, lineYPositions: [0, 10, 20, 30, 40], lineSpacing: 20,
+      noteStartX: 50, noteEndX: 400, clef: 'treble',
+    })
+    expect(hairpinStaffSpacePx(registry, 'H1')).toBe(10) // ⛔ not staff 0's 20
+  })
+
+  it('⛔ answers NOTHING when the wedge is not on screen — no picture, no scale', () => {
+    expect(hairpinStaffSpacePx(new ElementRegistry(), 'H1')).toBeNull()
+  })
+
+  it('⛔ …and nothing when its staff has no measured geometry, so no drag is armed', () => {
+    expect(hairpinStaffSpacePx(registryWith(), 'H1')).toBeNull()
   })
 })
