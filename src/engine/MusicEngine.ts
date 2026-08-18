@@ -14,6 +14,7 @@ import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredB
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
+import type { InkBox } from './layout/pageBounds'
 import { nudgeFitsOnPage } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
@@ -351,9 +352,8 @@ export class MusicEngine {
    * for x. ⛔ Allows when the anchor staff was not painted (nothing to measure) — same rule as the
    * page limit, for the same reason.
    */
-  private nudgeStaysInBand(type: ElementType, id: string, measure: number, staff: number, dy: number): boolean {
+  private nudgeStaysInBand(drawn: readonly InkBox[], measure: number, staff: number, dy: number): boolean {
     const registry = this.renderer.getElementRegistry() as {
-      getByType?: (t: ElementType) => ElementInfo[]
       getStaffGeometry?: (m: number, s: number) => { lineYPositions: readonly number[] } | undefined
       staffBands?: () => { top: number; bottom: number }[]
     }
@@ -361,9 +361,30 @@ export class MusicEngine {
     if (!geometry) return true
     const mine = { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] }
     const others = (registry.staffBands?.() ?? []).filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
-    const drawn = (registry.getByType?.(type) ?? [])
-      .filter((e: ElementInfo) => e.id === id).map((e: ElementInfo) => e.bbox)
     return stepStaysInBand(neighbourBandOf(mine, others), drawn, dy * STAFF_SPACE_PX)
+  }
+
+  /**
+   * ⭐⭐ **The drawn HANDLE of the end being moved** — the ink the band limit judges, and ⛔ NOT the
+   * slur's bounding box.
+   *
+   * 🚨 His report, 2026-08-18: with an end 9.9 sp below the staff the endpoint could not be dragged
+   * back UP. The box was the whole arc's, which spans from the arch down to that end, so its TOP
+   * already poked above the band's ceiling — and the rule refuses a step that grows the overhang on
+   * ANY edge, so moving up (shrinking the bottom overhang, growing the top one) was refused. The
+   * endpoint was nowhere near the top; the ARCH was.
+   *
+   * ⚠️ The page limit's use of the whole bbox is right for the page — a sheet cares about all the ink.
+   * A BAND is about one point's room, so the ink is that point. ⛔ Empty when the squares are not drawn
+   * (an unselected slur, linear view), which the rule reads as "nothing to measure" and allows.
+   */
+  private slurEndpointInk(id: string, which: 'start' | 'end'): InkBox[] {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    return (registry.getByType?.('slur-endpoint') ?? [])
+      .filter((e: ElementInfo) => e.slurId === id && e.endpoint === which)
+      .map((e: ElementInfo) => e.bbox)
   }
 
   /** Where the slur end being moved is anchored, for {@link nudgeStaysInBand}. Null when the anchor
@@ -382,7 +403,7 @@ export class MusicEngine {
   private slurEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
     const lane = this.slurEndpointLane(id, which)
-    return !lane || this.nudgeStaysInBand('slur', id, lane.measure, lane.staff, dy)
+    return !lane || this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)
   }
 
   private saveOnly(description: string): void {

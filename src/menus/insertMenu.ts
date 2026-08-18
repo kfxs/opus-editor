@@ -31,6 +31,16 @@ export interface InsertMenuActions {
   insertExpression?: () => void
   /** Insert ▸ Text ▸ Tempo — the same action as the Alt+Shift+T shortcut. */
   insertTempo?: () => void
+  /**
+   * ⭐⭐ **The marks hanging off the SELECTED NOTE, as rows that select them** — the way back to a mark
+   * whose ink has been nudged off screen (`interactions/attachedMarks`, and its header for why no
+   * on-ink affordance can serve).
+   *
+   * ⚠️ Read at OPEN time, not at build time, because the answer changes with the selection — which is
+   * why this menu's items are now composed per opening. ⛔ And the shapes stay the app's: this file
+   * learns "a label and something to run", never what a slur is.
+   */
+  attachedMarks?: () => { label: string; select: () => void }[]
 }
 
 /**
@@ -98,13 +108,32 @@ export function buildCreateMenu(actions: InsertMenuActions, windows: WindowLayer
  * with the music nor scales with the zoom.
  */
 export function installInsertMenu(host: HTMLElement, menus: MenuLayer, windows: WindowLayer, actions: InsertMenuActions): void {
-  const items = buildInsertItems(actions, windows)
+  /**
+   * ⭐ Composed PER OPENING, which the static tree was not: the `Select` rows depend on what is
+   * selected right now. The insert rows are the same list either way.
+   *
+   * ⚠️ These rows go on the RIGHT-CLICK menu only, not on the bar's Create title — deliberately, and
+   * it is the one place the two trees diverge. The right-click menu is about what you are pointing at
+   * and what you have; a static command list on a bar is not the place to answer "what is attached to
+   * my selection". See the note above `buildCreateMenu` for which of the two is the real one.
+   */
+  const itemsNow = (): MenuItem[] => {
+    const marks = actions.attachedMarks?.() ?? []
+    const insertItems = buildInsertItems(actions, windows)
+    if (marks.length === 0) return insertItems
+    return [
+      { label: 'Select', items: marks.map(m => ({ label: m.label, onSelect: m.select })) },
+      { separator: true },
+      ...insertItems,
+    ]
+  }
+
   // Host-relative coordinates the menu will open at. The mouse path overwrites this with the real
   // click; the key path has no pointer of its own, so it reuses wherever the cursor last was over
   // the score (host centre until the pointer has ever been there).
   const openAt = (x: number, y: number, viaKeyboard = false): void => {
     const box = host.getBoundingClientRect()
-    menus.open({ x: x - box.left, y: y - box.top, items, viaKeyboard })
+    menus.open({ x: x - box.left, y: y - box.top, items: itemsNow(), viaKeyboard })
   }
 
   let lastPointer: { x: number; y: number } | null = null

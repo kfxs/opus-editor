@@ -1,6 +1,7 @@
 import { dbg } from '@/utils/debug'
 import './app.css'
 import { MusicEngine } from './engine/MusicEngine'
+import { attachedMarksOf } from './interactions/attachedMarks'
 import { ScoreModel } from './engine/models/ScoreModel'
 import { VIEWPORT_HEIGHT } from './engine/rendering/VexFlowRenderer'
 import { DEFAULT_ZOOM } from './engine/ViewportModel'
@@ -378,6 +379,28 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // Ctrl+E.
   menuActions.insertExpression = () => mouse.insertExpression()
   menuActions.insertTempo = () => mouse.insertTempo()
+  // ⭐⭐ …and the way back to a mark whose ink has been nudged off screen: right-click ▸ Select lists
+  // what hangs off the ONE selected note (`interactions/attachedMarks`, whose header explains why no
+  // affordance drawn ON the ink can serve). The row assigns the very selection a click on that ink
+  // would have made, so every existing repair — the squares, the arrows, Ctrl+Backspace, the
+  // Properties reset — then works unchanged.
+  menuActions.attachedMarks = () => {
+    const engine = getEngine()
+    if (!engine || state.selectedItems.size !== 1) return []
+    const item = [...state.selectedItems.values()][0]
+    if (item.kind !== 'note') return []
+    return attachedMarksOf(engine, item.id).map(mark => ({
+      label: mark.label,
+      select: () => {
+        // ⚠️ Selecting IS clearing: the note selection goes, exactly as it does when a mark's own
+        // hit-test picks it (`elements/chain`'s shared tail), so the arrows serve the mark and not
+        // the note that led us to it.
+        state.selectedItems = new Map()
+        state.selectedElement = mark.element
+        renderer.renderScore()
+      },
+    }))
+  }
 
   const shortcuts = wireShortcuts(
     state, getEngine,

@@ -555,6 +555,56 @@ unbounded x, so "would this push the ink further out" exists once, for both limi
 gate (`slurEndpointOffsetAllowed`) that the keyboard nudge and every drag frame share, so the two
 devices cannot disagree about what is allowed.
 
+🚨🚨 **AND IT JUDGES THE ENDPOINT'S OWN HANDLE, NOT THE SLUR'S BBOX.** His report the same day: with an
+end 9.9 sp below the staff it could not be dragged back UP. The box was the whole arc's — which runs
+from the arch down to that end — so its TOP already overhung the band's ceiling, and a rule that refuses
+any step growing the overhang on ANY edge refused every upward step. The endpoint was nowhere near the
+top; the ARCH was. So the ink is now the drawn `slur-endpoint` handle of the end being moved
+(`MusicEngine.slurEndpointInk`). ⚠️ The page limit's whole-bbox is right for a PAGE — a sheet cares about
+all the ink — and wrong for a BAND, which is about one point's room. ⭐ The consequence, deliberately: an
+arch may poke into a neighbour's room while its endpoint stays legal. The arch is the engraver's; the
+endpoint is the user's.
+
+⚠️ **This bug lived in a seam no test covers**: `systemBand.test.ts` hands `stepStaysInBand` its boxes, so
+nothing asserts WHICH box the engine passes. Testing it needs the engine plus a fabricated registry.
+
+## P6 — REACHING A MARK WHOSE INK IS OFF SCREEN
+
+`interactions/attachedMarks.ts` + a `Select` submenu on the score's right-click menu. The bug it answers
+is the other half of P5's: a limit stops NEW cases and gives no route into a file that already carries
+one, and **every affordance for repairing a displaced mark lives ON the ink** — both endpoint squares,
+both arc dots, the arc as a hit target — so a big offset carries the whole repair kit out of the
+viewport. What survives: `Ctrl+Z`; `Ctrl+Backspace` while the end is still ARMED (it reads the model,
+never pixels); the Properties reset while the slur is still SELECTED. ⚠️ So the bottleneck is SELECTION,
+and clicking away is what strands you. ⛔ No cleverer handle can fix it either: with a free offset, ANY
+on-ink affordance can leave the screen. The only thing that cannot is the anchor.
+
+- **Select the NOTE, right-click, pick the mark.** Each row assigns the very `SelectedElement` a click on
+  that mark's ink would have produced, so nothing downstream learns a second way to be selected and every
+  existing repair works on the result unchanged. A slur offers the specific END, since which end is armed
+  is the whole point of arriving this way.
+- ⭐ **The SELECTED note, not the pointer.** The right-click menu is installed on the window-host overlay,
+  so a pointer route would need viewport→score conversion and a note hit-test of its own; the selection
+  reuses a gesture that already works, and it makes the **Menu key** behave identically.
+- ⚠️ Note-anchored kinds (slur, trill) are exact. The beat-anchored family (hairpin, octave line, pedal,
+  dynamic, tempo) is *"starts in this bar, at or before this note"* — "covers this note" would need
+  absolute time across measures. **To reach a span, select a note in the bar it STARTS in.** A mark
+  carrying a voice is only offered to a note in that voice.
+- ⚠️ The rows appear on the RIGHT-CLICK menu only, not on the bar's Create title, though the two share
+  their insert tree: "what is attached to my selection" is not a static command list's business. The menu
+  file learns only "a label and something to run" — the app's glue supplies the shapes, as with every
+  other `menuActions` field. Its items are now composed PER OPENING rather than once.
+
+## The handle a press takes (`interactions/slurHandlePick.ts`)
+
+His report: *"im trying to get the endpoint but i'm getting the control point"*. The press path was three
+`.find()`s in a row with the round ARC dots first, so it took the first box containing the cursor rather
+than the nearest — and the boxes are 18 px wide while a short slur puts its second control point about
+20 px from its end square. ⭐ The rule is DISTANCE, which is why it is a module and not a re-ordering:
+putting the squares first would only move the unfairness to the other family. Order survives as the
+TIE-BREAK, and a dead heat goes to the POSITION handles over the SHAPE dots — a square moves where the
+slur attaches, a dot only bends it.
+
 ### Tests added
 
 - `slurEndpointWalk.test.ts` — the ink nudging up to arrival; the crossing press taking the gap out of
@@ -571,5 +621,9 @@ devices cannot disagree about what is allowed.
   ink allowed back; no-ink allowed; the vertical judged alone.
 - `slurHandlePick.test.ts` — the nearest handle wins whichever family it belongs to, a dead heat goes
   to the square, another slur's handle never answers, nor an entry lacking its gesture's fields.
+- `attachedMarks.test.ts` — a slur offered by the END that touches the note (and both, when one note is
+  both); a trill anchored elsewhere refused; a span offered from at-or-before its start and not after;
+  a point mark only on its own beat, named with its text; another voice's mark never offered; a missing
+  note and an unfindable bar.
 - `HighlightController.slurAnchor.test.ts` — start vs end vs nothing armed, and that one pass now
   serves both devices.
