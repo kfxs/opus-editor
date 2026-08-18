@@ -12,7 +12,7 @@ import { StaveNote } from 'vexflow'
 import type { Stave } from 'vexflow'
 import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
-import type { ElementInfo } from '@/engine/ElementRegistry'
+import type { ElementInfo, GuideLine } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
@@ -455,6 +455,34 @@ export function slurEndpointOffsetPx(
 }
 
 /**
+ * ⭐⭐ **THE LINE BACK TO THE ENGRAVER'S POINT** — a displaced slur endpoint draws a dotted guide
+ * from where it IS to where it would have been, or none at all when it has not been moved.
+ *
+ * ⭐ The `to` end is the endpoint's OWN un-nudged position — `drawn − offset` — and not the notehead
+ * centre every other kind points at. Two reasons, and they are the same reason: it is exact (the
+ * base already sits where §12 phase 7 put it, on the head or past the stem, which a notehead centre
+ * would only approximate), and it states the quantity the user is actually editing — the line IS the
+ * offset vector. MuseScore draws its grip anchor line off the same pair, `ups().p` versus
+ * `ups().p + ups().off` (`slurtie.cpp:103-142`).
+ *
+ * ⭐ Why a slur needs one at all, when the arc plainly starts at a note: since the interpolating walk
+ * (`interactions/slurEndpointWalk`) an endpoint's ink can sit a whole note-gap from its anchor, so
+ * the arc can be drawn springing from a note the slur does not span — and every engine surveyed
+ * (Dorico, Sibelius, Finale, MuseScore) answers that with a dashed line to the true anchor rather
+ * than by forbidding the displacement.
+ *
+ * ⚠️ Returns null for an unmoved end. That is the registry's own rule — *a guide is never a guess* —
+ * and it also keeps the common case free of a zero-length line drawn on top of the notehead.
+ */
+export function endpointGuide(
+  drawn: { x: number; y: number },
+  offset: { x: number; y: number },
+): GuideLine | null {
+  if (offset.x === 0 && offset.y === 0) return null
+  return { from: drawn, to: { x: drawn.x - offset.x, y: drawn.y - offset.y } }
+}
+
+/**
  * Resolve ONE open-join offset (a {@link SegmentEndpointOffsetOverride} slot, in
  * **staff-spaces**, margin-relative) to a PIXEL delta against that segment's own stave. A
  * missing offset — or a not-yet-laid-out stave (`undefined`) — yields `{0,0}`, so the caller
@@ -661,10 +689,17 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
           // only — a split slur shares one shape, so it gets no handles.
+          // Both true ends can be displaced independently, so each contributes its own guide (or
+          // none). `p0`/`p1` already carry the nudge, and the offsets are the pixels that went in.
+          const guides = [
+            endpointGuide(p0, { x: off.startX, y: off.startY }),
+            endpointGuide(p1, { x: off.endX, y: off.endY }),
+          ].filter((g): g is GuideLine => g !== null)
           registerPartial(arc, undefined, {
             controlPoints: [arc.c0, arc.c1],
             slurEndpoints: { p0, p1, direction },
             staffSpacePx: stave?.getSpacingBetweenLines(),
+            ...(guides.length ? { guides } : {}),
           })
         } else {
           // Cross-system: one open-ended segment per system the slur crosses
@@ -698,6 +733,16 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             segmentOrdinal?: number,
           ) => {
             fileCurve(arc.points, line)
+            // ⚠️ Each fragment carries only ITS OWN true end's guide — the start's on BEGIN, the
+            // end's on END, a MIDDLE has neither. The registry's rule for a split span (two x's
+            // from different systems are not on one ruler), and the reason this is not attached
+            // beside `slurEndpoints` above: those squares are the whole slur's, these lines are
+            // this system's. An open JOIN's own nudge draws none — it is margin-bound, so there is
+            // no anchor for it to have left.
+            const trueEndGuide
+              = segmentRole === 'begin' ? endpointGuide(trueEnds.p0, { x: off.startX, y: off.startY })
+              : segmentRole === 'end' ? endpointGuide(trueEnds.p1, { x: off.endX, y: off.endY })
+              : null
             registerPartial(arc, partialType, {
               controlPoints: [arc.c0, arc.c1],
               segmentEndpoints: segEnds,
@@ -706,6 +751,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
               slurSpanCount: spanCount,
               ...(endpointsAttached ? {} : { slurEndpoints: trueEnds }),
+              ...(trueEndGuide ? { guides: [trueEndGuide] } : {}),
             })
             endpointsAttached = true
           }

@@ -55,8 +55,12 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
   // The arc is already coloured by the set pass; the handles are the single-click extra — and,
   // once one of the blue squares is ARMED, the note that square is anchored to wears the same blue,
   // so a keyboard re-anchor is visible as the tint moving on (`applyArmedSlurAnchorNote`).
+  // …and a DISPLACED end draws the dotted line back to where the engraver put it — the affordance
+  // every notation program surveyed has for the same situation (2026-08-18 research), and the one
+  // that makes an endpoint parked most of a note-gap away legible instead of mysterious.
   highlight: h => {
     h.applySlurHandles()
     h.applyArmedSlurAnchorNote()
+    h.applyAnchorGuideLine()
   },
 }
