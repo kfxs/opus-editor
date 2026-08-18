@@ -218,11 +218,11 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // are pointing at rather than resizing from whichever end the model happens to grow.
   'Ctrl+Shift+ArrowLeft': {
     action: 'ctrlShiftArrowLeft',
-    description: 'Re-anchor the armed slur endpoint one note left, shorten the hairpin, or nudge the selected note left (offset, wide)',
+    description: 'Re-anchor the armed slur endpoint one note left, shorten the hairpin, move the selected dynamic back one slot, or nudge the selected note left (offset, wide)',
   },
   'Ctrl+Shift+ArrowRight': {
     action: 'ctrlShiftArrowRight',
-    description: 'Re-anchor the armed slur endpoint one note right, lengthen the hairpin, or nudge the selected note right (offset, wide)',
+    description: 'Re-anchor the armed slur endpoint one note right, lengthen the hairpin, move the selected dynamic on one slot, or nudge the selected note right (offset, wide)',
   },
   'Ctrl+Shift+Backspace': {
     action: 'resetNoteOffset',

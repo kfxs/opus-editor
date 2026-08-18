@@ -38,6 +38,7 @@ import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
 import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
+import * as dynamicOps from './dynamicOps'
 import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
 import * as pedalOps from './pedalOps'
@@ -540,6 +541,13 @@ export class ScoreModel {
   /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
   getDynamics(measureNumber: number): Dynamic[] {
     return measureDynamics(this.score, measureNumber)
+  }
+
+  /** Move a dynamic back (−1) or on (+1) by one slot of its own lane — the model write behind
+   *  `Ctrl+Shift+←/→`, which re-files it under the bar it lands in and drops its hand-nudged
+   *  offset. See {@link dynamicOps.moveDynamicBySlot}. */
+  moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
+    return dynamicOps.moveDynamicBySlot(this.score, id, direction)
   }
 
   /** Find a dynamic anywhere in the score by id (live reference), or null. Used by

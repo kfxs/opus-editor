@@ -748,6 +748,27 @@ export class MusicEngine {
     return removed
   }
 
+  /**
+   * Move a dynamic one slot back (−1) or on (+1) through its own lane — `Ctrl+Shift+←/→` with the
+   * mark selected, the RE-ANCHOR.
+   *
+   * ⚠️ A CONTENT edit, where the plain / `Ctrl` arrow on the same selection writes an engraving
+   * override: two chords, two categories, the arrangement every other family on the dynamics line
+   * already runs (`nudgeDynamicOffset` is the other one). Playback can tell the difference — the
+   * level applies from the beat this writes. Saves ONE undo entry per press, and the model drops
+   * the mark's own nudge on the way (`dynamicOps.moveDynamicBySlot`).
+   * @returns true when the mark moved; false (declining the key) when the walk runs off the end of
+   *   the lane, or the id is no longer in the score.
+   */
+  moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.moveDynamicBySlot(id, direction)
+    if (ok) {
+      this.commit(direction === -1 ? 'Move dynamic back' : 'Move dynamic on')
+      dbg(`[Dynamic] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one slot`)
+    }
+    return ok
+  }
+
   /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
   getDynamics(measureNumber: number): Dynamic[] {
     return this.scoreModel.getDynamics(measureNumber)

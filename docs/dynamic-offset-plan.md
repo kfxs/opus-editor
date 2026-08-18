@@ -357,3 +357,42 @@ width key stays untouched (no neighbour reflow). Guarded by a test in
 **Rule reaffirmed** (docs reference "WIDTH key vs SHAPE key"): a new engraved adjustment
 is invisible to the caches until it is in the *shape* key. When unsure, INCLUDE — a
 wrong answer here is a silent stale picture, not a crash.
+
+## ⭐⭐ The other half: RE-ANCHOR — `Ctrl+Shift+←/→` (his ask, 2026-08-18)
+
+Everything above moves the mark's **ink**. What a dynamic did not have — alone among the families on
+the dynamics line — was the **music** half of the standing pair: *plain / `Ctrl` arrow = the INK,
+`Ctrl+Shift`+arrow = the MUSIC*. The wedge, the bracket, the pedal and the trill all read the harder
+chord as "move this end through the music"; this makes the letters say it too, one **slot** per
+press.
+
+**The step is the pedal's, not the slur's.** A `Dynamic` is anchored positionally — `{measure, beat,
+voice, staffId}`, no note id — so there is nothing to "re-point at another notehead": the walk visits
+the onsets of the mark's own lane (its **voice**, on its staff — the hairpin's rule, since a dynamic
+governs a stream, where a pedal walks the whole staff because there is one damper).
+
+**A dynamic is a POINT, so the walk needs an ORDER, not a timeline.** The three span families each
+keep a private `measureStartOffsets` because they hold a start *plus an amount* and have to hold one
+end still. Nothing here does, so `dynamicOps` compares `(measure number, beat)` — the score's own
+reading order — and there is no fourth copy of the capacity arithmetic.
+
+**Crossing a barline moves the mark between the two bars' lists**, same object, same id
+(`moveDynamicToMeasure`), because "the dynamics of measure N" *is* the storage. `ScoreModel.
+updateDynamic` cannot express that — it only reassigns fields inside whichever measure already holds
+the id — which is why this is an op and not a `{ beat }` update.
+
+**⭐⭐ And the step CLEARS the mark's own `dynamicOffset`** (his call) — `slurOps.setSlurEndpoint`'s
+rule for its reason verbatim: anchor-relative storage makes an offset *transferable*, not *wanted*.
+It was tuned to clear the stem and ledgers of the note it used to sit under, and a re-anchor is the
+user saying "not that note".
+
+**⚠️ It writes the MODEL and is audible** — the level applies from the beat it writes — where the
+plain and `Ctrl` arrows on the same selection write an override that playback cannot hear. Two
+chords, two categories, one selection; §4 of the hairpin plan is the same argument.
+
+Where it lives: `engine/models/dynamicOps.ts` (`moveDynamicBySlot`) → `ScoreModel.moveDynamicBySlot`
+→ `MusicEngine.moveDynamicBySlot` (one `commit`) → `reanchorSelectedDynamic` in `shortcutWiring`,
+chained ahead of the note offset on `ctrlShiftArrow…`. It DECLINES at either end of the lane, so the
+chord still falls through to the note offset. Tests: `dynamicOps.test.ts` (the walk, the re-file, the
+clear) and `shortcutWiring.dynamicReanchor.test.ts` (the routing, and that the ink chords never reach
+it).

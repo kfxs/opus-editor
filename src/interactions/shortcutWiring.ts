@@ -524,6 +524,28 @@ export function wireShortcuts(
     return true
   }
 
+  /**
+   * ⭐⭐ **RE-ANCHOR THE SELECTED DYNAMIC BY ONE SLOT** — `Ctrl+Shift+←/→` (his ask, 2026-08-18).
+   * The mark walks its own lane and takes the beat it lands on, re-filing across a barline.
+   *
+   * ⭐ **Two chords, two categories — the last family on the dynamics line to get its musical
+   * half.** `nudgeSelectedDynamic` above owns the plain and `Ctrl` arrows and writes only INK; this
+   * chord means *move it through the music* on the wedge, the bracket, the pedal and the trill, and
+   * now says the same thing about the letters. ⛔ No armed-square gate, unlike those four: a
+   * dynamic is a point, so there is no end to be pointing at.
+   *
+   * ⚠️ The MODEL, and audible — the level applies from the beat this writes. The engine owns the
+   * undo entry and the model drops the mark's own nudge; this only repaints on a yes.
+   */
+  const reanchorSelectedDynamic = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const dynamicId = selectedOf(state, 'dynamic')?.id
+    if (!eng || !dynamicId) return false
+    if (!eng.moveDynamicBySlot(dynamicId, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
   // Ctrl+Shift+←/→ (wide) / Shift+Alt+←/→ (fine) on a SINGLE selected note or rest = nudge its
   // horizontal offset by a staff-space delta (+right), an OFFSET off its natural column (NOT
   // spacing — the bar keeps its width). Rides the deliberate chords, not the easy key: a note's
@@ -1321,11 +1343,13 @@ export function wireShortcuts(
       reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
       || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
       || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1) || reanchorArmedTrill(-1)
+      || reanchorSelectedDynamic(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
       || resizeSelectedPedal(1) || moveSelectedPedalStart(1) || reanchorArmedTrill(1)
+      || reanchorSelectedDynamic(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
