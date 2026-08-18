@@ -655,10 +655,6 @@ export interface EditorState {
    * articulations it sits beside.
    */
   selectedTremolo: TremoloMark | null
-  /** While dragging a slur endpoint handle: the note the slur would snap onto if
-   *  released now (highlighted as the candidate anchor); null when not dragging. */
-  slurEndpointCandidateNoteId: string | null
-
   // --- Palette ---
   /**
    * The voice notes are entered into (Sibelius-style). Voice 1 is the default and
@@ -814,7 +810,6 @@ export function createEditorState(): EditorState {
     selectionBase: [],
     selectedElement: null,
     selectedTremolo: null,
-    slurEndpointCandidateNoteId: null,
     selectedDuration: DEFAULT_DURATION,
     selectedAccidental: null,
     selectedDots: DEFAULT_DOTS,

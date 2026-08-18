@@ -1661,21 +1661,16 @@ export class HighlightController {
     }
   }
 
-  /** While dragging a slur endpoint, tint the note it would snap onto (the candidate
-   *  anchor) a distinct blue so it's clear where the end will land on release. */
-  applySlurEndpointCandidate(): void {
-    if (!this.state.slurEndpointCandidateNoteId) return
-    this.highlightNote(
-      this.state.slurEndpointCandidateNoteId,
-      HighlightController.SLUR_ANCHOR_FILL,
-      HighlightController.SLUR_ANCHOR_STROKE,
-    )
-  }
-
   /**
-   * ⭐ **Tint the note an ARMED slur endpoint is anchored TO** — the keyboard's half of the drag's
-   * candidate tint above (his ask, 2026-08-18: *"when reanchoring with keyboard we dont highlight
-   * the note, i think we should, that is the way to let know the user the new anchor"*).
+   * ⭐ **Tint the note an ARMED slur endpoint is anchored TO** (his ask, 2026-08-18: *"when
+   * reanchoring with keyboard we dont highlight the note, i think we should, that is the way to let
+   * know the user the new anchor"*).
+   *
+   * ⭐ **It serves the mouse too, and there is no longer a second tint for that.** The drag used to
+   * paint a CANDIDATE — the note it would snap onto if released — because it re-anchored by snapping
+   * and the ink jumped there. Since the drag became the same carried move as the arrows
+   * (`interactions/slurEndpointWalk`) there is no candidate distinct from the anchor: the anchor
+   * follows the ink live, so tinting the anchor IS tinting where the end is going.
    *
    * ⭐ **Standing, not a flash.** A `Ctrl+Shift+←/→` re-anchor could have blinked the note it landed
    * on, but a blink needs a timer, an undo of itself, and a rule for what a second press mid-blink
@@ -1685,15 +1680,11 @@ export class HighlightController {
    * in step, and a re-anchor shows simply as the tint being on a different note afterwards. It also
    * answers the question BEFORE the first press, which a flash cannot.
    *
-   * ⚠️ Yields to a live drag: `slurEndpointCandidateNoteId` is set only while one runs, and the two
-   * disagree exactly when the model DECLINED the candidate (the cursor is over the other end, or off
-   * the lane) — the moment the drag's own tint is the one worth trusting, since it is saying "not
-   * there". Two blues in that frame would read as two anchors.
    */
   applyArmedSlurAnchorNote(): void {
     const engine = this.getEngine()
     const armed = selectedOf(this.state, 'slur')
-    if (!engine || !armed?.endpoint || this.state.slurEndpointCandidateNoteId) return
+    if (!engine || !armed?.endpoint) return
     const slur = engine.getSlurById(armed.id)
     if (!slur) return
     this.highlightNote(

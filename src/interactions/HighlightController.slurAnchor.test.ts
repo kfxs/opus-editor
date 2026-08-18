@@ -5,8 +5,9 @@
  * Subject: {@link HighlightController}, a chapter beside `HighlightController.test.ts` (slur
  * handles) and `.anchorLine.test.ts`. His ask, 2026-08-18: *"when reanchoring with keyboard we dont
  * highlight the note… that is the way to let know the user the new anchor"* — the drag has tinted
- * its candidate since it was written (`applySlurEndpointCandidate`), and the keyboard re-anchor
- * (`slurReanchor`) moved the arc with nothing to say which note it had landed on.
+ * its candidate since it was written, and the keyboard re-anchor (`slurReanchor`) moved the arc with
+ * nothing to say which note it had landed on. The candidate tint is gone now — the drag carries the
+ * anchor live, so this one pass answers for both devices.
  *
  * ⚠️ Nothing here measures a glyph: the DOM is FABRICATED and the assertions are on which node got
  * recoloured (`reference_jsdom_cannot_measure_glyphs`). What is under test is the CHOICE of note —
@@ -80,12 +81,11 @@ describe('the armed slur endpoint’s anchor note', () => {
     expect(tintedBy(s => { s.selectedElement = { kind: 'slur', id: 'S1' } })).toEqual([])
   })
 
-  it('⭐ yields to a live drag — the drag’s own candidate tint owns that frame', () => {
-    // The two disagree exactly when the model DECLINED the candidate (over the other end, off the
-    // lane), which is the moment the drag's tint is the one worth trusting: it is saying "not there".
-    expect(tintedBy(s => {
-      s.selectedElement = { kind: 'slur', id: 'S1', endpoint: 'start' }
-      s.slurEndpointCandidateNoteId = 'N2'
-    })).toEqual([])
+  it('⭐ serves the MOUSE too — there is no second tint for a drag any more', () => {
+    // The drag used to paint a CANDIDATE (the note it would snap onto if released), because it
+    // re-anchored by snapping and the ink jumped there. Since the drag became the same carried move
+    // as the arrows there is no candidate distinct from the anchor — so a mid-drag frame paints
+    // exactly this, and exactly once.
+    expect(tintedBy(s => { s.selectedElement = { kind: 'slur', id: 'S1', endpoint: 'end' } })).toEqual(['N3'])
   })
 })

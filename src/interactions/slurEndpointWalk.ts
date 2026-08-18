@@ -56,7 +56,45 @@ import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type EndpointWalkEngine = AnchorWalkEngine & Pick<MusicEngine,
-  'getElementRegistry' | 'nudgeSlurEndpoint' | 'setSlurEndpointKeepingEdits' | 'runBatch'>
+  'getElementRegistry' | 'nudgeSlurEndpoint' | 'setSlurEndpointKeepingEdits' | 'runBatch'
+  | 'previewSlurEndpointOffset' | 'previewSlurEndpointKeepingEdits'>
+
+/**
+ * The two model writes the move is made of, in the flavour the gesture needs: a KEY press records
+ * its own undo step, a drag FRAME records none and leaves the drop to commit once.
+ *
+ * ⭐ The pair is what separates the two callers — the arithmetic below does not know which device it
+ * is serving, and could not be made to disagree with itself if it tried.
+ */
+interface EndpointWriter {
+  reanchor: (id: string, which: 'start' | 'end', noteId: string) => boolean
+  nudge: (id: string, which: 'start' | 'end', dx: number, dy: number) => boolean
+}
+
+/** What one move did, for a caller that has to react to a crossing rather than just repaint. */
+export interface EndpointMove {
+  /** How many notes the anchor crossed. 0 is an ordinary move that carried only ink. */
+  crossings: number
+  /**
+   * The distance from where the ink LATCHED to the next note in the direction of travel — in
+   * **pixels** out of {@link dragArmedSlurEndpoint}, staff-spaces inside the module. 0 when nothing
+   * latched, or when nothing lies ahead.
+   *
+   * ⭐ AHEAD, not behind, and that is the whole point: the hold's debt is repaid over the journey to
+   * the next note, so it must be a fraction of THAT distance. Sizing it on the gap just crossed
+   * ratchets the cursor away from the ink wherever the spacing is uneven.
+   *
+   * ⭐ A fraction of a measured gap rather than a pixel count, so the gesture is the same at every
+   * zoom and in every density of music.
+   */
+  gapAhead: number
+  /** The ink stopped exactly on a note's own position instead of passing through it — a crossing
+   *  always latches, and so does coming back to the anchor the end already has. */
+  latched: boolean
+  /** Travel (staff-spaces here, PIXELS out of {@link dragArmedSlurEndpoint}) that the latch took off
+   *  the ink. ⚠️ The caller owes it back, or the cursor drifts away from the endpoint for good. */
+  discarded: number
+}
 
 /**
  * The staff-space size to convert the measured gap with, read off a drawn handle of THIS slur.
@@ -84,20 +122,29 @@ function noteCentreX(registry: ElementRegistry, noteId: string): number | null {
   return el ? el.bbox.x + el.bbox.width / 2 : null
 }
 
-/** The step this press takes, when it takes the anchor with it: the note to land on, and the gap in
- *  staff-spaces that has to come back out of the offset so the ink does not move. Null = an ordinary
- *  nudge (no candidate, no geometry, a system break, or the ink has simply not arrived yet). */
-function arrivedAt(
+/** This end's stored horizontal offset, in staff-spaces. 0 = the ink is where the engraver put it. */
+function offsetXOf(engine: EndpointWalkEngine, id: string, which: 'start' | 'end'): number {
+  return endpointOffsetOverrideOf(engine.getScore(), id)?.[which]?.x ?? 0
+}
+
+/**
+ * The note one step away in the direction of travel, and how far away it is in staff-spaces — or null
+ * when there is nothing to walk onto (no candidate, no drawn geometry, or a system break).
+ *
+ * ⭐ Split from the arrival TEST because the two questions have different callers: a crossing needs to
+ * know whether the ink got there, while a LATCH needs the distance whether or not anything crossed
+ * (that gap is what sizes the hold).
+ */
+function neighbourGap(
   state: EditorState,
   engine: EndpointWalkEngine,
-  dx: number,
+  direction: 1 | -1,
 ): { noteId: string; gap: number } | null {
   const selected = selectedOf(state, 'slur')
   if (!selected?.endpoint) return null
   const slur = engine.getSlurById(selected.id)
   if (!slur) return null
 
-  const direction = dx > 0 ? 1 : -1
   // The SAME candidate rule the Ctrl+Shift+←/→ jump uses, which is why it lives over there: two
   // rules would mean the same key landing on a different note depending on how far you had nudged.
   const dest = nextSlurAnchorStop(state, engine, direction)
@@ -115,10 +162,110 @@ function arrivedAt(
   // 🚨 The next note in TIME is not always the next note in X: across a system break it is far to
   // the LEFT while the travel is rightward. Subtracting those two x's is meaningless, so refuse.
   if (Math.sign(gap) !== direction) return null
+  return { noteId: dest.id, gap }
+}
 
-  const offset = endpointOffsetOverrideOf(engine.getScore(), selected.id)?.[selected.endpoint]?.x ?? 0
-  const arrived = direction > 0 ? offset + dx >= gap : offset + dx <= gap
-  return arrived ? { noteId: dest.id, gap } : null
+/** The step this press takes, when it takes the anchor with it. Null = the ink has not arrived (or
+ *  there is nowhere to arrive), so the move is an ordinary nudge. */
+function arrivedAt(
+  state: EditorState,
+  engine: EndpointWalkEngine,
+  dx: number,
+): { noteId: string; gap: number } | null {
+  const selected = selectedOf(state, 'slur')
+  if (!selected?.endpoint) return null
+  const next = neighbourGap(state, engine, dx > 0 ? 1 : -1)
+  if (!next) return null
+  const target = offsetXOf(engine, selected.id, selected.endpoint) + dx
+  const arrived = dx > 0 ? target >= next.gap : target <= next.gap
+  return arrived ? next : null
+}
+
+/**
+ * ⭐⭐ **THE MOVE ITSELF** — carry the armed endpoint's ink by (`dx`, `dy`) staff-spaces, handing the
+ * anchor along to each note the ink arrives at on the way. Shared verbatim by the arrow keys and the
+ * mouse drag; only the {@link EndpointWriter} differs.
+ *
+ * ⭐ **A LOOP, because a drag frame is not a step.** A key press moves a quarter- or whole space and
+ * can cross at most one note; one frame of a fast drag can fly over several, and re-anchoring only
+ * once would leave the anchor trailing the cursor by however many notes were skipped. Each pass
+ * re-points the anchor and takes that gap back out of the offset — an identity, so the ink never
+ * moves at a crossing however many happen in one frame.
+ *
+ * ⚠️ The bound is a runaway guard, not a rule: `arrivedAt` already refuses at the lane's end, at the
+ * slur's other end, and across a system break, so the loop is expected to run 0 or 1 times.
+ */
+function carryEndpoint(
+  state: EditorState,
+  engine: EndpointWalkEngine,
+  write: EndpointWriter,
+  dx: number,
+  dy: number,
+  /** ⭐ Drop the accumulated VERTICAL nudge at each crossing — his call for the DRAG, 2026-08-18.
+   *  See {@link dragArmedSlurEndpoint} for why the two devices differ on this one point. */
+  settleVertically = false,
+  /** ⭐ Stop the ink dead on a note's own position when the move would carry it through — the DRAG's
+   *  latch. See {@link dragArmedSlurEndpoint}. */
+  latching = false,
+): EndpointMove {
+  const selected = selectedOf(state, 'slur')
+  const which = selected?.endpoint
+  if (!selected || !which) return { crossings: 0, gapAhead: 0, latched: false, discarded: 0 }
+
+  let crossings = 0
+  for (; crossings < 32; crossings++) {
+    const arrival = arrivedAt(state, engine, dx)
+    if (!arrival) break
+    // ⭐ `…KeepingEdits`, not the general re-anchor: the crossing is meant to be invisible, and the
+    // ordinary one wipes this end's nudge and the arc's shape (`slurOps.setSlurEndpoint`).
+    if (!write.reanchor(selected.id, which, arrival.noteId)) break
+    // The anchor has absorbed one gap, so the offset gives it up. Horizontally the ink is unchanged
+    // by the pair, which is the whole design; `dx` is untouched and still has its journey to make.
+    const heldY = settleVertically
+      ? -(endpointOffsetOverrideOf(engine.getScore(), selected.id)?.[which]?.y ?? 0)
+      : 0
+    write.nudge(selected.id, which, -arrival.gap, heldY)
+    dbg(`Slur endpoint walked onto its next note | id:${selected.id} end:${which} → ${arrival.noteId} (gap ${arrival.gap.toFixed(2)}ss)`)
+  }
+  // ⭐⭐ **THE LATCH** — his ask, 2026-08-18: *"we should not hold just when getin a new target but
+  // also when reaching our current target"*. The two events are ONE event once named properly: the
+  // ink latches at OFFSET ZERO of whichever note is nearest in the direction of travel, whether that
+  // is the note it has just crossed onto or the note it is coming back to. Both are "the place the
+  // engraver would have put this end", and both are the position most likely to be wanted — so both
+  // must be reachable exactly rather than by luck, which is Baudisch's whole complaint about
+  // radius-based snapping.
+  //
+  // ⚠️ The move is CUT SHORT: whatever travel is left over is discarded from the ink and reported, so
+  // the caller can charge it to the catch-up and hand it back. Without that the latch would silently
+  // eat distance and the cursor would drift away from the ink — the same defect the catch-up exists
+  // to fix.
+  let latched = false
+  let discarded = 0
+  const offset = offsetXOf(engine, selected.id, which)
+  const target = offset + dx
+  // ⛔ `offset !== 0` is what lets the ink LEAVE a note it is sitting on: at zero every direction
+  // "passes through", so latching there would pin the endpoint for good.
+  let gapAhead = 0
+  if (latching && dx !== 0 && offset !== 0 && Math.sign(target) !== Math.sign(offset)) {
+    write.nudge(selected.id, which, -offset, dy)
+    latched = true
+    discarded = Math.abs(target)
+    // ⭐⭐ **THE GAP AHEAD, measured AFTER the latch — not the one just crossed.** 🚨 That distinction
+    // was a real bug (his logs, 2026-08-18): a hold sized on the gap BEHIND has to be given back over
+    // the gap AHEAD, and with uneven spacing those differ wildly. Crossing a whole note's 21.98 sp to
+    // land 11.09 sp from the next one left a debt that the following gap could not repay, so it
+    // ratcheted — the measured deviation ran −80 px, −175 px, −258 px, one note after another.
+    //
+    // ⭐ Sized on the gap ahead the arithmetic closes exactly: with hold `r·gapAhead` and the derived
+    // gain `1/(1−r)`, the debt reaches zero at the very moment the ink reaches the next note, for any
+    // spacing. ⚠️ Zero when nothing lies ahead (a lane's end, or the slur's other end): there is no
+    // journey left to repay over, so there must be no hold either.
+    gapAhead = Math.abs(neighbourGap(state, engine, dx > 0 ? 1 : -1)?.gap ?? 0)
+    dbg(`Slur endpoint latched on its anchor | id:${selected.id} end:${which} (dropped ${discarded.toFixed(2)}ss, ${gapAhead.toFixed(2)}ss ahead)`)
+  } else if (dx !== 0 || dy !== 0) {
+    write.nudge(selected.id, which, dx, dy)
+  }
+  return { crossings, gapAhead, latched, discarded }
 }
 
 /**
@@ -134,27 +281,66 @@ function arrivedAt(
  * the ink somewhere the user never put it.
  */
 export function walkArmedSlurEndpoint(state: EditorState, engine: EndpointWalkEngine, dx: number): boolean {
+  if (!selectedOf(state, 'slur')?.endpoint) return false
+  engine.runBatch('Move slur endpoint', () => {
+    carryEndpoint(state, engine, {
+      reanchor: (id, which, noteId) => engine.setSlurEndpointKeepingEdits(id, which, noteId),
+      nudge: (id, which, ddx, ddy) => engine.nudgeSlurEndpoint(id, which, ddx, ddy),
+    }, dx, 0)
+  })
+  return true
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF AN ENDPOINT DRAG** — the same move, with the cursor's delta in PIXELS instead
+ * of a key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitSlurEndpoint}).
+ *
+ * ⭐ **The mouse and the arrows are now the SAME gesture**, which is what the drag was missing: it
+ * used to snap the end to the nearest notehead within 60 px and re-anchor outright, so the ink
+ * teleported and every hand-tuned edit on that end was wiped on the way past. Now the ink follows
+ * the hand and the anchor comes along when the ink reaches a note — and a drag and ten arrow presses
+ * that cover the same distance leave the model in the same state, rather than in two states that
+ * merely look alike.
+ *
+ * ⭐ **Both axes**, unlike the keys' horizontal-only crossing: the vertical is a plain offset (there
+ * is no anchor above or below to arrive at), so `dy` simply rides along. It is what makes the drag
+ * worth having over the keyboard — you can place the end where you want it in one motion.
+ *
+ * ⭐⭐ **…and the vertical SETTLES at each crossing** — his call, 2026-08-18: *"in the case of the
+ * drag maybe we have to reset the y"*. The one point where the two devices deliberately differ, and
+ * the asymmetry is the gestures', not a compromise:
+ *
+ *  - an ARROW press is a considered edit of one quantity, so a horizontal press has no business
+ *    touching a lift the user set on purpose — that is the invisible flip, and it is why the
+ *    keyboard keeps its y;
+ *  - a DRAG is one continuous sweep, and a lift tuned to clear the OLD note's stem, beam and
+ *    accidentals is stale the moment the ink is over a different note. Carrying it along means an
+ *    end dragged across a bar arrives holding an answer to a question about a note it has left.
+ *
+ * So the ink settles to each note's own height as it passes, and the hand can lift it again from
+ * there. ⚠️ This is the one place the drag is visibly NOT continuous — a crossing steps the y — which
+ * is the point: it is the ink admitting it has changed notes.
+ *
+ * ⛔ Declines — **null**, not a zero move — with no armed endpoint, or with no drawn handle to read
+ * the staff-space size off (the same no-guessing rule the crossing arithmetic follows). Otherwise it
+ * reports the {@link EndpointMove}, whose `gapAhead` is in PIXELS here: the caller holds a cursor.
+ */
+export function dragArmedSlurEndpoint(
+  state: EditorState,
+  engine: EndpointWalkEngine,
+  dxPx: number,
+  dyPx: number,
+): EndpointMove | null {
   const selected = selectedOf(state, 'slur')
   const which = selected?.endpoint
-  if (!selected || !which) return false
+  if (!selected || !which) return null
+  const ss = staffSpacePxAt(engine.getElementRegistry(), selected.id, which)
+  if (!ss) return null
 
-  const arrival = arrivedAt(state, engine, dx)
-  if (!arrival) {
-    engine.nudgeSlurEndpoint(selected.id, which, dx, 0)
-    return true
-  }
-
-  engine.runBatch('Re-anchor slur', () => {
-    // ⭐ `…KeepingEdits`, not the general re-anchor: the crossing is meant to be invisible, and the
-    // ordinary one wipes this end's nudge and the arc's shape (`slurOps.setSlurEndpoint`).
-    if (!engine.setSlurEndpointKeepingEdits(selected.id, which, arrival.noteId)) {
-      engine.nudgeSlurEndpoint(selected.id, which, dx, 0) // defensive: nothing moved, so just nudge
-      return
-    }
-    // What is left of the step once the anchor has absorbed the gap. Usually a hair either side of
-    // zero, which is why the stored offset never grows as the endpoint walks along the staff.
-    engine.nudgeSlurEndpoint(selected.id, which, dx - arrival.gap, 0)
-  })
-  dbg(`Slur endpoint walked onto its next note | id:${selected.id} end:${which} → ${arrival.noteId} (gap ${arrival.gap.toFixed(2)}ss)`)
-  return true
+  const move = carryEndpoint(state, engine, {
+    reanchor: (id, w, noteId) => engine.previewSlurEndpointKeepingEdits(id, w, noteId),
+    nudge: (id, w, ddx, ddy) => engine.previewSlurEndpointOffset(id, w, ddx, ddy),
+  }, dxPx / ss, dyPx / ss, true, true)
+  // Back into the caller's units: it is holding a cursor, not a staff.
+  return { ...move, gapAhead: move.gapAhead * ss, discarded: move.discarded * ss }
 }

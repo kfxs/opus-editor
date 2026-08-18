@@ -2162,6 +2162,21 @@ export class MusicEngine {
     return ok
   }
 
+  /** The undo-free twin of {@link setSlurEndpointKeepingEdits}, for a live endpoint DRAG whose every
+   *  frame may cross a note. Pair with {@link commitSlurEndpoint} on drop. */
+  previewSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitSlurEndpoint — see previewSlurShape
+    return this.scoreModel.setSlurEndpointKeepingEdits(id, which, noteId)
+  }
+
+  /** The undo-free twin of {@link nudgeSlurEndpoint} — accumulates the same way, keeps the same page
+   *  limit, records no undo step. One frame of an endpoint drag. */
+  previewSlurEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('slur', id, dx, dy)) return false
+    this.markModelDirty()
+    return this.scoreModel.setSlurEndpointOffset(id, which, dx, dy)
+  }
+
   /** Drop a slur's hand-edited ARC shape and save ONE undo step — the reset half of the handle
    *  nudges, on the key that resets everything else (`interactions/slurHandleReset`). Pass a
    *  `segment` + live `spanCount` for one segment of a cross-system slur, neither for the whole

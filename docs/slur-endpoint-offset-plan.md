@@ -383,3 +383,127 @@ staff-spaces plus a reset, on the `NoteOffsetController` boundary: the window pu
   touch the endpoint verbs.
 - `PropertiesWidget.slur.test.ts` — the four rows; blank ≠ 0; one axis per commit; a
   non-number restores only its own box; reset publishes `null`; the disabled split-slur case.
+
+---
+
+## P4 — the INTERPOLATING WALK: one gesture for the ink and the anchor
+
+His ask, 2026-08-18: *"first i start offseting till i get to the critical point so it makes a
+reanchor… lets start just horizontal in the x axis"*. Until now moving an endpoint was two
+unrelated gestures — `Ctrl+←/→` slid the ink arbitrarily far from the note it claimed to hang off,
+and `Ctrl+Shift+←/→` jumped the anchor a whole note with the ink snapping to the engraver's
+position. Neither could say *"this end belongs a little to the left of that note over there"* in one
+continuous motion.
+
+### The identity
+
+A drawn endpoint is `base(anchor) + offset`, and a move may spend itself on either term:
+
+```
+  offset + step  <  gap   →  keep the anchor, offset += step        (an ordinary ink nudge)
+  offset + step  ≥  gap   →  anchor := next note, offset += step − gap
+```
+
+`gap` is the horizontal distance between the two anchor NOTES. Both branches move the drawn point by
+exactly one step, so **the crossing is invisible**, and the offset re-zeroes itself at every note
+passed — nothing accumulates into an absurd stored number.
+
+**⭐ ARRIVAL, not midpoint.** The anchor changes when the ink gets *to* the next note, not at the
+halfway mark, so an end can be parked anywhere in a gap without changing what the slur spans — and so
+what it PLAYS, since `utils/slurs.legatoChordIds` lengthens the notes a slur covers. MuseScore's line
+family re-anchors at the halfway point (`spacingFactor = 0.5`, `line.cpp:434`); the research does not
+settle it (Sibelius's cross-staff re-attach is contact-based, i.e. arrival).
+
+**⚠️ The re-base is a NOTE-to-NOTE distance**, not endpoint-to-endpoint: an endpoint's base sits on the
+head or past the stem depending on both ends' stems, so an exact re-base would need the new anchor's
+base, which exists only after a layout. MuseScore's lines do the same thing (`line.cpp:750-754`).
+
+**🚨 It will not cross a system break** — a `gap` whose sign disagrees with the travel is refused,
+because two x's from different systems are not on one ruler. `Ctrl+Shift+←/→` is the gesture that
+crosses a break. **⛔ And it never guesses the staff-space size**: no drawn handle, no crossing.
+
+### Where it lives
+
+- `interactions/slurEndpointWalk.ts` — the module. `carryEndpoint` is the shared arithmetic;
+  `walkArmedSlurEndpoint` (keys) and `dragArmedSlurEndpoint` (mouse) differ only in an
+  `EndpointWriter` — a key press commits its own undo step, a drag frame previews and the drop
+  commits once.
+- `slurOps.setSlurEndpointKeepingEdits` — the bare re-point with NONE of `setSlurEndpoint`'s
+  auto-resets, because an invisible crossing must not drop the arc's shape or this end's nudge.
+- `slurReanchor.nextSlurAnchorStop` — the candidate rule, now SHARED with the jump. Two rules would
+  mean the same key landing on a different note depending on how far you had nudged first.
+- ⭐⭐ `shortcutWiring`'s `Ctrl+←/→` comment was AMENDED, not worked around: that chord's standing
+  rule was "every branch here writes an offset". His call — *"a shortcut is for making the live easy
+  to the user"* — with the reasoning that the rule was written about two families that ate the chord
+  outright and changed the music on the first press with nothing on screen to say so.
+
+### The mouse: hold + catch-up (snap-and-go)
+
+The drag is the same journey with a cursor instead of a step, plus three things the keyboard does not
+want, and one it explicitly refused (`no hold on the keys` — his call).
+
+- **THE LATCH.** The ink stops dead on a note's own position — both onto the next note and coming
+  back to the anchor it already has (*"we should not hold just when getin a new target but also when
+  reaching our current target"*). One event, named once: offset zero of the nearest note in the
+  direction of travel. Whatever travel the latch cuts short is reported and repaid, never eaten.
+- **THE HOLD** (`SLUR_ENDPOINT_HOLD_RATIO` = 0.8, capped by `SLUR_ENDPOINT_HOLD_MAX_PX` = 30).
+  Baudisch et al., *snap-and-go* (CHI 2005): do not teleport the ink within a radius — that makes the
+  band either side of every note unreachable — insert motor space at the anchor instead. 🚨 The CAP
+  came from his logs: a whole-note gap of 220 px made `0.8 · gap` a 176 px hold, and mid-hold the
+  cursor sits 176 px past the note the ink rests on. A hold is a HAND-scale distance (they tested
+  18–34 px); the ratio governs dense music, the cap the rest.
+- **THE CATCH-UP** (`catchupGainFor`, `G = 1/(1 − h/gap)`). Fernquist et al., *Oh Snap*
+  (INTERACT 2011) — hold, then repay at a gain. 🚨 Their published 1.5 is **not** transferable: it is
+  self-consistent only with their hold (10 px against ≥30 px spacing). Repaying `h` while the ink
+  covers one `gap` needs `(G−1)/G ≥ h/gap`, so the gain is DERIVED per latch, and then cursor travel
+  per gap equals the gap exactly, at any spacing.
+- 🚨 **The hold is sized on the gap AHEAD**, measured after the latch — not the one just crossed.
+  Sizing it behind ratchets: crossing a 21.98 sp gap to land 11.09 sp from the next note leaves a debt
+  the following gap cannot repay, and the measured deviation ran −80, −175, −258 px, note after note.
+- **THE VERTICAL SETTLES at each crossing** on the drag only (*"in the case of the drag maybe we have
+  to reset the y"*). A lift is tuned to clear the note it sits on; a sweep across a bar arrives
+  holding an answer about a note it has left. The KEYS keep their y through a crossing, because an
+  arrow press is a considered edit of one quantity.
+
+### Feedback (the research's unanimous finding)
+
+Every notation program surveyed draws a dashed line from displaced ink to what it hangs off, and
+Sibelius ships a *Check Attachments* plug-in because a wrong attachment is otherwise invisible. So:
+
+- `HighlightController.applyArmedSlurAnchorNote` — the anchor note wears the endpoint's blue while a
+  square is armed. Standing, not a flash: DERIVED from the selection, so nothing to set or clear.
+- `SlurRenderer.endpointGuide` — a displaced end draws the dotted line back to `drawn − offset`, so
+  the line IS the offset vector (MuseScore's `gripAnchorLines` uses the same pair,
+  `slurtie.cpp:103-142`). Nothing is drawn for an unmoved end.
+- The old drag CANDIDATE tint is gone with `slurEndpointCandidateNoteId`, `nearestNoteId` and the
+  60 px snap: with the anchor following the ink live there is no candidate distinct from the anchor.
+
+### ⏭️ Still owed (2026-08-18 — *"it feels better but it needs more tweeks"*)
+
+- **The feel is not settled.** The hold ratio walked 24 px flat → 0.75 → 1.0 → 0.85 → 0.8 by hand,
+  and the 30 px cap arrived last. ⛔ Do not round these; nothing in the papers picks between them
+  (Baudisch's own study landed on a RANGE). ⚠️ Two dials interact — the ratio and the jitter
+  threshold that decides how easily a hold RELEASES — and they were once moved in the same step,
+  which muddied the reading. Move one at a time.
+- The per-frame `dbg` deviation instrument (`cursorΣ`/`inkΣ`/`DEVIATION`) is deliberately kept: it is
+  what found both real bugs. ⚠️ It once lied — frames wholly absorbed by the hold returned early
+  without counting their cursor travel, and it reported its own arithmetic as drift.
+- **No vertical limit exists.** A drag put `end.y` at **54.86 sp**, the arc running clean across other
+  systems, and nothing refused it: `nudgeFitsOnPage` only forbids a step that pushes ink FURTHER off
+  its sheet, and 550 px down from mid-page is still on the page. A slur also has no vote in vertical
+  spacing — `RenderPass.drawnCurves` feeds only `TrillRenderer`'s clearance within its own system — so
+  a displaced arc overlaps its neighbours without pushing anything. Both are open questions.
+- Midpoint instead of arrival is one comparison in `arrivedAt`, if the feel argues for it.
+
+### Tests added
+
+- `slurEndpointWalk.test.ts` — the ink nudging up to arrival; the crossing press taking the gap out of
+  the offset; the y and the arc surviving a keyboard crossing; the system-break refusal; the
+  no-guessed-scale refusal; both directions and the clamp at the partner; the drag landing exactly
+  where ten presses do; ONE frame crossing several notes; the drag's y settling where the keys' does
+  not; the latch coming back to its own anchor (and that the ink can still LEAVE a latched note); a
+  drag frame recording no undo entry; one undo entry per crossing press.
+- `SlurRenderer.endpointGuide.test.ts` — from the ink back to the un-nudged point, a vertical-only
+  nudge included, and nothing at all for an unmoved end.
+- `HighlightController.slurAnchor.test.ts` — start vs end vs nothing armed, and that one pass now
+  serves both devices.

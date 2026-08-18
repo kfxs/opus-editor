@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { walkArmedSlurEndpoint } from './slurEndpointWalk'
+import { walkArmedSlurEndpoint, dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { endpointOffsetOverrideOf, curveShapeOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 
@@ -128,6 +128,83 @@ describe('walkArmedSlurEndpoint', () => {
     for (let i = 0; i < 20; i++) walkArmedSlurEndpoint(state, engine, -1)
     expect(slur().endNoteId, 'never onto its own start note').toBe(ids[1])
     expect(offsetX()).toBeCloseTo(-20)
+  })
+
+  it('⭐⭐ the DRAG is the same journey — one 10-press frame lands exactly where 10 presses do', () => {
+    // The claim that makes the mouse and the keyboard one gesture rather than two roads to
+    // nearly-the-same score: 100 px at 10 px per space is the ten 1-space presses of the test above.
+    expect(dragArmedSlurEndpoint(state, engine, 100, 0), 'one crossing, and it latched there')
+      .toEqual({ crossings: 1, gapAhead: 0, latched: true, discarded: 0 })
+    expect(slur().endNoteId).toBe(ids[3])
+    expect(offsetX()).toBeCloseTo(0, 6)
+  })
+
+  it('⭐⭐ …and ONE frame may cross SEVERAL notes — a fast drag does not leave the anchor behind', () => {
+    // A key press can cross at most one note; a frame of a quick drag can fly over many, and
+    // re-anchoring once per frame would let the cursor outrun the anchor. Put the end on F4 and drag
+    // it two whole gaps left in a single frame: it must land on D4, not on E4.
+    engine.setSlurEndpointKeepingEdits(slurId, 'end', ids[3])
+    // ⭐ The count and the gap are what the caller holds the ink by, so both must be the truth.
+    expect(dragArmedSlurEndpoint(state, engine, -200, 0))
+      .toEqual({ crossings: 2, gapAhead: 0, latched: true, discarded: 0 })
+    expect(slur().endNoteId).toBe(ids[1])
+    expect(offsetX()).toBeCloseTo(0, 6)
+  })
+
+  it('⭐⭐ a DRAG settles the vertical at a crossing, where a key press carries it through', () => {
+    // The one place the two devices differ on purpose. A lift is tuned to clear the note it sits on
+    // — its stem, its beam, its accidentals — so dragging past that note leaves it stale, while a
+    // deliberate arrow press has no business dropping it.
+    engine.nudgeSlurEndpoint(slurId, 'end', 0, -2)
+    dragArmedSlurEndpoint(state, engine, 100, 0) // one whole gap right → crosses onto F4
+    expect(slur().endNoteId, 'it crossed').toBe(ids[3])
+    expect(offsetY(), 'and arrived at the new note’s own height').toBeCloseTo(0, 6)
+  })
+
+  it('…and ten presses covering the same ground KEEP that lift', () => {
+    // The mirror of the test above, and the reason the flag exists rather than one rule for both.
+    engine.nudgeSlurEndpoint(slurId, 'end', 0, -2)
+    for (let i = 0; i < 10; i++) walkArmedSlurEndpoint(state, engine, 1)
+    expect(slur().endNoteId).toBe(ids[3])
+    expect(offsetY()).toBeCloseTo(-2, 6)
+  })
+
+  it('⭐⭐ the drag LATCHES coming back to its own anchor, not only when reaching a new one', () => {
+    // His ask, 2026-08-18. Both events are "the ink reached the place the engraver would have put
+    // this end", so both stop it there — otherwise the one position most likely to be wanted is the
+    // one you can only hit by luck.
+    dragArmedSlurEndpoint(state, engine, 50, 0) // out to +5 spaces, no crossing (the gap is 10)
+    expect(offsetX()).toBeCloseTo(5, 6)
+    const back = dragArmedSlurEndpoint(state, engine, -80, 0) // would overshoot to −3
+    expect(offsetX(), 'stopped dead on the note').toBeCloseTo(0, 6)
+    expect(back).toEqual({ crossings: 0, gapAhead: 100, latched: true, discarded: 30 })
+  })
+
+  it('…and the ink can still LEAVE a note it is latched on', () => {
+    // ⛔ The guard that makes the latch a stop rather than a trap: at offset 0 every direction
+    // "passes through" zero, so latching there unconditionally would pin the endpoint for good.
+    dragArmedSlurEndpoint(state, engine, 50, 0)
+    dragArmedSlurEndpoint(state, engine, -80, 0)
+    expect(offsetX()).toBeCloseTo(0, 6)
+    expect(dragArmedSlurEndpoint(state, engine, -20, 0)?.latched).toBe(false)
+    expect(offsetX()).toBeCloseTo(-2, 6)
+  })
+
+  it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
+    dragArmedSlurEndpoint(state, engine, 12, -3)
+    // …and it moved BOTH axes: the vertical is a plain offset, there being no anchor above to reach.
+    expect(offsetY()).toBeCloseTo(-0.3, 6)
+    // Decisive: if the frame had pushed a snapshot, this undo would take back the frame. It takes
+    // back the slur's creation instead, because the frame pushed nothing.
+    engine.undo()
+    expect(engine.getSlurById(slurId)).toBeNull()
+  })
+
+  it('⛔ the drag declines with nothing armed, so the press falls through to its other meanings', () => {
+    // ⚠️ null, not 0: a number is a crossing COUNT, and 0 is an ordinary frame that moved only ink.
+    state.selectedElement = { kind: 'slur', id: slurId }
+    expect(dragArmedSlurEndpoint(state, engine, 50, 0)).toBeNull()
+    expect(offsetX()).toBe(0)
   })
 
   it('⭐ a crossing press is ONE undo entry — the re-point and the re-base go back together', () => {
