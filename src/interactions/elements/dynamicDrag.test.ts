@@ -18,7 +18,13 @@ import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
 function dragEngine(notes: Array<{
   id: string; left: number; y: number; measure: number; beat: number
   voice?: number; staff?: number; rest?: boolean
-}>, dynamic: { voice?: 0 | 1 | 2 | 3; staffId?: string } | null = {}) {
+}>, dynamic: {
+  voice?: 0 | 1 | 2 | 3; staffId?: string; placement?: 'above' | 'below'
+  /** Where the last render DREW the mark, and the address it is stored at. Both absent = a mark the
+   *  render never registered, which is the untranslated case the older cases below run in. */
+  drawnAt?: { x: number; y: number }
+  at?: { measure: number; beat: number }
+} | null = {}) {
   const registry = new ElementRegistry()
   for (const n of notes) {
     registry.add({
@@ -26,9 +32,21 @@ function dragEngine(notes: Array<{
       bbox: { x: n.left, y: n.y - 5, width: 12, height: 10 },
     } as ElementInfo)
   }
+  if (dynamic?.drawnAt) {
+    registry.add({
+      type: 'dynamic', id: 'D1', staff: 0,
+      bbox: { x: dynamic.drawnAt.x - 6, y: dynamic.drawnAt.y - 6, width: 12, height: 12 },
+    } as ElementInfo)
+  }
+  const beat = { num: dynamic?.at?.beat ?? 0, den: 1 }
   return {
-    getDynamicById: () => (dynamic && { id: 'D1', beat: { num: 0, den: 1 }, text: 'p', ...dynamic }),
-    getScore: () => ({ staves: [{ id: 's0' }, { id: 's1' }] }),
+    getDynamicById: () => (dynamic && { id: 'D1', beat, text: 'p', ...dynamic }),
+    getScore: () => ({
+      staves: [{ id: 's0' }, { id: 's1' }],
+      measures: dynamic?.at
+        ? [{ number: dynamic.at.measure, dynamics: [{ id: 'D1', beat }] }]
+        : [],
+    }),
     getElementRegistry: () => registry,
     getNote: (id: string) => {
       const n = notes.find(x => x.id === id)
@@ -102,6 +120,48 @@ describe('dynamicDragTargetAt', () => {
       { id: 'high', left: 200, y: 30, measure: 1, beat: 1 },
     ])
     expect(dynamicDragTargetAt(engine, 'D1', 206, 120)).toEqual({ measure: 1, beat: { num: 1, den: 1 } })
+  })
+
+  /**
+   * 🚨🚨 His report, 2026-08-18: *"while dragging the dynamic to the left, if my cursor goes a little
+   * low it jumps to the other system"*.
+   *
+   * ⚠️ **The fixture has to be LOPSIDED or it passes with the translation deleted**: the mark's line
+   * is put NEARER the other system's noteheads than its own, which is the real geometry — a dynamics
+   * line sits below its staff, i.e. in the gap between the two systems.
+   */
+  const TWO_SYSTEMS = [
+    { id: 'mine', left: 100, y: 50, measure: 1, beat: 0 },
+    { id: 'mine2', left: 260, y: 50, measure: 1, beat: 1 },
+    { id: 'below', left: 100, y: 300, measure: 5, beat: 0 },
+    { id: 'below2', left: 260, y: 300, measure: 5, beat: 1 },
+  ]
+
+  it('🚨🚨 reads the mark\'s OWN system, though the other one\'s notes are nearer the cursor', () => {
+    // The mark is drawn at y = 200: 150px below its own noteheads, only 100px above the next
+    // system's. A raw cursor y — or any hypotenuse over both axes — answers with measure 5.
+    const engine = dragEngine(TWO_SYSTEMS, { drawnAt: { x: 106, y: 200 }, at: { measure: 1, beat: 0 } })
+    expect(dynamicDragTargetAt(engine, 'D1', 266, 200)).toEqual({ measure: 1, beat: { num: 1, den: 1 } })
+  })
+
+  it('🚨 …and still does when the hand drifts BELOW the mark\'s own line', () => {
+    // "a little low" — 30px under the glyph, which without the translation is 70px from the other
+    // system's heads and 180 from its own.
+    const engine = dragEngine(TWO_SYSTEMS, { drawnAt: { x: 106, y: 200 }, at: { measure: 1, beat: 0 } })
+    expect(dynamicDragTargetAt(engine, 'D1', 266, 230)).toMatchObject({ measure: 1 })
+  })
+
+  it('⭐ the gap is MEASURED, so a mark on the system below reads THAT system', () => {
+    // Same score, same cursor band — only the mark moved. Nothing here is a constant.
+    const engine = dragEngine(TWO_SYSTEMS, { drawnAt: { x: 106, y: 450 }, at: { measure: 5, beat: 0 } })
+    expect(dynamicDragTargetAt(engine, 'D1', 266, 450)).toEqual({ measure: 5, beat: { num: 1, den: 1 } })
+  })
+
+  it('⚠️ falls back to the nearest head on the side PLACEMENT says, when the anchor is not drawn', () => {
+    // The mark is on screen but its own onset is not registered (culled). A `below` mark's music is
+    // ABOVE it — looking the wrong way would find the next system and report a gap of nothing.
+    const engine = dragEngine(TWO_SYSTEMS, { drawnAt: { x: 106, y: 200 }, placement: 'below' })
+    expect(dynamicDragTargetAt(engine, 'D1', 266, 200)).toMatchObject({ measure: 1 })
   })
 
   it('⛔ answers NOTHING when the cursor is nowhere near the music, so the drag simply stops', () => {
