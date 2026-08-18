@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
-  trillEndpointHandles, armTrillEndpointAt, cycleTrillEndpoint,
+  trillEndpointHandles, armTrillEndpointAt, cycleTrillEndpoint, trillDragTargetAt,
   TRILL_HANDLE_GAP_PX as GAP,
 } from './trillHandles'
 import { ElementRegistry, type ElementInfo } from '../../engine/ElementRegistry'
@@ -166,5 +166,137 @@ describe('cycleTrillEndpoint', () => {
     registry = new ElementRegistry()
     expect(walk(1)).toBe(false)
     expect(state.selectedElement).toEqual({ kind: 'trill', id: 'T1' })
+  })
+})
+
+/**
+ * ⭐⭐ {@link trillDragTargetAt} — which NOTE a dragged square is over.
+ *
+ * The registry is the fixture: the drawn note boxes are what the render measured, so "which note is
+ * the cursor nearest" is arithmetic.
+ *
+ * ⭐⭐ **The claim that matters is which x each end is measured against.** `TrillRenderer.spanX`
+ * draws the sign on the start note's LEFT edge and stops the wavy line at the left edge of the
+ * **first note AFTER** the trill — the third end rule. Measuring the end against its own notehead
+ * would leave the square a whole note behind the cursor, which is the hairpin's recorded *"it jumps
+ * before x mouse reach the target"* by the same route (a tip drawn at the first uncovered note).
+ */
+function dragEngine(
+  notes: Array<{ id: string; left: number; y: number; voice?: number; staff?: number; isRest?: boolean }>,
+  trill: { placement?: 'above' | 'below' } = {},
+  drawn: ElementInfo[] = [],
+) {
+  const registry = new ElementRegistry()
+  for (const d of drawn) registry.add(d)
+  for (const n of notes) {
+    registry.add({
+      type: 'note', id: n.id, staff: n.staff ?? 0,
+      bbox: { x: n.left, y: n.y - 5, width: 12, height: 10 },
+    } as ElementInfo)
+  }
+  return {
+    getTrillById: () => ({ id: 'T1', startNoteId: 'n1', voice: 0, ...trill }),
+    getElementRegistry: () => registry,
+    getNote: (id: string) => {
+      const n = notes.find(x => x.id === id)
+      return n ? { id, voice: n.voice, staff: n.staff, isRest: n.isRest } : null
+    },
+  } as unknown as Parameters<typeof trillDragTargetAt>[0]
+}
+
+/** Four notes, 12px wide, at x = 100 / 200 / 300 / 400 on one system. */
+const FOUR = [
+  { id: 'n1', left: 100, y: 50 },
+  { id: 'n2', left: 200, y: 50 },
+  { id: 'n3', left: 300, y: 50 },
+  { id: 'n4', left: 400, y: 50 },
+]
+
+describe('trillDragTargetAt', () => {
+  it('⭐ the START is measured against the note it sits ON', () => {
+    expect(trillDragTargetAt(dragEngine(FOUR), 'T1', 'start', 205, 50))
+      .toEqual({ at: 'start', noteId: 'n2' })
+    expect(trillDragTargetAt(dragEngine(FOUR), 'T1', 'start', 290, 50))
+      .toEqual({ at: 'start', noteId: 'n3' })
+  })
+
+  it('⭐⭐ the END is measured against the note AFTER it — where the wavy line stops', () => {
+    // ⭐⭐ THE BREAK-TEST: a cursor at 305 sits on n3's notehead. Measured against its OWN note it
+    // would answer n3; measured where the LINE would stop for each candidate — n2's line stops at
+    // n3's left edge, 300 — it answers n2, which is the note the drawing says is trilled.
+    expect(trillDragTargetAt(dragEngine(FOUR), 'T1', 'end', 305, 50))
+      .toEqual({ at: 'end', noteId: 'n2' })
+    expect(trillDragTargetAt(dragEngine(FOUR), 'T1', 'end', 405, 50))
+      .toEqual({ at: 'end', noteId: 'n3' })
+  })
+
+  it('⚠️ the LAST note has no note after it, so its own right edge stands in for the bar\'s end', () => {
+    // The renderer falls back to the bar's `noteEndX` there; the right edge is the nearest thing the
+    // interaction layer can see, and it keeps the last note REACHABLE, which is what matters.
+    expect(trillDragTargetAt(dragEngine(FOUR), 'T1', 'end', 412, 50))
+      .toEqual({ at: 'end', noteId: 'n4' })
+  })
+
+  it('⛔ RESTS are not candidates — a trill attaches to a note', () => {
+    const withRest = [...FOUR, { id: 'r1', left: 250, y: 50, isRest: true }]
+    expect(trillDragTargetAt(dragEngine(withRest), 'T1', 'start', 250, 50))
+      .toEqual({ at: 'start', noteId: 'n2' })
+  })
+
+  it('⭐ stays in the START note\'s own lane — the keys reach the same notes', () => {
+    const other = [...FOUR, { id: 'v2', left: 250, y: 50, voice: 1 }]
+    expect(trillDragTargetAt(dragEngine(other), 'T1', 'start', 250, 50))
+      .toEqual({ at: 'start', noteId: 'n2' })
+  })
+
+  it('answers nothing with no music at all, and declines for an id no trill has', () => {
+    expect(trillDragTargetAt(dragEngine([]), 'T1', 'start', 100, 50)).toBeNull()
+    const engine = { ...dragEngine(FOUR), getTrillById: () => null } as never
+    expect(trillDragTargetAt(engine, 'nope', 'start', 100, 50)).toBeNull()
+  })
+})
+
+/**
+ * 🚨🚨 **THE CURSOR IS ON THE ORNAMENT'S LINE, NOT ON THE MUSIC** — the pedal's report of
+ * 2026-08-18, applied to the family's fifth drag. ⭐⭐ Here the offset is SIGNED by the trill's
+ * side, which the pedal never had to think about.
+ */
+describe('trillDragTargetAt — the drag is measured from the SIGN\'s line', () => {
+  /** System 1's music at y=210, with an ABOVE trill whose band rides at 120 — 90px over its own
+   *  notes and only 70px under the previous system's, at y=50. */
+  const TWO_SYSTEMS = [
+    { id: 'up1', left: 100, y: 50 },
+    { id: 'up2', left: 200, y: 50 },
+    { id: 'n1', left: 100, y: 210 },
+    { id: 'n2', left: 200, y: 210 },
+    { id: 'n3', left: 300, y: 210 },
+  ]
+  const band = (y: number): ElementInfo => ({
+    type: 'trill', id: 'T1',
+    bbox: { x: 100, y: y - 9, width: 212, height: 18 },
+  } as ElementInfo)
+
+  it('🚨 an ABOVE trill answers its OWN system, though the system above is nearer in raw pixels', () => {
+    // ⭐⭐ THE BREAK-TEST, and it doubles as the one for the SIDE: looking for the anchor's music
+    // ABOVE it (a `below` trill's rule) finds the previous system and lands there instead.
+    const engine = dragEngine(TWO_SYSTEMS, { placement: 'above' }, [band(120)])
+    expect(trillDragTargetAt(engine, 'T1', 'start', 200, 120))
+      .toEqual({ at: 'start', noteId: 'n2' })
+  })
+
+  it('⭐ a BELOW trill is the MIRROR — its music is the system above its line', () => {
+    const below = [
+      { id: 'n1', left: 100, y: 50 },
+      { id: 'n2', left: 200, y: 50 },
+      { id: 'low', left: 200, y: 210 },
+    ]
+    const engine = dragEngine(below, { placement: 'below' }, [band(140)])
+    expect(trillDragTargetAt(engine, 'T1', 'start', 200, 140))
+      .toEqual({ at: 'start', noteId: 'n2' })
+  })
+
+  it('answers NOTHING when the cursor is on no system\'s music at all', () => {
+    const engine = dragEngine(TWO_SYSTEMS, { placement: 'above' }, [band(120)])
+    expect(trillDragTargetAt(engine, 'T1', 'start', 200, -400)).toBeNull()
   })
 })

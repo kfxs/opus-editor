@@ -26,7 +26,7 @@ import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './e
 import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
-import { armTrillEndpointAt } from './elements/trillHandles'
+import { armTrillEndpointAt, trillDragTargetAt } from './elements/trillHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -169,6 +169,16 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private pedalDragChanged = false
   private pedalDragStartTime: number | null = null
+
+  // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ It answers with a
+  //     NOTE, not a slot: a trill's anchors are notes, so this is `handleSlurEndpointDrag`'s family
+  //     rather than the pedal's — see `trillDragTargetAt`. ---
+  private isDraggingTrillEnd = false
+  private draggedTrillId: string | null = null
+  private draggedTrillEnd: 'start' | 'end' | undefined = undefined
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private trillDragChanged = false
+  private trillDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -702,6 +712,15 @@ export class MouseController {
     // ⚠️ No drag is armed here, unlike the wedge's, the bracket's and the pedal's: these squares ARM
     // and nothing more for now (`trillHandles`), so there is no end for a drag to move.
     if (armTrillEndpointAt(this.state, registry, coords.x, coords.y)) {
+      // Click = pick the square; drag (decided on move, past the same time threshold every other
+      // handle uses) re-anchors that end. The square stays armed after either, so the arrows can
+      // carry on from where the mouse stopped.
+      const armed = selectedOf(this.state, 'trill')
+      this.isDraggingTrillEnd = true
+      this.draggedTrillId = armed?.id ?? null
+      this.draggedTrillEnd = armed?.endpoint
+      this.trillDragChanged = false
+      this.trillDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1382,6 +1401,9 @@ export class MouseController {
     if (this.isDraggingPedalEnd) {
       this.endPedalEndDrag()
     }
+    if (this.isDraggingTrillEnd) {
+      this.endTrillEndDrag()
+    }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
     }
@@ -1515,6 +1537,21 @@ export class MouseController {
     this.draggedOttavaEnd = undefined
     this.ottavaDragChanged = false
     this.ottavaDragStartTime = null
+  }
+
+  /** Finish a trill-square drag: record one undo entry if the ornament actually moved, then reset.
+   *  The square stays armed — the drop ends the gesture, not the selection. */
+  private endTrillEndDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.trillDragChanged && this.draggedTrillEnd) {
+      engine.commitTrillDrag(this.draggedTrillEnd)
+      dbg(`Trill ${this.draggedTrillEnd} dragged | id:${this.draggedTrillId}`)
+    }
+    this.isDraggingTrillEnd = false
+    this.draggedTrillId = null
+    this.draggedTrillEnd = undefined
+    this.trillDragChanged = false
+    this.trillDragStartTime = null
   }
 
   /** Finish a pedal-square drag: record one undo entry if the pedal actually moved, then reset. The
@@ -2128,6 +2165,7 @@ export class MouseController {
     if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
+    if (this.handleTrillEndDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2338,6 +2376,27 @@ export class MouseController {
     if (!write) return true
     if (engine.previewOttavaEnd(this.draggedOttavaId, write)) {
       this.ottavaDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * One frame of a TRILL square drag — the ornament's twin of the handlers below, and the same three
+   * steps: wait out the click threshold, ask the module which NOTE the cursor is over, preview it.
+   *
+   * ⚠️ The module answers with a note id rather than an address in time, and the MODEL judges it: a
+   * rest, a fan member or a note that already trills are refused there, and reaching the other end
+   * collapses the trill rather than being refused.
+   */
+  private handleTrillEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingTrillEnd && this.draggedTrillId && this.draggedTrillEnd)) return false
+    if (this.trillDragStartTime !== null
+        && Date.now() - this.trillDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const write = trillDragTargetAt(engine, this.draggedTrillId, this.draggedTrillEnd, x, y)
+    if (!write) return true
+    if (engine.previewTrillAnchor(this.draggedTrillId, write.at, write.noteId)) {
+      this.trillDragChanged = true
       this.render.renderScore()
     }
     return true

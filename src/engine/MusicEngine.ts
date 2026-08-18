@@ -1911,6 +1911,30 @@ export class MusicEngine {
   }
 
   /**
+   * Live (preview) re-anchor used **while dragging one of a trill's squares** — writes the model but
+   * does NOT record undo; call {@link commitTrillDrag} on the drop for the single entry.
+   * {@link previewPedalEnd}'s twin, and for its reason: every frame of a drag would otherwise be its
+   * own undo step.
+   *
+   * ⭐ The model is the authority on the destination — a rest, a fanned member, a note that already
+   * trills, or a step past the other end are all refused there, and reaching the other end COLLAPSES
+   * the trill rather than being refused ({@link setTrillAnchor}).
+   *
+   * @returns true when the model changed.
+   */
+  previewTrillAnchor(id: string, which: 'start' | 'end', noteId: string): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitTrillDrag
+    return which === 'end'
+      ? this.scoreModel.setTrillEnd(id, noteId)
+      : this.scoreModel.setTrillStart(id, noteId)
+  }
+
+  /** Record ONE undo entry after a trill-square drag settles. */
+  commitTrillDrag(which: 'start' | 'end'): void {
+    this.commitPreviewed(which === 'start' ? 'Move trill start' : 'Move trill end')
+  }
+
+  /**
    * Set how a CONTINUATION system labels a trill — `(tr)` (default), a plain `tr`, or nothing.
    * See {@link Trill.continuationLabel} for the three, and who does which.
    *
