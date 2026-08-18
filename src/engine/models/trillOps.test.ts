@@ -280,3 +280,50 @@ describe('trills round-trip through JSON', () => {
     expect(JSON.parse(model.toJSON()).trills).toBeUndefined()
   })
 })
+
+/**
+ * ⭐⭐ THE BARE `tr` — `setTrillExtension`, his ask of 2026-08-18.
+ *
+ * The claim under test is the INVARIANT, not the flag: `'none'` and an `endNoteId` cannot both be
+ * held, because the wavy line is the only thing that would have said how long to keep trilling.
+ */
+describe('trillOps — the bare tr', () => {
+  let model: ScoreModel
+  let notes: Note[]
+  let trillId: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    notes = ([['C', 4], ['D', 4], ['E', 4]] as Array<[NoteParams['step'], number]>)
+      .map(([step, octave], i) =>
+        model.addNote({ step, octave, alter: 0, duration: 'q', measure: 1, beat: frac(i, 1) })!)
+    trillId = model.addTrill({ startNoteId: notes[0].id })!.id
+  })
+  const trill = () => model.getTrillById(trillId)!
+
+  it('turns the line off and back on, and reports whether anything changed', () => {
+    expect(model.setTrillExtension(trillId, 'none')).toBe(true)
+    expect(trill().extension).toBe('none')
+    expect(model.setTrillExtension(trillId, 'none'), 'already off').toBe(false)
+    expect(model.setTrillExtension(trillId, undefined)).toBe(true)
+    expect('extension' in trill(), 'DELETED, ⛔ not set to undefined').toBe(false)
+  })
+
+  it('⛔ turning it off CLEARS an explicit end — the two contradict', () => {
+    model.setTrillEnd(trillId, notes[2].id)
+    expect(trill().endNoteId).toBe(notes[2].id)
+    model.setTrillExtension(trillId, 'none')
+    expect(trill().endNoteId, 'a bare tr cannot also claim a run of notes').toBeUndefined()
+  })
+
+  it('⛔ …and giving it an end puts the line BACK', () => {
+    model.setTrillExtension(trillId, 'none')
+    model.setTrillEnd(trillId, notes[2].id)
+    expect(trill().extension, 'the line is what says how long').toBeUndefined()
+    expect(trill().endNoteId).toBe(notes[2].id)
+  })
+
+  it('is false for an unknown id', () => {
+    expect(model.setTrillExtension('nope', 'none')).toBe(false)
+  })
+})

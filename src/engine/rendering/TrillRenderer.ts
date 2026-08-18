@@ -18,10 +18,11 @@
  * Dorico makes it an option. Ours is LilyPond's plain restart — the parenthesis is one constant away
  * if his eye prefers it (docs/trill-plan.md §1 rule 6).
  *
- * ⭐⭐ **THE LINE ALWAYS DRAWS, including on a single note** — his call, 2026-08-13, overruling the
- * plan's rule 5 (LilyPond's and Gould's "a single note needs no wavy line"). A bare `tr` leaves the
- * duration implied and he wants it shown. See `trillOps.TrillSpan` for the full note; ⛔ do not
- * restore the flag from the sources.
+ * ⭐⭐ **THE LINE DRAWS BY DEFAULT, including on a single note** — his call, 2026-08-13, overruling
+ * the plan's rule 5 (LilyPond's and Gould's "a single note needs no wavy line"). A bare `tr` leaves
+ * the duration implied and he wants it shown. ⭐ The one exception is `Trill.extension: 'none'`, the
+ * engraver asking for a bare `tr` (his ask, 2026-08-18) — absent on every ordinary trill. See
+ * `trillOps.TrillSpan` for the full note; ⛔ do not restore rule 5 as the default.
  *
  * ⛔ **Not VexFlow's `Ornament`, and not `VibratoBracket`.** `Ornament` positions from the note's own
  * top — the exact defect the dynamics line exists to fix — and a note modifier cannot produce a
@@ -494,12 +495,16 @@ function drawTrill(
     // it under `'none'` would indent the wiggle from the margin for no visible reason.
     const lineStart = drawsSign ? signX + signWidth + px(TRILL_SIGN_GAP) : piece.x0
     const lineEnd = piece.x1
-    // ⭐⭐ **THE LINE ALWAYS DRAWS — his call, 2026-08-13**, overruling docs/trill-plan.md §1 rule 5
-    // ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr` leaves the
-    // duration implied; he wants it shown, on one note as much as on twenty. The ONLY thing that
-    // suppresses the wiggle is having no room left after the sign — a real geometric fact, not a
-    // rule — which is what this guard is and all it is.
-    if (lineEnd > lineStart) {
+    // ⭐⭐ **THE LINE DRAWS BY DEFAULT — his call, 2026-08-13**, overruling docs/trill-plan.md §1
+    // rule 5 ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr`
+    // leaves the duration implied; he wants it shown, on one note as much as on twenty.
+    //
+    // ⭐ Two things suppress it, and they are different in kind: `extension: 'none'` is the ENGRAVER
+    // asking for a bare `tr` (his ask, 2026-08-18 — {@link Trill.extension}), while `lineEnd >
+    // lineStart` is a geometric fact, no room left after the sign. ⛔ Don't merge them into one
+    // "should we draw" flag: one is a decision the score records and the other is arithmetic.
+    const drawsLine = trill.extension !== 'none' && lineEnd > lineStart
+    if (drawsLine) {
       drawWiggle(pass, lineStart, lineEnd, y, stave)
     }
 
@@ -508,16 +513,20 @@ function drawTrill(
     // rather than a bbox spanning bars of music underneath (`HairpinRenderer`'s reasoning).
     const top = y - px(TRILL_MARK_INK.above)
     const bottom = y + px(TRILL_MARK_INK.below)
+    // ⭐ How far this fragment's INK actually reaches. ⚠️ A bare `tr` stops at the sign — otherwise
+    // the hit-box (and the END square hanging off it) would claim a strip of empty staff where the
+    // line would have been.
+    const inkRight = drawsLine ? Math.max(lineEnd, piece.x0 + signWidth) : piece.x0 + signWidth
     pass.elementRegistry.add({
       type: 'trill',
       id: trill.id,
       staff: from.staffIndex,
       measure: from.measureNumber,
-      bbox: { x: piece.x0, y: top, width: Math.max(lineEnd, piece.x0 + signWidth) - piece.x0, height: bottom - top },
+      bbox: { x: piece.x0, y: top, width: inkRight - piece.x0, height: bottom - top },
       points: [
         { x: piece.x0, y: top },
-        { x: Math.max(lineEnd, piece.x0 + signWidth), y: top },
-        { x: Math.max(lineEnd, piece.x0 + signWidth), y: bottom },
+        { x: inkRight, y: top },
+        { x: inkRight, y: bottom },
         { x: piece.x0, y: bottom },
       ],
       // ⭐ The guide's two ends, on the FIRST fragment only — `getById` answers with the first entry

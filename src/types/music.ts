@@ -824,6 +824,24 @@ export interface Trill {
    * layer; neither replaces the other. See docs/trill-plan.md §1 rule 6.
    */
   continuationLabel?: 'parenthesised' | 'plain' | 'none'
+  /**
+   * ⭐⭐ **THE BARE `tr` — no wavy line at all.** Absent = the line draws, which is our default and
+   * HIS OWN CALL of 2026-08-13, overruling docs/trill-plan.md §1 rule 5 (*"a single note needs no
+   * wavy line"*, which was Gould's and LilyPond's): *a bare `tr` leaves the duration implied; show it
+   * on one note as much as on twenty.* This field is the per-trill exception to that default — his
+   * ask, 2026-08-18: *"there are cases where the user wants to have `tr` without the line"*.
+   *
+   * ⭐ `continuationLabel`'s shape, and for its reason: a per-trill OVERRIDE now, and when engraving
+   * presets arrive the preset sets the default and this stays the exception. Absent means *whatever
+   * the score says*, which today is "draw it".
+   *
+   * ⛔⛔ **`'none'` and an `endNoteId` CONTRADICT each other, and the model refuses to hold both.**
+   * If a trill covers more than one note, the wavy line is what tells the reader how long to keep
+   * trilling — so `setTrillExtension('none')` clears the end, and re-anchoring an end clears this.
+   * {@link addTrill} already normalises an end equal to the start away for the same reason: one
+   * statement, one spelling.
+   */
+  extension?: 'none'
 }
 
 /** How a continuation system labels a resumed trill — see {@link Trill.continuationLabel}. */

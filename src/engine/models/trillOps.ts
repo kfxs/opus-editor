@@ -116,6 +116,34 @@ export function setTrillEnd(score: Score, id: string, noteId: string | null): bo
   }
   if (!isTrillable(score, noteId) || !precedes(score, trill.startNoteId, noteId)) return false
   trill.endNoteId = noteId
+  // ⛔ An end and `extension: 'none'` contradict each other — the line is what says how long to keep
+  // trilling, so giving the trill an extent gives it back its line ({@link Trill.extension}).
+  delete trill.extension
+  return true
+}
+
+/**
+ * ⭐⭐ **THE BARE `tr`** — turn the wavy line off (`'none'`) or back on (`undefined`). His ask,
+ * 2026-08-18, reached from the END square's walk: one step further left than the collapse
+ * (`interactions/trillReanchor`).
+ *
+ * ⛔ **Turning it off CLEARS the end**, the other half of {@link Trill.extension}'s invariant: a
+ * trill drawn without a line cannot also claim to cover a run of notes, because the line is the only
+ * thing that would have said so. ⚠️ That makes this write AUDIBLE in the one case where an explicit
+ * end existed — which is why the caller commits rather than saving only.
+ *
+ * @returns true if the trill exists and the value changed.
+ */
+export function setTrillExtension(score: Score, id: string, extension: 'none' | undefined): boolean {
+  const trill = getTrillById(score, id)
+  if (!trill) return false
+  if ((trill.extension ?? undefined) === extension) return false
+  if (extension === 'none') {
+    trill.extension = 'none'
+    delete trill.endNoteId
+  } else {
+    delete trill.extension
+  }
   return true
 }
 
@@ -219,20 +247,26 @@ export interface TrillSpan {
 }
 
 /*
- * ⚠️⚠️ **THERE IS NO `hasLine`, AND THAT IS A DECISION — HIS, 2026-08-13.**
+ * ⚠️⚠️ **THE LINE IS THE DEFAULT, AND THAT IS A DECISION — HIS, 2026-08-13.**
  *
- * This interface carried one, and the renderer asked it before drawing the wiggle. The rule came
- * from the research (docs/trill-plan.md §1 rule 5, LilyPond's and Gould's practice): *a single note
- * needs no wavy line; the line exists exactly when the reader must know how long to keep trilling.*
+ * This interface once carried a `hasLine`, and the renderer asked it before drawing the wiggle. The
+ * rule came from the research (docs/trill-plan.md §1 rule 5, LilyPond's and Gould's practice): *a
+ * single note needs no wavy line; the line exists exactly when the reader must know how long to keep
+ * trilling.*
  *
- * ⭐ **He tested it and overruled it: the line ALWAYS shows.** A `tr` alone leaves the duration
- * implied, and he wants it shown — on one note as much as on twenty. So the wiggle runs from the
- * sign to the end of the trilled span, always, and the only thing that can suppress it is there
- * being no room left after the sign (which the renderer still guards).
+ * ⭐ **He tested it and overruled it: the line shows BY DEFAULT.** A `tr` alone leaves the duration
+ * implied, and he wants it shown — on one note as much as on twenty.
  *
- * ⛔ **Do not reintroduce this flag from the sources.** A reader who finds rule 5 in the plan and
+ * ⭐⭐ **…and on 2026-08-18 he asked for the exception back, as a per-trill OVERRIDE**
+ * ({@link Trill.extension}): *"there are cases where the user wants to have `tr` without the line"*,
+ * reached from the END square one step past the collapse. ⚠️ Note what did NOT come back: the old
+ * `hasLine` was a flag the RENDERER consulted for every trill, which is why "a field that is always
+ * true is not a field" retired it. `extension` is absent on every ordinary trill and present only
+ * where the engraver said so — an exception to a default, not a re-derivation of it.
+ *
+ * ⛔ **Do not restore rule 5 as the DEFAULT from the sources.** A reader who finds it in the plan and
  * "fixes" the code back would be undoing a decision made with the drawing in front of him, which
- * beats a convention read off a page. A field that is always true is not a field.
+ * beats a convention read off a page.
  */
 
 /**

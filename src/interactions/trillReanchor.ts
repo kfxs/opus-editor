@@ -70,6 +70,35 @@ export function reanchorArmedTrillEndpoint(
       ?? (span ? { measure: span.endMeasure, beat: span.endBeat } : null)
   if (!anchor) return false
 
+  // ⭐⭐ **ONE STEP PAST THE COLLAPSE IS THE BARE `tr`** — his ask, 2026-08-18: *"there are cases
+  // where the user wants to have `tr` without the line … if I'm re-anchoring the last endpoint I can
+  // go more to the left than the default so we don't show the line and just the `tr`"*.
+  //
+  // ⭐ It fills a step that was DEAD: from a collapsed one-note trill, `←` used to decline, because
+  // there was no end left to walk and the start is the floor. The walk now reads, leftward:
+  // *end on a later note → … → end on the start (the end CLEARS) → no line at all*, and `→` from
+  // there puts the line back on the same note. Reversible, on one axis, with no new gesture.
+  //
+  // ⚠️ It is taken BEFORE the lane is consulted, because neither step needs a destination note —
+  // and the leftward one is reachable exactly when there is nothing further left to reach.
+  //
+  // ⚠️⚠️ **This is the one place `Ctrl+Shift+arrow` writes something COSMETIC.** The chord otherwise
+  // means "move this end through the music" and a plain arrow means "move the ink". It is defensible
+  // only because at this end of the walk the trill covers ONE note and there is no musical extent
+  // left to change — see docs/trill-plan.md. ⛔ Do not generalise it to the other spans.
+  if (which === 'end') {
+    if (direction === 1 && trill.extension === 'none') {
+      if (!engine.setTrillExtension(selected.id, undefined)) return false
+      dbg(`Trill line restored (keyboard) | id:${selected.id}`)
+      return true
+    }
+    if (direction === -1 && trill.extension !== 'none' && trill.endNoteId === undefined) {
+      if (!engine.setTrillExtension(selected.id, 'none')) return false
+      dbg(`Trill line off (keyboard) | id:${selected.id} → a bare tr`)
+      return true
+    }
+  }
+
   // The START note's OWN lane, with no voice fallback — `reanchorArmedSlurEndpoint`'s rule and its
   // reason: a trill that silently jumped voices would be a wrong trill, not a recovered one. ⭐ The
   // lane comes from the START rather than from the armed end, because `Trill.voice` says both

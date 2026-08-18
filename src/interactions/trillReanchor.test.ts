@@ -84,8 +84,45 @@ describe('reanchorArmedTrillEndpoint', () => {
     expect(step(-1)).toBe(true)
     expect(trill().endNoteId, 'absent, ⛔ not equal to the start').toBeUndefined()
     expect(idx(trill().startNoteId)).toBe(1)
-    // ⚠️ …and it may not go further back: past the start there is nothing to trill.
-    expect(step(-1), 'no end to walk, and the start is the floor').toBe(false)
+  })
+
+  it('⭐⭐ ONE STEP PAST THE COLLAPSE IS THE BARE `tr` — his ask, 2026-08-18', () => {
+    // *"there are cases where the user wants to have `tr` without the line … if I'm re-anchoring the
+    // last endpoint I can go more to the left than the default."* ⭐ It fills a step that used to
+    // DECLINE — this case previously asserted `false` here, which is what made the hole visible.
+    arm('end')
+    step(-1)                                       // → the one-note trill
+    expect(trill().extension).toBeUndefined()
+    expect(step(-1)).toBe(true)
+    expect(trill().extension, 'no wavy line at all').toBe('none')
+    expect(trill().endNoteId, 'and still no end — the two contradict').toBeUndefined()
+    // ⚠️ …and THAT is the floor: there is nothing further left than a bare sign.
+    expect(step(-1), 'nothing past a bare tr').toBe(false)
+  })
+
+  it('⭐ and `→` puts the line back on the same note — reversible, one axis', () => {
+    arm('end')
+    step(-1); step(-1)
+    expect(trill().extension).toBe('none')
+    expect(step(1)).toBe(true)
+    expect(trill().extension, 'the line is back').toBeUndefined()
+    expect(idx(trill().startNoteId), 'and the trill has not moved').toBe(1)
+    expect(trill().endNoteId, 'still the one-note trill, ⛔ not re-extended in the same press')
+      .toBeUndefined()
+    // …one more `→` then extends it again, which is the ordinary walk resuming.
+    expect(step(1)).toBe(true)
+    expect(idx(trill().endNoteId)).toBe(2)
+  })
+
+  it('⛔ an explicit END and "no line" cannot both be held — re-anchoring restores the line', () => {
+    arm('end')
+    step(-1); step(-1)
+    expect(trill().extension).toBe('none')
+    // The line is what tells the reader how long to keep trilling, so giving the trill an extent
+    // gives it back its line — `setTrillEnd`'s half of the invariant.
+    engine.setTrillAnchor(trillId, 'end', ids[2])
+    expect(trill().extension).toBeUndefined()
+    expect(idx(trill().endNoteId)).toBe(2)
   })
 
   it('⭐⭐ stepping FORWARD with no end starts from where the LINE stops, not from the start', () => {

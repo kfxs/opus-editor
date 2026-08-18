@@ -1269,6 +1269,12 @@ export class ScoreModel {
     return trillOps.setTrillStart(this.score, id, noteId)
   }
 
+  /** Turn a trill's wavy line off (`'none'`) or back on. ⛔ Off CLEARS the end — see
+   *  {@link trillOps.setTrillExtension}. */
+  setTrillExtension(id: string, extension: 'none' | undefined): boolean {
+    return trillOps.setTrillExtension(this.score, id, extension)
+  }
+
   /** Set how a continuation system labels a trill. See {@link trillOps.setTrillContinuationLabel}. */
   setTrillContinuationLabel(id: string, label: TrillContinuationLabel): boolean {
     return trillOps.setTrillContinuationLabel(this.score, id, label)

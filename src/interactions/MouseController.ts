@@ -2395,7 +2395,12 @@ export class MouseController {
         && Date.now() - this.trillDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const write = trillDragTargetAt(engine, this.draggedTrillId, this.draggedTrillEnd, x, y)
     if (!write) return true
-    if (engine.previewTrillAnchor(this.draggedTrillId, write.at, write.noteId)) {
+    // ⭐ Dragged left past the start = the bare `tr` (the keyboard's extra step). ⚠️ Two doors
+    // because they are two writes; the drop commits either through the same entry.
+    const moved = write.lineOff
+      ? engine.previewTrillExtension(this.draggedTrillId, 'none')
+      : engine.previewTrillAnchor(this.draggedTrillId, write.at, write.noteId)
+    if (moved) {
       this.trillDragChanged = true
       this.render.renderScore()
     }

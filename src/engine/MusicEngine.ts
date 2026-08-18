@@ -1929,6 +1929,25 @@ export class MusicEngine {
       : this.scoreModel.setTrillStart(id, noteId)
   }
 
+  /**
+   * ⭐⭐ **THE BARE `tr`** — the wavy line off or back on, reached from the END square's walk one step
+   * past the collapse. ⚠️ `commit`, not `saveOnly`: turning the line off CLEARS an explicit end, and
+   * which notes a trill covers is what the notes SOUND. In the ordinary case (the trill was already
+   * a one-note trill) nothing audible changes and the entry is simply cheap.
+   */
+  setTrillExtension(id: string, extension: 'none' | undefined): boolean {
+    const ok = this.scoreModel.setTrillExtension(id, extension)
+    if (ok) this.commit(extension === 'none' ? 'Trill without a line' : 'Trill with a line')
+    return ok
+  }
+
+  /** Live (preview) line on/off while DRAGGING the end square past the start —
+   *  {@link previewTrillAnchor}'s twin, committed by {@link commitTrillDrag}. */
+  previewTrillExtension(id: string, extension: 'none' | undefined): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setTrillExtension(id, extension)
+  }
+
   /** Record ONE undo entry after a trill-square drag settles. */
   commitTrillDrag(which: 'start' | 'end'): void {
     this.commitPreviewed(which === 'start' ? 'Move trill start' : 'Move trill end')

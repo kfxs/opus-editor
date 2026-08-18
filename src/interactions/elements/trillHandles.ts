@@ -41,6 +41,10 @@ type DragEngine = Pick<MusicEngine, 'getTrillById' | 'getElementRegistry' | 'get
 export interface TrillDragWrite {
   at: 'start' | 'end'
   noteId: string
+  /** ⭐ The END square dragged LEFT PAST the start: the bare `tr`, no wavy line — the mouse twin of
+   *  the keyboard's step past the collapse ({@link Trill.extension}). ⛔ Never set for the start
+   *  square: a trill without a sign is not a trill. */
+  lineOff?: true
 }
 
 /** One drawn handle: a point, and which end of the trill it is. */
@@ -211,7 +215,19 @@ export function trillDragTargetAt(
     const d = Math.abs(x - c.x)
     if (d < bestDistance) { bestDistance = d; best = c.noteId }
   }
-  return best ? { at: which, noteId: best } : null
+  if (!best) return null
+
+  // ⭐⭐ DRAGGED LEFT PAST THE START — the bare `tr`, the keyboard's extra step reached with the
+  // mouse. ⚠️ Judged by POSITION IN THE LANE rather than by raw x: the lane is sorted, and a note on
+  // an earlier system has a smaller index but not necessarily a smaller x.
+  if (which === 'end') {
+    const startAt = lane.findIndex(n => n.id === trill.startNoteId)
+    const bestAt = lane.findIndex(n => n.id === best)
+    if (startAt !== -1 && bestAt !== -1 && bestAt < startAt) {
+      return { at: 'end', noteId: trill.startNoteId, lineOff: true }
+    }
+  }
+  return { at: which, noteId: best }
 }
 
 /**

@@ -300,3 +300,46 @@ describe('trillDragTargetAt — the drag is measured from the SIGN\'s line', () 
     expect(trillDragTargetAt(engine, 'T1', 'start', 200, -400)).toBeNull()
   })
 })
+
+/**
+ * ⭐⭐ **THE BARE `tr` BY MOUSE** — the end square dragged LEFT PAST the start, the drag twin of the
+ * keyboard's step past the collapse (his ask, 2026-08-18).
+ */
+describe('trillDragTargetAt — dragged past the start', () => {
+  /** The trill starts on `n2`, so `n1` is to its left. */
+  const FROM_N2 = (over: Parameters<typeof dragEngine>[0] = FOUR) =>
+    dragEngine(over, {}, []) as ReturnType<typeof dragEngine>
+
+  it('⭐ the END dragged left PAST the start asks for no line at all', () => {
+    const engine = {
+      ...FROM_N2(),
+      getTrillById: () => ({ id: 'T1', startNoteId: 'n2', voice: 0 }),
+    } as never
+    // The cursor is out at n1 — earlier in the lane than the start.
+    expect(trillDragTargetAt(engine, 'T1', 'end', 100, 50))
+      .toEqual({ at: 'end', noteId: 'n2', lineOff: true })
+  })
+
+  it('⛔ …and the START square never asks for it — a trill without a sign is not a trill', () => {
+    const engine = {
+      ...FROM_N2(),
+      getTrillById: () => ({ id: 'T1', startNoteId: 'n2', voice: 0 }),
+    } as never
+    expect(trillDragTargetAt(engine, 'T1', 'start', 100, 50))
+      .toEqual({ at: 'start', noteId: 'n1' })
+  })
+
+  it('⭐ dragging the end AS FAR AS the start is the ordinary collapse, not the bare sign', () => {
+    const engine = {
+      ...FROM_N2(),
+      getTrillById: () => ({ id: 'T1', startNoteId: 'n2', voice: 0 }),
+    } as never
+    // ⚠️ The candidate x for "the trill ends on n2" is n3's left edge (300) — where the line WOULD
+    // stop, the third end rule. So 300 is the collapse and `setTrillEnd` clears the end; 200 is
+    // already "ends on n1", which is past the start and therefore the bare sign (above).
+    expect(trillDragTargetAt(engine, 'T1', 'end', 300, 50))
+      .toEqual({ at: 'end', noteId: 'n2' })
+    expect(trillDragTargetAt(engine, 'T1', 'end', 200, 50))
+      .toEqual({ at: 'end', noteId: 'n2', lineOff: true })
+  })
+})
