@@ -1264,6 +1264,11 @@ export class ScoreModel {
     return trillOps.setTrillEnd(this.score, id, noteId)
   }
 
+  /** Re-anchor a trill's START, holding its end. See {@link trillOps.setTrillStart}. */
+  setTrillStart(id: string, noteId: string): boolean {
+    return trillOps.setTrillStart(this.score, id, noteId)
+  }
+
   /** Set how a continuation system labels a trill. See {@link trillOps.setTrillContinuationLabel}. */
   setTrillContinuationLabel(id: string, label: TrillContinuationLabel): boolean {
     return trillOps.setTrillContinuationLabel(this.score, id, label)

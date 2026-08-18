@@ -112,6 +112,14 @@ export type ElementType =
    * the FIRST entry holding an id, and a handle sharing the pedal's would shadow the signs.
    */
   | 'pedal-endpoint'
+  /**
+   * One of the two blue SQUARES a selected trill draws, one beyond the `tr` and one beyond the end
+   * of its wavy line. The `'pedal-endpoint'` above verbatim, one family and one look: registered by
+   * the HIGHLIGHT pass so it exists only while its trill is selected, removed again by
+   * `clearHighlights`, and carrying `trillId` + `endpoint` rather than `id` for that entry's
+   * reason — {@link getById} answers with the FIRST entry holding an id.
+   */
+  | 'trill-endpoint'
   | 'accidental'
   | 'dot'
   | 'tuplet'
@@ -366,8 +374,8 @@ export interface ElementInfo {
   cpIndex?: 0 | 1
   /** For a 'slur-endpoint' handle: which end of the slur it re-anchors. Also carried by a
    *  'hairpin-endpoint' square, where it is which end of the WEDGE the press arms — by an
-   *  'ottava-endpoint' square, where it is which end of the BRACKET — and by a 'pedal-endpoint'
-   *  square, where it is the press or the lift. */
+   *  'ottava-endpoint' square, where it is which end of the BRACKET, by a 'pedal-endpoint'
+   *  square, where it is the press or the lift — and by a 'trill-endpoint' square. */
   endpoint?: 'start' | 'end'
   /** For a 'hairpin' fragment: the mouth it was DRAWN at (staff-spaces, after the automatic rule,
    *  any authored override and the steepness cap), and the drawn length that decided it. The
@@ -383,6 +391,8 @@ export interface ElementInfo {
   ottavaId?: string
   /** For a 'pedal-endpoint' square: the pedal it belongs to. `ottavaId`'s twin, same reason. */
   pedalId?: string
+  /** For a 'trill-endpoint' square: the ornament it belongs to. `pedalId`'s twin, same reason. */
+  trillId?: string
   /**
    * ⭐ For a 'pedal' entry: WHICH SIGN this box is — the `Ped.` that presses the damper (`'down'`,
    * and a `(Ped.)` resumption is one too) or the `✻` that lifts it (`'up'`).

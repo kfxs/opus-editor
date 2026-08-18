@@ -26,6 +26,7 @@ import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './e
 import { armHairpinEndpointAt, hairpinDragTargetAt } from './elements/hairpinHandles'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
+import { armTrillEndpointAt } from './elements/trillHandles'
 import { articulationHit } from './elements/articulation'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
@@ -690,6 +691,17 @@ export class MouseController {
       this.draggedPedalEnd = armed?.endpoint
       this.pedalDragChanged = false
       this.pedalDragStartTime = Date.now()
+      this.render.renderScore()
+      event.preventDefault()
+      return
+    }
+    // …and a selected TRILL's two squares (2026-08-18). ⚠️ A pre-step for the family's reason: the
+    // ornament sits on the ladder between the octave bracket and the tempo mark, and BOTH run ahead
+    // of `TRILL_ELEMENT` in the chain, so a square beyond the wiggle can land inside either's box.
+    //
+    // ⚠️ No drag is armed here, unlike the wedge's, the bracket's and the pedal's: these squares ARM
+    // and nothing more for now (`trillHandles`), so there is no end for a drag to move.
+    if (armTrillEndpointAt(this.state, registry, coords.x, coords.y)) {
       this.render.renderScore()
       event.preventDefault()
       return

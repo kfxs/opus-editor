@@ -1892,6 +1892,25 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐⭐ **Re-anchor one END of a trill by NOTE** — `Ctrl+Shift+←/→` with that square armed
+   * (`interactions/trillReanchor`). `noteId === null` on the END clears it, back to the one-note
+   * trill whose extent comes from the ties.
+   *
+   * ⚠️ **`commit`, not `saveOnly`** — unlike the continuation label below it. Which notes a trill
+   * covers is which notes get the alternation, so this is AUDIBLE: `trilledSlotIds` reads the span
+   * and the playback schedule generates its repeats from it.
+   *
+   * @returns true when the model changed (the caller then re-renders).
+   */
+  setTrillAnchor(id: string, which: 'start' | 'end', noteId: string | null): boolean {
+    const ok = which === 'end'
+      ? this.scoreModel.setTrillEnd(id, noteId)
+      : noteId !== null && this.scoreModel.setTrillStart(id, noteId)
+    if (ok) this.commit(which === 'start' ? 'Move trill start' : 'Move trill end')
+    return ok
+  }
+
+  /**
    * Set how a CONTINUATION system labels a trill — `(tr)` (default), a plain `tr`, or nothing.
    * See {@link Trill.continuationLabel} for the three, and who does which.
    *

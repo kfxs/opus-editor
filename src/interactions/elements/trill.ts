@@ -49,5 +49,11 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
   // Recoloured, and — since 2026-08-17 — the attachment guide to the note it ornaments (the third
   // kind, after the dynamic and the tempo mark). ⭐ A trill's anchor is genuinely a NOTE: its
   // auxiliary is a step above that pitch, so the note is what the ornament is computed from.
-  highlight: h => { h.applyTrillSelectionHighlight(); h.applyAnchorGuideLine() },
+  // …and the two endpoint squares, one beyond each end (`./trillHandles`, 2026-08-18) — the
+  // family's pair, one look for every span in the editor.
+  highlight: h => {
+    h.applyTrillSelectionHighlight()
+    h.applyAnchorGuideLine()
+    h.applyTrillHandles()
+  },
 }

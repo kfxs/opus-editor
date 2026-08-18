@@ -433,12 +433,21 @@ export type SelectedElement =
    */
   | { kind: 'hairpin'; id: string; endpoint?: 'start' | 'end' }
   /**
-   * A TRILL, by id. Flat, like the hairpin — a trill has no endpoint handles to arm, and its extent
-   * is musical (the notes it covers), not cosmetic. ⚠️ There is no `placement` here even though the
-   * model carries one: `x` flips it on the MODEL, exactly as it flips a hairpin's type, so nothing
-   * about the side needs to live in the selection.
+   * A TRILL, by id — plus WHICH END (if any) is armed.
+   *
+   * ⭐ `endpoint` arrived 2026-08-18 with the two blue squares a selected trill now draws, reached by
+   * clicking one or by Tab (`./elements/trillHandles`) — the fifth span to get the pair, after the
+   * slur, the wedge, the bracket and the pedal. ⛔ It arms NOTHING yet.
+   *
+   * ⭐⭐ **And when it does, it will be the SLUR's road, not the pedal's**: a trill's two anchors are
+   * NOTES (`startNoteId` and an optional `endNoteId`), where a hairpin's, an ottava's and a pedal's
+   * are positions in time. So an edit off one of these squares re-anchors to a neighbouring note
+   * (`setTrillEnd`), never to a beat.
+   *
+   * ⚠️ There is no `placement` here even though the model carries one: `x` flips it on the MODEL,
+   * exactly as it flips a hairpin's type, so nothing about the side needs to live in the selection.
    */
-  | { kind: 'trill'; id: string }
+  | { kind: 'trill'; id: string; endpoint?: 'start' | 'end' }
   /**
    * An OCTAVE LINE — the numeral and its dashed bracket — plus WHICH END (if any) is armed.
    *

@@ -19,6 +19,8 @@ import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
+import { cycleTrillEndpoint } from './elements/trillHandles'
+import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -150,6 +152,14 @@ export function wireShortcuts(
   const walkPedalHandles = (step: 1 | -1): boolean => {
     const eng = getEngine()
     if (!eng || !cyclePedalEndpoint(state, eng.getElementRegistry(), step)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // …and a selected TRILL's squares (`elements/trillHandles`), chained on for the same reason.
+  const walkTrillHandles = (step: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !cycleTrillEndpoint(state, eng.getElementRegistry(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -294,6 +304,19 @@ export function wireShortcuts(
   /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
    *  carries none — ⚠️ which is the ordinary case, since a pedal's EXTENT edits are model writes
    *  with nothing to reset. */
+  /**
+   * ⭐⭐ **RE-ANCHOR THE ARMED TRILL SQUARE BY ONE NOTE** — `Ctrl+Shift+←/→` (his ask, 2026-08-18).
+   * The armed square is the gate, exactly as it is for the other four spans; ⭐ what differs is the
+   * STEP: a trill's anchors are NOTES, so this walks its lane one note at a time where the pedal and
+   * the bracket walk slots. The module owns every reason it can decline. See `trillReanchor`.
+   */
+  const reanchorArmedTrill = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    if (!eng || !reanchorArmedTrillEndpoint(state, eng, direction)) return false
+    renderer.renderScore()
+    return true
+  }
+
   const resetSelectedPedal = (): boolean => {
     const eng = getEngine()
     const pedal = selectedOf(state, 'pedal')
@@ -1106,8 +1129,10 @@ export function wireShortcuts(
     // ⭐ Tab walks the selected slur's handles. Returning the DECLINE straight through is what keeps
     // Tab the browser's focus key when no slur is selected — the manager only calls preventDefault
     // when a handler does not answer false.
-    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1) || walkPedalHandles(1),
-    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1) || walkPedalHandles(-1),
+    nextHandle: () => walkSlurHandles(1) || walkHairpinHandles(1) || walkOttavaHandles(1)
+      || walkPedalHandles(1) || walkTrillHandles(1),
+    previousHandle: () => walkSlurHandles(-1) || walkHairpinHandles(-1) || walkOttavaHandles(-1)
+      || walkPedalHandles(-1) || walkTrillHandles(-1),
     selectNextNote: () => {
       // Armed slur point / selected dynamic → fine nudge right instead of navigating.
       if (nudgeArmedSlurPoint(NUDGE_FINE_SS, 0)) return
@@ -1219,6 +1244,9 @@ export function wireShortcuts(
     //    square re-anchors the end, the LEFT one moves the beginning and holds the end. Two branches
     //    for the hairpin's reason (two model writes), and both walk the whole STAFF rather than a
     //    voice, because an octave line has none.
+    //    ⭐ …and a fourth family, the TRILL (2026-08-18) — ⭐⭐ but ONE branch, not a pair, and by
+    //    NOTE rather than by slot: a trill's anchors are notes, and the same module answers for both
+    //    of its squares because the walk is one lane either way (`trillReanchor`).
     //    ⭐ …and the same pair a third time for an armed PEDAL square (2026-08-18): the RIGHT one
     //    moves the LIFT, the LEFT one moves the press and holds the lift. 🚨 The lift move ARRIVED
     //    HERE FROM `Ctrl+←/→`, where it had been ungated since P3 — the pedal was the family whose
@@ -1227,12 +1255,12 @@ export function wireShortcuts(
     ctrlShiftArrowLeft: () =>
       reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
       || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
-      || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1)
+      || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1) || reanchorArmedTrill(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
-      || resizeSelectedPedal(1) || moveSelectedPedalStart(1)
+      || resizeSelectedPedal(1) || moveSelectedPedalStart(1) || reanchorArmedTrill(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),

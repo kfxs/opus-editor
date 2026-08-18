@@ -120,6 +120,63 @@ export function setTrillEnd(score: Score, id: string, noteId: string | null): bo
 }
 
 /**
+ * ⭐⭐ **Re-anchor a trill's START — the sign moves to another note, the end holds.** The model write
+ * behind `Ctrl+Shift+←/→` with the left square armed (his ask, 2026-08-18).
+ *
+ * ⭐ **Everything {@link addTrill} refuses, this refuses**: a rest, a fanned member, a note that is
+ * not there. The reason is the same and it is worth not re-deriving — a trill is a sign ON one note,
+ * the articulation family's attachment rather than the slur's span-between-two-points.
+ *
+ * ⭐ **…plus one refusal of its own: a note that already trills.** Moving a start onto another
+ * trill's note would leave two ornaments on one notehead, which is a contradiction rather than a
+ * stack — the accidental stamp's single-valued rule, arriving here by a move instead of by an add.
+ * ⛔ It refuses rather than merging: destroying a trill the user never named, inside a call that was
+ * not about it, is the thing `addPedal`'s note argues against.
+ *
+ * ⚠️ **The end is held, not moved** — so the start may not reach or pass it. An explicit `endNoteId`
+ * is the bound; without one there is nothing to cross, since the end is derived from the start's own
+ * tie chain and travels with it.
+ *
+ * @returns true if the trill exists and was updated.
+ */
+export function setTrillStart(score: Score, id: string, noteId: string): boolean {
+  const trill = getTrillById(score, id)
+  if (!trill) return false
+  if (noteId === trill.startNoteId) return false
+  if (!isTrillable(score, noteId)) {
+    dbg(`[trillOps.setTrillStart] refused: ${noteId.slice(0, 8)} is a rest, a fan member, or missing`)
+    return false
+  }
+  const occupied = trillOnNote(score, noteId)
+  if (occupied && occupied.id !== id) {
+    dbg(`[trillOps.setTrillStart] refused: ${noteId.slice(0, 8)} already trills`)
+    return false
+  }
+  // ⭐⭐ **REACHING THE END COLLAPSES THE TRILL onto that note**, ⛔ it does not refuse — and this is
+  // {@link addTrill}'s OWN normalisation arriving by a move instead of by an add: *an end EQUAL to
+  // the start is the no-line case, which is spelled by omitting `endNoteId` rather than by repeating
+  // it*. The result is the ordinary one-note trill, which is a finished ornament.
+  //
+  // ⭐ It is also the mirror of what the END square does when it steps back onto the start
+  // (`interactions/trillReanchor`): both ends collapse the line rather than jamming against it. His
+  // report, 2026-08-18: *"i can move the first point (tr) to the left but not to the right"* — on a
+  // trill whose end was the very next note, so every rightward step reached it.
+  //
+  // ⚠️ The two fields are written together, and the end goes FIRST: `precedes` would refuse a start
+  // that equals a still-present end, so the order is not cosmetic.
+  if (trill.endNoteId !== undefined) {
+    if (noteId === trill.endNoteId) {
+      delete trill.endNoteId
+    } else if (!precedes(score, noteId, trill.endNoteId)) {
+      dbg('[trillOps.setTrillStart] refused: the start would pass the end')
+      return false
+    }
+  }
+  trill.startNoteId = noteId
+  return true
+}
+
+/**
  * Set how a CONTINUATION system labels this trill — see {@link Trill.continuationLabel}.
  * @returns true if the trill exists and was updated.
  */
