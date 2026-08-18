@@ -431,3 +431,122 @@ test('⭐⭐ two wedges that MEET leave a gap — they must not touch at a point
   // neighbours (his call — see the constant).
   expect(air / gaps.spacing).toBeCloseTo(0.5, 1)
 })
+
+/**
+ * ⭐⭐ BROKEN FOR AN INTERIM DYNAMIC — Gould, *Behind Bars* printed p. 107:
+ *
+ * > "A hairpin may be broken for an interim dynamic. **Maintain the same angle for the hairpin
+ * > either side of the interim dynamic**, so that the hairpin is clearly one gradual dynamic
+ * > change."
+ *
+ * ⚠️ **These cannot be unit tests, and not only for the usual reason.** The cut is made from the
+ * mark's DRAWN ink (`markInkX` reads `getBBox()` on the letter's `<text>`), which measures 0×0 in
+ * jsdom — so without a browser there are no gaps at all and the wedge draws whole. The arithmetic
+ * that keeps the halves collinear is unit-tested on its own (`engine/rendering/hairpinBreaks.test.ts`);
+ * what is checked here is that the picture obeys it.
+ *
+ * ⛔ No other engine draws this: LilyPond forbids the input, MuseScore lets them overlap, Verovio
+ * pushes the wedge to a second line at full length — the picture Gould labels `incorrect`.
+ * See `reference/README.md`, the dynamic-vs-hairpin table.
+ */
+test('⭐⭐ a dynamic INSIDE the span breaks the wedge in two', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
+    // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
+    // and it therefore misses the whole class of bug these tests exist for — his report of
+    // 2026-08-18 was invisible to a prose fixture.
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    await h.render()
+  })
+
+  const arms = await armsOf(score)
+  // TWO fragments, so four arms — where an uninterrupted wedge draws two.
+  expect(arms.length, 'two fragments × two arms').toBe(4)
+
+  // …and there is a real hole between them: the second fragment starts right of where the first
+  // stopped, by more than the letter is wide.
+  const xs = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
+  expect(xs.length, 'two distinct fragment starts').toBe(2)
+  const firstEnd = Math.max(...arms.filter(a => Math.round(a.x1) === xs[0]).map(a => a.x2))
+  expect(xs[1]).toBeGreaterThan(firstEnd)
+})
+
+test('⭐⭐ …and the two halves lie on ONE pair of straight lines — the angle is maintained', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
+    // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
+    // and it therefore misses the whole class of bug these tests exist for — his report of
+    // 2026-08-18 was invisible to a prose fixture.
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    await h.render()
+  })
+
+  const arms = await armsOf(score)
+  const { spacing } = await staffOf(score)
+  const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
+  const first = arms.filter(a => Math.round(a.x1) === starts[0]).sort((a, b) => a.y2 - b.y2)
+  const second = arms.filter(a => Math.round(a.x1) === starts[1]).sort((a, b) => a.y2 - b.y2)
+  expect(first.length).toBe(2)
+  expect(second.length).toBe(2)
+
+  // Extrapolate each arm of the FIRST fragment across the gap, and it must land on the matching arm
+  // of the second. ⭐ Gould's own drawing agrees to 0.14 staff spaces; half a space is a generous
+  // tolerance that still fails outright for a wedge whose ramp restarts.
+  for (const [a, b] of [[first[0], second[0]], [first[1], second[1]]] as const) {
+    const slope = (a.y2 - a.y1) / (a.x2 - a.x1)
+    expect(a.y2 + slope * (b.x1 - a.x2)).toBeCloseTo(b.y1, -Math.log10(spacing * 0.5))
+  }
+})
+
+test('⭐⭐ the hole is a WINDOW, not a gap — a small padding either side of the ink', async ({ score }) => {
+  // His call, 2026-08-18: *"the white in this case is too much… it will be good that the white is
+  // just a small padding near to the ink"*. ⛔ NOT `BOUND_PADDING` (1 space, which the wedge's two
+  // ENDS use): inside a wedge the white is a window cut in something continuous, and a space either
+  // side reads as two wedges that happen to line up — the very thing p. 107's rule prevents.
+  await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    // 🚨 A REAL dynamics glyph (`dynamicForte`, U+E522), ⛔ not the ASCII letter: an ASCII `f` is
+    // prose in a serif face (`utils/dynamics`' text-as-truth rule), it carries no centring translate,
+    // and it therefore misses the whole class of bug these tests exist for — his report of
+    // 2026-08-18 was invisible to a prose fixture.
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
+    await h.render()
+  })
+
+  const arms = await armsOf(score)
+  const { spacing } = await staffOf(score)
+  const mark = (await score.evaluate(() => window.__h.inkSizes('g.vf-annotation text')))[0]
+  expect(mark, 'the mark was drawn').toBeTruthy()
+
+  const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
+  const firstEnd = Math.max(...arms.filter(a => Math.round(a.x1) === starts[0]).map(a => a.x2))
+  const secondStart = starts[1]
+
+  // ⭐⭐ Half a space either side (`HAIRPIN.BREAK_PADDING`), measured off Gould's own p. 107 drawing
+  // — where the ENDS of the same figure carry 0.75–1.0 sp. ⛔ A whole space here is what he saw as
+  // *"too much white"*.
+  const before = (mark.x - firstEnd) / spacing
+  const after = (secondStart - (mark.x + mark.width)) / spacing
+  // ⚠️ Tolerance is one half-pixel = 0.05 sp: the arms are snapped to half-pixels so a hairline
+  // straddles one row of pixels rather than two (`reference_thin_lines_need_half_pixel_offset`).
+  expect(Math.abs(before - 0.5)).toBeLessThan(0.1)
+  expect(Math.abs(after - 0.5)).toBeLessThan(0.1)
+  // 🚨🚨 …and EVEN, which is the bug he caught: the hole was cut around the mark's UNMOVED box, so a
+  // level — pulled back half its width onto its notehead — had the whole hole displaced sideways.
+  // Her drawing measures 10 px on both sides.
+  expect(Math.abs(before - after)).toBeLessThan(0.1)
+})

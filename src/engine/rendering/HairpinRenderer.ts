@@ -45,7 +45,9 @@ import { fracCompare, fracEq, fracGte } from '@/utils/fraction'
 import { hairpinLineKey, type DynamicsLinePlan } from './dynamicsLinePlan'
 import { voiceOf } from '@/utils/lanes'
 import { MARK_INK } from './dynamicsLinePass'
+import { dynamicMarkTranslate } from './dynamicMarkTransform'
 import { HAIRPIN, fragmentOpening, resolveHairpinShape, type WedgeRole } from './hairpinShape'
+import { breakWedgeAtGaps, rampAt, type WedgeGap } from './hairpinBreaks'
 import { THIN_LINE_SPACES } from './thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
 import { inStaffSpace } from './staffScaleGroup'
@@ -163,10 +165,65 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
     const text = el?.querySelector?.('text') as SVGTextElement | null
     const box = text?.getBBox ? text.getBBox() : null
     if (!box || box.width === 0) continue
-    left = Math.min(left, box.x)
-    right = Math.max(right, box.x + box.width)
+    // 🚨🚨 **THROUGH THE MARK'S OWN TRANSLATE.** `getBBox()` measures the `<text>` before the
+    // `translate` on its group, and a LEVEL carries a big one: it is pulled back half its own width
+    // to straddle the notehead (`dynamicMarkAnchor`). Comparing that unmoved box against a wedge
+    // drawn in the same local space put the clearance a half-glyph to the right of the letter —
+    // his report, 2026-08-18: *"the white is not even, there is more white on the right side"*, and
+    // *"with text it is not a problem, the problem is with the dynamic glyphs"* (prose is anchored
+    // where it was drawn, so its translate is zero and nothing looked wrong).
+    const moved = el ? dynamicMarkTranslate(el).x : 0
+    left = Math.min(left, box.x + moved)
+    right = Math.max(right, box.x + box.width + moved)
   }
   return Number.isFinite(left) ? { left, right } : null
+}
+
+/**
+ * ⭐⭐ **THE SLICES A WEDGE IS BROKEN AT — every dynamic INSIDE its span** (Gould printed p. 107,
+ * *"A hairpin may be broken for an interim dynamic"*; `./hairpinBreaks` carries the quotation and
+ * the measurement).
+ *
+ * ⭐ **STRICTLY inside.** A mark ON either end is the endpoint skyline's business — it shortens the
+ * wedge from that end rather than cutting a hole in it — and letting both rules see the same mark
+ * would take the padding out twice.
+ *
+ * ⭐ **The wedge's OWN LANE.** A dynamic governs a voice ({@link Dynamic.voice}), so a mark in
+ * another voice is not in this wedge's way; the staff is already settled, since `covered` is
+ * filtered to the hairpin's own staff index.
+ *
+ * ⚠️ Each gap carries the SYSTEM it is on: a wedge cut across a break has fragments in different
+ * systems' coordinates, and x's from two systems are not one ruler.
+ *
+ * ⚠️ Read off the letters as DRAWN, via {@link markInkX} — so this is browser-only in exactly the
+ * way the endpoint skyline is, and in jsdom it returns nothing and the wedge draws whole.
+ */
+function interiorMarkGaps(
+  pass: RenderPass,
+  hairpin: Hairpin,
+  span: HairpinSpan,
+  covered: readonly HairpinPlacement[],
+  pad: number,
+): WedgeGap[] {
+  const voice = voiceOf(hairpin)
+  const after = (measure: number, beat: Fraction, m: number, b: Fraction) =>
+    measure !== m ? measure > m : fracCompare(beat, b) > 0
+
+  const gaps: WedgeGap[] = []
+  for (const placement of covered) {
+    const seen: Fraction[] = []
+    for (const dyn of placement.view.dynamics ?? []) {
+      if ((dyn.voice ?? 0) !== voice) continue
+      if (!after(placement.measureNumber, dyn.beat, span.startMeasure, span.startBeat)) continue
+      if (!after(span.endMeasure, span.endBeat, placement.measureNumber, dyn.beat)) continue
+      // Co-located marks (`p dolce`) share a beat and merge into one box, so ask once per beat.
+      if (seen.some(b => fracEq(b, dyn.beat))) continue
+      seen.push(dyn.beat)
+      const ink = markInkX(pass, placement.view, dyn.beat)
+      if (ink) gaps.push({ line: placement.line, left: ink.left - pad, right: ink.right + pad })
+    }
+  }
+  return gaps
 }
 
 /**
@@ -354,6 +411,8 @@ function drawWedge(
   // is actually DRAWN — the sum of the fragments — and `endX − startX` is only that number when the
   // span fits on one system.
   const pieces = cutIntoPieces(pass, from.line, to.line, startX, endX, from.scale)
+  // ⚠️ The ramp is sized from the pieces BEFORE anything is cut out of them, and the interior gaps
+  // are taken out afterwards — Gould p. 107's collinearity. See `hairpinBreaks`.
   const drawnWidth = pieces.reduce((sum, p) => sum + (p.x1 - p.x0), 0)
   // ⭐ The hand-set mouth where there is one, else the automatic length-aware aperture. The steepness
   // cap inside `resolveHairpinShape` applies to both, so an authored mouth on a short wedge is still
@@ -362,9 +421,23 @@ function drawWedge(
   const shape = resolveHairpinShape(hairpinApertureOverrideOf(pass.score, hairpin.id), lengthSpaces)
   if (!(shape.aperture > 0)) return
 
+  // ⭐⭐ **BROKEN FOR AN INTERIM DYNAMIC** — Gould p. 107. The marks inside the span cut slices out
+  // of the pieces; each remaining segment remembers WHERE it sat, so the two arms carry straight
+  // across the gap instead of restarting. ⛔ Browser-only, like the endpoint skyline above and for
+  // the same reason: in jsdom a glyph measures 0×0, there are no gaps, and the wedge draws whole.
+  const segments = breakWedgeAtGaps(
+    pieces,
+    // ⚠️ `HAIRPIN.BREAK_PADDING`, ⛔ never the `pad` the two ENDS use: a window cut in a continuous
+    // wedge needs far less air than the gap between two separate objects (his call, 2026-08-18).
+    interiorMarkGaps(pass, hairpin, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave)),
+    px(HAIRPIN.MIN_FRAGMENT, from.stave))
+
   const ctx = pass.context
-  for (const piece of pieces) {
-    const open = fragmentOpening(piece.role, hairpin.type)
+  for (const piece of segments) {
+    const role = fragmentOpening(piece.role, hairpin.type)
+    // ⭐ The piece's own share of its role's range — 0→1 for anything the gaps did not touch, so an
+    // unbroken wedge is drawn by exactly the arithmetic it always was.
+    const open = { start: rampAt(role.start, role.end, piece.t0), end: rampAt(role.start, role.end, piece.t1) }
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its dynamics line, its staff-space size. All three
     // are facts about the system the piece landed on, not about where the wedge began.
     const here = covered.filter(p => p.line === piece.line)
@@ -381,8 +454,12 @@ function drawWedge(
     // ⚠️ The vertical nudge belongs to the wedge's TRUE ends, so a split wedge takes the start's on
     // its first piece and the end's on its last — a middle fragment has neither, and applying both
     // to every piece would bend the wedge at each system break.
-    const y0 = axis + px(shape.startY, stave) + (piece === pieces[0] ? nudge.startY : 0)
-    const y1 = axis + px(shape.endY, stave) + (piece === pieces[pieces.length - 1] ? nudge.endY : 0)
+    // ⭐ The slant is a ramp too, and interpolating it at the cut is what keeps the ARMS collinear —
+    // giving every segment the whole span's two deltas would step the wedge at each gap.
+    const y0 = axis + px(rampAt(shape.startY, shape.endY, piece.t0), stave)
+      + (piece === segments[0] ? nudge.startY : 0)
+    const y1 = axis + px(rampAt(shape.startY, shape.endY, piece.t1), stave)
+      + (piece === segments[segments.length - 1] ? nudge.endY : 0)
     const h0 = px(shape.aperture * open.start, stave) / 2
     const h1 = px(shape.aperture * open.end, stave) / 2
     ctx.setLineWidth(px(THIN_LINE_SPACES, stave))
@@ -437,7 +514,7 @@ function drawWedge(
       // so that is the TOP arm), and the staff's BOTTOM line at the beat the span starts on — a
       // POSITIONAL span attaches to a place, like the tempo mark and unlike the trill (which is
       // defined by a note's pitch). See docs/dynamic-offset-plan.md for that split.
-      ...(piece === pieces[0]
+      ...(piece === segments[0]
         ? { guides: [{ from: { x: piece.x0, y: y0 - h0 }, to: { x: x.startX, y: stave.getYForLine(4) } }] }
         : {}),
     })

@@ -274,6 +274,52 @@ export const HAIRPIN = {
    * the margins and there is nothing to stand off from.
    */
   END_INSET: 0.25,
+  /**
+   * ⭐⭐ **The air around a mark the wedge is BROKEN for, in staff spaces — ⛔ NOT
+   * {@link HAIRPIN.BOUND_PADDING}** (his call, 2026-08-18: *"the white in this case is too much…
+   * it will be good that the white is just a small padding near to the ink"*).
+   *
+   * ⭐ **The two paddings answer different questions, which is why one number could not serve both.**
+   * At an END the wedge stops short of a mark that is not its own — two objects, and Gould's "about a
+   * space" keeps them apart. INSIDE, the white is a window cut in something continuous: the reader
+   * has to see one gesture interrupted, and a full space either side (two spaces of hole, for a
+   * glyph barely wider than that) reads as two wedges that happen to be aligned — which is the very
+   * thing p. 107's *same angle* rule exists to prevent.
+   *
+   * ⭐⭐ **MEASURED OFF HER OWN DRAWING** (2026-08-18, after he said *"the drawing in p107 of Gould
+   * does not have that much white"* — he was right, and the first cut of this number was borrowed
+   * from Verovio rather than read). Printed p. 107 rendered at 450 dpi, ink-run profile across the
+   * correct (`and`) figure `pp ——— mf ——— ff`:
+   *
+   * | run | x | gap to next |
+   * |---|---|---|
+   * | `pp` | 739–809 | **20 px = 1.01 sp** |
+   * | wedge A | 830–967 | **10 px = 0.50 sp** |
+   * | `mf` | 978–1047 | **10 px = 0.50 sp** |
+   * | wedge B | 1058–1196 | **15 px = 0.75 sp** |
+   * | `ff` | 1212–1280 | |
+   *
+   * (Ruler checked on the figure itself rather than borrowed from a staved page: `pp` measures 39 px
+   * tall against Gould p. 101's *"the **p** two spaces"* ⇒ 19.5 px/sp, and `ff` 53 px against
+   * *"the ƒ is two and a half spaces"* ⇒ 21.2 px/sp — so ~20 px/sp, the book's constant.)
+   *
+   * ⭐ So: **half the gap she leaves at the wedge's ENDS** (0.75–1.0 sp there, and `BOUND_PADDING` is
+   * 1.0), and her interim gaps are EVEN — 10 px on both sides. It is also, exactly, MuseScore's
+   * `autoplaceHairpinDynamicsDistance`. ⛔ Do not "unify" it with `BOUND_PADDING` on the grounds that
+   * both are hairpin-to-dynamic gaps: see above for why the two questions differ.
+   */
+  BREAK_PADDING: 0.5,
+  /**
+   * ⭐ **The shortest piece of wedge worth drawing, in staff spaces** — anything narrower is DROPPED
+   * when a mark cuts the wedge (`hairpinBreaks.breakWedgeAtGaps`).
+   *
+   * The threshold is **Verovio's** (`view_control.cpp:688`, `unit * 2` = 1 sp, read 2026-08-18);
+   * ⛔ its FALLBACK is not. Verovio abandons the whole shortening when the result would be shorter
+   * than this, and the measured consequence is a wedge drawn straight through the adjacent
+   * dynamic's ink — reproducible in the ordinary `p < mf > p` figure. A sliver of wedge says
+   * nothing, but a wedge through a glyph says something false, so the remnant goes.
+   */
+  MIN_FRAGMENT: 1.0,
 } as const
 
 /**

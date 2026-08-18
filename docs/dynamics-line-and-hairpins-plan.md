@@ -1528,3 +1528,120 @@ preserve.
 | Properties rows | a hairpin selected | ends + mouth, by number | the two overrides |
 
 ⏭️ Not built: a DRAG of the mouth — it would want a third square, on the mouth rather than at an end.
+
+## 2026-08-18 — the wedge is BROKEN for an interim dynamic, and it keeps its angle
+
+His report: a `cresc.` spanning beats 0→3 with a dynamic at beat 1 drew straight through the letter.
+Four agents read the treatises on disk and all three engines before a line was written; the whole
+write-up, with page numbers and measurements, is `reference/README.md` §"third question" and
+§"THE THREE ENGINE SOURCES". ⛔ **Do not redo that research.**
+
+### The rule, and it is a quotation
+
+**Gould, *Behind Bars*, printed p. 107** (*Qualifying dynamic change → Interim dynamics*):
+
+> "A hairpin may be broken for an interim dynamic. **Maintain the same angle for the hairpin either
+> side of the interim dynamic**, so that the hairpin is clearly one gradual dynamic change. It is
+> unnecessary in this case to enclose the interim dynamic in brackets since it is clear that the
+> dynamic change continues:"
+
+⭐⭐ And her drawing was **measured** (450 dpi, 1 sp = 19.9 px): extrapolating the first half's two
+edges straight across the `mf` lands within **0.14 sp** of where the second half's edges begin. So
+the correct picture is **ONE wedge with a slice cut out of it**, not two wedges — and her `not`
+drawing is exactly the failure where the aperture restarts and the two angles differ.
+
+Three corroborations for the surrounding decisions, each from a second book:
+
+- **one horizontal plane** — Gould p. 105 (*"keep such markings on the same horizontal plane… The eye
+  most easily follows a progression of dynamics running parallel to the stave"*), with the displaced
+  version DRAWN and labelled `incorrect`; Ross p. 188 rule 3, *"A mark should be aligned horizontally
+  with a sign."* ⛔ **So the answer is never vertical displacement**;
+- **the wedge yields, the dynamic keeps its notehead** — Gould p. 104, *"(If a dynamic symbol is
+  present, the hairpin starts later and finishes earlier, so that the dynamic centres on the notehead
+  or chord.)"*;
+- **the shared datum is the glyph's x-height centre, not its baseline** — measured to 0.08 sp on
+  p. 105. MuseScore independently agrees (`0.46 × spatium`); Verovio fudges `+0.5 sp`.
+
+### ⛔ No engine does this, and that is why the case is ours
+
+- **LilyPond** makes it unrepresentable: an absolute dynamic *terminates* an open hairpin
+  (`lily/dynamic-engraver.cc:102`). Its shortening is a POINTER — the `DynamicText` *is* the wedge's
+  bound — not a proximity test.
+- **MuseScore** lets them overlap, and forbids the question:
+  `Autoplace::itemsShouldIgnoreEachOther` (`autoplace.cpp:406`) returns true unconditionally for any
+  DYNAMIC × HAIRPIN_SEGMENT pair. Its snapping matches on exact tick, endpoints only.
+- **Verovio** pushes the wedge to a second line at full length — the picture Gould labels incorrect.
+
+⭐⭐ All three link by *identity at the endpoints*. Our `{beat, length}` + `Fraction` model can ask
+`hp.beat < d.beat < hp.beat + hp.length` — the containment relation none of them can express.
+
+### What was built
+
+`engine/rendering/hairpinBreaks.ts` (new module, pure) + `interiorMarkGaps` in `HairpinRenderer`:
+
+1. every dynamic **strictly inside** the span and in the wedge's **own voice** contributes its DRAWN
+   ink, padded by `HAIRPIN.BREAK_PADDING`, as a gap — a mark ON an end stays the endpoint skyline's
+   business (§7), or the padding would come off twice;
+2. `breakWedgeAtGaps` cuts the system fragments around those slices, merging co-located marks
+   (`p dolce` is one obstacle) and matching gaps to fragments **by system**, since two systems' x's
+   are not one ruler;
+3. ⭐⭐ each surviving segment carries `t0`/`t1` — its share of the piece it was cut from, measured
+   against that piece's FULL extent, **gap included**. The renderer interpolates both the mouth's
+   opening and the slant across it. That is the collinearity, and it has two nice consequences: an
+   uncut piece comes back `0→1` and is drawn by exactly the arithmetic that was there before, so the
+   system-break thirds (`fragmentOpening`) are untouched;
+4. ⚠️ the ramp is still sized from the whole drawn width **before** the cuts. Closing it over the
+   remaining ink would draw two wedges whose angles differ — her `incorrect`.
+
+⚠️ **A remnant under `HAIRPIN.MIN_FRAGMENT` (1.0 sp) is DROPPED.** The threshold is Verovio's
+(`view_control.cpp:688`); its fallback is not — Verovio abandons the whole adjustment there and draws
+the wedge through the letter's ink, reproducible in the ordinary `p < mf > p` figure. A sliver says
+nothing; a wedge through a glyph says something false.
+
+⚠️ **Browser-only**, exactly as the endpoint skyline already is: the cut is made from `getBBox()` on
+the letter's `<text>`, and jsdom measures every glyph 0×0, so without a browser there are no gaps and
+the wedge draws whole. The arithmetic is unit-tested alone (`hairpinBreaks.test.ts`, 13 cases); the
+drawing is checked in `e2e/hairpin.e2e.ts` — two tests, one for the break and one that extrapolates
+each arm of the first half across the gap and lands it on the second's, both verified to fail without
+the code.
+
+⏭️ Still open, inherited rather than added: a mark being TEXT-EDITED is not drawn
+(`suppressedDynamicId`), so the wedge un-breaks while you type and snaps back on commit — §11.10's
+existing gap, now with one more symptom.
+
+
+### 2026-08-18 (later) — the white, measured off her drawing rather than borrowed
+
+Two corrections from his eye on the real thing, both worth recording because each was a *class* of
+mistake rather than a slip.
+
+**1. The gap was `BOUND_PADDING` (1.0 sp), and it is not the same question.** *"The white in this
+case is too much… it will be good that the white is just a small padding near to the ink."* At an END
+the padding separates two independent objects; INSIDE, the white is a window cut in something
+continuous, and a space either side reads as two wedges that happen to line up — the very thing
+p. 107's *same angle* rule exists to prevent. It is now its own constant, `HAIRPIN.BREAK_PADDING`.
+
+⭐⭐ **And the number is MEASURED, after he pushed back a second time** (*"the drawing in p107 of
+Gould does not have that much white, fyi"* — the first cut was 0.25 sp, borrowed from Verovio).
+Printed p. 107 rendered at 450 dpi, ink-run profile across the correct figure: `pp` **1.01 sp** wedge
+A **0.50 sp** `mf` **0.50 sp** wedge B **0.75 sp** `ff`. So the interim gap is **0.5 sp, half what she
+leaves at the ends, and EVEN on both sides** — and, incidentally, exactly MuseScore's
+`autoplaceHairpinDynamicsDistance`. The ruler was checked on that figure rather than borrowed from a
+staved page (`pp` = 39 px against her *"the p two spaces"*, `ff` = 53 px against *"the ƒ is two and a
+half spaces"* ⇒ ~20 px/sp).
+
+**2. 🚨🚨 The hole was cut around the mark's UNMOVED box.** *"The white is not even, there is more
+white on the right side"*, and then the clincher: *"with text it is not a problem, the problem is
+with the dynamic glyphs."* `markInkX` read `getBBox()` on the `<text>`, which measures BEFORE the
+`translate` on the mark's group — and a LEVEL carries a big one, because it is pulled back half its
+own width to straddle its notehead (`dynamicMarkAnchor`), where prose is anchored where it was drawn
+and shifts by nothing. Measured in the browser: the ink box sat at 137.5–158.5 and the wedge stopped
+at 139.5 and restarted at 165.5 — *overlapping* the letter on the left, 0.7 sp of white on the right.
+Fixed by adding `dynamicMarkTransform.dynamicMarkTranslate(el).x`, which is that module's business
+since it owns the attribute.
+
+⚠️⚠️ **And the reason the suite did not catch it: every fixture used an ASCII letter.**
+`addDynamic(…, { text: 'mf' })` is PROSE under the text-as-truth rule — a serif `mf`, no centring
+translate, no bug. The three break tests now use `'\ue522'` (`dynamicForte`), i.e. the case that
+actually breaks. ⭐ **A fixture that cannot express the defect is not a test of it**, and this one had
+been green all along.

@@ -91,6 +91,30 @@ export function shiftDynamicMark(pass: RenderPass, id: string, el: SVGGraphicsEl
  * the pass on a mark already in place is a no-op. That is what makes it safe to run over a measure
  * nobody re-engraved, whose element still carries last render's transform.
  */
+/**
+ * ⭐⭐ **WHAT THIS MARK HAS BEEN MOVED BY, as one pair of local px** — the sum of the three
+ * components, which is exactly the `translate` on its group.
+ *
+ * 🚨 **Because `getBBox()` on the inner `<text>` is measured BEFORE that translate**, and every
+ * reader that compares a mark's ink against something drawn elsewhere has to add it back. His
+ * report, 2026-08-18: a wedge broken for a dynamic left *"more white on the right side"* — it was
+ * cutting the hole around the box's UNMOVED position, so the whole hole sat one anchor-shift to the
+ * right of the letter, overlapping its ink on one side and leaving a gap on the other.
+ *
+ * ⚠️ The centring `anchor` is the big term and the reason this bites LEVELS and not prose: a level
+ * is pulled back by half its own width to straddle the notehead (`dynamicMarkAnchor`), a word is
+ * anchored where it was drawn and shifts by nothing. That is his *"with text it is not a problem,
+ * the problem is with the dynamic glyphs"*, exactly.
+ *
+ * ⛔ Not the CTM: this is the mark's OWN translate, in the same local space the caller is drawing
+ * in. Anything above it (the measure group, the staff's `scale(k)`) is shared with the caller and
+ * must not be counted.
+ */
+export function dynamicMarkTranslate(el: SVGGraphicsElement): { x: number; y: number } {
+  const was = componentsOf(el)
+  return { x: was.x + was.anchor, y: was.y + was.line }
+}
+
 export function placeDynamicMark(
   pass: RenderPass,
   id: string,
