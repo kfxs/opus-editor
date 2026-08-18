@@ -165,6 +165,50 @@ strokes. ⛔ pp. 323–4 is keyboard-only (hairpins vs double-stemmed beams) and
 | the aperture (the two books DISAGREE) | **Gould p. 103** vs **Ross p. 187** | Gould: *"The open end should not be more than two stave-spaces wide."* Ross: *"no more than a space and a half."* ⭐ MEASURED, Gould's own drawings are **1.51 / 1.56 sp** — she engraves Ross's number. |
 | ❌ Stone on any of this | **Stone, whole book** | **Nothing.** His index has no crescendo / diminuendo / wedge / hairpin entry at all; dynamics are pp. 16–19 and 32–33. Checked 2026-08-18 — ⛔ do not check again. |
 
+## ⭐⭐ THE THREE ENGINE SOURCES — on disk, and NOT in this directory
+
+**`~/dev/engine-sources/{MuseScore,lilypond,verovio}`** — shallow clones, re-fetched 2026-08-18.
+⭐ **Look here BEFORE cloning anything**: they have now been lost twice to `/tmp` being cleared
+(2026-08-16 and again before 2026-08-18), and each rediscovery costs an agent its budget.
+
+⭐ **Why not under `reference/`**: 846 MB of C++ inside the project directory is reachable by
+ripgrep, editor indexing and every `find` we run — a grep for `hairpin` that silently starts matching
+MuseScore's source is a confusing afternoon. One directory over, it can only be reached deliberately.
+The split is this README's own: **the manifest is committed, the bytes are not.**
+
+| repo | path | branch @ commit | re-fetch |
+|---|---|---|---|
+| **MuseScore** (645 MB) | `~/dev/engine-sources/MuseScore` | 🚨 **`main`** @ `929d1e9` (2026-08-18) | `git clone --depth 1 https://github.com/musescore/MuseScore.git` |
+| **LilyPond** (92 MB) | `~/dev/engine-sources/lilypond` | `master` @ `beedbfa` | `git clone --depth 1 https://gitlab.com/lilypond/lilypond.git` |
+| **Verovio** (109 MB) | `~/dev/engine-sources/verovio` | `develop` @ `efff0bc` | `git clone --depth 1 https://github.com/rism-digital/verovio.git` |
+
+⚠️ **Where the layout logic actually lives**, since all three moved it at some point:
+
+- **MuseScore 4** — ⛔ NOT in `dom/`. The model is `src/engraving/dom/*.cpp`, the layout is
+  `src/engraving/rendering/score/` (`tlayout.cpp`, `dynamicslayout.cpp`, `alignmentlayout.cpp`,
+  `autoplace.cpp`, `systemlayout.cpp`). There is **no `HairpinLayout` file** — hairpin layout is in
+  `tlayout.cpp`. Style defaults are `src/engraving/style/styledef.cpp`, in **spatium**.
+- **LilyPond** — the C++ in `lily/` is half the story; the constants are Scheme, in
+  `scm/define-grobs.scm` / `scm/output-lib.scm`, and `Documentation/` states intent. Units are
+  **staff-spaces**.
+- **Verovio** — layout is FUNCTORS, `src/adjust*functor.cpp`. ⛔ **There is no `AdjustHairpinsFunctor`**
+  (checked 2026-08-18 @ `efff0bc`); hairpin work is split across `preparedatafunctor.cpp` (linking),
+  `view_control.cpp` (the shortening — *inside the drawing code*) and
+  `adjustfloatingpositionerfunctor.cpp` (generic collisions). Its unit is `drawingUnit` = **half a
+  staff space**.
+
+⭐ **What they answered on 2026-08-18** (the dynamic-vs-hairpin question, alongside the books above):
+**MuseScore** shortens at an endpoint to `dynamic ink ± 0.5 sp` (`autoplaceHairpinDynamicsDistance`),
+finds the partner by **exact tick match**, aligns a snapping chain on a `0.46 × spatium` optical
+centre — and `Autoplace::itemsShouldIgnoreEachOther` (`autoplace.cpp:406`) **unconditionally forbids**
+a DYNAMIC × HAIRPIN_SEGMENT collision test, so a mid-span dynamic simply overlaps. **LilyPond** makes
+the case unrepresentable — an absolute dynamic *terminates* an open hairpin (`dynamic-engraver.cc:102`)
+— shortens to `text ink ∓ bound-padding` (**1.0 sp**; 0.333 sp between two wedges, **0** at a rest),
+and its `DynamicLineSpanner` is `axes . (,Y)`, i.e. purely vertical, with `outside-staff-priority`
+switched OFF inside a `Dynamics` context. **Verovio** shortens to `ink ± unit/2` (**0.25 sp**), links
+by pointer identity at the endpoints only, and answers a mid-span dynamic by pushing the hairpin to a
+**second line at full length** — which Gould p. 105 draws and labels *incorrect*.
+
 ## ⭐ Adding a source
 
 When a hunt turns up something real, it lands here — and **the row in the table above is the part
