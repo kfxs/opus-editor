@@ -344,3 +344,113 @@ test('⭐⭐ a trill crossing a system break repeats its SIGN on the new system 
   const rows = new Set(signs.map(s => Math.round(s.y / 10)))
   expect(rows.size).toBe(signs.length)
 })
+
+/**
+ * 🚨🚨 **THE HIT-BOX FOLLOWS THE NUDGED SIGN** — his report, 2026-08-18: *"the left endpoint does not
+ * move with the offset."*
+ *
+ * The registry entry was built from `piece.x0`, the fragment's SPAN start, at both ends. So a
+ * `startX` nudge moved the drawn `tr` and left its box — and the START square hanging off it —
+ * exactly where they were. ⭐ The END square moved all along, because `lineEnd` carries its own
+ * nudge, which is why only one of the two looked broken: a fix that checked "the box moved" without
+ * separating the two ends would have passed before the bug was fixed.
+ *
+ * ⚠️ In the browser because the claim is about the DRAWN sign: its glyph x is what the box has to
+ * agree with, and jsdom measures every glyph at 0.
+ */
+test('🚨 nudging the START moves the sign AND its hit-box together', async ({ score }) => {
+  const read = async () => score.evaluate(() => {
+    const h = window.__h
+    const box = h.engine.getElementRegistry().getByType('trill')[0]
+    const sign = h.placed('g.vf-trill text')[0]
+    return { boxX: box.bbox.x, signX: sign.x }
+  })
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [0, 1, 2, 3].map(beat =>
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
+    h.engine.addTrill({ startNoteId: ids[1], endNoteId: ids[2] })
+    await h.render()
+  })
+  const before = await read()
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    const trill = h.engine.getTrills()[0]
+    h.engine.nudgeTrillEndpoint(trill.id, 'start', -1, 0)   // one staff space LEFT
+    await h.render()
+  })
+  const after = await read()
+
+  const signMoved = after.signX - before.signX
+  const boxMoved = after.boxX - before.boxX
+  expect(signMoved, 'the sign went left by a staff space').toBeLessThan(-5)
+  expect(boxMoved, 'and its box went with it, by the SAME amount').toBeCloseTo(signMoved, 1)
+})
+
+test('⭐ …and nudging the END moves the line\'s end, leaving the sign where it was', async ({ score }) => {
+  const read = async () => score.evaluate(() => {
+    const h = window.__h
+    const box = h.engine.getElementRegistry().getByType('trill')[0]
+    const sign = h.placed('g.vf-trill text')[0]
+    return { right: box.bbox.x + box.bbox.width, signX: sign.x }
+  })
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [0, 1, 2, 3].map(beat =>
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
+    h.engine.addTrill({ startNoteId: ids[0], endNoteId: ids[2] })
+    await h.render()
+  })
+  const before = await read()
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', 1, 0)
+    await h.render()
+  })
+  const after = await read()
+
+  expect(after.right - before.right, 'the line reaches a space further right').toBeGreaterThan(5)
+  expect(after.signX, 'the sign has not moved — the horizontal is PER END').toBeCloseTo(before.signX, 1)
+})
+
+test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `below` one', async ({ score }) => {
+  // 🚨 THE BREAK-TEST FOR THE WHOLE CONVERSION. Every case above uses an `above` trill, where
+  // outward-from-the-staff and "up the screen" agree up to a sign — so they would all pass with the
+  // conversion deleted. A `below` trill is the one that bites, exactly as the ottava's 8vb did.
+  const signY = async () => score.evaluate(() => window.__h.placed('g.vf-trill text')[0].y)
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [0, 1, 2, 3].map(beat =>
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
+    h.engine.addTrill({ startNoteId: ids[1] })
+    await h.render()
+  })
+  const aboveBefore = await signY()
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)   // +1 OUTWARD
+    await h.render()
+  })
+  expect(await signY(), 'above the staff, further out is UP the screen').toBeLessThan(aboveBefore)
+
+  // …the same +1 outward on a `below` trill must move it DOWN.
+  await score.evaluate(async () => {
+    const h = window.__h
+    const trill = h.engine.getTrills()[0]
+    h.engine.resetTrillOffset(trill.id)
+    h.engine.toggleTrillPlacement(trill.id)
+    await h.render()
+  })
+  const belowBefore = await signY()
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'start', 0, 1)
+    await h.render()
+  })
+  expect(await signY(), 'below the staff, further out is DOWN the screen').toBeGreaterThan(belowBefore)
+})

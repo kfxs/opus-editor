@@ -327,3 +327,84 @@ describe('trillOps — the bare tr', () => {
     expect(model.setTrillExtension('nope', 'none')).toBe(false)
   })
 })
+
+/**
+ * ⭐⭐ THE HAND-NUDGED INK — `TrillOffsetOverride`, his ask of 2026-08-18.
+ *
+ * The claim under test is the SHAPE: two horizontals and ONE vertical — and that the vertical is
+ * `outward` (a distance FROM THE STAFF) rather than a screen `y`, because `x` flips a trill's side
+ * and a screen-signed field would invert a nudge the user had already made.
+ */
+describe('trillOps — the ink offsets', () => {
+  let model: ScoreModel
+  let noteId: string
+  let trillId: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    noteId = model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    trillId = model.addTrill({ startNoteId: noteId })!.id
+  })
+  const off = () => model.getEngravingOverrides(trillId)[0]
+
+  it('accumulates per END horizontally, and shares ONE vertical', () => {
+    expect(model.setTrillEndpointOffset(trillId, 'start', 1, 0)).toBe(true)
+    model.setTrillEndpointOffset(trillId, 'start', 0.5, 0)
+    expect(off()).toEqual({ kind: 'trillOffset', startX: 1.5 })
+    model.setTrillEndpointOffset(trillId, 'end', -2, 0)
+    expect(off()).toEqual({ kind: 'trillOffset', startX: 1.5, endX: -2 })
+    // …and the vertical asked for at EITHER square is the ornament's one number.
+    model.setTrillEndpointOffset(trillId, 'end', 0, 0.25)
+    model.setTrillEndpointOffset(trillId, 'start', 0, 0.25)
+    expect(off()).toEqual({ kind: 'trillOffset', startX: 1.5, endX: -2, outward: 0.5 })
+  })
+
+  it('⭐ PRUNES zeros, so a horizontal-only nudge writes no vertical for the other square to find', () => {
+    model.setTrillEndpointOffset(trillId, 'start', 1, 0)
+    expect('outward' in off()).toBe(false)
+    model.setTrillEndpointOffset(trillId, 'start', -1, 0)
+    expect(model.getEngravingOverrides(trillId)).toHaveLength(0)
+  })
+
+  it('🚨 the WHOLE-ornament move applies the shared vertical ONCE, not twice', () => {
+    expect(model.setTrillOffset(trillId, 1, 2)).toBe(true)
+    // ⭐⭐ THE BREAK-TEST for `setTrillOffset`'s second call passing 0: handing `outward` to both
+    // per-end writes gives 4 — a double step vertically, with the horizontal looking correct.
+    expect(off()).toEqual({ kind: 'trillOffset', startX: 1, endX: 1, outward: 2 })
+  })
+
+  it('⭐ `Ctrl+Backspace` on a square drops THAT end\'s x and the shared vertical, keeping the other\'s', () => {
+    model.setTrillOffset(trillId, 1, 2)
+    model.setTrillEndpointOffset(trillId, 'end', 2, 0)   // end is now 3
+    expect(model.resetTrillEndpointOffset(trillId, 'start')).toBe(true)
+    expect(off()).toEqual({ kind: 'trillOffset', endX: 3 })
+  })
+
+  it('⚠️ that reset DECLINES when the square carries nothing, so the key falls through', () => {
+    model.setTrillEndpointOffset(trillId, 'end', 2, 0)
+    expect(model.resetTrillEndpointOffset(trillId, 'start')).toBe(false)
+    expect(model.resetTrillEndpointOffset('nope', 'start')).toBe(false)
+  })
+
+  it('the whole-ornament reset drops everything, and declines when there is nothing to drop', () => {
+    expect(model.resetTrillOffset(trillId)).toBe(false)
+    model.setTrillOffset(trillId, 1, 1)
+    expect(model.resetTrillOffset(trillId)).toBe(true)
+    expect(model.getEngravingOverrides(trillId)).toHaveLength(0)
+  })
+
+  it('⚠️ SURVIVES a re-anchor, and DIES with the trill', () => {
+    const later = model.addNote({ step: 'D', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    model.setTrillOffset(trillId, 1, 1)
+    model.setTrillEnd(trillId, later)
+    expect(off(), 'the nudge is about the drawing, not the anchor').toEqual(
+      { kind: 'trillOffset', startX: 1, endX: 1, outward: 1 })
+    model.removeTrill(trillId)
+    expect(model.getEngravingOverrides(trillId)).toHaveLength(0)
+  })
+
+  it('is false for an unknown id', () => {
+    expect(model.setTrillEndpointOffset('nope', 'start', 1, 1)).toBe(false)
+    expect(model.setTrillOffset('nope', 1, 1)).toBe(false)
+  })
+})

@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -107,6 +107,13 @@ export function hairpinEndpointOffsetOverrideOf(score: Score, elementId: string)
  *  line and its `y` is one quantity for the whole span. See {@link OttavaOffsetOverride}. */
 export function ottavaOffsetOverrideOf(score: Score, elementId: string): OttavaOffsetOverride | undefined {
   return engravingOverrideOf(score, elementId, 'ottavaOffset') as OttavaOffsetOverride | undefined
+}
+
+/** A trill's hand-nudged ink, or undefined when it has none. ⭐ Three numbers, and its vertical is
+ *  `outward` rather than a screen `y` — a trill's side can FLIP (`x`), which is the bracket's reason
+ *  and not the pedal's. See {@link TrillOffsetOverride}. */
+export function trillOffsetOverrideOf(score: Score, elementId: string): TrillOffsetOverride | undefined {
+  return engravingOverrideOf(score, elementId, 'trillOffset') as TrillOffsetOverride | undefined
 }
 
 /** A sustain pedal's hand-nudged ink, or undefined when it has none. The bracket's above — three

@@ -1107,6 +1107,43 @@ export interface PedalOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * The hand-nudged INK of a TRILL — the `tr` and the end of its wavy line moved off where the
+ * engraver put them, without changing which notes are trilled. {@link PedalOffsetOverride}'s shape,
+ * with one field spelled the OTHER way for a reason worth stating.
+ *
+ * ⭐ The horizontal stays PER END: `startX` pulls the sign (and the wiggle that leaves it, since the
+ * line starts where the sign ends), `endX` pulls only where the line stops.
+ *
+ * ⭐⭐ **The vertical is ONE number**, because the sign and the wiggle are drawn on one baseline —
+ * the pedal's reason rather than the bracket's: there is no straight rule here that a second height
+ * could tilt, there is a pair of marks that read as one.
+ *
+ * 🚨 **…but it is `outward`, NOT the pedal's screen `y`, and that is the whole of what the two
+ * disagree about.** A pedal has one side permanently. A trill's side is stored ({@link
+ * Trill.placement}) and **`x` flips it** — so a screen-signed number would turn a nudge that meant
+ * *clear of the music* into a shove toward it the moment the ornament moved under the staff. The
+ * bracket's field exists for exactly that reason ({@link OttavaOffsetOverride}), and the rule
+ * generalises: ⭐ **store `outward` iff the mark can change sides.**
+ *
+ * ⚠️ So the RENDERER negates it above the staff, and so does the page limit; the keyboard converts on
+ * the way in, since `↑` is a screen direction. Everything else reads it as written.
+ *
+ * ⚠️ It SURVIVES a re-anchor of either end — the nudge says *half a space further from wherever this
+ * ornament lands*, which is a statement about the drawing. It all dies with the trill.
+ */
+export interface TrillOffsetOverride extends EngravingOverride {
+  kind: 'trillOffset'
+  /** The SIGN's horizontal nudge, staff-spaces (+ right). ⚠️ The piece carrying the trill's true
+   *  start only — a continuation `(tr)` is a reminder, not the end the user grabbed. */
+  startX?: number
+  /** Where the WAVY LINE stops, staff-spaces (+ right). The sign stays put. */
+  endX?: number
+  /** ⭐ The whole ornament's vertical nudge, staff-spaces — `+` moves it FURTHER FROM THE STAFF (up
+   *  above it, down below it). See this interface's note for why it is not a screen `y`. */
+  outward?: number
+}
+
+/**
  * Addresses ONE open join of a cross-system slur for an endpoint-offset nudge (the
  * point where the slur leaves one system and resumes on the next). BEGIN has only an
  * open RIGHT end and END only an open LEFT end (so no `side`); a MIDDLE has both.

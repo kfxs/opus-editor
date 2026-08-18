@@ -16,10 +16,11 @@
  * a fact the model holds — it is derived, through {@link trillSpan}, from where the anchors landed
  * this instant. `hairpinOps.measureHairpins` exists because a hairpin genuinely lives on a bar.
  */
-import type { Score, Trill, TrillContinuationLabel, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
+import type { Score, Trill, TrillContinuationLabel, TrillOffsetOverride, Fraction, Measure, ChordRest, NotePitch } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { findSlot } from './slotLookup'
-import { clearEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { trillOffsetOverrideOf } from './engravingOverrides'
 import { voiceOf } from '@/utils/lanes'
 import { dbg } from '@/utils/debug'
 import { keyAt } from '@/utils/keySignature'
@@ -119,6 +120,113 @@ export function setTrillEnd(score: Score, id: string, noteId: string | null): bo
   // ⛔ An end and `extension: 'none'` contradict each other — the line is what says how long to keep
   // trilling, so giving the trill an extent gives it back its line ({@link Trill.extension}).
   delete trill.extension
+  return true
+}
+
+/**
+ * ⭐⭐ **NUDGE ONE END'S INK** — a plain or `Ctrl` arrow with that square armed. Staff-spaces,
+ * accumulating on whatever is already there. {@link setOttavaEndpointOffset}'s twin, ⭐ including its
+ * `outward` vertical: a trill's side FLIPS with `x`, so a screen-signed number would invert a nudge
+ * the moment the ornament moved under the staff ({@link TrillOffsetOverride}).
+ *
+ * ⭐ **An OVERRIDE, not the model** — `Ctrl+Shift+arrow` says which notes are trilled (content, and
+ * AUDIBLE: the playback schedule generates its repeats from the span), a plain or `Ctrl` arrow says
+ * where the ink goes. Two chords, two categories, one pair of squares.
+ *
+ * ⭐ `dx` is per end; `outward` moves BOTH, because the sign and the wiggle share one baseline.
+ *
+ * @returns true if the trill exists (the caller then re-renders).
+ */
+export function setTrillEndpointOffset(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  dx: number,
+  /** ⭐ OUTWARD from the staff, not screen-down — see this function's note. */
+  outward: number,
+): boolean {
+  if (!getTrillById(score, id)) return false
+  const prev = trillOffsetOverrideOf(score, id)
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writeTrillOffset(score, id, {
+    [xKey]: (prev?.[xKey] ?? 0) + dx,
+    [otherKey]: prev?.[otherKey],
+    outward: (prev?.outward ?? 0) + outward,
+  })
+  return true
+}
+
+/**
+ * Store the three numbers, ⭐ **dropping any that came out ZERO** — and pruning the whole entry when
+ * all three did, so an offset nudged back to nothing leaves the score exactly as it was found.
+ *
+ * ⚠️ The shared vertical is what forces this (`writeOttavaOffset`'s note, and `writePedalOffset`'s):
+ * a purely horizontal nudge computes `outward = 0 + 0`, and written down that zero is a number the
+ * OTHER square then reports as a nudge of its own — so `Ctrl+Backspace` on an untouched square would
+ * answer instead of falling through.
+ */
+function writeTrillOffset(
+  score: Score,
+  id: string,
+  next: { startX?: number; endX?: number; outward?: number },
+): void {
+  const kept: TrillOffsetOverride = {
+    kind: 'trillOffset',
+    ...(next.startX ? { startX: next.startX } : {}),
+    ...(next.endX ? { endX: next.endX } : {}),
+    ...(next.outward ? { outward: next.outward } : {}),
+  }
+  if (kept.startX === undefined && kept.endX === undefined && kept.outward === undefined) {
+    clearEngravingOverride(score, id, 'trillOffset')
+    return
+  }
+  setEngravingOverride(score, id, kept)
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE ORNAMENT** — the same `dx` onto both ends, accumulating: the arrows with a
+ * trill selected and NO square armed. **Something armed → that end moves; nothing armed → the
+ * ornament does.**
+ *
+ * 🚨 **The second call passes 0 for `outward`** — `setOttavaOffset`'s and `setPedalOffset`'s trap:
+ * the vertical is ONE field shared by both ends, so handing it to both calls applies it TWICE and
+ * the ornament jumps a double step while the horizontal looks perfectly correct beside it.
+ *
+ * @returns true if the trill exists.
+ */
+export function setTrillOffset(score: Score, id: string, dx: number, outward: number): boolean {
+  if (!getTrillById(score, id)) return false
+  setTrillEndpointOffset(score, id, 'start', dx, outward)
+  // ⛔ 0, not `outward` — see the note above. The vertical is already written.
+  setTrillEndpointOffset(score, id, 'end', dx, 0)
+  return true
+}
+
+/** Drop the ornament's nudges entirely — `Ctrl+Backspace` with it selected and no square armed.
+ *  @returns false when it carries none, so the key falls through to its other tenants. */
+export function resetTrillOffset(score: Score, id: string): boolean {
+  if (!trillOffsetOverrideOf(score, id)) return false
+  clearEngravingOverride(score, id, 'trillOffset')
+  return true
+}
+
+/**
+ * `Ctrl+Backspace` on an armed square: that end back where the engraver put it.
+ *
+ * ⚠️ **It drops that end's `x` AND the shared `outward`** — which follows from the vertical being one
+ * number for the ornament rather than a second decision. The OTHER end's `x` survives.
+ *
+ * @returns false when it carries no nudge, so the key falls through.
+ */
+export function resetTrillEndpointOffset(score: Score, id: string, which: 'start' | 'end'): boolean {
+  const prev = trillOffsetOverrideOf(score, id)
+  if (!prev) return false
+  const xKey = which === 'start' ? 'startX' : 'endX'
+  if (prev[xKey] === undefined && prev.outward === undefined) return false
+
+  const otherKey = which === 'start' ? 'endX' : 'startX'
+  writeTrillOffset(score, id, { [otherKey]: prev[otherKey] })
   return true
 }
 

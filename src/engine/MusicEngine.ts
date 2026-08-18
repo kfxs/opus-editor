@@ -1948,6 +1948,57 @@ export class MusicEngine {
     return this.scoreModel.setTrillExtension(id, extension)
   }
 
+  /**
+   * ⭐⭐ **Nudge the armed end of a trill's INK** — a plain or `Ctrl` arrow with that square armed.
+   * Staff-spaces.
+   *
+   * ⭐ `outward` moves the WHOLE ornament however it is asked for: the sign and the wiggle share one
+   * baseline, so {@link TrillOffsetOverride} has nowhere to put a second height.
+   *
+   * ⭐⭐ **`outward` is a distance FROM THE STAFF, not a screen delta** — `+` is up for an `above`
+   * trill and down for a `below` one, because `x` flips the side and a screen-signed field would
+   * invert the nudge with it. ⚠️ Callers that speak screen convert on the way in; `shortcutWiring`
+   * is the one that does.
+   *
+   * ⚠️ An override, so `saveOnly` rather than `commit`: moving ink changes nothing audible, which is
+   * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
+   */
+  nudgeTrillEndpoint(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
+    // ⚠️ The PAGE LIMIT predicts where ink lands, so it needs a SCREEN delta — the second of the two
+    // places that convert (the renderer is the other). Above the staff, further out is further UP.
+    const above = (this.getTrillById(id)?.placement ?? 'above') === 'above'
+    if (!this.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
+    const ok = this.scoreModel.setTrillEndpointOffset(id, which, dx, outward)
+    if (ok) this.saveOnly('Nudge trill')
+    return ok
+  }
+
+  /** ⭐⭐ **Move the WHOLE ornament** by a staff-space delta — the arrows with a trill selected and NO
+   *  square armed. One undo step; the same screen→outward negation as its per-end twin. */
+  nudgeTrill(id: string, dx: number, outward: number): boolean {
+    const above = (this.getTrillById(id)?.placement ?? 'above') === 'above'
+    if (!this.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
+    const ok = this.scoreModel.setTrillOffset(id, dx, outward)
+    if (ok) this.saveOnly('Nudge trill')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` with a trill selected and nothing armed: every nudge dropped. DECLINEs when it
+   *  carries none. */
+  resetTrillOffset(id: string): boolean {
+    const ok = this.scoreModel.resetTrillOffset(id)
+    if (ok) this.saveOnly('Reset trill nudge')
+    return ok
+  }
+
+  /** `Ctrl+Backspace` on an armed square: that end's `x` and the shared vertical back to the
+   *  engraver's own. @returns false when it carries no nudge, so the key falls through. */
+  resetTrillEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    const ok = this.scoreModel.resetTrillEndpointOffset(id, which)
+    if (ok) this.saveOnly('Reset trill nudge')
+    return ok
+  }
+
   /** Record ONE undo entry after a trill-square drag settles. */
   commitTrillDrag(which: 'start' | 'end'): void {
     this.commitPreviewed(which === 'start' ? 'Move trill start' : 'Move trill end')

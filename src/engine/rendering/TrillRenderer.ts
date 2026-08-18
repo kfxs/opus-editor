@@ -43,6 +43,7 @@ import { Element } from 'vexflow'
 import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
+import { trillOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
 import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -440,8 +441,21 @@ function drawTrill(
   // from the thing the trill is computed from.
   const anchor = trilledNoteAnchor(pass, from, voice, span, x.startX, side === 'above')
 
+  // ⭐⭐ THE HAND-NUDGED INK — the two squares' own category of edit ({@link TrillOffsetOverride}).
+  // Three numbers, not two pairs: `outward` is ONE quantity for the ornament, because the sign and
+  // the wiggle are drawn on one baseline. So the vertical is applied to `baseline` inside the loop —
+  // every fragment alike, in its own staff's spaces — and the two x's at the two sites marked below.
+  //
+  // ⛔⛔ **THE X NUDGES ARE APPLIED AFTER EVERY AUTOMATIC DECISION, AND THAT IS A RECORDED SCAR.**
+  // The bracket's start nudge was once added before `Math.max(…, barLeft)` — the clamp that stops the
+  // automatic continuation inset reaching back onto the clef — and it ate the hand nudge dead (*"i
+  // cannot offset the right side from a limit"*). ⭐ A machine's guess is worth clamping; the
+  // engraver's own instruction is not.
+  const nudge = trillOffsetOverrideOf(pass.score, trill.id)
+
+  const pieces = cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)
   let firstPiece = true
-  for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale)) {
+  for (const [pieceIndex, piece] of pieces.entries()) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own ink band, its staff-space size. All three
     // are facts about the system the piece landed on, not about where the trill began.
     const here = covered.filter(p => p.line === piece.line)
@@ -452,7 +466,15 @@ function drawTrill(
     // one fragment would push everything outside it a band further out, and would compile.
     const baseline = bands.get(trillBandKey(trill.id, piece.line))
       ?? baselineFor(here.length ? here : covered, span, voice, staffId, firstStaffId, side)
-    const y = stave.getYForLine(0) + px(baseline)
+    // ⭐⭐ THE SHARED VERTICAL NUDGE, on every fragment alike — which is what keeps the sign and the
+    // wiggle on one baseline across a system break as well as within one.
+    //
+    // ⭐⭐ **`outward` is a distance FROM THE STAFF, so it is negated above it** — one of the two
+    // places that convert (the page limit is the other). `baseline` is screen-relative and already
+    // signed per side; the stored number is not, so that `x` (flip the side) cannot invert a nudge
+    // the user already made. See {@link TrillOffsetOverride}.
+    const lift = (nudge?.outward ?? 0) * (side === 'above' ? -1 : 1)
+    const y = stave.getYForLine(0) + px(baseline + lift)
 
     // ⭐ EVERY FRAGMENT DRAWS ITS OWN SIGN (rule 6) — a continuation system has to say what the
     // wavy line means, so this is outside any "first piece only" condition on purpose.
@@ -486,7 +508,11 @@ function drawTrill(
         ? piece.x0 - px(TRILL_CONTINUATION_INSET)
         : Math.max(piece.x0 - px(TRILL_CONTINUATION_INSET), barLeft / (here[0]?.scale ?? 1)))
       : piece.x0
-    const signX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? marginX
+    const autoSignX = (restartOnNote ? firstNoteXOnLine(pass, here, voice) : undefined) ?? marginX
+    // ⭐ …and the START square's own nudge on top of every clamp above, never inside one — see the
+    // note before the loop. ⚠️ Only on the piece carrying the real beginning: a continuation `(tr)`
+    // is a reminder the reader gets for free, not the end the user grabbed.
+    const signX = autoSignX + (piece.continuation ? 0 : px(nudge?.startX ?? 0))
     const signWidth = drawsSign
       ? drawTrillSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
       : 0
@@ -494,7 +520,9 @@ function drawTrill(
     // ⚠️ No sign means no GAP either — the gap exists to separate the line from the sign, so keeping
     // it under `'none'` would indent the wiggle from the margin for no visible reason.
     const lineStart = drawsSign ? signX + signWidth + px(TRILL_SIGN_GAP) : piece.x0
-    const lineEnd = piece.x1
+    // ⭐ …and the END square's nudge, on the piece carrying the line's true end and outside the
+    // `TRILL_END_INSET` arithmetic that produced it — the start's rule, mirrored.
+    const lineEnd = piece.x1 + (pieceIndex === pieces.length - 1 ? px(nudge?.endX ?? 0) : 0)
     // ⭐⭐ **THE LINE DRAWS BY DEFAULT — his call, 2026-08-13**, overruling docs/trill-plan.md §1
     // rule 5 ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr`
     // leaves the duration implied; he wants it shown, on one note as much as on twenty.
@@ -513,21 +541,33 @@ function drawTrill(
     // rather than a bbox spanning bars of music underneath (`HairpinRenderer`'s reasoning).
     const top = y - px(TRILL_MARK_INK.above)
     const bottom = y + px(TRILL_MARK_INK.below)
-    // ⭐ How far this fragment's INK actually reaches. ⚠️ A bare `tr` stops at the sign — otherwise
-    // the hit-box (and the END square hanging off it) would claim a strip of empty staff where the
-    // line would have been.
-    const inkRight = drawsLine ? Math.max(lineEnd, piece.x0 + signWidth) : piece.x0 + signWidth
+    // ⭐⭐ WHERE THIS FRAGMENT'S INK ACTUALLY STARTS AND STOPS — ⛔ NOT `piece.x0`, which is where the
+    // fragment's SPAN begins.
+    //
+    // 🚨 His report, 2026-08-18: *"the left endpoint does not move with the offset."* The box was
+    // built from `piece.x0` at both ends, so a `startX` nudge moved the drawn `tr` and left its
+    // hit-box — and the START square hanging off it — exactly where they were. The END square moved
+    // all along, because `lineEnd` carries its own nudge, which is why only one of the two looked
+    // broken. ⭐ The registry describes the INK; the sign's own x is where the ink begins.
+    //
+    // ⚠️ It also fixes a smaller pre-existing lie: a continuation `(tr)` is drawn LEFT of `piece.x0`
+    // by {@link TRILL_CONTINUATION_INSET}, and its box never covered that.
+    //
+    // ⚠️ A bare `tr` stops at the sign — otherwise the box would claim a strip of empty staff where
+    // the line would have been.
+    const inkLeft = drawsSign ? signX : piece.x0
+    const inkRight = drawsLine ? Math.max(lineEnd, inkLeft + signWidth) : inkLeft + signWidth
     pass.elementRegistry.add({
       type: 'trill',
       id: trill.id,
       staff: from.staffIndex,
       measure: from.measureNumber,
-      bbox: { x: piece.x0, y: top, width: inkRight - piece.x0, height: bottom - top },
+      bbox: { x: inkLeft, y: top, width: inkRight - inkLeft, height: bottom - top },
       points: [
-        { x: piece.x0, y: top },
+        { x: inkLeft, y: top },
         { x: inkRight, y: top },
         { x: inkRight, y: bottom },
-        { x: piece.x0, y: bottom },
+        { x: inkLeft, y: bottom },
       ],
       // ⭐ The guide's two ends, on the FIRST fragment only — `getById` answers with the first entry
       // registered under an id, and the first fragment is the one holding the start note. ⛔ Putting

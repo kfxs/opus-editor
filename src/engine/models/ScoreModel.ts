@@ -1275,6 +1275,27 @@ export class ScoreModel {
     return trillOps.setTrillExtension(this.score, id, extension)
   }
 
+  /** Nudge one end of a trill's INK. ⭐ `outward` moves BOTH ends: they share a baseline. See
+   *  {@link trillOps.setTrillEndpointOffset}. */
+  setTrillEndpointOffset(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
+    return trillOps.setTrillEndpointOffset(this.score, id, which, dx, outward)
+  }
+
+  /** Nudge the WHOLE ornament — both ends, one delta. See {@link trillOps.setTrillOffset}. */
+  setTrillOffset(id: string, dx: number, outward: number): boolean {
+    return trillOps.setTrillOffset(this.score, id, dx, outward)
+  }
+
+  /** Drop every ink nudge on a trill. @returns false when it carries none. */
+  resetTrillOffset(id: string): boolean {
+    return trillOps.resetTrillOffset(this.score, id)
+  }
+
+  /** Drop one end's `x` and the shared `outward`. @returns false when it carries none. */
+  resetTrillEndpointOffset(id: string, which: 'start' | 'end'): boolean {
+    return trillOps.resetTrillEndpointOffset(this.score, id, which)
+  }
+
   /** Set how a continuation system labels a trill. See {@link trillOps.setTrillContinuationLabel}. */
   setTrillContinuationLabel(id: string, label: TrillContinuationLabel): boolean {
     return trillOps.setTrillContinuationLabel(this.score, id, label)
