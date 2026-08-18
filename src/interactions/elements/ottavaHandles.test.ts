@@ -202,8 +202,9 @@ describe('cycleOttavaEndpoint', () => {
  */
 function dragEngine(notes: Array<{
   id: string; left: number; y: number; measure: number; beat: number; voice?: number; staff?: number
-}>, ottava: { staffId?: string } = {}) {
+}>, ottava: { staffId?: string; shift?: number } = {}, drawn: ElementInfo[] = []) {
   const registry = new ElementRegistry()
+  for (const d of drawn) registry.add(d)
   for (const n of notes) {
     registry.add({
       type: 'note', id: n.id, staff: n.staff ?? 0,
@@ -301,5 +302,71 @@ describe('ottavaDragTargetAt', () => {
   it('declines for an id no ottava has', () => {
     const engine = { ...dragEngine(THREE), getOttavaById: () => null } as never
     expect(ottavaDragTargetAt(engine, 'nope', 'start', 100, 50)).toBeNull()
+  })
+})
+
+/**
+ * 🚨🚨 **THE CURSOR IS ON THE BRACKET'S LINE, NOT ON THE MUSIC** — the pedal's report of 2026-08-18
+ * (*"I'm dragging in the y of the pedal, aligned to it, but it interprets I'm in the system below"*)
+ * applied back to the drag it was copied from.
+ *
+ * ⭐⭐ The fixture must be LOPSIDED or it proves nothing: an 8va rises to clear the high music it is
+ * there for, so its line ends up NEARER the previous system's noteheads than its own. Systems set
+ * far apart would pass with the translation deleted.
+ */
+describe('ottavaDragTargetAt — the drag is measured from the BRACKET\'S line', () => {
+  /** System 1's music at y=50; system 2's at y=210, with an 8va over it whose line rides at 120 —
+   *  70px under system 1's notes and 90px over its own. */
+  const TWO_SYSTEMS = [
+    { id: 'a1', left: 100, y: 50, measure: 1, beat: 0 },
+    { id: 'a2', left: 200, y: 50, measure: 1, beat: 1 },
+    { id: 'b1', left: 100, y: 210, measure: 5, beat: 0 },
+    { id: 'b2', left: 200, y: 210, measure: 5, beat: 1 },
+    { id: 'b3', left: 300, y: 210, measure: 5, beat: 2 },
+  ]
+  /** The bracket as `OttavaRenderer` registers it: its band, plus the measured AXIS its line runs on. */
+  const bracket = (lineY: number): ElementInfo => ({
+    type: 'ottava', id: 'O1',
+    bbox: { x: 100, y: lineY - 9, width: 212, height: 18 },
+    ottavaAxis: { y: lineY, startX: 100, endX: 312 },
+  } as ElementInfo)
+
+  it('🚨 an 8va answers its OWN system, though the system ABOVE is nearer in raw pixels', () => {
+    // ⭐⭐ THE BREAK-TEST, and it is sharper than a mis-pick: at y=120 the untranslated row window
+    // contains ONLY system 1 (70px away) — its own music at 210 is 90px off and would be filtered
+    // out entirely, so the drag would move the bracket onto a system it is not drawn on.
+    // ⭐⭐ It is ALSO the break-test for the SIDE FLIP: looking for the anchor's music ABOVE it (the
+    // pedal's fixed rule) finds system 1's notes, measures a 70px gap, and lands on system 1 too.
+    const engine = dragEngine(TWO_SYSTEMS, { shift: 1 }, [bracket(120)])
+    expect(ottavaDragTargetAt(engine, 'O1', 'start', 200, 120))
+      .toEqual({ at: 'start', measure: 5, beat: { num: 1, den: 1 } })
+  })
+
+  it('⭐ an 8vb is the MIRROR — its music is the system above its line', () => {
+    // The side is derived from `shift`, so the same code looks the other way. Every ottava test that
+    // predates this one used an 8va, where looking down is the identity — this is the case that bites.
+    const bassa = [
+      { id: 'a1', left: 100, y: 50, measure: 1, beat: 0 },
+      { id: 'a2', left: 200, y: 50, measure: 1, beat: 1 },
+      { id: 'b1', left: 200, y: 210, measure: 5, beat: 0 },
+    ]
+    const engine = dragEngine(bassa, { shift: -1 }, [bracket(140)])
+    expect(ottavaDragTargetAt(engine, 'O1', 'start', 200, 140))
+      .toEqual({ at: 'start', measure: 1, beat: { num: 1, den: 1 } })
+  })
+
+  it('⭐ the y picks the SYSTEM and the x picks the NOTE — a pitch difference cannot outvote x', () => {
+    // `b2` is four ledger lines up, 40px above its neighbours; the cursor at x=245 is 45px from its
+    // left edge and 55px from `b3`'s. One hypotenuse over both axes answers `b3` — the note under
+    // the cursor losing to one further away because it is drawn higher.
+    const high = TWO_SYSTEMS.map(n => (n.id === 'b2' ? { ...n, y: 170 } : n))
+    const engine = dragEngine(high, { shift: 1 }, [bracket(120)])
+    expect(ottavaDragTargetAt(engine, 'O1', 'start', 245, 120))
+      .toEqual({ at: 'start', measure: 5, beat: { num: 1, den: 1 } })
+  })
+
+  it('⚠️ falls back to the raw cursor y when the bracket drew nothing to measure from', () => {
+    expect(ottavaDragTargetAt(dragEngine(TWO_SYSTEMS, { shift: 1 }), 'O1', 'start', 200, 210))
+      .toEqual({ at: 'start', measure: 5, beat: { num: 1, den: 1 } })
   })
 })

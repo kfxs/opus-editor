@@ -152,10 +152,21 @@ export function armOttavaEndpointAt(
  * ⚠️ **The lane is the STAFF, every voice** — `resizeOttavaBySlot`'s rule, so a drag cannot land the
  * bracket on a slot the keyboard could not reach.
  *
- * ⚠️ **The distance is measured in BOTH axes**, though only x carries the answer within a system.
- * The y term is what keeps a drag on system 2 from snapping to a note at a similar x on system 1 —
- * cross-system x's are not one ruler. The radius is generous because the cursor is never near a
- * notehead's y: the bracket rides above (or below) the staff and the square is dragged along it.
+ * ## 🚨🚨 THE Y IS TRANSLATED BEFORE ANYTHING IS COMPARED
+ *
+ * ⭐⭐ **The hand rides the BRACKET's line, and that line is nowhere near the noteheads it
+ * addresses** — so the raw cursor y can be closer to the NEIGHBOURING system's music than to its
+ * own, and answer with it. Reported on the pedal (2026-08-18: *"I'm dragging in the y of the pedal,
+ * aligned to it, but it interprets I'm in the system below"*) and fixed here in the same breath,
+ * because this is where that drag was copied from. ⚠️ It is not a tolerance that can be widened out
+ * of trouble: the wrong row is genuinely nearer.
+ *
+ * ⭐⭐ **So the offset is MEASURED and subtracted, ⛔ never a constant and never re-derived from the
+ * ladder** ({@link lineToMusicOffset}) — the gap between the drawn square and the onset it was drawn
+ * over already contains whatever the families inside this one claimed, and it is re-read every
+ * frame. After it, the y CHOOSES THE SYSTEM and the x CHOOSES THE NOTE: one hypotenuse over both
+ * axes let a pitch difference inside a row (a note four ledger lines up) outvote a hundred pixels of
+ * horizontal distance. Cross-system x's are not one ruler, which is the only reason y is consulted.
  *
  * @returns the slot's (measure, beat) address plus which end it is for, or null when nothing on the
  *   staff is near enough.
@@ -199,18 +210,67 @@ export function ottavaDragTargetAt(
   }
   if (!onsets.length) return null
 
+  // 🚨 THE TRANSLATION — see the header. The cursor is where the HAND is, on the bracket's line; the
+  // onsets are where the MUSIC is. This is the measured gap between the two.
+  const inMusic = y - lineToMusicOffset(engine, ottavaId, which, ottava.shift, onsets)
+
+  // ⭐ The y picks the SYSTEM, the x picks the note. Two axes, two questions.
+  const row = onsets.filter(o => Math.abs(inMusic - o.y) <= OTTAVA_DRAG_ROW_PX)
+  if (!row.length) return null
+
   let best: OttavaSlotTarget | null = null
   let bestDistance = OTTAVA_DRAG_SNAP_PX
-  for (const o of onsets) {
-    const d = Math.hypot(x - (which === 'start' ? o.left : o.right), y - o.y)
+  for (const o of row) {
+    const d = Math.abs(x - (which === 'start' ? o.left : o.right))
     if (d < bestDistance) { bestDistance = d; best = o.target }
   }
   return best ? { at: which, ...best } : null
 }
 
-/** ⚠️ Generous on purpose — see {@link ottavaDragTargetAt}: the cursor rides the bracket's line,
- *  several staff-spaces off the noteheads it is choosing between. The hairpin's number. */
+/**
+ * ⭐⭐ **How far off the music this bracket's line is drawn, MEASURED from the last render** — the
+ * number {@link ottavaDragTargetAt} subtracts from the cursor's y.
+ *
+ * ⚠️⚠️ **AND IT IS SIGNED, which is the one thing the pedal's twin does not have to think about.**
+ * A pedal is always below its staff; an octave line takes the side its SHIFT names — 8va above, 8vb
+ * below — so the onset the square was drawn over is on the opposite side of the square each time.
+ * Looking the wrong way finds the *neighbouring system's* music and reports a gap of nothing, which
+ * is the same bug this function exists to fix, arriving by the back door. ⛔ The side is derived
+ * from `shift`, never from the pixels.
+ *
+ * Returns 0 when the bracket is not on screen or nothing lies on the expected side — the honest "I
+ * don't know", which leaves the raw cursor y in play rather than inventing a shift.
+ */
+function lineToMusicOffset(
+  engine: DragEngine,
+  ottavaId: string,
+  which: 'start' | 'end',
+  shift: number,
+  onsets: ReadonlyArray<{ left: number; y: number }>,
+): number {
+  const anchor = ottavaEndpointHandles(engine.getElementRegistry().getByType('ottava'), ottavaId)
+    .find(h => h.which === which)
+  if (!anchor) return 0
+  // 8va rides ABOVE the staff, so its own music is BELOW the square; 8vb is the mirror.
+  const musicIsBelow = shift > 0
+  let found: { left: number; y: number } | null = null
+  let nearest = Infinity
+  for (const o of onsets) {
+    if (musicIsBelow ? o.y <= anchor.y : o.y >= anchor.y) continue
+    const d = Math.hypot(anchor.x - o.left, anchor.y - o.y)
+    if (d < nearest) { nearest = d; found = o }
+  }
+  return found ? anchor.y - found.y : 0
+}
+
+/** ⚠️ Generous on purpose — see {@link ottavaDragTargetAt}: HORIZONTAL only, now that the row is
+ *  chosen separately. The hairpin's number. */
 const OTTAVA_DRAG_SNAP_PX = 150
+
+/** How far off a system's noteheads the translated cursor may be and still be READING that system.
+ *  `PEDAL_DRAG_ROW_PX`'s twin, and the same tolerance-not-boundary reading: wide enough for the
+ *  pitch spread inside one system, well under the gap to the next. */
+const OTTAVA_DRAG_ROW_PX = 80
 
 /** The staff INDEX an ottava's `staffId` names (absent = the first staff), so a drawn element's own
  *  `staff` can be compared against it. `hairpinHandles`' helper, kept local for its reason: it is
