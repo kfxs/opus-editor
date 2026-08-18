@@ -500,6 +500,12 @@ export class VexFlowRenderer {
   /** Dynamic currently being edited in the in-canvas text overlay — skipped while
    *  rendering so the engraved glyph doesn't show doubled under the editor. */
   private suppressedDynamicId: string | null = null
+  /** How wide the open text overlay's content is, in the score's own pixels — see
+   *  `RenderPass.suppressedDynamicInkWidth`. Null when nothing is being edited. */
+  private suppressedDynamicInkWidth: number | null = null
+  /** ⭐ The last ink each dynamic was MEASURED at, kept across renders so a mark hidden behind its
+   *  editor still occupies the page. See `RenderPass.markInkMemory`. */
+  private readonly markInkMemory = new Map<string, { left: number; right: number; top: number; bottom: number }>()
   /** Tempo mark suppressed while its text overlay is open (mirrors suppressedDynamicId). */
   private suppressedTempoId: string | null = null
   /** Map of measure numbers to their layout info (including line number) */
@@ -562,6 +568,21 @@ export class VexFlowRenderer {
     return JSON.stringify([
       this.layoutStateKey(score),
       w && [Math.round(w.x), Math.round(w.y), Math.round(w.width), Math.round(w.height)],
+      // 🚨🚨 **THE OPEN EDITOR'S WIDTH, and it has to be HERE rather than in the layout key.**
+      //
+      // `RenderController.renderScore` only re-engraves `if (engine.isRenderStale())`, and this key
+      // is half of that answer — so a change nobody records here does not reach the page AT ALL.
+      // Typing in a dynamic's editor changes no model state, so before this line the hole a wedge
+      // keeps for that mark was computed once, when the editor opened, and then never again: the
+      // width arrived at the renderer on every keystroke (the logs showed it) and no render ever
+      // read it (his report, 2026-08-18 — the wedge kept crossing the growing word).
+      //
+      // ⛔ NOT `layoutStateKey`: the casting-off cannot depend on it (a dynamic takes no width —
+      // `extra-spacing-width` is infinite/negative for exactly this reason), so putting it there
+      // would throw the whole layout cache away on every keystroke to redraw one wedge.
+      //
+      // ⚠️ Rounded, or a sub-pixel reflow re-engraves for a difference nobody can see.
+      this.suppressedDynamicInkWidth === null ? null : Math.round(this.suppressedDynamicInkWidth),
     ])
   }
 
@@ -698,6 +719,8 @@ export class VexFlowRenderer {
       measureBounds: this.measureBounds,
       elementRegistry: this.elementRegistry,
       suppressedDynamicId: this.suppressedDynamicId,
+      suppressedDynamicInkWidth: this.suppressedDynamicInkWidth,
+      markInkMemory: this.markInkMemory,
       suppressedTempoId: this.suppressedTempoId,
       staffScale: (staffIndex: number) => this.staffScaleOf(score, staffIndex),
     }
@@ -3569,6 +3592,7 @@ export class VexFlowRenderer {
       { ...p, crossBarBeams: beamPlan.descriptorFor(p.measureNumber, p.staffIndex) },
       this.suppressedDynamicId,
       this.suppressedTempoId,
+      this.suppressedDynamicInkWidth,
     ))
 
     type Reuse = { snapshot: MeasureSnapshot; dx: number; dy: number }
@@ -4362,8 +4386,21 @@ export class VexFlowRenderer {
     this.suppressedTempoId = tempoId
   }
 
-  setSuppressedDynamicId(dynamicId: string | null): void {
+  /**
+   * Suppress one dynamic from the next renders (pass null to restore) — the text-edit overlay's
+   * hook, so the engraved glyph is not drawn under the DOM input.
+   *
+   * ⭐⭐ `liveInkWidth` is how wide the OVERLAY's text is right now, in the score's own pixels. It
+   * exists because a suppressed mark is not drawn and therefore measures NOTHING, so a wedge broken
+   * for it closed its hole and drew through the editor (his report, 2026-08-18). Omit it and the
+   * mark simply keeps the hole it had when the editor opened — which is the honest answer for
+   * everything except a text that is being made longer.
+   */
+  setSuppressedDynamicId(dynamicId: string | null, liveInkWidth?: number): void {
     this.suppressedDynamicId = dynamicId
+    this.suppressedDynamicInkWidth = dynamicId === null ? null : (liveInkWidth ?? null)
+    dbg(`[Dynamic] suppressed:${dynamicId ?? 'none'} liveInk:${this.suppressedDynamicInkWidth ?? '—'}`
+      + ` | remembered:${this.suppressedDynamicId && this.markInkMemory.has(this.suppressedDynamicId) ? 'yes' : 'NO'}`)
   }
 
   /**

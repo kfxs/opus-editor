@@ -499,3 +499,43 @@ describe('a reused measure keeps its fanned members', () => {
     expect(renderer.getMeasureSVGGroup(1, 0)).not.toBe(before)
   })
 })
+
+/**
+ * 🚨🚨 THE OPEN TEXT EDITOR'S WIDTH IS VIEW STATE — his report, 2026-08-18: typing in a dynamic's
+ * editor left the wedge broken for it crossing the growing word.
+ *
+ * `RenderController.renderScore` only re-engraves `if (engine.isRenderStale())`, and half of that
+ * answer is `viewStateKey`. Typing changes no MODEL state, so a width that is not in this key never
+ * reaches the page at all: the console showed it arriving at the renderer on every keystroke and no
+ * render ever reading it. ⭐ The bug was invisible to the browser suite, which calls the engine
+ * directly and re-renders by hand — the skip lives one layer up.
+ */
+describe('viewStateKey — the suppressed mark\'s live ink', () => {
+  it('🚨 CHANGES when the editor\'s text changes width, so the render is not skipped', () => {
+    const renderer = makeRenderer()
+    const score = buildScore(4).getScore()
+    renderer.setSuppressedDynamicId('d1', 20)
+    const narrow = renderer.viewStateKey(score)
+    renderer.setSuppressedDynamicId('d1', 60)
+    expect(renderer.viewStateKey(score)).not.toBe(narrow)
+  })
+
+  it('⚠️ …but NOT for a sub-pixel reflow — that would re-engrave for nothing anyone can see', () => {
+    const renderer = makeRenderer()
+    const score = buildScore(4).getScore()
+    renderer.setSuppressedDynamicId('d1', 20)
+    const at20 = renderer.viewStateKey(score)
+    renderer.setSuppressedDynamicId('d1', 20.4)
+    expect(renderer.viewStateKey(score)).toBe(at20)
+  })
+
+  it('⭐ and closing the editor clears it, so nothing is stale once the mark is drawn again', () => {
+    const renderer = makeRenderer()
+    const score = buildScore(4).getScore()
+    const clean = renderer.viewStateKey(score)
+    renderer.setSuppressedDynamicId('d1', 60)
+    expect(renderer.viewStateKey(score)).not.toBe(clean)
+    renderer.setSuppressedDynamicId(null)
+    expect(renderer.viewStateKey(score)).toBe(clean)
+  })
+})

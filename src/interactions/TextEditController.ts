@@ -36,6 +36,15 @@ export interface EditableTextSource {
   /** Where to place the overlay, in viewport (client) pixels. */
   getScreenRect(): { x: number; y: number; width: number; height: number }
   /**
+   * ⭐ **The typed text just changed width** (viewport pixels), so a source that has told the
+   * ENGINE its mark is hidden can also tell it how much room the editor is taking. Absent ⇒ the
+   * DOM layer does not measure at all.
+   *
+   * ⚠️ It fires on every keystroke that changes the width, so an implementation must be cheap and
+   * must not re-render on a width it has already reported (`DynamicTextSource`).
+   */
+  onTextResized?(widthPx: number): void
+  /**
    * The engraved text's BASELINE, in viewport pixels — optional, but the only way the
    * overlay can sit exactly on top of the glyph it replaces. SVG text is positioned by
    * its baseline, an HTML box by the top of its line box, so aligning the two *tops*
@@ -117,6 +126,9 @@ export interface TextEditMountOptions {
   /** Called by the DOM layer on Escape. Escape FINISHES the edit — see
    *  {@link TextEditController.escape} for what that means and why it is not a cancel. */
   onEscape: () => void
+  /** Called whenever the typed text changes WIDTH, in viewport pixels — see
+   *  {@link EditableTextSource.onTextResized}. Absent ⇒ the DOM layer need not measure. */
+  onResize?: (widthPx: number) => void
 }
 
 /**
@@ -181,6 +193,7 @@ export class TextEditController {
       font: source.getFontCSS(),
       onCommit: () => this.commit(),
       onEscape: () => this.escape(),
+      onResize: source.onTextResized ? (w) => source.onTextResized!(w) : undefined,
     })
   }
 

@@ -140,6 +140,30 @@ export interface RenderPass {
   /** Dynamic id currently being edited in the text overlay — skipped this render so
    *  the engraved glyph doesn't double under the editor (constant during a render). */
   suppressedDynamicId: string | null
+  /**
+   * ⭐⭐ **How wide the OVERLAY's text currently is, in the score's own pixels** — null when nothing
+   * is being edited, or when the editor could not measure itself.
+   *
+   * 🚨 Because a suppressed mark is NOT DRAWN, so everything that asks where its ink is gets nothing
+   * back and concludes the space is free: the wedge closes its hole and draws straight through the
+   * editor (his report, 2026-08-18). The mark's remembered ink covers where it WAS; this covers
+   * where it is GOING, since the text changes size under the user's hands.
+   *
+   * ⚠️ It is a WIDTH, not a box, and deliberately: the overlay is `position: fixed` at the mark's
+   * own left edge and grows RIGHTWARD, so the only thing that moves is how far it reaches. A box
+   * would need the DOM→staff-space conversion this avoids.
+   */
+  suppressedDynamicInkWidth: number | null
+  /**
+   * ⭐ **THE LAST INK EACH MARK WAS MEASURED AT**, by dynamic id — owned by the renderer and
+   * therefore alive ACROSS renders, unlike everything else on this object.
+   *
+   * A mark hidden behind its editor still occupies the page; this is how the passes that read ink
+   * off the DOM (`HairpinRenderer`) can answer for one that is not there this time round. ⚠️ Stale
+   * entries for deleted marks are harmless: nothing looks up an id that is not in a measure's own
+   * dynamics list.
+   */
+  markInkMemory: Map<string, { left: number; right: number; top: number; bottom: number }>
   /** Tempo mark currently being edited in the text overlay — skipped while it is open,
    *  so the engraved word isn't drawn under the DOM input. Mirrors suppressedDynamicId. */
   suppressedTempoId: string | null

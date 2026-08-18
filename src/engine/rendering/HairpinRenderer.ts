@@ -163,6 +163,14 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
   let right = -Infinity
   for (const dyn of view.dynamics ?? []) {
     if (!fracEq(dyn.beat, beat)) continue
+    // ⭐⭐ A mark being EDITED is not drawn, so it measures nothing — and the space it holds is not
+    // free: the DOM overlay is sitting in it. `remembered` answers for it. See {@link suppressedInk}.
+    const held = suppressedInk(pass, dyn.id)
+    if (held) {
+      left = Math.min(left, held.left)
+      right = Math.max(right, held.right)
+      continue
+    }
     const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
     const text = el?.querySelector?.('text') as SVGTextElement | null
     const box = text?.getBBox ? text.getBBox() : null
@@ -175,10 +183,49 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
     // *"with text it is not a problem, the problem is with the dynamic glyphs"* (prose is anchored
     // where it was drawn, so its translate is zero and nothing looked wrong).
     const moved = el ? dynamicMarkTranslate(el).x : 0
-    left = Math.min(left, box.x + moved)
-    right = Math.max(right, box.x + box.width + moved)
+    const inkLeft = box.x + moved
+    const inkRight = box.x + box.width + moved
+    remember(pass, dyn.id, { left: inkLeft, right: inkRight })
+    left = Math.min(left, inkLeft)
+    right = Math.max(right, inkRight)
   }
   return Number.isFinite(left) ? { left, right } : null
+}
+
+/**
+ * ⭐⭐ **WHERE A MARK HIDDEN BEHIND ITS EDITOR STILL REACHES** — his report, 2026-08-18: opening the
+ * text editor on a dynamic made the wedge *"draw completely"* through it.
+ *
+ * A suppressed mark is skipped by every drawing pass (`dynamicsLinePass`, `DynamicsLayout`), so the
+ * DOM input does not sit on a doubled glyph — but it also measures nothing, and a reader that finds
+ * no ink concludes the space is free. ⛔ It is not free: the editor is in it.
+ *
+ * ⭐ **Two facts, and the second is why this is not just a cache.** Where the mark WAS is remembered
+ * from the last render that drew it. How far it reaches NOW is the overlay's own live width, which
+ * the editor reports as the user types (`RenderPass.suppressedDynamicInkWidth`) — because the text
+ * changes size under their hands, and a hole frozen at the old size is wrong the moment the word
+ * gets longer.
+ *
+ * ⚠️ **It grows RIGHTWARD from the remembered left edge**, which is not an assumption but the
+ * overlay's own geometry: `DomTextEdit` mounts it `position: fixed` at the mark's left and lets the
+ * text run on. So only the reach changes, and no DOM→staff-space conversion is needed — the editor
+ * divides by the zoom and hands over a scalar.
+ *
+ * Returns null when this mark is not the suppressed one, or when it was never measured (its editor
+ * was opened on a mark that had not been drawn — a freshly inserted one, which has nothing to hold).
+ */
+function suppressedInk(pass: RenderPass, id: string): { left: number; right: number } | null {
+  if (pass.suppressedDynamicId !== id) return null
+  const was = pass.markInkMemory.get(id)
+  if (!was) return null
+  const live = pass.suppressedDynamicInkWidth
+  return { left: was.left, right: live === null ? was.right : was.left + live }
+}
+
+/** Keep what a mark measured, so it can answer for itself while it is hidden behind its editor. */
+function remember(pass: RenderPass, id: string, ink: Partial<{ left: number; right: number; top: number; bottom: number }>): void {
+  const was = pass.markInkMemory.get(id) ?? { left: 0, right: 0, top: 0, bottom: 0 }
+  pass.markInkMemory.set(id, { ...was, ...ink })
 }
 
 /**
@@ -199,6 +246,12 @@ function markInkX(pass: RenderPass, view: Measure, beat: Fraction): { left: numb
  * axis over (`dynamicMarkTransform.dynamicMarkTranslate`).
  */
 function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null {
+  // Hidden behind its editor: the band it had when the editor opened. ⚠️ Unlike the horizontal
+  // reach this does NOT track the typing — the overlay's font size is fixed, so its height is.
+  if (pass.suppressedDynamicId === dyn.id) {
+    const was = pass.markInkMemory.get(dyn.id)
+    return was && was.bottom > was.top ? { top: was.top, bottom: was.bottom } : null
+  }
   const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
   const text = el?.querySelector?.('text') as SVGTextElement | null
   if (!text) return null
@@ -207,15 +260,19 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
   const reach = dynamicInkReachSpaces(dynamicLabel(dyn))
   if (reach) {
     const baseline = Number(text.getAttribute('y') ?? 0) + moved
-    return {
+    const band = {
       top: baseline - staffSpacesToPixels(reach.above, stave),
       bottom: baseline + staffSpacesToPixels(reach.below, stave),
     }
+    remember(pass, dyn.id, band)
+    return band
   }
   // Prose: the box is honest, and it is all we have — the table knows no serif face.
   const box = text.getBBox ? text.getBBox() : null
   if (!box || box.height === 0) return null
-  return { top: box.y + moved, bottom: box.y + box.height + moved }
+  const band = { top: box.y + moved, bottom: box.y + box.height + moved }
+  remember(pass, dyn.id, band)
+  return band
 }
 
 /**

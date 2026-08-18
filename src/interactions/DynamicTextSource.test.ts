@@ -194,10 +194,51 @@ describe('DynamicTextSource', () => {
     const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
 
     source.hideOriginal(true)
-    expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith('d1')
+    // ⚠️ The second argument is the OPEN EDITOR's width and there is none yet — nothing has been
+    // typed, so the mark simply keeps the ink it was last drawn at.
+    expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith('d1', undefined)
     source.hideOriginal(false)
-    expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith(null)
+    expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith(null, undefined)
     expect(render).toHaveBeenCalledTimes(2) // one re-render per toggle
+  })
+
+  /**
+   * ⭐⭐ THE OPEN EDITOR'S OWN WIDTH — his report, 2026-08-18: the hairpin drew straight through the
+   * text editor, *"and the size of what is written changes during editing"*.
+   *
+   * A suppressed mark is not drawn and therefore measures nothing, so a wedge broken for it closed
+   * its hole. The source keeps the engine told, in the SCORE's pixels — one division by the zoom,
+   * which is the whole reason a width travels rather than a box.
+   */
+  describe('onTextResized', () => {
+    it('⭐ reports the width in the SCORE\'s pixels, dividing out the view zoom', () => {
+      const engine = makeEngine(textDynamic('f'))
+      const source = new DynamicTextSource(
+        'd1', false, engine as unknown as MusicEngine, () => null, render, () => 2)
+      source.onTextResized(40)
+      expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith('d1', 20)
+      expect(render).toHaveBeenCalledTimes(1)
+    })
+
+    it('⚠️ says nothing when the width has not moved a whole pixel — a render is a re-engrave', () => {
+      const engine = makeEngine(textDynamic('f'))
+      const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
+      source.onTextResized(40)
+      source.onTextResized(40.4)
+      expect(render).toHaveBeenCalledTimes(1)
+      source.onTextResized(60)
+      expect(render).toHaveBeenCalledTimes(2)
+    })
+
+    it('⭐ forgets its width when the editor closes, so the next edit starts clean', () => {
+      const engine = makeEngine(textDynamic('f'))
+      const source = new DynamicTextSource('d1', false, engine as unknown as MusicEngine, () => null, render)
+      source.onTextResized(40)
+      source.hideOriginal(false)
+      expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith(null, undefined)
+      source.hideOriginal(true)
+      expect(engine.setSuppressedDynamicId).toHaveBeenLastCalledWith('d1', undefined)
+    })
   })
 
   it('getScreenRect returns zeros when there is no canvas/svg', () => {

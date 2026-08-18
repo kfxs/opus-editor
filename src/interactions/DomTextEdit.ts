@@ -85,6 +85,11 @@ export class DomTextEdit implements TextEditDom {
     s.color = font.color
 
     el.addEventListener('keydown', this.onKeyDown)
+    // ⭐ The typed text's WIDTH, on every input — a source that suppressed its engraved mark uses it
+    // to tell the engine how much room the editor is holding, so a hairpin broken for that mark
+    // keeps a hole the size of what is being typed (his report, 2026-08-18). Fired only when a
+    // source asked for it, and beside `syncCaret` because both answer the same event.
+    if (opts.onResize) el.addEventListener('input', this.reportWidth)
     // On the DOCUMENT, not the overlay: the box is only a few characters wide, and asking someone to
     // land a right-click inside it is a worse target than the menu is worth. While an edit is open
     // the editor OWNS right-click anywhere — capture phase so it wins over the score's own context
@@ -153,6 +158,7 @@ export class DomTextEdit implements TextEditDom {
     if (el) {
       el.removeEventListener('keydown', this.onKeyDown)
       el.removeEventListener('input', this.syncCaret)
+      el.removeEventListener('input', this.reportWidth)
       el.remove()
     }
     document.removeEventListener('contextmenu', this.onContextMenu, true)
@@ -223,6 +229,20 @@ export class DomTextEdit implements TextEditDom {
    * Hidden when the caret is not in this box, or when text is SELECTED: a caret drawn at the edge of
    * a highlight looks like a second, stationary one, and the selection already shows where you are.
    */
+  /**
+   * ⭐ Report the box's current width to the source, in viewport pixels.
+   *
+   * ⚠️ `getBoundingClientRect`, not `scrollWidth`: the overlay is `position: fixed` with no width of
+   * its own, so it shrink-wraps its content and the rect IS the text's reach. ⛔ And it is reported
+   * RAW — converting to the score's units needs the zoom, which the SOURCE has and this layer does
+   * not (`DynamicTextSource`).
+   */
+  private reportWidth = (): void => {
+    const el = this.el
+    if (!el || typeof el.getBoundingClientRect !== 'function') return
+    this.opts?.onResize?.(el.getBoundingClientRect().width)
+  }
+
   private syncCaret = (): void => {
     const el = this.el
     const caret = this.caretEl

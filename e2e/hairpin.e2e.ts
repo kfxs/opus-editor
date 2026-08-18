@@ -562,7 +562,7 @@ test('🚨🚨 a NUDGED wedge that is also broken stays straight — it does not
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
     const was = h.segments('g.vf-hairpin path').map(a => a.y1)
     // ⚠️ Both ends lifted by the same SMALL amount — his JSON's shape (`{start: {y}, end: {y}}`) but
@@ -601,7 +601,7 @@ test('⭐⭐ lift the WEDGE clear of the mark and it is drawn WHOLE — no hole 
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     const hp = h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })!
-    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })
     await h.render()
     h.engine.nudgeHairpin(hp.id, 0, -3)   // three spaces up: past the top of the `f`'s ink
     await h.render()
@@ -617,7 +617,7 @@ test('⭐ …and lifting the MARK instead does it too — either one moving is e
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })!
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     h.engine.nudgeDynamicOffset(dyn.id, 0, 3)   // the mark DOWN, away from the wedge
     await h.render()
@@ -633,11 +633,71 @@ test('🚨 …but a mark still ON the wedge keeps its hole — the test is CLASH
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
-    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '' })!
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
     await h.render()
     h.engine.nudgeDynamicOffset(dyn.id, 0, 0.25)  // a quarter space: still through the arms
     await h.render()
   })
 
   expect((await armsOf(score)).length, 'still broken').toBe(4)
+})
+
+/**
+ * ⭐⭐ THE HOLE SURVIVES THE TEXT EDITOR — his report, 2026-08-18: double-click a dynamic and *"the
+ * hairpin draw completely so it is very messy to work here"*.
+ *
+ * A mark being edited is SUPPRESSED (the engraved glyph is not drawn, so the DOM input is not
+ * sitting on a doubled letter) — and a suppressed mark measures nothing, so every reader concluded
+ * the space was free and the wedge closed its hole straight through the editor.
+ */
+test('⭐⭐ a mark hidden behind its editor KEEPS its hole', async ({ score }) => {
+  const arms = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    await h.render()
+    // …and now the editor opens on it.
+    h.engine.setSuppressedDynamicId(dyn.id)
+    await h.render()
+    return window.__h.segments('g.vf-hairpin path').length
+  })
+
+  expect(arms, 'still two fragments × two arms').toBe(4)
+})
+
+test('⭐⭐ …and the hole GROWS with what is being typed', async ({ score }) => {
+  const holes = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(4, 1) })
+    const dyn = h.engine.addDynamic(1, { beat: h.frac(2, 1), text: '\ue522' })!
+    await h.render()
+
+    /** The empty span between the two fragments, in px. */
+    const hole = () => {
+      const arms = window.__h.segments('g.vf-hairpin path')
+      const starts = [...new Set(arms.map(a => Math.round(a.x1)))].sort((a, b) => a - b)
+      const firstEnd = Math.max(...arms.filter(a => Math.round(a.x1) === starts[0]).map(a => a.x2))
+      return starts[1] - firstEnd
+    }
+
+    h.engine.setSuppressedDynamicId(dyn.id)
+    await h.render()
+    const held = hole()
+    // The editor now holds a longer word — 30 score px of it. ⚠️ Not much more: past a point the
+    // hole eats a whole fragment, which is correct (the editor really is covering that much wedge)
+    // but leaves nothing to compare.
+    h.engine.setSuppressedDynamicId(dyn.id, 30)
+    await h.render()
+    return { held, typed: hole() }
+  })
+
+  // ⭐ The hole is the editor's width plus its two paddings, so a wider text is a wider hole. ⛔ The
+  // wedge must not simply close, and must not stay at the size the mark had when the editor opened.
+  expect(holes.typed).toBeGreaterThan(holes.held + 5)
 })

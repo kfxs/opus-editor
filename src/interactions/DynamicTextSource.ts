@@ -3,6 +3,7 @@ import type { EditableTextSource, TextEditInsert, TextEditInsertion } from './Te
 import type { MenuItem } from '../menus/MenuItem'
 import { buildExpressionMenu } from '../menus/expressionMenu'
 import { DYNAMIC_TEXT_FONT, DYNAMIC_TEXT_SIZE, DYNAMIC_GLYPH_SIZE } from '../engine/rendering/dynamicStyle'
+import { dbg } from '@/utils/debug'
 import { dynamicLabel, levelToGlyphString, splitDynamicRuns } from '../utils/dynamics'
 
 /** Escape the few characters that matter when a run is placed into innerHTML (see
@@ -302,7 +303,38 @@ export class DynamicTextSource implements EditableTextSource {
    * it uses the rect snapshotted at construction (before this suppression).
    */
   hideOriginal(hidden: boolean): void {
-    this.engine.setSuppressedDynamicId(hidden ? this.targetId : null)
+    if (!hidden) this.reportedInkWidth = null
+    this.engine.setSuppressedDynamicId(hidden ? this.targetId : null, this.reportedInkWidth ?? undefined)
+    this.render()
+  }
+
+  /** The last width handed to the engine, in the SCORE's pixels — so a keystroke that does not
+   *  change the width (an arrow key, a letter as wide as the one it replaced) re-renders nothing. */
+  private reportedInkWidth: number | null = null
+
+  /**
+   * ⭐⭐ **TELL THE ENGINE HOW MUCH ROOM THE EDITOR IS TAKING** (his ask, 2026-08-18: the hairpin drew
+   * straight through the open editor, *"and the size of what is written changes during editing"*).
+   *
+   * The engraved mark is suppressed while its overlay is open, so it measures nothing and every
+   * reader concludes the space is free — a wedge broken for it closed its hole. This keeps the hole
+   * open, and the right size, as the text grows and shrinks under the user's hands.
+   *
+   * ⭐ **The conversion is one division, and that is the point of reporting a WIDTH rather than a
+   * box.** The overlay is `position: fixed` in screen space (§5.4, the same reason its font is
+   * scaled by hand), so its client width is the score's width times the zoom — no CTM, no
+   * DOM→staff-space mapping to get subtly wrong. Where it starts never moves: the box is pinned at
+   * mount to the rect snapshotted before suppression.
+   *
+   * ⚠️ Re-renders only on a CHANGE of a whole pixel. Typing is a keystroke a moment and a render is
+   * a re-engrave of the bar; sub-pixel reflow would buy nothing anybody can see.
+   */
+  onTextResized(widthPx: number): void {
+    const inScorePixels = widthPx / (this.getZoom() || 1)
+    if (this.reportedInkWidth !== null && Math.abs(inScorePixels - this.reportedInkWidth) < 1) return
+    this.reportedInkWidth = inScorePixels
+    dbg(`[TextEdit] editor ink ${widthPx.toFixed(1)}px screen → ${inScorePixels.toFixed(1)}px score | id:${this.targetId}`)
+    this.engine.setSuppressedDynamicId(this.targetId, inScorePixels)
     this.render()
   }
 }

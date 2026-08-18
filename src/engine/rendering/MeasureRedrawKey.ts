@@ -130,6 +130,7 @@ export function measureShapeKey(
   input: ShapeKeyInputs,
   suppressedDynamicId: string | null,
   suppressedTempoId: string | null,
+  suppressedDynamicInkWidth: number | null = null,
 ): string {
   const { view, clef } = input
 
@@ -137,9 +138,16 @@ export function measureShapeKey(
   // drawn, so the DOM input isn't sitting on top of it. That is a difference in the picture, so it
   // has to be in the key; but only for the measure that actually holds the mark, or opening one text
   // editor would redraw the entire score.
+  const holdsSuppressedDynamic = view.dynamics?.some(d => d.id === suppressedDynamicId) ?? false
   const suppressed = [
-    view.dynamics?.some(d => d.id === suppressedDynamicId) ? suppressedDynamicId : null,
+    holdsSuppressedDynamic ? suppressedDynamicId : null,
     view.tempos?.some(t => t.id === suppressedTempoId) ? suppressedTempoId : null,
+    // ⭐⭐ …and HOW WIDE the editor's text is right now, rounded to the pixel. A wedge broken for
+    // this mark keeps a hole the size of what is being TYPED (`RenderPass.suppressedDynamicInkWidth`),
+    // so the picture changes as the text grows — and a picture that changes has to be in the key or
+    // the bar is reused and the hole never moves. ⚠️ Rounded, or every sub-pixel reflow redraws.
+    holdsSuppressedDynamic && suppressedDynamicInkWidth !== null
+      ? Math.round(suppressedDynamicInkWidth) : null,
   ]
 
   return JSON.stringify([

@@ -4410,10 +4410,17 @@ export class MusicEngine {
     return this.renderer.getTieSVGGroup(fromNoteId)
   }
 
-  /** Suppress one dynamic from rendering (null = restore). Re-render to apply.
-   *  Used by the in-canvas text editor to remove the engraved glyph while editing. */
-  setSuppressedDynamicId(dynamicId: string | null): void {
-    this.renderer.setSuppressedDynamicId(dynamicId)
+  /**
+   * Suppress one dynamic from rendering (null = restore). Re-render to apply. Used by the in-canvas
+   * text editor to remove the engraved glyph while editing.
+   *
+   * ⭐ `liveInkWidth` (the score's own pixels) is how much room the OPEN EDITOR is taking, which the
+   * engine cannot see: a suppressed mark is not drawn and therefore measures nothing, so a hairpin
+   * broken for it would close its hole and draw through the editor. See
+   * `VexFlowRenderer.setSuppressedDynamicId`.
+   */
+  setSuppressedDynamicId(dynamicId: string | null, liveInkWidth?: number): void {
+    this.renderer.setSuppressedDynamicId(dynamicId, liveInkWidth)
   }
 
   // ==================== Cleanup ====================

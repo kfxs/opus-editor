@@ -1701,3 +1701,43 @@ Guarded by three browser tests: lift the WEDGE clear → one fragment; lift the 
 fragment; nudge the mark a quarter space, still through the arms → still broken (the test is CLASH,
 not "was nudged"). ⚠️ The zigzag fixture had to shrink its nudge to half a space for the same reason:
 at three spaces the wedge now clears the letter and there is nothing left to zigzag.
+
+### 2026-08-18 — the hole survives the TEXT EDITOR, and grows with what is typed
+
+His report: double-click a dynamic and *"the hairpin draw completely so it is very messy to work
+here"* — then, when the first fix landed, *"the size of what is written changes during editing"*.
+
+**Why it happened.** A mark being edited is SUPPRESSED (`suppressedDynamicId`) so the DOM input is
+not sitting on a doubled glyph — and a suppressed mark is not drawn, so it MEASURES NOTHING. Every
+reader concluded the space was free: the endpoint skyline collapsed (§11.10, open since P3) and, once
+the break existed, the hole closed straight through the editor.
+
+**The fix, in three parts:**
+
+1. **The renderer remembers.** `RenderPass.markInkMemory` (owned by `VexFlowRenderer`, so it lives
+   ACROSS renders) keeps each mark's last measured ink; `HairpinRenderer.suppressedInk` answers from
+   it for the mark that is hidden. ⛔ No white background, no colour, nothing that breaks the day the
+   page is cream or textured — the engine simply stops throwing away what it knew.
+2. **The editor reports its live width**, so the hole tracks the typing: `DomTextEdit` measures on
+   `input` → `TextEditController` → `EditableTextSource.onTextResized` → `DynamicTextSource` divides
+   by the ZOOM and calls `setSuppressedDynamicId(id, widthInScorePixels)`. ⭐ A WIDTH and not a box,
+   deliberately: the overlay is `position: fixed` at the mark's own left edge and grows RIGHTWARD, so
+   the only thing that moves is the reach — and a scalar needs no DOM→staff-space conversion.
+   ⚠️ Reported only on a whole-pixel change; a render is a re-engrave.
+3. 🚨🚨 **…and the width had to go in `viewStateKey`, which is where the bug actually was.**
+   `RenderController.renderScore` re-engraves only `if (engine.isRenderStale())`, and that is
+   `modelDirty || viewStateKey changed`. Typing changes NO model state, so before this the width
+   arrived at the renderer on every keystroke and **no render ever read it** — the console showed
+   `[Dynamic] liveInk: 19.9 … 68.5` climbing while `[Hairpin]` printed once and never again. ⛔ Not
+   in `layoutStateKey`: a dynamic takes no width, so the casting-off cannot depend on it and putting
+   it there would throw the layout cache away per keystroke.
+
+⚠️ **The browser suite could not have caught part 3**, and that is worth knowing: `e2e/harness.ts`
+drives the ENGINE and re-renders by hand, so it never runs the staleness check that skipped the
+render. The guard for it is therefore a unit test on `viewStateKey`
+(`VexFlowRenderer.incrementalRedraw.test.ts`), not an e2e.
+
+⚠️ Known limits, both inherited: a long enough word makes the hole swallow a whole fragment (correct
+— the editor really is covering that much wedge), and programmatic insertions (glyph chips, the word
+menu) go through `insertNodeAtCaret` and fire no `input`, so they do not report a width until the
+next ordinary keystroke.
