@@ -111,6 +111,10 @@ export interface ElementChainDeps {
    *  one of its squares moves that end through the music instead. Takes the press point because the
    *  gesture is a pixel delta from it, not a snap to anything. */
   armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void
+  /** ⭐ The same again for a slur's ARC BODY (2026-08-18): a press on the curve away from its handles
+   *  moves the whole drawing, where a press on a handle moves that one point. Takes the press point
+   *  for the hairpin's reason — a pixel delta, not a snap. */
+  armSlurOffsetDrag(slurId: string, x: number, y: number, event: MouseEvent): void
   /**
    * Record this press and answer whether it was the SECOND on the same mark inside the double-click
    * window — consuming it when it was, so a third click is not another double.

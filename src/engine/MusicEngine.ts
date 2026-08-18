@@ -2316,6 +2316,21 @@ export class MusicEngine {
     return ok
   }
 
+  /** The undo-free twin of {@link nudgeSlur} — one frame of an ARC-BODY drag. Accumulating, so the
+   *  caller passes the delta since the last ACCEPTED frame; both limits still refuse the write, so a
+   *  curve dragged into a neighbour's room stops moving (⛔ the drawing is never clamped). Pair with
+   *  {@link commitSlurOffsetDrag} on the drop. @returns true when the model changed. */
+  previewSlurOffset(id: string, dx: number, dy: number): boolean {
+    if (!this.slurOffsetAllowed(id, dx, dy)) return false
+    this.markModelDirty() // live drag, undo deferred to commitSlurOffsetDrag
+    return this.scoreModel.setSlurOffset(id, dx, dy)
+  }
+
+  /** Record ONE undo entry after an arc-body drag settles. */
+  commitSlurOffsetDrag(): void {
+    this.commitPreviewed('Move slur')
+  }
+
   /** Drop the whole curve's offset and save ONE undo step — `Ctrl+Backspace` with nothing armed.
    *  @returns false when it carries none, so the caller DECLINEs and the key falls through. */
   resetSlurOffset(id: string): boolean {

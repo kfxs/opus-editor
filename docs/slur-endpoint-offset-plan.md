@@ -675,9 +675,26 @@ the same delta once, before any fragment registers.
   `bus.slurGeometry` seam with a third target kind (`{ kind: 'whole' }`). It is also the way back for a
   curve whose ink is off screen, alongside §P6.
 
-⏭️ **Not built:** the mouse. A drag of the arc body (rather than of a handle) is the obvious gesture and
-nobody asked for it yet; if it comes, it is `dragArmedSlurEndpoint`'s preview/commit split over
-`nudgeSlur`, with no walk and no latch — a whole-curve move has no anchor to arrive at.
+### The mouse (same day)
+
+*"now the next step is doing this same offset controle by the drag mouse, similar to hairpin"* — so a
+press on the ARC drags the whole curve, `interactions/slurBodyDrag.ts` + the state in `MouseController`.
+It is the hairpin body drag sentence for sentence (`elements/hairpin.ts` → `armHairpinOffsetDrag`), which
+is the point: **one curve, two categories, told apart by WHERE you grabbed it.** A handle moves one point
+(an end through the music, a dot's bend); the body moves the drawing. Nothing new is armed, because
+*something armed → that handle, nothing armed → the whole thing* was already the keyboard's rule.
+
+- ⛔ **No hold, no latch, no walk** — unlike the ENDPOINT drag. Those exist because an endpoint has a
+  next note to arrive at; a whole-curve move writes one cosmetic offset and has nothing to arrive at, so
+  a resistance would have nothing on the other side of it. Free pixels, as the hairpin's body is.
+- ⚠️ **The anchor does not advance on a refusal**, and that is why the arithmetic is a module rather than
+  four lines in the controller: the write accumulates and both limits can refuse it, so banking the
+  distance the curve never travelled would jump it when the cursor came back.
+- ⛔ **The scale is MEASURED**, off the drawn arc's own `staffSpacePx` (or its staff's geometry) — never a
+  constant, which on a small staff would move the slur by the wrong amount. With nothing measured the
+  press stays an ordinary selection.
+- One undo entry per gesture (`previewSlurOffset` per frame, `commitSlurOffsetDrag` on the drop), and the
+  slur stays selected so the arrows carry on from where the mouse stopped.
 
 ### The test
 

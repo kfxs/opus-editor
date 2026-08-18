@@ -25,7 +25,7 @@ export function distToSegment(
 export const SLUR_ELEMENT: ClickableElementSpec = {
   kind: 'slur',
   /** Select a slur arc for removal (hit-tested against the sampled curve points). */
-  hit({ registry, x, y }, deps) {
+  hit({ event, registry, x, y }, deps) {
     // Slur selection — hit-test by proximity to the ARC, not the coarse bbox
     // rectangle (which sits over the spanned notes). Clicking near the curve selects
     // it; Delete removes the arc (never the notes). We measure distance to the line
@@ -49,7 +49,13 @@ export const SLUR_ELEMENT: ClickableElementSpec = {
     // Selecting the slur by its arc disarms any previously-armed endpoint nudge — clicking
     // a blue (true end) or orange (open join) square is the only thing that re-arms one. Carrying
     // no endpoint IS that, now the two live in one value.
-    return deps.pick({ kind: 'slur', id: slurAt.id })
+    // ⭐ Click = select; drag = move the WHOLE curve's ink (2026-08-18), the hairpin's arrangement:
+    // the BODY is the whole thing, a HANDLE is one point. A press on a handle never reaches here —
+    // `pickSlurHandleAt` is a pre-step in `MouseController` and consumes it.
+    return deps.pick(
+      { kind: 'slur', id: slurAt.id },
+      () => deps.armSlurOffsetDrag(slurAt.id!, x, y, event),
+    )
   },
 
   // The arc is already coloured by the set pass; the handles are the single-click extra — and,

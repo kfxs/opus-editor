@@ -26,6 +26,7 @@ import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinDragTargetAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
+import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { dynamicDragTargetAt } from './elements/dynamicDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
@@ -299,6 +300,18 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinBodyDragChanged = false
   private hairpinBodyDragStartTime: number | null = null
+
+  // --- Slur ARC BODY drag (his ask, 2026-08-18): the whole curve's INK, where a press on a HANDLE
+  //     moves one point instead. Free pixels, no walk and no hold — a whole-curve move has no anchor
+  //     to arrive at (`./slurBodyDrag`, which owns the arithmetic and the refusal rule). ---
+  private isDraggingSlurBody = false
+  private draggedSlurBodyId: string | null = null
+  /** The last ACCEPTED cursor position + the measured px→staff-space scale. ⚠️ Not advanced on a
+   *  refusal, so a curve stopped by the page or band limit picks the cursor up where it left it. */
+  private slurBodyAnchor: SlurBodyAnchor | null = null
+  /** True once a preview write landed, so the drop records one undo entry. */
+  private slurBodyDragChanged = false
+  private slurBodyDragStartTime: number | null = null
 
   // --- Ottava endpoint square drag (the bracket's own two ends — docs/ottava-plan.md). The RIGHT
   //     square re-anchors the end, the LEFT one moves the beginning and holds the end: the drag twin
@@ -688,6 +701,7 @@ export class MouseController {
     },
     armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
     armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
+    armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
       if (mark === 'tempo') this.openTempoTextEditor(id, false)
@@ -765,6 +779,29 @@ export class MouseController {
     this.hairpinBodyLastY = y
     this.hairpinBodyDragChanged = false
     this.hairpinBodyDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
+  /**
+   * ⭐⭐ Arm the drag that moves a whole SLUR's ink — a press on the ARC itself (his ask, 2026-08-18:
+   * *"now the next step is doing this same offset controle by the drag mouse, similar to hairpin"*).
+   * The hairpin body drag above, sentence for sentence: a HANDLE moves one point, the BODY moves the
+   * drawing.
+   *
+   * ⚠️ DECLINES when the drawn curve offers no measured staff-space scale — `slurBodyStaffSpacePx`'s
+   * rule, since a guessed one would move a small staff's slur by the wrong amount. The press stays an
+   * ordinary selection.
+   */
+  private armSlurOffsetDrag(slurId: string, x: number, y: number, event: MouseEvent): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    const staffSpacePx = slurBodyStaffSpacePx(engine.getElementRegistry(), slurId)
+    if (!staffSpacePx) return
+    this.isDraggingSlurBody = true
+    this.draggedSlurBodyId = slurId
+    this.slurBodyAnchor = { x, y, staffSpacePx }
+    this.slurBodyDragChanged = false
+    this.slurBodyDragStartTime = Date.now()
     event.preventDefault()
   }
 
@@ -1604,6 +1641,9 @@ export class MouseController {
     if (this.isDraggingHairpinBody) {
       this.endHairpinBodyDrag()
     }
+    if (this.isDraggingSlurBody) {
+      this.endSlurBodyDrag()
+    }
     if (this.isDraggingOttavaEnd) {
       this.endOttavaEndDrag()
     }
@@ -2370,6 +2410,7 @@ export class MouseController {
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleHairpinBodyDrag(engine, x, y)) return
+    if (this.handleSlurBodyDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handleTrillEndDrag(engine, x, y)) return
@@ -2609,6 +2650,42 @@ export class MouseController {
     this.draggedHairpinBodyId = null
     this.hairpinBodyDragChanged = false
     this.hairpinBodyDragStartTime = null
+  }
+
+  /**
+   * ⭐ One frame of a slur ARC-BODY drag: the whole curve follows the cursor, live (no undo), its
+   * shape untouched. `./slurBodyDrag` owns both rules — the measured scale and the anchor that does
+   * NOT advance on a refusal — so this is the state around them.
+   *
+   * ⛔ No hold and no latch, unlike `handleSlurEndpointDrag`: those exist because an endpoint has a
+   * next note to arrive at, and a whole-curve move has nothing to arrive at.
+   */
+  private handleSlurBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingSlurBody && this.draggedSlurBodyId && this.slurBodyAnchor)) return false
+    if (this.slurBodyDragStartTime !== null
+        && Date.now() - this.slurBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const moved = slurBodyDragStep(engine, this.draggedSlurBodyId, this.slurBodyAnchor, x, y)
+    if (moved) {
+      this.slurBodyAnchor = moved
+      this.slurBodyDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a slur ARC-BODY drag: one undo entry if the curve actually moved, then reset. The slur
+   *  stays selected, so the arrows carry on from where the mouse stopped. */
+  private endSlurBodyDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.slurBodyDragChanged) {
+      engine.commitSlurOffsetDrag()
+      dbg(`Slur moved | id:${this.draggedSlurBodyId}`)
+    }
+    this.isDraggingSlurBody = false
+    this.draggedSlurBodyId = null
+    this.slurBodyAnchor = null
+    this.slurBodyDragChanged = false
+    this.slurBodyDragStartTime = null
   }
 
   /**
@@ -2866,6 +2943,10 @@ export class MouseController {
     if (this.isDraggingSlurEndpoint) {
       dbg('Slur endpoint drag ended (mouse left canvas)')
       this.endSlurEndpointDrag()
+    }
+    if (this.isDraggingSlurBody) {
+      dbg('Slur body drag ended (mouse left canvas)')
+      this.endSlurBodyDrag()
     }
     if (this.isDraggingStaffSpacing) {
       dbg('Staff-spacing drag ended (mouse left canvas)')
