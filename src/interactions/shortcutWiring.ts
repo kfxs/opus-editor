@@ -15,6 +15,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
+import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -96,11 +97,17 @@ export function wireShortcuts(
   // Nudge the armed slur endpoint by a staff-space delta (screen-down is +y, so "up arrow
   // lifts the point" passes a negative dy). Returns true when it consumed the key (an
   // endpoint was armed), false to DECLINE so the key falls through to its normal action.
+  //
+  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./slurEndpointWalk`): the same ink
+  // nudge, except that reaching the next note takes the anchor along with it. Vertical stays a pure
+  // offset — an endpoint's y has no anchor to arrive at. See the walk's header for the arithmetic
+  // and `ctrlArrowLeft` below for why this key is allowed to end in a model write at all.
   const nudgeArmedEndpoint = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const slur = selectedOf(state, 'slur')
     if (!eng || !slur?.endpoint) return false
-    eng.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
+    if (dy === 0 && dx !== 0) walkArmedSlurEndpoint(state, eng, dx)
+    else eng.nudgeSlurEndpoint(slur.id, slur.endpoint, dx, dy)
     renderer.renderScore()
     return true
   }
@@ -1292,6 +1299,17 @@ export function wireShortcuts(
     //    of here to keep that true: the HAIRPIN's resize (2026-08-17) and the PEDAL's lift
     //    (2026-08-18), both ungated, so a selected wedge or pedal ate this chord outright and did
     //    something AUDIBLE with it. ⛔ Do not put a model write back on this key.
+    //
+    //    ⭐⭐ **ONE EXCEPTION, his call (2026-08-18): the armed slur ENDPOINT.** Its offset now
+    //    carries the anchor along once the ink reaches the next note (`./slurEndpointWalk`), which
+    //    is a model write on this key and IS audible — a slur's span is what `legatoChordIds`
+    //    lengthens. It is allowed because it is not the failure the rule was written about: the two
+    //    evicted families ate the chord OUTRIGHT and changed the music on the first press with
+    //    nothing on screen to say so. This one moves ink press after press, re-anchors only on
+    //    arrival at a note the user has steered the ink onto, and the note it lands on is TINTED
+    //    throughout (`applyArmedSlurAnchorNote`) — so the change is asked for, visible, and one
+    //    undo press away. *"a shortcut is for making the live easy to the user"*. ⛔ The rule still
+    //    stands for everything else: an ungated model write here is still the bug it was.
     //    ⭐ The pedal came BACK to it the same day as its ink offsets — as an offset this time, and
     //    gated: armed square → that sign, nothing armed → both. It is the fourth family to read the
     //    same way here (slur point, wedge, bracket, pedal).

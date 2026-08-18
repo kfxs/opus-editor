@@ -1010,6 +1010,12 @@ export class ScoreModel {
     return slurOps.setSlurEndpoint(this.score, id, which, noteId)
   }
 
+  /** Re-point one end with NO auto-reset — the interpolating walk's write, where the crossing is
+   *  meant to be invisible. See {@link slurOps.setSlurEndpointKeepingEdits} for why it is separate. */
+  setSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
+    return slurOps.setSlurEndpointKeepingEdits(this.score, id, which, noteId)
+  }
+
   /**
    * Nudge one endpoint of a slur by a staff-space delta, **accumulating** onto any existing offset
    * (the in/out keyboard fine-positioning — see docs/slur-endpoint-offset-plan.md).

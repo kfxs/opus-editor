@@ -2151,6 +2151,17 @@ export class MusicEngine {
     this.commitPreviewed('Re-anchor slur')
   }
 
+  /** Re-point one end onto `noteId` **keeping** the arc's shape and both ends' nudges, and save ONE
+   *  undo step. The interpolating walk's write (`interactions/slurEndpointWalk`), which pairs it
+   *  with a re-basing {@link nudgeSlurEndpoint} inside a {@link runBatch} so the press is one entry.
+   *  ⚠️ NOT the general re-anchor — see `slurOps.setSlurEndpointKeepingEdits` for which caller wants
+   *  which. @returns false (no-op) when the target is invalid or already the anchor. */
+  setSlurEndpointKeepingEdits(id: string, which: 'start' | 'end', noteId: string): boolean {
+    const ok = this.scoreModel.setSlurEndpointKeepingEdits(id, which, noteId)
+    if (ok) this.saveOnly('Re-anchor slur')
+    return ok
+  }
+
   /** Drop a slur's hand-edited ARC shape and save ONE undo step — the reset half of the handle
    *  nudges, on the key that resets everything else (`interactions/slurHandleReset`). Pass a
    *  `segment` + live `spanCount` for one segment of a cross-system slur, neither for the whole

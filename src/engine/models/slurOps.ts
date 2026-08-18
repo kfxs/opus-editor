@@ -84,6 +84,42 @@ export function setSlurShape(score: Score, id: string, cps: CurveControlPointDel
 }
 
 /**
+ * ⭐⭐ **RE-POINT ONE END AND KEEP EVERY AUTHORED EDIT** — the bare model write, with none of the
+ * auto-resets {@link setSlurEndpoint} makes.
+ *
+ * It exists for the INTERPOLATING walk (`interactions/slurEndpointWalk`), where a horizontal arrow
+ * moves the endpoint's INK and the anchor follows it onto the next note once the ink gets there.
+ * That crossing is meant to be **invisible** — his call, 2026-08-18: preserve the nudge, *"probably
+ * reset it can be strange"* — so the very wipes that are right for "not that note" are wrong here:
+ * a ¼-space press would silently drop the arc's hand-tuned shape and the end's vertical lift the
+ * moment it stepped over a notehead. The walk re-bases the horizontal offset itself, by the distance
+ * between the two anchors, so the ink stays exactly where it was drawn.
+ *
+ * ⚠️ **This is the one path that leaves an offset pointing at a note it was not tuned for**, which
+ * is deliberate and bounded: the walk only re-points onto the note the ink has *arrived at*, so the
+ * offset it keeps is the one the user just steered there by hand. Every other caller — the drag, the
+ * Ctrl+Shift+←/→ jump, a re-bar — wants {@link setSlurEndpoint}.
+ *
+ * Rejected (false) on the same three grounds as its caller: missing slur, unchanged anchor, or a
+ * target that would collapse the span.
+ */
+export function setSlurEndpointKeepingEdits(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  noteId: string,
+): boolean {
+  const slur = getSlurById(score, id)
+  if (!slur) return false
+  const otherId = which === 'start' ? slur.endNoteId : slur.startNoteId
+  const currentId = which === 'start' ? slur.startNoteId : slur.endNoteId
+  if (noteId === otherId || noteId === currentId) return false
+  if (which === 'start') slur.startNoteId = noteId
+  else slur.endNoteId = noteId
+  return true
+}
+
+/**
  * Re-anchor one end of a slur onto a different note (the draggable endpoint handles, and the
  * Ctrl+Shift+←/→ walk in `interactions/slurReanchor`). Rewrites `startNoteId` or `endNoteId` and
  * **drops any custom shape** — the hand-tuned arc was relative to the old span, so it re-bows to
@@ -92,13 +128,7 @@ export function setSlurShape(score: Score, id: string, cps: CurveControlPointDel
  * the current anchor, or it would collapse the span (start === end).
  */
 export function setSlurEndpoint(score: Score, id: string, which: 'start' | 'end', noteId: string): boolean {
-  const slur = getSlurById(score, id)
-  if (!slur) return false
-  const otherId = which === 'start' ? slur.endNoteId : slur.startNoteId
-  const currentId = which === 'start' ? slur.startNoteId : slur.endNoteId
-  if (noteId === otherId || noteId === currentId) return false
-  if (which === 'start') slur.startNoteId = noteId
-  else slur.endNoteId = noteId
+  if (!setSlurEndpointKeepingEdits(score, id, which, noteId)) return false
   // auto-reset (§3.3): endpoint re-pointed onto a different element → both the single-arc
   // shape AND the cross-system per-segment shape were authored against the OLD anchors.
   clearEngravingOverride(score, id, 'curveShape')
