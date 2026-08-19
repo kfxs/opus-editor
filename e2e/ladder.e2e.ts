@@ -271,3 +271,36 @@ test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ sco
   expect(ottavaLine.y1).toBeGreaterThan(bottom)
   expect(dynamic.y, 'the dynamic is still the outer of the two').toBeGreaterThan(ottavaLine.y1)
 })
+
+/**
+ * 🚨 **THE TEMPO MARK'S OFFSET IS OUTWARD — a POSITIVE `y` moves it UP** (his report, 2026-08-19:
+ * *"the y is inverted, a high value makes the text down and a less value makes the text up"*).
+ *
+ * ⭐ It is the ONE offset in the engraving compartment whose `y` is not screen-down, and the reason
+ * is the mark: a tempo is always drawn ABOVE the staff, so a number a human types about it means
+ * *how far from the staff*. The conversion happens in exactly two places — the render and the page
+ * limit — and this is the browser's word on the first of them, since a translate is geometry and
+ * jsdom measures none of it.
+ */
+test('⭐⭐ a POSITIVE tempo offset lifts the mark AWAY from the staff', async ({ score }) => {
+  const { before, after, lower } = await score.evaluate(async () => {
+    const h = window.__h
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    const mark = h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })!
+    await h.render()
+    const y = () => h.placed('g.vf-tempo text')[0].y
+
+    const before = y()
+    h.engine.nudgeTempoOffset(mark.id, 0, 2)   // +2 staff-spaces OUTWARD
+    await h.render()
+    const after = y()
+    h.engine.nudgeTempoOffset(mark.id, 0, -4)  // …and back down past where it started
+    await h.render()
+    return { before, after, lower: y() }
+  })
+  // Screen y grows downward, so "up" is a SMALLER y.
+  expect(after, 'a positive y lifted it').toBeLessThan(before)
+  expect(lower, 'and a negative one dropped it').toBeGreaterThan(before)
+})

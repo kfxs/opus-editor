@@ -144,7 +144,8 @@ export class PropertiesWidget implements Widget {
         const id = (element.data as { id?: string; missing?: boolean }).id
         if (id && !(element.data as { missing?: boolean }).missing) {
           body.appendChild(this.buildMarkOffsetRow(
-            currentTempoOffset(element), (x, y) => bus.tempoOffset.set(id, x, y)))
+            currentTempoOffset(element), (x, y) => bus.tempoOffset.set(id, x, y),
+            'Vertical offset, + is UP (away from the staff)'))
         }
       }
 
@@ -358,6 +359,10 @@ export class PropertiesWidget implements Widget {
   private buildMarkOffsetRow(
     current: { x: number; y: number },
     publish: (x: number, y: number) => void,
+    /** What the `y` box MEANS, because the two marks disagree: a dynamic's is screen-down, a tempo
+     *  mark's is OUTWARD (+up) — see `TempoOffsetOverride`, his report of 2026-08-19. A tooltip that
+     *  lies about the sign is worse than none. */
+    yTitle = 'Vertical offset, + is DOWN',
   ): HTMLElement {
     const row = document.createElement('div')
     const rs = row.style
@@ -392,7 +397,7 @@ export class PropertiesWidget implements Widget {
     }
 
     const xInput = field(current.x, 'Horizontal offset, + is right')
-    const yInput = field(current.y, 'Vertical offset, + is DOWN')
+    const yInput = field(current.y, yTitle)
     const commit = () => {
       const x = parseFloat(xInput.value)
       const y = parseFloat(yInput.value)

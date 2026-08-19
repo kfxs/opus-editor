@@ -1,0 +1,166 @@
+/**
+ * TEMPO MARKS — **moving one through the music**, as a SCORE operation. Free functions on a `Score`,
+ * in the `dynamicOps` / `hairpinOps` / `pedalOps` idiom, with {@link ScoreModel} keeping a thin
+ * delegator (DESIGN-PRINCIPLES principle 5 — the score is independent of the editor, so none of this
+ * may live on `MusicEngine`).
+ *
+ * ⚠️ The tempo API that already existed — add / update / remove / look up / the tempo map — stays on
+ * `ScoreModel` and `utils/tempoMap`; this module is the STEP, the one piece of tempo logic that has
+ * to know where the music's onsets are.
+ *
+ * ## ⭐⭐ A tempo mark has NO LANE — it governs the CLOCK
+ *
+ * `dynamicOps` walks the mark's own voice on its own staff, because a dynamic speaks for one stream;
+ * `pedalOps` walks a whole staff, because there is one damper. A tempo mark carries neither a voice
+ * nor a staff ({@link TempoMark}), and it is drawn once per SYSTEM rather than once per staff: what
+ * it governs is the clock, which belongs to nobody. So its stops are **every onset in the score**,
+ * whatever staff or voice sounds it, deduplicated by `(measure, beat)` and taken in reading order.
+ *
+ * ⚠️ **Which can name a beat the TOP staff has nothing at** — a left-hand chord under a right-hand
+ * rest. The mark then draws at the first element at-or-after its beat on the staff it is engraved
+ * above (`rendering/TempoLayout.anchorX`, Gould p. 183), which is a hair right of where a hand
+ * engraver would put it. ⏭️ The honest fix is to anchor the drawing to the COLUMN rather than to the
+ * top staff's slots; nothing here needs to change for it.
+ *
+ * ## ⭐ At most ONE mark per beat, so a stop that is taken is REFUSED
+ *
+ * Two tempo marks on one beat is not a thing (`docs/tempo-marks-plan.md` §4, and the rule
+ * `rebarOps.restoreBeatAnchors` already enforces on the way back in). ⛔ The step therefore neither
+ * overwrites the sitting mark (silent data loss) nor stacks beside it (a contradiction the tempo map
+ * would have to resolve by array order): it declines, and the walk stops there exactly as it stops
+ * at the end of the score.
+ */
+import type { Score, TempoMark, Measure, Fraction, TempoOffsetOverride } from '@/types/music'
+import { fracCompare } from '@/utils/fraction'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { tempoOffsetOverrideOf } from './engravingOverrides'
+
+/** An address in the score's reading order — an onset, or where the mark is now. */
+interface Stop {
+  measure: number
+  beat: Fraction
+}
+
+/** Reading order: measure number first, then beat within the bar. Negative when `a` is earlier. */
+function compare(a: Stop, b: Stop): number {
+  return a.measure !== b.measure ? a.measure - b.measure : fracCompare(a.beat, b.beat)
+}
+
+/** The measure a tempo mark is stored in, with the live mark itself; null if no such mark. */
+function locate(score: Score, id: string): { mark: TempoMark; measure: Measure } | null {
+  for (const measure of score.measures) {
+    const mark = measure.tempos?.find(t => t.id === id)
+    if (mark) return { mark, measure }
+  }
+  return null
+}
+
+/**
+ * Every onset in the score, in reading order, each appearing once.
+ *
+ * ⭐ Every staff and every voice, unlike the dynamic's lane — see the header. A column sounded by
+ * three voices is ONE stop: the clock changes at a moment, not at a notehead.
+ */
+function onsets(score: Score): Stop[] {
+  const stops: Stop[] = []
+  for (const measure of score.measures) {
+    for (const slot of measure.slots) {
+      if (stops.some(s => s.measure === measure.number && fracCompare(s.beat, slot.beat) === 0)) continue
+      stops.push({ measure: measure.number, beat: slot.beat })
+    }
+  }
+  return stops.sort(compare)
+}
+
+/** Re-file a mark under a different measure, keeping the SAME object (and so the same id, which is
+ *  what the selection holds — a re-created mark would deselect itself mid-gesture). `dynamicOps`'
+ *  twin, including the ⭐ `delete` of an emptied array: an absent `tempos` and an empty one must not
+ *  both be reachable, or the JSON round trip has two spellings of "none".
+ *  @returns false if the target measure does not exist. */
+function moveTempoToMeasure(score: Score, mark: TempoMark, measureNumber: number): boolean {
+  const target = score.measures.find(m => m.number === measureNumber)
+  if (!target) return false
+  for (const measure of score.measures) {
+    const idx = measure.tempos?.findIndex(t => t.id === mark.id) ?? -1
+    if (idx === -1) continue
+    measure.tempos!.splice(idx, 1)
+    if (measure.tempos!.length === 0) delete measure.tempos
+    break
+  }
+  if (!target.tempos) target.tempos = []
+  target.tempos.push(mark)
+  return true
+}
+
+/**
+ * ⭐ **THE STOP ONE STEP AWAY** — where {@link moveTempoBySlot} would put the mark, without putting
+ * it there. Null at either end of the score, or for an id no longer in it.
+ *
+ * ⚠️ It does NOT skip a stop another tempo mark is sitting on: naming it is how the caller comes to
+ * refuse, and a candidate rule that quietly hopped over occupied beats would move the mark further
+ * than one press asked for.
+ */
+export function nextTempoSlot(score: Score, id: string, direction: 1 | -1): Stop | null {
+  const found = locate(score, id)
+  if (!found) return null
+  const here: Stop = { measure: found.measure.number, beat: found.mark.beat }
+  const stops = onsets(score)
+  const dest = direction === -1
+    ? [...stops].reverse().find(s => compare(s, here) < 0)
+    : stops.find(s => compare(s, here) > 0)
+  return dest ?? null
+}
+
+/**
+ * ⭐⭐ **RE-ANCHOR A TEMPO MARK — move it to the previous (−1) or next (+1) onset**, the model write
+ * behind `Ctrl+Shift+←/→` with the mark selected (his ask, 2026-08-19).
+ *
+ * ⭐ **The chord says MUSIC, and this is the musical half a tempo mark did not have.** Plain arrows
+ * and `Ctrl`+arrows nudge its INK (client #13); every family on the outside-staff ladder reads the
+ * harder chord as *move this through the music*, and a tempo mark's "where in the music" is the beat
+ * it applies from — which playback reads, so this is **audible** where the nudge beside it is not.
+ * `utils/tempoMap` recomputes from the measures, so nothing else has to be told.
+ *
+ * ⭐ **A mark stepped across a barline MOVES to the bar it now sits in** — the list it is stored in
+ * *is* "the tempo changes that happen here" — keeping the same object and the same id, so the
+ * selection the user is pressing arrows on survives the step ({@link moveTempoToMeasure}).
+ *
+ * ⭐⭐ **And the step CLEARS the mark's sideways nudge while KEEPING its lift** — `dynamicOps`' rule
+ * and its reason verbatim (his call, 2026-08-19): the `x` said *"a little to the left of THAT
+ * element"* and is stale the moment the mark is on another one, while the `y` says how far off the
+ * ladder's row it sits, which every row answers the same way.
+ *
+ * ⚠️ Declines (false) — touching nothing — when there is no such mark, when the walk runs off either
+ * end of the score, or when the stop it would land on already holds a tempo mark. Declining is what
+ * leaves `Ctrl+Shift+←/→` free for the note offset behind it, so the caller must chain rather than
+ * repaint on a false.
+ */
+export function moveTempoBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const found = locate(score, id)
+  if (!found) return false
+  const { mark, measure } = found
+
+  const dest = nextTempoSlot(score, id, direction)
+  if (!dest) return false
+
+  // ⭐ One mark per beat — see the header. The sitting mark wins by being there first.
+  const target = score.measures.find(m => m.number === dest.measure)
+  if (target?.tempos?.some(t => t.id !== id && fracCompare(t.beat, dest.beat) === 0)) return false
+
+  if (dest.measure !== measure.number && !moveTempoToMeasure(score, mark, dest.measure)) return false
+  mark.beat = dest.beat
+  locate(score, id)?.measure.tempos?.sort((a, b) => fracCompare(a.beat, b.beat))
+  clearHorizontalOffset(score, id)
+  return true
+}
+
+/** Drop the mark's sideways nudge and keep its lift — `dynamicOps.clearHorizontalOffset`'s twin,
+ *  including the ⚠️ clear of the WHOLE override when the lift was all that was in it (an absent
+ *  override and a `{0,0}` one must not both be reachable). */
+function clearHorizontalOffset(score: Score, id: string): void {
+  const prev = tempoOffsetOverrideOf(score, id)
+  if (!prev) return
+  if (prev.y === 0) { clearEngravingOverride(score, id, 'tempoOffset'); return }
+  const next: TempoOffsetOverride = { kind: 'tempoOffset', x: 0, y: prev.y }
+  setEngravingOverride(score, id, next)
+}

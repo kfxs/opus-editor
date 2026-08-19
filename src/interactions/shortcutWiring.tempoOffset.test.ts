@@ -19,6 +19,7 @@ describe('nudging a tempo mark from the keyboard', () => {
   let state: EditorState
   let nudge: Mock<(id: string, dx: number, dy: number) => boolean>
   let reset: Mock<(id: string) => boolean>
+  let reanchor: Mock<(id: string, direction: 1 | -1) => boolean>
   let renderScore: Mock<() => void>
   let run: (action: string) => void
   let teardown: () => void
@@ -26,10 +27,12 @@ describe('nudging a tempo mark from the keyboard', () => {
   beforeEach(() => {
     nudge = vi.fn(() => true)
     reset = vi.fn(() => true)
+    reanchor = vi.fn(() => true)
     renderScore = vi.fn()
     const engine = {
       nudgeTempoOffset: nudge,
       resetTempoOffset: reset,
+      moveTempoBySlot: reanchor,
       resetDynamicOffset: vi.fn(() => false),
       nudgeDynamicOffset: vi.fn(() => false),
       nudgeNoteOffset: vi.fn(() => false),
@@ -63,14 +66,18 @@ describe('nudging a tempo mark from the keyboard', () => {
 
   const selectTempo = () => { state.selectedElement = { kind: 'tempo', id: 'T1' } }
 
-  it('⭐ plain arrows nudge FINE, in all four directions (screen-down is +y)', () => {
+  it('⭐ plain arrows nudge FINE, in all four directions', () => {
+    // 🚨 **↑ passes a POSITIVE dy here**, where every other family passes a negative one: this mark's
+    // offset is OUTWARD (+up), his call of 2026-08-19 — *"the y is inverted, a high value makes the
+    // text down"*. A tempo mark is always ABOVE the staff, so a number about it means how far FROM
+    // the staff. ⛔ If this ever reads like the dynamic's again, the panel and the ink disagree.
     selectTempo()
     run('selectNextNote')     // →
     run('selectPreviousNote') // ←
     run('pitchUp')            // ↑
     run('pitchDown')          // ↓
     expect(nudge.mock.calls).toEqual([
-      ['T1', 0.25, 0], ['T1', -0.25, 0], ['T1', 0, -0.25], ['T1', 0, 0.25],
+      ['T1', 0.25, 0], ['T1', -0.25, 0], ['T1', 0, 0.25], ['T1', 0, -0.25],
     ])
   })
 
@@ -81,7 +88,7 @@ describe('nudging a tempo mark from the keyboard', () => {
     run('octaveUp')
     run('octaveDown')
     expect(nudge.mock.calls).toEqual([
-      ['T1', 1, 0], ['T1', -1, 0], ['T1', 0, -1], ['T1', 0, 1],
+      ['T1', 1, 0], ['T1', -1, 0], ['T1', 0, 1], ['T1', 0, -1],
     ])
   })
 
@@ -104,10 +111,32 @@ describe('nudging a tempo mark from the keyboard', () => {
     expect(renderScore, 'and painted nothing').not.toHaveBeenCalled()
   })
 
+  it('⭐⭐ `Ctrl+Shift+←/→` moves the mark through the MUSIC — the other chord, the other category', () => {
+    // Two chords, two categories, one selection: the plain and `Ctrl` arrows above write an
+    // engraving override, and this one writes the MODEL — audibly, since the tempo applies from the
+    // beat it lands on.
+    selectTempo()
+    run('ctrlShiftArrowRight')
+    run('ctrlShiftArrowLeft')
+    expect(reanchor.mock.calls).toEqual([['T1', 1], ['T1', -1]])
+    expect(nudge, 'and it never reaches the INK').not.toHaveBeenCalled()
+  })
+
+  it('🚨 …and the INK chords never reach the re-anchor', () => {
+    selectTempo()
+    run('selectNextNote')
+    run('ctrlArrowRight')
+    run('pitchUp')
+    expect(nudge).toHaveBeenCalledTimes(3)
+    expect(reanchor).not.toHaveBeenCalled()
+  })
+
   it('⛔ leaves the arrows alone when the selected element is not a tempo mark', () => {
     state.selectedElement = { kind: 'clef', measure: 1, beat: { num: 0, den: 1 }, clef: 'treble' } as never
     run('selectNextNote')
     run('ctrlArrowRight')
+    run('ctrlShiftArrowRight')
     expect(nudge).not.toHaveBeenCalled()
+    expect(reanchor).not.toHaveBeenCalled()
   })
 })

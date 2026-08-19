@@ -2830,19 +2830,43 @@ export class MusicEngine {
    * Nudge a selected TEMPO mark's position offset by `(dx, dy)` staff-spaces and save ONE undo step
    * — the ←→↑↓ / Ctrl+arrow fine-positioning, his ask of 2026-08-19.
    *
-   * {@link nudgeDynamicOffset} above verbatim, and deliberately so: the two marks differ in what
-   * they hang off (a note vs a place in time), not in how a hand moves them. Same page limit, same
-   * id-keyed override, same accumulate-and-clear-at-zero in the model.
+   * {@link nudgeDynamicOffset} above in all but one respect: same page limit, same id-keyed override,
+   * same accumulate-and-clear-at-zero in the model — but ⚠️ **`dy` is OUTWARD here, +up**, because a
+   * tempo mark is always drawn above the staff and a number a human types about it means *how far
+   * from the staff*. See {@link TempoOffsetOverride}; the sign is converted here and in the render,
+   * nowhere else.
    * @returns true if the mark was nudged; false for an unknown id or a step the page refuses.
    */
   nudgeTempoOffset(tempoId: string, dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('tempo', tempoId, dx, dy)) return false
+    // 🚨 `dy` is OUTWARD (+up) for this mark alone — see `TempoOffsetOverride`. The page limit reasons
+    // in SCREEN pixels, so the sign is flipped for it and only for it.
+    if (!this.nudgeStaysOnPage('tempo', tempoId, dx, -dy)) return false
     if (!this.scoreModel.getTempoMarkById(tempoId)) return false
     const ok = this.scoreModel.nudgeTempoOffset(tempoId, dx, dy)
     if (ok) {
       this.saveOnly('Nudge tempo mark')
       const off = tempoOffsetOverrideOf(this.scoreModel.getScore(), tempoId)
       dbg(`[Tempo] nudge ${tempoId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
+    }
+    return ok
+  }
+
+  /**
+   * Move a tempo mark one onset back (−1) or on (+1) — `Ctrl+Shift+←/→` with the mark selected, the
+   * RE-ANCHOR (his ask, 2026-08-19).
+   *
+   * ⚠️ **A CONTENT edit, and an AUDIBLE one**, where the plain / `Ctrl` arrow on the same selection
+   * writes an engraving override: the tempo applies from the beat this writes, so the tempo map and
+   * every scheduled note after it move with the mark. Two chords, two categories — `moveDynamicBySlot`
+   * above is the same arrangement on the letters. Saves ONE undo entry per press.
+   * @returns true when the mark moved; false (declining the key) at either end of the score, when the
+   *   stop it would land on already holds a mark, or for an id no longer in the score.
+   */
+  moveTempoBySlot(id: string, direction: 1 | -1): boolean {
+    const ok = this.scoreModel.moveTempoBySlot(id, direction)
+    if (ok) {
+      this.commit(direction === -1 ? 'Move tempo mark back' : 'Move tempo mark on')
+      dbg(`[Tempo] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one onset`)
     }
     return ok
   }

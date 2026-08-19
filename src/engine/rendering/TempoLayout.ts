@@ -345,8 +345,10 @@ export function drawTempoMarks(
         // silent), and the reason a guard test breaks on purpose.
         const offset = tempoOffsetOverrideOf(pass.score, mark.id)
         if (offset && (offset.x !== 0 || offset.y !== 0)) {
+          // 🚨 `offset.y` is OUTWARD (+up), the one offset in the compartment that is — see
+          // `TempoOffsetOverride`. Screen y grows downward, so it is negated exactly here.
           setTempoMarkOffset(pass, mark.id, group,
-            staffSpacesToPixels(offset.x, stave), staffSpacesToPixels(offset.y, stave))
+            staffSpacesToPixels(offset.x, stave), staffSpacesToPixels(-offset.y, stave))
         }
       }
     } catch {

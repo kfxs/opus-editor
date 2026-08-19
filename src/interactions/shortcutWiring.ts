@@ -578,6 +578,11 @@ export function wireShortcuts(
   // staff-space delta (his ask, 2026-08-19). `nudgeSelectedDynamic`'s twin one branch up, and the
   // twin is the point: the two marks differ in what they hang off, not in how a hand moves them.
   //
+  // 🚨 **Its `dy` is OUTWARD (+up), the one offset in the compartment that is** — see
+  // `TempoOffsetOverride`. So ↑ passes a POSITIVE dy here where every branch above passes a negative
+  // one, and that asymmetry is the point rather than a slip: a tempo mark is always above the staff,
+  // so a number about it means *how far from the staff*.
+  //
   // ⛔ **No walk here, unlike the dynamic's horizontal.** A dynamic's ink can arrive at the next
   // NOTE of its lane and hand the anchor over; a tempo mark is anchored to a PLACE IN TIME and its
   // musical half (a re-anchor) does not exist yet, so there is nothing for the ink to arrive at.
@@ -608,6 +613,25 @@ export function wireShortcuts(
     const eng = getEngine()
     const id = selectedOf(state, 'tempo')?.id
     if (!eng || !id || !eng.resetTempoOffset(id)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **RE-ANCHOR THE SELECTED TEMPO MARK BY ONE ONSET** — `Ctrl+Shift+←/→` (his ask, 2026-08-19).
+   *
+   * ⭐ The musical half the mark did not have, and the same two-chord split the dynamics line already
+   * reads: the plain and `Ctrl` arrows own the INK, this chord means *move it through the music* —
+   * and here it is AUDIBLE, since a tempo applies from the beat it sits on.
+   *
+   * ⚠️ It DECLINES at either end of the score and on a beat another tempo mark already holds (one
+   * mark per beat, `engine/models/tempoOps`), so the chord falls through to the note offset behind it.
+   */
+  const reanchorSelectedTempo = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const tempoId = selectedOf(state, 'tempo')?.id
+    if (!eng || !tempoId) return false
+    if (!eng.moveTempoBySlot(tempoId, direction)) return false
     renderer.renderScore()
     return true
   }
@@ -1370,10 +1394,10 @@ export function wireShortcuts(
     // Vertical arrows: nudge the armed slur endpoint, else the normal pitch/octave edit.
     // (These keys are already bound, so they always consume — the nudge branch returns void
     // via the early return, so preventDefault still fires.)
-    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_FINE_SS) || nudgeSelectedHairpin(0, -NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_FINE_SS) || nudgeSelectedOttava(0, -NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, -NUDGE_FINE_SS) || nudgeSelectedPedal(0, -NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, -NUDGE_FINE_SS) || nudgeSelectedTrill(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS) || nudgeSelectedTempo(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
-    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, NUDGE_FINE_SS) || nudgeSelectedHairpin(0, NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, NUDGE_FINE_SS) || nudgeSelectedOttava(0, NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, NUDGE_FINE_SS) || nudgeSelectedPedal(0, NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, NUDGE_FINE_SS) || nudgeSelectedTrill(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS) || nudgeSelectedTempo(0, NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
-    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, -NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedOttava(0, -NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedPedal(0, -NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedTrill(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS) || nudgeSelectedTempo(0, -NUDGE_COARSE_SS))) selection.adjustOctave(1) },
-    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, NUDGE_COARSE_SS) || nudgeSelectedOttava(0, NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, NUDGE_COARSE_SS) || nudgeSelectedPedal(0, NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, NUDGE_COARSE_SS) || nudgeSelectedTrill(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS) || nudgeSelectedTempo(0, NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
+    pitchUp: () => { if (nudgeArmedSlurPoint(0, -NUDGE_FINE_SS) || nudgeSelectedSlur(0, -NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_FINE_SS) || nudgeSelectedHairpin(0, -NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_FINE_SS) || nudgeSelectedOttava(0, -NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, -NUDGE_FINE_SS) || nudgeSelectedPedal(0, -NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, -NUDGE_FINE_SS) || nudgeSelectedTrill(0, -NUDGE_FINE_SS) || nudgeSelectedRest(1) || nudgeSelectedDynamic(0, -NUDGE_FINE_SS) || nudgeSelectedTempo(0, NUDGE_FINE_SS)) return; selection.adjustPitch(1) },
+    pitchDown: () => { if (nudgeArmedSlurPoint(0, NUDGE_FINE_SS) || nudgeSelectedSlur(0, NUDGE_FINE_SS) || nudgeArmedHairpinEnd(0, NUDGE_FINE_SS) || nudgeSelectedHairpin(0, NUDGE_FINE_SS) || nudgeArmedOttavaEnd(0, NUDGE_FINE_SS) || nudgeSelectedOttava(0, NUDGE_FINE_SS) || nudgeArmedPedalEnd(0, NUDGE_FINE_SS) || nudgeSelectedPedal(0, NUDGE_FINE_SS) || nudgeArmedTrillEnd(0, NUDGE_FINE_SS) || nudgeSelectedTrill(0, NUDGE_FINE_SS) || nudgeSelectedRest(-1) || nudgeSelectedDynamic(0, NUDGE_FINE_SS) || nudgeSelectedTempo(0, -NUDGE_FINE_SS)) return; selection.adjustPitch(-1) },
+    octaveUp: () => { if (!(nudgeArmedSlurPoint(0, -NUDGE_COARSE_SS) || nudgeSelectedSlur(0, -NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, -NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedOttava(0, -NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedPedal(0, -NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, -NUDGE_COARSE_SS) || nudgeSelectedTrill(0, -NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, -NUDGE_COARSE_SS) || nudgeSelectedTempo(0, NUDGE_COARSE_SS))) selection.adjustOctave(1) },
+    octaveDown: () => { if (!(nudgeArmedSlurPoint(0, NUDGE_COARSE_SS) || nudgeSelectedSlur(0, NUDGE_COARSE_SS) || nudgeArmedHairpinEnd(0, NUDGE_COARSE_SS) || nudgeSelectedHairpin(0, NUDGE_COARSE_SS) || nudgeArmedOttavaEnd(0, NUDGE_COARSE_SS) || nudgeSelectedOttava(0, NUDGE_COARSE_SS) || nudgeArmedPedalEnd(0, NUDGE_COARSE_SS) || nudgeSelectedPedal(0, NUDGE_COARSE_SS) || nudgeArmedTrillEnd(0, NUDGE_COARSE_SS) || nudgeSelectedTrill(0, NUDGE_COARSE_SS) || nudgeSelectedDynamic(0, NUDGE_COARSE_SS) || nudgeSelectedTempo(0, -NUDGE_COARSE_SS))) selection.adjustOctave(-1) },
     // ── Ctrl+←/→ = MOVE: change the space before a selected note's column, or a selected barline's
     //    bar width — "move a lot" gets the easy key (docs/note-offset-plan.md §C swap). Joins the
     //    slur-endpoint / dynamic COARSE nudge that already owned Ctrl+←/→ (all selections disjoint).
@@ -1452,13 +1476,13 @@ export function wireShortcuts(
       reanchorArmedEndpoint(-1) || resizeSelectedHairpin(-1) || moveSelectedHairpinStart(-1)
       || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
       || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1) || reanchorArmedTrill(-1)
-      || reanchorSelectedDynamic(-1)
+      || reanchorSelectedDynamic(-1) || reanchorSelectedTempo(-1)
       || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
       || resizeSelectedPedal(1) || moveSelectedPedalStart(1) || reanchorArmedTrill(1)
-      || reanchorSelectedDynamic(1)
+      || reanchorSelectedDynamic(1) || reanchorSelectedTempo(1)
       || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),

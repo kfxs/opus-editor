@@ -39,6 +39,7 @@ import * as slurOps from './slurOps'
 import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as dynamicOps from './dynamicOps'
+import * as tempoOps from './tempoOps'
 import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
 import * as pedalOps from './pedalOps'
@@ -963,6 +964,13 @@ export class ScoreModel {
   /** A measure's tempo marks, sorted ascending by beat (a copy; empty if none). */
   getTempoMarks(measureNumber: number): TempoMark[] {
     return tempoMarks(this.score, measureNumber)
+  }
+
+  /** Move a tempo mark back (−1) or on (+1) by one onset of the score — the model write behind
+   *  `Ctrl+Shift+←/→`, which re-files it under the bar it lands in and drops its sideways nudge.
+   *  See {@link tempoOps.moveTempoBySlot}. */
+  moveTempoBySlot(id: string, direction: 1 | -1): boolean {
+    return tempoOps.moveTempoBySlot(this.score, id, direction)
   }
 
   /** Find a tempo mark anywhere in the score by id (live reference), or null. Used by

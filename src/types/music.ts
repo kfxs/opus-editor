@@ -1342,7 +1342,20 @@ export interface TempoOffsetOverride extends EngravingOverride {
   kind: 'tempoOffset'
   /** Horizontal offset in staff-spaces, relative to the anchor. +right. */
   x: number
-  /** Vertical offset in staff-spaces, relative to the anchor. +down (screen). */
+  /**
+   * Vertical offset in staff-spaces, relative to the row the ladder gave the mark.
+   *
+   * 🚨 **+UP — OUTWARD, away from the staff — and ⛔ NOT the screen-down `y` of every other offset
+   * in this compartment.** His report, 2026-08-19: *"the y is inverted, a high value makes the text
+   * down and a less value makes the text up"*.
+   *
+   * ⭐ The reason it differs is the reason `TrillOffsetOverride.outward` differs: a number a human
+   * types about a mark means *how far from the staff*, and for a mark that is always drawn ABOVE
+   * the staff that direction is up. A dynamic hangs BELOW, so its screen-down `y` already reads as
+   * "further away" and needs no such rule. ⚠️ The two are converted at exactly two places — the
+   * render (`rendering/TempoLayout`) and the page limit (`MusicEngine.nudgeTempoOffset`) — and
+   * nothing else may assume a sign.
+   */
   y: number
 }
 
