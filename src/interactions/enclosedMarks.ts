@@ -11,11 +11,11 @@
  * SAME rule the clip uses, and everything downstream of `selectedItems` (the highlight, and Delete)
  * reads its answer rather than restating the rule.
  *
- * ⛔ **Fully enclosed, never clipped** — the rule the copy applies, for the copy's reason: a mark
- * that reaches out of the box belongs to music the box does not hold, so it travels with neither.
- * A wedge that starts inside and ends past the last note is left out, exactly as it is left out of
- * the clip. The one asymmetry is the TRILL, which the clip takes on its SIGN alone (its extension
- * line may run out of the window), so this does too.
+ * ⭐ **A mark belongs to where it BEGINS** — the model's own filing rule, and the copy's (2026-08-19,
+ * amending the older fully-enclosed one). A dynamic and a trill are taken on their point / their
+ * SIGN; a hairpin, an octave line and a pedal on their START, with their extent travelling verbatim
+ * however far past the box it reaches. ⛔ Nothing is ever truncated, and ⚠️ a span that starts BEFORE
+ * the box is not in it — its home is that earlier bar.
  *
  * ⚠️ The rule lives in two places — here, keyed by id, and in `./clipboard`, keyed by offset — and
  * `enclosedMarks.test.ts` pins them against each other: what a box highlights and what its copy
@@ -30,7 +30,7 @@ import { measureCapacityFrac } from '../utils/measureCapacity'
 import { slotLength } from '../utils/durations'
 import { staffOf } from '../utils/lanes'
 import { staffIndexOfId } from '../engine/models/staffContent'
-import { fracAdd, fracCompare, fracCreate, fracGte, fracLt, fracLte } from '../utils/fraction'
+import { fracAdd, fracCompare, fracCreate, fracGte, fracLt } from '../utils/fraction'
 
 /** The box, in absolute quarter beats plus the staff band its notes cover. */
 interface BoxWindow {
@@ -80,10 +80,24 @@ function boxWindow(
   return start && end ? { start, end, topStaff, maxStaff } : null
 }
 
-/** A span mark is in the box when it starts inside it AND finishes inside it, on a covered staff. */
-function spanEnclosed(w: BoxWindow, abs: Fraction, length: Fraction, staff: number): boolean {
+/**
+ * ⭐⭐ **A SPAN BELONGS TO WHERE IT BEGINS** — in the box when its START is inside it, on a covered
+ * staff, however far past the box it runs. His call, 2026-08-19: *"when we select the measure we
+ * should select ottava and pedal too"*, having watched a 6-beat 8va and a 5-beat pedal sit out a
+ * copy of the 4-beat bar they start in.
+ *
+ * ⭐ It is the MODEL's own filing rule: a hairpin, an octave line and a pedal are each stored on the
+ * bar their start lands in, *carrying their own extent* (`types/music.ts`), precisely so they may run
+ * past that bar's end. Selecting by enclosure asked a question the model does not answer.
+ *
+ * ⛔ It is NOT truncation — the length travels verbatim — so the old fully-enclosed rule's reason
+ * (a cut 8va would transpose music the copy never covered) does not apply: nothing is cut.
+ * ⚠️ A span that STARTS before the box is not in it, whatever it covers: its home is that earlier
+ * bar, and a clip has no offset to file it under.
+ */
+function spanBelongs(w: BoxWindow, abs: Fraction, staff: number): boolean {
   if (staff < w.topStaff || staff > w.maxStaff) return false
-  return fracGte(abs, w.start) && fracLte(fracAdd(abs, length), w.end)
+  return fracGte(abs, w.start) && fracLt(abs, w.end)
 }
 
 /** The three measure-owned spans, by the `SelectionItem` kind each becomes. One shape — a start
@@ -117,7 +131,7 @@ export function marksInBox(score: Score, noteIds: string[]): SelectionItem[] {
     if (!base) continue
     for (const span of measureSpans(measure)) {
       const abs = fracAdd(base, span.beat)
-      if (spanEnclosed(window, abs, span.length, staffIndexOfId(score, span.staffId))) {
+      if (spanBelongs(window, abs, staffIndexOfId(score, span.staffId))) {
         items.push({ kind: span.kind, id: span.id })
       }
     }

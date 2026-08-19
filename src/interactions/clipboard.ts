@@ -1,7 +1,7 @@
 import type { Fraction, Score } from '../types/music'
 import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTempo, ClipTrill, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
-import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
+import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { measureCapacityFrac } from '../utils/measureCapacity'
 import { formatPitch } from '../utils/pitchSpelling'
@@ -38,18 +38,18 @@ export interface ClipboardPayload extends Clip {
   dynamics: ClipDynamic[]
   /** Slurs fully inside the copy window (Phase 3) — always present on a built payload. */
   slurs: ClipSlur[]
-  /** Hairpins fully inside the copy window — always present on a built payload. */
+  /** Hairpins whose START is in the copy window — always present on a built payload. */
   hairpins: ClipHairpin[]
   /** Trills whose SIGN is inside the copy window — always present on a built payload. */
   trills: ClipTrill[]
   /**
-   * Octave lines fully inside the copy window. ⚠️ Unlike its four siblings above it is OMITTED
+   * Octave lines whose START is in the copy window. ⚠️ Unlike its four siblings above it is OMITTED
    * when empty (the `spaces` convention), so the `version` does not move: a payload from a score
    * with no ottava is byte-identical to a v4 one, and a reader that predates the field defaults it
    * to none — which is what it would have found anyway. Inherited from {@link Clip.ottavas}.
    */
   ottavas?: ClipOttava[]
-  /** Sustain pedals fully inside the copy window. OMITTED when empty, on the `ottavas` rule above
+  /** Sustain pedals whose START is in the copy window. OMITTED when empty, on the `ottavas` rule above
    *  and for its reason. Inherited from {@link Clip.pedals}. */
   pedals?: ClipPedal[]
   /** Tempo marks inside the copy window. OMITTED when empty, on the `ottavas` rule above and for
@@ -363,16 +363,20 @@ function temposInWindow(
 }
 
 /**
- * Hairpins lying FULLY inside the copy window — start at or after `spanStart`, end at or before
- * `spanEnd` — and on staves within the copied span, as {@link ClipHairpin}s with the staff re-based
- * to `topStaff` (relative) and the start re-based to the window start. `length` is an amount of
- * music, so it copies through untouched.
+ * ⭐⭐ Hairpins whose START lies in the copy window `[spanStart, spanEnd)`, on staves within the
+ * copied span, as {@link ClipHairpin}s with the staff re-based to `topStaff` (relative) and the
+ * start re-based to the window start. `length` is an amount of music, so it copies through
+ * untouched — including past the end of the window.
  *
- * A hairpin STRADDLING the window is left behind, not truncated: same rule as the dynamics and
- * slurs above, and the smaller promise — truncating would hand the paste a wedge whose shape the
- * copied music never had. ⚠️ Note the end test is inclusive (`<=`), unlike the start's half-open
- * `<`: a wedge finishing exactly on the last copied beat is enclosed, whereas a mark AT `spanEnd`
- * sits on the first beat not copied.
+ * ⭐ **A SPAN BELONGS TO WHERE IT BEGINS** (2026-08-19, amending the older fully-enclosed rule after
+ * his report: *"i'm including ottava and ped in the selection then copy and paste but the ottava and
+ * ped does not paste"*). It is the MODEL's own filing rule — a hairpin is stored on the bar its
+ * start lands in, carrying its own extent (`types/music.ts`) — and it keeps the box selection and
+ * the clip saying the same thing (`interactions/enclosedMarks`).
+ *
+ * ⛔ Nothing is TRUNCATED, which is what the old rule guarded against: a straddling wedge travels
+ * whole. ⚠️ A wedge that starts BEFORE the window is left behind — its home is that earlier music,
+ * and the clip has no offset to file it under.
  */
 function hairpinsInWindow(
   score: Score,
@@ -390,8 +394,9 @@ function hairpinsInWindow(
     for (const h of m.hairpins ?? []) {
       if (!wanted(h.id)) continue
       const abs = fracAdd(mStart, h.beat)
-      if (!fracGte(abs, spanStart)) continue
-      if (!fracLte(fracAdd(abs, h.length), spanEnd)) continue
+      // ⭐⭐ A SPAN BELONGS TO WHERE IT BEGINS (2026-08-19) — start inside the window, extent
+      // verbatim however far past it the mark runs. See the header note on this file's builders.
+      if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd)) continue
       const staffIdx = staffIndexOfId(score, h.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
       out.push({
@@ -408,13 +413,14 @@ function hairpinsInWindow(
 }
 
 /**
- * Octave lines lying FULLY inside the copy window, as {@link ClipOttava}s — {@link hairpinsInWindow}
+ * Octave lines whose START is in the copy window, as {@link ClipOttava}s — {@link hairpinsInWindow}
  * with the voice dropped (an ottava governs the staff, so it has none to record) and the same
  * inclusive end test.
  *
- * ⚠️ The fully-enclosed rule matters more here than anywhere else it is applied. A truncated wedge
- * would merely look wrong; a truncated octave line would change the PITCH of every note past the
- * cut, silently, in the pasted copy only.
+ * ⚠️ **Never truncated, and here that is the load-bearing half of the rule.** A cut wedge would
+ * merely look wrong; a cut octave line would change the PITCH of every note past the cut, silently,
+ * in the pasted copy only. So the extent travels verbatim — a 6-beat 8va copied with a 4-beat bar
+ * arrives as a 6-beat 8va.
  */
 function ottavasInWindow(
   score: Score,
@@ -432,8 +438,9 @@ function ottavasInWindow(
     for (const o of m.ottavas ?? []) {
       if (!wanted(o.id)) continue
       const abs = fracAdd(mStart, o.beat)
-      if (!fracGte(abs, spanStart)) continue
-      if (!fracLte(fracAdd(abs, o.length), spanEnd)) continue
+      // ⭐⭐ A SPAN BELONGS TO WHERE IT BEGINS (2026-08-19) — start inside the window, extent
+      // verbatim however far past it the mark runs. See the header note on this file's builders.
+      if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd)) continue
       const staffIdx = staffIndexOfId(score, o.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
       out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: o.length, shift: o.shift })
@@ -443,12 +450,12 @@ function ottavasInWindow(
 }
 
 /**
- * Sustain pedals lying FULLY inside the copy window, as {@link ClipPedal}s — {@link ottavasInWindow}
+ * Sustain pedals whose START is in the copy window, as {@link ClipPedal}s — {@link ottavasInWindow}
  * with the shift dropped, since a pedal's statement is its two ends and nothing else.
  *
- * ⚠️ The fully-enclosed rule is load-bearing here for its own reason: a press whose lift fell outside
- * the window would arrive in the paste holding down whatever happens to follow it, so the copy would
- * sustain music it never covered.
+ * ⚠️ Its LIFT travels with it, for its own reason: a press copied without one would arrive in the
+ * paste holding down whatever happens to follow it, so the copy would sustain music it never
+ * covered. That is why the extent goes across verbatim rather than being cut to the window.
  */
 function pedalsInWindow(
   score: Score,
@@ -466,8 +473,9 @@ function pedalsInWindow(
     for (const p of m.pedals ?? []) {
       if (!wanted(p.id)) continue
       const abs = fracAdd(mStart, p.beat)
-      if (!fracGte(abs, spanStart)) continue
-      if (!fracLte(fracAdd(abs, p.length), spanEnd)) continue
+      // ⭐⭐ A SPAN BELONGS TO WHERE IT BEGINS (2026-08-19) — start inside the window, extent
+      // verbatim however far past it the mark runs. See the header note on this file's builders.
+      if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd)) continue
       const staffIdx = staffIndexOfId(score, p.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
       out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: p.length })

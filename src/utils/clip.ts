@@ -141,10 +141,13 @@ export interface ClipTempo {
  * bar-anchored data while conceptually operating on a run of music — the forbidden clause, word for
  * word. Dynamics are here for the same reason ({@link ClipDynamic}).
  *
- * Only hairpins lying FULLY inside the window travel — both the start AND the end, matching the
- * fully-enclosed-only rule the dynamics and slurs already follow. So copying the *middle* of a long
- * crescendo leaves the wedge behind rather than silently truncating it to the selection: a clip
- * says what it holds, and half a wedge would claim a shape the music never had.
+ * ⭐⭐ **A SPAN BELONGS TO WHERE IT BEGINS** (2026-08-19): a hairpin travels when its START is in the
+ * window, and its `length` goes across VERBATIM — so a wedge that runs past the copied music arrives
+ * intact rather than sitting the copy out. It is the model's own filing rule (a hairpin lives on the
+ * bar its start lands in, carrying its extent), and it is why ⛔ nothing is ever truncated: half a
+ * wedge would claim a shape the music never had, which is what the older fully-enclosed rule was
+ * really guarding. Copying the *middle* of a long crescendo still leaves it behind — its start is
+ * elsewhere, and the clip has no offset to file it under.
  */
 export interface ClipHairpin {
   /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
@@ -169,9 +172,10 @@ export interface ClipHairpin {
  * And here the omission would be louder than a missing wedge: an 8va passage pasted without its
  * bracket does not merely look plainer, it **sounds an octave wrong**.
  *
- * Only ottavas lying FULLY inside the window travel — both the start AND the end, matching the
- * hairpin's fully-enclosed rule. Half an octave line is not an octave line: a clip that truncated
- * one would claim a span the music never had, and every note past the cut would change pitch.
+ * An ottava travels when its START is in the window, with its `length` verbatim — {@link ClipHairpin}'s
+ * rule. ⛔ Half an octave line is not an octave line: truncating one would claim a span the music
+ * never had, and every note past the cut would change pitch — which is exactly why the extent is
+ * copied rather than clipped.
  */
 export interface ClipOttava {
   /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
@@ -266,13 +270,11 @@ export interface Clip {
   slurs?: ClipSlur[]
   /** Trills whose SIGN is inside the clip window, re-anchored on paste. Absent/empty = none. */
   trills?: ClipTrill[]
-  /** Hairpins fully inside the clip window (start AND end), re-anchored on paste. Absent/empty = none. */
+  /** Hairpins whose START is in the clip window, re-anchored on paste. Absent/empty = none. */
   hairpins?: ClipHairpin[]
-  /** Octave lines fully inside the clip window (start AND end), re-anchored on paste.
-   *  Absent/empty = none. */
+  /** Octave lines whose START is in the clip window, re-anchored on paste. Absent/empty = none. */
   ottavas?: ClipOttava[]
-  /** Sustain pedals fully inside the clip window (press AND lift), re-anchored on paste.
-   *  Absent/empty = none. */
+  /** Sustain pedals whose PRESS is in the clip window, re-anchored on paste. Absent/empty = none. */
   pedals?: ClipPedal[]
   /**
    * User-authored horizontal spaces (client #10) whose column falls inside the clip window,

@@ -85,6 +85,20 @@ reports none. `ClipboardController` falls back to selecting the slots the window
   are inside the copy window; a dynamic travels only if its position is inside it.
   Straddling items are left behind. (Boundary-clipping is a possible later refinement.)
 
+  ⭐⭐ **REVERSED for the three SPANS, 2026-08-19** — the hairpin, the octave line and the pedal now
+  travel when their **START** is in the window, with their extent verbatim. His report: *"i'm
+  including ottava and ped in the selection then copy and paste but the ottava and ped does not
+  paste"* (a 6-beat 8va and a 5-beat pedal over the 4-beat bar he copied), and then *"when we select
+  the measure we should select ottava and pedal too"* — so the BOX selection moved with it
+  (`interactions/enclosedMarks`).
+
+  ⭐ **A span belongs to where it BEGINS**, which is the model's own filing rule: each is stored on
+  the bar its start lands in, carrying its own extent (`types/music.ts`), precisely so it may run
+  past that bar. ⛔ Nothing is truncated — the old rule's real fear (a cut 8va transposing music the
+  copy never covered) is met by copying the extent, not by dropping the mark. ⚠️ A span that starts
+  BEFORE the window still does not travel: the clip has no offset to file it under.
+  The DYNAMIC, the SLUR and the TRILL are unchanged — a point, two endpoints, and a sign.
+
   ⭐ **Amended 2026-08-19:** enclosure is now the ceiling, not the rule — a mark also has to be
   SELECTED to travel (`MarkFilter`, `docs/passage-selection-marks.md`). A box selects everything it
   encloses, so a passage copy is unchanged; a Ctrl-built selection carries exactly what it shows.

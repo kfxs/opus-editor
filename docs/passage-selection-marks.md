@@ -28,10 +28,16 @@ downstream reads its answer instead of restating the rule.
 | Delete (`shortcutWiring`) | removes them with the notes, in the same batch |
 | `ClipboardController.placeAt` | the paste selects what it wrote — it calls the same `selectNotes` |
 
-**The rule:** fully enclosed, never clipped — the copy's own rule, for the copy's reason. A wedge
-that starts inside the box and ends past its last note belongs to music the box does not hold, so it
-travels with neither. The one asymmetry is the **trill**, taken on its SIGN alone (its wavy
-extension may run out of the window), because that is what the clip does.
+**The rule (amended 2026-08-19):** a mark belongs to where it **BEGINS**. A dynamic is taken on its
+point, a slur on its two endpoints, a trill on its SIGN alone (its wavy extension may run out of the
+window) — and the three SPANS (hairpin, octave line, pedal) on their START, with their extent
+travelling verbatim however far past the box it reaches.
+
+⭐ That is the model's own filing rule: each span is stored on the bar its start lands in, carrying
+its extent (`types/music.ts`). It replaced a *fully enclosed* rule after his report that a 6-beat
+8va and a 5-beat pedal sat out the copy of the 4-beat bar they start in — *"when we select the
+measure we should select ottava and pedal too"*. ⛔ Nothing is truncated (the old rule's real fear),
+and ⚠️ a span starting BEFORE the box is still not in it — its home is that earlier bar.
 
 ⚠️ The rule is now stated twice — here keyed by **id**, in `clipboard.ts` keyed by **offset** — and
 `enclosedMarks.test.ts` pins them against each other: for one fixture, what the box highlights and

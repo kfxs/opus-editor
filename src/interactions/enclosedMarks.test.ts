@@ -55,10 +55,16 @@ describe('marksInBox', () => {
     expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'hairpin', id }])
   })
 
-  it('⛔ leaves a hairpin that reaches PAST the box — fully enclosed, never clipped', () => {
-    // Five quarters from bar 1 beat 0 runs one beat into bar 2, which this box does not hold.
-    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(5, 1), voice: 0 })
-    expect(marksInBox(engine.getScore(), bar1)).toEqual([])
+  it('⭐ takes a hairpin that reaches PAST the box — a span belongs to where it BEGINS', () => {
+    // Five quarters from bar 1 beat 0 runs one beat into bar 2. His call, 2026-08-19: selecting the
+    // bar selects it, and the copy carries it whole (the 8va and the pedal are the same rule).
+    const id = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(5, 1), voice: 0 })!.id
+    expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'hairpin', id }])
+  })
+
+  it('⛔ leaves a span that STARTS before the box — its home is that earlier bar', () => {
+    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(8, 1), voice: 0 })
+    expect(marksInBox(engine.getScore(), bar2)).toEqual([])
   })
 
   it('⭐ takes a TRILL on its SIGN alone — its wavy line may run out of the box', () => {
@@ -95,8 +101,9 @@ describe('marksInBox', () => {
     engine.addTrill({ startNoteId: bar1[2] })
     engine.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
     engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
-    // …and three that must be in NEITHER: past the box's end, in the next bar, out of its staff band.
+    // ⭐ A wedge that STARTS in the box and runs past it — in BOTH, since 2026-08-19.
     engine.addHairpin(1, { type: 'cresc', beat: frac(3, 1), length: frac(3, 1), voice: 0 })
+    // …and two that must be in NEITHER, both because they start in the NEXT bar.
     engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
     engine.addTrill({ startNoteId: bar2[2] })
 
@@ -108,8 +115,9 @@ describe('marksInBox', () => {
     expect(count('trill')).toBe(clip.trills.length)
     expect(count('ottava')).toBe(clip.ottavas?.length ?? 0)
     expect(count('tempo')).toBe(clip.tempos?.length ?? 0)
-    // …and the fixture really does exercise both sides of the rule.
-    expect(box.length).toBe(5)
+    // …and the fixture really does exercise both sides of the rule: 2 hairpins (one of them the
+    // straddler), a dynamic, a trill, an 8va and a tempo mark in — the next bar's two out.
+    expect(box.length).toBe(6)
   })
 })
 

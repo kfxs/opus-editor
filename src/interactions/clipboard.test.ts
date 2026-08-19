@@ -455,14 +455,24 @@ describe('clipboard — hairpins travel', () => {
     expect(hairpinsOf(2)).toEqual(['cresc@1+2'])
   })
 
-  it('leaves a hairpin STRADDLING the window behind rather than truncating it', () => {
+  it('⭐ carries a hairpin STRADDLING the window WHOLE — a span belongs to where it begins', () => {
     // Copy only C@0 + D@1 → window [0,2). The wedge starts inside it but runs to beat 3.
     const ids = fourNotes().slice(0, 2)
     engine.addHairpin(1, { type: 'cresc', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
-    // Half a wedge is not a wedge: dropping matches the dynamics/slurs rule, and a truncated
-    // copy would claim a shape the copied music never had.
+    // ⭐ 2026-08-19, his call: it travels, with its extent verbatim. ⛔ Nothing is truncated — which
+    // is what the old fully-enclosed rule was guarding against — and the model already files a span
+    // on the bar its START lands in, carrying its own extent past that bar's end.
+    expect(payload.hairpins).toHaveLength(1)
+    expect(fracToNumber(payload.hairpins[0].offset)).toBe(1)
+    expect(fracToNumber(payload.hairpins[0].length), 'the extent is not cut to the window').toBe(2)
+  })
+
+  it('leaves a hairpin that STARTS before the window behind — its home is that earlier music', () => {
+    const ids = fourNotes().slice(2) // window [2,4)
+    engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(4, 1), voice: 0 })
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     expect(payload.hairpins).toHaveLength(0)
   })
 
@@ -518,14 +528,16 @@ describe('clipboard — octave lines travel', () => {
     expect(ottavasOf(2)).toEqual(['1@1+2'])
   })
 
-  it('leaves an octave line STRADDLING the window behind rather than truncating it', () => {
-    // Window [0,2); the line starts inside it but runs to beat 3. Truncating would not merely
-    // shorten a bracket — every note past the cut would arrive at the wrong PITCH.
+  it('⭐ carries an octave line STRADDLING the window WHOLE (his report: the 8va did not paste)', () => {
+    // Window [0,2); the line starts inside it but runs to beat 3. It travels WHOLE — ⛔ never
+    // truncated, which would not merely shorten a bracket: every note past the cut would arrive at
+    // the wrong PITCH, and that is exactly why the extent goes across verbatim.
     const ids = fourNotes().slice(0, 2)
     addOttava(engine.getScore(), 1, { beat: frac(1, 1), length: frac(2, 1), shift: 1 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
-    expect(payload.ottavas ?? []).toHaveLength(0)
+    expect(payload.ottavas ?? []).toHaveLength(1)
+    expect(fracToNumber(payload.ottavas![0].length)).toBe(2)
   })
 
   it('omits the section entirely when there is none — a v4 payload is unchanged', () => {
@@ -574,14 +586,16 @@ describe('clipboard — sustain pedals travel', () => {
     expect(pedalsOf(2)).toEqual(['1+2'])
   })
 
-  it('leaves a pedal STRADDLING the window behind rather than truncating it', () => {
-    // Window [0,2); the press is inside it but the lift is at beat 3. A truncated pedal would
-    // arrive holding down whatever happened to follow the paste.
+  it('⭐ carries a pedal STRADDLING the window WHOLE (his report: the Ped. did not paste)', () => {
+    // Window [0,2); the press is inside it but the lift is at beat 3. The press AND its lift travel
+    // — ⛔ a truncated pedal would arrive holding down whatever happened to follow the paste, which
+    // is why the extent is copied rather than cut.
     const ids = fourNotes().slice(0, 2)
     addPedal(engine.getScore(), 1, { beat: frac(1, 1), length: frac(2, 1) })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
-    expect(payload.pedals ?? []).toHaveLength(0)
+    expect(payload.pedals ?? []).toHaveLength(1)
+    expect(fracToNumber(payload.pedals![0].length)).toBe(2)
   })
 
   it('omits the section entirely when there is none — a v4 payload is unchanged', () => {
