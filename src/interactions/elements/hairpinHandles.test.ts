@@ -256,14 +256,24 @@ describe('hairpinDragTargetAt', () => {
     expect(hairpinDragTargetAt(engine, 'H1', 'end', 210, 430)).toMatchObject({ measure: 5 })
   })
 
-  it('stays in the wedge\'s own LANE — another voice is not a boundary it can reach', () => {
+  it('takes its boundaries from its STAFF — every voice of it', () => {
     const engine = dragEngine([
       { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
       { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
     ])
-    // The cursor sits ON the voice-1 note's edge, and must still answer with the voice-0 one.
+    // The cursor sits ON the voice-1 note's edge, and the fixture's wedge carries no `voice`.
     expect(hairpinDragTargetAt(engine, 'H1', 'start', 174, 50))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 0, den: 1 } })
+      .toEqual({ at: 'start', measure: 1, beat: { num: 2, den: 1 } })
+  })
+
+  it('⭐⭐ …and a wedge NARROWED to a voice reaches the SAME boundary', () => {
+    // Scope is about loudness; a tip is dragged onto a COLUMN, and a column belongs to the staff.
+    const engine = dragEngine([
+      { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
+      { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
+    ], { voice: 0 })
+    expect(hairpinDragTargetAt(engine, 'H1', 'start', 174, 50))
+      .toEqual({ at: 'start', measure: 1, beat: { num: 2, den: 1 } })
   })
 
   it('…and its own STAFF', () => {

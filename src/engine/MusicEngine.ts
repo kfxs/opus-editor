@@ -40,6 +40,7 @@ import type { Clip, ClipTarget } from '@/utils/clip'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import type { TrillSpan } from '@/engine/models/trillOps'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import type { VoiceScope } from '@/utils/dynamicScope'
 
 /**
  * Configuration for the MusicEngine
@@ -845,6 +846,26 @@ export class MusicEngine {
    * @returns true when the mark moved; false (declining the key) when the walk runs off the end of
    *   the lane, or the id is no longer in the score.
    */
+  /**
+   * ⭐⭐ **Set which voices a dynamic or a hairpin GOVERNS** — one method for both kinds, because
+   * `Alt+1…5` does not ask which one is selected: it asks what the selection can take
+   * (`interactions/markVoiceScope`, docs/dynamic-voice-scope-plan.md P4).
+   *
+   * `'all'` is the absence — the mark governs every voice of its staff — and the model DELETES the
+   * field for it rather than storing an `undefined` (`dynamicOps.setDynamicVoiceScope`).
+   *
+   * ⚠️ Declines (false) when nothing has that id, and when the scope is already what is asked; the
+   * caller must not repaint on a false, or every press of the lit button re-renders the score.
+   */
+  setMarkVoiceScope(id: string, scope: VoiceScope): boolean {
+    const ok = this.scoreModel.setDynamicVoiceScope(id, scope) || this.scoreModel.setHairpinVoiceScope(id, scope)
+    if (ok) {
+      this.commit(scope === 'all' ? 'Mark governs all voices' : `Mark governs voice ${scope + 1}`)
+      dbg(`[Scope] ${id} → ${scope === 'all' ? 'ALL voices' : `voice ${scope + 1}`}`)
+    }
+    return ok
+  }
+
   moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
     const ok = this.scoreModel.moveDynamicBySlot(id, direction)
     if (ok) {

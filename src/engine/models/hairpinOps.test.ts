@@ -18,7 +18,7 @@ import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
   setHairpinEndpointOffset, resetHairpinEndpointOffset, setHairpinAperture,
-  setHairpinOffset, resetHairpinOffset,
+  setHairpinOffset, resetHairpinOffset, setHairpinVoiceScope,
 } from './hairpinOps'
 import { setEngravingOverride } from './overrideOps'
 import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
@@ -339,5 +339,33 @@ describe('setHairpinOffset — the whole wedge', () => {
   it('returns false for an unknown hairpin rather than orphaning an override', () => {
     expect(setHairpinOffset(score, 'ghost', 1, 1)).toBe(false)
     expect(score.engravingOverrides).toBeUndefined()
+  })
+})
+
+/**
+ * ⭐ {@link setHairpinVoiceScope} — the wedge's half of P4. `setDynamicVoiceScope`'s twin, and the
+ * same one claim: `'all'` removes the field.
+ */
+describe('setHairpinVoiceScope', () => {
+  let score: Score
+  let id: string
+
+  beforeEach(() => {
+    score = new ScoreModel().getScore()
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const mark = () => getHairpinById(score, id)!
+
+  it('narrows an unscoped wedge, and `all` takes the field back out', () => {
+    expect(setHairpinVoiceScope(score, id, 3)).toBe(true)
+    expect(mark().voice).toBe(3)
+    expect(setHairpinVoiceScope(score, id, 'all')).toBe(true)
+    expect('voice' in mark()).toBe(false)
+  })
+
+  it('⛔ declines a no-op, and an unknown id', () => {
+    expect(setHairpinVoiceScope(score, id, 'all')).toBe(false)
+    expect(setHairpinVoiceScope(score, 'ghost', 0)).toBe(false)
   })
 })

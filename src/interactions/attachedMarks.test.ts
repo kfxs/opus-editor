@@ -102,6 +102,34 @@ describe('attachedMarksOf', () => {
     expect(attachedMarksOf(stand(score), 'N2').some(m => m.label.startsWith('Hairpin'))).toBe(false)
   })
 
+  it('⭐ …but DOES offer one that governs every voice — an unscoped mark belongs to them all', () => {
+    const score = scoreWith({
+      hairpins: [{ id: 'H1', type: 'cresc', beat: frac(0, 1), length: frac(3, 1) }],
+      dynamics: [{ id: 'D1', beat: frac(1, 1), text: 'mf', placement: 'below' }],
+    } as unknown as Partial<Score['measures'][0]>)
+    for (const voice of [0, 1, 2, 3]) {
+      expect(attachedMarksOf(stand(score, { ...NOTE, voice }), 'N2').map(m => m.label))
+        .toContain('Hairpin (cresc)')
+    }
+  })
+
+  // ⚠️ This tested the VOICE only, so a staff-2 wedge listed itself under a staff-1 note.
+  it('⚠️ never offers another STAFF’s mark, whatever its scope', () => {
+    const score = {
+      ...scoreWith({
+        hairpins: [{ id: 'H1', type: 'cresc', beat: frac(0, 1), length: frac(3, 1), staffId: 's1' }],
+        dynamics: [{ id: 'D1', beat: frac(1, 1), text: 'mf', placement: 'below', staffId: 's1' }],
+      } as unknown as Partial<Score['measures'][0]>),
+      staves: [{ id: 's0' }, { id: 's1' }],
+    } as unknown as Score
+    const labels = attachedMarksOf(stand(score), 'N2').map(m => m.label) // NOTE is on staff 0
+    expect(labels).not.toContain('Hairpin (cresc)')
+    expect(labels.some(l => l.startsWith('Dynamic'))).toBe(false)
+    // …and the same marks DO reach a note on staff 1.
+    expect(attachedMarksOf(stand(score, { ...NOTE, staff: 1 }), 'N2').map(m => m.label))
+      .toContain('Hairpin (cresc)')
+  })
+
   it('answers with nothing for a missing note, and nothing for a bar it cannot find', () => {
     expect(attachedMarksOf(stand(scoreWith(), null), 'N2')).toEqual([])
     const note = { ...NOTE, measure: 99 }

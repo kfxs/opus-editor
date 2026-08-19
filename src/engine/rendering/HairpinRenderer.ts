@@ -89,11 +89,21 @@ function axisOffsetSpaces(): number {
   return (MARK_INK.below - MARK_INK.above) / 2
 }
 
-/** The slot a (voice, beat) address resolves to, by the fall-forward rule `attachDynamicsToSlots`
- *  uses — exactly at the beat, else the next slot in that voice. Undefined past the last one. */
-function slotIdAt(view: Measure, voice: number, beat: Fraction): string | undefined {
-  const lane = view.slots.filter(s => voiceOf(s) === voice).sort((a, b) => fracCompare(a.beat, b.beat))
-  const hit = lane.find(s => fracEq(s.beat, beat)) ?? lane.find(s => fracGte(s.beat, beat))
+/**
+ * The slot a (scope, beat) address resolves to, by the fall-forward rule `attachDynamicsToSlots`
+ * uses — exactly at the beat, else the next slot the wedge GOVERNS. Undefined past the last one.
+ *
+ * ⭐⭐ EVERY voice of the staff, whatever the wedge governs: a tip is drawn at a COLUMN's left edge,
+ * and a column belongs to the staff. ⚠️ `view` is already ONE staff's lane
+ * (`drawMeasureContent`'s `measure`), so being here is the whole of that. ⭐ The sort is by (beat,
+ * VOICE) so two voices striking one beat resolve to the same slot every render — otherwise the
+ * wedge's tip would move when a second voice was added.
+ */
+function slotIdAt(view: Measure, beat: Fraction): string | undefined {
+  const lane = [...view.slots].sort((a, b) => fracCompare(a.beat, b.beat) || voiceOf(a) - voiceOf(b))
+  // A `fracGte` find is the whole rule once the lane is ordered: the first slot at-or-after the beat
+  // IS the exact one when there is one.
+  const hit = lane.find(s => fracGte(s.beat, beat))
   if (!hit) return undefined
   // `staveNoteMap` is keyed by the PITCH id for a chord and by the slot id for a rest — the same
   // split `SlurRenderer.measureOfNoteId` walks.
@@ -123,18 +133,16 @@ function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undef
 function spanX(
   pass: RenderPass,
   span: HairpinSpan,
-  hairpin: Hairpin,
   from: HairpinPlacement,
   to: HairpinPlacement,
 ): { startX: number; endX: number } | null {
-  const voice = voiceOf(hairpin)
-  const startX = noteLeftX(pass, slotIdAt(from.view, voice, span.startBeat))
+  const startX = noteLeftX(pass, slotIdAt(from.view, span.startBeat))
   if (startX === undefined) return null
 
   // The end: the column at the end beat if the music reaches that far, else the bar's end. Both are
   // brought into the staff's own space — `noteEndX` is where the bar landed in the SVG.
   const atEnd = fracCompare(span.endBeat, measureCapacityFrac(to.view)) < 0
-    ? noteLeftX(pass, slotIdAt(to.view, voice, span.endBeat))
+    ? noteLeftX(pass, slotIdAt(to.view, span.endBeat))
     : undefined
   const barEnd = pass.measureBounds.get(to.measureNumber)?.noteEndX
   const endX = atEnd ?? (barEnd === undefined ? undefined : barEnd / to.scale)
@@ -284,9 +292,12 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
  * wedge from that end rather than cutting a hole in it — and letting both rules see the same mark
  * would take the padding out twice.
  *
- * ⭐ **The wedge's OWN LANE.** A dynamic governs a voice ({@link Dynamic.voice}), so a mark in
- * another voice is not in this wedge's way; the staff is already settled, since `covered` is
- * filtered to the hairpin's own staff index.
+ * ⭐ **EVERY mark on this staff's line, whatever either of them speaks for.** There is ONE dynamics
+ * line per staff (`dynamicsLinePlan`), so a letter drawn on it is in the wedge's way whether or not
+ * the two govern the same voices — and `inksClash` below decides whether it really is, by measuring.
+ * ⚠️ This used to compare the two voices, which was a lane test standing in for an ink one: a
+ * voice-2 `f` under a voice-1 wedge sits on the same line and was drawn straight through.
+ * The staff is already settled, since `covered` is filtered to the hairpin's own staff index.
  *
  * ⚠️ Each gap carries the SYSTEM it is on: a wedge cut across a break has fragments in different
  * systems' coordinates, and x's from two systems are not one ruler.
@@ -296,13 +307,11 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
  */
 function interiorMarkGaps(
   pass: RenderPass,
-  hairpin: Hairpin,
   span: HairpinSpan,
   covered: readonly HairpinPlacement[],
   pad: number,
   wedgeBandAt: (line: number, x: number) => InkBand | null,
 ): WedgeGap[] {
-  const voice = voiceOf(hairpin)
   const after = (measure: number, beat: Fraction, m: number, b: Fraction) =>
     measure !== m ? measure > m : fracCompare(beat, b) > 0
 
@@ -310,7 +319,10 @@ function interiorMarkGaps(
   for (const placement of covered) {
     const seen: Fraction[] = []
     for (const dyn of placement.view.dynamics ?? []) {
-      if ((dyn.voice ?? 0) !== voice) continue
+      // ⭐ EVERY mark on this staff's dynamics line, whatever voice either of them speaks for. There
+      // is ONE line per staff (`dynamicsLinePlan`), so a letter drawn on it is in the wedge's way
+      // regardless of scope — and whether it really is in the way is `inksClash`'s answer below,
+      // measured, not a lane comparison standing in for one.
       if (!after(placement.measureNumber, dyn.beat, span.startMeasure, span.startBeat)) continue
       if (!after(span.endMeasure, span.endBeat, placement.measureNumber, dyn.beat)) continue
       // Co-located marks (`p dolce`) share a beat and merge into one box, so ask once per beat.
@@ -405,7 +417,7 @@ export function renderHairpins(
       // the bar genuinely was not rendered — not that it was translated with stale coordinates.
       if (!to) continue
 
-      const x = spanX(pass, span, hairpin, from, to)
+      const x = spanX(pass, span, from, to)
       if (!x) continue
 
       // Every bar the wedge covers on this staff — the input both to the per-system line and to
@@ -552,7 +564,7 @@ function drawWedge(
     pieces,
     // ⚠️ `HAIRPIN.BREAK_PADDING`, ⛔ never the `pad` the two ENDS use: a window cut in a continuous
     // wedge needs far less air than the gap between two separate objects (his call, 2026-08-18).
-    interiorMarkGaps(pass, hairpin, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave), wedgeBandAt),
+    interiorMarkGaps(pass, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave), wedgeBandAt),
     px(HAIRPIN.MIN_FRAGMENT, from.stave))
 
   const ctx = pass.context

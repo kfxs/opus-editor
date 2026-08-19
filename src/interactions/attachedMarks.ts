@@ -34,7 +34,8 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { SelectedElement } from './EditorState'
 import { fracCompare } from '../utils/fraction'
-import { voiceOf } from '../utils/lanes'
+import { staffOf, voiceOf } from '../utils/lanes'
+import { governsSlot } from '../utils/dynamicScope'
 
 /** What the query needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type MarkQueryEngine = Pick<MusicEngine, 'getNote' | 'getScore'>
@@ -81,8 +82,13 @@ export function attachedMarksOf(engine: MarkQueryEngine, noteId: string): Attach
   // since a point mark's start IS its position.
   const startsAtOrBefore = (beat: Parameters<typeof fracCompare>[0]) => fracCompare(beat, note.beat) <= 0
 
+  // ⭐ A mark is attached to this note when it GOVERNS it — its voice on its staff, or every voice
+  // of that staff when it names none (`utils/dynamicScope`). ⚠️ The staff half is new: this compared
+  // voices only, so a staff-2 wedge listed itself under a staff-1 note.
+  const lane = { voice, staffId: score.staves?.[staffOf(note)]?.id }
+
   for (const hairpin of measure.hairpins ?? []) {
-    if (startsAtOrBefore(hairpin.beat) && (hairpin.voice ?? 0) === voice) {
+    if (startsAtOrBefore(hairpin.beat) && governsSlot(score, hairpin, lane)) {
       marks.push({ label: `Hairpin (${hairpin.type})`, element: { kind: 'hairpin', id: hairpin.id } })
     }
   }
@@ -97,7 +103,7 @@ export function attachedMarksOf(engine: MarkQueryEngine, noteId: string): Attach
     }
   }
   for (const dynamic of measure.dynamics ?? []) {
-    if (fracCompare(dynamic.beat, note.beat) === 0 && (dynamic.voice ?? 0) === voice) {
+    if (fracCompare(dynamic.beat, note.beat) === 0 && governsSlot(score, dynamic, lane)) {
       marks.push({ label: `Dynamic${dynamic.text ? ` (${dynamic.text})` : ''}`, element: { kind: 'dynamic', id: dynamic.id } })
     }
   }

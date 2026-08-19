@@ -203,14 +203,61 @@ describe('resizeHairpinBySlot — Ctrl+←/→ on the model', () => {
     expect(resizeHairpinBySlot(score, id, 1)).toBe(false)
   })
 
-  it('steps through its OWN LANE only — another voice\'s slots are not steps', () => {
-    // A voice-1 wedge over voice-0 music has no slots of its own to reach.
+  it('⭐⭐ steps through its STAFF — a wedge scoped to an EMPTY voice still resizes', () => {
+    // His call, 2026-08-19: *"a dynamic voice 2 should be able to walk even if there are no elements
+    // of voice 2 in the score… voice 2 just control the reproduction"*. Voice 1 has no notes here at
+    // all, and the wedge must still reach the staff's next onset.
     const other = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1), voice: 1 })!.id
-    expect(resizeHairpinBySlot(score, other, 1)).toBe(false)
+    expect(resizeHairpinBySlot(score, other, 1)).toBe(true)
+    expect(fracToNumber(getHairpinById(score, other)!.length)).toBe(2)
   })
 
   it('declines for an unknown id', () => {
     expect(resizeHairpinBySlot(score, 'ghost', 1)).toBe(false)
+  })
+
+  // ⭐⭐ P3 of docs/dynamic-voice-scope-plan.md. An unscoped wedge's lane is EVERY voice of its
+  // staff, so two voices can begin together — and "cover that onset" then has two answers. It has to
+  // be the SHORTEST, because the wedge must reach the NEXT onset in the lane, not past it.
+})
+
+/**
+ * ⭐⭐ **THE LANE OF A WEDGE THAT GOVERNS EVERY VOICE** — P3 of docs/dynamic-voice-scope-plan.md.
+ *
+ * Its own fixture, and the insertion order is the point: the LONG voice is typed first, so it is the
+ * first entry `measure.slots` offers at the shared onset. "Take the first" and "take the shortest"
+ * disagree here, which is the only arrangement in which this rule can be seen at all.
+ */
+describe('resizeHairpinBySlot — where two voices strike one onset', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    // Voice 1 FIRST: a half note at beat 2, so it precedes voice 0's quarter there.
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1), voice: 0 } as never)
+    }
+    score = model.getScore()
+  })
+
+  const lengthOf = (id: string) => fracToNumber(getHairpinById(score, id)!.length)
+
+  it('⭐ an unscoped wedge covers that onset by the SHORTER slot — the next onset, not past it', () => {
+    // Growing through beat 2 must reach 3, where the lane still has a note. Reading the half note's
+    // length instead would jump the wedge to 4, clean over music it claims to cover.
+    const wide = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+    expect(resizeHairpinBySlot(score, wide, 1)).toBe(true)
+    expect(lengthOf(wide)).toBe(3)
+  })
+
+  it('…and a wedge NARROWED to the long voice reads the SAME shortest length', () => {
+    // ⭐ The lane is the staff's, so the scope changes nothing here either — both wedges reach the
+    // next onset. What the voice decides is who gets louder, and nothing about the extent.
+    const scoped = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 1 })!.id
+    expect(resizeHairpinBySlot(score, scoped, 1)).toBe(true)
+    expect(lengthOf(scoped)).toBe(3)
   })
 })
 
@@ -328,11 +375,18 @@ describe('moveHairpinStartBySlot — the start moves, the end does not', () => {
     expect(span(first)).toBe('1@0 → 1@1')
   })
 
-  it('walks its OWN LANE — a slot in another voice is not a step it can take', () => {
-    // Voice 1 has a note at beat 1.5; the voice-0 wedge must step over it to beat 1.
+  it('walks the STAFF — it reaches back to another voice\u2019s slot', () => {
+    // Voice 1 has a note at beat 1.5, and 1.5 is simply the nearest place behind the wedge's start.
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
     expect(moveHairpinStartBySlot(score, id, -1)).toBe(true)
-    expect(span(id)).toBe('1@1 → 1@4')
+    expect(span(id)).toBe('1@1.5 → 1@4')
+  })
+
+  it('…and a wedge NARROWED to a voice reaches the SAME slot — scope is not position', () => {
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
+    const scoped = addHairpin(score, 1, { type: 'cresc', beat: frac(2, 1), length: frac(2, 1), voice: 0 })!.id
+    expect(moveHairpinStartBySlot(score, scoped, -1)).toBe(true)
+    expect(span(scoped)).toBe('1@1.5 → 1@4')
   })
 })
 

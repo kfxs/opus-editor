@@ -14,8 +14,8 @@
  */
 import { Annotation } from 'vexflow'
 import type { StaveNote, Stave } from 'vexflow'
-import type { ChordRest, Measure, Dynamic } from '@/types/music'
-import { fracEq, fracGte, fracToNumber } from '@/utils/fraction'
+import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
+import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
@@ -31,11 +31,46 @@ import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
 
 /**
+ * ⭐ **The slot a mark hangs off**, by the fall-forward rule: the first slot at-or-after its beat,
+ * else the last one; −1 in an empty bar. An exact hit needs no case of its own — it is simply the
+ * smallest beat ≥ the mark's.
+ *
+ * ⭐⭐ **The staff's slots, in EVERY voice, whatever the mark governs** (his call, 2026-08-19). Where
+ * a mark is drawn is a question about COLUMNS, and a column belongs to the staff; what the mark
+ * governs is a question about loudness. `view` is already one staff's lane, so being here is the
+ * whole of the first half.
+ *
+ * ⚠️⚠️ **`sortedSlots` arrives VOICE-MAJOR**, not in beat order: `drawMeasureContent` builds it as
+ * `groups.flatMap(g => g.slots)`, one group per voice. So "the first match" in it is the lowest
+ * VOICE's, which is why this compares (beat, then voice) explicitly rather than scanning. With a
+ * scoped mark that never mattered — one voice was in play. A mark governing the whole staff sees
+ * every voice, and a plain scan would hang it on voice 1's next slot even when voice 2 has one
+ * nearer its beat.
+ *
+ * ⭐ The voice is the tie-break, so two voices striking one beat resolve to the SAME slot every
+ * render: an anchor that moved when a second voice was added would move the drawn mark with it.
+ *
+ * Exported for its own spec: the ordering trap above is the whole of it, and asserting it through
+ * `attachDynamicsToSlots` would mean standing up VexFlow annotations to measure an ARRAY INDEX.
+ */
+export function anchorSlotIndex(slots: readonly ChordRest[], beat: Fraction): number {
+  const earlier = (a: number, b: number) =>
+    fracCompare(slots[a].beat, slots[b].beat) || voiceOf(slots[a]) - voiceOf(slots[b])
+  let next = -1
+  let last = -1
+  for (let i = 0; i < slots.length; i++) {
+    if (fracGte(slots[i].beat, beat) && (next === -1 || earlier(i, next) < 0)) next = i
+    if (last === -1 || earlier(last, i) < 0) last = i
+  }
+  return next !== -1 ? next : last
+}
+
+/**
  * Attach each of the measure's dynamics to its anchor StaveNote as an Annotation
  * modifier, BEFORE formatting, so vertical placement stacks with articulations. The
- * anchor is the slot at the dynamic's (voice, beat); if there is no slot exactly there
- * it falls forward to the next slot in that voice, else the last slot of that voice,
- * else the last note — this keeps a dynamic visible even when it sits under an empty/rest beat.
+ * anchor is the slot at the dynamic's beat, in any voice of this staff ({@link anchorSlotIndex});
+ * if there is no slot exactly there it falls forward to the next one, else the last one, else the
+ * last note — this keeps a dynamic visible even when it sits under an empty/rest beat.
  *
  * Each Annotation's DOM id is set to the Dynamic.id so its `<g class="vf-annotation">`
  * group is individually addressable (Phase 6 highlight); the object is stashed
@@ -61,17 +96,8 @@ export function attachDynamicsToSlots(pass: RenderPass, sortedSlots: ChordRest[]
   const byTarget = new Map<number, string[]>()
   for (const dyn of dynamics) {
     if (dyn.id === pass.suppressedDynamicId) continue // being edited in the text overlay
-    const voice = voiceOf(dyn)
 
-    let targetIdx = sortedSlots.findIndex(s => voiceOf(s) === voice && fracEq(s.beat, dyn.beat))
-    if (targetIdx === -1) {
-      targetIdx = sortedSlots.findIndex(s => voiceOf(s) === voice && fracGte(s.beat, dyn.beat))
-    }
-    if (targetIdx === -1) {
-      for (let i = sortedSlots.length - 1; i >= 0; i--) {
-        if (voiceOf(sortedSlots[i]) === voice) { targetIdx = i; break }
-      }
-    }
+    let targetIdx = anchorSlotIndex(sortedSlots, dyn.beat)
     if (targetIdx === -1) targetIdx = staveNotes.length - 1
     if (targetIdx < 0 || targetIdx >= staveNotes.length) continue
 

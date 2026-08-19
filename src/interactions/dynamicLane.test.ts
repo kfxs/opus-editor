@@ -53,12 +53,30 @@ describe('dynamicLaneHeads', () => {
     expect(dynamicLaneHeads(laneEngine(THREE), mark()).map(h => h.x)).toEqual([106, 206, 306])
   })
 
-  it('stays in the mark\'s own LANE — another voice is not a slot it can reach', () => {
+  it('reaches every slot of the mark’s STAFF, in any voice', () => {
     const engine = laneEngine([
       { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
       { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
     ])
-    expect(dynamicLaneHeads(engine, mark()).map(h => h.target.beat.num)).toEqual([0])
+    expect(dynamicLaneHeads(engine, mark()).map(h => h.target.beat.num)).toEqual([0, 2])
+  })
+
+  it('⭐⭐ …and a mark NARROWED to a voice sees exactly the same heads', () => {
+    // His call, 2026-08-19: the voice controls the REPRODUCTION, not where the mark may be dragged.
+    const engine = laneEngine([
+      { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
+      { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
+    ])
+    expect(dynamicLaneHeads(engine, mark({ voice: 0 })).map(h => h.target.beat.num)).toEqual([0, 2])
+    expect(dynamicLaneHeads(engine, mark({ voice: 3 })).map(h => h.target.beat.num)).toEqual([0, 2])
+  })
+
+  it('⚠️ ONE head per ADDRESS — two voices striking a beat are one place to stand', () => {
+    const engine = laneEngine([
+      { id: 'v0', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
+      { id: 'v1', left: 180, y: 90, measure: 1, beat: 0, voice: 1 },
+    ])
+    expect(dynamicLaneHeads(engine, mark())).toHaveLength(1)
   })
 
   it('…and its own STAFF', () => {

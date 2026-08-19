@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { voiceScopeOf, scopeCoversVoice, governsSlot, sameScope, staffScopeKey } from './dynamicScope'
+import { voiceScopeOf, onSameStaff, governsSlot, sameScope, staffScopeKey } from './dynamicScope'
 import type { Score, StaffInfo } from '@/types/music'
 
 /** A score with `n` staves, so the absent-id rule has a real first staff to resolve against. */
@@ -24,14 +24,25 @@ describe('voiceScopeOf — absent means ALL', () => {
   })
 })
 
-describe('scopeCoversVoice', () => {
-  it('ALL reaches every voice', () => {
-    for (const v of [0, 1, 2, 3] as const) expect(scopeCoversVoice('all', v)).toBe(true)
+/**
+ * ⭐⭐ WHERE a mark may STAND is a staff question and never a voice one (his call, 2026-08-19:
+ * *"walking should work in general no matter the voice"*). Every position reader asks this one; only
+ * {@link governsSlot} below may look at the voice.
+ */
+describe('onSameStaff — position, with the voice deliberately ignored', () => {
+  const score = scoreWithStaves('sA', 'sB')
+
+  it('a mark NARROWED to voice 1 can still stand on voice 0’s slot', () => {
+    expect(onSameStaff(score, { voice: 1, staffId: 'sA' }, { voice: 0, staffId: 'sA' })).toBe(true)
   })
 
-  it('a scoped mark reaches only its own', () => {
-    expect(scopeCoversVoice(1, 1)).toBe(true)
-    expect(scopeCoversVoice(1, 0)).toBe(false)
+  it('…and cannot stand on the other STAFF, whatever the voices', () => {
+    expect(onSameStaff(score, { voice: 1, staffId: 'sA' }, { voice: 1, staffId: 'sB' })).toBe(false)
+  })
+
+  it('an absent staffId is the FIRST staff, on either side', () => {
+    expect(onSameStaff(score, {}, { voice: 3, staffId: 'sA' })).toBe(true)
+    expect(onSameStaff(score, { staffId: 'sB' }, { voice: 0 })).toBe(false)
   })
 })
 

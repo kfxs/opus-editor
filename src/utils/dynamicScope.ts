@@ -52,13 +52,9 @@ export function voiceScopeOf(mark: ScopedMark): VoiceScope {
   return mark.voice ?? 'all'
 }
 
-/**
- * Does this scope reach `voice`? The VOICE half on its own, for a caller that is already inside one
- * staff's lane view — the renderers, whose `measure` IS the staff (`VexFlowRenderer.
- * drawMeasureContent`). ⛔ A score-wide reader must use {@link governsSlot} instead, or an ALL mark
- * will be heard on staves it does not govern.
- */
-export function scopeCoversVoice(scope: VoiceScope, voice: 0 | 1 | 2 | 3): boolean {
+/** Does this scope reach `voice`? The voice half of {@link governsSlot}, which is the only caller —
+ *  ⛔ deliberately not exported, see {@link onSameStaff} for why no POSITION question may ask it. */
+function scopeCoversVoice(scope: VoiceScope, voice: 0 | 1 | 2 | 3): boolean {
   return scope === 'all' || scope === voice
 }
 
@@ -74,13 +70,29 @@ export function staffScopeKey(score: Score, staffId: string | undefined): string
 }
 
 /**
+ * ⭐⭐ **WHERE THE MARK MAY STAND — a STAFF question, and never a voice one** (his call, 2026-08-19:
+ * *"walking should work in general no matter the voice"*).
+ *
+ * Scope and position are orthogonal, exactly as `Dynamic.staffId` and `Dynamic.voice` say they are:
+ * the staff is where the mark IS, the voice is which of that staff's streams it speaks for. So every
+ * POSITION reader asks this — the walk's stops, the drag's candidates, the drawn anchor, the wedge's
+ * tips — and a mark narrowed to voice 2 still steps onto voice 1's notes, because they are columns
+ * on its own staff and a column is a place. ⛔ Only {@link governsSlot} may look at the voice, and
+ * only for the question the voice answers: who gets louder.
+ */
+export function onSameStaff(score: Score, mark: ScopedMark, slot: ScopedMark): boolean {
+  return staffScopeKey(score, mark.staffId) === staffScopeKey(score, slot.staffId)
+}
+
+/**
  * ⭐ **Does `mark` govern this slot?** — both halves at once: the slot's staff must be the mark's,
- * and its voice must be in the mark's scope. The predicate playback and the walk are written in.
+ * and its voice must be in the mark's scope. ⚠️ The predicate for LOUDNESS (and for what hangs off a
+ * note), ⛔ never for where a mark may sit — {@link onSameStaff} above.
  *
  * `slot` is anything carrying the lane pair — a `Chord`, a `Rest`, or a bare `{ voice, staffId }`.
  */
 export function governsSlot(score: Score, mark: ScopedMark, slot: ScopedMark): boolean {
-  if (staffScopeKey(score, mark.staffId) !== staffScopeKey(score, slot.staffId)) return false
+  if (!onSameStaff(score, mark, slot)) return false
   return scopeCoversVoice(voiceScopeOf(mark), slot.voice ?? 0)
 }
 

@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset } from './dynamicOps'
+import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset, setDynamicVoiceScope } from './dynamicOps'
 import { setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 import { levelToGlyphString } from '@/utils/dynamics'
@@ -112,19 +112,49 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
     expect(moveDynamicBySlot(score, 'nope', 1)).toBe(false)
   })
 
-  it('⭐ walks its OWN LANE — a slot in another voice is not a step it can take', () => {
-    // Voice 1 has a note at beat 2.5; the voice-0 mark must step over it to beat 3.
+  it('⭐⭐ walks the STAFF, in any voice — a slot in another voice IS a step it can take', () => {
+    // Voice 1 has a note at beat 2.5, and 2.5 is simply the next place on this staff to stand.
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     expect(moveDynamicBySlot(score, id, 1)).toBe(true)
-    expect(at(id)).toBe('1@3')
+    expect(at(id)).toBe('1@2.5')
   })
 
-  it('…and a mark IN that voice walks the voice-1 slots instead', () => {
+  it('⭐⭐ …and a mark NARROWED to a voice walks exactly the same slots', () => {
+    // His call, 2026-08-19: *"a dynamic voice 2 should be able to walk even if there are no elements
+    // of voice 2 in the score… voice 2 just control the reproduction"*. The scope says who gets
+    // louder; it must not decide where the mark may stand.
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    const scoped = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })!.id
+    expect(moveDynamicBySlot(score, scoped, 1)).toBe(true)
+    expect(at(scoped)).toBe('1@2.5')
+  })
+
+  it('⭐⭐ …and a mark scoped to a voice with NO NOTES AT ALL still walks the staff', () => {
+    // Voice 4 is empty in this score. The mark is inaudible until something is typed into it — and
+    // it must still be movable, or it could never be positioned for the music it is waiting for.
+    const empty = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 3 })!.id
+    expect(moveDynamicBySlot(score, empty, 1)).toBe(true)
+    expect(at(empty)).toBe('1@3')
+    expect(moveDynamicBySlot(score, empty, -1)).toBe(true)
+    expect(at(empty)).toBe('1@2')
+  })
+
+  it('⚠️ one stop per ADDRESS — two voices striking a beat do not make the key press twice', () => {
+    // Both voices have something at beat 3 now; the unscoped mark must still land there in ONE step
+    // and leave in one, or `Ctrl+Shift+→` reads as a broken key.
+    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 } as never)
+    expect(moveDynamicBySlot(score, id, 1)).toBe(true)
+    expect(at(id)).toBe('1@3')
+    expect(moveDynamicBySlot(score, id, 1)).toBe(true)
+    expect(at(id)).toBe('2@0')
+  })
+
+  it('…and a voice-2 mark sees the voice-2 slots too — they are on the same staff', () => {
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 } as never)
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
     const inner = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 1 })!.id
     expect(moveDynamicBySlot(score, inner, 1)).toBe(true)
-    expect(at(inner)).toBe('1@2') // ⛔ not 1@1, which is only a stop for voice 0
+    expect(at(inner)).toBe('1@1') // ⭐ voice 0's slot, and it is a place like any other
   })
 
   it('leaves the owning measure\'s list sorted by beat', () => {
@@ -191,8 +221,14 @@ describe('setDynamicAtSlot — landing the mark by address', () => {
     expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(2, 1) })).toBe(false)
   })
 
-  it('⛔ refuses a slot in ANOTHER VOICE, so the drag cannot reach what the walk cannot', () => {
+  it('⭐ accepts another voice’s slot — the drag reaches everything the walk does', () => {
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    const scoped = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })!.id
+    expect(setDynamicAtSlot(score, scoped, { measure: 1, beat: frac(5, 2) })).toBe(true)
+    expect(at(scoped)).toBe('1@2.5')
+  })
+
+  it('⛔ …but still refuses a beat NO voice of the staff has a slot on', () => {
     expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(5, 2) })).toBe(false)
     expect(at(id)).toBe('1@2')
   })
@@ -245,5 +281,47 @@ describe('nextDynamicSlot — the stop one step away', () => {
     const last = model.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p') })!.id
     expect(nextDynamicSlot(score, last, 1)).toBeNull()
     expect(nextDynamicSlot(score, 'nope', 1)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ {@link setDynamicVoiceScope} — WHICH VOICES THE MARK GOVERNS (P4 of
+ * docs/dynamic-voice-scope-plan.md). The one claim that matters: `'all'` **removes** the field, so
+ * the model has one spelling of "governs everything" and the JSON round trip cannot invent a second.
+ */
+describe('setDynamicVoiceScope', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+    id = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })!.id
+  })
+
+  const mark = () => score.measures[0].dynamics!.find(d => d.id === id)!
+
+  it('narrows an unscoped mark to a voice', () => {
+    expect(setDynamicVoiceScope(score, id, 2)).toBe(true)
+    expect(mark().voice).toBe(2)
+  })
+
+  it('⭐ …and `all` DELETES the field rather than storing an undefined', () => {
+    setDynamicVoiceScope(score, id, 2)
+    expect(setDynamicVoiceScope(score, id, 'all')).toBe(true)
+    expect('voice' in mark()).toBe(false)
+    // …and the JSON has no trace of it either — one spelling, not two.
+    expect(JSON.parse(model.toJSON()).measures[0].dynamics[0]).not.toHaveProperty('voice')
+  })
+
+  it('⛔ declines when the scope is already what is asked — a caller must not repaint on it', () => {
+    expect(setDynamicVoiceScope(score, id, 'all')).toBe(false) // it starts unscoped
+    setDynamicVoiceScope(score, id, 1)
+    expect(setDynamicVoiceScope(score, id, 1)).toBe(false)
+  })
+
+  it('⛔ declines for an id no longer in the score', () => {
+    expect(setDynamicVoiceScope(score, 'ghost', 0)).toBe(false)
   })
 })

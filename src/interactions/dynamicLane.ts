@@ -30,7 +30,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
 import type { Dynamic, Score } from '../types/music'
-import { staffOf, voiceOf } from '../utils/lanes'
+import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
@@ -55,14 +55,19 @@ export interface DynamicLaneHead {
  */
 export function dynamicLaneHeads(engine: LaneEngine, dynamic: Dynamic): DynamicLaneHead[] {
   const score = engine.getScore()
-  const lane = { voice: dynamic.voice ?? 0, staff: staffIndexOf(score, dynamic.staffId) }
+  // ⭐⭐ The mark's STAFF, in every voice — ⛔ not what it governs (his call, 2026-08-19: *"walking
+  // should work in general no matter the voice"*). Where a mark may stand is a question about
+  // columns; which voices get louder is a different one, and `utils/dynamicScope.onSameStaff` says
+  // why they must not be fused. The dedupe below collapses two voices striking one beat into the one
+  // head they are — a drag aims at an ADDRESS, not at a notehead.
+  const staff = staffIndexOf(score, dynamic.staffId)
   const heads: DynamicLaneHead[] = []
   const registry = engine.getElementRegistry()
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)
     if (!note) continue
-    if (voiceOf(note) !== lane.voice || staffOf(note) !== lane.staff) continue
+    if (staffOf(note) !== staff) continue
     const target = { measure: note.measure, beat: note.beat }
     if (heads.some(h => h.target.measure === target.measure && fracCompare(h.target.beat, target.beat) === 0)) continue
     heads.push({ x: el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, target })

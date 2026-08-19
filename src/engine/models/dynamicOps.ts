@@ -17,18 +17,19 @@
  * fourth copy of the capacity arithmetic here, and adding one would be inventing a question this
  * family does not ask.
  *
- * ## ⭐ The lane is the VOICE, on the mark's staff — the hairpin's rule, not the pedal's
+ * ## ⭐ The lane is the mark's STAFF — the pedal's rule after all, not the voice's
  *
- * A dynamic governs a voice/stream ({@link Dynamic.voice}), the way the wedge it shares the
- * dynamics line with does; a pedal walks its whole staff because there is one damper. Stepping
- * through slots of a voice the mark does not govern would land it on music it does not speak for.
+ * A dynamic walks every slot of the staff it sits on, in any voice. ⚠️ It governs a voice/stream
+ * ({@link Dynamic.voice}) — but that says who gets LOUDER, not where the mark may stand, and the two
+ * were fused here until 2026-08-19: *"walking should work in general no matter the voice"*. A column
+ * is a place, and every column of the staff is a place a mark can be put.
  *
  * ⚠️ Rests are lane stops like any other slot: `p` at the top of a bar that begins with a rest is
  * ordinary, so there is nothing to filter out.
  */
 import type { Score, Dynamic, DynamicOffsetOverride, Measure, Fraction } from '@/types/music'
 import { fracCompare } from '@/utils/fraction'
-import { matchesStaff } from './staffContent'
+import { onSameStaff, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 
@@ -52,13 +53,24 @@ function locate(score: Score, id: string): { dynamic: Dynamic; measure: Measure 
   return null
 }
 
-/** Every slot of the mark's own lane (its voice on its staff), in reading order. */
+/**
+ * Every slot the mark could STAND ON, in reading order — every slot of its **staff**, in any voice.
+ *
+ * ⛔ **Not the voices it governs** (his call, 2026-08-19: *"walking should work in general no matter
+ * the voice"*). Where a mark sits and which streams it makes louder are two questions, and only the
+ * second one is about voices — `utils/dynamicScope.onSameStaff` carries the argument.
+ *
+ * ⚠️ Two voices striking one beat put the SAME address in here twice, and that is deliberately not
+ * filtered: both readers ask this list a question about ADDRESSES ({@link compare} `> 0` for the
+ * step, `=== 0` for the reachability test), so a repeat is already invisible to them. ⛔ De-duping
+ * would be a guard against nothing — and a guard against nothing is the kind that gets kept for
+ * years because nobody can tell what would break without it.
+ */
 function laneStops(score: Score, dynamic: Dynamic): Stop[] {
   const stops: Stop[] = []
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
-      if ((slot.voice ?? 0) !== (dynamic.voice ?? 0)) continue
-      if (!matchesStaff(slot.staffId, dynamic.staffId, score)) continue
+      if (!onSameStaff(score, dynamic, slot)) continue
       stops.push({ measure: measure.number, beat: slot.beat })
     }
   }
@@ -217,4 +229,26 @@ function clearHorizontalOffset(score: Score, id: string): void {
   // type, so a fresh literal is excess-property-checked against it and `x` is refused.
   const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 0, y: prev.y }
   setEngravingOverride(score, id, next)
+}
+
+/**
+ * ⭐⭐ **SET WHICH VOICES THE MARK GOVERNS** — the model write behind `Alt+1…4` / `Alt+5` with a
+ * dynamic selected, and behind the Keypad's voice row (docs/dynamic-voice-scope-plan.md P4).
+ *
+ * ⭐ **`'all'` DELETES the field**, and that is why this exists at all rather than being one more
+ * `updateDynamic({ voice })` call: `updateDynamic` is an `Object.assign`, so `{ voice: undefined }`
+ * would leave an own key holding `undefined` — a second spelling of "governs everything" that
+ * `JSON.stringify` drops and `'voice' in d` does not. The emptied-`dynamics`-array rule
+ * ({@link moveDynamicToMeasure}) verbatim: two spellings of one state is the bug, not the verbosity.
+ *
+ * ⚠️ Declines (false) when there is no such mark, and when the scope is already what is asked — a
+ * caller that repainted on a true would repaint on every press of the lit button.
+ */
+export function setDynamicVoiceScope(score: Score, id: string, scope: VoiceScope): boolean {
+  const found = locate(score, id)
+  if (!found) return false
+  if (voiceScopeOf(found.dynamic) === scope) return false
+  if (scope === 'all') delete found.dynamic.voice
+  else found.dynamic.voice = scope
+  return true
 }

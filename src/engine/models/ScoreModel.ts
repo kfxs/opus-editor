@@ -56,6 +56,7 @@ import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
 import { voiceOf } from '@/utils/lanes'
+import type { VoiceScope } from '@/utils/dynamicScope'
 
 // The region-rewrite machinery (rebar / paste) and its captured-state types now live in
 // ./rebarOps. What a paste TAKES — the `Clip` and where it lands — is core material and lives
@@ -549,6 +550,17 @@ export class ScoreModel {
    *  offset. See {@link dynamicOps.moveDynamicBySlot}. */
   moveDynamicBySlot(id: string, direction: 1 | -1): boolean {
     return dynamicOps.moveDynamicBySlot(this.score, id, direction)
+  }
+
+  /** Set which voices a dynamic GOVERNS — a voice, or `'all'` (which DELETES the field; see
+   *  {@link dynamicOps.setDynamicVoiceScope} for why that cannot go through `updateDynamic`). */
+  setDynamicVoiceScope(id: string, scope: VoiceScope): boolean {
+    return dynamicOps.setDynamicVoiceScope(this.score, id, scope)
+  }
+
+  /** Set which voices a hairpin GOVERNS. {@link setDynamicVoiceScope}'s twin. */
+  setHairpinVoiceScope(id: string, scope: VoiceScope): boolean {
+    return hairpinOps.setHairpinVoiceScope(this.score, id, scope)
   }
 
   /** Put a dynamic on the lane slot at `target` — the DRAG's write, and the one the step above runs

@@ -18,8 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
-import { sameScope } from '@/utils/dynamicScope'
-import { matchesStaff } from './staffContent'
+import { onSameStaff, sameScope, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
 
@@ -345,9 +344,16 @@ interface LaneSlot {
  * A hairpin resolved for a step: the object, where it currently begins and ends on the score's one
  * absolute timeline, and every slot of its own lane.
  *
- * ⭐ **The lane, not the bar and not the score.** A wedge governs one voice on one staff — the lane
- * its notes are in — so the slots of any other are not steps it can take. Shared by both stepping
- * ops below, which differ only in WHICH end they move.
+ * ⭐ **The STAFF, not the bar and not the score** — every slot of it, in any voice. ⛔ Not the voices
+ * the wedge governs: an end is dragged onto a COLUMN, and a column belongs to the staff
+ * (`utils/dynamicScope.onSameStaff`, his call 2026-08-19). Shared by both stepping ops below, which
+ * differ only in WHICH end.
+ *
+ * ⚠️ **ONE entry per ONSET, and its length is the SHORTEST there.** Two voices striking a beat are
+ * one place a tip can sit, so a duplicate would make `Ctrl+→` press twice to move once. The length
+ * decides where "cover this slot" reaches, and the answer has to be *the next onset in the lane* —
+ * so when a whole note and a quarter begin together, it is the quarter's. Take the whole note's and
+ * a grown wedge would jump four beats past music the lane still has notes on.
  */
 function locate(score: Score, id: string): {
   hairpin: Hairpin
@@ -368,9 +374,14 @@ function locate(score: Score, id: string): {
     const base = starts.get(measure.number)
     if (base === undefined) continue
     for (const slot of measure.slots) {
-      if ((slot.voice ?? 0) !== (hairpin.voice ?? 0)) continue
-      if (!matchesStaff(slot.staffId, hairpin.staffId, score)) continue
-      lane.push({ abs: fracAdd(base, slot.beat), length: slotLength(slot), measure: measure.number, beat: slot.beat })
+      if (!onSameStaff(score, hairpin, slot)) continue
+      const length = slotLength(slot)
+      const seen = lane.find(s => s.measure === measure.number && fracCompare(s.beat, slot.beat) === 0)
+      if (seen) {
+        if (fracCompare(length, seen.length) < 0) seen.length = length
+        continue
+      }
+      lane.push({ abs: fracAdd(base, slot.beat), length, measure: measure.number, beat: slot.beat })
     }
   }
   lane.sort((a, b) => fracCompare(a.abs, b.abs))
@@ -637,4 +648,20 @@ export function hairpinSpan(score: Score, id: string): HairpinSpan | null {
     endMeasure: last.number,
     endBeat: measureCapacityFrac(last),
   }
+}
+
+/**
+ * ⭐⭐ **SET WHICH VOICES THE WEDGE GOVERNS** — {@link setDynamicVoiceScope}'s twin, and its doc
+ * carries the reason `'all'` has to `delete` the field rather than assign `undefined` through
+ * {@link updateHairpin}'s `Object.assign`.
+ *
+ * ⚠️ Declines (false) for an unknown id, and when the scope is already what is asked.
+ */
+export function setHairpinVoiceScope(score: Score, id: string, scope: VoiceScope): boolean {
+  const hairpin = getHairpinById(score, id)
+  if (!hairpin) return false
+  if (voiceScopeOf(hairpin) === scope) return false
+  if (scope === 'all') delete hairpin.voice
+  else hairpin.voice = scope
+  return true
 }

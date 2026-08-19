@@ -38,7 +38,7 @@ import type { HairpinSlotTarget, HairpinDragWrite } from '../../engine/models/ha
 import type { Score } from '../../types/music'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { staffOf, voiceOf } from '../../utils/lanes'
+import { staffOf } from '../../utils/lanes'
 import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
 import { fracCompare } from '../../utils/fraction'
 import { dbg } from '../../utils/debug'
@@ -166,7 +166,10 @@ export function hairpinDragTargetAt(
   const hairpin = engine.getHairpinById(hairpinId)
   if (!hairpin) return null
   const score = engine.getScore()
-  const lane = { voice: hairpin.voice ?? 0, staff: staffIndexOf(score, hairpin.staffId) }
+  // ⭐⭐ The wedge's STAFF, in every voice — ⛔ not what it governs (`utils/dynamicScope.onSameStaff`:
+  // a tip is drawn at a COLUMN, and a column belongs to the staff). Two voices striking one beat are
+  // ONE boundary — the merge below keeps the leftmost edge of a shared onset.
+  const staff = staffIndexOf(score, hairpin.staffId)
 
   // ⭐⭐ THE BOUNDARIES, NOT THE NOTEHEADS — and this is the whole accuracy of the gesture. Both of a
   // wedge's tips are drawn at a note's LEFT EDGE (`HairpinRenderer.spanX`: `startX` at the first
@@ -180,7 +183,7 @@ export function hairpinDragTargetAt(
     if (!el.id) continue
     const note = engine.getNote(el.id)
     if (!note) continue
-    if (voiceOf(note) !== lane.voice || staffOf(note) !== lane.staff) continue
+    if (staffOf(note) !== staff) continue
     const target = { measure: note.measure, beat: note.beat }
     // A CHORD registers one entry per notehead on one onset; keep the leftmost, since that is the
     // edge the wedge is drawn against.
