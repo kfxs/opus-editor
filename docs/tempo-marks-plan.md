@@ -241,6 +241,40 @@ It draws at `stave.getYForTopText(1)` — a fixed line above the staff; collisio
 is possible. Staff-spacing already relieves it, and the ctor's `shiftY` is the seam for an
 arrow-nudge later: `engravingOverrides` client #8 (geometry never goes on the mark — principle 3).
 
+⭐ **BOTH BUILT SINCE.** The vertical is the LADDER's — `rendering/tempoLinePass` moves every mark
+onto the row its own music, the trill and the 8va leave free (P0b of `docs/ottava-plan.md`), so the
+fixed line above is only the ORIGIN it measures from. And the arrow-nudge landed 2026-08-19 as
+**client #13** (`tempoOffset`), riding on top of that row: arrows ¼ space, `Ctrl`+arrows 1 space,
+`Ctrl+Backspace` resets. `rendering/tempoMarkTransform` owns the composition of the two.
+
+### 6.5 Horizontal position — ⭐⭐ Gould p. 183, and ⛔ NEVER the barline
+
+Corrected 2026-08-19 after reading the scan (the full Q&A — four books and all three engines — is in
+`reference/README.md`). `anchorX` has three branches, in this order:
+
+1. **A downbeat mark in a bar that prints a TIME SIGNATURE** → the time signature's left edge.
+   *"When a tempo marking coincides with a time signature indication, align the tempo with the left
+   edge of the time signature"* (Gould p. 183; Gerou & Lusk p. 142 word for word).
+2. **Otherwise the first notational element at or after the mark's beat** — downbeat and mid-bar
+   alike. *"When there is no new time signature, align the tempo marking with the first element of
+   the notation (e.g. a note or accidental) after the clef and key signature. Note that when the
+   tempo change is at the start of the bar, **the marking is not placed on the barline**"*, and
+   *"Tempo indications mid-bar also align with the first notational element of the respective beat"*.
+   ⭐ MEASURED off her own alignment guides: left ink edge to left ink edge, within 0.05 sp — her
+   downbeat examples sit 1.65 sp right of the barline in a plain bar, 7.85 sp when a key change
+   intervenes.
+3. **Nothing to point at** (an empty bar, or a beat past the last note) → `stave.getNoteStartX()`,
+   her *"after the clef and key signature"*. ⛔ Not `stave.getX()`, which is the barline.
+
+⭐⭐ **The EMPTY-BAR exception is what makes branch 3 more than a fallback**: a whole-bar rest is drawn
+CENTRED, so aligning to it would put the mark halfway along the bar. LilyPond has exactly this
+exception in code (`metronome-engraver.cc` keeps the bar grob for a multi-measure rest).
+
+⚠️ **The barline rule is real and belongs to the REHEARSAL MARK** (Gould p. 485; both MuseScore and
+LilyPond split them the same way — `RehearsalMark` break-aligns to `staff-bar`, `MetronomeMark` to
+`time-signature`). ⚠️ **Ross p. A-46 dissents** — *"with or slightly past a bar line"* — and is
+outvoted by four sources including all three engines.
+
 ---
 
 ## 7. Interaction

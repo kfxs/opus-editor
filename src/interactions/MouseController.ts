@@ -172,10 +172,16 @@ export class MouseController {
    *
    * ⭐ The value is theirs: participants preferred the two strongest attractors they tested (18 and
    * 34 px) and the authors state most users prefer friction of **20–30**. Fernquist et al.'s
-   * *Oh Snap* (INTERACT 2011) recommends a 10 px snap width with a 20 px catch-up — and warns that
-   * the bands of adjacent anchors must not overlap, which bounds us: our own measured note gap is
-   * about 40 px at default zoom, so a hold much past 30 would leave nowhere between two notes to put
-   * anything.
+   * *Oh Snap* (INTERACT 2011) recommends a 10 px snap width with a 20 px catch-up, and warns that the
+   * regions of adjacent snap lines must not overlap — see {@link SLUR_ENDPOINT_HOLD_MAX_PX} for how
+   * that rule actually lands on us. Both papers are on disk (`reference/`), with what each answered
+   * in that directory's manifest.
+   *
+   * 🚨 **Snap-and-go itself never gives the swallowed motor distance back** — read from the paper,
+   * 2026-08-19: its 1-D code returns `x − w + 1` past an attractor, a permanent `w−1` offset per
+   * attractor, and it resyncs the POINTER to the object instead (*"it misses code for updating the
+   * mouse pointer to keep knob and pointer together"*). We cannot do that — a score is not a widget
+   * and the cursor is not ours to move — which is why the catch-up below is not optional here.
    *
    * ⚠️ It is **motor** distance, not model distance: the cursor moves, the ink does not, and the two
    * re-synchronise the moment the hold is spent. That is the whole trick, and it is why this lives
@@ -187,11 +193,28 @@ export class MouseController {
    * of music: 24 px is over half the gap between quavers in a busy bar and a tenth of it between two
    * whole notes. A multiple of the gap is the same gesture everywhere.
    *
-   * ⚠️ **It may exceed 1, and Fernquist's non-overlap rule does NOT bound it** — that was my error in
-   * reading them. Their scheme CAPTURES the pointer inside a radius, so two anchors' bands can
-   * collide and fight. This one ADDS motor space: a hold is spent before travel resumes, so holds are
-   * sequential and cannot overlap however wide they are. Nor is there a precision cost between two
-   * notes — once the hold is spent the ink tracks the cursor 1:1, so no position gets harder to hit.
+   * ⚠️ **It may exceed 1, and their non-overlap rule is satisfied by construction rather than
+   * dodged.** 🚨 An earlier version of this comment said the rule did not apply because "their scheme
+   * captures the pointer inside a radius" — **that was a misreading, corrected 2026-08-19 against the
+   * paper, which is now on disk** (`reference/oh-snap-fernquist-interact2011.pdf`). Oh Snap does not
+   * capture anything: §3 is our gesture exactly — *"The object remains stationary unless the user's
+   * finger travels a small distance (the snap-width) beyond where snapping has occurred. Once the
+   * finger travels beyond the snap-width, the object starts moving at a rate faster than the finger
+   * is moving."*
+   *
+   * ⭐ So their warning does bear on us — §5.2, *"future Oh Snap implementations would have to take
+   * great care not to overlap the snap and catch-up regions of different snappable lines"* — and the
+   * derived gain below is what answers it: hold + catch-up comes to `h + (gap − h) = gap` for any
+   * hold and any spacing, so two neighbouring notes' regions ABUT and can never overlap. ⚠️ With zero
+   * margin, which is worth knowing before anyone changes the gain: the two are exactly adjacent, and
+   * anything that repaid the debt more slowly than `1/(1−r)` would push this one's catch-up into the
+   * next one's hold.
+   *
+   * ⚠️ And there IS a precision cost, theirs too (§3.1): the gain quantises the reachable positions —
+   * *"if the ratio (and super pixel size) is 2, a position 3 pixels away from a snap line is
+   * unreachable"* — and `1/(1−0.8)` is a ratio of **5**. It lands inside the catch-up stretch only
+   * (once the debt is paid the ink tracks the cursor 1:1), and the endpoint LATCH is what makes the
+   * one position that matters — offset zero at the note — reachable exactly rather than by luck.
    *
    * 🚨 **CAPPED IN PIXELS by {@link SLUR_ENDPOINT_HOLD_MAX_PX}, and that cap is not a detail** — his
    * logs, 2026-08-18. A fraction of the gap is right for dense music and absurd for sparse: a

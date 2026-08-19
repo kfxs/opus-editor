@@ -179,47 +179,65 @@ function keepSpaces(text: string): string {
 }
 
 /**
- * The x a mark anchors to.
+ * ⭐⭐ **THE X A MARK ANCHORS TO — Gould p. 183, and ⛔ NEVER the barline.**
  *
- * A mark ON THE DOWNBEAT belongs to the BAR, not to the note that happens to open it, so it is
- * left-aligned with the START OF THE BAR — {@link barOpeningX}. Anchoring it to the first note
- * instead pushed `Allegro` a clef-plus-time-signature width into the bar.
+ * Read from the scan on 2026-08-19 (the whole Q&A is in `reference/README.md`), because the rule is
+ * the opposite of what "a mark on the downbeat belongs to the bar" suggests — and of what this
+ * function used to do:
  *
- * A mark placed LATER in the bar has no bar opening to hang off, so it takes the absolute X of
- * the first note/rest at-or-after its beat (the gesture `DynamicsLayout` uses), falling back to
- * the bar's note-start X when the beat is empty or the bar's notes were all deleted.
+ * > *"When a tempo marking coincides with a time signature indication, align the tempo with the left
+ * > edge of the time signature. When there is no new time signature, align the tempo marking with the
+ * > first element of the notation (e.g. a note or accidental) after the clef and key signature. Note
+ * > that when the tempo change is at the start of the bar, **the marking is not placed on the
+ * > barline**. […] Tempo indications mid-bar also align with the first notational element of the
+ * > respective beat."*
+ *
+ * ⭐ **Left ink edge to left ink edge** — measured off her own dashed alignment guides at 450 dpi,
+ * within 0.05 sp in all four figures; her downbeat examples sit **1.65 sp** right of the barline in a
+ * plain bar and **7.85 sp** right when a key change intervenes. Gerou & Lusk p. 142 states the
+ * time-signature half; all three engines implement the same rule and none offers an align-to-barline
+ * option (LilyPond's `MetronomeMark` break-aligns to `time-signature`, ⛔ not `staff-bar`, citing
+ * Gardner Read p. 278; MuseScore shifts back at `rtick == 0` only when the measure has a TimeSig;
+ * Verovio aligns to the METERSIG alignment else to the start element's leftmost edge).
+ *
+ * ⭐ **The barline rule is real, and it belongs to the REHEARSAL MARK** (Gould p. 485, and the same
+ * split in both engines): *"When coinciding with a tempo indication, the rehearsal mark goes first,
+ * so as to remain closest to the barline; the tempo aligns after it."* ⚠️ Ross p. A-46 is the lone
+ * dissent — *"with or slightly past a bar line"* — and is outvoted by four sources including the
+ * engines.
+ *
+ * ⭐⭐ **…except over an EMPTY BAR, where the first element is a CENTRED whole-bar rest** (his catch,
+ * 2026-08-19: *"we should not align the center rest and the tempo"*). Its glyph sits in the MIDDLE of
+ * the bar, so Gould's rule read literally would put `Allegro` halfway along an empty measure — which
+ * is plainly not what her rule means by "the first element of the notation". **LilyPond has exactly
+ * this exception in code**: `metronome-engraver.cc` keeps the BAR grob and uses it precisely when the
+ * mark's x-parent is a multi-measure rest. So a bar whose slot is a measure rest anchors to where the
+ * bar's music would start (`stave.getNoteStartX()`) — ⛔ not to the drawn rest.
  */
 export function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): number {
-  if (fracToNumber(mark.beat) === 0) return barOpeningX(stave)
+  // 1. A mark on the downbeat of a bar that PRINTS a time signature takes the time signature's left
+  //    edge — the one branch of the old rule that was already right, and the one every source states.
+  const [timeSig] = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)
+  if (timeSig && fracToNumber(mark.beat) === 0) return timeSig.getX()
 
+  // 2. Otherwise the first notational element at-or-after the mark's beat — downbeat and mid-bar
+  //    alike, which is why they are one loop rather than two rules.
   for (let i = 0; i < slots.length; i++) {
-    if (fracCompare(slots[i].beat, mark.beat) >= 0) {
-      try {
-        return staveNotes[i].getAbsoluteX()
-      } catch {
-        break // not formatted (shouldn't happen post-draw) — fall through to the bar start
-      }
+    const slot = slots[i]
+    if (fracCompare(slot.beat, mark.beat) < 0) continue
+    // ⭐ The centred-rest exception, above: a measure rest is drawn mid-bar whatever its beat says.
+    if (slot.type === 'rest' && slot.isMeasureRest) break
+    try {
+      return staveNotes[i].getAbsoluteX()
+    } catch {
+      break // not formatted (shouldn't happen post-draw) — fall through to the bar's opening
     }
   }
-  return stave.getNoteStartX()
-}
 
-/**
- * Where a bar "opens", for a mark on its downbeat: the TIME SIGNATURE if the bar prints one, else
- * the barline.
- *
- * Not the clef. A tempo mark sits clear of it — this is LilyPond's default (metronome marks
- * break-align to the time signature) and what printed scores look like.
- *
- * The x is read off the glyph rather than derived from a clef width: `Stave.format()` assigns
- * every begin-modifier its x, and the stave is drawn before we run, so the number is exact and
- * survives a clef change, a key signature, or a wider time signature. Most bars carry no time
- * signature at all (only openings and changes do) — and there the barline IS the bar's opening,
- * with nothing between it and the notes.
- */
-function barOpeningX(stave: Stave): number {
-  const [timeSig] = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)
-  return timeSig ? timeSig.getX() : stave.getX()
+  // 3. Nothing to point at (an empty bar, a beat past the last note): where the bar's music would
+  //    start. ⛔ Not `stave.getX()`, the barline — Gould p. 183 forbids it by name, and
+  //    `getNoteStartX` is her *"after the clef and key signature"*.
+  return stave.getNoteStartX()
 }
 
 /**

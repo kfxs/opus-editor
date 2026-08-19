@@ -167,6 +167,27 @@ strokes. ⛔ pp. 323–4 is keyboard-only (hairpins vs double-stemmed beams) and
 | the aperture (the two books DISAGREE) | **Gould p. 103** vs **Ross p. 187** | Gould: *"The open end should not be more than two stave-spaces wide."* Ross: *"no more than a space and a half."* ⭐ MEASURED, Gould's own drawings are **1.51 / 1.56 sp** — she engraves Ross's number. |
 | ❌ Stone on any of this | **Stone, whole book** | **Nothing.** His index has no crescendo / diminuendo / wedge / hairpin entry at all; dynamics are pp. 16–19 and 32–33. Checked 2026-08-18 — ⛔ do not check again. |
 
+### What was asked of it on 2026-08-19, and what came back
+
+The question was **where a TEMPO MARK is anchored horizontally** — the user's guess was the barline.
+Answered from Gould (prose **and** measured alignment guides), Ross, Gerou & Lusk, Stone, and all
+three engine checkouts. ⭐ The first question answered from four books *and* three engines at once,
+and the answer is **the opposite of the guess**.
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ a mark on a bar that prints a TIME SIGNATURE | **Gould p. 183** (printed; PDF 203) | *"When a tempo marking coincides with a time signature indication, align the tempo with the left edge of the time signature"*. Same in **Gerou & Lusk p. 142**: *"The left edge of the tempo mark is vertically aligned to the left edge of the time signature."* |
+| ⭐⭐ a mark on a downbeat with NO time signature | **Gould p. 183** | *"When there is no new time signature, align the tempo marking with the first element of the notation (e.g. a note or accidental) after the clef and key signature. **Note that when the tempo change is at the start of the bar, the marking is not placed on the barline**"* — the barline is forbidden in so many words. |
+| mid-bar | **Gould p. 183** | *"Tempo indications mid-bar also align with the first notational element of the respective beat"* (Ross p. A-46 agrees: aligned with *"the affected beat"*). |
+| ⭐ aligned on WHAT, exactly | **Gould p. 183** (MEASURED at 450 dpi off her own dashed guides) | **Left ink edge to left ink edge, within 0.05 sp** across all four figures. Her downbeat examples put the mark **1.65 sp** right of the barline in a plain bar and **7.85 sp** right when a key change intervenes. |
+| a repeat sign at the mark | **Gould p. 183** | *"When a repeat sign acts as a barline, the tempo aligns with the following first element of the notation. When the repeat sign is not acting as a barline, the tempo aligns with it"* (measured: +0.05 sp). |
+| ⚠️ the one DISSENT | **Ross p. A-46** (PDF 268) | *"When appearing during a composition it is placed vertically **with or slightly past a bar line**"* — the only source that allows the barline, and only for a mid-piece downbeat. First page: aligned to the time signature (p. A-8). |
+| ❌ Stone on any of this | **Stone**, pp. 32, 46–47, 128, 159 | **Nothing.** Vertical placement and which staff only; the metronome section is spatial notation (*"centered between beats"*). Checked 2026-08-19 — ⛔ do not check again. |
+| ⭐⭐ what the ENGINES do | **LilyPond** `scm/define-grobs.scm:2336–2367`; **MuseScore** `rendering/score/tlayout.cpp:5739–5786`; **Verovio** `src/adjusttempofunctor.cpp:36–68` | All three implement Gould, none offers "align to barline". LilyPond's `MetronomeMark` is `break-align-symbols = (time-signature)` — ⛔ **not** `staff-bar` — falling back to `currentMusicalColumn` (the first non-breakable item); its code cites **Gardner Read, *Music Notation*, p. 278** verbatim for the rule. MuseScore shifts back at `rtick == 0` **only if the measure has a TimeSig segment**. Verovio aligns to the METERSIG alignment at measure start, else to the leftmost bbox of the start element. |
+| ⭐ …and what DOES take the barline | **Gould p. 485**; `define-grobs.scm:2885`; `tlayout.cpp:4585–4642` | The **REHEARSAL MARK**, in the book and in both engines (`break-align-symbols = (staff-bar key-signature clef)`). *"When coinciding with a tempo indication, the rehearsal mark goes first, so as to remain closest to the barline; the tempo aligns after it."* ⇒ the barline rule the guess reached for is a real rule about a different mark. |
+| ⛔ Gardner Read p. 278 (LilyPond's own citation) | — | **UNKNOWN** — not on disk, second-hand through the code comment only. |
+| ⛔ a NUMBER for any padding between mark and anchor | — | **None given by any source.** Every measurement above is a residual of the left-edge-to-left-edge rule. |
+
 ## ⭐⭐ THE THREE ENGINE SOURCES — on disk, and NOT in this directory
 
 **`~/dev/engine-sources/{MuseScore,lilypond,verovio}`** — shallow clones, re-fetched 2026-08-18.
