@@ -640,7 +640,9 @@ export function buildClipboardFromSelection(
       lanes.push({
         staff: staff - topStaff,
         voice: v,
-        events: flattenRegion(ordered, v as 0 | 1 | 2 | 3)
+        // ⭐ `keepRests`: a copied REST is content the user selected and expects to see again
+        //   (`utils/rebar` FlattenOptions) — the clipboard is the one caller that asks.
+        events: flattenRegion(ordered, v as 0 | 1 | 2 | 3, { keepRests: true })
           .filter((e) => fracGte(e.offset, spanStart) && fracLt(e.offset, spanEnd))
           .map((e) => ({ ...e, offset: fracSub(e.offset, spanStart) })),
         // Omit each key entirely when empty (clean payload / old-clip parity).
@@ -651,8 +653,17 @@ export function buildClipboardFromSelection(
       })
     }
   }
-  // Usable if any lane carries note events OR a shifted/hidden rest OR an offset (a lone one still copies).
-  if (lanes.every((l) => l.events.length === 0 && !l.restShifts?.length && !l.restHidden?.length && !l.noteOffsets?.length)) return null
+  // ⭐⭐ **SILENCE IS CONTENT.** A clip is usable when it covers real music — which a selection that
+  // resolved to a span always does — and NOT when some lane happens to carry a note event. His
+  // report, 2026-08-19: *"i'm able to copy a note individual and pasted it, but i cannot doit with
+  // a rest"*, and the same for a group of them.
+  //
+  // ⚠️ `flattenRegion` deliberately drops rests (a rest is a GAP the relay regenerates), so an
+  // all-rests selection produces zero events by design — and the old guard read that as "nothing
+  // was selected" and refused the copy. A rest clip pastes exactly as it should through the machinery
+  // that already exists: the paste keeps the destination events OUTSIDE the window, drops the ones
+  // inside it, and the relay rest-fills what is left. Two beats of silence overwrite two beats.
+  if (fracCompare(spanBeats, fracCreate(0, 1)) <= 0) return null
 
   // Dynamics (Phase 2) and slurs (Phase 3) fully inside the window travel too, staff re-based
   // to the topmost copied staff.
@@ -714,6 +725,35 @@ export function earliestSelectedPosition(score: Score, noteIds: string[]): ClipT
   return best ? { measure: best.measure, beat: best.beat, voice: best.voice, staff: best.staff } : null
 }
 
+/**
+ * ⭐ The slot ids a paste window now holds on its destination lane — what a paste SELECTS when it
+ * created no notes (a clip of pure silence: `pasteEvents` reports the chords it made, and silence
+ * makes none). ⚠️ Not a general "what did the paste write": for a clip with notes the created ids
+ * are the honest answer, and this would also sweep up the rest-fill after them.
+ */
+export function windowSlotIds(score: Score, target: ClipTarget, spanBeats: Fraction): string[] {
+  const staff = target.staff ?? 0
+  const ordered = [...score.measures].sort((a, b) => a.number - b.number)
+  const from = ordered.findIndex(m => m.number === target.measure)
+  if (from === -1) return []
+  const out: string[] = []
+  let remaining = spanBeats
+  let start = target.beat
+  for (let i = from; i < ordered.length && fracCompare(remaining, fracCreate(0, 1)) > 0; i++) {
+    const m = ordered[i]
+    const capacity = measureCapacityFrac(m)
+    const end = fracAdd(start, remaining)
+    for (const n of getMeasureNotes(m, score)) {
+      if (staffOf(n) !== staff || voiceOf(n) !== target.voice) continue
+      if (fracLt(n.beat, start) || fracGte(n.beat, end)) continue
+      out.push(n.id)
+    }
+    remaining = fracSub(remaining, fracSub(capacity, start))
+    start = fracCreate(0, 1)
+  }
+  return out
+}
+
 /** A short human-readable line for the copy/paste console dump. */
 export function clipboardSummary(p: ClipboardPayload): string {
   const total = p.lanes.reduce((a, l) => a + l.events.length, 0)
@@ -725,7 +765,8 @@ export function clipboardSummary(p: ClipboardPayload): string {
     })
     return `s${ln.staff}v${ln.voice + 1}: ${parts.join(' ') || '(empty)'}`
   })
+  const silence = total === 0 ? ` — SILENCE (${fracToNumber(p.spanBeats)}b of rest)` : ''
   const dyn = p.dynamics.length ? `, ${p.dynamics.length} dynamic(s)` : ''
   const slr = p.slurs.length ? `, ${p.slurs.length} slur(s)` : ''
-  return `${total} event(s) across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}${slr}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
+  return `${total} event(s)${silence} across ${p.lanes.length} lane(s) / ${p.spanStaves} staff(s)${dyn}${slr}, span ${fracToNumber(p.spanBeats)}b — ${perLane.join(' | ')}`
 }

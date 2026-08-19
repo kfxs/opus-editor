@@ -62,6 +62,31 @@ describe('clipboard — copy/paste of notes', () => {
     expect(pitches(engine, 2)).toEqual(['C4@0', 'D4@1', 'E4@2', 'F4@3'])
   })
 
+  it('🚨 a DOTTED note pastes as ONE dotted note, not two tied ones', () => {
+    // His report, 2026-08-19: *"the paste is not a dotted figure… that is not expected"*. The relay
+    // re-derived the written shape with `decomposeSpan`, whose rule is the RESTS' — a value may not
+    // cross a beat stronger than its own endpoints — so 1.5 beats at a downbeat came back as a
+    // quarter tied to an eighth. A note has no such rule, and the shape it was written as travels.
+    const id = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!.id
+    const payload = buildClipboardFromSelection(engine.getScore(), [id])!
+    expect(fracToNumber(payload.spanBeats)).toBe(1.5)
+
+    const pasted = engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(pasted, 'ONE note, not a tied pair').toHaveLength(1)
+    const note = getMeasureNotes(engine.getScore().measures[1]).find(n => !n.isRest)!
+    expect(`${note.duration}${note.dots ? '.' : ''}`).toBe('q.')
+    expect(note.tiedTo, 'and nothing is tied').toBeUndefined()
+  })
+
+  it('a note SPLIT by a barline still ties — the authored shape only survives a whole event', () => {
+    // The other side of the rule: a half note pasted onto the last beat spills into the next bar,
+    // and two pieces of a half note are not half notes, so the relay re-derives both.
+    const id = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    const payload = buildClipboardFromSelection(engine.getScore(), [id])!
+    const pasted = engine.pasteEvents(payload, { measure: 2, beat: frac(3, 1), voice: 0 })
+    expect(pasted, 'a quarter in bar 2 tied to a quarter in bar 3').toHaveLength(2)
+  })
+
   it('overwrites forward (existing content in the target window is replaced)', () => {
     const ids = fillM1()
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
@@ -147,6 +172,87 @@ describe('clipboard — copy/paste of notes', () => {
  * the copy window rides along at its clip-relative offset (the canon effect), and a paste
  * that overwrites a destination rest with a note drops that destination's shift.
  */
+describe('⭐ clipboard — SILENCE travels (his report, 2026-08-19)', () => {
+  let engine: MusicEngine
+  let ids: string[]
+
+  /** Every slot of a bar as `rest@beat` / `PITCH@beat`, in beat order. */
+  const slots = (m: number) =>
+    getMeasureNotes(engine.getScore().measures.find(x => x.number === m)!)
+      .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
+      .map(n => `${n.isRest ? 'rest' : `${n.step}${n.octave}`}@${fracToNumber(n.beat)}`)
+
+  beforeEach(() => {
+    engine = makeEngine()
+    ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
+      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+    // Beats 1 and 2 become rests, so the bar reads C4 · rest · rest · F4.
+    engine.convertToRest(ids[1])
+    engine.convertToRest(ids[2])
+    ids = getMeasureNotes(engine.getScore().measures[0])
+      .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat)).map(n => n.id)
+    expect(slots(1)).toEqual(['C4@0', 'rest@1', 'rest@2', 'F4@3'])
+  })
+
+  it('⭐ copies ONE rest — as an EVENT carrying the shape it is drawn as', () => {
+    const payload = buildClipboardFromSelection(engine.getScore(), [ids[1]])!
+    expect(payload, 'the copy is not refused').not.toBeNull()
+    expect(fracToNumber(payload.spanBeats)).toBe(1)
+    // ⭐ The clipboard is the one caller that asks `flattenRegion` to keep rests: a rest is a gap
+    // for a REBAR (which must be free to re-shape inherited silence) and content for a CLIP.
+    expect(payload.lanes[0].events).toHaveLength(1)
+    expect(payload.lanes[0].events[0].isRest).toBe(true)
+    expect(payload.lanes[0].events[0].written).toEqual({ duration: 'q', dots: 0 })
+  })
+
+  it('⭐ a DOTTED rest keeps its dot through the paste', () => {
+    // 🚨 The bug his report named: the relay re-derives a written shape with the RESTS' metric
+    // rules, and 1.5 beats at a downbeat tiles as quarter + eighth — so a dotted figure came back
+    // undotted, and a dotted NOTE came back as two tied notes.
+    engine.updateNote(ids[1], { duration: 'q', dots: 1 })
+    const dotted = getMeasureNotes(engine.getScore().measures[0]).find(n => fracToNumber(n.beat) === 1)!
+    const payload = buildClipboardFromSelection(engine.getScore(), [dotted.id])!
+    expect(fracToNumber(payload.spanBeats)).toBe(1.5)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    const pasted = getMeasureNotes(engine.getScore().measures[1])
+      .sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))[0]
+    expect(`${pasted.duration}${pasted.dots ? '.' : ''}`).toBe('q.')
+  })
+
+  it('⭐ copies a GROUP of rests, and pasting it overwrites the target with silence', () => {
+    const payload = buildClipboardFromSelection(engine.getScore(), [ids[1], ids[2]])!
+    expect(fracToNumber(payload.spanBeats)).toBe(2)
+    // Bar 2 holds four notes; the two-beat silence lands on the first two of them.
+    const filling = ['G', 'A', 'B', 'C'] as const
+    filling.forEach((step, i) =>
+      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    // ⭐ TWO quarter rests, not one half rest: the shapes the user is looking at are what travel.
+    // (Before rests were events, the relay rest-filled the window and answered with its own tiling.)
+    expect(slots(2)).toEqual(['rest@0', 'rest@1', 'B4@2', 'C4@3'])
+  })
+
+  it('a mixed selection carries its notes AND its rests, each as itself', () => {
+    const payload = buildClipboardFromSelection(engine.getScore(), [ids[1], ids[3]])!
+    expect(payload.lanes[0].events.map(e => (e.isRest ? 'rest' : 'note'))).toEqual(['rest', 'rest', 'note'])
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    // The two quarter rests, then the F4 on beat 2, then the rest-fill of what the clip did not cover.
+    expect(slots(2)).toEqual(['rest@0', 'rest@1', 'F4@2', 'rest@3'])
+  })
+
+  it('a whole-bar rest copies as a bar of silence and clears the bar it lands on', () => {
+    const filling = ['G', 'A', 'B', 'C'] as const
+    filling.forEach((step, i) =>
+      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
+    engine.addMeasure() // bar 3 — empty, so its measure rest is the clip
+    const barRest = getMeasureNotes(engine.getScore().measures[2])[0]
+    const payload = buildClipboardFromSelection(engine.getScore(), [barRest.id])!
+    expect(fracToNumber(payload.spanBeats)).toBe(4)
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+    expect(slots(2)).toEqual(['rest@0'])
+  })
+})
+
 describe('clipboard — rest-shift travel', () => {
   let engine: MusicEngine
   beforeEach(() => { engine = makeEngine() })

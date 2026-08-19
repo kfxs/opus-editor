@@ -27,11 +27,54 @@ multi-voice payload, so the foundation is solid. Current coverage:
 | Stem direction | **Clef changes** in window |
 | Tuplets (atomic payload) | **Staff axis** — a clip is one staff |
 | Ties within the clip (collapse + re-tie) | |
+| ⭐ **Silence** — a rest selection copies as a span of it (2026-08-19) | |
 | Manual rest shifts / hidden rests | |
 
 Just-landed foundation (uncommitted, this session): copy is scoped to the **source
 staff** and paste lands on a **target staff** (no more cross-staff wipe). This plan
 generalizes that single-lane behavior to N staff lanes.
+
+## ⭐⭐ SILENCE IS CONTENT (2026-08-19)
+
+> *"i'm able to copy a note individual and pasted it, but i cannot doit with a rest"* — and then:
+> *"also group rest selection should be able to copy and paste"*.
+
+`flattenRegion` carried **no rests**: a rest is a GAP the relay regenerates, which is right for a
+REBAR (a meter change must be free to re-shape the silence it inherits) and wrong for a CLIP. The
+clip builder's usability test read the empty event list as *nothing was selected* and refused the
+copy, so a rest — one or a group — could not be copied at all.
+
+Two changes, and the second is the one that makes it visible:
+
+1. **The usability test is the SPAN, not the event count.** A selection that resolved to a span
+   covers real music, and silence is some of it.
+2. **`FlattenOptions.keepRests`** — the clipboard is the one caller that asks for rests as EVENTS,
+   so what pastes is the silence you selected, in the shape you were looking at. Without it, a
+   pasted rest fell back to the relay's own tiling: two quarter rests arrived as one half rest, and
+   pasting silence into an already-empty bar changed nothing at all (which is what "not working"
+   looked like). ⚠️ A MEASURE REST is still skipped — it is the empty bar's own default fill.
+
+## 🚨 …and the WRITTEN SHAPE travels with it
+
+> *"the paste is not a dotted figure… that is not expected"*
+
+A dotted quarter came back as a **quarter tied to an eighth**. The relay re-derived every written
+shape with `decomposeSpan`, whose rule is the RESTS' — a value may not cross a beat stronger than
+its own endpoints — and 1.5 beats at a downbeat tiles as q + ♪. A NOTE has no such rule: a dotted
+quarter on a downbeat is ordinary notation.
+
+`RebarEvent.written` now carries the authored shape, and `relayEvents` uses it **when the event
+survives whole** (one fragment, no barline split). A split note re-derives both halves, because two
+pieces of a dotted quarter are not dotted quarters.
+
+⚠️ Only a shape that DESCRIBES the length may travel: a slot whose sounding length is not its
+written length — a collapsed fan claiming 7/16 behind a dotted quarter, a measure rest whose `w`
+stands for whatever the bar holds — carries none, or the music would quietly shorten
+(`rebarOps.fan.test` caught exactly that).
+
+⚠️ One consequence worth knowing: `pasteEvents` reports the CHORDS it created, so a silent clip
+reports none. `ClipboardController` falls back to selecting the slots the window now holds
+(`windowSlotIds`), or a successful paste would look like nothing happened.
 
 ## Decisions (locked with the user)
 

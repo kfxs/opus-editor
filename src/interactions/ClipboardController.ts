@@ -12,6 +12,7 @@ import {
   buildClipboardFromSelection,
   earliestSelectedPosition,
   clipboardSummary,
+  windowSlotIds,
   type ClipboardPayload,
 } from './clipboard'
 import { copyElement, pasteElement, elementClipSummary, type ElementClip } from './elementClipboard'
@@ -159,8 +160,14 @@ export class ClipboardController {
     // plus the clip-wide dynamics, slurs and authored spaces — goes across as fields of it. This
     // controller's job is the TARGET: which (measure, beat, voice, staff) it lands on.
     const pastedIds = engine.pasteEvents(this.payload, target)
-    dbg(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${target.measure} beat ${fracToNumber(target.beat)}`)
-    this.selection.selectNotes(pastedIds)
+    // ⭐ A clip of pure SILENCE creates no notes, so `pasteEvents` reports none — and selecting
+    // nothing after a paste reads as "nothing happened", which is exactly what the rest paste is not
+    // (it overwrote the window). Fall back to the slots the window now holds: the rests it wrote.
+    const selected = pastedIds.length ? pastedIds : windowSlotIds(engine.getScore(), target, this.payload.spanBeats)
+    dbg(`[Clipboard] pasted ${pastedIds.length} note(s)`
+      + `${pastedIds.length === 0 ? ` + ${selected.length} rest slot(s)` : ''}`
+      + ` at measure ${target.measure} beat ${fracToNumber(target.beat)}`)
+    this.selection.selectNotes(selected)
     this.state.showCursor = true
     this.render.renderScore()
   }

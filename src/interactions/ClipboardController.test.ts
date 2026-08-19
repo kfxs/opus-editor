@@ -133,6 +133,33 @@ describe('ClipboardController — copying one element', () => {
     expect(engine.getScore().measures[1].tempos ?? []).toEqual([])
   })
 
+  it('⭐ copies a GROUP OF RESTS and selects the silence it pasted', () => {
+    // His report: a note copies and pastes, a rest does not. The clip carries no EVENTS (a rest is
+    // a gap the relay regenerates), so the paste reports no created notes — and the selection has
+    // to come from the window, or a successful paste looks like nothing happened.
+    engine.convertToRest(ids[1])
+    engine.convertToRest(ids[2])
+    const rests = engine.getScore().measures[0].slots
+      .filter(sl => sl.type === 'rest').map(sl => sl.id)
+    expect(rests).toHaveLength(2)
+    state.selectedItems = new Map(rests.map(id => [`note:${id}`, { kind: 'note', id }]))
+    clipboard.copy()
+    expect(clipboard.hasContent(), 'the copy is not refused').toBe(true)
+
+    // ⚠️ Bar 2 is FILLED first: an empty bar is already a rest, so pasting silence into it would
+    // agree with the fixture and prove nothing.
+    const filling = ['G', 'A', 'B', 'C'] as const
+    filling.forEach((step, i) =>
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
+    clipboard.pasteAt(2, frac(0, 1), 0)
+
+    const bar2 = engine.getScore().measures[1].slots
+      .slice().sort((a, b) => fracToNumber(a.beat) - fracToNumber(b.beat))
+    expect(bar2.map(sl => `${sl.type}@${fracToNumber(sl.beat)}`))
+      .toEqual(['rest@0', 'rest@1', 'chord@2', 'chord@3']) // the two rests, as themselves
+    expect(state.selectedItems.size, 'the pasted silence is selected').toBeGreaterThan(0)
+  })
+
   it('holds ONE thing: copying notes drops the element, and copying an element drops the notes', () => {
     state.selectedItems = new Map([['note:' + ids[0], { kind: 'note', id: ids[0] }]])
     clipboard.copy()
