@@ -39,13 +39,20 @@
  */
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { DynamicSlotTarget } from '../../engine/models/dynamicOps'
-import type { Score } from '../../types/music'
+import type { Dynamic, Score } from '../../types/music'
 import { staffOf, voiceOf } from '../../utils/lanes'
 import { fracCompare } from '../../utils/fraction'
 
 /** What finding a drag target needs off the engine — a Pick, so a test can stand up the four reads
  *  without a renderer. */
-type DragEngine = Pick<MusicEngine, 'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'>
+export type DragEngine = Pick<MusicEngine, 'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'>
+
+/** A slot of the mark's lane as it was DRAWN: the centre of its ink, and the address it stands for. */
+export interface DynamicLaneHead {
+  x: number
+  y: number
+  target: DynamicSlotTarget
+}
 
 /** ⚠️ HORIZONTAL only, now that the row is chosen separately. The family's number. */
 const DYNAMIC_DRAG_SNAP_PX = 150
@@ -67,23 +74,7 @@ export function dynamicDragTargetAt(
 ): DynamicSlotTarget | null {
   const dynamic = engine.getDynamicById(dynamicId)
   if (!dynamic) return null
-  const score = engine.getScore()
-  const lane = { voice: dynamic.voice ?? 0, staff: staffIndexOf(score, dynamic.staffId) }
-
-  // One candidate per ONSET, at the centre of its ink. ⚠️ A chord registers one entry per notehead
-  // on one onset; they share an x, so the first one answers for the slot — the mark is centred on
-  // the column, not on a particular head of it.
-  const heads: Array<{ x: number; y: number; target: DynamicSlotTarget }> = []
-  const registry = engine.getElementRegistry()
-  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
-    if (!el.id) continue
-    const note = engine.getNote(el.id)
-    if (!note) continue
-    if (voiceOf(note) !== lane.voice || staffOf(note) !== lane.staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    if (heads.some(h => h.target.measure === target.measure && fracCompare(h.target.beat, target.beat) === 0)) continue
-    heads.push({ x: el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, target })
-  }
+  const heads = dynamicLaneHeads(engine, dynamic)
 
   // 🚨 Into the music first — see the header. An untranslated y reads the wrong system.
   const inMusic = y - markToMusicOffset(engine, dynamicId, dynamic.placement ?? 'below', heads)
@@ -100,6 +91,33 @@ export function dynamicDragTargetAt(
     if (d < bestDistance) { bestDistance = d; best = head.target }
   }
   return best
+}
+
+/**
+ * ⭐ **EVERY SLOT OF THE MARK'S LANE, AS DRAWN** — one candidate per ONSET, at the centre of its ink.
+ *
+ * ⚠️ A chord registers one entry per notehead on one onset; they share an x, so the first one
+ * answers for the slot — the mark is centred on the COLUMN, not on a particular head of it.
+ *
+ * ⭐ Shared with the keyboard's interpolating walk (`interactions/dynamicWalk`), which asks the same
+ * question of one address rather than of the cursor: the two doors must agree about where a slot is
+ * drawn, or a mark walked with the arrows and one dragged would sit on different x's.
+ */
+export function dynamicLaneHeads(engine: DragEngine, dynamic: Dynamic): DynamicLaneHead[] {
+  const score = engine.getScore()
+  const lane = { voice: dynamic.voice ?? 0, staff: staffIndexOf(score, dynamic.staffId) }
+  const heads: DynamicLaneHead[] = []
+  const registry = engine.getElementRegistry()
+  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
+    if (!el.id) continue
+    const note = engine.getNote(el.id)
+    if (!note) continue
+    if (voiceOf(note) !== lane.voice || staffOf(note) !== lane.staff) continue
+    const target = { measure: note.measure, beat: note.beat }
+    if (heads.some(h => h.target.measure === target.measure && fracCompare(h.target.beat, target.beat) === 0)) continue
+    heads.push({ x: el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, target })
+  }
+  return heads
 }
 
 /**
@@ -125,7 +143,7 @@ function markToMusicOffset(
   engine: DragEngine,
   dynamicId: string,
   placement: 'above' | 'below',
-  heads: ReadonlyArray<{ x: number; y: number; target: DynamicSlotTarget }>,
+  heads: ReadonlyArray<DynamicLaneHead>,
 ): number {
   const mark = engine.getElementRegistry().getByType('dynamic').find(e => e.id === dynamicId)
   if (!mark) return 0
@@ -150,7 +168,7 @@ function markToMusicOffset(
 
 /** Where a dynamic lives, by measure and beat — the address its own `beat` field is only half of,
  *  since the measure is the LIST it is stored in. Null when the id is no longer in the score. */
-function dynamicAddress(score: Score, dynamicId: string): DynamicSlotTarget | null {
+export function dynamicAddress(score: Score, dynamicId: string): DynamicSlotTarget | null {
   for (const measure of score.measures ?? []) {
     const dyn = measure.dynamics?.find(d => d.id === dynamicId)
     if (dyn) return { measure: measure.number, beat: dyn.beat }

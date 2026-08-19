@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { moveDynamicBySlot, setDynamicAtSlot } from './dynamicOps'
+import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset } from './dynamicOps'
 import { setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 import { levelToGlyphString } from '@/utils/dynamics'
@@ -184,5 +184,55 @@ describe('setDynamicAtSlot — the drag\'s write', () => {
     model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     expect(setDynamicAtSlot(score, id, { measure: 1, beat: frac(5, 2) })).toBe(false)
     expect(at(id)).toBe('1@2')
+  })
+
+  it('⭐⭐ …and its KEEPING-OFFSET twin does everything but the clear — the invisible crossing', () => {
+    // The one line the interpolating walk (`interactions/dynamicWalk`) needed of its own: it hands
+    // the anchor one gap forward and takes that same gap back out of the offset, so wiping the
+    // offset in between would make the one press in ten that crosses jump the mark.
+    const nudged: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 1.5, y: -2 }
+    setEngravingOverride(score, id, nudged)
+    expect(setDynamicAtSlotKeepingOffset(score, id, { measure: 1, beat: frac(3, 1) })).toBe(true)
+    expect(at(id)).toBe('1@3')
+    expect(dynamicOffsetOverrideOf(score, id)).toEqual(nudged)
+  })
+
+  it('⛔ …and it refuses everything the clearing one refuses', () => {
+    expect(setDynamicAtSlotKeepingOffset(score, id, { measure: 1, beat: frac(5, 2) })).toBe(false)
+    expect(setDynamicAtSlotKeepingOffset(score, id, { measure: 1, beat: frac(2, 1) })).toBe(false)
+  })
+})
+
+/**
+ * ⭐ {@link nextDynamicSlot} — where the step above WOULD land, without landing it.
+ *
+ * The claim is that it is the same candidate rule, asked as a question: the interpolating walk reads
+ * it to measure how far the next stop is drawn before deciding whether a press re-anchors, and two
+ * rules would mean the arrows and `Ctrl+Shift`+arrow landing the mark on different notes.
+ */
+describe('nextDynamicSlot — the stop one step away', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    for (const b of [0, 1, 2, 3]) {
+      model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+    }
+    score = model.getScore()
+    id = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f') })!.id
+  })
+
+  it('⭐ names the stop the step would take, and moves NOTHING', () => {
+    expect(nextDynamicSlot(score, id, 1)).toEqual({ measure: 1, beat: frac(3, 1) })
+    expect(nextDynamicSlot(score, id, -1)).toEqual({ measure: 1, beat: frac(1, 1) })
+    expect(score.measures[0].dynamics?.[0].beat).toEqual(frac(2, 1))
+  })
+
+  it('⛔ null at the end of the lane, and for an id no longer in the score', () => {
+    const last = model.addDynamic(1, { beat: frac(3, 1), text: levelToGlyphString('p') })!.id
+    expect(nextDynamicSlot(score, last, 1)).toBeNull()
+    expect(nextDynamicSlot(score, 'nope', 1)).toBeNull()
   })
 })

@@ -43,6 +43,10 @@ describe('moving a dynamic from the keyboard', () => {
       getElementRegistry: () => ({ getByType: () => [] }),
       getSlurById: () => null,
       getNote: () => null,
+      // ⚠️ The horizontal ink chords run through the interpolating walk (`./dynamicWalk`), which
+      // asks for the mark before it asks anything else. Null = "not in the score" → no crossing is
+      // possible, so the press is the plain nudge these cases are about.
+      getDynamicById: () => null,
     } as unknown as MusicEngine
 
     state = createEditorState()
@@ -74,6 +78,10 @@ describe('moving a dynamic from the keyboard', () => {
     expect(reanchor.mock.calls).toEqual([['D1', 1], ['D1', -1]])
   })
 
+  // 🚨 Still the standing claim after the interpolating walk arrived (2026-08-19): the horizontal
+  // ink chords may now hand the anchor along when the ink ARRIVES at the next slot, but they reach
+  // that through `moveDynamicToSlotKeepingOffset` — never through the whole-slot jump this chord
+  // owns, which wipes the mark's nudge.
   it('🚨 …and the INK chords never reach it — the plain and `Ctrl` arrows still write the offset', () => {
     selectDynamic()
     run('selectNextNote')  // plain →

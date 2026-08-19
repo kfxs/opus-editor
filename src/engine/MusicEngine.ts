@@ -873,6 +873,30 @@ export class MusicEngine {
     this.commitPreviewed('Move dynamic')
   }
 
+  /**
+   * Hand a dynamic onto the lane slot at `target` **keeping its hand-nudged offset** — the crossing
+   * of the interpolating walk (`interactions/dynamicWalk`), where {@link moveDynamicBySlot} above
+   * drops it. Content, and audible, for that method's reason.
+   *
+   * ⚠️ Saves its own undo entry, so the walk wraps the crossing pair (this write and the re-base
+   * that cancels it) in one `runBatch`: an undo that took back only half would leave the mark
+   * somewhere nobody put it.
+   */
+  moveDynamicToSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
+    const ok = this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
+    if (ok) {
+      this.commit('Move dynamic')
+      dbg(`[Dynamic] walked ${id} onto m${target.measure} beat ${target.beat.num}/${target.beat.den}`)
+    }
+    return ok
+  }
+
+  /** Where {@link moveDynamicBySlot} would put the mark, without putting it there — the walk reads
+   *  it to measure how far away the next stop is drawn (`dynamicOps.nextDynamicSlot`). */
+  nextDynamicSlot(id: string, direction: 1 | -1): DynamicSlotTarget | null {
+    return this.scoreModel.nextDynamicSlot(id, direction)
+  }
+
   /** A measure's dynamics, sorted ascending by beat (a copy; empty if none). */
   getDynamics(measureNumber: number): Dynamic[] {
     return this.scoreModel.getDynamics(measureNumber)

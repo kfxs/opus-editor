@@ -110,8 +110,22 @@ function moveDynamicToMeasure(score: Score, dynamic: Dynamic, measureNumber: num
  * caller must chain rather than repaint on a false.
  */
 export function moveDynamicBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const dest = nextDynamicSlot(score, id, direction)
+  return dest ? setDynamicAtSlot(score, id, dest) : false
+}
+
+/**
+ * ⭐ **THE STOP ONE STEP AWAY** — where {@link moveDynamicBySlot} would put the mark, without
+ * putting it there. Null at the end of the lane (or for an id no longer in the score).
+ *
+ * ⭐ Split out for the INTERPOLATING WALK (`interactions/dynamicWalk`), which has to know what lies
+ * ahead — how far away it is drawn — before it decides whether this press re-anchors or only nudges
+ * ink. ⛔ Two candidate rules would mean the arrows and `Ctrl+Shift`+arrow landing the mark on
+ * different notes, so both roads read this one.
+ */
+export function nextDynamicSlot(score: Score, id: string, direction: 1 | -1): DynamicSlotTarget | null {
   const found = locate(score, id)
-  if (!found) return false
+  if (!found) return null
   const { dynamic, measure } = found
 
   const here: Stop = { measure: measure.number, beat: dynamic.beat }
@@ -121,9 +135,7 @@ export function moveDynamicBySlot(score: Score, id: string, direction: 1 | -1): 
     ? [...stops].reverse().find(s => compare(s, here) < 0)
     // Step ON: the first stop after it.
     : stops.find(s => compare(s, here) > 0)
-  if (!dest) return false
-
-  return setDynamicAtSlot(score, id, dest)
+  return dest ?? null
 }
 
 /** A lane stop named by its address — what a DRAG hands {@link setDynamicAtSlot}, having found it
@@ -150,6 +162,25 @@ export interface DynamicSlotTarget {
  * would repaint every frame of a drag that has not moved.
  */
 export function setDynamicAtSlot(score: Score, id: string, target: DynamicSlotTarget): boolean {
+  return placeDynamic(score, id, target, true)
+}
+
+/**
+ * ⭐⭐ **THE SAME MOVE, KEEPING THE MARK'S OWN NUDGE** — the crossing of the INTERPOLATING WALK
+ * (`interactions/dynamicWalk`), `slurOps.setSlurEndpointKeepingEdits`' twin and for its reason.
+ *
+ * The clear above is right for *"not that note"* — a whole slot in one press, the ink landing
+ * wherever the engraver puts it. It is wrong for a ¼-space press that happens to step the ink over
+ * a notehead: there the walk re-bases the offset by the gap it just handed to the anchor, so the
+ * two writes cancel and **the crossing is invisible**. Wiping the offset instead would make the one
+ * press in ten that crosses jump the mark, which is precisely what the walk exists to abolish.
+ */
+export function setDynamicAtSlotKeepingOffset(score: Score, id: string, target: DynamicSlotTarget): boolean {
+  return placeDynamic(score, id, target, false)
+}
+
+/** {@link setDynamicAtSlot} and its keep-the-nudge twin, which differ by one line. */
+function placeDynamic(score: Score, id: string, target: DynamicSlotTarget, clearOffset: boolean): boolean {
   const found = locate(score, id)
   if (!found) return false
   const { dynamic, measure } = found
@@ -161,6 +192,6 @@ export function setDynamicAtSlot(score: Score, id: string, target: DynamicSlotTa
   if (target.measure !== measure.number && !moveDynamicToMeasure(score, dynamic, target.measure)) return false
   dynamic.beat = target.beat
   locate(score, id)?.measure.dynamics?.sort((a, b) => fracCompare(a.beat, b.beat))
-  clearEngravingOverride(score, id, 'dynamicOffset')
+  if (clearOffset) clearEngravingOverride(score, id, 'dynamicOffset')
   return true
 }

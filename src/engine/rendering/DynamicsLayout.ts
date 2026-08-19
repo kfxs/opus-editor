@@ -295,6 +295,7 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         const ys = note?.getYs?.()
         const anchorY = ys?.length ? Math.max(...ys) : note?.getStave?.()?.getYForLine(4)
         const anchor = note && anchorY !== undefined ? { x: note.getAbsoluteX(), y: anchorY } : undefined
+        const spacing = note?.getStave?.()?.getSpacingBetweenLines?.()
 
         // Default: the group box (correct for pure-TEXT marks — their pointer-rect is small). For any
         // mark containing a GLYPH run — a bare level OR a mixed `mp dolce` — the group box unions
@@ -353,6 +354,11 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
           // vertical is the layout box, which is why only the vertical had to be asked of the font).
           // ⚠️ One guide, and only when the anchor note was found: ⛔ a guide is never a guess.
           ...(anchor ? { guides: [{ from: { x: bx, y: guideY }, to: anchor }] } : {}),
+          // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
+          // (`interactions/dynamicWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
+          // refuses to guess one, so this is the only route: a small staff beside a normal one is a
+          // ratio, and a guessed scale would re-base the offset by the wrong distance.
+          ...(spacing === undefined ? {} : { staffSpacePx: spacing }),
         })
       }
     } catch (_e) { /* getBBox may fail before layout in some envs */ }

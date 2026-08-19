@@ -16,6 +16,7 @@ import { selectedArticulationNoteIds } from './selection'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
+import { walkDynamic } from './dynamicWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -555,11 +556,20 @@ export function wireShortcuts(
   // instead of the pitch/nav edit (which no-ops on a dynamic anyway). Disjoint from the
   // slur/rest/box selections, so it just adds another modal branch. One undo per press. Returns
   // true when it consumed the key, false to DECLINE so it falls through. See docs/dynamic-offset-plan.md.
+  //
+  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./dynamicWalk`), his ask of 2026-08-19:
+  // the same ink nudge, except that reaching the next slot of the mark's lane takes the anchor along
+  // with it — the slur endpoint's gesture, on the letters. Vertical stays a pure offset (a dynamic's
+  // lane runs sideways, so there is no anchor above to arrive at). See the walk's header for the
+  // arithmetic and `ctrlArrowLeft` below for why this key is allowed to end in a model write.
   const nudgeSelectedDynamic = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const dynamicId = selectedOf(state, 'dynamic')?.id
     if (!eng || !dynamicId) return false
-    if (!eng.nudgeDynamicOffset(dynamicId, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkDynamic(eng, dynamicId, dx)
+      : eng.nudgeDynamicOffset(dynamicId, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }
@@ -1348,6 +1358,11 @@ export function wireShortcuts(
     //    ⭐ The pedal came BACK to it the same day as its ink offsets — as an offset this time, and
     //    gated: armed square → that sign, nothing armed → both. It is the fourth family to read the
     //    same way here (slur point, wedge, bracket, pedal).
+    //    ⭐⭐ …and the DYNAMIC is the second exception, his ask of 2026-08-19 (`./dynamicWalk`): the
+    //    same interpolating walk, on a mark whose anchor is a SLOT rather than a note. It is allowed
+    //    for the slur endpoint's reason and no other — ink press after press, a re-anchor only on
+    //    arrival at a slot the user has steered the ink onto, and the mark's own guide line drawn to
+    //    its anchor throughout, so the change is asked for, visible, and one undo press away.
     ctrlArrowLeft: () =>
       nudgeArmedSlurPoint(-NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(-NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(-NUDGE_COARSE_SS, 0)
       || nudgeSelectedHairpin(-NUDGE_COARSE_SS, 0) || nudgeArmedOttavaEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedOttava(-NUDGE_COARSE_SS, 0)

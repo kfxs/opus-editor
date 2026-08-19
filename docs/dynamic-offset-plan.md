@@ -396,3 +396,53 @@ chained ahead of the note offset on `ctrlShiftArrow…`. It DECLINES at either e
 chord still falls through to the note offset. Tests: `dynamicOps.test.ts` (the walk, the re-file, the
 clear) and `shortcutWiring.dynamicReanchor.test.ts` (the routing, and that the ink chords never reach
 it).
+
+---
+
+## ⭐⭐ The interpolating WALK — ←/→ and Ctrl+←/→ carry the anchor (2026-08-19)
+
+His ask: *"we recently use in the slur a walk with arrow / ctrl arrow that allows interpolate between
+offset and reanchor… i want to do something similar with the expression (dynamic)"*. Before it, the
+two halves of moving a dynamic sideways were two unrelated gestures — the ink chord slid the mark
+arbitrarily far from the note it claimed to hang off, and the music chord jumped a whole slot with
+the ink snapping to wherever the engraver puts it. Neither could say "this `f` belongs a little to
+the left of that note over there" as one continuous motion.
+
+**The identity** (`interactions/dynamicWalk.ts`, `slurEndpointWalk`'s sentence for sentence): a drawn
+mark is `base(anchor) + offset`, so a press may spend its step on either term.
+
+```
+  offset + step  <  gap   →  keep the anchor, offset += step        (the ordinary ink nudge)
+  offset + step  ≥  gap   →  anchor := next slot, offset += step − gap
+```
+
+`gap` is the distance between the two slots' drawn **noteheads**, in staff-spaces. Both branches move
+the drawn mark by exactly one step, so **the crossing is invisible** — which is the whole point.
+
+- ⭐⭐ **What differs from the slur is only what an anchor IS.** A dynamic is anchored positionally, so
+  the stop it walks onto is a SLOT of its own lane — `dynamicOps.nextDynamicSlot`, split out of
+  `moveDynamicBySlot` so the arrows and `Ctrl+Shift`+arrow can never land the mark on different notes.
+- ⭐⭐ **`setDynamicAtSlotKeepingOffset`** exists because the crossing must be invisible: the ordinary
+  re-anchor's clear (above) is right for "not that note" and wrong for a ¼-space press that happens
+  to step over a notehead. One private `placeDynamic`; the two exports differ by one line.
+- ⭐ **ARRIVAL, not midpoint**, his call on the slur — the mark can be parked anywhere in the gap
+  without changing the beat it applies from, which playback reads.
+- ⭐ **The gap is measured, never guessed**: `registerDynamics` now carries the drawn mark's
+  `staffSpacePx` into the registry, and with no drawn mark there is no crossing (a small staff beside
+  a normal one is a ratio, so a guessed scale would re-base by the wrong distance, quietly).
+  The slot x's come from `dynamicDrag.dynamicLaneHeads`, shared so the two doors agree on where a
+  slot is drawn.
+- 🚨 **It will not walk across a system break** — a gap whose sign disagrees with the travel is
+  refused, and the press stays a plain nudge. `Ctrl+Shift+←/→` is the gesture that crosses one.
+- ⛔ **The vertical is not in it.** ↑/↓ stay a pure offset: a dynamic's lane runs sideways.
+- A crossing press is ONE undo entry (`runBatch`) — the re-anchor and the re-base are two halves of
+  one press.
+
+Where it lives: `dynamicOps.nextDynamicSlot` + `setDynamicAtSlotKeepingOffset` → `ScoreModel` →
+`MusicEngine.moveDynamicToSlotKeepingOffset` / `nextDynamicSlot` → `interactions/dynamicWalk.ts` →
+the horizontal branch of `nudgeSelectedDynamic` in `shortcutWiring`. Tests: `dynamicWalk.test.ts`
+(the arithmetic, over a fabricated render — jsdom draws nothing) and `dynamicOps.test.ts`.
+
+⏭️ **Not built: the mouse.** A dragged dynamic still snaps to the nearest slot, where the slur's drag
+is the same continuous journey as its keys (hold, catch-up, latch). `walkDynamic` is the function that
+would grow the loop.

@@ -556,6 +556,18 @@ export class ScoreModel {
     return dynamicOps.setDynamicAtSlot(this.score, id, target)
   }
 
+  /** The same, KEEPING the mark's own nudge — the interpolating walk's invisible crossing.
+   *  See {@link dynamicOps.setDynamicAtSlotKeepingOffset}. */
+  setDynamicAtSlotKeepingOffset(id: string, target: dynamicOps.DynamicSlotTarget): boolean {
+    return dynamicOps.setDynamicAtSlotKeepingOffset(this.score, id, target)
+  }
+
+  /** Where the step above would land, without landing it — what the walk asks before deciding
+   *  whether a press re-anchors. See {@link dynamicOps.nextDynamicSlot}. */
+  nextDynamicSlot(id: string, direction: 1 | -1): dynamicOps.DynamicSlotTarget | null {
+    return dynamicOps.nextDynamicSlot(this.score, id, direction)
+  }
+
   /** Find a dynamic anywhere in the score by id (live reference), or null. Used by
    *  the in-canvas text editor to seed the overlay with the mark's current text. */
   getDynamicById(id: string): Dynamic | null {
