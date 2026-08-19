@@ -656,11 +656,12 @@ export class MouseController {
     const note = engine.getNote(noteId)
     if (!note) return
     // Anchor to the selected note's STAFF (else it renders on staff 0); absent staffId
-    // keeps single-staff output byte-identical. Voice 0 — see the VOICE SEAM note above.
+    // keeps single-staff output byte-identical. ⭐ No voice = every voice of that staff — see the
+    // SCOPE note above. ⚠️ NOT the clicked note's voice: a mark is placed AT a note, not INTO it.
     const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
     const created = engine.addDynamic(note.measure, {
-      beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam,
+      beat: note.beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam,
     })
     if (!created) return
     // Render so registerDynamics stores the mark's bbox; openTextEditor's source snapshots
@@ -2036,12 +2037,15 @@ export class MouseController {
    * interpreted (drives playback); the `'text'` tool drops a silent custom mark.
    * Always placed below the staff.
    *
-   * VOICE SEAM: `voice: 0` is the only hardcoded voice in the dynamics feature —
-   * every resolution/render/playback path already keys on `voiceOf` (see
-   * utils/dynamics resolveActiveLevel/resolveChordLevels, ScoreModel.addDynamic,
-   * DynamicsLayout.attachDynamicsToSlots). When multi-voice editing lands, the
-   * ONLY change here is to source the voice from a UI selector (or the active
-   * voice) instead of the literal 0; the timeline math needs no rework.
+   * ⭐⭐ SCOPE SEAM: the placed mark carries **NO `voice`, which means it governs EVERY voice of
+   * the staff it landed on** (`utils/dynamicScope`, docs/dynamic-voice-scope-plan.md) — the
+   * ordinary notation rule, and what the user asked for: *"the default is that it affect ALL"*.
+   *
+   * ⚠️ This used to write a hardcoded `voice: 0`, and the note here predicted the wrong fix — that
+   * the literal would one day be *sourced from a selector*. It should not be sourced at all: the
+   * entry voice says which stream you are TYPING INTO, and a dynamic is not typed into a stream.
+   * Narrowing the scope is a deliberate second act (`Alt+1…4` on the selected mark), never the
+   * by-product of what the palette happened to have armed when the click landed.
    */
   private placeDynamicAtClick(engine: MusicEngine, x: number, y: number, measureNum: number): boolean {
     const tool = armedTool(this.state, 'dynamic')?.dynamic
@@ -2051,7 +2055,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    engine.addDynamic(measureNum, { beat, text: dynamicTextFromTool(tool), voice: 0, placement: 'below', ...staffParam })
+    engine.addDynamic(measureNum, { beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${measureNum} beat ${fracToNumber(beat).toFixed(3)} staff ${staff}`)
     this.render.renderScore()
     return true
@@ -2071,7 +2075,7 @@ export class MouseController {
     const staff = engine.getElementRegistry().staffIndexAtY(measureNum, y)
     const staffId = engine.staffIdForIndex(staff)
     const staffParam = staffId ? { staffId } : {}
-    const created = engine.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, voice: 0, placement: 'below', ...staffParam })
+    const created = engine.addDynamic(measureNum, { beat, text: DEFAULT_DYNAMIC_TEXT, placement: 'below', ...staffParam })
     // Disarm to selection mode either way — the click is consumed. (Reassign, never mutate: the
     // observable Proxy only traps the SET.)
     this.state.selectedMarkingTool = null

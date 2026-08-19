@@ -2095,7 +2095,8 @@ export class PaletteController {
    * Place the dynamic for `tool` directly at the currently selected note/rest's slot
    * (selection mode). The mark anchors to the element's (measure, beat); a level tool
    * drops its glyph, `'text'` drops the editable placeholder (double-click to edit,
-   * matching canvas placement). Voice 0 — see the VOICE SEAM note in MouseController.
+   * matching canvas placement). ⭐ NO `voice`, which means it governs EVERY voice of that staff —
+   * see the SCOPE note in MouseController.
    */
   private placeDynamicAtSelectedNote(tool: DynamicTool): void {
     const engine = this.getEngine()
@@ -2107,7 +2108,7 @@ export class PaletteController {
     // staffId = staff 0 keeps single-staff output byte-identical.
     const staffId = engine.staffIdForIndex(staffOf(note))
     const staffParam = staffId ? { staffId } : {}
-    engine.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), voice: 0, placement: 'below', ...staffParam })
+    engine.addDynamic(note.measure, { beat: note.beat, text: dynamicTextFromTool(tool), placement: 'below', ...staffParam })
     dbg(`✓ Dynamic ${tool} at measure ${note.measure} beat ${beatStr} staff ${staffOf(note)} (on selected note ${this.state.selectedNoteId})`)
     this.renderScore()
   }

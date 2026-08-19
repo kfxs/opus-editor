@@ -502,7 +502,10 @@ export function pasteEvents(
       id: uuidv4(),
       beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
       text: cd.text,
-      voice: (singleVoice ? targetVoice : cd.voice) as 0 | 1 | 2 | 3,
+      // ⛔ A mark with no scope is NOT re-voiced. The single-voice re-voicing exists so a clip
+      // dropped into another stream follows it; a staff-wide dynamic has no stream to follow, and
+      // writing `targetVoice` here would silently narrow it (docs/dynamic-voice-scope-plan.md).
+      ...(cd.voice === undefined ? {} : { voice: (singleVoice ? targetVoice : cd.voice) as 0 | 1 | 2 | 3 }),
       ...(cd.placement !== undefined ? { placement: cd.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }
@@ -521,7 +524,8 @@ export function pasteEvents(
       type: ch.type,
       beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
       length: ch.length,
-      voice: (singleVoice ? targetVoice : ch.voice) as 0 | 1 | 2 | 3,
+      // Same ⛔ as the dynamic above: an unscoped wedge stays unscoped.
+      ...(ch.voice === undefined ? {} : { voice: (singleVoice ? targetVoice : ch.voice) as 0 | 1 | 2 | 3 }),
       ...(ch.placement !== undefined ? { placement: ch.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }

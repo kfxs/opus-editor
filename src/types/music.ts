@@ -500,7 +500,8 @@ export type DynamicLevel = 'ppp' | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
  *  - glyph vs word is decided per character by whether it's a dynamics glyph (the FONT, not the
  *    spelling — a typed plain `p` is a letter, a glyph `𝆏` is piano); see `utils/dynamics`.
  *  - meaning — the played level is DERIVED from the glyph runs (`dynamicLevelOf`), never stored.
- *  - scope — `voice` it governs, until the next dynamic in that voice.
+ *  - scope — the `voice` it governs (⭐ absent = ALL of its staff's), until the next dynamic that
+ *    governs the same lane; see `utils/dynamicScope`.
  */
 export interface Dynamic {
   /** Unique identifier */
@@ -510,12 +511,19 @@ export interface Dynamic {
   /** The whole printed string, verbatim: SMuFL dynamics glyphs for the levels + plain words for
    *  expression text. The level and glyph/word split are both derived from this (utils/dynamics). */
   text: string
-  /** Governed voice/stream; default 0. See {@link Note.voice}. */
+  /**
+   * ⭐⭐ **The voice this mark GOVERNS — and ABSENT means ALL of them**, every voice of its own
+   * {@link staffId}. ⚠️ That is the opposite of the `voice ?? 0` rule every other kind follows
+   * ({@link Note.voice}, `utils/lanes`), and it is deliberate: a dynamic is not addressed by a
+   * lane, it speaks FOR lanes, and the common case is the whole staff. ⛔ So `voiceOf()` is the
+   * wrong reader here — use `utils/dynamicScope` (docs/dynamic-voice-scope-plan.md).
+   */
   voice?: 0 | 1 | 2 | 3
   /** Vertical placement relative to the staff; default 'below'. */
   placement?: 'above' | 'below'
   /** Staff this dynamic belongs to (a {@link StaffInfo} id); absent = staff 0. See
-   *  docs/multi-staff-plan.md §4. Orthogonal to {@link Dynamic.voice}. */
+   *  docs/multi-staff-plan.md §4. Orthogonal to {@link Dynamic.voice} — the staff says WHERE the
+   *  mark is, the voice which of that staff's streams it governs. */
   staffId?: string
 }
 
@@ -555,7 +563,8 @@ export interface Hairpin {
   /** How much music the wedge covers, in quarter-note beats — the same unit as {@link beat}.
    *  Always > 0. The drawn pixel length is derived from this every render, never stored. */
   length: Fraction
-  /** Governed voice/stream; default 0. See {@link Note.voice}. */
+  /** ⭐⭐ The voice this wedge GOVERNS — **absent = ALL voices of its staff**, exactly as
+   *  {@link Dynamic.voice} (whose note carries the rule and the ⛔ about `voiceOf`). */
   voice?: 0 | 1 | 2 | 3
   /** Vertical placement relative to the staff; default 'below' (as {@link Dynamic}). */
   placement?: 'above' | 'below'

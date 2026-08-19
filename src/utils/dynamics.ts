@@ -6,14 +6,16 @@
  * plain expression words (`dolce`, `con brio`). The distinction is the FONT, not the spelling: a
  * `p` stored as the SMuFL glyph is piano; a `p` typed as plain text is just a letter and stays
  * silent. This module owns both the glyph⇄letter mapping and the meaning axis (glyph run → level →
- * loudness). The scope axis lives on `Dynamic.voice`.
+ * loudness). The scope axis — WHICH lanes a mark governs — lives in `utils/dynamicScope`, and its
+ * rule (⭐ absent `voice` = ALL voices of the mark's own staff) is read here through `governsSlot`.
  *
  * No consumer should hardcode the set of dynamics — derive it from DYNAMIC_VELOCITY (and the
  * DynamicLevel union) so adding a level is one row.
  */
 import type { Dynamic, DynamicLevel, Score } from '@/types/music'
 import { fracCompare, fracLte, fracGt } from './fraction'
-import { voiceOf } from '@/utils/lanes'
+// ⛔ NOT `voiceOf` — a dynamic's absent voice means ALL, not voice 0. See `utils/dynamicScope`.
+import { governsSlot, staffScopeKey, voiceScopeOf } from '@/utils/dynamicScope'
 
 /**
  * Interpreted level → normalized velocity (0..1), used as the 4th arg of
@@ -278,10 +280,13 @@ export function measureDynamics(score: Score, measureNumber: number): Dynamic[] 
 }
 
 /**
- * The interpreted dynamic level in effect at (measureNumber, beat) for `voice`:
- * the last interpreted dynamic at-or-before that position in the same voice,
- * walking back across earlier measures (mirrors clefUtils.inheritedClef), else
- * DEFAULT_DYNAMIC. Text dynamics are skipped — they carry the previous level.
+ * The interpreted dynamic level in effect at (measureNumber, beat) for the lane `(voice, staffId)`:
+ * the last interpreted dynamic at-or-before that position **that GOVERNS the lane**, walking back
+ * across earlier measures (mirrors clefUtils.inheritedClef), else DEFAULT_DYNAMIC. Text dynamics are
+ * skipped — they carry the previous level.
+ *
+ * ⭐ *Governs*, not *is in*: a mark with no `voice` governs every voice of its staff
+ * (`utils/dynamicScope`), so the walk-back may return a mark that was never "in" this voice.
  *
  * This is the *correctness* reference. Sequential playback uses an incremental
  * single-pass scan (Phase 3) instead of walking back per chord.
@@ -291,21 +296,25 @@ export function resolveActiveLevel(
   measureNumber: number,
   beat: Dynamic['beat'],
   voice: number = 0,
+  /** The lane's staff. ⚠️ Absent means STAFF 0 (`utils/lanes`), not "any staff" — a query with no
+   *  staff is asking about the first one, and a mark on staff 2 must not answer it. */
+  staffId?: string,
 ): DynamicLevel {
-  // This measure: latest interpreted dynamic in this voice with beat <= target.
+  const lane = { voice: voice as 0 | 1 | 2 | 3, staffId }
+  // This measure: latest interpreted dynamic GOVERNING this lane with beat <= target.
   const here = measureDynamics(score, measureNumber)
   for (let i = here.length - 1; i >= 0; i--) {
     const d = here[i]
-    if (voiceOf(d) === voice && isInterpreted(d) && fracLte(d.beat, beat)) {
+    if (governsSlot(score, d, lane) && isInterpreted(d) && fracLte(d.beat, beat)) {
       return dynamicLevelOf(d)!
     }
   }
-  // Earlier measures: latest interpreted dynamic in this voice (any beat).
+  // Earlier measures: latest interpreted dynamic governing this lane (any beat).
   for (let n = measureNumber - 1; n >= 1; n--) {
     const earlier = measureDynamics(score, n)
     for (let i = earlier.length - 1; i >= 0; i--) {
       const d = earlier[i]
-      if (voiceOf(d) === voice && isInterpreted(d)) {
+      if (governsSlot(score, d, lane) && isInterpreted(d)) {
         return dynamicLevelOf(d)!
       }
     }
@@ -318,33 +327,59 @@ export function resolveActiveLevel(
  * single in-order pass (the playback step-function). Returns `chord.id → level`.
  *
  * This is the O(n) sequential equivalent of calling {@link resolveActiveLevel}
- * per chord: a running per-voice level is carried forward across measures rather
- * than walked back each time. Rests carry no sound and are skipped. The result
+ * per chord: a running level is carried forward across measures rather than
+ * walked back each time. Rests carry no sound and are skipped. The result
  * matches `resolveActiveLevel` for every chord (asserted in tests).
+ *
+ * ⭐⭐ **TWO carried buckets, not one, and they are compared by AGE.** A mark scoped to one voice
+ * and a mark governing the whole staff both reach a voice-2 chord, so "the level in effect" is
+ * whichever of them is LATER in the score — which a per-lane map alone cannot say, because an ALL
+ * mark in bar 1 must also reach a voice that first appears in bar 9 (there is no lane to have
+ * written to yet). So each bucket carries the mark's ORDER, and the chord takes the younger.
+ *
+ * ⛔ An ALL mark does NOT clear the scoped buckets: a later voice-2 `f` under an earlier staff-wide
+ * `p` must still win for voice 2, and the age comparison gives that for free.
  */
 export function resolveChordLevels(score: Score): Map<string, DynamicLevel> {
   const out = new Map<string, DynamicLevel>()
-  const activeLevels = new Map<number, DynamicLevel>()
+  /** The last mark governing exactly one lane, keyed `staffKey|voice`, with its order. */
+  const scoped = new Map<string, { level: DynamicLevel; order: number }>()
+  /** The last ALL mark of a staff, keyed by staff. Reaches lanes that do not exist yet. */
+  const staffWide = new Map<string, { level: DynamicLevel; order: number }>()
+  let nextOrder = 0
+
+  // ⚠️ Keyed on the RESOLVED staff: an absent id and the first staff's real id are one staff, and
+  // two buckets for it would hide a mark from the slots it governs (`staffScopeKey`).
+  const laneKey = (slot: { voice?: 0 | 1 | 2 | 3; staffId?: string }) =>
+    `${staffScopeKey(score, slot.staffId) ?? ''}|${slot.voice ?? 0}`
+  const wideKey = (staffId: string | undefined) => staffScopeKey(score, staffId) ?? ''
 
   for (const measure of score.measures) {
     const measureDyns = (measure.dynamics ?? [])
       .filter(isInterpreted)
       .sort((a, b) => fracCompare(a.beat, b.beat))
+      .map(d => ({ dynamic: d, order: nextOrder++ }))
 
     for (const slot of measure.slots) {
       if (slot.type !== 'chord') continue
-      const voice = voiceOf(slot)
-      let level: DynamicLevel = activeLevels.get(voice) ?? DEFAULT_DYNAMIC
-      for (const d of measureDyns) {
-        if (fracGt(d.beat, slot.beat)) break // sorted: nothing later qualifies
-        if (voiceOf(d) === voice) level = dynamicLevelOf(d)!
+      // What was carried in: the younger of this lane's own last mark and its staff's last ALL one.
+      const own = scoped.get(laneKey(slot))
+      const wide = staffWide.get(wideKey(slot.staffId))
+      const carried = !own ? wide : !wide ? own : own.order > wide.order ? own : wide
+      let level: DynamicLevel = carried?.level ?? DEFAULT_DYNAMIC
+      // …then this bar's own, in beat order, so the last one at-or-before the chord wins.
+      for (const { dynamic } of measureDyns) {
+        if (fracGt(dynamic.beat, slot.beat)) break // sorted: nothing later qualifies
+        if (governsSlot(score, dynamic, slot)) level = dynamicLevelOf(dynamic)!
       }
       out.set(slot.id, level)
     }
 
-    // Carry each voice's last (highest-beat) dynamic forward to later measures.
-    for (const d of measureDyns) {
-      activeLevels.set(voiceOf(d), dynamicLevelOf(d)!)
+    // Carry this bar's marks forward, each into the bucket its SCOPE names.
+    for (const { dynamic, order } of measureDyns) {
+      const entry = { level: dynamicLevelOf(dynamic)!, order }
+      if (voiceScopeOf(dynamic) === 'all') staffWide.set(wideKey(dynamic.staffId), entry)
+      else scoped.set(laneKey(dynamic), entry)
     }
   }
 

@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
+import { sameScope } from '@/utils/dynamicScope'
 import { matchesStaff } from './staffContent'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
@@ -283,8 +284,14 @@ function measureStartOffsets(score: Score): Map<number, Fraction> {
  * the right-hand edge of the last note, and because "an amount of music" has to include the last
  * note's own duration or a wedge over one whole note would cover nothing.
  *
- * IDEMPOTENT, like `createSlur`: an identical wedge already on that (measure, beat, voice, staff) is
+ * IDEMPOTENT, like `createSlur`: an identical wedge already on that (measure, beat, scope, staff) is
  * returned rather than duplicated, so a stamp pressed twice on one note adds nothing.
+ *
+ * ⭐ **`scope.voice` is what the wedge GOVERNS, not where its notes are** — absent = every voice of
+ * `staffId` (`utils/dynamicScope`). The span is already fixed by `start`/`end`, so the caller that
+ * knows the selection's lane must NOT pass it on out of habit: it would narrow the new wedge to one
+ * voice for the ordinary case. `MusicEngine.createHairpin` reads the lane to CHOOSE the notes and
+ * then deliberately passes no voice.
  *
  * @returns the stored Hairpin, or null when the span covers no music (the two addresses coincide,
  *   or `end` lies before `start`).
@@ -294,7 +301,7 @@ export function addHairpinOverNotes(
   type: Hairpin['type'],
   start: { measure: number; beat: Fraction },
   end: { measure: number; beat: Fraction; length: Fraction },
-  lane: { voice?: 0 | 1 | 2 | 3; staffId?: string } = {},
+  scope: { voice?: 0 | 1 | 2 | 3; staffId?: string } = {},
 ): Hairpin | null {
   const starts = measureStartOffsets(score)
   const absStart = starts.get(start.measure)
@@ -308,16 +315,18 @@ export function addHairpinOverNotes(
     h.type === type
     && fracCompare(h.beat, start.beat) === 0
     && fracCompare(h.length, length) === 0
-    && (h.voice ?? 0) === (lane.voice ?? 0)
-    && h.staffId === lane.staffId)
+    // ⛔ NOT `(h.voice ?? 0) === (scope.voice ?? 0)`: absent and 0 are DIFFERENT scopes now, so that
+    // test would hand back a voice-1 wedge as the duplicate of a staff-wide one.
+    && sameScope(h, scope)
+    && h.staffId === scope.staffId)
   if (existing) return existing
 
   return addHairpin(score, start.measure, {
     type,
     beat: start.beat,
     length,
-    ...(lane.voice !== undefined ? { voice: lane.voice } : {}),
-    ...(lane.staffId !== undefined ? { staffId: lane.staffId } : {}),
+    ...(scope.voice !== undefined ? { voice: scope.voice } : {}),
+    ...(scope.staffId !== undefined ? { staffId: scope.staffId } : {}),
   })
 }
 

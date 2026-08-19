@@ -2,6 +2,8 @@
 
 Status: **ALL PHASES (0–7) DONE.** Dynamics are placeable (arm p/mp/mf/f or Text → click a beat), render under the staff (level glyph or italic serif text), drive playback (per-voice velocity step function), and are selectable + deletable (click in selection mode → Delete) with a scoped highlight; undo/redo + JSON round-trip throughout; voice-ready end-to-end (only voice 0 populated, single hardcoded seam at placement). **Deferred by user (not blockers):** (1) in-place editing of a placed dynamic — custom text drops a literal "Text" placeholder for now; (2) finer-beat placement — target is option C (slot-snap-else-grid); both are cheap + migration-free later. This document is the authoritative plan and cross-session checklist.
 
+**🚨 SUPERSEDED IN PART — see `docs/dynamic-voice-scope-plan.md`,** the *scope* a dynamic (and a hairpin) governs. It corrects this document's *"per-voice velocity step function"* and its *"voice-ready end-to-end"*: with every stamp writing `voice: 0`, a dynamic was audible to **voice 1 only**. Since that plan's P1, an absent `voice` means **ALL voices of the mark's own staff** — and the resolvers compare the STAFF too, which they never did.
+
 Goal of this first pass is to **build the infrastructure**, not a complete dynamics vocabulary.
 Scope: `p`, `mp`, `mf`, `f` as interpreted (playback-affecting) dynamics, plus a **custom italic
 text** dynamic that the user can type/edit and that is *not* interpreted by the audio engine. The

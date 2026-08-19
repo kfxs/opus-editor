@@ -316,7 +316,9 @@ function dynamicsInWindow(
       const off = dynamicOffsetOverrideOf(score, d.id)
       out.push({
         staff: staffIdx - topStaff,
-        voice: voiceOf(d),
+        // ⛔ NOT `voiceOf(d)` — that reads absent as voice 0 and would collapse a staff-wide mark
+        // into a voice-1 one at COPY time, before any paste rule could save it.
+        ...(d.voice !== undefined ? { voice: d.voice } : {}),
         offset: fracSub(abs, spanStart),
         text: d.text,
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
@@ -401,7 +403,8 @@ function hairpinsInWindow(
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
       out.push({
         staff: staffIdx - topStaff,
-        voice: voiceOf(h),
+        // The scope travels as an absence — see the dynamic's ⛔ above.
+        ...(h.voice !== undefined ? { voice: h.voice } : {}),
         offset: fracSub(abs, spanStart),
         length: h.length,
         type: h.type,

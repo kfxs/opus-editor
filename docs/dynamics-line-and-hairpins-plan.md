@@ -4,6 +4,10 @@ Status: **ALL PHASES BUILT — P0, P1, P2, P3, P4** (2026-08-12). The line exist
 it, and the hairpin is drawn, selectable, resizable and deletable: `H` / `Shift+H`, two Lines-palette
 rows, a stamp, `Ctrl+Shift+←/→` to resize (see the 2026-08-17 note below), Delete to remove.
 
+**Beside this:** `docs/dynamic-voice-scope-plan.md` — which voices a wedge governs (absent = ALL of
+its staff), the Keypad voice row, and `Alt+1…5`. ⛔ It does NOT give the hairpin a velocity ramp;
+scope says which voices it *will* govern.
+
 🔎 **Two rules HIS TESTING added after P4, both now built** (2026-08-12):
 
 - ⭐⭐ **THINGS THAT TOUCH SHARE A LINE — the CHAIN** (`engine/layout/dynamicsChain.ts`). A `< >` pair

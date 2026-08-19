@@ -93,8 +93,11 @@ export interface ClipLane {
 export interface ClipDynamic {
   /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
   staff: number
-  /** Governed voice (0-based). */
-  voice: number
+  /** ⭐⭐ The SCOPE, verbatim: the governed voice (0-based), or **absent = every voice of its
+   *  staff** — `Dynamic.voice`'s own rule, and it must travel as an absence. ⛔ Do NOT normalise it
+   *  to 0 at copy time (this field used to be a required `number` filled by `voiceOf`, which turned
+   *  every staff-wide mark into a voice-1 one the moment it was copied). */
+  voice?: 0 | 1 | 2 | 3
   /** Beat offset from the clip start (same basis as {@link ClipLane.events}). */
   offset: Fraction
   /** The mark's whole text (SMuFL glyphs + words) — the level travels inside it. See `Dynamic.text`. */
@@ -152,8 +155,9 @@ export interface ClipTempo {
 export interface ClipHairpin {
   /** RELATIVE staff index (0 = topmost copied staff). Paste maps it to `target.staff + staff`. */
   staff: number
-  /** Governed voice (0-based). */
-  voice: number
+  /** The SCOPE, verbatim — absent = every voice of its staff, exactly as {@link ClipDynamic.voice}
+   *  (whose note carries the ⛔). */
+  voice?: 0 | 1 | 2 | 3
   /** Start offset from the clip start (same basis as {@link ClipLane.events}). */
   offset: Fraction
   /** How much music the wedge covers, in quarter beats — position-independent, so it is copied

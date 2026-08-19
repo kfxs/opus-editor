@@ -45,7 +45,11 @@ export interface PasteAnchor {
   beat: Fraction
   /** 0-based staff index when the selection names one; absent = the pasted thing's own. */
   staff?: number
-  /** 0-based voice when the selection names one; absent = the pasted thing's own. */
+  /** 0-based voice when the selection names one; absent = the pasted thing's own.
+   *  ⛔ **Not a dynamic's SCOPE.** It describes what was SELECTED, and `pasteElement` deliberately
+   *  does not consult it for the dynamics family: an absent `Dynamic.voice` means *all voices of
+   *  the staff*, so letting the anchor fill it in would narrow every pasted staff-wide mark
+   *  (docs/dynamic-voice-scope-plan.md). The day a kind needs the selection's voice, this is it. */
   voice?: number
 }
 

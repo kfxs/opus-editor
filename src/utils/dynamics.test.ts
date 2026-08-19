@@ -332,6 +332,141 @@ describe('resolveChordLevels', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// ⭐⭐ SCOPE — an absent `voice` governs EVERY voice of the mark's own staff
+// (docs/dynamic-voice-scope-plan.md P1). Every fixture above states its voice
+// explicitly, so none of them exercises this; these do.
+// ---------------------------------------------------------------------------
+
+/** A mark with NO voice — what every stamp site writes since P1: "all voices of this staff". */
+function allDyn(beatNum: number, lvl: DynamicLevel, staffId?: string): Dynamic {
+  return {
+    id: `all${beatNum}-${lvl}-${staffId ?? ''}`,
+    beat: fracCreate(beatNum, 1),
+    text: levelToGlyphString(lvl),
+    ...(staffId ? { staffId } : {}),
+  }
+}
+
+/** `chord()` with a staff — the second lane axis. */
+function staffChord(id: string, beatNum: number, voice: 0 | 1 | 2 | 3, staffId?: string): Chord {
+  return { ...chord(id, beatNum, voice), ...(staffId ? { staffId } : {}) }
+}
+
+/** Two staves, so an absent id resolves to a real first staff rather than to nothing. */
+const TWO_STAVES = [
+  { id: 'sA', index: 0, clef: 'treble' as const },
+  { id: 'sB', index: 1, clef: 'bass' as const },
+]
+
+describe('resolveActiveLevel — scope', () => {
+  it('a mark with no voice answers for EVERY voice', () => {
+    const score = scoreOf([allDyn(0, 'p')])
+    for (const v of [0, 1, 2, 3]) {
+      expect(resolveActiveLevel(score, 1, fracCreate(2, 1), v)).toBe('p')
+    }
+  })
+
+  // 🚨 Would pass vacuously before P1 — the resolver never compared staves at all.
+  it('a mark on staff B does NOT answer for staff A', () => {
+    const score = { ...scoreOf([allDyn(0, 'p', 'sB')]), staves: TWO_STAVES }
+    expect(resolveActiveLevel(score, 1, fracCreate(2, 1), 0, 'sA')).toBe(DEFAULT_DYNAMIC)
+    expect(resolveActiveLevel(score, 1, fracCreate(2, 1), 0, 'sB')).toBe('p')
+  })
+
+  it('a later voice-scoped mark overrides an earlier staff-wide one — for that voice only', () => {
+    const score = scoreOf([allDyn(0, 'p'), dyn(2, 'f', 1)])
+    expect(resolveActiveLevel(score, 1, fracCreate(3, 1), 1)).toBe('f')
+    expect(resolveActiveLevel(score, 1, fracCreate(3, 1), 0)).toBe('p')
+  })
+
+  it('…and a later staff-wide mark overrides an earlier voice-scoped one', () => {
+    const score = scoreOf([dyn(0, 'f', 1), allDyn(2, 'p')])
+    expect(resolveActiveLevel(score, 1, fracCreate(3, 1), 1)).toBe('p')
+  })
+})
+
+describe('resolveChordLevels — scope', () => {
+  it('a mark with no voice makes EVERY voice of its staff that level', () => {
+    const score = scoreWithChords({
+      dynamics: [allDyn(0, 'p')],
+      chords: [chord('v0', 0, 0), chord('v1', 0, 1), chord('v2', 0, 2)],
+    })
+    const levels = resolveChordLevels(score)
+    expect([levels.get('v0'), levels.get('v1'), levels.get('v2')]).toEqual(['p', 'p', 'p'])
+  })
+
+  // ⭐ The reason the carried state is not a per-lane map: there is no voice-3 lane to have written
+  // to when the mark is read, and the chord that needs it appears two bars later.
+  it('reaches a voice that first appears in a LATER measure', () => {
+    const score = scoreWithChords(
+      { dynamics: [allDyn(0, 'p')], chords: [chord('m1v0', 0, 0)] },
+      {},
+      { chords: [chord('m3v2', 0, 2)] },
+    )
+    expect(resolveChordLevels(score).get('m3v2')).toBe('p')
+  })
+
+  // ⭐ …and why the two buckets are compared by AGE rather than one clearing the other.
+  it('a voice-scoped mark under a later staff-wide one loses; over an earlier one it wins', () => {
+    const later = scoreWithChords(
+      { dynamics: [dyn(0, 'f', 1)] },
+      { dynamics: [allDyn(0, 'p')] },
+      { chords: [chord('v1', 0, 1), chord('v0', 0, 0)] },
+    )
+    expect(resolveChordLevels(later).get('v1')).toBe('p')
+
+    const earlier = scoreWithChords(
+      { dynamics: [allDyn(0, 'p')] },
+      { dynamics: [dyn(0, 'f', 1)] },
+      { chords: [chord('v1', 0, 1), chord('v0', 0, 0)] },
+    )
+    const levels = resolveChordLevels(earlier)
+    expect(levels.get('v1')).toBe('f')
+    expect(levels.get('v0')).toBe('p') // the staff-wide mark still governs the voices it kept
+  })
+
+  it('does not cross staves', () => {
+    const score = {
+      ...scoreWithChords({
+        dynamics: [allDyn(0, 'p', 'sB')],
+        chords: [staffChord('a', 0, 0, 'sA'), staffChord('b', 0, 0, 'sB')],
+      }),
+      staves: TWO_STAVES,
+    }
+    const levels = resolveChordLevels(score)
+    expect(levels.get('a')).toBe(DEFAULT_DYNAMIC)
+    expect(levels.get('b')).toBe('p')
+  })
+
+  it('an absent staffId and the first staff’s id are ONE staff, not two', () => {
+    const score = {
+      ...scoreWithChords({ dynamics: [allDyn(0, 'p', 'sA')], chords: [staffChord('bare', 0, 0)] }),
+      staves: TWO_STAVES,
+    }
+    expect(resolveChordLevels(score).get('bare')).toBe('p')
+  })
+
+  it('still matches resolveActiveLevel for every chord, scopes mixed', () => {
+    const score = {
+      ...scoreWithChords(
+        { dynamics: [allDyn(0, 'p'), dyn(2, 'f', 1)], chords: [chord('m1v0', 0, 0), chord('m1v1', 2, 1)] },
+        { chords: [chord('m2v0', 0, 0), chord('m2v1', 0, 1), chord('m2v2', 0, 2)] },
+        { dynamics: [allDyn(0, 'mp')], chords: [chord('m3v1', 0, 1)] },
+      ),
+      staves: TWO_STAVES,
+    }
+    const levels = resolveChordLevels(score)
+    for (const measure of score.measures) {
+      for (const slot of measure.slots) {
+        if (slot.type !== 'chord') continue
+        const expected = resolveActiveLevel(score, measure.number, slot.beat, slot.voice ?? 0, slot.staffId)
+        expect(levels.get(slot.id), slot.id).toBe(expected)
+      }
+    }
+  })
+})
+
 describe('the extended ladder, end to end from what the editor stores', () => {
   // What Ctrl+F Ctrl+F actually puts in the model: two glyph chars, not the string 'ff'.
   const typed = (letters: string) => levelToGlyphString(letters)

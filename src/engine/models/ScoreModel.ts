@@ -1315,11 +1315,14 @@ export class ScoreModel {
   }
 
   /**
-   * The interpreted dynamic level in effect at (measure, beat) for a voice.
+   * The interpreted dynamic level in effect at (measure, beat) for a LANE — a voice on a staff.
    * Delegates to the shared resolver in utils/dynamics (walk-back reference).
+   *
+   * ⚠️ Both lane halves default to *the first one*, not to *any*: a mark on another staff, or one
+   * scoped to another voice, does not answer this query. A staff-wide mark does (`dynamicScope`).
    */
-  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0) {
-    return resolveActiveLevel(this.score, measureNumber, beat, voice)
+  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0, staffId?: string) {
+    return resolveActiveLevel(this.score, measureNumber, beat, voice, staffId)
   }
 
   // ==================== Trills (top-level note-anchored ornament spans) ====================

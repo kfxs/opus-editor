@@ -1364,11 +1364,15 @@ export class MusicEngine {
     // `addHairpinOverNotes` adds that note's own length so the wedge ends where the next begins.
     const endNote = selected[selected.length - 1]
 
+    // ⭐⭐ The lane CHOOSES the notes; it does not become the wedge's SCOPE. `voice` above filtered
+    // the selection to one stream (a wedge cannot span two), and it is deliberately NOT passed on:
+    // a wedge with no voice governs every voice of its staff, which is the default the user asked
+    // for. Narrowing it is a second, explicit act. See docs/dynamic-voice-scope-plan.md.
     const created = this.scoreModel.addHairpinOverNotes(
       type,
       { measure: startNote.measure, beat: startNote.beat },
       { measure: endNote.measure, beat: endNote.beat, length: slotLength(endNote) },
-      { voice, ...(this.staffIdForIndex(staff) !== undefined ? { staffId: this.staffIdForIndex(staff) } : {}) },
+      { ...(this.staffIdForIndex(staff) !== undefined ? { staffId: this.staffIdForIndex(staff) } : {}) },
     )
     if (created) this.saveOnly(`Add ${type === 'cresc' ? 'crescendo' : 'diminuendo'}`)
     return created
@@ -1621,9 +1625,10 @@ export class MusicEngine {
     return this.scoreModel.getEffectiveTempoAt(measureNumber, beat, scope)
   }
 
-  /** The interpreted dynamic level in effect at (measure, beat) for a voice. */
-  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0): DynamicLevel {
-    return this.scoreModel.getActiveLevel(measureNumber, beat, voice)
+  /** The interpreted dynamic level in effect at (measure, beat) for a lane — a voice on a staff.
+   *  Both default to the FIRST one; a staff-wide mark answers whatever voice is asked. */
+  getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0, staffId?: string): DynamicLevel {
+    return this.scoreModel.getActiveLevel(measureNumber, beat, voice, staffId)
   }
 
   /**

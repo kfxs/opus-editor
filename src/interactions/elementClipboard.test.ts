@@ -68,13 +68,23 @@ describe('elementClipboard', () => {
     expect(dynamics()).toEqual(['1@0:dolce', '2@0:dolce', '2@2:dolce'])
   })
 
-  it('takes the ANCHOR’s voice where it names one, and keeps its own where it does not', () => {
+  it('keeps the CLIP’s scope, whatever voice the anchor names', () => {
     const clip = copyElement(engine, { kind: 'dynamic', id: dynamicId })!
     const voiced = { ...clip, voice: 1 as const }
     pasteElement(engine, voiced, { measure: 2, beat: frac(0, 1), voice: 2 })
     pasteElement(engine, voiced, { measure: 2, beat: frac(1, 1) })
     const voices = engine.getScore().measures[1].dynamics!.map(d => d.voice)
-    expect(voices).toEqual([2, 1])
+    expect(voices).toEqual([1, 1])
+  })
+
+  // ⭐ The reversal this replaced: the anchor used to win, so an ALL mark could never be pasted.
+  it('a mark governing ALL voices stays ALL, even pasted onto a voice-2 note', () => {
+    // No `voice` at all — the stamp sites' shape since P1, meaning "every voice of this staff".
+    const all = engine.addDynamic(1, { beat: frac(2, 1), text: 'dolce', placement: 'below' })!
+    expect(all.voice).toBeUndefined()
+    const clip = copyElement(engine, { kind: 'dynamic', id: all.id })!
+    pasteElement(engine, clip, { measure: 2, beat: frac(0, 1), voice: 2 })
+    expect(engine.getScore().measures[1].dynamics![0].voice).toBeUndefined()
   })
 
   it('a glyph level travels verbatim — the mark IS its text', () => {

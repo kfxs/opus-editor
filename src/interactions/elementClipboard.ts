@@ -37,7 +37,8 @@ export interface DynamicElementClip {
   /** The whole printed string, verbatim (glyphs + words) — the mark IS its text. */
   text: string
   placement: 'above' | 'below'
-  /** The voice it governed; kept only as the fallback when the anchor names no lane. */
+  /** ⭐ The SCOPE it governed — **absent = every voice of its staff**, and it travels verbatim: the
+   *  paste anchor supplies the PLACE, never the scope (see {@link pasteElement}). */
   voice?: 0 | 1 | 2 | 3
 }
 
@@ -92,13 +93,17 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
 export function pasteElement(engine: ElementClipEngine, clip: ElementClip, anchor: PasteAnchor): SelectedElement | null {
   switch (clip.kind) {
     case 'dynamic': {
-      // The anchor's lane wins where it named one (a note carries voice AND staff); the clip's own
-      // is the fallback for the kinds that name neither (a barline is system-wide).
+      // ⭐⭐ **THE CLIP'S SCOPE WINS, and an absent one stays absent.** The anchor says WHERE the
+      // mark lands — its measure, beat and staff — but not what it governs: scope is a property of
+      // the mark, like `placement`, and it is what you copied. ⚠️ This used to read
+      // `anchor.voice ?? clip.voice ?? 0`, so a staff-wide `f` pasted onto a voice-2 note came back
+      // scoped to voice 2, and onto anything else came back scoped to voice 1 — a copy could never
+      // reproduce a staff-wide mark. See docs/dynamic-voice-scope-plan.md (his call is owed here).
       const staffId = engine.staffIdForIndex(anchor.staff)
       const created = engine.addDynamic(anchor.measure, {
         beat: anchor.beat,
         text: clip.text,
-        voice: (anchor.voice ?? clip.voice ?? 0) as 0 | 1 | 2 | 3,
+        ...(clip.voice !== undefined ? { voice: clip.voice } : {}),
         placement: clip.placement,
         ...(staffId ? { staffId } : {}),
       })
