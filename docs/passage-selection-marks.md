@@ -37,6 +37,28 @@ extension may run out of the window), because that is what the clip does.
 what the clip carries are asserted to be the same marks. Merging the two is possible later; the
 test is what makes the duplication safe meanwhile.
 
+## ⭐ Ctrl-click builds the same set BY HAND
+
+> *"with ctr click we are just able to group select and deselect notes and rest… however we should
+> be able to also do it with all elements that we are now handling group selection (tril, hairpin,
+> slur, dynamic).. so we can also use the real selection for filtering or add in copy and paste"*
+
+`interactions/markGroupSelect.ts` — a Ctrl/Cmd-press toggles one mark in or out, the toggle a note
+has always had. It answers *which mark is under the pointer* by **re-running the press chain with a
+different tail**: `pick` records instead of replacing, and every drag and editor door is a no-op
+(⛔ two Ctrl-presses on a dynamic are "in, then out", never "open its editor"). ⛔ Writing a second
+hit-test here would be a second answer that can disagree with `ELEMENT_HIT_ORDER` on exactly the
+presses that are hardest to reproduce.
+
+⚠️ **Only the six kinds the set can hold take part.** The chain is filtered to them, so Ctrl-click
+on a clef, accidental, dot or barline does what it always did (toggles the note under the pointer).
+A kind whose ink sits INSIDE a note's must not join without deciding that question first — the note
+fallback has a 30px reach and would lose presses to it.
+
+⚠️ Shift stays temporal: a range is an amount of MUSIC, and a hairpin is not a position to range
+from. And `toggleMark` touches no note anchor — `selectedNoteId` and the Shift pivot drive note
+navigation and the palette, and a hairpin is none of those things.
+
 ## The selection union grew four arms
 
 `SelectionItem` gained `hairpin` / `trill` / `ottava` / `pedal` (id-keyed, like `dynamic` and
@@ -62,8 +84,14 @@ and — since they overlap — unclickable. Handles are for editing ONE mark.
 
 ## Not done
 
+- **Copy still reads the note WINDOW, not the marks in the set.** `buildClipboardFromSelection`
+  takes the note ids and recomputes what they enclose, so a hand-picked mark outside that window is
+  highlighted but not carried, and a marks-only group copies nothing. Making the clip read the SET
+  is the next step this gesture was asked for ("*so we can also use the real selection … in copy and
+  paste*").
 - A box still does not select **clefs**, **meters** or **tempo marks** inside it; the copy does not
   take them either, so the two remain consistent (`docs/copy-paste-staff-plan.md` has them listed as
   dropped).
-- `selectedItems` is still note-anchored: the anchor and Shift pivot are always notes, so a passage
-  of marks alone is not a selection you can make.
+- `selectedItems` is still note-anchored: the anchor and Shift pivot are always notes, so a group
+  of marks alone has no anchor for note navigation or the palette to follow (it selects and deletes
+  fine).

@@ -33,6 +33,7 @@ import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandle
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt, trillDragTargetAt } from './elements/trillHandles'
 import { articulationHit } from './elements/articulation'
+import { markAtPress } from './markGroupSelect'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
@@ -1029,18 +1030,21 @@ export class MouseController {
   }
 
   /**
-   * Ctrl/Cmd or Shift click → build a multi-selection (notes/articulation groups
-   * only). Always "consumes" the press when a modifier is held (it never falls
-   * through to single-select), so returns true whenever additive/range is active.
+   * Ctrl/Cmd or Shift click → build a multi-selection. Always "consumes" the press when a modifier
+   * is held (it never falls through to single-select), so returns true whenever additive/range is
+   * active.
+   *
+   * ⭐ Ctrl/Cmd toggles NOTES, ARTICULATION groups and — since 2026-08-19 — the six MARK kinds the
+   * set can hold (`./markGroupSelect`). Shift stays temporal: a range is an amount of MUSIC, and a
+   * hairpin is not a position you can range from.
    */
   private handleModifierMouseDown(ctx: MouseDownCtx): boolean {
     const { event, registry, x, y, closestElement } = ctx
-    // Modifier clicks build a multi-selection (Phase 1: notes only, so they ignore
-    // every other element kind, never clear the set, and arm no drag — clicking
-    // empty space or a non-note element is a no-op):
+    // Modifier clicks build a multi-selection — they never clear the set and arm no drag, so a
+    // press on empty space (or on a kind the set cannot hold) is a no-op:
     //   - Shift  → select the temporal range pivot→target (rests + whole chords),
     //              unioned onto the existing selection (range wins when both held).
-    //   - Ctrl/Cmd → toggle the clicked note in/out.
+    //   - Ctrl/Cmd → toggle the clicked note, articulation group or MARK in/out.
     const additive = event.ctrlKey || event.metaKey
     const range = event.shiftKey
     if (!(additive || range)) return false
@@ -1083,6 +1087,19 @@ export class MouseController {
       if (artHit?.noteId) {
         this.selection.toggleArticulation(artHit.noteId)
         dbg(`✓ Articulation group toggled in selection | noteId:${artHit.noteId} | size:${this.state.selectedItems.size}`)
+        this.render.renderScore()
+        return true
+      }
+    }
+    // ⭐ Ctrl/Cmd-click toggles a MARK into the group — a hairpin, a trill, a slur, a dynamic, an
+    // 8va, a pedal (`./markGroupSelect`, which re-runs the press chain rather than re-asking where
+    // the marks are). BEFORE the note fallback below, whose 30px reach would otherwise swallow a
+    // press aimed at a wedge under the staff.
+    if (additive) {
+      const mark = markAtPress(ctx)
+      if (mark) {
+        this.selection.toggleMark(mark)
+        dbg(`✓ ${mark.kind} toggled in selection | id:${mark.id} | size:${this.state.selectedItems.size}`)
         this.render.renderScore()
         return true
       }
