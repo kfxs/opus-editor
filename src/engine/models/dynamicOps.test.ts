@@ -4,8 +4,8 @@
  *
  * ⭐ The claims here are the three the step can silently get wrong: it walks the mark's OWN LANE
  * (not the bar, not the score), a step over a barline RE-FILES the mark under the bar it lands in
- * with the same id, and the step DROPS the mark's hand-nudged offset — which was tuned against the
- * note it is leaving (`slurOps.setSlurEndpoint`'s rule).
+ * with the same id, and the step DROPS the mark's SIDEWAYS nudge — which was tuned against the note
+ * it is leaving (`slurOps.setSlurEndpoint`'s rule) — while KEEPING its lift, which was not.
  *
  * A `ScoreModel` is the FIXTURE; the subject is the free functions in `./dynamicOps`.
  */
@@ -73,9 +73,20 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
   /** A hand-nudged offset, as the arrow keys would have written it. */
   const offset = (x: number, y: number): DynamicOffsetOverride => ({ kind: 'dynamicOffset', x, y })
 
-  it('⭐⭐ CLEARS the mark\'s own nudge — the offset answered the note it is leaving', () => {
+  it('⭐⭐ CLEARS the SIDEWAYS nudge and KEEPS the lift — two axes, two answers', () => {
+    // His call, 2026-08-19. The x said "a little to the left of THAT note" and is stale the moment
+    // the mark is on another one; the y said "this far off the dynamics line", which every note on
+    // that line answers the same way — wiping it dropped a lift the user set on purpose.
     setEngravingOverride(score, id, offset(1.5, -2))
     expect(moveDynamicBySlot(score, id, 1)).toBe(true)
+    expect(dynamicOffsetOverrideOf(score, id)).toEqual({ kind: 'dynamicOffset', x: 0, y: -2 })
+  })
+
+  it('⚠️ …and drops the override entirely when the lift was the only thing in it', () => {
+    // ⛔ An absent override and a `{0,0}` one must not both be reachable — the JSON would then have
+    // two spellings of "not nudged".
+    setEngravingOverride(score, id, offset(1.5, 0))
+    moveDynamicBySlot(score, id, 1)
     expect(dynamicOffsetOverrideOf(score, id)).toBeUndefined()
   })
 
@@ -125,15 +136,15 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
 })
 
 /**
- * ⭐⭐ {@link setDynamicAtSlot} — the write BOTH doors run through: the keyboard's step, and the
- * mouse drag, which finds a slot from the cursor instead of counting one along.
+ * ⭐⭐ {@link setDynamicAtSlot} — landing the mark on an address rather than counting one along,
+ * and its KEEPING-OFFSET twin, which the interpolating walk crosses with.
  *
- * ⭐ The claims here are the ones a drag can break that a step cannot: an address the cursor
- * invented (off the lane, or off the music entirely) has to be REFUSED rather than stored, and a
- * frame that lands on the mark's current address must answer false — a drag repaints on a true, so a
- * yes for "nothing changed" is a repaint per mouse move.
+ * ⭐ The claims here are the ones an arbitrary address can break that a step cannot: one that is not
+ * a slot of the mark's lane (or not in the music at all) has to be REFUSED rather than stored, and
+ * one the mark is already on must answer false — a caller that repainted on a true would repaint on
+ * a gesture that has not moved.
  */
-describe('setDynamicAtSlot — the drag\'s write', () => {
+describe('setDynamicAtSlot — landing the mark by address', () => {
   let model: ScoreModel
   let score: Score
   let id: string
@@ -163,11 +174,11 @@ describe('setDynamicAtSlot — the drag\'s write', () => {
     expect(at(id)).toBe('2@3')
   })
 
-  it('⭐⭐ CLEARS the nudge here, so the drag cannot keep an offset the keyboard drops', () => {
+  it('⭐⭐ CLEARS the sideways nudge here, and keeps the lift', () => {
     const nudged: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 1.5, y: -2 }
     setEngravingOverride(score, id, nudged)
     setDynamicAtSlot(score, id, { measure: 1, beat: frac(3, 1) })
-    expect(dynamicOffsetOverrideOf(score, id)).toBeUndefined()
+    expect(dynamicOffsetOverrideOf(score, id)).toEqual({ kind: 'dynamicOffset', x: 0, y: -2 })
   })
 
   it('⛔ REFUSES an address that is not a slot of its lane — the cursor can invent one', () => {

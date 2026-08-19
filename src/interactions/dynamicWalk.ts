@@ -46,7 +46,7 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
-import { dynamicAddress, dynamicLaneHeads } from './elements/dynamicDrag'
+import { dynamicAddress, dynamicLaneHeads, markInkY, systemSlotFor } from './dynamicLane'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
 import { dbg } from '../utils/debug'
@@ -54,7 +54,20 @@ import { dbg } from '../utils/debug'
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type DynamicWalkEngine = Pick<MusicEngine,
   'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
-  | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'>
+  | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'
+  | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'>
+
+/**
+ * The two model writes the move is made of, in the flavour the gesture needs: a KEY press records
+ * its own undo step, a drag FRAME records none and leaves the drop to commit once.
+ *
+ * ⭐ The pair is what separates the two callers — the arithmetic below does not know which device it
+ * is serving, and could not be made to disagree with itself if it tried.
+ */
+interface DynamicWriter {
+  reanchor: (id: string, target: DynamicSlotTarget) => boolean
+  nudge: (id: string, dx: number, dy: number) => boolean
+}
 
 /**
  * The staff-space size to convert the measured gap with, read off the DRAWN mark.
@@ -123,6 +136,47 @@ function arrivedAt(
 }
 
 /**
+ * ⭐⭐ **THE MOVE ITSELF** — carry the mark's ink by `dx` staff-spaces, handing the anchor along to
+ * each slot the ink arrives at on the way. Shared verbatim by the arrow keys and the mouse drag;
+ * only the {@link DynamicWriter} differs.
+ *
+ * ⭐ **A LOOP, because a drag frame is not a step.** A key press moves a quarter- or whole space and
+ * can cross at most one slot; one frame of a fast drag can fly over several, and re-anchoring only
+ * once would leave the anchor trailing the cursor by however many slots were skipped. Each pass
+ * re-points the anchor and takes that gap back out of the offset — an identity, so the ink never
+ * moves at a crossing however many happen in one frame.
+ *
+ * ⚠️ The bound is a runaway guard, not a rule: `arrivedAt` already refuses at the end of the lane
+ * and across a system break.
+ *
+ * @returns how many slots the anchor crossed, and whether anything was written at all.
+ */
+function carryDynamic(
+  engine: DynamicWalkEngine,
+  id: string,
+  write: DynamicWriter,
+  dx: number,
+  dy = 0,
+): { crossings: number; moved: boolean } {
+  let crossings = 0
+  for (; crossings < 32; crossings++) {
+    const arrival = arrivedAt(engine, id, dx)
+    if (!arrival) break
+    // ⭐ …KeepingOffset, not the general re-anchor: the crossing is meant to be invisible, and the
+    // ordinary one wipes the mark's own nudge (`dynamicOps.setDynamicAtSlot`).
+    if (!write.reanchor(id, arrival.target)) break
+    // The anchor has absorbed one gap, so the offset gives it up. The drawn mark is unchanged by the
+    // pair, which is the whole design; `dx` is untouched and still has its journey to make.
+    write.nudge(id, -arrival.gap, 0)
+    dbg(`[Dynamic] walked onto its next slot | id:${id} → m${arrival.target.measure} (gap ${arrival.gap.toFixed(2)}ss)`)
+  }
+  // ⚠️ Guarded: a drag frame whose delta rounded to nothing must not write, or every mouse move
+  // over a held-still hand marks the model dirty and repaints the score.
+  const nudged = (dx !== 0 || dy !== 0) && write.nudge(id, dx, dy)
+  return { crossings, moved: crossings > 0 || nudged }
+}
+
+/**
  * ⭐⭐ **ONE HORIZONTAL ARROW PRESS ON A SELECTED DYNAMIC** — nudge the ink by `dx` staff-spaces
  * (¼ space plain, 1 space with Ctrl), and hand the anchor along if the ink has arrived at the next
  * slot of the mark's lane.
@@ -131,29 +185,114 @@ function arrivedAt(
  * re-base are two halves of a single press, and an undo that took back only half of it would leave
  * the mark somewhere the user never put it.
  *
- * ⚠️ **A LOOP is not needed here** the way the slur's drag needs one — a key press moves a quarter-
- * or whole space and can cross at most one slot. The guard is a single `if`; when the mouse gets
- * this gesture it will need the loop, and this is the function it should grow it in.
- *
  * @returns true when the model changed (the caller repaints), false when nothing was written —
  *   no such mark, or the page limit refused the ink. ⚠️ The caller decides what a false means for
  *   the KEY; today it falls through, exactly as the plain nudge this replaces did.
  */
 export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
-  const arrival = arrivedAt(engine, id, dx)
-  if (!arrival) return engine.nudgeDynamicOffset(id, dx, 0)
+  const write: DynamicWriter = {
+    reanchor: (i, target) => engine.moveDynamicToSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.nudgeDynamicOffset(i, ddx, ddy),
+  }
+  // ⛔ No batch when nothing crosses: `runBatch` would coalesce a run of plain nudges into one undo
+  // entry only if it were held open, but it also costs a snapshot per press — and the ordinary nudge
+  // has recorded its own single entry since the offset shipped.
+  if (!arrivedAt(engine, id, dx)) return write.nudge(id, dx, 0)
 
   let moved = false
-  engine.runBatch('Move dynamic', () => {
-    // ⭐ …KeepingOffset, not the general re-anchor: the crossing is meant to be invisible, and the
-    // ordinary one wipes the mark's own nudge (`dynamicOps.setDynamicAtSlot`).
-    if (!engine.moveDynamicToSlotKeepingOffset(id, arrival.target)) return
-    // The anchor has absorbed one gap, so the offset gives it up. The drawn mark is unchanged by the
-    // pair, which is the whole design; `dx` is untouched and still has its journey to make.
-    engine.nudgeDynamicOffset(id, dx - arrival.gap, 0)
-    moved = true
-    dbg(`[Dynamic] walked onto its next slot | id:${id} → m${arrival.target.measure} (gap ${arrival.gap.toFixed(2)}ss)`)
-  })
+  engine.runBatch('Move dynamic', () => { moved = carryDynamic(engine, id, write, dx).moved })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A DYNAMIC DRAG** — the same move, with the cursor's delta in PIXELS instead of
+ * a key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitDynamicDrag}).
+ *
+ * ⭐ **The mouse and the arrows are now the SAME gesture.** The drag used to snap the mark to the
+ * nearest notehead of its lane within 150 px and re-anchor outright, so the mark teleported, could
+ * never be parked between two notes, and lost its own nudge on the way past. Now the ink follows the
+ * hand and the anchor comes along when the ink reaches a slot — and a drag and ten arrow presses
+ * covering the same distance leave the model in the same state, rather than in two states that
+ * merely look alike.
+ *
+ * ⛔ **No hold, no catch-up, no latch** — his call, 2026-08-19. The slur endpoint's drag has all
+ * three (snap-and-go: Baudisch, CHI 2005) because an endpoint is *aimed* at a note and the offset
+ * zero of each one has to be reachable exactly; a dynamic is a label being placed by eye, so the
+ * resistance would be felt as a snag with nothing to show for it. The ink simply goes where the hand
+ * goes.
+ *
+ * ⭐ **BOTH AXES** (his ask, 2026-08-19: *"the mouse does not have y movement, we need y offset
+ * too"*) — and they are different kinds of move, which is the point of doing them in one gesture:
+ * the horizontal walks the mark through the music, while `dy` is a plain ink offset, there being no
+ * anchor above or below to arrive at. ⭐ The lift SURVIVES a crossing, as it does on the keys: a
+ * dynamic's lift is measured off the dynamics LINE, not tuned to the stem of one note, so a mark
+ * carried past a notehead has no reason to drop it. (The slur's drag settles its y at a crossing for
+ * exactly the opposite reason — an endpoint's lift answers that note's stem, beam and accidentals.)
+ *
+ * ⭐⭐ **…and a frame that carries the ink onto ANOTHER SYSTEM is a JUMP, not a walk** — see
+ * {@link jumpSystems}, his report the same day. It is the one thing the arrows cannot do either, and
+ * for the same reason they cannot: a system break is not a distance.
+ *
+ * ⛔ Declines — **null**, not `false` — for a mark that is not drawn, so there is no staff-space size
+ * to convert the cursor's pixels with (the same no-guessing rule the crossing arithmetic follows).
+ * `false` is the other answer: the frame reached the model and nothing moved (the page limit), and
+ * the caller must then leave its cursor anchor where it was so the gesture re-synchronises when the
+ * hand comes back, instead of the mark jumping by the distance it never travelled.
+ */
+export function dragDynamic(
+  engine: DynamicWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): boolean | null {
+  const ss = staffSpacePxOf(engine, id)
+  if (!ss) return null
+
+  if (jumpSystems(engine, id, cursorX, dyPx, ss)) return true
+
+  return carryDynamic(engine, id, {
+    reanchor: (i, target) => engine.previewDynamicSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.previewDynamicOffset(i, ddx, ddy),
+  }, dxPx / ss, dyPx / ss).moved
+}
+
+/**
+ * ⭐⭐ **LEAVING THE MARK'S OWN SYSTEM** — the half of a drag the walk cannot do, and the answer to
+ * his report that a dragged mark *"does not catch other system"* (2026-08-19).
+ *
+ * The walk refuses to cross a system break for a reason that will never go away — two systems' x's
+ * are not one ruler — so before it runs, this asks which system the mark now BELONGS to
+ * (`dynamicLane.systemSlotFor`: the one it would look at home on, so the switch falls halfway
+ * between where it sits and where it would sit) and lands it on the slot of that system nearest the
+ * hand.
+ *
+ * ⭐⭐ **A jump lands the mark where the ENGRAVER would put it** — the offset goes, both axes. The `x`
+ * goes because every re-anchor drops it (`dynamicOps`), and the `y` because on this gesture it is
+ * not a lift at all: it is the distance the hand travelled to reach the other staff, and keeping it
+ * would leave the mark hanging a system-height below its new home — which is the very picture he
+ * reported (`y: 44.86`, a guide line over three staves).
+ *
+ * ⛔ And the frame stops there: the walk does not also run. The anchor has moved, so this frame's
+ * `dx` would be spent against a slot the hand was never near.
+ */
+function jumpSystems(
+  engine: DynamicWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+  staffSpacePx: number,
+): boolean {
+  const dynamic = engine.getDynamicById(id)
+  const inkY = markInkY(engine, id)
+  if (!dynamic || inkY === null) return false
+  const target = systemSlotFor(engine, dynamic, cursorX, inkY + dyPx, staffSpacePx)
+  if (!target || !engine.previewDynamicSlot(id, target)) return false
+
+  // The re-anchor kept the lift (its rule since 2026-08-19); on a jump there is nothing to keep.
+  const lift = dynamicOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
+  if (lift !== 0) engine.previewDynamicOffset(id, 0, -lift)
+  dbg(`[Dynamic] jumped to the staff it crossed | id:${id} → m${target.measure}`)
+  return true
 }

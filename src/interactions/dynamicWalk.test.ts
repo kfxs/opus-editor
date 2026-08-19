@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkDynamic } from './dynamicWalk'
+import { dragDynamic, walkDynamic } from './dynamicWalk'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { levelToGlyphString } from '../utils/dynamics'
@@ -26,6 +26,9 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
+      // One system in this fixture: no second staff to cross onto, so the jump never fires and
+      // every case below is about the WALK. `dynamicLane.test.ts` owns the crossing.
+      staffBands: () => [{ top: 40, bottom: 80 }],
     }))
   },
 }))
@@ -124,6 +127,49 @@ describe('walkDynamic', () => {
     for (let i = 0; i < 20; i++) walkDynamic(engine, dynamicId, -1)
     expect(at(), 'never off the front of the lane').toBe('1@0')
     expect(offsetX()).toBeCloseTo(-20)
+  })
+
+  it('⭐⭐ the DRAG is the same journey — one 10-press frame lands exactly where 10 presses do', () => {
+    // The claim that makes the mouse and the keyboard one gesture rather than two roads to
+    // nearly-the-same score: 100 px at 10 px per space is the ten 1-space presses two tests up.
+    expect(dragDynamic(engine, dynamicId, 0, 100, 0)).toBe(true)
+    expect(at()).toBe('1@2')
+    expect(offsetX()).toBeCloseTo(0, 6)
+  })
+
+  it('⭐⭐ …and ONE frame may cross SEVERAL slots — a fast drag does not leave the anchor behind', () => {
+    // A key press can cross at most one slot; a frame of a quick drag can fly over many, and
+    // re-anchoring once per frame would let the cursor outrun the anchor.
+    expect(dragDynamic(engine, dynamicId, 0, 200, 0)).toBe(true)
+    expect(at()).toBe('1@3')
+    expect(offsetX()).toBeCloseTo(0, 6)
+  })
+
+  it('⛔ the drag DECLINES (null) when the mark is not drawn — ⚠️ null, not false', () => {
+    // false is "the model said no"; null is "there is no scale to convert the cursor's pixels
+    // with", and the caller must leave its cursor baseline alone rather than treat it as a refusal.
+    render([100, 200, 300, 400], null)
+    expect(dragDynamic(engine, dynamicId, 0, 100, 0)).toBeNull()
+    expect(offsetX()).toBe(0)
+  })
+
+  it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
+    dragDynamic(engine, dynamicId, 0, 30, 0)
+    // Decisive: if the frame had pushed a snapshot, this undo would take back the frame. It takes
+    // back the dynamic's creation instead, because the frame pushed nothing.
+    engine.undo()
+    expect(at()).toBe('gone')
+  })
+
+  it('⭐ the drag moves BOTH axes — the y is a plain ink offset, and SURVIVES a crossing', () => {
+    // His ask, mid-build. The two axes are different kinds of move: 100 px right walks the anchor a
+    // whole slot, while 30 px down is 3 staff-spaces of lift that no crossing has any reason to drop
+    // (a dynamic's lift is measured off the dynamics LINE, not tuned to one note's stem — which is
+    // exactly why the slur's drag settles ITS y and this one does not).
+    expect(dragDynamic(engine, dynamicId, 0, 100, 30)).toBe(true)
+    expect(at()).toBe('1@2')
+    expect(offsetX()).toBeCloseTo(0, 6)
+    expect(offsetY()).toBeCloseTo(3, 6)
   })
 
   it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {

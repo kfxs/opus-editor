@@ -853,24 +853,40 @@ export class MusicEngine {
     return ok
   }
 
+  /** Record ONE undo entry after a dynamic drag settles. */
+  commitDynamicDrag(): void {
+    this.commitPreviewed('Move dynamic')
+  }
+
   /**
-   * Live (preview) re-anchor used **while dragging a dynamic** — writes the model but does NOT
-   * record undo; call {@link commitDynamicDrag} on the drop for the single entry. The hairpin's
-   * `previewHairpinEnd` / `commitHairpinDrag` pair verbatim, and for its reason: every frame of a
-   * drag would otherwise be its own undo step.
+   * Live (preview) re-anchor of a dragged dynamic onto `target` — writes the model but records no
+   * undo; {@link commitDynamicDrag} records the gesture once on the drop.
    *
-   * ⚠️ The model refuses a target off the mark's own lane and a target it is already on, so a frame
-   * that has not moved the mark answers false and the caller repaints nothing.
-   * @returns true when the model changed.
+   * ⚠️ **The whole-slot flavour**, so it drops the mark's sideways nudge like any re-anchor: the
+   * drag reaches for this only when the ink has crossed onto ANOTHER SYSTEM
+   * (`interactions/dynamicLane.crossedSystemSlotAt`), which is a jump and not a walk. Ordinary
+   * within-system crossings go through {@link previewDynamicSlotKeepingOffset} below, where the
+   * whole point is that nothing visibly changes.
    */
   previewDynamicSlot(id: string, target: DynamicSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
     return this.scoreModel.setDynamicAtSlot(id, target)
   }
 
-  /** Record ONE undo entry after a dynamic drag settles. */
-  commitDynamicDrag(): void {
-    this.commitPreviewed('Move dynamic')
+  /** The undo-free twin of {@link moveDynamicToSlotKeepingOffset} — one crossing of a dragged mark's
+   *  walk; {@link commitDynamicDrag} records the whole gesture once on the drop. */
+  previewDynamicSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
+    return this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
+  }
+
+  /** The undo-free twin of {@link nudgeDynamicOffset} — accumulates the same way, keeps the same
+   *  page limit, records no undo step. One frame of a dynamic drag. */
+  previewDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('dynamic', dynamicId, dx, dy)) return false
+    if (!this.scoreModel.getDynamicById(dynamicId)) return false
+    this.markModelDirty()
+    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
   }
 
   /**

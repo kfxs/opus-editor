@@ -26,10 +26,11 @@
  * ⚠️ Rests are lane stops like any other slot: `p` at the top of a bar that begins with a rest is
  * ordinary, so there is nothing to filter out.
  */
-import type { Score, Dynamic, Measure, Fraction } from '@/types/music'
+import type { Score, Dynamic, DynamicOffsetOverride, Measure, Fraction } from '@/types/music'
 import { fracCompare } from '@/utils/fraction'
 import { matchesStaff } from './staffContent'
-import { clearEngravingOverride } from './overrideOps'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
+import { dynamicOffsetOverrideOf } from './engravingOverrides'
 
 /** An address in the score's reading order — a lane stop, or where the mark is now. */
 interface Stop {
@@ -98,12 +99,11 @@ function moveDynamicToMeasure(score: Score, dynamic: Dynamic, measureNumber: num
  * *is* "the dynamics that happen here" — keeping the same object and the same id, so the selection
  * the user is pressing arrows on survives the step ({@link moveDynamicToMeasure}).
  *
- * ⭐⭐ **And the step CLEARS the mark's own nudge** (his call, 2026-08-18) — in {@link
- * setDynamicAtSlot}, the write this and the drag both run through — `setSlurEndpoint`'s
- * rule, arriving here for its reason verbatim: anchor-relative storage makes an offset
- * *transferable*, not *wanted*. It was tuned to clear the stem, the ledgers and whatever else stood
- * around the note it used to sit under, and a re-anchor is the user saying "not that note", so
- * carrying it along re-applies an answer to a question nobody asked again.
+ * ⭐⭐ **And the step CLEARS the mark's SIDEWAYS nudge** (his call, 2026-08-18) — in {@link
+ * setDynamicAtSlot}, via {@link clearHorizontalOffset} — `setSlurEndpoint`'s rule, arriving here for
+ * its reason verbatim: anchor-relative storage makes an offset *transferable*, not *wanted*. It was
+ * tuned against the note it used to sit under, and a re-anchor is the user saying "not that note".
+ * ⭐ The LIFT stays (his call, 2026-08-19) — it answers to the dynamics line, not to a note.
  *
  * ⚠️ Declines (false) — touching nothing — when there is no such dynamic, or when the walk runs off
  * the end of the lane. Declining is what leaves `Ctrl+Shift+←/→` free for the note offset, so the
@@ -138,26 +138,25 @@ export function nextDynamicSlot(score: Score, id: string, direction: 1 | -1): Dy
   return dest ?? null
 }
 
-/** A lane stop named by its address — what a DRAG hands {@link setDynamicAtSlot}, having found it
- *  from the cursor rather than by stepping. `HairpinSlotTarget`'s twin. */
+/** A lane stop named by its address, rather than counted along. `HairpinSlotTarget`'s twin. */
 export interface DynamicSlotTarget {
   measure: number
   beat: Fraction
 }
 
 /**
- * ⭐ **PUT THE MARK ON `target`** — the write both doors run through: the keyboard's step above, and
- * the mouse DRAG (`interactions/elements/dynamicDrag.ts`), which finds a slot from the cursor
- * instead of counting one along.
+ * ⭐ **PUT THE MARK ON `target`** — the keyboard's whole-slot step above runs through it, and so does
+ * anything else that lands a mark somewhere by address rather than by counting.
  *
- * ⭐ **One write, deliberately, because it is ONE GESTURE on two devices** — `slurOps.setSlurEndpoint`'s
- * arrangement and its reason. Everything that makes a re-anchor more than a `beat` assignment lives
- * here rather than in either caller: the re-file across a barline, the re-sort, and the ⭐⭐ CLEAR of
- * the mark's own nudge. Put the clear in the stepping op instead and a dragged mark would silently
- * keep an offset the keyboard drops.
+ * ⭐ **One write** — `slurOps.setSlurEndpoint`'s arrangement and its reason: everything that makes a
+ * re-anchor more than a `beat` assignment lives here rather than in a caller — the re-file across a
+ * barline, the re-sort, and the ⭐⭐ CLEAR of the mark's sideways nudge.
+
+ * ⚠️ Its twin {@link setDynamicAtSlotKeepingOffset} is what the interpolating walk crosses with, on
+ * both devices; the difference is the clear and nothing else.
  *
- * ⚠️ Declines (false) when `target` is not a stop of the mark's OWN LANE — so a drag cannot land it
- * anywhere the keyboard could not walk it — or when there is no such dynamic. ⛔ A no-op target
+ * ⚠️ Declines (false) when `target` is not a stop of the mark's OWN LANE, or when there is no such
+ * dynamic. ⛔ A no-op target
  * (the mark's current address) is refused too: nothing to do, and a caller that repainted on a true
  * would repaint every frame of a drag that has not moved.
  */
@@ -192,6 +191,30 @@ function placeDynamic(score: Score, id: string, target: DynamicSlotTarget, clear
   if (target.measure !== measure.number && !moveDynamicToMeasure(score, dynamic, target.measure)) return false
   dynamic.beat = target.beat
   locate(score, id)?.measure.dynamics?.sort((a, b) => fracCompare(a.beat, b.beat))
-  if (clearOffset) clearEngravingOverride(score, id, 'dynamicOffset')
+  if (clearOffset) clearHorizontalOffset(score, id)
   return true
+}
+
+/**
+ * ⭐⭐ **A RE-ANCHOR DROPS THE SIDEWAYS NUDGE AND KEEPS THE LIFT** (his call, 2026-08-19:
+ * *"do not reset y when reanchor"*).
+ *
+ * The clear exists because an anchor-relative offset is *transferable*, not *wanted* — but that is
+ * only true of the axis the anchor lives on. The **x** answered "a little to the left of THAT note",
+ * so it is stale the moment the mark is on another one. The **y** answered "this far off the
+ * dynamics line", which is a statement about the line and the staff, and every note on that line
+ * gives the same answer. Wiping it made a mark stepped one slot jump back up to the default height
+ * it had been lifted off on purpose.
+ *
+ * ⚠️ Clears the whole override when nothing is left of it, so an absent override and a `{0,0}` one
+ * are not both reachable — `overrideOps.nudgeDynamicOffset`'s rule.
+ */
+function clearHorizontalOffset(score: Score, id: string): void {
+  const prev = dynamicOffsetOverrideOf(score, id)
+  if (!prev) return
+  if (prev.y === 0) { clearEngravingOverride(score, id, 'dynamicOffset'); return }
+  // ⚠️ Through a typed const, `overrideOps`' arrangement: the setter takes the compartment's BASE
+  // type, so a fresh literal is excess-property-checked against it and `x` is refused.
+  const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 0, y: prev.y }
+  setEngravingOverride(score, id, next)
 }

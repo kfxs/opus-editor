@@ -19,6 +19,7 @@ import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
+import { dragDynamic } from './dynamicWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampTrillAtClick } from './trillStamp'
 import { stampOttavaAtClick } from './ottavaStamp'
@@ -27,7 +28,6 @@ import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinDragTargetAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
-import { dynamicDragTargetAt } from './elements/dynamicDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt, trillDragTargetAt } from './elements/trillHandles'
@@ -271,6 +271,10 @@ export class MouseController {
   private draggedDynamicId: string | null = null
   /** True once a preview write landed, so the drop records one undo entry. */
   private dynamicDragChanged = false
+  /** The cursor of the last ACCEPTED frame of a dynamic drag; null until the first frame past the
+   *  time threshold sets it. See {@link handleDynamicDrag}. */
+  private dynamicDragLastX: number | null = null
+  private dynamicDragLastY = 0
   private dynamicDragStartTime: number | null = null
 
   // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
@@ -750,6 +754,7 @@ export class MouseController {
     this.isDraggingDynamic = true
     this.draggedDynamicId = dynamicId
     this.dynamicDragChanged = false
+    this.dynamicDragLastX = null
     this.dynamicDragStartTime = Date.now()
     event.preventDefault()
   }
@@ -1751,6 +1756,7 @@ export class MouseController {
     this.isDraggingDynamic = false
     this.draggedDynamicId = null
     this.dynamicDragChanged = false
+    this.dynamicDragLastX = null
     this.dynamicDragStartTime = null
   }
 
@@ -2584,24 +2590,53 @@ export class MouseController {
   }
 
   /**
-   * ⭐ One frame of a DYNAMIC drag: snap the mark onto the nearest note of its own lane and write it
-   * live (no undo), so the mark follows the cursor from notehead to notehead.
+   * ⭐⭐ **One frame of a DYNAMIC drag: the ink follows the hand, and the anchor comes along when the
+   * ink reaches a slot of the mark's lane** (`./dynamicWalk`, his ask 2026-08-19). The arrow keys'
+   * gesture with a mouse in it — same arithmetic, same module, same model state at the end of an
+   * equal journey.
    *
-   * ⭐ **Which note, not which pixel** — a dynamic's position is a beat, so a drag may not put it
-   * between two notes any more than the keyboard may: the model has nowhere to store "two thirds of
-   * the way to the next quaver". That is also what makes the drag and `Ctrl+Shift+←/→` land on
-   * identical model states rather than on two roads to nearly-the-same score.
+   * ⭐ It used to SNAP: the nearest notehead of the lane within 150 px, re-anchored outright every
+   * frame. That teleported the mark, could never park it between two notes, and dropped its own
+   * nudge on the way past (`dynamicOps.setDynamicAtSlot`).
    *
-   * ⚠️ The model declines a target off the lane AND the one the mark is already on, so a frame that
-   * changed nothing repaints nothing. Returns true while a drag is active.
+   * ⛔ **No hold, no catch-up, no latch**, where the slur endpoint's drag has all three (snap-and-go
+   * — Baudisch, CHI 2005 — sized on the gap ahead). His call: an endpoint is *aimed* at a note, so
+   * offset zero has to be reachable exactly; a dynamic is a label placed by eye, and resistance
+   * would be a snag with nothing to arrive at.
+   *
+   * ⭐ **Both axes** (his ask, mid-build): the horizontal walks the mark through the music, the
+   * vertical is a plain ink offset with nothing to arrive at — one gesture, two categories, which is
+   * what a drag is for. Neither axis is held.
+   *
+   * ⭐⭐ …except when the ink crosses ANOTHER STAFF, which is a JUMP to that system (his rule the same
+   * day: *"we should take into account when it cross the pentagram"*). The module decides; this
+   * hands it the cursor's x for it, since a jump has to land somewhere along the new staff.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the hairpin body drag's rule: the
+   * module accumulates rather than sets, and on a refusal (the page limit) leaving the anchor put is
+   * what lets the gesture re-synchronise when the cursor comes back, instead of the mark jumping by
+   * the distance it never travelled.
+   *
+   * ⚠️ The cursor baseline is taken on the first frame PAST the time threshold, not at the press:
+   * the travel that decided this was a drag rather than a click belongs to neither, and charging it
+   * would start the gesture with a jump.
    */
   private handleDynamicDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingDynamic && this.draggedDynamicId)) return false
     if (this.dynamicDragStartTime !== null
         && Date.now() - this.dynamicDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const target = dynamicDragTargetAt(engine, this.draggedDynamicId, x, y)
-    if (!target) return true
-    if (engine.previewDynamicSlot(this.draggedDynamicId, target)) {
+    if (this.dynamicDragLastX === null) {
+      this.dynamicDragLastX = x
+      this.dynamicDragLastY = y
+      return true
+    }
+
+    const moved = dragDynamic(
+      engine, this.draggedDynamicId, x, x - this.dynamicDragLastX, y - this.dynamicDragLastY)
+    if (moved === null) return true
+    if (moved) {
+      this.dynamicDragLastX = x
+      this.dynamicDragLastY = y
       this.dynamicDragChanged = true
       this.render.renderScore()
     }

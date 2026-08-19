@@ -443,6 +443,48 @@ Where it lives: `dynamicOps.nextDynamicSlot` + `setDynamicAtSlotKeepingOffset` �
 the horizontal branch of `nudgeSelectedDynamic` in `shortcutWiring`. Tests: `dynamicWalk.test.ts`
 (the arithmetic, over a fabricated render — jsdom draws nothing) and `dynamicOps.test.ts`.
 
-⏭️ **Not built: the mouse.** A dragged dynamic still snaps to the nearest slot, where the slur's drag
-is the same continuous journey as its keys (hold, catch-up, latch). `walkDynamic` is the function that
-would grow the loop.
+### The MOUSE, the same day
+
+**The drag is now the same gesture** (`dragDynamic` + `MouseController.handleDynamicDrag`): one frame
+converts the cursor's pixel delta with the drawn mark's own `staffSpacePx` and runs the very same
+`carryDynamic`, with a preview writer — no undo per frame, `commitDynamicDrag` records the gesture
+once on the drop. A drag and ten arrow presses covering the same ground leave the model in the same
+state.
+
+- ⛔ **No hold, no catch-up, no latch** (his call). The slur endpoint's drag has all three — snap-and-go
+  (Baudisch, CHI 2005), hold sized on the gap AHEAD with the derived gain `1/(1−r)` — because an
+  endpoint is *aimed* at a note and offset zero has to be reachable exactly. A dynamic is a label
+  placed by eye: resistance would be a snag with nothing to arrive at.
+- ⭐ **Both axes** (his ask): the horizontal walks the mark through the music, `dy` is a plain ink
+  offset. ⭐ The lift SURVIVES a crossing here, where the slur's drag settles its y — a dynamic's lift
+  answers to the dynamics LINE, not to one note's stem.
+- ⭐ **A LOOP, because a drag frame is not a step**: one fast frame may cross several slots, and
+  re-anchoring once per frame would leave the anchor trailing the cursor.
+- ⚠️ The delta is measured from the last ACCEPTED frame (the hairpin body drag's rule), and the
+  baseline is taken on the first frame PAST the time threshold — the travel that decided this was a
+  drag rather than a click belongs to neither.
+- ⭐⭐ **…and leaving the mark's own system is a JUMP, not a walk** (his report the same day: *"it does
+  not catch other system"*). The walk refuses to cross a system break for a reason that will not go
+  away — two systems' x's are not one ruler — so `dynamicLane.systemSlotFor` runs first, and when it
+  answers, the mark lands on the slot of that system nearest the hand and the frame stops there.
+  - ⭐⭐ **The limit is WHERE THE MARK WOULD LOOK AT HOME** — his call after trying the obvious one:
+    *"crossing the stave is not a good limit… a more organic limit vertically"*. Crossing the
+    pentagram is late (the mark must be dragged right onto the next staff) and lopsided (a dynamic
+    hangs BELOW its staff, so the staff above is much further off than the one below). Instead:
+    measure the mark's NATURAL distance from its own staff — its drawn ink with its own lift taken
+    back out — and read that same distance from every other staff as "where it would sit there". The
+    mark belongs to the nearest of those, so **the switch falls exactly halfway between where it sits
+    and where it would sit**. ⭐ No constant anywhere in it: the gap is measured every frame (it
+    contains whatever the ladder granted this mark) and the staves are the painted ones. ⭐ It mirrors
+    itself for an `above` mark by measuring off the staff's TOP line.
+  - 🚨 **The lift MUST come back out first.** Left in, the mark's "natural" home follows it down for
+    ever and the switch never arrives — which is the picture he reported: `y: 44.86` and a guide line
+    stretching over three staves.
+  - ⭐⭐ **A jump lands the mark where the ENGRAVER would put it**: the offset goes, both axes. On this
+    gesture the `y` is not a lift, it is the distance the hand travelled to reach the other system.
+  - ⭐ It needs no travel history, unlike a crossing test: a frame taller than a whole system is judged
+    by where it ENDED, so a fast hand cannot fly over a staff.
+- ⭐ **Gone with it**: `elements/dynamicDrag.ts` — `dynamicDragTargetAt`, its row window and its
+  150 px snap. What survives is in `interactions/dynamicLane.ts`: where a lane's slots were DRAWN
+  (shared with the keyboard, so the two doors cannot disagree about where a slot is) and the staff
+  crossing above. `MusicEngine.previewDynamicSlot` stayed, and is now reached only by a jump.
