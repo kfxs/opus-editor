@@ -30,12 +30,21 @@ export class RenderController {
 
   private applyHighlights(): void {
     // The passes that read the multi-selection SET (`selectedItems`), so they run whatever the
-    // single-select element happens to be: the notes, the articulation groups, and the dynamics
-    // and slurs a Shift-click box drags along.
+    // single-select element happens to be: the notes, the articulation groups, and every MARK a
+    // box drags along with them (`interactions/enclosedMarks`).
+    //
+    // ⭐ Each of these paints the single-click selection of its kind TOO — one pass per kind, asked
+    // "which ids of yours are selected?" (`HighlightController.selectedIdsOf`), so the ink of a
+    // selected mark is painted in exactly one place however it came to be selected. The kind's row
+    // in `ELEMENT_SPECS` is then only the EXTRA a single click earns: the anchor guide, the handles.
     this.highlight.applySelectionHighlight()
     this.highlight.applyArticulationHighlight()
     this.highlight.applyDynamicSelectionHighlight()
     this.highlight.applySlurSelectionHighlight()
+    this.highlight.applyHairpinSelectionHighlight()
+    this.highlight.applyTrillSelectionHighlight()
+    this.highlight.applyOttavaSelectionHighlight()
+    this.highlight.applyPedalSelectionHighlight()
     this.applySelectedElementHighlight()
     this.highlight.applyKeyboardCursor()
   }

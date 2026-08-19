@@ -978,19 +978,33 @@ export class HighlightController {
     })
   }
 
+  /**
+   * ⭐ **EVERY id of `kind` that is SELECTED** — the ONE element a click picked, plus every one a
+   * passage box dragged into `selectedItems` (`./enclosedMarks`). Six kinds ask this exact question
+   * and used to answer it six times; the loop below is the whole of it.
+   *
+   * ⚠️ The box members get COLOUR only. Handles (a slur's endpoints, a span's two squares) stay on
+   * the single-click selection: they are for editing ONE mark, and a bar's worth of squares would
+   * be unreadable — and unclickable, since they overlap.
+   */
+  private selectedIdsOf(kind: 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal'): Set<string> {
+    const ids = new Set<string>()
+    const element = this.state.selectedElement
+    if (element?.kind === kind && 'id' in element) ids.add(element.id)
+    for (const item of this.state.selectedItems.values()) {
+      if (item.kind === kind && 'id' in item) ids.add(item.id)
+    }
+    return ids
+  }
+
   applyDynamicSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
     if (!engine || !scoreCanvas) return
 
     // Highlight every selected dynamic: the single-click element selection AND any dynamics
-    // pulled into a Shift-click box (kind 'dynamic' items in selectedItems).
-    const ids = new Set<string>()
-    const singleId = selectedOf(this.state, 'dynamic')?.id
-    if (singleId) ids.add(singleId)
-    for (const item of this.state.selectedItems.values()) {
-      if (item.kind === 'dynamic') ids.add(item.id)
-    }
+    // pulled into a box ({@link selectedIdsOf}).
+    const ids = this.selectedIdsOf('dynamic')
     if (ids.size === 0) return
 
     const SELECTION_COLOR = ELEMENT_SELECTION_FILL
@@ -1098,9 +1112,13 @@ export class HighlightController {
    * (docs/dynamics-line-and-hairpins-plan.md §4).
    */
   applyHairpinSelectionHighlight(): void {
+    for (const id of this.selectedIdsOf('hairpin')) this.recolorHairpin(id)
+  }
+
+  /** Paint one hairpin in its voice's colour, inside its OWN `<g class="vf-hairpin">` group. */
+  private recolorHairpin(id: string): void {
     const engine = this.getEngine()
-    const id = selectedOf(this.state, 'hairpin')?.id
-    if (!engine || !id) return
+    if (!engine) return
     const group = engine.getHairpinSVGGroup(id)
     if (!group) return
 
@@ -1193,9 +1211,13 @@ export class HighlightController {
    * of whatever happened to be under it would say something the model does not.
    */
   applyOttavaSelectionHighlight(): void {
+    for (const id of this.selectedIdsOf('ottava')) this.recolorOttava(id)
+  }
+
+  /** Paint one octave line — its `8va` and its bracket — inside its own group. */
+  private recolorOttava(id: string): void {
     const engine = this.getEngine()
-    const id = selectedOf(this.state, 'ottava')?.id
-    if (!engine || !id) return
+    if (!engine) return
     const group = engine.getOttavaSVGGroup(id)
     if (!group) return
 
@@ -1277,9 +1299,13 @@ export class HighlightController {
    * would say something the model does not.
    */
   applyPedalSelectionHighlight(): void {
+    for (const id of this.selectedIdsOf('pedal')) this.recolorPedal(id)
+  }
+
+  /** Paint one pedal — its two signs — inside its own group. */
+  private recolorPedal(id: string): void {
     const engine = this.getEngine()
-    const id = selectedOf(this.state, 'pedal')?.id
-    if (!engine || !id) return
+    if (!engine) return
     const group = engine.getPedalSVGGroup(id)
     if (!group) return
 
@@ -1391,9 +1417,13 @@ export class HighlightController {
   }
 
   applyTrillSelectionHighlight(): void {
+    for (const id of this.selectedIdsOf('trill')) this.recolorTrill(id)
+  }
+
+  /** Paint one trill — its `tr` and its wavy line — inside its own group. */
+  private recolorTrill(id: string): void {
     const engine = this.getEngine()
-    const id = selectedOf(this.state, 'trill')?.id
-    if (!engine || !id) return
+    if (!engine) return
     const group = engine.getTrillSVGGroup(id)
     if (!group) return
 
@@ -1411,15 +1441,8 @@ export class HighlightController {
     if (!engine || !scoreCanvas) return
 
     // Highlight every selected slur: the single-click element selection (which also gets
-    // draggable handles) AND any slur fully covered by a Shift-click box (kind 'slur' items in
-    // selectedItems, colour only — no handles).
-    const ids = new Set<string>()
-    const singleSlurId = selectedOf(this.state, 'slur')?.id
-    if (singleSlurId) ids.add(singleSlurId)
-    for (const item of this.state.selectedItems.values()) {
-      if (item.kind === 'slur') ids.add(item.id)
-    }
-    for (const id of ids) this.recolorSlur(id)
+    // draggable handles) AND any slur fully covered by a box ({@link selectedIdsOf}).
+    for (const id of this.selectedIdsOf('slur')) this.recolorSlur(id)
   }
 
   /** Paint one slur in its voice's colour, inside its OWN `<g class="vf-slur">` group only. */

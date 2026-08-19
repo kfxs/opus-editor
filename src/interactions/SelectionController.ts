@@ -5,7 +5,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive, selectedOf } from './EditorState'
-import { buildVoiceNavBeatMap, notesInBox, dynamicsInBox, slursInBox, expandTieChains } from '../utils/beatMap'
+import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../utils/beatMap'
+import { marksInBox } from './enclosedMarks'
 import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -174,15 +175,30 @@ export class SelectionController {
   }
 
   /**
-   * REPLACE the selection with a set of notes by id (e.g. the freshly pasted
-   * notes). The last id becomes the anchor and the Shift pivot; the palette syncs
-   * to it. Empty list clears the selection.
+   * REPLACE the selection with a PASSAGE: the given notes/rests PLUS every mark they enclose —
+   * the dynamics under them, and each slur, hairpin, trill, octave line and pedal fully covered
+   * by them (`./enclosedMarks`, the same "what's enclosed" rule the copy uses). The last id
+   * becomes the anchor and the Shift pivot; the palette syncs to it. Empty list clears it.
+   *
+   * ⭐ **The marks come along wherever the notes came from**, which is why the paste calls this too
+   * (his report, 2026-08-19: *"when pasting we just select the notes… but all element pasted should
+   * be selected"*). A paste writes the clip's dynamics and spans as well as its notes, so selecting
+   * only the notes understated what had just landed.
+   *
+   * Ties need no explicit item: a tie's arc highlights with the note that OWNS it (see
+   * `HighlightController.colorNoteTie`).
    */
   selectNotes(noteIds: string[]): void {
+    const engine = this.getEngine()
     this.state.selectedItems.clear()
     for (const id of noteIds) {
       const item: SelectionItem = { kind: 'note', id }
       this.state.selectedItems.set(itemKey(item), item)
+    }
+    if (engine) {
+      for (const item of marksInBox(engine.getScore(), noteIds)) {
+        this.state.selectedItems.set(itemKey(item), item)
+      }
     }
     const anchor = noteIds.length ? noteIds[noteIds.length - 1] : null
     this.state.selectedNoteId = anchor
@@ -193,38 +209,14 @@ export class SelectionController {
   }
 
   /**
-   * REPLACE the selection with EVERYTHING inside one bar (the Sibelius-style plain-click
-   * passage selection): the given notes/rests PLUS the dynamics sitting under them and any
-   * slur fully covered by them — the same "what's enclosed" rule a Shift-click box uses.
-   * Ties need no explicit item: a tie's arc highlights with the note that OWNS it (see
-   * HighlightController.colorNoteTie), which holds for every tie starting in this bar.
-   * `noteIds` should already be scoped to one measure + staff.
-   * The last note becomes the anchor / Shift pivot; the palette syncs to it.
+   * The Sibelius-style plain-click PASSAGE selection of one bar — {@link selectNotes} under the
+   * name the gesture has. `noteIds` should already be scoped to one measure + staff.
+   *
+   * ⚠️ It was a near-copy of `selectNotes` (the marks pull was the only difference) until
+   * 2026-08-19, when the paste needed the same thing and the two became one.
    */
   selectMeasureContents(noteIds: string[]): void {
-    const engine = this.getEngine()
-    this.state.selectedItems.clear()
-    for (const id of noteIds) {
-      const item: SelectionItem = { kind: 'note', id }
-      this.state.selectedItems.set(itemKey(item), item)
-    }
-    if (engine) {
-      const score = engine.getScore()
-      for (const id of dynamicsInBox(score, noteIds)) {
-        const item: SelectionItem = { kind: 'dynamic', id }
-        this.state.selectedItems.set(itemKey(item), item)
-      }
-      for (const id of slursInBox(score, noteIds)) {
-        const item: SelectionItem = { kind: 'slur', id }
-        this.state.selectedItems.set(itemKey(item), item)
-      }
-    }
-    const anchor = noteIds.length ? noteIds[noteIds.length - 1] : null
-    this.state.selectedNoteId = anchor
-    this.state.selectionPivotId = anchor
-    this.state.selectionBase = Array.from(this.state.selectedItems.values())
-    this.clearElementSelection()
-    if (anchor) this.syncPaletteToNote(anchor)
+    this.selectNotes(noteIds)
   }
 
   /**
@@ -282,14 +274,10 @@ export class SelectionController {
       const item: SelectionItem = { kind: 'note', id }
       this.state.selectedItems.set(itemKey(item), item)
     }
-    // A box that encloses notes also grabs the dynamics under them and any slur fully covered by
-    // it, so they highlight with the selection (they ride along on copy via the same rule).
-    for (const id of dynamicsInBox(engine.getScore(), boxIds)) {
-      const item: SelectionItem = { kind: 'dynamic', id }
-      this.state.selectedItems.set(itemKey(item), item)
-    }
-    for (const id of slursInBox(engine.getScore(), boxIds)) {
-      const item: SelectionItem = { kind: 'slur', id }
+    // A box that encloses notes also grabs the marks under them — the dynamics, and every span
+    // fully covered by it — so they highlight with the selection (they ride along on copy via the
+    // same rule; `./enclosedMarks`).
+    for (const item of marksInBox(engine.getScore(), boxIds)) {
       this.state.selectedItems.set(itemKey(item), item)
     }
     // Bake the grown box in as the base and move the pivot + nav anchor to the target.

@@ -644,6 +644,19 @@ describe('SelectionController — a note selection replaces the element selectio
     expect(state.selectedElement).toBeNull()
   })
 
+  it('⭐ selectNotes takes the MARKS the notes enclose — what a paste just wrote is all selected', () => {
+    // His report, 2026-08-19: a paste selected only the notes, understating what had landed.
+    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    selection.selectNotes([noteA, noteB])
+    const kinds = [...state.selectedItems.values()].map(i => i.kind).sort()
+    expect(kinds).toEqual(['dynamic', 'hairpin', 'note', 'note'])
+    expect(state.selectedItems.has(itemKey({ kind: 'dynamic', id: dynId }))).toBe(true)
+    expect(state.selectedItems.has(itemKey({ kind: 'hairpin', id: hairpinId }))).toBe(true)
+    // …and the anchor is still the last NOTE, not whatever came along with it.
+    expect(state.selectedNoteId).toBe(noteB)
+  })
+
   it('selectMeasureContents clears a selected dynamic', () => {
     state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
     selection.selectMeasureContents([noteA, noteB])

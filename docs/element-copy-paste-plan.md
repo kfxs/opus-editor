@@ -102,6 +102,9 @@ is what "anchor to the selection" means, and the model allows co-located marks (
 - `ClipboardController.test.ts` — the dispatch: onto a note, onto a barline, armed with nothing
   selected, and that copying one thing drops the other.
 
+**Sibling:** `docs/passage-selection-marks.md` — what a passage box selects (and highlights), and
+why a paste now selects every mark it wrote, not only its notes.
+
 ## Not done
 
 - Only the dynamic travels. A clef / meter / tempo mark would each be one row (see above).

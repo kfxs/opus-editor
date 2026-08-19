@@ -47,5 +47,8 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   // visible as ink, so what the guide adds is where the gesture is anchored.
   // …plus the two endpoint SQUARES, one per end of the wedge (his ask, 2026-08-17). Drawing only
   // for now — see `./hairpinHandles`, which owns where they sit.
-  highlight: h => { h.applyHairpinSelectionHighlight(); h.applyAnchorGuideLine(); h.applyHairpinHandles() },
+  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
+  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ink has to paint for every selected one — not only for the one a click picked.
+  highlight: h => { h.applyAnchorGuideLine(); h.applyHairpinHandles() },
 }

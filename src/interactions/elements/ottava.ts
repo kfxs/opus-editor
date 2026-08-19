@@ -47,8 +47,10 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
   // only, and to a PLACE rather than a note — an octave line governs a region, so it belongs to no
   // single pitch. Its side follows the shift, like everything else about the bracket.
   // …and the two endpoint squares, one beyond each end (`./ottavaHandles`) — the hairpin's pair.
+  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
+  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ink has to paint for every selected one — not only for the one a click picked.
   highlight: h => {
-    h.applyOttavaSelectionHighlight()
     h.applyAnchorGuideLine()
     h.applyOttavaHandles()
   },

@@ -51,8 +51,10 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
   // auxiliary is a step above that pitch, so the note is what the ornament is computed from.
   // …and the two endpoint squares, one beyond each end (`./trillHandles`, 2026-08-18) — the
   // family's pair, one look for every span in the editor.
+  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
+  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ink has to paint for every selected one — not only for the one a click picked.
   highlight: h => {
-    h.applyTrillSelectionHighlight()
     h.applyAnchorGuideLine()
     h.applyTrillHandles()
   },

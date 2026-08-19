@@ -50,8 +50,10 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   //
   // …and the two endpoint squares, one beyond each sign (`./pedalHandles`, 2026-08-18) — the
   // ottava's pair, one look for every span in the editor.
+  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
+  // (the dynamic's own arrangement), because a passage box can now select this kind too and the
+  // ink has to paint for every selected one — not only for the one a click picked.
   highlight: h => {
-    h.applyPedalSelectionHighlight()
     h.applyAnchorGuideLine()
     h.applyPedalHandles()
   },

@@ -11,7 +11,7 @@
  *
  * NOTE: the union covers every selectable element so the container is future-proof,
  * but only `note` and `articulation` are routed through the set by a click (plus the
- * `dynamic`/`slur` items a Shift-box drags along — see SelectionController /
+ * `dynamic`/`slur`/`hairpin`/`trill`/`ottava`/`pedal` items a box drags along — see SelectionController /
  * MouseController). Every other kind is SINGLE-select and lives in
  * `EditorState.selectedElement`, its own discriminated union; migrating one here means
  * giving it a real multi-selection, which none of them has yet.
@@ -22,6 +22,13 @@ export type SelectionItem =
   | { kind: 'tuplet'; id: string }
   | { kind: 'tie'; fromNoteId: string }
   | { kind: 'slur'; id: string }
+  /** ⭐ The four SPANS a passage box drags along with its notes (2026-08-19). They were always
+   *  taken by the copy (`clipboard`'s `*InWindow` builders) and never shown as selected, which is
+   *  the gap `enclosedMarks.marksInBox` closes: the highlight is a promise about what travels. */
+  | { kind: 'hairpin'; id: string }
+  | { kind: 'trill'; id: string }
+  | { kind: 'ottava'; id: string }
+  | { kind: 'pedal'; id: string }
   | { kind: 'articulation'; noteId: string; type: string }
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
@@ -41,6 +48,10 @@ export function itemKey(item: SelectionItem): string {
     case 'dynamic':
     case 'tuplet':
     case 'slur':
+    case 'hairpin':
+    case 'trill':
+    case 'ottava':
+    case 'pedal':
       return `${item.kind}:${item.id}`
     case 'tie':
       return `tie:${item.fromNoteId}`

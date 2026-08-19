@@ -13,6 +13,7 @@ import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../shortcuts'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
+import { markItems, marksLabel, removeMarks } from './enclosedMarks'
 import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
@@ -1102,13 +1103,13 @@ export function wireShortcuts(
               // rest fill (one measure rest, not a per-gap recompute) and the dynamics/slurs the box
               // pulled in are removed, all as ONE undo step (runBatch coalesces).
               const measure = anchor // single box: anchor === focus
-              const items = [...state.selectedItems.values()]
-              const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
-              const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
+              // ⭐ Every mark the box dragged in goes with it — the dynamics and slurs it always
+              // took, and (2026-08-19) the four SPANS it now also highlights. Delete takes what the
+              // highlight showed, or the highlight is a promise the editor does not keep.
+              const marks = markItems(state.selectedItems.values())
               eng.runBatch(`Clear measure ${measure}`, () => {
                 eng.clearMeasureStaff(measure, staff)
-                for (const id of dynIds) eng.removeDynamic(id)
-                for (const id of slurIds) eng.removeSlur(id)
+                removeMarks(eng, marks)
               })
               dbg(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
               selection.deselectAll()
@@ -1261,20 +1262,15 @@ export function wireShortcuts(
 
       if (state.selectedItems.size > 0) {
         // Delete the whole selection as ONE undoable action so a single Ctrl-Z restores the
-        // group. The set holds notes plus any dynamics a Shift-click box pulled in.
+        // group. The set holds notes plus every mark a box pulled in (`./enclosedMarks`).
         const items = [...state.selectedItems.values()]
         const noteIds = items.filter(i => i.kind === 'note').map(i => i.id)
-        const dynIds = items.filter(i => i.kind === 'dynamic').map(i => i.id)
-        const slurIds = items.filter(i => i.kind === 'slur').map(i => i.id)
-        const extra = [
-          dynIds.length ? `${dynIds.length} dynamic(s)` : '',
-          slurIds.length ? `${slurIds.length} slur(s)` : '',
-        ].filter(Boolean).join(' + ')
+        const marks = markItems(items)
+        const extra = marksLabel(marks)
         const label = `Delete ${noteIds.length} note(s)${extra ? ` + ${extra}` : ''}`
         eng.runBatch(label, () => {
           for (const id of noteIds) eng.deleteNote(id)
-          for (const id of dynIds) eng.removeDynamic(id)
-          for (const id of slurIds) eng.removeSlur(id)
+          removeMarks(eng, marks)
         })
         selection.selectNote(null)
         renderer.renderScore()
