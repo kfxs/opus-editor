@@ -36,7 +36,7 @@ import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { tempoOffsetOverrideOf } from './engravingOverrides'
 
 /** An address in the score's reading order — an onset, or where the mark is now. */
-interface Stop {
+export interface Stop {
   measure: number
   beat: Fraction
 }
@@ -136,21 +136,38 @@ export function nextTempoSlot(score: Score, id: string, direction: 1 | -1): Stop
  * repaint on a false.
  */
 export function moveTempoBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const dest = nextTempoSlot(score, id, direction)
+  return dest ? placeTempo(score, id, dest, true) : false
+}
+
+/**
+ * ⭐⭐ **THE SAME MOVE, KEEPING THE MARK'S OWN NUDGE** — the crossing of the INTERPOLATING WALK
+ * (`interactions/tempoWalk`), `dynamicOps.setDynamicAtSlotKeepingOffset`'s twin and for its reason.
+ *
+ * The clear above is right for *"not that element"* — a whole stop in one press. It is wrong for a
+ * ¼-space press that happens to step the ink over one: there the walk re-bases the offset by the gap
+ * it just handed to the anchor, so the two writes cancel and **the crossing is invisible**.
+ */
+export function setTempoAtSlotKeepingOffset(score: Score, id: string, target: Stop): boolean {
+  return placeTempo(score, id, target, false)
+}
+
+/** {@link moveTempoBySlot} and its keep-the-nudge twin, which differ by one line. */
+function placeTempo(score: Score, id: string, dest: Stop, clearOffset: boolean): boolean {
   const found = locate(score, id)
   if (!found) return false
   const { mark, measure } = found
-
-  const dest = nextTempoSlot(score, id, direction)
-  if (!dest) return false
+  if (compare(dest, { measure: measure.number, beat: mark.beat }) === 0) return false
 
   // ⭐ One mark per beat — see the header. The sitting mark wins by being there first.
   const target = score.measures.find(m => m.number === dest.measure)
-  if (target?.tempos?.some(t => t.id !== id && fracCompare(t.beat, dest.beat) === 0)) return false
+  if (!target) return false
+  if (target.tempos?.some(t => t.id !== id && fracCompare(t.beat, dest.beat) === 0)) return false
 
   if (dest.measure !== measure.number && !moveTempoToMeasure(score, mark, dest.measure)) return false
   mark.beat = dest.beat
   locate(score, id)?.measure.tempos?.sort((a, b) => fracCompare(a.beat, b.beat))
-  clearHorizontalOffset(score, id)
+  if (clearOffset) clearHorizontalOffset(score, id)
   return true
 }
 

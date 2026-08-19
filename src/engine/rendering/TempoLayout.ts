@@ -330,6 +330,10 @@ export function drawTempoMarks(
           // serif face, which Bravura cannot speak for (`./dynamicMarkInk` answers null for exactly
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
           guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: stave.getYForLine(0) } }],
+          // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
+          // (`interactions/tempoWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
+          // refuses to guess one, so this is the only route.
+          staffSpacePx: stave.getSpacingBetweenLines(),
         })
 
         // ⭐⭐ THE HAND NUDGE (client #13, his ask 2026-08-19) — applied AFTER the registration

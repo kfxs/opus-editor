@@ -42,6 +42,11 @@ describe('nudging a tempo mark from the keyboard', () => {
       getSlurById: () => null,
       getNote: () => null,
       getDynamicById: () => null,
+      // ⚠️ The horizontal ink chords run through the interpolating walk (`./tempoWalk`), which asks
+      // what lies ahead before it decides. Null = nothing to arrive at, so the press is the plain
+      // nudge these cases are about; the walk's own arithmetic is proven in `tempoWalk.test.ts`.
+      nextTempoSlot: () => null,
+      getScore: () => ({ measures: [] }),
     } as unknown as MusicEngine
 
     state = createEditorState()

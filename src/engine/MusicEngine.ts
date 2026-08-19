@@ -4,6 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite } from './models/hairpinOps'
 import type { DynamicSlotTarget } from './models/dynamicOps'
+import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite } from './models/ottavaOps'
 import type { PedalDragWrite } from './models/pedalOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -2869,6 +2870,27 @@ export class MusicEngine {
       dbg(`[Tempo] re-anchored ${id} ${direction === -1 ? 'back' : 'on'} one onset`)
     }
     return ok
+  }
+
+  /**
+   * Hand a tempo mark onto `target` **keeping its hand-nudged offset** — the crossing of the
+   * interpolating walk (`interactions/tempoWalk`), where {@link moveTempoBySlot} above drops it.
+   * Content, and audible, for that method's reason. ⚠️ Saves its own undo entry, so the walk wraps
+   * the crossing pair in one `runBatch`.
+   */
+  moveTempoToSlotKeepingOffset(id: string, target: TempoStop): boolean {
+    const ok = this.scoreModel.setTempoAtSlotKeepingOffset(id, target)
+    if (ok) {
+      this.commit('Move tempo mark')
+      dbg(`[Tempo] walked ${id} onto m${target.measure} beat ${target.beat.num}/${target.beat.den}`)
+    }
+    return ok
+  }
+
+  /** Where {@link moveTempoBySlot} would put the mark, without putting it there — the walk reads it
+   *  to measure how far away the next stop is drawn. */
+  nextTempoSlot(id: string, direction: 1 | -1): TempoStop | null {
+    return this.scoreModel.nextTempoSlot(id, direction)
   }
 
   /**

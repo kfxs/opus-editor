@@ -973,6 +973,18 @@ export class ScoreModel {
     return tempoOps.moveTempoBySlot(this.score, id, direction)
   }
 
+  /** The same, KEEPING the mark's own nudge — the interpolating walk's invisible crossing.
+   *  See {@link tempoOps.setTempoAtSlotKeepingOffset}. */
+  setTempoAtSlotKeepingOffset(id: string, target: tempoOps.Stop): boolean {
+    return tempoOps.setTempoAtSlotKeepingOffset(this.score, id, target)
+  }
+
+  /** Where the step above would land, without landing it — what the walk asks before deciding
+   *  whether a press re-anchors. See {@link tempoOps.nextTempoSlot}. */
+  nextTempoSlot(id: string, direction: 1 | -1): tempoOps.Stop | null {
+    return tempoOps.nextTempoSlot(this.score, id, direction)
+  }
+
   /** Find a tempo mark anywhere in the score by id (live reference), or null. Used by
    *  the in-canvas text editor to seed the overlay with the mark's current word. */
   getTempoMarkById(id: string): TempoMark | null {

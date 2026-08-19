@@ -17,6 +17,7 @@ import { flipSelection } from './flipSelection'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { walkDynamic } from './dynamicWalk'
+import { walkTempo } from './tempoWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -583,17 +584,20 @@ export function wireShortcuts(
   // one, and that asymmetry is the point rather than a slip: a tempo mark is always above the staff,
   // so a number about it means *how far from the staff*.
   //
-  // ⛔ **No walk here, unlike the dynamic's horizontal.** A dynamic's ink can arrive at the next
-  // NOTE of its lane and hand the anchor over; a tempo mark is anchored to a PLACE IN TIME and its
-  // musical half (a re-anchor) does not exist yet, so there is nothing for the ink to arrive at.
-  // The day it does, this is the line that grows a `walkTempo` beside it.
+  // ⭐⭐ The HORIZONTAL goes through the INTERPOLATING WALK (`./tempoWalk`, 2026-08-19): the same ink
+  // nudge, except that reaching the next ONSET takes the anchor along with it. The dynamic's gesture
+  // on the words, sharing its arithmetic (`./markWalk`) and differing only in where the stops are —
+  // a tempo has no lane, it governs the clock.
   //
   // One undo per press. Returns true when it consumed the key, false to DECLINE so it falls through.
   const nudgeSelectedTempo = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const tempoId = selectedOf(state, 'tempo')?.id
     if (!eng || !tempoId) return false
-    if (!eng.nudgeTempoOffset(tempoId, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkTempo(eng, tempoId, dx)
+      : eng.nudgeTempoOffset(tempoId, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

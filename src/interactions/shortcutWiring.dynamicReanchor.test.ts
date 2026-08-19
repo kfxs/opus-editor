@@ -47,6 +47,9 @@ describe('moving a dynamic from the keyboard', () => {
       // asks for the mark before it asks anything else. Null = "not in the score" → no crossing is
       // possible, so the press is the plain nudge these cases are about.
       getDynamicById: () => null,
+      // ⚠️ …and what lies ahead, which the walk asks before it decides anything. Null = nothing to
+      // arrive at, so the press stays the plain nudge these cases are about.
+      nextDynamicSlot: () => null,
     } as unknown as MusicEngine
 
     state = createEditorState()
