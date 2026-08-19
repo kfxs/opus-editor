@@ -11,9 +11,20 @@
  * already use, deliberately a step darker than voice-1's blue (`#3B82F6`) so it can never be misread as
  * a voice colour.
  *
- * NOTES/RESTS/TUPLETS do NOT use these — they select in their own voice's colour (voiceColors). And the
- * slur-editing handles keep their own orange/blue language (orange = open join, blue = true endpoint),
- * because there the colour distinguishes handle KIND, not "selected".
+ * ⭐⭐ **THE LINE IS "does this ink BELONG to one voice's notes?"** (his call, 2026-08-19), and it is
+ * not the same question as "does the model give it a `voice` field":
+ *
+ *  - **Voice colour** — notes, rests, tuplets, ties, slurs, and the TRILL: *"a trill is always
+ *    associated to a note, so the trill has the color of the note voice it is anchored to"*. Its
+ *    auxiliary is a step above THAT pitch; it belongs to that note the way an articulation does.
+ *  - **This indicator blue** — clef, meter, barline, dynamic, tempo text, and the three that used to
+ *    take a voice colour and should not: the **hairpin**, the **8va** and the **pedal**. Each governs
+ *    a region — every voice under it — so a voice colour said "this belongs to voice 1" about a mark
+ *    that shapes them all. ⚠️ A `Hairpin.voice` records which stream it speaks FOR; it is not who the
+ *    mark is drawn for, and colouring by it was reading the field as the wrong question.
+ *
+ * And the slur-editing handles keep their own orange/blue language (orange = open join, blue = true
+ * endpoint), because there the colour distinguishes handle KIND, not "selected".
  */
 
 /** The non-voice indicator blue (Tailwind blue-700). One home for what were three copies of this hex:

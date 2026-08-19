@@ -1120,15 +1120,22 @@ export class HighlightController {
     for (const id of this.selectedIdsOf('hairpin')) this.recolorHairpin(id)
   }
 
-  /** Paint one hairpin in its voice's colour, inside its OWN `<g class="vf-hairpin">` group. */
+  /**
+   * Paint one hairpin in the ELEMENT ink, inside its OWN `<g class="vf-hairpin">` group.
+   *
+   * ⭐ **Not a voice colour** (his call, 2026-08-19): a wedge governs the music under it whatever
+   * voice sounds it — the dynamics family's rule, and the same reason a `p` is drawn in the
+   * indicator blue. `Hairpin.voice` records which stream it speaks FOR, not who it is drawn for,
+   * and painting it voice-1 blue said "this belongs to voice 1" about a mark that shapes them all.
+   * See `utils/selectionColors`: a voice colour is for ink that BELONGS to one voice's notes.
+   */
   private recolorHairpin(id: string): void {
     const engine = this.getEngine()
     if (!engine) return
     const group = engine.getHairpinSVGGroup(id)
     if (!group) return
 
-    const hairpin = engine.getHairpinById(id)
-    const SELECTION_COLOR = voiceFillColor(hairpin?.voice ?? 0)
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     // The wedge is STROKED, never filled (two open polylines — see `HairpinRenderer`), so unlike the
     // slur only the stroke needs overriding. Setting `fill` as well would paint the triangle the
     // two arms enclose, which is not ink the score has.
@@ -1211,9 +1218,10 @@ export class HighlightController {
    * open polylines, and filling them would paint the triangle they enclose — ink the score does not
    * have). An octave line is both at once, so it sets each on the elements that carry it.
    *
-   * ⚠️ The colour is voice 0's rather than the object's, because an ottava HAS no voice: it governs
-   * the staff, whose music may be in any of them (see `Ottava.staffId`). Colouring it by the voice
-   * of whatever happened to be under it would say something the model does not.
+   * ⭐ The colour is the ELEMENT ink, not a voice's (his call, 2026-08-19): an ottava HAS no voice —
+   * it governs the staff, whose music may be in any of them (see `Ottava.staffId`) — and voice 0's
+   * blue was still a VOICE colour, which said "this belongs to voice 1" about a mark that transposes
+   * every note under it. See `utils/selectionColors`.
    */
   applyOttavaSelectionHighlight(): void {
     for (const id of this.selectedIdsOf('ottava')) this.recolorOttava(id)
@@ -1226,7 +1234,7 @@ export class HighlightController {
     const group = engine.getOttavaSVGGroup(id)
     if (!group) return
 
-    const SELECTION_COLOR = voiceFillColor(0)
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     group.querySelectorAll('text').forEach(el => {
       this.setAttr(el, 'fill', SELECTION_COLOR)
       this.setStyleProp(el, 'fill', SELECTION_COLOR)
@@ -1299,9 +1307,9 @@ export class HighlightController {
    * ⭐ One group holds every sign the pedal drew, including the ones on other systems, so a broken
    * pedal lights up whole — `pedalGroupMap`'s arrangement.
    *
-   * ⚠️ The colour is voice 0's, for the ottava's reason: a pedal HAS no voice — one damper serves the
-   * staff, whose music may be in any of them — so colouring it by whatever happened to be under it
-   * would say something the model does not.
+   * ⭐ The colour is the ELEMENT ink, for the ottava's reason: a pedal HAS no voice — one damper
+   * serves the staff, whose music may be in any of them — so a voice colour would say something the
+   * model does not. See `utils/selectionColors`.
    */
   applyPedalSelectionHighlight(): void {
     for (const id of this.selectedIdsOf('pedal')) this.recolorPedal(id)
@@ -1314,7 +1322,7 @@ export class HighlightController {
     const group = engine.getPedalSVGGroup(id)
     if (!group) return
 
-    const SELECTION_COLOR = voiceFillColor(0)
+    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     group.querySelectorAll<SVGElement>('text').forEach(el => {
       this.setAttr(el, 'fill', SELECTION_COLOR)
       this.setStyleProp(el, 'fill', SELECTION_COLOR)
@@ -1425,7 +1433,18 @@ export class HighlightController {
     for (const id of this.selectedIdsOf('trill')) this.recolorTrill(id)
   }
 
-  /** Paint one trill — its `tr` and its wavy line — inside its own group. */
+  /**
+   * Paint one trill — its `tr` and its wavy line — inside its own group.
+   *
+   * ⭐ **A VOICE colour, and the one in this family that should be** (his call, 2026-08-19): *"a
+   * trill is always associated to a note, so the trill has the color of the note voice it is
+   * anchored to"*. Its auxiliary is a step above THAT pitch, so it belongs to that note the way an
+   * articulation does — where a wedge, an 8va and a pedal govern a region and take the element ink.
+   *
+   * ⚠️ Read off the anchor NOTE, not `Trill.voice` — the slur's rule (`recolorSlur`) and for its
+   * reason: the field is written at creation and a later voice move does not chase it, while the
+   * note is the thing the mark actually hangs off.
+   */
   private recolorTrill(id: string): void {
     const engine = this.getEngine()
     if (!engine) return
@@ -1433,7 +1452,8 @@ export class HighlightController {
     if (!group) return
 
     const trill = engine.getTrillById(id)
-    const SELECTION_COLOR = voiceFillColor(trill?.voice ?? 0)
+    const anchorVoice = trill ? engine.getNote(trill.startNoteId)?.voice : undefined
+    const SELECTION_COLOR = voiceFillColor(anchorVoice ?? trill?.voice ?? 0)
     group.querySelectorAll('text').forEach(el => {
       this.setAttr(el, 'fill', SELECTION_COLOR)
       this.setStyleProp(el, 'fill', SELECTION_COLOR)

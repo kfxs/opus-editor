@@ -386,6 +386,11 @@ Properties report (`selectionSnapshot`).
 ⚠️ **And the two things a selectable SPAN needs that the union does not mention**, both copied from
 the ottava:
 
+⭐ **The selection colour (2026-08-19):** the ELEMENT ink, not a voice's — a pedal has no voice
+(one damper serves the staff, whose music may be in any of them), and the wedge/8va/pedal trio moved
+off voice colours together. See `utils/selectionColors` for the rule and `docs/ottava-plan.md` for
+the same note.
+
 - **`pedalGroupMap`** — six sites, because a highlight recolours a drawn `<g>` and something has to
   remember which one: the field on `RenderPass`, the private map + the `pass` literal + the `clear()`
   + the `getPedalSVGGroup` accessor in `VexFlowRenderer`, and the one-line delegation on

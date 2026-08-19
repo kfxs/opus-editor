@@ -745,8 +745,11 @@ band machinery.
   - **The highlight paints BOTH kinds of ink.** It is the only selected element that does: the
     numeral and its continuation parens are `<text>` that must be FILLED, the dashes and the hook are
     `<path>`s that must be STROKED. The trill recolours text only; the hairpin stroke only.
-    ⚠️ And it uses voice 0's colour deliberately — an ottava has no voice, so colouring it by
-    whatever happened to be under it would say something the model does not.
+    ⭐ **Amended 2026-08-19:** it paints in the ELEMENT ink (`selectionColors.ELEMENT_SELECTION_FILL`,
+    the dynamic's and the tempo mark's), ⛔ no longer voice 0's. An ottava has no voice, and voice 0's
+    blue was still a VOICE colour — it said "this belongs to voice 1" about a mark that transposes
+    every note under it. The rule: a voice colour is for ink that BELONGS to one voice's notes, which
+    the trill is (its auxiliary is a step above THAT pitch) and a region-governing mark is not.
   ⚠️ **Delete has the biggest audible consequence of any kind in that switch**, and it is written at
   the site: removing the bracket leaves the written pitch alone, so the passage drops back an octave.
   That is what storing written pitch MEANS, not a surprise to guard against.

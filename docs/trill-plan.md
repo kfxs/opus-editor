@@ -514,6 +514,14 @@ follows in every respect — but ⚠️ **a branch alone will not do**:
   **containment first**, proximity second: a wedge is two thin arms, but a trill is a solid run of
   glyphs, so `distToSegment` alone would leave the middle of a tall band cold.
 
+  ⭐ **A third, added 2026-08-19: its COLOUR.** The trill is the one mark in this family that keeps a
+  VOICE colour — his reason, *"a trill is always associated to a note, so the trill has the color of
+  the note voice it is anchored to"* (its auxiliary is a step above THAT pitch). ⚠️ Read off the
+  start NOTE, not `Trill.voice`: the slur's rule, because the field is written at creation and a
+  later voice move does not chase it. The hairpin, the 8va and the pedal take the ELEMENT ink
+  instead — each governs a region rather than belonging to one voice's notes
+  (`utils/selectionColors`).
+
   ⭐ `InspectedElement` gained a **`derived`** slot for the Properties panel, for the same reason it
   keeps `overrides` separate from `data`: the trill's auxiliary is computed, not stored, so folding
   it into `data` would show a shape the model does not have — and "what does this trill play?" is
