@@ -973,6 +973,12 @@ export class ScoreModel {
     return tempoOps.moveTempoBySlot(this.score, id, direction)
   }
 
+  /** Put a tempo mark on `target` — the DRAG's landing when it leaves its system.
+   *  See {@link tempoOps.setTempoAtSlot}. */
+  setTempoAtSlot(id: string, target: tempoOps.Stop): boolean {
+    return tempoOps.setTempoAtSlot(this.score, id, target)
+  }
+
   /** The same, KEEPING the mark's own nudge — the interpolating walk's invisible crossing.
    *  See {@link tempoOps.setTempoAtSlotKeepingOffset}. */
   setTempoAtSlotKeepingOffset(id: string, target: tempoOps.Stop): boolean {

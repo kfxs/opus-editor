@@ -33,13 +33,11 @@ import type { Dynamic, Score } from '../types/music'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { systemStopFor } from './markSystemJump'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the three reads
  *  without a renderer. */
 export type LaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'>
-
-/** A painted staff's five lines, top to bottom — `ElementRegistry.staffBands()`' shape. */
-type StaffBand = { top: number; bottom: number }
 
 /** A slot of the mark's lane as it was DRAWN: the centre of its ink, and the address it stands for. */
 export interface DynamicLaneHead {
@@ -73,38 +71,10 @@ export function dynamicLaneHeads(engine: LaneEngine, dynamic: Dynamic): DynamicL
 }
 
 /**
- * ⭐⭐ **THE SLOT ON THE SYSTEM THE MARK NOW BELONGS TO** — the one move a dragged dynamic cannot make
- * as a continuous walk (his report, 2026-08-19: *"it does not catch other system"*).
- *
- * ⭐ **Two rules, because there are two questions.** WITHIN a system, where the mark sits is
- * continuous — ink, with the anchor handed along at each notehead (`./dynamicWalk`). BETWEEN systems
- * there is nothing continuous to travel through: two systems' x's are not one ruler, so the walk
- * refuses to cross a break and always will. Coming down onto the staff below is therefore a JUMP.
- *
- * ## ⭐⭐ The limit is WHERE THIS MARK WOULD LOOK AT HOME — ⛔ not the staff's five lines
- *
- * His call, 2026-08-19, having tried it: *"crossing the stave is not a good limit… a more organic
- * limit vertically"*. Crossing the pentagram is both late (the mark has to be dragged right onto the
- * next staff before it belongs to it) and lopsided (a dynamic hangs BELOW its staff, so the staff
- * above it is much further away than the one below).
- *
- * So: measure, off the last render, the mark's **natural** distance from its own staff — its drawn
- * ink with its own lift taken back out. That same distance from any other staff is where this mark
- * *would* be drawn if it belonged to that system. The mark belongs to the nearest of those, and the
- * switch therefore falls exactly halfway between "where it sits here" and "where it would sit
- * there".
- *
- * ⭐ Nothing in it is a constant: the natural gap is measured every frame (it contains whatever the
- * ladder granted this mark — a hairpin, a trill, an expression word on the same line), and the
- * staves are the painted ones. ⭐ It mirrors itself for an `above` mark by measuring from the staff's
- * TOP line instead of its bottom, so the whole rule is one sentence in either direction.
- *
- * ⭐ It also needs no travel history, unlike a crossing test: a frame taller than a whole system is
- * judged by where it ENDED, so a fast hand cannot fly over a staff.
- *
- * ⚠️ Answers null while the mark still belongs where it is (that is the walk's business), when the
- * mark was not drawn (nothing to measure), and when the system it now belongs to carries no music in
- * the mark's lane — there would be nothing to anchor to.
+ * ⭐⭐ **THE SLOT ON THE SYSTEM THE MARK NOW BELONGS TO** — the dynamic's PORT into the shared rule
+ * (`./markSystemJump`, extracted 2026-08-19 when the tempo mark's drag wanted the same one). The
+ * rule and its reasons live there; what is here is where a dynamic's candidates are, which side it
+ * hangs on, and how its lift converts to pixels.
  */
 export function systemSlotFor(
   engine: LaneEngine,
@@ -114,59 +84,20 @@ export function systemSlotFor(
   inkY: number,
   staffSpacePx: number,
 ): DynamicSlotTarget | null {
-  const bands = engine.getElementRegistry().staffBands()
-  if (bands.length < 2) return null
-
   const heads = dynamicLaneHeads(engine, dynamic)
-  if (!heads.length) return null
-
-  const drawn = markInkY(engine, dynamic.id)
-  if (drawn === null) return null
-
-  // The mark's own staff is the one its ANCHOR stands on — ⛔ not the one its ink is nearest, which
-  // is the whole point of a mark that has been carried away from home.
   const address = dynamicAddress(engine.getScore(), dynamic.id)
   const anchor = address && heads.find(h =>
     h.target.measure === address.measure && fracCompare(h.target.beat, address.beat) === 0)
-  if (!anchor) return null
-  const home = nearestBand(bands, anchor.y)
 
-  // Where the ENGRAVER put this mark, and how far that is from the edge of its own staff.
-  const above = (dynamic.placement ?? 'below') === 'above'
-  const lift = (dynamicOffsetOverrideOf(engine.getScore(), dynamic.id)?.y ?? 0) * staffSpacePx
-  const naturalGap = (drawn - lift) - edgeOf(home, above)
-
-  const target = bands.reduce((a, b) =>
-    Math.abs(inkY - (edgeOf(b, above) + naturalGap)) < Math.abs(inkY - (edgeOf(a, above) + naturalGap)) ? b : a)
-  if (target === home) return null
-
-  // …and the x picks the slot within that system, on its own axis. ⛔ Never one hypotenuse over both
-  // axes: a pitch difference inside a system would then outvote a hundred pixels of x.
-  let best: DynamicSlotTarget | null = null
-  let bestDistance = Infinity
-  for (const head of heads) {
-    if (nearestBand(bands, head.y) !== target) continue
-    const d = Math.abs(cursorX - head.x)
-    if (d < bestDistance) { bestDistance = d; best = head.target }
-  }
-  return best
-}
-
-/** The staff line a mark of this placement hangs off: the TOP for one above, the BOTTOM for one
- *  below. What makes the rule read the same in both directions. */
-function edgeOf(band: StaffBand, above: boolean): number {
-  return above ? band.top : band.bottom
-}
-
-/** Which painted staff a y belongs to — the one whose five lines it is inside, or nearest to (a
- *  notehead on ledger lines is outside its own staff, and still that staff's). */
-function nearestBand(bands: StaffBand[], y: number): StaffBand {
-  return bands.reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
-}
-
-/** 0 inside the band, else the gap to its nearer edge. `ElementRegistry.staffIndexAtY`'s arithmetic. */
-function bandDistance(band: StaffBand, y: number): number {
-  return y < band.top ? band.top - y : y > band.bottom ? y - band.bottom : 0
+  return systemStopFor<DynamicSlotTarget>({
+    bands: () => engine.getElementRegistry().staffBands(),
+    candidates: () => heads.map(h => ({ x: h.x, y: h.y, stop: h.target })),
+    anchor: () => anchor ?? null,
+    inkY: () => markInkY(engine, dynamic.id),
+    // ⚠️ A dynamic's stored `y` is already SCREEN-signed (+down), unlike the tempo mark's.
+    liftPx: () => (dynamicOffsetOverrideOf(engine.getScore(), dynamic.id)?.y ?? 0) * staffSpacePx,
+    above: () => (dynamic.placement ?? 'below') === 'above',
+  }, cursorX, inkY)
 }
 
 /** The vertical centre of the mark's own ink in the last render, or null if it drew none (culled,

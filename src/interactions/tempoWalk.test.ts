@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkTempo } from './tempoWalk'
+import { dragTempo, walkTempo } from './tempoWalk'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -25,6 +25,9 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
+      // One system in this fixture: nothing to jump to, so every case is about the WALK and the
+      // LATCH. `markSystemJump.test.ts` owns the crossing between systems.
+      staffBands: () => [{ top: 40, bottom: 80 }],
     }))
   },
 }))
@@ -140,5 +143,58 @@ describe('walkTempo', () => {
     walkTempo(engine, markId, 1) // the crossing press
     expect(engine.getEffectiveTempoAt(1, frac(2, 1))).toBe(144)
     expect(engine.getEffectiveTempoAt(1, frac(1, 1))).not.toBe(144)
+  })
+
+  it('⭐⭐ the DRAG is the same journey — one 10-press frame lands where 10 presses do', () => {
+    expect(dragTempo(engine, markId, 0, 100, 0)).toBe(true)
+    expect(at()).toBe('1@2')
+    expect(offsetX()).toBeCloseTo(0, 6)
+  })
+
+  it('⭐⭐ …and it LATCHES on the anchor, so Gould’s alignment is reachable EXACTLY', () => {
+    // His call, 2026-08-19. The ink is pushed 5 spaces out and then dragged 8 back: it stops DEAD at
+    // offset zero rather than sailing 3 spaces past, because that position — where the engraver put
+    // the mark — is the one most likely to be wanted, and luck is no way to hit it.
+    dragTempo(engine, markId, 0, 50, 0)
+    expect(offsetX()).toBeCloseTo(5, 6)
+    expect(dragTempo(engine, markId, 0, -80, 0)).toBe(true)
+    expect(offsetX(), 'stopped dead on the anchor').toBeCloseTo(0, 6)
+    expect(at(), 'and it did not cross').toBe('1@1')
+  })
+
+  it('…and the ink can still LEAVE an anchor it is latched on', () => {
+    // ⛔ The guard that makes the latch a stop rather than a trap: at zero every direction "passes
+    // through", so latching there unconditionally would pin the mark for good.
+    dragTempo(engine, markId, 0, 50, 0)
+    dragTempo(engine, markId, 0, -80, 0)
+    dragTempo(engine, markId, 0, -20, 0)
+    expect(offsetX()).toBeCloseTo(-2, 6)
+  })
+
+  it('⭐ the drag moves BOTH axes, and the vertical is OUTWARD — a cursor going DOWN lowers it', () => {
+    // ⚠️ The one conversion this mark needs: the cursor is screen-down and the model is +up.
+    dragTempo(engine, markId, 0, 0, 30)
+    expect(offsetY(), 'dragging down is a NEGATIVE outward offset').toBeCloseTo(-3, 6)
+  })
+
+  it('⭐ …and the lift SURVIVES a crossing — a tempo’s y answers the ladder’s row', () => {
+    // ⛔ Unlike the slur endpoint's drag, which settles its y at a crossing because that lift answers
+    // one note's stem and beam.
+    dragTempo(engine, markId, 0, 0, -20)   // 2 spaces up
+    dragTempo(engine, markId, 0, 100, 0)   // one whole gap right → crosses
+    expect(at()).toBe('1@2')
+    expect(offsetY()).toBeCloseTo(2, 6)
+  })
+
+  it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
+    dragTempo(engine, markId, 0, 30, 0)
+    engine.undo()
+    expect(at(), 'the undo took back the mark itself, so the frame pushed nothing').toBe('gone')
+  })
+
+  it('⛔ the drag DECLINES (null) when the mark is not drawn — ⚠️ null, not false', () => {
+    render([100, 200, 300, 400], null)
+    expect(dragTempo(engine, markId, 0, 100, 0)).toBeNull()
+    expect(offsetX()).toBe(0)
   })
 })

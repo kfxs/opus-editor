@@ -443,6 +443,14 @@ Where it lives: `dynamicOps.nextDynamicSlot` + `setDynamicAtSlotKeepingOffset` �
 the horizontal branch of `nudgeSelectedDynamic` in `shortcutWiring`. Tests: `dynamicWalk.test.ts`
 (the arithmetic, over a fabricated render — jsdom draws nothing) and `dynamicOps.test.ts`.
 
+### ⭐⭐ EXTRACTED, 2026-08-19 — the walk is now shared with the tempo mark
+
+Everything below still describes what the dynamic does; where it LIVES changed when the tempo mark
+asked for the same gesture. The arithmetic is `interactions/markWalk.ts` and the system rule is
+`interactions/markSystemJump.ts`, each taking a per-mark PORT; `dynamicWalk` and `dynamicLane` keep
+the dynamic's answers and nothing else. ⛔ A third mark writes a port, never a copy. The dynamic's
+own tests passed untouched through both extractions, which is the evidence they moved nothing.
+
 ### The MOUSE, the same day
 
 **The drag is now the same gesture** (`dragDynamic` + `MouseController.handleDynamicDrag`): one frame

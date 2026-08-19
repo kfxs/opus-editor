@@ -38,6 +38,24 @@
  * ⛔ **The vertical is not in here.** ↑/↓ stay a pure offset: these marks' stops run sideways, so
  * there is nothing above or below to arrive at. `dy` rides along untouched for the callers that have
  * one (a drag moves both axes in one gesture).
+ *
+ * ## ⭐⭐ THE LATCH — offset zero must be reachable EXACTLY, not by luck
+ *
+ * Optional, and off for the keyboard (a press is a considered edit of a quarter space, and a key
+ * that refused to leave the anchor would be a key that does nothing). A DRAG turns it on: the ink
+ * stops dead at **offset zero of the nearest stop in the direction of travel**, which is where the
+ * engraver put the mark and therefore the position most likely to be wanted. Crossing onto the next
+ * stop and coming BACK to the one it already has are the same event, so one rule covers both.
+ *
+ * ⭐ It is the half of `./slurEndpointWalk`'s snap-and-go that costs nothing: Baudisch's complaint
+ * about radius snapping is that the band either side of an anchor becomes unreachable, and a latch
+ * makes the anchor reachable without taking anything away. The other half — motor space at the
+ * anchor, repaid at a gain — is deliberately NOT here (his call for the tempo mark, 2026-08-19: its
+ * stops are onsets, often far apart, and the hold's three tuned numbers would have to be found again
+ * against that spacing).
+ *
+ * ⛔ `offset !== 0` is what lets the ink LEAVE a stop it is sitting on: at zero every direction
+ * "passes through" zero, so latching there would pin the mark for good.
  */
 import { dbg } from '../utils/debug'
 
@@ -117,7 +135,14 @@ export function markWalkCrosses(port: MarkWalkPort, dx: number): boolean {
  *
  * @returns how many stops the anchor crossed, and whether anything was written at all.
  */
-export function carryMark(port: MarkWalkPort, dx: number, dy = 0): { crossings: number; moved: boolean } {
+export function carryMark(
+  port: MarkWalkPort,
+  dx: number,
+  dy = 0,
+  /** ⭐ Stop the ink dead at offset zero when the move would carry it through — the DRAG's latch,
+   *  off for the keyboard. See the header. */
+  latching = false,
+): { crossings: number; moved: boolean; latched: boolean } {
   let crossings = 0
   for (; crossings < 32; crossings++) {
     const arrival = arrivedAt(port, dx)
@@ -128,8 +153,17 @@ export function carryMark(port: MarkWalkPort, dx: number, dy = 0): { crossings: 
     port.nudge(-arrival.gap, 0)
     dbg(`[${port.label}] walked onto its next stop (gap ${arrival.gap.toFixed(2)}ss)`)
   }
+  // ⭐⭐ THE LATCH — see the header. The move is CUT SHORT: whatever travel is left over is dropped,
+  // which is the point (the anchor's own position is what the hand was reaching for).
+  const offset = port.offsetX()
+  if (latching && dx !== 0 && offset !== 0 && Math.sign(offset + dx) !== Math.sign(offset)) {
+    const moved = port.nudge(-offset, dy)
+    dbg(`[${port.label}] latched on its anchor (dropped ${Math.abs(offset + dx).toFixed(2)}ss)`)
+    return { crossings, moved: crossings > 0 || moved, latched: true }
+  }
+
   // ⚠️ Guarded: a drag frame whose delta rounded to nothing must not write, or every mouse move over
   // a held-still hand marks the model dirty and repaints the score.
   const nudged = (dx !== 0 || dy !== 0) && port.nudge(dx, dy)
-  return { crossings, moved: crossings > 0 || nudged }
+  return { crossings, moved: crossings > 0 || nudged, latched: false }
 }

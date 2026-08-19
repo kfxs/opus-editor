@@ -354,6 +354,75 @@ rect and let `DomTextEdit` do the ascent correction once, for dynamics and tempo
 
 ---
 
+## 10. MOVING THE MARK BY HAND — the four gestures (his asks, 2026-08-19)
+
+A tempo mark now moves the way every other outside-staff family does, and the split is the editor's
+standing one: **plain / `Ctrl` arrows own the INK, `Ctrl+Shift`+arrow owns the MUSIC.** Here the
+second is *audible* — the tempo applies from the beat it lands on, so `utils/tempoMap` moves with it.
+
+| gesture | what it does | where |
+|---|---|---|
+| ←→↑↓ / `Ctrl`+arrow | nudge the ink ¼ / 1 staff-space | `shortcutWiring.nudgeSelectedTempo` |
+| ←→ / `Ctrl`+←→ | …and the anchor follows at ARRIVAL — the interpolating walk | `interactions/tempoWalk` |
+| `Ctrl+Shift`+←→ | re-anchor a whole onset | `engine/models/tempoOps.moveTempoBySlot` |
+| `Ctrl+Backspace` | drop the nudge | `MusicEngine.resetTempoOffset` |
+| Properties `offset (sp)` | type it, absolute | `bus.tempoOffset` → `TempoOffsetController` |
+| drag the mark | the walk, with a LATCH, plus a jump between systems | `tempoWalk.dragTempo` |
+
+### 10.1 The offset is client #13, and 🚨 its `y` is OUTWARD
+
+`TempoOffsetOverride {x, y}` in staff-spaces, id-keyed, accumulating, cleared at (0,0). ⚠️ **`y` is
++UP — away from the staff — and it is the only offset in the compartment that is not screen-down**
+(his report: *"the y is inverted, a high value makes the text down"*). A dynamic hangs BELOW its
+staff, so screen-down already reads as "further away"; a tempo sits ABOVE, where a number a human
+types means *how far from the staff*. Converted in exactly two places — `TempoLayout` (the render)
+and `MusicEngine.nudgeTempoOffset` (the page limit) — and nowhere else may assume a sign. Guarded by
+a browser test, since a translate is geometry.
+
+The three id-keyed traps the dynamic's offset taught us are paid up front: the override is in the
+bar's **shape key**, it rides the **rebar capture/restore seam** (`restoreBeatAnchors` mints a fresh
+id for every tempo mark), and it **dies with the mark** at the model level.
+
+### 10.2 The walk, and what it shares
+
+⭐⭐ **The arithmetic lives once, in `interactions/markWalk.ts`**, with each mark a PORT (where its
+stops are, how far away they are drawn, which ops move it). The dynamic and the tempo mark are the
+two rows; a third mark writes a port, ⛔ never a copy. Shared: the identity
+(`offset += step − gap`), ARRIVAL rather than midpoint, the invisible re-base (which needs a
+keep-the-offset model write, `setTempoAtSlotKeepingOffset`), the refusal to subtract two x's across a
+system break, the loop a drag frame needs, and the LATCH.
+
+⭐⭐ **A tempo mark has no lane.** Its stops are every ONSET in the score — all staves, all voices, a
+column counting once — because it governs the clock, where a dynamic speaks for one voice and a pedal
+for one staff. ⭐ At most one mark per beat, so a taken stop is REFUSED: ⛔ never overwritten (silent
+data loss), ⛔ never stacked (a contradiction the tempo map would resolve by array order).
+
+⚠️ **The known approximation**: the gap is measured NOTE to NOTE, but §6.5's anchor for a downbeat is
+the TIME SIGNATURE when the bar prints one — so a crossing onto such a stop is visible by the
+clef-and-timesig width. The exact re-base needs a layout that has not happened; `slurEndpointWalk`
+hit the same wall and MuseScore's lines take the same approximation. ⏭️ The fix is to register each
+measure's tempo-anchor x. ⭐ The drag's LATCH already repairs it for the position that matters, since
+"offset zero" is a fact about the model rather than a measured distance.
+
+### 10.3 The drag — the latch, and not the hold
+
+⭐⭐ **The latch** (his call): the ink stops dead at offset zero of the stop it is nearest in the
+direction of travel, so the engraver's own alignment is reachable EXACTLY rather than by luck. It is
+the half of snap-and-go (Baudisch, CHI 2005 — in `reference/`) that costs nothing.
+
+⛔ **No hold and no catch-up**, unlike the slur endpoint's drag. Those exist because an endpoint is
+*aimed* at a note along a dense line of them; a tempo's stops are onsets, often far apart, and the
+slur's three tuned numbers (ratio 0.8, the 30 px cap, `G = 1/(1−r)`) were found by hand against note
+spacing. Re-tuning them here is a separate exercise, and only worth it if the drag feels slippery.
+
+⭐ **Both axes**, with the outward→screen conversion in one line; ⭐ the lift SURVIVES a crossing (a
+tempo's lift answers the ladder's ROW, ⛔ unlike a slur endpoint's, which answers one note's stem and
+therefore settles). ⭐⭐ **Leaving a system is a JUMP** — `interactions/markSystemJump`, shared with the
+dynamic: the mark belongs to whichever system it would LOOK AT HOME on (its natural distance from its
+own staff, read from every other staff), so the switch falls halfway between where it sits and where
+it would sit. 🚨 The mark's own lift must come back out of that measurement first, or its "home"
+follows it down for ever and the switch never arrives.
+
 ## 9. Deferred (recorded so they stay reachable, not so they get built)
 
 - `rit.` / `accel.` — **spans**, not points; playback ramps instead of stepping. The tempo-map

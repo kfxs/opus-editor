@@ -107,6 +107,9 @@ export interface ElementChainDeps {
    *  on the SELECTING press — the time threshold, not a second click, is what separates a drag from
    *  a click. The event travels because arming must also `preventDefault`. */
   armDynamicDrag(dynamicId: string, event: MouseEvent): void
+  /** Arm the drag that walks a tempo mark through the music — the mark is its own handle, exactly as
+   *  a dynamic is (`interactions/tempoWalk`). */
+  armTempoDrag(tempoId: string, event: MouseEvent): void
   /** Arm the drag that moves a whole hairpin's INK — a press on the wedge's BODY, where a press on
    *  one of its squares moves that end through the music instead. Takes the press point because the
    *  gesture is a pixel delta from it, not a snap to anything. */

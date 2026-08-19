@@ -152,6 +152,19 @@ export function setTempoAtSlotKeepingOffset(score: Score, id: string, target: St
   return placeTempo(score, id, target, false)
 }
 
+/**
+ * ⭐ **PUT THE MARK ON `target`** — the write a DRAG lands with when it leaves the mark's own system
+ * (`interactions/tempoWalk`), where the walk's crossings use the keep-the-nudge twin above. It takes
+ * the whole-stop rule: the sideways nudge goes, because a jump is the user saying *"not there"*.
+ *
+ * ⚠️ Declines (false) for an id no longer in the score, a target that is not a bar of it, the mark's
+ * own address (nothing to do — and a caller that repainted on a true would repaint every frame), and
+ * a beat another tempo mark already holds.
+ */
+export function setTempoAtSlot(score: Score, id: string, target: Stop): boolean {
+  return placeTempo(score, id, target, true)
+}
+
 /** {@link moveTempoBySlot} and its keep-the-nudge twin, which differ by one line. */
 function placeTempo(score: Score, id: string, dest: Stop, clearOffset: boolean): boolean {
   const found = locate(score, id)

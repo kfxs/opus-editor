@@ -20,6 +20,7 @@ import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { dragDynamic } from './dynamicWalk'
+import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampTrillAtClick } from './trillStamp'
 import { stampOttavaAtClick } from './ottavaStamp'
@@ -299,6 +300,16 @@ export class MouseController {
   private dynamicDragLastX: number | null = null
   private dynamicDragLastY = 0
   private dynamicDragStartTime: number | null = null
+
+  // --- Tempo mark drag (docs/tempo-marks-plan.md). The dynamic's arrangement above, one mark over:
+  //     the MARK is its own handle, so this arms on the very press that selects it, and the frame
+  //     runs the same interpolating walk with a LATCH (his call — a tempo wants its anchor exactly).
+  private isDraggingTempo = false
+  private draggedTempoId: string | null = null
+  private tempoDragChanged = false
+  private tempoDragLastX: number | null = null
+  private tempoDragLastY = 0
+  private tempoDragStartTime: number | null = null
 
   // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
   //     plan.md, the 2026-08-17 note). The RIGHT square re-lengths the wedge, the LEFT one moves its
@@ -727,6 +738,7 @@ export class MouseController {
       if (engine) this.armBarWidthDrag(engine, measure, x)
     },
     armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
+    armTempoDrag: (tempoId, event) => this.armTempoDrag(tempoId, event),
     armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
     armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
@@ -773,6 +785,18 @@ export class MouseController {
    * MOVE. ⛔ That is also why this must not consume the press: the double-click that opens the text
    * editor has already been decided one branch above, and a plain click still selects.
    */
+  /** ⭐ Arm the drag that walks a tempo mark — {@link armDynamicDrag}'s twin, and armed on the
+   *  SELECTING press for its reason: the mark has no handle but itself. ⛔ It must not consume the
+   *  press, or the double-click that opens the text editor (decided one branch above) would break. */
+  private armTempoDrag(tempoId: string, event: MouseEvent): void {
+    this.isDraggingTempo = true
+    this.draggedTempoId = tempoId
+    this.tempoDragChanged = false
+    this.tempoDragLastX = null
+    this.tempoDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
   private armDynamicDrag(dynamicId: string, event: MouseEvent): void {
     this.isDraggingDynamic = true
     this.draggedDynamicId = dynamicId
@@ -1660,6 +1684,9 @@ export class MouseController {
     if (this.isDraggingSlurEndpoint) {
       this.endSlurEndpointDrag()
     }
+    if (this.isDraggingTempo) {
+      this.endTempoDrag()
+    }
     if (this.isDraggingDynamic) {
       this.endDynamicDrag()
     }
@@ -1766,6 +1793,21 @@ export class MouseController {
     this.staffSpacingDragStartTime = null
   }
 
+
+  /** Finish a tempo drag: record one undo entry if the mark actually moved, then reset. The mark
+   *  stays selected — the drop ends the gesture, not the selection. */
+  private endTempoDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.tempoDragChanged) {
+      engine.commitTempoDrag()
+      dbg(`Tempo mark dragged | id:${this.draggedTempoId}`)
+    }
+    this.isDraggingTempo = false
+    this.draggedTempoId = null
+    this.tempoDragChanged = false
+    this.tempoDragLastX = null
+    this.tempoDragStartTime = null
+  }
 
   /** Finish a dynamic drag: record one undo entry if the mark actually moved, then reset. The mark
    *  stays selected — the drop ends the gesture, not the selection — so the arrows can carry on
@@ -2436,6 +2478,7 @@ export class MouseController {
     if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
     if (this.handleSlurHandleDrag(engine, x, y)) return
+    if (this.handleTempoDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
     if (this.handleHairpinEndDrag(engine, x, y)) return
     if (this.handleHairpinBodyDrag(engine, x, y)) return
@@ -2644,6 +2687,40 @@ export class MouseController {
    * the travel that decided this was a drag rather than a click belongs to neither, and charging it
    * would start the gesture with a jump.
    */
+  /**
+   * ⭐⭐ **One frame of a TEMPO MARK drag** — {@link handleDynamicDrag}'s twin, sharing its
+   * arithmetic (`./markWalk`) and differing in the two ways the marks differ.
+   *
+   * ⭐ **It LATCHES** (his call, 2026-08-19): the ink stops dead at offset zero of the stop it is
+   * nearest, so Gould's own alignment is reachable exactly rather than by luck. ⛔ Still no hold and
+   * no catch-up — the slur endpoint's motor space was tuned against note spacing, and a tempo's
+   * stops are onsets.
+   *
+   * ⚠️ The delta is measured from the last ACCEPTED frame, and the baseline is taken on the first
+   * frame PAST the time threshold — the dynamic drag's two rules, for its reasons.
+   */
+  private handleTempoDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingTempo && this.draggedTempoId)) return false
+    if (this.tempoDragStartTime !== null
+        && Date.now() - this.tempoDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    if (this.tempoDragLastX === null) {
+      this.tempoDragLastX = x
+      this.tempoDragLastY = y
+      return true
+    }
+
+    const moved = dragTempo(
+      engine, this.draggedTempoId, x, x - this.tempoDragLastX, y - this.tempoDragLastY)
+    if (moved === null) return true
+    if (moved) {
+      this.tempoDragLastX = x
+      this.tempoDragLastY = y
+      this.tempoDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
   private handleDynamicDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingDynamic && this.draggedDynamicId)) return false
     if (this.dynamicDragStartTime !== null

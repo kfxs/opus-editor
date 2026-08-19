@@ -26,11 +26,14 @@ import type { Stop } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
 import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { systemStopFor } from './markSystemJump'
+import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type TempoWalkEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextTempoSlot' | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'>
+  | 'nextTempoSlot' | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
+  | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'>
 
 /** Where the mark is anchored now — its address, read from the list it is stored in (the measure is
  *  half of it, exactly as a dynamic's is). Null when the id is no longer in the score. */
@@ -43,25 +46,50 @@ function tempoAddress(engine: TempoWalkEngine, id: string): Stop | null {
 }
 
 /**
- * Where an onset was DRAWN, in pixels — the centre of its ink.
+ * Every onset the last render DREW, once each, at the centre of its ink.
  *
  * ⭐ **The TOP staff's element wins**, because that is the staff the mark is engraved above and the
  * one `TempoLayout.anchorX` measures against. A stop that exists only lower down (a left-hand attack
- * under a right-hand rest) still answers, with that staff's x — the two staves share a column, so the
- * number is the same to within the column's own spread.
+ * under a right-hand rest) still answers, with that staff's point — the two staves share a column,
+ * so the x is the same to within the column's own spread.
  */
-function onsetX(engine: TempoWalkEngine, stop: Stop): number | null {
+function drawnOnsets(engine: TempoWalkEngine): Array<{ x: number; y: number; stop: Stop }> {
   const registry = engine.getElementRegistry()
-  let best: { x: number; staff: number } | null = null
+  const out: Array<{ x: number; y: number; stop: Stop; staff: number }> = []
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)
-    if (!note || note.measure !== stop.measure || fracCompare(note.beat, stop.beat) !== 0) continue
+    if (!note) continue
     const staff = el.staff ?? 0
-    if (best && best.staff <= staff) continue
-    best = { x: el.bbox.x + el.bbox.width / 2, staff }
+    const found = out.find(o => o.stop.measure === note.measure && fracCompare(o.stop.beat, note.beat) === 0)
+    if (found && found.staff <= staff) continue
+    const point = {
+      x: el.bbox.x + el.bbox.width / 2,
+      y: el.bbox.y + el.bbox.height / 2,
+      stop: { measure: note.measure, beat: note.beat },
+      staff,
+    }
+    if (found) Object.assign(found, point)
+    else out.push(point)
   }
-  return best?.x ?? null
+  return out
+}
+
+/** Where one onset was drawn, or null when the last render drew none there. */
+function onsetPoint(engine: TempoWalkEngine, stop: Stop): { x: number; y: number } | null {
+  return drawnOnsets(engine).find(o =>
+    o.stop.measure === stop.measure && fracCompare(o.stop.beat, stop.beat) === 0) ?? null
+}
+
+/** The vertical centre of the mark's own ink in the last render, or null if it drew none. */
+function markInkY(engine: TempoWalkEngine, id: string): number | null {
+  const el = engine.getElementRegistry().getByType('tempo').find(e => e.id === id)
+  return el ? el.bbox.y + el.bbox.height / 2 : null
+}
+
+/** Pixels per staff-space at the drawn mark. ⛔ Never a constant — `./markWalk`'s no-guessing rule. */
+function staffSpacePxOf(engine: TempoWalkEngine, id: string): number | null {
+  return engine.getElementRegistry().getByType('tempo').find(el => el.id === id)?.staffSpacePx ?? null
 }
 
 /** The port: everything `./markWalk` needs of this mark, and the whole of what is tempo-specific. */
@@ -80,14 +108,12 @@ function tempoPort(
     // nudged. ⚠️ It does not skip an onset another mark sits on — the model refuses the write, and
     // the walk then stops there, which is the same answer as the end of the score.
     nextStop: (direction) => engine.nextTempoSlot(id, direction),
-    stopX: (stop) => onsetX(engine, stop as Stop),
+    stopX: (stop) => onsetPoint(engine, stop as Stop)?.x ?? null,
     anchorX: () => {
       const here = tempoAddress(engine, id)
-      return here ? onsetX(engine, here) : null
+      return here ? onsetPoint(engine, here)?.x ?? null : null
     },
-    // ⛔ No fallback constant — `./markWalk`'s no-guessing rule. Read off the DRAWN mark.
-    staffSpacePx: () =>
-      engine.getElementRegistry().getByType('tempo').find(el => el.id === id)?.staffSpacePx ?? null,
+    staffSpacePx: () => staffSpacePxOf(engine, id),
     offsetX: () => tempoOffsetOverrideOf(engine.getScore(), id)?.x ?? 0,
     reanchor: (stop) => write.reanchor(id, stop as Stop),
     nudge: (dx, dy) => write.nudge(id, dx, dy),
@@ -119,4 +145,91 @@ export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): bool
   let moved = false
   engine.runBatch('Move tempo mark', () => { moved = carryMark(port, dx).moved })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A TEMPO MARK DRAG** — the same move with the cursor's delta in PIXELS, no undo
+ * entry (the drop commits once, {@link MusicEngine.commitTempoDrag}), and two things the keyboard
+ * does not have.
+ *
+ * ⭐⭐ **THE LATCH** (his call, 2026-08-19: *"tempo should be more precise with the anchor point
+ * alignment, so the snap is a better UX"*). The ink stops dead at offset zero of the stop it is
+ * nearest in the direction of travel, so Gould's own alignment — the time signature, or the first
+ * notational element — is reachable EXACTLY rather than by luck. ⭐ It is the half of the slur's
+ * snap-and-go that costs nothing (`./markWalk`); the other half, motor space repaid at a gain, is
+ * deliberately left out: a tempo's stops are onsets, often far apart, and the slur's three tuned
+ * numbers were found against note spacing rather than that.
+ *
+ * ⭐ And the latch repairs the one approximation in this walk: `offset zero` is a fact about the
+ * MODEL, so latching lands the mark on its true anchor even where the note-to-note gap
+ * over-or-under-states the distance (a downbeat mark's anchor being the time signature).
+ *
+ * ⭐⭐ **BOTH AXES**: the horizontal walks the mark through the music, `dy` is a plain ink offset.
+ * ⚠️ Converted here, because this mark's stored `y` is OUTWARD (+up) while a cursor's is screen-down.
+ * ⭐ The lift SURVIVES a crossing, as it does on the keys — a tempo's lift answers the ladder's ROW,
+ * not one note's stem (⛔ unlike the slur endpoint's drag, which settles its y).
+ *
+ * ⛔ Declines — **null**, not `false` — when the mark is not drawn, so there is no staff-space size to
+ * convert the cursor's pixels with.
+ */
+export function dragTempo(
+  engine: TempoWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): boolean | null {
+  const ss = staffSpacePxOf(engine, id)
+  if (!ss) return null
+
+  if (jumpSystems(engine, id, cursorX, dyPx, ss)) return true
+
+  const port = tempoPort(engine, id, {
+    reanchor: (i, target) => engine.previewTempoSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.previewTempoOffset(i, ddx, ddy),
+  })
+  // ⚠️ `dyPx` is screen-down and the model is OUTWARD, so the sign flips exactly here.
+  return carryMark(port, dxPx / ss, -dyPx / ss, true).moved
+}
+
+/**
+ * ⭐⭐ **LEAVING THE MARK'S OWN SYSTEM** — the half of a drag the walk cannot do, `dynamicLane`'s
+ * twin through the shared rule (`./markSystemJump`): the mark belongs to whichever system it would
+ * look at home on, so the switch falls halfway between where it sits and where it would sit.
+ *
+ * ⭐⭐ A jump lands the mark where the ENGRAVER would put it — the offset goes, both axes. The `x`
+ * goes because every re-anchor drops it; the `y` because on this gesture it is not a lift at all but
+ * the distance the hand travelled to reach the other staff.
+ *
+ * ⛔ And the frame stops there: the walk does not also run, or this frame's `dx` would be spent
+ * against a stop the hand was never near.
+ */
+function jumpSystems(
+  engine: TempoWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+  staffSpacePx: number,
+): boolean {
+  const inkY = markInkY(engine, id)
+  const here = tempoAddress(engine, id)
+  if (inkY === null || !here) return false
+  const onsets = drawnOnsets(engine)
+
+  const target = systemStopFor<Stop>({
+    bands: () => engine.getElementRegistry().staffBands(),
+    candidates: () => onsets,
+    anchor: () => onsetPoint(engine, here),
+    inkY: () => inkY,
+    // ⚠️ OUTWARD → screen: this mark's stored `y` is +up, and the rule reasons in screen pixels.
+    liftPx: () => -(tempoOffsetOverrideOf(engine.getScore(), id)?.y ?? 0) * staffSpacePx,
+    // A tempo mark is always engraved ABOVE the staff — it has no `placement` to ask.
+    above: () => true,
+  }, cursorX, inkY + dyPx)
+  if (!target || !engine.previewTempoSlot(id, target)) return false
+
+  const lift = tempoOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
+  if (lift !== 0) engine.previewTempoOffset(id, 0, -lift)
+  dbg(`[Tempo] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
+  return true
 }

@@ -2887,6 +2887,34 @@ export class MusicEngine {
     return ok
   }
 
+  /** The undo-free twin of {@link moveTempoToSlotKeepingOffset} — one crossing of a dragged mark's
+   *  walk; {@link commitTempoDrag} records the whole gesture once on the drop. */
+  previewTempoSlotKeepingOffset(id: string, target: TempoStop): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitTempoDrag
+    return this.scoreModel.setTempoAtSlotKeepingOffset(id, target)
+  }
+
+  /** The whole-stop flavour, undo-free: what a drag lands with when the ink has left the mark's own
+   *  SYSTEM (`interactions/tempoWalk`), which is a jump and not a walk — so it drops the nudge. */
+  previewTempoSlot(id: string, target: TempoStop): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setTempoAtSlot(id, target)
+  }
+
+  /** The undo-free twin of {@link nudgeTempoOffset} — accumulates the same way, keeps the same page
+   *  limit (and its OUTWARD `dy`), records no undo step. One frame of a tempo drag. */
+  previewTempoOffset(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('tempo', id, dx, -dy)) return false
+    if (!this.scoreModel.getTempoMarkById(id)) return false
+    this.markModelDirty()
+    return this.scoreModel.nudgeTempoOffset(id, dx, dy)
+  }
+
+  /** Record ONE undo entry after a tempo drag settles. */
+  commitTempoDrag(): void {
+    this.commitPreviewed('Move tempo mark')
+  }
+
   /** Where {@link moveTempoBySlot} would put the mark, without putting it there — the walk reads it
    *  to measure how far away the next stop is drawn. */
   nextTempoSlot(id: string, direction: 1 | -1): TempoStop | null {
