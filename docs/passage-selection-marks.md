@@ -66,6 +66,18 @@ fallback has a 30px reach and would lose presses to it.
 from. And `toggleMark` touches no note anchor — `selectedNoteId` and the Shift pivot drive note
 navigation and the palette, and a hairpin is none of those things.
 
+⭐⭐ **A Ctrl-click GROWS what you have, including a single-element selection.** His report the same
+day: *"i select dynamic and ctr click the hairpin, however ctr click the hairpin clear the
+dynamic"*. The asymmetry behind it: a plain click on a NOTE puts that note **in the set**, so
+growing from one always worked — while a plain click on a MARK puts it in `selectedElement`, and the
+toggles cleared that. `SelectionController.absorbElementIntoSet` carries it across first, so the
+first thing you picked survives picking a second.
+
+⚠️ Only the kinds the set can hold are absorbed; a clef, a barline or a measure box is still just
+cleared, because a group has nowhere to put it. And the absorb runs BEFORE the toggle, so
+Ctrl-clicking the mark that is already singly selected still *removes* it — the note toggle's own
+behaviour.
+
 ## ⭐⭐ The clip carries what is SELECTED
 
 > *"i'm not selecting the dynamic, however it paste it"* — holding a Ctrl-built selection of three

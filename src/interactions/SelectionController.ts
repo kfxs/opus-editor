@@ -6,7 +6,7 @@ import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive, selectedOf } from './EditorState'
 import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../utils/beatMap'
-import { marksInBox, type MarkKind } from './enclosedMarks'
+import { isMarkKind, marksInBox, type MarkKind } from './enclosedMarks'
 import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -67,6 +67,27 @@ export class SelectionController {
   private clearElementSelection(): void {
     this.state.selectedBeam = 'auto'
     this.state.selectedElement = null
+  }
+
+  /**
+   * ⭐⭐ **CARRY THE ONE SELECTED ELEMENT INTO THE SET** before a Ctrl-click grows it. His report,
+   * 2026-08-19: *"i select dynamic and ctr click the hairpin, however ctr click the hairpin clear
+   * the dynamic"*.
+   *
+   * ⭐ The asymmetry it fixes: a plain click on a NOTE puts that note IN the set, so growing a group
+   * from one has always worked — while a plain click on a MARK puts it in `selectedElement`, which
+   * the toggles then cleared. The first thing you picked was thrown away by the act of picking a
+   * second, and the only way to get both was to Ctrl-click the first one again.
+   *
+   * ⚠️ Only the kinds the set can hold travel ({@link MarkKind}). A clef, a barline or a measure box
+   * is cleared as before: a group has nowhere to put it, and pretending otherwise would make
+   * `selectedItems` hold something no reader of it expects.
+   */
+  private absorbElementIntoSet(): void {
+    const element = this.state.selectedElement
+    if (!element || !isMarkKind(element.kind) || !('id' in element)) return
+    const item: SelectionItem = { kind: element.kind, id: element.id }
+    this.state.selectedItems.set(itemKey(item), item)
   }
 
   /**
@@ -226,6 +247,9 @@ export class SelectionController {
    * mutually exclusive with the other element kinds.
    */
   toggleNote(noteId: string): void {
+    // A Ctrl-click GROWS what you have, whether what you have is a note or a mark ({@link
+    // absorbElementIntoSet}).
+    this.absorbElementIntoSet()
     const item: SelectionItem = { kind: 'note', id: noteId }
     const key = itemKey(item)
     if (this.state.selectedItems.has(key)) {
@@ -256,6 +280,9 @@ export class SelectionController {
    * thing it shares with the note toggle: a mark in a GROUP shows its colour, not its handles.
    */
   toggleMark(mark: { kind: MarkKind; id: string }): void {
+    // ⭐ FIRST, so a Ctrl-click on the mark that is already singly selected still REMOVES it (the
+    // note toggle's behaviour) rather than absorbing it back in after the toggle.
+    this.absorbElementIntoSet()
     const item: SelectionItem = { kind: mark.kind, id: mark.id }
     const key = itemKey(item)
     if (this.state.selectedItems.has(key)) this.state.selectedItems.delete(key)

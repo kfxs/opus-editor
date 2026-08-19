@@ -657,6 +657,41 @@ describe('SelectionController — a note selection replaces the element selectio
     expect(state.selectedNoteId).toBe(noteB)
   })
 
+  it('⭐⭐ a Ctrl-click GROWS a single-element selection instead of clearing it', () => {
+    // His report, 2026-08-19: click the dynamic, Ctrl-click the hairpin, and the dynamic vanished —
+    // a plain click on a MARK lands in `selectedElement`, and the toggle used to throw it away.
+    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    state.selectedElement = { kind: 'dynamic', id: dynId }
+
+    selection.toggleMark({ kind: 'hairpin', id: hairpinId })
+    expect([...state.selectedItems.values()].map(i => i.kind).sort()).toEqual(['dynamic', 'hairpin'])
+    // …and the single-element selection is spent: the group holds them now, so neither shows handles.
+    expect(state.selectedElement).toBeNull()
+  })
+
+  it('…and a Ctrl-click on a NOTE grows it the same way', () => {
+    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    state.selectedElement = { kind: 'dynamic', id: dynId }
+    selection.toggleNote(noteA)
+    expect([...state.selectedItems.values()].map(i => i.kind).sort()).toEqual(['dynamic', 'note'])
+  })
+
+  it('⛔ a Ctrl-click on the mark that IS the single selection still removes it', () => {
+    const dynId = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!.id
+    state.selectedElement = { kind: 'dynamic', id: dynId }
+    selection.toggleMark({ kind: 'dynamic', id: dynId })
+    expect(state.selectedItems.size, 'absorbed, then toggled back out').toBe(0)
+  })
+
+  it('a kind the SET cannot hold (a barline) is still just cleared', () => {
+    const hairpinId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1), voice: 0 })!.id
+    state.selectedElement = { kind: 'barline', measure: 1 }
+    selection.toggleMark({ kind: 'hairpin', id: hairpinId })
+    expect([...state.selectedItems.values()].map(i => i.kind)).toEqual(['hairpin'])
+    expect(state.selectedElement).toBeNull()
+  })
+
   it('selectMeasureContents clears a selected dynamic', () => {
     state.selectedElement = { kind: 'dynamic', id: 'dyn-1' }
     selection.selectMeasureContents([noteA, noteB])

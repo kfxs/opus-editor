@@ -165,6 +165,17 @@ export function marksInBox(score: Score, noteIds: string[]): SelectionItem[] {
 /** The seven kinds a box can drag along — every non-note thing `selectedItems` may hold by id. */
 export type MarkKind = 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal' | 'tempo'
 
+/** {@link MarkKind} as a runtime set — the ONE list, so the press chain, the group toggle and the
+ *  element-into-set absorb cannot drift on which kinds a selection may hold. */
+export const MARK_KINDS: ReadonlySet<string> = new Set<string>(
+  ['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'tempo'] satisfies MarkKind[],
+)
+
+/** Is this one of the kinds `selectedItems` can hold by id? */
+export function isMarkKind(kind: string): kind is MarkKind {
+  return MARK_KINDS.has(kind)
+}
+
 /** The marks in a selection, in a stable order (the order {@link marksInBox} put them in). */
 export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id: string }[] {
   const out: { kind: MarkKind; id: string }[] = []

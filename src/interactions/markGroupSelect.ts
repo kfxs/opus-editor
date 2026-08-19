@@ -23,10 +23,7 @@
  */
 import type { MouseDownCtx, ElementChainDeps } from './elements/chain'
 import { ELEMENT_HIT_ORDER } from './elements/chain'
-import type { MarkKind } from './enclosedMarks'
-
-/** The kinds `selectedItems` can hold by id — {@link MarkKind}, as a runtime set. */
-const MARK_KINDS = new Set<string>(['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'tempo'])
+import { MARK_KINDS, type MarkKind } from './enclosedMarks'
 
 /**
  * The press chain, filtered to the kinds a group can hold — in `ELEMENT_HIT_ORDER`'s own order, so
