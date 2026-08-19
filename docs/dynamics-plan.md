@@ -1,6 +1,6 @@
 # Dynamics — Implementation Plan
 
-Status: **ALL PHASES (0–7) DONE.** Dynamics are placeable (arm p/mp/mf/f or Text → click a beat), render under the staff (level glyph or italic serif text), drive playback (per-voice velocity step function), and are selectable + deletable (click in selection mode → Delete) with a scoped highlight; undo/redo + JSON round-trip throughout; voice-ready end-to-end (only voice 0 populated, single hardcoded seam at placement). **Deferred by user (not blockers):** (1) in-place editing of a placed dynamic — custom text drops a literal "Text" placeholder for now; (2) finer-beat placement — target is option C (slot-snap-else-grid); both are cheap + migration-free later. This document is the authoritative plan and cross-session checklist.
+Status: **ALL PHASES (0–7) DONE.** Dynamics are placeable (arm p/mp/mf/f or Text → click a beat), render under the staff (level glyph or italic serif text), drive playback (a velocity step function per LANE — see the correction below), and are selectable + deletable (click in selection mode → Delete) with a scoped highlight; undo/redo + JSON round-trip throughout. **Deferred by user (not blockers):** (1) in-place editing of a placed dynamic — custom text drops a literal "Text" placeholder for now; (2) finer-beat placement — target is option C (slot-snap-else-grid); both are cheap + migration-free later. This document is the authoritative plan and cross-session checklist.
 
 **🚨 SUPERSEDED IN PART — see `docs/dynamic-voice-scope-plan.md`,** the *scope* a dynamic (and a hairpin) governs. It corrects this document's *"per-voice velocity step function"* and its *"voice-ready end-to-end"*: with every stamp writing `voice: 0`, a dynamic was audible to **voice 1 only**. Since that plan's P1, an absent `voice` means **ALL voices of the mark's own staff** — and the resolvers compare the STAFF too, which they never did.
 
@@ -8,7 +8,10 @@ Goal of this first pass is to **build the infrastructure**, not a complete dynam
 Scope: `p`, `mp`, `mf`, `f` as interpreted (playback-affecting) dynamics, plus a **custom italic
 text** dynamic that the user can type/edit and that is *not* interpreted by the audio engine. The
 design must (a) let new standard dynamics (`ppp`…`fff`, `sf`, `sfz`, hairpins later) be added with
-near-zero churn, and (b) be **voice-ready** from day one even though only voice 0 exists today.
+near-zero churn, and (b) be **voice-ready** from day one even though only voice 0 existed when this
+was written. ⚠️ Multi-voice editing landed since, and so did the SCOPE
+(`docs/dynamic-voice-scope-plan.md`): a mark's `voice` now means *which voices it governs*, absent =
+all of its staff.
 
 ---
 
@@ -21,10 +24,14 @@ feature scales:
 
 1. **Symbol (glyph)** — what is drawn.
 2. **Meaning (velocity)** — how loud it plays, via a standalone lookup table.
-3. **Scope (voice)** — which rhythmic stream it governs, until the next dynamic in that stream.
+3. **Scope (voice)** — which rhythmic stream it governs, until the next dynamic governing that
+   stream. ⭐ Absent = every voice of its own staff (`utils/dynamicScope`), which is what the stamps
+   write; and it is scope ONLY — where the mark may stand is its staff, in any voice.
 
 Adding a future dynamic = one union member + one velocity-table row + (optionally) one palette
-button. Adding voices later = no rework, because resolution is written per-voice from the start.
+button. ⚠️ "Adding voices later = no rework" was half right: the per-voice resolution did hold, but
+the resolver compared the voice and **not the staff**, so making absent mean *all* needed the staff
+test written with it (`docs/dynamic-voice-scope-plan.md`).
 
 ---
 
@@ -58,7 +65,9 @@ Sources:
   symbol→velocity table (and CC2 for swells); user no longer edits per-mark velocity.
 - **Custom text** dynamics contribute **no** loudness change — they carry the previous level.
 
-**Takeaways for us:** model dynamics as **beat-anchored, voice-scoped directions**; keep a
+**Takeaways for us:** model dynamics as **beat-anchored, scoped directions** (⭐ scoped to a voice —
+or, by default, to every voice of the staff: the *"or an all-voices dynamic"* case above is the one
+we chose as the default, `docs/dynamic-voice-scope-plan.md`); keep a
 **separate symbol→velocity table**; treat custom text as a non-interpreted glyph.
 
 ---
@@ -70,8 +79,9 @@ Sources:
   resolution helpers in `utils/clefUtils`. A `Dynamic` is the same shape; **mirror it** rather than
   invent a new pattern. (`Measure.tuplets` and `clefs` show the array-on-measure idiom.)
 - **Voice-readiness already exists:** `Note.voice` / `Chord.voice` / `Rest.voice` (default 0), and
-  `ScoreModel.fillMeasureGaps` iterates per voice. A `Dynamic.voice` field follows the same idiom and
-  is a no-op today.
+  `ScoreModel.fillMeasureGaps` iterates per voice. A `Dynamic.voice` field follows the same idiom —
+  ⚠️ but NOT the same default: absent on a note means voice 0, absent on a dynamic means *all voices
+  of its staff*. That inversion is the one thing this family does not share (`utils/dynamicScope`).
 - **Articulations are the rendering precedent:** stored per-chord on the slot, added as VexFlow
   **modifiers** to the `StaveNote` (`VexFlowRenderer.ts:309-318`), and **registered** into the
   `ElementRegistry` with a bbox (`VexFlowRenderer.ts:1219-1240`). Dynamics can follow the same
@@ -218,8 +228,9 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   - `removeDynamic(id): boolean`.
   - `getDynamics(measureNumber): Dynamic[]`.
 - **Resolution helper** (the voice-ready core), in `utils/dynamics.ts`:
-  - `resolveActiveLevel(score, measureNumber, beat, voice): DynamicLevel` — last interpreted dynamic
-    at-or-before (measure,beat) in that voice, else `DEFAULT_DYNAMIC`. Text dynamics are skipped
+  - `resolveActiveLevel(score, measureNumber, beat, voice, staffId): DynamicLevel` — last interpreted
+    dynamic at-or-before (measure,beat) **that GOVERNS that lane**, else `DEFAULT_DYNAMIC`. ⭐ Governs,
+    not "is in": a mark with no `voice` governs every voice of its staff. Text dynamics are skipped
     (they don't change level). Walk-back across earlier measures mirrors `clefUtils.inheritedClef`
     (`clefUtils.ts:21`). This is the *correctness* reference; playback uses an incremental scan
     instead (Phase 3) to avoid per-chord walk-back.
@@ -348,13 +359,20 @@ visible by **Phase 4**, user-placeable by **Phase 5**, and editable/deletable by
   `voiceOf(slot)` (exact-beat → nearest-following → last, all within the voice).
 - **Playback** — consumes `resolveChordLevels` (per-voice), so it inherits the same keying.
 
-**The single seam:** the *only* hardcoded voice is at placement — `MouseController` passes `voice: 0`
-to `engine.addDynamic` (correct today; only voice 0 is populated). A `VOICE SEAM` comment marks it.
+**🚨 SUPERSEDED 2026-08-19 — the seam is gone, and the prediction under it was wrong.**
+`docs/dynamic-voice-scope-plan.md`:
 
-**Extension point (when multi-voice editing lands):** the only additions are (a) source the placement
-voice from a UI selector / the active voice instead of the literal `0`, and (b) optionally add an
-"applies to all voices" semantics (MuseScore's model). The timeline math needs **no** rework —
-per-voice resolution is already in place end-to-end.
+- The stamps write **no `voice` at all**, which means *every voice of the mark's own staff*. The
+  extension point above guessed the placement voice would be *sourced from a selector*; it should not
+  be sourced at all — the entry voice says which stream you are TYPING INTO, and a dynamic is not
+  typed into a stream. Narrowing a mark is a deliberate second act (`Alt+1…4` on the selection).
+- "Optionally add an all-voices semantics" turned out to be the DEFAULT, not an option.
+- And the timeline math did need one rework after all: `resolveChordLevels` compared the voice and
+  **not the staff**, so a staff-2 `p` governed staff-1's voice 1. Absent-means-all would have spread
+  that to the whole score, so the staff test landed with it.
+- ⭐ The scope is read through `utils/dynamicScope`, ⛔ never `voiceOf` — which answers 0 for absent,
+  now exactly the wrong answer. And it answers **loudness only**: where a mark may stand is
+  `onSameStaff`, its whole staff, in any voice.
 
 ---
 

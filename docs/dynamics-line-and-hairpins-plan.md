@@ -949,11 +949,22 @@ Following the slur, which is already routed this way (`PaletteController.createS
 
 **Out of scope for v1** — notation only, the precedent slurs set.
 
-What it would take, recorded so the shape is known: `resolveChordLevels()` (`utils/dynamics.ts:325`)
+What it would take, recorded so the shape is known: `resolveChordLevels()` (`utils/dynamics.ts`)
 returns `Map<chordId, DynamicLevel>` — an **enum**, so there is no room in it for a ramp. A real
-crescendo means that map becoming a numeric velocity and interpolating from the level at the start
+crescendo means that map becoming a numeric value and interpolating from the level at the start
 to the dynamic that follows the end (or one step up when nothing follows). That is a genuine change
 to the resolution pass, not a slice on top of it.
+
+📄 **And what the ramp should be a ramp OF is now written down: `docs/playback-semantics-plan.md`**
+(2026-08-19, ⛔ recorded, not scheduled). Two things from it that bound this section:
+
+- ⭐ The number is a **musical dynamic value in [0, 1]** (0 = niente, 1 = the loudest possible), not a
+  synth velocity — the conversion belongs to an INTERPRET step after the schedule. So §9's "numeric
+  velocity" is half the change; the other half is where the number stops being the music's.
+- ⭐⭐ **A crescendo is not one sound.** On a sustaining instrument it is a ramp DURING each note; on a
+  decaying one (piano, harp, pizz) it can only be each successive ATTACK louder, and over a single
+  long note it is unplayable — ⛔ which the renderer must not fake. Which of the two applies is the
+  interpret step's to know, not this pass's.
 
 ---
 
@@ -1247,7 +1258,8 @@ snapshot threaded into the pass.
   parallel to the staff lines."*
 - **Niente** (the circled tip) — Gould p. 108 per MEI's citation.
 - **The playback ramp** (§9) — needs `resolveChordLevels` to return a number rather than an enum;
-  a genuine change to the resolution pass, not a slice on it.
+  a genuine change to the resolution pass, not a slice on it. 📄 What KIND of number, and why a piano
+  and a violin cannot share one realisation: `docs/playback-semantics-plan.md`.
 - **Per-voice lines**, and the **vocal-above / keyboard-between** placements — both are values of the
   line's existing `(system, staff, placement)` key rather than new machinery (§12).
 

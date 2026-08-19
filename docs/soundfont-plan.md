@@ -112,6 +112,10 @@ Score ─▶ collectScheduledNotes()  ─▶  PlaybackEngine (owns transport/clo
 - `load(programs?): Promise<void>` — trigger the player's CDN preload of the
   wavetable(s) we'll need (piano for the first cut).
 - `noteOn(midi, when, durationSec, velocity)` — schedule one sounding note.
+  📄 ⏭️ **This signature is the INTERPRET step in disguise** (`docs/playback-semantics-plan.md`,
+  2026-08-19, recorded not scheduled): it is the one place that legitimately wants MIDI and a synth
+  velocity, and the plan is for the schedule ABOVE it to speak in pitch and a musical dynamic value
+  instead — so the conversion happens here rather than three modules earlier.
 - `stop()` — cancel/silence everything (used by `stop()`).
 - `setVolume(0..1)`.
 - owns / accepts the shared `AudioContext` and a master `GainNode`.

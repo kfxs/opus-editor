@@ -8,9 +8,14 @@
  * holds every staff's content interleaved — so a single pass over it schedules all stacked
  * staves against ONE shared per-measure clock. There is no per-staff accumulation (staff 2 bar
  * 3 and staff 1 bar 3 share the same absolute onset), which is exactly the invariant the
- * multi-staff plan (§8) calls for; the flat model gets it for free. Per-staff *dynamics*
- * loudness stays a deferred refinement — {@link resolveChordLevels} is voice-scoped, not
- * staff-scoped, so a staff-2 chord currently inherits its voice's dynamic (never silence).
+ * multi-staff plan (§8) calls for; the flat model gets it for free.
+ *
+ * ⭐ **Dynamics ARE per-staff now** (2026-08-19, docs/dynamic-voice-scope-plan.md P1): a mark
+ * governs the voices its `voice` names — or every voice of its own staff when it names none, which
+ * is what every stamp writes — and {@link resolveChordLevels} compares the STAFF as well as the
+ * voice. ⚠️ It compared neither before: this note used to say a staff-2 chord "inherits its voice's
+ * dynamic", which was the leak, not the design. What is still deferred is anything BEYOND "which
+ * marks reach this slot" — a staff-level balance is not a thing the model says.
  */
 import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch } from '@/types/music'
 import { durationToBeats } from '@/utils/musicUtils'
@@ -36,13 +41,23 @@ import { measureAccidentalNotes } from '@/utils/musicUtils'
 
 /** A single sounding note to schedule, in tempo-independent beat units. */
 export interface ScheduledNote {
-  /** Sounding MIDI pitch (derived from the stored spelling). */
+  /** Sounding MIDI pitch (derived from the stored spelling).
+   *
+   *  ⏭️ **This is the early conversion `docs/playback-semantics-plan.md` is about** (his call,
+   *  2026-08-19, recorded and deliberately NOT scheduled): a schedule should speak in PITCH and a
+   *  dynamic value, and an INTERPRET step after it should turn those into whatever the synth wants.
+   *  12-EDO is baked in the moment a spelling becomes an integer. ⛔ Not a bug to fix today. */
   midi: number
   /** Absolute onset from score start, in quarter-note beats (the shared clock). */
   startBeats: number
   /** Sounding length in beats, after tie-extension, legato overlap and articulation. */
   durationBeats: number
-  /** Normalized velocity 0–1 (dynamic level × articulation scale). */
+  /** Normalized velocity 0–1 (dynamic level × articulation scale).
+   *
+   *  ⏭️ The range is already right; what `docs/playback-semantics-plan.md` wants of it is that it be
+   *  a MUSICAL value (0 = niente, 1 = the loudest possible) rather than this synth's calibration —
+   *  and, the requirement with teeth, **a function over time rather than a per-note constant**, or a
+   *  hairpin can never sound. */
   velocity: number
   /**
    * The staff this event was emitted on — an INTERNAL routing field, not part of the public API

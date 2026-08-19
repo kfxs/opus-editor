@@ -87,6 +87,11 @@ The rule now written on `Score`:
 An instrument change **is** such a statement — and a *printed* one (*muta in piccolo*).
 So it resolves positionally, like a clef change, a dynamic, or a tempo mark.
 
+📄 ⏭️ **One more thing will want to hang off this map: the instrument's ENVELOPE CLASS**
+(`docs/playback-semantics-plan.md`) — whether a sound HOLDS a note or dies after the attack, which is
+what decides how a crescendo is realised (a ramp during the note, or each successive attack louder).
+⛔ When it lands it belongs here, not in a second place that says what instrument a staff is.
+
 ## 3. The relation is many-to-many, and it varies with time
 
 Two real cases, pulling in opposite directions:
