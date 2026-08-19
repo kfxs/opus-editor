@@ -1,5 +1,5 @@
 import type { Fraction, Score } from '../types/music'
-import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '../utils/clip'
+import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTempo, ClipTrill, ClipTarget } from '../utils/clip'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracLte, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
@@ -52,6 +52,9 @@ export interface ClipboardPayload extends Clip {
   /** Sustain pedals fully inside the copy window. OMITTED when empty, on the `ottavas` rule above
    *  and for its reason. Inherited from {@link Clip.pedals}. */
   pedals?: ClipPedal[]
+  /** Tempo marks inside the copy window. OMITTED when empty, on the `ottavas` rule above and for
+   *  its reason. Inherited from {@link Clip.tempos}. */
+  tempos?: ClipTempo[]
 }
 
 /**
@@ -318,6 +321,41 @@ function dynamicsInWindow(
         text: d.text,
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
         ...(off ? { engravingOffset: { x: off.x, y: off.y } } : {}),
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * ⭐ TEMPO MARKS inside the copy window `[spanStart, spanEnd)`, as {@link ClipTempo}s — the
+ * dynamics rule (a POINT is in when its position is), minus the staff band: a tempo mark is
+ * SYSTEM-level, so there is no lane to compare and no lane to re-base.
+ *
+ * ⚠️ That asymmetry is the reason this one takes no `topStaff`/`maxStaff`: a staff test here would
+ * be a test against a field the model deliberately does not have.
+ */
+function temposInWindow(
+  score: Score,
+  spanStart: Fraction,
+  spanEnd: Fraction,
+  wanted: MarkFilter,
+): ClipTempo[] {
+  const starts = measureStartOffsets(score)
+  const out: ClipTempo[] = []
+  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
+    const mStart = starts.get(m.number)
+    if (!mStart) continue
+    for (const t of m.tempos ?? []) {
+      if (!wanted(t.id)) continue
+      const abs = fracAdd(mStart, t.beat)
+      if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
+      out.push({
+        offset: fracSub(abs, spanStart),
+        ...(t.text !== undefined ? { text: t.text } : {}),
+        ...(t.unit !== undefined ? { unit: t.unit } : {}),
+        ...(t.dots !== undefined ? { dots: t.dots } : {}),
+        ...(t.bpm !== undefined ? { bpm: t.bpm } : {}),
       })
     }
   }
@@ -624,6 +662,7 @@ export function buildClipboardFromSelection(
   const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
   const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
   const pedals = pedalsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const tempos = temposInWindow(score, spanStart, spanEnd, wanted)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
@@ -648,6 +687,7 @@ export function buildClipboardFromSelection(
     ...(spaces.length ? { spaces } : {}),
     ...(ottavas.length ? { ottavas } : {}),
     ...(pedals.length ? { pedals } : {}),
+    ...(tempos.length ? { tempos } : {}),
   }
 }
 

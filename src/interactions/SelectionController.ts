@@ -6,7 +6,7 @@ import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
 import { modelVoiceToActive, selectedOf } from './EditorState'
 import { buildVoiceNavBeatMap, notesInBox, expandTieChains } from '../utils/beatMap'
-import { marksInBox } from './enclosedMarks'
+import { marksInBox, type MarkKind } from './enclosedMarks'
 import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
@@ -246,8 +246,8 @@ export class SelectionController {
 
   /**
    * ⭐ TOGGLE one MARK in/out of the multi-selection (ctrl/cmd-click) — {@link toggleNote}'s twin
-   * for the six kinds the set can hold (`./enclosedMarks`: dynamic, slur, hairpin, trill, ottava,
-   * pedal). His ask, 2026-08-19: the group gesture was notes-only, and a box had already made the
+   * for the kinds the set can hold ({@link MarkKind}: dynamic, slur, hairpin, trill, ottava, pedal,
+   * tempo). His ask, 2026-08-19: the group gesture was notes-only, and a box had already made the
    * set hold marks.
    *
    * ⚠️ It touches NO note anchor. `selectedNoteId` and the Shift pivot are what note navigation,
@@ -255,7 +255,7 @@ export class SelectionController {
    * cannot be the note you carry on typing from. Clearing the single-element selection is the one
    * thing it shares with the note toggle: a mark in a GROUP shows its colour, not its handles.
    */
-  toggleMark(mark: { kind: 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal'; id: string }): void {
+  toggleMark(mark: { kind: MarkKind; id: string }): void {
     const item: SelectionItem = { kind: mark.kind, id: mark.id }
     const key = itemKey(item)
     if (this.state.selectedItems.has(key)) this.state.selectedItems.delete(key)

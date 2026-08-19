@@ -15,7 +15,7 @@
  * `pick` toggles instead of replacing, and every drag/editor door is a no-op, because a modified
  * press is building a selection rather than starting a gesture.
  *
- * ⚠️ **Only the six kinds the SET can hold take part** — the chain is filtered to them, so a
+ * ⚠️ **Only the kinds the SET can hold take part** — the chain is filtered to them, so a
  * Ctrl-click on a clef, an accidental, a dot or a barline falls through to exactly what it did
  * before (the note toggle under the pointer). ⛔ A kind whose ink is INSIDE a note's (accidental,
  * dot, articulation, stem) must not join without deciding that question first: the note fallback
@@ -25,8 +25,8 @@ import type { MouseDownCtx, ElementChainDeps } from './elements/chain'
 import { ELEMENT_HIT_ORDER } from './elements/chain'
 import type { MarkKind } from './enclosedMarks'
 
-/** The six kinds `selectedItems` can hold by id — {@link MarkKind}, as a runtime set. */
-const MARK_KINDS = new Set<string>(['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal'])
+/** The kinds `selectedItems` can hold by id — {@link MarkKind}, as a runtime set. */
+const MARK_KINDS = new Set<string>(['dynamic', 'slur', 'hairpin', 'trill', 'ottava', 'pedal', 'tempo'])
 
 /**
  * The press chain, filtered to the kinds a group can hold — in `ELEMENT_HIT_ORDER`'s own order, so

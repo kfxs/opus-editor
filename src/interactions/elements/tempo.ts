@@ -49,5 +49,8 @@ export const TEMPO_ELEMENT: ClickableElementSpec = {
   // in time it governs (his call; the dynamic was the first kind, this is the second). ⭐ The row is
   // ONE of the two edits a kind needs: the other is capturing the two endpoints in the pass that
   // draws it (`TempoLayout.drawTempoMarks`). Nothing about the guide itself is per-kind.
-  highlight: h => { h.applyTempoSelectionHighlight(); h.applyAnchorGuideLine() },
+  // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
+  // (the dynamic's own arrangement), because a box and a Ctrl-press can now select this kind too
+  // and the ink has to paint for every selected one — not only for the one a click picked.
+  highlight: h => h.applyAnchorGuideLine(),
 }

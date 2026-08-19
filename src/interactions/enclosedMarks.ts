@@ -6,7 +6,7 @@
  * understand"*.
  *
  * ⭐ **THE HIGHLIGHT IS A PROMISE ABOUT THE COPY.** A box already took the hairpins, trills, octave
- * lines and pedals inside it (`./clipboard`'s `*InWindow` builders) — it just never said so, and a
+ * lines, pedals and tempo marks inside it (`./clipboard`'s `*InWindow` builders) — it just never said so, and a
  * selection you cannot see is a selection you cannot trust. So this answers ONE question, with the
  * SAME rule the clip uses, and everything downstream of `selectedItems` (the highlight, and Delete)
  * reads its answer rather than restating the rule.
@@ -123,6 +123,19 @@ export function marksInBox(score: Score, noteIds: string[]): SelectionItem[] {
     }
   }
 
+  // ⭐ The TEMPO mark: a POINT like a dynamic, but SYSTEM-level — it has no staff and no voice, so
+  // the staff band says nothing about it and its position is the whole test. ⚠️ That means a box on
+  // ONE staff of a grand staff still takes the system's tempo mark; the mark governs that staff as
+  // much as any other, and Sibelius's separate "system passage" is a refinement we have not made.
+  for (const measure of score.measures) {
+    const base = measureStart.get(measure.number)
+    if (!base) continue
+    for (const tempo of measure.tempos ?? []) {
+      const abs = fracAdd(base, tempo.beat)
+      if (fracGte(abs, window.start) && fracLt(abs, window.end)) items.push({ kind: 'tempo', id: tempo.id })
+    }
+  }
+
   // ⚠️ The TRILL is taken on its SIGN alone — the clip's own rule (`trillsInWindow`), because its
   // wavy extension is allowed to run past the window while the `tr` it belongs to is inside.
   for (const trill of score.trills ?? []) {
@@ -135,15 +148,15 @@ export function marksInBox(score: Score, noteIds: string[]): SelectionItem[] {
   return items
 }
 
-/** The six kinds a box can drag along — every non-note thing `selectedItems` may hold by id. */
-export type MarkKind = 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal'
+/** The seven kinds a box can drag along — every non-note thing `selectedItems` may hold by id. */
+export type MarkKind = 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal' | 'tempo'
 
 /** The marks in a selection, in a stable order (the order {@link marksInBox} put them in). */
 export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id: string }[] {
   const out: { kind: MarkKind; id: string }[] = []
   for (const item of items) {
     switch (item.kind) {
-      case 'dynamic': case 'slur': case 'hairpin': case 'trill': case 'ottava': case 'pedal':
+      case 'dynamic': case 'slur': case 'hairpin': case 'trill': case 'ottava': case 'pedal': case 'tempo':
         out.push({ kind: item.kind, id: item.id })
         break
       default:
@@ -155,7 +168,7 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
 
 /** What each kind's removal is called on the engine — the one place the six are mapped. */
 export type MarkRemover = Pick<MusicEngine,
-  'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removeOttava' | 'removePedal'>
+  'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removeOttava' | 'removePedal' | 'removeTempoMark'>
 
 /**
  * ⭐ **DELETE TAKES WHAT THE HIGHLIGHT SHOWED.** A box that paints a hairpin as selected must
@@ -172,6 +185,7 @@ export function removeMarks(engine: MarkRemover, marks: { kind: MarkKind; id: st
       case 'trill': engine.removeTrill(mark.id); break
       case 'ottava': engine.removeOttava(mark.id); break
       case 'pedal': engine.removePedal(mark.id); break
+      case 'tempo': engine.removeTempoMark(mark.id); break
     }
   }
 }

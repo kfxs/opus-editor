@@ -110,6 +110,29 @@ describe('ClipboardController — copying one element', () => {
     expect(dynamics()).toEqual(['1@0:dolce', '2@0:dolce'])
   })
 
+  it('⭐ a selected TEMPO mark travels with the clip and lands at the paste', () => {
+    const tempoId = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    const notes = [ids[0], ids[1]]
+    state.selectedItems = new Map<string, { kind: 'note' | 'tempo'; id: string }>([
+      ...notes.map(id => [`note:${id}`, { kind: 'note' as const, id }] as const),
+      ['tempo:' + tempoId, { kind: 'tempo', id: tempoId }],
+    ])
+    clipboard.copy()
+    clipboard.pasteAt(2, frac(0, 1), 0)
+    const pasted = engine.getScore().measures[1].tempos ?? []
+    expect(pasted.map(t => t.text)).toEqual(['Allegro'])
+    expect(pasted[0].id, 'a paste mints a new mark').not.toBe(tempoId)
+  })
+
+  it('…and stays behind when it is NOT selected', () => {
+    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
+    const notes = [ids[0], ids[1]]
+    state.selectedItems = new Map(notes.map(id => [`note:${id}`, { kind: 'note', id }]))
+    clipboard.copy()
+    clipboard.pasteAt(2, frac(0, 1), 0)
+    expect(engine.getScore().measures[1].tempos ?? []).toEqual([])
+  })
+
   it('holds ONE thing: copying notes drops the element, and copying an element drops the notes', () => {
     state.selectedItems = new Map([['note:' + ids[0], { kind: 'note', id: ids[0] }]])
     clipboard.copy()

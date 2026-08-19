@@ -11,7 +11,7 @@
  *
  * NOTE: the union covers every selectable element so the container is future-proof,
  * but only `note` and `articulation` are routed through the set by a click (plus the
- * `dynamic`/`slur`/`hairpin`/`trill`/`ottava`/`pedal` items a box drags along — see SelectionController /
+ * `dynamic`/`slur`/`hairpin`/`trill`/`ottava`/`pedal`/`tempo` items a box drags along — see SelectionController /
  * MouseController). Every other kind is SINGLE-select and lives in
  * `EditorState.selectedElement`, its own discriminated union; migrating one here means
  * giving it a real multi-selection, which none of them has yet.
@@ -29,6 +29,9 @@ export type SelectionItem =
   | { kind: 'trill'; id: string }
   | { kind: 'ottava'; id: string }
   | { kind: 'pedal'; id: string }
+  /** ⭐ The TEMPO mark (2026-08-19). The one SYSTEM-level member of the group: it has no staff and
+   *  no voice, so a box takes it on its position alone. */
+  | { kind: 'tempo'; id: string }
   | { kind: 'articulation'; noteId: string; type: string }
   | { kind: 'accidental'; noteId: string; type: string }
   | { kind: 'clef'; measure: number; beat: number }
@@ -52,6 +55,7 @@ export function itemKey(item: SelectionItem): string {
     case 'trill':
     case 'ottava':
     case 'pedal':
+    case 'tempo':
       return `${item.kind}:${item.id}`
     case 'tie':
       return `tie:${item.fromNoteId}`

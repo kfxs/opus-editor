@@ -423,6 +423,17 @@ own staff, read from every other staff), so the switch falls halfway between whe
 it would sit. 🚨 The mark's own lift must come back out of that measurement first, or its "home"
 follows it down for ever and the switch never arrives.
 
+## 11. It joins the GROUP SELECTION (2026-08-19)
+
+*"now i want to be able to include the tempo in the group selection"* — the mark is now a member of
+the multi-selection like a dynamic or a hairpin: a passage box takes it, Ctrl-click toggles it,
+the highlight paints every selected one, Delete removes them with the notes, and the clip carries
+it (`ClipTempo` → the `{kind:'tempo'}` beat anchor this file's §4 already built for the rebar).
+
+⭐ The one difference is the one this whole file turns on: **a tempo mark is SYSTEM-level.** It has
+no staff and no voice, so the box takes it on its position alone and the clip has no lane to
+re-base. See `docs/passage-selection-marks.md`.
+
 ## 9. Deferred (recorded so they stay reachable, not so they get built)
 
 - `rit.` / `accel.` — **spans**, not points; playback ramps instead of stepping. The tempo-map

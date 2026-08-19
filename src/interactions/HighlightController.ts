@@ -11,6 +11,7 @@ import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
 import { pedalEndpointHandles } from './elements/pedalHandles'
 import { trillEndpointHandles } from './elements/trillHandles'
+import type { MarkKind } from './enclosedMarks'
 
 /**
  * Applies SVG highlight classes/colors after each render.
@@ -963,12 +964,16 @@ export class HighlightController {
    * leaks the colour into the shared draw context and grays the rest of the score.
    */
   applyTempoSelectionHighlight(): void {
+    for (const id of this.selectedIdsOf('tempo')) this.recolorTempo(id)
+  }
+
+  /** Paint one tempo mark — its whole drawn text — inside its own group. */
+  private recolorTempo(id: string): void {
     const engine = this.getEngine()
-    const tempoId = selectedOf(this.state, 'tempo')?.id
-    if (!engine || !tempoId) return
+    if (!engine) return
 
     const SELECTION_COLOR = ELEMENT_SELECTION_FILL
-    const group = engine.getTempoSVGGroup(tempoId)
+    const group = engine.getTempoSVGGroup(id)
     if (!group) return
     group.querySelectorAll('text, path').forEach(el => {
       const currentFill = el.getAttribute('fill')
@@ -980,14 +985,14 @@ export class HighlightController {
 
   /**
    * ⭐ **EVERY id of `kind` that is SELECTED** — the ONE element a click picked, plus every one a
-   * passage box dragged into `selectedItems` (`./enclosedMarks`). Six kinds ask this exact question
+   * passage box dragged into `selectedItems` (`./enclosedMarks`). Seven kinds ask this exact question
    * and used to answer it six times; the loop below is the whole of it.
    *
    * ⚠️ The box members get COLOUR only. Handles (a slur's endpoints, a span's two squares) stay on
    * the single-click selection: they are for editing ONE mark, and a bar's worth of squares would
    * be unreadable — and unclickable, since they overlap.
    */
-  private selectedIdsOf(kind: 'dynamic' | 'slur' | 'hairpin' | 'trill' | 'ottava' | 'pedal'): Set<string> {
+  private selectedIdsOf(kind: MarkKind): Set<string> {
     const ids = new Set<string>()
     const element = this.state.selectedElement
     if (element?.kind === kind && 'id' in element) ids.add(element.id)

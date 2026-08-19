@@ -77,6 +77,14 @@ describe('marksInBox', () => {
     expect(kinds(bar1)).toEqual(['ottava', 'pedal'])
   })
 
+  it('⭐ takes the TEMPO mark in the window — system-level, so no staff test applies', () => {
+    const id = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'tempo', id }])
+    // …and leaves the one in the next bar, which is what makes the window the test.
+    engine.addTempoMark(2, { beat: frac(0, 1), text: 'Adagio' })
+    expect(marksInBox(engine.getScore(), bar1)).toEqual([{ kind: 'tempo', id }])
+  })
+
   it('answers nothing for an empty selection', () => {
     expect(marksInBox(engine.getScore(), [])).toEqual([])
   })
@@ -86,6 +94,7 @@ describe('marksInBox', () => {
     engine.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(2, 1), voice: 0 })
     engine.addTrill({ startNoteId: bar1[2] })
     engine.addOttava(1, { beat: frac(0, 1), length: frac(4, 1), shift: -1 })
+    engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })
     // …and three that must be in NEITHER: past the box's end, in the next bar, out of its staff band.
     engine.addHairpin(1, { type: 'cresc', beat: frac(3, 1), length: frac(3, 1), voice: 0 })
     engine.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
@@ -98,8 +107,9 @@ describe('marksInBox', () => {
     expect(count('hairpin')).toBe(clip.hairpins.length)
     expect(count('trill')).toBe(clip.trills.length)
     expect(count('ottava')).toBe(clip.ottavas?.length ?? 0)
+    expect(count('tempo')).toBe(clip.tempos?.length ?? 0)
     // …and the fixture really does exercise both sides of the rule.
-    expect(box.length).toBe(4)
+    expect(box.length).toBe(5)
   })
 })
 

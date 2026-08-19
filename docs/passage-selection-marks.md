@@ -1,7 +1,8 @@
 # What a Passage Selection HOLDS
 
 Status: **BUILT 2026-08-19.** A box selection (a plain-click bar, a Shift-click range) now selects —
-and highlights — every mark it encloses, and a paste selects everything it just wrote.
+and highlights — every mark it encloses, and a paste selects everything it just wrote. The TEMPO
+mark joined the family on the same day (below).
 
 ## The reports (from the user)
 
@@ -50,7 +51,7 @@ different tail**: `pick` records instead of replacing, and every drag and editor
 hit-test here would be a second answer that can disagree with `ELEMENT_HIT_ORDER` on exactly the
 presses that are hardest to reproduce.
 
-⚠️ **Only the six kinds the set can hold take part.** The chain is filtered to them, so Ctrl-click
+⚠️ **Only the kinds the set can hold take part.** The chain is filtered to them, so Ctrl-click
 on a clef, accidental, dot or barline does what it always did (toggles the note under the pointer).
 A kind whose ink sits INSIDE a note's must not join without deciding that question first — the note
 fallback has a 30px reach and would lose presses to it.
@@ -80,10 +81,27 @@ unchanged** — this only narrows a selection built by hand. And an absent filte
 "everything enclosed", which is what a caller with no selection to consult means by *copy this
 passage*; the specs that call the builder directly pass none, because they are testing the window.
 
-## The selection union grew four arms
+## ⭐ The TEMPO mark, the one SYSTEM-level member
 
-`SelectionItem` gained `hairpin` / `trill` / `ottava` / `pedal` (id-keyed, like `dynamic` and
-`slur`). Every reader of `selectedItems` filters by kind, so nothing else had to change — but two
+> *"now i want to be able to include the tempo in the group selection"*
+
+It joins as a full member — box, Ctrl-click, highlight, Delete, and the clip — with one difference
+that runs through all of them: **a tempo mark has no staff and no voice.** So the box takes it on
+its POSITION alone (no staff-band test, because there is no field to test), the clip carries it with
+no lane to re-base (`ClipTempo` is `ClipDynamic` minus the lane), and the paste re-anchors it
+through the `{kind:'tempo'}` beat anchor `restoreBeatAnchors` already had — the same road the
+DESTINATION's own marks take through a rebar, one-per-beat rule included.
+
+⚠️ That means a box on ONE staff of a grand staff takes the system's tempo mark. It governs that
+staff as much as any other; Sibelius's separate *system passage* is a refinement we have not made.
+
+⛔ No id travels, so a hand-nudged tempo offset (keyed by the copied mark's id) stays behind with
+the music it was authored against — the rule the expression clip already follows.
+
+## The selection union grew five arms
+
+`SelectionItem` gained `hairpin` / `trill` / `ottava` / `pedal` / `tempo` (id-keyed, like `dynamic`
+and `slur`). Every reader of `selectedItems` filters by kind, so nothing else had to change — but two
 things chose to:
 
 - **Delete** now removes them. A highlighted mark that Delete leaves behind is a promise the editor

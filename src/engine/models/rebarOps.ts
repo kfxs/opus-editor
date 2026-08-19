@@ -334,6 +334,7 @@ export function pasteEvents(
   const clipHairpins = clip.hairpins ?? []
   const clipOttavas = clip.ottavas ?? []
   const clipPedals = clip.pedals ?? []
+  const clipTempos = clip.tempos ?? []
   const clipSpaces = clip.spaces ?? []
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
   const fromIdx = ordered.findIndex((m) => m.number === targetMeasure)
@@ -558,6 +559,21 @@ export function pasteEvents(
       ...(staffId !== undefined ? { staffId } : {}),
     }
     clipAnchors.push({ kind: 'pedal', absBeat: fracAdd(pasteStart, cp.offset), pedal })
+  }
+  // ⭐ The clip's TEMPO MARKS are the simplest of the family: a tempo mark is SYSTEM-level, so
+  // there is no relative staff to map, no voice to re-voice, and no overflow lane to drop — the
+  // re-based offset is the whole of it. `restoreBeatAnchors` already knows the kind (it is how the
+  // DESTINATION's marks survive a rebar), including the one-per-beat rule it enforces there.
+  for (const ct of clipTempos) {
+    const mark: TempoMark = {
+      id: uuidv4(),
+      beat: fracCreate(0, 1), // restoreBeatAnchors overwrites this from absBeat
+      ...(ct.text !== undefined ? { text: ct.text } : {}),
+      ...(ct.unit !== undefined ? { unit: ct.unit } : {}),
+      ...(ct.dots !== undefined ? { dots: ct.dots } : {}),
+      ...(ct.bpm !== undefined ? { bpm: ct.bpm } : {}),
+    }
+    clipAnchors.push({ kind: 'tempo', absBeat: fracAdd(pasteStart, ct.offset), mark })
   }
   restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,

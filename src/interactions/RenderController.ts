@@ -45,6 +45,7 @@ export class RenderController {
     this.highlight.applyTrillSelectionHighlight()
     this.highlight.applyOttavaSelectionHighlight()
     this.highlight.applyPedalSelectionHighlight()
+    this.highlight.applyTempoSelectionHighlight()
     this.applySelectedElementHighlight()
     this.highlight.applyKeyboardCursor()
   }

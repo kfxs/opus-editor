@@ -22,6 +22,7 @@
  */
 import type { Fraction } from '@/utils/fraction'
 import type { RebarEvent } from '@/utils/rebar'
+import type { NoteDuration } from '@/types/music'
 
 /**
  * One copied lane: a `(staff, voice)` pair and its event stream. The staff is a
@@ -101,6 +102,33 @@ export interface ClipDynamic {
   placement?: 'above' | 'below'
   /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
   engravingOffset?: { x: number; y: number }
+}
+
+/**
+ * ⭐ A TEMPO MARK inside the clip window, re-anchored on paste — the {@link ClipDynamic} shape with
+ * the LANE dropped, because a tempo mark has neither staff nor voice: it governs the system
+ * (`TempoMark.scopeId` is reserved for polytempo and absent in v1). So where a dynamic re-bases its
+ * relative staff onto the paste target's, this one has nothing to re-base and simply arrives at its
+ * offset.
+ *
+ * ⚠️ The mark IS its text, so the printed string travels verbatim and `{unit, dots, bpm}` — what it
+ * SOUNDS — travels beside it, exactly as the model stores them (parsed from the text on every edit,
+ * never re-derived here).
+ *
+ * ⛔ No `id`: a paste mints a new mark, so a hand-nudged tempo offset (keyed by the copied mark's
+ * id) stays behind with the music it was authored against.
+ */
+export interface ClipTempo {
+  /** Beat offset from the clip start (same basis as {@link ClipLane.events}). */
+  offset: Fraction
+  /** The mark exactly as printed. See `TempoMark.text`. */
+  text?: string
+  /** Metronome beat unit. See `TempoMark.unit`. */
+  unit?: NoteDuration
+  /** Dots on the metronome unit. See `TempoMark.dots`. */
+  dots?: number
+  /** BPM of the unit — what the mark sounds. See `TempoMark.bpm`. */
+  bpm?: number
 }
 
 /**
@@ -232,6 +260,8 @@ export interface Clip {
   spanBeats: Fraction
   /** Dynamics fully inside the clip window, re-anchored on paste. Absent/empty = none. */
   dynamics?: ClipDynamic[]
+  /** Tempo marks inside the clip window, re-anchored on paste. Absent/empty = none. */
+  tempos?: ClipTempo[]
   /** Slurs fully inside the clip window, re-anchored on paste. Absent/empty = none. */
   slurs?: ClipSlur[]
   /** Trills whose SIGN is inside the clip window, re-anchored on paste. Absent/empty = none. */
