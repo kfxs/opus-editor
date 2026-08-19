@@ -434,6 +434,14 @@ it (`ClipTempo` → the `{kind:'tempo'}` beat anchor this file's §4 already bui
 no staff and no voice, so the box takes it on its position alone and the clip has no lane to
 re-base. See `docs/passage-selection-marks.md`.
 
+## 12. Single COPY/PASTE of one mark (2026-08-19)
+
+Ctrl+C on a selected tempo mark, Ctrl+V to put it somewhere else — the expression's clipboard with a
+tempo arm (`docs/element-copy-paste-plan.md`). ⭐ Its landing rule is its own:
+`tempoOps.tempoAnchorAt` resolves the requested beat to the **nearest onset at-or-after** it, so the
+model agrees with §6's `anchorX` (the first element at-or-after, Gould p. 183) and ⛔ never a
+barline. ⚠️ One mark per beat, so the paste REPLACES the sitting one, in a single undo step.
+
 ## 9. Deferred (recorded so they stay reachable, not so they get built)
 
 - `rit.` / `accel.` — **spans**, not points; playback ramps instead of stepping. The tempo-map

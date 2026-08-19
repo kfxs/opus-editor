@@ -93,6 +93,39 @@ function moveTempoToMeasure(score: Score, mark: TempoMark, measureNumber: number
 }
 
 /**
+ * ⭐⭐ **WHERE A TEMPO MARK MAY LAND** — the legal anchor for a requested position, which is what
+ * makes a paste (or any placement that did not come from the mark's own walk) obey the same rule the
+ * walk does. His ask, 2026-08-19: copy/paste one tempo mark, *"but of course you have to take in
+ * consideration the real tempo anchor cordinate"*.
+ *
+ * ⭐ **AT-OR-AFTER, and the drawing is why.** A tempo mark is engraved at the first notational
+ * element at-or-after its beat (`rendering/TempoLayout.anchorX`, Gould p. 183); anchoring the MODEL
+ * to the onset before it would put the mark's meaning one step behind its ink. So a requested beat
+ * that nothing sounds on resolves FORWARD, and only a request past the last onset in the score falls
+ * back to that last one — there is nothing after it to move to.
+ *
+ * ⛔ Never the barline: every stop here is an onset, which is the same list {@link nextTempoSlot}
+ * walks. A bar with only a centred measure rest still HAS an onset at its beat 0 — the rest is not
+ * an anchor for the DRAWING (which falls back to where the bar's music would start), and that is a
+ * question about ink, answered where the ink is.
+ */
+export function tempoAnchorAt(score: Score, at: Stop): Stop | null {
+  const stops = onsets(score)
+  if (stops.length === 0) return null
+  return stops.find(s => compare(s, at) >= 0) ?? stops[stops.length - 1]
+}
+
+/**
+ * The tempo mark sitting on a stop, if any — ⚠️ **at most one per beat** is the model's rule
+ * (`docs/tempo-marks-plan.md` §4), so a caller placing a mark there has to decide about THIS one.
+ * A paste replaces it, which is what `rebarOps.restoreBeatAnchors` does with the clip's own marks.
+ */
+export function tempoAtStop(score: Score, at: Stop): TempoMark | null {
+  const measure = score.measures.find(m => m.number === at.measure)
+  return measure?.tempos?.find(t => fracCompare(t.beat, at.beat) === 0) ?? null
+}
+
+/**
  * ⭐ **THE STOP ONE STEP AWAY** — where {@link moveTempoBySlot} would put the mark, without putting
  * it there. Null at either end of the score, or for an id no longer in it.
  *

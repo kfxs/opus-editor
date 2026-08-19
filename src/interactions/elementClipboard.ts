@@ -10,9 +10,15 @@
  * a second reference to the copied one.
  *
  * ⭐ **A second kind is a ROW here**, not a branch somewhere else: the union grows an arm, `copyElement`
- * grows a case that reads the model, `pasteElement` grows the case that writes it. Today only the
- * dynamic (which is what an *expression* is in this model — the mark IS its text, see
- * `types/music.ts` `Dynamic`) travels; a clef or a meter would slot in the same way.
+ * grows a case that reads the model, `pasteElement` grows the case that writes it. The dynamic (which
+ * is what an *expression* is in this model — the mark IS its text, see `types/music.ts` `Dynamic`)
+ * and the TEMPO mark travel today; a clef or a meter would slot in the same way.
+ *
+ * ⭐⭐ **AND THE PASTE ASKS THE KIND WHERE IT MAY LAND.** A dynamic hangs off a slot of its own lane,
+ * so the generic anchor is already its answer; a tempo mark lands on an ONSET, at-or-after the
+ * requested beat, because that is where its ink is engraved and a barline is never one
+ * (`engine/models/tempoOps.tempoAnchorAt`, Gould p. 183). ⛔ The anchor module answers *where the
+ * selection points*; what a KIND may do with that point is the kind's own rule, and it lives here.
  *
  * ⛔ **Nothing about the drawing travels.** A hand-nudged offset lives in the engraving-overrides
  * compartment keyed by the copied mark's id, and that id is exactly what a paste does not reuse —
@@ -20,8 +26,10 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { NoteDuration, TempoMark } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
+import { tempoAnchorAt, tempoAtStop } from '../engine/models/tempoOps'
 
 /** A copied DYNAMIC — a level (`f`), an expression word (`dolce`) or a mix of both. */
 export interface DynamicElementClip {
@@ -33,18 +41,48 @@ export interface DynamicElementClip {
   voice?: 0 | 1 | 2 | 3
 }
 
+/**
+ * A copied TEMPO MARK — the mark IS its text, and what it SOUNDS travels beside it (`{unit, dots,
+ * bpm}`, exactly as the model stores them: parsed from the text on every edit, never re-derived).
+ * The `ClipTempo` shape the music clip already uses, minus the offset — where it lands is the
+ * anchor's business, not the clip's.
+ */
+export interface TempoElementClip {
+  kind: 'tempo'
+  /** The mark exactly as printed. See `TempoMark.text`. */
+  text?: string
+  unit?: NoteDuration
+  dots?: number
+  bpm?: number
+}
+
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
-export type ElementClip = DynamicElementClip
+export type ElementClip = DynamicElementClip | TempoElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
-export type ElementClipEngine = Pick<MusicEngine, 'getDynamicById' | 'addDynamic' | 'staffIdForIndex'>
+export type ElementClipEngine = Pick<MusicEngine,
+  'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
+  | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
-  if (element?.kind !== 'dynamic') return null
-  const dynamic = engine.getDynamicById(element.id)
-  if (!dynamic) return null
-  return { kind: 'dynamic', text: dynamic.text, placement: dynamic.placement ?? 'below', voice: dynamic.voice }
+  if (element?.kind === 'dynamic') {
+    const dynamic = engine.getDynamicById(element.id)
+    if (!dynamic) return null
+    return { kind: 'dynamic', text: dynamic.text, placement: dynamic.placement ?? 'below', voice: dynamic.voice }
+  }
+  if (element?.kind === 'tempo') {
+    const mark = engine.getTempoMarkById(element.id)
+    if (!mark) return null
+    return {
+      kind: 'tempo',
+      ...(mark.text !== undefined ? { text: mark.text } : {}),
+      ...(mark.unit !== undefined ? { unit: mark.unit } : {}),
+      ...(mark.dots !== undefined ? { dots: mark.dots } : {}),
+      ...(mark.bpm !== undefined ? { bpm: mark.bpm } : {}),
+    }
+  }
+  return null
 }
 
 /**
@@ -66,6 +104,30 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'dynamic', id: created.id } : null
     }
+    case 'tempo': {
+      // ⭐⭐ **THE ANCHOR IS THE TEMPO'S OWN, not the generic slot** (his ask): a tempo mark lands on
+      // an ONSET — the same stops its walk uses — resolved AT-OR-AFTER the requested beat, because
+      // that is where its ink is engraved (`engine/models/tempoOps.tempoAnchorAt`, Gould p. 183).
+      // ⛔ A barline is never one of them, whatever the selection was.
+      const stop = tempoAnchorAt(engine.getScore(), { measure: anchor.measure, beat: anchor.beat })
+      if (!stop) return null
+      // ⚠️ At most ONE mark per beat (docs/tempo-marks-plan.md §4). A paste REPLACES the sitting
+      // mark, which is what the music clip's own paste does with it (`rebarOps.restoreBeatAnchors`)
+      // — and the two writes are one undo step, so a Ctrl+Z puts the old mark back.
+      const sitting = tempoAtStop(engine.getScore(), stop)
+      let created: TempoMark | null = null
+      engine.runBatch(`Paste tempo mark at measure ${stop.measure}`, () => {
+        if (sitting) engine.removeTempoMark(sitting.id)
+        created = engine.addTempoMark(stop.measure, {
+          beat: stop.beat,
+          ...(clip.text !== undefined ? { text: clip.text } : {}),
+          ...(clip.unit !== undefined ? { unit: clip.unit } : {}),
+          ...(clip.dots !== undefined ? { dots: clip.dots } : {}),
+          ...(clip.bpm !== undefined ? { bpm: clip.bpm } : {}),
+        })
+      })
+      return created ? { kind: 'tempo', id: (created as TempoMark).id } : null
+    }
     default:
       throw new Error(`Unhandled element clip: ${JSON.stringify(clip)}`)
   }
@@ -73,5 +135,6 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
 
 /** A short human-readable line for the copy/paste console dump. */
 export function elementClipSummary(clip: ElementClip): string {
-  return `${clip.kind} "${clip.text}" (${clip.placement})`
+  const how = clip.kind === 'dynamic' ? ` (${clip.placement})` : ''
+  return `${clip.kind} "${clip.text ?? ''}"${how}`
 }

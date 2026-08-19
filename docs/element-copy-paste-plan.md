@@ -1,7 +1,7 @@
 # Copy/Paste of a Selected ELEMENT
 
-Status: **BUILT 2026-08-19.** Ctrl+C / Ctrl+V on one selected on-score element — today the
-**expression** (a `Dynamic`, whose text may be a level, a word, or both).
+Status: **BUILT 2026-08-19.** Ctrl+C / Ctrl+V on one selected on-score element — the **expression**
+(a `Dynamic`, whose text may be a level, a word, or both) and the **tempo mark**.
 
 ## The ask (from the user)
 
@@ -44,6 +44,31 @@ anchor's default place, which is the honest answer — the nudge was authored ag
 
 A second kind is a **row**: an arm on the `ElementClip` union, a case in `copyElement` that reads
 the model, a case in `pasteElement` that writes it.
+
+### ⭐⭐ …and the KIND says where it may land
+
+> *"i want to be able to single copy and paste similar to expresion, but of course you have to take
+> in consideration the real tempo anchor cordinate"*
+
+The anchor module answers *where the selection points*. What a KIND may do with that point is the
+kind's own rule, and it lives in `elementClipboard`:
+
+| Kind | Its rule |
+|---|---|
+| dynamic | the anchor as given — a dynamic hangs off a slot of its own lane, which is what the anchor already resolved |
+| tempo | the nearest **ONSET at-or-after** the anchor (`tempoOps.tempoAnchorAt`) |
+
+⭐ **AT-OR-AFTER, and the drawing is why.** A tempo mark is engraved at the first notational element
+at-or-after its beat (`TempoLayout.anchorX`, Gould p. 183); anchoring the model to the onset *before*
+it would put the mark's meaning one step behind its ink. So a beat nothing sounds on — inside a half
+note, say — resolves forward, and ⛔ a barline is never an anchor whatever the selection was.
+
+⚠️ **At most ONE tempo mark per beat** (`docs/tempo-marks-plan.md` §4). A paste **replaces** the
+mark sitting there — which is what the music clip's own paste does (`rebarOps.restoreBeatAnchors`)
+— and both writes are ONE undo step, so a Ctrl+Z puts the old mark back.
+
+⭐ What travels is the mark's text AND what it SOUNDS (`{unit, dots, bpm}`), because speed is stored,
+not re-derived from the text at paste time.
 
 ### Where it lands — `PasteAnchor`
 
@@ -107,6 +132,6 @@ why a paste now selects every mark it wrote, not only its notes.
 
 ## Not done
 
-- Only the dynamic travels. A clef / meter / tempo mark would each be one row (see above).
+- Only the dynamic and the tempo mark travel. A clef or a meter would each be one row (see above).
 - No OS-clipboard interchange: the clip lives in the controller, like the music one.
 - Multi-select of elements is out of scope — `selectedElement` is deliberately ONE.
