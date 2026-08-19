@@ -3,7 +3,7 @@ import type { EditorState } from './EditorState'
 import { activeVoiceToModel, selectedOf } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
-import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE } from '../utils/selectionColors'
+import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE, markSelectionColor } from '../utils/selectionColors'
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
@@ -1012,8 +1012,11 @@ export class HighlightController {
     const ids = this.selectedIdsOf('dynamic')
     if (ids.size === 0) return
 
-    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
     for (const id of ids) {
+      // ⭐ THE COLOUR IS THE MARK'S OWN, asked per id rather than hoisted out of the loop: a box can
+      // sweep up a staff-wide `p` and a voice-2 `f` together, and they do not paint alike
+      // (`markSelectionColor`, P2 of docs/dynamic-voice-scope-plan.md).
+      const SELECTION_COLOR = markSelectionColor(engine.getDynamicById(id) ?? {})
       // Recolor inside the dynamic's OWN <g class="vf-annotation"> group only, so it
       // can't bleed onto neighbouring marks. The group holds the glyph/text as <text>
       // and/or <path> children (level glyphs render as paths in the music font;
@@ -1121,13 +1124,17 @@ export class HighlightController {
   }
 
   /**
-   * Paint one hairpin in the ELEMENT ink, inside its OWN `<g class="vf-hairpin">` group.
+   * Paint one hairpin inside its OWN `<g class="vf-hairpin">` group, **in the colour its SCOPE
+   * says**: the element ink for a wedge governing the whole staff, that voice's colour for one
+   * narrowed to a voice (`utils/selectionColors.markSelectionColor`, P2 of
+   * docs/dynamic-voice-scope-plan.md).
    *
-   * ⭐ **Not a voice colour** (his call, 2026-08-19): a wedge governs the music under it whatever
-   * voice sounds it — the dynamics family's rule, and the same reason a `p` is drawn in the
-   * indicator blue. `Hairpin.voice` records which stream it speaks FOR, not who it is drawn for,
-   * and painting it voice-1 blue said "this belongs to voice 1" about a mark that shapes them all.
-   * See `utils/selectionColors`: a voice colour is for ink that BELONGS to one voice's notes.
+   * ⭐ It was the element ink unconditionally (his call, 2026-08-19), and that was right at the
+   * time: `Hairpin.voice` answered 0 for a wedge that had never been narrowed at all, so painting
+   * by it said "this belongs to voice 1" about a mark that shapes them all. The field now tells
+   * those two apart — absent means every voice of the staff — so the SAME rule reads off the data
+   * instead of off the kind: **a voice colour is for ink that BELONGS to one voice's notes**, and a
+   * wedge scoped to voice 2 is exactly that.
    */
   private recolorHairpin(id: string): void {
     const engine = this.getEngine()
@@ -1135,7 +1142,7 @@ export class HighlightController {
     const group = engine.getHairpinSVGGroup(id)
     if (!group) return
 
-    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
+    const SELECTION_COLOR = markSelectionColor(engine.getHairpinById(id) ?? {})
     // The wedge is STROKED, never filled (two open polylines — see `HairpinRenderer`), so unlike the
     // slur only the stroke needs overriding. Setting `fill` as well would paint the triangle the
     // two arms enclose, which is not ink the score has.

@@ -28,12 +28,24 @@ function markGroup(): SVGGElement {
   return group
 }
 
-/** Paint `selected` with an engine that answers for every mark kind, and return its group. */
-function paint(selected: SelectedElement, opts: { anchorVoice?: 0 | 1 | 2 | 3 } = {}) {
+/**
+ * Paint `selected` with an engine that answers for every mark kind, and return its group.
+ *
+ * ⚠️ `scope` is the SCOPE of the dynamic/hairpin the engine hands back — **omitted means the mark
+ * has no `voice` at all**, i.e. it governs every voice of its staff, which is what the stamps write
+ * (`utils/dynamicScope`). Passing `0` is a mark deliberately narrowed to voice 1, a different thing.
+ */
+function paint(
+  selected: SelectedElement,
+  opts: { anchorVoice?: 0 | 1 | 2 | 3; scope?: 0 | 1 | 2 | 3 } = {},
+) {
   const group = markGroup()
+  const scoped = { ...(opts.scope !== undefined ? { voice: opts.scope } : {}) }
   const engine = {
     getHairpinSVGGroup: () => group,
-    getHairpinById: () => ({ id: 'H1', voice: 1 }),
+    getHairpinById: () => ({ id: 'H1', ...scoped }),
+    getDynamicSVGGroup: () => group,
+    getDynamicById: () => ({ id: 'D1', text: 'p', ...scoped }),
     getOttavaSVGGroup: () => group,
     getPedalSVGGroup: () => group,
     getTrillSVGGroup: () => group,
@@ -49,6 +61,7 @@ function paint(selected: SelectedElement, opts: { anchorVoice?: 0 | 1 | 2 | 3 } 
 
   const highlight = new HighlightController(() => engine, () => canvas, state)
   if (selected.kind === 'hairpin') highlight.applyHairpinSelectionHighlight()
+  if (selected.kind === 'dynamic') highlight.applyDynamicSelectionHighlight()
   if (selected.kind === 'ottava') highlight.applyOttavaSelectionHighlight()
   if (selected.kind === 'pedal') highlight.applyPedalSelectionHighlight()
   if (selected.kind === 'trill') highlight.applyTrillSelectionHighlight()
@@ -59,11 +72,15 @@ const strokeOf = (g: SVGGElement) => g.querySelector('path')!.getAttribute('stro
 const fillOf = (g: SVGGElement) => g.querySelector('text')!.getAttribute('fill')
 
 describe('a mark that governs a REGION takes the element ink', () => {
-  it('⭐ the HAIRPIN — even though the model gives it a voice to speak FOR', () => {
+  it('⭐ the HAIRPIN, when it governs every voice of its staff', () => {
     // The wedge is stroked, never filled (two open polylines), so the stroke is its ink.
     const group = paint({ kind: 'hairpin', id: 'H1' })
     expect(strokeOf(group)).toBe(ELEMENT_SELECTION_FILL)
     expect(strokeOf(group), 'not voice 1 blue').not.toBe(voiceFillColor(0))
+  })
+
+  it('⭐ the DYNAMIC, likewise', () => {
+    expect(fillOf(paint({ kind: 'dynamic', id: 'D1' }))).toBe(ELEMENT_SELECTION_FILL)
   })
 
   it('⭐ the 8va — its bracket and its text', () => {
@@ -87,5 +104,30 @@ describe('a mark that belongs to a NOTE takes that note’s voice colour', () =>
 
   it('…and falls back to voice 1 when the note carries no voice (absent = the first)', () => {
     expect(fillOf(paint({ kind: 'trill', id: 'T1' }))).toBe(voiceFillColor(0))
+  })
+})
+
+/**
+ * ⭐⭐ P2 of docs/dynamic-voice-scope-plan.md — for these two kinds the rule stops being a list and
+ * becomes a question the model answers. ⚠️ Only these two: an 8va and a pedal have no voice field to
+ * ask, and the trill asks its anchor note instead (both above, unchanged).
+ */
+describe('the DYNAMICS FAMILY asks its SCOPE, because it is the only kind that has one', () => {
+  it('a wedge narrowed to a voice takes that voice’s colour', () => {
+    expect(strokeOf(paint({ kind: 'hairpin', id: 'H1' }, { scope: 1 }))).toBe(voiceFillColor(1))
+    expect(strokeOf(paint({ kind: 'hairpin', id: 'H1' }, { scope: 2 }))).toBe(voiceFillColor(2))
+  })
+
+  it('a dynamic narrowed to a voice takes that voice’s colour', () => {
+    expect(fillOf(paint({ kind: 'dynamic', id: 'D1' }, { scope: 3 }))).toBe(voiceFillColor(3))
+  })
+
+  // 🚨 The distinction the old code could not make: `voice: 0` is a mark someone NARROWED to voice
+  // 1, and absent is a mark that governs the staff. They must not paint alike.
+  it('voice 0 is a NARROWED mark, not an unscoped one — and they differ', () => {
+    const narrowed = strokeOf(paint({ kind: 'hairpin', id: 'H1' }, { scope: 0 }))
+    const all = strokeOf(paint({ kind: 'hairpin', id: 'H1' }))
+    expect(narrowed).toBe(voiceFillColor(0))
+    expect(narrowed).not.toBe(all)
   })
 })
