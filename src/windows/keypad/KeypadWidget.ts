@@ -305,15 +305,13 @@ export class KeypadWidget implements Widget {
       button.textContent = name
       button.title = `voice ${name}`
       button.addEventListener('click', () => {
-        if (name === 'All') {
-          // "All" is not an editor entry voice — keep it a local highlight for now (unwired).
-          this.voice = i
-          this.paint()
-        } else {
-          // 1–4: drive the editor's active voice through the seam (same as Alt+1..4 / the toolbar);
-          // the highlight mirror lights the button back, so we don't set `this.voice` here.
-          bus.voice.press((i + 1) as 1 | 2 | 3 | 4)
-        }
+        // ⭐ All five press the SAME seam (docs/dynamic-voice-scope-plan.md P4). `All` used to be a
+        // local highlight with nothing behind it; it now says *this mark governs every voice of its
+        // staff*, which is the one thing the fifth button could ever have meant.
+        // ⚠️ We never set `this.voice` here — the highlight mirror lights the button back, and it is
+        // the editor that decides whether the press meant anything (an `All` with no mark selected
+        // is declined, and the row must not light as though it had happened).
+        bus.voice.press(name === 'All' ? 'all' : (i + 1) as 1 | 2 | 3 | 4)
         dbg(`[keypad] voice ${name}`)
       })
       row.appendChild(button)
@@ -351,10 +349,13 @@ export class KeypadWidget implements Widget {
 
   /** Point `this.voice` (the lit index) at the editor's active voice, or null when the seam is dark
    *  (nothing / multiple notes selected). The seam holds it 1-based (UI convention); the row is
-   *  0-based, and only voices 1–4 map — "All" is never the active voice. */
+   *  0-based, and `'all'` maps to the fifth cell. */
   private syncVoiceFromSeam(): void {
     const active = bus.voice.get()
-    this.voice = active != null ? active - 1 : null
+    // ⭐ `'all'` is the row's LAST cell, and the only value here that is not an entry voice — it
+    // means a selected mark governs every voice of its staff, not that the editor is typing into
+    // all of them (`bus/voiceSelection`).
+    this.voice = active == null ? null : active === 'all' ? VOICES.indexOf('All') : active - 1
   }
 
   /**

@@ -361,14 +361,20 @@ describe('PaletteController — disarmPositionalTools', () => {
 describe('PaletteController — setActiveVoice (move selection vs arm entry)', () => {
   let state: EditorState
   let moveSelectionToVoice: ReturnType<typeof vi.fn>
+  let setMarkVoiceScope: ReturnType<typeof vi.fn>
   let renderScore: ReturnType<typeof vi.fn>
   let palette: PaletteController
 
   beforeEach(() => {
     state = createEditorState()
     moveSelectionToVoice = vi.fn(() => true)
+    setMarkVoiceScope = vi.fn(() => true)
     renderScore = vi.fn()
-    const fakeEngine = { moveSelectionToVoice } as unknown as import('../engine/MusicEngine').MusicEngine
+    const fakeEngine = {
+      moveSelectionToVoice,
+      setMarkVoiceScope,
+      runBatch: (_d: string, fn: () => void) => { fn(); return true },
+    } as unknown as import('../engine/MusicEngine').MusicEngine
     palette = new PaletteController(
       () => fakeEngine,
       state,
@@ -418,6 +424,62 @@ describe('PaletteController — setActiveVoice (move selection vs arm entry)', (
 
     expect(moveSelectionToVoice).not.toHaveBeenCalled()
     expect(state.activeVoice).toBe(2)
+  })
+
+  /**
+   * 🚨 His report, 2026-08-19: *"i select a dynamic hit alt 2 to change the voice and directly I'm
+   * getting a ghost note… it seems the alt 2 change dynamic is competing with arm entry mode"*.
+   *
+   * ⚠️ A MARK selection leaves `selectedNoteId` null, so the entry branch could not tell "a dynamic
+   * is selected" from "nothing is" — and a press that EDITED something is not a mode change.
+   */
+  describe('…with a MARK selected, it is a scope edit and NOT a mode change', () => {
+    it('scopes the dynamic and stays in selection mode — ⛔ no entry, no ghost', () => {
+      state.selectedTool = 'selection'
+      state.selectedElement = { kind: 'dynamic', id: 'D1' }
+
+      palette.setActiveVoice(2)
+
+      expect(setMarkVoiceScope).toHaveBeenCalledWith('D1', 1) // UI voice 2 → model voice 1
+      expect(state.selectedTool).toBe('selection')
+      expect(renderScore).toHaveBeenCalled()
+    })
+
+    it('…the same for a hairpin, and for Alt+5 (ALL)', () => {
+      state.selectedTool = 'selection'
+      state.selectedItems.set('hairpin:H1', { kind: 'hairpin', id: 'H1' })
+
+      palette.setActiveVoice('all')
+      expect(setMarkVoiceScope).toHaveBeenCalledWith('H1', 'all')
+      expect(state.selectedTool).toBe('selection')
+      // ⛔ 'all' is a word about a mark: the entry voice is untouched.
+      expect(state.activeVoice).toBe(1)
+    })
+
+    it('⭐ a MIXED selection does both halves, still without arming entry', () => {
+      state.selectedTool = 'selection'
+      state.selectedNoteId = 'note-1'
+      state.selectedItems.set('note:note-1', { kind: 'note', id: 'note-1' })
+      state.selectedItems.set('dynamic:D1', { kind: 'dynamic', id: 'D1' })
+
+      palette.setActiveVoice(3)
+
+      expect(setMarkVoiceScope).toHaveBeenCalledWith('D1', 2)
+      expect(moveSelectionToVoice).toHaveBeenCalledWith(['note-1'], 2)
+      expect(state.selectedTool).toBe('selection')
+    })
+
+    it('⛔ …but Alt+5 with NO mark selected changes nothing at all', () => {
+      state.selectedTool = 'selection'
+      state.selectedNoteId = 'note-1'
+
+      palette.setActiveVoice('all')
+
+      expect(setMarkVoiceScope).not.toHaveBeenCalled()
+      expect(moveSelectionToVoice).not.toHaveBeenCalled()
+      expect(state.activeVoice).toBe(1)
+      expect(state.selectedTool).toBe('selection')
+    })
   })
 })
 

@@ -3,6 +3,7 @@ import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSi
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
+import { applyMarkVoiceScope } from './markVoiceScope'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
@@ -2114,37 +2115,63 @@ export class PaletteController {
   }
 
   /**
-   * Choose the active voice (Sibelius-style; palette buttons + Alt+1..Alt+4).
+   * Choose the active voice (Sibelius-style; palette buttons + `Alt+1…4`) — **or say which voices a
+   * selected MARK governs** (`Alt+5` = all; the Keypad's voice row).
    *
-   * In selection mode with a selection, a voice press MOVES the selected note(s)
-   * into that voice (Sibelius Alt+1/2-on-selection) — preserving their ids so
-   * ties/slurs/selection survive, as one atomic undo. Otherwise it arms the voice
-   * for note entry: with nothing selected, flip to entry mode (mirrors the
-   * duration/accidental tools).
+   * ⭐⭐ **ONE press, and it applies to everything in the selection that can take it** (his rule,
+   * 2026-08-19): a note moves voice, a dynamic or a hairpin changes SCOPE, a mixed selection does
+   * both — and `'all'` leaves the notes alone, because a note has no "all". The mark half is
+   * `./markVoiceScope`, a module of its own; what stays here is the note half and the entry voice.
+   *
+   * In selection mode with notes selected, a voice press MOVES them into that voice (Sibelius
+   * Alt+1/2-on-selection) — preserving their ids so ties/slurs/selection survive, as one atomic
+   * undo. Otherwise it arms the voice for note entry: with nothing selected, flip to entry mode
+   * (mirrors the duration/accidental tools).
+   *
+   * ⚠️ **`state.activeVoice` stays 1–4 and is never `'all'`** — it is the voice you TYPE INTO, and
+   * there is no entering into all of them. `'all'` is a word about a mark, so it returns before
+   * touching the entry state.
    */
-  setActiveVoice(voice: 1 | 2 | 3 | 4): void {
+  setActiveVoice(voice: 1 | 2 | 3 | 4 | 'all'): void {
+    const engine = this.getEngine()
+    // The MARK half first, and for both words: `Alt+2` on a mixed selection scopes the marks AND
+    // moves the notes below.
+    const scoped = !!engine
+      && applyMarkVoiceScope(engine, this.state, voice === 'all' ? 'all' : (voice - 1) as 0 | 1 | 2 | 3)
+
+    if (voice === 'all') {
+      // ⛔ Nothing else to do: 'all' says nothing about note entry, and arming a tool on it would
+      // turn a mark edit into a mode change.
+      if (scoped) this.renderScore()
+      dbg(`[Voice] scope → ALL${scoped ? '' : ' (no scoped mark selected — declined)'}`)
+      return
+    }
+
     this.state.activeVoice = voice
     dbg(`[Voice] active voice → ${voice}`)
 
     // Selection-mode + a selection → reassign voice instead of arming entry.
-    const engine = this.getEngine()
+    let moved = false
     if (engine && this.state.selectedTool === 'selection') {
       const ids = selectedNoteIds(this.state.selectedItems.values())
       if (ids.length === 0 && this.state.selectedNoteId) ids.push(this.state.selectedNoteId)
-      if (ids.length > 0) {
-        const moved = engine.moveSelectionToVoice(ids, activeVoiceToModel(voice))
-        if (moved) {
-          // Ids are unchanged, so the selection Map stays valid — just re-render
-          // (notes recolour to their new voice).
-          this.renderScore()
-          return
-        }
-        // Nothing moved (all already in the target voice, or rests) — leave the
-        // selection as-is and fall through to the entry-arming refresh below.
-      }
+      // Ids are unchanged by the move, so the selection Map stays valid — a re-render is all that
+      // is owed (the notes recolour to their new voice).
+      if (ids.length > 0) moved = engine.moveSelectionToVoice(ids, activeVoiceToModel(voice))
     }
 
-    // Entry-arming behaviour (no selection, or nothing actually moved).
+    // 🚨 **A press that EDITED something is not a mode change** (his report, 2026-08-19: *"i select a
+    // dynamic hit alt 2… and directly I'm getting a ghost note"*). Arming entry is what `Alt+2`
+    // means when it had nothing to act on — with a dynamic selected it had something, and the two
+    // readings were competing for the same press. ⚠️ `scoped` is what says so: a MARK selection
+    // leaves `selectedNoteId` null, so the entry branch below could not tell the difference between
+    // "a dynamic is selected" and "nothing is".
+    if (scoped || moved) {
+      this.renderScore()
+      return
+    }
+
+    // Entry-arming behaviour (nothing selected that a voice could apply to, or nothing changed).
     if (this.state.selectedTool === 'selection' && !this.state.selectedNoteId) {
       this.state.selectedTool = 'entry'
     }

@@ -317,7 +317,10 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Reset the selected note to its natural horizontal position',
   },
 
-  // Voice selection (Sibelius-style Alt+number). Notes are entered into the active voice.
+  // Voice selection (Sibelius-style Alt+number). ⭐ ONE contextual rule (his, 2026-08-19): the press
+  // applies to everything in the selection that can take it — notes MOVE voice, a dynamic or a
+  // hairpin changes which voices it GOVERNS, a mixed selection does both. With nothing selected,
+  // 1–4 arm the entry voice.
   'Alt+1': {
     action: 'setActiveVoice1',
     description: 'Enter notes into voice 1',
@@ -333,6 +336,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   'Alt+4': {
     action: 'setActiveVoice4',
     description: 'Enter notes into voice 4',
+  },
+  // ⭐ The fifth: ALL, which is a word about a MARK — a selected dynamic or hairpin governs every
+  // voice of its staff. It says nothing about note entry (there is no typing into all of them), so
+  // with no such mark selected it does nothing. See docs/dynamic-voice-scope-plan.md P4.
+  'Alt+5': {
+    action: 'setMarkScopeAllVoices',
+    description: 'The selected dynamic / hairpin governs ALL voices of its staff',
   },
 
   // Clipboard

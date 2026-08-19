@@ -991,6 +991,9 @@ export function wireShortcuts(
     setActiveVoice2: () => palette.setActiveVoice(2),
     setActiveVoice3: () => palette.setActiveVoice(3),
     setActiveVoice4: () => palette.setActiveVoice(4),
+    // ⭐ Alt+5 — the MARK half alone: `'all'` returns before touching the entry voice, so this key
+    // is inert unless a dynamic or a hairpin is selected (`interactions/markVoiceScope`).
+    setMarkScopeAllVoices: () => palette.setActiveVoice('all'),
     copySelection: () => clipboard.copy(),
     pasteClipboard: () => clipboard.paste(),
     // Ctrl+E — the same action as Insert ▸ Text ▸ Expression. The branch (attach-and-edit vs

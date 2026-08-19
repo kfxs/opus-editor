@@ -1,6 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
-import { activeVoiceToModel, selectedOf } from './EditorState'
+import { activeVoiceToModel, selectedIdsOf, selectedOf } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE, markSelectionColor } from '../utils/selectionColors'
@@ -985,21 +985,16 @@ export class HighlightController {
 
   /**
    * ⭐ **EVERY id of `kind` that is SELECTED** — the ONE element a click picked, plus every one a
-   * passage box dragged into `selectedItems` (`./enclosedMarks`). Seven kinds ask this exact question
-   * and used to answer it six times; the loop below is the whole of it.
+   * passage box dragged into `selectedItems` (`./enclosedMarks`). Seven kinds ask this exact
+   * question here, and `markVoiceScope` asks it too, which is why the answer now lives on
+   * `EditorState` beside `selectedOf`; this stays as the local name the recolours read.
    *
    * ⚠️ The box members get COLOUR only. Handles (a slur's endpoints, a span's two squares) stay on
    * the single-click selection: they are for editing ONE mark, and a bar's worth of squares would
    * be unreadable — and unclickable, since they overlap.
    */
   private selectedIdsOf(kind: MarkKind): Set<string> {
-    const ids = new Set<string>()
-    const element = this.state.selectedElement
-    if (element?.kind === kind && 'id' in element) ids.add(element.id)
-    for (const item of this.state.selectedItems.values()) {
-      if (item.kind === kind && 'id' in item) ids.add(item.id)
-    }
-    return ids
+    return selectedIdsOf(this.state, kind)
   }
 
   applyDynamicSelectionHighlight(): void {

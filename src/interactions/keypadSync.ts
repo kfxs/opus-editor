@@ -6,6 +6,8 @@ import type { PaletteController } from './PaletteController'
 import { bus } from '@/bus'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
+import { selectedMarkScope } from './markVoiceScope'
+import type { MusicEngine } from '../engine/MusicEngine'
 import { fanIsJoined, fanJoinSubdivides } from '../utils/fannedBeam'
 
 /**
@@ -329,8 +331,12 @@ export function wireKeypadSync(
   state: EditorState,
   palette: PaletteController,
   subscribe: (fn: StateListener) => () => void,
-  /** The engine, for the MODEL half of the sync — see the two-source note on the return below. */
-  getEngine: () => { onModelChange(fn: () => void): () => void } | null = () => null,
+  /** The engine, for the MODEL half of the sync — see the two-source note on the return below.
+   *  ⚠️ The two mark getters are here for the VOICE row: a mark's scope is model data, so it cannot
+   *  be mirrored off `EditorState` and must be read live on every sync. */
+  getEngine: () => ({
+    onModelChange(fn: () => void): () => void
+  } & Partial<Pick<MusicEngine, 'getDynamicById' | 'getHairpinById'>>) | null = () => null,
 ): () => void {
   const sync = () => {
     // The Select arrow lights whenever the editor is in selection mode — from ANY source (toolbar,
@@ -358,7 +364,20 @@ export function wireKeypadSync(
     // The voice key follows the SAME single-selection rule as the others: light the active voice when
     // it means something — entry mode (the voice you're writing into) or a single selected note (its
     // voice) — and NOTHING when nothing, or more than one note, is selected (no single voice to show).
-    bus.voice.setHighlight(noNoteInSelection(state) ? null : state.activeVoice)
+    // ⭐⭐ A SELECTED MARK's scope wins the row (docs/dynamic-voice-scope-plan.md P4): with a dynamic
+    // or a hairpin selected, the voice keys say what it GOVERNS — `All`, or the one voice it was
+    // narrowed to — because that is what a press would change. Only with no such mark does the row
+    // fall back to the entry voice, under the same single-selection rule as the other keys: light it
+    // when it means something (entry mode, or ONE selected note) and nothing otherwise.
+    const scopeEngine = getEngine()
+    const markScope = scopeEngine?.getDynamicById && scopeEngine.getHairpinById
+      ? selectedMarkScope(scopeEngine as Parameters<typeof selectedMarkScope>[0], state)
+      : null
+    bus.voice.setHighlight(
+      markScope !== null ? (markScope === 'all' ? 'all' : (markScope + 1) as 1 | 2 | 3 | 4)
+      : noNoteInSelection(state) ? null
+      : state.activeVoice
+    )
     // Engine-derived highlights (articulations are a SET, tie reads tiedTo, rest reads isRest): read
     // live, not from a reactive field, so they can't be mirrored — recompute and push on any change.
     palette.refreshArticulationSelection()
@@ -407,7 +426,8 @@ export function wireKeypadSync(
     // The feathered beams — `pressFan` is the SAME method the dev toolbar's `accel.`/`rit.` buttons
     // call, so a press from the pad, the numpad or the toolbar is one action.
     bus.fan.onPress((direction) => palette.pressFan(direction)),
-    // Same path as Alt+1..4 / the toolbar: arm the voice for entry, or move the selection into it.
+    // Same path as Alt+1..5 / the toolbar: scope the selected marks, and arm the voice for entry
+    // or move the selected notes into it. `'all'` is the mark half alone.
     bus.voice.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     bus.clef.onPress((a) => palette.armClef(a.clef, a.cautionary)),

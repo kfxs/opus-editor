@@ -551,6 +551,29 @@ export function selectedOf<K extends SelectedElement['kind']>(
   return el?.kind === kind ? (el as Extract<SelectedElement, { kind: K }>) : null
 }
 
+/**
+ * ⭐ **Every id of `kind` that is selected — from BOTH halves of the selection**: the single-click
+ * `selectedElement` and the `selectedItems` set a passage box fills. The two are deliberately
+ * separate ({@link SelectedElement}'s note), so a command that acts on "the selected hairpins" has
+ * to ask both, and asking only one is a bug that hides until someone drags a box.
+ *
+ * ⚠️ Kinds addressed by something other than an `id` (a clef's triple, a tie's start note) are not
+ * reachable here — `'id' in x` is the gate, and they have their own readers.
+ *
+ * Lifted out of `HighlightController`, where it was private, when `markVoiceScope` needed the same
+ * question (docs/dynamic-voice-scope-plan.md P4). ⛔ Not copied: two answers to "what is selected"
+ * is exactly the drift this file exists to prevent.
+ */
+export function selectedIdsOf(state: EditorState, kind: SelectionItem['kind']): Set<string> {
+  const ids = new Set<string>()
+  const element = state.selectedElement
+  if (element?.kind === kind && 'id' in element) ids.add(element.id)
+  for (const item of state.selectedItems.values()) {
+    if (item.kind === kind && 'id' in item) ids.add(item.id)
+  }
+  return ids
+}
+
 /** Compile-time exhaustiveness: a `switch` over {@link SelectedElement} that forgets a kind fails
  *  to build here, which is what makes adding a fifteenth kind safe instead of a memory test. */
 export function assertNeverElement(element: never): never {

@@ -49,11 +49,13 @@ And on what `Alt+N` does, which is the whole interaction rule:
 - **Existing files may be reinterpreted.** His: *"the file is not important, is just my example"*.
   Old scores stamp `voice: 0` explicitly and will read as *voice 1 only*; there is no migration
   (`docs/json-io-plan.md` — report-never-repair), and stamps stop writing the field from phase 1.
-- ⏭️ **ASSUMED, not yet his call — a pasted mark keeps its OWN scope.** `elementClipboard` currently
+- ✅ **SETTLED (was assumed, then confirmed 2026-08-19: *"preserve the voice of the element… just as
+  a label, just to know what voice affect in the reproduction"*) — a pasted mark keeps its OWN
+  scope, on BOTH clipboard roads.** `elementClipboard` currently
   lets the anchor's lane win (`anchor.voice ?? clip.voice ?? 0`), so pasting an ALL dynamic onto a
   voice-2 note would scope it to voice 2. Written here as *scope travels with the mark, like
-  `placement`*, and the anchor only supplies a lane to a mark that had one. ⚠️ If he wants the
-  anchor to win instead, it is one line — but then a copy/paste can never reproduce an ALL mark.
+  `placement`*, and the anchor only supplies a lane to a mark that had one. ⇒ `pasteEvents` does not
+  re-voice a mark into the target lane either: that re-voicing is for NOTES, which are *in* a stream.
 - **`Alt+N` is contextual, and it is ONE rule:** *`Alt+1–4` applies to everything in the selection
   that can take a voice; `Alt+5` applies to everything that can take ALL — which is marks only.*
   A note moves voice, a mark changes scope, a mixed selection does both, and `Alt+5` leaves the
@@ -103,6 +105,10 @@ and follow the errors" here. The list is short enough to BE the checklist:
 | `engine/MusicEngine.createHairpin:1355` | 🚨 see below |
 | `interactions/clipboard:319,404` + `rebarOps.pasteEvents:505,524` | 🚨 the paste trap |
 | `interactions/elementClipboard:101` | 🚨 the SECOND paste trap |
+
+🚨 **The POSITION rows of this table were later overturned** — the walk, the drag, the drawn anchor
+and the wedge's tips ask the STAFF, not the scope. See *"scope is NOT position"* below; the table is
+kept as written because it is the checklist the migration was done against.
 
 🚨 **`createHairpin`'s lane has TWO jobs, and they now diverge.** `s` over selected notes passes
 `{ voice }` from the first note, and `addHairpinOverNotes` both *chooses the span's slots* with it
@@ -164,10 +170,34 @@ and the pedal keep their hard-coded element ink (they have no voice at all) and 
 anchor note's. So `116166a`'s rule is not deleted, it is *narrowed to the kinds that never had a
 scope to read* — and `utils/selectionColors` should say so.
 
-**P3 — the lane readers** (the table above, minus what P1 took): the walk, the drawn anchor, the
-wedge's span, `attachedMarks`' two rows. Pure engine; no UI, no new gesture.
+**P3 — the lane readers. ✅ BUILT 2026-08-19.** (The table above, minus what P1 took): the walk, the
+drawn anchor, the wedge's span and boundaries, `attachedMarks`' two rows. No new gesture — every one
+of these already worked, on one voice.
 
-**P4 — the Keypad and `Alt+1…5`.** `bus.voice` widens to `1|2|3|4|'all'`; `keypadSync:361` lights the
+Three things it turned up that the table did not predict:
+
+- 🚨 **`sortedSlots` arrives VOICE-MAJOR.** `drawMeasureContent` builds the array
+  `groups.flatMap(g => g.slots)`, one group per voice, so `DynamicsLayout`'s three `findIndex` steps
+  were answering *the lowest VOICE's slot*, not the nearest beat's. Invisible while a mark saw one
+  voice. Replaced by `anchorSlotIndex`, which orders by **(beat, then voice)** — the voice being the
+  tie-break so two voices striking one beat cannot move the drawn anchor between renders. It is
+  exported for `DynamicsLayout.anchor.test.ts`: the trap IS the ordering, and asserting an array
+  index through VexFlow annotations would be theatre.
+- ⭐ **The wedge's break for a dynamic is an INK question, not a lane one.** `interiorMarkGaps`
+  compared the two voices before asking `inksClash`; there is ONE dynamics line per staff, so a
+  voice-2 `f` under a voice-1 wedge sits on it and was drawn straight through. The voice test is
+  gone and the measurement decides.
+- ⚠️ **The hairpin's lane needs ONE entry per onset, whose length is the SHORTEST there** — it is
+  what "cover this slot" reaches, and it has to be the next onset in the lane. Two voices beginning
+  together otherwise let a grown wedge jump past music it claims to cover. ⛔ The dynamic's walk got
+  no such de-dup: both its readers compare ADDRESSES, so a repeat is already invisible to them —
+  the first draft de-duped there too, and a break-test proved the guard guarded nothing.
+
+🧪 Break-tested each: naive first-match scan → 4 red; keep-first instead of shortest → 1 red (⚠️ and
+that one needed its own fixture with the LONG voice typed first — in the shared one, insertion order
+happened to give the right answer, so the first version of the test passed either way).
+
+**P4 — the Keypad and `Alt+1…5`. ✅ BUILT 2026-08-19.** `bus.voice` widens to `1|2|3|4|'all'`; `keypadSync:361` lights the
 SELECTED mark's scope (not the entry voice) when one is selected; the row's "All" button and a new
 `Alt+5` press through the same seam. ⭐ Per the module rule, what a voice press DOES with a mark is
 its own module (`interactions/markVoiceScope`), not a fifth branch inside
@@ -180,8 +210,39 @@ its own module (`interactions/markVoiceScope`), not a fifth branch inside
   `getEngine().onModelChange` half, not the state subscription — a scope write touches no
   `EditorState` field, so the Proxy emits nothing. That seam already exists.
 - ⭐ `selectedIdsOf(kind)` already exists — PRIVATE on `HighlightController:995`. The mixed-selection
-  rule needs it too: **lift it to `interactions/selection.ts`** beside `selectedNoteIds`, ⛔ don't
-  copy it.
+  rule needs it too: **lift it** beside `selectedNoteIds`, ⛔ don't copy it. (It went to
+  `EditorState.ts` beside `selectedOf`, not to `selection.ts`: it reads BOTH halves of the selection,
+  and `selection.ts` does not know what an `EditorState` is.)
+
+⭐ **What P4 landed**: `dynamicOps.setDynamicVoiceScope` + `hairpinOps.setHairpinVoiceScope` (the
+`delete`), one `MusicEngine.setMarkVoiceScope` over both kinds, `interactions/markVoiceScope` (+ its
+spec) holding the rule and the Keypad's light, `bus.voice` widened to `1|2|3|4|'all'`, the row's
+fifth button wired to the same seam it always sat beside, `Alt+5` → `setMarkScopeAllVoices`, and one
+delegation at the top of `PaletteController.setActiveVoice`. 🧪 Break-tested the two load-bearing
+claims (assign `undefined` instead of deleting → 1 red; always report a write → 1 red).
+
+## 🚨🚨 THE CORRECTION THAT CAME OUT OF P4 — scope is NOT position
+
+His, mid-build (2026-08-19): *"i dont understand how the voice affecte the walking… walking should
+work in general no matter the voice"*, then *"a dynamic voice 2 should be able to walk even if there
+are no elements of voice 2 in the score… voice 2 just control the reproduction"*, then *"the same for
+hairpins"* and *"the same for copy and paste"*.
+
+⭐⭐ **`voice` says who gets LOUDER. It says nothing about where the mark may stand.** P3 had fused
+the two — the walk, the drag candidates, the drawn anchor and the wedge's tips all asked *what does
+this mark govern* — which made a voice-2 dynamic unmovable in a bar voice 2 is silent in. The fix is
+a second predicate beside the first, and the whole rule is which one a reader may ask:
+
+| Question | Predicate |
+|---|---|
+| Where may this mark stand, be dragged, be drawn? | `onSameStaff` — the mark's STAFF, every voice of it |
+| Which chords does it make louder? Which marks hang off this note? | `governsSlot` — staff **and** scope |
+
+⛔ `scopeCoversVoice` is no longer exported: a position reader must not be able to reach it.
+⭐ And the same for the clipboard — **the scope travels VERBATIM, as a label**: `pasteEvents` no
+longer re-voices a mark into the target lane (that re-voicing is for NOTES, which are *in* a stream),
+and `pasteElement` keeps the clip's own. That also settles the ⏭️ ASSUMED decision above — it was his
+call after all.
 
 ## Not in this plan
 
