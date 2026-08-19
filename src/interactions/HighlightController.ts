@@ -163,39 +163,6 @@ export class HighlightController {
   }
 
   /**
-   * Draw a colored caret at the hovered position while a paste is armed (no
-   * selection): a dashed green vertical line spanning the hovered measure's staff,
-   * signalling "click here to drop the pasted material". Cleared by the next render.
-   */
-  drawPasteCaret(coords: { x: number; y: number }): void {
-    const engine = this.getEngine()
-    const scoreCanvas = this.getScoreCanvas()
-    if (!engine || !scoreCanvas) return
-
-    const svg = scoreCanvas.querySelector('svg')
-    if (!svg) return
-
-    const measure = engine.pixelToMeasure(coords)
-    const geometry = engine.getElementRegistry().getStaffGeometry(measure)
-    if (!geometry) return
-
-    const topY = geometry.lineYPositions[0]
-    const bottomY = geometry.lineYPositions[4]
-
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-    line.setAttribute('x1', String(coords.x))
-    line.setAttribute('y1', String(topY - 10))
-    line.setAttribute('x2', String(coords.x))
-    line.setAttribute('y2', String(bottomY + 10))
-    line.setAttribute('stroke', '#10B981')
-    line.setAttribute('stroke-width', '2')
-    line.setAttribute('stroke-dasharray', '4 3')
-    line.setAttribute('stroke-linecap', 'round')
-    line.setAttribute('class', 'paste-caret')
-    this.addNode(svg, line)
-  }
-
-  /**
    * Draw the Sibelius-style blue box around the selected `measureRange`.
    * In first-voice blue with no fill; the box's own `boxStyle` picks the look:
    *   - `'single'` — ONE rectangle: the plain-click passage selection, whose contents

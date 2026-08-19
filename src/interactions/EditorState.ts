@@ -569,12 +569,20 @@ export function assertNeverElement(element: never): never {
  * pointer and needs no cursor to say it is armed; these three have nothing to draw — the two
  * click-to-type entry tools (expression Ctrl+E, tempo Ctrl+Alt+T) because the mark is text you have
  * not typed yet, the slur stamp because a slur is drawn between two notes and the click has not
- * picked the first. So the list here is exactly {@link toolGhost}'s `null` cases, which is why the
+ * picked the first. So the TOOLS here are exactly {@link toolGhost}'s `null` cases, which is why the
  * class is no longer named for text. Keep the two in step: a tool with no ghost and no pointer is
  * armed invisibly.
+ *
+ * ⚠️ One entry below is NOT a tool: an armed PASTE (2026-08-19). It draws nothing at the pointer
+ * either — the dashed caret it used to trail was dropped on his call — so it wants the same cursor
+ * for the same reason, and `toolGhost` has nothing to say about it.
  */
 export function scoreCursorClass(state: EditorState): 'cursor-none' | 'cursor-place' | 'cursor-default' {
   if (state.isPanning) return 'cursor-none'
+  // ⭐ An armed PASTE is a ghostless placement too (2026-08-19), and the most ghostless of all: it
+  // draws NOTHING at the pointer — *"we dont need the green carret, just the arrow"* — so the blue
+  // cursor is its ONLY indicator. Ahead of the tools, because a paste can be armed while one is.
+  if (state.pastePlacementArmed) return 'cursor-place'
   const kind = state.selectedMarkingTool?.kind
   // ⚠️ Every GHOSTLESS stamp must be listed here, and the list is why: these tools draw nothing at
   // the pointer, so the blue cursor is their ONLY indicator that something is armed. A tool added to

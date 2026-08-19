@@ -2468,11 +2468,11 @@ export class MouseController {
 
     this.lastCanvasMousePosition = { x, y }
 
-    // Armed paste: show a colored caret at the slot the click would target.
-    if (this.state.pastePlacementArmed) {
-      this.render.renderPasteCaret({ x, y })
-      return
-    }
+    // ⭐ An armed paste draws NOTHING at the pointer — his call, 2026-08-19: *"we dont need the green
+    // carret, just the arrow"*. The blue place-cursor (`scoreCursorClass`) is the whole indicator,
+    // so a move costs no render at all where the caret used to force one per frame. The guard stays:
+    // an armed paste must not draw a TOOL ghost underneath itself either.
+    if (this.state.pastePlacementArmed) return
 
     // Live drag gestures — each returns true if it owns the move.
     if (this.handleBarWidthDrag(engine, x)) return

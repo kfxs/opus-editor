@@ -4,6 +4,10 @@ Status: **PLANNED 2026-07-07.** Turns copy/paste from a single-staff, notes-only
 feature into a staff-relative, full-fidelity one (ties/articulations already travel;
 this adds the staff axis, dynamics, and slurs).
 
+**Sibling:** `docs/element-copy-paste-plan.md` — Ctrl+C/Ctrl+V of ONE selected element (an
+expression). Same controller, same keys, a separate clip: it holds the music **or** one element,
+never both.
+
 ## Goal (from the user)
 
 1. Material copied on **any** staff can be pasted onto **any** staff, carrying its

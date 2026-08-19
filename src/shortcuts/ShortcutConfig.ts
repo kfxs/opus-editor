@@ -338,11 +338,11 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // Clipboard
   'Ctrl+c': {
     action: 'copySelection',
-    description: 'Copy the selected notes',
+    description: 'Copy the selection — the notes, or one selected element (an expression)',
   },
   'Ctrl+v': {
     action: 'pasteClipboard',
-    description: 'Paste (overwrite-forward from the selection; or click to place when nothing is selected)',
+    description: 'Paste (notes overwrite-forward from the selection, an element anchors to it; or click to place when nothing is selected)',
   },
 
   // Enter on a selected dynamic opens its inline editor — the keyboard twin of double-clicking it.

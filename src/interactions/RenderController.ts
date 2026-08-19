@@ -240,10 +240,4 @@ export class RenderController {
     this.ensureScoreDrawn(engine)
     engine.renderScoreWithToolGhost(coords, ghost)
   }
-
-  /** Render the score with a colored paste caret following the cursor (armed paste). */
-  renderPasteCaret(coords: { x: number; y: number }): void {
-    this.renderScore() // census: attributed to its caller, like any plain renderScore
-    this.highlight.drawPasteCaret(coords)
-  }
 }

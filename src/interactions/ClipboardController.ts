@@ -14,6 +14,8 @@ import {
   clipboardSummary,
   type ClipboardPayload,
 } from './clipboard'
+import { copyElement, pasteElement, elementClipSummary, type ElementClip } from './elementClipboard'
+import { pasteAnchorFor, type PasteAnchor } from './pasteAnchor'
 
 /**
  * Copy / paste of the current selection. Phase A handles notes/chords/rests; the
@@ -21,11 +23,19 @@ import {
  * Framework-agnostic: reads/writes EditorState + engine, no Vue/React imports.
  *
  * Paste semantics: overwrite-forward from the selection's start. With nothing
- * selected, Ctrl+V arms a placement mode (colored caret) and the next canvas click
- * commits the origin.
+ * selected, Ctrl+V arms a placement mode — the blue place-cursor, and nothing drawn on the score —
+ * and the next canvas click commits the origin.
+ *
+ * ⭐ **TWO THINGS CAN BE HELD, and only ever one at a time** (2026-08-19): the MUSIC
+ * ({@link ClipboardPayload} — notes, and everything that travels with a lane) or ONE on-score
+ * ELEMENT ({@link ElementClip} — an expression today). A copy replaces whatever was held, so
+ * Ctrl+V never has to guess which of two clipboards the user meant: the last Ctrl+C is the answer.
+ * The controller stays the facade — WHAT travels is `./elementClipboard`, WHERE it lands is
+ * `./pasteAnchor`.
  */
 export class ClipboardController {
   private payload: ClipboardPayload | null = null
+  private element: ElementClip | null = null
 
   constructor(
     private getEngine: () => MusicEngine | null,
@@ -35,13 +45,25 @@ export class ClipboardController {
   ) {}
 
   hasContent(): boolean {
-    return this.payload !== null
+    return this.payload !== null || this.element !== null
   }
 
   /** Copy the selected notes into the clipboard, dumping the payload to the console. */
   copy(): void {
     const engine = this.getEngine()
     if (!engine) return
+
+    // ⭐ The ELEMENT first: selecting an element clears the note selection (selecting IS clearing),
+    // so the two branches can never both have something to copy — the order is readability, not a
+    // precedence rule.
+    const element = copyElement(engine, this.state.selectedElement)
+    if (element) {
+      this.element = element
+      this.payload = null
+      dbg(`[Clipboard] copied — ${elementClipSummary(element)}`)
+      return
+    }
+
     const ids = selectedNoteIds(this.state.selectedItems.values())
     if (ids.length === 0) {
       dbg('[Clipboard] copy: nothing selected')
@@ -53,6 +75,7 @@ export class ClipboardController {
       return
     }
     this.payload = payload
+    this.element = null
     // Debug dump (requested): a readable summary + the full payload, to diff against
     // the data model / VexFlow output when a paste looks wrong.
     dbg(`[Clipboard] copied — ${clipboardSummary(payload)}`)
@@ -64,18 +87,26 @@ export class ClipboardController {
    * arm placement mode (the next canvas click sets the origin; Esc cancels).
    */
   paste(): void {
-    if (!this.payload) {
+    if (!this.payload && !this.element) {
       dbg('[Clipboard] paste: clipboard empty')
       return
     }
     const engine = this.getEngine()
     if (!engine) return
 
+    // An element pastes at whatever the SELECTION points at — a note/rest exactly, anything else at
+    // the nearest anchorable point (`./pasteAnchor`). Nothing selected → the same armed click the
+    // music clip uses, because there is nothing to anchor to and a paste must never guess a place.
+    if (this.element) {
+      const anchor = pasteAnchorFor(engine, this.state)
+      if (!anchor) { this.armPlacement(); return }
+      this.placeElementAt(anchor)
+      return
+    }
+
     const ids = selectedNoteIds(this.state.selectedItems.values())
     if (ids.length === 0) {
-      this.state.pastePlacementArmed = true
-      this.state.showCursor = false
-      dbg('[Clipboard] paste armed — click an insertion point (Esc to cancel)')
+      this.armPlacement()
       return
     }
     // Paste onto a selection → overwrite forward from the earliest selected note,
@@ -90,7 +121,17 @@ export class ClipboardController {
     this.state.pastePlacementArmed = false
     // Armed click → the active voice is the destination for a single-voice clip; the clicked
     // staff is the destination staff.
-    this.placeAt({ measure, beat, voice: activeVoiceToModel(this.state.activeVoice), staff })
+    const target = { measure, beat, voice: activeVoiceToModel(this.state.activeVoice), staff }
+    if (this.element) this.placeElementAt(target)
+    else this.placeAt(target)
+  }
+
+  /** Arm click-to-place: the paste has nowhere to anchor, so the next click on the score says
+   *  where. Shows as the blue place-cursor (`scoreCursorClass`) — nothing is drawn on the music. */
+  private armPlacement(): void {
+    this.state.pastePlacementArmed = true
+    this.state.showCursor = false
+    dbg('[Clipboard] paste armed — click an insertion point (Esc to cancel)')
   }
 
   /** Cancel an armed paste (Esc / leaving the mode). */
@@ -113,6 +154,27 @@ export class ClipboardController {
     const pastedIds = engine.pasteEvents(this.payload, target)
     dbg(`[Clipboard] pasted ${pastedIds.length} note(s) at measure ${target.measure} beat ${fracToNumber(target.beat)}`)
     this.selection.selectNotes(pastedIds)
+    this.state.showCursor = true
+    this.render.renderScore()
+  }
+
+  /**
+   * Paste the held ELEMENT at `anchor` — the element twin of {@link placeAt}, and the one place the
+   * element clip reaches the engine. The new mark becomes the selection (a paste leaves you holding
+   * what you just made), which means clearing the note selection exactly as an element PRESS does.
+   */
+  private placeElementAt(anchor: PasteAnchor): void {
+    const engine = this.getEngine()
+    if (!engine || !this.element) return
+    const created = pasteElement(engine, this.element, anchor)
+    if (!created) {
+      dbg(`[Clipboard] element paste refused at measure ${anchor.measure}`)
+      return
+    }
+    dbg(`[Clipboard] pasted ${elementClipSummary(this.element)} at measure ${anchor.measure} `
+      + `beat ${fracToNumber(anchor.beat)}${anchor.staff !== undefined ? ` staff ${anchor.staff}` : ''}`)
+    this.selection.selectNote(null)
+    this.state.selectedElement = created
     this.state.showCursor = true
     this.render.renderScore()
   }

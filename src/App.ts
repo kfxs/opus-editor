@@ -489,8 +489,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   let lastGutterShown: boolean | null = null
 
   function syncFromState(): void {
-    // The score box's cursor: hidden while panning, the blue placement pointer under a tool that
-    // arms with no ghost (expression / tempo / slur stamp).
+    // The score box's cursor: hidden while panning, the blue placement pointer under an armed paste
+    // or a tool that arms with no ghost (expression / tempo / slur stamp).
     const cursor = scoreCursorClass(state)
     if (cursor !== lastCursorClass) {
       lastCursorClass = cursor
