@@ -132,7 +132,19 @@ export class PropertiesWidget implements Widget {
       if (element.kind === 'dynamic') {
         const id = (element.data as { id?: string; missing?: boolean }).id
         if (id && !(element.data as { missing?: boolean }).missing) {
-          body.appendChild(this.buildDynamicOffsetRow(id, currentDynamicOffset(element)))
+          body.appendChild(this.buildMarkOffsetRow(
+            currentDynamicOffset(element), (x, y) => bus.dynamicOffset.set(id, x, y)))
+        }
+      }
+
+      // ⭐ …and a selected TEMPO MARK the same two (his ask, 2026-08-19), through `bus.tempoOffset`.
+      // The mark rides the row the ladder gives it and may be moved off it in either direction, so
+      // it takes the dynamic's row rather than the note's single horizontal.
+      if (element.kind === 'tempo') {
+        const id = (element.data as { id?: string; missing?: boolean }).id
+        if (id && !(element.data as { missing?: boolean }).missing) {
+          body.appendChild(this.buildMarkOffsetRow(
+            currentTempoOffset(element), (x, y) => bus.tempoOffset.set(id, x, y)))
         }
       }
 
@@ -328,8 +340,12 @@ export class PropertiesWidget implements Widget {
   }
 
   /**
-   * A dynamic's (or expression's) absolute offset — **two** number inputs in staff-spaces, +right and
-   * +down, committing to {@link bus.dynamicOffset}.
+   * A MARK's absolute offset — **two** number inputs in staff-spaces, +right and +down.
+   *
+   * ⭐ **One row, two kinds** (2026-08-19): the dynamic publishes to `bus.dynamicOffset` and the
+   * tempo mark to `bus.tempoOffset`, and `publish` is the whole of the difference. ⛔ Not a copy per
+   * kind — the stale-value discipline below is the hard-won part, and two copies of it is one copy
+   * that will quietly stop matching.
    *
    * ⭐ **Both axes commit TOGETHER**, on either input's change, and that is not tidiness: the
    * controller turns the pair into one nudge, so one commit is one undo entry — and the page limit
@@ -339,7 +355,10 @@ export class PropertiesWidget implements Widget {
    * applies the delta, and the panel repaints from `onModelChange`. So a value the page limit refuses
    * simply comes back on the repaint, which is the honest report that nothing moved.
    */
-  private buildDynamicOffsetRow(dynamicId: string, current: { x: number; y: number }): HTMLElement {
+  private buildMarkOffsetRow(
+    current: { x: number; y: number },
+    publish: (x: number, y: number) => void,
+  ): HTMLElement {
     const row = document.createElement('div')
     const rs = row.style
     rs.display = 'flex'
@@ -382,7 +401,7 @@ export class PropertiesWidget implements Widget {
         yInput.value = String(current.y)
         return
       }
-      bus.dynamicOffset.set(dynamicId, x, y)
+      publish(x, y)
       // Both boxes back to the last known values — see `buildOffsetInput`'s note: a write the page
       // limit refuses repaints nothing, so the panel must not keep showing what was typed.
       xInput.value = String(current.x)
@@ -410,7 +429,7 @@ export class PropertiesWidget implements Widget {
       // Zeroed immediately, the note offset's rule: a reset only reduces, so it is never refused.
       xInput.value = '0'
       yInput.value = '0'
-      bus.dynamicOffset.set(dynamicId, 0, 0)
+      publish(0, 0)
     })
     row.appendChild(reset)
     return row
@@ -1141,6 +1160,14 @@ function currentNoteOffset(element: InspectedElement): number {
  *  about what is stored. */
 function currentDynamicOffset(element: InspectedElement): { x: number; y: number } {
   const entry = element.overrides?.find((o) => o.kind === 'dynamicOffset') as
+    { x?: number; y?: number } | undefined
+  return { x: entry?.x ?? 0, y: entry?.y ?? 0 }
+}
+
+/** The tempo mark's current offset in staff-spaces (0,0 when none) — the reader above's twin, on the
+ *  entry `nudgeTempoOffset` accumulates into. */
+function currentTempoOffset(element: InspectedElement): { x: number; y: number } {
+  const entry = element.overrides?.find((o) => o.kind === 'tempoOffset') as
     { x?: number; y?: number } | undefined
   return { x: entry?.x ?? 0, y: entry?.y ?? 0 }
 }

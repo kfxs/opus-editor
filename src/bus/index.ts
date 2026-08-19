@@ -13,6 +13,7 @@ import { createFanStampSelection } from './fanStampSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createDynamicOffsetSelection } from './dynamicOffsetSelection'
+import { createTempoOffsetSelection } from './tempoOffsetSelection'
 import { createOttavaGeometrySelection } from './ottavaGeometrySelection'
 import { createPedalGeometrySelection } from './pedalGeometrySelection'
 import { createTrillGeometrySelection } from './trillGeometrySelection'
@@ -90,6 +91,7 @@ export interface EditorBus {
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
   /** The Properties dynamic/expression offset inputs — `noteOffset`'s twin, two axes. */
   dynamicOffset: ReturnType<typeof createDynamicOffsetSelection>
+  tempoOffset: ReturnType<typeof createTempoOffsetSelection>
   /** The Properties ottava offset inputs — two horizontals and ONE shared height. */
   ottavaGeometry: ReturnType<typeof createOttavaGeometrySelection>
   pedalGeometry: ReturnType<typeof createPedalGeometrySelection>
@@ -142,6 +144,7 @@ export function createEditorBus(): EditorBus {
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     dynamicOffset: createDynamicOffsetSelection(),
+    tempoOffset: createTempoOffsetSelection(),
     ottavaGeometry: createOttavaGeometrySelection(),
     pedalGeometry: createPedalGeometrySelection(),
     trillGeometry: createTrillGeometrySelection(),
@@ -177,6 +180,7 @@ export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'
+export type { TempoOffsetRequest } from './tempoOffsetSelection'
 export type { OttavaGeometryRequest, OttavaEndRequest, OttavaHeightRequest } from './ottavaGeometrySelection'
 export type { PedalGeometryRequest, PedalEndRequest, PedalHeightRequest } from './pedalGeometrySelection'
 export type { TrillGeometryRequest, TrillEndRequest, TrillHeightRequest } from './trillGeometrySelection'

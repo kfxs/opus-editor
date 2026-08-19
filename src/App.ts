@@ -18,6 +18,7 @@ import { GutterController } from './interactions/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { DynamicOffsetController } from './interactions/DynamicOffsetController'
+import { TempoOffsetController } from './interactions/TempoOffsetController'
 import { OttavaGeometryController } from './interactions/OttavaGeometryController'
 import { PedalGeometryController } from './interactions/PedalGeometryController'
 import { TrillGeometryController } from './interactions/TrillGeometryController'
@@ -536,6 +537,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const noteOffset = new NoteOffsetController(getEngine, () => renderer.renderScore())
   // …and the same wire for a dynamic/expression's offset (his ask, 2026-08-17). Two axes, one seam.
   const dynamicOffset = new DynamicOffsetController(getEngine, () => renderer.renderScore())
+  // …and the tempo mark's, the same two axes through the same kind of seam (his ask, 2026-08-19).
+  const tempoOffset = new TempoOffsetController(getEngine, () => renderer.renderScore())
   // …and the octave bracket's three offset numbers (two ends + the one shared height).
   const ottavaGeometry = new OttavaGeometryController(getEngine, () => renderer.renderScore())
   const pedalGeometry = new PedalGeometryController(getEngine, () => renderer.renderScore())
@@ -828,6 +831,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopSoundSync()
       noteOffset.destroy()
       dynamicOffset.destroy()
+      tempoOffset.destroy()
       ottavaGeometry.destroy()
       pedalGeometry.destroy()
       trillGeometry.destroy()
