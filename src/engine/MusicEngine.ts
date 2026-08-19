@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite } from './models/hairpinOps'
 import type { DynamicSlotTarget } from './models/dynamicOps'
@@ -2823,6 +2823,45 @@ export class MusicEngine {
       const off = dynamicOffsetOverrideOf(this.scoreModel.getScore(), dynamicId)
       dbg(`[Dynamic] nudge ${dynamicId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
     }
+    return ok
+  }
+
+  /**
+   * Nudge a selected TEMPO mark's position offset by `(dx, dy)` staff-spaces and save ONE undo step
+   * — the ←→↑↓ / Ctrl+arrow fine-positioning, his ask of 2026-08-19.
+   *
+   * {@link nudgeDynamicOffset} above verbatim, and deliberately so: the two marks differ in what
+   * they hang off (a note vs a place in time), not in how a hand moves them. Same page limit, same
+   * id-keyed override, same accumulate-and-clear-at-zero in the model.
+   * @returns true if the mark was nudged; false for an unknown id or a step the page refuses.
+   */
+  nudgeTempoOffset(tempoId: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('tempo', tempoId, dx, dy)) return false
+    if (!this.scoreModel.getTempoMarkById(tempoId)) return false
+    const ok = this.scoreModel.nudgeTempoOffset(tempoId, dx, dy)
+    if (ok) {
+      this.saveOnly('Nudge tempo mark')
+      const off = tempoOffsetOverrideOf(this.scoreModel.getScore(), tempoId)
+      dbg(`[Tempo] nudge ${tempoId} by (${dx}, ${dy}) → offset (${off?.x ?? 0}, ${off?.y ?? 0}) staff-space(s)`)
+    }
+    return ok
+  }
+
+  /**
+   * `Ctrl+Backspace` on a selected DYNAMIC / TEMPO mark: drop its hand nudge (his report,
+   * 2026-08-19 — *"the ctr backspace is not working for me"*, on the tempo offset built that day;
+   * the dynamic had the same hole since its own offset shipped).
+   * @returns false when the mark carries no nudge, so the key falls through to its other tenants.
+   */
+  resetDynamicOffset(id: string): boolean {
+    const ok = this.scoreModel.resetDynamicOffset(id)
+    if (ok) this.saveOnly('Reset dynamic nudge')
+    return ok
+  }
+
+  resetTempoOffset(id: string): boolean {
+    const ok = this.scoreModel.resetTempoOffset(id)
+    if (ok) this.saveOnly('Reset tempo nudge')
     return ok
   }
 

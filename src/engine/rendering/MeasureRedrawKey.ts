@@ -206,6 +206,10 @@ export function measureShapeKey(
       ? s.fan.members.map(m => (m.pitches[0] ? score.engravingOverrides?.[m.pitches[0].id] ?? null : null))
       : null)),
     view.tempos ?? null,
+    // ⚠️ …and a tempo mark's hand-nudged OFFSET (client #13), for the dynamic's reason exactly: it
+    // is id-keyed, so nothing else in this key moves when it changes, and `TempoLayout`'s
+    // `setTempoMarkOffset` only runs when the bar re-engraves. Guarded by a test broken on purpose.
+    view.tempos?.map(t => score.engravingOverrides?.[t.id] ?? null) ?? null,
     // A hairpin is drawn and weightless, exactly like a dynamic — and this covers only the bar the
     // wedge STARTS in, which is all a per-measure key can cover. The bar holding the far end is
     // pulled in by `VexFlowRenderer.spanAnchors` instead: a span's other end is not a fact about

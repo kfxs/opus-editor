@@ -1328,6 +1328,25 @@ export interface DynamicOffsetOverride extends EngravingOverride {
 }
 
 /**
+ * Client #13: the same free positional nudge for a **TEMPO MARK** (his ask, 2026-08-19) — the
+ * ←→↑↓ / Ctrl+arrow fine-positioning, in **staff-spaces**, anchor-relative, `x` +right and `y`
+ * +down (screen). {@link DynamicOffsetOverride}'s twin, element-id-keyed the same way.
+ *
+ * ⭐ **What it is measured FROM is the ladder's answer, not a constant**: the mark is drawn on the
+ * row `rendering/tempoLinePass` gives it (above whatever its own music, a trill or an 8va bracket
+ * claimed), and this rides on top of that — so a nudged mark still moves when the music beneath it
+ * does. ⛔ Which is why it is stored here and not as a y in the model: it is an adjustment to an
+ * engraved position, not a position.
+ */
+export interface TempoOffsetOverride extends EngravingOverride {
+  kind: 'tempoOffset'
+  /** Horizontal offset in staff-spaces, relative to the anchor. +right. */
+  x: number
+  /** Vertical offset in staff-spaces, relative to the anchor. +down (screen). */
+  y: number
+}
+
+/**
  * Client #10 of the engraving-overrides compartment: user-authored horizontal space before a
  * rhythmic column (Sibelius's *note spacing* — see docs/note-spacing-plan.md).
  *

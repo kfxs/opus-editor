@@ -28,6 +28,9 @@ import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoT
 import { textFirstFamily } from '@/utils/fontStack'
 import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT_SIZE } from './tempoStyle'
 import type { RenderPass } from './RenderPass'
+import { setTempoMarkOffset } from './tempoMarkTransform'
+import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
+import { staffSpacesToPixels } from './staffSpace'
 
 /**
  * Apply the mark's two sizes (`./tempoStyle`, where they live because the ink extents and the row's
@@ -310,6 +313,23 @@ export function drawTempoMarks(
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
           guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: stave.getYForLine(0) } }],
         })
+
+        // ⭐⭐ THE HAND NUDGE (client #13, his ask 2026-08-19) — applied AFTER the registration
+        // above, because the transform's writer moves the registry box by the change it causes
+        // (`./tempoMarkTransform`), and there has to be a box for it to move. The guide's `from`
+        // end travels with it and its `to` end does not, which is the guide's whole job.
+        //
+        // ⚠️ **It is applied here, at DRAW time, and the bar's SHAPE KEY is what makes that
+        // correct** — `MeasureRedrawKey` folds each tempo mark's overrides in, so a nudge
+        // re-engraves this bar and this line runs again. Leave it out of the key and the offset
+        // moves in the JSON while the mark sits still: exactly the dynamic's lesson of 2026-07-18
+        // (`reference_render_width_key_vs_shape_key` — when unsure INCLUDE, wrong answers are
+        // silent), and the reason a guard test breaks on purpose.
+        const offset = tempoOffsetOverrideOf(pass.score, mark.id)
+        if (offset && (offset.x !== 0 || offset.y !== 0)) {
+          setTempoMarkOffset(pass, mark.id, group,
+            staffSpacesToPixels(offset.x, stave), staffSpacesToPixels(offset.y, stave))
+        }
       }
     } catch {
       /* getBBox throws in jsdom / before layout — the mark still drew */

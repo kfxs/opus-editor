@@ -46,6 +46,7 @@ import { TEMPO_LINE, TEMPO_MARK_INK } from './tempoStyle'
 import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
+import { placeTempoMark } from './tempoMarkTransform'
 
 /** What the pass needs of a `MeasurePlacement` — declared structurally, the shape the dynamics and
  *  trill passes already use, so the renderer that calls this is not imported back by it. */
@@ -62,9 +63,6 @@ export interface TempoLinePlacement {
   stave: Stave
   scale: number
 }
-
-/** The tempo line's own contribution to the group's transform, in local px. */
-const LINE_ATTR = 'data-tempo-line'
 
 /**
  * ⭐ **THE MARK'S STRETCH OF MUSIC: from its own beat to the END of its bar.**
@@ -154,26 +152,3 @@ export function placeTempoMarksOnLine(
   }
 }
 
-/**
- * Move one mark onto its row, and move its registry box by the CHANGE.
- *
- * ⭐ **SET, never add** — `dynamicMarkTransform`'s rule, for its reason. This pass runs over measures
- * nobody re-engraved, whose group still carries the last render's transform; prepend or accumulate
- * there and the mark walks up the page one row's worth per keystroke, with the hit-box walking with
- * it. Keeping the contribution on the ELEMENT is what survives a render the node took no part in.
- *
- * The tempo mark has exactly ONE contribution (unlike a dynamic's three), so the stored component
- * and the written transform are the same number.
- */
-export function placeTempoMark(
-  pass: RenderPass,
-  id: string,
-  el: SVGGraphicsElement,
-  line: number,
-): void {
-  const was = Number(el.getAttribute(LINE_ATTR))
-  const previous = Number.isFinite(was) ? was : 0
-  el.setAttribute(LINE_ATTR, `${line}`)
-  el.setAttribute('transform', `translate(0, ${line})`)
-  pass.elementRegistry.shiftById(id, 0, line - previous)
-}

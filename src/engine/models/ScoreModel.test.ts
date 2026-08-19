@@ -404,6 +404,17 @@ describe('ScoreModel', () => {
       expect(loaded.getEffectiveTempoAt(1, frac(3, 1))).toBe(144)
     })
 
+    it('⚠️ deleting a tempo mark takes its hand nudge with it — no orphan in the JSON', () => {
+      // Client #13's invariant, at the MODEL level so no caller can bypass it (`removeDynamic`'s
+      // rule, learnt there in 2026-07-19). An id-keyed override outlives its element otherwise, and
+      // the id it names will never come back.
+      const mark = model.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
+      model.nudgeTempoOffset(mark.id, 1, -2)
+      expect(model.getScore().engravingOverrides?.[mark.id]).toBeDefined()
+      model.removeTempoMark(mark.id)
+      expect(model.getScore().engravingOverrides?.[mark.id]).toBeUndefined()
+    })
+
     it('serializes no tempos key for a mark-free score', () => {
       expect(model.toJSON()).not.toContain('"tempos"')
     })

@@ -197,7 +197,7 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
   // undoes the nudging, the rule every other pair here follows.
   'Ctrl+Backspace': {
     action: 'resetMove',
-    description: 'Reset the armed slur handle / hairpin end / the space before the selected note / the bar’s width',
+    description: 'Reset the armed slur handle / hairpin end / a dynamic or tempo mark’s nudge / the space before the selected note / the bar’s width',
   },
 
   // Note horizontal offset (client #12 — docs/note-offset-plan.md). A free nudge of a single

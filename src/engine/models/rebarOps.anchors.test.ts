@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { levelToGlyphString, dynamicLevelOf } from '@/utils/dynamics'
+import { tempoOffsetOverrideOf } from './engravingOverrides'
 import { ScoreModel } from './ScoreModel'
 import type { TempoMark, Fraction } from '@/types/music'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
@@ -108,6 +109,21 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     expect(moved).toHaveLength(1)
     expect(moved[0].bpm).toBe(60)
     expect(fracToNumber(moved[0].beat)).toBe(0) // absolute offset 3 → 2nd 3/4 bar, beat 0
+  })
+
+  it('⭐⭐ carries its hand-nudged OFFSET through a rebar — and leaves no dead key behind', () => {
+    // Client #13's seam. `restoreBeatAnchors` mints a FRESH id for every tempo mark it re-anchors,
+    // so an id-keyed override orphans on any rebar unless capture clears the old key and restore
+    // re-stamps it under the new one — the dynamic's lesson (2026-07-19) taken forward.
+    place(2, frac(1, 1), { text: 'Allegro' })
+    const before = model.getMeasure(2)!.tempos![0].id
+    model.nudgeTempoOffset(before, 1.5, -2)
+    model.setTimeSignature(2, { numerator: 3, denominator: 4 })
+
+    const after = model.getMeasure(2)!.tempos![0]
+    expect(after.id, 'the id IS regenerated — that is what makes this necessary').not.toBe(before)
+    expect(tempoOffsetOverrideOf(model.getScore(), after.id)).toMatchObject({ x: 1.5, y: -2 })
+    expect(tempoOffsetOverrideOf(model.getScore(), before), 'the old key is gone').toBeUndefined()
   })
 
   it('carries the whole mark through a rebar (text, unit, dots, scopeId)', () => {

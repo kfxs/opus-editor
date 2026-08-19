@@ -180,6 +180,29 @@ describe('P5.4 — incremental redraw', () => {
     expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
   })
 
+  it('a TEMPO OFFSET nudge redraws its bar — the same id-keyed trap, one client later', () => {
+    // Client #13 (his ask, 2026-08-19), and the dynamic's lesson taken forward rather than re-learnt:
+    // a tempo mark's hand nudge lives in `engravingOverrides[tempoId]`, so `overridesFor` (which
+    // matches only `{measureId}:…`) is blind to it and `view.tempos` itself is unchanged. Without
+    // the tempo overrides in the shape key the mark would sit still while the model moved.
+    const model = buildScore()
+    const renderer = makeRenderer()
+    const mark = model.addTempoMark(1, { text: 'Allegro', beat: frac(0, 1) })!
+    renderer.renderScore(model.getScore())
+    const before = groupNodes(renderer, 12)
+
+    const laneBefore = model.getScore().measures[0]
+    const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
+
+    model.nudgeTempoOffset(mark.id, 0, -2) // arrow-up nudge, staff-spaces
+
+    const laneAfter = model.getScore().measures[0]
+    expect(measureShapeKey(model.getScore(), keyInputs(laneAfter), null, null), 'the DRAW key must move on a nudge').not.toBe(drawKeyBefore)
+
+    renderer.renderScore(model.getScore())
+    expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
+  })
+
   it('a pitch change redraws ONLY that bar — its neighbours keep their DOM', () => {
     // Re-pitching a note changes the bar's content but not its width, so nothing re-justifies and
     // no neighbour moves. The blast radius should be exactly one bar.

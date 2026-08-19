@@ -951,6 +951,10 @@ export class ScoreModel {
       if (idx === -1) continue
       measure.tempos.splice(idx, 1)
       if (measure.tempos.length === 0) delete measure.tempos
+      // ⚠️ …and its hand-nudged offset goes with it (client #13): the override is id-keyed, and a
+      // dead id keeps a live entry in the JSON for ever. At the MODEL level, not the facade, so no
+      // caller can bypass it — `removeDynamic`'s rule, learnt there the same way.
+      this.clearEngravingOverride(id)
       return true
     }
     return false
@@ -1131,6 +1135,22 @@ export class ScoreModel {
    *  See {@link overrideOps.nudgeDynamicOffset} for the why. */
   nudgeDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
     return overrideOps.nudgeDynamicOffset(this.score, dynamicId, dx, dy)
+  }
+
+  /** Nudge a TEMPO mark's manual position offset by `(dx, dy)` staff-spaces (client #13) — the
+   *  reader above's twin. See {@link overrideOps.nudgeTempoOffset}. */
+  nudgeTempoOffset(tempoId: string, dx: number, dy: number): boolean {
+    return overrideOps.nudgeTempoOffset(this.score, tempoId, dx, dy)
+  }
+
+  /** Drop a dynamic's / tempo mark's hand nudge. @returns false when it carries none, so the key
+   *  falls through. See {@link overrideOps.resetMarkOffset}. */
+  resetDynamicOffset(id: string): boolean {
+    return overrideOps.resetMarkOffset(this.score, id, 'dynamicOffset')
+  }
+
+  resetTempoOffset(id: string): boolean {
+    return overrideOps.resetMarkOffset(this.score, id, 'tempoOffset')
   }
 
   /**

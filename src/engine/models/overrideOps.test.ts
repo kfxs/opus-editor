@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove } from './engravingOverrides'
+import { restPositionKey, restShiftOverrideOf, restHiddenOf, staffSpacingOverrideOf, staffSpacingAbove, tempoOffsetOverrideOf, dynamicOffsetOverrideOf } from './engravingOverrides'
 import type { EngravingOverride } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -182,6 +182,44 @@ describe('ScoreModel.toggleRestHidden (presence toggle, position-keyed)', () => 
     model.nudgeRestShift(key, -1)
     expect(restShiftOverrideOf(model.getScore(), key)).toBeUndefined()
     expect(hidden(key)).toBe(true)
+  })
+})
+
+describe('ScoreModel.nudgeTempoOffset / resetTempoOffset (accumulate / clear, id-keyed)', () => {
+  // Client #13 (his ask, 2026-08-19). The dynamic's contract one client later, and the two claims
+  // that keep the compartment honest: it ACCUMULATES, and a net zero leaves NOTHING behind — an
+  // absent override and a `{0,0}` one must not both be reachable, or the JSON has two spellings of
+  // "not nudged".
+  let model: ScoreModel
+
+  beforeEach(() => { model = new ScoreModel() })
+
+  it('⭐ accumulates both axes', () => {
+    model.nudgeTempoOffset('t1', 0.25, 0)
+    model.nudgeTempoOffset('t1', 0.25, -1)
+    expect(tempoOffsetOverrideOf(model.getScore(), 't1')).toMatchObject({ x: 0.5, y: -1 })
+  })
+
+  it('⭐ clears the entry at a net (0,0), so "absent = default" holds', () => {
+    model.nudgeTempoOffset('t1', 1, -2)
+    model.nudgeTempoOffset('t1', -1, 2)
+    expect(tempoOffsetOverrideOf(model.getScore(), 't1')).toBeUndefined()
+    expect(model.getScore().engravingOverrides).toBeUndefined()
+  })
+
+  it('⭐ `Ctrl+Backspace` drops it whole — and DECLINES when there was nothing to drop', () => {
+    // The decline is the contract: the reset key has other tenants behind this branch.
+    expect(model.resetTempoOffset('t1'), 'nothing authored').toBe(false)
+    model.nudgeTempoOffset('t1', 1, -2)
+    expect(model.resetTempoOffset('t1')).toBe(true)
+    expect(tempoOffsetOverrideOf(model.getScore(), 't1')).toBeUndefined()
+  })
+
+  it('⚠️ is INDEPENDENT of the dynamic offset — one compartment, two kinds', () => {
+    model.nudgeDynamicOffset('x1', 3, 0)
+    model.nudgeTempoOffset('x1', 0, -4)
+    expect(dynamicOffsetOverrideOf(model.getScore(), 'x1')).toMatchObject({ x: 3, y: 0 })
+    expect(tempoOffsetOverrideOf(model.getScore(), 'x1')).toMatchObject({ x: 0, y: -4 })
   })
 })
 

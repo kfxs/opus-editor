@@ -14,9 +14,8 @@
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
   Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
-  LeadingSpaceOverride, NoteOffsetOverride,
-} from '@/types/music'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
+  LeadingSpaceOverride, NoteOffsetOverride, TempoOffsetOverride } from '@/types/music'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces, tempoOffsetOverrideOf } from './engravingOverrides'
 import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
@@ -68,7 +67,9 @@ export interface RebarDeps {
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
   | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; offset?: { x: number; y: number } }
-  | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark }
+  // ⚠️ …with its hand-nudged offset (client #13) alongside, for the dynamic's reason one line up:
+  // the id is regenerated on the way back in, so an id-keyed override orphans unless it rides here.
+  | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark; offset?: { x: number; y: number } }
   // Only the START is captured: `length` is an amount of MUSIC, and a rebar leaves the region's
   // total music unchanged, so the extent is invariant and only the anchor needs re-finding.
   | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin }
@@ -739,7 +740,12 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
     // (clearMeasureForRebar drops the array) unless they ride this seam. They carry no
     // staff/voice — a tempo mark is system-level — so the offset is the whole key.
     for (const t of m.tempos ?? []) {
-      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t })
+      // The dynamic's seam above, verbatim: capture the id-keyed offset and CLEAR the old key, so
+      // restoreBeatAnchors can re-stamp it under the fresh id. Without this a nudged tempo mark
+      // loses its offset on any rebar — and leaves a dead entry behind in the JSON.
+      const off = tempoOffsetOverrideOf(score, t.id)
+      if (off) deps.clearEngravingOverride(t.id, 'tempoOffset')
+      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t, ...(off ? { offset: { x: off.x, y: off.y } } : {}) })
     }
     // Hairpins ride the same seam as the dynamics above, for the same reason and with one extra:
     // clearMeasureForRebar deletes the array, so anything not captured here is gone. The wedge's
@@ -796,8 +802,15 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       if (!m.tempos) m.tempos = []
       const dup = m.tempos.findIndex((t) => fracCompare(t.beat, beat) === 0)
       if (dup !== -1) m.tempos.splice(dup, 1)
-      m.tempos.push({ ...a.mark, id: uuidv4(), beat })
+      const tempoId = uuidv4()
+      m.tempos.push({ ...a.mark, id: tempoId, beat })
       m.tempos.sort((x, y) => fracCompare(x.beat, y.beat))
+      // Re-stamp the captured hand nudge under the regenerated id (client #13) — the dynamic's
+      // arrangement below, and how a nudged tempo mark keeps its offset across a meter change.
+      if (a.offset) {
+        const next: TempoOffsetOverride = { kind: 'tempoOffset', x: a.offset.x, y: a.offset.y }
+        deps.setEngravingOverride(tempoId, next)
+      }
     } else if (a.kind === 'hairpin') {
       // Hairpins take the DYNAMICS rule, not the clef one: they may stack at a beat, so no dedupe.
       // Only the start moves — `length` is carried through untouched.

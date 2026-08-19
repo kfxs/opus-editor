@@ -26,13 +26,11 @@
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
   BarlineSpaceOverride, BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride,
-  StaffSpacingOverride, FanMemberChord,
-} from '@/types/music'
+  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import {
   restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf,
-  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX,
-} from './engravingOverrides'
+  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf } from './engravingOverrides'
 
 /**
  * Upsert an override: replaces any existing entry of the same `kind` on this
@@ -238,6 +236,37 @@ export function nudgeDynamicOffset(score: Score, dynamicId: string, dx: number, 
     setEngravingOverride(score, dynamicId, next)
   }
   return true
+}
+
+/**
+ * The same for a **TEMPO MARK** (client #13, his ask 2026-08-19) — accumulate `(dx, dy)`
+ * staff-spaces onto the mark's own offset, clear the entry at a net (0,0), no undo snapshot (the
+ * facade owns it). {@link nudgeDynamicOffset} verbatim with one word changed, which is the point:
+ * the two marks differ in what they are attached to, not in how a hand moves them.
+ * @returns true (the override always exists/updates for a valid tempo id).
+ */
+export function nudgeTempoOffset(score: Score, tempoId: string, dx: number, dy: number): boolean {
+  const prev = tempoOffsetOverrideOf(score, tempoId)
+  const x = (prev?.x ?? 0) + dx
+  const y = (prev?.y ?? 0) + dy
+  if (x === 0 && y === 0) {
+    clearEngravingOverride(score, tempoId, 'tempoOffset')
+  } else {
+    const next: TempoOffsetOverride = { kind: 'tempoOffset', x, y }
+    setEngravingOverride(score, tempoId, next)
+  }
+  return true
+}
+
+/**
+ * ⭐ `Ctrl+Backspace` on a selected mark: drop its hand nudge and let the engraver have it back.
+ *
+ * ⚠️ **Returns false when there was nothing to reset**, which is the whole contract — the key has
+ * several tenants (the note's spacing, the bar's width), so a branch that answered true for "no
+ * change" would swallow the press for everything behind it.
+ */
+export function resetMarkOffset(score: Score, id: string, kind: 'dynamicOffset' | 'tempoOffset'): boolean {
+  return clearEngravingOverride(score, id, kind)
 }
 
 /**

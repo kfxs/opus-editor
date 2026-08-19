@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -451,6 +451,15 @@ export function staffSpacingOverrideOf(score: Score, staffId: string): StaffSpac
  */
 export function dynamicOffsetOverrideOf(score: Score, dynamicId: string): DynamicOffsetOverride | undefined {
   return engravingOverrideOf(score, dynamicId, 'dynamicOffset') as DynamicOffsetOverride | undefined
+}
+
+/**
+ * The tempo mark's hand-nudged position offset, if any (client #13 — his ask, 2026-08-19). The
+ * reader above's twin in every respect: `{x,y}` in **staff-spaces**, added at render to the row the
+ * ladder gave the mark (`rendering/tempoLinePass`), element-id-keyed, absent = no offset.
+ */
+export function tempoOffsetOverrideOf(score: Score, tempoId: string): TempoOffsetOverride | undefined {
+  return engravingOverrideOf(score, tempoId, 'tempoOffset') as TempoOffsetOverride | undefined
 }
 
 /**
