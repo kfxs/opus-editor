@@ -15,6 +15,7 @@ import {
   type ClipboardPayload,
 } from './clipboard'
 import { copyElement, pasteElement, elementClipSummary, type ElementClip } from './elementClipboard'
+import { markItems } from './enclosedMarks'
 import { pasteAnchorFor, type PasteAnchor } from './pasteAnchor'
 
 /**
@@ -69,7 +70,13 @@ export class ClipboardController {
       dbg('[Clipboard] copy: nothing selected')
       return
     }
-    const payload = buildClipboardFromSelection(engine.getScore(), ids)
+    // ⭐ **THE CLIP CARRIES WHAT IS SELECTED**, not what the note window happens to enclose (his
+    // report, 2026-08-19: *"i'm not selecting the dynamic, however it paste it"*, holding a
+    // Ctrl-built selection of three notes and one slur). A box or a passage click puts every
+    // enclosed mark in the set, so those copies are unchanged; a hand-built one carries exactly
+    // the marks it shows as selected.
+    const markIds = new Set(markItems(this.state.selectedItems.values()).map(m => m.id))
+    const payload = buildClipboardFromSelection(engine.getScore(), ids, markIds)
     if (!payload) {
       console.warn('[Clipboard] copy: selection produced no copyable events')
       return

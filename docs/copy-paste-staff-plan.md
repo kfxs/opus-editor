@@ -42,6 +42,10 @@ generalizes that single-lane behavior to N staff lanes.
   are inside the copy window; a dynamic travels only if its position is inside it.
   Straddling items are left behind. (Boundary-clipping is a possible later refinement.)
 
+  ⭐ **Amended 2026-08-19:** enclosure is now the ceiling, not the rule — a mark also has to be
+  SELECTED to travel (`MarkFilter`, `docs/passage-selection-marks.md`). A box selects everything it
+  encloses, so a passage copy is unchanged; a Ctrl-built selection carries exactly what it shows.
+
 ## Payload v3
 
 ```ts

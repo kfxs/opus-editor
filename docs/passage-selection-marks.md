@@ -59,6 +59,27 @@ fallback has a 30px reach and would lose presses to it.
 from. And `toggleMark` touches no note anchor — `selectedNoteId` and the Shift pivot drive note
 navigation and the palette, and a hairpin is none of those things.
 
+## ⭐⭐ The clip carries what is SELECTED
+
+> *"i'm not selecting the dynamic, however it paste it"* — holding a Ctrl-built selection of three
+> notes and one slur, and watching the dynamic under them arrive in the paste.
+
+That was the last place the old rule still spoke: `buildClipboardFromSelection` recomputed the
+enclosed marks from the note span and never asked what the user was holding. It now takes the
+selection's mark ids (`MarkFilter`), and **the two are an INTERSECTION**:
+
+- the **window** says which marks a clip *may* carry — a mark half in and half out has no place in
+  it, which is each builder's own fully-enclosed rule and stays exactly as it was;
+- the **selection** says which of those the user actually asked for.
+
+⛔ Order matters: a mark that is selected but sits OUTSIDE the copied span still does not travel,
+because the clip has no offset to file it under.
+
+⚠️ A box or a plain passage click puts every enclosed mark in the set, so **those copies are
+unchanged** — this only narrows a selection built by hand. And an absent filter still means
+"everything enclosed", which is what a caller with no selection to consult means by *copy this
+passage*; the specs that call the builder directly pass none, because they are testing the window.
+
 ## The selection union grew four arms
 
 `SelectionItem` gained `hairpin` / `trill` / `ottava` / `pedal` (id-keyed, like `dynamic` and
@@ -84,11 +105,9 @@ and — since they overlap — unclickable. Handles are for editing ONE mark.
 
 ## Not done
 
-- **Copy still reads the note WINDOW, not the marks in the set.** `buildClipboardFromSelection`
-  takes the note ids and recomputes what they enclose, so a hand-picked mark outside that window is
-  highlighted but not carried, and a marks-only group copies nothing. Making the clip read the SET
-  is the next step this gesture was asked for ("*so we can also use the real selection … in copy and
-  paste*").
+- A **marks-only group** copies nothing: the clip is built from a note span, so with no notes
+  selected there is no window to file the marks under. Copying a bare mark is `Ctrl+C` on a single
+  selected one (`docs/element-copy-paste-plan.md`).
 - A box still does not select **clefs**, **meters** or **tempo marks** inside it; the copy does not
   take them either, so the two remain consistent (`docs/copy-paste-staff-plan.md` has them listed as
   dropped).

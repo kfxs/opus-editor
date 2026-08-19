@@ -54,6 +54,23 @@ export interface ClipboardPayload extends Clip {
   pedals?: ClipPedal[]
 }
 
+/**
+ * ⭐⭐ **WHICH MARKS TRAVEL — the SELECTION's answer, not the window's alone.** His report,
+ * 2026-08-19, holding a Ctrl-built selection of three notes and one slur: *"i'm not selecting the
+ * dynamic, however it paste it"*.
+ *
+ * The window says which marks a clip *may* carry (a mark half in and half out has no place in it —
+ * see each builder below). This says which of those the user actually asked for. The two are an
+ * INTERSECTION and the order matters: ⛔ a mark that is selected but sits outside the copied span
+ * still does not travel, because the clip has no offset to file it under.
+ *
+ * ⚠️ Absent (`undefined`) = **everything enclosed**, which is what a caller with no selection set to
+ * consult means by "copy this passage" — the rule this file had until the marks joined the
+ * selection (`./enclosedMarks`). Every editor copy passes one; the specs that call the builder
+ * directly do not, and they are testing the WINDOW.
+ */
+export type MarkFilter = (markId: string) => boolean
+
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
 function measureStartOffsets(score: Score): Map<number, Fraction> {
   const out = new Map<number, Fraction>()
@@ -280,6 +297,7 @@ function dynamicsInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipDynamic[] {
   const starts = measureStartOffsets(score)
   const out: ClipDynamic[] = []
@@ -287,6 +305,7 @@ function dynamicsInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const d of m.dynamics ?? []) {
+      if (!wanted(d.id)) continue
       const abs = fracAdd(mStart, d.beat)
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const staffIdx = staffIndexOfId(score, d.staffId)
@@ -323,6 +342,7 @@ function hairpinsInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipHairpin[] {
   const starts = measureStartOffsets(score)
   const out: ClipHairpin[] = []
@@ -330,6 +350,7 @@ function hairpinsInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const h of m.hairpins ?? []) {
+      if (!wanted(h.id)) continue
       const abs = fracAdd(mStart, h.beat)
       if (!fracGte(abs, spanStart)) continue
       if (!fracLte(fracAdd(abs, h.length), spanEnd)) continue
@@ -363,6 +384,7 @@ function ottavasInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipOttava[] {
   const starts = measureStartOffsets(score)
   const out: ClipOttava[] = []
@@ -370,6 +392,7 @@ function ottavasInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const o of m.ottavas ?? []) {
+      if (!wanted(o.id)) continue
       const abs = fracAdd(mStart, o.beat)
       if (!fracGte(abs, spanStart)) continue
       if (!fracLte(fracAdd(abs, o.length), spanEnd)) continue
@@ -395,6 +418,7 @@ function pedalsInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipPedal[] {
   const starts = measureStartOffsets(score)
   const out: ClipPedal[] = []
@@ -402,6 +426,7 @@ function pedalsInWindow(
     const mStart = starts.get(m.number)
     if (!mStart) continue
     for (const p of m.pedals ?? []) {
+      if (!wanted(p.id)) continue
       const abs = fracAdd(mStart, p.beat)
       if (!fracGte(abs, spanStart)) continue
       if (!fracLte(fracAdd(abs, p.length), spanEnd)) continue
@@ -425,6 +450,7 @@ function slursInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipSlur[] {
   const slurs = score.slurs
   if (!slurs || slurs.length === 0) return []
@@ -452,6 +478,7 @@ function slursInWindow(
 
   const out: ClipSlur[] = []
   for (const slur of slurs) {
+    if (!wanted(slur.id)) continue
     const s = info.get(slur.startNoteId)
     const e = info.get(slur.endNoteId)
     if (!enclosed(s) || !enclosed(e)) continue
@@ -481,6 +508,7 @@ function trillsInWindow(
   maxStaff: number,
   spanStart: Fraction,
   spanEnd: Fraction,
+  wanted: MarkFilter,
 ): ClipTrill[] {
   const trills = score.trills
   if (!trills || trills.length === 0) return []
@@ -507,6 +535,7 @@ function trillsInWindow(
 
   const out: ClipTrill[] = []
   for (const trill of trills) {
+    if (!wanted(trill.id)) continue
     const s = info.get(trill.startNoteId)
     if (!enclosed(s)) continue
     const e = trill.endNoteId !== undefined ? info.get(trill.endNoteId) : undefined
@@ -535,7 +564,14 @@ function trillsInWindow(
  * copied staff (0 = topmost), so a staves-1+2 clip can paste onto staves 3+4. Returns null
  * when nothing usable is selected.
  */
-export function buildClipboardFromSelection(score: Score, noteIds: string[]): ClipboardPayload | null {
+export function buildClipboardFromSelection(
+  score: Score,
+  noteIds: string[],
+  markIds?: ReadonlySet<string>,
+): ClipboardPayload | null {
+  // ⭐ The selection filter (see {@link MarkFilter}): the marks the user is holding, intersected
+  // with the marks the window can carry.
+  const wanted: MarkFilter = markIds ? (id: string) => markIds.has(id) : () => true
   const idSet = new Set(noteIds)
   const spans = selectedSpans(score, idSet)
   if (spans.length === 0) return null
@@ -582,12 +618,12 @@ export function buildClipboardFromSelection(score: Score, noteIds: string[]): Cl
 
   // Dynamics (Phase 2) and slurs (Phase 3) fully inside the window travel too, staff re-based
   // to the topmost copied staff.
-  const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
-  const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
-  const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
-  const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
-  const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
-  const pedals = pedalsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd)
+  const dynamics = dynamicsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const slurs = slursInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const hairpins = hairpinsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const trills = trillsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const ottavas = ottavasInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
+  const pedals = pedalsInWindow(score, topStaff, staves[staves.length - 1], spanStart, spanEnd, wanted)
   // Authored spaces in the window travel too (client #10) — no staff re-basing, since a space
   // has no staff.
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)

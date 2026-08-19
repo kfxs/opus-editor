@@ -88,6 +88,28 @@ describe('ClipboardController — copying one element', () => {
     expect(dynamics()).toEqual(['1@0:dolce', '2@1:dolce'])
   })
 
+  it('⭐⭐ the clip carries the SELECTED marks, not everything the note window encloses', () => {
+    // His report: three notes and a slur Ctrl-picked, and the dynamic under them pasted anyway.
+    // ⚠️ The notes must ENCLOSE the dynamic (it sits on beat 0), or the window would leave it out
+    // by itself and the case would prove nothing — the next one is the same selection plus it.
+    const notes = [ids[0], ids[1]]
+    state.selectedItems = new Map(notes.map(id => [`note:${id}`, { kind: 'note', id }]))
+    clipboard.copy()
+    clipboard.pasteAt(2, frac(0, 1), 0)
+    expect(dynamics(), 'the unselected dynamic stayed behind').toEqual(['1@0:dolce'])
+  })
+
+  it('…and carries it when it IS selected', () => {
+    const notes = [ids[0], ids[1]]
+    state.selectedItems = new Map<string, { kind: 'note' | 'dynamic'; id: string }>([
+      ...notes.map(id => [`note:${id}`, { kind: 'note' as const, id }] as const),
+      ['dynamic:' + dynamicId, { kind: 'dynamic', id: dynamicId }],
+    ])
+    clipboard.copy()
+    clipboard.pasteAt(2, frac(0, 1), 0)
+    expect(dynamics()).toEqual(['1@0:dolce', '2@0:dolce'])
+  })
+
   it('holds ONE thing: copying notes drops the element, and copying an element drops the notes', () => {
     state.selectedItems = new Map([['note:' + ids[0], { kind: 'note', id: ids[0] }]])
     clipboard.copy()
