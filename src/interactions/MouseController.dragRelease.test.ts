@@ -58,6 +58,7 @@ describe('a drag released out of sight', () => {
     preview = vi.fn(() => true)
     commit = vi.fn()
     const registry = {
+      staffBands: () => [{ top: 90, bottom: 110 }],
       findClosestNoteOrRest: () => null,
       getTupletAt: () => null,
       hitsNoteOrRestBody: () => false,
@@ -76,6 +77,13 @@ describe('a drag released out of sight', () => {
       pixelToMeasure: () => 1,
       previewHairpinOffset: preview,
       commitHairpinOffsetDrag: commit,
+      // ⭐ The body drag is a WALK now (`../hairpinWalk`): it asks for the next slot of the wedge's
+      // lane and for the system it belongs to. Nothing is drawn here but the wedge itself, so both
+      // answer "nowhere", and the frame degrades to the plain ink nudge these cases are about.
+      getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
+      nextHairpinStartSlot: () => null,
+      previewHairpinSlot: () => false,
+      previewHairpinOffsetRebase: vi.fn(() => true),
     }
 
     mc = new MouseController(

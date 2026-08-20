@@ -660,6 +660,12 @@ export class ScoreModel {
     return hairpinOps.nextHairpinEndStop(this.score, id, direction)
   }
 
+  /** Move a WHOLE hairpin to the lane slot at `target`, keeping its length — the body drag's walk.
+   *  See {@link hairpinOps.setHairpinAtSlot}. */
+  setHairpinAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {
+    return hairpinOps.setHairpinAtSlot(this.score, id, target)
+  }
+
   /** Put a hairpin's END at the right edge of the lane slot at `target`, holding its start (the
    *  right square's DRAG). See {@link hairpinOps.setHairpinEndAtSlot}. */
   setHairpinEndAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {

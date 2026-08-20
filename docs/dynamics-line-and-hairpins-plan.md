@@ -1966,3 +1966,40 @@ not in the table — zoom is the app's own, always score zoom (docs/zoom-plan.md
   its own rounded self. The guard now compares with a tolerance, so a wheel at the limit declines
   instead of re-writing and repainting on every notch.
 
+## 2026-08-20 (last, really) — the BODY walks too, and the vertical is a LADDER
+
+His ask, once the squares were done: *"we still have the offset with the mouse when no endpoint is
+selected… we must turn that into a walk… and in the y axis we detect if there is another system so we
+go to there"* — then the keyboard, *"yes, do the keyboard too"*.
+
+⚠️ **This ends the split the body drag was built on.** A wedge's position used to be COSMETIC (free
+pixels, an override) where its extent was MUSICAL; dragging one now moves it through the music, as
+dragging a dynamic does. Same three ports, third one added: `hairpinWalk.bodyPort`.
+
+- ⭐ **The body's stops are the START's**, because a wedge moved as one is moved by its beginning —
+  which makes it the simplest of the three model writes: ONE field (`hairpinOps.setHairpinAtSlot`),
+  the extent being an amount of music that travels with the start. ⛔ No latch (a whole wedge is
+  placed by eye, not aimed at a note's edge — the dynamic's reasoning).
+- ⭐ **The ink is both ends at once**, which is what the body drag always wrote.
+- ⭐ **The keyboard walks it too** (`walkHairpinBody`), so the arrows and the drag land in ONE state.
+  ⛔ Its vertical stays a plain lift: the two gestures below need a HAND to say which staff.
+
+### ⭐⭐ THE VERTICAL IS A LADDER — …above N, below N, above N+1, below N+1…
+
+Two reports, one shape. First *"it jumps to the upper system too quickly — remember we can draw a
+hairpin up or down the staff"*, then *"i don't like that going down jumps from below the staff to
+below, and going up from above to above; it is not intuitive"*.
+
+⭐⭐ **The places a wedge may stand are two per staff**, and a vertical gesture takes ONE RUNG:
+
+1. **Crossing its own staff's lines FLIPS it** (`flipPlacement`): below ⇒ above once the ink passes
+   the TOP line, above ⇒ below past the BOTTOM one. The space above a staff is a place the wedge
+   BELONGS, not a no-man's-land on the way to the staff over it — and this fixes "too quickly" by
+   construction, with no threshold to tune: once it is above its staff, `markSystemJump` measures its
+   natural distance from the top line, so the next staff is a whole system away again.
+2. **A jump then lands it ON THE SIDE IT CAME FROM**: coming down, the next rung is ABOVE the staff
+   below — which is also where the hand already is. ⛔ Landing on the far side skips a rung.
+
+⭐ Both steps drop the lift (a `y` measured on one side means nothing on the other) and both END the
+frame: one visible step per gesture, so the eye can follow what happened.
+

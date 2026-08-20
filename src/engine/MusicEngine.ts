@@ -1639,6 +1639,53 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐⭐ **Move the whole wedge onto `target`, keeping its length** — the BODY drag's walk and its
+   * system jump. ⚠️ A CONTENT edit: it changes which notes get louder, and it is AUDIBLE.
+   *
+   * ⭐ Preview + commit, like every other drag write here: no undo entry of its own, and
+   * {@link commitHairpinOffsetDrag} records the gesture once on the drop.
+   */
+  previewHairpinSlot(id: string, target: HairpinSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitHairpinOffsetDrag
+    return this.scoreModel.setHairpinAtSlot(id, target)
+  }
+
+  /**
+   * ⭐⭐ **Move the whole wedge onto `target` from the KEYBOARD** — {@link previewHairpinSlot}'s
+   * committing twin, one undo entry. ⚠️ A CONTENT edit, and AUDIBLE: it changes which notes get
+   * louder.
+   */
+  moveHairpinToSlot(id: string, target: HairpinSlotTarget): boolean {
+    const ok = this.scoreModel.setHairpinAtSlot(id, target)
+    if (ok) this.commit('Move hairpin')
+    return ok
+  }
+
+  /** Live (preview) flip of which SIDE of its staff a wedge is drawn on — the body drag's step
+   *  between "below this staff" and "above it", before any question of another system arises. No undo
+   *  entry; the drop commits once. */
+  previewHairpinPlacement(id: string, placement: 'above' | 'below'): boolean {
+    this.markModelDirty()
+    return !!this.scoreModel.updateHairpin(id, { placement })
+  }
+
+  /** The whole wedge's RE-BASE on the KEYBOARD — {@link rebaseHairpinEndpointOffset}'s twin for both
+   *  ends at once, and ⛔ outside the page limit for its reason. */
+  rebaseHairpinOffset(id: string, dx: number): boolean {
+    const ok = this.scoreModel.setHairpinOffset(id, dx, 0)
+    if (ok) this.saveOnly('Move hairpin') // inside the walk's batch this only counts the request
+    return ok
+  }
+
+  /** The whole wedge's RE-BASE — {@link rebaseHairpinEndpointOffset} for both ends at once, and ⛔
+   *  outside the page limit for its reason: the pair (anchor moves, ink gives the same back) does not
+   *  move the drawn wedge at all. */
+  previewHairpinOffsetRebase(id: string, dx: number): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setHairpinOffset(id, dx, 0)
+  }
+
+  /**
    * Live (preview) whole-wedge move used **while dragging a hairpin's BODY** — writes the model but
    * does NOT record undo; call {@link commitHairpinOffsetDrag} on the drop for the single entry.
    * `previewHairpinEnd` / `commitHairpinDrag`'s pair, and for its reason: every frame of a drag

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkHairpinEndpoint, dragHairpinEndpoint } from './hairpinWalk'
+import {
+  walkHairpinEndpoint, walkHairpinBody, dragHairpinEndpoint, dragHairpinBody,
+} from './hairpinWalk'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -571,6 +573,103 @@ describe('walkHairpinEndpoint', () => {
     it('⭐ the LEFT square drags the same way', () => {
       expect(dragHairpinEndpoint(engine, wedgeId, 'start', 200, 100)?.moved).toBe(true)
       expect(span(), 'the start moved one slot, its end held').toEqual({ beat: 1, length: 2 })
+    })
+  })
+
+  /**
+   * ⭐⭐ THE BODY — the WHOLE wedge, where the squares move one end each (his ask, 2026-08-20: *"we
+   * still have the offset with the mouse when no endpoint is selected… we must turn that into a
+   * walk… and in the y axis we detect if there is another system so we go to there"*).
+   *
+   * Two claims: the horizontal is the same walk (ink, then the MUSIC at each boundary, length
+   * unchanged), and the vertical is a JUMP to the system the wedge now belongs to.
+   */
+  describe('the body', () => {
+    it('⭐ nudges the whole wedge’s ink, and the music only when the ink arrives', () => {
+      expect(dragHairpinBody(engine, wedgeId, 200, 35, 0)?.moved).toBe(true)
+      expect(span(), 'still ink').toEqual({ beat: 0, length: 3 })
+      expect(offset('start').x).toBeCloseTo(3.5, 6)
+      expect(offset('end').x, 'both ends move together — that IS the body’s ink').toBeCloseTo(3.5, 6)
+    })
+
+    it('⭐⭐ …and the whole wedge MOVES at the boundary, keeping its length', () => {
+      expect(dragHairpinBody(engine, wedgeId, 200, 100, 0)?.moved).toBe(true)
+      expect(span(), 'one slot on, same extent').toEqual({ beat: 1, length: 3 })
+      expect(offset('start').x, 'and the ink is re-based, so nothing jumped').toBeCloseTo(0, 6)
+    })
+
+    it('⭐ the vertical is ink too, while it stays on this system', () => {
+      expect(dragHairpinBody(engine, wedgeId, 200, 0, 20)?.moved).toBe(true)
+      expect(offset('start').y).toBeCloseTo(2, 6)
+      expect(offset('end').y).toBeCloseTo(2, 6)
+    })
+
+    it('⭐⭐ the ARROWS walk it too, so the two devices land in ONE state', () => {
+      // His ask once the mouse had it. Ten presses of a space = the 100 px between two boundaries,
+      // which is exactly the one drag frame the case above makes.
+      for (let i = 0; i < 9; i++) expect(walkHairpinBody(engine, wedgeId, 1)).toBe(true)
+      expect(span(), 'still ink').toEqual({ beat: 0, length: 3 })
+      expect(walkHairpinBody(engine, wedgeId, 1)).toBe(true)
+      expect(span(), 'one slot on, same extent').toEqual({ beat: 1, length: 3 })
+      expect(offset('start').x).toBeCloseTo(0, 6)
+      expect(offset('end').x, 'both ends re-based together').toBeCloseTo(0, 6)
+    })
+
+    it('⭐ a crossing press is ONE undo entry — and it takes the whole wedge back', () => {
+      for (let i = 0; i < 10; i++) walkHairpinBody(engine, wedgeId, 1)
+      expect(span().beat).toBe(1)
+      engine.undo()
+      expect(span()).toEqual({ beat: 0, length: 3 })
+      expect(offset('start').x).toBeCloseTo(9, 6)
+    })
+
+    it('🚨⭐⭐ dragged UP off its staff, the wedge goes ABOVE that staff — ⛔ not to the system over it', () => {
+      // His report, 2026-08-20: *"it jumps to the upper system too quickly; we need a boundary —
+      // remember we can draw a hairpin up or down the staff"*. The space above a staff is a place a
+      // wedge BELONGS, so crossing its own five lines is the first step, and only then is another
+      // system even a question.
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      engine.nudgeHairpinEndpoint(wedgeId, 'start', 0, 2)   // a lift, which the flip drops
+      engine.nudgeHairpinEndpoint(wedgeId, 'end', 0, 2)
+
+      // The wedge's ink is at y 94, below a staff whose lines run 40…80. A hand that has carried it
+      // past the TOP line has moved it to the other side of the staff.
+      const frame = dragHairpinBody(engine, wedgeId, 200, 0, -60)
+      expect(frame).toEqual({ moved: true, jumped: true })
+      expect(engine.getHairpinById(wedgeId)?.placement, 'above its OWN staff').toBe('above')
+      expect(span(), 'and the music has not moved at all').toEqual({ beat: 0, length: 3 })
+      expect(offset('start').y, 'a lift measured below the staff means nothing above it').toBeCloseTo(0, 6)
+    })
+
+    it('⭐ …and back DOWN across the bottom line returns it below', () => {
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      engine.updateHairpin(wedgeId, { placement: 'above' })
+      expect(dragHairpinBody(engine, wedgeId, 200, 0, 40)?.jumped).toBe(true)
+      expect(engine.getHairpinById(wedgeId)?.placement).toBe('below')
+    })
+
+    it('🚨⭐⭐ …but a hand that has come down to the NEXT SYSTEM is a JUMP', () => {
+      // ⛔ Not a walk: two systems' x's are not one ruler, so there is nothing continuous to travel
+      // through. `markSystemJump`'s rule decides — halfway between where the wedge sits and where it
+      // would sit down there — and a jump lands it where the engraver would, both axes of the offset
+      // gone.
+      const below = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+      render([100, 200, 300, 400], 10, 400)
+      drawn.systemTop = { 1: 40, 2: 240 }
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      below.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      engine.nudgeHairpinEndpoint(wedgeId, 'start', 0, 1)   // a small lift, which the jump drops
+
+      const frame = dragHairpinBody(engine, wedgeId, 210, 0, 200)
+      expect(frame).toEqual({ moved: true, jumped: true })
+      expect(span().beat, 'it landed on the slot nearest the hand, down there').toBe(1)
+      expect(offset('start'), 'and where the engraver would put it').toEqual({ x: 0, y: 0 })
+      // ⭐⭐ …ON THE SIDE IT CAME FROM: coming down, the next rung of the ladder is ABOVE the staff
+      // below — ⛔ not below it, which skips a rung and puts the wedge past the hand.
+      expect(engine.getHairpinById(wedgeId)?.placement).toBe('above')
     })
   })
 })

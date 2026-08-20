@@ -31,7 +31,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from '../engine/models/hairpinOps'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  hairpinBoundaryX, hairpinEndAddress, hairpinStartAddress, hairpinSystemInkLimit, hairpinTipX,
+  hairpinBoundaryX, hairpinEndAddress, hairpinInkY, hairpinStaffBand, hairpinStartAddress,
+  hairpinSystemInkLimit, hairpinSystemSlotFor, hairpinTipX,
 } from './hairpinLane'
 import { hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { carryMark, markWalkCrosses, type MarkStop, type MarkWalkPort } from './markWalk'
@@ -43,7 +44,9 @@ export type HairpinWalkEngine = Pick<MusicEngine,
   | 'nextHairpinStartSlot' | 'moveHairpinStartToSlot'
   | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
   | 'nudgeHairpinEndpoint' | 'rebaseHairpinEndpointOffset'
-  | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'>
+  | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'
+  | 'previewHairpinSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase'
+  | 'moveHairpinToSlot' | 'nudgeHairpin' | 'rebaseHairpinOffset' | 'previewHairpinPlacement'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -551,3 +554,202 @@ function leaveSystem(port: MarkWalkPort, stop: MarkStop, offsetAfter: (before: n
     + ` | anchor now ${port.anchorX()?.toFixed(0) ?? '?'}`)
   return true
 }
+
+/**
+ * ⭐⭐ **THE BODY'S PORT** — the WHOLE wedge walking, where the two squares walk one end each.
+ *
+ * ⭐ **Its stops are the start's** (`nextHairpinStartSlot`), because a wedge moved as one is moved by
+ * its beginning: the extent is an amount of music and travels with it. So the model write is the
+ * simplest of the three — one field — and nothing has to be held still.
+ *
+ * ⭐ **Its ink is BOTH ends at once** (`hairpinOps.setHairpinOffset`), which is what the body drag has
+ * always written; the offset it reads back is the start's, since the pair always carry the same
+ * number while the body is moved as one.
+ */
+function bodyPort(engine: HairpinWalkEngine, id: string, write: HairpinBodyWrite): MarkWalkPort {
+  return {
+    label: 'Hairpin',
+    nextStop: (direction) => engine.nextHairpinStartSlot(id, direction),
+    stopX: (stop) => boundaryX(engine, id, stop as HairpinSlotTarget),
+    anchorX: () => {
+      const here = hairpinStartAddress(engine.getScore(), id)
+      return here ? boundaryX(engine, id, here) : null
+    },
+    staffSpacePx: () => hairpinStaffSpacePx(engine.getElementRegistry(), id),
+    offsetX: () => hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start?.x ?? 0,
+    reanchor: (stop) => write.move(stop as HairpinSlotTarget),
+    nudge: (dx, dy) => write.nudge(dx, dy),
+    rebase: (dx) => write.rebase(dx),
+  }
+}
+
+/** The body's three writes — the same pair of devices as {@link HairpinWrite}: a KEY press records
+ *  its own undo entry, a drag FRAME records none. */
+interface HairpinBodyWrite {
+  move: (target: HairpinSlotTarget) => boolean
+  nudge: (dx: number, dy: number) => boolean
+  rebase: (dx: number) => boolean
+}
+
+const bodyKeyWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWrite => ({
+  move: (target) => engine.moveHairpinToSlot(id, target),
+  nudge: (dx, dy) => engine.nudgeHairpin(id, dx, dy),
+  rebase: (dx) => engine.rebaseHairpinOffset(id, dx),
+})
+
+const bodyPreviewWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWrite => ({
+  move: (target) => engine.previewHairpinSlot(id, target),
+  nudge: (dx, dy) => engine.previewHairpinOffset(id, dx, dy),
+  rebase: (dx) => engine.previewHairpinOffsetRebase(id, dx),
+})
+
+/**
+ * ⭐⭐ **ONE HORIZONTAL ARROW PRESS ON A SELECTED WEDGE, no square armed** — the body's keyboard walk,
+ * so the arrows and the drag land in ONE state (his ask, 2026-08-20, once the mouse had it).
+ *
+ * ⭐ Everything it does is the endpoints' — ink, the crossing at each boundary, the wrap at a system
+ * break — with `bodyPort`'s stops and writes, which move the WHOLE wedge and keep its length.
+ * ⛔ The vertical stays a plain ink lift here: the SYSTEM JUMP is a mouse gesture, needing a hand to
+ * say which staff it means.
+ */
+export function walkHairpinBody(engine: HairpinWalkEngine, id: string, dx: number): boolean {
+  if (dx === 0) return false
+  const port = bodyPort(engine, id, bodyKeyWrites(engine, id))
+
+  const across = crossingTheBreak(engine, id, 'start', port, dx)
+  const crosses = markWalkCrosses(port, dx)
+  if (!across?.arrived && !crosses) return inkPress(engine, id, 'start', port, dx, across !== null)
+
+  let moved = false
+  engine.runBatch('Move hairpin', () => {
+    moved = across?.arrived
+      ? leaveSystem(port, across.stop, (before) => before + dx - across.gap)
+      : carryMark(port, dx).moved
+  })
+  return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A BODY DRAG** — the whole wedge follows the hand, and the MUSIC comes along at
+ * each boundary its ink reaches (his ask, 2026-08-20: *"we still have the offset with the mouse when
+ * no endpoint is selected… we must turn that into a walk"*).
+ *
+ * It is `dragHairpinEndpoint`'s twin with a third port, and the two halves of a dragged mark that
+ * `./dynamicWalk` established:
+ *
+ * ⭐⭐ **THE VERTICAL IS A JUMP, not a walk** — *"in the y axis we detect if there is another system so
+ * we go to there"*. Within a system a wedge's place is continuous; between systems there is nothing
+ * continuous to travel through, so coming down onto the staff below is a jump, decided by
+ * `./markSystemJump`'s rule (halfway between where it sits and where it would sit) and NOT by
+ * crossing the pentagram. ⛔ And a jump ENDS the frame: the anchor has moved, so this frame's `dx`
+ * would be spent against a slot the hand was never near.
+ *
+ * ⭐ A jump lands the wedge where the engraver would put it — both axes of the offset go, the `y`
+ * because on that gesture it is not a lift at all but the distance the hand travelled to reach the
+ * other staff.
+ *
+ * ⛔ No latch here (⛔ unlike a square's drag): a whole wedge is being placed by eye, not aimed at one
+ * note's edge — the dynamic's reasoning, and the same conclusion.
+ *
+ * ⛔ Declines — **null** — when the wedge is not drawn, so there is no staff-space size to convert
+ * the cursor's pixels with.
+ */
+export function dragHairpinBody(
+  engine: HairpinWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): { moved: boolean; jumped: boolean } | null {
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipPlacement}. A wedge dragged up off a staff belongs ABOVE
+  // that staff long before it belongs to the one over it.
+  if (flipPlacement(engine, id, dyPx)) return { moved: true, jumped: true }
+  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+
+  const dx = dxPx / staffSpacePx
+  const dy = dyPx / staffSpacePx
+  if (dx === 0 && dy === 0) return { moved: false, jumped: false }
+  return { moved: carryMark(port, dx, dy).moved, jumped: false }
+}
+
+/**
+ * ⭐⭐ **LEAVING THE WEDGE'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * (`./markSystemJump`, shared with the dynamic and the tempo mark).
+ *
+ * ⭐ The lift comes back out first — left in, the wedge's "home" follows it down for ever and the
+ * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
+ * the offset go: over there the old x means nothing, and the y was never a lift.
+ */
+function jumpSystems(
+  engine: HairpinWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+  staffSpacePx: number,
+): boolean {
+  const hairpin = engine.getHairpinById(id)
+  const inkY = hairpinInkY(engine, id)
+  if (!hairpin || inkY === null) return false
+
+  const target = hairpinSystemSlotFor(engine, hairpin, cursorX, inkY + dyPx, staffSpacePx)
+  if (!target || !engine.previewHairpinSlot(id, target)) return false
+
+  // ⭐⭐ **IT ARRIVES ON THE SIDE IT CAME FROM** — his correction, 2026-08-20: *"i don't like that
+  // going down jumps from below the staff to below, and going up from above to above; it is not
+  // intuitive"*. The vertical is a LADDER of the places a wedge may stand — …above N, below N,
+  // above N+1, below N+1… — and a jump takes ONE rung: coming down, the next rung is ABOVE the staff
+  // below, which is also where the ink already is. ⛔ Landing on the far side skips a rung and puts
+  // the wedge past the hand.
+  const facing: 'above' | 'below' = dyPx > 0 ? 'above' : 'below'
+  engine.previewHairpinPlacement(id, facing)
+
+  const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
+  if (offset && (offset.x || offset.y)) engine.previewHairpinOffset(id, -offset.x, -offset.y)
+  dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure}`)
+  return true
+}
+
+/**
+ * ⭐⭐ **WHICH SIDE OF ITS OWN STAFF — the step a vertical drag takes BEFORE any question of another
+ * system.** His report, 2026-08-20: *"it jumps to the upper system too quickly; we need a boundary —
+ * remember we can draw a hairpin up or down the staff"*.
+ *
+ * A wedge has a `placement`, so the space above its staff is a place it BELONGS, not a no-man's-land
+ * on the way to the staff above. Crossing the staff's own five lines is what moves it there:
+ *
+ * ```
+ *   below, and the ink has passed the TOP line     →  above this staff
+ *   above, and the ink has passed the BOTTOM line  →  below it
+ * ```
+ *
+ * ⭐ **And that fixes the "too quickly" by construction**, without a threshold to tune: once the
+ * wedge is above its staff, `markSystemJump` measures its natural distance from the TOP line, so the
+ * staff above is a whole system away again rather than a few spaces.
+ *
+ * ⭐ The lift goes with the flip — a `y` measured below the staff means nothing above it — and the
+ * frame ENDS, exactly as a jump does: one visible step per gesture.
+ */
+function flipPlacement(engine: HairpinWalkEngine, id: string, dyPx: number): boolean {
+  const hairpin = engine.getHairpinById(id)
+  const inkY = hairpinInkY(engine, id)
+  const band = hairpin && hairpinStaffBand(engine, hairpin)
+  if (!hairpin || inkY === null || !band) return false
+
+  const above = (hairpin.placement ?? 'below') === 'above'
+  const next = inkY + dyPx
+  const flipped: 'above' | 'below' | null =
+    !above && next < band.top ? 'above'
+      : above && next > band.bottom ? 'below'
+        : null
+  if (!flipped || !engine.previewHairpinPlacement(id, flipped)) return false
+
+  const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
+  if (offset?.y) engine.previewHairpinOffset(id, 0, -offset.y)
+  dbg(`[Hairpin] moved ${flipped} its own staff | id:${id}`)
+  return true
+}
+

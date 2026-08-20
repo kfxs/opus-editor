@@ -488,6 +488,40 @@ export function setHairpinStartAtSlot(score: Score, id: string, target: HairpinS
 }
 
 /**
+ * ⭐⭐ **MOVE THE WHOLE WEDGE to `target`, keeping its length** — the BODY's walk and its system jump
+ * (his ask, 2026-08-20: the body drag used to move only the drawing).
+ *
+ * ⭐ **One field, `beat`** — which is what makes this the SIMPLEST of the three: the extent is an
+ * amount of music and travels with the start, so nothing here has to hold anything still
+ * ({@link moveHairpinStartBySlot}'s note explains why the other two are two-field writes).
+ *
+ * ⭐ A wedge moved across a barline is RE-FILED into the bar it now begins in, keeping the same
+ * object and id — the selection holds that id, and a re-created hairpin would deselect itself
+ * mid-drag ({@link setHairpinStartAtSlot}'s rule).
+ *
+ * ⚠️ It does NOT clamp the end against the score's last bar: a span running past the music is
+ * clamped where it is READ ({@link hairpinSpan}), so a wedge dragged near the end shortens on screen
+ * and grows back when it is dragged home — ⛔ rather than being silently trimmed here, which would
+ * lose music the user never asked to give up.
+ *
+ * Declines when `target` is not a slot of the wedge's own lane, or the hairpin does not exist.
+ */
+export function setHairpinAtSlot(score: Score, id: string, target: HairpinSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { hairpin, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  if (slot.measure !== hairpinMeasure(score, id)?.number) {
+    if (!moveHairpinToMeasure(score, hairpin, slot.measure)) return false
+  }
+  hairpin.beat = slot.beat
+  hairpinMeasure(score, id)?.hairpins?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/**
  * ⭐ **Put the wedge's END at the RIGHT EDGE of `target`, holding its start** — i.e. COVER that slot.
  * The drag's way of reaching past the last note in the lane, and the reckoning
  * {@link resizeHairpinBySlot} grows by (Gould's "finish at the right-hand edge of the last note").

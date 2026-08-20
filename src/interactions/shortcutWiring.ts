@@ -19,7 +19,7 @@ import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { walkDynamic } from './dynamicWalk'
 import { walkTempo } from './tempoWalk'
-import { walkHairpinEndpoint } from './hairpinWalk'
+import { walkHairpinBody, walkHairpinEndpoint } from './hairpinWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -486,12 +486,20 @@ export function wireShortcuts(
    * ⚠️ It writes the two END offsets by the same delta rather than a field of its own — see
    * `hairpinOps.setHairpinOffset` for why a separate "whole wedge" number would be two places the same
    * pixels come from.
+   *
+   * ⭐⭐ **And the HORIZONTAL goes through the WALK** (`./hairpinWalk`, 2026-08-20): the ink moves,
+   * and at each boundary of the lane the WHOLE wedge moves with it, length unchanged — so the arrows
+   * and the body DRAG land in one state rather than two that look alike. ⛔ The vertical stays a
+   * plain lift: the wedge's SYSTEM JUMP is a mouse gesture, needing a hand to say which staff.
    */
   const nudgeSelectedHairpin = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const hairpin = selectedOf(state, 'hairpin')
     if (!eng || !hairpin || hairpin.endpoint) return false
-    if (!eng.nudgeHairpin(hairpin.id, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkHairpinBody(eng, hairpin.id, dx)
+      : eng.nudgeHairpin(hairpin.id, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

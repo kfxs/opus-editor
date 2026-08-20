@@ -24,6 +24,8 @@ import { hairpinSpan } from '../engine/models/hairpinOps'
 import type { Hairpin, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
+import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { systemStopFor } from './markSystemJump'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the reads without a
  *  renderer. `dynamicLane.LaneEngine`'s twin. */
@@ -180,3 +182,63 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
   const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
   return at === -1 ? 0 : at
 }
+
+/**
+ * ⭐⭐ **THE SLOT ON THE SYSTEM THE WEDGE NOW BELONGS TO** — the hairpin's PORT into the shared rule
+ * (`./markSystemJump`, the dynamic's and the tempo mark's). His ask, 2026-08-20: *"in the y axis we
+ * detect if there is another system so we go to there"*.
+ *
+ * The rule and its reasons live in that module — the switch falls halfway between where the wedge
+ * sits and where it would sit on the other staff, measured from its NATURAL distance with its own
+ * lift taken back out. What is here is only what is hairpin-specific:
+ *
+ * ⭐ **The candidates are its own lane, across every system** — the same boundaries the walk steps
+ * along. So a jump lands the wedge on the SAME staff one line down, ⛔ never on another instrument's
+ * staff, which is the dynamic's rule and for its reason: a mark's lane is where it may stand.
+ *
+ * ⚠️ The ink and the lift are the WEDGE's: its first fragment's box, and the START end's stored `y`
+ * (both ends carry the same number while the body is moved as one, `hairpinOps.setHairpinOffset`).
+ * Screen-signed already, ⛔ unlike the tempo mark's outward `y`.
+ */
+export function hairpinSystemSlotFor(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+  cursorX: number,
+  /** Where the wedge's ink will be after this frame — its drawn y plus the frame's `dy`. */
+  inkY: number,
+  staffSpacePx: number,
+): HairpinSlotTarget | null {
+  const lane = hairpinLaneBoundaries(engine, hairpin)
+  const here = hairpinStartAddress(engine.getScore(), hairpin.id)
+  const anchor = here && lane.find(b => compareAddress(b.target, here) === 0)
+
+  return systemStopFor<HairpinSlotTarget>({
+    bands: () => engine.getElementRegistry().staffBands(),
+    candidates: () => lane.map(b => ({ x: b.x, y: b.y, stop: b.target })),
+    anchor: () => (anchor ? { x: anchor.x, y: anchor.y } : null),
+    inkY: () => hairpinInkY(engine, hairpin.id),
+    liftPx: () =>
+      (hairpinEndpointOffsetOverrideOf(engine.getScore(), hairpin.id)?.start?.y ?? 0) * staffSpacePx,
+    above: () => (hairpin.placement ?? 'below') === 'above',
+  }, cursorX, inkY)
+}
+
+/** The vertical centre of the wedge's own ink in the last render — its FIRST fragment, which is the
+ *  one its start (and so its anchor) lives on. Null when it drew none. */
+export function hairpinInkY(engine: HairpinLaneEngine, hairpinId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('hairpin').find(e => e.id === hairpinId)
+  return piece ? piece.bbox.y + piece.bbox.height / 2 : null
+}
+
+/** The wedge's own staff, top and bottom line, where its START is drawn. Null when that bar was not
+ *  painted. ⭐ The line the placement flip is measured against — see `hairpinWalk.flipPlacement`. */
+export function hairpinStaffBand(
+  engine: HairpinLaneEngine,
+  hairpin: Hairpin,
+): { top: number; bottom: number } | null {
+  const at = hairpinStartAddress(engine.getScore(), hairpin.id)
+  const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
+  const geometry = at && engine.getElementRegistry().getStaffGeometry(at.measure, staff)
+  return geometry ? { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] } : null
+}
+

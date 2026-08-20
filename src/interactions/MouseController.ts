@@ -28,7 +28,7 @@ import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
-import { dragHairpinEndpoint } from './hairpinWalk'
+import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
@@ -339,10 +339,6 @@ export class MouseController {
    *  cursor up again exactly where it left it rather than jumping the distance it did not travel. */
   private hairpinBodyLastX = 0
   private hairpinBodyLastY = 0
-  /** Staff-line spacing (px) where the grabbed wedge was drawn — the px→staff-space divisor. Its OWN
-   *  field for `spacingDragStaffSpacePx`'s reason: borrowing another gesture's would silently scale
-   *  this one by whatever was dragged last. */
-  private hairpinBodyStaffSpacePx = 10
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinBodyDragChanged = false
   private hairpinBodyDragStartTime: number | null = null
@@ -839,7 +835,6 @@ export class MouseController {
     if (!spacePx) return
     this.isDraggingHairpinBody = true
     this.draggedHairpinBodyId = hairpinId
-    this.hairpinBodyStaffSpacePx = spacePx
     this.hairpinBodyLastX = x
     this.hairpinBodyLastY = y
     this.hairpinBodyDragChanged = false
@@ -2787,27 +2782,30 @@ export class MouseController {
   }
 
   /**
-   * ⭐⭐ One frame of a hairpin BODY drag: move the whole wedge's INK by the cursor's delta, in
-   * staff-spaces, live (no undo).
+   * ⭐⭐ One frame of a hairpin BODY drag: the whole wedge follows the hand, and the MUSIC comes along
+   * at each boundary its ink reaches — `../hairpinWalk`'s third port (his ask, 2026-08-20).
    *
-   * ⭐ **Free pixels, where every other drag in this file snaps.** The wedge's EXTENT is musical and
-   * must land on notes, so the square drags snap to slots; its POSITION is cosmetic — an offset
-   * override in staff-spaces — and there is nothing for it to land on. Two categories, two
-   * behaviours, one wedge.
+   * ⭐ **It used to move only the DRAWING**, in free pixels: the wedge's extent was musical but its
+   * position was cosmetic. That split is gone — dragging a wedge now moves it through the music, as
+   * dragging a dynamic does, with the ink interpolating between the notes.
    *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, because `previewHairpinOffset`
-   * accumulates rather than sets. On a refusal (the page limit) the anchor is deliberately left
-   * where it was, so the gesture re-synchronises when the cursor comes back instead of the wedge
-   * jumping by the distance it never travelled.
+   * ⭐⭐ **The vertical is a JUMP, not a walk**: within a system a wedge's place is continuous, and
+   * between systems there is nothing continuous to travel through. A frame that jumps ENDS there —
+   * the anchor has moved, so its `dx` would be spent against a slot the hand was never near.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**: on a refusal the anchor is left where
+   * it was, so the gesture re-synchronises when the cursor comes back instead of the wedge jumping by
+   * the distance it never travelled.
    */
   private handleHairpinBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingHairpinBody && this.draggedHairpinBodyId)) return false
     if (this.hairpinBodyDragStartTime !== null
         && Date.now() - this.hairpinBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const dx = (x - this.hairpinBodyLastX) / this.hairpinBodyStaffSpacePx
-    const dy = (y - this.hairpinBodyLastY) / this.hairpinBodyStaffSpacePx
-    if (dx === 0 && dy === 0) return true
-    if (engine.previewHairpinOffset(this.draggedHairpinBodyId, dx, dy)) {
+    const frame = dragHairpinBody(
+      engine, this.draggedHairpinBodyId, x, x - this.hairpinBodyLastX, y - this.hairpinBodyLastY)
+    // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
       this.hairpinBodyLastX = x
       this.hairpinBodyLastY = y
       this.hairpinBodyDragChanged = true
