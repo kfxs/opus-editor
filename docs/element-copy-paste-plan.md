@@ -150,9 +150,38 @@ a case in `pasteElement`.
   copied wedge's id, which a paste never reuses. The new wedge opens at the automatic, length-aware
   aperture: a mouth authored against another length means nothing here.
 
+## ⭐⭐ 2026-08-20 — THE RULE: a PASSAGE keeps the overrides, a single ELEMENT does not
+
+His, after seeing both: *"probably this is the rule for elements: in passages the override persists,
+for a single element no"*. And the reason is in the two gestures rather than in the marks:
+
+- **A passage** brings the context with it. *"If the user makes something and wants to repeat it —
+  suppose he angles the hairpin — he should not have to do all the work again."* The notes the nudge
+  was authored against arrive too, so the nudge still means what it meant.
+- **A single element** lands somewhere else entirely, against music it has never seen, so it arrives
+  at its anchor's default — which is what an anchor-relative override is FOR.
+
+⭐⭐ **One seam, no per-kind knowledge.** `Score.engravingOverrides[id]` is already a LIST, so the clip
+carries that list verbatim (`engraving?: EngravingOverride[]` on every mark clip, filled by
+`clipboard.engravingOf`) and the paste re-stamps it under the new id (`rebarOps.stampOverrides`). A
+kind that grows a second or third override needs no change anywhere: the wedge's three (two end
+nudges and the mouth) work because of the shape, not because anyone taught the seam about wedges.
+
+🚨 **It also fixed a REBAR bug nobody had reported.** `restoreBeatAnchors` regenerates every mark's
+id, and only the dynamic (2026-07-19) and the tempo mark (2026-08-19) had been taught to carry their
+offset across — each as a bespoke `offset` field on `CapturedAnchor`. So a hairpin's, an ottava's, a
+pedal's, a slur's and a trill's overrides orphaned on **every meter change**, silently, since the day
+each shipped. `takeOverrides` replaces both bespoke fields with the list.
+
+⛔ **Position-keyed overrides stay out of it** (a rest's shift, a bar's note spacing, a note's own
+offset): they are keyed by `{measureId}:…` rather than by a mark's id, they ride `captureRestShifts`
+and its siblings, and what they are about is a PLACE in the destination — *"probably not for note
+spacing"*, his own exception.
+
 ## Not done
 
-- 🚨 **A PASSAGE copy still loses a wedge's shape.** `ClipHairpin` (`utils/clip.ts`) carries staff,
+- ~~🚨 **A PASSAGE copy still loses a wedge's shape.**~~ ✅ Done 2026-08-20, for every mark kind — see
+  the section above. The old note read: `ClipHairpin` (`utils/clip.ts`) carries staff,
   voice, offset, length, type and placement — and no overrides, where `ClipDynamic` has carried
   `engravingOffset` since 2026-07-19. His call, 2026-08-20: with the whole context copied the nudge
   still means what it meant, so it SHOULD travel there. That is the dynamic's pattern applied to

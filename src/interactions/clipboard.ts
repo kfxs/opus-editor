@@ -1,16 +1,29 @@
 import type { Fraction, Score } from '../types/music'
 import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTempo, ClipTrill, ClipTarget } from '../utils/clip'
+import type { EngravingOverride } from '../types/music'
 import { flattenRegion } from '../utils/rebar'
 import { fracCreate, fracAdd, fracSub, fracCompare, fracGte, fracLt, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes } from '../utils/musicUtils'
 import { measureCapacityFrac } from '../utils/measureCapacity'
 import { formatPitch } from '../utils/pitchSpelling'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, measureLeadingSpaces } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
 import { staffMeasureView, staffIdAtIndex, staffIndexOfId } from '../engine/models/staffContent'
 import { laneOfSlot, pairIsValid } from '../utils/tremoloPair'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { slotLength } from '../utils/durations'
+
+/**
+ * ⭐⭐ **Everything a mark carries in the overrides compartment**, cloned for the clip — its hand
+ * nudge and whatever else is keyed by its id, so a copied PASSAGE reproduces the mark's SHAPE and
+ * not only its music (his rule, 2026-08-20). ⭐ A LIST, verbatim: a kind that grows another override
+ * needs no change here, and `rebarOps.stampOverrides` re-stamps whatever arrives under the new id.
+ * Null when the mark carries none, so the field stays absent.
+ */
+function engravingOf(score: Score, id: string): { engraving?: EngravingOverride[] } {
+  const held = score.engravingOverrides?.[id]
+  return held?.length ? { engraving: held.map(o => ({ ...o })) } : {}
+}
 
 /**
  * A {@link Clip} plus the envelope a system clipboard needs: what produced it, where it came
@@ -313,7 +326,6 @@ function dynamicsInWindow(
       if (!(fracGte(abs, spanStart) && fracLt(abs, spanEnd))) continue
       const staffIdx = staffIndexOfId(score, d.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
-      const off = dynamicOffsetOverrideOf(score, d.id)
       out.push({
         staff: staffIdx - topStaff,
         // ⛔ NOT `voiceOf(d)` — that reads absent as voice 0 and would collapse a staff-wide mark
@@ -322,7 +334,7 @@ function dynamicsInWindow(
         offset: fracSub(abs, spanStart),
         text: d.text,
         ...(d.placement !== undefined ? { placement: d.placement } : {}),
-        ...(off ? { engravingOffset: { x: off.x, y: off.y } } : {}),
+        ...engravingOf(score, d.id),
       })
     }
   }
@@ -358,6 +370,7 @@ function temposInWindow(
         ...(t.unit !== undefined ? { unit: t.unit } : {}),
         ...(t.dots !== undefined ? { dots: t.dots } : {}),
         ...(t.bpm !== undefined ? { bpm: t.bpm } : {}),
+        ...engravingOf(score, t.id),
       })
     }
   }
@@ -409,6 +422,8 @@ function hairpinsInWindow(
         length: h.length,
         type: h.type,
         ...(h.placement !== undefined ? { placement: h.placement } : {}),
+        // ⭐ Its end nudges and its mouth ride along — see {@link ClipDynamic.engraving}.
+        ...engravingOf(score, h.id),
       })
     }
   }
@@ -446,7 +461,10 @@ function ottavasInWindow(
       if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd)) continue
       const staffIdx = staffIndexOfId(score, o.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
-      out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: o.length, shift: o.shift })
+      out.push({
+        staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: o.length, shift: o.shift,
+        ...engravingOf(score, o.id),
+      })
     }
   }
   return out
@@ -481,7 +499,10 @@ function pedalsInWindow(
       if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd)) continue
       const staffIdx = staffIndexOfId(score, p.staffId)
       if (staffIdx < topStaff || staffIdx > maxStaff) continue
-      out.push({ staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: p.length })
+      out.push({
+        staff: staffIdx - topStaff, offset: fracSub(abs, spanStart), length: p.length,
+        ...engravingOf(score, p.id),
+      })
     }
   }
   return out
@@ -535,6 +556,7 @@ function slursInWindow(
       startStaff: s.staff - topStaff, startVoice: s.voice, startOffset: fracSub(s.abs, spanStart), startPitch: s.pitch,
       endStaff: e.staff - topStaff, endVoice: e.voice, endOffset: fracSub(e.abs, spanStart), endPitch: e.pitch,
       ...(slur.placement !== undefined ? { placement: slur.placement } : {}),
+      ...engravingOf(score, slur.id),
     })
   }
   return out
@@ -595,6 +617,7 @@ function trillsInWindow(
         ? { endStaff: e.staff - topStaff, endVoice: e.voice, endOffset: fracSub(e.abs, spanStart), endPitch: e.pitch }
         : {}),
       ...(trill.placement !== undefined ? { placement: trill.placement } : {}),
+      ...engravingOf(score, trill.id),
     })
   }
   return out

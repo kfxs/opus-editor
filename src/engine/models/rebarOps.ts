@@ -13,9 +13,9 @@
  */
 import type {
   Score, Measure, Note, Chord, NotePitch, Rest, TimeSignature, Clef, Dynamic, TempoMark, Hairpin, Ottava, Pedal,
-  Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride, DynamicOffsetOverride,
-  LeadingSpaceOverride, NoteOffsetOverride, TempoOffsetOverride } from '@/types/music'
-import { restShiftOverrideOf, restHiddenOf, restPositionKey, dynamicOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces, tempoOffsetOverrideOf } from './engravingOverrides'
+  Slur, Trill, EngravingOverride, RestShiftOverride, RestHiddenOverride,
+  LeadingSpaceOverride, NoteOffsetOverride } from '@/types/music'
+import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideOf, spacingPositionKey, measureLeadingSpaces } from './engravingOverrides'
 import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import type { RestSlot } from '@/utils/restFill'
@@ -66,19 +66,17 @@ export interface RebarDeps {
  */
 type CapturedAnchor =
   | { kind: 'clef'; absBeat: Fraction; clef: Clef; staffId?: string }
-  | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; offset?: { x: number; y: number } }
-  // ⚠️ …with its hand-nudged offset (client #13) alongside, for the dynamic's reason one line up:
-  // the id is regenerated on the way back in, so an id-keyed override orphans unless it rides here.
-  | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark; offset?: { x: number; y: number } }
+  | { kind: 'dynamic'; absBeat: Fraction; dyn: Dynamic; overrides?: EngravingOverride[] }
+  | { kind: 'tempo'; absBeat: Fraction; mark: TempoMark; overrides?: EngravingOverride[] }
   // Only the START is captured: `length` is an amount of MUSIC, and a rebar leaves the region's
   // total music unchanged, so the extent is invariant and only the anchor needs re-finding.
-  | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin }
+  | { kind: 'hairpin'; absBeat: Fraction; hairpin: Hairpin; overrides?: EngravingOverride[] }
   // Same again for the octave line — with the CLEF's collision rule on the way back in, not the
   // hairpin's (docs/ottava-plan.md §7.8). See restoreBeatAnchors.
-  | { kind: 'ottava'; absBeat: Fraction; ottava: Ottava }
+  | { kind: 'ottava'; absBeat: Fraction; ottava: Ottava; overrides?: EngravingOverride[] }
   // …and for the sustain pedal, which takes the ottava's road entire: start-only capture, the clef's
   // collision rule on the way back, no voice (docs/pedal-plan.md §8).
-  | { kind: 'pedal'; absBeat: Fraction; pedal: Pedal }
+  | { kind: 'pedal'; absBeat: Fraction; pedal: Pedal; overrides?: EngravingOverride[] }
 
 /**
  * A rest's manual vertical shift snapshotted before a rebar/paste, keyed by its absolute
@@ -510,7 +508,7 @@ export function pasteEvents(
       ...(cd.placement !== undefined ? { placement: cd.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }
-    clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn, ...(cd.engravingOffset ? { offset: cd.engravingOffset } : {}) })
+    clipAnchors.push({ kind: 'dynamic', absBeat: fracAdd(pasteStart, cd.offset), dyn, ...(cd.engraving?.length ? { overrides: cd.engraving } : {}) })
   }
   // The clip's hairpins ride the identical road — re-based start, rel→abs staff, single-voice
   // re-voicing — with `length` copied through: it is an amount of music, not an address, so the
@@ -530,7 +528,13 @@ export function pasteEvents(
       ...(ch.placement !== undefined ? { placement: ch.placement } : {}),
       ...(staffId !== undefined ? { staffId } : {}),
     }
-    clipAnchors.push({ kind: 'hairpin', absBeat: fracAdd(pasteStart, ch.offset), hairpin })
+    // ⭐ …and whatever the wedge carried travels with it: its end nudges and its mouth, re-stamped
+    // under the new id on the way in ({@link stampOverrides}). His rule, 2026-08-20 — a passage
+    // copied to be repeated must not need the shaping done again.
+    clipAnchors.push({
+      kind: 'hairpin', absBeat: fracAdd(pasteStart, ch.offset), hairpin,
+      ...(ch.engraving?.length ? { overrides: ch.engraving } : {}),
+    })
   }
   // The clip's octave lines take the same road minus the re-voicing, since an ottava has no voice
   // to re-voice. `length` copies through for the hairpin's reason (an amount of music, not an
@@ -547,7 +551,10 @@ export function pasteEvents(
       shift: co.shift,
       ...(staffId !== undefined ? { staffId } : {}),
     }
-    clipAnchors.push({ kind: 'ottava', absBeat: fracAdd(pasteStart, co.offset), ottava })
+    clipAnchors.push({
+      kind: 'ottava', absBeat: fracAdd(pasteStart, co.offset), ottava,
+      ...(co.engraving?.length ? { overrides: co.engraving } : {}),
+    })
   }
   // The clip's sustain pedals take the ottava's road exactly — no re-voicing (a pedal has no voice),
   // `length` copied through as an amount of music, and only fully-enclosed pedals are ever in a clip,
@@ -563,7 +570,10 @@ export function pasteEvents(
       length: cp.length,
       ...(staffId !== undefined ? { staffId } : {}),
     }
-    clipAnchors.push({ kind: 'pedal', absBeat: fracAdd(pasteStart, cp.offset), pedal })
+    clipAnchors.push({
+      kind: 'pedal', absBeat: fracAdd(pasteStart, cp.offset), pedal,
+      ...(cp.engraving?.length ? { overrides: cp.engraving } : {}),
+    })
   }
   // ⭐ The clip's TEMPO MARKS are the simplest of the family: a tempo mark is SYSTEM-level, so
   // there is no relative staff to map, no voice to re-voice, and no overflow lane to drop — the
@@ -578,7 +588,10 @@ export function pasteEvents(
       ...(ct.dots !== undefined ? { dots: ct.dots } : {}),
       ...(ct.bpm !== undefined ? { bpm: ct.bpm } : {}),
     }
-    clipAnchors.push({ kind: 'tempo', absBeat: fracAdd(pasteStart, ct.offset), mark })
+    clipAnchors.push({
+      kind: 'tempo', absBeat: fracAdd(pasteStart, ct.offset), mark,
+      ...(ct.engraving?.length ? { overrides: ct.engraving } : {}),
+    })
   }
   restoreBeatAnchors(score, deps, regionNumbers, clipAnchors)
   // Re-stamp the destination's own rest shifts; the clip's shifts are applied after this,
@@ -749,45 +762,67 @@ function captureBeatAnchors(score: Score, deps: RebarDeps, regionMeasures: Measu
       out.push({ kind: 'clef', absBeat: fracAdd(base, c.beat), clef: c.clef, staffId: c.staffId })
     }
     for (const d of m.dynamics ?? []) {
-      // A hand-nudged offset (client #8) is id-keyed, and rebar regenerates the dynamic's id,
-      // so capture it here and CLEAR the old key — restoreBeatAnchors re-stamps it under the
-      // fresh id. Mirrors captureRestShifts (position-keyed twin). Without this the override
-      // would orphan on any rebar of a nudged dynamic.
-      const off = dynamicOffsetOverrideOf(score, d.id)
-      if (off) deps.clearEngravingOverride(d.id, 'dynamicOffset')
-      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d, ...(off ? { offset: { x: off.x, y: off.y } } : {}) })
+      out.push({ kind: 'dynamic', absBeat: fracAdd(base, d.beat), dyn: d, ...takeOverrides(score, deps, d.id) })
     }
     // Tempo marks are beat-anchored too, so a meter change would silently DELETE them
     // (clearMeasureForRebar drops the array) unless they ride this seam. They carry no
     // staff/voice — a tempo mark is system-level — so the offset is the whole key.
     for (const t of m.tempos ?? []) {
-      // The dynamic's seam above, verbatim: capture the id-keyed offset and CLEAR the old key, so
-      // restoreBeatAnchors can re-stamp it under the fresh id. Without this a nudged tempo mark
-      // loses its offset on any rebar — and leaves a dead entry behind in the JSON.
-      const off = tempoOffsetOverrideOf(score, t.id)
-      if (off) deps.clearEngravingOverride(t.id, 'tempoOffset')
-      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t, ...(off ? { offset: { x: off.x, y: off.y } } : {}) })
+      out.push({ kind: 'tempo', absBeat: fracAdd(base, t.beat), mark: t, ...takeOverrides(score, deps, t.id) })
     }
     // Hairpins ride the same seam as the dynamics above, for the same reason and with one extra:
     // clearMeasureForRebar deletes the array, so anything not captured here is gone. The wedge's
     // `length` travels verbatim (see the CapturedAnchor comment).
     for (const h of m.hairpins ?? []) {
-      out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h })
+      out.push({ kind: 'hairpin', absBeat: fracAdd(base, h.beat), hairpin: h, ...takeOverrides(score, deps, h.id) })
     }
     // Octave lines ride it too, and the cost of missing this loop is the loudest on the seam: an
     // ottava dropped by a meter change does not merely disappear from the page, it silently
     // transposes the passage back an octave.
     for (const o of m.ottavas ?? []) {
-      out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o })
+      out.push({ kind: 'ottava', absBeat: fracAdd(base, o.beat), ottava: o, ...takeOverrides(score, deps, o.id) })
     }
     // Sustain pedals, on the same terms — and clearMeasureForRebar deletes their array too, so a
     // pedal missing from this loop is gone rather than stale. What that costs is heard as well as
     // seen: the notes it held stop ringing.
     for (const p of m.pedals ?? []) {
-      out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p })
+      out.push({ kind: 'pedal', absBeat: fracAdd(base, p.beat), pedal: p, ...takeOverrides(score, deps, p.id) })
     }
   })
   return out
+}
+
+/**
+ * ⭐⭐ **EVERY OVERRIDE A MARK CARRIES, taken off its OLD id** — the seam that keeps hand work alive
+ * across a rebar and a paste, for every kind at once.
+ *
+ * 🚨 **The id is regenerated on the way back in** ({@link restoreBeatAnchors} mints a fresh uuid for
+ * each mark), so an id-keyed override orphans unless it rides here: the JSON keeps a dead entry and
+ * the mark comes back at its default. That was found for the dynamic on 2026-07-19 and for the tempo
+ * mark on 2026-08-19, each time as a bespoke `offset` field — ⛔ and a bespoke field per kind is why
+ * the hairpin's three overrides (two end nudges and the mouth) still orphaned in 2026-08-20, four
+ * days after they shipped.
+ *
+ * ⭐ **So it is not per kind.** `score.engravingOverrides[id]` is already a LIST of whatever that
+ * element carries, so this takes the list, clears the old key, and hands it back to be re-stamped —
+ * and a mark kind that grows a fourth override needs no change anywhere on this seam.
+ *
+ * ⛔ **The POSITION-keyed overrides are not here** (a rest's shift, the note spacing of a bar): they
+ * are keyed by `{measureId}:…` rather than by a mark's id, and they ride `captureRestShifts` — the
+ * twin — because what they are about is a PLACE in the destination, not a thing that travelled.
+ */
+function takeOverrides(score: Score, deps: RebarDeps, id: string): { overrides?: EngravingOverride[] } {
+  const held = score.engravingOverrides?.[id]
+  if (!held?.length) return {}
+  const overrides = held.map(o => ({ ...o }))
+  deps.clearEngravingOverride(id)
+  return { overrides }
+}
+
+/** Put a captured mark's overrides back, under the id it has NOW — {@link takeOverrides}' other
+ *  half, and the reason a mark keeps its hand work across a rebar or a paste. */
+function stampOverrides(deps: RebarDeps, id: string, overrides?: EngravingOverride[]): void {
+  for (const override of overrides ?? []) deps.setEngravingOverride(id, override)
 }
 
 /**
@@ -826,22 +861,20 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       const tempoId = uuidv4()
       m.tempos.push({ ...a.mark, id: tempoId, beat })
       m.tempos.sort((x, y) => fracCompare(x.beat, y.beat))
-      // Re-stamp the captured hand nudge under the regenerated id (client #13) — the dynamic's
-      // arrangement below, and how a nudged tempo mark keeps its offset across a meter change.
-      if (a.offset) {
-        const next: TempoOffsetOverride = { kind: 'tempoOffset', x: a.offset.x, y: a.offset.y }
-        deps.setEngravingOverride(tempoId, next)
-      }
+      stampOverrides(deps, tempoId, a.overrides)
     } else if (a.kind === 'hairpin') {
       // Hairpins take the DYNAMICS rule, not the clef one: they may stack at a beat, so no dedupe.
       // Only the start moves — `length` is carried through untouched.
       //
-      // ⚠️ The id is regenerated here, exactly as a dynamic's is. Any override keyed by a hairpin
-      // id must therefore be captured and re-stamped the way the dynamic offset is a few lines
-      // down; nothing writes one today, and the day one does, THIS is the site.
+      // ⚠️ The id is regenerated here, exactly as a dynamic's is — so the wedge's three overrides
+      // (both end nudges and the hand-set mouth) ride {@link takeOverrides} and are re-stamped
+      // below. 🚨 That comment used to say "nothing writes one today"; the wedge grew them on
+      // 2026-08-17 and they orphaned on every rebar until 2026-08-20.
       if (!m.hairpins) m.hairpins = []
-      m.hairpins.push({ ...a.hairpin, id: uuidv4(), beat })
+      const hairpinId = uuidv4()
+      m.hairpins.push({ ...a.hairpin, id: hairpinId, beat })
       m.hairpins.sort((x, y) => fracCompare(x.beat, y.beat))
+      stampOverrides(deps, hairpinId, a.overrides)
     } else if (a.kind === 'ottava') {
       // ⭐ Ottavas take the CLEF rule, not the hairpin one that stands two branches up: at most one
       // per (beat, STAFF), last wins. Two wedges at a beat are two readable marks; two octave
@@ -852,10 +885,12 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       if (!m.ottavas) m.ottavas = []
       const dup = m.ottavas.findIndex((o) => fracCompare(o.beat, beat) === 0 && matchesStaff(o.staffId, a.ottava.staffId, score))
       if (dup !== -1) m.ottavas.splice(dup, 1)
-      // The id is regenerated here, as a hairpin's is — the same warning applies to anything ever
-      // keyed by an ottava id.
-      m.ottavas.push({ ...a.ottava, id: uuidv4(), beat })
+      // The id is regenerated here, as a hairpin's is — so whatever the bracket carries rides
+      // {@link takeOverrides} with it.
+      const ottavaId = uuidv4()
+      m.ottavas.push({ ...a.ottava, id: ottavaId, beat })
       m.ottavas.sort((x, y) => fracCompare(x.beat, y.beat))
+      stampOverrides(deps, ottavaId, a.overrides)
     } else if (a.kind === 'pedal') {
       // ⭐ Pedals take the CLEF rule the branch above takes, and the reason is physical rather than
       // notational: two octave shifts on a beat are a contradiction a reader cannot resolve, two
@@ -872,20 +907,17 @@ function restoreBeatAnchors(score: Score, deps: RebarDeps, regionNumbers: number
       // The id is regenerated here, as a hairpin's and an ottava's are — the day anything is keyed
       // by a pedal id (a hand-moved `✻`, docs/pedal-plan.md §6.3), THIS is the site that must
       // re-stamp it.
-      m.pedals.push({ ...a.pedal, id: uuidv4(), beat })
+      const pedalId = uuidv4()
+      m.pedals.push({ ...a.pedal, id: pedalId, beat })
       m.pedals.sort((x, y) => fracCompare(x.beat, y.beat))
+      stampOverrides(deps, pedalId, a.overrides)
     } else {
       // Dynamics may stack at one (beat, voice) — keep them all (no dedupe).
       if (!m.dynamics) m.dynamics = []
       const newId = uuidv4()
       m.dynamics.push({ ...a.dyn, id: newId, beat })
       m.dynamics.sort((x, y) => fracCompare(x.beat, y.beat))
-      // Re-stamp the captured hand-nudged offset under the regenerated id (client #8) — this is
-      // how a nudged dynamic keeps its offset across a rebar AND how a pasted one carries it.
-      if (a.offset) {
-        const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x: a.offset.x, y: a.offset.y }
-        deps.setEngravingOverride(newId, next)
-      }
+      stampOverrides(deps, newId, a.overrides)
     }
   }
 }
@@ -1519,12 +1551,15 @@ function restoreClipTrills(
       ? resolve(ct.endStaff ?? ct.startStaff, ct.endVoice ?? ct.startVoice, ct.endOffset, ct.endPitch)
       : undefined
     const voice = (singleVoice ? targetVoice : ct.startVoice) as 0 | 1 | 2 | 3
-    deps.addTrill({
+    const trill = deps.addTrill({
       startNoteId: startId,
       ...(endId !== undefined && endId !== startId ? { endNoteId: endId } : {}),
       voice,
       ...(ct.placement !== undefined ? { placement: ct.placement } : {}),
     })
+    // ⭐ …and whatever the sign carried travels with it, re-stamped under the id it has now — the
+    // same seam every other mark rides ({@link stampOverrides}).
+    if (trill) stampOverrides(deps, trill.id, ct.engraving)
   }
 }
 
@@ -1587,12 +1622,15 @@ function restoreClipSlurs(
     const endId = resolve(cs.endStaff, cs.endVoice, cs.endOffset, cs.endPitch)
     if (!startId || !endId || startId === endId) continue
     const voice = (singleVoice ? targetVoice : cs.startVoice) as 0 | 1 | 2 | 3
-    deps.addSlur({
+    const slur = deps.addSlur({
       startNoteId: startId,
       endNoteId: endId,
       voice,
       ...(cs.placement !== undefined ? { placement: cs.placement } : {}),
     })
+    // ⭐ The curve's SHAPE rides along: its endpoint nudges and its arc deltas are overrides keyed by
+    // the slur's id, and a paste mints a new one ({@link stampOverrides}).
+    stampOverrides(deps, slur.id, cs.engraving)
   }
 }
 

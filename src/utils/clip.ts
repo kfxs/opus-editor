@@ -22,7 +22,7 @@
  */
 import type { Fraction } from '@/utils/fraction'
 import type { RebarEvent } from '@/utils/rebar'
-import type { NoteDuration } from '@/types/music'
+import type { EngravingOverride, NoteDuration } from '@/types/music'
 
 /**
  * One copied lane: a `(staff, voice)` pair and its event stream. The staff is a
@@ -103,8 +103,19 @@ export interface ClipDynamic {
   /** The mark's whole text (SMuFL glyphs + words) — the level travels inside it. See `Dynamic.text`. */
   text: string
   placement?: 'above' | 'below'
-  /** Hand-nudged engraving offset (client #8), captured at copy so it travels with the mark. */
-  engravingOffset?: { x: number; y: number }
+  /**
+   * ⭐⭐ **Every override this mark carries** — its hand nudge, and whatever else is ever keyed by its
+   * id — so a copied PASSAGE reproduces the mark's SHAPE and not only its music (his rule,
+   * 2026-08-20: *"if the user makes something and wants to repeat it — suppose he angles the hairpin
+   * — he should not have to do all the work again"*).
+   *
+   * ⭐ **A LIST, verbatim**, because `Score.engravingOverrides[id]` already is one: a kind that grows
+   * a second or third override needs no new field here, and the paste re-stamps whatever arrives
+   * (`rebarOps.stampOverrides`). ⛔ Position-keyed overrides — a rest's shift, a bar's note spacing —
+   * are NOT here: they are about a PLACE in the destination, not about a thing that travelled, and
+   * they ride `captureRestShifts` instead.
+   */
+  engraving?: EngravingOverride[]
 }
 
 /**
@@ -132,6 +143,8 @@ export interface ClipTempo {
   dots?: number
   /** BPM of the unit — what the mark sounds. See `TempoMark.bpm`. */
   bpm?: number
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /**
@@ -165,6 +178,8 @@ export interface ClipHairpin {
   length: Fraction
   type: 'cresc' | 'dim'
   placement?: 'above' | 'below'
+  /** Its end nudges and its hand-set MOUTH — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /**
@@ -191,6 +206,8 @@ export interface ClipOttava {
   length: Fraction
   /** Octaves of shift: +1 = 8va, −1 = 8vb, … See `Ottava.shift`. */
   shift: -3 | -2 | -1 | 1 | 2 | 3
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /**
@@ -214,6 +231,8 @@ export interface ClipPedal {
   /** How much music it holds, in quarter beats — position-independent, so it is copied through
    *  unchanged. `offset + length` is the lift. */
   length: Fraction
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
@@ -229,6 +248,8 @@ export interface ClipSlur {
   startStaff: number; startVoice: number; startOffset: Fraction; startPitch: ClipSlurPitch
   endStaff: number;   endVoice: number;   endOffset: Fraction;   endPitch: ClipSlurPitch
   placement?: 'above' | 'below'
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /**
@@ -251,6 +272,8 @@ export interface ClipTrill {
   /** Absent together = the one-note trill (see the type note). */
   endStaff?: number;  endVoice?: number;  endOffset?: Fraction;  endPitch?: ClipSlurPitch
   placement?: 'above' | 'below'
+  /** Whatever it carries in the overrides compartment — see {@link ClipDynamic.engraving}. */
+  engraving?: EngravingOverride[]
 }
 
 /**

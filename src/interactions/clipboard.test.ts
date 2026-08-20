@@ -680,13 +680,66 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     expect(dynsOf(2, 0)).toEqual(['f@0']) // only the clip's, not ['p@0','f@0']
   })
 
+  it('⭐⭐ carries a hairpin’s SHAPE — both end nudges and the mouth — with the pasted passage', () => {
+    // His rule, 2026-08-20: *"if the user makes something and wants to repeat it — suppose he angles
+    // the hairpin — he should not have to do all the work again"*. 🚨 Until then a wedge's three
+    // overrides orphaned on every rebar AND every paste: the id is regenerated on the way in, and
+    // only the dynamic's single offset had been taught to ride the seam.
+    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const wedge = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!
+    engine.nudgeHairpinEndpoint(wedge.id, 'end', 1.5, -2)   // the angle he means
+    engine.setHairpinAperture(wedge.id, 1.8)
+
+    const payload = buildClipboardFromSelection(engine.getScore(), [c])!
+    expect(payload.hairpins[0].engraving).toEqual([
+      { kind: 'hairpinEndpointOffset', end: { x: 1.5, y: -2 } },
+      { kind: 'hairpinAperture', aperture: 1.8 },
+    ])
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+
+    const pasted = engine.getScore().measures.find(m => m.number === 2)!.hairpins![0]
+    expect(pasted.id, 'a fresh id, as always').not.toBe(wedge.id)
+    expect(engine.getScore().engravingOverrides?.[pasted.id], 'and its shape rode along')
+      .toEqual([
+        { kind: 'hairpinEndpointOffset', end: { x: 1.5, y: -2 } },
+        { kind: 'hairpinAperture', aperture: 1.8 },
+      ])
+  })
+
+  it('⭐⭐ …and so does every other mark: a slur’s shape, a trill’s, an ottava’s, a tempo’s', () => {
+    // His report, 2026-08-20: *"the override of slur not working for me in passages, the tempo
+    // neither… neither the trill, neither the pedal, neither the ottava"*. One seam now, so a mark
+    // kind that grows an override needs nothing here — `engravingOf` at copy, `stampOverrides` at
+    // paste, and `Score.engravingOverrides[id]` is the list both speak.
+    const ids = (['C', 'D'] as const).map((step, i) =>
+      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+    const slur = engine.createSlur(ids)!
+    engine.nudgeSlurEndpoint(slur.id, 'end', 1, -2)
+    const mark = engine.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
+    engine.nudgeTempoOffset(mark.id, 3, 1)
+
+    const payload = buildClipboardFromSelection(engine.getScore(), ids)!
+    expect(payload.slurs[0].engraving, 'the curve').toHaveLength(1)
+    expect(payload.tempos?.[0].engraving, 'the tempo mark').toHaveLength(1)
+
+    engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
+
+    const pastedSlur = engine.getScore().slurs!.find(x => x.id !== slur.id)!
+    const pastedTempo = engine.getScore().measures.find(m => m.number === 2)!.tempos![0]
+    expect(engine.getScore().engravingOverrides?.[pastedSlur.id], 'the curve arrived shaped').toHaveLength(1)
+    expect(engine.getScore().engravingOverrides?.[pastedTempo.id], 'and the mark nudged').toHaveLength(1)
+  })
+
   it('carries a hand-nudged offset (client #8) with the pasted dynamic', () => {
     const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!
     engine.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
-    expect(payload.dynamics[0].engravingOffset).toEqual({ x: 2, y: -3 })
+    // ⭐ A LIST since 2026-08-20 — whatever the mark carries, verbatim, so a kind with three
+    // overrides needs no new field (`ClipDynamic.engraving`).
+    expect(payload.dynamics[0].engraving).toEqual([{ kind: 'dynamicOffset', x: 2, y: -3 }])
 
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
