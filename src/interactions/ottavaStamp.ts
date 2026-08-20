@@ -43,8 +43,9 @@ export function stampOttavaAtClick(
   const tool = armedTool(state, 'ottava')
   if (!tool) return false
 
-  const el = registry.findClosestNoteOrRest(x, y)
-  if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+  // ⭐ Nearest AND actually hit — one question, asked once (`ElementRegistry.noteOrRestAtBody`).
+  const el = registry.noteOrRestAtBody(x, y)
+  if (!el?.id) {
     dbg('· Ottava stamp: click not on a note — no change')
     return true
   }

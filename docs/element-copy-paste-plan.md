@@ -182,9 +182,19 @@ spacing"*, his own exception.
 
 His ask: *"i don't really need a body slur copy, but if we don't have it it's an inconsistency"* —
 `Ctrl+C` worked on a wedge and did nothing on a curve. His proposal was to make the paste re-run the
-normal slur creation, arming a stamp when nothing is selected; ⛔ there is no slur in `MarkingTool`,
-and a slur needs TWO anchors, so a stamp would be the editor's only two-click tool. What shipped
-keeps his outcome and reuses the existing blue-cursor click instead.
+normal slur creation, and to arm the **slur stamp** when nothing is selected.
+
+🚨 **That proposal was right, and the first answer to it here was WRONG.** It read *"there is no slur
+in `MarkingTool`, so a stamp would be the editor's only two-click tool"* — from a truncated read of
+the union. There IS one: `s` with nothing selected arms `{ kind: 'slur' }`, and
+`interactions/slurStamp.ts` turns ONE click on a note into a slur to the next slot. ⭐ The lesson is
+the cheap one: **when the user says "we already have that", check the code before arguing** — the
+claim shaped an entire design discussion.
+
+What shipped keeps his outcome and adds the one thing the stamp cannot do: the copied slur's WIDTH.
+The stamp always slurs to the next slot; a paste reproduces the span you copied, which is the rule he
+set for the hairpin's length. Nothing else about it is new machinery — the paste click was already
+armed for every other element kind.
 
 - ⭐⭐ **A slur's identity is two NOTE IDS, which mean nothing anywhere else** — so what travels is
   *"a slur over this much music"* (`slurOps.slurSpanOf`), and the paste resolves the far end against
@@ -202,7 +212,7 @@ keeps his outcome and reuses the existing blue-cursor click instead.
 - ⭐ **The anchor carries it for the selection case too** (the earliest selected note), so the two
   routes agree.
 
-### ⛔ …and one duplication removed on the way
+### ⛔ …and two duplications removed on the way
 
 *"Are we duplicating code?"* — yes. **Where each bar begins on the score's one timeline** existed
 FOUR times (`layout/outsideStaffBand`, `models/hairpinOps`, `models/pedalOps`, a private copy in
@@ -210,6 +220,12 @@ FOUR times (`layout/outsideStaffBand`, `models/hairpinOps`, `models/pedalOps`, a
 `utils/measureCapacity.measureStartOffsets`, beside its float twin `measureStartQuarters`.
 ⚠️ `outsideStaffBand`'s own comment had warned that *"a second copy of this walk is a second answer
 to where bar 7 begins"* — which is exactly what four copies are.
+
+And the click test itself: *nearest AND actually hit* (`findClosestNoteOrRest` + `hitsNoteOrRestBody`)
+was written out in the slur, trill, hairpin, ottava and pedal stamps, and then a sixth time by this
+feature's paste click. It is one question — a mark that attaches to an existing event must land ON
+one — and it is now one method, `ElementRegistry.noteOrRestAtBody`, which all six call. ⭐ It was the
+SLUR STAMP's rule first, which is the same place his *"really close to the bbox"* correction pointed.
 
 ## Not done
 

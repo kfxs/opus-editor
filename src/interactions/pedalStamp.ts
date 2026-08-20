@@ -44,8 +44,9 @@ export function stampPedalAtClick(
 ): boolean {
   if (!armedTool(state, 'pedal')) return false
 
-  const el = registry.findClosestNoteOrRest(x, y)
-  if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+  // ⭐ Nearest AND actually hit — one question, asked once (`ElementRegistry.noteOrRestAtBody`).
+  const el = registry.noteOrRestAtBody(x, y)
+  if (!el?.id) {
     dbg('· Pedal stamp: click not on a note — no change')
     return true
   }

@@ -39,8 +39,9 @@ export function stampHairpinAtClick(
   const tool = state.selectedMarkingTool
   if (tool?.kind !== 'hairpin') return false
 
-  const el = registry.findClosestNoteOrRest(x, y)
-  if (!el?.id || !registry.hitsNoteOrRestBody(el, x, y)) {
+  // ⭐ Nearest AND actually hit — one question, asked once (`ElementRegistry.noteOrRestAtBody`).
+  const el = registry.noteOrRestAtBody(x, y)
+  if (!el?.id) {
     dbg('· Hairpin stamp: click not on a note — no change')
     return true
   }

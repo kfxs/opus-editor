@@ -1461,6 +1461,19 @@ export class ElementRegistry {
    * - Rests / pitchless notes: inside the glyph bbox plus a small pad (the rest bbox
    *   already hugs the glyph).
    */
+  /**
+   * ⭐⭐ **THE NOTE OR REST WHOSE OWN INK IS UNDER (x, y)** — nearest AND actually hit, which is the
+   * pair every spanner stamp asks for: a mark that attaches to an existing event must land ON one,
+   * ⛔ never merely near one (`interactions/slurStamp` and its five siblings; the paste click for a
+   * slur, 2026-08-20 — *"for slurring a note we should be really close to the bbox of that note"*).
+   *
+   * ⭐ The two calls were written out six times before this; they are one question.
+   */
+  noteOrRestAtBody(x: number, y: number): ElementInfo | null {
+    const el = this.findClosestNoteOrRest(x, y)
+    return el && this.hitsNoteOrRestBody(el, x, y) ? el : null
+  }
+
   hitsNoteOrRestBody(el: ElementInfo, x: number, y: number): boolean {
     // Prefer the true notehead-center X (excludes a left-hanging accidental that
     // would otherwise skew the bbox center and misplace the head hit-box).

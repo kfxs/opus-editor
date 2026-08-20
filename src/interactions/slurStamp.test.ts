@@ -41,6 +41,8 @@ describe('stampSlurAtClick', () => {
   const hits = (id: string | null): ElementRegistry => ({
     findClosestNoteOrRest: () => (id ? { id } : null),
     hitsNoteOrRestBody: () => id !== null,
+    // ⭐ The two above asked as ONE question, which is what the stamps call now.
+    noteOrRestAtBody: () => (id ? { id } : null),
   } as unknown as ElementRegistry)
 
   const slurs = () => engine.getScore().slurs ?? []

@@ -724,9 +724,10 @@ export class MouseController {
     // ⚠️ Optional-chained: the registry is STUBBED in several specs (a partial object with the
     // handful of methods those files need), and a paste that cannot ask simply names no note — which
     // is the same answer it gives for a click on empty staff.
-    const near = registry.findClosestNoteOrRest?.(coords.x, coords.y)
-    const noteId = near?.type === 'note' && near.id
-      && registry.hitsNoteOrRestBody?.(near, coords.x, coords.y) ? near.id : undefined
+    // ⭐ `noteOrRestAtBody` is the SLUR STAMP's own test (`./slurStamp`), asked once in the registry
+    // rather than written out again here: a mark that attaches to an event must land ON one.
+    const hit = registry.noteOrRestAtBody?.(coords.x, coords.y)
+    const noteId = hit?.type === 'note' ? hit.id : undefined
     dbg(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`
       + `${noteId ? ' on a note' : ''}`)
     this.clipboard.pasteAt(measure, beat, staff, noteId)
