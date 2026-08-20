@@ -208,7 +208,11 @@ export function nudgeArmedHairpinMouth(
   const mouth = drawnMouth(engine, selected.id)
   if (!mouth) return false
   const next = Math.min(mouth.max, Math.max(mouth.min, round2(mouth.value + delta)))
-  if (next === round2(mouth.value)) return false // already at that bound — decline rather than no-op
+  // 🚨 Already AT that bound ⇒ decline rather than write the same number again. ⚠️ Compared with a
+  // tolerance, ⛔ not `===`: a bound is a measured quantity (`authoredApertureRange` pulls the max
+  // down by the steepness cap), so it arrives as 1.796853…, which never equals its own rounded self.
+  // His log, 2026-08-20: seven wheel notches, seven "opened → 1.796853254238242sp", nothing moving.
+  if (Math.abs(next - mouth.value) < 0.005) return false
   if (!engine.setHairpinAperture(selected.id, next)) return false
   dbg(`Hairpin mouth ${delta > 0 ? 'opened' : 'closed'} | id:${selected.id} → ${next}sp`)
   return true

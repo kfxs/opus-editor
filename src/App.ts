@@ -8,6 +8,7 @@ import { DEFAULT_ZOOM } from './engine/ViewportModel'
 import { createObservableEditorState, scoreCursorClass, selectedOf } from './interactions/EditorState'
 import { HighlightController } from './interactions/HighlightController'
 import { RenderController } from './interactions/RenderController'
+import { runWheelGesture } from '@/interactions/wheelGestures'
 import { SelectionController } from './interactions/SelectionController'
 import { PaletteController } from './interactions/PaletteController'
 import { KeyboardController } from './interactions/KeyboardController'
@@ -565,6 +566,18 @@ export function createEditorApp(host: HTMLElement): EditorApp {
    *  preventDefault() actually kills the browser's page-zoom — done whenever Ctrl is held, whether
    *  or not the pointer is over the score ("zoom is always score zoom", docs/zoom-plan.md §7). */
   function handleZoomWheel(e: WheelEvent): void {
+    // ⭐ A modifier + wheel may mean something on the score — today the hairpin's MOUTH
+    // (`interactions/wheelGestures`, which owns the table and declines when nothing is armed). It is
+    // asked FIRST because `Ctrl` is zoom's alone; a row that took the wheel kills the scroll.
+    const gesture = runWheelGesture(state, engine, e)
+    if (gesture.consumed) {
+      // ⭐ CONSUMED even when nothing changed (the mouth at its bound): while that square is armed
+      // the wheel is the mark's, and letting it fall through would scroll the page sideways under
+      // the user's hand — his report, 2026-08-20.
+      e.preventDefault()
+      if (gesture.changed) renderer.renderScore()
+      return
+    }
     if (!e.ctrlKey) return
     e.preventDefault()
     const rect = scoreCanvas.getBoundingClientRect()

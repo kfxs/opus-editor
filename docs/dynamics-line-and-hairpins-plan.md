@@ -1938,3 +1938,31 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   outside the WINDOW (no `mouseup` fires at all → the next move's `buttons === 0` is the only
   evidence). ⭐ Fixed in the CHAIN, ⛔ never per gesture: that list was one short the moment a
   fourteenth drag was added. Spec: `MouseController.dragRelease.test.ts`, both seams break-tested.
+
+## 2026-08-20 (last) — `Shift`+wheel opens the mouth
+
+His ask: *"if the endpoint that controls the mouth of the hairpin is selected, when i shift scroll i
+want to be able to control the mouth"*. The rule itself already existed — `nudgeArmedHairpinMouth`
+owns which square HAS the mouth, stepping from what is DRAWN, and the clamp into
+`authoredApertureRange` — so this is a new DEVICE for it, not a new behaviour.
+
+New module: `interactions/wheelGestures.ts`, a TABLE of modifier+wheel gestures with one row today.
+⛔ Not an `if` in `App.ts`: the app shell is not a place for per-mark rules, and the second row must
+be a row. The shell gains three lines (offer the wheel, `preventDefault`, repaint). ⛔ `Ctrl`+wheel is
+not in the table — zoom is the app's own, always score zoom (docs/zoom-plan.md §7).
+
+- ⭐ **One notch = the mouth's own keyboard step** (0.05 sp, `Shift+↑/↓`'s), so the two devices cannot
+  drift apart. ⛔ Not scaled by `deltaY`: a trackpad reports fractions of a notch and a mouse reports
+  100 at a time, so anything proportional means two different things on two devices.
+- 🚨 **A SHIFTED WHEEL ARRIVES AS `deltaX`.** That is where the browser habit "shift-scroll scrolls
+  sideways" comes from, and a gesture that reads only `deltaY` sees nothing, declines, and the page
+  moves under the hand. The table reads `deltaY || deltaX`.
+- 🚨🚨 **A GESTURE THAT APPLIES OWNS ITS CHORD — at its BOUNDS too.** *"After i was at the limit the
+  editor thought i wanted to horizontal scroll, but the mouth was selected."* "Nothing moved" is not
+  "not mine": the row answers `applies` (is this gesture in charge?) separately from `run` (did the
+  notch change anything?), and the wheel is consumed either way. ⛔ Only the repaint is conditional.
+- 🚨 …and the bound itself was writing the same number for ever: `authoredApertureRange`'s max is a
+  MEASURED quantity (the steepness cap pulls it down), so it arrives as `1.796853…` and never equals
+  its own rounded self. The guard now compares with a tolerance, so a wheel at the limit declines
+  instead of re-writing and repainting on every notch.
+
