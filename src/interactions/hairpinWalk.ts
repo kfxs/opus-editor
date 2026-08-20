@@ -421,8 +421,16 @@ export function walkHairpinEndpoint(
  * stops its frame at a system jump for the same reason, and this goes one further because the
  * gesture itself can no longer mean anything.
  *
- * ⛔ **The vertical is not in it**, as on the keys: ↑/↓ tilt the wedge, and there is nothing above
- * or below to arrive at. ⛔ And it declines — **null**, not a frame — when the wedge is not drawn, so
+ * ⭐⭐ **BOTH AXES** (his ask, 2026-08-20) — and they are different kinds of move, which is the point
+ * of making them in one gesture: the horizontal walks that end through the MUSIC, while `dy` is a
+ * plain ink offset, there being nothing above or below to arrive at. A `y` on ONE end tilts the
+ * wedge; the same on both would lift it off the dynamics line, which is the BODY drag's gesture.
+ * ⚠️ Screen-down is +y and so is the stored number ({@link HairpinEndpointOffsetOverride}), so this
+ * one needs no conversion — ⛔ unlike the tempo mark's, whose `y` is outward.
+ * ⭐ The lift SURVIVES a crossing and a wrap: it is this end's share of the wedge's SHAPE, not a
+ * distance to any particular note.
+ *
+ * ⛔ It declines — **null**, not a frame — when the wedge is not drawn, so
  * there is no staff-space size to convert the cursor's pixels with; `moved: false` means the frame
  * reached the model and nothing moved, and the caller must then leave its cursor anchor where it was.
  */
@@ -432,13 +440,15 @@ export function dragHairpinEndpoint(
   which: 'start' | 'end',
   cursorX: number,
   dxPx: number,
+  dyPx = 0,
 ): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
   const dx = dxPx / staffSpacePx
-  if (dx === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+  const dy = dyPx / staffSpacePx
+  if (dx === 0 && dy === 0) return { moved: false, wrapped: false, droppedPx: 0 }
   const across = crossingTheBreak(engine, id, which, port, dx, cursorX)
   // ⭐ One line per FRAME, ⚠️ BEFORE the wrap branch — a wrapping frame is the one whose numbers are
   // worth having, and logging after the branch is why the first round of this told us nothing.
@@ -467,7 +477,7 @@ export function dragHairpinEndpoint(
   // cursor passing the barline is what wraps.
   // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a
   // frame that merely passes through offset zero is exactly the one it exists for.
-  const carried = carryMark(port, dx, 0, true)
+  const carried = carryMark(port, dx, dy, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
   return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
 }

@@ -24,6 +24,7 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 const drawn = vi.hoisted(() => ({
   entries: [] as {
     type: string; id?: string; staff?: number; measure?: number
+    hairpinId?: string; endpoint?: 'start' | 'end'
     bbox: { x: number; y: number; width: number; height: number }
     points?: { x: number; y: number }[]
   }[],
@@ -33,6 +34,8 @@ const drawn = vi.hoisted(() => ({
   noteEndX: {} as Record<number, number>,
   /** Bars the last render drew nothing for — no geometry, so nothing may be measured against them. */
   undrawn: [] as number[],
+  /** The staves' drawn bands. One by default: nothing to bump into, so the band rule allows. */
+  bands: [{ top: 40, bottom: 80 }] as { top: number; bottom: number }[],
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -49,7 +52,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       }),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      staffBands: () => [{ top: 40, bottom: 80 }],
+      staffBands: () => drawn.bands,
     }))
   },
 }))
@@ -82,6 +85,7 @@ describe('walkHairpinEndpoint', () => {
     drawn.systemTop = { 1: 40, 2: 40 }
     drawn.noteEndX = { 1: 430, 2: 830 }
     drawn.undrawn = []
+    drawn.bands = [{ top: 40, bottom: 80 }]
     drawn.entries = ids.map((id, i) => ({ type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 } }))
     // ⭐ The drawn wedge carries its OUTLINE as well as a box: the tip's own x is the only thing that
     // can answer "where does it end" for a wedge that finishes on a barline (`hairpinLane.hairpinTipX`).
@@ -514,6 +518,54 @@ describe('walkHairpinEndpoint', () => {
 
       expect(dragHairpinEndpoint(engine, wedgeId, 'end', 420, 60)?.wrapped).toBe(false)
       expect(span(), 'the model held still').toEqual({ beat: 0, length: 4 })
+    })
+
+    it('⭐⭐ the vertical is a plain ink offset — a `y` on ONE end TILTS the wedge', () => {
+      // His ask, 2026-08-20. ⚠️ Screen-down is +y and so is the stored number, so a cursor going DOWN
+      // writes a POSITIVE offset — ⛔ no conversion here, unlike the tempo mark's outward `y`.
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 30)?.moved).toBe(true)
+      expect(offset('end')).toEqual({ x: 0, y: 3 })
+      expect(span(), 'and the music is untouched by it').toEqual({ beat: 0, length: 3 })
+    })
+
+    it('⭐ …and it rides along with the horizontal, in one gesture', () => {
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, -35, -20)
+      expect(offset('end')).toEqual({ x: -3.5, y: -2 })
+    })
+
+    it('⭐ …and the lift SURVIVES a crossing — it is the wedge’s SHAPE, not a note’s distance', () => {
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 20)
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, -100, 0)   // one whole boundary back
+      expect(span(), 'it crossed').toEqual({ beat: 0, length: 2 })
+      expect(offset('end').y, 'the lift is still there').toBeCloseTo(2, 6)
+    })
+
+    it('🚨 the VERTICAL stops at the neighbouring staff’s room — the slur’s own band limit', () => {
+      // His ask, 2026-08-20: *"we should not go crazy… for the slur we have a y limit, we have to do
+      // something similar here"*. The wedge's square is drawn 20 px below the staff and the next
+      // staff starts at 240, so the ink may come down to the halfway line between them and no
+      // further. ⛔ The write is REFUSED, never clamped — and the mark can always come back UP.
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      drawn.entries.push({
+        type: 'hairpin-endpoint', hairpinId: wedgeId, endpoint: 'end', staff: 0,
+        bbox: { x: 396, y: 96, width: 8, height: 8 },
+      })
+
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 10)?.moved, 'a space down is fine').toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 300)?.moved, 'into the next staff is not').toBe(false)
+    })
+
+    it('⭐ …and ink already outside its band may always come BACK', () => {
+      // ⛔ The rule judges whether a step makes the overhang WORSE, never whether the ink is outside:
+      // a score carrying a wild offset (a saved file, an undo away) must still be draggable back.
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      drawn.entries.push({
+        type: 'hairpin-endpoint', hairpinId: wedgeId, endpoint: 'end', staff: 0,
+        bbox: { x: 396, y: 200, width: 8, height: 8 },   // already past the halfway line (160)
+      })
+
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 10)?.moved, 'further down: no').toBe(false)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, -10)?.moved, 'back up: yes').toBe(true)
     })
 
     it('⭐ the LEFT square drags the same way', () => {

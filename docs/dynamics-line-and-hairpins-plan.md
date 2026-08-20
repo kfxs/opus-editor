@@ -1889,6 +1889,19 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   ⭐ **The KEYS keep the folded distance** (this line's end + into the next): their ink really did
   travel it, press by press, so the tip re-appears exactly as far in as it was pushed out. Two
   devices, two landings, one crossing.
+  ⭐⭐ **BOTH AXES** (his ask, once the horizontal was right): the vertical is a plain ink offset on
+  that end, so dragging ONE square up or down TILTS the wedge — the body drag is what lifts the whole
+  thing off the dynamics line. ⚠️ No conversion: screen-down is +y and so is the stored number (⛔
+  unlike the tempo mark's outward `y`). ⭐ The lift SURVIVES a crossing and a wrap — it is that end's
+  share of the SHAPE, not a distance to any note — and only the horizontal is held back by the latch,
+  so a diagonal drag does not stutter vertically.
+  🚨 **…AND THE VERTICAL HAS THE SLUR'S BAND LIMIT** (*"we should not go crazy… for the slur we have
+  a y limit, we have to do something similar here"*). `MusicEngine.hairpinEndpointOffsetAllowed` = the
+  page limit AND `layout/systemBand`, shared by the keyboard nudge and every drag frame so the two
+  devices cannot disagree. ⭐ The ink it judges is the drawn SQUARE, ⛔ never the wedge's box — which on
+  a split hairpin spans two systems and would refuse every step (`slurEndpointInk`'s own lesson,
+  2026-08-18). ⛔ It refuses the WRITE, never clamps the drawing, and ink already outside may always
+  come back. ⛔ The walk's RE-BASE is not judged by it — that write moves no ink at all.
   🚨 **The LATCH's dropped travel is REPAID** (the debt snap-and-go never pays): a latched frame
   reports `droppedPx`, and `MouseController` holds its cursor anchor back by exactly that much, so
   the ink leaves a boundary when the hand has travelled the whole distance. ⛔ Unpaid, the ink fell

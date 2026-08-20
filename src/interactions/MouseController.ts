@@ -323,10 +323,11 @@ export class MouseController {
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinDragChanged = false
   private hairpinDragStartTime: number | null = null
-  /** The last ACCEPTED cursor x, in SVG px — the anchor each frame's delta is measured from.
+  /** The last ACCEPTED cursor position, in SVG px — the anchor each frame's delta is measured from.
    *  ⚠️ Not advanced on a refusal, the body drag's rule: an end stopped at a limit picks the cursor
    *  up where it left it rather than jumping the distance it did not travel. */
   private hairpinEndLastX = 0
+  private hairpinEndLastY = 0
 
   // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
   //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
@@ -963,6 +964,7 @@ export class MouseController {
       this.hairpinDragChanged = false
       this.hairpinDragStartTime = Date.now()
       this.hairpinEndLastX = coords.x
+      this.hairpinEndLastY = coords.y
       this.render.renderScore()
       event.preventDefault()
       return
@@ -2879,15 +2881,18 @@ export class MouseController {
    * (the page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
    * distance it never travelled when the hand comes back.
    *
-   * ⛔ Horizontal only, as on the keys — ↑/↓ tilt a wedge, and there is nothing above to arrive at.
+   * ⭐⭐ **BOTH AXES** (his ask, 2026-08-20): the horizontal walks that end through the music, and the
+   * vertical is a plain ink offset — a `y` on ONE end TILTS the wedge. ⚠️ Only the horizontal is held
+   * back by a latch, so `y` keeps its own anchor.
    * Returns true while a drag is active.
    */
-  private handleHairpinEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
+  private handleHairpinEndDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingHairpinEnd && this.draggedHairpinId && this.draggedHairpinEnd)) return false
     if (this.hairpinDragStartTime !== null
         && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragHairpinEndpoint(
-      engine, this.draggedHairpinId, this.draggedHairpinEnd, x, x - this.hairpinEndLastX)
+      engine, this.draggedHairpinId, this.draggedHairpinEnd,
+      x, x - this.hairpinEndLastX, y - this.hairpinEndLastY)
     // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
     if (frame === null) return true
     if (frame.moved) {
@@ -2896,6 +2901,7 @@ export class MouseController {
       // travelled the whole distance. The debt snap-and-go famously never repays, paid here for
       // free — and `droppedPx` is 0 on an ordinary frame, so there is no special case.
       this.hairpinEndLastX = x - frame.droppedPx
+      this.hairpinEndLastY = y
       this.hairpinDragChanged = true
       this.render.renderScore()
     }

@@ -408,6 +408,51 @@ export class MusicEngine {
     return !lane || this.nudgeStaysInBand(this.slurEndpointInk(id, which), lane.measure, lane.staff, dy)
   }
 
+  /**
+   * ⭐⭐ **The drawn SQUARE of the hairpin end being moved** — {@link slurEndpointInk}'s twin, and for
+   * its reason: a BAND is about one point's room, so the ink judged is that point. ⛔ Never the
+   * wedge's own box, which on a split hairpin spans two systems and would refuse every step.
+   *
+   * ⛔ Empty when the squares are not drawn (the wedge is not selected), which the rule reads as
+   * "nothing to measure" and allows — the same answer the page limit gives for un-drawn ink.
+   */
+  private hairpinEndpointInk(id: string, which: 'start' | 'end'): InkBox[] {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    return (registry.getByType?.('hairpin-endpoint') ?? [])
+      .filter((e: ElementInfo) => e.hairpinId === id && e.endpoint === which)
+      .map((e: ElementInfo) => e.bbox)
+  }
+
+  /** Which bar and staff that end was DRAWN in, so the band rule knows whose neighbours to ask.
+   *  ⭐ The FIRST fragment holds the start and the LAST holds the end (`elements/hairpinHandles`), so
+   *  a wedge split across systems is judged in the system the moved end actually lives in. */
+  private hairpinEndpointLane(id: string, which: 'start' | 'end'): { measure: number; staff: number } | null {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    const pieces = (registry.getByType?.('hairpin') ?? []).filter((e: ElementInfo) => e.id === id)
+    const piece = which === 'start' ? pieces[0] : pieces[pieces.length - 1]
+    return piece?.measure === undefined ? null : { measure: piece.measure, staff: piece.staff ?? 0 }
+  }
+
+  /**
+   * ⭐⭐ **Both limits a hairpin end's ink must satisfy** — it may not leave its SHEET
+   * ({@link nudgeStaysOnPage}) and it may not move into a neighbouring staff's room
+   * ({@link nudgeStaysInBand}). The slur's pair exactly (his ask, 2026-08-20: *"we should not go
+   * crazy… for the slur we have a y limit, we have to do something similar here"*), and shared by the
+   * keyboard nudge and every drag frame so the two devices cannot disagree about what is allowed.
+   *
+   * ⛔ **The walk's RE-BASE does not come through here**, and must not: it does not move the drawn
+   * mark at all ({@link rebaseHairpinEndpointOffset}).
+   */
+  private hairpinEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    const lane = this.hairpinEndpointLane(id, which)
+    return !lane || this.nudgeStaysInBand(this.hairpinEndpointInk(id, which), lane.measure, lane.staff, dy)
+  }
+
   /** The same two limits for a move of the WHOLE curve ({@link nudgeSlur}) — ⭐ the band one applied
    *  to EACH end in its own band, since a rigid translate moves both and a cross-system slur's ends
    *  live in different systems. ⛔ Still not the arc's bbox: `slurEndpointInk`'s note says why. */
@@ -1534,7 +1579,7 @@ export class MusicEngine {
    * (docs/dynamics-line-and-hairpins-plan.md §4).
    */
   nudgeHairpinEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    if (!this.hairpinEndpointOffsetAllowed(id, which, dx, dy)) return false
     const ok = this.scoreModel.setHairpinEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Reshape hairpin')
     return ok
@@ -1588,7 +1633,7 @@ export class MusicEngine {
    * write, so a wedge dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
    */
   previewHairpinEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    if (!this.hairpinEndpointOffsetAllowed(id, which, dx, dy)) return false
     this.markModelDirty() // live drag, undo deferred to commitHairpinDrag
     return this.scoreModel.setHairpinEndpointOffset(id, which, dx, dy)
   }
