@@ -1866,6 +1866,34 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   square stays ARMED (so the arrows can carry on), and continuing with the mouse means going to the
   next system to grab it. ⭐ The keys of course do not stop: they have no cursor to be in the wrong
   place.
+  ⭐⭐ **AND THE MOUSE'S WRAP IS THE HAND'S, not the ink's** — his rule after three rounds of it not
+  working: *"when the x of the mouse is major than the x of the barline we jump to the other
+  system"*. A drag HAS the pointer, which is the honest answer to *"has this gesture left the
+  line"*; the ink only gets there if every frame's delta was accepted on the way, and one of them
+  was not (below). The keys keep the ink test, having no cursor.
+  🚨 **THE INK LIMIT MUST NOT JUDGE A DRAG FRAME.** It refuses a whole frame whose delta would end
+  past the line's edge — and a frame is not a step: most of it may be the journey to the last
+  boundary with only its tail overshooting. Refusing it stalled the walk one stop short FOR EVER,
+  because a refused frame does not advance the cursor anchor and the next one is bigger still. That
+  was *"the drag walked four bars and stopped"*. The limit belongs to the keyboard, where a press has
+  no hand behind it to say how far is meant.
+  🚨🚨 **A DRAGGED WRAP LANDS A STUB — `WRAP_STUB_SS` = 2 staff-spaces INSIDE the new line**, and it
+  is the one constant in the file. Both honest alternatives were tried and rejected on sight in one
+  afternoon: landing ON the anchor draws a whole bar of wedge at once (*"it jumps but goes directly
+  to the end of the next measure"*), and carrying the mouse's own overshoot draws ~2 px — or, once
+  rounding went the other way, a tip LEFT of the line's first ink, so no fragment at all, which is
+  the *"not working"* he reported twice. ⚠️ The MODEL still steps a whole lane slot (a bar, in a score
+  of whole rests); the ink shows the stub. Ink ≠ anchor is the walk's ordinary state, and here it is
+  what makes a wrap read as *"it went over, carry on down there"* — *"so the user is forced to go to
+  the next system to keep walking"*, his rule.
+  ⭐ **The KEYS keep the folded distance** (this line's end + into the next): their ink really did
+  travel it, press by press, so the tip re-appears exactly as far in as it was pushed out. Two
+  devices, two landings, one crossing.
+  🚨 **The LATCH's dropped travel is REPAID** (the debt snap-and-go never pays): a latched frame
+  reports `droppedPx`, and `MouseController` holds its cursor anchor back by exactly that much, so
+  the ink leaves a boundary when the hand has travelled the whole distance. ⛔ Unpaid, the ink fell
+  behind a little at every stop — five stops, ~2.6 spaces, and the tip never reaching the end of the
+  line to wrap at all.
   🚨🚨 **WHERE THE INK IS, IS `anchor + offset` — ⛔ never the drawn fragment.** His report: the left
   square walked back over a break and then FROZE, every press refused. A wedge whose start has just
   wrapped begins at the very end of the previous line, so the piece drawn there is a point and is not

@@ -206,7 +206,13 @@ function crossingTheBreak(
   which: 'start' | 'end',
   port: MarkWalkPort,
   dx: number,
-): { stop: MarkStop; gap: number; arrived: boolean } | null {
+  /** ⭐⭐ **THE MOUSE'S OWN ARRIVAL TEST** — his rule, 2026-08-20: *"when the x of the mouse is major
+   *  than the x of the barline we jump to the other system"*. A drag HAS the hand's position, and
+   *  that is the honest answer to "has this gesture left the line": ⛔ not the ink, which only gets
+   *  there if every frame's delta was accepted on the way. The keyboard has no cursor and keeps the
+   *  ink test. */
+  cursorX?: number,
+): { stop: MarkStop; landing: number; gap: number; arrived: boolean } | null {
   const direction = dx > 0 ? 1 : -1
   const stop = port.nextStop(direction)
   if (stop === null) return why('no next stop — the end of the lane')
@@ -231,10 +237,39 @@ function crossingTheBreak(
 
   // Where this line runs out, from the tip — and where the tip re-appears over there.
   const toEdge = ((direction === 1 ? here.max : here.min) - anchor) / staffSpacePx
-  const gap = toEdge + (stopX - (direction === 1 ? there.min : there.max)) / staffSpacePx
+  // ⭐⭐ **TWO LANDINGS, because the two devices arrive with different things in hand.**
+  //
+  // `gap` is the FOLDED distance — to this line's end plus into the next — and the KEYS re-base by
+  // it: their ink really did travel that far, one press at a time, so the tip re-appears exactly as
+  // far into the new line as the hand pushed it past the barline. Continuous, and his rule.
+  //
+  // ⛔ A MOUSE cannot use it. Its overshoot at the frame that wraps is one frame of travel (his logs:
+  // `step 0.23ss`), so the stub came out at 2 px — and once rounding went the other way the tip
+  // landed LEFT of the line's first ink and no fragment was drawn at all. That is the *"not
+  // working"* he kept seeing: the wrap had happened, with nothing to show. So a drag lands at a
+  // fixed `landing` — {@link WRAP_STUB_SS} inside the line.
+  const stubAt = direction === 1
+    ? there.min + WRAP_STUB_SS * staffSpacePx
+    : there.max - WRAP_STUB_SS * staffSpacePx
+  const landing = (stubAt - stopX) / staffSpacePx
   const target = port.offsetX() + dx
-  return { stop, gap, arrived: direction === 1 ? target > toEdge : target < toEdge }
+  const arrived = cursorX === undefined
+    ? (direction === 1 ? target > toEdge : target < toEdge)
+    : (direction === 1 ? cursorX > here.max : cursorX < here.min)
+  const gap = toEdge + (stopX - (direction === 1 ? there.min : there.max)) / staffSpacePx
+  return { stop, landing, gap, arrived }
 }
+
+/**
+ * ⭐ **HOW FAR INTO THE NEW LINE A WRAPPED END LANDS** — two staff-spaces: a FEEL number, like the
+ * nudge steps themselves, ⛔ not an engraving one, and the only constant in this file.
+ *
+ * His rule, 2026-08-20, after seeing both extremes: a whole bar of wedge appearing at once is *"too
+ * much"*, and the honest overshoot is invisible. Small enough that the journey plainly continues
+ * over there rather than being finished by the jump — *"so the user is forced to go to the next
+ * system to keep walking"* — and big enough to SEE, which no arithmetic here could promise.
+ */
+const WRAP_STUB_SS = 2
 
 /** ⭐ The break crossing declines through five different reads, and a press that simply does nothing
  *  cannot tell them apart in a real score — which cost an afternoon of round trips on 2026-08-20.
@@ -337,7 +372,8 @@ export function walkHairpinEndpoint(
   let moved = false
   engine.runBatch(which === 'start' ? 'Move hairpin start' : 'Resize hairpin', () => {
     moved = across?.arrived
-      ? leaveSystem(port, across.stop, across.gap, dx)
+      // ⭐ THE KEYS re-base by the folded distance: their ink travelled it.
+      ? leaveSystem(port, across.stop, (before) => before + dx - across.gap)
       : carryMark(port, dx).moved
   })
   return moved
@@ -362,6 +398,21 @@ export function walkHairpinEndpoint(
  * rather than by luck. The dynamic has no latch because a `p` is a label placed by eye
  * (`./dynamicWalk`); a hairpin's end is not.
  *
+ * 🚨 **A latched frame REPORTS what it DROPPED, because that travel must be REPAID.** The latch cuts
+ * the move short at the boundary, and the pixels it drops were still made by the hand — so the
+ * caller holds its cursor anchor back by exactly that much and the next frame presents them again.
+ * Left unrepaid the ink falls behind the cursor a little at every stop and never catches up, which
+ * is Baudisch's own complaint about snap-and-go: his report, 2026-08-20 — five stops, ~2.6 spaces
+ * lost, and the tip never reaching the end of the line to wrap. ⭐ Repaying it costs nothing and
+ * tunes nothing, ⛔ unlike the slur's catch-up. ⚠️ `droppedPx` is 0 on a frame that landed exactly on
+ * the anchor, which latches too and has nothing to give back.
+ *
+ * ⭐⭐ **THE HAND DECIDES WHERE THE LINE ENDS** — his rule, 2026-08-20: *"when the x of the mouse is
+ * major than the x of the barline we jump to the other system"*. The keys have only the ink to go
+ * on, so they wrap when the INK passes the edge; a drag has the pointer itself, which is both
+ * simpler and truer — it cannot be thrown off by a frame the model refused, or by ink that fell
+ * behind the hand.
+ *
  * ⭐⭐ **A WRAP ENDS THE GESTURE** (his call, 2026-08-20: *"when we detect this we draw the small
  * hairpin in the next system and clear the endpoint in the current system, so if the user wants to
  * keep extending he has to go with the mouse to the next system"*). The end is now a line away and
@@ -379,22 +430,51 @@ export function dragHairpinEndpoint(
   engine: HairpinWalkEngine,
   id: string,
   which: 'start' | 'end',
+  cursorX: number,
   dxPx: number,
-): { moved: boolean; wrapped: boolean } | null {
+): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
   const dx = dxPx / staffSpacePx
-  if (dx === 0) return { moved: false, wrapped: false }
-  const across = crossingTheBreak(engine, id, which, port, dx)
+  if (dx === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+  const across = crossingTheBreak(engine, id, which, port, dx, cursorX)
+  // ⭐ One line per FRAME, ⚠️ BEFORE the wrap branch — a wrapping frame is the one whose numbers are
+  // worth having, and logging after the branch is why the first round of this told us nothing.
+  const edge = systemInkLimit(engine, id, which)
+  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)} line ${edge ? `${edge.min.toFixed(0)}…${edge.max.toFixed(0)}` : '?'}`
+    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss dx ${dx.toFixed(2)}ss`
+    + ` | across ${across ? (across.arrived ? 'ARRIVED' : 'pending') : 'no'}`)
+
   if (across?.arrived) {
-    return { moved: leaveSystem(port, across.stop, across.gap, dx), wrapped: true }
+    // ⭐ THE MOUSE lands a stub inside the new line — see {@link crossingTheBreak}.
+    const moved = leaveSystem(port, across.stop, () => across.landing)
+    // ⭐ …and what the MODEL now holds, which is the fact a picture can be judged against: if the
+    // span did not grow, the wrap wrote nothing and the drawing was never the problem.
+    dbg(`[${port.label}] after the wrap the wedge spans`
+      + ` ${JSON.stringify(hairpinStartAddressOf(engine, id))} → ${JSON.stringify(hairpinEndAddress(engine.getScore(), id))}`
+      + ` | length ${JSON.stringify(engine.getHairpinById(id)?.length)}`)
+    return { moved, wrapped: true, droppedPx: 0 }
   }
-  if (!across && !inkStaysOnSystem(engine, id, which, port, dx)) return { moved: false, wrapped: false }
+  // ⛔ **NO INK LIMIT ON A DRAG** — 🚨 and it was the bug (his report, 2026-08-20: the drag walked a
+  // few bars and then stopped dead, never reaching the line's end to wrap). The limit refuses a whole
+  // FRAME whose delta would end past the line's edge — and a frame is not a step: most of it may be
+  // the journey to the last boundary, with only its tail overshooting. Refusing it stalls the walk
+  // one stop short, for ever, because the next frame is bigger still.
+  // ⭐ The limit belongs to the KEYBOARD, where a press has no hand behind it to say how far is
+  // meant. Here the ink simply follows the cursor, which cannot itself leave the page — and the
+  // cursor passing the barline is what wraps.
   // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a
   // frame that merely passes through offset zero is exactly the one it exists for.
-  return { moved: carryMark(port, dx, 0, true).moved, wrapped: false }
+  const carried = carryMark(port, dx, 0, true)
+  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
+  return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+}
+
+/** The wedge's start address, for the log line above. */
+function hairpinStartAddressOf(engine: HairpinWalkEngine, id: string) {
+  return hairpinStartAddress(engine.getScore(), id)
 }
 
 /** Which end's port, built over the writes the device brought. */
@@ -433,19 +513,31 @@ function inkPress(
 }
 
 /**
- * The wrap itself: hand that end to `stop` and re-base its ink by the folded distance —
- * `carryMark`'s identity (`offset += step − gap`) with {@link crossingTheBreak}'s gap in place of a
- * subtraction that would have been meaningless. ⭐ The offset it leaves is NEGATIVE by however far
- * the stop is into its line, which is what draws the tip at that line's START rather than out in the
- * previous line's margin.
+ * ⭐⭐ **THE WRAP ITSELF** — hand that end to `stop`, and put its ink where {@link crossingTheBreak}
+ * said: {@link WRAP_STUB_SS} inside the new line.
+ *
+ * ⚠️ **The MODEL steps further than the DRAWING**, and that is deliberate. A wedge's extent moves by
+ * whole lane slots — a bar, in a score of whole rests — so the music now covers that bar; the ink
+ * shows a stub. Ink ≠ anchor is the walk's ordinary state everywhere, and here it is what makes a
+ * wrap read as *"it went over, carry on down there"* rather than as a bar of wedge appearing from
+ * nowhere (his rule and his rejection, 2026-08-20).
  *
  * ⚠️ The caller owns the undo entry: one batch for a key press, none at all for a drag frame.
  */
-function leaveSystem(port: MarkWalkPort, stop: MarkStop, gap: number, dx: number): boolean {
-  if (!port.reanchor(stop)) return false
-  // ⚠️ The REBASE writer, not the nudge: this is the crossing's second half (with this press's own
-  // step folded in), and a page limit that refused it would strand the wedge mid-wrap.
-  port.rebase?.(dx - gap)
-  dbg(`[${port.label}] wrapped onto the next system (folded gap ${gap.toFixed(2)}ss)`)
+function leaveSystem(port: MarkWalkPort, stop: MarkStop, offsetAfter: (before: number) => number): boolean {
+  const before = port.offsetX()
+  const landing = offsetAfter(before)
+  if (!port.reanchor(stop)) {
+    dbg(`[${port.label}] ⛔ the model REFUSED the wrap onto ${JSON.stringify(stopAddress(stop))}`)
+    return false
+  }
+  // ⚠️ The REBASE writer, not the nudge: this is bookkeeping, and a page limit that refused it would
+  // strand the wedge mid-wrap. ⭐ The offset is SET, not accumulated: the landing is a position on
+  // the NEW line, and nothing the ink was carrying on the old one means anything over there.
+  const rebased = port.rebase?.(landing - before)
+  dbg(`[${port.label}] WRAPPED onto ${JSON.stringify(stopAddress(stop))}`
+    + ` | landing ${landing.toFixed(2)}ss`
+    + ` | offset ${before.toFixed(2)} → ${port.offsetX().toFixed(2)}ss${rebased ? '' : ' (REBASE REFUSED)'}`
+    + ` | anchor now ${port.anchorX()?.toFixed(0) ?? '?'}`)
   return true
 }

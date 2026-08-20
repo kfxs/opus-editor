@@ -154,7 +154,7 @@ export function carryMark(
   /** ⭐ Stop the ink dead at offset zero when the move would carry it through — the DRAG's latch,
    *  off for the keyboard. See the header. */
   latching = false,
-): { crossings: number; moved: boolean; latched: boolean } {
+): { crossings: number; moved: boolean; latched: boolean; dropped: number } {
   let crossings = 0
   for (; crossings < 32; crossings++) {
     const arrival = arrivedAt(port, dx)
@@ -172,12 +172,19 @@ export function carryMark(
   const offset = port.offsetX()
   if (latching && dx !== 0 && offset !== 0 && Math.sign(offset + dx) !== Math.sign(offset)) {
     const moved = port.nudge(-offset, dy)
-    dbg(`[${port.label}] latched on its anchor (dropped ${Math.abs(offset + dx).toFixed(2)}ss)`)
-    return { crossings, moved: crossings > 0 || moved, latched: true }
+    // ⭐⭐ **`dropped` is the travel this cut short**, signed and in staff-spaces — and it is the
+    // caller's to REPAY. Those pixels were made by the hand; a drag that swallows them leaves the
+    // ink behind the cursor a little at every stop and never catches up, which is Baudisch's own
+    // complaint about snap-and-go. ⚠️ It is ZERO when the move happened to land exactly on the
+    // anchor — the latch fires there too, and repaying nothing is the whole point of a number
+    // rather than a flag.
+    const dropped = offset + dx
+    dbg(`[${port.label}] latched on its anchor (dropped ${Math.abs(dropped).toFixed(2)}ss)`)
+    return { crossings, moved: crossings > 0 || moved, latched: true, dropped }
   }
 
   // ⚠️ Guarded: a drag frame whose delta rounded to nothing must not write, or every mouse move over
   // a held-still hand marks the model dirty and repaints the score.
   const nudged = (dx !== 0 || dy !== 0) && port.nudge(dx, dy)
-  return { crossings, moved: crossings > 0 || nudged, latched: false }
+  return { crossings, moved: crossings > 0 || nudged, latched: false, dropped: 0 }
 }

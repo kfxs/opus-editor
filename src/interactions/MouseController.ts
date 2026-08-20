@@ -2887,11 +2887,15 @@ export class MouseController {
     if (this.hairpinDragStartTime !== null
         && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragHairpinEndpoint(
-      engine, this.draggedHairpinId, this.draggedHairpinEnd, x - this.hairpinEndLastX)
+      engine, this.draggedHairpinId, this.draggedHairpinEnd, x, x - this.hairpinEndLastX)
     // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
     if (frame === null) return true
     if (frame.moved) {
-      this.hairpinEndLastX = x
+      // 🚨 …held BACK by whatever the latch dropped: those pixels were made by the hand, so the next
+      // frame presents them again and the ink leaves the boundary exactly when the cursor has
+      // travelled the whole distance. The debt snap-and-go famously never repays, paid here for
+      // free — and `droppedPx` is 0 on an ordinary frame, so there is no special case.
+      this.hairpinEndLastX = x - frame.droppedPx
       this.hairpinDragChanged = true
       this.render.renderScore()
     }

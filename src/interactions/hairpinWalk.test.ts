@@ -408,13 +408,14 @@ describe('walkHairpinEndpoint', () => {
   describe('the mouse', () => {
     it('⭐⭐ one frame lands exactly where the same distance in presses does', () => {
       // Ten spaces = the gap between two boundaries, so both roads cross once and land on the stop.
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toEqual({ moved: true, wrapped: false })
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -100))
+        .toEqual({ moved: true, wrapped: false, droppedPx: 0 })
       expect(span()).toEqual({ beat: 0, length: 2 })
       expect(offset('end').x).toBeCloseTo(0, 6)
     })
 
     it('⭐ …and it can PARK the tip between two boundaries, which the old snap could not', () => {
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -35)?.moved).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -35)?.moved).toBe(true)
       expect(span(), 'the model has not moved').toEqual({ beat: 0, length: 3 })
       expect(offset('end').x, 'the ink has').toBeCloseTo(-3.5, 6)
     })
@@ -424,22 +425,39 @@ describe('walkHairpinEndpoint', () => {
       // eye). Pushed 2 spaces out and dragged 4 back, the ink stops DEAD at offset zero rather than
       // sailing 2 past it. (⭐ 2 spaces, not 5: this bar's end is only 3 away, and a longer push
       // would cross onto it — which the next assertion would then be measuring instead.)
-      dragHairpinEndpoint(engine, wedgeId, 'end', 20)
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, 20)
       expect(offset('end').x).toBeCloseTo(2, 6)
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -40)?.moved).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -40)?.moved).toBe(true)
       expect(offset('end').x, 'stopped dead on its anchor').toBeCloseTo(0, 6)
       expect(span(), 'and it did not cross').toEqual({ beat: 0, length: 3 })
     })
 
+    it('🚨🚨 a LATCHED frame reports what it DROPPED, so the caller can repay it', () => {
+      // His report, 2026-08-20: dragging the tip along a line, it fell further behind the cursor at
+      // every stop and never reached the end. The latch cuts a move short at the boundary and the
+      // dropped pixels were still made by the hand — so the frame reports it and `MouseController`
+      // leaves its cursor anchor put, presenting them again next frame. ⛔ Unpaid, this is exactly
+      // snap-and-go's own defect.
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, 20)          // 2 spaces out
+      const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 200, -40)  // 4 back, through zero
+      expect(offset('end').x, 'stopped dead on the anchor').toBeCloseTo(0, 6)
+      expect(frame?.droppedPx, 'the 2 spaces it did not spend are owed back').toBeCloseTo(-20, 6)
+
+      // ⭐ …and the caller hands them back: the next 20 px of travel are already paid for, so this
+      // frame leaves the anchor by the full 4 spaces rather than by 2.
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -40)?.droppedPx).toBe(0)
+      expect(offset('end').x).toBeCloseTo(-4, 6)
+    })
+
     it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
-      dragHairpinEndpoint(engine, wedgeId, 'end', -100)
+      dragHairpinEndpoint(engine, wedgeId, 'end', 200, -100)
       engine.undo()
       expect(engine.getHairpinById(wedgeId), 'the undo took back the wedge itself').toBeNull()
     })
 
     it('⛔ DECLINES (null) when the wedge is not drawn — ⚠️ null, not false', () => {
       render([100, 200, 300, 400], null)
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toBeNull()
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -100)).toBeNull()
       expect(offset('end').x).toBe(0)
     })
 
@@ -456,13 +474,50 @@ describe('walkHairpinEndpoint', () => {
       }))
       engine.setHairpinLength(wedgeId, frac(4, 1))   // ends on bar 1's barline
 
-      const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 10)
-      expect(frame).toEqual({ moved: true, wrapped: true })
+      // ⭐ The CURSOR is what says the line has run out: 440 is past this line's music end (430).
+      const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 440, 10)
+      expect(frame).toEqual({ moved: true, wrapped: true, droppedPx: 0 })
+      // ⭐⭐ …and a DRAGGED wrap lands a STUB inside the new line — 2 spaces past its start (90), so
+      // 110 − the stop's own x. ⛔ Not the folded distance the KEYS use: a mouse's overshoot at the
+      // wrapping frame is one frame of travel, which drew a 2 px sliver or nothing at all (*"not
+      // working"*), and ⛔ not the anchor either, which draws a whole bar of wedge at once.
+      expect(offset('end').x, '2 staff-spaces into the line').toBeCloseTo((110 - 200) / 10, 6)
       expect(span(), 'and the wedge has its new piece over there').toEqual({ beat: 0, length: 5 })
     })
 
+    it('🚨⭐⭐ …and the CURSOR is what says the line has ended, ⛔ not the ink', () => {
+      // His rule, 2026-08-20: *"when the x of the mouse is major than the x of the barline we jump to
+      // the other system"*. Here the ink has barely moved — one pixel — but the hand is past the
+      // barline, and that is the fact the gesture is about.
+      const notes = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+      render([100, 200, 300, 400], 10, 400)
+      drawn.systemTop = { 1: 40, 2: 240 }
+      notes.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      engine.setHairpinLength(wedgeId, frac(4, 1))   // its tip is on bar 1's barline
+
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 500, 1)?.wrapped, 'past 430 → wrapped').toBe(true)
+      expect(span()).toEqual({ beat: 0, length: 5 })
+    })
+
+    it('⛔ …and a cursor still INSIDE the line does not wrap, however the ink is nudged', () => {
+      const notes = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+      render([100, 200, 300, 400], 10, 400)
+      drawn.systemTop = { 1: 40, 2: 240 }
+      notes.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      engine.setHairpinLength(wedgeId, frac(4, 1))
+
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', 420, 60)?.wrapped).toBe(false)
+      expect(span(), 'the model held still').toEqual({ beat: 0, length: 4 })
+    })
+
     it('⭐ the LEFT square drags the same way', () => {
-      expect(dragHairpinEndpoint(engine, wedgeId, 'start', 100)?.moved).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'start', 200, 100)?.moved).toBe(true)
       expect(span(), 'the start moved one slot, its end held').toEqual({ beat: 1, length: 2 })
     })
   })
