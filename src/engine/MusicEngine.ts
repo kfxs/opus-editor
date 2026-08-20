@@ -2398,6 +2398,23 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **THE CROSSING'S SECOND HALF** — {@link nudgeTrillEndpoint} without the page limit, for the
+   * interpolating walk (`interactions/trillWalk`).
+   *
+   * 🚨 It is BOOKKEEPING, not a nudge: the pair *(anchor := the next note, offset −= the gap)* leaves
+   * the DRAWN ornament exactly where it was, so a rule about where INK may go has no business judging
+   * it. The page limit measures the delta against the LAST RENDER, where the anchor has not moved
+   * yet, and reads a re-base as a hand shoving the mark half a bar sideways — and a refused re-base
+   * leaves the anchor ahead of the ink, so the next press crosses again (the hairpin's runaway,
+   * 2026-08-20). ⭐ Horizontal only: a re-base has no vertical half.
+   */
+  rebaseTrillEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
+    const ok = this.scoreModel.setTrillEndpointOffset(id, which, dx, 0)
+    if (ok) this.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
+    return ok
+  }
+
   /** ⭐⭐ **Move the WHOLE ornament** by a staff-space delta — the arrows with a trill selected and NO
    *  square armed. One undo step; the same screen→outward negation as its per-end twin. */
   nudgeTrill(id: string, dx: number, outward: number): boolean {

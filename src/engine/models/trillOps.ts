@@ -415,6 +415,23 @@ export function trillSpan(score: Score, id: string): TrillSpan | null {
   }
 }
 
+/**
+ * ⭐⭐ **WHERE THE LINE WOULD STOP IF THIS TRILL HAD NO EXPLICIT END** — the last note of the START's
+ * tie chain, which is the ordinary one-note trill's own extent ({@link Trill.endNoteId}).
+ *
+ * ⭐ Exported for the interpolating walk (`interactions/trillWalk`), which has to price the step
+ * that CLEARS the end **where the ink will actually land** — ⛔ never at the note that step names.
+ * On an untied note the two are the same and this reads as a long way round; on a TIED one they are
+ * bars apart, and pricing the step at the start note would make the crossing jump the whole tie.
+ *
+ * @returns the note id, or null when the trill is gone. ⚠️ Equal to `startNoteId` when nothing is
+ *   tied, which is the common case.
+ */
+export function trillEndWithoutAnEnd(score: Score, id: string): string | null {
+  const trill = getTrillById(score, id)
+  return trill ? lastTiedFrom(score, trill.startNoteId) : null
+}
+
 // ==================== The auxiliary ====================
 
 /**

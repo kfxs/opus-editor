@@ -662,6 +662,82 @@ ones that bite, exactly as the ottava's 8vb did.
 
 ---
 
+## 12. The keyboard endpoint WALK — BUILT 2026-08-20
+
+His ask: *"lets do now the keyboard endpoint trill walk"*. ←/→ and `Ctrl`+←/→ on an armed square move
+that end's **INK**, and once that ink reaches the next note of the lane the **ANCHOR** goes with it.
+The trill is the fourth family to get the gesture, after the slur, the dynamic/tempo pair and the
+hairpin, and it arrives by the rule the wedge's second square set on 2026-08-20: **a handle that has
+BOTH a re-anchor and an offset owes the walk that joins them.**
+
+Modules: `interactions/trillWalk.ts` (the PORT, twice) + `interactions/trillLane.ts` (where each
+square would be drawn, per candidate anchor) + `MusicEngine.rebaseTrillEndpointOffset`. The
+arithmetic is `interactions/markWalk.ts`'s, **untouched** — `trillOps.trillEndWithoutAnEnd` is the
+one new reader in the core.
+
+### The identity, unchanged
+
+```
+  offset + step  <  gap   →  keep the anchor, offset += step        (ordinary ink nudge)
+  offset + step  ≥  gap   →  anchor := the next note, offset += step − gap
+```
+
+Both branches move the drawn ornament by exactly one step, so **the crossing is invisible**. ⭐ The
+crossing keeps both ends' nudges *by construction*: `setTrillStart` / `setTrillEnd` touch no override
+at all, so unlike the slur there is no `…KeepingEdits` twin to reach for.
+
+### ⭐⭐ What is this family's own — three things
+
+1. **THE STOPS ARE NOTES.** The slur's family, ⛔ not the pedal's — and the candidate rule is
+   `trillReanchor.nextTrillAnchorStop`, exported so `Ctrl+Shift+←/→` and a plain arrow cannot land
+   the same square on different notes.
+2. **THE TWO ENDS MEASURE AGAINST DIFFERENT X'S.** The sign is drawn on its note; the wavy line stops
+   at the note **after** the trill (`TrillRenderer.spanX`, the third end rule). So the END's gaps are
+   its *successors'* distances — over `x = 0, 100, 300`, an end stepping from the first note to the
+   second moves the line by 200 while the noteheads are 100 apart. ⛔ Measuring note-to-note there
+   (right for a slur, whose endpoint is drawn ON the head) makes every crossing jump the difference.
+   ⭐ **RESTS ARE IN THE LANE** for this reason though they can never be an anchor: the line stops at
+   the next SLOT whatever it is. One beat map, two filters.
+3. **A STOP THAT CLEARS THE END IS PRICED WHERE THE INK LANDS** — the hairpin's `addressOfAbs` rule,
+   and here it bites on any TIED start. Walking the end back onto the start leaves the one-note
+   trill, whose line stops at the end of the **tie chain**, not at the start note. Priced at the note
+   the step names it would read as a whole tie's worth of gap and the ink would jump it; priced
+   honestly the gap is zero, no press can arrive, and `Ctrl+Shift+←` stays the route to the collapse.
+
+### ⛔ What it deliberately does NOT do
+
+- **It will not cross a SYSTEM BREAK** — `slurEndpointWalk`'s refusal: two systems' x's are not one
+  ruler. ⛔ The hairpin's WRAP is not copied: a wedge's tip hangs in the margin, while a trill that
+  has left its line has left its notes. `Ctrl+Shift+←/→` is the gesture that crosses a break.
+- **It does not reach the BARE `tr`.** That state has no gap to measure to, and a crossing that put
+  the line back would jump the end square the width of the whole ornament. With no line drawn, an
+  arrow on the end square stays the plain ink nudge it has always been.
+- **The vertical stays a pure offset**, and on this mark it moves the WHOLE ornament: the sign and the
+  wiggle share one baseline.
+
+### ⚠️ The re-base is not a nudge
+
+`rebaseTrillEndpointOffset` is `nudgeTrillEndpoint` **without the page limit**, and the reason is the
+hairpin's runaway of 2026-08-20: the crossing's `offset −= gap` leaves the drawn ornament exactly
+where it was, so a rule about where INK may go must not judge it. Refused, it leaves the anchor ahead
+of the ink and the next press crosses again — all the way to bar 1.
+
+### Tests
+
+`interactions/trillWalk.test.ts` (10) + `interactions/trillLane.test.ts` (6), both break-tested: the
+successor rule, the tie pricing and the bare-`tr` guard were each reverted and each took exactly one
+assertion red with it. ⚠️ The fixture's lane is deliberately UNEVEN (the last note's successor sits
+300 px on, where the noteheads are 100 apart) — evenly spaced, every assertion passes with the
+successor rule deleted.
+
+### ⏭️ Left open
+
+- **The DRAG still snaps.** `trillDragTargetAt` picks the nearest note and re-anchors outright, where
+  the wedge's and the slur's drags now run the same ports the keys do. That is the next step, and it
+  is where `trillLane` earns its extraction.
+
+---
+
 ## Sources
 
 MusicXML [`trill-mark`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/trill-mark/) ·

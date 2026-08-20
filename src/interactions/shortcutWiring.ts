@@ -26,6 +26,7 @@ import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
+import { walkArmedTrillEndpoint } from './trillWalk'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -409,13 +410,23 @@ export function wireShortcuts(
    * trill's side is stored and `x` FLIPS it, so a screen-signed field would turn a nudge that meant
    * "clear of the music" into a shove toward it. ⚠️ Screen-down is +dy, so `↑` arrives negative and
    * becomes a POSITIVE outward for an `above` trill.
+   *
+   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK** (`./trillWalk`, his ask 2026-08-20):
+   * the same ink nudge, except that reaching the next note of the lane takes that end of the
+   * ORNAMENT along with it — the wedge's gesture on the squares that already re-anchor with
+   * `Ctrl+Shift`, by the rule that square set: a handle with BOTH a re-anchor and an offset owes the
+   * walk that joins them. ⚠️ So this key can end in a MODEL write, which is the crossing and nothing
+   * else; every press either side of it is ink.
    */
   const nudgeArmedTrillEnd = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const trill = selectedOf(state, 'trill')
     if (!eng || !trill?.endpoint) return false
     const above = (eng.getTrillById(trill.id)?.placement ?? 'above') === 'above'
-    if (!eng.nudgeTrillEndpoint(trill.id, trill.endpoint, dx, above ? -dy : dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkArmedTrillEndpoint(state, eng, dx)
+      : eng.nudgeTrillEndpoint(trill.id, trill.endpoint, dx, above ? -dy : dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }
