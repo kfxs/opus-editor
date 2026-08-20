@@ -69,7 +69,8 @@ import { dbg } from '../utils/debug'
 export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
-  | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'>
+  | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
+  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -273,6 +274,93 @@ function inkPress(
  */
 
 /**
+ * ⭐⭐ **THE FAR END, WHEN THE WHOLE ORNAMENT MOVES ONTO `target`** — its extent carried along.
+ *
+ * ⭐ **Counted in the LANE's own stops**, which is a trill's only measure of how much music it
+ * covers: a span of N notes arrives as a span of N notes, whatever the bars in between are doing.
+ * ⚠️ Counted HERE and not in the model, because the lane is an interaction-side question
+ * (`./trillLane`) — `trillOps.moveTrillTo` is simply told which two notes.
+ *
+ * ⚠️ Clamped at the end of the lane: a span pushed off the end arrives shortened rather than
+ * refused, which is the same degradation a lost end has always had.
+ */
+function extentFrom(engine: TrillWalkEngine, id: string, target: string): string | undefined {
+  const trill = engine.getTrillById(id)
+  const start = trill && engine.getNote(trill.startNoteId)
+  if (!trill?.endNoteId || !start) return undefined
+  const lane = trillLane(engine, start).filter(n => !n.isRest)
+  const at = (noteId: string) => lane.findIndex(n => n.id === noteId)
+  const span = at(trill.endNoteId) - at(start.id)
+  return span > 0 ? lane[Math.min(at(target) + span, lane.length - 1)]?.id : undefined
+}
+
+/**
+ * ⭐⭐ **THE WHOLE ORNAMENT'S PORT — the third, beside the two squares'.** His ask, 2026-08-20: *"now
+ * we should do the `tr` shape walking — I mean, trill selected but NOT endpoints"*. The family's own
+ * rule, stated on the wedge's body the same day: **something armed → that end; nothing armed → the
+ * whole mark** — and now with the same walk under both, so a nudge and a re-anchor are one gesture
+ * wherever they meet.
+ *
+ * ⭐ **Its stops are the START's** (`nextTrillAnchorStop`'s `'body'`), because an ornament moved as
+ * one is moved by its beginning — and it has NO clamp against its own far end, which travels with
+ * it. ⭐ Its ink is BOTH ends at once (`nudgeTrill`), which is what the arrows have always written
+ * with nothing armed; the offset it reads back is the start's, since the pair always carry the same
+ * number while the ornament is moved as one.
+ */
+function bodyPort(engine: TrillWalkEngine, id: string): MarkWalkPort {
+  const baseXAt = (index: number) => {
+    const lane = laneOf(engine, id)
+    const staff = trillStaff(engine, id)
+    if (!lane || staff === null || index === -1) return null
+    const drawn = trillSquareBaseX(engine.getElementRegistry(), lane, 'start', index, staff)
+    const measure = trillSquareMeasure(lane, index)
+    return drawn === null || measure === null ? null : trillRibbonX(engine, staff, measure, drawn)
+  }
+  return {
+    label: 'Trill',
+    nextStop: (direction) => nextTrillAnchorStop(engine, id, 'body', direction),
+    stopX: (stop) => {
+      const lane = laneOf(engine, id)
+      return lane ? baseXAt(stopIndex(engine, id, lane, stop as TrillAnchorStop)) : null
+    },
+    anchorX: () => {
+      const lane = laneOf(engine, id)
+      return lane ? baseXAt(anchorIndex(engine, id, 'start', lane)) : null
+    },
+    staffSpacePx: () => trillStaffSpacePx(engine.getElementRegistry(), id),
+    offsetX: () => trillOffsetOverrideOf(engine.getScore(), id)?.startX ?? 0,
+    reanchor: (stop) => {
+      const target = (stop as TrillAnchorStop).note.id
+      return engine.moveTrill(id, target, extentFrom(engine, id, target))
+    },
+    nudge: (dx, dy) => engine.nudgeTrill(id, dx, dy),
+    rebase: (dx) => engine.rebaseTrillOffset(id, dx),
+  }
+}
+
+/**
+ * ⭐⭐ **ONE HORIZONTAL ARROW PRESS WITH A TRILL SELECTED AND NOTHING ARMED** — the whole ornament's
+ * walk: its ink moves by `dx`, and when that ink reaches the next note the ORNAMENT goes with it,
+ * extent and all.
+ *
+ * ⚠️ So this key, like the squares', can end in a MODEL write — and that write is AUDIBLE. Every
+ * press either side of a crossing is ink. ⭐ ONE stop per press ({@link carryMark}'s `maxCrossings`),
+ * for the reason his report gave: an ink already far ahead of its notes is walked back onto them a
+ * note at a time, visibly.
+ *
+ * @returns true when something was written (the caller repaints).
+ */
+export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): boolean {
+  if (dx === 0) return false
+  const port = bodyPort(engine, id)
+  if (!markWalkCrosses(port, dx)) return inkPress(engine, id, port, dx)
+
+  let moved = false
+  engine.runBatch('Move trill', () => { moved = carryMark(port, dx, 0, false, 1).moved })
+  return moved
+}
+
+/**
  * ⭐⭐ **THE VERTICAL IS A LADDER** — …above staff N, below staff N, above staff N+1… — and a drag
  * takes ONE rung at a time. His ask, 2026-08-20: *"now we need to make the mouse drag change the
  * `tr` y offset, and of course we have to be aware of the system jump in the y, similar to
@@ -349,12 +437,7 @@ function jumpTrillSystems(
     return false
   }
 
-  const lane = trillLane(engine, start).filter(n => !n.isRest)
-  const at = (noteId: string) => lane.findIndex(n => n.id === noteId)
-  // ⭐ The extent, in stops — the trill's own measure of how much music it covers.
-  const span = trill.endNoteId ? at(trill.endNoteId) - at(start.id) : 0
-  const end = span > 0 ? lane[Math.min(at(target) + span, lane.length - 1)]?.id : undefined
-  if (!engine.previewTrillMove(id, target, end)) return false
+  if (!engine.previewTrillMove(id, target, extentFrom(engine, id, target))) return false
 
   engine.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
   engine.resetTrillOffset(id)

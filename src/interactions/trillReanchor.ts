@@ -102,14 +102,16 @@ export function trillAnchorPosition(
 export function nextTrillAnchorStop(
   engine: TrillAnchorEngine,
   id: string,
-  which: 'start' | 'end',
+  /** ⭐ `'body'` is the WHOLE ornament walking (`trillWalk`'s third port): it steps by its START, so
+   *  it takes the start's candidates — and NO clamp, because the far end travels with it. */
+  which: 'start' | 'end' | 'body',
   direction: 1 | -1,
 ): TrillAnchorStop | null {
   const trill = engine.getTrillById(id)
   if (!trill) return null
   const start = engine.getNote(trill.startNoteId)
   if (!start) return null
-  const anchor = trillAnchorPosition(engine, trill, which)
+  const anchor = trillAnchorPosition(engine, trill, which === 'end' ? 'end' : 'start')
   if (!anchor) return null
 
   // The START note's OWN lane, with no voice fallback — `reanchorArmedSlurEndpoint`'s rule and its
@@ -125,13 +127,25 @@ export function nextTrillAnchorStop(
   // ⭐⭐ **A REST IS STILL NOT AN ANCHOR** — ⛔ and carrying the line over empty bars is not this
   // key's job: that is the INK's, and his rule for it is `./trillWalk`'s system FOLD.
   const stops = trillLane(engine, start)
-    .filter(n => !n.isRest && trillMayAnchorOn(engine.getScore(), id, which, n.id))
+    .filter(n => !n.isRest
+      && trillMayAnchorOn(engine.getScore(), id, which === 'end' ? 'end' : 'start', n.id))
 
   const from = stops.findIndex(n => at(n, anchor.measure, anchor.beat))
   if (from === -1) return null
 
   const dest = stops[from + direction]
   if (!dest) return null // off the end of the lane
+
+  // ⭐⭐ THE WHOLE ORNAMENT has nothing to clamp against: both of its anchors step together, so it
+  // may walk anywhere its START is allowed to stand. ⚠️ Its EXTENT is the caller's to carry —
+  // `trillOps.moveTrillTo` is told which two notes, and `trillWalk` counts them.
+  //
+  // ⚠️ **It is rarely OBSERVABLE**, and the honesty is worth more than the flourish: while the extent
+  // is carried, the far end is always a stop ahead of the step, so the start's own clamp would let
+  // every one of these through as well. It matters where the extent CANNOT be carried — an end that
+  // is not in the lane (its note has picked up another trill), where the ornament arrives shortened
+  // rather than stuck.
+  if (which === 'body') return { note: dest }
 
   // 🚨🚨 **THE CLAMPS COMPARE POSITIONS, ⛔ NEVER INDEXES IN `stops`.** His report, 2026-08-20: a
   // dragged start refused on every single frame — *"the start would pass the end"*, a hundred times.

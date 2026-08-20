@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { dragTrillEndpoint, walkArmedTrillEndpoint } from './trillWalk'
+import { dragTrillEndpoint, walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 
@@ -402,6 +402,49 @@ describe('walkArmedTrillEndpoint', () => {
       const frame = dragTrillEndpoint(engine, trillId, 'start', 0, 0, 10)!
       expect(frame.jumped).toBe(false)
       expect(engine.getTrillById(trillId)?.placement ?? 'above').toBe('above')
+    })
+  })
+
+  /**
+   * ⭐⭐ **THE WHOLE ORNAMENT WALKS** — his ask, 2026-08-20: *"now we should do the `tr` shape
+   * walking — I mean, trill selected but NOT endpoints"*. The family's rule, from the wedge's body:
+   * **something armed → that end; nothing armed → the whole mark** — and now with the same walk
+   * under both, so a nudge and a re-anchor are one gesture wherever they meet.
+   */
+  describe('walkTrillBody', () => {
+    const body = (dx: number) => walkTrillBody(engine, trillId, dx)
+
+    it('⭐ nine presses are INK — both ends together, and nothing re-anchored', () => {
+      presses(9, 0)                                   // (no-op: the body takes no armed square)
+      for (let i = 0; i < 9; i++) body(1)
+      expect(offset('start')).toBeCloseTo(9)
+      expect(offset('end'), 'the far end moved the same — it is ONE gesture').toBeCloseTo(9)
+      expect(idx(trill().startNoteId), 'still on D4').toBe(1)
+    })
+
+    it('⭐⭐ the TENTH takes the ornament onto the next note, EXTENT AND ALL', () => {
+      for (let i = 0; i < 10; i++) body(1)
+      expect(idx(trill().startNoteId), 'D4 → E4').toBe(2)
+      expect(idx(trill().endNoteId), 'and the far end came too, one note along').toBe(3)
+      expect(offset('start'), 'the ink did not jump').toBeCloseTo(0)
+    })
+
+    it('⭐ it walks on THROUGH where its own end stood — the ornament is one object', () => {
+      // ⚠️ The armed START may never pass the end; the BODY carries the end with it, so the question
+      // never arises — which is why the candidate rule's `'body'` case has no clamp at all. ⛔ That
+      // branch is NOT what this proves (with the extent carried, the end is always one stop ahead of
+      // the step, so the start's clamp would allow it too); what this proves is that the ornament
+      // arrives whole, three notes along, having passed the note its end began on.
+      for (let i = 0; i < 30; i++) body(1)
+      expect(idx(trill().startNoteId), 'three notes along, over the old end').toBe(3)
+    })
+
+    it('⚠️ a span pushed off the end of the lane arrives SHORTENED, ⛔ not refused', () => {
+      engine.setTrillAnchor(trillId, 'start', ids[2])   // E4 → F4, the last two notes
+      engine.setTrillAnchor(trillId, 'end', ids[3])
+      for (let i = 0; i < 10; i++) body(1)
+      expect(idx(trill().startNoteId), 'onto F4, the last note').toBe(3)
+      expect(trill().endNoteId, 'and the end had nowhere to go — the one-note trill').toBeUndefined()
     })
   })
 })

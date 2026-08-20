@@ -26,7 +26,7 @@ import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
-import { walkArmedTrillEndpoint } from './trillWalk'
+import { walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -431,14 +431,25 @@ export function wireShortcuts(
     return true
   }
 
-  /** ⭐⭐ **The arrows move the WHOLE ornament when no square is armed** — the family's rule:
-   *  something armed → that end; nothing armed → the whole mark. Same screen→outward conversion. */
+  /**
+   * ⭐⭐ **The arrows move the WHOLE ornament when no square is armed** — the family's rule:
+   * something armed → that end; nothing armed → the whole mark. Same screen→outward conversion.
+   *
+   * ⭐⭐ **…and the horizontal WALKS, exactly as an armed square's does** (`./trillWalk`, his ask
+   * 2026-08-20: *"now we should do the `tr` shape walking — trill selected but not endpoints"*). The
+   * ornament's ink moves by the step, and when it reaches the next note the ORNAMENT goes with it,
+   * EXTENT AND ALL. ⚠️ So this key can end in a MODEL write, which is AUDIBLE; every press either
+   * side of the crossing is ink.
+   */
   const nudgeSelectedTrill = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const trill = selectedOf(state, 'trill')
     if (!eng || !trill || trill.endpoint) return false
     const above = (eng.getTrillById(trill.id)?.placement ?? 'above') === 'above'
-    if (!eng.nudgeTrill(trill.id, dx, above ? -dy : dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkTrillBody(eng, trill.id, dx)
+      : eng.nudgeTrill(trill.id, dx, above ? -dy : dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

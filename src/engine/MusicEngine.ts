@@ -2442,6 +2442,28 @@ export class MusicEngine {
     return this.scoreModel.setTrillPlacement(id, side)
   }
 
+  /**
+   * ⭐⭐ **MOVE THE WHOLE ORNAMENT ONTO ANOTHER NOTE, KEEPING ITS EXTENT** — the crossing of the
+   * ornament's own walk (`interactions/trillWalk`'s third port, the arrows with a trill selected and
+   * NO square armed).
+   *
+   * ⚠️ `commit`, not `saveOnly`: which notes a trill covers is which notes get the alternation.
+   */
+  moveTrill(id: string, startNoteId: string, endNoteId?: string): boolean {
+    const ok = this.scoreModel.moveTrillTo(id, startNoteId, endNoteId)
+    if (ok) this.commit('Move trill')
+    return ok
+  }
+
+  /** ⭐ The whole ornament's RE-BASE — {@link nudgeTrill} without the page limit, for the crossing's
+   *  second half. 🚨 Bookkeeping: it does not move the drawn ink, so no rule about ink may refuse it
+   *  (see {@link rebaseTrillEndpointOffset}). */
+  rebaseTrillOffset(id: string, dx: number): boolean {
+    const ok = this.scoreModel.setTrillOffset(id, dx, 0)
+    if (ok) this.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
+    return ok
+  }
+
   /** Live (preview) move of the WHOLE ornament onto another note, keeping its extent — a vertical
    *  drag landing it on another system. ⚠️ AUDIBLE, and committed by {@link commitTrillDrag}. */
   previewTrillMove(id: string, startNoteId: string, endNoteId?: string): boolean {

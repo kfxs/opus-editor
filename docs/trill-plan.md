@@ -941,8 +941,33 @@ the jump simply does not fire and the ink carries the ornament down, exactly as 
 like it did nothing is otherwise indistinguishable from one that was refused, which cost an afternoon
 on the wedge.
 
+## 15. The WHOLE ORNAMENT walks — BUILT 2026-08-20
+
+His ask: *"now we should do the `tr` shape walking — I mean, trill selected but NOT endpoints"*. The
+family's rule, stated on the wedge's body the same day: **something armed → that end; nothing armed →
+the whole mark** — and now with the same walk under both, so a nudge and a re-anchor are one gesture
+wherever they meet.
+
+`trillWalk.bodyPort` + `walkTrillBody`, a third port beside the two squares'.
+`MusicEngine.moveTrill` (commits — AUDIBLE) and `rebaseTrillOffset` (bookkeeping, ⛔ no page limit).
+
+- ⭐ **Its stops are the START's** (`nextTrillAnchorStop`'s new `'body'`): an ornament moved as one is
+  moved by its beginning. Its ink is BOTH ends at once (`nudgeTrill`), which is what the arrows have
+  always written with nothing armed.
+- ⭐⭐ **The EXTENT travels** (`extentFrom` → `trillOps.moveTrillTo`) — counted in the LANE's own
+  stops, a trill's only measure of how much music it covers, and counted on the interaction side
+  because the lane is not a model question. ⚠️ A span pushed off the end of the lane arrives
+  SHORTENED rather than refused, the degradation a lost end has always had.
+- ⚠️ **The `'body'` case has no clamp and is rarely observable** — while the extent is carried the far
+  end is always a stop ahead of the step, so the start's own clamp would allow the same moves. It
+  matters where the extent CANNOT be carried (an end whose note has picked up another trill). ⭐ The
+  test says only what it proves: break-testing showed the "no clamp" case passing with the branch
+  gone, and a test that claims more than it proves is a false warning.
+
 ### ⏭️ Left open
 
+- **The mouse equivalent** — a press on the ornament's own INK dragging the whole thing, the wedge's
+  BODY drag. The port is built; only the gesture is missing.
 - No BAND limit on the trill's vertical (the wedge has one). The ladder is the limit in practice: any
   height that reaches another staff's neighbourhood becomes a rung. ⏭️ Worth his eye.
 
