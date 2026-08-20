@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { walkArmedTrillEndpoint } from './trillWalk'
+import { dragTrillEndpoint, walkArmedTrillEndpoint } from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 
@@ -231,29 +231,33 @@ describe('walkArmedTrillEndpoint', () => {
     })
   }
 
-  /** Where the drawn end actually is: its stop's base plus its own nudge. Bar 2's whole note is the
-   *  last slot of its bar, so its base is that bar's end — 830. */
-  const inkXOnSystemTwo = () => 830 + offset('end') * 10
-
-  it('🚨🚨 THE INK WRAPS ONTO THE NEXT SYSTEM — one press, and it lands where it can be SEEN', () => {
+  it('🚨🚨 THE INK CROSSES ONTO THE NEXT SYSTEM — one RIBBON, so a break is not an event', () => {
+    // ⭐⭐ His rule, 2026-08-20: *"no anchor to a note but offset in the next system"*. The drawing
+    // FOLDS ink past a line's end onto the next line, so the ink travels ONE continuous distance and
+    // the walk measures it on that ribbon (`trillLane.trillRibbonX`). Here bar 1's music runs 90…430
+    // and bar 2's, a line down, 90…830 — so the end sitting at bar 1's barline (ribbon 340) is 74
+    // spaces from where its line would stop if it covered bar 2's note (ribbon 1080).
+    //
+    // 🚨 It replaces a per-line "wrap" that could only count ONE line hop: his report, on a trill
+    // offset across three systems — *"it never was re-anchored to the note 3 systems below"*.
     wrapFixture()
     arm('end')
-    // ⭐ The end is on bar 1's last note, so its line already reaches that system's end (430) and
-    // there is no ink left to push: the first rightward press IS the crossing. ⛔ Unlike the wedge's
-    // tip, which parks at the line's end while stops remain on the same line.
-    expect(press(1)).toBe(true)
+    presses(73, 1)
+    expect(engine.getNote(trill().endNoteId!)?.measure, 'still bar 1 — the ink is folded, not the anchor').toBe(1)
+    expect(offset('end'), 'seventy-three spaces of pure ink').toBeCloseTo(73)
+
+    expect(press(1), 'the seventy-fourth arrives at the note over there').toBe(true)
     expect(engine.getNote(trill().endNoteId!)?.measure, 'the trill now covers bar 2').toBe(2)
-    // 🚨 The honest landing is what the press pushed past the edge — ONE space. His report on the
-    // first cut: at that size there is NOTHING TO SEE (`TRILL_END_INSET` eats it and the fragment is
-    // dropped). So it is held to `WRAP_STUB_SS`, two spaces into the new line's music (90).
-    expect(inkXOnSystemTwo(), 'two spaces past the new system\'s start').toBeCloseTo(110)
+    expect(offset('end'), 'and the ink did not jump — the anchor absorbed the whole ribbon gap')
+      .toBeCloseTo(0)
   })
 
-  it('⭐ …and a LONG press keeps its own distance — the stub is a floor, not a landing', () => {
+  it('⭐ …and one big press crosses in one go, keeping what is left over', () => {
     wrapFixture()
     arm('end')
-    expect(press(6), 'six spaces past the edge').toBe(true)
-    expect(inkXOnSystemTwo(), 'six spaces in, ⛔ not clamped back to the floor').toBeCloseTo(150)
+    expect(press(80)).toBe(true)
+    expect(engine.getNote(trill().endNoteId!)?.measure).toBe(2)
+    expect(offset('end'), 'six spaces past the note it landed on').toBeCloseTo(6)
   })
 
   it('🚨 ON THE LAST LINE the ink is REFUSED at its end — ⛔ it does not run off the page', () => {
@@ -271,6 +275,27 @@ describe('walkArmedTrillEndpoint', () => {
     expect(press(-1), '⭐ but back into the system is always allowed').toBe(true)
   })
 
+  it('⭐⭐ EVERY PRESS MOVES THE INK, and takes the anchor ONE note at a time — his rule', () => {
+    // *"the re-anchor is completely broken"* / *"with the keyboard the walking must work properly"*
+    // (2026-08-20). An ink nudged far ahead of its note is already PAST every stop between the two,
+    // and `carryMark`'s loop crossed them ALL in one keystroke — the anchor left its bar for one
+    // eight bars later, hopping another trill's notehead on the way. ⭐ Nothing moved on screen (the
+    // identity working), which is exactly what made it unreadable.
+    //
+    // ⭐⭐ THE RULE: a press crosses AT MOST ONE stop, and the ink still travels its own step. The
+    // anchor walks back up to the ink a note per press, visibly.
+    engine.nudgeTrillEndpoint(trillId, 'start', 25, 0)   // the sign is 25 spaces ahead of its note
+    arm('start')
+    expect(press(0.25)).toBe(true)
+    expect(idx(trill().startNoteId), 'ONE note along, ⛔ not all the way to F4').toBe(2)
+    // 10 spaces of gap absorbed by the anchor, plus this press's own quarter — so the drawn sign
+    // moved exactly the quarter space that was asked for.
+    expect(offset('start')).toBeCloseTo(25 - 10 + 0.25)
+
+    expect(press(0.25), 'and the next press takes the next note').toBe(true)
+    expect(idx(trill().startNoteId)).toBe(3)
+  })
+
   it('⭐ a crossing press is ONE undo entry — both halves or neither', () => {
     arm('start')
     presses(10, -1)
@@ -278,5 +303,68 @@ describe('walkArmedTrillEndpoint', () => {
     engine.undo()
     expect(idx(trill().startNoteId), 'back on D4').toBe(1)
     expect(offset('start'), 'with the nine-space nudge intact').toBeCloseTo(-9)
+  })
+
+  /**
+   * ⭐⭐ **THE DRAG IS THE SAME GESTURE WITH A CURSOR IN IT** — his ask, 2026-08-20: *"now the
+   * walking with the mouse drag… behaviour similar to hairpins, just using the proper re-anchor for
+   * the trill"*.
+   *
+   * ⭐ It used to SNAP (`trillDragTargetAt`, deleted with this): the nearest note within 150 px,
+   * re-anchored outright every frame. The claim now is the family's: **a drag and N presses covering
+   * the same distance leave the model in the SAME state**, rather than in two that merely look alike.
+   */
+  describe('dragTrillEndpoint', () => {
+    /** One frame of `dxPx`, repaying whatever the latch dropped — the caller's own rule. */
+    const drag = (id: string, which: 'start' | 'end', dxPx: number) =>
+      dragTrillEndpoint(engine, id, which, dxPx)
+
+    it('⭐⭐ a drag and the arrows land in the SAME state over the same distance', () => {
+      // Ten spaces of ink is 100 px at this fixture's scale, and the start's gap to C4 is exactly
+      // that — so both routes must cross once and re-zero the offset.
+      arm('start')
+      presses(10, -1)
+      const byKeys = { anchor: idx(trill().startNoteId), offset: offset('start') }
+
+      engine.undo() // back to where the trill began
+      expect(idx(trill().startNoteId), 'the fixture really did reset').toBe(1)
+      drag(trillId, 'start', -100)
+      expect(idx(trill().startNoteId), 'the drag crossed too').toBe(byKeys.anchor)
+      expect(offset('start')).toBeCloseTo(byKeys.offset)
+    })
+
+    it('⭐⭐ THE LATCH stops the ink dead on a note, and REPORTS what it dropped', () => {
+      // 🚨 Those pixels were made by the hand: a caller that swallows them leaves the ink behind the
+      // cursor a little at every stop, for ever (Baudisch's own complaint about snap-and-go).
+      arm('start')
+      drag(trillId, 'start', -50)                       // five spaces in, ink only
+      expect(offset('start')).toBeCloseTo(-5)
+      const frame = drag(trillId, 'start', -80)!        // …would carry it 3 spaces PAST C4
+      expect(idx(trill().startNoteId), 'it crossed').toBe(0)
+      expect(offset('start'), 'and stopped dead on the note').toBeCloseTo(0)
+      // ⚠️ SIGNED, in the direction of travel — the caller holds its cursor anchor back by exactly
+      // this (`lastX = x - droppedPx`), so the next frame presents those pixels again.
+      expect(frame.droppedPx, 'the overshoot is handed back to the caller').toBeCloseTo(-30)
+    })
+
+    it('⭐ a frame writes NO undo entry of its own — the drop commits once', () => {
+      arm('start')
+      drag(trillId, 'start', -30)
+      drag(trillId, 'start', -30)
+      engine.commitTrillDrag('start')
+      engine.undo()
+      expect(offset('start'), 'both frames came back in ONE step').toBeCloseTo(0)
+    })
+
+    it('⛔ declines — null — when the ornament is not drawn, so there is no scale', () => {
+      render(null)
+      expect(drag(trillId, 'end', 40)).toBeNull()
+    })
+
+    it('a frame that moved nothing reports so, and writes nothing', () => {
+      arm('end')
+      expect(drag(trillId, 'end', 0)).toEqual({ moved: false, droppedPx: 0 })
+      expect(offset('end')).toBe(0)
+    })
   })
 })

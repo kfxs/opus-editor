@@ -29,10 +29,11 @@ import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
+import { dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
-import { armTrillEndpointAt, trillDragTargetAt } from './elements/trillHandles'
+import { armTrillEndpointAt } from './elements/trillHandles'
 import { articulationHit } from './elements/articulation'
 import { markAtPress } from './markGroupSelect'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
@@ -375,15 +376,18 @@ export class MouseController {
   private pedalDragChanged = false
   private pedalDragStartTime: number | null = null
 
-  // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ It answers with a
-  //     NOTE, not a slot: a trill's anchors are notes, so this is `handleSlurEndpointDrag`'s family
-  //     rather than the pedal's — see `trillDragTargetAt`. ---
+  // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ The INTERPOLATING
+  //     WALK with a cursor (`trillWalk.dragTrillEndpoint`) — the arrows' own gesture, so the ink
+  //     follows the hand and the ANCHOR (a NOTE, not a slot) comes along when the ink reaches one. ---
   private isDraggingTrillEnd = false
   private draggedTrillId: string | null = null
   private draggedTrillEnd: 'start' | 'end' | undefined = undefined
   /** True once a preview write landed, so the drop records one undo entry. */
   private trillDragChanged = false
   private trillDragStartTime: number | null = null
+  /** ⚠️ The cursor x the next frame's delta is measured from — ⛔ never the press point: the walk
+   *  ACCUMULATES, and the latch holds this back by what it dropped. */
+  private trillEndLastX = 0
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -1030,6 +1034,7 @@ export class MouseController {
       this.draggedTrillEnd = armed?.endpoint
       this.trillDragChanged = false
       this.trillDragStartTime = Date.now()
+      this.trillEndLastX = coords.x
       this.render.renderScore()
       event.preventDefault()
       return
@@ -2948,28 +2953,36 @@ export class MouseController {
   }
 
   /**
-   * One frame of a TRILL square drag — the ornament's twin of the handlers below, and the same three
-   * steps: wait out the click threshold, ask the module which NOTE the cursor is over, preview it.
+   * ⭐⭐ **One frame of a TRILL square drag: the ink follows the hand, and the ANCHOR comes along when
+   * the ink reaches the next note** (`trillWalk.dragTrillEndpoint`, his ask 2026-08-20). The arrow
+   * keys' gesture with a mouse in it — same ports, same arithmetic, same model state at the end of
+   * an equal journey.
    *
-   * ⚠️ The module answers with a note id rather than an address in time, and the MODEL judges it: a
-   * rest, a fan member or a note that already trills are refused there, and reaching the other end
-   * collapses the trill rather than being refused.
+   * ⭐ It used to SNAP: the nearest note within 150 px, re-anchored outright every frame, so the ink
+   * teleported a whole note at a time and an end could never be parked between two.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, held back by whatever the LATCH
+   * dropped: those pixels were made by the hand, so the next frame presents them again and the ink
+   * leaves a note exactly when the cursor has travelled the whole distance.
    */
-  private handleTrillEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+  private handleTrillEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
     if (!(this.isDraggingTrillEnd && this.draggedTrillId && this.draggedTrillEnd)) return false
     if (this.trillDragStartTime !== null
         && Date.now() - this.trillDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const write = trillDragTargetAt(engine, this.draggedTrillId, this.draggedTrillEnd, x, y)
-    if (!write) return true
-    // ⭐ Dragged left past the start = the bare `tr` (the keyboard's extra step). ⚠️ Two doors
-    // because they are two writes; the drop commits either through the same entry.
-    const moved = write.lineOff
-      ? engine.previewTrillExtension(this.draggedTrillId, 'none')
-      : engine.previewTrillAnchor(this.draggedTrillId, write.at, write.noteId)
-    if (moved) {
+    const frame = dragTrillEndpoint(
+      engine, this.draggedTrillId, this.draggedTrillEnd, x - this.trillEndLastX)
+    // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      this.trillEndLastX = x - frame.droppedPx
       this.trillDragChanged = true
       this.render.renderScore()
     }
+    // ⭐⭐ **⛔ NO WRAP, and no gesture to end** — ⚠️ the one place this drag differs from the wedge's.
+    // A trill's ink is ONE RIBBON across the systems (`trillLane`), so leaving a line is not an event:
+    // the hand keeps pushing the same offset and the drawing keeps folding it onward. The wedge ends
+    // its drag at a wrap because its tip re-anchors onto the next system and the hand is left behind
+    // on this one; nothing re-anchors here that the ink has not already reached.
     return true
   }
 

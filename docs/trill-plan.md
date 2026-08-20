@@ -782,6 +782,89 @@ the end back past the `tr` is a way of asking for a bare sign, ⛔ not for no or
 
 ---
 
+## 13. The MOUSE DRAG, and the RIBBON it walks on — BUILT 2026-08-20
+
+His ask: *"now the walking with the mouse drag… we should be able to go to the next system too,
+behaviour of the user interaction similar to hairpins, just using the proper re-anchor for the
+trill"*. What came out of the hand-testing that followed is bigger than the drag: **a system break
+stopped being a special case at all.**
+
+### ⭐⭐ THE RIBBON — every drawn line laid end to end, as ONE ruler
+
+`interactions/trillLane.trillRibbonX`. The drawing FOLDS ink past a line's end onto the next
+(§12), so a trill's ink really does travel ONE continuous distance — down line 1, onto line 2, and
+on. Every x the walk's port answers with is now measured along that ribbon, and the consequences are
+all deletions:
+
+- **no wrap, no stub landing, no folded-gap crossing** — `crossingTheBreak` and `leaveSystem` are
+  gone, with `WRAP_STUB_SS`;
+- a note three systems down is simply three systems' worth of gap away. 🚨 The per-line arithmetic
+  could only ever count ONE line hop, which is why his trill *"never was re-anchored to the note 3
+  systems below"*;
+- the ink limit is the **ribbon's** two ends (the last line the render drew), ⛔ not a system's edge:
+  *"if there are no notes in the other system the walk just stops… it should not stop, it should go
+  as offset"*.
+
+### ⭐⭐ THE SIGN FOLDS TOO
+
+The START nudge moved into `trillGeometry` beside the end's, so the `tr` walking past the end of a
+line continues at the start of the next instead of sliding into the margin until the page limit
+froze it. ⚠️ A sign pushed past its own line's end takes the line with it — the ornament is then one
+piece on the sign's line, because a wavy line ending on an earlier system than its `tr` is not a
+drawing of anything.
+
+### ⭐⭐ THE DRAG IS THE SAME GESTURE WITH A CURSOR IN IT
+
+`trillWalk.dragTrillEndpoint` + `MusicEngine.previewTrillEndpointOffset` / `…Rebase`. The ink follows
+the hand and the anchor comes along when the ink reaches a note; the LATCH is on and what it drops is
+repaid (`droppedPx`), the wedge's rule. **A drag and N presses over the same distance now land in the
+same state.**
+
+- ⛔ **`trillDragTargetAt` IS DELETED** with its spec chapter: nobody asks *which note is the cursor
+  nearest* any more. Its cursor-y translation went too — a walk reads a horizontal DELTA, so the
+  *"the drag's cursor rides the mark's line"* rule has nothing left to answer for here.
+- ⛔ **No wrap ⇒ no gesture to end**, ⚠️ the one place this drag differs from the wedge's: the wedge
+  stops at a wrap because its tip re-anchors onto the next system while the hand is left behind;
+  nothing re-anchors here that the ink has not already reached.
+- ⛔ **Horizontal only.** The trill's vertical is ONE number for the whole ornament and the ladder
+  places it; the arrows own it.
+- ⏭️ **What went with the snap: the bare `tr` BY MOUSE** (the end dragged left past the start).
+  `Ctrl+Shift+←` still reaches it — and the drag now reaches exactly what the keys reach.
+
+### 🚨🚨 A KEY PRESS CROSSES AT MOST ONE STOP
+
+*"the re-anchor is completely broken"* — an ornament whose ink had been nudged 59 spaces ahead of its
+note was already PAST every stop in between, so `carryMark`'s loop crossed them all in one keystroke:
+the anchor left bar 3 for bar 8, hopping another trill's notehead on the way. ⭐ Nothing moved on
+screen (the identity working), which is exactly what made it unreadable.
+
+**So `carryMark` took a `maxCrossings`, and the keyboard passes 1.** The ink still travels its own
+step on every press; the anchor walks back up to it a note at a time, visibly. ⚠️ A DRAG keeps the
+loop — one frame of a fast drag really can fly over several stops.
+
+### ⭐⭐ THE ANCHOR GUIDE POINTS AT THE NOTE — always, however far the sign has gone
+
+*"I want to see the anchor point of the `tr`, so we should draw it always."* 🚨 His report before that
+(*"why do I see the anchor line running even in the empty measures in the first system?"*) was NOT
+about the line existing: folding the nudge into `geometry.startX` had made the guide's **target**
+travel with the sign, so it pointed at a spot in an empty bar. ⭐ `trilledNoteAnchor` asks the NOTE
+for both coordinates now. Suppressing the guide (my first answer) hid the very fact he was asking
+about.
+
+### Tests
+
+`trillWalk.test.ts` (19, incl. the drag chapter), `trillLane.test.ts` (10, incl. the ribbon),
+`TrillRenderer.fold.test.ts` (5), plus `e2e/anchorGuide.e2e.ts`'s nudged-sign regression. The ribbon,
+the fold, the sign floor and the guide's target were each break-tested.
+
+### ⏭️ Left open
+
+- The trill's **band limit** (a vertical drag would need it, which is why the drag has no `y`).
+- ⚠️ The two conventions `trillLane` mixes — a successor read at its CENTRE, a bar's end an exact
+  edge — differ by half a notehead at a bar's last slot. Below a press's quarter space, and recorded.
+
+---
+
 ## Sources
 
 MusicXML [`trill-mark`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/trill-mark/) ·

@@ -243,3 +243,30 @@ test('⭐⭐ a PEDAL guide rides the `Ped.` and runs UP to the staff — never t
   expect(Math.abs(guide.to.y - seen.staffBottom), 'the staff’s bottom line').toBeLessThanOrEqual(1)
   expect(guide.to.y, 'pointing up out of the sign').toBeLessThan(guide.from.y)
 })
+
+test('🚨🚨 a NUDGED trill sign keeps its guide ON THE NOTEHEAD — his report, 2026-08-20', async ({ score }) => {
+  // *"I want to see the anchor point of the `tr`… or are we anchoring to something else while
+  // offsetting to a new system?"* — the guide's far end had started travelling WITH the sign, so a
+  // big `startX` nudge left it pointing at a spot in an empty bar. ⭐ Both of a guide's coordinates
+  // come from the NOTE; only its near end is the mark's own ink.
+  const seen = await score.evaluate(async () => {
+    const h = window.__h
+    const id = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })!.id
+    h.engine.addNoteAtBeat({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    const trill = h.engine.addTrill({ startNoteId: id })!
+    await h.render()
+    const before = h.engine.getElementRegistry().getByType('trill')[0].guides![0]
+
+    h.engine.nudgeTrillEndpoint(trill.id, 'start', 6, 0)   // six spaces to the right
+    await h.render()
+    const e = h.engine.getElementRegistry().getByType('trill')[0]
+    return { before, after: e.guides![0], signX: e.bbox.x }
+  })
+
+  expect(seen.after.to.x, 'the far end has not moved — it is the notehead')
+    .toBeCloseTo(seen.before.to.x, 1)
+  expect(seen.after.to.y, 'nor has its height').toBeCloseTo(seen.before.to.y, 1)
+  // …while the near end travelled with the sign, which is the half that SHOULD move.
+  expect(seen.after.from.x - seen.before.from.x, 'the near end followed the nudge').toBeGreaterThan(30)
+  expect(Math.abs(seen.after.from.x - seen.signX), 'and it sits on the drawn sign').toBeLessThan(4)
+})

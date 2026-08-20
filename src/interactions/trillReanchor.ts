@@ -87,9 +87,12 @@ export function trillAnchorPosition(
 
 /**
  * ⭐⭐ **THE CANDIDATE RULE, ONCE** — the note one step earlier (`direction` -1) or later (+1) than
- * the armed square's own, with this family's two clamps applied. Null when there is no step: no
- * armed square, an anchor that is off the beat map, the end of the lane, or a step that would pass
- * the other end.
+ * `which` end's own, with this family's two clamps applied. Null when there is no step: an anchor
+ * that is off the beat map, the end of the lane, or a step that would pass the other end.
+ *
+ * ⭐ It takes the trill and the end EXPLICITLY rather than reading the selection, because three
+ * callers need it and only one of them is a key press: the keyboard walk, the mouse DRAG and this
+ * file's own jump all have to land on the same notes.
  *
  * 🚨 **It DOES consult the model's refusals — a note the op would say no to is not a stop but a DEAD
  * KEY** (`trillOps.trillMayAnchorOn`, and his report of 2026-08-20 below). The op remains the
@@ -97,17 +100,15 @@ export function trillAnchorPosition(
  * notehead instead of jamming against it.
  */
 export function nextTrillAnchorStop(
-  state: EditorState,
   engine: TrillAnchorEngine,
+  id: string,
+  which: 'start' | 'end',
   direction: 1 | -1,
 ): TrillAnchorStop | null {
-  const selected = selectedOf(state, 'trill')
-  if (!selected?.endpoint) return null
-  const trill = engine.getTrillById(selected.id)
+  const trill = engine.getTrillById(id)
   if (!trill) return null
   const start = engine.getNote(trill.startNoteId)
   if (!start) return null
-  const which = selected.endpoint
   const anchor = trillAnchorPosition(engine, trill, which)
   if (!anchor) return null
 
@@ -124,7 +125,7 @@ export function nextTrillAnchorStop(
   // ⭐⭐ **A REST IS STILL NOT AN ANCHOR** — ⛔ and carrying the line over empty bars is not this
   // key's job: that is the INK's, and his rule for it is `./trillWalk`'s system FOLD.
   const stops = trillLane(engine, start)
-    .filter(n => !n.isRest && trillMayAnchorOn(engine.getScore(), selected.id, which, n.id))
+    .filter(n => !n.isRest && trillMayAnchorOn(engine.getScore(), id, which, n.id))
 
   const from = stops.findIndex(n => at(n, anchor.measure, anchor.beat))
   if (from === -1) return null
@@ -221,7 +222,7 @@ export function reanchorArmedTrillEndpoint(
     }
   }
 
-  const stop = nextTrillAnchorStop(state, engine, direction)
+  const stop = nextTrillAnchorStop(engine, selected.id, which, direction)
   if (!stop) return false
   if (!applyTrillAnchorStop(engine, selected.id, which, stop)) return false
   if (stop.clearsEnd) dbg(`Trill end cleared (keyboard) | id:${selected.id} → the one-note trill`)

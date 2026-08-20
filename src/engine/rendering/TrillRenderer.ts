@@ -205,32 +205,51 @@ function trillGeometry(
   voice: number,
   from: TrillPlacement,
   to: TrillPlacement,
-  /** ⭐ THE END SQUARE'S OWN NUDGE, in staff-spaces — folded in HERE rather than added to the last
-   *  piece at draw time, because past the end of a line it changes WHICH PIECES THERE ARE. */
-  endNudge = 0,
-): { startX: number; endX: number; toLine: number; pieces: TrillPiece[] } | null {
+  /** ⭐ THE TWO SQUARES' OWN NUDGES, in staff-spaces — folded in HERE rather than added to the drawn
+   *  sign and the last piece at draw time, because past the end of a line either of them changes
+   *  WHICH PIECES THERE ARE ({@link foldPastSystemEnd}). */
+  nudge: { startX?: number; endX?: number } = {},
+): { startX: number; endX: number; fromLine: number; toLine: number; pieces: TrillPiece[] } | null {
   const x = spanX(pass, span, voice, from, to)
   if (!x) return null
   const inset = staffSpacesToPixels(TRILL_END_INSET, from.stave)
+
+  // ⭐⭐ **THE SIGN FOLDS TOO** — his report, 2026-08-20: the sign walked to the last note of a system
+  // and *"the walk just stops… it should not stop, it should go as offset"*. A trill's stops are
+  // notes, so a lane that runs out leaves the ink as the only way onward; without this the `tr` slid
+  // into the right margin instead, and the page limit eventually froze it there.
+  const start = foldPastSystemEnd(
+    pass, from.line, x.startX + staffSpacesToPixels(nudge.startX ?? 0, from.stave), from.scale)
+
   const insetEnd = x.endX - inset
   const clamped = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
   // ⛔ AFTER every automatic decision, never inside one — the recorded scar in `drawTrill`.
-  const nudged = clamped + staffSpacesToPixels(endNudge, to.stave)
-  const folded = foldPastSystemEnd(pass, to.line, nudged, from.scale)
+  const nudged = clamped + staffSpacesToPixels(nudge.endX ?? 0, to.stave)
+  const end = foldPastSystemEnd(pass, to.line, nudged, from.scale)
+
   // 🚨🚨 **A PIECE MUST SURVIVE, OR THE SIGN GOES WITH IT.** His report, 2026-08-20: an `endX` of
   // −5 spaces and *"the `tr` disappears, this should not happen"*. `cutIntoPieces` drops any piece
-  // whose end has crossed its own start — right for a degenerate span — and once the nudge was
-  // folded in HERE (it has to be, for the fold), a hand-nudge dragging the end back past the sign
+  // whose end has crossed its own start — right for a degenerate span — and once the nudges were
+  // folded in HERE (they have to be, for the fold), a hand-nudge dragging one end past the other
   // deleted the only piece there was, and with it the `tr`, its hit-box and both squares.
   // ⭐ So the CUT is floored at the sign; the DRAWING still shows no wiggle, because `drawsLine`
-  // asks whether anything is left after the sign and its gap. Pulling the end back past the `tr` is
-  // a way of asking for a bare sign, ⛔ not for no ornament.
-  const cutEnd = from.line === folded.line ? Math.max(folded.endX, x.startX + inset) : folded.endX
+  // asks whether anything is left after the sign and its gap. Pushing the two ends past each other
+  // is a way of asking for a bare sign, ⛔ not for no ornament.
+  //
+  // ⚠️ **A SIGN PUSHED PAST ITS OWN LINE takes the line with it**: the ornament is then one piece on
+  // the sign's line, because a wavy line that ended on an earlier system than its `tr` is not a
+  // drawing of anything.
+  const past = start.line > end.line
+  const toLine = past ? start.line : end.line
+  const endX = past || start.line === toLine
+    ? Math.max(end.endX, start.endX + inset)
+    : end.endX
   return {
-    startX: x.startX,
-    endX: cutEnd,
-    toLine: folded.line,
-    pieces: cutIntoPieces(pass, from.line, folded.line, x.startX, cutEnd, from.scale),
+    startX: start.endX,
+    endX,
+    fromLine: start.line,
+    toLine,
+    pieces: cutIntoPieces(pass, start.line, toLine, start.endX, endX, from.scale),
   }
 }
 
@@ -495,7 +514,7 @@ export function planTrillBands(
     const to = placements.find(p =>
       p.measureNumber === span.endMeasure && p.staffIndex === from.staffIndex)
     const geometry = to
-      ? trillGeometry(pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id)?.endX ?? 0)
+      ? trillGeometry(pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id) ?? {})
       : null
     const covered = coveredPlacements(placements, span, from, geometry?.toLine ?? from.line)
 
@@ -541,7 +560,7 @@ export function renderTrills(
     // ⭐ The same geometry `planTrillBands` measured the curves over — one answer to where this trill
     // is, asked by both passes (see {@link trillGeometry}).
     const geometry = trillGeometry(
-      pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id)?.endX ?? 0)
+      pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id) ?? {})
     if (!geometry) continue
 
     const covered = coveredPlacements(placements, span, from, geometry.toLine)
@@ -587,7 +606,7 @@ function drawTrill(
   trill: Trill,
   span: TrillSpan,
   voice: number,
-  geometry: { startX: number; endX: number; toLine: number; pieces: TrillPiece[] },
+  geometry: { startX: number; endX: number; fromLine: number; toLine: number; pieces: TrillPiece[] },
   covered: readonly TrillPlacement[],
   from: TrillPlacement,
   staffId: string | undefined,
@@ -608,7 +627,7 @@ function drawTrill(
   // a style choice: this ornament is DEFINED by that note. Its auxiliary is a step above THAT pitch
   // (`utils/trillPitch`), so a guide that pointed at a staff line instead would be pointing away
   // from the thing the trill is computed from.
-  const anchor = trilledNoteAnchor(pass, from, voice, span, geometry.startX, side === 'above')
+  const anchor = trilledNoteAnchor(pass, from, voice, span, side === 'above')
 
   // ⭐⭐ THE HAND-NUDGED INK — the two squares' own category of edit ({@link TrillOffsetOverride}).
   // Three numbers, not two pairs: `outward` is ONE quantity for the ornament, because the sign and
@@ -681,7 +700,10 @@ function drawTrill(
     // ⭐ …and the START square's own nudge on top of every clamp above, never inside one — see the
     // note before the loop. ⚠️ Only on the piece carrying the real beginning: a continuation `(tr)`
     // is a reminder the reader gets for free, not the end the user grabbed.
-    const signX = autoSignX + (piece.continuation ? 0 : px(nudge?.startX ?? 0))
+    // ⭐ The START square's nudge is already IN `piece.x0` — {@link trillGeometry} folds it in
+    // before the pieces are cut, exactly as it does the end's. ⛔ Adding it again here would double
+    // every sign nudge.
+    const signX = autoSignX
     const signWidth = drawsSign
       ? drawTrillSign(ctx, signX, y, piece.continuation && label === 'parenthesised')
       : 0
@@ -747,6 +769,13 @@ function drawTrill(
       // The sign's ink corner NEAREST the staff — its BOTTOM for an above-staff trill, its top for a
       // `below` one. The same rule the dynamic and the tempo mark follow, which is what keeps the
       // guide from crossing the glyph it leaves.
+      // ⭐⭐ **ALWAYS, however far the sign has been nudged or FOLDED** — his call, 2026-08-20:
+      // *"I want to see the anchor point of the `tr`, so we should draw it always, regarding the
+      // anchor element the `tr` is drawn for — that is what it is"*. A sign offset onto a later
+      // system draws a long diagonal back to its note, and that is the honest picture of what the
+      // ornament belongs to. ⛔ Suppressing it (my first answer to his report) hid the very fact he
+      // was asking about; the report was about the guide pointing at the WRONG PLACE, which was
+      // {@link trilledNoteAnchor}'s x, not about the line existing.
       ...(firstPiece && anchor
         ? { guides: [{ from: { x: signX, y: side === 'above' ? bottom : top }, to: anchor }] }
         : {}),
@@ -770,15 +799,23 @@ function trilledNoteAnchor(
   from: TrillPlacement,
   voice: number,
   span: TrillSpan,
-  startX: number,
   above: boolean,
 ): { x: number; y: number } | undefined {
-  const note = pass.staveNoteMap.get(slotIdAt(from.view, voice, span.startBeat) ?? '')?.staveNote
+  const slotId = slotIdAt(from.view, voice, span.startBeat)
+  const note = pass.staveNoteMap.get(slotId ?? '')?.staveNote
   const ys = note?.getYs?.()
-  if (!ys?.length) return undefined
+  const x = noteLeftX(pass, slotId)
+  if (!ys?.length || x === undefined) return undefined
+  // 🚨🚨 **BOTH COORDINATES COME FROM THE NOTE**, and the x used to be handed in as the geometry's
+  // `startX`. That was fine while `startX` was the span's own beginning; the moment the START
+  // square's nudge (and the FOLD) moved into the geometry, the guide's TARGET travelled with the
+  // sign instead of staying on the notehead — his report, 2026-08-20: *"why do I see the anchor line
+  // running even in the empty measures in the first system?"*. ⭐ A guide points at a NOTE, so it
+  // asks the note.
+  //
   // The notehead FACING the sign: the topmost for a trill above the staff, the lowest for one below
   // — a chord's other heads are further from it, and the guide should stop at the first ink it meets.
-  return { x: startX, y: above ? Math.min(...ys) : Math.max(...ys) }
+  return { x, y: above ? Math.min(...ys) : Math.max(...ys) }
 }
 
 /**

@@ -142,8 +142,8 @@ export function markWalkCrosses(port: MarkWalkPort, dx: number): boolean {
  * the anchor and takes that gap back out of the offset — an identity, so the ink never moves at a
  * crossing however many happen in one frame.
  *
- * ⚠️ The bound is a runaway guard, not a rule: {@link arrivedAt} already refuses at the end of the
- * road and across a system break.
+ * ⚠️ The bound is {@link maxCrossings} — a runaway guard for a drag, and a real rule for a KEY,
+ * which may cross ONE stop per press however far the ink already is from its anchor.
  *
  * @returns how many stops the anchor crossed, and whether anything was written at all.
  */
@@ -154,9 +154,23 @@ export function carryMark(
   /** ⭐ Stop the ink dead at offset zero when the move would carry it through — the DRAG's latch,
    *  off for the keyboard. See the header. */
   latching = false,
+  /**
+   * ⭐⭐ **HOW MANY STOPS ONE MOVE MAY CROSS.** 32 is a runaway guard, not a rule — and a KEY press
+   * should pass **1**.
+   *
+   * 🚨 His report on the trill, 2026-08-20: *"the re-anchor is completely broken"*. An ornament whose
+   * ink had been nudged 59 spaces ahead of its note was already PAST every stop between the two, so
+   * one arrow press crossed them all — the anchor left bar 3 for bar 8 in a single keystroke, hopping
+   * over another trill's notehead on the way. ⭐ Nothing moved on screen (that is the identity
+   * working), which is exactly what made it unreadable.
+   *
+   * ⚠️ A DRAG keeps the loop: one frame of a fast drag really can fly over several stops, and
+   * re-anchoring once would leave the anchor trailing the cursor by however many were skipped.
+   */
+  maxCrossings = 32,
 ): { crossings: number; moved: boolean; latched: boolean; dropped: number } {
   let crossings = 0
-  for (; crossings < 32; crossings++) {
+  for (; crossings < maxCrossings; crossings++) {
     const arrival = arrivedAt(port, dx)
     if (!arrival) break
     if (!port.reanchor(arrival.stop)) break

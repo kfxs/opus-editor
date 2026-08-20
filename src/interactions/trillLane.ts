@@ -115,34 +115,85 @@ export function trillSquareMeasure(lane: readonly FlatNote[], index: number): nu
 }
 
 /**
- * ⭐⭐ **THE DRAWN EXTENT OF THE SYSTEM a bar sits on** — where its line's music starts and ends, and
- * a `top` that NAMES the line.
+ * ⭐⭐ **THE RIBBON — every drawn line of one staff laid END TO END, as ONE ruler.**
  *
- * ⭐ `top` is what lets a caller ask *"are these two x's on one ruler?"* without comparing them,
- * which is a question x's cannot answer: a later line's x may be larger, smaller or equal.
- * `hairpinSystemInkLimit`'s rule, and its shape — every bar of one line shares its staff's top line,
- * and no two lines do.
+ * 🚨🚨 **This is what makes a system break stop being a special case.** A trill's ink is
+ * `anchor + offset`, and past the end of a line the drawing FOLDS it onto the next
+ * (`TrillRenderer.foldPastSystemEnd`, his rule: *"no anchor to a note but offset in the next
+ * system"*). So the ink really does travel a single continuous distance — down line 1, onto line 2,
+ * and on — and the walk's arithmetic only works if it measures along the same ribbon the drawing
+ * unrolls it on.
  *
- * Null when the last render drew nothing for that bar.
+ * ⭐ It replaces a per-line "are these two x's on one ruler?" test and a folded-gap crossing that
+ * could only ever count ONE line hop. His report, 2026-08-20: a trill whose ink had been offset
+ * across three systems *"never was re-anchored to the note 3 systems below"* — the gap to that note
+ * was two whole lines longer than the arithmetic could name.
+ *
+ * ⚠️ Reading order, ⛔ never x order: a later line's x may be larger, smaller or equal. Lines are
+ * discovered by walking the score's bars and grouping by the staff's TOP LINE, which is the one
+ * thing that names a system.
  */
-export function trillSystemInkLimit(
+function ribbon(
+  engine: TrillLaneEngine,
+  staff: number,
+): { top: number; min: number; max: number; before: number }[] {
+  const registry = engine.getElementRegistry()
+  const lines: { top: number; min: number; max: number; before: number }[] = []
+  for (const bar of engine.getScore().measures ?? []) {
+    const geometry = registry.getStaffGeometry(bar.number, staff)
+    if (!geometry) continue
+    const top = geometry.lineYPositions[0]
+    const here = lines.find(l => l.top === top)
+    if (here) {
+      here.min = Math.min(here.min, geometry.noteStartX)
+      here.max = Math.max(here.max, geometry.noteEndX)
+    } else {
+      lines.push({ top, min: geometry.noteStartX, max: geometry.noteEndX, before: 0 })
+    }
+  }
+  let before = 0
+  for (const line of lines) {
+    line.before = before
+    before += line.max - line.min
+  }
+  return lines
+}
+
+/**
+ * ⭐⭐ **A DRAWN x, ON THE RIBBON** — the distance from the first line's first ink to this point,
+ * following the fold. Null when that bar was not drawn.
+ *
+ * ⚠️ A point past its own line's end (ink the drawing has folded onward) reads as *further along the
+ * ribbon than the line's own share*, which is exactly right: it is where the ink would be if the
+ * lines were one long staff, and where the FOLD puts it back down.
+ */
+export function trillRibbonX(
   engine: TrillLaneEngine,
   staff: number,
   measure: number,
-): { min: number; max: number; top: number } | null {
-  const registry = engine.getElementRegistry()
-  const home = registry.getStaffGeometry(measure, staff)
-  if (!home) return null
+  x: number,
+): number | null {
+  const geometry = engine.getElementRegistry().getStaffGeometry(measure, staff)
+  if (!geometry) return null
+  const line = ribbon(engine, staff).find(l => l.top === geometry.lineYPositions[0])
+  return line ? line.before + (x - line.min) : null
+}
 
-  let min = home.noteStartX
-  let max = home.noteEndX
-  for (const bar of engine.getScore().measures ?? []) {
-    const geometry = registry.getStaffGeometry(bar.number, staff)
-    if (!geometry || geometry.lineYPositions[0] !== home.lineYPositions[0]) continue
-    min = Math.min(min, geometry.noteStartX)
-    max = Math.max(max, geometry.noteEndX)
-  }
-  return { min, max, top: home.lineYPositions[0] }
+/**
+ * How far the ribbon runs — 0 to the sum of the drawn lines' widths.
+ *
+ * ⭐ The ink may be nudged anywhere along it and the drawing will find a line for it; past either
+ * END there is no line left, and `interactions/trillWalk` refuses the write there rather than
+ * letting the ornament run off the page. ⛔ It refuses; it never clamps the drawing.
+ */
+export function trillRibbonLimits(
+  engine: TrillLaneEngine,
+  staff: number,
+): { min: number; max: number } | null {
+  const lines = ribbon(engine, staff)
+  if (!lines.length) return null
+  const last = lines[lines.length - 1]
+  return { min: 0, max: last.before + (last.max - last.min) }
 }
 
 /**

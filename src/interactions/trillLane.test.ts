@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { trillLane, trillLaneIndexAt, trillSquareBaseX, trillStaffSpacePx } from './trillLane'
+import {
+  trillLane, trillLaneIndexAt, trillRibbonLimits, trillRibbonX, trillSquareBaseX, trillStaffSpacePx,
+} from './trillLane'
 import { fracCreate as frac } from '../utils/fraction'
 import type { ElementRegistry } from '../engine/ElementRegistry'
 
@@ -29,7 +31,10 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
       getStaffGeometry: (m: number) => (drawn.lineSpacing === null ? undefined : {
-        lineSpacing: drawn.lineSpacing, lineYPositions: [40, 50, 60, 70, 80],
+        lineSpacing: drawn.lineSpacing,
+        // ⭐ Bar 2 is a LINE DOWN in these fixtures (top 140), which is what makes the ribbon a
+        // ribbon: 90…430 then 90…830, laid end to end.
+        lineYPositions: m === 1 ? [40, 50, 60, 70, 80] : [140, 150, 160, 170, 180],
         noteStartX: 90, noteEndX: m === 1 ? 430 : 830,
       }),
       getByMeasure: vi.fn(() => []),
@@ -110,5 +115,40 @@ describe('trillLane', () => {
     expect(trillStaffSpacePx(registry(), trillId)).toBe(12)
     drawn.lineSpacing = null
     expect(trillStaffSpacePx(registry(), trillId), '⛔ never a fallback constant').toBeNull()
+  })
+
+  /**
+   * ⭐⭐ **THE RIBBON** — every drawn line laid END TO END, which is the ruler the walk measures on.
+   *
+   * 🚨 It exists because the drawing FOLDS ink past a line's end onto the next one (his rule,
+   * 2026-08-20: *"no anchor to a note but offset in the next system"*), so the ink travels one
+   * continuous distance. Measuring per line could only ever count ONE hop — his report: a trill
+   * offset across three systems *"never was re-anchored to the note 3 systems below"*.
+   */
+  describe('the ribbon', () => {
+    it('⭐ a point on the FIRST line is its distance from that line\'s own start', () => {
+      expect(trillRibbonX(engine, 0, 1, 90)).toBe(0)
+      expect(trillRibbonX(engine, 0, 1, 300)).toBe(210)
+    })
+
+    it('⭐⭐ a point on the SECOND line carries the first line\'s WHOLE WIDTH in front of it', () => {
+      // Line 1 is 340 wide (90…430), so bar 2's own start is 340 along the ribbon.
+      expect(trillRibbonX(engine, 0, 2, 90)).toBe(340)
+      expect(trillRibbonX(engine, 0, 2, 190)).toBe(440)
+    })
+
+    it('⚠️ ink FOLDED past a line\'s end reads as further along, which is where it lands', () => {
+      // 30 px past line 1's end (430) is 370 on the ribbon — and 370 is also line 2's start plus 30,
+      // which is exactly where `TrillRenderer.foldPastSystemEnd` puts it back down.
+      expect(trillRibbonX(engine, 0, 1, 460)).toBe(370)
+      expect(trillRibbonX(engine, 0, 2, 120)).toBe(370)
+    })
+
+    it('runs from 0 to the sum of the lines, and answers null with nothing drawn', () => {
+      expect(trillRibbonLimits(engine, 0)).toEqual({ min: 0, max: 340 + 740 })
+      drawn.lineSpacing = null
+      expect(trillRibbonLimits(engine, 0)).toBeNull()
+      expect(trillRibbonX(engine, 0, 1, 100)).toBeNull()
+    })
   })
 })

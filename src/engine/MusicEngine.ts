@@ -2347,11 +2347,14 @@ export class MusicEngine {
    *
    * @returns true when the model changed.
    */
-  previewTrillAnchor(id: string, which: 'start' | 'end', noteId: string): boolean {
+  previewTrillAnchor(id: string, which: 'start' | 'end', noteId: string | null): boolean {
     this.markModelDirty() // live drag, undo deferred to commitTrillDrag
+    // ⚠️ `null` CLEARS the end (the one-note trill), which a drag reaches by walking the end back
+    // onto the start — ⛔ it must go through here and not through {@link setTrillAnchor}, or that one
+    // frame records its own undo entry in the middle of the gesture.
     return which === 'end'
       ? this.scoreModel.setTrillEnd(id, noteId)
-      : this.scoreModel.setTrillStart(id, noteId)
+      : noteId !== null && this.scoreModel.setTrillStart(id, noteId)
   }
 
   /**
@@ -2413,6 +2416,28 @@ export class MusicEngine {
     const ok = this.scoreModel.setTrillEndpointOffset(id, which, dx, 0)
     if (ok) this.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
     return ok
+  }
+
+  /**
+   * Live (preview) nudge of one end's ink used **while DRAGGING a trill's square** — writes the
+   * override but records NO undo; the drop commits once ({@link commitTrillDrag}).
+   *
+   * ⭐ It is {@link nudgeTrillEndpoint} without the undo, and ACCUMULATING like it: the caller passes
+   * the delta since the last accepted frame, never a total. The page limit still refuses the write,
+   * so an ornament dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
+   */
+  previewTrillEndpointOffset(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {
+    const above = (this.getTrillById(id)?.placement ?? 'above') === 'above'
+    if (!this.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
+    this.markModelDirty() // live drag, undo deferred to commitTrillDrag
+    return this.scoreModel.setTrillEndpointOffset(id, which, dx, outward)
+  }
+
+  /** The re-base during a DRAG: {@link rebaseTrillEndpointOffset} with no undo entry of its own —
+   *  and, like it, ⛔ never judged by the page limit. */
+  previewTrillEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setTrillEndpointOffset(id, which, dx, 0)
   }
 
   /** ⭐⭐ **Move the WHOLE ornament** by a staff-space delta — the arrows with a trill selected and NO
