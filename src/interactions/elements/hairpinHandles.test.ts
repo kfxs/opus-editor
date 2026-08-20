@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
-  hairpinEndpointHandles, armHairpinEndpointAt, cycleHairpinEndpoint, hairpinDragTargetAt,
+  hairpinEndpointHandles, armHairpinEndpointAt, cycleHairpinEndpoint,
   hairpinMouthEnd, nudgeArmedHairpinMouth, resetArmedHairpinMouth, hairpinStaffSpacePx,
   HAIRPIN_HANDLE_GAP_PX as GAP,
 } from './hairpinHandles'
@@ -171,131 +171,6 @@ describe('cycleHairpinEndpoint', () => {
     registry = new ElementRegistry()
     expect(walk(1)).toBe(false)
     expect(state.selectedElement).toEqual({ kind: 'hairpin', id: 'H1' })
-  })
-})
-
-/**
- * ⭐⭐ {@link hairpinDragTargetAt} — which BOUNDARY a dragged square is over.
- *
- * The registry is the fixture again: the drawn note boxes are what the render measured, so "which
- * boundary is the cursor nearest" is arithmetic.
- *
- * ⭐⭐ **The claim that matters is which x's are candidates at all.** A wedge's two tips are drawn at
- * a note's LEFT EDGE (`HairpinRenderer.spanX`), never at its head — so the tip's possible positions
- * are the lane's ONSETS, and a drag that snapped to notehead centres (the slur's rule, right for the
- * slur because its end is drawn ON the head) jumps half a notehead early and, for the end, a whole
- * note late. That was his report — *"sometimes it jumps before x mouse reach the target"* — and this
- * chapter is what keeps it fixed.
- */
-function dragEngine(notes: Array<{
-  id: string; left: number; y: number; measure: number; beat: number; voice?: number; staff?: number
-}>, hairpin: { voice?: 0 | 1 | 2 | 3; staffId?: string } = {}) {
-  const registry = new ElementRegistry()
-  for (const n of notes) {
-    registry.add({
-      type: 'note', id: n.id, staff: n.staff ?? 0,
-      bbox: { x: n.left, y: n.y - 5, width: 12, height: 10 },
-    } as ElementInfo)
-  }
-  return {
-    getHairpinById: () => ({ id: 'H1', type: 'cresc', beat: { num: 0, den: 1 }, length: { num: 1, den: 1 }, ...hairpin }),
-    getScore: () => ({ staves: [{ id: 's0' }, { id: 's1' }] }),
-    getElementRegistry: () => registry,
-    getNote: (id: string) => {
-      const n = notes.find(x => x.id === id)
-      return n ? { id, measure: n.measure, beat: { num: n.beat, den: 1 }, voice: n.voice, staff: n.staff } : null
-    },
-  } as unknown as Parameters<typeof hairpinDragTargetAt>[0]
-}
-
-/** Three quarters at x = 100 / 200 / 300, all on one system. */
-const THREE = [
-  { id: 'n1', left: 100, y: 50, measure: 1, beat: 0 },
-  { id: 'n2', left: 200, y: 50, measure: 1, beat: 1 },
-  { id: 'n3', left: 300, y: 50, measure: 1, beat: 2 },
-]
-
-describe('hairpinDragTargetAt', () => {
-  it('⭐ the END tip lands on the boundary the cursor is nearest — the note there is NOT covered', () => {
-    // Cursor just left of the third note: the tip goes to that note's left edge, i.e. the wedge ends
-    // BEFORE it. Covering it instead would draw the tip a whole note further right than the pointer.
-    expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'end', 290, 90))
-      .toEqual({ at: 'endBefore', measure: 1, beat: { num: 2, den: 1 } })
-  })
-
-  it('⭐ …and does NOT jump until the cursor is past the midpoint of the two boundaries', () => {
-    const engine = dragEngine(THREE)
-    // 249 still belongs to n2's boundary; 251 has crossed to n3's.
-    expect(hairpinDragTargetAt(engine, 'H1', 'end', 249, 55)).toMatchObject({ beat: { num: 1, den: 1 } })
-    expect(hairpinDragTargetAt(engine, 'H1', 'end', 251, 55)).toMatchObject({ beat: { num: 2, den: 1 } })
-  })
-
-  it('⭐ dragged PAST the last note, the end COVERS it — the one boundary that is not an onset', () => {
-    // Every other target is an onset; the music has none after its last, so "cover everything" is a
-    // candidate of its own at that note's right edge, or the last note could never be included.
-    expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'end', 316, 55))
-      .toEqual({ at: 'endCovering', measure: 1, beat: { num: 2, den: 1 } })
-  })
-
-  it('the START snaps to the same boundaries, and takes the onset as its own', () => {
-    expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'start', 205, 90))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 1, den: 1 } })
-  })
-
-  it('⛔ a START dragged past all the music answers nothing — only a tip can go there', () => {
-    expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'start', 316, 55)).toBeNull()
-  })
-
-  it('⚠️ uses BOTH axes, so a similar x on another SYSTEM cannot win', () => {
-    // Cross-system x's are not one ruler: the note directly above the cursor must beat the one at a
-    // nearly identical x two systems up.
-    const engine = dragEngine([
-      { id: 'up', left: 205, y: 50, measure: 1, beat: 0 },
-      { id: 'here', left: 220, y: 400, measure: 5, beat: 3 },
-    ])
-    expect(hairpinDragTargetAt(engine, 'H1', 'end', 210, 430)).toMatchObject({ measure: 5 })
-  })
-
-  it('takes its boundaries from its STAFF — every voice of it', () => {
-    const engine = dragEngine([
-      { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
-      { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
-    ])
-    // The cursor sits ON the voice-1 note's edge, and the fixture's wedge carries no `voice`.
-    expect(hairpinDragTargetAt(engine, 'H1', 'start', 174, 50))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 2, den: 1 } })
-  })
-
-  it('⭐⭐ …and a wedge NARROWED to a voice reaches the SAME boundary', () => {
-    // Scope is about loudness; a tip is dragged onto a COLUMN, and a column belongs to the staff.
-    const engine = dragEngine([
-      { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, voice: 0 },
-      { id: 'theirs', left: 174, y: 50, measure: 1, beat: 2, voice: 1 },
-    ], { voice: 0 })
-    expect(hairpinDragTargetAt(engine, 'H1', 'start', 174, 50))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 2, den: 1 } })
-  })
-
-  it('…and its own STAFF', () => {
-    const engine = dragEngine([
-      { id: 'mine', left: 180, y: 50, measure: 1, beat: 0, staff: 1 },
-      { id: 'other', left: 174, y: 50, measure: 1, beat: 2, staff: 0 },
-    ], { staffId: 's1' })
-    expect(hairpinDragTargetAt(engine, 'H1', 'start', 174, 50))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 0, den: 1 } })
-  })
-
-  it('a CHORD is one boundary — its leftmost head, which is the edge the wedge is drawn against', () => {
-    const engine = dragEngine([
-      { id: 'low', left: 200, y: 50, measure: 1, beat: 1 },
-      { id: 'high', left: 208, y: 40, measure: 1, beat: 1 },
-    ])
-    expect(hairpinDragTargetAt(engine, 'H1', 'start', 201, 55))
-      .toEqual({ at: 'start', measure: 1, beat: { num: 1, den: 1 } })
-  })
-
-  it('answers null when nothing in the lane is near enough — no jump across the page', () => {
-    expect(hairpinDragTargetAt(dragEngine(THREE), 'H1', 'end', 900, 800)).toBeNull()
   })
 })
 

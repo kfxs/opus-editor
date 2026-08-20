@@ -1556,6 +1556,20 @@ export class MusicEngine {
   }
 
   /**
+   * Live (preview) nudge of ONE end's ink used **while dragging a hairpin's SQUARE** — writes the
+   * override but records NO undo; the drop commits once ({@link commitHairpinDrag}).
+   *
+   * ⭐ It is {@link nudgeHairpinEndpoint} without the undo, and ACCUMULATING like it: the caller
+   * passes the delta since the last accepted frame, never a total. The page limit still refuses the
+   * write, so a wedge dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
+   */
+  previewHairpinEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    this.markModelDirty() // live drag, undo deferred to commitHairpinDrag
+    return this.scoreModel.setHairpinEndpointOffset(id, which, dx, dy)
+  }
+
+  /**
    * Live (preview) whole-wedge move used **while dragging a hairpin's BODY** — writes the model but
    * does NOT record undo; call {@link commitHairpinOffsetDrag} on the drop for the single entry.
    * `previewHairpinEnd` / `commitHairpinDrag`'s pair, and for its reason: every frame of a drag

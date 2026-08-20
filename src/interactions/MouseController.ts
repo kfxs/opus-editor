@@ -27,7 +27,8 @@ import { stampOttavaAtClick } from './ottavaStamp'
 import { stampPedalAtClick } from './pedalStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
-import { armHairpinEndpointAt, hairpinDragTargetAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
+import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
+import { dragHairpinEndpoint } from './hairpinWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
@@ -313,14 +314,19 @@ export class MouseController {
   private tempoDragStartTime: number | null = null
 
   // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
-  //     plan.md, the 2026-08-17 note). The RIGHT square re-lengths the wedge, the LEFT one moves its
-  //     start and holds the end: the drag twin of `Ctrl+Shift+←/→`, snapping to slots of its lane. ---
+  //     plan.md). ⭐ Since 2026-08-20 it is the WALK (`./hairpinWalk`), not a snap: the ink follows
+  //     the hand and the wedge comes along when the ink reaches a boundary, so the mouse and the
+  //     arrows are one gesture and land in one state. ---
   private isDraggingHairpinEnd = false
   private draggedHairpinId: string | null = null
   private draggedHairpinEnd: 'start' | 'end' | undefined = undefined
   /** True once a preview write landed, so the drop records one undo entry. */
   private hairpinDragChanged = false
   private hairpinDragStartTime: number | null = null
+  /** The last ACCEPTED cursor x, in SVG px — the anchor each frame's delta is measured from.
+   *  ⚠️ Not advanced on a refusal, the body drag's rule: an end stopped at a limit picks the cursor
+   *  up where it left it rather than jumping the distance it did not travel. */
+  private hairpinEndLastX = 0
 
   // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
   //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
@@ -519,15 +525,19 @@ export class MouseController {
   private readonly DOUBLE_CLICK_MS = 400
 
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
-  private readonly onDocMouseUp = () => {
+  private readonly onDocMouseUp = (event: MouseEvent) => {
     this.isMouseButtonDown = false
-    // A bar-width drag is settled HERE as well as in the element's own handler, because a release
-    // outside the viewport never reaches that one — and this drag hides the pointer and holds an
-    // uncommitted preview, so being left armed is not a harmless leak: the score keeps re-sizing
-    // under the next mouse move with no button held, and the cursor stays invisible. Capture-phase,
-    // so it lands before `handleMouseUp`; whichever runs first clears the state and the other
-    // no-ops.
-    if (this.barWidthDrag) this.endBarWidthDrag()
+    // ⭐⭐ **EVERY drag is settled HERE as well as in the element's own handler**, because a release
+    // outside the viewport never reaches that one — and a drag left armed is not a harmless leak: it
+    // holds an uncommitted preview, so the score keeps changing under the next mouse move with no
+    // button held (his report, 2026-08-20: *"i click release outside the viewport, and then when i
+    // went back with no mouse pressed the system think i'm still pressing"*).
+    //
+    // ⭐ It runs the SAME chain the canvas's own release runs — ⛔ not a list of gestures repeated
+    // here, which is a list that would be one short again the next time a drag is added. Every ender
+    // is guarded by its own `isDragging…` flag and clears it, so whichever handler runs first does
+    // the work and the other no-ops. Capture-phase, so this one is first.
+    this.handleMouseUp(event)
   }
 
   // Document-level pan drivers: attached for the duration of an armed pan so the gesture
@@ -952,6 +962,7 @@ export class MouseController {
       this.draggedHairpinEnd = armed?.endpoint
       this.hairpinDragChanged = false
       this.hairpinDragStartTime = Date.now()
+      this.hairpinEndLastX = coords.x
       this.render.renderScore()
       event.preventDefault()
       return
@@ -2475,6 +2486,15 @@ export class MouseController {
   }
 
   handleMouseMove(event: MouseEvent): void {
+    // 🚨 **THE BUTTON CAME UP WHERE WE COULD NOT SEE IT.** A release outside the BROWSER WINDOW fires
+    // no `mouseup` anywhere — not on the canvas and not on `document` — so the drag would still be
+    // armed when the hand comes back, and the wedge (or note, or slur) would follow a pointer with
+    // no button held. His report, 2026-08-20. `buttons` is the truth every move carries: 0 means
+    // nothing is pressed, whatever we last saw.
+    if (event.buttons === 0 && this.isMouseButtonDown) {
+      this.isMouseButtonDown = false
+      this.handleMouseUp(event)
+    }
     if (this.state.editingText) return // modal: suppress ghost/preview while a text edit is open
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
@@ -2845,24 +2865,33 @@ export class MouseController {
   }
 
   /**
-   * ⭐ Hairpin square drag: snap the grabbed end onto the nearest SLOT of the wedge's own lane and
-   * write it live (no undo), so the wedge follows the cursor in whole notes.
+   * ⭐⭐ One frame of a hairpin SQUARE drag: carry that end's ink by the cursor's delta, handing the
+   * wedge along at each boundary the ink reaches — `./hairpinWalk`, the same journey the arrows make
+   * (his ask, 2026-08-20: *"now lets do the walk for the mouse"*).
    *
-   * ⭐ **Which end moves is which square you grabbed**, and the two are different model writes: the
-   * RIGHT one re-lengths the wedge, the LEFT one moves its start and HOLDS the end
-   * (`hairpinOps` — `beat` and `length` written together). Exactly the pair `Ctrl+Shift+←/→` runs,
-   * so the mouse and the keyboard cannot drift onto different wedges.
+   * ⭐ **It used to SNAP** the grabbed end onto the nearest slot of the lane and write it outright,
+   * so the wedge jumped a whole note at a time and could never be parked between two. The walk keeps
+   * what that was right about — an end still lands only on the lane's own boundaries — and drops
+   * what it was not: the model now moves when the INK arrives, so a drag and the same distance in
+   * arrow presses leave one state, not two that look alike.
    *
-   * ⚠️ The engine's preview declines a target that would collapse the wedge, so the drag simply
-   * stops at one slot rather than needing a clamp of its own. Returns true while a drag is active.
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the body drag's rule: a refused frame
+   * (the page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
+   * distance it never travelled when the hand comes back.
+   *
+   * ⛔ Horizontal only, as on the keys — ↑/↓ tilt a wedge, and there is nothing above to arrive at.
+   * Returns true while a drag is active.
    */
-  private handleHairpinEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+  private handleHairpinEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
     if (!(this.isDraggingHairpinEnd && this.draggedHairpinId && this.draggedHairpinEnd)) return false
     if (this.hairpinDragStartTime !== null
         && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const write = hairpinDragTargetAt(engine, this.draggedHairpinId, this.draggedHairpinEnd, x, y)
-    if (!write) return true
-    if (engine.previewHairpinEnd(this.draggedHairpinId, write)) {
+    const moved = dragHairpinEndpoint(
+      engine, this.draggedHairpinId, this.draggedHairpinEnd, x - this.hairpinEndLastX)
+    // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (moved === null) return true
+    if (moved) {
+      this.hairpinEndLastX = x
       this.hairpinDragChanged = true
       this.render.renderScore()
     }

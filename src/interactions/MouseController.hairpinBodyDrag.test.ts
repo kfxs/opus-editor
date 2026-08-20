@@ -5,7 +5,7 @@
  *
  * ⭐ **One wedge, two gestures, told apart by where you grabbed it.** A press on a SQUARE moves that
  * end through the music — a model write, audible, snapping to slots (`shortcutWiring.hairpinResize`
- * and `hairpinDragTargetAt`). A press on the BODY moves the drawing — an engraving override, silent,
+ * and `../hairpinWalk`'s carry). A press on the BODY moves the drawing — an engraving override, silent,
  * in free pixels. These pin the second one, and that it is measured in STAFF-SPACES rather than
  * pixels: the override is resolution-independent, so the same gesture on a small staff must write a
  * bigger number, not the same one.

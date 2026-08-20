@@ -28,7 +28,7 @@
  * there is no anchor above or below to arrive at.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { HairpinEndStop, HairpinSlotTarget } from '../engine/models/hairpinOps'
+import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from '../engine/models/hairpinOps'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
   hairpinBoundaryX, hairpinEndAddress, hairpinInkX, hairpinStartAddress, hairpinSystemInkLimit,
@@ -43,7 +43,39 @@ export type HairpinWalkEngine = Pick<MusicEngine,
   'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextHairpinStartSlot' | 'moveHairpinStartToSlot'
   | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
-  | 'nudgeHairpinEndpoint'>
+  | 'nudgeHairpinEndpoint' | 'previewHairpinEnd' | 'previewHairpinEndpointOffset'>
+
+/**
+ * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
+ * a drag FRAME records none and leaves the drop to commit once
+ * ({@link MusicEngine.commitHairpinDrag}). Everything else — the stops, the geometry, the identity —
+ * is shared, which is what makes a drag and N presses land in the same state rather than in two
+ * states that merely look alike (`./dynamicWalk`'s arrangement, and for its reason).
+ */
+interface HairpinWrite {
+  moveStart: (target: HairpinSlotTarget) => boolean
+  moveEnd: (stop: HairpinDragWrite) => boolean
+  nudge: (dx: number, dy: number) => boolean
+}
+
+/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
+ *  batch ({@link walkHairpinEndpoint}). */
+function keyWrites(engine: HairpinWalkEngine, id: string, which: 'start' | 'end'): HairpinWrite {
+  return {
+    moveStart: (target) => engine.moveHairpinStartToSlot(id, target),
+    moveEnd: (stop) => engine.moveHairpinEndToStop(id, stop),
+    nudge: (dx, dy) => engine.nudgeHairpinEndpoint(id, which, dx, dy),
+  }
+}
+
+/** The drag's writes: the same three edits with no undo entry of their own. */
+function previewWrites(engine: HairpinWalkEngine, id: string, which: 'start' | 'end'): HairpinWrite {
+  return {
+    moveStart: (target) => engine.previewHairpinEnd(id, { at: 'start', ...target }),
+    moveEnd: (stop) => engine.previewHairpinEnd(id, stop),
+    nudge: (dx, dy) => engine.previewHairpinEndpointOffset(id, which, dx, dy),
+  }
+}
 
 /** What the two ends answer alike — the scale, that end's own stored nudge, and the ink write —
  *  wrapped around the half that differs. ⛔ Not a base class and not a `which` switch inside the
@@ -52,6 +84,7 @@ function port(
   engine: HairpinWalkEngine,
   id: string,
   which: 'start' | 'end',
+  write: HairpinWrite,
   ends: Pick<MarkWalkPort, 'label' | 'nextStop' | 'stopX' | 'anchorX' | 'reanchor'>,
 ): MarkWalkPort {
   return {
@@ -60,7 +93,7 @@ function port(
     // which may be a SMALL one.
     staffSpacePx: () => hairpinStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () => hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.[which]?.x ?? 0,
-    nudge: (dx, dy) => engine.nudgeHairpinEndpoint(id, which, dx, dy),
+    nudge: (dx, dy) => write.nudge(dx, dy),
   }
 }
 
@@ -68,8 +101,8 @@ function port(
  * ⭐ **THE LEFT SQUARE'S PORT** — its stops are the lane's onsets, and it takes one as the wedge's
  * own beginning.
  */
-function startPort(engine: HairpinWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'start', {
+function startPort(engine: HairpinWalkEngine, id: string, write: HairpinWrite): MarkWalkPort {
+  return port(engine, id, 'start', write, {
     label: 'Hairpin start',
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the start on different notes depending on how far it had been
@@ -80,7 +113,7 @@ function startPort(engine: HairpinWalkEngine, id: string): MarkWalkPort {
       const here = hairpinStartAddress(engine.getScore(), id)
       return here ? boundaryX(engine, id, here) : null
     },
-    reanchor: (stop) => engine.moveHairpinStartToSlot(id, stop as HairpinSlotTarget),
+    reanchor: (stop) => write.moveStart(stop as HairpinSlotTarget),
   })
 }
 
@@ -90,8 +123,8 @@ function startPort(engine: HairpinWalkEngine, id: string): MarkWalkPort {
  * one position past the last note where it covers everything ({@link HairpinDragWrite}, the drag's
  * own vocabulary — which is why a stop here is a write rather than an address).
  */
-function endPort(engine: HairpinWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'end', {
+function endPort(engine: HairpinWalkEngine, id: string, write: HairpinWrite): MarkWalkPort {
+  return port(engine, id, 'end', write, {
     label: 'Hairpin end',
     // ⭐ `resizeHairpinBySlot`'s own candidate, split out of it for exactly this — see
     // `hairpinOps.nextHairpinEndStop`.
@@ -105,7 +138,7 @@ function endPort(engine: HairpinWalkEngine, id: string): MarkWalkPort {
       const here = hairpinEndAddress(engine.getScore(), id)
       return here ? tipX(engine, id, here) : null
     },
-    reanchor: (stop) => engine.moveHairpinEndToStop(id, (stop as HairpinEndStop).write),
+    reanchor: (stop) => write.moveEnd((stop as HairpinEndStop).write),
   })
 }
 
@@ -278,61 +311,114 @@ export function walkHairpinEndpoint(
   dx: number,
 ): boolean {
   if (dx === 0) return false
-  const port = which === 'start' ? startPort(engine, id) : endPort(engine, id)
-  // ⛔ No batch when nothing crosses: `runBatch` costs a snapshot per press, and the ordinary nudge
-  // records its own single entry. 🚨 And a press that neither crosses nor stays on the system is
-  // refused outright — see {@link inkStaysOnSystem}.
-  const label = which === 'start' ? 'Move hairpin start' : 'Resize hairpin'
-  if (!markWalkCrosses(port, dx)) {
-    // 🚨 The ink has covered the folded distance to a stop on the NEXT system — see
-    // {@link crossingTheBreak}. Until it has, the press below is ordinary ink.
-    const across = crossingTheBreak(engine, id, which, port, dx)
-    if (across?.arrived) return leaveSystem(engine, port, across.stop, across.gap, dx, label)
-    // ⭐ …and while a crossing is PENDING the ink may lean past the line's end: that overhang is the
-    // journey being made visible, and it lasts only until the press that arrives. The limit is for
-    // ink with nowhere to go at all.
-    if (!across && !inkStaysOnSystem(engine, id, which, dx)) {
-      dbg(`[${port.label}] refused — the ink would leave this system, and there is nothing to extend onto`)
-      return false
-    }
-    // ⭐ The ordinary press, and the one worth being able to SEE: this is the interpolation, so the
-    // log says how much ink went on and how far the next stop still is (his ask, 2026-08-20 —
-    // *"i dont feel anymore the interpolation, it feels like a jump"*).
-    const before = port.offsetX()
-    const moved = port.nudge(dx, 0)
-    dbg(`[${port.label}] ink ${dx > 0 ? '+' : ''}${dx}ss | offset ${before.toFixed(2)} → ${port.offsetX().toFixed(2)}ss`
-      + `${moved ? '' : ' (REFUSED)'}`)
-    return moved
-  }
+  const port = portFor(engine, id, which, keyWrites(engine, id, which))
+
+  const across = crossingTheBreak(engine, id, which, port, dx)
+  const crosses = markWalkCrosses(port, dx)
+  // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
+  // per press, and the ordinary nudge records its own single entry.
+  if (!across?.arrived && !crosses) return inkPress(engine, id, which, port, dx, across !== null)
 
   let moved = false
-  engine.runBatch(label, () => {
-    moved = carryMark(port, dx).moved
+  engine.runBatch(which === 'start' ? 'Move hairpin start' : 'Resize hairpin', () => {
+    moved = across?.arrived
+      ? leaveSystem(port, across.stop, across.gap, dx)
+      : carryMark(port, dx).moved
   })
   return moved
 }
 
 /**
- * The wrap itself: hand that end to `stop` and re-base its ink by the folded distance, as ONE undo
- * entry — `carryMark`'s identity (`offset += step − gap`) with {@link crossingTheBreak}'s gap in
- * place of a subtraction that would have been meaningless. ⭐ The offset it leaves is NEGATIVE by
- * however far the stop is into its line, which is what draws the tip at that line's START rather
- * than out in the previous line's margin.
+ * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of
+ * a key's step, and no undo entry (the drop commits once,
+ * {@link MusicEngine.commitHairpinDrag}). His ask, 2026-08-20: *"now lets do the walk for the
+ * mouse"*.
+ *
+ * ⭐ **The mouse and the arrows become ONE gesture.** The drag used to snap the grabbed end to the
+ * nearest slot of the lane and write it outright, so a wedge jumped a whole note at a time and could
+ * never be parked between two — the very thing the keys had just stopped doing. Now the ink follows
+ * the hand and the wedge comes along when the ink reaches a boundary, so a drag and N presses
+ * covering the same distance leave the model in the same state rather than in two states that
+ * merely look alike.
+ *
+ * ⭐⭐ **THE LATCH is ON here** (`./markWalk`), unlike the dynamic's drag: the ink stops dead at
+ * offset zero of the boundary it is nearest in the direction of travel. A wedge's tip is AIMED at a
+ * note's edge — that is where the engraver puts it, and the alignment must be reachable exactly
+ * rather than by luck. The dynamic has no latch because a `p` is a label placed by eye
+ * (`./dynamicWalk`); a hairpin's end is not.
+ *
+ * ⛔ **The vertical is not in it**, as on the keys: ↑/↓ tilt the wedge, and there is nothing above
+ * or below to arrive at. ⛔ And it declines — **null**, not `false` — when the wedge is not drawn,
+ * so there is no staff-space size to convert the cursor's pixels with; `false` means the frame
+ * reached the model and nothing moved, and the caller must then leave its cursor anchor where it was.
  */
-function leaveSystem(
+export function dragHairpinEndpoint(
   engine: HairpinWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  dxPx: number,
+): boolean | null {
+  const port = portFor(engine, id, which, previewWrites(engine, id, which))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  const dx = dxPx / staffSpacePx
+  if (dx === 0) return false
+  const across = crossingTheBreak(engine, id, which, port, dx)
+  if (across?.arrived) return leaveSystem(port, across.stop, across.gap, dx)
+  if (!across && !inkStaysOnSystem(engine, id, which, dx)) return false
+  // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a
+  // frame that merely passes through offset zero is exactly the one it exists for.
+  return carryMark(port, dx, 0, true).moved
+}
+
+/** Which end's port, built over the writes the device brought. */
+function portFor(
+  engine: HairpinWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  write: HairpinWrite,
+): MarkWalkPort {
+  return which === 'start' ? startPort(engine, id, write) : endPort(engine, id, write)
+}
+
+/**
+ * The ordinary press: ink, unless the ink would leave a system it has no way off.
+ *
+ * ⭐ While a crossing is PENDING (`crossing`, i.e. there IS a stop on another system) the limit does
+ * not apply — that is the ink being pushed towards the edge it wraps at.
+ */
+function inkPress(
+  engine: HairpinWalkEngine,
+  id: string,
+  which: 'start' | 'end',
   port: MarkWalkPort,
-  stop: MarkStop,
-  gap: number,
   dx: number,
-  label: string,
+  crossing: boolean,
 ): boolean {
-  let moved = false
-  engine.runBatch(label, () => {
-    if (!port.reanchor(stop)) return
-    port.nudge(dx - gap, 0)
-    moved = true
-    dbg(`[${port.label}] wrapped onto the next system (folded gap ${gap.toFixed(2)}ss)`)
-  })
+  if (!crossing && !inkStaysOnSystem(engine, id, which, dx)) {
+    dbg(`[${port.label}] refused — the ink would leave this system, and there is nothing to wrap onto`)
+    return false
+  }
+  const before = port.offsetX()
+  const moved = port.nudge(dx, 0)
+  dbg(`[${port.label}] ink ${dx > 0 ? '+' : ''}${dx.toFixed(2)}ss | offset ${before.toFixed(2)} → ${port.offsetX().toFixed(2)}ss`
+    + `${moved ? '' : ' (REFUSED)'}`)
   return moved
+}
+
+/**
+ * The wrap itself: hand that end to `stop` and re-base its ink by the folded distance —
+ * `carryMark`'s identity (`offset += step − gap`) with {@link crossingTheBreak}'s gap in place of a
+ * subtraction that would have been meaningless. ⭐ The offset it leaves is NEGATIVE by however far
+ * the stop is into its line, which is what draws the tip at that line's START rather than out in the
+ * previous line's margin.
+ *
+ * ⚠️ The caller owns the undo entry: one batch for a key press, none at all for a drag frame.
+ */
+function leaveSystem(port: MarkWalkPort, stop: MarkStop, gap: number, dx: number): boolean {
+  if (!port.reanchor(stop)) return false
+  port.nudge(dx - gap, 0)
+  dbg(`[${port.label}] wrapped onto the next system (folded gap ${gap.toFixed(2)}ss)`)
+  return true
 }

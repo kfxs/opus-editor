@@ -1851,6 +1851,26 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   `MeasureRedrawKey` (`view.hairpins?.map(h => overrides[h.id])`), guarded by a test broken on
   purpose. See `reference_render_width_key_vs_shape_key`: when unsure, INCLUDE — wrong answers are
   SILENT.
-- ⏭️ **The squares' DRAG is untouched** — it still snaps to a boundary rather than carrying the ink,
-  which is defensible for an extent (a wedge cannot end between two notes) but is now the odd one
-  out. If he asks, it is the same two ports with a preview writer, as `dragDynamic` is to `walkDynamic`.
+- ⭐⭐ **…AND THE MOUSE, the same day** (*"now lets do the walk for the mouse"*). The squares' drag ran
+  the same two ports with a PREVIEW writer (`dragHairpinEndpoint`), so a drag and the presses covering
+  the same distance leave ONE state. What it replaces: `hairpinDragTargetAt`, the cursor→nearest-slot
+  snap (deleted with its spec chapter — a second answer to "where may an end land" is exactly what
+  this family keeps out). The tip can now be parked BETWEEN two boundaries, which the snap could not.
+  ⭐ **THE LATCH is ON** (⛔ unlike the dynamic's drag): the ink stops dead at offset zero of the
+  boundary it is nearest in the direction of travel, because a wedge's tip is AIMED at a note's edge
+  and that alignment must be reachable exactly rather than by luck. A `p` is a label placed by eye; a
+  hairpin's end is not. ⛔ Horizontal only, as on the keys.
+  ⏭️ **Its one debt, not yet paid**: the latch DROPS the travel it swallows and the caller advances
+  its cursor anchor anyway, so a fast flick leaves the ink behind the hand for good — snap-and-go's
+  own "never repays" defect, which the slur avoids by charging the drop to its catch-up. The fix is
+  bookkeeping (don't advance the anchor on a latched frame, so the cursor re-travels it); the
+  alternative is to drop the latch and let the drag be pure ink. His call, not yet made.
+- 🚨🚨 **AND A DRAG MUST END ON A RELEASE THE CANVAS NEVER SEES.** His report while testing this one:
+  *"i click release outside the viewport, and then when i went back with no mouse pressed the system
+  think i'm still pressing the mouse and is drawing"*. Nothing to do with the wedge — a preview-based
+  drag left armed keeps writing under a pointer with no button held, and there are TWO ways to miss
+  the release: outside the VIEWPORT (the canvas's `mouseup` never fires → the document-level handler
+  now runs the same `handleMouseUp` chain, where it used to settle only the bar-width drag) and
+  outside the WINDOW (no `mouseup` fires at all → the next move's `buttons === 0` is the only
+  evidence). ⭐ Fixed in the CHAIN, ⛔ never per gesture: that list was one short the moment a
+  fourteenth drag was added. Spec: `MouseController.dragRelease.test.ts`, both seams break-tested.

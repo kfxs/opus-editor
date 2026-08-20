@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkHairpinEndpoint } from './hairpinWalk'
+import { walkHairpinEndpoint, dragHairpinEndpoint } from './hairpinWalk'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -347,6 +347,55 @@ describe('walkHairpinEndpoint', () => {
       drawn.undrawn = [2]
       expect(walkHairpinEndpoint(engine, wedgeId, 'end', 1)).toBe(false)
       expect(walkHairpinEndpoint(engine, wedgeId, 'end', -1), 'back is allowed').toBe(true)
+    })
+  })
+
+  /**
+   * ⭐⭐ THE DRAG — the same journey with the cursor's pixels (his ask, 2026-08-20: *"now lets do the
+   * walk for the mouse"*). The claim that matters is that it is the SAME journey: a drag and the
+   * presses covering the same distance must leave ONE state, not two that look alike.
+   */
+  describe('the mouse', () => {
+    it('⭐⭐ one frame lands exactly where the same distance in presses does', () => {
+      // Ten spaces = the gap between two boundaries, so both roads cross once and land on the stop.
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toBe(true)
+      expect(span()).toEqual({ beat: 0, length: 2 })
+      expect(offset('end').x).toBeCloseTo(0, 6)
+    })
+
+    it('⭐ …and it can PARK the tip between two boundaries, which the old snap could not', () => {
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -35)).toBe(true)
+      expect(span(), 'the model has not moved').toEqual({ beat: 0, length: 3 })
+      expect(offset('end').x, 'the ink has').toBeCloseTo(-3.5, 6)
+    })
+
+    it('⭐⭐ …and it LATCHES on a boundary, so the engraver’s own position is reachable EXACTLY', () => {
+      // A tip is AIMED at a note's edge, unlike a dynamic (which has no latch — a label placed by
+      // eye). Pushed 2 spaces out and dragged 4 back, the ink stops DEAD at offset zero rather than
+      // sailing 2 past it. (⭐ 2 spaces, not 5: this bar's end is only 3 away, and a longer push
+      // would cross onto it — which the next assertion would then be measuring instead.)
+      dragHairpinEndpoint(engine, wedgeId, 'end', 20)
+      expect(offset('end').x).toBeCloseTo(2, 6)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -40)).toBe(true)
+      expect(offset('end').x, 'stopped dead on its anchor').toBeCloseTo(0, 6)
+      expect(span(), 'and it did not cross').toEqual({ beat: 0, length: 3 })
+    })
+
+    it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
+      dragHairpinEndpoint(engine, wedgeId, 'end', -100)
+      engine.undo()
+      expect(engine.getHairpinById(wedgeId), 'the undo took back the wedge itself').toBeNull()
+    })
+
+    it('⛔ DECLINES (null) when the wedge is not drawn — ⚠️ null, not false', () => {
+      render([100, 200, 300, 400], null)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toBeNull()
+      expect(offset('end').x).toBe(0)
+    })
+
+    it('⭐ the LEFT square drags the same way', () => {
+      expect(dragHairpinEndpoint(engine, wedgeId, 'start', 100)).toBe(true)
+      expect(span(), 'the start moved one slot, its end held').toEqual({ beat: 1, length: 2 })
     })
   })
 })

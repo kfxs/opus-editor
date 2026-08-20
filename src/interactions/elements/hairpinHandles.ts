@@ -4,14 +4,15 @@
  * from *"for the moment we don't do anything with the endpoints, let's just draw them"* to *"i want
  * to be able to do the last two operations with the endpoints dragging with the mouse"*.
  *
- * ⚠️ **What an armed end does is MUSICAL, never cosmetic.** A wedge's extent says which notes get
- * louder, so both routes off these squares — `Ctrl+Shift+←/→` and now the drag — write `beat` /
- * `length` on the model (docs/dynamics-line-and-hairpins-plan.md §4). There is no offset behind them
- * and nothing for `Ctrl+Backspace` to reset, unlike the slur's blue squares one file over.
+ * ⚠️ **What an armed end does is BOTH.** `Ctrl+Shift+←/→` writes `beat` / `length` on the model
+ * (docs §4); the arrows and the drag write that end's ink, and hand the model along when the ink
+ * reaches a boundary (`../hairpinWalk`). ⭐ That is a change of 2026-08-20 — the squares used to be
+ * musical only, and `Ctrl+Backspace` now has an offset to reset.
  *
- * ⭐ **One module for all four questions**, because they are one answer read four ways: the walk
- * order IS the drawn order, the hit is the same two boxes, and the drag snaps to the same geometry
- * that placed them. The slur's equivalents are split across `HighlightController` (draw),
+ * ⭐ **One module for these questions**, because they are one answer read several ways: the walk
+ * order IS the drawn order, and the hit is the same two boxes. ⚠️ Where a DRAG of a square lands is
+ * no longer here — since 2026-08-20 it is the walk's (`../hairpinWalk`), which carries the ink
+ * rather than snapping, and reads the lane from `../hairpinLane`. The slur's equivalents are split across `HighlightController` (draw),
  * `MouseController` (press, drag) and `slurHandleCycle` (Tab) for historical reasons; this is what
  * that would look like filed by the thing rather than by the mechanism (CLAUDE.md's "a new feature
  * adds a MODULE").
@@ -34,16 +35,10 @@
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { HairpinDragWrite } from '../../engine/models/hairpinOps'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { hairpinLaneBoundaries } from '../hairpinLane'
 import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
 import { dbg } from '../../utils/debug'
-
-/** What finding a drag target needs off the engine — a Pick, so a test can stand up the four reads
- *  without a renderer. */
-type DragEngine = Pick<MusicEngine, 'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote'>
 
 /** One drawn handle: a point, and which end of the span it is. */
 export interface HairpinHandle {
@@ -131,75 +126,6 @@ export function armHairpinEndpointAt(
   dbg(`✓ Hairpin endpoint armed | id:${hit.hairpinId} end:${hit.endpoint}`)
   return true
 }
-
-/**
- * ⭐⭐ **WHICH SLOT A DRAGGED SQUARE IS OVER** — the mouse twin of `Ctrl+Shift+←/→`, and the whole of
- * what a hairpin drag has to decide (his ask, 2026-08-17: *"take into account the current x position
- * of the mouse and the target anchor to make the jump so it match the movement"*).
- *
- * ⭐ **It snaps to a SLOT of the wedge's own lane, never to a pixel.** A wedge's extent is musical —
- * which notes get louder — so a drag may not put an end between two notes any more than the keyboard
- * may: the model has nowhere to store "two thirds of the way to the next quaver". The cursor chooses
- * a slot; the slot decides the geometry. That is also what makes the drag and the arrow keys land on
- * identical model states, rather than two roads to nearly-the-same wedge.
- *
- * ⚠️ **The distance is measured in BOTH axes**, though only x carries the answer within a system.
- * The y term is what keeps a drag on system 2 from snapping to a note at a similar x on system 1 —
- * cross-system x's are not one ruler. The radius is generous because the cursor is never near a
- * notehead's y: the wedge is drawn several spaces BELOW the staff, and the square is dragged along
- * that line.
- *
- * ⚠️ Candidates are the hairpin's OWN LANE (its voice, its staff), the same filter the model's
- * stepping ops apply — so a drag cannot land the wedge on a slot the keyboard could not reach.
- *
- * @returns the slot's (measure, beat) address, or null when nothing in the lane is near enough.
- */
-export function hairpinDragTargetAt(
-  engine: DragEngine,
-  hairpinId: string,
-  which: 'start' | 'end',
-  x: number,
-  y: number,
-): HairpinDragWrite | null {
-  const hairpin = engine.getHairpinById(hairpinId)
-  if (!hairpin) return null
-
-  // ⭐⭐ THE BOUNDARIES, NOT THE NOTEHEADS — and this is the whole accuracy of the gesture. Both of a
-  // wedge's tips are drawn at a note's LEFT EDGE, so the positions a tip can occupy are the lane's
-  // onsets. Snapping to notehead CENTRES — the slur's rule, right for the slur because a slur's end
-  // is drawn ON the head — put the jump half a notehead early and, for the tip, a whole note late:
-  // *"sometimes it jumps before x mouse reach the target"* (his report, 2026-08-17).
-  //
-  // ⭐ The list itself is `../hairpinLane`'s, shared with the left square's keyboard WALK — one
-  // answer to where a slot is drawn, so the two devices cannot disagree about it. Its header carries
-  // the geometry and the lane rule this comment used to.
-  const boundaries = hairpinLaneBoundaries(engine, hairpin)
-  if (!boundaries.length) return null
-
-  // ⭐ One extra boundary PAST the last note of the lane — "cover everything". Without it the last
-  // note could never be included: every other boundary is an onset, and the music has no onset after
-  // its final one. (Its x is that note's own right edge, which is where the bar's end is heading.)
-  const last = boundaries.reduce((a, b) => (b.y > a.y || (b.y === a.y && b.x > a.x) ? b : a))
-  const candidates = [...boundaries.map(b => ({ ...b, covering: false })), { ...last, x: last.right, covering: true }]
-
-  let best: typeof candidates[number] | null = null
-  let bestDistance = HAIRPIN_DRAG_SNAP_PX
-  for (const b of candidates) {
-    const d = Math.hypot(x - b.x, y - b.y)
-    if (d < bestDistance) { bestDistance = d; best = b }
-  }
-  if (!best) return null
-
-  if (which === 'start') {
-    // A start has nowhere to go past the last onset — the "cover everything" boundary is the tip's.
-    return best.covering ? null : { at: 'start', ...best.target }
-  }
-  return { at: best.covering ? 'endCovering' : 'endBefore', ...best.target }
-}
-
-/** ⚠️ Generous on purpose — see {@link hairpinDragTargetAt}: the cursor rides the wedge's line,
- *  several staff-spaces below the noteheads it is choosing between. */
-const HAIRPIN_DRAG_SNAP_PX = 150
 
 /**
  * ⭐ **THE SCALE FOR A BODY DRAG** — the staff-line spacing (px) of the staff the wedge was DRAWN on,

@@ -48,7 +48,7 @@ const THREE = [
 
 describe('dynamicLaneHeads', () => {
   it('⭐⭐ answers with notehead CENTRES — a dynamic is drawn centred on its column', () => {
-    // ⛔ NOT the left edges the hairpin's tip is drawn at (`hairpinDragTargetAt`). Get the two the
+    // ⛔ NOT the left edges the hairpin's tip is drawn at (`hairpinLane`). Get the two the
     // same way round and every gap this feeds is half a notehead out.
     expect(dynamicLaneHeads(laneEngine(THREE), mark()).map(h => h.x)).toEqual([106, 206, 306])
   })
