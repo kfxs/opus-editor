@@ -15,6 +15,8 @@
  * the rest of the app sees only the {@link InstrumentPlayer} seam.
  */
 import playerSource from 'webaudiofont/npm/dist/WebAudioFontPlayer.js?raw'
+import type { PitchSpelling } from '@/types/music'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 import type { InstrumentPlayer } from './InstrumentPlayer'
 
 /** The slice of the WebAudioFont API we actually call (the lib ships no TS types). */
@@ -132,10 +134,23 @@ export class WebAudioFontInstrument implements InstrumentPlayer {
     return p
   }
 
-  noteOn(midi: number, when: number, durationSec: number, velocity: number): void {
+  /**
+   * ⭐⭐ **THE ONE PLACE THE SOUND PATH MINTS MIDI** (docs/playback-semantics-plan.md, 2026-08-20).
+   *
+   * WebAudioFont indexes its wavetables by MIDI note number, so 12-EDO is *this backend's*
+   * requirement — and stating it here, in the class named after the backend, is the whole of the
+   * three-stage split. ⛔ Do not push `pitchToMidi` back up the chain to save a call: the schedule
+   * that carried the integer could not have told G♯4 from A♭4, and a tuning-aware sibling of this
+   * class needs exactly that (docs/tuning-systems-and-alteration.md).
+   *
+   * ⚠️ Fractional/microtonal pitch is NOT supported here and must not be faked by rounding — the
+   * honest home for it is a different `InstrumentPlayer`, which is why this seam exists.
+   */
+  noteOn(pitch: PitchSpelling, when: number, durationSec: number, velocity: number): void {
     const preset = this.presets.get(this.currentProgram)
     if (!preset) return // current program not decoded yet — drop rather than throw
-    this.player.queueWaveTable(this.ctx, this.master, preset, when, midi, durationSec, velocity)
+    this.player.queueWaveTable(
+      this.ctx, this.master, preset, when, pitchToMidi(pitch), durationSec, velocity)
   }
 
   allOff(): void {

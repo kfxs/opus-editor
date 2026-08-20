@@ -1,19 +1,25 @@
 import { describe, it, expect } from 'vitest'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
+import { midiToSpelling, pitchToMidi } from '@/utils/pitchSpelling'
 
 /**
- * {@link trillAttacks} — the alternation itself, over plain numbers.
+ * {@link trillAttacks} — the alternation itself, over two opaque pitches.
  *
  * ⭐ The chapter worth having is the LAST attack: a trill that overhangs its note collides with what
  * follows, and the ear hears the overhang as a wrong note rather than as a long trill. Everything
  * else here is arithmetic, and cheap to pin because the module takes no score.
  */
 describe('trillAttacks', () => {
-  const base = { mainMidi: 60, auxMidi: 62, startBeats: 0, periodBeats: 0.25 }
+  // ⭐ The module never reads a pitch — it alternates between two opaque values — so the fixture
+  //   states them as spellings and the assertions read them back through the interpret step's
+  //   own conversion. C4 and D4.
+  const base = {
+    mainPitch: midiToSpelling(60), auxPitch: midiToSpelling(62), startBeats: 0, periodBeats: 0.25,
+  }
 
   it('alternates main → auxiliary → main, starting on the MAIN note', () => {
     const out = trillAttacks({ ...base, durationBeats: 1 })
-    expect(out.map(a => a.midi)).toEqual([60, 62, 60, 62])
+    expect(out.map(a => pitchToMidi(a.pitch))).toEqual([60, 62, 60, 62])
   })
 
   it('lays the attacks end to end, one period apart', () => {
@@ -60,7 +66,7 @@ describe('trillAttacks', () => {
   it('a span shorter than one period still sounds ONCE, on the main note', () => {
     const out = trillAttacks({ ...base, durationBeats: 0.1 })
     expect(out).toHaveLength(1)
-    expect(out[0].midi).toBe(60)
+    expect(pitchToMidi(out[0].pitch)).toBe(60)
     expect(out[0].durationBeats).toBeCloseTo(0.1, 10)
   })
 

@@ -4,6 +4,7 @@ import { collectScheduledNotes } from './playbackSchedule'
 import { fanMembers, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { Score, FanMark } from '@/types/music'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 
 /**
  * A FAN SOUNDS (docs/fanned-beams-plan.md §3, P3) — `count` attacks that speed up or slow down
@@ -19,7 +20,7 @@ const FAN: FanMark = { direction: 'accel', count: DEFAULT_FAN_COUNT, beams: DEFA
 
 /** Attacks of `midi`, in onset order. */
 const attacks = (score: Score, midi = C4) =>
-  collectScheduledNotes(score).filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
+  collectScheduledNotes(score).filter(e => pitchToMidi(e.pitch) === midi).sort((a, b) => a.startBeats - b.startBeats)
 
 /** One fanned note of `duration` at bar 1 beat 0. */
 function oneFannedNote(duration: 'w' | 'h' | 'q' = 'h', fan: FanMark = FAN) {
@@ -81,7 +82,7 @@ describe('a fan turns one note into its members', () => {
   it('every attack keeps the note\'s own pitch and velocity', () => {
     const events = attacks(oneFannedNote())
     for (const event of events) {
-      expect(event.midi).toBe(C4)
+      expect(pitchToMidi(event.pitch)).toBe(C4)
       expect(event.velocity).toBe(events[0].velocity)
     }
   })
@@ -215,7 +216,7 @@ describe('a fan sounds its members’ own pitches', () => {
     const { model } = risingFan(4)
     const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
     expect(events).toHaveLength(4)
-    expect(events.map(e => e.midi)).toEqual([60, 62, 64, 65]) // C4 D4 E4 F4
+    expect(events.map(e => pitchToMidi(e.pitch))).toEqual([60, 62, 64, 65]) // C4 D4 E4 F4
   })
 
   it('⭐ and it is still ONE run of the ramp — not one per chord tone', () => {
@@ -237,7 +238,7 @@ describe('a fan sounds its members’ own pitches', () => {
     const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
     expect(events).toHaveLength(4)
     expect(events[1].startBeats).toBeCloseTo(events[2].startBeats, 9) // the member's two pitches
-    expect([events[1].midi, events[2].midi].sort()).toEqual([62, 71]) // D4 + B4
+    expect([pitchToMidi(events[1].pitch), pitchToMidi(events[2].pitch)].sort()).toEqual([62, 71]) // D4 + B4
   })
 
   it('⭐ the members still fill the note EXACTLY — pitches changed nothing about the clock', () => {
@@ -270,6 +271,6 @@ describe('a fan sounds its members’ own pitches', () => {
     delete slot.fan!.members
     const events = collectScheduledNotes(score)
     expect(events).toHaveLength(DEFAULT_FAN_COUNT)
-    expect(new Set(events.map(e => e.midi))).toEqual(new Set([C4]))
+    expect(new Set(events.map(e => pitchToMidi(e.pitch)))).toEqual(new Set([C4]))
   })
 })

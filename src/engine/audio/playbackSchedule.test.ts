@@ -11,6 +11,7 @@ import { durationFlags } from '@/utils/durations'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score, TempoMark } from '@/types/music'
 import { buildTempoMap, beatsToSeconds, totalSeconds } from '@/utils/tempoMap'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 
 // MIDI reference: C4 = 60, C3 = 48, E4 = 64, G4 = 67.
 const C4 = 60, C3 = 48, E4 = 64
@@ -34,7 +35,7 @@ describe('collectScheduledNotes', () => {
     model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
 
     const events = collectScheduledNotes(model.getScore())
-    const c4 = events.filter(e => e.midi === C4)
+    const c4 = events.filter(e => pitchToMidi(e.pitch) === C4)
     expect(c4).toHaveLength(1)
     expect(c4[0].startBeats).toBe(0)
     expect(c4[0].durationBeats).toBeCloseTo(1) // a quarter = 1 beat
@@ -51,7 +52,7 @@ describe('collectScheduledNotes', () => {
     model.addMeasure() // bar 2
     model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
 
-    const e4 = collectScheduledNotes(model.getScore()).filter(e => e.midi === E4)
+    const e4 = collectScheduledNotes(model.getScore()).filter(e => pitchToMidi(e.pitch) === E4)
     expect(e4).toHaveLength(1)
     expect(e4[0].startBeats).toBe(4) // bar 2 starts 4 beats in (4/4)
   })
@@ -63,7 +64,7 @@ describe('collectScheduledNotes', () => {
     const b = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
     tie(model.getScore(), a.id, b.id)
 
-    const c4 = collectScheduledNotes(model.getScore()).filter(e => e.midi === C4)
+    const c4 = collectScheduledNotes(model.getScore()).filter(e => pitchToMidi(e.pitch) === C4)
     expect(c4).toHaveLength(1)            // one attack, not two
     expect(c4[0].startBeats).toBe(2)      // at the head note
     expect(c4[0].durationBeats).toBeCloseTo(4) // two half notes held through
@@ -77,7 +78,7 @@ describe('collectScheduledNotes', () => {
     model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
 
     const events = collectScheduledNotes(model.getScore())
-    const at0 = events.filter(e => e.startBeats === 0).map(e => e.midi).sort((x, y) => x - y)
+    const at0 = events.filter(e => e.startBeats === 0).map(e => pitchToMidi(e.pitch)).sort((x, y) => x - y)
     // The top-staff C4 AND the bottom-staff C3 both sound at beat 0 — no per-staff drift.
     expect(at0).toEqual([C3, C4])
   })
@@ -91,8 +92,8 @@ describe('collectScheduledNotes', () => {
 
     const events = collectScheduledNotes(model.getScore())
     // Both bar-2 notes land at 4 beats — staff 2 is NOT pushed after staff 1.
-    expect(events.filter(e => e.midi === C4)[0].startBeats).toBe(4)
-    expect(events.filter(e => e.midi === C3)[0].startBeats).toBe(4)
+    expect(events.filter(e => pitchToMidi(e.pitch) === C4)[0].startBeats).toBe(4)
+    expect(events.filter(e => pitchToMidi(e.pitch) === C3)[0].startBeats).toBe(4)
   })
 })
 
@@ -125,7 +126,7 @@ describe('scheduling through the tempo map', () => {
   function schedule(score: Score): Array<{ midi: number; start: number; duration: number }> {
     const map = buildTempoMap(score)
     return collectScheduledNotes(score).map(ev => ({
-      midi: ev.midi,
+      midi: pitchToMidi(ev.pitch),
       start: beatsToSeconds(map, ev.startBeats),
       duration: beatsToSeconds(map, ev.startBeats + ev.durationBeats) - beatsToSeconds(map, ev.startBeats),
     }))
@@ -177,12 +178,12 @@ describe('scheduling through the tempo map', () => {
 describe('collectScheduledNotes — tremolo', () => {
   /** Attacks of `midi`, in onset order. */
   const attacks = (score: Score, midi = C4) =>
-    collectScheduledNotes(score).filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
+    collectScheduledNotes(score).filter(e => pitchToMidi(e.pitch) === midi).sort((a, b) => a.startBeats - b.startBeats)
 
   /** The same, with an injected rng — for the one mark whose schedule is deliberately random. */
   const pendereckiAttacks = (score: Score, rng: () => number, midi = C4) =>
     collectScheduledNotes(score, buildTempoMap(score), rng)
-      .filter(e => e.midi === midi).sort((a, b) => a.startBeats - b.startBeats)
+      .filter(e => pitchToMidi(e.pitch) === midi).sort((a, b) => a.startBeats - b.startBeats)
 
   /** One note of `duration` at bar 1 beat 0 carrying `strokes`, in an `over/4` bar. */
   function oneTremoloNote(duration: 'w' | 'h' | 'q' | '8' | '16', strokes: 1 | 2 | 3 | 4 | 5, dots = 0) {
@@ -424,7 +425,7 @@ describe('collectScheduledNotes — tremolo', () => {
       // The same wild rng, on 4 strokes (unmeasured, not Penderecki): identical gaps throughout.
       const score = fourStrokeScore()
       const got = collectScheduledNotes(score, buildTempoMap(score), lcg(5))
-        .filter(e => e.midi === C4).sort((a, b) => a.startBeats - b.startBeats)
+        .filter(e => pitchToMidi(e.pitch) === C4).sort((a, b) => a.startBeats - b.startBeats)
       const gaps = got.slice(1).map((e, i) => e.startBeats - got[i].startBeats)
       expect(new Set(gaps.map(g => g.toFixed(6))).size).toBe(1)
       expect(new Set(got.map(e => e.velocity.toFixed(6))).size).toBe(1)
@@ -432,7 +433,7 @@ describe('collectScheduledNotes — tremolo', () => {
 
     it('re-rolls per playback: two passes with the real rng are not identical', () => {
       const score = pendereckiScore()
-      const onsets = () => collectScheduledNotes(score).filter(e => e.midi === C4).map(e => e.startBeats)
+      const onsets = () => collectScheduledNotes(score).filter(e => pitchToMidi(e.pitch) === C4).map(e => e.startBeats)
       // ~20 continuous draws — two runs matching exactly is not a thing that happens.
       expect(onsets()).not.toEqual(onsets())
     })
@@ -459,7 +460,7 @@ describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () 
     // Two quarters marked 3 → drawn as halves, 3 lines = 32nds over 2 beats = 16 attacks.
     const got = onsets(pair('q', 3))
     expect(got).toHaveLength(16)
-    expect(got.map(e => e.midi)).toEqual([
+    expect(got.map(e => pitchToMidi(e.pitch))).toEqual([
       C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4, C4, E4,
     ])
     got.forEach((e, i) => expect(e.startBeats).toBeCloseTo(i * 0.125))
@@ -488,7 +489,7 @@ describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () 
     // The old `flags + strokes` reading would have made it 4.
     const got = onsets(pair('8', 1))
     expect(got).toHaveLength(2)
-    expect(got.map(e => e.midi)).toEqual([C4, E4])
+    expect(got.map(e => pitchToMidi(e.pitch))).toEqual([C4, E4])
   })
 
   it('fills the pair and no more — the last attack ends at the second note\'s end', () => {
@@ -501,7 +502,7 @@ describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () 
     const got = onsets(pair('q', 4))
     // 0.05 s at 120 qpm = 0.1 beats, filling the pair's 2 beats.
     expect(got[1].startBeats - got[0].startBeats).toBeCloseTo(0.1)
-    expect(got.map(e => e.midi).slice(0, 4)).toEqual([C4, E4, C4, E4])
+    expect(got.map(e => pitchToMidi(e.pitch)).slice(0, 4)).toEqual([C4, E4, C4, E4])
   })
 
   it('a STALE pair plays as two ordinary notes', () => {
@@ -514,6 +515,6 @@ describe('collectScheduledNotes — TWO-NOTE tremolo (the pair alternates)', () 
     model.updateNote(b.id, { duration: '8' })
     const got = onsets(model.getScore())
     // The first note falls back to its own SINGLE-note tremolo (flags + strokes), the second plays once.
-    expect(got.filter(e => e.midi === E4)).toHaveLength(1)
+    expect(got.filter(e => pitchToMidi(e.pitch) === E4)).toHaveLength(1)
   })
 })

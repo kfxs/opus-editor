@@ -1,6 +1,9 @@
 # What the Sound Engine Should Think In — pitch, and a dynamic value
 
-Status: **RECORDED 2026-08-19, ⛔ NOT PLANNED AND NOT NEXT.** His own framing: *"this is not for now,
+Status: ⭐⭐ **THE PITCH HALF IS BUILT (2026-08-20) — see §"The pitch half, built" at the foot.** The
+dynamic-value half and the hairpin ramp remain RECORDED and not planned.
+
+Was: **RECORDED 2026-08-19, ⛔ NOT PLANNED AND NOT NEXT.** His own framing: *"this is not for now,
 is for the future, sound is still not the most important thing of the editor"*. It is written down
 because it is **a statement about the DATA MODEL's semantics**, not about audio quality — and the
 model is what everything else is built on, so the shape has to be right before anything leans on it.
@@ -40,8 +43,11 @@ carries MIDI has already thrown away the thing a different synth would have need
 
 ## ⚠️ What is true today, so nobody re-derives it
 
-- `ScheduledNote.midi` **mints MIDI inside the schedule** (`engine/audio/playbackSchedule.ts`) —
-  the early conversion, and the reason this note exists.
+- ~~`ScheduledNote.midi` **mints MIDI inside the schedule** (`engine/audio/playbackSchedule.ts`) —
+  the early conversion, and the reason this note exists.~~ ✅ **FIXED 2026-08-20** — it is
+  `ScheduledNote.pitch` now and the mint moved to `WebAudioFontInstrument.noteOn`. See the foot of
+  this file. (Kept struck through rather than deleted: this bullet is the "what is true today" list,
+  and the one line of it that stopped being true is worth seeing.)
 - `ScheduledNote.velocity` is *already* normalised 0–1, so the range is not the work. The work is
   that it is (a) named for MIDI, (b) **a per-note constant**, and (c) calibrated for our sampled
   synth rather than being an abstract musical quantity.
@@ -102,3 +108,86 @@ picked up, the first question is what the value is a function OF, not what its t
 See also `docs/dynamics-plan.md` (the velocity ladder as built),
 `docs/dynamics-line-and-hairpins-plan.md` (the wedge as drawn), and
 `docs/dynamic-voice-scope-plan.md` (which voices a mark governs).
+
+---
+
+## ⭐⭐ The pitch half, BUILT 2026-08-20
+
+His ask, and the scope guard in his own words: *"the sound engine thinking in pitch not in midi and
+the midi conversion should be the last thing after the schedule… it is not the definitive change, is
+just the basic infrastructure, in the future maybe we change the synth and allow also microtonal but
+we don't handle this now — just the thinking pitch half."*
+
+⛔ **The dynamic value, the hairpin ramp and everything microtonal are NOT in this.** `velocity` is
+untouched — same name, same range, same `DYNAMIC_VELOCITY` table, same per-note constant. So the
+"⛔ Not now, and not by halves" section above still stands **for the loudness half**: what was moved
+here is the pitch boundary, which is a different sentence and does not spend the ramp's design.
+
+### What changed — one expression, evaluated one stage later
+
+`spellingToMidi(step, alter, octave) + shift` used to run at **four sites** in
+`engine/audio/playbackSchedule.ts` (the chord's notes, the fan's members, the two-note tremolo's
+pitch sets, the trill's auxiliary) and the schedule emitted integers. It now runs **once**, in
+`WebAudioFontInstrument.noteOn`.
+
+| stage | before | after |
+|---|---|---|
+| `ScheduledNote` | `midi: number` | `pitch: PitchSpelling` |
+| `PlayableNote` | `midi: number` | `pitch: PitchSpelling` |
+| `TrillAttack` | `midi`, `mainMidi`, `auxMidi` | `pitch`, `mainPitch`, `auxPitch` |
+| `InstrumentPlayer.noteOn` | `(midi: number, …)` | `(pitch: PitchSpelling, …)` |
+| `WebAudioFontInstrument.noteOn` | passes the integer through | ⭐ calls `pitchToMidi` — **the mint** |
+
+⭐ **It is provably behaviour-neutral**, which is what made it safe to do before the halves that are
+not: the same expression, the same operands, the same result, one stage later. The evidence is that
+**all 120 audio tests passed unchanged** — only their `.midi` reads became `pitchToMidi(…pitch)`.
+
+New, both tiny and both pure: `utils/pitchSpelling.pitchToMidi(pitch)` (the mint, on a whole pitch)
+and `utils/soundingShift.applySoundingShift(spelling, semitones)` (the fold).
+
+### ⭐⭐ Why it matters MORE than the tidiness argument this doc was written with
+
+The doc above argued from *"a synth's vocabulary is not the music's"*. True, but the sharper reason
+came out of his question on 2026-08-20 — *"how does this affect our future microtones and even our
+microtonal semantic alteration (flat and sharp can be high or low depending the tuning system)?"*:
+
+⭐ **`spellingToMidi` DESTROYS the enharmonic, and the enharmonic is the tuning system's only input.**
+G♯4 and A♭4 both become 61. In **meantone** G♯ sounds *lower* than A♭; in **Pythagorean**, *higher*
+(docs/tuning-systems-and-alteration.md). A schedule that carries integers has thrown away its own
+input, so no tuning layer can ever be built on it — not "would be awkward", *cannot*. Moving the mint
+is not preparation for microtonality; it is what stops the schedule from being lossy.
+
+### ⭐⭐ THE SHAPE DECISION: why there is no `shiftSemitones` field
+
+`soundingShiftAt` returns **semitones**, so a pitch had to absorb `+ shift` somehow. The obvious
+answer — carry the semitone count alongside the spelling and let the interpret step add it — was
+proposed and **rejected**, because it is the same conflation one level up:
+
+- An **octave** is representation-independent: 12 semitones, ×2 in frequency, +1 to the octave
+  number, **in any tuning**. So it folds into `octave` exactly, and stays exact forever.
+- A **non-octave** transposition — a B♭ clarinet's written-to-sounding major second — is a
+  DIATONIC + CHROMATIC operation on the spelling. In meantone "down a major 2nd" is not a number of
+  semitones at all. So a semitone field would be the wrong currency in **precisely the case it was
+  invented to protect**.
+
+⇒ `applySoundingShift` adds to the **octave number** and leaves `alter` alone, and a non-octave shift
+logs and sounds the WRITTEN pitch rather than rounding (⛔ the guessing fallback that gets believed).
+When a transposing instrument arrives it is a **spelling transposition** written beside that
+function; ⛔ never a number added at the audio boundary.
+
+### ⏭️ What is still 12-EDO in the sound path, recorded
+
+**One site: `sameMidi` in `playbackSchedule.ts`**, the tie-chase's equality test. MIDI equality makes
+G♯ tied to A♭ one held pitch — right in 12-TET, wrong in meantone. ⭐ It survives untouched because it
+is a COMPARISON that never reaches an event, so it cannot mint the integer this file no longer mints.
+⛔ Do not "fix" it by comparing spellings: a tie between two *different* spellings is exactly what the
+chase is meant to refuse today. It is the second site a tuning system has to be told about.
+
+### Tests
+
+The audio suite (120) passed unchanged. Added: `applySoundingShift` in `utils/soundingShift.test.ts`
+(6 — the octave fold, `alter` untouched, the enharmonic preserved, no mutation, the non-octave
+refusal) and `pitchToMidi` in `utils/pitchSpelling.test.ts` (2, incl. the enharmonic collapse that
+says why it must be last). ⭐ Break-tested: neutering the fold fails **11** tests across all four emit
+paths — chord, trill, tremolo, fan and the two-note pair — which is the ottava suite doing exactly
+the job `docs/ottava-plan.md` §6 built it for.

@@ -22,7 +22,7 @@
  *
  * Pure: no engine imports, no VexFlow, no instance state.
  */
-import type { Score, Fraction } from '@/types/music'
+import type { Score, Fraction, PitchSpelling } from '@/types/music'
 import { fracCreate, fracAdd, fracLt, fracGte } from './fraction'
 import { measureCapacityFrac } from './measureCapacity'
 
@@ -159,4 +159,46 @@ export function soundingShiftBySlot(score: Score): Map<string, number> {
     base = fracAdd(base, measureCapacityFrac(m))
   }
   return out
+}
+
+/**
+ * ⭐⭐ **WRITTEN SPELLING + THE SHIFT = THE SOUNDING SPELLING** — the fold that lets the schedule
+ * carry a PITCH instead of a MIDI integer (docs/playback-semantics-plan.md, built 2026-08-20).
+ *
+ * ## ⭐ Why this adds to the OCTAVE NUMBER and not to a semitone count
+ *
+ * Because an **octave is the one transformation no representation change can break**: it is 12
+ * semitones, ×2 in frequency and +1 to the octave number **in every tuning system**, so folding it
+ * into `octave` is exact and stays exact. `alter` is untouched — an 8va does not change an
+ * accidental, it changes a register.
+ *
+ * ⛔⛔ **And this is why the schedule carries no `shiftSemitones` field.** A semitone count was the
+ * obvious shape and it is the wrong currency the moment the shift is *not* an octave: a transposing
+ * instrument (a B♭ clarinet, written-to-sounding a major second) is a DIATONIC + CHROMATIC operation
+ * on the spelling, and in meantone "down a major 2nd" is not a number of semitones at all — the same
+ * conflation `docs/tuning-systems-and-alteration.md` catches in `alter` itself. So when that case
+ * arrives it is a **spelling transposition**, written here beside this function; ⛔ it is never a
+ * number added at the audio boundary.
+ *
+ * ## ⚠️ The non-octave shift, and why it does not throw
+ *
+ * Every producer today multiplies `Ottava.shift` (octaves) by 12, and the octave clef this seam is
+ * reserved for (§ the module note) is octaves too — so a remainder is unreachable from any score the
+ * editor can write. It is reachable from hand-edited JSON, and a throw there would kill the whole
+ * play. ⭐ So it **logs and returns the WRITTEN spelling**: that is not a guess, it is the honest
+ * *"this shift could not be expressed"*, and it is the one answer that cannot invent a pitch nobody
+ * notated. ⛔ Do not "round to the nearest octave" — that is exactly the guessing fallback that gets
+ * believed.
+ */
+export function applySoundingShift(spelling: PitchSpelling, semitones: number): PitchSpelling {
+  if (semitones === 0) return spelling
+  const octaves = semitones / SEMITONES_PER_OCTAVE
+  if (!Number.isInteger(octaves)) {
+    console.error(
+      `applySoundingShift: ${semitones} semitones is not a whole octave. A non-octave shift is a `
+      + 'SPELLING transposition, not a number (docs/tuning-systems-and-alteration.md); sounding the '
+      + 'written pitch instead.')
+    return spelling
+  }
+  return { ...spelling, octave: spelling.octave + octaves }
 }

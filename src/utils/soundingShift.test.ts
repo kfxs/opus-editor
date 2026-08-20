@@ -9,12 +9,13 @@
  *
  * A `ScoreModel` is the FIXTURE; the subject is the free functions in `./soundingShift`.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import type { Score } from '@/types/music'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addOttava } from '@/engine/models/ottavaOps'
 import { fracCreate as frac } from './fraction'
-import { soundingShiftAt, soundingShiftBySlot } from './soundingShift'
+import { applySoundingShift, soundingShiftAt, soundingShiftBySlot } from './soundingShift'
+import { pitchToMidi } from './pitchSpelling'
 
 describe('soundingShiftAt — the position under an octave line', () => {
   let model: ScoreModel
@@ -167,5 +168,61 @@ describe('soundingShiftBySlot — the per-slot prepass', () => {
     for (const slot of score.measures[0].slots) {
       expect(shifts.get(slot.id) ?? 0).toBe(soundingShiftAt(score, 1, slot.beat, slot.staffId))
     }
+  })
+})
+
+/**
+ * ⭐⭐ {@link applySoundingShift} — **the fold that lets the schedule carry a PITCH.**
+ *
+ * Built 2026-08-20 with the pitch-not-MIDI move (docs/playback-semantics-plan.md). The whole
+ * question is which FIELD the shift lands in, and the answer is `octave`: an octave is 12 semitones,
+ * ×2 in frequency and +1 to the octave number in every tuning system, so this is the one
+ * transformation that survives a change of representation. ⛔ `alter` is never touched — an 8va
+ * changes a register, not an accidental.
+ */
+describe('applySoundingShift', () => {
+  const C4 = { step: 'C', alter: 0, octave: 4 } as const
+
+  it('an unshifted note comes back as itself', () => {
+    expect(applySoundingShift(C4, 0)).toEqual({ step: 'C', alter: 0, octave: 4 })
+  })
+
+  it('⭐ an octave up is +1 to the OCTAVE — not +12 to anything else', () => {
+    expect(applySoundingShift(C4, 12)).toEqual({ step: 'C', alter: 0, octave: 5 })
+    expect(applySoundingShift(C4, 24), 'two octaves').toEqual({ step: 'C', alter: 0, octave: 6 })
+    expect(applySoundingShift(C4, -12)).toEqual({ step: 'C', alter: 0, octave: 3 })
+  })
+
+  it('⛔ leaves `alter` alone — the accidental is NOTATION and an octave line is not', () => {
+    const fSharp3 = { step: 'F', alter: 1, octave: 3 } as const
+    expect(applySoundingShift(fSharp3, 12)).toEqual({ step: 'F', alter: 1, octave: 4 })
+  })
+
+  it('⭐ keeps the ENHARMONIC — which is the entire reason the schedule carries a spelling', () => {
+    // G♯4 and A♭4 are one MIDI number and two pitches (meantone: G♯ is the lower).
+    const gSharp = applySoundingShift({ step: 'G', alter: 1, octave: 4 }, 12)
+    const aFlat = applySoundingShift({ step: 'A', alter: -1, octave: 4 }, 12)
+    expect(gSharp).not.toEqual(aFlat)
+    expect(pitchToMidi(gSharp), 'and they are still enharmonic').toBe(pitchToMidi(aFlat))
+  })
+
+  it('does not mutate its input', () => {
+    const written = { step: 'D', alter: -1, octave: 5 } as const
+    applySoundingShift(written, -24)
+    expect(written).toEqual({ step: 'D', alter: -1, octave: 5 })
+  })
+
+  describe('a shift that is NOT a whole octave', () => {
+    afterEach(() => { vi.restoreAllMocks() })
+
+    it('🚨 sounds the WRITTEN pitch and says so — ⛔ it never rounds to the nearest octave', () => {
+      // Unreachable from any score the editor writes (`Ottava.shift` counts octaves), reachable from
+      // hand-edited JSON. A non-octave shift is a SPELLING transposition, not a number — see the
+      // function's note and docs/tuning-systems-and-alteration.md.
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      expect(applySoundingShift(C4, 7), 'unshifted, not C4+7 rounded anywhere')
+        .toEqual({ step: 'C', alter: 0, octave: 4 })
+      expect(spy).toHaveBeenCalledOnce()
+    })
   })
 })

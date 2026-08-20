@@ -17,6 +17,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addPedal } from '../models/pedalOps'
 import { collectScheduledNotes } from './playbackSchedule'
 import { fracCreate as frac } from '@/utils/fraction'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 
 /** Sounding length of the event attacked at `onset` (the first one, if several share it). */
 const lengthAt = (score: Score, onset: number) =>
@@ -107,8 +108,8 @@ describe('WHICH notes it holds — onset membership, half-open', () => {
     addPedal(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), staffId: lower })
 
     const sounded = evs(model.getScore())
-    expect(sounded.find(e => e.midi === 72)!.durationBeats).toBeCloseTo(1, 10) // upper staff, untouched
-    expect(sounded.find(e => e.midi === 48)!.durationBeats).toBeCloseTo(4, 10) // lower staff, held
+    expect(sounded.find(e => pitchToMidi(e.pitch) === 72)!.durationBeats).toBeCloseTo(1, 10) // upper staff, untouched
+    expect(sounded.find(e => pitchToMidi(e.pitch) === 48)!.durationBeats).toBeCloseTo(4, 10) // lower staff, held
   })
 
   it('⭐ two OVERLAPPING pedals: the latest press at or before the onset wins', () => {

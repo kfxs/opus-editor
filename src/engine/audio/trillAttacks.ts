@@ -18,10 +18,15 @@
  * the same speed; only their LENGTHS differ. That is exactly what a measured tremolo does NOT do,
  * and it is why this module cannot reuse `tremoloPeriodFrom`.
  */
+import type { PitchSpelling } from '@/types/music'
 
 /** A single attack of the alternation, in the caller's own units. */
 export interface TrillAttack {
-  midi: number
+  /** ⭐ A PITCH, not a MIDI number — `ScheduledNote.pitch`'s reason, and this module hands its
+   *  attacks straight to it (docs/playback-semantics-plan.md). It is never read here: the two
+   *  pitches are opaque values this function alternates between, which is what keeps the rate
+   *  testable without a score and would keep it working for a microtonal auxiliary. */
+  pitch: PitchSpelling
   startBeats: number
   durationBeats: number
 }
@@ -45,7 +50,7 @@ export const TRILL_PERIOD_SECONDS = 0.08
  *
  * ⭐ **Starts on the MAIN note** — the modern default. Beginning on the auxiliary is the Baroque
  * reading (MuseScore offers it as an option), and it is a per-trill choice if it is ever wanted, not
- * a different algorithm: it is this function with the two midis swapped.
+ * a different algorithm: it is this function with the two pitches swapped.
  *
  * ⭐ **Fills what SOUNDS, not what is written** — so a trill on a note tied over a barline keeps
  * going, because the caller hands in the tie-extended length. The tremolo's rule, and the reason the
@@ -59,8 +64,8 @@ export const TRILL_PERIOD_SECONDS = 0.08
  * @returns the attacks, in order; empty when the span or the period is not positive
  */
 export function trillAttacks(params: {
-  mainMidi: number
-  auxMidi: number
+  mainPitch: PitchSpelling
+  auxPitch: PitchSpelling
   startBeats: number
   durationBeats: number
   periodBeats: number
@@ -68,7 +73,7 @@ export function trillAttacks(params: {
    *  trill is a staccato trill. */
   durationFactor?: number
 }): TrillAttack[] {
-  const { mainMidi, auxMidi, startBeats, durationBeats, periodBeats } = params
+  const { mainPitch, auxPitch, startBeats, durationBeats, periodBeats } = params
   const factor = params.durationFactor ?? 1
   if (!(durationBeats > 0) || !(periodBeats > 0)) return []
 
@@ -81,7 +86,7 @@ export function trillAttacks(params: {
   let onMain = true
   while (t < durationBeats - epsilon) {
     out.push({
-      midi: onMain ? mainMidi : auxMidi,
+      pitch: onMain ? mainPitch : auxPitch,
       startBeats: startBeats + t,
       durationBeats: Math.min(periodBeats, durationBeats - t) * factor,
     })

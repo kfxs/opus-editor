@@ -53,6 +53,25 @@ export function spellingToMidi(step: PitchStep, alter: PitchAlter, octave: numbe
 }
 
 /**
+ * ⭐⭐ **THE 12-EDO STEP, TAKEN ON A WHOLE PITCH — and the only place the sound path is allowed to
+ * take it.** {@link spellingToMidi} with the three fields read off one object.
+ *
+ * It exists so that *"where does music become MIDI?"* has a one-line answer a reader can grep for.
+ * `engine/audio/playbackSchedule.ts` used to call `spellingToMidi` at four sites and emit integers;
+ * since 2026-08-20 the schedule carries `PitchSpelling` and **`WebAudioFontInstrument.noteOn` is the
+ * single caller of this on the playback path** (docs/playback-semantics-plan.md — score → schedule →
+ * interpret). ⛔ Do not call it from a schedule, a model or a renderer.
+ *
+ * ⚠️⚠️ **It collapses enharmonics, which is exactly why it must stay last.** G♯4 and A♭4 both return
+ * 61, and that distinction is the ONLY thing a tuning system would have to work from: in **meantone**
+ * G♯ sounds *lower* than A♭, in **Pythagorean** *higher*. Mint the integer early and no later layer
+ * can recover which of the two was written (docs/tuning-systems-and-alteration.md).
+ */
+export function pitchToMidi(pitch: PitchSpelling): number {
+  return spellingToMidi(pitch.step, pitch.alter, pitch.octave)
+}
+
+/**
  * Convert a pitch spelling to a VexFlow key string (e.g. 'c#/4', 'db/4').
  * VexFlow expects lowercase step, accidental suffix, slash, then octave.
  *

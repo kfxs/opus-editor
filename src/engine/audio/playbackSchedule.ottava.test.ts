@@ -18,6 +18,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addOttava } from '../models/ottavaOps'
 import { collectScheduledNotes } from './playbackSchedule'
 import { fracCreate as frac } from '@/utils/fraction'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 
 const C4 = 60, C5 = 72, C6 = 84, C3 = 48, D5 = 74, E5 = 76, G5 = 79
 
@@ -37,7 +38,7 @@ function tie(score: Score, fromId: string, toId: string): void {
 
 /** The distinct midis sounded, in first-onset order. */
 const midis = (score: Score) =>
-  [...new Set(collectScheduledNotes(score).sort((a, b) => a.startBeats - b.startBeats).map(e => e.midi))]
+  [...new Set(collectScheduledNotes(score).sort((a, b) => a.startBeats - b.startBeats).map(e => pitchToMidi(e.pitch)))]
 
 describe('a passage under an octave line plays an octave away', () => {
   it('⭐ an 8va sounds C4 as C5 — the stored pitch never moved', () => {
@@ -102,7 +103,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
 
     const played = collectScheduledNotes(model.getScore())
     expect(played.length, 'a tremolo is many attacks').toBeGreaterThan(2)
-    expect(new Set(played.map(e => e.midi))).toEqual(new Set([C5]))
+    expect(new Set(played.map(e => pitchToMidi(e.pitch)))).toEqual(new Set([C5]))
   })
 
   it('⭐ a FANNED BEAM inside an 8va — every member, not just the slot\'s own pitch', () => {
@@ -114,7 +115,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
 
     const played = collectScheduledNotes(model.getScore())
     expect(played.length, 'three members sound').toBe(3)
-    expect(new Set(played.map(e => e.midi))).toEqual(new Set([C6]))
+    expect(new Set(played.map(e => pitchToMidi(e.pitch)))).toEqual(new Set([C6]))
   })
 
   it('⭐ a TWO-NOTE TREMOLO takes EACH SIDE\'s own shift — a line may start between the pair', () => {
@@ -127,7 +128,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
     model.setTremoloPair(a.id, true)
     addOttava(model.getScore(), 1, { beat: frac(2, 1), length: frac(2, 1), shift: 1 })
 
-    const sounded = new Set(collectScheduledNotes(model.getScore()).map(e => e.midi))
+    const sounded = new Set(collectScheduledNotes(model.getScore()).map(e => pitchToMidi(e.pitch)))
     expect(sounded.has(C5), 'the first note is outside the line').toBe(true)
     expect(sounded.has(G5 + 12), 'the second note is inside it').toBe(true)
     expect(sounded.has(G5), 'and must NOT sound unshifted').toBe(false)
@@ -167,7 +168,7 @@ describe('what the octave line must NOT change', () => {
     model.addNote({ step: 'D', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1, staffId: lower })
 
-    const sounded = new Set(collectScheduledNotes(model.getScore()).map(e => e.midi))
+    const sounded = new Set(collectScheduledNotes(model.getScore()).map(e => pitchToMidi(e.pitch)))
     expect(sounded).toEqual(new Set([C5, D5 + 12]))
   })
 })

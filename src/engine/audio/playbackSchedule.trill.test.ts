@@ -4,6 +4,7 @@ import { collectScheduledNotes } from './playbackSchedule'
 import { TRILL_PERIOD_SECONDS } from './trillAttacks'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { FanMark, Score } from '@/types/music'
+import { pitchToMidi } from '@/utils/pitchSpelling'
 
 /**
  * ⭐⭐ **A TRILL SOUNDS** (docs/trill-plan.md §7, P5) — one note becomes an alternation with the note
@@ -21,7 +22,7 @@ const played = (score: Score) =>
   collectScheduledNotes(score).sort((a, b) => a.startBeats - b.startBeats)
 
 /** The distinct midis sounded, in first-onset order. */
-const midis = (score: Score) => [...new Set(played(score).map(e => e.midi))]
+const midis = (score: Score) => [...new Set(played(score).map(e => pitchToMidi(e.pitch)))]
 
 /** One whole note at bar 1 beat 0, trilled. */
 function oneTrilledNote(step: 'C' | 'E' = 'C', duration: 'w' | 'h' | 'q' = 'w') {
@@ -55,13 +56,13 @@ describe('a trill turns one note into an alternation', () => {
     // ⚠️ Assert over the TRILL'S OWN span (from beat 2), not the whole bar: the F♯ at beat 0 is a
     // real note, and `midis` de-duplicates, so a whole-bar assertion cannot tell the auxiliary from
     // the note that caused it.
-    const inTrill = new Set(played(model.getScore()).filter(e2 => e2.startBeats >= 2).map(e2 => e2.midi))
+    const inTrill = new Set(played(model.getScore()).filter(e2 => e2.startBeats >= 2).map(e2 => pitchToMidi(e2.pitch)))
     expect(inTrill).toEqual(new Set([E4, FS4]))
     expect(inTrill.has(F4), 'F natural must NOT sound — the bar\'s F♯ is in force').toBe(false)
   })
 
   it('starts on the MAIN note (the modern default), not the auxiliary', () => {
-    expect(played(oneTrilledNote('C').score)[0].midi).toBe(C4)
+    expect(pitchToMidi(played(oneTrilledNote('C').score)[0].pitch)).toBe(C4)
   })
 
   it('fills the note EXACTLY — a trill never overhangs, so the clock does not move', () => {
@@ -95,7 +96,7 @@ describe('how far a trill runs', () => {
     // Both bars' worth: the tie-extended span, not one bar's.
     expect(last.startBeats + last.durationBeats).toBeCloseTo(8, 6)
     // …and it is still an alternation the whole way, not a trill then a held note.
-    expect(events.filter(e => e.midi === D4).length).toBeGreaterThan(10)
+    expect(events.filter(e => pitchToMidi(e.pitch) === D4).length).toBeGreaterThan(10)
   })
 
   it('covers every note of a SPAN, each with its own auxiliary', () => {
@@ -104,7 +105,7 @@ describe('how far a trill runs', () => {
       model.addNote({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
     model.addTrill({ startNoteId: notes[0].id, endNoteId: notes[2].id })
 
-    const sounded = new Set(played(model.getScore()).map(e => e.midi))
+    const sounded = new Set(played(model.getScore()).map(e => pitchToMidi(e.pitch)))
     // C↔D, D↔E, E↔F — so D and E appear as both main and auxiliary, and F only as one.
     expect(sounded).toEqual(new Set([C4, D4, E4, F4]))
   })
@@ -115,7 +116,7 @@ describe('how far a trill runs', () => {
     model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(2, 1) })
     model.addTrill({ startNoteId: a.id })
 
-    const plain = played(model.getScore()).filter(e => e.midi === A3)
+    const plain = played(model.getScore()).filter(e => pitchToMidi(e.pitch) === A3)
     expect(plain).toHaveLength(1)
     expect(plain[0].durationBeats).toBeCloseTo(2, 6)
   })
@@ -166,6 +167,6 @@ describe('a trill that no longer resolves', () => {
     model.getScore().trills![0].startNoteId = 'gone'
     const events = played(model.getScore())
     expect(events).toHaveLength(1)
-    expect(events[0].midi).toBe(B3)
+    expect(pitchToMidi(events[0].pitch)).toBe(B3)
   })
 })

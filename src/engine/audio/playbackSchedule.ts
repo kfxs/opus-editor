@@ -17,7 +17,7 @@
  * dynamic", which was the leak, not the design. What is still deferred is anything BEYOND "which
  * marks reach this slot" — a staff-level balance is not a thing the model says.
  */
-import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch } from '@/types/music'
+import type { Score, Chord, ChordRest, DynamicLevel, FanMark, Measure, NotePitch, PitchSpelling } from '@/types/music'
 import { durationToBeats } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { doubleDuration, durationFlags, slotLength } from '@/utils/durations'
@@ -30,7 +30,7 @@ import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
 import { voiceOf } from '@/utils/lanes'
-import { soundingShiftBySlot } from '@/utils/soundingShift'
+import { applySoundingShift, soundingShiftBySlot } from '@/utils/soundingShift'
 import { pedalWindows, pedalWindowCovers, type PedalWindow } from '@/utils/pedalScope'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
 import { trillSpan } from '@/engine/models/trillOps'
@@ -41,13 +41,25 @@ import { measureAccidentalNotes } from '@/utils/musicUtils'
 
 /** A single sounding note to schedule, in tempo-independent beat units. */
 export interface ScheduledNote {
-  /** Sounding MIDI pitch (derived from the stored spelling).
+  /**
+   * ⭐⭐ **THE SOUNDING PITCH, AS A SPELLING** — the written `step`/`alter`/`octave` with any octave
+   * line folded into the octave ({@link applySoundingShift}). ⛔ **Not a MIDI number, and that is
+   * the point of this field.**
    *
-   *  ⏭️ **This is the early conversion `docs/playback-semantics-plan.md` is about** (his call,
-   *  2026-08-19, recorded and deliberately NOT scheduled): a schedule should speak in PITCH and a
-   *  dynamic value, and an INTERPRET step after it should turn those into whatever the synth wants.
-   *  12-EDO is baked in the moment a spelling becomes an integer. ⛔ Not a bug to fix today. */
-  midi: number
+   * Built 2026-08-20, `docs/playback-semantics-plan.md`: score → **schedule (pitch)** → interpret
+   * (MIDI, for whatever synth is listening). Until then this was `midi: number` and the integer was
+   * minted at four sites in this file; it is now minted once, in `WebAudioFontInstrument.noteOn`.
+   *
+   * ⚠️⚠️ **The reason is not tidiness — it is that `spellingToMidi` DESTROYS the enharmonic.** G♯4
+   * and A♭4 both become 61, and which of the two was written is the only thing a tuning system could
+   * interpret: in meantone G♯ sounds *lower* than A♭, in Pythagorean *higher*
+   * (docs/tuning-systems-and-alteration.md). A schedule carrying integers has already thrown away
+   * its own input, so no later layer can be built on it.
+   *
+   * ⛔ **Do not widen this into MIDI-shaped fields** (bend, channel, program). Those are the
+   * interpret step's vocabulary; a schedule that grows them has moved the boundary back.
+   */
+  pitch: PitchSpelling
   /** Absolute onset from score start, in quarter-note beats (the shared clock). */
   startBeats: number
   /** Sounding length in beats, after tie-extension, legato overlap and articulation. */
@@ -147,7 +159,9 @@ export function scoreTotalBeats(score: Score): number {
 
 /** A note to hand the instrument: when to strike it, relative to the moment playback begins. */
 export interface PlayableNote {
-  midi: number
+  /** ⭐ The sounding pitch, carried through unchanged — see {@link ScheduledNote.pitch}. This stage
+   *  converts the CLOCK (beats→seconds) and nothing else, so it must not touch the pitch either. */
+  pitch: PitchSpelling
   /** Seconds from the start of THIS play — 0 is the instant `play()` was called. */
   atSeconds: number
   /** Sounding length in seconds. */
@@ -188,7 +202,7 @@ export function playableFrom(
     const onsetSeconds = beatsToSeconds(tempoMap, ev.startBeats)
     const endSeconds = beatsToSeconds(tempoMap, ev.startBeats + ev.durationBeats)
     out.push({
-      midi: ev.midi,
+      pitch: ev.pitch,
       atSeconds: onsetSeconds - startSeconds,
       durationSeconds: endSeconds - onsetSeconds,
       velocity: ev.velocity,
@@ -245,10 +259,14 @@ export function collectScheduledNotes(
   const trilledSlots = trilledSlotIds(score)
 
   // ⭐⭐ HOW FAR EACH SLOT IS FROM ITS OWN NOTATION — the octave lines, resolved once per slot rather
-  // than asked per pitch (docs/ottava-plan.md §6). ⚠️ **Every `spellingToMidi` below takes its slot's
-  // shift, except `sameMidi`** — that is the rule, and it is checkable by grep precisely because the
-  // shift is one lookup rather than a resolver called from four places on three emit paths. Empty for
-  // any score with no ottava in it, which is the whole of the un-shifted path.
+  // than asked per pitch (docs/ottava-plan.md §6). ⚠️ **Every `applySoundingShift` below takes its
+  // slot's shift** — that is the rule, and it is checkable by grep precisely because the shift is one
+  // lookup rather than a resolver called from four places on three emit paths. Empty for any score
+  // with no ottava in it, which is the whole of the un-shifted path.
+  //
+  // ⚠️ The grep used to read `spellingToMidi` and to carry an "except `sameMidi`" exemption; since
+  // 2026-08-20 this file mints no MIDI at all, so the two are no longer the same word and the
+  // exemption is gone. `sameMidi` still compares WITHOUT a shift, for its own reason — see there.
   const shifts = soundingShiftBySlot(score)
 
   const events: ScheduledNote[] = []
@@ -379,7 +397,7 @@ export function collectScheduledNotes(
         if (isContinuation(np)) continue
 
         const durationBeats = soundingBeatsOf(np)
-        const midi = spellingToMidi(np.step, np.alter, np.octave) + shift
+        const pitch = applySoundingShift({ step: np.step, alter: np.alter, octave: np.octave }, shift)
 
         // A tremolo turns ONE sounding note into N re-attacks. It fills the note's whole SOUNDING
         // length — including any tie-extension above, because the head carries the chain's length and
@@ -397,7 +415,7 @@ export function collectScheduledNotes(
             // the note (the clamp below ends the fill exactly at its end).
             const step = irregular ? period * (1 + spread(rng) * PENDERECKI_ONSET_JITTER) : period
             events.push({
-              midi,
+              pitch,
               startBeats: startBeats + t,
               // Each attack lasts one step — they are repeated notes, back to back — and still takes
               // the articulation's length factor, so a staccato tremolo is a staccato tremolo.
@@ -423,13 +441,13 @@ export function collectScheduledNotes(
         // continuation suppressed above) — so a trill on a note tied over the barline keeps going,
         // which is what makes the one-note trill need no end anchor.
         if (trilledSlots.has(chord.id)) {
-          const aux = auxiliaryMidiFor(score, measure, chord, np, shift)
+          const aux = auxiliaryPitchFor(score, measure, chord, np, shift)
           if (aux !== null) {
             const period = physicalPeriodBeats(TRILL_PERIOD_SECONDS, startBeats, tempoMap)
             if (period !== null) {
               for (const attack of trillAttacks({
-                mainMidi: midi,
-                auxMidi: aux,
+                mainPitch: pitch,
+                auxPitch: aux,
                 startBeats,
                 durationBeats,
                 periodBeats: period,
@@ -443,7 +461,7 @@ export function collectScheduledNotes(
         }
 
         events.push({
-          midi,
+          pitch,
           startBeats,
           durationBeats: durationBeats * artic.durationFactor, // staccato shortens, tenuto holds
           velocity,
@@ -604,7 +622,7 @@ function collectFanAttacks(
     const velocity = Math.min(1, baseVelocity * artic.velocityScale)
     for (const p of pitches[k] ?? sounding) {
       events.push({
-        midi: spellingToMidi(p.step, p.alter, p.octave) + shift,
+        pitch: applySoundingShift({ step: p.step, alter: p.alter, octave: p.octave }, shift),
         startBeats: startBeats + from * spanBeats,
         // Each member lasts until the next one starts — they are a run of notes, back to back — and
         // takes its OWN articulation's length factor, so one staccato member is short and the rest
@@ -664,7 +682,8 @@ function collectPairAttacks(
         1,
         DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC] * artic.velocityScale,
       ),
-      midis: chord.notes.map(np => spellingToMidi(np.step, np.alter, np.octave) + (shifts.get(chord.id) ?? 0)),
+      pitches: chord.notes.map(np => applySoundingShift(
+        { step: np.step, alter: np.alter, octave: np.octave }, shifts.get(chord.id) ?? 0)),
     }
   })
 
@@ -687,8 +706,8 @@ function collectPairAttacks(
     let t = startBeats
     for (const [i, side] of sides.entries()) {
       const length = i === 0 ? firstSoundingBeats : secondSounding
-      for (const midi of side.midis) {
-        events.push({ midi, startBeats: t, durationBeats: length * side.artic.durationFactor, velocity: side.velocity })
+      for (const pitch of side.pitches) {
+        events.push({ pitch, startBeats: t, durationBeats: length * side.artic.durationFactor, velocity: side.velocity })
       }
       t += length
     }
@@ -702,8 +721,8 @@ function collectPairAttacks(
     // Each attack lasts one step — they are repeated notes, back to back — clamped so the last one
     // ends exactly at the pair's end, and still scaled by its own chord's articulation.
     const length = Math.min(period, combined - t) * side.artic.durationFactor
-    for (const midi of side.midis) {
-      events.push({ midi, startBeats: startBeats + t, durationBeats: length, velocity: side.velocity })
+    for (const pitch of side.pitches) {
+      events.push({ pitch, startBeats: startBeats + t, durationBeats: length, velocity: side.velocity })
     }
     t += period
     turn++
@@ -852,11 +871,13 @@ function trilledSlotIds(score: Score): Set<string> {
  * between a note an octave up and a note that is not: the ugliest possible failure, and one that
  * nothing in the suite would have thrown on.
  */
-function auxiliaryMidiFor(score: Score, measure: Measure, chord: Chord, np: NotePitch, shift: number): number | null {
+function auxiliaryPitchFor(
+  score: Score, measure: Measure, chord: Chord, np: NotePitch, shift: number,
+): PitchSpelling | null {
   const key = keyAt(score, measure.number, chord.staffId)
   const inBar = prevailingAlterations(measureAccidentalNotes(measure), chord.beat)
   const aux = trillAuxiliary({ step: np.step, octave: np.octave }, key, inBar)
-  return spellingToMidi(aux.step, aux.alter, aux.octave) + shift
+  return applySoundingShift({ step: aux.step, alter: aux.alter, octave: aux.octave }, shift)
 }
 
 /**
@@ -879,6 +900,16 @@ function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: Temp
  * same note is a question about the NOTATION. Shifting both sides changes nothing; shifting only
  * the side that happens to fall under a bracket would break the tie chain at an 8va's edge — where
  * the notation says one held note and the ear would get a re-attack — for no gain.
+ *
+ * ⏭️⚠️ **AND IT IS THE LAST 12-EDO ASSUMPTION LEFT IN THIS FILE — recorded, deliberately not fixed**
+ * (2026-08-20, with the pitch move). MIDI equality means G♯ tied to A♭ is ONE held pitch. That is
+ * right in 12-TET and wrong in meantone, where they are different pitches
+ * (docs/tuning-systems-and-alteration.md). ⭐ It survives the pitch move untouched because it is a
+ * COMPARISON and never reaches an event: nothing it returns is scheduled, so it cannot mint the
+ * integer this file no longer mints. When a tuning system lands, this is the second site it has to
+ * be told about — ⛔ and it is a question about what a TIE means, not about how loud or how high
+ * anything sounds, so do not "fix" it by comparing spellings: a tie between two DIFFERENT spellings
+ * is exactly the case the tie-chase is meant to refuse today.
  */
 function sameMidi(a: NotePitch, b: NotePitch): boolean {
   return spellingToMidi(a.step, a.alter, a.octave) === spellingToMidi(b.step, b.alter, b.octave)

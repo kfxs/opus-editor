@@ -217,14 +217,15 @@ export class PlaybackEngine {
 
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
-    // here we only convert beats→seconds and hand each note (MIDI straight in) to the player.
+    // here we only convert beats→seconds and hand each note (a PITCH, not MIDI — the player's
+    // implementation is the interpret step that mints the integer) to the player.
     // The map goes IN: an unmeasured tremolo's period is physical (seconds), so the collector needs
     // the same clock this loop converts with — see UNMEASURED_PERIOD_SECONDS.
     // Which notes sound, and when — including where this play begins (`playableFrom`). Kept there
     // rather than inline because this method cannot be tested without an AudioContext, and the seek
     // it applies is exactly the thing that was silently not happening.
     for (const note of playableFrom(collectScheduledNotes(this.score, this.tempoMap), this.tempoMap, startBeats)) {
-      instrument.noteOn(note.midi, now + note.atSeconds, note.durationSeconds, note.velocity)
+      instrument.noteOn(note.pitch, now + note.atSeconds, note.durationSeconds, note.velocity)
     }
 
     this.state = 'playing'

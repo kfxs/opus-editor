@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   spellingToMidi,
+  pitchToMidi,
   spellingToVexflowKey,
   alterToString,
   formatPitch,
@@ -310,4 +311,27 @@ describe('pitchSpelling', () => {
     })
   })
 
+})
+
+/**
+ * ⭐⭐ {@link pitchToMidi} — **the interpret step's own conversion, and the only 12-EDO step the
+ * sound path is allowed to take** (docs/playback-semantics-plan.md, 2026-08-20).
+ *
+ * It is `spellingToMidi` read off one object, so the arithmetic is already covered above. What is
+ * worth pinning here is the property that makes its POSITION matter: it is LOSSY, and what it loses
+ * is the only thing a tuning system could have interpreted.
+ */
+describe('pitchToMidi', () => {
+  it('is spellingToMidi, read off a PitchSpelling', () => {
+    expect(pitchToMidi({ step: 'C', alter: 0, octave: 4 })).toBe(60)
+    expect(pitchToMidi({ step: 'A', alter: 0, octave: 4 })).toBe(69)
+    expect(pitchToMidi({ step: 'B', alter: 0, octave: 3 })).toBe(59)
+  })
+
+  it('🚨 COLLAPSES the enharmonic — which is why it must be the LAST step, never the schedule\'s', () => {
+    // In meantone G♯ sounds LOWER than A♭; in Pythagorean, higher. Once both are 61 no later layer
+    // can tell which was written (docs/tuning-systems-and-alteration.md).
+    expect(pitchToMidi({ step: 'G', alter: 1, octave: 4 })).toBe(68)
+    expect(pitchToMidi({ step: 'A', alter: -1, octave: 4 })).toBe(68)
+  })
 })
