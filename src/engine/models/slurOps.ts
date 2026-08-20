@@ -21,10 +21,14 @@
  * beat-anchored thing that has to survive the barlines moving.
  */
 import type {
-  Score, Slur, CurveControlPointDeltas, CurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride,
-  SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress,
+  Score, Slur, Fraction, CurveControlPointDeltas, CurveShapeOverride, SlurEndpointOffsetOverride,
+  SlurOffsetOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, SlurSegmentAddress,
   SlurSegmentEndpointAddress,
 } from '@/types/music'
+import { fracAdd, fracSub, fracCompare } from '@/utils/fraction'
+import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
+import { voiceOf } from '@/utils/lanes'
+import { onSameStaff } from '@/utils/dynamicScope'
 import { v4 as uuidv4 } from 'uuid'
 import { engravingOverrideOf } from './engravingOverrides'
 import { setEngravingOverride, clearEngravingOverride } from './overrideOps'
@@ -417,3 +421,120 @@ export function setSlurSegmentEndpointOffset(
   setEngravingOverride(score, id, next)
   return true
 }
+
+/**
+ * ⭐⭐ **HOW MUCH MUSIC A SLUR COVERS** — the distance between its two anchors, in quarter beats.
+ *
+ * ⭐ It is what a COPIED slur carries (`interactions/elementClipboard`), and the reason a slur can be
+ * pasted at all: a slur's identity is two NOTE IDS, which mean nothing anywhere else, but *"a slur
+ * over this much music"* travels. The hairpin's `length` exactly, arrived at from the other side —
+ * there the model stores the amount and the ends are derived; here the model stores the ends and the
+ * amount is derived.
+ *
+ * Null when either anchor is no longer in the score.
+ */
+export function slurSpanOf(score: Score, id: string): Fraction | null {
+  const slur = getSlurById(score, id)
+  if (!slur) return null
+  const start = noteAbsBeat(score, slur.startNoteId)
+  const end = noteAbsBeat(score, slur.endNoteId)
+  return start && end ? fracSub(end, start) : null
+}
+
+/** One slur's two ends, as note ids. See {@link slurSpanAt}. */
+export interface SlurEnds {
+  startNoteId: string
+  endNoteId: string
+}
+
+/**
+ * ⭐⭐ **THE TWO NOTES A SLUR OF `span` WOULD JOIN, starting at `startNoteId`** — what a PASTE
+ * resolves, and the only place that decides what *"the same slur, over there"* means.
+ *
+ * ```
+ *   end = the LAST note that starts within `span` of the start   (else the next note after it)
+ * ```
+ *
+ * 🚨 **The START is a NOTE, ⛔ never an address.** His two reports, 2026-08-20: a paste into an empty
+ * bar drew a slur anyway (the address resolved forward until it found music), and *"for slurring a
+ * note we should be really close to the bbox of that note"*. An address can always be resolved to
+ * SOMETHING; a note either was clicked or was not, and the caller — which has the pointer — is the
+ * only one that can say. ⛔ So this refuses rather than searching.
+ *
+ * ⚠️ **A rule, not a promise.** The destination's rhythm is its own, so a two-beat span may cover
+ * three notes there where it covered two here; what is reproduced is the AMOUNT OF MUSIC — the same
+ * approximation the hairpin's `length` makes when it lands on other music.
+ *
+ * ⛔ **A REST cannot anchor a slur** (the ottava's refusal, and for its reason: the mark is about
+ * sounding notes), so rests are skipped at the far end too.
+ */
+export function slurEndsFrom(score: Score, startNoteId: string, span: Fraction): SlurEnds | null {
+  const lane = slurLaneOf(score, startNoteId)
+  const from = lane.findIndex(n => n.id === startNoteId)
+  if (from === -1) return null
+
+  const reach = fracAdd(lane[from].abs, span)
+  let last = from
+  while (last + 1 < lane.length && fracCompare(lane[last + 1].abs, reach) <= 0) last++
+  // A span that reaches no further than its own start still makes a slur — to the next note, which
+  // is what `MusicEngine.createSlur` does with a single selected note.
+  if (last === from) last = from + 1
+  return last < lane.length ? { startNoteId, endNoteId: lane[last].id } : null
+}
+
+/** Every NOTE of the lane a given note belongs to (its staff and voice), in reading order with its
+ *  absolute beat. ⛔ Rests are not in it — they cannot anchor a slur. */
+function slurLaneOf(score: Score, noteId: string): Array<{ id: string; abs: Fraction }> {
+  const home = findSlurAnchorSlot(score, noteId)
+  if (!home) return []
+  // ⛔ Not another accumulation of the bars' capacities — `measureStartOffsets` is where that walk
+  // lives, and a second copy is a second answer to where bar 7 begins (its own note says so).
+  const starts = measureStarts(score.measures)
+  const lane: Array<{ id: string; abs: Fraction }> = []
+  for (const measure of score.measures) {
+    const base = starts.get(measure.number)
+    if (base === undefined) continue
+    for (const slot of measure.slots) {
+      if (slot.type !== 'chord') continue
+      // ⚠️ A slot carries a staffId, not an index (`utils/dynamicScope.onSameStaff` is the
+      // comparison — ⛔ never `staffOf`, which is for the flat projected Note).
+      if (!onSameStaff(score, home, slot) || voiceOf(slot) !== voiceOf(home)) continue
+      const id = slot.notes[0]?.id
+      if (id) lane.push({ id, abs: fracAdd(base, slot.beat) })
+    }
+  }
+  return lane.sort((a, b) => fracCompare(a.abs, b.abs))
+}
+
+/** The chord slot a note id belongs to — its lane is the slur's. */
+function findSlurAnchorSlot(score: Score, noteId: string) {
+  for (const measure of score.measures) {
+    for (const slot of measure.slots) {
+      if (slot.type === 'chord' && slot.notes.some(n => n.id === noteId)) return slot
+    }
+  }
+  return null
+}
+
+/** Where a note sits on the score's one absolute timeline, or null if it is not in the score. */
+function noteAbsBeat(score: Score, noteId: string): Fraction | null {
+  const starts = measureStarts(score.measures)
+  for (const measure of score.measures) {
+    const base = starts.get(measure.number)
+    if (base === undefined) continue
+    for (const slot of measure.slots) {
+      if (slot.type === 'chord' && slot.notes.some(n => n.id === noteId)) return fracAdd(base, slot.beat)
+    }
+  }
+  return null
+}
+
+/** Set which side of the notes a slur is drawn on — what a COPY reproduces, since an explicit
+ *  placement is a decision the user made (`x` flips it) rather than the stem-derived default. */
+export function setSlurPlacement(score: Score, id: string, placement: 'above' | 'below'): boolean {
+  const slur = getSlurById(score, id)
+  if (!slur) return false
+  slur.placement = placement
+  return true
+}
+

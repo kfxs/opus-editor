@@ -714,9 +714,22 @@ export class MouseController {
     const measure = engine.pixelToMeasure(coords)
     const beat = this.resolveSlotBeat(engine, coords.x, measure)
     // Which stacked staff the click landed on is the paste destination staff (multi-staff).
-    const staff = engine.getElementRegistry().staffIndexAtY(measure, coords.y)
-    dbg(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`)
-    this.clipboard.pasteAt(measure, beat, staff)
+    const registry = engine.getElementRegistry()
+    const staff = registry.staffIndexAtY(measure, coords.y)
+    // ⭐⭐ **WHICH NOTE the click landed ON, if any** — his rule for the slur, 2026-08-20: *"for
+    // slurring a note we should be really close to the bbox of that note"*. A place is not enough
+    // for a kind whose anchor is a NOTE, and only the pointer can say whether one was meant: the
+    // click must be inside the note's own ink, ⛔ not merely nearest to it, which is how an empty bar
+    // still produced a slur. A rest never qualifies — it cannot anchor one.
+    // ⚠️ Optional-chained: the registry is STUBBED in several specs (a partial object with the
+    // handful of methods those files need), and a paste that cannot ask simply names no note — which
+    // is the same answer it gives for a click on empty staff.
+    const near = registry.findClosestNoteOrRest?.(coords.x, coords.y)
+    const noteId = near?.type === 'note' && near.id
+      && registry.hitsNoteOrRestBody?.(near, coords.x, coords.y) ? near.id : undefined
+    dbg(`Paste placement click | measure:${measure} beat:${fracToNumber(beat)} staff:${staff}`
+      + `${noteId ? ' on a note' : ''}`)
+    this.clipboard.pasteAt(measure, beat, staff, noteId)
   }
 
   /**

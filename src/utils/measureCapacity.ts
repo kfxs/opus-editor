@@ -1,5 +1,5 @@
 import type { Measure, TimeSignature } from '@/types/music'
-import { type Fraction, fracCreate, fracMul, fracToNumber } from '@/utils/fraction'
+import { type Fraction, fracAdd, fracCreate, fracMul, fracToNumber } from '@/utils/fraction'
 
 /**
  * How much fits in a bar — the four functions that answer it, and nothing else.
@@ -82,3 +82,27 @@ export function measureStartQuarters(measures: Measure[], measureNumber: number)
   }
   return beats
 }
+
+/**
+ * ⭐⭐ **WHERE EACH BAR BEGINS on the score's one timeline**, as exact fractions — bar 1 at 0, and
+ * every later bar at the sum of the capacities before it.
+ *
+ * ⭐ **One walk, one answer.** Two marks either side of a barline, or in different families, can only
+ * be compared on one timeline, and a second copy of this is a second answer to where bar 7 begins.
+ * It has been that copy four times (`layout/outsideStaffBand`, `models/hairpinOps`,
+ * `models/pedalOps`, `interactions/clipboard`) before landing here, beside
+ * {@link measureStartQuarters} — its FLOAT twin, which answers the same question for playback.
+ *
+ * ⚠️ Sorted by bar NUMBER rather than by array order, so a score whose array was built out of order
+ * still accumulates in reading order.
+ */
+export function measureStartOffsets(measures: Measure[]): Map<number, Fraction> {
+  const out = new Map<number, Fraction>()
+  let base = fracCreate(0, 1)
+  for (const m of [...measures].sort((a, b) => a.number - b.number)) {
+    out.set(m.number, base)
+    base = fracAdd(base, measureCapacityFrac(m))
+  }
+  return out
+}
+

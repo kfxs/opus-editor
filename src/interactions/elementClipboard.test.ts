@@ -170,6 +170,78 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
   })
 
   /**
+   * ⭐⭐ THE SLUR (his ask, 2026-08-20) — the first clip whose identity is two NOTE IDS, which mean
+   * nothing anywhere else. What travels is *"a slur over this much music"*, and the paste resolves
+   * the ends against the destination's own notes.
+   */
+  describe('a slur', () => {
+    let ids: string[]
+    let slurId: string
+    /** Every slur as `start→end`, by the pitch letters it joins. */
+    const slurs = () => engine.getScore().slurs!.map(s =>
+      `${engine.getNote(s.startNoteId)?.step}→${engine.getNote(s.endNoteId)?.step}`)
+
+    beforeEach(() => {
+      ids = (['D', 'E', 'F', 'G'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+      slurId = engine.createSlur([ids[0], ids[1]])!.id   // D→E, one beat of span
+    })
+
+    it('⭐⭐ copies the SPAN, since two note ids mean nothing anywhere else', () => {
+      expect(copyElement(engine, { kind: 'slur', id: slurId })).toEqual({ kind: 'slur', span: frac(1, 1) })
+    })
+
+    it('⭐ pastes a slur over the SAME amount of music at the anchor', () => {
+      const clip = copyElement(engine, { kind: 'slur', id: slurId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2] })
+      expect(slurs()).toEqual(['D→E', 'F→G'])
+    })
+
+    it('⭐⭐ …and a WIDER slur stays wider — the span is what was copied', () => {
+      const wide = engine.createSlur([ids[0], ids[2]])!   // D→F, two beats
+      const clip = copyElement(engine, { kind: 'slur', id: wide.id })!
+      expect(clip).toMatchObject({ span: frac(2, 1) })
+      // Pasted on the second note, two beats reach the fourth.
+      pasteElement(engine, clip, { measure: 1, beat: frac(1, 1), staff: 0, noteId: ids[1] })
+      expect(slurs()).toContain('E→G')
+    })
+
+    it('⭐ an explicit PLACEMENT travels; an absent one stays absent so the stems decide', () => {
+      engine.flipSlur(slurId)
+      const clip = copyElement(engine, { kind: 'slur', id: slurId })!
+      expect(clip).toHaveProperty('placement')
+      const pasted = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2] }))!
+      expect(engine.getSlurById(pasted)?.placement).toBe(engine.getSlurById(slurId)?.placement)
+    })
+
+    it('🚨⛔ REFUSES where nothing sounds — a click on an empty bar is not a slur', () => {
+      // His report, 2026-08-20: clicking an empty bar drew a slur anyway, reaching forward however
+      // many bars it took to find two notes. ⭐ The start must be AT the anchor: a click resolves to
+      // the nearest slot boundary, so that is exactly what was pointed at — and a REST cannot anchor
+      // a slur.
+      const clip = copyElement(engine, { kind: 'slur', id: slurId })!
+      // ⭐ The anchor names no NOTE — which is exactly what a click on an empty bar produces, and
+      // what a slur must refuse (`PasteAnchor.noteId`).
+      engine.addMeasure()
+      const empty = engine.getScore().measures[engine.getScore().measures.length - 1].number
+      expect(pasteElement(engine, clip, { measure: empty, beat: frac(0, 1), staff: 0 })).toBeNull()
+      expect(engine.getScore().slurs, 'and nothing was written').toHaveLength(1)
+    })
+
+    it('⛔ …and where the lane runs out — a slur with one end is not a slur', () => {
+      // ⚠️ The LAST note of the score, ⛔ not merely the last of a bar: a span reaches through a
+      // barline like anything else. (This fixture's fifth quarter overflowed into bar 2.)
+      const last = engine.getScore().measures.find(m => m.number === 2)!.slots
+        .find(x => x.type === 'chord')!
+      const clip = copyElement(engine, { kind: 'slur', id: slurId })!
+      expect(pasteElement(engine, clip, {
+        measure: 2, beat: frac(0, 1), staff: 0,
+        noteId: (last as { notes: { id: string }[] }).notes[0].id,
+      })).toBeNull()
+    })
+  })
+
+  /**
    * ⭐⭐ THE HAIRPIN (his ask, 2026-08-20) — the first clip that is not a POINT. A wedge is an amount
    * of music, so its LENGTH is part of what makes it the mark it is and travels with it; the mouth
    * and the end nudges do not, being overrides keyed to the copied wedge's own id

@@ -2187,6 +2187,36 @@ export class MusicEngine {
     return created
   }
 
+  /**
+   * ⭐⭐ **Create the slur a COPIED one describes** — the same amount of music, starting at `at`.
+   *
+   * ⭐ A slur's identity is two NOTE IDS, which mean nothing anywhere else, so what a copy carries is
+   * its SPAN (`slurOps.slurSpanOf`) and this resolves it against the destination's own notes
+   * (`slurOps.slurEndsFrom` — the last note starting within the span, the ⛔ about rests included).
+   * ⛔ It starts from a NOTE, never an address: an address always resolves to something, which is how
+   * a paste into an empty bar drew a slur three bars long (his report, 2026-08-20).
+   * An explicit `placement` is reproduced too: it is a decision the user made, where an absent one
+   * lets the renderer read the stems.
+   *
+   * @returns the new slur, or null when there is nothing there to join.
+   */
+  createSlurOverSpan(
+    startNoteId: string,
+    span: Fraction,
+    placement?: 'above' | 'below',
+  ): Slur | null {
+    const ends = this.scoreModel.slurEndsFrom(startNoteId, span)
+    if (!ends) return null
+    const created = this.createSlur([ends.startNoteId, ends.endNoteId])
+    if (created && placement) this.scoreModel.setSlurPlacement(created.id, placement)
+    return created
+  }
+
+  /** How much music a slur covers, in quarter beats — what a COPY carries of it. */
+  slurSpanOf(id: string): Fraction | null {
+    return this.scoreModel.slurSpanOf(id)
+  }
+
   /** Remove a slur by id (the arc only — never the anchored notes). Saves undo
    *  state when removed. @returns true if a slur was removed. */
   removeSlur(id: string): boolean {

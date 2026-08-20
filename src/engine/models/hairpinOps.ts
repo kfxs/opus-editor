@@ -16,7 +16,7 @@
 import type { Fraction, Score, Hairpin, Measure, HairpinEndpointOffsetOverride, HairpinApertureOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
+import { measureCapacityFrac, measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { onSameStaff, sameScope, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
@@ -259,15 +259,6 @@ export function hairpinEndBeat(hairpin: Hairpin): Fraction {
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
-function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
-}
 
 /**
  * Create a hairpin covering the music from `start` to the END of `end` — the shape both doors to a
@@ -302,7 +293,7 @@ export function addHairpinOverNotes(
   end: { measure: number; beat: Fraction; length: Fraction },
   scope: { voice?: 0 | 1 | 2 | 3; staffId?: string } = {},
 ): Hairpin | null {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const absStart = starts.get(start.measure)
   const absEnd = starts.get(end.measure)
   if (absStart === undefined || absEnd === undefined) return null
@@ -365,7 +356,7 @@ function locate(score: Score, id: string): {
   const hairpin = span ? getHairpinById(score, id) : null
   if (!span || !hairpin) return null
 
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const startAbs = fracAdd(starts.get(span.startMeasure)!, span.startBeat)
   const endAbs = fracAdd(startAbs, hairpin.length)
 

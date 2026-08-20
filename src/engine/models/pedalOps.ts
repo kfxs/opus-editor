@@ -33,8 +33,8 @@
  */
 import type { Fraction, Score, Pedal, Measure, PedalOffsetOverride } from '@/types/music'
 import { v4 as uuidv4 } from 'uuid'
-import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
+import { fracCompare, fracAdd, fracSub, fracIsPositive } from '@/utils/fraction'
+import { measureCapacityFrac, measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
 import { matchesStaff } from './staffContent'
 import { pedalOffsetOverrideOf } from './engravingOverrides'
@@ -191,7 +191,7 @@ export function addPedalOverNotes(
   end: { measure: number; beat: Fraction; length: Fraction },
   staffId?: string,
 ): Pedal | null {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const absStart = starts.get(start.measure)
   const absEnd = starts.get(end.measure)
   if (absStart === undefined || absEnd === undefined) return null
@@ -437,7 +437,7 @@ function locate(score: Score, id: string): {
   const pedal = span ? getPedalById(score, id) : null
   if (!span || !pedal) return null
 
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const base = starts.get(span.startMeasure)
   if (base === undefined) return null
   const startAbs = fracAdd(base, span.startBeat)
@@ -598,15 +598,6 @@ export function resetPedalEndpointOffset(score: Score, id: string, which: 'start
 }
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
-function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
-}
 
 /**
  * ⭐ **THE LIFT**, as a beat within the pedal's own measure — i.e. `beat + length`, which for

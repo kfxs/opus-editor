@@ -558,6 +558,22 @@ export class ScoreModel {
     return dynamicOps.setDynamicVoiceScope(this.score, id, scope)
   }
 
+  /** How much music a slur covers, for a COPY. See {@link slurOps.slurSpanOf}. */
+  slurSpanOf(id: string): Fraction | null {
+    return slurOps.slurSpanOf(this.score, id)
+  }
+
+  /** The two notes a slur of `span` would join, starting at `startNoteId` — what a PASTE resolves.
+   *  See {@link slurOps.slurEndsFrom}. */
+  slurEndsFrom(startNoteId: string, span: Fraction): slurOps.SlurEnds | null {
+    return slurOps.slurEndsFrom(this.score, startNoteId, span)
+  }
+
+  /** Set which side of the notes a slur is drawn on. See {@link slurOps.setSlurPlacement}. */
+  setSlurPlacement(id: string, placement: 'above' | 'below'): boolean {
+    return slurOps.setSlurPlacement(this.score, id, placement)
+  }
+
   /** Set which voices a hairpin GOVERNS. {@link setDynamicVoiceScope}'s twin. */
   setHairpinVoiceScope(id: string, scope: VoiceScope): boolean {
     return hairpinOps.setHairpinVoiceScope(this.score, id, scope)

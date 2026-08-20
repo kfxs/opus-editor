@@ -51,6 +51,13 @@ export interface PasteAnchor {
    *  the staff*, so letting the anchor fill it in would narrow every pasted staff-wide mark
    *  (docs/dynamic-voice-scope-plan.md). The day a kind needs the selection's voice, this is it. */
   voice?: number
+  /**
+   * ⭐⭐ **The NOTE this anchor names, when it names one** — the earliest selected note, or the note a
+   * paste click landed on. ⛔ Absent for every anchor that points at a PLACE (a barline, a bar's
+   * downbeat, a click on empty staff), and a kind that needs a note must then refuse: an address can
+   * always be resolved to something, a note cannot (his reports on the slur paste, 2026-08-20).
+   */
+  noteId?: string
 }
 
 /** What the anchor needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -61,9 +68,25 @@ export function pasteAnchorFor(engine: PasteAnchorEngine, state: EditorState): P
   const noteIds = selectedNoteIds(state.selectedItems.values())
   if (noteIds.length > 0) {
     const at = earliestSelectedPosition(engine.getScore(), noteIds)
-    if (at) return at
+    // ⭐ …and WHICH note it was, for the kinds that need one rather than a place ({@link
+    // PasteAnchor.noteId}). The earliest is the anchor, so it is the earliest that is named.
+    if (at) return { ...at, ...(earliestNoteId(engine, noteIds, at) ?? {}) }
   }
   return anchorOfElement(engine, state.selectedElement)
+}
+
+/** Which of the selected notes sits at `at` — the one {@link earliestSelectedPosition} chose. ⛔ Not
+ *  re-derived by sorting again: the position is the answer, and this only names it. */
+function earliestNoteId(
+  engine: PasteAnchorEngine,
+  noteIds: string[],
+  at: PasteAnchor,
+): { noteId: string } | null {
+  for (const id of noteIds) {
+    const note = engine.getNote(id)
+    if (note && note.measure === at.measure && fracCompare(note.beat, at.beat) === 0) return { noteId: id }
+  }
+  return null
 }
 
 /** The nearest anchorable point to ONE selected element — the per-kind half of the rule above. */

@@ -2213,3 +2213,15 @@ is why our number is a third above its own nominal.
 4. ⛔ **Three things are now settled and must not be re-opened**: the tie's height (his call), the
    0.20 sp endpoint lift (already correct), and one weight shared with the slur (confirmed by two
    engines and Bravura).
+
+## 2026-08-20 — a slur can be COPIED and PASTED
+
+`Ctrl+C` on a selected slur, `Ctrl+V` at a note. What travels is its **span** (how much music it
+covered) and an explicit `placement`; the arc's shape does not — see
+`docs/element-copy-paste-plan.md`, which owns the rule (a PASSAGE keeps a mark's overrides, a lone
+element does not) and the two refusals his testing produced: the anchor must NAME a note, and a
+click qualifies only when it lands inside a note's ink.
+
+⭐ Three model ops carry it — `slurOps.slurSpanOf`, `slurOps.slurEndsFrom`, `slurOps.setSlurPlacement`
+— because a slur's identity is two note ids, which mean nothing at the destination.
+

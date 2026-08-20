@@ -1,3 +1,4 @@
+import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import type { Fraction, Score } from '../types/music'
 import type { Clip, ClipLane, ClipDynamic, ClipHairpin, ClipOttava, ClipPedal, ClipSlur, ClipSlurPitch, ClipTempo, ClipTrill, ClipTarget } from '../utils/clip'
 import type { EngravingOverride } from '../types/music'
@@ -88,19 +89,10 @@ export interface ClipboardPayload extends Clip {
 export type MarkFilter = (markId: string) => boolean
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
-function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
-}
 
 /** The sounding span [absStart, absEnd) of every selected flat note, in quarter beats. */
 function selectedSpans(score: Score, noteIds: Set<string>): { start: Fraction; end: Fraction }[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const spans: { start: Fraction; end: Fraction }[] = []
   for (const m of score.measures) {
     const mStart = starts.get(m.number)
@@ -128,7 +120,7 @@ function restShiftsInWindow(
   spanStart: Fraction,
   spanEnd: Fraction,
 ): Array<{ offset: Fraction; steps: number }> {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const staffId = keyStaffId(score, staff) // this lane's staff → key segment (undefined for staff 0)
   const out: Array<{ offset: Fraction; steps: number }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
@@ -158,7 +150,7 @@ function restHiddenInWindow(
   spanStart: Fraction,
   spanEnd: Fraction,
 ): Array<{ offset: Fraction }> {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const staffId = keyStaffId(score, staff) // this lane's staff → key segment (undefined for staff 0)
   const out: Array<{ offset: Fraction }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
@@ -188,7 +180,7 @@ function noteOffsetsInWindow(
   spanStart: Fraction,
   spanEnd: Fraction,
 ): Array<{ offset: Fraction; x: number; member?: number }> {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: Array<{ offset: Fraction; x: number; member?: number }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -232,7 +224,7 @@ function tremoloPairsInWindow(
   spanStart: Fraction,
   spanEnd: Fraction,
 ): Array<{ offset: Fraction; style?: 'joined' | 'open' }> {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: Array<{ offset: Fraction; style?: 'joined' | 'open' }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -267,7 +259,7 @@ function leadingSpacesInWindow(
   spanStart: Fraction,
   spanEnd: Fraction,
 ): Array<{ offset: Fraction; space: number }> {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: Array<{ offset: Fraction; space: number }> = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -315,7 +307,7 @@ function dynamicsInWindow(
   spanEnd: Fraction,
   wanted: MarkFilter,
 ): ClipDynamic[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: ClipDynamic[] = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -355,7 +347,7 @@ function temposInWindow(
   spanEnd: Fraction,
   wanted: MarkFilter,
 ): ClipTempo[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: ClipTempo[] = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -401,7 +393,7 @@ function hairpinsInWindow(
   spanEnd: Fraction,
   wanted: MarkFilter,
 ): ClipHairpin[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: ClipHairpin[] = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -448,7 +440,7 @@ function ottavasInWindow(
   spanEnd: Fraction,
   wanted: MarkFilter,
 ): ClipOttava[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: ClipOttava[] = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -486,7 +478,7 @@ function pedalsInWindow(
   spanEnd: Fraction,
   wanted: MarkFilter,
 ): ClipPedal[] {
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   const out: ClipPedal[] = []
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
@@ -528,7 +520,7 @@ function slursInWindow(
   // Endpoint note id → its absolute onset / staff / voice / pitch (non-rest notes only).
   type EP = { abs: Fraction; staff: number; voice: number; pitch: ClipSlurPitch }
   const info = new Map<string, EP>()
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
@@ -586,7 +578,7 @@ function trillsInWindow(
 
   type EP = { abs: Fraction; staff: number; voice: number; pitch: ClipSlurPitch }
   const info = new Map<string, EP>()
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
     const mStart = starts.get(m.number)
     if (!mStart) continue
@@ -713,7 +705,7 @@ export function buildClipboardFromSelection(
   const spaces = leadingSpacesInWindow(score, spanStart, spanEnd)
 
   // Origin = the (measure, beat) of the earliest selected note, for reference.
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   let origin = { measure: score.measures[0].number, beat: fracCreate(0, 1) }
   outer: for (const m of score.measures) {
     const mStart = starts.get(m.number)
@@ -743,7 +735,7 @@ export function buildClipboardFromSelection(
  *  two-projection gotcha). */
 export function earliestSelectedPosition(score: Score, noteIds: string[]): ClipTarget | null {
   const idSet = new Set(noteIds)
-  const starts = measureStartOffsets(score)
+  const starts = measureStarts(score.measures)
   let best: { measure: number; beat: Fraction; voice: number; staff: number; abs: Fraction } | null = null
   for (const m of score.measures) {
     const mStart = starts.get(m.number)

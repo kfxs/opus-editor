@@ -125,11 +125,15 @@ export class ClipboardController {
 
   /** Commit an armed paste at a clicked position (called by MouseController). `staff` is the
    *  0-based stacked staff the click landed on — the paste destination staff. */
-  pasteAt(measure: number, beat: Fraction, staff: number = 0): void {
+  pasteAt(measure: number, beat: Fraction, staff: number = 0, noteId?: string): void {
     this.state.pastePlacementArmed = false
     // Armed click → the active voice is the destination for a single-voice clip; the clicked
-    // staff is the destination staff.
-    const target = { measure, beat, voice: activeVoiceToModel(this.state.activeVoice), staff }
+    // staff is the destination staff. ⭐ `noteId` is the note the click landed ON, when it did: the
+    // kinds whose anchor must BE a note (the slur) refuse without it — see {@link PasteAnchor}.
+    const target = {
+      measure, beat, voice: activeVoiceToModel(this.state.activeVoice), staff,
+      ...(noteId ? { noteId } : {}),
+    }
     if (this.element) this.placeElementAt(target)
     else this.placeAt(target)
   }

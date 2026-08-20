@@ -178,8 +178,49 @@ offset): they are keyed by `{measureId}:…` rather than by a mark's id, they ri
 and its siblings, and what they are about is a PLACE in the destination — *"probably not for note
 spacing"*, his own exception.
 
+## 2026-08-20 (later) — the SLUR travels, and it must land ON a note
+
+His ask: *"i don't really need a body slur copy, but if we don't have it it's an inconsistency"* —
+`Ctrl+C` worked on a wedge and did nothing on a curve. His proposal was to make the paste re-run the
+normal slur creation, arming a stamp when nothing is selected; ⛔ there is no slur in `MarkingTool`,
+and a slur needs TWO anchors, so a stamp would be the editor's only two-click tool. What shipped
+keeps his outcome and reuses the existing blue-cursor click instead.
+
+- ⭐⭐ **A slur's identity is two NOTE IDS, which mean nothing anywhere else** — so what travels is
+  *"a slur over this much music"* (`slurOps.slurSpanOf`), and the paste resolves the far end against
+  the destination's own notes (`slurOps.slurEndsFrom`: the LAST note starting within the span, else
+  the next note; rests skipped, since ⛔ a rest cannot anchor a slur). A four-note slur therefore
+  pastes as a four-note slur — the hairpin's `length` rule, reached from the other side.
+- ⭐ **An explicit `placement` travels; an absent one stays absent**, so the stems keep deciding. The
+  arc's SHAPE does not travel — a lone element arrives at its anchor's default (the rule above).
+- 🚨🚨 **THE ANCHOR MUST NAME A NOTE** (`PasteAnchor.noteId`), and that is the whole of his two
+  reports. A paste into an EMPTY BAR drew a slur anyway, reaching forward however many bars it took
+  to find music: an address can always be resolved to *something*. And *"for slurring a note we
+  should be really close to the bbox of that note"* — so the click qualifies only when it lands
+  INSIDE a note's ink (`ElementRegistry.hitsNoteOrRestBody`), ⛔ not merely nearest to one. Absent a
+  note, the slur refuses and writes nothing.
+- ⭐ **The anchor carries it for the selection case too** (the earliest selected note), so the two
+  routes agree.
+
+### ⛔ …and one duplication removed on the way
+
+*"Are we duplicating code?"* — yes. **Where each bar begins on the score's one timeline** existed
+FOUR times (`layout/outsideStaffBand`, `models/hairpinOps`, `models/pedalOps`, a private copy in
+`interactions/clipboard`) and this feature had just written a fifth. They now all call
+`utils/measureCapacity.measureStartOffsets`, beside its float twin `measureStartQuarters`.
+⚠️ `outsideStaffBand`'s own comment had warned that *"a second copy of this walk is a second answer
+to where bar 7 begins"* — which is exactly what four copies are.
+
 ## Not done
 
+- ⏭️ **A "reset the overrides" action for a SELECTED PASSAGE** (his idea, 2026-08-20, on the rule
+  above: *"probably it is not a bad rule if in the future we can have a reset override in properties
+  to clear it when passages are selected"*). ⭐ It is what makes "a passage keeps everything" safe to
+  live with: the copy stays faithful, and undoing the shaping is one deliberate act instead of a
+  silent property of pasting. Where it would go: a model op over the range (every mark whose ANCHOR
+  is inside it, the copy window's own rule — `clearEngravingOverride(id)` per mark, one undo entry),
+  a row in the Properties window's passage report, and `Ctrl+Backspace` with a passage selected —
+  which is the chord every single-element reset already uses.
 - ~~🚨 **A PASSAGE copy still loses a wedge's shape.**~~ ✅ Done 2026-08-20, for every mark kind — see
   the section above. The old note read: `ClipHairpin` (`utils/clip.ts`) carries staff,
   voice, offset, length, type and placement — and no overrides, where `ClipDynamic` has carried
@@ -188,7 +229,7 @@ spacing"*, his own exception.
   three overrides (both end nudges + the mouth), and it has a second half — `rebarOps
   .restoreBeatAnchors` regenerates every mark's id on any rebar or paste, so an id-keyed override
   orphans unless it rides the capture/restore seam (docs/dynamic-offset-plan.md, P1).
-- Only the dynamic, the tempo mark and the hairpin travel. A clef or a meter would each be one row
-  (see above).
+- Only the dynamic, the tempo mark, the hairpin and the slur travel. A clef or a meter would each be
+  one row (see above).
 - No OS-clipboard interchange: the clip lives in the controller, like the music one.
 - Multi-select of elements is out of scope — `selectedElement` is deliberately ONE.

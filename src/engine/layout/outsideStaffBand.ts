@@ -45,8 +45,8 @@
  * are different passes, several steps apart, and neither calls the other.
  */
 import type { Fraction, Score } from '@/types/music'
-import { fracAdd, fracCompare, fracCreate } from '@/utils/fraction'
-import { measureCapacityFrac } from '@/utils/measureCapacity'
+import { fracCompare } from '@/utils/fraction'
+import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { mergeInkBands, type InkBand, type MarkInk, type StaffSide } from './inkBand'
 
 /**
@@ -83,15 +83,8 @@ export interface OccupiedSpan {
  * (It was `rendering/dynamicsLinePlan.ts`'s private helper first, where chaining needed exactly this
  * and nothing else did.)
  */
-export function measureStartOffsets(score: Score): Map<number, Fraction> {
-  const out = new Map<number, Fraction>()
-  let base = fracCreate(0, 1)
-  for (const m of [...score.measures].sort((a, b) => a.number - b.number)) {
-    out.set(m.number, base)
-    base = fracAdd(base, measureCapacityFrac(m))
-  }
-  return out
-}
+export const measureStartOffsets = (score: Score): Map<number, Fraction> =>
+  measureStarts(score.measures)
 
 /**
  * What a mark sitting on `baseline` actually occupies, from the ink extents it reports either side

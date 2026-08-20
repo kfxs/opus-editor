@@ -81,14 +81,39 @@ export interface HairpinElementClip {
   voice?: 0 | 1 | 2 | 3
 }
 
+/**
+ * A copied SLUR — its SPAN and which side it was drawn on (his ask, 2026-08-20).
+ *
+ * ⭐⭐ **A slur's identity is two NOTE IDS, and those mean nothing anywhere else** — which is why a
+ * curve could not travel at all until now, where a wedge could. What travels instead is *"a slur
+ * over this much music"*, and the paste resolves the two ends against the destination's own notes
+ * (`engine/models/slurOps.slurSpanAt`). ⚠️ A rule, not a promise: the destination's rhythm is its
+ * own, so the span may cover a different number of notes there — the same approximation the
+ * hairpin's `length` makes.
+ *
+ * ⛔ **The arc's SHAPE does not travel** — its endpoint nudges and its hand-pulled control points are
+ * overrides keyed by the copied slur's id, and a single element arrives at its anchor's default
+ * (the rule of 2026-08-20: a PASSAGE keeps the shaping, a lone element does not).
+ */
+export interface SlurElementClip {
+  kind: 'slur'
+  /** How much music it covered, in quarter beats. See {@link slurOps.slurSpanOf}. */
+  span: Fraction
+  /** ⭐ Only when it was DECIDED: an absent placement lets the renderer read the stems, and copying
+   *  an absence is what reproduces that. */
+  placement?: 'above' | 'below'
+}
+
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
-export type ElementClip = DynamicElementClip | TempoElementClip | HairpinElementClip
+export type ElementClip =
+  | DynamicElementClip | TempoElementClip | HairpinElementClip | SlurElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 export type ElementClipEngine = Pick<MusicEngine,
   'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
   | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
-  | 'getHairpinById' | 'addHairpin'>
+  | 'getHairpinById' | 'addHairpin'
+  | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -107,6 +132,12 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
       placement: hairpin.placement ?? 'below',
       ...(hairpin.voice !== undefined ? { voice: hairpin.voice } : {}),
     }
+  }
+  if (element?.kind === 'slur') {
+    const slur = engine.getSlurById(element.id)
+    const span = engine.slurSpanOf(element.id)
+    if (!slur || !span) return null
+    return { kind: 'slur', span, ...(slur.placement !== undefined ? { placement: slur.placement } : {}) }
   }
   if (element?.kind === 'tempo') {
     const mark = engine.getTempoMarkById(element.id)
@@ -165,6 +196,17 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'hairpin', id: created.id } : null
     }
+    case 'slur': {
+      // 🚨 **A slur needs a NOTE, and the anchor must NAME one** — ⛔ not merely point at a place.
+      // His two reports, 2026-08-20: a paste into an empty bar drew a slur anyway (an address
+      // resolves forward until it finds music), and *"for slurring a note we should be really close
+      // to the bbox of that note"*. The anchor carries `noteId` when the selection was a note or the
+      // click landed on one (`pasteAnchor`); when it does not, there is nothing to slur and this
+      // says so.
+      if (!anchor.noteId) return null
+      const created = engine.createSlurOverSpan(anchor.noteId, clip.span, clip.placement)
+      return created ? { kind: 'slur', id: created.id } : null
+    }
     case 'tempo': {
       // ⭐⭐ **THE ANCHOR IS THE TEMPO'S OWN, not the generic slot** (his ask): a tempo mark lands on
       // an ONSET — the same stops its walk uses — resolved AT-OR-AFTER the requested beat, because
@@ -196,6 +238,7 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
 
 /** A short human-readable line for the copy/paste console dump. */
 export function elementClipSummary(clip: ElementClip): string {
+  if (clip.kind === 'slur') return `slur over ${fracToNumber(clip.span)} beats`
   if (clip.kind === 'hairpin') {
     return `hairpin ${clip.type} of ${fracToNumber(clip.length)} beats (${clip.placement})`
   }
