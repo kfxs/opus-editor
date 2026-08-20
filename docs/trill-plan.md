@@ -1013,6 +1013,29 @@ arriving on the mouse, and both sides now run the SAME ports.
   belt-and-braces — it stays because it states the rule where the rule is decided, and the test says
   so rather than claiming the guard is what refused.
 
+### 🚨🚨 The BARE `tr` is a STATE, ⛔ not a big negative offset
+
+*"a `tr` with no extension should be copied and pasted as a `tr` with no extension — this is
+important because it is a use case the user wants to KEEP."*
+
+His score showed the trill carrying `endX: -15.4` and **no `extension` field at all**. Pulling the
+end back past the sign already DREW a bare `tr` — there is no room left for a wiggle, and §12's floor
+keeps the sign standing — but it stored an ink nudge, and a copy leaves ink behind by design. **What
+the eye called *a trill with no extension* and what the model called it had drifted apart.**
+
+⭐ So the ink crossing the sign now WRITES the state (`crossTheBareSign`), which is exactly what
+`Ctrl+Shift+←` has always done one step past the collapse — and a rightward press from the bare sign
+puts the line back. The keys and the mouse take the same rung, so a drag and N presses that go the
+same way end in the same STATE rather than in two that merely look alike.
+
+- ⚠️ **The end's own nudge is dropped with it**: `'none'` and a nudged end would be two ways of
+  saying one thing, and the one that travels is the state.
+- ⛔ **Only from the ONE-NOTE trill.** A trill still covering a run of notes loses its END first (the
+  ordinary walk) — the line is the only thing that says how long to keep trilling, so it cannot go
+  while there is musical extent left to give up.
+- ⭐ This restores by rule what the deleted `trillDragTargetAt` did by special case (§13's ⏭️), and it
+  is why the copy/paste round trip now holds for the state the user actually made.
+
 ### ⏭️ Left open (the whole trill feature)
 
 - No BAND limit on the vertical (the ladder is the limit in practice) — ⏭️ his eye.

@@ -312,6 +312,23 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
         .toBeTruthy()
     })
 
+    it('🚨🚨 A BARE `tr` COPIES AS A BARE `tr` — his call, 2026-08-20', () => {
+      // *"a `tr` with no extension should be copied and pasted as a `tr` with no extension — this is
+      // important because it is a use case the user wants to KEEP"*. ⛔⛔ `extension: 'none'` and an
+      // `endNoteId` contradict each other ({@link Trill.extension}), so the pair has to arrive in the
+      // right ORDER: no end asked for, then the line turned off.
+      const alone = engine.createTrill([ids[2]])!
+      engine.setTrillExtension(alone.id, 'none')
+      const clip = copyElement(engine, { kind: 'trill', id: alone.id })!
+      expect(clip).toMatchObject({ span: frac(0, 1), extension: 'none' })
+
+      const pasted = idOf(pasteElement(engine, clip, {
+        measure: 1, beat: frac(3, 1), staff: 0, noteId: ids[3],
+      }))!
+      expect(engine.getTrillById(pasted)?.extension, 'still a bare sign').toBe('none')
+      expect(engine.getTrillById(pasted)?.endNoteId, 'and no end, which is the other half').toBeUndefined()
+    })
+
     it('🚨⛔ REFUSES where the anchor names no NOTE — a trill is a sign ON a notehead', () => {
       // The slur's rule and its report: an address resolves forward until it finds music, so a paste
       // into an empty bar would ornament a note bars away.

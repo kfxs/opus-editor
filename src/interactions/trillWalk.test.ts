@@ -179,14 +179,40 @@ describe('walkArmedTrillEndpoint', () => {
     expect(offset('end'), 'every press was ink').toBeCloseTo(-15)
   })
 
-  it('⛔ the BARE `tr` does not walk — its end square has no line to carry', () => {
+  it('🚨🚨 THE INK CROSSING THE SIGN WRITES THE BARE `tr` — his call, 2026-08-20', () => {
+    // *"a `tr` with no extension should be copied and pasted as a `tr` with no extension — it is a
+    // use case the user wants to KEEP"*. Pulling the end back past the sign already DREW a bare `tr`
+    // (no room left for a wiggle) but stored it as an ink nudge, so a COPY — which leaves ink behind
+    // — brought the line back. ⭐ The look and the model had drifted apart; now the crossing writes
+    // the STATE, exactly as `Ctrl+Shift+←` always has.
+    // The one-note trill on D4: its line runs to E4 (300) and its sign sits on D4 (200), so ten
+    // spaces of leftward ink take the end back past the sign.
+    engine.setTrillAnchor(trillId, 'end', null)      // no musical extent left to give up
+    arm('end')
+    presses(9, -1)
+    expect(trill().extension, 'nine spaces of ink, still a line').toBeUndefined()
+    expect(press(-1), 'the tenth crosses the sign').toBe(true)
+    expect(trill().extension, 'the line is off').toBe('none')
+    expect(offset('end'), 'and its nudge went with it — two ways of saying one thing').toBeCloseTo(0)
+  })
+
+  it('⭐ …and from the bare sign a RIGHTWARD press puts the line back', () => {
     engine.setTrillAnchor(trillId, 'end', null)
     engine.setTrillExtension(trillId, 'none')
     arm('end')
-    presses(20, 1)
-    expect(trill().extension, 'still a bare sign').toBe('none')
-    expect(trill().endNoteId, 'and no end grew out of the walk').toBeUndefined()
-    expect(offset('end'), 'the press stayed the plain ink nudge it has always been').toBeCloseTo(20)
+    expect(press(0.25), 'the press is consumed by the state change').toBe(true)
+    expect(trill().extension, 'the line is back').toBeUndefined()
+    expect(offset('end'), 'at its natural length').toBeCloseTo(0)
+  })
+
+  it('⛔ a trill that still covers a RUN of notes loses its END first, never its line', () => {
+    // The line is the only thing that says how long to keep trilling, so it cannot go while there is
+    // still musical extent to give up: the walk collapses the end first (`trillReanchor`'s ladder,
+    // *end on a later note → … → end on the start → no line*). ⚠️ One big press, so the collapse
+    // cannot happen first and hide the guard.
+    arm('end')
+    expect(press(-50)).toBe(true)
+    expect(trill().extension, 'an explicit end still stands, so the line stays').toBeUndefined()
   })
 
   it('⛔ it stops where the model refuses — the start may not pass the end', () => {

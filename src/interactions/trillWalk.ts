@@ -70,6 +70,7 @@ export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
   | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
+  | 'setTrillExtension' | 'previewTrillExtension'
   | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset'
   | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
 
@@ -600,6 +601,13 @@ export function dragTrillEndpoint(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
+  // ⭐⭐ THE BARE `tr` — the same rung the keys take ({@link crossTheBareSign}), so a drag and a press
+  // that go the same way end in the same STATE rather than in two that merely look alike.
+  if (crossTheBareSign(engine, id, which, dxPx / staffSpacePx, {
+    extension: (to) => engine.previewTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
+  })) return { moved: true, jumped: false, droppedPx: 0 }
+
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
   // belongs on the other side of it long before it belongs to the staff beyond.
   if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
@@ -626,6 +634,89 @@ export function dragTrillEndpoint(
   }
 }
 
+/**
+ * ⭐⭐ **THE BARE `tr` IS A STATE, ⛔ NOT A BIG NEGATIVE OFFSET** — the leftmost rung of the END's
+ * walk, and now the same rung for the keys and the mouse.
+ *
+ * 🚨 His report, 2026-08-20: *"a `tr` with no extension should be copied and pasted as a `tr` with no
+ * extension — it is a use case the user wants to KEEP"*. Dragging the end back past the sign already
+ * DREW a bare `tr` (the wiggle has no room left), but it stored `endX: -15.4` — an ink nudge — so a
+ * copy, which deliberately leaves ink behind, brought the line back. What the eye called *"a trill
+ * with no extension"* and what the model called it had drifted apart.
+ *
+ * ⭐ So the ink crossing the sign WRITES the state ({@link Trill.extension}), which is exactly what
+ * `Ctrl+Shift+←` has always done one step past the collapse — and the reverse restores the line. The
+ * two routes now agree, which is this family's own rule.
+ *
+ * ⚠️ **The end's own nudge is dropped with it**: `'none'` and a nudged end would be two ways of
+ * saying the same thing, and the one that travels is the state.
+ *
+ * @returns true when this press became the state change (the caller then stops).
+ */
+function crossTheBareSign(
+  engine: TrillWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  dx: number,
+  write: { extension: (to: 'none' | undefined) => boolean; nudge: (dx: number, dy: number) => boolean },
+): boolean {
+  if (which !== 'end') return false
+  const trill = engine.getTrillById(id)
+  if (!trill) return false
+
+  // ⭐ FROM the bare sign: a rightward press puts the line back on the same note; leftward is the
+  // floor, since there is nothing shorter than a sign on its own.
+  if (trill.extension === 'none') {
+    return dx > 0 && write.extension(undefined)
+  }
+  if (dx >= 0) return false
+
+  // …and INTO it: only from the one-note trill, where there is no musical extent left to give up.
+  // ⛔ A trill that still covers a run of notes loses its END first (the ordinary walk), never its
+  // line — the line is the only thing that says how long to keep trilling.
+  if (trill.endNoteId !== undefined) return false
+
+  const ink = endInkPastSign(engine, id, dx)
+  if (ink === null || !ink.past || !write.extension('none')) return false
+  const offset = trillOffsetOverrideOf(engine.getScore(), id)?.endX ?? 0
+  if (offset) write.nudge(-offset, 0)
+  dbg(`[Trill] the line is off | id:${id} → a bare tr`)
+  return true
+}
+
+/** Would this press take the END's drawn ink back past the SIGN's? Both read on the ribbon, with
+ *  their own nudges in — ⛔ the drawn fragments cannot answer across a fold. */
+function endInkPastSign(
+  engine: TrillWalkEngine,
+  id: string,
+  dx: number,
+): { past: boolean } | null {
+  const lane = laneOf(engine, id)
+  const staff = trillStaff(engine, id)
+  const trill = engine.getTrillById(id)
+  const ss = trillStaffSpacePx(engine.getElementRegistry(), id)
+  if (!lane || staff === null || !trill || !ss) return null
+
+  const at = anchorIndex(engine, id, 'start', lane)
+  const endAt = anchorIndex(engine, id, 'end', lane)
+  if (at === -1 || endAt === -1) return null
+  const registry = engine.getElementRegistry()
+  const signX = trillSquareBaseX(registry, lane, 'start', at, staff)
+  const endX = trillSquareBaseX(registry, lane, 'end', endAt, staff)
+  const signM = trillSquareMeasure(lane, at)
+  const endM = trillSquareMeasure(lane, endAt)
+  if (signX === null || endX === null || signM === null || endM === null) return null
+
+  const sign = trillRibbonX(engine, staff, signM, signX)
+  const end = trillRibbonX(engine, staff, endM, endX)
+  if (sign === null || end === null) return null
+
+  const nudge = trillOffsetOverrideOf(engine.getScore(), id)
+  const signInk = sign + (nudge?.startX ?? 0) * ss
+  const endInk = end + ((nudge?.endX ?? 0) + dx) * ss
+  return { past: endInk <= signInk }
+}
+
 export function walkArmedTrillEndpoint(
   state: EditorState,
   engine: TrillWalkEngine,
@@ -636,7 +727,12 @@ export function walkArmedTrillEndpoint(
   if (!selected || !which || dx === 0) return false
 
   const port = trillPort(engine, selected.id, which, keyWrites(engine, selected.id, which))
-  // ⛔ The BARE `tr` does not walk — see the header. Its end square has no line to carry.
+  // ⭐⭐ THE BARE `tr`, the END's leftmost rung — see {@link crossTheBareSign}.
+  if (crossTheBareSign(engine, selected.id, which, dx, {
+    extension: (to) => engine.setTrillExtension(selected.id, to),
+    nudge: (ddx, ddy) => engine.nudgeTrillEndpoint(selected.id, 'end', ddx, ddy),
+  })) return true
+  // ⛔ …and with no line there is nothing to walk: the press stays the plain ink nudge it was.
   if (engine.getTrillById(selected.id)?.extension === 'none' && which === 'end') {
     return inkPress(engine, selected.id, port, dx)
   }
