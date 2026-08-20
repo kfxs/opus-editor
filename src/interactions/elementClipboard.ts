@@ -11,8 +11,8 @@
  *
  * ⭐ **A second kind is a ROW here**, not a branch somewhere else: the union grows an arm, `copyElement`
  * grows a case that reads the model, `pasteElement` grows the case that writes it. The dynamic (which
- * is what an *expression* is in this model — the mark IS its text, see `types/music.ts` `Dynamic`)
- * and the TEMPO mark travel today; a clef or a meter would slot in the same way.
+ * is what an *expression* is in this model — the mark IS its text, see `types/music.ts` `Dynamic`),
+ * the TEMPO mark and the HAIRPIN travel today; a clef or a meter would slot in the same way.
  *
  * ⭐⭐ **AND THE PASTE ASKS THE KIND WHERE IT MAY LAND.** A dynamic hangs off a slot of its own lane,
  * so the generic anchor is already its answer; a tempo mark lands on an ONSET, at-or-after the
@@ -26,10 +26,11 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { NoteDuration, TempoMark } from '../types/music'
+import type { Fraction, NoteDuration, TempoMark } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
 import { tempoAnchorAt, tempoAtStop } from '../engine/models/tempoOps'
+import { fracToNumber } from '../utils/fraction'
 
 /** A copied DYNAMIC — a level (`f`), an expression word (`dolce`) or a mix of both. */
 export interface DynamicElementClip {
@@ -57,13 +58,37 @@ export interface TempoElementClip {
   bpm?: number
 }
 
+/**
+ * A copied HAIRPIN (his ask, 2026-08-20). ⭐⭐ **Its LENGTH travels**, and that is the whole
+ * difference from the two marks above: a wedge is not a point but an AMOUNT OF MUSIC, so what makes
+ * it the mark it is includes how far it reaches ({@link Hairpin.length}). The paste lands its START
+ * at the anchor and the extent follows, exactly as `hairpinOps.setHairpinAtSlot` moves one.
+ *
+ * ⛔ **The MOUTH does not travel**, nor either end's nudge: all three live in the engraving-overrides
+ * compartment keyed by the copied wedge's id, and that id is what a paste never reuses. The new
+ * wedge therefore opens at the automatic, length-aware aperture — the honest answer, since a
+ * hand-set mouth was authored against the old wedge's length.
+ */
+export interface HairpinElementClip {
+  kind: 'hairpin'
+  /** Which wedge: 'cresc' opens to the right, 'dim' closes to the right. */
+  type: 'cresc' | 'dim'
+  /** How much music it covers, in quarter-note beats — the same unit as `Hairpin.length`. */
+  length: Fraction
+  placement: 'above' | 'below'
+  /** ⭐ The SCOPE it governed — absent = every voice of its staff, and it travels verbatim, exactly
+   *  as a dynamic's does ({@link DynamicElementClip.voice}). */
+  voice?: 0 | 1 | 2 | 3
+}
+
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
-export type ElementClip = DynamicElementClip | TempoElementClip
+export type ElementClip = DynamicElementClip | TempoElementClip | HairpinElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 export type ElementClipEngine = Pick<MusicEngine,
   'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
-  | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'>
+  | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
+  | 'getHairpinById' | 'addHairpin'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -71,6 +96,17 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
     const dynamic = engine.getDynamicById(element.id)
     if (!dynamic) return null
     return { kind: 'dynamic', text: dynamic.text, placement: dynamic.placement ?? 'below', voice: dynamic.voice }
+  }
+  if (element?.kind === 'hairpin') {
+    const hairpin = engine.getHairpinById(element.id)
+    if (!hairpin) return null
+    return {
+      kind: 'hairpin',
+      type: hairpin.type,
+      length: hairpin.length,
+      placement: hairpin.placement ?? 'below',
+      ...(hairpin.voice !== undefined ? { voice: hairpin.voice } : {}),
+    }
   }
   if (element?.kind === 'tempo') {
     const mark = engine.getTempoMarkById(element.id)
@@ -109,6 +145,26 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'dynamic', id: created.id } : null
     }
+    case 'hairpin': {
+      // ⭐ The generic anchor IS a wedge's answer: a hairpin begins on a slot of its own lane, the
+      // same address a dynamic hangs off — ⛔ unlike a tempo mark, which must find an ONSET because
+      // its ink is engraved on one.
+      //
+      // ⚠️ **The LENGTH is taken as it was copied**, ⛔ never trimmed to what is left in the score: a
+      // span running past the music is clamped where it is READ (`hairpinOps.hairpinSpan`), so a
+      // wedge pasted near the end draws short and grows back if it is moved home — where trimming
+      // here would quietly throw the music away.
+      const staffId = engine.staffIdForIndex(anchor.staff)
+      const created = engine.addHairpin(anchor.measure, {
+        beat: anchor.beat,
+        length: clip.length,
+        type: clip.type,
+        placement: clip.placement,
+        ...(clip.voice !== undefined ? { voice: clip.voice } : {}),
+        ...(staffId ? { staffId } : {}),
+      })
+      return created ? { kind: 'hairpin', id: created.id } : null
+    }
     case 'tempo': {
       // ⭐⭐ **THE ANCHOR IS THE TEMPO'S OWN, not the generic slot** (his ask): a tempo mark lands on
       // an ONSET — the same stops its walk uses — resolved AT-OR-AFTER the requested beat, because
@@ -140,6 +196,9 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
 
 /** A short human-readable line for the copy/paste console dump. */
 export function elementClipSummary(clip: ElementClip): string {
+  if (clip.kind === 'hairpin') {
+    return `hairpin ${clip.type} of ${fracToNumber(clip.length)} beats (${clip.placement})`
+  }
   const how = clip.kind === 'dynamic' ? ` (${clip.placement})` : ''
   return `${clip.kind} "${clip.text ?? ''}"${how}`
 }

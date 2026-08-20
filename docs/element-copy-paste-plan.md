@@ -130,8 +130,36 @@ is what "anchor to the selection" means, and the model allows co-located marks (
 **Sibling:** `docs/passage-selection-marks.md` — what a passage box selects (and highlights), and
 why a paste now selects every mark it wrote, not only its notes.
 
+## 2026-08-20 — the HAIRPIN travels
+
+His ask: *"if i have just a hairpin selected i want to be able to copy and then paste it; if
+something is selected on paste we use it as anchor (or near), if nothing is selected we just make the
+blue cursor and get the coordinates from the click"* — which is the behaviour that already existed,
+so the wedge is what the plan above calls a ROW: an arm on `ElementClip`, a case in `copyElement`,
+a case in `pasteElement`.
+
+- ⭐⭐ **It is the first clip that is not a POINT, so its LENGTH travels** (*"we should not copy the
+  override but probably we should copy the length"*, his call). A wedge is an amount of music: how
+  far it reaches is part of what makes it the mark it is, and the paste lands its START at the anchor
+  with the extent following. ⛔ The length is never trimmed to what is left in the score — a span
+  running past the music is clamped where it is READ (`hairpinOps.hairpinSpan`), so a wedge pasted
+  near the end draws short and grows back if it is moved home, where trimming would throw music away.
+- ⭐ **The generic anchor is already a wedge's answer**: a hairpin begins on a slot of its own lane,
+  the address a dynamic hangs off — ⛔ unlike a tempo mark, which must find an ONSET.
+- ⛔ **Neither end's nudge nor the hand-set MOUTH travels**, all three being overrides keyed to the
+  copied wedge's id, which a paste never reuses. The new wedge opens at the automatic, length-aware
+  aperture: a mouth authored against another length means nothing here.
+
 ## Not done
 
-- Only the dynamic and the tempo mark travel. A clef or a meter would each be one row (see above).
+- 🚨 **A PASSAGE copy still loses a wedge's shape.** `ClipHairpin` (`utils/clip.ts`) carries staff,
+  voice, offset, length, type and placement — and no overrides, where `ClipDynamic` has carried
+  `engravingOffset` since 2026-07-19. His call, 2026-08-20: with the whole context copied the nudge
+  still means what it meant, so it SHOULD travel there. That is the dynamic's pattern applied to
+  three overrides (both end nudges + the mouth), and it has a second half — `rebarOps
+  .restoreBeatAnchors` regenerates every mark's id on any rebar or paste, so an id-keyed override
+  orphans unless it rides the capture/restore seam (docs/dynamic-offset-plan.md, P1).
+- Only the dynamic, the tempo mark and the hairpin travel. A clef or a meter would each be one row
+  (see above).
 - No OS-clipboard interchange: the clip lives in the controller, like the music one.
 - Multi-select of elements is out of scope — `selectedElement` is deliberately ONE.

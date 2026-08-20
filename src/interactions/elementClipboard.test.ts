@@ -5,7 +5,7 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { levelToGlyphString } from '../utils/dynamics'
 
 /**
- * COPY/PASTE of one selected element — an expression (a dynamic), and a TEMPO mark.
+ * COPY/PASTE of one selected element — an expression (a dynamic), a TEMPO mark, and a HAIRPIN.
  *
  * Subject: {@link elementClipboard}, sitting beside this file. Real engine, stubbed renderer and
  * playback: what a clip carries and what a paste writes are both model facts.
@@ -25,6 +25,11 @@ vi.mock('../engine/audio/PlaybackEngine', () => ({
     setScore = vi.fn(); play = vi.fn(); pause = vi.fn(); stop = vi.fn(); setVolume = vi.fn(); onStateChange = vi.fn()
   },
 }))
+
+/** The id of whatever a paste left selected — ⚠️ `SelectedElement` is a union and two of its arms
+ *  (a barline, a measure range) name a place rather than a thing, so `.id` is not total over it. */
+const idOf = (element: ReturnType<typeof pasteElement>): string | null =>
+  (element && 'id' in element ? element.id : null)
 
 describe('elementClipboard', () => {
   let engine: MusicEngine
@@ -162,5 +167,65 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
     pasteElement(engine, clip, { measure: 1, beat: frac(2, 1) })
     pasteElement(engine, clip, { measure: 2, beat: frac(0, 1) })
     expect(tempos()).toEqual(['1@0:Allegro', '1@2:Allegro', '2@0:Allegro'])
+  })
+
+  /**
+   * ⭐⭐ THE HAIRPIN (his ask, 2026-08-20) — the first clip that is not a POINT. A wedge is an amount
+   * of music, so its LENGTH is part of what makes it the mark it is and travels with it; the mouth
+   * and the end nudges do not, being overrides keyed to the copied wedge's own id
+   * (*"we should not copy the override but probably we should copy the length"*, his words).
+   */
+  describe('a hairpin', () => {
+    let wedgeId: string
+    /** Every wedge in the score as `measure@beat:type/length`. */
+    const wedges = () => engine.getScore().measures.flatMap(m =>
+      (m.hairpins ?? []).map(h => `${m.number}@${fracToNumber(h.beat)}:${h.type}/${fracToNumber(h.length)}`))
+
+    beforeEach(() => {
+      engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+      wedgeId = engine.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+    })
+
+    it('⭐⭐ copies the wedge WITH its length — a hairpin is an amount of music', () => {
+      const clip = copyElement(engine, { kind: 'hairpin', id: wedgeId })
+      expect(clip).toEqual({ kind: 'hairpin', type: 'cresc', length: frac(2, 1), placement: 'below' })
+      expect(clip).not.toHaveProperty('id')
+    })
+
+    it('⛔ …and NOT the drawing: neither end nudge nor the hand-set mouth', () => {
+      engine.nudgeHairpinEndpoint(wedgeId, 'end', 2, -1)
+      engine.setHairpinAperture(wedgeId, 1.8)
+      const clip = copyElement(engine, { kind: 'hairpin', id: wedgeId })!
+
+      const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(engine.getScore().engravingOverrides?.[idOf(pasted)!], 'the new wedge carries none')
+        .toBeUndefined()
+    })
+
+    it('⭐ pastes at the anchor, keeping the extent', () => {
+      const clip = copyElement(engine, { kind: 'hairpin', id: wedgeId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(wedges()).toEqual(['1@0:cresc/2', '1@2:cresc/2'])
+    })
+
+    it('⭐ …and it is a NEW wedge every time, so one copy pastes many', () => {
+      const clip = copyElement(engine, { kind: 'hairpin', id: wedgeId })!
+      const first = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(1, 1), staff: 0 }))
+      const second = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 }))
+      expect(first).not.toBe(second)
+      expect(first).not.toBe(wedgeId)
+    })
+
+    it('⭐ the SCOPE travels verbatim — an absent one stays absent (staff-wide)', () => {
+      const scoped = engine.addHairpin(1, { type: 'dim', beat: frac(1, 1), length: frac(1, 1), voice: 2 })!
+      expect(copyElement(engine, { kind: 'hairpin', id: scoped.id })).toMatchObject({ voice: 2 })
+      expect(copyElement(engine, { kind: 'hairpin', id: wedgeId })).not.toHaveProperty('voice')
+    })
+
+    it('⛔ copies nothing for a wedge that is no longer in the score', () => {
+      engine.removeHairpin(wedgeId)
+      expect(copyElement(engine, { kind: 'hairpin', id: wedgeId })).toBeNull()
+    })
   })
 })
