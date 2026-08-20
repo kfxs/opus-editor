@@ -88,6 +88,18 @@ export interface MarkWalkPort {
   reanchor(stop: MarkStop): boolean
   /** Move the ink by a staff-space delta. False = refused (the page limit). */
   nudge(dx: number, dy: number): boolean
+  /**
+   * ⭐⭐ **THE RE-BASE — the same write, but it is BOOKKEEPING and must not be refused.** Optional;
+   * a port that omits it gets {@link nudge}, which is what the first two marks here still use.
+   *
+   * 🚨 The crossing pair (anchor := next stop, offset −= gap) leaves the DRAWN position untouched —
+   * that is the whole design. So a rule about where INK may go has no business judging the second
+   * half of it: the page limit measures the delta against the LAST RENDER, where the anchor has not
+   * moved yet, and reads a re-base as a hand shoving the mark half a bar sideways. When it refuses,
+   * the anchor has moved and the offset has not, so the next press crosses again — a RUNAWAY to the
+   * end of the road (his report on the hairpin, 2026-08-20).
+   */
+  rebase?(dx: number): boolean
   /** For the log line, so a reader can tell which family walked. */
   label: string
 }
@@ -150,7 +162,9 @@ export function carryMark(
     if (!port.reanchor(arrival.stop)) break
     // The anchor has absorbed one gap, so the offset gives it up. The drawn mark is unchanged by the
     // pair, which is the whole design; `dx` is untouched and still has its journey to make.
-    port.nudge(-arrival.gap, 0)
+    // ⚠️ Through `rebase` where the port has one — see the interface: this write must not be refused.
+    if (port.rebase) port.rebase(-arrival.gap)
+    else port.nudge(-arrival.gap, 0)
     dbg(`[${port.label}] walked onto its next stop (gap ${arrival.gap.toFixed(2)}ss)`)
   }
   // ⭐⭐ THE LATCH — see the header. The move is CUT SHORT: whatever travel is left over is dropped,

@@ -178,7 +178,10 @@ describe('walkHairpinEndpoint', () => {
     expect(offset('start').x).toBeCloseTo(0)
     for (let i = 0; i < 5; i++) walkHairpinEndpoint(engine, wedgeId, 'start', -1)
     expect(span().beat, 'never off the front').toBe(0)
-    expect(offset('start').x).toBeCloseTo(-5)
+    // ⭐ And the ink stops at the line's own start (90, one space left of the first note): past it
+    // there is no more staff to draw on and — this being the first bar of the score — nothing to
+    // wrap onto either.
+    expect(offset('start').x).toBeCloseTo(-1)
   })
 
   it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {
@@ -339,6 +342,53 @@ describe('walkHairpinEndpoint', () => {
       expect(offset('end').y).toBeCloseTo(-2)
     })
 
+    it('🚨🚨 a START that has wrapped BACK can keep walking — the ink is `anchor + offset`', () => {
+      // His report, 2026-08-20: walking the left square back over a break, every press after the wrap
+      // was refused and the wedge froze. A wedge whose start has just wrapped begins at the very END
+      // of the previous line, so the piece drawn there has NO WIDTH and is not registered — and
+      // reading "the first fragment" then returned the piece on the NEXT system, a small x judged
+      // against the previous system's edges. ⛔ Never read the ink off a fragment.
+      twoSystems()
+      // A second wedge, this one living on the LOWER system: from bar 2's second note, one beat long.
+      const lower = engine.addHairpin(2, { type: 'cresc', beat: frac(1, 1), length: frac(1, 1) })!.id
+      // …drawn on that system, so the walk has a staff-space size to measure with.
+      drawn.entries.push({
+        type: 'hairpin', id: lower, staff: 0, measure: 2,
+        bbox: { x: 200, y: 290, width: 100, height: 8 },
+        points: [{ x: 200, y: 290 }, { x: 300, y: 288 }, { x: 300, y: 298 }, { x: 200, y: 290 }],
+      })
+      const startOf = (id: string) => {
+        for (const m of engine.getScore().measures) {
+          const h = m.hairpins?.find(w => w.id === id)
+          if (h) return { measure: m.number, beat: fracToNumber(h.beat) }
+        }
+        return null
+      }
+      const inkOf = (id: string) =>
+        hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start?.x ?? 0
+
+      // Ten presses walk its start onto bar 2's first note; two more push the ink past that line's
+      // own start, and it wraps over the break.
+      for (let i = 0; i < 12; i++) walkHairpinEndpoint(engine, lower, 'start', -1)
+      expect(startOf(lower), 'it wrapped onto the previous system').toEqual({ measure: 1, beat: 3 })
+
+      // ⚠️ THE FIXTURE IS THE BUG: after the wrap the only piece with any width is the one on the
+      // LOWER system, running from its left margin (90) — the piece on the upper system is a point at
+      // that line's end and is not registered at all. Reading the ink off "the first fragment" then
+      // measures 90 against the UPPER system's edges, and refuses every press.
+      drawn.entries = drawn.entries.filter(e => e.id !== lower)
+      drawn.entries.push({
+        type: 'hairpin', id: lower, staff: 0, measure: 2,
+        bbox: { x: 90, y: 290, width: 210, height: 8 },
+        points: [{ x: 90, y: 290 }, { x: 300, y: 288 }, { x: 300, y: 298 }, { x: 90, y: 290 }],
+      })
+
+      // ⭐ The press that used to be refused: the walk needs no fragment to know where its ink is.
+      const before = inkOf(lower)
+      expect(walkHairpinEndpoint(engine, lower, 'start', -1), 'still moving').toBe(true)
+      expect(inkOf(lower)).toBeLessThan(before)
+    })
+
     it('⛔ …but with nothing to extend onto, the ink stops at the line’s end', () => {
       // Bar 2 undrawn: no way to show the stop is across a break rather than simply ahead, so the
       // limit applies and the press is REFUSED — ⛔ never clamped, and it may always come back.
@@ -358,13 +408,13 @@ describe('walkHairpinEndpoint', () => {
   describe('the mouse', () => {
     it('⭐⭐ one frame lands exactly where the same distance in presses does', () => {
       // Ten spaces = the gap between two boundaries, so both roads cross once and land on the stop.
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -100)).toEqual({ moved: true, wrapped: false })
       expect(span()).toEqual({ beat: 0, length: 2 })
       expect(offset('end').x).toBeCloseTo(0, 6)
     })
 
     it('⭐ …and it can PARK the tip between two boundaries, which the old snap could not', () => {
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -35)).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -35)?.moved).toBe(true)
       expect(span(), 'the model has not moved').toEqual({ beat: 0, length: 3 })
       expect(offset('end').x, 'the ink has').toBeCloseTo(-3.5, 6)
     })
@@ -376,7 +426,7 @@ describe('walkHairpinEndpoint', () => {
       // would cross onto it — which the next assertion would then be measuring instead.)
       dragHairpinEndpoint(engine, wedgeId, 'end', 20)
       expect(offset('end').x).toBeCloseTo(2, 6)
-      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -40)).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'end', -40)?.moved).toBe(true)
       expect(offset('end').x, 'stopped dead on its anchor').toBeCloseTo(0, 6)
       expect(span(), 'and it did not cross').toEqual({ beat: 0, length: 3 })
     })
@@ -393,8 +443,26 @@ describe('walkHairpinEndpoint', () => {
       expect(offset('end').x).toBe(0)
     })
 
+    it('⭐⭐ a frame that WRAPS says so, and that ends the gesture (the caller drops the drag)', () => {
+      // His call, 2026-08-20: the tip is a line below and the hand is not, so the drag is over —
+      // *"if the user wants to keep extending he has to go with the mouse to the next system"*.
+      // ⛔ The KEYS do not stop, of course: they have no cursor to be in the wrong place.
+      const notes = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+      render([100, 200, 300, 400], 10, 400)
+      drawn.systemTop = { 1: 40, 2: 240 }
+      notes.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      engine.setHairpinLength(wedgeId, frac(4, 1))   // ends on bar 1's barline
+
+      const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 10)
+      expect(frame).toEqual({ moved: true, wrapped: true })
+      expect(span(), 'and the wedge has its new piece over there').toEqual({ beat: 0, length: 5 })
+    })
+
     it('⭐ the LEFT square drags the same way', () => {
-      expect(dragHairpinEndpoint(engine, wedgeId, 'start', 100)).toBe(true)
+      expect(dragHairpinEndpoint(engine, wedgeId, 'start', 100)?.moved).toBe(true)
       expect(span(), 'the start moved one slot, its end held').toEqual({ beat: 1, length: 2 })
     })
   })

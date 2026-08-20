@@ -2886,15 +2886,21 @@ export class MouseController {
     if (!(this.isDraggingHairpinEnd && this.draggedHairpinId && this.draggedHairpinEnd)) return false
     if (this.hairpinDragStartTime !== null
         && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const moved = dragHairpinEndpoint(
+    const frame = dragHairpinEndpoint(
       engine, this.draggedHairpinId, this.draggedHairpinEnd, x - this.hairpinEndLastX)
     // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (moved === null) return true
-    if (moved) {
+    if (frame === null) return true
+    if (frame.moved) {
       this.hairpinEndLastX = x
       this.hairpinDragChanged = true
       this.render.renderScore()
     }
+    // ⭐⭐ **A WRAP ENDS THE GESTURE** — his call, 2026-08-20. That end is now on the NEXT system and
+    // the hand is still on this one, so every further pixel would move it by a distance measured
+    // against a system it has left. The drop is taken here: the wedge keeps its small new piece over
+    // there, and carrying on means going to it with the mouse. ⚠️ The square stays ARMED, so the
+    // arrows can continue from where the mouse stopped.
+    if (frame.wrapped) this.endHairpinEndDrag()
     return true
   }
 

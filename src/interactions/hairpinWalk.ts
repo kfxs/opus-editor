@@ -31,8 +31,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from '../engine/models/hairpinOps'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  hairpinBoundaryX, hairpinEndAddress, hairpinInkX, hairpinStartAddress, hairpinSystemInkLimit,
-  hairpinTipX,
+  hairpinBoundaryX, hairpinEndAddress, hairpinStartAddress, hairpinSystemInkLimit, hairpinTipX,
 } from './hairpinLane'
 import { hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { carryMark, markWalkCrosses, type MarkStop, type MarkWalkPort } from './markWalk'
@@ -43,7 +42,8 @@ export type HairpinWalkEngine = Pick<MusicEngine,
   'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextHairpinStartSlot' | 'moveHairpinStartToSlot'
   | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
-  | 'nudgeHairpinEndpoint' | 'previewHairpinEnd' | 'previewHairpinEndpointOffset'>
+  | 'nudgeHairpinEndpoint' | 'rebaseHairpinEndpointOffset'
+  | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -56,6 +56,10 @@ interface HairpinWrite {
   moveStart: (target: HairpinSlotTarget) => boolean
   moveEnd: (stop: HairpinDragWrite) => boolean
   nudge: (dx: number, dy: number) => boolean
+  /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
+   *  the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
+   *  crosses again. */
+  rebase: (dx: number) => boolean
 }
 
 /** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
@@ -65,6 +69,7 @@ function keyWrites(engine: HairpinWalkEngine, id: string, which: 'start' | 'end'
     moveStart: (target) => engine.moveHairpinStartToSlot(id, target),
     moveEnd: (stop) => engine.moveHairpinEndToStop(id, stop),
     nudge: (dx, dy) => engine.nudgeHairpinEndpoint(id, which, dx, dy),
+    rebase: (dx) => engine.rebaseHairpinEndpointOffset(id, which, dx),
   }
 }
 
@@ -74,6 +79,7 @@ function previewWrites(engine: HairpinWalkEngine, id: string, which: 'start' | '
     moveStart: (target) => engine.previewHairpinEnd(id, { at: 'start', ...target }),
     moveEnd: (stop) => engine.previewHairpinEnd(id, stop),
     nudge: (dx, dy) => engine.previewHairpinEndpointOffset(id, which, dx, dy),
+    rebase: (dx) => engine.previewHairpinEndpointRebase(id, which, dx),
   }
 }
 
@@ -94,6 +100,7 @@ function port(
     staffSpacePx: () => hairpinStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () => hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.[which]?.x ?? 0,
     nudge: (dx, dy) => write.nudge(dx, dy),
+    rebase: (dx) => write.rebase(dx),
   }
 }
 
@@ -246,28 +253,36 @@ function stopAddress(stop: MarkStop): HairpinSlotTarget {
 }
 
 /**
- * 🚨 **HOW FAR THE INK MAY GO WHEN THERE IS NOWHERE TO GO** — the same edge read by
- * {@link stopAcrossTheBreak}, used the other way: at the very end of the lane (or where the last
- * render drew no next stop to jump to) the arrow would otherwise push the drawing off the staff with
- * the music standing still, which is the second half of his 2026-08-20 report.
+ * 🚨 **HOW FAR THE INK MAY GO WHEN THERE IS NOWHERE TO GO** — the same system edges
+ * {@link crossingTheBreak} measures to, used the other way: at the end of the lane (or where the
+ * last render drew no stop to wrap onto) the arrow would otherwise push the drawing off the staff
+ * with the music standing still.
  *
  * ⭐ It REFUSES the write; ⛔ it never clamps the drawing — `MusicEngine.nudgeStaysOnPage`'s rule,
  * including its escape hatch: ink already outside (a re-flow moved the line under it) may always be
  * nudged BACK, or the mark would be stranded. ⛔ And it allows freely when the wedge or its staff was
  * not drawn — no picture, no limit.
+ *
+ * 🚨🚨 **WHERE THE INK IS, IS `anchor + offset` — ⛔ never the drawn fragment.** His report,
+ * 2026-08-20: a start walked back over a break went dead, every press refused. A wedge whose start
+ * has just wrapped begins at the very END of its line, so the piece drawn there has no width and is
+ * not registered at all — and reading "the first fragment" then returned the piece on the NEXT
+ * system, a small x judged against the previous system's edges. The identity is always available and
+ * always consistent with the address being reasoned about; a fragment is not.
  */
 function inkStaysOnSystem(
   engine: HairpinWalkEngine,
   id: string,
   which: 'start' | 'end',
+  port: MarkWalkPort,
   dx: number,
 ): boolean {
-  const staffSpacePx = hairpinStaffSpacePx(engine.getElementRegistry(), id)
-  const limit = staffSpacePx ? systemInkLimit(engine, id, which) : null
-  const ink = hairpinInkX(engine, id, which)
-  if (!limit || ink === null || !staffSpacePx) return true
+  const limit = systemInkLimit(engine, id, which)
+  const anchor = port.anchorX()
+  const staffSpacePx = port.staffSpacePx()
+  if (!limit || anchor === null || !staffSpacePx) return true
 
-  const next = ink + dx * staffSpacePx
+  const next = anchor + (port.offsetX() + dx) * staffSpacePx
   if (next > limit.max) return dx < 0
   if (next < limit.min) return dx > 0
   return true
@@ -347,9 +362,17 @@ export function walkHairpinEndpoint(
  * rather than by luck. The dynamic has no latch because a `p` is a label placed by eye
  * (`./dynamicWalk`); a hairpin's end is not.
  *
+ * ⭐⭐ **A WRAP ENDS THE GESTURE** (his call, 2026-08-20: *"when we detect this we draw the small
+ * hairpin in the next system and clear the endpoint in the current system, so if the user wants to
+ * keep extending he has to go with the mouse to the next system"*). The end is now a line away and
+ * the hand is not: every further pixel of this drag would move it by a distance measured against a
+ * system it has left. So the frame reports `wrapped` and the caller drops the drag — `./dynamicWalk`
+ * stops its frame at a system jump for the same reason, and this goes one further because the
+ * gesture itself can no longer mean anything.
+ *
  * ⛔ **The vertical is not in it**, as on the keys: ↑/↓ tilt the wedge, and there is nothing above
- * or below to arrive at. ⛔ And it declines — **null**, not `false` — when the wedge is not drawn,
- * so there is no staff-space size to convert the cursor's pixels with; `false` means the frame
+ * or below to arrive at. ⛔ And it declines — **null**, not a frame — when the wedge is not drawn, so
+ * there is no staff-space size to convert the cursor's pixels with; `moved: false` means the frame
  * reached the model and nothing moved, and the caller must then leave its cursor anchor where it was.
  */
 export function dragHairpinEndpoint(
@@ -357,19 +380,21 @@ export function dragHairpinEndpoint(
   id: string,
   which: 'start' | 'end',
   dxPx: number,
-): boolean | null {
+): { moved: boolean; wrapped: boolean } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
   const dx = dxPx / staffSpacePx
-  if (dx === 0) return false
+  if (dx === 0) return { moved: false, wrapped: false }
   const across = crossingTheBreak(engine, id, which, port, dx)
-  if (across?.arrived) return leaveSystem(port, across.stop, across.gap, dx)
-  if (!across && !inkStaysOnSystem(engine, id, which, dx)) return false
+  if (across?.arrived) {
+    return { moved: leaveSystem(port, across.stop, across.gap, dx), wrapped: true }
+  }
+  if (!across && !inkStaysOnSystem(engine, id, which, port, dx)) return { moved: false, wrapped: false }
   // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a
   // frame that merely passes through offset zero is exactly the one it exists for.
-  return carryMark(port, dx, 0, true).moved
+  return { moved: carryMark(port, dx, 0, true).moved, wrapped: false }
 }
 
 /** Which end's port, built over the writes the device brought. */
@@ -396,7 +421,7 @@ function inkPress(
   dx: number,
   crossing: boolean,
 ): boolean {
-  if (!crossing && !inkStaysOnSystem(engine, id, which, dx)) {
+  if (!crossing && !inkStaysOnSystem(engine, id, which, port, dx)) {
     dbg(`[${port.label}] refused — the ink would leave this system, and there is nothing to wrap onto`)
     return false
   }
@@ -418,7 +443,9 @@ function inkPress(
  */
 function leaveSystem(port: MarkWalkPort, stop: MarkStop, gap: number, dx: number): boolean {
   if (!port.reanchor(stop)) return false
-  port.nudge(dx - gap, 0)
+  // ⚠️ The REBASE writer, not the nudge: this is the crossing's second half (with this press's own
+  // step folded in), and a page limit that refused it would strand the wedge mid-wrap.
+  port.rebase?.(dx - gap)
   dbg(`[${port.label}] wrapped onto the next system (folded gap ${gap.toFixed(2)}ss)`)
   return true
 }

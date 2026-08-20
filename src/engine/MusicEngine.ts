@@ -1556,6 +1556,30 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐⭐ **RE-BASE one end's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
+   * the wedge to its next stop it takes the same distance back out of the offset, so the DRAWN
+   * position does not change at all; the pair is an identity.
+   *
+   * 🚨 **Which is why the PAGE LIMIT must not see it** (his report, 2026-08-20: a start wrapped onto
+   * the previous line and then "jumped to the first measure without going to the others"). The limit
+   * judges a delta against the LAST RENDER's ink, where the anchor has not moved yet — so it read a
+   * re-base as "shove the whole wedge ten spaces towards the margin" and refused it. The anchor moved
+   * anyway, the offset did not, and the next press crossed again: a runaway to the start of the
+   * score. ⚠️ A rule about where INK may go can only be asked of a gesture that MOVES ink.
+   */
+  rebaseHairpinEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
+    const ok = this.scoreModel.setHairpinEndpointOffset(id, which, dx, 0)
+    if (ok) this.saveOnly('Reshape hairpin') // inside the walk's batch this only counts the request
+    return ok
+  }
+
+  /** The re-base during a DRAG: {@link rebaseHairpinEndpointOffset} with no undo entry of its own. */
+  previewHairpinEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitHairpinDrag
+    return this.scoreModel.setHairpinEndpointOffset(id, which, dx, 0)
+  }
+
+  /**
    * Live (preview) nudge of ONE end's ink used **while dragging a hairpin's SQUARE** — writes the
    * override but records NO undo; the drop commits once ({@link commitHairpinDrag}).
    *

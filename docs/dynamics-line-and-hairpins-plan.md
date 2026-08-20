@@ -1860,7 +1860,30 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   boundary it is nearest in the direction of travel, because a wedge's tip is AIMED at a note's edge
   and that alignment must be reachable exactly rather than by luck. A `p` is a label placed by eye; a
   hairpin's end is not. ⛔ Horizontal only, as on the keys.
-  ⏭️ **Its one debt, not yet paid**: the latch DROPS the travel it swallows and the caller advances
+  ⭐⭐ **A WRAP ENDS THE DRAG** (his call): the tip is a line below and the hand is not, so every
+  further pixel would move it by a distance measured against a system it has left. The frame reports
+  it and `MouseController` drops the gesture — the wedge keeps its small new piece over there, the
+  square stays ARMED (so the arrows can carry on), and continuing with the mouse means going to the
+  next system to grab it. ⭐ The keys of course do not stop: they have no cursor to be in the wrong
+  place.
+  🚨🚨 **WHERE THE INK IS, IS `anchor + offset` — ⛔ never the drawn fragment.** His report: the left
+  square walked back over a break and then FROZE, every press refused. A wedge whose start has just
+  wrapped begins at the very end of the previous line, so the piece drawn there is a point and is not
+  registered at all — and "read the first fragment" then returned the piece on the OTHER system, a
+  small x judged against the previous system's edges, which the limit refuses for ever. The identity
+  is always available and always agrees with the address being reasoned about; a fragment is not.
+  (`hairpinLane.hairpinInkX` is gone with it.)
+  🚨🚨 **A PAGE LIMIT MAY NOT JUDGE THE CROSSING'S SECOND HALF.** His report: a start wrapped onto the
+  previous line and then *"jumps in a point to the first measure without going to the others"* — a
+  RUNAWAY, one stop per press. The re-base (`offset −= gap`) does not move the drawn mark at all; it
+  is the other half of an identity. But it was written through the same call as a hand nudge, so
+  `nudgeStaysOnPage` measured it against the LAST RENDER — where the anchor has not moved yet — read
+  it as "shove the wedge ten spaces towards the margin", and refused. The anchor had already moved,
+  the offset had not, so the next press crossed again, and again. ⭐ Fixed with a `rebase` writer on
+  the port (`markWalk.MarkWalkPort.rebase`, optional): bookkeeping goes through it and is never
+  refused. ⏭️ **The dynamic and the tempo mark still re-base through their nudge** — the same trap is
+  latent there, and each needs the same two-line writer.
+  ⏭️ **The latch's one debt, not yet paid**: the latch DROPS the travel it swallows and the caller advances
   its cursor anchor anyway, so a fast flick leaves the ink behind the hand for good — snap-and-go's
   own "never repays" defect, which the slur avoids by charging the drop to its catch-up. The fix is
   bookkeeping (don't advance the anchor on a latched frame, so the cursor re-travels it); the

@@ -18,10 +18,16 @@ function fakePort(options: {
   anchorDrawn?: boolean
   refuseReanchor?: boolean
   refuseNudge?: boolean
+  /** Give the port a REBASE writer of its own — the crossing's second half, which must not be
+   *  refusable. Off by default, as it is for the two marks that predate it. */
+  rebasing?: boolean
 } = {}) {
   const gap = options.gap ?? 100
   const stops = options.stops ?? 3
-  const state = { at: 0, offset: 0, crossed: [] as number[], nudges: [] as Array<[number, number]> }
+  const state = {
+    at: 0, offset: 0, crossed: [] as number[],
+    nudges: [] as Array<[number, number]>, rebases: [] as number[],
+  }
   const port: MarkWalkPort = {
     label: 'Fake',
     nextStop: (direction) => {
@@ -44,9 +50,34 @@ function fakePort(options: {
       state.nudges.push([dx, dy])
       return true
     },
+    ...(options.rebasing
+      ? { rebase: (dx: number) => { state.offset += dx; state.rebases.push(dx); return true } }
+      : {}),
   }
   return { port, state }
 }
+
+describe('carryMark — the RE-BASE is bookkeeping, not a nudge', () => {
+  it('🚨🚨 a port that refuses NUDGES still crosses cleanly through its `rebase`', () => {
+    // His report on the hairpin, 2026-08-20: the page limit judged the crossing's second half — a
+    // write that does not move the drawn mark at all — against the LAST RENDER, refused it, and the
+    // anchor then ran away from the ink one stop per press, to the end of the road.
+    const { port, state } = fakePort({ refuseNudge: true, rebasing: true })
+    state.offset = 9.5
+    carryMark(port, 1)
+    expect(state.crossed, 'it crossed ONCE').toEqual([1])
+    expect(state.offset, 'and the re-base landed, so the ink is back beside its new anchor')
+      .toBeCloseTo(-0.5)
+  })
+
+  it('⛔ …and without one it falls back to the nudge — the two older marks are unchanged', () => {
+    const { port, state } = fakePort()
+    state.offset = 9.5
+    carryMark(port, 1)
+    expect(state.rebases).toEqual([])
+    expect(state.nudges).toEqual([[-10, 0], [1, 0]])
+  })
+})
 
 describe('carryMark — the identity', () => {
   it('⭐ nudges the ink and leaves the anchor alone until the ink ARRIVES', () => {

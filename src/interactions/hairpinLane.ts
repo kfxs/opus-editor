@@ -152,22 +152,6 @@ export function hairpinSystemInkLimit(
   return { min, max, top: home.lineYPositions[0] }
 }
 
-/**
- * The x one of the wedge's tips is DRAWN at right now — ink, so it carries that end's nudge. The
- * fragments come out in drawing order, so the first holds the beginning and the last holds the end
- * (`elements/hairpinHandles`, which reads the same four points to place the squares).
- */
-export function hairpinInkX(
-  engine: HairpinLaneEngine,
-  hairpinId: string,
-  which: 'start' | 'end',
-): number | null {
-  const pieces = engine.getElementRegistry().getByType('hairpin')
-    .filter(e => e.id === hairpinId && (e.points?.length ?? 0) >= 4)
-  const points = (which === 'start' ? pieces[0] : pieces[pieces.length - 1])?.points
-  return points ? points[which === 'start' ? 0 : 1].x : null
-}
-
 /** Where the wedge ENDS, as an address — ⚠️ its beat MAY EQUAL its bar's capacity, a wedge finishing
  *  on the barline ({@link hairpinSpan}). Null for an id no longer in the score. */
 export function hairpinEndAddress(score: Score, id: string): HairpinSlotTarget | null {
