@@ -215,6 +215,15 @@ export function measureShapeKey(
     // pulled in by `VexFlowRenderer.spanAnchors` instead: a span's other end is not a fact about
     // this bar's content, so no key here can ask about it (see measureRenderRoles' header).
     view.hairpins ?? null,
+    // 🚨 …and the wedge's own OVERRIDES — its two end nudges and its hand-set mouth — which are
+    // **id-keyed** (by the hairpin's uuid), the dynamic's trap above verbatim. His report,
+    // 2026-08-20, walking a tip along the last bar of a line: *"the offset is growing but not
+    // drawing"*. The array itself is unchanged by a nudge and `overridesFor` matches only the
+    // position-keyed `{measureId}:…` entries, so without this line the bar reads clean, keeps its
+    // group, and the wedge sits still while the model moves. WIDTH≠PICTURE, silently.
+    // ⭐ Keying it on the bar the wedge STARTS in is enough for both ends: a span is drawn in one
+    // piece from there, and `VexFlowRenderer.spanAnchors` pulls its far bar in.
+    view.hairpins?.map(h => score.engravingOverrides?.[h.id] ?? null) ?? null,
     view.timeSignatureChange ?? false,
     view.timeSignatureHidden ?? false,
 

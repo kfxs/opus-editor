@@ -180,6 +180,31 @@ describe('P5.4 — incremental redraw', () => {
     expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
   })
 
+  it('a HAIRPIN END nudge redraws its bar — the same id-keyed trap, and 🚨 it BIT (2026-08-20)', () => {
+    // His report while walking a wedge's tip along the last bar of a line: *"the offset is growing
+    // but not drawing"*. A hairpin's two end nudges and its mouth all live in
+    // `engravingOverrides[hairpinId]` — id-keyed, so `overridesFor` (which matches only
+    // `{measureId}:…`) is blind to them, and `view.hairpins` itself is unchanged by a nudge. The
+    // wedge's reshape had shipped in 2026-08-17 with no line in this key: it redrew only when
+    // something ELSE in the bar moved, which is why it looked to work until an ink-only press.
+    const model = buildScore()
+    const renderer = makeRenderer()
+    const wedge = model.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!
+    renderer.renderScore(model.getScore())
+    const before = groupNodes(renderer, 12)
+
+    const laneBefore = model.getScore().measures[0]
+    const drawKeyBefore = measureShapeKey(model.getScore(), keyInputs(laneBefore), null, null)
+
+    model.setHairpinEndpointOffset(wedge.id, 'end', 1, 0) // a plain →, staff-spaces
+
+    const laneAfter = model.getScore().measures[0]
+    expect(measureShapeKey(model.getScore(), keyInputs(laneAfter), null, null), 'the DRAW key must move on a nudge').not.toBe(drawKeyBefore)
+
+    renderer.renderScore(model.getScore())
+    expect(redrawnMeasures(before, groupNodes(renderer, 12))).toContain(1)
+  })
+
   it('a TEMPO OFFSET nudge redraws its bar — the same id-keyed trap, one client later', () => {
     // Client #13 (his ask, 2026-08-19), and the dynamic's lesson taken forward rather than re-learnt:
     // a tempo mark's hand nudge lives in `engravingOverrides[tempoId]`, so `overridesFor` (which

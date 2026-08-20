@@ -54,6 +54,12 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
       // The hairpin's own branches sit ahead of the ottava's in every chain — stubbed so the last
       // case can prove they answer FIRST for a wedge rather than crashing past it.
       nudgeHairpinEndpoint: vi.fn(() => true),
+      // ⭐ Both squares' horizontals ask the WALK first (`./hairpinWalk`); nothing is drawn here, so
+      // "nowhere to go" keeps the press the plain nudge this case is about.
+      nextHairpinStartSlot: vi.fn(() => null),
+      nextHairpinEndStop: vi.fn(() => null),
+      getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
+      getScore: () => ({ measures: [] }),
       resetHairpinEndpointOffset: vi.fn(() => true),
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),

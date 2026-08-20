@@ -1788,3 +1788,69 @@ staff line, at Gould's 1.00, with no compensation anywhere.
 ⚠️ It also explains the earlier rejections: a staff line is pixel-HINTED onto the device grid and
 stays solid black, while a DIAGONAL hairpin cannot be and smears into grey — so 0.10 read thin beside
 a crisp 1 px line. Same cause, opposite symptom.
+
+## 2026-08-20 — BOTH squares WALK: the ink carries the wedge
+
+His ask, in two steps. First *"lets try now to do the walk for arrow/ctrl arrow on the left endpoint
+of the hairpin"*, then, once it shipped: *"we are using reanchor also for the duration endpoint, and
+offset, that means that the duration endpoint should walk too"* — which is the better rule, and the
+reason is his: a square that has BOTH a re-anchor and an offset owes the gesture that joins them.
+
+The gesture itself is the dynamics line's, arriving here third (`docs/dynamic-offset-plan.md`, the
+tempo mark's tail section): ←/→ and `Ctrl`+←/→ nudge the armed end's INK, and the press on which that
+ink ARRIVES at the next boundary spends its step on the MODEL instead — `offset += step − gap` — so
+the crossing is invisible. Arithmetic: `interactions/markWalk.ts`, untouched. New modules:
+`interactions/hairpinWalk.ts` (the two PORTS) and `interactions/hairpinLane.ts` (where the lane was
+DRAWN, extracted from the drag so all three routes measure one geometry).
+
+- ⭐⭐ **The stops are BOUNDARIES, not noteheads** — a wedge's tips are drawn at a note's LEFT EDGE
+  (`spanX`), so every gap here is edge-to-edge. ⛔ The dynamic's head-to-head rule would cross half a
+  notehead early; this is the same correction the DRAG needed on 2026-08-17.
+- ⭐⭐ **A crossing HOLDS THE OTHER END STILL**, which is what makes the two squares one gesture
+  rather than a wedge that slides: the start writes `beat`+`length` together, the tip writes `length`
+  alone. ⚠️ So a walking press is AUDIBLE exactly at the crossing; every press either side is ink.
+- ⭐ **Both candidate rules were SPLIT OUT of the model ops the `Ctrl+Shift` chord already used**
+  (`nextHairpinStartSlot`, `nextHairpinEndStop`) — two rules would mean the two keys landing an end
+  on different notes depending on how far it had been nudged. The tip's is named in the DRAG's
+  vocabulary (`HairpinDragWrite`), since past the last note the only stop left is COVERING it.
+- ⭐ **Neither crossing touches an override**, so both ends' nudges survive by construction — no
+  `…KeepingOffset` twin was needed, unlike the dynamic's.
+- ⚠️ **A tip standing on a BARLINE has no onset to measure from**, so `hairpinTipX` reads the DRAWN
+  tip and takes that end's own nudge back out. ⛔ The last note's right edge — what the drag snaps to
+  — sits well left of the barline and would let the ink sail past its target before the wedge moved.
+- 🚨🚨 **CROSSING A SYSTEM BREAK — the ink WRAPS at the barline.** His rule, after four rounds of
+  hand-testing in one afternoon: *"after the barline, all the distance we are drawing in the old
+  system should be drawing in the beginning of the next system"*. The four attempts, each of which
+  taught the next: (1) it would not cross at all — two systems' x's are not one ruler; (2) a trigger
+  of *"has the ink passed the last barline"* fired on the FIRST press, because a tip parked at the
+  line's end is already at the edge — *"is not symmetrical"*; (3) that press was spent on a stop that
+  leaves the wedge ending ON the barline, drawn where it already was — *"it is never reaching the
+  next system"*; (4) pricing the crossing at the whole folded distance dragged the wedge eleven
+  spaces into the margin — *"look how much is drawing wrong before jumping"*.
+  ⭐⭐ **The answer is two different numbers for two different questions:**
+  `arrives when offset + step passes (this line's end − the tip)`, and
+  `re-bases by gap = (this line's end − the tip) + (the stop − that line's start)`.
+  So the press that leaves the line lands the tip just past the NEXT system's start, by exactly the
+  ink that would have hung in the margin, and every further press walks it on until the offset
+  reaches zero at its anchor. Symmetric by construction: backwards the edge is the line's START and
+  the far side is the previous line's END.
+  ⭐ **And a stop is priced where the TIP lands, never at the note it names** (`hairpinOps.addressOfAbs`)
+  — the fix behind (3), and the one that makes "fill this bar to its barline" a step of its own.
+  ⛔ Whether two addresses share a system is asked of the SYSTEMS (the staff's top-line y), never of
+  their x's: a later line's x may be larger, smaller or equal.
+- 🚨 **Where there is nothing to extend onto** (the end of the lane, or an undrawn stop) the ink gets
+  a LIMIT instead — `hairpinSystemInkLimit`, the system's own `noteStartX`/`noteEndX` — or the arrow
+  goes on pushing the drawing into the margin with the music standing still. It REFUSES the write;
+  ⛔ it never clamps the drawing, and ink already outside may always come back.
+- 🚨🚨 **AND THE WEDGE WAS NOT REPAINTING AT ALL — the shape-key trap, on the third client.** His
+  report: *"the offset is growing but not drawing"*. A hairpin's three overrides (two end nudges, the
+  mouth) are **id-keyed**, so `overridesFor` never saw them and `view.hairpins` is unchanged by a
+  nudge — the bar read clean, kept its cached group, and the wedge sat still while the model moved.
+  ⚠️ **This shipped broken with the reshape in 2026-08-17** and looked to work for three days,
+  because any OTHER change in the bar redrew it; only an ink-only press exposes it. One line in
+  `MeasureRedrawKey` (`view.hairpins?.map(h => overrides[h.id])`), guarded by a test broken on
+  purpose. See `reference_render_width_key_vs_shape_key`: when unsure, INCLUDE — wrong answers are
+  SILENT.
+- ⏭️ **The squares' DRAG is untouched** — it still snaps to a boundary rather than carrying the ink,
+  which is defensible for an extent (a wedge cannot end between two notes) but is now the odd one
+  out. If he asks, it is the same two ports with a preview writer, as `dragDynamic` is to `walkDynamic`.

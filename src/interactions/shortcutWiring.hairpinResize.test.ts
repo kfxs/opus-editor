@@ -28,6 +28,8 @@ describe('resizing a hairpin from the keyboard', () => {
   let moveStart: Mock<(id: string, direction: 1 | -1) => boolean>
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let mouth: Mock<(id: string, aperture: number | null) => boolean>
+  let nextStop: Mock<(id: string, direction: 1 | -1) => null>
+  let nextEndStop: Mock<(id: string, direction: 1 | -1) => null>
   let whole: Mock<(id: string, dx: number, dy: number) => boolean>
   let run: (action: string) => void
   let teardown: () => void
@@ -38,6 +40,11 @@ describe('resizing a hairpin from the keyboard', () => {
     nudge = vi.fn(() => true)
     mouth = vi.fn(() => true)
     whole = vi.fn(() => true)
+    // ⭐ Both squares' horizontals now ask the interpolating WALK what lies ahead (`./hairpinWalk`).
+    // Nothing is drawn in this stub, so the honest answer is "nowhere to go" — and the press then
+    // stays the plain ink nudge these routing claims are about.
+    nextStop = vi.fn(() => null)
+    nextEndStop = vi.fn(() => null)
     const engine = {
       nudgeHairpin: whole,
       resetHairpinOffset: vi.fn(() => false),
@@ -47,6 +54,13 @@ describe('resizing a hairpin from the keyboard', () => {
       getHairpinById: () => ({ id: 'H1', type: 'cresc' }),
       resizeHairpinBySlot: resize,
       moveHairpinStartBySlot: moveStart,
+      nextHairpinStartSlot: nextStop,
+      moveHairpinStartToSlot: vi.fn(() => true),
+      nextHairpinEndStop: nextEndStop,
+      moveHairpinEndToStop: vi.fn(() => true),
+      // The walk also reads the score (for the end's address) and the drawn wedge (for the system's
+      // edge). Neither says anything here, which is the "no picture, no limit" answer.
+      getScore: () => ({ measures: [] }),
       resizePedalBySlot: vi.fn(() => false),
       // One drawn fragment, so the mouth keys have something to measure (aperture 1.5, length 40 →
       // the authorable range is 1…2).
@@ -123,6 +137,23 @@ describe('resizing a hairpin from the keyboard', () => {
     run('selectNextNote')      // →
     run('pitchUp')             // ↑
     expect(nudge.mock.calls).toEqual([['H1', 'start', 0.25, 0], ['H1', 'start', 0, -0.25]])
+  })
+
+  it('⭐⭐ EITHER square’s horizontal goes through the WALK — each asking its own end’s stops', () => {
+    // The routing claim only: reaching the next boundary hands that end of the wedge along
+    // (`./hairpinWalk`, his ask 2026-08-20), so the key has to ASK before it writes ink. ⭐ Both
+    // ends, his correction the same day — a square with a re-anchor and an offset but no walk is the
+    // odd one out. ⚠️ The arithmetic of a crossing is the walk's own spec; nothing is drawn here.
+    armed('start')
+    run('selectNextNote')
+    expect(nextStop).toHaveBeenCalledWith('H1', 1)
+    expect(nextEndStop, 'and never the other end’s') .not.toHaveBeenCalled()
+    nextStop.mockClear()
+
+    armed('end')
+    run('selectNextNote')
+    expect(nextEndStop).toHaveBeenCalledWith('H1', 1)
+    expect(nextStop).not.toHaveBeenCalled()
   })
 
   it('⛔ …and neither arrow reshapes anything while NO square is armed', () => {

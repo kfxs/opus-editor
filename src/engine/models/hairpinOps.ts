@@ -421,8 +421,27 @@ function locate(score: Score, id: string): {
  * does not exist. Never deletes.
  */
 export function moveHairpinStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const next = nextHairpinStartSlot(score, id, direction)
+  return next ? setHairpinStartAtSlot(score, id, next) : false
+}
+
+/**
+ * ⭐ **THE SLOT ONE STEP AWAY** — where {@link moveHairpinStartBySlot} would put the wedge's start,
+ * without putting it there. Null at either end of the lane (or for an id no longer in the score).
+ *
+ * ⭐ Split out for the INTERPOLATING WALK (`interactions/hairpinStartWalk`), which has to know what
+ * lies ahead — and how far away it is DRAWN — before it decides whether this press re-anchors or
+ * only nudges ink. ⛔ Two candidate rules would mean the arrows and `Ctrl+Shift`+arrow landing the
+ * start on different notes depending on how far it had been nudged, so both roads read this one.
+ * `dynamicOps.nextDynamicSlot`'s twin, one lane over.
+ */
+export function nextHairpinStartSlot(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): HairpinSlotTarget | null {
   const placed = locate(score, id)
-  if (!placed) return false
+  if (!placed) return null
   const { startAbs, lane } = placed
 
   const next = direction === -1
@@ -430,8 +449,7 @@ export function moveHairpinStartBySlot(score: Score, id: string, direction: 1 | 
     ? [...lane].reverse().find(s => fracCompare(s.abs, startAbs) < 0)
     // Step IN: the first slot beginning after it — and never as far as the end.
     : lane.find(s => fracCompare(s.abs, startAbs) > 0)
-  if (!next) return false
-  return setHairpinStartAtSlot(score, id, next)
+  return next ? { measure: next.measure, beat: next.beat } : null
 }
 
 /** A lane slot named by its address — what a DRAG hands the two ops below, having found it from the
@@ -574,25 +592,90 @@ function moveHairpinToMeasure(score: Score, hairpin: Hairpin, measureNumber: num
  * is a trap.
  */
 export function resizeHairpinBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const stop = nextHairpinEndStop(score, id, direction)
+  return stop ? applyHairpinDrag(score, id, stop.write) : false
+}
+
+/**
+ * ⭐ **THE TIP'S NEXT POSITION** — where {@link resizeHairpinBySlot} would put the wedge's END,
+ * without putting it there, and named in the DRAG's vocabulary ({@link HairpinDragWrite}) so that
+ * every route to the tip speaks one language. Null when there is nothing to reach.
+ *
+ * ⭐ Split out for the INTERPOLATING WALK (`interactions/hairpinWalk`), the start's
+ * {@link nextHairpinStartSlot} twin and for its reason: the arrows and `Ctrl+Shift`+arrow must never
+ * land the tip on different notes.
+ *
+ * ⭐⭐ **Two of the three drag writes, and the pair is not a spare wheel.** The tip is drawn at the
+ * first UNCOVERED note (`HairpinRenderer.spanX`), so its possible positions are the lane's onsets —
+ * `endBefore` — plus ONE past the last note, where the wedge covers everything and there is no onset
+ * left to stop before (`endCovering`). Growing reaches through the next slot at or after the current
+ * end, which is exactly "the next boundary along"; shrinking drops the last slot covered.
+ */
+export function nextHairpinEndStop(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): HairpinEndStop | null {
   const placed = locate(score, id)
-  if (!placed) return false
+  if (!placed) return null
   const { startAbs, endAbs, lane } = placed
 
   let nextEnd: Fraction
+  let write: HairpinDragWrite
   if (direction === 1) {
     // Reach through the next slot beginning at or after the current end.
     const next = lane.find(s => fracCompare(s.abs, endAbs) >= 0)
-    if (!next) return false // nothing further in this lane — the wedge is already at its end
+    if (!next) return null // nothing further in this lane — the wedge is already at its end
     nextEnd = fracAdd(next.abs, next.length)
+    // Past the last note there is no onset to stop BEFORE, so the last slot is COVERED instead —
+    // the one boundary of the lane that is not an onset.
+    const onset = lane.find(s => fracCompare(s.abs, nextEnd) === 0)
+    write = onset
+      ? { at: 'endBefore', measure: onset.measure, beat: onset.beat }
+      : { at: 'endCovering', measure: next.measure, beat: next.beat }
   } else {
-    // Drop the LAST slot the wedge covers: its onset becomes the new end.
+    // Drop the LAST slot the wedge covers: its onset becomes the new end, and an onset is always a
+    // boundary the tip can be drawn on.
     const covered = lane.filter(s => fracCompare(s.abs, startAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
     const last = covered[covered.length - 1]
-    if (!last) return false
+    if (!last) return null
     nextEnd = last.abs
+    write = { at: 'endBefore', measure: last.measure, beat: last.beat }
   }
 
-  return setHairpinLength(score, id, fracSub(nextEnd, startAbs))
+  const endsAt = addressOfAbs(score, nextEnd)
+  return endsAt ? { write, endsAt } : null
+}
+
+/**
+ * ⭐⭐ **WHERE THE TIP WOULD STAND, as an address** — ⛔ NOT the address of the note the stop names,
+ * and the difference is the whole of his 2026-08-20 report *"it is never reaching the next system"*.
+ *
+ * A stop of *"end before the first note of bar 41"* leaves the wedge ending ON THE BARLINE, which
+ * {@link hairpinSpan} reads as bar 40's END — so the tip is drawn at the end of bar 40's LINE, not
+ * beside that note on the next one. Pricing the walk by the note's x therefore called an ordinary
+ * same-line step a system crossing, spent the press on it, and then found the wedge exactly where it
+ * had been. Every route to the tip must ask where the TIP lands, and that is this.
+ */
+function addressOfAbs(score: Score, abs: Fraction): HairpinSlotTarget | null {
+  const ordered = [...score.measures].sort((a, b) => a.number - b.number)
+  let start = fracCreate(0, 1)
+  for (const measure of ordered) {
+    const end = fracAdd(start, measureCapacityFrac(measure))
+    // `<=`, not `<`: an end landing exactly on the barline belongs to THIS bar's end
+    // ({@link hairpinSpan}, verbatim — the two must agree or the tip is priced in one place and
+    // drawn in another).
+    if (fracCompare(abs, end) <= 0) return { measure: measure.number, beat: fracSub(abs, start) }
+    start = end
+  }
+  return null
+}
+
+/** What the tip's candidate rule answers with: the model WRITE that takes the step, and the address
+ *  the wedge would then END at — where the tip is drawn. See {@link addressOfAbs}. */
+export interface HairpinEndStop {
+  write: HairpinDragWrite
+  endsAt: HairpinSlotTarget
 }
 
 /** Where a hairpin begins and ends, as two (measure, beat) addresses. See {@link hairpinSpan}. */

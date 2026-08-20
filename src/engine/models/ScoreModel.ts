@@ -642,10 +642,22 @@ export class ScoreModel {
     return hairpinOps.moveHairpinStartBySlot(this.score, id, direction)
   }
 
+  /** The lane slot one step from a hairpin's START, without moving it — what the left square's
+   *  interpolating WALK looks ahead at. See {@link hairpinOps.nextHairpinStartSlot}. */
+  nextHairpinStartSlot(id: string, direction: 1 | -1): hairpinOps.HairpinSlotTarget | null {
+    return hairpinOps.nextHairpinStartSlot(this.score, id, direction)
+  }
+
   /** Put a hairpin's START on the lane slot at `target`, holding its END (the left square's DRAG).
    *  See {@link hairpinOps.setHairpinStartAtSlot}. */
   setHairpinStartAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {
     return hairpinOps.setHairpinStartAtSlot(this.score, id, target)
+  }
+
+  /** The tip's next position, without moving it — what the right square's interpolating WALK looks
+   *  ahead at, in the drag's own vocabulary. See {@link hairpinOps.nextHairpinEndStop}. */
+  nextHairpinEndStop(id: string, direction: 1 | -1): hairpinOps.HairpinEndStop | null {
+    return hairpinOps.nextHairpinEndStop(this.score, id, direction)
   }
 
   /** Put a hairpin's END at the right edge of the lane slot at `target`, holding its start (the

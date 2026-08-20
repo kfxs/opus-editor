@@ -34,13 +34,11 @@
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
-import type { HairpinSlotTarget, HairpinDragWrite } from '../../engine/models/hairpinOps'
-import type { Score } from '../../types/music'
+import type { HairpinDragWrite } from '../../engine/models/hairpinOps'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { staffOf } from '../../utils/lanes'
+import { hairpinLaneBoundaries } from '../hairpinLane'
 import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
-import { fracCompare } from '../../utils/fraction'
 import { dbg } from '../../utils/debug'
 
 /** What finding a drag target needs off the engine — a Pick, so a test can stand up the four reads
@@ -165,36 +163,17 @@ export function hairpinDragTargetAt(
 ): HairpinDragWrite | null {
   const hairpin = engine.getHairpinById(hairpinId)
   if (!hairpin) return null
-  const score = engine.getScore()
-  // ⭐⭐ The wedge's STAFF, in every voice — ⛔ not what it governs (`utils/dynamicScope.onSameStaff`:
-  // a tip is drawn at a COLUMN, and a column belongs to the staff). Two voices striking one beat are
-  // ONE boundary — the merge below keeps the leftmost edge of a shared onset.
-  const staff = staffIndexOf(score, hairpin.staffId)
 
   // ⭐⭐ THE BOUNDARIES, NOT THE NOTEHEADS — and this is the whole accuracy of the gesture. Both of a
-  // wedge's tips are drawn at a note's LEFT EDGE (`HairpinRenderer.spanX`: `startX` at the first
-  // covered note, `endX` at the first uncovered one), so the positions a tip can occupy are the
-  // lane's onsets. Snapping to notehead CENTRES — the slur's rule, right for the slur because a
-  // slur's end is drawn ON the head — put the jump half a notehead early and, for the tip, a whole
-  // note late: *"sometimes it jumps before x mouse reach the target"* (his report, 2026-08-17).
-  const boundaries: Array<{ x: number; right: number; y: number; target: HairpinSlotTarget }> = []
-  const registry = engine.getElementRegistry()
-  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
-    if (!el.id) continue
-    const note = engine.getNote(el.id)
-    if (!note) continue
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    // A CHORD registers one entry per notehead on one onset; keep the leftmost, since that is the
-    // edge the wedge is drawn against.
-    const seen = boundaries.find(b => b.target.measure === target.measure && fracCompare(b.target.beat, target.beat) === 0)
-    if (seen) {
-      seen.x = Math.min(seen.x, el.bbox.x)
-      seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
-      continue
-    }
-    boundaries.push({ x: el.bbox.x, right: el.bbox.x + el.bbox.width, y: el.bbox.y + el.bbox.height / 2, target })
-  }
+  // wedge's tips are drawn at a note's LEFT EDGE, so the positions a tip can occupy are the lane's
+  // onsets. Snapping to notehead CENTRES — the slur's rule, right for the slur because a slur's end
+  // is drawn ON the head — put the jump half a notehead early and, for the tip, a whole note late:
+  // *"sometimes it jumps before x mouse reach the target"* (his report, 2026-08-17).
+  //
+  // ⭐ The list itself is `../hairpinLane`'s, shared with the left square's keyboard WALK — one
+  // answer to where a slot is drawn, so the two devices cannot disagree about it. Its header carries
+  // the geometry and the lane rule this comment used to.
+  const boundaries = hairpinLaneBoundaries(engine, hairpin)
   if (!boundaries.length) return null
 
   // ⭐ One extra boundary PAST the last note of the lane — "cover everything". Without it the last
@@ -239,14 +218,6 @@ export function hairpinStaffSpacePx(registry: ElementRegistry, hairpinId: string
   const drawn = registry.getByType('hairpin').find(e => e.id === hairpinId)
   if (!drawn || drawn.measure === undefined) return null
   return registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)?.lineSpacing ?? null
-}
-
-/** The staff INDEX a hairpin's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
 }
 
 /**

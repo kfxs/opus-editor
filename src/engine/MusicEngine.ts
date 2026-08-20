@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
-import type { HairpinDragWrite } from './models/hairpinOps'
+import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite } from './models/ottavaOps'
@@ -1451,6 +1451,56 @@ export class MusicEngine {
   moveHairpinStartBySlot(id: string, direction: 1 | -1): boolean {
     const ok = this.scoreModel.moveHairpinStartBySlot(id, direction)
     if (ok) this.commit(direction === -1 ? 'Extend hairpin start' : 'Trim hairpin start')
+    return ok
+  }
+
+  /**
+   * Where {@link moveHairpinStartBySlot} would put the start, WITHOUT putting it there — a pure
+   * read, no undo entry. The interpolating walk (`interactions/hairpinStartWalk`) asks before it
+   * decides whether a press re-anchors or only nudges ink, and asks THIS so the two keys can never
+   * land the start on different notes. @returns null at either end of the lane.
+   */
+  nextHairpinStartSlot(id: string, direction: 1 | -1): HairpinSlotTarget | null {
+    return this.scoreModel.nextHairpinStartSlot(id, direction)
+  }
+
+  /**
+   * Put the hairpin's START on the lane slot at `target`, **holding its end** — the walk's crossing
+   * write, and the keyboard twin of what a drag of the left square does frame by frame.
+   *
+   * ⚠️ A CONTENT edit ({@link moveHairpinStartBySlot}'s own): both model fields in one step, one undo
+   * state, and AUDIBLE — it changes which notes get louder.
+   *
+   * ⭐ It keeps that end's `hairpinEndpointOffset` by construction (`hairpinOps` writes no override
+   * here), which is what the walk needs: the crossing is meant to be invisible, and the offset is
+   * re-based by the caller rather than wiped.
+   * @returns true when the start moved; false when `target` is not a slot of the wedge's own lane,
+   *   or would reach its end.
+   */
+  moveHairpinStartToSlot(id: string, target: HairpinSlotTarget): boolean {
+    const ok = this.scoreModel.setHairpinStartAtSlot(id, target)
+    if (ok) this.commit('Move hairpin start')
+    return ok
+  }
+
+  /**
+   * Where {@link resizeHairpinBySlot} would put the TIP, WITHOUT putting it there — a pure read,
+   * {@link nextHairpinStartSlot}'s twin at the other end, and named in the drag's vocabulary so the
+   * three routes to the tip cannot disagree about where it may stand.
+   */
+  nextHairpinEndStop(id: string, direction: 1 | -1): HairpinEndStop | null {
+    return this.scoreModel.nextHairpinEndStop(id, direction)
+  }
+
+  /**
+   * Put the hairpin's END on `stop`, holding its start — the walk's crossing write at the right
+   * square, and one undo entry. ⚠️ A CONTENT edit ({@link resizeHairpinBySlot}'s own): it changes
+   * how much music the wedge covers, and it keeps that end's `hairpinEndpointOffset` by construction
+   * so the walk can re-base it rather than lose it.
+   */
+  moveHairpinEndToStop(id: string, stop: HairpinDragWrite): boolean {
+    const ok = this.scoreModel.applyHairpinDrag(id, stop)
+    if (ok) this.commit('Resize hairpin')
     return ok
   }
 

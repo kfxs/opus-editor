@@ -19,6 +19,7 @@ import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { walkDynamic } from './dynamicWalk'
 import { walkTempo } from './tempoWalk'
+import { walkHairpinEndpoint } from './hairpinWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
@@ -251,12 +252,26 @@ export function wireShortcuts(
    *
    * ⚠️ Screen-down is +y, so "up lifts this end" passes a negative dy. A `y` on ONE end tilts the
    * wedge; on both, it lifts it off the dynamics line.
+   *
+   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK, on EITHER square** (`./hairpinWalk`,
+   * his ask 2026-08-20): the same ink nudge, except that reaching the next boundary of the lane takes
+   * that end of the WEDGE along with it — the dynamic's and the tempo mark's gesture, sharing their
+   * arithmetic (`./markWalk`). ⚠️ So this key can end in a MODEL write, which is the crossing and
+   * nothing else; every press either side of it is ink.
+   *
+   * ⭐ **Both ends, because both have a re-anchor AND an offset** — his correction the same day, once
+   * the left one shipped: *"we are using reanchor also for the duration endpoint, and offset, that
+   * means that the duration endpoint should walk too"*. A square where the two gestures do not meet
+   * is the odd one out, not the safe one.
    */
   const nudgeArmedHairpinEnd = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const hairpin = selectedOf(state, 'hairpin')
     if (!eng || !hairpin?.endpoint) return false
-    if (!eng.nudgeHairpinEndpoint(hairpin.id, hairpin.endpoint, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkHairpinEndpoint(eng, hairpin.id, hairpin.endpoint, dx)
+      : eng.nudgeHairpinEndpoint(hairpin.id, hairpin.endpoint, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }
