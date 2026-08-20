@@ -59,4 +59,21 @@ describe('foldPastSystemEnd', () => {
     expect(foldPastSystemEnd(pass, 0, 700, 0.5), 'still on its line').toEqual({ line: 0, endX: 700 })
     expect(foldPastSystemEnd(pass, 0, 860, 0.5)).toEqual({ line: 1, endX: 260 })
   })
+
+  it('⭐⭐ …and BACKWARDS: ink past a line\'s START continues at the END of the previous one', () => {
+    // His report, 2026-08-20: *"the cross staff is not working in the opposite direction for the
+    // begin endpoint"* — a `tr` nudged 51 spaces LEFT. One rule read twice; only the forward half
+    // had been written. 40 px before line 1's start (100) is 40 before line 0's end (400).
+    expect(foldPastSystemEnd(pass, 1, 60, 1)).toEqual({ line: 0, endX: 360 })
+    // …and it keeps going: 340 before line 2's start is 340 back from line 1's end (500) — still on
+    // line 1, which is 400 wide. One more line's worth would land on line 0.
+    expect(foldPastSystemEnd(pass, 2, -240, 1)).toEqual({ line: 1, endX: 160 })
+    // 740 back from line 2's start: 400 of it eats line 1 whole (100…500), leaving 340 back from
+    // line 0's end (400).
+    expect(foldPastSystemEnd(pass, 2, -640, 1), 'over line 1 entirely').toEqual({ line: 0, endX: 60 })
+  })
+
+  it('⛔ STOPS at the FIRST line too — there is nothing before it to fold onto', () => {
+    expect(foldPastSystemEnd(pass, 0, -50, 1)).toEqual({ line: 0, endX: -50 })
+  })
 })

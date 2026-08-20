@@ -805,6 +805,15 @@ all deletions:
   *"if there are no notes in the other system the walk just stops… it should not stop, it should go
   as offset"*.
 
+### ⭐⭐ THE FOLD RUNS BOTH WAYS
+
+*"the cross staff is not working in the opposite direction for the begin endpoint"* — on a `tr`
+nudged 51 spaces LEFT. Ink pushed past a line's START continues at the END of the previous one, and
+it stops at the first line the render drew. ⭐ The two directions are one rule read twice; only the
+forward half had been written. ⚠️ `coveredPlacements` takes its window from BOTH folded ends now — a
+sign folded backwards lands on a line EARLIER than its span's, and without a placement there the
+fragment would borrow the wrong stave.
+
 ### ⭐⭐ THE SIGN FOLDS TOO
 
 The START nudge moved into `trillGeometry` beside the end's, so the `tr` walking past the end of a

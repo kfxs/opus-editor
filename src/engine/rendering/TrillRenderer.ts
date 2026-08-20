@@ -280,13 +280,27 @@ export function foldPastSystemEnd(
   scale: number,
 ): { line: number; endX: number } {
   for (let guard = 0; guard < 64; guard++) {
-    const right = lineRightEdgeX(pass, line)
-    const nextLeft = lineLeftEdgeX(pass, line + 1)
-    // ⚠️ Both edges come from `measureBounds`, i.e. the SVG's own space; everything here is in the
+    // ⚠️ Every edge comes from `measureBounds`, i.e. the SVG's own space; everything here is in the
     // staff's (`SlurRenderer.planSlurSegments` makes the same conversion for the same reason).
-    if (right === undefined || nextLeft === undefined || endX <= right / scale) break
-    endX = nextLeft / scale + (endX - right / scale)
-    line += 1
+    const right = lineRightEdgeX(pass, line)
+    const left = lineLeftEdgeX(pass, line)
+    const nextLeft = lineLeftEdgeX(pass, line + 1)
+    const previousRight = lineRightEdgeX(pass, line - 1)
+    if (right !== undefined && nextLeft !== undefined && endX > right / scale) {
+      endX = nextLeft / scale + (endX - right / scale)
+      line += 1
+      continue
+    }
+    // ⭐⭐ **AND BACKWARDS** — his report, 2026-08-20: *"the cross staff is not working in the
+    // opposite direction for the begin endpoint"*, on a `tr` nudged 51 spaces LEFT. Ink pushed past
+    // a line's START continues at the END of the previous one. The two directions are one rule read
+    // twice, and only the forward half had been written.
+    if (left !== undefined && previousRight !== undefined && endX < left / scale) {
+      endX = previousRight / scale - (left / scale - endX)
+      line -= 1
+      continue
+    }
+    break
   }
   return { line, endX }
 }
@@ -516,7 +530,8 @@ export function planTrillBands(
     const geometry = to
       ? trillGeometry(pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id) ?? {})
       : null
-    const covered = coveredPlacements(placements, span, from, geometry?.toLine ?? from.line)
+    const covered = coveredPlacements(
+      placements, span, from, geometry?.fromLine ?? from.line, geometry?.toLine ?? from.line)
 
     for (const line of new Set(covered.map(p => p.line))) {
       const here = covered.filter(p => p.line === line)
@@ -563,7 +578,7 @@ export function renderTrills(
       pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id) ?? {})
     if (!geometry) continue
 
-    const covered = coveredPlacements(placements, span, from, geometry.toLine)
+    const covered = coveredPlacements(placements, span, from, geometry.fromLine, geometry.toLine)
 
     try {
       // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-trill' here
@@ -592,12 +607,17 @@ function coveredPlacements(
   placements: readonly TrillPlacement[],
   span: TrillSpan,
   from: TrillPlacement,
+  fromLine: number,
   toLine: number,
 ): TrillPlacement[] {
+  // ⚠️ `fromLine` may be EARLIER than the span's own line — a sign folded BACKWARDS — so the window
+  // is taken from both folded ends rather than grown forward from the span.
+  const first = Math.min(fromLine, from.line)
+  const last = Math.max(toLine, from.line)
   return placements.filter(p =>
     p.staffIndex === from.staffIndex
     && ((p.measureNumber >= span.startMeasure && p.measureNumber <= span.endMeasure)
-      || (p.line > from.line && p.line <= toLine)))
+      || (p.line >= first && p.line <= last)))
 }
 
 /** The drawing itself, once {@link trillGeometry} has said where the ornament goes. */
