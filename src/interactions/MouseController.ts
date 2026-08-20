@@ -388,6 +388,8 @@ export class MouseController {
   /** ⚠️ The cursor x the next frame's delta is measured from — ⛔ never the press point: the walk
    *  ACCUMULATES, and the latch holds this back by what it dropped. */
   private trillEndLastX = 0
+  /** …and its y, which the LADDER reads (`trillWalk`: the side of its staff, then the system). */
+  private trillEndLastY = 0
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -1035,6 +1037,7 @@ export class MouseController {
       this.trillDragChanged = false
       this.trillDragStartTime = Date.now()
       this.trillEndLastX = coords.x
+      this.trillEndLastY = coords.y
       this.render.renderScore()
       event.preventDefault()
       return
@@ -2965,19 +2968,28 @@ export class MouseController {
    * dropped: those pixels were made by the hand, so the next frame presents them again and the ink
    * leaves a note exactly when the cursor has travelled the whole distance.
    */
-  private handleTrillEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
+  private handleTrillEndDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingTrillEnd && this.draggedTrillId && this.draggedTrillEnd)) return false
     if (this.trillDragStartTime !== null
         && Date.now() - this.trillDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragTrillEndpoint(
-      engine, this.draggedTrillId, this.draggedTrillEnd, x - this.trillEndLastX)
+      engine, this.draggedTrillId, this.draggedTrillEnd,
+      x, x - this.trillEndLastX, y - this.trillEndLastY)
     // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
     if (frame === null) return true
     if (frame.moved) {
       this.trillEndLastX = x - frame.droppedPx
+      this.trillEndLastY = y
       this.trillDragChanged = true
       this.render.renderScore()
     }
+    // 🚨🚨 **A RUNG ENDS THE FRAME, ⛔ NOT THE GESTURE** — his report, 2026-08-20: *"look, I have to
+    // release the mouse and click again… but not in one movement"*. I had copied the wedge's
+    // ENDPOINT rule, where a horizontal WRAP really does end the drag because the tip lands on
+    // another system while the hand stays on this one. ⭐ A vertical rung is the opposite: the hand
+    // is travelling WITH the ornament, so the gesture goes on and the next rung comes when the hand
+    // reaches it. The wedge's BODY drag has always done exactly this
+    // (`handleHairpinBodyDrag`).
     // ⭐⭐ **⛔ NO WRAP, and no gesture to end** — ⚠️ the one place this drag differs from the wedge's.
     // A trill's ink is ONE RIBBON across the systems (`trillLane`), so leaving a line is not an event:
     // the hand keeps pushing the same offset and the drawing keeps folding it onward. The wedge ends

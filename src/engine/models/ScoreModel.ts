@@ -1441,6 +1441,17 @@ export class ScoreModel {
   }
 
   /** Flip a trill between above and below the staff. @returns the new side. */
+  /** Put the ornament on a NAMED side — see {@link trillOps.setTrillPlacement}. */
+  setTrillPlacement(id: string, side: 'above' | 'below'): boolean {
+    return trillOps.setTrillPlacement(this.score, id, side)
+  }
+
+  /** Move the whole ornament onto another note, keeping its extent — see
+   *  {@link trillOps.moveTrillTo}. */
+  moveTrillTo(id: string, startNoteId: string, endNoteId?: string): boolean {
+    return trillOps.moveTrillTo(this.score, id, startNoteId, endNoteId)
+  }
+
   toggleTrillPlacement(id: string): 'above' | 'below' | null {
     return trillOps.toggleTrillPlacement(this.score, id)
   }

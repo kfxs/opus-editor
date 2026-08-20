@@ -890,6 +890,64 @@ the fold, the sign floor and the guide's target were each break-tested.
 
 ---
 
+## 14. The VERTICAL drag — the LADDER — BUILT 2026-08-20
+
+His ask: *"now we need to make the mouse drag change the `tr` y offset, and of course we have to be
+aware of the system jump in the y, similar to hairpin"*. The rungs are the wedge's, rule for rule
+(`interactions/hairpinWalk`), because they are the same two questions asked of any mark that has a
+SIDE.
+
+```
+   … above staff N, below staff N, above staff N+1, below staff N+1 …
+```
+
+### The three steps of a frame, in order
+
+1. **ITS OWN STAFF FIRST** (`flipTrillPlacement`). A trill has a `placement`, so the far side of its
+   staff is a place it BELONGS: an `above` ornament whose ink passes the BOTTOM line goes `below`,
+   and the mirror. ⭐ That fixes *"it jumps to the upper system too quickly"* by construction and
+   with no threshold to tune — once it is on the far side, `markSystemJump` measures its natural
+   distance from THAT edge, so the next staff is a whole system away again. The height goes with the
+   flip: a distance measured above the staff means nothing below it.
+2. **THEN THE SYSTEM JUMP** (`jumpTrillSystems` → `trillLane.trillSystemNoteFor` →
+   `interactions/markSystemJump`, the shared port, ⛔ never a copy). ⭐ **The whole ornament goes,
+   extent and all** (`trillOps.moveTrillTo`): a trill's extent is counted in the LANE's own notes, so
+   a span of N stops arrives as a span of N stops — counted on the interaction side, since the lane
+   is not a model question. It lands **on the side it came from** (down ⇒ *above* the staff below),
+   and both offsets go.
+3. **OTHERWISE, ink**: the horizontal walk as before, plus the height.
+
+### ⚠️ Two things that are the trill's own
+
+- **The height is ONE number for the whole ornament** — the sign and the wiggle sit on one baseline,
+  so `TrillOffsetOverride` has a single vertical and the armed square does not matter to it.
+- **It is stored OUTWARD from the staff**, so the drag converts screen-down → outward: dragging an
+  `above` trill UP grows it. ⛔ A screen-signed number would invert the moment `x` flipped the side.
+
+### 🚨🚨 A rung ends the FRAME, ⛔ not the GESTURE
+
+*"look, I have to release the mouse and click again… but not in one movement"*. I had copied the
+wedge's ENDPOINT rule, where a horizontal WRAP really does end the drag — the tip lands on another
+system while the hand stays on this one. ⭐ **A vertical rung is the opposite: the hand travels WITH
+the ornament**, so the gesture goes on and the next rung comes when the hand reaches it. The wedge's
+BODY drag has always done exactly this (`handleHairpinBodyDrag`).
+
+### ⭐ An EMPTY system is not a refusal
+
+*"it does not matter if it cannot anchor in the other staff because it is empty — we can land in an
+empty system as offset."* A trill's anchor is a NOTE, so a system of rests has nothing to hang off;
+the jump simply does not fire and the ink carries the ornament down, exactly as it does sideways.
+⚠️ That decline is LOGGED (`whyNoJump`) with which of its three reads it was — a gesture that looks
+like it did nothing is otherwise indistinguishable from one that was refused, which cost an afternoon
+on the wedge.
+
+### ⏭️ Left open
+
+- No BAND limit on the trill's vertical (the wedge has one). The ladder is the limit in practice: any
+  height that reaches another staff's neighbourhood becomes a rung. ⏭️ Worth his eye.
+
+---
+
 ## Sources
 
 MusicXML [`trill-mark`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/trill-mark/) ·

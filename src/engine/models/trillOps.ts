@@ -335,6 +335,48 @@ export function toggleTrillPlacement(score: Score, id: string): 'above' | 'below
   return trill.placement
 }
 
+/** Put the ornament on a NAMED side — {@link toggleTrillPlacement} for a caller that knows which one
+ *  it wants (a vertical drag crossing the staff, `interactions/trillWalk`). @returns true if it
+ *  changed, so a frame that asks for the side it is already on writes nothing. */
+export function setTrillPlacement(score: Score, id: string, side: 'above' | 'below'): boolean {
+  const trill = getTrillById(score, id)
+  if (!trill || (trill.placement ?? 'above') === side) return false
+  trill.placement = side
+  return true
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE ORNAMENT ONTO ANOTHER NOTE, KEEPING ITS EXTENT** — the model write behind a
+ * vertical drag that lands the trill on another system (`interactions/trillWalk`).
+ *
+ * ⭐ **The extent is counted in the LANE's own notes**, which is the only measure a trill has: a span
+ * of N stops arrives as a span of N stops, and it is the CALLER that counts them (the lane is an
+ * interaction-side question — `trillLane`). Here `endNoteId` is simply what the far end should be.
+ *
+ * ⚠️ **The end is cleared BEFORE the start moves**, the recorded ordering: `precedes` refuses a start
+ * that has not yet overtaken an end still standing behind it.
+ *
+ * @returns true when the start moved (the end is best-effort: a span that runs off the end of the
+ *   lane arrives as the one-note trill rather than as nothing).
+ */
+export function moveTrillTo(
+  score: Score,
+  id: string,
+  startNoteId: string,
+  endNoteId?: string,
+): boolean {
+  const trill = getTrillById(score, id)
+  if (!trill) return false
+  const had = trill.endNoteId
+  delete trill.endNoteId
+  if (!setTrillStart(score, id, startNoteId)) {
+    if (had !== undefined) trill.endNoteId = had
+    return false
+  }
+  if (endNoteId !== undefined && endNoteId !== startNoteId) setTrillEnd(score, id, endNoteId)
+  return true
+}
+
 // ==================== The span ====================
 
 /** Where a trill begins and ends, and every slot it covers. See {@link trillSpan}. */

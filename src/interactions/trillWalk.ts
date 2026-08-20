@@ -47,6 +47,7 @@
  * With no line drawn, an arrow on the end square stays the plain ink nudge it has always been.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
+import type { Note } from '../types/music'
 import type { EditorState } from './EditorState'
 import { selectedOf } from './EditorState'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
@@ -57,8 +58,8 @@ import {
   type TrillAnchorStop,
 } from './trillReanchor'
 import {
-  trillLane, trillLaneIndexAt, trillRibbonLimits, trillRibbonX, trillSquareBaseX,
-  trillSquareMeasure, trillStaffSpacePx,
+  trillInkY, trillLane, trillLaneIndexAt, trillRibbonLimits, trillRibbonX, trillSquareBaseX,
+  trillSquareMeasure, trillStaffBand, trillStaffSpacePx, trillSystemNoteFor,
 } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
 import { staffOf } from '../utils/lanes'
@@ -67,7 +68,8 @@ import { dbg } from '../utils/debug'
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
-  | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'>
+  | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
+  | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -269,6 +271,147 @@ function inkPress(
  * @returns true when something was written (the caller repaints); false when nothing was — no armed
  *   square, no such trill, or the page limit refused the ink.
  */
+
+/**
+ * ⭐⭐ **THE VERTICAL IS A LADDER** — …above staff N, below staff N, above staff N+1… — and a drag
+ * takes ONE rung at a time. His ask, 2026-08-20: *"now we need to make the mouse drag change the
+ * `tr` y offset, and of course we have to be aware of the system jump in the y, similar to
+ * hairpin"*. The rungs are the wedge's, rule for rule (`./hairpinWalk`), because they are the same
+ * two questions asked of any mark that has a SIDE.
+ *
+ * ⭐ **Its own staff FIRST.** A trill has a `placement`, so the space on the other side of its staff
+ * is a place it BELONGS, not a no-man's-land on the way to the next system:
+ *
+ * ```
+ *   above, and the ink has passed the BOTTOM line  →  below this staff
+ *   below, and the ink has passed the TOP line     →  above it
+ * ```
+ *
+ * ⭐ That fixes *"it jumps to the upper system too quickly"* by construction and with no threshold to
+ * tune: once the ornament is on the far side, `markSystemJump` measures its natural distance from
+ * THAT edge, so the next staff is a whole system away again.
+ *
+ * ⚠️ The LIFT goes with the flip (a height measured below the staff means nothing above it) and the
+ * frame ENDS — one visible step per gesture.
+ */
+function flipTrillPlacement(engine: TrillWalkEngine, id: string, dyPx: number): boolean {
+  const registry = engine.getElementRegistry()
+  const trill = engine.getTrillById(id)
+  const inkY = trillInkY(registry, id)
+  const band = trillStaffBand(registry, id)
+  if (!trill || inkY === null || !band) return false
+
+  const above = (trill.placement ?? 'above') === 'above'
+  const next = inkY + dyPx
+  const flipped: 'above' | 'below' | null =
+    above && next > band.bottom ? 'below'
+      : !above && next < band.top ? 'above'
+        : null
+  if (!flipped || !engine.previewTrillPlacement(id, flipped)) return false
+  dropTheLift(engine, id)
+  dbg(`[Trill] moved ${flipped} its own staff | id:${id}`)
+  return true
+}
+
+/**
+ * ⭐⭐ **LEAVING ITS OWN SYSTEM** — the one move the walk cannot make (`./markSystemJump`, shared with
+ * the dynamic, the tempo mark and the wedge).
+ *
+ * ⭐ **The whole ornament goes, extent and all** (`trillOps.moveTrillTo`): a trill's extent is counted
+ * in the LANE's own notes, so a span of N stops arrives as a span of N stops. ⚠️ Counted HERE, because
+ * the lane is an interaction-side question; the model is only told which two notes.
+ *
+ * ⭐ **It arrives ON THE SIDE IT CAME FROM** — the wedge's correction: coming down, the next rung is
+ * ABOVE the staff below, which is also where the ink already is. ⛔ Landing on the far side skips a
+ * rung and puts the ornament past the hand.
+ *
+ * ⚠️ Both offsets go on arrival: over there the old x means nothing and the y was never a height.
+ */
+function jumpTrillSystems(
+  engine: TrillWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+): boolean {
+  const trill = engine.getTrillById(id)
+  const start = trill && engine.getNote(trill.startNoteId)
+  const inkY = trillInkY(engine.getElementRegistry(), id)
+  if (!trill || !start || inkY === null) return false
+
+  const above = (trill.placement ?? 'above') === 'above'
+  const target = trillSystemNoteFor(
+    engine, id, start, above, liftPx(engine, id, above), cursorX, inkY + dyPx)
+  if (!target) {
+    // 🚨 A decline that says nothing is a gesture that "does nothing", and this one has THREE
+    // different reads — his afternoon of round trips on the wedge is the reason these lines exist.
+    // ⭐ The commonest by far: a trill's anchor is a NOTE, so a system of rests has nowhere to land.
+    dbg(`[Trill] no rung down there — ${whyNoJump(engine, start, inkY + dyPx)}`)
+    return false
+  }
+
+  const lane = trillLane(engine, start).filter(n => !n.isRest)
+  const at = (noteId: string) => lane.findIndex(n => n.id === noteId)
+  // ⭐ The extent, in stops — the trill's own measure of how much music it covers.
+  const span = trill.endNoteId ? at(trill.endNoteId) - at(start.id) : 0
+  const end = span > 0 ? lane[Math.min(at(target) + span, lane.length - 1)]?.id : undefined
+  if (!engine.previewTrillMove(id, target, end)) return false
+
+  engine.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
+  engine.resetTrillOffset(id)
+  dbg(`[Trill] jumped to the staff it now belongs to | id:${id} → ${target.slice(0, 8)}`)
+  return true
+}
+
+/**
+ * Why {@link jumpTrillSystems} found nowhere to go — for the log, and ⛔ never for a decision.
+ *
+ * ⭐ *"There is no note over there"* is not a failure: the ornament still travels, as INK, exactly as
+ * it does horizontally (his rule, 2026-08-20: *"no anchor to a note but offset in the next
+ * system"*). What it cannot do is BELONG to a system that holds nothing it could hang off.
+ */
+function whyNoJump(engine: TrillWalkEngine, start: Note, inkY: number): string {
+  const registry = engine.getElementRegistry()
+  const bands = registry.staffBands()
+  if (bands.length < 2) return 'only one staff is painted'
+
+  const notes = registry.getByType('note')
+  const yOf = (id: string) => {
+    const el = notes.find(e => e.id === id)
+    return el ? el.bbox.y + el.bbox.height / 2 : null
+  }
+  const there = bands.reduce((a, b) => (Math.abs(inkY - b.top) < Math.abs(inkY - a.top) ? b : a))
+  const landable = trillLane(engine, start)
+    .filter(n => !n.isRest)
+    .some(n => {
+      const y = yOf(n.id)
+      return y !== null && y >= there.top - PAD_PX && y <= there.bottom + PAD_PX
+    })
+  return landable
+    ? 'the ink still belongs to the staff it is on'
+    : `no note of this lane is drawn on the staff at y ${there.top.toFixed(0)}`
+      + ' — so the ornament travels as INK instead, with nothing there to anchor to'
+}
+
+/** How far off a staff's five lines a notehead may sit and still be ON that staff — ledger lines and
+ *  a high leap. ⚠️ For a LOG line only: nothing decides anything by it. */
+const PAD_PX = 40
+
+/** This ornament's stored height in SCREEN pixels (+down) — ⚠️ `outward` is a distance FROM the
+ *  staff, so it is negated above it. `markSystemJump` must take it back out to find where the
+ *  ENGRAVER put the mark. */
+function liftPx(engine: TrillWalkEngine, id: string, above: boolean): number {
+  const outward = trillOffsetOverrideOf(engine.getScore(), id)?.outward ?? 0
+  const ss = trillStaffSpacePx(engine.getElementRegistry(), id) ?? 0
+  return outward * ss * (above ? -1 : 1)
+}
+
+/** Drop the height the hand had given it — a flip or a jump makes it meaningless. ⚠️ The horizontal
+ *  survives a FLIP (the ornament is still on the same notes) and goes with a JUMP. */
+function dropTheLift(engine: TrillWalkEngine, id: string): boolean {
+  const outward = trillOffsetOverrideOf(engine.getScore(), id)?.outward ?? 0
+  return outward === 0 || engine.previewTrillEndpointOffset(id, 'start', 0, -outward)
+}
+
 /**
  * ⭐⭐ **ONE FRAME OF A TRILL SQUARE DRAG** — the same journey as the arrows, with the cursor's delta
  * in PIXELS instead of a key's step and no undo entry (the drop commits once,
@@ -304,12 +447,26 @@ export function dragTrillEndpoint(
   engine: TrillWalkEngine,
   id: string,
   which: 'start' | 'end',
+  cursorX: number,
   dxPx: number,
-): { moved: boolean; droppedPx: number } | null {
+  dyPx = 0,
+): { moved: boolean; jumped: boolean; droppedPx: number } | null {
   const port = trillPort(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
-  if (dxPx === 0) return { moved: false, droppedPx: 0 }
+
+  // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
+  // belongs on the other side of it long before it belongs to the staff beyond.
+  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
+  if (jumpTrillSystems(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
+  if (dxPx === 0 && dyPx === 0) return { moved: false, jumped: false, droppedPx: 0 }
+
+  // ⭐⭐ **THE VERTICAL IS ONE NUMBER FOR THE WHOLE ORNAMENT** — the sign and the wiggle sit on one
+  // baseline, so `TrillOffsetOverride` has a single height and the armed square does not matter to
+  // it. ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
+  const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
+  const lifted = dyPx !== 0
+    && engine.previewTrillEndpointOffset(id, which, 0, (above ? -dyPx : dyPx) / staffSpacePx)
 
   // ⚠️ `carryMark` UNCONDITIONALLY, ⛔ not only when it crosses: the LATCH lives in there, and a
   // frame that merely passes through offset zero is exactly the one it exists for.
@@ -317,7 +474,11 @@ export function dragTrillEndpoint(
   // a whole one whose tail overshot stalls the walk one stop short for ever.
   const carried = carryMark(port, dxPx / staffSpacePx, 0, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return { moved: carried.moved, droppedPx: carried.dropped * staffSpacePx }
+  return {
+    moved: carried.moved || lifted,
+    jumped: false,
+    droppedPx: carried.dropped * staffSpacePx,
+  }
 }
 
 export function walkArmedTrillEndpoint(

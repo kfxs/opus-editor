@@ -317,7 +317,7 @@ describe('walkArmedTrillEndpoint', () => {
   describe('dragTrillEndpoint', () => {
     /** One frame of `dxPx`, repaying whatever the latch dropped — the caller's own rule. */
     const drag = (id: string, which: 'start' | 'end', dxPx: number) =>
-      dragTrillEndpoint(engine, id, which, dxPx)
+      dragTrillEndpoint(engine, id, which, 0, dxPx)
 
     it('⭐⭐ a drag and the arrows land in the SAME state over the same distance', () => {
       // Ten spaces of ink is 100 px at this fixture's scale, and the start's gap to C4 is exactly
@@ -363,8 +363,45 @@ describe('walkArmedTrillEndpoint', () => {
 
     it('a frame that moved nothing reports so, and writes nothing', () => {
       arm('end')
-      expect(drag(trillId, 'end', 0)).toEqual({ moved: false, droppedPx: 0 })
+      expect(drag(trillId, 'end', 0)).toEqual({ moved: false, jumped: false, droppedPx: 0 })
       expect(offset('end')).toBe(0)
+    })
+  })
+
+  /**
+   * ⭐⭐ **THE VERTICAL IS A LADDER** — …above staff N, below staff N, above staff N+1… — and a drag
+   * takes ONE rung at a time. His ask, 2026-08-20: *"the mouse drag [must] change the `tr` y offset,
+   * and of course we have to be aware of the system jump in the y, similar to hairpin"*.
+   */
+  describe('dragTrillEndpoint — the vertical', () => {
+    /** The staff's five lines, so the fixture can say where "across the staff" is. */
+    const STAFF = { top: 40, bottom: 80 }
+
+    it('⭐ an ordinary frame writes the height as OUTWARD, ⛔ not screen-down', () => {
+      // ⚠️ `outward` is a distance FROM the staff: dragging an ABOVE trill UP (−y) must grow it.
+      arm('start')
+      dragTrillEndpoint(engine, trillId, 'start', 0, 0, -20)
+      expect(trillOffsetOverrideOf(engine.getScore(), trillId)?.outward, 'two spaces further out')
+        .toBeCloseTo(2)
+    })
+
+    it('⭐⭐ crossing its OWN staff flips the side, and the height goes with it', () => {
+      // The band sits ABOVE the staff (the fixture draws it at y 20…30), so dragging down past the
+      // bottom line is the first rung — ⛔ not a jump to the staff below.
+      arm('start')
+      dragTrillEndpoint(engine, trillId, 'start', 0, 0, -20)          // give it a height first
+      const frame = dragTrillEndpoint(engine, trillId, 'start', 0, 0, STAFF.bottom + 20)!
+      expect(frame.jumped, 'a rung ends the gesture').toBe(true)
+      expect(engine.getTrillById(trillId)?.placement).toBe('below')
+      expect(trillOffsetOverrideOf(engine.getScore(), trillId)?.outward ?? 0,
+        'a height measured above the staff means nothing below it').toBeCloseTo(0)
+    })
+
+    it('⛔ …and a frame that stays on its own side of the staff does not flip', () => {
+      arm('start')
+      const frame = dragTrillEndpoint(engine, trillId, 'start', 0, 0, 10)!
+      expect(frame.jumped).toBe(false)
+      expect(engine.getTrillById(trillId)?.placement ?? 'above').toBe('above')
     })
   })
 })

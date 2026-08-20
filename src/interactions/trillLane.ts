@@ -48,6 +48,7 @@ import type { Fraction, Note } from '../types/music'
 import { buildBeatMap, type FlatNote } from '../utils/beatMap'
 import { fracEq } from '../utils/fraction'
 import { staffOf, voiceOf } from '../utils/lanes'
+import { systemStopFor } from './markSystemJump'
 
 /** What the lane needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type TrillLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry'>
@@ -221,4 +222,67 @@ function drawnCentreX(registry: ElementRegistry, id: string): number | null {
 function drawnSlot(registry: ElementRegistry, id: string) {
   return registry.getByType('note').find(el => el.id === id)
     ?? registry.getByType('rest').find(el => el.id === id)
+}
+
+/**
+ * ⭐ **WHERE THE ORNAMENT'S INK WAS DRAWN, VERTICALLY** — the band's middle, which is where its two
+ * squares ride. Null when the last render drew none.
+ *
+ * ⚠️ The FIRST fragment's, deliberately: the ladder asks *which staff does this mark belong to*, and
+ * a split ornament belongs to the one its sign is on.
+ */
+export function trillInkY(registry: ElementRegistry, trillId: string): number | null {
+  const drawn = registry.getByType('trill').find(el => el.id === trillId)
+  return drawn ? drawn.bbox.y + drawn.bbox.height / 2 : null
+}
+
+/** The five lines of the staff this ornament hangs off, as the last render painted them — the line
+ *  the placement FLIP is measured against. Null when that bar was not drawn. */
+export function trillStaffBand(
+  registry: ElementRegistry,
+  trillId: string,
+): { top: number; bottom: number } | null {
+  const drawn = registry.getByType('trill').find(el => el.id === trillId)
+  if (!drawn || drawn.measure === undefined) return null
+  const geometry = registry.getStaffGeometry(drawn.measure, drawn.staff ?? 0)
+  if (!geometry) return null
+  const lines = geometry.lineYPositions
+  return { top: lines[0], bottom: lines[lines.length - 1] }
+}
+
+/**
+ * ⭐⭐ **WHICH NOTE THE ORNAMENT NOW BELONGS TO after a vertical drag** — `./markSystemJump`'s rule,
+ * shared with the dynamic, the tempo mark and the wedge, ⛔ never a copy of it.
+ *
+ * ⭐ The candidates are the LANE's own drawn notes: a trill's anchor is a note, so "the places it
+ * could stand on that system" is exactly the list the walk already uses. ⚠️ Its own voice and staff
+ * only — a trill that silently changed lane would be a wrong trill (`./trillReanchor`'s rule).
+ *
+ * @returns the note id to move onto, or null while it still belongs where it is.
+ */
+export function trillSystemNoteFor(
+  engine: TrillLaneEngine,
+  trillId: string,
+  start: Note,
+  above: boolean,
+  liftPx: number,
+  cursorX: number,
+  inkY: number,
+): string | null {
+  const registry = engine.getElementRegistry()
+  const lane = trillLane(engine, start).filter(n => !n.isRest)
+  return systemStopFor<string>({
+    bands: () => registry.staffBands(),
+    candidates: () => lane.flatMap(n => {
+      const el = registry.getByType('note').find(e => e.id === n.id)
+      return el ? [{ x: el.headX ?? el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, stop: n.id }] : []
+    }),
+    anchor: () => {
+      const el = registry.getByType('note').find(e => e.id === start.id)
+      return el ? { x: el.headX ?? el.bbox.x, y: el.bbox.y + el.bbox.height / 2 } : null
+    },
+    inkY: () => trillInkY(registry, trillId),
+    liftPx: () => liftPx,
+    above: () => above,
+  }, cursorX, inkY)
 }

@@ -2433,6 +2433,22 @@ export class MusicEngine {
     return this.scoreModel.setTrillEndpointOffset(id, which, dx, outward)
   }
 
+  /**
+   * Live (preview) side change while DRAGGING an ornament across its own staff — the LADDER's first
+   * rung (`interactions/trillWalk`). ⚠️ No undo of its own; the drop commits once.
+   */
+  previewTrillPlacement(id: string, side: 'above' | 'below'): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setTrillPlacement(id, side)
+  }
+
+  /** Live (preview) move of the WHOLE ornament onto another note, keeping its extent — a vertical
+   *  drag landing it on another system. ⚠️ AUDIBLE, and committed by {@link commitTrillDrag}. */
+  previewTrillMove(id: string, startNoteId: string, endNoteId?: string): boolean {
+    this.markModelDirty()
+    return this.scoreModel.moveTrillTo(id, startNoteId, endNoteId)
+  }
+
   /** The re-base during a DRAG: {@link rebaseTrillEndpointOffset} with no undo entry of its own —
    *  and, like it, ⛔ never judged by the page limit. */
   previewTrillEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
