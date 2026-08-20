@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { reanchorArmedTrillEndpoint } from './trillReanchor'
+import { nextTrillAnchorStop, reanchorArmedTrillEndpoint } from './trillReanchor'
 import { fracCreate as frac } from '../utils/fraction'
 
 /**
@@ -204,6 +204,22 @@ describe('reanchorArmedTrillEndpoint', () => {
     arm('end')
     expect(step(1)).toBe(true)
     expect(idx(trill().endNoteId), 'E4 → F4, under the other trill\'s sign').toBe(3)
+  })
+
+  it('🚨🚨 THE CLAMP ASKS WHERE THE OTHER END IS, ⛔ not where it sits in the STOPS list', () => {
+    // His report, 2026-08-20: a dragged start refused on every frame — *"the start would pass the
+    // end"*, over and over. The far end was a note carrying ANOTHER trill, so the candidate filter
+    // had dropped it from the list; `findIndex` answered −1, the guard read that as "there is no end
+    // to cross", and the walk offered a note far beyond it for the model to refuse for ever.
+    engine.setTrillAnchor(trillId, 'end', ids[2])     // D4 → E4
+    engine.createTrill([ids[2]])                      // …and E4 now carries a trill of its own
+    arm('start')
+    // 🚨 The CANDIDATE is the thing under test: with the index clamp it offers F4 — PAST the end —
+    // and only the model's refusal hides it, which is what made the drag retry for ever.
+    expect(nextTrillAnchorStop(engine, trillId, 'start', 1),
+      'nothing is offered past the end, occupied or not').toBeNull()
+    expect(step(1), 'so the key declines and nothing is written').toBe(false)
+    expect(idx(trill().startNoteId)).toBe(1)
   })
 
   it('⛔ declines for a trill the score no longer has', () => {

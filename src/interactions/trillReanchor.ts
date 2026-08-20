@@ -45,7 +45,7 @@ import { selectedOf } from './EditorState'
 import { trillMayAnchorOn } from '../engine/models/trillOps'
 import { trillLane } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
-import { fracEq } from '../utils/fraction'
+import { fracCompare, fracEq } from '../utils/fraction'
 import { dbg } from '../utils/debug'
 
 /** What resolving a step needs off the engine — a Pick, so a spec can stand it up without a
@@ -133,22 +133,26 @@ export function nextTrillAnchorStop(
   const dest = stops[from + direction]
   if (!dest) return null // off the end of the lane
 
+  // 🚨🚨 **THE CLAMPS COMPARE POSITIONS, ⛔ NEVER INDEXES IN `stops`.** His report, 2026-08-20: a
+  // dragged start refused on every single frame — *"the start would pass the end"*, a hundred times.
+  // The far end was a note that carried ANOTHER trill, so the filter above had dropped it from
+  // `stops`; `findIndex` answered −1, the guard read that as *"there is no end to cross"* and offered
+  // a note far beyond it, which the model then refused for ever. ⭐ A clamp about WHERE THE OTHER END
+  // IS must ask where it is, not where it sits in a list that may not contain it.
   if (which === 'end') {
     // ⭐⭐ Reaching the START clears the end — the one-note trill, not a refusal. Compared by
     // POSITION for the chord reason above.
     if (at(dest, start.measure, start.beat)) return { note: dest, clearsEnd: true }
     // …and it may never pass the start.
-    const startIndex = stops.findIndex(n => at(n, start.measure, start.beat))
-    if (startIndex !== -1 && from + direction < startIndex) return null
+    if (isBefore(dest, start.measure, start.beat)) return null
   } else {
     // ⭐⭐ The start may never PASS an explicit end — but reaching it is allowed, and collapses the
-    // trill onto that note (`setTrillStart`, the mirror of the end's clear above). 🚨 `>`, not `>=`:
-    // with `>=` a trill whose end is the very next note could not move right AT ALL, which is
-    // exactly what he found. Without an explicit end there is nothing to cross — it is the start's
-    // own tie chain and travels with it.
+    // trill onto that note (`setTrillStart`, the mirror of the end's clear above). 🚨 PAST, not AT:
+    // a trill whose end is the very next note must still be able to move right, which is exactly
+    // what he found. Without an explicit end there is nothing to cross — it is the start's own tie
+    // chain and travels with it.
     const end = trill.endNoteId ? engine.getNote(trill.endNoteId) : null
-    const endIndex = end ? stops.findIndex(n => at(n, end.measure, end.beat)) : -1
-    if (endIndex !== -1 && from + direction > endIndex) return null
+    if (end && !isBefore(dest, end.measure, end.beat) && !at(dest, end.measure, end.beat)) return null
   }
   return { note: dest }
 }
@@ -173,6 +177,12 @@ export function applyTrillAnchorStop(
  *  so an anchor on any other member would not be found by id at all. */
 function at(n: FlatNote, measure: number, beat: Fraction): boolean {
   return n.measureNumber === measure && fracEq(n.beat, beat)
+}
+
+/** Is `n` strictly EARLIER in the score than (measure, beat)? — the clamps' comparison, ⛔ not an
+ *  index into a list that a filter may have thinned. */
+function isBefore(n: FlatNote, measure: number, beat: Fraction): boolean {
+  return n.measureNumber !== measure ? n.measureNumber < measure : fracCompare(n.beat, beat) < 0
 }
 
 /**

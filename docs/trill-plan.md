@@ -860,6 +860,22 @@ travel with the sign, so it pointed at a spot in an empty bar. ⭐ `trilledNoteA
 for both coordinates now. Suppressing the guide (my first answer) hid the very fact he was asking
 about.
 
+### 🚨🚨 A clamp asks WHERE the other end is — ⛔ never where it sits in the STOPS list
+
+His report, on a dragged start: `setTrillStart refused: the start would pass the end`, once per frame,
+for ever. The chain, and every link is a rule meeting another:
+
+1. the far end was a note carrying ANOTHER trill, so the candidate filter dropped it from `stops`
+   (a START may not sit where another trill sits — §12's fix);
+2. the clamp *"the start may never pass the end"* looked that end up **by index in the filtered
+   list** → `-1` → it read that as *"there is no end to cross"*;
+3. so the walk offered a note far beyond the end, the model refused it, and the drag retried on every
+   frame — the ornament never moved.
+
+⭐ Both clamps now compare POSITIONS (measure, beat). ⚠️ The first version of its test passed BOTH
+ways, because the model's own refusal hid the bad candidate: the assertion has to be on
+`nextTrillAnchorStop` itself, ⛔ not on whether the key returned false.
+
 ### Tests
 
 `trillWalk.test.ts` (19, incl. the drag chapter), `trillLane.test.ts` (10, incl. the ribbon),
