@@ -33,15 +33,16 @@
  *    press would appear to do nothing on a tied note, or worse, shorten the ornament.
  *
  * ⚠️ DECLINES — returns false, touching nothing — whenever the step is not available: no armed
- * square, the anchor is off the beat map, the walk runs off the end of the lane, the step would
- * reach or cross the other end, or the model refuses the destination (a rest, a fanned member, a
- * note that already trills). Declining is what leaves `Ctrl+Shift+←/→` free for the note offset, so
- * the caller must chain rather than repaint on a false.
+ * square, the anchor is off the beat map, the walk runs off the end of the lane, or the step would
+ * reach or cross the other end. ⭐ A destination the model would refuse is not a decline — it is
+ * SKIPPED, and the walk offers the next note along. Declining is what leaves `Ctrl+Shift+←/→` free
+ * for the note offset, so the caller must chain rather than repaint on a false.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Fraction, Trill } from '../types/music'
 import type { EditorState } from './EditorState'
 import { selectedOf } from './EditorState'
+import { trillMayAnchorOn } from '../engine/models/trillOps'
 import { trillLane } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
 import { fracEq } from '../utils/fraction'
@@ -90,9 +91,10 @@ export function trillAnchorPosition(
  * armed square, an anchor that is off the beat map, the end of the lane, or a step that would pass
  * the other end.
  *
- * ⛔ It does not consult the MODEL's own refusals (a rest, a fanned member, a note that already
- * trills) — those are the op's, and the op is the authority. Rests are dropped here because the beat
- * map holds them and a trill attaches to a note.
+ * 🚨 **It DOES consult the model's refusals — a note the op would say no to is not a stop but a DEAD
+ * KEY** (`trillOps.trillMayAnchorOn`, and his report of 2026-08-20 below). The op remains the
+ * authority; asking first is what lets the walk step PAST a rest, a fanned member or another trill's
+ * notehead instead of jamming against it.
  */
 export function nextTrillAnchorStop(
   state: EditorState,
@@ -105,15 +107,24 @@ export function nextTrillAnchorStop(
   if (!trill) return null
   const start = engine.getNote(trill.startNoteId)
   if (!start) return null
-  const anchor = trillAnchorPosition(engine, trill, selected.endpoint)
+  const which = selected.endpoint
+  const anchor = trillAnchorPosition(engine, trill, which)
   if (!anchor) return null
 
   // The START note's OWN lane, with no voice fallback — `reanchorArmedSlurEndpoint`'s rule and its
   // reason: a trill that silently jumped voices would be a wrong trill, not a recovered one. ⭐ The
   // lane comes from the START rather than from the armed end, because `Trill.voice` says both
-  // anchors share one and the start is the anchor that always exists. Rests are dropped: a trill
-  // attaches to a note.
-  const stops = trillLane(engine, start).filter(n => !n.isRest)
+  // anchors share one and the start is the anchor that always exists.
+  //
+  // 🚨 **A NOTE THE MODEL WOULD REFUSE IS NOT A STOP** — a rest, a fanned member, and (for the START)
+  // a note that already carries another trill. Offering one and letting the op say no leaves the key
+  // JAMMED against it for ever; dropping it walks the ornament PAST it, which is what the eye expects
+  // (his report, 2026-08-20 — see `trillOps.trillMayAnchorOn`).
+  //
+  // ⭐⭐ **A REST IS STILL NOT AN ANCHOR** — ⛔ and carrying the line over empty bars is not this
+  // key's job: that is the INK's, and his rule for it is `./trillWalk`'s system FOLD.
+  const stops = trillLane(engine, start)
+    .filter(n => !n.isRest && trillMayAnchorOn(engine.getScore(), selected.id, which, n.id))
 
   const from = stops.findIndex(n => at(n, anchor.measure, anchor.beat))
   if (from === -1) return null
@@ -121,7 +132,7 @@ export function nextTrillAnchorStop(
   const dest = stops[from + direction]
   if (!dest) return null // off the end of the lane
 
-  if (selected.endpoint === 'end') {
+  if (which === 'end') {
     // ⭐⭐ Reaching the START clears the end — the one-note trill, not a refusal. Compared by
     // POSITION for the chord reason above.
     if (at(dest, start.measure, start.beat)) return { note: dest, clearsEnd: true }

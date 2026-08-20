@@ -730,6 +730,50 @@ assertion red with it. ⚠️ The fixture's lane is deliberately UNEVEN (the las
 300 px on, where the noteheads are 100 apart) — evenly spaced, every assertion passes with the
 successor rule deleted.
 
+### 🚨🚨 Three corrections from his hand-testing, the same afternoon
+
+**1. A step the model would refuse is a DEAD KEY.** *"it never gets the next target… after the second
+trill are other notes that have no trill"* — the sign walked down the lane and stopped forever on a
+note carrying another trill. The op was right to refuse it; asking only AFTER the step was the bug.
+`trillOps.trillMayAnchorOn` now answers BEFORE the step is offered, so the walk SKIPS such a note
+exactly as it has always skipped a rest. ⭐ The two ends differ, and the model is why: a START may not
+sit where another trill sits, an END may (spans overlap).
+
+**2. 🚨🚨 The END's successor is scoped to ITS OWN BAR.** `TrillRenderer.spanX` asks
+`slotIdAfter(to.view, …)` — the end measure's own view — and falls back to that bar's `noteEndX`. The
+first cut of `trillLane` read the next slot ACROSS bars, which invented a whole class of phantom
+system crossings (*"i still don't see the cross system extension working"*: the wrap had fired a
+system too early, because the "successor" it measured was drawn on the next line). ⭐ A square is
+therefore never drawn on a system its anchor is not on.
+
+**3. ⭐⭐ THE FOLD — and it is the OFFSET that crosses a break, ⛔ not the anchor.**
+
+> *"look how the offset works — here all the empty measures; in the case of a system jump, same
+> thing: **no anchor to a note but offset in the next system**"*
+
+`TrillRenderer.foldPastSystemEnd`: ink pushed past a line's end is re-expressed in the NEXT line's
+coordinates and the pieces are cut to there. A trill's anchors are notes, so a passage of empty bars
+offers nothing to re-anchor onto — and a score that runs out in rests could otherwise never have its
+line carried onward at all.
+
+- ⚠️ **The END NUDGE moved INTO `trillGeometry`** (it used to be added to the last piece at draw
+  time): past a line's end it changes WHICH PIECES THERE ARE.
+- ⚠️ **Both passes widen `covered` to the folded lines** — without a placement over there the
+  fragment borrows the FIRST system's stave and draws at that height over the new system's x's.
+- ⭐ The walk's `inkStaysOnSystem` then refuses only on the LAST drawn line, where the ink genuinely
+  has nowhere to go. ⛔ It refuses the write; it never clamps the drawing.
+- 🚨 **I first made a REST a legal END anchor, and he corrected me: *"im not overrulling"*.** Reverted.
+  ⭐ **The lesson: when he explains a MECHANISM, build that mechanism — do not substitute one that
+  merely produces the same picture.**
+
+**…and the regression the fold caused, fixed the same hour.** *"the `tr` disappears, this should not
+happen"*, on a trill carrying `endX: -5`. `cutIntoPieces` drops a piece whose end has crossed its own
+start — right for a degenerate span — and with the nudge now folded in before the cut, a hand-nudge
+dragging the end back past the sign deleted the only piece there was, taking the `tr`, its hit-box and
+both squares with it. ⭐ The cut is floored at the sign; `drawsLine` alone decides the wiggle. **Pulling
+the end back past the `tr` is a way of asking for a bare sign, ⛔ not for no ornament.** Covered by
+`e2e/trill.e2e.ts` (a ONE-NOTE trill — over a three-note span 5 spaces does not reach the sign).
+
 ### ⏭️ Left open
 
 - **The DRAG still snaps.** `trillDragTargetAt` picks the nearest note and re-anchors outright, where

@@ -416,6 +416,32 @@ export function trillSpan(score: Score, id: string): TrillSpan | null {
 }
 
 /**
+ * ⭐⭐ **MAY THIS TRILL'S `which` END ANCHOR ON `noteId`?** — {@link setTrillStart}'s and
+ * {@link setTrillEnd}'s own refusals, asked BEFORE a step is offered rather than after it is taken.
+ *
+ * 🚨 **A step the model will refuse is not a step, it is a DEAD KEY** — his report, 2026-08-20: the
+ * sign walked down the lane and stopped forever on a note carrying another trill, *"after the second
+ * trill are other notes that have no trill"*. Offering it and letting the op say no leaves the walk
+ * jammed against it; dropping it from the candidates walks the ornament PAST it, which is what the
+ * eye expects and what the rest filter has always done for the same reason.
+ *
+ * ⭐ **The two ends differ, and the model is why**: a START may not sit on a note that already
+ * trills (two ornaments on one notehead is a contradiction, {@link setTrillStart}), while an END has
+ * no such rule — spans may overlap. ⛔ Do not "tidy" them into one answer.
+ */
+export function trillMayAnchorOn(
+  score: Score,
+  id: string,
+  which: 'start' | 'end',
+  noteId: string,
+): boolean {
+  if (!isTrillable(score, noteId)) return false
+  if (which === 'end') return true
+  const owner = trillOnNote(score, noteId)
+  return !owner || owner.id === id
+}
+
+/**
  * ⭐⭐ **WHERE THE LINE WOULD STOP IF THIS TRILL HAD NO EXPLICIT END** — the last note of the START's
  * tie chain, which is the ordinary one-note trill's own extent ({@link Trill.endNoteId}).
  *

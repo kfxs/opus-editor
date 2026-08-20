@@ -417,6 +417,46 @@ test('⭐ …and nudging the END moves the line\'s end, leaving the sign where i
   expect(after.signX, 'the sign has not moved — the horizontal is PER END').toBeCloseTo(before.signX, 1)
 })
 
+test('🚨🚨 a BIG NEGATIVE end nudge leaves the SIGN standing — his report, 2026-08-20', async ({ score }) => {
+  // *"the `tr` disappears, this should not happen"* — on a trill carrying `endX: -5`. Pulling the
+  // end back past the sign is a way of asking for a bare `tr`, ⛔ not for no ornament: the wiggle
+  // goes, the sign stays, and so do its hit-box and both squares.
+  //
+  // 🚨 It regressed the day the end nudge moved INTO the geometry (it had to, for the system FOLD):
+  // `cutIntoPieces` drops a piece whose end has crossed its own start, which deleted the only piece
+  // there was. ⭐ The cut is now floored at the sign, and `drawsLine` alone decides the wiggle.
+  const read = async () => score.evaluate(() => {
+    const h = window.__h
+    const marks = h.placed('g.vf-trill text')
+    const box = h.engine.getElementRegistry().getByType('trill')[0]
+    return { signs: marks.length, signX: marks[0]?.x ?? null, hasBox: !!box }
+  })
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [0, 1, 2, 3].map(beat =>
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!.id)
+    // ⭐ A ONE-NOTE trill, as his was: its line is about a quarter-note wide, so a 5-space pull is
+    // enough to take the end back past the sign — which is the state that used to erase everything.
+    h.engine.addTrill({ startNoteId: ids[0] })
+    await h.render()
+  })
+  const before = await read()
+  // ⚠️ Every glyph of the wiggle is a `<text>` too, so the count is sign + line segments.
+  expect(before.signs, 'the fixture draws a sign AND a wiggle to begin with').toBeGreaterThan(1)
+
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.nudgeTrillEndpoint(h.engine.getTrills()[0].id, 'end', -5, 0)
+    await h.render()
+  })
+  const after = await read()
+
+  expect(after.signs, 'the `tr` is STILL DRAWN — and it is all that is left').toBe(1)
+  expect(after.signX, 'and it has not moved — the end nudge is the END\'s').toBeCloseTo(before.signX!, 1)
+  expect(after.hasBox, 'and the ornament still has a hit-box to grab').toBe(true)
+})
+
 test('⭐⭐ the vertical is OUTWARD: + lifts an `above` trill, and LOWERS a `below` one', async ({ score }) => {
   // 🚨 THE BREAK-TEST FOR THE WHOLE CONVERSION. Every case above uses an `above` trill, where
   // outward-from-the-staff and "up the screen" agree up to a sign — so they would all pass with the

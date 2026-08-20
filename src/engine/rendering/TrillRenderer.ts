@@ -44,6 +44,7 @@ import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
 import { trillOffsetOverrideOf } from '@/engine/models/engravingOverrides'
+import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { clearanceBaseline, columnsBetween, mergeInkBands, staffInkBand, type InkBand } from '@/engine/layout/inkBand'
 import { curveObstacleBand } from '@/engine/layout/curveObstacleBand'
 import { markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
@@ -204,17 +205,71 @@ function trillGeometry(
   voice: number,
   from: TrillPlacement,
   to: TrillPlacement,
-): { startX: number; endX: number; pieces: TrillPiece[] } | null {
+  /** ⭐ THE END SQUARE'S OWN NUDGE, in staff-spaces — folded in HERE rather than added to the last
+   *  piece at draw time, because past the end of a line it changes WHICH PIECES THERE ARE. */
+  endNudge = 0,
+): { startX: number; endX: number; toLine: number; pieces: TrillPiece[] } | null {
   const x = spanX(pass, span, voice, from, to)
   if (!x) return null
   const inset = staffSpacesToPixels(TRILL_END_INSET, from.stave)
   const insetEnd = x.endX - inset
-  const endX = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
+  const clamped = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
+  // ⛔ AFTER every automatic decision, never inside one — the recorded scar in `drawTrill`.
+  const nudged = clamped + staffSpacesToPixels(endNudge, to.stave)
+  const folded = foldPastSystemEnd(pass, to.line, nudged, from.scale)
+  // 🚨🚨 **A PIECE MUST SURVIVE, OR THE SIGN GOES WITH IT.** His report, 2026-08-20: an `endX` of
+  // −5 spaces and *"the `tr` disappears, this should not happen"*. `cutIntoPieces` drops any piece
+  // whose end has crossed its own start — right for a degenerate span — and once the nudge was
+  // folded in HERE (it has to be, for the fold), a hand-nudge dragging the end back past the sign
+  // deleted the only piece there was, and with it the `tr`, its hit-box and both squares.
+  // ⭐ So the CUT is floored at the sign; the DRAWING still shows no wiggle, because `drawsLine`
+  // asks whether anything is left after the sign and its gap. Pulling the end back past the `tr` is
+  // a way of asking for a bare sign, ⛔ not for no ornament.
+  const cutEnd = from.line === folded.line ? Math.max(folded.endX, x.startX + inset) : folded.endX
   return {
     startX: x.startX,
-    endX,
-    pieces: cutIntoPieces(pass, from.line, to.line, x.startX, endX, from.scale),
+    endX: cutEnd,
+    toLine: folded.line,
+    pieces: cutIntoPieces(pass, from.line, folded.line, x.startX, cutEnd, from.scale),
   }
+}
+
+/**
+ * 🚨🚨 **THE FOLD — ink pushed past the end of a line CONTINUES AT THE START OF THE NEXT ONE.**
+ *
+ * His rule, 2026-08-20, after watching the end square's nudge walk the wavy line into the right
+ * margin and off the sheet: *"look how the offset works — here all the empty measures; in the case of
+ * a system jump, same thing: **no anchor to a note but offset in the next system**"*.
+ *
+ * ⭐⭐ **It is the OFFSET that crosses the break, ⛔ not the anchor.** A trill's anchors are notes, so
+ * a passage of empty bars offers nothing to re-anchor to — and a score that runs out in rests could
+ * otherwise never have its line carried onward at all. The ink is `anchor + offset` as it always
+ * was; this only says where that lands once the offset runs off the end of a line.
+ *
+ * ⚠️ **So a trill can DRAW on systems its SPAN does not cover.** Both passes therefore widen their
+ * `covered` placements to the folded lines — without a stave over there a fragment would be drawn at
+ * the FIRST system's height, on the second system's x's.
+ *
+ * ⚠️ A loop, not a single step: a big nudge (or a wide zoom-out) may fold over several lines. It
+ * stops at the last line the render drew, which is where the ink genuinely has nowhere to go — and
+ * `interactions/trillWalk` refuses the press there rather than letting it run off the page.
+ */
+export function foldPastSystemEnd(
+  pass: SystemEdgeLookup,
+  line: number,
+  endX: number,
+  scale: number,
+): { line: number; endX: number } {
+  for (let guard = 0; guard < 64; guard++) {
+    const right = lineRightEdgeX(pass, line)
+    const nextLeft = lineLeftEdgeX(pass, line + 1)
+    // ⚠️ Both edges come from `measureBounds`, i.e. the SVG's own space; everything here is in the
+    // staff's (`SlurRenderer.planSlurSegments` makes the same conversion for the same reason).
+    if (right === undefined || nextLeft === undefined || endX <= right / scale) break
+    endX = nextLeft / scale + (endX - right / scale)
+    line += 1
+  }
+  return { line, endX }
 }
 
 /**
@@ -434,17 +489,15 @@ export function planTrillBands(
     const voice = voiceOf(trill)
     const side = trill.placement ?? 'above'
     const staffId = staffIds[from.staffIndex]
-    const covered = placements.filter(p =>
-      p.staffIndex === from.staffIndex
-      && p.measureNumber >= span.startMeasure
-      && p.measureNumber <= span.endMeasure)
-
     // ⭐ WHERE IT WILL BE DRAWN — the same arithmetic the drawing does ({@link trillGeometry}), asked
     // here because a curve is found by its x. ⚠️ `null` when the span's bars were not drawn; the
     // fragment then keeps its music-only band rather than losing its claim.
     const to = placements.find(p =>
       p.measureNumber === span.endMeasure && p.staffIndex === from.staffIndex)
-    const geometry = to ? trillGeometry(pass, span, voice, from, to) : null
+    const geometry = to
+      ? trillGeometry(pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id)?.endX ?? 0)
+      : null
+    const covered = coveredPlacements(placements, span, from, geometry?.toLine ?? from.line)
 
     for (const line of new Set(covered.map(p => p.line))) {
       const here = covered.filter(p => p.line === line)
@@ -487,13 +540,11 @@ export function renderTrills(
     const voice = voiceOf(trill)
     // ⭐ The same geometry `planTrillBands` measured the curves over — one answer to where this trill
     // is, asked by both passes (see {@link trillGeometry}).
-    const geometry = trillGeometry(pass, span, voice, from, to)
+    const geometry = trillGeometry(
+      pass, span, voice, from, to, trillOffsetOverrideOf(score, trill.id)?.endX ?? 0)
     if (!geometry) continue
 
-    const covered = placements.filter(p =>
-      p.staffIndex === from.staffIndex
-      && p.measureNumber >= span.startMeasure
-      && p.measureNumber <= span.endMeasure)
+    const covered = coveredPlacements(placements, span, from, geometry.toLine)
 
     try {
       // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-trill' here
@@ -510,13 +561,33 @@ export function renderTrills(
   }
 }
 
+/**
+ * The bars this ornament is DRAWN over — its span's, ⭐ **plus every line its ink was FOLDED onto**
+ * ({@link foldPastSystemEnd}).
+ *
+ * ⚠️ Without the second half a folded fragment finds no placement on its line, so it borrows the
+ * FIRST system's stave: its wiggle would be drawn at that system's height over the next system's
+ * x's, and its band would be planned there too.
+ */
+function coveredPlacements(
+  placements: readonly TrillPlacement[],
+  span: TrillSpan,
+  from: TrillPlacement,
+  toLine: number,
+): TrillPlacement[] {
+  return placements.filter(p =>
+    p.staffIndex === from.staffIndex
+    && ((p.measureNumber >= span.startMeasure && p.measureNumber <= span.endMeasure)
+      || (p.line > from.line && p.line <= toLine)))
+}
+
 /** The drawing itself, once {@link trillGeometry} has said where the ornament goes. */
 function drawTrill(
   pass: RenderPass,
   trill: Trill,
   span: TrillSpan,
   voice: number,
-  geometry: { startX: number; endX: number; pieces: TrillPiece[] },
+  geometry: { startX: number; endX: number; toLine: number; pieces: TrillPiece[] },
   covered: readonly TrillPlacement[],
   from: TrillPlacement,
   staffId: string | undefined,
@@ -553,7 +624,7 @@ function drawTrill(
 
   const pieces = geometry.pieces
   let firstPiece = true
-  for (const [pieceIndex, piece] of pieces.entries()) {
+  for (const piece of pieces) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own ink band, its staff-space size. All three
     // are facts about the system the piece landed on, not about where the trill began.
     const here = covered.filter(p => p.line === piece.line)
@@ -618,9 +689,10 @@ function drawTrill(
     // ⚠️ No sign means no GAP either — the gap exists to separate the line from the sign, so keeping
     // it under `'none'` would indent the wiggle from the margin for no visible reason.
     const lineStart = drawsSign ? signX + signWidth + px(TRILL_SIGN_GAP) : piece.x0
-    // ⭐ …and the END square's nudge, on the piece carrying the line's true end and outside the
-    // `TRILL_END_INSET` arithmetic that produced it — the start's rule, mirrored.
-    const lineEnd = piece.x1 + (pieceIndex === pieces.length - 1 ? px(nudge?.endX ?? 0) : 0)
+    // ⭐ The END square's nudge is already IN `piece.x1` — {@link trillGeometry} folds it in before
+    // the pieces are cut, because past the end of a line it changes which pieces there are (the
+    // FOLD). ⛔ Adding it again here would double every end nudge.
+    const lineEnd = piece.x1
     // ⭐⭐ **THE LINE DRAWS BY DEFAULT — his call, 2026-08-13**, overruling docs/trill-plan.md §1
     // rule 5 ("a single note needs no wavy line"), which was LilyPond's and Gould's. A bare `tr`
     // leaves the duration implied; he wants it shown, on one note as much as on twenty.

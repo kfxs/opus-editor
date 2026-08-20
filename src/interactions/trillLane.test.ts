@@ -28,7 +28,10 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: () => (drawn.lineSpacing === null ? undefined : { lineSpacing: drawn.lineSpacing }),
+      getStaffGeometry: (m: number) => (drawn.lineSpacing === null ? undefined : {
+        lineSpacing: drawn.lineSpacing, lineYPositions: [40, 50, 60, 70, 80],
+        noteStartX: 90, noteEndX: m === 1 ? 430 : 830,
+      }),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
     }))
@@ -80,22 +83,26 @@ describe('trillLane', () => {
 
   it('⭐⭐ the START is drawn ON its note and the END on the note AFTER it', () => {
     const l = lane()
-    expect(trillSquareBaseX(registry(), l, 'start', 1), 'D4 itself').toBe(200)
-    expect(trillSquareBaseX(registry(), l, 'end', 1), 'the slot after D4').toBe(300)
+    expect(trillSquareBaseX(registry(), l, 'start', 1, 0), 'D4 itself').toBe(200)
+    expect(trillSquareBaseX(registry(), l, 'end', 1, 0), 'the slot after D4').toBe(300)
   })
 
-  it('⚠️ at the last slot of the lane the END falls back to that slot\'s own right-hand side', () => {
+  it('🚨🚨 THE SUCCESSOR IS SCOPED TO THE BAR — the LAST slot of one ends at its BARLINE', () => {
+    // The renderer asks `slotIdAfter` of the END MEASURE's own view and falls back to that bar's
+    // `noteEndX`, so a trill ending on the last note of a bar stops there — ⛔ never at the first
+    // note of the next bar, which is often on a different SYSTEM. Reading across bars was the first
+    // cut of this module and it invented phantom system crossings (his report, 2026-08-20).
     const l = lane()
-    // The undrawn second-bar rest is the last entry, so ask about the note before it and then about
-    // the rest itself — the fallback is what answers when there is no successor at all.
-    expect(trillSquareBaseX(registry(), l, 'end', l.length - 1), 'nothing drawn there').toBeNull()
-    drawn.entries.push({ type: 'rest', id: restId(), headX: 700, bbox: { x: 695, y: 50, width: 10, height: 10 } })
-    expect(trillSquareBaseX(registry(), l, 'end', l.length - 1), 'its own right edge').toBe(705)
+    const lastOfBarOne = ids.length - 1
+    expect(trillSquareBaseX(registry(), l, 'end', lastOfBarOne, 0), 'bar 1\'s own end, ⛔ not bar 2\'s rest')
+      .toBe(430)
+    expect(trillSquareBaseX(registry(), l, 'end', l.length - 1, 0), 'and bar 2\'s, at its last slot')
+      .toBe(830)
   })
 
   it('⛔ answers NULL rather than guessing when the last render drew nothing there', () => {
     drawn.entries = []
-    expect(trillSquareBaseX(registry(), lane(), 'start', 1)).toBeNull()
+    expect(trillSquareBaseX(registry(), lane(), 'start', 1, 0)).toBeNull()
     expect(trillStaffSpacePx(registry(), trillId), 'no drawn ornament, no staff to read').toBeNull()
   })
 

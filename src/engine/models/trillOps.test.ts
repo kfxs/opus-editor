@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
+import { trillEndWithoutAnEnd, trillMayAnchorOn } from './trillOps'
 import type { Chord, FanMark, Note, NoteParams } from '@/types/music'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
@@ -406,5 +407,57 @@ describe('trillOps — the ink offsets', () => {
   it('is false for an unknown id', () => {
     expect(model.setTrillEndpointOffset('nope', 'start', 1, 1)).toBe(false)
     expect(model.setTrillOffset('nope', 1, 1)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ The two readers the interpolating walk asks BEFORE it offers a step
+ * (`interactions/trillWalk`, `interactions/trillReanchor`). Both exist because a question answered
+ * only by the WRITE arrives too late: a step the op refuses leaves the key jammed, and a step priced
+ * at the wrong note makes the ink jump.
+ */
+describe('trillOps — what the walk asks before it steps', () => {
+  let model: ScoreModel
+  let notes: Note[]
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    notes = ([['C', 4], ['D', 4], ['E', 4], ['F', 4]] as Array<[NoteParams['step'], number]>)
+      .map(([step, octave], i) =>
+        model.addNote({ step, alter: 0, octave, duration: 'q', measure: 1, beat: frac(i, 1) }))
+  })
+
+  it('⭐⭐ trillMayAnchorOn: a START refuses a note that ALREADY TRILLS, an END does not', () => {
+    // 🚨 His report, 2026-08-20: the sign walked down the lane and stopped dead on the second trill's
+    // note for ever. The op's refusal was right; asking it only AFTER the step was the bug.
+    const mine = model.addTrill({ startNoteId: notes[0].id })!
+    model.addTrill({ startNoteId: notes[2].id })
+    const score = model.getScore()
+    expect(trillMayAnchorOn(score, mine.id, 'start', notes[1].id), 'a free note').toBe(true)
+    expect(trillMayAnchorOn(score, mine.id, 'start', notes[2].id), 'another trill sits there').toBe(false)
+    expect(trillMayAnchorOn(score, mine.id, 'start', notes[0].id), '⭐ its OWN note is not occupied').toBe(true)
+    expect(trillMayAnchorOn(score, mine.id, 'end', notes[2].id), '⛔ spans may overlap').toBe(true)
+  })
+
+  it('trillMayAnchorOn: a REST and an unknown id are refused at either end', () => {
+    // ⭐ A rest is not an ANCHOR at either end — carrying a trill's line over empty bars is the INK's
+    // job, not the anchor's (his rule, 2026-08-20: *"no anchor to a note but offset in the next
+    // system"*). See `interactions/trillWalk`'s system FOLD.
+    const mine = model.addTrill({ startNoteId: notes[0].id })!
+    model.addMeasure()
+    const rest = model.getNotesInMeasure(2).find(n => n.isRest)!
+    for (const which of ['start', 'end'] as const) {
+      expect(trillMayAnchorOn(model.getScore(), mine.id, which, rest.id)).toBe(false)
+      expect(trillMayAnchorOn(model.getScore(), mine.id, which, 'ghost')).toBe(false)
+    }
+  })
+
+  it('⭐⭐ trillEndWithoutAnEnd: the tie chain\'s last note, ⛔ not the start', () => {
+    const mine = model.addTrill({ startNoteId: notes[0].id, endNoteId: notes[2].id })!
+    expect(trillEndWithoutAnEnd(model.getScore(), mine.id), 'untied: the start itself').toBe(notes[0].id)
+    // 🚨 The break-test the untied case cannot be: tie C4 into D4 and the two answers part company.
+    model.updateNote(notes[0].id, { tiedTo: notes[1].id })
+    expect(trillEndWithoutAnEnd(model.getScore(), mine.id), 'through the tie').toBe(notes[1].id)
+    expect(trillEndWithoutAnEnd(model.getScore(), 'ghost')).toBeNull()
   })
 })

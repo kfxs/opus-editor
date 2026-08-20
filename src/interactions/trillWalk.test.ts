@@ -30,6 +30,8 @@ const drawn = vi.hoisted(() => ({
     bbox: { x: number; y: number; width: number; height: number }
   }[],
   lineSpacing: 10 as number | null,
+  /** Per measure: the staff's top line (which SYSTEM it is on) and where its music runs. */
+  systems: {} as Record<number, { top: number; min: number; max: number }>,
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -39,11 +41,15 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: () => (drawn.lineSpacing === null ? undefined : {
-        lineSpacing: drawn.lineSpacing,
-        lineYPositions: [40, 50, 60, 70, 80],
-        noteStartX: 90, noteEndX: 430,
-      }),
+      getStaffGeometry: (m: number) => {
+        const system = drawn.systems[m]
+        if (drawn.lineSpacing === null || !system) return undefined
+        return {
+          lineSpacing: drawn.lineSpacing,
+          lineYPositions: [system.top, system.top + 10, system.top + 20, system.top + 30, system.top + 40],
+          noteStartX: system.min, noteEndX: system.max,
+        }
+      },
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
       staffBands: () => [{ top: 40, bottom: 80 }],
@@ -86,6 +92,8 @@ describe('walkArmedTrillEndpoint', () => {
    */
   const render = (lineSpacing: number | null = 10) => {
     drawn.lineSpacing = lineSpacing
+    // ⭐ ONE system by default — bar 1's music runs 90…430, bar 2's 90…830.
+    drawn.systems = { 1: { top: 40, min: 90, max: 430 }, 2: { top: 40, min: 90, max: 830 } }
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, staff: 0, measure: 1, headX: 100 + i * 100,
       bbox: { x: 95 + i * 100, y: 50, width: 10, height: 10 },
@@ -136,18 +144,18 @@ describe('walkArmedTrillEndpoint', () => {
     expect(idx(trill().endNoteId), 'the far end held').toBe(2)
   })
 
-  it('⭐⭐ THE END MEASURES AGAINST ITS SUCCESSOR — its gap is F4→the rest, ⛔ not E4→F4', () => {
-    // 🚨 The break-test for `trillLane`'s whole reason to exist. The end sits on E4, so its line is
-    // drawn at F4 (400) and would be drawn at the rest (700) one note along: THIRTY staff-spaces,
-    // where the two noteheads are ten apart. Measured note-to-note the tenth press would cross and
-    // the drawn end would jump 200 px — the crossing this family exists to make invisible.
+  it('⭐⭐ THE END MEASURES AGAINST ITS SUCCESSOR — E4\'s line is at F4, F4\'s at the BARLINE', () => {
+    // 🚨 The break-test for `trillLane`'s whole reason to exist, and it cuts both ways here:
+    //  - the end on E4 draws its line at F4 (400);
+    //  - the end on F4 — the bar's LAST slot — draws it at the bar's own end (430), ⛔ not at the
+    //    next bar's rest.
+    // So the gap is THREE spaces where the two noteheads are ten apart. Measured note-to-note the
+    // press would cross at ten and the drawn end would jump 70 px backwards.
     arm('end')
-    presses(10, 1)
-    expect(idx(trill().endNoteId), 'ten presses — a note-to-note gap would have crossed here').toBe(2)
-    presses(19, 1)
-    expect(idx(trill().endNoteId), 'and twenty-nine are still ink').toBe(2)
-    expect(press(1)).toBe(true)
-    expect(idx(trill().endNoteId), 'the thirtieth hands it on: E4 → F4').toBe(3)
+    presses(2, 1)
+    expect(idx(trill().endNoteId), 'two presses of ink').toBe(2)
+    expect(press(1), 'the third reaches the barline and hands it on').toBe(true)
+    expect(idx(trill().endNoteId), 'E4 → F4').toBe(3)
     expect(offset('end')).toBeCloseTo(0)
   })
 
@@ -201,6 +209,66 @@ describe('walkArmedTrillEndpoint', () => {
     presses(20, -1)
     expect(idx(trill().startNoteId), 'nothing crossed').toBe(1)
     expect(offset('start')).toBeCloseTo(-20)
+  })
+
+  /**
+   * 🚨🚨 **A SYSTEM BREAK after bar 1**, with a whole note over there to walk onto. His ask,
+   * 2026-08-20: *"we should be able to handle cross system similar to hairpin"*.
+   *
+   * ⭐ The end starts on bar 1's LAST note, where its line is drawn at that bar's own end — which is
+   * the system's end too, so the ink has nowhere left to go and the next press must either wrap or
+   * do nothing at all.
+   */
+  const wrapFixture = () => {
+    // A whole NOTE in bar 2 — a rest is not a stop, and with none the walk has nowhere to go.
+    const there = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
+    engine.setTrillAnchor(trillId, 'end', ids[3])   // the end on bar 1's LAST note
+    render()
+    drawn.systems[2] = { top: 140, min: 90, max: 830 }
+    drawn.entries.push({
+      type: 'note', id: there.id, staff: 0, measure: 2, headX: 150,
+      bbox: { x: 145, y: 150, width: 10, height: 10 },
+    })
+  }
+
+  /** Where the drawn end actually is: its stop's base plus its own nudge. Bar 2's whole note is the
+   *  last slot of its bar, so its base is that bar's end — 830. */
+  const inkXOnSystemTwo = () => 830 + offset('end') * 10
+
+  it('🚨🚨 THE INK WRAPS ONTO THE NEXT SYSTEM — one press, and it lands where it can be SEEN', () => {
+    wrapFixture()
+    arm('end')
+    // ⭐ The end is on bar 1's last note, so its line already reaches that system's end (430) and
+    // there is no ink left to push: the first rightward press IS the crossing. ⛔ Unlike the wedge's
+    // tip, which parks at the line's end while stops remain on the same line.
+    expect(press(1)).toBe(true)
+    expect(engine.getNote(trill().endNoteId!)?.measure, 'the trill now covers bar 2').toBe(2)
+    // 🚨 The honest landing is what the press pushed past the edge — ONE space. His report on the
+    // first cut: at that size there is NOTHING TO SEE (`TRILL_END_INSET` eats it and the fragment is
+    // dropped). So it is held to `WRAP_STUB_SS`, two spaces into the new line's music (90).
+    expect(inkXOnSystemTwo(), 'two spaces past the new system\'s start').toBeCloseTo(110)
+  })
+
+  it('⭐ …and a LONG press keeps its own distance — the stub is a floor, not a landing', () => {
+    wrapFixture()
+    arm('end')
+    expect(press(6), 'six spaces past the edge').toBe(true)
+    expect(inkXOnSystemTwo(), 'six spaces in, ⛔ not clamped back to the floor').toBeCloseTo(150)
+  })
+
+  it('🚨 ON THE LAST LINE the ink is REFUSED at its end — ⛔ it does not run off the page', () => {
+    // His report, 2026-08-20: *"now it goes off the page but doesn't land in the next system"* — on a
+    // score whose music simply stops. A trill's stops are NOTES, so a lane continuing in whole rests
+    // offers nothing to walk onto; without a limit every press pushed the wiggle further into the
+    // margin. ⭐ …and it may always come BACK, which is what makes this a refusal and not a clamp.
+    // ⚠️ ONE system, and the end parked on its last note — so the line already reaches that system's
+    // end and there is no further line for the renderer to FOLD the ink onto.
+    drawn.systems = { 1: { top: 40, min: 90, max: 430 } }
+    engine.setTrillAnchor(trillId, 'end', ids[3])
+    arm('end')
+    expect(press(1), 'nothing to extend onto').toBe(false)
+    expect(offset('end'), 'and nothing written').toBeCloseTo(0)
+    expect(press(-1), '⭐ but back into the system is always allowed').toBe(true)
   })
 
   it('⭐ a crossing press is ONE undo entry — both halves or neither', () => {

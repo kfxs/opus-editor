@@ -186,6 +186,26 @@ describe('reanchorArmedTrillEndpoint', () => {
     expect(idx(trill().endNoteId)).toBe(3)
   })
 
+  it('🚨🚨 THE START STEPS OVER A NOTE THAT ALREADY TRILLS — his report, 2026-08-20', () => {
+    // *"it never gets the next target (it seems like the second trill is interfering, but after the
+    // second trill are other notes that have no trill)"*. The op is right to refuse a second
+    // ornament on one notehead; offering that note as the step and letting it say no left the key
+    // DEAD against it. A note the model would refuse is not a stop — so the walk skips it, exactly
+    // as it has always skipped a rest.
+    engine.setTrillAnchor(trillId, 'end', null)   // a one-note trill on D4, free to travel
+    engine.createTrill([ids[2]])                  // …and E4 now carries its own
+    arm('start')
+    expect(step(1)).toBe(true)
+    expect(idx(trill().startNoteId), 'over E4, onto F4').toBe(3)
+  })
+
+  it('⭐ …but an END may land there — spans overlap, and only the START is single-valued', () => {
+    engine.createTrill([ids[3]])                  // F4 carries its own trill
+    arm('end')
+    expect(step(1)).toBe(true)
+    expect(idx(trill().endNoteId), 'E4 → F4, under the other trill\'s sign').toBe(3)
+  })
+
   it('⛔ declines for a trill the score no longer has', () => {
     arm('end')
     engine.removeTrill(trillId)
@@ -201,6 +221,9 @@ describe('reanchorArmedTrillEndpoint', () => {
     // One step forward therefore reaches F4, skipping the rest — ⭐ which is the answer the eye
     // wants, and the case that would break if either rule were dropped: without the filter the walk
     // would land on the rest and `setTrillEnd` would refuse, leaving the key looking dead.
+    //
+    // ⭐ Carrying a trill's line over EMPTY BARS is not this key's job either — that is the INK's
+    // (his rule, 2026-08-20: *"no anchor to a note but offset in the next system"*).
     engine.convertToRest(ids[2])
     arm('end')
     expect(step(1)).toBe(true)
