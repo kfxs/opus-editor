@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { foldPastSystemEnd } from './TrillRenderer'
+import { coveredPlacements, foldPastSystemEnd } from './TrillRenderer'
 import type { SystemEdgeLookup } from './systemEdges'
 import type { MeasureWidthInfo, MeasureBounds } from './VexFlowRenderer'
 
@@ -75,5 +75,68 @@ describe('foldPastSystemEnd', () => {
 
   it('⛔ STOPS at the FIRST line too — there is nothing before it to fold onto', () => {
     expect(foldPastSystemEnd(pass, 0, -50, 1)).toEqual({ line: 0, endX: -50 })
+  })
+})
+
+/**
+ * 🚨🚨 **WHICH BARS A FRAGMENT ANSWERS FOR** — the other half of the fold, and the half that was
+ * wrong. `coveredPlacements` is what {@link baselineFor} reads its ink over and what
+ * `trillFragmentClaim` turns into the ladder's claim, so widening it by one bar widens BOTH.
+ *
+ * ⭐ His report, 2026-08-20, with a screenshot: a below-staff `tr` in bar 6 pushing the bar-3
+ * dynamics and pedal down, *"the trill is not even close horizontally… for me it looks very
+ * strange"*. The fold clause matched `p.line >= first && p.line <= last` unconditionally, and
+ * `from.line` is always inside that window — so every trill swallowed its whole system.
+ */
+describe('coveredPlacements', () => {
+  /** One staff, 8 bars on system 0 and 4 more on system 1. */
+  const bars = [
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map(measureNumber => ({ measureNumber, staffIndex: 0, line: 0 })),
+    ...[9, 10, 11, 12].map(measureNumber => ({ measureNumber, staffIndex: 0, line: 1 })),
+    // A second staff, to prove the lane filter is not what is doing the work here.
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map(measureNumber => ({ measureNumber, staffIndex: 1, line: 0 })),
+  ]
+  const numbers = (p: readonly { measureNumber: number }[]): number[] => p.map(x => x.measureNumber)
+
+  it('🚨 a trill that does NOT fold covers its OWN bars, not its whole system', () => {
+    const covered = coveredPlacements(
+      bars, { startMeasure: 6, endMeasure: 6 }, { staffIndex: 0, line: 0 }, 0, 0)
+    expect(numbers(covered), 'bar 6 alone — bars 1-5 and 7-8 are five bars away').toEqual([6])
+  })
+
+  it('a multi-bar span covers exactly the bars it spans', () => {
+    const covered = coveredPlacements(
+      bars, { startMeasure: 3, endMeasure: 5 }, { staffIndex: 0, line: 0 }, 0, 0)
+    expect(numbers(covered)).toEqual([3, 4, 5])
+  })
+
+  it('⭐ a FOLDED fragment still picks up the line it landed on — that is what the clause is for', () => {
+    // The `tr` starts in bar 6 on system 0 and its ink is nudged past the end onto system 1, which
+    // its SPAN never reaches: without those bars the fragment has no stave over there.
+    const covered = coveredPlacements(
+      bars, { startMeasure: 6, endMeasure: 6 }, { staffIndex: 0, line: 0 }, 0, 1)
+    expect(numbers(covered)).toEqual([6, 9, 10, 11, 12])
+  })
+
+  it('⭐ …and BACKWARDS, for ink folded past a line\'s start', () => {
+    const covered = coveredPlacements(
+      bars, { startMeasure: 9, endMeasure: 9 }, { staffIndex: 0, line: 1 }, 0, 1)
+    expect(numbers(covered), 'all of system 0, which the span does not reach, plus bar 9')
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
+
+  it('🚨 a span crossing a break does NOT widen either line — both already have bars of their own', () => {
+    // Bars 7-8 on system 0, bars 9-10 on system 1. Neither line needs the fold clause, so neither
+    // gets its remaining bars: the fragment on system 0 must not answer for bars 1-6.
+    const covered = coveredPlacements(
+      bars, { startMeasure: 7, endMeasure: 10 }, { staffIndex: 0, line: 0 }, 0, 1)
+    expect(numbers(covered)).toEqual([7, 8, 9, 10])
+  })
+
+  it('stays on its own staff', () => {
+    const covered = coveredPlacements(
+      bars, { startMeasure: 6, endMeasure: 6 }, { staffIndex: 1, line: 0 }, 0, 1)
+    expect(covered.every(p => p.staffIndex === 1)).toBe(true)
+    expect(numbers(covered), 'staff 1 has no bars on system 1 to fold onto').toEqual([6])
   })
 })

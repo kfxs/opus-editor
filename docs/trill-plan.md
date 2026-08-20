@@ -1045,6 +1045,91 @@ same way end in the same STATE rather than in two that merely look alike.
 
 ---
 
+## 17. 🚨🚨 THE TRILL WAS CLAIMING ITS WHOLE SYSTEM — FIXED 2026-08-20
+
+His report, with a screenshot: a `tr〜〜〜` placed BELOW the staff in **bar 6** was pushing the **bar
+3** hairpin, `f` and `Ped.` down, leaving a conspicuous band of white between the bar-3 notes and
+their dynamics.
+
+> *"the trill is very far from the dynamic and i see a lot of white space between the dynamic and the
+> notes and the trill is not even close horizontally… for me it looks very strange, but i don't want
+> to make assumptions"*
+
+⭐ **His instinct was right, and it was not a ladder-design question.** The below-staff ladder
+(`layout/outsideStaffBand.bandOver`) is already horizontally local: it filters claims by a
+closed-interval overlap on the score's absolute-beat axis, so a mark five bars away cannot reach.
+It was being handed a claim **the width of the system**.
+
+### The bug, in one clause
+
+`TrillRenderer.coveredPlacements` — the helper both passes use to decide *which bars this fragment
+answers for* — read:
+
+```ts
+const first = Math.min(fromLine, from.line)
+const last  = Math.max(toLine,  from.line)
+return placements.filter(p =>
+  p.staffIndex === from.staffIndex
+  && ((p.measureNumber >= span.startMeasure && p.measureNumber <= span.endMeasure)
+    || (p.line >= first && p.line <= last)))          // ← the fold clause
+```
+
+The second clause exists for §13's **fold**: a `tr` whose ink is nudged past its line's end lands on
+a system its SPAN never reaches, and without a placement there the fragment borrows the first
+system's stave. But `from.line` is by construction inside `[first, last]`, so the clause is
+**unconditionally true for the trill's own system** — every trill, folded or not, swallowed every bar
+of its own line.
+
+### Why one clause produced two wrong pictures
+
+`covered` feeds both halves of the plan, so widening it widened both:
+
+- **`baselineFor`** merges the ink band of every bar in `covered`. The trill's own y was therefore
+  read off the lowest ink **anywhere in its system** — precisely the failure its own ⚠️ note forbids
+  *across* systems (*"otherwise a low note on the second system would push the first system's `tr`
+  up for no visible reason"*), happening *within* one instead.
+- **`trillFragmentClaim`** sorts `covered` and spans first bar to last, so the claim filed on
+  `pass.occupiedBands` ran **bar 1 → the system's last bar**. The dynamics, the ottava and the pedal
+  then all cleared a trill that was nowhere near them. Compounding: a low note in bar 3 pushed the
+  bar-6 `tr` out, which pushed the bar-3 dynamics out further still.
+
+### The fix
+
+Gate the fold clause to lines the span's own bars **do not reach**:
+
+```ts
+const spanned = new Set(
+  placements.filter(p => p.staffIndex === from.staffIndex && inSpan(p)).map(p => p.line))
+return placements.filter(p =>
+  p.staffIndex === from.staffIndex
+  && (inSpan(p) || (p.line >= first && p.line <= last && !spanned.has(p.line))))
+```
+
+A line carrying real span bars needs no fold clause; a line the ink was folded onto still gets its
+placements, in both directions. ⛔ The fold behaviour is unchanged — this only stops the clause
+firing where it was never meant to.
+
+⚠️ **What is still open**: a fragment folded onto a line takes *all* of that line's bars, so its
+claim there is still that whole line. Harmless today (the ink genuinely is over there and the span
+has no bars to narrow it with), but it is the same shape of over-claim, one system over.
+
+### ⭐ The lesson
+
+**A helper that answers *"which bars does this cover?"* is read by the LADDER as well as by the
+drawing.** The fold clause was written for a stave lookup — "find me a placement on that line" — and
+was correct for that job; nothing about it looked like a claim. It became an engraving bug because a
+second caller asked the same function a different question. ⛔ When a `covered` widens, check what
+files a claim from it.
+
+### Tests
+
+`TrillRenderer.fold.test.ts` gained a `coveredPlacements` chapter (6): the non-folding trill covering
+its own bars alone, a multi-bar span, the fold forward, the fold backward, a span crossing a break
+widening neither line, and the staff filter. ⭐ Break-tested — reverting the clause fails all six.
+`npm run test` (4704) and `npm run test:e2e` (220) both green; hand-confirmed by him.
+
+---
+
 ## Sources
 
 MusicXML [`trill-mark`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/trill-mark/) ·

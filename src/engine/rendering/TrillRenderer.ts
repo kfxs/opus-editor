@@ -602,22 +602,42 @@ export function renderTrills(
  * ⚠️ Without the second half a folded fragment finds no placement on its line, so it borrows the
  * FIRST system's stave: its wiggle would be drawn at that system's height over the next system's
  * x's, and its band would be planned there too.
+ *
+ * 🚨🚨 **THE FOLD CLAUSE IS FOR LINES THE SPAN DOES NOT REACH, AND ONLY THOSE.** It read
+ * `p.line >= first && p.line <= last` unconditionally until 2026-08-20 — and `from.line` is always
+ * inside that window, so *every* trill picked up **every bar of its own system**. Two things then
+ * went wrong at once, and both are visible in one screenshot of a bar-6 trill beside bar-3
+ * dynamics: {@link baselineFor} read its y off the lowest ink ANYWHERE in the system (the exact
+ * failure its own ⚠️ note forbids across systems), and {@link trillFragmentClaim} filed a claim
+ * running bar 1 to the system's last bar, so the dynamics, the ottava and the pedal cleared a `tr`
+ * five bars away. ⛔ The ladder's horizontal filter (`layout/outsideStaffBand.ts`) was never the
+ * problem — it was being handed a span the width of the system.
+ *
+ * Pure, and exported for its spec (`TrillRenderer.fold.test.ts`) for {@link trillFragmentClaim}'s
+ * reason: which bars a fragment answers for is arithmetic, not geometry.
  */
-function coveredPlacements(
-  placements: readonly TrillPlacement[],
-  span: TrillSpan,
-  from: TrillPlacement,
+export function coveredPlacements<
+  P extends Pick<TrillPlacement, 'measureNumber' | 'staffIndex' | 'line'>,
+>(
+  placements: readonly P[],
+  span: Pick<TrillSpan, 'startMeasure' | 'endMeasure'>,
+  from: Pick<TrillPlacement, 'staffIndex' | 'line'>,
   fromLine: number,
   toLine: number,
-): TrillPlacement[] {
+): P[] {
   // ⚠️ `fromLine` may be EARLIER than the span's own line — a sign folded BACKWARDS — so the window
   // is taken from both folded ends rather than grown forward from the span.
   const first = Math.min(fromLine, from.line)
   const last = Math.max(toLine, from.line)
+  const inSpan = (p: P): boolean =>
+    p.measureNumber >= span.startMeasure && p.measureNumber <= span.endMeasure
+  // The lines the span's OWN bars already stand on. A line in here needs no fold clause — it has
+  // real bars, and widening it to the rest of the system is what the 🚨 note above is about.
+  const spanned = new Set(
+    placements.filter(p => p.staffIndex === from.staffIndex && inSpan(p)).map(p => p.line))
   return placements.filter(p =>
     p.staffIndex === from.staffIndex
-    && ((p.measureNumber >= span.startMeasure && p.measureNumber <= span.endMeasure)
-      || (p.line >= first && p.line <= last)))
+    && (inSpan(p) || (p.line >= first && p.line <= last && !spanned.has(p.line))))
 }
 
 /** The drawing itself, once {@link trillGeometry} has said where the ornament goes. */
