@@ -35,14 +35,17 @@ function ctx(bands: ElementInfo[], x: number, y: number): MouseDownCtx {
 }
 
 function deps(): ElementChainDeps {
-  return { pick: vi.fn(() => true as const) } as unknown as ElementChainDeps
+  return {
+    pick: vi.fn(() => true as const),
+    armTrillOffsetDrag: vi.fn(),
+  } as unknown as ElementChainDeps
 }
 
 describe('TRILL_ELEMENT.hit', () => {
   it('selects the trill under the press', () => {
     const d = deps()
     expect(TRILL_ELEMENT.hit(ctx([band('t1', 100, 200)], 150, 6), d)).toBe(true)
-    expect(d.pick).toHaveBeenCalledWith({ kind: 'trill', id: 't1' })
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'trill', id: 't1' }, expect.any(Function))
   })
 
   it('⭐ a press INSIDE the band hits — the ornament is a solid run of glyphs, not two thin arms', () => {
@@ -69,12 +72,25 @@ describe('TRILL_ELEMENT.hit', () => {
     for (const [x, y] of [[600, 6], [100, 206]] as const) {
       const d = deps()
       expect(TRILL_ELEMENT.hit(ctx(fragments, x, y), d)).toBe(true)
-      expect(d.pick).toHaveBeenCalledWith({ kind: 'trill', id: 't1' })
+      expect(d.pick).toHaveBeenCalledWith({ kind: 'trill', id: 't1' }, expect.any(Function))
     }
   })
 
   it('declines an entry with no registered outline rather than guessing from the bbox', () => {
     const naked = { type: 'trill', id: 't1', measure: 1, staff: 0, bbox: { x: 0, y: 0, width: 9, height: 9 } } as ElementInfo
     expect(TRILL_ELEMENT.hit(ctx([naked], 4, 4), deps())).toBe(false)
+  })
+
+  /**
+   * ⭐⭐ **CLICK SELECTS, DRAG MOVES THE WHOLE ORNAMENT** (his ask, 2026-08-20) — the second argument
+   * `pick` is handed is what a press turns into if it becomes a drag. ⚠️ A press on one of the
+   * SQUARES never reaches here: `armTrillEndpointAt` is a pre-step in `MouseController`.
+   */
+  it('⭐ hands `pick` the BODY drag to arm if the press becomes one', () => {
+    const d = deps()
+    TRILL_ELEMENT.hit!(ctx([band('t1', 100, 300)], 200, 6), d)
+    const arm = (d.pick as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1] as () => void
+    arm()
+    expect(d.armTrillOffsetDrag).toHaveBeenCalledWith('t1', 200, 6, undefined)
   })
 })

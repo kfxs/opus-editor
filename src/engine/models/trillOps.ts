@@ -22,6 +22,8 @@ import { findSlot } from './slotLookup'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { trillOffsetOverrideOf } from './engravingOverrides'
 import { voiceOf } from '@/utils/lanes'
+import { measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
+import { fracAdd, fracSub } from '@/utils/fraction'
 import { dbg } from '@/utils/debug'
 import { keyAt } from '@/utils/keySignature'
 import { trillAuxiliary, type TrillAuxiliary } from '@/utils/trillPitch'
@@ -481,6 +483,24 @@ export function trillMayAnchorOn(
   if (which === 'end') return true
   const owner = trillOnNote(score, noteId)
   return !owner || owner.id === id
+}
+
+/**
+ * ⭐ **HOW MUCH MUSIC THIS TRILL COVERS, in quarter beats** — what a COPY carries of it
+ * (`interactions/elementClipboard`), and `slurOps.slurSpanOf`'s twin for the same reason: a span is
+ * the one part of a note-anchored mark that means anything anywhere else. ⚠️ **ZERO for the one-note
+ * trill**, whose extent is its own note's sounding duration and travels by being absent.
+ */
+export function trillSpanBeats(score: Score, id: string): Fraction | null {
+  const trill = getTrillById(score, id)
+  if (!trill) return null
+  if (!trill.endNoteId) return { num: 0, den: 1 }
+  const from = locate(score, trill.startNoteId)
+  const to = locate(score, trill.endNoteId)
+  if (!from || !to) return null
+  const starts = measureStarts(score.measures)
+  const abs = (a: Anchor) => fracAdd(starts.get(a.measureNumber) ?? { num: 0, den: 1 }, a.slot.beat)
+  return fracSub(abs(to), abs(from))
 }
 
 /**

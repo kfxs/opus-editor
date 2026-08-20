@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { dragTrillEndpoint, walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
+import { dragTrillBody, dragTrillEndpoint, walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 
@@ -445,6 +445,35 @@ describe('walkArmedTrillEndpoint', () => {
       for (let i = 0; i < 10; i++) body(1)
       expect(idx(trill().startNoteId), 'onto F4, the last note').toBe(3)
       expect(trill().endNoteId, 'and the end had nowhere to go — the one-note trill').toBeUndefined()
+    })
+  })
+
+  /**
+   * ⭐⭐ **THE SHAPE DRAG** — the whole ornament grabbed by its own ink, both axes in one gesture.
+   * His ask, 2026-08-20: *"now the shape drag walking, and taking into consideration also the
+   * vertical axis for the target"*.
+   */
+  describe('dragTrillBody', () => {
+    it('⭐⭐ a drag and N presses over the same distance land in the SAME state', () => {
+      for (let i = 0; i < 10; i++) walkTrillBody(engine, trillId, 1)
+      const byKeys = { anchor: idx(trill().startNoteId), end: idx(trill().endNoteId) }
+      engine.undo()
+
+      dragTrillBody(engine, trillId, 0, 100, 0)
+      expect(idx(trill().startNoteId), 'the drag crossed too').toBe(byKeys.anchor)
+      expect(idx(trill().endNoteId), 'and carried the extent').toBe(byKeys.end)
+    })
+
+    it('⭐ the vertical writes the height as OUTWARD, and BOTH ends move as one', () => {
+      dragTrillBody(engine, trillId, 0, 40, -20)
+      expect(trillOffsetOverrideOf(engine.getScore(), trillId)?.outward, 'two spaces further out')
+        .toBeCloseTo(2)
+      expect(offset('start'), 'and the horizontal is the whole ornament\'s').toBeCloseTo(offset('end'))
+    })
+
+    it('⛔ declines — null — when the ornament is not drawn', () => {
+      render(null)
+      expect(dragTrillBody(engine, trillId, 0, 40, 0)).toBeNull()
     })
   })
 })

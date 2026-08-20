@@ -2302,6 +2302,49 @@ export class MusicEngine {
     return created
   }
 
+  /**
+   * ⭐⭐ **THE SAME TRILL, OVER THERE** — what a PASTE makes (`interactions/elementClipboard`), and
+   * `createSlurOverSpan`'s twin, rule for rule.
+   *
+   * ⭐ **It starts from a NOTE, ⛔ never an address**: an address always resolves to SOMETHING, which
+   * is how a paste into an empty bar drew a slur three bars long (his report, 2026-08-20). The caller
+   * holds the pointer and is the only one that can say whether a note was really under it.
+   *
+   * ⭐ **The extent is resolved against the DESTINATION's own notes** — `slurOps.slurEndsFrom`, whose
+   * question is *"which note is this far along"* and belongs to no one family. ⚠️ A rule, not a
+   * promise: the destination's rhythm is its own, so the span may cover a different number of notes
+   * there. A span of ZERO is the one-note trill and asks for no end at all.
+   *
+   * ⚠️ ONE undo entry for the whole thing: the ornament and the three ways it READS are one paste.
+   */
+  createTrillOverSpan(
+    startNoteId: string,
+    span: Fraction,
+    reads: {
+      placement?: 'above' | 'below'
+      continuationLabel?: TrillContinuationLabel
+      extension?: 'none'
+    } = {},
+  ): Trill | null {
+    const ends = fracToNumber(span) > 0 ? this.scoreModel.slurEndsFrom(startNoteId, span) : null
+    let created: Trill | null = null
+    this.runBatch('Paste trill', () => {
+      created = this.createTrill(ends ? [ends.startNoteId, ends.endNoteId] : [startNoteId])
+      if (!created) return
+      if (reads.placement) this.scoreModel.setTrillPlacement(created.id, reads.placement)
+      if (reads.continuationLabel) {
+        this.scoreModel.setTrillContinuationLabel(created.id, reads.continuationLabel)
+      }
+      if (reads.extension) this.scoreModel.setTrillExtension(created.id, reads.extension)
+    })
+    return created
+  }
+
+  /** How much music a trill covers, in quarter beats — what a COPY carries of it. */
+  trillSpanBeats(id: string): Fraction | null {
+    return this.scoreModel.trillSpanBeats(id)
+  }
+
   /** Remove a trill by id (the ornament only — never the anchored notes). Saves undo state and
    *  resyncs playback when removed. @returns true if one was removed. */
   removeTrill(id: string): boolean {
@@ -2462,6 +2505,22 @@ export class MusicEngine {
     const ok = this.scoreModel.setTrillOffset(id, dx, 0)
     if (ok) this.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
     return ok
+  }
+
+  /** Live (preview) nudge of the WHOLE ornament's ink — a BODY drag. {@link nudgeTrill} without the
+   *  undo, and accumulating like it; the page limit still refuses the write. */
+  previewTrillOffset(id: string, dx: number, outward: number): boolean {
+    const above = (this.getTrillById(id)?.placement ?? 'above') === 'above'
+    if (!this.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
+    this.markModelDirty() // live drag, undo deferred to commitTrillDrag
+    return this.scoreModel.setTrillOffset(id, dx, outward)
+  }
+
+  /** The whole ornament's re-base during a DRAG — {@link rebaseTrillOffset} with no undo of its own,
+   *  and ⛔ never judged by the page limit. */
+  previewTrillOffsetRebase(id: string, dx: number): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setTrillOffset(id, dx, 0)
   }
 
   /** Live (preview) move of the WHOLE ornament onto another note, keeping its extent — a vertical

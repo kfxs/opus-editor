@@ -1446,6 +1446,12 @@ export class ScoreModel {
     return trillOps.setTrillPlacement(this.score, id, side)
   }
 
+  /** How much music a trill covers, in quarter beats — what a COPY carries of it. See
+   *  {@link trillOps.trillSpanBeats}. */
+  trillSpanBeats(id: string): Fraction | null {
+    return trillOps.trillSpanBeats(this.score, id)
+  }
+
   /** Move the whole ornament onto another note, keeping its extent — see
    *  {@link trillOps.moveTrillTo}. */
   moveTrillTo(id: string, startNoteId: string, endNoteId?: string): boolean {

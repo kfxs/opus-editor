@@ -24,7 +24,7 @@ const PAD = 7
 export const TRILL_ELEMENT: ClickableElementSpec = {
   kind: 'trill',
   /** Select a trill for edit or removal (hit-tested against its drawn band). */
-  hit({ registry, x, y }, deps) {
+  hit({ registry, x, y, event }, deps) {
     const trillAt = registry.getByType('trill').find(el => {
       const pts = el.points
       if (!pts || pts.length < 2) return false
@@ -42,8 +42,16 @@ export const TRILL_ELEMENT: ClickableElementSpec = {
     }) ?? null
     if (!trillAt?.id) return false
 
+    // ⭐ Click = select; drag = move the WHOLE ornament (his ask, 2026-08-20). ⚠️ The BODY, so
+    // nothing is armed by it and nothing needs to be: **something armed → that end, nothing armed →
+    // the whole thing** is already the arrows' rule (`nudgeSelectedTrill`), and this is the same
+    // sentence with the mouse. A press on one of the SQUARES never reaches here —
+    // `armTrillEndpointAt` is a pre-step in `MouseController` and consumes it.
     dbg(`✓ Trill selected | id:${trillAt.id}`)
-    return deps.pick({ kind: 'trill', id: trillAt.id })
+    return deps.pick(
+      { kind: 'trill', id: trillAt.id },
+      () => deps.armTrillOffsetDrag(trillAt.id!, x, y, event),
+    )
   },
 
   // Recoloured, and — since 2026-08-17 — the attachment guide to the note it ornaments (the third

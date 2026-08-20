@@ -26,7 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Fraction, NoteDuration, TempoMark } from '../types/music'
+import type { Fraction, NoteDuration, TempoMark, TrillContinuationLabel } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
 import { tempoAnchorAt, tempoAtStop } from '../engine/models/tempoOps'
@@ -104,16 +104,45 @@ export interface SlurElementClip {
   placement?: 'above' | 'below'
 }
 
+/**
+ * A copied TRILL (his ask, 2026-08-20). ⭐ The slur's shape, for the slur's reason: its identity is a
+ * NOTE plus an extent, and a note id means nothing anywhere else — so what travels is *"a trill over
+ * this much music"* and the paste resolves the far end against the destination's own notes
+ * (`MusicEngine.createTrillOverSpan`).
+ *
+ * ⭐⭐ **The three ways it READS travel with it** — which side it is on, how a continuation system
+ * labels it, and whether it draws its line at all. Those are decisions the engraver made about THIS
+ * mark, exactly as a dynamic's `placement` is; ⛔ what does not travel is where the ink was nudged,
+ * which was authored against other music (the compartment is keyed by the copied id, and a paste
+ * never reuses one).
+ *
+ * ⚠️ **A span of ZERO is the one-note trill**, whose extent is its own note's sounding duration —
+ * absent by design ({@link Trill.endNoteId}), and reproduced by asking for no end at all.
+ */
+export interface TrillElementClip {
+  kind: 'trill'
+  /** How much music it covered, in quarter beats. 0 = the one-note trill. */
+  span: Fraction
+  /** ⭐ Only when it was DECIDED — an absent placement is the default `above`. */
+  placement?: 'above' | 'below'
+  /** How a continuation system labels it — `(tr)` by default, so only a departure travels. */
+  continuationLabel?: TrillContinuationLabel
+  /** ⭐ The BARE `tr`: no wavy line at all. It is how the mark reads, so it travels. */
+  extension?: 'none'
+}
+
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
 export type ElementClip =
   | DynamicElementClip | TempoElementClip | HairpinElementClip | SlurElementClip
+  | TrillElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 export type ElementClipEngine = Pick<MusicEngine,
   'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
   | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
   | 'getHairpinById' | 'addHairpin'
-  | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'>
+  | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
+  | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -138,6 +167,18 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
     const span = engine.slurSpanOf(element.id)
     if (!slur || !span) return null
     return { kind: 'slur', span, ...(slur.placement !== undefined ? { placement: slur.placement } : {}) }
+  }
+  if (element?.kind === 'trill') {
+    const trill = engine.getTrillById(element.id)
+    const span = engine.trillSpanBeats(element.id)
+    if (!trill || !span) return null
+    return {
+      kind: 'trill',
+      span,
+      ...(trill.placement !== undefined ? { placement: trill.placement } : {}),
+      ...(trill.continuationLabel !== undefined ? { continuationLabel: trill.continuationLabel } : {}),
+      ...(trill.extension !== undefined ? { extension: trill.extension } : {}),
+    }
   }
   if (element?.kind === 'tempo') {
     const mark = engine.getTempoMarkById(element.id)
@@ -207,6 +248,19 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       const created = engine.createSlurOverSpan(anchor.noteId, clip.span, clip.placement)
       return created ? { kind: 'slur', id: created.id } : null
     }
+    case 'trill': {
+      // 🚨 **A trill needs a NOTE, and the anchor must NAME one** — the slur's rule, and its two
+      // reports: an address resolves forward until it finds music, so a paste into an empty bar would
+      // ornament a note bars away. A trill is a sign ON a notehead; if the pointer was not on one,
+      // there is nothing to trill and this says so.
+      if (!anchor.noteId) return null
+      const created = engine.createTrillOverSpan(anchor.noteId, clip.span, {
+        ...(clip.placement !== undefined ? { placement: clip.placement } : {}),
+        ...(clip.continuationLabel !== undefined ? { continuationLabel: clip.continuationLabel } : {}),
+        ...(clip.extension !== undefined ? { extension: clip.extension } : {}),
+      })
+      return created ? { kind: 'trill', id: created.id } : null
+    }
     case 'tempo': {
       // ⭐⭐ **THE ANCHOR IS THE TEMPO'S OWN, not the generic slot** (his ask): a tempo mark lands on
       // an ONSET — the same stops its walk uses — resolved AT-OR-AFTER the requested beat, because
@@ -238,6 +292,10 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
 
 /** A short human-readable line for the copy/paste console dump. */
 export function elementClipSummary(clip: ElementClip): string {
+  if (clip.kind === 'trill') {
+    const beats = fracToNumber(clip.span)
+    return beats > 0 ? `trill over ${beats} beats` : 'trill on one note'
+  }
   if (clip.kind === 'slur') return `slur over ${fracToNumber(clip.span)} beats`
   if (clip.kind === 'hairpin') {
     return `hairpin ${clip.type} of ${fracToNumber(clip.length)} beats (${clip.placement})`

@@ -966,10 +966,59 @@ wherever they meet.
 
 ### ⏭️ Left open
 
-- **The mouse equivalent** — a press on the ornament's own INK dragging the whole thing, the wedge's
-  BODY drag. The port is built; only the gesture is missing.
 - No BAND limit on the trill's vertical (the wedge has one). The ladder is the limit in practice: any
   height that reaches another staff's neighbourhood becomes a rung. ⏭️ Worth his eye.
+
+---
+
+## 16. The SHAPE DRAG, and COPY/PASTE — BUILT 2026-08-20
+
+### ⭐⭐ The shape drag — a press on the ornament's own ink
+
+*"now the shape drag walking, and taking into consideration also the vertical axis for the target"*.
+`trillWalk.dragTrillBody` + `MouseController.armTrillOffsetDrag` + a row in the chain's deps
+(`TRILL_ELEMENT` hands `pick` the arm callback, the wedge's own arrangement).
+
+**One ornament, two gestures, told apart by WHERE you grabbed it** — a SQUARE moves that end, the
+BODY moves the whole thing. That is the arrows' split (`nudgeArmedTrillEnd` vs `nudgeSelectedTrill`)
+arriving on the mouse, and both sides now run the SAME ports.
+
+- **The horizontal** walks the ornament through the music, extent and all — the body port.
+- **The vertical is the LADDER** (§14), reused whole: its own staff's far side first, then the
+  system. ⚠️ A rung ends the FRAME, ⛔ never the gesture.
+- ⛔ **No latch and no ink limit on a frame**: a frame is not a step, and an ornament moved as one is
+  not aimed at a note's edge the way a single end is.
+- ⚠️ Its two writer sets are the family's: a KEY press records its own undo, a drag FRAME records
+  none and the drop commits once (`previewTrillOffset` / `previewTrillOffsetRebase`).
+
+### ⭐⭐ Copy/paste as a single element
+
+*"the last thing: we should be able to copy/paste a trill as a single element."* A row in
+`interactions/elementClipboard`, beside the dynamic, the tempo mark, the hairpin and the slur.
+
+- ⭐⭐ **The SPAN travels, in beats** — the slur's shape for the slur's reason: a trill's identity is a
+  NOTE plus an extent, and a note id means nothing anywhere else. The paste resolves the far end
+  against the destination's own notes (`MusicEngine.createTrillOverSpan` → `slurOps.slurEndsFrom`,
+  whose question — *which note is this far along* — belongs to no one family). ⚠️ A rule, not a
+  promise: the destination's rhythm is its own.
+- ⚠️ **A span of ZERO is the one-note trill**, whose extent is its own note's sounding duration and
+  is spelled by ABSENCE — so the clip carries nothing to resolve and the paste asks for no end.
+- ⭐⭐ **The three ways it READS travel**: `placement`, `continuationLabel`, and `extension: 'none'`
+  (the bare `tr`). Those are decisions the engraver made about THIS mark.
+- ⛔ **The hand-nudged ink does not** — the compartment is keyed by the copied id, which a paste never
+  reuses, so it arrives where the engraver would put it.
+- 🚨 **A paste needs the anchor to NAME a note** (`PasteAnchor.noteId`), the slur's rule and its
+  report: an address resolves forward until it finds music, so a click on an empty bar would ornament
+  a note bars away. ⚠️ Break-tested: the MODEL refuses an unresolvable start too, so the guard is
+  belt-and-braces — it stays because it states the rule where the rule is decided, and the test says
+  so rather than claiming the guard is what refused.
+
+### ⏭️ Left open (the whole trill feature)
+
+- No BAND limit on the vertical (the ladder is the limit in practice) — ⏭️ his eye.
+- ⚠️ `trillLane` mixes two conventions (a successor read at its CENTRE, a bar's end an exact edge),
+  which differ by half a notehead at a bar's last slot — below a press's quarter space.
+- The squares still ride the registered band's MIDDLE, which is lopsided (§11).
 
 ---
 

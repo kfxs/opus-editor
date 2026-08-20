@@ -114,6 +114,10 @@ export interface ElementChainDeps {
    *  one of its squares moves that end through the music instead. Takes the press point because the
    *  gesture is a pixel delta from it, not a snap to anything. */
   armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void
+  /** ⭐ The same again for a TRILL's own ink (2026-08-20): a press on the `tr` or its wiggle drags
+   *  the whole ornament — through the music horizontally, up the LADDER vertically — where a press
+   *  on one of its squares moves that end alone. */
+  armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void
   /** ⭐ The same again for a slur's ARC BODY (2026-08-18): a press on the curve away from its handles
    *  moves the whole drawing, where a press on a handle moves that one point. Takes the press point
    *  for the hairpin's reason — a pixel delta, not a snap. */

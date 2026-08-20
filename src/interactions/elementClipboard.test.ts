@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { MusicEngine } from '../engine/MusicEngine'
 import { copyElement, pasteElement } from './elementClipboard'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
@@ -238,6 +239,97 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
         measure: 2, beat: frac(0, 1), staff: 0,
         noteId: (last as { notes: { id: string }[] }).notes[0].id,
       })).toBeNull()
+    })
+  })
+
+  /**
+   * ⭐⭐ THE TRILL (his ask, 2026-08-20) — the slur's shape, for the slur's reason: its identity is a
+   * NOTE plus an extent. ⭐ What is its own is that the three ways it READS travel with it — the
+   * side, the continuation label, and whether it draws a line at all.
+   */
+  describe('a trill', () => {
+    let ids: string[]
+    let trillId: string
+    /** Every trill as `start→end` by pitch letter, or just `start` for the one-note trill. */
+    const trills = () => engine.getTrills().map(t => {
+      const from = engine.getNote(t.startNoteId)?.step
+      const to = t.endNoteId ? engine.getNote(t.endNoteId)?.step : undefined
+      return to ? `${from}→${to}` : `${from}`
+    })
+
+    beforeEach(() => {
+      ids = (['D', 'E', 'F', 'G'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+      trillId = engine.createTrill([ids[0], ids[1]])!.id   // D→E, one beat of span
+    })
+
+    it('⭐⭐ copies the SPAN, since a note id means nothing anywhere else', () => {
+      expect(copyElement(engine, { kind: 'trill', id: trillId })).toEqual({
+        kind: 'trill', span: frac(1, 1),
+      })
+    })
+
+    it('⭐ pastes a trill over the SAME amount of music at the anchor', () => {
+      const clip = copyElement(engine, { kind: 'trill', id: trillId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2] })
+      expect(trills()).toEqual(['D→E', 'F→G'])
+    })
+
+    it('⚠️ a ONE-NOTE trill travels as a span of ZERO, and arrives with no end', () => {
+      // ⭐ Its extent is its own note's sounding duration ({@link Trill.endNoteId}), which is spelled
+      // by ABSENCE — so the clip carries nothing to resolve and the paste asks for no end.
+      const alone = engine.createTrill([ids[2]])!
+      const clip = copyElement(engine, { kind: 'trill', id: alone.id })!
+      expect(clip).toMatchObject({ span: frac(0, 1) })
+      pasteElement(engine, clip, { measure: 1, beat: frac(3, 1), staff: 0, noteId: ids[3] })
+      expect(trills()).toContain('G')
+    })
+
+    it('⭐⭐ the three ways it READS travel — side, label, and whether it has a line', () => {
+      engine.toggleTrillPlacement(trillId)
+      engine.setTrillContinuationLabel(trillId, 'plain')
+      const clip = copyElement(engine, { kind: 'trill', id: trillId })!
+      expect(clip).toMatchObject({ placement: 'below', continuationLabel: 'plain' })
+
+      const pasted = idOf(pasteElement(engine, clip, {
+        measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2],
+      }))!
+      expect(engine.getTrillById(pasted)).toMatchObject({
+        placement: 'below', continuationLabel: 'plain',
+      })
+    })
+
+    it('⛔ …but the hand-nudged INK does not — it was authored against other music', () => {
+      engine.nudgeTrillEndpoint(trillId, 'start', 3, 2)
+      const clip = copyElement(engine, { kind: 'trill', id: trillId })!
+      expect(clip).not.toHaveProperty('startX')
+      const pasted = idOf(pasteElement(engine, clip, {
+        measure: 1, beat: frac(2, 1), staff: 0, noteId: ids[2],
+      }))!
+      expect(trillOffsetOverrideOf(engine.getScore(), pasted),
+        'it arrives where the engraver would put it').toBeUndefined()
+      expect(trillOffsetOverrideOf(engine.getScore(), trillId), 'the copied one keeps its own')
+        .toBeTruthy()
+    })
+
+    it('🚨⛔ REFUSES where the anchor names no NOTE — a trill is a sign ON a notehead', () => {
+      // The slur's rule and its report: an address resolves forward until it finds music, so a paste
+      // into an empty bar would ornament a note bars away.
+      // ⚠️ This pins the OUTCOME, ⛔ not which guard produced it: the model refuses an unresolvable
+      // start too, so the anchor check above it is belt-and-braces (break-tested — removing it keeps
+      // this green). It stays because it states the RULE where the rule is decided.
+      const clip = copyElement(engine, { kind: 'trill', id: trillId })!
+      engine.addMeasure()
+      const empty = engine.getScore().measures[engine.getScore().measures.length - 1].number
+      expect(pasteElement(engine, clip, { measure: empty, beat: frac(0, 1), staff: 0 })).toBeNull()
+      expect(engine.getTrills(), 'and nothing was written').toHaveLength(1)
+    })
+
+    it('⚠️ a note that ALREADY trills gives its own trill back — the add is idempotent', () => {
+      const clip = copyElement(engine, { kind: 'trill', id: trillId })!
+      const pasted = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(0, 1), staff: 0, noteId: ids[0] }))
+      expect(pasted, 'the one that is already there').toBe(trillId)
+      expect(engine.getTrills()).toHaveLength(1)
     })
   })
 

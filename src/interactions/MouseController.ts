@@ -29,11 +29,12 @@ import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
-import { dragTrillEndpoint } from './trillWalk'
+import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt } from './elements/trillHandles'
+import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
 import { markAtPress } from './markGroupSelect'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
@@ -390,6 +391,14 @@ export class MouseController {
   private trillEndLastX = 0
   /** …and its y, which the LADDER reads (`trillWalk`: the side of its staff, then the system). */
   private trillEndLastY = 0
+
+  // --- Trill BODY drag: a press on the ornament's own ink moves the WHOLE thing (2026-08-20). ---
+  private isDraggingTrillBody = false
+  private draggedTrillBodyId: string | null = null
+  private trillBodyLastX = 0
+  private trillBodyLastY = 0
+  private trillBodyDragChanged = false
+  private trillBodyDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   private isDraggingStaffSpacing = false
@@ -769,6 +778,7 @@ export class MouseController {
     armDynamicDrag: (dynamicId, event) => this.armDynamicDrag(dynamicId, event),
     armTempoDrag: (tempoId, event) => this.armTempoDrag(tempoId, event),
     armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
+    armTrillOffsetDrag: (trillId, x, y, event) => this.armTrillOffsetDrag(trillId, x, y, event),
     armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
@@ -848,6 +858,31 @@ export class MouseController {
    * px→staff-space scale, and a guessed one would move a small staff's hairpin by the wrong amount.
    * The press stays an ordinary selection.
    */
+  /**
+   * ⭐⭐ Arm the drag that moves a whole TRILL — a press on the `tr` or its wiggle (his ask,
+   * 2026-08-20: *"now the shape drag walking, and taking into consideration also the vertical axis
+   * for the target"*).
+   *
+   * ⭐ **One ornament, two gestures, told apart by WHERE you grabbed it**: a SQUARE moves that end,
+   * the BODY moves the whole thing — through the music sideways and up the ladder vertically. That
+   * is the arrows' own split arriving on the mouse.
+   *
+   * ⚠️ DECLINES to arm when the ornament's staff has no measured geometry: with no picture there is
+   * no px→staff-space scale, and a guessed one would move a small staff's trill by the wrong amount.
+   * The press stays an ordinary selection.
+   */
+  private armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void {
+    const engine = this.getEngine()
+    if (!engine || !trillStaffSpacePx(engine.getElementRegistry(), trillId)) return
+    this.isDraggingTrillBody = true
+    this.draggedTrillBodyId = trillId
+    this.trillBodyLastX = x
+    this.trillBodyLastY = y
+    this.trillBodyDragChanged = false
+    this.trillBodyDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
   private armHairpinOffsetDrag(hairpinId: string, x: number, y: number, event: MouseEvent): void {
     const engine = this.getEngine()
     if (!engine) return
@@ -1753,6 +1788,9 @@ export class MouseController {
     if (this.isDraggingPedalEnd) {
       this.endPedalEndDrag()
     }
+    if (this.isDraggingTrillBody) {
+      this.endTrillBodyDrag()
+    }
     if (this.isDraggingTrillEnd) {
       this.endTrillEndDrag()
     }
@@ -2546,6 +2584,7 @@ export class MouseController {
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handleTrillEndDrag(engine, x, y)) return
+    if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2953,6 +2992,45 @@ export class MouseController {
       this.render.renderScore()
     }
     return true
+  }
+
+  /**
+   * ⭐⭐ **One frame of a TRILL BODY drag: the whole ornament follows the hand** — sideways through
+   * the music (extent and all) and vertically up the LADDER (`trillWalk.dragTrillBody`).
+   *
+   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
+   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
+   * the cursor comes back.
+   */
+  private handleTrillBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingTrillBody && this.draggedTrillBodyId)) return false
+    if (this.trillBodyDragStartTime !== null
+        && Date.now() - this.trillBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const frame = dragTrillBody(
+      engine, this.draggedTrillBodyId, x, x - this.trillBodyLastX, y - this.trillBodyLastY)
+    // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      this.trillBodyLastX = x
+      this.trillBodyLastY = y
+      this.trillBodyDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a trill BODY drag: one undo entry if the ornament actually moved, then reset. It stays
+   *  selected, so the arrows can carry on from where the mouse stopped. */
+  private endTrillBodyDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.trillBodyDragChanged) {
+      engine.commitTrillDrag('start')
+      dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
+    }
+    this.isDraggingTrillBody = false
+    this.draggedTrillBodyId = null
+    this.trillBodyDragChanged = false
+    this.trillBodyDragStartTime = null
   }
 
   /**

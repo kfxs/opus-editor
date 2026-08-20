@@ -70,7 +70,8 @@ export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
   | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
-  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset'>
+  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset'
+  | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -307,7 +308,7 @@ function extentFrom(engine: TrillWalkEngine, id: string, target: string): string
  * with nothing armed; the offset it reads back is the start's, since the pair always carry the same
  * number while the ornament is moved as one.
  */
-function bodyPort(engine: TrillWalkEngine, id: string): MarkWalkPort {
+function bodyPort(engine: TrillWalkEngine, id: string, write: TrillWrite): MarkWalkPort {
   const baseXAt = (index: number) => {
     const lane = laneOf(engine, id)
     const staff = trillStaff(engine, id)
@@ -329,12 +330,28 @@ function bodyPort(engine: TrillWalkEngine, id: string): MarkWalkPort {
     },
     staffSpacePx: () => trillStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () => trillOffsetOverrideOf(engine.getScore(), id)?.startX ?? 0,
-    reanchor: (stop) => {
-      const target = (stop as TrillAnchorStop).note.id
-      return engine.moveTrill(id, target, extentFrom(engine, id, target))
-    },
+    reanchor: (stop) => write.reanchor(stop as TrillAnchorStop),
+    nudge: (dx, dy) => write.nudge(dx, dy),
+    rebase: (dx) => write.rebase(dx),
+  }
+}
+
+/** The keyboard's writes for the whole ornament: each records its own undo entry, and a crossing
+ *  press wraps them in one batch ({@link walkTrillBody}). */
+function bodyKeyWrites(engine: TrillWalkEngine, id: string): TrillWrite {
+  return {
+    reanchor: (stop) => engine.moveTrill(id, stop.note.id, extentFrom(engine, id, stop.note.id)),
     nudge: (dx, dy) => engine.nudgeTrill(id, dx, dy),
     rebase: (dx) => engine.rebaseTrillOffset(id, dx),
+  }
+}
+
+/** The drag's: the same three edits with no undo entry of their own. */
+function bodyPreviewWrites(engine: TrillWalkEngine, id: string): TrillWrite {
+  return {
+    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, extentFrom(engine, id, stop.note.id)),
+    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
+    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
   }
 }
 
@@ -352,12 +369,57 @@ function bodyPort(engine: TrillWalkEngine, id: string): MarkWalkPort {
  */
 export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
-  const port = bodyPort(engine, id)
+  const port = bodyPort(engine, id, bodyKeyWrites(engine, id))
   if (!markWalkCrosses(port, dx)) return inkPress(engine, id, port, dx)
 
   let moved = false
   engine.runBatch('Move trill', () => { moved = carryMark(port, dx, 0, false, 1).moved })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A SHAPE DRAG — the whole ornament, grabbed by its own ink.** His ask,
+ * 2026-08-20: *"now the shape drag walking, and taking into consideration also the vertical axis for
+ * the target"*. The wedge's BODY drag, sentence for sentence: **a HANDLE moves one end, the BODY
+ * moves the whole thing**, which is the arrows' own split arriving on the mouse.
+ *
+ * ⭐ Both axes, and they are different kinds of move — which is the point of making them in one
+ * gesture:
+ *
+ *  - **the horizontal walks the ornament through the music**, extent and all, exactly as the arrows
+ *    do with nothing armed;
+ *  - **the vertical is the LADDER** — its own staff's far side first, then the system below or above
+ *    ({@link flipTrillPlacement}, {@link jumpTrillSystems}) — and a rung ends the FRAME, ⛔ never the
+ *    gesture: the hand is travelling with the ornament, so the next rung comes when it gets there.
+ *
+ * ⛔ **No latch and no ink limit on a frame.** A frame is not a step (the wedge's recorded lesson),
+ * and an ornament moved as one is not aimed at a note's edge the way a single end is.
+ *
+ * ⛔ Declines — **null** — when the ornament is not drawn, so there is no staff-space size to convert
+ * the cursor's pixels with.
+ */
+export function dragTrillBody(
+  engine: TrillWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): { moved: boolean } | null {
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  // ⭐⭐ ITS OWN STAFF FIRST, then the system — the same two rungs the squares' drag climbs, and the
+  // same reason for the order.
+  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true }
+  if (jumpTrillSystems(engine, id, cursorX, dyPx)) return { moved: true }
+  if (dxPx === 0 && dyPx === 0) return { moved: false }
+
+  // ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
+  const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
+  const dy = (above ? -dyPx : dyPx) / staffSpacePx
+  const lifted = dyPx !== 0 && engine.previewTrillOffset(id, 0, dy)
+  return { moved: carryMark(port, dxPx / staffSpacePx, 0).moved || lifted }
 }
 
 /**
