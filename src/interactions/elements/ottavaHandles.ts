@@ -37,11 +37,9 @@
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { OttavaSlotTarget, OttavaDragWrite } from '../../engine/models/ottavaOps'
-import type { Score } from '../../types/music'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { staffOf } from '../../utils/lanes'
-import { fracCompare } from '../../utils/fraction'
+import { ottavaLaneOnsets } from '../ottavaLane'
 import { dbg } from '../../utils/debug'
 
 /** What finding a drag target needs off the engine — a Pick, so a test can stand up the four reads
@@ -75,6 +73,11 @@ export interface OttavaHandle {
  *
  * ⚠️ PIXELS, like every other handle in the editor: the squares are drawn on the highlight layer at
  * a constant on-screen size, so one stays the same size to the hand at every zoom.
+ *
+ * 🚨 **The PAGE LIMIT reserves room for this** — `engine/layout/pageBounds.SPAN_HANDLE_ROOM_PX`, 16
+ * px: this daylight plus the square's own half-side. ⛔ It cannot import the number (the engine may
+ * not read `interactions/`), so raising this one means raising that one, or an end nudged to the
+ * sheet's edge puts its square off the paper where no click can reach it (his report, 2026-08-21).
  */
 export const OTTAVA_HANDLE_GAP_PX = 10
 
@@ -180,34 +183,10 @@ export function ottavaDragTargetAt(
 ): OttavaDragWrite | null {
   const ottava = engine.getOttavaById(ottavaId)
   if (!ottava) return null
-  const staff = staffIndexOf(engine.getScore(), ottava.staffId)
 
-  // One candidate per ONSET of the staff. ⚠️ A chord registers one entry per notehead at one onset,
-  // and a second interval displaces one of them sideways — so the beginning takes the LEFTMOST edge
-  // and the end the RIGHTMOST, which is the pair of edges the bracket is actually drawn against.
-  const onsets: Array<{ left: number; right: number; y: number; target: OttavaSlotTarget }> = []
-  const registry = engine.getElementRegistry()
-  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
-    if (!el.id) continue
-    const note = engine.getNote(el.id)
-    if (!note) continue
-    // ⛔ No voice filter — an octave line governs the whole staff. `resizeOttavaBySlot` says why.
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    const seen = onsets.find(o =>
-      o.target.measure === target.measure && fracCompare(o.target.beat, target.beat) === 0)
-    if (seen) {
-      seen.left = Math.min(seen.left, el.bbox.x)
-      seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
-      continue
-    }
-    onsets.push({
-      left: el.bbox.x,
-      right: el.bbox.x + el.bbox.width,
-      y: el.bbox.y + el.bbox.height / 2,
-      target,
-    })
-  }
+  // ⭐ ONE list of "where a slot is drawn", shared with the keyboard's walk (`../ottavaLane`) — the
+  // mouse had this scan first, and a second copy would be a second answer that can disagree.
+  const onsets = ottavaLaneOnsets(engine, ottava)
   if (!onsets.length) return null
 
   // 🚨 THE TRANSLATION — see the header. The cursor is where the HAND is, on the bracket's line; the
@@ -271,15 +250,6 @@ const OTTAVA_DRAG_SNAP_PX = 150
  *  `PEDAL_DRAG_ROW_PX`'s twin, and the same tolerance-not-boundary reading: wide enough for the
  *  pitch spread inside one system, well under the gap to the next. */
 const OTTAVA_DRAG_ROW_PX = 80
-
-/** The staff INDEX an ottava's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `hairpinHandles`' helper, kept local for its reason: it is
- *  three lines and sharing it would put a `Score` import in whichever file lost. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
-}
 
 /**
  * ⭐ **TAB WALKS THE TWO SQUARES** — `+1` Tab, `−1` Shift+Tab — the keyboard route to the same

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pageBoxAt, stepLeavesPage, nudgeFitsOnPage, type PageBox } from './pageBounds'
+import { pageBoxAt, stepLeavesPage, nudgeFitsOnPage, edgeStepFitsOnPage, type PageBox } from './pageBounds'
 import { resolveSurface, A4_NORMAL, SKETCH_CANVAS } from './surface'
 import { PAGE_GAP_PX } from '../rendering/PagePass'
 
@@ -141,5 +141,27 @@ describe('nudgeFitsOnPage', () => {
     // …and a piece genuinely off sheet two's right edge still blocks the shared offset.
     const offPage2 = ink(pitch + PAGE.widthPx - 5, 50)
     expect(nudgeFitsOnPage(PAGE, [onPage1, offPage2], 1, 0)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ ONE MOVING EDGE — the same rule asked of a press that moves one END of a span, which is what
+ * broke his octave bracket on 2026-08-21 (see {@link edgeStepFitsOnPage}).
+ */
+describe('edgeStepFitsOnPage', () => {
+  it('refuses a step that would push THAT EDGE off the sheet, and lets it come back', () => {
+    expect(edgeStepFitsOnPage(PAGE, { x: -5, y: 50 }, -1)).toBe(false)
+    expect(edgeStepFitsOnPage(PAGE, { x: -5, y: 50 }, 1)).toBe(true)
+  })
+
+  it('🚨🚨 …and says NOTHING about the other end — the deadlock this exists to end', () => {
+    // A bracket hanging off BOTH edges: the whole-object rule refuses every direction, because one
+    // box grows on the left and the same box grows on the right. Asked per edge, each end can still
+    // come home.
+    const left = { x: -5, y: 50 }
+    const right = { x: PAGE.widthPx + 5, y: 50 }
+    expect(nudgeFitsOnPage(PAGE, [ink(-5, 50, PAGE.widthPx + 20)], 1, 0), 'the old question').toBe(false)
+    expect(edgeStepFitsOnPage(PAGE, left, 1), 'the beginning comes home').toBe(true)
+    expect(edgeStepFitsOnPage(PAGE, right, -1), 'and so does the end').toBe(true)
   })
 })

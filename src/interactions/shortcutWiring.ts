@@ -23,6 +23,7 @@ import { walkHairpinBody, walkHairpinEndpoint } from './hairpinWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
+import { walkOttavaEndpoint } from './ottavaWalk'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
@@ -283,6 +284,13 @@ export function wireShortcuts(
    * squares that already re-anchor with `Ctrl+Shift`. Two chords, two categories, one pair of
    * handles: the harder chord says which notes are DISPLACED, this one says where the ink goes.
    *
+   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK, on EITHER square** (`./ottavaWalk`,
+   * his ask 2026-08-21): the same ink nudge, except that reaching the next onset of the lane takes
+   * that end of the BRACKET along with it — the wedge's and the trill's gesture, sharing their
+   * arithmetic (`./markWalk`). ⚠️ So this key can end in a MODEL write, which is the crossing and
+   * nothing else; every press either side of it is ink. ⭐ Both squares, because both have a
+   * re-anchor AND an offset.
+   *
    * ⭐⭐ **`↑`/`↓` move the WHOLE bracket, whichever square is armed** — his rule, *"ottava is a
    * straight line, so offset in y should result in offset the two points in y"*. Nothing here
    * enforces it: `OttavaOffsetOverride` has ONE vertical, so there is no second height to write. ⛔ Do
@@ -300,7 +308,10 @@ export function wireShortcuts(
     const ottava = selectedOf(state, 'ottava')
     if (!eng || !ottava?.endpoint) return false
     const above = (eng.getOttavaById(ottava.id)?.shift ?? 1) > 0
-    if (!eng.nudgeOttavaEndpoint(ottava.id, ottava.endpoint, dx, above ? -dy : dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkOttavaEndpoint(eng, ottava.id, ottava.endpoint, dx)
+      : eng.nudgeOttavaEndpoint(ottava.id, ottava.endpoint, dx, above ? -dy : dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

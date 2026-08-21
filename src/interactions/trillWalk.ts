@@ -238,7 +238,11 @@ function inkStaysOnTheRibbon(
   // ornament is one piece of several and may be the one on another line (the hairpin's freeze).
   const next = anchor + (port.offsetX() + dx) * staffSpacePx
   if (next > limit.max) return dx < 0
-  if (next < limit.min) return dx > 0
+  // ⭐⭐ **NOTHING STOPS IT GOING LEFT** — his report, 2026-08-21: *"the trill and the hairpin offset
+  // left endpoint is also limited to the first measure after the time signature, the user should not
+  // have that limit"*. ⛔ Do not restore a `min` clause here. The offset is FREE; the only stop on
+  // that side is the PAGE's edge, which is the engine's rule (`engine/layout/pageBounds`) and is
+  // measured where the SQUARE is, not where the ink is.
   return true
 }
 

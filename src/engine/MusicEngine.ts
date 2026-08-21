@@ -5,7 +5,7 @@ import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
-import type { OttavaDragWrite } from './models/ottavaOps'
+import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
 import type { PedalDragWrite } from './models/pedalOps'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
@@ -16,7 +16,7 @@ import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barW
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
 import type { InkBox } from './layout/pageBounds'
-import { nudgeFitsOnPage } from './layout/pageBounds'
+import { edgeStepFitsOnPage, nudgeFitsOnPage, SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -448,7 +448,12 @@ export class MusicEngine {
    * mark at all ({@link rebaseHairpinEndpointOffset}).
    */
   private hairpinEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('hairpin', id, dx, dy)) return false
+    // 🚨 TWO AXES, TWO QUESTIONS — his report, 2026-08-21: *"take care that the endpoint is not out
+    // of the page, now half is out of the page"*. The horizontal moves ONE TIP and its square
+    // ({@link spanEndStaysOnPage}); a `y` tilts the whole wedge, so it is the whole drawn thing that
+    // is judged.
+    if (!this.spanEndStaysOnPage('hairpin', id, which, dx)) return false
+    if (dy !== 0 && !this.nudgeStaysOnPage('hairpin', id, 0, dy)) return false
     const lane = this.hairpinEndpointLane(id, which)
     return !lane || this.nudgeStaysInBand(this.hairpinEndpointInk(id, which), lane.measure, lane.staff, dy)
   }
@@ -1129,10 +1134,60 @@ export class MusicEngine {
     // ⚠️ The PAGE LIMIT predicts where ink lands, so it needs a SCREEN delta — the second of the two
     // places that convert (the renderer is the other). Above the staff, further out is further UP.
     const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    if (!this.nudgeStaysOnPage('ottava', id, dx, above ? -outward : outward)) return false
+    // 🚨🚨 **TWO AXES, TWO QUESTIONS, because they move DIFFERENT INK** (his report, 2026-08-21).
+    // The horizontal moves ONE EDGE of the bracket; the vertical is a single shared number and lifts
+    // the WHOLE line. Asking the whole-object rule about a horizontal step is what DEADLOCKED his
+    // score — see {@link edgeStepFitsOnPage} for the report and the arithmetic.
+    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
+    const dy = above ? -outward : outward
+    if (dy !== 0 && !this.nudgeStaysOnPage('ottava', id, 0, dy)) return false
     const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
     if (ok) this.saveOnly('Nudge octave line')
     return ok
+  }
+
+  /**
+   * ⭐⭐ **May this END's ink take one horizontal step and stay on the paper?** — the page limit asked
+   * about the ink a SPAN'S ENDPOINT press actually moves, and about the SQUARE the user has to grab.
+   * Shared by the three families whose ends have handles: the octave bracket, the wedge and the
+   * trill.
+   *
+   * 🚨 **Two reports, 2026-08-21, and one of them was a deadlock.** {@link edgeStepFitsOnPage} carries
+   * the first (a span hanging off both edges refused every arrow in both directions, because the
+   * whole-object rule translates EVERY drawn box by the step). {@link SPAN_HANDLE_ROOM_PX} carries
+   * the second: *"the endpoint that is out of the page… the user can't reach it"* — an end whose ink
+   * stops exactly at the sheet's edge leaves its handle off the paper.
+   *
+   * ⚠️ **The two ends come from DIFFERENT FRAGMENTS on a span cut by a system break** — registration
+   * order is drawing order, so the beginning is the FIRST piece and the end is the LAST
+   * (`interactions/elements/ottavaHandles` says the same where the handles are drawn). ⛔ Reading
+   * both off one entry would judge a step against the wrong system's page.
+   *
+   * ⚠️ Allows freely when the span drew nothing — no picture, no limit, the family rule.
+   */
+  private spanEndStaysOnPage(
+    type: ElementType,
+    id: string,
+    which: 'start' | 'end',
+    dx: number,
+  ): boolean {
+    if (dx === 0) return true
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    const pieces = (registry.getByType?.(type) ?? []).filter(e => e.id === id)
+    if (!pieces.length) return true
+    const piece = which === 'start' ? pieces[0] : pieces[pieces.length - 1]
+    // ⭐ An ottava's `ottavaAxis` carries its own two x's; every other span (and a bracket drawn
+    // without one) falls back to the BOX, whose sides are the same edges — ⛔ never a guess, just the
+    // coarser of two true readings.
+    const axis = piece.ottavaAxis
+    // ⭐⭐ **MEASURED AT THE SQUARE**: the room steps OUTWARD along the span, which is where the
+    // handle is drawn.
+    const at = which === 'start'
+      ? { x: (axis?.startX ?? piece.bbox.x) - SPAN_HANDLE_ROOM_PX, y: axis?.y ?? piece.bbox.y }
+      : { x: (axis?.endX ?? piece.bbox.x + piece.bbox.width) + SPAN_HANDLE_ROOM_PX, y: axis?.y ?? piece.bbox.y }
+    return edgeStepFitsOnPage(resolveSurface(this.surface), at, dx * STAFF_SPACE_PX)
   }
 
   /**
@@ -1163,6 +1218,73 @@ export class MusicEngine {
   resetOttavaEndpointOffset(id: string, which: 'start' | 'end'): boolean {
     const ok = this.scoreModel.resetOttavaEndpointOffset(id, which)
     if (ok) this.saveOnly('Reset octave line nudge')
+    return ok
+  }
+
+  /**
+   * Where {@link resizeOttavaBySlot} would put the HOOK, WITHOUT putting it there — a pure read, no
+   * undo entry. The interpolating walk (`interactions/ottavaWalk`) asks before it decides whether a
+   * press re-anchors or only nudges ink, and asks THIS so the two keys can never land the bracket's
+   * end on different notes. @returns null at either end of the road.
+   */
+  nextOttavaEndSlot(id: string, direction: 1 | -1): OttavaSlotTarget | null {
+    return this.scoreModel.nextOttavaEndSlot(id, direction)
+  }
+
+  /** Where {@link moveOttavaStartBySlot} would put the BEGINNING, without putting it there —
+   *  {@link nextOttavaEndSlot}'s twin at the other square, and for its reason. */
+  nextOttavaStartSlot(id: string, direction: 1 | -1): OttavaSlotTarget | null {
+    return this.scoreModel.nextOttavaStartSlot(id, direction)
+  }
+
+  /** The slot the bracket's hook closes around TODAY — the address every drawn thing about its end
+   *  is drawn at. ⚠️ ⛔ NOT the span's exclusive end ({@link ottavaOps.ottavaEndSlot}). */
+  ottavaEndSlot(id: string): OttavaSlotTarget | null {
+    return this.scoreModel.ottavaEndSlot(id)
+  }
+
+  /**
+   * Put the bracket's BEGINNING on `target`, **holding its end** — the walk's crossing write at the
+   * START square, and the keyboard twin of what a drag of that square does frame by frame.
+   *
+   * ⚠️ A CONTENT edit ({@link moveOttavaStartBySlot}'s own): both model fields in one step, one undo
+   * state, and AUDIBLE — it changes which notes are displaced.
+   *
+   * ⭐ It keeps that end's `ottavaOffset` by construction (`ottavaOps` writes no override here),
+   * which is what the walk needs: the crossing is meant to be invisible, and the offset is re-based
+   * by the caller rather than wiped.
+   */
+  moveOttavaStartToSlot(id: string, target: OttavaSlotTarget): boolean {
+    const ok = this.scoreModel.applyOttavaDrag(id, { at: 'start', ...target })
+    if (ok) this.commit('Move octave line start')
+    return ok
+  }
+
+  /** Put the bracket's END so that it COVERS `target`, holding its beginning — the walk's crossing
+   *  write at the END square, and one undo entry. ⚠️ A CONTENT edit, audible for
+   *  {@link moveOttavaStartToSlot}'s reason, and it keeps that end's nudge for the same one. */
+  moveOttavaEndToSlot(id: string, target: OttavaSlotTarget): boolean {
+    const ok = this.scoreModel.applyOttavaDrag(id, { at: 'end', ...target })
+    if (ok) this.commit('Resize octave line')
+    return ok
+  }
+
+  /**
+   * ⭐⭐ **RE-BASE one end's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
+   * the bracket to its next slot it takes the same distance back out of the offset, so the DRAWN
+   * position does not change at all; the pair is an identity.
+   *
+   * 🚨 **Which is why the PAGE LIMIT must not see it** — {@link rebaseHairpinEndpointOffset} carries
+   * the report that made it a rule: the limit judges a delta against the LAST RENDER, where the
+   * anchor has not moved yet, so it reads a re-base as a hand shoving the mark half a bar sideways.
+   * Refused, the anchor has moved and the offset has not, and the next press crosses again — a
+   * runaway to the end of the road.
+   *
+   * ⚠️ `dx` only: the bracket's vertical is ONE number for the whole line and no walk touches it.
+   */
+  rebaseOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
+    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
+    if (ok) this.saveOnly('Nudge octave line') // inside the walk's batch this only counts the request
     return ok
   }
 
@@ -2438,7 +2560,12 @@ export class MusicEngine {
     // ⚠️ The PAGE LIMIT predicts where ink lands, so it needs a SCREEN delta — the second of the two
     // places that convert (the renderer is the other). Above the staff, further out is further UP.
     const above = (this.getTrillById(id)?.placement ?? 'above') === 'above'
-    if (!this.nudgeStaysOnPage('trill', id, dx, above ? -outward : outward)) return false
+    // 🚨 TWO AXES, TWO QUESTIONS — his report, 2026-08-21: *"in the case of the trill same thing, the
+    // left endpoint lands out of the page"*. The horizontal moves ONE END and its square
+    // ({@link spanEndStaysOnPage}); `outward` lifts the whole ornament, sign and wiggle together.
+    if (!this.spanEndStaysOnPage('trill', id, which, dx)) return false
+    const dy = above ? -outward : outward
+    if (dy !== 0 && !this.nudgeStaysOnPage('trill', id, 0, dy)) return false
     const ok = this.scoreModel.setTrillEndpointOffset(id, which, dx, outward)
     if (ok) this.saveOnly('Nudge trill')
     return ok

@@ -290,27 +290,68 @@ export function resetOttavaEndpointOffset(score: Score, id: string, which: 'star
  * further on the staff to reach, and when no such ottava exists.
  */
 export function resizeOttavaBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const target = nextOttavaEndSlot(score, id, direction)
+  return target ? setOttavaEndAtSlot(score, id, target) : false
+}
+
+/**
+ * ⭐⭐ **WHICH SLOT THE HOOK WOULD CLOSE AROUND after one step, WITHOUT stepping** — a pure read,
+ * split out of {@link resizeOttavaBySlot} on 2026-08-21 when the END square asked for the
+ * interpolating walk (`interactions/ottavaWalk`).
+ *
+ * ⭐ **It is the candidate rule itself, so the two keys cannot disagree.** `Ctrl+Shift+←/→` jumps a
+ * whole slot and the plain arrow walks the ink onto one; asking twice would let them land the
+ * bracket on different notes depending on how far it had been nudged. {@link nextHairpinEndStop} is
+ * the same split, one lane over.
+ *
+ * ⭐⭐ **The address it names is the LAST COVERED slot — where the hook is DRAWN**, ⛔ not the span's
+ * exclusive end. That is Gould's rule 2 ({@link setOttavaEndAtSlot}), and it is what makes the
+ * answer directly usable as an x: the walk measures its gaps between drawn notehead edges.
+ *
+ * Growing reaches through the next slot at or after today's end; shrinking gives up the last slot
+ * the line holds, so the one before it becomes the hook's. @returns null at either end of the road —
+ * nothing further on the staff to reach, or nothing left to give up (⛔ never a bracket over no
+ * music, {@link resizeOttavaBySlot}'s own refusal).
+ */
+export function nextOttavaEndSlot(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): OttavaSlotTarget | null {
   const placed = locate(score, id)
-  if (!placed) return false
-  const { startAbs: fromAbs, endAbs, lane } = placed
+  if (!placed) return null
+  const { startAbs, endAbs, lane } = placed
 
-  let nextEnd: Fraction
   if (direction === 1) {
-    // Reach THROUGH the next slot beginning at or after the current end — its onset plus its own
-    // length, so the note the bracket grows over is covered rather than merely touched
-    // (`addOttavaOverNotes`' rule, and the half-open span's requirement).
+    // The next slot beginning at or after the current end — covered whole, which is what
+    // {@link setOttavaEndAtSlot} writes (`addOttavaOverNotes`' rule, and the half-open span's).
     const next = lane.find(s => fracCompare(s.abs, endAbs) >= 0)
-    if (!next) return false // nothing further on this staff — the line already reaches the end
-    nextEnd = fracAdd(next.abs, next.length)
-  } else {
-    // Drop the LAST slot the line holds: its onset becomes the new end.
-    const held = lane.filter(s => fracCompare(s.abs, fromAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
-    const last = held[held.length - 1]
-    if (!last) return false
-    nextEnd = last.abs
+    return next ? { measure: next.measure, beat: next.beat } : null
   }
+  // Drop the last slot the line holds; the one BEFORE it becomes the last covered.
+  const held = lane.filter(s => fracCompare(s.abs, startAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
+  const back = held[held.length - 2]
+  return back ? { measure: back.measure, beat: back.beat } : null
+}
 
-  return setOttavaLength(score, id, fracSub(nextEnd, fromAbs))
+/**
+ * ⭐ **THE SLOT THE HOOK CLOSES AROUND TODAY** — the last onset of the staff the bracket covers, and
+ * so the address {@link nextOttavaEndSlot}'s answers are measured against.
+ *
+ * ⚠️ The span's own end address ({@link ottavaSpan}) is NOT this: it is exclusive, and lands past
+ * the last notehead by that note's own length. Everything drawn about the end of an octave line is
+ * drawn at the note this names.
+ *
+ * @returns null when the bracket covers no onset of its staff at all — rests only, or an id that has
+ *   gone.
+ */
+export function ottavaEndSlot(score: Score, id: string): OttavaSlotTarget | null {
+  const placed = locate(score, id)
+  if (!placed) return null
+  const { startAbs, endAbs, lane } = placed
+  const held = lane.filter(s => fracCompare(s.abs, startAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
+  const last = held[held.length - 1]
+  return last ? { measure: last.measure, beat: last.beat } : null
 }
 
 /**
@@ -336,12 +377,30 @@ export function resizeOttavaBySlot(score: Score, id: string, direction: 1 | -1):
  * not a claim about which of two should win, and deleting the one already there would destroy a
  * span the user never named.
  *
- * Declines (false) when there is no slot to step to, when the beginning would reach or pass the END,
- * or when no such ottava exists. ⛔ Never deletes.
+ * Declines (false) when there is no slot to step to, or when no such ottava exists. ⛔ Never deletes,
+ * and ⛔ never refuses for meeting its own end — it PUSHES it ({@link setOttavaStartAtSlot}).
  */
 export function moveOttavaStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const next = nextOttavaStartSlot(score, id, direction)
+  return next ? setOttavaStartAtSlot(score, id, next) : false
+}
+
+/**
+ * ⭐ **WHERE THE BEGINNING WOULD LAND after one step, WITHOUT stepping** —
+ * {@link nextOttavaEndSlot}'s twin at the other end, and split out for the same reason: the walk and
+ * the whole-slot jump must ask ONE question about where a square may stand.
+ *
+ * @returns null at either end of the lane. ⚠️ It does NOT check that the beginning stays behind the
+ *   end — {@link setOttavaStartAtSlot}'s length check owns that, one step later, and the walk reads
+ *   its refusal as "the road stops here".
+ */
+export function nextOttavaStartSlot(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): OttavaSlotTarget | null {
   const placed = locate(score, id)
-  if (!placed) return false
+  if (!placed) return null
   const { startAbs, lane } = placed
 
   const next = direction === -1
@@ -350,8 +409,7 @@ export function moveOttavaStartBySlot(score: Score, id: string, direction: 1 | -
     // Step IN: the first onset after it — and never as far as the end, which the length check inside
     // {@link setOttavaStartAtSlot} refuses one step later.
     : lane.find(s => fracCompare(s.abs, startAbs) > 0)
-  if (!next) return false
-  return setOttavaStartAtSlot(score, id, next)
+  return next ? { measure: next.measure, beat: next.beat } : null
 }
 
 /** A lane slot named by its address — what a DRAG hands the two ops below, having found it from the
@@ -366,8 +424,8 @@ export interface OttavaSlotTarget {
  * {@link moveOttavaStartBySlot}, which now steps by finding a slot and calling this.
  *
  * The two-fields-one-write invariant is kept HERE, which is why the stepping op delegates rather
- * than repeating it. Declines when `target` is not an onset of the ottava's own staff, or when the
- * beginning would reach or pass the end.
+ * than repeating it. Declines when `target` is not an onset of the ottava's own staff. ⭐ A beginning
+ * that reaches or passes the END does not decline — it takes the end with it, see below.
  */
 export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
   const placed = locate(score, id)
@@ -376,8 +434,23 @@ export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlo
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
-  const length = fracSub(endAbs, slot.abs)
-  if (!fracIsPositive(length)) return false
+  const held = fracSub(endAbs, slot.abs)
+  // ⭐⭐ **THE BEGINNING PUSHES THE END, AND THE END RE-ANCHORS** — his rule, 2026-08-21: *"probably
+  // the problem is a conflict between left anchor and right anchor; when the left anchor push the
+  // right anchor then the right anchor should reanchor"*.
+  //
+  // 🚨 What it replaced was a REFUSAL (*"a beginning may not reach its own end"*, the wedge's), and
+  // the refusal did not merely stop the gesture — it KILLED it. The walk stops at the first stop the
+  // model declines (`interactions/markWalk.carryMark`), so every further press became pure ink: his
+  // report, with the score attached, showed the bracket parked on one note at `beat 1, length 1`
+  // while its `startX` had run to **63 staff-spaces** and the square had left the page. The
+  // cross-system wrap died with it, since the stop it was refusing is on THIS system and the wrap is
+  // only ever asked about the next one.
+  //
+  // ⭐ So the two anchors never collide: the bracket keeps the ONE slot it is standing on
+  // ({@link setOttavaEndAtSlot}'s own arithmetic — cover this slot whole) and walks on from there,
+  // rests, barlines and system breaks included.
+  const length = fracIsPositive(held) ? held : slot.length
 
   // ⭐ Both fields, one step. See {@link moveOttavaStartBySlot}.
   if (slot.measure !== startMeasure && !moveOttavaToMeasure(score, ottava, slot.measure)) return false

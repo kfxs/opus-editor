@@ -795,6 +795,24 @@ export class ScoreModel {
     return ottavaOps.moveOttavaStartBySlot(this.score, id, direction)
   }
 
+  /** The slot an ottava's HOOK would close around one step away, without moving it — what the END
+   *  square's interpolating WALK looks ahead at. See {@link ottavaOps.nextOttavaEndSlot}. */
+  nextOttavaEndSlot(id: string, direction: 1 | -1): ottavaOps.OttavaSlotTarget | null {
+    return ottavaOps.nextOttavaEndSlot(this.score, id, direction)
+  }
+
+  /** The lane slot one step from an ottava's BEGINNING, without moving it — the START square's own
+   *  look-ahead. See {@link ottavaOps.nextOttavaStartSlot}. */
+  nextOttavaStartSlot(id: string, direction: 1 | -1): ottavaOps.OttavaSlotTarget | null {
+    return ottavaOps.nextOttavaStartSlot(this.score, id, direction)
+  }
+
+  /** The slot an ottava's hook closes around TODAY — ⚠️ ⛔ not the span's exclusive end. See
+   *  {@link ottavaOps.ottavaEndSlot}. */
+  ottavaEndSlot(id: string): ottavaOps.OttavaSlotTarget | null {
+    return ottavaOps.ottavaEndSlot(this.score, id)
+  }
+
   /** Nudge one drawn END of an ottava, accumulating — ⭐ `outward` (a distance FROM THE STAFF) lands
    *  on the WHOLE bracket, since it is a straight line. See {@link ottavaOps.setOttavaEndpointOffset}. */
   setOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number, outward: number): boolean {

@@ -5,8 +5,14 @@ P1 (the model), P2 (sound), P3 (drawing), P4 (editing), P5 (entry). §8 carries 
 and what it found; the section after it carries the five calls his eye made once an ottava was
 reachable. ⛔ The research below is not to be redone.
 
+Since then: **P7** the two endpoint squares, **P8** the offsets in Properties, **P9** the ladder
+reordered, and **P10** the INTERPOLATING WALK on both squares (2026-08-21) — with the cross-system
+WRAP, the *left anchor pushes the right* rule, and the page limit re-asked at the SQUARE. Each has its
+own ✅ section at the end.
+
 ⏭️ **What is still open:** §7.3 (does `createOttava` re-spell the selection down an octave?) — only
-real music answers that — and a handful of taste constants listed at the end of §8.
+real music answers that — a handful of taste constants listed at the end of §8, and the square DRAG,
+which still snaps where the keyboard now walks (P10).
 
 Two things came out of the research that are bigger than the feature, and **he has decided both**:
 
@@ -1078,6 +1084,67 @@ Recorded because a tidy story here would be a lie, and both are traps for the ne
 ⏭️ **Still not built: Gould's whole-system exception (p. 29)** — an extension line spanning a full
 system goes outside everything after all, with only tempo and pedal beyond it, because a dotted line
 across the whole width visually cuts off what is past it.
+
+---
+
+## ✅⭐⭐ P10 — THE INTERPOLATING WALK on both squares (2026-08-21, BUILT)
+
+His ask: *"so i suppose now we have to do the ottava keyboard walking"*. `←`/`→` (¼ space) and
+`Ctrl`+`←`/`→` (1 space) on an armed square now move that end's INK, and once the ink reaches the next
+onset of the lane THAT END OF THE BRACKET goes with it. The fifth family to get the gesture, after
+the slur, the dynamic/tempo pair, the hairpin and the trill, and it arrives by the wedge's own rule:
+**a handle that has BOTH a re-anchor and an offset owes the walk that joins them.**
+
+The arithmetic is `interactions/markWalk`'s, untouched. New modules, ⛔ no per-kind slice anywhere:
+
+- **`interactions/ottavaLane.ts`** — where the bracket's lane was DRAWN, extracted from
+  `elements/ottavaHandles.ottavaDragTargetAt` so the mouse and the keyboard measure ONE list.
+  ⭐⭐ The two ends read DIFFERENT EDGES of an onset (numeral left, hook right — §1 rule 2).
+- **`interactions/ottavaWalk.ts`** — the port, twice.
+- **`interactions/markBreakWrap.ts`** — the wedge's cross-system WRAP, **extracted** from
+  `hairpinWalk` (its four rejected cuts and all) so the bracket could port into it rather than copy
+  it. Hairpin and ottava both go through it; its 48 wedge tests were the safety net and never moved.
+- **Model:** `ottavaOps.nextOttavaEndSlot` / `nextOttavaStartSlot` / `ottavaEndSlot`, split out of the
+  two stepping ops so the plain arrow walks onto the slot `Ctrl+Shift+←/→` jumps to.
+  ⭐⭐ `ottavaEndSlot` is the LAST COVERED slot — where the hook is drawn — ⛔ never `beat + length`,
+  which overshoots it by that note's own duration.
+
+### 🚨 THE LEFT ANCHOR PUSHES THE RIGHT, and the right RE-ANCHORS
+
+His rule, and his diagnosis: *"probably the problem is a conflict between left anchor and right
+anchor; when the left anchor push the right anchor then the right anchor should reanchor"* — **only
+where they meet**, never otherwise.
+
+What it replaced was a REFUSAL inherited from the wedge (*a beginning may not reach its own end*), and
+the refusal did not merely stop the gesture, it **killed it**: `markWalk.carryMark` stops at the first
+stop the model declines, so every further press became pure ink. His score: the bracket parked on one
+note at `beat 1, length 1` with `startX` run out to **63 staff-spaces**, the square off the page — and
+the cross-system wrap dead with it, because the stop being refused is on THIS system and the wrap is
+only ever asked about the next one. One refusal, three symptoms.
+
+### 🚨🚨 THE PAGE LIMIT WAS BEING ASKED THE WRONG QUESTION
+
+Two reports, both fixed in `engine/layout/pageBounds` + `MusicEngine.spanEndStaysOnPage`, and now
+shared by **ottava, hairpin and trill**:
+
+1. **A DEADLOCK.** *"im traying to go back and is not possible"* — `nudgeFitsOnPage` judges EVERY drawn
+   box of the element and translates them ALL by the step, so a span hanging off the left AND the
+   right refuses `←` (the left-hanging piece grows) and `→` (the right-hanging one). An endpoint press
+   moves ONE EDGE; judging that edge (`edgeStepFitsOnPage`) ends the deadlock with no new rule.
+2. **AN UNREACHABLE HANDLE.** *"the issue was the endpoint that was out of the page"* — ink stopping
+   exactly at the sheet's edge leaves its SQUARE beyond it. The step is now measured where the square
+   is: `SPAN_HANDLE_ROOM_PX` (16 = the 10 px of daylight + the square's half-side).
+
+### ⛔ And NO ink limit of its own
+
+⭐⭐ **The offset is FREE.** A system-ink limit was tried and rejected in one line: *"you are restricted
+the ottava offset to the measure, the user should be able to offset it at will"*. The only stop is the
+page's edge, above. ⚠️ The same limit was removed from the WEDGE and the TRILL on the same day
+(*"the trill and the hairpin offset left endpoint is also limited to the first measure after the time
+signature, the user should not have that limit"*) — their rightward stop stays, since a trill's ink
+folds and there has to be a line left to fold onto.
+
+⏭️ Not built: the ottava square's DRAG is still a snap (`ottavaDragTargetAt`); the wedge's drag walks.
 
 ---
 

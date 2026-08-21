@@ -184,10 +184,10 @@ describe('walkHairpinEndpoint', () => {
     expect(offset('start').x).toBeCloseTo(0)
     for (let i = 0; i < 5; i++) walkHairpinEndpoint(engine, wedgeId, 'start', -1)
     expect(span().beat, 'never off the front').toBe(0)
-    // ⭐ And the ink stops at the line's own start (90, one space left of the first note): past it
-    // there is no more staff to draw on and — this being the first bar of the score — nothing to
-    // wrap onto either.
-    expect(offset('start').x).toBeCloseTo(-1)
+    // ⭐⭐ …and the INK carries on, freely — his rule, 2026-08-21: *"the trill and the hairpin offset
+    // left endpoint is also limited to the first measure after the time signature, the user should
+    // not have that limit"*. ⛔ The only stop on this side is the PAGE's edge, the engine's.
+    expect(offset('start').x).toBeCloseTo(-5)
   })
 
   it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {

@@ -4,6 +4,7 @@ import { MusicEngine } from './MusicEngine'
 import { A4_NORMAL, SKETCH_CANVAS, resolveSurface } from './layout/surface'
 import { fracCreate as frac } from '@/utils/fraction'
 import { engravingOverridesOf } from './models/engravingOverrides'
+import { SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
 
 /**
  * ⭐⭐ **THE PAGE LIMIT, PER OFFSET CLIENT** — his report, 2026-08-17: *"all the objects that we
@@ -86,8 +87,10 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
     })
 
     it('⭐⭐ …and a step from INSIDE that would cross the edge stops SHORT of it', () => {
-      // 1 staff space = 10px, so a bracket 5px from the left edge may not take a whole-space step.
-      drawn('ottava', id, 5)
+      // 1 staff space = 10px, so a bracket whose SQUARE sits 5px from the left edge may not take a
+      // whole-space step. ⚠️ The square is `SPAN_HANDLE_ROOM_PX` outside the ink, which is the point
+      // the limit is measured at (his report — an end at the very edge cannot be grabbed back).
+      drawn('ottava', id, 5 + SPAN_HANDLE_ROOM_PX)
       expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(false)
       expect(engine.nudgeOttavaEndpoint(id, 'start', -0.25, 0), 'a quarter-space still fits').toBe(true)
     })
@@ -106,6 +109,61 @@ describe('MusicEngine — a hand nudge may not be written past the edge of the p
 
     it('⚠️ allows the nudge when nothing is DRAWN — refusing on no evidence makes it unmovable', () => {
       expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0)).toBe(true)
+    })
+
+    it('🚨🚨 the two ends are judged SEPARATELY — a bracket off BOTH edges must not go DEAD', () => {
+      // His report, 2026-08-21, walking the endpoints: the right end pushed to the edge of the page
+      // and the left end to the other edge, and then *"im traying to go back and is not possible"* —
+      // every arrow refused, both directions. The whole-object rule translates EVERY box by the
+      // step, so one piece hanging off the left refuses `←` while the same piece hanging off the
+      // right refuses `→`. An endpoint press moves ONE EDGE, and that is what may be judged.
+      engine.getElementRegistry().add({
+        type: 'ottava', id,
+        // ⚠️ The ENDS are what is judged, and each is `SPAN_HANDLE_ROOM_PX` further out again: the
+        // right one must stay inside the GAP before the next sheet, or it is measured against sheet
+        // TWO (`pageBoxAt`) and the case says nothing.
+        bbox: { x: OFF_LEFT, y: 100, width: PAGE.widthPx + 20, height: 10 },
+      } as never)
+      expect(engine.nudgeOttavaEndpoint(id, 'start', 1, 0), 'the beginning comes home').toBe(true)
+      expect(engine.nudgeOttavaEndpoint(id, 'end', -1, 0), 'and so does the end').toBe(true)
+      expect(engine.nudgeOttavaEndpoint(id, 'start', -1, 0), '⛔ neither may go further out').toBe(false)
+      expect(engine.nudgeOttavaEndpoint(id, 'end', 1, 0)).toBe(false)
+    })
+  })
+
+  /**
+   * 🚨 THE OTHER TWO SPANS WITH ENDPOINT SQUARES — his reports, 2026-08-21, once the walk let their
+   * ink run: *"in the case of the hairpin, take care that the endpoint is not out of the page, now
+   * half is out of the page"* and *"in the case of the trill same thing, the left endpoint lands out
+   * of the page"*. One rule for all three ({@link MusicEngine.spanEndStaysOnPage}) — the step is
+   * judged where the SQUARE is, and only for the end that is moving.
+   */
+  describe('every span with endpoint squares stops where its HANDLE would leave the sheet', () => {
+    it('the hairpin', () => {
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const wedge = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
+      drawn('hairpin', wedge.id, 5 + SPAN_HANDLE_ROOM_PX)
+      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', -1, 0)).toBe(false)
+      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
+      expect(engine.nudgeHairpinEndpoint(wedge.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
+    })
+
+    it('the trill', () => {
+      const note = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const trill = engine.addTrill({ startNoteId: note.id })!
+      drawn('trill', trill.id, 5 + SPAN_HANDLE_ROOM_PX)
+      expect(engine.nudgeTrillEndpoint(trill.id, 'start', -1, 0)).toBe(false)
+      expect(engine.nudgeTrillEndpoint(trill.id, 'start', -0.25, 0), 'a quarter still fits').toBe(true)
+      expect(engine.nudgeTrillEndpoint(trill.id, 'start', 1, 0), '⭐ and it is never stranded').toBe(true)
+    })
+
+    it('⭐ …and the END square of the same mark is judged at the OTHER edge', () => {
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const wedge = engine.addHairpin(1, { beat: frac(0, 1), length: frac(1, 1), type: 'cresc' })!
+      drawn('hairpin', wedge.id, 5 + SPAN_HANDLE_ROOM_PX)
+      // The box is 20 px wide and nowhere near the right edge, so this end may move freely — ⛔ the
+      // start's predicament is not its own.
+      expect(engine.nudgeHairpinEndpoint(wedge.id, 'end', -1, 0)).toBe(true)
     })
   })
 

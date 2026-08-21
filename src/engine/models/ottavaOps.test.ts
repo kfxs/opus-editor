@@ -20,6 +20,7 @@ import {
   addOttava, removeOttava, updateOttava, setOttavaLength, toggleOttavaDirection,
   getOttavaById, ottavaMeasure, measureOttavas, ottavaEndBeat, ottavaSpan, addOttavaOverNotes,
   resizeOttavaBySlot, moveOttavaStartBySlot, applyOttavaDrag,
+  nextOttavaEndSlot, nextOttavaStartSlot, ottavaEndSlot,
   setOttavaEndpointOffset, resetOttavaEndpointOffset, setOttavaOffset, resetOttavaOffset,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
@@ -507,12 +508,27 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
     expect(soundingShiftAtBeat(score, 1, 0), 'the note it let go of is back to written pitch').toBe(0)
   })
 
-  it('⛔ REFUSES to step the beginning onto or past the end, rather than deleting the line', () => {
+  it('⭐⭐ the beginning PUSHES the end when it catches it — his rule, 2026-08-21', () => {
+    // *"when the left anchor push the right anchor then the right anchor should reanchor"*. ⛔ It was
+    // a refusal before, and a refusal STOPS THE WALK dead (`interactions/markWalk.carryMark`): his
+    // bracket sat on one note while its ink ran 63 spaces off the page.
     quarters(1)
     const o = addOttava(score, 1, { beat: frac(2, 1), length: frac(1, 1), shift: 1 })!
-    expect(moveOttavaStartBySlot(score, o.id, 1)).toBe(false)
-    expect(getOttavaById(score, o.id), 'still there').not.toBeNull()
-    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(2)
+    expect(moveOttavaStartBySlot(score, o.id, 1)).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat), 'the beginning moved on').toBe(3)
+    expect(fracToNumber(getOttavaById(score, o.id)!.length),
+      'and the bracket covers the slot it now stands on').toBe(1)
+    expect(soundingShiftAtBeat(score, 1, 3), 'which is audible — that note is displaced').toBe(12)
+    expect(soundingShiftAtBeat(score, 1, 2), 'and the one it left is not').toBe(0)
+  })
+
+  it('⛔ …and it still never deletes — the pushed line is one slot long, never nothing', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(3, 1), length: frac(1, 1), shift: 1 })!
+    // On into bar 2's whole rest: the end goes with it and the line covers that bar.
+    expect(moveOttavaStartBySlot(score, o.id, 1)).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.length), 'a whole bar').toBe(4)
+    expect(ottavaMeasure(score, o.id)!.number, 'and it re-filed under bar 2').toBe(2)
   })
 
   it('declines when there is no earlier slot to reach back to', () => {
@@ -560,6 +576,97 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
  * "cover it"; a bracket ends ON its last notehead, so every address a drag can name is a covered
  * slot. Porting the third case would end the line one note early, pointing at nothing.
  */
+/**
+ * ⭐⭐ THE CANDIDATE READS — where a step WOULD land, without landing there.
+ *
+ * Split out of the two stepping ops on 2026-08-21 for the interpolating walk
+ * (`interactions/ottavaWalk`), and the claim that matters is that they are the SAME rule: the plain
+ * arrow walks the ink onto the slot `Ctrl+Shift+←/→` jumps to, so the two keys cannot land a square
+ * on different notes depending on how far it had been nudged.
+ *
+ * ⭐ And they answer in DRAWN terms: {@link nextOttavaEndSlot} names the slot the hook would close
+ * around, ⛔ never the span's exclusive end — which is a note further on and would price every
+ * crossing late.
+ */
+describe('ottavaOps — the walk\'s candidates', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel() // measure 1, 4/4 by default
+    model.addMeasure()
+    score = model.getScore()
+  })
+
+  const quarters = (m: number) =>
+    [0, 1, 2, 3].map(b =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+
+  const beatOf = (at: { measure: number; beat: typeof frac extends never ? never : ReturnType<typeof frac> } | null) =>
+    at && { measure: at.measure, beat: fracToNumber(at.beat) }
+
+  it('⭐⭐ ottavaEndSlot names the LAST COVERED slot — ⛔ not the span\'s exclusive end', () => {
+    quarters(1)
+    // Beats 0→2 covers the beat-0 and beat-1 quarters; the span ENDS at beat 2, where the hook is
+    // drawn a whole note earlier, on the beat-1 notehead.
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(beatOf(ottavaEndSlot(score, o.id))).toEqual({ measure: 1, beat: 1 })
+    expect(fracToNumber(ottavaSpan(score, o.id)!.endBeat), 'the span, for contrast').toBe(2)
+  })
+
+  it('⭐ the END\'s candidates are the slot the hook would take, either way', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(beatOf(nextOttavaEndSlot(score, o.id, 1))).toEqual({ measure: 1, beat: 2 })
+    expect(beatOf(nextOttavaEndSlot(score, o.id, -1))).toEqual({ measure: 1, beat: 0 })
+  })
+
+  it('⭐ …and it is the SAME slot the whole-step jump lands on', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    const candidate = nextOttavaEndSlot(score, o.id, 1)!
+    resizeOttavaBySlot(score, o.id, 1)
+    expect(beatOf(ottavaEndSlot(score, o.id))).toEqual(beatOf(candidate))
+  })
+
+  it('⛔ the END declines where a shrink would leave the bracket over no music', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    expect(nextOttavaEndSlot(score, o.id, -1), 'nothing left to give up').toBeNull()
+    expect(nextOttavaEndSlot(score, o.id, 1), 'but it may still grow').not.toBeNull()
+  })
+
+  it('⛔ …and where there is nothing further on the staff to reach', () => {
+    quarters(1)
+    quarters(2)
+    const o = addOttava(score, 2, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })!
+    expect(nextOttavaEndSlot(score, o.id, 1), 'the last bar of the score').toBeNull()
+  })
+
+  it('⭐ the BEGINNING\'s candidates are the onsets either side of it', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(1, 1), length: frac(2, 1), shift: 1 })!
+    expect(beatOf(nextOttavaStartSlot(score, o.id, 1))).toEqual({ measure: 1, beat: 2 })
+    expect(beatOf(nextOttavaStartSlot(score, o.id, -1))).toEqual({ measure: 1, beat: 0 })
+  })
+
+  it('⭐ the BEGINNING answers the next onset even where it would catch its own END', () => {
+    // The write takes it and PUSHES the end (his rule, 2026-08-21) — so the candidate rule stays a
+    // plain "what is next in the lane", with no second-guessing of the write.
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })!
+    const candidate = nextOttavaStartSlot(score, o.id, 1)!
+    expect(beatOf(candidate)).toEqual({ measure: 1, beat: 1 })
+    expect(moveOttavaStartBySlot(score, o.id, 1), 'and the write takes it').toBe(true)
+  })
+
+  it('answers null for an id that has gone', () => {
+    quarters(1)
+    expect(nextOttavaEndSlot(score, 'nope', 1)).toBeNull()
+    expect(nextOttavaStartSlot(score, 'nope', 1)).toBeNull()
+    expect(ottavaEndSlot(score, 'nope')).toBeNull()
+  })
+})
+
 describe('ottavaOps — applyOttavaDrag', () => {
   let model: ScoreModel
   let score: Score
@@ -599,12 +706,14 @@ describe('ottavaOps — applyOttavaDrag', () => {
 
   it('⛔ refuses a drop that would leave the line covering nothing, and one off its staff', () => {
     const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
-    // A start dropped ON or past the end: refused rather than deleting the line.
-    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(3, 1) })).toBe(false)
     // An address with no slot at it — bar 9 does not exist, and beat 7 of bar 1 holds nothing.
     expect(applyOttavaDrag(score, o.id, { at: 'end', measure: 9, beat: frac(0, 1) })).toBe(false)
     expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(7, 1) })).toBe(false)
-    expect(spanOf(o.id), 'untouched by all three').toEqual([1, 0, 1, 2])
+    expect(spanOf(o.id), 'untouched by both').toEqual([1, 0, 1, 2])
+    // ⭐ …but a start dropped ON or past the end is not one of them: it takes the end with it (his
+    // rule, 2026-08-21), landing the bracket on that one slot. ⛔ Still never deleted.
+    expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 1, beat: frac(3, 1) })).toBe(true)
+    expect(spanOf(o.id)).toEqual([1, 3, 1, 4])
   })
 
   it('⭐ a START dragged across a BARLINE re-files the line, keeping the same id', () => {

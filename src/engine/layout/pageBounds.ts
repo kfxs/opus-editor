@@ -158,3 +158,54 @@ export function nudgeFitsOnPage(
   }
   return true
 }
+
+/**
+ * ⭐⭐ **THE ROOM A GRAB HANDLE NEEDS OUTSIDE A SPAN'S END**, in px — and the reason the limit is
+ * measured a little BEYOND the ink.
+ *
+ * 🚨 **His report, 2026-08-21, twice over**: *"the right point is not reachable cause is out of the
+ * page"*, and then *"the issue was the endpoint that was out of the page"*. An end walked to the
+ * sheet's edge leaves its ink legally on the paper and its SQUARE — drawn outside the mark, so the
+ * mark is never under the hand — off it, where no click can reach. The limit was right; it was being
+ * asked about the wrong point.
+ *
+ * ⚠️ **It must cover `interactions/elements/ottavaHandles.OTTAVA_HANDLE_GAP_PX`** (10, the daylight
+ * between the mark and its square) **plus the square's own half-side** (6). ⛔ It cannot import them:
+ * the engine may not read `interactions/`. So this is the ENGINE declaring the vocabulary and the
+ * editor drawing inside it — `rendering/ghostTypes.ts`' arrangement, and for its reason.
+ *
+ * ⭐ Deliberately ONE number for every span family: two handle sizes would be two things for the hand
+ * to learn, and the editor already draws them all alike.
+ */
+export const SPAN_HANDLE_ROOM_PX = 16
+
+/**
+ * ⭐⭐ **ONE MOVING EDGE** — the same rule asked of a SPAN whose press moves one END of it, rather
+ * than the whole drawn thing.
+ *
+ * 🚨 **His report, 2026-08-21, and it is a DEADLOCK, not a stiff limit.** He pushed an octave
+ * bracket's right end to the edge of the page and its left end to the other edge, and then *"im
+ * traying to go back and is not possible"* — every arrow, both directions, refused. The cause is that
+ * {@link nudgeFitsOnPage} judges EVERY drawn box of the element and translates them ALL by the step:
+ * a bracket hanging off the left AND the right has one box that grows on each side, so `←` is refused
+ * by the left-hanging piece and `→` by the right-hanging one. Nothing could move it again.
+ *
+ * ⭐ **The honest question is what the press MOVES.** An endpoint nudge moves that end's edge and
+ * nothing else — the far end does not budge, and the ink between them is redrawn, not translated. So
+ * the box to judge is a POINT at that edge: it may not be pushed off the sheet, and it may always
+ * come back, which is the family rule with no deadlock left in it.
+ *
+ * ⚠️ HORIZONTAL only, deliberately. A vertical that really does move the whole object must still ask
+ * {@link nudgeFitsOnPage} with every box, or a bracket dragged below the paper would be judged by one
+ * of its corners.
+ *
+ * @param at where that end's ink is drawn NOW, in the drawing's coordinates.
+ * @param dx the step, in PIXELS.
+ */
+export function edgeStepFitsOnPage(
+  surface: SurfaceMetrics,
+  at: { x: number; y: number },
+  dx: number,
+): boolean {
+  return nudgeFitsOnPage(surface, [{ x: at.x, y: at.y, width: 0, height: 0 }], dx, 0)
+}
