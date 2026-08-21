@@ -1157,8 +1157,25 @@ drag's own three differences and nothing else:
 - ⭐⭐ **The HAND decides where the line ends** (`markBreakWrap`'s cursor arrival), and a WRAP ENDS THE
   GESTURE — the end is a line away and the hand is not.
 
-⛔ **Horizontal only**, and that is the bracket's shape: one stored vertical for both ends, so a square
-has no lift of its own to drag.
+⭐⭐ **BOTH AXES** (*"now for the drag we have to make the y offset"*, same day) — and they are
+different kinds of move, which is the point of making them in one gesture: the horizontal walks that
+end through the MUSIC, the vertical is plain ink. ⚠️ **The `y` moves the WHOLE bracket** whichever
+square is under the hand — a wedge's square tilts its wedge, an octave line is a straight rule with
+ONE stored vertical, and nothing in the code enforces that: `OttavaOffsetOverride`'s shape does.
+⚠️ `dragOttavaEndpoint` is where SCREEN becomes OUTWARD-from-the-staff, the drag's twin of the
+conversion `shortcutWiring` makes for the keys, and for the same reason (§P8: a stored screen `y`
+inverts itself when 8va↔8vb flips). ⭐ The lift survives a crossing; a frame that WRAPS spends itself
+on the wrap and drops its `dy`, as the wedge's does.
+
+🚨 **AND THE VERTICAL IS LIMITED BY THE BAND** — his report the moment it worked: *"we should not go
+crazy, we have to limit the user somehow here in the y so the ottava is on the system it belongs
+to"*. ⛔ Not a new rule: that is the sentence that produced `layout/systemBand` for the SLUR and then
+the WEDGE, and the bracket simply had no vertical drag to be judged until now
+(`MusicEngine.ottavaEndpointOffsetAllowed`). The switch falls **halfway to the neighbouring staff**,
+⛔ never at its lines, and ink already outside may always come back. ⚠️ Each FRAGMENT is judged
+against its OWN system's band — a bracket cut by a break has pieces on two staves, and one staff's
+neighbours say nothing about the other's. ⚠️ The keyboard's `↑`/`↓` and the whole-bracket move go
+through the same gate, so the two devices cannot disagree about what is allowed.
 
 ⛔ `ottavaDragTargetAt` and its y-translation are **DELETED** — the snap the walk replaced, the wedge's
 own having gone the same way a day earlier. Its spec chapter went with it (its claims live in

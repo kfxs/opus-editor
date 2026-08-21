@@ -369,6 +369,7 @@ export class MouseController {
   /** ⭐ Where the cursor was at the last ACCEPTED frame — the walk accumulates, so a refused frame
    *  must leave this put ({@link handleOttavaEndDrag}). */
   private ottavaEndLastX = 0
+  private ottavaEndLastY = 0
   private ottavaDragStartTime: number | null = null
 
   // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
@@ -1037,6 +1038,7 @@ export class MouseController {
       this.draggedOttavaEnd = armed?.endpoint
       this.ottavaDragChanged = false
       this.ottavaEndLastX = coords.x
+      this.ottavaEndLastY = coords.y
       this.ottavaDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
@@ -2991,15 +2993,18 @@ export class MouseController {
    * page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
    * distance it never travelled when the hand comes back.
    *
-   * ⛔ **No `y`**: an octave line is a straight rule with ONE stored vertical, so a square has no lift
-   * of its own to drag ({@link dragOttavaEndpoint}).
+   * ⭐⭐ **BOTH AXES, and they are different kinds of move**: the horizontal walks that end through
+   * the music, while the vertical is a plain ink lift — ⚠️ of the WHOLE bracket, whichever square is
+   * under the hand, because an octave line is a straight rule with ONE stored vertical
+   * ({@link dragOttavaEndpoint}, which is also where screen becomes outward-from-the-staff).
    */
-  private handleOttavaEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
+  private handleOttavaEndDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingOttavaEnd && this.draggedOttavaId && this.draggedOttavaEnd)) return false
     if (this.ottavaDragStartTime !== null
         && Date.now() - this.ottavaDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragOttavaEndpoint(
-      engine, this.draggedOttavaId, this.draggedOttavaEnd, x, x - this.ottavaEndLastX)
+      engine, this.draggedOttavaId, this.draggedOttavaEnd,
+      x, x - this.ottavaEndLastX, y - this.ottavaEndLastY)
     // ⛔ null = the bracket is not drawn, so there is no scale to convert with; leave the anchor alone.
     if (frame === null) return true
     if (frame.moved) {
@@ -3007,6 +3012,8 @@ export class MouseController {
       // frame presents them again and the ink leaves an onset exactly when the cursor has travelled
       // the whole distance (`./ottavaWalk`). `droppedPx` is 0 on an ordinary frame.
       this.ottavaEndLastX = x - frame.droppedPx
+      // ⚠️ Only the horizontal is held back by the latch, so `y` keeps its own anchor.
+      this.ottavaEndLastY = y
       this.ottavaDragChanged = true
       this.render.renderScore()
     }

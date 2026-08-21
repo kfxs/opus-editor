@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { dragOttavaEndpoint, walkOttavaEndpoint } from './ottavaWalk'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import type { Ottava } from '../types/music'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
 /**
@@ -28,6 +29,10 @@ const drawn = vi.hoisted(() => ({
   lineSpacing: 10 as number | null,
   /** Per measure: the staff's top-line y — which system that bar was drawn on. */
   systemTop: {} as Record<number, number>,
+  /** ⭐ The PAINTED staves. Two by default, one per system: the BAND limit measures the room a mark
+   *  may be lifted into from the gap to its neighbours (`layout/systemBand`), and a score with a
+   *  single staff falls back to a much tighter guess — real, but not the case under test here. */
+  bands: [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }] as { top: number; bottom: number }[],
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -44,7 +49,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       }),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      staffBands: () => [{ top: 40, bottom: 80 }],
+      staffBands: () => drawn.bands,
     }))
   },
 }))
@@ -72,6 +77,7 @@ describe('walkOttavaEndpoint', () => {
   const render = (xs = [100, 200, 300, 400], lineSpacing: number | null = 10) => {
     drawn.lineSpacing = lineSpacing
     drawn.systemTop = { 1: 40, 2: 40 } // ⭐ ONE system by default
+    drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 },
     }))
@@ -290,8 +296,8 @@ describe('walkOttavaEndpoint', () => {
    */
   describe('the drag', () => {
     /** A frame at `cursorX`, having moved `dxPx` since the last accepted one. */
-    const frame = (which: 'start' | 'end', cursorX: number, dxPx: number) =>
-      dragOttavaEndpoint(engine, bracketId, which, cursorX, dxPx)
+    const frame = (which: 'start' | 'end', cursorX: number, dxPx: number, dyPx = 0) =>
+      dragOttavaEndpoint(engine, bracketId, which, cursorX, dxPx, dyPx)
 
     it('moves INK while the hand is between two onsets — ⛔ the bracket does not jump', () => {
       expect(frame('end', 240, 30)!.moved).toBe(true)
@@ -335,6 +341,76 @@ describe('walkOttavaEndpoint', () => {
       engine.commitOttavaDrag('end')
       engine.undo()
       expect(span(), 'one undo takes the whole drag back').toEqual({ beat: 0, length: 2 })
+    })
+
+    /**
+     * ⭐⭐ THE VERTICAL (his ask, 2026-08-21: *"now for the drag we have to make the y offset"*).
+     *
+     * Two claims, and the second is the bracket's own: the drag carries BOTH axes in one gesture,
+     * and the `y` lands on the WHOLE line — ⛔ never on the square under the hand — because
+     * `OttavaOffsetOverride` has a single vertical. ⚠️ And it is stored OUTWARD from the staff, so an
+     * 8vb's number goes UP as the hand goes DOWN.
+     */
+    describe('the vertical', () => {
+      /** The bracket's one stored height, in staff-spaces OUTWARD from the staff. */
+      const outward = () => ottavaOffsetOverrideOf(engine.getScore(), bracketId)?.outward ?? 0
+      /** Flip the fixture to an 8vb, which hangs BELOW the staff. */
+      const below = () => { (engine.getOttavaById(bracketId) as Ottava).shift = -1 }
+
+      it('⭐ lifts an 8va when the hand goes UP — screen becomes OUTWARD here and nowhere else', () => {
+        expect(frame('end', 210, 0, -25)!.moved).toBe(true)
+        expect(outward(), '2.5 spaces further from the staff').toBeCloseTo(2.5)
+      })
+
+      it('⭐⭐ …and an 8vb goes further out as the hand goes DOWN — the same stored number', () => {
+        below()
+        frame('end', 210, 0, 25)
+        expect(outward()).toBeCloseTo(2.5)
+      })
+
+      it('⭐⭐ the START square writes the SAME field — the bracket cannot tilt', () => {
+        frame('start', 110, 0, -25)
+        expect(outward()).toBeCloseTo(2.5)
+        // ⛔ Not a per-end pair: one number, and the second square adds to it.
+        frame('end', 210, 0, -15)
+        expect(outward()).toBeCloseTo(4)
+      })
+
+      it('⭐ rides along with a horizontal that CROSSES, and survives it', () => {
+        frame('end', 310, 100, -10)
+        expect(span(), 'the hook took the next note').toEqual({ beat: 0, length: 3 })
+        expect(outward(), 'and the height came with it').toBeCloseTo(1)
+      })
+
+      /** The drawn bracket's own box — ⚠️ the registry is a FIXTURE, so it does not move when the
+       *  model is written; a case that wants the ink somewhere else says so. */
+      const bracketInk = () => drawn.entries.find(e => e.type === 'ottava')!.bbox
+
+      it('🚨 STOPS where the bracket would enter the SYSTEM ABOVE\'s room — his rule', () => {
+        // *"we should not go crazy, we have to limit the user somehow here in the y so the ottava is
+        // on the system it belongs to"* (2026-08-21) — the same sentence that produced the band rule
+        // for the slur and then the wedge, arriving a third time. ⭐ The limit falls HALFWAY to the
+        // neighbouring staff, ⛔ not at its lines (`layout/systemBand`).
+        expect(frame('end', 210, 0, -60)!.moved, 'six spaces up, still its own room').toBe(true)
+        expect(outward()).toBeCloseTo(6)
+        expect(frame('end', 210, 0, -700)!.moved, '⛔ but not into the system above').toBe(false)
+        expect(outward(), 'and nothing was written — ⛔ the value never accumulates past the edge')
+          .toBeCloseTo(6)
+      })
+
+      it('⭐ …and it is never STRANDED: the way home is always allowed', () => {
+        // Ink already outside its band — a re-flow moved the system under it, or an older file was
+        // saved that way. ⛔ Refusing both directions there would strand the bracket for good.
+        bracketInk().y = -200
+        expect(frame('end', 210, 0, -10)!.moved, '⛔ no further out').toBe(false)
+        expect(frame('end', 210, 0, 10)!.moved, '⭐ but always back').toBe(true)
+      })
+
+      it('⛔ a purely vertical frame moves nothing horizontal', () => {
+        frame('end', 210, 0, -25)
+        expect(span()).toEqual({ beat: 0, length: 2 })
+        expect(offset('end')).toBe(0)
+      })
     })
 
     it('⛔ declines — null — when the bracket is not drawn, so there is no scale', () => {

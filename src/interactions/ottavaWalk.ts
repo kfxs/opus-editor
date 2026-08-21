@@ -74,7 +74,11 @@ export type OttavaWalkEngine = Pick<MusicEngine,
  */
 interface OttavaWrite {
   reanchor: (target: OttavaSlotTarget) => boolean
-  nudge: (dx: number) => boolean
+  /** ⚠️ `outward` is a distance FROM THE STAFF, ⛔ never a screen delta — and it lands on the WHOLE
+   *  bracket however it is asked for ({@link OttavaOffsetOverride} has one vertical). The KEYS never
+   *  pass one: `shortcutWiring` routes a vertical press straight at the engine, so only a DRAG,
+   *  which moves both axes in one gesture, has anything to put here. */
+  nudge: (dx: number, outward: number) => boolean
   /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
    *  the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
    *  crosses again. */
@@ -91,7 +95,7 @@ function keyWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end')
     // ⛔ **The second argument is 0, ⚠️ NEVER a `dy`.** `nudgeOttavaEndpoint` speaks
     // OUTWARD-from-the-staff, where a walk's vertical is screen-down — and it lands on the WHOLE
     // bracket, both ends at once. Nothing on this road has a vertical to write.
-    nudge: (dx) => engine.nudgeOttavaEndpoint(id, which, dx, 0),
+    nudge: (dx, outward) => engine.nudgeOttavaEndpoint(id, which, dx, outward),
     rebase: (dx) => engine.rebaseOttavaEndpointOffset(id, which, dx),
   }
 }
@@ -100,7 +104,7 @@ function keyWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end')
 function previewWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
   return {
     reanchor: (target) => engine.previewOttavaEnd(id, { at: which, ...target }),
-    nudge: (dx) => engine.previewOttavaEndpointOffset(id, which, dx),
+    nudge: (dx, outward) => engine.previewOttavaEndpointOffset(id, which, dx, outward),
     rebase: (dx) => engine.previewOttavaEndpointRebase(id, which, dx),
   }
 }
@@ -182,9 +186,22 @@ export function walkOttavaEndpoint(
  * ⭐⭐ **And a WRAP ENDS THE GESTURE**: that end is a line away and the hand is not, so every further
  * pixel would move it by a distance measured against a system it has left.
  *
- * ⛔ **HORIZONTAL ONLY, and that is the bracket's shape rather than an omission.** A wedge's square
- * carries a `y` because a lift on ONE tip tilts it; an octave line is a straight rule with ONE stored
- * vertical, so there is no per-end height to drag. `↑`/`↓` and Properties move the whole bracket.
+ * ⭐⭐ **BOTH AXES** (his ask, 2026-08-21) — and they are different kinds of move, which is the point
+ * of making them in one gesture: the horizontal walks that end through the MUSIC, while the vertical
+ * is a plain ink offset, there being nothing above or below to arrive at.
+ *
+ * ⭐⭐ **…but the vertical moves the WHOLE BRACKET, whichever square is under the hand** — a wedge's
+ * square lifts ONE tip and tilts it; an octave line is a straight rule with ONE stored vertical, so
+ * both ends rise together. Nothing here enforces that: {@link OttavaOffsetOverride}'s shape does.
+ *
+ * ⚠️ **This is where SCREEN becomes OUTWARD**, the drag's twin of the conversion `shortcutWiring`
+ * makes for the keys — and for the same reason: a hand moving up must LIFT the bracket on both sides
+ * of the staff, while the stored number means *further from the staff* so that flipping 8va↔8vb
+ * cannot invert a nudge the user already made.
+ *
+ * ⭐ The lift SURVIVES a crossing: it is the bracket's height, not a distance to any particular note.
+ * ⚠️ A frame that WRAPS spends itself on the wrap and drops its `dy` — the wedge's behaviour, and its
+ * reason: the end is on another system by then.
  *
  * ⛔ It declines — **null**, not a frame — when the bracket is not drawn, so there is no staff-space
  * size to convert the cursor's pixels with; `moved: false` means the frame reached the model and
@@ -196,13 +213,17 @@ export function dragOttavaEndpoint(
   which: 'start' | 'end',
   cursorX: number,
   dxPx: number,
+  dyPx = 0,
 ): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
   const dx = dxPx / staffSpacePx
-  if (dx === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+  // ⭐⭐ SCREEN → OUTWARD, once, here. Screen-down is +dyPx; above the staff, further out is UP.
+  const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
+  const outward = (above ? -dyPx : dyPx) / staffSpacePx
+  if (dx === 0 && outward === 0) return { moved: false, wrapped: false, droppedPx: 0 }
 
   const wrap = wrapPort(engine, id, which)
   const across = breakCrossing(port, wrap, dx, cursorX)
@@ -219,7 +240,7 @@ export function dragOttavaEndpoint(
   // ⛔ **NO ONE-CROSSING BOUND HERE** — a key press may cross one stop, but one frame of a fast drag
   // really can fly over several, and re-anchoring once would leave the bracket trailing the cursor by
   // however many were skipped.
-  const carried = carryMark(port, dx, 0, true)
+  const carried = carryMark(port, dx, outward, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
   return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
 }
@@ -319,7 +340,9 @@ function port(
     staffSpacePx: () => ottavaStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () =>
       ottavaOffsetOverrideOf(engine.getScore(), id)?.[which === 'start' ? 'startX' : 'endX'] ?? 0,
-    nudge: (dx) => write.nudge(dx),
+    // ⚠️ `markWalk` calls this `dy` and passes it through untouched; here it is the bracket's
+    // OUTWARD distance, converted by whoever spoke screen ({@link dragOttavaEndpoint}).
+    nudge: (dx, dy) => write.nudge(dx, dy),
     rebase: (dx) => write.rebase(dx),
   }
 }

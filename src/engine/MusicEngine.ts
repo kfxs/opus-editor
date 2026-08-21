@@ -447,6 +447,54 @@ export class MusicEngine {
    * ⛔ **The walk's RE-BASE does not come through here**, and must not: it does not move the drawn
    * mark at all ({@link rebaseHairpinEndpointOffset}).
    */
+  /**
+   * ⭐⭐ **Both limits an octave bracket's ink must satisfy** — the wedge's pair, one lane over: it may
+   * not leave its SHEET ({@link spanEndStaysOnPage} horizontally, {@link nudgeStaysOnPage}
+   * vertically) and it may not move into a neighbouring staff's room ({@link nudgeStaysInBand}).
+   *
+   * 🚨 **His report, 2026-08-21, on the new vertical drag**: *"we should not go crazy, we have to
+   * limit the user somehow here in the y so the ottava is on the system it belongs to"* — the same
+   * sentence that produced the band rule for the slur and then the wedge, arriving a third time. ⛔ So
+   * it is not a new rule: the bracket simply had no vertical drag to be judged until now.
+   *
+   * ⚠️ Shared by the keyboard nudge and every drag frame, so the two devices cannot disagree about
+   * what is allowed. ⛔ The walk's RE-BASE does not come through here and must not: it moves no ink
+   * ({@link rebaseOttavaEndpointOffset}).
+   *
+   * @param dy SCREEN staff-spaces (+down) — ⚠️ the caller converts its OUTWARD number first, since
+   *   both limits predict where INK lands.
+   */
+  private ottavaEndpointOffsetAllowed(
+    id: string,
+    which: 'start' | 'end',
+    dx: number,
+    dy: number,
+  ): boolean {
+    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
+    if (dy === 0) return true
+    return this.nudgeStaysOnPage('ottava', id, 0, dy) && this.ottavaStaysInBand(id, dy)
+  }
+
+  /**
+   * ⭐ **Would this lift put any piece of the bracket in a neighbour's room?** — {@link
+   * nudgeStaysInBand} asked of the whole line, because an octave bracket's vertical is ONE number and
+   * every fragment rises with it.
+   *
+   * ⚠️ **Each fragment is judged against ITS OWN system's band**, exactly as the page limit judges
+   * each against its own sheet: a bracket cut by a system break has pieces on two staves, and one
+   * staff's neighbours say nothing about the other's. Any piece the step would push into a
+   * neighbour's room blocks it, since the height they share is one field.
+   */
+  private ottavaStaysInBand(id: string, dy: number): boolean {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+    }
+    return (registry.getByType?.('ottava') ?? [])
+      .filter((e: ElementInfo) => e.id === id)
+      .every((e: ElementInfo) => e.measure === undefined
+        || this.nudgeStaysInBand([e.bbox], e.measure, e.staff ?? 0, dy))
+  }
+
   private hairpinEndpointOffsetAllowed(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
     // 🚨 TWO AXES, TWO QUESTIONS — his report, 2026-08-21: *"take care that the endpoint is not out
     // of the page, now half is out of the page"*. The horizontal moves ONE TIP and its square
@@ -1136,11 +1184,8 @@ export class MusicEngine {
     const above = (this.getOttavaById(id)?.shift ?? 1) > 0
     // 🚨🚨 **TWO AXES, TWO QUESTIONS, because they move DIFFERENT INK** (his report, 2026-08-21).
     // The horizontal moves ONE EDGE of the bracket; the vertical is a single shared number and lifts
-    // the WHOLE line. Asking the whole-object rule about a horizontal step is what DEADLOCKED his
-    // score — see {@link edgeStepFitsOnPage} for the report and the arithmetic.
-    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
-    const dy = above ? -outward : outward
-    if (dy !== 0 && !this.nudgeStaysOnPage('ottava', id, 0, dy)) return false
+    // the WHOLE line — and only it can enter a neighbour's room. {@link ottavaEndpointOffsetAllowed}.
+    if (!this.ottavaEndpointOffsetAllowed(id, which, dx, above ? -outward : outward)) return false
     const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
     if (ok) this.saveOnly('Nudge octave line')
     return ok
@@ -1199,7 +1244,12 @@ export class MusicEngine {
    */
   nudgeOttava(id: string, dx: number, outward: number): boolean {
     const above = (this.getOttavaById(id)?.shift ?? 1) > 0
-    if (!this.nudgeStaysOnPage('ottava', id, dx, above ? -outward : outward)) return false
+    const dy = above ? -outward : outward
+    // ⭐ The whole-object page rule is right HERE, unlike the per-end nudge: this really does
+    // translate every piece. ⚠️ The BAND is the same question either way — see
+    // {@link ottavaEndpointOffsetAllowed} for his report.
+    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
+    if (dy !== 0 && !this.ottavaStaysInBand(id, dy)) return false
     const ok = this.scoreModel.setOttavaOffset(id, dx, outward)
     if (ok) this.saveOnly('Nudge octave line')
     return ok
@@ -1310,14 +1360,30 @@ export class MusicEngine {
    * the delta since the last accepted frame, never a total. The page limit still refuses the write,
    * so an end dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
    *
-   * ⚠️ **Horizontal only, and that is the bracket's shape rather than an omission**: an octave line's
-   * vertical is ONE number for both ends ({@link OttavaOffsetOverride}), so a square has no lift of
-   * its own to drag — `↑`/`↓` and Properties move the whole rule.
+   * ⭐⭐ **`outward` moves the WHOLE bracket, whichever square is dragged** — the keyboard's rule
+   * arriving at the mouse, and it needs no code: {@link OttavaOffsetOverride} has ONE vertical, so
+   * either end writes the same field. ⛔ Do not "fix" this into a per-end pair to match the wedge — a
+   * tilted octave bracket is not a shape.
+   *
+   * ⚠️ **`outward` is a distance FROM THE STAFF**, like every other ottava vertical: the caller
+   * converts its screen delta on the way in (`interactions/ottavaWalk.dragOttavaEndpoint`, the drag's
+   * twin of `shortcutWiring`'s conversion for the keys).
+   *
+   * 🚨 TWO AXES, TWO QUESTIONS at the page limit — {@link spanEndStaysOnPage}: the horizontal moves
+   * ONE END and its square, the vertical moves the whole drawn bracket.
    */
-  previewOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
-    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
+  previewOttavaEndpointOffset(
+    id: string,
+    which: 'start' | 'end',
+    dx: number,
+    outward = 0,
+  ): boolean {
+    // ⚠️ Both limits predict where INK lands, so they need a SCREEN delta. Above the staff, further
+    // out is further UP.
+    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
+    if (!this.ottavaEndpointOffsetAllowed(id, which, dx, above ? -outward : outward)) return false
     this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
-    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
+    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
   }
 
   /** The re-base during a DRAG: {@link rebaseOttavaEndpointOffset} with no undo entry of its own —
