@@ -585,6 +585,13 @@ export class ScoreModel {
     return dynamicOps.setDynamicAtSlot(this.score, id, target)
   }
 
+  /** Put a dynamic on the slot at `target` **of the staff `target` names** — the vertical drag's
+   *  write, the one that can hand the mark to the other hand of a grand staff.
+   *  See {@link dynamicOps.setDynamicAtStaffSlot}. */
+  setDynamicAtStaffSlot(id: string, target: dynamicOps.DynamicStaffSlotTarget): boolean {
+    return dynamicOps.setDynamicAtStaffSlot(this.score, id, target)
+  }
+
   /** The same, KEEPING the mark's own nudge — the interpolating walk's invisible crossing.
    *  See {@link dynamicOps.setDynamicAtSlotKeepingOffset}. */
   setDynamicAtSlotKeepingOffset(id: string, target: dynamicOps.DynamicSlotTarget): boolean {

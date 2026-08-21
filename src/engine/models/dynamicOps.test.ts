@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset, setDynamicVoiceScope } from './dynamicOps'
+import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset, setDynamicAtStaffSlot, setDynamicVoiceScope } from './dynamicOps'
 import { setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 import { levelToGlyphString } from '@/utils/dynamics'
@@ -323,5 +323,78 @@ describe('setDynamicVoiceScope', () => {
 
   it('⛔ declines for an id no longer in the score', () => {
     expect(setDynamicVoiceScope(score, 'ghost', 0)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ {@link setDynamicAtStaffSlot} — **the mark lands on ANOTHER STAFF**, his report 2026-08-21:
+ * dragging a dynamic down a grand staff sailed past the left hand onto the next system, because a
+ * staff was not a place a mark could be put.
+ *
+ * The claims are what a staff change costs and what it must not: the landing slot is looked for on
+ * the TARGET staff, the first staff is stored ABSENT whichever spelling arrives, the VOICE SCOPE
+ * survives (scope is not position — `utils/dynamicScope`), and a frame that changes nothing is
+ * refused so a drag does not repaint on every mouse move.
+ */
+describe('setDynamicAtStaffSlot — a staff is a place too', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  let lower: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    lower = model.addStaffBelow(0)
+    score = model.getScore()
+    // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one, plus its rest fill.
+    for (const b of [0, 1]) {
+      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+    }
+    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    id = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })!.id
+  })
+
+  const mark = () => score.measures[0].dynamics!.find(d => d.id === id)!
+
+  it('⭐⭐ hands the mark to the other staff, at the SAME address', () => {
+    expect(setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(true)
+    expect(mark().staffId).toBe(lower)
+    expect(fracToNumber(mark().beat)).toBe(0)
+  })
+
+  it('⭐ …and back, storing the FIRST staff as an ABSENT id — one spelling, not two', () => {
+    setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    // The caller may name staff 0 either way; the model keeps the write convention regardless.
+    expect(setDynamicAtStaffSlot(score, id, {
+      measure: 1, beat: frac(0, 1), staffId: score.staves![0].id,
+    })).toBe(true)
+    expect('staffId' in mark()).toBe(false)
+    expect(JSON.parse(model.toJSON()).measures[0].dynamics[0]).not.toHaveProperty('staffId')
+  })
+
+  it('⭐⭐ the VOICE SCOPE survives the move — scope is not position', () => {
+    setDynamicVoiceScope(score, id, 2)
+    setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    expect(mark().voice).toBe(2)
+  })
+
+  it('⭐ the landing slot is looked for on the TARGET staff, not the one it is leaving', () => {
+    // Beat 1 exists on the top staff and NOT on the lower one (a half note covers the bar there).
+    expect(setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(1, 1), staffId: lower })).toBe(false)
+    expect('staffId' in mark()).toBe(false)
+  })
+
+  it('⭐ it is a re-anchor, so the SIDEWAYS nudge goes and the lift stays', () => {
+    setEngravingOverride(score, id, { kind: 'dynamicOffset', x: 1.5, y: -2 } as DynamicOffsetOverride)
+    setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    expect(dynamicOffsetOverrideOf(score, id)).toMatchObject({ x: 0, y: -2 })
+  })
+
+  it('⛔ declines when neither the staff nor the address would change — a drag frame asks this', () => {
+    expect(setDynamicAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: undefined })).toBe(false)
+  })
+
+  it('⛔ declines for an id no longer in the score', () => {
+    expect(setDynamicAtStaffSlot(score, 'ghost', { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(false)
   })
 })

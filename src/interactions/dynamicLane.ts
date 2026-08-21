@@ -21,16 +21,18 @@
  * drags do still pick a target from the cursor.
  *
  * ⭐⭐ What survived of it is {@link systemSlotFor}, and only for the one move the walk cannot make:
- * leaving the mark's own system. Its rule is which system the mark would look at home on, ⛔ not the
- * cursor's proximity to notes.
+ * leaving the mark's own STAFF — the staff below it in a grand staff, or the one on the system
+ * below. Its rule is which staff the mark would look at home on, ⛔ not the cursor's proximity to
+ * notes.
  *
  * ⭐ It also answers {@link markInkY} — where the mark itself was drawn — since that is the same
  * question about the same render.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
+import type { DynamicSlotTarget, DynamicStaffSlotTarget } from '../engine/models/dynamicOps'
 import type { Dynamic, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
+import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
@@ -43,8 +45,22 @@ export type LaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | '
 /** A slot of the mark's lane as it was DRAWN: the centre of its ink, and the address it stands for. */
 export interface DynamicLaneHead {
   x: number
+  /**
+   * ⚠️ The middle of the STAFF this slot was drawn on — ⛔ NOT the notehead's own centre, which is
+   * the only thing the reader wants it for: `markSystemJump` asks which painted staff a candidate
+   * belongs to, and a head on ledger lines can sit nearer the neighbouring staff's band than its
+   * own. Harmless while every candidate came from one staff; a wrong answer the moment they do not
+   * (2026-08-21). Falls back to the ink's centre when that bar drew no geometry.
+   */
   y: number
   target: DynamicSlotTarget
+}
+
+/** The same, on a staff that may not be the mark's — what a VERTICAL drag chooses between, where a
+ *  sideways walk only ever sees one staff's. */
+export interface DynamicStaffLaneHead extends DynamicLaneHead {
+  staff: number
+  target: DynamicStaffSlotTarget
 }
 
 /**
@@ -55,32 +71,72 @@ export interface DynamicLaneHead {
  * on a particular head of it.
  */
 export function dynamicLaneHeads(engine: LaneEngine, dynamic: Dynamic): DynamicLaneHead[] {
-  const score = engine.getScore()
   // ⭐⭐ The mark's STAFF, in every voice — ⛔ not what it governs (his call, 2026-08-19: *"walking
   // should work in general no matter the voice"*). Where a mark may stand is a question about
   // columns; which voices get louder is a different one, and `utils/dynamicScope.onSameStaff` says
-  // why they must not be fused. The dedupe below collapses two voices striking one beat into the one
-  // head they are — a drag aims at an ADDRESS, not at a notehead.
-  const staff = staffIndexOf(score, dynamic.staffId)
-  const heads: DynamicLaneHead[] = []
+  // why they must not be fused.
+  const staff = staffIndexOf(engine.getScore(), dynamic.staffId)
+  return drawnHeads(engine).filter(h => h.staff === staff)
+}
+
+/**
+ * ⭐⭐ **EVERY SLOT OF EVERY PAINTED STAFF** — the candidates a VERTICAL drag chooses between, his
+ * report 2026-08-21: on a grand staff a dragged dynamic *"just land in the next system"*, because
+ * the only places it could land were on its own staff and the staff below held none of them.
+ *
+ * ⛔ Nothing here widens the WALK. Sideways the mark stays in its lane ({@link dynamicLaneHeads}),
+ * because a lane is what "the next slot" is counted along; the vertical is the axis on which a staff
+ * is a place, and `markSystemJump` was always choosing between painted staves — it simply never had
+ * a candidate on any but the mark's own.
+ */
+export function dynamicStaffLaneHeads(engine: LaneEngine): DynamicStaffLaneHead[] {
+  return drawnHeads(engine)
+}
+
+/**
+ * One head per (staff, onset) in the last render, in registry order.
+ *
+ * ⚠️ The dedupe is keyed on the STAFF as well as the address — two staves striking beat 0 of bar 3
+ * are two places, and collapsing them would leave the lower one unreachable. It collapses what it
+ * is meant to: two voices (or the heads of a chord) on one onset of one staff, which are the one
+ * place they look — a drag aims at an ADDRESS, not at a notehead.
+ */
+function drawnHeads(engine: LaneEngine): DynamicStaffLaneHead[] {
+  const score = engine.getScore()
+  const heads: DynamicStaffLaneHead[] = []
   const registry = engine.getElementRegistry()
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)
     if (!note) continue
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    if (heads.some(h => h.target.measure === target.measure && fracCompare(h.target.beat, target.beat) === 0)) continue
-    heads.push({ x: el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, target })
+    const staff = staffOf(note)
+    if (heads.some(h => h.staff === staff && h.target.measure === note.measure
+      && fracCompare(h.target.beat, note.beat) === 0)) continue
+    const lines = registry.getStaffGeometry(note.measure, staff)?.lineYPositions
+    heads.push({
+      x: el.bbox.x + el.bbox.width / 2,
+      y: lines ? (lines[0] + lines[4]) / 2 : el.bbox.y + el.bbox.height / 2,
+      staff,
+      // ⚠️ The WRITE convention, resolved here and not in the model: the first staff is stored
+      // ABSENT (`MusicEngine.staffIdForIndex`), so a landing on staff 0 spells itself the same way
+      // every other writer of a `staffId` spells it.
+      target: { measure: note.measure, beat: note.beat, staffId: keyStaffId(score, staff) },
+    })
   }
   return heads
 }
 
 /**
- * ⭐⭐ **THE SLOT ON THE SYSTEM THE MARK NOW BELONGS TO** — the dynamic's PORT into the shared rule
+ * ⭐⭐ **THE SLOT ON THE STAFF THE MARK NOW BELONGS TO** — the dynamic's PORT into the shared rule
  * (`./markSystemJump`, extracted 2026-08-19 when the tempo mark's drag wanted the same one). The
  * rule and its reasons live there; what is here is where a dynamic's candidates are, which side it
  * hangs on, and how its lift converts to pixels.
+ *
+ * ⭐⭐ **A STAFF, not a system** (his report, 2026-08-21) — the shared rule always chose between
+ * PAINTED STAVES, so the other hand of a grand staff was already in the running and simply had no
+ * candidate on it. Handing it {@link dynamicStaffLaneHeads} instead of the mark's own lane is the
+ * whole of the change; the mark then lands under the left hand where it used to sail past it onto
+ * the system below.
  */
 export function systemSlotFor(
   engine: LaneEngine,
@@ -89,13 +145,17 @@ export function systemSlotFor(
   /** Where the mark's ink will be after this frame — {@link markInkY} plus the frame's `dy`. */
   inkY: number,
   staffSpacePx: number,
-): DynamicSlotTarget | null {
-  const heads = dynamicLaneHeads(engine, dynamic)
+): DynamicStaffSlotTarget | null {
+  const heads = dynamicStaffLaneHeads(engine)
+  const staff = staffIndexOf(engine.getScore(), dynamic.staffId)
   const address = dynamicAddress(engine.getScore(), dynamic.id)
-  const anchor = address && heads.find(h =>
-    h.target.measure === address.measure && fracCompare(h.target.beat, address.beat) === 0)
+  // ⚠️ The mark's OWN head, so on its own staff: `markSystemJump` measures the mark's natural
+  // distance from the staff it hangs off, and a same-address head on the other staff would name the
+  // wrong one.
+  const anchor = address && heads.find(h => h.staff === staff
+    && h.target.measure === address.measure && fracCompare(h.target.beat, address.beat) === 0)
 
-  return systemStopFor<DynamicSlotTarget>({
+  return systemStopFor<DynamicStaffSlotTarget>({
     bands: () => engine.getElementRegistry().staffBands(),
     candidates: () => heads.map(h => ({ x: h.x, y: h.y, stop: h.target })),
     anchor: () => anchor ?? null,

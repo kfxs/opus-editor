@@ -515,3 +515,62 @@ dynamic now has it too — `markBreakWrap`'s, ⛔ ported rather than copied.
   ink a space short of the line's end, which is precisely where the wrap is needed.
 
 ⏭️ The DRAG's horizontal wrap is not wired (the drag still has only its vertical staff-jump).
+
+## ✅⭐⭐ THE DRAG LANDS ON THE OTHER HAND (2026-08-21, BUILT)
+
+His report, with a grand-staff score: *"this is good for single stave system but look what happen
+with multistave system… we are avoiding the other staves of the system so the dynamic just land in
+the next system, but this is not wanted cause the user want to place elements vertically, so when
+dragging vertically we should be aware of the other staves so the dynamic can also land there."*
+The log he sent says it exactly — `[Dynamic] jumped to the staff it crossed → m11`, four bars past
+the left hand it was dragged over.
+
+### ⭐⭐ The rule did not change — it never had a candidate to pick
+
+`markSystemJump.systemStopFor` has always chosen between **painted staves** (`staffBands()`), and
+the other staff of the same system was in the running from the first day. What it then asks for is a
+CANDIDATE on that staff, and `dynamicLaneHeads` answers with the mark's OWN LANE — so the left hand's
+band won the vertical question and lost the horizontal one for want of anything to anchor to, and the
+drag carried on until it reached a staff that did have candidates: the next system's.
+
+⭐ So this is one line of the port and one write in the model, not a new geometry rule:
+
+- `dynamicLane.dynamicStaffLaneHeads` — every slot of **every** painted staff, each head naming the
+  staff it stands on. `systemSlotFor` hands the shared rule this instead of the mark's own lane.
+  ⛔ The sideways WALK is untouched and stays in its lane: a lane is what "the next slot" is counted
+  along, and the vertical is the only axis on which a staff is a place.
+- `dynamicOps.setDynamicAtStaffSlot` — `setDynamicAtSlot` plus the one field that was never movable.
+  The landing slot is looked for on the TARGET staff (`laneStopsOnStaff`), because that staff is not
+  the mark's yet. `MusicEngine.previewDynamicSlot` now takes this target; it had exactly one caller,
+  the jump.
+
+### Settled decisions
+
+- ⭐⭐ **The VOICE SCOPE survives the move.** Scope and position are orthogonal — `utils/dynamicScope`:
+  *where the mark may stand is a STAFF question, and never a voice one* — so a mark narrowed with
+  `Alt+1…5` lands narrowed, to the staff it landed on. ⛔ Resetting it would let a drag quietly
+  re-state something the user said with a different gesture.
+- ⚠️ **The first staff is stored ABSENT**, whichever spelling reaches the op: an absent `staffId` and
+  the first staff's real id are one staff, and two spellings of one state is the bug
+  (`MusicEngine.staffIdForIndex`, the emptied-`dynamics`-array rule). Resolved twice over — in
+  `dynamicLane` where the head is built (`keyStaffId`) and again in the model, so no caller can get
+  it wrong.
+- ⚠️ **A frame that changes neither staff nor address is refused**, as the address-only write already
+  was — a drag asks on every mouse move, and a caller that repainted on a true would repaint on all
+  of them. ⭐ The staff is half of that test, so dragging straight DOWN onto the same beat of the
+  other hand is a real move, not a no-op.
+- ⭐ **A jump still lands the mark where the engraver would put it**: the sideways nudge goes with any
+  re-anchor, and the lift is cleared by the caller because on this gesture it is not a lift at all —
+  it is the distance the hand travelled to reach the other staff.
+- 🚨 **A candidate's band is its STAFF's, not its notehead's.** `dynamicLaneHeads.y` is now the middle
+  of the staff the slot was drawn on. A head on ledger lines can sit nearer the neighbouring staff's
+  band than its own, which was harmless while every candidate came from one staff and is a wrong
+  answer the moment they do not — a bass-clef `b4` would have offered itself as a right-hand landing.
+
+### ⏭️ The siblings have the same gap
+
+The hairpin, the ottava, the pedal and the trill all port into the same rule with per-staff
+candidates (`hairpinLane` / `ottavaLane` / `pedalLane` / `trillLane`), so each of them still sails
+past the other hand of a grand staff. Each needs the same two pieces — all-staff candidates and a
+model write that moves its `staffId` — and none of them is done. ⚠️ The trill is the odd one: it
+anchors to a NOTE, so its staff follows the note it lands on and it needs no `staffId` write at all.

@@ -26,10 +26,15 @@
  *
  * ⚠️ Rests are lane stops like any other slot: `p` at the top of a bar that begins with a rest is
  * ordinary, so there is nothing to filter out.
+ *
+ * ⭐⭐ **…and the staff is a place too, so it MOVES** ({@link setDynamicAtStaffSlot}, 2026-08-21).
+ * The sideways walk stays inside one lane — that is what a lane is — but a mark dragged down a grand
+ * staff is being handed to the other hand, and until that write existed the drag could only sail
+ * past the left hand onto the next system.
  */
 import type { Score, Dynamic, DynamicOffsetOverride, Measure, Fraction } from '@/types/music'
 import { fracCompare } from '@/utils/fraction'
-import { onSameStaff, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
+import { onSameStaff, staffScopeKey, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 
@@ -67,10 +72,19 @@ function locate(score: Score, id: string): { dynamic: Dynamic; measure: Measure 
  * years because nobody can tell what would break without it.
  */
 function laneStops(score: Score, dynamic: Dynamic): Stop[] {
+  return laneStopsOnStaff(score, dynamic.staffId)
+}
+
+/**
+ * The same list for a staff the mark is not on YET — what {@link setDynamicAtStaffSlot} checks a
+ * cross-staff landing against. ⚠️ `staffId` is a real answer, absent meaning the FIRST staff
+ * (`utils/lanes`), never "whichever staff the mark is on".
+ */
+function laneStopsOnStaff(score: Score, staffId: string | undefined): Stop[] {
   const stops: Stop[] = []
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
-      if (!onSameStaff(score, dynamic, slot)) continue
+      if (!onSameStaff(score, { staffId }, slot)) continue
       stops.push({ measure: measure.number, beat: slot.beat })
     }
   }
@@ -188,6 +202,57 @@ export function setDynamicAtSlot(score: Score, id: string, target: DynamicSlotTa
  */
 export function setDynamicAtSlotKeepingOffset(score: Score, id: string, target: DynamicSlotTarget): boolean {
   return placeDynamic(score, id, target, false)
+}
+
+/** A lane stop named by its address **and by the staff it stands on** — what a vertical drag lands
+ *  on, where {@link DynamicSlotTarget} is what a sideways walk lands on. */
+export interface DynamicStaffSlotTarget extends DynamicSlotTarget {
+  /** ⚠️ A real answer, not an omission: absent IS the first staff, the write convention this model
+   *  keeps everywhere (`MusicEngine.staffIdForIndex`). ⛔ Never "keep the staff it is on". */
+  staffId: string | undefined
+}
+
+/**
+ * ⭐⭐ **PUT THE MARK ON ANOTHER STAFF'S SLOT** — {@link setDynamicAtSlot} with the one field that
+ * was never movable before, his report 2026-08-21: dragging a dynamic down a GRAND STAFF sailed past
+ * the left hand and landed on the next system, *"the user want to place elements vertically"*.
+ *
+ * ⭐ **A staff is part of where a mark STANDS**, so this is the same kind of write as the address
+ * change beside it — the whole difference is which lane the landing slot is looked for in
+ * ({@link laneStopsOnStaff}), because the target staff is not the mark's yet.
+ *
+ * ⭐⭐ **The VOICE SCOPE is not touched.** Scope and position are orthogonal (`utils/dynamicScope`:
+ * *where the mark may stand is a STAFF question, and never a voice one*), so a mark narrowed to
+ * voice 2 lands narrowed to voice 2 — of the staff it landed on. ⛔ Resetting it would make a drag
+ * quietly re-state something the user said with `Alt+1…5`.
+ *
+ * ⚠️ The first staff is stored ABSENT, whichever spelling the caller passed: an absent id and the
+ * first staff's real id are one staff, and two spellings of one state is the bug ({@link
+ * moveDynamicToMeasure}'s emptied-array rule).
+ *
+ * ⚠️ Declines (false) when there is no such dynamic, when the address is not a slot of the TARGET
+ * staff, and when nothing would change — same staff AND same address, which a drag frame that has
+ * not left its slot asks on every mouse move.
+ */
+export function setDynamicAtStaffSlot(score: Score, id: string, target: DynamicStaffSlotTarget): boolean {
+  const found = locate(score, id)
+  if (!found) return false
+  const { dynamic, measure } = found
+
+  const here: Stop = { measure: measure.number, beat: dynamic.beat }
+  const staffMoves = staffScopeKey(score, dynamic.staffId) !== staffScopeKey(score, target.staffId)
+  if (!staffMoves && compare(target, here) === 0) return false
+  if (!laneStopsOnStaff(score, target.staffId).some(s => compare(s, target) === 0)) return false
+
+  if (target.measure !== measure.number && !moveDynamicToMeasure(score, dynamic, target.measure)) return false
+  dynamic.beat = target.beat
+  if (staffMoves) {
+    if (staffScopeKey(score, target.staffId) === staffScopeKey(score, undefined)) delete dynamic.staffId
+    else dynamic.staffId = target.staffId
+  }
+  locate(score, id)?.measure.dynamics?.sort((a, b) => fracCompare(a.beat, b.beat))
+  clearHorizontalOffset(score, id)
+  return true
 }
 
 /** {@link setDynamicAtSlot} and its keep-the-nudge twin, which differ by one line. */

@@ -204,9 +204,9 @@ export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): 
  * carried past a notehead has no reason to drop it. (The slur's drag settles its y at a crossing for
  * exactly the opposite reason — an endpoint's lift answers that note's stem, beam and accidentals.)
  *
- * ⭐⭐ **…and a frame that carries the ink onto ANOTHER SYSTEM is a JUMP, not a walk** — see
- * {@link jumpSystems}, his report the same day. It is the one thing the arrows cannot do either, and
- * for the same reason they cannot: a system break is not a distance.
+ * ⭐⭐ **…and a frame that carries the ink onto ANOTHER STAFF is a JUMP, not a walk** — see
+ * {@link jumpStaves}, his report the same day. It is the one thing the arrows cannot do either, and
+ * for the same reason they cannot: neither a system break nor the staff below is a distance.
  *
  * ⛔ Declines — **null**, not `false` — for a mark that is not drawn, so there is no staff-space size
  * to convert the cursor's pixels with (the same no-guessing rule the crossing arithmetic follows).
@@ -229,20 +229,26 @@ export function dragDynamic(
   const ss = port.staffSpacePx()
   if (!ss) return null
 
-  if (jumpSystems(engine, id, cursorX, dyPx, ss)) return true
+  if (jumpStaves(engine, id, cursorX, dyPx, ss)) return true
 
   return carryMark(port, dxPx / ss, dyPx / ss).moved
 }
 
 /**
- * ⭐⭐ **LEAVING THE MARK'S OWN SYSTEM** — the half of a drag the walk cannot do, and the answer to
+ * ⭐⭐ **LEAVING THE MARK'S OWN STAFF** — the half of a drag the walk cannot do, and the answer to
  * his report that a dragged mark *"does not catch other system"* (2026-08-19).
  *
  * The walk refuses to cross a system break for a reason that will never go away — two systems' x's
- * are not one ruler — so before it runs, this asks which system the mark now BELONGS to
+ * are not one ruler — so before it runs, this asks which staff the mark now BELONGS to
  * (`dynamicLane.systemSlotFor`: the one it would look at home on, so the switch falls halfway
- * between where it sits and where it would sit) and lands it on the slot of that system nearest the
+ * between where it sits and where it would sit) and lands it on the slot of that staff nearest the
  * hand.
+ *
+ * ⭐⭐ **The staff below counts, not only the system below** (his report, 2026-08-21: on a grand
+ * staff the mark *"just land in the next system"*, sailing past the left hand). A dynamic under the
+ * left hand is a dynamic ON the left hand's staff, so the landing writes the mark's `staffId` as
+ * well as its address — `dynamicOps.setDynamicAtStaffSlot`, the one write in the family that moves
+ * a mark between lanes.
  *
  * ⭐⭐ **A jump lands the mark where the ENGRAVER would put it** — the offset goes, both axes. The `x`
  * goes because every re-anchor drops it (`dynamicOps`), and the `y` because on this gesture it is
@@ -253,7 +259,7 @@ export function dragDynamic(
  * ⛔ And the frame stops there: the walk does not also run. The anchor has moved, so this frame's
  * `dx` would be spent against a slot the hand was never near.
  */
-function jumpSystems(
+function jumpStaves(
   engine: DynamicWalkEngine,
   id: string,
   cursorX: number,
@@ -269,6 +275,6 @@ function jumpSystems(
   // The re-anchor kept the lift (its rule since 2026-08-19); on a jump there is nothing to keep.
   const lift = dynamicOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
   if (lift !== 0) engine.previewDynamicOffset(id, 0, -lift)
-  dbg(`[Dynamic] jumped to the staff it crossed | id:${id} → m${target.measure}`)
+  dbg(`[Dynamic] jumped to the staff it crossed | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
   return true
 }

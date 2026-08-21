@@ -3,7 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './models/hairpinOps'
-import type { DynamicSlotTarget } from './models/dynamicOps'
+import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
 import type { PedalLiftTarget, PedalSlotTarget } from './models/pedalOps'
@@ -1009,14 +1009,17 @@ export class MusicEngine {
    * undo; {@link commitDynamicDrag} records the gesture once on the drop.
    *
    * ⚠️ **The whole-slot flavour**, so it drops the mark's sideways nudge like any re-anchor: the
-   * drag reaches for this only when the ink has crossed onto ANOTHER SYSTEM
-   * (`interactions/dynamicLane.crossedSystemSlotAt`), which is a jump and not a walk. Ordinary
-   * within-system crossings go through {@link previewDynamicSlotKeepingOffset} below, where the
+   * drag reaches for this only when the ink has crossed onto ANOTHER STAFF
+   * (`interactions/dynamicLane.systemSlotFor`), which is a jump and not a walk. Ordinary
+   * within-lane crossings go through {@link previewDynamicSlotKeepingOffset} below, where the
    * whole point is that nothing visibly changes.
+   *
+   * ⭐ `target` names a STAFF as well as an address (2026-08-21): the staff below is a place a
+   * dragged mark can land, not only the system below (`dynamicOps.setDynamicAtStaffSlot`).
    */
-  previewDynamicSlot(id: string, target: DynamicSlotTarget): boolean {
+  previewDynamicSlot(id: string, target: DynamicStaffSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
-    return this.scoreModel.setDynamicAtSlot(id, target)
+    return this.scoreModel.setDynamicAtStaffSlot(id, target)
   }
 
   /** The undo-free twin of {@link moveDynamicToSlotKeepingOffset} — one crossing of a dragged mark's

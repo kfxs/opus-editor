@@ -11,7 +11,7 @@
  * mark's own lane is one.
  */
 import { describe, it, expect } from 'vitest'
-import { dynamicAddress, dynamicLaneHeads, systemSlotFor, type LaneEngine } from './dynamicLane'
+import { dynamicAddress, dynamicLaneHeads, dynamicStaffLaneHeads, systemSlotFor, type LaneEngine } from './dynamicLane'
 import { ElementRegistry, type ElementInfo } from '../engine/ElementRegistry'
 import type { Dynamic, Score } from '../types/music'
 
@@ -107,6 +107,38 @@ describe('dynamicLaneHeads', () => {
 })
 
 /**
+ * ⭐⭐ {@link dynamicStaffLaneHeads} — the VERTICAL drag's candidates, which are every painted
+ * staff's. His report, 2026-08-21: on a grand staff a dragged dynamic *"just land in the next
+ * system"*, because the staff below held nothing it could land on.
+ */
+describe('dynamicStaffLaneHeads', () => {
+  it('⭐⭐ answers for EVERY staff, each head naming the staff it stands on', () => {
+    const engine = laneEngine([
+      { id: 'up', left: 100, y: 50, measure: 1, beat: 0, staff: 0 },
+      { id: 'down', left: 100, y: 250, measure: 1, beat: 0, staff: 1 },
+    ])
+    expect(dynamicStaffLaneHeads(engine).map(h => h.target.staffId)).toEqual([undefined, 's1'])
+  })
+
+  it('⚠️ the first staff is spelled ABSENT — the model\'s write convention, resolved here', () => {
+    // `staffIdForIndex`'s rule: staff 0 stamps no id. A real id would be a second spelling of one
+    // staff, and `onSameStaff` is the only reader that could tell them apart.
+    const engine = laneEngine([{ id: 'up', left: 100, y: 50, measure: 1, beat: 0, staff: 0 }])
+    expect(dynamicStaffLaneHeads(engine)[0].target.staffId).toBeUndefined()
+  })
+
+  it('🚨 the dedupe is keyed on the STAFF too — one beat struck on both is TWO places', () => {
+    const engine = laneEngine([
+      { id: 'up', left: 100, y: 50, measure: 1, beat: 0, staff: 0 },
+      { id: 'down', left: 100, y: 250, measure: 1, beat: 0, staff: 1 },
+      { id: 'up-v2', left: 100, y: 70, measure: 1, beat: 0, staff: 0, voice: 1 },
+    ])
+    // Three heads in, two places out: the second voice of staff 0 collapses, the lower staff does not.
+    expect(dynamicStaffLaneHeads(engine)).toHaveLength(2)
+  })
+})
+
+/**
  * ⭐⭐ {@link systemSlotFor} — which system the mark now BELONGS to.
  *
  * His call, 2026-08-19, after trying the staff's five lines as the boundary: *"crossing the stave is
@@ -189,6 +221,67 @@ describe('systemSlotFor', () => {
 
   it('⛔ null when there is only one staff on the page — nothing to belong to', () => {
     expect(systemSlotFor(engine(110, TWO_SYSTEMS, [BANDS[0]]), mark(), 290, 400, 10)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ **THE STAFF BELOW COUNTS, NOT ONLY THE SYSTEM BELOW** — his report, 2026-08-21: on a grand
+ * staff the dragged mark *"just land in the next system"*, and *"the user want to place elements
+ * vertically"*.
+ *
+ * The rule above never had to change: it was always choosing between PAINTED STAVES, and the other
+ * hand of a grand staff was in the running with no candidate on it. What is asserted here is that
+ * the halfway line now falls between the two hands, and that the landing names the staff.
+ */
+describe('systemSlotFor — the other hand of a grand staff', () => {
+  /** ONE system, two staves: 40–80 and 160–200. Both hands strike beats 0 and 1 of bar 1. */
+  const BANDS = [{ top: 40, bottom: 80 }, { top: 160, bottom: 200 }]
+  const GRAND = [
+    { id: 'rh0', left: 100, y: 60, measure: 1, beat: 0, staff: 0 },
+    { id: 'rh1', left: 300, y: 60, measure: 1, beat: 1, staff: 0 },
+    { id: 'lh0', left: 100, y: 180, measure: 1, beat: 0, staff: 1 },
+    { id: 'lh1', left: 300, y: 180, measure: 1, beat: 1, staff: 1 },
+  ]
+
+  /** The mark is anchored 1@0 on the TOP staff and drawn at `inkAt` — 110 by default, 30 px below
+   *  its staff's bottom line. Its twin under the LEFT hand is 230, so the switch sits at **170**. */
+  const engine = (inkAt = 110) => {
+    const base = laneEngine(GRAND)
+    const registry = base.getElementRegistry()
+    registry.add({ type: 'dynamic', id: 'D1', staff: 0,
+      bbox: { x: 100, y: inkAt - 5, width: 12, height: 10 } } as ElementInfo)
+    ;(registry as unknown as { staffBands: () => unknown }).staffBands = () => BANDS
+    return {
+      ...base,
+      getElementRegistry: () => registry,
+      getScore: () => ({
+        staves: [{ id: 's0' }, { id: 's1' }],
+        measures: [{ number: 1, dynamics: [{ id: 'D1', beat: { num: 0, den: 1 } }] }],
+      }) as unknown as Score,
+    } as LaneEngine
+  }
+
+  it('⭐⭐ hands the mark to the LEFT HAND halfway to where it would sit there', () => {
+    // ⛔ Not at the lower staff's lines (160), and ⛔ not at the next system either — the answer that
+    // sailed past the left hand entirely. One pixel either side of 170.
+    expect(systemSlotFor(engine(), mark(), 290, 169, 10)).toBeNull()
+    expect(systemSlotFor(engine(), mark(), 290, 171, 10))
+      .toEqual({ measure: 1, beat: { num: 1, den: 1 }, staffId: 's1' })
+  })
+
+  it('⭐ the landing NAMES the staff — that is what makes it a move between hands', () => {
+    // The address alone would be a no-op here: the mark is already at 1@0. `setDynamicAtStaffSlot`
+    // reads the staff, so this frame is a real move and not a refused one.
+    expect(systemSlotFor(engine(), mark(), 110, 200, 10))
+      .toEqual({ measure: 1, beat: { num: 0, den: 1 }, staffId: 's1' })
+  })
+
+  it('⭐ and back UP: a mark on the lower staff belongs to the upper one past the same line', () => {
+    const onLower = mark({ staffId: 's1' })
+    // Drawn 30 px below the LOWER staff (230) — its natural home there; the twin above is 110.
+    expect(systemSlotFor(engine(230), onLower, 110, 171, 10)).toBeNull()
+    expect(systemSlotFor(engine(230), onLower, 110, 169, 10))
+      .toEqual({ measure: 1, beat: { num: 0, den: 1 }, staffId: undefined })
   })
 })
 
