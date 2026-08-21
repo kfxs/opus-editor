@@ -18,7 +18,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { fracCompare, fracAdd, fracSub, fracCreate, fracIsPositive } from '@/utils/fraction'
 import { measureCapacityFrac, measureStartOffsets as measureStarts } from '@/utils/measureCapacity'
 import { slotLength } from '@/utils/durations'
-import { onSameStaff, sameScope, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
+import { onSameStaff, sameScope, staffScopeKey, voiceScopeOf, type VoiceScope } from '@/utils/dynamicScope'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
 
@@ -360,12 +360,24 @@ function locate(score: Score, id: string): {
   const startAbs = fracAdd(starts.get(span.startMeasure)!, span.startBeat)
   const endAbs = fracAdd(startAbs, hairpin.length)
 
+  return { hairpin, startAbs, endAbs, lane: laneOnStaff(score, hairpin.staffId) }
+}
+
+/**
+ * Every slot of ONE STAFF's lane, in reading order — {@link locate}'s lane, asked for a staff the
+ * wedge may not be on yet ({@link setHairpinAtStaffSlot}).
+ *
+ * ⚠️ `staffId` is a real answer: absent IS the first staff (`utils/lanes`), ⛔ never "whichever staff
+ * the mark is on".
+ */
+function laneOnStaff(score: Score, staffId: string | undefined): LaneSlot[] {
+  const starts = measureStarts(score.measures)
   const lane: LaneSlot[] = []
   for (const measure of score.measures) {
     const base = starts.get(measure.number)
     if (base === undefined) continue
     for (const slot of measure.slots) {
-      if (!onSameStaff(score, hairpin, slot)) continue
+      if (!onSameStaff(score, { staffId }, slot)) continue
       const length = slotLength(slot)
       const seen = lane.find(s => s.measure === measure.number && fracCompare(s.beat, slot.beat) === 0)
       if (seen) {
@@ -375,8 +387,7 @@ function locate(score: Score, id: string): {
       lane.push({ abs: fracAdd(base, slot.beat), length, measure: measure.number, beat: slot.beat })
     }
   }
-  lane.sort((a, b) => fracCompare(a.abs, b.abs))
-  return { hairpin, startAbs, endAbs, lane }
+  return lane.sort((a, b) => fracCompare(a.abs, b.abs))
 }
 
 /**
@@ -508,6 +519,61 @@ export function setHairpinAtSlot(score: Score, id: string, target: HairpinSlotTa
     if (!moveHairpinToMeasure(score, hairpin, slot.measure)) return false
   }
   hairpin.beat = slot.beat
+  hairpinMeasure(score, id)?.hairpins?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/** A lane slot named by its address **and by the staff it stands on** — what a VERTICAL drag lands
+ *  on, where {@link HairpinSlotTarget} is what a sideways one lands on. `DynamicStaffSlotTarget`'s
+ *  twin, arriving for the same report one day later. */
+export interface HairpinStaffSlotTarget extends HairpinSlotTarget {
+  /** ⚠️ A real answer, not an omission: absent IS the first staff, the write convention this model
+   *  keeps everywhere (`MusicEngine.staffIdForIndex`). ⛔ Never "keep the staff it is on". */
+  staffId: string | undefined
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE WEDGE TO ANOTHER STAFF'S SLOT** — {@link setHairpinAtSlot} plus the one field
+ * that was never movable, his ask 2026-08-21: *"we already did [it] on dynamic correctly, now we
+ * should apply this also to hairpin."*
+ *
+ * ⭐ **A staff is part of where a mark STANDS**, so this is the same kind of write as the address
+ * change beside it — the whole difference is which lane the landing slot is looked for in
+ * ({@link laneOnStaff}), because the target staff is not the wedge's yet.
+ *
+ * ⭐⭐ **The VOICE SCOPE is not touched** — `dynamicOps.setDynamicAtStaffSlot`'s rule verbatim:
+ * scope and position are orthogonal (`utils/dynamicScope`), so a wedge narrowed to voice 2 lands
+ * narrowed to voice 2 of the staff it landed on.
+ *
+ * ⚠️ **The LENGTH rides along untouched**, which is what makes this the body's move and not a
+ * resize: the extent is an amount of MUSIC and the other staff has the same bars. A wedge whose span
+ * runs past what that staff carries is clamped where it is READ ({@link hairpinSpan}), never here.
+ *
+ * ⚠️ The first staff is stored ABSENT whichever spelling the caller passed — two spellings of one
+ * state is the bug ({@link moveHairpinToMeasure}'s emptied-array rule).
+ *
+ * ⚠️ Declines (false) for an unknown id, for an address that is not a slot of the TARGET staff, and
+ * when nothing would change — same staff AND same address, which a drag frame asks on every move.
+ */
+export function setHairpinAtStaffSlot(score: Score, id: string, target: HairpinStaffSlotTarget): boolean {
+  const hairpin = getHairpinById(score, id)
+  const here = hairpinMeasure(score, id)
+  if (!hairpin || !here) return false
+
+  const staffMoves = staffScopeKey(score, hairpin.staffId) !== staffScopeKey(score, target.staffId)
+  const sameAddress = here.number === target.measure && fracCompare(hairpin.beat, target.beat) === 0
+  if (!staffMoves && sameAddress) return false
+
+  const slot = laneOnStaff(score, target.staffId)
+    .find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+
+  if (slot.measure !== here.number && !moveHairpinToMeasure(score, hairpin, slot.measure)) return false
+  hairpin.beat = slot.beat
+  if (staffMoves) {
+    if (staffScopeKey(score, target.staffId) === staffScopeKey(score, undefined)) delete hairpin.staffId
+    else hairpin.staffId = target.staffId
+  }
   hairpinMeasure(score, id)?.hairpins?.sort((a, b) => fracCompare(a.beat, b.beat))
   return true
 }

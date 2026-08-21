@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
-import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './models/hairpinOps'
+import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
@@ -2316,6 +2316,19 @@ export class MusicEngine {
   previewHairpinSlot(id: string, target: HairpinSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitHairpinOffsetDrag
     return this.scoreModel.setHairpinAtSlot(id, target)
+  }
+
+  /**
+   * ⭐⭐ **…and onto ANOTHER STAFF's slot** — the VERTICAL half of the same drag (his ask,
+   * 2026-08-21). The staff below is a place a dragged wedge can land, not only the system below:
+   * `hairpinOps.setHairpinAtStaffSlot`, the dynamic's `previewDynamicSlot` one day on.
+   *
+   * ⚠️ Its own method rather than a wider `target` on {@link previewHairpinSlot}: that one is also
+   * the BODY WALK's write, which travels sideways inside one lane and has no staff to say.
+   */
+  previewHairpinStaffSlot(id: string, target: HairpinStaffSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitHairpinOffsetDrag
+    return this.scoreModel.setHairpinAtStaffSlot(id, target)
   }
 
   /**

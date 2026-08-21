@@ -18,7 +18,7 @@ import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
   setHairpinEndpointOffset, resetHairpinEndpointOffset, setHairpinAperture,
-  setHairpinOffset, resetHairpinOffset, setHairpinVoiceScope,
+  setHairpinOffset, resetHairpinOffset, setHairpinVoiceScope, setHairpinAtStaffSlot,
 } from './hairpinOps'
 import { setEngravingOverride } from './overrideOps'
 import { engravingOverridesOf, hairpinEndpointOffsetOverrideOf, hairpinApertureOverrideOf } from './engravingOverrides'
@@ -367,5 +367,68 @@ describe('setHairpinVoiceScope', () => {
   it('⛔ declines a no-op, and an unknown id', () => {
     expect(setHairpinVoiceScope(score, id, 'all')).toBe(false)
     expect(setHairpinVoiceScope(score, 'ghost', 0)).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ {@link setHairpinAtStaffSlot} — **the wedge lands on ANOTHER STAFF**, his ask 2026-08-21:
+ * *"we already did on dynamic correctly, now we should apply this also to hairpin."*
+ *
+ * `dynamicOps.setDynamicAtStaffSlot`'s claims one lane over, plus the one this family adds: the
+ * LENGTH rides along, because the extent is an amount of music and the other staff has the same bars.
+ */
+describe('setHairpinAtStaffSlot — a staff is a place too', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  let lower: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    lower = model.addStaffBelow(0)
+    score = model.getScore()
+    // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one (a half note covers 0..1 there).
+    for (const b of [0, 1]) {
+      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+    }
+    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const mark = () => getHairpinById(score, id)!
+
+  it('⭐⭐ hands the wedge to the other staff, at the SAME address, KEEPING its length', () => {
+    expect(setHairpinAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(true)
+    expect(mark().staffId).toBe(lower)
+    expect(fracToNumber(mark().length), 'the extent is an amount of MUSIC, not a second address').toBe(2)
+  })
+
+  it('⭐ …and back, storing the FIRST staff as an ABSENT id — one spelling, not two', () => {
+    setHairpinAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    expect(setHairpinAtStaffSlot(score, id, {
+      measure: 1, beat: frac(0, 1), staffId: score.staves![0].id,
+    })).toBe(true)
+    expect('staffId' in mark()).toBe(false)
+    expect(JSON.parse(model.toJSON()).measures[0].hairpins[0]).not.toHaveProperty('staffId')
+  })
+
+  it('⭐⭐ the VOICE SCOPE survives the move — scope is not position', () => {
+    setHairpinVoiceScope(score, id, 2)
+    setHairpinAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    expect(mark().voice).toBe(2)
+  })
+
+  it('⭐ the landing slot is looked for on the TARGET staff, not the one it is leaving', () => {
+    // Beat 1 is an onset on the top staff and NOT on the lower one.
+    expect(setHairpinAtStaffSlot(score, id, { measure: 1, beat: frac(1, 1), staffId: lower })).toBe(false)
+    expect('staffId' in mark()).toBe(false)
+  })
+
+  it('⛔ declines when neither the staff nor the address would change — a drag frame asks this', () => {
+    expect(setHairpinAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: undefined })).toBe(false)
+  })
+
+  it('⛔ declines for an id no longer in the score', () => {
+    expect(setHairpinAtStaffSlot(score, 'ghost', { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(false)
   })
 })

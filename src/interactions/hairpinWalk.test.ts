@@ -33,6 +33,9 @@ const drawn = vi.hoisted(() => ({
   lineSpacing: 10 as number | null,
   /** Per measure: the staff's top-line y (which system it is on) and where its music ends. */
   systemTop: {} as Record<number, number>,
+  /** Per STAFF INDEX: how far below the system's top line that staff's own top line is. Empty means
+   *  one staff per system, which is every case but the grand-staff ones. */
+  staffOffset: {} as Record<number, number>,
   noteEndX: {} as Record<number, number>,
   /** Bars the last render drew nothing for — no geometry, so nothing may be measured against them. */
   undrawn: [] as number[],
@@ -47,9 +50,12 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: (m: number) => (drawn.lineSpacing === null || drawn.undrawn.includes(m) ? undefined : {
+      getStaffGeometry: (m: number, staff = 0) => (drawn.lineSpacing === null || drawn.undrawn.includes(m) ? undefined : {
         lineSpacing: drawn.lineSpacing,
-        lineYPositions: [drawn.systemTop[m] ?? 40, 50, 60, 70, 80],
+        // ⚠️ FIVE lines from the system's own top — it used to be `[top, 50, 60, 70, 80]`, i.e. a
+        // per-system top line with system 1's BOTTOM under it, which is not a staff. Harmless until
+        // `hairpinLane` began classifying a candidate by the staff it was drawn on (2026-08-21).
+        lineYPositions: [0, 10, 20, 30, 40].map(d => (drawn.systemTop[m] ?? 40) + (drawn.staffOffset[staff] ?? 0) + d),
         noteStartX: 90, noteEndX: drawn.noteEndX[m] ?? 430,
       }),
       getByMeasure: vi.fn(() => []),
@@ -87,6 +93,7 @@ describe('walkHairpinEndpoint', () => {
     drawn.systemTop = { 1: 40, 2: 40 }
     drawn.noteEndX = { 1: 430, 2: 830 }
     drawn.undrawn = []
+    drawn.staffOffset = {}
     drawn.bands = [{ top: 40, bottom: 80 }]
     drawn.entries = ids.map((id, i) => ({ type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 } }))
     // ⭐ The drawn wedge carries its OUTLINE as well as a box: the tip's own x is the only thing that
@@ -671,6 +678,31 @@ describe('walkHairpinEndpoint', () => {
       // ⭐⭐ …ON THE SIDE IT CAME FROM: coming down, the next rung of the ladder is ABOVE the staff
       // below — ⛔ not below it, which skips a rung and puts the wedge past the hand.
       expect(engine.getHairpinById(wedgeId)?.placement).toBe('above')
+    })
+
+    it('🚨⭐⭐ …and the OTHER HAND of a grand staff is a landing too, not only the next system', () => {
+      // His ask, 2026-08-21: *"we already did on dynamic correctly, now we should apply this also to
+      // hairpin."* ⭐ The rule never changed — `markSystemJump` always chose between PAINTED STAVES
+      // and the left hand was in the running with no candidate on it, so the wedge sailed past it.
+      const lower = engine.addStaffBelow(0)
+      const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+      render()
+      // ONE system, two staves: 40…80 and 240…280. The wedge's ink is at 90, ten below its own
+      // staff, so its twin under the left hand is 290 and the switch falls at 190.
+      drawn.staffOffset = { 1: 200 }
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      left.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+
+      expect(dragHairpinBody(engine, wedgeId, 210, 0, 90), 'not yet').toEqual({ moved: true, jumped: false })
+      expect(dragHairpinBody(engine, wedgeId, 210, 0, 200)).toEqual({ moved: true, jumped: true })
+      // ⭐⭐ The LANDING NAMES A STAFF — that is the whole of what was missing.
+      expect(engine.getHairpinById(wedgeId)?.staffId, 'it is the left hand’s wedge now').toBe(lower)
+      expect(span().beat, 'the slot nearest the hand, over there').toBe(1)
+      expect(span().length, 'the extent is an amount of MUSIC and rides along').toBe(3)
+      expect(engine.getHairpinById(wedgeId)?.placement, 'one rung: above the staff below').toBe('above')
     })
   })
 })

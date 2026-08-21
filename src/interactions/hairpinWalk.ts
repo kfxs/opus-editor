@@ -46,7 +46,7 @@ export type HairpinWalkEngine = Pick<MusicEngine,
   | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
   | 'nudgeHairpinEndpoint' | 'rebaseHairpinEndpointOffset'
   | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'
-  | 'previewHairpinSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase'
+  | 'previewHairpinSlot' | 'previewHairpinStaffSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase'
   | 'moveHairpinToSlot' | 'nudgeHairpin' | 'rebaseHairpinOffset' | 'previewHairpinPlacement'>
 
 /**
@@ -586,7 +586,7 @@ export function dragHairpinBody(
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipPlacement}. A wedge dragged up off a staff belongs ABOVE
   // that staff long before it belongs to the one over it.
   if (flipPlacement(engine, id, dyPx)) return { moved: true, jumped: true }
-  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+  if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
 
   const dx = dxPx / staffSpacePx
   const dy = dyPx / staffSpacePx
@@ -595,14 +595,20 @@ export function dragHairpinBody(
 }
 
 /**
- * ⭐⭐ **LEAVING THE WEDGE'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * ⭐⭐ **LEAVING THE WEDGE'S OWN STAFF** — the half of a drag the walk cannot do
  * (`./markSystemJump`, shared with the dynamic and the tempo mark).
+ *
+ * ⭐⭐ **The staff below counts, not only the system below** (his ask, 2026-08-21, one day after the
+ * dynamic got it): on a grand staff a wedge dragged down belongs to the LEFT HAND, so the landing
+ * writes the wedge's `staffId` as well as its address (`hairpinOps.setHairpinAtStaffSlot`). ⭐ It
+ * composes with the placement rung below — down from *below staff N* the next rung is *above staff
+ * N+1*, and N+1 is now allowed to be the other hand of the same system.
  *
  * ⭐ The lift comes back out first — left in, the wedge's "home" follows it down for ever and the
  * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
  * the offset go: over there the old x means nothing, and the y was never a lift.
  */
-function jumpSystems(
+function jumpStaves(
   engine: HairpinWalkEngine,
   id: string,
   cursorX: number,
@@ -614,7 +620,7 @@ function jumpSystems(
   if (!hairpin || inkY === null) return false
 
   const target = hairpinSystemSlotFor(engine, hairpin, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewHairpinSlot(id, target)) return false
+  if (!target || !engine.previewHairpinStaffSlot(id, target)) return false
 
   // ⭐⭐ **IT ARRIVES ON THE SIDE IT CAME FROM** — his correction, 2026-08-20: *"i don't like that
   // going down jumps from below the staff to below, and going up from above to above; it is not
@@ -627,7 +633,7 @@ function jumpSystems(
 
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
   if (offset && (offset.x || offset.y)) engine.previewHairpinOffset(id, -offset.x, -offset.y)
-  dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure}`)
+  dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
   return true
 }
 

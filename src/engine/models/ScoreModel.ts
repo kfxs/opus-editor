@@ -689,6 +689,13 @@ export class ScoreModel {
     return hairpinOps.setHairpinAtSlot(this.score, id, target)
   }
 
+  /** The same, onto the slot **of the staff `target` names** — the vertical drag's write, the one
+   *  that can hand the wedge to the other hand of a grand staff.
+   *  See {@link hairpinOps.setHairpinAtStaffSlot}. */
+  setHairpinAtStaffSlot(id: string, target: hairpinOps.HairpinStaffSlotTarget): boolean {
+    return hairpinOps.setHairpinAtStaffSlot(this.score, id, target)
+  }
+
   /** Put a hairpin's END at the right edge of the lane slot at `target`, holding its start (the
    *  right square's DRAG). See {@link hairpinOps.setHairpinEndAtSlot}. */
   setHairpinEndAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {

@@ -2033,3 +2033,52 @@ hairpin-specific — which staff to ask about. The full account, with his report
 ⭐ The wedge also gained the other half of that fix: **a press whose ink the page limit refuses still
 crosses** (`markWalk.crossWithoutArrival`), because a system's music ends within a space of the
 sheet's margin and the wrap's arrival test could never be met once the ink had stopped moving.
+
+## ✅⭐⭐ THE OTHER HAND OF A GRAND STAFF IS A RUNG TOO (2026-08-21, BUILT)
+
+His ask, one day after the dynamic got it: *"we already did on dynamic correctly, now we should apply
+this also to hairpin."* Same report, same cause, same two pieces.
+
+### The rule never changed — it had no candidate on the other staff
+
+`markSystemJump.systemStopFor` has always chosen between **painted staves** (`staffBands()`), so the
+left hand of a grand staff was in the running from the first day. It then asks for a CANDIDATE on
+that staff, and `hairpinLaneBoundaries` answers with the wedge's OWN lane — so the left hand's band
+won the vertical question, lost the horizontal one for want of anything to anchor to, and the drag
+carried on until it reached a staff that did have candidates: the next system's.
+
+- `hairpinLane.hairpinStaffLaneBoundaries` — every onset of **every** painted staff, each naming its
+  staff. `hairpinSystemSlotFor` hands the shared rule this instead of the wedge's own lane.
+  ⛔ The sideways WALK is untouched and stays in its lane.
+- `hairpinOps.setHairpinAtStaffSlot` — `setHairpinAtSlot` plus the `staffId`, looking the landing slot
+  up on the TARGET staff (`laneOnStaff`), because that staff is not the wedge's yet.
+  `MusicEngine.previewHairpinStaffSlot` is its own method: `previewHairpinSlot` is also the body
+  WALK's write, which travels sideways inside one lane and has no staff to say.
+
+### It composes with the placement ladder rather than competing with it
+
+§"THE VERTICAL IS A LADDER" already says the rungs are *…above N, below N, above N+1, below N+1…* and
+that a jump takes ONE of them. All that changed is that **N+1 may now be the other hand of the same
+system**: dragging down from *below the right hand* lands *above the left hand*, which is the lane
+between the two staves — exactly where a piano wedge for the left hand belongs.
+
+### Settled decisions (`dynamicOps.setDynamicAtStaffSlot`'s, verbatim)
+
+- ⭐⭐ **The VOICE SCOPE survives.** Scope and position are orthogonal (`utils/dynamicScope`).
+- ⚠️ **The LENGTH rides along**, which is what makes this the body's move and not a resize: the extent
+  is an amount of MUSIC and the other staff has the same bars. A span running past what that staff
+  carries is clamped where it is READ (`hairpinSpan`), never in the write.
+- ⚠️ The first staff is stored ABSENT whichever spelling reaches the op, and a frame that changes
+  neither staff nor address is refused.
+- 🚨 **A candidate's band is its STAFF's, not its notehead's** — `HairpinLaneBoundary.y` is now the
+  middle of the staff the onset was drawn on. A head on ledger lines can sit nearer the neighbouring
+  staff's band than its own: harmless with one staff's candidates, wrong with two.
+  ⚠️ This is what exposed a LIE in `hairpinWalk.test.ts`'s registry stub — `lineYPositions` was
+  `[systemTop, 50, 60, 70, 80]`, a per-system top line with system 1's bottom under it, which is not
+  a staff. Fixed to five lines from the system's own top.
+
+### ⏭️ Still owed
+
+The OTTAVA and the PEDAL have the same gap — per-staff candidates and no `staffId` write.
+⚠️ The trill is the odd one out: it anchors to a NOTE, so its staff follows the note it lands on and
+it needs no write of its own.
