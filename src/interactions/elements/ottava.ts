@@ -23,7 +23,7 @@ const PAD = 7
 export const OTTAVA_ELEMENT: ClickableElementSpec = {
   kind: 'ottava',
   /** Select an octave line for edit or removal (hit-tested against its drawn band). */
-  hit({ registry, x, y }, deps) {
+  hit({ event, registry, x, y }, deps) {
     const ottavaAt = registry.getByType('ottava').find(el => {
       const pts = el.points
       if (!pts || pts.length < 2) return false
@@ -39,8 +39,17 @@ export const OTTAVA_ELEMENT: ClickableElementSpec = {
     }) ?? null
     if (!ottavaAt?.id) return false
 
+    // ⭐ Click = select; drag = move the WHOLE bracket (his ask, 2026-08-21) — through the music
+    // sideways, and DOWN ONTO ANOTHER SYSTEM vertically. ⚠️ The BODY, so nothing is armed by it and
+    // nothing needs to be: **something armed → that end, nothing armed → the whole thing** is already
+    // the arrows' rule (`nudgeSelectedOttava`), and this is the same sentence with the mouse. A press
+    // on one of the SQUARES never reaches here — `armOttavaEndpointAt` is a pre-step in
+    // `MouseController` and consumes it.
     dbg(`✓ Ottava selected | id:${ottavaAt.id}`)
-    return deps.pick({ kind: 'ottava', id: ottavaAt.id })
+    return deps.pick(
+      { kind: 'ottava', id: ottavaAt.id },
+      () => deps.armOttavaOffsetDrag(ottavaAt.id!, x, y, event),
+    )
   },
 
   // Recoloured, plus the attachment guide (the fifth kind, 2026-08-17). ⭐ At the bracket's BEGINNING

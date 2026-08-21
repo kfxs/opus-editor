@@ -32,7 +32,8 @@ import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
 import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
-import { dragOttavaEndpoint } from './ottavaWalk'
+import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
+import { ottavaStaffSpacePx } from './ottavaLane'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
@@ -371,6 +372,15 @@ export class MouseController {
   private ottavaEndLastX = 0
   private ottavaEndLastY = 0
   private ottavaDragStartTime: number | null = null
+
+  // --- Ottava BODY drag (a press on the numeral or its dashed line). The whole bracket follows the
+  //     hand — sideways through the music, and DOWN ONTO ANOTHER SYSTEM vertically. ---
+  private isDraggingOttavaBody = false
+  private draggedOttavaBodyId: string | null = null
+  private ottavaBodyLastX = 0
+  private ottavaBodyLastY = 0
+  private ottavaBodyDragChanged = false
+  private ottavaBodyDragStartTime: number | null = null
 
   // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
   //     moves the LIFT, the LEFT one moves the press and holds the lift: the drag twin of
@@ -784,6 +794,7 @@ export class MouseController {
     armTempoDrag: (tempoId, event) => this.armTempoDrag(tempoId, event),
     armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
     armTrillOffsetDrag: (trillId, x, y, event) => this.armTrillOffsetDrag(trillId, x, y, event),
+    armOttavaOffsetDrag: (ottavaId, x, y, event) => this.armOttavaOffsetDrag(ottavaId, x, y, event),
     armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
@@ -885,6 +896,21 @@ export class MouseController {
     this.trillBodyLastY = y
     this.trillBodyDragChanged = false
     this.trillBodyDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
+  /** ⭐ Arm the drag that moves a whole OTTAVA — a press on the numeral or its dashed line (his ask,
+   *  2026-08-21). ⛔ Declines when the bracket is not measurably drawn, exactly as the wedge's does:
+   *  a gesture in pixels needs a staff-space size to convert them with. */
+  private armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void {
+    const engine = this.getEngine()
+    if (!engine || !ottavaStaffSpacePx(engine.getElementRegistry(), ottavaId)) return
+    this.isDraggingOttavaBody = true
+    this.draggedOttavaBodyId = ottavaId
+    this.ottavaBodyLastX = x
+    this.ottavaBodyLastY = y
+    this.ottavaBodyDragChanged = false
+    this.ottavaBodyDragStartTime = Date.now()
     event.preventDefault()
   }
 
@@ -1792,6 +1818,9 @@ export class MouseController {
     if (this.isDraggingOttavaEnd) {
       this.endOttavaEndDrag()
     }
+    if (this.isDraggingOttavaBody) {
+      this.endOttavaBodyDrag()
+    }
     if (this.isDraggingPedalEnd) {
       this.endPedalEndDrag()
     }
@@ -2589,6 +2618,7 @@ export class MouseController {
     if (this.handleHairpinBodyDrag(engine, x, y)) return
     if (this.handleSlurBodyDrag(engine, x, y)) return
     if (this.handleOttavaEndDrag(engine, x, y)) return
+    if (this.handleOttavaBodyDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handleTrillEndDrag(engine, x, y)) return
     if (this.handleTrillBodyDrag(engine, x, y)) return
@@ -3021,6 +3051,50 @@ export class MouseController {
     // is still on this one. ⚠️ The square stays ARMED, so the arrows continue from where it stopped.
     if (frame.wrapped) this.endOttavaEndDrag()
     return true
+  }
+
+  /**
+   * ⭐⭐ **One frame of an OTTAVA BODY drag: the whole bracket follows the hand** — sideways through
+   * the music (extent and all) and, when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM
+   * (`ottavaWalk.dragOttavaBody`, his ask 2026-08-21).
+   *
+   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
+   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
+   * the cursor comes back.
+   *
+   * ⭐⭐ **A system JUMP ends the frame, ⛔ not the gesture** — unlike a square's wrap. The bracket has
+   * landed where the hand is, so the hand may carry straight on down there; what must not happen is
+   * spending this frame's `dx` against a slot it was never near.
+   */
+  private handleOttavaBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingOttavaBody && this.draggedOttavaBodyId)) return false
+    if (this.ottavaBodyDragStartTime !== null
+        && Date.now() - this.ottavaBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const frame = dragOttavaBody(
+      engine, this.draggedOttavaBodyId, x, x - this.ottavaBodyLastX, y - this.ottavaBodyLastY)
+    // ⛔ null = the bracket is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      this.ottavaBodyLastX = x
+      this.ottavaBodyLastY = y
+      this.ottavaBodyDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish an ottava BODY drag: one undo entry if the bracket actually moved, then reset. It stays
+   *  selected, so the arrows carry on from where the mouse stopped. */
+  private endOttavaBodyDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.ottavaBodyDragChanged) {
+      engine.commitOttavaOffsetDrag()
+      dbg(`Ottava moved | id:${this.draggedOttavaBodyId}`)
+    }
+    this.isDraggingOttavaBody = false
+    this.draggedOttavaBodyId = null
+    this.ottavaBodyDragChanged = false
+    this.ottavaBodyDragStartTime = null
   }
 
   /**

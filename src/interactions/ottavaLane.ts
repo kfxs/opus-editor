@@ -26,6 +26,8 @@ import { ottavaSpan } from '../engine/models/ottavaOps'
 import type { Ottava, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
+import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
+import { systemStopFor } from './markSystemJump'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
  *  renderer. `hairpinLane.HairpinLaneEngine`'s twin. */
@@ -157,4 +159,58 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
   if (!staffId) return 0
   const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
   return at === -1 ? 0 : at
+}
+
+/**
+ * ⭐⭐ **THE SLOT ON THE SYSTEM THE BRACKET NOW BELONGS TO** — the ottava's PORT into the shared rule
+ * (`./markSystemJump`, the dynamic's, the tempo mark's and the wedge's). His ask, 2026-08-21: *"in
+ * this case we also have to take into account the y, that means that we can jump system
+ * vertically"*.
+ *
+ * The rule and its reasons live in that module — the switch falls halfway between where the bracket
+ * sits and where it would sit on the other staff, measured from its NATURAL distance with its own
+ * lift taken back out. What is here is only what is ottava-specific:
+ *
+ * ⭐ **The candidates are its own lane, across every system**, so a jump lands the bracket on the
+ * SAME staff one line down, ⛔ never on another instrument's staff.
+ *
+ * ⚠️⚠️ **THE LIFT IS STORED OUTWARD, so it is converted here** — `markSystemJump` wants it SCREEN-signed
+ * (+down) to take it back out, and an 8va's `outward` counts UP. ⛔ The tempo mark is the only other
+ * family that has to do this, and for the same reason.
+ *
+ * ⭐ **The side comes from the SHIFT, never from the pixels** — an 8va hangs above its staff and an
+ * 8vb below, and that is what tells the rule which edge to measure from.
+ */
+export function ottavaSystemSlotFor(
+  engine: OttavaLaneEngine,
+  ottava: Ottava,
+  cursorX: number,
+  /** Where the bracket's ink will be after this frame — its drawn y plus the frame's `dy`. */
+  inkY: number,
+  staffSpacePx: number,
+): OttavaSlotTarget | null {
+  const lane = ottavaLaneOnsets(engine, ottava)
+  const here = ottavaStartAddress(engine.getScore(), ottava.id)
+  const anchor = here && lane.find(o => sameAddress(o.target, here))
+  const above = ottava.shift > 0
+
+  return systemStopFor<OttavaSlotTarget>({
+    bands: () => engine.getElementRegistry().staffBands(),
+    candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
+    anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
+    inkY: () => ottavaInkY(engine, ottava.id),
+    // ⚠️ OUTWARD → SCREEN: further out is UP for an 8va, DOWN for an 8vb.
+    liftPx: () => {
+      const outward = ottavaOffsetOverrideOf(engine.getScore(), ottava.id)?.outward ?? 0
+      return (above ? -outward : outward) * staffSpacePx
+    },
+    above: () => above,
+  }, cursorX, inkY)
+}
+
+/** The vertical centre of the bracket's own ink in the last render — its FIRST fragment, which is the
+ *  one its beginning (and so its anchor) lives on. Null when it drew none. */
+export function ottavaInkY(engine: OttavaLaneEngine, ottavaId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('ottava').find(e => e.id === ottavaId)
+  return piece ? piece.bbox.y + piece.bbox.height / 2 : null
 }

@@ -1199,6 +1199,31 @@ break-test for it is to give the body a square's write and watch the length coll
 - 🚨 It crosses a system break by the same WRAP (`markBreakWrap`), measured from the beginning's own
   system.
 
+### ✅⭐⭐ …and the BODY is DRAGGED, which is how it changes SYSTEM (2026-08-21)
+
+*"now we have to do the shape drag walking… we also have to take into account the y, that means that
+we can jump system vertically"*. A press on the numeral or the dashed line now drags the whole
+bracket (`dragOttavaBody`; the bracket had no body drag at all before, only its two squares).
+
+⭐⭐ **TWO KINDS OF VERTICAL, and that is the design.** Within its own staff's room the `y` is plain
+INK — the shared height, bounded by the band. Past halfway to the neighbouring staff there is nothing
+continuous to travel through, so coming down onto the staff below is a **JUMP**
+(`interactions/markSystemJump`, the dynamic's, the tempo mark's and the wedge's rule). ⭐ The two meet
+exactly: the band refuses the ink at the same halfway line the jump fires on.
+
+- ⛔ **A jump ENDS THE FRAME** (not the gesture): the anchor has moved, so this frame's `dx` would be
+  spent against a slot the hand was never near. The hand may carry straight on down there.
+- ⭐ It arrives where the ENGRAVER would put it — both axes of the offset go, the height because on
+  that gesture it was never a lift but the distance travelled to reach the other staff.
+- ⛔ **THE SIDE NEVER FLIPS.** A wedge dragged off its staff belongs above it: it has a `placement`.
+  An octave bracket's side is DERIVED from its `shift`, so turning an 8va into an 8vb is a change to
+  the MUSIC (`toggleOttavaDirection`, audible) and a drag may not make it by accident. ⚠️ This is the
+  one place the bracket's drag deliberately does LESS than the wedge's.
+- ⛔ No latch: a whole bracket is placed by eye, not aimed at one note's edge.
+
+⚠️ `ELEMENT_SPECS`' ottava row gained the arm callback (`armOttavaOffsetDrag`), the wedge's and the
+trill's twin — a press is *click = select, drag = move*, decided by the chain on the first move.
+
 ---
 
 ## Sources

@@ -38,14 +38,24 @@ function ctx(bands: ElementInfo[], x: number, y: number): MouseDownCtx {
 }
 
 function deps(): ElementChainDeps {
-  return { pick: vi.fn(() => true as const) } as unknown as ElementChainDeps
+  return {
+    pick: vi.fn(() => true as const),
+    armOttavaOffsetDrag: vi.fn(),
+  } as unknown as ElementChainDeps
 }
 
 describe('OTTAVA_ELEMENT.hit', () => {
-  it('selects the octave line under the press', () => {
+  it('selects the octave line under the press, and ARMS the body drag with it', () => {
+    // ⭐ Click = select, drag = move the whole bracket (2026-08-21) — one press, two readings, and
+    // the chain decides between them on the first move. ⚠️ A press on one of the SQUARES never
+    // reaches here: `armOttavaEndpointAt` is a pre-step in `MouseController` and consumes it.
     const d = deps()
     expect(OTTAVA_ELEMENT.hit(ctx([band('o1', 100, 200)], 150, 6), d)).toBe(true)
-    expect(d.pick).toHaveBeenCalledWith({ kind: 'ottava', id: 'o1' })
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'ottava', id: 'o1' }, expect.any(Function))
+    // The arm runs only if the chain calls back — the drag is not started by the press itself.
+    expect(d.armOttavaOffsetDrag).not.toHaveBeenCalled()
+    ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
+    expect(d.armOttavaOffsetDrag).toHaveBeenCalledWith('o1', 150, 6, undefined)
   })
 
   it('⭐ a press in a GAP BETWEEN DASHES hits — the band is the target, not the ink', () => {
@@ -74,7 +84,7 @@ describe('OTTAVA_ELEMENT.hit', () => {
     for (const [x, y] of [[800, 6], [120, 306]] as const) {
       const d = deps()
       expect(OTTAVA_ELEMENT.hit(ctx([first, second], x, y), d)).toBe(true)
-      expect(d.pick).toHaveBeenCalledWith({ kind: 'ottava', id: 'o1' })
+      expect(d.pick).toHaveBeenCalledWith({ kind: 'ottava', id: 'o1' }, expect.any(Function))
     }
   })
 

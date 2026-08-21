@@ -118,6 +118,10 @@ export interface ElementChainDeps {
    *  the whole ornament — through the music horizontally, up the LADDER vertically — where a press
    *  on one of its squares moves that end alone. */
   armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void
+  /** ⭐ The same again for an OTTAVA's own ink (2026-08-21): a press on the numeral or its dashed
+   *  line drags the whole bracket — through the music horizontally, and DOWN ONTO ANOTHER SYSTEM
+   *  vertically — where a press on one of its squares moves that end alone. */
+  armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void
   /** ⭐ The same again for a slur's ARC BODY (2026-08-18): a press on the curve away from its handles
    *  moves the whole drawing, where a press on a handle moves that one point. Takes the press point
    *  for the hairpin's reason — a pixel delta, not a snap. */

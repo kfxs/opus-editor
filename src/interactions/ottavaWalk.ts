@@ -51,7 +51,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { OttavaSlotTarget } from '../engine/models/ottavaOps'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  ottavaEdgeX, ottavaStaffSpacePx, ottavaStartAddress, ottavaSystemInkLimit,
+  ottavaEdgeX, ottavaInkY, ottavaStaffSpacePx, ottavaStartAddress, ottavaSystemInkLimit,
+  ottavaSystemSlotFor,
 } from './ottavaLane'
 import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
 import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
@@ -64,7 +65,8 @@ export type OttavaWalkEngine = Pick<MusicEngine,
   | 'moveOttavaStartToSlot' | 'moveOttavaEndToSlot'
   | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'
   | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
-  | 'moveOttavaToSlot' | 'nudgeOttava' | 'rebaseOttavaOffset'>
+  | 'moveOttavaToSlot' | 'nudgeOttava' | 'rebaseOttavaOffset'
+  | 'previewOttavaSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step, a
@@ -280,6 +282,96 @@ export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number)
       : carryMark(port, dx, 0, false, 1).moved
   })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A BODY DRAG — the whole bracket follows the hand**, sideways through the music
+ * and, when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM (his ask, 2026-08-21: *"now we
+ * have to do the shape drag walking… we also have to take into account the y, that means that we can
+ * jump system vertically"*).
+ *
+ * ⭐⭐ **TWO KINDS OF VERTICAL, and that is the whole design.** Within its own staff's room the `y` is
+ * plain INK — the bracket's shared height, bounded by the band
+ * ({@link MusicEngine.previewOttavaOffset}). Past halfway to the neighbouring staff there is nothing
+ * continuous to travel through — two systems' x's are not one ruler — so coming down onto the staff
+ * below is a JUMP, decided by `./markSystemJump`'s rule and ⛔ NOT by crossing the pentagram. The two
+ * meet exactly: the band refuses the ink at the same halfway line the jump fires on.
+ *
+ * ⛔ **A jump ENDS THE FRAME**: the anchor has moved, so this frame's `dx` would be spent against a
+ * slot the hand was never near. ⭐ And it lands where the engraver would put it — both axes of the
+ * offset go, the height because on that gesture it was not a lift at all but the distance the hand
+ * travelled to reach the other staff.
+ *
+ * ⛔ **THE SIDE NEVER FLIPS.** A wedge dragged up off its staff belongs ABOVE it — it has a
+ * `placement`, so the space above is a place it can live. An octave bracket's side is DERIVED from
+ * its `shift`: an 8va hangs above and an 8vb below, and turning one into the other is a change to
+ * the MUSIC (`toggleOttavaDirection`, audible). A drag may not make it by accident.
+ *
+ * ⛔ **No latch here**, unlike a square's drag: a whole bracket is being placed by eye, not aimed at
+ * one note's edge — the dynamic's reasoning, and the same conclusion.
+ *
+ * ⛔ Declines — **null** — when the bracket is not drawn, so there is no staff-space size to convert
+ * the cursor's pixels with.
+ */
+export function dragOttavaBody(
+  engine: OttavaWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): { moved: boolean; jumped: boolean } | null {
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+
+  const dx = dxPx / staffSpacePx
+  // ⭐⭐ SCREEN → OUTWARD, the same conversion {@link dragOttavaEndpoint} makes, and for its reason.
+  const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
+  const outward = (above ? -dyPx : dyPx) / staffSpacePx
+  if (dx === 0 && outward === 0) return { moved: false, jumped: false }
+  return { moved: carryMark(port, dx, outward).moved, jumped: false }
+}
+
+/**
+ * ⭐⭐ **LEAVING THE BRACKET'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * (`./markSystemJump`, shared with the dynamic, the tempo mark and the wedge).
+ *
+ * ⭐ The lift comes back out first — left in, the bracket's "home" follows it down for ever and the
+ * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
+ * the offset go: over there the old x means nothing, and the y was never a lift.
+ */
+function jumpSystems(
+  engine: OttavaWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+  staffSpacePx: number,
+): boolean {
+  const ottava = engine.getOttavaById(id)
+  const inkY = ottavaInkY(engine, id)
+  if (!ottava || inkY === null) return false
+
+  const target = ottavaSystemSlotFor(engine, ottava, cursorX, inkY + dyPx, staffSpacePx)
+  if (!target || !engine.previewOttavaSlot(id, target)) return false
+
+  const offset = ottavaOffsetOverrideOf(engine.getScore(), id)
+  if (offset?.startX || offset?.outward) {
+    engine.previewOttavaOffset(id, -(offset.startX ?? 0), -(offset.outward ?? 0))
+  }
+  dbg(`[Ottava] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
+  return true
+}
+
+/** The body's writes during a DRAG: the same three edits with no undo entry of their own — the drop
+ *  commits once ({@link MusicEngine.commitOttavaOffsetDrag}). */
+function bodyPreviewWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
+  return {
+    reanchor: (target) => engine.previewOttavaSlot(id, target),
+    nudge: (dx, outward) => engine.previewOttavaOffset(id, dx, outward),
+    rebase: (dx) => engine.previewOttavaOffsetRebase(id, dx),
+  }
 }
 
 /** The body's three writes, on the KEYBOARD — each records its own undo entry, and a crossing press

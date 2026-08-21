@@ -1281,6 +1281,43 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **Move the whole bracket onto `target` during a DRAG** — {@link moveOttavaToSlot} with no undo
+   * entry of its own; {@link commitOttavaOffsetDrag} records the gesture once on the drop.
+   */
+  previewOttavaSlot(id: string, target: OttavaSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
+    return this.scoreModel.setOttavaAtSlot(id, target)
+  }
+
+  /**
+   * Live (preview) nudge of the WHOLE bracket's ink — a BODY drag. {@link nudgeOttava} without the
+   * undo, and accumulating like it; the page and band limits still refuse the write.
+   *
+   * ⚠️ `outward` is a distance FROM THE STAFF, like every other ottava vertical — the caller converts
+   * its screen delta on the way in.
+   */
+  previewOttavaOffset(id: string, dx: number, outward: number): boolean {
+    const above = (this.getOttavaById(id)?.shift ?? 1) > 0
+    const dy = above ? -outward : outward
+    if (!this.nudgeStaysOnPage('ottava', id, dx, dy)) return false
+    if (dy !== 0 && !this.ottavaStaysInBand(id, dy)) return false
+    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
+    return this.scoreModel.setOttavaOffset(id, dx, outward)
+  }
+
+  /** The whole bracket's RE-BASE during a DRAG — {@link rebaseOttavaOffset} with no undo of its own,
+   *  and ⛔ never judged by the page limit or the band. */
+  previewOttavaOffsetRebase(id: string, dx: number): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setOttavaOffset(id, dx, 0)
+  }
+
+  /** Record ONE undo entry after a bracket BODY drag settles. */
+  commitOttavaOffsetDrag(): void {
+    this.commitPreviewed('Move octave line')
+  }
+
   /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
    *  it carries none. */
   resetOttavaOffset(id: string): boolean {

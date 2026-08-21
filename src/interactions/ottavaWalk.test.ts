@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragOttavaEndpoint, walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
+import { dragOttavaBody, dragOttavaEndpoint, walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import type { Ottava } from '../types/music'
 import { soundingShiftAt } from '../utils/soundingShift'
@@ -441,6 +441,79 @@ describe('walkOttavaEndpoint', () => {
   describe('the body', () => {
     /** The offset both ends carry while the bracket is moved as one. */
     const ink = () => offset('start')
+
+    /**
+     * ⭐⭐ THE BODY'S DRAG (his ask, 2026-08-21: *"now we have to do the shape drag walking… we also
+     * have to take into account the y, that means that we can jump system vertically"*).
+     *
+     * ⭐ Two kinds of vertical, and that is the design: within its own staff's room the `y` is plain
+     * INK; past halfway to the neighbouring staff it is a JUMP (`./markSystemJump`), because two
+     * systems' x's are not one ruler and there is nothing continuous to travel through.
+     */
+    describe('dragged', () => {
+      /** The bracket's one stored height, OUTWARD from the staff. */
+      const outward = () => ottavaOffsetOverrideOf(engine.getScore(), bracketId)?.outward ?? 0
+      /** Which bar holds the bracket — the only way to say which SYSTEM it is on. */
+      const ottavaMeasure = () =>
+        engine.getScore().measures.find(m => m.ottavas?.some(o => o.id === bracketId))?.number
+      /** A second bar of music drawn on the NEXT system, so there is somewhere to jump to. */
+      const twoSystemLane = () => {
+        engine.addMeasure()
+        drawn.systemTop = { 1: 40, 2: 240 }
+        const next = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+          engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+        next.forEach((id, i) => drawn.entries.push({
+          type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+        }))
+      }
+      /** A frame at `cursorX`, having moved (`dxPx`,`dyPx`) since the last accepted one. */
+      const frame = (cursorX: number, dxPx: number, dyPx = 0) =>
+        dragOttavaBody(engine, bracketId, cursorX, dxPx, dyPx)
+
+      it('carries the whole bracket sideways when the ink ARRIVES, length and all', () => {
+        expect(frame(240, 30)!.moved).toBe(true)
+        expect(span(), 'ink only so far').toEqual({ beat: 0, length: 2 })
+        frame(310, 70)
+        expect(span(), 'a slot along, the SAME length').toEqual({ beat: 1, length: 2 })
+        expect(ink()).toBeCloseTo(0)
+      })
+
+      it('⭐ lifts the bracket while the hand is in its own staff\'s room', () => {
+        expect(frame(210, 0, -30)!.jumped, 'no jump — three spaces is its own room').toBe(false)
+        expect(outward()).toBeCloseTo(3)
+      })
+
+      it('⭐⭐ JUMPS to the system below when the hand leaves that room — his ask', () => {
+        // The fixture's systems are 160 px apart, so the switch falls 80 px down; the bracket's own
+        // ink is at y 25 and bar 2's notes are drawn on the lower staff.
+        twoSystemLane()
+        const jump = frame(150, 0, 260)!
+        expect(jump.jumped).toBe(true)
+        expect(ottavaMeasure(), 'it now lives on the next system').toBe(2)
+      })
+
+      it('⭐ …and it arrives where the ENGRAVER would put it — both offsets dropped', () => {
+        twoSystemLane()
+        frame(210, 0, -30)
+        expect(outward(), 'a lift first').toBeCloseTo(3)
+        frame(150, 0, 260)
+        expect(outward(), 'gone: over there it was never a lift').toBe(0)
+        expect(ink()).toBe(0)
+      })
+
+      it('⛔ NEVER flips the side — that would be a change to the MUSIC', () => {
+        // An 8va hangs above its staff and an 8vb below, and the side is DERIVED from `shift`. The
+        // wedge flips because it has a `placement`; turning an 8va into an 8vb is `toggleOttavaDirection`.
+        twoSystemLane()
+        frame(150, 0, 260)
+        expect(engine.getOttavaById(bracketId)!.shift, 'still an 8va').toBe(1)
+      })
+
+      it('⛔ declines — null — when the bracket is not drawn', () => {
+        render([100, 200, 300, 400], null)
+        expect(frame(210, 30)).toBeNull()
+      })
+    })
 
     it('nudges the ink and leaves the bracket alone until the ink arrives', () => {
       for (let i = 0; i < 9; i++) expect(walkOttavaBody(engine, bracketId, 1)).toBe(true)
