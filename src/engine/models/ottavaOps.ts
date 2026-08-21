@@ -461,6 +461,36 @@ export function setOttavaStartAtSlot(score: Score, id: string, target: OttavaSlo
 }
 
 /**
+ * ⭐⭐ **MOVE THE WHOLE BRACKET onto `target`, KEEPING ITS LENGTH** — the body's walk, where the two
+ * squares move one end each (his ask, 2026-08-21: *"now we have to do the shape key walking (when no
+ * endpoint is selected)"*).
+ *
+ * ⭐ **Its stops are the BEGINNING's**, because a bracket moved as one is moved by its beginning: the
+ * extent is an amount of music and travels with it. So this is the simplest of the three writes —
+ * ⛔ `length` is not touched at all, and nothing has to be held still.
+ *
+ * ⭐ **A bracket moved across a barline is RE-FILED under the bar it now starts in**, keeping the same
+ * object and the same id ({@link moveOttavaStartBySlot} says why: a re-created ottava would deselect
+ * itself mid-gesture and the square the user is pressing arrows on would vanish).
+ *
+ * ⚠️ It may run off the end of the score — the span is CLAMPED where it is read ({@link ottavaSpan}),
+ * which is the same defence every other over-running span has. Declines when `target` is not an onset
+ * of the ottava's own staff, or when no such ottava exists.
+ */
+export function setOttavaAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { ottava, startMeasure, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  if (slot.measure !== startMeasure && !moveOttavaToMeasure(score, ottava, slot.measure)) return false
+  ottava.beat = slot.beat
+  ottavaMeasure(score, id)?.ottavas?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
+/**
  * ⭐⭐ **Put the bracket's END so that it COVERS `target`, holding its beginning** — the drag's half
  * of {@link resizeOttavaBySlot}'s growing branch.
  *

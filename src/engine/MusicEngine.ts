@@ -1255,6 +1255,32 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **Move the whole bracket onto `target`, keeping its length** — the BODY walk's crossing write
+   * (`interactions/ottavaWalk.walkOttavaBody`), and ONE undo entry.
+   *
+   * ⚠️ A CONTENT edit: it changes which notes are displaced, and it is AUDIBLE. ⭐ It keeps both ends'
+   * nudges by construction (`ottavaOps` writes no override here), which is what the walk needs — the
+   * crossing is meant to be invisible, and the offset is re-based by the caller rather than wiped.
+   */
+  moveOttavaToSlot(id: string, target: OttavaSlotTarget): boolean {
+    const ok = this.scoreModel.setOttavaAtSlot(id, target)
+    if (ok) this.commit('Move octave line')
+    return ok
+  }
+
+  /**
+   * ⭐⭐ **RE-BASE the WHOLE bracket's ink — the body walk's bookkeeping, ⛔ NOT a hand nudge.** Both
+   * ends by the same delta, and ⛔ never judged by the page limit or the band: the pair *(anchor := the
+   * next slot, offset −= the gap)* leaves the drawing exactly where it was
+   * ({@link rebaseOttavaEndpointOffset} carries the report that made this a rule).
+   */
+  rebaseOttavaOffset(id: string, dx: number): boolean {
+    const ok = this.scoreModel.setOttavaOffset(id, dx, 0)
+    if (ok) this.saveOnly('Nudge octave line') // inside the walk's batch this only counts the request
+    return ok
+  }
+
   /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
    *  it carries none. */
   resetOttavaOffset(id: string): boolean {

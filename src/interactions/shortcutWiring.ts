@@ -23,7 +23,7 @@ import { walkHairpinBody, walkHairpinEndpoint } from './hairpinWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
-import { walkOttavaEndpoint } from './ottavaWalk'
+import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
@@ -324,13 +324,22 @@ export function wireShortcuts(
    *
    * ⚠️ Screen → OUTWARD, the same conversion the armed version makes and for the same reason: a key
    * is a screen direction, the stored number is a distance from the staff.
+   *
+   * ⭐⭐ **And the horizontal WALKS, exactly as an armed square's does** (`./ottavaWalk.walkOttavaBody`,
+   * his ask 2026-08-21) — the ink moves, and when it reaches the next onset the WHOLE bracket goes
+   * with it, length and all. ⚠️ So this key too can end in a MODEL write, which is the crossing and
+   * nothing else; ⭐ the far end is NOT held here, which is the whole difference between moving a
+   * mark and reshaping it.
    */
   const nudgeSelectedOttava = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const ottava = selectedOf(state, 'ottava')
     if (!eng || !ottava || ottava.endpoint) return false
     const above = (eng.getOttavaById(ottava.id)?.shift ?? 1) > 0
-    if (!eng.nudgeOttava(ottava.id, dx, above ? -dy : dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkOttavaBody(eng, ottava.id, dx)
+      : eng.nudgeOttava(ottava.id, dx, above ? -dy : dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

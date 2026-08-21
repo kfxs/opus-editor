@@ -22,6 +22,7 @@ import {
   resizeOttavaBySlot, moveOttavaStartBySlot, applyOttavaDrag,
   nextOttavaEndSlot, nextOttavaStartSlot, ottavaEndSlot,
   setOttavaEndpointOffset, resetOttavaEndpointOffset, setOttavaOffset, resetOttavaOffset,
+  setOttavaAtSlot,
 } from './ottavaOps'
 import { soundingShiftAt } from '@/utils/soundingShift'
 
@@ -738,6 +739,55 @@ describe('ottavaOps — applyOttavaDrag', () => {
  * that a `dy` asked for from either square lands on one shared number and that nothing can put a
  * second one anywhere.
  */
+/**
+ * ⭐⭐ {@link setOttavaAtSlot} — the WHOLE bracket moved, the body walk's write.
+ *
+ * The claim that separates it from its two neighbours: `length` is **not touched**. A square holds
+ * the far end and changes how much music is covered; the body holds the AMOUNT and changes where it
+ * starts.
+ */
+describe('ottavaOps — setOttavaAtSlot', () => {
+  let model: ScoreModel
+  let score: Score
+  beforeEach(() => {
+    model = new ScoreModel()
+    model.addMeasure()
+    score = model.getScore()
+  })
+
+  const quarters = (m: number) =>
+    [0, 1, 2, 3].map(b =>
+      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+
+  it('⭐⭐ moves the beginning and KEEPS the length — ⛔ the far end is not held', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(setOttavaAtSlot(score, o.id, { measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat)).toBe(2)
+    expect(fracToNumber(getOttavaById(score, o.id)!.length), 'the same amount of music').toBe(2)
+    expect(soundingShiftAtBeat(score, 1, 2)).toBe(12)
+    expect(soundingShiftAtBeat(score, 1, 0), 'and the music it left is plain again').toBe(0)
+  })
+
+  it('⭐ a bracket moved across a BARLINE is re-filed, keeping the same id', () => {
+    quarters(1)
+    quarters(2)
+    const o = addOttava(score, 1, { beat: frac(2, 1), length: frac(2, 1), shift: 1 })!
+    expect(setOttavaAtSlot(score, o.id, { measure: 2, beat: frac(1, 1) })).toBe(true)
+    expect(ottavaMeasure(score, o.id)!.number).toBe(2)
+    expect(getOttavaById(score, o.id)!.id, 'the same object — the selection still holds it').toBe(o.id)
+    expect(fracToNumber(getOttavaById(score, o.id)!.length)).toBe(2)
+  })
+
+  it('⛔ declines an address that is not an onset of its own staff', () => {
+    quarters(1)
+    const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
+    expect(setOttavaAtSlot(score, o.id, { measure: 1, beat: frac(7, 1) })).toBe(false)
+    expect(setOttavaAtSlot(score, 'gone', { measure: 1, beat: frac(1, 1) })).toBe(false)
+    expect(fracToNumber(getOttavaById(score, o.id)!.beat), 'untouched').toBe(0)
+  })
+})
+
 describe('ottavaOps — the endpoint squares\' ink offsets', () => {
   let model: ScoreModel
   let score: Score

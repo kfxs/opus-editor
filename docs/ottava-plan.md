@@ -1182,6 +1182,23 @@ own having gone the same way a day earlier. Its spec chapter went with it (its c
 `ottavaLane.test.ts` and `ottavaWalk.test.ts`). ⚠️ The PEDAL still snaps and still carries that
 y-translation; `pedalHandles` now names the walk as the other way out.
 
+### ✅⭐⭐ …and the BODY walks (2026-08-21) — the arrows with NO square armed
+
+*"now we have to do the shape key walking (when no endpoint is selected)"*. `walkOttavaBody`, the
+third port in the file, and it differs from the two squares in exactly one thing that matters:
+
+⭐⭐ **THE FAR END IS NOT HELD.** A square RESHAPES the bracket — the other end stands still and the
+extent changes; the body MOVES it — the extent travels with it (`ottavaOps.setOttavaAtSlot`, which
+⛔ does not touch `length` at all). That is the whole difference between the two gestures, and the
+break-test for it is to give the body a square's write and watch the length collapse.
+
+- ⭐ Its stops are the BEGINNING's, because a bracket moved as one is moved by its beginning.
+- ⭐ Its ink is BOTH ends at once (`nudgeOttava`), and the offset it reads back is the start's, since
+  the pair carry the same number while the bracket is moved as one.
+- ⚠️ AUDIBLE at the crossing and only there; every press either side of it is ink.
+- 🚨 It crosses a system break by the same WRAP (`markBreakWrap`), measured from the beginning's own
+  system.
+
 ---
 
 ## Sources

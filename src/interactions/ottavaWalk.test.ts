@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragOttavaEndpoint, walkOttavaEndpoint } from './ottavaWalk'
+import { dragOttavaEndpoint, walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import type { Ottava } from '../types/music'
+import { soundingShiftAt } from '../utils/soundingShift'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
 /**
@@ -278,6 +279,16 @@ describe('walkOttavaEndpoint', () => {
       expect(span()).toEqual({ beat: 0, length: 4 })
     })
 
+    it('⭐ the BODY crosses a break too — the whole bracket, by its beginning', () => {
+      // Its stops are the START's, so the walk is over once the beginning reaches the last note of
+      // this line; the press after that is the wrap.
+      for (let i = 0; i < 30; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(engine.getOttavaById(bracketId)!.beat, 'the last onset of bar 1').toEqual(frac(3, 1))
+      for (let i = 0; i < 4; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(engine.getScore().measures.find(m => m.number === 2)?.ottavas?.length,
+        'and it now lives on the next system').toBe(1)
+    })
+
     it('⛔ never onto a bar the last render drew nothing for', () => {
       drawn.entries = drawn.entries.filter(e => e.bbox.y < 200)
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'end', 1)
@@ -416,6 +427,63 @@ describe('walkOttavaEndpoint', () => {
     it('⛔ declines — null — when the bracket is not drawn, so there is no scale', () => {
       render([100, 200, 300, 400], null)
       expect(frame('end', 310, 100)).toBeNull()
+    })
+  })
+
+  /**
+   * ⭐⭐ THE BODY — the arrows with the bracket selected and NO square armed (his ask, 2026-08-21:
+   * *"now we have to do the shape key walking (when no endpoint is selected)"*).
+   *
+   * ⭐ What this chapter owns over the two squares': the far end is **NOT held**. A square reshapes
+   * the bracket; the body MOVES it, length and all — which is the whole difference between the two
+   * gestures, and it is audible at the crossing either way.
+   */
+  describe('the body', () => {
+    /** The offset both ends carry while the bracket is moved as one. */
+    const ink = () => offset('start')
+
+    it('nudges the ink and leaves the bracket alone until the ink arrives', () => {
+      for (let i = 0; i < 9; i++) expect(walkOttavaBody(engine, bracketId, 1)).toBe(true)
+      expect(span()).toEqual({ beat: 0, length: 2 })
+      expect(ink()).toBeCloseTo(9)
+      expect(offset('end'), 'both ends, the same number').toBeCloseTo(9)
+    })
+
+    it('⭐⭐ the tenth press MOVES the whole bracket — ⛔ the far end is not held', () => {
+      for (let i = 0; i < 10; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(span(), 'a slot along, the SAME length').toEqual({ beat: 1, length: 2 })
+      expect(ink(), 'and the ink did not jump — the identity').toBeCloseTo(0)
+    })
+
+    it('⭐ it is AUDIBLE at the crossing, and only there', () => {
+      for (let i = 0; i < 9; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(soundingShiftAt(engine.getScore(), 1, frac(2, 1)), 'still the first two notes').toBe(0)
+      walkOttavaBody(engine, bracketId, 1)
+      expect(soundingShiftAt(engine.getScore(), 1, frac(2, 1)), 'now the third is displaced').toBe(12)
+      expect(soundingShiftAt(engine.getScore(), 1, frac(0, 1)), 'and the first is not').toBe(0)
+    })
+
+    it('⭐ a crossing press is ONE undo entry', () => {
+      for (let i = 0; i < 10; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(span().beat).toBe(1)
+      engine.undo()
+      expect(span()).toEqual({ beat: 0, length: 2 })
+      expect(ink()).toBeCloseTo(9)
+    })
+
+    it('walks back too, and stops at the start of the score — the ink carries on', () => {
+      for (let i = 0; i < 10; i++) walkOttavaBody(engine, bracketId, 1)
+      for (let i = 0; i < 10; i++) walkOttavaBody(engine, bracketId, -1)
+      expect(span(), 'back where it began').toEqual({ beat: 0, length: 2 })
+      for (let i = 0; i < 5; i++) walkOttavaBody(engine, bracketId, -1)
+      expect(span().beat, 'never off the front').toBe(0)
+      expect(ink(), '⭐ and the ink is FREE past it').toBeCloseTo(-5)
+    })
+
+    it('⛔ never guesses the staff-space size — no measured staff means no crossing', () => {
+      render([100, 200, 300, 400], null)
+      for (let i = 0; i < 15; i++) walkOttavaBody(engine, bracketId, 1)
+      expect(span()).toEqual({ beat: 0, length: 2 })
     })
   })
 

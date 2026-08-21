@@ -63,7 +63,8 @@ export type OttavaWalkEngine = Pick<MusicEngine,
   | 'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
   | 'moveOttavaStartToSlot' | 'moveOttavaEndToSlot'
   | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'
-  | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'>
+  | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
+  | 'moveOttavaToSlot' | 'nudgeOttava' | 'rebaseOttavaOffset'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step, a
@@ -243,6 +244,71 @@ export function dragOttavaEndpoint(
   const carried = carryMark(port, dx, outward, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
   return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+}
+
+/**
+ * ⭐⭐ **THE WHOLE BRACKET WALKS — the arrows with an ottava selected and NO square armed** (his ask,
+ * 2026-08-21: *"now we have to do the shape key walking (when no endpoint is selected)"*).
+ *
+ * ⭐ **Its stops are the BEGINNING's**, because a bracket moved as one is moved by its beginning: the
+ * extent is an amount of music and travels with it (`ottavaOps.setOttavaAtSlot`). So the far end is
+ * not held — ⛔ the opposite of what either square does, which is exactly the difference between
+ * moving a mark and reshaping it.
+ *
+ * ⭐ **Its ink is BOTH ends at once** (`nudgeOttava`), which is what the arrows have always written
+ * here; the offset it reads back is the START's, since the pair always carry the same number while
+ * the bracket is moved as one.
+ *
+ * ⚠️ **AUDIBLE at the crossing, and only there** — it changes which notes are displaced. Every press
+ * either side of it is ink and changes nothing.
+ *
+ * 🚨 It crosses a system break by the same WRAP as the squares (`./markBreakWrap`), measured from the
+ * beginning's own system.
+ */
+export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number): boolean {
+  if (dx === 0) return false
+  const port = bodyPort(engine, id, bodyWrites(engine, id))
+
+  const wrap = wrapPort(engine, id, 'start')
+  const across = breakCrossing(port, wrap, dx)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) return inkPress(port, dx)
+
+  let moved = false
+  engine.runBatch('Move octave line', () => {
+    moved = across?.arrived
+      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+      : carryMark(port, dx, 0, false, 1).moved
+  })
+  return moved
+}
+
+/** The body's three writes, on the KEYBOARD — each records its own undo entry, and a crossing press
+ *  wraps them in one batch. ⚠️ `nudgeOttava`'s second argument is OUTWARD and stays 0: no walk has a
+ *  vertical, and the bracket's is one shared number anyway. */
+function bodyWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
+  return {
+    reanchor: (target) => engine.moveOttavaToSlot(id, target),
+    nudge: (dx, outward) => engine.nudgeOttava(id, dx, outward),
+    rebase: (dx) => engine.rebaseOttavaOffset(id, dx),
+  }
+}
+
+/** ⭐ **THE BODY'S PORT** — the beginning's stops and geometry, with the whole bracket's writes. */
+function bodyPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): MarkWalkPort {
+  return {
+    label: 'Ottava',
+    nextStop: (direction) => engine.nextOttavaStartSlot(id, direction),
+    stopX: (stop) => edgeX(engine, id, stop as OttavaSlotTarget, 'start'),
+    anchorX: () => {
+      const here = ottavaStartAddress(engine.getScore(), id)
+      return here ? edgeX(engine, id, here, 'start') : null
+    },
+    staffSpacePx: () => ottavaStaffSpacePx(engine.getElementRegistry(), id),
+    offsetX: () => ottavaOffsetOverrideOf(engine.getScore(), id)?.startX ?? 0,
+    reanchor: (stop) => write.reanchor(stop as OttavaSlotTarget),
+    nudge: (dx, dy) => write.nudge(dx, dy),
+    rebase: (dx) => write.rebase(dx),
+  }
 }
 
 /**
