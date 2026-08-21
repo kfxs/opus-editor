@@ -964,6 +964,13 @@ export class ScoreModel {
     return pedalOps.setPedalAtSlot(this.score, id, target)
   }
 
+  /** The same, onto the onset **of the staff `target` names** — the vertical drag's write, the one
+   *  that can hand the pedal to the other foot of a grand staff.
+   *  See {@link pedalOps.setPedalAtStaffSlot}. */
+  setPedalAtStaffSlot(id: string, target: pedalOps.PedalStaffSlotTarget): boolean {
+    return pedalOps.setPedalAtStaffSlot(this.score, id, target)
+  }
+
   /** Nudge one of a pedal's two signs — its ink, not its extent. ⭐ `dy` moves BOTH signs: they share
    *  one baseline. See {@link pedalOps.setPedalEndpointOffset}. */
   setPedalEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {

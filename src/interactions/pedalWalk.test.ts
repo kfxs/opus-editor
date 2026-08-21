@@ -691,6 +691,29 @@ describe('walkPedalEndpoint', () => {
       pedalInk()
       expect(frame(150, 0, 400)!.jumped).toBe(false)
     })
+
+    it('🚨⭐⭐ …and the OTHER FOOT of a grand staff is a landing, not only the next system', () => {
+      // His ask, 2026-08-21, the fourth family in three days. ⭐ The rule never changed:
+      // `markSystemJump` always chose between PAINTED STAVES, and the left hand was in the running
+      // with no candidate on it — so the pedal sailed past it onto the system below.
+      const lower = engine.addStaffBelow(0)
+      const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+      // ONE system, two staves: 40…80 and 160…200. The pedal's ink is at 125, 45 below its own
+      // staff, so its twin under the left hand is 245 and the switch falls at 185.
+      drawn.secondStaffDrop = 120
+      left.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 170, width: 10, height: 10 },
+      }))
+
+      expect(frame(150, 0, 50)!.jumped, 'still its own room').toBe(false)
+      expect(frame(150, 0, 70)!.jumped).toBe(true)
+      // ⭐⭐ The LANDING NAMES A STAFF — and on this family that is more than placement: a pedal
+      // governs the staff it is filed under, so moving it moves what it damps.
+      expect(engine.getPedalById(pedalId)?.staffId, 'the left hand’s damper now').toBe(lower)
+      expect(pedalMeasure(), 'the same system — it did not sail past').toBe(1)
+      expect(span().length, 'the span is an amount of MUSIC and rides along').toBe(2)
+    })
   })
 
   describe('what it declines', () => {

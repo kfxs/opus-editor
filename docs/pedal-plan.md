@@ -951,3 +951,41 @@ about it is fixed yet.
   further frame presented a bigger delta at the same wall. `pedalEndpointStepAllowed` now answers per
   AXIS. ⚠️ The bracket's `ottavaEndpointOffsetAllowed` still answers for both at once — same fault,
   not yet fixed there.
+
+## ✅⭐⭐ THE OTHER FOOT OF A GRAND STAFF IS A LANDING (2026-08-21, BUILT)
+
+His ask, the fourth family in three days (the dynamic, the wedge, the trill, and now this). Same
+report, same cause: `markSystemJump.systemStopFor` has always chosen between **painted staves**, so
+the left hand was in the running and simply had no candidate on it — the pedal won the vertical
+question there, lost the horizontal one for want of anything to anchor to, and carried on to the
+system below.
+
+- `pedalLane.pedalStaffLaneOnsets` — every onset of **every** painted staff, each naming its staff.
+  `pedalSystemSlotFor` hands the shared rule this instead of the pedal's own lane. ⛔ The sideways
+  walk is untouched and stays in its lane.
+- `pedalOps.setPedalAtStaffSlot` — `setPedalAtSlot` plus the `staffId`, looking the landing onset up
+  on the TARGET staff (`staffOnsets` with that id), because that staff is not the pedal's yet.
+  `MusicEngine.previewPedalStaffSlot` is its own method: `previewPedalSlot` is also the PRESS's walk,
+  which travels sideways inside one lane and has no staff to say.
+
+### ⭐⭐ Here the staff is more than placement — it is WHOSE FOOT
+
+A pedal governs the staff it is filed under (`utils/pedalScope`), so moving it to the left hand moves
+**what it damps**, not only where the signs are drawn. That is exactly what a user dragging it there
+is saying, and it is the one thing that makes this family's landing different from the wedge's — the
+wedge keeps a voice scope it must not touch, and a pedal has no voice half at all: one damper, one
+foot.
+
+### Settled decisions (the wedge's, verbatim)
+
+- ⚠️ **The LENGTH rides along**, so this is the body's move and not a resize; a span running past what
+  the target staff carries is clamped where it is READ (`pedalSpan`), never in the write.
+- ⚠️ The first staff is stored ABSENT whichever spelling reaches the op, and a frame that changes
+  neither staff nor address is refused.
+- 🚨 **A candidate's band is its STAFF's, not its notehead's** — `PedalLaneOnset.y` is now the middle
+  of the staff the onset was drawn on. A head on ledger lines can sit nearer the neighbouring staff's
+  band than its own: harmless with one staff's candidates, wrong with two.
+
+### ⏭️ Still owed
+
+The OTTAVA is the last of the five.

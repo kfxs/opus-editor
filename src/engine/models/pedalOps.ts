@@ -502,6 +502,60 @@ export function setPedalAtSlot(score: Score, id: string, target: PedalSlotTarget
   return true
 }
 
+/** A lane onset named by its address **and by the staff it stands on** — what a VERTICAL drag lands
+ *  on, where {@link PedalSlotTarget} is what a sideways one lands on. `HairpinStaffSlotTarget`'s
+ *  twin, arriving for the same report. */
+export interface PedalStaffSlotTarget extends PedalSlotTarget {
+  /** ⚠️ A real answer, not an omission: absent IS the first staff, the write convention this model
+   *  keeps everywhere (`MusicEngine.staffIdForIndex`). ⛔ Never "keep the staff it is on". */
+  staffId: string | undefined
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE PEDAL TO ANOTHER STAFF'S ONSET** — {@link setPedalAtSlot} plus the one field
+ * that was never movable, his ask 2026-08-21 (the dynamic's, the wedge's and the trill's before it).
+ *
+ * ⭐ **A staff is part of where a mark STANDS**, so this is the same kind of write as the address
+ * change beside it — the whole difference is which lane the landing onset is looked for in
+ * ({@link staffOnsets} with the TARGET's id), because that staff is not the pedal's yet.
+ *
+ * ⭐⭐ **And on this family the staff is more than placement: it is WHOSE FOOT.** A pedal governs the
+ * staff it is filed under (`utils/pedalScope`), so moving it to the left hand moves what it damps —
+ * which is exactly what a user dragging it there is saying. ⛔ There is no voice half to leave alone:
+ * one damper, one foot.
+ *
+ * ⚠️ **The LENGTH rides along**, so this is the body's move and not a resize; a span running past
+ * what the target staff carries is clamped where it is READ ({@link pedalSpan}), never here.
+ *
+ * ⚠️ The first staff is stored ABSENT whichever spelling the caller passed ({@link movePedalToMeasure}'s
+ * emptied-array rule: two spellings of one state is the bug).
+ *
+ * ⚠️ Declines (false) for an unknown id, for an address that is not an onset of the TARGET staff, and
+ * when nothing would change — same staff AND same address, which a drag frame asks on every move.
+ */
+export function setPedalAtStaffSlot(score: Score, id: string, target: PedalStaffSlotTarget): boolean {
+  const pedal = getPedalById(score, id)
+  const here = pedalMeasure(score, id)
+  if (!pedal || !here) return false
+
+  const staffMoves = !matchesStaff(pedal.staffId, target.staffId, score)
+  const sameAddress = here.number === target.measure && fracCompare(pedal.beat, target.beat) === 0
+  if (!staffMoves && sameAddress) return false
+
+  const lane = staffOnsets(score, target.staffId, measureStarts(score.measures))
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+
+  if (slot.measure !== here.number && !movePedalToMeasure(score, pedal, slot.measure)) return false
+  pedal.beat = slot.beat
+  if (staffMoves) {
+    if (matchesStaff(target.staffId, undefined, score)) delete pedal.staffId
+    else pedal.staffId = target.staffId
+  }
+  pedalMeasure(score, id)?.pedals?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
 /** Re-file a pedal under a different measure, keeping the SAME object (and so the same id, which is
  *  what the selection holds). `ottavaOps`' twin, including the ⭐ `delete` of an emptied array — an
  *  absent `pedals` and an empty one must not both be reachable, or the JSON round trip has two

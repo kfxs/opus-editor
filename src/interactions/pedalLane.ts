@@ -29,12 +29,13 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import type { PedalLiftTarget, PedalSlotTarget } from '../engine/models/pedalOps'
+import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from '../engine/models/pedalOps'
 import { pedalSpan } from '../engine/models/pedalOps'
 import { PEDAL_BARLINE_AIR } from '../engine/rendering/pedalStyle'
 import { onsetXOf } from '../engine/layout/measureRestOnset'
 import type { Pedal, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
+import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 import { systemStopFor } from './markSystemJump'
@@ -48,8 +49,22 @@ export type PedalLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry
  *  stands), a y to tell systems apart, and the address. */
 export interface PedalLaneOnset {
   left: number
+  /**
+   * ⚠️ The middle of the STAFF this onset was drawn on — ⛔ NOT the notehead's own centre, which is
+   * the only thing the reader wants it for: `markSystemJump` asks which painted staff a candidate
+   * belongs to, and a head on ledger lines can sit nearer the neighbouring staff's band than its
+   * own. `dynamicLane`'s rule, one family on. Falls back to the ink's centre when that bar drew no
+   * geometry.
+   */
   y: number
   target: PedalSlotTarget
+}
+
+/** The same, on a staff that may not be the pedal's — what a VERTICAL drag chooses between, where a
+ *  sideways walk only ever sees one staff's. */
+export interface PedalStaffLaneOnset extends PedalLaneOnset {
+  staff: number
+  target: PedalStaffSlotTarget
 }
 
 /**
@@ -61,29 +76,61 @@ export interface PedalLaneOnset {
  */
 export function pedalLaneOnsets(engine: PedalLaneEngine, pedal: Pedal): PedalLaneOnset[] {
   const staff = staffIndexOf(engine.getScore(), pedal.staffId)
-  const onsets: PedalLaneOnset[] = []
+  return drawnOnsets(engine).filter(o => o.staff === staff)
+}
+
+/**
+ * ⭐⭐ **EVERY ONSET OF EVERY PAINTED STAFF** — the candidates a VERTICAL drag chooses between, his
+ * ask 2026-08-21, the fourth family in three days to want it.
+ *
+ * ⛔ Nothing here widens the WALK. Sideways the pedal stays in its lane ({@link pedalLaneOnsets}),
+ * because a lane is what "the next onset" is counted along; the vertical is the axis on which a
+ * staff is a place, and `markSystemJump` was always choosing between painted staves — it simply
+ * never had a candidate on any but the pedal's own.
+ */
+export function pedalStaffLaneOnsets(engine: PedalLaneEngine): PedalStaffLaneOnset[] {
+  return drawnOnsets(engine)
+}
+
+/**
+ * One onset per (staff, address) in the last render.
+ *
+ * ⚠️ The merge is keyed on the STAFF as well as the address — two staves striking beat 0 of bar 3 are
+ * two places, and collapsing them would leave the lower one unreachable. It merges what it is meant
+ * to: a chord's heads (and a displaced second) at one onset of one staff, keeping the LEFTMOST edge,
+ * which is the edge a sign is drawn against.
+ */
+function drawnOnsets(engine: PedalLaneEngine): PedalStaffLaneOnset[] {
+  const score = engine.getScore()
+  const onsets: PedalStaffLaneOnset[] = []
   const registry = engine.getElementRegistry()
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)
     if (!note) continue
     // ⛔ No voice filter — one damper serves the staff.
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
+    const staff = staffOf(note)
+    const geometry = registry.getStaffGeometry?.(note.measure, staff)
     // ⭐⭐ A MEASURE REST IS DRAWN CENTRED, so its glyph is not where its time is
     // (`engine/layout/measureRestOnset`, and his *"the pedal … shrinks"* that found it). ⚠️ The rule
     // is asked HERE as well as in `PedalRenderer.spanX` because the two must agree: the walk prices
     // its gaps where the ink lands, and a lane that answered the glyph while the drawing answered the
     // bar would make every crossing jump.
-    const left = onsetXOf(
-      el.bbox.x, note.isMeasureRest,
-      registry.getStaffGeometry?.(note.measure, staff)?.noteStartX)
-    const seen = onsets.find(o => sameAddress(o.target, target))
+    const left = onsetXOf(el.bbox.x, note.isMeasureRest, geometry?.noteStartX)
+    const seen = onsets.find(o => o.staff === staff && sameAddress(o.target, { measure: note.measure, beat: note.beat }))
     if (seen) {
       seen.left = Math.min(seen.left, left)
       continue
     }
-    onsets.push({ left, y: el.bbox.y + el.bbox.height / 2, target })
+    const lines = geometry?.lineYPositions
+    onsets.push({
+      left,
+      y: lines ? (lines[0] + lines[lines.length - 1]) / 2 : el.bbox.y + el.bbox.height / 2,
+      staff,
+      // ⚠️ The WRITE convention, resolved here and not in the model: the first staff is stored
+      // ABSENT (`MusicEngine.staffIdForIndex`).
+      target: { measure: note.measure, beat: note.beat, staffId: keyStaffId(score, staff) },
+    })
   }
   return onsets
 }
@@ -198,6 +245,12 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
  * ⭐ **A pedal is ALWAYS below its staff** (`PedalRenderer` §3), so `above` is a constant here where
  * the bracket has to ask its `shift` — and `liftPx` needs no conversion, the stored `y` being
  * screen-signed already.
+ *
+ * ⭐⭐ **The candidates are EVERY PAINTED STAFF's** (his ask, 2026-08-21) — the shared rule always
+ * chose between painted staves and the other foot of a grand staff was in the running with no
+ * candidate on it, which is why the pedal used to sail past it onto the next system. ⭐ A landing
+ * therefore NAMES a staff, and `pedalOps.setPedalAtStaffSlot` writes it — which on this family is
+ * more than placement: a pedal governs the staff it is filed under, so moving it moves what it damps.
  */
 export function pedalSystemSlotFor(
   engine: PedalLaneEngine,
@@ -206,12 +259,15 @@ export function pedalSystemSlotFor(
   /** Where the pedal's ink will be after this frame — its drawn y plus the frame's `dy`. */
   inkY: number,
   staffSpacePx: number,
-): PedalSlotTarget | null {
-  const lane = pedalLaneOnsets(engine, pedal)
+): PedalStaffSlotTarget | null {
+  const lane = pedalStaffLaneOnsets(engine)
+  const staff = staffIndexOf(engine.getScore(), pedal.staffId)
   const here = pedalPressAddress(engine.getScore(), pedal.id)
-  const anchor = here && lane.find(o => sameAddress(o.target, here))
+  // ⚠️ The pedal's OWN onset, so on its own staff: `markSystemJump` measures its natural distance
+  // from the staff it hangs off, and a same-address onset on the other staff would name the wrong one.
+  const anchor = here && lane.find(o => o.staff === staff && sameAddress(o.target, here))
 
-  return systemStopFor<PedalSlotTarget>({
+  return systemStopFor<PedalStaffSlotTarget>({
     bands: () => engine.getElementRegistry().staffBands(),
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),

@@ -19,7 +19,8 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addPedal, removePedal, updatePedal, setPedalLength, getPedalById, pedalMeasure, measurePedals,
   pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot, movePedalStartBySlot,
-  setPedalStartAtSlot, setPedalLiftAt, setPedalAtSlot, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
+  setPedalStartAtSlot, setPedalLiftAt, setPedalAtSlot, setPedalAtStaffSlot, setPedalEndpointOffset,
+  setPedalOffset, resetPedalOffset,
   resetPedalEndpointOffset,
 } from './pedalOps'
 import { setEngravingOverride } from './overrideOps'
@@ -661,5 +662,63 @@ describe('pedalOps — the ink offsets', () => {
     expect(setPedalEndpointOffset(score, 'nope', 'start', 1, 1)).toBe(false)
     expect(setPedalOffset(score, 'nope', 1, 1)).toBe(false)
     expect(resetPedalOffset(score, 'nope')).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ {@link setPedalAtStaffSlot} — **the pedal lands on ANOTHER STAFF**, his ask 2026-08-21, the
+ * fourth family in three days (`dynamicOps.setDynamicAtStaffSlot`, `hairpinOps.setHairpinAtStaffSlot`,
+ * and the trill, which needed none).
+ *
+ * ⭐ On this family the staff is more than placement: a pedal GOVERNS the staff it is filed under
+ * (`utils/pedalScope`), so moving it moves what it damps — which is what dragging it there says.
+ */
+describe('setPedalAtStaffSlot — a staff is a place, and a foot', () => {
+  let model: ScoreModel
+  let score: Score
+  let id: string
+  let lower: string
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    lower = model.addStaffBelow(0)
+    score = model.getScore()
+    // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one (a half note covers 0..1 there).
+    for (const b of [0, 1]) {
+      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+    }
+    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    id = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!.id
+  })
+
+  const mark = () => getPedalById(score, id)!
+
+  it('⭐⭐ hands the pedal to the other staff, at the SAME address, KEEPING its span', () => {
+    expect(setPedalAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(true)
+    expect(mark().staffId).toBe(lower)
+    expect(fracToNumber(mark().length), 'the span is an amount of MUSIC').toBe(2)
+  })
+
+  it('⭐ …and back, storing the FIRST staff as an ABSENT id — one spelling, not two', () => {
+    setPedalAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: lower })
+    expect(setPedalAtStaffSlot(score, id, {
+      measure: 1, beat: frac(0, 1), staffId: score.staves![0].id,
+    })).toBe(true)
+    expect('staffId' in mark()).toBe(false)
+    expect(JSON.parse(model.toJSON()).measures[0].pedals[0]).not.toHaveProperty('staffId')
+  })
+
+  it('⭐ the landing onset is looked for on the TARGET staff, not the one it is leaving', () => {
+    // Beat 1 is an onset on the top staff and NOT on the lower one.
+    expect(setPedalAtStaffSlot(score, id, { measure: 1, beat: frac(1, 1), staffId: lower })).toBe(false)
+    expect('staffId' in mark()).toBe(false)
+  })
+
+  it('⛔ declines when neither the staff nor the address would change — a drag frame asks this', () => {
+    expect(setPedalAtStaffSlot(score, id, { measure: 1, beat: frac(0, 1), staffId: undefined })).toBe(false)
+  })
+
+  it('⛔ declines for an id no longer in the score', () => {
+    expect(setPedalAtStaffSlot(score, 'ghost', { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(false)
   })
 })

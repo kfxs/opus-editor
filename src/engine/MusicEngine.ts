@@ -6,7 +6,7 @@ import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffS
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
-import type { PedalLiftTarget, PedalSlotTarget } from './models/pedalOps'
+import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './models/pedalOps'
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
@@ -1987,6 +1987,19 @@ export class MusicEngine {
   previewPedalSlot(id: string, target: PedalSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitPedalOffsetDrag
     return this.scoreModel.setPedalAtSlot(id, target)
+  }
+
+  /**
+   * ⭐⭐ **…and onto ANOTHER STAFF's onset** — the VERTICAL half of the same drag (his ask,
+   * 2026-08-21). The staff below is a place a dragged pedal can land, not only the system below:
+   * `pedalOps.setPedalAtStaffSlot`, the wedge's `previewHairpinStaffSlot` one family on.
+   *
+   * ⚠️ Its own method rather than a wider `target` on {@link previewPedalSlot}: that one is also the
+   * PRESS's walk, which travels sideways inside one lane and has no staff to say.
+   */
+  previewPedalStaffSlot(id: string, target: PedalStaffSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitPedalOffsetDrag
+    return this.scoreModel.setPedalAtStaffSlot(id, target)
   }
 
   /**

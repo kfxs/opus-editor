@@ -68,7 +68,7 @@ export type PedalWalkEngine = Pick<MusicEngine,
   | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
   | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
   | 'movePedalToSlot' | 'nudgePedal' | 'rebasePedalOffset'
-  | 'previewPedalSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
+  | 'previewPedalSlot' | 'previewPedalStaffSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -359,7 +359,7 @@ export function dragPedalBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
-  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+  if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
 
   const dx = dxPx / staffSpacePx
   const dy = dyPx / staffSpacePx
@@ -368,14 +368,19 @@ export function dragPedalBody(
 }
 
 /**
- * ⭐⭐ **LEAVING THE PEDAL'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * ⭐⭐ **LEAVING THE PEDAL'S OWN STAFF** — the half of a drag the walk cannot do
  * (`./markSystemJump`, shared with the dynamic, the tempo mark, the wedge and the bracket).
+ *
+ * ⭐⭐ **The staff below counts, not only the system below** (his ask, 2026-08-21, the fourth family
+ * to get it). On a grand staff a pedal dragged down belongs to the LEFT HAND, so the landing writes
+ * the pedal's `staffId` as well as its address (`pedalOps.setPedalAtStaffSlot`) — and here that is
+ * more than placement: a pedal governs the staff it is filed under, so moving it moves what it damps.
  *
  * ⭐ The lift comes back out first — left in, the pedal's "home" follows it down for ever and the
  * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
  * the offset go: over there the old x means nothing, and the y was never a lift.
  */
-function jumpSystems(
+function jumpStaves(
   engine: PedalWalkEngine,
   id: string,
   cursorX: number,
@@ -387,13 +392,13 @@ function jumpSystems(
   if (!pedal || inkY === null) return false
 
   const target = pedalSystemSlotFor(engine, pedal, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewPedalSlot(id, target)) return false
+  if (!target || !engine.previewPedalStaffSlot(id, target)) return false
 
   const offset = pedalOffsetOverrideOf(engine.getScore(), id)
   if (offset?.startX || offset?.y) {
     engine.previewPedalOffset(id, -(offset.startX ?? 0), -(offset.y ?? 0))
   }
-  dbg(`[Pedal] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
+  dbg(`[Pedal] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
   return true
 }
 
