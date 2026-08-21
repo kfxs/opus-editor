@@ -28,6 +28,7 @@ import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
+import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
  *  renderer. `hairpinLane.HairpinLaneEngine`'s twin. */
@@ -117,35 +118,19 @@ export function ottavaStaffSpacePx(registry: ElementRegistry, ottavaId: string):
 }
 
 /**
- * ⭐ **THE DRAWN EXTENT OF THE SYSTEM an address was drawn on** — its line's first `noteStartX` and
- * last `noteEndX`, in pixels, plus the `top` that NAMES the row. `hairpinLane`'s twin, and the
- * bracket's PORT into the shared break wrap (`./markBreakWrap`).
- *
- * ⭐ `top` is the staff's own top line: every bar of one system shares it and bars on other systems
- * do not, so a caller can ask *"are these two addresses on one ruler?"* without comparing x's — a
- * question x's cannot answer (a later line's x may be larger, smaller or equal).
+ * ⭐ **THE DRAWN EXTENT OF THE SYSTEM an address was drawn on** — the bracket's PORT into the shared
+ * break wrap (`./markBreakWrap`), which owns the measuring and the naming ({@link systemInkAt}).
+ * What is ottava-specific is only WHICH STAFF to ask about.
  *
  * @returns null when that bar was not drawn.
  */
 export function ottavaSystemInkLimit(
   engine: OttavaLaneEngine,
   ottava: Ottava,
-  at: OttavaSlotTarget,
-): { min: number; max: number; top: number } | null {
-  const registry = engine.getElementRegistry()
+  at: { measure: number },
+): SystemInk | null {
   const staff = staffIndexOf(engine.getScore(), ottava.staffId)
-  const home = registry.getStaffGeometry(at.measure, staff)
-  if (!home) return null
-
-  let min = home.noteStartX
-  let max = home.noteEndX
-  for (const measure of engine.getScore().measures ?? []) {
-    const geometry = registry.getStaffGeometry(measure.number, staff)
-    if (!geometry || geometry.lineYPositions[0] !== home.lineYPositions[0]) continue
-    min = Math.min(min, geometry.noteStartX)
-    max = Math.max(max, geometry.noteEndX)
-  }
-  return { min, max, top: home.lineYPositions[0] }
+  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
 }
 
 /** Two lane addresses naming the same onset. ⛔ Never `===` on the beat — it is a Fraction. */

@@ -256,25 +256,92 @@ export function addPedalOverNotes(
  * refused, because a gesture that destroys the thing it is shortening is a trap.
  */
 export function resizePedalBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const target = nextPedalLift(score, id, direction)
+  return target ? setPedalLiftAt(score, id, target) : false
+}
+
+/**
+ * ⭐⭐ **WHERE THE FOOT WOULD COME UP after one step, WITHOUT stepping** — a pure read, split out of
+ * {@link resizePedalBySlot} on 2026-08-21 when the END square asked for the interpolating walk
+ * (`interactions/pedalWalk`).
+ *
+ * ⭐ **It is the candidate rule itself, so the two keys cannot disagree.** `Ctrl+Shift+←/→` jumps a
+ * whole slot and the plain arrow walks the ink onto one; asking twice would let them land the lift
+ * at different moments depending on how far the `✻` had been nudged. {@link nextOttavaEndSlot} is
+ * the same split, one lane over.
+ *
+ * ⭐⭐ **What it names is a LIFT — a moment in TIME, ⛔ not a covered slot.** That is the pedal's
+ * third end rule (see {@link setPedalEndAtSlot}) surfacing once more: the bracket's `nextOttavaEndSlot`
+ * answers *"which notehead does the hook close around"*, and there is no such note here. Growing
+ * reaches THROUGH the next slot, so the lift lands on that slot's end — usually the following onset,
+ * and at the end of a bar the BARLINE, which is an address no onset names.
+ *
+ * Growing reaches through the next slot beginning at or after today's lift; shrinking drops the last
+ * slot the pedal holds, so that slot's own onset becomes the lift. @returns null at either end of the
+ * road — nothing further on the staff to reach, or nothing left to give up (⛔ never a pedal holding
+ * no music, {@link resizePedalBySlot}'s own refusal).
+ */
+export function nextPedalLift(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): PedalLiftTarget | null {
   const placed = locate(score, id)
-  if (!placed) return false
-  const { startAbs, endAbs, lane } = placed
+  if (!placed) return null
+  const { pedal, startMeasure, startAbs, endAbs, lane } = placed
 
   let nextLift: Fraction
   if (direction === 1) {
     // Reach through the next slot beginning at or after the current lift.
     const next = lane.find(s => fracCompare(s.abs, endAbs) >= 0)
-    if (!next) return false // nothing further on this staff — the pedal already holds to the end
+    if (!next) return null // nothing further on this staff — the pedal already holds to the end
     nextLift = fracAdd(next.abs, next.length)
   } else {
     // Drop the LAST slot the pedal holds: its onset becomes the new lift.
     const held = lane.filter(s => fracCompare(s.abs, startAbs) >= 0 && fracCompare(s.abs, endAbs) < 0)
     const last = held[held.length - 1]
-    if (!last) return false
+    if (!last) return null
     nextLift = last.abs
   }
 
-  return setPedalLength(score, id, fracSub(nextLift, startAbs))
+  const held = fracSub(nextLift, startAbs)
+  // ⛔ Never a pedal over no music — the road stops one slot before the press, and the walk reads
+  // that as the end of it rather than as a refusal to keep pressing.
+  if (!fracIsPositive(held)) return null
+  return liftAddress(score, startMeasure, fracAdd(pedal.beat, held))
+}
+
+/**
+ * ⭐ **WHERE THE `✻` STANDS TODAY**, as an address — the far side of every gap the END's walk
+ * measures. It is {@link pedalSpan}'s end, named on its own because that is the whole of what the
+ * walk needs and a span is two addresses.
+ *
+ * ⚠️ Its `beat` MAY EQUAL the measure's capacity, which for a pedal is the COMMON case rather than
+ * an edge one ({@link PedalSpan.endBeat}): Gould's rule puts the release at or inside the barline.
+ */
+export function pedalLiftSlot(score: Score, id: string): PedalLiftTarget | null {
+  const span = pedalSpan(score, id)
+  return span ? { measure: span.endMeasure, beat: span.endBeat } : null
+}
+
+/**
+ * ⭐ **PUT THE LIFT AT `target`, holding the press** — the walk's crossing write at the END square,
+ * and what {@link resizePedalBySlot} now steps with.
+ *
+ * ⚠️ **It takes a LIFT address, ⛔ not an onset** ({@link setPedalEndAtSlot} takes the onset and a
+ * bit saying which side of it), so a `beat` equal to the bar's capacity is not merely legal here but
+ * ordinary: it is the release standing at the barline. Nothing is looked up in the lane for that
+ * reason — a moment in time needs no note under it.
+ *
+ * Declines when the measure does not exist, when no such pedal does, or when the pedal would hold no
+ * music ({@link setPedalLength}'s refusal, ⛔ never a delete).
+ */
+export function setPedalLiftAt(score: Score, id: string, target: PedalLiftTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const base = measureStarts(score.measures).get(target.measure)
+  if (base === undefined) return false
+  return setPedalLength(score, id, fracSub(fracAdd(base, target.beat), placed.startAbs))
 }
 
 /**
@@ -300,22 +367,38 @@ export function resizePedalBySlot(score: Score, id: string, direction: 1 | -1): 
  *
  * ⚠️ **The MODEL, not an override**, like everything else about a pedal's extent: this is audible.
  *
- * Declines (false) when there is no slot to step to, when the press would reach the lift, or when no
- * such pedal exists. ⛔ Never deletes — shrinking to nothing is refused rather than removing the
- * pedal, {@link resizePedalBySlot}'s rule.
+ * Declines (false) when there is no slot to step to, or when no such pedal exists. ⛔ Never deletes,
+ * and ⭐ **never refuses for reaching its own lift — it PUSHES it** ({@link setPedalStartAtSlot}).
  */
 export function movePedalStartBySlot(score: Score, id: string, direction: 1 | -1): boolean {
+  const next = nextPedalStartSlot(score, id, direction)
+  return next ? setPedalStartAtSlot(score, id, next) : false
+}
+
+/**
+ * ⭐ **WHERE THE PRESS WOULD LAND after one step, WITHOUT stepping** — {@link nextPedalLift}'s twin
+ * at the other square, split out for the same reason: the walk and the whole-slot jump must ask ONE
+ * question about where a square may stand.
+ *
+ * @returns null at either end of the lane. ⚠️ It does NOT check that the press stays behind the lift
+ *   — {@link setPedalStartAtSlot} owns what happens when they meet, and what happens is that the
+ *   lift moves.
+ */
+export function nextPedalStartSlot(
+  score: Score,
+  id: string,
+  direction: 1 | -1,
+): PedalSlotTarget | null {
   const placed = locate(score, id)
-  if (!placed) return false
+  if (!placed) return null
   const { startAbs, lane } = placed
 
   const next = direction === -1
     // Reach BACK: the last onset before the current press.
     ? [...lane].reverse().find(s => fracCompare(s.abs, startAbs) < 0)
-    // Step IN: the first onset after it. Reaching the lift is refused inside the write below.
+    // Step IN: the first onset after it.
     : lane.find(s => fracCompare(s.abs, startAbs) > 0)
-  if (!next) return false
-  return setPedalStartAtSlot(score, id, next)
+  return next ? { measure: next.measure, beat: next.beat } : null
 }
 
 /** A lane slot named by its address — what a DRAG hands the ops below, having found it from the
@@ -326,12 +409,24 @@ export interface PedalSlotTarget {
 }
 
 /**
+ * ⭐⭐ **A LIFT — a moment in time, named as an address.** ⛔ NOT a {@link PedalSlotTarget}: no note
+ * need stand there. The two look alike and mean different things, which is exactly why they are two
+ * types — see {@link setPedalEndAtSlot} for the pedal's third end rule, and {@link pedalLiftSlot}.
+ *
+ * ⚠️ `beat` MAY EQUAL its measure's capacity — the release at the barline, the common case.
+ */
+export interface PedalLiftTarget {
+  measure: number
+  beat: Fraction
+}
+
+/**
  * ⭐ **Put the PRESS on `target`, holding the lift** — the drag's half of
  * {@link movePedalStartBySlot}, which now steps by finding a slot and calling this.
  *
  * The two-fields-one-write invariant is kept HERE, which is why the stepping op delegates rather
- * than repeating it. Declines when `target` is not an onset of the pedal's own staff, or when the
- * press would reach the lift.
+ * than repeating it. Declines when `target` is not an onset of the pedal's own staff. ⭐ A press that
+ * reaches or passes the LIFT does not decline — it takes the lift with it, see below.
  */
 export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotTarget): boolean {
   const placed = locate(score, id)
@@ -340,8 +435,21 @@ export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotT
 
   const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
   if (!slot) return false
-  const length = fracSub(endAbs, slot.abs)
-  if (!fracIsPositive(length)) return false
+  const held = fracSub(endAbs, slot.abs)
+  // ⭐⭐ **THE PRESS PUSHES THE LIFT, AND THE LIFT RE-ANCHORS** — his rule, 2026-08-21, given for the
+  // octave bracket and stated about the two anchors rather than about brackets:
+  // *"when the left anchor push the right anchor then the right anchor should reanchor"*.
+  //
+  // 🚨 What it replaces here was a REFUSAL (*"the press may not reach the lift"*), and
+  // {@link setOttavaStartAtSlot} carries the report that killed it: the walk stops at the first stop
+  // the model declines (`interactions/markWalk.carryMark`), so once the press is against the lift
+  // every further press becomes pure ink and the square runs off the page while the pedal stands
+  // still. A stop that can refuse FOREVER is a dead gesture, not a guard rail.
+  //
+  // ⭐ So the two feet never collide: the pedal keeps the ONE slot it is standing on and walks on
+  // from there. ⚠️ AUDIBLE — this is the damper, and a pushed lift shortens the ring. That is the
+  // honest reading of *"put the foot down here"* when here is past where it came up.
+  const length = fracIsPositive(held) ? held : slot.length
 
   // ⭐ Both fields, one step — see {@link movePedalStartBySlot}. The re-file comes first: it can
   // fail, and a pedal left with a beat belonging to a bar it is not stored in would draw somewhere
@@ -635,27 +743,45 @@ export function pedalSpan(score: Score, id: string): PedalSpan | null {
   const pedal = startMeasure?.pedals?.find(p => p.id === id)
   if (!startMeasure || !pedal) return null
 
+  const end = liftAddress(score, startMeasure.number, pedalEndBeat(pedal))
+  if (!end) return null
+  return {
+    startMeasure: startMeasure.number,
+    startBeat: pedal.beat,
+    endMeasure: end.measure,
+    endBeat: end.beat,
+  }
+}
+
+/**
+ * Walk `fromStart` quarter-beats forward from the beginning of `startMeasure` and say which bar that
+ * lands in, and where in it — the arithmetic behind {@link pedalSpan}'s end address, shared with
+ * {@link nextPedalLift} so a lift the walk offers and a lift the renderer draws cannot be spelled
+ * two different ways.
+ *
+ * ⚠️ A lift running past the end of the score is CLAMPED to the last bar's end, the same defence
+ * `restoreBeatAnchors` applies to an over-running offset. @returns null when `startMeasure` is not
+ * in the score.
+ */
+function liftAddress(
+  score: Score,
+  startMeasure: number,
+  fromStart: Fraction,
+): PedalLiftTarget | null {
   const ordered = [...score.measures].sort((a, b) => a.number - b.number)
-  const from = ordered.findIndex(m => m.number === startMeasure.number)
+  const from = ordered.findIndex(m => m.number === startMeasure)
   if (from === -1) return null
 
-  let remaining = pedalEndBeat(pedal)
+  let remaining = fromStart
   for (let i = from; i < ordered.length; i++) {
     const cap = measureCapacityFrac(ordered[i])
     // `<=`, not `<`: a lift landing exactly on the barline belongs to THIS bar's end. Using `<`
     // would push it to beat 0 of the next bar — i.e. sustain one bar too much, and draw the `✻` on
     // the wrong side of the line Gould says it must stay inside of.
-    if (fracCompare(remaining, cap) <= 0) {
-      return { startMeasure: startMeasure.number, startBeat: pedal.beat, endMeasure: ordered[i].number, endBeat: remaining }
-    }
+    if (fracCompare(remaining, cap) <= 0) return { measure: ordered[i].number, beat: remaining }
     remaining = fracSub(remaining, cap)
   }
 
   const last = ordered[ordered.length - 1]
-  return {
-    startMeasure: startMeasure.number,
-    startBeat: pedal.beat,
-    endMeasure: last.number,
-    endBeat: measureCapacityFrac(last),
-  }
+  return { measure: last.number, beat: measureCapacityFrac(last) }
 }

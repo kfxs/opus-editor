@@ -28,6 +28,7 @@ That target moves the problem by two orders of magnitude and changed which fix c
 | P5.4b | A bar that only MOVED is translated, not re-engraved | **done** |
 | P6 | Virtualization, both axes, zoom-aware | **done** — §8 |
 | — | Copy-on-write measures | **not started** — probable end-state, and now the largest cost left |
+| **P7** | **The keystroke tax of a GESTURE** — §12 | **not started**, 2026-08-21. ⚠️ P1–P6 measured a RENDER; a walking mark is 20–60 presses, each a full edit-render-snapshot. 🚨 §12.2 is a **quadratic** id lookup that is invisible at demo size and fatal at orchestral size |
 
 **What is finished: the render count, the layout term, AND the draw — for everything except a
 whole-score reflow.**
@@ -834,3 +835,112 @@ __perf.load(200)     // synthetic 200-bar score (destructive)
 __census.enable()    // record every render, tagged by cause (recovered from the call stack)
 __census.dump()      // renders per cause + the layout:draw split
 ```
+
+---
+
+## 12. P7 — **THE KEYSTROKE TAX OF A GESTURE**, and the id-lookup cliff (2026-08-21)
+
+His question, during the pedal walk: *"why sometimes is so slow and leggy?"* — and then the reason it
+matters: *"I'm worried about performance, and the way we decide to render; if we want to edit
+Turangalîla this will be a huge issue."*
+
+Everything in §0–§8 measured a **render**. This section is about what ONE ARROW PRESS costs, which is
+a different question with a different answer: a walking gesture is 20–60 presses in a row, each one a
+complete edit-render-snapshot cycle. ⚠️ **The accounting below is read off the code, not profiled in
+his session** — the numbers that exist are quoted from §9 / the findings doc, and everything else is
+marked UNMEASURED. P0's instruments (`__perf.load`, `__census`) are how to close that.
+
+### 12.1 What one press pays for, today
+
+| # | cost | when | size | measured? |
+|---|---|---|---|---|
+| 1 | **`UndoRedoManager.pushState` deep-clones the whole score** (`JSON.parse(JSON.stringify(score))`) | **every** press — an ink nudge is `saveOnly`, which still snapshots | O(score) | ✅ §9: **95 ms/edit** on a Mahler movement |
+| 2 | **`renderScore()`** — fingerprint walk over every (measure, staff), casting-off, then the changed bars redraw | **every** press | O(bars × staves) + O(changed bars) | ✅ §0: layout <2 ms ordinary, **101 ms** at 500×25 |
+| 3 | **`playbackEngine.setScore`** on a CROSSING press (`commit`) — stores the reference and re-walks the bars for the total duration | crossings only | O(bars) | ⚠️ UNMEASURED, believed small |
+| 4 | **The lane rebuild** — see §12.2 | several times **per press** | **O(drawn × score)** | ⚠️ UNMEASURED |
+| 5 | dev `console.log` on the hot path — one line + a `JSON.stringify` per press with DevTools open | every press | small but real | fixed 2026-08-21 (`markBreakWrap.sameSystem` logs only on change). ⚠️ `breakCrossing`'s other declines still build `JSON.stringify` templates eagerly — cheap, same path |
+| 6 | **`breakCrossing` added to `dynamicWalk`/`tempoWalk`** (2026-08-21) — those two now run `nextStop`/`anchorX`/`stopX` a second time and two `systemInkAt`s on top of `markWalkCrosses` + `carryMark` | every press | ~2–3× their old per-press cost | ⚠️ UNMEASURED, and a straight regression on gestures that already existed |
+
+⭐ **That table answers his "SOMETIMES".** An ink press pays 1 + 2 + 4; the press that CROSSES pays
+1 + 2 + 3 + 4 and opens a `runBatch`. In his logs a crossing lands every 4–24 presses — which is the
+rhythm of the hitch he felt.
+
+### 12.2 🚨🚨 The id-lookup cliff — the one that decides Turangalîla
+
+`ScoreModel.getNote(id)` → `slotLookup.findSlot` is a **linear scan of every measure and every slot in
+the score**. Nine modules call it once per DRAWN element while building a mark's lane —
+`pedalLane`, `ottavaLane`, `hairpinLane`, `dynamicLane`, `trillLane`, `tempoWalk.drawnOnsets`,
+`slurEndpointWalk`, `elements/pedalHandles`, `MouseController`:
+
+```
+one lane build      = O(drawn notes × all notes)
+one arrow press     ≈ 4–6 lane builds   (anchorX, stopX, breakCrossing, markWalkCrosses, carryMark)
+```
+
+| score | drawn | notes | slot visits per press |
+|---|---:|---:|---:|
+| his 64 bars × 2 staves, mostly whole rests | ~40 | ~130 | ~30 k — fine |
+| Turangalîla, 25 staves × 500+ bars | ~2 000 | ~50 000 | **~600 000 000** |
+
+It is quadratic in the score and it is **not** what P1–P6 fixed: those made the *render* incremental
+and left this untouched, because until the walking gestures arrived nothing called it in a loop.
+⚠️ It is invisible at demo size, which is exactly why it is written down here rather than discovered
+again at orchestral size.
+
+### 12.3 The fixes, in the order they should be taken
+
+| phase | fix | why it is first / later |
+|---|---|---|
+| **P7.1** | **An id → slot INDEX on `ScoreModel`** (`Map<string, FoundSlot>`, rebuilt on the writes that add or remove slots), so `getNote` is O(1) | Kills §12.2 outright, touches one module's internals, and every caller in the app gets it. ⛔ The index must be invalidated by the SAME writes that mutate `measure.slots` — an index that can go stale is worse than a scan. |
+| **P7.2** | **Memoize the lane for the duration of one press** — the walk asks the same question 4–6 times with nothing changing in between | Cheap and local (`interactions/*Lane`), and it stands even after P7.1. ⚠️ **Correction, 2026-08-21**: the sweep is NOT O(drawn) on its own — `pedalLaneOnsets`/`dynamicLaneHeads` de-duplicate with `onsets.find`/`heads.some` INSIDE the loop, so they are **O(drawn²)** independently of §12.2's id lookup. Both terms have to go. |
+| **P7.3** | **An ink nudge must not deep-clone the score.** Either coalesce consecutive nudges of one mark into a single undo entry (they are one gesture), or make the snapshot structural | §9's copy-on-write is the real answer; coalescing is the cheap half and can ship first. A walking gesture currently writes 20–60 undo entries the user thinks of as **one** move. |
+| **P7.4** | **A picture-only change should skip the playback resync.** A crossing IS audible for pedal/ottava, so this is per-mark, not blanket | ⚠️ Measure (3) first — it may already be negligible. |
+| **P7.6** | **A gesture draws only the thing that is moving** — §12.5, his own proposal | Removes the render term from §12.1 (2) for every walk and drag. ⛔ Not a substitute for P7.1/P7.3, which are paid before any drawing. |
+| **P7.5** | Re-check §12.1 (2) for marks that span systems: an offset change on a broken span may invalidate more bars than it should (`MeasureRedrawKey` counts *overrides anchored here*) | UNMEASURED; needs the census on a spanning mark. |
+
+### 12.4 How to measure it (⛔ do this before choosing between P7.3 and P7.4)
+
+1. Open his 64-bar score, `__census.enable()`, arm a pedal square, hold `→` for ~30 presses,
+   `__census.dump()` — that gives renders by cause and bars re-engraved per press.
+2. Chrome profile the same run. The three shapes to look for are named above; the profile decides
+   whether the deep clone or the lane rebuild dominates **at this size**.
+3. Repeat at orchestral size (`__perf.load(200)` and the 500×25 fixture from findings §P0.2) — §12.2
+   predicts the lane rebuild takes over completely, and that prediction is the thing to falsify.
+
+### 12.5 ⭐⭐ HIS PROPOSAL — a gesture draws only the thing that is moving
+
+*"In the case something is walking: why do we have to render the whole score? Why not have a backup
+of the score without the element that is walking and just render that element?"* — 2026-08-21, and
+it is the correct shape. It is also **P3/P4's shape one level up**: the selection and the entry ghost
+already stopped re-rendering the score by moving onto a layer of their own, and a walking mark is the
+same kind of thing — a picture that changes while the music does not.
+
+**The score behind a walking mark does not change.** A pedal's `startX`, an ottava's `endX`, a
+dynamic's `x` take no horizontal space: the columns, the barlines, the casting-off and every other
+bar's `<g>` are bit-identical from press to press. Today all of that is re-derived 20–60 times per
+gesture to move one glyph a quarter of a space.
+
+Two ways to cash it, cheapest first:
+
+- **12.5a — the mark on the OVERLAY for the duration of the gesture** (P4's answer). The score layer
+  is drawn ONCE without the moving mark; each press moves a copy of it on the highlight layer, which
+  is already re-drawn per frame and costs nothing; the drop renders once, properly, and the overlay
+  copy goes. ⭐ No change to the measure groups, and the highlight layer already knows how to draw
+  and remove its own nodes. ⚠️ Needs the renderer to be able to draw a score **minus one mark** — a
+  suppression the dynamic already has (`setSuppressedDynamicId`, for the text editor), which is the
+  proof this is a small change and not a new subsystem.
+- **12.5b — a MARK is an addressable group, like a measure** (P5's answer, generalised). Then a press
+  re-draws that one `<g>` in place and nothing else, with no overlay and no suppression. Bigger, and
+  the honest end-state for drags as well as walks.
+
+⚠️ **Where the approximation shows, and why it is still right.** A mark's position can feed the
+below-staff LADDER (`layout/outsideStaffBand`): move a hairpin and a pedal under it may be entitled
+to move too. A gesture-time preview that redraws only the mark will not restack the ladder — which is
+exactly what a preview is for, and why **the drop must do a full render** (`commitPreviewed`'s
+existing rule). ⛔ The one thing it must never do is leave the cheap picture standing as the final
+one.
+
+⚠️ **And it does not replace P7.1/P7.3.** The deep clone (§12.1 #1) and the quadratic id lookup
+(§12.2) are paid by the WALK itself, before any drawing happens — his *"it is slow on a small score"*
+is mostly those two, since at 64 bars the drawing is already culled to the visible systems (§8).
+Drawing only the moving mark removes the render term; it does not remove the other two.

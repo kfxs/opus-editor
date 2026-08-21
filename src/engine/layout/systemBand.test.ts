@@ -28,32 +28,36 @@ describe('neighbourBandOf', () => {
     expect(band.bottom).toBe(340 + 30) // …and 400 nearest below
   })
 
-  it('🚨 gives a side with NO neighbour the room a neighbour would have — never infinity', () => {
-    // His report, 2026-08-18: the first version made a missing side unbounded, so bar 3 of the TOP
-    // system had no upward limit at all and a drag reached −11 spaces past the new guard. The gap
-    // between the two painted staves here is 160, so the missing side upstairs gets the same 80.
-    const band = neighbourBandOf(staff(100), [staff(300)])
-    expect(band.top).toBe(100 - 80)
-    expect(band.bottom).toBe(140 + 80)
+  /**
+   * ⭐⭐ **A SIDE WITH NO STAFF IS BOUNDED BY THE SHEET** — his rule, 2026-08-21: *"always ask if what
+   * we have above is the beginning of the canvas or a staff, and suppose the same below"*, and
+   * *"if the 8va y is less than the page y then refuse, else go ahead"*.
+   *
+   * 🚨 It used to make up a number there — half the tightest gap elsewhere on the page, or half the
+   * staff's own height when the page held no other staff. On the TOP system that invention is the
+   * only thing between the mark and the paper, and it sits CLOSER to the staff than the above-staff
+   * ladder draws: an `8va` began outside its own limit and could not be lifted at all.
+   */
+  const sheet = { top: -30, bottom: 900 }
+
+  it('🚨 a side with no staff takes the SHEET’s edge — ⛔ never a made-up allowance', () => {
+    const band = neighbourBandOf(staff(100), [staff(300)], sheet)
+    expect(band.top, 'nothing above ⇒ the top of the page').toBe(-30)
+    expect(band.bottom, 'a staff below ⇒ halfway to it, as before').toBe(140 + 80)
   })
 
-  it('takes the TIGHTEST gap on the page as that fallback, not an average', () => {
-    // The limit has to hold where the systems are closest; a generous mean would license ink that
-    // collides there. Gaps here are 60 and 160 → the fallback is half of 60.
-    const band = neighbourBandOf(staff(0), [staff(100), staff(300)])
-    expect(band.top).toBe(0 - 30)
-  })
-
-  it('⛔ …and the staff’s OWN height when the page has no other staff to compare with', () => {
-    const band = neighbourBandOf(staff(100), [])
-    expect(band.top).toBe(100 - 20)
-    expect(band.bottom).toBe(140 + 20)
+  it('⭐ …both sides at once when the staff is alone on the sheet', () => {
+    expect(neighbourBandOf(staff(100), [], sheet)).toEqual({ top: -30, bottom: 900 })
   })
 
   it('⚠️ ignores a band that OVERLAPS mine — halving a negative gap would bind tighter than the staff', () => {
-    // …and having ignored it, that side has no neighbour, so it takes the fallback: the only positive
-    // gap on this page is 300 − 180 = 120, giving 60 of room upstairs.
-    expect(neighbourBandOf(staff(100), [{ top: 120, bottom: 180 }, staff(300)]).top).toBe(100 - 60)
+    // …and having ignored it, that side has no staff, so it takes the sheet's edge.
+    expect(neighbourBandOf(staff(100), [{ top: 120, bottom: 180 }, staff(300)], sheet).top).toBe(-30)
+  })
+
+  it('⛔ unbounded when the caller cannot say what the sheet is — the page limit still composes', () => {
+    // A canvas answers for its TOP only, and `MusicEngine` passes what `pageBoxAt` gives it.
+    expect(neighbourBandOf(staff(100), [])).toEqual({ top: -Infinity, bottom: Infinity })
   })
 
   it('makes no distinction between a piano’s other staff and the next system’s', () => {

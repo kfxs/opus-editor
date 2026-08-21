@@ -1243,3 +1243,66 @@ MuseScore [Octave lines](https://handbook.musescore.org/notation/pitch/octave-li
 Sibelius: [octave lines affect playback only](https://vi-control.net/community/threads/sibelius-7-5-8va-symbol-not-lowering-the-notes-an-octave.48859/) ·
 [SMuFL Octaves range U+E510–E51F](http://smufl.formats.music/latest/tables/octaves.html) ·
 VexFlow 5.0.0 `textbracket.d.ts` + bundle source (read locally)
+
+## ✅🚨🚨 P11 — THE CROSS-SYSTEM WRAP WAS MEASURING THE WRONG SYSTEM (2026-08-21, FIXED)
+
+P10's wrap was hand-confirmed on a single-staff score and then failed on a real one. His report, on a
+TWO-STAFF, sixty-four-bar file: *"cross system doesn't work at all"* — for the bracket, the wedge AND
+the pedal at once, while the trill (which folds its ink instead of wrapping) was fine. His own
+diagnosis was right about the trigger: *"maybe because in this score we have multi staves"*.
+
+### ⛔⛔ A staff's TOP LINE y does not name a system
+
+`ottavaSystemInkLimit` (and its two copies) answered *"where does this system's music end"* by
+unioning the x-extent of **every bar in the score whose staff-0 top line matched**. Every bar of one
+system shares that y — true — but **so does the first system of every page**, and a two-staff score
+fills pages fast. So:
+
+- `here.max` came back with a bar on another sheet. His log wrapped with a gap of **128 staff-spaces**
+  and landed the bracket at **−117**, which is the *"the ottava is jumping and not walking"* he saw.
+- two systems on different pages compared EQUAL, so the press that should have wrapped went on
+  nudging ink — the *"doesn't work at all"* half.
+
+### ⭐⭐ A system is the CONTIGUOUS RUN of bars that share the row
+
+`markBreakWrap.systemInkAt` — ONE function, and the three lanes (`ottavaLane`, `hairpinLane`,
+`pedalLane`) now delegate to it instead of each carrying a copy of the bug. It grows outward from the
+bar asked about while the row matches, and **names the system by the first bar of that run**
+(`SystemInk.key`, replacing `top`). Contiguity is exactly what the y alone cannot say: the bars
+between two same-y systems belong to lines in between, so the walk outward stops at the break.
+⚠️ An undrawn bar ends the run — conservative in the safe direction.
+
+### ⭐ Two more things the same report produced
+
+- **A blocked press still crosses** (`markWalk.crossWithoutArrival`). The wrap's arrival test asks the
+  ink to reach the line's last ink, and the PAGE limit refuses it a space or so before that — a
+  system's music ends within a space of the sheet's margin — so the gesture died exactly where it
+  should have wrapped. Now the press spends itself on the anchor: the wrap where the stop is on
+  another system, the ordinary hand-over where it is on this one.
+- **The one silent decline in `markBreakWrap` says itself** — *"the stop is on THIS system"* with the
+  system's name. It was the only one of six that logged nothing, and *"cross system doesn't work at
+  all"* could not be told apart from a wrap that fired and did nothing. ⚠️ It de-duplicates: it is on
+  the hot path, and a `dbg` is a real `console.log` in dev (see render-performance-plan §12.1).
+
+---
+
+## ✅ The `8va` on the FIRST system can be lifted again (2026-08-21)
+
+His report: *"why am I not able to move the 8va up?"*, on the top system of a two-staff score, with
+`"outward": 1.5714` already stored and every further press refused.
+
+⛔ Not the bracket's own rule — the BAND limit (`layout/systemBand`), which on a side with no staff
+used to invent an allowance instead of asking the page. Measured: ceiling y 40, the bracket's ink
+already at y 27.84, so it began outside its own limit and every step outward "made the overhang
+worse". `ottava.e2e.ts`'s two vertical-nudge cases had been red since that rule arrived.
+
+⭐ The fix and its reasoning live in `docs/slur-endpoint-offset-plan.md` §"The rule
+(`engine/layout/systemBand.ts`)" — one question per side, *staff or the edge of the sheet* — since
+that is the document the band rule belongs to. What is worth recording HERE is why the bracket found
+it: the above-staff ladder draws an `8va` further from the staff than the invented allowance reached,
+so this family hit the wall first and hardest.
+
+🚨 **Still true, and it is a spacing question**: `MIN_SPACING_ABOVE_AT_PAGE_TOP = 0` presses the first
+system against the top margin, so an `8va` there has ~2.8 staff-spaces of lift before it is off the
+paper. Two browser cases (`ladder.e2e.ts` a tempo lift, `slur.e2e.ts` a rigid curve move) ask for more
+than that and are red for that reason — the limit is telling the truth about the air that exists.

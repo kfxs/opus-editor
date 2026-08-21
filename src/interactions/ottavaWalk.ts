@@ -54,7 +54,7 @@ import {
   ottavaEdgeX, ottavaInkY, ottavaStaffSpacePx, ottavaStartAddress, ottavaSystemInkLimit,
   ottavaSystemSlotFor,
 } from './ottavaLane'
-import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
 import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
@@ -147,7 +147,22 @@ export function walkOttavaEndpoint(
   const across = breakCrossing(port, wrap, dx)
   // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
   // per press, and the ordinary nudge records its own single entry.
-  if (!across?.arrived && !markWalkCrosses(port, dx)) return inkPress(port, dx)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) {
+    if (inkPress(port, dx)) return true
+    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
+    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses
+    // it a space or so before that (a system's music ends within a space of the sheet's margin), so
+    // the gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press
+    // spends itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival`
+    // where it is on this one. The identity holds either way — the drawn mark does not move.
+    let handed = false
+    engine.runBatch(which === 'start' ? 'Move octave line start' : 'Resize octave line', () => {
+      handed = across
+        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
   engine.runBatch(which === 'start' ? 'Move octave line start' : 'Resize octave line', () => {
@@ -273,7 +288,22 @@ export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number)
 
   const wrap = wrapPort(engine, id, 'start')
   const across = breakCrossing(port, wrap, dx)
-  if (!across?.arrived && !markWalkCrosses(port, dx)) return inkPress(port, dx)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) {
+    if (inkPress(port, dx)) return true
+    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
+    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses
+    // it a space or so before that (a system's music ends within a space of the sheet's margin), so
+    // the gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press
+    // spends itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival`
+    // where it is on this one. The identity holds either way — the drawn mark does not move.
+    let handed = false
+    engine.runBatch('Move octave line', () => {
+      handed = across
+        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
   engine.runBatch('Move octave line', () => {

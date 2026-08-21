@@ -35,8 +35,8 @@ import {
   hairpinSystemInkLimit, hairpinSystemSlotFor, hairpinTipX,
 } from './hairpinLane'
 import { hairpinStaffSpacePx } from './elements/hairpinHandles'
-import { carryMark, markWalkCrosses, type MarkStop, type MarkWalkPort } from './markWalk'
-import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
+import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkStop, type MarkWalkPort } from './markWalk'
+import { breakCrossing, leaveSystem, type BreakWrapPort, type SystemInk } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -250,7 +250,7 @@ function systemInkLimit(
   engine: HairpinWalkEngine,
   id: string,
   which: 'start' | 'end',
-): { min: number; max: number; top: number } | null {
+): SystemInk | null {
   const hairpin = engine.getHairpinById(id)
   const at = which === 'start'
     ? hairpinStartAddress(engine.getScore(), id)
@@ -288,7 +288,22 @@ export function walkHairpinEndpoint(
   const crosses = markWalkCrosses(port, dx)
   // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
   // per press, and the ordinary nudge records its own single entry.
-  if (!across?.arrived && !crosses) return inkPress(engine, id, which, port, dx, across !== null)
+  if (!across?.arrived && !crosses) {
+    if (inkPress(engine, id, which, port, dx, across !== null)) return true
+    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
+    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses it
+    // a space or so before that (a system's music ends within a space of the sheet's margin), so the
+    // gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press spends
+    // itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival` where
+    // it is on this one. The identity holds either way — the drawn wedge does not move.
+    let handed = false
+    engine.runBatch(which === 'start' ? 'Move hairpin start' : 'Resize hairpin', () => {
+      handed = across
+        ? leaveSystem(port, wrapPort(engine, id, which), across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
   engine.runBatch(which === 'start' ? 'Move hairpin start' : 'Resize hairpin', () => {
@@ -506,7 +521,22 @@ export function walkHairpinBody(engine: HairpinWalkEngine, id: string, dx: numbe
 
   const across = crossingTheBreak(engine, id, 'start', port, dx)
   const crosses = markWalkCrosses(port, dx)
-  if (!across?.arrived && !crosses) return inkPress(engine, id, 'start', port, dx, across !== null)
+  if (!across?.arrived && !crosses) {
+    if (inkPress(engine, id, 'start', port, dx, across !== null)) return true
+    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
+    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses it
+    // a space or so before that (a system's music ends within a space of the sheet's margin), so the
+    // gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press spends
+    // itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival` where
+    // it is on this one. The identity holds either way — the drawn wedge does not move.
+    let handed = false
+    engine.runBatch('Move hairpin', () => {
+      handed = across
+        ? leaveSystem(port, wrapPort(engine, id, 'start'), across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
   engine.runBatch('Move hairpin', () => {

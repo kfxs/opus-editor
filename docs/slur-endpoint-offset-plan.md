@@ -536,11 +536,28 @@ whatever is painted above or below it — derived from the render (`ElementRegis
 deduplicated by extent), not a chosen number. ⭐ It makes no distinction between a piano's other staff
 and the next system's: both are somebody else's room.
 
-🚨 **A side with NO neighbour gets the room a neighbour WOULD have given** — half the TIGHTEST gap
-between any two painted staves — and never infinity. The first version made it unbounded, and that is
-exactly how `y: −11` got past the guard: bar 3 is in the top system. The minimum and not the mean,
-because the limit has to hold where the systems are closest. Last resort, with no second staff on the
-page at all: the staff's own height.
+🚨🚨 **A side with no STAFF is bounded by the SHEET** — his rule, 2026-08-21: *"always ask if what we
+have above is the beginning of the canvas or a staff, and suppose the same below"*, and *"if the 8va y
+is less than the page y then refuse, else go ahead"*. One question per side; a staff ⇒ halfway to it,
+the sheet ⇒ its edge. `MusicEngine.nudgeStaysInBand` passes `pageBoxAt`'s answer in.
+
+⛔ **It used to make up a number there, and that was the bug.** Half the tightest gap elsewhere on the
+page, or half the staff's own height when the page held no other staff. On the TOP system that
+invention is the only thing between a mark and the paper, and it sits CLOSER to the staff than the
+above-staff ladder draws: measured 2026-08-21, the ceiling landed at y 40 with the `8va`'s ink already
+at y 27.84, so the bracket began outside its own limit and **could not be nudged up at all, by any
+amount** — while nudging it toward the staff worked. `ottava.e2e.ts` had been red since the band rule
+arrived, which is what finally found it.
+
+⭐ **The invention existed because the PAGE could not answer.** `y: −11` got past the first,
+unbounded version — not because unbounded was wrong, but because `pageBoxAt` reported *"not paper"* on
+a canvas for all four edges when a canvas has a real one at **y 0**: it grows downward for ever and
+begins there. Fixed in `pageBounds`, where it belongs, so this rule is about NEIGHBOURS again.
+
+⚠️ **What that exposes, and it is a spacing question rather than a limit one**:
+`MIN_SPACING_ABOVE_AT_PAGE_TOP = 0` presses the first system hard against the margin, so marks the
+ladder draws above it (tempo, `8va`, a slur's arch) have only a few pixels before they are off the
+paper. The limit now says so honestly instead of inventing a different number.
 
 Three properties inherited from the page limit, each load-bearing:
 
@@ -616,9 +633,11 @@ slur attaches, a dot only bends it.
 - `SlurRenderer.endpointGuide.test.ts` — from the ink back to the un-nudged point, a vertical-only
   nudge included, and nothing at all for an unmoved end.
 - `systemBand.test.ts` — half the gap on each side; the NEAREST neighbour, not the first or furthest;
-  the no-neighbour fallback and that it is the tightest gap rather than an average; the
-  no-second-staff last resort; an overlapping band ignored; the 66-space step refused; already-outside
-  ink allowed back; no-ink allowed; the vertical judged alone.
+  a side with no staff taking the SHEET's edge (both sides at once when the staff is alone on it); an
+  overlapping band ignored; unbounded when the caller cannot say what the sheet is; the 66-space step
+  refused; already-outside ink allowed back; no-ink allowed; the vertical judged alone.
+- `pageBounds.test.ts` — a canvas has no bottom and no sides but a TOP at y 0, and only that top can
+  refuse a step (with the way back always open).
 - `slurHandlePick.test.ts` — the nearest handle wins whichever family it belongs to, a dead heat goes
   to the square, another slur's handle never answers, nor an entry lacking its gesture's fields.
 - `attachedMarks.test.ts` — a slur offered by the END that touches the note (and both, when one note is

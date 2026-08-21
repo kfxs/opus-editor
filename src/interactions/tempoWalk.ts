@@ -25,7 +25,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Stop } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
-import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { breakCrossing, lastMeasureNumber, leaveSystem, systemInkAt, type BreakWrapPort } from './markBreakWrap'
 import { systemStopFor } from './markSystemJump'
 import { dbg } from '../utils/debug'
 
@@ -33,6 +34,7 @@ import { dbg } from '../utils/debug'
 export type TempoWalkEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextTempoSlot' | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
+  | 'rebaseTempoOffset' | 'previewTempoOffsetRebase'
   | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'>
 
 /** Where the mark is anchored now — its address, read from the list it is stored in (the measure is
@@ -99,6 +101,10 @@ function tempoPort(
   write: {
     reanchor: (id: string, target: Stop) => boolean
     nudge: (id: string, dx: number, dy: number) => boolean
+    /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged
+     *  by the page limit (2026-08-21, with the cross-system wrap). ⚠️ `dx` only: this mark's `y` is
+     *  OUTWARD and no walk touches it. */
+    rebase: (id: string, dx: number) => boolean
   },
 ): MarkWalkPort {
   return {
@@ -117,6 +123,26 @@ function tempoPort(
     offsetX: () => tempoOffsetOverrideOf(engine.getScore(), id)?.x ?? 0,
     reanchor: (stop) => write.reanchor(id, stop as Stop),
     nudge: (dx, dy) => write.nudge(id, dx, dy),
+    rebase: (dx) => write.rebase(id, dx),
+  }
+}
+
+/**
+ * ⭐ **THE MARK'S ANSWERS TO {@link BreakWrapPort}** — where THIS mark's system runs out, and where a
+ * candidate stop's system begins (his ask, 2026-08-21: *"and the tempo cross system"*).
+ *
+ * ⭐⭐ **STAFF 0, and that is this mark's whole difference from its siblings**: a tempo mark has no
+ * staff of its own — it is engraved above the TOP one, which is also the staff
+ * {@link drawnOnsets} prefers and the one `TempoLayout.anchorX` measures against. ⛔ Not the staff
+ * the sounding note happens to be on.
+ */
+function wrapPort(engine: TempoWalkEngine, id: string): BreakWrapPort {
+  const limitOf = (at: Stop | null) =>
+    at ? systemInkAt(engine.getElementRegistry(), 0, at.measure, lastMeasureNumber(engine.getScore())) : null
+  return {
+    here: () => limitOf(tempoAddress(engine, id)),
+    there: (stop) => limitOf(stop as Stop),
+    address: (stop) => stop,
   }
 }
 
@@ -137,13 +163,34 @@ export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): bool
   const port = tempoPort(engine, id, {
     reanchor: (i, target) => engine.moveTempoToSlotKeepingOffset(i, target),
     nudge: (i, ddx, ddy) => engine.nudgeTempoOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.rebaseTempoOffset(i, ddx),
   })
+
+  const wrap = wrapPort(engine, id)
+  const across = breakCrossing(port, wrap, dx)
   // ⛔ No batch when nothing crosses: `runBatch` costs a snapshot per press, and the ordinary nudge
   // records its own single entry.
-  if (!markWalkCrosses(port, dx)) return port.nudge(dx, 0)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) {
+    if (port.nudge(dx, 0)) return true
+    // 🚨 **A BLOCKED PRESS STILL CROSSES** — see `./markWalk.crossWithoutArrival`: the page's edge
+    // can refuse the ink a space short of the line's end, and the wrap's arrival test can then never
+    // be met.
+    let handed = false
+    engine.runBatch('Move tempo mark', () => {
+      handed = across
+        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
-  engine.runBatch('Move tempo mark', () => { moved = carryMark(port, dx).moved })
+  engine.runBatch('Move tempo mark', () => {
+    moved = across?.arrived
+      // ⭐ THE KEYS re-base by the FOLDED distance — `./markBreakWrap`.
+      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+      : carryMark(port, dx).moved
+  })
   return moved
 }
 
@@ -187,6 +234,7 @@ export function dragTempo(
   const port = tempoPort(engine, id, {
     reanchor: (i, target) => engine.previewTempoSlotKeepingOffset(i, target),
     nudge: (i, ddx, ddy) => engine.previewTempoOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.previewTempoOffsetRebase(i, ddx),
   })
   // ⚠️ `dyPx` is screen-down and the model is OUTWARD, so the sign flips exactly here.
   return carryMark(port, dxPx / ss, -dyPx / ss, true).moved

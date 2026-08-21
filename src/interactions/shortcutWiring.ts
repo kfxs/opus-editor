@@ -24,6 +24,7 @@ import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
+import { walkPedalEndpoint } from './pedalWalk'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
@@ -358,12 +359,22 @@ export function wireShortcuts(
    *
    * ⚠️ **And no screen→outward conversion, unlike the ottava's** — this is the whole of what the two
    * families disagree about. A pedal has one side permanently, so `↑` is up wherever it is drawn.
+   *
+   * ⭐⭐ **The horizontal goes through the INTERPOLATING WALK, on EITHER square** (`./pedalWalk`, his
+   * ask 2026-08-21): the same ink nudge, except that reaching the next stop of the lane takes the
+   * FOOT along with it — the wedge's, the trill's and the bracket's gesture, sharing their arithmetic
+   * (`./markWalk`). ⚠️ So this key can end in a MODEL write, which is the crossing and nothing else,
+   * and on a pedal that write is AUDIBLE: it says how long the notes ring. ⭐ Both squares, because
+   * both have a re-anchor AND an offset.
    */
   const nudgeArmedPedalEnd = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const pedal = selectedOf(state, 'pedal')
     if (!eng || !pedal?.endpoint) return false
-    if (!eng.nudgePedalEndpoint(pedal.id, pedal.endpoint, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkPedalEndpoint(eng, pedal.id, pedal.endpoint, dx)
+      : eng.nudgePedalEndpoint(pedal.id, pedal.endpoint, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

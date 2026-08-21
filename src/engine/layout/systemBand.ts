@@ -41,30 +41,6 @@ export interface Band {
 }
 
 /**
- * The smallest gap between any two painted staves — **the room a neighbour would have given**, for a
- * side that has none.
- *
- * 🚨 The first version of this file made a missing side UNBOUNDED, and that was wrong in the way that
- * matters: bar 3 of his score is in the TOP system, so upward had no limit at all and a drag reached
- * `y: −11` straight past the guard that had just been added ("we should never go this way either",
- * 2026-08-18). The first and last systems are not special to a reader — an arc over the top staff
- * looks exactly as wrong as one between two staves — so they get the same allowance as everybody
- * else, taken from the score's own spacing rather than from a number someone chose.
- *
- * ⚠️ The MINIMUM, not the mean: the limit has to hold in the tightest place on the page, and a
- * generous average would license ink that collides where the systems are closest.
- */
-function typicalGap(bands: readonly Band[]): number {
-  const sorted = [...bands].sort((a, b) => a.top - b.top)
-  let smallest = Infinity
-  for (let i = 1; i < sorted.length; i++) {
-    const gap = sorted[i].top - sorted[i - 1].bottom
-    if (gap > 0) smallest = Math.min(smallest, gap)
-  }
-  return smallest
-}
-
-/**
  * How far the ink on `mine` may reach before it is in a neighbour's room: `mine` grown by half the
  * gap to the nearest band clear of it on each side.
  *
@@ -72,25 +48,43 @@ function typicalGap(bands: readonly Band[]): number {
  * staff seen twice (a re-registered geometry) or a genuine overlap the layout already has, and either
  * way halving a negative gap would produce a limit tighter than the staff itself.
  *
- * ⛔ A side with no neighbour falls back to {@link typicalGap}, and — when there is no other staff
- * on the page at all — to the staff's OWN height, which is the only length the render offers when it
- * has nothing to compare with. Never to infinity: see `typicalGap`'s note for what that cost.
+ * ⭐⭐ **A SIDE WITH NO STAFF IS BOUNDED BY THE SHEET, not by a made-up number** — his rule,
+ * 2026-08-21: *"if it is the first system the limit is the top of the page; if not, the limit is
+ * calculated in relation with the system above"*, and again plainly: *"if the 8va y is less than the
+ * page y then refuse, else go ahead"*. It is what this module's header has always said, too.
+ *
+ * 🚨🚨 **It was written that way, then removed, and the removal was the bug.** On 2026-08-18 a drag
+ * reached `y: −11` — above the top of the drawing — and instead of asking why the PAGE limit had not
+ * refused it, a made-up allowance went in here: half the tightest gap on the page, or half the
+ * staff's own height when the page holds no other staff. On the TOP system that number is the only
+ * thing standing between the mark and the paper's edge, and it is far tighter than the edge — which
+ * is how an `8va` on the first system ran out of room while the page above it was still empty.
+ *
+ * ⭐ The real fault was in `./pageBounds`: a canvas answered *"not paper"* on all four edges when it
+ * has a real one at y 0. Fixed there, where it belongs, so this rule is about NEIGHBOURS again and
+ * nothing else — and the two guards compose, exactly as the header describes.
  */
-export function neighbourBandOf(mine: Band, others: readonly Band[]): Band {
-  const fallback = (() => {
-    const typical = typicalGap([mine, ...others])
-    return typical === Infinity ? mine.bottom - mine.top : typical
-  })()
-
+export function neighbourBandOf(
+  mine: Band,
+  others: readonly Band[],
+  /**
+   * ⭐ **The sheet this staff is drawn on** — what is above and below when no STAFF is. Default
+   * unbounded, for a caller that cannot say (and for the pure arithmetic tests).
+   */
+  page: Band = { top: -Infinity, bottom: Infinity },
+): Band {
   let above = Infinity
   let below = Infinity
   for (const other of others) {
     if (other.bottom < mine.top) above = Math.min(above, mine.top - other.bottom)
     else if (other.top > mine.bottom) below = Math.min(below, other.top - mine.bottom)
   }
+  // ⭐⭐ ONE QUESTION PER SIDE — *"always ask if what we have above is the beginning of the canvas or
+  // a staff, and suppose the same below"* (his words, 2026-08-21). A staff ⇒ halfway to it; the
+  // sheet ⇒ its edge.
   return {
-    top: mine.top - (above === Infinity ? fallback : above) / 2,
-    bottom: mine.bottom + (below === Infinity ? fallback : below) / 2,
+    top: above === Infinity ? page.top : mine.top - above / 2,
+    bottom: below === Infinity ? page.bottom : mine.bottom + below / 2,
   }
 }
 

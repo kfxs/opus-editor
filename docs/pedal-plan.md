@@ -732,3 +732,124 @@ Each phase ends green and useful on its own; ⛔ none of them is "and also start
 - [LilyPond `PianoPedalBracket`](https://lilypond.org/doc/v2.25/Documentation/internals/pianopedalbracket)
   (`edge-height '(1.0 . 1.0)` — the hook is one staff space).
 - `vexflow@5.0.0` `build/esm/src/pedalmarking.js` + `glyphs.js` (read at source, 2026-08-14).
+
+---
+
+## ✅⭐⭐ P5 — THE TWO SQUARES, THE INK, AND THE PROPERTIES ROWS (2026-08-18, recorded late)
+
+Built the day after the five phases above and left out of this file until 2026-08-21 — recorded here
+so the plan and the code agree. `interactions/elements/pedalHandles.ts` (geometry, the arming press,
+Tab, the drag target), `pedalOps.movePedalStartBySlot` / `setPedalStartAtSlot` / `setPedalEndAtSlot`
+/ `applyPedalDrag`, `HighlightController.applyPedalHandles`, `PedalOffsetOverride` (`startX`, `endX`
+and ONE shared `y` — Gould p. 333: a pedal and its own release share a baseline), and
+`PedalGeometryController` + the three Properties rows.
+
+- ⭐⭐ **The grain is the GLYPH**, so the two squares come from two different MARKS — `ElementInfo.pedalSign`,
+  ⛔ never "the first entry and the last one" (a `(Ped.)` resumption is registered too).
+- 🚨 `Ctrl+←/→` stopped moving the LIFT that day: an audible model write had been sitting on the
+  chord this editor reserves for nudging ink. It became `Ctrl+Shift+←/→`, gated by the armed square.
+- ⭐⭐ **A third end rule shows up in the drag as an extra address** — `setPedalEndAtSlot(…, after)`:
+  a lift is a moment in TIME, so the last note of a passage can be cut off as it is struck or left
+  ringing.
+
+## ✅⭐⭐ P6 — THE INTERPOLATING WALK on both squares (2026-08-21, BUILT)
+
+His ask: *"lets do the pedal endpoint keyboard walk now"*. The pedal is the sixth family to get the
+gesture, and it arrives by the rule the wedge's second square set: **a handle that has BOTH a
+re-anchor and an offset owes the walk that joins them.** `interactions/pedalWalk.ts` +
+`interactions/pedalLane.ts`, both PORTS — the arithmetic is `markWalk`'s and the cross-system rule is
+`markBreakWrap`'s, ⛔ copied from neither.
+
+### ⭐⭐ The END is a MOMENT, so it needed model ops the family did not have
+
+Every sibling's end is a NOTE (the bracket's hook closes around one, the trill's line ends at a
+duration). A pedal's is a point in time, which is why `pedalOps` gained a **`PedalLiftTarget`** —
+`{measure, beat}` whose beat MAY equal the bar's capacity — and the three ops that speak it:
+`nextPedalLift` (the pure read `resizePedalBySlot` now steps with), `pedalLiftSlot` (where the `✻`
+stands today) and `setPedalLiftAt`. ⭐ Two facts fall out of that and nothing else: growing reaches
+THROUGH a slot rather than onto it, and **a lift can stand on the BARLINE, where no onset is** —
+priced by `pedalLane.pedalLiftX`, which mirrors `PedalRenderer.spanX` (the first column at or after
+the lift, else `noteEndX` less {@link PEDAL_BARLINE_AIR}). ⚠️ Those two must not drift: the walk
+prices its gaps where the INK lands.
+
+### 🚨 THE PRESS PUSHES THE LIFT — the refusal was killing the gesture
+
+`setPedalStartAtSlot` used to refuse when the press reached the lift. That is the octave bracket's
+scar arriving one lane over: the walk stops at the first stop the model declines, so a press parked
+against its own lift turned every further arrow into pure ink and the square walked off the page.
+Now the pedal keeps the ONE slot it is standing on and walks on. ⚠️ Audible — a pushed lift shortens
+the ring — and that is the honest reading of *"put the foot down here"* when here is past where it
+came up.
+
+### 🚨🚨 THE TWO SIGNS MAY NOT PRINT OVER EACH OTHER — and the walk must survive the wall
+
+His rule, with the score attached: *"the right endpoint never should go before the left endpoint"*
+(an `endX` of **−67 staff-spaces**, the `✻` far left of its own `Ped.`). What produced it is worth
+keeping: the pedal covered a bar of whole-bar RESTS, so its lane held ONE onset, the walk had no stop
+to hand the foot to, and free ink with nothing in front of it runs as far as the hand presses.
+
+- The limit is `MusicEngine.pedalSignsStayInOrder` — the two glyphs' **INK**, ⛔ not their anchors: a
+  middle cut measured against the other sign's NOTE and he rejected the picture at once (*"the `✻`
+  overlaps `Ped.`, before was better"*). It refuses the step that makes a crossing WORSE and always
+  allows the one that mends it, so a score already saved crossed is walkable back.
+- 🚨 It also **broke the walk** until the other half landed (*"i'm not able to walk here"*, forty
+  refusals in a row): the ink has to travel a whole gap before the foot can be handed along, so a
+  rule that stops the travel stops the gesture. `markWalk.crossWithoutArrival` is the answer, shared
+  with every family — **a press whose ink is refused steps the ANCHOR instead**, and the offset goes
+  HOME rather than being re-based by the gap (his *"the pedal is jumping inconsistent"*, with a
+  `Ped.` glued to its `✻` and the offset at −57).
+- ⛔ **No BAND rule and no "inside its own bar"** — the ink is FREE (his 2026-08-21 rule for the
+  bracket); the only other stop is the PAGE's edge, judged per MOVING SIGN.
+
+### ✅ The two signs may not print over each other — a FLOOR, ⛔ never a refused write
+
+His observation, 2026-08-21, and it is the whole design: *"the hook of the ottava never crosses the 8,
+so there must be a prevention mechanism that should be applied to the pedal"*.
+
+`OttavaRenderer` puts the end nudge **inside** its floor —
+`Math.max(piece.x1 + nudge.endX, lineStart + OTTAVA_MIN_LINE)` — so the hook cannot cross the numeral
+however far it is pushed, and no write is ever refused. `PedalRenderer` added the same nudge **after**
+its `Math.max`, where it escapes every floor: that is how a `✻` reached an `endX` of −67 staff-spaces
+and printed to the LEFT of its own `Ped.` Moved inside (`PedalRenderer.upX`), and because the first
+floor is measured from `signX`, a press nudged rightward carries the `✻` ahead of it — the pair can
+close up and can never overlap.
+
+🚨🚨 **A write-time rule was tried first and it broke the GESTURE.** `pedalSignsStayInOrder` refused
+the crossing step; a refused ink step then makes every press hand the anchor a WHOLE STOP along
+(`markWalk.crossWithoutArrival`), so the walk went from 1 space per press to **24.28** in one
+keystroke where the bar below held sixteenths — his *"look how the pedal walk accelerates a lot in
+certain spots"*. ⭐ Drawn floors refuse nothing, so the pace never changes; the rule was removed and
+its spec with it. *"The behaviour of the pedal should be similar to the behaviour of the ottava."*
+
+### ✅ …and an offset the drawing would ignore is not written
+
+His report the same day: *"the `✻` goes back a lot and then we have to re-establish this till I can go
+in the other direction"* — `endX` at **−39 staff-spaces** after one held keypress, forty presses owed
+to walk it back. Once the floor binds, a further leftward press moves nothing and stores something.
+
+`MusicEngine.pedalLiftInkWouldMove` asks the floor BEFORE the write: a leftward press on the release
+is refused only when the drawing has no air left to give. ⭐ It refuses a step that makes it worse,
+never one that mends it, so a file already carrying a bad `endX` walks out on the first arrow. ⛔ The
+START needs no such rule — its floor is measured FROM the `Ped.`, so that ink always shows.
+
+⚠️ **The OTTAVA has the same fault, hidden**: `OTTAVA_MIN_LINE` floors its hook the same way, so
+pushing an 8va's end past it stores an offset nobody can see. Not fixed there.
+
+### ✅ The dashed TETHER — a selection hint, not engraving
+
+His ask: *"draw dots line when pedal is selected between Ped. and ✻ so we know which ✻ belongs to
+which"*, then the look: *"discontinuing lines similar to ottava"*, then the air: *"more spaced"*.
+`interactions/elements/pedalTether.ts` — the octave bracket's dash LENGTH with its own wider
+`TETHER_DASH_GAP` (1.0 sp), drawn on the highlight layer while the pedal is selected and gone with it.
+
+- ⭐⭐ One segment per ROW, between NEIGHBOURING signs — ⛔ not "the first and the last": a resumed
+  `(Ped.)` and its release are as much a pair as the original press and its own.
+- ⭐⭐ **A row that carries on to the next system runs its dashes to the line's edge** (his
+  screenshot). 🚨 Finding that row exposed a trap worth keeping: `PedalRenderer.registerGlyph` stamps
+  EVERY glyph with the FIRST fragment's measure, so a resumption on the third system still says
+  *"measure 3"*. The row is therefore found from the sign's own `y` — the last staff above it — and
+  measured with the shared `markBreakWrap.systemInkAt`.
+- ⛔ It stops being needed the day a bracket-style pedal draws a real line (his own note).
+
+⚠️ **Not built:** the pedal's endpoint DRAG still snaps to a slot (`pedalDragTargetAt`); it has not
+been moved onto the walk the way the bracket's was.

@@ -920,6 +920,35 @@ export class ScoreModel {
     return pedalOps.applyPedalDrag(this.score, id, write)
   }
 
+  /** Where the LIFT would go after one step, without stepping — the END square's interpolating WALK
+   *  looks ahead at it. See {@link pedalOps.nextPedalLift}. */
+  nextPedalLift(id: string, direction: 1 | -1): pedalOps.PedalLiftTarget | null {
+    return pedalOps.nextPedalLift(this.score, id, direction)
+  }
+
+  /** Where the PRESS would land after one step, without stepping — the START square's look-ahead.
+   *  See {@link pedalOps.nextPedalStartSlot}. */
+  nextPedalStartSlot(id: string, direction: 1 | -1): pedalOps.PedalSlotTarget | null {
+    return pedalOps.nextPedalStartSlot(this.score, id, direction)
+  }
+
+  /** Where the `✻` stands today — the address the END's walk measures its gaps from. See
+   *  {@link pedalOps.pedalLiftSlot}. */
+  pedalLiftSlot(id: string): pedalOps.PedalLiftTarget | null {
+    return pedalOps.pedalLiftSlot(this.score, id)
+  }
+
+  /** Put the LIFT at `target`, holding the press — see {@link pedalOps.setPedalLiftAt}. */
+  setPedalLiftAt(id: string, target: pedalOps.PedalLiftTarget): boolean {
+    return pedalOps.setPedalLiftAt(this.score, id, target)
+  }
+
+  /** Put the PRESS on `target`, holding the lift — ⭐ or pushing it, where they meet. See
+   *  {@link pedalOps.setPedalStartAtSlot}. */
+  setPedalStartAtSlot(id: string, target: pedalOps.PedalSlotTarget): boolean {
+    return pedalOps.setPedalStartAtSlot(this.score, id, target)
+  }
+
   /** Nudge one of a pedal's two signs — its ink, not its extent. ⭐ `dy` moves BOTH signs: they share
    *  one baseline. See {@link pedalOps.setPedalEndpointOffset}. */
   setPedalEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {

@@ -27,7 +27,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
       // One system in this fixture: nothing to jump to, so every case is about the WALK and the
       // LATCH. `markSystemJump.test.ts` owns the crossing between systems.
-      staffBands: () => [{ top: 40, bottom: 80 }],
+      staffBands: () => [{ top: 240, bottom: 280 }],
     }))
   },
 }))
@@ -56,9 +56,9 @@ describe('walkTempo', () => {
   /** Four noteheads 100 px apart, and the drawn mark carrying the staff-space size. Pass `null` for
    *  a mark that carries none — ⚠️ NOT `undefined`, which the default would swallow. */
   const render = (xs = [100, 200, 300, 400], staffSpacePx: number | null = 10) => {
-    drawn.entries = ids.map((id, i) => ({ type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 } }))
+    drawn.entries = ids.map((id, i) => ({ type: 'note', id, staff: 0, bbox: { x: xs[i], y: 250, width: 10, height: 10 } }))
     drawn.entries.push({
-      type: 'tempo', id: markId, bbox: { x: 0, y: 10, width: 40, height: 12 },
+      type: 'tempo', id: markId, bbox: { x: 0, y: 210, width: 40, height: 12 },
       ...(staffSpacePx === null ? {} : { staffSpacePx }),
     })
   }

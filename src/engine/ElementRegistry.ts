@@ -785,6 +785,18 @@ export class ElementRegistry {
    * system's staff are both simply somebody else's room. Deduplicated because a band repeats once per
    * measure in its system, and the question is about DISTINCT staves.
    */
+  /**
+   * ⭐ **EVERY STAFF THIS RENDER MEASURED**, live entries, in registration order — for a reader that
+   * has a POINT and needs the row it belongs to, which no measure number can answer for a mark drawn
+   * under a system it does not name (`interactions/elements/pedalTether`, 2026-08-21: a pedal's
+   * glyphs all carry the FIRST fragment's measure).
+   *
+   * ⛔ Not a copy: the caller must not mutate what it gets, exactly as with {@link getStaffGeometry}.
+   */
+  allStaffGeometries(): StaffGeometry[] {
+    return [...this.staffGeometries.values()]
+  }
+
   staffBands(): { top: number; bottom: number }[] {
     const seen = new Map<string, { top: number; bottom: number }>()
     for (const g of this.staffGeometries.values()) {

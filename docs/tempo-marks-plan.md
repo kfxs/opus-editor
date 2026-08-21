@@ -462,3 +462,19 @@ barline. ⚠️ One mark per beat, so the paste REPLACES the sitting one, in a s
 - **Polytempo** — the `scopeId` field + the `scope` parameter are the reserved seams. The rest is
   downstream of removing the shared-measure-spine assumption (`multi-staff-plan.md` §11), which is
   a separate project.
+
+## ✅⭐⭐ THE WALK CROSSES A SYSTEM BREAK (2026-08-21, BUILT)
+
+His ask, in the same breath as the dynamic's. The tempo mark now carries `markBreakWrap`'s wrap, the
+same port the wedge, the bracket, the pedal and the dynamic use.
+
+- ⭐⭐ **It asks about STAFF 0, and that is this mark's whole difference from its siblings.** A tempo
+  mark has no staff of its own: it is engraved above the TOP one — the staff `drawnOnsets` already
+  prefers and the one `TempoLayout.anchorX` measures against. ⛔ Not the staff of whatever note
+  happens to sound the stop.
+- ⭐ **It needed a RE-BASE the mark never had** (`MusicEngine.rebaseTempoOffset`,
+  `previewTempoOffsetRebase`): the crossing's bookkeeping was going through the page-limited nudge.
+  ⚠️ `dx` only — this mark's `y` is OUTWARD and no walk touches it.
+- ⭐ A blocked press still crosses (`markWalk.crossWithoutArrival`).
+
+⏭️ The DRAG's horizontal wrap is not wired.

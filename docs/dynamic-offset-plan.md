@@ -496,3 +496,22 @@ state.
   150 px snap. What survives is in `interactions/dynamicLane.ts`: where a lane's slots were DRAWN
   (shared with the keyboard, so the two doors cannot disagree about where a slot is) and the staff
   crossing above. `MusicEngine.previewDynamicSlot` stayed, and is now reached only by a jump.
+
+## ✅⭐⭐ THE WALK CROSSES A SYSTEM BREAK (2026-08-21, BUILT)
+
+His ask: *"dynamic and tempo not [crossing] — probably we never implemented it but should be
+implemented"*. Correct: `markWalk` refuses to cross a break by construction (two systems' x's are not
+one ruler), and until now only the wedge, the bracket and the pedal had the wrap that answers it. The
+dynamic now has it too — `markBreakWrap`'s, ⛔ ported rather than copied.
+
+- `dynamicLane.dynamicSystemInkLimit` is the whole of what is dynamic-specific: **which staff** to
+  ask about (the mark's own). The measuring and the naming are `systemInkAt`'s.
+- ⭐ **It needed a RE-BASE the mark never had.** Until today the crossing's second half went through
+  `nudgeDynamicOffset`, which is judged by the PAGE LIMIT — and a refused re-base leaves the anchor
+  ahead of the ink so the next press crosses again, the runaway `rebaseHairpinEndpointOffset` carries
+  the report for. `MusicEngine.rebaseDynamicOffset` (+ `previewDynamicOffsetRebase` for the drag)
+  closes that latent hole whether or not a break is involved.
+- ⭐ A blocked press still crosses (`markWalk.crossWithoutArrival`) — the page's edge can refuse the
+  ink a space short of the line's end, which is precisely where the wrap is needed.
+
+⏭️ The DRAG's horizontal wrap is not wired (the drag still has only its vertical staff-jump).

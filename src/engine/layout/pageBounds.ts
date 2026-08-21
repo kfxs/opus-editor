@@ -79,7 +79,19 @@ export interface InkBox {
  */
 export function pageBoxAt(surface: SurfaceMetrics, x: number, y: number): PageBox | null {
   const height = surface.heightPx
-  if (height === null) return null
+  // ⭐⭐ **A CANVAS HAS NO BOTTOM, BUT IT DOES HAVE A TOP.** It grows downward for ever and begins at
+  // y 0, so *"not paper"* was true of three edges and false of the fourth.
+  //
+  // 🚨 His rule, 2026-08-21, stated three times and finally in so many words: *"if the 8va y is
+  // less than the page y then refuse, else go ahead"*, and *"if it is the first system the limit is
+  // the top of the page"*. The mark he was moving is on the TOP system, where nothing is painted
+  // above — so the only thing that can stop it is the page, and the page was answering "no boundary
+  // here". Which is also why `layout/systemBand` had to invent one, and why that invented number then
+  // stopped an `8va` being nudged up at all.
+  //
+  // ⛔ Vertical only. The sides of a canvas are not edges the way a sheet's are — the viewport scrolls
+  // sideways — and inventing them would refuse horizontal nudges nobody has complained about.
+  if (height === null) return { left: -Infinity, right: Infinity, top: 0, bottom: Infinity }
 
   const along = PAGE_FLOW === 'horizontal' ? x : y
   const pitch = (PAGE_FLOW === 'horizontal' ? surface.widthPx : height) + PAGE_GAP_PX

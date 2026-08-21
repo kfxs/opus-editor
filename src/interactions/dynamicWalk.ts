@@ -46,16 +46,20 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
-import { dynamicAddress, dynamicLaneHeads, markInkY, systemSlotFor } from './dynamicLane'
+import {
+  dynamicAddress, dynamicLaneHeads, dynamicSystemInkLimit, markInkY, systemSlotFor,
+} from './dynamicLane'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
-import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type DynamicWalkEngine = Pick<MusicEngine,
   'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
   | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'
+  | 'rebaseDynamicOffset' | 'previewDynamicOffsetRebase'
   | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'>
 
 /**
@@ -71,6 +75,10 @@ function dynamicPort(
   write: {
     reanchor: (id: string, target: DynamicSlotTarget) => boolean
     nudge: (id: string, dx: number, dy: number) => boolean
+    /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged
+     *  by the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
+     *  crosses again (2026-08-21, when this mark was given the cross-system wrap). */
+    rebase: (id: string, dx: number) => boolean
   },
 ): MarkWalkPort {
   const laneHeads = () => {
@@ -97,6 +105,26 @@ function dynamicPort(
     // ordinary one wipes the mark's own nudge (`dynamicOps.setDynamicAtSlot`).
     reanchor: (stop) => write.reanchor(id, stop as DynamicSlotTarget),
     nudge: (dx, dy) => write.nudge(id, dx, dy),
+    rebase: (dx) => write.rebase(id, dx),
+  }
+}
+
+/**
+ * ⭐ **THE MARK'S ANSWERS TO {@link BreakWrapPort}** — where THIS mark's system runs out, and where a
+ * candidate stop's system begins (his ask, 2026-08-21: *"lets handle also dynamic cross system"*).
+ *
+ * ⚠️ Both off the LAST RENDER, and both may answer null, which the shared rule reads as *"no wrap"*
+ * rather than guessing.
+ */
+function wrapPort(engine: DynamicWalkEngine, id: string): BreakWrapPort {
+  const limitOf = (at: { measure: number } | null) => {
+    const dynamic = engine.getDynamicById(id)
+    return dynamic && at ? dynamicSystemInkLimit(engine, dynamic, at) : null
+  }
+  return {
+    here: () => limitOf(dynamicAddress(engine.getScore(), id)),
+    there: (stop) => limitOf(stop as DynamicSlotTarget),
+    address: (stop) => stop,
   }
 }
 
@@ -118,13 +146,36 @@ export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): 
   const port = dynamicPort(engine, id, {
     reanchor: (i, target) => engine.moveDynamicToSlotKeepingOffset(i, target),
     nudge: (i, ddx, ddy) => engine.nudgeDynamicOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.rebaseDynamicOffset(i, ddx),
   })
+
+  const wrap = wrapPort(engine, id)
+  const across = breakCrossing(port, wrap, dx)
   // ⛔ No batch when nothing crosses: `runBatch` costs a snapshot per press, and the ordinary nudge
   // has recorded its own single entry since the offset shipped.
-  if (!markWalkCrosses(port, dx)) return port.nudge(dx, 0)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) {
+    if (port.nudge(dx, 0)) return true
+    // 🚨 **A BLOCKED PRESS STILL CROSSES** — the wedge's and the bracket's rule, arriving here with
+    // the wrap itself: the page's edge can refuse the ink a space short of the line's end, and the
+    // wrap's arrival test can then never be met (`./markWalk.crossWithoutArrival`).
+    let handed = false
+    engine.runBatch('Move dynamic', () => {
+      handed = across
+        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
 
   let moved = false
-  engine.runBatch('Move dynamic', () => { moved = carryMark(port, dx).moved })
+  engine.runBatch('Move dynamic', () => {
+    moved = across?.arrived
+      // ⭐ THE KEYS re-base by the FOLDED distance: their ink really did travel it, one press at a
+      // time, so the mark re-appears exactly as far into the new line as the hand pushed it past the
+      // barline (`./markBreakWrap`).
+      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+      : carryMark(port, dx).moved
+  })
   return moved
 }
 
@@ -173,6 +224,7 @@ export function dragDynamic(
   const port = dynamicPort(engine, id, {
     reanchor: (i, target) => engine.previewDynamicSlotKeepingOffset(i, target),
     nudge: (i, ddx, ddy) => engine.previewDynamicOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.previewDynamicOffsetRebase(i, ddx),
   })
   const ss = port.staffSpacePx()
   if (!ss) return null

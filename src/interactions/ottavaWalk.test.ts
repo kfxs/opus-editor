@@ -45,7 +45,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       registerStaffGeometry: vi.fn(),
       getStaffGeometry: (m: number) => (drawn.lineSpacing === null ? undefined : {
         lineSpacing: drawn.lineSpacing,
-        lineYPositions: [drawn.systemTop[m] ?? 40, 50, 60, 70, 80],
+        lineYPositions: [drawn.systemTop[m] ?? 240, 250, 260, 270, 280],
         noteStartX: 90, noteEndX: 430,
       }),
       getByMeasure: vi.fn(() => []),
@@ -77,14 +77,14 @@ describe('walkOttavaEndpoint', () => {
    *  Pass `null` for a staff with no measured geometry. */
   const render = (xs = [100, 200, 300, 400], lineSpacing: number | null = 10) => {
     drawn.lineSpacing = lineSpacing
-    drawn.systemTop = { 1: 40, 2: 40 } // ⭐ ONE system by default
-    drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+    drawn.systemTop = { 1: 240, 2: 240 } // ⭐ ONE system by default
+    drawn.bands = [{ top: 240, bottom: 280 }, { top: 440, bottom: 480 }]
     drawn.entries = ids.map((id, i) => ({
-      type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 },
+      type: 'note', id, staff: 0, bbox: { x: xs[i], y: 250, width: 10, height: 10 },
     }))
     drawn.entries.push({
       type: 'ottava', id: bracketId, staff: 0, measure: 1,
-      bbox: { x: 100, y: 20, width: 200, height: 10 },
+      bbox: { x: 100, y: 220, width: 200, height: 10 },
     })
   }
 
@@ -215,11 +215,11 @@ describe('walkOttavaEndpoint', () => {
   describe('a system break', () => {
     const twoSystems = () => {
       render()
-      drawn.systemTop = { 1: 40, 2: 240 }
+      drawn.systemTop = { 1: 240, 2: 440 }
       const next = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
         engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
       next.forEach((id, i) => drawn.entries.push({
-        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 450, width: 10, height: 10 },
       }))
       // The bracket now covers the whole of bar 1: its hook is on the fourth note (right edge 410),
       // two spaces short of where the line's music ends.
@@ -459,11 +459,11 @@ describe('walkOttavaEndpoint', () => {
       /** A second bar of music drawn on the NEXT system, so there is somewhere to jump to. */
       const twoSystemLane = () => {
         engine.addMeasure()
-        drawn.systemTop = { 1: 40, 2: 240 }
+        drawn.systemTop = { 1: 240, 2: 440 }
         const next = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
           engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
         next.forEach((id, i) => drawn.entries.push({
-          type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+          type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 450, width: 10, height: 10 },
         }))
       }
       /** A frame at `cursorX`, having moved (`dxPx`,`dyPx`) since the last accepted one. */

@@ -411,11 +411,15 @@ describe('pedalOps — movePedalStartBySlot', () => {
     expect(span(p.id)).toEqual({ press: 1, lift: 3 })
   })
 
-  it('⛔ REFUSES to step the press onto the lift rather than deleting the pedal', () => {
+  it('⭐⭐ steps the press ONTO the lift and PUSHES it — ⛔ never refuses, never deletes', () => {
+    // Until 2026-08-21 this refused, and the refusal read as a guard rail. It is not one: the walk
+    // stops at the first stop the model declines (`interactions/markWalk.carryMark`), so a press
+    // parked against its own lift turned every further arrow into pure ink and the square walked off
+    // the page while the pedal stood still. See {@link setPedalStartAtSlot}.
     quarters(1)
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
-    expect(movePedalStartBySlot(score, p.id, 1)).toBe(false)
-    expect(span(p.id), 'untouched').toEqual({ press: 0, lift: 1 })
+    expect(movePedalStartBySlot(score, p.id, 1)).toBe(true)
+    expect(span(p.id), 'the foot lands on beat 1 and holds that quarter').toEqual({ press: 1, lift: 2 })
   })
 
   it('declines when there is no earlier onset to reach', () => {
@@ -497,12 +501,21 @@ describe('pedalOps — applyPedalDrag', () => {
     expect(spanOf(p.id)).toEqual({ press: 0, lift: 4 })
   })
 
-  it('⛔ refuses a lift at or before the press, and a press at or after the lift', () => {
+  it('⛔ refuses a LIFT at or before the press — ⛔ never a delete', () => {
     const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
     expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(1, 1) })).toBe(false)
     expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(0, 1) })).toBe(false)
-    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(false)
-    expect(spanOf(p.id), 'untouched by all three').toEqual({ press: 1, lift: 2 })
+    expect(spanOf(p.id), 'untouched by both').toEqual({ press: 1, lift: 2 })
+  })
+
+  it('⭐⭐ …but a PRESS onto or past the lift PUSHES it — the two feet never collide', () => {
+    // The asymmetry is his rule of 2026-08-21, given for the bracket and stated about the anchors:
+    // *"when the left anchor push the right anchor then the right anchor should reanchor"*. It is
+    // what keeps the walk alive — a stop the model can refuse FOREVER is a dead gesture
+    // (`setPedalStartAtSlot`), and only the LEFT foot has somewhere further to go.
+    const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
+    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(spanOf(p.id), 'it keeps the one slot it now stands on').toEqual({ press: 2, lift: 3 })
   })
 
   it('⛔ refuses an address that is not an onset of the pedal\'s own staff', () => {

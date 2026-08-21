@@ -452,14 +452,28 @@ function drawPedal(
     // the `Ped.`'s own ink ({@link PEDAL_SIGN_GAP}) and a least total width for the pair
     // ({@link PEDAL_MIN_SPAN}) — the one place this drawing knowingly overruns the lift x, and only
     // where obeying it exactly would print one smudge.
-    // ⭐ …and the END square's nudge OUTSIDE those three floors, for the start's reason: the floors
-    // are the machine keeping two glyphs from printing one smudge, and a hand that asks for less air
-    // than that has said so deliberately.
+    //
+    // ⭐⭐ **THE END SQUARE'S NUDGE GOES *INSIDE* THOSE FLOORS — the OCTAVE BRACKET'S OWN MECHANISM**
+    // (`OttavaRenderer`: `Math.max(piece.x1 + nudge.endX, lineStart + OTTAVA_MIN_LINE)`), and his
+    // observation that found it, 2026-08-21: *"the hook of the ottava never crosses the 8, so there
+    // must be a prevention mechanism that should be applied to the pedal"*.
+    //
+    // 🚨 It was OUTSIDE for a day — *"a hand that asks for less air than that has said so
+    // deliberately"* — and that is the whole of how a `✻` reached an `endX` of **−67 staff-spaces**,
+    // printing far to the LEFT of its own `Ped.` An add after the floor escapes every floor.
+    //
+    // ⭐⭐ **A FLOOR IS THE RIGHT SHAPE OF PREVENTION, AND A REFUSED WRITE IS THE WRONG ONE.** The
+    // write-time rule that briefly replaced this ({@link MusicEngine.pedalEndpointOffsetAllowed})
+    // stopped the crossing and broke the GESTURE: a refused ink step makes every press hand the
+    // anchor a whole stop along, so the walk went from 1 space per press to 24. Drawn floors refuse
+    // nothing, so the walk never changes gear — which is why the bracket has never shown either
+    // fault. ⭐ And because the first floor is measured from `signX`, a press nudged rightward pushes
+    // the `✻` ahead of it for free: the pair can close up, and can never overlap.
     const upX = Math.max(
-      piece.x1 - upWidth,
+      piece.x1 - upWidth + px(nudge?.endX ?? 0),
       signX + downWidth + px(PEDAL_SIGN_GAP),
       signX + px(PEDAL_MIN_SPAN) - upWidth,
-    ) + px(nudge?.endX ?? 0)
+    )
     up.renderText(ctx, upX, y)
     registerGlyph(pass, pedal.id, from, upX, y, upWidth, px, 'up')
   }

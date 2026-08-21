@@ -50,6 +50,13 @@ describe('nudging a sustain pedal\'s ink from the keyboard', () => {
       resetPedalOffset: resetWhole,
       resizePedalBySlot: resize,
       movePedalStartBySlot: vi.fn(() => true),
+      // ⭐ Both squares' horizontals ask the WALK first (`./pedalWalk`); nothing is drawn here, so
+      // "nowhere to go" keeps the press the plain nudge these cases are about.
+      nextPedalStartSlot: vi.fn(() => null),
+      nextPedalLift: vi.fn(() => null),
+      pedalLiftSlot: vi.fn(() => null),
+      getPedalById: () => ({ id: 'P1' }),
+      getScore: () => ({ measures: [] }),
       // The families ahead of the pedal in every chain — stubbed to DECLINE, so a case that reaches
       // a pedal branch proves the chain got that far rather than crashing.
       nudgeHairpinEndpoint: vi.fn(() => false),

@@ -41,11 +41,16 @@ describe('pageBoxAt', () => {
     expect(inGap, 'past that sheet\'s right edge').toBeGreaterThan(box.right)
   })
 
-  it('⛔ answers NULL on a canvas — his call: no boundaries in the linear view, so no limit', () => {
-    // ⭐ And it falls out of the surface model rather than a view-mode flag: `heightPx === null` IS
-    // "this is not paper" (see `./surface`).
+  it('⭐⭐ a CANVAS has no bottom and no sides — but it does have a TOP, at y 0', () => {
+    // 🚨 His rule, 2026-08-21: *"if the 8va y is less than the page y then refuse, else go ahead"*,
+    // and *"if it is the first system the limit is the top of the page"*. A canvas grows downward for
+    // ever and BEGINS at y 0, so *"this is not paper"* was true of three edges and false of the
+    // fourth — which is why a mark on the top system had nothing above it to stop it, and why
+    // `layout/systemBand` had to invent a ceiling that then blocked the `8va` entirely.
     expect(CANVAS.heightPx).toBeNull()
-    expect(pageBoxAt(CANVAS, 5000, 5000)).toBeNull()
+    expect(pageBoxAt(CANVAS, 5000, 5000)).toEqual({
+      left: -Infinity, right: Infinity, top: 0, bottom: Infinity,
+    })
   })
 })
 
@@ -111,8 +116,12 @@ describe('stepLeavesPage', () => {
 })
 
 describe('nudgeFitsOnPage', () => {
-  it('⛔ allows anything on a canvas — there is no boundary to be outside of', () => {
-    expect(nudgeFitsOnPage(CANVAS, [ink(-9000, -9000)], -1, -1)).toBe(true)
+  it('⭐ on a canvas only the TOP can refuse — sideways and downward are free', () => {
+    expect(nudgeFitsOnPage(CANVAS, [ink(-9000, 9000)], -1, 1), 'left and down: nothing to hit').toBe(true)
+    expect(nudgeFitsOnPage(CANVAS, [ink(100, 50)], 0, -1), 'up, still below the top: fine').toBe(true)
+    // ⭐ …and the way back is open from outside, the page limit's own shape.
+    expect(nudgeFitsOnPage(CANVAS, [ink(100, -20)], 0, -1), 'up, already above it: refused').toBe(false)
+    expect(nudgeFitsOnPage(CANVAS, [ink(100, -20)], 0, 1), 'and back down: allowed').toBe(true)
   })
 
   it('⚠️ allows an element with NO drawn ink — refusing on no evidence makes it unmovable', () => {

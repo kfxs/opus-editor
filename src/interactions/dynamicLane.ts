@@ -34,6 +34,7 @@ import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
+import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the three reads
  *  without a renderer. */
@@ -120,6 +121,22 @@ export function dynamicAddress(score: Score, dynamicId: string): DynamicSlotTarg
     if (dyn) return { measure: measure.number, beat: dyn.beat }
   }
   return null
+}
+
+/**
+ * ⭐ **THE DRAWN EXTENT OF THE SYSTEM an address was drawn on** — the dynamic's PORT into the shared
+ * break wrap (`./markBreakWrap`), which owns the measuring and the naming ({@link systemInkAt}).
+ * What is dynamic-specific is only WHICH STAFF to ask about: the mark's own.
+ *
+ * @returns null when that bar was not drawn.
+ */
+export function dynamicSystemInkLimit(
+  engine: LaneEngine,
+  dynamic: Dynamic,
+  at: { measure: number },
+): SystemInk | null {
+  const staff = staffIndexOf(engine.getScore(), dynamic.staffId)
+  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
 }
 
 /** The staff INDEX a dynamic's `staffId` names (absent = the first staff), so a drawn element's own

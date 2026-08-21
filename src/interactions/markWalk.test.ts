@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
 
 /**
  * ⭐⭐ THE INTERPOLATING WALK'S OWN ARITHMETIC — the identity, the crossing, the refusals.
@@ -193,5 +193,61 @@ describe('markWalkCrosses — asking without moving', () => {
   it('is false for a zero step, so a caller opens no undo batch for nothing', () => {
     const { port } = fakePort()
     expect(markWalkCrosses(port, 0)).toBe(false)
+  })
+})
+
+/**
+ * 🚨🚨 **A PRESS WHOSE INK IS REFUSED STILL CROSSES** — his two reports of 2026-08-21, *"i'm not able
+ * to walk here"* and *"cross system doesn't work at all"*, which turned out to be one cause: the
+ * ordinary crossing needs the ink to travel a whole gap, and a limit (the page's edge, or the pedal's
+ * own two-glyph rule) can stop the ink long before it gets there. The gesture then died silently.
+ */
+describe('crossWithoutArrival — the walk against a wall', () => {
+  it('⭐ hands the anchor on WITHOUT the ink having arrived', () => {
+    const { port, state } = fakePort({ rebasing: true })
+    expect(crossWithoutArrival(port, 1)).toBe(true)
+    expect(state.crossed, 'one stop, once').toEqual([1])
+  })
+
+  it('🚨🚨 the OFFSET GOES HOME — ⛔ it is NOT re-based by the gap', () => {
+    // His report of the first cut, which did keep the walk's identity: *"the pedal is jumping
+    // inconsistent when trying to jump"*, with a `Ped.` glued to its own `✻` and the stored offset at
+    // −57 spaces. The ink against a wall travelled NOTHING, so there is no gap to take back out.
+    const { port, state } = fakePort({ rebasing: true })
+    state.offset = 2
+    crossWithoutArrival(port, 1)
+    expect(state.offset, 'the sign lands ON its new note').toBe(0)
+    expect(state.rebases, 'and through the REBASE writer, never the nudge').toEqual([-2])
+  })
+
+  it('⛔ …and writes no offset at all when it was already home', () => {
+    const { port, state } = fakePort({ rebasing: true })
+    crossWithoutArrival(port, 1)
+    expect(state.rebases).toEqual([])
+    expect(state.crossed).toEqual([1])
+  })
+
+  it('⛔ never invents a stop — the end of the road does nothing', () => {
+    const { port, state } = fakePort({ stops: 1 })
+    expect(crossWithoutArrival(port, 1)).toBe(false)
+    expect(state.crossed).toEqual([])
+  })
+
+  it('⛔ never crosses a stop the picture cannot measure', () => {
+    const { port } = fakePort({ staffSpacePx: null })
+    expect(crossWithoutArrival(port, 1)).toBe(false)
+  })
+
+  it('⛔ never across a SYSTEM BREAK — that press is `./markBreakWrap`\'s', () => {
+    // A stop drawn to the LEFT while the travel is rightward is another system's x.
+    const { port, state } = fakePort({ gap: -100 })
+    expect(crossWithoutArrival(port, 1)).toBe(false)
+    expect(state.crossed).toEqual([])
+  })
+
+  it('⛔ and it takes the model\'s NO for an answer', () => {
+    const { port, state } = fakePort({ refuseReanchor: true })
+    expect(crossWithoutArrival(port, 1)).toBe(false)
+    expect(state.offset, 'nothing re-based either').toBe(0)
   })
 })

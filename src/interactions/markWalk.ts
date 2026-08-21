@@ -133,6 +133,61 @@ export function markWalkCrosses(port: MarkWalkPort, dx: number): boolean {
 }
 
 /**
+ * ⭐⭐ **A PRESS WHOSE INK IS REFUSED HANDS THE ANCHOR OVER INSTEAD OF DOING NOTHING** — the walk's
+ * answer to a wall.
+ *
+ * 🚨🚨 His report, 2026-08-21: *"i'm not able to walk here"*, and then *"cross system doesn't work at
+ * all"* on three families at once. **One cause behind both**: the ordinary crossing needs the ink to
+ * travel the WHOLE gap to the next stop, and the ink can be stopped long before it gets there — by
+ * the PAGE's edge (`layout/pageBounds`, and the last bar of a system ends within a space of it) or by
+ * the pedal's own rule that its two glyphs may not print over each other. A limit that stops the ink
+ * then silently stops the GESTURE, which is the *"a stop that can refuse FOREVER is a dead gesture"*
+ * lesson arriving for the third time in one day.
+ *
+ * 🚨🚨 **THE OFFSET GOES HOME, ⛔ it is NOT re-based by the gap** — his report of the first cut, which
+ * did keep the identity: *"the pedal is jumping inconsistent when trying to jump"*, with a log of a
+ * `Ped.` glued to its own `✻` while the stored offset ran to **−57 staff-spaces**. The identity is
+ * right for an ordinary crossing because the ink really did travel the gap; here it travelled
+ * NOTHING — it is against a wall — so holding the picture still means the mark never moves again and
+ * the number grows without end.
+ *
+ * ⭐ So the press does what the hand asked for in the only way left: the anchor steps, and the ink
+ * comes back to zero — the sign lands ON its new note, where the engraver would put it. One press,
+ * one visible step, and no number to run away.
+ *
+ * ⛔ **It never invents a stop**: no next stop, an unmeasurable one, a stop the model refuses, or a
+ * stop that is not on this ruler (across a system break `./markBreakWrap` owns the press, and the
+ * caller must offer it first). The press then really does nothing, which is the wall itself.
+ */
+export function crossWithoutArrival(port: MarkWalkPort, dx: number): boolean {
+  const direction = dx > 0 ? 1 : -1
+  const stop = port.nextStop(direction)
+  if (stop === null) return false
+
+  const ss = port.staffSpacePx()
+  const from = port.anchorX()
+  const to = port.stopX(stop)
+  if (!ss || from === null || to === null) return false
+
+  const gap = (to - from) / ss
+  // 🚨 The next stop in TIME is not always the next one in X — see {@link arrivedAt}.
+  if (Math.sign(gap) !== direction) return false
+
+  const before = port.offsetX()
+  if (!port.reanchor(stop)) return false
+
+  // ⭐ The ink goes HOME — see the header. ⚠️ Through `rebase` where the port has one: this is the
+  // crossing's bookkeeping and must not be judged by the very limit that sent us here.
+  if (before !== 0) {
+    if (port.rebase) port.rebase(-before)
+    else port.nudge(-before, 0)
+  }
+  dbg(`[${port.label}] ink blocked — stepped the anchor on instead`
+    + ` (gap ${gap.toFixed(2)}ss, offset ${before.toFixed(2)} → 0)`)
+  return true
+}
+
+/**
  * ⭐⭐ **THE MOVE ITSELF** — carry the mark's ink by (`dx`, `dy`) staff-spaces, handing the anchor
  * along to each stop the ink arrives at on the way.
  *

@@ -6,7 +6,8 @@ import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './mode
 import type { DynamicSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
-import type { PedalDragWrite } from './models/pedalOps'
+import type { PedalDragWrite, PedalLiftTarget, PedalSlotTarget } from './models/pedalOps'
+import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
@@ -16,7 +17,7 @@ import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barW
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
 import type { InkBox } from './layout/pageBounds'
-import { edgeStepFitsOnPage, nudgeFitsOnPage, SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
+import { edgeStepFitsOnPage, nudgeFitsOnPage, pageBoxAt, SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
 import { CoordinateMapper, type CoordinateMapperConfig } from './rendering/CoordinateMapper'
 import { CollisionDetector } from './models/CollisionDetector'
@@ -363,7 +364,11 @@ export class MusicEngine {
     if (!geometry) return true
     const mine = { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] }
     const others = (registry.staffBands?.() ?? []).filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
-    return stepStaysInBand(neighbourBandOf(mine, others), drawn, dy * STAFF_SPACE_PX)
+    // ⭐ What is above/below when no STAFF is: the sheet itself ({@link layout/systemBand}, his rule
+    // of 2026-08-21). ⛔ Never a made-up allowance — that is what stopped an `8va` on the top system.
+    const sheet = pageBoxAt(resolveSurface(this.surface), drawn[0]?.x ?? 0, mine.top)
+    const page = sheet ? { top: sheet.top, bottom: sheet.bottom } : undefined
+    return stepStaysInBand(neighbourBandOf(mine, others, page), drawn, dy * STAFF_SPACE_PX)
   }
 
   /**
@@ -1000,6 +1005,30 @@ export class MusicEngine {
     return this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
   }
 
+  /**
+   * ⭐⭐ **RE-BASE a dynamic's ink — the walk's bookkeeping, ⛔ NOT a hand nudge** (2026-08-21, when
+   * the mark was given the cross-system wrap).
+   *
+   * 🚨 The crossing pair *(anchor := the next slot, offset −= the gap)* leaves the DRAWN mark exactly
+   * where it was, so the PAGE LIMIT has no business judging the second half of it: the limit measures
+   * against the LAST RENDER, where the anchor has not moved yet, and reads a re-base as a hand
+   * shoving the mark half a bar sideways. Refused, the anchor has moved and the offset has not, and
+   * the next press crosses again — the runaway `rebaseHairpinEndpointOffset` carries the report for.
+   */
+  rebaseDynamicOffset(dynamicId: string, dx: number): boolean {
+    if (!this.scoreModel.getDynamicById(dynamicId)) return false
+    const ok = this.scoreModel.nudgeDynamicOffset(dynamicId, dx, 0)
+    if (ok) this.saveOnly('Nudge dynamic') // inside the walk's batch this only counts the request
+    return ok
+  }
+
+  /** The re-base during a DRAG — {@link rebaseDynamicOffset} with no undo entry of its own. */
+  previewDynamicOffsetRebase(dynamicId: string, dx: number): boolean {
+    if (!this.scoreModel.getDynamicById(dynamicId)) return false
+    this.markModelDirty()
+    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, 0)
+  }
+
   /** The undo-free twin of {@link nudgeDynamicOffset} — accumulates the same way, keeps the same
    *  page limit, records no undo step. One frame of a dynamic drag. */
   previewDynamicOffset(dynamicId: string, dx: number, dy: number): boolean {
@@ -1208,6 +1237,11 @@ export class MusicEngine {
    * (`interactions/elements/ottavaHandles` says the same where the handles are drawn). ⛔ Reading
    * both off one entry would judge a step against the wrong system's page.
    *
+   * ⭐ `pick` is for a family whose pieces NAME themselves — the pedal registers one box per GLYPH
+   * and says which sign each one is, so counting from the ends is a fact about today's drawing rather
+   * than about pedals (`interactions/elements/pedalHandles`, ⛔ *never "the first entry and the last
+   * one"*). It falls back to the count when the picture cannot say.
+   *
    * ⚠️ Allows freely when the span drew nothing — no picture, no limit, the family rule.
    */
   private spanEndStaysOnPage(
@@ -1215,6 +1249,7 @@ export class MusicEngine {
     id: string,
     which: 'start' | 'end',
     dx: number,
+    pick?: (pieces: ElementInfo[]) => ElementInfo | undefined,
   ): boolean {
     if (dx === 0) return true
     const registry = this.renderer.getElementRegistry() as {
@@ -1222,7 +1257,7 @@ export class MusicEngine {
     }
     const pieces = (registry.getByType?.(type) ?? []).filter(e => e.id === id)
     if (!pieces.length) return true
-    const piece = which === 'start' ? pieces[0] : pieces[pieces.length - 1]
+    const piece = pick?.(pieces) ?? (which === 'start' ? pieces[0] : pieces[pieces.length - 1])
     // ⭐ An ottava's `ottavaAxis` carries its own two x's; every other span (and a bracket drawn
     // without one) falls back to the BOX, whose sides are the same edges — ⛔ never a guess, just the
     // coarser of two true readings.
@@ -1592,6 +1627,72 @@ export class MusicEngine {
   }
 
   /**
+   * Where {@link resizePedalBySlot} would put the LIFT, WITHOUT putting it there — a pure read, no
+   * undo entry. The interpolating walk (`interactions/pedalWalk`) asks before it decides whether a
+   * press re-anchors or only nudges ink, and asks THIS so the two keys can never move the damper to
+   * different moments. @returns null at either end of the road.
+   */
+  nextPedalLift(id: string, direction: 1 | -1): PedalLiftTarget | null {
+    return this.scoreModel.nextPedalLift(id, direction)
+  }
+
+  /** Where {@link movePedalStartBySlot} would put the PRESS, without putting it there —
+   *  {@link nextPedalLift}'s twin at the other square, and for its reason. */
+  nextPedalStartSlot(id: string, direction: 1 | -1): PedalSlotTarget | null {
+    return this.scoreModel.nextPedalStartSlot(id, direction)
+  }
+
+  /** The moment the foot comes up TODAY, as an address — where the `✻` is drawn. ⚠️ Its beat may be
+   *  the bar's capacity: the release at the barline ({@link pedalOps.PedalLiftTarget}). */
+  pedalLiftSlot(id: string): PedalLiftTarget | null {
+    return this.scoreModel.pedalLiftSlot(id)
+  }
+
+  /**
+   * Put the PRESS on `target`, **holding the lift** — the walk's crossing write at the START square,
+   * and the keyboard twin of what a drag of that square does frame by frame.
+   *
+   * ⚠️ A CONTENT edit ({@link movePedalStartBySlot}'s own): both model fields in one step, one undo
+   * state, and AUDIBLE — it says when the damper falls. ⭐ It keeps that sign's `pedalOffset` by
+   * construction (`pedalOps` writes no override here), which is what the walk needs: the crossing is
+   * meant to be invisible, and the offset is re-based by the caller rather than wiped.
+   */
+  movePedalStartToSlot(id: string, target: PedalSlotTarget): boolean {
+    const ok = this.scoreModel.setPedalStartAtSlot(id, target)
+    if (ok) this.commit('Move pedal start')
+    return ok
+  }
+
+  /** Put the LIFT at `target`, holding the press — the walk's crossing write at the END square, and
+   *  one undo entry. ⚠️ A CONTENT edit, audible for {@link movePedalStartToSlot}'s reason (it is how
+   *  long the notes RING), and it keeps that sign's nudge for the same one. */
+  movePedalLiftTo(id: string, target: PedalLiftTarget): boolean {
+    const ok = this.scoreModel.setPedalLiftAt(id, target)
+    if (ok) this.commit('Move pedal lift')
+    return ok
+  }
+
+  /**
+   * ⭐⭐ **RE-BASE one sign's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
+   * the pedal to its next stop it takes the same distance back out of the offset, so the DRAWN
+   * position does not change at all; the pair is an identity.
+   *
+   * 🚨 **Which is why the PAGE LIMIT must not see it** — {@link rebaseOttavaEndpointOffset} carries
+   * the report that made it a rule: the limit judges a delta against the LAST RENDER, where the
+   * anchor has not moved yet, so it reads a re-base as a hand shoving the sign half a bar sideways.
+   * Refused, the anchor has moved and the offset has not, and the next press crosses again — a
+   * runaway to the end of the road.
+   *
+   * ⚠️ `dx` only: the pedal's vertical is ONE number for both signs (Gould p. 333) and no walk
+   * touches it.
+   */
+  rebasePedalEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
+    const ok = this.scoreModel.setPedalEndpointOffset(id, which, dx, 0)
+    if (ok) this.saveOnly('Nudge pedal') // inside the walk's batch this only counts the request
+    return ok
+  }
+
+  /**
    * ⭐⭐ **Nudge the armed SIGN's ink** — a plain or `Ctrl` arrow with that square armed.
    * Staff-spaces, screen-signed (+ down).
    *
@@ -1606,10 +1707,112 @@ export class MusicEngine {
    * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
    */
   nudgePedalEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
+    if (!this.pedalEndpointOffsetAllowed(id, which, dx, dy)) return false
     const ok = this.scoreModel.setPedalEndpointOffset(id, which, dx, dy)
     if (ok) this.saveOnly('Nudge pedal')
     return ok
+  }
+
+  /**
+   * 🚨🚨 **TWO AXES, TWO QUESTIONS, because they move DIFFERENT INK** — the bracket's rule of
+   * 2026-08-21 ({@link ottavaEndpointOffsetAllowed}) arriving at the fourth family with squares, and
+   * it is the question that was wrong here rather than the limit: a `dx` moves ONE SIGN and its
+   * square ({@link spanEndStaysOnPage}), while the shared `y` lifts BOTH and is the whole-object
+   * question ({@link nudgeStaysOnPage}).
+   *
+   * ⭐ Asking the whole-object question about a horizontal step is the recorded DEADLOCK: a pedal cut
+   * by a system break has its `Ped.` near one edge of the sheet and its `✻` near the other, so a rule
+   * that translates every drawn box refuses every arrow in both directions.
+   *
+   * ⭐ **The sign is NAMED, not counted** — `ElementInfo.pedalSign`, `pedalHandles`' rule.
+   *
+   * ⛔ **No BAND rule here.** The bracket has one because its drag can lift it toward a neighbour's
+   * room; a pedal has no vertical drag and no side to flip, and inventing a limit that predates
+   * nothing is exactly what he refused for the bracket on 2026-08-21 (*"the user should be able to
+   * offset it at will"*).
+   *
+   * ⛔⛔ **AND NO "THE TWO SIGNS MAY NOT CROSS" RULE — it was here for a day and he removed it**
+   * (2026-08-21: *"the behaviour of the pedal should be similar to the behaviour of the ottava"*).
+   *
+   * 🚨 **A rule that can refuse the INK changes the GESTURE'S GEAR, which is the bigger fault.** The
+   * press pushes the lift when they meet (`pedalOps.setPedalStartAtSlot`), so the pair keeps one slot
+   * and the glyphs stay touching; an order rule then refuses every further ink step, and every press
+   * from there on hands the anchor a WHOLE STOP along (`markWalk.crossWithoutArrival`). His log:
+   * 1 space per press became **24.28 spaces** in one keystroke, because the bar under it held
+   * sixteenths. ⭐ {@link ottavaEndpointOffsetAllowed} has never had such a rule and never showed the
+   * symptom — *"in the ottava we never have this problem"*.
+   *
+   * ⚠️ **What that leaves open, honestly**: the `endX: −67` score the rule was written for
+   * (2026-08-21, a pedal over whole-bar RESTS whose lift had nowhere to walk to, so every press was
+   * free ink). ⛔ The bracket is exposed to exactly the same thing — its `nextOttavaEndSlot` answers
+   * null in the same way — so this is the family's shared behaviour rather than a hole dug here. The
+   * cure, if it is ever wanted, belongs where the runaway starts: a stop the walk can always reach.
+   */
+  private pedalEndpointOffsetAllowed(
+    id: string,
+    which: 'start' | 'end',
+    dx: number,
+    dy: number,
+  ): boolean {
+    const sign = which === 'start' ? 'down' : 'up'
+    if (!this.spanEndStaysOnPage('pedal', id, which, dx, ps => ps.find(p => p.pedalSign === sign))) {
+      return false
+    }
+    if (which === 'end' && !this.pedalLiftInkWouldMove(id, dx)) return false
+    return dy === 0 || this.nudgeStaysOnPage('pedal', id, 0, dy)
+  }
+
+  /**
+   * ⭐⭐ **AN OFFSET THE DRAWING WILL IGNORE IS NOT WRITTEN** — his report, 2026-08-21: *"the `✻` goes
+   * back a lot and then we have to re-establish this till I can go in the other direction"*, with a
+   * log of the release's `endX` running to **−39 staff-spaces** in one held keypress and costing
+   * forty presses to walk back.
+   *
+   * ## Why free ink stops being free HERE, and only here
+   *
+   * `PedalRenderer` floors the `✻` at the `Ped.`'s ink plus {@link PEDAL_SIGN_GAP} — the bracket's
+   * own arrangement, and the one his *"the hook of the ottava never crosses the 8"* pointed at. Once
+   * that floor binds, a further leftward press moves NOTHING on the page while the stored number
+   * keeps growing: the hand sees a dead key and is silently building a debt it has to pay back press
+   * by press.
+   *
+   * ⭐ So this is not a new limit on where ink may go — **it is the floor the renderer already
+   * applies, asked before the write instead of after it.** ⛔ Inventing a limit that predates nothing
+   * is what he refused for the bracket; this one is a fact about the picture.
+   *
+   * 🚨 **It refuses a step that makes it worse, ⛔ never one that mends it** ({@link
+   * edgeStepFitsOnPage}'s shape, and load-bearing here too): a rightward press is always allowed, so
+   * a file already carrying a huge negative `endX` walks back out with the same arrow.
+   *
+   * ⚠️ **The START has no such rule and needs none**: the floor is measured FROM the `Ped.`, so a
+   * press nudged rightward carries the `✻` ahead of it — that ink is always visible.
+   *
+   * ⛔ **Both signs on ONE SYSTEM only.** Cut by a break, the `Ped.` is near one line's end and the
+   * `✻` near the next line's start, where the two x's are not one ruler and the floor never binds.
+   *
+   * ⚠️ **The OTTAVA has the same fault, hidden** (`OTTAVA_MIN_LINE` floors its hook the same way), so
+   * the day it is worth fixing there, this is the shape — ⛔ but it is not fixed here: this method
+   * knows about two glyphs, and a bracket's floor is about a line's least length.
+   */
+  private pedalLiftInkWouldMove(id: string, dx: number): boolean {
+    if (dx >= 0) return true // away from the floor — always allowed, see the header
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
+      getStaffGeometry?: (m: number, s: number) => { lineSpacing: number; lineYPositions: readonly number[] } | undefined
+    }
+    const pieces = (registry.getByType?.('pedal') ?? []).filter(e => e.id === id)
+    const down = pieces.find(e => e.pedalSign === 'down')
+    const up = pieces.find(e => e.pedalSign === 'up')
+    if (!down || !up || down.measure === undefined || up.measure === undefined) return true
+
+    const home = registry.getStaffGeometry?.(down.measure, down.staff ?? 0)
+    const there = registry.getStaffGeometry?.(up.measure, up.staff ?? 0)
+    if (!home || !there) return true
+    if (home.lineYPositions[0] !== there.lineYPositions[0]) return true // ⛔ not one ruler
+
+    // The air the drawing still has to give: anything above the floor means this press moves ink.
+    const air = up.bbox.x - (down.bbox.x + down.bbox.width) - PEDAL_SIGN_GAP * home.lineSpacing
+    return air > 0
   }
 
   /** ⭐⭐ **Move the WHOLE pedal** by a staff-space delta — the arrows with a pedal selected and NO
@@ -3555,6 +3758,23 @@ export class MusicEngine {
   previewTempoSlot(id: string, target: TempoStop): boolean {
     this.markModelDirty()
     return this.scoreModel.setTempoAtSlot(id, target)
+  }
+
+  /** ⭐⭐ **RE-BASE a tempo mark's ink — the walk's bookkeeping, ⛔ NOT a hand nudge**, and ⛔ never
+   *  judged by the page limit ({@link rebaseDynamicOffset} carries the reasoning). ⚠️ `dx` only: no
+   *  walk has a vertical, so the mark's OUTWARD `dy` never comes through here. */
+  rebaseTempoOffset(id: string, dx: number): boolean {
+    if (!this.scoreModel.getTempoMarkById(id)) return false
+    const ok = this.scoreModel.nudgeTempoOffset(id, dx, 0)
+    if (ok) this.saveOnly('Nudge tempo mark') // inside the walk's batch this only counts the request
+    return ok
+  }
+
+  /** The re-base during a DRAG — {@link rebaseTempoOffset} with no undo entry of its own. */
+  previewTempoOffsetRebase(id: string, dx: number): boolean {
+    if (!this.scoreModel.getTempoMarkById(id)) return false
+    this.markModelDirty()
+    return this.scoreModel.nudgeTempoOffset(id, dx, 0)
   }
 
   /** The undo-free twin of {@link nudgeTempoOffset} — accumulates the same way, keeps the same page

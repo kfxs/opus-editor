@@ -10,6 +10,8 @@ import { staffOf } from '@/utils/lanes'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
 import { pedalEndpointHandles } from './elements/pedalHandles'
+import { pedalTethers, tetherDashArray } from './elements/pedalTether'
+import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
 
@@ -1329,6 +1331,49 @@ export class HighlightController {
       this.setAttr(el, 'fill', SELECTION_COLOR)
       this.setStyleProp(el, 'fill', SELECTION_COLOR)
     })
+  }
+
+  /**
+   * ⭐⭐ **THE SELECTED PEDAL'S DASHED TETHER** — a broken line in the empty space between `Ped.` and
+   * `✻`, so the eye can see which release belongs to which press (his ask, 2026-08-21, and then the
+   * look: *"instead of dotted line probably looks better discontinuing lines similar to ottava, but
+   * just when is selected of course"*).
+   *
+   * ⭐ **A HINT, ⛔ not the mark**: it exists only while the pedal is selected and is removed with the
+   * rest of the highlight, so the printed dress stays Gould's two signs with nothing between them.
+   * The geometry — one segment per ROW, neighbours only — is `elements/pedalTether`'s.
+   *
+   * ⚠️ It is drawn BEFORE the squares (the call order in `elements/pedal`), so a handle always sits
+   * over the line rather than under it.
+   */
+  applyPedalTether(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'pedal')
+    if (!engine || !scoreCanvas || !selected) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    // ⛔ No fallback size — the tether's dashes are staff-space measures, and a guessed scale would
+    // draw a small staff's hint in a normal staff's dashes.
+    const staffSpacePx = pedalStaffSpacePx(registry, selected.id)
+    if (!staffSpacePx) return
+
+    // ⭐ The registry goes in so a row that carries on to the next system can run its dashes to the
+    // line's edge (`elements/pedalTether`, his ask 2026-08-21).
+    for (const tether of pedalTethers(registry.getByType('pedal'), selected.id, registry)) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', String(tether.x1))
+      line.setAttribute('x2', String(tether.x2))
+      line.setAttribute('y1', String(tether.y))
+      line.setAttribute('y2', String(tether.y))
+      line.setAttribute('stroke', ELEMENT_SELECTION_FILL)
+      line.setAttribute('stroke-width', '1.5')
+      line.setAttribute('stroke-dasharray', tetherDashArray(staffSpacePx))
+      line.setAttribute('class', 'pedal-tether')
+      this.addNode(svg, line)
+    }
   }
 
   /**

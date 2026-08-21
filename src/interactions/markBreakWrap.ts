@@ -41,14 +41,115 @@
  * where a candidate stop's system begins, and everything above is answered once.
  */
 import { type MarkStop, type MarkWalkPort } from './markWalk'
-import { dbg } from '../utils/debug'
+import { dbg, debugEnabled } from '../utils/debug'
 
-/** The drawn extent of one SYSTEM: its music's left and right edges in pixels, and the `top` that
- *  NAMES the row (a staff's own top line — shared by every bar of one line, by no two lines). */
+/**
+ * ⚠️ **The one log on the HOT path, and it says itself only when it CHANGES.**
+ *
+ * *"Why is it sometimes so slow and laggy?"* — 2026-08-21. This line fires on EVERY arrow press of
+ * every walking mark, and a `dbg` is real `console.log` in dev: with DevTools open, one line and one
+ * `JSON.stringify` per keystroke is a cost the user can feel, and hundreds of identical lines hide
+ * the ones that matter. ⭐ So the message is built only when logging is ON (docs/logging.md's
+ * template caveat) and printed only when it differs from the last one for that mark.
+ *
+ * ⛔ Deliberately NOT a silent return: the day this decline is wrong again, it has to be visible —
+ * which is exactly why it stopped being silent in the first place.
+ */
+const lastSameSystem = new Map<string, string>()
+function sameSystem(label: string, key: number, wrap: BreakWrapPort, stop: MarkStop): void {
+  if (!debugEnabled()) return
+  const message = `[${label}] no break crossing — the stop is on THIS system`
+    + ` | system from bar ${key} | stop ${JSON.stringify(wrap.address(stop))}`
+  if (lastSameSystem.get(label) === message) return
+  lastSameSystem.set(label, message)
+  dbg(message)
+}
+
+/** The drawn extent of one SYSTEM: its music's left and right edges in pixels, and the `key` that
+ *  NAMES it ({@link systemInkAt}). */
 export interface SystemInk {
   min: number
   max: number
-  top: number
+  /** ⭐ The system's FIRST drawn bar — a name, ⛔ never a coordinate. See {@link systemInkAt}. */
+  key: number
+}
+
+/** What naming a system needs of the last render. A Pick of `ElementRegistry`, so a spec can stand
+ *  it up with three numbers. */
+interface SystemInkRegistry {
+  getStaffGeometry(measure: number, staff?: number): {
+    lineYPositions: readonly number[]
+    noteStartX: number
+    noteEndX: number
+  } | undefined
+}
+
+/**
+ * 🚨🚨 **WHICH SYSTEM A BAR WAS DRAWN ON, and how far its music runs** — measured off the last render,
+ * and the thing three families each had their own broken copy of until 2026-08-21.
+ *
+ * **His report:** *"cross system doesn't work at all"* on the wedge, the octave line and the pedal at
+ * once, in a TWO-STAFF, sixty-four-bar score — and his own diagnosis, *"maybe because in this score we
+ * have multi staves"*, was right about the trigger.
+ *
+ * ⛔⛔ **A STAFF'S TOP LINE y DOES NOT NAME A SYSTEM.** Every bar of one line shares it — true — but so
+ * does the first line of every PAGE, and a two-staff score fills pages fast. The old rule unioned the
+ * x-extent of every bar in the score sharing that y, so *"where does this system's music end"* came
+ * back with a bar on another sheet: his log wrapped with a gap of **128 staff-spaces** and landed the
+ * bracket at −117. ⭐ It also made two systems on different pages compare EQUAL, which is why the press
+ * that should have wrapped went on nudging ink instead.
+ *
+ * ⭐⭐ **So a system is the CONTIGUOUS RUN of bars that share the row**, grown outward from the bar
+ * asked about, and its name is the first bar of that run. Contiguity is what the y alone cannot say:
+ * the bars between two same-y systems belong to lines in between, so the walk outward stops at the
+ * break — on the same page or the next one.
+ *
+ * ⚠️ **An undrawn bar ENDS the run** (nothing there to measure), which is conservative in exactly the
+ * safe direction: a shorter extent understates how far the ink may travel, where a longer one sent it
+ * onto another sheet.
+ *
+ * 🚨🚨 **AND THE MUSIC ENDS IT TOO — `lastMeasure` is a BOUND, ⛔ not a hint** (2026-08-21). The first
+ * cut walked rightward *"until the registry answers nothing"*, which is not a bound at all: it is a
+ * bet that the caller's registry runs out. A real one does; a Pick standing in for one need not, and
+ * three specs' stubs answer geometry for **every integer** — so the loop ran forever and hung the
+ * whole unit suite (`pedalWalk`, `ottavaWalk`, `hairpinWalk`). ⭐ The score's last bar is the honest
+ * ceiling: no render can have drawn past it, so bounding by it removes nothing a picture could say.
+ *
+ * @returns null when that bar was not drawn at all.
+ */
+export function systemInkAt(
+  registry: SystemInkRegistry,
+  staff: number,
+  measure: number,
+  /** The highest bar number that could have been drawn — {@link lastMeasureNumber} of the score, or
+   *  of the registry's own geometries where the caller has no score. */
+  lastMeasure: number,
+): SystemInk | null {
+  const home = registry.getStaffGeometry(measure, staff)
+  if (!home) return null
+  const top = home.lineYPositions[0]
+
+  let min = home.noteStartX
+  let max = home.noteEndX
+  let key = measure
+  const take = (m: number): boolean => {
+    const geometry = registry.getStaffGeometry(m, staff)
+    if (!geometry || geometry.lineYPositions[0] !== top) return false
+    min = Math.min(min, geometry.noteStartX)
+    max = Math.max(max, geometry.noteEndX)
+    return true
+  }
+  for (let m = measure - 1; m >= 1 && take(m); m--) key = m
+  for (let m = measure + 1; m <= lastMeasure && take(m); m++) { /* the right half — min/max only */ }
+  return { min, max, key }
+}
+
+/** ⭐ **THE SCORE'S LAST BAR NUMBER** — {@link systemInkAt}'s ceiling, for every caller that holds a
+ *  score. ⛔ Not `measures.length`: a bar's `number` is its own, and nothing promises 1…N. */
+export function lastMeasureNumber(score: { measures?: readonly { number: number }[] }): number {
+  let last = 0
+  for (const measure of score.measures ?? []) if (measure.number > last) last = measure.number
+  return last
 }
 
 /** What the wrap needs of one mark, beyond {@link MarkWalkPort}. Both readers answer off the LAST
@@ -114,7 +215,19 @@ export function breakCrossing(
   // ⭐⭐ SAME LINE ⇒ an ordinary press, and `carryMark` owns it. ⛔ Asked of the SYSTEMS, not of the
   // two x's: a later line's x may be larger, smaller or equal to this one's, so "is the stop drawn
   // ahead of me" is a question the numbers cannot answer across a break.
-  if (here.top === there.top) return null
+  // ⚠️ By the system's NAME ({@link systemInkAt}), ⛔ never by a shared y: two systems on different
+  // pages have the same staff top, and reading that as "one line" is what made his *"cross system
+  // doesn't work at all"* true on a two-staff score.
+  //
+  // ⚠️ **It says so out loud** (2026-08-21): this was the ONE silent decline in a function whose five
+  // others each name themselves, and a report of *"cross system doesn't work at all"* could not be
+  // told apart from a wrap that fired and did nothing. ⭐ It logs the two tops, because *"the stop is
+  // on my own line"* and *"the picture says it is"* are different claims and only the second is
+  // checkable from a console.
+  if (here.key === there.key) {
+    sameSystem(port.label, here.key, wrap, stop)
+    return null
+  }
 
   // Where this line runs out, from the mark — and where the mark re-appears over there.
   const toEdge = ((direction === 1 ? here.max : here.min) - anchor) / staffSpacePx

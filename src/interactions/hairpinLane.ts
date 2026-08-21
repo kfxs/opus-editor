@@ -26,6 +26,7 @@ import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { hairpinEndpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
+import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 
 /** What reading the lane needs off the engine — a Pick, so a test can stand up the reads without a
  *  renderer. `dynamicLane.LaneEngine`'s twin. */
@@ -124,34 +125,19 @@ export function hairpinTipX(
  * extend onto at all, it is the LIMIT that stops the arrow pushing the drawing into the margin with
  * the music standing still.
  *
- * ⭐ The row is identified by the staff's own TOP LINE y — returned as `top`: every bar of one system
- * shares it, and bars on other systems do not. ⛔ No band arithmetic and no constant — the "read the last render" rule
- * the rest of this module follows.
+ * ⭐ The measuring and the NAMING are the shared rule's ({@link systemInkAt}) — ⛔ a staff's top line
+ * y does NOT name a system, which is the bug his two-staff score found. What is hairpin-specific is
+ * only WHICH STAFF to ask about.
  *
  * @returns null when that bar was not drawn.
  */
 export function hairpinSystemInkLimit(
   engine: HairpinLaneEngine,
   hairpin: Hairpin,
-  at: HairpinSlotTarget,
-): { min: number; max: number; top: number } | null {
-  const registry = engine.getElementRegistry()
+  at: { measure: number },
+): SystemInk | null {
   const staff = staffIndexOf(engine.getScore(), hairpin.staffId)
-  const home = registry.getStaffGeometry(at.measure, staff)
-  if (!home) return null
-
-  let min = home.noteStartX
-  let max = home.noteEndX
-  for (const measure of engine.getScore().measures ?? []) {
-    const geometry = registry.getStaffGeometry(measure.number, staff)
-    if (!geometry || geometry.lineYPositions[0] !== home.lineYPositions[0]) continue
-    min = Math.min(min, geometry.noteStartX)
-    max = Math.max(max, geometry.noteEndX)
-  }
-  // ⭐ `top` NAMES the system — every bar of one line shares its staff's top line, and no two lines
-  // do. It is what lets a caller ask "are these two addresses on the same ruler?" without comparing
-  // x's, which is a question x's cannot answer (a later line's x may be larger, smaller or equal).
-  return { min, max, top: home.lineYPositions[0] }
+  return systemInkAt(engine.getElementRegistry(), staff, at.measure, lastMeasureNumber(engine.getScore()))
 }
 
 /** Where the wedge ENDS, as an address — ⚠️ its beat MAY EQUAL its bar's capacity, a wedge finishing

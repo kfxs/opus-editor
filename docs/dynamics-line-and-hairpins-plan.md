@@ -2003,3 +2003,19 @@ below, and going up from above to above; it is not intuitive"*.
 ⭐ Both steps drop the lift (a `y` measured on one side means nothing on the other) and both END the
 frame: one visible step per gesture, so the eye can follow what happened.
 
+
+## ✅🚨🚨 THE WEDGE'S CROSS-SYSTEM WRAP, FIXED FOR REAL SCORES (2026-08-21)
+
+The wrap this family invented (2026-08-20) was measuring the wrong system on any score with more than
+one page — `hairpinSystemInkLimit` identified a system by its staff's TOP LINE y, which the first
+system of every page shares. On his two-staff, 64-bar file the wedge's end wrapped with a gap of ~128
+staff-spaces and landed at −120.
+
+The measuring and the NAMING now live once, in `markBreakWrap.systemInkAt` (a system is the
+CONTIGUOUS RUN of bars sharing the row, named by its first bar); `hairpinLane` keeps only what is
+hairpin-specific — which staff to ask about. The full account, with his reports, is in
+`docs/ottava-plan.md` §P11.
+
+⭐ The wedge also gained the other half of that fix: **a press whose ink the page limit refuses still
+crosses** (`markWalk.crossWithoutArrival`), because a system's music ends within a space of the
+sheet's margin and the wrap's arrival test could never be met once the ink had stopped moving.

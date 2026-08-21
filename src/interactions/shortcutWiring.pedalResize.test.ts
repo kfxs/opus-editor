@@ -40,6 +40,13 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
       nudgeNoteOffset: noteOffset,
       nudgePedal: nudgeWhole,
       nudgePedalEndpoint: vi.fn(() => true),
+      // ⭐ An armed square's horizontal asks the WALK first (`./pedalWalk`); nothing is drawn here,
+      // so "nowhere to go" leaves the press the plain ink nudge these cases are about.
+      nextPedalStartSlot: vi.fn(() => null),
+      nextPedalLift: vi.fn(() => null),
+      pedalLiftSlot: vi.fn(() => null),
+      getPedalById: () => ({ id: 'P1' }),
+      getScore: () => ({ measures: [] }),
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),
       resizeOttavaBySlot: vi.fn(() => false),
@@ -107,11 +114,14 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
     expect(noteOffset).toHaveBeenCalled()
   })
 
-  it('🚨 `Ctrl+←/→` NEVER MOVES THE LIFT — that chord nudges INK, this one is audible', () => {
-    // The regression guard for the 2026-08-18 move, and it outlived the sentence it was written
-    // with: that day the pedal had no ink offsets, so "no longer touches the pedal" and "no longer
-    // moves the lift" were the same assertion. Hours later `Ctrl+arrow` came back as an OFFSET
-    // (`.pedalOffset.test.ts`), and only the second half was ever the point.
+  it('🚨 `Ctrl+←/→` NEVER REACHES THE WHOLE-SLOT JUMP — that chord nudges INK', () => {
+    // The regression guard for the 2026-08-18 move, and it has now outlived TWO of its own
+    // sentences. That day the pedal had no ink offsets, so "no longer touches the pedal" and "no
+    // longer moves the lift" were the same assertion; hours later `Ctrl+arrow` came back as an
+    // OFFSET (`.pedalOffset.test.ts`). On 2026-08-21 the ink chord learned to WALK
+    // (`./pedalWalk`), so a press that arrives at the next stop does move the foot — by the walk's
+    // own write, and never by the whole-slot jump this pair of mocks stands for. ⭐ The assertion
+    // below is the one that was always the point and it is unchanged.
     //
     // It fires with the END square armed, AND with no square armed, which is the state the old
     // ungated branch answered in.
