@@ -37,6 +37,8 @@ import type { Pedal, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
 import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
+import { systemStopFor } from './markSystemJump'
+import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
  *  renderer. `ottavaLane.OttavaLaneEngine`'s twin. */
@@ -183,4 +185,46 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
   if (!staffId) return 0
   const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
   return at === -1 ? 0 : at
+}
+
+/**
+ * ⭐⭐ **WHICH SYSTEM A DRAGGED PEDAL NOW BELONGS TO** — `./markSystemJump`'s rule, ported
+ * (`ottavaLane.ottavaSystemSlotFor`'s twin, and the fifth family to use it).
+ *
+ * ⭐ The switch falls halfway between where the pedal sits and where it WOULD sit on the next staff,
+ * measured with its own lift taken back out — ⛔ never at the pentagram, which is late and lopsided
+ * (his call, 2026-08-19).
+ *
+ * ⭐ **A pedal is ALWAYS below its staff** (`PedalRenderer` §3), so `above` is a constant here where
+ * the bracket has to ask its `shift` — and `liftPx` needs no conversion, the stored `y` being
+ * screen-signed already.
+ */
+export function pedalSystemSlotFor(
+  engine: PedalLaneEngine,
+  pedal: Pedal,
+  cursorX: number,
+  /** Where the pedal's ink will be after this frame — its drawn y plus the frame's `dy`. */
+  inkY: number,
+  staffSpacePx: number,
+): PedalSlotTarget | null {
+  const lane = pedalLaneOnsets(engine, pedal)
+  const here = pedalPressAddress(engine.getScore(), pedal.id)
+  const anchor = here && lane.find(o => sameAddress(o.target, here))
+
+  return systemStopFor<PedalSlotTarget>({
+    bands: () => engine.getElementRegistry().staffBands(),
+    candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
+    anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
+    inkY: () => pedalInkY(engine, pedal.id),
+    liftPx: () => (pedalOffsetOverrideOf(engine.getScore(), pedal.id)?.y ?? 0) * staffSpacePx,
+    // ⛔ Never asked: one side, permanently.
+    above: () => false,
+  }, cursorX, inkY)
+}
+
+/** The vertical centre of the pedal's own ink in the last render — its FIRST sign, which is the one
+ *  its press (and so its anchor) lives on. Null when it drew none. */
+export function pedalInkY(engine: PedalLaneEngine, pedalId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('pedal').find(e => e.id === pedalId)
+  return piece ? piece.bbox.y + piece.bbox.height / 2 : null
 }

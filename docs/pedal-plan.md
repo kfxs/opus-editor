@@ -886,6 +886,24 @@ armed nudge the pair's ink and hand the WHOLE pedal along when the ink reaches t
 - ⛔ The body port has no LIFT door at all (`lift: () => false`) — a stop of the lift's own would
   reshape the pedal, which is the squares' job.
 
+### ✅⭐⭐ …and the SHAPE DRAGS, jumping systems (2026-08-21)
+
+His ask: *"lets do the pedal shape drag walking, taking into account the y so we jump system"*.
+`pedalWalk.dragPedalBody` + `pedalLane.pedalSystemSlotFor` + `MusicEngine.previewPedalSlot` /
+`previewPedalOffset` / `previewPedalOffsetRebase` / `commitPedalOffsetDrag`, armed from a press on
+either SIGN (`elements/pedal` → `armPedalOffsetDrag`, the bracket's seam). `ottavaWalk.dragOttavaBody`
+ported.
+
+- ⭐⭐ **TWO KINDS OF VERTICAL**: inside its own staff's room the `y` is plain INK (bounded by the page
+  and the band); past halfway to the neighbouring staff it is a JUMP (`markSystemJump`), ⛔ decided at
+  the halfway line and never at the pentagram (his rule, 2026-08-19). The lift comes back OUT before
+  the measurement, or the pedal's "home" follows it down for ever and the switch never arrives.
+- ⭐ **A jump ENDS THE FRAME, ⛔ not the gesture** — the pedal has landed where the hand is, so the hand
+  carries on down there. (A SQUARE's cross-system wrap is the one that ends the drag.)
+- ⛔ **The side cannot flip, and here it cannot even be asked**: a pedal is always drawn below its
+  staff, where the bracket derives its side from `shift` and the wedge from `placement`.
+- ⛔ No latch: a whole pedal is placed by eye, not aimed at one column's edge.
+
 ⏭️ **OPEN — the drag's cost, measured and parked**: his *"sometimes the movement of the editing
 freeze… is it a bug or a performance issue?"* was answered with the census, and it is COST, not a
 stuck gesture: one full render per mouse frame, ~9.6 ms average and 31 ms worst, with **0% of measures

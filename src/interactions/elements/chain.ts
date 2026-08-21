@@ -122,6 +122,10 @@ export interface ElementChainDeps {
    *  line drags the whole bracket — through the music horizontally, and DOWN ONTO ANOTHER SYSTEM
    *  vertically — where a press on one of its squares moves that end alone. */
   armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void
+  /** ⭐ The same again for a PEDAL's own ink (2026-08-21): a press on either sign drags the whole
+   *  pedal — through the music horizontally, and DOWN ONTO ANOTHER SYSTEM vertically — where a press
+   *  on one of its squares moves that sign alone. */
+  armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void
   /** ⭐ The same again for a slur's ARC BODY (2026-08-18): a press on the curve away from its handles
    *  moves the whole drawing, where a press on a handle moves that one point. Takes the press point
    *  for the hairpin's reason — a pixel delta, not a snap. */

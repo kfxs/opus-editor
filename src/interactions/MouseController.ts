@@ -35,7 +35,8 @@ import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
 import { ottavaStaffSpacePx } from './ottavaLane'
 import { armPedalEndpointAt } from './elements/pedalHandles'
-import { dragPedalEndpoint } from './pedalWalk'
+import { pedalStaffSpacePx } from './pedalLane'
+import { dragPedalBody, dragPedalEndpoint } from './pedalWalk'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
@@ -397,6 +398,15 @@ export class MouseController {
   private pedalEndLastX = 0
   private pedalEndLastY = 0
   private pedalDragStartTime: number | null = null
+
+  // --- Pedal BODY drag: a press on either SIGN moves the whole pedal — through the music sideways
+  //     (`pedalWalk.dragPedalBody`) and onto another system vertically (`markSystemJump`). ---
+  private isDraggingPedalBody = false
+  private draggedPedalBodyId: string | null = null
+  private pedalBodyLastX = 0
+  private pedalBodyLastY = 0
+  private pedalBodyDragChanged = false
+  private pedalBodyDragStartTime: number | null = null
 
   // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ The INTERPOLATING
   //     WALK with a cursor (`trillWalk.dragTrillEndpoint`) — the arrows' own gesture, so the ink
@@ -829,6 +839,7 @@ export class MouseController {
     armHairpinOffsetDrag: (hairpinId, x, y, event) => this.armHairpinOffsetDrag(hairpinId, x, y, event),
     armTrillOffsetDrag: (trillId, x, y, event) => this.armTrillOffsetDrag(trillId, x, y, event),
     armOttavaOffsetDrag: (ottavaId, x, y, event) => this.armOttavaOffsetDrag(ottavaId, x, y, event),
+    armPedalOffsetDrag: (pedalId, x, y, event) => this.armPedalOffsetDrag(pedalId, x, y, event),
     armSlurOffsetDrag: (slurId, x, y, event) => this.armSlurOffsetDrag(slurId, x, y, event),
     isDoubleClick: (mark, id) => this.pressIsDoubleClick(mark, id),
     openEditor: (mark, id) => {
@@ -945,6 +956,29 @@ export class MouseController {
     this.ottavaBodyLastY = y
     this.ottavaBodyDragChanged = false
     this.ottavaBodyDragStartTime = Date.now()
+    event.preventDefault()
+  }
+
+  /**
+   * ⭐⭐ Arm the drag that moves a whole PEDAL — a press on either sign (his ask, 2026-08-21: *"lets do
+   * the pedal shape drag walking, taking into account the y so we jump system"*).
+   *
+   * ⭐ **One pedal, two gestures, told apart by WHERE you grabbed it**: a SQUARE moves that sign
+   * through the music, the BODY moves the pair — sideways, and onto another system vertically. The
+   * arrows' own split arriving on the mouse.
+   *
+   * ⚠️ DECLINES to arm when the pedal's staff has no measured geometry: with no picture there is no
+   * px→staff-space scale, and a guessed one would move a small staff's pedal by the wrong amount.
+   */
+  private armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void {
+    const engine = this.getEngine()
+    if (!engine || !pedalStaffSpacePx(engine.getElementRegistry(), pedalId)) return
+    this.isDraggingPedalBody = true
+    this.draggedPedalBodyId = pedalId
+    this.pedalBodyLastX = x
+    this.pedalBodyLastY = y
+    this.pedalBodyDragChanged = false
+    this.pedalBodyDragStartTime = Date.now()
     event.preventDefault()
   }
 
@@ -1857,6 +1891,9 @@ export class MouseController {
     if (this.isDraggingOttavaBody) {
       this.endOttavaBodyDrag()
     }
+    if (this.isDraggingPedalBody) {
+      this.endPedalBodyDrag()
+    }
     if (this.isDraggingPedalEnd) {
       this.endPedalEndDrag()
     }
@@ -2656,6 +2693,7 @@ export class MouseController {
     if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handleOttavaBodyDrag(engine, x, y)) return
     if (this.handlePedalEndDrag(engine, x, y)) return
+    if (this.handlePedalBodyDrag(engine, x, y)) return
     if (this.handleTrillEndDrag(engine, x, y)) return
     if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
@@ -3117,6 +3155,49 @@ export class MouseController {
       this.render.renderScore()
     }
     return true
+  }
+
+  /**
+   * ⭐⭐ **One frame of a PEDAL BODY drag: the whole pedal follows the hand** — sideways through the
+   * music (span and all) and, when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM
+   * (`pedalWalk.dragPedalBody`, his ask 2026-08-21).
+   *
+   * ⚠️ The delta is measured from the last ACCEPTED frame, the family's rule: the module accumulates
+   * rather than sets, so a refused frame leaves the anchor put and the gesture re-synchronises when
+   * the cursor comes back.
+   *
+   * ⭐⭐ **A system JUMP ends the frame, ⛔ not the gesture** — the bracket's rule: the pedal has landed
+   * where the hand is, so the hand may carry straight on down there.
+   */
+  private handlePedalBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
+    if (!(this.isDraggingPedalBody && this.draggedPedalBodyId)) return false
+    if (this.pedalBodyDragStartTime !== null
+        && Date.now() - this.pedalBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+    const frame = dragPedalBody(
+      engine, this.draggedPedalBodyId, x, x - this.pedalBodyLastX, y - this.pedalBodyLastY)
+    // ⛔ null = the pedal is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      this.pedalBodyLastX = x
+      this.pedalBodyLastY = y
+      this.pedalBodyDragChanged = true
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /** Finish a pedal BODY drag: one undo entry if the pedal actually moved, then reset. It stays
+   *  selected, so the arrows carry on from where the mouse stopped. */
+  private endPedalBodyDrag(): void {
+    const engine = this.getEngine()
+    if (engine && this.pedalBodyDragChanged) {
+      engine.commitPedalOffsetDrag()
+      dbg(`Pedal moved | id:${this.draggedPedalBodyId}`)
+    }
+    this.isDraggingPedalBody = false
+    this.draggedPedalBodyId = null
+    this.pedalBodyDragChanged = false
+    this.pedalBodyDragStartTime = null
   }
 
   /** Finish an ottava BODY drag: one undo entry if the bracket actually moved, then reset. It stays

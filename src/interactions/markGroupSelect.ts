@@ -50,6 +50,7 @@ export function markAtPress(ctx: MouseDownCtx): { kind: MarkKind; id: string } |
     armHairpinOffsetDrag: () => {},
     armTrillOffsetDrag: () => {},
     armOttavaOffsetDrag: () => {},
+    armPedalOffsetDrag: () => {},
     armSlurOffsetDrag: () => {},
     // ⚠️ Never a double click: two Ctrl-presses on one mark are "in, then out", not "open the text
     // editor on it". The plain double-click still opens it.

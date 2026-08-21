@@ -52,7 +52,8 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { PedalLiftTarget, PedalSlotTarget } from '../engine/models/pedalOps'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  pedalLiftX, pedalPressAddress, pedalPressX, pedalStaffSpacePx, pedalSystemInkLimit,
+  pedalInkY, pedalLiftX, pedalPressAddress, pedalPressX, pedalStaffSpacePx, pedalSystemInkLimit,
+  pedalSystemSlotFor,
 } from './pedalLane'
 import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
 import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
@@ -66,7 +67,8 @@ export type PedalWalkEngine = Pick<MusicEngine,
   | 'nudgePedalEndpoint' | 'rebasePedalEndpointOffset'
   | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
   | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
-  | 'movePedalToSlot' | 'nudgePedal' | 'rebasePedalOffset'>
+  | 'movePedalToSlot' | 'nudgePedal' | 'rebasePedalOffset'
+  | 'previewPedalSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -316,6 +318,94 @@ export function walkPedalBody(engine: PedalWalkEngine, id: string, dx: number): 
       : carryMark(port, dx, 0, false, 1).moved
   })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A BODY DRAG — the whole pedal follows the hand**, sideways through the music and,
+ * when the hand leaves its staff's room, DOWN ONTO ANOTHER SYSTEM (his ask, 2026-08-21: *"lets do the
+ * pedal shape drag walking, taking into account the y so we jump system"*). `ottavaWalk.dragOttavaBody`
+ * ported, and the differences are the pedal's own two:
+ *
+ * ⭐⭐ **TWO KINDS OF VERTICAL, and that is the whole design.** Within its own staff's room the `y` is
+ * plain INK — the pair's shared height, bounded by the band and the page
+ * ({@link MusicEngine.previewPedalOffset}). Past halfway to the neighbouring staff there is nothing
+ * continuous to travel through — two systems' x's are not one ruler — so coming down onto the staff
+ * below is a JUMP, decided by `./markSystemJump`'s rule and ⛔ NOT by crossing the pentagram.
+ *
+ * ⛔ **A jump ENDS THE FRAME, ⛔ not the gesture** — unlike a square's wrap. The pedal has landed where
+ * the hand is, so the hand may carry straight on down there; what must not happen is spending this
+ * frame's `dx` against a slot it was never near.
+ *
+ * ⛔ **THE SIDE NEVER FLIPS, and here it cannot**: a pedal is always drawn BELOW its staff
+ * (`PedalRenderer` §3), where the bracket has a `shift` and the wedge a `placement`. One less thing a
+ * drag can do by accident.
+ *
+ * ⛔ **No latch**, unlike a square's drag: a whole pedal is being placed by eye, not aimed at one
+ * column's edge — the dynamic's reasoning, and the same conclusion.
+ *
+ * ⚠️ ⛔ No screen→outward conversion on the `y` either: the stored number is screen-signed.
+ *
+ * ⛔ Declines — **null** — when the pedal is not drawn, so there is no staff-space size to convert the
+ * cursor's pixels with.
+ */
+export function dragPedalBody(
+  engine: PedalWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+): { moved: boolean; jumped: boolean } | null {
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+
+  const dx = dxPx / staffSpacePx
+  const dy = dyPx / staffSpacePx
+  if (dx === 0 && dy === 0) return { moved: false, jumped: false }
+  return { moved: carryMark(port, dx, dy).moved, jumped: false }
+}
+
+/**
+ * ⭐⭐ **LEAVING THE PEDAL'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * (`./markSystemJump`, shared with the dynamic, the tempo mark, the wedge and the bracket).
+ *
+ * ⭐ The lift comes back out first — left in, the pedal's "home" follows it down for ever and the
+ * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
+ * the offset go: over there the old x means nothing, and the y was never a lift.
+ */
+function jumpSystems(
+  engine: PedalWalkEngine,
+  id: string,
+  cursorX: number,
+  dyPx: number,
+  staffSpacePx: number,
+): boolean {
+  const pedal = engine.getPedalById(id)
+  const inkY = pedalInkY(engine, id)
+  if (!pedal || inkY === null) return false
+
+  const target = pedalSystemSlotFor(engine, pedal, cursorX, inkY + dyPx, staffSpacePx)
+  if (!target || !engine.previewPedalSlot(id, target)) return false
+
+  const offset = pedalOffsetOverrideOf(engine.getScore(), id)
+  if (offset?.startX || offset?.y) {
+    engine.previewPedalOffset(id, -(offset.startX ?? 0), -(offset.y ?? 0))
+  }
+  dbg(`[Pedal] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
+  return true
+}
+
+/** The whole pedal's writes during a DRAG: the same edits with no undo entry of their own — the drop
+ *  commits once ({@link MusicEngine.commitPedalOffsetDrag}). */
+function bodyPreviewWrites(engine: PedalWalkEngine, id: string): PedalWrite {
+  return {
+    press: (target) => engine.previewPedalSlot(id, target),
+    lift: () => false,
+    nudge: (dx, dy) => engine.previewPedalOffset(id, dx, dy),
+    rebase: (dx) => engine.previewPedalOffsetRebase(id, dx),
+  }
 }
 
 /** The whole pedal's writes on the KEYBOARD — each records its own undo entry, and a crossing press

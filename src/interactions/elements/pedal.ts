@@ -29,7 +29,7 @@ const PAD = 7
 export const PEDAL_ELEMENT: ClickableElementSpec = {
   kind: 'pedal',
   /** Select a sustain pedal for edit or removal (hit-tested against its drawn SIGNS). */
-  hit({ registry, x, y }, deps) {
+  hit({ event, registry, x, y }, deps) {
     const pedalAt = registry.getByType('pedal').find(el => {
       const pts = el.points
       if (!pts || pts.length < 2) return false
@@ -40,8 +40,17 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
     }) ?? null
     if (!pedalAt?.id) return false
 
+    // ⭐ Click = select; drag = move the WHOLE pedal (his ask, 2026-08-21) — through the music
+    // sideways, and DOWN ONTO ANOTHER SYSTEM vertically. ⚠️ The BODY, so nothing is armed by it and
+    // nothing needs to be: **something armed → that sign, nothing armed → the pair** is already the
+    // arrows' rule (`nudgeSelectedPedal`), and this is the same sentence with the mouse. A press on
+    // one of the SQUARES never reaches here — `armPedalEndpointAt` is a pre-step in `MouseController`
+    // and consumes it.
     dbg(`✓ Pedal selected | id:${pedalAt.id}`)
-    return deps.pick({ kind: 'pedal', id: pedalAt.id })
+    return deps.pick(
+      { kind: 'pedal', id: pedalAt.id },
+      () => deps.armPedalOffsetDrag(pedalAt.id!, x, y, event),
+    )
   },
 
   // Recoloured, plus the attachment guide (the sixth kind, 2026-08-17). ⭐ It rides the `Ped.` — the

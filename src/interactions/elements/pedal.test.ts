@@ -36,7 +36,10 @@ function ctx(signs: ElementInfo[], x: number, y: number): MouseDownCtx {
 }
 
 function deps(): ElementChainDeps {
-  return { pick: vi.fn(() => true as const) } as unknown as ElementChainDeps
+  return {
+    pick: vi.fn(() => true as const),
+    armPedalOffsetDrag: vi.fn(),
+  } as unknown as ElementChainDeps
 }
 
 /** A whole pedal as drawn: `Ped.` at 100–140, `✻` at 380–400, nothing between. */
@@ -44,16 +47,23 @@ const PED = sign('p1', 100, 140)
 const STAR = sign('p1', 380, 400)
 
 describe('PEDAL_ELEMENT.hit', () => {
-  it('selects the pedal from a press on `Ped.`', () => {
+  it('selects the pedal from a press on `Ped.`, and ARMS the body drag with it', () => {
+    // ⭐ Click = select, drag = move the whole pedal (2026-08-21) — one press, two readings, and the
+    // chain decides between them on the first move. ⚠️ A press on one of the SQUARES never reaches
+    // here: `armPedalEndpointAt` is a pre-step in `MouseController` and consumes it.
     const d = deps()
     expect(PEDAL_ELEMENT.hit(ctx([PED, STAR], 120, 46), d)).toBe(true)
-    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' })
+    // The arm runs only if the chain calls back — the drag is not started by the press itself.
+    expect(d.armPedalOffsetDrag).not.toHaveBeenCalled()
+    ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
+    expect(d.armPedalOffsetDrag).toHaveBeenCalledWith('p1', 120, 46, undefined)
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
   })
 
   it('⭐ …and the SAME pedal from a press on the release — either sign answers for the whole', () => {
     const d = deps()
     expect(PEDAL_ELEMENT.hit(ctx([PED, STAR], 390, 46), d)).toBe(true)
-    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' })
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
   })
 
   it('⭐⭐ a press BETWEEN the signs MISSES — a press may only reach INK', () => {
@@ -91,7 +101,7 @@ describe('PEDAL_ELEMENT.hit', () => {
     for (const [x, y] of [[720, 46], [80, 306], [390, 306]] as const) {
       const d = deps()
       expect(PEDAL_ELEMENT.hit(ctx([first, resumed, released], x, y), d)).toBe(true)
-      expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' })
+      expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
     }
   })
 
@@ -99,7 +109,7 @@ describe('PEDAL_ELEMENT.hit', () => {
     const other = sign('p2', 500, 540)
     const d = deps()
     expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, other], 520, 46), d)).toBe(true)
-    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p2' })
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p2' }, expect.any(Function))
   })
 
   it('ignores an entry with no outline rather than guessing from the bbox', () => {

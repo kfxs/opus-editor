@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragPedalEndpoint, walkPedalBody, walkPedalEndpoint } from './pedalWalk'
+import { dragPedalBody, dragPedalEndpoint, walkPedalBody, walkPedalEndpoint } from './pedalWalk'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -609,6 +609,87 @@ describe('walkPedalEndpoint', () => {
 
     it('⛔ a zero press writes nothing', () => {
       expect(walkPedalBody(engine, pedalId, 0)).toBe(false)
+    })
+  })
+
+  /**
+   * ⭐⭐ **THE BODY DRAG — the whole pedal follows the hand** (his ask, 2026-08-21: *"lets do the pedal
+   * shape drag walking, taking into account the y so we jump system"*). The bracket's chapter one lane
+   * over; what is the pedal's own is that its side can never flip, there being only one.
+   *
+   * ⭐⭐ TWO KINDS OF VERTICAL: inside its own staff's room the `y` is plain INK; past halfway to the
+   * neighbouring staff it is a JUMP (`./markSystemJump`), ⛔ decided at the halfway line and not at
+   * the pentagram.
+   */
+  describe('the body drag', () => {
+    /** The pair's shared height, in SCREEN staff-spaces (+down). */
+    const y = () => pedalOffsetOverrideOf(engine.getScore(), pedalId)?.y ?? 0
+    /** Which bar holds the pedal — the only way to say which SYSTEM it is on. */
+    const pedalMeasure = () =>
+      engine.getScore().measures.find(m => m.pedals?.some(p => p.id === pedalId))?.number
+    /** The pedal's own drawn ink, which `markSystemJump` measures from. */
+    const pedalInk = () => drawn.entries.find(e => e.type === 'pedal')!.bbox
+    /** A second bar of music drawn on the NEXT system, so there is somewhere to jump to. */
+    const twoSystemLane = () => {
+      engine.addMeasure()
+      drawn.systemTop = { 1: 40, 2: 240 }
+      const next = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) })!.id)
+      next.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 0, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+    }
+    /** A frame at `cursorX`, having moved (`dxPx`,`dyPx`) since the last accepted one. */
+    const frame = (cursorX: number, dxPx: number, dyPx = 0) =>
+      dragPedalBody(engine, pedalId, cursorX, dxPx, dyPx)
+
+    it('carries the whole pedal sideways when the ink ARRIVES, span and all', () => {
+      expect(frame(140, 30)!.moved).toBe(true)
+      expect(span(), 'ink only so far').toEqual({ beat: 0, length: 2 })
+      frame(210, 70)
+      expect(span(), 'a slot along, the SAME length').toEqual({ beat: 1, length: 2 })
+      expect(offset('start')).toBeCloseTo(0)
+    })
+
+    it('⭐ lifts the pair while the hand is in its own staff\'s room', () => {
+      expect(frame(110, 0, -30)!.jumped, 'no jump — three spaces is its own room').toBe(false)
+      expect(y(), 'screen-signed, ⛔ no outward conversion').toBeCloseTo(-3)
+    })
+
+    it('⭐⭐ JUMPS to the system below when the hand leaves that room — his ask', () => {
+      twoSystemLane()
+      const jump = frame(150, 0, 260)!
+      expect(jump.jumped).toBe(true)
+      expect(pedalMeasure(), 'it now lives on the next system').toBe(2)
+    })
+
+    it('⭐ …and it arrives where the ENGRAVER would put it — both offsets dropped', () => {
+      twoSystemLane()
+      frame(110, 0, -30)
+      expect(y(), 'a lift first').toBeCloseTo(-3)
+      frame(150, 0, 260)
+      expect(y(), 'gone: over there it was never a lift').toBe(0)
+      expect(offset('start')).toBe(0)
+    })
+
+    it('⛔ a jump ENDS THE FRAME, ⛔ not the gesture — the hand carries on down there', () => {
+      twoSystemLane()
+      expect(frame(150, 0, 260)!.jumped).toBe(true)
+      // The very next frame moves the pedal on its NEW system, which is the whole point of not
+      // ending the gesture (the square's wrap is the one that does).
+      expect(frame(150, 0, -10)!.jumped, 'settled — this one is ordinary ink').toBe(false)
+      expect(pedalMeasure(), 'and it stayed where it landed').toBe(2)
+    })
+
+    it('⛔ declines — null — when the pedal is not drawn', () => {
+      render([100, 200, 300, 400], null)
+      expect(frame(110, 30)).toBeNull()
+    })
+
+    it('⚠️ …and it never guesses a system with no picture — the ink is the evidence', () => {
+      // No second system drawn: a huge downward frame is plain ink (bounded elsewhere), never a jump.
+      pedalInk()
+      expect(frame(150, 0, 400)!.jumped).toBe(false)
     })
   })
 

@@ -1953,6 +1953,39 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **Move the whole pedal onto `target` during a DRAG** — {@link movePedalToSlot} with no undo
+   * entry of its own; {@link commitPedalOffsetDrag} records the gesture once on the drop.
+   */
+  previewPedalSlot(id: string, target: PedalSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitPedalOffsetDrag
+    return this.scoreModel.setPedalAtSlot(id, target)
+  }
+
+  /**
+   * Live (preview) nudge of the WHOLE pedal's ink — a BODY drag. {@link nudgePedal} without the undo,
+   * and accumulating like it; the page limit and the band still refuse the write, so the pair stops
+   * at the edge rather than being clamped in the drawing.
+   */
+  previewPedalOffset(id: string, dx: number, dy: number): boolean {
+    if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
+    if (dy !== 0 && !this.pedalStaysInBand(id, dy)) return false
+    this.markModelDirty() // live drag, undo deferred to commitPedalOffsetDrag
+    return this.scoreModel.setPedalOffset(id, dx, dy)
+  }
+
+  /** The whole pedal's RE-BASE during a DRAG — {@link rebasePedalOffset} with no undo of its own, and
+   *  ⛔ never judged by the page limit or the band. */
+  previewPedalOffsetRebase(id: string, dx: number): boolean {
+    this.markModelDirty()
+    return this.scoreModel.setPedalOffset(id, dx, 0)
+  }
+
+  /** Record ONE undo entry after a pedal BODY drag settles. */
+  commitPedalOffsetDrag(): void {
+    this.commitPreviewed('Move pedal')
+  }
+
   /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
    *  carries none. */
   resetPedalOffset(id: string): boolean {
