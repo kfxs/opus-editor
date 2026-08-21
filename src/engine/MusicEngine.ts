@@ -5,7 +5,7 @@ import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
-import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
+import type { OttavaDragWrite, OttavaSlotTarget, OttavaStaffSlotTarget } from './models/ottavaOps'
 import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './models/pedalOps'
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
@@ -1347,6 +1347,21 @@ export class MusicEngine {
   previewOttavaSlot(id: string, target: OttavaSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
     return this.scoreModel.setOttavaAtSlot(id, target)
+  }
+
+  /**
+   * ⭐⭐ **…and onto ANOTHER STAFF's onset** — the VERTICAL half of the same drag (his ask,
+   * 2026-08-21), the last of the five families to get it: `ottavaOps.setOttavaAtStaffSlot`.
+   *
+   * ⚠️⚠️ **AUDIBLE, and more so than its siblings' landings**: an octave line TRANSPOSES the staff it
+   * is filed under, so moving it moves which notes sound an octave away.
+   *
+   * ⚠️ Its own method rather than a wider `target` on {@link previewOttavaSlot}: that one is also the
+   * BODY WALK's re-anchor, which travels sideways inside one lane and has no staff to say.
+   */
+  previewOttavaStaffSlot(id: string, target: OttavaStaffSlotTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
+    return this.scoreModel.setOttavaAtStaffSlot(id, target)
   }
 
   /**

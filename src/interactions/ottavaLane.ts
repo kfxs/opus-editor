@@ -21,10 +21,11 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
-import type { OttavaSlotTarget } from '../engine/models/ottavaOps'
+import type { OttavaSlotTarget, OttavaStaffSlotTarget } from '../engine/models/ottavaOps'
 import { ottavaSpan } from '../engine/models/ottavaOps'
 import type { Ottava, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
+import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
@@ -39,8 +40,22 @@ export type OttavaLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistr
 export interface OttavaLaneOnset {
   left: number
   right: number
+  /**
+   * ⚠️ The middle of the STAFF this onset was drawn on — ⛔ NOT the notehead's own centre, which is
+   * the only thing the reader wants it for: `markSystemJump` asks which painted staff a candidate
+   * belongs to, and a head on ledger lines can sit nearer the neighbouring staff's band than its
+   * own. `dynamicLane`'s rule, the fifth family on. Falls back to the ink's centre when that bar
+   * drew no geometry.
+   */
   y: number
   target: OttavaSlotTarget
+}
+
+/** The same, on a staff that may not be the bracket's — what a VERTICAL drag chooses between, where
+ *  a sideways walk only ever sees one staff's. */
+export interface OttavaStaffLaneOnset extends OttavaLaneOnset {
+  staff: number
+  target: OttavaStaffSlotTarget
 }
 
 /**
@@ -52,26 +67,56 @@ export interface OttavaLaneOnset {
  */
 export function ottavaLaneOnsets(engine: OttavaLaneEngine, ottava: Ottava): OttavaLaneOnset[] {
   const staff = staffIndexOf(engine.getScore(), ottava.staffId)
-  const onsets: OttavaLaneOnset[] = []
+  return drawnOnsets(engine).filter(o => o.staff === staff)
+}
+
+/**
+ * ⭐⭐ **EVERY ONSET OF EVERY PAINTED STAFF** — the candidates a VERTICAL drag chooses between, his
+ * ask 2026-08-21 and the LAST of the five families to get it.
+ *
+ * ⛔ Nothing here widens the WALK. Sideways the bracket stays in its lane
+ * ({@link ottavaLaneOnsets}), because a lane is what "the next onset" is counted along; the vertical
+ * is the axis on which a staff is a place, and `markSystemJump` was always choosing between painted
+ * staves — it simply never had a candidate on any but the bracket's own.
+ */
+export function ottavaStaffLaneOnsets(engine: OttavaLaneEngine): OttavaStaffLaneOnset[] {
+  return drawnOnsets(engine)
+}
+
+/**
+ * One onset per (staff, address) in the last render.
+ *
+ * ⚠️ The merge is keyed on the STAFF as well as the address — two staves striking beat 0 of bar 3 are
+ * two places, and collapsing them would leave the lower one unreachable. It merges what it is meant
+ * to: a chord's heads (and a displaced second) at one onset of one staff, keeping the LEFTMOST and
+ * the RIGHTMOST edge, which is the pair the bracket is drawn against.
+ */
+function drawnOnsets(engine: OttavaLaneEngine): OttavaStaffLaneOnset[] {
+  const score = engine.getScore()
+  const onsets: OttavaStaffLaneOnset[] = []
   const registry = engine.getElementRegistry()
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)
     if (!note) continue
     // ⛔ No voice filter — an octave line governs the whole staff.
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    const seen = onsets.find(o => sameAddress(o.target, target))
+    const staff = staffOf(note)
+    const seen = onsets.find(o => o.staff === staff
+      && sameAddress(o.target, { measure: note.measure, beat: note.beat }))
     if (seen) {
       seen.left = Math.min(seen.left, el.bbox.x)
       seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
       continue
     }
+    const lines = registry.getStaffGeometry?.(note.measure, staff)?.lineYPositions
     onsets.push({
       left: el.bbox.x,
       right: el.bbox.x + el.bbox.width,
-      y: el.bbox.y + el.bbox.height / 2,
-      target,
+      y: lines ? (lines[0] + lines[lines.length - 1]) / 2 : el.bbox.y + el.bbox.height / 2,
+      staff,
+      // ⚠️ The WRITE convention, resolved here and not in the model: the first staff is stored
+      // ABSENT (`MusicEngine.staffIdForIndex`).
+      target: { measure: note.measure, beat: note.beat, staffId: keyStaffId(score, staff) },
     })
   }
   return onsets
@@ -156,8 +201,12 @@ function staffIndexOf(score: Score, staffId: string | undefined): number {
  * sits and where it would sit on the other staff, measured from its NATURAL distance with its own
  * lift taken back out. What is here is only what is ottava-specific:
  *
- * ⭐ **The candidates are its own lane, across every system**, so a jump lands the bracket on the
- * SAME staff one line down, ⛔ never on another instrument's staff.
+ * ⭐⭐ **The candidates are EVERY PAINTED STAFF's, not the bracket's own lane** (his ask, 2026-08-21,
+ * the last of the five). The shared rule always chose between painted staves, so the other hand of a
+ * grand staff was in the running and simply had no candidate on it — which is why the bracket used to
+ * sail past the left hand onto the next system. ⚠️ A landing therefore NAMES a staff, and
+ * `ottavaOps.setOttavaAtStaffSlot` writes it — AUDIBLY: an octave line transposes the staff it is
+ * filed under, so moving it moves which notes sound an octave away.
  *
  * ⚠️⚠️ **THE LIFT IS STORED OUTWARD, so it is converted here** — `markSystemJump` wants it SCREEN-signed
  * (+down) to take it back out, and an 8va's `outward` counts UP. ⛔ The tempo mark is the only other
@@ -173,13 +222,16 @@ export function ottavaSystemSlotFor(
   /** Where the bracket's ink will be after this frame — its drawn y plus the frame's `dy`. */
   inkY: number,
   staffSpacePx: number,
-): OttavaSlotTarget | null {
-  const lane = ottavaLaneOnsets(engine, ottava)
+): OttavaStaffSlotTarget | null {
+  const lane = ottavaStaffLaneOnsets(engine)
+  const staff = staffIndexOf(engine.getScore(), ottava.staffId)
   const here = ottavaStartAddress(engine.getScore(), ottava.id)
-  const anchor = here && lane.find(o => sameAddress(o.target, here))
+  // ⚠️ The bracket's OWN onset, so on its own staff: `markSystemJump` measures its natural distance
+  // from the staff it hangs off, and a same-address onset on the other staff would name the wrong one.
+  const anchor = here && lane.find(o => o.staff === staff && sameAddress(o.target, here))
   const above = ottava.shift > 0
 
-  return systemStopFor<OttavaSlotTarget>({
+  return systemStopFor<OttavaStaffSlotTarget>({
     bands: () => engine.getElementRegistry().staffBands(),
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),

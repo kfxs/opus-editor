@@ -66,7 +66,7 @@ export type OttavaWalkEngine = Pick<MusicEngine,
   | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'
   | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
   | 'moveOttavaToSlot' | 'nudgeOttava' | 'rebaseOttavaOffset'
-  | 'previewOttavaSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
+  | 'previewOttavaSlot' | 'previewOttavaStaffSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step, a
@@ -354,7 +354,7 @@ export function dragOttavaBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
-  if (jumpSystems(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+  if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
 
   const dx = dxPx / staffSpacePx
   // ⭐⭐ SCREEN → OUTWARD, the same conversion {@link dragOttavaEndpoint} makes, and for its reason.
@@ -365,14 +365,20 @@ export function dragOttavaBody(
 }
 
 /**
- * ⭐⭐ **LEAVING THE BRACKET'S OWN SYSTEM** — the half of a drag the walk cannot do
+ * ⭐⭐ **LEAVING THE BRACKET'S OWN STAFF** — the half of a drag the walk cannot do
  * (`./markSystemJump`, shared with the dynamic, the tempo mark and the wedge).
+ *
+ * ⭐⭐ **The staff below counts, not only the system below** (his ask, 2026-08-21, the last of the
+ * five families). On a grand staff a bracket dragged down belongs to the LEFT HAND, so the landing
+ * writes the bracket's `staffId` as well as its address (`ottavaOps.setOttavaAtStaffSlot`) — ⚠️ and
+ * AUDIBLY: an octave line transposes the staff it is filed under. ⭐ The SHIFT does not change, so
+ * neither does the side: an 8va stays above whatever staff it lands on.
  *
  * ⭐ The lift comes back out first — left in, the bracket's "home" follows it down for ever and the
  * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
  * the offset go: over there the old x means nothing, and the y was never a lift.
  */
-function jumpSystems(
+function jumpStaves(
   engine: OttavaWalkEngine,
   id: string,
   cursorX: number,
@@ -384,13 +390,13 @@ function jumpSystems(
   if (!ottava || inkY === null) return false
 
   const target = ottavaSystemSlotFor(engine, ottava, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewOttavaSlot(id, target)) return false
+  if (!target || !engine.previewOttavaStaffSlot(id, target)) return false
 
   const offset = ottavaOffsetOverrideOf(engine.getScore(), id)
   if (offset?.startX || offset?.outward) {
     engine.previewOttavaOffset(id, -(offset.startX ?? 0), -(offset.outward ?? 0))
   }
-  dbg(`[Ottava] jumped to the system it now belongs to | id:${id} → m${target.measure}`)
+  dbg(`[Ottava] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
   return true
 }
 

@@ -1306,3 +1306,45 @@ so this family hit the wall first and hardest.
 system against the top margin, so an `8va` there has ~2.8 staff-spaces of lift before it is off the
 paper. Two browser cases (`ladder.e2e.ts` a tempo lift, `slur.e2e.ts` a rigid curve move) ask for more
 than that and are red for that reason — the limit is telling the truth about the air that exists.
+
+## ✅⭐⭐ THE OTHER HAND OF A GRAND STAFF IS A LANDING (2026-08-21, BUILT) — the LAST of the five
+
+His ask, closing the family: the dynamic, the wedge, the trill, the pedal and now the bracket. Same
+report throughout — `markSystemJump.systemStopFor` has always chosen between **painted staves**, so
+the other hand was in the running and simply had no candidate on it: the mark won the vertical
+question there, lost the horizontal one for want of anything to anchor to, and carried on to the
+system below.
+
+- `ottavaLane.ottavaStaffLaneOnsets` — every onset of **every** painted staff, each naming its staff.
+  `ottavaSystemSlotFor` hands the shared rule this instead of the bracket's own lane. ⛔ The sideways
+  walk is untouched.
+- `ottavaOps.setOttavaAtStaffSlot` — `setOttavaAtSlot` plus the `staffId`, looking the landing onset
+  up on the TARGET staff (`staffOnsets` with that id). `MusicEngine.previewOttavaStaffSlot` is its own
+  method: `previewOttavaSlot` is also the body walk's re-anchor, which has no staff to say.
+
+### ⚠️⚠️ It is the most AUDIBLE of the five landings
+
+A dynamic changes loudness, a pedal changes what rings — an octave line **transposes**. Every note
+under the bracket sounds an octave away (`Ottava.shift`, written-vs-sounding), so moving it to the
+left hand moves which notes are displaced. That is exactly what a user dragging it there is saying,
+but it is not a cosmetic landing and the write says so.
+
+### ⭐ The SHIFT does not change, so neither does the side
+
+An 8va stays an 8va above whatever staff it lands on — the family's standing rule (*the side never
+flips*; turning an 8va into an 8vb is `toggleOttavaDirection`, a change to the MUSIC the user asks
+for by name). The wedge flips on a jump because it has a `placement`; this one derives its side from
+`shift`, so there is nothing to flip.
+
+### Settled decisions (the wedge's and the pedal's, verbatim)
+
+- ⚠️ **The LENGTH rides along**; a span running past what the target staff carries is clamped where it
+  is READ (`ottavaSpan`), never in the write.
+- ⚠️ The first staff is stored ABSENT whichever spelling reaches the op, and a frame that changes
+  neither staff nor address is refused.
+- 🚨 **A candidate's band is its STAFF's, not its notehead's.** ⚠️ This exposed the same LIE in
+  `ottavaWalk.test.ts`'s registry stub the wedge's spec had — `lineYPositions` was
+  `[systemTop, 250, 260, 270, 280]`, a per-system top line with system 1's bottom under it, which is
+  not a staff.
+
+**The family is now complete**: all five outside-staff marks can be dragged onto the other hand.

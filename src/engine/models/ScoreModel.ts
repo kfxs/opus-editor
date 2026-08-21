@@ -827,6 +827,13 @@ export class ScoreModel {
     return ottavaOps.setOttavaAtSlot(this.score, id, target)
   }
 
+  /** The same, onto the onset **of the staff `target` names** — the vertical drag's write, the one
+   *  that can hand the bracket to the other hand of a grand staff. ⚠️ AUDIBLE: it moves which notes
+   *  are transposed. See {@link ottavaOps.setOttavaAtStaffSlot}. */
+  setOttavaAtStaffSlot(id: string, target: ottavaOps.OttavaStaffSlotTarget): boolean {
+    return ottavaOps.setOttavaAtStaffSlot(this.score, id, target)
+  }
+
   /** The slot an ottava's hook closes around TODAY — ⚠️ ⛔ not the span's exclusive end. See
    *  {@link ottavaOps.ottavaEndSlot}. */
   ottavaEndSlot(id: string): ottavaOps.OttavaSlotTarget | null {

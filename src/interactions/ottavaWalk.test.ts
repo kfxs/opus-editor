@@ -30,6 +30,9 @@ const drawn = vi.hoisted(() => ({
   lineSpacing: 10 as number | null,
   /** Per measure: the staff's top-line y — which system that bar was drawn on. */
   systemTop: {} as Record<number, number>,
+  /** Per STAFF INDEX: how far below the system's top line that staff's own top line is. Empty means
+   *  one staff per system, which is every case but the grand-staff one. */
+  staffOffset: {} as Record<number, number>,
   /** ⭐ The PAINTED staves. Two by default, one per system: the BAND limit measures the room a mark
    *  may be lifted into from the gap to its neighbours (`layout/systemBand`), and a score with a
    *  single staff falls back to a much tighter guess — real, but not the case under test here. */
@@ -43,9 +46,13 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: (m: number) => (drawn.lineSpacing === null ? undefined : {
+      getStaffGeometry: (m: number, staff = 0) => (drawn.lineSpacing === null ? undefined : {
         lineSpacing: drawn.lineSpacing,
-        lineYPositions: [drawn.systemTop[m] ?? 240, 250, 260, 270, 280],
+        // ⚠️ FIVE lines from the system's own top — it used to be `[top, 250, …, 280]`, i.e. a
+        // per-system top line with system 1's BOTTOM under it, which is not a staff. Harmless until
+        // `ottavaLane` began classifying a candidate by the staff it was drawn on (2026-08-21).
+        lineYPositions: [0, 10, 20, 30, 40]
+          .map(d => (drawn.systemTop[m] ?? 240) + (drawn.staffOffset[staff] ?? 0) + d),
         noteStartX: 90, noteEndX: 430,
       }),
       getByMeasure: vi.fn(() => []),
@@ -78,6 +85,7 @@ describe('walkOttavaEndpoint', () => {
   const render = (xs = [100, 200, 300, 400], lineSpacing: number | null = 10) => {
     drawn.lineSpacing = lineSpacing
     drawn.systemTop = { 1: 240, 2: 240 } // ⭐ ONE system by default
+    drawn.staffOffset = {}
     drawn.bands = [{ top: 240, bottom: 280 }, { top: 440, bottom: 480 }]
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, staff: 0, bbox: { x: xs[i], y: 250, width: 10, height: 10 },
@@ -512,6 +520,31 @@ describe('walkOttavaEndpoint', () => {
       it('⛔ declines — null — when the bracket is not drawn', () => {
         render([100, 200, 300, 400], null)
         expect(frame(210, 30)).toBeNull()
+      })
+
+      it('🚨⭐⭐ …and the OTHER HAND of a grand staff is a landing, not only the next system', () => {
+        // His ask, 2026-08-21 — the LAST of the five families. ⭐ The rule never changed:
+        // `markSystemJump` always chose between PAINTED STAVES, and the left hand was in the running
+        // with no candidate on it, so the bracket sailed past it.
+        const lower = engine.addStaffBelow(0)
+        const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+          engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+        // ONE system, two staves: 240…280 and 380…420. The bracket's ink is at 225, fifteen ABOVE
+        // its own top line, so its twin over the left hand is 365 and the switch falls at 295.
+        drawn.staffOffset = { 1: 140 }
+        drawn.bands = [{ top: 240, bottom: 280 }, { top: 380, bottom: 420 }, { top: 440, bottom: 480 }]
+        left.forEach((id, i) => drawn.entries.push({
+          type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 390, width: 10, height: 10 },
+        }))
+
+        expect(frame(210, 0, 50)!.jumped, 'still its own room').toBe(false)
+        expect(frame(210, 0, 70)!.jumped).toBe(true)
+        // ⭐⭐ The LANDING NAMES A STAFF — and here that is AUDIBLE: an octave line transposes the
+        // staff it is filed under, so this moves which notes sound an octave away.
+        expect(engine.getOttavaById(bracketId)?.staffId, 'the left hand’s bracket now').toBe(lower)
+        expect(ottavaMeasure(), 'the same system — it did not sail past').toBe(1)
+        expect(span().length, 'the span is an amount of MUSIC and rides along').toBe(2)
+        expect(engine.getOttavaById(bracketId)!.shift, 'and the side never flips: still an 8va').toBe(1)
       })
     })
 

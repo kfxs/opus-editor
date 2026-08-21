@@ -559,6 +559,64 @@ function locate(score: Score, id: string): {
   }
 }
 
+/** A lane onset named by its address **and by the staff it stands on** — what a VERTICAL drag lands
+ *  on, where {@link OttavaSlotTarget} is what a sideways one lands on. `PedalStaffSlotTarget`'s
+ *  twin, arriving for the same report. */
+export interface OttavaStaffSlotTarget extends OttavaSlotTarget {
+  /** ⚠️ A real answer, not an omission: absent IS the first staff, the write convention this model
+   *  keeps everywhere (`MusicEngine.staffIdForIndex`). ⛔ Never "keep the staff it is on". */
+  staffId: string | undefined
+}
+
+/**
+ * ⭐⭐ **MOVE THE WHOLE BRACKET TO ANOTHER STAFF'S ONSET** — {@link setOttavaAtSlot} plus the one
+ * field that was never movable, his ask 2026-08-21 and the LAST of the five families to get it.
+ *
+ * ⭐ **A staff is part of where a mark STANDS**, so this is the same kind of write as the address
+ * change beside it — the whole difference is which lane the landing onset is looked for in
+ * ({@link staffOnsets} with the TARGET's id), because that staff is not the bracket's yet.
+ *
+ * ⚠️⚠️ **AND IT IS AUDIBLE — more so than any of the four before it.** An octave line does not decorate
+ * a staff, it TRANSPOSES it: every note under the bracket sounds an octave away
+ * ({@link Ottava.shift}, written-vs-sounding). Moving it to the left hand therefore moves which notes
+ * are displaced, which is precisely what a user dragging it there is saying — but ⛔ it is not a
+ * cosmetic landing, and a caller that treats it as one is wrong.
+ *
+ * ⭐ **The SHIFT does not change**, so neither does the side: an 8va stays an 8va above whatever staff
+ * it lands on (`ottavaWalk`'s standing rule — ⛔ the side never flips).
+ *
+ * ⚠️ **The LENGTH rides along**, so this is the body's move and not a resize; a span running past what
+ * the target staff carries is clamped where it is READ ({@link ottavaSpan}), never here.
+ *
+ * ⚠️ The first staff is stored ABSENT whichever spelling the caller passed ({@link moveOttavaToMeasure}'s
+ * emptied-array rule: two spellings of one state is the bug).
+ *
+ * ⚠️ Declines (false) for an unknown id, for an address that is not an onset of the TARGET staff, and
+ * when nothing would change — same staff AND same address, which a drag frame asks on every move.
+ */
+export function setOttavaAtStaffSlot(score: Score, id: string, target: OttavaStaffSlotTarget): boolean {
+  const ottava = getOttavaById(score, id)
+  const here = ottavaMeasure(score, id)
+  if (!ottava || !here) return false
+
+  const staffMoves = !matchesStaff(ottava.staffId, target.staffId, score)
+  const sameAddress = here.number === target.measure && fracCompare(ottava.beat, target.beat) === 0
+  if (!staffMoves && sameAddress) return false
+
+  const lane = staffOnsets(score, target.staffId, measureStartOffsets(score))
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+
+  if (slot.measure !== here.number && !moveOttavaToMeasure(score, ottava, slot.measure)) return false
+  ottava.beat = slot.beat
+  if (staffMoves) {
+    if (matchesStaff(target.staffId, undefined, score)) delete ottava.staffId
+    else ottava.staffId = target.staffId
+  }
+  ottavaMeasure(score, id)?.ottavas?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
 /** Re-file an ottava under a different measure, keeping the SAME object (and so the same id, which
  *  is what the selection holds). `hairpinOps`' twin, including the ⭐ `delete` of an emptied array —
  *  an absent `ottavas` and an empty one must not both be reachable, or the JSON round trip has two
