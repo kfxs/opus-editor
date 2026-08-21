@@ -328,3 +328,32 @@ page (pages stay ragged-bottom, LilyPond's default) · a staff-size / scaling co
 odd/even mirrored margins · headers, footers, page numbers, title block · manual page breaks (those
 are the *positional* half of principle 6 — a break belongs to the measure it happens before) ·
 persistence of any of it · more than one layout at a time · pages in linear view.
+
+---
+
+## 8. ⏭️ THE VERTICAL, and it is a real chapter rather than a gap (2026-08-21)
+
+His note, closing a day of limits: *"there is something we have to do in the future vertical position
+of staves or system… for layout and engraving but we are not still at that point"*. Recorded here so
+the day it is opened, the evidence is already in one place.
+
+**What is decided today, and by what.** A system's vertical position is `surface.marginTopPx + Σ the
+systems above it` (`layout/pageCastOff.pageCastOff`), so a page-opening system sits FLUSH against the
+sheet's top margin — `MIN_SPACING_ABOVE_AT_PAGE_TOP = 0` (`layout/staffStride`), which is a floor on
+DRAGGING a system up rather than a placement rule. Nothing anywhere prices the ink that lives ABOVE
+the top staff.
+
+🚨 **What that costs, measured** (`e2e/ladder.e2e.ts`, `e2e/slur.e2e.ts`, both of which had to move
+their fixtures to the SECOND system to keep testing what they name): on the first system the sheet's
+edge is at y 0, the staff's top line at 61, and a tempo mark's ink already runs **y 2 … 32**. There is
+no room above it at all — so above the first system of any score, a tempo mark, an octave bracket, a
+trill or a slur **cannot be nudged up by a single space**, and the page limit is right to refuse.
+
+⛔ **The answer is NOT to push the top staff down by a constant** — his call the moment it was
+proposed: *"do you mean push down the top staff? this is not a decision"*. What the chapter has to
+decide is what the vertical is MADE of: the page's own top margin as an authored setting, the ladder's
+claims counted into a system's height so the casting-off knows what hangs above its first staff, and
+(the item already listed in §7) vertical justification of systems on the page.
+
+⚠️ Until then the rule stands and is honest: the first system's marks live in the band between the
+staff and the paper, and that band is all there is.

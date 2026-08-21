@@ -282,13 +282,31 @@ test('⭐ …and on ordinary music the FLOORS keep the same order', async ({ sco
  * limit — and this is the browser's word on the first of them, since a translate is geometry and
  * jsdom measures none of it.
  */
+/**
+ * ⚠️⚠️ **THE MARK GOES ON THE SECOND SYSTEM, AND THAT IS THE POINT OF THE FIXTURE** (2026-08-21).
+ *
+ * On the FIRST system there is no room to lift into: the sheet's edge is at y 0, the staff's top line
+ * at 61, and "Allegro" already occupies that band — its ink measured **y 2 … 32**. A 2-space lift
+ * would put its top at −18, off the paper, so {@link MusicEngine.nudgeStaysOnPage} refuses the write
+ * and the mark does not move. ⛔ This test then measured nothing but the limit, and read as a failure
+ * of the tempo offset — his question, *"why exacly is the test failing… i want a concrete example"*.
+ *
+ * ⭐ The second system has a system ABOVE it, so the gap is real and the claim under test — which way
+ * a POSITIVE offset moves the mark — is the only thing the numbers can be about.
+ */
 test('⭐⭐ a POSITIVE tempo offset lifts the mark AWAY from the staff', async ({ score }) => {
   const { before, after, lower } = await score.evaluate(async () => {
     const h = window.__h
-    for (const beat of [0, 1, 2, 3]) {
-      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    // Enough bars to break, then the mark on the FIRST BAR OF SYSTEM 2 (`pedal.e2e.ts`'s idiom).
+    for (let m = 1; m <= 20; m++) {
+      if (m > 1) h.engine.addMeasure()
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
     }
-    const mark = h.engine.addTempoMark(1, { beat: h.frac(0, 1), text: 'Allegro' })!
+    await h.render()
+    const heads = h.placed('g.vf-notehead text')
+    const firstRowY = Math.min(...heads.map(g => g.y))
+    const onFirstRow = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length
+    const mark = h.engine.addTempoMark(onFirstRow + 1, { beat: h.frac(0, 1), text: 'Allegro' })!
     await h.render()
     const y = () => h.placed('g.vf-tempo text')[0].y
 

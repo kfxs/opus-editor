@@ -451,14 +451,33 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
   // deliberately: its arch carries an OBSTACLE LIFT (§12 Phase 8), which is the only thing that can
   // tell a rigid translate apart from two endpoint offsets — an equal pair of those feeds
   // `slurArchClearance` moved endpoints, and the lift is re-solved from where they now are.
+  //
+  // ⚠️⚠️ **AND IT RUNS ON THE SECOND SYSTEM, which is not decoration** (2026-08-21). On the FIRST one
+  // there is nothing above the staff but the paper's edge — the sheet starts at y 0 and the staff's
+  // top line is at 61 — so this test's own `−2` lift was REFUSED and the samples deviated by exactly
+  // 20 px, one staff-space per space asked for. It looked like a shape failure and was the page limit
+  // telling the truth ({@link MusicEngine.nudgeStaysOnPage}); his question, *"why exacly is the test
+  // failing"*. A system with a system ABOVE it has real room, so the numbers here are about the claim.
   const r = await score.evaluate(async () => {
     const h = window.__h
+    // Fill until the layout breaks, then find the first bar of system 2 (`pedal.e2e.ts`'s idiom).
+    for (let m = 1; m <= 20; m++) {
+      if (m > 1) h.engine.addMeasure()
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
+    }
+    await h.render()
+    const heads = h.placed('g.vf-notehead text')
+    const firstRowY = Math.min(...heads.map(g => g.y))
+    const runBar = heads.filter(g => Math.abs(g.y - firstRowY) < 5).length + 1
+
+    // The rising run, in that bar — its whole note replaced by the twelve sixteenths.
     const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E', 'F', 'G']
     const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
-      step, octave: i < 7 ? 5 : 6, duration: '16', measure: 1, beat: h.frac(i, 4),
+      step, octave: i < 7 ? 5 : 6, duration: '16', measure: runBar, beat: h.frac(i, 4),
     })!.id)
-    h.engine.addMeasure()
-    const last = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 2, beat: h.frac(0, 1) })!
+    const last = h.engine.addNoteAtBeat({
+      step: 'G', octave: 5, duration: 'q', measure: runBar + 1, beat: h.frac(0, 1),
+    })!
     const slur = h.engine.createSlur([ids[0], last.id])!
     await h.render()
 
@@ -481,9 +500,14 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
     h.engine.nudgeSlurEndpoint(slur.id, 'end', 1.5, -2)
     await h.render()
     const asEndpoints = deviation(sample(), 1.5, -2)
-    return { rigid, asEndpoints, sp, samples: before.length }
+    // ⭐ The fixture's own check: if the run did NOT land below the first row, the lift below is
+    // being refused again and every number here means nothing.
+    const arcTop = Math.min(...h.curveSamples('g.vf-slur path', 20).map(p => p.y))
+    return { rigid, asEndpoints, sp, samples: before.length, arcTop, firstRowY }
   })
   expect(r.samples, 'the arc was sampled').toBeGreaterThan(50)
+  // ⭐⭐ …on the SECOND system, or this measures the page limit instead of the shape (see above).
+  expect(r.arcTop, 'the slur is below the first row of music').toBeGreaterThan(r.firstRowY)
   // ⭐ THE CLAIM: every sample landed exactly where the old one was, plus the offset. A tenth of a
   // staff-space of slack covers the sampler walking a marginally longer curve, nothing more.
   expect(r.rigid).toBeLessThan(r.sp * 0.1)
