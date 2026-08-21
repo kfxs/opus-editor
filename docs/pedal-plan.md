@@ -870,6 +870,22 @@ ending the gesture with the square still armed.
   own line and the SYSTEM is decided by the wrap. ⭐ The pedal's third end rule survives in
   `PedalLiftTarget`, reached one step at a time by `nextPedalLift`.
 
+### ✅⭐⭐ …and the SHAPE walks on the keyboard (2026-08-21)
+
+His ask: *"lets do the pedal shape walking with keyboards"*. `pedalWalk.walkPedalBody` +
+`pedalOps.setPedalAtSlot` + `MusicEngine.movePedalToSlot` / `rebasePedalOffset` — `walkOttavaBody`'s
+port, wired into `shortcutWiring.nudgeSelectedPedal` so the arrows with a pedal selected and NO square
+armed nudge the pair's ink and hand the WHOLE pedal along when the ink reaches the press's next onset.
+
+- ⭐ **Its stops are the PRESS's, and the LIFT is not held**: the span is an amount of music and
+  travels with it. That is the whole difference between MOVING a mark and RESHAPING it — the same ten
+  presses through the START square hold the lift and shorten the pedal, which the spec asserts side by
+  side as a break-test.
+- ⚠️ **AUDIBLE at the crossing and only there**: it changes which notes ring.
+- 🚨 It wraps across a system break by the same rule as the squares, measured from the press's system.
+- ⛔ The body port has no LIFT door at all (`lift: () => false`) — a stop of the lift's own would
+  reshape the pedal, which is the squares' job.
+
 ⏭️ **OPEN — the drag's cost, measured and parked**: his *"sometimes the movement of the editing
 freeze… is it a bug or a performance issue?"* was answered with the census, and it is COST, not a
 stuck gesture: one full render per mouse frame, ~9.6 ms average and 31 ms worst, with **0% of measures

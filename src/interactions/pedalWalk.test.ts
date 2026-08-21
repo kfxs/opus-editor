@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragPedalEndpoint, walkPedalEndpoint } from './pedalWalk'
+import { dragPedalEndpoint, walkPedalBody, walkPedalEndpoint } from './pedalWalk'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -302,6 +302,16 @@ describe('walkPedalEndpoint', () => {
       expect(span()).toEqual({ beat: 0, length: 4 })
     })
 
+    it('⭐⭐ the WHOLE pedal wraps too, and takes its span with it', () => {
+      // The body's stops are the press's, so the wrap is measured from the `Ped.`'s own system. Walk
+      // the press to the last onset of the line, then push it off the end.
+      for (let i = 0; i < 40; i++) walkPedalBody(engine, pedalId, 1)
+      const pedal = engine.getPedalById(pedalId)!
+      expect(fracToNumber(pedal.length), '⭐ the span is unchanged by every step of it').toBe(4)
+      expect(engine.getScore().measures.find(m => m.number === 2)?.pedals?.length,
+        'and it ended up filed under bar 2, on the next system').toBe(1)
+    })
+
     it('⛔ never onto a bar the last render drew nothing for', () => {
       drawn.undrawn = [2]
       drawn.entries = drawn.entries.filter(e => e.bbox.y < 200)
@@ -535,6 +545,70 @@ describe('walkPedalEndpoint', () => {
     it('⛔ declines — null — when the pedal is not drawn, so there is no scale', () => {
       render([100, 200, 300, 400], null)
       expect(frame('end', 400, 100)).toBeNull()
+    })
+  })
+
+  /**
+   * ⭐⭐ **THE WHOLE PEDAL WALKS — nothing armed** (his ask, 2026-08-21: *"lets do the pedal shape
+   * walking with keyboards"*). What this chapter owns over the two squares' is one claim: the stops
+   * are the PRESS's and the LIFT is not held, so the span TRAVELS. Moving a mark, ⛔ not reshaping it.
+   */
+  describe('the body walk', () => {
+    /** The ink both signs carry while the pedal is moved as one — read off the press. */
+    const ink = () => offset('start')
+
+    it('nudges the ink and leaves the pedal alone until the ink arrives', () => {
+      for (let i = 0; i < 9; i++) expect(walkPedalBody(engine, pedalId, 1)).toBe(true)
+      expect(span()).toEqual({ beat: 0, length: 2 })
+      expect(ink()).toBeCloseTo(9)
+      expect(offset('end'), 'both signs, the same number').toBeCloseTo(9)
+    })
+
+    it('⭐⭐ the tenth press MOVES the whole pedal — ⛔ the LIFT is not held', () => {
+      for (let i = 0; i < 10; i++) walkPedalBody(engine, pedalId, 1)
+      expect(span(), 'a slot along, the SAME length').toEqual({ beat: 1, length: 2 })
+      expect(ink(), 'and the ink did not jump — the identity').toBeCloseTo(0)
+    })
+
+    it('⭐⭐ …where the START square would have held it and shortened the pedal', () => {
+      // The break-test for "moving is not reshaping": the same ten presses through the armed square
+      // leave the damper coming up where it did.
+      for (let i = 0; i < 10; i++) walkPedalEndpoint(engine, pedalId, 'start', 1)
+      expect(span(), 'the lift stayed at beat 2').toEqual({ beat: 1, length: 1 })
+    })
+
+    it('⭐ it is AUDIBLE at the crossing, and only there', () => {
+      for (let i = 0; i < 9; i++) walkPedalBody(engine, pedalId, 1)
+      expect(span(), 'nine presses of pure ink').toEqual({ beat: 0, length: 2 })
+      walkPedalBody(engine, pedalId, 1)
+      expect(span(), 'the tenth says the damper falls a beat later').toEqual({ beat: 1, length: 2 })
+    })
+
+    it('⭐ a crossing press is ONE undo entry', () => {
+      for (let i = 0; i < 10; i++) walkPedalBody(engine, pedalId, 1)
+      expect(span().beat).toBe(1)
+      engine.undo()
+      expect(span()).toEqual({ beat: 0, length: 2 })
+      expect(ink()).toBeCloseTo(9)
+    })
+
+    it('walks back too, and stops at the start of the score — the ink carries on', () => {
+      for (let i = 0; i < 10; i++) walkPedalBody(engine, pedalId, 1)
+      for (let i = 0; i < 10; i++) walkPedalBody(engine, pedalId, -1)
+      expect(span(), 'back where it began').toEqual({ beat: 0, length: 2 })
+      for (let i = 0; i < 5; i++) walkPedalBody(engine, pedalId, -1)
+      expect(span().beat, 'never off the front').toBe(0)
+      expect(ink(), '⭐ and the ink is FREE past it').toBeCloseTo(-5)
+    })
+
+    it('⛔ never guesses the staff-space size — no measured staff means no crossing', () => {
+      render([100, 200, 300, 400], null)
+      for (let i = 0; i < 15; i++) walkPedalBody(engine, pedalId, 1)
+      expect(span()).toEqual({ beat: 0, length: 2 })
+    })
+
+    it('⛔ a zero press writes nothing', () => {
+      expect(walkPedalBody(engine, pedalId, 0)).toBe(false)
     })
   })
 

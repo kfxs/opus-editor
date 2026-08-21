@@ -19,7 +19,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addPedal, removePedal, updatePedal, setPedalLength, getPedalById, pedalMeasure, measurePedals,
   pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot, movePedalStartBySlot,
-  setPedalStartAtSlot, setPedalLiftAt, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
+  setPedalStartAtSlot, setPedalLiftAt, setPedalAtSlot, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
   resetPedalEndpointOffset,
 } from './pedalOps'
 import { setEngravingOverride } from './overrideOps'
@@ -541,6 +541,38 @@ describe('pedalOps — setPedalStartAtSlot / setPedalLiftAt', () => {
   it('is false for an unknown id', () => {
     expect(setPedalStartAtSlot(score, 'nope', { measure: 1, beat: frac(0, 1) })).toBe(false)
     expect(setPedalLiftAt(score, 'nope', { measure: 1, beat: frac(1, 1) })).toBe(false)
+  })
+
+  /**
+   * ⭐⭐ {@link setPedalAtSlot} — the WHOLE pedal onto a slot, the body walk's re-anchor. The claim
+   * that separates it from its two neighbours: `length` is not touched, so the LIFT travels. Moving
+   * a mark, ⛔ not reshaping it.
+   */
+  describe('setPedalAtSlot — moving the pedal as ONE', () => {
+    it('⭐ carries the lift along: the span moves, its LENGTH does not change', () => {
+      const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+      expect(setPedalAtSlot(score, p.id, { measure: 1, beat: frac(1, 1) })).toBe(true)
+      expect(spanOf(p.id), 'both feet a beat later').toEqual({ press: 1, lift: 3 })
+    })
+
+    it('⭐⭐ …which is exactly what the START square does NOT do', () => {
+      // The same target through the other door holds the lift and shortens the pedal. Two gestures,
+      // two writes, and the armed square is the whole of the difference.
+      const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+      setPedalStartAtSlot(score, p.id, { measure: 1, beat: frac(1, 1) })
+      expect(spanOf(p.id)).toEqual({ press: 1, lift: 2 })
+    })
+
+    it('⛔ refuses an address that is not an onset of the pedal\'s own staff', () => {
+      const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+      expect(setPedalAtSlot(score, p.id, { measure: 1, beat: frac(5, 2) })).toBe(false)
+      expect(setPedalAtSlot(score, p.id, { measure: 9, beat: frac(0, 1) })).toBe(false)
+      expect(spanOf(p.id), 'untouched').toEqual({ press: 0, lift: 2 })
+    })
+
+    it('is false for an unknown id', () => {
+      expect(setPedalAtSlot(score, 'nope', { measure: 1, beat: frac(0, 1) })).toBe(false)
+    })
   })
 })
 

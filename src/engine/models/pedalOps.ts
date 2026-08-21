@@ -471,6 +471,37 @@ export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotT
   return true
 }
 
+/**
+ * ⭐⭐ **MOVE THE WHOLE PEDAL onto `target`, KEEPING ITS LENGTH** — the body's walk, where the two
+ * squares move one sign each (his ask, 2026-08-21: *"lets do the pedal shape walking with
+ * keyboards"*). {@link setOttavaAtSlot}'s twin, and the same three sentences apply:
+ *
+ * ⭐ **Its stops are the PRESS's**, because a pedal moved as one is moved by the foot going down: the
+ * span is an amount of music and travels with it. So this is the simplest of the writes — ⛔ `length`
+ * is not touched at all, and nothing has to be held still. ⚠️ It is AUDIBLE either way: the same notes
+ * are no longer the ones that ring.
+ *
+ * ⭐ **A pedal moved across a barline is RE-FILED under the bar it now starts in**, keeping the same
+ * object and the same id ({@link movePedalStartBySlot} says why: a re-created pedal would deselect
+ * itself mid-gesture).
+ *
+ * ⚠️ It may run off the end of the score — the span is CLAMPED where it is read ({@link pedalSpan}),
+ * the defence every over-running span here has. Declines when `target` is not an onset of the pedal's
+ * own staff, or when no such pedal exists.
+ */
+export function setPedalAtSlot(score: Score, id: string, target: PedalSlotTarget): boolean {
+  const placed = locate(score, id)
+  if (!placed) return false
+  const { pedal, startMeasure, lane } = placed
+
+  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
+  if (!slot) return false
+  if (slot.measure !== startMeasure && !movePedalToMeasure(score, pedal, slot.measure)) return false
+  pedal.beat = slot.beat
+  pedalMeasure(score, id)?.pedals?.sort((a, b) => fracCompare(a.beat, b.beat))
+  return true
+}
+
 /** Re-file a pedal under a different measure, keeping the SAME object (and so the same id, which is
  *  what the selection holds). `ottavaOps`' twin, including the ⭐ `delete` of an emptied array — an
  *  absent `pedals` and an empty one must not both be reachable, or the JSON round trip has two

@@ -134,6 +134,11 @@ describe('nudging a sustain pedal\'s ink from the keyboard', () => {
   })
 
   it('⭐⭐ with NOTHING armed the same keys move the WHOLE pedal', () => {
+    // ⚠️ Since 2026-08-21 the HORIZONTAL travels through `pedalWalk.walkPedalBody`, which nudges the
+    // same ink and hands the whole pedal along when it arrives. It lands on `nudgePedal` here because
+    // this fixture measures NOTHING — no drawn onsets, so no stop to arrive at — which is the walk's
+    // own no-guessing rule. ⭐ What the crossing does is `pedalWalk.test.ts`'s chapter; what this file
+    // owns is the CHORD and the branch: nothing armed → the pair, and ⛔ never the per-sign write.
     armed()
     run('selectNextNote')
     run('pitchUp')

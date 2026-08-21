@@ -1947,6 +1947,32 @@ export class MusicEngine {
     return ok
   }
 
+  /**
+   * ⭐⭐ **Move the WHOLE pedal onto `target`, keeping how much music it holds** — the body walk's
+   * crossing write, the keyboard twin of {@link movePedalStartToSlot} at the other grain.
+   *
+   * ⚠️ A CONTENT edit and AUDIBLE: the same notes are no longer the ones that ring, so `commit`, ⛔
+   * never `saveOnly`. ⭐ It keeps both signs' nudges by construction (`pedalOps` writes no override
+   * here), which is what the walk needs — the crossing is meant to be invisible.
+   */
+  movePedalToSlot(id: string, target: PedalSlotTarget): boolean {
+    const ok = this.scoreModel.setPedalAtSlot(id, target)
+    if (ok) this.commit('Move pedal')
+    return ok
+  }
+
+  /**
+   * ⭐⭐ **RE-BASE the WHOLE pedal's ink — the body walk's bookkeeping, ⛔ NOT a hand nudge.** Both
+   * signs by the same delta, and ⛔ never judged by the page limit or the band: the pair *(anchor :=
+   * the next slot, offset −= the gap)* leaves the drawing exactly where it was
+   * ({@link rebasePedalEndpointOffset} carries the report that made this a rule).
+   */
+  rebasePedalOffset(id: string, dx: number): boolean {
+    const ok = this.scoreModel.setPedalOffset(id, dx, 0)
+    if (ok) this.saveOnly('Nudge pedal') // inside the walk's batch this only counts the request
+    return ok
+  }
+
   /** `Ctrl+Backspace` with a pedal selected and nothing armed: every nudge dropped. DECLINEs when it
    *  carries none. */
   resetPedalOffset(id: string): boolean {

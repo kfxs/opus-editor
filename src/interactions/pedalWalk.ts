@@ -10,8 +10,9 @@
  * with, and `Ctrl+Shift+←/→` (`shortcutWiring`) jumped the extent a whole slot with the ink snapping
  * to wherever the engraver put it.
  *
- * The arithmetic is `./markWalk`'s, untouched; this file is the PORT, twice. What is pedal-specific
- * is three things:
+ * The arithmetic is `./markWalk`'s, untouched; this file is the PORT — twice for the two SQUARES, and
+ * once more for the pedal moved as ONE ({@link walkPedalBody}, whose stops are the press's and whose
+ * ink is both signs). What is pedal-specific is three things:
  *
  * ⭐⭐ **THE END IS A MOMENT IN TIME, NOT A NOTE.** A bracket's hook closes around the last covered
  * notehead and a trill's line ends at a duration; the foot comes up at a POINT, which is why the
@@ -64,7 +65,8 @@ export type PedalWalkEngine = Pick<MusicEngine,
   | 'movePedalStartToSlot' | 'movePedalLiftTo'
   | 'nudgePedalEndpoint' | 'rebasePedalEndpointOffset'
   | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
-  | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'>
+  | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
+  | 'movePedalToSlot' | 'nudgePedal' | 'rebasePedalOffset'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
@@ -262,6 +264,90 @@ export function dragPedalEndpoint(
   const carried = carryMark(port, dx, dy, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
   return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+}
+
+/**
+ * ⭐⭐ **THE WHOLE PEDAL WALKS — the arrows with a pedal selected and NO square armed** (his ask,
+ * 2026-08-21: *"lets do the pedal shape walking with keyboards"*). `ottavaWalk.walkOttavaBody`'s
+ * twin, and the same three sentences hold one lane over:
+ *
+ * ⭐ **Its stops are the PRESS's**, because a pedal moved as one is moved by the foot going down: the
+ * span is an amount of music and travels with it (`pedalOps.setPedalAtSlot`). So the LIFT is not held
+ * — ⛔ the opposite of what either square does, which is exactly the difference between MOVING a mark
+ * and RESHAPING it.
+ *
+ * ⭐ **Its ink is BOTH signs at once** (`nudgePedal`), which is what the arrows have always written
+ * here; the offset it reads back is the PRESS's, since the pair carry the same number while the pedal
+ * is moved as one.
+ *
+ * ⚠️ **AUDIBLE at the crossing, and only there** — it changes which notes ring. Every press either
+ * side of it is ink and changes nothing.
+ *
+ * 🚨 It crosses a system break by the same WRAP as the squares (`./markBreakWrap`), measured from the
+ * PRESS's own system.
+ *
+ * @returns true when the model changed (the caller repaints), false when nothing was written.
+ */
+export function walkPedalBody(engine: PedalWalkEngine, id: string, dx: number): boolean {
+  if (dx === 0) return false
+  const port = bodyPort(engine, id, bodyWrites(engine, id))
+
+  const wrap = wrapPort(engine, id, 'start')
+  const across = breakCrossing(port, wrap, dx)
+  if (!across?.arrived && !markWalkCrosses(port, dx)) {
+    if (inkPress(port, dx)) return true
+    // ⭐⭐ The ink had nowhere to go — the page's edge. The press then spends itself on the PEDAL
+    // rather than on nothing at all. 🚨 The WRAP first where there is one: a blocked press at the end
+    // of a system is exactly the case `./markBreakWrap` exists for, and its arrival test can never be
+    // met once the ink has stopped moving.
+    let handed = false
+    engine.runBatch('Move pedal', () => {
+      handed = across
+        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+        : crossWithoutArrival(port, dx)
+    })
+    return handed
+  }
+
+  let moved = false
+  engine.runBatch('Move pedal', () => {
+    moved = across?.arrived
+      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
+      : carryMark(port, dx, 0, false, 1).moved
+  })
+  return moved
+}
+
+/** The whole pedal's writes on the KEYBOARD — each records its own undo entry, and a crossing press
+ *  wraps them in one batch. ⚠️ `nudgePedal`'s second argument is the shared vertical and stays 0: no
+ *  walk has one ({@link PedalWrite}). */
+function bodyWrites(engine: PedalWalkEngine, id: string): PedalWrite {
+  return {
+    press: (target) => engine.movePedalToSlot(id, target),
+    // ⛔ The body has no LIFT door: moved as one, the pedal is re-anchored by its press and the
+    // release simply travels. A stop of the lift's own would RESHAPE it, which is the squares' job.
+    lift: () => false,
+    nudge: (dx, dy) => engine.nudgePedal(id, dx, dy),
+    rebase: (dx) => engine.rebasePedalOffset(id, dx),
+  }
+}
+
+/** ⭐ **THE BODY'S PORT** — the press's stops and geometry, with the WHOLE pedal's writes. */
+function bodyPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkWalkPort {
+  return {
+    label: 'Pedal',
+    nextStop: (direction) => engine.nextPedalStartSlot(id, direction),
+    stopX: (stop) => pressX(engine, id, stop as PedalSlotTarget),
+    anchorX: () => {
+      const here = pedalPressAddress(engine.getScore(), id)
+      return here ? pressX(engine, id, here) : null
+    },
+    staffSpacePx: () => pedalStaffSpacePx(engine.getElementRegistry(), id),
+    offsetX: () => pedalOffsetOverrideOf(engine.getScore(), id)?.startX ?? 0,
+    reanchor: (stop) => write.press(stop as PedalSlotTarget),
+    nudge: (dx, dy) => write.nudge(dx, dy),
+    rebase: (dx) => write.rebase(dx),
+  }
 }
 
 /**

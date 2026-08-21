@@ -24,7 +24,7 @@ import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
-import { walkPedalEndpoint } from './pedalWalk'
+import { walkPedalBody, walkPedalEndpoint } from './pedalWalk'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
@@ -379,14 +379,27 @@ export function wireShortcuts(
     return true
   }
 
-  /** ⭐⭐ **The arrows move the WHOLE pedal when no square is armed** — the bracket's and the wedge's
-   *  rule: **something armed → that sign; nothing armed → the pair.** One chord read by what you
-   *  picked. */
+  /**
+   * ⭐⭐ **The arrows move the WHOLE pedal when no square is armed** — the bracket's and the wedge's
+   * rule: **something armed → that sign; nothing armed → the pair.** One chord read by what you
+   * picked.
+   *
+   * ⭐⭐ **And the horizontal WALKS, exactly as an armed square's does** (`./pedalWalk.walkPedalBody`,
+   * his ask 2026-08-21) — the ink moves, and when it reaches the next onset the WHOLE pedal goes with
+   * it, span and all. ⚠️ So this key too can end in a MODEL write, which is the crossing and nothing
+   * else, and on a pedal that write is AUDIBLE: it says which notes ring. ⭐ The LIFT is not held
+   * here, which is the whole difference between moving a mark and reshaping it.
+   *
+   * ⚠️ ⛔ No screen→outward conversion, unlike the bracket's twin: a pedal has one side permanently.
+   */
   const nudgeSelectedPedal = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const pedal = selectedOf(state, 'pedal')
     if (!eng || !pedal || pedal.endpoint) return false
-    if (!eng.nudgePedal(pedal.id, dx, dy)) return false
+    const moved = dy === 0 && dx !== 0
+      ? walkPedalBody(eng, pedal.id, dx)
+      : eng.nudgePedal(pedal.id, dx, dy)
+    if (!moved) return false
     renderer.renderScore()
     return true
   }

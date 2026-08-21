@@ -944,6 +944,12 @@ export class ScoreModel {
     return pedalOps.setPedalStartAtSlot(this.score, id, target)
   }
 
+  /** Move the WHOLE pedal onto a slot, keeping how much music it holds — the body walk's re-anchor.
+   *  See {@link pedalOps.setPedalAtSlot}. */
+  setPedalAtSlot(id: string, target: pedalOps.PedalSlotTarget): boolean {
+    return pedalOps.setPedalAtSlot(this.score, id, target)
+  }
+
   /** Nudge one of a pedal's two signs — its ink, not its extent. ⭐ `dy` moves BOTH signs: they share
    *  one baseline. See {@link pedalOps.setPedalEndpointOffset}. */
   setPedalEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
