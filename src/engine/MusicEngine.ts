@@ -1600,6 +1600,30 @@ export class MusicEngine {
     return created
   }
 
+  /**
+   * ⭐⭐ **Put a pedal at an ADDRESS, holding `length` of music, making room as it lands** — what a
+   * PASTE of a copied pedal needs (`interactions/elementClipboard`, his ask 2026-08-21), and
+   * `createSlurOverSpan`'s twin at the other grain.
+   *
+   * ⭐ **It goes through the ENTRY door** (`pedalOps.addPedalOverNotes`), ⛔ never `addPedal`: two
+   * pedals overlapping on one staff is a contradiction — there is ONE damper — and the rule for
+   * resolving it is the pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3). An earlier
+   * press still down is shortened to end here; a later one is left alone and this pedal stops where
+   * it begins; one on this exact beat is replaced. ⚠️ That is the same door the Lines palette uses,
+   * so a pasted pedal cannot reach a state the entry gesture could not.
+   *
+   * ⛔ It takes a PLACE rather than notes — a pedal governs a region, so unlike a slur or a trill it
+   * needs no notehead under the pointer.
+   *
+   * @returns the stored Pedal, or null when the address is not in the score or the span holds no music.
+   */
+  addPedalOverSpan(measure: number, beat: Fraction, length: Fraction, staffId?: string): Pedal | null {
+    const created = this.scoreModel.addPedalOverNotes(
+      { measure, beat }, { measure, beat, length }, staffId)
+    if (created) this.commit('Add pedal')
+    return created
+  }
+
   /** Remove a sustain pedal by id. Saves undo state when one was removed. */
   removePedal(id: string): boolean {
     const removed = this.scoreModel.removePedal(id)

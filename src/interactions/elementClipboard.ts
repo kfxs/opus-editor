@@ -106,6 +106,20 @@ export interface OttavaElementClip {
 }
 
 /**
+ * A copied SUSTAIN PEDAL (his ask, 2026-08-21). ⭐ **The leanest arm here, and that is the mark being
+ * honest about itself**: a pedal is an amount of music and NOTHING else — no side (it is always drawn
+ * below its staff), no voice (one damper serves every voice of the staff), no text, no type.
+ *
+ * ⛔ Nothing about the drawing travels: both signs' nudges and their shared height are overrides keyed
+ * by the copied pedal's id, and a paste never reuses one.
+ */
+export interface PedalElementClip {
+  kind: 'pedal'
+  /** How much music it holds, in quarter-note beats — the same unit as `Pedal.length`. */
+  length: Fraction
+}
+
+/**
  * A copied SLUR — its SPAN and which side it was drawn on (his ask, 2026-08-20).
  *
  * ⭐⭐ **A slur's identity is two NOTE IDS, and those mean nothing anywhere else** — which is why a
@@ -158,7 +172,7 @@ export interface TrillElementClip {
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
 export type ElementClip =
   | DynamicElementClip | TempoElementClip | HairpinElementClip | SlurElementClip
-  | TrillElementClip | OttavaElementClip
+  | TrillElementClip | OttavaElementClip | PedalElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 export type ElementClipEngine = Pick<MusicEngine,
@@ -167,7 +181,8 @@ export type ElementClipEngine = Pick<MusicEngine,
   | 'getHairpinById' | 'addHairpin'
   | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
   | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'
-  | 'getOttavaById' | 'addOttava'>
+  | 'getOttavaById' | 'addOttava'
+  | 'getPedalById' | 'addPedalOverSpan'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -191,6 +206,10 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
     const ottava = engine.getOttavaById(element.id)
     if (!ottava) return null
     return { kind: 'ottava', length: ottava.length, shift: ottava.shift }
+  }
+  if (element?.kind === 'pedal') {
+    const pedal = engine.getPedalById(element.id)
+    return pedal ? { kind: 'pedal', length: pedal.length } : null
   }
   if (element?.kind === 'slur') {
     const slur = engine.getSlurById(element.id)
@@ -289,6 +308,26 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'ottava', id: created.id } : null
     }
+    case 'pedal': {
+      // ⭐ The generic anchor is a pedal's answer, the bracket's and the wedge's rule: a pedal begins
+      // on a slot of its own lane and governs a REGION, so it needs a place rather than a notehead
+      // (⛔ not the slur's and the trill's rule, which need a NOTE named).
+      //
+      // ⚠️⚠️ **IT LANDS THROUGH THE ENTRY DOOR, so it MAKES ROOM** — {@link MusicEngine.addPedalOverSpan},
+      // ⛔ never `addPedal`. Two pedals overlapping on one staff is a contradiction (one damper), and
+      // the model already knows how a pianist resolves it: *lift, re-press* (docs/pedal-plan.md §3.3).
+      // ⭐ That is the difference from the ottava's arm beside it — two brackets may not SHARE a beat,
+      // but they may overlap, because two displacements at different times are readable and two feet
+      // are not.
+      //
+      // ⚠️ The LENGTH is taken as it was copied, ⛔ never trimmed: a span running past the music is
+      // clamped where it is READ (`pedalOps.pedalSpan`), so a pedal pasted near the end draws short
+      // and grows back if it is moved home — the bracket's rule verbatim.
+      const staffId = engine.staffIdForIndex(anchor.staff)
+      const created = engine.addPedalOverSpan(
+        anchor.measure, anchor.beat, clip.length, staffId ?? undefined)
+      return created ? { kind: 'pedal', id: created.id } : null
+    }
     case 'slur': {
       // 🚨 **A slur needs a NOTE, and the anchor must NAME one** — ⛔ not merely point at a place.
       // His two reports, 2026-08-20: a paste into an empty bar drew a slur anyway (an address
@@ -352,6 +391,7 @@ export function elementClipSummary(clip: ElementClip): string {
   if (clip.kind === 'hairpin') {
     return `hairpin ${clip.type} of ${fracToNumber(clip.length)} beats (${clip.placement})`
   }
+  if (clip.kind === 'pedal') return `pedal over ${fracToNumber(clip.length)} beats`
   if (clip.kind === 'ottava') {
     // ⭐ Named as the READER sees it, ⛔ never "shift +1", which is the storage. ⚠️ ASCII on purpose —
     // this is a console line, not ink; the drawn numerals are SMuFL glyphs and these are the names

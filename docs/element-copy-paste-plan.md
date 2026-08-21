@@ -252,6 +252,33 @@ upsert — the CLEF's rule, not the wedge's (docs/ottava-plan.md §7.8): one (be
 most one octave line, or no reader could say which displacement is true. ⭐ It needs no batch, being
 one model write with one undo entry.
 
+## 2026-08-21 (later) — the PEDAL travels, and its paste MAKES ROOM
+
+*"now we have to do the single pedal copy and paste"*. The seventh arm, and **the leanest one there
+will ever be**: `PedalElementClip` carries a `length` and nothing else. That is the mark being honest
+about itself — no side (a pedal is always drawn below its staff, where the bracket derives one from
+`shift` and the wedge stores a `placement`), no voice (one damper serves every voice of the staff), no
+text, no type. The spec asserts the absences, because they are the content.
+
+⚠️⚠️ **Where it parts from the bracket beside it: the paste makes ROOM rather than replacing.** Two
+octave brackets may overlap — two displacements at different times are readable — but two pedals on
+one staff cannot: there is ONE foot. So a pasted pedal lands through the ENTRY door
+(`MusicEngine.addPedalOverSpan` → `pedalOps.addPedalOverNotes`), which performs the pianist's own
+gesture, *lift, re-press* (docs/pedal-plan.md §3.3): a pedal still down when this one begins is
+SHORTENED to end here, one starting inside it is left alone and the pasted one stops where that
+begins, and one on the exact same beat is replaced by the upsert. ⛔ `addPedal` — the low-level door
+the ottava's arm uses — would have stacked two feet on one staff, which the model treats as a
+contradiction everywhere else.
+
+⭐ The rest is the bracket's row: the generic anchor is its answer (a place, ⛔ not a NOTE — a pedal
+governs a region), the length is taken as copied rather than trimmed (`pedalOps.pedalSpan` clamps
+where it READS), and nothing about the drawing travels, both signs' nudges and their shared height
+being overrides keyed by the copied pedal's id.
+
+⭐ `addPedalOverSpan` is `createSlurOverSpan`'s twin at the other grain: an ADDRESS plus a length,
+where the slur's and the trill's need a note, and it is the same door the Lines palette already uses —
+so a pasted pedal cannot reach a state the entry gesture could not.
+
 ## Not done
 
 - ⏭️ **A "reset the overrides" action for a SELECTED PASSAGE** (his idea, 2026-08-20, on the rule
@@ -270,8 +297,7 @@ one model write with one undo entry.
   three overrides (both end nudges + the mouth), and it has a second half — `rebarOps
   .restoreBeatAnchors` regenerates every mark's id on any rebar or paste, so an id-keyed override
   orphans unless it rides the capture/restore seam (docs/dynamic-offset-plan.md, P1).
-- Only the dynamic, the tempo mark, the hairpin, the slur, the trill and the OTTAVA travel. A clef or
-  a meter would each be one row (see above). ⏭️ The PEDAL is the obvious next one: a span with a
-  length and no scope, i.e. the bracket's row with `shift` removed.
+- Only the dynamic, the tempo mark, the hairpin, the slur, the trill, the ottava and the PEDAL
+  travel. A clef or a meter would each be one row (see above).
 - No OS-clipboard interchange: the clip lives in the controller, like the music one.
 - Multi-select of elements is out of scope — `selectedElement` is deliberately ONE.

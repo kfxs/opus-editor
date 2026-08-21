@@ -482,4 +482,83 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
       expect(copyElement(engine, { kind: 'ottava', id: bracketId })).toBeNull()
     })
   })
+
+  /**
+   * ⭐⭐ A SUSTAIN PEDAL (his ask, 2026-08-21) — **the leanest arm on the clip, and that is the mark
+   * being honest about itself**: an amount of music and nothing else. No side (a pedal is always
+   * drawn below its staff), no voice (one damper serves every voice), no text, no type.
+   *
+   * ⚠️⚠️ **And its paste MAKES ROOM where the bracket's REPLACES.** Two brackets may overlap — two
+   * displacements at different times are readable — but two pedals on one staff cannot: there is one
+   * foot. So this lands through the ENTRY door (`MusicEngine.addPedalOverSpan`), which performs the
+   * pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3).
+   */
+  describe('a sustain pedal', () => {
+    let pedalId: string
+    /** Every pedal in the score as `measure@beat:length`. */
+    const pedals = () => engine.getScore().measures.flatMap(m =>
+      (m.pedals ?? []).map(p => `${m.number}@${fracToNumber(p.beat)}:${fracToNumber(p.length)}`))
+
+    beforeEach(() => {
+      for (const beat of [1, 2, 3]) {
+        engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(beat, 1) })
+      }
+      pedalId = engine.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })!.id
+    })
+
+    it('⭐⭐ copies the pedal WITH its length, and with NOTHING else', () => {
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })
+      expect(clip).toEqual({ kind: 'pedal', length: frac(1, 1) })
+      expect(clip).not.toHaveProperty('id')
+      // ⛔ The three the neighbours carry and this one has no business having.
+      expect(clip).not.toHaveProperty('placement')
+      expect(clip).not.toHaveProperty('voice')
+      expect(clip).not.toHaveProperty('text')
+    })
+
+    it('⭐ pastes at the anchor, keeping how much music it holds', () => {
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(pedals()).toEqual(['1@0:1', '1@2:1'])
+    })
+
+    it('⭐ …and it is a NEW pedal every time, so one copy pastes many', () => {
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
+      const first = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 }))
+      const second = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(3, 1), staff: 0 }))
+      expect(first).not.toBe(second)
+      expect(first).not.toBe(pedalId)
+    })
+
+    it('⚠️⚠️ a paste UNDER a pedal that is still down LIFTS it — ⛔ it never stacks', () => {
+      // ⭐⭐ THE ONE PLACE THIS DIFFERS FROM THE BRACKET'S ARM, and it is the instrument's own fact:
+      // one damper. The long pedal is shortened to end where the pasted one begins, which is exactly
+      // what the pianist did (docs/pedal-plan.md §3.3).
+      const long = engine.addPedal(1, { beat: frac(1, 1), length: frac(3, 1) })!
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(fracToNumber(engine.getPedalById(long.id)!.length), 'lifted at beat 2').toBe(1)
+      expect(pedals()).toEqual(['1@0:1', '1@1:1', '1@2:1'])
+    })
+
+    it('⚠️ …and a paste on an occupied BEAT replaces the pedal standing there', () => {
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(0, 1), staff: 0 })
+      expect(pedals(), 'one pedal, not two stacked').toEqual(['1@0:1'])
+      expect(engine.getPedalById(pedalId), 'the copied one is the one replaced').toBeNull()
+    })
+
+    it('⛔ …and NOT the drawing: neither sign\'s nudge nor their shared height', () => {
+      engine.nudgePedalEndpoint(pedalId, 'end', 2, 1)
+      const clip = copyElement(engine, { kind: 'pedal', id: pedalId })!
+      const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(engine.getScore().engravingOverrides?.[idOf(pasted)!], 'the new pedal carries none')
+        .toBeUndefined()
+    })
+
+    it('⛔ copies nothing for a pedal that is no longer in the score', () => {
+      engine.removePedal(pedalId)
+      expect(copyElement(engine, { kind: 'pedal', id: pedalId })).toBeNull()
+    })
+  })
 })
