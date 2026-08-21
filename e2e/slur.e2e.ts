@@ -487,9 +487,64 @@ test('⭐⭐ the WHOLE curve moves RIGIDLY — its shape is not re-solved (his a
   // ⭐ THE CLAIM: every sample landed exactly where the old one was, plus the offset. A tenth of a
   // staff-space of slack covers the sampler walking a marginally longer curve, nothing more.
   expect(r.rigid).toBeLessThan(r.sp * 0.1)
-  // ⭐⭐ …and the break-test, permanently: doing it the hairpin's way instead — both endpoints — moves
-  // the ink by the same vector and CHANGES THE ARCH on the way, because the obstacle lift is solved
-  // again from the raised ends. If this ever falls to zero, the two paths have become one and the
-  // rigid claim above is no longer being tested by anything.
-  expect(r.asEndpoints).toBeGreaterThan(r.sp * 0.5)
+  // ⭐⭐ **…and the two roads now AGREE, which is the fix of 2026-08-21 and ⛔ not a weakening.**
+  //
+  // This line used to demand the opposite — that moving both ENDPOINTS by the same vector changed the
+  // arch, because the obstacle lift was solved again from the moved ends — and it was kept as the
+  // break-test for the rigid claim above. His report killed the premise: *"the problem is the arch,
+  // and not that the endpoint of the slur is in a wrong position"*. Solving the shape from the ends
+  // the ENGRAVER chose (`SlurRenderer`, and it is the same sentence the whole-curve move obeys) means
+  // an endpoint nudge translates its half instead of re-arching, so two endpoints moved alike now
+  // translate the whole curve — exactly like the whole-curve offset.
+  //
+  // ⚠️ So the rigid claim above is now tested by the ARCH ITSELF rather than by a contrast: the
+  // chapter below pins that a dragged end cannot invert the curve, which is the failure this
+  // divergence used to stand in for.
+  expect(r.asEndpoints, 'the same delta, the same drawing').toBeLessThan(r.sp * 0.1)
+})
+
+/**
+ * 🚨🚨 **A DRAGGED ENDPOINT MAY NOT INVERT THE ARCH** — his report, 2026-08-21, with a picture of a
+ * slur whose curve left the top of the sheet while both its ends sat on the staff: *"the arc go out
+ * of the page… completely wrong"*, and then the correction that found it: *"the problem is the arch,
+ * and no that the endpoint of the slur is in a wrong position"*.
+ *
+ * ⭐ The cause was the obstacle lift (`slurObstacles.slurArchClearance`) being solved from the
+ * HAND-MOVED end: the curve dives away from the notes it covers, the solver reads the whole staff as
+ * an intrusion, and answers with `deficit × up to 4` — hundreds of pixels of lift, upward, while the
+ * ends go down. ⚠️ No limit could catch it: they predict ink moving RIGIDLY with the nudge.
+ *
+ * ⭐⭐ The numbers below are the ones that named it. Before the fix the arc's TOP went 41 → −14 → −68
+ * as the end was pushed down 10 / 30 / 50 staff-spaces — i.e. it climbed OFF the paper as the end
+ * descended. After: 68 → 69 → 70, and only the moved end's control point travels.
+ */
+test('🚨 pushing one end DOWN must not send the arc UP off the sheet', async ({ score }) => {
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    const ids = [0, 1, 2, 3].map(beat => h.engine.addNoteAtBeat({
+      step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1),
+    })!.id)
+    const slur = h.engine.createSlur([ids[0], ids[3]])!
+    await h.render()
+    const top = () => Math.round(h.inkSizes('g.vf-slur path')[0].y)
+    const before = top()
+    const tops: number[] = []
+    for (const steps of [10, 20, 20]) {
+      for (let i = 0; i < steps; i++) {
+        h.engine.nudgeSlurEndpoint(slur.id, 'end', 0, 1)
+        await h.render()
+      }
+      tops.push(top())
+    }
+    return { before, tops, staffTop: Math.round(h.staves()[0].top) }
+  })
+  // ⭐ THE CLAIM: as the end goes DOWN, the arch's top never CLIMBS. It settles a little lower with
+  // its own half of the curve (measured: 58 → 68 → 69 → 70), which is the ink following the hand —
+  // ⛔ what it must never do is go the other way.
+  for (const t of r.tops) expect(t).toBeGreaterThanOrEqual(r.before)
+  // ⭐⭐ …and it never leaves the paper. THE BREAK-TEST, in one line: before the fix these three
+  // numbers were 41, −14 and −68 — climbing as the end descended, and off the top of the sheet.
+  for (const t of r.tops) expect(t).toBeGreaterThan(0)
+  // ⚠️ …and it is still ABOVE its own staff, so this does not pass by the curve collapsing flat.
+  expect(r.tops[0]).toBeLessThan(r.staffTop + 20)
 })

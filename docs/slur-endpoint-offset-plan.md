@@ -724,3 +724,49 @@ delta written as two endpoint offsets must deviate by more than half a space. �
 a permanent break-test: if it ever reaches zero, the two paths have become one and the first assertion is
 no longer testing anything. `slurOps.test.ts` covers the storage, the independence from the per-end
 nudges, the survival of a re-anchor, and each reset's decline.
+
+## 🚨🚨 P8 — THE ARCH IS SOLVED FROM THE ENGRAVER'S ENDS (2026-08-21)
+
+His report, with a picture of a slur whose curve ran off the top of the sheet while both of its ends
+sat on the staff: *"the arc go out of the page… completly wrong"* — then the correction that found it,
+*"the problem is the arch, and no that the endpoint of the slur is in a wrong position"* — and then the
+question that named the class, *"why if we fix it is happening again? cause i remember we fix this
+before"*.
+
+**He had fixed it.** P7 above states the rule and the renderer obeys it — for the WHOLE-curve offset,
+added *after* `resolveCps` so the shape cannot be re-solved. The ENDPOINT offset was the one still
+applied BEFORE, so `slurArchClearance` ran from the hand-moved end. Same rule, one offset short.
+
+### What that cost, measured
+
+`e2e/slur.e2e.ts`, pushing one end DOWN by 10 / 30 / 50 staff-spaces — the arc's **top** went
+`41 → −14 → −68` px: it climbed OFF the paper as the end descended. Break-tested by zeroing the
+obstacle lift, which pins the top at 70 for all three.
+
+⭐ **The mechanism**: the curve dives away from the notes it covers, so the solver reads the whole
+staff as an intrusion, and `deficit × up to 4` (`SLUR_OBSTACLE_MAX_LIFT_RATIO`) answers with hundreds
+of pixels of *upward* lift. The `deficit` is the one unbounded input — the weight quotient beside it
+has been capped since Phase 8's first pass.
+
+### 🚨 Why no LIMIT could ever have caught it
+
+Every offset limit predicts where ink will land by assuming **the drawing moves rigidly with the
+offset** — `docs/engraving-overrides-plan.md` §8 says so in as many words: *what is drawn is
+`automatic + offset`, so a delta in the offset moves the ink by exactly that delta*. A re-solved arch
+breaks that premise: the guard was intact, correct, and measuring the wrong quantity. ⛔ Tightening the
+page or band limit could not have helped, and two of them were tightened before this was understood.
+
+### The fix, and it is P7's own sentence
+
+`SlurRenderer` builds `autoP0` / `autoP1` — the endpoints with the hand's nudge taken back out — and
+solves the arch height, the lean and the obstacle lift from those. The nudge then moves the drawn ink,
+exactly as the whole-curve offset does. **The shape a slur has is the shape it keeps.**
+
+After: `68 → 69 → 70` for the same three drops, the untouched end's control point bit-identical
+throughout, and only the moved end's travelling.
+
+⚠️ **One consequence, stated rather than hidden**: two endpoints moved by the same vector now
+translate the curve exactly as the whole-curve offset does. P7's break-test asserted the opposite
+(*"if it ever reaches zero, the two paths have become one"*) — that premise is now false BY DESIGN, so
+the assertion was inverted and its job handed to a new chapter that pins the real failure: a dragged
+end may not send the arc off the sheet.

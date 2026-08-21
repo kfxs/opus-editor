@@ -226,5 +226,34 @@ describe('MouseController', () => {
       mc.handleMouseLeave()
       expect(render.renderScore).not.toHaveBeenCalled() // bailed — pan still owns the gesture
     })
+
+    /**
+     * ⭐⭐ **…AND SO DOES EVERY OTHER DRAG** — his report, 2026-08-21: *"i move up and then i dont
+     * release the mouse but went out of the viefinder and when i go back im not editing the slur…
+     * this is wrong"*.
+     *
+     * ⭐ The teardown that used to run here was written for a release we could not SEE, and two
+     * better answers already cover that: the document `mouseup` settles a release wherever it
+     * happens, and `handleMouseMove`'s `buttons === 0` catches one outside the browser window. ⛔ What
+     * was left was killing a gesture the hand is still performing.
+     */
+    it('🚨 leaves a LIVE gesture alone while the button is still down', () => {
+      mc.setup()
+      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      mc.handleMouseLeave()
+      // ⛔ No re-render and no cursor reset: the drag owns the screen until the button comes up.
+      expect(render.renderScore).not.toHaveBeenCalled()
+      mc.teardown()
+    })
+
+    it('⭐ …and still tidies up when nothing is held', () => {
+      mc.setup()
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+      render.renderScore.mockClear()
+      mc.handleMouseLeave()
+      expect(render.renderScore).toHaveBeenCalledTimes(1)
+      expect(state.showCursor).toBe(true)
+      mc.teardown()
+    })
   })
 })

@@ -1938,6 +1938,20 @@ DRAWN, extracted from the drag so all three routes measure one geometry).
   outside the WINDOW (no `mouseup` fires at all → the next move's `buttons === 0` is the only
   evidence). ⭐ Fixed in the CHAIN, ⛔ never per gesture: that list was one short the moment a
   fourteenth drag was added. Spec: `MouseController.dragRelease.test.ts`, both seams break-tested.
+- 🚨🚨 **…AND IT MUST SURVIVE THE POINTER LEAVING THE CANVAS — the same rule's other half**
+  (2026-08-21). His report, mid-drag on a slur endpoint: *"i move up and then i dont release the mouse
+  but went out of the viefinder and when i go back im not editing the slur… this is wrong"*, and the
+  log said it outright: `Slur endpoint drag ended (mouse left canvas)`. `handleMouseLeave` tore down
+  every live gesture at the edge — a teardown written for the release above, i.e. for a case the two
+  seams beside it already answer. ⭐ **The PAN had been exempt from it since the hand tool shipped,
+  with the reason in the file**: it *"must SURVIVE the pointer leaving the viewport — it's driven by
+  the document-level handlers"*. So the fix is that exemption made general: `handleMouseLeave` bails
+  while the button is down, and a document-level `mousemove` forwards to the SAME `handleMouseMove`
+  the canvas calls, so the gesture keeps tracking outside and re-entry is continuous (⛔ no stale
+  cursor anchor, hence no jump). ⚠️ Two guards keep it inert: only with the button down, and only
+  when the target is OUTSIDE the canvas — otherwise both handlers fire and the mark moves twice per
+  frame. ⭐ Again in the chain: no list of gestures anywhere, every handler still guarded by its own
+  `isDragging…` flag. Spec: `MouseController.test.ts`, break-tested on the bail.
 
 ## 2026-08-20 (last) — `Shift`+wheel opens the mouth
 

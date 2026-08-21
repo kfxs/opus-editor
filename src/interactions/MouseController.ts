@@ -573,6 +573,32 @@ export class MouseController {
     this.handleMouseUp(event)
   }
 
+  /**
+   * ⭐⭐ **EVERY DRAG KEEPS TRACKING WHEN THE POINTER LEAVES THE CANVAS** — his report, 2026-08-21:
+   * *"i move up and then i dont release the mouse but went out of the viefinder and when i go back
+   * im not editing the slur… this is wrong"*.
+   *
+   * ⭐ It is the PAN's own mechanism, which has had it since the hand tool shipped and says why in
+   * `handleMouseLeave`: the element's `mousemove` stops firing once the pointer exits the canvas, so
+   * a gesture that lives on it dies at the edge. ⛔ The list of gestures is not repeated here — this
+   * forwards the SAME `handleMouseMove` the canvas calls, and every drag handler in it is guarded by
+   * its own `isDragging…` flag.
+   *
+   * ⚠️ **Only OUTSIDE the canvas**, or the element's own handler and this one would both fire and the
+   * gesture would move twice per frame. Capture phase, so the target test happens before the element
+   * sees it.
+   *
+   * ⚠️ **Only with the button DOWN.** With nothing held there is no gesture to keep alive, and
+   * `handleMouseMove` returns early on `isMouseButtonDown` before any ghost work, so a move outside
+   * the viewport costs nothing.
+   */
+  private readonly onDocMouseMove = (event: MouseEvent) => {
+    if (!this.isMouseButtonDown) return
+    const canvas = this.getScoreCanvas()
+    if (!canvas || canvas.contains(event.target as Node)) return
+    this.handleMouseMove(event)
+  }
+
   // Document-level pan drivers: attached for the duration of an armed pan so the gesture
   // keeps tracking movement and release even when the pointer leaves the viewport (the
   // element's own mousemove/mouseup stop firing once the pointer exits scoreCanvas).
@@ -606,12 +632,14 @@ export class MouseController {
   setup(): void {
     document.addEventListener('mousedown', this.onDocMouseDown, true)
     document.addEventListener('mouseup', this.onDocMouseUp, true)
+    document.addEventListener('mousemove', this.onDocMouseMove, true)
   }
 
   /** Remove document-level event listeners. Call on unmount. */
   teardown(): void {
     document.removeEventListener('mousedown', this.onDocMouseDown, true)
     document.removeEventListener('mouseup', this.onDocMouseUp, true)
+    document.removeEventListener('mousemove', this.onDocMouseMove, true)
     this.detachPanListeners()
   }
 
@@ -3375,6 +3403,18 @@ export class MouseController {
     // document-level handlers and ends on the real mouseup wherever that happens. Bail
     // here so we don't tear it down or re-render underneath it.
     if (this.isPanArmed || this.isPanning) return
+
+    // ⭐⭐ **…AND SO MUST EVERY OTHER DRAG** — his report, 2026-08-21: *"i move up and then i dont
+    // release the mouse but went out of the viefinder and when i go back im not editing the slur…
+    // this is wrong"*. The teardown below was written for a release we could not see, and that case
+    // has two better answers already: {@link onDocMouseUp} settles a release wherever it happens, and
+    // {@link handleMouseMove}'s `buttons === 0` catches one outside the browser window. What was left
+    // of it was the harm — killing a gesture the hand is still performing.
+    //
+    // ⭐ With the button still down the gesture stays armed AND keeps tracking, because
+    // {@link onDocMouseMove} now drives it from the document, which is the pan's own mechanism one
+    // rule wider. ⛔ No re-render here either: it would draw over a live preview.
+    if (this.isMouseButtonDown) return
 
     if (this.isDraggingNote) {
       dbg('Drag ended (mouse left canvas)')

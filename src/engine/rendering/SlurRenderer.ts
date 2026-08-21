@@ -710,11 +710,31 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // ⛔ Only the AUTO arch — a hand-edited shape is the user's and opts out, the same rule the
           // nest lift follows, so the lift is folded in as extra height rather than applied after.
           const shapeOverride = curveShapeOverrideOf(score, slur.id)?.cps
+          // 🚨🚨 **THE SHAPE IS SOLVED FROM THE ENGRAVER'S ENDS, ⛔ NEVER THE HAND-MOVED ONES** — his
+          // report, 2026-08-21: *"the problem is the arch, and not that the endpoint of the slur is in
+          // a wrong position"*, and *"i remember we fix this before"*. He did: it is the rule stated
+          // twelve lines below for the WHOLE-curve offset — *"above the clearance solve it would
+          // re-arch instead"* — and the ENDPOINT offset was the one that still went in first.
+          //
+          // ⭐ What that cost, measured in the browser (`e2e/slur.e2e.ts`): pushing one end down 10,
+          // 30 and 50 staff-spaces sent the arc's TOP to 41, −14 and −68 px — upward, off the sheet,
+          // while both ends were far below it. The curve dives away from the notes it covers, the
+          // solver reads the whole staff as an intrusion, and `deficit × up to 4` answers with
+          // hundreds of pixels of lift. ⚠️ The limits could not catch it: they predict ink moving
+          // RIGIDLY with the nudge ({@link MusicEngine.nudgeStaysOnPage}), and a re-solved arch does
+          // not.
+          //
+          // ⭐ So the arch, its lean and its obstacle lift are all decided on `auto…` — where the
+          // engraver would have put the ends — and the hand's nudge moves the drawn ink afterwards.
+          // The shape a slur has is the shape it keeps, which is the same sentence the whole-curve
+          // move already obeys.
+          const autoP0 = { x: p0.x - off.startX, y: p0.y - off.startY }
+          const autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }
           const clearance = shapeOverride
             ? { c0: 0, c1: 0 }
-            : slurArchClearance(p0, p1, slurArchHeight(p1.x - p0.x, nestLift), direction,
-              slurObstaclesOf(pass, score, slur))
-          const cps = resolveCps(shapeOverride, stave, p0, p1, direction, nestLift, clearance)
+            : slurArchClearance(autoP0, autoP1, slurArchHeight(autoP1.x - autoP0.x, nestLift),
+              direction, slurObstaclesOf(pass, score, slur))
+          const cps = resolveCps(shapeOverride, stave, autoP0, autoP1, direction, nestLift, clearance)
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
           // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-
           // relative, so translating both endpoints now moves the drawn curve and changes nothing
