@@ -1346,24 +1346,45 @@ export class HighlightController {
    *
    * ⚠️ It is drawn BEFORE the squares (the call order in `elements/pedal`), so a handle always sits
    * over the line rather than under it.
+   *
+   * ⭐⭐ **EVERY SELECTED PEDAL GETS ONE, including the ones a PASSAGE BOX swept up** — his report,
+   * 2026-08-21: *"why i dont see the dashed line of the pedal when a pedal is selected as part of a
+   * passage? the dotted line is an element of the pedal selection so we should always show it."*
+   * Right, and it follows from what the tether IS: {@link selectedIdsOf}'s note says a box member
+   * gets COLOUR but not HANDLES, because a handle edits ONE mark and a bar's worth of them would be
+   * unreadable. A tether edits nothing — it answers *which `✻` belongs to which `Ped.`*, which is a
+   * question a box selection asks harder than a click does, since it can hold several pedals at once.
+   *
+   * ⛔ **The PRESSABLE entry stays on the single-click selection** ({@link selectedOf}), and that is
+   * the same line the handles are drawn on. A box member's tether is a picture; making it a press
+   * target would let a click inside the passage silently swap the selection for one pedal's drag.
    */
   applyPedalTether(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    const selected = selectedOf(this.state, 'pedal')
-    if (!engine || !scoreCanvas || !selected) return
+    if (!engine || !scoreCanvas) return
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
+    const armed = selectedOf(this.state, 'pedal')?.id
+    for (const id of this.selectedIdsOf('pedal')) {
+      this.drawPedalTether(svg, engine, id, id === armed)
+    }
+  }
 
+  /** One pedal's tether — {@link applyPedalTether}'s body, per id. `pressable` registers the hit
+   *  entry, and only the singly-selected pedal gets it. */
+  private drawPedalTether(
+    svg: SVGSVGElement, engine: MusicEngine, pedalId: string, pressable: boolean,
+  ): void {
     const registry = engine.getElementRegistry()
     // ⛔ No fallback size — the tether's dashes are staff-space measures, and a guessed scale would
     // draw a small staff's hint in a normal staff's dashes.
-    const staffSpacePx = pedalStaffSpacePx(registry, selected.id)
+    const staffSpacePx = pedalStaffSpacePx(registry, pedalId)
     if (!staffSpacePx) return
 
     // ⭐ The registry goes in so a row that carries on to the next system can run its dashes to the
     // line's edge (`elements/pedalTether`, his ask 2026-08-21).
-    for (const tether of pedalTethers(registry.getByType('pedal'), selected.id, registry)) {
+    for (const tether of pedalTethers(registry.getByType('pedal'), pedalId, registry)) {
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
       line.setAttribute('x1', String(tether.x1))
       line.setAttribute('x2', String(tether.x2))
@@ -1379,9 +1400,10 @@ export class HighlightController {
       // selectable too for the draging, now is invisible for the click"*). ⚠️ The entry lives exactly
       // as long as the line does — `clearHighlights` removes it — so the rule *a press may only reach
       // INK* still holds: an unselected pedal owns nothing between its signs.
+      if (!pressable) continue
       registry.add({
         type: 'pedal-tether',
-        pedalId: selected.id,
+        pedalId,
         bbox: {
           x: Math.min(tether.x1, tether.x2),
           y: tether.y - HighlightController.TETHER_HIT,

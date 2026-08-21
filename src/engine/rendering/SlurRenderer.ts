@@ -27,6 +27,7 @@ import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
+import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
@@ -252,6 +253,11 @@ export function slurTrueEndpoints(
  * slurs render last, which is what makes this legal at all.
  * ⚠️ A note missing from `staveNoteMap` — anything that failed to draw — contributes nothing rather
  * than a zero box at the origin.
+ *
+ * 🚨🚨 **THE BOX IS `./noteInkBox`'s, ⛔ never `StaveNote.getBoundingBox()`** — his report,
+ * 2026-08-21: a dynamic dropped under a note the slur covers changed the arch, because a dynamic is
+ * attached to its note as an `Annotation` and VexFlow unions every modifier into the note's box. A
+ * mark the dynamics line will translate somewhere else is not what the slur is bowing over.
  */
 function slurObstaclesOf(
   pass: RenderPass,
@@ -262,14 +268,8 @@ function slurObstaclesOf(
   for (const id of coveredChordIds(score, slur.startNoteId, slur.endNoteId)) {
     const note = pass.staveNoteMap.get(id)?.staveNote
     if (!note) continue
-    try {
-      const b = note.getBoundingBox?.()
-      if (b && !isNaN(b.x) && !isNaN(b.y) && b.w > 0) {
-        boxes.push({ x: b.x, y: b.y, width: b.w, height: b.h })
-      }
-    } catch (_e) {
-      // A note whose geometry VexFlow cannot answer for is simply not an obstacle.
-    }
+    const box = noteInkBox(note)
+    if (box) boxes.push(box)
   }
   return boxes
 }
@@ -306,9 +306,11 @@ function nearestCoveredOuterY(
     try {
       const stave = note.getStave?.()
       if (!stave || Math.abs(stave.getYForLine(0) - systemTopY) > 1) continue
-      const b = note.getBoundingBox?.()
-      if (!b || isNaN(b.x) || isNaN(b.y) || !(b.w > 0)) continue
-      found.push({ x: b.x, outer: direction === -1 ? b.y : b.y + b.h })
+      // 🚨 The note's OWN ink — a dynamic hanging off it is not what the open end has to clear
+      // (`./noteInkBox`, and the same report the obstacle scan above carries).
+      const b = noteInkBox(note)
+      if (!b) continue
+      found.push({ x: b.x, outer: direction === -1 ? b.y : b.y + b.height })
     } catch (_e) {
       // A note whose geometry VexFlow cannot answer for simply does not constrain the open end.
     }

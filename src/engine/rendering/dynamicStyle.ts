@@ -8,6 +8,7 @@
  * deliberately VexFlow's global stack (Bravura + text fallback) so it follows the
  * score's engraving font — only custom text pins a serif face (below).
  */
+import { drawnFontPx } from './drawnFontSize'
 
 export const DYNAMIC_GLYPH_SIZE = 30
 /**
@@ -47,8 +48,8 @@ export const DYNAMIC_TEXT_SIZE = 16
  * the group height entirely (horizontal extent is left as measured). First-cut proportions of the
  * glyph size — tune to taste.
  */
-export const DYNAMIC_GLYPH_INK_ABOVE = DYNAMIC_GLYPH_SIZE * 0.68 // baseline → glyph top
-export const DYNAMIC_GLYPH_INK_BELOW = DYNAMIC_GLYPH_SIZE * 0.18 // baseline → glyph bottom
+export const DYNAMIC_GLYPH_INK_ABOVE = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.68 // baseline → glyph top
+export const DYNAMIC_GLYPH_INK_BELOW = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.18 // baseline → glyph bottom
 
 /** Serif stack for custom-text dynamics — has a true italic face (the music font
  *  doesn't), so expression text actually slants. Styling will be user-configurable later. */

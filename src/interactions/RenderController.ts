@@ -45,6 +45,11 @@ export class RenderController {
     this.highlight.applyTrillSelectionHighlight()
     this.highlight.applyOttavaSelectionHighlight()
     this.highlight.applyPedalSelectionHighlight()
+    // ⭐ The pedal's DASHED TETHER is a set pass too (his report, 2026-08-21) — it is a picture of
+    // WHICH `✻` closes which `Ped.`, not a handle, so every selected pedal gets one however it came
+    // to be selected. ⚠️ Before `applySelectedElementHighlight`, so the endpoint squares of the one
+    // a click picked land OVER the line.
+    this.highlight.applyPedalTether()
     this.highlight.applyTempoSelectionHighlight()
     this.applySelectedElementHighlight()
     this.highlight.applyKeyboardCursor()

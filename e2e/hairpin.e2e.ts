@@ -183,8 +183,10 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
   const axis = (arms[0].y2 + arms[1].y2) / 2
   // The glyph's optical centre is its ink's middle, which sits ABOVE its baseline (a dynamic is
   // mostly above the line it is set on). Same two constants the line itself is built from
-  // (`dynamicStyle`: 2.04 above, 0.54 below), so the offset is (0.54 − 2.04)/2 = −0.75 spaces.
-  expect(axis - mark.y).toBeCloseTo(-0.75 * staff.spacing, 0)
+  // (`dynamicStyle`: 2.72 above, 0.72 below), so the offset is (0.72 − 2.72)/2 = −1.0 spaces.
+  // 🚨 −0.75 until 2026-08-21, when the ink table stopped reading a POINT size as pixels
+  // (`rendering/drawnFontSize`) — the two constants grew by the same ×4/3 and so did their midpoint.
+  expect(axis - mark.y).toBeCloseTo(-1.0 * staff.spacing, 0)
 })
 
 test('⭐ a wedge STOPS SHORT of a dynamic it runs into', async ({ score }) => {

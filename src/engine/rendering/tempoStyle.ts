@@ -16,6 +16,7 @@
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { drawnFontPx } from './drawnFontSize'
 
 /**
  * The size of the metronome's note glyph (`♩`), overriding VexFlow's default.
@@ -73,8 +74,8 @@ export const TEMPO_TEXT_FONT_SIZE = 18
  * - **below** is the TEXT's descender. `Allegro` has a `g`, and a mark that cleared only its
  *   baseline would sit a descender deep into the family below it.
  */
-export const TEMPO_INK_ABOVE = TEMPO_GLYPH_FONT_SIZE * 0.75 // baseline → the ♩'s top
-export const TEMPO_INK_BELOW = TEMPO_TEXT_FONT_SIZE * 0.22 // baseline → the `g`'s tail
+export const TEMPO_INK_ABOVE = drawnFontPx(TEMPO_GLYPH_FONT_SIZE) * 0.75 // baseline → the ♩'s top
+export const TEMPO_INK_BELOW = drawnFontPx(TEMPO_TEXT_FONT_SIZE) * 0.22 // baseline → the `g`'s tail
 
 /** How far the mark's ink reaches either side of its own text baseline, in staff spaces. */
 export const TEMPO_MARK_INK: MarkInk = {

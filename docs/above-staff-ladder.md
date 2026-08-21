@@ -159,3 +159,65 @@ before.
 - Finale, [Adjust Lyric Baselines dialog](https://usermanuals.finalemusic.com/FinaleMac/Content/Finale/LYRICBASELINESDLG.htm) — the four baseline scopes
 - Dorico, [Aligning dynamics](https://archive.steinberg.help/dorico/v2/en/dorico/topics/notation_reference/notation_reference_dynamics_aligning_t.html)
   and [Changing the vertical order of playing techniques](https://archive.steinberg.help/dorico/v3/en/dorico/topics/notation_reference/notation_reference_playing_techniques/notation_reference_playing_techniques_vertical_order_changing_t.html)
+
+## 🚨🚨 THE LADDER'S INK WAS A QUARTER TOO SMALL — pt vs px (2026-08-21, FIXED)
+
+His report, on a grand staff: *"the distances are not correct, the `f` is almost colliding the
+`Ped.`"* — while the same pedal under a HAIRPIN looked right. Measured in the browser with the page's
+own font metrics (`e2e` throwaway, `ctx.measureText` on the drawn `<text>`'s computed font):
+
+| mark          | drawn `font-size` | ink above its baseline | what the ladder believed |
+|---------------|-------------------|------------------------|--------------------------|
+| `Ped.` (E650) | `26pt` = 34.7 px  | **2.00 sp**            | 1.35 sp                  |
+| `f` (E522)    | `30pt` = 40 px    | **1.80 sp**            | 2.04 sp                  |
+
+The pedal's 0.65 sp of under-estimate is more than the 0.6 sp of padding the rule leaves, so the two
+glyphs met with the arithmetic insisting on clear air.
+
+### The cause is a UNIT, and every family had it
+
+`Element.setFont(family, size)` takes a bare number as **points** — VexFlow's own
+`Font.scaleToPxFrom.pt = 4/3` — and writes `font-size="26pt"`, which the browser draws at 34.7 user
+units. Every `*_GLYPH_SIZE` in `rendering/*Style.ts` is the number handed to `setFont`, and every ink
+table read it as pixels and divided by `STAFF_SPACE_PX`:
+
+```ts
+const PEDAL_GLYPH_INK_ABOVE = PEDAL_GLYPH_SIZE * 0.52   // ⛔ points × ratio, called pixels
+```
+
+⭐ **A clean ×4/3, in the same direction for all five families** (dynamics, pedal, ottava, trill,
+tempo) — which is exactly why it hid for so long: every lane was too tight by the same quarter, so
+the ORDER of the ladder was always right and only the AIR between rungs was wrong. It took two
+families whose glyphs are unusually tall and unusually close before anything touched.
+
+⭐ **A HAIRPIN never showed it** because a wedge is drawn by this renderer line by line: its band is
+known exactly, with no font in the answer. That is what made his A/B (*"a hairpin in the second stave
+is working well with the pedal lane"*) the decisive clue — it separated "the ladder is broken" from
+"the ladder's inputs are wrong".
+
+### The fix
+
+`rendering/drawnFontSize.ts` — `drawnFontPx(sizePt)` and `inkSpaces(sizePt, ratio)`, used by all five
+style modules. ⚠️ It reaches past the ladder: `DynamicsLayout.registerDynamics` rebuilds a mark's
+HIT-BOX from the same two constants, so the dynamic's clickable box was a quarter short too.
+
+Measured after: the `f`'s ink bottom to the `Ped.`'s ink top is now ~0.5 sp of real air, and the
+whole lower ladder moved out consistently (dynamics line 4.19 → 4.87 sp below the staff, the pedal
+6.68 → 7.99).
+
+### ⏭️ The RATIOS are still guesses, and now they are the only thing left wrong
+
+Each style file admits it (*"first-cut proportions, not a measurement"*). Two are now measured and
+DISAGREE with what is written:
+
+| constant                   | written | measured | note                                        |
+|----------------------------|---------|----------|---------------------------------------------|
+| `PEDAL_GLYPH_INK_ABOVE`    | 0.52    | **0.577**| still 0.15 sp short                          |
+| `PEDAL_GLYPH_INK_BELOW`    | 0.18    | **0.0**  | ⛔ the "descender" the comment describes does not exist |
+| `DYNAMIC_GLYPH_INK_ABOVE`  | 0.68    | **0.45** | the dynamics line sits further out than it needs |
+| `DYNAMIC_GLYPH_INK_BELOW`  | 0.18    | **0.15** | near enough                                  |
+
+⛔ Not changed with the unit fix, deliberately: replacing them moves engraving on every page, and
+`docs/pedal-plan.md` §12.1–2 already owes his eye five numbers of this kind. The honest next step is
+one browser measurement per family (ottava numerals, `tr`, the tempo ♩) and then ONE decision from
+him, not five quiet tunings.

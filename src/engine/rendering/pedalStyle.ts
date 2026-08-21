@@ -16,7 +16,7 @@
  * `style` field precisely so this file can be rewritten without touching a score.
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
-import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { inkSpaces } from './drawnFontSize'
 import { DYNAMIC_TEXT_FONT } from './dynamicStyle'
 
 /** `keyboardPedalPed` — the `Ped.` sign, where the foot goes DOWN. */
@@ -69,8 +69,8 @@ export const PEDAL_GLYPH_SIZE = 26
  * `Ped.` has a real DESCENDER (the `P`'s tail in Bravura's keyboard-pedal glyph), so BELOW is not
  * near-zero the way `OTTAVA_MARK_INK`'s is.
  */
-const PEDAL_GLYPH_INK_ABOVE = PEDAL_GLYPH_SIZE * 0.52 // baseline → glyph top
-const PEDAL_GLYPH_INK_BELOW = PEDAL_GLYPH_SIZE * 0.18 // baseline → glyph bottom (the descender)
+const PEDAL_GLYPH_INK_ABOVE_RATIO = 0.52 // baseline → glyph top
+const PEDAL_GLYPH_INK_BELOW_RATIO = 0.18 // baseline → glyph bottom (the descender)
 
 /**
  * How far the pedal's ink reaches either side of its baseline, in STAFF SPACES.
@@ -80,8 +80,8 @@ const PEDAL_GLYPH_INK_BELOW = PEDAL_GLYPH_SIZE * 0.18 // baseline → glyph bott
  * same number of ITS spaces as a full-size one's. `ottavaStyle`'s arrangement verbatim.
  */
 export const PEDAL_MARK_INK: MarkInk = {
-  above: PEDAL_GLYPH_INK_ABOVE / STAFF_SPACE_PX,
-  below: PEDAL_GLYPH_INK_BELOW / STAFF_SPACE_PX,
+  above: inkSpaces(PEDAL_GLYPH_SIZE, PEDAL_GLYPH_INK_ABOVE_RATIO),
+  below: inkSpaces(PEDAL_GLYPH_SIZE, PEDAL_GLYPH_INK_BELOW_RATIO),
 }
 
 /**

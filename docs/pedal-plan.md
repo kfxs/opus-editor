@@ -859,6 +859,19 @@ which"*, then the look: *"discontinuing lines similar to ottava"*, then the air:
   unhittable — what is hittable is the LINE the selection draws there, for exactly as long as the user
   can see it. Break-tested, and the break-test IS the rule: the same press with no tether drawn
   reaches nothing.
+- ⭐⭐ **EVERY selected pedal draws one, including the ones a PASSAGE BOX swept up** — his report,
+  2026-08-21: *"why i dont see the dashed line of the pedal when a pedal is selected as part of a
+  passage? the dotted line is an element of the pedal selection so we should always show it."*
+  It follows from what the tether IS. `HighlightController.selectedIdsOf` already says a box member
+  gets COLOUR but not HANDLES, because a handle edits ONE mark and a bar's worth of them would be
+  unreadable and unclickable. A tether edits nothing — it answers *which `✻` closes which `Ped.`*,
+  which is a question a box asks HARDER than a click does, since it can hold several pedals at once.
+  So `applyPedalTether` moved out of `ELEMENT_SPECS`'s `highlight` row and into the SET pass
+  (`RenderController.applyHighlights`), beside the recolour that moved there in 2026-08-19 for the
+  same reason — and still BEFORE `applySelectedElementHighlight`, so a handle lands over the line.
+- ⛔ **The PRESSABLE entry stayed on the single-click selection.** A box member's tether is a picture;
+  making it a press target would let a click inside the passage silently swap the whole selection for
+  one pedal's drag.
 
 ## ✅⭐⭐ P8 — THE SQUARE DRAG WALKS TOO (2026-08-21, BUILT)
 

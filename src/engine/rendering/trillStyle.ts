@@ -14,6 +14,7 @@
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { DYNAMIC_TEXT_FONT } from './dynamicStyle'
+import { drawnFontPx } from './drawnFontSize'
 
 /** SMuFL `ornamentTrill` — the `tr` itself. */
 export const TRILL_SIGN_GLYPH = ''
@@ -119,8 +120,8 @@ export const TRILL_GLYPH_SIZE = 26
  * starts from and what his eye tunes. `ornamentTrill` sits almost entirely ABOVE its baseline (the
  * `t` ascends, and nothing descends), which is why `BELOW` is so much smaller than the dynamics'.
  */
-export const TRILL_GLYPH_INK_ABOVE = TRILL_GLYPH_SIZE * 0.62 // baseline → glyph top
-export const TRILL_GLYPH_INK_BELOW = TRILL_GLYPH_SIZE * 0.04 // baseline → glyph bottom
+export const TRILL_GLYPH_INK_ABOVE = drawnFontPx(TRILL_GLYPH_SIZE) * 0.62 // baseline → glyph top
+export const TRILL_GLYPH_INK_BELOW = drawnFontPx(TRILL_GLYPH_SIZE) * 0.04 // baseline → glyph bottom
 
 /**
  * How far the sign's ink reaches either side of its baseline, in STAFF SPACES.

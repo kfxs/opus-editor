@@ -307,6 +307,42 @@ test('⭐⭐ a slur over a rising RUN clears the notes it covers (§12 Phase 8, 
   expect(r.clearance).toBeGreaterThan(0.2)
 })
 
+test('🚨🚨 a DYNAMIC under a covered note does not touch the arch — his report, 2026-08-21', async ({ score }) => {
+  // *"a dynamic never should affect the slur arch or shape."* It did, and structurally rather than
+  // by a tuning error: a dynamic is attached to its note as a VexFlow `Annotation` so it can have an
+  // anchor, `StaveNote.getBoundingBox()` unions EVERY modifier into the note's box, and the obstacle
+  // scan read that box. So the mark the dynamics line is about to translate somewhere else counted
+  // as ink the curve had to bow over. `rendering/noteInkBox.ts` is the fix and this is its picture.
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    // ⚠️ LOW notes, so the stems go UP and the slur goes BELOW them — the side a `below` dynamic
+    // is on, and the side his own bar was on. An `above` slur would pass whatever the box said.
+    const steps = ['C', 'E', 'G', 'E']
+    const ids = steps.map((step, i) => h.engine.addNoteAtBeat({
+      step, octave: 4, duration: 'q', measure: 1, beat: h.frac(i, 1),
+    })!.id)
+    h.engine.createSlur([ids[0], ids[3]])
+    await h.render()
+    const before = h.curveSamples('g.vf-slur path', 40)
+    // ⚠️ A `p` under a note MID-SPAN, not under an endpoint: an obstacle within a whisker of an end
+    // is deliberately left uncleared (`slurObstacles`, SLUR_OBSTACLE_MAX_LIFT_RATIO), so a mark on
+    // the first note proves nothing either way.
+    h.engine.addDynamic(1, { beat: h.frac(2, 1), text: 'p', placement: 'below' })
+    await h.render()
+    const after = h.curveSamples('g.vf-slur path', 40)
+    const staff = h.staves()[0]
+    return {
+      moved: Math.max(...before.map((b, i) => Math.abs(b.y - after[i].y))),
+      spacing: (staff.bottom - staff.top) / 4,
+      dynamics: h.placed('g.vf-annotation text').length,
+    }
+  })
+  expect(r.dynamics, 'the dynamic drew — otherwise nothing was tested').toBe(1)
+  // ⛔ Not "roughly the same": the same. Half a pixel of tolerance for the sampling, no more.
+  // Break-tested — reading `StaveNote.getBoundingBox()` here moves the arc by 19.5 px, ~2 spaces.
+  expect(r.moved).toBeLessThan(0.5)
+})
+
 test('⭐ …and a run that ENDS in a rest keeps the same air over its peak', async ({ score }) => {
   // His second figure, 2026-08-16: the same climb with a REST in the twelfth slot, so the peak (F6)
   // sits at about four fifths of the span — the region where the arch's lean is strongest and where

@@ -79,13 +79,12 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
   // ⚠️ The RECOLOUR is not here since 2026-08-19: it moved to the SET pass in `RenderController`
   // (the dynamic's own arrangement), because a passage box can now select this kind too and the
   // ink has to paint for every selected one — not only for the one a click picked.
-  // …and the DASHED TETHER between the two signs (2026-08-21): a pedal is the one span in the editor
-  // that draws NO ink between its ends, so which `✻` closes which `Ped.` is a question the printed
-  // page cannot answer. ⭐ A selection hint only — it goes when the selection does, and the day a
-  // bracket-style pedal draws a real line it stops being needed (`./pedalTether`).
+  // ⚠️ The DASHED TETHER is not here either, and for the recolour's reason: a passage box can hold
+  // several pedals, and *which `✻` closes which `Ped.`* is the question it asks hardest (his report,
+  // 2026-08-21). It runs in the SET pass beside the recolour — `RenderController.applyHighlights` —
+  // and still before this row, so a handle sits over the line rather than under it (`./pedalTether`).
   highlight: h => {
     h.applyAnchorGuideLine()
-    h.applyPedalTether()
     h.applyPedalHandles()
   },
 }

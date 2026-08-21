@@ -2225,3 +2225,34 @@ click qualifies only when it lands inside a note's ink.
 ⭐ Three model ops carry it — `slurOps.slurSpanOf`, `slurOps.slurEndsFrom`, `slurOps.setSlurPlacement`
 — because a slur's identity is two note ids, which mean nothing at the destination.
 
+
+## 🚨🚨 A DYNAMIC MUST NOT TOUCH THE ARCH (2026-08-21, FIXED)
+
+His report: he dropped a dynamic under a note a slur covers and the curve changed shape. *"A dynamic
+never should affect the slur arch or shape, take a closer look please."* He is right, and the cause is
+structural rather than a tuning error:
+
+- a dynamic is attached to its anchor note as a VexFlow **`Annotation`** (`rendering/DynamicsLayout`)
+  — that is how it gets an anchor and a baseline — and is then **translated to the dynamics line** by
+  a later pass (`rendering/dynamicsLinePass`);
+- `StaveNote.getBoundingBox()` **unions every attached modifier** into the note's box
+  (`stavenote.js:424`), so the note reports itself as reaching down to a mark that is about to be
+  drawn somewhere else entirely;
+- §12 Phase 8's obstacle scan (`SlurRenderer.slurObstaclesOf`) read that box.
+
+⚠️ `ElementRegistry.addGlyph` has carried this exact warning since the tight-bbox work — *"a rest/note
+carrying a dynamic would register a box reaching all the way down to the dynamic's ink"* — but it is
+the choke point for glyph REGISTRATION only. Code that asks a `StaveNote` for its box directly was
+never covered.
+
+**Fix:** `rendering/noteInkBox.ts` — the note's own ink, with the lane's modifiers lifted out of
+VexFlow's live array, its own `getBoundingBox()` asked, and the array restored from a snapshot in a
+`finally`. ⛔ Not re-derived from noteheads + stem + flag: a union cannot be un-merged, and a rebuilt
+copy would have to be kept in step with VexFlow for ever. Both readers in `SlurRenderer` go through
+it — the obstacle scan and `nearestCoveredOuterY` (the broken half's open end).
+
+⚠️ **Break-tested through the side that matters**: the fixture is a slur BELOW low notes with a
+`below` dynamic MID-SPAN. An `above` slur reads the box's TOP and would pass either way, and an
+obstacle within a whisker of an endpoint is deliberately left uncleared
+(`SLUR_OBSTACLE_MAX_LIFT_RATIO`), so a mark on the first note proves nothing. With the fix reverted
+the arc moves **19.5 px** (~2 staff spaces); with it, 0. `e2e/slur.e2e.ts`.

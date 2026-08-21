@@ -11,7 +11,7 @@
  * itself ships (`build/esm/src/glyphs.js`), so they are the font's own, not remembered.
  */
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
-import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { inkSpaces } from './drawnFontSize'
 import { DYNAMIC_TEXT_FONT } from './dynamicStyle'
 
 /**
@@ -109,8 +109,8 @@ export const OTTAVA_GLYPH_SIZE = 26
  * with itself. The honest measurement belongs to the browser suite. Like `ornamentTrill`, the octave
  * numerals sit essentially ON the baseline with nothing descending, which is why BELOW is so small.
  */
-const OTTAVA_GLYPH_INK_ABOVE = OTTAVA_GLYPH_SIZE * 0.62 // baseline → glyph top
-const OTTAVA_GLYPH_INK_BELOW = OTTAVA_GLYPH_SIZE * 0.04 // baseline → glyph bottom
+const OTTAVA_GLYPH_INK_ABOVE_RATIO = 0.62 // baseline → glyph top
+const OTTAVA_GLYPH_INK_BELOW_RATIO = 0.04 // baseline → glyph bottom
 
 /**
  * How far the numeral's ink reaches either side of its baseline, in STAFF SPACES.
@@ -120,8 +120,8 @@ const OTTAVA_GLYPH_INK_BELOW = OTTAVA_GLYPH_SIZE * 0.04 // baseline → glyph bo
  * is the same number of ITS spaces as a full-size one's. `trillStyle`'s arrangement verbatim.
  */
 export const OTTAVA_MARK_INK: MarkInk = {
-  above: OTTAVA_GLYPH_INK_ABOVE / STAFF_SPACE_PX,
-  below: OTTAVA_GLYPH_INK_BELOW / STAFF_SPACE_PX,
+  above: inkSpaces(OTTAVA_GLYPH_SIZE, OTTAVA_GLYPH_INK_ABOVE_RATIO),
+  below: inkSpaces(OTTAVA_GLYPH_SIZE, OTTAVA_GLYPH_INK_BELOW_RATIO),
 }
 
 /**
