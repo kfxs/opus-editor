@@ -15,17 +15,18 @@ import { neighbourBandOf, stepStaysInBand } from './systemBand'
 const staff = (top: number) => ({ top, bottom: top + 40 }) // five lines, 10 px apart
 
 describe('neighbourBandOf', () => {
-  it('⭐ gives half the gap to the nearest staff on each side', () => {
-    // Systems 100 px apart: the staff below starts 60 px under mine, so I may use 30 of it.
+  it('⭐ reaches the nearest staff on each side, and stops at its EDGE', () => {
+    // Staves 100 px apart: the one above ends at 40 and the one below begins at 200, and the ink may
+    // use all of both gaps. ⛔ Not halfway — see the chapter below for the two reports.
     const band = neighbourBandOf(staff(100), [staff(0), staff(200)])
-    expect(band.top).toBe(100 - 30)
-    expect(band.bottom).toBe(140 + 30)
+    expect(band.top).toBe(40)
+    expect(band.bottom).toBe(200)
   })
 
   it('takes the NEAREST on each side, not the first or the furthest', () => {
     const band = neighbourBandOf(staff(300), [staff(0), staff(200), staff(500), staff(400)])
-    expect(band.top).toBe(300 - 30)   // the staff at 200 (ends 240) is nearest above
-    expect(band.bottom).toBe(340 + 30) // …and 400 nearest below
+    expect(band.top).toBe(240)    // the staff at 200 ends there — nearest above
+    expect(band.bottom).toBe(400) // …and 400 begins nearest below
   })
 
   /**
@@ -43,7 +44,7 @@ describe('neighbourBandOf', () => {
   it('🚨 a side with no staff takes the SHEET’s edge — ⛔ never a made-up allowance', () => {
     const band = neighbourBandOf(staff(100), [staff(300)], sheet)
     expect(band.top, 'nothing above ⇒ the top of the page').toBe(-30)
-    expect(band.bottom, 'a staff below ⇒ halfway to it, as before').toBe(140 + 80)
+    expect(band.bottom, 'a staff below ⇒ its own edge').toBe(300)
   })
 
   it('⭐ …both sides at once when the staff is alone on the sheet', () => {
@@ -61,27 +62,29 @@ describe('neighbourBandOf', () => {
   })
 
   /**
-   * 🚨🚨 **A STAFF OF MY OWN SYSTEM STOPS THE MARK AT ITS EDGE, ⛔ not halfway to it** — his two
-   * reports of 2026-08-21, minutes apart: *"look how the pedal is limit before the pedal lane"* and
-   * then, once the halving went, *"now the pedal limit is too extreme"*.
+   * 🚨🚨 **NO MIDPOINT — the boundary is the neighbouring staff's own EDGE.** His two reports of
+   * 2026-08-21, minutes apart: *"look how the pedal is limit before the pedal lane"* and *"why the
+   * pedal is limit so early if there is enough space between this and the next system… there is a
+   * problem with the bands"*.
    *
-   * ⛔ This file used to assert the opposite in as many words (*"makes no distinction between a
-   * piano's other staff and the next system's"*). The two gaps are not the same thing: the space
-   * INSIDE a system is that system's own furniture — a pedal's lane lives there — while the space
-   * BETWEEN systems is shared and halving it is what keeps two systems' marks apart.
+   * ⛔ This file used to assert the halving in as many words. It is only generous to a mark that
+   * lives near its own staff; the pedal — the outermost below-staff family — is already most of the
+   * way to the midpoint before the user touches it, so the travel left over was a space or two with
+   * the paper visibly empty underneath.
    */
-  it('🚨 a ROOMMATE bounds at its edge, where another system’s staff bounds at HALF the gap', () => {
-    const mine = staff(100)          // 100…140
-    const partner = staff(200)       // 200…240, 60 px below mine
-    expect(neighbourBandOf(mine, [partner]).bottom, 'another system: halfway').toBe(170)
-    expect(neighbourBandOf(mine, [], undefined, [partner]).bottom, 'my own: its edge').toBe(200)
+  it('🚨 stops at the neighbour\'s near EDGE, ⛔ never halfway to it', () => {
+    const mine = staff(100)      // 100…140
+    expect(neighbourBandOf(mine, [staff(200)]).bottom, 'the staff below, not 170').toBe(200)
+    expect(neighbourBandOf(mine, [staff(20)]).top, 'the staff above, not 80').toBe(60)
   })
 
-  it('⭐ takes whichever of the two binds TIGHTER, per side', () => {
+  it('⭐ …and that is the same question for a grand staff partner and the next system', () => {
+    // The rule no longer asks which system a band belongs to: both are staves, both stop the ink at
+    // their edge, and what keeps a mark on its own system is that it may not enter anyone else's.
     const mine = staff(100)
-    // A roommate far below (its edge at 400) and another system's staff nearer (halfway at 190).
-    expect(neighbourBandOf(mine, [staff(240)], undefined, [staff(400)]).bottom).toBe(190)
+    expect(neighbourBandOf(mine, [staff(200), staff(400)]).bottom, 'the NEAREST one').toBe(200)
   })
+
 })
 
 describe('stepStaysInBand', () => {

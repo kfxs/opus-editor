@@ -24,35 +24,36 @@
  *
  * ## The rule
  *
- * **Halfway to the nearest staff of ANOTHER SYSTEM.** A mark may leave its own staff freely and use
- * up to half the gap to whatever is painted above or below it — a derived quantity, not a chosen
- * number. Where nothing is painted on that side the room is unbounded, and the PAGE limit is what
- * stops you there; the two guards compose.
+ * **UP TO THE NEAREST STAFF, and no further.** A mark may leave its own staff freely and use the
+ * whole gap to whatever is painted above or below it, stopping at that staff's near EDGE. Where
+ * nothing is painted on that side the room is unbounded and the PAGE limit stops you instead; the
+ * two guards compose.
  *
- * 🚨🚨 **THE OTHER STAVES OF MY OWN SYSTEM ARE NOT NEIGHBOURS — his report, 2026-08-21**: *"the band
- * rule have a problem… look how the pedal is limit before the pedal lane, rethink the band limit in
- * general cause this should not happen"*.
+ * 🚨🚨 **IT USED TO STOP HALFWAY, AND THAT WAS WRONG TWICE IN ONE DAY** (2026-08-21, his reports):
  *
- * ⛔ This paragraph used to say the opposite in as many words — *"it makes no distinction between the
- * staff below in a piano system and the staff below in the NEXT system: both are somebody else's
- * room"* — and that was the bug, not a detail. A pedal belongs BELOW its staff, and in a grand staff
- * that lane lies in the gap between the two staves, already past halfway to the one below: the rule
- * refused the mark its own ENGRAVED HOME, so it could not be dragged at all. ⭐ A rule that forbids
- * where the engraver puts the mark is asking the wrong question.
+ * 1. *"the band rule have a problem… look how the pedal is limit before the pedal lane, rethink the
+ *    band limit in general cause this should not happen"* — a pedal belongs BELOW its staff, and in a
+ *    grand staff that lane lies between the two staves, already past halfway to the one below. The
+ *    rule refused the mark its own ENGRAVED HOME: it could not be nudged at all.
+ * 2. *"why the pedal is limit so early if there is enough space between this and the next system…
+ *    there is a problem with the bands"* — the same halving one lane over. The pedal is the OUTERMOST
+ *    below-staff family, so its home is already most of the way to the midpoint and the travel left
+ *    over is a space or two, with the paper visibly empty underneath.
  *
- * ⭐ And his own words for this rule have always been about SYSTEMS — *"so the ottava is on the system
- * it belongs to"*, *"if it is the first system the limit is the top of the page; if not, the limit is
- * calculated in relation with the system above"*. A grand staff's staves are ONE system, the marks
- * between them are its own furniture, and the caller says which bands those are
- * (`MusicEngine.systemBandsAt` — every staff the render painted for that BAR).
+ * ⭐ **The fault both times was the MIDPOINT, not which staves counted.** Halfway is only generous to
+ * a mark that lives near its own staff; every family that lives far out — the pedal, and any mark
+ * under a full ladder — is squeezed by it, and the squeeze is invisible in the rule and obvious on
+ * the page. A staff's edge is a boundary the user can SEE, which is the whole reason it convinces.
  *
- * ⚠️⚠️ **BUT MY OWN SYSTEM'S STAVES STILL STOP THE MARK — at their EDGE, ⛔ not halfway to them** —
- * his second report, minutes later: *"now the pedal limit is too extreme"*. Freed of the halving
- * rule, the pedal could be dragged straight across its own partner staff and on toward the next
- * system, which is as wrong the other way. ⭐ So the two questions differ because the two gaps do: the
- * space INSIDE a system is that system's own furniture and a mark may use all of it, right up to the
- * staff on the far side; the space BETWEEN systems is shared, and halving it is what keeps two
- * systems' marks from meeting in the middle.
+ * ⭐ **And his own words have always been about SYSTEMS, not midpoints** — *"so the ottava is on the
+ * system it belongs to"*, *"if it is the first system the limit is the top of the page; if not, the
+ * limit is calculated in relation with the system above"*. Stopping at the neighbouring staff keeps
+ * every mark on its own system, which is what was asked for; ⛔ the midpoint was my arithmetic, not
+ * his rule.
+ *
+ * ⚠️ **So a mark may now use the space between two systems, right up to the next staff.** That is
+ * deliberate: the gap is empty paper, the user is pointing at it, and nothing else claims it. What
+ * the rule still refuses is ENTERING somebody else's staff.
  */
 import { stepLeavesPage } from './pageBounds'
 import type { InkBox } from './pageBounds'
@@ -64,12 +65,12 @@ export interface Band {
 }
 
 /**
- * How far the ink on `mine` may reach before it is in a neighbour's room: `mine` grown by half the
- * gap to the nearest band clear of it on each side.
+ * How far the ink on `mine` may reach before it is in a neighbour's room: out to the near EDGE of the
+ * nearest band clear of it on each side.
  *
  * ⚠️ Only bands ENTIRELY clear of `mine` count as neighbours. A band that overlaps it is the same
  * staff seen twice (a re-registered geometry) or a genuine overlap the layout already has, and either
- * way halving a negative gap would produce a limit tighter than the staff itself.
+ * way a boundary drawn from it would sit inside the staff itself.
  *
  * ⭐⭐ **A SIDE WITH NO STAFF IS BOUNDED BY THE SHEET, not by a made-up number** — his rule,
  * 2026-08-21: *"if it is the first system the limit is the top of the page; if not, the limit is
@@ -95,38 +96,20 @@ export function neighbourBandOf(
    * unbounded, for a caller that cannot say (and for the pure arithmetic tests).
    */
   page: Band = { top: -Infinity, bottom: Infinity },
-  /**
-   * ⭐⭐ **THE OTHER STAVES OF MY OWN SYSTEM** — a grand staff's partner, and ⛔ NOT a neighbour in
-   * the halving sense. Their gap is the system's own furniture, so a mark may use ALL of it and is
-   * stopped at their near EDGE instead of halfway to it (see the header).
-   */
-  roommates: readonly Band[] = [],
 ): Band {
-  const nearest = (bands: readonly Band[]) => {
-    let above = Infinity
-    let below = Infinity
-    for (const other of bands) {
-      if (other.bottom < mine.top) above = Math.min(above, mine.top - other.bottom)
-      else if (other.top > mine.bottom) below = Math.min(below, other.top - mine.bottom)
-    }
-    return { above, below }
+  let above = -Infinity
+  let below = Infinity
+  for (const other of others) {
+    // ⚠️ Only bands ENTIRELY clear of mine count — see the note above.
+    if (other.bottom < mine.top) above = Math.max(above, other.bottom)
+    else if (other.top > mine.bottom) below = Math.min(below, other.top)
   }
-  const far = nearest(others)     // another system ⇒ HALFWAY
-  const near = nearest(roommates) // my own system ⇒ its EDGE
   // ⭐⭐ ONE QUESTION PER SIDE — *"always ask if what we have above is the beginning of the canvas or
-  // a staff, and suppose the same below"* (his words, 2026-08-21). A staff of another system ⇒
-  // halfway to it; a staff of MINE ⇒ up to it; nothing at all ⇒ the sheet's edge.
-  const ceiling = Math.max(
-    far.above === Infinity ? -Infinity : mine.top - far.above / 2,
-    near.above === Infinity ? -Infinity : mine.top - near.above,
-  )
-  const floor = Math.min(
-    far.below === Infinity ? Infinity : mine.bottom + far.below / 2,
-    near.below === Infinity ? Infinity : mine.bottom + near.below,
-  )
+  // a staff, and suppose the same below"* (his words, 2026-08-21). A staff ⇒ its near edge; nothing
+  // ⇒ the sheet's edge. ⛔ No midpoint: see the header for the two reports that killed it.
   return {
-    top: ceiling === -Infinity ? page.top : ceiling,
-    bottom: floor === Infinity ? page.bottom : floor,
+    top: above === -Infinity ? page.top : above,
+    bottom: below === Infinity ? page.bottom : below,
   }
 }
 

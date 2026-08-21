@@ -248,3 +248,52 @@ test('the resumed `(Ped.)` sits LEFT of the music, in the clef\'s space', async 
   expect(left.signX, 'left of the first note of the system').toBeLessThan(left.firstHeadX)
   expect(left.signX, 'and never off the stave').toBeGreaterThanOrEqual(left.staveX - 1)
 })
+
+/**
+ * 🚨🚨 **A MEASURE REST IS DRAWN CENTRED, AND THE PRESS MUST NOT FOLLOW IT THERE** — his report,
+ * 2026-08-21, of a pedal walked onto a bar of rests: *"the pedal of the upper staff behaves normal
+ * while walking but the pedal of the down staff shrinks"*, then *"try to reproduce the issue
+ * (probably it even shrinks before crossing the system)"*. It does, and this is the reproduction: no
+ * walk, no drag, no system break — one pedal moved onto a silent bar.
+ *
+ * ⭐ The `Ped.` used to be drawn at the REST's own x, halfway along the bar, while the release stayed
+ * at the barline: the pair came out at half its width, and with its own floors in play printed as a
+ * `Ped.✻` smudge. `engine/layout/measureRestOnset` is the rule, and it is asked by the walk's lane as
+ * well as by the drawing, so the two cannot disagree about where a press stands.
+ */
+test('🚨 a pedal on a bar of RESTS begins where the bar does, ⛔ not at the centred rest', async ({ score }) => {
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    // Bar 1 carries the music; bar 2 is silent — one whole-bar rest, drawn centred.
+    for (const beat of [0, 1, 2, 3]) {
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+    }
+    h.engine.addMeasure()
+    const pedal = h.engine.addPedal(1, { beat: h.frac(0, 1), length: h.frac(3, 1) })!
+    h.engine.movePedalToSlot(pedal.id, { measure: 2, beat: h.frac(0, 1) })
+    await h.render()
+    const registry = h.engine.getElementRegistry() as unknown as {
+      getStaffGeometry: (m: number, s: number) => { noteStartX: number; noteEndX: number } | undefined
+    }
+    const bar2 = registry.getStaffGeometry(2, 0)!
+    // ⚠️ The codepoints are inlined: `page.evaluate` runs in the BROWSER, where this file's
+    // module-level constants do not exist.
+    const glyphs = h.placed('g.vf-pedal text')
+    return {
+      ped: glyphs.find(g => g.code === 'e650')!.x,
+      star: glyphs.find(g => g.code === 'e655')!.x,
+      barStart: bar2.noteStartX,
+      barEnd: bar2.noteEndX,
+      // The rest's own glyph, which is what the press used to follow.
+      rest: h.inkSizes('g.vf-notehead text').map(r => r.x).sort((a, b) => b - a)[0],
+    }
+  })
+  // ⭐ THE CLAIM: the press stands at the bar's own beginning, within a space of it.
+  expect(Math.abs(out.ped - out.barStart)).toBeLessThan(12)
+  // ⭐⭐ THE BREAK-TEST: the centred rest is well to the right of that, so a press that followed the
+  // glyph would fail this by tens of pixels — which is exactly the "shrink" he saw.
+  expect(out.rest - out.barStart, 'the rest really is centred, or this proves nothing').toBeGreaterThan(20)
+  expect(out.ped, '⛔ never the rest\'s own x').toBeLessThan(out.rest - 10)
+  // …and the pair therefore spans most of the bar rather than collapsing onto its floors.
+  expect(out.star - out.ped).toBeGreaterThan((out.barEnd - out.barStart) / 2)
+})

@@ -380,36 +380,16 @@ export class MusicEngine {
     const geometry = registry.getStaffGeometry?.(measure, staff)
     if (!geometry) return true
     const mine = { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] }
-    // ⭐ MY SYSTEM = every staff painted for MY BAR (the registry keys geometry by measure+staff), so
-    // no system list is needed and a score that draws one staff answers exactly as it did before.
-    // ⚠️ Its OTHER staves are `roommates`, ⛔ not neighbours: they stop the mark at their edge rather
-    // than halfway ({@link neighbourBandOf}, and his *"too extreme"* the minute the halving went).
-    const ours = this.systemBandsAt(measure)
-    const same = (a: { top: number; bottom: number }, b: { top: number; bottom: number }) =>
-      a.top === b.top && a.bottom === b.bottom
-    const roommates = ours.filter(o => !same(o, mine))
-    const others = (registry.staffBands?.() ?? []).filter(b => !ours.some(o => same(o, b)))
+    // ⭐ Every OTHER painted staff, of my system or any other — the rule no longer tells them apart,
+    // because it stops at the near edge either way ({@link neighbourBandOf}, and the two reports in
+    // its header that killed the midpoint).
+    const others = (registry.staffBands?.() ?? [])
+      .filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
     // ⭐ What is above/below when no STAFF is: the sheet itself ({@link layout/systemBand}, his rule
     // of 2026-08-21). ⛔ Never a made-up allowance — that is what stopped an `8va` on the top system.
     const sheet = pageBoxAt(resolveSurface(this.surface), drawn[0]?.x ?? 0, mine.top)
     const page = sheet ? { top: sheet.top, bottom: sheet.bottom } : undefined
-    return stepStaysInBand(neighbourBandOf(mine, others, page, roommates), drawn, dy * STAFF_SPACE_PX)
-  }
-
-  /** The staff extents of the SYSTEM `measure` was drawn on — every staff the last render painted for
-   *  that bar. ⚠️ Read off the registry, so an unpainted staff simply is not in the list; empty when
-   *  the bar was not drawn at all, which {@link nudgeStaysInBand} has already answered for. */
-  private systemBandsAt(measure: number): { top: number; bottom: number }[] {
-    const registry = this.renderer.getElementRegistry() as {
-      getStaffGeometry?: (m: number, s: number) => { lineYPositions: readonly number[] } | undefined
-    }
-    const bands: { top: number; bottom: number }[] = []
-    const staffCount = Math.max(1, this.scoreModel.getScore().staves?.length ?? 1)
-    for (let staff = 0; staff < staffCount; staff++) {
-      const geometry = registry.getStaffGeometry?.(measure, staff)
-      if (geometry) bands.push({ top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] })
-    }
-    return bands
+    return stepStaysInBand(neighbourBandOf(mine, others, page), drawn, dy * STAFF_SPACE_PX)
   }
 
   /**

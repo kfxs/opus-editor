@@ -545,8 +545,9 @@ describe('walkHairpinEndpoint', () => {
     it('🚨 the VERTICAL stops at the neighbouring staff’s room — the slur’s own band limit', () => {
       // His ask, 2026-08-20: *"we should not go crazy… for the slur we have a y limit, we have to do
       // something similar here"*. The wedge's square is drawn 20 px below the staff and the next
-      // staff starts at 240, so the ink may come down to the halfway line between them and no
-      // further. ⛔ The write is REFUSED, never clamped — and the mark can always come back UP.
+      // staff starts at 240, so the ink may use the whole gap and stops at THAT EDGE — ⛔ no midpoint
+      // any more (`layout/systemBand`, his two reports of 2026-08-21). The write is REFUSED, never
+      // clamped, and the mark can always come back UP.
       drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
       drawn.entries.push({
         type: 'hairpin-endpoint', hairpinId: wedgeId, endpoint: 'end', staff: 0,
@@ -563,7 +564,7 @@ describe('walkHairpinEndpoint', () => {
       drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
       drawn.entries.push({
         type: 'hairpin-endpoint', hairpinId: wedgeId, endpoint: 'end', staff: 0,
-        bbox: { x: 396, y: 200, width: 8, height: 8 },   // already past the halfway line (160)
+        bbox: { x: 396, y: 300, width: 8, height: 8 },   // already past the staff below's top (240)
       })
 
       expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, 0, 10)?.moved, 'further down: no').toBe(false)

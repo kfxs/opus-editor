@@ -51,6 +51,8 @@ import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/en
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCompare } from '@/utils/fraction'
 import { planSlurSegments } from './SlurRenderer'
+import { wrapReleaseOntoNextLine } from './pedalReleaseWrap'
+import { onsetXOf } from '@/engine/layout/measureRestOnset'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import {
@@ -114,13 +116,24 @@ function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undef
  * note it decorates stops. Every voice, because a pedal has no voice to narrow to (§3.1); the
  * earliest onset wins, since that is where the ink of that column begins.
  */
-function slotXAtOrAfter(pass: RenderPass, view: Measure, beat: Fraction): number | undefined {
+function slotXAtOrAfter(
+  pass: RenderPass,
+  view: Measure,
+  beat: Fraction,
+  /** ⭐ That bar's `noteStartX`, in the STAFF's own space — see {@link onsetXOf}: a measure rest is
+   *  drawn centred, so its glyph says "this bar is empty" rather than where its time is. */
+  barStartX: number | undefined,
+): number | undefined {
   const candidates = view.slots
     .filter(s => fracCompare(s.beat, beat) >= 0)
     .sort((a, b) => fracCompare(a.beat, b.beat))
   for (const slot of candidates) {
     const x = noteLeftX(pass, drawnIdOf(slot))
-    if (x !== undefined) return x
+    // ⚠️ Only a REST can be a measure rest — a `Chord` has no such field, which is the model saying
+    // the same thing this rule does.
+    if (x !== undefined) {
+      return onsetXOf(x, slot.type === 'rest' && slot.isMeasureRest, barStartX)
+    }
   }
   return undefined
 }
@@ -146,14 +159,18 @@ function spanX(
   from: PedalPlacement,
   to: PedalPlacement,
 ): { startX: number; endX: number } | null {
-  const startX = slotXAtOrAfter(pass, from.view, span.startBeat)
+  const barStart = (at: PedalPlacement) => {
+    const x = pass.measureBounds.get(at.measureNumber)?.noteStartX
+    return x === undefined ? undefined : x / at.scale
+  }
+  const startX = slotXAtOrAfter(pass, from.view, span.startBeat, barStart(from))
   if (startX === undefined) return null
 
   // ⭐ The barline case, and the air is only here: `noteEndX` is where the music's space stops and
   // the line is drawn, so a release right-aligned exactly there has its ink leaning on the barline
   // (measured: 250 against 250). A mid-bar lift lands on its own column and wants no such nudge.
   const barEnd = pass.measureBounds.get(to.measureNumber)?.noteEndX
-  const endX = slotXAtOrAfter(pass, to.view, span.endBeat)
+  const endX = slotXAtOrAfter(pass, to.view, span.endBeat, barStart(to))
     ?? (barEnd === undefined
       ? undefined
       : barEnd / to.scale - staffSpacesToPixels(PEDAL_BARLINE_AIR, to.stave))
@@ -287,6 +304,13 @@ function cutIntoPieces(
   return pieces
 }
 
+/** This pedal's stored `endX` nudge, in staff spaces — 0 when it carries none. Read here as well as
+ *  in {@link drawPedal} because the WRAP has to ask about the ink actually on the page
+ *  (`./pedalReleaseWrap`), and the drawing adds the same number again where the `✻` lands. */
+function nudgeOf(pass: RenderPass, id: string): number {
+  return pedalOffsetOverrideOf(pass.score, id)?.endX ?? 0
+}
+
 /** A glyph's drawn width, or 0 when the font cannot be measured (jsdom). */
 function glyphWidth(el: Element): number {
   try {
@@ -333,12 +357,29 @@ export function renderPedals(
       const x = spanX(pass, span, from, to)
       if (!x) continue
 
+      // ⭐⭐ **A RELEASE PUSHED PAST THE END OF ITS LINE IS DRAWN ON THE NEXT ONE** (his ask,
+      // 2026-08-21) — `./pedalReleaseWrap`, and it moves the PICTURE only: the lift keeps its beat,
+      // so the same notes ring. ⚠️ Asked with the hand's nudge in, answered without it, because the
+      // drawing adds it again where the `✻` lands.
+      const onStaff = placements.filter(p => p.staffIndex === staffIndex)
+      const wrapped = wrapReleaseOntoNextLine(
+        pass, to.line, x.endX + staffSpacesToPixels(nudgeOf(pass, pedal.id), to.stave),
+        to.scale, line => onStaff.some(p => p.line === line))
+      // ⭐ The wrapped fragment needs a stave of its own to be drawn on, and the pedal's own bars do
+      // not reach that line — so the first bar the render put there stands for it.
+      const reach = wrapped
+        ? [...covered, ...onStaff.filter(p => p.line === wrapped.line).slice(0, 1)]
+        : covered
+      const endLine = wrapped?.line ?? to.line
+      const endX = wrapped?.endX ?? x.endX
+
       try {
         // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-pedal' here
         // would yield `class="vf-vf-pedal"`, the mistake the slur's comment records.
         const group = pass.context.openGroup?.('pedal', `pedal-${pedal.id}`) as SVGGElement | undefined
         inStaffSpace(pass, staffIndex, group, () => {
-          drawPedal(pass, pedal, span, x, covered, from, to, staffIds[staffIndex], staffIds[0], starts)
+          drawPedal(pass, pedal, span, { startX: x.startX, endX }, reach, from, endLine,
+            wrapped !== null, staffIds[staffIndex], staffIds[0], starts)
         })
         pass.context.closeGroup?.()
         if (group) pass.pedalGroupMap.set(pedal.id, group)
@@ -357,7 +398,12 @@ function drawPedal(
   x: { startX: number; endX: number },
   covered: readonly PedalPlacement[],
   from: PedalPlacement,
-  to: PedalPlacement,
+  /** ⭐ The line the RELEASE is drawn on — the lift's own bar's line, unless its ink ran off the end
+   *  of that line and `./pedalReleaseWrap` sent it to the next one. */
+  endLine: number,
+  /** ⚠️ True when that wrap fired, and then `x.endX` is already DRAWN ink: the hand's `endX` nudge is
+   *  inside it and must ⛔ not be added again below. */
+  releaseWrapped: boolean,
   staffId: string | undefined,
   firstStaffId: string | undefined,
   starts: Map<number, Fraction>,
@@ -379,7 +425,7 @@ function drawPedal(
   const nudge = pedalOffsetOverrideOf(pass.score, pedal.id)
 
   let firstPiece = true
-  for (const piece of cutIntoPieces(pass, from.line, to.line, x.startX, x.endX, from.scale)) {
+  for (const piece of cutIntoPieces(pass, from.line, endLine, x.startX, x.endX, from.scale)) {
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
@@ -469,8 +515,11 @@ function drawPedal(
     // nothing, so the walk never changes gear — which is why the bracket has never shown either
     // fault. ⭐ And because the first floor is measured from `signX`, a press nudged rightward pushes
     // the `✻` ahead of it for free: the pair can close up, and can never overlap.
+    // ⚠️ `releaseWrapped` ⇒ the nudge is already in `piece.x1` (`./pedalReleaseWrap` answers in ink,
+    // and its header carries the report that made that the rule). The FLOORS still apply, measured
+    // from the resumed `(Ped.)` on the new line.
     const upX = Math.max(
-      piece.x1 - upWidth + px(nudge?.endX ?? 0),
+      piece.x1 - upWidth + (releaseWrapped ? 0 : px(nudge?.endX ?? 0)),
       signX + downWidth + px(PEDAL_SIGN_GAP),
       signX + px(PEDAL_MIN_SPAN) - upWidth,
     )

@@ -32,6 +32,7 @@ import type { ElementRegistry } from '../engine/ElementRegistry'
 import type { PedalLiftTarget, PedalSlotTarget } from '../engine/models/pedalOps'
 import { pedalSpan } from '../engine/models/pedalOps'
 import { PEDAL_BARLINE_AIR } from '../engine/rendering/pedalStyle'
+import { onsetXOf } from '../engine/layout/measureRestOnset'
 import type { Pedal, Score } from '../types/music'
 import { staffOf } from '../utils/lanes'
 import { fracCompare } from '../utils/fraction'
@@ -67,12 +68,20 @@ export function pedalLaneOnsets(engine: PedalLaneEngine, pedal: Pedal): PedalLan
     // ⛔ No voice filter — one damper serves the staff.
     if (staffOf(note) !== staff) continue
     const target = { measure: note.measure, beat: note.beat }
+    // ⭐⭐ A MEASURE REST IS DRAWN CENTRED, so its glyph is not where its time is
+    // (`engine/layout/measureRestOnset`, and his *"the pedal … shrinks"* that found it). ⚠️ The rule
+    // is asked HERE as well as in `PedalRenderer.spanX` because the two must agree: the walk prices
+    // its gaps where the ink lands, and a lane that answered the glyph while the drawing answered the
+    // bar would make every crossing jump.
+    const left = onsetXOf(
+      el.bbox.x, note.isMeasureRest,
+      registry.getStaffGeometry?.(note.measure, staff)?.noteStartX)
     const seen = onsets.find(o => sameAddress(o.target, target))
     if (seen) {
-      seen.left = Math.min(seen.left, el.bbox.x)
+      seen.left = Math.min(seen.left, left)
       continue
     }
-    onsets.push({ left: el.bbox.x, y: el.bbox.y + el.bbox.height / 2, target })
+    onsets.push({ left, y: el.bbox.y + el.bbox.height / 2, target })
   }
   return onsets
 }
