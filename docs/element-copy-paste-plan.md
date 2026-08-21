@@ -227,6 +227,31 @@ feature's paste click. It is one question — a mark that attaches to an existin
 one — and it is now one method, `ElementRegistry.noteOrRestAtBody`, which all six call. ⭐ It was the
 SLUR STAMP's rule first, which is the same place his *"really close to the bbox"* correction pointed.
 
+## 2026-08-21 — the OTTAVA travels
+
+*"now we have to do the ottava single element copy paste"*. Three lines of model reading, one paste
+case, and the union grew its sixth arm — the shape this plan predicted for a new kind, with two
+things that are the bracket's own:
+
+- ⭐⭐ **`shift` IS THE WHOLE STATEMENT.** One signed number carries the SIZE and the SIDE (+1 = 8va
+  above, −2 = 15mb below), so ⛔ there is no `placement` travelling beside it. Copying one would be
+  the exact mistake `Ottava.shift` exists to prevent: a stored side that can contradict the stored
+  shift. The wedge, whose placement is a real second field, copies one.
+- ⛔ **And no `voice`.** An octave line governs the whole STAFF (`Ottava` has no voice field, and
+  §"the model" says why), so there is no scope to carry — where a dynamic's and a wedge's travel
+  verbatim. The anchor's staff is the only placement question the paste asks.
+
+Otherwise it is the HAIRPIN's row exactly: its `length` travels (a bracket is an amount of music, not
+a point), the generic anchor is its answer (a slot of its lane — ⛔ not a NOTE, which is the slur's
+and the trill's rule, because a bracket governs a region rather than sitting on a notehead), and the
+length is taken as copied rather than trimmed, since a span running past the music is clamped where
+it is READ.
+
+⚠️ **One behaviour worth knowing: a paste onto an occupied beat REPLACES.** That is `addOttava`'s
+upsert — the CLEF's rule, not the wedge's (docs/ottava-plan.md §7.8): one (beat, staff) may hold at
+most one octave line, or no reader could say which displacement is true. ⭐ It needs no batch, being
+one model write with one undo entry.
+
 ## Not done
 
 - ⏭️ **A "reset the overrides" action for a SELECTED PASSAGE** (his idea, 2026-08-20, on the rule
@@ -245,7 +270,8 @@ SLUR STAMP's rule first, which is the same place his *"really close to the bbox"
   three overrides (both end nudges + the mouth), and it has a second half — `rebarOps
   .restoreBeatAnchors` regenerates every mark's id on any rebar or paste, so an id-keyed override
   orphans unless it rides the capture/restore seam (docs/dynamic-offset-plan.md, P1).
-- Only the dynamic, the tempo mark, the hairpin and the slur travel. A clef or a meter would each be
-  one row (see above).
+- Only the dynamic, the tempo mark, the hairpin, the slur, the trill and the OTTAVA travel. A clef or
+  a meter would each be one row (see above). ⏭️ The PEDAL is the obvious next one: a span with a
+  length and no scope, i.e. the bracket's row with `shift` removed.
 - No OS-clipboard interchange: the clip lives in the controller, like the music one.
 - Multi-select of elements is out of scope — `selectedElement` is deliberately ONE.

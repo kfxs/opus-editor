@@ -26,7 +26,7 @@
  * authored against other music.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
-import type { Fraction, NoteDuration, TempoMark, TrillContinuationLabel } from '../types/music'
+import type { Fraction, NoteDuration, Ottava, TempoMark, TrillContinuationLabel } from '../types/music'
 import type { SelectedElement } from './EditorState'
 import type { PasteAnchor } from './pasteAnchor'
 import { tempoAnchorAt, tempoAtStop } from '../engine/models/tempoOps'
@@ -82,6 +82,30 @@ export interface HairpinElementClip {
 }
 
 /**
+ * A copied OTTAVA (his ask, 2026-08-21). ⭐ The wedge's shape and for the wedge's reason: an octave
+ * bracket is not a point but an AMOUNT OF MUSIC, so how far it reaches is part of what makes it the
+ * mark it is, and the paste lands its BEGINNING at the anchor with the extent following.
+ *
+ * ⭐⭐ **`shift` IS THE WHOLE STATEMENT** — one signed number carrying the size AND the side (+1 = 8va
+ * above, −2 = 15mb below; see {@link Ottava.shift}). ⛔ There is no `placement` to travel beside it,
+ * and copying one would be the mistake that type exists to prevent: a stored side could contradict
+ * the stored shift.
+ *
+ * ⛔ **And no `voice`**, unlike the dynamic and the wedge: an octave line governs the whole STAFF, so
+ * there is no scope to carry. The anchor's staff is the only placement question a paste asks.
+ *
+ * ⛔ Nothing about the drawing travels — both ends' nudges and the shared height are overrides keyed
+ * by the copied bracket's id, and a paste never reuses one.
+ */
+export interface OttavaElementClip {
+  kind: 'ottava'
+  /** How much music it covers, in quarter-note beats — the same unit as `Ottava.length`. */
+  length: Fraction
+  /** Octaves of displacement, signed: the size and the side in one number. */
+  shift: Ottava['shift']
+}
+
+/**
  * A copied SLUR — its SPAN and which side it was drawn on (his ask, 2026-08-20).
  *
  * ⭐⭐ **A slur's identity is two NOTE IDS, and those mean nothing anywhere else** — which is why a
@@ -134,7 +158,7 @@ export interface TrillElementClip {
 /** One copied on-score element. Grows an arm per kind that learns to travel. */
 export type ElementClip =
   | DynamicElementClip | TempoElementClip | HairpinElementClip | SlurElementClip
-  | TrillElementClip
+  | TrillElementClip | OttavaElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
 export type ElementClipEngine = Pick<MusicEngine,
@@ -142,7 +166,8 @@ export type ElementClipEngine = Pick<MusicEngine,
   | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
   | 'getHairpinById' | 'addHairpin'
   | 'getSlurById' | 'slurSpanOf' | 'createSlurOverSpan'
-  | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'>
+  | 'getTrillById' | 'trillSpanBeats' | 'createTrillOverSpan'
+  | 'getOttavaById' | 'addOttava'>
 
 /** The clip for the currently selected element, or null when that kind cannot travel (yet). */
 export function copyElement(engine: ElementClipEngine, element: SelectedElement | null): ElementClip | null {
@@ -161,6 +186,11 @@ export function copyElement(engine: ElementClipEngine, element: SelectedElement 
       placement: hairpin.placement ?? 'below',
       ...(hairpin.voice !== undefined ? { voice: hairpin.voice } : {}),
     }
+  }
+  if (element?.kind === 'ottava') {
+    const ottava = engine.getOttavaById(element.id)
+    if (!ottava) return null
+    return { kind: 'ottava', length: ottava.length, shift: ottava.shift }
   }
   if (element?.kind === 'slur') {
     const slur = engine.getSlurById(element.id)
@@ -237,6 +267,28 @@ export function pasteElement(engine: ElementClipEngine, clip: ElementClip, ancho
       })
       return created ? { kind: 'hairpin', id: created.id } : null
     }
+    case 'ottava': {
+      // ⭐ The generic anchor IS a bracket's answer, exactly as it is a wedge's: an octave line
+      // begins on a slot of its own lane. ⛔ Not a NOTE (the slur's and the trill's rule) — a bracket
+      // governs a REGION, so it needs a place rather than a notehead.
+      //
+      // ⚠️ **The LENGTH is taken as it was copied**, ⛔ never trimmed to what is left in the score: a
+      // span running past the music is clamped where it is READ (`ottavaOps.ottavaSpan`), so a
+      // bracket pasted near the end draws short and grows back if it is moved home.
+      //
+      // ⚠️ **A paste onto an occupied beat REPLACES** — `addOttava`'s upsert, the clef's rule and not
+      // the wedge's: one (beat, staff) may hold at most one octave line, or no reader could say which
+      // displacement is true (docs/ottava-plan.md §7.8). ⭐ It needs no batch here, since that op is
+      // one write and records one undo entry.
+      const staffId = engine.staffIdForIndex(anchor.staff)
+      const created = engine.addOttava(anchor.measure, {
+        beat: anchor.beat,
+        length: clip.length,
+        shift: clip.shift,
+        ...(staffId ? { staffId } : {}),
+      })
+      return created ? { kind: 'ottava', id: created.id } : null
+    }
     case 'slur': {
       // 🚨 **A slur needs a NOTE, and the anchor must NAME one** — ⛔ not merely point at a place.
       // His two reports, 2026-08-20: a paste into an empty bar drew a slur anyway (an address
@@ -299,6 +351,13 @@ export function elementClipSummary(clip: ElementClip): string {
   if (clip.kind === 'slur') return `slur over ${fracToNumber(clip.span)} beats`
   if (clip.kind === 'hairpin') {
     return `hairpin ${clip.type} of ${fracToNumber(clip.length)} beats (${clip.placement})`
+  }
+  if (clip.kind === 'ottava') {
+    // ⭐ Named as the READER sees it, ⛔ never "shift +1", which is the storage. ⚠️ ASCII on purpose —
+    // this is a console line, not ink; the drawn numerals are SMuFL glyphs and these are the names
+    // those glyphs print (`engine/rendering/ottavaStyle.OTTAVA_NUMERAL_GLYPHS`).
+    const name = { 1: '8va', '-1': '8ba', 2: '15ma', '-2': '15mb', 3: '22ma', '-3': '22mb' }
+    return `${name[clip.shift]} over ${fracToNumber(clip.length)} beats`
   }
   const how = clip.kind === 'dynamic' ? ` (${clip.placement})` : ''
   return `${clip.kind} "${clip.text ?? ''}"${how}`

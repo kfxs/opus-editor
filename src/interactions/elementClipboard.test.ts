@@ -409,4 +409,77 @@ describe('elementClipboard — the TEMPO mark (his ask, 2026-08-19)', () => {
       expect(copyElement(engine, { kind: 'hairpin', id: wedgeId })).toBeNull()
     })
   })
+
+  /**
+   * ⭐⭐ AN OTTAVA (his ask, 2026-08-21) — the wedge's chapter one lane over, with two differences
+   * that are the bracket's own:
+   *
+   * ⭐⭐ `shift` is the WHOLE STATEMENT (size and side in one signed number), so there is no
+   * `placement` to copy beside it — and no `voice` either, an octave line governing its whole staff.
+   *
+   * ⚠️ And a paste onto an occupied beat REPLACES rather than stacks: `addOttava`'s upsert, the
+   * clef's rule (docs/ottava-plan.md §7.8), where two wedges may share a beat happily.
+   */
+  describe('an ottava', () => {
+    let bracketId: string
+    /** Every bracket in the score as `measure@beat:shift/length`. */
+    const brackets = () => engine.getScore().measures.flatMap(m =>
+      (m.ottavas ?? []).map(o => `${m.number}@${fracToNumber(o.beat)}:${o.shift}/${fracToNumber(o.length)}`))
+
+    beforeEach(() => {
+      engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+      bracketId = engine.addOttava(1, { shift: 1, beat: frac(0, 1), length: frac(2, 1) })!.id
+    })
+
+    it('⭐⭐ copies the bracket WITH its length — an octave line is an amount of music', () => {
+      const clip = copyElement(engine, { kind: 'ottava', id: bracketId })
+      expect(clip).toEqual({ kind: 'ottava', shift: 1, length: frac(2, 1) })
+      expect(clip).not.toHaveProperty('id')
+      // ⛔ No placement and no voice: the side is IN the shift, and the mark governs its whole staff.
+      expect(clip).not.toHaveProperty('placement')
+      expect(clip).not.toHaveProperty('voice')
+    })
+
+    it('⭐ the SHIFT travels — an 8vb pastes as an 8vb, a 15ma as a 15ma', () => {
+      const low = engine.addOttava(2, { shift: -2, beat: frac(0, 1), length: frac(1, 1) })!
+      const clip = copyElement(engine, { kind: 'ottava', id: low.id })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(brackets()).toContain('1@2:-2/1')
+    })
+
+    it('⭐ pastes at the anchor, keeping the extent', () => {
+      const clip = copyElement(engine, { kind: 'ottava', id: bracketId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(brackets()).toEqual(['1@0:1/2', '1@2:1/2'])
+    })
+
+    it('⭐ …and it is a NEW bracket every time, so one copy pastes many', () => {
+      const clip = copyElement(engine, { kind: 'ottava', id: bracketId })!
+      const first = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(1, 1), staff: 0 }))
+      const second = idOf(pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 }))
+      expect(first).not.toBe(second)
+      expect(first).not.toBe(bracketId)
+    })
+
+    it('⚠️ a paste onto an occupied beat REPLACES — one octave line per (beat, staff)', () => {
+      const clip = copyElement(engine, { kind: 'ottava', id: bracketId })!
+      pasteElement(engine, clip, { measure: 1, beat: frac(0, 1), staff: 0 })
+      expect(brackets(), 'one bracket, not two stacked').toEqual(['1@0:1/2'])
+      expect(engine.getOttavaById(bracketId), 'and the copied one is the one replaced').toBeNull()
+    })
+
+    it('⛔ …and NOT the drawing: neither end nudge nor the shared height', () => {
+      engine.nudgeOttavaEndpoint(bracketId, 'end', 2, 1)
+      const clip = copyElement(engine, { kind: 'ottava', id: bracketId })!
+      const pasted = pasteElement(engine, clip, { measure: 1, beat: frac(2, 1), staff: 0 })
+      expect(engine.getScore().engravingOverrides?.[idOf(pasted)!], 'the new bracket carries none')
+        .toBeUndefined()
+    })
+
+    it('⛔ copies nothing for a bracket that is no longer in the score', () => {
+      engine.removeOttava(bracketId)
+      expect(copyElement(engine, { kind: 'ottava', id: bracketId })).toBeNull()
+    })
+  })
 })
