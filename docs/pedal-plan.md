@@ -850,6 +850,15 @@ which"*, then the look: *"discontinuing lines similar to ottava"*, then the air:
   *"measure 3"*. The row is therefore found from the sign's own `y` — the last staff above it — and
   measured with the shared `markBreakWrap.systemInkAt`.
 - ⛔ It stops being needed the day a bracket-style pedal draws a real line (his own note).
+- ⭐⭐ **…and it is PRESSABLE (2026-08-21)**: *"when the pedal is selected, the dashed line should be
+  selectable too for the draging, now is invisible for the click"*. The highlight pass registers each
+  segment as a `'pedal-tether'` entry and `clearHighlights` removes it, so `PEDAL_ELEMENT.hit` can ask
+  for it after the signs — answering the same press a sign does (select, and arm the body drag),
+  because that is what the line is a picture of. ⚠️ **⛔ Not a hole in this family's opening rule**
+  (*a press may only reach INK*, §5.3): the band between the signs is empty ON THE PAGE and stays
+  unhittable — what is hittable is the LINE the selection draws there, for exactly as long as the user
+  can see it. Break-tested, and the break-test IS the rule: the same press with no tether drawn
+  reaches nothing.
 
 ## ✅⭐⭐ P8 — THE SQUARE DRAG WALKS TOO (2026-08-21, BUILT)
 

@@ -113,6 +113,21 @@ export type ElementType =
    */
   | 'pedal-endpoint'
   /**
+   * ⭐⭐ **THE DASHED TETHER a selected pedal draws between its two signs** — one entry per drawn
+   * SEGMENT (one per system, `interactions/elements/pedalTether`).
+   *
+   * ⭐ **It exists so the line can be PRESSED** (his ask, 2026-08-21: *"when the pedal is selected,
+   * the dashed line should be selectable too for the draging, now is invisible for the click"*).
+   * ⚠️ That is not a hole in the rule *a press may only reach INK* (`elements/pedal`): while the
+   * pedal is selected the tether IS ink, and it is the only ink the pair has between its signs.
+   * Registered by the HIGHLIGHT pass and removed by `clearHighlights`, so it can only ever be hit
+   * while it is on the page — ⛔ a pedal that is not selected still owns nothing between its signs.
+   *
+   * ⚠️ It carries `pedalId` rather than `id`, the endpoint squares' reason: {@link getById} answers
+   * with the FIRST entry holding an id, and a tether sharing the pedal's would shadow the signs.
+   */
+  | 'pedal-tether'
+  /**
    * One of the two blue SQUARES a selected trill draws, one beyond the `tr` and one beyond the end
    * of its wavy line. The `'pedal-endpoint'` above verbatim, one family and one look: registered by
    * the HIGHLIGHT pass so it exists only while its trill is selected, removed again by

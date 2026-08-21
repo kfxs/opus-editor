@@ -38,7 +38,24 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
       return x >= Math.min(...xs) - PAD && x <= Math.max(...xs) + PAD
         && y >= Math.min(...ys) - PAD && y <= Math.max(...ys) + PAD
     }) ?? null
-    if (!pedalAt?.id) return false
+
+    // ⭐⭐ **…OR THE DASHED TETHER, WHICH IS INK WHILE IT IS DRAWN** — his ask, 2026-08-21: *"when the
+    // pedal is selected, the dashed line should be selectable too for the draging, now is invisible
+    // for the click"*.
+    //
+    // ⚠️ **This does NOT weaken the rule at the top of this file.** The band between the signs is
+    // empty on the page and stays unhittable; what is hittable is the LINE the selection draws
+    // there, registered by the highlight pass and removed with it (`'pedal-tether'`). So only the
+    // SELECTED pedal has anything to hit between its signs, and it has it exactly while the user can
+    // see it.
+    //
+    // ⭐ It answers the same press as a sign — select, and arm the body drag — because that is what
+    // the line is a picture of: the pedal as one object.
+    const id = pedalAt?.id ?? registry.getByType('pedal-tether').find(el => {
+      const b = el.bbox
+      return x >= b.x - PAD && x <= b.x + b.width + PAD && y >= b.y && y <= b.y + b.height
+    })?.pedalId
+    if (!id) return false
 
     // ⭐ Click = select; drag = move the WHOLE pedal (his ask, 2026-08-21) — through the music
     // sideways, and DOWN ONTO ANOTHER SYSTEM vertically. ⚠️ The BODY, so nothing is armed by it and
@@ -46,10 +63,10 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
     // arrows' rule (`nudgeSelectedPedal`), and this is the same sentence with the mouse. A press on
     // one of the SQUARES never reaches here — `armPedalEndpointAt` is a pre-step in `MouseController`
     // and consumes it.
-    dbg(`✓ Pedal selected | id:${pedalAt.id}`)
+    dbg(`✓ Pedal selected | id:${id}`)
     return deps.pick(
-      { kind: 'pedal', id: pedalAt.id },
-      () => deps.armPedalOffsetDrag(pedalAt.id!, x, y, event),
+      { kind: 'pedal', id },
+      () => deps.armPedalOffsetDrag(id, x, y, event),
     )
   },
 

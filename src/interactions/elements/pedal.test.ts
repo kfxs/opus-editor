@@ -28,9 +28,11 @@ function sign(id: string, x0: number, x1: number, y0 = 40, y1 = 52): ElementInfo
   } as ElementInfo
 }
 
-function ctx(signs: ElementInfo[], x: number, y: number): MouseDownCtx {
+/** ⚠️ The entries are handed in as ONE list and split by their own `type`, because a selected pedal
+ *  puts two kinds in the registry: its drawn SIGNS and the tether the highlight pass registers. */
+function ctx(entries: ElementInfo[], x: number, y: number): MouseDownCtx {
   const registry = {
-    getByType: (type: string) => (type === 'pedal' ? signs : []),
+    getByType: (type: string) => entries.filter(e => e.type === type),
   } as unknown as ElementRegistry
   return { registry, x, y, closestElement: null } as unknown as MouseDownCtx
 }
@@ -125,5 +127,52 @@ describe('the pedal sits AFTER the ottava in the press chain', () => {
     // staff and an 8va above it. It is pinned anyway so a reorder stays deliberate.
     const kinds = ELEMENT_HIT_ORDER.map(s => s.kind)
     expect(kinds.indexOf('pedal')).toBe(kinds.indexOf('ottava') + 1)
+  })
+})
+
+/**
+ * ⭐⭐ **THE DASHED TETHER IS PRESSABLE WHILE IT IS DRAWN** — his ask, 2026-08-21: *"when the pedal is
+ * selected, the dashed line should be selectable too for the draging, now is invisible for the
+ * click"*.
+ *
+ * ⚠️ **It does not weaken the rule this file opens with.** The band between the signs is empty ON THE
+ * PAGE and stays unhittable; what is hittable is the LINE the selection draws there — a
+ * `'pedal-tether'` entry the highlight pass registers and `clearHighlights` removes. So only a
+ * SELECTED pedal has anything to hit between its signs, and only while the user can see it.
+ */
+describe('PEDAL_ELEMENT.hit — the tether', () => {
+  /** One drawn tether segment as the highlight pass registers it: `Ped.` 100–140 to `✻` 380–400, on
+   *  the pair's baseline, with the press pad either side. */
+  const tether = (id = 'p1') => ({
+    type: 'pedal-tether', pedalId: id,
+    bbox: { x: 140, y: 40, width: 240, height: 12 },
+  }) as unknown as ElementInfo
+
+  it('⭐ a press on the LINE selects the pedal and arms the body drag', () => {
+    const d = deps()
+    expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, tether()], 260, 46), d)).toBe(true)
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
+    ;(d.pick as unknown as { mock: { calls: [unknown, () => void][] } }).mock.calls[0][1]()
+    expect(d.armPedalOffsetDrag).toHaveBeenCalledWith('p1', 260, 46, undefined)
+  })
+
+  it('⛔⛔ …and with NO tether drawn the same press reaches nothing', () => {
+    // ⭐⭐ THE BREAK-TEST FOR THE WHOLE RULE: an unselected pedal draws no line, so the empty band
+    // between its signs is empty for the mouse too — which is what this file's opening rule is.
+    const d = deps()
+    expect(PEDAL_ELEMENT.hit(ctx([PED, STAR], 260, 46), d)).toBe(false)
+    expect(d.pick).not.toHaveBeenCalled()
+  })
+
+  it('⚠️ a SIGN still wins its own press — the tether is the second question, not the first', () => {
+    const d = deps()
+    expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, tether()], 120, 46), d)).toBe(true)
+    expect(d.pick).toHaveBeenCalledWith({ kind: 'pedal', id: 'p1' }, expect.any(Function))
+  })
+
+  it('⛔ a press ABOVE or BELOW the line misses it — the pad is a few px, not the whole gap', () => {
+    const d = deps()
+    expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, tether()], 260, 20), d)).toBe(false)
+    expect(PEDAL_ELEMENT.hit(ctx([PED, STAR, tether()], 260, 80), d)).toBe(false)
   })
 })

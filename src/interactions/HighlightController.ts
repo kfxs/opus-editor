@@ -95,6 +95,7 @@ export class HighlightController {
     registry?.removeByType('hairpin-endpoint')
     registry?.removeByType('ottava-endpoint')
     registry?.removeByType('pedal-endpoint')
+    registry?.removeByType('pedal-tether')
     registry?.removeByType('trill-endpoint')
   }
 
@@ -1373,8 +1374,27 @@ export class HighlightController {
       line.setAttribute('stroke-dasharray', tetherDashArray(staffSpacePx))
       line.setAttribute('class', 'pedal-tether')
       this.addNode(svg, line)
+
+      // ⭐⭐ …and it is PRESSABLE while it is drawn (his ask, 2026-08-21: *"the dashed line should be
+      // selectable too for the draging, now is invisible for the click"*). ⚠️ The entry lives exactly
+      // as long as the line does — `clearHighlights` removes it — so the rule *a press may only reach
+      // INK* still holds: an unselected pedal owns nothing between its signs.
+      registry.add({
+        type: 'pedal-tether',
+        pedalId: selected.id,
+        bbox: {
+          x: Math.min(tether.x1, tether.x2),
+          y: tether.y - HighlightController.TETHER_HIT,
+          width: Math.abs(tether.x2 - tether.x1),
+          height: HighlightController.TETHER_HIT * 2,
+        },
+      })
     }
   }
+
+  /** How far either side of the dashed line a press still counts, in px — a thin line needs a
+   *  reachable target, and this is the slur handle's own hit pad. */
+  private static readonly TETHER_HIT = 6
 
   /**
    * ⭐ **THE SELECTED PEDAL'S TWO ENDPOINT SQUARES** — one beyond the `Ped.`, one beyond the `✻`
