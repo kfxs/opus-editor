@@ -10,9 +10,11 @@
  * variation.
  *
  * ⭐ **What they ARM, they then EDIT** — `Ctrl+Shift+←/→` moves that end through the music (the
- * right square the LIFT, the left one the press, holding the other), and dragging a square does the
- * same thing with the mouse. Both roads write the MODEL: a pedal's extent is how long the notes
- * RING, so there is no cosmetic offset here and nothing for `Ctrl+Backspace` to reset.
+ * right square the LIFT, the left one the press, holding the other), the plain arrows nudge its ink,
+ * and dragging a square does BOTH at once. ⚠️ **All of that lives in `../pedalWalk`, ⛔ none of it
+ * here** — this file finds the squares and arms one. The drag's own answer to *"which address is the
+ * cursor over"* was here until 2026-08-21 (`pedalDragTargetAt`, with the measured sign-to-music y it
+ * needed to tell one system from another); the walk replaced it, and reads no `y` at all.
  *
  * ## ⭐⭐ The one thing that is genuinely this family's own: THE GRAIN IS THE GLYPH
  *
@@ -33,18 +35,9 @@
  * re-derive.
  */
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
-import type { MusicEngine } from '../../engine/MusicEngine'
-import type { PedalSlotTarget, PedalDragWrite } from '../../engine/models/pedalOps'
-import type { Score } from '../../types/music'
 import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
-import { staffOf } from '../../utils/lanes'
-import { fracCompare } from '../../utils/fraction'
 import { dbg } from '../../utils/debug'
-
-/** What finding a drag target needs off the engine — a Pick, so a test can stand up the four reads
- *  without a renderer. */
-type DragEngine = Pick<MusicEngine, 'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote'>
 
 /** One drawn handle: a point, and which end of the pedal it is. */
 export interface PedalHandle {
@@ -149,192 +142,6 @@ export function armPedalEndpointAt(
   state.selectedElement = { kind: 'pedal', id: hit.pedalId, endpoint: hit.endpoint }
   dbg(`✓ Pedal endpoint armed | id:${hit.pedalId} end:${hit.endpoint}`)
   return true
-}
-
-/**
- * ⭐⭐ **WHICH ADDRESS A DRAGGED SQUARE IS OVER** — the mouse twin of `Ctrl+Shift+←/→`, and the whole
- * of what a pedal drag has to decide (his ask, 2026-08-18: *"now lets make the ctr shift arrow also
- * be changed by mouse drag just like the ottava"*).
- *
- * ⭐ **It snaps to a SLOT of the pedal's own staff, never to a pixel** — the keyboard's rule, so a
- * drag cannot put a foot down between two onsets when the keys cannot. Every voice: one damper.
- *
- * ⭐⭐ **BOTH ENDS MEASURE AGAINST NOTEHEAD LEFT EDGES, and that is the pedal's own answer, ⛔ not a
- * simplification of the ottava's.** The bracket next door measures its END against RIGHT edges
- * because Gould's rule 2 draws its hook on the last covered notehead. A pedal's ends are both drawn
- * at a COLUMN's left edge — `PedalRenderer.slotXAtOrAfter` reads the same `noteLeftX` for the press
- * and for the lift — so measuring the lift against right edges would lag the cursor by a notehead.
- * Copying either neighbour's edge rule blind is the recorded way to reproduce the hairpin's *"it
- * jumps before x mouse reach the target"*.
- *
- * ⭐⭐ **…except that the END gets ONE EXTRA CANDIDATE: past the last onset.** The lift is a moment
- * in TIME, and the last note of a passage can be left ringing or cut off as it is struck — two
- * different pedallings that no onset can tell apart, because the address *after* the final slot is
- * the one no onset names ({@link setPedalEndAtSlot}). So the last onset offers its RIGHT edge as
- * well: cross the notehead and the pedal holds the note. ⚠️ On every earlier onset the same
- * candidate would be a duplicate — the end of a slot IS the next onset — so it is offered once.
- *
- * ## 🚨🚨 THE Y IS TRANSLATED BEFORE ANYTHING IS COMPARED, AND THAT IS THE WHOLE BUG THIS FIXES
- *
- * His report, 2026-08-18: *"the y of the mouse is not accurate — I'm dragging in the y of the pedal,
- * aligned to it, but it interprets I'm in the system below … to drag well I have to place the mouse
- * in the staff, and that is not good UX, because the user is aligned to where the `Ped.` is drawn."*
- *
- * ⭐⭐ **The hand rides the SIGN's line, and the sign's line is nowhere near the noteheads it
- * addresses.** A pedal is the OUTERMOST below-staff family — under the dynamics, the hairpins, the
- * trills and the octave lines — so its line can sit ten staff spaces under the music, which is
- * genuinely CLOSER to the next system's noteheads than to its own. Comparing the raw cursor y
- * against notehead y's therefore answers with the system below, and it is not a tolerance that can
- * be widened out of trouble: the wrong row is nearer.
- *
- * ⭐⭐ **So the offset is MEASURED and subtracted, ⛔ never a constant and never re-derived from the
- * ladder.** The dragged square is drawn on the pedal's own line, and the onset it was drawn under is
- * in the registry — the gap between them IS this system's "how far below the music does this pedal
- * sit", including whatever the dynamics and hairpins above it happened to claim. Subtracting it puts
- * the cursor back in notehead space, where every system is comparable again, and it keeps working
- * when the line moves because the number is re-read every frame.
- *
- * ⭐ **After the translation, the y CHOOSES THE SYSTEM and the x CHOOSES THE NOTE** ({@link
- * PEDAL_DRAG_ROW_PX}) — the two axes answer different questions, so mixing them into one hypotenuse
- * let a pitch difference within a row outvote a hundred pixels of x. Cross-system x's are not one
- * ruler, which is the only reason y is consulted at all.
- *
- * ⚠️ **The ottava had the same defect and no longer has the drag** — `ottavaDragTargetAt` was where
- * this was copied from, and on 2026-08-21 the bracket's squares stopped snapping and started WALKING
- * (`../ottavaWalk.dragOttavaEndpoint`), which reads no `y` at all: the ink follows the hand and the
- * SYSTEM is decided by the wrap. ⭐ That is the other way out of this trap, and the one to take when
- * the pedal's drag is next opened.
- *
- * @returns the write the drop should apply, or null when the cursor is on no system's music.
- */
-export function pedalDragTargetAt(
-  engine: DragEngine,
-  pedalId: string,
-  which: 'start' | 'end',
-  x: number,
-  y: number,
-): PedalDragWrite | null {
-  const pedal = engine.getPedalById(pedalId)
-  if (!pedal) return null
-  const staff = staffIndexOf(engine.getScore(), pedal.staffId)
-
-  // One candidate per ONSET of the staff. ⚠️ A chord registers one entry per notehead at one onset,
-  // and a second interval displaces one of them sideways — so the column's left edge is the
-  // LEFTMOST of them, which is the edge the sign is drawn against.
-  const onsets: Array<{ left: number; right: number; y: number; target: PedalSlotTarget }> = []
-  const registry = engine.getElementRegistry()
-  for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
-    if (!el.id) continue
-    const note = engine.getNote(el.id)
-    if (!note) continue
-    // ⛔ No voice filter — one damper serves the staff. `resizePedalBySlot` says why.
-    if (staffOf(note) !== staff) continue
-    const target = { measure: note.measure, beat: note.beat }
-    const seen = onsets.find(o =>
-      o.target.measure === target.measure && fracCompare(o.target.beat, target.beat) === 0)
-    if (seen) {
-      seen.left = Math.min(seen.left, el.bbox.x)
-      seen.right = Math.max(seen.right, el.bbox.x + el.bbox.width)
-      continue
-    }
-    onsets.push({
-      left: el.bbox.x,
-      right: el.bbox.x + el.bbox.width,
-      y: el.bbox.y + el.bbox.height / 2,
-      target,
-    })
-  }
-  if (!onsets.length) return null
-
-  // The candidates, each an (x, y, write) — the START has one per onset, the END has one more.
-  const candidates: Array<{ x: number; y: number; write: PedalDragWrite }> = onsets.map(o => ({
-    x: o.left,
-    y: o.y,
-    write: which === 'start'
-      ? { at: 'start' as const, ...o.target }
-      : { at: 'end' as const, after: false, ...o.target },
-  }))
-  if (which === 'end') {
-    const last = onsets.reduce((a, b) => (b.left > a.left ? b : a))
-    candidates.push({ x: last.right, y: last.y, write: { at: 'end', after: true, ...last.target } })
-  }
-
-  // 🚨 THE TRANSLATION — see the header. The cursor is where the HAND is, on the pedal's line; the
-  // candidates are where the MUSIC is. This is the measured gap between the two.
-  const inMusic = y - signToMusicOffset(registry, pedalId, which, onsets)
-
-  // ⭐ The y picks the SYSTEM, the x picks the note. Two axes, two questions: one hypotenuse over
-  // both let a pitch difference inside a row (a note four ledger lines up is 40px off its
-  // neighbour) outweigh a hundred pixels of horizontal distance.
-  const row = candidates.filter(c => Math.abs(inMusic - c.y) <= PEDAL_DRAG_ROW_PX)
-  if (!row.length) return null
-
-  let best: PedalDragWrite | null = null
-  let bestDistance = PEDAL_DRAG_SNAP_PX
-  for (const c of row) {
-    const d = Math.abs(x - c.x)
-    if (d < bestDistance) { bestDistance = d; best = c.write }
-  }
-  return best
-}
-
-/**
- * ⭐⭐ **How far below the music this pedal's line is drawn, MEASURED from the last render** — the
- * number {@link pedalDragTargetAt} subtracts from the cursor's y.
- *
- * The dragged square sits on the pedal's own line; the onset it was drawn over is in the same
- * registry. The gap between them is this system's answer and nobody else's: it already contains
- * whatever the dynamics, hairpins, trills and octave lines claimed under that music, which is
- * exactly why it may not be a constant and may not be recomputed from the ladder here.
- *
- * ⚠️ Only onsets ABOVE the square are considered, because a pedal is always drawn BELOW its staff
- * (`PedalRenderer` §3 — nothing to derive and nothing to flip). Without that, a sign near the end of
- * a system could measure itself against the next system's first note and report a gap of nothing.
- *
- * Returns 0 when the pedal is not on screen or nothing is above it — the honest "I don't know",
- * which leaves the raw cursor y in play rather than inventing a shift.
- */
-function signToMusicOffset(
-  registry: ElementRegistry,
-  pedalId: string,
-  which: 'start' | 'end',
-  onsets: ReadonlyArray<{ left: number; y: number }>,
-): number {
-  const anchor = pedalEndpointHandles(registry.getByType('pedal'), pedalId)
-    .find(h => h.which === which)
-  if (!anchor) return 0
-  let above: { left: number; y: number } | null = null
-  let nearest = Infinity
-  for (const o of onsets) {
-    if (o.y >= anchor.y) continue
-    const d = Math.hypot(anchor.x - o.left, anchor.y - o.y)
-    if (d < nearest) { nearest = d; above = o }
-  }
-  return above ? anchor.y - above.y : 0
-}
-
-/** ⚠️ Generous on purpose — see {@link pedalDragTargetAt}: HORIZONTAL only, now that the row is
- *  chosen separately. The ottava's and the hairpin's number. */
-const PEDAL_DRAG_SNAP_PX = 150
-
-/**
- * How far off a system's noteheads the translated cursor may be and still be READING that system —
- * two staff heights at the default size.
- *
- * ⚠️ A tolerance, not a boundary: it has to swallow the pitch spread inside one system (a note high
- * above the staff is a staff-height off its neighbour) while staying well under the gap to the next
- * system, and both of those are properties of the LAYOUT rather than of this number. Outside it the
- * drag answers null — the cursor is between systems, and no change is the honest frame.
- */
-const PEDAL_DRAG_ROW_PX = 80
-
-/** The staff INDEX a pedal's `staffId` names (absent = the first staff), so a drawn element's own
- *  `staff` can be compared against it. `ottavaHandles`' helper, kept local for its reason: it is
- *  three lines and sharing it would put a `Score` import in whichever file lost. */
-function staffIndexOf(score: Score, staffId: string | undefined): number {
-  if (!staffId) return 0
-  const at = score.staves?.findIndex(s => s.id === staffId) ?? -1
-  return at === -1 ? 0 : at
 }
 
 /**

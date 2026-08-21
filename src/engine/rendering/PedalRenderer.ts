@@ -463,7 +463,7 @@ function drawPedal(
     // printing far to the LEFT of its own `Ped.` An add after the floor escapes every floor.
     //
     // ⭐⭐ **A FLOOR IS THE RIGHT SHAPE OF PREVENTION, AND A REFUSED WRITE IS THE WRONG ONE.** The
-    // write-time rule that briefly replaced this ({@link MusicEngine.pedalEndpointOffsetAllowed})
+    // write-time rule that briefly replaced this ({@link MusicEngine.pedalEndpointStepAllowed})
     // stopped the crossing and broke the GESTURE: a refused ink step makes every press hand the
     // anchor a whole stop along, so the walk went from 1 space per press to 24. Drawn floors refuse
     // nothing, so the walk never changes gear — which is why the bracket has never shown either

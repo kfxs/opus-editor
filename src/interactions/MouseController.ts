@@ -34,7 +34,8 @@ import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './s
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
 import { ottavaStaffSpacePx } from './ottavaLane'
-import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
+import { armPedalEndpointAt } from './elements/pedalHandles'
+import { dragPedalEndpoint } from './pedalWalk'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
@@ -383,13 +384,18 @@ export class MouseController {
   private ottavaBodyDragStartTime: number | null = null
 
   // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
-  //     moves the LIFT, the LEFT one moves the press and holds the lift: the drag twin of
-  //     `Ctrl+Shift+←/→`, snapping to onsets of its STAFF. ---
+  //     moves the LIFT, the LEFT one moves the press and holds the lift. ⭐ The INTERPOLATING WALK
+  //     with a cursor (`pedalWalk.dragPedalEndpoint`) — the arrows' own gesture, so the ink follows
+  //     the hand and the foot comes along at each stop the ink reaches. ---
   private isDraggingPedalEnd = false
   private draggedPedalId: string | null = null
   private draggedPedalEnd: 'start' | 'end' | undefined = undefined
   /** True once a preview write landed, so the drop records one undo entry. */
   private pedalDragChanged = false
+  /** ⭐ Where the cursor was at the last ACCEPTED frame — the walk accumulates, so a refused frame
+   *  must leave these put ({@link handlePedalEndDrag}). */
+  private pedalEndLastX = 0
+  private pedalEndLastY = 0
   private pedalDragStartTime: number | null = null
 
   // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ The INTERPOLATING
@@ -1083,6 +1089,8 @@ export class MouseController {
       this.draggedPedalId = armed?.id ?? null
       this.draggedPedalEnd = armed?.endpoint
       this.pedalDragChanged = false
+      this.pedalEndLastX = coords.x
+      this.pedalEndLastY = coords.y
       this.pedalDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
@@ -3180,24 +3188,47 @@ export class MouseController {
   }
 
   /**
-   * One frame of a PEDAL square drag — the two signs' twin of the handler above, and the same three
-   * steps: wait out the click threshold, ask the module which address the cursor is over, preview
-   * it.
+   * ⭐⭐ One frame of a PEDAL square drag: carry that sign's ink by the cursor's delta, handing the
+   * foot along at each stop the ink reaches — `./pedalWalk`, the same journey the arrows make (his
+   * ask, 2026-08-21: *"i think we should do the pedal drag walking"*).
    *
-   * ⚠️ The candidates are not the bracket's (`pedalDragTargetAt`): both of a pedal's signs are drawn
-   * on a column's LEFT edge, and the lift has one address more than there are onsets — but nothing
-   * here needs to know that, because the module answers with a write.
+   * ⭐ **It used to SNAP** the grabbed sign onto the nearest address and write it outright, so the
+   * foot jumped a whole note at a time and could never be parked between two. The walk keeps what
+   * that was right about — a sign still lands only on the lane's own stops — and drops what it was
+   * not, ⭐ including the whole y-translation the snap needed to tell one system from another: the
+   * ink travels along its own line, and the SYSTEM is decided by the wrap.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the family's rule: a refused frame (the
+   * page limit, or a sign with nowhere left to go) must not be counted, or it jumps by the distance
+   * it never travelled when the hand comes back.
+   *
+   * ⭐⭐ **BOTH AXES, and they are different kinds of move**: the horizontal walks that sign through
+   * the music, while the vertical is a plain ink lift — ⚠️ of BOTH signs, whichever square is under
+   * the hand, because a pedal and its release share ONE baseline
+   * ({@link dragPedalEndpoint}; ⛔ no screen→outward conversion, a pedal has one side).
    */
   private handlePedalEndDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingPedalEnd && this.draggedPedalId && this.draggedPedalEnd)) return false
     if (this.pedalDragStartTime !== null
         && Date.now() - this.pedalDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const write = pedalDragTargetAt(engine, this.draggedPedalId, this.draggedPedalEnd, x, y)
-    if (!write) return true
-    if (engine.previewPedalEnd(this.draggedPedalId, write)) {
+    const frame = dragPedalEndpoint(
+      engine, this.draggedPedalId, this.draggedPedalEnd,
+      x, x - this.pedalEndLastX, y - this.pedalEndLastY)
+    // ⛔ null = the pedal is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      // 🚨 …held BACK by whatever the latch dropped: those pixels were made by the hand, so the next
+      // frame presents them again and the ink leaves a stop exactly when the cursor has travelled the
+      // whole distance (`./pedalWalk`). `droppedPx` is 0 on an ordinary frame.
+      this.pedalEndLastX = x - frame.droppedPx
+      // ⚠️ Only the horizontal is held back by the latch, so `y` keeps its own anchor.
+      this.pedalEndLastY = y
       this.pedalDragChanged = true
       this.render.renderScore()
     }
+    // ⭐⭐ A WRAP ENDS THE GESTURE — the wedge's rule and the bracket's: that sign is now on the NEXT
+    // system and the hand is still on this one. ⚠️ The square stays ARMED, so the arrows continue.
+    if (frame.wrapped) this.endPedalEndDrag()
     return true
   }
 

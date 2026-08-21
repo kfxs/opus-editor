@@ -35,9 +35,10 @@
  * with the armed sign's own offset is the family's identity: it takes the gap back out, so the ink
  * does not jump.
  *
- * ⛔ **The vertical is not in here** — and here for a second reason on top of the family's: a pedal
- * and its own release share ONE baseline (Gould p. 333, {@link PedalOffsetOverride}), so there is
- * nothing above or below to arrive at AND nothing per-sign to write.
+ * ⛔ **No vertical STOP** — and here for a second reason on top of the family's: a pedal and its own
+ * release share ONE baseline (Gould p. 333, {@link PedalOffsetOverride}), so there is nothing above
+ * or below to arrive at AND nothing per-sign to write. ⚠️ A DRAG still carries a `y`, because it
+ * moves both axes in one gesture ({@link dragPedalEndpoint}) — plain ink, on both signs at once.
  *
  * 🚨🚨 **A SYSTEM BREAK IS A WRAP, not a refusal.** The walk itself will never cross one — two
  * systems' x's are not one ruler (`./markWalk`, permanently and rightly) — so the press that leaves
@@ -61,7 +62,55 @@ export type PedalWalkEngine = Pick<MusicEngine,
   'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextPedalStartSlot' | 'nextPedalLift' | 'pedalLiftSlot'
   | 'movePedalStartToSlot' | 'movePedalLiftTo'
-  | 'nudgePedalEndpoint' | 'rebasePedalEndpointOffset'>
+  | 'nudgePedalEndpoint' | 'rebasePedalEndpointOffset'
+  | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
+  | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'>
+
+/**
+ * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,
+ * a drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitPedalDrag}).
+ * Everything else — the stops, the geometry, the identity — is shared, which is what makes a drag and
+ * N presses land in the same state rather than in two states that merely look alike (the bracket's
+ * arrangement, `./ottavaWalk`, and for its reason).
+ *
+ * ⭐⭐ **TWO re-anchor doors, ⛔ not one**, and that is the pedal's own shape showing through: the
+ * press lands on an ONSET (`PedalSlotTarget`) and the lift on a MOMENT (`PedalLiftTarget`), which is
+ * why the bracket's single `reanchor` could not simply be copied. Each port reaches for its own.
+ */
+interface PedalWrite {
+  press: (target: PedalSlotTarget) => boolean
+  lift: (target: PedalLiftTarget) => boolean
+  /** ⚠️ `dy` is SCREEN (+ down) and lands on BOTH signs however it is asked for
+   *  ({@link PedalOffsetOverride} has one vertical). The KEYS never pass one: `shortcutWiring` routes
+   *  a vertical press straight at the engine, so only a DRAG — which moves both axes in one gesture —
+   *  has anything to put here. */
+  nudge: (dx: number, dy: number) => boolean
+  /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
+   *  the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
+   *  crosses again. */
+  rebase: (dx: number) => boolean
+}
+
+/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
+ *  batch ({@link walkPedalEndpoint}). */
+function keyWrites(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): PedalWrite {
+  return {
+    press: (target) => engine.movePedalStartToSlot(id, target),
+    lift: (target) => engine.movePedalLiftTo(id, target),
+    nudge: (dx, dy) => engine.nudgePedalEndpoint(id, which, dx, dy),
+    rebase: (dx) => engine.rebasePedalEndpointOffset(id, which, dx),
+  }
+}
+
+/** The drag's writes: the same four edits with no undo entry of their own. */
+function previewWrites(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): PedalWrite {
+  return {
+    press: (target) => engine.previewPedalStartAtSlot(id, target),
+    lift: (target) => engine.previewPedalLiftAt(id, target),
+    nudge: (dx, dy) => engine.previewPedalEndpointOffset(id, which, dx, dy),
+    rebase: (dx) => engine.previewPedalEndpointRebase(id, which, dx),
+  }
+}
 
 /**
  * ⭐⭐ **ONE HORIZONTAL ARROW PRESS ON AN ARMED SQUARE** — nudge that sign's ink by `dx` staff-spaces
@@ -92,7 +141,7 @@ export function walkPedalEndpoint(
   dx: number,
 ): boolean {
   if (dx === 0) return false
-  const port = portFor(engine, id, which)
+  const port = portFor(engine, id, which, keyWrites(engine, id, which))
 
   const wrap = wrapPort(engine, id, which)
   const across = breakCrossing(port, wrap, dx)
@@ -127,13 +176,102 @@ export function walkPedalEndpoint(
 }
 
 /**
+ * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of a
+ * key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitPedalDrag}). His
+ * ask, 2026-08-21: *"i think we should do the pedal drag walking"*, the bracket's gesture arriving at
+ * the last family that still snapped.
+ *
+ * ⭐ **The mouse and the arrows become ONE gesture.** The drag used to SNAP the grabbed sign onto the
+ * nearest address and write it outright (`elements/pedalHandles.pedalDragTargetAt`), so the foot
+ * jumped a whole note at a time and neither sign could be parked between two — the very thing the
+ * keys had just stopped doing. Now the ink follows the hand and the pedal comes along when the ink
+ * reaches a stop, so a drag and N presses covering the same distance leave the model in one state
+ * rather than in two that merely look alike.
+ *
+ * ⭐⭐ **AND IT READS NO `y` TO DECIDE WHERE IT IS** — which is the second thing the snap needed and
+ * this does not. A pedal is the OUTERMOST below-staff family, so the hand rides a line that can sit
+ * nearer the NEXT system's noteheads than its own; the snap answered that by measuring the gap
+ * between the sign and the music above it every frame (`pedalHandles`, his report of 2026-08-18). A
+ * walk never compares the cursor with a notehead at all: the ink travels along its own line and the
+ * SYSTEM is decided by the wrap.
+ *
+ * ⭐⭐ **THE LATCH IS ON** (`./markWalk`), as it is for the wedge's tips and the bracket's ends: both
+ * of a pedal's signs are AIMED at a column's left edge — that is where the engraver puts them — so
+ * offset zero must be reachable exactly rather than by luck. ⛔ The keyboard keeps it off: a press is
+ * a considered edit of a quarter space.
+ *
+ * 🚨 **A latched frame REPORTS what it DROPPED, because that travel must be REPAID.** The pixels the
+ * latch cuts were still made by the hand, so the caller holds its cursor anchor back by exactly that
+ * much and the next frame presents them again. Left unrepaid the ink falls behind the cursor a little
+ * at every stop and never catches up — Baudisch's own complaint about snap-and-go. ⚠️ It is 0 on an
+ * ordinary frame, so there is no special case.
+ *
+ * ⭐⭐ **THE HAND DECIDES WHERE THE LINE ENDS** — the keys have only the ink to go on and wrap when the
+ * INK passes the edge; a drag has the pointer itself (`./markBreakWrap`, his rule for the wedge).
+ * ⭐⭐ **And a WRAP ENDS THE GESTURE**: that sign is a line away and the hand is not, so every further
+ * pixel would move it by a distance measured against a system it has left.
+ *
+ * ⭐⭐ **BOTH AXES, and they are different kinds of move**: the horizontal walks that sign through the
+ * MUSIC, while the vertical is a plain ink lift — ⚠️ of BOTH signs, whichever square is under the
+ * hand, because a pedal and its own release share ONE baseline (Gould p. 333). Nothing here enforces
+ * that: {@link PedalOffsetOverride}'s shape does.
+ *
+ * ⚠️ **⛔ No screen→outward conversion, unlike the bracket's twin** — a pedal has one side
+ * permanently, so `+ down` means the same thing everywhere it can be drawn and the number passes
+ * straight through (`shortcutWiring` makes no conversion for the keys either).
+ *
+ * ⭐ The lift SURVIVES a crossing: it is the pair's height, not a distance to any particular note.
+ * ⚠️ A frame that WRAPS spends itself on the wrap and drops its `dy` — the wedge's behaviour, and its
+ * reason: the sign is on another system by then.
+ *
+ * ⛔ It declines — **null**, not a frame — when the pedal is not drawn, so there is no staff-space
+ * size to convert the cursor's pixels with; `moved: false` means the frame reached the model and
+ * nothing moved, and the caller must then leave its cursor anchor where it was.
+ */
+export function dragPedalEndpoint(
+  engine: PedalWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  cursorX: number,
+  dxPx: number,
+  dyPx = 0,
+): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
+  const port = portFor(engine, id, which, previewWrites(engine, id, which))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  const dx = dxPx / staffSpacePx
+  const dy = dyPx / staffSpacePx
+  if (dx === 0 && dy === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+
+  const wrap = wrapPort(engine, id, which)
+  const across = breakCrossing(port, wrap, dx, cursorX)
+  if (across?.arrived) {
+    // ⭐ THE MOUSE lands a stub inside the new line — ⛔ not the folded distance the KEYS re-base by,
+    // whose overshoot on the frame that wraps is a single frame of travel and comes out invisible
+    // (`./markBreakWrap`).
+    const moved = leaveSystem(port, wrap, across.stop, () => across.landing)
+    return { moved, wrapped: true, droppedPx: 0 }
+  }
+
+  // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a frame
+  // that merely passes through offset zero is exactly the one it exists for.
+  // ⛔ **NO ONE-CROSSING BOUND HERE** — a key press may cross one stop, but one frame of a fast drag
+  // really can fly over several, and re-anchoring once would leave the sign trailing the cursor by
+  // however many were skipped.
+  const carried = carryMark(port, dx, dy, true)
+  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
+  return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+}
+
+/**
  * The ordinary press: ink, and a log line saying what it did to the offset.
  *
  * ⭐⭐ **THE INK IS FREE** — his rule, 2026-08-21, given for the bracket and about offsets generally:
  * *"the user should be able to offset it at will"*. ⛔ Do not add a limit that holds a sign inside
  * its own bar or system. The only stop on this road is the PAGE's edge (`layout/pageBounds`), which
  * is his own earlier rule and is judged per MOVING SIGN
- * ({@link MusicEngine.pedalEndpointOffsetAllowed}).
+ * ({@link MusicEngine.pedalEndpointStepAllowed}).
  */
 function inkPress(port: MarkWalkPort, dx: number): boolean {
   const before = port.offsetX()
@@ -145,14 +283,19 @@ function inkPress(port: MarkWalkPort, dx: number): boolean {
 
 /** Which sign's port. ⛔ Not a `which` switch inside the members: each end states its own three
  *  answers and shares the three the pedal answers alike. */
-function portFor(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): MarkWalkPort {
-  return which === 'start' ? pressPort(engine, id) : liftPort(engine, id)
+function portFor(
+  engine: PedalWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  write: PedalWrite,
+): MarkWalkPort {
+  return which === 'start' ? pressPort(engine, id, write) : liftPort(engine, id, write)
 }
 
 /** ⭐ **THE PRESS'S PORT** — its stops are the lane's onsets, and it takes one as the moment the
  *  damper falls, holding the lift (or pushing it, where they meet). */
-function pressPort(engine: PedalWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'start', {
+function pressPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkWalkPort {
+  return port(engine, id, 'start', write, {
     label: 'Pedal press',
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the press on different notes depending on how far it had been
@@ -163,14 +306,14 @@ function pressPort(engine: PedalWalkEngine, id: string): MarkWalkPort {
       const here = pedalPressAddress(engine.getScore(), id)
       return here ? pressX(engine, id, here) : null
     },
-    reanchor: (stop) => engine.movePedalStartToSlot(id, stop as PedalSlotTarget),
+    reanchor: (stop) => write.press(stop as PedalSlotTarget),
   })
 }
 
 /** ⭐ **THE LIFT'S PORT** — its stops are the moments the foot can come up, read from the model so
  *  that the address the walk measures to is the one the renderer draws the `✻` at. */
-function liftPort(engine: PedalWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'end', {
+function liftPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkWalkPort {
+  return port(engine, id, 'end', write, {
     label: 'Pedal lift',
     nextStop: (direction) => engine.nextPedalLift(id, direction),
     stopX: (stop) => liftX(engine, id, stop as PedalLiftTarget),
@@ -179,16 +322,18 @@ function liftPort(engine: PedalWalkEngine, id: string): MarkWalkPort {
       const here = engine.pedalLiftSlot(id)
       return here ? liftX(engine, id, here) : null
     },
-    reanchor: (stop) => engine.movePedalLiftTo(id, stop as PedalLiftTarget),
+    reanchor: (stop) => write.lift(stop as PedalLiftTarget),
   })
 }
 
 /** What the two signs answer alike — the scale, that sign's own stored nudge, and the two ink
- *  writes. ⚠️ `nudge`'s second argument is the SHARED vertical and stays 0: no walk has one. */
+ *  writes. ⚠️ `nudge`'s second argument is the SHARED vertical, which only a DRAG ever has: the
+ *  KEYS' vertical never comes through the walk ({@link PedalWrite}). */
 function port(
   engine: PedalWalkEngine,
   id: string,
   which: 'start' | 'end',
+  write: PedalWrite,
   ends: Pick<MarkWalkPort, 'label' | 'nextStop' | 'stopX' | 'anchorX' | 'reanchor'>,
 ): MarkWalkPort {
   return {
@@ -198,11 +343,11 @@ function port(
     staffSpacePx: () => pedalStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () =>
       pedalOffsetOverrideOf(engine.getScore(), id)?.[which === 'start' ? 'startX' : 'endX'] ?? 0,
-    nudge: (dx, dy) => engine.nudgePedalEndpoint(id, which, dx, dy),
+    nudge: (dx, dy) => write.nudge(dx, dy),
     // ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
     // the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
     // crosses again.
-    rebase: (dx) => engine.rebasePedalEndpointOffset(id, which, dx),
+    rebase: (dx) => write.rebase(dx),
   }
 }
 

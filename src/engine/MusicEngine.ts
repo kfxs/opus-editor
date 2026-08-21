@@ -6,7 +6,7 @@ import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget } from './mode
 import type { DynamicSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
 import type { OttavaDragWrite, OttavaSlotTarget } from './models/ottavaOps'
-import type { PedalDragWrite, PedalLiftTarget, PedalSlotTarget } from './models/pedalOps'
+import type { PedalLiftTarget, PedalSlotTarget } from './models/pedalOps'
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
@@ -354,6 +354,23 @@ export class MusicEngine {
    * horizontal is not judged, since a band is a vertical extent and the page limit already answers
    * for x. ⛔ Allows when the anchor staff was not painted (nothing to measure) — same rule as the
    * page limit, for the same reason.
+   *
+   * 🚨🚨 **THE NEIGHBOUR IS ANOTHER SYSTEM, ⛔ NEVER ANOTHER STAFF OF MY OWN** — his report,
+   * 2026-08-21: *"the band rule have a problem… look how the pedal is limit before the pedal lane,
+   * rethink the band limit in general cause this should not happen"*.
+   *
+   * ⭐⭐ A pedal belongs BELOW its staff, and in a piano system that lane lies in the gap between the
+   * two staves — past halfway to the staff below, which is where the rule used to stop it. So the
+   * limit refused the mark its ENGRAVED HOME: not too far, but before the drawing had even started.
+   * ⛔ A rule that forbids where the engraver puts the mark is asking the wrong question, and it was
+   * asked that way deliberately (`layout/systemBand`'s header said *"both are somebody else's
+   * room"*), which is why the fix is here and recorded rather than quietly tuned.
+   *
+   * ⭐ **His own words for the rule have always been about SYSTEMS** — *"so the ottava is on the
+   * system it belongs to"*, *"if it is the first system the limit is the top of the page; if not, the
+   * limit is calculated in relation with the system above"*. A grand staff's two staves are ONE
+   * system: the marks between them are its own furniture, and the room a mark may use is its system's
+   * room, bounded by the next system or by the sheet.
    */
   private nudgeStaysInBand(drawn: readonly InkBox[], measure: number, staff: number, dy: number): boolean {
     const registry = this.renderer.getElementRegistry() as {
@@ -363,12 +380,36 @@ export class MusicEngine {
     const geometry = registry.getStaffGeometry?.(measure, staff)
     if (!geometry) return true
     const mine = { top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] }
-    const others = (registry.staffBands?.() ?? []).filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
+    // ⭐ MY SYSTEM = every staff painted for MY BAR (the registry keys geometry by measure+staff), so
+    // no system list is needed and a score that draws one staff answers exactly as it did before.
+    // ⚠️ Its OTHER staves are `roommates`, ⛔ not neighbours: they stop the mark at their edge rather
+    // than halfway ({@link neighbourBandOf}, and his *"too extreme"* the minute the halving went).
+    const ours = this.systemBandsAt(measure)
+    const same = (a: { top: number; bottom: number }, b: { top: number; bottom: number }) =>
+      a.top === b.top && a.bottom === b.bottom
+    const roommates = ours.filter(o => !same(o, mine))
+    const others = (registry.staffBands?.() ?? []).filter(b => !ours.some(o => same(o, b)))
     // ⭐ What is above/below when no STAFF is: the sheet itself ({@link layout/systemBand}, his rule
     // of 2026-08-21). ⛔ Never a made-up allowance — that is what stopped an `8va` on the top system.
     const sheet = pageBoxAt(resolveSurface(this.surface), drawn[0]?.x ?? 0, mine.top)
     const page = sheet ? { top: sheet.top, bottom: sheet.bottom } : undefined
-    return stepStaysInBand(neighbourBandOf(mine, others, page), drawn, dy * STAFF_SPACE_PX)
+    return stepStaysInBand(neighbourBandOf(mine, others, page, roommates), drawn, dy * STAFF_SPACE_PX)
+  }
+
+  /** The staff extents of the SYSTEM `measure` was drawn on — every staff the last render painted for
+   *  that bar. ⚠️ Read off the registry, so an unpainted staff simply is not in the list; empty when
+   *  the bar was not drawn at all, which {@link nudgeStaysInBand} has already answered for. */
+  private systemBandsAt(measure: number): { top: number; bottom: number }[] {
+    const registry = this.renderer.getElementRegistry() as {
+      getStaffGeometry?: (m: number, s: number) => { lineYPositions: readonly number[] } | undefined
+    }
+    const bands: { top: number; bottom: number }[] = []
+    const staffCount = Math.max(1, this.scoreModel.getScore().staves?.length ?? 1)
+    for (let staff = 0; staff < staffCount; staff++) {
+      const geometry = registry.getStaffGeometry?.(measure, staff)
+      if (geometry) bands.push({ top: geometry.lineYPositions[0], bottom: geometry.lineYPositions[4] })
+    }
+    return bands
   }
 
   /**
@@ -1611,14 +1652,54 @@ export class MusicEngine {
   }
 
   /**
-   * Live (preview) end-move used **while dragging one of a pedal's squares** — writes the model but
-   * does NOT record undo; call {@link commitPedalDrag} on the drop for the single entry.
-   * {@link previewOttavaEnd}'s twin, and for its reason: every frame of a drag would otherwise be
-   * its own undo step. @returns true when the model changed.
+   * Live (preview) re-anchor of the PRESS used **while dragging the `Ped.`** — {@link
+   * movePedalStartToSlot} without the undo entry; the drop records the gesture once
+   * ({@link commitPedalDrag}). @returns true when the model changed.
+   *
+   * ⭐ **The keyboard's own door, minus the undo** — the pair `previewPedalLiftAt` completes. That is
+   * what makes a drag and N presses over one distance leave ONE state rather than two that merely
+   * look alike (`interactions/pedalWalk`), and it is why the two ends need two doors: a press lands
+   * on an ONSET, a lift on a MOMENT ({@link pedalOps.PedalLiftTarget}).
    */
-  previewPedalEnd(id: string, write: PedalDragWrite): boolean {
+  previewPedalStartAtSlot(id: string, target: PedalSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitPedalDrag
-    return this.scoreModel.applyPedalDrag(id, write)
+    return this.scoreModel.setPedalStartAtSlot(id, target)
+  }
+
+  /** Live (preview) re-anchor of the LIFT while dragging the `✻` — {@link movePedalLiftTo} without
+   *  the undo entry, and {@link previewPedalStartAtSlot}'s twin at the other square. */
+  previewPedalLiftAt(id: string, target: PedalLiftTarget): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitPedalDrag
+    return this.scoreModel.setPedalLiftAt(id, target)
+  }
+
+  /**
+   * Live (preview) nudge of ONE sign's ink used **while dragging a pedal's square** — writes the
+   * override but records NO undo; the drop commits once ({@link commitPedalDrag}).
+   *
+   * ⭐ It is {@link nudgePedalEndpoint} without the undo, and ACCUMULATING like it: the caller passes
+   * the delta since the last accepted frame, never a total. ⚠️ **The same gate**
+   * ({@link pedalEndpointStepAllowed}), so the mouse and the arrows cannot disagree about what is
+   * allowed — a sign dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
+   *
+   * ⭐⭐ **`dy` moves BOTH signs, whichever square is under the hand** — and it needs no code here:
+   * {@link PedalOffsetOverride} has ONE vertical (Gould p. 333), so either end writes the same field.
+   * ⚠️ SCREEN-signed (+ down) all the way through, unlike the bracket's twin: a pedal has one side.
+   */
+  previewPedalEndpointOffset(id: string, which: 'start' | 'end', dx: number, dy = 0): boolean {
+    // ⭐ Per AXIS ({@link pedalEndpointStepAllowed}): a drag carries both, and a vertical at its limit
+    // must not freeze the horizontal — his *"get stuck somehow"*, 2026-08-21.
+    const step = this.pedalEndpointStepAllowed(id, which, dx, dy)
+    if (!step) return false
+    this.markModelDirty() // live drag, undo deferred to commitPedalDrag
+    return this.scoreModel.setPedalEndpointOffset(id, which, step.dx, step.dy)
+  }
+
+  /** The re-base during a DRAG: {@link rebasePedalEndpointOffset} with no undo entry of its own —
+   *  and, like it, ⛔ never judged by the page limit. */
+  previewPedalEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitPedalDrag
+    return this.scoreModel.setPedalEndpointOffset(id, which, dx, 0)
   }
 
   /** Record ONE undo entry after a pedal-square drag settles. */
@@ -1707,8 +1788,9 @@ export class MusicEngine {
    * exactly what separates this key from `Ctrl+Shift+arrow` on the same square.
    */
   nudgePedalEndpoint(id: string, which: 'start' | 'end', dx: number, dy: number): boolean {
-    if (!this.pedalEndpointOffsetAllowed(id, which, dx, dy)) return false
-    const ok = this.scoreModel.setPedalEndpointOffset(id, which, dx, dy)
+    const step = this.pedalEndpointStepAllowed(id, which, dx, dy)
+    if (!step) return false
+    const ok = this.scoreModel.setPedalEndpointOffset(id, which, step.dx, step.dy)
     if (ok) this.saveOnly('Nudge pedal')
     return ok
   }
@@ -1726,10 +1808,16 @@ export class MusicEngine {
    *
    * ⭐ **The sign is NAMED, not counted** — `ElementInfo.pedalSign`, `pedalHandles`' rule.
    *
-   * ⛔ **No BAND rule here.** The bracket has one because its drag can lift it toward a neighbour's
-   * room; a pedal has no vertical drag and no side to flip, and inventing a limit that predates
-   * nothing is exactly what he refused for the bracket on 2026-08-21 (*"the user should be able to
-   * offset it at will"*).
+   * ⭐⭐ **AND THE BAND, since the square drag learned to carry the `y`** — his ask, 2026-08-21:
+   * *"by the way on the drag we have to limit the pedal y offset"*. ⛔ Not a new rule and ⛔ not this
+   * family's: it is the sentence that produced `layout/systemBand` for the slur, then the wedge, then
+   * the bracket ({@link ottavaEndpointOffsetAllowed}) — the pedal simply had no vertical drag to be
+   * judged until now, which is exactly what the bracket's own entry says. ⚠️ It is judged HERE, in
+   * the gate both devices share, so the arrows and the mouse cannot disagree about how far down a
+   * pedal may go.
+   *
+   * ⚠️ **The HORIZONTAL is still free** (*"the user should be able to offset it at will"*): the band
+   * is about a neighbour's room, and sideways there is no neighbour — only the page.
    *
    * ⛔⛔ **AND NO "THE TWO SIGNS MAY NOT CROSS" RULE — it was here for a day and he removed it**
    * (2026-08-21: *"the behaviour of the pedal should be similar to the behaviour of the ottava"*).
@@ -1748,18 +1836,49 @@ export class MusicEngine {
    * null in the same way — so this is the family's shared behaviour rather than a hole dug here. The
    * cure, if it is ever wanted, belongs where the runaway starts: a stop the walk can always reach.
    */
-  private pedalEndpointOffsetAllowed(
+  private pedalEndpointStepAllowed(
     id: string,
     which: 'start' | 'end',
     dx: number,
     dy: number,
-  ): boolean {
+  ): { dx: number; dy: number } | null {
     const sign = which === 'start' ? 'down' : 'up'
-    if (!this.spanEndStaysOnPage('pedal', id, which, dx, ps => ps.find(p => p.pedalSign === sign))) {
-      return false
+    const horizontal = dx !== 0
+      && this.spanEndStaysOnPage('pedal', id, which, dx, ps => ps.find(p => p.pedalSign === sign))
+      && (which === 'start' || this.pedalLiftInkWouldMove(id, dx))
+    const vertical = dy !== 0
+      && this.nudgeStaysOnPage('pedal', id, 0, dy)
+      && this.pedalStaysInBand(id, dy)
+    // 🚨🚨 **ONE AXIS'S REFUSAL MAY NOT VETO THE OTHER** — his report, 2026-08-21, of a drag that
+    // *"get stuck somehow"* with a log of dozens of consecutive latches moving nothing. A mouse
+    // gesture always carries both axes, so when the vertical was at its limit the write that carried
+    // it took the horizontal down with it: the ink stopped, the caller (rightly) held its cursor
+    // anchor back, and every following frame presented a bigger delta at the same wall. ⭐ The two
+    // axes already ask TWO QUESTIONS; this makes them give two ANSWERS.
+    return horizontal || vertical ? { dx: horizontal ? dx : 0, dy: vertical ? dy : 0 } : null
+  }
+
+  /**
+   * ⭐ **Would this lift put any SIGN of the pedal in a neighbour's room?** — {@link nudgeStaysInBand}
+   * asked of the whole mark, because a pedal's vertical is ONE number (Gould p. 333) and every glyph
+   * rises with it. {@link ottavaStaysInBand}'s twin, on the other side of the staff.
+   *
+   * ⚠️ **Each glyph is judged against ITS OWN system's band**, exactly as the page limit judges each
+   * against its own sheet: a pedal cut by a system break has its `Ped.` on one staff and its `✻` on
+   * another, and one staff's neighbours say nothing about the other's. Any sign the step would push
+   * into a neighbour's room blocks it, since the height they share is one field.
+   *
+   * ⭐ **The grain is the GLYPH here, not the fragment** — `pedalHandles`' rule, and it is the right
+   * ink to measure: a pedal draws nothing between its two signs, so the boxes ARE the mark.
+   */
+  private pedalStaysInBand(id: string, dy: number): boolean {
+    const registry = this.renderer.getElementRegistry() as {
+      getByType?: (t: ElementType) => ElementInfo[]
     }
-    if (which === 'end' && !this.pedalLiftInkWouldMove(id, dx)) return false
-    return dy === 0 || this.nudgeStaysOnPage('pedal', id, 0, dy)
+    return (registry.getByType?.('pedal') ?? [])
+      .filter((e: ElementInfo) => e.id === id)
+      .every((e: ElementInfo) => e.measure === undefined
+        || this.nudgeStaysInBand([e.bbox], e.measure, e.staff ?? 0, dy))
   }
 
   /**
@@ -1818,7 +1937,11 @@ export class MusicEngine {
   /** ⭐⭐ **Move the WHOLE pedal** by a staff-space delta — the arrows with a pedal selected and NO
    *  square armed. One undo step. */
   nudgePedal(id: string, dx: number, dy: number): boolean {
+    // ⭐ The whole-object page rule is right HERE, unlike the per-sign nudge: this really does
+    // translate every glyph. ⚠️ The BAND is the same question either way — see
+    // {@link pedalEndpointStepAllowed} for his ask.
     if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
+    if (dy !== 0 && !this.pedalStaysInBand(id, dy)) return false
     const ok = this.scoreModel.setPedalOffset(id, dx, dy)
     if (ok) this.saveOnly('Nudge pedal')
     return ok
@@ -2860,7 +2983,7 @@ export class MusicEngine {
   /**
    * Live (preview) re-anchor used **while dragging one of a trill's squares** — writes the model but
    * does NOT record undo; call {@link commitTrillDrag} on the drop for the single entry.
-   * {@link previewPedalEnd}'s twin, and for its reason: every frame of a drag would otherwise be its
+   * {@link previewPedalStartAtSlot}'s twin, and for its reason: every frame of a drag would otherwise be its
    * own undo step.
    *
    * ⭐ The model is the authority on the destination — a rest, a fanned member, a note that already

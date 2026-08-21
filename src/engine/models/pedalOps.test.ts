@@ -19,7 +19,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import {
   addPedal, removePedal, updatePedal, setPedalLength, getPedalById, pedalMeasure, measurePedals,
   pedalEndBeat, pedalSpan, addPedalOverNotes, resizePedalBySlot, movePedalStartBySlot,
-  applyPedalDrag, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
+  setPedalStartAtSlot, setPedalLiftAt, setPedalEndpointOffset, setPedalOffset, resetPedalOffset,
   resetPedalEndpointOffset,
 } from './pedalOps'
 import { setEngravingOverride } from './overrideOps'
@@ -458,14 +458,19 @@ describe('pedalOps — movePedalStartBySlot', () => {
 })
 
 /**
- * ⭐⭐ One frame of a DRAG — {@link applyPedalDrag}, the mouse's road to the two writes above, so a
- * dragged pedal cannot land where the keys could not put it.
+ * ⭐⭐ **THE TWO ADDRESS WRITES BOTH DEVICES END AT** — {@link setPedalStartAtSlot} and
+ * {@link setPedalLiftAt}. The arrows reach them through the walk and so does a square drag
+ * (`interactions/pedalWalk`), so a dragged pedal cannot land where the keys could not put it.
  *
- * ⭐ The case this family has and its neighbours do not is **`after`**: a pedal's end is a moment in
- * TIME, so the last note of a passage can be cut off as it is struck or left ringing, and only
- * `after` names the second one.
+ * ⭐ **Two doors, ⛔ not one, and that is the pedal's third end rule showing through**: the press
+ * takes an ONSET of its staff, the lift takes a MOMENT — no note need stand there
+ * ({@link PedalLiftTarget}).
+ *
+ * ⚠️ This chapter replaced `applyPedalDrag`'s on 2026-08-21, when the drag stopped snapping to an
+ * address and started walking to one; the op it drove went with the snap, and every claim it carried
+ * is below.
  */
-describe('pedalOps — applyPedalDrag', () => {
+describe('pedalOps — setPedalStartAtSlot / setPedalLiftAt', () => {
   let model: ScoreModel
   let score: Score
   beforeEach(() => {
@@ -481,30 +486,32 @@ describe('pedalOps — applyPedalDrag', () => {
     return { press: fracToNumber(p.beat), lift: fracToNumber(pedalEndBeat(p)) }
   }
 
-  it('the START lands on the dragged slot, holding the lift', () => {
+  it('the START lands on the given slot, holding the lift', () => {
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(3, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(setPedalStartAtSlot(score, p.id, { measure: 1, beat: frac(2, 1) })).toBe(true)
     expect(spanOf(p.id)).toEqual({ press: 2, lift: 3 })
   })
 
-  it('⭐ the LIFT lands ON the dragged onset — that note is NOT held', () => {
+  it('⭐ the LIFT lands ON the given moment — the note struck there is NOT held', () => {
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(setPedalLiftAt(score, p.id, { measure: 1, beat: frac(2, 1) })).toBe(true)
     expect(spanOf(p.id), 'the damper comes up as the beat-2 note is struck').toEqual({ press: 0, lift: 2 })
   })
 
-  it('⭐⭐ `after` holds the note instead — the address no onset can name at the last note', () => {
+  it('⭐⭐ …and a moment PAST the last onset holds it — the address no onset can name', () => {
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'end', after: true, measure: 1, beat: frac(3, 1) })).toBe(true)
-    // The last quarter of the bar rings to the barline. With `after: false` this same target would
-    // have given 3 — the note dry — and there is no onset after it to ask for instead.
+    // The last quarter of the bar rings to the barline. Asking for beat 3 instead would leave that
+    // note dry, and there is no onset after it to name the difference with — which is why a lift is
+    // a MOMENT and not a slot. ⭐ The walk reaches it one step at a time (`nextPedalLift` reaches
+    // THROUGH the final slot), so no gesture needs a candidate of its own for it.
+    expect(setPedalLiftAt(score, p.id, { measure: 1, beat: frac(4, 1) })).toBe(true)
     expect(spanOf(p.id)).toEqual({ press: 0, lift: 4 })
   })
 
   it('⛔ refuses a LIFT at or before the press — ⛔ never a delete', () => {
     const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(1, 1) })).toBe(false)
-    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(0, 1) })).toBe(false)
+    expect(setPedalLiftAt(score, p.id, { measure: 1, beat: frac(1, 1) })).toBe(false)
+    expect(setPedalLiftAt(score, p.id, { measure: 1, beat: frac(0, 1) })).toBe(false)
     expect(spanOf(p.id), 'untouched by both').toEqual({ press: 1, lift: 2 })
   })
 
@@ -514,18 +521,26 @@ describe('pedalOps — applyPedalDrag', () => {
     // what keeps the walk alive — a stop the model can refuse FOREVER is a dead gesture
     // (`setPedalStartAtSlot`), and only the LEFT foot has somewhere further to go.
     const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 1, beat: frac(2, 1) })).toBe(true)
+    expect(setPedalStartAtSlot(score, p.id, { measure: 1, beat: frac(2, 1) })).toBe(true)
     expect(spanOf(p.id), 'it keeps the one slot it now stands on').toEqual({ press: 2, lift: 3 })
   })
 
-  it('⛔ refuses an address that is not an onset of the pedal\'s own staff', () => {
+  it('⛔ the PRESS refuses an address that is not an onset of the pedal\'s own staff', () => {
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
-    expect(applyPedalDrag(score, p.id, { at: 'end', after: false, measure: 1, beat: frac(5, 2) })).toBe(false)
-    expect(applyPedalDrag(score, p.id, { at: 'start', measure: 9, beat: frac(0, 1) })).toBe(false)
+    expect(setPedalStartAtSlot(score, p.id, { measure: 1, beat: frac(5, 2) })).toBe(false)
+    expect(setPedalStartAtSlot(score, p.id, { measure: 9, beat: frac(0, 1) })).toBe(false)
+  })
+
+  it('⚠️ …the LIFT does not, because a moment needs no note under it — but its BAR must exist', () => {
+    const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!
+    expect(setPedalLiftAt(score, p.id, { measure: 1, beat: frac(5, 2) }), 'mid-note is a moment').toBe(true)
+    expect(spanOf(p.id)).toEqual({ press: 0, lift: 2.5 })
+    expect(setPedalLiftAt(score, p.id, { measure: 9, beat: frac(0, 1) })).toBe(false)
   })
 
   it('is false for an unknown id', () => {
-    expect(applyPedalDrag(score, 'nope', { at: 'start', measure: 1, beat: frac(0, 1) })).toBe(false)
+    expect(setPedalStartAtSlot(score, 'nope', { measure: 1, beat: frac(0, 1) })).toBe(false)
+    expect(setPedalLiftAt(score, 'nope', { measure: 1, beat: frac(1, 1) })).toBe(false)
   })
 })
 

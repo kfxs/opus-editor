@@ -915,11 +915,6 @@ export class ScoreModel {
     return pedalOps.movePedalStartBySlot(this.score, id, direction)
   }
 
-  /** Apply one frame of a pedal endpoint-square DRAG — see {@link pedalOps.applyPedalDrag}. */
-  applyPedalDrag(id: string, write: pedalOps.PedalDragWrite): boolean {
-    return pedalOps.applyPedalDrag(this.score, id, write)
-  }
-
   /** Where the LIFT would go after one step, without stepping — the END square's interpolating WALK
    *  looks ahead at it. See {@link pedalOps.nextPedalLift}. */
   nextPedalLift(id: string, direction: 1 | -1): pedalOps.PedalLiftTarget | null {

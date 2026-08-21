@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkPedalEndpoint } from './pedalWalk'
+import { dragPedalEndpoint, walkPedalEndpoint } from './pedalWalk'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -32,6 +32,9 @@ const drawn = vi.hoisted(() => ({
   /** Bars the last render drew NOTHING for — no geometry at all, which is how a real registry
    *  answers for a bar that was never painted. */
   undrawn: [] as number[],
+  /** ⭐ How far below staff 0 a SECOND staff of the same system was painted, or null for a
+   *  single-staff score — the grand-staff case the BAND rule turns on. */
+  secondStaffDrop: null as number | null,
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -41,14 +44,26 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: (m: number) => (drawn.lineSpacing === null || drawn.undrawn.includes(m) ? undefined : {
-        lineSpacing: drawn.lineSpacing,
-        lineYPositions: [drawn.systemTop[m] ?? 40, 50, 60, 70, 80],
-        noteStartX: 90, noteEndX: 430,
-      }),
+      getStaffGeometry: (m: number, s = 0) => {
+        if (drawn.lineSpacing === null || drawn.undrawn.includes(m)) return undefined
+        // ⚠️ A staff the render did not paint has NO geometry — that is how the registry says which
+        // staves this system actually has.
+        if (s > 0 && drawn.secondStaffDrop === null) return undefined
+        const top = (drawn.systemTop[m] ?? 40) + (s > 0 ? drawn.secondStaffDrop! : 0)
+        return {
+          lineSpacing: drawn.lineSpacing,
+          lineYPositions: [top, top + 10, top + 20, top + 30, top + 40],
+          noteStartX: 90, noteEndX: 430,
+        }
+      },
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      staffBands: () => [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }],
+      staffBands: () => [
+        { top: 40, bottom: 80 },
+        ...(drawn.secondStaffDrop === null
+          ? [] : [{ top: 40 + drawn.secondStaffDrop, bottom: 80 + drawn.secondStaffDrop }]),
+        { top: 240, bottom: 280 },
+      ],
     }))
   },
 }))
@@ -76,6 +91,7 @@ describe('walkPedalEndpoint', () => {
   const render = (xs = [100, 200, 300, 400], lineSpacing: number | null = 10) => {
     drawn.lineSpacing = lineSpacing
     drawn.undrawn = []
+    drawn.secondStaffDrop = null
     drawn.systemTop = { 1: 40, 2: 40 } // ⭐ ONE system by default
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, staff: 0, bbox: { x: xs[i], y: 50, width: 10, height: 10 },
@@ -270,6 +286,22 @@ describe('walkPedalEndpoint', () => {
         'and then back onto the system above').toBe(1)
     })
 
+    it('⭐⭐ a DRAG wraps when the HAND passes the barline, ⛔ not when the ink does', () => {
+      // His rule for the wedge: a drag has the pointer itself, which is both simpler and truer than
+      // the ink — the ink only gets there if every frame on the way was accepted.
+      const frame = dragPedalEndpoint(engine, pedalId, 'end', 440, 10)!
+      expect(frame.wrapped, "the cursor is past this line's last ink (430)").toBe(true)
+      expect(span(), 'the foot now comes up inside bar 2').toEqual({ beat: 0, length: 5 })
+      // ⭐ And it lands a STUB inside the new line — ⛔ not the folded distance the KEYS re-base by.
+      expect(offset('end')).toBeLessThan(0)
+    })
+
+    it('⭐ …and a frame short of the barline is ordinary ink', () => {
+      const frame = dragPedalEndpoint(engine, pedalId, 'end', 420, 10)!
+      expect(frame.wrapped).toBe(false)
+      expect(span()).toEqual({ beat: 0, length: 4 })
+    })
+
     it('⛔ never onto a bar the last render drew nothing for', () => {
       drawn.undrawn = [2]
       drawn.entries = drawn.entries.filter(e => e.bbox.y < 200)
@@ -287,7 +319,7 @@ describe('walkPedalEndpoint', () => {
    * 🚨 An order rule lived here for a day and produced two reports at once: *"i'm not able to walk
    * here"* (forty refusals in a row) and *"look how the pedal walk accelerates a lot in certain
    * spots"* — because a refused ink step makes every press hand the anchor a WHOLE STOP along.
-   * {@link MusicEngine.pedalEndpointOffsetAllowed} carries the reasoning; what the walk owes is this:
+   * {@link MusicEngine.pedalEndpointStepAllowed} carries the reasoning; what the walk owes is this:
    * touching glyphs change NOTHING about the pace.
    */
   describe('when the two signs are drawn touching', () => {
@@ -342,6 +374,167 @@ describe('walkPedalEndpoint', () => {
       touching()
       expect(walkPedalEndpoint(engine, pedalId, 'end', -1)).toBe(false)
       expect(walkPedalEndpoint(engine, pedalId, 'end', 1), 'rightward is never refused').toBe(true)
+    })
+  })
+
+  /**
+   * ⭐⭐ THE DRAG — the same journey with the cursor's delta in pixels (his ask, 2026-08-21: *"i think
+   * we should do the pedal drag walking"*). It used to SNAP the grabbed sign to the nearest address,
+   * with a measured sign-to-music `y` to tell one system from another; what this chapter owns is that
+   * a drag and N presses over the same distance land in ONE state, plus the two things only the mouse
+   * has: the LATCH at offset zero and the repayment it owes.
+   *
+   * 10 px per staff-space, and the stops are 100 px apart — so one gap is one 100 px frame.
+   */
+  describe('the drag', () => {
+    /** A frame at `cursorX`, having moved `dxPx` since the last accepted one. */
+    const frame = (which: 'start' | 'end', cursorX: number, dxPx: number, dyPx = 0) =>
+      dragPedalEndpoint(engine, pedalId, which, cursorX, dxPx, dyPx)
+
+    it('moves INK while the hand is between two stops — ⛔ the foot does not move', () => {
+      expect(frame('end', 330, 30)!.moved).toBe(true)
+      expect(span(), 'the model is untouched').toEqual({ beat: 0, length: 2 })
+      expect(offset('end')).toBeCloseTo(3)
+    })
+
+    it('⭐ carries the foot when the ink ARRIVES, exactly as the arrows do', () => {
+      frame('end', 400, 100)
+      expect(span(), 'the damper comes up a beat later').toEqual({ beat: 0, length: 3 })
+      expect(offset('end'), 'and the ink did not jump — the identity').toBeCloseTo(0)
+    })
+
+    it('⭐⭐ …and a drag lands where the PRESSES do, which is the point of one journey', () => {
+      // ⚠️ The presses go first and the model is wound back by hand: a drag FRAME records no undo
+      // entry (that is its whole difference), so `undo()` here would take back the pedal itself.
+      for (let i = 0; i < 10; i++) walkPedalEndpoint(engine, pedalId, 'end', 1)
+      const pressed = { ...span(), ink: offset('end') }
+      engine.setPedalLength(pedalId, frac(2, 1))
+      expect(span(), 'wound back').toEqual({ beat: 0, length: 2 })
+
+      frame('end', 400, 100)
+      expect({ ...span(), ink: offset('end') }).toEqual(pressed)
+    })
+
+    it('⭐ the PRESS square walks the same way, holding the lift', () => {
+      frame('start', 200, 100)
+      expect(span(), 'the foot goes down a beat later, the release stays put')
+        .toEqual({ beat: 1, length: 1 })
+      expect(offset('start')).toBeCloseTo(0)
+    })
+
+    it('⭐⭐ THE LATCH: the ink stops dead at offset zero, and REPORTS what it dropped', () => {
+      // Two frames: the first parks the ink 3 spaces short of the next stop, the second would fly 5
+      // past it. The latch cuts the move at the stop — where the engraver puts the sign — and the 2
+      // spaces it swallowed come back as `droppedPx` for the caller to repay.
+      frame('end', 370, 70)
+      const latched = frame('end', 420, 50)!
+      expect(span(), 'it crossed').toEqual({ beat: 0, length: 3 })
+      expect(offset('end'), 'and stopped exactly on the column').toBeCloseTo(0)
+      expect(latched.droppedPx, '⭐ in PIXELS, the caller\'s own unit').toBeCloseTo(20)
+    })
+
+    it('⛔ writes no undo entry of its own — the drop commits the gesture ONCE', () => {
+      frame('end', 400, 100)
+      expect(span()).toEqual({ beat: 0, length: 3 })
+      engine.commitPedalDrag('end')
+      engine.undo()
+      expect(span(), 'one undo takes the whole drag back').toEqual({ beat: 0, length: 2 })
+    })
+
+    /**
+     * ⭐⭐ THE VERTICAL — the drag carries both axes in one gesture, and the `y` lands on BOTH SIGNS
+     * whichever square is under the hand: a pedal and its own release share ONE baseline (Gould
+     * p. 333), so `PedalOffsetOverride` has a single vertical and both ends write it.
+     *
+     * ⛔ **No screen→outward conversion here, unlike the bracket's** — a pedal has one side
+     * permanently, so `+ down` means the same thing everywhere it can be drawn.
+     */
+    describe('the vertical', () => {
+      /** The pair's one stored height, in SCREEN staff-spaces (+ down). */
+      const y = () => pedalOffsetOverrideOf(engine.getScore(), pedalId)?.y ?? 0
+
+      it('⭐ follows the hand down, sign for sign — ⛔ nothing is flipped on this road', () => {
+        expect(frame('end', 300, 0, 25)!.moved).toBe(true)
+        expect(y()).toBeCloseTo(2.5)
+      })
+
+      it('⭐⭐ the START square writes the SAME field — the pair cannot tilt', () => {
+        frame('start', 100, 0, 25)
+        expect(y()).toBeCloseTo(2.5)
+        // ⛔ Not a per-sign pair: one number, and the second square adds to it.
+        frame('end', 300, 0, 15)
+        expect(y()).toBeCloseTo(4)
+      })
+
+      it('⭐ rides along with a horizontal that CROSSES, and survives it', () => {
+        frame('end', 400, 100, 10)
+        expect(span(), 'the damper comes up a beat later').toEqual({ beat: 0, length: 3 })
+        expect(y(), 'and the height came with it').toBeCloseTo(1)
+      })
+
+      /** The drawn `Ped.`'s own box — ⚠️ the registry is a FIXTURE, so it does not move when the
+       *  model is written; a case that wants the ink somewhere else says so. */
+      const pedalInk = () => drawn.entries.find(e => e.type === 'pedal')!.bbox
+
+      it('🚨 STOPS where a sign would enter the SYSTEM BELOW\'s room — his rule', () => {
+        // *"by the way on the drag we have to limit the pedal y offset"* (2026-08-21) — the sentence
+        // that produced the band rule for the slur, the wedge and then the bracket, arriving at the
+        // family that had no vertical drag to be judged until now. ⭐ The limit falls HALFWAY to the
+        // neighbouring staff — 80 px under this one's foot, ⛔ not at its lines
+        // (`layout/systemBand`) — and the fixture's `Ped.` is already 4 spaces down, so it has 3
+        // left. ⚠️ That tightness is the fixture's, not the rule's: real systems are further apart.
+        expect(frame('end', 300, 0, 25)!.moved, 'two and a half spaces down, still its own room').toBe(true)
+        expect(y()).toBeCloseTo(2.5)
+        expect(frame('end', 300, 0, 700)!.moved, '⛔ but not into the system below').toBe(false)
+        expect(y(), 'and nothing was written — ⛔ the value never accumulates past the edge')
+          .toBeCloseTo(2.5)
+      })
+
+      it('⭐ …and it is never STRANDED: the way home is always allowed', () => {
+        // Ink already outside its band — a re-flow moved the system under it, or an older file was
+        // saved that way. ⛔ Refusing both directions there would strand the pedal for good.
+        pedalInk().y = 400
+        expect(frame('end', 300, 0, 10)!.moved, '⛔ no further down').toBe(false)
+        expect(frame('end', 300, 0, -10)!.moved, '⭐ but always back').toBe(true)
+      })
+
+      /**
+       * 🚨🚨 **THE NEIGHBOUR IS ANOTHER SYSTEM, ⛔ NEVER THE OTHER STAFF OF MY OWN** — his report,
+       * 2026-08-21: *"the band rule have a problem… look how the pedal is limit before the pedal
+       * lane, rethink the band limit in general cause this should not happen"*.
+       *
+       * ⭐⭐ THE BREAK-TEST FOR THE WHOLE RULE, and it must be a GRAND STAFF: a pedal belongs below
+       * its staff, and in a two-staff system that lane lies in the gap between the two — already past
+       * halfway to the staff below. Judged against that staff, the mark is refused at its own
+       * ENGRAVED HOME and cannot be dragged down at all; judged against the next SYSTEM, it has the
+       * room its own system gives it.
+       */
+      it('🚨 uses ALL of its own system\'s gap, and stops at the partner STAFF', () => {
+        // Staff 0 at 40…80 and its partner 100 px lower (140…180) — the pedal's ink at 120…130 sits
+        // between them, where `PedalRenderer` puts it.
+        //
+        // ⭐⭐ TWO BREAK-TESTS IN ONE, one per report. Halfway-to-the-partner (110) is ABOVE the ink,
+        // so the first rule refused every downward step at the mark's own engraved home — *"limit
+        // before the pedal lane"*. Halfway-to-the-next-SYSTEM (160) let it sail across the partner
+        // staff — *"too extreme"*. The partner's EDGE (140) is the answer to both.
+        drawn.secondStaffDrop = 100
+        engine.addStaffBelow(0)
+        expect(frame('end', 300, 0, 5)!.moved, 'down into its own system\'s gap').toBe(true)
+        expect(y()).toBeCloseTo(0.5)
+        expect(frame('end', 300, 0, 30)!.moved, '⛔ but never onto the staff below').toBe(false)
+        expect(y(), '⛔ and nothing accumulates past the edge').toBeCloseTo(0.5)
+      })
+
+      it('⛔ a purely vertical frame moves nothing horizontal', () => {
+        frame('end', 300, 0, 25)
+        expect(span()).toEqual({ beat: 0, length: 2 })
+        expect(offset('end')).toBe(0)
+      })
+    })
+
+    it('⛔ declines — null — when the pedal is not drawn, so there is no scale', () => {
+      render([100, 200, 300, 400], null)
+      expect(frame('end', 400, 100)).toBeNull()
     })
   })
 

@@ -411,9 +411,19 @@ export interface PedalSlotTarget {
 /**
  * ⭐⭐ **A LIFT — a moment in time, named as an address.** ⛔ NOT a {@link PedalSlotTarget}: no note
  * need stand there. The two look alike and mean different things, which is exactly why they are two
- * types — see {@link setPedalEndAtSlot} for the pedal's third end rule, and {@link pedalLiftSlot}.
+ * types — and {@link pedalLiftSlot} reads this one off a pedal that has no field for it.
  *
  * ⚠️ `beat` MAY EQUAL its measure's capacity — the release at the barline, the common case.
+ *
+ * ⚠️⚠️ **THE PEDAL'S THIRD END RULE lives in this type.** A trill ends at the end of a DURATION and
+ * an octave bracket at the last NOTEHEAD, but a pedal's end is a moment in TIME (docs/pedal-plan.md
+ * §5.2), and at the last note of a passage a moment can be named two ways: *the damper comes up as
+ * this note is struck* (the note is dry) or *when it finishes*. Everywhere else the two coincide,
+ * because the end of a slot IS the next onset; only past the final note is there an address no onset
+ * names. ⭐ Both are reachable one step at a time — {@link nextPedalLift} reaches THROUGH a slot
+ * going forward and drops the last held one coming back — which is why the drag needs no separate
+ * "after the notehead" candidate of its own (`interactions/pedalWalk`; the snap that did have one
+ * went on 2026-08-21).
  */
 export interface PedalLiftTarget {
   measure: number
@@ -459,58 +469,6 @@ export function setPedalStartAtSlot(score: Score, id: string, target: PedalSlotT
   pedal.length = length
   pedalMeasure(score, id)?.pedals?.sort((a, b) => fracCompare(a.beat, b.beat))
   return true
-}
-
-/**
- * ⭐⭐ **Put the LIFT at `target`'s onset — or at the END of it — holding the press.**
- *
- * ⚠️⚠️ **`after` is not a convenience, it is the pedal's THIRD end rule showing through.** A trill
- * ends at the end of a DURATION and an octave bracket at the last NOTEHEAD, but a pedal's end is a
- * moment in TIME (docs/pedal-plan.md §5.2), and a moment can be named two ways at the last note of
- * a passage: *the damper comes up as this note is struck* (`after: false` — the note is dry) or
- * *when it finishes* (`after: true`). Everywhere else the two coincide, because the end of a slot
- * IS the next onset; only past the final note does `after` reach an address nothing else can name.
- *
- * ⭐ That is also exactly what the drag sees: cross the LEFT edge of a notehead and the `✻` lands
- * before it, cross its RIGHT edge and the pedal holds the note. `setHairpinEndBeforeSlot`'s pair by
- * a different route — ⛔ and not portable to the ottava, whose every draggable address is a covered
- * slot.
- *
- * Declines when `target` is not an onset of the pedal's own staff, or when the pedal would hold no
- * music. Only `length` moves — the press is a field nobody touches here.
- */
-export function setPedalEndAtSlot(
-  score: Score,
-  id: string,
-  target: PedalSlotTarget,
-  after: boolean,
-): boolean {
-  const placed = locate(score, id)
-  if (!placed) return false
-  const { startAbs, lane } = placed
-
-  const slot = lane.find(s => s.measure === target.measure && fracCompare(s.beat, target.beat) === 0)
-  if (!slot) return false
-  const lift = after ? fracAdd(slot.abs, slot.length) : slot.abs
-  return setPedalLength(score, id, fracSub(lift, startAbs))
-}
-
-/** One frame of an endpoint-square DRAG: which end the cursor is holding, and the address it is
- *  over. `OttavaDragWrite`'s twin — ⚠️ with the extra `after` bit the octave line has no use for
- *  ({@link setPedalEndAtSlot} says why). */
-export type PedalDragWrite =
-  | ({ at: 'start' } & PedalSlotTarget)
-  | ({ at: 'end'; after: boolean } & PedalSlotTarget)
-
-/**
- * Apply one frame of an endpoint-square drag — the mouse's road to the same two model writes the
- * keyboard reaches with `Ctrl+Shift+←/→`, so a pedal cannot be dragged into a state the keys could
- * not have produced. @returns true when the model changed.
- */
-export function applyPedalDrag(score: Score, id: string, write: PedalDragWrite): boolean {
-  return write.at === 'start'
-    ? setPedalStartAtSlot(score, id, write)
-    : setPedalEndAtSlot(score, id, write, write.after)
 }
 
 /** Re-file a pedal under a different measure, keeping the SAME object (and so the same id, which is

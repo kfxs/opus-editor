@@ -24,12 +24,35 @@
  *
  * ## The rule
  *
- * **Halfway to the nearest staff.** A mark may leave its own staff freely and use up to half the gap
- * to whatever is painted above or below it — which is a derived quantity, not a chosen number, and it
- * makes no distinction between the staff below in a piano system and the staff below in the NEXT
- * system: both are somebody else's room, and the rule that keeps ink out of one keeps it out of the
- * other. Where nothing is painted on that side the room is unbounded, and the PAGE limit is what
+ * **Halfway to the nearest staff of ANOTHER SYSTEM.** A mark may leave its own staff freely and use
+ * up to half the gap to whatever is painted above or below it — a derived quantity, not a chosen
+ * number. Where nothing is painted on that side the room is unbounded, and the PAGE limit is what
  * stops you there; the two guards compose.
+ *
+ * 🚨🚨 **THE OTHER STAVES OF MY OWN SYSTEM ARE NOT NEIGHBOURS — his report, 2026-08-21**: *"the band
+ * rule have a problem… look how the pedal is limit before the pedal lane, rethink the band limit in
+ * general cause this should not happen"*.
+ *
+ * ⛔ This paragraph used to say the opposite in as many words — *"it makes no distinction between the
+ * staff below in a piano system and the staff below in the NEXT system: both are somebody else's
+ * room"* — and that was the bug, not a detail. A pedal belongs BELOW its staff, and in a grand staff
+ * that lane lies in the gap between the two staves, already past halfway to the one below: the rule
+ * refused the mark its own ENGRAVED HOME, so it could not be dragged at all. ⭐ A rule that forbids
+ * where the engraver puts the mark is asking the wrong question.
+ *
+ * ⭐ And his own words for this rule have always been about SYSTEMS — *"so the ottava is on the system
+ * it belongs to"*, *"if it is the first system the limit is the top of the page; if not, the limit is
+ * calculated in relation with the system above"*. A grand staff's staves are ONE system, the marks
+ * between them are its own furniture, and the caller says which bands those are
+ * (`MusicEngine.systemBandsAt` — every staff the render painted for that BAR).
+ *
+ * ⚠️⚠️ **BUT MY OWN SYSTEM'S STAVES STILL STOP THE MARK — at their EDGE, ⛔ not halfway to them** —
+ * his second report, minutes later: *"now the pedal limit is too extreme"*. Freed of the halving
+ * rule, the pedal could be dragged straight across its own partner staff and on toward the next
+ * system, which is as wrong the other way. ⭐ So the two questions differ because the two gaps do: the
+ * space INSIDE a system is that system's own furniture and a mark may use all of it, right up to the
+ * staff on the far side; the space BETWEEN systems is shared, and halving it is what keeps two
+ * systems' marks from meeting in the middle.
  */
 import { stepLeavesPage } from './pageBounds'
 import type { InkBox } from './pageBounds'
@@ -72,19 +95,38 @@ export function neighbourBandOf(
    * unbounded, for a caller that cannot say (and for the pure arithmetic tests).
    */
   page: Band = { top: -Infinity, bottom: Infinity },
+  /**
+   * ⭐⭐ **THE OTHER STAVES OF MY OWN SYSTEM** — a grand staff's partner, and ⛔ NOT a neighbour in
+   * the halving sense. Their gap is the system's own furniture, so a mark may use ALL of it and is
+   * stopped at their near EDGE instead of halfway to it (see the header).
+   */
+  roommates: readonly Band[] = [],
 ): Band {
-  let above = Infinity
-  let below = Infinity
-  for (const other of others) {
-    if (other.bottom < mine.top) above = Math.min(above, mine.top - other.bottom)
-    else if (other.top > mine.bottom) below = Math.min(below, other.top - mine.bottom)
+  const nearest = (bands: readonly Band[]) => {
+    let above = Infinity
+    let below = Infinity
+    for (const other of bands) {
+      if (other.bottom < mine.top) above = Math.min(above, mine.top - other.bottom)
+      else if (other.top > mine.bottom) below = Math.min(below, other.top - mine.bottom)
+    }
+    return { above, below }
   }
+  const far = nearest(others)     // another system ⇒ HALFWAY
+  const near = nearest(roommates) // my own system ⇒ its EDGE
   // ⭐⭐ ONE QUESTION PER SIDE — *"always ask if what we have above is the beginning of the canvas or
-  // a staff, and suppose the same below"* (his words, 2026-08-21). A staff ⇒ halfway to it; the
-  // sheet ⇒ its edge.
+  // a staff, and suppose the same below"* (his words, 2026-08-21). A staff of another system ⇒
+  // halfway to it; a staff of MINE ⇒ up to it; nothing at all ⇒ the sheet's edge.
+  const ceiling = Math.max(
+    far.above === Infinity ? -Infinity : mine.top - far.above / 2,
+    near.above === Infinity ? -Infinity : mine.top - near.above,
+  )
+  const floor = Math.min(
+    far.below === Infinity ? Infinity : mine.bottom + far.below / 2,
+    near.below === Infinity ? Infinity : mine.bottom + near.below,
+  )
   return {
-    top: above === Infinity ? page.top : mine.top - above / 2,
-    bottom: below === Infinity ? page.bottom : mine.bottom + below / 2,
+    top: ceiling === -Infinity ? page.top : ceiling,
+    bottom: floor === Infinity ? page.bottom : floor,
   }
 }
 

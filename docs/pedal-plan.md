@@ -851,5 +851,47 @@ which"*, then the look: *"discontinuing lines similar to ottava"*, then the air:
   measured with the shared `markBreakWrap.systemInkAt`.
 - ⛔ It stops being needed the day a bracket-style pedal draws a real line (his own note).
 
-⚠️ **Not built:** the pedal's endpoint DRAG still snaps to a slot (`pedalDragTargetAt`); it has not
-been moved onto the walk the way the bracket's was.
+## ✅⭐⭐ P8 — THE SQUARE DRAG WALKS TOO (2026-08-21, BUILT)
+
+His ask: *"i think we should do the pedal drag walking"*. `pedalWalk.dragPedalEndpoint` — the same
+ports over `markWalk` the arrows use, so a drag and N presses covering one distance leave ONE state
+rather than two that merely look alike. The writes became injectable to do it (`PedalWrite`, with
+`previewPedalStartAtSlot` / `previewPedalLiftAt` / `previewPedalEndpointOffset` / `…Rebase`, and
+`commitPedalDrag` taking the gesture once on the drop). The two devices differ in three things only:
+no undo entry per frame; the LATCH is on (both signs are aimed at a column's left edge) and the frame
+REPORTS what it dropped so the caller repays it; and the HAND decides where the line ends, a wrap
+ending the gesture with the square still armed.
+
+- ⭐⭐ **The `y` comes along**, on both signs at once (one shared baseline), ⛔ with no screen→outward
+  conversion: a pedal has one side.
+- ⭐⭐ **The whole y-TRANSLATION of the snap is GONE** (`pedalDragTargetAt`, deleted with its spec
+  chapter, and `applyPedalDrag` / `setPedalEndAtSlot` / `PedalDragWrite` with it — the model door that
+  existed only for that frame). A walk reads no `y` to decide where it is: the ink travels along its
+  own line and the SYSTEM is decided by the wrap. ⭐ The pedal's third end rule survives in
+  `PedalLiftTarget`, reached one step at a time by `nextPedalLift`.
+
+⏭️ **OPEN — the drag's cost, measured and parked**: his *"sometimes the movement of the editing
+freeze… is it a bug or a performance issue?"* was answered with the census, and it is COST, not a
+stuck gesture: one full render per mouse frame, ~9.6 ms average and 31 ms worst, with **0% of measures
+redrawn** and nearly 8 ms of it spent repainting everything that is not a measure. The numbers, what
+they rule out, and the three next steps are in `docs/render-performance-plan.md` §12.6 — ⛔ nothing
+about it is fixed yet.
+
+### 🚨🚨 Two rules the drag broke on the day, both his reports
+
+- **The BAND was asking the wrong question, TWICE** — *"the band rule have a problem… look how the
+  pedal is limit before the pedal lane, rethink the band limit in general"*, and then, minutes after
+  the halving went, *"now the pedal limit is too extreme"*. ⭐ The answer is one rule with two gaps:
+  the space INSIDE a system is that system's own furniture, so a mark may use ALL of it and stops at
+  the partner staff's EDGE; the space BETWEEN systems is shared, so it is halved as it always was. A
+  pedal's lane in a grand staff lies between the two staves — past halfway to the one below, which is
+  why the first question refused the mark its engraved home, and short of the next system, which is
+  why the second let it sail across the partner. `MusicEngine.systemBandsAt` +
+  `neighbourBandOf(…, roommates)` + `layout/systemBand`'s rewritten header — the rule for every
+  family, not the pedal's own.
+- **One axis's refusal was vetoing the other** — *"get stuck somehow"*, with a log of dozens of
+  consecutive latches moving nothing. A mouse gesture always carries both axes, so a vertical at its
+  limit took the horizontal down with it, the caller (rightly) held its cursor anchor back, and every
+  further frame presented a bigger delta at the same wall. `pedalEndpointStepAllowed` now answers per
+  AXIS. ⚠️ The bracket's `ottavaEndpointOffsetAllowed` still answers for both at once — same fault,
+  not yet fixed there.

@@ -60,10 +60,27 @@ describe('neighbourBandOf', () => {
     expect(neighbourBandOf(staff(100), [])).toEqual({ top: -Infinity, bottom: Infinity })
   })
 
-  it('makes no distinction between a piano’s other staff and the next system’s', () => {
-    // Both are somebody else's room, and the rule that keeps ink out of one keeps it out of the
-    // other — which is why the derivation never asks which system a band belongs to.
-    expect(neighbourBandOf(staff(100), [staff(160)])).toEqual(neighbourBandOf(staff(100), [staff(160)]))
+  /**
+   * 🚨🚨 **A STAFF OF MY OWN SYSTEM STOPS THE MARK AT ITS EDGE, ⛔ not halfway to it** — his two
+   * reports of 2026-08-21, minutes apart: *"look how the pedal is limit before the pedal lane"* and
+   * then, once the halving went, *"now the pedal limit is too extreme"*.
+   *
+   * ⛔ This file used to assert the opposite in as many words (*"makes no distinction between a
+   * piano's other staff and the next system's"*). The two gaps are not the same thing: the space
+   * INSIDE a system is that system's own furniture — a pedal's lane lives there — while the space
+   * BETWEEN systems is shared and halving it is what keeps two systems' marks apart.
+   */
+  it('🚨 a ROOMMATE bounds at its edge, where another system’s staff bounds at HALF the gap', () => {
+    const mine = staff(100)          // 100…140
+    const partner = staff(200)       // 200…240, 60 px below mine
+    expect(neighbourBandOf(mine, [partner]).bottom, 'another system: halfway').toBe(170)
+    expect(neighbourBandOf(mine, [], undefined, [partner]).bottom, 'my own: its edge').toBe(200)
+  })
+
+  it('⭐ takes whichever of the two binds TIGHTER, per side', () => {
+    const mine = staff(100)
+    // A roommate far below (its edge at 400) and another system's staff nearer (halfway at 190).
+    expect(neighbourBandOf(mine, [staff(240)], undefined, [staff(400)]).bottom).toBe(190)
   })
 })
 

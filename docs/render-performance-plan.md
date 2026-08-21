@@ -900,6 +900,9 @@ again at orchestral size.
 
 ### 12.4 How to measure it (⛔ do this before choosing between P7.3 and P7.4)
 
+⭐ **Step 1 has been run for the DRAG — see §12.6.** The keyboard's own run, and steps 2–3, are still
+owed.
+
 1. Open his 64-bar score, `__census.enable()`, arm a pedal square, hold `→` for ~30 presses,
    `__census.dump()` — that gives renders by cause and bars re-engraved per press.
 2. Chrome profile the same run. The three shapes to look for are named above; the profile decides
@@ -944,3 +947,47 @@ one.
 (§12.2) are paid by the WALK itself, before any drawing happens — his *"it is slow on a small score"*
 is mostly those two, since at 64 bars the drawing is already culled to the visible systems (§8).
 Drawing only the moving mark removes the render term; it does not remove the other two.
+
+### 12.6 ✅ MEASURED — the census of a DRAG, on his own score (2026-08-21)
+
+His report during the pedal drag walk: *"sometimes the movement of the editing freeze… is it possible
+to check if is a bug or a performance issue?"* — so §12.4 step 1 was run, on the 64-bar × 2-staff
+score he was editing (7 systems), dragging a pedal's `✻` back and forth across several bars and a
+system break:
+
+```
+__census.enable() → drag → __census.dump()
+
+cause: MouseController.handlePedalEndDrag
+198 renders · 1897 ms total · avg 9.6 ms · worst 31.1 ms
+layout 1.8 ms avg  ·  measures redrawn 0%  ·  draw 7.8 ms avg
+layout breakdown: format (VexFlow Formatter) 157 ms = 44%, laneView 20 ms = 6%
+width cache: 0 hits / 0 misses
+```
+
+**⭐ The verdict: a PERFORMANCE cost, ⛔ not a stuck gesture.** Every one of the 198 frames wrote and
+repainted — none was a refused frame spinning — so the walk itself is healthy. One full render per
+mouse frame at ~10 ms leaves a third of a 16.7 ms frame budget, and the 31 ms worst case blows through
+it; because the handler renders synchronously inside `mousemove`, the queued moves pile up behind the
+slow frames, which is what "freeze" feels like.
+
+**🚨 The number that decides P7.6: `measures redrawn 0%`, and `draw` still 7.8 ms.** P5's
+copy-on-write is doing its job — no measure group is being rebuilt, the formatter is only ~0.8 ms per
+render — and yet nearly 8 ms per frame goes on drawing everything that is NOT a measure: the marks,
+the below-staff ladder, the curves, the highlight layer and the overlay, all repainted to move two
+glyphs a few pixels. ⭐ That is exactly the term §12.5 removes, and it is now measured rather than
+predicted. ⚠️ The layout term (1.8 ms) is NOT where a drag's money goes at this size — ⛔ so P7.1/P7.2
+are not the fix for *this* symptom, however right they are for orchestral size.
+
+⚠️ **Two costs the census cannot see**, both real with DevTools open: the four or five `dbg` lines per
+frame (§12.1 #5 — `breakCrossing`'s declines log once per frame during a drag, where the keyboard's
+log once per press), and the mouse-event queue itself.
+
+**Where to take it, cheapest first** — recorded here because the pedal work carried on elsewhere:
+
+1. **Quiet the per-frame logs.** Keep the walk/wrap events (they are how these bugs get found); drop
+   or rate-limit `breakCrossing`'s per-frame decline line.
+2. **Coalesce a drag's renders to one per animation frame.** The model still writes per event; the
+   picture paints once. Small, certain, and it caps the worst case at one render per frame.
+3. **P7.6 / §12.5 — draw only the mark that is moving.** The real fix for the 7.8 ms, and the census
+   above is the evidence for choosing 12.5a (overlay for the gesture) over anything cleverer.
