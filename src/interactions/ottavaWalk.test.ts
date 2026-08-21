@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { walkOttavaEndpoint } from './ottavaWalk'
+import { dragOttavaEndpoint, walkOttavaEndpoint } from './ottavaWalk'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
@@ -256,11 +256,90 @@ describe('walkOttavaEndpoint', () => {
       expect(engine.getOttavaById(bracketId)!.beat, 'back onto bar 2\'s first note').toEqual(frac(0, 1))
     })
 
+    it('⭐⭐ a DRAG wraps when the HAND passes the barline, ⛔ not when the ink does', () => {
+      // His rule for the wedge: a drag has the pointer itself, which is both simpler and truer than
+      // the ink — the ink only gets there if every frame on the way was accepted.
+      const frame = dragOttavaEndpoint(engine, bracketId, 'end', 440, 10)!
+      expect(frame.wrapped, "the cursor is past this line's last ink (430)").toBe(true)
+      expect(span(), "the hook took bar 2's first note").toEqual({ beat: 0, length: 5 })
+      // ⭐ And it lands a STUB inside the new line — ⛔ not the folded distance the KEYS re-base by.
+      expect(offset('end')).toBeCloseTo(0)
+    })
+
+    it('⭐ …and a frame short of the barline is ordinary ink', () => {
+      const frame = dragOttavaEndpoint(engine, bracketId, 'end', 420, 10)!
+      expect(frame.wrapped).toBe(false)
+      expect(span()).toEqual({ beat: 0, length: 4 })
+    })
+
     it('⛔ never onto a bar the last render drew nothing for', () => {
       drawn.entries = drawn.entries.filter(e => e.bbox.y < 200)
       for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'end', 1)
       expect(span(), 'ink only — no picture, no wrap').toEqual({ beat: 0, length: 4 })
       expect(offset('end')).toBeCloseTo(10)
+    })
+  })
+
+  /**
+   * ⭐⭐ THE DRAG — the same journey with the cursor's delta in pixels (his ask, 2026-08-21: *"now
+   * lets do the drag walking"*). It used to SNAP the grabbed end to the nearest onset; what this
+   * chapter owns is that a drag and N presses over the same distance land in ONE state, plus the two
+   * things only the mouse has: the LATCH at offset zero and the repayment it owes.
+   *
+   * 10 px per staff-space, and the onsets are 100 px apart — so one gap is one 100 px frame.
+   */
+  describe('the drag', () => {
+    /** A frame at `cursorX`, having moved `dxPx` since the last accepted one. */
+    const frame = (which: 'start' | 'end', cursorX: number, dxPx: number) =>
+      dragOttavaEndpoint(engine, bracketId, which, cursorX, dxPx)
+
+    it('moves INK while the hand is between two onsets — ⛔ the bracket does not jump', () => {
+      expect(frame('end', 240, 30)!.moved).toBe(true)
+      expect(span(), 'the model is untouched').toEqual({ beat: 0, length: 2 })
+      expect(offset('end')).toBeCloseTo(3)
+    })
+
+    it('⭐ carries the bracket when the ink ARRIVES, exactly as the arrows do', () => {
+      frame('end', 310, 100)
+      expect(span(), 'the hook took the next note').toEqual({ beat: 0, length: 3 })
+      expect(offset('end'), 'and the ink did not jump — the identity').toBeCloseTo(0)
+    })
+
+    it('⭐⭐ …and a drag lands where the PRESSES do, which is the point of one journey', () => {
+      // ⚠️ The presses go first and the model is wound back by hand: a drag FRAME records no undo
+      // entry (that is its whole difference), so `undo()` here would take back the bracket itself.
+      for (let i = 0; i < 10; i++) walkOttavaEndpoint(engine, bracketId, 'end', 1)
+      const pressed = { ...span(), ink: offset('end') }
+      engine.resizeOttavaBySlot(bracketId, -1)
+      expect(span(), 'wound back').toEqual({ beat: 0, length: 2 })
+
+      frame('end', 310, 100)
+      expect({ ...span(), ink: offset('end') }).toEqual(pressed)
+    })
+
+    it('⭐⭐ THE LATCH: the ink stops dead at offset zero, and REPORTS what it dropped', () => {
+      // Two frames: the first parks the ink 3 spaces short of the next onset, the second would fly
+      // 5 past it. The latch cuts the move at the onset — where the engraver puts the hook — and the
+      // 2 spaces it swallowed come back as `droppedPx` for the caller to repay.
+      frame('end', 240, 70)
+      const latched = frame('end', 290, 50)!
+      expect(span(), 'it crossed').toEqual({ beat: 0, length: 3 })
+      expect(offset('end'), 'and stopped exactly on the note').toBeCloseTo(0)
+      expect(latched.droppedPx, '⭐ in PIXELS, the caller\'s own unit').toBeCloseTo(20)
+    })
+
+    it('⛔ writes no undo entry of its own — the drop commits the gesture ONCE', () => {
+      frame('end', 310, 100)
+      frame('end', 410, 100)
+      expect(span()).toEqual({ beat: 0, length: 4 })
+      engine.commitOttavaDrag('end')
+      engine.undo()
+      expect(span(), 'one undo takes the whole drag back').toEqual({ beat: 0, length: 2 })
+    })
+
+    it('⛔ declines — null — when the bracket is not drawn, so there is no scale', () => {
+      render([100, 200, 300, 400], null)
+      expect(frame('end', 310, 100)).toBeNull()
     })
   })
 

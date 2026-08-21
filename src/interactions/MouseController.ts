@@ -31,7 +31,8 @@ import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHan
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
 import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
-import { armOttavaEndpointAt, ottavaDragTargetAt } from './elements/ottavaHandles'
+import { armOttavaEndpointAt } from './elements/ottavaHandles'
+import { dragOttavaEndpoint } from './ottavaWalk'
 import { armPedalEndpointAt, pedalDragTargetAt } from './elements/pedalHandles'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
@@ -365,6 +366,9 @@ export class MouseController {
   private draggedOttavaEnd: 'start' | 'end' | undefined = undefined
   /** True once a preview write landed, so the drop records one undo entry. */
   private ottavaDragChanged = false
+  /** ⭐ Where the cursor was at the last ACCEPTED frame — the walk accumulates, so a refused frame
+   *  must leave this put ({@link handleOttavaEndDrag}). */
+  private ottavaEndLastX = 0
   private ottavaDragStartTime: number | null = null
 
   // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
@@ -1032,6 +1036,7 @@ export class MouseController {
       this.draggedOttavaId = armed?.id ?? null
       this.draggedOttavaEnd = armed?.endpoint
       this.ottavaDragChanged = false
+      this.ottavaEndLastX = coords.x
       this.ottavaDragStartTime = Date.now()
       this.render.renderScore()
       event.preventDefault()
@@ -2974,23 +2979,40 @@ export class MouseController {
   }
 
   /**
-   * One frame of an OTTAVA square drag — the bracket's twin of the handler above, and the same three
-   * steps: wait out the click threshold, ask the module which onset the cursor is over, preview it.
+   * ⭐⭐ One frame of an OTTAVA square drag: carry that end's ink by the cursor's delta, handing the
+   * bracket along at each onset the ink reaches — `./ottavaWalk`, the same journey the arrows make
+   * (his ask, 2026-08-21: *"now lets do the drag walking"*).
    *
-   * ⚠️ The candidate EDGE differs per end (`ottavaDragTargetAt`) — the numeral is drawn at a
-   * notehead's left edge and the hook at one's right — but nothing here needs to know that; the
-   * module answers with an address.
+   * ⭐ **It used to SNAP** the grabbed end onto the nearest slot and write it outright, so the bracket
+   * jumped a whole note at a time and could never be parked between two. The walk keeps what that was
+   * right about — an end still lands only on the lane's own onsets — and drops what it was not.
+   *
+   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the family's rule: a refused frame (the
+   * page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
+   * distance it never travelled when the hand comes back.
+   *
+   * ⛔ **No `y`**: an octave line is a straight rule with ONE stored vertical, so a square has no lift
+   * of its own to drag ({@link dragOttavaEndpoint}).
    */
-  private handleOttavaEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+  private handleOttavaEndDrag(engine: MusicEngine, x: number, _y: number): boolean {
     if (!(this.isDraggingOttavaEnd && this.draggedOttavaId && this.draggedOttavaEnd)) return false
     if (this.ottavaDragStartTime !== null
         && Date.now() - this.ottavaDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const write = ottavaDragTargetAt(engine, this.draggedOttavaId, this.draggedOttavaEnd, x, y)
-    if (!write) return true
-    if (engine.previewOttavaEnd(this.draggedOttavaId, write)) {
+    const frame = dragOttavaEndpoint(
+      engine, this.draggedOttavaId, this.draggedOttavaEnd, x, x - this.ottavaEndLastX)
+    // ⛔ null = the bracket is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      // 🚨 …held BACK by whatever the latch dropped: those pixels were made by the hand, so the next
+      // frame presents them again and the ink leaves an onset exactly when the cursor has travelled
+      // the whole distance (`./ottavaWalk`). `droppedPx` is 0 on an ordinary frame.
+      this.ottavaEndLastX = x - frame.droppedPx
       this.ottavaDragChanged = true
       this.render.renderScore()
     }
+    // ⭐⭐ A WRAP ENDS THE GESTURE — the wedge's rule: that end is now on the NEXT system and the hand
+    // is still on this one. ⚠️ The square stays ARMED, so the arrows continue from where it stopped.
+    if (frame.wrapped) this.endOttavaEndDrag()
     return true
   }
 

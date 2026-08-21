@@ -11,8 +11,7 @@ WRAP, the *left anchor pushes the right* rule, and the page limit re-asked at th
 own ✅ section at the end.
 
 ⏭️ **What is still open:** §7.3 (does `createOttava` re-spell the selection down an octave?) — only
-real music answers that — a handful of taste constants listed at the end of §8, and the square DRAG,
-which still snaps where the keyboard now walks (P10).
+real music answers that — and a handful of taste constants listed at the end of §8.
 
 Two things came out of the research that are bigger than the feature, and **he has decided both**:
 
@@ -1144,7 +1143,27 @@ page's edge, above. ⚠️ The same limit was removed from the WEDGE and the TRI
 signature, the user should not have that limit"*) — their rightward stop stays, since a trill's ink
 folds and there has to be a line left to fold onto.
 
-⏭️ Not built: the ottava square's DRAG is still a snap (`ottavaDragTargetAt`); the wedge's drag walks.
+### ✅ …and the DRAG walks too (2026-08-21, same day)
+
+*"now lets do the drag walking"*. `dragOttavaEndpoint` — the same ports over `markWalk`, with the
+drag's own three differences and nothing else:
+
+- **No undo per frame** (`previewOttavaEndpointOffset` / `…Rebase` + `commitOttavaDrag` on the drop),
+  so a drag and N presses over the same distance leave ONE state rather than two that look alike.
+- ⭐⭐ **The LATCH is ON** — the ink stops dead at offset zero of the onset it is nearest in the
+  direction of travel, because a bracket's ends are AIMED at a notehead's edge. 🚨 And the frame
+  REPORTS what the latch dropped, in pixels: the caller holds its cursor anchor back by that much, or
+  the ink falls behind the hand a little at every stop and never catches up.
+- ⭐⭐ **The HAND decides where the line ends** (`markBreakWrap`'s cursor arrival), and a WRAP ENDS THE
+  GESTURE — the end is a line away and the hand is not.
+
+⛔ **Horizontal only**, and that is the bracket's shape: one stored vertical for both ends, so a square
+has no lift of its own to drag.
+
+⛔ `ottavaDragTargetAt` and its y-translation are **DELETED** — the snap the walk replaced, the wedge's
+own having gone the same way a day earlier. Its spec chapter went with it (its claims live in
+`ottavaLane.test.ts` and `ottavaWalk.test.ts`). ⚠️ The PEDAL still snaps and still carries that
+y-translation; `pedalHandles` now names the walk as the other way out.
 
 ---
 

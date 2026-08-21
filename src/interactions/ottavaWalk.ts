@@ -62,7 +62,48 @@ export type OttavaWalkEngine = Pick<MusicEngine,
   'getOttavaById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
   | 'moveOttavaStartToSlot' | 'moveOttavaEndToSlot'
-  | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'>
+  | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'
+  | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'>
+
+/**
+ * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step, a
+ * drag FRAME records none and leaves the drop to commit once ({@link MusicEngine.commitOttavaDrag}).
+ * Everything else — the stops, the geometry, the identity — is shared, which is what makes a drag and
+ * N presses land in the same state rather than in two states that merely look alike
+ * (`./hairpinWalk`'s arrangement, and for its reason).
+ */
+interface OttavaWrite {
+  reanchor: (target: OttavaSlotTarget) => boolean
+  nudge: (dx: number) => boolean
+  /** ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
+   *  the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
+   *  crosses again. */
+  rebase: (dx: number) => boolean
+}
+
+/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
+ *  batch ({@link walkOttavaEndpoint}). */
+function keyWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
+  return {
+    reanchor: (target) => which === 'start'
+      ? engine.moveOttavaStartToSlot(id, target)
+      : engine.moveOttavaEndToSlot(id, target),
+    // ⛔ **The second argument is 0, ⚠️ NEVER a `dy`.** `nudgeOttavaEndpoint` speaks
+    // OUTWARD-from-the-staff, where a walk's vertical is screen-down — and it lands on the WHOLE
+    // bracket, both ends at once. Nothing on this road has a vertical to write.
+    nudge: (dx) => engine.nudgeOttavaEndpoint(id, which, dx, 0),
+    rebase: (dx) => engine.rebaseOttavaEndpointOffset(id, which, dx),
+  }
+}
+
+/** The drag's writes: the same three edits with no undo entry of their own. */
+function previewWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
+  return {
+    reanchor: (target) => engine.previewOttavaEnd(id, { at: which, ...target }),
+    nudge: (dx) => engine.previewOttavaEndpointOffset(id, which, dx),
+    rebase: (dx) => engine.previewOttavaEndpointRebase(id, which, dx),
+  }
+}
 
 /**
  * ⭐⭐ **ONE HORIZONTAL ARROW PRESS ON AN ARMED SQUARE** — nudge that end's ink by `dx` staff-spaces
@@ -93,7 +134,7 @@ export function walkOttavaEndpoint(
   dx: number,
 ): boolean {
   if (dx === 0) return false
-  const port = portFor(engine, id, which)
+  const port = portFor(engine, id, which, keyWrites(engine, id, which))
 
   const wrap = wrapPort(engine, id, which)
   const across = breakCrossing(port, wrap, dx)
@@ -111,6 +152,76 @@ export function walkOttavaEndpoint(
       : carryMark(port, dx, 0, false, 1).moved
   })
   return moved
+}
+
+/**
+ * ⭐⭐ **ONE FRAME OF A SQUARE DRAG** — the same journey with the cursor's delta in PIXELS instead of a
+ * key's step, and no undo entry (the drop commits once, {@link MusicEngine.commitOttavaDrag}). His
+ * ask, 2026-08-21: *"now lets do the drag walking"*.
+ *
+ * ⭐ **The mouse and the arrows become ONE gesture.** The drag used to SNAP the grabbed end to the
+ * nearest slot of the lane and write it outright (`elements/ottavaHandles.ottavaDragTargetAt`), so
+ * the bracket jumped a whole note at a time and could never be parked between two — the very thing
+ * the keys had just stopped doing. Now the ink follows the hand and the bracket comes along when the
+ * ink reaches an onset, so a drag and N presses covering the same distance leave the model in the
+ * same state rather than in two that merely look alike.
+ *
+ * ⭐⭐ **THE LATCH IS ON** (`./markWalk`), as it is for the wedge's tips: an octave bracket's ends are
+ * AIMED at a notehead's edge — that is where the engraver puts them — so offset zero must be
+ * reachable exactly rather than by luck. ⛔ The keyboard keeps it off: a press is a considered edit of
+ * a quarter space.
+ *
+ * 🚨 **A latched frame REPORTS what it DROPPED, because that travel must be REPAID.** The pixels the
+ * latch cuts were still made by the hand, so the caller holds its cursor anchor back by exactly that
+ * much and the next frame presents them again. Left unrepaid the ink falls behind the cursor a little
+ * at every stop and never catches up — Baudisch's own complaint about snap-and-go, and the wedge's
+ * report of 2026-08-20. ⚠️ It is 0 on an ordinary frame, so there is no special case.
+ *
+ * ⭐⭐ **THE HAND DECIDES WHERE THE LINE ENDS** — the keys have only the ink to go on and wrap when the
+ * INK passes the edge; a drag has the pointer itself (`./markBreakWrap`, his rule for the wedge).
+ * ⭐⭐ **And a WRAP ENDS THE GESTURE**: that end is a line away and the hand is not, so every further
+ * pixel would move it by a distance measured against a system it has left.
+ *
+ * ⛔ **HORIZONTAL ONLY, and that is the bracket's shape rather than an omission.** A wedge's square
+ * carries a `y` because a lift on ONE tip tilts it; an octave line is a straight rule with ONE stored
+ * vertical, so there is no per-end height to drag. `↑`/`↓` and Properties move the whole bracket.
+ *
+ * ⛔ It declines — **null**, not a frame — when the bracket is not drawn, so there is no staff-space
+ * size to convert the cursor's pixels with; `moved: false` means the frame reached the model and
+ * nothing moved, and the caller must then leave its cursor anchor where it was.
+ */
+export function dragOttavaEndpoint(
+  engine: OttavaWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  cursorX: number,
+  dxPx: number,
+): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
+  const port = portFor(engine, id, which, previewWrites(engine, id, which))
+  const staffSpacePx = port.staffSpacePx()
+  if (!staffSpacePx) return null
+
+  const dx = dxPx / staffSpacePx
+  if (dx === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+
+  const wrap = wrapPort(engine, id, which)
+  const across = breakCrossing(port, wrap, dx, cursorX)
+  if (across?.arrived) {
+    // ⭐ THE MOUSE lands a stub inside the new line — ⛔ not the folded distance the KEYS re-base by,
+    // whose overshoot on the frame that wraps is a single frame of travel and comes out invisible
+    // (`./markBreakWrap`).
+    const moved = leaveSystem(port, wrap, across.stop, () => across.landing)
+    return { moved, wrapped: true, droppedPx: 0 }
+  }
+
+  // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a frame
+  // that merely passes through offset zero is exactly the one it exists for.
+  // ⛔ **NO ONE-CROSSING BOUND HERE** — a key press may cross one stop, but one frame of a fast drag
+  // really can fly over several, and re-anchoring once would leave the bracket trailing the cursor by
+  // however many were skipped.
+  const carried = carryMark(port, dx, 0, true)
+  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
+  return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
 }
 
 /**
@@ -150,14 +261,19 @@ function inkPress(port: MarkWalkPort, dx: number): boolean {
 
 /** Which end's port. ⛔ Not a `which` switch inside the members: each end states its own three
  *  answers and shares the three the bracket answers alike. */
-function portFor(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): MarkWalkPort {
-  return which === 'start' ? startPort(engine, id) : endPort(engine, id)
+function portFor(
+  engine: OttavaWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  write: OttavaWrite,
+): MarkWalkPort {
+  return which === 'start' ? startPort(engine, id, write) : endPort(engine, id, write)
 }
 
 /** ⭐ **THE BEGINNING'S PORT** — its stops are the lane's onsets, and it takes one as the bracket's
  *  own beginning, holding the far end. */
-function startPort(engine: OttavaWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'start', {
+function startPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): MarkWalkPort {
+  return port(engine, id, 'start', write, {
     label: 'Ottava start',
     // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
     // would mean the two keys landing the beginning on different notes depending on how far it had
@@ -168,14 +284,14 @@ function startPort(engine: OttavaWalkEngine, id: string): MarkWalkPort {
       const here = ottavaStartAddress(engine.getScore(), id)
       return here ? edgeX(engine, id, here, 'start') : null
     },
-    reanchor: (stop) => engine.moveOttavaStartToSlot(id, stop as OttavaSlotTarget),
+    reanchor: (stop) => write.reanchor(stop as OttavaSlotTarget),
   })
 }
 
 /** ⭐ **THE END'S PORT** — its stops are the slots the hook can close around, read from the model so
  *  that the address the walk measures to is the one the renderer draws at. */
-function endPort(engine: OttavaWalkEngine, id: string): MarkWalkPort {
-  return port(engine, id, 'end', {
+function endPort(engine: OttavaWalkEngine, id: string, write: OttavaWrite): MarkWalkPort {
+  return port(engine, id, 'end', write, {
     label: 'Ottava end',
     nextStop: (direction) => engine.nextOttavaEndSlot(id, direction),
     stopX: (stop) => edgeX(engine, id, stop as OttavaSlotTarget, 'end'),
@@ -184,7 +300,7 @@ function endPort(engine: OttavaWalkEngine, id: string): MarkWalkPort {
       const here = engine.ottavaEndSlot(id)
       return here ? edgeX(engine, id, here, 'end') : null
     },
-    reanchor: (stop) => engine.moveOttavaEndToSlot(id, stop as OttavaSlotTarget),
+    reanchor: (stop) => write.reanchor(stop as OttavaSlotTarget),
   })
 }
 
@@ -193,6 +309,7 @@ function port(
   engine: OttavaWalkEngine,
   id: string,
   which: 'start' | 'end',
+  write: OttavaWrite,
   ends: Pick<MarkWalkPort, 'label' | 'nextStop' | 'stopX' | 'anchorX' | 'reanchor'>,
 ): MarkWalkPort {
   return {
@@ -202,14 +319,8 @@ function port(
     staffSpacePx: () => ottavaStaffSpacePx(engine.getElementRegistry(), id),
     offsetX: () =>
       ottavaOffsetOverrideOf(engine.getScore(), id)?.[which === 'start' ? 'startX' : 'endX'] ?? 0,
-    // ⛔ **The second argument is 0, ⚠️ NEVER the walk's `dy`.** `nudgeOttavaEndpoint` speaks
-    // OUTWARD-from-the-staff, where the walk's `dy` is screen-down — and it lands on the WHOLE
-    // bracket, both ends at once. Nothing on this road has a vertical to write.
-    nudge: (dx) => engine.nudgeOttavaEndpoint(id, which, dx, 0),
-    // ⭐ The crossing's second half — see {@link MarkWalkPort.rebase}: bookkeeping, ⛔ never judged by
-    // the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
-    // crosses again.
-    rebase: (dx) => engine.rebaseOttavaEndpointOffset(id, which, dx),
+    nudge: (dx) => write.nudge(dx),
+    rebase: (dx) => write.rebase(dx),
   }
 }
 

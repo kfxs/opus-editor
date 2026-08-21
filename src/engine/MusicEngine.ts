@@ -1302,6 +1302,31 @@ export class MusicEngine {
     return this.scoreModel.applyOttavaDrag(id, write)
   }
 
+  /**
+   * Live (preview) nudge of ONE end's ink used **while dragging an ottava's SQUARE** — writes the
+   * override but records NO undo; the drop commits once ({@link commitOttavaDrag}).
+   *
+   * ⭐ It is {@link nudgeOttavaEndpoint} without the undo, and ACCUMULATING like it: the caller passes
+   * the delta since the last accepted frame, never a total. The page limit still refuses the write,
+   * so an end dragged off the sheet simply stops moving (⛔ the drawing is never clamped).
+   *
+   * ⚠️ **Horizontal only, and that is the bracket's shape rather than an omission**: an octave line's
+   * vertical is ONE number for both ends ({@link OttavaOffsetOverride}), so a square has no lift of
+   * its own to drag — `↑`/`↓` and Properties move the whole rule.
+   */
+  previewOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
+    if (!this.spanEndStaysOnPage('ottava', id, which, dx)) return false
+    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
+    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
+  }
+
+  /** The re-base during a DRAG: {@link rebaseOttavaEndpointOffset} with no undo entry of its own —
+   *  and, like it, ⛔ never judged by the page limit. */
+  previewOttavaEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
+    this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
+    return this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
+  }
+
   /** Record ONE undo entry after an ottava-square drag settles. */
   commitOttavaDrag(which: 'start' | 'end'): void {
     this.commitPreviewed(which === 'start' ? 'Move octave line start' : 'Resize octave line')

@@ -199,8 +199,11 @@ export function armPedalEndpointAt(
  * let a pitch difference within a row outvote a hundred pixels of x. Cross-system x's are not one
  * ruler, which is the only reason y is consulted at all.
  *
- * ⚠️ The same defect is in `ottavaDragTargetAt`, which this was copied from — its squares ride
- * ABOVE the staff and can be nearer the PREVIOUS system's music. Not fixed there yet.
+ * ⚠️ **The ottava had the same defect and no longer has the drag** — `ottavaDragTargetAt` was where
+ * this was copied from, and on 2026-08-21 the bracket's squares stopped snapping and started WALKING
+ * (`../ottavaWalk.dragOttavaEndpoint`), which reads no `y` at all: the ink follows the hand and the
+ * SYSTEM is decided by the wrap. ⭐ That is the other way out of this trap, and the one to take when
+ * the pedal's drag is next opened.
  *
  * @returns the write the drop should apply, or null when the cursor is on no system's music.
  */
