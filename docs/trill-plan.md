@@ -1142,3 +1142,50 @@ Dorico [ornament placement conventions](https://archive.steinberg.help/dorico/v1
 [trills](https://archive.steinberg.help/dorico/v3/en/dorico/topics/notation_reference/notation_reference_ornaments/notation_reference_ornaments_trills_c.html),
 [trill extension lines](https://archive.steinberg.help/dorico/v1/en/dorico/topics/notation_reference/notation_reference_ornaments_trill_lines_hiding_t.html) ·
 [SMuFL multi-segment lines](http://smufl.formats.music/latest/tables/multi-segment-lines.html)
+
+## ✅⭐⭐ THE OTHER HAND OF A GRAND STAFF IS A RUNG (2026-08-21, BUILT)
+
+His ask, after the dynamic and the wedge got it: *"now we have to do it with the trill."* Same report,
+same cause — `markSystemJump.systemStopFor` has always chosen between **painted staves**, so the left
+hand was in the running and simply had no candidate on it: the ornament won the vertical question
+there, lost the horizontal one for want of anything to anchor to, and carried on to the next system.
+
+### ⭐ The trill is the one family in the group that needs NO model write
+
+A dynamic and a hairpin each needed a `staffId` to move (`setDynamicAtStaffSlot`,
+`setHairpinAtStaffSlot`). A trill's anchor is a **note**, so landing on the left hand's note *is*
+being on the left hand's staff — the whole change is `trillLane.trillLaneOnStaff`, the same lane
+asked for a staff the ornament is not on yet, and `trillSystemNoteFor` offering every painted staff's
+notes as candidates.
+
+### ⭐⭐ The VOICE half of the lane is held; the STAFF half moves
+
+A trill's lane is `(voice, staff)`, and `trillSystemNoteFor`'s standing rule — *its own voice and
+staff only, a trill that silently changed lane would be a wrong trill* — is about the **voice**:
+stepping sideways must not wander between the textures of one staff. Being dragged onto the other
+hand is neither silent nor a wander; it is the user pointing at the left hand. So exactly one half
+changes, which is also what the dynamic's and the wedge's landings change
+(`utils/dynamicScope`: *where a mark may stand is a STAFF question, and never a voice one*).
+
+⚠️ **The consequence, stated rather than hidden**: a trill in voice 2 dragged onto a staff that has no
+voice 2 finds no candidate there, and the frame stays a plain ink move — `whyNoJump` logs *"no note
+of this VOICE is drawn on the staff at y …"*. ⛔ Better than landing it in a voice the user never
+named, and it leaves `Trill.voice` true rather than a stale cache.
+
+### 🚨 The span is counted in the ORIGIN's lane and spent in the TARGET's
+
+`trillWalk.extentFrom` counted N stops in the lane the ornament was leaving and then looked the
+TARGET up in that same list. For every landing but one they are the same list; for a jump onto
+another staff the target is not in it at all, so `indexOf` answered −1 and the far end came back N−1
+notes from the lane's start — nowhere near the ornament. It now builds the destination lane from the
+landing note itself.
+
+### It composes with the placement ladder
+
+The rungs were already *…above staff N, below staff N, above staff N+1…* and a drag takes ONE.
+All that changed is that N+1 may be the other hand of the same system.
+
+### ⏭️ Still owed
+
+The OTTAVA and the PEDAL. Both are `staffId`-carrying spans, so they need the dynamic's and the
+wedge's two pieces rather than the trill's one.

@@ -58,8 +58,8 @@ import {
   type TrillAnchorStop,
 } from './trillReanchor'
 import {
-  trillInkY, trillLane, trillLaneIndexAt, trillRibbonLimits, trillRibbonX, trillSquareBaseX,
-  trillSquareMeasure, trillStaffBand, trillStaffSpacePx, trillSystemNoteFor,
+  trillInkY, trillLane, trillLaneIndexAt, trillLaneOnStaff, trillRibbonLimits, trillRibbonX,
+  trillSquareBaseX, trillSquareMeasure, trillStaffBand, trillStaffSpacePx, trillSystemNoteFor,
 } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
 import { staffOf } from '../utils/lanes'
@@ -297,7 +297,15 @@ function extentFrom(engine: TrillWalkEngine, id: string, target: string): string
   const lane = trillLane(engine, start).filter(n => !n.isRest)
   const at = (noteId: string) => lane.findIndex(n => n.id === noteId)
   const span = at(trill.endNoteId) - at(start.id)
-  return span > 0 ? lane[Math.min(at(target) + span, lane.length - 1)]?.id : undefined
+  if (span <= 0) return undefined
+  // ⚠️ **The span is counted in the ORIGIN's lane and spent in the TARGET's**, which are the same
+  // list for every landing but one: a jump ONTO ANOTHER STAFF (2026-08-21). Counting N stops in a
+  // lane the target is not in would look the target up at −1 and hand back a note N−1 from the
+  // lane's start — a far end nowhere near the ornament.
+  const landing = engine.getNote(target)
+  const dest = landing ? trillLane(engine, landing).filter(n => !n.isRest) : lane
+  const from = dest.findIndex(n => n.id === target)
+  return from === -1 ? undefined : dest[Math.min(from + span, dest.length - 1)]?.id
 }
 
 /**
@@ -394,7 +402,7 @@ export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): 
  *  - **the horizontal walks the ornament through the music**, extent and all, exactly as the arrows
  *    do with nothing armed;
  *  - **the vertical is the LADDER** — its own staff's far side first, then the system below or above
- *    ({@link flipTrillPlacement}, {@link jumpTrillSystems}) — and a rung ends the FRAME, ⛔ never the
+ *    ({@link flipTrillPlacement}, {@link jumpTrillStaves}) — and a rung ends the FRAME, ⛔ never the
  *    gesture: the hand is travelling with the ornament, so the next rung comes when it gets there.
  *
  * ⛔ **No latch and no ink limit on a frame.** A frame is not a step (the wedge's recorded lesson),
@@ -417,7 +425,7 @@ export function dragTrillBody(
   // ⭐⭐ ITS OWN STAFF FIRST, then the system — the same two rungs the squares' drag climbs, and the
   // same reason for the order.
   if (flipTrillPlacement(engine, id, dyPx)) return { moved: true }
-  if (jumpTrillSystems(engine, id, cursorX, dyPx)) return { moved: true }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true }
   if (dxPx === 0 && dyPx === 0) return { moved: false }
 
   // ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
@@ -469,8 +477,13 @@ function flipTrillPlacement(engine: TrillWalkEngine, id: string, dyPx: number): 
 }
 
 /**
- * ⭐⭐ **LEAVING ITS OWN SYSTEM** — the one move the walk cannot make (`./markSystemJump`, shared with
+ * ⭐⭐ **LEAVING ITS OWN STAFF** — the one move the walk cannot make (`./markSystemJump`, shared with
  * the dynamic, the tempo mark and the wedge).
+ *
+ * ⭐⭐ **The staff below counts, not only the system below** (his ask, 2026-08-21). ⭐ And the trill is
+ * the one family in the group that needs NO model write for it: its anchor is a NOTE, so landing on
+ * the left hand's note IS being on the left hand's staff — where the dynamic and the wedge each
+ * needed a `staffId` to move, this needs only a candidate to aim at (`trillLane.trillLaneOnStaff`).
  *
  * ⭐ **The whole ornament goes, extent and all** (`trillOps.moveTrillTo`): a trill's extent is counted
  * in the LANE's own notes, so a span of N stops arrives as a span of N stops. ⚠️ Counted HERE, because
@@ -482,7 +495,7 @@ function flipTrillPlacement(engine: TrillWalkEngine, id: string, dyPx: number): 
  *
  * ⚠️ Both offsets go on arrival: over there the old x means nothing and the y was never a height.
  */
-function jumpTrillSystems(
+function jumpTrillStaves(
   engine: TrillWalkEngine,
   id: string,
   cursorX: number,
@@ -513,7 +526,7 @@ function jumpTrillSystems(
 }
 
 /**
- * Why {@link jumpTrillSystems} found nowhere to go — for the log, and ⛔ never for a decision.
+ * Why {@link jumpTrillStaves} found nowhere to go — for the log, and ⛔ never for a decision.
  *
  * ⭐ *"There is no note over there"* is not a failure: the ornament still travels, as INK, exactly as
  * it does horizontally (his rule, 2026-08-20: *"no anchor to a note but offset in the next
@@ -530,7 +543,11 @@ function whyNoJump(engine: TrillWalkEngine, start: Note, inkY: number): string {
     return el ? el.bbox.y + el.bbox.height / 2 : null
   }
   const there = bands.reduce((a, b) => (Math.abs(inkY - b.top) < Math.abs(inkY - a.top) ? b : a))
-  const landable = trillLane(engine, start)
+  // ⚠️ EVERY staff's lane, not the ornament's own — since 2026-08-21 the other hand of a grand staff
+  // is a landing, so "nothing to hang off down there" has to be asked of the staff it is heading for.
+  const staves = engine.getScore().staves?.length ?? 1
+  const landable = Array.from({ length: Math.max(staves, 1) }, (_, staff) => staff)
+    .flatMap(staff => trillLaneOnStaff(engine, start, staff))
     .filter(n => !n.isRest)
     .some(n => {
       const y = yOf(n.id)
@@ -538,7 +555,7 @@ function whyNoJump(engine: TrillWalkEngine, start: Note, inkY: number): string {
     })
   return landable
     ? 'the ink still belongs to the staff it is on'
-    : `no note of this lane is drawn on the staff at y ${there.top.toFixed(0)}`
+    : `no note of this VOICE is drawn on the staff at y ${there.top.toFixed(0)}`
       + ' — so the ornament travels as INK instead, with nothing there to anchor to'
 }
 
@@ -615,7 +632,7 @@ export function dragTrillEndpoint(
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
   // belongs on the other side of it long before it belongs to the staff beyond.
   if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
-  if (jumpTrillSystems(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
   if (dxPx === 0 && dyPx === 0) return { moved: false, jumped: false, droppedPx: 0 }
 
   // ⭐⭐ **THE VERTICAL IS ONE NUMBER FOR THE WHOLE ORNAMENT** — the sign and the wiggle sit on one

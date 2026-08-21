@@ -32,6 +32,11 @@ const drawn = vi.hoisted(() => ({
   lineSpacing: 10 as number | null,
   /** Per measure: the staff's top line (which SYSTEM it is on) and where its music runs. */
   systems: {} as Record<number, { top: number; min: number; max: number }>,
+  /** Per STAFF INDEX: how far below the system's top line that staff's own top line is. Empty means
+   *  one staff per system, which is every case but the grand-staff one. */
+  staffOffset: {} as Record<number, number>,
+  /** The staves' drawn bands. One by default: nothing to jump to, so the rule declines. */
+  bands: [{ top: 40, bottom: 80 }] as { top: number; bottom: number }[],
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -41,18 +46,19 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: (m: number) => {
+      getStaffGeometry: (m: number, staff = 0) => {
         const system = drawn.systems[m]
         if (drawn.lineSpacing === null || !system) return undefined
+        const top = system.top + (drawn.staffOffset[staff] ?? 0)
         return {
           lineSpacing: drawn.lineSpacing,
-          lineYPositions: [system.top, system.top + 10, system.top + 20, system.top + 30, system.top + 40],
+          lineYPositions: [top, top + 10, top + 20, top + 30, top + 40],
           noteStartX: system.min, noteEndX: system.max,
         }
       },
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      staffBands: () => [{ top: 40, bottom: 80 }],
+      staffBands: () => drawn.bands,
     }))
   },
 }))
@@ -94,6 +100,8 @@ describe('walkArmedTrillEndpoint', () => {
     drawn.lineSpacing = lineSpacing
     // ⭐ ONE system by default — bar 1's music runs 90…430, bar 2's 90…830.
     drawn.systems = { 1: { top: 40, min: 90, max: 430 }, 2: { top: 40, min: 90, max: 830 } }
+    drawn.staffOffset = {}
+    drawn.bands = [{ top: 40, bottom: 80 }]
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, staff: 0, measure: 1, headX: 100 + i * 100,
       bbox: { x: 95 + i * 100, y: 50, width: 10, height: 10 },
@@ -500,6 +508,36 @@ describe('walkArmedTrillEndpoint', () => {
     it('⛔ declines — null — when the ornament is not drawn', () => {
       render(null)
       expect(dragTrillBody(engine, trillId, 0, 40, 0)).toBeNull()
+    })
+
+    it('🚨⭐⭐ …and the OTHER HAND of a grand staff is a landing — not only the next system', () => {
+      // His ask, 2026-08-21, after the dynamic and the wedge got it. ⭐ The trill is the one family
+      // here that needs NO model write for it: its anchor is a NOTE, so landing on the left hand's
+      // note IS being on the left hand's staff. What was missing was only a candidate to aim at.
+      engine.addStaffBelow(0)
+      const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+      render()
+      // ONE system, two staves: 40…80 and 240…280. The `tr` is drawn at y 20…30 — ten above its own
+      // staff — so its twin under the left hand is at 220 and the switch falls between.
+      drawn.staffOffset = { 1: 200 }
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      left.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 1, measure: 1, headX: 100 + i * 100,
+        bbox: { x: 95 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+
+      const onLeftHand = () => left.includes(engine.getTrillById(trillId)!.startNoteId)
+
+      // Down past its own bottom line is the FIRST rung — below its own staff, ⛔ not a jump.
+      expect(dragTrillBody(engine, trillId, 0, 0, 80)?.moved).toBe(true)
+      expect(engine.getTrillById(trillId)?.placement, 'below its OWN staff first').toBe('below')
+      expect(onLeftHand(), 'and the anchor has not moved at all').toBe(false)
+
+      // …and then the left hand: the ink is now at 100, and its twin under the staff below is 300.
+      expect(dragTrillBody(engine, trillId, 200, 0, 200)?.moved).toBe(true)
+      expect(onLeftHand(), 'the ornament belongs to the left hand now').toBe(true)
+      expect(engine.getTrillById(trillId)?.placement, 'one rung: above the staff below').toBe('above')
     })
   })
 })

@@ -60,7 +60,26 @@ export type TrillLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry
  * be a wrong trill, not a recovered one (`./trillReanchor`'s rule, and the slur's before it).
  */
 export function trillLane(engine: TrillLaneEngine, start: Note): FlatNote[] {
-  return buildBeatMap(engine.getScore(), voiceOf(start), staffOf(start)).beats
+  return trillLaneOnStaff(engine, start, staffOf(start))
+}
+
+/**
+ * ⭐⭐ **THE SAME LANE ON A STAFF THE ORNAMENT IS NOT ON YET** — what a VERTICAL drag chooses between
+ * (his ask, 2026-08-21, after the dynamic and the wedge got it).
+ *
+ * ⭐⭐ **The VOICE half of the lane is held, the STAFF half moves.** A trill's lane is `(voice,
+ * staff)` and the rule above — *a trill that silently jumped voices would be a wrong trill* — is
+ * about the VOICE: stepping sideways must not wander between the textures of one staff. Being
+ * dragged onto the other hand is not silent and not a wander; it is the user pointing at the left
+ * hand. So this changes exactly one half, which is also what the dynamic's and the wedge's landings
+ * change (`utils/dynamicScope`: *where a mark may stand is a STAFF question, and never a voice one*).
+ *
+ * ⚠️ The consequence, stated rather than hidden: a trill in voice 2 dragged onto a staff that has no
+ * voice 2 finds NO candidate there, and the frame stays a plain ink move
+ * (`trillWalk.jumpTrillStaves` logs why). ⛔ Better than landing it in a voice the user never named.
+ */
+export function trillLaneOnStaff(engine: TrillLaneEngine, start: Note, staff: number): FlatNote[] {
+  return buildBeatMap(engine.getScore(), voiceOf(start), staff).beats
 }
 
 /**
@@ -255,8 +274,10 @@ export function trillStaffBand(
  * shared with the dynamic, the tempo mark and the wedge, ⛔ never a copy of it.
  *
  * ⭐ The candidates are the LANE's own drawn notes: a trill's anchor is a note, so "the places it
- * could stand on that system" is exactly the list the walk already uses. ⚠️ Its own voice and staff
- * only — a trill that silently changed lane would be a wrong trill (`./trillReanchor`'s rule).
+ * could stand" is exactly the list the walk already uses — **on EVERY painted staff** since
+ * 2026-08-21 ({@link trillLaneOnStaff}), so the other hand of a grand staff is a landing and not
+ * something to sail past. ⚠️ Its own VOICE throughout: the staff half of the lane moves, the voice
+ * half is held (`./trillReanchor`'s rule, and the reason it survives, are in that function).
  *
  * @returns the note id to move onto, or null while it still belongs where it is.
  */
@@ -270,12 +291,24 @@ export function trillSystemNoteFor(
   inkY: number,
 ): string | null {
   const registry = engine.getElementRegistry()
-  const lane = trillLane(engine, start).filter(n => !n.isRest)
+  const staves = engine.getScore().staves?.length ?? 1
+  const lane = Array.from({ length: Math.max(staves, 1) }, (_, staff) => staff)
+    .flatMap(staff => trillLaneOnStaff(engine, start, staff).map(n => ({ note: n, staff })))
+    .filter(n => !n.note.isRest)
   return systemStopFor<string>({
     bands: () => registry.staffBands(),
-    candidates: () => lane.flatMap(n => {
-      const el = registry.getByType('note').find(e => e.id === n.id)
-      return el ? [{ x: el.headX ?? el.bbox.x + el.bbox.width / 2, y: el.bbox.y + el.bbox.height / 2, stop: n.id }] : []
+    candidates: () => lane.flatMap(({ note, staff }) => {
+      const el = registry.getByType('note').find(e => e.id === note.id)
+      if (!el) return []
+      // 🚨 The candidate's band is its STAFF's, ⛔ not its notehead's: a head on ledger lines can sit
+      // nearer the neighbouring staff's band than its own — harmless while every candidate came from
+      // one staff, a wrong answer the moment they do not (`dynamicLane`'s lesson, 2026-08-21).
+      const lines = registry.getStaffGeometry(note.measureNumber, staff)?.lineYPositions
+      return [{
+        x: el.headX ?? el.bbox.x + el.bbox.width / 2,
+        y: lines ? (lines[0] + lines[lines.length - 1]) / 2 : el.bbox.y + el.bbox.height / 2,
+        stop: note.id,
+      }]
     }),
     anchor: () => {
       const el = registry.getByType('note').find(e => e.id === start.id)
