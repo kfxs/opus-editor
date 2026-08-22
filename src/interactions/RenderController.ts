@@ -8,6 +8,7 @@ import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { musicFontReady } from '../engine/rendering/musicFontReady'
 import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
+import { dbg } from '../utils/debug'
 
 /**
  * Orchestrates score rendering and ghost-note preview.
@@ -161,13 +162,24 @@ export class RenderController {
   previewMarks(kind: MarkPreviewKind, markId?: string): void {
     const engine = this.getEngine()
     if (!engine) return
-    if (!this.fontReady) { this.renderScore(); return }
+    if (!this.fontReady) {
+      dbg(`[Preview] ${kind}: the music font has not landed — full render`)
+      this.renderScore()
+      return
+    }
 
     // The highlights' inverse has to run while the DOM it applies to is still standing — the same
     // reason `renderScore` takes them off first (a recolour left on a node we are about to remove
     // would strand its undo entry on a detached element).
     this.highlight.clearHighlights()
-    if (!engine.previewMarks(kind, markId)) { this.renderScore(); return }
+    // ⭐ The refusal is LOUD (his ask, 2026-08-22). A frame that falls back here is the expensive
+    //   one, and on a drag it is also the frame that can look like a stutter — silently upgrading it
+    //   to a full render is exactly what makes a stuck gesture unreadable from the console.
+    if (!engine.previewMarks(kind, markId)) {
+      dbg(`[Preview] ${kind} REFUSED the cheap frame — full render | id:${markId ?? '—'}`)
+      this.renderScore()
+      return
+    }
     this.applyHighlights()
     this.afterRender?.()
   }

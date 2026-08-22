@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { anchorX, splitRuns } from './TempoLayout'
 import { fracCreate as frac } from '@/utils/fraction'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { ChordRest, TempoMark } from '@/types/music'
 import type { Stave, StaveNote } from 'vexflow'
 
@@ -74,6 +75,48 @@ describe('anchorX — what a tempo mark hangs off', () => {
   it('still finds the bar opening when the bar has no notes at all', () => {
     expect(anchorX(mark({ beat: frac(0, 1) }), [], [], fakeStave())).toBe(60)
     expect(anchorX(mark({ beat: frac(0, 1) }), [], [], fakeStave(null))).toBe(100)
+  })
+
+  /**
+   * 🚨🚨 **THE BEAT IS THE SYSTEM'S, NOT THE STAFF'S** — his report, 2026-08-22: *"look how it gets
+   * stuck in measure 6 and then jumps to measure 7"*. His bar 6 is a whole note in the right hand
+   * over sixteenths in the left, and a tempo mark is engraved once above the TOP staff — so every
+   * beat the drag walked onto inside that bar existed only in the hand this function cannot see,
+   * and all seven of them fell through to the bar's opening: one x for a whole bar of anchors.
+   */
+  describe('⭐⭐ a beat only the OTHER hand sounds', () => {
+    // The bar's grid: beats 0, ¼, ½ and the barline, spaced 4 staff spaces apart. Only beat 0 is on
+    // this staff (the right hand's whole note), drawn at 140.
+    const columns = {
+      columns: [{ beat: frac(0, 1) }, { beat: frac(1, 4) }, { beat: frac(1, 2) }, { beat: frac(4, 1) }],
+      xs: [0, 4, 8, 20],
+    } as unknown as Parameters<typeof anchorX>[4]
+
+    it('takes the COLUMN\'s x, measured off the note this staff does draw', () => {
+      // ⭐ 4 staff spaces past beat 0's notehead — the grid's own gap, in the stave's coordinates.
+      //   ⛔ 100 (`getNoteStartX`) is what this returned before, for every beat in the bar.
+      const x = anchorX(
+        mark({ beat: frac(1, 4) }), slotsAt(0), fakeNotes(140), fakeStave(null), columns)
+      expect(x).toBe(140 + 4 * STAFF_SPACE_PX)
+    })
+
+    it('…and each beat gets its OWN x — the bug was that they all shared one', () => {
+      const at = (num: number, den: number) => anchorX(
+        mark({ beat: frac(num, den) }), slotsAt(0), fakeNotes(140), fakeStave(null), columns)
+      expect(new Set([at(0, 1), at(1, 4), at(1, 2)]).size).toBe(3)
+    })
+
+    it('⚠️ ÷ the staff\'s SCALE — the grid is a distance on the page, the stave answers in its own space', () => {
+      const x = anchorX(
+        mark({ beat: frac(1, 2) }), slotsAt(0), fakeNotes(140), fakeStave(null), columns, 0.5)
+      expect(x).toBe(140 + (8 * STAFF_SPACE_PX) / 0.5)
+    })
+
+    it('⛔ never the BARLINE column, however far past the last onset the beat is', () => {
+      const x = anchorX(
+        mark({ beat: frac(3, 1) }), slotsAt(0), fakeNotes(140), fakeStave(null), columns)
+      expect(x, 'the bar opening, exactly as without a grid').toBe(100)
+    })
   })
 })
 

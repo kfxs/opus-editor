@@ -1995,6 +1995,9 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.tempoDragChanged) {
       engine.commitTempoDrag()
+      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag`. Here it also re-engraves the mark's
+      // bar, which the preview frames deliberately did not.
+      this.render.renderScore()
       dbg(`Tempo mark dragged | id:${this.draggedTempoId}`)
     }
     this.isDraggingTempo = false
@@ -2912,21 +2915,48 @@ export class MouseController {
   private handleTempoDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.isDraggingTempo && this.draggedTempoId)) return false
     if (this.tempoDragStartTime !== null
-        && Date.now() - this.tempoDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
+        && Date.now() - this.tempoDragStartTime < this.DRAG_TIME_THRESHOLD_MS) {
+      // ⭐ The held frames are logged too (his ask, 2026-08-22) — a gesture that "does nothing at
+      // first" is this threshold, and a reader who cannot see these frames cannot tell that from a
+      // refusal further in. The travel here is charged to NEITHER side: the baseline below is taken
+      // on the first frame past it.
+      dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)}) — held`
+        + ` (${Date.now() - (this.tempoDragStartTime ?? 0)}ms of ${this.DRAG_TIME_THRESHOLD_MS}ms)`)
+      return true
+    }
     if (this.tempoDragLastX === null) {
       this.tempoDragLastX = x
       this.tempoDragLastY = y
+      dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)}) — baseline taken`
+        + ` | id:${this.draggedTempoId}`)
       return true
     }
 
-    const moved = dragTempo(
-      engine, this.draggedTempoId, x, x - this.tempoDragLastX, y - this.tempoDragLastY)
+    // ⚠️ The delta is from the last ACCEPTED frame, not from the last mousemove — a refused frame
+    //    leaves the baseline where it was on purpose (see the header), and that is why the `d=` this
+    //    logs can be much larger than one mouse step while the hand is against a limit.
+    const dx = x - this.tempoDragLastX
+    const dy = y - this.tempoDragLastY
+    const moved = dragTempo(engine, this.draggedTempoId, x, dx, dy)
     if (moved === null) return true
+    if (!moved) {
+      dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)})`
+        + ` d=(${dx.toFixed(1)}, ${dy.toFixed(1)})px from the last ACCEPTED frame`
+        + ` — nothing written (the delta rounded away, or a limit refused the ink);`
+        + ` the baseline stays put`)
+    }
     if (moved) {
       this.tempoDragLastX = x
       this.tempoDragLastY = y
       this.tempoDragChanged = true
-      this.render.renderScore()
+      // ⭐⭐ Previewed (§12.5a), and this family is MOVED rather than redrawn: a tempo mark's glyph
+      // lives inside its measure's group, so the frame re-applies its composed transform instead of
+      // drawing anything (`engine/rendering/markPreviewPass`, the `tempo` row).
+      //
+      // ⚠️ It is the one family whose full render really does re-engrave a bar — the nudge is applied
+      // at draw time and `MeasureRedrawKey` folds it into that bar's shape key on purpose. So the
+      // preview saves the eight whole-score passes AND the bar; the drop pays both once.
+      this.render.previewMarks('tempo', this.draggedTempoId)
     }
     return true
   }

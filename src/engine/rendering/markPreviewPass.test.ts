@@ -24,6 +24,7 @@ import { addPedal } from '../models/pedalOps'
 import { addHairpin, setHairpinAtStaffSlot } from '../models/hairpinOps'
 import { addTrill } from '../models/trillOps'
 import { addSlur } from '../models/slurOps'
+import { setTempoAtSlot } from '../models/tempoOps'
 import { fracCreate as frac } from '@/utils/fraction'
 
 let renderer: VexFlowRenderer
@@ -294,5 +295,85 @@ describe('🚨 a mark that crossed to the OTHER STAFF is previewed on the staff 
     const rendered = drawnWedge(hairpinId)
     expect(previewed.staff).toBe(rendered.staff)
     expect(previewed.y).toBeCloseTo(rendered.y, 1)
+  })
+})
+
+
+/**
+ * ⭐⭐ **THE ONE FAMILY THAT IS MOVED RATHER THAN REDRAWN**, and the one whose refusal is load-bearing
+ * rather than a safety net.
+ *
+ * A tempo mark's glyph is drawn *inside its bar's* `<g class="vf-measure">` and repositioned
+ * afterwards by one composed, idempotent transform (`./tempoMarkTransform`). So a preview draws
+ * nothing: it re-applies the composer's nudge (`./tempoNudgePass`) and re-runs the ladder
+ * (`./tempoLinePass`), both of which the full render runs anyway.
+ *
+ * 🚨🚨 **And that only works while the mark stays in its bar.** His report, 2026-08-22: *"while
+ * dragging tempo refuses to move and after mouse release it lands in the cursor"*. A tempo drag's
+ * HORIZONTAL is a re-anchor — his trace is `[Tempo] walked onto its next stop` on every frame, with
+ * the latch dropping the offset back to ~0 each time — and no transform can carry a glyph into a
+ * different bar's group. It sat still for the whole gesture and jumped on the drop, which was the
+ * full render finally drawing it where it belonged.
+ */
+describe('the TEMPO family is moved, not redrawn', () => {
+  let tempoRenderer: VexFlowRenderer
+  let tempoModel: ScoreModel
+  let tempoId: string
+
+  const mark = () => tempoRenderer.getSVGElement()!.querySelector(`#vf-${tempoId}`)!
+
+  beforeEach(() => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    tempoRenderer = new VexFlowRenderer(container)
+    tempoRenderer.initialize(1200, 800)
+
+    tempoModel = new ScoreModel()
+    for (let i = 1; i < 4; i++) tempoModel.addMeasure()
+    for (let m = 1; m <= 4; m++) {
+      for (let b = 0; b < 4; b++) {
+        tempoModel.addNote({ step: 'C', octave: 5, duration: 'q', measure: m, beat: frac(b, 1) })
+      }
+    }
+    tempoId = tempoModel.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!.id
+    tempoRenderer.renderScore(tempoModel.getScore())
+  })
+
+  it('⭐⭐ a pure OFFSET frame previews — the nudge reaches the glyph with no bar re-engraved', () => {
+    const before = mark().getAttribute('transform')
+    expect(before, 'the ladder already placed it').toMatch(/^translate\(0, -?\d/)
+
+    tempoModel.nudgeTempoOffset(tempoId, 3, 0)
+    expect(tempoRenderer.previewMarks('tempo', tempoId), 'it took the cheap path').toBe(true)
+
+    // ⛔ THE CLAIM: three staff-spaces of x arrive on the element. Without `applyTempoNudges` the
+    //   frame re-runs only the LADDER, which owns the y — the mark would follow the hand down and
+    //   refuse to follow it sideways, since its only other writer is inside the bar draw.
+    // ⭐ And the ladder's own component survives, because the transform is COMPOSED from parts kept
+    //   on the element rather than overwritten (`./tempoMarkTransform`).
+    expect(mark().getAttribute('transform'))
+      .toBe(before!.replace(/^translate\(0,/, 'translate(30,'))
+  })
+
+  it('🚨🚨 …and a RE-ANCHOR refuses, because no transform reaches another bar\'s group', () => {
+    expect(mark().closest('.vf-measure')?.id, 'drawn in bar 1 to begin with').toMatch(/^vf-m1-s/)
+
+    setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 3, beat: frac(0, 1) })
+
+    // ⛔ The caller must render for real. Before this refusal the frame reported success and moved
+    //   nothing — the mark sat still for the whole drag and jumped on the drop.
+    expect(tempoRenderer.previewMarks('tempo', tempoId),
+      'the glyph is in bar 1 and the mark now belongs to bar 3').toBe(false)
+  })
+
+  it('🚨🚨 …and so does a re-anchor WITHIN the bar — the base moved, and only the offset is ours', () => {
+    // His report, 2026-08-22: the drag *"gets stuck at certain points"*. Every crossing inside a bar
+    // passed the first version of this vouch (same bar, same group), so the frame wrote the latch's
+    // offset of 0 against a base still measured from the PREVIOUS onset — and the ink jumped back
+    // there. One sawtooth per stop, which is what the drag looked like.
+    setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 1, beat: frac(2, 1) })
+
+    expect(tempoRenderer.previewMarks('tempo', tempoId),
+      'same bar, but the glyph was drawn from beat 0').toBe(false)
   })
 })

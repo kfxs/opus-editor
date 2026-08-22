@@ -2173,7 +2173,7 @@ export class VexFlowRenderer {
         // Tempo marks: system-level, so drawn once above the scope's top staff (NOT per
         // staff). Must come after the voices are drawn — a mark anchors to a note's
         // absolute X, which does not exist before formatting.
-        drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes)
+        drawTempoMarks(pass, measure, stave, staffIndex, sortedSlots, staveNotes, placement.scale)
         for (const b of built) this.registerBeams(b.beams, measure)
 
         // Mid-measure clefs are carried by the primary voice only.
@@ -3952,6 +3952,11 @@ export class VexFlowRenderer {
     // `pass.occupiedBands` as it was placed, and this one clears whatever it finds
     // (docs/ottava-plan.md P0b). ⛔ There is no priority table; move this call and you change the
     // order.
+    // ⭐ The tempo family's rewind point. It only READS `occupiedBands` (it is the outermost
+    //   above-staff row and files no claim), so this is a no-op truncation — captured anyway, so the
+    //   table's rows all mean the same thing and nobody has to know which families are special.
+    before.tempo = entryState()
+    inkAt('tempo')
     placeTempoMarksOnLine(pass, placements, staffList.map(staff => staff.id))
     probeSub('ladder', tLadder)
 

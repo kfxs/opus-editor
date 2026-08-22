@@ -22,8 +22,10 @@
  */
 import { Element, Metrics, MetricsDefaults, StaveModifierPosition, TimeSignature } from 'vexflow'
 import type { RenderContext, Stave, StaveNote } from 'vexflow'
-import type { ChordRest, Measure, NoteDuration, TempoMark } from '@/types/music'
+import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import type { SpacedColumns } from './spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
 import { textFirstFamily } from '@/utils/fontStack'
 import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT_SIZE } from './tempoStyle'
@@ -214,7 +216,21 @@ function keepSpaces(text: string): string {
  * mark's x-parent is a multi-measure rest. So a bar whose slot is a measure rest anchors to where the
  * bar's music would start (`stave.getNoteStartX()`) — ⛔ not to the drawn rest.
  */
-export function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNote[], stave: Stave): number {
+export function anchorX(
+  mark: TempoMark,
+  slots: ChordRest[],
+  staveNotes: StaveNote[],
+  stave: Stave,
+  /**
+   * ⭐⭐ **THE SYSTEM'S COLUMN GRID** — what the bar's beats were spaced at, over EVERY staff
+   * (`./spacingPass`). Optional: without it this rule can only see the staff it is drawn above, and
+   * that is exactly the bug it exists to fix (see the "notational element" note below).
+   */
+  columns?: SpacedColumns,
+  /** This staff's drawn scale — the grid is a distance on the PAGE, the stave answers in its own
+   *  space. 1 for a full-size staff (`FanPass.fanRampRoomPx` carries the same division). */
+  scale = 1,
+): number {
   // 1. A mark on the downbeat of a bar that PRINTS a time signature takes the time signature's left
   //    edge — the one branch of the old rule that was already right, and the one every source states.
   const [timeSig] = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)
@@ -222,6 +238,28 @@ export function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNo
 
   // 2. Otherwise the first notational element at-or-after the mark's beat — downbeat and mid-bar
   //    alike, which is why they are one loop rather than two rules.
+  //
+  // 🚨🚨 **"THE FIRST NOTATIONAL ELEMENT" IS THE SYSTEM'S, ⛔ NOT THIS STAFF'S** — his report,
+  //    2026-08-22: *"look how it gets stuck in measure 6 and then jumps to measure 7"*, on a grand
+  //    staff whose bar 6 is a whole note in the right hand over sixteenths in the left. Every stop
+  //    the drag walked onto inside that bar (b¼, b½, b¾, b1, b1½, b2, b2½) exists only in the LEFT
+  //    hand, and this loop — handed the TOP staff's slots, since a tempo mark is engraved once above
+  //    the system — found nothing at-or-after those beats and fell through to the bar's opening. So
+  //    seven different anchors drew at ONE x, and the mark sat still for a whole bar.
+  //
+  // ⭐ A tempo mark governs the CLOCK, not a staff (`interactions/tempoWalk`: its stops are every
+  //   onset, whatever staff sounds it). The DRAWING has to agree with the walk or the two disagree
+  //   by a whole bar, so the beat is resolved against the system's shared column grid and this
+  //   staff's own notes are used only to convert that grid into the stave's coordinates.
+  const target = columns && targetColumn(columns, mark)
+  if (target) {
+    const here = drawnAtBeat(target.beat, slots, staveNotes)
+    if (here === 'measure-rest') return stave.getNoteStartX() // the centred-rest exception, below
+    if (here !== undefined) return here // this staff has the column's own element — exact
+    const derived = columnXFromNeighbour(target, columns, slots, staveNotes, scale)
+    if (derived !== undefined) return derived
+  }
+
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]
     if (fracCompare(slot.beat, mark.beat) < 0) continue
@@ -238,6 +276,76 @@ export function anchorX(mark: TempoMark, slots: ChordRest[], staveNotes: StaveNo
   //    start. ⛔ Not `stave.getX()`, the barline — Gould p. 183 forbids it by name, and
   //    `getNoteStartX` is her *"after the clef and key signature"*.
   return stave.getNoteStartX()
+}
+
+/** The grid point the mark hangs off: the first column at-or-after its beat, ⛔ never the BARLINE
+ *  column (the last one is a position, not an event — Gould p. 183 forbids the barline by name). */
+function targetColumn(
+  { columns }: SpacedColumns,
+  mark: TempoMark,
+): { index: number; beat: Fraction } | undefined {
+  for (let i = 0; i < columns.length - 1; i++) {
+    if (fracCompare(columns[i].beat, mark.beat) >= 0) return { index: i, beat: columns[i].beat }
+  }
+  return undefined
+}
+
+/** What THIS staff draws at `beat`: its element's x, `'measure-rest'` for the centred exception, or
+ *  undefined when the staff is silent there (the grand-staff case this whole branch is about). */
+function drawnAtBeat(
+  beat: Fraction,
+  slots: ChordRest[],
+  staveNotes: StaveNote[],
+): number | 'measure-rest' | undefined {
+  for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
+    const slot = slots[i]
+    if (fracCompare(slot.beat, beat) !== 0) continue
+    if (slot.type === 'rest' && slot.isMeasureRest) return 'measure-rest'
+    try {
+      return staveNotes[i].getAbsoluteX()
+    } catch {
+      return undefined // not formatted (shouldn't happen post-draw)
+    }
+  }
+  return undefined
+}
+
+/**
+ * ⭐⭐ **THE GRID, BROUGHT INTO THIS STAVE'S COORDINATES** — a column x this staff has no note at,
+ * measured off the nearest one it does.
+ *
+ * ⚠️ A DIFFERENCE, deliberately. `xs` is in staff spaces from the bar's first column, while a drawn
+ * note's `getAbsoluteX()` is `tickContext.x + stave.getNoteStartX() + Metrics 'Stave.padding'` — and
+ * that constant is the same for every column of one stave, so subtracting two columns cancels it.
+ * ⛔ Reconstructing the absolute form instead would hard-code a VexFlow metric here.
+ *
+ * ⭐ The NEAREST neighbour, so anything that moved one context off the grid (an authored leading
+ * space, a centred rest) is both excluded and, where it cannot be, kept as local as possible.
+ */
+function columnXFromNeighbour(
+  target: { index: number; beat: Fraction },
+  { columns, xs }: SpacedColumns,
+  slots: ChordRest[],
+  staveNotes: StaveNote[],
+  scale: number,
+): number | undefined {
+  if (columns.length !== xs.length || !(scale > 0)) return undefined
+
+  let best: { distance: number; x: number; index: number } | undefined
+  for (let i = 0; i < columns.length - 1; i++) {
+    if (i === target.index) continue
+    const drawn = drawnAtBeat(columns[i].beat, slots, staveNotes)
+    // ⛔ A centred measure rest is NOT on the grid — `centerMeasureRests` moves it to the bar's
+    //    middle after the solve, so it would answer with the wrong origin.
+    if (typeof drawn !== 'number') continue
+    const distance = Math.abs(i - target.index)
+    if (!best || distance < best.distance) best = { distance, x: drawn, index: i }
+  }
+  if (!best) return undefined
+
+  // ÷ scale: the columns are the SYSTEM's, in page distance; this staff's group multiplies by its
+  // own scale on the way out (the one division `FanPass` needs for the same reason).
+  return best.x + ((xs[target.index] - xs[best.index]) * STAFF_SPACE_PX) / scale
 }
 
 /**
@@ -257,11 +365,19 @@ export function drawTempoMarks(
   staffIndex: number,
   slots: ChordRest[],
   staveNotes: StaveNote[],
+  /** This staff's drawn scale — see {@link anchorX}, which resolves the mark's beat against the
+   *  SYSTEM's column grid and needs it to come back into the stave's own space. */
+  scale = 1,
 ): void {
   if (!measure.tempos?.length) return
   if (staffIndex !== topStaffIndexForScope(undefined)) return
 
   const ctx = pass.context
+  // ⭐ The bar's column solve — where the SYSTEM put each beat, over every staff. A tempo mark is
+  //   drawn above the top staff but anchors to the clock, so the beat it names may only be sounded
+  //   by a hand below (see {@link anchorX}). Undefined when the solve declined this bar, and the
+  //   rule then falls back to the staff it can see.
+  const columns = pass.solvedColumns.get(measure.number)
 
   for (const mark of measure.tempos) {
     if (mark.id === pass.suppressedTempoId) continue // being edited in the text overlay
@@ -276,7 +392,7 @@ export function drawTempoMarks(
     // about the SYSTEM, and a measure-scope answer would have to join `MeasureRedrawKey`'s shape key
     // (see that pass's header for what that costs).
     const y = stave.getYForTopText(1)
-    const x = anchorX(mark, slots, staveNotes, stave)
+    const x = anchorX(mark, slots, staveNotes, stave, columns, scale)
 
     // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox, the
     // selection highlight and the text-edit overlay all address it by.
@@ -286,6 +402,15 @@ export function drawTempoMarks(
     } finally {
       ctx.closeGroup() // never leave the group open — everything after would nest inside it
     }
+
+    // 🚨🚨 **WHICH ANCHOR THIS GLYPH'S `x` WAS MEASURED FROM** — the address, not just the bar, and a
+    // PREVIEW's whole licence to move it (`./markPreviewPass`, the `tempo` row). A preview may only
+    // rewrite the mark's TRANSFORM; the base above is baked in here. So a frame that finds the score
+    // anchored somewhere else must refuse and let a real render draw it, or the mark snaps back to
+    // this `x` the moment its offset returns to zero — his report, 2026-08-22 (*"it gets stuck at
+    // certain points"*): the drag walked forward, latched to offset 0, and the ink jumped back to
+    // the beat it was engraved at.
+    group.setAttribute('data-tempo-anchor', `${measure.number}:${fracToNumber(mark.beat)}`)
 
     try {
       const box = group.getBBox()

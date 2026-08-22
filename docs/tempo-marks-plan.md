@@ -478,3 +478,114 @@ same port the wedge, the bracket, the pedal and the dynamic use.
 - ⭐ A blocked press still crosses (`markWalk.crossWithoutArrival`).
 
 ⏭️ The DRAG's horizontal wrap is not wired.
+
+---
+
+## ✅ THE DRAG IS PREVIEWED — but only its VERTICAL (2026-08-22)
+
+docs/render-performance-plan.md §12.5a wired the mark drags to a preview that redraws one family
+instead of the score. The tempo mark is the one family that is **MOVED rather than redrawn**: its
+glyph is drawn inside its bar's `<g class="vf-measure">` and repositioned afterwards by the composed
+transform (`rendering/tempoMarkTransform`), so a frame re-applies two idempotent passes and draws
+nothing —
+
+- ⭐ `rendering/tempoNudgePass` (new) — the composer's nudge. Its only other writer is inside
+  `drawTempoMarks`, i.e. inside the bar draw a preview skips, so without it the mark would follow the
+  hand down the ladder and refuse to follow it sideways.
+- `rendering/tempoLinePass` — the ladder row, which already re-ran over every measure drawn or reused.
+
+### 🚨🚨 The HORIZONTAL is a RE-ANCHOR, and no transform reaches another bar's group
+
+His report: *"while dragging tempo refuses to move and after mouse release it lands in the cursor"*.
+`dragTempo`'s horizontal walks the mark onto the next STOP — his trace is `[Tempo] walked onto its
+next stop` every frame, the latch dropping the offset back to ~0 each time. The glyph stayed in the
+bar it was drawn in, moved by an offset of nothing, and jumped when the drop finally re-engraved.
+
+⭐ So the preview **refuses** when the mark's ANCHOR has changed and the caller renders for real. The
+bar does have to be re-engraved: `MeasureRedrawKey` folds each mark's overrides into its bar's shape
+key on purpose (`reference_render_width_key_vs_shape_key` — when unsure INCLUDE).
+
+🚨🚨 **The ANCHOR, ⛔ not the bar** — his report: *"it gets stuck at certain points and doesn't offset
+smoothly"*. A crossing *inside* a bar passes a bar test, so the frame wrote the latch's offset of 0
+against a base still measured from the previous onset and the ink snapped back to it: one sawtooth
+per stop. `drawTempoMarks` stamps `data-tempo-anchor="<bar>:<beat>"` on the group and the vouch
+compares that.
+
+⚠️ Net effect, stated plainly: the vertical is cheap, the horizontal costs exactly what it did before.
+⏭️ Making the horizontal cheap means drawing the mark outside its bar's group — the arrangement the
+ottava/pedal/hairpin/trill/slur have — and that is a change to `TempoLayout` + `MeasureRedrawKey`, not
+a row in a table.
+
+### ⚠️ `view.tempos` was a stale-lane read
+
+`staffMeasureView` does not filter `tempos`, so the property rides the spread and *usually* still
+points at the measure's live array. **Usually** is the trap: `tempoOps` does `delete measure.tempos`
+when a bar empties and `target.tempos = []` when one gains its first mark, and both replace the slot
+the view copied. Both passes now read the marks from `score.measures`.
+
+### Tests
+
+`markPreviewPass.test.ts` — a pure-offset frame previews (`translate(0,…)` → `translate(30,…)`, the
+ladder's component preserved) and a re-anchor refuses. Both break-tested.
+
+---
+
+## 🚨🚨 "THE FIRST NOTATIONAL ELEMENT" IS THE SYSTEM'S, NOT THE TOP STAFF'S (2026-08-22)
+
+His report, on the grand-staff page above: *"look how it gets stuck in measure 6 and then jumps to
+measure 7"* — and, plainly: *"in measure 6 is not offseting"*.
+
+His bar 6 is a whole note in the right hand over sixteenths and eighths in the left. `anchorX`
+implements Gould p. 183 — *align with the first notational element of the respective beat* — by
+walking **the slots it was handed**, and a tempo mark is engraved once above the TOP staff, so those
+are the right hand's. Every stop the drag walked onto inside that bar (b¼, b½, b¾, b1, b1½, b2, b2½)
+is sounded only by the LEFT hand. The loop found nothing at-or-after them and fell through to case 3,
+the bar's opening — so **seven different anchors drew at one x**, and the mark stood still for a whole
+bar and then jumped when the walk reached bar 7's downbeat, which the right hand does play.
+
+⭐ **A tempo mark governs the CLOCK, not a staff.** `interactions/tempoWalk` already says so — its
+stops are every onset, *whatever staff sounds it* (`drawnOnsets`). The DRAWING has to agree with the
+WALK or the two disagree by a whole bar, which is exactly what he saw.
+
+### The fix: resolve the beat against the SYSTEM'S COLUMN GRID
+
+`anchorX` now takes the bar's `SpacedColumns` (`rendering/spacingPass` — the solve's own answer, kept
+per bar on `RenderPass.solvedColumns` for `FanPass`) and:
+
+1. the time-signature rule is unchanged (Gould p. 183, every source);
+2. the mark's beat picks the first COLUMN at-or-after it — ⛔ never the barline column, which is a
+   position and not an event;
+3. if this staff draws that column's own element, its `getAbsoluteX()` is the answer, exactly as
+   before;
+4. otherwise the column is brought into the stave's coordinates off the NEAREST column this staff
+   *does* draw: `x(near) + (xs[target] − xs[near]) × STAFF_SPACE_PX ÷ scale`.
+
+⚠️ **A DIFFERENCE, deliberately.** `xs` is in staff spaces from the bar's first column while a drawn
+note's `getAbsoluteX()` is `tickContext.x + stave.getNoteStartX() + Metrics 'Stave.padding'` — that
+constant is the same for every column of one stave, so subtracting two columns cancels it.
+⛔ Reconstructing the absolute form would hard-code a VexFlow metric in this file.
+
+⚠️ ÷ `scale`: the columns are the SYSTEM's, in page distance; the staff's group multiplies by its own
+scale on the way out. The one division `FanPass.fanRampRoomPx` needs, for the same reason.
+
+⛔ A centred measure rest is never a reference: `centerMeasureRests` moves it off the grid after the
+solve. The centred-rest exception itself (an empty bar anchors to `getNoteStartX`) is untouched.
+
+⚠️ Without a grid (a bar the solve declined) the rule falls back to the staff it can see — today's
+behaviour, and what every pre-existing case in `TempoLayout.test.ts` still pins.
+
+## The DRAG'S TRACE (his ask, same day)
+
+*"add more logs so we can see mouse coordinates and other important coordinates"*. One line per
+frame, `[TempoDrag]` in `interactions/tempoWalk`: the cursor x, the delta in px **and** staff-spaces
+with the px/ss it converted at, the ANCHOR (address + drawn x) before→after, the INK x off the
+registry, the OFFSET before→after, the next STOP with the gap to it, and the outcome
+(`crossings=N` / `LATCHED (dropped …)` / `moved`). Guarded by `debugEnabled()`, not merely written
+with `dbg`: every reader walks the registry and a suppressed `dbg` still evaluates its arguments
+(docs/logging.md).
+
+⭐ Around it: the frames that were previously silent (held below the drag threshold, baseline taken,
+"nothing written") log in `MouseController`; `markWalk`'s two lines print the offset either side of a
+crossing (the identity, visible) and the latch's actual test; and the preview seam is loud —
+`markPreviewPass` says *which* anchor disagreed, `RenderController` says when a frame fell back to a
+full render. Both of the last two found their bug on the first run.

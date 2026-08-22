@@ -1375,9 +1375,52 @@ census is the whole argument: eight whole-score regions, the largest 20%, and `m
 already on screen. ⛔ Optimising the biggest region caps out at a fifth; the only thing that removes
 all eight is not running them.
 
-**Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags. ⛔ Not the tempo/dynamic/
-expression families — their ink is drawn *inside* the measure group, which is why the census shows
-0.8–1.7% of bars re-engraved on their drags where every family here shows 0%.
+**Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags, and — differently — the TEMPO
+drag (below). ⛔ Not the dynamic or expression families yet.
+
+### ⭐⭐ REDRAWN families and the one MOVED family
+
+The five above are drawn as their own top-level `<g>`s, so a preview takes the ink down and draws it
+again. **A tempo mark is not**: its glyph is drawn *inside its bar's* `<g class="vf-measure">` by
+`TempoLayout.drawTempoMarks`, and two later passes reposition it through one composed, idempotent
+transform whose components live on the element (`tempoMarkTransform`). So its row in
+`MARK_PREVIEW_FAMILIES` has **no `redrawn`** — nothing to remove, and its registry box is MOVED by
+the writer rather than re-added; take it down and nothing puts it back.
+
+Its `draw` is two calls `renderScore` already makes, in the same order: `tempoNudgePass`
+(⭐ new — the composer's nudge, whose only other writer is inside the bar draw a preview skips) then
+`tempoLinePass` (the ladder, which already re-runs over every measure *drawn or reused* on every
+render — that property stated as a requirement).
+
+### 🚨🚨 …and the tempo HORIZONTAL cannot be previewed at all
+
+Measured on his own gesture, 2026-08-22: *"while dragging tempo refuses to move and after mouse
+release it lands in the cursor"*. A tempo drag's horizontal is a **re-anchor** — the trace is
+`[Tempo] walked onto its next stop` on every frame, with the latch dropping the offset back to ~0 —
+and **no transform can carry a glyph into another bar's group**. The frame moved it by an offset of
+nothing and left it where it was; the drop's full render put it where it belonged.
+
+⭐ So the row's `placed` asks whether the glyph is drawn for the ANCHOR the mark now has, and a
+changed anchor **refuses** into a real render. That is not a workaround: the bar genuinely has to be
+re-engraved, which is exactly what `MeasureRedrawKey` folding a mark's overrides into its shape key
+is for.
+
+🚨🚨 **The first cut asked about the BAR, and that was too LOOSE** — his report the same day: *"while
+dragging the tempo gets stuck at certain points and doesn't offset smoothly"*, with the ink jumping
+~39 px BACKWARDS on every `[Tempo] walked onto its next stop`. Every crossing *within* a bar passed
+that test, so the frame wrote the latch's offset of 0 against a base still measured from the previous
+onset — a sawtooth, once per stop. The identity a walk rests on is `drawn = base(anchor) + offset`
+and a crossing moves **both** halves, while a preview may only write the offset. `drawTempoMarks` now
+stamps the address it drew for (`data-tempo-anchor="<bar>:<beat>"`) and the vouch compares it.
+
+⚠️ **The honest consequence**: only the tempo drag's VERTICAL takes the cheap path. Its horizontal
+pays a full render per frame, as it did before. Making that cheap means drawing the mark outside its
+bar's group — the arrangement the other five have — which is a real change to
+`TempoLayout`/`MeasureRedrawKey` and is ⏭️ not taken.
+
+⛔ **And the same is true of the dynamic and expression families**, whose drags re-anchor the same
+way. Their `view.dynamics` lane read is still the stale-lane trap below; the bar question is the
+larger one and comes first.
 
 ### The three take-downs, and why a preview is not just a redraw
 
@@ -1415,4 +1458,7 @@ what `OttavaRenderer` and `PedalRenderer` always did, and why neither ever had i
 ### ⏭️ Left open
 
 - `planDynamicsLines`'s letters (above), before the dynamic/expression families are ever previewed.
+- Drawing a tempo/dynamic/expression mark OUTSIDE its bar's group, which is what would make their
+  horizontal previewable. ⛔ Not taken — it moves a mark out of the arrangement `MeasureRedrawKey`
+  was built around, and the win is one gesture's horizontal.
 - The `[Hairpin frame]` / `[Trill frame]` traces in the walks are marked ⏱ TEMPORARY and are still in.

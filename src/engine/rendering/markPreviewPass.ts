@@ -55,6 +55,10 @@ import { renderHairpins } from './HairpinRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { MARK_INK } from './dynamicsLinePass'
+import { applyTempoNudges } from './tempoNudgePass'
+import { dbg } from '@/utils/debug'
+import { fracToNumber } from '@/utils/fraction'
+import { placeTempoMarksOnLine } from './tempoLinePass'
 
 /**
  * Everything a preview needs off the LAST FULL RENDER — none of which the gesture changes.
@@ -138,24 +142,37 @@ export interface PassEntry {
  * measure's group, and this pass moves it afterwards"*), which is why the census shows 0.8–1.7% of
  * bars re-engraved on their drags where every family here shows **0%**.
  */
-export type MarkPreviewKind = 'ottava' | 'pedal' | 'trill' | 'hairpin' | 'slur'
+export type MarkPreviewKind = 'ottava' | 'pedal' | 'trill' | 'hairpin' | 'slur' | 'tempo'
 
 interface MarkPreviewFamily {
-  /** The registry rows this family owns, taken down before it is drawn again. */
-  registryType: ElementType
-  /** Its drawn `<g>`s, by mark id — the pass keeps this map for us. */
-  groups(pass: RenderPass): Map<string, SVGGElement>
   /**
-   * Re-PLAN and re-draw the whole family, exactly as `renderScore` does.
+   * ⭐ What a REDRAWN family owns and must take down first — its registry rows and its drawn `<g>`s,
+   * by mark id. ⛔ **Absent for a MOVED family**, and that is not an omission: a tempo mark's ink is
+   * drawn *inside its measure's group* and repositioned afterwards by an idempotent transform
+   * (`./tempoMarkTransform`), so there is no group of its own to remove and its registry box is
+   * MOVED by the writer rather than re-added. Take it down and nothing puts it back.
+   */
+  redrawn?: {
+    registryType: ElementType
+    groups(pass: RenderPass): Map<string, SVGGElement>
+  }
+  /**
+   * Re-PLAN and re-draw (or re-place) the whole family, exactly as `renderScore` does.
    * ⛔ No filter, and ⛔ no captured plan: see the header for what each of those cost.
    */
   draw(snapshot: RenderSnapshot): void
+  /**
+   * ⛔ **Proof this frame actually placed the mark the gesture named** — the refusal below turns on
+   * it. A redrawn family asks its own group map; a moved one asks the registry, because the box is
+   * the only thing it writes.
+   */
+  placed(pass: RenderPass, markId: string): boolean
 }
 
 export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
   ottava: {
-    registryType: 'ottava',
-    groups: pass => pass.ottavaGroupMap,
+    redrawn: { registryType: 'ottava', groups: pass => pass.ottavaGroupMap },
+    placed: (pass, id) => pass.ottavaGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderOttavas(pass, score, placements, staffIds,
         planOttavaBands(pass, score, placements, staffIds)),
@@ -163,14 +180,14 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
   pedal: {
     // ⭐ No plan of its own: `renderPedals` works its baseline out at draw time, which is why this
     //   family never had the bug the header describes.
-    registryType: 'pedal',
-    groups: pass => pass.pedalGroupMap,
+    redrawn: { registryType: 'pedal', groups: pass => pass.pedalGroupMap },
+    placed: (pass, id) => pass.pedalGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderPedals(pass, score, placements, staffIds),
   },
   trill: {
-    registryType: 'trill',
-    groups: pass => pass.trillGroupMap,
+    redrawn: { registryType: 'trill', groups: pass => pass.trillGroupMap },
+    placed: (pass, id) => pass.trillGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderTrills(pass, score, placements, staffIds,
         planTrillBands(pass, score, placements, staffIds)),
@@ -178,17 +195,93 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
   hairpin: {
     // ⚠️ Its plan is the DYNAMICS line's — a wedge is a member of that family and asks it for the
     //    same baseline the letters get (`dynamicsLinePlan`).
-    registryType: 'hairpin',
-    groups: pass => pass.hairpinGroupMap,
+    redrawn: { registryType: 'hairpin', groups: pass => pass.hairpinGroupMap },
+    placed: (pass, id) => pass.hairpinGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderHairpins(pass, score, placements,
         planDynamicsLines(score, placements, staffIds, MARK_INK, pass.occupiedBands)),
   },
   slur: {
     // ⭐ No plan either: a curve is solved from its own anchors.
-    registryType: 'slur',
-    groups: pass => pass.slurGroupMap,
+    redrawn: { registryType: 'slur', groups: pass => pass.slurGroupMap },
+    placed: (pass, id) => pass.slurGroupMap.has(id),
     draw: ({ pass, score }) => renderSlurs(pass, score),
+  },
+  /**
+   * ⭐⭐ **THE ONE FAMILY THAT IS MOVED RATHER THAN REDRAWN**, and the row is the whole difference.
+   *
+   * A tempo mark's glyph is drawn *inside its measure's group* by `TempoLayout.drawTempoMarks`, and
+   * two later passes reposition it through one idempotent composed transform
+   * (`./tempoMarkTransform`: the components live on the element, every write recomposes). So there
+   * is no `<g>` of its own to take down and no registry row to remove — the box is MOVED by the
+   * writer, and removing it would leave nothing to move.
+   *
+   * ⭐ Both passes below are the same calls `renderScore` makes, in the same order, and both are
+   * idempotent by construction — `tempoLinePass` already runs over every measure *drawn or reused*
+   * on every render, which is that property stated as a requirement.
+   *
+   * ⚠️ **The NUDGE pass is the one a preview cannot do without.** Its only other writer is inside the
+   * bar draw, which a preview skips, so without it the mark would follow the hand down the ladder and
+   * refuse to follow it sideways (`./tempoNudgePass`).
+   */
+  tempo: {
+    // 🚨🚨 **IS THE GLYPH IN THE BAR THE MARK NOW BELONGS TO?** — and for this family that is the
+    //    whole question, not a formality.
+    //
+    // His report, 2026-08-22: *"while dragging tempo refuses to move and after mouse release it
+    // lands in the cursor"*. A tempo drag's horizontal is a RE-ANCHOR, not an offset — his trace is
+    // `[Tempo] walked onto its next stop` on every frame, with the latch dropping the offset back to
+    // ~0 each time. The mark's glyph is drawn INSIDE its bar's `<g class="vf-measure">`, so a mark
+    // that has walked into the next bar cannot be taken there by a transform: the two passes below
+    // would move it by an offset of nothing and leave it in the bar it came from. It sat still for
+    // the whole gesture and jumped on the drop, which is the full render finally drawing it where it
+    // belongs.
+    //
+    // ⭐ So a bar change REFUSES and the caller renders for real — the bar genuinely has to be
+    // re-engraved, which is what `MeasureRedrawKey` folding the mark's overrides into its shape key
+    // is FOR. Only a pure offset frame takes the cheap path.
+    //
+    // ⚠️ The ELEMENT, ⛔ not a registry row: `drawTempoMarks` registers the mark's box inside the
+    //    `try` that `getBBox` throws out of before layout, so the row is a browser-only artifact and
+    //    vouching on it would refuse every frame in a spec.
+    placed: (pass, id) => {
+      const svg = pass.context?.svg as SVGSVGElement | undefined
+      const el = svg?.querySelector(`#vf-${id}`)
+      if (!el) {
+        dbg(`[Preview] tempo ${id}: no glyph in this render's SVG — the frame cannot move it`)
+        return false
+      }
+      // 🚨🚨 **THE ANCHOR, ⛔ NOT THE BAR** — his report, 2026-08-22: *"while dragging the tempo gets
+      //    stuck at certain points and doesn't offset smoothly"*, with a trace of the ink jumping
+      //    ~39 px BACKWARDS on every `[Tempo] walked onto its next stop`.
+      //
+      // The first cut of this row asked whether the glyph was still inside the bar the mark belongs
+      // to, which every crossing WITHIN a bar passes. But a crossing re-anchors, and the glyph's own
+      // `x` was measured from the OLD anchor when its bar was drawn (`TempoLayout.drawTempoMarks`,
+      // which now stamps the address it used). The identity the walk relies on is
+      // `drawn = base(anchor) + offset`, and the crossing pair moves BOTH halves — while a preview
+      // can only rewrite the offset. So the frame wrote offset 0 against a base still sitting at the
+      // previous onset, and the mark snapped back there: a sawtooth, once per stop.
+      //
+      // ⭐ The bar test was not too strict but too LOOSE. What a preview may move is a mark whose
+      //   anchor has not changed; anything else is a re-engraving, which is exactly what
+      //   `MeasureRedrawKey` folding the mark's overrides into its bar's shape key is for.
+      const drawnFor = el.getAttribute('data-tempo-anchor')
+      const measure = pass.score.measures.find(m => m.tempos?.some(t => t.id === id))
+      const mark = measure?.tempos?.find(t => t.id === id)
+      const belongsTo = measure && mark ? `${measure.number}:${fracToNumber(mark.beat)}` : null
+      const agreed = drawnFor !== null && belongsTo !== null && drawnFor === belongsTo
+      if (!agreed) {
+        dbg(`[Preview] tempo ${id}: drawn for anchor ${drawnFor ?? '—'} but now anchored at`
+          + ` ${belongsTo ?? '—'} — its glyph's x was measured from the old one, so this frame owes`
+          + ` a real render`)
+      }
+      return agreed
+    },
+    draw: ({ pass, placements, staffIds }) => {
+      applyTempoNudges(pass, placements)
+      placeTempoMarksOnLine(pass, placements, staffIds)
+    },
   },
 }
 
@@ -224,10 +317,14 @@ export function previewMarkFamily(
   const { pass } = snapshot
 
   // The old ink, out of the DOM and out of the hit-test — both, or the frame leaves a copy behind.
-  const groups = family.groups(pass)
-  for (const group of groups.values()) group.remove()
-  groups.clear()
-  pass.elementRegistry.removeByType(family.registryType)
+  // ⛔ Only for a family that REDRAWS. A moved one (`tempo`) owns neither, and taking its registry
+  //    box down would leave the transform writer nothing to move.
+  if (family.redrawn) {
+    const groups = family.redrawn.groups(pass)
+    for (const group of groups.values()) group.remove()
+    groups.clear()
+    pass.elementRegistry.removeByType(family.redrawn.registryType)
+  }
 
   // The world this pass was entered with, back the way it was — collections AND ambient ink.
   const before = snapshot.before[kind]
@@ -241,5 +338,5 @@ export function previewMarkFamily(
   family.draw(snapshot)
 
   // ⛔ Did the thing being dragged actually land? If not, this frame is a real render's job.
-  return markId === undefined || groups.has(markId)
+  return markId === undefined || family.placed(pass, markId)
 }

@@ -101,13 +101,24 @@ export function placeTempoMarksOnLine(
   if (!svg) return
 
   const starts = measureStartOffsets(pass.score)
+  // 🚨 **THE MARKS COME FROM THE SCORE, ⛔ not from `placement.view.tempos`.** A `view` is a shallow
+  //    copy taken during the render (`staffMeasureView`), and `tempos` is not one of the arrays it
+  //    filters — so the property *rides the spread* and usually still points at the measure's own
+  //    live array. **Usually** is the trap: `tempoOps` does `delete measure.tempos` when a bar empties
+  //    and `target.tempos = []` when one gains its first mark, and both REPLACE the property slot the
+  //    view copied. A mark dragged into a bar that had none is then invisible to this pass — it keeps
+  //    the fixed rung `drawTempoMarks` drew it on while every other family moves.
+  // ⚠️ Silent for a full render, where the placements are the render's own. It is a preview
+  //    (`./markPreviewPass`) that makes the snapshot older than the score. Same trap the wedge hit,
+  //    docs/render-performance-plan.md §12.5a.
+  const byNumber = new Map(pass.score.measures.map(m => [m.number, m]))
 
   for (const placement of placements) {
     // A mark governs the CLOCK, not a staff, so it is engraved once per system above the top staff —
     // `drawTempoMarks`' own rule, and this must agree with it or a grand staff moves a mark that was
     // never drawn (and leaves the drawn one on the fixed rung).
     if (placement.staffIndex !== 0) continue
-    const tempos = placement.view.tempos
+    const tempos = byNumber.get(placement.measureNumber)?.tempos
     if (!tempos?.length) continue
 
     const measureStart = starts.get(placement.measureNumber)

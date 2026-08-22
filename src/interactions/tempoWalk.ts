@@ -28,7 +28,7 @@ import { fracCompare } from '../utils/fraction'
 import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
 import { breakCrossing, lastMeasureNumber, leaveSystem, systemInkAt, type BreakWrapPort } from './markBreakWrap'
 import { systemStopFor } from './markSystemJump'
-import { dbg } from '../utils/debug'
+import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type TempoWalkEngine = Pick<MusicEngine,
@@ -92,6 +92,82 @@ function markInkY(engine: TempoWalkEngine, id: string): number | null {
 /** Pixels per staff-space at the drawn mark. ⛔ Never a constant — `./markWalk`'s no-guessing rule. */
 function staffSpacePxOf(engine: TempoWalkEngine, id: string): number | null {
   return engine.getElementRegistry().getByType('tempo').find(el => el.id === id)?.staffSpacePx ?? null
+}
+
+/**
+ * ⭐ **THE DRAG'S OWN TRACE — one line per frame, and every coordinate the frame reasoned with**
+ * (his ask, 2026-08-22: *"add more logs so we can see mouse coordinates and other important
+ * coordinates"*, after a drag that stuck at the onsets instead of sliding between them).
+ *
+ * ⚠️ **Guarded by {@link debugEnabled}, not merely written with `dbg`.** A suppressed `dbg` still
+ * EVALUATES its arguments (docs/logging.md), and every reader below walks the registry —
+ * {@link drawnOnsets} rebuilds its whole list from every drawn note and rest. This runs on every
+ * mousemove of a held drag, which is exactly the hot path that caveat is about.
+ *
+ * ⭐ It reads the same four things the walk itself decides on, so a stuck frame can be read off the
+ * log without a breakpoint: where the ANCHOR is (the model), where the INK is (the picture), what
+ * the stored OFFSET is (the two of them subtracted), and where the next STOP is with the gap to it.
+ * A frame that crosses and latches in the same breath prints both, before and after.
+ */
+interface DragTrace {
+  addr: Stop | null
+  anchorX: number | null
+  inkX: number | null
+  offX: number
+  offY: number
+}
+
+/** The mark's drawn ink box in the LAST RENDER — the picture's own answer to *"where is it now?"*. */
+function markInkBox(engine: TempoWalkEngine, id: string): { x: number; y: number; width: number } | null {
+  const el = engine.getElementRegistry().getByType('tempo').find(e => e.id === id)
+  return el ? { x: el.bbox.x, y: el.bbox.y, width: el.bbox.width } : null
+}
+
+/** Everything about the mark that a frame can change, read fresh. */
+function traceOf(engine: TempoWalkEngine, id: string): DragTrace {
+  const addr = tempoAddress(engine, id)
+  const offset = tempoOffsetOverrideOf(engine.getScore(), id)
+  return {
+    addr,
+    anchorX: addr ? onsetPoint(engine, addr)?.x ?? null : null,
+    inkX: markInkBox(engine, id)?.x ?? null,
+    offX: offset?.x ?? 0,
+    offY: offset?.y ?? 0,
+  }
+}
+
+const px1 = (value: number | null): string => (value === null ? '—' : value.toFixed(1))
+const stopName = (stop: Stop | null): string =>
+  stop ? `m${stop.measure}b${stop.beat.num}/${stop.beat.den}` : '—'
+
+/** The frame's line: the hand's ask, the two positions, the offset, and the road ahead. */
+function logDragFrame(
+  engine: TempoWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+  staffSpacePx: number,
+  before: DragTrace,
+  outcome: string,
+): void {
+  const after = traceOf(engine, id)
+  const direction: 1 | -1 = dxPx >= 0 ? 1 : -1
+  const next = engine.nextTempoSlot(id, direction)
+  const nextX = next ? onsetPoint(engine, next)?.x ?? null : null
+  // ⚠️ Measured from the anchor AFTER the frame — the same subtraction `markWalk.arrivedAt` makes,
+  //    so a gap whose sign disagrees with the travel is the walk's own refusal, visible here as a
+  //    NEGATIVE gap on a rightward drag (the next stop in TIME is on the next system).
+  const gap = nextX !== null && after.anchorX !== null ? (nextX - after.anchorX) / staffSpacePx : null
+  dbg(`[TempoDrag] cursor x=${px1(cursorX)} d=(${dxPx.toFixed(1)}, ${dyPx.toFixed(1)})px`
+    + ` = (${(dxPx / staffSpacePx).toFixed(3)}, ${(-dyPx / staffSpacePx).toFixed(3)})ss`
+    + ` @ ${staffSpacePx.toFixed(2)}px/ss`
+    + ` | anchor ${stopName(before.addr)}@${px1(before.anchorX)} → ${stopName(after.addr)}@${px1(after.anchorX)}`
+    + ` | ink x ${px1(before.inkX)} → ${px1(after.inkX)}`
+    + ` | offset (${before.offX.toFixed(3)}, ${before.offY.toFixed(3)})`
+    + ` → (${after.offX.toFixed(3)}, ${after.offY.toFixed(3)})ss`
+    + ` | next ${stopName(next)}@${px1(nextX)} gap ${gap === null ? '—' : gap.toFixed(2)}ss`
+    + ` | ${outcome}`)
 }
 
 /** The port: everything `./markWalk` needs of this mark, and the whole of what is tempo-specific. */
@@ -227,9 +303,20 @@ export function dragTempo(
   dyPx: number,
 ): boolean | null {
   const ss = staffSpacePxOf(engine, id)
-  if (!ss) return null
+  if (!ss) {
+    // ⛔ The decline is the one frame worth a line of its own: the caller cannot tell it from a
+    //    refusal, and it means the LAST RENDER drew no tempo box — not that the hand did nothing.
+    dbg(`[TempoDrag] declined — no drawn tempo box to measure a staff-space with | id:${id}`)
+    return null
+  }
 
-  if (jumpSystems(engine, id, cursorX, dyPx, ss)) return true
+  // ⭐ Read BEFORE anything is written; the line is printed after, so one entry carries both states.
+  const before = debugEnabled() ? traceOf(engine, id) : null
+
+  if (jumpSystems(engine, id, cursorX, dyPx, ss)) {
+    if (before) logDragFrame(engine, id, cursorX, dxPx, dyPx, ss, before, 'SYSTEM JUMP (the walk did not run)')
+    return true
+  }
 
   const port = tempoPort(engine, id, {
     reanchor: (i, target) => engine.previewTempoSlotKeepingOffset(i, target),
@@ -237,7 +324,14 @@ export function dragTempo(
     rebase: (i, ddx) => engine.previewTempoOffsetRebase(i, ddx),
   })
   // ⚠️ `dyPx` is screen-down and the model is OUTWARD, so the sign flips exactly here.
-  return carryMark(port, dxPx / ss, -dyPx / ss, true).moved
+  const walked = carryMark(port, dxPx / ss, -dyPx / ss, true)
+  if (before) {
+    logDragFrame(engine, id, cursorX, dxPx, dyPx, ss, before,
+      `crossings=${walked.crossings}`
+      + (walked.latched ? ` LATCHED (dropped ${walked.dropped.toFixed(3)}ss, unrepaid)` : '')
+      + ` moved=${walked.moved}`)
+  }
+  return walked.moved
 }
 
 /**

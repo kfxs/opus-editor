@@ -232,9 +232,15 @@ export function carryMark(
     // The anchor has absorbed one gap, so the offset gives it up. The drawn mark is unchanged by the
     // pair, which is the whole design; `dx` is untouched and still has its journey to make.
     // ⚠️ Through `rebase` where the port has one — see the interface: this write must not be refused.
+    const beforeRebase = port.offsetX()
     if (port.rebase) port.rebase(-arrival.gap)
     else port.nudge(-arrival.gap, 0)
-    dbg(`[${port.label}] walked onto its next stop (gap ${arrival.gap.toFixed(2)}ss)`)
+    // ⭐ The offset either side of the crossing, because the pair is an IDENTITY and a reader has no
+    //   other way to see it hold: `offset − gap` is what keeps the drawn mark still while the anchor
+    //   moves, and a rebase the model REFUSED shows up here as an offset that did not change.
+    dbg(`[${port.label}] walked onto its next stop (gap ${arrival.gap.toFixed(2)}ss,`
+      + ` offset ${beforeRebase.toFixed(3)} → ${port.offsetX().toFixed(3)}ss,`
+      + ` move left ${dx.toFixed(3)}ss)`)
   }
   // ⭐⭐ THE LATCH — see the header. The move is CUT SHORT: whatever travel is left over is dropped,
   // which is the point (the anchor's own position is what the hand was reaching for).
@@ -248,7 +254,12 @@ export function carryMark(
     // anchor — the latch fires there too, and repaying nothing is the whole point of a number
     // rather than a flag.
     const dropped = offset + dx
-    dbg(`[${port.label}] latched on its anchor (dropped ${Math.abs(dropped).toFixed(2)}ss)`)
+    // ⚠️ `offset` is the offset the latch found — after any crossings above, ⛔ not the one the frame
+    //    started with. The pair `offset + dx` crossing zero IS the latch's whole test, so both are
+    //    printed: a latch that fires on every frame of a drag reads here as an offset that keeps
+    //    arriving tiny and opposite in sign to the travel.
+    dbg(`[${port.label}] latched on its anchor (offset ${offset.toFixed(3)}ss + move ${dx.toFixed(3)}ss`
+      + ` crossed zero; ink pinned, dropped ${Math.abs(dropped).toFixed(3)}ss, nudge ${moved})`)
     return { crossings, moved: crossings > 0 || moved, latched: true, dropped }
   }
 
