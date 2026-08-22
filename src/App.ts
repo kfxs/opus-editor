@@ -25,6 +25,7 @@ import { PedalGeometryController } from './interactions/PedalGeometryController'
 import { TrillGeometryController } from './interactions/TrillGeometryController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
+import { HairpinEditController } from './interactions/HairpinEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { HairpinGeometryController } from './interactions/HairpinGeometryController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
@@ -553,6 +554,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
   // …and the Properties trill control, on the same boundary (docs/trill-plan.md §1 rule 6).
   const trillEdit = new TrillEditController(getEngine, () => renderer.renderScore())
+  const hairpinEdit = new HairpinEditController(getEngine, () => renderer.renderScore())
   // …and the Properties SLUR HANDLE inputs — each end's offset and each arc control point. It takes
   // `state` as well as the engine, the one of these that does: which system a split slur's arc row
   // writes to is the ARMED dot's business, and that lives in the selection.
@@ -857,6 +859,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       articulationStemAlign.destroy()
       fanEdit.destroy()
       trillEdit.destroy()
+      hairpinEdit.destroy()
       slurGeometry.destroy()
       hairpinGeometry.destroy()
       for (const part of devShell) part.destroy()

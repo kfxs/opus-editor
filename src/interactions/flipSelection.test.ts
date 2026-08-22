@@ -57,12 +57,36 @@ describe('flipSelection — the `x` key', () => {
     expect(engine.getOttavas(1)[0].shift, 'and back').toBe(1)
   })
 
-  it('a HAIRPIN flips its type and a TRILL its side — the same key, different meanings of "flip"', () => {
+  it('⭐⭐ a HAIRPIN flips its LANE — above the staff ⇄ below it (his ask, 2026-08-22)', () => {
+    // 🚨 It flipped the TYPE until this date, because nothing else could reach the type. The
+    //    Properties dropdown now can, so the key takes the side — which is what every other row in
+    //    the table means by "flip". ⛔ And the type must NOT change with it.
     const hairpin = engine.createHairpin(noteIds, 'cresc')!
     state.selectedElement = { kind: 'hairpin', id: hairpin.id }
-    expect(flipSelection(state, engine)).toBe(true)
-    expect(engine.getHairpins(1)[0].type).toBe('dim')
 
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(engine.getHairpins(1)[0].placement, 'up out of the below-staff lane').toBe('above')
+    expect(engine.getHairpins(1)[0].type, 'and it is still a crescendo').toBe('cresc')
+
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(engine.getHairpins(1)[0].placement, 'and back down').toBe('below')
+  })
+
+  it('⭐ …and the translation drops the VERTICAL nudges, keeping the horizontal', () => {
+    // The drag's own rule (`hairpinWalk.flipPlacement`), stated once in the op: a `y` measured below
+    // the staff means nothing above it, while an `x` is how far along its span an end reaches — the
+    // same statement on either side.
+    const hairpin = engine.createHairpin(noteIds, 'cresc')!
+    engine.nudgeHairpinEndpoint(hairpin.id, 'start', 2, -3)
+    state.selectedElement = { kind: 'hairpin', id: hairpin.id }
+
+    expect(flipSelection(state, engine)).toBe(true)
+    const offset = engine.getScore().engravingOverrides?.[hairpin.id]
+      ?.find(o => o.kind === 'hairpinEndpointOffset') as { start?: { x: number; y: number } }
+    expect(offset.start, 'the reach survives, the lift does not').toEqual({ x: 2, y: 0 })
+  })
+
+  it('a TRILL flips its side — the same key, one meaning of "flip" across the table', () => {
     const trill = engine.createTrill([noteIds[0]])!
     state.selectedElement = { kind: 'trill', id: trill.id }
     expect(flipSelection(state, engine)).toBe(true)

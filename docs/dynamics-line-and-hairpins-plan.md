@@ -1085,11 +1085,12 @@ Each is separately visible and separately testable.
 - **P4 — the UX. ✅ BUILT.** Two Lines-palette rows (Cresc./Dim.), `H` / `Shift+H`,
   selection→create, the stamp (`interactions/hairpinStamp.ts`, **no ghost** — the blue pointer),
   `Ctrl+←/→` resize (**moved to `Ctrl+Shift+←/→` on 2026-08-17** — see the end of this file),
-  selection + highlight + Delete, the Properties report, and 🔎 **`x` to flip
-  cresc. ↔ dim.** (his call, 2026-08-12 — added after the phase, when `toggleHairpinType` turned out
-  to be model API with no way to reach it). ⚠️ It is the one branch of that key that changes what a
-  mark MEANS rather than which SIDE of the staff it sits on; a hairpin's side is `placement`, shared
-  with every dynamic on its line, and `<` vs `>` is the only thing about a wedge worth one key. The fifteenth
+  selection + highlight + Delete, the Properties report, and 🔎 **`x`** (his call, 2026-08-12 —
+  added after the phase, when `toggleHairpinType` turned out to be model API with no way to reach
+  it). ⚠️ It flipped cresc. ↔ dim. on the reasoning that a wedge's side is `placement`, *"shared with
+  every dynamic on its line and impossible to move alone"*, while `<` vs `>` was the only thing about
+  a wedge worth one key. 🚨 **Both halves of that expired on 2026-08-22 and the key changed** — see
+  §"The two lanes" at the end of this file. The fifteenth
   `SelectedElement` kind, `interactions/elements/hairpin.ts`, rows in `ELEMENT_SPECS` and
   `ELEMENT_HIT_ORDER`, a `MARKING_TOOL_USES_ARMED_LENGTH` row, `hairpinGroupMap` +
   `getHairpinSVGGroup`, and `PaletteController.hairpin.test.ts` for the routing.
@@ -2129,3 +2130,42 @@ dynamic family is not previewed) and the same trap the day it is.
 same score gives. Break-tested: restore the lane read and it reports `expected +0 to be 1`.
 ⚠️ Two earlier attempts at this spec were deleted for passing with the bug present — they asserted the
 wedge was *drawn*, which it always was, on the wrong staff.
+
+
+---
+
+## ⭐⭐ THE TWO LANES, and what `x` means now (2026-08-22)
+
+His question, and it is answered by the code rather than by me: *"i think we have two dynamic lanes,
+one down the staff and the other up the staff. is this correct?"* — **yes**. `Hairpin.placement` and
+`Dynamic.placement` are `'above' | 'below'` (absent = below), `dynamicsLinePlan` decides a baseline
+per SIDE for letters and wedges alike, and the body drag has moved a wedge between the two since
+2026-08-20 (`hairpinWalk.flipPlacement`, from his *"remember we can draw a hairpin up or down the
+staff"*).
+
+### `x` now moves the wedge to the other lane
+
+⛔ It no longer flips the type. The 2026-08-12 reasoning above rested on two claims, and both had
+expired:
+
+- *"a wedge's side is impossible to move alone"* — the drag has done exactly that for two days;
+- *"`<` vs `>` is the only thing about a wedge you would ever want one key for"* — true only while
+  nothing else could reach the type, and the **Properties dropdown** (built the same day, `type`, a
+  row above the end rows) now can.
+
+So the key that held the type only for want of anywhere else gives it back and takes the SIDE, which
+is what `x` means for every other kind in `flipSelection`'s table.
+
+⚠️ **The translation drops the VERTICAL nudges and keeps the horizontal** — the drag's own rule,
+stated once in `hairpinOps.flipHairpinPlacement`: a `y` measured below the staff means nothing above
+it, while an `x` is how far along its own span an end reaches, which is the same statement on either
+side. ⛔ The MOUTH survives too: how wide a wedge opens is its shape, not its place.
+
+### The dropdown
+
+`bus.hairpinEdit` + `HairpinEditController`, the trill's shape exactly — the window is a dumb
+publisher and the controller is the one place holding the engine. ⭐ **A separate seam from
+`hairpinGeometry`**, and the split is the point: the ends and the mouth are drawing (overrides), while
+which way the wedge opens is MUSIC (the model, an undo entry, and playback reads it). ⛔ Re-choosing
+the value it already has writes nothing — a `<select>` fires `change` on a re-pick, and an undo step
+whose effect nobody can see is worse than none.

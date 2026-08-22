@@ -248,6 +248,42 @@ export function toggleHairpinType(score: Score, id: string): 'cresc' | 'dim' | n
 }
 
 /**
+ * ⭐⭐ **MOVE THE WEDGE TO THE OTHER LANE — above the staff ⇄ below it**, his ask, 2026-08-22:
+ * *"if an hairpin is selected we use x (flip) … to translate the hairpin to the oposite lane"*.
+ *
+ * ⭐ **There really are two lanes**, and this is not a new capability — it is a keyboard instrument
+ * for one the DRAG already has (`interactions/hairpinWalk.flipPlacement`, from his report of
+ * 2026-08-20: *"remember we can draw a hairpin up or down the staff"*). `dynamicsLinePlan` plans a
+ * baseline per side for wedges and letters alike, so both sides are places a wedge BELONGS.
+ *
+ * ⚠️ **THE VERTICAL GOES, THE HORIZONTAL STAYS**, which is the drag's own rule and the reason it is
+ * repeated here rather than decided again: a `y` measured below the staff means nothing above it,
+ * while an `x` is how far along its own span an end reaches — the same statement on either side. ⛔ A
+ * flip that also wiped the `x` would silently undo a reshape the user made for reasons that have not
+ * changed.
+ *
+ * ⛔ The MOUTH is untouched for the same reason: how wide the wedge opens is its shape, not its
+ * place.
+ *
+ * @returns the side it now sits on, or null if no hairpin has that id.
+ */
+export function flipHairpinPlacement(score: Score, id: string): 'above' | 'below' | null {
+  const hairpin = getHairpinById(score, id)
+  if (!hairpin) return null
+  hairpin.placement = (hairpin.placement ?? 'below') === 'above' ? 'below' : 'above'
+
+  const prev = hairpinEndpointOffsetOverrideOf(score, id)
+  if (prev?.start?.y || prev?.end?.y) {
+    setEngravingOverride(score, id, {
+      kind: 'hairpinEndpointOffset',
+      ...(prev.start ? { start: { x: prev.start.x, y: 0 } } : {}),
+      ...(prev.end ? { end: { x: prev.end.x, y: 0 } } : {}),
+    })
+  }
+  return hairpin.placement
+}
+
+/**
  * Where a hairpin ENDS, as a beat within its own measure — i.e. `beat + length`, which for
  * anything crossing a barline is past that measure's capacity. Offered as a named function
  * because the arithmetic reads as if it were an in-bar beat and is not: turning it into a

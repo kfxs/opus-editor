@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PropertiesWidget } from './PropertiesWidget'
 import { bus } from '@/bus'
-import type { HairpinGeometryRequest } from '@/bus'
+import type { HairpinEditRequest, HairpinGeometryRequest } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
 
 /**
@@ -150,5 +150,65 @@ describe('the hairpin end rows', () => {
   it('no hairpin, no rows', () => {
     bus.inspection.set([{ kind: 'note', data: { id: 'n1', step: 'C' } } as unknown as InspectedElement])
     expect(host.querySelectorAll('input[type=number]')).toHaveLength(1) // the note offset's
+  })
+})
+
+/**
+ * ⭐⭐ **WHICH WAY THE WEDGE OPENS** — his ask, 2026-08-22: *"be able in a dropdown in the property to
+ * change the hairpin type"*.
+ *
+ * ⚠️ A different SEAM from the rows above, and that is the claim: the ends and the mouth are drawing
+ * (`bus.hairpinGeometry`, the overrides compartment), while the type is MUSIC (`bus.hairpinEdit`, the
+ * model and an undo entry). A panel that published both through one channel would have made a
+ * content edit look like a nudge.
+ */
+describe('the hairpin type dropdown', () => {
+  let host: HTMLElement
+  let widget: PropertiesWidget
+  let published: HairpinEditRequest[]
+  let unsubscribe: () => void
+
+  beforeEach(() => {
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    widget = new PropertiesWidget()
+    widget.mount(host)
+    published = []
+    unsubscribe = bus.hairpinEdit.onSet(req => published.push(req))
+  })
+  afterEach(() => {
+    unsubscribe()
+    widget.destroy()
+    host.remove()
+    bus.inspection.set([])
+  })
+
+  const select = () => host.querySelector('select') as HTMLSelectElement | null
+
+  it('⭐ shows the wedge it is looking at, and offers the other one', () => {
+    bus.inspection.set(hairpinElement())
+    expect([...select()!.options].map(o => o.value)).toEqual(['cresc', 'dim'])
+    expect(select()!.value, 'the selected wedge is a crescendo').toBe('cresc')
+  })
+
+  it('⭐ …and a `dim` wedge shows as one', () => {
+    bus.inspection.set(hairpinElement({
+      data: { id: 'H1', type: 'dim' } as unknown as InspectedElement['data'],
+    }))
+    expect(select()!.value).toBe('dim')
+  })
+
+  it('⭐⭐ picking one PUBLISHES it — and the window never touches the engine', () => {
+    bus.inspection.set(hairpinElement())
+    select()!.value = 'dim'
+    select()!.dispatchEvent(new Event('change'))
+    expect(published).toEqual([{ hairpinId: 'H1', type: 'dim' }])
+  })
+
+  it('⛔ no dropdown for a wedge the score no longer has', () => {
+    bus.inspection.set(hairpinElement({
+      data: { id: 'H1', missing: true } as unknown as InspectedElement['data'],
+    }))
+    expect(select(), 'a missing mark gets no controls at all').toBeNull()
   })
 })

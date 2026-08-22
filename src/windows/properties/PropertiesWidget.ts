@@ -3,7 +3,7 @@ import { bus } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
 import type { TrillContinuationLabel } from '../../types/music'
-import type { ArticulationType, FanMark } from '../../types/music'
+import type { ArticulationType, FanMark, Hairpin } from '../../types/music'
 
 /**
  * What is selected, as the model holds it.
@@ -192,8 +192,13 @@ export class PropertiesWidget implements Widget {
       // extent is musical and has its own gestures (`bus/hairpinGeometrySelection` says why a
       // staff-space box is the wrong instrument for it).
       if (element.kind === 'hairpin') {
-        const hairpin = element.data as { id?: string; missing?: boolean }
-        if (hairpin.id && !hairpin.missing) body.appendChild(this.buildHairpinEndRows(hairpin.id, element))
+        const hairpin = element.data as { id?: string; missing?: boolean; type?: Hairpin['type'] }
+        if (hairpin.id && !hairpin.missing) {
+          // ⭐ WHICH WAY IT OPENS first — it is the wedge's MUSIC, and the rows under it are its
+          //   drawing. (His ask, 2026-08-22.)
+          body.appendChild(this.buildHairpinTypeSelect(hairpin.id, hairpin.type ?? 'cresc'))
+          body.appendChild(this.buildHairpinEndRows(hairpin.id, element))
+        }
       }
 
       // A selected TRILL gets its one stored choice. Same boundary as the fan row above.
@@ -730,6 +735,66 @@ export class PropertiesWidget implements Widget {
     }
     select.addEventListener('change', () => {
       bus.trillEdit.set({ trillId, continuationLabel: select.value as TrillContinuationLabel })
+    })
+
+    wrap.appendChild(select)
+    return wrap
+  }
+
+  /**
+   * ⭐⭐ **WHICH WAY THE WEDGE OPENS** — his ask, 2026-08-22: *"be able in a dropdown in the property
+   * to change the hairpin type"*. `crescendo` opens to the right, `diminuendo` closes to it.
+   *
+   * ⚠️ The window is a DUMB PUBLISHER: it writes to `bus.hairpinEdit` and never touches the engine —
+   * `HairpinEditController` owns the apply, the same boundary the trill and fan rows keep.
+   *
+   * ⭐ **A CONTENT edit, unlike everything below it in this panel.** The end nudges and the mouth are
+   * drawing, kept in the overrides compartment; which way a wedge opens is what the player is told to
+   * do and playback reads it — so it goes through the model and takes an undo entry. Two questions,
+   * two seams (`bus/hairpinEditSelection` states the split).
+   *
+   * ⭐ It CHANGES a wedge, never makes one — the Lines palette and Delete own that, exactly as for the
+   * trill's row. And `x` on a selected hairpin still flips it (`interactions/flipSelection`): one
+   * fact, two instruments, which is this editor's ordinary shape.
+   */
+  private buildHairpinTypeSelect(hairpinId: string, current: Hairpin['type']): HTMLElement {
+    const wrap = document.createElement('label')
+    const ws = wrap.style
+    ws.display = 'flex'
+    ws.alignItems = 'center'
+    ws.gap = '6px'
+    ws.color = BISHOP
+    ws.margin = '2px 0 4px'
+    wrap.title = 'Which way the wedge opens — a content edit, so it is undoable and playback reads it.'
+
+    const caption = document.createElement('span')
+    caption.textContent = 'type'
+    wrap.appendChild(caption)
+
+    const select = document.createElement('select')
+    const ss = select.style
+    ss.font = 'inherit'
+    ss.color = BISHOP
+    ss.background = 'transparent'
+    ss.border = `1px solid ${BISHOP}`
+    ss.borderRadius = '2px'
+    ss.padding = '1px 4px'
+
+    // ⚠️ The word AND the shape: the name is what a musician says and the wedge is what is drawn, and
+    //    a panel that offered only `cresc`/`dim` would make the reader translate its own model.
+    const options: Array<[Hairpin['type'], string]> = [
+      ['cresc', 'crescendo  <'],
+      ['dim', 'diminuendo  >'],
+    ]
+    for (const [value, text] of options) {
+      const option = document.createElement('option')
+      option.value = value
+      option.textContent = text
+      if (value === current) option.selected = true
+      select.appendChild(option)
+    }
+    select.addEventListener('change', () => {
+      bus.hairpinEdit.set({ hairpinId, type: select.value as Hairpin['type'] })
     })
 
     wrap.appendChild(select)

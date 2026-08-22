@@ -740,6 +740,11 @@ export class ScoreModel {
     return hairpinOps.toggleHairpinType(this.score, id)
   }
 
+  /** Move a wedge to the other dynamics lane — see {@link hairpinOps.flipHairpinPlacement}. */
+  flipHairpinPlacement(id: string): 'above' | 'below' | null {
+    return hairpinOps.flipHairpinPlacement(this.score, id)
+  }
+
   /** The hairpins STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getHairpins(measureNumber: number): Hairpin[] {
     const measure = this.getMeasure(measureNumber)

@@ -46,12 +46,21 @@ const FLIP_ELEMENT: {
 } = {
   // A slur flips SIDE — above ↔ below.
   slur: (engine, el) => engine.flipSlur(el.id),
-  // ⚠️ A hairpin flips its TYPE — crescendo ↔ diminuendo — the one row that changes what a mark
-  // MEANS rather than which side of the staff it sits on (his call, 2026-08-12). It is not an
-  // inconsistency to tidy away later: a wedge's side is `placement`, shared with every dynamic on
-  // its line and impossible to move alone, while `<` vs `>` is the only thing about a wedge you
-  // would ever want one key for. A CONTENT edit, hence the undo entry `toggleHairpinType` commits.
-  hairpin: (engine, el) => engine.toggleHairpinType(el.id),
+  // ⭐⭐ A hairpin flips its LANE — above the staff ↔ below it — like every other row here.
+  //
+  // 🚨 **It used to flip the TYPE** (`<` ↔ `>`), his call of 2026-08-12, on the reasoning that *"a
+  // wedge's side is `placement`, shared with every dynamic on its line and impossible to move
+  // alone, while `<` vs `>` is the only thing about a wedge you would ever want one key for"*.
+  // Both halves of that have since stopped being true, which is why this changed rather than being
+  // tidied: a wedge's side moves alone perfectly well (the body drag has done it since 2026-08-20,
+  // `hairpinWalk.flipPlacement`, from his *"we can draw a hairpin up or down the staff"*), and the
+  // type now has its own instrument — the Properties dropdown, built the same day this changed. So
+  // the key that had the type only because nothing else did gives it back and takes the side, which
+  // is what `x` means everywhere else in this table.
+  //
+  // ⚠️ The translation drops the VERTICAL offsets and keeps the horizontal — the drag's rule, stated
+  // once in `hairpinOps.flipHairpinPlacement`. A CONTENT edit, hence the undo entry it commits.
+  hairpin: (engine, el) => engine.flipHairpinPlacement(el.id),
   // ⭐ A trill flips its SIDE, and unlike the hairpin above it really is a side: `placement` is the
   // trill's own field and it shares no line with anything (a trill is not a baseline family), so
   // moving it moves nothing else. `below` is the multi-voice case (docs/trill-plan.md §1 rule 2),

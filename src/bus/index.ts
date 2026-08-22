@@ -8,6 +8,7 @@ import { createDotSelection } from './dotSelection'
 import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
 import { createTrillEditSelection } from './trillEditSelection'
+import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
 import { createFanStampSelection } from './fanStampSelection'
 import { createModeSelection } from './modeSelection'
@@ -79,6 +80,7 @@ export interface EditorBus {
   /** Properties' fan inputs (count / beams / ramp range / spread). Command-only. */
   fanEdit: ReturnType<typeof createFanEditSelection>
   trillEdit: ReturnType<typeof createTrillEditSelection>
+  hairpinEdit: ReturnType<typeof createHairpinEditSelection>
   /** The two feathered-beam keys, `accel.` and `rit.` — a radio, not a pair of toggles. */
   fan: ReturnType<typeof createFanSelection>
   /** The feather the Feathered Beam window asked for, as the sentence the dialog was told. Press-only.
@@ -139,6 +141,7 @@ export function createEditorBus(): EditorBus {
     dot: createDotSelection(),
     fanEdit: createFanEditSelection(),
     trillEdit: createTrillEditSelection(),
+    hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
     fanStamp: createFanStampSelection(),
     mode: createModeSelection(),
@@ -178,6 +181,7 @@ export type { ArmedTuplet } from './tupletSelection'
 export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
+export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'
 export type { TempoOffsetRequest } from './tempoOffsetSelection'

@@ -16,6 +16,7 @@ import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber, fracEq } from '@/utils/fraction'
 import {
   addHairpin, removeHairpin, updateHairpin, setHairpinLength, toggleHairpinType,
+  flipHairpinPlacement,
   getHairpinById, hairpinMeasure, measureHairpins, hairpinEndBeat,
   setHairpinEndpointOffset, resetHairpinEndpointOffset, setHairpinAperture,
   setHairpinOffset, resetHairpinOffset, setHairpinVoiceScope, setHairpinAtStaffSlot,
@@ -98,6 +99,34 @@ describe('hairpinOps — storage', () => {
     expect(toggleHairpinType(score, id)).toBe('dim')
     expect(toggleHairpinType(score, id)).toBe('cresc')
     expect(toggleHairpinType(score, 'ghost')).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE OTHER LANE — his ask, 2026-08-22. The `x` key's row (`interactions/flipSelection`), and
+   * the keyboard's version of what the body drag does by crossing the staff's own lines.
+   */
+  it('⭐⭐ moves a wedge to the other lane — above the staff ⇄ below it', () => {
+    const id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!.id
+    expect(flipHairpinPlacement(score, id), 'absent means below, so the first flip goes up').toBe('above')
+    expect(flipHairpinPlacement(score, id)).toBe('below')
+    expect(flipHairpinPlacement(score, 'ghost')).toBeNull()
+    expect(getHairpinById(score, id)!.type, '⛔ and the TYPE is not what this flips').toBe('cresc')
+  })
+
+  it('⭐ …dropping the VERTICAL nudges and keeping the horizontal', () => {
+    // ⚠️ The drag's own rule, repeated here because this is where it is now stated: a `y` measured
+    //    below the staff means nothing above it, while an `x` is how far along its span an end
+    //    reaches — the same statement on either side.
+    const id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!.id
+    setHairpinEndpointOffset(score, id, 'start', 2, -3)
+    setHairpinEndpointOffset(score, id, 'end', -1, 4)
+
+    flipHairpinPlacement(score, id)
+
+    expect(hairpinEndpointOffsetOverrideOf(score, id)).toMatchObject({
+      start: { x: 2, y: 0 },
+      end: { x: -1, y: 0 },
+    })
   })
 
   it('removes by id, drops the empty array, and takes its overrides with it', () => {

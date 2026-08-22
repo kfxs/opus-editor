@@ -2464,6 +2464,20 @@ export class MusicEngine {
     return type
   }
 
+  /**
+   * ⭐⭐ Move a wedge to the other dynamics lane — above the staff ⇄ below it (his ask, 2026-08-22).
+   * The keyboard's instrument for what the body drag already does by crossing the staff's own lines;
+   * `hairpinOps.flipHairpinPlacement` carries the rule about which offsets survive.
+   *
+   * ⚠️ A CONTENT edit — which side a wedge stands on is engraving the writer authored, not a nudge —
+   * so it saves undo state. @returns the side it now sits on.
+   */
+  flipHairpinPlacement(id: string): 'above' | 'below' | null {
+    const placement = this.scoreModel.flipHairpinPlacement(id)
+    if (placement) this.commit(`Move hairpin ${placement} the staff`)
+    return placement
+  }
+
   /** The hairpins STARTING in a measure, sorted by beat (a wedge may run past the bar's end). */
   getHairpins(measureNumber: number): Hairpin[] {
     return this.scoreModel.getHairpins(measureNumber)

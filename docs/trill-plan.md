@@ -307,8 +307,10 @@ is CJS-only and resolves to `undefined` in the browser).
   hairpin; `{ kind: 'trill'; id: string }` joins `SelectedElement`.
 - Delete in `shortcutWiring`'s switch; a row in `selectionSnapshot` for the Properties window;
   a highlight in `HighlightController` (paint, don't recolour).
-- ⭐ **`x` flips `placement`**, joining the branch that already flips a hairpin's type and a
-  selected slur's / tie's / tuplet's / articulation's side. Without it `Trill.placement` is a field
+- ⭐ **`x` flips `placement`**, joining the branch that already flips a selected slur's / tie's /
+  tuplet's / articulation's side. (⚠️ It then flipped a HAIRPIN's type rather than its side; since
+  2026-08-22 the hairpin flips its side too — docs/dynamics-line-and-hairpins-plan.md §"The two
+  lanes".) Without it `Trill.placement` is a field
   with no way to set it — a dead field, and rule 2's `below` unreachable.
 
 ---
