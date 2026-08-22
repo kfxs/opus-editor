@@ -789,7 +789,9 @@ export function dragTrillEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; jumped: boolean; droppedPx: number } | null {
+): { moved: boolean; jumped: boolean; droppedPx: number; latched: boolean;
+     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
+     gapAheadPx: number } | null {
   const port = trillPort(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
@@ -799,13 +801,13 @@ export function dragTrillEndpoint(
   if (crossTheBareSign(engine, id, which, dxPx / staffSpacePx, {
     extension: (to) => engine.previewTrillExtension(id, to),
     nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
-  })) return { moved: true, jumped: false, droppedPx: 0 }
+  })) return { moved: true, jumped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
 
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
   // belongs on the other side of it long before it belongs to the staff beyond.
-  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
-  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0 }
-  if (dxPx === 0 && dyPx === 0) return { moved: false, jumped: false, droppedPx: 0 }
+  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
+  if (dxPx === 0 && dyPx === 0) return { moved: false, jumped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
 
   // ⭐⭐ **THE VERTICAL IS ONE NUMBER FOR THE WHOLE ORNAMENT** — the sign and the wiggle sit on one
   // baseline, so `TrillOffsetOverride` has a single height and the armed square does not matter to
@@ -818,12 +820,20 @@ export function dragTrillEndpoint(
   // frame that merely passes through offset zero is exactly the one it exists for.
   // ⛔ **NO INK LIMIT ON A FRAME** — the wedge's recorded lesson: a frame is not a step, and refusing
   // a whole one whose tail overshot stalls the walk one stop short for ever.
+  // ⭐ ONE LINE PER FRAME, the hairpin's (his ask, 2026-08-22). The lag is the CURSOR against the
+  //   drawn INK, so both are here: the ink is `anchor + offset`.
+  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)}`
+    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss`
+    + ` ink ${((port.anchorX() ?? 0) + port.offsetX() * staffSpacePx).toFixed(0)}`
+    + ` | dx ${(dxPx / staffSpacePx).toFixed(2)}ss (${dxPx.toFixed(0)}px @ ${staffSpacePx.toFixed(2)}px/ss)`)
   const carried = carryMark(port, dxPx / staffSpacePx, 0, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
   return {
     moved: carried.moved || lifted,
     jumped: false,
     droppedPx: carried.dropped * staffSpacePx,
+    latched: carried.latched,
+    gapAheadPx: carried.gapAhead * staffSpacePx,
   }
 }
 

@@ -439,6 +439,11 @@ crosses a break. **⛔ And it never guesses the staff-space size**: no drawn han
 
 ### The mouse: hold + catch-up (snap-and-go)
 
+⭐ **EXTRACTED to `interactions/dragHold.ts` on 2026-08-22** and shared with the four square drags
+(docs/ottava-plan.md): the ratio, the cap, the derived gain, the jitter guard and the cancel-on-turn
+below are now one implementation rather than two. ⚠️ Nothing here changed — the extraction was
+verbatim, and this section stays the place the reasoning and the sources live.
+
 The drag is the same journey with a cursor instead of a step, plus three things the keyboard does not
 want, and one it explicitly refused (`no hold on the keys` — his call).
 

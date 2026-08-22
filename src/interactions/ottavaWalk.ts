@@ -232,7 +232,9 @@ export function dragOttavaEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
+): { moved: boolean; wrapped: boolean; droppedPx: number; latched: boolean;
+     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
+     gapAheadPx: number } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
@@ -241,16 +243,24 @@ export function dragOttavaEndpoint(
   // ⭐⭐ SCREEN → OUTWARD, once, here. Screen-down is +dyPx; above the staff, further out is UP.
   const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
   const outward = (above ? -dyPx : dyPx) / staffSpacePx
-  if (dx === 0 && outward === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+  if (dx === 0 && outward === 0) return { moved: false, wrapped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
 
   const wrap = wrapPort(engine, id, which)
   const across = breakCrossing(port, wrap, dx, cursorX)
+  // ⭐ ONE LINE PER FRAME, the hairpin's (his ask, 2026-08-22: *"give more information in the logs
+  //   and i test"*). The lag is the CURSOR against the drawn INK, so both are here: the ink is
+  //   `anchor + offset`, and a frame where they diverge is the drag falling behind the hand.
+  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)}`
+    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss`
+    + ` ink ${((port.anchorX() ?? 0) + port.offsetX() * staffSpacePx).toFixed(0)}`
+    + ` | dx ${dx.toFixed(2)}ss (${dxPx.toFixed(0)}px @ ${staffSpacePx.toFixed(2)}px/ss)`
+    + ` | across ${across ? (across.arrived ? 'ARRIVED' : 'pending') : 'no'}`)
   if (across?.arrived) {
     // ⭐ THE MOUSE lands a stub inside the new line — ⛔ not the folded distance the KEYS re-base by,
     // whose overshoot on the frame that wraps is a single frame of travel and comes out invisible
     // (`./markBreakWrap`).
     const moved = leaveSystem(port, wrap, across.stop, () => across.landing)
-    return { moved, wrapped: true, droppedPx: 0 }
+    return { moved, wrapped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
   }
 
   // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a frame
@@ -260,7 +270,13 @@ export function dragOttavaEndpoint(
   // however many were skipped.
   const carried = carryMark(port, dx, outward, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+  return {
+    moved: carried.moved,
+    wrapped: false,
+    droppedPx: carried.dropped * staffSpacePx,
+    latched: carried.latched,
+    gapAheadPx: carried.gapAhead * staffSpacePx,
+  }
 }
 
 /**

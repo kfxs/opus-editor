@@ -402,7 +402,8 @@ describe('walkArmedTrillEndpoint', () => {
 
     it('a frame that moved nothing reports so, and writes nothing', () => {
       arm('end')
-      expect(drag(trillId, 'end', 0)).toEqual({ moved: false, jumped: false, droppedPx: 0 })
+      expect(drag(trillId, 'end', 0))
+        .toEqual({ moved: false, jumped: false, droppedPx: 0, latched: false, gapAheadPx: 0 })
       expect(offset('end')).toBe(0)
     })
   })

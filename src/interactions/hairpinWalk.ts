@@ -377,14 +377,16 @@ export function dragHairpinEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; wrapped: boolean; droppedPx: number } | null {
+): { moved: boolean; wrapped: boolean; droppedPx: number; latched: boolean;
+     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
+     gapAheadPx: number } | null {
   const port = portFor(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
   const dx = dxPx / staffSpacePx
   const dy = dyPx / staffSpacePx
-  if (dx === 0 && dy === 0) return { moved: false, wrapped: false, droppedPx: 0 }
+  if (dx === 0 && dy === 0) return { moved: false, wrapped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
   const across = crossingTheBreak(engine, id, which, port, dx, cursorX)
   // ⭐ One line per FRAME, ⚠️ BEFORE the wrap branch — a wrapping frame is the one whose numbers are
   // worth having, and logging after the branch is why the first round of this told us nothing.
@@ -401,7 +403,7 @@ export function dragHairpinEndpoint(
     dbg(`[${port.label}] after the wrap the wedge spans`
       + ` ${JSON.stringify(hairpinStartAddressOf(engine, id))} → ${JSON.stringify(hairpinEndAddress(engine.getScore(), id))}`
       + ` | length ${JSON.stringify(engine.getHairpinById(id)?.length)}`)
-    return { moved, wrapped: true, droppedPx: 0 }
+    return { moved, wrapped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
   }
   // ⛔ **NO INK LIMIT ON A DRAG** — 🚨 and it was the bug (his report, 2026-08-20: the drag walked a
   // few bars and then stopped dead, never reaching the line's end to wrap). The limit refuses a whole
@@ -415,7 +417,13 @@ export function dragHairpinEndpoint(
   // frame that merely passes through offset zero is exactly the one it exists for.
   const carried = carryMark(port, dx, dy, true)
   // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return { moved: carried.moved, wrapped: false, droppedPx: carried.dropped * staffSpacePx }
+  return {
+    moved: carried.moved,
+    wrapped: false,
+    droppedPx: carried.dropped * staffSpacePx,
+    latched: carried.latched,
+    gapAheadPx: carried.gapAhead * staffSpacePx,
+  }
 }
 
 /** The wedge's start address, for the log line above. */

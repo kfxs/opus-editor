@@ -1375,8 +1375,22 @@ census is the whole argument: eight whole-score regions, the largest 20%, and `m
 already on screen. ⛔ Optimising the biggest region caps out at a fifth; the only thing that removes
 all eight is not running them.
 
-**Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags, and — differently — the TEMPO
-and DYNAMIC drags (below). ⛔ Not the expression family yet.
+**Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags; the four SQUARE (endpoint)
+drags; and — differently — the TEMPO and DYNAMIC drags (below). ⛔ Not the expression family yet.
+
+🚨🚨 **The squares were missed when this landed, and it cost a day of chasing the wrong thing.** His
+reports, 2026-08-22: *"moving the ottava arm… sometimes is really behind of the drag"*, *"it gets
+stucks sometime"*, and — on the same gesture — *"the latch should not make so a strong resistence"*.
+⭐ It was not the latch. Only the BODY drags had been wired; every endpoint drag was still calling
+`renderScore()` synchronously inside `mousemove`, at his own census's ~10 ms a frame (worst 31), so
+the mark trailed the hand and a slow frame read as a stall. ⚠️ It read as the latch because the
+latch's cost scales with the frame's travel and with the gap — loudest exactly where the render was
+slowest (his 24 ss bar 6→7 gap on the ottava and hairpin) and *"not so perceptible"* on the pedal,
+whose stops sit close together. Two causes, one ordering.
+
+⭐ **The diagnosis came from ONE line of log**: with `cursor` and the drawn `ink` (`anchor + offset`)
+on the same frame line, cursor − ink IS the lag, and it read zero — so the model was level with the
+hand and only the paint was behind. All four endpoint walks print it now.
 
 ### ⭐⭐ REDRAWN families and the two MOVED ones
 

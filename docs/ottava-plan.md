@@ -1348,3 +1348,49 @@ for by name). The wedge flips on a jump because it has a `placement`; this one d
   not a staff.
 
 **The family is now complete**: all five outside-staff marks can be dragged onto the other hand.
+
+---
+
+## ✅ THE SQUARES GET THE SLUR'S HOLD (2026-08-22)
+
+Two reports on one gesture, and they turned out to be two different things.
+
+### 1. The lag was the RENDER, not the latch
+
+Every SQUARE drag was still doing a full `renderScore()` inside `mousemove` — §12.5a had wired only
+the BODY drags. All four (hairpin, ottava, trill, pedal) now call `previewMarks(family, id)`, and the
+drop renders for real. See docs/render-performance-plan.md §12.5a for the measurement and for why it
+read as the latch.
+
+### 2. …and with the lag gone, the latch was too WEAK
+
+*"i almost dont feel the latch now with the preview"* → *"we should make the latch stronger"*. A
+latch pins the ink for exactly ONE frame (the next frame's `offset === 0` releases it by design), so
+without the render lag masking it, it is nearly invisible.
+
+⭐ **So the squares get the gesture the SLUR ENDPOINT already has** — extracted to
+`interactions/dragHold.ts` rather than invented a second time: the hold absorbs cursor travel while
+the anchor has the ink, and the catch-up hands every absorbed pixel back at the derived gain, so the
+hand and the mark are level again by the next stop. The ratio (**0.8**), the cap (**30 px**), the
+jitter guard and `G = 1/(1 − r)` are all his, tuned by hand on the slur in 2026-08-18;
+docs/slur-endpoint-offset-plan.md §"The mouse" carries the sources and the reasoning, and ⛔ the whole
+tuning sweep is recorded above the constant so nobody rounds it.
+
+- ⭐ `carryMark` now reports `gapAhead`, measured AFTER the latch — ⛔ never the gap just crossed,
+  which is the ratchet the slur already paid for once.
+- ⚠️ What the latch dropped goes on the DEBT now, ⛔ not on the caller's cursor anchor: the catch-up
+  hands it back, and doing both would pay it out twice. (That replaces the `lastX = x - droppedPx`
+  repayment the four handlers used to do.)
+- ⛔ **One ledger, reset when a square arms** — only one drag runs at a time, and a hold left over
+  from the last gesture would swallow the next one's first pixels on a mark it was never taken for.
+- ⛔ **The BODY drags take no hold**: they do not latch (`carryMark(…, latching = false)`). Stickiness
+  belongs to a square, which is aimed at a note; a body drag is the whole mark being carried.
+- ⏭️ The TEMPO mark's drag latches too and is NOT on the ledger — it is also the one latching drag
+  that still swallows what the latch dropped instead of repaying it. Left alone deliberately.
+
+### Tests
+
+`dragHold.test.ts` — the ledger's conservation claim: a whole gap of cursor travel moves the ink a
+whole gap and the debt closes at zero (the ratchet, pinned); mid-hold the ink has not moved at all;
+turning back releases; a sub-pixel wobble does not; and no room to repay means no amplification rather
+than a division by zero.

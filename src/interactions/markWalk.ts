@@ -126,6 +126,23 @@ function arrivedAt(port: MarkWalkPort, dx: number): { stop: MarkStop; gap: numbe
   return (dx > 0 ? target >= gap : target <= gap) ? { stop, gap } : null
 }
 
+/**
+ * How far the NEXT stop is, from the anchor the mark now has — in staff spaces, unsigned. 0 when
+ * there is nothing ahead, or when it is not on this ruler (`arrivedAt`'s system-break refusal, for
+ * that rule's reason).
+ */
+function gapAhead(port: MarkWalkPort, dx: number): number {
+  const direction = dx > 0 ? 1 : -1
+  const stop = port.nextStop(direction)
+  const ss = port.staffSpacePx()
+  if (stop === null || !ss) return 0
+  const fromX = port.anchorX()
+  const toX = port.stopX(stop)
+  if (fromX === null || toX === null) return 0
+  const gap = (toX - fromX) / ss
+  return Math.sign(gap) === direction ? Math.abs(gap) : 0
+}
+
 /** Whether this press would cross, without moving anything — what a caller asks before deciding to
  *  open an undo batch. */
 export function markWalkCrosses(port: MarkWalkPort, dx: number): boolean {
@@ -223,7 +240,7 @@ export function carryMark(
    * re-anchoring once would leave the anchor trailing the cursor by however many were skipped.
    */
   maxCrossings = 32,
-): { crossings: number; moved: boolean; latched: boolean; dropped: number } {
+): { crossings: number; moved: boolean; latched: boolean; dropped: number; gapAhead: number } {
   let crossings = 0
   for (; crossings < maxCrossings; crossings++) {
     const arrival = arrivedAt(port, dx)
@@ -260,11 +277,17 @@ export function carryMark(
     //    arriving tiny and opposite in sign to the travel.
     dbg(`[${port.label}] latched on its anchor (offset ${offset.toFixed(3)}ss + move ${dx.toFixed(3)}ss`
       + ` crossed zero; ink pinned, dropped ${Math.abs(dropped).toFixed(3)}ss, nudge ${moved})`)
-    return { crossings, moved: crossings > 0 || moved, latched: true, dropped }
+    // ⭐⭐ **THE GAP AHEAD, measured AFTER the latch — ⛔ not the one just crossed.** It is what the
+    //   caller sizes its HOLD on (`./dragHold`), and the distinction was a real bug on the slur: a
+    //   hold sized on the gap BEHIND has to be repaid over the gap AHEAD, and with uneven spacing
+    //   those differ wildly enough to ratchet the cursor away from the ink, anchor after anchor.
+    // ⚠️ Zero when nothing lies ahead (the end of the road, or a stop on another system): there is no
+    //   journey left to repay over, so there must be no hold either.
+    return { crossings, moved: crossings > 0 || moved, latched: true, dropped, gapAhead: gapAhead(port, dx) }
   }
 
   // ⚠️ Guarded: a drag frame whose delta rounded to nothing must not write, or every mouse move over
   // a held-still hand marks the model dirty and repaints the score.
   const nudged = (dx !== 0 || dy !== 0) && port.nudge(dx, dy)
-  return { crossings, moved: crossings > 0 || nudged, latched: false, dropped: 0 }
+  return { crossings, moved: crossings > 0 || nudged, latched: false, dropped: 0, gapAhead: 0 }
 }

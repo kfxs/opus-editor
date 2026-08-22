@@ -421,8 +421,10 @@ describe('walkHairpinEndpoint', () => {
   describe('the mouse', () => {
     it('⭐⭐ one frame lands exactly where the same distance in presses does', () => {
       // Ten spaces = the gap between two boundaries, so both roads cross once and land on the stop.
+      // ⭐ `latched` + `gapAheadPx` are what the caller's HOLD is sized on (`./dragHold`): landing on
+      //   a stop takes a hold worth a fraction of the gap AHEAD of it.
       expect(dragHairpinEndpoint(engine, wedgeId, 'end', 200, -100))
-        .toEqual({ moved: true, wrapped: false, droppedPx: 0 })
+        .toEqual({ moved: true, wrapped: false, droppedPx: 0, latched: true, gapAheadPx: 100 })
       expect(span()).toEqual({ beat: 0, length: 2 })
       expect(offset('end').x).toBeCloseTo(0, 6)
     })
@@ -489,7 +491,7 @@ describe('walkHairpinEndpoint', () => {
 
       // ⭐ The CURSOR is what says the line has run out: 440 is past this line's music end (430).
       const frame = dragHairpinEndpoint(engine, wedgeId, 'end', 440, 10)
-      expect(frame).toEqual({ moved: true, wrapped: true, droppedPx: 0 })
+      expect(frame).toEqual({ moved: true, wrapped: true, droppedPx: 0, latched: false, gapAheadPx: 0 })
       // ⭐⭐ …and a DRAGGED wrap lands a STUB inside the new line — 2 spaces past its start (90), so
       // 110 − the stop's own x. ⛔ Not the folded distance the KEYS use: a mouse's overshoot at the
       // wrapping frame is one frame of travel, which drew a 2 px sliver or nothing at all (*"not
