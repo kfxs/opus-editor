@@ -380,6 +380,49 @@ describe('cross-barline beams — the planner', () => {
     expect(side.drawable).toBe(true)
     expect(side.members.map(m => m.measureNumber)).toEqual([1, 1, 2, 2])
   })
+  /**
+   * ⭐⭐ **`crossed` — the licence to plan ONCE instead of twice.**
+   *
+   * `renderScore` runs this planner drawn-blind (to find every join for the span machinery) and then
+   * again against the real draw decision. The census measured the pair at **14% of all render time**
+   * on a score with no cross-barline beams at all (docs/render-performance-plan.md §12.7), so the
+   * second pass is now skipped when the first reports nothing crossed.
+   *
+   * ⛔ The flag has to answer for the REFUSALS too, or that skip is unsound.
+   */
+  describe('crossed — did any group leave its bar', () => {
+    it('is false when every group stays home', () => {
+      const model = twoBarsOfEighths()               // 2+2+2+2 in each bar, nothing marked
+      expect(joined(model).crossed).toBe(false)
+    })
+
+    it('is true when a group joins across the barline', () => {
+      const model = twoBarsOfEighths()
+      model.updateNote(noteIdAt(model, 1, 7), { beam: 'continue' })
+
+      const plan = joined(model)
+      expect(plan.crossed).toBe(true)
+      expect(plan.joins, 'and here the join exists too — the easy case').toHaveLength(1)
+    })
+
+    it('🚨 is true even when the crossing group is REFUSED and leaves no join behind', () => {
+      // A joined FAN landing on two systems is refused outright — the prefix is handed back to its own
+      // bar and no join is built. `joins.length === 0`, and yet something crossed: a caller reusing
+      // the blind plan on that evidence would skip a second pass it needed.
+      const model = twoBarsOfEighths()
+      const fanned = noteIdAt(model, 2, 0)
+      model.setFan(fanned, { direction: 'accel', count: 4, beams: 2 })
+      // ⚠️ `continue` on the FAN'S OWNER is the word that joins it to the group on its left
+      // (docs/fan-beam-join-plan.md) — a fan is not a group of one, so without this it is inert.
+      model.updateNote(fanned, { beam: 'continue' })
+
+      // Bar 1 on line 0, bar 2 on line 1 — the split that makes the refusal fire.
+      const plan = joined(model, i => ({ line: i }))
+
+      expect(plan.joins.length + plan.fanJoins.length, 'refused — nothing to draw').toBe(0)
+      expect(plan.crossed, '…but it DID cross, and the flag must say so').toBe(true)
+    })
+  })
 })
 
 // --- unit: sides, the per-system split (docs/cross-barline-beaming-plan.md) ---

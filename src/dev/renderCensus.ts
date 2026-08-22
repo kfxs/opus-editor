@@ -229,7 +229,8 @@ class RenderCensus implements RenderProbe {
       row('· laneView', s.laneView, 'of which — staffMeasureView, per (measure, staff)'),
       row('· columns', s.columns, 'of which — the width rule; ⛔ CoW cannot help here'),
       row('tier1', s.tier1, 'one placement per (measure, staff), whole score'),
-      row('plan', s.plan, 'spans + cull window + planCrossBarBeams TWICE'),
+      row('plan', s.plan, 'the spans + the cull window'),
+      row('beams', s.beams, 'planCrossBarBeams, run TWICE — blind, then against `draws`'),
       row('shapeKey', s.shapeKey, 'one JSON.stringify per (measure, staff)'),
       row('· fingerprint', s.fingerprint, 'of which — laneFingerprint'),
       row('groups', s.groups, 'reuse decision, clear, pages, the measure loop, connectors'),
@@ -265,12 +266,12 @@ export interface CensusReport {
  * ⛔ `fingerprint` is NOT here: it is spent inside `shapeKey`, and counting it twice would make the
  * remainder lie. ⛔ Nor are `laneView`/`columns`, which are inside the layout bracket.
  */
-const RESIDUAL_PARTS = ['tier1', 'plan', 'shapeKey', 'groups', 'curves', 'ladder', 'hint'] as const
+const RESIDUAL_PARTS = ['tier1', 'plan', 'beams', 'shapeKey', 'groups', 'curves', 'ladder', 'hint'] as const
 
 /** Every part at zero — the one place the list is written down, so `reset` cannot forget one. */
 const ZERO_PARTS: Record<RenderLayoutPart, number> = {
   laneView: 0, fingerprint: 0, columns: 0,
-  tier1: 0, plan: 0, shapeKey: 0, groups: 0, curves: 0, ladder: 0, hint: 0,
+  tier1: 0, plan: 0, beams: 0, shapeKey: 0, groups: 0, curves: 0, ladder: 0, hint: 0,
 }
 
 function pct(part: number, whole: number): string {

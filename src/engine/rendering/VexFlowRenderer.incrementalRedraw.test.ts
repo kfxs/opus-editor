@@ -12,7 +12,7 @@
  * Reuse is observable without any test-only API: a reused measure is the **same DOM node** across
  * renders, a redrawn one is a new node. So these tests assert on node identity.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
@@ -21,6 +21,23 @@ import { laneFingerprint } from './MeasureWidthCache'
 import { measureShapeKey } from './MeasureRedrawKey'
 import type { Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+
+/**
+ * ⭐ The real {@link hintBarlines}, wrapped so a spec can see WHETHER IT WAS FORCED. Its own effect
+ * is invisible here — jsdom has no `getScreenCTM`, so the pass returns at its first line
+ * (`reference_jsdom_cannot_measure_glyphs`) — and the whole question is the argument, not the ink.
+ */
+const hintCalls = vi.hoisted(() => [] as { force?: boolean }[])
+vi.mock('./barlineInk', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./barlineInk')>()
+  return {
+    ...real,
+    hintBarlines: (svg: SVGElement, opts: { force?: boolean } = {}) => {
+      hintCalls.push(opts)
+      return real.hintBarlines(svg, opts)
+    },
+  }
+})
 
 /** Minimal shape inputs — the width is held fixed so only CONTENT can move the key. */
 function keyInputs(view: Measure) {
@@ -585,5 +602,62 @@ describe('viewStateKey — the suppressed mark\'s live ink', () => {
     expect(renderer.viewStateKey(score)).not.toBe(clean)
     renderer.setSuppressedDynamicId(null)
     expect(renderer.viewStateKey(score)).toBe(clean)
+  })
+})
+
+
+/**
+ * ⭐⭐ **Hinting is not free, and it was unconditional.** `hintBarlines` re-derives every barline's
+ * device-pixel position, one `getScreenCTM()` per rect — and `renderScore` called it with
+ * `force: true` on EVERY render, which is exactly the flag that bypasses its own early-out. The
+ * census measured that at **9% of all render time** (docs/render-performance-plan.md §12.7).
+ *
+ * `force` exists for one stated reason: a rebuilt bar carries brand-new, unhinted rects. So the gate
+ * is "did any barline actually move" — re-engraved, or TRANSLATED, since a translated group's rects
+ * land somewhere new on the device grid even though the ink is identical.
+ */
+describe('the barline hint runs only when a barline moved', () => {
+  it('🚨 a render that changes nothing does not force the hint', () => {
+    const renderer = makeRenderer()
+    const model = buildScore()
+    renderer.renderScore(model.getScore())          // the first render rebuilds everything
+
+    hintCalls.length = 0
+    renderer.renderScore(model.getScore())          // …and this one reuses every group
+
+    // 🚨 NOT CALLED — not "called with force:false". `hintBarlines` reads `getScreenCTM()` to check
+    // its own premise BEFORE it looks at `force`, and that read is a forced layout flush, so a
+    // flag-only gate skipped the cheap half and kept the expensive one. It measured 9% either way.
+    expect(hintCalls, 'nothing moved, so the pass must not run at all').toHaveLength(0)
+  })
+
+  it('⭐ …and an edit that re-engraves a bar does force it', () => {
+    const renderer = makeRenderer()
+    const model = buildScore()
+    renderer.renderScore(model.getScore())
+
+    hintCalls.length = 0
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(2, 1) })
+    renderer.renderScore(model.getScore())
+
+    expect(hintCalls, 'bar 2 was rebuilt, so its rects are new and unhinted').toHaveLength(1)
+    expect(hintCalls[0].force).toBe(true)
+  })
+
+  it('⭐⭐ …and so does a bar that merely MOVED — its rects land on a new device pixel', () => {
+    const renderer = makeRenderer()
+    const model = buildScore()
+    renderer.renderScore(model.getScore())
+
+    // ⭐ Push the staff DOWN. Every bar keeps its shape — x and y are deliberately NOT in the shape
+    // key (§7a) — so this is the pure P5.4b case: nothing is re-engraved, everything is translated.
+    // It is exactly what a `redrawn`-only gate would have missed, and it is the gesture §7a names as
+    // having cost 53% of all render time before translation existed.
+    hintCalls.length = 0
+    model.setStaffSpacing(model.getScore().staves![0].id, 4)
+    renderer.renderScore(model.getScore())
+
+    expect(hintCalls, 'translated bars land on a different device pixel').toHaveLength(1)
+    expect(hintCalls[0].force).toBe(true)
   })
 })

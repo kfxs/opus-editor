@@ -3575,8 +3575,11 @@ export class VexFlowRenderer {
     // tier 2 is not painting closes its barline, because a placeholder beam whose partner has no
     // StaveNotes would leave a note with no flag AND no stem; across a break an undrawn side just skips
     // itself. Within a line the two passes agree by construction — the forcing is what makes them.
-    const tPlan = probeNow() // ⏱ §12.7 — spans + cull window + BOTH beam plans
+    const tBeamsBlind = probeNow() // ⏱ §12.7
     const provisionalBeams = this.planCrossBarBeams(plans, () => true)
+    probeSub('beams', tBeamsBlind)
+
+    const tPlan = probeNow() // ⏱ §12.7 — the spans and the cull window
 
     const spans = this.spanAnchors(score, provisionalBeams.joins, provisionalBeams.fanJoins)
     // A span's endpoint bar must be REDRAWN when it moves, never translated — see spanAnchors.
@@ -3608,8 +3611,23 @@ export class VexFlowRenderer {
     // which of its slots draw flagless, at which stem direction. That is a difference in the
     // PICTURE, so it goes in the shape key — leave it out and a bar keeps its old flags forever the
     // first time its neighbour's mark changes.
-    const beamPlan = this.planCrossBarBeams(plans, i => draws[i])
     probeSub('plan', tPlan)
+
+    // ⭐⭐ **The second pass runs only if the first found something that crosses** — 2026-08-22.
+    // Planning ran TWICE on every render, whole score, and the census measured the pair at **14% of
+    // all render time** on a score with no cross-barline beams at all
+    // (docs/render-performance-plan.md §12.7).
+    //
+    // ⭐ `crossed` is sound as a licence, and {@link CrossBarBeamPlan.crossed} carries the argument:
+    // `drawn` only ever SPLITS runs, so the blind pass is an upper bound on crossings — and with
+    // nothing crossing, `computeCrossBarBeamGroups` has flushed at every barline, so the within-bar
+    // groups are identical too. ⛔ Do not weaken this to `joins.length === 0`: a crossing group can
+    // be refused and leave no join behind, and the second pass would then be skipped wrongly.
+    const tBeamsDrawn = probeNow() // ⏱ §12.7 — accumulates with the blind pass above
+    const beamPlan = provisionalBeams.crossed
+      ? this.planCrossBarBeams(plans, i => draws[i])
+      : provisionalBeams
+    probeSub('beams', tBeamsDrawn)
     const tShapeKey = probeNow() // ⏱ §12.7 — one JSON.stringify per (measure, staff)
     const keys = plans.map(p => measureShapeKey(
       score,
@@ -3692,6 +3710,14 @@ export class VexFlowRenderer {
 
     const placements: MeasurePlacement[] = []
     let redrawn = 0
+    /**
+     * ⭐ **Did any barline actually MOVE this render?** — the gate on {@link hintBarlines} below.
+     *
+     * Two ways it can: a bar was re-engraved (`redrawn`), so its rects are brand-new and unhinted;
+     * or a bar was TRANSLATED, which changes where its rects land on the device grid even though the
+     * ink is identical. ⛔ Neither happens on a mark-drag frame, which is the whole point.
+     */
+    let barlinesMoved = false
 
     for (let i = 0; i < plans.length; i++) {
       const plan = plans[i]
@@ -3699,6 +3725,7 @@ export class VexFlowRenderer {
 
       const reused = reuse.get(groupKey)
       if (reused) {
+        if (reused.dx !== 0 || reused.dy !== 0) barlinesMoved = true
         this.replaySnapshot(groupKey, reused.snapshot, plan, reused.dx, reused.dy)
         placements.push({ ...plan, stave: reused.snapshot.stave })
         continue
@@ -3888,8 +3915,24 @@ export class VexFlowRenderer {
     // Last, once every bar is standing: put the barlines on whole device pixels so they all look
     // alike (`./barlineInk`). The EDITOR audience only — hinting is a defence against a coarse
     // pixel grid, and a print render has no such grid; the PDF keeps the true 0.16 spaces.
+    //
+    // ⭐⭐ **NOT CALLED AT ALL unless a barline moved** — 2026-08-22, and it was **9% of all render
+    // time** (docs/render-performance-plan.md §12.7). On a mark-drag frame no bar is re-engraved and
+    // none is translated, so every rect is exactly where the last hint put it.
+    //
+    // 🚨🚨 **Gating the `force` FLAG did not work, and the reason is the whole lesson.** The first
+    // attempt passed `force: redrawn > 0 || barlinesMoved` and the next census read **9%, unchanged**
+    // — because `hintBarlines` reads `svg.getScreenCTM()` to verify its own premise BEFORE it looks
+    // at `force`, and that read is a forced style+layout flush of the document
+    // (`docs/render-performance-research.md` §7a: in Blink the bbox/CTM is a stored field, so 100% of
+    // the cost is the flush). The cheap half was being skipped and the expensive half was not.
+    // ⛔ Never "gate" a pass whose first statement is a layout read; gate the CALL.
+    //
+    // ⚠️ The zoom path is unaffected and still needs that self-verification: it comes in through the
+    // public {@link hintBarlines} (App.ts), where the measured scale is the only way to know a
+    // re-hint is due. A render cannot borrow that gate — it has already decided the answer.
     const tHint = probeNow() // ⏱ §12.7
-    if (this.audience === 'editor') this.hintBarlines(true)
+    if (this.audience === 'editor' && (redrawn > 0 || barlinesMoved)) this.hintBarlines(true)
     probeSub('hint', tHint)
 
     renderProbe().endRender() // P0 instrument

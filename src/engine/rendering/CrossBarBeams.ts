@@ -177,6 +177,26 @@ export interface CrossBarBeamPlan {
    * is rebuilt from scratch every render, so its geometry needs no key at all.
    */
   descriptorFor(measureNumber: number, staffIndex: number): string
+  /**
+   * ⭐⭐ **Did ANY group span more than one bar?** — false for most real scores, and the licence to
+   * run this planner **once instead of twice** (`VexFlowRenderer.renderScore`, measured at 14% of a
+   * render before it existed: docs/render-performance-plan.md §12.7).
+   *
+   * ⚠️ It is NOT `joins.length > 0`: a crossing group can be REFUSED — a fan across a system break,
+   * or an undrawn partner — and produce no join while still having crossed. This is the honest
+   * question, and refusals must answer it `true` or the caller's reuse would be unsound.
+   *
+   * ⭐ **Why the caller may trust the drawn-blind pass.** `drawn` is read in exactly two places:
+   * {@link splitIntoRuns}, where an undrawn bar SPLITS a run, and the fan-refusal branch, which is
+   * unreachable unless something crossed. Splitting a run only ever removes adjacencies, so a
+   * blind pass is an **upper bound** on crossings. And when nothing crosses the two passes agree on
+   * the within-bar groups as well, which is the part that would otherwise be a leap: at every
+   * barline `computeCrossBarBeamGroups` FLUSHES unless a `continue` bridges it (`utils/beaming.ts`),
+   * so with no bridge anywhere the accumulator is empty at every boundary and each bar is grouped
+   * from its own slots alone. ⛔ Neither half of that is optional — a wrong beam here is a wrong
+   * picture that never repairs itself.
+   */
+  crossed: boolean
 }
 
 /** How the renderer's per-voice slot arrays are built — the order every index here refers to. */
@@ -266,6 +286,7 @@ export function planCrossBarBeams(
   const fanJoins: CrossBarFanJoin[] = []
   const lanes = new Map<string, LaneBeamPlan>()
   const descriptors = new Map<string, string[]>()
+  let crossed = false
 
   const laneOf = (bar: CrossBarBar, voice: number): LaneBeamPlan => {
     const key = laneKey(bar.measureNumber, bar.staffIndex, voice)
@@ -296,6 +317,8 @@ export function planCrossBarBeams(
           laneOf(run[barsTouched[0]], voice).inBar.push(group.map(ref => ref.slot))
           continue
         }
+        // Past this line the group spans bars — whatever becomes of it. See {@link CrossBarBeamPlan.crossed}.
+        crossed = true
 
         const unionSlots = group.map(ref => slotsPerBar[ref.bar][ref.slot])
         const first = { bar: run[group[0].bar], slot: unionSlots[0] }
@@ -394,6 +417,7 @@ export function planCrossBarBeams(
     lanes,
     descriptorFor: (measureNumber, staffIndex) =>
       (descriptors.get(`${measureNumber}:${staffIndex}`) ?? []).sort().join(';'),
+    crossed,
   }
 
   /** One bar's note in the shape key: *which of my slots are flagless, at which stem direction*. */

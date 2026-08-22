@@ -1104,7 +1104,138 @@ negative, which is the 259% bug wearing a different hat. A spec pins that.
 The dump is now one table, every part as a share of the **whole render**, with the layout bracket's
 two members shown as "of which".
 
-⏭️ **Run it and read it.** The question it settles: does the residual sit in `shapeKey` + `tier1`
+#### ✅ What the bracketing then measured — and the first cut (2026-08-22)
+
+```
+1227 renders · 12727 ms · avg 10.4 ms · layout 17%
+ladder 20% · LAYOUT 17% · plan 16% · groups 14% · tier1 13% · hint 9% · shapeKey 6% · curves 3%
+unaccounted 1%          (the regions TILE the render — the accounting is trustworthy)
+```
+
+**⭐⭐ THERE IS NO HOTSPOT, AND THAT IS THE FINDING.** Eight regions between 0.3 and 2.1 ms a frame;
+the largest is 20%. So the flatness across eleven gestures finally has a cause — it is *seven or
+eight whole-score passes*, not one, and none of them depends on what is being dragged. ⛔ Optimising
+the single biggest region takes a frame from 10.4 ms to 8.3 ms. **Only removing all of them clears
+it**, which is the case for §12.5a stated in numbers rather than in prose.
+
+**🚨 Two hypotheses of mine died here, both named as top suspects earlier in this very section:**
+
+- **`shapeKey` is 6%.** The 128 `JSON.stringify`s were sixth of eight. And with `fingerprint` at 3%,
+  **§9's copy-on-write can reach at most ~4% of a render.** ⛔ That thread is finished; do not
+  reopen it on the strength of the argument in §9, which was written before any of this was measured.
+- **`curves` is 3%.** Ties and slurs are nearly free.
+
+⚠️ **The attribution is ORDER-DEPENDENT and the table cannot say otherwise.** A forced style+layout
+flush is paid by whichever region *reads first after a write*. `groups` writes the whole measure
+loop; `curves`, `ladder` and `hint` then read. So `ladder`'s 20% may include flush work `groups`
+caused. Separating flush from JS needs `PerformanceScriptTiming.forcedStyleAndLayoutDuration`
+(docs/render-performance-research.md §7i), which attributes forced layout **by function name**.
+
+##### ✅ `hint` — gated, and it was 9%
+
+`hintBarlines` re-derives every barline's device-pixel position, one `getScreenCTM()` per rect, and
+`renderScore` called it with `force: true` **every render** — the one flag that bypasses its own
+early-out. ⭐ `force` exists for exactly one reason, which the pass states itself: *"a fresh render
+carries brand-new, unhinted rects."* On a mark-drag frame nothing is re-engraved and nothing is
+translated, so there are no new rects and the previous stamp is still correct.
+
+Now `force = redrawn > 0 || barlinesMoved`. ⚠️ **The second term is not optional**: a bar that merely
+MOVED keeps its shape key (x and y are deliberately out of it, §7a) but its rects land on a different
+device pixel. A `redrawn`-only gate would leave a staff-spacing drag mis-hinted — the exact gesture
+§7a names as having cost 53% of all render time. Both halves are break-tested in
+`VexFlowRenderer.incrementalRedraw.test.ts`.
+⛔ Passing `false` is **not** "skip it": the pass keeps its own gate on the measured scale, so a zoom
+still re-hints and a first render still hints.
+
+##### ⏭️ `plan` — SPLIT, ⛔ not optimised
+
+`plan` was 16% and covered three different things: the spans, the cull window, and
+`planCrossBarBeams` — which runs **twice**, and on this score finds nothing at all, because it has no
+cross-bar beams.
+
+⛔ **Not cut, deliberately.** Which half is expensive was never measured, and the two hypotheses
+above died the same way. So `beams` is now its own region and the next dump says which. ⭐ The cut
+itself is already known to be sound when it comes: `drawn` is read only by `splitIntoRuns`
+(`CrossBarBeams.ts:449`), where it *splits* runs — so the blind pass is an upper bound on crossings
+and the filtered pass can never find one the blind pass missed.
+
+#### ✅ The second dump — one fix that did nothing, and one hypothesis confirmed (2026-08-22)
+
+```
+1063 renders · 12401 ms · avg 11.7 ms
+ladder 24% · groups 15% · LAYOUT 16% · beams 14% · tier1 12% · hint 9% · shapeKey 6% · curves 3%
+plan 1%  ·  unaccounted 1%
+```
+
+**🚨🚨 `hint` did not move — 9% before, 9% after — and the reason is the lesson.** The first attempt
+gated the `force` FLAG. But `hintBarlines` reads `svg.getScreenCTM()` to verify its own premise
+**before** it looks at `force`, and that read is a forced style+layout flush of the document. In
+Blink the CTM is a stored field, so **100% of the cost is the flush**
+(`docs/render-performance-research.md` §7a) — the flag was skipping the cheap half and keeping the
+expensive one. ⛔ **Never "gate" a pass whose first statement is a layout read; gate the CALL.** Now
+`renderScore` does not call it at all unless `redrawn > 0 || barlinesMoved`.
+
+⭐ That also turns `hint`'s 9% into a *measurement of a forced flush*, which is the first direct
+evidence in our own numbers for the research's central claim — and a warning about the whole table:
+`ladder`'s 24% sits immediately after a pass that writes the DOM, so some of it is very likely the
+same flush being paid again.
+
+**⭐ `plan` split settled it: `plan` 1%, `beams` 14%.** The two `planCrossBarBeams` passes really were
+the cost — on a score with **no cross-barline beams at all**. The second pass now runs only when the
+first reports `crossed`, and `CrossBarBeamPlan.crossed` carries the soundness argument:
+
+- `drawn` is read in exactly two places — `splitIntoRuns`, where an undrawn bar SPLITS a run, and the
+  fan-refusal branch, unreachable unless something crossed. Splitting only removes adjacencies, so the
+  blind pass is an **upper bound**.
+- And when nothing crosses the two passes agree on the *within-bar* groups too, which would otherwise
+  be a leap: `computeCrossBarBeamGroups` FLUSHES at every barline unless a `continue` bridges it
+  (`utils/beaming.ts:158`), so with no bridge anywhere the accumulator is empty at every boundary and
+  each bar is grouped from its own slots alone.
+
+⛔ **`crossed` is NOT `joins.length > 0`**, and the spec break-tests exactly that: a crossing group can
+be REFUSED — a joined fan landing on two systems — leaving no join while having crossed. That
+predicate would skip a second pass the render needed.
+
+#### ✅ The third dump — both cuts landed, and a swap that is not one (2026-08-22)
+
+⚠️ **Read this table in MS PER RENDER, never in shares**: the three sessions have different gesture
+mixes, and a share is a ratio against a total that moved.
+
+| region | run 2 | run 3 | |
+|---|---:|---:|---|
+| `beams` | 1.64 | **0.85** | ✅ **−48%** — the predicted halving, exactly |
+| `hint` | 1.04 | **0.65** | ✅ −37% |
+| `plan` | 0.08 | 0.07 | negligible, confirmed twice |
+| `tier1` | 1.40 | 1.46 | untouched |
+| `shapeKey` | 0.66 | 0.63 | untouched |
+| `curves` | 0.33 | 0.34 | untouched |
+| LAYOUT | 1.83 | 1.94 | untouched |
+| `groups` | 1.78 | **3.05** | ⚠️ see below |
+| `ladder` | 2.82 | **1.70** | ⚠️ see below |
+| **total** | **11.67** | **10.78** | −7.6% |
+
+`beams` is the clean result: it is whole-score work that does not depend on what is being dragged, so
+the mix cannot explain it.
+
+**🚨 `groups` and `ladder` did not change — they SWAPPED.** Their sum is **4.60 → 4.75 ms**,
+essentially conserved, while the split between them swung by 1.1 ms. ⛔ Nothing regressed and the
+ladder did not get faster: **the forced flush moved between two adjacent regions**, which is the
+order-dependence this section already warned about. ⭐ It is also the strongest evidence yet that a
+large part of the residual *is* the flush — and that **wall-clock regions structurally cannot say how
+much**, because whichever region reads first after a write pays for all of it.
+
+**⭐ Why `hint` did not fall to zero, and why that is CORRECT.** Read the per-cause `redrawn %`:
+`handleTrillBodyDrag` 0, `handleSlurBodyDrag` 0, `nudgeArmedOttavaEnd` 0 — but `handleDynamicDrag`
+**0.8%**, `nudgeArmedHairpinEnd` **0.8%**, `handleTempoDrag` **1.6%**. On those frames a bar really is
+re-engraved, because a dynamic and a tempo mark are VexFlow modifiers living *inside* the measure
+group and therefore inside its shape key. New rects must be hinted. So the gate now skips exactly the
+frames it should and fires exactly where a bar changed; the remainder only disappears when a mark
+stops being part of its bar's shape key — which is §12.5a.
+
+⏭️ **NEXT: the LoAF probe** (`docs/render-performance-research.md` §7i). Eight regions of wall clock
+have taken this as far as wall clock goes; `PerformanceScriptTiming.forcedStyleAndLayoutDuration`
+attributes forced layout **by function name**, which is the one number that decides whether "batch the
+reads" is worth doing before §12.5a or is made redundant by it. The question it settles: does the residual sit in `shapeKey` + `tier1`
 (pure JS — memoize it) or in `ladder` + `curves` (which is where every `getBBox()` lives — batch the
 reads)? ⭐ `docs/render-performance-research.md` §7 says the same split decides the fix, from the
 other direction, and gives a second instrument (`PerformanceScriptTiming.forcedStyleAndLayoutDuration`)

@@ -35,15 +35,17 @@
  *   live caller is the shape key, so it is a SUBSET of `shapeKey` below and ⛔ must never be added
  *   to it.
  *
- * ⭐⭐ **The seven below carve up the RESIDUAL** — the 83% of a render that the census could only
+ * ⭐⭐ **The eight below carve up the RESIDUAL** — the 83% of a render that the census could only
  * call "draw", on frames where `measuresRedrawn` reported **0%** and therefore nothing was drawn
  * (docs/render-performance-plan.md §12.7). They are contiguous regions of `renderScore`, in the
  * order it runs them, so what they do NOT cover shows up as the dump's `unaccounted` line rather
  * than being silently absorbed by a neighbour.
  *
  * - `tier1` — `layoutTier1`: one placement per (measure, staff), whole score, every render.
- * - `plan` — the spans, the cull window and the cross-bar beam plan (`planCrossBarBeams` runs
- *   **twice**).
+ * - `plan` — the spans and the cull window.
+ * - `beams` — `planCrossBarBeams`, which runs **twice**: once drawn-blind to find every join, then
+ *   again against the actual draw decision. ⭐ Split out from `plan` on 2026-08-22 rather than
+ *   optimised on a hunch: `plan` measured 16% of a render and nobody knew which half.
  * - `shapeKey` — `measureShapeKey` per (measure, staff): a `JSON.stringify` each. ⊃ `fingerprint`.
  * - `groups` — the reuse decision, `clearForRender`, the pages, the measure loop itself (replay or
  *   rebuild), the system connectors and the cross-bar beams.
@@ -54,7 +56,7 @@
  */
 export type RenderLayoutPart =
   | 'laneView' | 'fingerprint' | 'columns'
-  | 'tier1' | 'plan' | 'shapeKey' | 'groups' | 'curves' | 'ladder' | 'hint'
+  | 'tier1' | 'plan' | 'beams' | 'shapeKey' | 'groups' | 'curves' | 'ladder' | 'hint'
 
 /** What the engine reports about a render. Implemented for real by `dev/renderCensus`. */
 export interface RenderProbe {
