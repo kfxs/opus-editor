@@ -1251,8 +1251,111 @@ it are nearly free, because the document is clean and every engine early-outs. S
 mean "first in line", not "expensive". ⭐ **The actionable shape is MANY reads AND a large total** —
 that is interleaving, and batching those reads collapses N flushes into one.
 
-⏭️ Run it on the same fixture. The answer decides whether "batch the reads" is worth doing before
-§12.5a or is made redundant by it. The question it settles: does the residual sit in `shapeKey` + `tier1`
+#### ✅ THE FIRST `__flush` DUMP — and ⭐⭐ the flush and the volume are two different problems
+
+```
+49,707 forcing reads, 2062 ms inside them
+
+site                          reads    total ms   avg ms   worst ms
+hintBarlines                 47,432      1130.7    0.024      1.0
+<anonymous, see below>          542       555.7    1.025     10.1
+drawTempoMarks                  172       185.9    1.081     10.1
+registerDynamics                240        99.2    0.413      1.5
+MouseController.clientToSvg   1,131        66.8    0.059      0.3
+markInkX                        190        23.8    0.125      0.4
+```
+
+⭐⭐ **They are not the same problem and they are not in the same place:**
+
+- **THE FLUSH** is `drawTempoMarks` and the anonymous row — ~714 reads, ~742 ms, **~1 ms each with a
+  10.1 ms worst**. That is the classic first-read-after-a-batch-of-writes, and it is what §7a of the
+  research describes.
+- **THE VOLUME** is `hintBarlines`: **47,432 reads, 95% of every forcing read in the app**, at
+  **0.024 ms each**. ⭐ Its batching is *working* — each read is cheap precisely because the document
+  is already clean — it simply does an enormous number of them, one `rect.getScreenCTM()` per
+  barline rect, ~250 a call. That is the ~4 ms per call the render census implied, and it never pays
+  a big flush (worst single read: 1.0 ms).
+
+⛔ **So "batch the reads" is the wrong prescription for the biggest row.** They are batched. The fix
+is to stop reading per rect: `getScreenCTM()` returns the matrix for an element's *user space*, and
+an untransformed rect shares its parent's — every barline rect in one measure group has an identical
+CTM.
+
+🚨 **And three predictions of mine died here.** `registerDynamics` and the ghost drawers were named as
+the top suspects: `registerDynamics` is **5%** and the ghost drawers do not appear at all.
+`clientToSvg` was called "trivially cacheable" — it is 1,131 reads for 67 ms, about **3%**.
+
+##### 🚨🚨 The instrument reported a quarter of its own data under a row called `http`
+
+`callerFrame` matched `at (?:async )?([\w$.<>]+)`, which is right for `at Foo.bar (…)` and
+catastrophic for an **anonymous** frame, whose entire line is
+`    at http://localhost:5199/src/…/TempoLayout.ts:123:45`. There is no function name there, so it
+captured the URL scheme — and 542 reads and 555.7 ms, **the most expensive reads in the table**, were
+filed under `http`.
+
+⭐ The parser is now structural rather than lexical, which is what makes it safe: V8 writes a named
+frame as `at NAME (LOCATION)` and an anonymous one as `at LOCATION`, so **the parenthesised tail is
+what says whether a name exists** — never the shape of the first token. An anonymous frame now
+reports `TempoLayout.ts:123`, which is a better answer than a function name would have been. Its spec
+is literal V8 lines, because the frames a test can *synthesise* are exactly the well-behaved ones
+that never broke.
+
+#### ⭐⭐ THE SECOND `__flush` DUMP — the flush is FIRST IN LINE, and cannot be optimised away
+
+With the parser fixed, the anonymous quarter has a name.
+
+```
+15,626 forcing reads, 1034 ms inside them
+
+site                          reads   total ms   avg ms   worst ms
+dynamicsLinePass.ts:72          379      527.5    1.392      7.4
+hintBarlines                 13,141      299.8    0.023      1.4
+MouseController.clientToSvg   1,613      106.7    0.066      0.3
+markInkX                        379       49.8    0.131      0.4
+registerDynamics                 76       44.9    0.591     25.0
+drawTempoMarks                   38        5.1    0.134      0.4
+```
+
+⚠️ The line number is the **served** file's, not the source's (source: `dynamicsLinePass.ts:136`,
+`text.getBBox()`). With one read per file that is unambiguous; in a file with several it would
+mislead, and a future reader should check the source rather than trust the number.
+
+**⭐⭐ `dynamicsLinePass` and `markInkX` both show exactly 379 reads** — the fixture has one dynamic
+and both read once per dynamic per render, so this is ~379 renders at **one read each**. There is no
+loop to batch. That single read costs **1.39 ms** because it is the frame's FIRST geometry read after
+the measure loop wrote the DOM, so it pays the whole accumulated flush.
+
+⛔ **So "batch the reads" is the wrong prescription, and this section proposed it.** Moving or merging
+that read only hands the bill to whoever reads next — the `groups`/`ladder` swap again, one level
+down. **The flush is ~1.4 ms per frame, paid once, by whoever reads first, and the only way not to
+pay it is not to write the DOM in that frame.** That is §12.5a, now measured rather than argued.
+
+⭐ `hintBarlines` is the mirror image: **84% of all reads, 29% of the time, 0.023 ms each** — no flush
+at all, because by the time it runs the document is clean again. Pure volume, ~35 reads a frame
+(which is the visible barline count under culling), ≈0.8 ms.
+
+🚨 `registerDynamics` worst = **25 ms**. One read, 25 ms — a catastrophic flush after a full re-wrap
+(the same gesture logs *"Severe measure compression"* repeatedly). Rare, and visible when it happens.
+
+##### ⛔ The `hintBarlines` CTM memo is DEAD — measured, not argued
+
+The plan was to memoize `getScreenCTM()` per parent, since an untransformed rect shares its parent's
+user space. A probe against a real 12-bar render says:
+
+```
+rects 14 · distinctParents 14 · rectsPerParent 1.00 · histogram {1: 14} · withOwnTransform 0
+```
+
+**Every barline rect is the only rect in its parent group**, so that memo saves exactly zero reads.
+⭐ The inference that there were "several rects per group" came from dividing read counts, and was
+never checked — the fourth prediction in this section to die that way.
+
+What remains, with honest sizes: memoizing by *measure group* instead (the `vf-stavebarline` groups
+carry no transform, so those rects do share a CTM) is ~1.2 rects per group ≈ **0.15 ms/frame**;
+composing the CTM from `transform` attributes — which are not layout reads — collapses 35 reads to 1
+for the full ≈0.8 ms, but hand-multiplies matrices inside the one pass whose whole job is landing ink
+on exact device pixels (⚠️ `reference_e2e_geometry_net` already records COMPOSE THE CTM as a trap).
+⛔ Neither is worth taking before §12.5a, which is 1.4 ms and structural. The question it settles: does the residual sit in `shapeKey` + `tier1`
 (pure JS — memoize it) or in `ladder` + `curves` (which is where every `getBBox()` lives — batch the
 reads)? ⭐ `docs/render-performance-research.md` §7 says the same split decides the fix, from the
 other direction, and gives a second instrument (`PerformanceScriptTiming.forcedStyleAndLayoutDuration`)
