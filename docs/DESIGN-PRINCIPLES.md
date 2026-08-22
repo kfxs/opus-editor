@@ -253,15 +253,23 @@ be made *consciously* before more code piles onto it.
   editor, whatever it turns out to be — not before; but do not add code that deepens the assumption
   meanwhile.
 
-- **6 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
+- **7 module-level singletons make "exactly one editor" an assumption (re: principles 1 and 5).**
   Not score state — palette and chrome state — so they slip past principle 1's letter while making
   the *editor* singular in the way principle 1 forbids for the *score*:
 
   ```
   bus/           bus                ← the whole Keypad/window noticeboard, ONE object
-  windows/       windows            menus/  menus, menuActions    dev/  renderCensus
+  windows/       windows            menus/  menus, menuActions
   windows/keypad/keypadPageSelection
+  dev/           renderCensus, layoutFlushCensus   ← ⏳ TEMPORARY, see below
   ```
+
+  ⏳ **The two in `dev/` are P0 instruments and leave with `src/dev/`** (docs/render-performance-plan.md
+  §8). ⭐ Neither could be instance-scoped even in principle, and that is not an excuse but the
+  reason: `renderCensus` is installed through `engine/RenderProbe`'s single injected seam, and
+  `layoutFlushCensus` patches `Element.prototype` — **a page has one of those however many editors are
+  on it.** Step two below therefore has nothing to do to them; they are five files' worth of deletion,
+  not of threading.
 
   ⚠️ **This count is checked, not promised** — `npm run lint:singletons` fails if the code and the
   number above disagree (`scripts/check-singletons.mjs`, in `build:check`). It was written as

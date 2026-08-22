@@ -1232,10 +1232,27 @@ group and therefore inside its shape key. New rects must be hinted. So the gate 
 frames it should and fires exactly where a bar changed; the remainder only disappears when a mark
 stops being part of its bar's shape key — which is §12.5a.
 
-⏭️ **NEXT: the LoAF probe** (`docs/render-performance-research.md` §7i). Eight regions of wall clock
-have taken this as far as wall clock goes; `PerformanceScriptTiming.forcedStyleAndLayoutDuration`
-attributes forced layout **by function name**, which is the one number that decides whether "batch the
-reads" is worth doing before §12.5a or is made redundant by it. The question it settles: does the residual sit in `shapeKey` + `tier1`
+#### ✅ `__flush` — WHO pays the reflow (2026-08-22)
+
+Eight regions of wall clock took this as far as wall clock goes, and the `groups`/`ladder` swap is
+where it stopped: a region reports where the bill LANDED, never who ran it up.
+
+🚨 **The obvious instrument was the wrong one.** `PerformanceScriptTiming.forcedStyleAndLayoutDuration`
+attributes forced layout by function name — but a LoAF entry is only emitted for a frame longer than
+**50 ms**, and ours are 10–17 ms. It would report nothing. (Corrected in
+`docs/render-performance-research.md` §7i, where it had been recommended as the top instrument.)
+
+So `src/dev/layoutFlushCensus.ts` instead — `__flush.enable()` … `__flush.dump()`. It patches the
+reads that force a style+layout flush (the list is engine-verified: research §7a), times each, and
+charges it to the **caller's own stack frame**. No threshold, and it names our modules.
+
+⚠️ **How to read it.** The first read after a batch of writes pays for all of them; the reads behind
+it are nearly free, because the document is clean and every engine early-outs. So a large total can
+mean "first in line", not "expensive". ⭐ **The actionable shape is MANY reads AND a large total** —
+that is interleaving, and batching those reads collapses N flushes into one.
+
+⏭️ Run it on the same fixture. The answer decides whether "batch the reads" is worth doing before
+§12.5a or is made redundant by it. The question it settles: does the residual sit in `shapeKey` + `tier1`
 (pure JS — memoize it) or in `ladder` + `curves` (which is where every `getBBox()` lives — batch the
 reads)? ⭐ `docs/render-performance-research.md` §7 says the same split decides the fix, from the
 other direction, and gives a second instrument (`PerformanceScriptTiming.forcedStyleAndLayoutDuration`)

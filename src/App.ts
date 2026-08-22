@@ -38,6 +38,7 @@ import { wireSoundSync } from './interactions/soundSync'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/staffSizeToggle'
 import { exportScoreJson, exportScorePdfFile, importScoreJson } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
+import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
@@ -823,7 +824,12 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       // Which barlines can be CLICKED, which can be SEEN, and which will refuse a width drag.
       boxes: () => engine && barlineBoxes(engine, document.querySelector('.score-container') ?? document),
     }
+    // WHICH CALL SITE pays the forced style+layout flush — the question the region census
+    // structurally cannot answer, because a wall-clock region reports where the bill LANDED
+    // (src/dev/layoutFlushCensus.ts). ⛔ Patches prototypes, so it is off until `enable()`.
+    w.__flush = layoutFlushCensus
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
+    dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
     dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')

@@ -15,6 +15,7 @@
  * `window.__census`; see `dump()` for the usage banner.
  */
 import { ScoreModel } from '@/engine/models/ScoreModel'
+import { callerFrame } from './callerFrame'
 import type { RenderLayoutPart, RenderProbe } from '@/engine/RenderProbe'
 import type { PitchStep } from '@/types/music'
 
@@ -77,7 +78,8 @@ class RenderCensus implements RenderProbe {
    */
   setCause(cause?: string): void {
     if (!this.on) return
-    this.cause = cause ?? callerFrame()
+    // ⚠️ 0: "Error", 1: callerFrame, 2: setCause, 3: RenderController.renderScore, 4: the caller.
+    this.cause = cause ?? callerFrame({ skip: 4, ignore: /^RenderCensus|renderScore/ })
   }
 
   /** Called at the top of VexFlowRenderer.renderScore. */
@@ -276,22 +278,6 @@ const ZERO_PARTS: Record<RenderLayoutPart, number> = {
 
 function pct(part: number, whole: number): string {
   return whole === 0 ? '—' : `${((100 * part) / whole).toFixed(0)}%`
-}
-
-/** The frame that called RenderController.renderScore — e.g. "MouseController.handleMouseDown". */
-function callerFrame(): string {
-  const stack = new Error().stack?.split('\n') ?? []
-  // 0: "Error", 1: callerFrame, 2: setCause, 3: RenderController.renderScore, 4: the caller.
-  for (let i = 4; i < Math.min(stack.length, 9); i++) {
-    const line = stack[i] ?? ''
-    // Chrome: "    at MouseController.handleClick (http://…/MouseController.ts:231:20)"
-    const m = /at (?:async )?([\w$.<>]+)/.exec(line)
-    const name = m?.[1]
-    if (!name) continue
-    if (name.startsWith('RenderCensus') || name.includes('renderScore')) continue
-    return name
-  }
-  return 'unknown'
 }
 
 // `/*#__PURE__*/` so a production build can drop this module entirely. Constructing a census only

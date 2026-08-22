@@ -774,9 +774,19 @@ new PerformanceObserver(list => {
 }).observe({ type: 'long-animation-frame', buffered: true })
 ```
 
-⭐ It attributes forced-layout milliseconds **by function name**, which drops straight into
-`src/dev/renderCensus.ts` and `e2e/harness.ts` and would turn "is it the flush or the JS?" into a
-regression test rather than a one-off profile. ⚠️ Experimental, Chromium-only, not Baseline.
+⭐ It attributes forced-layout milliseconds **by function name**, which is exactly the question.
+
+🚨🚨 **BUT IT CANNOT SEE OUR FRAMES, and the agent's report did not say so.** A LoAF entry is only
+emitted for an animation frame longer than **50 ms**, and the threshold is fixed — not a
+`durationThreshold` we can lower. Our frames measure **10–17 ms**, with a 47 ms worst case in regime
+B. So on the workload we are actually trying to fix, this observer reports **nothing at all**.
+⛔ It was recommended here as "the highest-leverage instrument you have"; it is not, for us. It stays
+right for a genuinely long frame and for attributing work we did not write.
+
+⭐ **What we built instead** (2026-08-22): `src/dev/layoutFlushCensus.ts` — patch the forcing reads
+this section already identified from engine source, time each call, and charge it to its **caller's
+own stack frame**. Same answer, no threshold, and it names our modules rather than the browser's.
+⚠️ Experimental, Chromium-only, not Baseline — that part was accurate, and is moot now.
 
 ⭐ In DevTools: the Performance panel's **Forced reflow** insight (flagged above 30 ms), the
 red/purple triangle on synchronous `Layout` entries, and the **"First Invalidated"** section naming
