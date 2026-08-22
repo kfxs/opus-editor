@@ -775,3 +775,19 @@ translate the curve exactly as the whole-curve offset does. P7's break-test asse
 (*"if it ever reaches zero, the two paths have become one"*) — that premise is now false BY DESIGN, so
 the assertion was inverted and its job handed to a new chapter that pins the real failure: a dragged
 end may not send the arc off the sheet.
+
+---
+
+## ⭐⭐ P9 — AND THE OFFSET DOES NOT PUSH ANYONE ELSE'S LANE (2026-08-22)
+
+P8's sentence, taken one step further out. The shape is the engraver's; so is the **FOOTPRINT** the
+slur leaves on the families above it. A hand-moved arc is drawn where the hand put it and filed to
+`RenderPass.drawnCurves` where the engraver would have drawn it, so the outside-staff ladder plans
+against the automatic curve and a nudge moves ONE piece of ink instead of re-engraving the page.
+
+His words, and the whole rule: *"the user with the offset is overwriting the engine engraving rules
+cause they wanted different… the user moved it so he is the responsible after this to fix any possible
+collision."*
+
+Written up where the reading side lives: **`docs/trill-slur-clearance-plan.md` §9** (the four filing
+sites, the one hand move that legitimately stays in, and the two browser tests).

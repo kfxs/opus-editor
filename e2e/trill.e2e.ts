@@ -534,23 +534,30 @@ const curveYsIn = (points: { x: number; y: number }[], x0: number, x1: number): 
  * ⭐ It carries a DYNAMIC as well, at the trilled note. That is the second half of the claim: the
  * families outside the trill are placed after it, so a lifted `tr` must push the `p` out too.
  */
-async function slurOverTrill(score: import('@playwright/test').Page, opts: { slur: boolean }) {
-  return score.evaluate(async ({ slur }: { slur: boolean }) => {
+async function slurOverTrill(
+  score: import('@playwright/test').Page,
+  opts: { slur: boolean, /** staff-spaces the HAND then moves the whole arc by (−ve = outward) */ nudge?: number },
+) {
+  return score.evaluate(async ({ slur, nudge }: { slur: boolean, nudge?: number }) => {
     const h = window.__h
     const pitches = [{ step: 'C', octave: 6 }, { step: 'B', octave: 4 },
       { step: 'B', octave: 4 }, { step: 'C', octave: 6 }]
     const ids = pitches.map((p, beat) => h.engine.addNoteAtBeat({
       step: p.step, octave: p.octave, duration: 'q', measure: 1, beat: h.frac(beat, 1),
     })!.id)
-    if (slur) h.engine.createSlur([ids[0], ids[3]])
+    const created = slur ? h.engine.createSlur([ids[0], ids[3]]) : null
     h.engine.addTrill({ startNoteId: ids[1] })
     h.engine.addDynamic(1, { beat: h.frac(1, 1), text: 'p', placement: 'above' })
+    // ⭐ The hand's move goes in BEFORE the render being measured — this is the drawn page after a
+    //   drag, not a preview frame.
+    const nudged = created && nudge !== undefined ? h.engine.nudgeSlur(created.id, 0, nudge) : false
     await h.render()
 
     const stave = h.staves()[0]
     const marks = h.placed('g.vf-trill text')
     const xs = marks.map(m => m.x)
     return {
+      nudged,
       sign: marks[0],
       // ⭐ The window is the trill's OWN drawn ink — sign and wiggle — which is the stretch of x the
       //   layout pass looked for a curve over.
@@ -608,6 +615,35 @@ test('⭐⭐ the DYNAMIC above it moves too — the ladder reads the LIFTED tril
   expect(withSlur.dynamic.y, 'the `p` stays outside the trill it clears').toBeLessThan(withSlur.sign.y)
   expect(without.dynamic.y, 'and it followed the trill outward when the slur lifted it')
     .toBeGreaterThan(withSlur.dynamic.y)
+})
+
+test('⭐⭐ …but the HAND’s offset does NOT push the lane — his rule of 2026-08-22', async ({ score }) => {
+  // > *"an offset is something deliberate a user does, so the user with the offset is overwriting
+  // > the engine engraving rules cause they wanted different, so the slur offset should not push the
+  // > lane (the user moved it so he is the responsible after this to fix any possible collision)"*
+  //
+  // Dragging the arc up used to shove the `tr` — and the `p` above it — out of the way, so a nudge
+  // meant to fix ONE collision silently re-engraved everything outside it. `SlurRenderer` now files
+  // the ENGRAVER's arc as the obstacle and draws the moved one.
+  const auto = await slurOverTrill(score, { slur: true })
+  const moved = await slurOverTrill(score, { slur: true, nudge: -3 })
+
+  expect(moved.nudged, 'the fixture really did move the slur').toBe(true)
+  const arcTop = (r: typeof auto) => Math.min(...curveYsIn(r.arcs, r.from, r.to))
+  expect(arcTop(auto) - arcTop(moved),
+    'and the INK moved with it — ~3 staff-spaces outward').toBeGreaterThan(2 * auto.spacing)
+
+  expect(moved.sign.y, 'the trill did not budge').toBeCloseTo(auto.sign.y, 1)
+  expect(moved.dynamic.y, 'and neither did the dynamic above it').toBeCloseTo(auto.dynamic.y, 1)
+})
+
+test('🚨 …the break-test: the AUTO arc still pushes, so the lane is reading curves at all', async ({ score }) => {
+  // ⛔ Without this, the test above passes just as well with the whole curve read deleted (it is the
+  //   `withSlur`/`without` pair one screen up, restated as the guard for the new rule).
+  const withSlur = await slurOverTrill(score, { slur: true })
+  const without = await slurOverTrill(score, { slur: false })
+  expect(without.sign.y - withSlur.sign.y,
+    'an arc the ENGRAVER drew is still an obstacle').toBeGreaterThan(withSlur.spacing)
 })
 
 test('⭐ the ENDPOINT case: a slur STARTING on the trilled note — Gould p. 138 (d)', async ({ score }) => {

@@ -76,8 +76,31 @@ export function drawCurveArc(
   curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
   pass.context.restore()
 
-  // Mirror renderCurve's control-point math (xShift/yShift = 0 → endpoints are exact)
-  // to reconstruct the cubic for hit-testing. controlPointSpacing = (lastX-firstX)/(n+2).
+  const { points, c0, c1 } = curveArcPoints(p0, p1, cps, direction)
+
+  const xs = points.map(p => p.x)
+  const ys = points.map(p => p.y)
+  const minX = Math.min(...xs), maxX = Math.max(...xs)
+  const minY = Math.min(...ys), maxY = Math.max(...ys)
+  return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points, c0, c1 }
+}
+
+/**
+ * ⭐ **THE ARC AS NUMBERS, WITHOUT DRAWING IT** — `renderCurve`'s own control-point math
+ * (xShift/yShift = 0 → the endpoints are exact), sampled into the 17 points every reader downstream
+ * works from. `controlPointSpacing = (lastX − firstX)/(n+2)`.
+ *
+ * ⭐ Extracted from {@link drawCurveArc} on 2026-08-22 so a caller can ask *"where would this curve be
+ * if the hand had not moved it?"* without a second sampler that could drift from this one
+ * (`SlurRenderer` files THAT arc as the ladder's obstacle — his rule: an offset is the user
+ * overruling the engraver, so it must not push anyone else's lane).
+ */
+export function curveArcPoints(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  cps: [{ x: number; y: number }, { x: number; y: number }],
+  direction: number,
+): { points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } } {
   const spacing = (p1.x - p0.x) / (cps.length + 2)
   const c0 = { x: p0.x + spacing + cps[0].x, y: p0.y + cps[0].y * direction }
   const c1 = { x: p1.x - spacing + cps[1].x, y: p1.y + cps[1].y * direction }
@@ -93,10 +116,6 @@ export function drawCurveArc(
       y: a * p0.y + b * c0.y + c * c1.y + d * p1.y,
     })
   }
-
-  const xs = points.map(p => p.x)
-  const ys = points.map(p => p.y)
-  const minX = Math.min(...xs), maxX = Math.max(...xs)
-  const minY = Math.min(...ys), maxY = Math.max(...ys)
-  return { bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY }, points, c0, c1 }
+  return { points, c0, c1 }
 }
+

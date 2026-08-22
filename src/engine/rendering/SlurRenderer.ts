@@ -16,7 +16,7 @@ import type { ElementInfo, GuideLine } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
-import { drawCurveArc } from './curveArc'
+import { curveArcPoints, drawCurveArc } from './curveArc'
 import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
@@ -666,8 +666,32 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // registry's copies of the very same points are SCALED into SVG space by `withScale`, and
         // carry neither the staff nor the system, so they cannot answer this question
         // (`engine/layout/curveObstacleBand.ts` explains both).
+        //
+        // 🚨🚨 **WHAT IS FILED IS THE ARC THE ENGRAVER DREW — ⛔ NOT the one the hand moved.** His
+        // rule, 2026-08-22: *"an offset is something deliberate a user does… the user with the offset
+        // is overwriting the engine engraving rules cause they wanted different, so the slur offset
+        // should not push the lane (the user moved it so he is the responsible after this to fix any
+        // possible collision)"*. Dragging a slur up used to shove the trill lane — and every mark
+        // above it — out of the way, so a nudge meant to fix one collision silently re-engraved the
+        // page. ⭐ The same sentence the whole-curve move and the arch solve already obey
+        // ({@link slurOffsetPx}): the shape a slur has is the shape it keeps, and now the FOOTPRINT
+        // it leaves on other families is the one it would have had.
+        //
+        // ⭐ Each site below therefore files {@link autoArc} — the very cubic that was drawn,
+        // re-sampled at the ends BEFORE the hand's translations (the true-endpoint nudge and the
+        // whole-curve offset). ⛔ The one hand move that stays in is a SPLIT slur's open-JOIN nudge:
+        // that one is applied *before* `resolveCps` on purpose, so it re-arches rather than
+        // translating, and there is no engraver's arc left underneath it to file. It also sits at a
+        // system margin, where no lane is competing.
         const fileCurve = (points: { x: number; y: number }[], line: number) =>
           pass.drawnCurves.push({ staff: slurStaffIndex, line, points })
+        /** The drawn cubic, sampled at the ends the engraver chose. See {@link fileCurve}. */
+        const autoArc = (
+          p0: { x: number; y: number },
+          p1: { x: number; y: number },
+          cps: [{ x: number; y: number }, { x: number; y: number }],
+          direction: number,
+        ) => curveArcPoints(p0, p1, cps, direction).points
 
         const fromNote = fromEnd.staveNote
         const toNote = toEnd.staveNote
@@ -744,8 +768,10 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // delta — one offset, one curve — converted against each end's own stave.
           p0.x += wholeFrom.x; p0.y += wholeFrom.y
           p1.x += wholeTo.x; p1.y += wholeTo.y
+          // ⭐ Filed from `autoP0`/`autoP1` — the ends before BOTH hand moves, which this branch
+          // already had in hand for the arch solve.
+          fileCurve(autoArc(autoP0, autoP1, cps, direction), fromLine)
           const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
-          fileCurve(arc.points, fromLine)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -793,16 +819,15 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           const registerSeg = (
             arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
             partialType: 'start' | 'end' | 'middle',
-            /** ⭐ THIS SEGMENT's own system — the one thing the registry entry cannot say, since
-             *  every partial carries the whole slur's `fromMeasure`/`toMeasure`. The obstacle
-             *  collection needs it, so it is passed rather than re-derived. */
-            line: number,
             segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
             stave: Stave | undefined,
             segmentRole: 'begin' | 'middle' | 'end',
             segmentOrdinal?: number,
           ) => {
-            fileCurve(arc.points, line)
+            // ⛔ The arc is NOT filed here, though it was until 2026-08-22 — and with it went the
+            // `line` parameter that existed only to say which system to file it on. Each fragment's
+            // own site files its ENGRAVER's arc instead, because only there are the hand's two
+            // deltas visible (see {@link fileCurve}).
             // ⚠️ Each fragment carries only ITS OWN true end's guide — the start's on BEGIN, the
             // end's on END, a MIDDLE has neither. The registry's rule for a split span (two x's
             // from different systems are not on one ruler), and the reason this is not attached
@@ -863,6 +888,10 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
               p1.x += o.x; p1.y += o.y
               const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
+              // ⭐ Filed before the translation: this fragment carries the START end's own nudge,
+              // and the whole-curve offset is still to come. Its open right end keeps `o` — that
+              // one re-arched (see {@link fileCurve}).
+              fileCurve(autoArc({ x: p0.x - off.startX, y: p0.y - off.startY }, p1, cps, direction), fromLine)
               // ⭐ The whole-curve offset, after this fragment's own resolve — the same-line branch's
               // rule (see `slurOffsetPx`), and it matters MORE here: this fragment's open end is
               // margin-bound and its rise is measured off `startY`, so translating before the solve
@@ -871,7 +900,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p1.x += wholeFrom.x; p1.y += wholeFrom.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'end', fromLine, { p0, p1, direction }, stave, 'begin',
+                'end', { p0, p1, direction }, stave, 'begin',
               )
             } else if (seg.type === 'end') {
               // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
@@ -893,11 +922,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const o = segmentEndpointOffsetPx(segEndOff.end, stave)
               p0.x += o.x; p0.y += o.y
               const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
+              // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
+              fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
               p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'start', toLine, { p0, p1, direction }, stave, 'end',
+                'start', { p0, p1, direction }, stave, 'end',
               )
             } else if (seg.type === 'middle') {
               // A full-width bow across a system the slur merely passes over. Both ends
@@ -919,6 +950,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += ol.x; p0.y += ol.y
               p1.x += or.x; p1.y += or.y
               const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
+              // ⭐ A MIDDLE has no true end at all, so only the whole-curve offset below is the
+              // hand's — and it is filed before that lands.
+              fileCurve(autoArc(p0, p1, cps, direction), seg.line)
               // ⚠️ A MIDDLE is anchored to nothing but its system's margins, and it takes the offset
               // all the same: the user moved the CURVE, and a fragment of it left behind would break
               // the line the eye follows across the break.
@@ -927,7 +961,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p1.x += wholeMid.x; p1.y += wholeMid.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
-                'middle', seg.line, { p0, p1, direction }, stave, 'middle', ordinal,
+                'middle', { p0, p1, direction }, stave, 'middle', ordinal,
               )
             }
           }

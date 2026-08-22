@@ -1499,8 +1499,13 @@ what `OttavaRenderer` and `PedalRenderer` always did, and why neither ever had i
 ### ⏭️ Left open
 
 - `planDynamicsLines`'s letters (above), which the dynamic row now re-runs every frame.
-- The EXPRESSION family, the last one drawn inside its bar's group.
-- Drawing a tempo/dynamic/expression mark OUTSIDE its bar's group, which is what would make their
-  horizontal previewable. ⛔ Not taken — it moves a mark out of the arrangement `MeasureRedrawKey`
-  was built around, and the win is one gesture's horizontal.
+- ~~The EXPRESSION family~~ — ⚠️ there is no such family to do. An expression WORD is a `Dynamic`
+  whose text happens to be a word (`utils/dynamics` splits the two for *text* purposes only): it is
+  selected as `kind: 'dynamic'`, dragged by `dragDynamic`, and so it already rides the `dynamic` row
+  above. Corrected 2026-08-22, when he asked *"are you sure? i think we already did it"* — he was
+  right, and this bullet had been describing a module that does not exist.
+- Drawing a tempo/dynamic mark OUTSIDE its bar's group, which is what would make their horizontal
+  previewable (today a frame that walks onto another slot REFUSES and renders for real). ⛔ Not
+  taken — it moves a mark out of the arrangement `MeasureRedrawKey` was built around, and the win is
+  one gesture's horizontal.
 - The `[Hairpin frame]` / `[Trill frame]` traces in the walks are marked ⏱ TEMPORARY and are still in.

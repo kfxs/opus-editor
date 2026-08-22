@@ -449,3 +449,40 @@ problem rather than a modelling one.
   tests go red, the dynamic one included. In the unit spec: drop the `line` filter → the other-system
   case reddens; drop `staff` → the other-staff case; stop clipping to the window → the near-endpoint
   case plus two more.
+
+---
+
+## 9. ⭐⭐ WHICH arc is the obstacle — the ENGRAVER's, not the hand's (2026-08-22)
+
+His report, and the rule in his own words:
+
+> *"when we offset a slur it pushes the trill lane… an offset is something deliberate a user does, so
+> the user with the offset is overwriting the engine engraving rules cause they wanted different, so
+> the slur offset should not push the lane (the user moved it so he is the responsible after this to
+> fix any possible collision)."*
+
+Dragging a slur up used to shove the `tr` above it, and the dynamic above that, and the tempo above
+that — so a nudge aimed at ONE collision silently re-engraved the rest of the page, and the mark the
+user was trying to make room for ran away from them.
+
+**`SlurRenderer` now files the arc the ENGRAVER drew and draws the one the hand moved.** The two are
+the same cubic: every hand move here is a pure translation applied *after* the shape is solved (§the
+whole-curve offset's own rule — *"the shape a slur has is the shape it keeps"*), so the engraver's
+arc is that cubic re-sampled at the un-translated ends. `curveArc.curveArcPoints` was extracted from
+`drawCurveArc` for exactly this, so there is no second sampler to drift from the drawn one.
+
+- ⭐ **Four filing sites, each subtracting what IT applied** — the same-line arc (which already had
+  `autoP0`/`autoP1` in hand for the arch solve), and a split slur's BEGIN / END / MIDDLE. `registerSeg`
+  no longer files anything (nor takes a `line`): only the site knows the two deltas.
+- ⛔ **The one hand move that stays in** is a split slur's open-JOIN nudge. It is applied *before*
+  `resolveCps` on purpose, so it RE-ARCHES rather than translating, and there is no engraver's arc
+  left underneath it to file. It also sits at a system margin, where no lane is competing.
+- ⛔ **Ties are untouched** — a tie has no offset of any kind, so nothing to strip.
+- ⚠️ The consequence, and it is the one he accepted: a slur dragged INTO the trill's band now overlaps
+  it. That is the point — the ink is his, and so is the collision.
+
+**Proving it** ✅ `e2e/trill.e2e.ts`, two more tests: the same lopsided fixture with a −3 sp
+`nudgeSlur`, asserting the INK moved out by >2 sp while the `tr` and the `p` above it stayed put
+(`toBeCloseTo`), plus the break-test that the AUTO arc still pushes — without which the first passes
+just as well with the curve read deleted. Break-tested 2026-08-22: filing the drawn arc again reddens
+it.
