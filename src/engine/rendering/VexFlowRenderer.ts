@@ -3901,7 +3901,7 @@ export class VexFlowRenderer {
     // system, so the bar whose line changed is usually not the bar that was edited
     // (docs/dynamics-line-and-hairpins-plan.md P1). Before the spans, which will want to read the
     // same line for a hairpin's ends. The plan it applies was decided just above.
-    placeDynamicsOnLine(pass, placements, dynamicsPlan)
+    placeDynamicsOnLine(pass, placements, dynamicsPlan, staffList.map(staff => staff.id))
 
     // ⚠️ `renderTies` and `renderSlurs` were here, in this order, until 2026-08-18. Both now run
     // before the ladder is planned — see their seat above `planTrillBands`, and why they have to be
@@ -3912,6 +3912,13 @@ export class VexFlowRenderer {
     // letters actually landed in order to stop short of them (docs/dynamics-line-and-hairpins-plan.md
     // P3). Its endpoint bars are span anchors, so their notes are drawn rather than translated.
     inkAt('hairpin')
+    // ⭐⭐ The DYNAMIC family's rewind point IS the hairpin's, both halves — because its preview frame
+    //   draws what this line draws. The letters and the wedges share one plan (captured above, before
+    //   `before.hairpin`) and the wedges are the only ink either of them puts down, so the
+    //   collections rewind to the plan's moment and the ambient state to THIS one. ⛔ Not its own
+    //   pair taken around `placeDynamicsOnLine`: that pass draws nothing, so a context captured there
+    //   would be an answer to a question nobody asks.
+    before.dynamic = { ...before.hairpin }
     renderHairpins(pass, score, placements, dynamicsPlan)
 
     // ⭐ And the trills. AFTER the hairpins but sharing nothing with them: a trill is not a member

@@ -2014,6 +2014,9 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.dynamicDragChanged) {
       engine.commitDynamicDrag()
+      // ⛔ THE DROP RENDERS FOR REAL — see `endTempoDrag` and `endHairpinBodyDrag`. The preview
+      // frames leave the ladder unrestacked and the wedges of this mark's own family unredrawn.
+      this.render.renderScore()
       dbg(`Dynamic dragged | id:${this.draggedDynamicId}`)
     }
     this.isDraggingDynamic = false
@@ -2978,7 +2981,12 @@ export class MouseController {
       this.dynamicDragLastX = x
       this.dynamicDragLastY = y
       this.dynamicDragChanged = true
-      this.render.renderScore()
+      // ⭐⭐ Previewed (§12.5a), and this family is MOVED rather than redrawn — the tempo's shape: a
+      // dynamic's letters are an Annotation drawn inside its bar's group, so the frame re-applies its
+      // composed transform instead of drawing anything (`engine/rendering/markPreviewPass`, the
+      // `dynamic` row). A frame that has walked the mark onto another slot REFUSES and renders for
+      // real; the annotation hangs off a note, and no transform reaches another one.
+      this.render.previewMarks('dynamic', this.draggedDynamicId)
     }
     return true
   }

@@ -574,3 +574,46 @@ candidates (`hairpinLane` / `ottavaLane` / `pedalLane` / `trillLane`), so each o
 past the other hand of a grand staff. Each needs the same two pieces — all-staff candidates and a
 model write that moves its `staffId` — and none of them is done. ⚠️ The trill is the odd one: it
 anchors to a NOTE, so its staff follows the note it lands on and it needs no `staffId` write at all.
+
+---
+
+## ✅ THE DRAG IS PREVIEWED (2026-08-22)
+
+docs/render-performance-plan.md §12.5a — a mark drag now redraws one FAMILY against the last full
+render instead of re-deriving the score. The dynamic joined the table the day after the tempo did,
+and it is the tempo's shape: a MOVED family, since its letters are an `Annotation` attached to the
+anchor note, drawn *inside its bar's group*, and repositioned by one composed transform.
+
+- ⭐ `rendering/dynamicNudgePass` (new) — the composer's nudge, re-applied by id. Its only other
+  writer is inside the bar draw a preview skips.
+- `rendering/dynamicsLinePass` — the LINE, re-planned (⛔ never a captured plan) and re-applied.
+
+### 🚨 The nudge had to be SPLIT OUT of the co-located row's shift
+
+`dynamicMarkTransform` kept `data-dyn-shift` as *the row's x plus the hand nudge*, and inside the bar
+draw the two are indistinguishable — the element is new, so adding is setting. A preview is what tells
+them apart: it re-applies the nudge to a mark nobody re-engraved, and **there is no way to SET half of
+a sum**. `data-dyn-nudge` is now its own component, `setDynamicMarkNudge` sets it, and
+`shiftDynamicMark` still adds because the row genuinely composes with it.
+
+### 🚨🚨 A re-anchor REFUSES — and so does a jump to the other hand
+
+The annotation hangs off a `StaveNote` inside a measure group, so neither a walk onto the next slot
+nor a landing on the other staff is something a transform can express. `registerDynamics` stamps
+`data-dyn-at="<bar>:<beat>:<staffId>"` and the row's vouch compares it; a mismatch renders for real.
+⭐ The STAFF is part of the address on purpose — a dragged dynamic lands on the other hand (this doc,
+above), which is another measure group entirely.
+
+### ⭐⭐ The wedges come with the letters
+
+His report: *"when the dynamic overlaps a hairpin, it modifies it… the render of the hairpin is
+behind"*. A hairpin is a member of this family — same plan, and it breaks around a letter it runs into
+(docs/dynamics-line-and-hairpins-plan.md P3) — so the frame that moves a letter takes the wedges down
+and draws them again, in one plan over one rewind point. ⛔ Not two previews in sequence; see the perf
+plan for why that is a different and broken thing.
+
+### Tests
+
+`markPreviewPass.test.ts` — a pure-offset frame previews (the nudge arrives, the row and the centring
+anchor survive), running it twice is the same picture (the nudge is SET), the wedges are still there
+after the frame and after five, and a re-anchor refuses. All break-tested.

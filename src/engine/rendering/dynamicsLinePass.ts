@@ -41,6 +41,7 @@ import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { placeDynamicMark } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
+import { staffDynamics } from '@/engine/models/staffContent'
 
 /**
  * What the pass needs of a `MeasurePlacement` — declared structurally rather than imported, so the
@@ -89,9 +90,24 @@ export function placeDynamicsOnLine(
   pass: RenderPass,
   placements: readonly DynamicsLinePlacement[],
   plan: DynamicsLinePlan,
+  /**
+   * ⭐ Which staff each placement is, so the marks can be re-filtered off the LIVE score. Optional
+   * only so a spec may stand this pass up without a staff list; omit it and the lane view is used,
+   * with the staleness the note below describes.
+   */
+  staffIds?: readonly (string | undefined)[],
 ): void {
   for (const placement of placements) {
-    const dynamics = placement.view.dynamics
+    // 🚨 **THE MARKS COME FROM THE SCORE where the caller says which staff this is.** A `view` is a
+    //    lane copy taken during the render (`staffMeasureView`), so it answers about the world as of
+    //    the LAST FULL RENDER: a mark dragged into a bar that had none, or onto the other hand, is
+    //    missing from it entirely. Silent for a full render, where the placements are the render's
+    //    own — it is a PREVIEW (`./markPreviewPass`) that makes the snapshot older than the score.
+    //    The tempo family hit exactly this, 2026-08-22.
+    const measure = staffIds && pass.score.measures.find(m => m.number === placement.view.number)
+    const dynamics = measure
+      ? staffDynamics(measure, staffIds[placement.staffIndex], pass.score)
+      : placement.view.dynamics
     if (!dynamics?.length) continue
 
     /** Marks sharing a beat are laid out as a ROW, and that row owns their x (`dynamicMarkAnchor`). */

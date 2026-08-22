@@ -25,6 +25,7 @@ import { addHairpin, setHairpinAtStaffSlot } from '../models/hairpinOps'
 import { addTrill } from '../models/trillOps'
 import { addSlur } from '../models/slurOps'
 import { setTempoAtSlot } from '../models/tempoOps'
+import { setDynamicAtSlot } from '../models/dynamicOps'
 import { fracCreate as frac } from '@/utils/fraction'
 
 let renderer: VexFlowRenderer
@@ -375,5 +376,102 @@ describe('the TEMPO family is moved, not redrawn', () => {
 
     expect(tempoRenderer.previewMarks('tempo', tempoId),
       'same bar, but the glyph was drawn from beat 0').toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ **THE SECOND MOVED FAMILY** — the tempo's row, one family over, and the same two claims.
+ *
+ * A dynamic's letters are a VexFlow `Annotation` attached to its anchor note, drawn *inside its bar's*
+ * group and repositioned by one composed transform (`./dynamicMarkTransform`). So a preview draws
+ * nothing: it re-applies the composer's nudge (`./dynamicNudgePass`) and re-runs the dynamics LINE.
+ *
+ * 🚨 The nudge is the half a preview cannot do without, and the half that had to be SPLIT OUT to be
+ * re-appliable: it used to be summed into the co-located row's shift, and there is no way to set half
+ * of a sum.
+ */
+describe('the DYNAMIC family is moved, not redrawn', () => {
+  let dynRenderer: VexFlowRenderer
+  let dynModel: ScoreModel
+  let dynId: string
+
+  // ⚠️ Through the renderer's own accessor: the annotation's `<g>` is addressed by the object map,
+  //    ⛔ not by a selector — `setAttribute('id', …)` is VexFlow's `attrs`, not the DOM node's id.
+  const letter = () => dynRenderer.getDynamicSVGGroup(dynId)!
+
+  beforeEach(() => {
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    dynRenderer = new VexFlowRenderer(container)
+    dynRenderer.initialize(1200, 800)
+
+    dynModel = new ScoreModel()
+    for (let i = 1; i < 4; i++) dynModel.addMeasure()
+    for (let m = 1; m <= 4; m++) {
+      for (let b = 0; b < 4; b++) {
+        dynModel.addNote({ step: 'C', octave: 5, duration: 'q', measure: m, beat: frac(b, 1) })
+      }
+    }
+    dynId = dynModel.addDynamic(1, { beat: frac(0, 1), text: 'p', placement: 'below' })!.id
+    // ⭐ A WEDGE beside it, and it is not scenery: a hairpin is a member of this family, reads the
+    //   same plan, and breaks around the letters it runs into — so the frame that moves the letter
+    //   owes it a redraw (his report, 2026-08-22).
+    addHairpin(dynModel.getScore(), 1, { beat: frac(1, 1), length: frac(2, 1), type: 'cresc' })
+    dynRenderer.renderScore(dynModel.getScore())
+  })
+
+  it('⭐⭐ a pure OFFSET frame previews — the nudge reaches the mark with no bar re-engraved', () => {
+    const before = letter().getAttribute('transform')
+
+    dynModel.nudgeDynamicOffset(dynId, 3, 0)
+    expect(dynRenderer.previewMarks('dynamic', dynId), 'it took the cheap path').toBe(true)
+
+    // ⛔ THE CLAIM: three staff-spaces of x arrive on the element, and the OTHER components survive —
+    //   the line's row and the centring anchor are still whatever the render decided, because the
+    //   transform is composed from parts kept on the element rather than overwritten.
+    const [, x, y] = /translate\(([-\d.]+), ([-\d.]+)\)/.exec(letter().getAttribute('transform')!)!
+    const [, x0, y0] = /translate\(([-\d.]+), ([-\d.]+)\)/.exec(before!)!
+    expect(Number(x) - Number(x0), 'three staff spaces of nudge').toBeCloseTo(30, 5)
+    expect(Number(y), 'the row and the anchor are untouched').toBeCloseTo(Number(y0), 5)
+  })
+
+  it('⭐ …and running it again moves nothing — the nudge is SET, not added', () => {
+    dynModel.nudgeDynamicOffset(dynId, 3, 0)
+    dynRenderer.previewMarks('dynamic', dynId)
+    const once = letter().getAttribute('transform')
+    dynRenderer.previewMarks('dynamic', dynId)
+    expect(letter().getAttribute('transform'),
+      'the same frame twice is the same picture').toBe(once)
+  })
+
+  it('🚨🚨 the WEDGES are drawn again with the letters — one family, one plan, one frame', () => {
+    // His report: *"when the dynamic overlaps a hairpin, it modifies it… the render of the hairpin is
+    // behind"*. The letters are MOVED and the wedges are REDRAWN, so the row take them down — and a
+    // frame that forgot to draw them again would leave the score with no hairpin at all, which is
+    // what this counts. ⛔ Break-tested: without `renderHairpins` in the row's `draw`, this is 0.
+    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.vf-hairpin').length
+    const before = wedges()
+    expect(before, 'the fixture draws a wedge to begin with').toBeGreaterThan(0)
+
+    dynModel.nudgeDynamicOffset(dynId, 1, 0)
+    expect(dynRenderer.previewMarks('dynamic', dynId)).toBe(true)
+
+    expect(wedges(), 'taken down and put back, not left behind').toBe(before)
+  })
+
+  it('🚨 …and five frames leave five wedges\' worth of nothing behind', () => {
+    const wedges = () => dynRenderer.getSVGElement()!.querySelectorAll('.vf-hairpin').length
+    const once = wedges()
+
+    for (let i = 0; i < 5; i++) dynRenderer.previewMarks('dynamic', dynId)
+
+    expect(wedges(), 'the take-down is the redraw\'s other half').toBe(once)
+  })
+
+  it('🚨🚨 a RE-ANCHOR refuses — the annotation hangs off a note, and no transform reaches another', () => {
+    setDynamicAtSlot(dynModel.getScore(), dynId, { measure: 1, beat: frac(2, 1) })
+
+    expect(dynRenderer.previewMarks('dynamic', dynId),
+      'drawn on beat 0\'s note, and it now names beat 2\'s').toBe(false)
   })
 })

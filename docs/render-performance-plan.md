@@ -1376,9 +1376,9 @@ already on screen. ⛔ Optimising the biggest region caps out at a fifth; the on
 all eight is not running them.
 
 **Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags, and — differently — the TEMPO
-drag (below). ⛔ Not the dynamic or expression families yet.
+and DYNAMIC drags (below). ⛔ Not the expression family yet.
 
-### ⭐⭐ REDRAWN families and the one MOVED family
+### ⭐⭐ REDRAWN families and the two MOVED ones
 
 The five above are drawn as their own top-level `<g>`s, so a preview takes the ink down and draws it
 again. **A tempo mark is not**: its glyph is drawn *inside its bar's* `<g class="vf-measure">` by
@@ -1418,9 +1418,36 @@ pays a full render per frame, as it did before. Making that cheap means drawing 
 bar's group — the arrangement the other five have — which is a real change to
 `TempoLayout`/`MeasureRedrawKey` and is ⏭️ not taken.
 
-⛔ **And the same is true of the dynamic and expression families**, whose drags re-anchor the same
-way. Their `view.dynamics` lane read is still the stale-lane trap below; the bar question is the
-larger one and comes first.
+### ⭐⭐ THE DYNAMIC is the same shape — and its family is TWO drawn things
+
+A dynamic's letters are a VexFlow `Annotation` attached to its anchor note, drawn inside its bar's
+group and moved by the same kind of composed transform (`dynamicMarkTransform`, four components). So
+its row is the tempo's: no take-down for the letters, a nudge pass (`dynamicNudgePass`) plus the LINE,
+and the same anchor vouch — the annotation hangs off a NOTE, so a walk onto the next slot, or onto the
+other hand, refuses into a real render.
+
+🚨🚨 **But a WEDGE is a member of that family too, and it is REDRAWN.** His report, 2026-08-22: *"when
+the dynamic overlaps a hairpin, it modifies it… the render of the hairpin is behind"*. A hairpin asks
+`dynamicsLinePlan` for the same baseline the letters get and BREAKS around a letter it runs into (P3),
+so a dragged `p` changes the wedge beside it **in the same plan** — a frame that moved only the letter
+left a picture contradicting itself under the mouse. The first cut of the row said so as an accepted
+approximation; it was not one.
+
+⭐ So `redrawn` is a LIST, and the dynamic row's is the hairpin's map and registry rows: take the
+wedges down, move the letters, draw the wedges again — one plan, one rewind point, one frame.
+⛔ **Not two previews in sequence**: each rewind point is a length into `occupiedBands` and the second
+would rewind to an offset the first invalidated (measured at 21 px of pedal drift — the spec says so
+in as many words). The family's rewind point IS the hairpin's, both halves, because the wedges are the
+only ink either half puts down.
+
+⚠️ **All the wedges, not the overlapping one** — his question, and the answer is the same as the
+header's *"why a FAMILY and not one mark"*. Which wedge a letter touches is decided by the CHAIN
+levelling, i.e. by the plan, which is computed for the score in one go: a filter would come after the
+expensive part rather than instead of it. And the hairpin's own body drag already redraws every wedge
+on every frame — the gesture that measured 0% of bars re-engraved.
+
+⛔ **The expression family is still not previewed.** Its drag re-anchors the same way and its lane read
+is the same stale-lane trap below.
 
 ### The three take-downs, and why a preview is not just a redraw
 
@@ -1457,7 +1484,8 @@ what `OttavaRenderer` and `PedalRenderer` always did, and why neither ever had i
 
 ### ⏭️ Left open
 
-- `planDynamicsLines`'s letters (above), before the dynamic/expression families are ever previewed.
+- `planDynamicsLines`'s letters (above), which the dynamic row now re-runs every frame.
+- The EXPRESSION family, the last one drawn inside its bar's group.
 - Drawing a tempo/dynamic/expression mark OUTSIDE its bar's group, which is what would make their
   horizontal previewable. ⛔ Not taken — it moves a mark out of the arrangement `MeasureRedrawKey`
   was built around, and the win is one gesture's horizontal.

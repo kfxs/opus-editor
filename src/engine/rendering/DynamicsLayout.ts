@@ -19,7 +19,7 @@ import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
 import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
-import { shiftDynamicMark } from './dynamicMarkTransform'
+import { setDynamicMarkNudge, shiftDynamicMark } from './dynamicMarkTransform'
 import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { dynamicInkReachSpaces } from './dynamicMarkInk'
 // ⚠️ The UNSCALED staff space, exactly as `DYNAMIC_GLYPH_INK_ABOVE` is an unscaled px constant: the
@@ -286,7 +286,13 @@ export function applyDynamicOffsets(pass: RenderPass, measure: Measure, stave: S
     const el = pass.dynamicObjectMap.get(dyn.id)?.getSVGElement?.() as SVGGraphicsElement | undefined
     if (!el) continue
 
-    shiftDynamicMark(pass, dyn.id, el, staffSpacesToPixels(off.x, stave), staffSpacesToPixels(off.y, stave))
+    // ⭐ SET, ⛔ not add (`dynamicMarkTransform.setDynamicMarkNudge`): the nudge is one absolute
+    //   answer and the co-located row's shift is another, kept as separate components so a PREVIEW
+    //   can re-apply this one alone to a mark nobody re-engraved (`./dynamicNudgePass`). Inside this
+    //   draw the element is new, so setting and adding agree — which is why it read as "add" for as
+    //   long as this was the only writer.
+    setDynamicMarkNudge(
+      pass, dyn.id, el, staffSpacesToPixels(off.x, stave), staffSpacesToPixels(off.y, stave))
   }
 }
 
@@ -308,6 +314,16 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
       // a 0-width box, breaking hit-testing. getBBox gives the true painted extent.
       // (Matches what layoutCoLocatedDynamics already uses.)
       const el = annotation.getSVGElement?.() as SVGGraphicsElement | undefined
+      // 🚨🚨 **WHAT THIS ANNOTATION WAS DRAWN FOR** — the address, and a PREVIEW's whole licence to
+      // move it (`./markPreviewPass`, the `dynamic` row). A preview may only rewrite the mark's
+      // transform; the note it hangs off, and therefore its base x and its measure group, are baked
+      // in here. So a frame that finds the score anchored somewhere else must refuse and let a real
+      // render draw it — the tempo family's lesson, 2026-08-22, where a re-anchor inside one bar
+      // drew the mark back at the beat it was engraved at, once per stop.
+      // ⚠️ The STAFF is part of it: a dragged dynamic can land on the other hand, which is another
+      //    measure group entirely (`project_dynamic_offset`).
+      el?.setAttribute?.('data-dyn-at',
+        `${measure.number}:${fracToNumber(dyn.beat)}:${dyn.staffId ?? ''}`)
       const box = el?.getBBox ? el.getBBox() : null
       if (box) {
         // The anchor: the note this mark is attached to — its X and its LOWEST notehead Y (the

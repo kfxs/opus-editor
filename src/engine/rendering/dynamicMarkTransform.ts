@@ -32,17 +32,31 @@
  */
 import type { RenderPass } from './RenderPass'
 
-/** The draw-time shift: the co-located row's x, plus the hand nudge. `"x,y"`, local px. */
+/** The co-located row's own shift (`layoutCoLocatedDynamics`). `"x,y"`, local px. */
 const SHIFT_ATTR = 'data-dyn-shift'
+/**
+ * ⭐⭐ **THE HAND NUDGE, ON ITS OWN** (client #8) — `"x,y"` in local px, and a component SEPARATE
+ * from {@link SHIFT_ATTR} since 2026-08-22.
+ *
+ * ⚠️ It used to be summed into that shift, and inside the bar draw the two are indistinguishable:
+ * the element is new every time, so adding is setting. A PREVIEW is what tells them apart — it
+ * re-applies the nudge to a mark nobody re-engraved (`./dynamicNudgePass`), and there is no way to
+ * SET half of a sum. Kept apart, each is one absolute answer with one writer, which is this module's
+ * own rule two paragraphs up.
+ */
+const NUDGE_ATTR = 'data-dyn-nudge'
 /** The dynamics line's own contribution, local px — see `dynamicsLinePass`. */
 const LINE_ATTR = 'data-dyn-line'
 /** Half a level's width, pulling it back onto its notehead — see `dynamicMarkAnchor`. */
 const ANCHOR_ATTR = 'data-dyn-anchor'
 
-/** What the mark's `transform` is made of. Its sum is `(x + anchor, y + line)`. */
+/** What the mark's `transform` is made of. Its sum is `(x + nudgeX + anchor, y + nudgeY + line)`. */
 interface MarkTransform {
   x: number
   y: number
+  /** The composer's own nudge, kept apart from the row's shift — see {@link NUDGE_ATTR}. */
+  nudgeX: number
+  nudgeY: number
   line: number
   anchor: number
 }
@@ -52,26 +66,31 @@ const finite = (value: number): number => (Number.isFinite(value) ? value : 0)
 /** What was last written to this element — all zeros for a freshly drawn one. */
 function componentsOf(el: SVGGraphicsElement): MarkTransform {
   const [x, y] = (el.getAttribute(SHIFT_ATTR) ?? '').split(',').map(Number)
+  const [nudgeX, nudgeY] = (el.getAttribute(NUDGE_ATTR) ?? '').split(',').map(Number)
   return {
     x: finite(x),
     y: finite(y),
+    nudgeX: finite(nudgeX),
+    nudgeY: finite(nudgeY),
     line: finite(Number(el.getAttribute(LINE_ATTR))),
     anchor: finite(Number(el.getAttribute(ANCHOR_ATTR))),
   }
 }
 
+/** The sum of the components on each axis — the `translate` itself, and what the registry is
+ *  moved by. One place, so a fifth component cannot be forgotten in one of three sums. */
+const sumX = (t: MarkTransform): number => t.x + t.nudgeX + t.anchor
+const sumY = (t: MarkTransform): number => t.y + t.nudgeY + t.line
+
 /** Write the composed transform, and move the registry box by the CHANGE it caused. */
 function write(pass: RenderPass, id: string, el: SVGGraphicsElement, next: MarkTransform): void {
   const was = componentsOf(el)
   el.setAttribute(SHIFT_ATTR, `${next.x},${next.y}`)
+  el.setAttribute(NUDGE_ATTR, `${next.nudgeX},${next.nudgeY}`)
   el.setAttribute(LINE_ATTR, `${next.line}`)
   el.setAttribute(ANCHOR_ATTR, `${next.anchor}`)
-  el.setAttribute('transform', `translate(${next.x + next.anchor}, ${next.y + next.line})`)
-  pass.elementRegistry.shiftById(
-    id,
-    next.x + next.anchor - (was.x + was.anchor),
-    next.y + next.line - (was.y + was.line),
-  )
+  el.setAttribute('transform', `translate(${sumX(next)}, ${sumY(next)})`)
+  pass.elementRegistry.shiftById(id, sumX(next) - sumX(was), sumY(next) - sumY(was))
 }
 
 /**
@@ -112,7 +131,28 @@ export function shiftDynamicMark(pass: RenderPass, id: string, el: SVGGraphicsEl
  */
 export function dynamicMarkTranslate(el: SVGGraphicsElement): { x: number; y: number } {
   const was = componentsOf(el)
-  return { x: was.x + was.anchor, y: was.y + was.line }
+  return { x: sumX(was), y: sumY(was) }
+}
+
+/**
+ * ⭐⭐ **THE COMPOSER'S NUDGE — SET, never added** (client #8, `DynamicsLayout.applyDynamicOffsets`).
+ *
+ * ⚠️ Setting is what lets a PREVIEW re-apply it to a mark nobody re-engraved: the stored component and
+ * the authored override are the same number, so running this over a mark already in place moves
+ * nothing (`./dynamicNudgePass`, and `./tempoMarkTransform.setTempoMarkOffset` next door — the same
+ * rule, arrived at the same way).
+ *
+ * ⛔ Not {@link shiftDynamicMark}, which ADDS and must: the co-located row's x composes with this
+ * one, and each has to survive the other.
+ */
+export function setDynamicMarkNudge(
+  pass: RenderPass,
+  id: string,
+  el: SVGGraphicsElement,
+  x: number,
+  y: number,
+): void {
+  write(pass, id, el, { ...componentsOf(el), nudgeX: x, nudgeY: y })
 }
 
 export function placeDynamicMark(

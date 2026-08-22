@@ -59,6 +59,8 @@ import { applyTempoNudges } from './tempoNudgePass'
 import { dbg } from '@/utils/debug'
 import { fracToNumber } from '@/utils/fraction'
 import { placeTempoMarksOnLine } from './tempoLinePass'
+import { applyDynamicNudges } from './dynamicNudgePass'
+import { placeDynamicsOnLine } from './dynamicsLinePass'
 
 /**
  * Everything a preview needs off the LAST FULL RENDER — none of which the gesture changes.
@@ -142,7 +144,7 @@ export interface PassEntry {
  * measure's group, and this pass moves it afterwards"*), which is why the census shows 0.8–1.7% of
  * bars re-engraved on their drags where every family here shows **0%**.
  */
-export type MarkPreviewKind = 'ottava' | 'pedal' | 'trill' | 'hairpin' | 'slur' | 'tempo'
+export type MarkPreviewKind = 'ottava' | 'pedal' | 'trill' | 'hairpin' | 'slur' | 'tempo' | 'dynamic'
 
 interface MarkPreviewFamily {
   /**
@@ -151,11 +153,19 @@ interface MarkPreviewFamily {
    * drawn *inside its measure's group* and repositioned afterwards by an idempotent transform
    * (`./tempoMarkTransform`), so there is no group of its own to remove and its registry box is
    * MOVED by the writer rather than re-added. Take it down and nothing puts it back.
+   *
+   * ⚠️ **A LIST, because a family is not always one drawn thing.** The DYNAMICS family is letters
+   * (moved) *and* wedges (redrawn), and a wedge reads the same plan the letters do — so the frame
+   * that moves a letter has to take the wedges down and draw them again, in one pass over one rewind
+   * point. His report, 2026-08-22: *"when the dynamic overlaps a hairpin, it modifies it… the render
+   * of the hairpin is behind"*. ⛔ Two previews in sequence is NOT the answer — each rewind point is
+   * a length into `occupiedBands` and the second would rewind to an offset the first invalidated
+   * (measured at 21 px of pedal drift; see this file's spec).
    */
-  redrawn?: {
+  redrawn?: ReadonlyArray<{
     registryType: ElementType
     groups(pass: RenderPass): Map<string, SVGGElement>
-  }
+  }>
   /**
    * Re-PLAN and re-draw (or re-place) the whole family, exactly as `renderScore` does.
    * ⛔ No filter, and ⛔ no captured plan: see the header for what each of those cost.
@@ -171,7 +181,7 @@ interface MarkPreviewFamily {
 
 export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
   ottava: {
-    redrawn: { registryType: 'ottava', groups: pass => pass.ottavaGroupMap },
+    redrawn: [{ registryType: 'ottava', groups: pass => pass.ottavaGroupMap }],
     placed: (pass, id) => pass.ottavaGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderOttavas(pass, score, placements, staffIds,
@@ -180,13 +190,13 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
   pedal: {
     // ⭐ No plan of its own: `renderPedals` works its baseline out at draw time, which is why this
     //   family never had the bug the header describes.
-    redrawn: { registryType: 'pedal', groups: pass => pass.pedalGroupMap },
+    redrawn: [{ registryType: 'pedal', groups: pass => pass.pedalGroupMap }],
     placed: (pass, id) => pass.pedalGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderPedals(pass, score, placements, staffIds),
   },
   trill: {
-    redrawn: { registryType: 'trill', groups: pass => pass.trillGroupMap },
+    redrawn: [{ registryType: 'trill', groups: pass => pass.trillGroupMap }],
     placed: (pass, id) => pass.trillGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderTrills(pass, score, placements, staffIds,
@@ -195,7 +205,7 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
   hairpin: {
     // ⚠️ Its plan is the DYNAMICS line's — a wedge is a member of that family and asks it for the
     //    same baseline the letters get (`dynamicsLinePlan`).
-    redrawn: { registryType: 'hairpin', groups: pass => pass.hairpinGroupMap },
+    redrawn: [{ registryType: 'hairpin', groups: pass => pass.hairpinGroupMap }],
     placed: (pass, id) => pass.hairpinGroupMap.has(id),
     draw: ({ pass, score, placements, staffIds }) =>
       renderHairpins(pass, score, placements,
@@ -203,7 +213,7 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
   },
   slur: {
     // ⭐ No plan either: a curve is solved from its own anchors.
-    redrawn: { registryType: 'slur', groups: pass => pass.slurGroupMap },
+    redrawn: [{ registryType: 'slur', groups: pass => pass.slurGroupMap }],
     placed: (pass, id) => pass.slurGroupMap.has(id),
     draw: ({ pass, score }) => renderSlurs(pass, score),
   },
@@ -283,6 +293,67 @@ export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> =
       placeTempoMarksOnLine(pass, placements, staffIds)
     },
   },
+  /**
+   * ⭐⭐ **THE SECOND MOVED FAMILY — the tempo's row, one family over.** A dynamic's letters are a
+   * VexFlow `Annotation` attached to its anchor note, drawn *inside its bar's group*, and moved
+   * afterwards by one composed, idempotent transform (`./dynamicMarkTransform`, four components).
+   * So there is no `<g>` of its own to take down and no registry row to remove.
+   *
+   * ⭐ Its `draw` is two of the calls `renderScore` makes, in the same order: the composer's nudge
+   * (`./dynamicNudgePass`, whose only other writer is inside the bar draw a preview skips) and then
+   * the LINE — re-PLANNED, never reused, for the reason in this file's header.
+   *
+   * 🚨🚨 **AND THE WEDGES COME WITH IT — the family is letters AND hairpins.** His report,
+   * 2026-08-22: *"when the dynamic overlaps a hairpin, it modifies it… the render of the hairpin is
+   * behind"*. The first cut of this row drew only the letters and said so as an accepted
+   * approximation; it is not one. A wedge asks `dynamicsLinePlan` for the same baseline the letters
+   * get and BREAKS around a letter it runs into (docs/dynamics-line-and-hairpins-plan.md P3), so a
+   * dragged `p` changes the wedge beside it *in the same plan* — leaving the wedge on the last
+   * render's answer is a picture that contradicts itself while the mouse is down.
+   *
+   * ⭐ So the row takes the wedges DOWN (`redrawn`, the hairpin's own map and registry rows), moves
+   * the letters, and draws the wedges again — one plan, one rewind point, one frame. ⛔ Not two
+   * previews in sequence: see {@link MarkPreviewFamily.redrawn} for why that is a different thing
+   * and a broken one.
+   */
+  dynamic: {
+    // ⭐ The LETTERS have no take-down (they are moved, see above); the WEDGES are ordinary redrawn
+    //   ink and must have one, or every frame leaves another copy in the DOM and the registry.
+    redrawn: [{ registryType: 'hairpin', groups: pass => pass.hairpinGroupMap }],
+    // 🚨🚨 **IS THE ANNOTATION HANGING OFF THE NOTE THE MARK NOW NAMES?** The tempo row above carries
+    //    the full account; the shape is identical, and so is the failure it prevents. A dynamic drag
+    //    walks the mark from slot to slot (`interactions/dynamicWalk`) and can cross to the other
+    //    HAND, and neither is something a transform can express: the annotation is attached to a
+    //    StaveNote inside a measure group.
+    placed: (pass, id) => {
+      const el = pass.dynamicObjectMap.get(id)?.getSVGElement?.() as SVGGraphicsElement | undefined
+      if (!el) {
+        dbg(`[Preview] dynamic ${id}: nothing drawn for it in this render — the frame cannot move it`)
+        return false
+      }
+      const drawnFor = el.getAttribute('data-dyn-at')
+      const measure = pass.score.measures.find(m => m.dynamics?.some(d => d.id === id))
+      const mark = measure?.dynamics?.find(d => d.id === id)
+      const belongsTo = measure && mark
+        ? `${measure.number}:${fracToNumber(mark.beat)}:${mark.staffId ?? ''}`
+        : null
+      const agreed = drawnFor !== null && belongsTo !== null && drawnFor === belongsTo
+      if (!agreed) {
+        dbg(`[Preview] dynamic ${id}: drawn for anchor ${drawnFor ?? '—'} but now anchored at`
+          + ` ${belongsTo ?? '—'} — its glyph hangs off the old note, so this frame owes a real render`)
+      }
+      return agreed
+    },
+    // ⭐ `renderScore`'s own order, and the order is the content: the nudge, then ONE plan, then the
+    //   letters onto the line, then the wedges — which read where the letters landed in order to
+    //   stop short of them. Swap the last two and a wedge breaks around a letter's previous place.
+    draw: ({ pass, score, placements, staffIds }) => {
+      applyDynamicNudges(pass, placements, staffIds)
+      const plan = planDynamicsLines(score, placements, staffIds, MARK_INK, pass.occupiedBands)
+      placeDynamicsOnLine(pass, placements, plan, staffIds)
+      renderHairpins(pass, score, placements, plan)
+    },
+  },
 }
 
 /**
@@ -319,11 +390,11 @@ export function previewMarkFamily(
   // The old ink, out of the DOM and out of the hit-test — both, or the frame leaves a copy behind.
   // ⛔ Only for a family that REDRAWS. A moved one (`tempo`) owns neither, and taking its registry
   //    box down would leave the transform writer nothing to move.
-  if (family.redrawn) {
-    const groups = family.redrawn.groups(pass)
+  for (const part of family.redrawn ?? []) {
+    const groups = part.groups(pass)
     for (const group of groups.values()) group.remove()
     groups.clear()
-    pass.elementRegistry.removeByType(family.redrawn.registryType)
+    pass.elementRegistry.removeByType(part.registryType)
   }
 
   // The world this pass was entered with, back the way it was — collections AND ambient ink.
