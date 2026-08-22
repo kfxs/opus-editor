@@ -73,8 +73,10 @@ function noteSpaceForMeasure(
   firstStaffId: string | undefined,
   sizeFor: StaffSizeResolver,
 ): { natural: number; floor: number } {
-  // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). The bucket is still
-  // called `format`; what it times is no longer a formatter but the width term it replaced.
+  // TEMPORARY probe — the §9 question (see {@link RenderProbe.layoutSub}). ⭐ The bucket is called
+  // `columns`, after what it times. It was called `format` while VexFlow's `Formatter` was in this
+  // path; the formatter left (see the note above) and the name stayed, until a dump reading
+  // "format (VexFlow Formatter) 661 ms" was read back as evidence about a formatter that had not run.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
   const columns = measureColumns(measure, clefResolverFor(measure, clefsByStaff, firstStaffId), sizeFor)
@@ -96,7 +98,7 @@ function noteSpaceForMeasure(
     //   which is a statement about a bar nobody has written into, not about how wide a rest is.
     floor: isEmptyBar(measure) ? EMPTY_BAR_FLOOR_PX : minimumWidth(columns) * STAFF_SPACE_PX,
   }
-  if (probing) renderProbe().layoutSub('format', performance.now() - t0)
+  if (probing) renderProbe().layoutSub('columns', performance.now() - t0)
   return answer
 }
 

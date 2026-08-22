@@ -1,3 +1,4 @@
+import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
 
 /**
@@ -104,7 +105,15 @@ export class MeasureWidthCache {
  * re-pitches the notes after it *within this bar*, and that is content, not inheritance.
  */
 export function laneFingerprint(lane: Measure): string {
-  return JSON.stringify(
+  // TEMPORARY probe — see {@link RenderProbe.layoutSub}. ⚠️ It reported **0 ms** from the day it was
+  // added until 2026-08-22, and was read as "the stringify walk is free". It was never wired: the
+  // probe sat in the width path, which stopped consulting this fingerprint (see
+  // `MeasureLayout.noteSpaceForMeasure`), while the walk itself moved to `measureShapeKey` — once per
+  // (measure, staff) per render, 128 of them on a 64-bar grand staff. ⛔ A zero from an unwired probe
+  // and a zero from a free walk are the same number; only the call site tells them apart.
+  const probing = renderProbe().recording
+  const t0 = probing ? performance.now() : 0
+  const key = JSON.stringify(
     [
       lane.slots,
       lane.clefs ?? null,
@@ -114,6 +123,8 @@ export function laneFingerprint(lane: Measure): string {
     ],
     canonicalizeIds(),
   )
+  if (probing) renderProbe().layoutSub('fingerprint', performance.now() - t0)
+  return key
 }
 
 /** Any property whose value is an id. `*Id` catches `tupletId` and whatever §10 adds next. */

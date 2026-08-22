@@ -18,8 +18,43 @@
  * code being measured.
  */
 
-/** Which third of the layout term a sample belongs to — see `RenderCensus.layoutSub`. */
-export type RenderLayoutPart = 'laneView' | 'fingerprint' | 'format'
+/**
+ * Which named walk a sample belongs to — see `RenderCensus.layoutSub`.
+ *
+ * ⚠️ **NOT "which third of the layout term".** It was, until 2026-08-22, and the name is why a dump
+ * once reported a part at **259% of layout**: `fingerprint` is spent in `measureShapeKey`, which
+ * runs *after* `endLayout()`. A part is a named walk with a share of the WHOLE RENDER; whether it
+ * falls inside the layout bracket is a fact about it, not a premise of the accounting.
+ *
+ * - `laneView` — `staffMeasureView` rebuilding one `Measure` per (measure, staff). Inside layout.
+ * - `columns` — the width rule: `measureColumns` + the natural/minimum widths. Inside layout.
+ *   ⛔ It was called `format` while it timed VexFlow's `Formatter`; that formatter left this path
+ *   (see `MeasureLayout.noteSpaceForMeasure`) and the name outlived it by long enough to be quoted
+ *   back as "the formatter is re-running" in a dump that had not run a formatter at all.
+ * - `fingerprint` — `laneFingerprint`, the `JSON.stringify` of a lane. **Outside** layout: its only
+ *   live caller is the shape key, so it is a SUBSET of `shapeKey` below and ⛔ must never be added
+ *   to it.
+ *
+ * ⭐⭐ **The seven below carve up the RESIDUAL** — the 83% of a render that the census could only
+ * call "draw", on frames where `measuresRedrawn` reported **0%** and therefore nothing was drawn
+ * (docs/render-performance-plan.md §12.7). They are contiguous regions of `renderScore`, in the
+ * order it runs them, so what they do NOT cover shows up as the dump's `unaccounted` line rather
+ * than being silently absorbed by a neighbour.
+ *
+ * - `tier1` — `layoutTier1`: one placement per (measure, staff), whole score, every render.
+ * - `plan` — the spans, the cull window and the cross-bar beam plan (`planCrossBarBeams` runs
+ *   **twice**).
+ * - `shapeKey` — `measureShapeKey` per (measure, staff): a `JSON.stringify` each. ⊃ `fingerprint`.
+ * - `groups` — the reuse decision, `clearForRender`, the pages, the measure loop itself (replay or
+ *   rebuild), the system connectors and the cross-bar beams.
+ * - `curves` — `renderTies` + `renderSlurs`. Before the ladder, and that ordering is load-bearing.
+ * - `ladder` — the nine outside-staff passes: the three band plans, the dynamics line, hairpins,
+ *   trills, ottavas, pedals, tempo. ⚠️ Several of these read DOM geometry.
+ * - `hint` — `hintBarlines`, editor audience only.
+ */
+export type RenderLayoutPart =
+  | 'laneView' | 'fingerprint' | 'columns'
+  | 'tier1' | 'plan' | 'shapeKey' | 'groups' | 'curves' | 'ladder' | 'hint'
 
 /** What the engine reports about a render. Implemented for real by `dev/renderCensus`. */
 export interface RenderProbe {
@@ -37,7 +72,6 @@ export interface RenderProbe {
   /** How many (measure, staff) groups this render re-engraved, out of how many it owned. */
   measuresRedrawn(redrawn: number, of: number): void
   layoutSub(part: RenderLayoutPart, ms: number): void
-  layoutCacheProbe(hit: boolean): void
 }
 
 /** The default: measures nothing, allocates nothing, and is what a build with no `dev/` gets. */
@@ -50,7 +84,6 @@ export const NO_RENDER_PROBE: RenderProbe = {
   endLayout() {},
   measuresRedrawn() {},
   layoutSub() {},
-  layoutCacheProbe() {},
 }
 
 let current: RenderProbe = NO_RENDER_PROBE

@@ -223,11 +223,17 @@ trill's claim across its whole system (fixed 2026-08-20, `docs/trill-plan.md` §
 worth keeping from a research trip that found a bug instead of a rule: **the books agreed with the
 code's stated intent, so the disagreement was between the code and itself.**
 
-## ⭐⭐ THE THREE ENGINE SOURCES — on disk, and NOT in this directory
+## ⭐⭐ THE FOUR ENGINE SOURCES — on disk, and NOT in this directory
 
-**`~/dev/engine-sources/{MuseScore,lilypond,verovio}`** — shallow clones, re-fetched 2026-08-18.
+**`~/dev/engine-sources/{MuseScore,lilypond,verovio,inkscape}`** — shallow clones; the three
+engraving engines re-fetched 2026-08-18, Inkscape added 2026-08-22.
 ⭐ **Look here BEFORE cloning anything**: they have now been lost twice to `/tmp` being cleared
 (2026-08-16 and again before 2026-08-18), and each rediscovery costs an agent its budget.
+
+⚠️ **Inkscape answers a DIFFERENT KIND of question** and is filed here only because it lives in the
+same directory. The other three are asked *what did they engrave*; Inkscape is asked **how does an
+interactive vector editor stay fast while you drag something** — see
+`docs/render-performance-research.md`. ⛔ It knows nothing about music.
 
 ⭐ **Why not under `reference/`**: 846 MB of C++ inside the project directory is reachable by
 ripgrep, editor indexing and every `find` we run — a grep for `hairpin` that silently starts matching
@@ -239,6 +245,7 @@ The split is this README's own: **the manifest is committed, the bytes are not.*
 | **MuseScore** (645 MB) | `~/dev/engine-sources/MuseScore` | 🚨 **`main`** @ `929d1e9` (2026-08-18) | `git clone --depth 1 https://github.com/musescore/MuseScore.git` |
 | **LilyPond** (92 MB) | `~/dev/engine-sources/lilypond` | `master` @ `beedbfa` | `git clone --depth 1 https://gitlab.com/lilypond/lilypond.git` |
 | **Verovio** (109 MB) | `~/dev/engine-sources/verovio` | `develop` @ `efff0bc` | `git clone --depth 1 https://github.com/rism-digital/verovio.git` |
+| **Inkscape** — ⚠️ not an engraver | `~/dev/engine-sources/inkscape` | `e1e8684` (2026-08-22) | `git clone --depth 1 https://gitlab.com/inkscape/inkscape.git` |
 
 ⚠️ **Where the layout logic actually lives**, since all three moved it at some point:
 

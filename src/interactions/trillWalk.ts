@@ -63,7 +63,7 @@ import {
 } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
 import { staffOf } from '../utils/lanes'
-import { dbg } from '../utils/debug'
+import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
@@ -513,7 +513,7 @@ function jumpTrillStaves(
     // 🚨 A decline that says nothing is a gesture that "does nothing", and this one has THREE
     // different reads — his afternoon of round trips on the wedge is the reason these lines exist.
     // ⭐ The commonest by far: a trill's anchor is a NOTE, so a system of rests has nowhere to land.
-    dbg(`[Trill] no rung down there — ${whyNoJump(engine, start, inkY + dyPx)}`)
+    logNoRung(engine, id, start, inkY + dyPx)
     return false
   }
 
@@ -526,11 +526,37 @@ function jumpTrillStaves(
 }
 
 /**
+ * ⚠️ **The decline on the HOT path, and it says itself only when it CHANGES** — the same treatment
+ * `markBreakWrap.sameSystem` already carries, and for the same reason.
+ *
+ * 🚨 {@link whyNoJump} is **not** a template literal. It walks `getByType('note')` and runs a `find`
+ * inside a `some`, which is docs/render-performance-plan.md §12.2's quadratic id lookup — hiding
+ * inside a LOG MESSAGE. It was built EAGERLY on every declined frame, because a suppressed `dbg`
+ * still evaluates its arguments (docs/logging.md's template caveat), so a production build with
+ * every trace switched off paid for it too. In one of his 2026-08-22 census gestures this decline
+ * fired **~90 times, with the same message every time**.
+ *
+ * ⛔ Deliberately NOT silent, and ⛔ not rate-limited by a timer: the day this decline is wrong
+ * again it has to be visible, and a reason that CHANGES is exactly the interesting case — so the
+ * dedup is on the message, per trill, and a new reason prints at once.
+ */
+const lastNoRung = new Map<string, string>()
+function logNoRung(engine: TrillWalkEngine, id: string, start: Note, inkY: number): void {
+  if (!debugEnabled()) return
+  const message = `[Trill] no rung down there — ${whyNoJump(engine, start, inkY)}`
+  if (lastNoRung.get(id) === message) return
+  lastNoRung.set(id, message)
+  dbg(message)
+}
+
+/**
  * Why {@link jumpTrillStaves} found nowhere to go — for the log, and ⛔ never for a decision.
  *
  * ⭐ *"There is no note over there"* is not a failure: the ornament still travels, as INK, exactly as
  * it does horizontally (his rule, 2026-08-20: *"no anchor to a note but offset in the next
  * system"*). What it cannot do is BELONG to a system that holds nothing it could hang off.
+ *
+ * ⚠️ **Expensive, and on a per-frame path** — call it only through {@link logNoRung}, never directly.
  */
 function whyNoJump(engine: TrillWalkEngine, start: Note, inkY: number): string {
   const registry = engine.getElementRegistry()

@@ -991,3 +991,122 @@ log once per press), and the mouse-event queue itself.
    picture paints once. Small, certain, and it caps the worst case at one render per frame.
 3. **P7.6 / §12.5 — draw only the mark that is moving.** The real fix for the 7.8 ms, and the census
    above is the evidence for choosing 12.5a (overlay for the gesture) over anything cleverer.
+
+### 12.7 ✅ THE ELEVEN-GESTURE CENSUS — and 🚨🚨 three bugs in the instrument itself (2026-08-22)
+
+He ran the census twice over a long editing session on the same 64-bar × 2-staff score (7 systems,
+one bar carrying a hairpin + pedal + ottava + dynamic + tempo + trill at once). ⭐ This is §12.4
+step 1 for the KEYBOARD as well as the mouse, which §12.6 still owed.
+
+```
+RUN 1 — mark gestures.  818 renders · 9194 ms · avg 11.2 ms · worst 28.5 ms
+  layout 1573 ms = 17% of the session (≈1.9 ms/render)
+  redrawn %: 0.8 · 0.8 · 0 · 0 · 1.7 · 0 · 0 · 0 · 0 · 0 · 0      ← every row
+  draw ms:  9.8 · 10.0 · 8.1 · 8.4 · 11.5 · 8.7 · 9.8 · 8.1 · 8.6 · 8.9 · 10.1
+
+RUN 2 — the WIDTH gestures.  189 renders · 3190 ms
+  handleBarWidthDrag   84 · avg 20.6 · worst 42.9 · redrawn 12.8% · draw 18.5
+  dragNoteSpacing      21 · avg 23.2 · worst 47.3 · redrawn 13%   · draw 21.1
+  handleTrillEndDrag   65 · avg 11.8 · worst 25.3 · redrawn 0%    · draw 10.0
+  handleTrillBodyDrag  19 · avg 10.8 · worst 15.6 · redrawn 0%    · draw  8.8
+```
+
+**⭐⭐ TWO REGIMES, and only one of them is what §12.5 describes.**
+
+- **A — a mark moves (0% redrawn).** A flat **~9 ms floor that barely varies with what is dragged**
+  (slur endpoint 8.1 … tempo 11.5, eleven causes). §12.6 measured this for the pedal alone; it is now
+  general, and the flatness is the finding: **the cost does not depend on the edit**. Everything in it
+  runs unconditionally over the whole score — `layoutTier1` (128 placements), `measureShapeKey`
+  (128 `JSON.stringify`s), `planCrossBarBeams` **twice**, `spanAnchors`, ~128 `replaySnapshot`s, the
+  eleven outside-staff passes, `hintBarlines(true)`, a connector per system.
+- **B — a WIDTH changes (13% redrawn).** ~20 ms, worst **47 ms — three display frames**, because the
+  whole score re-casts-off *per mouse frame*: his log shows bars 5–64 changing system back and forth
+  on nearly every frame of one barline drag. ⚠️ **§12.5 does not cover this** — the width genuinely
+  changed, so the re-engraving is legitimate. What is not legitimate is doing it at pointer rate, and
+  re-wrapping sixty bars *below* the edited system while the gesture is still live.
+
+**⛔ AND THE LAYOUT TERM IS NOT WHERE A DRAG'S MONEY GOES, AT THIS SIZE OR ANY OTHER MEASURED SO
+FAR.** 17% of the session, ~1.9 ms/render, and §9's copy-on-write cannot touch the other 83%.
+
+#### 🚨🚨 Three bugs in the census — two of them had already been quoted as findings
+
+Found while reading the dumps above; all fixed 2026-08-22, with `src/dev/renderCensus.test.ts` (new)
+pinning the arithmetic. ⭐ **The instrument had never had a spec**, because the only way to read a
+number out of it was to look at a console — which is why all three are arithmetic, not timing.
+
+1. **`reset()` cleared the buckets but not the part accumulators.** `enable()` calls `reset()`, so his
+   second `enable()` divided a cumulative numerator by a fresh denominator and printed
+   **`format … 259%`** of a 367 ms layout total. ⚠️ Everything between the first `dump()` and the
+   second `enable()` was in that numerator and counted nowhere else.
+2. **`fingerprint` read 0 ms for its whole life, and §9 rests on that walk.** The probe was never
+   wired: it sat in the *width* path, which stopped consulting the fingerprint when the formatter left
+   (`MeasureLayout.noteSpaceForMeasure`), while `laneFingerprint`'s only live caller moved to
+   `measureShapeKey` — **outside** the layout bracket, 128 calls per render. ⛔ A zero from an unwired
+   probe and a zero from a free walk are the same number. Now probed at `laneFingerprint` itself.
+3. **`width cache: 0 hits / 0 misses` was quoted in §12.6 as if it meant the cache was cold.**
+   `layoutCacheProbe` had **no call site anywhere in `engine/`**, and the `MeasureWidthCache` it would
+   have measured is *deliberately* not consulted (`MeasureLayout.ts` says so in prose). ⚠️ `cache:` is
+   still passed at `VexFlowRenderer.ts:3473` and still never read. The line is deleted; the probe is
+   deleted; the seam method is gone from `RenderProbe`.
+
+Two more corrections that came with them:
+
+- **`format` is renamed `columns`.** It has not timed VexFlow's `Formatter` since the spacing rule
+  replaced it; the name outlived the thing by long enough for "format (VexFlow Formatter) 661 ms" to
+  be read back as evidence about a formatter that never ran.
+- **The parts are shares of the WHOLE RENDER, not of the layout term** — one part is spent outside
+  that bracket, so against it the number was never a percentage of anything. The `in layout?` column
+  now states the fact that used to be smuggled into the denominator. The layout total is also summed
+  raw rather than rebuilt as `round(layout/n) × n` per cause, which drifted ~9% on the fixture.
+
+#### ✅ The per-frame decline log (§12.6's item 1, finished 2026-08-22)
+
+`trillWalk`'s *"no rung down there"* fired **~90 times in one gesture** of his census, with the same
+message each time — and its argument is not a template literal. `whyNoJump` walks
+`getByType('note')` and runs a `find` inside a `some`: **§12.2's quadratic id lookup, hiding inside a
+log message.** ⚠️ A suppressed `dbg` still evaluates its arguments (docs/logging.md), so a production
+build with every trace switched off was paying for it too.
+
+Now `logNoRung` — `debugEnabled()` first, then dedup on the message, **keyed per trill** so a second
+ornament still gets its own line. The same shape `markBreakWrap.sameSystem` already carried; ⛔ the
+line is not deleted and not timer-throttled, because a decline that says nothing is a gesture that
+"does nothing", and a reason that CHANGES is the interesting case.
+
+⚠️ **Honest scope**: this is *not* where the 9 ms went — the walk runs before `renderScore()`, so the
+census never counted it. It removes work from the frame the user feels, and from production.
+⛔ `MouseController`'s per-frame `Endpoint drag` trace was left alone: its arguments are `toFixed`
+numbers, and its value changes every frame, so neither the guard nor a dedup would fire.
+
+⭐ **The first version of the guard's test PASSED with the guard deleted.** It compared registry
+reads across an unsettled run and a settled one, so it was measuring the *path*, not the log. The
+fix is in the spec's own comment: settle first, then compare two identical runs.
+
+#### ✅ The residual is now BRACKETED (2026-08-22)
+
+The ~9 ms was attributed by *reading the render path*, not by a probe. Seven contiguous regions of
+`renderScore` now report themselves, in the order it runs them:
+
+| region | what it covers |
+|---|---|
+| `tier1` | `layoutTier1` — one placement per (measure, staff), whole score |
+| `plan` | the spans, the cull window, and `planCrossBarBeams` **twice** |
+| `shapeKey` | `measureShapeKey` per (measure, staff) — a `JSON.stringify` each. ⊃ `fingerprint` |
+| `groups` | the reuse decision, `clearForRender`, the pages, the measure loop, the connectors |
+| `curves` | `renderTies` + `renderSlurs` |
+| `ladder` | the **nine** outside-staff passes. ⚠️ several read DOM geometry |
+| `hint` | `hintBarlines` |
+
+⭐ **They TILE the render rather than sampling it**, so whatever they miss prints as an
+`unaccounted` line instead of being absorbed by a neighbour. ⛔ `fingerprint` is deliberately *not*
+a region — it is spent inside `shapeKey`, and subtracting it twice would drive the remainder
+negative, which is the 259% bug wearing a different hat. A spec pins that.
+
+The dump is now one table, every part as a share of the **whole render**, with the layout bracket's
+two members shown as "of which".
+
+⏭️ **Run it and read it.** The question it settles: does the residual sit in `shapeKey` + `tier1`
+(pure JS — memoize it) or in `ladder` + `curves` (which is where every `getBBox()` lives — batch the
+reads)? ⭐ `docs/render-performance-research.md` §7 says the same split decides the fix, from the
+other direction, and gives a second instrument (`PerformanceScriptTiming.forcedStyleAndLayoutDuration`)
+that attributes forced layout **by function name**. ⛔ Do not choose between 12.5a and 12.5b before
+this number exists.

@@ -61,7 +61,7 @@ import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn, type Staff
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
-import { renderProbe } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
+import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
@@ -110,6 +110,25 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
  * quarters) rather than hard-coded, because `Tables.RESOLUTION` is not on the package's public
  * entry — cf. `Glyphs`, which is CJS-only and undefined in the browser.
  */
+/**
+ * ⏱ **TEMPORARY** — the pair that carves up a render (docs/render-performance-plan.md §12.7,
+ * {@link RenderLayoutPart}). Delete with the census.
+ *
+ * ⭐ **Two statements, not a wrapper taking a closure.** A closure would read better and would also
+ * change the shape of the code being measured — the measure loop mutates `placements` and `redrawn`
+ * from its enclosing scope, and the point of this round is to time `renderScore` as it actually is.
+ * ⚠️ Both are one boolean read when nothing is recording, which is every ordinary session.
+ */
+function probeNow(): number {
+  return renderProbe().recording ? performance.now() : 0
+}
+
+/** ⏱ TEMPORARY — attribute everything since {@link probeNow} to one named region. */
+function probeSub(part: RenderLayoutPart, t0: number): void {
+  const probe = renderProbe()
+  if (probe.recording) probe.layoutSub(part, performance.now() - t0)
+}
+
 function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score, measure: Measure): void {
   const spaces = measureLeadingSpaces(score, measure.id)
   if (spaces.length === 0 || voices.length === 0) return
@@ -3533,7 +3552,9 @@ export class VexFlowRenderer {
 
     // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
     // Runs over the WHOLE score, and must keep doing so once P6 draws only a window of it.
+    const tTier1 = probeNow() // ⏱ §12.7
     const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing)
+    probeSub('tier1', tTier1)
 
     // ---- The redraw decision (§7a). Three outcomes, not two. ----
     //
@@ -3554,6 +3575,7 @@ export class VexFlowRenderer {
     // tier 2 is not painting closes its barline, because a placeholder beam whose partner has no
     // StaveNotes would leave a note with no flag AND no stem; across a break an undrawn side just skips
     // itself. Within a line the two passes agree by construction — the forcing is what makes them.
+    const tPlan = probeNow() // ⏱ §12.7 — spans + cull window + BOTH beam plans
     const provisionalBeams = this.planCrossBarBeams(plans, () => true)
 
     const spans = this.spanAnchors(score, provisionalBeams.joins, provisionalBeams.fanJoins)
@@ -3587,6 +3609,8 @@ export class VexFlowRenderer {
     // PICTURE, so it goes in the shape key — leave it out and a bar keeps its old flags forever the
     // first time its neighbour's mark changes.
     const beamPlan = this.planCrossBarBeams(plans, i => draws[i])
+    probeSub('plan', tPlan)
+    const tShapeKey = probeNow() // ⏱ §12.7 — one JSON.stringify per (measure, staff)
     const keys = plans.map(p => measureShapeKey(
       score,
       { ...p, crossBarBeams: beamPlan.descriptorFor(p.measureNumber, p.staffIndex) },
@@ -3595,6 +3619,9 @@ export class VexFlowRenderer {
       this.suppressedDynamicInkWidth,
     ))
 
+    probeSub('shapeKey', tShapeKey)
+
+    const tGroups = probeNow() // ⏱ §12.7 — the reuse decision through the cross-bar beams
     type Reuse = { snapshot: MeasureSnapshot; dx: number; dy: number }
     const reuse = new Map<string, Reuse>()
 
@@ -3747,6 +3774,7 @@ export class VexFlowRenderer {
     // bar's group with everything drawn into it — and after it, so a fan joined behind an ordinary
     // cross-barline beam finds its neighbour's stems already settled.
     drawCrossBarFanBeams(pass, beamPlan.fanJoins)
+    probeSub('groups', tGroups)
 
     // ⭐⭐ **THE SLURS ARE DRAWN BEFORE THE LADDER IS PLANNED — 2026-08-18, and this seat is the
     // whole of docs/trill-slur-clearance-plan.md's P1.** An arc exists only once it is drawn, so
@@ -3760,6 +3788,7 @@ export class VexFlowRenderer {
     // ⚠️ The TIE comes up here with it, in the same order the two always had. A tie is the commoner
     // obstacle of the two — a trill's span runs *through* ties, and Gould p. 139 draws exactly that
     // — so both curve families must be on `pass.drawnCurves` before anything is planned.
+    const tCurves = probeNow() // ⏱ §12.7
     renderTies(pass, score)
     renderSlurs(pass, score)
 
@@ -3783,6 +3812,9 @@ export class VexFlowRenderer {
     // (docs/trill-slur-clearance-plan.md P2), so it needs each bar's stave to turn an arc's pixels
     // into staff spaces. The other two are still pixel-free and take `plans`; ⛔ that difference is
     // the whole reason the trill's seat matters and theirs does not.
+    probeSub('curves', tCurves)
+
+    const tLadder = probeNow() // ⏱ §12.7 — the nine outside-staff passes
     const trillBands = planTrillBands(pass, score, placements, staffList.map(staff => staff.id))
     const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
     const dynamicsPlan = planDynamicsLines(
@@ -3840,6 +3872,7 @@ export class VexFlowRenderer {
     // (docs/ottava-plan.md P0b). ⛔ There is no priority table; move this call and you change the
     // order.
     placeTempoMarksOnLine(pass, placements, staffList.map(staff => staff.id))
+    probeSub('ladder', tLadder)
 
     // Render ghost note AFTER all measures (as an overlay)
     let ghostNoteRendered = false
@@ -3855,7 +3888,9 @@ export class VexFlowRenderer {
     // Last, once every bar is standing: put the barlines on whole device pixels so they all look
     // alike (`./barlineInk`). The EDITOR audience only — hinting is a defence against a coarse
     // pixel grid, and a print render has no such grid; the PDF keeps the true 0.16 spaces.
+    const tHint = probeNow() // ⏱ §12.7
     if (this.audience === 'editor') this.hintBarlines(true)
+    probeSub('hint', tHint)
 
     renderProbe().endRender() // P0 instrument
     return ghostNoteRendered

@@ -60,6 +60,13 @@ class RenderCensus implements RenderProbe {
 
   reset(): void {
     this.buckets.clear()
+    // 🚨🚨 **`sub` MUST be cleared here, and was not until 2026-08-22.** `enable()` calls `reset()`,
+    // so a second `enable()` in one page life started the per-cause table from zero while the part
+    // breakdown kept accumulating — including every render between the first `dump()` and the second
+    // `enable()`, which nothing was counting. The dump then divided a cumulative numerator by a
+    // fresh denominator and printed **`columns … 259%`**. ⚠️ A part is only comparable to a total it
+    // was measured over; two accumulators with different lifetimes are not one measurement.
+    this.sub = { ...ZERO_PARTS }
   }
 
   /**
@@ -107,34 +114,36 @@ class RenderCensus implements RenderProbe {
   }
 
   /**
-   * **TEMPORARY, and the point of this round.** Split the layout term three ways, because §9 rests
-   * on an assumption nobody has checked: that the cost is the *fingerprint walk*.
-   *
-   * The three suspects, and what each would mean:
+   * **TEMPORARY.** The named per-render walks, each timed at its own call site. §9 rests on an
+   * assumption nobody had checked — that the cost is the *fingerprint walk* — and these are what
+   * answer it.
    *
    *  - `laneView` — `staffMeasureView` rebuilding one `Measure` object per (measure, staff), every
    *    render. Copy-on-write fixes it (the lane can be cached on the measure's identity).
-   *  - `fingerprint` — `JSON.stringify`ing every lane to make its cache key. **This is what §9
-   *    assumes dominates**, and what a `WeakMap` on the measure object would delete outright.
-   *  - `format` — the VexFlow `Formatter` actually re-running, on lanes whose key legitimately
-   *    changed. Copy-on-write **does not help here at all**: the width really is unknown. If this
-   *    is the bulk of it, §9 is the wrong fix and the answer lies in the key (a clef change puts a
-   *    new `clef` in every later bar's fingerprint, so every later bar re-formats — even though a
-   *    clef barely moves a notehead).
+   *    **Inside** the layout bracket.
+   *  - `columns` — the width rule: `measureColumns` plus the natural/minimum sums, on lanes whose
+   *    width is genuinely unknown. Copy-on-write **does not help here at all**. **Inside** the
+   *    bracket. ⛔ Called `format` until 2026-08-22, after the VexFlow `Formatter` it used to time —
+   *    which left this path long before the name did.
+   *  - `fingerprint` — `laneFingerprint`, the `JSON.stringify` of a lane, which a `WeakMap` on the
+   *    measure object would delete outright. **OUTSIDE** the bracket: its only live caller is
+   *    `measureShapeKey`, which runs after `endLayout()`.
+   *
+   * ⚠️ **So these do NOT sum to the layout term, and must never be reported as shares of it.** They
+   * are shares of the WHOLE RENDER. See {@link reset} for what the other arithmetic cost us.
+   *
+   * ⭐⭐ **The seven RESIDUAL parts** (`tier1` … `hint`) carve up what the census could previously only
+   * call "draw" — on frames reporting **0% redrawn**, where nothing was drawn at all. They are
+   * contiguous regions of `renderScore` in the order it runs them, so whatever they miss surfaces as
+   * `unaccounted` rather than being absorbed by a neighbour. See {@link RenderLayoutPart}.
    *
    * Session-global, not per-cause: it is one question, asked once.
    */
-  private sub = { laneView: 0, fingerprint: 0, format: 0, hits: 0, misses: 0 }
+  private sub: Record<RenderLayoutPart, number> = { ...ZERO_PARTS }
 
   layoutSub(part: RenderLayoutPart, ms: number): void {
     if (!this.on) return
     this.sub[part] += ms
-  }
-
-  layoutCacheProbe(hit: boolean): void {
-    if (!this.on) return
-    if (hit) this.sub.hits++
-    else this.sub.misses++
   }
 
   /** Is the instrument recording? Lets hot call sites skip `performance.now()` entirely when off. */
@@ -157,43 +166,111 @@ class RenderCensus implements RenderProbe {
     this.cause = '?'
   }
 
-  dump(): void {
-    const rows = [...this.buckets.entries()]
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([cause, b]) => ({
-        cause,
-        renders: b.n,
-        'total ms': +b.total.toFixed(0),
-        'avg ms': +(b.total / b.n).toFixed(1),
-        'worst ms': +b.max.toFixed(1),
-        'layout ms (avg)': +(b.layout / b.n).toFixed(1),
-        // P5.4: bars actually re-engraved vs bars on the page. 0% is the goal for anything that
-        // changes no content (a slur drag); ~one system for an ordinary edit.
-        'redrawn %': b.of === 0 ? 0 : +((100 * b.redrawn) / b.of).toFixed(1),
-        'draw ms (avg)': +((b.total - b.layout) / b.n).toFixed(1),
-      }))
-    const n = rows.reduce((s, r) => s + r.renders, 0)
-    const total = rows.reduce((s, r) => s + (r['total ms'] as number), 0)
-    console.log(`[census] ${n} renders, ${total.toFixed(0)} ms of render time total`)
-    console.table(rows)
-
-    // The §9 question: WHERE does the layout term actually go?
-    const s = this.sub
-    const layoutTotal = rows.reduce((sum, r) => sum + (r['layout ms (avg)'] as number) * r.renders, 0)
-    const probes = s.hits + s.misses
-    console.log(
-      `[census] layout breakdown — of ${layoutTotal.toFixed(0)} ms of layout across the session:`,
-    )
-    console.table([
-      { part: 'laneView (staffMeasureView)', ms: +s.laneView.toFixed(0), share: pct(s.laneView, layoutTotal), 'fixed by CoW?': 'yes' },
-      { part: 'fingerprint (JSON.stringify)', ms: +s.fingerprint.toFixed(0), share: pct(s.fingerprint, layoutTotal), 'fixed by CoW?': 'yes' },
-      { part: 'format (VexFlow Formatter)', ms: +s.format.toFixed(0), share: pct(s.format, layoutTotal), 'fixed by CoW?': 'NO' },
-    ])
-    console.log(
-      `[census] width cache: ${s.hits} hits / ${s.misses} misses (${pct(s.misses, probes)} miss rate). ` +
-        `A high miss rate means the FORMATTER is re-running — which copy-on-write cannot help.`,
-    )
+  /**
+   * The numbers, as data. `dump()` is this plus `console.table`.
+   *
+   * ⭐ Split out so the arithmetic can be TESTED. Every bug this instrument has had lived in the
+   * arithmetic, not in the timing — a denominator rebuilt out of rounded averages, and a numerator
+   * with a different lifetime from its denominator ({@link reset}) — and neither was reachable from
+   * a spec while the only way to read a number was to look at a console.
+   */
+  report(): CensusReport {
+    const buckets = [...this.buckets.values()]
+    return {
+      renders: buckets.reduce((s, b) => s + b.n, 0),
+      totalMs: buckets.reduce((s, b) => s + b.total, 0),
+      // ⚠️ Summed from the RAW per-cause totals. `dump` used to rebuild it as `round(layout/n) × n`
+      // per cause, which drifts by up to half a rounding step per cause for nothing.
+      layoutMs: buckets.reduce((s, b) => s + b.layout, 0),
+      causes: [...this.buckets.entries()]
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([cause, b]) => ({
+          cause,
+          renders: b.n,
+          'total ms': +b.total.toFixed(0),
+          'avg ms': +(b.total / b.n).toFixed(1),
+          'worst ms': +b.max.toFixed(1),
+          'layout ms (avg)': +(b.layout / b.n).toFixed(1),
+          // P5.4: bars actually re-engraved vs bars on the page. 0% is the goal for anything that
+          // changes no content (a slur drag); ~one system for an ordinary edit.
+          'redrawn %': b.of === 0 ? 0 : +((100 * b.redrawn) / b.of).toFixed(1),
+          'draw ms (avg)': +((b.total - b.layout) / b.n).toFixed(1),
+        })),
+      parts: { ...this.sub },
+      // ⭐ What no region claimed. ⚠️ `fingerprint` is INSIDE `shapeKey` and `laneView`/`columns` are
+      // inside the layout bracket, so they are excluded here — adding a part to its own container
+      // would drive this negative, which is the 259% bug wearing a different hat.
+      unaccountedMs: Math.max(0, buckets.reduce((sum, b) => sum + b.total, 0)
+        - buckets.reduce((sum, b) => sum + b.layout, 0)
+        - RESIDUAL_PARTS.reduce((sum, k) => sum + this.sub[k], 0)),
+    }
   }
+
+  dump(): void {
+    const r = this.report()
+    console.log(
+      `[census] ${r.renders} renders, ${r.totalMs.toFixed(0)} ms of render time total ` +
+        `(layout ${r.layoutMs.toFixed(0)} ms = ${pct(r.layoutMs, r.totalMs)})`,
+    )
+    console.table(r.causes)
+
+    // The §9 question: WHERE does the per-render time actually go?
+    //
+    // ⚠️ **Shares of the WHOLE RENDER, not of the layout term.** That denominator is what printed a
+    // part at 259% (see `reset`): `fingerprint` is spent outside the layout bracket entirely, so
+    // against the layout term it was never a percentage of anything. `in layout?` is the fact that
+    // used to be smuggled into the denominator instead of being stated.
+    const s = r.parts
+    const row = (part: string, ms: number, note: string) =>
+      ({ part, ms: +ms.toFixed(0), share: pct(ms, r.totalMs), note })
+    console.log(`[census] where the ${r.totalMs.toFixed(0)} ms of render went — shares of the WHOLE render:`)
+    console.table([
+      row('LAYOUT (the bracket)', r.layoutMs, 'calculateMeasureWidths + the layout key'),
+      row('· laneView', s.laneView, 'of which — staffMeasureView, per (measure, staff)'),
+      row('· columns', s.columns, 'of which — the width rule; ⛔ CoW cannot help here'),
+      row('tier1', s.tier1, 'one placement per (measure, staff), whole score'),
+      row('plan', s.plan, 'spans + cull window + planCrossBarBeams TWICE'),
+      row('shapeKey', s.shapeKey, 'one JSON.stringify per (measure, staff)'),
+      row('· fingerprint', s.fingerprint, 'of which — laneFingerprint'),
+      row('groups', s.groups, 'reuse decision, clear, pages, the measure loop, connectors'),
+      row('curves', s.curves, 'ties + slurs'),
+      row('ladder', s.ladder, 'the NINE outside-staff passes; ⚠️ several read DOM geometry'),
+      row('hint', s.hint, 'hintBarlines'),
+      row('unaccounted', r.unaccountedMs, 'the header: surface, clefs, staff spacing, sizing, ghost'),
+    ])
+    // ⛔ A fourth line here reported `MeasureWidthCache` hits/misses. It printed `0 hits / 0 misses`
+    // for its whole life, and docs/render-performance-plan.md §12.6 quoted that as if it meant the
+    // cache was cold: the probe had NO call site, and the cache it would have measured is
+    // deliberately not consulted (`MeasureLayout.noteSpaceForMeasure`). A line that can only print
+    // zero is not a measurement, and leaving it standing cost a reading of the census.
+  }
+}
+
+/** What {@link RenderCensus.report} answers with — the dump, before it becomes console output. */
+export interface CensusReport {
+  renders: number
+  totalMs: number
+  /** The layout term, summed raw across causes. */
+  layoutMs: number
+  causes: Array<Record<string, string | number>>
+  parts: Record<RenderLayoutPart, number>
+  /** Total render minus the layout bracket minus every residual region — see {@link RESIDUAL_PARTS}. */
+  unaccountedMs: number
+}
+
+/**
+ * The regions of `renderScore` OUTSIDE the layout bracket, and they must tile it without overlapping
+ * — that is what lets `unaccountedMs` be a subtraction rather than a guess.
+ *
+ * ⛔ `fingerprint` is NOT here: it is spent inside `shapeKey`, and counting it twice would make the
+ * remainder lie. ⛔ Nor are `laneView`/`columns`, which are inside the layout bracket.
+ */
+const RESIDUAL_PARTS = ['tier1', 'plan', 'shapeKey', 'groups', 'curves', 'ladder', 'hint'] as const
+
+/** Every part at zero — the one place the list is written down, so `reset` cannot forget one. */
+const ZERO_PARTS: Record<RenderLayoutPart, number> = {
+  laneView: 0, fingerprint: 0, columns: 0,
+  tier1: 0, plan: 0, shapeKey: 0, groups: 0, curves: 0, ladder: 0, hint: 0,
 }
 
 function pct(part: number, whole: number): string {

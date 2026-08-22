@@ -4,6 +4,7 @@ import { createEditorState, type EditorState } from './EditorState'
 import { dragTrillBody, dragTrillEndpoint, walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
+import { setDebugLogging } from '../utils/debug'
 
 /**
  * ←/→ on an ARMED TRILL SQUARE moves that end's INK, and carries that end of the ORNAMENT along once
@@ -37,6 +38,10 @@ const drawn = vi.hoisted(() => ({
   staffOffset: {} as Record<number, number>,
   /** The staves' drawn bands. One by default: nothing to jump to, so the rule declines. */
   bands: [{ top: 40, bottom: 80 }] as { top: number; bottom: number }[],
+  /** ⭐ How many times the registry has been asked for those bands — the probe for "did the DECLINE
+   *  build its log message?" (`logNoRung`). ⚠️ Other things on the path read the bands too, so it is
+   *  only ever compared as a DELTA between two otherwise identical runs. */
+  bandsReads: 0,
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -58,7 +63,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       },
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      staffBands: () => drawn.bands,
+      staffBands: () => { drawn.bandsReads++; return drawn.bands },
     }))
   },
 }))
@@ -538,6 +543,81 @@ describe('walkArmedTrillEndpoint', () => {
       expect(dragTrillBody(engine, trillId, 200, 0, 200)?.moved).toBe(true)
       expect(onLeftHand(), 'the ornament belongs to the left hand now').toBe(true)
       expect(engine.getTrillById(trillId)?.placement, 'one rung: above the staff below').toBe('above')
+    })
+  })
+
+  /**
+   * ⭐ **THE DECLINE'S LOG IS ON THE HOT PATH** (docs/render-performance-plan.md §12.7 item 3).
+   *
+   * 🚨 `whyNoJump` is not a template literal — it walks `getByType('note')` and runs a `find` inside
+   * a `some`, i.e. §12.2's quadratic id lookup, hiding inside a LOG MESSAGE. A suppressed `dbg`
+   * still EVALUATES its arguments (docs/logging.md), so before `logNoRung` that walk ran on every
+   * declined frame **even in a production build with every trace off**. In one of his 2026-08-22
+   * census gestures this decline fired ~90 times with the same message each time.
+   *
+   * ⛔ The line is not removed and not timer-throttled: a decline that says nothing is a gesture
+   * that "does nothing", and a reason that CHANGES is the interesting case.
+   */
+  describe('the decline says itself once, and costs nothing when logging is off', () => {
+    /** Push the body down with nowhere to land — the commonest decline, and the logged one. */
+    const push = () => dragTrillBody(engine, trillId, 0, 0, 400)
+
+    it('🚨 with logging OFF the message is never BUILT', () => {
+      // ⚠️ SETTLE FIRST. The opening push down is a RUNG (below its own staff), so it takes a
+      // different path from every push after it. Comparing an unsettled run against a settled one
+      // measures the path, not the log — which is exactly how the first version of this test passed
+      // with the guard deleted. From here on every push declines identically: the stored offset
+      // grows, but `trillInkY` reads the REGISTRY, so the decision is the same each time.
+      push()
+      push()
+
+      drawn.bandsReads = 0
+      push(); push()
+      const quiet = drawn.bandsReads
+
+      setDebugLogging(true)
+      drawn.bandsReads = 0
+      push(); push()
+      setDebugLogging(false)
+
+      // ⭐ With one band painted, `whyNoJump` returns straight after reading them — so ONE extra
+      // read per declined frame is its entire footprint, and its absence is the whole point.
+      expect(drawn.bandsReads, 'building the message costs registry reads').toBeGreaterThan(quiet)
+    })
+
+    it('⭐ with logging ON, N identical declines print ONE line', () => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+      setDebugLogging(true)
+      // ⚠️ The first push down is a RUNG (below its own staff), so four of the five decline.
+      for (let i = 0; i < 5; i++) dragTrillBody(engine, trillId, 0, 0, 400)
+      setDebugLogging(false)
+
+      const declines = log.mock.calls.filter(c => String(c[0]).includes('no rung down there'))
+      expect(declines).toHaveLength(1)
+      log.mockRestore()
+    })
+
+    it('⛔ …and the dedup is PER TRILL — a second ornament still gets its own line', () => {
+      // ⚠️ Its ink has to be DRAWN or the jump bails before it ever reaches the decline.
+      const other = engine.createTrill([ids[0]])!.id
+      drawn.entries.push({
+        type: 'trill', id: other, staff: 0, measure: 1,
+        bbox: { x: 100, y: 20, width: 100, height: 10 },
+      })
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+      setDebugLogging(true)
+      // The FIRST push down each is a rung (below its own staff); the second has nowhere left to go.
+      dragTrillBody(engine, trillId, 0, 0, 400)
+      dragTrillBody(engine, trillId, 0, 0, 400)
+      dragTrillBody(engine, other, 0, 0, 400)
+      dragTrillBody(engine, other, 0, 0, 400)
+      setDebugLogging(false)
+
+      // ⚠️ Same MESSAGE, different mark. A single module-level `last` string would swallow the
+      // second one, and the ornament nobody has heard from is exactly the one being debugged.
+      const declines = log.mock.calls.filter(c => String(c[0]).includes('no rung down there'))
+      expect(declines).toHaveLength(2)
+      log.mockRestore()
     })
   })
 })
