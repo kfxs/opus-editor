@@ -7,6 +7,7 @@ import type { HighlightController } from './HighlightController'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
 import { renderProbe } from '../engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import { musicFontReady } from '../engine/rendering/musicFontReady'
+import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
 
 /**
  * Orchestrates score rendering and ghost-note preview.
@@ -137,6 +138,36 @@ export class RenderController {
       engine.renderScore()
     }
 
+    this.applyHighlights()
+    this.afterRender?.()
+  }
+
+  /**
+   * ⭐⭐ **ONE FRAME OF A MARK GESTURE — redraw the family that is moving, and nothing else**
+   * (docs/render-performance-plan.md §12.5a, `engine/rendering/markPreviewPass`).
+   *
+   * The same shape `renderPreview` below already has, one level up: the engraved score and its
+   * measure groups stay exactly as they are, and only the moving family's `<g>`s are swapped. The
+   * census measured the alternative at ~11 ms a frame with **0% of bars re-engraved** — the music
+   * never changed, so all of it went on re-deriving what was already on screen.
+   *
+   * ⛔ **Falls back to a real render rather than leaving the picture stale** when there is no usable
+   * snapshot — the first frame of a gesture after a reload, say.
+   *
+   * ⚠️ No `clearGhosts` here, deliberately: a drag draws no cursor ghost, and that sweep is a
+   * document-wide `querySelectorAll` over a dozen classes — exactly the kind of whole-score work
+   * this method exists to stop paying.
+   */
+  previewMarks(kind: MarkPreviewKind, markId?: string): void {
+    const engine = this.getEngine()
+    if (!engine) return
+    if (!this.fontReady) { this.renderScore(); return }
+
+    // The highlights' inverse has to run while the DOM it applies to is still standing — the same
+    // reason `renderScore` takes them off first (a recolour left on a node we are about to remove
+    // would strand its undo entry on a detached element).
+    this.highlight.clearHighlights()
+    if (!engine.previewMarks(kind, markId)) { this.renderScore(); return }
     this.applyHighlights()
     this.afterRender?.()
   }

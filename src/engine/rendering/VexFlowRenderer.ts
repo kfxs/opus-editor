@@ -62,6 +62,9 @@ import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
+import {
+  previewMarkFamily, type PassEntry, type MarkPreviewKind, type RenderSnapshot,
+} from './markPreviewPass'
 import { restShiftOverrideOf, restHiddenOf, restPositionKey, resolveStaffSpacingAbove, measureLeadingSpaces, measureUserSpacePx, noteOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { STAFF_SPACE_PX, resolveStaffSize } from '@/engine/models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
@@ -489,6 +492,16 @@ export class VexFlowRenderer {
    *  Owned here — not a module singleton — so two documents and two tests cannot share one.
    *  Survives `clear()`: the SVG is thrown away every render, the widths are not. */
   private widthCache = new MeasureWidthCache()
+
+  /**
+   * The last FULL render, for a gesture that wants to redraw one mark family instead of all of it
+   * ({@link previewMarks}, `./markPreviewPass`). Null until the first render.
+   *
+   * ⚠️ It holds the very `RenderPass` the score on screen was drawn with — references, not copies,
+   * exactly as `createRenderPass` intends. That is what makes a preview cheap and also what makes it
+   * only valid while the drawn score still stands: ⛔ any render replaces it wholesale.
+   */
+  private lastRender: RenderSnapshot | null = null
   /** Map of note IDs to their rendered StaveNotes (for tie rendering) */
   private staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }> = new Map()
   /**
@@ -3318,6 +3331,17 @@ export class VexFlowRenderer {
    * reflowing the score. The snapshot is taken here (not in renderScore) because
    * clearCanvas() wipes measureLayoutInfo before each render.
    */
+  /**
+   * ⭐⭐ **Redraw ONE mark family against the last render** — the whole of §12.5a's cheap frame.
+   *
+   * Returns false when there is no usable snapshot, and the caller must then do a real render rather
+   * than leave the picture stale (`RenderController.previewMarks`). ⛔ It is a PREVIEW: the ladder is
+   * not restacked and the drop still owes a full render.
+   */
+  previewMarks(kind: MarkPreviewKind, markId?: string): boolean {
+    return previewMarkFamily(kind, this.lastRender, markId)
+  }
+
   setLayoutFrozen(frozen: boolean): void {
     this.frozenLayout = frozen && this.measureLayoutInfo.size > 0
       ? new Map(this.measureLayoutInfo)
@@ -3815,8 +3839,30 @@ export class VexFlowRenderer {
     // ⚠️ The TIE comes up here with it, in the same order the two always had. A tie is the commoner
     // obstacle of the two — a trill's span runs *through* ties, and Gould p. 139 draws exactly that
     // — so both curve families must be on `pass.drawnCurves` before anything is planned.
+    // ⭐ Each family's REWIND POINT, taken the instant before **its PLAN** runs — or before its draw
+    //   for the two families that have no plan (`./markPreviewPass`). ⛔ Not before its DRAW for the
+    //   rest: a preview re-plans, and the plan is what files the ladder claim, so rewinding to the
+    //   draw would leave the previous frame's claim standing and the mark would climb a rung a frame.
+    //   ⛔ Nor one shared mark: the passes run in ladder order and each appends after the last, so a
+    //   family rewound to someone else's point would take that family's claims down with its own.
+    const ctx = pass.context as unknown as { state: Record<string, unknown>; attributes: Record<string, unknown> }
+    const before = {} as Record<MarkPreviewKind, PassEntry>
+    /** The collections as this family's PLAN found them — where its ladder claim is filed. */
+    const entryState = (): PassEntry => ({
+      bands: pass.occupiedBands.length,
+      curves: pass.drawnCurves.length,
+      state: {},
+      attributes: {},
+    })
+    /** …and the ambient ink as its DRAW found it, which is a different moment. See `PassEntry`. */
+    const inkAt = (kind: MarkPreviewKind): void => {
+      before[kind] = { ...before[kind], state: { ...ctx.state }, attributes: { ...ctx.attributes } }
+    }
+
     const tCurves = probeNow() // ⏱ §12.7
     renderTies(pass, score)
+    before.slur = entryState()
+    inkAt('slur')
     renderSlurs(pass, score)
 
     // ⭐⭐ THE BELOW-STAFF LADDER IS BUILT HERE, INNERMOST FIRST, AND THE ORDER OF THESE THREE CALLS
@@ -3842,8 +3888,11 @@ export class VexFlowRenderer {
     probeSub('curves', tCurves)
 
     const tLadder = probeNow() // ⏱ §12.7 — the nine outside-staff passes
+    before.trill = entryState()
     const trillBands = planTrillBands(pass, score, placements, staffList.map(staff => staff.id))
+    before.ottava = entryState()
     const ottavaBands = planOttavaBands(pass, score, plans, staffList.map(staff => staff.id))
+    before.hairpin = entryState()
     const dynamicsPlan = planDynamicsLines(
       score, plans, staffList.map(staff => staff.id), MARK_INK, pass.occupiedBands)
 
@@ -3862,6 +3911,7 @@ export class VexFlowRenderer {
     // the dynamics family, so it asks the same module for the same line, and it reads where the
     // letters actually landed in order to stop short of them (docs/dynamics-line-and-hairpins-plan.md
     // P3). Its endpoint bars are span anchors, so their notes are drawn rather than translated.
+    inkAt('hairpin')
     renderHairpins(pass, score, placements, dynamicsPlan)
 
     // ⭐ And the trills. AFTER the hairpins but sharing nothing with them: a trill is not a member
@@ -3869,6 +3919,7 @@ export class VexFlowRenderer {
     // span and takes its own rung, which is the whole of its vertical story
     // (docs/above-staff-ladder.md §4). Its endpoint bars are span anchors, so their notes are drawn
     // rather than translated.
+    inkAt('trill')
     renderTrills(pass, score, placements, staffList.map(staff => staff.id), trillBands)
 
     // ⭐⭐ …then the OCTAVE LINES, and this position IS their rung. An ottava sits outside both
@@ -3878,6 +3929,7 @@ export class VexFlowRenderer {
     // decision, see docs/ottava-plan.md §5), so it is the first pass
     // that both READS `pass.occupiedBands` and writes to it — the middle of the ladder
     // (docs/ottava-plan.md P3). ⛔ Move this call and you change the order; there is no table.
+    inkAt('ottava')
     renderOttavas(pass, score, placements, staffList.map(staff => staff.id), ottavaBands)
 
     // ⭐⭐ …then the SUSTAIN PEDALS, and this position IS their rung — the LAST of the below-staff
@@ -3890,6 +3942,8 @@ export class VexFlowRenderer {
     // `placeDynamicsOnLine` and `renderHairpins` is what makes it outside a `p` and a wedge. ⛔ Move
     // this call and you change the ladder; there is no table. (Tempo below is ABOVE-side only, so
     // the two never meet — their order relative to each other says nothing.)
+    before.pedal = entryState()
+    inkAt('pedal')
     renderPedals(pass, score, placements, staffList.map(staff => staff.id))
 
     // ⭐⭐ …and LAST, the tempo marks onto their row — after every other outside-staff family,
@@ -3934,6 +3988,17 @@ export class VexFlowRenderer {
     const tHint = probeNow() // ⏱ §12.7
     if (this.audience === 'editor' && (redrawn > 0 || barlinesMoved)) this.hintBarlines(true)
     probeSub('hint', tHint)
+
+    // ⭐⭐ Everything a GESTURE needs to redraw one family without running any of this again
+    //   (`./markPreviewPass`, docs/render-performance-plan.md §12.5a). Captured last, so it can only
+    //   ever describe a render that finished.
+    this.lastRender = {
+      score,
+      pass,
+      placements,
+      staffIds: staffList.map(staff => staff.id),
+      before,
+    }
 
     renderProbe().endRender() // P0 instrument
     return ghostNoteRendered

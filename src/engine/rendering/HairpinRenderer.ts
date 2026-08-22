@@ -52,6 +52,7 @@ import { dynamicInkReachSpaces } from './dynamicMarkInk'
 import { dynamicLabel } from '@/utils/dynamics'
 import { HAIRPIN_LINE_SPACES } from './thinLineWeight'
 import { planSlurSegments } from './SlurRenderer'
+import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
@@ -398,6 +399,23 @@ function cutIntoPieces(
  * `placements` is every drawn (measure, staff); `plan` is where every mark of the render goes,
  * levelled by chain (`./dynamicsLinePlan`). The staff-id normalisation the ink boxes need lives
  * there now, with the rest of the vertical decision.
+ *
+ * 🚨🚨 **THE WEDGE IS FOUND IN THE SCORE AND ITS STAFF READ OFF `hairpin.staffId`** — ⛔ never by
+ * walking the placements and taking each one's LANE (`from.view.hairpins`, `from.staffIndex`), which
+ * is what this did until 2026-08-22. A lane view is a *copy* filtered at render time
+ * (`staffMeasureView`), so it answers "which staff is this wedge on?" **as of the last full render**.
+ *
+ * That was invisible while every frame was a full render, and became a bug the day a mark drag
+ * started previewing off a snapshot (`./markPreviewPass`): a wedge dragged onto the other hand of a
+ * grand staff kept being found under its OLD lane and was therefore redrawn on the OLD staff, at a y
+ * that never moved. `hairpinWalk` decides where the wedge belongs by reading its own drawn ink, so
+ * it saw a wedge that had not budged, ruled that it must cross again — and the trace shows it
+ * marching m3 → m11 → m21 across staves under a hand that moved four pixels. ⭐ The ottava and the
+ * pedal never had it, because both already resolve their staff from the score exactly as this now
+ * does (`OttavaRenderer.ts:385`, `PedalRenderer.ts:343`).
+ *
+ * ⚠️ For a full render the two spellings are identical — lane membership IS `matchesStaff(h.staffId,
+ * …)` — so this is a no-op there and a fix only where the placements are older than the score.
  */
 export function renderHairpins(
   pass: RenderPass,
@@ -408,14 +426,17 @@ export function renderHairpins(
   const byMeasureStaff = new Map<string, HairpinPlacement>()
   for (const p of placements) byMeasureStaff.set(`${p.measureNumber}:${p.staffIndex}`, p)
 
-  for (const from of placements) {
-    for (const hairpin of from.view.hairpins ?? []) {
+  // ⭐ A span belongs to where it BEGINS, so each wedge is listed once — by the bar it starts in.
+  for (const measure of score.measures) {
+    for (const hairpin of measure.hairpins ?? []) {
       const span = hairpinSpan(score, hairpin.id)
-      if (!span || span.startMeasure !== from.measureNumber) continue
-      const to = byMeasureStaff.get(`${span.endMeasure}:${from.staffIndex}`)
+      if (!span) continue
+      const staffIndex = staffIndexOfId(score, hairpin.staffId)
+      const from = byMeasureStaff.get(`${span.startMeasure}:${staffIndex}`)
+      const to = byMeasureStaff.get(`${span.endMeasure}:${staffIndex}`)
       // Both endpoint bars are span anchors (`VexFlowRenderer.spanAnchors`), so a missing one means
       // the bar genuinely was not rendered — not that it was translated with stale coordinates.
-      if (!to) continue
+      if (!from || !to) continue
 
       const x = spanX(pass, span, from, to)
       if (!x) continue
@@ -423,7 +444,7 @@ export function renderHairpins(
       // Every bar the wedge covers on this staff — the input both to the per-system line and to
       // finding a stave for each fragment's own system.
       const covered = placements.filter(p =>
-        p.staffIndex === from.staffIndex
+        p.staffIndex === staffIndex
         && p.measureNumber >= span.startMeasure
         && p.measureNumber <= span.endMeasure)
 
@@ -431,7 +452,7 @@ export function renderHairpins(
         // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-hairpin' here
         // would yield `class="vf-vf-hairpin"`, the mistake the slur's comment records.
         const group = pass.context.openGroup?.('hairpin', `hairpin-${hairpin.id}`) as SVGGElement | undefined
-        inStaffSpace(pass, from.staffIndex, group, () => {
+        inStaffSpace(pass, staffIndex, group, () => {
           drawWedge(pass, hairpin, span, x, covered, plan, from, to)
         })
         pass.context.closeGroup?.()

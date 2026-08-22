@@ -544,6 +544,85 @@ describe('walkArmedTrillEndpoint', () => {
       expect(onLeftHand(), 'the ornament belongs to the left hand now').toBe(true)
       expect(engine.getTrillById(trillId)?.placement, 'one rung: above the staff below').toBe('above')
     })
+
+    /**
+     * 🚨🚨 **HIS BUG, 2026-08-22, in his own words**: *"why if the x of my mouse is in another place
+     * i'm teleporting the x of the tr that should be offset to the anchor"*, and then the rule behind
+     * it — *"the gesture of the user follows one thing but is seen the `tr` instead of the mouse"*.
+     *
+     * ⭐ His trace: the `tr` drawn at `x803.5`, and the landing dumped it at `x137.7` — the drawn x of
+     * the note it had just landed on, most of a system away. `jumpTrillStaves` called
+     * `resetTrillOffset`, which puts the sign ON its new note. That is right for the KEYS
+     * (`markWalk.crossWithoutArrival`: *"the sign lands ON its new note, where the engraver would put
+     * it"*) and a teleport on a DRAG — and it never comes back, because every later frame is a delta
+     * applied to a mark that is no longer where the gesture left it.
+     *
+     * ⚠️ **The INK is what is preserved, ⛔ not the cursor** — his own correction: the `tr` is not
+     * drawn under the mouse to begin with, and it is the `tr` the user is watching.
+     */
+    it('🚨🚨 a landing does not MOVE the drawn ornament — the anchor steps, the OFFSET absorbs it', () => {
+      engine.addStaffBelow(0)
+      const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+      render()
+      drawn.staffOffset = { 1: 200 }
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      left.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, staff: 1, measure: 1, headX: 100 + i * 100,
+        bbox: { x: 95 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      // The ornament is drawn at x200 — a long way from the left hand's later notes, which is the
+      // shape his trace has, where the landing note is at the other end of the picture.
+      const sign = drawn.entries.find(e => e.type === 'trill')!
+      sign.bbox = { x: 200, y: 20, width: 200, height: 10 }
+      const drawnAt = sign.bbox.x
+
+      expect(dragTrillBody(engine, trillId, 700, 0, 80)?.moved, 'below its OWN staff first').toBe(true)
+      expect(dragTrillBody(engine, trillId, 700, 0, 200)?.moved, 'and then the left hand').toBe(true)
+      const landed = engine.getTrillById(trillId)!.startNoteId
+      expect(left, 'it really did cross to the other hand').toContain(landed)
+
+      // ⛔ THE CLAIM. Before the fix this was 0 — the sign snapped onto its new note, jumping by the
+      //   whole distance between the two. The offset must now hold the ink exactly where it was.
+      const noteX = drawn.entries.find(e => e.id === landed)!.bbox.x
+      expect(noteX + offset('start') * 10, 'the drawn ink did not move').toBeCloseTo(drawnAt, 1)
+    })
+
+    /**
+     * 🚨🚨 **HIS BUG, 2026-08-22** — *"the trill is landing at the end very far from the target y and
+     * the mouse y"*, then *"after some dragging again completely in the wrong place"*, with a
+     * screenshot of the `tr~~~` parked at the top RIGHT of the system ABOVE its own note.
+     *
+     * ⭐ Traced on his own score. The ornament lands on the FIRST note of a system, so its ink sits
+     * flush against that line's first ink — `x137.7` against a line starting at `138`. **Three
+     * pixels** of leftward drag make the offset −0.3ss, which is before the line's start, and
+     * `TrillRenderer.foldPastSystemEnd` continues the ink at the END of the previous line: x 1111,
+     * y 93. One pixel back the other way returns it, and the trace is pages of that flip-flop.
+     *
+     * ⛔ **The fold is not the bug and is untouched** — his own 2026-08-20 rule, still carrying the
+     * END SQUARE over passages of empty bars (the spec above still proves it). What it may not do is
+     * fire under a hand dragging the WHOLE ornament, whose contract is that the mark follows the
+     * mouse.
+     */
+    it('🚨🚨 the BODY dragged off the front of its own line stops, ⛔ it does not fold backwards', () => {
+      const sign = drawn.entries.find(e => e.type === 'trill')!
+
+      // ⚠️ Judged on where the ink WOULD land, ⛔ not on where it is. Out in the middle of the line
+      //    (the fixture's bar 1 runs 90…430) a 50 px drag has room, and refusing it too would leave
+      //    a mark that cannot move at all.
+      sign.bbox = { x: 200, y: 20, width: 200, height: 10 }
+      expect(dragTrillBody(engine, trillId, 0, -50, 0)?.moved, 'it still has room to travel').toBe(true)
+      const afterRoom = offset('start')
+      expect(afterRoom, 'and it spent the whole delta on ink').toBeCloseTo(-5)
+
+      // …and now the one with nowhere to go — the `tr` five pixels inside its line's first ink,
+      // exactly as landing on a system's FIRST note leaves it: 95 − 100 is before 90.
+      sign.bbox = { x: 95, y: 20, width: 200, height: 10 }
+      expect(dragTrillBody(engine, trillId, 0, -100, 0)?.moved, 'the frame declines the horizontal')
+        .toBe(false)
+      expect(offset('start'), 'the offset did NOT grow — before the fix this ran on and the drawing '
+        + 'continued the ink at the end of the previous line').toBeCloseTo(afterRoom)
+    })
   })
 
   /**

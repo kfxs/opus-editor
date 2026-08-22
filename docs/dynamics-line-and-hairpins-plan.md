@@ -2082,3 +2082,50 @@ between the two staves — exactly where a piano wedge for the left hand belongs
 The OTTAVA and the PEDAL have the same gap — per-staff candidates and no `staffId` write.
 ⚠️ The trill is the odd one out: it anchors to a NOTE, so its staff follows the note it lands on and
 it needs no write of its own.
+
+---
+
+## ✅ 🚨🚨 THE WEDGE WAS FOUND IN A STALE LANE (2026-08-22, FIXED)
+
+His report: *"after applying preview to marks now the walking and reanchor on crossing staves behave
+a little random"*, with a trace of the wedge crossing m3 → m11 → m21 under a hand moving four pixels.
+
+**The tell**, and it is exact: every landing that changed only the STAFF left the ink where it was.
+
+```
+→ m11 staff:0        inkY 387.5      → m21 staff:0        inkY 687.5
+→ m11 staff:e9195e…  inkY 387.5  ✗   → m21 staff:e9195e…  inkY 687.5  ✗
+```
+
+Measure changes moved the ink; staff changes never did.
+
+### The cause is in the RENDERER, not the walk
+
+`renderHairpins` found each wedge by walking the placements and reading their LANE —
+`from.view.hairpins`, `from.staffIndex`. A `MeasurePlacement.view` is a `staffMeasureView` **copy made
+during the render** (docs/render-performance-plan.md §12.5a), so it answers *"whose staff?"* as of the
+last full render. A preview draws against a snapshot older than the score, so a wedge that had crossed
+to the left hand was still found under the staff it had left and redrawn there. `hairpinWalk` decides
+from the wedge's own drawn ink, saw ink that had not moved, ruled it must cross again — and again.
+
+⭐ A MEASURE change survived by accident: the stale lane no longer matches `span.startMeasure`, the
+wedge fails to draw, and `previewMarkFamily` refuses into a real render. A STAFF-only change did not.
+That is why only staff-to-staff landings looked random.
+
+### The fix
+
+`renderHairpins` and `planDynamicsLines` resolve the wedge from `score.measures` and its staff from
+`staffIndexOfId(score, hairpin.staffId)` — what `OttavaRenderer.ts:385` and `PedalRenderer.ts:343`
+always did, and why neither ever had this. ⚠️ Identical to the old spelling for a full render, since
+lane membership IS `matchesStaff(h.staffId, …)`.
+
+⏭️ `planDynamicsLines` still reads the LETTERS off `placement.view.dynamics`. Harmless today (the
+dynamic family is not previewed) and the same trap the day it is.
+
+### Test
+
+`markPreviewPass.test.ts` — a grand staff, the wedge moved to the lower staff with
+`setHairpinAtStaffSlot`, then previewed: it must register on staff 1 and at the y a full render of the
+same score gives. Break-tested: restore the lane read and it reports `expected +0 to be 1`.
+⚠️ Two earlier attempts at this spec were deleted for passing with the bug present — they asserted the
+wedge was *drawn*, which it always was, on the wrong staff.

@@ -1189,3 +1189,67 @@ All that changed is that N+1 may be the other hand of the same system.
 
 The OTTAVA and the PEDAL. Both are `staffId`-carrying spans, so they need the dynamic's and the
 wedge's two pieces rather than the trill's one.
+
+---
+
+## ✅ THE BODY DRAG AND THE SYSTEM BREAK (2026-08-22, BUILT)
+
+Two bugs, both only visible once a drag stopped re-rendering the whole score every frame (§12.5a),
+and both on the ONE gesture that moves the whole ornament with the mouse.
+
+### 🚨🚨 1. The landing TELEPORTED the ornament onto its new note
+
+His report: *"why if the x of my mouse is in another place i'm teleporting the x of the tr that
+should be offset to the anchor"*, and the rule behind it — *"the gesture of the user follows one
+thing but is seen the `tr` instead of the mouse"*.
+
+`jumpTrillStaves` ended with `resetTrillOffset`, which puts the sign ON its new note. ⭐ Right for the
+KEYS (`markWalk.crossWithoutArrival`: *"the sign lands ON its new note, where the engraver would put
+it"*), a teleport on a DRAG: his trace has the `tr` drawn at `x803.5` and the landing dumping it at
+`x137.7`, the new anchor's own drawn x, most of a system away. It never comes back — every later
+frame is a delta applied to a mark that is no longer where the gesture left it.
+
+⭐ **The anchor steps and the OFFSET absorbs it** (`landWhereItWasDrawn`), which is
+`markBreakWrap.leaveSystem`'s existing identity — *"the drawn mark does not move"* — arriving at the
+one landing that never had it.
+
+⚠️ **The INK is what is preserved, ⛔ not the cursor** — his correction, right twice over: the `tr` is
+not drawn under the mouse to begin with (a grab has an offset, and the sign sits where the engraver
+put it), and it is the ink the next frame reads back.
+
+🚨🚨 **And it must be written with the REBASE writer.** The first cut used `previewTrillOffset` and the
+landing silently did nothing — the trace still read `offset 0.0ss`. That writer is judged by the PAGE
+LIMIT (`nudgeStaysOnPage`), and a landing whose new anchor is most of a system away asks for tens of
+staff-spaces at once, which the limit exists to refuse. `previewTrillOffsetRebase` is the pair's other
+half and says so: *"bookkeeping: it does not move the drawn ink, so no rule about ink may refuse it"*.
+
+### 🚨 2. The body FOLDED BACKWARDS off the front of its own line
+
+Landing on the FIRST note of a system leaves the ink flush against that line's first ink — `x137.7`
+against a line starting at `138`. **Three pixels** of leftward drag make the offset −0.3ss, which is
+before the line's start, and `TrillRenderer.foldPastSystemEnd` continues the ink at the END of the
+previous line: `x1111, y93`. One pixel back returns it, and the trace is pages of that flip-flop —
+*"landing at the end very far from the target y and the mouse y"*, both axes wrong.
+
+⛔ **The fold is not the bug and is untouched** — his own 2026-08-20 rule, still carrying the END
+SQUARE over passages of empty bars where a trill's note-anchors offer nothing to land on. What it may
+not do is fire under a hand dragging the WHOLE ornament, whose contract is that the mark follows the
+mouse. `wouldLeaveLineStart` refuses that one frame. ⚠️ Judged on where the ink WOULD land, ⛔ not on
+where it is: at offset 0 the ink is already ON the line's first ink, so an "is it there now" test
+refuses every leftward drag instead of only the one with nowhere to go.
+
+### ⚠️ RIBBON x ≠ RAW x, and only the first system hides it
+
+`MarkWalkPort.anchorX` answers on the RIBBON (`trillLane.trillRibbonX`) — a continuous coordinate
+across the unrolled score, which reads **2175** for a note whose line spans 138…1114. That is correct
+and inside `trillRibbonLimits`; it is simply not comparable to a per-line ink range or to a cursor.
+🚨 A first attempt at this wired `markBreakWrap` into the body walk and every frame declined, because
+it was fed a ribbon x against raw per-line edges. ⛔ Reverted. Anything comparing against `here.min` /
+`here.max` / a cursor must use the DRAWN x.
+
+### Tests
+
+`trillWalk.test.ts` — the landing (break-tested: the ink jumps 200 → 395 without it) and the
+line-start refusal (break-tested: the frame accepts the drag without it). ⚠️ The page-limit half of
+the landing is **not** covered — the stub registry does not model the limit, so swapping the writer
+back still passes.

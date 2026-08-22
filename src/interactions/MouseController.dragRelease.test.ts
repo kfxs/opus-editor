@@ -88,7 +88,7 @@ describe('a drag released out of sight', () => {
 
     mc = new MouseController(
       () => engine as never, () => canvas, state,
-      { selectNote: vi.fn() } as never, { renderScore: vi.fn() } as never,
+      { selectNote: vi.fn() } as never, { renderScore: vi.fn(), previewMarks: vi.fn() } as never,
       () => undefined, () => null, { pasteAt: vi.fn() } as never,
       () => {}, () => {}, vi.fn(), () => 1,
     )

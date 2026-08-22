@@ -1361,3 +1361,58 @@ reads)? ⭐ `docs/render-performance-research.md` §7 says the same split decide
 other direction, and gives a second instrument (`PerformanceScriptTiming.forcedStyleAndLayoutDuration`)
 that attributes forced layout **by function name**. ⛔ Do not choose between 12.5a and 12.5b before
 this number exists.
+
+---
+
+## ✅ 12.5a — A GESTURE DRAWS ONLY THE FAMILY THAT IS MOVING (BUILT 2026-08-22)
+
+His own proposal: *"why do we have to render the whole score? Why not just render that element?"*
+
+`engine/rendering/markPreviewPass.ts` + `MusicEngine.previewMarks` + `RenderController.previewMarks`.
+A mark drag redraws ONE family against the last full render instead of re-deriving the score. The
+census is the whole argument: eight whole-score regions, the largest 20%, and `measuresRedrawn` at
+**0%** for the entire gesture — the music never changed, so ~11 ms went on re-deriving what was
+already on screen. ⛔ Optimising the biggest region caps out at a fifth; the only thing that removes
+all eight is not running them.
+
+**Wired to**: the ottava, pedal, hairpin, trill and slur BODY drags. ⛔ Not the tempo/dynamic/
+expression families — their ink is drawn *inside* the measure group, which is why the census shows
+0.8–1.7% of bars re-engraved on their drags where every family here shows 0%.
+
+### The three take-downs, and why a preview is not just a redraw
+
+`renderScore` is a sequential accumulation, so re-running one pass in the middle of it is not
+idempotent. Every frame: the family's `<g>`s out of the DOM, its rows out of the element registry
+(`removeByType`), the append-only collections and **the drawing context's ambient state** rewound to
+that pass's entry point — measured as `stroke-width="1.6"` where the render had produced `1.3`, on a
+bracket nothing had changed. ⚠️ The collections rewind to the family's PLAN moment and the context to
+its DRAW moment; those are different points in `renderScore` and taking one for the other redrew the
+ottava in the trill's ink.
+
+### ⛔ THE DROP RENDERS FOR REAL, and it is not optional
+
+A preview does not restack the ladder — a pedal that ought to move out of a rising bracket's way has
+not. Its whole licence is that the picture is temporary. `commitPreviewed` deliberately paints
+nothing, so every `end*BodyDrag` now calls `renderScore()`. ⚠️ Nothing rendered there before, because
+the last frame's own full render happened to be the final picture. A preview frame is not.
+
+### 🚨🚨 THE TRAP: a placement's `view` is a FROZEN LANE COPY
+
+`MeasurePlacement.view` is built by `staffMeasureView` **during** the render — a fresh filtered
+object, not a live reference. So `placement.view.hairpins` answers *"whose staff is this on?"* as of
+the last full render. Harmless while every frame was a full render; a bug the day a gesture previews
+off a snapshot.
+
+⭐ **The rule: a score-level pass resolves its mark from the SCORE** — `for (const measure of
+score.measures) for (const mark of measure.marks)` + `staffIndexOfId(score, mark.staffId)`. That is
+what `OttavaRenderer` and `PedalRenderer` always did, and why neither ever had it. Fixed in
+`renderHairpins` and `planDynamicsLines`; ⏭️ the latter still reads the *letters* off
+`placement.view.dynamics`, so a previewed DYNAMIC family would hit the same thing.
+
+⚠️ For a full render the two spellings are identical — lane membership IS `matchesStaff(h.staffId, …)`
+— so the fix is a no-op there and a fix only where the placements are older than the score.
+
+### ⏭️ Left open
+
+- `planDynamicsLines`'s letters (above), before the dynamic/expression families are ever previewed.
+- The `[Hairpin frame]` / `[Trill frame]` traces in the walks are marked ⏱ TEMPORARY and are still in.

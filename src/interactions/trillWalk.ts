@@ -53,6 +53,8 @@ import { selectedOf } from './EditorState'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { trillEndWithoutAnEnd } from '../engine/models/trillOps'
 import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+// ⭐ The line a mark stands on, in RAW drawn x's — {@link wouldLeaveLineStart} and the frame trace.
+import { lastMeasureNumber, systemInkAt } from './markBreakWrap'
 import {
   applyTrillAnchorStop, nextTrillAnchorStop, trillAnchorPosition, type TrillAnchorEngine,
   type TrillAnchorStop,
@@ -349,6 +351,56 @@ function bodyPort(engine: TrillWalkEngine, id: string, write: TrillWrite): MarkW
   }
 }
 
+/**
+ * Would this frame's `dx` carry the drawn ink before the first ink of the line it stands on?
+ *
+ * ⭐ Both numbers are RAW drawn x's in the same space — the registry's own — which is the whole
+ * reason this is asked here and not through the walk's port: `MarkWalkPort.anchorX` answers on the
+ * RIBBON (`trillLane.trillRibbonX`), a continuous coordinate across the unrolled score, and on his
+ * score that reads **2175** for a note whose line spans 138…1114. Ribbon and raw agree only on the
+ * first system, so the comparison has to be made on the drawn side.
+ */
+function wouldLeaveLineStart(engine: TrillWalkEngine, id: string, dxPx: number): boolean {
+  const drawn = engine.getElementRegistry().getByType('trill').find(e => e.id === id)
+  const staff = trillStaff(engine, id)
+  const measure = engine.getNote(engine.getTrillById(id)?.startNoteId ?? '')?.measure
+  if (!drawn || staff === null || measure === undefined) return false
+  const here = systemInkAt(
+    engine.getElementRegistry(), staff, measure, lastMeasureNumber(engine.getScore()))
+  return here !== null && drawn.bbox.x + dxPx < here.min
+}
+
+/** ⏱ TEMPORARY — see the call site in {@link dragTrillBody}. ⛔ Not on the hot path: the caller
+ *  guards it with `debugEnabled()`, because everything below walks the registry. */
+function traceTrillFrame(
+  engine: TrillWalkEngine,
+  id: string,
+  cursorX: number,
+  dxPx: number,
+  dyPx: number,
+  staffSpacePx: number,
+): void {
+  const trill = engine.getTrillById(id)
+  const drawn = engine.getElementRegistry().getByType('trill').find(e => e.id === id)
+  const anchor = engine.getNote(trill?.startNoteId ?? '')
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const staff = trillStaff(engine, id)
+  const here = staff === null || anchor?.measure === undefined ? null
+    : systemInkAt(engine.getElementRegistry(), staff, anchor.measure,
+      lastMeasureNumber(engine.getScore()))
+  const stop = port.nextStop(dxPx > 0 ? 1 : -1)
+  const num = (n: number | null | undefined) => (n === null || n === undefined ? '—' : n.toFixed(1))
+  dbg(`[Trill frame] cursor x${cursorX.toFixed(0)} dx${dxPx.toFixed(1)} dy${dyPx.toFixed(1)}`
+    + ` | ink x${num(drawn?.bbox.x)} y${num(drawn ? drawn.bbox.y + drawn.bbox.height / 2 : null)}`
+    + ` drawnInBar ${drawn?.measure ?? '—'}`
+    + ` | anchor ${trill?.startNoteId.slice(0, 8) ?? '—'} bar ${anchor?.measure ?? '—'}`
+    + ` staff ${staff ?? '—'} placement:${trill?.placement ?? 'auto'}`
+    + ` | offset ${num(port.offsetX())}ss anchorX ${num(port.anchorX())} ss ${staffSpacePx.toFixed(2)}`
+    + ` | system ${here ? `bar${here.key} ink ${here.min.toFixed(0)}…${here.max.toFixed(0)}` : '—'}`
+    + ` | nextStop ${stop ? JSON.stringify((stop as TrillAnchorStop).note.id.slice(0, 8)) : 'none'}`
+    + ` stopX ${num(stop ? port.stopX(stop) : null)}`)
+}
+
 /** The keyboard's writes for the whole ornament: each records its own undo entry, and a crossing
  *  press wraps them in one batch ({@link walkTrillBody}). */
 function bodyKeyWrites(engine: TrillWalkEngine, id: string): TrillWrite {
@@ -422,6 +474,16 @@ export function dragTrillBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
+  // ⏱ TEMPORARY (docs/render-performance-plan.md §12.5a) — everything this frame decides from, in
+  //   one line, because the horizontal and the vertical read DIFFERENT numbers and a report that
+  //   shows only one of them cannot tell a bad decision from a bad drawing.
+  //   ⭐ `inkX/inkY` are the ornament's OWN DRAWN INK (the registry row the walk reads); `offset` is
+  //   what it has accumulated; `anchorX` is the RIBBON x the crossing measures against; `system` is
+  //   the ink range of the line the anchor stands on (`markBreakWrap.systemInkAt`) — the crossing
+  //   fires on `cursor` leaving THAT range, and the renderer folds on the INK leaving it.
+  //   ⚠️ Lazily built: a suppressed `dbg` still evaluates its arguments (docs/logging.md).
+  if (debugEnabled()) traceTrillFrame(engine, id, cursorX, dxPx, dyPx, staffSpacePx)
+
   // ⭐⭐ ITS OWN STAFF FIRST, then the system — the same two rungs the squares' drag climbs, and the
   // same reason for the order.
   if (flipTrillPlacement(engine, id, dyPx)) return { moved: true }
@@ -432,6 +494,31 @@ export function dragTrillBody(
   const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
   const dy = (above ? -dyPx : dyPx) / staffSpacePx
   const lifted = dyPx !== 0 && engine.previewTrillOffset(id, 0, dy)
+  // ⛔⛔ **A BODY DRAG MAY NOT PUSH THE INK OFF THE FRONT OF ITS OWN LINE** — his bug, 2026-08-22:
+  //   *"the trill is landing at the end very far from the target y and the mouse y"*, and then
+  //   *"after some dragging again completely in the wrong place"*.
+  //
+  // 🚨 Traced twice on his grand staff. The ornament lands on the FIRST note of a system, so its ink
+  // sits flush against that line's first ink — `x137.7` against a line starting at `138`. **Three
+  // pixels** of leftward drag make the offset −0.3ss, which is before the line's start, and
+  // `TrillRenderer.foldPastSystemEnd` does what it was built to do and continues the ink at the END
+  // of the previous line: x 1111, y 93 — a system away from the hand, in both axes. One pixel back
+  // the other way returns it. The trace is pages of that flip-flop.
+  //
+  // ⭐ **The fold is his own 2026-08-20 rule and is untouched.** It is what carries a mark over a
+  // passage of empty bars where a trill's note-anchors offer nothing to land on, and the END-SQUARE
+  // walk still has every bit of it. What it must not do is fire under a hand that is dragging the
+  // whole ornament: a body drag's contract is that the mark follows the mouse, and a mark that has
+  // folded a system backwards has stopped following it — permanently, since the ink is then nowhere
+  // near the cursor and every later frame compounds it.
+  //
+  // ⚠️ Judged on where the ink WOULD land, ⛔ not on where it is: at offset 0 the ink is already ON
+  // the line's first ink, so an "is it there now" test would refuse every leftward drag instead of
+  // only the one with nowhere to go.
+  if (dxPx < 0 && wouldLeaveLineStart(engine, id, dxPx)) {
+    dbg(`[Trill] ⛔ the ink is against the start of its line — the body does not fold backwards`)
+    return { moved: lifted }
+  }
   return { moved: carryMark(port, dxPx / staffSpacePx, 0).moved || lifted }
 }
 
@@ -517,12 +604,71 @@ function jumpTrillStaves(
     return false
   }
 
+  // ⭐ Where the ornament is DRAWN, before the anchor moves out from under it — the number the
+  //   landing has to preserve.
+  const inkBefore = inkXOf(engine, id)
   if (!engine.previewTrillMove(id, target, extentFrom(engine, id, target))) return false
 
   engine.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
-  engine.resetTrillOffset(id)
+  landWhereItWasDrawn(engine, id, target, inkBefore)
   dbg(`[Trill] jumped to the staff it now belongs to | id:${id} → ${target.slice(0, 8)}`)
   return true
+}
+
+/** The ornament's own drawn x in the last render — the LEFT of its ink, which is where the `tr` is.
+ *  Null when it drew nothing. */
+function inkXOf(engine: TrillWalkEngine, id: string): number | null {
+  return engine.getElementRegistry().getByType('trill').find(e => e.id === id)?.bbox.x ?? null
+}
+
+/**
+ * ⭐⭐ **A LANDING DOES NOT MOVE THE DRAWN ORNAMENT — the anchor steps and the OFFSET absorbs it.**
+ * His bug, 2026-08-22: *"why if the x of my mouse is in another place i'm teleporting the x of the tr
+ * that should be offset to the anchor"*.
+ *
+ * 🚨 Until today the jump called `resetTrillOffset`, which puts the sign ON its new note. For the
+ * KEYS that is right — *"the sign lands ON its new note, where the engraver would put it"*
+ * (`markWalk.crossWithoutArrival`) — and on a DRAG it is a teleport: his trace has the `tr` drawn at
+ * `x803.5` and the landing dumping it at `x137.7`, the drawn x of the note it had just landed on,
+ * most of a system away. It never comes back, because every later frame is a delta applied to a mark
+ * that is no longer where the gesture left it.
+ *
+ * ⭐ **The ink is the thing preserved, ⛔ not the cursor** — his own correction, and it is right twice
+ * over: the `tr` is not drawn under the mouse to begin with (a grab has an offset, and the sign sits
+ * where the engraver put it), and it is the INK the next frame reads back. So the landing keeps the
+ * drawn x and lets the stored offset become whatever that costs. ⛔ Not a new rule: it is
+ * `markBreakWrap.leaveSystem`'s identity — *"the drawn mark does not move"* — arriving at the one
+ * landing that never had it.
+ *
+ * ⚠️ Measured off the NOTE's drawn x, ⛔ not off the port's `anchorX`: that one answers on the RIBBON
+ * (a continuous coordinate across the unrolled score — **2175** for a note whose line spans 138…1114
+ * in his log). The note's registry row is raw, and notes do not move during a mark drag, so it is
+ * still true before the re-render.
+ */
+function landWhereItWasDrawn(
+  engine: TrillWalkEngine,
+  id: string,
+  target: string,
+  /** The ornament's drawn x before the anchor moved. Null = it was not drawn. */
+  inkBefore: number | null,
+): void {
+  engine.resetTrillOffset(id)
+  const noteX = engine.getElementRegistry().getByType('note').find(e => e.id === target)?.bbox.x
+  const staffSpacePx = trillStaffSpacePx(engine.getElementRegistry(), id)
+  if (inkBefore === null || noteX === undefined || !staffSpacePx) return
+  const spaces = (inkBefore - noteX) / staffSpacePx
+  // 🚨🚨 **THE REBASE WRITER, ⛔ never `previewTrillOffset`** — the first cut used that one and the
+  //   landing silently did nothing at all: his trace still read `offset 0.0ss` with the hand at
+  //   `cursor x811`. `previewTrillOffset` is judged by the PAGE LIMIT (`nudgeStaysOnPage`), and a
+  //   landing whose new anchor is most of a system away asks for tens of staff-spaces at once, which
+  //   that limit exists to refuse.
+  //
+  // ⭐ A re-base is not a nudge, and `MusicEngine` already says so where it defines the pair: it is
+  //   *"bookkeeping: it does not move the drawn ink, so no rule about ink may refuse it"*. The ink
+  //   stays exactly where the hand had it — that is the whole point — so there is nothing for a page
+  //   limit to have an opinion about. Same writer `markBreakWrap.leaveSystem` uses for the same
+  //   reason: *"a page limit that refused it would strand the mark mid-wrap"*.
+  if (spaces !== 0) engine.previewTrillOffsetRebase(id, spaces)
 }
 
 /**

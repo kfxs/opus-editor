@@ -84,7 +84,7 @@ describe('tremolo selection', () => {
 
     mc = new MouseController(
       () => engine as never, () => canvas, state,
-      selection as never, { renderScore: vi.fn() } as never,
+      selection as never, { renderScore: vi.fn(), previewMarks: vi.fn() } as never,
       () => undefined, () => null, { pasteAt: vi.fn() } as never,
       () => {}, () => {}, vi.fn(), () => 1,
     )

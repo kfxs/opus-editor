@@ -37,7 +37,7 @@ import {
 import { hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkStop, type MarkWalkPort } from './markWalk'
 import { breakCrossing, leaveSystem, type BreakWrapPort, type SystemInk } from './markBreakWrap'
-import { dbg } from '../utils/debug'
+import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 export type HairpinWalkEngine = Pick<MusicEngine,
@@ -583,6 +583,19 @@ export function dragHairpinBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
+  // ⏱ TEMPORARY (docs/render-performance-plan.md §12.5a) — the numbers this frame DECIDES FROM.
+  // ⭐ `inkY` is the mark's OWN DRAWN INK, and that is the whole question: a preview redraws the
+  //   family without re-running the render, so if the ink it leaves differs from a full render's,
+  //   every decision below is made against the wrong y and the next frame reads the result.
+  // ⚠️ Lazily built — a suppressed `dbg` still evaluates its arguments (docs/logging.md).
+  if (debugEnabled()) {
+    const h = engine.getHairpinById(id)
+    const ink = hairpinInkY(engine, id)
+    dbg(`[Hairpin frame] cursor x${cursorX.toFixed(0)} dy${dyPx.toFixed(1)}`
+      + ` | inkY ${ink === null ? '—' : ink.toFixed(1)} → ${ink === null ? '—' : (ink + dyPx).toFixed(1)}`
+      + ` | staff:${h?.staffId ?? 0} placement:${h?.placement ?? 'auto'} ss:${staffSpacePx.toFixed(2)}`)
+  }
+
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipPlacement}. A wedge dragged up off a staff belongs ABOVE
   // that staff long before it belongs to the one over it.
   if (flipPlacement(engine, id, dyPx)) return { moved: true, jumped: true }
@@ -633,7 +646,9 @@ function jumpStaves(
 
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
   if (offset && (offset.x || offset.y)) engine.previewHairpinOffset(id, -offset.x, -offset.y)
-  dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
+  dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure}`
+    + ` staff:${target.staffId ?? 0} | decided from inkY ${inkY.toFixed(1)} + dy ${dyPx.toFixed(1)}`
+    + ` = ${(inkY + dyPx).toFixed(1)} at cursor x${cursorX.toFixed(0)}`)
   return true
 }
 

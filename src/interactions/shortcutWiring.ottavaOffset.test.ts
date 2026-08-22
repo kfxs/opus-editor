@@ -83,7 +83,7 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
       { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch, navigateNext: vi.fn(), navigateSelection: vi.fn(), navigateBarline: () => false, adjustOctave: vi.fn() } as never,
       { clearArmedArticulations: vi.fn() } as never,
       {} as never,
-      { renderScore: vi.fn() } as never,
+      { renderScore: vi.fn(), previewMarks: vi.fn() } as never,
       { disarmPositionalTools: vi.fn() } as never,
       { model: { getViewportSize: () => ({ w: 800, h: 400 }) } } as never,
       () => null, () => {}, () => {}, () => false,

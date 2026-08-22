@@ -32,6 +32,7 @@ import {
 import { levelDynamicsChains, type ChainItem } from '@/engine/layout/dynamicsChain'
 import { bandOver, markBand, measureStartOffsets, type OccupiedSpan } from '@/engine/layout/outsideStaffBand'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
+import { staffIndexOfId } from '@/engine/models/staffContent'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fracAdd, fracCreate } from '@/utils/fraction'
 
@@ -99,6 +100,9 @@ export function planDynamicsLines(
 ): DynamicsLinePlan {
   const starts = measureStartOffsets(score)
   const items: ChainItem[] = []
+  // 🚨 The wedges are taken from the SCORE below, not from each placement's LANE — see the note on
+  //    that loop. One walk of the measures, so the lookup stays a map rather than a `find` per bar.
+  const measuresByNumber = new Map(score.measures.map(m => [m.number, m]))
 
   for (const placement of placements) {
     const staffId = staffIds[placement.staffIndex]
@@ -134,7 +138,17 @@ export function planDynamicsLines(
 
     // ── The wedges, one member per system crossed. Only the bar a hairpin STARTS in lists it, so
     //    each is visited once however many bars it covers.
-    for (const hairpin of placement.view.hairpins ?? []) {
+    //
+    // 🚨🚨 **Read out of the SCORE and matched to this staff by `hairpin.staffId`** — ⛔ never
+    // `placement.view.hairpins`, which is a lane view *copied at render time* (`staffMeasureView`)
+    // and therefore answers "whose staff?" as of the last full render. A preview
+    // (`./markPreviewPass`) re-runs this plan against a snapshot whose placements are older than the
+    // score, so a wedge dragged onto the other hand of a grand staff was still levelled — and then
+    // drawn — on the staff it had left. `HairpinRenderer.renderHairpins` carries the same fix and
+    // the full trace. ⚠️ Identical to the old spelling for a full render: lane membership IS
+    // `matchesStaff(h.staffId, …)`.
+    for (const hairpin of measuresByNumber.get(placement.measureNumber)?.hairpins ?? []) {
+      if (staffIndexOfId(score, hairpin.staffId) !== placement.staffIndex) continue
       const span = hairpinSpan(score, hairpin.id)
       if (!span || span.startMeasure !== placement.measureNumber) continue
       const placementSide: DynamicsPlacement = hairpin.placement === 'above' ? 'above' : 'below'

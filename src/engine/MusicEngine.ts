@@ -10,6 +10,7 @@ import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './m
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
+import type { MarkPreviewKind } from './rendering/markPreviewPass'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
@@ -218,6 +219,13 @@ export class MusicEngine {
   /** Take down the preview ghost, if any. O(1) — see {@link VexFlowRenderer.clearGhosts}. */
   clearGhosts(): void {
     this.renderer.clearGhosts()
+  }
+
+  /** ⭐ Redraw ONE mark family against the last render instead of the whole score — the cheap frame
+   *  of a mark gesture. False = no usable snapshot, and the caller owes a real render.
+   *  See {@link VexFlowRenderer.previewMarks} and `rendering/markPreviewPass`. */
+  previewMarks(kind: MarkPreviewKind, markId?: string): boolean {
+    return this.renderer.previewMarks(kind, markId)
   }
 
   /** Re-place the barline ink on the pixel grid after a ZOOM — two attributes per barline, no

@@ -65,7 +65,7 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
       { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch: vi.fn(), navigateNext: vi.fn() } as never,
       { clearArmedArticulations: vi.fn() } as never,
       {} as never,
-      { renderScore: vi.fn() } as never,
+      { renderScore: vi.fn(), previewMarks: vi.fn() } as never,
       {} as never,
       { model: { getViewportSize: () => ({ w: 800, h: 400 }) } } as never,
       () => null, () => {}, () => {}, () => false,

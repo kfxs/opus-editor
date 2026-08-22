@@ -2981,7 +2981,12 @@ export class MouseController {
       this.hairpinBodyLastX = x
       this.hairpinBodyLastY = y
       this.hairpinBodyDragChanged = true
-      this.render.renderScore()
+      // ⭐ Previewed (§12.5a). ⚠️ This walk decides from the wedge's OWN DRAWN INK, so it is only
+      // sound while a preview draws the wedge exactly where a full render would. It did not, until
+      // 2026-08-22: `renderHairpins` found the wedge in the snapshot's stale LANE views, so a jump
+      // onto the other hand of a grand staff redrew it on the staff it had left — and the walk, seeing
+      // ink that had not moved, crossed again, and again. See the trace in `HairpinRenderer`.
+      this.render.previewMarks('hairpin', this.draggedHairpinBodyId)
     }
     return true
   }
@@ -2992,6 +2997,11 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.hairpinBodyDragChanged) {
       engine.commitHairpinOffsetDrag()
+      // ⛔ **THE DROP RENDERS FOR REAL** — §12.5a, the same debt the ottava and the pedal pay. The
+      // frames drew only the wedges, which does not restack the ladder around them, and
+      // `commitPreviewed` deliberately paints nothing. Leaving the cheap picture standing is the one
+      // thing a preview may never do.
+      this.render.renderScore()
       dbg(`Hairpin moved | id:${this.draggedHairpinBodyId}`)
     }
     this.isDraggingHairpinBody = false
@@ -3016,7 +3026,12 @@ export class MouseController {
     if (moved) {
       this.slurBodyAnchor = moved
       this.slurBodyDragChanged = true
-      this.render.renderScore()
+      // ⭐ Previewed (§12.5a): the SLUR family, which is the one moving. ⚠️ This said `'trill'` with
+      // the *trill*'s dragged id until 2026-08-22 — so a slur drag redrew the ornaments and never
+      // the curve, and (the id being null throughout) never even checked that anything landed.
+      // ⭐ Safe to preview: `slurBodyDragStep` is a pure cursor delta, and `renderSlurs` reads
+      // `score.slurs` and `staffIndexOfId` — neither of them the last render's lane views.
+      this.render.previewMarks('slur', this.draggedSlurBodyId)
     }
     return true
   }
@@ -3027,6 +3042,8 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.slurBodyDragChanged) {
       engine.commitSlurOffsetDrag()
+      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag` for why a previewed gesture owes one.
+      this.render.renderScore()
       dbg(`Slur moved | id:${this.draggedSlurBodyId}`)
     }
     this.isDraggingSlurBody = false
@@ -3152,7 +3169,12 @@ export class MouseController {
       this.ottavaBodyLastX = x
       this.ottavaBodyLastY = y
       this.ottavaBodyDragChanged = true
-      this.render.renderScore()
+      // ⭐⭐ **The frame draws the OTTAVAS and nothing else** (§12.5a). The music does not move while
+      // a bracket does — the census reported **0% of bars re-engraved** through the whole gesture —
+      // so every one of the render's eight whole-score passes was re-deriving what was already on
+      // screen. ⛔ The DROP still renders for real (`endOttavaBodyDrag` → `commitOttavaOffsetDrag`),
+      // which is what restacks the ladder the preview deliberately leaves alone.
+      this.render.previewMarks('ottava', this.draggedOttavaBodyId)
     }
     return true
   }
@@ -3181,7 +3203,9 @@ export class MouseController {
       this.pedalBodyLastX = x
       this.pedalBodyLastY = y
       this.pedalBodyDragChanged = true
-      this.render.renderScore()
+      // ⭐ Only the PEDALS are redrawn (§12.5a). ⚠️ `drawPedal` files its ladder claim during the
+      // DRAW, unlike its siblings, so the preview rewinds `occupiedBands` — see `markPreviewPass`.
+      this.render.previewMarks('pedal', this.draggedPedalBodyId)
     }
     return true
   }
@@ -3192,6 +3216,11 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.pedalBodyDragChanged) {
       engine.commitPedalOffsetDrag()
+      // ⛔ **THE DROP RENDERS FOR REAL** — §12.5a. The frames drew only this family, which does not
+      // restack the ladder around it; leaving the cheap picture standing is the one thing a preview
+      // may never do. ⚠️ Nothing rendered here before 2026-08-22, because the last frame's own
+      // `renderScore()` happened to be the final picture. A preview frame is not.
+      this.render.renderScore()
       dbg(`Pedal moved | id:${this.draggedPedalBodyId}`)
     }
     this.isDraggingPedalBody = false
@@ -3206,6 +3235,13 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.ottavaBodyDragChanged) {
       engine.commitOttavaOffsetDrag()
+      // ⛔⛔ **THE DROP MUST RENDER FOR REAL, and this line is not optional** (§12.5a). The frames of
+      // this gesture draw only the ottavas (`RenderController.previewMarks`), which deliberately does
+      // NOT restack the ladder — a pedal that should have moved out of the bracket's way has not. Its
+      // whole licence is that the cheap picture is temporary. Until 2026-08-22 nothing rendered here,
+      // because the last frame's own `renderScore()` happened to be the final picture; a preview
+      // frame is not, and leaving it standing is the one thing a preview may never do.
+      this.render.renderScore()
       dbg(`Ottava moved | id:${this.draggedOttavaBodyId}`)
     }
     this.isDraggingOttavaBody = false
@@ -3234,7 +3270,25 @@ export class MouseController {
       this.trillBodyLastX = x
       this.trillBodyLastY = y
       this.trillBodyDragChanged = true
-      this.render.renderScore()
+      // ⭐⭐ **Previewed, and the preview is what makes this walk STABLE** (§12.5a).
+      //
+      // 🚨🚨 A full render every frame is not the safe option here, it is the unsafe one. This walk
+      // decides from the ornament's OWN DRAWN INK, and a `tr` dragged upward GROWS the above-staff
+      // band it is claiming — which re-solves the system's height and the page's cast-off, moving
+      // the ink the walk is about to read. Traced 2026-08-22 on his grand staff: with nothing but
+      // the cursor creeping, the ornament's ink teleported 404.3 → 96.1 and back 54.7 → 365.7 —
+      // one system stride, twice, from a mark shoving the page it is standing on.
+      //
+      // ⭐ A preview cannot do that: it redraws this family against a finished render and re-casts
+      // nothing, so the ladder and the staves are exactly where the eye last saw them. The DROP
+      // renders for real (`endTrillBodyDrag`) and the page settles once, at the end.
+      //
+      // ⚠️ The family is preview-safe for the same reason the ottava and the pedal are: both
+      // `planTrillBands` and `renderTrills` walk `score.trills` and find the staff through the
+      // START NOTE's slot id — never a lane view, which is what made the hairpin's preview draw on
+      // the staff it had left (`HairpinRenderer.renderHairpins`). Slot membership is exactly what a
+      // mark drag does not touch.
+      this.render.previewMarks('trill', this.draggedTrillBodyId)
     }
     return true
   }
@@ -3245,6 +3299,9 @@ export class MouseController {
     const engine = this.getEngine()
     if (engine && this.trillBodyDragChanged) {
       engine.commitTrillDrag('start')
+      // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag`. This is also where the page finally
+      // re-casts around the ornament's new claim, which the frames deliberately did not do.
+      this.render.renderScore()
       dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
     }
     this.isDraggingTrillBody = false
