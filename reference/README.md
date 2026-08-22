@@ -33,6 +33,29 @@ rediscovering that it was gone. This directory is so the third one does not.
 | ⭐⭐ `oh-snap-fernquist-interact2011.pdf` / `oh-snap-fulltext.txt` | **Fernquist, Shoemaker & Booth, *"Oh Snap" – Helping Users Align Digital Objects on Touch Interfaces*, INTERACT 2011** — 8pp, full text. The CATCH-UP half. ⭐⭐ **The hold+catch-up pair IS this paper's own technique**, not a hybrid of the two: §3 *"The object remains stationary unless the user's finger travels a small distance (the snap-width)… Once the finger travels beyond the snap-width, the object starts moving at a rate faster than the finger."* Gain = `(snap + catchup)/catchup` (Eq. 1), recommended 10 px / 20 px. It positions itself **against** snap-and-go (Table 1 scores snap-and-go "No" on *mapping maintained*) and credits the velocity profile to Nacenta et al., GI 2009. 🚨 §2 states the debt problem outright — *"the more snap lines an object crosses, the farther the object would lag behind the finger… in effect 'losing' any direct object-finger correspondence"* — and §3.1 the opposite failure: as catch-up→0 the ratio→∞, objects *jump*, and the gain **quantises** reachable positions. ⚠️ §5.2 is the only inter-anchor rule found: *"future Oh Snap implementations would have to take great care not to overlap the snap and catch-up regions of different snappable lines."* ⭐⭐ **What it answered on 2026-08-20 (his question: it is a TOUCH paper, why are we using it on a mouse?):** §2 divides the world explicitly — *"Snap-and-go works well for relative input devices, such as mice… Unfortunately, snap-and-go is not suitable for direct touch interfaces"* — so by the papers' own account a mouse should use Baudisch and only touch needs this. ⭐ **The reason it transfers anyway is a WEB constraint, not a finger one:** snap-and-go repays its debt by WARPING THE POINTER to the object, and a web page cannot warp a cursor (no pointer warping outside Pointer Lock, which hides it). So on the web a mouse inherits touch's exact failure — the object lags a cursor you can see and nothing resyncs them — which is the failure Oh Snap exists for. ⚠️ Its NUMBERS are not ours to borrow: the study is on multi-touch tabletops, so 10/20 px is unvalidated for a mouse (the slur uses 0.8 × the gap ahead, capped 30 px, tuned by hand). | `cs.ubc.ca/labs/imager/tr/2011/OhSnap/ohsnap.pdf`, added 2026-08-19 |
 | `using-sibelius-effectively-sample.pdf` | 20pp **SAMPLE** of *Using Sibelius Effectively*. ⚠️ A sample, not the book. | publisher sample |
 
+### ⚠️ `gecko/` — NOT an engraving source: the BROWSER'S OWN LAYOUT CODE
+
+| file | what it is | where it came from |
+|---|---|---|
+| `gecko/nLU.cpp` | **`nsLayoutUtils.cpp`** — 10,190 lines, 377 KB. Gecko's layout utility layer: where the geometry queries a script can ask for are actually served, and therefore where a **forced style/layout flush** is decided. | added by hand, 2026-08-22 07:59 |
+| `gecko/EC.cpp` | **`EffectCompositor.cpp`** — 983 lines. The animation/restyle side of the same story. | added by hand, 2026-08-22 07:59 |
+
+⭐ **Why they are here.** `docs/render-performance-plan.md` §12.7 measures the render one forced
+reflow at a time — *"the flush is ~1.4 ms per frame, paid once, by whoever reads first"* — and four
+predictions in that document have already died from reasoning about the browser instead of reading
+it (the `hintBarlines` CTM memo is the last of them). These are the primary source for what a
+`getBBox()` / `getScreenCTM()` actually costs and when it is free.
+
+⚠️⚠️ **MPL-2.0, third-party, and they stay OUTSIDE `src/`.** Held here as a local research copy
+exactly like the treatises above, under the same `.gitignore` rule (`reference/*`), so the bytes are
+never committed. ⛔ Nothing from them may be pasted into this codebase — the npm-package goal
+(`docs/`) assumes our own licence, and a copied helper would decide that question by accident.
+
+⛔ **UNKNOWN: the revision.** They were copied without a version marker or a URL, so which
+mozilla-central changeset they are from is not recorded and cannot be recovered from the files. ⭐ If
+a number from them is ever cited, re-fetch the file from searchfox/hg first and quote the revision —
+⛔ do not cite these copies as if their line numbers were stable.
+
 ## ⭐⭐ Gould is ON DISK — how to page into 249 MB without drowning
 
 **Added 2026-08-17.** ⛔ **Read this before the web section below it**, which was written on 2026-08-17
