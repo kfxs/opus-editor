@@ -955,6 +955,20 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐⭐ Move a dynamic — a level or an expression WORD, the same object — to the other lane: above
+   * the staff ⇄ below it (his ask, 2026-08-22). The wedge's key, one family over;
+   * `dynamicOps.flipDynamicPlacement` carries the rule about which offsets survive.
+   *
+   * ⚠️ A CONTENT edit — which side a mark stands on is engraving the writer authored, not a nudge —
+   * so it saves undo state. @returns the side it now sits on.
+   */
+  flipDynamicPlacement(id: string): 'above' | 'below' | null {
+    const placement = this.scoreModel.flipDynamicPlacement(id)
+    if (placement) this.commit(`Move dynamic ${placement} the staff`)
+    return placement
+  }
+
+  /**
    * Remove a dynamic by id. Saves undo state when removed.
    * @returns true if a dynamic was removed.
    */

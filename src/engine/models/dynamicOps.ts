@@ -317,3 +317,38 @@ export function setDynamicVoiceScope(score: Score, id: string, scope: VoiceScope
   else found.dynamic.voice = scope
   return true
 }
+
+/**
+ * ⭐⭐ **MOVE THE MARK TO THE OTHER LANE — above the staff ⇄ below it**, his ask, 2026-08-22: *"now we
+ * have to do the same with expression"*, the hairpin's row one family over.
+ *
+ * ⭐ **A letter and an expression WORD are the same object** (`utils/dynamics` splits the text; the
+ * model does not), so this moves either. And there really are two lanes: `dynamicsLinePlan` decides a
+ * baseline per SIDE for letters, words and wedges alike.
+ *
+ * 🚨 **`placement` rendered but had NO instrument at all** — the trill's *"a field with no way to set
+ * it is a dead field"*, exactly. The wedge got its key the same day; this is the other half of the
+ * family.
+ *
+ * ⚠️ **THE VERTICAL GOES, THE HORIZONTAL STAYS** — the wedge's rule (`hairpinOps
+ * .flipHairpinPlacement`) and the drag's before it: a `y` measured below the staff means nothing
+ * above it, while an `x` is how far along its own beat the mark stands, which is the same statement
+ * on either side.
+ *
+ * ⛔ The VOICE SCOPE is untouched: which voices a mark governs is loudness, not place — the same
+ * orthogonality `setDynamicAtStaffSlot` keeps when a drag lands the mark on the other hand.
+ *
+ * @returns the side it now sits on, or null if no dynamic has that id.
+ */
+export function flipDynamicPlacement(score: Score, id: string): 'above' | 'below' | null {
+  const found = locate(score, id)
+  if (!found) return null
+  found.dynamic.placement = (found.dynamic.placement ?? 'below') === 'above' ? 'below' : 'above'
+
+  const prev = dynamicOffsetOverrideOf(score, id)
+  if (prev?.y) {
+    const next: DynamicOffsetOverride = { kind: 'dynamicOffset', x: prev.x, y: 0 }
+    setEngravingOverride(score, id, next)
+  }
+  return found.dynamic.placement
+}

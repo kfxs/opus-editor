@@ -86,6 +86,20 @@ describe('flipSelection — the `x` key', () => {
     expect(offset.start, 'the reach survives, the lift does not').toEqual({ x: 2, y: 0 })
   })
 
+  it('⭐⭐ a DYNAMIC — a level or an expression WORD — flips the same lane (his ask, 2026-08-22)', () => {
+    // 🚨 `Dynamic.placement` rendered but had NO instrument before this: the trill's own argument for
+    //    this key, *"a field with no way to set it is a dead field"*.
+    const dynamic = engine.addDynamic(1, { text: 'dolce', beat: frac(0, 1) })!
+    state.selectedElement = { kind: 'dynamic', id: dynamic.id }
+
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(engine.getDynamics(1)[0].placement, 'up out of the below-staff lane').toBe('above')
+    expect(engine.getDynamics(1)[0].text, '⛔ and the word itself is untouched').toBe('dolce')
+
+    expect(flipSelection(state, engine)).toBe(true)
+    expect(engine.getDynamics(1)[0].placement, 'and back down').toBe('below')
+  })
+
   it('a TRILL flips its side — the same key, one meaning of "flip" across the table', () => {
     const trill = engine.createTrill([noteIds[0]])!
     state.selectedElement = { kind: 'trill', id: trill.id }

@@ -745,6 +745,11 @@ export class ScoreModel {
     return hairpinOps.flipHairpinPlacement(this.score, id)
   }
 
+  /** Move a dynamic or expression word to the other lane — {@link dynamicOps.flipDynamicPlacement}. */
+  flipDynamicPlacement(id: string): 'above' | 'below' | null {
+    return dynamicOps.flipDynamicPlacement(this.score, id)
+  }
+
   /** The hairpins STARTING in a measure, sorted by beat (empty if none or no such measure). */
   getHairpins(measureNumber: number): Hairpin[] {
     const measure = this.getMeasure(measureNumber)

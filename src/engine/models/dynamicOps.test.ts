@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Score, DynamicOffsetOverride } from '@/types/music'
 import { ScoreModel } from './ScoreModel'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
-import { moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset, setDynamicAtStaffSlot, setDynamicVoiceScope } from './dynamicOps'
+import { flipDynamicPlacement, moveDynamicBySlot, nextDynamicSlot, setDynamicAtSlot, setDynamicAtSlotKeepingOffset, setDynamicAtStaffSlot, setDynamicVoiceScope } from './dynamicOps'
 import { setEngravingOverride } from './overrideOps'
 import { dynamicOffsetOverrideOf } from './engravingOverrides'
 import { levelToGlyphString } from '@/utils/dynamics'
@@ -396,5 +396,53 @@ describe('setDynamicAtStaffSlot — a staff is a place too', () => {
 
   it('⛔ declines for an id no longer in the score', () => {
     expect(setDynamicAtStaffSlot(score, 'ghost', { measure: 1, beat: frac(0, 1), staffId: lower })).toBe(false)
+  })
+})
+
+/**
+ * ⭐⭐ THE OTHER LANE — his ask, 2026-08-22, the wedge's key one family over. A level and an
+ * expression WORD are the same object, so one op moves either.
+ */
+describe('flipDynamicPlacement — above the staff ⇄ below it', () => {
+  let score: Score
+  let model: ScoreModel
+
+  beforeEach(() => {
+    model = new ScoreModel()
+    score = model.getScore()
+  })
+
+  const add = (text: string) => model.addDynamic(1, { text, beat: frac(0, 1) })!.id
+
+  it('⭐⭐ flips the side, and absent means below', () => {
+    const id = add('p')
+    expect(flipDynamicPlacement(score, id), 'the first flip goes up').toBe('above')
+    expect(flipDynamicPlacement(score, id)).toBe('below')
+    expect(flipDynamicPlacement(score, 'ghost')).toBeNull()
+  })
+
+  it('⭐ an expression WORD is the same object, and moves the same way', () => {
+    const id = add('dolce')
+    expect(flipDynamicPlacement(score, id)).toBe('above')
+    expect(model.getDynamics(1)[0].text, '⛔ and the word is untouched').toBe('dolce')
+  })
+
+  it('⭐ …dropping the VERTICAL nudge and keeping the horizontal', () => {
+    // ⚠️ The wedge's rule, and the drag's before it: a `y` measured below the staff means nothing
+    //    above it, while an `x` is how far along its own beat the mark stands.
+    const id = add('p')
+    const offset: DynamicOffsetOverride = { kind: 'dynamicOffset', x: 2, y: -3 }
+    setEngravingOverride(score, id, offset)
+
+    flipDynamicPlacement(score, id)
+
+    expect(dynamicOffsetOverrideOf(score, id)).toMatchObject({ x: 2, y: 0 })
+  })
+
+  it('⛔ leaves the VOICE SCOPE alone — which voices it governs is loudness, not place', () => {
+    const id = add('p')
+    setDynamicVoiceScope(score, id, 1)
+    flipDynamicPlacement(score, id)
+    expect(model.getDynamics(1)[0].voice).toBe(1)
   })
 })

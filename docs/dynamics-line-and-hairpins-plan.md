@@ -2161,6 +2161,20 @@ stated once in `hairpinOps.flipHairpinPlacement`: a `y` measured below the staff
 it, while an `x` is how far along its own span an end reaches, which is the same statement on either
 side. ⛔ The MOUTH survives too: how wide a wedge opens is its shape, not its place.
 
+### …and so does a DYNAMIC, letters and expression words alike
+
+His follow-up, the same day: *"now we have to do the same with expression"*. A level and an expression
+WORD are one object in the model (`utils/dynamics` splits the text and nothing else does), so one row
+moves either — `flipSelection`'s `dynamic`, calling `dynamicOps.flipDynamicPlacement`.
+
+🚨 **`Dynamic.placement` rendered but had no instrument at all**: `dynamicsLinePlan` has always
+planned a baseline per side for it, and nothing could set it. That is the trill's own argument for
+this key, verbatim — *"a field with no way to set it is a dead field"*.
+
+⚠️ Same rule about what survives (the vertical goes, the horizontal stays), and ⛔ the VOICE SCOPE is
+untouched: which voices a mark governs is loudness, not place — the orthogonality
+`setDynamicAtStaffSlot` already keeps when a drag lands the mark on the other hand.
+
 ### The dropdown
 
 `bus.hairpinEdit` + `HairpinEditController`, the trill's shape exactly — the window is a dumb
