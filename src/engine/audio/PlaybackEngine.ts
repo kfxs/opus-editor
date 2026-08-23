@@ -11,6 +11,9 @@ import {
 import { collectScheduledNotes, playableFrom, scoreTotalBeats } from './playbackSchedule'
 import { WebAudioFontInstrument } from './WebAudioFontInstrument'
 import type { InstrumentPlayer } from './InstrumentPlayer'
+// The audio layer may read the score layer; the arrow the boundary forbids is the other way
+// (`engine/models` importing audio) — see docs/DESIGN-PRINCIPLES.md §5.
+import { DEFAULT_SOUND, resolveSound } from '../models/soundOps'
 
 /**
  * Playback state
@@ -55,10 +58,6 @@ export class PlaybackEngine {
   private ctx: AudioContext | null = null
   private instrument: InstrumentPlayer | null = null
   private volume: number = 1 // remembered so setVolume() applies before the instrument exists
-  // ⚠️ TEMPORARY (dev-only sound picker): which GM program the whole score plays as.
-  // Lives ONLY here — never in the score/JSON/undo. Default 0 = piano. Remove when a real
-  // per-staff instrument model lands. See WebAudioFontInstrument.DEV_SOUNDS.
-  private program: number = 0
   private score: Score | null = null
   private state: PlaybackState = 'stopped'
   private callbacks: PlaybackCallbacks = {}
@@ -199,7 +198,7 @@ export class PlaybackEngine {
     // button → MusicEngine.play() → here). First play() also blocks on the ~100 KB CDN
     // preset fetch; later plays are instant (browser cache + memoized load()).
     await ctx.resume()
-    await instrument.load(this.program)
+    await instrument.load(this.gmProgram())
 
     // Read the clock AFTER the awaits so onsets aren't scheduled in the past.
     const now = ctx.currentTime
@@ -338,16 +337,26 @@ export class PlaybackEngine {
   }
 
   /**
-   * ⚠️ TEMPORARY — dev-only sound picker. Set the GM program the score plays as. Takes
-   * effect on the NEXT play() (current playback keeps running with the old sound). Stored
-   * only in the engine, never in the score/JSON/undo. Remove with the picker when a real
-   * instrument model lands.
+   * Warm the samples for the sound the SCORE now names, so the next play is instant.
+   *
+   * Fire-and-forget, and a no-op before the first play (there is no instrument yet — `play()` loads
+   * it anyway). ⚠️ It never changes what is currently sounding: a swap mid-playback would re-voice
+   * notes already scheduled, so the new sound takes effect at the next `play()`.
    */
-  setInstrumentProgram(program: number): void {
-    this.program = program
-    // Preload if the instrument already exists (post-first-play) so the next play is instant;
-    // otherwise it loads on next play(). Fire-and-forget — the sound only swaps on next play.
-    void this.instrument?.load(program)
+  preloadSound(): void {
+    void this.instrument?.load(this.gmProgram())
+  }
+
+  /**
+   * The GM program the score asks for — resolved from its playback compartment
+   * (`engine/models/soundOps`), which is where the choice LIVES; ⛔ no longer a field here.
+   *
+   * A `SoundRef` this build cannot realise (a later version's sample or synth patch) resolves to the
+   * default rather than throwing: the file keeps what it said, and the editor plays what it can.
+   */
+  private gmProgram(): number {
+    const sound = this.score ? resolveSound(this.score) : DEFAULT_SOUND
+    return sound.kind === 'gm' ? sound.program : 0
   }
 
   /**

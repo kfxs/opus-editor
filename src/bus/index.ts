@@ -110,7 +110,8 @@ export interface EditorBus {
   hairpinGeometry: ReturnType<typeof createHairpinGeometrySelection>
   /** Whether what is selected IS A REST — the other half of the duration keys' statement. */
   rest: ReturnType<typeof createRestSelection>
-  /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. TEMPORARY. */
+  /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. The VALUE lives in
+   *  the score (`Score.playback`); this is the seam, and its highlight mirrors what is in force. */
   sound: ReturnType<typeof createSoundSelection>
   /** The subdivide key (secondary beam break). */
   subdivide: ReturnType<typeof createSubdivideSelection>

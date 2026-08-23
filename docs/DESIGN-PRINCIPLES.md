@@ -70,6 +70,15 @@ render/viewport layer.
 This is the existing `ScoreModel` ↔ `VexFlowRenderer` / `ViewportModel` /
 `CoordinateMapper` split; the constraint is to **hold the line** as engraving grows.
 
+⭐ **There are THREE compartments, not two, and the third is saved too.** *Content* is what the music
+is; *presentation* is how it looks (`score.engravingOverrides` — authored, anchor-relative, in staff
+spaces); ***playback* is how it sounds** (`score.playback` — sound assignments, positional). The two
+non-content compartments live inside the score value because a user expects a choice they made to
+still be there tomorrow, and neither is layout: this principle forbids **pixels and layout** in the
+model, not everything that is not a notehead. What keeps that from becoming a licence is the
+discriminator in the boundary case below — a **positional** statement belongs to the score, a
+document-wide *look* setting does not (`justifyLastLine`, page size).
+
 **Forbidden:** pixel coordinates, viewport, or page-layout state in the data model
 or its JSON; render logic mutating musical content.
 
@@ -218,6 +227,30 @@ be made *consciously* before more code piles onto it.
   a per-element recipe for any future adjustable element. Semantic side/direction flips
   (`placement`, `stemDirection`, `tieDirection`) deliberately stay on the content model
   — they are notational meaning, not geometry.
+
+- **~~Where does PLAYBACK state live? (re: principle 3)~~ DECIDED 2026-08-23 — in the score, as a
+  positional compartment.** The playback sound was `PlaybackEngine.program`: a field on the editor,
+  absent from the score, the JSON and undo, so a reload lost it and a second score opened in the same
+  editor inherited the previous one's timbre (a principle-1 smell as well as a lost setting). It is
+  now `score.playback.sounds[]` — `engine/models/soundOps.ts`, `docs/instruments-plan.md` P1a.
+
+  Why it lands differently from ragged-last, which is still parked above:
+  - **It is POSITIONAL** — that is this section's own discriminator. A sound can change at bar 40
+    (an instrument change, an electroacoustic shift), so it is a statement made at a point, resolved
+    by walking back, exactly like a clef or a tempo. A `Score.sound` FIELD would be the principle-6
+    violation — "the sound at bar 1 beat 0" wearing a global's clothes, the shape that cost
+    `score.clef`, `score.tempo`, `keySignature` and `defaultTimeSignature` their places.
+  - **It is not layout.** Principle 3's "not the `Score`/JSON" ruling above is specifically about
+    *page-layout* state, which is the future engraving wrapper's; a `SoundRef` is neither a pixel nor
+    a break.
+  - **`engravingOverrides` is the precedent** for a non-content compartment that serializes with the
+    score value.
+
+  ⚠️ **What this does NOT license.** The score layer still imports no audio (principle 5): the model
+  holds an OPAQUE `SoundRef` and does not know what a GM program *is* — `DEFAULT_SOUND` is a
+  score-layer constant and the GM catalogue stays in `engine/audio/`. And it widens what "a score"
+  means: a tool that never plays anything now carries sound data. Inert, exactly as
+  `engravingOverrides` is for a tool that never renders — but a real widening, taken deliberately.
 
 - **`measures` lives directly on `Score`, and "measure N" is a global key (re:
   principle 4).** `getMeasure(n)`, `measure.number`, and renumber-on-insert all

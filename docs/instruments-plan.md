@@ -1,6 +1,10 @@
 # Instruments — the lane→instrument map (and what a score *is*)
 
-Status: **PLANNED — nothing built.** Self-contained: written to survive a context reset.
+Status: **P1's STORAGE HALF IS BUILT (2026-08-23); everything else PLANNED.** The score now holds its
+own sound — one positional assignment, governing every staff and voice, round-tripping through the
+JSON and undo (`engine/models/soundOps.ts`, `Score.playback`). ⛔ What is NOT built: lanes, the
+multi-timbral `InstrumentPlayer`, and instruments-as-content. See §10.
+Self-contained: written to survive a context reset.
 This is the unbuilt half of **DESIGN-PRINCIPLES §4** ("instruments and staves are
 composable 1..N"). It supersedes the sketch in `docs/soundfont-plan.md` §"Phase 2:
 per-staff instrument" — **do not build a per-staff sound dropdown**; §7 below says what to
@@ -233,13 +237,29 @@ type SoundRef =
 // resolved behind the InstrumentPlayer seam — the model never knows what a program IS
 
 interface SoundAssignment extends Lane {
-  measure: number
+  measureId: string          // ⭐ AMENDED 2026-08-23 — see below
   beat: Fraction
   sound: SoundRef
-  volume?: number
+  volume?: number            // ⏭️ not built
 }
 // Score.playback?: { sounds: SoundAssignment[] }
 ```
+
+⭐ **AMENDED 2026-08-23, when P1's storage half was built — two things this sketch got wrong or left
+open, both cheap now and expensive at P2:**
+
+1. **The anchor is a measure ID, not a measure NUMBER.** A number is a position in a list that
+   renumbers itself the moment a bar is inserted, so a `measure: 2` assignment would silently start
+   governing whatever bar 2 became. Ids are what every other detached-but-anchored thing here keys
+   by (`engravingOverrides`), and this compartment is detached for the same reason. The
+   discriminating case is the INSERTED bar, not the moved one — see `soundOps.test.ts`.
+2. **⭐⭐ An absent lane field means EVERY lane — not staff 0.** `Lane` above says *"absent = staff 0
+   (the existing convention)"*, which is right for a NOTE and wrong here: read that way, the single
+   assignment written today would fall silent the moment a second staff appeared. These fields are a
+   **SCOPE, not a position** — the distinction a dynamic's `voices` already makes (absent = all of
+   its staff, and `voiceOf()` is the wrong question to ask of it; docs/dynamic-voice-scope-plan.md).
+   Fixed now because today's assignments have no lane at all, so their meaning has to be settled
+   before there is a second reading to argue with.
 
 It serializes with the file (the user expects their sound choices to persist) **without
 being content** — the same status `engravingOverrides` already has. Content ≠ presentation
@@ -351,7 +371,8 @@ land on top of a working sound layer, not the reverse.
 | Phase | Scope |
 |---|---|
 | **P0** | *This document.* Decisions locked: two axes joined by positional maps (§3), `applySound` is the primitive (§4), templates as factory (§6), document wraps score (§1). |
-| **P1** | **Sound model + playback, no instruments.** `Lane`, `SoundRef`, `SoundAssignment`, the walk-back resolver + `DEFAULT_SOUND`, the `Score.playback` compartment, JSON round-trip, undo. Multi-timbral `InstrumentPlayer` (load a *set* of sounds; `noteOn` names its sound); `collectScheduledNotes` carries each note's lane. Tests. |
+| **P1a** | ✅ **BUILT 2026-08-23 — the STORAGE half.** `SoundRef`, `SoundAssignment`, `Score.playback`, the walk-back resolver + `DEFAULT_SOUND` (`engine/models/soundOps.ts`), JSON round-trip, undo, and `PlaybackEngine` reading the score instead of its own field. ⭐ Scope is unchanged: ONE assignment, every staff, every voice — this was about persistence, not scope. |
+| **P1b** | ⏭️ **The MULTI-TIMBRAL half, deliberately deferred.** `Lane` on the assignment; `InstrumentPlayer` loading a *set* of sounds with `noteOn` naming its own; `collectScheduledNotes` carrying each note's lane. Nothing needs it while one sound covers everything, and it is the expensive half. |
 | **P2** | **`applySound` UI — on a staff, and on a voice.** Replaces the dev dropdown. This alone delivers the condensed/electroacoustic sketch (voice 1 = flute sound, voice 2 = oboe sound) with **no instrument concept in the model at all**. |
 | **P3** | **Instruments as content.** `Instrument`, `InstrumentAssignment`, `applyInstrument`; the sound *derived* from the instrument (§4/§5 rule 2 — never copied); catalogue `src/instruments/catalog.ts` (§6). Range warnings. Printed instrument name. |
 | **P4** | **Instrument change mid-score** — the same assignment at a later measure, *printed* (*muta in piccolo*). Settle the §5 precedence question first. |

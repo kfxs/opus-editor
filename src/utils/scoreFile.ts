@@ -61,6 +61,7 @@ const KNOWN_SCORE_KEYS = Object.keys({
   slurs: true,
   trills: true,
   engravingOverrides: true,
+  playback: true,
 } satisfies Record<keyof Score, true>)
 
 export interface ScoreFileEnvelope {

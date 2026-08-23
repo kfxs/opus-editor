@@ -211,6 +211,10 @@ and Tone only provides `now()`, `start()`, `Frequency`, and `gainToDb`. So:
   **Milestone: real sound, nothing in git, samples served from the CDN.**
 - **Phase 2 — GM instrument switching (later).** ⚠️ **SUPERSEDED by
   `docs/instruments-plan.md` — do NOT build the per-staff field sketched below.**
+  ⭐ **Half-landed 2026-08-23**: the score now STORES its sound (one positional assignment governing
+  every staff and voice — instruments-plan P1a, `engine/models/soundOps.ts`), so the choice persists
+  and undoes. The picker is unchanged and the seam is still single-timbral; what remains of this
+  phase is the LANE and the multi-timbral seam below.
   `staff.program` is `score.clef` one level down: it is really "the instrument at bar 1",
   and it cannot express a piano (one instrument, two staves), a condensed score (several
   instruments on one staff, one per voice), or an instrument change at bar 40. The dropdown

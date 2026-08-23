@@ -2083,6 +2083,74 @@ export interface Score {
    * docs/engraving-overrides-plan.md.
    */
   engravingOverrides?: EngravingOverrides
+  /**
+   * How the score SOUNDS — the third compartment, beside content and
+   * {@link Score.engravingOverrides}. Optional/absent = nothing has been chosen and every note
+   * plays `DEFAULT_SOUND` (`engine/models/soundOps`), which is why a fresh sketch's JSON gains no
+   * key at all. See {@link ScorePlayback} and docs/instruments-plan.md.
+   */
+  playback?: ScorePlayback
+}
+
+/**
+ * WHAT A SOUND IS, to the score: an opaque reference another layer knows how to realise.
+ *
+ * ⛔ **Never a bare `program: number`.** General MIDI is ONE kind of sound and not THE kind — an
+ * electroacoustic sketch's timbre may be a sample or a synth patch, and a model that had baked in a
+ * GM integer could not say so without a migration (docs/instruments-plan.md §4, *Forbidden*).
+ *
+ * ⚠️ The score does not know what a `program` IS. Resolving one to audio is the
+ * `InstrumentPlayer` seam's job, on the other side of principle 5's line: the score layer imports no
+ * audio, so the GM catalogue (names, the picker's list) lives in `engine/audio/` and never here.
+ */
+export type SoundRef =
+  | { kind: 'gm'; program: number }
+  // ⏭️ 'sample' / 'synth' — the electroacoustic future (docs/instruments-plan.md §4). A `kind` this
+  // build does not know is KEPT on load and ignored at playback: report-never-repair, and a file
+  // written by a later version must not come back damaged.
+
+/**
+ * "From here on, this sounds like that" — a positional statement, exactly like a clef change.
+ *
+ * ⭐⭐ **POSITIONAL, never a `Score.sound` field.** A field would be, in truth, "the sound at bar 1
+ * beat 0" — the conflation that made `score.clef` bleed across staves and cost `score.tempo`,
+ * `keySignature` and `defaultTimeSignature` their places (principle 6; see the NOTEs above).
+ *
+ * ⭐ **Anchored by measure ID, not by measure number.** A number is a position in a list that
+ * renumbers itself the moment a bar is inserted, which would silently move every sound change in
+ * the score. Ids are what every other detached-but-anchored thing here keys by
+ * (`engravingOverrides`), and this compartment is detached for the same reason.
+ *
+ * ⏭️ **WHAT ARRIVES LATER: the LANE — `staffId` and `voice`** (docs/instruments-plan.md P2). Their
+ * absence is what an assignment written today means, so the rule has to be fixed now, before there
+ * is a second reading to argue with:
+ *
+ * > ⭐⭐ **An absent lane field means EVERY lane — not staff 0.** These fields are a SCOPE, not a
+ * > position, which is the same distinction a dynamic's `voices` already makes (absent = all of its
+ * > staff, and `voiceOf()` is the wrong question to ask of it — docs/dynamic-voice-scope-plan.md).
+ * > Read as a note's lane, an absent `staffId` would mean staff 0, and the day a second staff
+ * > appeared it would fall silent — a bug the file itself could not explain.
+ */
+export interface SoundAssignment {
+  /** The measure this takes effect in — {@link Measure.id}, never `Measure.number`. */
+  measureId: string
+  /** Where in that measure. Today always 0; the field is what makes bar-40-beat-3 expressible. */
+  beat: Fraction
+  sound: SoundRef
+}
+
+/**
+ * The playback compartment. A sub-tree of `Score` so it clones / serializes / undoes with the score
+ * value — `engravingOverrides`' status exactly, and for the same reason: the user expects a choice
+ * they made to still be there tomorrow, and it is not content.
+ */
+export interface ScorePlayback {
+  /**
+   * Sound assignments in score order. Resolved by walking BACK from a note's position to the most
+   * recent one — the walk `Measure.clefs` and `Measure.tempos` already do, over a list rather than
+   * per measure because playback is not content and does not travel inside the music.
+   */
+  sounds: SoundAssignment[]
 }
 
 /**

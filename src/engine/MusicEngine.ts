@@ -34,7 +34,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -5619,12 +5619,30 @@ export class MusicEngine {
   }
 
   /**
-   * ⚠️ TEMPORARY — dev-only sound picker. Set the GM program the whole score plays as
-   * (takes effect on the next play()). Not part of the score/JSON; remove when a real
-   * instrument model lands. See WebAudioFontInstrument.DEV_SOUNDS.
+   * What the score SOUNDS like — one statement, at its start, for every staff and voice.
+   *
+   * ⭐⭐ **A score edit, not an engine setting.** It writes a positional assignment into the score's
+   * playback compartment (`engine/models/soundOps`), so it round-trips through the JSON, undoes with
+   * everything else, and belongs to the score value rather than to whichever editor is open on it.
+   * Until 2026-08-23 this was a field on `PlaybackEngine`: a reload lost the choice, and a second
+   * score loaded into the same editor inherited the previous one's timbre.
+   *
+   * ⏭️ Per-staff and per-voice sounds add a LANE to the write (docs/instruments-plan.md P2); this
+   * method is then the N=1 case of that one, not something it has to replace.
    */
-  setInstrumentProgram(program: number): void {
-    this.playbackEngine.setInstrumentProgram(program)
+  setScoreSound(sound: SoundRef): void {
+    this.scoreModel.applySound(sound)
+    // `commit`, not `saveUndoState`: the sound is exactly the kind of change that alters what plays,
+    // so playback must be handed the new score before the snapshot is taken.
+    this.commit('Set sound')
+    // …and warm the samples now rather than at the downbeat, which is what the old setter did for
+    // the picker. Fire-and-forget: the sound only actually swaps on the next play().
+    this.playbackEngine.preloadSound()
+  }
+
+  /** The sound in force at the start of the score — `DEFAULT_SOUND` when nothing has been chosen. */
+  getScoreSound(): SoundRef {
+    return this.scoreModel.soundAt()
   }
 
   /**

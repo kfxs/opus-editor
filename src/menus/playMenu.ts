@@ -11,9 +11,10 @@ import type { MenuToggle } from './menuCommands'
  * pressing it will DO: *Play* when the score is silent, *Stop* while it is running. That is the whole
  * reason `MenuItem` labels may be functions.
  *
- * ⭐ **Score Sound** — the word *Score* is doing real work. The editor has one sound for everything;
- * there is no instrument model yet (docs/instruments-plan.md: a positional lane→instrument map is
- * the shape it will take). A row called "Instrument" would promise a per-staff choice that does not
+ * ⭐ **Score Sound** — the word *Score* is doing real work, and since 2026-08-23 it is literally true
+ * as well: the choice is stored IN the score (`Score.playback`) and saved with it. The editor still
+ * has one sound for everything, and there is no instrument model yet
+ * (docs/instruments-plan.md: a positional lane→instrument map is the shape it will take). A row called "Instrument" would promise a per-staff choice that does not
  * exist, so the label admits the scope instead. The submenu is `DEV_SOUNDS` — the same curated GM
  * shortlist the dev toolbar's picker offers, from the same array, so the two lists cannot drift.
  *

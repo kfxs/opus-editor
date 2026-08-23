@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -43,6 +43,7 @@ import * as tempoOps from './tempoOps'
 import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
 import * as pedalOps from './pedalOps'
+import * as soundOps from './soundOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
@@ -1461,6 +1462,26 @@ export class ScoreModel {
    */
   getActiveLevel(measureNumber: number, beat: Fraction, voice: number = 0, staffId?: string) {
     return resolveActiveLevel(this.score, measureNumber, beat, voice, staffId)
+  }
+
+  // ==================== Sound (the PLAYBACK compartment — not content) ====================
+
+  /**
+   * The sound in force at a position — the start of the score when none is given. Falls back to
+   * `soundOps.DEFAULT_SOUND`, never to a stored global. See {@link soundOps.resolveSound}.
+   */
+  soundAt(at?: { measureId?: string; beat?: Fraction }): SoundRef {
+    return soundOps.resolveSound(this.score, at)
+  }
+
+  /** Say what the score sounds like from a position on — replaces any statement already there. */
+  applySound(sound: SoundRef, at?: { measureId?: string; beat?: Fraction }): SoundAssignment | null {
+    return soundOps.applySound(this.score, sound, at)
+  }
+
+  /** Take the statement back. The compartment disappears with its last assignment (the N=1 rule). */
+  clearSound(at?: { measureId?: string; beat?: Fraction }): boolean {
+    return soundOps.clearSound(this.score, at)
   }
 
   // ==================== Trills (top-level note-anchored ornament spans) ====================

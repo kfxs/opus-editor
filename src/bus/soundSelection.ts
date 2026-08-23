@@ -11,9 +11,14 @@ import { PaletteSelection } from './paletteSelection'
  * surface would then have been a second truth, and whichever you used last would silently disagree
  * with the other. One seam, two subscribers, no copies.
  *
- * ⚠️ TEMPORARY, like the list it carries (`DEV_SOUNDS`). One program for the WHOLE score is not an
- * instrument model — it is "what does Play sound like today". When per-staff instruments are
- * designed (docs/instruments-plan.md: a lane→instrument map, positional), this store and the menu
- * row that reads it both go. That is why the menu says *Score* Sound: the word admits the scope.
+ * ⚠️ STILL ONE SOUND FOR THE WHOLE SCORE — but no longer a passing thought. Since 2026-08-23 the
+ * value it carries lives in the score itself (`Score.playback`, `engine/models/soundOps`), so it
+ * persists, undoes and travels with the file; what stays provisional is the SCOPE (every staff,
+ * every voice) and the curated GM list (`DEV_SOUNDS`). When per-staff / per-voice sounds land
+ * (docs/instruments-plan.md P1b/P2) this store gains a lane or gives way to one that has it. That is
+ * why the menu says *Score* Sound: the word admits the scope.
+ *
+ * ⚠️ Its HIGHLIGHT is mirrored from the score, not from the last press — see `interactions/soundSync`:
+ * an undo can change the sound with nobody pressing anything.
  */
 export const createSoundSelection = () => new PaletteSelection<number>()
