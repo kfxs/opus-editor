@@ -1,3 +1,4 @@
+import { LINE_TOOL_KINDS, type LineToolKind } from '@/bus/lineSelection'
 import { CHROME } from '../../utils/chromeColors'
 import { MUSIC_FONT, escapeXml } from '../symbols/glyphSvg'
 import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/trillStyle'
@@ -17,8 +18,9 @@ import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/pedalStyle'
  * dialog starts lying — which is exactly what the ottava's numeral did once already (`8va`/`8ba` was
  * a decision, taken in `ottavaStyle`). Here the row shows whatever that module says today.
  *
- * ⚠️ These are PICTURES, not a model. Nothing here is a `SelectedElement` kind, and the `value`s are
- * row ids — the window is not wired to anything yet (see ./index).
+ * ⚠️ These are PICTURES, not a model. A `value` is a `LineToolKind` — the FAMILY's shared name
+ * (`bus/lineSelection`), which the dev shell's Lines buttons answer to as well — never a
+ * `SelectedElement` kind and never a model type: `8va`/`8vb` are two rows of one signed ottava.
  */
 
 /**
@@ -31,10 +33,25 @@ const GLYPH_SIZE = SPACE * 4
 
 /**
  * ⭐ Narrow, and that is HIS CALL against the reference: Sibelius's *Staff lines* column is about
- * 150px of picture, not the 236 the clef picker uses. A line's row does not need the width — the
- * shape is the same at any length, and a wide row only spends screen on more of the same dashes.
+ * 150px wide, not the 236 the clef picker uses. A line's row does not need the width — the shape is
+ * the same at any length, and a wide row only spends screen on more of the same dashes. What is here
+ * is that 150 of DRAWING minus the hint's gutter, plus the gutter: the ink stayed, the caption moved
+ * in beside it.
  */
-const ROW_WIDTH = 150
+const ROW_WIDTH = 190
+/**
+ * ⚠️ Room at the LEFT end of EVERY row for the shortcut hint (`Shift+H` is the widest), kept even on
+ * the four rows that have no key. Reserved rather than made room for per row, because the drawings
+ * must all START on ONE axis: a trill that began further left than the hairpin above it, just to
+ * fill space that row had spent on a caption, would read as a longer line rather than as a wider row.
+ *
+ * ⭐ The key first, then the picture — his call. It puts the two columns in reading order, and it
+ * keeps the hint clear of the end a line is USUALLY read towards.
+ *
+ * ⛔ Not a nudge on the hint's own position: it sits over the picture, and moving it further out
+ * would only take it out of the LIST. The ink is what has to make way.
+ */
+const HINT_GUTTER = 52
 /**
  * Tight on purpose: seven rows plus a caption and a button row have to fit a viewport some 415px
  * tall, and a row taller than the ink it carries spends that budget on nothing. `Ped.` is the
@@ -42,9 +59,15 @@ const ROW_WIDTH = 150
  */
 const ROW_HEIGHT = SPACE * 4.6
 
-/** Where the ink starts and stops. Air either side, so no row touches the lit band's edge. */
-const LEFT = 10
-const RIGHT = ROW_WIDTH - 10
+/**
+ * Where the ink starts and stops. Air either side, so no row touches the lit band's edge — and the
+ * right margin is generous ON PURPOSE (his eye): the hint's gutter gives every drawing a wide left
+ * margin, and a thin one on the right made the lines look pushed up against the box rather than set
+ * inside it. A drawing that stops short reads as a specimen; one that runs to the edge reads as
+ * clipped.
+ */
+const LEFT = HINT_GUTTER
+const RIGHT = ROW_WIDTH - 38
 
 /**
  * The baseline every GLYPH row sits on. Low in the box, because these signs are drawn almost
@@ -182,19 +205,24 @@ function pedalPicture(): string {
   return svg(glyph(PEDAL_DOWN_GLYPH, LEFT) + glyph(PEDAL_UP_GLYPH, RIGHT - ADVANCE.pedalUp * SPACE))
 }
 
-/** A row id. ⚠️ Not a model kind — see the header: nothing here is wired to the score yet. */
-export type LineKind = 'slur' | 'crescendo' | 'diminuendo' | 'trill' | 'ottavaUp' | 'ottavaDown' | 'pedal'
-
 /**
- * The rows, in the order Sibelius's *Staff lines* column takes them: the curve, the two hairpins,
- * then the signs that carry a line behind them.
+ * The drawing for each line, by the family's shared name (`bus/lineSelection`).
+ *
+ * ⭐ A `Record` and not a list, so the ORDER is not stated twice: the dialog's rows are
+ * `LINE_TOOL_KINDS` mapped through this, and the palette's buttons are the same names — one order,
+ * one vocabulary, and an eighth line is a kind, a row, and a picture.
  */
-export const LINE_CHOICES: readonly { value: LineKind; picture: string }[] = [
-  { value: 'slur', picture: slurPicture() },
-  { value: 'crescendo', picture: hairpinPicture('right') },
-  { value: 'diminuendo', picture: hairpinPicture('left') },
-  { value: 'trill', picture: trillPicture() },
-  { value: 'ottavaUp', picture: ottavaPicture(1) },
-  { value: 'ottavaDown', picture: ottavaPicture(-1) },
-  { value: 'pedal', picture: pedalPicture() },
-]
+export const LINE_PICTURES: Readonly<Record<LineToolKind, string>> = {
+  slur: slurPicture(),
+  cresc: hairpinPicture('right'),
+  dim: hairpinPicture('left'),
+  trill: trillPicture(),
+  '8va': ottavaPicture(1),
+  '8vb': ottavaPicture(-1),
+  pedal: pedalPicture(),
+}
+
+/** The rows, in the family's own order: the curve, the two hairpins, then the signs that carry a
+ *  line behind them. */
+export const LINE_CHOICES: readonly { value: LineToolKind; picture: string }[] =
+  LINE_TOOL_KINDS.map((kind) => ({ value: kind, picture: LINE_PICTURES[kind] }))

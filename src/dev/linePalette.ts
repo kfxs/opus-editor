@@ -1,6 +1,5 @@
+import type { LineToolKind } from '@/bus/lineSelection'
 import type { EditorState } from '../interactions/EditorState'
-import { armedTool } from '../interactions/EditorState'
-import type { PaletteController } from '../interactions/PaletteController'
 
 /**
  * The **Lines** palette of the dev shell — the family of marks that run ALONG the music rather than
@@ -21,21 +20,26 @@ import type { PaletteController } from '../interactions/PaletteController'
  * change by the toolbar's syncers. It must agree with what the palette method would do: a button
  * that looks pressable and silently does nothing is worse than one that says so (the same lesson
  * the `Small` button learned).
+ *
+ * ⭐⭐ **What a row DOES is no longer written here.** `kind` names the line, and
+ * `interactions/lineTools` says what pressing it means and whether it is lit — because there is now
+ * a second door onto this family (the Lines window, `windows/lines`), and two tables of the same
+ * seven rows would drift the first time one gained an eighth. What is left here is what only a
+ * BUTTON needs: a face, a tooltip, and whether it can be pressed.
  */
 export interface LineTool {
+  /** Which line — the shared vocabulary, `bus/lineSelection`. */
+  kind: LineToolKind
   /** Button face. */
   label: string
   /** Tooltip — say what the line is AND what has to be selected first. */
   title: string
   isEnabled(state: EditorState): boolean
-  /** Lit when the row's STAMP is armed — the button is then the tool's on-screen switch, and a
-   *  re-press turns it off (the press method's own rule). */
-  isArmed(state: EditorState): boolean
-  press(palette: PaletteController): void
 }
 
 export const LINE_TOOLS: readonly LineTool[] = [
   {
+    kind: 'slur',
     label: 'Slur',
     title: 'Phrasing slur (key `s`). With notes selected it slurs them; with nothing selected it '
       + 'ARMS the slur stamp — the blue pointer — and a click on a note slurs it to the next slot. '
@@ -45,32 +49,28 @@ export const LINE_TOOLS: readonly LineTool[] = [
     // predates the stamp by one commit — it used to grey out with no selection, which was right
     // while "with nothing selected" meant nothing at all.)
     isEnabled: () => true,
-    isArmed: (state) => armedTool(state, 'slur') !== null,
-    press: (palette) => palette.createSlur(),
   },
   {
+    kind: 'cresc',
     label: 'Cresc.',
     title: 'Crescendo hairpin (key `H`). With notes selected it opens a wedge over them; with '
       + 'nothing selected it ARMS the crescendo stamp — the blue pointer — and a click on a note '
       + 'places one running through the next slot. Press again to disarm. Select a wedge and '
       + 'Ctrl+←/→ to shorten/lengthen it, Delete to remove it.',
     isEnabled: () => true,
-    isArmed: (state) => state.selectedMarkingTool?.kind === 'hairpin'
-      && state.selectedMarkingTool.type === 'cresc',
-    press: (palette) => palette.createCrescendo(),
   },
   {
+    kind: 'dim',
     label: 'Dim.',
     title: 'Diminuendo hairpin (key `Shift+H`). The crescendo row\'s mirror in every respect — '
       + 'selection creates, nothing selected arms the stamp, Ctrl+←/→ resizes, Delete removes.',
+    // ⚠️ Two rows, two independent lights — which is why `armedLineTool` answers with a KIND and
+    // not with the model's tool: `armedTool(state, 'hairpin')` would light both buttons whichever
+    // one was armed. Same for the two octave rows below.
     isEnabled: () => true,
-    // ⚠️ Two rows, two independent lights — which is why the tool carries its TYPE. A single
-    // `armedTool(state, 'hairpin')` here would light both buttons whichever one was armed.
-    isArmed: (state) => state.selectedMarkingTool?.kind === 'hairpin'
-      && state.selectedMarkingTool.type === 'dim',
-    press: (palette) => palette.createDiminuendo(),
   },
   {
+    kind: 'trill',
     label: 'Trill',
     title: 'Trill — `tr` with its wavy extension line. With notes selected it trills them; with nothing '
       + 'selected it ARMS the trill stamp — the blue pointer — and a click on a note trills that '
@@ -81,10 +81,9 @@ export const LINE_TOOLS: readonly LineTool[] = [
     // only door, which is why it must always be pressable: the press always means something
     // (trill the selection, or arm the tool).
     isEnabled: () => true,
-    isArmed: (state) => armedTool(state, 'trill') !== null,
-    press: (palette) => palette.createTrill(),
   },
   {
+    kind: '8va',
     label: '8va',
     title: 'Octave line up — the notes SOUND an octave higher, and the noteheads do not move. With '
       + 'notes selected it puts a line over them; with nothing selected it ARMS the 8va stamp — the '
@@ -96,22 +95,20 @@ export const LINE_TOOLS: readonly LineTool[] = [
     // door, which is why they must always be pressable — the press always means something (line the
     // selection, or arm the tool).
     isEnabled: () => true,
-    isArmed: (state) => (armedTool(state, 'ottava')?.shift ?? 0) > 0,
-    press: (palette) => palette.createOttava(1),
   },
   {
+    kind: '8vb',
     label: '8vb',
     title: 'Octave line down — the notes SOUND an octave lower, and the noteheads do not move. With '
       + 'notes selected it puts a line under them; with nothing selected it ARMS the 8vb stamp. '
       + 'Press again to disarm. ⭐ The side of the staff is DERIVED from the direction — an 8vb is '
       + 'drawn below, with its hook turning up.',
-    isEnabled: () => true,
     // ⭐ The two rows light independently, the cresc./dim. pair's rule: pressing one while the other
     // is armed SWAPS the tool rather than disarming it.
-    isArmed: (state) => (armedTool(state, 'ottava')?.shift ?? 0) < 0,
-    press: (palette) => palette.createOttava(-1),
+    isEnabled: () => true,
   },
   {
+    kind: 'pedal',
     label: 'Ped.',
     title: 'Sustain pedal — `Ped.` where the foot goes down, `✻` where it comes up, and the notes '
       + 'RING to the lift. With notes selected it holds them; with nothing selected it ARMS the '
@@ -123,7 +120,5 @@ export const LINE_TOOLS: readonly LineTool[] = [
     // button is the pedal's only door, so it must always be pressable — the press always means
     // something (hold the selection, or arm the tool).
     isEnabled: () => true,
-    isArmed: (state) => armedTool(state, 'pedal') !== null,
-    press: (palette) => palette.createPedal(),
   },
 ]

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { LINE_CHOICES } from './linePictures'
+import { LINE_TOOL_KINDS } from '@/bus/lineSelection'
 import { TRILL_SIGN_GLYPH, TRILL_WIGGLE_GLYPH } from '@/engine/rendering/trillStyle'
 import { OTTAVA_NUMERAL_GLYPHS } from '@/engine/rendering/ottavaStyle'
 import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/pedalStyle'
@@ -18,15 +19,8 @@ function picture(value: string): string {
 
 describe('LINE_CHOICES', () => {
   it('offers the seven rows, each with a picture of its own', () => {
-    expect(LINE_CHOICES.map(c => c.value)).toEqual([
-      'slur',
-      'crescendo',
-      'diminuendo',
-      'trill',
-      'ottavaUp',
-      'ottavaDown',
-      'pedal',
-    ])
+    // The ORDER is the family's, not this file's — one list, shared with the palette.
+    expect(LINE_CHOICES.map(c => c.value)).toEqual([...LINE_TOOL_KINDS])
     // Distinct: a copy-paste that left two rows sharing one drawing would still look like a list.
     expect(new Set(LINE_CHOICES.map(c => c.picture)).size).toBe(LINE_CHOICES.length)
   })
@@ -49,8 +43,8 @@ describe('LINE_CHOICES', () => {
   it('shows the ENGINE\'s glyphs, so the picker cannot drift from the score', () => {
     expect(picture('trill')).toContain(TRILL_SIGN_GLYPH)
     expect(picture('trill')).toContain(TRILL_WIGGLE_GLYPH)
-    expect(picture('ottavaUp')).toContain(OTTAVA_NUMERAL_GLYPHS[1])
-    expect(picture('ottavaDown')).toContain(OTTAVA_NUMERAL_GLYPHS[-1])
+    expect(picture('8va')).toContain(OTTAVA_NUMERAL_GLYPHS[1])
+    expect(picture('8vb')).toContain(OTTAVA_NUMERAL_GLYPHS[-1])
     expect(picture('pedal')).toContain(PEDAL_DOWN_GLYPH)
     expect(picture('pedal')).toContain(PEDAL_UP_GLYPH)
   })
@@ -70,9 +64,9 @@ describe('LINE_CHOICES', () => {
       if (!hook) throw new Error(`no hook in ${value}`)
       return [Number(hook[2]), Number(hook[4])]
     }
-    const [upFrom, upTo] = hookY('ottavaUp')
+    const [upFrom, upTo] = hookY('8va')
     expect(upTo).toBeGreaterThan(upFrom) // SVG y grows downwards: the 8va hooks DOWN
-    const [downFrom, downTo] = hookY('ottavaDown')
+    const [downFrom, downTo] = hookY('8vb')
     expect(downTo).toBeLessThan(downFrom)
   })
 
@@ -86,8 +80,8 @@ describe('LINE_CHOICES', () => {
       expect(Number(lines[0][4])).not.toBe(Number(lines[1][4]))
       return { tip: Number(lines[0][1]), mouth: Number(lines[0][3]) }
     }
-    expect(opens('crescendo').tip).toBeLessThan(opens('crescendo').mouth)
-    expect(opens('diminuendo').tip).toBeGreaterThan(opens('diminuendo').mouth)
+    expect(opens('cresc').tip).toBeLessThan(opens('cresc').mouth)
+    expect(opens('dim').tip).toBeGreaterThan(opens('dim').mouth)
   })
 
   it('draws the slur as a filled lens, not a stroked arc — it is thick in the middle and thin at the tips', () => {

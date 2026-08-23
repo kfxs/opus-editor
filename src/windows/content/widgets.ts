@@ -50,6 +50,15 @@ export interface Choice {
   value: string
   /** SVG markup — the row is a PICTURE, not a caption (a clef is drawn, never spelled). */
   picture: string
+  /**
+   * An optional KEY this row also answers to (`S`, `Shift+H`), shown small and muted at the LEFT
+   * edge — a menu row's accelerator, in a list of pictures. It teaches the shortcut to whoever came
+   * the slow way, which is the only reason a picture list ever carries text.
+   *
+   * ⚠️ It is a HINT, never a caption: a row without one shows nothing, and the picture is still what
+   * says which line this is. Rows that have no key (the trill, the octave lines) simply omit it.
+   */
+  hint?: string
 }
 
 /**
@@ -99,6 +108,26 @@ export class ChoiceList implements Widget {
       row.style.cursor = 'pointer'
       row.style.display = 'flex'
       row.style.justifyContent = 'center'
+      if (choice.hint !== undefined) {
+        // ABSOLUTE, so the hint cannot push the picture off centre: every row's drawing stays on one
+        // axis whether or not that row has a key, which is what keeps the column reading as a column.
+        row.style.position = 'relative'
+        const hint = document.createElement('span')
+        hint.textContent = choice.hint
+        hint.style.position = 'absolute'
+        // LEFT of the drawing — the key first, then the picture it stands for.
+        hint.style.left = '8px'
+        hint.style.top = '50%'
+        hint.style.transform = 'translateY(-50%)'
+        hint.style.fontSize = '11px'
+        // ITALIC — his call. It says the text is a NOTE ABOUT the row rather than part of the
+        // notation beside it, which upright chrome text at this size does not.
+        hint.style.fontStyle = 'italic'
+        hint.style.color = CHROME.inkMuted
+        // The picture is the target; the hint is a caption on it and must not eat its own click.
+        hint.style.pointerEvents = 'none'
+        row.appendChild(hint)
+      }
       row.addEventListener('click', () => this.select(choice.value))
       // The first click of the pair has already selected it, so activate can just fire — and it
       // fires with the ROW's value, not the current selection, so a fast double-click on a row that

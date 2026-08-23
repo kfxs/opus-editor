@@ -2,25 +2,43 @@ import type { WindowLayer } from '../WindowLayer'
 import type { Window } from '../Window'
 import { Column, Row } from '../content/layout'
 import { Button, ChoiceList, Label } from '../content/widgets'
+import { bus } from '@/bus'
+import type { LineToolKind } from '@/bus/lineSelection'
+import { shortcutLabel } from '@/shortcuts/shortcutLabel'
 import { LINE_CHOICES } from './linePictures'
 
 /**
  * The Lines window, opened from Insert ▸ Lines (or L) — modelled on Sibelius's Lines dialog: a box
  * of pictures you scroll, one of them lit, and Cancel / OK underneath.
  *
- * ⚠️ **NOTHING IS WIRED, deliberately and for now.** OK closes the window and places nothing. This
- * is the SHAPE of the dialog being settled first — which rows there are, how a line is drawn small
- * enough to pick from a list — and what each row will eventually arm is a separate decision, one per
- * row, with the mark's own module behind it (`slurOps`, the hairpin, `TrillRenderer`, the ottava,
- * the pedal). Building the picture and the wiring in one go would decide both at once, and only one
- * of them is being asked about.
+ * ⭐⭐ **OK IS THE LINES PALETTE'S BUTTON.** Committing presses `bus.line`, which
+ * `interactions/lineTools` routes to the very `PaletteController` method the dev shell's *Lines:*
+ * row calls — so with notes selected the mark is made, with nothing selected the STAMP is armed (the
+ * blue pointer; the next click places it), and pressing the armed one again turns it off. The dialog
+ * adds a door, never a second behaviour: that is why it knows no palette, no engine and no model,
+ * and why the routing lives in one table rather than in this file.
  *
  * ⏭️ **ONE COLUMN, where Sibelius has two.** Its *System lines* column — repeat brackets (`1.`,
  * `1.2.`), the rit./accel. dashes, the arrow — is a different kind of object: it belongs to the
  * SYSTEM rather than to a staff, and half of it does not exist here yet. The window is a `Columns`
- * away from carrying it (`content/layout`), and the caption above the list is already the one that
- * tells the two apart.
+ * away from carrying it (`content/layout`), and the caption above the list already tells the two
+ * apart.
  */
+
+/**
+ * Which shortcut ACTION a row also answers to, for the hint at its right edge. Three of the seven
+ * have a key; the rest deliberately have none (his call — Sibelius has no key for its trill or its
+ * octave lines either, and `P` is taken here by PLAY).
+ *
+ * ⚠️ Action NAMES, not keys: the key itself is read from `SHORTCUTS` at build time
+ * (`shortcutLabel`), so rebinding one updates the dialog and nobody has to remember this file
+ * exists. `shortcutLabel.test.ts` holds the guard that these three names still resolve.
+ */
+const ROW_SHORTCUT: Partial<Record<LineToolKind, string>> = {
+  slur: 'createSlur',
+  cresc: 'createCrescendo',
+  dim: 'createDiminuendo',
+}
 
 export function openLinesWindow(windows: WindowLayer): Window {
   // Captured in a `let` because the buttons are built before `open()` returns but only run after —
@@ -28,27 +46,36 @@ export function openLinesWindow(windows: WindowLayer): Window {
   let win: Window | null = null
 
   /**
-   * Commit. It closes, and that is all it does today — see the header. The path exists (OK, Enter
-   * and a double-click all arrive here) so that wiring it later is ONE function body, not a hunt
-   * through three call sites.
+   * Commit: press the line and get out of the way — the clef window's shape exactly. What the press
+   * MEANS is the palette's business (apply / arm / disarm), which is why this closes unconditionally:
+   * the score is where the rest of the gesture happens, whichever of the three it turned out to be.
    */
   const accept = (): void => {
+    bus.line.press(list.value as LineToolKind)
     win?.close()
   }
 
-  const list = new ChoiceList([...LINE_CHOICES], {
-    // Opens on the first row, lit, so the list never looks like it has nothing chosen. Re-opening
-    // will one day reflect what is armed, the way the clef window does — when there is something to
-    // arm.
-    selected: LINE_CHOICES[0].value,
-    onActivate: accept,
-  })
+  const list = new ChoiceList(
+    LINE_CHOICES.map((choice) => {
+      const action = ROW_SHORTCUT[choice.value]
+      const hint = action === undefined ? null : shortcutLabel(action)
+      return hint === null ? choice : { ...choice, hint }
+    }),
+    {
+      // Opens on whatever line tool is ARMED, so re-opening reflects the editor rather than resetting
+      // to the top row — `bus.line`'s highlight channel, mirrored in by `keypadSync`. Nothing armed →
+      // the slur, the one this family starts with.
+      selected: bus.line.get() ?? LINE_CHOICES[0].value,
+      onActivate: accept,
+    },
+  )
 
   win = windows.open({
     title: 'Lines',
-    // As narrow as the pictures need (150) plus the window's own padding, and no wider — the
-    // reference dialog's column is this narrow because a line reads the same at any length.
-    width: 200,
+    // As narrow as the pictures need (190, the drawing plus the hint's gutter) and the window's own
+    // padding — the reference dialog's column is about this wide, because a line reads the same at
+    // any length and a wider row only buys more of the same dashes.
+    width: 240,
     // As tall as the rows need, clamped by the layer to the viewport — seven pictures fit, and the
     // box keeps its scroll for the day there are more.
     fitContent: true,

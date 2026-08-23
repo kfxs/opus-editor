@@ -9,6 +9,7 @@ import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 import { LINE_TOOLS } from './linePalette'
+import { isLineToolArmed, pressLineTool } from '../interactions/lineTools'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -288,7 +289,8 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // A `toggle`, not an `action`: a line whose stamp can be ARMED needs the button to say so, and
     // the light is a question about state (`isArmed`) like every other lit button in the strip.
     toggle(lineBox, TOOL_BTN, tool.label, tool.title,
-      () => tool.isArmed(state), () => tool.press(palette), ON, () => tool.isEnabled(state))
+      () => isLineToolArmed(state, tool.kind), () => pressLineTool(palette, tool.kind),
+      ON, () => tool.isEnabled(state))
   }
   row.appendChild(lineBox)
   row.appendChild(divider())

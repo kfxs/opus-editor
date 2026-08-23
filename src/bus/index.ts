@@ -11,6 +11,7 @@ import { createTrillEditSelection } from './trillEditSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
 import { createFanStampSelection } from './fanStampSelection'
+import { createLineSelection } from './lineSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
 import { createDynamicOffsetSelection } from './dynamicOffsetSelection'
@@ -87,6 +88,11 @@ export interface EditorBus {
    *  A second fan channel and not a value of {@link EditorBus.fan}: that one MARKS notes that exist,
    *  this one ARMS a stamp for notes that do not. */
   fanStamp: ReturnType<typeof createFanStampSelection>
+  /**
+   * The LINES family — slur, the two hairpins, trill, the two octave lines, pedal. Highlight lights
+   * the armed one; a press means "apply, or arm", which `interactions/lineTools` routes.
+   */
+  line: ReturnType<typeof createLineSelection>
   /** Selection mode as a Keypad key (the Select arrow). */
   mode: ReturnType<typeof createModeSelection>
   /** Properties' horizontal note-offset input. Command-only. */
@@ -144,6 +150,7 @@ export function createEditorBus(): EditorBus {
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
     fanStamp: createFanStampSelection(),
+    line: createLineSelection(),
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
     dynamicOffset: createDynamicOffsetSelection(),

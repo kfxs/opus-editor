@@ -7,6 +7,7 @@ import { bus } from '@/bus'
 import { accidentalTypeToKey } from '../utils/pitchSpelling'
 import { multipleNotesSelected } from './selection'
 import { selectedMarkScope } from './markVoiceScope'
+import { armedLineTool, pressLineTool } from './lineTools'
 import type { MusicEngine } from '../engine/MusicEngine'
 import { fanIsJoined, fanJoinSubdivides } from '../utils/fannedBeam'
 
@@ -359,6 +360,10 @@ export function wireKeypadSync(
     // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,
     // a clef is never "the selected note's" — it belongs to a measure, not a note.
     bus.clef.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
+    // The Lines window lights the armed line tool, for the clef's reason and by the SAME rule the
+    // dev shell's Lines buttons light by — one function, so the dialog and the palette cannot
+    // disagree about which row is live (`./lineTools`).
+    bus.line.setHighlight(armedLineTool(state))
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
     bus.dot.setHighlight(dotHighlight(state))
     // The voice key follows the SAME single-selection rule as the others: light the active voice when
@@ -431,6 +436,10 @@ export function wireKeypadSync(
     bus.voice.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     bus.clef.onPress((a) => palette.armClef(a.clef, a.cautionary)),
+    // The Lines window's OK — the SAME press the dev shell's Lines button is, routed by one table:
+    // with notes selected it makes the mark, with nothing selected it arms the stamp, and pressing
+    // the armed one again turns it off (`./lineTools`, and PaletteController's own rule).
+    bus.line.onPress((kind) => pressLineTool(palette, kind)),
     bus.timeSignature.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),
     // The window sends the SENTENCE ("3 ♪ in the time of 1 ♩"); the controller turns it into a shape,
     // exactly as the palette's own boxes do. It can still refuse — the window has already checked,
