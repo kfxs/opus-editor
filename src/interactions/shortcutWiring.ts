@@ -32,6 +32,7 @@ import { walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
+import { openLinesWindow } from '../windows/lines'
 import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
 import { openFeatherWindow } from '../windows/featherWindow'
@@ -1097,6 +1098,10 @@ export function wireShortcuts(
     // the opened Window is not an answer to that question.)
     openClefWindow: () => {
       openClefWindow(windows)
+    },
+    // L — the same action as Insert ▸ Lines; reaches the window layer directly, like Q.
+    openLinesWindow: () => {
+      openLinesWindow(windows)
     },
     // T — the same action as Insert ▸ Time Signature; reaches the window layer directly, like Q.
     openTimeSignatureWindow: () => {

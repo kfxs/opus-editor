@@ -362,6 +362,13 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Edit the selected dynamic inline',
   },
 
+  // Lines: opens the Lines window — the same action as Insert ▸ Lines. L is Sibelius's own key for
+  // its Lines dialog, and it was free here.
+  'l': {
+    action: 'openLinesWindow',
+    description: 'Open the lines window (slur, hairpins, trill, ottava, pedal)',
+  },
+
   // Clef: opens the clef entry window — the same action as Insert ▸ Clef.
   'q': {
     action: 'openClefWindow',

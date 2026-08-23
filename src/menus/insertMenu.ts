@@ -1,6 +1,7 @@
 import type { WindowLayer } from '@/windows/WindowLayer'
 import { openClefWindow } from '@/windows/clefWindow'
 import { openFeatherWindow } from '@/windows/featherWindow'
+import { openLinesWindow } from '@/windows/lines'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import { openTupletWindow } from '@/windows/tupletWindow'
 import type { MenuLayer } from './MenuLayer'
@@ -59,6 +60,9 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
     { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
     // The shortcut is a display echo of ShortcutConfig's 'Ctrl+f'; keep them in step.
     { label: 'Feathered Beam', shortcut: 'Ctrl+F', onSelect: () => openFeatherWindow(windows) },
+    // The shortcut is a display echo of ShortcutConfig's 'l'; keep them in step. (Sibelius's own key
+    // for its Lines dialog is L too.)
+    { label: 'Lines', shortcut: 'L', onSelect: () => openLinesWindow(windows) },
     {
       label: 'Text',
       items: [
