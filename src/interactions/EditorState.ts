@@ -98,7 +98,7 @@ export type MarkingTool =
    *  MouseController.placeDynamicEntryAtClick. */
   | { kind: 'dynamicEntry' }
   /**
-   * VALUELESS — the SLUR stamp, armed by `s` (or the Lines palette) with no notes selected. A slur
+   * VALUELESS — the SLUR stamp, armed by `s` (or the Lines window) with no notes selected. A slur
    * is a relation between notes that already exist, so there is nothing to carry: WHICH notes it
    * spans is resolved at click time, exactly as the tie stamp's is.
    *
@@ -108,7 +108,7 @@ export type MarkingTool =
    */
   | { kind: 'slur' }
   /**
-   * The HAIRPIN stamp, armed by `H` (cresc.) / `Shift+H` (dim.) — or the Lines palette — with
+   * The HAIRPIN stamp, armed by `H` (cresc.) / `Shift+H` (dim.) — or the Lines window — with
    * nothing selected. A click on a note places a wedge from it through the end of the next slot.
    *
    * ⭐ It CARRIES ITS TYPE, where the slur beside it carries nothing, and the difference is real:
@@ -123,7 +123,7 @@ export type MarkingTool =
    */
   | { kind: 'hairpin'; type: 'cresc' | 'dim' }
   /**
-   * The OTTAVA stamp, armed from the Lines palette with nothing selected. A click on a note puts an
+   * The OTTAVA stamp, armed from the Lines window with nothing selected. A click on a note puts an
    * octave line over that note.
    *
    * ⭐ **It CARRIES ITS SHIFT**, like the hairpin beside it and for the hairpin's reason: `8va` and
@@ -144,7 +144,7 @@ export type MarkingTool =
    */
   | { kind: 'ottava'; shift: -3 | -2 | -1 | 1 | 2 | 3 }
   /**
-   * VALUELESS — the TRILL stamp, armed from the Lines palette with nothing selected. A click on a
+   * VALUELESS — the TRILL stamp, armed from the Lines window with nothing selected. A click on a
    * note trills that note.
    *
    * It carries nothing, unlike the hairpin beside it: `cresc` and `dim` are two tools, but there is
@@ -162,7 +162,7 @@ export type MarkingTool =
    */
   | { kind: 'trill' }
   /**
-   * VALUELESS — the SUSTAIN PEDAL stamp, armed from the Lines palette with nothing selected. A click
+   * VALUELESS — the SUSTAIN PEDAL stamp, armed from the Lines window with nothing selected. A click
    * on a note puts a pedal under it, held through that note.
    *
    * It carries nothing, like the trill above and unlike the two hairpin rows: `cresc` and `dim` are

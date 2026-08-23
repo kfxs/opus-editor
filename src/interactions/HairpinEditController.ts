@@ -12,7 +12,7 @@ import { dbg } from '../utils/debug'
  * boundary reason: a content widget never holds the engine, and `App.ts` stays construction-only.
  *
  * ⭐ It CHANGES a wedge, it never makes one. An id that no longer resolves is a no-op: creating and
- * removing hairpins is the Lines palette and Delete.
+ * removing hairpins is the Lines window and Delete.
  *
  * ⭐ **A CONTENT edit, deliberately** — which way a wedge opens is what the player is told to do, and
  * playback reads it. So it goes through `updateHairpin`, which commits an undo entry, ⛔ not through

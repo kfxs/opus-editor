@@ -19,8 +19,8 @@ import { PEDAL_DOWN_GLYPH, PEDAL_UP_GLYPH } from '@/engine/rendering/pedalStyle'
  * a decision, taken in `ottavaStyle`). Here the row shows whatever that module says today.
  *
  * ⚠️ These are PICTURES, not a model. A `value` is a `LineToolKind` — the FAMILY's shared name
- * (`bus/lineSelection`), which the dev shell's Lines buttons answer to as well — never a
- * `SelectedElement` kind and never a model type: `8va`/`8vb` are two rows of one signed ottava.
+ * (`bus/lineSelection`) — never a `SelectedElement` kind and never a model type: `8va` and `8vb` are
+ * two rows of ONE signed ottava, split because the user sees two lines, not because the score does.
  */
 
 /**

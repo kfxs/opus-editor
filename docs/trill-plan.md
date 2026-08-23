@@ -370,6 +370,8 @@ its key**:
   one tool. The ottava and the pedal followed the same day; see `docs/ottava-plan.md` P5 and
   `docs/pedal-plan.md` §7 for the position rule the three now share.
 - A row in `dev/linePalette.ts` — ⚠️ **and an edit to its header, which does not name the trill.**
+  (⚠️ That palette was deleted 2026-08-23: the row is now a picture in the Lines window,
+  `src/windows/lines/linePictures.ts`, and the routing is `interactions/lineTools.ts`.)
   That file calls the Lines family *"spanners drawn BETWEEN notes rather than on one: the slur today,
   and (when they exist) the hairpin, the octave line, the glissando, the pedal line"* — a sentence
   the trill contradicts, since its sign sits on ONE note and the line is an optional extension. The

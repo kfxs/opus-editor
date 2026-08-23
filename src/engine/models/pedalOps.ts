@@ -158,7 +158,7 @@ export function updatePedal(score: Score, id: string, updates: Partial<Omit<Peda
 
 /**
  * ⭐⭐ **THE ENTRY DOOR** — put a pedal under the music from `start` to the END of `end`, and make
- * room for it. Both ways in (the Lines palette over a selection, and one click of the armed stamp)
+ * room for it. Both ways in (the Lines window over a selection, and one click of the armed stamp)
  * come through here, so neither can invent a length or an overlap rule of its own.
  *
  * ⭐ **The caller says which notes; this says how much music that is** — `addOttavaOverNotes`' split

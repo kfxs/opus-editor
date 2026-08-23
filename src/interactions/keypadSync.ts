@@ -360,9 +360,9 @@ export function wireKeypadSync(
     // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,
     // a clef is never "the selected note's" — it belongs to a measure, not a note.
     bus.clef.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
-    // The Lines window lights the armed line tool, for the clef's reason and by the SAME rule the
-    // dev shell's Lines buttons light by — one function, so the dialog and the palette cannot
-    // disagree about which row is live (`./lineTools`).
+    // The Lines window lights the armed line tool, for the clef's reason: a line stamp belongs to no
+    // note, so the only thing to show is what is ARMED (`./lineTools` answers with the ROW, which is
+    // not the same question as which model tool is live — two rows share one tool twice over).
     bus.line.setHighlight(armedLineTool(state))
     // No gate needed: dotHighlight owns the whole rule, armed tool included.
     bus.dot.setHighlight(dotHighlight(state))
@@ -436,9 +436,9 @@ export function wireKeypadSync(
     bus.voice.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     bus.clef.onPress((a) => palette.armClef(a.clef, a.cautionary)),
-    // The Lines window's OK — the SAME press the dev shell's Lines button is, routed by one table:
-    // with notes selected it makes the mark, with nothing selected it arms the stamp, and pressing
-    // the armed one again turns it off (`./lineTools`, and PaletteController's own rule).
+    // The Lines window's OK, routed by one table: with notes selected it makes the mark, with
+    // nothing selected it arms the stamp, and pressing the armed one again turns it off
+    // (`./lineTools`, and PaletteController's own rule — the same three the keys `s`/`h` reach).
     bus.line.onPress((kind) => pressLineTool(palette, kind)),
     bus.timeSignature.onPress((a) => palette.armTimeSignature(a.timeSignature, a.cautionary, a.pickup)),
     // The window sends the SENTENCE ("3 ♪ in the time of 1 ♩"); the controller turns it into a shape,

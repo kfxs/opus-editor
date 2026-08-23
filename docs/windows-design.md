@@ -304,6 +304,34 @@ Three conventions they share, worth copying into the next one:
 A window that opens another (Time Signature → Beam and Rest Groups) just calls the opener; the value
 being edited stays with the window that will COMMIT it, and the child is only an editor for it.
 
+## The third dialog: Lines (`src/windows/lines/`)
+
+Built 2026-08-23, LOOK-FIRST like the other two: the seven pictures were drawn and argued over in one
+commit, and wired in the next. It is the Clef window's shape — a scrolling box of drawings, one lit,
+Cancel / OK — with three things worth copying:
+
+- **It PRESSES; it does not arm.** OK fires `bus.line`, and `interactions/lineTools` routes that to
+  the `PaletteController` method the family already had. So one press means all three of *make the
+  mark over the selection*, *arm the stamp when nothing is selected*, and *disarm when this one is
+  already armed — and the dialog decides none of them. Contrast Clef, which arms a VALUE the window
+  itself owns. Rule of thumb: if the command already exists, press it; only arm what nothing else
+  can say.
+- **The pictures are the ENGINE's glyphs, imported.** `linePictures.ts` builds seven SVG strings once
+  at import — pure arithmetic, no files on disk — and takes `TRILL_SIGN_GLYPH`,
+  `OTTAVA_NUMERAL_GLYPHS`, `PEDAL_DOWN_GLYPH`/`PEDAL_UP_GLYPH` from `engine/rendering/*Style`. A
+  picker that spells its own codepoints is a second opinion about what the editor draws, and it goes
+  stale silently.
+- **A row can teach its key.** `Choice.hint` puts the shortcut (`S`, `H`, `Shift+H`) small, muted and
+  italic at the row's LEFT edge, read out of `SHORTCUTS` by action name (`shortcuts/shortcutLabel`)
+  rather than re-typed. Every drawing reserves the same gutter for it, hint or no hint, so the ink
+  starts on one axis down the column. The four rows with no key show nothing.
+
+⚠️ **It replaced the dev shell's `Lines:` palette, which is deleted.** Two doors onto one family
+meant two things to change whenever the family grew an eighth line. What made the deletion clean is
+that the routing had already moved OUT of `dev/` into `interactions/lineTools.ts`: removing the
+buttons removed only buttons. The keyboard is still a door for three of the seven (`s`, `h`,
+`Shift+H`), through `ShortcutConfig` actions that reach the same methods.
+
 ## What goes inside: widgets
 
 A window holds **one** child. To get a tree, that child is a **container** that holds more. Every
@@ -326,7 +354,7 @@ The vocabulary, and it is meant to stay this short:
 | `GroupBox` | a bordered frame with a caption — says "these controls are one idea", which a gap cannot |
 | `ScrollText`, `Label`, `Button`, `TextInput` | the leaves. `Button` takes an `onClick` callback and knows nothing about what it is for |
 | `Checkbox`, `RadioGroup`, `Select`, `NumberInput` | the form controls a dialog needs. **Native `<input>`s tinted with `accent-color`** — a hand-drawn checkbox re-implements focus, keyboard toggling and the label hit-target, and gets each slightly wrong. Only the colour is ours |
-| `ChoiceList`, `GlyphSelect` | pick ONE from drawn things: a scrolling box of pictures (clefs), and a dropdown whose rows are glyphs (note values) |
+| `ChoiceList`, `GlyphSelect` | pick ONE from drawn things: a scrolling box of pictures (clefs, lines), and a dropdown whose rows are glyphs (note values). A `ChoiceList` row may carry an optional `hint` — its keyboard shortcut, muted and italic at the left edge |
 
 Those last two arrived with the Clef and Time Signature dialogs and are the toolkit's answer to a
 recurring shape — "choose a notation" — which is why they know no music: the caller draws the rows

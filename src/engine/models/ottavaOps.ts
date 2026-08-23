@@ -717,7 +717,7 @@ export function updateOttava(score: Score, id: string, updates: Partial<Omit<Ott
 
 /**
  * Create an octave line covering the music from `start` to the END of `end` — the shape both doors
- * to an ottava need (the Lines palette over a selection, and one click of the armed stamp).
+ * to an ottava need (the Lines window over a selection, and one click of the armed stamp).
  *
  * ⭐ **The caller says which notes; this says how much music that is.** `addHairpinOverNotes`'
  * split, verbatim and for its reason: *which notes did the user mean* depends on the selection and

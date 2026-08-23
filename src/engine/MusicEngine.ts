@@ -1139,7 +1139,7 @@ export class MusicEngine {
   }
 
   /**
-   * ⭐ **Create an octave line over the notes the user meant** — the Lines palette row and the armed
+   * ⭐ **Create an octave line over the notes the user meant** — the Lines window's row and the armed
    * stamp's click both arrive here, so a line made one way is the line the other would have made.
    *
    * ⭐⭐ **The lane is a STAFF, not a (staff, voice) pair** — the one place this parts company with
@@ -1593,7 +1593,7 @@ export class MusicEngine {
   }
 
   /**
-   * ⭐⭐ **Put a pedal under the notes the user meant** — the Lines palette row and the armed stamp's
+   * ⭐⭐ **Put a pedal under the notes the user meant** — the Lines window's row and the armed stamp's
    * click both arrive here, so a pedal made one way is the pedal the other would have made.
    *
    * ⭐ **The lane is a STAFF, not a (staff, voice) pair** — `createOttava`'s exception, for a
@@ -1649,7 +1649,7 @@ export class MusicEngine {
    * pedals overlapping on one staff is a contradiction — there is ONE damper — and the rule for
    * resolving it is the pianist's own gesture, *lift, re-press* (docs/pedal-plan.md §3.3). An earlier
    * press still down is shortened to end here; a later one is left alone and this pedal stops where
-   * it begins; one on this exact beat is replaced. ⚠️ That is the same door the Lines palette uses,
+   * it begins; one on this exact beat is replaced. ⚠️ That is the same door the Lines window uses,
    * so a pasted pedal cannot reach a state the entry gesture could not.
    *
    * ⛔ It takes a PLACE rather than notes — a pedal governs a region, so unlike a slur or a trill it
@@ -3001,7 +3001,7 @@ export class MusicEngine {
   }
 
   /**
-   * ⭐ **Create a trill over the notes the user meant** — the Lines palette row and the armed
+   * ⭐ **Create a trill over the notes the user meant** — the Lines window's row and the armed
    * stamp's click both arrive here, so a trill made one way is the trill the other would have made.
    *
    * The note resolution is `createSlur`'s, with two differences that are the trill's own:

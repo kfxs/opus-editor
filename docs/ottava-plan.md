@@ -34,7 +34,8 @@ facts and rot — they are the state on 2026-08-13, kept because each one is a c
 sweep of the rest of `src/` finds **no other site where a pitch becomes sound** (there is no
 note-entry preview audio), so §6's seam really is the whole of it · `engine/layout/inkBand.ts` holds
 `Clearance` / `clearanceBaseline` with `DYNAMICS_LINE` and `TRILL_LINE` as its two rows · a new
-`SelectedElement` kind is the **17th** · `dev/linePalette.ts`'s header already lists *"the octave
+`SelectedElement` kind is the **17th** · `dev/linePalette.ts` (deleted 2026-08-23 — see the Lines
+window, `src/windows/lines/`) already listed *"the octave
 line"* as a future row · `planSlurSegments(pass, fromLine, toLine, firstX, lastX, scale)` is reusable
 as claimed.
 
@@ -525,7 +526,8 @@ where that can be checked at all. Building the ottava builds it.
 8. ⭐ **NEW: two ottavas at one (staff, beat) — dedupe or stack?** ✅ **The clef's rule: dedupe, last
    wins** (§4's table-rows block). A hairpin may stack because two wedges at a beat are two readable
    marks; two octave shifts governing the same staff are a contradiction, not a stack.
-9. ✅ **Entry — decided.** Palette row in `dev/linePalette.ts` (its header already lists *"the octave
+9. ✅ **Entry — decided.** Palette row in `dev/linePalette.ts` (deleted 2026-08-23; now a Lines window
+   row — its header already listed *"the octave
    line"* as a future member of the Lines family). Selection → apply; nothing selected → arm a stamp.
    ⛔ **NO KEYBOARD SHORTCUT — his call, 2026-08-13**, on the same reasoning as the trill's: Sibelius
    has none (its octave lines live in the Notations ▸ Lines gallery, which `L` opens), so there is no
@@ -766,7 +768,7 @@ band machinery.
   and the containment test dropped so only proximity answers (the gap-between-dashes press goes cold).
 - ✅ **P5 — ENTRY. BUILT 2026-08-13.** `MusicEngine.createOttava` + `ottavaOps.addOttavaOverNotes`,
   `{ kind: 'ottava'; shift }` in the `MarkingTool` union + its `false` row in
-  `MARKING_TOOL_USES_ARMED_LENGTH`, `interactions/ottavaStamp.ts`, and **two** `dev/linePalette.ts`
+  `MARKING_TOOL_USES_ARMED_LENGTH`, `interactions/ottavaStamp.ts`, and **two** picker
   rows (`8va` / `8vb` — the cresc./dim. pair's arrangement, so they light and swap independently).
   ⛔ No `GHOST_DRAWERS` row, no `ToolGhost` member, no shortcut (§7.9) — all three as planned.
   ⭐⭐ **AMENDED 2026-08-17, TWICE, both his calls — the ghost row and the shortcut are now BUILT**,

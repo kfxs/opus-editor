@@ -902,7 +902,8 @@ auxiliary is computed from its note's pitch.
 Following the slur, which is already routed this way (`PaletteController.createSlur`, `171b1bb`):
 
 - **Two rows in the Lines palette** — open (cresc.) and close (dim.). It is a TABLE whose own header
-  already names the hairpin as its next row (`dev/linePalette.ts`), so this is two rows and no
+  already names the hairpin as its next row (`dev/linePalette.ts` — deleted 2026-08-23; the rows are
+  now the Lines window's pictures), so this is two rows and no
   `devToolbar` slice. Each row's `press` calls a `PaletteController` method that the key also calls,
   so the palette reimplements nothing.
 - **THE KEYS, Sibelius's, and they are free.** 🔎 Written out so there is nothing to infer:

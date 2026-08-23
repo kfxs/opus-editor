@@ -8,8 +8,6 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
-import { LINE_TOOLS } from './linePalette'
-import { isLineToolArmed, pressLineTool } from '../interactions/lineTools'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -280,20 +278,11 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(staffBox)
   row.appendChild(divider())
 
-  // --- Lines: the spanners drawn BETWEEN notes — the slur today, the hairpin / octave line /
-  //     glissando when they exist. The family is a TABLE in dev/linePalette.ts, so the next line is
-  //     a ROW there and this loop stays the whole wiring. Sits here rather than beside `Duration:`
-  //     only because `action` (and its `ACTION_BTN`) is declared above this point. ---
-  const lineBox = group('Lines:')
-  for (const tool of LINE_TOOLS) {
-    // A `toggle`, not an `action`: a line whose stamp can be ARMED needs the button to say so, and
-    // the light is a question about state (`isArmed`) like every other lit button in the strip.
-    toggle(lineBox, TOOL_BTN, tool.label, tool.title,
-      () => isLineToolArmed(state, tool.kind), () => pressLineTool(palette, tool.kind),
-      ON, () => tool.isEnabled(state))
-  }
-  row.appendChild(lineBox)
-  row.appendChild(divider())
+  // --- Lines: GONE. The family (slur, the two hairpins, trill, the two octave lines, pedal) had a
+  //     row of buttons here until the Lines window arrived — Insert ▸ Lines, or L. A dev-shell
+  //     palette earns its place while a feature has no real door; this one now has one, and keeping
+  //     both would mean two things to change whenever the family gains a line. What the buttons did
+  //     is `interactions/lineTools`, which the window reaches through `bus.line`. ---
 
   // --- Playback ---
   const play = el('button', '', '▶ Play')

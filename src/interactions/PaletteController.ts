@@ -1245,7 +1245,7 @@ export class PaletteController {
   }
 
   /**
-   * The slur key `s` (and the Lines palette's button), routed by context — the same split the tie
+   * The slur key `s` (and the Lines window's row), routed by context — the same split the tie
    * key has, and for the same reason:
    *
    *  0. The slur STAMP is already armed → disarm it. A re-press of an armed tool turns it off.
@@ -1291,7 +1291,7 @@ export class PaletteController {
   }
 
   /**
-   * The Lines palette's *Trill* row — `createSlur`'s split exactly:
+   * The Lines window's *Trill* row — `createSlur`'s split exactly:
    *  0. the trill stamp is already armed → disarm it (a re-press toggles the tool off);
    *  1. notes selected → trill them;
    *  2. nothing selected → arm the stamp; a click then trills the note it lands on.
@@ -1340,7 +1340,7 @@ export class PaletteController {
   }
 
   /**
-   * The Lines palette's **Pedal** row (⛔ and its ONLY door — no keyboard shortcut, his call; `p` is
+   * The Lines window's **Pedal** row (⛔ and its ONLY door — no keyboard shortcut, his call; `p` is
    * PLAY). `createOttava`'s shape above, minus the second row: with notes selected it puts a pedal
    * under them; with nothing selected it ARMS the stamp; pressed again while armed it disarms.
    *
@@ -1398,12 +1398,12 @@ export class PaletteController {
     this.renderScore()
   }
 
-  /** `H` / the Lines palette's *Cresc.* row — see {@link createHairpin}. */
+  /** `H` / the Lines window's *Cresc.* row — see {@link createHairpin}. */
   createCrescendo(): void {
     this.createHairpin('cresc')
   }
 
-  /** `Shift+H` / the Lines palette's *Dim.* row — see {@link createHairpin}. */
+  /** `Shift+H` / the Lines window's *Dim.* row — see {@link createHairpin}. */
   createDiminuendo(): void {
     this.createHairpin('dim')
   }

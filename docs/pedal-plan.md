@@ -438,6 +438,9 @@ ink and the band test becomes right — a change in this module and `PedalRender
 is taken: `p` is PLAY (`src/shortcuts/`).
 
 One **row in `dev/linePalette.ts`** (whose doc comment already names the pedal as a future row),
+⚠️ **that palette was deleted 2026-08-23** — the family's door is now the Lines window
+(`src/windows/lines/`, Insert ▸ Lines or `L`) and the routing is `interactions/lineTools.ts`; the
+row below still describes what was built, at the place it was built.
 running a `PaletteController.createPedal()` that already means two things:
 
 - **with notes selected** → a pedal over them (start = first slot's beat, lift = end of the last);
@@ -648,7 +651,8 @@ Five things this must get right, and each is a trap:
   report, and `resizePedalBySlot` + its four-step wiring (§6.3 — built, not inherited).
   ⭐ Found by building: a pedal GROWS THROUGH A REST, because `restFill` means no bar is empty — and
   that is correct pianism rather than a leak (the notes struck before it keep ringing).
-- **P4 — it is enterable. ✅ BUILT 2026-08-14.** The `Ped.` row in `dev/linePalette.ts`,
+- **P4 — it is enterable. ✅ BUILT 2026-08-14.** The `Ped.` row in `dev/linePalette.ts` (deleted
+  2026-08-23; now the Lines window's row),
   `PaletteController.createPedal()`, `MusicEngine.createPedal()` (the one door both ways in, which
   is where the §3.3 truncation reaches the user), `interactions/pedalStamp.ts` + its dispatch line in
   `MouseController`, and the four tool-union rows (the valueless member,

@@ -9,7 +9,7 @@ import { dbg } from '../utils/debug'
  * controller — the one place that holds `getEngine` — applies it and repaints.
  *
  * ⭐ It CHANGES a trill, it never makes one. An id that no longer resolves is a no-op: creating and
- * removing trills is the Lines palette row and Delete. Two surfaces, one for "is this note trilled"
+ * removing trills is the Lines window's row and Delete. Two surfaces, one for "is this note trilled"
  * and one for "how is it drawn" — the same split `FanEditController` keeps, and for the same reason:
  * a dropdown that could conjure a notation would be a third answer to a settled question.
  *

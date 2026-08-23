@@ -694,7 +694,7 @@ export class PropertiesWidget implements Widget {
    * `TrillEditController` owns the apply, the same boundary the fan inputs keep.
    *
    * ⭐ It CHANGES a trill, never makes one. The row appears only on a selected trill; creating and
-   * removing them is the Lines palette and Delete.
+   * removing them is the Lines window and Delete.
    */
   private buildTrillLabelSelect(trillId: string, current: TrillContinuationLabel): HTMLElement {
     const wrap = document.createElement('label')
@@ -753,7 +753,7 @@ export class PropertiesWidget implements Widget {
    * do and playback reads it — so it goes through the model and takes an undo entry. Two questions,
    * two seams (`bus/hairpinEditSelection` states the split).
    *
-   * ⭐ It CHANGES a wedge, never makes one — the Lines palette and Delete own that, exactly as for the
+   * ⭐ It CHANGES a wedge, never makes one — the Lines window and Delete own that, exactly as for the
    * trill's row. And `x` on a selected hairpin still flips it (`interactions/flipSelection`): one
    * fact, two instruments, which is this editor's ordinary shape.
    */
