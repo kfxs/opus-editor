@@ -533,7 +533,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const stopSelectionInspection = wireSelectionInspection(state, getEngine, onStateChange)
   // The playback sound: `bus.sound` ⇄ the engine. Two surfaces choose it (the dev picker, Play ▸
   // Score Sound) and neither talks to the engine — this is the one place that does.
-  const stopSoundSync = wireSoundSync(getEngine)
+  // ⚠️ `onStateChange` is not decoration: this is wired BEFORE the engine exists, so the model
+  // subscription it needs (an import or an undo changes the sound with nobody pressing) can only be
+  // made on a later turn — see the note in the module.
+  const stopSoundSync = wireSoundSync(getEngine, onStateChange)
 
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
   // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
