@@ -56,7 +56,7 @@ export interface PedalHeightRequest {
 
 export type PedalGeometryRequest = PedalEndRequest | PedalHeightRequest
 
-export class PedalGeometrySelection {
+class PedalGeometrySelection {
   private listeners = new Set<(req: PedalGeometryRequest) => void>()
 
   /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller

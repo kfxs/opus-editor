@@ -50,7 +50,7 @@ export interface FanStampContext {
   quarters: number
 }
 
-export class FanStampSelection {
+class FanStampSelection {
   private listeners = new Set<(armed: ArmedFanStamp) => void>()
   private contextListeners = new Set<(context: FanStampContext) => void>()
   private context: FanStampContext = { notes: 0, quarters: 0 }

@@ -18,7 +18,7 @@ export interface TempoOffsetRequest {
   y: number
 }
 
-export class TempoOffsetSelection {
+class TempoOffsetSelection {
   private listeners = new Set<(req: TempoOffsetRequest) => void>()
 
   /** Publish an absolute-offset request. ALWAYS fires (re-typing the same value is a real event —

@@ -24,7 +24,7 @@ export interface ArmedClef {
   cautionary: boolean
 }
 
-export class ClefSelection {
+class ClefSelection {
   private highlight: Clef | null = null
   private highlightListeners = new Set<(clef: Clef | null) => void>()
   private pressListeners = new Set<(armed: ArmedClef) => void>()

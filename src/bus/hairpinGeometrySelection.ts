@@ -50,7 +50,7 @@ export interface HairpinApertureRequest {
 
 export type HairpinGeometryRequest = HairpinEndRequest | HairpinApertureRequest
 
-export class HairpinGeometrySelection {
+class HairpinGeometrySelection {
   private listeners = new Set<(req: HairpinGeometryRequest) => void>()
 
   /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller

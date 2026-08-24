@@ -49,7 +49,7 @@ export interface SlurGeometryRequest {
   value: { x?: number; y?: number } | null
 }
 
-export class SlurGeometrySelection {
+class SlurGeometrySelection {
   private listeners = new Set<(req: SlurGeometryRequest) => void>()
 
   /** Publish a geometry request. ALWAYS fires — re-typing the same number is a real event, and the

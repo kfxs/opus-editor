@@ -27,7 +27,7 @@ export interface ArmedTuplet {
   format?: TupletFormat
 }
 
-export class TupletSelection {
+class TupletSelection {
   private listeners = new Set<(armed: ArmedTuplet) => void>()
 
   /** The user chose this tuplet. ALWAYS fires — re-choosing the armed one means "arm it again". */

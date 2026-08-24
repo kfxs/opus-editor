@@ -61,7 +61,7 @@ import { createVoiceSelection } from './voiceSelection'
  * would make the bus depend UPWARD on `windows/`, which is the one thing this directory exists to
  * prevent. It lives beside the layouts it names instead.
  */
-export interface EditorBus {
+interface EditorBus {
   /** The armed note duration — the Keypad's 1–6 keys. */
   duration: ReturnType<typeof createDurationSelection>
   /** The armed accidental — ♮ ♯ ♭. Re-pressing the lit one takes it off. */

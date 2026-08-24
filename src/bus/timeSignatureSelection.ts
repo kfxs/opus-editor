@@ -24,7 +24,7 @@ export interface ArmedTimeSignature {
   pickup: Fraction | null
 }
 
-export class TimeSignatureSelection {
+class TimeSignatureSelection {
   private listeners = new Set<(armed: ArmedTimeSignature) => void>()
 
   /** The user chose this meter. ALWAYS fires — re-choosing the armed one is a real event (it means

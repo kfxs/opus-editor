@@ -52,7 +52,7 @@ export interface TrillHeightRequest {
 
 export type TrillGeometryRequest = TrillEndRequest | TrillHeightRequest
 
-export class TrillGeometrySelection {
+class TrillGeometrySelection {
   private listeners = new Set<(req: TrillGeometryRequest) => void>()
 
   /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller

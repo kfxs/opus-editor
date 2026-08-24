@@ -16,7 +16,7 @@ import type { InspectedElement } from '@/interactions/selectionSnapshot'
  *
  * Pushed by `keypadSync`'s sync (it already runs on every state change) and read by the window.
  */
-export class SelectionInspection {
+class SelectionInspection {
   private elements: InspectedElement[] = []
   /**
    * The last published snapshot, SERIALIZED at the moment it was published — not re-derived from

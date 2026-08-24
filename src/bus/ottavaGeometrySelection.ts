@@ -57,7 +57,7 @@ export interface OttavaHeightRequest {
 
 export type OttavaGeometryRequest = OttavaEndRequest | OttavaHeightRequest
 
-export class OttavaGeometrySelection {
+class OttavaGeometrySelection {
   private listeners = new Set<(req: OttavaGeometryRequest) => void>()
 
   /** Publish a request. ALWAYS fires — re-typing the same number is a real event, and the controller

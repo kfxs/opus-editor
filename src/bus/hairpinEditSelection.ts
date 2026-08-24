@@ -27,7 +27,7 @@ export interface HairpinEditRequest {
   type?: Hairpin['type']
 }
 
-export class HairpinEditSelection {
+class HairpinEditSelection {
   private listeners = new Set<(req: HairpinEditRequest) => void>()
 
   /** Publish a change. ALWAYS fires (re-choosing the same value is a real event — the controller

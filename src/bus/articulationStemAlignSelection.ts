@@ -12,7 +12,7 @@ export interface ArticulationStemAlignRequest {
   align: boolean
 }
 
-export class ArticulationStemAlignSelection {
+class ArticulationStemAlignSelection {
   private listeners = new Set<(req: ArticulationStemAlignRequest) => void>()
 
   /** Publish a set request. ALWAYS fires (the controller decides a no-op), like the offset seam. */
