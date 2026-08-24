@@ -30,17 +30,6 @@ import type { EditorState } from '../EditorState'
 import { selectedOf } from '../EditorState'
 import { dbg } from '../../utils/debug'
 
-/** Which end a drag is holding, and the note it wants. ⭐ A NOTE, not an address in time — the
- *  trill's anchors are notes, so this is what `setTrillEnd` / `setTrillStart` already take. */
-export interface TrillDragWrite {
-  at: 'start' | 'end'
-  noteId: string
-  /** ⭐ The END square dragged LEFT PAST the start: the bare `tr`, no wavy line — the mouse twin of
-   *  the keyboard's step past the collapse ({@link Trill.extension}). ⛔ Never set for the start
-   *  square: a trill without a sign is not a trill. */
-  lineOff?: true
-}
-
 /** One drawn handle: a point, and which end of the trill it is. */
 export interface TrillHandle {
   which: 'start' | 'end'

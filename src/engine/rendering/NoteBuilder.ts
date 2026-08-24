@@ -1,4 +1,4 @@
-import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot, Tuplet as VexFlowTuplet } from 'vexflow'
+import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
@@ -363,57 +363,6 @@ export function createStaveNotesFromSlots(
   }
 
   return staveNotes
-}
-
-/**
- * Create VexFlow Tuplet objects for a measure (adjusts tick values on notes).
- * Must be called BEFORE voice.addTickables() for correct tick calculation.
- * @param measure - The measure containing tuplet definitions
- * @param slots - ChordRest slots sorted by beat (parallel to staveNotes)
- * @param staveNotes - The VexFlow StaveNotes array
- * @returns Map of tupletId to VexFlow Tuplet objects
- */
-export function createTupletsForMeasure(
-  measure: Measure,
-  slots: ChordRest[],
-  staveNotes: StaveNote[]
-): Map<string, VexFlowTuplet> {
-  const vexTuplets = new Map<string, VexFlowTuplet>()
-
-  if (!measure.tuplets || measure.tuplets.length === 0) {
-    return vexTuplets
-  }
-
-  // Build mapping from tupletId to StaveNotes (one slot → one StaveNote)
-  const tupletStaveNoteMap = new Map<string, StaveNote[]>()
-
-  for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
-    const slot = slots[i]
-    if (slot.tupletId) {
-      if (!tupletStaveNoteMap.has(slot.tupletId)) {
-        tupletStaveNoteMap.set(slot.tupletId, [])
-      }
-      tupletStaveNoteMap.get(slot.tupletId)!.push(staveNotes[i])
-    }
-  }
-
-  // Create VexFlow Tuplet objects
-  for (const [tupletId, tupletStaveNotes] of tupletStaveNoteMap) {
-    const tupletData = measure.tuplets.find(t => t.id === tupletId)
-    if (tupletData && tupletStaveNotes.length >= 2) {
-      try {
-        const vexTuplet = new VexFlowTuplet(tupletStaveNotes, {
-          numNotes: tupletData.numNotes,
-          notesOccupied: tupletData.notesOccupied,
-        })
-        vexTuplets.set(tupletId, vexTuplet)
-      } catch (_e) {
-        // Ignore tuplet creation errors
-      }
-    }
-  }
-
-  return vexTuplets
 }
 
 /** VexFlow tuplet bracket side: above the staff. */

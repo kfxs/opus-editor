@@ -4,18 +4,6 @@ import { fracAdd, fracToNumber } from '@/utils/fraction'
 import { slotLength } from '@/utils/durations'
 
 /**
- * Result of a collision check
- */
-export interface CollisionResult {
-  /** Whether a collision was detected */
-  hasCollision: boolean
-  /** IDs of notes that collide */
-  collidingNotes: string[]
-  /** Reason for collision */
-  reason?: string
-}
-
-/**
  * Result of an overflow check
  */
 export interface OverflowResult {

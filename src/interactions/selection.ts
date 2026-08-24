@@ -39,8 +39,6 @@ export type SelectionItem =
   /** The line that ENDS this measure — a boundary, not an object (see `SelectedElement`'s `barline`). */
   | { kind: 'barline'; measure: number }
 
-export type SelectionKind = SelectionItem['kind']
-
 /**
  * A stable string key for set membership / dedup. Two items refer to the same
  * element iff their keys are equal.

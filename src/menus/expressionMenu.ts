@@ -70,9 +70,6 @@ const WORDS: ReadonlyArray<{ word: string; shortcut?: string }> = [
   { word: 'senza' },
 ]
 
-/** Just the words, for anything that wants the vocabulary without the menu shape. */
-export const EXPRESSION_WORDS: readonly string[] = WORDS.map(w => w.word)
-
 /**
  * How the menu puts something into the editor. Supplied by whoever owns the caret — the menu has no
  * idea where the text is going, which is what lets the same list serve any editor that grows one.
