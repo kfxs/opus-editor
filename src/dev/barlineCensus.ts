@@ -22,7 +22,7 @@
  */
 
 /** One barline as the screen will actually resolve it. */
-export interface BarlineOnScreen {
+interface BarlineOnScreen {
   /** The left edge in device pixels — whole means crisp, fractional means split across columns. */
   left: number
   /** The width in device pixels. */
@@ -37,7 +37,7 @@ const EPSILON = 0.02
 
 /** Read every drawn barline's device-pixel geometry. Pure DOM reading — draws nothing, changes
  *  nothing. `dpr` is a parameter so a test can pin a screen it does not have. */
-export function barlinesOnScreen(
+function barlinesOnScreen(
   root: ParentNode = document,
   dpr: number = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
 ): BarlineOnScreen[] {
@@ -161,7 +161,7 @@ export function barlineBoxes(engine: BarlineEngine, root: ParentNode = document)
 }
 
 /** What the census needs of the engine — named here so `dev/` states its own dependency. */
-export interface BarlineEngine {
+interface BarlineEngine {
   getElementRegistry(): {
     getByType(type: 'barline'): { measure?: number; staff?: number; bbox: { x: number; width: number } }[]
   }

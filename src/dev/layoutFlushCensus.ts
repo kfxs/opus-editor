@@ -173,7 +173,7 @@ class LayoutFlushCensus {
 }
 
 /** What {@link LayoutFlushCensus.report} answers with. */
-export interface FlushReport {
+interface FlushReport {
   reads: number
   totalMs: number
   sites: Array<Record<string, string | number>>

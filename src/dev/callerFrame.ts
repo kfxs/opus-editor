@@ -21,7 +21,7 @@
  */
 
 /** What {@link callerFrame} needs in order to skip past the instrument's own frames. */
-export interface CallerFrameOptions {
+interface CallerFrameOptions {
   /**
    * Where to start scanning. Index 0 is the `Error` line and 1 is {@link callerFrame} itself, so 2
    * is this function's caller — raise it to step over the probe's own wrapper.

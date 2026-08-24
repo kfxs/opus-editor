@@ -44,7 +44,7 @@ const OFF = 'bg-gray-600 hover:bg-gray-500'
 // `1`–`5` the stroke counts, `6` the Penderecki sign, `Enter` the two-note mark, and the pair's
 // joined/open style on the beam keys.
 
-export interface DevToolbarDeps {
+interface DevToolbarDeps {
   state: EditorState
   palette: PaletteController
   getEngine: () => MusicEngine | null
@@ -59,7 +59,7 @@ export interface DevToolbarDeps {
   renderScore: () => void
 }
 
-export interface DevToolbarHandle {
+interface DevToolbarHandle {
   destroy(): void
 }
 

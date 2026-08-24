@@ -19,7 +19,7 @@
  * assembled from fragments, which compiles and then silently ships without the style.
  */
 
-export interface LiveBoundaryMarkHandle {
+interface LiveBoundaryMarkHandle {
   destroy(): void
 }
 

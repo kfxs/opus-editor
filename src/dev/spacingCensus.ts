@@ -160,7 +160,7 @@ function startsAColumn(code: string): boolean {
  * `transform` carries them to where they actually are. The glyph anchors are read raw, because
  * nothing the score itself draws has a transform above it (a cursor GHOST does, and is not here).
  */
-export function readDrawing(svg: SVGSVGElement): { staves: CensusStave[]; glyphs: CensusGlyph[] } {
+function readDrawing(svg: SVGSVGElement): { staves: CensusStave[]; glyphs: CensusGlyph[] } {
   const toScore = svg.getScreenCTM()!.inverse()
   const placedAt = (el: Element, x: number, y: number): DOMPoint => {
     const point = svg.createSVGPoint()

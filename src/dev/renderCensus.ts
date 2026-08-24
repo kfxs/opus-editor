@@ -250,7 +250,7 @@ class RenderCensus implements RenderProbe {
 }
 
 /** What {@link RenderCensus.report} answers with — the dump, before it becomes console output. */
-export interface CensusReport {
+interface CensusReport {
   renders: number
   totalMs: number
   /** The layout term, summed raw across causes. */

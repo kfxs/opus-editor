@@ -20,7 +20,7 @@ import { exportScoreJson, importScoreJson } from '../interactions/scoreFileIo'
  */
 const POLL_MS = 400
 
-export interface ScoreJsonPanelDeps {
+interface ScoreJsonPanelDeps {
   getEngine: () => MusicEngine | null
   /**
    * Called BEFORE a load swaps the model out. Selection, multi-select and the caret all hold ids
@@ -32,7 +32,7 @@ export interface ScoreJsonPanelDeps {
   onAfterLoad: () => void
 }
 
-export interface ScoreJsonPanelHandle {
+interface ScoreJsonPanelHandle {
   destroy(): void
 }
 
