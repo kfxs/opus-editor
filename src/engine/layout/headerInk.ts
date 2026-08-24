@@ -128,7 +128,7 @@ export function lineOpeningClefPremium(clef: Clef): number {
 }
 
 /** What a bar draws before its first note. `clef` absent = no clef drawn; `meter` absent = none. */
-export interface Header {
+interface Header {
   clef?: { clef: Clef; small: boolean }
   meter?: TimeSignature
 }

@@ -96,7 +96,7 @@ export function spacingAbovePx(aboveSpaces: number, size: number): number {
 }
 
 /** Where each staff of one system sits, and how tall the system is. */
-export interface SystemStaffTops {
+interface SystemStaffTops {
   /** `topPx[i]` — staff `i`'s top, measured from the system's own top. */
   topPx: number[]
   /** The system's full height: every staff's stride plus every staff's space-above. */

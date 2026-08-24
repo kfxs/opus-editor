@@ -51,8 +51,8 @@ import type { InkBox } from './kerning'
 export type StaffSide = 'above' | 'below'
 
 /** The staff's own lines on {@link InkBox}'s axis — the top line is 0 and the bottom is 4. */
-export const STAFF_TOP = 0
-export const STAFF_BOTTOM = 4
+const STAFF_TOP = 0
+const STAFF_BOTTOM = 4
 
 /**
  * How far a mark's ink reaches from its own text baseline, in the staff's own spaces — positive both

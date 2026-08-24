@@ -107,7 +107,7 @@ export function pageBoxAt(surface: SurfaceMetrics, x: number, y: number): PageBo
 }
 
 /** How far ink hangs off each edge of its sheet — 0 on an edge it is inside of. */
-export interface Overhang {
+interface Overhang {
   left: number
   right: number
   top: number
@@ -115,7 +115,7 @@ export interface Overhang {
 }
 
 /** {@link Overhang} for one box on one sheet. */
-export function overhangOf(box: PageBox, ink: InkBox): Overhang {
+function overhangOf(box: PageBox, ink: InkBox): Overhang {
   return {
     left: Math.max(0, box.left - ink.x),
     right: Math.max(0, ink.x + ink.width - box.right),

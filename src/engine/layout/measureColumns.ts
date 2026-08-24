@@ -242,7 +242,7 @@ function slotInk(slot: ChordRest, signs: Map<string, string | null>, clef: Clef,
  * Which clef governs a slot — its staff's, at its beat. Supplied by the caller because resolving it
  * needs the whole score's clef inheritance, which this module deliberately does not import.
  */
-export type ClefResolver = (slot: ChordRest) => Clef
+type ClefResolver = (slot: ChordRest) => Clef
 
 /**
  * ⭐ How big the staff a slot is on is DRAWN (1 = full size) — the model's one size input.

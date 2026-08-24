@@ -118,7 +118,7 @@ export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, rat
 export const LILYPOND_SPACING: SpacingRule = { law: 'log', base: 1.2, shortest: 0.5 }
 
 /** The rule in force. ⭐ ONE for the whole score — never a per-context or per-gesture variant. */
-export const DEFAULT_SPACING: SpacingRule = LILYPOND_SPACING
+const DEFAULT_SPACING: SpacingRule = LILYPOND_SPACING
 
 /**
  * The space that FOLLOWS an event of this duration, in staff spaces.

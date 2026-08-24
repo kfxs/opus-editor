@@ -25,7 +25,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  */
 
 /** A physical sheet. Millimetres, because paper is millimetres — see {@link PX_PER_MM}. */
-export interface PageLayout {
+interface PageLayout {
   page: { widthMm: number; heightMm: number }
   margins: { topMm: number; bottomMm: number; leftMm: number; rightMm: number }
 }

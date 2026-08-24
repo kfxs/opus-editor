@@ -14,7 +14,7 @@ import type { SurfaceMetrics } from './surface'
  * never the page height: how the sheets are then STACKED into one tall SVG is a drawing decision
  * and belongs to `PagePass`, not to this.
  */
-export interface PageCastOff {
+interface PageCastOff {
   /** `pageOfLine[line]` — which page that system landed on. All 0 when there is no page. */
   pageOfLine: number[]
   /** `lineTopInPagePx[line]` — the system's top, measured from the top of ITS OWN page. */
