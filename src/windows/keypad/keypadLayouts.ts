@@ -383,7 +383,7 @@ const PAGES = [
  *  name a page that does not exist. */
 export type KeypadPageId = (typeof PAGES)[number]['id']
 
-export interface KeypadPage {
+interface KeypadPage {
   id: KeypadPageId
   name: string
   /** The page's keys with the two shared controls injected, in numpad reading order. */

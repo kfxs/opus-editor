@@ -46,7 +46,7 @@ export class ScrollText implements Widget {
 }
 
 /** One row of a {@link ChoiceList}: what it IS, and the picture that stands for it. */
-export interface Choice {
+interface Choice {
   value: string
   /** SVG markup — the row is a PICTURE, not a caption (a clef is drawn, never spelled). */
   picture: string
@@ -175,7 +175,7 @@ const VALUE_INK = '#60a5fa'
 /** One line of label text, in px — see {@link Label} `lines`. Comfortable for the 14px content face. */
 const LINE_HEIGHT = 19
 
-export interface ButtonOptions {
+interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
   variant?: 'primary' | 'default'
   disabled?: boolean
@@ -235,7 +235,7 @@ export class Button implements Widget {
  * `value` is the ANSWER — what the fields above came to. It is a different KIND of text from the
  * prose around it, so it is a different colour, and the tone says which kind rather than which hue.
  */
-export type LabelTone = 'normal' | 'muted' | 'error' | 'warn' | 'value'
+type LabelTone = 'normal' | 'muted' | 'error' | 'warn' | 'value'
 
 function toneInk(tone: LabelTone | undefined): string {
   if (tone === 'error') return ERROR_INK
@@ -390,7 +390,7 @@ export class TextInput implements Widget {
 
 /** One choice in a {@link RadioGroup}. `picture` is SVG markup when the option is drawn (a meter,
  *  a clef) — `label` when it is a word. A row may mix the two. */
-export interface RadioOption {
+interface RadioOption {
   value: string
   label?: string
   picture?: string
@@ -693,7 +693,7 @@ export class NumberInput implements Widget {
 }
 
 /** One row of a {@link GlyphSelect}: the value, the glyph that stands for it, and its name. */
-export interface GlyphChoice {
+interface GlyphChoice {
   value: string
   /** SMuFL glyph, in the score's notation font. */
   glyph: string

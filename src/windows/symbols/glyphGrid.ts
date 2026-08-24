@@ -38,7 +38,7 @@ const GAP = 2
 /** Gutter around a block's grid, and the space a heading keeps from the block above it. */
 const PAD = 10
 
-export interface GlyphGridOptions {
+interface GlyphGridOptions {
   /** Fires with the range id whose block the scroll is currently sitting in. */
   onActiveBlock?: (id: string) => void
   /** Fires with the canonical name of a clicked glyph — what the detail bar reads. */

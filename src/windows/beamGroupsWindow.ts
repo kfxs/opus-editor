@@ -22,7 +22,7 @@ import { groupingError, parseGrouping } from '../utils/groupingInput'
  * Both are written up in docs/time-signature-window-plan.md §2. The window is named for what it will
  * be rather than what it is, because renaming it later would break the one thing a user remembers.
  */
-export interface BeamGroupsOptions {
+interface BeamGroupsOptions {
   /** The meter being grouped — the grouping must sum to its numerator, so it is judged against it. */
   numerator: number
   denominator: number

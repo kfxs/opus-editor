@@ -9,7 +9,7 @@ import { CHROME } from '../../utils/chromeColors'
  * widget in the tree ever measures itself, so a window resized to its floor still works.
  */
 
-export interface StackOptions {
+interface StackOptions {
   /** Space between children, in px. */
   gap?: number
   /** Which child, if any, soaks up the leftover space. Default: none — children take what they need. */

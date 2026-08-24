@@ -25,7 +25,7 @@ function isOpen(windows: WindowLayer): boolean {
   return keypad !== null && windows.manager.list().includes(keypad)
 }
 
-export function openKeypadWindow(windows: WindowLayer): Window {
+function openKeypadWindow(windows: WindowLayer): Window {
   if (isOpen(windows)) return keypad!
 
   // Pinned to the RIGHT edge instead of joining the cascade: the Keypad is not one of a stack of

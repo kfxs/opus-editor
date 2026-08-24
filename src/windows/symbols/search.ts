@@ -16,7 +16,7 @@ import type { Glyph, RangeBlock } from './smufl'
  * four digits stays a word search, so `fa` finds `fermata` rather than being read as hex 0x00FA.
  */
 
-export interface SearchResult {
+interface SearchResult {
   /** Only the blocks with at least one match, each holding only its matching glyphs. */
   blocks: RangeBlock[]
   /** How many glyphs matched — the `showing N of M` count. */

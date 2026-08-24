@@ -18,7 +18,7 @@
 
 const PREFIX = 'opus-editor.window.'
 
-export interface WindowPlacement {
+interface WindowPlacement {
   /** Was the panel up when the editor was last left? */
   open: boolean
   /** Top-left, in viewport pixels. Absent until the panel has actually been placed once. */

@@ -212,7 +212,7 @@ function pedalPicture(): string {
  * `LINE_TOOL_KINDS` mapped through this, and the palette's buttons are the same names — one order,
  * one vocabulary, and an eighth line is a kind, a row, and a picture.
  */
-export const LINE_PICTURES: Readonly<Record<LineToolKind, string>> = {
+const LINE_PICTURES: Readonly<Record<LineToolKind, string>> = {
   slur: slurPicture(),
   cresc: hairpinPicture('right'),
   dim: hairpinPicture('left'),

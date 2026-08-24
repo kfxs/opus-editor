@@ -13,7 +13,7 @@ import type { Glyph } from './smufl'
  * console, a commit message, a message to Claude.
  */
 
-export interface CopyFormat {
+interface CopyFormat {
   /** What the chip reads. For the character chip, the glyph itself — set in the music font. */
   label: string
   /** What lands on the clipboard. */

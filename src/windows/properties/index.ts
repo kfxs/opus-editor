@@ -28,7 +28,7 @@ function isOpen(windows: WindowLayer): boolean {
   return properties !== null && windows.manager.list().includes(properties)
 }
 
-export function openPropertiesWindow(windows: WindowLayer): Window {
+function openPropertiesWindow(windows: WindowLayer): Window {
   if (isOpen(windows)) return properties!
 
   // Pinned to the LEFT edge, mirroring the Keypad's right — the two are the standing panels, and a
