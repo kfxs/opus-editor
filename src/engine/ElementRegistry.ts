@@ -174,7 +174,7 @@ const STEM_CLICK_PAD = 5
 /**
  * Bounding box in pixel coordinates
  */
-export interface BoundingBox {
+interface BoundingBox {
   x: number
   y: number
   width: number
@@ -184,7 +184,7 @@ export interface BoundingBox {
 /**
  * Clef types (duplicated here to avoid circular imports)
  */
-export type ClefType = 'treble' | 'bass' | 'alto' | 'tenor'
+type ClefType = 'treble' | 'bass' | 'alto' | 'tenor'
 
 /**
  * A horizontal clef region within a measure: the clef applies from `fromX`

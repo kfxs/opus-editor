@@ -102,7 +102,7 @@ export const ZOOM_MIN = 0.25
 export const ZOOM_MAX = 4
 
 /** Round-number stops the Ctrl+=/Ctrl+- keys snap along (25%–400%). */
-export const ZOOM_LADDER = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const
+const ZOOM_LADDER = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const
 
 /**
  * What the editor OPENS at — further out than actual size, so the first thing you see is a page of

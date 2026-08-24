@@ -148,7 +148,7 @@ export const PENDERECKI_ONSET_JITTER = 0.3
  * loudness has to move with the timing. Smaller than the onset jitter on purpose — this is meant to
  * be felt rather than heard as an accent pattern.
  */
-export const PENDERECKI_VELOCITY_JITTER = 0.15
+const PENDERECKI_VELOCITY_JITTER = 0.15
 
 /** Total sounding length of the score in beats (shared spine — sum of per-measure capacity). */
 export function scoreTotalBeats(score: Score): number {
@@ -158,7 +158,7 @@ export function scoreTotalBeats(score: Score): number {
 }
 
 /** A note to hand the instrument: when to strike it, relative to the moment playback begins. */
-export interface PlayableNote {
+interface PlayableNote {
   /** ⭐ The sounding pitch, carried through unchanged — see {@link ScheduledNote.pitch}. This stage
    *  converts the CLOCK (beats→seconds) and nothing else, so it must not touch the pitch either. */
   pitch: PitchSpelling

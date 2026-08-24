@@ -23,7 +23,7 @@ export type PlaybackState = 'stopped' | 'playing' | 'paused'
 /**
  * Playback position information
  */
-export interface PlaybackPosition {
+interface PlaybackPosition {
   /** Current measure (1-indexed) */
   measure: number
   /** Current beat within measure */

@@ -97,7 +97,7 @@ export function anchor(glyph: GlyphName, which: string): readonly [number, numbe
 }
 
 /** The names {@link engravingDefault} answers for — SMuFL's own, all 30 of them. */
-export type EngravingDefault = keyof typeof ENGRAVING_DEFAULTS
+type EngravingDefault = keyof typeof ENGRAVING_DEFAULTS
 
 /**
  * One of the font's `engravingDefaults`, in staff spaces — how thick Bravura says a structural line

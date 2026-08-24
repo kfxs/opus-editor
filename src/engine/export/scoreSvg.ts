@@ -25,7 +25,7 @@ import type { Score } from '@/types/music'
  * decisions from the answer; in a `display: none` subtree every box reads 0×0 and the marks land
  * wrong. Off to the left of the world it is, then — laid out, painted, just not on screen.
  */
-export interface ScoreSvgRender {
+interface ScoreSvgRender {
   /** The rendered SVG. Still IN the document — `getBBox`/`getComputedStyle` only answer for an
    *  attached element, and both the outliner and svg2pdf need them. Valid until `dispose()`. */
   svg: SVGSVGElement

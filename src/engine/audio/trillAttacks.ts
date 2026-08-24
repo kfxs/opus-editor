@@ -21,7 +21,7 @@
 import type { PitchSpelling } from '@/types/music'
 
 /** A single attack of the alternation, in the caller's own units. */
-export interface TrillAttack {
+interface TrillAttack {
   /** ⭐ A PITCH, not a MIDI number — `ScheduledNote.pitch`'s reason, and this module hands its
    *  attacks straight to it (docs/playback-semantics-plan.md). It is never read here: the two
    *  pitches are opaque values this function alternates between, which is what keeps the rate

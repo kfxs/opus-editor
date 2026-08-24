@@ -53,7 +53,7 @@ function baseUrl(): string {
 }
 
 /** Load one face of one of {@link FONT_FILES}, or null if we ship no such face. */
-export function loadExportFont(family: string, bold = false): Promise<Font> | null {
+function loadExportFont(family: string, bold = false): Promise<Font> | null {
   const name = fontKey(family, false)
   const files = FONT_FILES[name]
   const file = bold ? files?.bold : files?.regular

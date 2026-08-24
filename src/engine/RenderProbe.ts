@@ -77,7 +77,7 @@ export interface RenderProbe {
 }
 
 /** The default: measures nothing, allocates nothing, and is what a build with no `dev/` gets. */
-export const NO_RENDER_PROBE: RenderProbe = {
+const NO_RENDER_PROBE: RenderProbe = {
   recording: false,
   setCause() {},
   beginRender() {},
