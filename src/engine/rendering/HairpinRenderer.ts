@@ -594,10 +594,32 @@ function drawWedge(
     // ⭐ The piece's own share of its role's range — 0→1 for anything the gaps did not touch, so an
     // unbroken wedge is drawn by exactly the arithmetic it always was.
     const open = { start: rampAt(role.start, role.end, piece.t0), end: rampAt(role.start, role.end, piece.t1) }
-    // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its dynamics line, its staff-space size. All three
-    // are facts about the system the piece landed on, not about where the wedge began.
+    // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its dynamics line, its staff-space size, and (since
+    // 2026-08-24) THE BAR IT IS FILED UNDER. All four are facts about the system the piece landed
+    // on, not about where the wedge began.
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
+    /**
+     * 🚨🚨 **THE BAR THIS FRAGMENT IS DRAWN IN — ⛔ NOT the wedge's first one.** His report,
+     * 2026-08-24: *"when a hairpin cross to another system so is extended the last endpoint goes up
+     * but it refuse to go down"*.
+     *
+     * The band limit looks a staff's geometry up BY THIS NUMBER
+     * ({@link MusicEngine.nudgeStaysInBand}), and `hairpinEndpointLane` already promises that *"a
+     * wedge split across systems is judged in the system the moved end actually lives in"* — it takes
+     * the LAST registry entry for the end. Filing every fragment under `from.measureNumber` made that
+     * promise unkeepable: the last entry named the FIRST system too, so the end square drawn on
+     * system 2 was measured against system 1's band, a system-height above it. His trace: `looked up
+     * bar 3 | band 0…276 | ink 375…393` — a permanent overhang, so a step down grew it (refused,
+     * always) and a step up shrank it (allowed, always).
+     *
+     * ⭐ The pedal and the ottava had exactly this fault and were fixed the same way earlier the same
+     * day (`PedalRenderer.registerGlyph`); the wedge was the third and was missed.
+     *
+     * ⚠️ The FIRST fragment is unchanged — it really is drawn in `from.measureNumber` — so every
+     * reader that takes `.find(…)` (the lane, the handles, the snapshot) still gets what it did.
+     */
+    const drawnIn = here[0]?.measureNumber ?? from.measureNumber
     // ⭐ Looked up per FRAGMENT, never recomputed: a wedge's baseline depends on the CHAIN it is in
     //   — the wedge it meets on a barline, the `f` it runs into — which nothing walking one bar can
     //   see. `dynamicsLinePlan` levels the whole render's marks before either pass draws.
@@ -646,7 +668,8 @@ function drawWedge(
       type: 'hairpin',
       id: hairpin.id,
       staff: from.staffIndex,
-      measure: from.measureNumber,
+      // 🚨 THE FRAGMENT'S OWN BAR — see {@link drawnIn}, and the band rule that reads it.
+      measure: drawnIn,
       // ⭐ What the wedge was actually DRAWN at, in staff-spaces — the resolved mouth (authored or
       // automatic, after the steepness cap) and the length that decided it. The Properties mouth
       // input reads both: it shows the effective number so stepping starts from what is on screen

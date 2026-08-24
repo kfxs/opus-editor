@@ -705,3 +705,43 @@ test('⭐⭐ …and the hole GROWS with what is being typed', async ({ score }) 
   // wedge must not simply close, and must not stay at the size the mark had when the editor opened.
   expect(holes.typed).toBeGreaterThan(holes.held + 5)
 })
+
+/**
+ * 🚨🚨 **EACH FRAGMENT IS FILED UNDER THE BAR IT IS DRAWN IN — ⛔ never the wedge's first one.**
+ *
+ * His report, 2026-08-24: *"when a hairpin cross to another system so is extended the last endpoint
+ * goes up but it refuse to go down"*. `MusicEngine.nudgeStaysInBand` looks a staff's geometry up by
+ * this number, and `hairpinEndpointLane` reads the LAST entry to judge the end square. With every
+ * fragment filed under the start's bar, the end on system 2 was measured against system 1's band, a
+ * system-height above it: a permanent overhang, so DOWN was refused for ever and UP always allowed.
+ *
+ * ⭐ It lives in the browser suite because the split itself does: jsdom has no layout, so there is
+ * only ever one fragment there and the claim cannot fail (`reference_jsdom_cannot_measure_glyphs`).
+ * ⚠️ The pedal and the ottava were fixed earlier the same day; the wedge was the third and was missed.
+ */
+test('⭐⭐ a wedge split across systems registers each fragment under its OWN bar', async ({ score }) => {
+  const filed = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 1; m <= 12; m++) {
+      if (m > 1) h.engine.addMeasure()
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'w', measure: m, beat: h.frac(0, 1) })
+    }
+    h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(48, 1) })
+    await h.render()
+    const pieces = h.engine.getElementRegistry().getByType('hairpin')
+    return {
+      count: pieces.length,
+      bars: pieces.map((p: { measure?: number }) => p.measure),
+      tops: pieces.map((p: { bbox: { y: number } }) => Math.round(p.bbox.y)),
+    }
+  })
+
+  expect(filed.count, 'the wedge really did split').toBeGreaterThan(1)
+  // ⭐ The first is still the wedge's own bar — every reader that takes `.find(…)` depends on that.
+  expect(filed.bars[0]).toBe(1)
+  // ⭐⭐ …and the later fragments are NOT: each names a bar on its own system.
+  expect(new Set(filed.bars).size, 'a bar per fragment, not one bar for all').toBe(filed.count)
+  // ⚠️ The claim that makes it matter: the fragments are drawn a system apart, so a band looked up
+  // by a shared bar would judge the lower ink against the upper system's room.
+  expect(Math.max(...filed.tops) - Math.min(...filed.tops)).toBeGreaterThan(40)
+})
