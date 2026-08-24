@@ -21,6 +21,9 @@ const drawn = vi.hoisted(() => ({
   entries: [] as { type: string; id?: string; measure?: number; staff?: number; headX?: number
     bbox: { x: number; y: number; width: number; height: number } }[],
   lineSpacing: 12 as number | null,
+  /** ⭐ A bar's own row and ink extent, where a test needs a layout the default two lines cannot
+   *  say — a THIRD system on the first one's row, which is a second sheet beside it. */
+  geometry: null as Record<number, { top: number; start: number; end: number }> | null,
 }))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
@@ -30,13 +33,24 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       clear: vi.fn(), register: vi.fn(), getAll: vi.fn(() => []),
       findAt: vi.fn(() => null), getById: vi.fn(() => null),
       registerStaffGeometry: vi.fn(),
-      getStaffGeometry: (m: number) => (drawn.lineSpacing === null ? undefined : {
-        lineSpacing: drawn.lineSpacing,
-        // ⭐ Bar 2 is a LINE DOWN in these fixtures (top 140), which is what makes the ribbon a
-        // ribbon: 90…430 then 90…830, laid end to end.
-        lineYPositions: m === 1 ? [40, 50, 60, 70, 80] : [140, 150, 160, 170, 180],
-        noteStartX: 90, noteEndX: m === 1 ? 430 : 830,
-      }),
+      getStaffGeometry: (m: number) => {
+        if (drawn.lineSpacing === null) return undefined
+        const bar = drawn.geometry?.[m]
+        if (bar) {
+          return {
+            lineSpacing: drawn.lineSpacing,
+            lineYPositions: [bar.top, bar.top + 10, bar.top + 20, bar.top + 30, bar.top + 40],
+            noteStartX: bar.start, noteEndX: bar.end,
+          }
+        }
+        return {
+          lineSpacing: drawn.lineSpacing,
+          // ⭐ Bar 2 is a LINE DOWN in these fixtures (top 140), which is what makes the ribbon a
+          // ribbon: 90…430 then 90…830, laid end to end.
+          lineYPositions: m === 1 ? [40, 50, 60, 70, 80] : [140, 150, 160, 170, 180],
+          noteStartX: 90, noteEndX: m === 1 ? 430 : 830,
+        }
+      },
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
     }))
@@ -62,6 +76,7 @@ describe('trillLane', () => {
       engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     trillId = engine.createTrill([ids[1], ids[2]])!.id
     drawn.lineSpacing = 12
+    drawn.geometry = null
     drawn.entries = ids.map((id, i) => ({
       type: 'note', id, headX: 100 + i * 100, bbox: { x: 95 + i * 100, y: 50, width: 10, height: 10 },
     }))
@@ -149,6 +164,33 @@ describe('trillLane', () => {
       drawn.lineSpacing = null
       expect(trillRibbonLimits(engine, 0)).toBeNull()
       expect(trillRibbonX(engine, 0, 1, 100)).toBeNull()
+    })
+
+    /**
+     * 🚨🚨 **TWO SHEETS SIDE BY SIDE PUT TWO SYSTEMS ON THE SAME ROW** — his report, 2026-08-24:
+     * *"when crossing the system it never reanchors"*, with the stop on the very NEXT system reading
+     * **131.93 staff-spaces** away.
+     *
+     * `PagePass` draws the pages side by side, so page 2's first system has page 1's first system's
+     * staff-top y. Grouping the ribbon by that y unioned the two into one entry spanning both sheets,
+     * and every later line then carried a page's width too much in front of it. ⭐ The drawing never
+     * had the fault (`TrillRenderer.foldPastSystemEnd` counts REAL lines), so the `tr` folded onto
+     * the next system on time while its anchor stayed put — a gap no number of presses could close.
+     */
+    it('⭐⭐ a later system on the SAME ROW is its own line — pages are side by side', () => {
+      // Bars 1–2 are page 1's two systems; bar 3 opens page 2 at row `40` again, to its RIGHT.
+      drawn.geometry = {
+        1: { top: 40, start: 90, end: 430 },
+        2: { top: 140, start: 90, end: 830 },
+        3: { top: 40, start: 1090, end: 1330 },
+      }
+      engine.addMeasure()
+
+      // ⛔ NOT `340 + 740` — line 1 keeps its own 340 rather than swallowing page 2's x's…
+      expect(trillRibbonX(engine, 0, 2, 90)).toBe(340)
+      // …and page 2's system follows the two before it, 240 wide of its own.
+      expect(trillRibbonX(engine, 0, 3, 1090)).toBe(340 + 740)
+      expect(trillRibbonLimits(engine, 0)).toEqual({ min: 0, max: 340 + 740 + 240 })
     })
   })
 })

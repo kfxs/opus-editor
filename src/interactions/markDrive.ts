@@ -134,6 +134,41 @@ export function inkNudge(port: MarkWalkPort, dx: number): boolean {
 }
 
 /**
+ * ⭐⭐ **ONE LINE PER PRESS — the keyboard's half of the frame trace, and it was missing.**
+ *
+ * 🚨 His report, 2026-08-24: *"i was walking cross the system and never reanchor to the note"*, with
+ * a log showing twenty-five presses of pure ink and not one crossing. Nothing in it could say WHY:
+ * {@link markWalk.markWalkCrosses} declines through FIVE different reads — no next stop, an
+ * unmeasurable stop, an unmeasurable anchor, no staff-space size, or a gap whose sign disagrees with
+ * the travel — and a press that merely moves ink looks identical from the outside whichever it was.
+ * ⭐ The DRAG got its one-line-per-frame trace long ago (see {@link dragFrame}); this is the same
+ * claim for the other device, and it names the read that failed.
+ */
+function tracePress(spec: MarkDriveSpec, dx: number, crossing: boolean): void {
+  const { port } = spec
+  const direction = dx > 0 ? 1 : -1
+  const stop = port.nextStop(direction)
+  const anchor = port.anchorX()
+  const staffSpacePx = port.staffSpacePx()
+  const stopX = stop === null ? null : port.stopX(stop)
+  const why = stop === null ? 'no next stop — the end of the lane'
+    : anchor === null ? 'the anchor is not drawn'
+      : !staffSpacePx ? 'no staff-space size'
+        : stopX === null ? 'the stop is not drawn'
+          : Math.sign((stopX - anchor) / staffSpacePx) !== direction
+            ? 'the gap runs the other way — ⛔ not one ruler'
+            : null
+  const gap = anchor !== null && stopX !== null && staffSpacePx
+    ? ((stopX - anchor) / staffSpacePx).toFixed(2) : '—'
+  dbg(`[${port.label}] press ${dx > 0 ? '+' : ''}${dx.toFixed(2)}ss`
+    + ` | anchor ${anchor?.toFixed(0) ?? '—'} offset ${port.offsetX().toFixed(2)}ss`
+    + ` | stop ${stop === null ? 'none' : JSON.stringify(stop)} at ${stopX?.toFixed(0) ?? '—'}`
+    + ` gap ${gap}ss`
+    + ` | ${why ? `⛔ NO CROSSING: ${why}` : `crosses ${markWalkCrosses(port, dx)}`}`
+    + ` | wrap ${crossing ? 'pending' : 'no'}`)
+}
+
+/**
  * ⭐⭐ **ONE HORIZONTAL ARROW PRESS** — nudge the mark's ink by `dx` staff-spaces (¼ space plain, 1
  * space with `Ctrl`), and hand its anchor along if the ink has arrived at the next stop.
  *
@@ -158,6 +193,7 @@ export function walkPress(spec: MarkDriveSpec, dx: number): boolean {
   if (dx === 0) return false
   const { port, wrap, label, runBatch } = spec
   const across = wrap ? breakCrossing(port, wrap, dx) : null
+  if (debugEnabled()) tracePress(spec, dx, across !== null)
 
   if (!across?.arrived && !markWalkCrosses(port, dx)) {
     const allowed = spec.inkGuard?.(across !== null, dx) ?? true

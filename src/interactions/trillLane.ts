@@ -149,26 +149,44 @@ export function trillSquareMeasure(lane: readonly FlatNote[], index: number): nu
  * across three systems *"never was re-anchored to the note 3 systems below"* — the gap to that note
  * was two whole lines longer than the arithmetic could name.
  *
- * ⚠️ Reading order, ⛔ never x order: a later line's x may be larger, smaller or equal. Lines are
- * discovered by walking the score's bars and grouping by the staff's TOP LINE, which is the one
- * thing that names a system.
+ * ⚠️ Reading order, ⛔ never x order: a later line's x may be larger, smaller or equal.
+ *
+ * 🚨🚨 **A LINE IS A CONTIGUOUS RUN OF BARS, ⛔ never "every bar sharing the staff's top y"** — the
+ * same law `markBreakWrap.systemInkAt` states, and the two rulers have to agree or the walk measures
+ * one thing while the drawing folds another.
+ *
+ * His report, 2026-08-24: *"when crossing the system it never reanchors"*, with the stop on the very
+ * NEXT system reading **131.93 staff-spaces** away. The pages are drawn SIDE BY SIDE (`PagePass`), so
+ * the first system of page 2 has the same staff-top y as the first system of page 1 — and grouping by
+ * that y folded them into one entry, whose `min…max` unioned two sheets (his table: `0:top126
+ * 172…2338` for a system whose own music ends at 1114) and whose width then shoved every later line's
+ * `before` a page too far along. ⭐ The ink meanwhile folded onto the next system exactly when it
+ * should have (`TrillRenderer.foldPastSystemEnd` counts REAL lines), so the `tr` sat on system 2 with
+ * its anchor still on system 1 and a gap no number of presses could close.
  */
 function ribbon(
   engine: TrillLaneEngine,
   staff: number,
-): { top: number; min: number; max: number; before: number }[] {
+): { top: number; min: number; max: number; before: number; first: number; last: number }[] {
   const registry = engine.getElementRegistry()
-  const lines: { top: number; min: number; max: number; before: number }[] = []
+  const lines: { top: number; min: number; max: number; before: number
+    first: number; last: number }[] = []
   for (const bar of engine.getScore().measures ?? []) {
     const geometry = registry.getStaffGeometry(bar.number, staff)
     if (!geometry) continue
     const top = geometry.lineYPositions[0]
-    const here = lines.find(l => l.top === top)
-    if (here) {
+    // ⚠️ Only the line the reading order is CURRENTLY on may be extended — see the header. A bar
+    // whose row matches an EARLIER line is a new system on a later sheet, not a return to that one.
+    const here = lines[lines.length - 1]
+    if (here && here.top === top) {
       here.min = Math.min(here.min, geometry.noteStartX)
       here.max = Math.max(here.max, geometry.noteEndX)
+      here.last = bar.number
     } else {
-      lines.push({ top, min: geometry.noteStartX, max: geometry.noteEndX, before: 0 })
+      lines.push({
+        top, min: geometry.noteStartX, max: geometry.noteEndX, before: 0,
+        first: bar.number, last: bar.number,
+      })
     }
   }
   let before = 0
@@ -186,6 +204,10 @@ function ribbon(
  * ⚠️ A point past its own line's end (ink the drawing has folded onward) reads as *further along the
  * ribbon than the line's own share*, which is exactly right: it is where the ink would be if the
  * lines were one long staff, and where the FOLD puts it back down.
+ *
+ * ⭐ **The BAR names the line, ⛔ never the staff-top y it was drawn at** — see {@link ribbon}: two
+ * sheets side by side put two different systems on the same row, and a y-lookup answers with the
+ * first of them.
  */
 export function trillRibbonX(
   engine: TrillLaneEngine,
@@ -193,9 +215,9 @@ export function trillRibbonX(
   measure: number,
   x: number,
 ): number | null {
-  const geometry = engine.getElementRegistry().getStaffGeometry(measure, staff)
-  if (!geometry) return null
-  const line = ribbon(engine, staff).find(l => l.top === geometry.lineYPositions[0])
+  // ⛔ No picture, no answer: the bar must have been DRAWN, or the ribbon is guessing where it went.
+  if (!engine.getElementRegistry().getStaffGeometry(measure, staff)) return null
+  const line = ribbon(engine, staff).find(l => measure >= l.first && measure <= l.last)
   return line ? line.before + (x - line.min) : null
 }
 
