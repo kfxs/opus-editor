@@ -129,6 +129,52 @@ interface MarkEndSession {
   changed: boolean
 }
 
+/**
+ * Every gesture a press can arm. ⭐ **Exactly ONE is ever live** — `handleMouseDown` is a chain of
+ * branches that each `return`, so a press arms one thing or nothing.
+ */
+type DragKind =
+  | 'note' | 'barWidth' | 'clef' | 'staffSpacing'
+  | 'slurHandle' | 'slurEndpoint' | 'slurBody'
+  | 'dynamic' | 'tempo'
+  | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
+
+/**
+ * ⭐⭐ **THE ONE GESTURE IN FLIGHT** — what used to be thirteen parallel `isDragging…` booleans, each
+ * with its own `end…Drag()`, read in three separate dispatch blocks.
+ *
+ * ⭐ It is the *"a slice too thin to be logic is still a slice"* shape `CLAUDE.md` forbids, in a file
+ * that rule names: every gesture added since has cost a fourteenth boolean and a fourteenth `if` in
+ * every block that reads them — and one of those blocks had fallen four gestures behind
+ * ({@link MouseController.handleMouseLeave}).
+ *
+ * ## ⭐⭐ THE RULE THIS ENFORCES: **A GESTURE ENDS ON THE RELEASE, WHEREVER THAT RELEASE HAPPENS**
+ *
+ * ⛔ **Leaving the canvas ends nothing.** His report, 2026-08-21: *"i move up and then i dont release
+ * the mouse but went out of the viefinder and when i go back im not editing the slur… this is
+ * wrong"*. Three paths see the release, so none can be missed:
+ *
+ *  1. {@link MouseController.onDocMouseUp} — document-level and CAPTURE phase, so any release
+ *     anywhere reaches it first;
+ *  2. the canvas's own `mouseup`, which no-ops when 1 has already run;
+ *  3. {@link MouseController.handleMouseMove}'s `buttons === 0`, for a release outside the BROWSER
+ *     WINDOW, which fires no `mouseup` at all.
+ *
+ * ⚠️ **One exception, and only one: the PAN.** It is settled by its own document pair
+ * (`onDocPanMove` / `onDocPanUp`) rather than by `handleMouseUp`, because it is armed on a press that
+ * may still turn out to be a tap. `handleMouseLeave` bails on it before anything else.
+ *
+ * ⚠️ **And one sub-case that is not an exception**: `isDraggingBarWidth` is NOT a gesture flag — it is
+ * the past-the-dead-zone bit, and the gesture is armed from the press. So an armed-but-never-moved
+ * bar-width press still has state to clear on release, which is why arming sets this field and the
+ * threshold bit stays its own boolean.
+ */
+interface ActiveDrag {
+  kind: DragKind
+  /** ⭐ The family's own `end…Drag()` — it commits what the gesture wrote and clears this field. */
+  end: () => void
+}
+
 
 /** Registry element types that are staff background / structure rather than clickable
  *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
@@ -150,7 +196,8 @@ export class MouseController {
   // --- Internal ephemeral state (not in EditorState — not needed for reactivity) ---
   private lastCanvasMousePosition: { x: number; y: number } | null = null
   private isMouseButtonDown = false
-  private isDraggingNote = false
+  /** ⭐⭐ **THE ONE GESTURE IN FLIGHT** — see {@link ActiveDrag}, which carries the rule. */
+  private activeDrag: ActiveDrag | null = null
   private draggedNoteOriginalPitch: PitchSpelling | null = null
   /**
    * Which gesture a note/rest drag turned out to be — **decided on the evidence, not on the
@@ -201,7 +248,6 @@ export class MouseController {
   private isDraggingBarWidth = false
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
-  private isDraggingClef = false
   private draggedClefMeasure: number | null = null      // current measure (updates during drag)
   private draggedClefBeat: Fraction | null = null        // current beat (updates during drag)
   private draggedClefStartMeasure: number | null = null  // measure at drag start (no-op check)
@@ -209,7 +255,6 @@ export class MouseController {
   private clefDragStartTime: number | null = null
 
   // --- Slur control-point handle drag (reshape the selected slur's curve) ---
-  private isDraggingSlurHandle = false
   private draggedSlurId: string | null = null
   private draggedCpIndex: 0 | 1 | undefined = undefined
   private draggedSlurEndpoints: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number } | null = null
@@ -228,7 +273,6 @@ export class MouseController {
   private slurDragStartTime: number | null = null
 
   // --- Slur endpoint handle drag (re-anchor the selected slur's in/out point) ---
-  private isDraggingSlurEndpoint = false
   private draggedEndpointSlurId: string | null = null
   private draggedEndpoint: 'start' | 'end' | undefined = undefined
   /** True once a preview re-anchor fired, so the drop records one undo entry. */
@@ -392,7 +436,6 @@ export class MouseController {
   // --- Dynamic drag (docs/dynamic-offset-plan.md, the RE-ANCHOR section). ⚠️ No square and nothing
   //     to arm first: a dynamic is a POINT, so the MARK is its own handle and this arms on the very
   //     press that selects it. The drag walks the mark's lane, the mouse twin of `Ctrl+Shift+←/→`. ---
-  private isDraggingDynamic = false
   private draggedDynamicId: string | null = null
   /** True once a preview write landed, so the drop records one undo entry. */
   private dynamicDragChanged = false
@@ -405,7 +448,6 @@ export class MouseController {
   // --- Tempo mark drag (docs/tempo-marks-plan.md). The dynamic's arrangement above, one mark over:
   //     the MARK is its own handle, so this arms on the very press that selects it, and the frame
   //     runs the same interpolating walk with a LATCH (his call — a tempo wants its anchor exactly).
-  private isDraggingTempo = false
   private draggedTempoId: string | null = null
   private tempoDragChanged = false
   private tempoDragLastX: number | null = null
@@ -421,7 +463,6 @@ export class MouseController {
   // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
   //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
   //     cursor's delta is converted to staff-spaces and accumulated frame by frame. ---
-  private isDraggingHairpinBody = false
   private draggedHairpinBodyId: string | null = null
   /** The last ACCEPTED cursor position, in SVG px — the anchor each frame's delta is measured from.
    *  ⚠️ Not advanced on a refusal (the page limit), so a wedge stopped at the sheet's edge picks the
@@ -435,7 +476,6 @@ export class MouseController {
   // --- Slur ARC BODY drag (his ask, 2026-08-18): the whole curve's INK, where a press on a HANDLE
   //     moves one point instead. Free pixels, no walk and no hold — a whole-curve move has no anchor
   //     to arrive at (`./slurBodyDrag`, which owns the arithmetic and the refusal rule). ---
-  private isDraggingSlurBody = false
   private draggedSlurBodyId: string | null = null
   /** The last ACCEPTED cursor position + the measured px→staff-space scale. ⚠️ Not advanced on a
    *  refusal, so a curve stopped by the page or band limit picks the cursor up where it left it. */
@@ -446,7 +486,6 @@ export class MouseController {
 
   // --- Ottava BODY drag (a press on the numeral or its dashed line). The whole bracket follows the
   //     hand — sideways through the music, and DOWN ONTO ANOTHER SYSTEM vertically. ---
-  private isDraggingOttavaBody = false
   private draggedOttavaBodyId: string | null = null
   private ottavaBodyLastX = 0
   private ottavaBodyLastY = 0
@@ -455,7 +494,6 @@ export class MouseController {
 
   // --- Pedal BODY drag: a press on either SIGN moves the whole pedal — through the music sideways
   //     (`pedalWalk.dragPedalBody`) and onto another system vertically (`markSystemJump`). ---
-  private isDraggingPedalBody = false
   private draggedPedalBodyId: string | null = null
   private pedalBodyLastX = 0
   private pedalBodyLastY = 0
@@ -463,7 +501,6 @@ export class MouseController {
   private pedalBodyDragStartTime: number | null = null
 
   // --- Trill BODY drag: a press on the ornament's own ink moves the WHOLE thing (2026-08-20). ---
-  private isDraggingTrillBody = false
   private draggedTrillBodyId: string | null = null
   private trillBodyLastX = 0
   private trillBodyLastY = 0
@@ -471,7 +508,6 @@ export class MouseController {
   private trillBodyDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
-  private isDraggingStaffSpacing = false
   private draggedSpacingStaff = 0            // staff index being spaced
   private draggedSpacingMeasure = 0          // a measure on the target SYSTEM (per-system key)
   private draggedSpacingBaseline = 0         // its `above` (staff-spaces) at drag start
@@ -616,9 +652,9 @@ export class MouseController {
     // went back with no mouse pressed the system think i'm still pressing"*).
     //
     // ⭐ It runs the SAME chain the canvas's own release runs — ⛔ not a list of gestures repeated
-    // here, which is a list that would be one short again the next time a drag is added. Every ender
-    // is guarded by its own `isDragging…` flag and clears it, so whichever handler runs first does
-    // the work and the other no-ops. Capture-phase, so this one is first.
+    // here, which is a list that would be one short again the next time a drag is added. The gesture
+    // carries its own ender and clears {@link activeDrag} on the way out, so whichever handler runs
+    // first does the work and the other no-ops. Capture-phase, so this one is first.
     this.handleMouseUp(event)
   }
 
@@ -631,7 +667,7 @@ export class MouseController {
    * `handleMouseLeave`: the element's `mousemove` stops firing once the pointer exits the canvas, so
    * a gesture that lives on it dies at the edge. ⛔ The list of gestures is not repeated here — this
    * forwards the SAME `handleMouseMove` the canvas calls, and every drag handler in it is guarded by
-   * its own `isDragging…` flag.
+   * the one session ({@link ActiveDrag}).
    *
    * ⚠️ **Only OUTSIDE the canvas**, or the element's own handler and this one would both fire and the
    * gesture would move twice per frame. Capture phase, so the target test happens before the element
@@ -903,7 +939,7 @@ export class MouseController {
     const approxBeat = clefAt.beat ?? 0
     const change = measure?.clefs?.find(c => Math.abs(fracToNumber(c.beat) - approxBeat) < 1e-6)
     if (!change) return
-    this.isDraggingClef = true
+    this.activeDrag = { kind: 'clef', end: () => this.endClefDrag() }
     this.draggedClefMeasure = clefAt.measure
     this.draggedClefBeat = change.beat
     this.draggedClefStartMeasure = clefAt.measure
@@ -928,7 +964,7 @@ export class MouseController {
    *  SELECTING press for its reason: the mark has no handle but itself. ⛔ It must not consume the
    *  press, or the double-click that opens the text editor (decided one branch above) would break. */
   private armTempoDrag(tempoId: string, event: MouseEvent): void {
-    this.isDraggingTempo = true
+    this.activeDrag = { kind: 'tempo', end: () => this.endTempoDrag() }
     this.draggedTempoId = tempoId
     this.tempoDragChanged = false
     this.tempoDragLastX = null
@@ -937,7 +973,7 @@ export class MouseController {
   }
 
   private armDynamicDrag(dynamicId: string, event: MouseEvent): void {
-    this.isDraggingDynamic = true
+    this.activeDrag = { kind: 'dynamic', end: () => this.endDynamicDrag() }
     this.draggedDynamicId = dynamicId
     this.dynamicDragChanged = false
     this.dynamicDragLastX = null
@@ -974,7 +1010,7 @@ export class MouseController {
   private armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void {
     const engine = this.getEngine()
     if (!engine || !trillStaffSpacePx(engine.getElementRegistry(), trillId)) return
-    this.isDraggingTrillBody = true
+    this.activeDrag = { kind: 'trillBody', end: () => this.endTrillBodyDrag() }
     this.draggedTrillBodyId = trillId
     this.trillBodyLastX = x
     this.trillBodyLastY = y
@@ -989,7 +1025,7 @@ export class MouseController {
   private armOttavaOffsetDrag(ottavaId: string, x: number, y: number, event: MouseEvent): void {
     const engine = this.getEngine()
     if (!engine || !ottavaStaffSpacePx(engine.getElementRegistry(), ottavaId)) return
-    this.isDraggingOttavaBody = true
+    this.activeDrag = { kind: 'ottavaBody', end: () => this.endOttavaBodyDrag() }
     this.draggedOttavaBodyId = ottavaId
     this.ottavaBodyLastX = x
     this.ottavaBodyLastY = y
@@ -1012,7 +1048,7 @@ export class MouseController {
   private armPedalOffsetDrag(pedalId: string, x: number, y: number, event: MouseEvent): void {
     const engine = this.getEngine()
     if (!engine || !pedalStaffSpacePx(engine.getElementRegistry(), pedalId)) return
-    this.isDraggingPedalBody = true
+    this.activeDrag = { kind: 'pedalBody', end: () => this.endPedalBodyDrag() }
     this.draggedPedalBodyId = pedalId
     this.pedalBodyLastX = x
     this.pedalBodyLastY = y
@@ -1026,7 +1062,7 @@ export class MouseController {
     if (!engine) return
     const spacePx = hairpinStaffSpacePx(engine.getElementRegistry(), hairpinId)
     if (!spacePx) return
-    this.isDraggingHairpinBody = true
+    this.activeDrag = { kind: 'hairpinBody', end: () => this.endHairpinBodyDrag() }
     this.draggedHairpinBodyId = hairpinId
     this.hairpinBodyLastX = x
     this.hairpinBodyLastY = y
@@ -1050,7 +1086,7 @@ export class MouseController {
     if (!engine) return
     const staffSpacePx = slurBodyStaffSpacePx(engine.getElementRegistry(), slurId)
     if (!staffSpacePx) return
-    this.isDraggingSlurBody = true
+    this.activeDrag = { kind: 'slurBody', end: () => this.endSlurBodyDrag() }
     this.draggedSlurBodyId = slurId
     this.slurBodyAnchor = { x, y, staffSpacePx }
     this.slurBodyDragChanged = false
@@ -1475,7 +1511,7 @@ export class MouseController {
     if (pick?.kind === 'control') {
       const handle = pick.entry
       if (handle.cpIndex !== undefined && handle.slurEndpoints && handle.controlPoints) {
-      this.isDraggingSlurHandle = true
+      this.activeDrag = { kind: 'slurHandle', end: () => this.endSlurHandleDrag() }
       this.draggedSlurId = selectedSlur.id
       this.draggedCpIndex = handle.cpIndex
       this.draggedSlurEndpoints = handle.slurEndpoints
@@ -1515,7 +1551,7 @@ export class MouseController {
     // different note.
     if (pick?.kind === 'endpoint' && pick.entry.endpoint) {
       const endHandle = pick.entry
-      this.isDraggingSlurEndpoint = true
+      this.activeDrag = { kind: 'slurEndpoint', end: () => this.endSlurEndpointDrag() }
       this.draggedEndpointSlurId = selectedSlur.id
       this.draggedEndpoint = endHandle.endpoint
       this.slurEndpointDragChanged = false
@@ -1605,7 +1641,7 @@ export class MouseController {
    *  @returns true if a drag was armed. */
   private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): boolean {
     const staff = selectedOf(this.state, 'measureRange')?.staff ?? 0
-    this.isDraggingStaffSpacing = true
+    this.activeDrag = { kind: 'staffSpacing', end: () => this.endStaffSpacingDrag() }
     this.draggedSpacingStaff = staff
     this.draggedSpacingMeasure = measure
     this.draggedSpacingBaseline = engine.getStaffSpacingAbove(staff, measure)
@@ -1661,6 +1697,9 @@ export class MouseController {
     if (room.barlineSlope <= 0) {
       dbg(`Bar width | bar ${measure} ends its system — its barline is pinned, so the drag moves the bar's own music`)
     }
+    // ⚠️ Armed from the PRESS, before the dead zone — see {@link ActiveDrag}: `isDraggingBarWidth` is
+    // the past-the-threshold bit, so a press that never moves still has this state to clear.
+    this.activeDrag = { kind: 'barWidth', end: () => this.endBarWidthDrag() }
     this.barWidthDrag = { measure, room }
     this.barWidthDragStartX = x
     this.barWidthDragLineKey = engine.barWidthLineKey(measure)
@@ -1681,9 +1720,9 @@ export class MouseController {
    * Returns true while the drag owns the move.
    */
   private handleBarWidthDrag(engine: MusicEngine, x: number): boolean {
-    // Armed-ness IS the guard: `barWidthDrag` is non-null only between the barline press and its
-    // release, exactly like the other gestures' own flags.
-    if (!this.barWidthDrag) return false
+    // ⚠️ The session says WHICH gesture is live ({@link ActiveDrag}); `barWidthDrag` is this one's
+    // captured room, and the second half of the test is what narrows it for the read below.
+    if (this.activeDrag?.kind !== 'barWidth' || !this.barWidthDrag) return false
     const dx = x - this.barWidthDragStartX
     if (!this.isDraggingBarWidth) {
       if (Math.abs(dx) < this.NOTE_DRAG_THRESHOLD_PX) return false // still a click
@@ -1751,6 +1790,7 @@ export class MouseController {
     }
     const canvas = this.getScoreCanvas()
     if (canvas) canvas.style.cursor = ''
+    this.activeDrag = null
     this.barWidthDrag = null
     this.barWidthDragChanged = false
     this.barWidthDragBlocked = false
@@ -1833,7 +1873,7 @@ export class MouseController {
         // note does. Which axis this press turns out to be is decided later, from the movement.
         if (closestElement.type === 'note' || closestElement.type === 'rest') {
           const origNote = engine.getNote(closestElement.id)
-          this.isDraggingNote = true
+          this.activeDrag = { kind: 'note', end: () => this.endNoteDrag() }
           this.noteDragAxis = 'undecided'
           this.noteDragStart = { x, y }
           this.draggedNoteOriginalPitch = origNote && origNote.step
@@ -1877,53 +1917,25 @@ export class MouseController {
     this.armPan(event, true)
   }
 
+  /**
+   * ⭐⭐ **THE RELEASE ENDS THE GESTURE — one call, whichever gesture it was** ({@link ActiveDrag}).
+   *
+   * This was fourteen sequential `if`s, one per family, each naming its own flag and its own ender —
+   * and the list had to be extended by every feature that added a drag. ⭐ Now the gesture carries
+   * its own ender, so a new one is a `kind` and an `arm`, ⛔ never a line here.
+   *
+   * ⚠️ **It is called from THREE places and must stay idempotent**: the canvas's own `mouseup`,
+   * {@link onDocMouseUp} (capture phase, so it usually runs first), and {@link handleMouseMove}'s
+   * `buttons === 0`. Every ender clears {@link activeDrag}, so the second caller finds nothing —
+   * which is what makes three redundant paths safe rather than three commits.
+   *
+   * ⚠️ A hand/grab PAN is not here: it is resolved by the document-level `handleDocPanUp`, so it
+   * settles even when the release lands outside the viewport. See {@link ActiveDrag} for why it is
+   * the one exception.
+   */
   handleMouseUp(_event: MouseEvent): void {
-    // Note: a hand/grab pan release is resolved by the document-level handleDocPanUp, not
-    // here — so it fires even when the pointer is released outside the viewport.
-    if (this.isDraggingNote) {
-      dbg(`Drag ended | note:${this.state.selectedNoteId}`)
-      this.endNoteDrag()
-    }
-    if (this.isDraggingClef) {
-      this.endClefDrag()
-    }
-    if (this.isDraggingSlurHandle) {
-      this.endSlurHandleDrag()
-    }
-    if (this.isDraggingSlurEndpoint) {
-      this.endSlurEndpointDrag()
-    }
-    if (this.isDraggingTempo) {
-      this.endTempoDrag()
-    }
-    if (this.isDraggingDynamic) {
-      this.endDynamicDrag()
-    }
-    if (this.markEnd) {
-      this.endMarkEndDrag()
-    }
-    if (this.isDraggingHairpinBody) {
-      this.endHairpinBodyDrag()
-    }
-    if (this.isDraggingSlurBody) {
-      this.endSlurBodyDrag()
-    }
-    if (this.isDraggingOttavaBody) {
-      this.endOttavaBodyDrag()
-    }
-    if (this.isDraggingPedalBody) {
-      this.endPedalBodyDrag()
-    }
-    if (this.isDraggingTrillBody) {
-      this.endTrillBodyDrag()
-    }
-    if (this.isDraggingStaffSpacing) {
-      this.endStaffSpacingDrag()
-    }
-    // Unconditional: an armed-but-never-moved press has state to clear too.
-    if (this.barWidthDrag) {
-      this.endBarWidthDrag()
-    }
+    if (this.activeDrag?.kind === 'note') dbg(`Drag ended | note:${this.state.selectedNoteId}`)
+    this.activeDrag?.end()
   }
 
   /** Finish a clef drag: record one undo entry if it actually moved, then reset. */
@@ -1936,7 +1948,7 @@ export class MouseController {
       engine.commitClefMove(this.draggedClefMeasure, this.draggedClefBeat)
       dbg(`Clef moved | measure:${this.draggedClefMeasure} beat:${fracToNumber(this.draggedClefBeat)}`)
     }
-    this.isDraggingClef = false
+    this.activeDrag = null
     this.draggedClefMeasure = null
     this.draggedClefBeat = null
     this.draggedClefStartMeasure = null
@@ -1958,7 +1970,7 @@ export class MouseController {
       engine.commitSlurShape()
       dbg(`Slur reshaped | id:${this.draggedSlurId}`)
     }
-    this.isDraggingSlurHandle = false
+    this.activeDrag = null
     this.draggedSlurId = null
     this.draggedCpIndex = undefined
     this.draggedSlurEndpoints = null
@@ -1977,7 +1989,7 @@ export class MouseController {
    * = the stored line spacing (px), so dy ÷ that is the delta in staff-spaces.
    */
   private handleStaffSpacingDrag(engine: MusicEngine, _x: number, y: number): boolean {
-    if (!this.isDraggingStaffSpacing) return false
+    if (this.activeDrag?.kind !== 'staffSpacing') return false
     if (this.staffSpacingDragStartTime !== null && Date.now() - this.staffSpacingDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const dy = y - this.draggedSpacingStartY
     const above = this.draggedSpacingBaseline + dy / this.draggedStaffSpacePx
@@ -1997,7 +2009,7 @@ export class MouseController {
       engine.commitStaffSpacing()
       dbg(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff, this.draggedSpacingMeasure)} ss`)
     }
-    this.isDraggingStaffSpacing = false
+    this.activeDrag = null
     this.staffSpacingDragChanged = false
     this.staffSpacingDragStartTime = null
   }
@@ -2014,7 +2026,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Tempo mark dragged | id:${this.draggedTempoId}`)
     }
-    this.isDraggingTempo = false
+    this.activeDrag = null
     this.draggedTempoId = null
     this.tempoDragChanged = false
     this.tempoDragLastX = null
@@ -2033,7 +2045,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Dynamic dragged | id:${this.draggedDynamicId}`)
     }
-    this.isDraggingDynamic = false
+    this.activeDrag = null
     this.draggedDynamicId = null
     this.dynamicDragChanged = false
     this.dynamicDragLastX = null
@@ -2053,7 +2065,7 @@ export class MouseController {
       engine.commitSlurEndpoint()
       dbg(`Slur endpoint dragged | id:${this.draggedEndpointSlurId} end:${this.draggedEndpoint}`)
     }
-    this.isDraggingSlurEndpoint = false
+    this.activeDrag = null
     this.draggedEndpointSlurId = null
     this.draggedEndpoint = undefined
     this.slurEndpointDragChanged = false
@@ -2692,7 +2704,7 @@ export class MouseController {
    * Returns true while a note/rest drag is active (the move belongs to this gesture).
    */
   private handleNoteDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!this.isDraggingNote || !this.state.selectedNoteId || !this.noteDragStart) return false
+    if (this.activeDrag?.kind !== 'note' || !this.state.selectedNoteId || !this.noteDragStart) return false
 
     if (this.noteDragAxis === 'undecided') {
       const dx = x - this.noteDragStart.x
@@ -2786,7 +2798,7 @@ export class MouseController {
         dbg(`Note spacing set | bar ${measure} beat ${beat.num}/${beat.den} → ${engine.getNoteSpacing(measure, beat)} ss`)
       }
     }
-    this.isDraggingNote = false
+    this.activeDrag = null
     this.noteDragAxis = 'undecided'
     this.noteDragStart = null
     this.draggedNoteOriginalPitch = null
@@ -2801,7 +2813,7 @@ export class MouseController {
    * Returns true while a slur-handle drag is active.
    */
   private handleSlurHandleDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingSlurHandle && this.draggedSlurId && this.draggedCpIndex !== undefined
+    if (!(this.activeDrag?.kind === 'slurHandle' && this.draggedSlurId && this.draggedCpIndex !== undefined
         && this.draggedSlurEndpoints && this.draggedSlurBaselineCps)) return false
     if (this.slurDragStartTime !== null && Date.now() - this.slurDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const { p0, p1, direction } = this.draggedSlurEndpoints
@@ -2871,7 +2883,7 @@ export class MouseController {
    * frame PAST the time threshold — the dynamic drag's two rules, for its reasons.
    */
   private handleTempoDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingTempo && this.draggedTempoId)) return false
+    if (!(this.activeDrag?.kind === 'tempo' && this.draggedTempoId)) return false
     if (this.tempoDragStartTime !== null
         && Date.now() - this.tempoDragStartTime < this.DRAG_TIME_THRESHOLD_MS) {
       // ⭐ The held frames are logged too (his ask, 2026-08-22) — a gesture that "does nothing at
@@ -2920,7 +2932,7 @@ export class MouseController {
   }
 
   private handleDynamicDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingDynamic && this.draggedDynamicId)) return false
+    if (!(this.activeDrag?.kind === 'dynamic' && this.draggedDynamicId)) return false
     if (this.dynamicDragStartTime !== null
         && Date.now() - this.dynamicDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     if (this.dynamicDragLastX === null) {
@@ -2955,6 +2967,7 @@ export class MouseController {
   private armMarkEndDrag(kind: MarkEndKind, coords: { x: number; y: number }): void {
     const armed = selectedOf(this.state, kind)
     if (!armed?.id || !armed.endpoint) return
+    this.activeDrag = { kind: 'markEnd', end: () => this.endMarkEndDrag() }
     this.markEnd = {
       kind,
       id: armed.id,
@@ -3032,6 +3045,10 @@ export class MouseController {
   /** ⭐ The drop: one undo entry if anything was previewed, and the session goes. */
   private endMarkEndDrag(): void {
     const session = this.markEnd
+    // ⚠️ Cleared FIRST, and both together: a wrap ends this gesture mid-drag (see the caller in
+    // {@link handleMarkEndDrag}), so an early return must not leave the session half-open.
+    this.activeDrag = null
+    this.markEnd = null
     if (!session) return
     const engine = this.getEngine()
     if (engine && session.changed) {
@@ -3040,7 +3057,6 @@ export class MouseController {
       this.render.renderScore()
       dbg(`${MARK_END_DRAGS[session.kind].label} ${session.which} dragged | id:${session.id}`)
     }
-    this.markEnd = null
   }
 
   /**
@@ -3060,7 +3076,7 @@ export class MouseController {
    * the distance it never travelled.
    */
   private handleHairpinBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingHairpinBody && this.draggedHairpinBodyId)) return false
+    if (!(this.activeDrag?.kind === 'hairpinBody' && this.draggedHairpinBodyId)) return false
     if (this.hairpinBodyDragStartTime !== null
         && Date.now() - this.hairpinBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragHairpinBody(
@@ -3094,7 +3110,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Hairpin moved | id:${this.draggedHairpinBodyId}`)
     }
-    this.isDraggingHairpinBody = false
+    this.activeDrag = null
     this.draggedHairpinBodyId = null
     this.hairpinBodyDragChanged = false
     this.hairpinBodyDragStartTime = null
@@ -3109,7 +3125,7 @@ export class MouseController {
    * next note to arrive at, and a whole-curve move has nothing to arrive at.
    */
   private handleSlurBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingSlurBody && this.draggedSlurBodyId && this.slurBodyAnchor)) return false
+    if (!(this.activeDrag?.kind === 'slurBody' && this.draggedSlurBodyId && this.slurBodyAnchor)) return false
     if (this.slurBodyDragStartTime !== null
         && Date.now() - this.slurBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const moved = slurBodyDragStep(engine, this.draggedSlurBodyId, this.slurBodyAnchor, x, y)
@@ -3136,7 +3152,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Slur moved | id:${this.draggedSlurBodyId}`)
     }
-    this.isDraggingSlurBody = false
+    this.activeDrag = null
     this.draggedSlurBodyId = null
     this.slurBodyAnchor = null
     this.slurBodyDragChanged = false
@@ -3159,7 +3175,7 @@ export class MouseController {
    * spending this frame's `dx` against a slot it was never near.
    */
   private handleOttavaBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingOttavaBody && this.draggedOttavaBodyId)) return false
+    if (!(this.activeDrag?.kind === 'ottavaBody' && this.draggedOttavaBodyId)) return false
     if (this.ottavaBodyDragStartTime !== null
         && Date.now() - this.ottavaBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragOttavaBody(
@@ -3193,7 +3209,7 @@ export class MouseController {
    * where the hand is, so the hand may carry straight on down there.
    */
   private handlePedalBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingPedalBody && this.draggedPedalBodyId)) return false
+    if (!(this.activeDrag?.kind === 'pedalBody' && this.draggedPedalBodyId)) return false
     if (this.pedalBodyDragStartTime !== null
         && Date.now() - this.pedalBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragPedalBody(
@@ -3224,7 +3240,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Pedal moved | id:${this.draggedPedalBodyId}`)
     }
-    this.isDraggingPedalBody = false
+    this.activeDrag = null
     this.draggedPedalBodyId = null
     this.pedalBodyDragChanged = false
     this.pedalBodyDragStartTime = null
@@ -3245,7 +3261,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Ottava moved | id:${this.draggedOttavaBodyId}`)
     }
-    this.isDraggingOttavaBody = false
+    this.activeDrag = null
     this.draggedOttavaBodyId = null
     this.ottavaBodyDragChanged = false
     this.ottavaBodyDragStartTime = null
@@ -3260,7 +3276,7 @@ export class MouseController {
    * the cursor comes back.
    */
   private handleTrillBodyDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingTrillBody && this.draggedTrillBodyId)) return false
+    if (!(this.activeDrag?.kind === 'trillBody' && this.draggedTrillBodyId)) return false
     if (this.trillBodyDragStartTime !== null
         && Date.now() - this.trillBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const frame = dragTrillBody(
@@ -3305,7 +3321,7 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
     }
-    this.isDraggingTrillBody = false
+    this.activeDrag = null
     this.draggedTrillBodyId = null
     this.trillBodyDragChanged = false
     this.trillBodyDragStartTime = null
@@ -3331,7 +3347,7 @@ export class MouseController {
    * the distance it never travelled.
    */
   private handleSlurEndpointDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingSlurEndpoint && this.draggedEndpointSlurId && this.draggedEndpoint)) return false
+    if (!(this.activeDrag?.kind === 'slurEndpoint' && this.draggedEndpointSlurId && this.draggedEndpoint)) return false
     if (this.slurEndpointDragStartTime !== null
         && Date.now() - this.slurEndpointDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
     const dy = y - this.slurEndpointLastY
@@ -3422,7 +3438,7 @@ export class MouseController {
    * while a clef drag is active.
    */
   private handleClefDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingClef && this.draggedClefMeasure !== null && this.draggedClefBeat !== null)) return false
+    if (!(this.activeDrag?.kind === 'clef' && this.draggedClefMeasure !== null && this.draggedClefBeat !== null)) return false
     if (this.clefDragStartTime !== null) {
       const elapsed = Date.now() - this.clefDragStartTime
       if (elapsed < this.DRAG_TIME_THRESHOLD_MS) return true
@@ -3448,6 +3464,26 @@ export class MouseController {
     return true
   }
 
+  /**
+   * ⭐⭐ **THE POINTER LEFT THE CANVAS — and that ends NOTHING.** It clears the HOVER state (the
+   * tool ghost, the place-cursor, the last position) and nothing else.
+   *
+   * 🚨 His report, 2026-08-21: *"i move up and then i dont release the mouse but went out of the
+   * viefinder and when i go back im not editing the slur… this is wrong"*. A gesture belongs to the
+   * hand that is performing it, and the edge of a viewport is not a decision the hand made.
+   *
+   * ⭐ With the button still DOWN the gesture stays armed and keeps tracking, because
+   * {@link onDocMouseMove} drives it from the document — the pan's own mechanism, one rule wider.
+   * ⛔ And no re-render either: it would draw over a live preview.
+   *
+   * ⭐⭐ **With the button UP there is nothing left to end** — the release has already been settled.
+   * {@link handleMouseUp} is the only thing that ends a drag, and it is reached by three paths that
+   * between them see every release ({@link ActiveDrag}). ⚠️ Until 2026-08-24 six of the fourteen
+   * gestures were ALSO torn down here by name; that list had fallen four gestures behind, and by then
+   * it could not run at all — both assignments of `isMouseButtonDown = false` call `handleMouseUp`
+   * first, so past the guard below every gesture is already over. It was dead code from the day the
+   * document listener landed.
+   */
   handleMouseLeave(): void {
     const engine = this.getEngine()
     if (!engine) return
@@ -3456,45 +3492,7 @@ export class MouseController {
     // document-level handlers and ends on the real mouseup wherever that happens. Bail
     // here so we don't tear it down or re-render underneath it.
     if (this.isPanArmed || this.isPanning) return
-
-    // ⭐⭐ **…AND SO MUST EVERY OTHER DRAG** — his report, 2026-08-21: *"i move up and then i dont
-    // release the mouse but went out of the viefinder and when i go back im not editing the slur…
-    // this is wrong"*. The teardown below was written for a release we could not see, and that case
-    // has two better answers already: {@link onDocMouseUp} settles a release wherever it happens, and
-    // {@link handleMouseMove}'s `buttons === 0` catches one outside the browser window. What was left
-    // of it was the harm — killing a gesture the hand is still performing.
-    //
-    // ⭐ With the button still down the gesture stays armed AND keeps tracking, because
-    // {@link onDocMouseMove} now drives it from the document, which is the pan's own mechanism one
-    // rule wider. ⛔ No re-render here either: it would draw over a live preview.
     if (this.isMouseButtonDown) return
-
-    if (this.isDraggingNote) {
-      dbg('Drag ended (mouse left canvas)')
-      // Through endNoteDrag, so a spacing drag interrupted by leaving the viewport still records
-      // the undo entry for the space it already moved — the score has changed either way.
-      this.endNoteDrag()
-    }
-    if (this.isDraggingClef) {
-      dbg('Clef drag ended (mouse left canvas)')
-      this.endClefDrag()
-    }
-    if (this.isDraggingSlurHandle) {
-      dbg('Slur handle drag ended (mouse left canvas)')
-      this.endSlurHandleDrag()
-    }
-    if (this.isDraggingSlurEndpoint) {
-      dbg('Slur endpoint drag ended (mouse left canvas)')
-      this.endSlurEndpointDrag()
-    }
-    if (this.isDraggingSlurBody) {
-      dbg('Slur body drag ended (mouse left canvas)')
-      this.endSlurBodyDrag()
-    }
-    if (this.isDraggingStaffSpacing) {
-      dbg('Staff-spacing drag ended (mouse left canvas)')
-      this.endStaffSpacingDrag()
-    }
 
     this.lastCanvasMousePosition = null
     this.render.renderScore()

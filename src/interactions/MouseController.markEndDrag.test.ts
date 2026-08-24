@@ -209,4 +209,29 @@ describe.each(FAMILIES)('the $kind square drag, through the one shared handler',
     mc.handleMouseMove(ev({ clientX: 260, clientY: 100 }))
     expect(preview).not.toHaveBeenCalled()
   })
+
+  /**
+   * ⭐⭐ **A GESTURE ENDS ON THE RELEASE, WHEREVER IT HAPPENS — ⛔ never because the pointer left the
+   * canvas** (`MouseController.ActiveDrag`, his rule of 2026-08-21).
+   *
+   * ⚠️ These four families were never in `handleMouseLeave`'s teardown list at all, so before the
+   * session collapse nothing said which of the two rules they followed. Now one rule covers all
+   * fourteen gestures, and this is where the span families pin it.
+   */
+  it('🚨 leaving the canvas mid-drag commits NOTHING — the hand is still dragging', () => {
+    mc.setup()
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    grabAndMove(230, 100)
+    mc.handleMouseLeave()
+    expect(commit).not.toHaveBeenCalled()
+  })
+
+  it('⭐ …and the release OUTSIDE the canvas commits it, through the document listener', () => {
+    mc.setup()
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    grabAndMove(230, 100)
+    mc.handleMouseLeave()
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    expect(commit).toHaveBeenCalledTimes(1)
+  })
 })

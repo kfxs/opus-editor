@@ -295,11 +295,52 @@ describe('note/rest drag — release', () => {
     expect(engine.commitNoteSpacing).not.toHaveBeenCalled()
   })
 
-  it('leaving the viewport mid-drag still commits — the score already moved', () => {
+  /**
+   * ⭐⭐ **LEAVING THE VIEWPORT ENDS NOTHING — the RELEASE does, wherever it lands.** His rule,
+   * 2026-08-21: *"i move up and then i dont release the mouse but went out of the viefinder and when
+   * i go back im not editing the slur… this is wrong"*.
+   *
+   * ⚠️ **This spec used to claim the opposite** — *"leaving the viewport mid-drag still commits"* —
+   * and it passed only because it never called `setup()`, so the document listeners were never
+   * attached and `isMouseButtonDown` stayed false. In a browser a press always fires the document
+   * `mousedown` first, so `handleMouseLeave` returns at its guard and the gesture lives on. The
+   * fixture, not the editor, was answering.
+   */
+  it('🚨 leaving the viewport mid-drag commits NOTHING — the hand is still dragging', () => {
+    mc.setup()
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     mc.handleMouseDown(ev({ clientX: 100, clientY: 100 }))
     state.selectedNoteId = 'n1'
     mc.handleMouseMove(ev({ clientX: 150, clientY: 100 }))
     mc.handleMouseLeave()
+    expect(engine.commitNoteSpacing).not.toHaveBeenCalled()
+  })
+
+  it('⭐ …and the release OUTSIDE the canvas commits it, through the document listener', () => {
+    mc.setup()
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    mc.handleMouseDown(ev({ clientX: 100, clientY: 100 }))
+    state.selectedNoteId = 'n1'
+    mc.handleMouseMove(ev({ clientX: 150, clientY: 100 }))
+    mc.handleMouseLeave()
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    expect(engine.commitNoteSpacing).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * ⭐⭐ **ONE COMMIT, THOUGH THREE PATHS SEE THE RELEASE** — the document listener (capture, so it
+   * runs first), the canvas's own `mouseup`, and `handleMouseMove`'s `buttons === 0`. Every ender
+   * clears the session, so the later callers find nothing to end.
+   */
+  it('⭐ the redundant release paths do not commit twice', () => {
+    mc.setup()
+    document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    mc.handleMouseDown(ev({ clientX: 100, clientY: 100 }))
+    state.selectedNoteId = 'n1'
+    mc.handleMouseMove(ev({ clientX: 150, clientY: 100 }))
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    mc.handleMouseUp(ev())
+    mc.handleMouseMove(ev({ clientX: 150, clientY: 100 }))
     expect(engine.commitNoteSpacing).toHaveBeenCalledTimes(1)
   })
 

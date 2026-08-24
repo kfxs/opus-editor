@@ -271,7 +271,7 @@ the error count either side (31 before, 31 after, all pre-existing `ChordRest` n
 
 ---
 
-## ✅ Phase 1 — The drag driver — **1b DONE, 1a HALF DONE, 2026-08-24**
+## ✅ Phase 1 — The drag driver — **DONE 2026-08-24**
 
 **The smallest slice that proves the Phase 3 abstraction, at a tenth of the size.** If the four
 families cannot share a driver, this is where we find out cheaply — and Phase 3 does not start.
@@ -331,15 +331,36 @@ Five knobs, each one a rule somebody reported: `wrap` (absent for the trill's ke
 **not** a knob — the batching rule, wrap-then-ink-then-hand-over, the folded-distance re-base — was
 identical in all six copies.
 
-**1a — the square drag — HALF DONE.** The four `handle*EndDrag` methods (49–57 lines, 54–56%
-identical) are one `handleMarkEndDrag` plus a `MARK_END_DRAGS` table; the four `end*EndDrag` are one;
-**28 flat drag fields are one `MarkEndSession`**. `MouseController` 3,762 → ~3,500 lines.
-⏭️ **The other 13 `isDragging*` flags are NOT done.** Surveying them turned up a rule that has to be
-made explicit first: they are read in **three** dispatch blocks, and `handleMouseLeave` ends only
-**six** of the twelve. One `activeDrag?.end()` would end all of them, so the collapse needs a stated
-"which gestures die when the pointer leaves" set — today that rule exists only as which `if`s someone
-wrote. (The plan's trap is real: `isDraggingBarWidth` is not a gesture flag at all, it is the
-past-the-threshold bit.)
+**1a — the square drag — DONE.** The four `handle*EndDrag` methods (49–57 lines, 54–56% identical)
+are one `handleMarkEndDrag` plus a `MARK_END_DRAGS` table; the four `end*EndDrag` are one; **28 flat
+drag fields are one `MarkEndSession`**. `MouseController` 3,762 → ~3,500 lines.
+
+**…and the 13 `isDragging*` flags are one `ActiveDrag` — 2026-08-24.** Fourteen `if`s in
+`handleMouseUp` are `this.activeDrag?.end()`; each gesture carries its own ender, so a new one is a
+`kind` and an `arm` rather than a line in every block that dispatches.
+
+⭐⭐ **The rule the survey was waiting for turned out not to need deciding — it was already in force
+and one block had simply not been told.** *A gesture ends on the RELEASE, wherever that release
+happens; leaving the canvas ends nothing.* Three paths see every release — `onDocMouseUp` (document,
+capture), the canvas's own `mouseup`, and `handleMouseMove`'s `buttons === 0` for a release outside
+the browser window — and every ender clears the session, so the redundancy is safe rather than three
+commits. **One exception: the PAN**, settled by its own document pair because it is armed on a press
+that may still be a tap.
+
+🚨 **So `handleMouseLeave`'s six-gesture teardown was DEAD CODE, not an asymmetry to preserve.** It
+sits behind `if (isMouseButtonDown) return`, and both assignments of that flag to `false` call
+`handleMouseUp` first — so past the guard every gesture is already over. It had been unreachable
+since the document listener landed (2026-08-20) and the button-down guard followed (2026-08-21);
+the list had also fallen four gestures behind, which is what made it look like a rule.
+
+⚠️ **One spec was standing on the dead path** — `MouseController.noteSpacingDrag.test.ts`'s *"leaving
+the viewport mid-drag still commits"* passed only because that fixture never calls `setup()`, so the
+document listeners were never attached and `isMouseButtonDown` stayed false. It asserted the opposite
+of the shipped rule; it now asserts the rule, and the four span families pin it too
+(`MouseController.markEndDrag.test.ts`). 5,099 → **5,109** tests.
+
+⭐ The plan's trap was real and is handled: `isDraggingBarWidth` is not a gesture flag, it is the
+past-the-dead-zone bit, so the session is armed from the PRESS and that boolean stays its own.
 
 🚨 **The line-count estimate was wrong, and it matters for Phases 3–5.** The table below says Phase 1
 removes ~1,000 lines. It removed **262** from the six families and added **266** in the driver — net
@@ -649,7 +670,7 @@ stack. So the clause should end:
 | # | phase | effort | risk | removes | makes cheap |
 |---|---|---|---|---|---|
 | 0 | ✅ subtraction | ~~1–2 h~~ **½ day** | none | **83** dead lines, ~~~80~~ ~~242~~ **231** exports | seeing the real seams |
-| 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; 4 of 17 flags | the Phase 3 decision, cheaply — **taken: it works** |
+| 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; **13 flags → 1**, 20 `if`s → 1 call | the Phase 3 decision, cheaply — **taken: it works** |
 | 2 | outlier functions | ½–1 day | medium | 0 — it is navigation | reading `renderScore` and `App.ts` |
 | 3 | `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~1,500 lines | the shape for the rest |
 | 4 | ottava, trill, ⟨hairpin⟩ | 2–3 days | medium | **~5,000–6,500** lines | glissando as a row |
