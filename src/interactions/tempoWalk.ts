@@ -25,8 +25,9 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Stop } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
-import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
-import { breakCrossing, lastMeasureNumber, leaveSystem, systemInkAt, type BreakWrapPort } from './markBreakWrap'
+import { type MarkWalkPort } from './markWalk'
+import { lastMeasureNumber, systemInkAt, type BreakWrapPort } from './markBreakWrap'
+import { dragFrame, walkPress } from './markDrive'
 import { systemStopFor } from './markSystemJump'
 import { dbg, debugEnabled } from '../utils/debug'
 
@@ -242,32 +243,15 @@ export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): bool
     rebase: (i, ddx) => engine.rebaseTempoOffset(i, ddx),
   })
 
-  const wrap = wrapPort(engine, id)
-  const across = breakCrossing(port, wrap, dx)
-  // ⛔ No batch when nothing crosses: `runBatch` costs a snapshot per press, and the ordinary nudge
-  // records its own single entry.
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (port.nudge(dx, 0)) return true
-    // 🚨 **A BLOCKED PRESS STILL CROSSES** — see `./markWalk.crossWithoutArrival`: the page's edge
-    // can refuse the ink a space short of the line's end, and the wrap's arrival test can then never
-    // be met.
-    let handed = false
-    engine.runBatch('Move tempo mark', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
-  }
-
-  let moved = false
-  engine.runBatch('Move tempo mark', () => {
-    moved = across?.arrived
-      // ⭐ THE KEYS re-base by the FOLDED distance — `./markBreakWrap`.
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx).moved
-  })
-  return moved
+  // ⭐ THE SECOND POINT MARK ON THE SHARED DRIVER (`./markDrive`), and with the dynamic the pair that
+  // keeps it honest: neither has a length or an armed end, so a driver they can both call is a driver
+  // about the WALK. ⛔ No crossing bound, for the dynamic's reason.
+  return walkPress({
+    port,
+    wrap: wrapPort(engine, id),
+    label: 'Move tempo mark',
+    runBatch: (description, fn) => engine.runBatch(description, fn),
+  }, dx)
 }
 
 /**
@@ -323,15 +307,16 @@ export function dragTempo(
     nudge: (i, ddx, ddy) => engine.previewTempoOffset(i, ddx, ddy),
     rebase: (i, ddx) => engine.previewTempoOffsetRebase(i, ddx),
   })
-  // ⚠️ `dyPx` is screen-down and the model is OUTWARD, so the sign flips exactly here.
-  const walked = carryMark(port, dxPx / ss, -dyPx / ss, true)
-  if (before) {
+  // ⚠️ `dyPx` is screen-down and the model is OUTWARD, so the sign flips in `vertical` and nowhere
+  // else. ⛔ No wrap: a tempo mark's frame ends at a SYSTEM jump above, not at a line's edge.
+  const walked = dragFrame({ port, latch: true, vertical: (px, space) => -px / space }, cursorX, dxPx, dyPx)
+  if (before && walked) {
     logDragFrame(engine, id, cursorX, dxPx, dyPx, ss, before,
       `crossings=${walked.crossings}`
-      + (walked.latched ? ` LATCHED (dropped ${walked.dropped.toFixed(3)}ss, unrepaid)` : '')
+      + (walked.latched ? ` LATCHED (dropped ${(walked.droppedPx / ss).toFixed(3)}ss, unrepaid)` : '')
       + ` moved=${walked.moved}`)
   }
-  return walked.moved
+  return walked?.moved ?? null
 }
 
 /**

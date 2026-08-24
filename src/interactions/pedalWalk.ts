@@ -55,8 +55,9 @@ import {
   pedalInkY, pedalLiftX, pedalPressAddress, pedalPressX, pedalStaffSpacePx, pedalSystemInkLimit,
   pedalSystemSlotFor,
 } from './pedalLane'
-import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
-import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
+import { type MarkWalkPort } from './markWalk'
+import { type BreakWrapPort } from './markBreakWrap'
+import { dragFrame, walkPress, type DragFrame } from './markDrive'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -144,39 +145,32 @@ export function walkPedalEndpoint(
   which: 'start' | 'end',
   dx: number,
 ): boolean {
-  if (dx === 0) return false
-  const port = portFor(engine, id, which, keyWrites(engine, id, which))
+  return walkPress(endpointDrive(engine, id, which, keyWrites(engine, id, which)), dx)
+}
 
-  const wrap = wrapPort(engine, id, which)
-  const across = breakCrossing(port, wrap, dx)
-  // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
-  // per press, and the ordinary nudge records its own single entry.
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (inkPress(port, dx)) return true
-    // ⭐⭐ The ink had nowhere to go — the page's edge. The press then spends itself on the FOOT
-    // rather than on nothing at all, in its own batch for the reason above. 🚨 The WRAP first where
-    // there is one: a blocked press at the end of a system is exactly the case `./markBreakWrap`
-    // exists for, and its arrival test can never be met once the ink has stopped moving (his *"cross
-    // system doesn't work at all"*, 2026-08-21).
-    let handed = false
-    engine.runBatch(which === 'start' ? 'Move pedal start' : 'Move pedal lift', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
+/**
+ * ⭐ The pedal's row in the shared driver's table (`./markDrive`) — one sign, keys or mouse.
+ *
+ * ⭐⭐ **THE INK IS FREE, which is why there is no `inkGuard` here** — his rule, 2026-08-21, given for
+ * the bracket and about offsets generally: *"the user should be able to offset it at will"*. ⛔ Do not
+ * add a limit that holds a sign inside its own bar or system. The only stop on this road is the
+ * PAGE's edge (`layout/pageBounds`), which is his own earlier rule and is judged per MOVING SIGN
+ * ({@link MusicEngine.pedalEndpointStepAllowed}).
+ */
+function endpointDrive(
+  engine: PedalWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  write: PedalWrite,
+) {
+  return {
+    port: portFor(engine, id, which, write),
+    wrap: wrapPort(engine, id, which),
+    label: which === 'start' ? 'Move pedal start' : 'Move pedal lift',
+    runBatch: (description: string, fn: () => void) => engine.runBatch(description, fn),
+    // ⭐ ONE stop per press — the trill's report, and the rule for every span end.
+    maxCrossings: 1,
   }
-
-  let moved = false
-  engine.runBatch(which === 'start' ? 'Move pedal start' : 'Move pedal lift', () => {
-    moved = across?.arrived
-      // ⭐ THE KEYS re-base by the FOLDED distance: their ink really did travel it, one press at a
-      // time, so the sign re-appears exactly as far into the new line as the hand pushed it past the
-      // barline (`./markBreakWrap`).
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx, 0, false, 1).moved
-  })
-  return moved
 }
 
 /**
@@ -239,49 +233,12 @@ export function dragPedalEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; wrapped: boolean; droppedPx: number; latched: boolean;
-     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
-     gapAheadPx: number } | null {
-  const port = portFor(engine, id, which, previewWrites(engine, id, which))
-  const staffSpacePx = port.staffSpacePx()
-  if (!staffSpacePx) return null
-
-  const dx = dxPx / staffSpacePx
-  const dy = dyPx / staffSpacePx
-  if (dx === 0 && dy === 0) return { moved: false, wrapped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
-
-  const wrap = wrapPort(engine, id, which)
-  const across = breakCrossing(port, wrap, dx, cursorX)
-  // ⭐ ONE LINE PER FRAME, the hairpin's (his ask, 2026-08-22: *"give more information in the logs
-  //   and i test"*). The lag is the CURSOR against the drawn INK, so both are here: the ink is
-  //   `anchor + offset`, and a frame where they diverge is the drag falling behind the hand.
-  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)}`
-    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss`
-    + ` ink ${((port.anchorX() ?? 0) + port.offsetX() * staffSpacePx).toFixed(0)}`
-    + ` | dx ${dx.toFixed(2)}ss (${dxPx.toFixed(0)}px @ ${staffSpacePx.toFixed(2)}px/ss)`
-    + ` | across ${across ? (across.arrived ? 'ARRIVED' : 'pending') : 'no'}`)
-  if (across?.arrived) {
-    // ⭐ THE MOUSE lands a stub inside the new line — ⛔ not the folded distance the KEYS re-base by,
-    // whose overshoot on the frame that wraps is a single frame of travel and comes out invisible
-    // (`./markBreakWrap`).
-    const moved = leaveSystem(port, wrap, across.stop, () => across.landing)
-    return { moved, wrapped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
-  }
-
-  // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a frame
-  // that merely passes through offset zero is exactly the one it exists for.
-  // ⛔ **NO ONE-CROSSING BOUND HERE** — a key press may cross one stop, but one frame of a fast drag
-  // really can fly over several, and re-anchoring once would leave the sign trailing the cursor by
-  // however many were skipped.
-  const carried = carryMark(port, dx, dy, true)
-  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return {
-    moved: carried.moved,
-    wrapped: false,
-    droppedPx: carried.dropped * staffSpacePx,
-    latched: carried.latched,
-    gapAheadPx: carried.gapAhead * staffSpacePx,
-  }
+): DragFrame | null {
+  const { port, wrap } = endpointDrive(engine, id, which, previewWrites(engine, id, which))
+  // ⚠️ ⛔ No screen→outward conversion, unlike the bracket's twin — a pedal has one side permanently,
+  // so `+ down` means the same thing everywhere it can be drawn and the number passes straight
+  // through (`shortcutWiring` makes no conversion for the keys either).
+  return dragFrame({ port, wrap, latch: true }, cursorX, dxPx, dyPx)
 }
 
 /**
@@ -307,33 +264,14 @@ export function dragPedalEndpoint(
  * @returns true when the model changed (the caller repaints), false when nothing was written.
  */
 export function walkPedalBody(engine: PedalWalkEngine, id: string, dx: number): boolean {
-  if (dx === 0) return false
-  const port = bodyPort(engine, id, bodyWrites(engine, id))
-
-  const wrap = wrapPort(engine, id, 'start')
-  const across = breakCrossing(port, wrap, dx)
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (inkPress(port, dx)) return true
-    // ⭐⭐ The ink had nowhere to go — the page's edge. The press then spends itself on the PEDAL
-    // rather than on nothing at all. 🚨 The WRAP first where there is one: a blocked press at the end
-    // of a system is exactly the case `./markBreakWrap` exists for, and its arrival test can never be
-    // met once the ink has stopped moving.
-    let handed = false
-    engine.runBatch('Move pedal', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
-  }
-
-  let moved = false
-  engine.runBatch('Move pedal', () => {
-    moved = across?.arrived
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx, 0, false, 1).moved
-  })
-  return moved
+  return walkPress({
+    port: bodyPort(engine, id, bodyWrites(engine, id)),
+    // ⭐ The PRESS's system, because a pedal moved as one is moved by the foot going down.
+    wrap: wrapPort(engine, id, 'start'),
+    label: 'Move pedal',
+    runBatch: (description, fn) => engine.runBatch(description, fn),
+    maxCrossings: 1,
+  }, dx)
 }
 
 /**
@@ -377,10 +315,9 @@ export function dragPedalBody(
 
   if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
 
-  const dx = dxPx / staffSpacePx
-  const dy = dyPx / staffSpacePx
-  if (dx === 0 && dy === 0) return { moved: false, jumped: false }
-  return { moved: carryMark(port, dx, dy).moved, jumped: false }
+  // ⛔ No wrap and no latch: a whole pedal leaves its staff by a JUMP, and it is placed by eye.
+  const frame = dragFrame({ port, latch: false }, cursorX, dxPx, dyPx)
+  return frame && { moved: frame.moved, jumped: false }
 }
 
 /**
@@ -459,23 +396,6 @@ function bodyPort(engine: PedalWalkEngine, id: string, write: PedalWrite): MarkW
     nudge: (dx, dy) => write.nudge(dx, dy),
     rebase: (dx) => write.rebase(dx),
   }
-}
-
-/**
- * The ordinary press: ink, and a log line saying what it did to the offset.
- *
- * ⭐⭐ **THE INK IS FREE** — his rule, 2026-08-21, given for the bracket and about offsets generally:
- * *"the user should be able to offset it at will"*. ⛔ Do not add a limit that holds a sign inside
- * its own bar or system. The only stop on this road is the PAGE's edge (`layout/pageBounds`), which
- * is his own earlier rule and is judged per MOVING SIGN
- * ({@link MusicEngine.pedalEndpointStepAllowed}).
- */
-function inkPress(port: MarkWalkPort, dx: number): boolean {
-  const before = port.offsetX()
-  const moved = port.nudge(dx, 0)
-  dbg(`[${port.label}] ink ${dx > 0 ? '+' : ''}${dx.toFixed(2)}ss`
-    + ` | offset ${before.toFixed(2)} → ${port.offsetX().toFixed(2)}ss${moved ? '' : ' (REFUSED)'}`)
-  return moved
 }
 
 /** Which sign's port. ⛔ Not a `which` switch inside the members: each end states its own three

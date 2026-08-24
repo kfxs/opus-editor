@@ -51,8 +51,9 @@ import {
 } from './dynamicLane'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
-import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
-import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
+import { type MarkWalkPort } from './markWalk'
+import { type BreakWrapPort } from './markBreakWrap'
+import { dragFrame, walkPress } from './markDrive'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -149,34 +150,15 @@ export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): 
     rebase: (i, ddx) => engine.rebaseDynamicOffset(i, ddx),
   })
 
-  const wrap = wrapPort(engine, id)
-  const across = breakCrossing(port, wrap, dx)
-  // ⛔ No batch when nothing crosses: `runBatch` costs a snapshot per press, and the ordinary nudge
-  // has recorded its own single entry since the offset shipped.
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (port.nudge(dx, 0)) return true
-    // 🚨 **A BLOCKED PRESS STILL CROSSES** — the wedge's and the bracket's rule, arriving here with
-    // the wrap itself: the page's edge can refuse the ink a space short of the line's end, and the
-    // wrap's arrival test can then never be met (`./markWalk.crossWithoutArrival`).
-    let handed = false
-    engine.runBatch('Move dynamic', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
-  }
-
-  let moved = false
-  engine.runBatch('Move dynamic', () => {
-    moved = across?.arrived
-      // ⭐ THE KEYS re-base by the FOLDED distance: their ink really did travel it, one press at a
-      // time, so the mark re-appears exactly as far into the new line as the hand pushed it past the
-      // barline (`./markBreakWrap`).
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx).moved
-  })
-  return moved
+  // ⭐ A POINT MARK ON THE SHARED DRIVER (`./markDrive`) — no armed end and no length, which is the
+  // proof the driver is about the WALK and not about spans. ⛔ No crossing bound: the reason a span's
+  // end has one is an ink nudged far ahead of its own note, and a dynamic's ink is its whole position.
+  return walkPress({
+    port,
+    wrap: wrapPort(engine, id),
+    label: 'Move dynamic',
+    runBatch: (description, fn) => engine.runBatch(description, fn),
+  }, dx)
 }
 
 /**
@@ -231,7 +213,10 @@ export function dragDynamic(
 
   if (jumpStaves(engine, id, cursorX, dyPx, ss)) return true
 
-  return carryMark(port, dxPx / ss, dyPx / ss).moved
+  // ⛔ **No wrap and no latch** — the two knobs this family turns off, and both are his calls: a
+  // dynamic's drag ends its frame at a STAFF jump rather than wrapping onto the next line, and a `p`
+  // is a label placed by eye, so a latch would be felt as a snag with nothing to show for it.
+  return dragFrame({ port, latch: false }, cursorX, dxPx, dyPx)?.moved ?? null
 }
 
 /**

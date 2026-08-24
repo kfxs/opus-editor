@@ -54,8 +54,9 @@ import {
   ottavaEdgeX, ottavaInkY, ottavaStaffSpacePx, ottavaStartAddress, ottavaSystemInkLimit,
   ottavaSystemSlotFor,
 } from './ottavaLane'
-import { carryMark, crossWithoutArrival, markWalkCrosses, type MarkWalkPort } from './markWalk'
-import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
+import { type MarkWalkPort } from './markWalk'
+import { type BreakWrapPort } from './markBreakWrap'
+import { dragFrame, walkPress, type DragFrame } from './markDrive'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -140,40 +141,33 @@ export function walkOttavaEndpoint(
   which: 'start' | 'end',
   dx: number,
 ): boolean {
-  if (dx === 0) return false
-  const port = portFor(engine, id, which, keyWrites(engine, id, which))
+  return walkPress(endpointDrive(engine, id, which, keyWrites(engine, id, which)), dx)
+}
 
-  const wrap = wrapPort(engine, id, which)
-  const across = breakCrossing(port, wrap, dx)
-  // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
-  // per press, and the ordinary nudge records its own single entry.
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (inkPress(port, dx)) return true
-    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
-    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses
-    // it a space or so before that (a system's music ends within a space of the sheet's margin), so
-    // the gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press
-    // spends itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival`
-    // where it is on this one. The identity holds either way — the drawn mark does not move.
-    let handed = false
-    engine.runBatch(which === 'start' ? 'Move octave line start' : 'Resize octave line', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
+/**
+ * ⭐ The bracket's row in the shared driver's table (`./markDrive`) — one square, keys or mouse.
+ *
+ * ⭐⭐ **THE INK IS FREE, which is why there is no `inkGuard` here** — his rule, 2026-08-21, rejecting
+ * a limit that held the offset inside the system's own music: *"you are restricted the ottava offset
+ * to the measure, the user should be able to offset it at will"*. ⛔ Do not add one back. The only
+ * stop on this road is the PAGE's edge (`layout/pageBounds`), which is his own earlier rule and is
+ * judged per MOVING EDGE.
+ */
+function endpointDrive(
+  engine: OttavaWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  write: OttavaWrite,
+) {
+  return {
+    port: portFor(engine, id, which, write),
+    wrap: wrapPort(engine, id, which),
+    label: which === 'start' ? 'Move octave line start' : 'Resize octave line',
+    runBatch: (description: string, fn: () => void) => engine.runBatch(description, fn),
+    // ⭐ ONE stop per press — an end whose ink has been nudged far ahead of its note is already PAST
+    // every stop between the two, so an unbounded loop would hop the whole distance on one keystroke.
+    maxCrossings: 1,
   }
-
-  let moved = false
-  engine.runBatch(which === 'start' ? 'Move octave line start' : 'Resize octave line', () => {
-    moved = across?.arrived
-      // ⭐ THE KEYS re-base by the FOLDED distance: their ink really did travel it, one press at a
-      // time, so the end re-appears exactly as far into the new line as the hand pushed it past the
-      // barline (`./markBreakWrap`).
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx, 0, false, 1).moved
-  })
-  return moved
 }
 
 /**
@@ -232,51 +226,14 @@ export function dragOttavaEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; wrapped: boolean; droppedPx: number; latched: boolean;
-     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
-     gapAheadPx: number } | null {
-  const port = portFor(engine, id, which, previewWrites(engine, id, which))
-  const staffSpacePx = port.staffSpacePx()
-  if (!staffSpacePx) return null
-
-  const dx = dxPx / staffSpacePx
+): DragFrame | null {
+  const { port, wrap } = endpointDrive(engine, id, which, previewWrites(engine, id, which))
   // ⭐⭐ SCREEN → OUTWARD, once, here. Screen-down is +dyPx; above the staff, further out is UP.
   const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
-  const outward = (above ? -dyPx : dyPx) / staffSpacePx
-  if (dx === 0 && outward === 0) return { moved: false, wrapped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
-
-  const wrap = wrapPort(engine, id, which)
-  const across = breakCrossing(port, wrap, dx, cursorX)
-  // ⭐ ONE LINE PER FRAME, the hairpin's (his ask, 2026-08-22: *"give more information in the logs
-  //   and i test"*). The lag is the CURSOR against the drawn INK, so both are here: the ink is
-  //   `anchor + offset`, and a frame where they diverge is the drag falling behind the hand.
-  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)}`
-    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss`
-    + ` ink ${((port.anchorX() ?? 0) + port.offsetX() * staffSpacePx).toFixed(0)}`
-    + ` | dx ${dx.toFixed(2)}ss (${dxPx.toFixed(0)}px @ ${staffSpacePx.toFixed(2)}px/ss)`
-    + ` | across ${across ? (across.arrived ? 'ARRIVED' : 'pending') : 'no'}`)
-  if (across?.arrived) {
-    // ⭐ THE MOUSE lands a stub inside the new line — ⛔ not the folded distance the KEYS re-base by,
-    // whose overshoot on the frame that wraps is a single frame of travel and comes out invisible
-    // (`./markBreakWrap`).
-    const moved = leaveSystem(port, wrap, across.stop, () => across.landing)
-    return { moved, wrapped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
-  }
-
-  // ⚠️ `carryMark` unconditionally, ⛔ not only when it crosses: the LATCH lives in there, and a frame
-  // that merely passes through offset zero is exactly the one it exists for.
-  // ⛔ **NO ONE-CROSSING BOUND HERE** — a key press may cross one stop, but one frame of a fast drag
-  // really can fly over several, and re-anchoring once would leave the bracket trailing the cursor by
-  // however many were skipped.
-  const carried = carryMark(port, dx, outward, true)
-  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return {
-    moved: carried.moved,
-    wrapped: false,
-    droppedPx: carried.dropped * staffSpacePx,
-    latched: carried.latched,
-    gapAheadPx: carried.gapAhead * staffSpacePx,
-  }
+  return dragFrame(
+    { port, wrap, latch: true, vertical: (px, space) => (above ? -px : px) / space },
+    cursorX, dxPx, dyPx,
+  )
 }
 
 /**
@@ -299,35 +256,14 @@ export function dragOttavaEndpoint(
  * beginning's own system.
  */
 export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number): boolean {
-  if (dx === 0) return false
-  const port = bodyPort(engine, id, bodyWrites(engine, id))
-
-  const wrap = wrapPort(engine, id, 'start')
-  const across = breakCrossing(port, wrap, dx)
-  if (!across?.arrived && !markWalkCrosses(port, dx)) {
-    if (inkPress(port, dx)) return true
-    // 🚨🚨 **A BLOCKED PRESS STILL CROSSES** — his *"cross system doesn't work at all"*, 2026-08-21.
-    // The wrap's arrival test asks the ink to reach the line's last ink, and the PAGE limit refuses
-    // it a space or so before that (a system's music ends within a space of the sheet's margin), so
-    // the gesture died where it should have wrapped. ⭐ The ink cannot pay any further, so the press
-    // spends itself on the ANCHOR: the wrap where the stop is on another system, `crossWithoutArrival`
-    // where it is on this one. The identity holds either way — the drawn mark does not move.
-    let handed = false
-    engine.runBatch('Move octave line', () => {
-      handed = across
-        ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-        : crossWithoutArrival(port, dx)
-    })
-    return handed
-  }
-
-  let moved = false
-  engine.runBatch('Move octave line', () => {
-    moved = across?.arrived
-      ? leaveSystem(port, wrap, across.stop, (before) => before + dx - across.gap)
-      : carryMark(port, dx, 0, false, 1).moved
-  })
-  return moved
+  return walkPress({
+    port: bodyPort(engine, id, bodyWrites(engine, id)),
+    // ⭐ The BEGINNING's system, because a bracket moved as one is moved by its beginning.
+    wrap: wrapPort(engine, id, 'start'),
+    label: 'Move octave line',
+    runBatch: (description, fn) => engine.runBatch(description, fn),
+    maxCrossings: 1,
+  }, dx)
 }
 
 /**
@@ -372,12 +308,14 @@ export function dragOttavaBody(
 
   if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
 
-  const dx = dxPx / staffSpacePx
   // ⭐⭐ SCREEN → OUTWARD, the same conversion {@link dragOttavaEndpoint} makes, and for its reason.
+  // ⛔ No wrap and no latch: a whole bracket leaves its staff by a JUMP, and it is placed by eye.
   const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
-  const outward = (above ? -dyPx : dyPx) / staffSpacePx
-  if (dx === 0 && outward === 0) return { moved: false, jumped: false }
-  return { moved: carryMark(port, dx, outward).moved, jumped: false }
+  const frame = dragFrame(
+    { port, latch: false, vertical: (px, space) => (above ? -px : px) / space },
+    cursorX, dxPx, dyPx,
+  )
+  return frame && { moved: frame.moved, jumped: false }
 }
 
 /**
@@ -472,22 +410,6 @@ function wrapPort(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'):
     there: (stop) => limitOf(stop as OttavaSlotTarget),
     address: (stop) => stop,
   }
-}
-
-/**
- * The ordinary press: ink, and a log line saying what it did to the offset.
- *
- * ⭐⭐ **THE INK IS FREE** — his rule, 2026-08-21, rejecting a limit that held the offset inside the
- * system's own music: *"you are restricted the ottava offset to the measure, the user should be able
- * to offset it at will"*. ⛔ Do not add one back. The only stop on this road is the PAGE's edge
- * (`layout/pageBounds`), which is his own earlier rule and is judged per MOVING EDGE.
- */
-function inkPress(port: MarkWalkPort, dx: number): boolean {
-  const before = port.offsetX()
-  const moved = port.nudge(dx, 0)
-  dbg(`[${port.label}] ink ${dx > 0 ? '+' : ''}${dx.toFixed(2)}ss`
-    + ` | offset ${before.toFixed(2)} → ${port.offsetX().toFixed(2)}ss${moved ? '' : ' (REFUSED)'}`)
-  return moved
 }
 
 /** Which end's port. ⛔ Not a `which` switch inside the members: each end states its own three

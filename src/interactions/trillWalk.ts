@@ -52,9 +52,12 @@ import type { EditorState } from './EditorState'
 import { selectedOf } from './EditorState'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { trillEndWithoutAnEnd } from '../engine/models/trillOps'
-import { carryMark, markWalkCrosses, type MarkWalkPort } from './markWalk'
+import { type MarkWalkPort } from './markWalk'
+import { dragFrame, inkNudge, walkPress, type DragFrame, type MarkDriveSpec } from './markDrive'
 // ⭐ The line a mark stands on, in RAW drawn x's — {@link wouldLeaveLineStart} and the frame trace.
-import { lastMeasureNumber, systemInkAt } from './markBreakWrap'
+import {
+  lastMeasureNumber, systemInkAt, type BreakWrapPort, type SystemInk,
+} from './markBreakWrap'
 import {
   applyTrillAnchorStop, nextTrillAnchorStop, trillAnchorPosition, type TrillAnchorEngine,
   type TrillAnchorStop,
@@ -248,19 +251,6 @@ function inkStaysOnTheRibbon(
   return true
 }
 
-/** The ordinary press: ink, unless the ink would leave the ribbon altogether. */
-function inkPress(
-  engine: TrillWalkEngine,
-  id: string,
-  port: MarkWalkPort,
-  dx: number,
-): boolean {
-  if (!inkStaysOnTheRibbon(engine, id, port, dx)) {
-    dbg(`[${port.label}] refused — past the last line the render drew`)
-    return false
-  }
-  return port.nudge(dx, 0)
-}
 
 /**
  * ⭐⭐ **ONE HORIZONTAL ARROW PRESS ON AN ARMED TRILL SQUARE** — nudge that end's ink by `dx`
@@ -433,13 +423,7 @@ function bodyPreviewWrites(engine: TrillWalkEngine, id: string): TrillWrite {
  * @returns true when something was written (the caller repaints).
  */
 export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): boolean {
-  if (dx === 0) return false
-  const port = bodyPort(engine, id, bodyKeyWrites(engine, id))
-  if (!markWalkCrosses(port, dx)) return inkPress(engine, id, port, dx)
-
-  let moved = false
-  engine.runBatch('Move trill', () => { moved = carryMark(port, dx, 0, false, 1).moved })
-  return moved
+  return walkPress(trillDrive(engine, id, bodyPort(engine, id, bodyKeyWrites(engine, id)), 'Move trill'), dx)
 }
 
 /**
@@ -519,7 +503,9 @@ export function dragTrillBody(
     dbg(`[Trill] ⛔ the ink is against the start of its line — the body does not fold backwards`)
     return { moved: lifted }
   }
-  return { moved: carryMark(port, dxPx / staffSpacePx, 0).moved || lifted }
+  // ⛔ No wrap, no latch and no vertical here: the lift above is this family's own ladder rung.
+  const frame = dragFrame({ port, latch: false, vertical: () => 0 }, cursorX, dxPx, 0)
+  return { moved: (frame?.moved ?? false) || lifted }
 }
 
 /**
@@ -751,6 +737,28 @@ function dropTheLift(engine: TrillWalkEngine, id: string): boolean {
   return outward === 0 || engine.previewTrillEndpointOffset(id, 'start', 0, -outward)
 }
 
+
+
+/**
+ * ⭐ A frame of the ornament's square drag: the shared {@link DragFrame}, plus the one fact only this
+ * family reports.
+ *
+ * ⚠️ `wrapped` is always **false** here and that is a claim, not a placeholder — a trill's ink is ONE
+ * RIBBON across the systems (`./trillLane`), so leaving a line is not an event
+ * ({@link dragTrillEndpoint}). Saying it in the shared vocabulary is what lets one caller drive all
+ * four families.
+ */
+type TrillDragFrame = DragFrame & {
+  /** ⭐ A LADDER RUNG was taken — the far side of this staff, or the system beyond. ⛔ It ends the
+   *  FRAME, never the gesture: the hand is travelling with the ornament. */
+  jumped: boolean
+}
+
+/** A frame that walked nowhere — a rung taken, a state written, or a hand that did not move. */
+const NO_TRAVEL: TrillDragFrame = {
+  moved: false, jumped: false, wrapped: false, crossings: 0, latched: false, droppedPx: 0, gapAheadPx: 0,
+}
+
 /**
  * ⭐⭐ **ONE FRAME OF A TRILL SQUARE DRAG** — the same journey as the arrows, with the cursor's delta
  * in PIXELS instead of a key's step and no undo entry (the drop commits once,
@@ -789,9 +797,7 @@ export function dragTrillEndpoint(
   cursorX: number,
   dxPx: number,
   dyPx = 0,
-): { moved: boolean; jumped: boolean; droppedPx: number; latched: boolean;
-     /** ⭐ For the caller's HOLD (`./dragHold`) — the gap AHEAD of where it latched, in px. */
-     gapAheadPx: number } | null {
+): TrillDragFrame | null {
   const port = trillPort(engine, id, which, previewWrites(engine, id, which))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
@@ -801,13 +807,13 @@ export function dragTrillEndpoint(
   if (crossTheBareSign(engine, id, which, dxPx / staffSpacePx, {
     extension: (to) => engine.previewTrillExtension(id, to),
     nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
-  })) return { moved: true, jumped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
+  })) return { ...NO_TRAVEL, moved: true }
 
   // ⭐⭐ ITS OWN STAFF FIRST — see {@link flipTrillPlacement}. An ornament dragged across its staff
   // belongs on the other side of it long before it belongs to the staff beyond.
-  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
-  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true, droppedPx: 0, latched: false, gapAheadPx: 0 }
-  if (dxPx === 0 && dyPx === 0) return { moved: false, jumped: false, droppedPx: 0, latched: false, gapAheadPx: 0 }
+  if (flipTrillPlacement(engine, id, dyPx)) return { ...NO_TRAVEL, moved: true, jumped: true }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { ...NO_TRAVEL, moved: true, jumped: true }
+  if (dxPx === 0 && dyPx === 0) return { ...NO_TRAVEL }
 
   // ⭐⭐ **THE VERTICAL IS ONE NUMBER FOR THE WHOLE ORNAMENT** — the sign and the wiggle sit on one
   // baseline, so `TrillOffsetOverride` has a single height and the armed square does not matter to
@@ -816,25 +822,21 @@ export function dragTrillEndpoint(
   const lifted = dyPx !== 0
     && engine.previewTrillEndpointOffset(id, which, 0, (above ? -dyPx : dyPx) / staffSpacePx)
 
-  // ⚠️ `carryMark` UNCONDITIONALLY, ⛔ not only when it crosses: the LATCH lives in there, and a
-  // frame that merely passes through offset zero is exactly the one it exists for.
-  // ⛔ **NO INK LIMIT ON A FRAME** — the wedge's recorded lesson: a frame is not a step, and refusing
-  // a whole one whose tail overshot stalls the walk one stop short for ever.
-  // ⭐ ONE LINE PER FRAME, the hairpin's (his ask, 2026-08-22). The lag is the CURSOR against the
-  //   drawn INK, so both are here: the ink is `anchor + offset`.
-  dbg(`[${port.label}] frame | cursor ${cursorX.toFixed(0)}`
-    + ` | anchor ${port.anchorX()?.toFixed(0) ?? '?'} offset ${port.offsetX().toFixed(2)}ss`
-    + ` ink ${((port.anchorX() ?? 0) + port.offsetX() * staffSpacePx).toFixed(0)}`
-    + ` | dx ${(dxPx / staffSpacePx).toFixed(2)}ss (${dxPx.toFixed(0)}px @ ${staffSpacePx.toFixed(2)}px/ss)`)
-  const carried = carryMark(port, dxPx / staffSpacePx, 0, true)
-  // ⭐ In PIXELS, because that is what the caller's cursor anchor is measured in.
-  return {
-    moved: carried.moved || lifted,
-    jumped: false,
-    droppedPx: carried.dropped * staffSpacePx,
-    latched: carried.latched,
-    gapAheadPx: carried.gapAhead * staffSpacePx,
-  }
+  // ⛔ **NO WRAP** — see {@link trillDrive}: this family's stops are note ids. ⛔ And no vertical
+  // through the driver: the lift above is one number for the whole ornament and is already written.
+  // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`, ⛔ not a
+  // rule of its own. `breakCrossing` reports ARRIVED when the hand passes the line's edge (either
+  // edge — the test is symmetric), `leaveSystem` re-anchors the end onto the next system's stop and
+  // lands a `WRAP_STUB_SS` stub inside it, and `MARK_END_DRAGS.trill.endsOnWrap` then ends the
+  // gesture with the square still armed, so the arrows carry on from over there.
+  // ⚠️ The cursor goes in ON THE RIBBON, because everything else this family hands `breakCrossing`
+  //   is measured there ({@link cursorOnRibbon}).
+  const hand = cursorOnRibbon(engine, id, which, cursorX)
+  const frame = dragFrame(
+    { port, wrap: wrapPort(engine, id, which), latch: true, vertical: () => 0 },
+    hand ?? cursorX, dxPx, 0,
+  )
+  return frame && { ...frame, moved: frame.moved || lifted, jumped: false }
 }
 
 /**
@@ -935,19 +937,124 @@ export function walkArmedTrillEndpoint(
     extension: (to) => engine.setTrillExtension(selected.id, to),
     nudge: (ddx, ddy) => engine.nudgeTrillEndpoint(selected.id, 'end', ddx, ddy),
   })) return true
-  // ⛔ …and with no line there is nothing to walk: the press stays the plain ink nudge it was.
+  const drive = trillDrive(engine, selected.id, port,
+    which === 'start' ? 'Move trill start' : 'Move trill end')
+  // ⛔ …and with no line there is nothing to walk: the press stays the plain ink nudge it was, guard
+  // and all — ⛔ NOT `walkPress`, which would look for stops a bare `tr` does not have.
   if (engine.getTrillById(selected.id)?.extension === 'none' && which === 'end') {
-    return inkPress(engine, selected.id, port, dx)
+    return (drive.inkGuard?.(false, dx) ?? true) && inkNudge(port, dx)
   }
-  // ⛔ No batch unless something beyond the ink is about to be written: `runBatch` costs a snapshot
-  // per press, and the ordinary nudge records its own single entry.
-  if (!markWalkCrosses(port, dx)) return inkPress(engine, selected.id, port, dx)
+  return walkPress(drive, dx)
+}
 
-  let moved = false
-  engine.runBatch(which === 'start' ? 'Move trill start' : 'Move trill end', () => {
-    // ⭐⭐ ONE stop per press — see {@link carryMark}'s `maxCrossings`, and his report that made it a
-    // rule. An ink already far ahead of its note is walked back onto it a NOTE AT A TIME.
-    moved = carryMark(port, dx, 0, false, 1).moved
-  })
-  return moved
+/**
+ * ⭐⭐ **THE ORNAMENT'S PORT INTO `./markBreakWrap`, ON THE RIBBON** — the same seam the wedge, the
+ * bracket and the pedal use, and the reason this family finally behaves like them.
+ *
+ * 🚨 His report, 2026-08-24: *"when extending the trill and it goes to the next system it does not
+ * stop the drag like the rest lines but still is growing"* — and, of two bespoke tests written
+ * instead of this, *"now is impossible to cross to the other system… this is even worst"*. ⛔ Both
+ * were rules invented for this family. `breakCrossing` + `leaveSystem` are what the other three
+ * actually do, and its drag arrival test is symmetric (`cursorX > here.max` one way,
+ * `cursorX < here.min` the other), which is the second half he reported missing.
+ *
+ * ⭐⭐ **THE ONLY TRILL-SPECIFIC THING IS THE RULER.** `breakCrossing` compares `port.anchorX()` with
+ * `here.max` and `port.stopX()` with `there.min`, so all four must be measured the same way — and
+ * this family's port speaks the RIBBON (`./trillLane.trillRibbonX`: every drawn line laid end to
+ * end). So the systems' edges are handed over ON THE RIBBON too, and every line of that arithmetic
+ * — `toEdge`, the stub, the landing, the folded gap — then holds unchanged. ⛔ Mixing the two spaces
+ * is exactly what made the earlier attempts fire a whole line's indent early.
+ *
+ * ⭐ **The ribbon stays.** It is what lets the ink go on as pure offset where the next system has no
+ * note to land on (his rule, 2026-08-21: *"if there are no notes in the other system the walk just
+ * stops… it should not stop, it should go as offset"*) — `breakCrossing` simply returns null there,
+ * because {@link MarkWalkPort.nextStop} gave it nothing, and the drawing folds the ink onward.
+ */
+function wrapPort(engine: TrillWalkEngine, id: string, which: 'start' | 'end'): BreakWrapPort {
+  const staff = trillStaff(engine, id)
+  /** One system's drawn extent, re-expressed on the ribbon. */
+  const inkAt = (measure: number | undefined): SystemInk | null => {
+    if (staff === null || measure === undefined) return null
+    const drawn = systemInkAt(
+      engine.getElementRegistry(), staff, measure, lastMeasureNumber(engine.getScore()))
+    if (!drawn) return null
+    const min = trillRibbonX(engine, staff, measure, drawn.min)
+    const max = trillRibbonX(engine, staff, measure, drawn.max)
+    // ⛔ No picture, no rule — the family's own no-guessing law.
+    return min === null || max === null ? null : { min, max, key: drawn.key }
+  }
+  return {
+    here: () => {
+      const trill = engine.getTrillById(id)
+      return trill ? inkAt(trillAnchorPosition(engine, trill, which)?.measure) : null
+    },
+    there: (stop) => inkAt((stop as TrillAnchorStop).note.measureNumber),
+    address: (stop) => ({
+      note: (stop as TrillAnchorStop).note.id,
+      bar: (stop as TrillAnchorStop).note.measureNumber,
+    }),
+  }
+}
+
+/**
+ * ⭐⭐ **THE HAND'S x, ON THE RIBBON** — what {@link breakCrossing}'s drag arrival test needs, since
+ * everything else this family hands it is measured there.
+ *
+ * ⚠️ Converted through the line THE END STANDS ON, which is the line the test is about: *"has the
+ * hand passed the end of this line"*. A cursor that has already moved onto the next system converts
+ * to a small number and reads as "not yet" — the same limit the other three have, since their raw
+ * `cursorX` on a new line is small too.
+ *
+ * ⛔ Null when the picture cannot say; the caller then omits it and `breakCrossing` falls back to the
+ * INK test, which is the keyboard's and is always available.
+ */
+function cursorOnRibbon(
+  engine: TrillWalkEngine,
+  id: string,
+  which: 'start' | 'end',
+  cursorX: number,
+): number | null {
+  const staff = trillStaff(engine, id)
+  const trill = engine.getTrillById(id)
+  const at = trill ? trillAnchorPosition(engine, trill, which) : null
+  return staff === null || !at ? null : trillRibbonX(engine, staff, at.measure, cursorX)
+}
+
+/**
+ * ⭐ The ornament's row in the shared driver's table (`./markDrive`).
+ *
+ * ⛔ **NO WRAP, and it is the one family without one** — a trill's stops are NOTE IDS, and a note on
+ * the next line is not a distance away (`./markBreakWrap` has five implementors; this is the sixth
+ * family and the exception). ⛔ **So no hand-over either**: a blocked press has no wrap to spend
+ * itself on, and `crossWithoutArrival` would step the anchor where this family has always done
+ * nothing.
+ *
+ * ⭐ Its `inkGuard` is the RIBBON: the ink may not be pushed past the last line the render drew.
+ * ⭐ ONE stop per press — his report of 2026-08-20, the one that made the bound a rule everywhere.
+ */
+function trillDrive(
+  engine: TrillWalkEngine,
+  id: string,
+  port: MarkWalkPort,
+  label: string,
+): MarkDriveSpec {
+  return {
+    port,
+    // ⛔⛔ **NO WRAP ON THE KEYS — and that is a RULE, not an omission.** `trillWalk.test.ts` pins it:
+    // *"THE INK CROSSES ONTO THE NEXT SYSTEM — one RIBBON, so a break is not an event"*, from his
+    // 2026-08-20 *"no anchor to a note but offset in the next system"*. A per-line wrap could only
+    // ever count ONE hop, which is the bug he reported as *"it never was re-anchored to the note 3
+    // systems below"*. ⭐ The DRAG wraps ({@link dragTrillEndpoint}) because what it needs from the
+    // crossing is not the re-anchor — the ribbon already gives it that — but the END OF THE GESTURE,
+    // the hand being left behind on the old line. A key press has no hand to leave behind.
+    label,
+    runBatch: (description, fn) => engine.runBatch(description, fn),
+    inkGuard: (_crossing, dx) => {
+      if (inkStaysOnTheRibbon(engine, id, port, dx)) return true
+      dbg(`[${port.label}] refused — past the last line the render drew`)
+      return false
+    },
+    maxCrossings: 1,
+    handOverWhenBlocked: false,
+  }
 }
