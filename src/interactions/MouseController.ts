@@ -49,6 +49,87 @@ import { measureSelectableNotes, beatToFrac } from '../utils/musicUtils'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
+
+/**
+ * ⭐⭐ **THE FOUR SPAN FAMILIES' SQUARE DRAG, AS A TABLE** — the wedge's tip, the bracket's end, the
+ * pedal's sign and the trill's. Their four handlers were 49–57 lines each and 54–56% identical down
+ * to the prose, including the same dated note four times over; what actually differs is these four
+ * columns, and {@link MouseController.handleMarkEndDrag} is the rest of it, once.
+ *
+ * ⭐ Adding the fifth family adds a ROW, ⛔ not a fifth handler — the rule `CLAUDE.md` states, at the
+ * one place in this file where it had already been broken four times.
+ */
+const MARK_END_DRAGS = {
+  hairpin: {
+    label: 'Hairpin end',
+    drag: dragHairpinEndpoint,
+    commit: (engine: MusicEngine, which: 'start' | 'end') => engine.commitHairpinDrag(which),
+    /** ⭐⭐ **A WRAP ENDS THE GESTURE** — his call, 2026-08-20. That end is now on the NEXT system and
+     *  the hand is still on this one, so every further pixel would move it by a distance measured
+     *  against a system it has left. ⚠️ The square stays ARMED, so the arrows can continue. */
+    endsOnWrap: true,
+  },
+  ottava: {
+    label: 'Ottava end',
+    drag: dragOttavaEndpoint,
+    commit: (engine: MusicEngine, which: 'start' | 'end') => engine.commitOttavaDrag(which),
+    endsOnWrap: true,
+  },
+  pedal: {
+    label: 'Pedal end',
+    drag: dragPedalEndpoint,
+    commit: (engine: MusicEngine, which: 'start' | 'end') => engine.commitPedalDrag(which),
+    endsOnWrap: true,
+  },
+  trill: {
+    label: 'Trill end',
+    drag: dragTrillEndpoint,
+    commit: (engine: MusicEngine, which: 'start' | 'end') => engine.commitTrillDrag(which),
+    /**
+     * ⭐⭐ **AND THE TRILL, since 2026-08-24** — his report: *"when extending the trill and it goes to
+     * the next system it does not stop the drag like the rest lines but still is growing"*.
+     *
+     * ⭐ It gets here by the SAME road as the other three, ⛔ not a rule of its own: a
+     * `BreakWrapPort` (`trillWalk.wrapPort`), `markBreakWrap.breakCrossing` — whose arrival test is
+     * symmetric, so it crosses BOTH ways — and `leaveSystem`. ⚠️ Two bespoke tests were written
+     * before that and both were wrong; the second stopped the drag before a crossing could happen at
+     * all (*"now is impossible to cross to the other system… this is even worst"*). The only
+     * family-specific thing is the RULER: this port measures on the ribbon, so the systems' edges and
+     * the hand's x are handed over on the ribbon too.
+     *
+     * 🚨🚨 **A RUNG STILL ENDS THE FRAME, ⛔ NOT THE GESTURE** — his report, 2026-08-20: *"look, I have
+     * to release the mouse and click again… but not in one movement"*. A VERTICAL rung is the
+     * opposite case from a horizontal crossing: the hand travels WITH the ornament, so the gesture
+     * goes on. That is why the rungs report `jumped` and never `wrapped`.
+     */
+    endsOnWrap: true,
+  },
+} as const
+
+/** Which families have a square that can be dragged through the music. */
+type MarkEndKind = keyof typeof MARK_END_DRAGS
+
+/**
+ * ⭐ **ONE SQUARE DRAG IN FLIGHT** — the four families' shared ledger, where each used to keep seven
+ * flat fields of its own (28 in all, and the reason the four handlers could not share a line).
+ *
+ * ⚠️ `lastX`/`lastY` are the last ACCEPTED cursor position, in SVG px — the anchor each frame's delta
+ * is measured from. ⛔ Not advanced on a refusal: an end stopped at a limit picks the cursor up where
+ * it left it rather than jumping the distance it did not travel.
+ */
+interface MarkEndSession {
+  kind: MarkEndKind
+  id: string
+  which: 'start' | 'end'
+  lastX: number
+  lastY: number
+  /** ⭐ When the press landed — a drag is only a drag past {@link MouseController.DRAG_TIME_THRESHOLD_MS}. */
+  startedAt: number
+  /** True once a preview write landed, so the drop records one undo entry. */
+  changed: boolean
+}
+
+
 /** Registry element types that are staff background / structure rather than clickable
  *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
  *  space" for the measure-box gesture (see handleModifierMouseDown). */
@@ -331,21 +412,11 @@ export class MouseController {
   private tempoDragLastY = 0
   private tempoDragStartTime: number | null = null
 
-  // --- Hairpin endpoint square drag (the wedge's own two ends — docs/dynamics-line-and-hairpins-
-  //     plan.md). ⭐ Since 2026-08-20 it is the WALK (`./hairpinWalk`), not a snap: the ink follows
-  //     the hand and the wedge comes along when the ink reaches a boundary, so the mouse and the
-  //     arrows are one gesture and land in one state. ---
-  private isDraggingHairpinEnd = false
-  private draggedHairpinId: string | null = null
-  private draggedHairpinEnd: 'start' | 'end' | undefined = undefined
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private hairpinDragChanged = false
-  private hairpinDragStartTime: number | null = null
-  /** The last ACCEPTED cursor position, in SVG px — the anchor each frame's delta is measured from.
-   *  ⚠️ Not advanced on a refusal, the body drag's rule: an end stopped at a limit picks the cursor
-   *  up where it left it rather than jumping the distance it did not travel. */
-  private hairpinEndLastX = 0
-  private hairpinEndLastY = 0
+  // --- The SQUARE drag, for all four span families at once ({@link MARK_END_DRAGS}). ⭐ Since
+  //     2026-08-20 it is the WALK, not a snap: the ink follows the hand and the mark comes along
+  //     when the ink reaches a stop, so the mouse and the arrows are one gesture and land in one
+  //     state (`./hairpinWalk`, `./ottavaWalk`, `./pedalWalk`, `./trillWalk`). ---
+  private markEnd: MarkEndSession | null = null
 
   // --- Hairpin BODY drag (his ask, 2026-08-18): the whole wedge's INK, where the squares above move
   //     its ENDS through the music. Free pixels, not a snap — it writes the offset override, so the
@@ -373,20 +444,6 @@ export class MouseController {
   private slurBodyDragChanged = false
   private slurBodyDragStartTime: number | null = null
 
-  // --- Ottava endpoint square drag (the bracket's own two ends — docs/ottava-plan.md). The RIGHT
-  //     square re-anchors the end, the LEFT one moves the beginning and holds the end: the drag twin
-  //     of `Ctrl+Shift+←/→`, snapping to onsets of its STAFF. ---
-  private isDraggingOttavaEnd = false
-  private draggedOttavaId: string | null = null
-  private draggedOttavaEnd: 'start' | 'end' | undefined = undefined
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private ottavaDragChanged = false
-  /** ⭐ Where the cursor was at the last ACCEPTED frame — the walk accumulates, so a refused frame
-   *  must leave this put ({@link handleOttavaEndDrag}). */
-  private ottavaEndLastX = 0
-  private ottavaEndLastY = 0
-  private ottavaDragStartTime: number | null = null
-
   // --- Ottava BODY drag (a press on the numeral or its dashed line). The whole bracket follows the
   //     hand — sideways through the music, and DOWN ONTO ANOTHER SYSTEM vertically. ---
   private isDraggingOttavaBody = false
@@ -396,21 +453,6 @@ export class MouseController {
   private ottavaBodyDragChanged = false
   private ottavaBodyDragStartTime: number | null = null
 
-  // --- Pedal endpoint square drag (the `Ped.` and the `✻` — docs/pedal-plan.md). The RIGHT square
-  //     moves the LIFT, the LEFT one moves the press and holds the lift. ⭐ The INTERPOLATING WALK
-  //     with a cursor (`pedalWalk.dragPedalEndpoint`) — the arrows' own gesture, so the ink follows
-  //     the hand and the foot comes along at each stop the ink reaches. ---
-  private isDraggingPedalEnd = false
-  private draggedPedalId: string | null = null
-  private draggedPedalEnd: 'start' | 'end' | undefined = undefined
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private pedalDragChanged = false
-  /** ⭐ Where the cursor was at the last ACCEPTED frame — the walk accumulates, so a refused frame
-   *  must leave these put ({@link handlePedalEndDrag}). */
-  private pedalEndLastX = 0
-  private pedalEndLastY = 0
-  private pedalDragStartTime: number | null = null
-
   // --- Pedal BODY drag: a press on either SIGN moves the whole pedal — through the music sideways
   //     (`pedalWalk.dragPedalBody`) and onto another system vertically (`markSystemJump`). ---
   private isDraggingPedalBody = false
@@ -419,21 +461,6 @@ export class MouseController {
   private pedalBodyLastY = 0
   private pedalBodyDragChanged = false
   private pedalBodyDragStartTime: number | null = null
-
-  // --- Trill endpoint square drag (the `tr` and the end of its wavy line). ⭐ The INTERPOLATING
-  //     WALK with a cursor (`trillWalk.dragTrillEndpoint`) — the arrows' own gesture, so the ink
-  //     follows the hand and the ANCHOR (a NOTE, not a slot) comes along when the ink reaches one. ---
-  private isDraggingTrillEnd = false
-  private draggedTrillId: string | null = null
-  private draggedTrillEnd: 'start' | 'end' | undefined = undefined
-  /** True once a preview write landed, so the drop records one undo entry. */
-  private trillDragChanged = false
-  private trillDragStartTime: number | null = null
-  /** ⚠️ The cursor x the next frame's delta is measured from — ⛔ never the press point: the walk
-   *  ACCUMULATES, and the latch holds this back by what it dropped. */
-  private trillEndLastX = 0
-  /** …and its y, which the LADDER reads (`trillWalk`: the side of its staff, then the system). */
-  private trillEndLastY = 0
 
   // --- Trill BODY drag: a press on the ornament's own ink moves the WHOLE thing (2026-08-20). ---
   private isDraggingTrillBody = false
@@ -1118,17 +1145,10 @@ export class MouseController {
       // Click = pick the square; drag (decided on move, past the same time threshold every other
       // handle uses) moves that end. The square stays armed after either, so the arrows can carry on
       // from where the mouse stopped.
-      const armed = selectedOf(this.state, 'hairpin')
-      this.isDraggingHairpinEnd = true
-      this.draggedHairpinId = armed?.id ?? null
-      this.draggedHairpinEnd = armed?.endpoint
-      this.hairpinDragChanged = false
-      this.hairpinDragStartTime = Date.now()
-      this.hairpinEndLastX = coords.x
       // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`): a hold left over from the last drag would
       //   swallow this one's first pixels, on a mark it was never taken for.
       this.markHold = releaseHold()
-      this.hairpinEndLastY = coords.y
+      this.armMarkEndDrag('hairpin', coords)
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1141,17 +1161,10 @@ export class MouseController {
       // Click = pick the square; drag (decided on move, past the same time threshold every other
       // handle uses) re-anchors that end. The square stays armed after either, so the arrows can
       // carry on from where the mouse stopped.
-      const armed = selectedOf(this.state, 'ottava')
-      this.isDraggingOttavaEnd = true
-      this.draggedOttavaId = armed?.id ?? null
-      this.draggedOttavaEnd = armed?.endpoint
-      this.ottavaDragChanged = false
-      this.ottavaEndLastX = coords.x
       // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`): a hold left over from the last drag would
       //   swallow this one's first pixels, on a mark it was never taken for.
       this.markHold = releaseHold()
-      this.ottavaEndLastY = coords.y
-      this.ottavaDragStartTime = Date.now()
+      this.armMarkEndDrag('ottava', coords)
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1164,17 +1177,10 @@ export class MouseController {
       // Click = pick the square; drag (decided on move, past the same time threshold every other
       // handle uses) moves that end through the music. The square stays armed after either, so the
       // arrows can carry on from where the mouse stopped.
-      const armed = selectedOf(this.state, 'pedal')
-      this.isDraggingPedalEnd = true
-      this.draggedPedalId = armed?.id ?? null
-      this.draggedPedalEnd = armed?.endpoint
-      this.pedalDragChanged = false
-      this.pedalEndLastX = coords.x
       // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`): a hold left over from the last drag would
       //   swallow this one's first pixels, on a mark it was never taken for.
       this.markHold = releaseHold()
-      this.pedalEndLastY = coords.y
-      this.pedalDragStartTime = Date.now()
+      this.armMarkEndDrag('pedal', coords)
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1189,17 +1195,10 @@ export class MouseController {
       // Click = pick the square; drag (decided on move, past the same time threshold every other
       // handle uses) re-anchors that end. The square stays armed after either, so the arrows can
       // carry on from where the mouse stopped.
-      const armed = selectedOf(this.state, 'trill')
-      this.isDraggingTrillEnd = true
-      this.draggedTrillId = armed?.id ?? null
-      this.draggedTrillEnd = armed?.endpoint
-      this.trillDragChanged = false
-      this.trillDragStartTime = Date.now()
-      this.trillEndLastX = coords.x
       // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`): a hold left over from the last drag would
       //   swallow this one's first pixels, on a mark it was never taken for.
       this.markHold = releaseHold()
-      this.trillEndLastY = coords.y
+      this.armMarkEndDrag('trill', coords)
       this.render.renderScore()
       event.preventDefault()
       return
@@ -1900,8 +1899,8 @@ export class MouseController {
     if (this.isDraggingDynamic) {
       this.endDynamicDrag()
     }
-    if (this.isDraggingHairpinEnd) {
-      this.endHairpinEndDrag()
+    if (this.markEnd) {
+      this.endMarkEndDrag()
     }
     if (this.isDraggingHairpinBody) {
       this.endHairpinBodyDrag()
@@ -1909,23 +1908,14 @@ export class MouseController {
     if (this.isDraggingSlurBody) {
       this.endSlurBodyDrag()
     }
-    if (this.isDraggingOttavaEnd) {
-      this.endOttavaEndDrag()
-    }
     if (this.isDraggingOttavaBody) {
       this.endOttavaBodyDrag()
     }
     if (this.isDraggingPedalBody) {
       this.endPedalBodyDrag()
     }
-    if (this.isDraggingPedalEnd) {
-      this.endPedalEndDrag()
-    }
     if (this.isDraggingTrillBody) {
       this.endTrillBodyDrag()
-    }
-    if (this.isDraggingTrillEnd) {
-      this.endTrillEndDrag()
     }
     if (this.isDraggingStaffSpacing) {
       this.endStaffSpacingDrag()
@@ -2050,73 +2040,9 @@ export class MouseController {
     this.dynamicDragStartTime = null
   }
 
-  /** Finish a hairpin-square drag: record one undo entry if the wedge actually moved, then reset.
-   *  The square stays armed — the drop is the end of the gesture, not of the selection. */
-  private endHairpinEndDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.hairpinDragChanged && this.draggedHairpinEnd) {
-      engine.commitHairpinDrag(this.draggedHairpinEnd)
-      // ⛔ THE DROP RENDERS FOR REAL — the preview frames left the ladder unrestacked.
-      this.render.renderScore()
-      dbg(`Hairpin ${this.draggedHairpinEnd} dragged | id:${this.draggedHairpinId}`)
-    }
-    this.isDraggingHairpinEnd = false
-    this.draggedHairpinId = null
-    this.draggedHairpinEnd = undefined
-    this.hairpinDragChanged = false
-    this.hairpinDragStartTime = null
-  }
 
-  /** Finish an ottava-square drag: record one undo entry if the bracket actually moved, then
-   *  reset. The square stays armed — the drop ends the gesture, not the selection. */
-  private endOttavaEndDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.ottavaDragChanged && this.draggedOttavaEnd) {
-      engine.commitOttavaDrag(this.draggedOttavaEnd)
-      // ⛔ THE DROP RENDERS FOR REAL — the preview frames left the ladder unrestacked.
-      this.render.renderScore()
-      dbg(`Ottava ${this.draggedOttavaEnd} dragged | id:${this.draggedOttavaId}`)
-    }
-    this.isDraggingOttavaEnd = false
-    this.draggedOttavaId = null
-    this.draggedOttavaEnd = undefined
-    this.ottavaDragChanged = false
-    this.ottavaDragStartTime = null
-  }
 
-  /** Finish a trill-square drag: record one undo entry if the ornament actually moved, then reset.
-   *  The square stays armed — the drop ends the gesture, not the selection. */
-  private endTrillEndDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.trillDragChanged && this.draggedTrillEnd) {
-      engine.commitTrillDrag(this.draggedTrillEnd)
-      // ⛔ THE DROP RENDERS FOR REAL — the preview frames left the ladder unrestacked.
-      this.render.renderScore()
-      dbg(`Trill ${this.draggedTrillEnd} dragged | id:${this.draggedTrillId}`)
-    }
-    this.isDraggingTrillEnd = false
-    this.draggedTrillId = null
-    this.draggedTrillEnd = undefined
-    this.trillDragChanged = false
-    this.trillDragStartTime = null
-  }
 
-  /** Finish a pedal-square drag: record one undo entry if the pedal actually moved, then reset. The
-   *  square stays armed — the drop ends the gesture, not the selection. */
-  private endPedalEndDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.pedalDragChanged && this.draggedPedalEnd) {
-      engine.commitPedalDrag(this.draggedPedalEnd)
-      // ⛔ THE DROP RENDERS FOR REAL — the preview frames left the ladder unrestacked.
-      this.render.renderScore()
-      dbg(`Pedal ${this.draggedPedalEnd} dragged | id:${this.draggedPedalId}`)
-    }
-    this.isDraggingPedalEnd = false
-    this.draggedPedalId = null
-    this.draggedPedalEnd = undefined
-    this.pedalDragChanged = false
-    this.pedalDragStartTime = null
-  }
 
   /** Finish a slur-endpoint drag: record the one undo entry for the whole gesture, then reset. The
    *  end stays ARMED — the drop ends the gesture, not the selection — so the arrows carry on from
@@ -2725,14 +2651,11 @@ export class MouseController {
     if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleTempoDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
-    if (this.handleHairpinEndDrag(engine, x, y)) return
+    if (this.handleMarkEndDrag(engine, x, y)) return
     if (this.handleHairpinBodyDrag(engine, x, y)) return
     if (this.handleSlurBodyDrag(engine, x, y)) return
-    if (this.handleOttavaEndDrag(engine, x, y)) return
     if (this.handleOttavaBodyDrag(engine, x, y)) return
-    if (this.handlePedalEndDrag(engine, x, y)) return
     if (this.handlePedalBodyDrag(engine, x, y)) return
-    if (this.handleTrillEndDrag(engine, x, y)) return
     if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
@@ -3024,6 +2947,103 @@ export class MouseController {
   }
 
   /**
+   * ⭐ **A PRESS ON A SQUARE OPENS THE ONE SESSION** — where each family used to write seven fields.
+   *
+   * ⛔ Nothing is opened when the arming did not leave an id and an end behind: there would be
+   * nothing for a frame to move, and a session with a hole in it is worse than none.
+   */
+  private armMarkEndDrag(kind: MarkEndKind, coords: { x: number; y: number }): void {
+    const armed = selectedOf(this.state, kind)
+    if (!armed?.id || !armed.endpoint) return
+    this.markEnd = {
+      kind,
+      id: armed.id,
+      which: armed.endpoint,
+      lastX: coords.x,
+      lastY: coords.y,
+      startedAt: Date.now(),
+      changed: false,
+    }
+  }
+
+  /**
+   * ⭐⭐ **ONE FRAME OF A SQUARE DRAG, FOR ALL FOUR SPAN FAMILIES** — the wedge's tip, the bracket's
+   * end, the pedal's sign and the trill's, which had a handler each until this replaced them with
+   * {@link MARK_END_DRAGS} plus these thirty lines.
+   *
+   * ⭐⭐ **THE HOLD, before anything is asked of the walk** (`./dragHold`): while the anchor has the
+   * ink, horizontal travel is ABSORBED — the cursor moves, the mark does not — and once the hold is
+   * spent the catch-up hands every absorbed pixel back at the derived gain. ⛔ The vertical is never
+   * held, so the hand can still lift the mark while an anchor has it.
+   *
+   * ⭐⭐ Previewed (docs/render-performance-plan.md §12.5a) — ⛔ NOT a full render. His report,
+   * 2026-08-22: *"moving the ottava arm… sometimes is really behind of the drag"*, and *"it gets
+   * stucks sometime"*. Only the BODY drags were wired to the cheap frame when §12.5a landed; every
+   * SQUARE drag was still re-deriving the whole score inside `mousemove`, at his own census's ~10 ms
+   * a frame (worst 31), so the mark trailed the hand and a slow frame read as a stall. ⛔ The DROP
+   * still renders for real.
+   *
+   * @returns true when this drag owns the move — including while it is still under the time
+   *   threshold, so a press that has not yet become a drag does not fall through to another handler.
+   */
+  private handleMarkEndDrag(engine: MusicEngine, x: number, y: number): boolean {
+    const session = this.markEnd
+    if (!session) return false
+    if (Date.now() - session.startedAt < this.DRAG_TIME_THRESHOLD_MS) return true
+
+    const family = MARK_END_DRAGS[session.kind]
+    const rawDx = x - session.lastX
+    const heldDx = spendHold(this.markHold, rawDx)
+    const dy = y - session.lastY
+    if (heldDx === 0 && dy === 0) {
+      // Wholly absorbed: nothing moved, but the CURSOR did, so the anchor has to advance or the
+      // absorbed travel is paid out twice — and the instrument still has to count it, or the
+      // deviation it reports is its own arithmetic (it was, 2026-08-18).
+      logHold(family.label, this.markHold, rawDx, 0, false)
+      session.lastX = x
+      return true
+    }
+
+    const frame = family.drag(engine, session.id, session.which, x, heldDx, dy)
+    // ⛔ null = the mark is not drawn, so there is no scale to convert with; leave the anchor alone.
+    if (frame === null) return true
+    if (frame.moved) {
+      // ⭐ A LATCH hands the ink to the anchor it stopped on for a fraction of the gap AHEAD — the
+      //   distance the debt then has to be repaid over. ⚠️ What the latch DROPPED goes on the debt
+      //   rather than on the cursor anchor: the catch-up hands it back, and holding the anchor back
+      //   as well would pay it out twice.
+      if (frame.latched) {
+        takeHold(this.markHold, {
+          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
+        })
+      }
+      logHold(family.label, this.markHold, rawDx, heldDx, frame.latched)
+      session.lastX = x
+      // ⚠️ Only the horizontal is held back by the latch, so `y` keeps its own anchor.
+      session.lastY = y
+      session.changed = true
+      this.render.previewMarks(session.kind, session.id)
+    }
+    // ⭐⭐ A WRAP ENDS THE GESTURE, for the three families that have one — see `endsOnWrap`.
+    if (frame.wrapped && family.endsOnWrap) this.endMarkEndDrag()
+    return true
+  }
+
+  /** ⭐ The drop: one undo entry if anything was previewed, and the session goes. */
+  private endMarkEndDrag(): void {
+    const session = this.markEnd
+    if (!session) return
+    const engine = this.getEngine()
+    if (engine && session.changed) {
+      MARK_END_DRAGS[session.kind].commit(engine, session.which)
+      // ⛔ THE DROP RENDERS FOR REAL — the preview frames left the ladder unrestacked.
+      this.render.renderScore()
+      dbg(`${MARK_END_DRAGS[session.kind].label} ${session.which} dragged | id:${session.id}`)
+    }
+    this.markEnd = null
+  }
+
+  /**
    * ⭐⭐ One frame of a hairpin BODY drag: the whole wedge follows the hand, and the MUSIC comes along
    * at each boundary its ink reaches — `../hairpinWalk`'s third port (his ask, 2026-08-20).
    *
@@ -3123,147 +3143,7 @@ export class MouseController {
     this.slurBodyDragStartTime = null
   }
 
-  /**
-   * ⭐⭐ One frame of a hairpin SQUARE drag: carry that end's ink by the cursor's delta, handing the
-   * wedge along at each boundary the ink reaches — `./hairpinWalk`, the same journey the arrows make
-   * (his ask, 2026-08-20: *"now lets do the walk for the mouse"*).
-   *
-   * ⭐ **It used to SNAP** the grabbed end onto the nearest slot of the lane and write it outright,
-   * so the wedge jumped a whole note at a time and could never be parked between two. The walk keeps
-   * what that was right about — an end still lands only on the lane's own boundaries — and drops
-   * what it was not: the model now moves when the INK arrives, so a drag and the same distance in
-   * arrow presses leave one state, not two that look alike.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the body drag's rule: a refused frame
-   * (the page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
-   * distance it never travelled when the hand comes back.
-   *
-   * ⭐⭐ **BOTH AXES** (his ask, 2026-08-20): the horizontal walks that end through the music, and the
-   * vertical is a plain ink offset — a `y` on ONE end TILTS the wedge. ⚠️ Only the horizontal is held
-   * back by a latch, so `y` keeps its own anchor.
-   * Returns true while a drag is active.
-   */
-  private handleHairpinEndDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingHairpinEnd && this.draggedHairpinId && this.draggedHairpinEnd)) return false
-    if (this.hairpinDragStartTime !== null
-        && Date.now() - this.hairpinDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    // ⭐⭐ THE HOLD, before anything is asked of the walk (`./dragHold`): while the anchor has the
-    // ink, horizontal travel is ABSORBED — the cursor moves, the mark does not — and once the hold is
-    // spent the catch-up hands every absorbed pixel back at the derived gain. ⛔ The vertical is never
-    // held, so the hand can still lift the mark while an anchor has it.
-    const rawDx = x - this.hairpinEndLastX
-    const heldDx = spendHold(this.markHold, rawDx)
-    const dy = y - this.hairpinEndLastY
-    if (heldDx === 0 && dy === 0) {
-      // Wholly absorbed: nothing moved, but the CURSOR did, so the anchor has to advance or the
-      // absorbed travel is paid out twice — and the instrument still has to count it, or the
-      // deviation it reports is its own arithmetic (it was, 2026-08-18).
-      logHold('Hairpin end', this.markHold, rawDx, 0, false)
-      this.hairpinEndLastX = x
-      return true
-    }
-    const frame = dragHairpinEndpoint(
-      engine, this.draggedHairpinId, this.draggedHairpinEnd,
-      x, heldDx, dy)
-    // ⛔ null = the wedge is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      // ⭐ A LATCH hands the ink to the anchor it stopped on for a fraction of the gap AHEAD — the
-      //   distance the debt then has to be repaid over. ⚠️ What the latch DROPPED goes on the debt
-      //   rather than on the cursor anchor: the catch-up hands it back, and holding the anchor back
-      //   as well would pay it out twice.
-      if (frame.latched) {
-        takeHold(this.markHold, {
-          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
-        })
-      }
-      logHold('Hairpin end', this.markHold, rawDx, heldDx, frame.latched)
-      this.hairpinEndLastX = x
-      this.hairpinEndLastY = y
-      this.hairpinDragChanged = true
-      // ⭐⭐ Previewed (§12.5a), like every other mark gesture — the wedge's SQUARE drag was still
-      // doing a full render inside `mousemove` until 2026-08-22 (see `handleOttavaEndDrag`, the
-      // report that found it). ⛔ The drop still renders for real.
-      this.render.previewMarks('hairpin', this.draggedHairpinId)
-    }
-    // ⭐⭐ **A WRAP ENDS THE GESTURE** — his call, 2026-08-20. That end is now on the NEXT system and
-    // the hand is still on this one, so every further pixel would move it by a distance measured
-    // against a system it has left. The drop is taken here: the wedge keeps its small new piece over
-    // there, and carrying on means going to it with the mouse. ⚠️ The square stays ARMED, so the
-    // arrows can continue from where the mouse stopped.
-    if (frame.wrapped) this.endHairpinEndDrag()
-    return true
-  }
 
-  /**
-   * ⭐⭐ One frame of an OTTAVA square drag: carry that end's ink by the cursor's delta, handing the
-   * bracket along at each onset the ink reaches — `./ottavaWalk`, the same journey the arrows make
-   * (his ask, 2026-08-21: *"now lets do the drag walking"*).
-   *
-   * ⭐ **It used to SNAP** the grabbed end onto the nearest slot and write it outright, so the bracket
-   * jumped a whole note at a time and could never be parked between two. The walk keeps what that was
-   * right about — an end still lands only on the lane's own onsets — and drops what it was not.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the family's rule: a refused frame (the
-   * page limit, or an end with nowhere left to go) must not be counted, or the end jumps by the
-   * distance it never travelled when the hand comes back.
-   *
-   * ⭐⭐ **BOTH AXES, and they are different kinds of move**: the horizontal walks that end through
-   * the music, while the vertical is a plain ink lift — ⚠️ of the WHOLE bracket, whichever square is
-   * under the hand, because an octave line is a straight rule with ONE stored vertical
-   * ({@link dragOttavaEndpoint}, which is also where screen becomes outward-from-the-staff).
-   */
-  private handleOttavaEndDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingOttavaEnd && this.draggedOttavaId && this.draggedOttavaEnd)) return false
-    if (this.ottavaDragStartTime !== null
-        && Date.now() - this.ottavaDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    // ⭐⭐ THE HOLD, before anything is asked of the walk (`./dragHold`): while the anchor has the
-    // ink, horizontal travel is ABSORBED — the cursor moves, the mark does not — and once the hold is
-    // spent the catch-up hands every absorbed pixel back at the derived gain. ⛔ The vertical is never
-    // held, so the hand can still lift the mark while an anchor has it.
-    const rawDx = x - this.ottavaEndLastX
-    const heldDx = spendHold(this.markHold, rawDx)
-    const dy = y - this.ottavaEndLastY
-    if (heldDx === 0 && dy === 0) {
-      // Wholly absorbed: nothing moved, but the CURSOR did, so the anchor has to advance or the
-      // absorbed travel is paid out twice — and the instrument still has to count it, or the
-      // deviation it reports is its own arithmetic (it was, 2026-08-18).
-      logHold('Ottava end', this.markHold, rawDx, 0, false)
-      this.ottavaEndLastX = x
-      return true
-    }
-    const frame = dragOttavaEndpoint(
-      engine, this.draggedOttavaId, this.draggedOttavaEnd,
-      x, heldDx, dy)
-    // ⛔ null = the bracket is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      // ⭐ A LATCH hands the ink to the anchor it stopped on for a fraction of the gap AHEAD — the
-      //   distance the debt then has to be repaid over. ⚠️ What the latch DROPPED goes on the debt
-      //   rather than on the cursor anchor: the catch-up hands it back, and holding the anchor back
-      //   as well would pay it out twice.
-      if (frame.latched) {
-        takeHold(this.markHold, {
-          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
-        })
-      }
-      logHold('Ottava end', this.markHold, rawDx, heldDx, frame.latched)
-      this.ottavaEndLastX = x
-      // ⚠️ Only the horizontal is held back by the latch, so `y` keeps its own anchor.
-      this.ottavaEndLastY = y
-      this.ottavaDragChanged = true
-      // ⭐⭐ Previewed (§12.5a) — ⛔ NOT a full render. His report, 2026-08-22: *"moving the ottava
-      // arm… sometimes is really behind of the drag"*, and *"it gets stucks sometime"*. Only the
-      // BODY drags were wired to the cheap frame when §12.5a landed; every SQUARE drag was still
-      // re-deriving the whole score inside `mousemove`, at his own census's ~10 ms a frame (worst
-      // 31), so the mark trailed the hand and a slow frame read as a stall.
-      this.render.previewMarks('ottava', this.draggedOttavaId)
-    }
-    // ⭐⭐ A WRAP ENDS THE GESTURE — the wedge's rule: that end is now on the NEXT system and the hand
-    // is still on this one. ⚠️ The square stays ARMED, so the arrows continue from where it stopped.
-    if (frame.wrapped) this.endOttavaEndDrag()
-    return true
-  }
 
   /**
    * ⭐⭐ **One frame of an OTTAVA BODY drag: the whole bracket follows the hand** — sideways through
@@ -3431,146 +3311,7 @@ export class MouseController {
     this.trillBodyDragStartTime = null
   }
 
-  /**
-   * ⭐⭐ **One frame of a TRILL square drag: the ink follows the hand, and the ANCHOR comes along when
-   * the ink reaches the next note** (`trillWalk.dragTrillEndpoint`, his ask 2026-08-20). The arrow
-   * keys' gesture with a mouse in it — same ports, same arithmetic, same model state at the end of
-   * an equal journey.
-   *
-   * ⭐ It used to SNAP: the nearest note within 150 px, re-anchored outright every frame, so the ink
-   * teleported a whole note at a time and an end could never be parked between two.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, held back by whatever the LATCH
-   * dropped: those pixels were made by the hand, so the next frame presents them again and the ink
-   * leaves a note exactly when the cursor has travelled the whole distance.
-   */
-  private handleTrillEndDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingTrillEnd && this.draggedTrillId && this.draggedTrillEnd)) return false
-    if (this.trillDragStartTime !== null
-        && Date.now() - this.trillDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    // ⭐⭐ THE HOLD, before anything is asked of the walk (`./dragHold`): while the anchor has the
-    // ink, horizontal travel is ABSORBED — the cursor moves, the mark does not — and once the hold is
-    // spent the catch-up hands every absorbed pixel back at the derived gain. ⛔ The vertical is never
-    // held, so the hand can still lift the mark while an anchor has it.
-    const rawDx = x - this.trillEndLastX
-    const heldDx = spendHold(this.markHold, rawDx)
-    const dy = y - this.trillEndLastY
-    if (heldDx === 0 && dy === 0) {
-      // Wholly absorbed: nothing moved, but the CURSOR did, so the anchor has to advance or the
-      // absorbed travel is paid out twice — and the instrument still has to count it, or the
-      // deviation it reports is its own arithmetic (it was, 2026-08-18).
-      logHold('Trill end', this.markHold, rawDx, 0, false)
-      this.trillEndLastX = x
-      return true
-    }
-    const frame = dragTrillEndpoint(
-      engine, this.draggedTrillId, this.draggedTrillEnd,
-      x, heldDx, dy)
-    // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      // ⭐ A LATCH hands the ink to the anchor it stopped on for a fraction of the gap AHEAD — the
-      //   distance the debt then has to be repaid over. ⚠️ What the latch DROPPED goes on the debt
-      //   rather than on the cursor anchor: the catch-up hands it back, and holding the anchor back
-      //   as well would pay it out twice.
-      if (frame.latched) {
-        takeHold(this.markHold, {
-          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
-        })
-      }
-      logHold('Trill end', this.markHold, rawDx, heldDx, frame.latched)
-      this.trillEndLastX = x
-      this.trillEndLastY = y
-      this.trillDragChanged = true
-      // ⭐⭐ Previewed (§12.5a), like every other mark gesture — the wavy line's SQUARE drag was still
-      // doing a full render inside `mousemove` until 2026-08-22 (see `handleOttavaEndDrag`, the
-      // report that found it). ⛔ The drop still renders for real.
-      this.render.previewMarks('trill', this.draggedTrillId)
-    }
-    // 🚨🚨 **A RUNG ENDS THE FRAME, ⛔ NOT THE GESTURE** — his report, 2026-08-20: *"look, I have to
-    // release the mouse and click again… but not in one movement"*. I had copied the wedge's
-    // ENDPOINT rule, where a horizontal WRAP really does end the drag because the tip lands on
-    // another system while the hand stays on this one. ⭐ A vertical rung is the opposite: the hand
-    // is travelling WITH the ornament, so the gesture goes on and the next rung comes when the hand
-    // reaches it. The wedge's BODY drag has always done exactly this
-    // (`handleHairpinBodyDrag`).
-    // ⭐⭐ **⛔ NO WRAP, and no gesture to end** — ⚠️ the one place this drag differs from the wedge's.
-    // A trill's ink is ONE RIBBON across the systems (`trillLane`), so leaving a line is not an event:
-    // the hand keeps pushing the same offset and the drawing keeps folding it onward. The wedge ends
-    // its drag at a wrap because its tip re-anchors onto the next system and the hand is left behind
-    // on this one; nothing re-anchors here that the ink has not already reached.
-    return true
-  }
 
-  /**
-   * ⭐⭐ One frame of a PEDAL square drag: carry that sign's ink by the cursor's delta, handing the
-   * foot along at each stop the ink reaches — `./pedalWalk`, the same journey the arrows make (his
-   * ask, 2026-08-21: *"i think we should do the pedal drag walking"*).
-   *
-   * ⭐ **It used to SNAP** the grabbed sign onto the nearest address and write it outright, so the
-   * foot jumped a whole note at a time and could never be parked between two. The walk keeps what
-   * that was right about — a sign still lands only on the lane's own stops — and drops what it was
-   * not, ⭐ including the whole y-translation the snap needed to tell one system from another: the
-   * ink travels along its own line, and the SYSTEM is decided by the wrap.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the family's rule: a refused frame (the
-   * page limit, or a sign with nowhere left to go) must not be counted, or it jumps by the distance
-   * it never travelled when the hand comes back.
-   *
-   * ⭐⭐ **BOTH AXES, and they are different kinds of move**: the horizontal walks that sign through
-   * the music, while the vertical is a plain ink lift — ⚠️ of BOTH signs, whichever square is under
-   * the hand, because a pedal and its release share ONE baseline
-   * ({@link dragPedalEndpoint}; ⛔ no screen→outward conversion, a pedal has one side).
-   */
-  private handlePedalEndDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.isDraggingPedalEnd && this.draggedPedalId && this.draggedPedalEnd)) return false
-    if (this.pedalDragStartTime !== null
-        && Date.now() - this.pedalDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    // ⭐⭐ THE HOLD, before anything is asked of the walk (`./dragHold`): while the anchor has the
-    // ink, horizontal travel is ABSORBED — the cursor moves, the mark does not — and once the hold is
-    // spent the catch-up hands every absorbed pixel back at the derived gain. ⛔ The vertical is never
-    // held, so the hand can still lift the mark while an anchor has it.
-    const rawDx = x - this.pedalEndLastX
-    const heldDx = spendHold(this.markHold, rawDx)
-    const dy = y - this.pedalEndLastY
-    if (heldDx === 0 && dy === 0) {
-      // Wholly absorbed: nothing moved, but the CURSOR did, so the anchor has to advance or the
-      // absorbed travel is paid out twice — and the instrument still has to count it, or the
-      // deviation it reports is its own arithmetic (it was, 2026-08-18).
-      logHold('Pedal end', this.markHold, rawDx, 0, false)
-      this.pedalEndLastX = x
-      return true
-    }
-    const frame = dragPedalEndpoint(
-      engine, this.draggedPedalId, this.draggedPedalEnd,
-      x, heldDx, dy)
-    // ⛔ null = the pedal is not drawn, so there is no scale to convert with; leave the anchor alone.
-    if (frame === null) return true
-    if (frame.moved) {
-      // ⭐ A LATCH hands the ink to the anchor it stopped on for a fraction of the gap AHEAD — the
-      //   distance the debt then has to be repaid over. ⚠️ What the latch DROPPED goes on the debt
-      //   rather than on the cursor anchor: the catch-up hands it back, and holding the anchor back
-      //   as well would pay it out twice.
-      if (frame.latched) {
-        takeHold(this.markHold, {
-          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
-        })
-      }
-      logHold('Pedal end', this.markHold, rawDx, heldDx, frame.latched)
-      this.pedalEndLastX = x
-      // ⚠️ Only the horizontal is held back by the latch, so `y` keeps its own anchor.
-      this.pedalEndLastY = y
-      this.pedalDragChanged = true
-      // ⭐⭐ Previewed (§12.5a), like every other mark gesture — the pedal line's SQUARE drag was still
-      // doing a full render inside `mousemove` until 2026-08-22 (see `handleOttavaEndDrag`, the
-      // report that found it). ⛔ The drop still renders for real.
-      this.render.previewMarks('pedal', this.draggedPedalId)
-    }
-    // ⭐⭐ A WRAP ENDS THE GESTURE — the wedge's rule and the bracket's: that sign is now on the NEXT
-    // system and the hand is still on this one. ⚠️ The square stays ARMED, so the arrows continue.
-    if (frame.wrapped) this.endPedalEndDrag()
-    return true
-  }
 
   /**
    * ⭐⭐ **One frame of a slur ENDPOINT drag: the ink follows the hand, and the anchor comes along
