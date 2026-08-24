@@ -84,7 +84,7 @@ function escapeRegExp(s: string): string {
 }
 
 /** What a parse produced: the mark's text + the speed it states, or WHY it can't become a mark. */
-export type ParsedTempo =
+type ParsedTempo =
   | {
       ok: true
       /** The string to STORE and print — as typed, with any shorthand unit turned into its glyph. */
@@ -142,7 +142,7 @@ export function parseTempoText(input: string, prev?: TempoMark): ParsedTempo {
 }
 
 /** The palette's arming state: a form (word? metronome? printed?), not yet a mark. */
-export interface TempoToolFields {
+interface TempoToolFields {
   text?: string
   unit?: NoteDuration
   dots?: number

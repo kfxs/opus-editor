@@ -59,7 +59,7 @@ export function fanIsJoined(slot: { fan?: unknown; beam?: BeamMode }): boolean {
  * The shape of the ramp between the slow end and the fast one. Linear today, and deliberately
  * named rather than assumed — see the file header.
  */
-export type FanCurve = 'linear'
+type FanCurve = 'linear'
 
 /**
  * The bounds an EDITED fan is held inside (P4). ⚠️ **Sanity guards, not engraving claims** — nothing
@@ -112,7 +112,7 @@ export function clampFanBeams(beams: number): number {
  * A one-liner with a name because it was spelled out at every reader, and a fan whose count is read
  * two different ways is a fan whose drawing and playback disagree about how many notes there are.
  */
-export function fanCount(fan: FanMark): number {
+function fanCount(fan: FanMark): number {
   return Math.max(1, Math.round(fan.count))
 }
 

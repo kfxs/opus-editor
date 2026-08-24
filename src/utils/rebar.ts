@@ -74,7 +74,7 @@ export interface RebarPitch {
 }
 
 /** Opaque payload preserved verbatim for an atomic (tuplet) event. */
-export interface RebarTupletPayload {
+interface RebarTupletPayload {
   def: Tuplet
   slots: ChordRest[]
 }
@@ -171,7 +171,7 @@ export interface RebarPiece {
 /** All pieces of one rebar'd bar, in beat order. */
 export type BarPlan = RebarPiece[]
 
-export interface RelayOptions {
+interface RelayOptions {
   /**
    * Number of measures the region must occupy.
    * - unbounded (`bounded: false`): the result has `max(neededBars, targetBars)`

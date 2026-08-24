@@ -27,7 +27,7 @@ import type { NoteDuration } from '@/types/music'
 import { type Fraction, fracCreate, fracLte, fracMul } from '@/utils/fraction'
 
 /** The three parallel facts about a single (undotted) note duration. */
-export interface DurationInfo {
+interface DurationInfo {
   /** Quarter-note beats as a float (VexFlow / Tone.js / pixel math). */
   beats: number
   /** Quarter-note beats as an exact rational — the canonical internal unit. */
@@ -184,7 +184,7 @@ export function slotLength(
 }
 
 /** One writable length: a base duration plus its dots. What a single note or rest can BE. */
-export interface NoteLength { duration: NoteDuration; dots: number }
+interface NoteLength { duration: NoteDuration; dots: number }
 
 /**
  * Every writable length, LONGEST first — each duration dotted, then plain.

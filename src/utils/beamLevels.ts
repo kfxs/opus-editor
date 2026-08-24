@@ -26,7 +26,7 @@
 
 /** One beam line, over the notes `[from … to]` by index. `from === to` is a FRACTIONAL beam — a stub
  *  on that note alone, because no neighbour carries this level. */
-export interface BeamLevelSpan {
+interface BeamLevelSpan {
   /** 0 is the primary (which every beamed note has); 1 is the second line, and so on. */
   level: number
   from: number

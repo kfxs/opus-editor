@@ -64,7 +64,7 @@ const KNOWN_SCORE_KEYS = Object.keys({
   playback: true,
 } satisfies Record<keyof Score, true>)
 
-export interface ScoreFileEnvelope {
+interface ScoreFileEnvelope {
   format: string
   version: number
   savedAt: string
@@ -72,7 +72,7 @@ export interface ScoreFileEnvelope {
 }
 
 /** Outcome of reading a file. `scoreJson` is null when the file was REFUSED. */
-export interface ReadResult {
+interface ReadResult {
   /** JSON to hand to `MusicEngine.loadJSON`, or null if the file cannot be read as a score. */
   scoreJson: string | null
   /** One-line summary for the panel. The console carries the detail. */

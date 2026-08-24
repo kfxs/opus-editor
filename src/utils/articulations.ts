@@ -18,7 +18,7 @@ import type { ArticulationType } from '@/types/music'
  *     holds to full value, defeating any default gap).
  *   - velocityScale:  scales the attack velocity (accent emphasizes).
  */
-export interface ArticulationEffect {
+interface ArticulationEffect {
   durationFactor: number
   velocityScale: number
 }

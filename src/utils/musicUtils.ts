@@ -365,7 +365,7 @@ export function tupletPrintedCounts(
 
 /** Where a mark is being printed — the meter of its bar and where in that bar it starts. What the
  *  auto rule needs to know whether a bare number is readable. */
-export interface TupletMarkContext {
+interface TupletMarkContext {
   meter: TimeSignature
   /** The tuplet's start, in quarter-note beats from the bar's start. */
   beat: Fraction

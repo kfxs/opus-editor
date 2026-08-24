@@ -25,7 +25,7 @@
  * 1 is deliberately absent, and could not work: one note in the time of two IS a note of double the
  * value, so there is nothing being squeezed — which the entry rule refuses (`N >= 2`).
  */
-export interface TupletPreset {
+interface TupletPreset {
   /** N — how many notes are played. */
   n: number
   /** M — how many they replace, counted in the same note value. */

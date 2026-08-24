@@ -14,7 +14,7 @@ import type { TremoloMark } from '@/types/music'
  */
 
 /** `tremolo1` — the single stroke, stacked `num` times for a measured tremolo. */
-export const TREMOLO_STROKE = '\uE220'
+const TREMOLO_STROKE = '\uE220'
 
 /** `pendereckiTremolo` — as fast as possible AND irregular. One glyph, not a stack.
  *  ⚠️ E22A is the buzz roll and E22C the dedicated unmeasured sign; neither is this one. */

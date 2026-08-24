@@ -37,7 +37,7 @@ import {
 } from '@/utils/fraction'
 
 /** One internal metric boundary in the bar and its hierarchical strength. */
-export interface MetricBoundary {
+interface MetricBoundary {
   /** Position within the bar, in quarter-note beats (0 ≤ at < barQuarters). */
   at: Fraction
   /** Higher = metrically stronger. See {@link STRENGTH}. */

@@ -41,7 +41,7 @@ import { DURATIONS_DESC, durationToFraction, slotLength } from '@/utils/duration
 import { type MeterInfo, STRENGTH } from '@/utils/meter'
 
 /** One position-anchored note/rest shape: position, base duration, dot count. */
-export interface DurationSegment {
+interface DurationSegment {
   beat: Fraction
   duration: NoteDuration
   dots: number

@@ -214,7 +214,7 @@ export function composeDynamicGlyphs(glyphRun: string): string {
 /** One fragment of a dynamic string. A `glyph` run is a maximal span of SMuFL dynamics-glyph
  *  characters (drawn big in the music font); every other run — words, spaces, ASCII — is text
  *  (drawn as italic expression text). Concatenating the runs' `text` reproduces the input. */
-export interface DynamicRun {
+interface DynamicRun {
   glyph: boolean
   text: string
 }

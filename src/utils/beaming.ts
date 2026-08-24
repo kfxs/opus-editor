@@ -60,7 +60,7 @@ export interface BeamBar {
 }
 
 /** A slot inside a run of bars: which bar of the run, which slot of that bar. */
-export interface BeamSlotRef {
+interface BeamSlotRef {
   bar: number
   slot: number
 }

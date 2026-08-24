@@ -16,7 +16,7 @@ const ZERO: Fraction = fracCreate(0, 1)
  * the reference for natural stem direction and the default tie/slur side. Single
  * source of truth; do not re-inline this table. treble=B4, bass=D3, alto=C4, tenor=A3.
  */
-export const CLEF_MIDDLE_LINE_DIATONIC: Record<Clef, number> = {
+const CLEF_MIDDLE_LINE_DIATONIC: Record<Clef, number> = {
   treble: 34, bass: 22, alto: 28, tenor: 26,
 }
 
@@ -109,7 +109,7 @@ export interface StaffClefs {
 
 /** Clef changes of a measure, sorted ascending by beat (empty if none). Filtered to
  *  `staffId`'s staff when given (absent = staff 0 / the single staff at N=1). */
-export function measureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
+function measureClefChanges(score: Score, measureNumber: number, staffId?: string): ClefChange[] {
   const measure = score.measures.find(m => m.number === measureNumber)
   if (!measure?.clefs?.length) return []
   return measure.clefs

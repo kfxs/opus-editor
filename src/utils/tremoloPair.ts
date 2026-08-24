@@ -26,7 +26,7 @@ import { fracCompare } from '@/utils/fraction'
 import { voiceOf } from '@/utils/lanes'
 
 /** Which end of a pair a slot is, or `null` when it is in none. */
-export type PairRole = 'first' | 'second'
+type PairRole = 'first' | 'second'
 
 /**
  * Can slot `index` be — or is it already — the FIRST note of a two-note tremolo?
@@ -88,7 +88,7 @@ export function pairIsValid(slots: ChordRest[], index: number): boolean {
 }
 
 /** How a pair is drawn once its written value has doubled. */
-export interface PairDrawing {
+interface PairDrawing {
   /** Beam lines the DRAWN value carries — 0 for a drawn whole/half/quarter, 1 for an eighth, … */
   flags: number
   /** True when those lines are drawn as ONE BEAM over the pair; false = each note keeps its flag. */
