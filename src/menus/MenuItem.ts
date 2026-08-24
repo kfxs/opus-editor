@@ -49,7 +49,7 @@
  *   `italic` — the serif italic the score engraves expression text in (`dolce`, `sempre`).
  *   `bold`   — the upright bold serif the score engraves tempo text in (`Allegro`, `Moderato`).
  */
-export type LabelFont = 'music' | 'note' | 'italic' | 'bold'
+type LabelFont = 'music' | 'note' | 'italic' | 'bold'
 
 /**
  * A row's text — or a function read as the row is PAINTED, for the row whose label IS its state.
@@ -59,7 +59,7 @@ export type LabelFont = 'music' | 'note' | 'italic' | 'bold'
  * ⚠️ A dynamic label is for a row that CHANGES WHAT IT SAYS, never for one that changes what it
  * does. Two commands hiding behind one row that renames itself is how a menu stops being readable.
  */
-export type MenuLabel = string | (() => string)
+type MenuLabel = string | (() => string)
 
 export type MenuItem =
   | {

@@ -97,11 +97,11 @@ export interface MenuBarTitle {
   items: MenuItem[]
 }
 
-export interface MenuBarHandle {
+interface MenuBarHandle {
   destroy(): void
 }
 
-export interface MenuBarOptions {
+interface MenuBarOptions {
   /**
    * The wordmark at the left. Rendered as the page's `<h1>` — the bar is the only always-visible
    * text chrome, so it is where the document's one heading belongs, and a search engine reading the

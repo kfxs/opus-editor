@@ -74,7 +74,7 @@ const WORDS: ReadonlyArray<{ word: string; shortcut?: string }> = [
  * How the menu puts something into the editor. Supplied by whoever owns the caret — the menu has no
  * idea where the text is going, which is what lets the same list serve any editor that grows one.
  */
-export interface ExpressionMenuInsert {
+interface ExpressionMenuInsert {
   /** A word, as ordinary editable prose. */
   text(word: string): void
   /** A dynamic, as its glyph — the caller decides how one is drawn. */

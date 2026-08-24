@@ -1485,7 +1485,7 @@ export interface NoteOffsetOverride extends EngravingOverride {
  * render-time default when no entry exists. Stored as a plain object — NOT a Map — so
  * it round-trips through `JSON.stringify` (undo snapshots, export) unchanged.
  */
-export type EngravingOverrides = Record<string, EngravingOverride[]>
+type EngravingOverrides = Record<string, EngravingOverride[]>
 
 /**
  * Stem direction for notes
@@ -2144,7 +2144,7 @@ export interface SoundAssignment {
  * value — `engravingOverrides`' status exactly, and for the same reason: the user expects a choice
  * they made to still be there tomorrow, and it is not content.
  */
-export interface ScorePlayback {
+interface ScorePlayback {
   /**
    * Sound assignments in score order. Resolved by walking BACK from a note's position to the most
    * recent one — the walk `Measure.clefs` and `Measure.tempos` already do, over a list rather than

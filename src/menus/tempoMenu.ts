@@ -120,7 +120,7 @@ const MODULATION_TEXT = `${GLYPH.arrowLeft} ${UNIT_GLYPH.q} = ${UNIT_GLYPH['8']}
  * is a character in the mark's own text (a note glyph, a word, an arrow) — unlike a dynamic, which
  * is an atomic glyph chip. The note-value → Unicode-char mapping is the menu's own job, below.
  */
-export interface TempoMenuInsert {
+interface TempoMenuInsert {
   /** Put a string at the caret, verbatim. */
   text(s: string): void
 }
