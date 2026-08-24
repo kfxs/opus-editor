@@ -23,7 +23,7 @@
 import type { ElementInfo, ElementRegistry } from '../engine/ElementRegistry'
 
 /** Which family of handle a press resolved to, and the registry entry it landed on. */
-export type SlurHandlePick =
+type SlurHandlePick =
   | { kind: 'endpoint'; entry: ElementInfo }
   | { kind: 'segmentEndpoint'; entry: ElementInfo }
   | { kind: 'control'; entry: ElementInfo }

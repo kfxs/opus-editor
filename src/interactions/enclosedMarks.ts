@@ -192,7 +192,7 @@ export function markItems(items: Iterable<SelectionItem>): { kind: MarkKind; id:
 }
 
 /** What each kind's removal is called on the engine — the one place the six are mapped. */
-export type MarkRemover = Pick<MusicEngine,
+type MarkRemover = Pick<MusicEngine,
   'removeDynamic' | 'removeSlur' | 'removeHairpin' | 'removeTrill' | 'removeOttava' | 'removePedal' | 'removeTempoMark'>
 
 /**

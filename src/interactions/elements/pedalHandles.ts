@@ -40,7 +40,7 @@ import { selectedOf } from '../EditorState'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the pedal it is. */
-export interface PedalHandle {
+interface PedalHandle {
   which: 'start' | 'end'
   x: number
   y: number

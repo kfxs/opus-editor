@@ -55,7 +55,7 @@ import { endpointOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type EndpointWalkEngine = AnchorWalkEngine & Pick<MusicEngine,
+type EndpointWalkEngine = AnchorWalkEngine & Pick<MusicEngine,
   'getElementRegistry' | 'nudgeSlurEndpoint' | 'setSlurEndpointKeepingEdits' | 'runBatch'
   | 'previewSlurEndpointOffset' | 'previewSlurEndpointKeepingEdits'>
 
@@ -72,7 +72,7 @@ interface EndpointWriter {
 }
 
 /** What one move did, for a caller that has to react to a crossing rather than just repaint. */
-export interface EndpointMove {
+interface EndpointMove {
   /** How many notes the anchor crossed. 0 is an ordinary move that carried only ink. */
   crossings: number
   /**

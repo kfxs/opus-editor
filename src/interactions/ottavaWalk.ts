@@ -59,7 +59,7 @@ import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type OttavaWalkEngine = Pick<MusicEngine,
+type OttavaWalkEngine = Pick<MusicEngine,
   'getOttavaById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
   | 'moveOttavaStartToSlot' | 'moveOttavaEndToSlot'

@@ -25,7 +25,7 @@ import { selectedOf } from './EditorState'
 import { dbg } from '../utils/debug'
 
 /** What the table needs of a wheel event — a Pick, so a spec needs no `WheelEvent`. */
-export interface WheelIntent {
+interface WheelIntent {
   /** Screen-down positive, as the DOM reports it. */
   deltaY: number
   /** 🚨 **And the HORIZONTAL, which a `Shift`+wheel usually arrives as.** Browsers translate a

@@ -68,7 +68,7 @@ import { staffOf } from '../utils/lanes'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
+type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   'setTrillAnchor' | 'nudgeTrillEndpoint' | 'rebaseTrillEndpointOffset' | 'runBatch'
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
   | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'

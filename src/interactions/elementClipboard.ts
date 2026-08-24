@@ -33,7 +33,7 @@ import { tempoAnchorAt, tempoAtStop } from '../engine/models/tempoOps'
 import { fracToNumber } from '../utils/fraction'
 
 /** A copied DYNAMIC — a level (`f`), an expression word (`dolce`) or a mix of both. */
-export interface DynamicElementClip {
+interface DynamicElementClip {
   kind: 'dynamic'
   /** The whole printed string, verbatim (glyphs + words) — the mark IS its text. */
   text: string
@@ -49,7 +49,7 @@ export interface DynamicElementClip {
  * The `ClipTempo` shape the music clip already uses, minus the offset — where it lands is the
  * anchor's business, not the clip's.
  */
-export interface TempoElementClip {
+interface TempoElementClip {
   kind: 'tempo'
   /** The mark exactly as printed. See `TempoMark.text`. */
   text?: string
@@ -69,7 +69,7 @@ export interface TempoElementClip {
  * wedge therefore opens at the automatic, length-aware aperture — the honest answer, since a
  * hand-set mouth was authored against the old wedge's length.
  */
-export interface HairpinElementClip {
+interface HairpinElementClip {
   kind: 'hairpin'
   /** Which wedge: 'cresc' opens to the right, 'dim' closes to the right. */
   type: 'cresc' | 'dim'
@@ -97,7 +97,7 @@ export interface HairpinElementClip {
  * ⛔ Nothing about the drawing travels — both ends' nudges and the shared height are overrides keyed
  * by the copied bracket's id, and a paste never reuses one.
  */
-export interface OttavaElementClip {
+interface OttavaElementClip {
   kind: 'ottava'
   /** How much music it covers, in quarter-note beats — the same unit as `Ottava.length`. */
   length: Fraction
@@ -113,7 +113,7 @@ export interface OttavaElementClip {
  * ⛔ Nothing about the drawing travels: both signs' nudges and their shared height are overrides keyed
  * by the copied pedal's id, and a paste never reuses one.
  */
-export interface PedalElementClip {
+interface PedalElementClip {
   kind: 'pedal'
   /** How much music it holds, in quarter-note beats — the same unit as `Pedal.length`. */
   length: Fraction
@@ -133,7 +133,7 @@ export interface PedalElementClip {
  * overrides keyed by the copied slur's id, and a single element arrives at its anchor's default
  * (the rule of 2026-08-20: a PASSAGE keeps the shaping, a lone element does not).
  */
-export interface SlurElementClip {
+interface SlurElementClip {
   kind: 'slur'
   /** How much music it covered, in quarter beats. See {@link slurOps.slurSpanOf}. */
   span: Fraction
@@ -157,7 +157,7 @@ export interface SlurElementClip {
  * ⚠️ **A span of ZERO is the one-note trill**, whose extent is its own note's sounding duration —
  * absent by design ({@link Trill.endNoteId}), and reproduced by asking for no end at all.
  */
-export interface TrillElementClip {
+interface TrillElementClip {
   kind: 'trill'
   /** How much music it covered, in quarter beats. 0 = the one-note trill. */
   span: Fraction
@@ -175,7 +175,7 @@ export type ElementClip =
   | TrillElementClip | OttavaElementClip | PedalElementClip
 
 /** What the element clipboard needs off the engine — a Pick, so a spec needs no renderer. */
-export type ElementClipEngine = Pick<MusicEngine,
+type ElementClipEngine = Pick<MusicEngine,
   'getDynamicById' | 'addDynamic' | 'staffIdForIndex'
   | 'getTempoMarkById' | 'addTempoMark' | 'removeTempoMark' | 'getScore' | 'runBatch'
   | 'getHairpinById' | 'addHairpin'

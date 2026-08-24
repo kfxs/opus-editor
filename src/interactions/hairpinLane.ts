@@ -35,7 +35,7 @@ export type HairpinLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegist
 
 /** One onset of the lane as it was DRAWN: the left edge a tip would be drawn against, that ink's
  *  right edge (what "cover this slot" reaches to), a y to tell systems apart, and the address. */
-export interface HairpinLaneBoundary {
+interface HairpinLaneBoundary {
   x: number
   right: number
   /**
@@ -51,7 +51,7 @@ export interface HairpinLaneBoundary {
 
 /** The same, on a staff that may not be the wedge's — what a VERTICAL drag chooses between, where a
  *  sideways walk only ever sees one staff's. */
-export interface HairpinStaffLaneBoundary extends HairpinLaneBoundary {
+interface HairpinStaffLaneBoundary extends HairpinLaneBoundary {
   staff: number
   target: HairpinStaffSlotTarget
 }
@@ -81,7 +81,7 @@ export function hairpinLaneBoundaries(
  * vertical is the axis on which a staff is a place, and `markSystemJump` was always choosing between
  * painted staves — it simply never had a candidate on any but the wedge's own.
  */
-export function hairpinStaffLaneBoundaries(engine: HairpinLaneEngine): HairpinStaffLaneBoundary[] {
+function hairpinStaffLaneBoundaries(engine: HairpinLaneEngine): HairpinStaffLaneBoundary[] {
   return drawnBoundaries(engine)
 }
 

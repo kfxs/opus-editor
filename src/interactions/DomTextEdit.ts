@@ -4,7 +4,7 @@ import { textFirstFamily } from '../utils/fontStack'
 
 /** Opens a menu at VIEWPORT coordinates. Injected (see the constructor) rather than imported, so
  *  this class keeps depending on nothing but the DOM. */
-export type MenuOpener = (x: number, y: number, items: MenuItem[], opts?: { viaKeyboard?: boolean }) => void
+type MenuOpener = (x: number, y: number, items: MenuItem[], opts?: { viaKeyboard?: boolean }) => void
 
 /** Below this, a measured rect is treated as "no rect" rather than a real one. A collapsed range
  *  frequently reports a zero-height box, and trusting it parks the caret at 0,0 in the corner of the

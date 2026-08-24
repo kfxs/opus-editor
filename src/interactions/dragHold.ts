@@ -69,7 +69,7 @@ export function catchupGain(holdPx: number, gapPx: number): number {
 
 /** One gesture's ledger. ⛔ Not shared between two live drags — only one runs at a time, and
  *  {@link releaseHold} is what a new gesture starts from. */
-export interface DragHold {
+interface DragHold {
   /** Cursor pixels the anchor will still absorb before it lets go. */
   holdPx: number
   /** The direction the hold was taken in; travel the other way RELEASES rather than being absorbed. */

@@ -34,7 +34,7 @@ import { dbg } from '../utils/debug'
 export const DEV_SMALL_STAFF_SIZE = 0.7
 
 /** Which staff the button would act on, and how big it is drawn today. */
-export interface StaffSizeTarget {
+interface StaffSizeTarget {
   /** 0-based index into `score.staves` — what the selection box carries. */
   staffIndex: number
   /** Its durable id — what the model is keyed by. */

@@ -41,7 +41,7 @@ import { systemInkAt } from '../markBreakWrap'
 
 /** One drawn segment: from the left sign's right edge to the right sign's left edge, on the baseline
  *  they share. Empty when there is nothing to pair. */
-export interface PedalTether {
+interface PedalTether {
   x1: number
   x2: number
   y: number
@@ -55,7 +55,7 @@ export interface PedalTether {
  * are drawn for different reasons (that one is the MARK, this one is a hint about the mark) and a
  * change to either should not move the other.
  */
-export const TETHER_DASH_GAP = 1.0
+const TETHER_DASH_GAP = 1.0
 
 /**
  * ⭐ **THE DASH PATTERN, in pixels** — the octave bracket's ink length with {@link TETHER_DASH_GAP}'s
@@ -137,7 +137,7 @@ export function pedalTethers(
 }
 
 /** What finding a row needs of the last render — a Pick, so a spec can stand it up with a list. */
-export interface TetherRegistry {
+interface TetherRegistry {
   allStaffGeometries(): ReadonlyArray<{
     measure: number
     staff: number

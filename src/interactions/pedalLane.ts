@@ -43,11 +43,11 @@ import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
  *  renderer. `ottavaLane.OttavaLaneEngine`'s twin. */
-export type PedalLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'>
+type PedalLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'>
 
 /** One onset of the lane as it was DRAWN: the column's left edge (which is where either sign
  *  stands), a y to tell systems apart, and the address. */
-export interface PedalLaneOnset {
+interface PedalLaneOnset {
   left: number
   /**
    * ⚠️ The middle of the STAFF this onset was drawn on — ⛔ NOT the notehead's own centre, which is
@@ -62,7 +62,7 @@ export interface PedalLaneOnset {
 
 /** The same, on a staff that may not be the pedal's — what a VERTICAL drag chooses between, where a
  *  sideways walk only ever sees one staff's. */
-export interface PedalStaffLaneOnset extends PedalLaneOnset {
+interface PedalStaffLaneOnset extends PedalLaneOnset {
   staff: number
   target: PedalStaffSlotTarget
 }
@@ -74,7 +74,7 @@ export interface PedalStaffLaneOnset extends PedalLaneOnset {
  * them sideways — so entries sharing an address merge into a single onset keeping the LEFTMOST edge,
  * which is the edge the sign is drawn against.
  */
-export function pedalLaneOnsets(engine: PedalLaneEngine, pedal: Pedal): PedalLaneOnset[] {
+function pedalLaneOnsets(engine: PedalLaneEngine, pedal: Pedal): PedalLaneOnset[] {
   const staff = staffIndexOf(engine.getScore(), pedal.staffId)
   return drawnOnsets(engine).filter(o => o.staff === staff)
 }
@@ -88,7 +88,7 @@ export function pedalLaneOnsets(engine: PedalLaneEngine, pedal: Pedal): PedalLan
  * staff is a place, and `markSystemJump` was always choosing between painted staves — it simply
  * never had a candidate on any but the pedal's own.
  */
-export function pedalStaffLaneOnsets(engine: PedalLaneEngine): PedalStaffLaneOnset[] {
+function pedalStaffLaneOnsets(engine: PedalLaneEngine): PedalStaffLaneOnset[] {
   return drawnOnsets(engine)
 }
 

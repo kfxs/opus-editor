@@ -61,7 +61,7 @@ export interface PasteAnchor {
 }
 
 /** What the anchor needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type PasteAnchorEngine = Pick<MusicEngine, 'getScore' | 'getNote'>
+type PasteAnchorEngine = Pick<MusicEngine, 'getScore' | 'getNote'>
 
 /** The paste anchor the current selection implies, or null when nothing is selected. */
 export function pasteAnchorFor(engine: PasteAnchorEngine, state: EditorState): PasteAnchor | null {

@@ -43,7 +43,7 @@ import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 export type LaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry' | 'getNote'>
 
 /** A slot of the mark's lane as it was DRAWN: the centre of its ink, and the address it stands for. */
-export interface DynamicLaneHead {
+interface DynamicLaneHead {
   x: number
   /**
    * ⚠️ The middle of the STAFF this slot was drawn on — ⛔ NOT the notehead's own centre, which is
@@ -58,7 +58,7 @@ export interface DynamicLaneHead {
 
 /** The same, on a staff that may not be the mark's — what a VERTICAL drag chooses between, where a
  *  sideways walk only ever sees one staff's. */
-export interface DynamicStaffLaneHead extends DynamicLaneHead {
+interface DynamicStaffLaneHead extends DynamicLaneHead {
   staff: number
   target: DynamicStaffSlotTarget
 }

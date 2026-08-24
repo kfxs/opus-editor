@@ -23,7 +23,7 @@ import { assertNeverTool } from './EditorState'
 import type { ToolGhost } from '../engine/rendering/ghostTypes'
 
 /** The armed note-entry length, which the rest ghost (and only the rest ghost) reads. */
-export interface ArmedLength {
+interface ArmedLength {
   duration: NoteDuration
   dots: number
 }

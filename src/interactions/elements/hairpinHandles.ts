@@ -41,7 +41,7 @@ import { authoredApertureRange } from '../../engine/rendering/hairpinShape'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the span it is. */
-export interface HairpinHandle {
+interface HairpinHandle {
   which: 'start' | 'end'
   x: number
   y: number

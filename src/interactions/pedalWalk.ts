@@ -60,7 +60,7 @@ import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type PedalWalkEngine = Pick<MusicEngine,
+type PedalWalkEngine = Pick<MusicEngine,
   'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextPedalStartSlot' | 'nextPedalLift' | 'pedalLiftSlot'
   | 'movePedalStartToSlot' | 'movePedalLiftTo'

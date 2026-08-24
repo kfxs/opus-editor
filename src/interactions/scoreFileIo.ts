@@ -18,7 +18,7 @@ import { readScoreFile, scoreFilename, wrapScoreJson } from '@/utils/scoreFile'
  * how finished it is.
  */
 
-export interface ScoreFileHooks {
+interface ScoreFileHooks {
   /** Progress / outcome, in a few words. The panel shows it; the menu ignores it. */
   status?: (text: string) => void
   /**

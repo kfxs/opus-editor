@@ -56,7 +56,7 @@ import { breakCrossing, leaveSystem, type BreakWrapPort } from './markBreakWrap'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type DynamicWalkEngine = Pick<MusicEngine,
+type DynamicWalkEngine = Pick<MusicEngine,
   'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
   | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'
   | 'rebaseDynamicOffset' | 'previewDynamicOffsetRebase'

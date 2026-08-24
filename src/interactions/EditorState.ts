@@ -20,7 +20,7 @@ export type TempoTool = {
   showMetronome?: boolean
 }
 
-export type ToolMode = 'entry' | 'selection'
+type ToolMode = 'entry' | 'selection'
 export type PlaybackState = 'stopped' | 'playing' | 'paused'
 
 /**
@@ -883,7 +883,7 @@ export type StateListener = (key: keyof EditorState) => void
  * (`state.selectedItems.set(…)`) does not — the trap never sees it. Every current writer
  * ends by assigning a top-level scalar, so coverage is complete; keep it that way.
  */
-export interface ObservableEditorState {
+interface ObservableEditorState {
   /** Read & write exactly as a plain EditorState; every top-level write notifies subscribers. */
   state: EditorState
   /** Register a change listener; returns an unsubscribe fn. */

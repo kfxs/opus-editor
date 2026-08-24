@@ -29,13 +29,13 @@
  */
 
 /** A painted staff's five lines, top to bottom — `ElementRegistry.staffBands()`' shape. */
-export interface StaffBand {
+interface StaffBand {
   top: number
   bottom: number
 }
 
 /** One place the mark could be anchored, as the last render drew it. */
-export interface JumpCandidate<Stop> {
+interface JumpCandidate<Stop> {
   x: number
   y: number
   stop: Stop

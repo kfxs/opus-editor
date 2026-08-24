@@ -280,7 +280,7 @@ export function fanHighlight(state: EditorState, engine: FanSource | null): 'acc
 }
 
 /** The slice of the engine {@link fanHighlight} reads — structural, like {@link TremoloSource}. */
-export interface FanSource {
+interface FanSource {
   getNote(noteId: string): { fan?: { direction: 'accel' | 'rit' } } | undefined
 }
 

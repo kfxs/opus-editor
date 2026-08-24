@@ -86,7 +86,7 @@ export interface ClipboardPayload extends Clip {
  * selection (`./enclosedMarks`). Every editor copy passes one; the specs that call the builder
  * directly do not, and they are testing the WINDOW.
  */
-export type MarkFilter = (markId: string) => boolean
+type MarkFilter = (markId: string) => boolean
 
 /** Cumulative quarter-beat offset of each measure's start, keyed by measure number. */
 

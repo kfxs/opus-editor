@@ -41,7 +41,7 @@ import { governsSlot } from '../utils/dynamicScope'
 export type MarkQueryEngine = Pick<MusicEngine, 'getNote' | 'getScore'>
 
 /** One reachable mark: what to call it, and the selection that reaches it. */
-export interface AttachedMark {
+interface AttachedMark {
   /** For a menu row. Carries the END for a span whose two ends are separately armable, and the TEXT
    *  for a mark that has one, since several dynamics in a bar are otherwise indistinguishable. */
   label: string

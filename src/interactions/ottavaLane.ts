@@ -37,7 +37,7 @@ export type OttavaLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistr
 
 /** One onset of the lane as it was DRAWN: the left edge the numeral would stand at, the right edge
  *  the hook would close around, a y to tell systems apart, and the address. */
-export interface OttavaLaneOnset {
+interface OttavaLaneOnset {
   left: number
   right: number
   /**
@@ -53,7 +53,7 @@ export interface OttavaLaneOnset {
 
 /** The same, on a staff that may not be the bracket's — what a VERTICAL drag chooses between, where
  *  a sideways walk only ever sees one staff's. */
-export interface OttavaStaffLaneOnset extends OttavaLaneOnset {
+interface OttavaStaffLaneOnset extends OttavaLaneOnset {
   staff: number
   target: OttavaStaffSlotTarget
 }
@@ -79,7 +79,7 @@ export function ottavaLaneOnsets(engine: OttavaLaneEngine, ottava: Ottava): Otta
  * is the axis on which a staff is a place, and `markSystemJump` was always choosing between painted
  * staves — it simply never had a candidate on any but the bracket's own.
  */
-export function ottavaStaffLaneOnsets(engine: OttavaLaneEngine): OttavaStaffLaneOnset[] {
+function ottavaStaffLaneOnsets(engine: OttavaLaneEngine): OttavaStaffLaneOnset[] {
   return drawnOnsets(engine)
 }
 

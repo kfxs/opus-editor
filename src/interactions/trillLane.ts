@@ -51,7 +51,7 @@ import { staffOf, voiceOf } from '../utils/lanes'
 import { systemStopFor } from './markSystemJump'
 
 /** What the lane needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type TrillLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry'>
+type TrillLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry'>
 
 /**
  * ⭐ **THE TRILL'S LANE — every SLOT of it, in musical order, rests included.**

@@ -40,7 +40,7 @@ import { selectedOf } from '../EditorState'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the bracket it is. */
-export interface OttavaHandle {
+interface OttavaHandle {
   which: 'start' | 'end'
   x: number
   y: number

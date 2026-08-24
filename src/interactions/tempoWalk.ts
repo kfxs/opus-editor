@@ -31,7 +31,7 @@ import { systemStopFor } from './markSystemJump'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type TempoWalkEngine = Pick<MusicEngine,
+type TempoWalkEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextTempoSlot' | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
   | 'rebaseTempoOffset' | 'previewTempoOffsetRebase'

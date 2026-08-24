@@ -32,13 +32,13 @@ import type { VoiceScope } from '../utils/dynamicScope'
 import type { SelectionItem } from './selection'
 
 /** What the press needs off the engine — a Pick, so a spec needs no renderer. */
-export type ScopeEngine = Pick<MusicEngine, 'setMarkVoiceScope' | 'runBatch'>
+type ScopeEngine = Pick<MusicEngine, 'setMarkVoiceScope' | 'runBatch'>
 
 /**
  * ⭐ The selection kinds that CARRY a scope. Both members of the dynamics family, and nothing else:
  * a row here is the whole of adding a third (docs/dynamic-voice-scope-plan.md).
  */
-export const SCOPED_KINDS: ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']
+const SCOPED_KINDS: ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']
 
 /**
  * ⭐⭐ **Apply `scope` to every scoped mark in the selection.** The MARK half of a voice press; the

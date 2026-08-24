@@ -143,7 +143,7 @@ export interface ElementChainDeps {
 }
 
 /** One entry in the priority chain: consumed the press, or declined it and left the state alone. */
-export type ElementHit = (ctx: MouseDownCtx, deps: ElementChainDeps) => boolean
+type ElementHit = (ctx: MouseDownCtx, deps: ElementChainDeps) => boolean
 
 /** Everything one selectable kind knows about itself. */
 export interface ElementKindSpec {

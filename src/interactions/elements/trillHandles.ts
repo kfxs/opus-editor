@@ -31,7 +31,7 @@ import { selectedOf } from '../EditorState'
 import { dbg } from '../../utils/debug'
 
 /** One drawn handle: a point, and which end of the trill it is. */
-export interface TrillHandle {
+interface TrillHandle {
   which: 'start' | 'end'
   x: number
   y: number

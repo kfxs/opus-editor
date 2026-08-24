@@ -40,7 +40,7 @@ import { breakCrossing, leaveSystem, type BreakWrapPort, type SystemInk } from '
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
-export type HairpinWalkEngine = Pick<MusicEngine,
+type HairpinWalkEngine = Pick<MusicEngine,
   'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextHairpinStartSlot' | 'moveHairpinStartToSlot'
   | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
