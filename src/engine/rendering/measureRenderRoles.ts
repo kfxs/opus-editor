@@ -34,7 +34,7 @@ import type { Measure } from '@/types/music'
  * deletes the bar its endpoint lives in and your element draws detached, or vanishes when the user
  * scrolls. Spans live on `Score`, not on `Measure`, so the compiler cannot catch that one for you.
  */
-export type MeasureRenderRole =
+type MeasureRenderRole =
   /** Takes horizontal space. Must be in `laneFingerprint` (and is therefore in the shape key too). */
   | 'width'
   /** Drawn, but weightless. Must be in `measureShapeKey` ONLY — never in the width key. */

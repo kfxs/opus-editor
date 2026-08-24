@@ -130,7 +130,7 @@ export const LAYOUT_CONFIG = {
 /** How many staff lines of music the viewport shows at once. THE knob for the viewport's height —
  *  raised from 2.5 once the floating panels (Keypad, Properties) started needing room to sit over
  *  the music without covering the system being edited. */
-export const VIEWPORT_LINES = 3.5
+const VIEWPORT_LINES = 3.5
 
 /**
  * The scroll box's own breathing room above and below the music, in px.
@@ -141,7 +141,7 @@ export const VIEWPORT_LINES = 3.5
  * the window you look through it is. ⛔ Do not "de-duplicate" this back onto a surface: they are
  * equal by history, not by meaning.
  */
-export const VIEWPORT_PADDING = 20
+const VIEWPORT_PADDING = 20
 
 /**
  * Fixed height of the score *viewport* (the window you scroll inside), sized to VIEWPORT_LINES

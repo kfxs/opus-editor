@@ -69,7 +69,7 @@ const LETTER_GLYPHS: Readonly<Record<string, GlyphName>> = {
 }
 
 /** How far a mark's ink reaches from its own baseline, in staff spaces. Both positive. */
-export interface DynamicInkReach {
+interface DynamicInkReach {
   /** The TALLEST letter's reach above the baseline. */
   above: number
   /** The DEEPEST letter's reach below it — `p` and `f` descend; `m` barely does. */

@@ -45,7 +45,7 @@ export interface BoxedNote {
 }
 
 /** A rectangle in the drawing's own pixels; `y` grows DOWN. */
-export interface NoteInkRect {
+interface NoteInkRect {
   x: number
   y: number
   width: number

@@ -17,7 +17,7 @@ import type { TupletMarkRun } from '@/types/music'
 // ⚠️ GLOBAL, and it has to be: VexFlow sizes glyphs from `Metrics`, which is per-category and
 // never per-stave (docs/staff-size-plan.md §10 — swapping it per staff is the rejected approach).
 // A small staff gets a small number anyway, because the mark is drawn inside its scale group.
-export const TUPLET_FONT_SIZE = 26
+const TUPLET_FONT_SIZE = 26
 MetricsDefaults.Tuplet = { ...MetricsDefaults.Tuplet, fontSize: TUPLET_FONT_SIZE }
 Metrics.clear('Tuplet')
 
@@ -29,7 +29,7 @@ Metrics.clear('Tuplet')
  * height of the numbers it belongs to. 0.55 lands it a little taller than the figures — which is
  * what a note beside a ratio should be, since its stem has to go somewhere.
  */
-export const NOTE_GLYPH_SCALE = 0.55
+const NOTE_GLYPH_SCALE = 0.55
 
 /**
  * The air a `space` run asks for, as a fraction of the figures' size — so it stays proportional when
@@ -38,7 +38,7 @@ export const NOTE_GLYPH_SCALE = 0.55
 const MARK_SPACE_EM = 0.15
 
 /** A mark's runs turned into drawable elements, with the width they come to together. */
-export interface LaidOutMark {
+interface LaidOutMark {
   /** Each run's element and the gap that precedes it, in px. */
   pieces: { el: Element; gapBefore: number }[]
   width: number

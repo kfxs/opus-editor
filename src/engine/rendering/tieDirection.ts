@@ -35,7 +35,7 @@ import { voiceOf } from '@/utils/lanes'
 
 /** Which way the arc bows: **−1 up/over**, **+1 down/under** — `TieRenderer`'s sign, and the
  *  slur's. It is also VexFlow's stem sign inverted, which is what makes rule 3 a one-liner. */
-export type TieSide = -1 | 1
+type TieSide = -1 | 1
 
 /**
  * ⭐ **THE RULE, in the order the decisions actually outrank each other.**

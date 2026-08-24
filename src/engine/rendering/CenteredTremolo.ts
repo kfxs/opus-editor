@@ -72,7 +72,7 @@ export const TREMOLO_STROKE_CLEARANCE = 0.25
  */
 
 /** A rectangle in the same pixel space the ElementRegistry stores. */
-export interface TremoloInkRect { x: number; y: number; width: number; height: number }
+interface TremoloInkRect { x: number; y: number; width: number; height: number }
 
 /**
  * The span the strokes have to live in: the stem from the notehead's EDGE to its tip.

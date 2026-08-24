@@ -50,7 +50,7 @@ import { placeTempoMark } from './tempoMarkTransform'
 
 /** What the pass needs of a `MeasurePlacement` — declared structurally, the shape the dynamics and
  *  trill passes already use, so the renderer that calls this is not imported back by it. */
-export interface TempoLinePlacement {
+interface TempoLinePlacement {
   /** This staff's own lane of the measure. `tempos` is system-level, so it is the same array on
    *  every staff's view — which is why only staff 0's placement is ever used. */
   view: Measure

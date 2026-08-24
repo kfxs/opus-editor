@@ -34,7 +34,7 @@
 import { BROKEN_SLUR_MAX_SLOPE, CURVE_PX } from './curveStyle'
 
 /** Which open-ended fragment: the one that runs off the right edge, or the one that leads in. */
-export type BrokenSlurHalf = 'begin' | 'end'
+type BrokenSlurHalf = 'begin' | 'end'
 
 /**
  * ⭐⭐ **AND THE HEIGHT IT LEANS FROM IS THE MUSIC BESIDE IT, NOT A CONSTANT** — LilyPond's rule,

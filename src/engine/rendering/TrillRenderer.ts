@@ -86,14 +86,14 @@ import type { RenderPass } from './RenderPass'
  */
 
 /** Where a fragment's height is filed — one trill, one entry per SYSTEM it crosses. */
-export function trillBandKey(trillId: string, line: number): string {
+function trillBandKey(trillId: string, line: number): string {
   return `${trillId}@${line}`
 }
 
 /** What {@link planTrillBands} hands the drawing: the baseline each fragment was placed at. */
-export type TrillBandPlan = Map<string, number>
+type TrillBandPlan = Map<string, number>
 
-export interface TrillPlacement {
+interface TrillPlacement {
   /** This staff's own lane. */
   view: Measure
   measureNumber: number

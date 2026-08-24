@@ -64,7 +64,7 @@ export function fanBeamFarEdge(beams: FanQuad[], x: number, stemDirection: numbe
  * like any others, and all this pass does is aim their stems at the shared line. Rests carry no
  * stem and are not here — the line simply runs over them.
  */
-export interface FanPrefixNote {
+interface FanPrefixNote {
   /** The note's own `getStemX()`, so the line lands where its stem already is. */
   stemX: number
   /** Its notehead y's — a chord contributes all of them. */
@@ -72,7 +72,7 @@ export interface FanPrefixNote {
 }
 
 /** Where one member of the group is drawn. */
-export interface FanStem {
+interface FanStem {
   /** Left edge of the notehead. */
   headX: number
   /** The stem's x — the notehead's stem side, the same offset the real note uses. */

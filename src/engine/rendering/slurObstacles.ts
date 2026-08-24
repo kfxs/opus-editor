@@ -73,7 +73,7 @@ export interface SlurObstacle {
  * `direction` −1 above / +1 below. Obstacles are filtered here rather than by the caller: only what
  * lies strictly BETWEEN the endpoints can be in the way, and only its edge facing the slur matters.
  */
-export interface SlurArchLift {
+interface SlurArchLift {
   /** Extra height for the FIRST control point (the one nearer `p0`). */
   c0: number
   /** …and for the second. */

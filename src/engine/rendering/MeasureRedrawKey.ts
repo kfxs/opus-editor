@@ -49,7 +49,7 @@ import { laneFingerprint } from './MeasureWidthCache'
  * `JSON.stringify` rather than a hash: a collision here is a wrong picture that never repairs
  * itself, and the string is thrown away immediately. Correctness over cleverness.
  */
-export interface ShapeKeyInputs {
+interface ShapeKeyInputs {
   /** This staff's own lane of the measure (`staffMeasureView`). */
   view: Measure
   staffIndex: number

@@ -31,7 +31,7 @@
  */
 
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
-export const GHOST_CURSOR_GAP_PX = 10
+const GHOST_CURSOR_GAP_PX = 10
 
 /**
  * The translate that puts `gbox` in the standard ghost position for a pointer at (`cursorX`,

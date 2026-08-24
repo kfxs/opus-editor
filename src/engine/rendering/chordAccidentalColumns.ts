@@ -28,7 +28,7 @@ export interface ChordAccidentalItem {
 }
 
 /** Where each accidental goes, in the caller's order — plus the room the whole stack needs. */
-export interface ChordAccidentalLayout {
+interface ChordAccidentalLayout {
   /** The LEFT x to draw each glyph at, one per input item. */
   xs: number[]
   /** How far left of `chordLeftX` the stack reaches, gap included — 0 when there are none. */

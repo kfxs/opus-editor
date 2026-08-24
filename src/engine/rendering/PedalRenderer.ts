@@ -65,7 +65,7 @@ import type { RenderPass } from './RenderPass'
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
  * is not imported back by it — the shape `OttavaRenderer` and `TrillRenderer` already use.
  */
-export interface PedalPlacement {
+interface PedalPlacement {
   /** This staff's own lane. */
   view: Measure
   measureNumber: number

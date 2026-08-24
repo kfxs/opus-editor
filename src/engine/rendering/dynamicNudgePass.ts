@@ -36,7 +36,7 @@ import { setDynamicMarkNudge } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./dynamicsLinePass` already declares. */
-export interface DynamicNudgePlacement {
+interface DynamicNudgePlacement {
   view: Measure
   staffIndex: number
   stave: Stave

@@ -32,7 +32,7 @@
  */
 
 /** A drawn `<text>`'s own origin, in its parent's coordinates. */
-export interface DrawnTextOrigin {
+interface DrawnTextOrigin {
   x: number
   y: number
 }

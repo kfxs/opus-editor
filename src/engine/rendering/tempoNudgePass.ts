@@ -37,7 +37,7 @@ import { setTempoMarkOffset } from './tempoMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./tempoLinePass` already declares. */
-export interface TempoNudgePlacement {
+interface TempoNudgePlacement {
   view: Measure
   measureNumber: number
   staffIndex: number

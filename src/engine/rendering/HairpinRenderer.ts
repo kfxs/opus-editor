@@ -61,7 +61,7 @@ import type { RenderPass } from './RenderPass'
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls
  * this is not imported back by it (the shape `dynamicsLinePass` already uses, plus the number).
  */
-export interface HairpinPlacement {
+interface HairpinPlacement {
   /** This staff's own lane — so `view.hairpins` is already the staff's. */
   view: Measure
   measureNumber: number

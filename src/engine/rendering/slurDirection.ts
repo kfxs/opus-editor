@@ -31,7 +31,7 @@ import { voiceOf } from '@/utils/lanes'
 import { fracCompare } from '@/utils/fraction'
 
 /** Which side of the notes the arc sits on: **−1 above**, **+1 below** — `SlurRenderer`'s sign. */
-export type SlurSide = -1 | 1
+type SlurSide = -1 | 1
 
 /**
  * ⭐ **THE RULE: any down stem puts the slur above; otherwise it goes below.**

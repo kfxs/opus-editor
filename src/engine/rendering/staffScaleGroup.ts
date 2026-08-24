@@ -27,7 +27,7 @@ import type { RenderPass } from './RenderPass'
  * anything that identifies top-level ink by being a direct child of the `<svg>` (the cross-barline
  * beams, in the tests and the e2e harness) has to look one level deeper for it.
  */
-export const STAFF_SCALE_GROUP = 'scaled'
+const STAFF_SCALE_GROUP = 'scaled'
 
 /**
  * {@link inStaffSpace} for a pass with no group of its own to hang the scale on — it opens one.

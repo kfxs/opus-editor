@@ -70,7 +70,7 @@ import type { RenderPass } from './RenderPass'
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
  * is not imported back by it — the shape `TrillRenderer` and `HairpinRenderer` already use.
  */
-export interface OttavaPlacement {
+interface OttavaPlacement {
   /** This staff's own lane. */
   view: Measure
   measureNumber: number
@@ -91,16 +91,16 @@ export interface OttavaPlacement {
  * ⚠️ It is exactly `DynamicsPlanPlacement`'s shape, and that is not a coincidence: the two passes ask
  * the same question of the same data one rung apart.
  */
-export type OttavaBandPlacement =
+type OttavaBandPlacement =
   Pick<OttavaPlacement, 'view' | 'measureNumber' | 'staffIndex' | 'line' | 'system'>
 
 /** Where a fragment's height is filed — one bracket, one entry per SYSTEM it crosses. */
-export function ottavaBandKey(ottavaId: string, line: number): string {
+function ottavaBandKey(ottavaId: string, line: number): string {
   return `${ottavaId}@${line}`
 }
 
 /** What {@link planOttavaBands} hands the drawing: the baseline each fragment was placed at. */
-export type OttavaBandPlan = Map<string, number>
+type OttavaBandPlan = Map<string, number>
 
 /** One drawn piece of an octave line: an x range, WHICH SYSTEM, and the two things a fragment has to
  *  know about itself — whether it is a resumption and whether it carries the span's true end. */

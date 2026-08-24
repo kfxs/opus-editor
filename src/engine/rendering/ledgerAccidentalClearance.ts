@@ -60,7 +60,7 @@ export const LEDGER_ACCIDENTAL_GAP = 2 // 0.2 staff-spaces of INK — scaled by 
  * so a sign that only just crosses a ledger still gets its room. A flat is shorter and asks for
  * less, but a per-glyph height would buy a pixel and cost a table — the widest one decides.
  */
-export const ACCIDENTAL_REACH_LINES = 1.4
+const ACCIDENTAL_REACH_LINES = 1.4
 
 /** VexFlow's own ledger overhang, when nothing is beside the line (`StaveNote.drawLedgerLines`). */
 export const VEXFLOW_LEDGER_OVERHANG = StaveNote.LEDGER_LINE_OFFSET
@@ -76,14 +76,14 @@ export const LEDGER_OVERHANG_BESIDE_ACCIDENTAL = 2
  * the two can never drift: what we spend is the difference between these numbers, and a VexFlow
  * release that changed either one would otherwise leave us over- or under-shifting in silence.
  */
-export const VEXFLOW_ACCIDENTAL_PADDING = (Metrics.get('Accidental.noteheadAccidentalPadding') as number) ?? 1
+const VEXFLOW_ACCIDENTAL_PADDING = (Metrics.get('Accidental.noteheadAccidentalPadding') as number) ?? 1
 
 /**
  * ⚠️ …and the OTHER half of the standoff, which is not a metric at all: `StaveNote.getModifierStartXY`
  * begins every LEFT modifier at `-1 * 2`, a literal in VexFlow's source. It is two thirds of the
  * distance, so reading the metric alone (as this module first did) mis-states where the sign is.
  */
-export const MODIFIER_LEFT_OFFSET = 2
+const MODIFIER_LEFT_OFFSET = 2
 
 /** Where a real note's accidental actually stands, measured from the notehead's left edge. */
 export const VEXFLOW_ACCIDENTAL_STANDOFF = VEXFLOW_ACCIDENTAL_PADDING + MODIFIER_LEFT_OFFSET

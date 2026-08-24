@@ -84,7 +84,7 @@ function onStemSide(a: SlurAttachment, direction: number): boolean {
 
 /** Where one end of the arc springs from: its anchor `y` (before the arc's LIFT) and a sideways
  *  `dx` that clears the stem it sits beside — 0 when there is no stem in the way. */
-export interface SlurEndpointPlacement {
+interface SlurEndpointPlacement {
   y: number
   dx: number
 }

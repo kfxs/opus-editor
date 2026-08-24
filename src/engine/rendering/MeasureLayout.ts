@@ -733,7 +733,7 @@ function applyCautionaryTimeSignatures(
 
 /** The width fields pass 1 reasons about — so the bar it is *considering* can be asked the same
  *  questions as the bars already on the line, before it is an info with a line number. */
-export type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
+type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
 
 /** Has the user asked this bar to be wider than it naturally is? Then it is claiming room from the
  *  rest of its line — and is itself exempt from paying for anyone else's claim. */
@@ -815,7 +815,7 @@ function calculateLinearMeasureWidths(
 /** Everything about the *view* that the casting-off depends on. The score and its clefs are the
  *  two required arguments; these are the knobs, and they are named rather than positional because
  *  a fifth `, undefined, true` at a call site says nothing about what it turns on. */
-export interface MeasureWidthOptions {
+interface MeasureWidthOptions {
   mode?: ViewMode
   /**
    * ⚠️ **Accepted and NOT consulted, since P2 of the spacing model.** The memo existed for the

@@ -79,13 +79,13 @@ export function fanArticulationPosition(
 }
 
 /** One drawn member mark, for the caller to register — its kind and the ink it occupies. */
-export interface PlacedFanArticulation {
+interface PlacedFanArticulation {
   type: ArticulationType
   rect: { x: number; y: number; width: number; height: number }
 }
 
 /** One member's marks, and where its head and stem actually landed. */
-export interface FanMemberArticulationTarget {
+interface FanMemberArticulationTarget {
   /** THIS member's own articulations — empty draws nothing. */
   types: ArticulationType[]
   /** Its pitches as VexFlow keys (`'c/4'`), so the stand-in note stands where the member does. */

@@ -40,7 +40,7 @@ import { lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEd
 
 /** Where the release should be drawn: which line, and the x on it — ⚠️ **INK**, the hand's nudge
  *  already inside it ({@link wrapReleaseOntoNextLine}). */
-export interface WrappedRelease {
+interface WrappedRelease {
   line: number
   endX: number
 }

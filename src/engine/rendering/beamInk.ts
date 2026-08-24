@@ -33,8 +33,8 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * is the barline a line-end stub runs to: it comes from `measureBounds`, i.e. the SVG, and is
  * converted where the two meet (`crossSystemOverhangEndX`). See docs/staff-size-plan.md §1, §4.3.
  */
-export const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
-export const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
+const CROSS_SYSTEM_BEAM_STUB_LINE_END = 22
+const CROSS_SYSTEM_BEAM_STUB_LINE_START = 12
 export const CROSS_SYSTEM_BEAM_MARGIN = 10
 /**
  * ⭐ **A BEAM'S OWN THICKNESS — Bravura's `beamThickness`, 0.5 staff spaces**, which is where the 5

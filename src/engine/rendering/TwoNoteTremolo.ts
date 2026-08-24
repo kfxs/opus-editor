@@ -11,7 +11,7 @@
  */
 
 /** One stroke, as `fillBeamQuad` wants it: the TOP edge, thickness applied downward. */
-export interface TremoloStrokeQuad {
+interface TremoloStrokeQuad {
   startX: number
   startY: number
   endX: number
@@ -32,7 +32,7 @@ export interface TremoloStrokeQuad {
  * a quarter of the gap, capped at one staff space. Both are chosen by eye and tunable.
  */
 export const PAIR_STROKE_CLEARANCE_SPACES = 1
-export const PAIR_STROKE_CLEARANCE_RATIO = 0.25
+const PAIR_STROKE_CLEARANCE_RATIO = 0.25
 
 /**
  * The hard ceiling on that clearance, as a fraction of the gap — however much room the ends ask for

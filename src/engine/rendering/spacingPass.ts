@@ -56,7 +56,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  */
 
 /** What the pass needs to know about the bar it is placing, in the units each is natural in. */
-export interface SpacingTarget {
+interface SpacingTarget {
   /** The measure's merged columns, barline last — `engine/layout/measureColumns.ts`. */
   columns: Column[]
   /**

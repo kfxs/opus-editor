@@ -404,7 +404,7 @@ export function resolveTupletLocation(
  * (V1/V3, model 0/2) bracket outward above, stems-down voices (V2/V4, model 1/3)
  * outward below (mirrors the forced stem directions).
  */
-export function outerTupletLocation(voice: number): number {
+function outerTupletLocation(voice: number): number {
   return voice % 2 === 0 ? TUPLET_LOCATION_ABOVE : TUPLET_LOCATION_BELOW
 }
 

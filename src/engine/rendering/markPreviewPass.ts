@@ -179,7 +179,7 @@ interface MarkPreviewFamily {
   placed(pass: RenderPass, markId: string): boolean
 }
 
-export const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
+const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
   ottava: {
     redrawn: [{ registryType: 'ottava', groups: pass => pass.ottavaGroupMap }],
     placed: (pass, id) => pass.ottavaGroupMap.has(id),

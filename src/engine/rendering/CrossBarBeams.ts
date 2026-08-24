@@ -116,7 +116,7 @@ export interface CrossBarJoin {
  * IN ITS OWN BAR — a fan may be the last thing on the beam while its bar carries on past it, and its
  * ramp must not spread over a note the formatter put there.
  */
-export interface CrossBarFanMember {
+interface CrossBarFanMember {
   measureNumber: number
   slotId: string
   lookupId: string

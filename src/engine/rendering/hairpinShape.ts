@@ -338,7 +338,7 @@ export interface HairpinShapeOverrideLike {
 
 /** The resolved geometry, in staff spaces: how far the mouth opens, and each end's offset from the
  *  dynamics line (0/0 = horizontal, which is every engine's default). */
-export interface HairpinShape {
+interface HairpinShape {
   aperture: number
   startY: number
   endY: number

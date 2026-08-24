@@ -486,7 +486,7 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
   }
 }
 
-export function drawClefGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, clef: Clef): boolean {
+function drawClefGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, clef: Clef): boolean {
   try {
     const childrenBefore = svg.children.length
 
@@ -531,7 +531,7 @@ export function drawClefGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
  * tinting, translated so its centre sits at the cursor.
  * @returns true if the ghost time signature was drawn
  */
-export function drawTimeSignatureGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, ts: TimeSignature): boolean {
+function drawTimeSignatureGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, ts: TimeSignature): boolean {
   try {
     const childrenBefore = svg.children.length
 
@@ -594,7 +594,7 @@ export function drawTimeSignatureGhost(ctx: SVGContext, svg: SVGElement, cursorX
  * no leftover notehead/stem elements to discard afterwards, and no stave is needed at all. It
  * is drawn by the same `drawTempoText` the score uses, so the preview cannot drift from it.
  */
-export function drawTempoGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TempoMark): boolean {
+function drawTempoGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TempoMark): boolean {
   if (!mark.text) return false // nothing to preview (a mark that only sounds)
 
   try {
@@ -630,7 +630,7 @@ export function drawTempoGhost(ctx: SVGContext, cursorX: number, cursorY: number
   }
 }
 
-export function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
+function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, dynamic: Dynamic): boolean {
   try {
     const childrenBefore = svg.children.length
 
@@ -718,7 +718,7 @@ export function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: numb
  * several articulations engraves — so the ghost reads as everything the click will stamp.
  * @returns true if a ghost articulation was drawn
  */
-export function drawArticulationGhost(ctx: SVGContext, cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
+function drawArticulationGhost(ctx: SVGContext, cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
   if (types.length === 0) return false
 
   try {
@@ -788,7 +788,7 @@ export function drawArticulationGhost(ctx: SVGContext, cursorX: number, cursorY:
  * accidental, so there is nothing to stack.
  * @returns true if a ghost accidental was drawn
  */
-export function drawAccidentalGhost(ctx: SVGContext, cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
+function drawAccidentalGhost(ctx: SVGContext, cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
   try {
     const tempStave = new Stave(0, cursorY, 200)
     tempStave.setBegBarType(Barline.type.NONE)
@@ -862,7 +862,7 @@ export function drawAccidentalGhost(ctx: SVGContext, cursorX: number, cursorY: n
  * never has to be known.
  * @returns true if a ghost tremolo was drawn
  */
-export function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TremoloMark): boolean {
+function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TremoloMark): boolean {
   try {
     const tempStave = new Stave(0, cursorY, 200)
     tempStave.setBegBarType(Barline.type.NONE)
@@ -936,7 +936,7 @@ export function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: numb
  * Positioned by absolute path coordinates, so it needs no bbox measure or `translate` either.
  * @returns true if a ghost tie was drawn
  */
-export function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
+function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
   try {
     // The arc BEGINS at the cursor and runs to the right, rather than being centred on it — a tie
     // starts at the note you click and reaches forward to the next, so its head belongs where the
@@ -993,7 +993,7 @@ export function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number):
  * so there is nothing to stack or swap.
  * @returns true if a ghost dot was drawn
  */
-export function drawDotGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
+function drawDotGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
   try {
     const tempStave = new Stave(0, cursorY, 200)
     tempStave.setBegBarType(Barline.type.NONE)

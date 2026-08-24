@@ -47,7 +47,7 @@ export function isPureLevel(dyn: Dynamic): boolean {
  * notehead — measured at 4.6 px out, which is most of a notehead. The ink's own centre is the only
  * thing that can be centred on anything.
  */
-export interface DynamicMarkInkBox {
+interface DynamicMarkInkBox {
   /** The ink's left edge, relative to the `<text>`'s x — negative for a glyph that overhangs it. */
   left: number
   width: number

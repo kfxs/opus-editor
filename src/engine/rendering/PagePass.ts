@@ -48,7 +48,7 @@ const PAPER = '#ffffff'
 const DESK = '#e2e8f0'
 
 /** The class on the underlay group — swept and redrawn every render, like the ties above it. */
-export const PAGE_GROUP_CLASS = 'score-pages'
+const PAGE_GROUP_CLASS = 'score-pages'
 /** One drawn SHEET. Its own class so "how many pages are drawn, and where" is one query — the desk
  *  behind them is not a page, and counting rects would count it. */
 export const PAGE_SHEET_CLASS = 'score-page-sheet'
