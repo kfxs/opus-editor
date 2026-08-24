@@ -603,7 +603,11 @@ function drawOttava(
       type: 'ottava',
       id: ottava.id,
       staff: from.staffIndex,
-      measure: from.measureNumber,
+      // 🚨🚨 **THIS FRAGMENT'S OWN MEASURE, ⛔ not the bracket's first** — the band limit looks a
+      // staff's geometry up by it, so a fragment filed under a previous system's bar is judged
+      // against that system's band and can only ever be nudged one way. See the pedal's twin
+      // (`PedalRenderer.registerGlyph`) for the report and the arithmetic.
+      measure: here[0]?.measureNumber ?? from.measureNumber,
       bbox: { x: startX, y: top, width: right - startX, height: bottom - top },
       points: [
         { x: startX, y: top },

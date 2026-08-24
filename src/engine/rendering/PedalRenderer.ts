@@ -480,7 +480,8 @@ function drawPedal(
         to: { x: x.startX, y: stave.getYForLine(4) },
       }]
       : undefined
-    registerGlyph(pass, pedal.id, from, signX, y, downWidth, px, 'down', guides)
+    registerGlyph(pass, pedal.id, from, here[0]?.measureNumber ?? from.measureNumber,
+      signX, y, downWidth, px, 'down', guides)
     firstPiece = false
 
     if (!piece.final) continue
@@ -524,7 +525,8 @@ function drawPedal(
       signX + px(PEDAL_MIN_SPAN) - upWidth,
     )
     up.renderText(ctx, upX, y)
-    registerGlyph(pass, pedal.id, from, upX, y, upWidth, px, 'up')
+    registerGlyph(pass, pedal.id, from, here[0]?.measureNumber ?? from.measureNumber,
+      upX, y, upWidth, px, 'up')
   }
 }
 
@@ -585,6 +587,19 @@ function registerGlyph(
   pass: RenderPass,
   id: string,
   from: PedalPlacement,
+  /**
+   * 🚨🚨 **THE MEASURE THIS FRAGMENT IS DRAWN IN — ⛔ NOT the pedal's first one.** His report,
+   * 2026-08-24: a pedal cut by a system break could be nudged UP for ever and never back DOWN.
+   *
+   * The band limit looks a staff's geometry up BY THIS NUMBER
+   * ({@link MusicEngine.nudgeStaysInBand}), and `pedalStaysInBand` already promises that *"each glyph
+   * is judged against ITS OWN system's band"*. Filing every fragment under `from.measureNumber` broke
+   * that promise for every fragment but the first: the sign drawn on the next system was measured
+   * against the PREVIOUS system's band, a system-height above it, so its `bottom` overhang was a
+   * permanent 150 px. A step down grew it (refused, always) and a step up shrank it (allowed,
+   * always) — and one fragment's refusal vetoes the whole mark.
+   */
+  measure: number,
   x: number,
   baselineY: number,
   width: number,
@@ -601,7 +616,7 @@ function registerGlyph(
     id,
     pedalSign: sign,
     staff: from.staffIndex,
-    measure: from.measureNumber,
+    measure,
     bbox: { x, y: top, width, height: bottom - top },
     points: [
       { x, y: top },

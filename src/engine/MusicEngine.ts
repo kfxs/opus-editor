@@ -1,4 +1,4 @@
-import { dbg } from '@/utils/debug'
+import { dbg, debugEnabled } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
@@ -344,8 +344,16 @@ export class MusicEngine {
     }
     const drawn = (registry.getByType?.(type) ?? [])
       .filter((e: ElementInfo) => e.id === id).map((e: ElementInfo) => e.bbox)
-    return nudgeFitsOnPage(
+    const allowed = nudgeFitsOnPage(
       resolveSurface(this.surface), drawn, dx * STAFF_SPACE_PX, dy * STAFF_SPACE_PX)
+    // 🚨 The OTHER invisible wall, said out loud beside the band's — between them they are every
+    //    reason an offset write can be refused, and a hand can see neither edge.
+    if (debugEnabled() && !allowed) {
+      dbg(`[Page] REFUSED ${type} dx ${dx.toFixed(2)}ss dy ${dy.toFixed(2)}ss`
+        + ` | ${drawn.length} drawn box(es)`
+        + ` | ink ${drawn.map(b => `y ${b.y.toFixed(0)}…${(b.y + b.height).toFixed(0)}`).join(' ')}`)
+    }
+    return allowed
   }
 
   /**
@@ -397,7 +405,20 @@ export class MusicEngine {
     // of 2026-08-21). ⛔ Never a made-up allowance — that is what stopped an `8va` on the top system.
     const sheet = pageBoxAt(resolveSurface(this.surface), drawn[0]?.x ?? 0, mine.top)
     const page = sheet ? { top: sheet.top, bottom: sheet.bottom } : undefined
-    return stepStaysInBand(neighbourBandOf(mine, others, page), drawn, dy * STAFF_SPACE_PX)
+    const band = neighbourBandOf(mine, others, page)
+    const allowed = stepStaysInBand(band, drawn, dy * STAFF_SPACE_PX)
+    // 🚨 **THE BAND'S REFUSAL, OUT LOUD** — it is the one limit a hand cannot see the edge of, and a
+    // refused step is indistinguishable from a dead gesture without this. ⚠️ The `measure`/`staff` are
+    // printed because they are what the band is LOOKED UP by: a fragment filed under another system's
+    // measure is judged against that system's band, and its ink then reads as a mile out of it.
+    if (debugEnabled() && !allowed) {
+      dbg(`[Band] REFUSED dy ${dy.toFixed(2)}ss (${(dy * STAFF_SPACE_PX).toFixed(0)}px)`
+        + ` | looked up bar ${measure} staff ${staff}`
+        + ` | mine ${mine.top.toFixed(0)}…${mine.bottom.toFixed(0)}`
+        + ` | band ${band.top.toFixed(0)}…${band.bottom.toFixed(0)}`
+        + ` | ink ${drawn.map(b => `${b.y.toFixed(0)}…${(b.y + b.height).toFixed(0)}`).join(' ')}`)
+    }
+    return allowed
   }
 
   /**
