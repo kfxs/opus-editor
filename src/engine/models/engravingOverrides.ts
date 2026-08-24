@@ -60,7 +60,7 @@ export function slurOffsetOverrideOf(score: Score, elementId: string): SlurOffse
 
 /** The cps to apply per segment of a cross-system slur, after the staleness rule. A field
  *  left undefined means "no override for that segment → draw the auto arch". */
-export interface ResolvedSegmentShapes {
+interface ResolvedSegmentShapes {
   begin?: CurveControlPointDeltas
   end?: CurveControlPointDeltas
   /** MIDDLE cps by ordinal. Empty when the override is absent OR its `spanCount` is stale. */
@@ -140,7 +140,7 @@ export function hairpinApertureOverrideOf(score: Score, elementId: string): Hair
 /** The open-join offsets to apply per segment of a cross-system slur, after the staleness
  *  rule. A field left undefined means "no nudge for that open end → draw at the auto margin
  *  position". Mirrors {@link ResolvedSegmentShapes}. */
-export interface ResolvedSegmentEndpointOffsets {
+interface ResolvedSegmentEndpointOffsets {
   begin?: { x: number; y: number }
   end?: { x: number; y: number }
   /** MIDDLE open-end offsets by ordinal. Empty when the override is absent OR `spanCount`

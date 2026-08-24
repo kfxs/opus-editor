@@ -6,7 +6,7 @@ import { slotLength } from '@/utils/durations'
 /**
  * Result of an overflow check
  */
-export interface OverflowResult {
+interface OverflowResult {
   /** Whether the measure would overflow */
   willOverflow: boolean
   /** Amount of overflow in beats */

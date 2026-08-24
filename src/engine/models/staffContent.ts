@@ -86,7 +86,7 @@ export function matchesStaff(
 
 /** A read-only view of one staff's lane within a measure. Fresh arrays — safe to iterate,
  *  never write back (see module note). */
-export interface StaffContentView {
+interface StaffContentView {
   slots: ChordRest[]
   clefs: ClefChange[]
   dynamics: Dynamic[]
@@ -112,20 +112,20 @@ export function staffDynamics(measure: Measure, staffId: string | undefined, sco
 }
 
 /** One staff's tuplets within a measure. */
-export function staffTuplets(measure: Measure, staffId: string | undefined, score: Score): Tuplet[] {
+function staffTuplets(measure: Measure, staffId: string | undefined, score: Score): Tuplet[] {
   return (measure.tuplets ?? []).filter((t) => matchesStaff(t.staffId, staffId, score))
 }
 
 /** One staff's hairpins within a measure — the ones that START here (a wedge may run past the
  *  bar's end; see {@link Hairpin}). */
-export function staffHairpins(measure: Measure, staffId: string | undefined, score: Score): Hairpin[] {
+function staffHairpins(measure: Measure, staffId: string | undefined, score: Score): Hairpin[] {
   return (measure.hairpins ?? []).filter((h) => matchesStaff(h.staffId, staffId, score))
 }
 
 /** One staff's ottavas within a measure — the ones that START here (an octave line may run past
  *  the bar's end; see {@link Ottava}). Unlike every other filter in this file it has no voice to
  *  consider: an ottava governs the whole staff. */
-export function staffOttavas(measure: Measure, staffId: string | undefined, score: Score): Ottava[] {
+function staffOttavas(measure: Measure, staffId: string | undefined, score: Score): Ottava[] {
   return (measure.ottavas ?? []).filter((o) => matchesStaff(o.staffId, staffId, score))
 }
 
@@ -134,7 +134,7 @@ export function staffOttavas(measure: Measure, staffId: string | undefined, scor
  *  governs the whole staff, because there is one foot. ⚠️ It filters on the ATTACHED staff, which is
  *  a question about storage; *which staves it sustains* and *which it is drawn under* are
  *  `utils/pedalScope`'s, and are not the same answer. */
-export function staffPedals(measure: Measure, staffId: string | undefined, score: Score): Pedal[] {
+function staffPedals(measure: Measure, staffId: string | undefined, score: Score): Pedal[] {
   return (measure.pedals ?? []).filter((p) => matchesStaff(p.staffId, staffId, score))
 }
 

@@ -343,7 +343,7 @@ export function setRestBeamOver(score: Score, measureNumber: number, beat: Fract
  *  - multi-voice measure: the voice's OUTER side — upper voice (0) ABOVE, any lower
  *    voice BELOW — regardless of stem, so the two voices' marks never collide.
  *  - single voice: opposite the stem (the note-head side). */
-export function autoArticulationPlacement(score: Score, chord: Chord): 'above' | 'below' {
+function autoArticulationPlacement(score: Score, chord: Chord): 'above' | 'below' {
   const measure = getMeasure(score, chord.measure)
   const multiVoice = measure ? new Set(measure.slots.map(s => voiceOf(s))).size > 1 : false
   if (multiVoice) return voiceOf(chord) === 0 ? 'above' : 'below'
@@ -352,7 +352,7 @@ export function autoArticulationPlacement(score: Score, chord: Chord): 'above' |
 
 /** Resolve a chord's effective stem direction, mirroring the renderer: an explicit
  *  override wins; otherwise the note furthest from the clef's middle line decides. */
-export function resolveStemDirection(score: Score, chord: Chord): 'up' | 'down' {
+function resolveStemDirection(score: Score, chord: Chord): 'up' | 'down' {
   if (chord.stemDirection === 'up') return 'up'
   if (chord.stemDirection === 'down') return 'down'
   const clef = effectiveClefAt(score, chord.measure, chord.beat, chord.staffId)

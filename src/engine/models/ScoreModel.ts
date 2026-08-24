@@ -96,7 +96,7 @@ function fmtSlot(slot: ChordRest): string {
  * fragments can be open at once, whoever OPENS them supplies the number via the `title`
  * argument; the model must never invent it.
  */
-export const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
+const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
 
 /**
  * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and its own

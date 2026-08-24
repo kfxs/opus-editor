@@ -196,7 +196,7 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
  * voice in this batch, so the tie survives (plan §5: ties whose both endpoints
  * land in the same target voice survive).
  */
-export function dropCrossVoiceTies(score: Score, pitchId: string, voice: number, movingIds?: ReadonlySet<string>): void {
+function dropCrossVoiceTies(score: Score, pitchId: string, voice: number, movingIds?: ReadonlySet<string>): void {
   const found = findSlot(score, pitchId)
   if (!found || found.type !== 'chord') return
   const pitch = found.pitch
@@ -233,7 +233,7 @@ export function dropCrossVoiceTies(score: Score, pitchId: string, voice: number,
  * derive from the live start-note voice). A slur left spanning two voices keeps
  * its old field (ambiguous; nothing to reassign).
  */
-export function resyncSlurVoiceForPitch(score: Score, pitchId: string): void {
+function resyncSlurVoiceForPitch(score: Score, pitchId: string): void {
   for (const slur of score.slurs ?? []) {
     if (slur.startNoteId !== pitchId && slur.endNoteId !== pitchId) continue
     const start = findSlot(score, slur.startNoteId)
@@ -257,7 +257,7 @@ export function resyncSlurVoiceForPitch(score: Score, pitchId: string): void {
  * twin rather than a shared loop — the slur's `sv === ev` has no meaningful reading when there is
  * no `ev`.
  */
-export function resyncTrillVoiceForPitch(score: Score, pitchId: string): void {
+function resyncTrillVoiceForPitch(score: Score, pitchId: string): void {
   for (const trill of score.trills ?? []) {
     if (trill.startNoteId !== pitchId && trill.endNoteId !== pitchId) continue
     const start = findSlot(score, trill.startNoteId)
@@ -284,7 +284,7 @@ export function resyncTrillVoiceForPitch(score: Score, pitchId: string): void {
  * the moved note's own slot → chorded). The source tuplet's gap is refilled (and
  * the tuplet dropped if it ends up all rests). Ids are preserved throughout.
  */
-export function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
+function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, chord: Chord, pitch: NotePitch, targetVoice: number, movingIds?: ReadonlySet<string>): boolean {
   const sourceTuplet = measure.tuplets?.find(t => t.id === chord.tupletId)
   if (!sourceTuplet) return false // defensive: tupletId with no tuplet record
 

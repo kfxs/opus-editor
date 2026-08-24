@@ -505,7 +505,7 @@ export function setOttavaAtSlot(score: Score, id: string, target: OttavaSlotTarg
  * Declines when `target` is not an onset of the ottava's own staff, or when the line would cover no
  * music. Only `length` moves — the beginning is a field nobody touches here.
  */
-export function setOttavaEndAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
+function setOttavaEndAtSlot(score: Score, id: string, target: OttavaSlotTarget): boolean {
   const placed = locate(score, id)
   if (!placed) return false
   const { startAbs, lane } = placed

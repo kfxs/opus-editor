@@ -79,7 +79,7 @@ export function resolveSound(score: Score, at?: { measureId?: string; beat?: Fra
 }
 
 /** Can this build realise the reference? See {@link SoundRef} — the union will grow past `gm`. */
-export function isPlayable(sound: SoundRef): boolean {
+function isPlayable(sound: SoundRef): boolean {
   return sound?.kind === 'gm' && Number.isInteger(sound.program)
 }
 
