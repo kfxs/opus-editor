@@ -1249,7 +1249,9 @@ across the unrolled score, which reads **2175** for a note whose line spans 138�
 and inside `trillRibbonLimits`; it is simply not comparable to a per-line ink range or to a cursor.
 🚨 A first attempt at this wired `markBreakWrap` into the body walk and every frame declined, because
 it was fed a ribbon x against raw per-line edges. ⛔ Reverted. Anything comparing against `here.min` /
-`here.max` / a cursor must use the DRAWN x.
+`here.max` / a cursor must be on ONE ruler with what it is compared against — for the BODY walk that
+meant the drawn x; for the END's drag it is the other way round, and the edges and the hand are
+converted ONTO the ribbon instead (§18).
 
 ### Tests
 
@@ -1257,3 +1259,68 @@ it was fed a ribbon x against raw per-line edges. ⛔ Reverted. Anything compari
 line-start refusal (break-tested: the frame accepts the drag without it). ⚠️ The page-limit half of
 the landing is **not** covered — the stub registry does not model the limit, so swapping the writer
 back still passes.
+
+---
+
+## ✅⭐⭐ THE END'S DRAG NOW STOPS AT A SYSTEM BREAK, LIKE THE OTHER THREE (2026-08-24, BUILT)
+
+His report: *"when extending the trill and it goes to the next system it does not stop the drag like
+the rest lines but still is growing"*. The wedge, the bracket and the pedal all end the gesture when
+their end lands on the next system — the hand is still on this line, so every further pixel would
+move the mark by a distance measured against a line it has left. The trill did not, and the ink ran
+to 31 staff-spaces under a hand that never asked for it.
+
+### ⛔ Two bespoke tests were written first, and BOTH were wrong
+
+Recorded because the shape of the error is the lesson, and it is the same error twice: **a rule
+invented for this family instead of the mechanism the other three already share.**
+
+1. *"has `anchor + offset` passed the line's right edge?"* — asked with the anchor on the RIBBON and
+   the edge in DRAWN x. Off by that line's left indent (172 px in his trace) on line 1, and by the
+   sum of every line before it after that.
+2. The same test with the edge converted onto the ribbon. Arithmetically right, and **worse**: the
+   LAST BAR of a line has its end square AT that edge already, so the test fired the instant the walk
+   re-anchored onto it — on a frame with `dx 0.00ss`, before any crossing could happen. His verdict:
+   *"now is impossible to cross to the other system… this is even worst"*.
+
+⭐ **The lesson, and it is `CLAUDE.md`'s rule wearing a different hat:** when a family behaves unlike
+its siblings, read what the siblings DO before inventing what this one should. Both attempts were
+written from the log; neither was written from `markBreakWrap`.
+
+### ⭐⭐ What it does now — the siblings' mechanism, on this family's ruler
+
+`trillWalk.wrapPort` is an ordinary {@link BreakWrapPort}, and the drag hands it to `markDrive.dragFrame`
+exactly as the other three do. Then everything is theirs:
+
+- `breakCrossing` reports `pending` while a stop exists on another system and `ARRIVED` the moment
+  the hand passes the line's edge. ⭐ **The test is symmetric** — `cursorX > here.max` going forward,
+  `cursorX < here.min` coming back — which is the half his second report named (*"is not working in
+  the other direction… crossing from down to up"*), and neither bespoke attempt had it.
+- `leaveSystem` re-anchors the end onto that stop and SETS the offset so the ink lands `WRAP_STUB_SS`
+  (2 staff-spaces) inside the new line — forward, 2 spaces after its first ink; backward, 2 spaces
+  before the previous line's last.
+- `MARK_END_DRAGS.trill.endsOnWrap` ends the gesture. ⚠️ The square stays ARMED, so the arrows carry
+  on from over there.
+
+### ⭐⭐ THE ONLY TRILL-SPECIFIC THING IS THE RULER
+
+`breakCrossing` compares `port.anchorX()` with `here.max` and `port.stopX()` with `there.min`, so all
+four must be measured the same way — and this family's port speaks the RIBBON (§13). So `wrapPort`
+hands the systems' edges over ON THE RIBBON, and `cursorOnRibbon` converts the hand's x through the
+line the end stands on. Every line of `breakCrossing`'s arithmetic — `toEdge`, the stub, the landing,
+the folded gap — then holds unchanged.
+
+### ⛔⛔ NO WRAP ON THE KEYS — and that is a RULE, not an omission
+
+`trillWalk.test.ts` pins it: *"THE INK CROSSES ONTO THE NEXT SYSTEM — one RIBBON, so a break is not an
+event"*, from his 2026-08-20 *"no anchor to a note but offset in the next system"*. A per-line wrap
+can only ever count ONE hop, which is the bug he reported as *"it never was re-anchored to the note 3
+systems below"*.
+
+⭐ **So why does the DRAG want one?** Not for the re-anchor — the ribbon already gives it that. For
+the END OF THE GESTURE: a hand left behind on the old line. **A key press has no hand to leave
+behind.** That is the whole distinction, and it is why the two devices differ here and nowhere else.
+
+⭐ And the ribbon stays, so where the next system has no note to land on the ink still goes on as
+pure offset (his rule, 2026-08-21) — `breakCrossing` simply returns null, because `nextStop` gave it
+nothing, and the drawing folds the ink onward.

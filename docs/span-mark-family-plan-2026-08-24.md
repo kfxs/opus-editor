@@ -213,7 +213,7 @@ this plan assumes.
 
 ---
 
-## Phase 0 — Subtraction *(≈½ day, do first, independently shippable)*
+## ✅ Phase 0 — Subtraction — **DONE 2026-08-24**
 
 Pure removal, compiler-verified, no behaviour touched. Clears the noise so the real seams are visible.
 
@@ -247,9 +247,31 @@ read.
 
 Risk: none. `build:check` + 5,052 tests are the whole gate.
 
+### ✅ What actually happened
+
+**231 exports dropped** across all 20 directories; an independent re-scan measured **235** candidates
+(the plan said 242) and the per-directory shape matched — rendering 67, interactions 48 + 8, utils 24,
+models 18, bus 14. Re-running it now returns **4**, all of them reserved on purpose with a note in
+their own doc comment (`SLUR_CONTROL_ANGLE`, `PEDAL_PAREN_FONT`, `spanContainedInFrac`,
+`VEXFLOW_LEDGER_OVERHANG`) — for those, the `export` is the only thing keeping `noUnusedLocals` quiet.
+
+**Five dead symbols, not three.** The plan's table found `createTupletsForMeasure`,
+`EXPRESSION_WORDS` and `VEXFLOW_LEDGER_OVERHANG`; the sweep surfaced two more that only become
+visible once `noUnusedLocals` can see them — `elements/trillHandles.TrillDragWrite` (fully orphaned:
+`lineOff` appears nowhere else in the repo) and `models/CollisionDetector.CollisionResult`
+(`hasCollision` has no other mention). Both deleted.
+
+🚨 **A measurement trap worth keeping.** The first scan used `git ls-files 'src/**/*.ts'`, which in git
+pathspec does **not** match top-level `src/*.ts` — so `App.ts` and `main.ts` were outside the corpus —
+and `'e2e/**/*.ts'` matched **zero** of the 27 e2e files. That inflated the count to 249 and
+un-exported 14 symbols that are genuinely used. `tsc` caught the `App.ts` ones loudly; the e2e ones it
+could **not**, because `e2e/` is outside `tsconfig.include`. ⭐ So the gate for this phase had to be
+wider than `build:check`: type-check `e2e/` together with `src/` under a scratch tsconfig and compare
+the error count either side (31 before, 31 after, all pre-existing `ChordRest` narrowing).
+
 ---
 
-## Phase 1 — The drag driver *(≈½–1 day; this is the spike)*
+## ✅ Phase 1 — The drag driver — **1b DONE, 1a HALF DONE, 2026-08-24**
 
 **The smallest slice that proves the Phase 3 abstraction, at a tenth of the size.** If the four
 families cannot share a driver, this is where we find out cheaply — and Phase 3 does not start.
@@ -290,6 +312,61 @@ gets its contract in `markWalk.*.test.ts`; each family spec keeps only what its 
 `ottavaWalk.test.ts ↔ pedalWalk.test.ts` are 41% identical today and should not stay that way.
 
 Gate: `build:check` + 5,052 unit tests. No `test:e2e` needed — nothing here draws.
+
+---
+
+### ✅ What actually happened
+
+**1b — the driver — DONE.** `interactions/markDrive.ts`: `walkPress` (one arrow press) and
+`dragFrame` (one drag frame). **All six families call it**, so the plan's acceptance criterion holds —
+`dynamicWalk` and `tempoWalk` are POINT marks, and their calling it is what proves the driver is about
+the WALK and not about spans.
+
+⚠️ **It lives in a new module, not in `markWalk.ts` as the plan says**: `markBreakWrap` imports
+`markWalk`, and the driver needs both, so putting it in the lower of the two would close a cycle.
+
+Five knobs, each one a rule somebody reported: `wrap` (absent for the trill's keys), `maxCrossings`
+(1 for a span end, the loop for a point mark), `inkGuard` (the hairpin's system, the trill's ribbon),
+`handOverWhenBlocked` (off for the trill), `vertical` (screen-down vs outward-from-the-staff). What is
+**not** a knob — the batching rule, wrap-then-ink-then-hand-over, the folded-distance re-base — was
+identical in all six copies.
+
+**1a — the square drag — HALF DONE.** The four `handle*EndDrag` methods (49–57 lines, 54–56%
+identical) are one `handleMarkEndDrag` plus a `MARK_END_DRAGS` table; the four `end*EndDrag` are one;
+**28 flat drag fields are one `MarkEndSession`**. `MouseController` 3,762 → ~3,500 lines.
+⏭️ **The other 13 `isDragging*` flags are NOT done.** Surveying them turned up a rule that has to be
+made explicit first: they are read in **three** dispatch blocks, and `handleMouseLeave` ends only
+**six** of the twelve. One `activeDrag?.end()` would end all of them, so the collapse needs a stated
+"which gestures die when the pointer leaves" set — today that rule exists only as which `if`s someone
+wrote. (The plan's trap is real: `isDraggingBarWidth` is not a gesture flag at all, it is the
+past-the-threshold bit.)
+
+🚨 **The line-count estimate was wrong, and it matters for Phases 3–5.** The table below says Phase 1
+removes ~1,000 lines. It removed **262** from the six families and added **266** in the driver — net
+zero. The *composition* each family had rewritten is only ~45 lines; "the driver is ~40% of those
+2,804 lines" counted the ports and lane machinery, which are genuinely per-family and stayed. ⭐ What
+went is the DUPLICATION, not the volume — one composition instead of six, and the next family writes
+a table row. ⚠️ Price Phases 3–5 on rows-not-copied, ⛔ not on lines.
+
+**Coverage the collapse brought with it.** The four square drags had **no controller-level spec at
+all** — the walks own the arithmetic, nothing covered the session. `markDrive.test.ts` (18) pins the
+composition against a fake port; `MouseController.markEndDrag.test.ts` (28) is table-driven over all
+four families (arming, the threshold, the preview reaching the right family, one commit at the drop,
+the session clearing). 5,052 → **5,098** tests.
+
+**Two bugs the hand-testing then found, both pre-existing, both fixed here.**
+1. 🚨🚨 `PedalRenderer` and `OttavaRenderer` filed **every** fragment under the mark's FIRST
+   placement's measure. The band limit looks a staff's geometry up by that number, so a fragment drawn
+   on system 2 was judged against system 1's band — a permanent ~150 px overhang, which refused every
+   downward nudge for ever while allowing every upward one. `pedalStaysInBand`'s own comment already
+   promised *"each glyph is judged against ITS OWN system's band"*; the code just did not. Each
+   fragment now registers under the bar it is drawn in.
+2. The trill's end drag did not stop at a system break (`docs/trill-plan.md` §18).
+
+**Logs added, and one of them is a rule.** The shared frame line carried only `dx`, so a
+pure-vertical frame read as a hand that had not moved — that hid bug 1 for a whole round trip. It now
+carries `dy`, says `frame REFUSED` when the model writes nothing, and `[Band]`/`[Page]` print the
+numbers they judged. ⭐ **Never leave an axis out of the one line per frame.**
 
 ---
 
@@ -571,8 +648,8 @@ stack. So the clause should end:
 
 | # | phase | effort | risk | removes | makes cheap |
 |---|---|---|---|---|---|
-| 0 | subtraction | ~~1–2 h~~ **½ day** | none | 62 dead lines, ~~~80~~ **242** exports | seeing the real seams |
-| 1 | drag driver **(spike)** | ½–1 day | low | **~1,000** lines, 3 handlers, **17 flags** | the Phase 3 decision, cheaply |
+| 0 | ✅ subtraction | ~~1–2 h~~ **½ day** | none | **83** dead lines, ~~~80~~ ~~242~~ **231** exports | seeing the real seams |
+| 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; 4 of 17 flags | the Phase 3 decision, cheaply — **taken: it works** |
 | 2 | outlier functions | ½–1 day | medium | 0 — it is navigation | reading `renderScore` and `App.ts` |
 | 3 | `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~1,500 lines | the shape for the rest |
 | 4 | ottava, trill, ⟨hairpin⟩ | 2–3 days | medium | **~5,000–6,500** lines | glissando as a row |
