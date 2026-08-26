@@ -15,7 +15,7 @@ import type { Score } from '@/types/music'
  * ⛔ never `undefined`, so no caller has to spell the fallback a second time.
  */
 describe('SPAN_MARK_MODEL', () => {
-  const KINDS: SpanMarkKind[] = ['pedal']
+  const KINDS: SpanMarkKind[] = ['pedal', 'ottava']
 
   /** A score whose only override is one span mark's stored nudge. */
   const scoreWith = (o: Record<string, unknown>): Score =>
@@ -48,9 +48,19 @@ describe('SPAN_MARK_MODEL', () => {
     expect(offsetOf(bare, 'NOPE', 'start'), 'no override at all').toBe(0)
   })
 
-  it('⭐⭐ says the pedal\'s vertical is SCREEN-signed — the family\'s odd one out', () => {
-    // ⛔ Not `outward`: a pedalling is below the staff permanently, so the two spellings would differ
-    // by a sign that never changes. The bracket and the trill answer `outward` when they join.
+  it("⭐ reads the ottava's three numbers too — and its vertical is the `outward` one", () => {
+    const score = scoreWith({ kind: 'ottavaOffset', startX: 0.5, endX: 3, outward: 2 })
+    const { offsetOf } = SPAN_MARK_MODEL.ottava
+    expect(offsetOf(score, 'M1', 'start')).toBe(0.5)
+    expect(offsetOf(score, 'M1', 'end')).toBe(3)
+    expect(offsetOf(score, 'M1', 'vertical'), 'reads `outward`, ⛔ not a `y`').toBe(2)
+  })
+
+  it('⭐⭐ the two kinds SPELL THEIR VERTICAL DIFFERENTLY, and the table is where that is said', () => {
+    // ⛔ The pedal's is not `outward`: a pedalling is below the staff permanently, so the two
+    // spellings would differ by a sign that never changes. The bracket's side is DERIVED from
+    // `shift` and `x` flips it, so an outward number is what survives the flip.
     expect(SPAN_MARK_MODEL.pedal.vertical).toBe('screen')
+    expect(SPAN_MARK_MODEL.ottava.vertical).toBe('outward')
   })
 })

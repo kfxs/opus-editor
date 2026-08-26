@@ -34,7 +34,9 @@ import type { SpanMarkEnd, SpanMarkKind, SpanMarkOffsetField } from '../engine/m
 import type { EditorState } from './EditorState'
 import { armedTool } from './EditorState'
 import { bus } from '@/bus'
+import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
+import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import { walkPedalBody, walkPedalEndpoint } from './pedalWalk'
 
 /**
@@ -146,5 +148,46 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     // ⛔ No conversion, ever: a pedal has one side permanently, so `+ down` means the same thing
     // everywhere it can be drawn and the keyboard's number passes straight through.
     verticalSign: () => 1,
+  },
+
+  ottava: {
+    // ⭐ `createOttava([noteId], shift)` — the engine's one-note resolution, and the SHIFT comes off
+    // the armed tool, which is the whole of what this row has that the pedal's does not.
+    //
+    // ⭐⭐ **A SECOND CLICK REPLACES rather than stacking**: `addOttava` upserts per (beat, staff), so
+    // pressing the `8vb` row on a note already carrying an 8va REPLACES it rather than leaving two
+    // contradictory signs on one beat. ⚠️ The pedal's answer to a repeated click is the opposite
+    // (a re-take, one pedalling after another), which is why this belongs in the row.
+    armedStamp: (state) => {
+      const tool = armedTool(state, 'ottava')
+      return tool
+        ? {
+          label: `Add ${tool.shift > 0 ? '8va' : '8vb'}`,
+          create: (engine, noteId) => engine.createOttava([noteId], tool.shift),
+        }
+        : null
+    },
+
+    // ⭐ The seam carries `OttavaOffsetOverride`'s spelling — two horizontals and ONE `outward`,
+    // asked for without an end named because a bracket's two ends sit on one straight rule.
+    onGeometrySet: (fn) => bus.ottavaGeometry.onSet(req => fn(
+      'outward' in req
+        ? { id: req.ottavaId, field: 'vertical', wanted: req.outward }
+        : { id: req.ottavaId, field: req.which, wanted: req.x },
+    )),
+
+    nudgeEnd: (engine, id, which, dx, outward) => engine.nudgeOttavaEndpoint(id, which, dx, outward),
+    nudgeWhole: (engine, id, dx, outward) => engine.nudgeOttava(id, dx, outward),
+    walkEnd: (engine, id, which, dx) => walkOttavaEndpoint(engine, id, which, dx),
+    walkWhole: (engine, id, dx) => walkOttavaBody(engine, id, dx),
+    resetEnd: (engine, id, which) => engine.resetOttavaEndpointOffset(id, which),
+    resetWhole: (engine, id) => engine.resetOttavaOffset(id),
+    cycleEnd: (state, registry, step) => cycleOttavaEndpoint(state, registry, step),
+
+    // ⭐⭐ THE ONE ROW THAT FLIPS. Screen-up arrives as a NEGATIVE `dy`, and above the staff "up" IS
+    // "further out" — so an 8va negates and an 8vb does not. ⚠️ It asks the MODEL for the side rather
+    // than remembering it: `x` flips a bracket (`toggleOttavaDirection`), so two marks of this one
+    // kind can want opposite signs at the same moment.
+    verticalSign: (engine, id) => ((engine.getOttavaById(id)?.shift ?? 1) > 0 ? -1 : 1),
   },
 }

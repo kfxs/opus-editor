@@ -23,7 +23,6 @@ import { dragDynamic } from './dynamicWalk'
 import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampTrillAtClick } from './trillStamp'
-import { stampOttavaAtClick } from './ottavaStamp'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
@@ -2132,9 +2131,9 @@ export class MouseController {
     // …and the trill's (interactions/trillStamp). Last of the spanner stamps; each answers only for
     // its own armed tool, so the order among them decides nothing.
     if (stampTrillAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    if (stampOttavaAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    // …and the PEDAL's, through the family's one driver (`./spanMarkStamp`) reading its row in
-    // `SPAN_MARK_TOOLS` — the shape the other stamps join one at a time.
+    // …and the OTTAVA's and the PEDAL's, through the family's one driver (`./spanMarkStamp`) reading
+    // their rows in `SPAN_MARK_TOOLS` — the shape the remaining stamps join one at a time.
+    if (stampSpanMarkAtClick('ottava', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('pedal', this.state, engine, registry, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.

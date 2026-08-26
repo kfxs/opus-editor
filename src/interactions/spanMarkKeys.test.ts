@@ -130,3 +130,67 @@ describe('the span-mark key verbs, at the pedal row', () => {
     expect(handles, 'it asked the registry rather than the model').toHaveBeenCalled()
   })
 })
+
+/**
+ * ⭐⭐ **THE OTTAVA'S CHAPTER: THE ONE ROW THAT FLIPS.** Every other kind so far passes the keyboard's
+ * screen delta through untouched; a bracket must convert it to OUTWARD-from-the-staff, because `↑`
+ * is a screen direction while the stored number means "further from the staff" — so that flipping
+ * 8va↔8vb cannot invert a nudge the user already made (see `OttavaOffsetOverride`).
+ *
+ * 🚨 This is where the family's one conversion lives now, and it is the case that would go red if a
+ * future kind's row copied the pedal's `() => 1` without asking which side its mark is drawn on.
+ */
+describe("the span-mark key verbs, at the ottava row — screen → outward", () => {
+  let state: EditorState
+  let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, outward: number) => boolean>
+  let whole: Mock<(id: string, dx: number, outward: number) => boolean>
+  let shift: 1 | -1
+
+  /** An engine whose only interesting answer is which side the bracket is drawn on. */
+  const engineFor = (): MusicEngine => ({
+    nudgeOttavaEndpoint: nudge,
+    nudgeOttava: whole,
+    getOttavaById: () => ({ id: 'O1', shift }),
+    // Nothing drawn to walk onto, so a horizontal press stays the plain ink nudge.
+    nextOttavaStartSlot: vi.fn(() => null),
+    nextOttavaEndSlot: vi.fn(() => null),
+    ottavaEndSlot: vi.fn(() => null),
+    getScore: () => ({ measures: [] }),
+    getElementRegistry: () => ({ getByType: () => [] }),
+  } as unknown as MusicEngine)
+
+  beforeEach(() => {
+    nudge = vi.fn(() => true)
+    whole = vi.fn(() => true)
+    shift = 1
+    state = createEditorState()
+  })
+
+  it('⭐⭐ an 8va NEGATES: screen-up (−1) becomes a POSITIVE outward', () => {
+    state.selectedElement = { kind: 'ottava', id: 'O1', endpoint: 'start' }
+    nudgeArmedSpanMarkEnd('ottava', state, engineFor(), 0, -1)
+    expect(nudge).toHaveBeenCalledWith('O1', 'start', 0, 1)
+  })
+
+  it('⭐⭐ …and an 8vb does NOT — below the staff, screen-up is INWARD', () => {
+    shift = -1
+    state.selectedElement = { kind: 'ottava', id: 'O1', endpoint: 'start' }
+    nudgeArmedSpanMarkEnd('ottava', state, engineFor(), 0, -1)
+    expect(nudge).toHaveBeenCalledWith('O1', 'start', 0, -1)
+  })
+
+  it('⚠️ the WHOLE-mark verb converts by the same rule — ⛔ never one and not the other', () => {
+    state.selectedElement = { kind: 'ottava', id: 'O1' }
+    nudgeSelectedSpanMark('ottava', state, engineFor(), 0, -1)
+    expect(whole, '8va up → +outward').toHaveBeenCalledWith('O1', 0, 1)
+    shift = -1
+    nudgeSelectedSpanMark('ottava', state, engineFor(), 0, -1)
+    expect(whole, '8vb up → −outward').toHaveBeenCalledWith('O1', 0, -1)
+  })
+
+  it('⭐ the HORIZONTAL is not converted at all — x is x on both sides of the staff', () => {
+    state.selectedElement = { kind: 'ottava', id: 'O1', endpoint: 'end' }
+    nudgeArmedSpanMarkEnd('ottava', state, engineFor(), 0.25, 0)
+    expect(nudge).toHaveBeenCalledWith('O1', 'end', 0.25, 0)
+  })
+})

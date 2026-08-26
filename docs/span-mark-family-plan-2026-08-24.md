@@ -580,11 +580,35 @@ own rule about jsdom.
 
 ---
 
-## Phase 4 — Port ottava, then trill; then decide hairpin *(≈2–3 days)*
+## Phase 4 — Port ottava, then trill; then decide hairpin *(≈2–3 days)* — **OTTAVA DONE 2026-08-26**
 
 In that order — increasing distance from the shared shape.
 
-- **ottava** — the closest twin to pedal; should be near-mechanical after Phase 3.
+- **ottava** — ✅ **DONE, and it was near-mechanical exactly as predicted.**
+
+  ⭐⭐ **THE RESULT THAT VALIDATES PHASE 3: all four shared drivers took the ottava with ZERO
+  changes.** `git diff` on `spanMarkStamp.ts`, `SpanMarkGeometryController.ts`, `spanMarkKeys.ts` and
+  `ghostCursor.drawSignGhost` is **empty** — the second kind is two table rows and four call sites
+  re-pointed, which is what the abstraction promised and had not yet been asked to prove.
+
+  | ottava's own | code lines |
+  |---|---|
+  | `interactions/ottavaStamp.ts` | **38** → deleted |
+  | `interactions/OttavaGeometryController.ts` | **36** → deleted |
+  | `engine/rendering/OttavaGhost.ts` | **31** → **11** |
+  | its five closures in `shortcutWiring` | **23** → **0** |
+  | its two rows | — → **34** |
+
+  **117 code lines → 34.** ⭐ And the running total turns: Phase 3 was **+150** (drivers with one
+  user), the ottava is **−83**, so the family is at **+67** with three kinds still to come. The
+  crossover lands inside Phase 4, as the rows-not-copied pricing predicted.
+
+  ⭐⭐ **The one genuine difference is now a ROW MEMBER, not a branch**: `verticalSign`. Every other
+  kind passes the keyboard's screen delta through; a bracket negates it above the staff, because `↑`
+  is a screen direction while the stored number is `outward` — and it asks the MODEL for the side each
+  time, since `x` flips a bracket and two marks of one kind can want opposite signs at once. ⚠️ Both
+  the `[A4]` totality and this flip were **break-tested**: adding a kind with no row fails `tsc` by
+  name, and replacing the ottava's `verticalSign` with the pedal's `() => 1` reddens two specs.
 - **trill** — carries `trillReanchor` (255) and `trillPitch` (92) that have no counterpart. Expect
   the spec to grow one optional member, not the table to grow a special case.
 - **hairpin** — ⛔ **do not start until D1 is answered on the evidence of the first three.** If it
@@ -745,7 +769,7 @@ stack. So the clause should end:
 | 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; **13 flags → 1**, 20 `if`s → 1 call | the Phase 3 decision, cheaply — **taken: it works** |
 | 2 | outlier functions | ½–1 day | medium | 0 — it is navigation | reading `renderScore` and `App.ts` |
 | 3 | ✅ `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~~~1,500 lines~~ pedal's own **111 code lines → 28** (a row); repo **+150** | the shape for the rest — **taken: it shrinks** |
-| 4 | ottava, trill, ⟨hairpin⟩ | 2–3 days | medium | **~5,000–6,500** lines | glissando as a row |
+| 4 | ⏳ ottava ✅, trill, ⟨hairpin⟩ | 2–3 days | medium | ~~**~5,000–6,500** lines~~ per kind: **~117 code lines → ~34** (ottava, measured) | glissando as a row |
 | 5 | verb families — **5a facade + 5b `ScoreModel`** | ~~½~~ **1 day** | low (5a) / **medium (5b)** | ~170 + **96** methods | every future kind |
 | 6 | the rule + its check | 30 min | none | — | all of the above staying done |
 

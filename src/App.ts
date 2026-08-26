@@ -20,7 +20,6 @@ import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { DynamicOffsetController } from './interactions/DynamicOffsetController'
 import { TempoOffsetController } from './interactions/TempoOffsetController'
-import { OttavaGeometryController } from './interactions/OttavaGeometryController'
 import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryController'
 import { TrillGeometryController } from './interactions/TrillGeometryController'
 import { FanEditController } from './interactions/FanEditController'
@@ -546,9 +545,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // …and the tempo mark's, the same two axes through the same kind of seam (his ask, 2026-08-19).
   const tempoOffset = new TempoOffsetController(getEngine, () => renderer.renderScore())
   // …and the octave bracket's three offset numbers (two ends + the one shared height).
-  const ottavaGeometry = new OttavaGeometryController(getEngine, () => renderer.renderScore())
-  // ⭐ The PEDAL's boxes go through the family's one controller, reading its row in
-  // `SPAN_MARK_TOOLS` (`interactions/spanMarkTools`); the other kinds join it a row at a time.
+  const ottavaGeometry = new SpanMarkGeometryController('ottava', getEngine, () => renderer.renderScore())
+  // ⭐ The PEDAL's boxes too; the remaining kinds join the same controller a row at a time.
   const pedalGeometry = new SpanMarkGeometryController('pedal', getEngine, () => renderer.renderScore())
   const trillGeometry = new TrillGeometryController(getEngine, () => renderer.renderScore())
   // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this

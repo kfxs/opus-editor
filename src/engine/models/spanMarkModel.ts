@@ -30,16 +30,16 @@
  * the TABLE does not become partial.** A total table of specs with optional members still fails to
  * build on a missing *kind*; a `Partial` table does not.
  *
- * ⚠️ The union starts at **one member**. Phase 3 ports the pedal alone, and `SpanMarkKind` widens one
- * kind at a time — each widening making `tsc` demand the row, which is the totality doing its job
- * rather than a promise that it will.
+ * ⚠️ The union widens **one kind at a time** — pedal in Phase 3, the octave line in Phase 4 — and each
+ * widening makes `tsc` demand the row, which is the totality doing its job rather than a promise that
+ * it will.
  */
 import type { Score } from '@/types/music'
-import { pedalOffsetOverrideOf } from './engravingOverrides'
+import { ottavaOffsetOverrideOf, pedalOffsetOverrideOf } from './engravingOverrides'
 
 /** The span marks driven through the shared family. ⭐ Widening this is how a kind JOINS: `tsc`
  *  then refuses every table until the new row is written. */
-export type SpanMarkKind = 'pedal'
+export type SpanMarkKind = 'pedal' | 'ottava'
 
 /** A span's two ends, named the way `selectedElement.endpoint` names them. */
 export type SpanMarkEnd = 'start' | 'end'
@@ -99,6 +99,21 @@ export const SPAN_MARK_MODEL: Record<SpanMarkKind, SpanMarkModelSpec> = {
     offsetOf: (score, id, field) => {
       const o = pedalOffsetOverrideOf(score, id)
       if (field === 'vertical') return o?.y ?? 0
+      return (field === 'start' ? o?.startX : o?.endX) ?? 0
+    },
+  },
+
+  ottava: {
+    noun: 'ottava',
+    // ⭐⭐ OUTWARD, and the exception is earned twice over (see `OttavaOffsetOverride`'s own note): an
+    // octave line's side is DERIVED from `shift`, and `x` FLIPS it — so a screen `y` would turn a
+    // nudge that cleared the music into a shove into it the moment 8va became 8vb. ⛔ The pedal's
+    // spelling cannot simply be copied across.
+    vertical: 'outward',
+    endNoun: 'end',
+    offsetOf: (score, id, field) => {
+      const o = ottavaOffsetOverrideOf(score, id)
+      if (field === 'vertical') return o?.outward ?? 0
       return (field === 'start' ? o?.startX : o?.endX) ?? 0
     },
   },

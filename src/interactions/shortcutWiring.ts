@@ -22,8 +22,6 @@ import { walkTempo } from './tempoWalk'
 import { walkHairpinBody, walkHairpinEndpoint } from './hairpinWalk'
 import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
-import { cycleOttavaEndpoint } from './elements/ottavaHandles'
-import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
   resetSelectedSpanMark,
@@ -157,8 +155,7 @@ export function wireShortcuts(
   // hairpin's reason: `selectedElement` is ONE thing, so each walk declines whenever another kind
   // is what is selected.
   const walkOttavaHandles = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !cycleOttavaEndpoint(state, eng.getElementRegistry(), step)) return false
+    if (!cycleSpanMarkEnd('ottava', state, getEngine(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -308,14 +305,7 @@ export function wireShortcuts(
    * ⚠️ Screen-down is +dy, so "up" arrives negative and becomes a POSITIVE outward for an 8va.
    */
   const nudgeArmedOttavaEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || !ottava?.endpoint) return false
-    const above = (eng.getOttavaById(ottava.id)?.shift ?? 1) > 0
-    const moved = dy === 0 && dx !== 0
-      ? walkOttavaEndpoint(eng, ottava.id, ottava.endpoint, dx)
-      : eng.nudgeOttavaEndpoint(ottava.id, ottava.endpoint, dx, above ? -dy : dy)
-    if (!moved) return false
+    if (!nudgeArmedSpanMarkEnd('ottava', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -336,14 +326,7 @@ export function wireShortcuts(
    * mark and reshaping it.
    */
   const nudgeSelectedOttava = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || !ottava || ottava.endpoint) return false
-    const above = (eng.getOttavaById(ottava.id)?.shift ?? 1) > 0
-    const moved = dy === 0 && dx !== 0
-      ? walkOttavaBody(eng, ottava.id, dx)
-      : eng.nudgeOttava(ottava.id, dx, above ? -dy : dy)
-    if (!moved) return false
+    if (!nudgeSelectedSpanMark('ottava', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -507,10 +490,7 @@ export function wireShortcuts(
   /** `Ctrl+Backspace` with a bracket selected and nothing armed: every nudge dropped. DECLINEs when
    *  it carries none. */
   const resetSelectedOttava = (): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || !ottava || ottava.endpoint) return false
-    if (!eng.resetOttavaOffset(ottava.id)) return false
+    if (!resetSelectedSpanMark('ottava', state, getEngine())) return false
     renderer.renderScore()
     return true
   }
@@ -518,10 +498,7 @@ export function wireShortcuts(
   /** `Ctrl+Backspace` on an armed ottava square: that end's `x` and the bracket's shared `y` back to
    *  the engraver's own. DECLINEs when it was never nudged, so the key falls through. */
   const resetArmedOttavaEnd = (): boolean => {
-    const eng = getEngine()
-    const ottava = selectedOf(state, 'ottava')
-    if (!eng || !ottava?.endpoint) return false
-    if (!eng.resetOttavaEndpointOffset(ottava.id, ottava.endpoint)) return false
+    if (!resetArmedSpanMarkEnd('ottava', state, getEngine())) return false
     renderer.renderScore()
     return true
   }

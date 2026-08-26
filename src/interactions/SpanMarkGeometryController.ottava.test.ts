@@ -1,21 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
-import { OttavaGeometryController } from './OttavaGeometryController'
+import { SpanMarkGeometryController } from './SpanMarkGeometryController'
 import { bus } from '@/bus'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Score } from '@/types/music'
 
 /**
- * {@link OttavaGeometryController} — the apply half of the Properties ottava offset rows (his ask,
- * 2026-08-17). `HairpinGeometryController`'s twin, and what it owns is one conversion: the window
- * writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
+ * {@link SpanMarkGeometryController} as the OTTAVA's row drives it (`SPAN_MARK_TOOLS.ottava`) — the
+ * apply half of the Properties ottava offset rows (his ask, 2026-08-17). What the controller owns is
+ * one conversion: the window writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
+ *
+ * ⭐⭐ And what the ROW owns is the thing the pedal's chapter beside this one has no equivalent of:
+ * the vertical is `outward`, ⛔ not a screen `y`. It still passes through UNCONVERTED here — the seam,
+ * the row and the facade all speak outward — which is the case that would go red if the driver ever
+ * grew a flip of its own.
  *
  * ⭐ Going through `nudgeOttavaEndpoint` rather than writing the override directly is what puts the
  * panel behind the same PAGE LIMIT as the arrow keys (his report the same afternoon: *"the offset
  * limit should also be true of properties"*). ⛔ A controller that wrote the compartment itself would
  * be a second door past that gate.
  */
-describe('OttavaGeometryController', () => {
-  let controller: OttavaGeometryController
+describe("SpanMarkGeometryController — the ottava's row", () => {
+  let controller: SpanMarkGeometryController
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let render: Mock<() => void>
   let score: Score
@@ -25,7 +30,7 @@ describe('OttavaGeometryController', () => {
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
     const engine = { getScore: () => score, nudgeOttavaEndpoint: nudge } as unknown as MusicEngine
-    controller = new OttavaGeometryController(() => engine, render)
+    controller = new SpanMarkGeometryController('ottava', () => engine, render)
   })
   afterEach(() => { controller.destroy() })
 
@@ -101,7 +106,7 @@ describe('OttavaGeometryController', () => {
     bus.ottavaGeometry.set({ ottavaId: 'O1', outward: 1 })
     expect(nudge, 'unsubscribed').not.toHaveBeenCalled()
 
-    const orphan = new OttavaGeometryController(() => null, render)
+    const orphan = new SpanMarkGeometryController('ottava', () => null, render)
     bus.ottavaGeometry.set({ ottavaId: 'O1', outward: 1 })
     expect(render, 'no engine to apply through').not.toHaveBeenCalled()
     orphan.destroy()
