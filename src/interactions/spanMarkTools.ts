@@ -35,9 +35,11 @@ import type { EditorState } from './EditorState'
 import { armedTool } from './EditorState'
 import { bus } from '@/bus'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
+import { cycleTrillEndpoint } from './elements/trillHandles'
 import { cyclePedalEndpoint } from './elements/pedalHandles'
 import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
 import { walkPedalBody, walkPedalEndpoint } from './pedalWalk'
+import { walkTrillBody, walkTrillEndpoint } from './trillWalk'
 
 /**
  * One Properties-panel request, in the family's own words: put THIS number at THIS value.
@@ -189,5 +191,33 @@ export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
     // than remembering it: `x` flips a bracket (`toggleOttavaDirection`), so two marks of this one
     // kind can want opposite signs at the same moment.
     verticalSign: (engine, id) => ((engine.getOttavaById(id)?.shift ?? 1) > 0 ? -1 : 1),
+  },
+
+  trill: {
+    // ⭐ `createTrill([noteId])` — one note is a complete ornament, and the extension (whether a
+    // wavy line follows the sign at all) is the model's own answer, ⛔ never the stamp's.
+    armedStamp: (state) => armedTool(state, 'trill')
+      ? { label: 'Add trill', create: (engine, noteId) => engine.createTrill([noteId]) }
+      : null,
+
+    onGeometrySet: (fn) => bus.trillGeometry.onSet(req => fn(
+      'outward' in req
+        ? { id: req.trillId, field: 'vertical', wanted: req.outward }
+        : { id: req.trillId, field: req.which, wanted: req.x },
+    )),
+
+    nudgeEnd: (engine, id, which, dx, outward) => engine.nudgeTrillEndpoint(id, which, dx, outward),
+    nudgeWhole: (engine, id, dx, outward) => engine.nudgeTrill(id, dx, outward),
+    // ⚠️ The one walk with a case of its own inside it: a BARE `tr` has no line to walk along, so
+    // `walkTrillEndpoint` crosses the sign itself rather than looking for stops that do not exist.
+    // ⭐ That stays in `./trillWalk` where the ornament's own rules live — the row POINTS at it.
+    walkEnd: (engine, id, which, dx) => walkTrillEndpoint(engine, id, which, dx),
+    walkWhole: (engine, id, dx) => walkTrillBody(engine, id, dx),
+    resetEnd: (engine, id, which) => engine.resetTrillEndpointOffset(id, which),
+    resetWhole: (engine, id) => engine.resetTrillOffset(id),
+    cycleEnd: (state, registry, step) => cycleTrillEndpoint(state, registry, step),
+
+    // ⭐ The bracket's flip, read off `placement` rather than `shift` — an ornament changes sides too.
+    verticalSign: (engine, id) => ((engine.getTrillById(id)?.placement ?? 'above') === 'above' ? -1 : 1),
   },
 }

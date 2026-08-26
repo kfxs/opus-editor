@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
-import { TrillGeometryController } from './TrillGeometryController'
+import { SpanMarkGeometryController } from './SpanMarkGeometryController'
 import { bus } from '@/bus'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Score } from '@/types/music'
 
 /**
- * {@link TrillGeometryController} — the apply half of the Properties trill offset rows (his ask,
- * 2026-08-18). `OttavaGeometryController`'s twin, and what it owns is one conversion: the window
- * writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
+ * {@link SpanMarkGeometryController} as the TRILL's row drives it (`SPAN_MARK_TOOLS.trill`) — the
+ * apply half of the Properties trill offset rows (his ask, 2026-08-18). What the controller owns is
+ * one conversion: the window writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
  *
  * ⭐ Going through `nudgeTrillEndpoint` rather than writing the override directly is what puts the
  * panel behind the same PAGE LIMIT as the arrow keys. ⛔ A controller that wrote the compartment
@@ -17,8 +17,8 @@ import type { Score } from '@/types/music'
  * OUTWARD-from-the-staff, and only the two edges with a direction on them convert: the keyboard
  * (`↑`) and the panel's box (`+` is up). A negation on this road would be a third opinion.
  */
-describe('TrillGeometryController', () => {
-  let controller: TrillGeometryController
+describe("SpanMarkGeometryController — the trill's row", () => {
+  let controller: SpanMarkGeometryController
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let render: Mock<() => void>
   let score: Score
@@ -28,7 +28,7 @@ describe('TrillGeometryController', () => {
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
     const engine = { getScore: () => score, nudgeTrillEndpoint: nudge } as unknown as MusicEngine
-    controller = new TrillGeometryController(() => engine, render)
+    controller = new SpanMarkGeometryController('trill', () => engine, render)
   })
   afterEach(() => { controller.destroy() })
 
@@ -103,7 +103,7 @@ describe('TrillGeometryController', () => {
     bus.trillGeometry.set({ trillId: 'T1', outward: 1 })
     expect(nudge, 'unsubscribed').not.toHaveBeenCalled()
 
-    const orphan = new TrillGeometryController(() => null, render)
+    const orphan = new SpanMarkGeometryController('trill', () => null, render)
     bus.trillGeometry.set({ trillId: 'T1', outward: 1 })
     expect(render, 'no engine to apply through').not.toHaveBeenCalled()
     orphan.destroy()

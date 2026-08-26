@@ -35,11 +35,11 @@
  * it will.
  */
 import type { Score } from '@/types/music'
-import { ottavaOffsetOverrideOf, pedalOffsetOverrideOf } from './engravingOverrides'
+import { ottavaOffsetOverrideOf, pedalOffsetOverrideOf, trillOffsetOverrideOf } from './engravingOverrides'
 
 /** The span marks driven through the shared family. ⭐ Widening this is how a kind JOINS: `tsc`
  *  then refuses every table until the new row is written. */
-export type SpanMarkKind = 'pedal' | 'ottava'
+export type SpanMarkKind = 'pedal' | 'ottava' | 'trill'
 
 /** A span's two ends, named the way `selectedElement.endpoint` names them. */
 export type SpanMarkEnd = 'start' | 'end'
@@ -113,6 +113,20 @@ export const SPAN_MARK_MODEL: Record<SpanMarkKind, SpanMarkModelSpec> = {
     endNoun: 'end',
     offsetOf: (score, id, field) => {
       const o = ottavaOffsetOverrideOf(score, id)
+      if (field === 'vertical') return o?.outward ?? 0
+      return (field === 'start' ? o?.startX : o?.endX) ?? 0
+    },
+  },
+
+  trill: {
+    noun: 'trill',
+    // ⭐ `outward`, the bracket's spelling — but for the PEDAL's reason rather than the bracket's:
+    // there is no straight rule here that a second height could tilt, there is a sign and a wiggle
+    // that read as one. It is `outward` because an ornament CAN change sides (`placement`).
+    vertical: 'outward',
+    endNoun: 'end',
+    offsetOf: (score, id, field) => {
+      const o = trillOffsetOverrideOf(score, id)
       if (field === 'vertical') return o?.outward ?? 0
       return (field === 'start' ? o?.startX : o?.endX) ?? 0
     },

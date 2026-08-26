@@ -48,8 +48,6 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Note } from '../types/music'
-import type { EditorState } from './EditorState'
-import { selectedOf } from './EditorState'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { trillEndWithoutAnEnd } from '../engine/models/trillOps'
 import { type MarkWalkPort } from './markWalk'
@@ -93,7 +91,7 @@ interface TrillWrite {
 }
 
 /** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
- *  batch ({@link walkArmedTrillEndpoint}). */
+ *  batch ({@link walkTrillEndpoint}). */
 function keyWrites(engine: TrillWalkEngine, id: string, which: 'start' | 'end'): TrillWrite {
   return {
     reanchor: (stop) => applyTrillAnchorStop(engine, id, which, stop),
@@ -922,26 +920,25 @@ function endInkPastSign(
   return { past: endInk <= signInk }
 }
 
-export function walkArmedTrillEndpoint(
-  state: EditorState,
+export function walkTrillEndpoint(
   engine: TrillWalkEngine,
+  id: string,
+  which: 'start' | 'end',
   dx: number,
 ): boolean {
-  const selected = selectedOf(state, 'trill')
-  const which = selected?.endpoint
-  if (!selected || !which || dx === 0) return false
+  if (dx === 0) return false
 
-  const port = trillPort(engine, selected.id, which, keyWrites(engine, selected.id, which))
+  const port = trillPort(engine, id, which, keyWrites(engine, id, which))
   // ⭐⭐ THE BARE `tr`, the END's leftmost rung — see {@link crossTheBareSign}.
-  if (crossTheBareSign(engine, selected.id, which, dx, {
-    extension: (to) => engine.setTrillExtension(selected.id, to),
-    nudge: (ddx, ddy) => engine.nudgeTrillEndpoint(selected.id, 'end', ddx, ddy),
+  if (crossTheBareSign(engine, id, which, dx, {
+    extension: (to) => engine.setTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.nudgeTrillEndpoint(id, 'end', ddx, ddy),
   })) return true
-  const drive = trillDrive(engine, selected.id, port,
+  const drive = trillDrive(engine, id, port,
     which === 'start' ? 'Move trill start' : 'Move trill end')
   // ⛔ …and with no line there is nothing to walk: the press stays the plain ink nudge it was, guard
   // and all — ⛔ NOT `walkPress`, which would look for stops a bare `tr` does not have.
-  if (engine.getTrillById(selected.id)?.extension === 'none' && which === 'end') {
+  if (engine.getTrillById(id)?.extension === 'none' && which === 'end') {
     return (drive.inkGuard?.(false, dx) ?? true) && inkNudge(port, dx)
   }
   return walkPress(drive, dx)

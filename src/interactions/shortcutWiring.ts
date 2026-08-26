@@ -26,9 +26,7 @@ import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
   resetSelectedSpanMark,
 } from './spanMarkKeys'
-import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
-import { walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -172,8 +170,7 @@ export function wireShortcuts(
 
   // …and a selected TRILL's squares (`elements/trillHandles`), chained on for the same reason.
   const walkTrillHandles = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !cycleTrillEndpoint(state, eng.getElementRegistry(), step)) return false
+    if (!cycleSpanMarkEnd('trill', state, getEngine(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -431,14 +428,7 @@ export function wireShortcuts(
    * else; every press either side of it is ink.
    */
   const nudgeArmedTrillEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const trill = selectedOf(state, 'trill')
-    if (!eng || !trill?.endpoint) return false
-    const above = (eng.getTrillById(trill.id)?.placement ?? 'above') === 'above'
-    const moved = dy === 0 && dx !== 0
-      ? walkArmedTrillEndpoint(state, eng, dx)
-      : eng.nudgeTrillEndpoint(trill.id, trill.endpoint, dx, above ? -dy : dy)
-    if (!moved) return false
+    if (!nudgeArmedSpanMarkEnd('trill', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -454,24 +444,14 @@ export function wireShortcuts(
    * side of the crossing is ink.
    */
   const nudgeSelectedTrill = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const trill = selectedOf(state, 'trill')
-    if (!eng || !trill || trill.endpoint) return false
-    const above = (eng.getTrillById(trill.id)?.placement ?? 'above') === 'above'
-    const moved = dy === 0 && dx !== 0
-      ? walkTrillBody(eng, trill.id, dx)
-      : eng.nudgeTrill(trill.id, dx, above ? -dy : dy)
-    if (!moved) return false
+    if (!nudgeSelectedSpanMark('trill', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
 
   /** `Ctrl+Backspace` with a trill selected and nothing armed: every nudge dropped. */
   const resetSelectedTrill = (): boolean => {
-    const eng = getEngine()
-    const trill = selectedOf(state, 'trill')
-    if (!eng || !trill || trill.endpoint) return false
-    if (!eng.resetTrillOffset(trill.id)) return false
+    if (!resetSelectedSpanMark('trill', state, getEngine())) return false
     renderer.renderScore()
     return true
   }
@@ -479,10 +459,7 @@ export function wireShortcuts(
   /** `Ctrl+Backspace` on an armed trill square: that end's `x` and the ornament's shared vertical
    *  back to the engraver's own. DECLINEs when it was never nudged, so the key falls through. */
   const resetArmedTrillEnd = (): boolean => {
-    const eng = getEngine()
-    const trill = selectedOf(state, 'trill')
-    if (!eng || !trill?.endpoint) return false
-    if (!eng.resetTrillEndpointOffset(trill.id, trill.endpoint)) return false
+    if (!resetArmedSpanMarkEnd('trill', state, getEngine())) return false
     renderer.renderScore()
     return true
   }

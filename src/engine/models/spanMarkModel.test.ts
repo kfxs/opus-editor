@@ -15,7 +15,7 @@ import type { Score } from '@/types/music'
  * ⛔ never `undefined`, so no caller has to spell the fallback a second time.
  */
 describe('SPAN_MARK_MODEL', () => {
-  const KINDS: SpanMarkKind[] = ['pedal', 'ottava']
+  const KINDS: SpanMarkKind[] = ['pedal', 'ottava', 'trill']
 
   /** A score whose only override is one span mark's stored nudge. */
   const scoreWith = (o: Record<string, unknown>): Score =>
@@ -62,5 +62,9 @@ describe('SPAN_MARK_MODEL', () => {
     // `shift` and `x` flips it, so an outward number is what survives the flip.
     expect(SPAN_MARK_MODEL.pedal.vertical).toBe('screen')
     expect(SPAN_MARK_MODEL.ottava.vertical).toBe('outward')
+    // ⭐ The trill's is `outward` for the PEDAL's reason (a sign and a wiggle read as one) rather
+    // than the bracket's (a straight rule that could tilt) — but it can change SIDES, which is what
+    // decides the spelling.
+    expect(SPAN_MARK_MODEL.trill.vertical).toBe('outward')
   })
 })

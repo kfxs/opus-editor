@@ -22,7 +22,6 @@ import { dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { dragDynamic } from './dynamicWalk'
 import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
-import { stampTrillAtClick } from './trillStamp'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
@@ -2128,11 +2127,10 @@ export class MouseController {
     // The slur stamp's click lives in its own module too (interactions/slurStamp); this is its turn.
     if (stampSlurAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampHairpinAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    // …and the trill's (interactions/trillStamp). Last of the spanner stamps; each answers only for
-    // its own armed tool, so the order among them decides nothing.
-    if (stampTrillAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    // …and the OTTAVA's and the PEDAL's, through the family's one driver (`./spanMarkStamp`) reading
-    // their rows in `SPAN_MARK_TOOLS` — the shape the remaining stamps join one at a time.
+    // …and the TRILL's, the OTTAVA's and the PEDAL's, through the family's one driver
+    // (`./spanMarkStamp`) reading their rows in `SPAN_MARK_TOOLS`. Each answers only for its own
+    // armed tool, so the order among them decides nothing.
+    if (stampSpanMarkAtClick('trill', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('ottava', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('pedal', this.state, engine, registry, x, y, () => this.render.renderScore())) return
 

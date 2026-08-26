@@ -194,3 +194,56 @@ describe("the span-mark key verbs, at the ottava row — screen → outward", ()
     expect(nudge).toHaveBeenCalledWith('O1', 'end', 0.25, 0)
   })
 })
+
+/**
+ * ⭐⭐ **THE TRILL FLIPS TOO, off `placement` rather than `shift`** — and this chapter exists because
+ * a break-test found it UNCOVERED: on 2026-08-26, replacing the trill's `verticalSign` with `() => 1`
+ * left all 1,687 interaction specs green. The conversion had lived in a `shortcutWiring` closure
+ * since it was written and nothing had ever asserted it.
+ *
+ * ⭐ That is the refactor earning its keep in a way the line count does not show: the same rule now
+ * has ONE home per kind, and a missing test for it is visible instead of buried in a closure.
+ */
+describe("the span-mark key verbs, at the trill row — screen → outward", () => {
+  let state: EditorState
+  let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, outward: number) => boolean>
+  let whole: Mock<(id: string, dx: number, outward: number) => boolean>
+  let placement: 'above' | 'below'
+
+  const engineFor = (): MusicEngine => ({
+    nudgeTrillEndpoint: nudge,
+    nudgeTrill: whole,
+    getTrillById: () => ({ id: 'T1', placement, extension: 'none' }),
+    getScore: () => ({ measures: [] }),
+    getElementRegistry: () => ({ getByType: () => [] }),
+  } as unknown as MusicEngine)
+
+  beforeEach(() => {
+    nudge = vi.fn(() => true)
+    whole = vi.fn(() => true)
+    placement = 'above'
+    state = createEditorState()
+  })
+
+  it('⭐⭐ an ABOVE trill negates: screen-up (−1) becomes a POSITIVE outward', () => {
+    state.selectedElement = { kind: 'trill', id: 'T1', endpoint: 'start' }
+    nudgeArmedSpanMarkEnd('trill', state, engineFor(), 0, -1)
+    expect(nudge).toHaveBeenCalledWith('T1', 'start', 0, 1)
+  })
+
+  it('⭐⭐ …and a BELOW trill does not — under the staff, screen-up is INWARD', () => {
+    placement = 'below'
+    state.selectedElement = { kind: 'trill', id: 'T1', endpoint: 'start' }
+    nudgeArmedSpanMarkEnd('trill', state, engineFor(), 0, -1)
+    expect(nudge).toHaveBeenCalledWith('T1', 'start', 0, -1)
+  })
+
+  it('⚠️ the WHOLE-ornament verb converts by the same rule', () => {
+    state.selectedElement = { kind: 'trill', id: 'T1' }
+    nudgeSelectedSpanMark('trill', state, engineFor(), 0, -1)
+    expect(whole, 'above → +outward').toHaveBeenCalledWith('T1', 0, 1)
+    placement = 'below'
+    nudgeSelectedSpanMark('trill', state, engineFor(), 0, -1)
+    expect(whole, 'below → −outward').toHaveBeenCalledWith('T1', 0, -1)
+  })
+})

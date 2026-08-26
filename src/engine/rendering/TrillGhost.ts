@@ -17,7 +17,10 @@
  *
  * ⭐ The OTTAVA and the PEDAL followed within the day, on the same argument ({@link OttavaGhost},
  * {@link PedalGhost}), and the three share one position at the pointer — see
- * {@link ghostCursorOffset}, which is where his rule about that is written down. The slur and the
+ * {@link ghostCursorOffset}, which is where his rule about that is written down.
+ *
+ * ⭐ **What is left here is the SIGN and nothing else** — measuring, recolouring and parking are
+ * {@link drawSignGhost}'s, shared with the pedal's and the bracket's drawers. The slur and the
  * hairpin keep their `null` for the one reason left: both ends unpicked, so there is genuinely
  * nothing honest to draw.
  *
@@ -27,7 +30,7 @@
  */
 import type { SVGContext } from 'vexflow'
 import { drawTrillSign } from './TrillRenderer'
-import { ghostCursorOffset } from './ghostCursor'
+import { drawSignGhost } from './ghostCursor'
 
 /** The class `VexFlowRenderer.clearGhosts` sweeps this ghost by — it must be in
  *  `GHOST_GROUP_SELECTOR`, or the ghost smears one copy per mouse position.
@@ -36,37 +39,10 @@ import { ghostCursorOffset } from './ghostCursor'
 export const TRILL_GHOST_GROUP_CLASS = 'vf-ghost-trill'
 
 /**
- * Draw the `tr` at the cursor. Returns false when nothing measurable was drawn — which is what jsdom
- * always answers, since a glyph there has no size (`reference_jsdom_cannot_measure_glyphs`); the
- * caller treats that as "no ghost", never as an error.
+ * Draw `tr` at the cursor. Returns false when nothing measurable was drawn — see
+ * {@link drawSignGhost}, which owns that answer for the family.
  */
 export function drawTrillGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
-  try {
-    // Drawn at x = 0 and translated into place below, once its real size is known — the tempo
-    // ghost's arrangement, and the reason the group is opened before anything is painted into it.
-    const group = ctx.openGroup('ghost-trill') as SVGGElement
-    try {
-      drawTrillSign(ctx, 0, cursorY, false)
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Ghost blue at 0.7 opacity — a preview, not yet content (mirrors every other cursor ghost).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    return true
-  } catch (_e) {
-    return false
-  }
+  return drawSignGhost(ctx, 'ghost-trill', cursorX, cursorY,
+    () => drawTrillSign(ctx, 0, cursorY, false))
 }

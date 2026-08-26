@@ -21,7 +21,6 @@ import { NoteOffsetController } from './interactions/NoteOffsetController'
 import { DynamicOffsetController } from './interactions/DynamicOffsetController'
 import { TempoOffsetController } from './interactions/TempoOffsetController'
 import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryController'
-import { TrillGeometryController } from './interactions/TrillGeometryController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
 import { HairpinEditController } from './interactions/HairpinEditController'
@@ -548,7 +547,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const ottavaGeometry = new SpanMarkGeometryController('ottava', getEngine, () => renderer.renderScore())
   // ⭐ The PEDAL's boxes too; the remaining kinds join the same controller a row at a time.
   const pedalGeometry = new SpanMarkGeometryController('pedal', getEngine, () => renderer.renderScore())
-  const trillGeometry = new TrillGeometryController(getEngine, () => renderer.renderScore())
+  const trillGeometry = new SpanMarkGeometryController('trill', getEngine, () => renderer.renderScore())
   // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this
   // controller owns the engine apply, same boundary as the note-offset input above.
   const articulationStemAlign = new ArticulationStemAlignController(getEngine, () => renderer.renderScore())

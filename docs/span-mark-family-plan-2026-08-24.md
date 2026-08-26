@@ -580,7 +580,7 @@ own rule about jsdom.
 
 ---
 
-## Phase 4 — Port ottava, then trill; then decide hairpin *(≈2–3 days)* — **OTTAVA DONE 2026-08-26**
+## Phase 4 — Port ottava, then trill; then decide hairpin — **OTTAVA + TRILL DONE 2026-08-26**
 
 In that order — increasing distance from the shared shape.
 
@@ -609,8 +609,26 @@ In that order — increasing distance from the shared shape.
   time, since `x` flips a bracket and two marks of one kind can want opposite signs at once. ⚠️ Both
   the `[A4]` totality and this flip were **break-tested**: adding a kind with no row fails `tsc` by
   name, and replacing the ottava's `verticalSign` with the pedal's `() => 1` reddens two specs.
-- **trill** — carries `trillReanchor` (255) and `trillPitch` (92) that have no counterpart. Expect
-  the spec to grow one optional member, not the table to grow a special case.
+- **trill** — ✅ **DONE, and the predicted `Partial` temptation never arrived.** `trillReanchor` and
+  `trillPitch` are reached by gestures this family does not share (`Ctrl+Shift` re-anchor, the pitch
+  keys), so they were never candidates for a row. The spec did **not** grow an optional member; the
+  table did **not** grow a special case. **117 code lines → 28**, and the four drivers were again
+  unchanged.
+
+  ⚠️ **One real signature change, and it belongs in the record.** `walkArmedTrillEndpoint(state,
+  engine, dx)` read the armed square off `EditorState` itself; its siblings take `(engine, id, which,
+  dx)`. It is now `walkTrillEndpoint` with the siblings' shape — the `state` was only ever used to
+  re-derive what the caller already knew. ⭐ **A decline moved layers as a result**: "no square armed"
+  was that module's answer and is now the driver's, so `trillWalk.test.ts`'s case for it moved to
+  `spanMarkKeys.test.ts`. The old spec case is replaced by a note saying where the rule went and why
+  ⛔ not to re-add it.
+
+  🚨 **The break-test found an UNCOVERED RULE, which is the best thing this port produced.** Replacing
+  the trill's `verticalSign` with `() => 1` left **all 1,687 interaction specs green** — the
+  screen→outward conversion had lived in a `shortcutWiring` closure since it was written and nothing
+  had ever asserted it. It is covered now (three cases, and they redden when the flip is removed).
+  ⭐ That is the refactor paying in a currency the line count cannot show: one home per kind per rule,
+  so a missing test is visible instead of buried in a closure.
 - **hairpin** — ⛔ **do not start until D1 is answered on the evidence of the first three.** If it
   joins, `hairpinShape` / `hairpinBreaks` / the aperture stay family-specific modules the spec points
   at; if it does not, it keeps its own stack and the table has three rows. Three is still worth it.
@@ -769,7 +787,7 @@ stack. So the clause should end:
 | 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; **13 flags → 1**, 20 `if`s → 1 call | the Phase 3 decision, cheaply — **taken: it works** |
 | 2 | outlier functions | ½–1 day | medium | 0 — it is navigation | reading `renderScore` and `App.ts` |
 | 3 | ✅ `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~~~1,500 lines~~ pedal's own **111 code lines → 28** (a row); repo **+150** | the shape for the rest — **taken: it shrinks** |
-| 4 | ⏳ ottava ✅, trill, ⟨hairpin⟩ | 2–3 days | medium | ~~**~5,000–6,500** lines~~ per kind: **~117 code lines → ~34** (ottava, measured) | glissando as a row |
+| 4 | ottava ✅, trill ✅, ⟨hairpin — **D1 says no**⟩ | 2–3 days | medium | ~~**~5,000–6,500** lines~~ per kind: **117 code lines → ~30**, measured 3× | one row per kind at **4 of the 14 hubs** |
 | 5 | verb families — **5a facade + 5b `ScoreModel`** | ~~½~~ **1 day** | low (5a) / **medium (5b)** | ~170 + **96** methods | every future kind |
 | 6 | the rule + its check | 30 min | none | — | all of the above staying done |
 
@@ -840,3 +858,104 @@ lines (14 parameters, not 15); and the existence and liveness of `markWalk` / `m
 phase (the hygiene numbers genuinely do not support one), Phase 1 as a *gating* spike, and Phase 3's
 stop condition — *"if porting pedal does not shrink pedal, say so and stop"* — which remains the
 single most valuable sentence in this document.
+
+---
+
+## 🚨 The ledger after three kinds (2026-08-26) — read this before Phase 5
+
+**Tree-wide source: 48,491 → 48,451 code lines. Minus forty.** That is the whole size effect of
+Phases 3 and 4, against a plan that predicted **~6,000–8,000 lines collapsed across the two**.
+
+Per kind the trade is good and consistent — **117 code lines of copy → ~30 of row**, measured three
+times. What ate it is a **fixed contract of 49 code lines** (ten declared members on
+`SpanMarkToolSpec`, plus `SpanMarkModelSpec`, `SpanMarkGeometryTarget`, `SpanMarkStampAction`) that
+duplicated functions never had to pay, and the fact that **each kind still speaks — as a row instead
+of as code.** "Two functions → one" is really "two bodies → one body + two rows". Break-even was
+~2.6 kinds; we crossed it at three.
+
+Per site, across pedal + ottava + trill:
+
+| site | before | after | net |
+|---|---|---|---|
+| stamp | 3 copies | 1 driver + 3 rows | **−49** |
+| geometry controller | 3 copies | 1 driver | **−73** |
+| ghost | 3 copies | 1 helper + 3 drawers | **−31** |
+| keyboard verbs | 3 sets of closures | 1 module + wrappers that REMAIN | **+19** |
+
+⛔ **The keyboard-verb extraction was a mistake and should not be repeated.** Those closures were
+3–5 lines each; collapsing them cost more than it saved, and the per-family wrappers still exist
+because they still have to call `renderScore()`. ⭐ **The rule it teaches: collapse a copy only when
+the COPY has a body.** A three-line delegation is not a slice worth a row.
+
+⚠️ **And the plan's headline claim needs restating honestly.** It said a sixth kind "touches all
+fourteen hubs". This work changed **4 of those 14** — stamp, Properties seam, ghost, keys. A new kind
+still writes its own ops, renderer, lane, walk, handles, element spec, bus store, palette entry,
+`rebarOps` blocks, playback and Properties wiring. ⛔ The plan also names **glissando** as the sixth
+kind; that is an assumption, not a decision — it is not scheduled, and a note-to-note line has more
+in common with a tie than with a region mark on a below-staff rung. **Do not use it to justify
+further phases.**
+
+**What the three phases actually bought, in present tense:**
+1. Four sites that were literally the same function written 3× are now written once.
+2. Forgetting a kind at one of those sites is a **build error**, verified by break-test.
+3. A rule that had no test for its whole life (the trill's screen→outward flip) became visible and is
+   now covered — found by break-testing, not by reading.
+
+**🚨 Four estimates in this plan are now wrong in the same direction:** Phase 1 predicted −1,000 and
+delivered 0; Phase 3 predicted −1,500 and delivered +150; Phase 4 predicted −5,000–6,500 and
+delivered −190; Phases 3+4 together predicted −6,000–8,000 and delivered −40. **⛔ Phase 5's "~170 +
+96 methods" comes from the same source and must be MEASURED before it is scheduled.**
+
+---
+
+## ⛔ Phase 5, MEASURED 2026-08-26 — **it does not exist. Close it.**
+
+The plan schedules Phase 5 as *"~170 + 96 methods"* across `MusicEngine` (5a) and `ScoreModel` (5b),
+a day's work, and calls it *"every future kind"*'s payoff. The counts are right. **What they are made
+of is not what the plan assumes.**
+
+| | span-named methods | signature | **body** | doc comment | footprint |
+|---|---|---|---|---|---|
+| `MusicEngine` | 147 of 345 | 164 | **454** | 846 | 1,464 |
+| `ScoreModel` | 96 of 225 | 111 | **96** | 161 | 368 |
+
+**🚨 5b is the keyboard-verb mistake at 20× scale — ⛔ do not do it.** Of `ScoreModel`'s 96 span
+methods, **91 have a ONE-LINE body**; the whole 96 come to **98 code lines of body between them.**
+They are delegations, not copies. Collapsing them to a table costs a row per kind per verb — 5 × 16
+shared verbs = 80 rows minimum — to remove 98 lines. That is the rule this session already learned
+the hard way, stated again: ⭐ **collapse a copy only when the COPY HAS A BODY.**
+
+**5a is nearly the same story.** `MusicEngine`'s span methods have a **median body of 3 lines**; 117
+of 147 are ≤3. A table can reach at most **104 of the 147** (25 verbs shared by ≥3 kinds); the other
+43 are unique to one kind and have nothing to share with. Optimistically that trades ~430 code lines
+for ~180 of generic methods + ~125 of rows + ~50 of contract — call it **−75**, on the repo's
+most-read facade, with **846 lines of per-kind doc comment** to relocate without losing the reasoning
+they carry. ⛔ Not worth it.
+
+**⭐ What the measurement DID find — the one real duplication, and it is a single verb.** Exactly
+eight span methods on `MusicEngine` have a body of ≥7 lines, and five of them are `create«K»`:
+
+```
+19 createSlur   17 createTrill   16 createOttava   16 createPedal   16 createHairpin
+```
+
+Normalised for the noun, **`createOttava` / `createPedal` / `createHairpin` are 82–94% identical** —
+resolve the note ids, drop rests, keep one staff, sort, take first and last, call the model, save the
+undo entry. `createSlur` and `createTrill` are genuinely different (32–57%). So the honest
+opportunity is **one verb × three kinds ≈ 48 code lines**, worth perhaps **−25** after the rows.
+
+**Verdict: Phase 5 is not a phase.** It is one optional half-hour on `createX`, and it is not worth
+opening the span-mark thread again for. ⭐ The plan's estimate was not merely too high — it counted
+METHOD NAMES and assumed each name was a copy. **A name is not a body.** That is the correction this
+plan most needs recorded, and it is why the four earlier estimates were all wrong the same way.
+
+### Where the thread stands
+
+- **DONE:** Phase 0 (subtraction), Phase 1 (the drag driver), Phase 3 (two tables + pedal),
+  Phase 4 (ottava + trill).
+- **⛔ CLOSED, measured:** Phase 5 (above). Phase 2 removes nothing by its own admission.
+  Phase 4-hairpin — D1 answers **no** on the evidence: the wedge did not fit the simplest driver
+  (`aperture`, a `null`-means-reset case), and slur fits less.
+- **⏭️ OPEN, cheap:** Phase 6 — write the missing clause down (30 min). It now has two clauses to
+  write, not one: *count the HUBS, not just the modules*, and ⭐ *a name is not a body — collapse a
+  copy only when the copy has a body.*

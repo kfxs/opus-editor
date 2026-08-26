@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { dragTrillBody, dragTrillEndpoint, walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
+import { dragTrillBody, dragTrillEndpoint, walkTrillBody, walkTrillEndpoint } from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 import { setDebugLogging } from '../utils/debug'
@@ -73,7 +73,7 @@ vi.mock('../engine/audio/PlaybackEngine', () => ({
   },
 }))
 
-describe('walkArmedTrillEndpoint', () => {
+describe('walkTrillEndpoint', () => {
   let engine: MusicEngine
   let state: EditorState
   let ids: string[]
@@ -84,11 +84,16 @@ describe('walkArmedTrillEndpoint', () => {
   const offset = (which: 'start' | 'end') =>
     trillOffsetOverrideOf(engine.getScore(), trillId)?.[which === 'start' ? 'startX' : 'endX'] ?? 0
 
+  /** Which square the presses below move. ⭐ Named here rather than read off `state`: the walk takes
+   *  its end as an ARGUMENT since 2026-08-26 (the span-mark family's shape), so the selection is the
+   *  caller's business and no longer this module's. */
+  let armed: 'start' | 'end' = 'end'
   const arm = (endpoint: 'start' | 'end') => {
+    armed = endpoint
     state.selectedElement = { kind: 'trill', id: trillId, endpoint }
   }
   /** One press, in staff-spaces — `Ctrl`+arrow's whole space, so ten of them cross one gap. */
-  const press = (dx: number) => walkArmedTrillEndpoint(state, engine, dx)
+  const press = (dx: number) => walkTrillEndpoint(engine, trillId, armed, dx)
   const presses = (n: number, dx: number) => { for (let i = 0; i < n; i++) press(dx) }
 
   /**
@@ -135,10 +140,20 @@ describe('walkArmedTrillEndpoint', () => {
     render()
   })
 
-  it('DECLINES with no square armed — the chord must fall through to its other tenants', () => {
-    expect(press(-1)).toBe(false)
-    state.selectedElement = { kind: 'trill', id: trillId } // the trill itself, no square armed
-    expect(press(-1)).toBe(false)
+  /**
+   * ⭐⭐ **"No square armed" is no longer THIS module's question** — 2026-08-26, when the walk stopped
+   * reading `state` and started taking its end as an argument (the span-mark family's shape). It used
+   * to look the armed square up itself and decline when there was none; now the CALLER decides which
+   * end moves, so there is no such case to answer here.
+   *
+   * ⚠️ The rule itself is unchanged and still pinned — one layer up, where it now lives:
+   * `spanMarkKeys.test.ts`'s *"moves the WHOLE mark when NOTHING is armed — and the armed verb
+   * declines"*. ⛔ Do not re-add it here: a `which` is always supplied, so a test of it would assert
+   * something the signature already guarantees.
+   */
+  it('DECLINES a zero step — nothing asked for, nothing written', () => {
+    arm('start')
+    expect(press(0)).toBe(false)
   })
 
   it('⭐ nine presses are INK, and the anchor has not moved', () => {

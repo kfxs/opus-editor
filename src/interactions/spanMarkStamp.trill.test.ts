@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry } from '../engine/ElementRegistry'
 import { createEditorState, type EditorState } from './EditorState'
-import { stampTrillAtClick } from './trillStamp'
+import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { fracCreate as frac } from '../utils/fraction'
 
 /**
@@ -36,7 +36,7 @@ vi.mock('../engine/audio/PlaybackEngine', () => ({
   },
 }))
 
-describe('stampTrillAtClick', () => {
+describe("stampSpanMarkAtClick — the trill's row", () => {
   let engine: MusicEngine
   let state: EditorState
   let render: () => void
@@ -64,13 +64,13 @@ describe('stampTrillAtClick', () => {
 
   it('declines the click with the tool not armed — it must fall through to note entry', () => {
     state.selectedMarkingTool = null
-    expect(stampTrillAtClick(state, engine, hits(ids[0]), 10, 10, render)).toBe(false)
+    expect(stampSpanMarkAtClick('trill', state, engine, hits(ids[0]), 10, 10, render)).toBe(false)
     expect(trills()).toHaveLength(0)
     expect(render).not.toHaveBeenCalled()
   })
 
   it('⭐⭐ trills the clicked note and NOTHING ELSE — the span is that note alone', () => {
-    expect(stampTrillAtClick(state, engine, hits(ids[1]), 10, 10, render)).toBe(true)
+    expect(stampSpanMarkAtClick('trill', state, engine, hits(ids[1]), 10, 10, render)).toBe(true)
     expect(trills()).toHaveLength(1)
     expect(trills()[0].startNoteId).toBe(ids[1])
     // The whole difference from the slur stamp: it does NOT reach to ids[2].
@@ -81,37 +81,37 @@ describe('stampTrillAtClick', () => {
 
   it('⭐ …so the LAST note of the score takes one too, where a slur stamp makes nothing', () => {
     const last = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
-    expect(stampTrillAtClick(state, engine, hits(last.id), 10, 10, render)).toBe(true)
+    expect(stampSpanMarkAtClick('trill', state, engine, hits(last.id), 10, 10, render)).toBe(true)
     expect(trills()).toHaveLength(1)
     expect(trills()[0].startNoteId).toBe(last.id)
   })
 
   it('leaves the tool ARMED — stamps are used in runs', () => {
-    stampTrillAtClick(state, engine, hits(ids[0]), 10, 10, render)
+    stampSpanMarkAtClick('trill', state, engine, hits(ids[0]), 10, 10, render)
     expect(state.selectedMarkingTool).toEqual({ kind: 'trill' })
   })
 
   it('is idempotent: stamping the same note twice adds one trill', () => {
-    stampTrillAtClick(state, engine, hits(ids[0]), 10, 10, render)
-    stampTrillAtClick(state, engine, hits(ids[0]), 10, 10, render)
+    stampSpanMarkAtClick('trill', state, engine, hits(ids[0]), 10, 10, render)
+    stampSpanMarkAtClick('trill', state, engine, hits(ids[0]), 10, 10, render)
     expect(trills()).toHaveLength(1)
   })
 
   it('CONSUMES a click that missed every note — a stray note under an armed tool is worse', () => {
-    expect(stampTrillAtClick(state, engine, hits(null), 10, 10, render)).toBe(true)
+    expect(stampSpanMarkAtClick('trill', state, engine, hits(null), 10, 10, render)).toBe(true)
     expect(trills()).toHaveLength(0)
     expect(render).not.toHaveBeenCalled()
   })
 
   it('refuses a REST — there is no trill without a note', () => {
     const rest = engine.convertToRest(ids[1])!
-    expect(stampTrillAtClick(state, engine, hits(rest.id), 10, 10, render)).toBe(true)
+    expect(stampSpanMarkAtClick('trill', state, engine, hits(rest.id), 10, 10, render)).toBe(true)
     expect(trills()).toHaveLength(0)
     expect(render).not.toHaveBeenCalled()
   })
 
   it('is ONE undo step: the stamp is taken back whole', () => {
-    stampTrillAtClick(state, engine, hits(ids[0]), 10, 10, render)
+    stampSpanMarkAtClick('trill', state, engine, hits(ids[0]), 10, 10, render)
     expect(trills()).toHaveLength(1)
     engine.undo()
     expect(trills()).toHaveLength(0)
