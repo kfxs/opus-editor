@@ -23,6 +23,7 @@ import { TempoOffsetController } from './interactions/TempoOffsetController'
 import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryController'
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
+import { BarlineEditController } from './interactions/BarlineEditController'
 import { HairpinEditController } from './interactions/HairpinEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { HairpinGeometryController } from './interactions/HairpinGeometryController'
@@ -557,6 +558,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // …and the Properties trill control, on the same boundary (docs/trill-plan.md §1 rule 6).
   const trillEdit = new TrillEditController(getEngine, () => renderer.renderScore())
   const hairpinEdit = new HairpinEditController(getEngine, () => renderer.renderScore())
+  // …and the Properties BARLINE chooser, on the same boundary. ⭐ The one of these that names a LINE
+  // rather than an element id — which is what makes the back-to-back `:||:` reachable at all
+  // (docs/barline-types-plan.md §8 P6).
+  const barlineEdit = new BarlineEditController(getEngine, () => renderer.renderScore())
   // …and the Properties SLUR HANDLE inputs — each end's offset and each arc control point. It takes
   // `state` as well as the engine, the one of these that does: which system a split slur's arc row
   // writes to is the ARMED dot's business, and that lives in the selection.
@@ -862,6 +867,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       fanEdit.destroy()
       trillEdit.destroy()
       hairpinEdit.destroy()
+      barlineEdit.destroy()
       slurGeometry.destroy()
       hairpinGeometry.destroy()
       for (const part of devShell) part.destroy()

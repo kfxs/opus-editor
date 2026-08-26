@@ -14,6 +14,7 @@ import { pedalTethers, tetherDashArray } from './elements/pedalTether'
 import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
+import type { SignHalf } from '@/engine/layout/barlineSign'
 
 /**
  * ⭐ **The weight a selected line is drawn at, in px** — the width the barline highlight has had
@@ -888,10 +889,66 @@ export class HighlightController {
    * reason: one barline, stated once for the system, drawn once per staff.
    */
   applyBarlineSelectionHighlight(): void {
+    const measure = selectedOf(this.state, 'barline')?.measure ?? null
+    if (measure === null) return
+    // The END half: the sign's ink LEFT of the divider, plus the divider itself.
+    this.recolourBarlineHalf('end', (svg, staff) => this.barlineSignGroup(svg, measure, staff))
+  }
+
+  /**
+   * ⭐⭐ **THE OPEN REPEAT'S OWN HIGHLIGHT** — the `|:` that opens a bar, lit without lighting the
+   * end repeat it may be standing back-to-back with.
+   *
+   * ⭐ **WHICH GROUP.** The sign is drawn by whichever bar owns the pen at that spot, which is not
+   * always the bar it belongs to: a displaced `|:` (pushed past its own clef/meter) and a
+   * system-opening one are drawn by their OWN bar as its `-start` group; a `|:` standing on an
+   * ordinary boundary is drawn by the PREVIOUS bar, inside that bar's `-end` group, either alone or
+   * as the right half of a `:||:`. So: this bar's start group, else the previous bar's end group —
+   * the mirror of {@link barlineSignGroup}, and `data-half` is what keeps the second case honest.
+   */
+  applyRepeatStartSelectionHighlight(): void {
+    const measure = selectedOf(this.state, 'repeatStart')?.measure ?? null
+    if (measure === null) return
+    this.recolourBarlineHalf('start', (svg, staff) =>
+      this.signGroupById(svg, `${measure}-${staff}-start`) ?? this.signGroupById(svg, `${measure - 1}-${staff}-end`))
+  }
+
+  /**
+   * ⭐⭐ **PAINT ONE HALF OF A SIGN** — the shared body of the two highlights above, and the answer
+   * to *"when we have open+end and I choose it, it highlights everything but it should highlight just
+   * the part that was clicked"* (his report, 2026-08-26).
+   *
+   * ⭐ **The rule is `SignHalf`'s, read off the ink and not re-derived here:** every rect and glyph the
+   * pass drew carries a `data-half` saying whose statement it is — `end` left of the divider, `start`
+   * right of it, `shared` for the divider itself. This lights `half` **plus `shared`**, so each
+   * selection at a `:||:` gets a COMPLETE repeat sign: its dots, its thin stroke, and the thick line
+   * the two designs share (Gould p. 234's design (A) is one shared divider, not two whole signs).
+   *
+   * ⭐⭐ **AND NEVER A FRAGMENT OF ONE — his correction, 2026-08-26:** *"I can highlight on an open or
+   * on a close just the thick part or the thick with the points… this is incorrect, we should always
+   * highlight the music semantic and no part of it."* The first draft of this could show a bare thick
+   * line, in the one case where a bar OWNS NO INK at the boundary it ends: bar *N+1*'s `|:` replaces
+   * bar *N*'s plain line entirely (`signAtBoundary`), so all that was left to light was the divider.
+   *
+   * ⭐ So: **a selection with no ink of its own here lights the WHOLE sign standing on its line.** Bar
+   * *N* said nothing, and the honest answer to "what is drawn at the line you picked?" is the whole
+   * `|:` — not the 0.5 spaces of it that happen to sit on the boundary. ⚠️ It changes nothing in the
+   * other three cases: a plain line and a bar's own `:|`/final already light in full, because a sign
+   * nobody shares is entirely its owner's.
+   *
+   * ⚠️ Untagged ink lights with either half, deliberately: a fallback that shows too much is a
+   * selection you can see, where one that shows too little is the bug being fixed.
+   *
+   * Drawn on EVERY staff of that measure, like the time signature's highlight and for the same
+   * reason: one barline, stated once for the system, drawn once per staff.
+   */
+  private recolourBarlineHalf(
+    half: SignHalf,
+    groupFor: (svg: Element, staff: number) => SVGGElement | null,
+  ): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
-    const measure = selectedOf(this.state, 'barline')?.measure ?? null
-    if (!engine || !scoreCanvas || measure === null) return
+    if (!engine || !scoreCanvas) return
 
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
@@ -900,10 +957,16 @@ export class HighlightController {
     for (let staff = 0; staff < staffCount; staff++) {
       // The group's existence IS the "is this bar on screen" test — the pass draws one only for a
       // boundary it actually painted, which is what `registry.isPainted` used to be asked here.
-      const group = this.barlineSignGroup(svg, measure, staff)
-      if (!group) continue
-      for (const ink of group.querySelectorAll('rect, text')) {
-        const el = ink as SVGElement
+      const signGroup = groupFor(svg, staff)
+      if (!signGroup) continue
+      const ink = [...signGroup.querySelectorAll('rect, text')] as SVGElement[]
+      const halfOf = (el: SVGElement) => el.closest('[data-half]')?.getAttribute('data-half')
+      // ⭐ Whether this selection owns any of the sign at all — see the header. When it does not, the
+      // whole sign is what stands on its line, and lighting the divider alone would be the fragment.
+      const ownsInk = ink.some(el => halfOf(el) === half)
+      for (const el of ink) {
+        const own = halfOf(el)
+        if (ownsInk && own !== null && own !== undefined && own !== half && own !== 'shared') continue
         // Both ways, like every other recolour here: the attribute is what VexFlow's own context
         // wrote, and the style property is what wins if a rule ever sets one.
         this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
@@ -944,11 +1007,18 @@ export class HighlightController {
    *  (the bar is culled, or off the last system). The ids are `BarlineRenderer`'s, `vf-`-prefixed by
    *  `openGroup` (`reference_vexflow_opengroup_prefix`). */
   private barlineSignGroup(svg: Element, measure: number, staff: number): SVGGElement | null {
-    // ⚠️ `[id="…"]`, not `#…`: an id SELECTOR takes a `getElementById` fast path that answers for
-    // the FIRST match in the DOCUMENT and then checks containment — so with two scores mounted (or
-    // two test fixtures left in the body) it returns null for a group that is right here.
-    const byId = (id: string) => svg.querySelector<SVGGElement>(`[id="vf-barline-${id}"]`)
-    return byId(`${measure}-${staff}-end`) ?? byId(`${measure + 1}-${staff}-start`)
+    return this.signGroupById(svg, `${measure}-${staff}-end`)
+      ?? this.signGroupById(svg, `${measure + 1}-${staff}-start`)
+  }
+
+  /** One drawn sign's `<g>` by the tail of its id. The ids are `BarlineRenderer`'s, `vf-`-prefixed by
+   *  `openGroup` (`reference_vexflow_opengroup_prefix`).
+   *
+   *  ⚠️ `[id="…"]`, not `#…`: an id SELECTOR takes a `getElementById` fast path that answers for the
+   *  FIRST match in the DOCUMENT and then checks containment — so with two scores mounted (or two
+   *  test fixtures left in the body) it returns null for a group that is right here. */
+  private signGroupById(svg: Element, id: string): SVGGElement | null {
+    return svg.querySelector<SVGGElement>(`[id="vf-barline-${id}"]`)
   }
 
   applyTupletSelectionHighlight(): void {

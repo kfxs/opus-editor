@@ -55,9 +55,10 @@
  */
 import { Element, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
-import type { Score } from '@/types/music'
-import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, type BarlineSignKind } from '@/engine/layout/barlineSign'
+import type { Measure, Score } from '@/types/music'
+import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
+import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
 
 /**
@@ -133,6 +134,20 @@ function drawRepeatDot(ctx: RenderPass['context'], x: number, y: number, space: 
   dot.renderText(ctx, x, y)
 }
 
+/**
+ * ⭐⭐ **THE WINGS' GLYPHS** — the staff bracket's own flared tips, which is what every engine that
+ * draws a winged repeat re-uses. ⛔ SMuFL declares no wing glyph of its own.
+ *
+ * ⚠️ Written as escapes, like {@link REPEAT_DOT_GLYPH} and `pedalStyle`'s: a private-use character is
+ * invisible in every editor and diff. `bracket*` flares RIGHT (a `[`), `reversedBracket*` flares LEFT
+ * (a `]`) — the pair MuseScore's `drawTips` stamps, and the pair Sibelius names *"End Bracket Top /
+ * Bottom"*.
+ */
+const WING_GLYPHS = {
+  right: { top: '\uE003', bottom: '\uE004' },  // bracketTop / bracketBottom
+  left: { top: '\uE005', bottom: '\uE006' },   // reversedBracketTop / reversedBracketBottom
+} as const
+
 /** The staff a sign is drawn ON, as the numbers painting it needs — taken from a `Stave`, through
  *  {@link staleShift}. Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
  *  as five loose parameters. */
@@ -161,17 +176,62 @@ interface SignStaff {
  */
 function paintBarlineSign(
   ctx: RenderPass['context'], kind: BarlineSignKind, x: number, staff: SignStaff,
+  group: SVGGElement | null | undefined, wings: boolean,
 ): void {
   const { space, topY, botY, numLines } = staff
   const parts = barlineSignParts(kind)
+
+  // ⭐⭐ **EACH PIECE OF INK SAYS WHOSE IT IS** — `data-half`, read back by the two selection
+  // highlights so a `:||:` lights the half that was clicked and not the whole junction (his report,
+  // 2026-08-26; the rule is {@link SignHalf}).
+  //
+  // ⚠️ Written by reading the group's LAST CHILD back, because the context's drawing calls return
+  // the context and not the node: `fillRect` and `fillText` both `appendChild` onto the open group
+  // (`vexflow/src/svgcontext`), so the element just drawn is the one at the end. ⛔ Not a nested
+  // `<g>` per half — that would be a wrapper on every plain barline in the score to serve the one
+  // sign in a hundred that has two halves, and `hintBarlines` collects barline groups by class.
+  const tag = (half: SignHalf): void => {
+    group?.lastElementChild?.setAttribute('data-half', half)
+  }
+
   for (const stroke of parts.strokes) {
     ctx.fillRect(x + stroke.x * space, topY, stroke.width * space, botY - topY)
+    tag(stroke.half)
   }
   for (const dot of parts.dots) {
     for (const line of dotLines(numLines)) {
       drawRepeatDot(ctx, x + dot.x * space, staff.yForLine(line), space)
+      tag(dot.half)
     }
   }
+
+  // ⭐⭐ **THE WINGS**, when this sign is winged and this staff is one the system shows them on.
+  // ⛔ Tagged `shared`, deliberately: they sit ON the divider, which belongs to both halves — so
+  // selecting either half of a `:||:` lights its wings with it rather than leaving black tips beside
+  // a blue sign.
+  if (!wings) return
+  for (const wing of signWings(kind)) {
+    const glyphs = WING_GLYPHS[wing.flare]
+    drawWing(ctx, glyphs.top, x + wing.x * space, topY, space)
+    tag('shared')
+    drawWing(ctx, glyphs.bottom, x + wing.x * space, botY, space)
+    tag('shared')
+  }
+}
+
+/**
+ * One wing, as the FONT draws it — the size is {@link drawRepeatDot}'s, and for the same reason: a
+ * SMuFL em is 4 staff spaces and VexFlow reads a bare font size as POINTS at 4/3 px each, so
+ * `3 × space` draws this staff's own tip.
+ *
+ * `x` is the glyph's ORIGIN (already offset for the mirrored family by `signWings`) and `y` the staff
+ * line it springs from — the tip's own box then puts it above or below that line.
+ */
+function drawWing(ctx: RenderPass['context'], glyph: string, x: number, y: number, space: number): void {
+  const wing = new Element('BarlineRenderer.wing')
+  wing.setText(glyph)
+  wing.setFontSize(3 * space)
+  wing.renderText(ctx, x, y)
 }
 
 /** `repeatDot` — the dot of a repeat sign, and NOT `augmentationDot` (U+E1E7), which is a different
@@ -179,6 +239,51 @@ function paintBarlineSign(
  *  written as an escape for the same reason `pedalStyle` writes its own: a private-use character is
  *  invisible in every editor and diff, so the source has to say which one it is. */
 const REPEAT_DOT_GLYPH = '\uE044'
+
+/**
+ * ⭐⭐ **THE `|:` GETS ITS OWN HIT-BOX** — registered from the pen, because it is the one sign whose
+ * position the hit-testing tier cannot work out.
+ *
+ * 🚨 **HIS REPORT, 2026-08-26** — *"I can not highlight open repeat on the beginning of the score"*,
+ * and the ⏭️ note this closes was already standing in `VexFlowRenderer`'s tier-1 registration: *"the
+ * one sign this does NOT cover is the neighbour's `|:`, whose ink is to the RIGHT of this boundary
+ * … this function is handed a LANE and no score"*. Two things put it out of reach there:
+ *
+ *  - **it may stand at no boundary at all.** A bar with a header displaces its repeat past the
+ *    clef/key/meter ({@link displacedRepeatX}, Gould p. 234) — and bar 1 ALWAYS has a header, which
+ *    is exactly the sign he could not click;
+ *  - **it is owned by the bar it OPENS**, so at a `:||:` junction the ink either side of one thick
+ *    line belongs to two different measures.
+ *
+ * ⭐ So it is registered where it is DRAWN, which is the only place both facts are known. The box is
+ * the sign's ink from the boundary RIGHTWARD (§6.1: a start repeat grows into the bar it opens), so
+ * it cannot swallow the end repeat's dots on the other side — and `interactions/elements/repeatStart`
+ * sits AFTER the barline in the priority chain, leaving the shared divider to the line it divides.
+ *
+ * ⚠️ Only ever for a sign that was PAINTED, which is the whole of its "is this bar on screen" test —
+ * unlike the tier-1 barline box, which is registered for every bar in the score and has to be
+ * filtered by `registry.isPainted` at press time (docs/barline-selection.md §1a).
+ */
+function registerRepeatStart(
+  pass: RenderPass, placement: BarlinePlacement, boundaryX: number,
+  kind: BarlineSignKind, side: Side, staff: SignStaff,
+): void {
+  if (!signHasHalf(kind, 'start')) return
+  // ⭐ WHOSE repeat it is, derivable and not passed in: a sign drawn at a bar's START is that bar's,
+  // and a start half drawn at a bar's END belongs to the bar on the other side of that boundary.
+  const measure = side === 'start' ? placement.measureNumber : placement.measureNumber + 1
+  pass.elementRegistry.add({
+    type: 'repeatStart',
+    measure,
+    staff: placement.staffIndex,
+    bbox: {
+      x: boundaryX,
+      y: staff.topY,
+      width: barlineSignParts(kind).extent.right * staff.space,
+      height: staff.botY - staff.topY,
+    },
+  })
+}
 
 /**
  * Draw one sign, centred on `boundaryX` **in the stave's own space**.
@@ -197,6 +302,8 @@ function drawSign(
   boundaryX: number,
   kind: BarlineSignKind,
   side: Side,
+  audience: RenderAudience,
+  wings: boolean,
 ): void {
   const ctx = pass.context
   const { stave, staffIndex, measureNumber } = placement
@@ -217,7 +324,10 @@ function drawSign(
   // the e2e harness all collect barlines by. It names what the ink IS, not who put it down.
   const group = ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`) as SVGGElement | undefined
   try {
-    inStaffSpace(pass, staffIndex, group, () => paintBarlineSign(ctx, kind, boundaryX, signStaff))
+    inStaffSpace(pass, staffIndex, group, () => {
+      paintBarlineSign(ctx, kind, boundaryX, signStaff, group, wings)
+      registerRepeatStart(pass, placement, boundaryX, kind, side, signStaff)
+    })
   } finally {
     // ALWAYS close: an open group swallows the whole rest of the render (`renderMeasure`'s note).
     ctx.closeGroup()
@@ -230,7 +340,16 @@ function drawSign(
   // sign's own white gap — the 0.32 spaces that IS the final barline — would come out a different
   // width in every bar that has one. ⛔ So the sign opts out, exactly as VexFlow's 3 px thick line
   // always has. It is 0.5 spaces of ink; it does not vanish for want of alignment.
-  if (group && kind !== 'plain') group.dataset.noHint = '1'
+  if (group && kind !== 'plain' && kind !== 'invisible') group.dataset.noHint = '1'
+
+  // ⭐⭐ **THE INVISIBLE LINE, AND WHO IS LOOKING** — his ask, 2026-08-26: *"what we do on screen we
+  // use the same colour of hidden we are using for rest, and not printing it on PDF export."*
+  //
+  // ⭐ One call, both audiences answered (`./hiddenElements`): TINTED for the editor, so the line
+  // stays visible enough to click and un-hide, and REMOVED outright for print. ⚠️ Applied AFTER the
+  // draw, which is that module's own rule and matters just as much here: the sign has already
+  // reserved its room, so hiding a line never re-spaces the music around it.
+  if (group && kind === 'invisible') applyHiddenTreatment(group, audience)
 }
 
 /**
@@ -313,7 +432,9 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
  * `placements` is what this render put on the page — so a culled bar draws nothing, as it should, and
  * a boundary whose other half is off-screen is drawn by the half that is on it.
  */
-export function renderBarlines(pass: RenderPass, score: Score, placements: BarlinePlacement[]): void {
+export function renderBarlines(
+  pass: RenderPass, score: Score, placements: BarlinePlacement[], audience: RenderAudience = 'editor',
+): void {
   const byNumber = new Map(score.measures.map(m => [m.number, m]))
   const lineOf = (n: number): number | undefined => pass.measureLayoutInfo.get(n)?.lineNumber
   const at = new Map(placements.map(p => [`${p.measureNumber}:${p.staffIndex}`, p]))
@@ -322,6 +443,24 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     const n = placement.measureNumber
     const measure = byNumber.get(n)
     if (!measure) continue
+    /**
+     * ⭐ Whether the sign at this boundary is winged — read from the two bars that meet there, since
+     * the flag rides whichever statements are standing (`barlineOps.setBoundaryWinged` keeps them in
+     * step, so any one saying so is enough).
+     *
+     * 🚨 **EVERY STAFF, and that is his call:** *"outer stave? no, it should be drawn in any case —
+     * we still have separate barlines for every stave."* ⛔ Not MuseScore's rule, which guards each
+     * tip with `isTop()`/`isBottom()` so a system shows one pair top and bottom, nor LilyPond's,
+     * which reaches the same picture by suppressing tips wherever a span bar continues. ⭐ Both of
+     * those follow from a barline that SPANS the staves, and ours does not: each staff draws its own
+     * line, so each staff's line gets its own tips. ⏭️ The day span bars arrive
+     * (`docs/multi-staff-plan.md`), this is the line to revisit — and the two engines already agree
+     * on what it should become.
+     */
+    const wingsOn = (ends: Measure | undefined, begins: Measure | undefined): boolean =>
+      ends?.barline?.winged === true
+      || ends?.repeatEnd?.winged === true
+      || begins?.repeatStart?.winged === true
     const line = lineOf(n)
     const stave = placement.stave
     const neighbour = (offset: -1 | 1): BarlinePlacement | undefined =>
@@ -340,7 +479,7 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     // 🚨 The boundary comes from the PLACEMENT, never from `stave.getX() + stave.getWidth()` — a
     //    reused bar's stave reports where it was last painted. See {@link staleShift}.
     const { dx } = staleShift(placement)
-    if (endKind) drawSign(pass, placement, stave.getX() + stave.getWidth() + dx, endKind, 'end')
+    if (endKind) drawSign(pass, placement, stave.getX() + stave.getWidth() + dx, endKind, 'end', audience, wingsOn(measure, next))
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
     if (measure.repeatStart === undefined) continue
@@ -351,7 +490,7 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
       // ⛔ Always `repeatStart` alone, never the back-to-back form: the previous bar's own end sign
       // is a different mark at a different x now, and combining them would draw one sign in the
       // place of two.
-      drawSign(pass, placement, displaced, 'repeatStart', 'start')
+      drawSign(pass, placement, displaced, 'repeatStart', 'start', audience, wingsOn(undefined, measure))
       continue
     }
 
@@ -362,6 +501,6 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     if (neighbour(-1)) continue
     const prev = lineOf(n - 1) === line ? byNumber.get(n - 1) : undefined
     const startKind = signAtBoundary(prev, measure)
-    if (startKind) drawSign(pass, placement, stave.getX() + dx, startKind, 'start')
+    if (startKind) drawSign(pass, placement, stave.getX() + dx, startKind, 'start', audience, wingsOn(prev, measure))
   }
 }

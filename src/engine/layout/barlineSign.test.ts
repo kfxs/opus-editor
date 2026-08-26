@@ -6,7 +6,7 @@
  * measures zeros and agrees with itself. That half is `e2e/barlineTypes.e2e.ts`.
  */
 import { describe, it, expect } from 'vitest'
-import { barlineSignParts, barlineSignExtent, dotLines, ownEndSignKind, repeatStartRoom, signAtBoundary } from './barlineSign'
+import { barlineSignParts, barlineSignExtent, dotLines, ownEndSignKind, repeatStartRoom, signAtBoundary, signHasHalf, signWings, wingsAllowed } from './barlineSign'
 import type { Measure } from '@/types/music'
 
 /** A bar carrying only the barline statements under test — nothing else here reads a measure. */
@@ -65,7 +65,7 @@ describe('signAtBoundary — ⭐⭐ a boundary carries ONE sign', () => {
 describe('barlineSignParts — the reading order IS the layout', () => {
   it('the plain line is the one sign whose ink is to the RIGHT of the boundary', () => {
     const parts = barlineSignParts('plain')
-    expect(parts.strokes).toEqual([{ x: 0, width: THIN }])
+    expect(parts.strokes).toEqual([{ x: 0, width: THIN, half: 'shared' }])
     expect(parts.extent).toEqual({ left: 0, right: THIN })
     expect(parts.dots).toHaveLength(0)
   })
@@ -73,7 +73,7 @@ describe('barlineSignParts — the reading order IS the layout', () => {
   it('⭐⭐ a final bar grows LEFT: thin, gap, THICK, with the thick line ending on the boundary', () => {
     const parts = barlineSignParts('final')
     const [thin, thick] = parts.strokes
-    expect(thick).toEqual({ x: -THICK, width: THICK })
+    expect(thick).toEqual({ x: -THICK, width: THICK, half: 'shared' })
     expect(thick.x + thick.width).toBe(0)                       // the divider IS the boundary
     expect(thin.x + thin.width).toBeCloseTo(thick.x - SEPARATION, 10)
     expect(parts.strokes[parts.divider]).toBe(thick)
@@ -101,7 +101,7 @@ describe('barlineSignParts — the reading order IS the layout', () => {
   it('⭐ a start repeat is that MIRRORED — all of it inside the bar it opens', () => {
     const parts = barlineSignParts('repeatStart')
     expect(parts.extent.left).toBe(0)
-    expect(parts.strokes[parts.divider]).toEqual({ x: 0, width: THICK })
+    expect(parts.strokes[parts.divider]).toEqual({ x: 0, width: THICK, half: 'shared' })
     expect(parts.extent.right).toBeCloseTo(barlineSignExtent('repeatEnd').left, 10)
   })
 
@@ -122,6 +122,36 @@ describe('barlineSignParts — the reading order IS the layout', () => {
     expect(parts.strokes).toHaveLength(3)                       // thin · THICK · thin
     expect(parts.dots).toHaveLength(2)                          // one pair each side
     expect(parts.extent.left).toBeCloseTo(parts.extent.right, 10)
+  })
+
+  it('⭐⭐ the DIVIDER is shared and the sides are owned: which half each piece of ink belongs to', () => {
+    // The rule `SignHalf` states, checked as geometry rather than as a table of kinds: the stroke ON
+    // the boundary is `shared`, everything left of it is the ending bar's, everything right of it the
+    // opening bar's. This is what lets a `:||:` light the half that was clicked.
+    for (const kind of ['plain', 'final', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
+      const parts = barlineSignParts(kind)
+      expect(parts.strokes[parts.divider].half, `${kind}'s divider`).toBe('shared')
+      for (const [i, stroke] of parts.strokes.entries()) {
+        if (i === parts.divider) continue
+        expect(stroke.half, `${kind} stroke @${stroke.x}`).toBe(stroke.x < 0 ? 'end' : 'start')
+      }
+      for (const dot of parts.dots) {
+        expect(dot.half, `${kind} dots @${dot.x}`).toBe(dot.x < 0 ? 'end' : 'start')
+      }
+    }
+  })
+
+  it('⭐ only the two signs that OPEN a bar carry a `start` half — that is what earns a hit-box', () => {
+    // `BarlineRenderer.registerRepeatStart` asks exactly this to decide whether the sign it just
+    // painted is separately clickable. ⚠️ `plain` has no `end` half either: it is nothing but its
+    // divider, which is why the highlight paints `half` PLUS `shared` rather than `half` alone.
+    expect(signHasHalf('repeatStart', 'start')).toBe(true)
+    expect(signHasHalf('repeatBoth', 'start')).toBe(true)
+    for (const kind of ['plain', 'final', 'repeatEnd'] as const) {
+      expect(signHasHalf(kind, 'start'), kind).toBe(false)
+    }
+    expect(signHasHalf('plain', 'end')).toBe(false)
+    expect(signHasHalf('repeatEnd', 'end')).toBe(true)
   })
 
   it('every sign\'s extent is derived from its own parts, so ink and reserved room cannot drift', () => {
@@ -192,5 +222,58 @@ describe('the width terms — ⭐ what the bar RESERVES for its own sign (P3, §
     expect(barlineSignExtent('final').right).toBe(0)
     expect(barlineSignExtent('repeatEnd').right).toBe(0)
     expect(barlineSignExtent('repeatStart').left).toBe(0)
+  })
+})
+
+describe('wings — ⭐⭐ only a sign with a THICK line can carry them', () => {
+  it('the three the user asked for, and the back-to-back form with them', () => {
+    // His rule, 2026-08-26: *"this is for open repeat, for end repeat and for final; other barlines
+    // do not allow wings."* ⚠️ He asked for the FINAL, where MuseScore wings only the repeats.
+    for (const kind of ['final', 'repeatEnd', 'repeatStart', 'repeatBoth'] as const) {
+      expect(wingsAllowed(kind), kind).toBe(true)
+    }
+  })
+
+  it('⛔ …and not a bare line, which has nothing to flare', () => {
+    expect(wingsAllowed('plain')).toBe(false)
+    expect(wingsAllowed('invisible')).toBe(false)
+  })
+
+  it('⭐⭐ an ENDING sign\'s tips flare LEFT off the divider\'s right edge', () => {
+    // MuseScore's `drawTips(..., reversed=true, x + lw2*0.5)` — the thick line's RIGHT edge — and the
+    // mirrored glyphs attach by their own right edge, which is the `− symWidth` in its call.
+    const [wing, ...rest] = signWings('final')
+    expect(rest, 'a final bar has only an ending half').toHaveLength(0)
+    expect(wing.flare).toBe('left')
+    const parts = barlineSignParts('final')
+    const divider = parts.strokes[parts.divider]
+    expect(wing.x + 1.876, 'its right edge is the divider\'s').toBeCloseTo(divider.x + divider.width, 10)
+  })
+
+  it('⭐⭐ an OPENING sign\'s flare RIGHT off the divider\'s left edge', () => {
+    // MuseScore's `drawTips(..., reversed=false, 0.0)` — the start repeat's own left edge.
+    const [wing, ...rest] = signWings('repeatStart')
+    expect(rest).toHaveLength(0)
+    expect(wing.flare).toBe('right')
+    const parts = barlineSignParts('repeatStart')
+    expect(wing.x).toBeCloseTo(parts.strokes[parts.divider].x, 10)
+  })
+
+  it('🚨 a `:||:` gets BOTH pairs, on the ONE shared divider', () => {
+    // ⛔ Not MuseScore's arrangement and it cannot be: it draws the junction with TWO thick lines
+    // (Gould's design (B)) and puts a pair on each, where we draw her (A) — one shared divider.
+    const wings = signWings('repeatBoth')
+    expect(wings.map(w => w.flare).sort()).toEqual(['left', 'right'])
+    const parts = barlineSignParts('repeatBoth')
+    const divider = parts.strokes[parts.divider]
+    const right = wings.find(w => w.flare === 'right')!
+    const left = wings.find(w => w.flare === 'left')!
+    expect(right.x).toBeCloseTo(divider.x, 10)
+    expect(left.x + 1.876).toBeCloseTo(divider.x + divider.width, 10)
+  })
+
+  it('⛔ a sign that cannot be winged has no tips to place', () => {
+    expect(signWings('plain')).toEqual([])
+    expect(signWings('invisible')).toEqual([])
   })
 })

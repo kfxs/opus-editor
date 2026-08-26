@@ -69,6 +69,13 @@ const GLYPHS = {
   //   both size the sign from its measured width rather than from a constant. See `BarlineRenderer`.
   dots: ['augmentationDot', 'repeatDot'],
 
+  // ⭐ The REPEAT BARLINE'S WINGS — the flared tips a "winged" repeat carries at the top and bottom
+  //   of its thick line (his ask, 2026-08-26). ⛔ SMuFL has no wing glyph: every engine that draws
+  //   them re-uses the STAFF BRACKET's own tips, which is what these are (MuseScore's `drawTips`
+  //   stamps exactly this pair and its mirror). The mirrored two attach at their RIGHT edge, which
+  //   is why their measured width is needed and not just their height.
+  barlineWings: ['bracketTop', 'bracketBottom', 'reversedBracketTop', 'reversedBracketBottom'],
+
   // The header's glyphs. ⚠️ Their INK is here; what a header COSTS is not (`layout/headerInk.ts`
   // measures stave-x to the first notehead, a placement, and plan §7 keeps it out of scope).
   clefs: ['gClef', 'fClef', 'cClef'],

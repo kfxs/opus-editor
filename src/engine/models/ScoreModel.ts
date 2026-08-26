@@ -50,6 +50,7 @@ import * as voiceOps from './voiceOps'
 import * as staffSizeOps from './staffSize'
 import { isValidStaffSize } from './staffSize'
 import * as barlineOps from './barlineOps'
+import type { BarlineSignKind } from '@/engine/layout/barlineSign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf } from './noteProjection'
 import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
@@ -1461,9 +1462,39 @@ export class ScoreModel {
     return barlineOps.setRepeatEnd(this.score, measureNumber, on, options)
   }
 
-  /** Back to a plain line: drop this bar's style AND both repeats. See {@link barlineOps.clearBarline}. */
+  /** Back to a plain line: drop this bar's style and its end repeat. See {@link barlineOps.clearBarline}. */
   clearBarline(measureNumber: number): boolean {
     return barlineOps.clearBarline(this.score, measureNumber)
+  }
+
+  /** ⭐ Wings on or off for the sign at this line — set on every statement standing there, so a
+   *  `:||:` cannot be half-decorated. See {@link barlineOps.setBoundaryWinged}. */
+  setBoundaryWinged(endsMeasure: number | null, on: boolean): boolean {
+    return barlineOps.setBoundaryWinged(this.score, endsMeasure, on)
+  }
+
+  /** Whether the sign at this line is drawn with wings. See {@link barlineOps.boundaryWinged}. */
+  getBoundaryWinged(endsMeasure: number | null): boolean {
+    return barlineOps.boundaryWinged(this.score, endsMeasure)
+  }
+
+  /** ⭐ Add a repeat to a line: its own field, plus the competing STYLE dropped — ⛔ never the OTHER
+   *  repeat, which composes with it into `:||:`. See {@link barlineOps.addRepeatAtBoundary}. */
+  addRepeatAtBoundary(endsMeasure: number | null, which: 'start' | 'end'): boolean {
+    return barlineOps.addRepeatAtBoundary(this.score, endsMeasure, which)
+  }
+
+  /** ⭐ Set the WHOLE sign at one boundary in one write — the only barline op that names a LINE rather
+   *  than a bar, and the only route to the back-to-back `:||:`. `null` = the score's opening edge.
+   *  See {@link barlineOps.setBoundarySign}. */
+  setBoundarySign(endsMeasure: number | null, sign: BarlineSignKind): boolean {
+    return barlineOps.setBoundarySign(this.score, endsMeasure, sign)
+  }
+
+  /** The sign a boundary carries, from the two bars that meet there.
+   *  See {@link barlineOps.boundarySign}. */
+  getBoundarySign(endsMeasure: number | null): BarlineSignKind {
+    return barlineOps.boundarySign(this.score, endsMeasure)
   }
 
   // ============ Engraving overrides (authored-geometry compartment) ============
@@ -3552,6 +3583,16 @@ export class ScoreModel {
       const times = m.repeatEnd?.times
       if (times !== undefined && !isValidRepeatTimes(times)) {
         throw new Error(`Invalid repeat count ${times} at measure ${m.number}: must be a whole number of playings, at least 2.`)
+      }
+      // ⭐ The WINGS flag rides three different statements, so it is checked on all three: a
+      // hand-written `winged: "curved"` (MusicXML's spelling of ours) would otherwise enter as a
+      // truthy string and draw tips nobody could turn off through a checkbox that writes booleans.
+      // ⛔ Report, never repair (docs/json-io-plan.md).
+      for (const statement of [m.barline, m.repeatEnd, m.repeatStart]) {
+        const winged = statement?.winged
+        if (winged !== undefined && typeof winged !== 'boolean') {
+          throw new Error(`Invalid barline wings at measure ${m.number}: "winged" must be true or false, not ${typeof winged}.`)
+        }
       }
     }
   }

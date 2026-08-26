@@ -103,7 +103,7 @@ const DOT_WIDTH = glyphBox('repeatDot').advance
  * facts, bar *N*'s `repeatEnd` plus bar *N+1*'s `repeatStart` (§3.2, §4.3). MEI had to invent
  * `rptboth` because one stored slot could not hold two statements; we combine at the pen instead.
  */
-export type BarlineSignKind = 'plain' | 'final' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
+export type BarlineSignKind = 'plain' | 'invisible' | 'final' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
 
 /**
  * ⭐ **The signs a user PLACES** — the palette's three, and the vocabulary the editor's barline stamp
@@ -111,17 +111,44 @@ export type BarlineSignKind = 'plain' | 'final' | 'repeatEnd' | 'repeatStart' | 
  *
  * Declared HERE and narrowed from {@link BarlineSignKind} rather than listed again over there, for
  * the reason `engine/rendering/ghostTypes.ts` exists at all: the engine owns the vocabulary and the
- * editor translates into it (CLAUDE.md). The two members left out are the two nobody places —
- * `plain` is what a boundary carries when nothing was said, and `repeatBoth` is DRAWN from two bars'
- * statements and stored nowhere.
+ * editor translates into it (CLAUDE.md). The one member left out is `repeatBoth`, which is DRAWN
+ * from two bars' statements and stored nowhere — there is no single field a stamp could write it to.
+ * (The Properties chooser CAN say it, because it names a LINE and writes both owners:
+ * `barlineOps.setBoundarySign`.)
+ *
+ * ⭐ **`plain` IS placeable, and it is the eraser** — his ask, 2026-08-26: *"let's add normal to the
+ * barline palette, and the ghost is the normal barline, but it is another way to rewrite the open,
+ * final and end repeat."* Stamping it says *"this bar's barlines are ordinary"*, which is the only
+ * member of this union that clears rather than writes (`interactions/barlineStamp`).
  */
-export type PlacedBarlineSign = Extract<BarlineSignKind, 'final' | 'repeatStart' | 'repeatEnd'>
+export type PlacedBarlineSign = Extract<BarlineSignKind, 'plain' | 'invisible' | 'final' | 'repeatStart' | 'repeatEnd'>
+
+/**
+ * ⭐⭐ **WHICH STATEMENT A PIECE OF INK BELONGS TO** — the answer to *"I clicked the left dots of a
+ * `:||:`; why did the whole sign light up?"* (his report, 2026-08-26).
+ *
+ * A boundary can carry TWO statements at once — bar *N*'s `repeatEnd` and bar *N+1*'s `repeatStart`
+ * — and each is separately selectable (`interactions/elements/barline.ts` and `./repeatStart.ts`).
+ * So every part of a sign has to say whose it is, and the rule is the one the header already states:
+ *
+ * ⭐ **THE DIVIDER IS SHARED; everything LEFT of it belongs to the bar the line ends, everything
+ * RIGHT of it to the bar it opens.** That falls straight out of §6.1's geometry rather than being a
+ * second table to keep in step — the divider is the stroke ON the boundary, and a boundary is what
+ * the two bars share. It also gives the right answer for every non-composite sign for free: a final
+ * bar is thin(`end`) + THICK(`shared`), and a lone `|:` is THICK(`shared`) + thin(`start`) + dots.
+ *
+ * ⚠️ `shared` lights up with EITHER half, deliberately: the thick line really is part of both signs,
+ * and leaving it black while its own dots turned blue would read as half a selection.
+ */
+export type SignHalf = 'end' | 'start' | 'shared'
 
 /** One vertical stroke of a sign: its LEFT edge and width, in staff spaces from the boundary
  *  (negative x = left of it, i.e. inside the bar the line ends). */
 export interface SignStroke {
   x: number
   width: number
+  /** Whose ink this is — see {@link SignHalf}. */
+  half: SignHalf
 }
 
 /**
@@ -139,6 +166,8 @@ export interface SignStroke {
 export interface SignDots {
   x: number
   width: number
+  /** Whose ink this is — see {@link SignHalf}. `end` for the dots of a `:|`, `start` for a `|:`'s. */
+  half: SignHalf
 }
 
 /** Everything a sign is: its strokes, its dots (either side, or none), and how far its ink reaches
@@ -157,10 +186,12 @@ export interface BarlineSignParts {
 }
 
 /** The dots of a repeat, measured out from the far side of the thin stroke at `edge` — `direction`
- *  is the way the sign grows, so the gap is always between the stroke and the nearest dot edge. */
+ *  is the way the sign grows, so the gap is always between the stroke and the nearest dot edge.
+ *  ⭐ Dots are never `shared`: they sit off the boundary, so the direction they grow in IS their
+ *  half — leftward dots close a repeat, rightward dots open one. */
 function dotsAt(edge: number, direction: 1 | -1): SignDots {
   const left = direction === 1 ? edge + DOT_SEPARATION : edge - DOT_SEPARATION - DOT_WIDTH
-  return { x: left, width: DOT_WIDTH }
+  return { x: left, width: DOT_WIDTH, half: direction === 1 ? 'start' : 'end' }
 }
 
 /** The extent a set of parts reaches either side of 0. */
@@ -195,36 +226,45 @@ function parts(strokes: SignStroke[], dots: SignDots[], divider: number): Barlin
 export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
   switch (kind) {
     case 'plain':
+    // ⭐⭐ **AN INVISIBLE LINE IS A PLAIN LINE, GEOMETRICALLY** — and sharing the case is the point,
+    // not a shortcut. What "invisible" removes is the INK; the bar still ends there, the boundary is
+    // still where it was, and the room reserved for it is unchanged (plan §10.0). If this returned
+    // an empty sign the music either side would re-space the moment you hid a line, which is the one
+    // thing hiding must never do — the hidden REST's rule, arriving at its second client.
+    // ⚠️ So the difference is applied AFTER the draw, by the audience: `BarlineRenderer` hands the
+    // drawn group to `applyHiddenTreatment`. eslint no-fallthrough: keep this comment's last line
+    // adjacent to the case (`reference_eslint_no_fallthrough_multiline_comment`).
+    case 'invisible':
       // ⚠️ The one sign whose ink is to the RIGHT of the boundary — see the header. This is byte for
       // byte where `inkBarlines` has always put it, and moving it would move every bar in the score.
-      return parts([{ x: 0, width: THIN }], [], 0)
+      return parts([{ x: 0, width: THIN, half: 'shared' }], [], 0)
 
     case 'final': {
-      const thick = { x: -THICK, width: THICK }
-      const thin = { x: -(THICK + SEPARATION + THIN), width: THIN }
+      const thick: SignStroke = { x: -THICK, width: THICK, half: 'shared' }
+      const thin: SignStroke = { x: -(THICK + SEPARATION + THIN), width: THIN, half: 'end' }
       return parts([thin, thick], [], 1)
     }
 
     case 'repeatEnd': {
-      const thick = { x: -THICK, width: THICK }
-      const thin = { x: -(THICK + SEPARATION + THIN), width: THIN }
+      const thick: SignStroke = { x: -THICK, width: THICK, half: 'shared' }
+      const thin: SignStroke = { x: -(THICK + SEPARATION + THIN), width: THIN, half: 'end' }
       // Gould p. 39: a repeat *"uses the final double barline design together with repeat dots"* — so
       // the two strokes are the final bar's, verbatim, and only the dots are new.
       return parts([thin, thick], [dotsAt(thin.x, -1)], 1)
     }
 
     case 'repeatStart': {
-      const thick = { x: 0, width: THICK }
-      const thin = { x: THICK + SEPARATION, width: THIN }
+      const thick: SignStroke = { x: 0, width: THICK, half: 'shared' }
+      const thin: SignStroke = { x: THICK + SEPARATION, width: THIN, half: 'start' }
       return parts([thick, thin], [dotsAt(thin.x + thin.width, 1)], 0)
     }
 
     case 'repeatBoth': {
       // ⭐ ONE shared thick line, centred on the boundary — the junction of two repeats is a single
       // divider, not two. Everything else is the two signs' own halves.
-      const thick = { x: -THICK / 2, width: THICK }
-      const thinLeft = { x: thick.x - SEPARATION - THIN, width: THIN }
-      const thinRight = { x: thick.x + THICK + SEPARATION, width: THIN }
+      const thick: SignStroke = { x: -THICK / 2, width: THICK, half: 'shared' }
+      const thinLeft: SignStroke = { x: thick.x - SEPARATION - THIN, width: THIN, half: 'end' }
+      const thinRight: SignStroke = { x: thick.x + THICK + SEPARATION, width: THIN, half: 'start' }
       return parts(
         [thinLeft, thick, thinRight],
         [dotsAt(thinLeft.x, -1), dotsAt(thinRight.x + thinRight.width, 1)],
@@ -239,12 +279,31 @@ export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
  * undefined at a system's opening edge, `begins` at its closing one — and "absent" here means *not on
  * this system*, which is what makes the system condition local to this one function.
  *
- * ⭐ The order of these tests IS the family's precedence, and only one row of it is a judgement call:
- * a bar carrying BOTH a `final` style and a `repeatEnd` draws the repeat, because Gould's repeat
- * *"uses the final double barline design together with repeat dots"* (p. 39) — the repeat is the
- * final bar plus something, so it subsumes it rather than competing with it.
+ * ⭐ The order of these tests IS the family's precedence, and two rows of it are judgement calls:
+ *
+ *  - **`invisible` first, above everything** — it is not a sign but a statement about whatever sign
+ *    would stand here, so it cannot lose to one. His call, 2026-08-26; the body says why.
+ *  - a bar carrying BOTH a `final` style and a `repeatEnd` draws the **repeat**, because Gould's
+ *    repeat *"uses the final double barline design together with repeat dots"* (p. 39) — the repeat
+ *    is the final bar plus something, so it subsumes it rather than competing with it.
  */
 export function signAtBoundary(ends: Measure | undefined, begins: Measure | undefined): BarlineSignKind | null {
+  // ⭐⭐ **INVISIBLE WINS OVER EVERYTHING** — 🚨 his report, 2026-08-26: *"why can I not override a
+  // repeat line with an invisible?"* He had a `|:` on this line, stamped invisible, and the picture
+  // did not move: the style was stored, and the repeat below out-ranked it.
+  //
+  // ⭐ Right, and the fix is the precedence rather than the field. `invisible` is not a fourth sign
+  // competing for the boundary — it is a statement that **this line is not engraved**, which is a
+  // statement ABOUT whatever sign would otherwise stand there. Every engine models it that way
+  // (MuseScore's barline `visible` flag is orthogonal to its type), and it is the hidden REST's rule
+  // once more: what disappears is the INK, never the content. The repeat is still in the model, still
+  // exported, still what a play order would read.
+  //
+  // ⚠️ The ROOM is deliberately NOT affected — `ownEndSignKind` still answers `repeatEnd` for a
+  // hidden repeat, so hiding a line never re-spaces the music around it (that function's own rule:
+  // reserving more than is drawn is always safe, the reverse never is).
+  if (ends?.barline?.style === 'invisible') return 'invisible'
+
   const closes = ends?.repeatEnd !== undefined
   const opens = begins?.repeatStart !== undefined
   if (closes && opens) return 'repeatBoth'
@@ -285,6 +344,80 @@ export function dotLines(numLines: number): [number, number] {
 }
 
 /**
+ * ⭐ **Does this sign carry a half belonging to `half`?** — i.e. is there ink here that the bar on
+ * that side of the boundary is the owner of.
+ *
+ * The one caller that matters is the DRAWING pass, which registers a `repeatStart` hit-box exactly
+ * when the sign it just painted has a `start` half ({@link BarlineRenderer}). ⛔ Read off the parts
+ * rather than listed as a second table of kinds, for {@link BarlineSignParts.extent}'s reason: a
+ * fourth sign is then a row in {@link barlineSignParts} and a case nowhere.
+ *
+ * ⚠️ `shared` is not a half anything owns alone, so `signHasHalf('plain', 'end')` is **false** — a
+ * plain line is nothing but its divider. Ask this about ownership, never about what to light up:
+ * the highlight paints `half` PLUS `shared`, which is what makes a plain line's own selection show.
+ */
+export function signHasHalf(kind: BarlineSignKind, half: SignHalf): boolean {
+  const { strokes, dots } = barlineSignParts(kind)
+  return strokes.some(s => s.half === half) || dots.some(d => d.half === half)
+}
+
+/**
+ * ⭐⭐ **CAN THIS SIGN CARRY WINGS?** — the flared tips at the top and bottom of its thick line.
+ *
+ * ⭐ **A sign with a HALF has a thick line; one without is a bare stroke.** So the answer is read off
+ * the parts, exactly as {@link signHasHalf} is, and there is no third table to keep in step: `final`,
+ * both repeats and the back-to-back form all qualify, while a `plain` line and an `invisible` one —
+ * which are nothing but their divider — have nothing to flare.
+ *
+ * 🚨 **HIS RULE, 2026-08-26:** *"it should be only checkable when wings are allowed — this is for
+ * open repeat, for end repeat and for final; other barlines do not allow wings."* ⚠️ Note the FINAL:
+ * MuseScore wings the two repeats and the back-to-back form and never the final bar
+ * (`repeatBarTips` is checked in three cases only). He asked for the final too, which is his call and
+ * a defensible one — a final bar's thick line is the same stroke a repeat's is.
+ */
+export function wingsAllowed(kind: BarlineSignKind): boolean {
+  return signHasHalf(kind, 'end') || signHasHalf(kind, 'start')
+}
+
+/**
+ * ⭐⭐ **WHERE A WINGED SIGN'S TIPS GO** — one entry per pair, each with the glyph to stamp and the x
+ * to stamp it at, in staff spaces from the boundary.
+ *
+ * ⛔ **SMuFL has no wing glyph**, so these are the STAFF BRACKET's own tips — his identification
+ * (*"similar to Bravura `\uE002`"*), and what MuseScore's `drawTips` stamps. ⭐ The two families
+ * attach differently and that is the whole of the arithmetic: a `bracket*` tip's stem is its LEFT
+ * edge (it flares right), a `reversedBracket*` tip's is its RIGHT edge (it flares left), which is why
+ * MuseScore draws the mirrored pair at `x − symWidth`.
+ *
+ * ⭐ **Which pairs a sign gets falls out of its halves**, and is the same rule again: ink to the LEFT
+ * of the divider is an ENDING sign, so its tips flare left off the divider's right edge; ink to the
+ * RIGHT is an OPENING sign, so its tips flare right off the divider's left edge. A `:||:` is both.
+ * ⛔ Not MuseScore's arrangement, and it cannot be: it draws the back-to-back form with TWO thick
+ * lines (Gould's design (B)) and puts a pair on each, where we draw her (A) — one shared divider.
+ */
+export interface SignWings {
+  /** Which way this pair flares. `right` is the `bracket*` family, `left` the mirrored one. */
+  flare: 'left' | 'right'
+  /** The glyph's ORIGIN x, in staff spaces from the boundary — already offset for the mirrored
+   *  family, so the caller stamps at this x and nothing else. */
+  x: number
+}
+
+export function signWings(kind: BarlineSignKind): SignWings[] {
+  if (!wingsAllowed(kind)) return []
+  const parts = barlineSignParts(kind)
+  const divider = parts.strokes[parts.divider]
+  const width = glyphBox('bracketTop').advance
+  const wings: SignWings[] = []
+  // The ENDING half's tips: flaring LEFT off the divider's right edge, so their own right edge is
+  // that edge — the mirrored family attaches by its right.
+  if (signHasHalf(kind, 'end')) wings.push({ flare: 'left', x: divider.x + divider.width - width })
+  // The OPENING half's: flaring RIGHT off the divider's left edge, which is where they attach.
+  if (signHasHalf(kind, 'start')) wings.push({ flare: 'right', x: divider.x })
+  return wings
+}
+
+/**
  * How far this sign's ink reaches either side of the boundary, in staff spaces — §6.2's one owner of
  * the number, for the hit-box, the room floor and the two width terms.
  */
@@ -307,6 +440,10 @@ export function barlineSignExtent(kind: BarlineSignKind): { left: number; right:
 export function ownEndSignKind(measure: Measure): BarlineSignKind {
   if (measure.repeatEnd !== undefined) return 'repeatEnd'
   if (measure.barline?.style === 'final') return 'final'
+  // ⭐ `invisible` deliberately falls through to `plain`'s room, which is the same room: hiding a
+  // line must not re-space the music around it. It is not even reachable as a distinct answer here
+  // — the two kinds share their parts — and is left unwritten rather than spelled out as a case
+  // that could drift from `barlineSignParts`.
   return 'plain'
 }
 

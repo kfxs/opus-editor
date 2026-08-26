@@ -416,6 +416,26 @@ export type SelectedElement =
    * states for itself.
    */
   | { kind: 'barline'; measure: number }
+  /**
+   * ⭐⭐ **THE OPEN REPEAT** (`|:`) — the line that OPENS this measure, and the one barline sign that
+   * is NOT a boundary selection.
+   *
+   * 🚨 **HIS REPORT, 2026-08-26** — *"I can not highlight open repeat on the beginning of the
+   * score"*, and it is not a missing hit-box: `barline` above names *the line that ENDS bar N*, so
+   * the sign opening bar 1 has no measure to be named by. Two facts make this its own kind rather
+   * than a `side` field on that one:
+   *
+   *  - **it can stand at no boundary at all.** A bar with a header pushes its repeat past the
+   *    clef/key/meter (Gould p. 234, `BarlineRenderer.displacedRepeatX`) — and bar 1 always has one;
+   *  - **at a `:||:` junction two statements meet on one line**, and each has to be separately
+   *    selectable so Delete and the highlight act on the half that was clicked (his second report the
+   *    same day). ONE OWNER PER LINE is the model's rule; this is its selection.
+   *
+   * Positional and staff-less for `barline`'s reasons: a repeat is a system-wide statement
+   * (docs/barline-types-plan.md §2), drawn once per staff, and `measure.repeatStart` is where the
+   * model keeps it.
+   */
+  | { kind: 'repeatStart'; measure: number }
   /** An on-score dynamic, selected for removal/edit. Distinct from the armed
    *  `{ kind: 'dynamic' }` marking tool. */
   | { kind: 'dynamic'; id: string }

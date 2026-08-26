@@ -3870,7 +3870,7 @@ export class VexFlowRenderer {
     // Here, after the connector and before the cross-bar beams, which is where VexFlow's own lines
     // sat in the paint order: every bar has been drawn, and the beams, ties and slurs that cross a
     // barline still land on top of it.
-    renderBarlines(pass, score, placements)
+    renderBarlines(pass, score, placements, this.audience)
 
     // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
     // group now that every bar has been painted. Before the ties, as a bar's own beams are.

@@ -103,6 +103,11 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
       return downbeatOf(score, element.measure)
     case 'barline':
       return afterBarline(score, element.measure)
+    // ⭐ The `|:` OPENS its bar, so the nearest point music can hang off is that bar's own downbeat —
+    // the mirror of `afterBarline` above, and it needs no fallback: the sign cannot open a bar that
+    // is not there.
+    case 'repeatStart':
+      return downbeatOf(score, element.measure)
     // A box marks bars; the paste goes at its FIRST one's downbeat, on the box's staff.
     case 'measureRange':
       return withLane(downbeatOf(score, Math.min(element.anchor, element.focus)), element.staff, undefined)

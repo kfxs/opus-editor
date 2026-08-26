@@ -35,11 +35,20 @@ describe('barline selection highlight', () => {
   const blue = () => marked().filter(el => el.getAttribute('fill') === ELEMENT_SELECTION_FILL)
   /** The pass's own group for the sign ending `measure` on staff 0. */
   const sign = (measure: number) => container.querySelector(`[id="vf-barline-${measure}-0-end"]`)
+  /** …and for one a bar drew at its own START — a displaced `|:`, or a system-opening one. */
+  const startSign = (measure: number) => container.querySelector(`[id="vf-barline-${measure}-0-start"]`)
 
   const select = (measure: number) => {
     highlight.clearHighlights()
     state.selectedElement = { kind: 'barline', measure }
     highlight.applyBarlineSelectionHighlight()
+  }
+
+  /** Select the `|:` that OPENS `measure` — the other half of the family (`./elements/repeatStart`). */
+  const selectOpenRepeat = (measure: number) => {
+    highlight.clearHighlights()
+    state.selectedElement = { kind: 'repeatStart', measure }
+    highlight.applyRepeatStartSelectionHighlight()
   }
 
   beforeEach(() => {
@@ -90,16 +99,76 @@ describe('barline selection highlight', () => {
     expect(blue().length, 'two strokes and two dots').toBe(4)
   })
 
-  it('⭐ when the NEIGHBOUR opens the repeat, the WHOLE `|:` at that boundary is coloured', () => {
-    // A boundary carries ONE sign (`signAtBoundary`): bar 5's `|:` replaces bar 4's own plain line,
-    // and the pass draws it under the bar that ENDS there — so selecting "the line that ends bar 4"
-    // finds a two-stroke, two-dot sign rather than the single stroke it would otherwise have.
+  it('🚨 when the NEIGHBOUR opens the repeat, the barline lights the WHOLE `|:` — never the thick alone', () => {
+    // 🚨 **HIS CORRECTION, 2026-08-26**, from the running app: he placed an open repeat on the left of
+    // bar 2, clicked the line, got `✓ Barline selected | ends measure:1` — and *"here we highlight
+    // just the thick"*. *"We should always highlight the music semantic and no part of it."*
+    //
+    // A boundary carries ONE sign (`signAtBoundary`): bar 5's `|:` REPLACES bar 4's plain line, so
+    // bar 4 owns no ink here at all. The divider is the only piece of the sign standing on its
+    // boundary — and 0.5 spaces of a 1.5-space sign is a fragment, not a selection. So a selection
+    // with nothing of its own here lights the whole sign that is drawn on its line.
     engine.setRepeatStart(5, true)
     engine.renderScore()
     select(4)
     expect([...sign(4)!.querySelectorAll('rect')], 'thick + thin').toHaveLength(2)
     expect([...sign(4)!.querySelectorAll('text')], 'and its two dots').toHaveLength(2)
-    expect(blue().length, 'every piece of it').toBe(4)
+    expect(blue(), 'all four pieces of it').toHaveLength(4)
+  })
+
+  it('⭐⭐ the OPEN REPEAT is its own selection, drawn in the PREVIOUS bar\'s group', () => {
+    // The mirror of the test above: same ink, the other owner. The `|:` is filed under bar 4 because
+    // bar 4 held the pen at that spot, but it is bar 5's statement — so this finds it by looking for
+    // bar 5's own start group first and falling back to bar 4's end group.
+    engine.setRepeatStart(5, true)
+    engine.renderScore()
+    selectOpenRepeat(5)
+    expect(startSign(5), 'no start group of its own — it stands on the boundary').toBeNull()
+    expect(blue(), 'thick + thin + two dots').toHaveLength(4)
+  })
+
+  it('🚨 the `|:` OPENING THE SCORE — the sign his report could not reach', () => {
+    // *"I can not highlight open repeat on the beginning of the score"*. Bar 1 always draws a
+    // header, so its repeat is displaced past the clef and meter (Gould p. 234) — it stands at NO
+    // boundary, which is why no `barline` selection could ever have named it.
+    engine.setRepeatStart(1, true)
+    engine.renderScore()
+    expect(startSign(1), 'drawn as bar 1\'s OWN start group').not.toBeNull()
+    selectOpenRepeat(1)
+    expect(blue(), 'thick + thin + two dots').toHaveLength(4)
+  })
+
+  it('⭐⭐ `:||:` — each half lights ALONE, and they share only the divider', () => {
+    // His, 2026-08-26: *"when we have open+end and I choose it, it highlights everything but it
+    // should highlight just the part that was clicked"*. One drawn sign, two statements: bar 4's
+    // `:|` and bar 5's `|:`, meeting on one thick line that belongs to both.
+    engine.setRepeatEnd(4, true)
+    engine.setRepeatStart(5, true)
+    engine.renderScore()
+    const group = sign(4)!
+    expect([...group.querySelectorAll('rect')], 'thin · THICK · thin').toHaveLength(3)
+    expect([...group.querySelectorAll('text')], 'a pair of dots each side').toHaveLength(4)
+
+    select(4)
+    const endHalf = blue()
+    expect(endHalf, 'thin + divider + its own two dots').toHaveLength(4)
+
+    selectOpenRepeat(5)
+    const startHalf = blue()
+    expect(startHalf, 'the other thin + divider + the other two dots').toHaveLength(4)
+
+    // ⭐ The overlap between the two is exactly the divider — one node, and it is the thick line.
+    const shared = endHalf.filter(el => startHalf.includes(el))
+    expect(shared).toHaveLength(1)
+    expect(shared[0].getAttribute('data-half')).toBe('shared')
+    expect(Number(shared[0].getAttribute('width')), 'the 0.5-space thick line').toBeCloseTo(5, 5)
+
+    // ⭐⭐ …and NEITHER half is a fragment: each is a complete repeat sign — its two dots, its thin
+    // stroke and the thick line the two designs share (Gould p. 234's design (A) is ONE divider).
+    for (const half of [endHalf, startHalf]) {
+      expect(half.filter(el => el.tagName === 'text'), 'a full pair of dots').toHaveLength(2)
+      expect(half.filter(el => el.tagName === 'rect'), 'thin + THICK').toHaveLength(2)
+    }
   })
 
   it('⭐⭐ a thin stroke is grown to 2 px of blue — symmetrically, and a THICK one is left alone', () => {

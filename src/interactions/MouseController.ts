@@ -25,6 +25,7 @@ import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { stampBarlineAtClick } from './barlineStamp'
+import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
@@ -178,13 +179,11 @@ interface ActiveDrag {
 /** Registry element types that are staff background / structure rather than clickable
  *  notational objects. A Ctrl+Shift+click landing only on one of these is still "empty
  *  space" for the measure-box gesture (see handleModifierMouseDown). */
-const MEASURE_BOX_IGNORE_TYPES = new Set<ElementType>(['staff', 'barline', 'beam'])
+const MEASURE_BOX_IGNORE_TYPES = new Set<ElementType>(['staff', 'barline', 'repeatStart', 'beam'])
 
-/** Vertical margin (px) added above/below a staff's five lines to define the band a plain
- *  click must land in to select that bar. Matches the drawn single box's ±12 extent
- *  (HighlightController.applyMeasureBox), so "click where the box would be → select"; a click
- *  in the GAP between two staves falls outside every band and selects nothing. */
-const STAFF_BAND_PAD_PX = 12
+// ⭐ The measure-click band's tolerance moved to `./staffBand` (2026-08-26) so the BARLINE STAMP
+// could read the same number: two gestures asking "which staff did they mean?" with two different
+// answers is how a user learns that clicking works only sometimes (his report).
 
 /**
  * Handles all mouse interactions: clicks, drags, ghost-note preview.
@@ -2134,10 +2133,13 @@ export class MouseController {
     if (stampSpanMarkAtClick('trill', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('ottava', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('pedal', this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    // ⭐ The BARLINE stamp (`./barlineStamp`), and the only one here that reads the MEASURE and
-    // nothing else: its sign goes on the clicked bar's own left or right side (a barline is
-    // system-wide, so the y decides nothing), never at the pointer.
-    if (stampBarlineAtClick(this.state, engine, measureNum, () => this.render.renderScore())) return
+    // ⭐ The BARLINE stamp (`./barlineStamp`): its sign goes on the LINE nearest the pointer (a
+    // barline is system-wide, so the y only picks the staff band).
+    // ⚠️ It takes the PRESS, ⛔ not the clicked bar: his rule of 2026-08-26 is that the sign lands on
+    // the line NEAREST THE POINTER. `pixelToMeasure` puts a press on a boundary in the bar to its
+    // right, so the bar was an indirection that got it wrong for exactly the presses that were aimed
+    // at a barline.
+    if (stampBarlineAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

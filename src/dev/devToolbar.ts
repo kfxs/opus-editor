@@ -295,6 +295,22 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    */
   const BARLINE_TOOLS: ReadonlyArray<{ label: string; sign: BarlineSign; title: string }> = [
     {
+      // ⭐ THE ERASER, first in the row because it is the one that takes something away — his ask,
+      // 2026-08-26: *"another way to rewrite the open, final and end repeat"*.
+      label: 'Normal',
+      sign: 'plain',
+      title: 'Normal barline — the ordinary single line. The one button that REMOVES: it clears '
+        + 'every special barline the bar owns, on BOTH of its sides, which is how you get rid of the '
+        + 'open repeat at the start of bar 1.',
+    },
+    {
+      label: 'Invisible',
+      sign: 'invisible',
+      title: 'Invisible barline — the bar still ends here and the music is spaced exactly as before; '
+        + 'the line is simply not engraved. Gray on screen so you can still click it, ABSENT from a '
+        + 'PDF export. Goes on the RIGHT of the bar, like the final barline.',
+    },
+    {
       label: 'Final',
       sign: 'final',
       title: 'Final barline (thin + thick) — ends the piece, or a section that is finished. '

@@ -1,8 +1,9 @@
 /**
  * **What a HIDDEN element does, and who is looking.**
  *
- * The editor lets you hide things that are still real content — today the hidden rest (engraving
- * client #6, Sibelius' Ctrl+Shift+H, docs/rest-hide-plan.md), tomorrow whatever joins it. "Hidden"
+ * The editor lets you hide things that are still real content — the hidden rest (engraving client
+ * #6, Sibelius' Ctrl+Shift+H, docs/rest-hide-plan.md) and, since 2026-08-26, the **invisible
+ * barline** (`BarlineStyle`, docs/barline-types-plan.md), tomorrow whatever joins them. "Hidden"
  * has never meant *gone*: the rest still fills its beat, still holds its column, is still
  * selectable, and can still be unhidden. What it means is **do not engrave this**.
  *
@@ -65,7 +66,11 @@ export function applyHiddenTreatment(group: SVGGElement, audience: RenderAudienc
     group.remove()
     return
   }
-  group.querySelectorAll('text, path').forEach((el) => {
+  // ⚠️ `rect` joined `text, path` for the INVISIBLE BARLINE (2026-08-26), which is the first hidden
+  // element drawn as strokes rather than as glyphs — a sign is `fillRect`s plus the dot glyph
+  // (`BarlineRenderer`). Adding the tag here rather than at the caller is the point of this being
+  // the one table: a hideable element hands over its group and inherits both treatments.
+  group.querySelectorAll('text, path, rect').forEach((el) => {
     const svgEl = el as SVGElement
     svgEl.setAttribute('fill', HIDDEN_ELEMENT_COLOR)
     svgEl.style.fill = HIDDEN_ELEMENT_COLOR

@@ -1,5 +1,5 @@
 /**
- * The two tables in {@link chain} — what they say about the eighteen selectable kinds.
+ * The two tables in {@link chain} — what they say about the nineteen selectable kinds.
  *
  * These are not decorative assertions. {@link ELEMENT_HIT_ORDER} is an ARRAY whose ORDER IS THE
  * CONTENT: it decides who wins a press two glyphs both cover, and that order was argued for one pair
@@ -15,11 +15,12 @@ import type { SelectedElement } from '../EditorState'
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal',
-  'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'tuplet', 'measureRange',
+  'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart', 'tuplet',
+  'measureRange',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all eighteen kinds, and nothing else', () => {
+  it('answers for all nineteen kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -28,7 +29,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — a nineteenth cannot be added without deciding', () => {
+  it('every kind says how it paints — a twentieth cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -56,8 +57,12 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       'dot',
       // The tremolo immediately before the stem it is drawn ON, so it wins only inside its own ink.
       'tremolo', 'stem',
+      // ⭐⭐ The OPEN REPEAT before the barline: a press resolves to the SIGN it landed on. A lone
+      // `|:` REPLACES the previous bar's plain line, so a press on it must not answer "barline" on
+      // one stroke and "repeat" on the next (his report, 2026-08-26). Its box is its own ink right of
+      // the boundary; the barline keeps everything left of it.
       // The barline last: its pad reaches into the bar's last column.
-      'barline',
+      'repeatStart', 'barline',
     ])
   })
 

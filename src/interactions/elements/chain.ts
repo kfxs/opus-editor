@@ -14,13 +14,13 @@
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 16 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 17 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 18 entries, total over the union, so a nineteenth kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 19 entries, total over the union, so a twentieth kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -57,6 +57,7 @@ import { DOT_ELEMENT } from './dot'
 import { TREMOLO_ELEMENT } from './tremolo'
 import { STEM_ELEMENT } from './stem'
 import { BARLINE_ELEMENT } from './barline'
+import { REPEAT_START_ELEMENT } from './repeatStart'
 import { TUPLET_ELEMENT } from './tuplet'
 import { MEASURE_RANGE_ELEMENT } from './measureRange'
 
@@ -218,6 +219,25 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // own ink and the stem keeps the rest of its length.
   TREMOLO_ELEMENT,
   STEM_ELEMENT,
+  // ⭐⭐ **THE OPEN REPEAT BEFORE THE BARLINE — A PRESS RESOLVES TO THE SIGN IT LANDED ON.**
+  //
+  // 🚨 **HIS REPORT, 2026-08-26**, and it overturned this pair's first ordering: *"I click on a repeat
+  // bar and sometimes it shows me repeat start and sometimes it shows me barline, like we have two
+  // barlines… the user is clicking the special barline, and that is what the properties should refer
+  // to."* Dead right. A `|:` standing alone REPLACES the previous bar's plain line (`signAtBoundary`)
+  // — there is one sign there, not a sign plus a line under it — so a press must not resolve to two
+  // different things depending on which stroke of it was hit.
+  //
+  // ⭐ The box geometry already says which sign a press is on, so the order is all that was wrong:
+  // this box is the sign's own ink from the boundary rightward, which for a lone `|:` IS the whole
+  // sign (all of it grows into the bar it opens, §6.1) and for a `:||:` is exactly its right half.
+  // So: the `|:` claims its ink first, the barline keeps everything left of the boundary — which at a
+  // `:||:` is the end repeat's own half, and elsewhere is the line itself.
+  //
+  // ⚠️ The bar-width drag is NOT lost where the `|:` takes the ink: the boundary is still grabbable
+  // in the pad just left of it, and `shortcutWiring` resolves the keyboard width/gap gestures from
+  // EITHER selection (a `|:` opening bar M names the line ending bar M−1).
+  REPEAT_START_ELEMENT,
   // The barline last of all: its box has to be padded to be clickable at 4px, and that pad
   // reaches into the last column of the bar — so every glyph that could own the click gets
   // asked first, and the note itself is guarded for inside the handler.
@@ -225,7 +245,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A nineteenth kind is
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twentieth kind is
  * a compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
@@ -250,6 +270,7 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   tremolo: TREMOLO_ELEMENT,
   stem: STEM_ELEMENT,
   barline: BARLINE_ELEMENT,
+  repeatStart: REPEAT_START_ELEMENT,
   tuplet: TUPLET_ELEMENT,
   measureRange: MEASURE_RANGE_ELEMENT,
 }

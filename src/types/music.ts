@@ -1885,14 +1885,28 @@ export type ChordRest = Chord | Rest
  * `<repeat direction="backward"/>`), and MEI, which merged them harder, had to invent `rptboth` for
  * "end repeat then start repeat" because one slot could not hold two statements.
  *
- * ⭐ **One member today, deliberately.** Of the three signs asked for, ONE is a style — `final` —
- * and the other two are repeats. A union with a single member is the point of the split, not
- * evidence against it. The family's other members (`double`, `heavy`, `dashed`, `dotted`, `tick`,
- * `short`, and the invisible `none`) each cost one member here plus one drawing case; ⛔ none is
- * added until it is asked for (plan §0) — a value with no drawing behind it is a lie the compiler
- * cannot catch.
+ * ⭐ **Two members, and they are different KINDS of statement about the same line** — which is what
+ * makes them both styles rather than one style and one flag:
+ *
+ *  - **`final`** — thin + thick, the end of a movement (Gould p. 39).
+ *  - **`invisible`** — the line is still there and still divides the bars; it is simply not
+ *    engraved. 🚨 His ask, 2026-08-26: *"probably we should add also Invisible, and what we do on
+ *    screen we use the same colour of hidden we are using for rest, and not printing it on PDF
+ *    export."* ⭐ Which is the HIDDEN-ELEMENT rule already in the editor, arriving at its second
+ *    client: `engine/rendering/hiddenElements.ts` — tinted for the `editor` audience so it stays
+ *    clickable, OMITTED for `print`. ⛔ It is NOT "no barline": the bar still ends, the spine is
+ *    untouched, the room is unchanged. What disappears is the INK (plan §10.0's whole point).
+ *
+ * ⚠️ **`invisible` is our spelling; MusicXML's is `<bar-style>none</bar-style>`** and MEI's is
+ * `@bar.method="invis"`. Recorded because a MusicXML export will have to translate, and because
+ * "none" reads as *"there is no barline here"*, which is the misreading the paragraph above exists
+ * to prevent.
+ *
+ * The family's remaining members (`double`, `heavy`, `dashed`, `dotted`, `tick`, `short`) each cost
+ * one member here plus one drawing case; ⛔ none is added until it is asked for (plan §0) — a value
+ * with no drawing behind it is a lie the compiler cannot catch.
  */
-export type BarlineStyle = 'final'
+export type BarlineStyle = 'final' | 'invisible'
 
 /**
  * **A barline statement: the line that ENDS this measure.**
@@ -1919,6 +1933,9 @@ export interface BarlineStatement {
   style: BarlineStyle
   /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
   staffId?: string
+  /** ⭐ The flared tips at the top and bottom of the thick line. See {@link RepeatStart.winged}.
+   *  ⚠️ Meaningless on an `invisible` line, which has no ink to flare. */
+  winged?: boolean
 }
 
 /**
@@ -1936,6 +1953,33 @@ export interface BarlineStatement {
 export interface RepeatStart {
   /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
   staffId?: string
+  /**
+   * ⭐⭐ **WINGS** — the flared tips at the top and bottom of this sign's thick line (his ask,
+   * 2026-08-26: *"I remember Sibelius had barline wings for repeats"*).
+   *
+   * Absent = none, which is every engine's default. A **house-style decoration, not a convention**:
+   * checked against the four treatises on disk and all four are silent — Gould pp. 38–39 and
+   * 233–235, Ross p. 147 and pp. 151–152 and Gerou & Lusk pp. 110–111 decompose the repeat sign in
+   * detail and none of them names or draws a tip. What every program HAS is a switch for it: Finale
+   * (*"Wing Styles: None / Curved / Single / Double"*), Sibelius (Engraving Rules ▸ Barlines),
+   * Dorico (*"Wings on repeat barlines"*), MuseScore (*"Show repeat barline tips"*).
+   *
+   * ⛔ **SMuFL has no wing glyph.** The shape is the STAFF BRACKET's own flared tip — his own
+   * identification (*"similar to Bravura `\uE002`"*), and exactly what MuseScore's `drawTips` stamps:
+   * `bracketTop`/`bracketBottom` where the sign grows rightward, the mirrored `reversedBracket*`
+   * where it grows left. Sibelius names its two symbols *"End Bracket Top / Bottom"*, which is the
+   * independent corroboration.
+   *
+   * ⚠️ **A boolean, where MusicXML has five values** (`winged`: `none | straight | curved |
+   * double-straight | double-curved`). Ours is the curved single, which is what the bracket tips are
+   * and what MuseScore exports as `winged="curved"`. ⛔ If the other four are ever wanted this
+   * becomes MusicXML's union and not a second flag — recorded so nobody adds `doubleWinged`.
+   *
+   * ⚠️ Only a sign with a THICK line can carry them (`barlineSign.wingsAllowed`): a plain single line
+   * and an invisible one have nothing to flare. His rule, and ⭐ note it differs from MuseScore's,
+   * which wings the two repeats and never the final bar — he asked for the final too.
+   */
+  winged?: boolean
 }
 
 /**
@@ -1955,6 +1999,8 @@ export interface RepeatEnd {
   times?: number
   /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
   staffId?: string
+  /** ⭐ The flared tips at the top and bottom of the thick line. See {@link RepeatStart.winged}. */
+  winged?: boolean
 }
 
 /**

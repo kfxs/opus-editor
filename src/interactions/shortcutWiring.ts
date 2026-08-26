@@ -772,9 +772,30 @@ export function wireShortcuts(
   // render cannot say how far the barline may go — including the barline that ENDS a system, which
   // justification pins to the right margin and no stretch can move. One undo per press.
   // See docs/bar-width-plan.md §4–§6.
+  /**
+   * ⭐⭐ **THE BAR THE SELECTED LINE ENDS** — the one address the four width/gap gestures below share,
+   * resolved from EITHER barline selection.
+   *
+   * A `barline` selection already IS that measure. ⭐ A `repeatStart` selection names the same line
+   * from the other side: the `|:` opening bar *M* stands on the line that ends bar *M−1*. Both
+   * gestures act on the line, not on the sign drawn on it, so both selections must reach them —
+   * otherwise clicking the special barline (which since 2026-08-26 selects the SIGN, `ELEMENT_HIT_ORDER`)
+   * would silently cost you the width nudge you had a moment ago.
+   *
+   * ⛔ Null for the `|:` that opens bar 1: there is no bar 0, so that sign stands on no line — which
+   * is the same "I don't know" the engine answers with for a line no render can measure.
+   */
+  const selectedBoundaryMeasure = (): number | undefined => {
+    const line = selectedOf(state, 'barline')
+    if (line) return line.measure
+    const openRepeat = selectedOf(state, 'repeatStart')
+    if (openRepeat && openRepeat.measure > 1) return openRepeat.measure - 1
+    return undefined
+  }
+
   const nudgeSelectedBarWidth = (deltaPx: number): boolean => {
     const eng = getEngine()
-    const measure = selectedOf(state, 'barline')?.measure
+    const measure = selectedBoundaryMeasure()
     if (!eng || measure === undefined) return false
     if (eng.nudgeBarWidth(measure, deltaPx) === null) return false
     renderer.renderScore()
@@ -952,7 +973,7 @@ export function wireShortcuts(
 
   const resetSelectedBarWidth = (): boolean => {
     const eng = getEngine()
-    const measure = selectedOf(state, 'barline')?.measure
+    const measure = selectedBoundaryMeasure()
     if (!eng || measure === undefined) return false
     if (!eng.resetBarWidth(measure)) return false
     renderer.renderScore()
@@ -972,7 +993,7 @@ export function wireShortcuts(
    */
   const nudgeSelectedBarlineGap = (deltaSs: number): boolean => {
     const eng = getEngine()
-    const measure = selectedOf(state, 'barline')?.measure
+    const measure = selectedBoundaryMeasure()
     if (!eng || measure === undefined) return false
     if (eng.nudgeBarlineSpace(measure, deltaSs) === null) return false
     renderer.renderScore()
@@ -981,7 +1002,7 @@ export function wireShortcuts(
 
   const resetSelectedBarlineGap = (): boolean => {
     const eng = getEngine()
-    const measure = selectedOf(state, 'barline')?.measure
+    const measure = selectedBoundaryMeasure()
     if (!eng || measure === undefined) return false
     if (!eng.resetBarlineSpace(measure)) return false
     renderer.renderScore()
@@ -1283,12 +1304,37 @@ export function wireShortcuts(
             renderer.renderScore()
             return
           case 'barline':
+            // ⭐⭐ **BACK TO A PLAIN LINE** — his, 2026-08-26: *"delete key should remove special
+            // barline and turn it into a normal barline"*. `barlineOps.clearBarline` drops the SIGN
+            // standing at this boundary (a final bar's style, an end repeat), never the boundary:
+            // the measures array is the barline spine, so a bar always ends in a line and "delete"
+            // can only mean the STATEMENT drawn on it (docs/barline-types-plan.md §8 P5).
+            //
+            // ⚠️ This overturns the non-behaviour that stood here until P5, and the reasoning it
+            // replaces was right about the identity and wrong about the consequence: a barline IS a
+            // boundary with no object behind it — and since P1 that boundary can carry a statement,
+            // which is a thing to delete. ⛔ It still never merges two bars.
+            //
+            // ⛔ And it does NOT touch the `|:` that may be standing at the same line: that sign
+            // belongs to the bar it OPENS and is its own selection (`repeatStart` below), which is
+            // the whole point of being able to pick the half you clicked.
+            eng.clearBarline(element.measure)
+            renderer.renderScore()
+            return
+          case 'repeatStart':
+            // The other half of the same sentence: the `|:` opening this bar. Selecting it is what
+            // makes the initial repeat — drawn past bar 1's clef, at no boundary at all — deletable.
+            eng.setRepeatStart(element.measure, false)
+            // ⚠️ Cleared, unlike the barline above: that selection is a BOUNDARY and outlives the
+            // sign drawn on it (it is still the bar-width handle), where this one names ink that is
+            // no longer on the page.
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           case 'stem':
-            // Nothing to delete. A barline is a BOUNDARY, not an object — the measures array is the
-            // spine, so "delete this barline" would mean merging two bars, a different edit. A stem
-            // is a property every non-rest note has; removing it is not a thing you can do to a
-            // note. Both are selectable so they can be nudged/dragged, and Delete declines rather
-            // than falling through to something else's meaning.
+            // Nothing to delete. A stem is a property every non-rest note has; removing it is not a
+            // thing you can do to a note. It is selectable so it can be nudged/dragged, and Delete
+            // declines rather than falling through to something else's meaning.
             return
           default:
             assertNeverElement(element)

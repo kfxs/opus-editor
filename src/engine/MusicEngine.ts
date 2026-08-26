@@ -14,6 +14,7 @@ import type { MarkPreviewKind } from './rendering/markPreviewPass'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
+import type { BarlineSignKind } from './layout/barlineSign'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
@@ -772,6 +773,52 @@ export class MusicEngine {
 
   /** Back to a plain line: drop `measureNumber`'s barline style AND both of its repeats — what
    *  Delete means on a selected barline. @returns whether the score changed. */
+  /** ⭐ Wings on or off for the sign at this line, as one undoable edit — the Properties checkbox.
+   *  Refuses a line whose sign cannot carry them. See {@link barlineOps.setBoundaryWinged}. */
+  setBoundaryWinged(endsMeasure: number | null, on: boolean): boolean {
+    if (!this.scoreModel.setBoundaryWinged(endsMeasure, on)) return false
+    this.saveOnly(`${on ? 'Wings on' : 'Wings off'} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    return true
+  }
+
+  /** Whether the sign at this line is drawn with wings. See {@link barlineOps.boundaryWinged}. */
+  getBoundaryWinged(endsMeasure: number | null): boolean {
+    return this.scoreModel.getBoundaryWinged(endsMeasure)
+  }
+
+  /**
+   * ⭐ **Add a repeat to a line, as ONE undoable edit** — the palette's `:|` / `|:` write. The repeat
+   * composes with the one on the other side of the line and REPLACES the style competing with it
+   * (his two reports of 2026-08-26). `endsMeasure` is the bar the line closes, `null` at the score's
+   * opening edge. See {@link barlineOps.addRepeatAtBoundary}.
+   */
+  addRepeatAtBoundary(endsMeasure: number | null, which: 'start' | 'end'): boolean {
+    if (!this.scoreModel.addRepeatAtBoundary(endsMeasure, which)) return false
+    this.saveOnly(`${which === 'start' ? 'Open' : 'End'} repeat at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    return true
+  }
+
+  /**
+   * ⭐⭐ **The whole sign at one boundary, as ONE undoable edit** — the Properties chooser's write, and
+   * the only route to the back-to-back `:||:` (his ask, 2026-08-26). `endsMeasure` is the bar the line
+   * closes, or `null` for the score's opening edge.
+   *
+   * ⭐ One `saveOnly` for what may be two field writes, which is the whole reason this is a method
+   * here rather than three calls from the controller: choosing `:||:` is one thing the user did, and
+   * a Ctrl-Z that took back half of it would leave a sign nobody asked for.
+   */
+  setBoundarySign(endsMeasure: number | null, sign: BarlineSignKind): boolean {
+    if (!this.scoreModel.setBoundarySign(endsMeasure, sign)) return false
+    this.saveOnly(`Barline ${sign} at ${endsMeasure === null ? 'the opening edge' : `measure ${endsMeasure}`}`)
+    return true
+  }
+
+  /** The sign a boundary carries — what the Properties chooser shows as current. `null` = the
+   *  score's opening edge. See {@link barlineOps.boundarySign}. */
+  getBoundarySign(endsMeasure: number | null): BarlineSignKind {
+    return this.scoreModel.getBoundarySign(endsMeasure)
+  }
+
   clearBarline(measureNumber: number): boolean {
     if (!this.scoreModel.clearBarline(measureNumber)) return false
     this.saveOnly(`Clear barline at measure ${measureNumber}`)

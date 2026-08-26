@@ -9,6 +9,7 @@ import {
 import { authoredApertureRange } from '../engine/rendering/hairpinShape'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -348,12 +349,57 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       break
     }
 
-    case 'barline':
+    case 'barline': {
       // A barline is the one selectable thing with NO object behind it at all: the measures are the
       // barline spine, so the selection is a boundary. Reported as the measure it closes, which is
-      // the whole of its identity (and the address a barline TYPE would eventually be stored at).
-      out.push({ kind: 'barline', data: { endsMeasure: element.measure } })
+      // the whole of its identity — and now also as what that bar SAYS about the line, which is the
+      // address P1 turned into a real one (docs/barline-types-plan.md §8 P5).
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'barline',
+        data: { endsMeasure: element.measure, style: measure?.barline?.style, repeatEnd: measure?.repeatEnd },
+        // ⭐ The SIGN AT THE BOUNDARY is `derived`, never `data`, for this field's whole reason: it is
+        // not stored anywhere and cannot be, because it is a fact about TWO bars — a `:|` whose
+        // neighbour opens a repeat makes the back-to-back form, and a bar that says nothing still
+        // has a plain line. `barlineOps.boundarySign` is the drawing's own question, asked here so
+        // the panel reports the picture as well as the statement.
+        //
+        // ⭐⭐ It is also what the Properties CHOOSER shows as current and writes back to
+        // (`bus.barlineEdit`), which is why both barline kinds report it and neither computes its
+        // own: the panel edits the LINE, so it must read the line.
+        //
+        // ⚠️ It answers for the MODEL's boundary, not for this render: a displaced `|:` (pushed past
+        // its bar's clef) is not standing at this line, and the neighbour may be on the next system.
+        // Both are the pass's business, and neither changes what this bar has said.
+        derived: {
+          sign: boundarySign(score, element.measure),
+          // ⭐ The WINGS ride whichever statements are standing, so the panel reads the LINE's
+          // answer rather than one bar's field — the checkbox edits the drawn sign, not a bar.
+          winged: boundaryWinged(score, element.measure),
+        },
+      })
       break
+    }
+
+    case 'repeatStart': {
+      // ⭐ The `|:` OPENING this bar — the other half of the family, and its own kind because the
+      // model stores it on the bar it opens (ONE OWNER PER LINE) and because the sign at the start of
+      // the score stands at no boundary at all. See `SelectedElement`'s `repeatStart`.
+      const measure = score.measures.find((m) => m.number === element.measure)
+      out.push({
+        kind: 'repeatStart',
+        data: { opensMeasure: element.measure, repeatStart: measure?.repeatStart },
+        // ⭐ The SAME boundary fact as the barline's above, and deliberately so: this sign stands on
+        // the line that ends the previous bar, so the chooser must show what is on that whole line
+        // — `repeatBoth` when a `:|` closes into it, not the `|:` this selection happens to name.
+        // ⛔ Null at the score's opening edge, where no bar ends: `boundarySign` answers `repeatStart`.
+        derived: {
+          sign: boundarySign(score, element.measure > 1 ? element.measure - 1 : null),
+          winged: boundaryWinged(score, element.measure > 1 ? element.measure - 1 : null),
+        },
+      })
+      break
+    }
 
     case 'measureRange':
       // A selection of MEASURES, not of anything inside them — the box the user drew.

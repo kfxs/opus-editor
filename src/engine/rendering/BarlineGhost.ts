@@ -56,6 +56,16 @@ export const BARLINE_GHOST_GROUP_CLASS = 'vf-ghost-barline'
  * backwards from our field names, which is exactly why they are written down here once.
  */
 const SIGN_GLYPHS: Record<PlacedBarlineSign, string> = {
+  // ⭐ The ERASER's ghost, and it is a real glyph rather than "no ghost": arming it must look like
+  // arming the other three, or the one button that changes the score by REMOVING something would be
+  // the one button with no preview (his ask, 2026-08-26).
+  plain: '\uE030',        // barlineSingle — the ordinary line
+  // ⭐ The SAME glyph as `plain`, and his own call: *"the invisible ghost I guess will be like the
+  // normal ghost, so is simple"*. It is the right one — an invisible barline IS an ordinary line
+  // that is not engraved, so the cursor showing an ordinary line is showing exactly what lands.
+  // ⛔ Not a greyed variant: the ghost's colour is the family's (`drawSignGhost`), and a second
+  // colour rule here would say "this preview is hidden" rather than "this is what you are placing".
+  invisible: '\uE030',    // barlineSingle again — see above
   final: '\uE032',        // barlineFinal — thin + thick
   repeatStart: '\uE040',  // repeatLeft  — |:
   repeatEnd: '\uE041',    // repeatRight — :|

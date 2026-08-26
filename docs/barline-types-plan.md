@@ -1023,15 +1023,156 @@ table is so the price is on the table when he makes it.**
 
 </details>
 
-**P5 — Properties / Delete / the highlight.** ⭐ **The HIGHLIGHT half is DONE (2026-08-26)**, ahead of
-the rest and because he reported it: the selection now recolours the sign's own ink instead of
-painting a 2 px rect beside it, and grows any stroke thinner than 2 px to 2 px. The reasoning — and
-why this does not retract *PAINT, don't RECOLOUR* — is `docs/barline-selection.md` §3a. ⏭️ Still
-owed: the type in the selection report
-(`selectionSnapshot.ts:355`, which already calls this measure *"the address a barline TYPE would
-eventually be stored at"*). Delete = back to a plain line — ⚠️ which **overturns a stated
-non-behaviour**: `shortcutWiring.ts:1285` currently reasons that a barline is a BOUNDARY with nothing
-to delete, and that comment is the thing to edit, not to leave contradicting the code.
+**P5 — Properties / Delete / the highlight. ✅ BUILT (2026-08-26).** Three of his reports in one
+sitting, and the second of them turned the phase from a highlight tweak into a new selectable KIND.
+
+**P5a — the recolour.** The selection recolours the sign's own ink instead of painting a 2 px rect
+beside it, and grows any stroke thinner than 2 px to 2 px. Why this does not retract *PAINT, don't
+RECOLOUR* is `docs/barline-selection.md` §3a.
+
+**P5b — ⭐⭐ THE OPEN REPEAT IS ITS OWN SELECTION** (`{ kind: 'repeatStart'; measure }`,
+`interactions/elements/repeatStart.ts`). 🚨 *"I can not highlight open repeat on the beginning of the
+score"*. The `barline` kind names *the line that ENDS bar N*, which cannot reach two signs, and the
+first is not a missing hit-box but a missing identity:
+
+- **the `|:` opening bar 1** — there is no bar 0 to name it by, and the sign is not even AT a
+  boundary: a bar with a header displaces its repeat past the clef/meter (§4.6.4, Gould p. 234), and
+  bar 1 always has one;
+- **the right half of a `:||:`** — *"when we have open+end and I choose it, it highlights everything
+  but it should highlight just the part that was clicked"*. Two statements, one drawn sign.
+
+⭐ So the model's *ONE OWNER PER LINE* became a selection rule: the sign is owned by the bar it
+OPENS. The hit-box is registered **by the drawing pass** (`BarlineRenderer.registerRepeatStart`),
+which closes the ⏭️ note left in `VexFlowRenderer`'s tier-1 registration — that function is handed a
+lane and no score, and cannot know either where a displaced sign went or whose it is. ⚠️ It sits
+AFTER the barline in `ELEMENT_HIT_ORDER`: the two boxes grow away from the boundary and overlap only
+where the barline's ±4 px pad crosses it, and that ink is the shared divider — the line itself, and
+where the bar-width drag is grabbed.
+
+**P5c — ⭐⭐ WHICH HALF OF A SIGN LIGHTS UP** (`SignHalf`, `barlineSign.ts`). Every stroke and dot the
+pass draws now carries `data-half`, and the rule is read off §6.1's geometry rather than tabulated
+per kind: **the divider is `shared`, everything left of it is the ending bar's, everything right the
+opening bar's.** A selection lights `half` **plus `shared`**, so each half of a `:||:` is a COMPLETE
+repeat sign — its dots, its thin stroke, and the thick line Gould's design (A) has the two share.
+
+> 🚨🚨 **AND NEVER A FRAGMENT — his correction, from the running app.** The first build could light a
+> bare thick line, in the one case where a bar owns no ink at the boundary it ends: bar *N+1*'s `|:`
+> REPLACES bar *N*'s plain line, so the divider was all bar *N* had. *"Here we highlight just the
+> thick… this is incorrect, we should always highlight the music semantic and no part of it."*
+> ⭐ **So a selection with no ink of its own lights the WHOLE sign standing on its line.** It changes
+> nothing in the other three cases: a sign nobody shares is entirely its owner's.
+
+**P5d — Delete.** ⚠️ It **overturns a stated non-behaviour**: `shortcutWiring` reasoned that a
+barline is a BOUNDARY with nothing to delete. Right about the identity, wrong about the consequence —
+since P1 that boundary can carry a STATEMENT, and that is the thing Delete takes. ⛔ It still never
+merges two bars. Each selection takes its own: `clearBarline(N)` for the line ending bar *N*,
+`setRepeatStart(M, false)` for the `|:` opening bar *M*.
+
+> ⛔ **`clearBarline` no longer clears `repeatStart`, and the change is the point.** Its first draft
+> did, defended as *"the gesture treats both of a bar's boundaries as one target"*. The gesture no
+> longer does — that is what P5b bought.
+
+**P5e — the report.** `selectionSnapshot` carries the barline's `style` + `repeatEnd` in `data`, and
+the DRAWN sign (`signAtBoundary`) in `derived` — the latter because it is a fact about TWO bars and
+is stored nowhere. The `repeatStart` kind reports its own row.
+
+---
+
+## 8a. P6 — the PROPERTIES chooser, the eraser, the invisible line, and the WINGS ✅ BUILT (2026-08-26)
+
+Everything below came from him in one sitting, mostly as reports from the running app.
+
+**P6a — ⭐⭐ A BUTTON PLACES A SIGN ON A LINE.** 🚨 *"I'm clicking normal in the third barline but it's
+changing the fourth"*, then the rule: *"somehow the change should be in the one most near to the
+pointer — this is important."* ⛔ **This overturns §8 P4's "deliberately NOT the nearest boundary".**
+The mechanism was `pixelToMeasure`, which puts a press landing ON a boundary in the bar to its RIGHT —
+so a user aiming at a line got the bar past it. It turned out to be FEWER rules, not more: a barline
+sign is a statement about a LINE, so `side` survives only in the measure-range gesture, the one that
+genuinely names bars.
+
+**P6b — ⭐⭐ ONE SIGN PER LINE, EXCEPT THAT THE TWO REPEATS COMBINE.** Two reports, one hour apart, and
+together they are the whole policy — his words: *"if the barline is the repeat it should just check if
+what is clicking on it is a repeat and contrary to its sign — in that case they make the double
+repetition; if not, just override."*
+
+| he wrote | what was wrong |
+|---|---|
+| *"end repeat overwrote the open repeat… completely wrong"* | the collapse into one `setBoundarySign` — that pair IS `:||:` |
+| *"I click a final here and it just made disappear the end repeat, but I don't see it writing the final"* | the opposite: a style and a repeat are alternatives, and NOT overriding was the bug |
+
+⭐ **His exception, stated by him:** *"the only exception is the first measure of the composition — I
+mean if they have explicit open repeat."* That sign stands at the score's opening edge
+(`endsMeasure: null`), where no bar ends, so it is the one `|:` alone on its line — nothing to
+combine with, nothing to override.
+
+**P6c — the PALETTE's fourth and fifth buttons.**
+- **Normal** — the ERASER. *"Another way to rewrite the open, final and end repeat."*
+- **Invisible** — *"what we do on screen we use the same colour of hidden we are using for rest, and
+  not printing it on PDF export."* ⭐ Which is `rendering/hiddenElements` arriving at its second
+  client, unchanged: tinted for the `editor` audience, OMITTED for `print`. ⛔ **Not "no barline"** —
+  the bar still ends, the spine is untouched, the room is unchanged (§10.0's whole point). 🚨 And it
+  **wins the boundary outright** — *"why can I not override a repeat line with an invisible?"* — because
+  it is not a fourth sign competing but a statement ABOUT whatever sign would stand there.
+- Both ghosts are `barlineSingle`; his call: *"the invisible ghost I guess will be like the normal
+  ghost, so is simple."*
+
+**P6d — the PROPERTIES chooser.** *"I was expecting to change the type there"*, then the shape of it:
+*"since we can just select one barline, there should be an option for close+open case."* ⭐ That second
+sentence is the design: it names a **LINE**, so it can say `:||:` — which no per-bar control could,
+since each side owns only its own half. ⚠️ It is deliberately a different sentence from a palette
+button: a button says *"add this sign"*, the dropdown says *"the sign is this"*.
+
+**P6e — ⭐⭐ WINGS.** *"I remember Sibelius had barline wings for repeats, and Finale something similar
+that was not as pretty as Sibelius"*, and the shape: *"similar to Bravura `\uE002`"* — which is
+`bracket`, so the wing is the **staff bracket's own flared tip**. Two agents checked; §11 records what
+they found. His rule for the control: *"a checkbox, but the important thing is it should only be
+checkable when wings are allowed — this is for open repeat, for end repeat and for final; other
+barlines do not allow wings."* ⚠️ Note the FINAL: MuseScore wings the two repeats and never the final
+bar. His call.
+
+⭐ **The geometry falls out of the halves table** (`SignHalf`, P5c) with no new rule: ink LEFT of the
+divider is an ending sign, so its tips flare left off the divider's right edge; ink RIGHT is an
+opening sign, so its tips flare right off its left edge. A `:||:` is both. ⛔ Not MuseScore's
+arrangement, and it cannot be — it draws the junction with TWO thick lines (Gould's design (B)) and
+puts a pair on each, where we draw her (A).
+
+🚨 **Drawn on EVERY staff, and that is his call against both engines:** *"outer stave? no, it should be
+drawn in any case — we still have separate barlines for every stave… in the case we make the barlines
+between the staves continuous then we have to take care in what end we place it, but now we don't have
+that, that's a future case."* Exactly right: MuseScore's `isTop()`/`isBottom()` and LilyPond's
+`has-span-bar` both follow from a barline that SPANS. ⏭️ The day span bars arrive, that is the line to
+revisit, and the two engines already agree on what it becomes.
+
+---
+
+## 11. Barline WINGS — what the sources actually say (researched 2026-08-26)
+
+⭐ **A style option, not a convention.** Recorded so it is not re-researched.
+
+**Every treatise we hold is SILENT — checked, not assumed.** Gould pp. 38–39 and 233–235, Ross p. 147
+and pp. 151–152, Gerou & Lusk pp. 110–111 all decompose the repeat sign in detail; none names or draws
+a tip, `\bwing` returns zero hits across all four, and every engraved repeat on those plates is
+plain-ended.
+
+**⛔ SMuFL declares no wing glyph.** The shape is the staff bracket's tip: `bracketTop` U+E003 /
+`bracketBottom` U+E004 (flaring right), `reversedBracketTop` U+E005 / `reversedBracketBottom` U+E006
+(flaring left) — 1.876 × 1.18 spaces each in Bravura. ⭐ The corroboration that this is the right
+identification is that **Sibelius names its own two symbols "End Bracket Top / Bottom"**.
+
+**Every program has it, off by default:** Finale (*"Wing Styles: None / Curved / Single / Double"*),
+Sibelius (Engraving Rules ▸ Barlines), Dorico (*"Wings on repeat barlines"*, 1.2.10), MuseScore
+(*"Show repeat barline tips"*, `Sid::repeatBarTips = false`). LilyPond has no switch — separate
+bar-line glyphs. Verovio does not draw them at all and ignores MusicXML's attribute.
+
+**⭐ MusicXML is the one place it is specified**, and its vocabulary is what to steal if this is ever
+extended: `winged` = `none | straight | curved | double-straight | double-curved`. Ours is a boolean
+meaning the curved single, which is what MuseScore exports as `winged="curved"`. ⛔ A second flag
+(`doubleWinged`) would be the wrong move; the field becomes MusicXML's union.
+
+**⛔ UNKNOWN: where the convention comes from.** The "common in hymnals" line traces to one forum
+thread whose host is gone (`forums.makemusic.com` — DNS failure; a dead route). No citable publisher,
+period or tradition. ⛔ And **no source says Finale's are uglier** — what IS documented is that Finale
+exposes the shape while the others pick it for you.
 
 **⏭️ LATER, out of this plan:** the per-staff scope actually being READ (§2 stores it, nothing reads
 it); the repeat PLAY ORDER (§7); the **thin double `||`**, which is the family's fourth member — not

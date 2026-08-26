@@ -8,6 +8,7 @@ import { createDotSelection } from './dotSelection'
 import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
 import { createTrillEditSelection } from './trillEditSelection'
+import { createBarlineEditSelection } from './barlineEditSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
 import { createFanStampSelection } from './fanStampSelection'
@@ -81,6 +82,8 @@ interface EditorBus {
   /** Properties' fan inputs (count / beams / ramp range / spread). Command-only. */
   fanEdit: ReturnType<typeof createFanEditSelection>
   trillEdit: ReturnType<typeof createTrillEditSelection>
+  /** ⭐ The Properties barline chooser — the sign at one LINE, `:||:` included. */
+  barlineEdit: ReturnType<typeof createBarlineEditSelection>
   hairpinEdit: ReturnType<typeof createHairpinEditSelection>
   /** The two feathered-beam keys, `accel.` and `rit.` — a radio, not a pair of toggles. */
   fan: ReturnType<typeof createFanSelection>
@@ -148,6 +151,7 @@ export function createEditorBus(): EditorBus {
     dot: createDotSelection(),
     fanEdit: createFanEditSelection(),
     trillEdit: createTrillEditSelection(),
+    barlineEdit: createBarlineEditSelection(),
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
     fanStamp: createFanStampSelection(),
@@ -189,6 +193,7 @@ export type { ArmedTuplet } from './tupletSelection'
 export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
+export type { BarlineEditRequest } from './barlineEditSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'

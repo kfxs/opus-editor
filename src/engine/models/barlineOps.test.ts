@@ -12,6 +12,7 @@ import { ScoreModel } from './ScoreModel'
 import {
   barlineAt, repeatStartAt, repeatEndAt,
   setBarlineStyle, setRepeatStart, setRepeatEnd, clearBarline,
+  setBoundarySign, boundarySign, addRepeatAtBoundary, setBoundaryWinged, boundaryWinged,
   isBarlineStyle, isValidRepeatTimes,
 } from './barlineOps'
 import type { Score } from '@/types/music'
@@ -149,21 +150,35 @@ describe('barlineOps — the repeat count', () => {
 })
 
 describe('barlineOps — clearBarline: back to a plain line', () => {
-  it('drops the style AND both repeats, which is what Delete on a barline means', () => {
+  it('drops the style AND the end repeat — the two signs on the line that ENDS the bar', () => {
     const { score } = scoreOf()
     setBarlineStyle(score, 2, 'final')
-    setRepeatStart(score, 2, true)
     setRepeatEnd(score, 2, true, { times: 4 })
     expect(clearBarline(score, 2)).toBe(true)
     expect(barlineAt(score, 2)).toBeUndefined()
-    expect(repeatStartAt(score, 2)).toBeUndefined()
     expect(repeatEndAt(score, 2)).toBeUndefined()
+  })
+
+  it('⛔ LEAVES the open repeat, which stands at the bar\'s OTHER boundary', () => {
+    // The line that ends bar 2 and the line that opens it are two different lines, and each is its
+    // own selection now (`interactions/elements/barline` and `./repeatStart`), so Delete on one may
+    // not take the other. An earlier draft cleared all three fields; see the header.
+    const { score } = scoreOf()
+    setRepeatStart(score, 2, true)
+    setBarlineStyle(score, 2, 'final')
+    expect(clearBarline(score, 2)).toBe(true)
+    expect(barlineAt(score, 2)).toBeUndefined()
+    expect(repeatStartAt(score, 2)).toEqual({})
   })
 
   it('reports no change on a bar that already draws a plain line', () => {
     const { score } = scoreOf()
     expect(clearBarline(score, 1)).toBe(false)
     expect(clearBarline(score, 99)).toBe(false)
+    // ⭐ …including one that opens a repeat and says nothing about the line it ENDS: there is
+    // nothing at that boundary to clear, and answering `true` would save an empty undo entry.
+    setRepeatStart(score, 1, true)
+    expect(clearBarline(score, 1)).toBe(false)
   })
 })
 
@@ -227,5 +242,149 @@ describe('barlineOps — the fields are MEASURE-owned, so an edit to the spine c
     expect(repeatStartAt(score, 3)).toEqual({})
     // ⚠️ A rebar can GROW the region (overflow becomes more bars); the signs stay on their own bars
     // rather than following the region's new end. See the plan's §8 P1 note — they are measure-owned.
+  })
+})
+
+describe('barlineOps — ⭐⭐ ONE SIGN PER LINE, except that the two repeats combine', () => {
+  // ⭐ His rule, 2026-08-26: *"if the barline is the repeat it should just check if what is clicking
+  // on it is a repeat and contrary to its sign — in that case they make the double repetition; if
+  // not, just override."*
+
+  it('🚨 the two repeats COMPOSE — an end repeat never takes the open one away', () => {
+    const { score } = scoreOf()
+    addRepeatAtBoundary(score, 2, 'start')     // `|:` opening bar 3
+    expect(addRepeatAtBoundary(score, 2, 'end')).toBe(true)
+    expect(repeatStartAt(score, 3), 'still there — this pair IS `:||:`').toEqual({})
+    expect(repeatEndAt(score, 2)).toEqual({})
+  })
+
+  it('🚨 …but a repeat OVERRIDES the style competing with it on the same line', () => {
+    // His twin report: *"I click a final here and it just made disappear the end repeat, but I don't
+    // see it writing the final."* There is no sign that is a final bar AND a repeat.
+    const { score } = scoreOf()
+    setBarlineStyle(score, 2, 'final')
+    addRepeatAtBoundary(score, 2, 'end')
+    expect(barlineAt(score, 2)).toBeUndefined()
+    expect(repeatEndAt(score, 2)).toEqual({})
+  })
+
+  it('…and an open repeat overrides it too — it is the same line', () => {
+    const { score } = scoreOf()
+    setBarlineStyle(score, 2, 'final')
+    addRepeatAtBoundary(score, 2, 'start')
+    expect(barlineAt(score, 2)).toBeUndefined()
+    expect(repeatStartAt(score, 3)).toEqual({})
+  })
+
+  it('a STYLE overrides in the other direction: it clears BOTH repeats on the line', () => {
+    const { score } = scoreOf()
+    addRepeatAtBoundary(score, 2, 'end')
+    addRepeatAtBoundary(score, 2, 'start')
+    expect(setBoundarySign(score, 2, 'final')).toBe(true)
+    expect(barlineAt(score, 2)?.style).toBe('final')
+    expect(repeatEndAt(score, 2)).toBeUndefined()
+    expect(repeatStartAt(score, 3)).toBeUndefined()
+  })
+
+  it('⭐ `:||:` is sayable in ONE write — the Properties chooser\'s sentence', () => {
+    const { score } = scoreOf()
+    expect(setBoundarySign(score, 2, 'repeatBoth')).toBe(true)
+    expect(repeatEndAt(score, 2)).toEqual({})
+    expect(repeatStartAt(score, 3)).toEqual({})
+    expect(boundarySign(score, 2)).toBe('repeatBoth')
+  })
+
+  it('⛔ refuses a sign that needs a bar on the far side of the line', () => {
+    const { score } = scoreOf(3)
+    expect(setBoundarySign(score, 3, 'repeatStart'), 'nothing opens after the last bar').toBe(false)
+    expect(setBoundarySign(score, 3, 'repeatBoth')).toBe(false)
+    expect(repeatEndAt(score, 3), 'and it did not half-apply').toBeUndefined()
+  })
+})
+
+describe('barlineOps — 🚨 THE EXCEPTION: the first measure of the composition', () => {
+  // His, 2026-08-26: *"the only exception is the first measure of the composition… I mean if they
+  // have explicit open repeat."* That sign stands at the score's opening edge, where NO BAR ENDS —
+  // so it is the one `|:` in a score that is alone on its line.
+
+  it('`null` is a real boundary: the `|:` opening bar 1', () => {
+    const { score } = scoreOf()
+    expect(addRepeatAtBoundary(score, null, 'start')).toBe(true)
+    expect(repeatStartAt(score, 1)).toEqual({})
+    expect(boundarySign(score, null)).toBe('repeatStart')
+  })
+
+  it('⛔ nothing else is sayable there — no bar ends, so there is no style and no `:|`', () => {
+    const { score } = scoreOf()
+    expect(setBoundarySign(score, null, 'final')).toBe(false)
+    expect(setBoundarySign(score, null, 'repeatEnd')).toBe(false)
+    expect(addRepeatAtBoundary(score, null, 'end')).toBe(false)
+    expect(barlineAt(score, 1)).toBeUndefined()
+  })
+
+  it('⭐ and the ERASER reaches it — the whole reason a boundary is allowed to be `null`', () => {
+    const { score } = scoreOf()
+    setRepeatStart(score, 1, true)
+    expect(setBoundarySign(score, null, 'plain')).toBe(true)
+    expect(repeatStartAt(score, 1)).toBeUndefined()
+  })
+
+  it('⛔ bar 1\'s own ENDING line is a different line, and untouched by all of this', () => {
+    const { score } = scoreOf()
+    setRepeatStart(score, 1, true)
+    setBoundarySign(score, 1, 'final')
+    expect(barlineAt(score, 1)?.style, 'the line ending bar 1').toBe('final')
+    expect(repeatStartAt(score, 1), 'the line opening it — a different boundary').toEqual({})
+  })
+})
+
+describe('barlineOps — ⭐⭐ WINGS: only where there is a thick line to flare', () => {
+  // His ask, 2026-08-26: *"the wings on properties should be a checkbox, but the important thing is
+  // it should only be checkable when wings are allowed — this is for open repeat, for end repeat and
+  // for final; other barlines do not allow wings."*
+
+  it('a final bar can be winged', () => {
+    const { score } = scoreOf()
+    setBoundarySign(score, 2, 'final')
+    expect(setBoundaryWinged(score, 2, true)).toBe(true)
+    expect(boundaryWinged(score, 2)).toBe(true)
+    expect(barlineAt(score, 2)?.winged).toBe(true)
+  })
+
+  it('⛔ a PLAIN line cannot — there is nothing to flare, and nowhere to store the flag', () => {
+    const { score } = scoreOf()
+    expect(setBoundaryWinged(score, 2, true)).toBe(false)
+    expect(boundaryWinged(score, 2)).toBe(false)
+  })
+
+  it('⛔ nor an INVISIBLE one — a line that is not engraved has no tips', () => {
+    const { score } = scoreOf()
+    setBoundarySign(score, 2, 'invisible')
+    expect(setBoundaryWinged(score, 2, true)).toBe(false)
+  })
+
+  it('🚨 a `:||:` is winged on BOTH statements — one drawn sign cannot be half decorated', () => {
+    const { score } = scoreOf()
+    setBoundarySign(score, 2, 'repeatBoth')
+    expect(setBoundaryWinged(score, 2, true)).toBe(true)
+    expect(repeatEndAt(score, 2)?.winged, 'the bar that closes').toBe(true)
+    expect(repeatStartAt(score, 3)?.winged, 'and the bar that opens').toBe(true)
+  })
+
+  it('turning them off writes ABSENCE, so the JSON keeps one spelling of "no wings"', () => {
+    const { score } = scoreOf()
+    setBoundarySign(score, 2, 'final')
+    setBoundaryWinged(score, 2, true)
+    expect(setBoundaryWinged(score, 2, false)).toBe(true)
+    expect('winged' in barlineAt(score, 2)!).toBe(false)
+    expect(setBoundaryWinged(score, 2, false), 'and again is a no-op').toBe(false)
+  })
+
+  it('⭐ the `|:` opening bar 1 can be winged — the exception is a boundary like any other', () => {
+    const { score } = scoreOf()
+    setRepeatStart(score, 1, true)
+    expect(setBoundaryWinged(score, null, true)).toBe(true)
+    expect(repeatStartAt(score, 1)?.winged).toBe(true)
+    expect(boundaryWinged(score, null)).toBe(true)
   })
 })

@@ -57,6 +57,9 @@ function selectedElementMeasure(state: EditorState, engine: MusicEngine): number
   switch (el.kind) {
     // ⭐ The boundary case: the line that ENDS bar N, so playing "from here" means bar N+1.
     case 'barline': return el.measure + 1
+    // ⭐ …and its mirror: a `|:` OPENS its bar, so "play from here" is that bar itself — which is
+    // also the bar the repeat jumps back to, the one place in the family where the two agree.
+    case 'repeatStart':
     case 'clef':
     case 'timeSignature': return el.measure
     // A range of bars plays from its first, whichever end the box was dragged from.

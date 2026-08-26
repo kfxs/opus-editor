@@ -47,6 +47,16 @@ export type ElementType =
   | 'clef'
   | 'timeSignature'
   | 'barline'
+  /**
+   * ⭐ The **OPEN REPEAT** (`|:`) — the one barline sign registered by the DRAWING pass rather than
+   * by tier 1, because it is the one whose position tier 1 cannot know: a bar with a header displaces
+   * it past the clef/meter, so it may stand at no boundary at all. Owned by the bar it OPENS
+   * (`measure`), which at a `:||:` junction is the bar on the far side of the line.
+   *
+   * ⚠️ Registered only when PAINTED, so unlike `'barline'` it needs no `isPainted` filter at press
+   * time. See `engine/rendering/BarlineRenderer.registerRepeatStart`.
+   */
+  | 'repeatStart'
   | 'beam'
   | 'staff'
   | 'tie'
