@@ -6,6 +6,7 @@ import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
+import { dbg } from '../utils/debug'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 
@@ -276,6 +277,46 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // Nothing to act on until a bar is clicked — the same gesture `+ Above` / `+ Below` wait for.
     hasStaffContext)
   row.appendChild(staffBox)
+
+  /**
+   * --- Barline types ---
+   *
+   * ⚠️ A PALETTE WITH NO FEATURE BEHIND IT YET. Nothing in the model can say what KIND of line ends
+   * a bar: our barlines are boundaries, not objects (see `selectionSnapshot`'s `barline` case, which
+   * calls the measure it closes "the address a barline TYPE would eventually be stored at"). So each
+   * press logs what it would do and changes nothing — deliberately, so the row can be looked at and
+   * argued with before a model field, a renderer branch and a gesture are committed to.
+   *
+   * ⭐ When it does grow a body, the rule goes in a MODULE, not here: `engine/models/barlineOps` for
+   * the score edit, an `interactions/` module for "which line, and what does pressing this mean" —
+   * the split `staffSizeToggle.ts` already makes for the `Small` button beside it. This file stays a
+   * strip of one-line buttons.
+   */
+  const BARLINE_TOOLS: ReadonlyArray<{ label: string; sign: string; title: string }> = [
+    {
+      label: 'Final',
+      sign: 'final',
+      title: 'Final barline (thin + thick) — ends the piece, or a section that is finished',
+    },
+    {
+      label: 'Open repeat',
+      sign: 'repeatStart',
+      title: 'Open repeat |: — the line the player comes BACK to',
+    },
+    {
+      label: 'End repeat',
+      sign: 'repeatEnd',
+      title: 'End repeat :| — go back to the last open repeat and play it again',
+    },
+  ]
+  const barlineBox = group('Barline:')
+  for (const { label, sign, title } of BARLINE_TOOLS) {
+    // Always pressable: with nothing behind it yet there is no selection for it to need, and a row
+    // that is permanently grey says "broken" rather than "not built".
+    action(barlineBox, label, `${title}  [not wired up yet — press to log]`, () => true,
+      () => { dbg(`[Barline] pressed '${sign}' — no model field yet, nothing changed`) })
+  }
+  row.appendChild(barlineBox)
   row.appendChild(divider())
 
   // --- Lines: GONE. The family (slur, the two hairpins, trill, the two octave lines, pedal) had a

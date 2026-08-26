@@ -159,3 +159,14 @@ to a barline as a notehead may, and that asymmetry is the padding table's, not a
 Editing a barline (repeats, double bars, final bars) — the selection is a handle for width, and the
 *kind* of barline is music, not layout. Multi-barline selection. A mouse drag for the gap: the
 barline's drag is already the bar-width gesture, so this one is keyboard-only for now.
+
+> ⭐ **The first of those is now planned — `docs/barline-types-plan.md`** (2026-08-26). Read it before
+> touching this file's gestures, because it rests on two things stated here: the identity above (*the
+> line that ENDS bar N*) turned out to be what every standard stores, and §4's three gestures must
+> keep working unchanged when the line becomes a wider sign. The rule that protects them is that **a
+> barline sign of any width keeps its LEFT EDGE at the bar boundary** and grows rightward, so `x`
+> keeps meaning what the spacing model, the hit-box, the highlight and `barWidth.e2e` all read it as.
+> ⚠️ What does change is the **hit-box**, which is 4px here and must grow with the sign.
+>
+> ⛔ And the plan is deliberately narrow: **final, open repeat, end repeat**. The double bar is not in
+> it. The *kind* of barline being music and not layout is why it needed a model at all.
