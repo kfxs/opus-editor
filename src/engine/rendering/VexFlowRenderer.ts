@@ -11,6 +11,7 @@ import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRende
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
 import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
+import { renderBarlines } from './BarlineRenderer'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
@@ -2406,6 +2407,30 @@ export class VexFlowRenderer {
     // The rule reads off this bar alone — no asking whether the neighbour happens to be drawn — so it
     // survives culling and group reuse unchanged: the only bar that owns an opening line is one that
     // has no predecessor on its line to end into it.
+    // ⭐⭐ **AND SINCE 2026-08-26 WE DRAW THE END LINE OURSELVES** — `./BarlineRenderer`, a
+    // score-level pass, for every bar in the score and not only the ones carrying a final bar or a
+    // repeat (docs/barline-types-plan.md §4.6.7: a half-take does not work, because suppressing bar
+    // N's line before a start repeat is a per-bar decision that needs the neighbour). So the rule
+    // above is now enforced twice over: VexFlow draws no end bar at all.
+    //
+    // ⚠️ **VERIFY, never assume, what this does to `getNoteEndX()`.** `Stave.format()` ends with
+    // `endX = endModifiers.length === 1 ? x + width : x`, so the common bar is immune to the end
+    // barline's type — but a bar carrying a CAUTIONARY clef or meter has more end modifiers, and
+    // there `endX` is walked back through each one's layout metrics, where `NONE` and `SINGLE`
+    // differ. `barWidth.e2e` is the instrument; ⛔ jsdom measures every glyph as 0×0 and will agree
+    // with whatever it is told.
+    stave.setEndBarType(Barline.type.NONE)
+
+    // The BEGIN bar is still VexFlow's — it opens a stave rather than dividing two bars (see
+    // `BarlineRenderer`'s header).
+    //
+    // ⭐ **And a bar that opens a repeat is NOT an exception, which took two treatises to settle.**
+    // The first version of this turned the opening line off whenever `repeatStart` was set, on the
+    // assumption that `|:` stands on the bar's own left boundary. It does not when the bar draws a
+    // header: Gould p. 234 — *"When there is a new clef, key signature or time signature at the
+    // beginning of a repeated section, place the repeat marks afterwards"* — and Ross p. 147 gives
+    // the same order as three numbered spacings. So the boundary keeps its own line and the repeat
+    // stands after the clef, which is `BarlineRenderer.displacedRepeatX`.
     if (!(measure.number === 1 || isFirstInLine)) stave.setBegBarType(Barline.type.NONE)
 
     if (measure.number === 1 || isFirstInLine) {
@@ -3734,14 +3759,11 @@ export class VexFlowRenderer {
 
     const placements: MeasurePlacement[] = []
     let redrawn = 0
-    /**
-     * ⭐ **Did any barline actually MOVE this render?** — the gate on {@link hintBarlines} below.
-     *
-     * Two ways it can: a bar was re-engraved (`redrawn`), so its rects are brand-new and unhinted;
-     * or a bar was TRANSLATED, which changes where its rects land on the device grid even though the
-     * ink is identical. ⛔ Neither happens on a mark-drag frame, which is the whole point.
-     */
-    let barlinesMoved = false
+    // ⚠️ **`barlinesMoved` lived here until 2026-08-26** — "did any barline move this render?", the
+    // gate that kept `hintBarlines` off a mark-drag frame (§12.7, 9% of render time). It was deleted
+    // rather than left unread: since `./BarlineRenderer` took the drawing, every barline rect on the
+    // page is rebuilt on every render, so the question has one answer and a variable holding it would
+    // be a lie the next reader has to re-derive. See the hint call at the end of this method.
 
     for (let i = 0; i < plans.length; i++) {
       const plan = plans[i]
@@ -3749,7 +3771,6 @@ export class VexFlowRenderer {
 
       const reused = reuse.get(groupKey)
       if (reused) {
-        if (reused.dx !== 0 || reused.dy !== 0) barlinesMoved = true
         this.replaySnapshot(groupKey, reused.snapshot, plan, reused.dx, reused.dy)
         placements.push({ ...plan, stave: reused.snapshot.stave })
         continue
@@ -3816,6 +3837,17 @@ export class VexFlowRenderer {
         this.drawSystemConnector(p, bottom)
       }
     }
+
+    // ⭐⭐ **THE BARLINES — ours, not VexFlow's** (docs/barline-types-plan.md §4.6). Every stave was
+    // built with `setEndBarType(NONE)`, so every end line in the score is drawn here: the plain
+    // single line, the final bar, and the two repeats. ⛔ It has to be a pass rather than per-bar ink
+    // for the reason `MEASURE_RENDER_ROLE` cannot state — a boundary's sign depends on BOTH bars that
+    // meet at it, and on whether they are on the same system.
+    //
+    // Here, after the connector and before the cross-bar beams, which is where VexFlow's own lines
+    // sat in the paint order: every bar has been drawn, and the beams, ties and slurs that cross a
+    // barline still land on top of it.
+    renderBarlines(pass, score, placements)
 
     // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
     // group now that every bar has been painted. Before the ties, as a bar's own beams are.
@@ -3998,7 +4030,18 @@ export class VexFlowRenderer {
     // public {@link hintBarlines} (App.ts), where the measured scale is the only way to know a
     // re-hint is due. A render cannot borrow that gate — it has already decided the answer.
     const tHint = probeNow() // ⏱ §12.7
-    if (this.audience === 'editor' && (redrawn > 0 || barlinesMoved)) this.hintBarlines(true)
+    //
+    // ⚠️⚠️ **AND THE GATE STOPPED BEING ABLE TO SAY NO — 2026-08-26, when `./BarlineRenderer` took
+    // the drawing.** `redrawn > 0 || barlinesMoved` asked "is any rect new or moved?", and the answer
+    // is now *always yes*: the pass is rebuilt from scratch on every render, so every barline rect on
+    // the page is brand-new and unhinted whatever else happened. Keeping the old test would have
+    // meant a render that reuses every bar drawing its barlines and then leaving them unaligned —
+    // the same picture the hinting pass exists to prevent, arriving by a new road.
+    // ⛔ So the two flags stay only as the gate for a render that draws no barlines at all (a
+    // print/PDF audience never hints), and §12.7's saving is spent. ⏭️ Buying it back means hinting
+    // AT DRAW TIME, which needs the device scale the pass does not have — `hintBarlines` reads it
+    // from the DOM precisely because it is not knowable before the transform above the SVG exists.
+    if (this.audience === 'editor') this.hintBarlines(true)
     probeSub('hint', tHint)
 
     // ⭐⭐ Everything a GESTURE needs to redraw one family without running any of this again

@@ -612,23 +612,35 @@ describe('viewStateKey — the suppressed mark\'s live ink', () => {
  * `force: true` on EVERY render, which is exactly the flag that bypasses its own early-out. The
  * census measured that at **9% of all render time** (docs/render-performance-plan.md §12.7).
  *
- * `force` exists for one stated reason: a rebuilt bar carries brand-new, unhinted rects. So the gate
- * is "did any barline actually move" — re-engraved, or TRANSLATED, since a translated group's rects
- * land somewhere new on the device grid even though the ink is identical.
+ * `force` exists for one stated reason: a rebuilt bar carries brand-new, unhinted rects.
+ *
+ * ⚠️⚠️ **AND THE GATE THAT FOLLOWED FROM THAT DIED ON 2026-08-26**, when `./BarlineRenderer` took the
+ * drawing (docs/barline-types-plan.md P2). It used to be *"did any barline actually move"* — was a
+ * bar re-engraved, or merely TRANSLATED, which lands its rects on a new device pixel even though the
+ * ink is identical — and the case this file led with was a render that reuses every group and must
+ * therefore not hint at all.
+ *
+ * That case is now unreachable, and not by an oversight: the barline pass is rebuilt from scratch on
+ * every render, so **every** barline rect on the page is brand-new and unhinted whatever else
+ * happened. A render that reuses every bar still draws its barlines. Keeping the old gate would mean
+ * drawing them and then leaving them unaligned — the very picture this pass exists to prevent,
+ * arriving by a new road. ⛔ So the test below asserts what is now true, and §12.7's saving is spent
+ * until hinting can be done AT DRAW TIME (which needs the device scale the pass does not have).
  */
-describe('the barline hint runs only when a barline moved', () => {
-  it('🚨 a render that changes nothing does not force the hint', () => {
+describe('the barline hint runs on every editor render, because the pass rebuilds every rect', () => {
+  it('🚨 a render that changes NOTHING still hints — its barlines are new ink', () => {
     const renderer = makeRenderer()
     const model = buildScore()
     renderer.renderScore(model.getScore())          // the first render rebuilds everything
 
     hintCalls.length = 0
-    renderer.renderScore(model.getScore())          // …and this one reuses every group
+    renderer.renderScore(model.getScore())          // …and this one reuses every measure group
 
-    // 🚨 NOT CALLED — not "called with force:false". `hintBarlines` reads `getScreenCTM()` to check
-    // its own premise BEFORE it looks at `force`, and that read is a forced layout flush, so a
-    // flag-only gate skipped the cheap half and kept the expensive one. It measured 9% either way.
-    expect(hintCalls, 'nothing moved, so the pass must not run at all').toHaveLength(0)
+    // ⭐ The measure groups were reused; the BARLINES were not — they are not in those groups any
+    // more. `renderBarlines` drew a fresh rect for every boundary in the score, and an unhinted rect
+    // is exactly what `force` is for.
+    expect(hintCalls, 'the barline pass redrew every rect, so they need aligning').toHaveLength(1)
+    expect(hintCalls[0].force).toBe(true)
   })
 
   it('⭐ …and an edit that re-engraves a bar does force it', () => {

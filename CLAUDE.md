@@ -115,9 +115,14 @@ src/
                           #   tuck under what) + measureColumns (a measure → its COLUMNS)
                           #   + barWidthRoom (the gesture's closed form) + measuredRoom (what
                           #   the ElementRegistry says a column/bar can still give up)
+                          #   + barlineSign (⭐ WHAT SIGN a boundary carries and what it is
+                          #   made of — the ONE owner of a final bar's / repeat's extent)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
                           #   PagePass (the sheets, drawn behind the music) + spacingPass
                           #   (⭐ WHERE each column goes — the model's x's, post-format)
+                          #   + BarlineRenderer (⭐ WE draw every barline that ends a bar —
+                          #   plain, final, both repeats; VexFlow keeps only the line that
+                          #   OPENS a system. docs/barline-types-plan.md §4.6)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

@@ -91,7 +91,7 @@ So the algorithmic residue is **~7,500 LOC**, and it is not one lump:
 | `stave` | 577 | used as a coordinate system, not a drawer |
 | The render CONTEXT — `svgcontext`, `renderer`, `rendercontext` | **526** | 20 primitives |
 | `articulation` | 281 | ⛔ no complaint — leave it |
-| `annotation`, `tuplet`, `timesignature`, `clef`, `stavebarline`, `curve`, `tremolo` | ~1,050 | mixed; `curve` already reimplemented |
+| `annotation`, `tuplet`, `timesignature`, `clef`, `stavebarline`, `curve`, `tremolo` | ~1,050 | mixed; `curve` already reimplemented, and ✅ **`stavebarline` is now ours for every line that ENDS a bar** (`rendering/BarlineRenderer`, 2026-08-26) — only the line that opens a system is still drawn from it |
 
 ### 2.3 What VexFlow has BECOME here — the call profile
 

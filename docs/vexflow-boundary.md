@@ -59,6 +59,7 @@ Two things worth saying before the list, because they change how it reads:
 | **Slur geometry** — endpoints, angle, belly, multi-system segments | `SlurRenderer` + `curveArc` (`renderCurve` with our own coordinates) | the slur plans |
 | **Fanned beams entirely** — heads, stems, ramp lines | `FannedBeam` + `FanPass` | the fan plans |
 | Cross-barline beams; two-note tremolo strokes | `CrossBarBeams`, `TwoNoteTremolo`, `beamInk` | |
+| **Every BARLINE that ends a bar** — the plain line, the final bar, both repeats | `rendering/BarlineRenderer` (the pass) + `layout/barlineSign` (the geometry) | 2026-08-26, `docs/barline-types-plan.md` P2 |
 | Chord head displacement and accidental columns **for hand-drawn heads** | `chordHeadLayout`, `chordAccidentalColumns` | fan members |
 | Augmentation dot distance | `dotPlacement` (overrides VexFlow's 2px) | reported by eye |
 | Accidental ↔ ledger-line clearance | `ledgerAccidentalClearance` | reported by eye |
@@ -76,7 +77,7 @@ Two things worth saying before the list, because they change how it reads:
 | **Stem length** | `Stem.getExtents` | ⭐ No complaint. We extend it in three special cases and accept it otherwise |
 | **Flags** | `StaveNote` | ⚠️ Not in our ink model at all — a flag hangs right of the stem and buys no room |
 | **Glyph metrics / the font** | Bravura through VexFlow | ⭐ Correct place for it. We measure what we need and pin it |
-| Barline drawing; stave lines; the note→`StaveNote` build | | ⭐ Correct place for it |
+| ~~Barline drawing~~; stave lines; the note→`StaveNote` build | | ⭐ Correct place for the last two. ✅ **The barline was TAKEN 2026-08-26** — see §2.1. What is left of it here is the line that OPENS a system (`setBegBarType`), which divides no two bars and has no neighbour to agree with |
 | Articulation vertical placement | `Articulation` | ⭐ Ours for fan members only, theirs otherwise; no complaint |
 | **`formatter.format()` itself** | still called before we overwrite the x's | ⭐ **Deliberately kept** — it builds the modifier contexts (accidental stacking, beam prep). We take its x's and keep its typesetting |
 

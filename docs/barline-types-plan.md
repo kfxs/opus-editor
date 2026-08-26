@@ -722,7 +722,85 @@ question for the gesture (P4), when there is a user putting one there.
   measure-insert keeps the fields on the right bars** (they are measure-owned, so an insert must not
   slide a repeat onto its neighbour).
 
-**P2 — ⭐⭐ THE DRAWING, and we draw it (§4.6).** The single largest step, and the one that decides
+**P2 — ⭐⭐ THE DRAWING, and we draw it (§4.6). ✅ DONE** — `engine/layout/barlineSign.ts` (the pure
+sign: its strokes, its dots, its extent, and which sign a boundary carries) + `engine/rendering/
+BarlineRenderer.ts` (the pass) + `e2e/barlineTypes.e2e.ts`. 5178 unit + 232 e2e green.
+
+⭐⭐ **THE DOTS ARE A GLYPH, and that was HIS catch** — *"i think we are using bravura glyph,
+correct?… what are the other engines doing, especially musescore? is it best practice not to use the
+glyph?"* The first version drew them as `ctx.arc` circles. Read in source, **3 of 3 engines draw the
+SMuFL code point** `repeatDot` U+E044: MuseScore `drawSymbol(SymId::repeatDot, …)`, Verovio
+`DrawSmuflCode(…, SMUFL_E044_repeatDot, …)`, LilyPond `ly:font-get-glyph … "dots.dot"` — and both C++
+engines size the sign from the glyph's *measured* width (`symBbox(…).width()`,
+`GetGlyphWidth(…)`) rather than from a constant. In Bravura the dot happens to be a perfect
+0.4-space circle, so the arc looked identical **in this font** and would have been wrong in the first
+one whose repeat dot is a hand-drawn blob. ⇒ `repeatDot` is now a row in `bravuraMetrics` (measured
+off our own `public/fonts/Bravura.otf`, cross-check passed) and the pass draws the glyph.
+
+⭐ **And the same reading settles the LINES the other way, permanently:** all three draw those as
+plain strokes off their own style numbers (`painter->drawLine` + `Sid::barWidth`,
+`DrawVerticalSegmentedLine` + `m_barLineWidth`, `bar-line::draw-filled-box` + `hair-thickness`).
+⛔ Nobody stamps `barlineFinal`, and the font says why: that glyph's box is 1.06 × **4.0** and
+`repeatLeft`'s is 1.464 × **4.0**. Four staff spaces is a five-line staff and nothing else, while a
+barline must span whatever it is drawn on. That SMuFL publishes `thinBarlineThickness` /
+`thickBarlineThickness` / `barlineSeparation` at all is the corroboration: a font does not tell you
+how thick to draw a glyph you are meant to stamp. ⇒ **the split is the best practice — strokes drawn,
+dots stamped** — and it is not a preference to revisit.
+
+⚠️ **Two places the build diverged from this section, both deliberate and neither hidden:**
+
+1. **The line at a system's LEFT EDGE stays VexFlow's** (`setBegBarType` + `inkBarlines` inside the
+   measure group). §4.6.7's argument for taking *all* barlines is about END lines — bar *N*'s plain
+   line must move with the signs because suppressing it needs the neighbour — and a system's opening
+   edge has no neighbour to agree with. The one exception is a first-in-line bar that OPENS a repeat:
+   there the boundary's sign is `|:`, the begin bar is turned off and the pass draws it.
+2. **`hintBarlines` did NOT fold into the pass.** It cannot: it reads the *measured* screen CTM to
+   verify its own premise, and that scale does not exist at draw time (the transform above the SVG is
+   written after the first render — the bug its own header records). `inkBarlines`' rewrite is gone,
+   which was the real cost; hinting stays a post-pass. ⭐ A composite sign now **opts out of hinting
+   entirely** (`data-no-hint`), which is §4.6.4's defect answered rather than inherited: aligning the
+   thin stroke of a two-stroke sign while leaving the thick one puts the sign's own 0.32-space gap out
+   of agreement with itself in every bar that has one.
+   ⚠️ **And the hint GATE is spent.** `redrawn > 0 || barlinesMoved` is gone: a pass rebuilt every
+   render makes every barline rect new, so the answer is always yes. That is §12.7's 9% back on the
+   table, and `VexFlowRenderer.incrementalRedraw.test.ts` now asserts the new truth. ⏭️ Buying it back
+   means hinting at draw time, which needs a device scale the pass would have to be handed.
+
+⭐⭐ **AND A SECOND CATCH OF HIS, which fixed a bug P2 shipped with:** *"what about the first bar open
+repeat, what if I deliberately want to apply it? what does the literature say about this?"*
+
+Two treatises answer, independently and in the same direction:
+
+- **Gould p. 234**, *Placing changes of clef, key signature and time signature*: *"When there is a new
+  clef, key signature or time signature at the beginning of a repeated section, place the repeat marks
+  **afterwards**."*
+- **Ross p. 147** gives the same order as three numbered spacings — a repeat bar after a **clef** is
+  5½ spaces from the clef's left side to the repeat's left; after a **key signature** 3½ from the last
+  accidental; after a **time signature** 3½ from its left side.
+
+⇒ **header first, then `|:`.** The first build drew the sign on the bar's own left boundary, which on
+any bar with a header draws it straight through the clef. Fixed: `BarlineRenderer.displacedRepeatX`
+puts a displaced sign one space before the first note, and **a displaced repeat suppresses nothing** —
+it never stands on the boundary, so the line that opens the system (or the previous section's own
+end repeat) keeps its place. ⚠️ That last clause is the second half of the bug: without it a mid-line
+bar carrying both a clef change and a `repeatStart` would have ended up with **no line at its
+boundary at all**.
+
+⭐ **And on the question as he asked it:** Gould p. 233 — *"Repeat barlines frame a section to be
+repeated, **except where the repeat is from the beginning of a piece, in which case no initial repeat
+barline is needed**"* — and p. 234's parenthesis, *"(If the example above were the opening of a piece,
+the initial repeat barline would be unnecessary.)"* ⛔ That is advice to the COMPOSER, not a
+constraint on the editor: an initial `|:` is conventionally omitted because a repeat returns to the
+beginning by default, but if it is asked for it is drawn. `e2e/barlineTypes.e2e.ts` pins bar 1's case.
+
+⏭️ **What P2 did NOT do, on purpose:** the two width terms of §5.1 (a bar does not yet RESERVE the
+sign's room — the ink is drawn inside its own bar and may crowd the last note there), the hit-box,
+and `measuredBarlineGapRoom`'s floor. All three are P3, and `barlineSignExtent` — the one owner they
+all read — is already built and unit-tested.
+
+<details><summary>The original P2 plan, as written</summary>
+
+The single largest step, and the one that decides
 whether §4.6.3's silent stale-picture bug can exist at all.
 
 - `engine/rendering/BarlineRenderer.ts` — a **score-level pass**, `renderBarlines(pass, score,
@@ -762,6 +840,8 @@ whether §4.6.3's silent stale-picture bug can exist at all.
 cannot hold a stale barline, because no measure group holds one (`MEASURE_RENDER_ROLE.ottavas`'
 reasoning verbatim). ⛔ If P2 is ever descoped back to letting VexFlow draw, that entry becomes
 mandatory and §4.6.3 is the bug report waiting to be written.
+
+</details>
 
 **P3 — the drag (§6.2).** `barlineSignExtent` as the one owner of the number; the hit-box grown from
 it (leftward, per §6.1); `measuredBarlineGapRoom`'s floor raised by the sign's left reach; the e2e

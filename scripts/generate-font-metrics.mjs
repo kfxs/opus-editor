@@ -64,7 +64,10 @@ const GLYPHS = {
   flags: ['flag8thUp', 'flag8thDown', 'flag16thUp', 'flag16thDown', 'flag32ndUp', 'flag32ndDown'],
 
   // The augmentation dot — `INK.dotWidth` and `INK_HEIGHT.dot`, both already exact (plan §2).
-  dots: ['augmentationDot'],
+  // ⭐ And the REPEAT dot, which is a different glyph that happens to be the same size: both engines
+  //   that draw one draw THIS code point (MuseScore `SymId::repeatDot`, Verovio `SMUFL_E044`), and
+  //   both size the sign from its measured width rather than from a constant. See `BarlineRenderer`.
+  dots: ['augmentationDot', 'repeatDot'],
 
   // The header's glyphs. ⚠️ Their INK is here; what a header COSTS is not (`layout/headerInk.ts`
   // measures stave-x to the first notehead, a placement, and plan §7 keeps it out of scope).

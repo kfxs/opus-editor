@@ -311,6 +311,11 @@ const harness: Harness = {
       .filter(quads => quads.length > 0)
       .sort((a, b) => a[0].yLeft - b[0].yLeft || a[0].left - b[0].left),
 
+  // ⚠️ **ONE ROW PER RECT, and a sign is not always one rect.** Since `BarlineRenderer` took the
+  // drawing, a plain line is one rect but a final bar is two and a back-to-back repeat is three —
+  // and a repeat's DOTS are not rects at all: they are `repeatDot` glyphs, so they come back through
+  // `glyphs('g.vf-stavebarline text')` instead. A test that counts barlines by counting rows here is
+  // counting STROKES (see `barlineTypes.e2e.ts`, which does exactly that on purpose).
   barlines: () =>
     all<SVGRectElement>('g.vf-stavebarline rect')
       .map(r => ({

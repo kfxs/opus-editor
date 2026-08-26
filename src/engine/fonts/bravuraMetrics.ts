@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 60 of Bravura's 3434 glyphs: the ones the editor draws
+ * 61 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -21,7 +21,7 @@ import type { GlyphBox } from './fontMetrics'
  * ⚠️ **TWO versions, and they are not the same number.** The font file we ship and measure is
  * 1.392; Steinberg's metadata, which supplies the anchors and the weights below, is
  * 1.481. The generator cross-checks every box against that metadata and (at the time
- * this was written) found them identical to 0.001 spaces for all 60 glyphs — so the skew is
+ * this was written) found them identical to 0.001 spaces for all 61 glyphs — so the skew is
  * recorded rather than papered over, and the cross-check is what says it is harmless.
  */
 export const BRAVURA = {
@@ -59,6 +59,7 @@ export type GlyphName =
   | 'flag32ndUp'
   | 'flag32ndDown'
   | 'augmentationDot'
+  | 'repeatDot'
   | 'gClef'
   | 'fClef'
   | 'cClef'
@@ -127,6 +128,7 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   flag32ndDown: { left: 0, right: 1.092, up: 3.248, down: 0.688, advance: 1.096 },
   // dots
   augmentationDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
+  repeatDot: { left: 0, right: 0.4, up: 0.2, down: 0.2, advance: 0.4 },
   // clefs
   gClef: { left: 0, right: 2.684, up: 4.392, down: 2.632, advance: 2.684 },
   fClef: { left: 0.02, right: 2.736, up: 1.048, down: 2.54, advance: 2.736 },

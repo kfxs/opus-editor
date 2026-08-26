@@ -160,13 +160,24 @@ Editing a barline (repeats, double bars, final bars) — the selection is a hand
 *kind* of barline is music, not layout. Multi-barline selection. A mouse drag for the gap: the
 barline's drag is already the bar-width gesture, so this one is keyboard-only for now.
 
-> ⭐ **The first of those is now planned — `docs/barline-types-plan.md`** (2026-08-26). Read it before
-> touching this file's gestures, because it rests on two things stated here: the identity above (*the
-> line that ENDS bar N*) turned out to be what every standard stores, and §4's three gestures must
-> keep working unchanged when the line becomes a wider sign. The rule that protects them is that **a
-> barline sign of any width keeps its LEFT EDGE at the bar boundary** and grows rightward, so `x`
-> keeps meaning what the spacing model, the hit-box, the highlight and `barWidth.e2e` all read it as.
-> ⚠️ What does change is the **hit-box**, which is 4px here and must grow with the sign.
+> ⭐ **The first of those is now BUILT — `docs/barline-types-plan.md`** (planned and P0–P2 shipped
+> 2026-08-26). Read it before touching this file's gestures, because it rests on two things stated
+> here: the identity above (*the line that ENDS bar N*) turned out to be what every standard stores,
+> and §4's three gestures must keep working unchanged now that the line can be a wider sign.
+>
+> 🚨 **The rule that protects them is NOT what an earlier version of this paragraph said.** It read
+> *"a barline sign of any width keeps its LEFT EDGE at the bar boundary and grows rightward"*, and
+> that is **wrong for two of the three signs** — the staff lines end at `x2`, so a thick line and two
+> dots hung past the last bar's boundary would be attached to nothing, and the reading order puts the
+> thick line LAST (a final is thin→THICK, an end repeat dots·thin·THICK). ⇒ **the DIVIDING LINE stays
+> on the boundary and the sign grows INTO the bar that stores it** (plan §6.1). `x` still means what
+> the spacing model, the hit-box, the highlight and `barWidth.e2e` all read it as — which is why the
+> drag arithmetic did not have to change at all.
+>
+> ⚠️ What does change is the **hit-box**, which is 4px here and must grow with the sign — **leftward**,
+> and by up to 1.5 staff spaces for a repeat. Not done yet (plan P3); `engine/layout/barlineSign.ts`'s
+> `barlineSignExtent` is the one owner of the number, and the selection highlight below owes it the
+> same read (plan P5).
 >
 > ⛔ And the plan is deliberately narrow: **final, open repeat, end repeat**. The double bar is not in
 > it. The *kind* of barline being music and not layout is why it needed a model at all.

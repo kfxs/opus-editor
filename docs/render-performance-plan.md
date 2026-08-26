@@ -1131,7 +1131,7 @@ loop; `curves`, `ladder` and `hint` then read. So `ladder`'s 20% may include flu
 caused. Separating flush from JS needs `PerformanceScriptTiming.forcedStyleAndLayoutDuration`
 (docs/render-performance-research.md §7i), which attributes forced layout **by function name**.
 
-##### ✅ `hint` — gated, and it was 9%
+##### ⚠️ `hint` — gated, it was 9%, and the gate DIED on 2026-08-26 (see the end of this subsection)
 
 `hintBarlines` re-derives every barline's device-pixel position, one `getScreenCTM()` per rect, and
 `renderScore` called it with `force: true` **every render** — the one flag that bypasses its own
@@ -1139,10 +1139,23 @@ early-out. ⭐ `force` exists for exactly one reason, which the pass states itse
 carries brand-new, unhinted rects."* On a mark-drag frame nothing is re-engraved and nothing is
 translated, so there are no new rects and the previous stamp is still correct.
 
+⚠️⚠️ **THIS SAVING WAS SPENT ON 2026-08-26, and the reason is structural rather than a regression.**
+`rendering/BarlineRenderer` took the barline drawing from VexFlow (docs/barline-types-plan.md §4.6),
+and it is a **score-level pass rebuilt from scratch on every render** — which is what makes a stale
+barline impossible when a boundary's sign depends on its neighbour. The consequence here is exact:
+**every barline rect on the page is now brand-new and unhinted on every render**, so the gate below
+has one answer and the 9% is back. Keeping the old test would have meant drawing the barlines and
+then leaving them unaligned — the very picture this pass exists to prevent, reached by a new road.
+⏭️ **Buying it back means hinting AT DRAW TIME**, which needs the device scale the pass does not have
+(`hintBarlines` reads it from the DOM precisely because it is not knowable before the transform above
+the SVG exists). ⛔ Until then the honest gate is the audience: a print/PDF render never hints at all.
+
+The rest of this section is the state before that, kept because the *reasoning* is what matters:
+
 Now `force = redrawn > 0 || barlinesMoved`. ⚠️ **The second term is not optional**: a bar that merely
 MOVED keeps its shape key (x and y are deliberately out of it, §7a) but its rects land on a different
 device pixel. A `redrawn`-only gate would leave a staff-spacing drag mis-hinted — the exact gesture
-§7a names as having cost 53% of all render time. Both halves are break-tested in
+§7a names as having cost 53% of all render time. Both halves were break-tested in
 `VexFlowRenderer.incrementalRedraw.test.ts`.
 ⛔ Passing `false` is **not** "skip it": the pass keeps its own gate on the measured scale, so a zoom
 still re-hints and a first render still hints.

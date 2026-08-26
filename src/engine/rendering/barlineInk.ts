@@ -134,10 +134,20 @@ export function hintBarlines(
   // layout, so interleaving them would force one reflow PER BARLINE.
   const plans: { rect: SVGRectElement; x: number; width: number }[] = []
   for (const rect of rects) {
+    // ⭐⭐ **A COMPOSITE SIGN OPTS OUT — hinted as a whole or not at all.** A final bar and the two
+    // repeats are drawn by `./BarlineRenderer`, which marks their group `data-no-hint`. Aligning one
+    // stroke of a two-stroke sign is worse than aligning neither: the thin line would move by up to
+    // half a device pixel while the thick one stayed, so the 0.32-space white gap that IS the final
+    // barline would come out a different width in every bar carrying one. Their strokes are 0.5
+    // spaces of ink and do not vanish for want of alignment, which is the whole reason this pass
+    // exists for the 0.16-space line.
+    if ((rect.parentElement as HTMLElement | null)?.dataset?.noHint) continue
     let base = rect.dataset[BASE_X]
     if (base === undefined) {
-      // First sight of this rect: only a thin barline is hinted (a thick final bar is 3px and is
-      // left exactly as VexFlow drew it), and its asked-for x is remembered from here on.
+      // First sight of this rect: only a thin barline is hinted — the system connector and the
+      // plain single lines — and its asked-for x is remembered from here on. (The composite signs
+      // are already gone, above; this test still guards VexFlow's own begin bar, which is 1 px
+      // until `inkBarlines` has widened it.)
       if (parseFloat(rect.getAttribute('width') ?? '') !== THIN_BARLINE_PX) continue
       base = rect.getAttribute('x') ?? '0'
       rect.dataset[BASE_X] = base

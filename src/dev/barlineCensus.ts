@@ -43,6 +43,13 @@ function barlinesOnScreen(
 ): BarlineOnScreen[] {
   const out: BarlineOnScreen[] = []
   for (const rect of root.querySelectorAll<SVGRectElement>('g.vf-stavebarline rect')) {
+    // ⭐ **Composite signs are not measured here, because they are deliberately not HINTED.** A final
+    // bar and the two repeats opt out of the device-grid pass (`rendering/BarlineRenderer` marks
+    // their group `data-no-hint`: a sign is aligned as a whole or not at all, or its own white gap
+    // changes width from bar to bar). Counting their strokes would report them as "not crisp" and
+    // bury the one number this instrument exists to show — how many of the PLAIN lines, which are
+    // hinted, are still landing between pixels.
+    if ((rect.parentElement as HTMLElement | null)?.dataset?.noHint) continue
     const ctm = rect.getScreenCTM()
     if (!ctm) continue
     const x = parseFloat(rect.getAttribute('x') ?? '0')
