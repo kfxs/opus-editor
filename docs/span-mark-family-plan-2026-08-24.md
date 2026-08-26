@@ -735,7 +735,50 @@ where a mistake is cosmetic. 5b then applies the proven shape where a mistake is
 
 ---
 
-## Phase 6 — Write down the clause the rule is missing *(≈30 min, do last)*
+## ✅ Phase 6 — **DONE 2026-08-26, and REDUCED — two of its four parts were refused**
+
+⚠️ **The drafted clause below is NOT what was written down, and the difference matters.** It says
+*"the feature is a **row**, not a stack."* Phase 5's measurement contradicts the strong form: most of
+a family's bulk — `pedalOps` 830, `PedalRenderer` 629, `pedalWalk` 500, `pedalLane` 286 — is genuinely
+per-kind and cannot be a row, which this plan itself says when it has the rows POINT at them. Four of
+the family's ~14 sites became rows; ten did not. Writing the clause as drafted would enshrine the
+very error that produced four wrong estimates in a row.
+
+**What went into `docs/ARCHITECTURE.md` instead** (§"…and the other direction: a name is not a
+body"), stated as what was measured rather than what was predicted:
+
+> **Collapse a copy only when the copy has a BODY.** The trade is `N × body` removed against
+> `1 × driver + N × row + one fixed contract`, and a row is never free — each kind still has to
+> speak, it just speaks as data instead of as code.
+
+…with the hub clause kept, because that half held up: **count the hubs, not just the modules.**
+⛔ It went in `ARCHITECTURE.md` and **not** `CLAUDE.md`: that file's rules should be things that
+change what you DO, and this is a thing you learn once and then measure.
+
+**✅ The `[A4]` declaration guard was built** — `scripts/check-total-tables.mjs`, wired into
+`build:check` as `lint:tables`. `tsc` enforces totality *given* the declaration; nothing stopped a
+future edit from weakening `Record<SpanMarkKind, …>` to a `Partial<…>` to make one awkward kind fit,
+which is the one move that silently ends the whole abstraction's value. It refuses four shapes —
+`Partial<…>`, an index signature, an array, and a missing annotation — and covers `SPAN_MARK_MODEL`,
+`SPAN_MARK_TOOLS`, `ELEMENT_SPECS` and `MARKING_TOOL_USES_ARMED_LENGTH`. **All four failure modes
+were break-tested**; ⭐ `ELEMENT_HIT_ORDER` is deliberately NOT covered, because a table answering
+*"in what order?"* is legitimately a list.
+
+**⛔ The filename-parity script was REFUSED.** Run today it fails on `hairpinStamp.ts` and
+`slurStamp.ts` — both correct (D1 answered no for the wedge; the slur was never in this family) — so
+its first act would be an allowlist of the two most carefully-made decisions in the plan. ⭐ A check
+that starts life with hand-maintained exceptions is the rot `check-test-names.mjs`'s own comment
+warns about, and it would only ever have seen filenames, never duplication.
+
+**⏭️ `[A5]` `SCOPED_KINDS` was NOT done and is not part of this.** It is still
+`ReadonlyArray<SelectionItem['kind']> = ['dynamic', 'hairpin']` in `interactions/markVoiceScope.ts` —
+a partial registry that fails **silently at playback** rather than loudly at build. That is a real
+bug class and it stands on its own merits; ⛔ it should not be bundled with a phase whose premise did
+not hold.
+
+---
+
+### The original draft, kept for the record
 
 The rule caught what it named and missed what it did not — **twice now, by its own account**
 (2026-07-18 undone in nine days; 2026-07-28 extended from three files to eight). The gap this time:

@@ -345,6 +345,36 @@ method whose subject genuinely is the class (`ScoreModel.getScore`, `VexFlowRend
 and a helper private to one existing method. The test is *"could someone want this without the
 editor?"* — if yes, it is a core module.
 
+### ⭐⭐ …and the other direction: **a name is not a body**
+
+The clause above says where a *new* slice goes. This one says when to collapse the slices already
+there, and it exists because the span-mark pass (`docs/span-mark-family-plan-2026-08-24.md`, four
+phases, 2026-08-24→26) got it wrong four estimates running — each time by counting how MANY things
+looked alike instead of measuring how BIG each one was.
+
+> **Collapse a copy only when the copy has a BODY.** Before proposing that N per-kind copies become
+> one driver plus N rows, measure the copies' bodies — comments and signatures excluded. The trade is
+> `N × body` removed against `1 × driver + N × row + one fixed contract`, and a row is never free
+> because **each kind still has to speak; it just speaks as data instead of as code.**
+
+What that measurement found, when it was finally taken:
+
+| the claim | measured |
+|---|---|
+| "148 span methods on `MusicEngine`" | true — combined **body** 454 lines, **median 3** |
+| "96 on `ScoreModel`" | true — **91 of them are ONE line**; all 96 total **98** lines of body |
+| the four sites that WERE collapsed (stamp, Properties seam, ghost, keys) | 82–94% identical, real bodies — worth it |
+| the five `shortcutWiring` closures per kind | 3–5 lines each — collapsing them **cost 19 lines and bought nothing** |
+
+⭐ **The one number to distrust is a count of names.** 147 span-named methods sounds like enormous
+duplication and is mostly a facade doing its job. ⛔ A method name repeated across a family is not
+evidence of a copy; a *body* repeated across a family is.
+
+⚠️ **And count the HUBS, not just the modules.** A kind that adds no module can still add a slice to
+a dozen shared files. The span-mark family had ~14 such hubs; collapsing four of them was worth doing
+and left ten. So when a plan says a family "is one idea built five times", ask *at how many of its
+sites* — that number, not the number of families, is what the work costs and what it saves.
+
 ---
 
 ## Where does X live?
