@@ -23,8 +23,11 @@
  *
  * ## ⛔ INK, never a play ORDER
  *
- * Nothing in this module touches playback. `playbackSchedule` walks `score.measures` straight
- * through and must keep doing so until a repeat play order exists as its own feature (plan §7).
+ * Nothing in this module touches playback, and that is still true now that repeats DO play (§7,
+ * 2026-08-26). The play order is `engine/audio/repeatPlan` — a pure read of these fields into a list
+ * of legs — so this module gained no caller and no knowledge of it. ⭐ That separation is what lets
+ * the dev shell's checkbox turn repeats off without touching a score: the SIGNS are the music, the
+ * ORDER is one performance of it.
  */
 import type { BarlineStatement, BarlineStyle, Measure, RepeatEnd, RepeatStart, Score } from '@/types/music'
 import { signAtBoundary, wingsAllowed, type BarlineSignKind } from '@/engine/layout/barlineSign'

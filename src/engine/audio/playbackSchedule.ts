@@ -29,6 +29,7 @@ import { fanMembers, fanMemberPitches } from '@/utils/fannedBeam'
 import { legatoChordIds } from '@/utils/slurs'
 import { articulationEffect } from '@/utils/articulations'
 import { buildTempoMap, beatsToSeconds, secondsToBeats, type TempoSegment } from '@/utils/tempoMap'
+import type { PlayLeg } from './repeatPlan'
 import { voiceOf } from '@/utils/lanes'
 import { applySoundingShift, soundingShiftBySlot } from '@/utils/soundingShift'
 import { pedalWindows, pedalWindowCovers, type PedalWindow } from '@/utils/pedalScope'
@@ -207,6 +208,55 @@ export function playableFrom(
       durationSeconds: endSeconds - onsetSeconds,
       velocity: ev.velocity,
     })
+  }
+  return out
+}
+
+/**
+ * ⭐⭐ **THE NOTES A PLAY ORDER SOUNDS** — {@link playableFrom}'s successor once a bar can sound more
+ * than once (docs/barline-types-plan.md §7, his ask of 2026-08-26).
+ *
+ * ⭐ **Every note is emitted once PER LEG that contains it**, which is the whole of what a repeat
+ * does: the second time round is not different notes, it is the same notes at a different time. So
+ * this is the one-leg case generalised, and a score with no repeats produces byte for byte what
+ * `playableFrom` produced — the leg is the whole score and the offset arithmetic cancels.
+ *
+ * ⚠️ **The two clocks, again** (`repeatPlan`'s header): a note's onset is in SCORE beats, and where
+ * it lands is `leg.atSeconds` plus how far into the leg it sits — measured in SECONDS through the
+ * tempo map, ⛔ never as a beat offset times a rate, since a repeated passage may straddle a tempo
+ * change.
+ *
+ * `startSeconds` is where this play begins in PERFORMANCE time (`repeatPlan.planSecondsAtMeasure`),
+ * and everything before it is dropped. ⚠️ A note still SOUNDING across that point goes with it, for
+ * {@link playableFrom}'s reason: it was attacked in a bar we are not playing, and re-striking it here
+ * would put an onset where the score has none.
+ */
+export function playableOverPlan(
+  notes: Iterable<ScheduledNote>,
+  tempoMap: TempoSegment[],
+  plan: PlayLeg[],
+  startSeconds = 0,
+): PlayableNote[] {
+  // Half a thousandth of a beat, {@link playableFrom}'s epsilon and for its reason: a leg's bounds
+  // are sums of floats, and a note on the downbeat must sound rather than be rounded out of its bar.
+  const EPSILON = 5e-4
+  const out: PlayableNote[] = []
+  for (const leg of plan) {
+    const legStartSeconds = beatsToSeconds(tempoMap, leg.fromBeats)
+    for (const ev of notes) {
+      if (ev.startBeats < leg.fromBeats - EPSILON) continue
+      if (ev.startBeats >= leg.toBeats - EPSILON) continue
+      const onsetSeconds = beatsToSeconds(tempoMap, ev.startBeats)
+      const endSeconds = beatsToSeconds(tempoMap, ev.startBeats + ev.durationBeats)
+      const atSeconds = leg.atSeconds + (onsetSeconds - legStartSeconds) - startSeconds
+      if (atSeconds < -EPSILON) continue
+      out.push({
+        pitch: ev.pitch,
+        atSeconds,
+        durationSeconds: endSeconds - onsetSeconds,
+        velocity: ev.velocity,
+      })
+    }
   }
   return out
 }

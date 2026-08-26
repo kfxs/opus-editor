@@ -398,6 +398,16 @@ export function wingsAllowed(kind: BarlineSignKind): boolean {
 export interface SignWings {
   /** Which way this pair flares. `right` is the `bracket*` family, `left` the mirrored one. */
   flare: 'left' | 'right'
+  /**
+   * ⭐⭐ **WHOSE TIPS THESE ARE** — and ⛔ never `shared`, which is the bug this field exists to fix.
+   *
+   * 🚨 **HIS REPORT (screenshot), 2026-08-26:** selecting the open repeat of a `:||:` lit its own dots
+   * correctly *"but the wing highlight is not — it is also highlighting the close wing."* ⭐ A wing
+   * pair belongs to the half whose direction it FLARES: the left-flaring tips are the closing sign's,
+   * the right-flaring ones the opening sign's. The divider they spring from is shared; the tips
+   * themselves are not, and are the one part of a sign that says which half it is by its SHAPE.
+   */
+  half: SignHalf
   /** The glyph's ORIGIN x, in staff spaces from the boundary — already offset for the mirrored
    *  family, so the caller stamps at this x and nothing else. */
   x: number
@@ -411,9 +421,13 @@ export function signWings(kind: BarlineSignKind): SignWings[] {
   const wings: SignWings[] = []
   // The ENDING half's tips: flaring LEFT off the divider's right edge, so their own right edge is
   // that edge — the mirrored family attaches by its right.
-  if (signHasHalf(kind, 'end')) wings.push({ flare: 'left', x: divider.x + divider.width - width })
+  if (signHasHalf(kind, 'end')) {
+    wings.push({ flare: 'left', half: 'end', x: divider.x + divider.width - width })
+  }
   // The OPENING half's: flaring RIGHT off the divider's left edge, which is where they attach.
-  if (signHasHalf(kind, 'start')) wings.push({ flare: 'right', x: divider.x })
+  if (signHasHalf(kind, 'start')) {
+    wings.push({ flare: 'right', half: 'start', x: divider.x })
+  }
   return wings
 }
 

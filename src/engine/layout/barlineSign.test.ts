@@ -259,6 +259,18 @@ describe('wings — ⭐⭐ only a sign with a THICK line can carry them', () => 
     expect(wing.x).toBeCloseTo(parts.strokes[parts.divider].x, 10)
   })
 
+  it('🚨 each pair belongs to the half it FLARES toward — ⛔ never `shared`', () => {
+    // His report (screenshot), 2026-08-26: selecting the open repeat of a winged `:||:` lit its own
+    // dots correctly *"but the wing highlight is also highlighting the close wing."* The divider the
+    // tips spring from is shared; the tips are not.
+    for (const wing of signWings('repeatBoth')) {
+      expect(wing.half, `the ${wing.flare}-flaring pair`).toBe(wing.flare === 'left' ? 'end' : 'start')
+    }
+    expect(signWings('final')[0].half).toBe('end')
+    expect(signWings('repeatEnd')[0].half).toBe('end')
+    expect(signWings('repeatStart')[0].half).toBe('start')
+  })
+
   it('🚨 a `:||:` gets BOTH pairs, on the ONE shared divider', () => {
     // ⛔ Not MuseScore's arrangement and it cannot be: it draws the junction with TWO thick lines
     // (Gould's design (B)) and puts a pair on each, where we draw her (A) — one shared divider.

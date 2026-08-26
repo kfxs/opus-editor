@@ -1,14 +1,13 @@
 import type { Score, Note } from '@/types/music'
+import { dbg } from '@/utils/debug'
 import { measureCapacityQuarters, measureStartQuarters } from '@/utils/measureCapacity'
 import {
   buildTempoMap,
-  beatsToSeconds,
-  secondsToBeats,
-  totalSeconds,
   DEFAULT_TEMPO,
   type TempoSegment,
 } from '@/utils/tempoMap'
-import { collectScheduledNotes, playableFrom, scoreTotalBeats } from './playbackSchedule'
+import { collectScheduledNotes, playableOverPlan } from './playbackSchedule'
+import { buildPlayPlan, planDuration, planRepeats, planScoreBeatsAt, planSecondsAtMeasure, type PlayLeg } from './repeatPlan'
 import { WebAudioFontInstrument } from './WebAudioFontInstrument'
 import type { InstrumentPlayer } from './InstrumentPlayer'
 // The audio layer may read the score layer; the arrow the boundary forbids is the other way
@@ -79,6 +78,21 @@ export class PlaybackEngine {
   private tempoMap: TempoSegment[] = [{ startBeats: 0, qpm: DEFAULT_TEMPO, startSeconds: 0 }]
 
   /**
+   * ⭐⭐ **THE PLAY ORDER** — the performance this score makes, as a list of legs
+   * (`./repeatPlan`, docs/barline-types-plan.md §7). One leg for a score with no repeats, which is
+   * what every arithmetic downstream collapses to.
+   *
+   * ⚠️ Rebuilt by {@link calculateTotalDuration} alongside the tempo map, and for its reason: the
+   * piece's LENGTH is the plan's, so placing a repeat changes what the progress bar and the auto-stop
+   * are measured against, before anyone presses play.
+   */
+  private plan: PlayLeg[] = []
+
+  /** ⭐ Whether playback takes the repeats. **Default ON — his call**, and the reading a player
+   *  expects; the dev shell's checkbox turns it off. See {@link setRepeatsEnabled}. */
+  private repeatsEnabled = true
+
+  /**
    * Set the score to play
    */
   setScore(score: Score): void {
@@ -109,17 +123,40 @@ export class PlaybackEngine {
   private calculateTotalDuration(): void {
     if (!this.score) {
       this.tempoMap = [{ startBeats: 0, qpm: DEFAULT_TEMPO, startSeconds: 0 }]
+      this.plan = []
       this.totalDuration = 0
       return
     }
 
-    // Shared spine: total length is the sum of per-measure capacity (staff-agnostic).
-    const totalBeats = scoreTotalBeats(this.score)
-
     // Beats→seconds is piecewise (a tempo mark anywhere splits it), so it goes through
     // the map — never through one scalar.
     this.tempoMap = buildTempoMap(this.score)
-    this.totalDuration = totalSeconds(this.tempoMap, totalBeats)
+
+    // ⭐⭐ **THE PERFORMANCE, not the score** (docs/barline-types-plan.md §7). The length used to be
+    // the sum of every bar's capacity; with repeats a bar can sound more than once, so the length is
+    // the play order's — `planDuration`. ⚠️ Rebuilt HERE for the same reason the tempo map is:
+    // placing a repeat changes the piece's duration, and the auto-stop and the progress bar read it.
+    this.plan = buildPlayPlan(this.score, this.tempoMap, this.repeatsEnabled)
+    this.totalDuration = planDuration(this.plan)
+  }
+
+  /**
+   * ⭐ **Whether playback takes the repeats** — his ask, 2026-08-26: *"by default playback should
+   * repeat, and I guess we can have a checkmark on the dev shell… to not repeat if the user wants."*
+   *
+   * ⚠️ It rebuilds the plan rather than being read at `play()`: the score's LENGTH changes with it,
+   * and the progress bar is drawn from that length before anyone presses play.
+   */
+  setRepeatsEnabled(on: boolean): void {
+    if (this.repeatsEnabled === on) return
+    this.repeatsEnabled = on
+    this.calculateTotalDuration()
+    dbg(`[Repeats] playback ${on ? 'TAKES' : 'ignores'} repeats · ${this.plan.length} leg(s)`)
+  }
+
+  /** Whether playback is taking the repeats. */
+  getRepeatsEnabled(): boolean {
+    return this.repeatsEnabled
   }
 
   /**
@@ -140,9 +177,12 @@ export class PlaybackEngine {
     if (!this.score || this.state !== 'playing' || !this.ctx) return
 
     const elapsedSeconds = this.ctx.currentTime - this.playbackStartTime
-    // The INVERSE of the map that scheduled the notes. A scalar here would let the
-    // playhead drift away from the sound the moment the score has one tempo change.
-    const elapsedBeats = secondsToBeats(this.tempoMap, elapsedSeconds)
+    // ⭐⭐ The INVERSE of what scheduled the notes, and since §7 that is the PLAY ORDER and not the
+    // tempo map alone: elapsed performance seconds → which leg we are in → where in the SCORE that
+    // is. The bar walk below is unchanged; this is the step in front of it that was implicit while
+    // the performance was the score. A scalar here would let the playhead drift away from the sound
+    // the moment the score has one tempo change.
+    const elapsedBeats = planScoreBeatsAt(this.plan, this.tempoMap, elapsedSeconds)
 
     let accumulatedBeats = 0
     let currentMeasure = 1
@@ -211,8 +251,11 @@ export class PlaybackEngine {
     // The whole of it is one origin shift. Notes are scheduled against absolute score beats, so
     // playing from bar N means dropping everything before N and moving the rest earlier by exactly
     // the time N sits at. Bar 1 gives `startSeconds` 0 and the arithmetic disappears.
+    // ⭐ Once a bar can sound more than once, "where this play starts" is a PERFORMANCE time and not
+    // a score position — `planSecondsAtMeasure` answers with the FIRST time the bar comes round,
+    // which is what every editor means by "play from bar 12" (see its own note).
     const startBeats = measureStartQuarters(this.score.measures, this.currentMeasure)
-    const startSeconds = beatsToSeconds(this.tempoMap, startBeats)
+    const startSeconds = planSecondsAtMeasure(this.plan, this.tempoMap, startBeats)
 
     // Flatten the score into sounding notes (shared per-measure clock across ALL staves —
     // see collectScheduledNotes). This pure pass carries ties/legato/dynamics/articulation;
@@ -223,8 +266,14 @@ export class PlaybackEngine {
     // Which notes sound, and when — including where this play begins (`playableFrom`). Kept there
     // rather than inline because this method cannot be tested without an AudioContext, and the seek
     // it applies is exactly the thing that was silently not happening.
-    for (const note of playableFrom(collectScheduledNotes(this.score, this.tempoMap), this.tempoMap, startBeats)) {
+    for (const note of playableOverPlan(
+      collectScheduledNotes(this.score, this.tempoMap), this.tempoMap, this.plan, startSeconds,
+    )) {
       instrument.noteOn(note.pitch, now + note.atSeconds, note.durationSeconds, note.velocity)
+    }
+    if (planRepeats(this.plan)) {
+      dbg(`[Repeats] playing ${this.plan.length} legs: `
+        + this.plan.map(leg => `${leg.fromMeasure}–${leg.toMeasure}`).join(' · '))
     }
 
     this.state = 'playing'

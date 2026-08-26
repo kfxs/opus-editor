@@ -1145,6 +1145,40 @@ revisit, and the two engines already agree on what it becomes.
 
 ---
 
+## 10.5 §7 — THE PLAY ORDER ✅ BUILT (2026-08-26)
+
+🚨 *"What about the playback? …by default playback should repeat, and I guess we can have a checkmark
+on the dev shell near dev sound to not repeat if the user wants."* Default ON; the dev shell's
+🔁 checkbox turns it off.
+
+⭐⭐ **The performance is a list of LEGS, not a re-ordered score** (`engine/audio/repeatPlan.ts`). A
+repeat cannot be "the notes in a different order": the same bar sounds more than once, so bar↔time
+stops being one-to-one and every consumer of that mapping breaks — the schedule, the auto-stop, the
+progress bar, the playhead. Each leg is a contiguous run of bars carrying **where in SCORE beats** it
+comes from and **when in PERFORMANCE seconds** it happens. ⚠️ Keeping those two clocks apart is the
+whole of the care; a leg's duration is the DIFFERENCE of two `beatsToSeconds` lookups, never a
+beat-length times one rate (a repeated passage may straddle a tempo change).
+
+⭐ **A score with no repeats is ONE leg**, and every arithmetic downstream collapses to exactly what
+it was — which is the claim `playbackSchedule.repeats.test.ts` opens with.
+
+⛔ **The §3.2 boundary still holds:** `barlineOps` gained no caller and no knowledge of this. The
+signs are the MUSIC; the order is one performance of them, which is why a checkbox can switch it
+without touching a score and why it is not a `Score` field.
+
+**Readings, each the standard one:** an `:|` with no `|:` before it repeats **the piece** (Gould, and
+every engine); `times` is the number of PLAYINGS in total, absent = 2; **"play from bar N" is the
+FIRST time it comes round** (Sibelius, Dorico and MuseScore all answer that way, and it is the reading
+a user can predict). Nested repeats are *played, not resolved* — an inner counter clears once taken in
+full, so an enclosing repeat replays it, which is what a player does.
+
+⏭️ **NOT built:** voltas (1st/2nd-time endings), D.C./D.S., codas, jumps. None is in the model, and
+every format holds a volta as a *container of measures* rather than a barline attribute. When they
+arrive they are inputs to that same walk — which is why it is a module and not a loop inside
+`PlaybackEngine`, MuseScore's `RepeatList` being the same shape.
+
+---
+
 ## 11. Barline WINGS — what the sources actually say (researched 2026-08-26)
 
 ⭐ **A style option, not a convention.** Recorded so it is not re-researched.

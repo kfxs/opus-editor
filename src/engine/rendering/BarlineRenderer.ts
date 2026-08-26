@@ -205,17 +205,19 @@ function paintBarlineSign(
     }
   }
 
-  // ⭐⭐ **THE WINGS**, when this sign is winged and this staff is one the system shows them on.
-  // ⛔ Tagged `shared`, deliberately: they sit ON the divider, which belongs to both halves — so
-  // selecting either half of a `:||:` lights its wings with it rather than leaving black tips beside
-  // a blue sign.
+  // ⭐⭐ **THE WINGS**, when this sign is winged.
+  //
+  // 🚨 Tagged with the pair's OWN half, ⛔ never `shared` — his report (screenshot) on a winged
+  // `:||:`: selecting the open repeat lit its dots correctly *"but the wing highlight is also
+  // highlighting the close wing."* The divider they spring from is shared; the tips are not, and are
+  // the one part of a sign that says which half it belongs to by its SHAPE (`SignWings.half`).
   if (!wings) return
   for (const wing of signWings(kind)) {
     const glyphs = WING_GLYPHS[wing.flare]
     drawWing(ctx, glyphs.top, x + wing.x * space, topY, space)
-    tag('shared')
+    tag(wing.half)
     drawWing(ctx, glyphs.bottom, x + wing.x * space, botY, space)
-    tag('shared')
+    tag(wing.half)
   }
 }
 

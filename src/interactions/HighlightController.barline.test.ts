@@ -171,6 +171,25 @@ describe('barline selection highlight', () => {
     }
   })
 
+  it('🚨 a WINGED `:||:` — each half lights its OWN tips, not the other half\'s', () => {
+    // His report (screenshot), 2026-08-26: the dots split correctly but both wing pairs went blue.
+    // A wing belongs to the half it FLARES toward (`SignWings.half`); only the divider is shared.
+    engine.setRepeatEnd(4, true)
+    engine.setRepeatStart(5, true)
+    engine.setBoundaryWinged(4, true)
+    engine.renderScore()
+
+    const glyphs = (els: Element[]) => els.filter(el => el.tagName === 'text').map(el => el.textContent)
+    select(4)
+    // Two dots + two tips (top and bottom), all of the ENDING half. The mirrored tips are E005/E006.
+    expect(glyphs(blue()).filter(t => t === '\uE005' || t === '\uE006'), 'its own tips').toHaveLength(2)
+    expect(glyphs(blue()).filter(t => t === '\uE003' || t === '\uE004'), '⛔ not the other half\'s').toHaveLength(0)
+
+    selectOpenRepeat(5)
+    expect(glyphs(blue()).filter(t => t === '\uE003' || t === '\uE004')).toHaveLength(2)
+    expect(glyphs(blue()).filter(t => t === '\uE005' || t === '\uE006')).toHaveLength(0)
+  })
+
   it('⭐⭐ a thin stroke is grown to 2 px of blue — symmetrically, and a THICK one is left alone', () => {
     // His call: *"why not make the highlight 2px again? what was wrong was the black, correct?"* —
     // 2 px is the weight the highlight always had; what was wrong was that it was a separate rect

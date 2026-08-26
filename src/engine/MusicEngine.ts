@@ -5746,6 +5746,23 @@ export class MusicEngine {
   }
 
   /**
+   * ⭐ **Whether playback takes the REPEATS** — default on (his call, 2026-08-26). The play order is
+   * `engine/audio/repeatPlan`; ⛔ nothing about the score changes, only what is performed of it.
+   *
+   * ⚠️ Not a `Score` field, deliberately: how you PLAY a score is not part of the score, and it does
+   * not belong in the JSON (the `soundOps` line, one axis over — a sound assignment IS stored,
+   * because it is a statement about the music; "take the repeats" is a statement about this hearing).
+   */
+  setRepeatsEnabled(on: boolean): void {
+    this.playbackEngine.setRepeatsEnabled(on)
+  }
+
+  /** Whether playback is taking the repeats. */
+  getRepeatsEnabled(): boolean {
+    return this.playbackEngine.getRepeatsEnabled()
+  }
+
+  /**
    * What the score SOUNDS like — one statement, at its start, for every staff and voice.
    *
    * ⭐⭐ **A score edit, not an engine setting.** It writes a positional assignment into the score's

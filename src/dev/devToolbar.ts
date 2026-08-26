@@ -385,6 +385,34 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   soundLabel.appendChild(sound)
   row.appendChild(soundLabel)
 
+  /*
+   * ⭐ **TAKE THE REPEATS?** — his ask, 2026-08-26: *"by default playback should repeat, and I guess
+   * we can have a checkmark on the dev shell near dev sound to not repeat if the user wants."*
+   *
+   * ⚠️ Beside the sound picker and dressed as the same scaffolding, because it is the same KIND of
+   * thing: a statement about this HEARING, not about the score. It is not persisted, it is not in the
+   * JSON, and `engine/audio/repeatPlan` is where the play order it switches actually lives.
+   *
+   * ⛔ It reads the ENGINE rather than `EditorState`: nothing in the editor's state holds it, and a
+   * mirror field would be a second place for the answer to live. The box is set from the engine when
+   * the toolbar syncs, so it cannot show a value playback does not have.
+   */
+  const repeatsLabel = el('label',
+    'flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 '
+    + 'text-amber-300 text-xs cursor-pointer', '')
+  repeatsLabel.title = 'Take the repeats when playing. On by default; turn it off to hear the score '
+    + 'straight through. Affects PLAYBACK only — the signs stay exactly where they are.'
+  const repeats = el('input', '') as HTMLInputElement
+  repeats.type = 'checkbox'
+  repeats.checked = true
+  repeats.addEventListener('change', () => getEngine()?.setRepeatsEnabled(repeats.checked))
+  repeatsLabel.appendChild(repeats)
+  repeatsLabel.appendChild(document.createTextNode('🔁 repeats'))
+  row.appendChild(repeatsLabel)
+  // ⚠️ An ENGINE read, like the `Small` button's below: no top-level state write happens when this
+  // changes, so the observable Proxy never emits and a state-only sync would light one press behind.
+  syncers.push(() => { repeats.checked = getEngine()?.getRepeatsEnabled() ?? true })
+
   host.appendChild(row)
 
   const sync = () => { for (const s of syncers) s() }
