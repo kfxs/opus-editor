@@ -3766,7 +3766,13 @@ export class MusicEngine {
    */
   barlineGapRoom(measureNumber: number): number | null {
     if (this.modelDirty) return null
-    return measuredBarlineGapRoom(this.renderer.getElementRegistry(), measureNumber)
+    // ⭐ The measure comes with it because the FLOOR depends on the sign this bar ends with: a final
+    //   bar or a repeat keeps its own ≈1.0–1.5 spaces of ink as well as the pair padding.
+    return measuredBarlineGapRoom(
+      this.renderer.getElementRegistry(),
+      measureNumber,
+      this.scoreModel.getMeasure(measureNumber) ?? undefined,
+    )
   }
 
   /** The authored gap before this bar's barline, in staff-spaces. 0 = the engraver's own. */

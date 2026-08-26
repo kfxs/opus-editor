@@ -793,6 +793,27 @@ the initial repeat barline would be unnecessary.)"* ⛔ That is advice to the CO
 constraint on the editor: an initial `|:` is conventionally omitted because a repeat returns to the
 beginning by default, but if it is asked for it is drawn. `e2e/barlineTypes.e2e.ts` pins bar 1's case.
 
+⭐⭐ **And his follow-up settled that it is not just permissible but WANTED** — *"i also remember that
+sibelius allow to place it if the user want… it will be good to allow the user place the barline at
+the beginning of the piece if he explicitly decides to"*. Checked in source, **all three engines allow
+it**, and the two that differ differ only in the DEFAULT:
+
+- **MuseScore** — no first-measure exception exists anywhere: `measurelayout.cpp:315` is
+  `if (measure->repeatStart())` → create the segment. Placed is drawn.
+- **LilyPond** — off by default, on by an explicit property (`bar-engraver.cc:448`:
+  `if (!first_time_ || printInitialRepeatBar)`), and its manual gives the musical reason: *"By
+  default, a starting bar line is not automatically printed at the beginning of a piece, in
+  accordance with classical engraving conventions. However, in some contexts, these bar lines are
+  **traditionally added, such as in lead sheets for jazz standards**."*
+- **VexFlow** — `setBegBarType(REPEAT_BEGIN)` on any stave; it has no notion of a first measure.
+- ⛔ **Sibelius — UNKNOWN**, no source to read. His recollection is recorded as his.
+
+⭐⭐ **Why we need no `printInitialRepeatBar` of our own, and it is §3.3's decision paying off twice.**
+LilyPond derives the sign from `\repeat volta` STRUCTURE, so it has to decide whether to *infer* one
+at the start of a piece — which is what the property overrides. We never infer: the three signs are
+PLACED, like every other mark in this editor. There is nothing to suppress, so there is nothing to
+switch back on, and the permissive behaviour he asked for is what the model already gives.
+
 ⏭️ **What P2 did NOT do, on purpose:** the two width terms of §5.1 (a bar does not yet RESERVE the
 sign's room — the ink is drawn inside its own bar and may crowd the last note there), the hit-box,
 and `measuredBarlineGapRoom`'s floor. All three are P3, and `barlineSignExtent` — the one owner they
@@ -843,9 +864,51 @@ mandatory and §4.6.3 is the bug report waiting to be written.
 
 </details>
 
-**P3 — the drag (§6.2).** `barlineSignExtent` as the one owner of the number; the hit-box grown from
+**P3 — the drag (§6.2). ✅ DONE** — all four items, plus `e2e/barlineSignRoom.e2e.ts`.
+
+- **The trailing width term cost NOTHING, and that is §6.1 paying off a second time.** §5.1 predicted
+  a new term "beside `LeadIn`"; it is not needed. That section was written while the sign still grew
+  RIGHTWARD, where its ink would have fallen past the last column into no gap at all — the symmetric
+  twin of `measureLeadIn`'s own bug. §6.1 reversed the direction, so the ink now lands in the gap
+  BEFORE the barline column, which `naturalWidth` already sums. ⇒ one line in `measureColumns`: the
+  barline column's ink box takes `barlineSignExtent(ownEndSignKind(measure)).left`.
+- **The LEADING term is real**, because a start repeat's ink is inside the bar that BEGINS at the
+  boundary, where no gap covers it: `repeatStartRoom(measure)`, added by BOTH readers of the lead-in
+  — `MeasureLayout`'s `sharedOverhead` and `applyLeadIn` — so the room and the drawing agree.
+- **The hit-box** grows leftward with the sign (`registerStaffAndGeometry`). ⏭️ It does **not** cover
+  the NEIGHBOUR's `|:`, whose ink is right of the boundary; that needs the next measure's fields and
+  the function is handed a lane, so it is owed together with P5's highlight.
+- **`measuredBarlineGapRoom`'s floor** is now `pairPadding + signExtent.left`, so `Shift+←` cannot
+  squeeze the last note into the dots. It takes the `Measure` for that.
+
+⭐ **What the browser measured, and it corrected a wrong assumption of §5.1's.** The bar does not
+push its last note left; it either absorbs the sign inside the gap's existing SPRING (a quarter earns
+~3.5 spaces, a final bar's 0.98 fits inside it and costs nothing) or, when the sign is wider than the
+spring, raises the gap's FLOOR and asks the line for more room. Both are correct; what may never
+happen is the ink closing on the note, and that is what the e2e asserts.
+
+🚨🚨 **AND A BUG HIS TESTING FOUND, which P2 shipped and P3 fixed** — *"the final bar and one of the
+simple bar that are in the second stave [have] been stolen from the first stave"*, then *"the bug
+occurs when i add another staff"*, with a screenshot of barlines floating in blank space below a
+system. **A bar whose SHAPE has not changed is REUSED**: the renderer keeps the old `Stave` and moves
+the drawn group with a `transform` (`replaySnapshot`), so that stave reports where the bar was LAST
+PAINTED. Ink inside the group rides the transform; a score-level pass draws outside it and does not.
+Adding a staff pushes every bar down without changing one shape, so every barline drew at the
+previous render's y. ⇒ `BarlineRenderer.staleShift` takes the position from the PLACEMENT.
+
+⭐ **Why no other score-level pass shows it:** the reuse decision refuses to translate a bar holding a
+span endpoint (`if (anchors.has(plan.measureNumber)) return`), so hairpins, slurs, ties, ottavas and
+pedals always get fresh staves. ⛔ A barline is on EVERY bar and can never be protected that way.
+⚠️ Third time reused coordinates have bitten this feature — the selection highlight was the first
+(docs/barline-selection.md, *"the coordinates LIE"*). Pinned by an e2e that nudges staff spacing and
+asserts **no barline rect sits at a y where no staff was drawn**.
+
+<details><summary>The original P3 plan, as written</summary>
+ `barlineSignExtent` as the one owner of the number; the hit-box grown from
 it (leftward, per §6.1); `measuredBarlineGapRoom`'s floor raised by the sign's left reach; the e2e
 spec that the three gestures still land where they are asked.
+
+</details>
 
 **P4 — the gesture** (⏳ still his call; the Time Signature window's *APPLIES if selected, else ARMS*
 is the shipped precedent for having both). The palette's three buttons stop logging and call

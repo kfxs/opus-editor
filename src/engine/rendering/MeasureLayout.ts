@@ -8,6 +8,7 @@ import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/lay
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
+import { repeatStartRoom } from '@/engine/layout/barlineSign'
 import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
@@ -202,7 +203,13 @@ function calculateMinimumMeasureWidth(
   // ⚠️ Keyed on the WIDEST header, so it is one answer for the system: a clef change on one staff moves
   //    every staff's note start together (`MeasurePlacement.system`), and the width has to reserve the
   //    same thing the drawing places.
-  const sharedOverhead = ((widestOverhead > 0 ? HEADER_TO_NOTE : leadIn.padding) + leadIn.extent) * STAFF_SPACE_PX
+  // ⭐ …plus §5.1's LEADING TERM: a bar that OPENS a repeat has ≈1.5 staff spaces of sign standing
+  //   before its first column, and no gap in the model covers it — the sign is not a column and it
+  //   is not the lead-in's padding, which is the blank between the two. `applyLeadIn` adds the same
+  //   number to where the notes are actually drawn, so the reservation and the drawing agree.
+  //   ⛔ The trailing side needs nothing here: §6.1 puts an end sign's ink INSIDE its own bar, so it
+  //   falls in the gap before the barline column, which `naturalWidth` already sums.
+  const sharedOverhead = ((widestOverhead > 0 ? HEADER_TO_NOTE : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
   // must not dominate a line", which is a taste about bars that could be narrower — and it was being

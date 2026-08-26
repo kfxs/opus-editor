@@ -279,3 +279,41 @@ export function dotLines(numLines: number): [number, number] {
 export function barlineSignExtent(kind: BarlineSignKind): { left: number; right: number } {
   return barlineSignParts(kind).extent
 }
+
+/**
+ * ⭐ **The sign this bar ends with, from THIS bar's own fields and nothing else** — what the WIDTH
+ * asks, as against {@link signAtBoundary}, which is what the DRAWING asks.
+ *
+ * The two differ on purpose and only ever in the bar's favour. Room is owed by the measure that
+ * stores the statement (§5.1, and it is what ONE OWNER PER LINE buys), so this may not read a
+ * neighbour; the picture is decided by both bars, so `signAtBoundary` must. ⚠️ Where they disagree —
+ * a `repeatEnd` whose neighbour opens a repeat, drawn as the back-to-back form — the drawn sign is
+ * **narrower** on this side than an end repeat (one shared thick line, not two halves), so reserving
+ * this bar's own sign always covers what is drawn. ⛔ Never the other way round: a bar that reserved
+ * less than it draws would put ink through its own last note.
+ */
+export function ownEndSignKind(measure: Measure): BarlineSignKind {
+  if (measure.repeatEnd !== undefined) return 'repeatEnd'
+  if (measure.barline?.style === 'final') return 'final'
+  return 'plain'
+}
+
+/**
+ * ⭐ **How much extra room this bar owes at its START, for a repeat it opens with** — §5.1's
+ * "leading term", in staff spaces. Zero for every bar that does not open one.
+ *
+ * A start repeat is the one sign whose ink is inside the bar that BEGINS at the boundary, so unlike
+ * the trailing side it falls in no gap the column model sums: `measureLeadIn` is the bar's first
+ * column, and the sign stands before it. Both readers of the lead-in have to add this — the width
+ * (`MeasureLayout`) and the drawing (`applyLeadIn`) — or the bar reserves room the notes never move
+ * out of, or moves them without reserving it.
+ *
+ * ⚠️ It is the same number whether or not the bar draws a header. With no header the sign stands on
+ * the boundary and grows right, so the notes start that much further in; with one it is displaced
+ * past the clef (`BarlineRenderer.displacedRepeatX`) into the gap between header and music, which
+ * has to grow by exactly as much. ⛔ Do not make it conditional on the header: the two cases need
+ * the same room for different reasons, and the drawing already computes its own x from `noteStartX`.
+ */
+export function repeatStartRoom(measure: Measure): number {
+  return measure.repeatStart === undefined ? 0 : barlineSignExtent('repeatStart').right
+}

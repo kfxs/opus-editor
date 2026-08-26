@@ -21,12 +21,13 @@
  * because a measurement of a drawing is a derived view of the music and never the music itself
  * (docs/DESIGN-PRINCIPLES.md principle 3).
  */
-import type { Fraction } from '@/types/music'
+import type { Fraction, Measure } from '@/types/music'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import { fracToNumber } from '@/utils/fraction'
 import { staffOf } from '@/utils/lanes'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { INK, MIN_COLUMN_GAP, pairPadding, restExtent } from './spacingPadding'
+import { barlineSignExtent, ownEndSignKind } from './barlineSign'
 
 /**
  * How much further LEFT this column may still be pulled before it closes on its left neighbour,
@@ -147,7 +148,14 @@ export function fanMemberShrinkRoom(
  *
  * @returns null when the last render cannot answer (nothing drawn in that bar, or no geometry).
  */
-export function measuredBarlineGapRoom(registry: ElementRegistry, measureNumber: number): number | null {
+export function measuredBarlineGapRoom(
+  registry: ElementRegistry,
+  measureNumber: number,
+  /** ⭐ The bar itself, for the SIGN it ends with — a final bar or a repeat keeps more of the gap
+   *  than a plain line does (see the floor below). Absent means "a plain line", which is what every
+   *  caller written before barline types meant. */
+  measure?: Measure,
+): number | null {
   /** Per staff: the last drawn column's x, and whether it is nothing but rests. */
   const byStaff = new Map<number, { lastX: number; lastBeat: number; lastIsRest: boolean }>()
   for (const el of registry.getByMeasure(measureNumber)) {
@@ -170,7 +178,15 @@ export function measuredBarlineGapRoom(registry: ElementRegistry, measureNumber:
     const geometry = registry.getStaffGeometry(measureNumber, staff)
     if (!geometry) return null
     const spacePx = geometry.lineSpacing ?? STAFF_SPACE_PX
+    // ⭐⭐ **THE FLOOR IS THE PADDING PLUS THE SIGN** (docs/barline-types-plan.md §6.2). The blank a
+    // bar must keep between its last glyph and its barline is `pairPadding`, and that is measured to
+    // the line's INK — but a final bar or a repeat puts ≈1.0–1.5 staff spaces of its own ink to the
+    // LEFT of the line (§6.1). Without the second term `Shift+←` would happily close the gap onto
+    // the boundary and squeeze the bar's last note into the repeat dots.
+    // ⭐ `noteEndX` still means exactly what it always did — the boundary — which is the point of
+    //   §6.1: only the FLOOR moves, not the thing everything else measures to.
     const keep = pairPadding(lastIsRest ? 'rest' : 'note', 'barline')
+      + (measure ? barlineSignExtent(ownEndSignKind(measure)).left : 0)
     const mine = Math.max(0, (geometry.noteEndX - lastX) / spacePx - keep)
     room = room === null ? mine : Math.min(room, mine)
   }

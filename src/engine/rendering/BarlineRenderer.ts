@@ -68,6 +68,42 @@ export interface BarlinePlacement {
   measureNumber: number
   staffIndex: number
   stave: Stave
+  /**
+   * 🚨🚨 **WHERE THE BAR IS THIS RENDER, which is not always where its STAVE says it is.**
+   *
+   * A bar whose shape has not changed is REUSED rather than re-engraved: the renderer keeps the old
+   * `Stave` object and moves the drawn group with a `transform: translate(dx, dy)`
+   * (`replaySnapshot`). The stave's own numbers are therefore **where the bar was last PAINTED**, and
+   * everything drawn inside that group rides the transform back into place — but this pass draws
+   * OUTSIDE it, so nothing carries its signs along.
+   *
+   * Reported from use on a grand staff: *"the final bar and one of the simple bar that are in the
+   * second stave [have] been stolen from the first stave"* — a staff-spacing nudge translates every
+   * bar without re-engraving one, and every barline stayed at the previous render's y.
+   *
+   * ⭐ This is the SAME trap the barline selection highlight fell into once already
+   * (docs/barline-selection.md: *"the coordinates LIE"*), which is why the fix is the same shape:
+   * take the position from the PLACEMENT — the plan for THIS render — and never from the stave.
+   */
+  x: number
+  y: number
+  width: number
+  /** The staff's drawn scale. `x`/`y`/`width` are SVG-space; the stave lives in its own scaled
+   *  space, so the two are compared after dividing by this. */
+  scale: number
+}
+
+/**
+ * 🚨 **How far this render moved the bar since its stave was built** — see {@link BarlinePlacement.x}.
+ *
+ * Zero for every bar that was re-engraved (the stave was built at the plan's own coordinates), and
+ * non-zero for exactly the bars that were reused and translated. Everything this pass reads off the
+ * stave — `getX`, `getWidth`, `getTopLineTopY`, `getYForLine`, `getNoteStartX` — is in the stave's
+ * own space, so the shift is applied there and not in the SVG's.
+ */
+function staleShift(placement: BarlinePlacement): { dx: number; dy: number } {
+  const { stave, scale } = placement
+  return { dx: placement.x / scale - stave.getX(), dy: placement.y / scale - stave.getY() }
 }
 
 /** Which end of a bar a sign was drawn at — only ever used to make the SVG group's id unique. */
@@ -124,8 +160,11 @@ function drawSign(
   const ctx = pass.context
   const { stave, staffIndex, measureNumber } = placement
   const space = stave.getSpacingBetweenLines()
-  const topY = stave.getTopLineTopY()
-  const botY = stave.getBottomLineBottomY()
+  // 🚨 Every number below is the STAVE's, so it is the last render's for a bar that was reused and
+  //    translated. See {@link staleShift}.
+  const { dy } = staleShift(placement)
+  const topY = stave.getTopLineTopY() + dy
+  const botY = stave.getBottomLineBottomY() + dy
   const parts = barlineSignParts(kind)
 
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
@@ -139,7 +178,7 @@ function drawSign(
       }
       for (const dot of parts.dots) {
         for (const line of dotLines(stave.getNumLines())) {
-          drawRepeatDot(ctx, boundaryX + dot.x * space, stave.getYForLine(line), space)
+          drawRepeatDot(ctx, boundaryX + dot.x * space, stave.getYForLine(line) + dy, space)
         }
       }
     })
@@ -183,7 +222,7 @@ function drawSign(
  * @returns the x to centre the sign on, or `null` when the bar has no header and the sign belongs on
  *          its own boundary.
  */
-function displacedRepeatX(stave: Stave, signRight: number): number | null {
+function displacedRepeatX(stave: Stave, signRight: number, dx = 0): number | null {
   // A `NONE` begin bar is still a modifier, so the question is "anything but a barline".
   const header = stave.getModifiers(StaveModifierPosition.BEGIN).filter(m => m.getCategory() !== 'Barline')
   if (header.length === 0) return null
@@ -192,7 +231,7 @@ function displacedRepeatX(stave: Stave, signRight: number): number | null {
   // and the left side of the first note is one space"*). ⏭️ The bar does not RESERVE this room yet,
   // so on a tight header the sign can still crowd the meter glyph; that is §5.1's leading term, P3.
   const space = stave.getSpacingBetweenLines()
-  return stave.getNoteStartX() - space - signRight * space
+  return stave.getNoteStartX() + dx - space - signRight * space
 }
 
 /**
@@ -222,17 +261,20 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     // this boundary rather than after a header of its own. Any of those three failing means the
     // neighbour's `|:` is not standing here, so nothing of this bar's is suppressed.
     const nextPlacement = neighbour(1)
-    const next = nextPlacement && displacedRepeatX(nextPlacement.stave, 0) === null
+    const next = nextPlacement && displacedRepeatX(nextPlacement.stave, 0, 0) === null
       ? byNumber.get(n + 1)
       : undefined
     const endKind = signAtBoundary(measure, next)
-    if (endKind) drawSign(pass, placement, stave.getX() + stave.getWidth(), endKind, 'end')
+    // 🚨 The boundary comes from the PLACEMENT, never from `stave.getX() + stave.getWidth()` — a
+    //    reused bar's stave reports where it was last painted. See {@link staleShift}.
+    const { dx } = staleShift(placement)
+    if (endKind) drawSign(pass, placement, stave.getX() + stave.getWidth() + dx, endKind, 'end')
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
     if (measure.repeatStart === undefined) continue
 
     // ⭐ A header displaces the sign into the bar, after the clef/key/meter — see `displacedRepeatX`.
-    const displaced = displacedRepeatX(stave, barlineSignParts('repeatStart').extent.right)
+    const displaced = displacedRepeatX(stave, barlineSignParts('repeatStart').extent.right, dx)
     if (displaced !== null) {
       // ⛔ Always `repeatStart` alone, never the back-to-back form: the previous bar's own end sign
       // is a different mark at a different x now, and combining them would draw one sign in the
@@ -248,6 +290,6 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     if (neighbour(-1)) continue
     const prev = lineOf(n - 1) === line ? byNumber.get(n - 1) : undefined
     const startKind = signAtBoundary(prev, measure)
-    if (startKind) drawSign(pass, placement, stave.getX(), startKind, 'start')
+    if (startKind) drawSign(pass, placement, stave.getX() + dx, startKind, 'start')
   }
 }

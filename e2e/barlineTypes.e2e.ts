@@ -140,24 +140,44 @@ test('⭐⭐ a repeat opening the NEXT system does not strip this system\'s last
   // bar whose successor opens a repeat on the next line ends its system with no barline at all. All
   // three engines print the start repeat at the beginning of the new line and nothing at the end of
   // the previous one.
-  const { staves, dots } = await drawn(score, 24, '')
+  const { staves } = await drawn(score, 24, '')
   const systems = [...new Set(staves.map(s => s.top))].sort((a, b) => a - b)
-  expect(systems.length, 'the score wrapped onto more than one system').toBeGreaterThan(1)
+  expect(systems.length, 'the score wrapped onto more than one system').toBeGreaterThan(2)
 
-  const secondSystem = staves.filter(s => s.top === systems[1]).sort((a, b) => a.x1 - b.x1)
-  const opener = secondSystem[0].measure
-  const lastOfFirst = opener - 1
+  // ⚠️ **The LAST system's opener, not the second's.** A start repeat makes its bar ~1.5 staff spaces
+  // wider (P3 reserves the room), which can re-wrap the line it is on — and re-targeting the test
+  // after the fact would be testing whichever bar the casting-off happened to leave there. The last
+  // system has slack, so growing its first bar cannot pull anything into the system before it.
+  const lastSystem = staves.filter(s => s.top === systems[systems.length - 1]).sort((a, b) => a.x1 - b.x1)
+  const opener = lastSystem[0].measure
+  expect(opener, 'the last system opens mid-score, so there is a previous one to close')
+    .toBeGreaterThan(1)
 
   const after = await drawn(score, 24, `h.engine.setRepeatStart(${opener}, true)`)
-  const closing = after.staves.find(s => s.measure === lastOfFirst)!
-  const ending = at(after.rects, closing.x2).filter(r => Math.abs(r.x - closing.x2) < 1 && Math.abs(r.y - closing.top) < 1)
-  expect(ending, `bar ${lastOfFirst} still closes its system`).toHaveLength(1)
-
-  // …and the repeat is drawn at the START of the new system, where the reader arrives.
   const openerStave = after.staves.find(s => s.measure === opener)!
-  const opening = at(after.rects, openerStave.x1).filter(r => Math.abs(r.y - openerStave.top) < 1)
-  expect(opening.length, 'the new line opens with the repeat sign').toBeGreaterThanOrEqual(2)
-  expect(after.dots.length - dots.length, 'and its two dots').toBe(2)
+  const closing = after.staves.find(s => s.measure === opener - 1)!
+  expect(closing.top, 'the previous bar is still on the system above').toBeLessThan(openerStave.top)
+
+  const ending = at(after.rects, closing.x2)
+    .filter(r => Math.abs(r.x - closing.x2) < 1 && Math.abs(r.y - closing.top) < 2)
+  expect(ending, `bar ${opener - 1} still closes its system`).toHaveLength(1)
+
+  // …and the repeat is drawn at the START of the new system, where the reader arrives — but AFTER
+  // the clef that opens it (Gould p. 234), so `x1` itself still carries only the system's own
+  // opening line. ⭐ A displaced repeat suppresses nothing, which is the second half of that rule.
+  // ⚠️ Filter by the BAND as well as the x — every system starts at the same x, so an x-only filter
+  //    collects one row per system (`barlineGap.e2e.ts`'s standing warning).
+  const opening = after.rects.filter(r => Math.abs(r.x - openerStave.x1) < 1
+    && Math.abs(r.y - openerStave.top) < 2)
+  expect(opening, 'the new system still opens with its own line').toHaveLength(1)
+
+  const inBar = after.rects.filter(r => r.x > openerStave.x1 && r.x < openerStave.x2
+    && Math.abs(r.y - openerStave.top) < 2)
+  const thick = inBar.filter(r => Math.abs(r.width - THICK) < 0.6)
+  expect(thick, 'and the repeat stands inside the bar, past the clef').toHaveLength(1)
+  expect(thick[0].x, 'well clear of the stave edge').toBeGreaterThan(openerStave.x1 + 2 * SPACE)
+  const openerDots = after.dots.filter(d => d.x > openerStave.x1 && d.x < openerStave.x2)
+  expect(openerDots, 'with its two dots').toHaveLength(2)
 })
 
 test('the drag invariant survives every sign: the dividing line is still at the stave\'s own x2', async ({ score }) => {
@@ -201,4 +221,59 @@ test('⭐⭐ a repeat opening a bar that draws a CLEF stands AFTER the clef, not
   // never stands on the boundary, so the line that opens the system keeps its place.
   const opening = inBar.filter(r => Math.abs(r.x - staff.x1) < 1)
   expect(opening, 'the system still opens with a line').toHaveLength(1)
+})
+
+test('🚨🚨 a bar that MOVED without being re-engraved takes its barline with it', async ({ score }) => {
+  // **His report, 2026-08-26**: *"the final bar and one of the simple bar that are in the second
+  // stave [have] been stolen from the first stave"*, and then *"the bug occurs when i add another
+  // staff"* — with a screenshot of three barlines floating in the blank space below a system.
+  //
+  // 🚨 **THE COORDINATES LIE.** A bar whose SHAPE has not changed is reused rather than re-engraved:
+  // the renderer keeps the old `Stave` and moves the drawn group with a `transform: translate(dx,dy)`
+  // (`replaySnapshot`). Everything drawn INSIDE that group rides the transform; this pass draws
+  // outside it, so reading `stave.getX()` / `getTopLineTopY()` gave the position of the render
+  // BEFORE last. Adding a staff pushes every bar down without changing one of them, which is why
+  // that gesture showed it whole.
+  //
+  // ⭐ The same trap the barline selection HIGHLIGHT fell into once already
+  // (docs/barline-selection.md, "PAINT don't RECOLOUR"). The fix is the same shape: take the
+  // position from the PLACEMENT — the plan for THIS render — never from the stave.
+  const out = await score.evaluate(async () => {
+    const h = window.__h
+    while (h.engine.getScore().measures.length < 6) h.engine.addMeasure()
+    for (let m = 1; m <= 6; m++) {
+      for (const b of [0, 1, 2, 3]) {
+        h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: m, beat: h.frac(b, 1) })
+      }
+    }
+    h.engine.addStaffBelow(0)
+    h.engine.setRepeatEnd(2, true)
+    h.engine.setBarlineStyle(3, 'final')
+    await h.render()
+
+    // Translate every bar without re-engraving one: a staff-spacing nudge keeps every shape key.
+    h.engine.nudgeStaffSpacing(1, 1, 4)
+    await h.render()
+
+    const staves = h.staves()
+    const rects = h.barlines()
+    return {
+      perStaff: staves.map(s => ({
+        m: s.measure,
+        staff: s.staff,
+        n: rects.filter(r => Math.abs(r.y - s.top) < 3 && r.x > s.x2 - 25 && r.x < s.x2 + 12).length,
+      })),
+      // Any barline rect sitting at a y where NO staff was drawn — the floating lines in his picture.
+      orphans: rects.filter(r => !staves.some(s => Math.abs(r.y - s.top) < 3))
+        .map(r => ({ x: Math.round(r.x), y: Math.round(r.y) })),
+    }
+  })
+
+  expect(out.orphans, 'no barline is left behind at the previous render\'s position').toEqual([])
+  // …and the two staves agree bar for bar, which is what "stolen from the first stave" looked like.
+  for (const bar of [1, 2, 3, 4, 5]) {
+    const [top, bottom] = out.perStaff.filter(p => p.m === bar).map(p => p.n)
+    expect(top, `bar ${bar} drew its barline on the top staff`).toBeGreaterThan(0)
+    expect(bottom, `bar ${bar}: both staves drew the same sign`).toBe(top)
+  }
 })

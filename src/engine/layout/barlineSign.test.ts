@@ -6,7 +6,7 @@
  * measures zeros and agrees with itself. That half is `e2e/barlineTypes.e2e.ts`.
  */
 import { describe, it, expect } from 'vitest'
-import { barlineSignParts, barlineSignExtent, dotLines, signAtBoundary } from './barlineSign'
+import { barlineSignParts, barlineSignExtent, dotLines, ownEndSignKind, repeatStartRoom, signAtBoundary } from './barlineSign'
 import type { Measure } from '@/types/music'
 
 /** A bar carrying only the barline statements under test — nothing else here reads a measure. */
@@ -158,5 +158,39 @@ describe('dotLines — ⭐⭐ the dots go in SPACES, on every staff', () => {
         expect(Math.abs(line % 1), `${lines}-line staff put a dot on a LINE at ${line}`).toBe(0.5)
       }
     }
+  })
+})
+
+describe('the width terms — ⭐ what the bar RESERVES for its own sign (P3, §5.1)', () => {
+  it('ownEndSignKind reads THIS bar and never a neighbour', () => {
+    expect(ownEndSignKind(bar())).toBe('plain')
+    expect(ownEndSignKind(bar({ barline: { style: 'final' } }))).toBe('final')
+    expect(ownEndSignKind(bar({ repeatEnd: {} }))).toBe('repeatEnd')
+    // ⭐ A bar that merely OPENS a repeat ends with a plain line — the two statements are owned by
+    // different bars, which is what makes the reserved room a local question at all.
+    expect(ownEndSignKind(bar({ repeatStart: {} }))).toBe('plain')
+  })
+
+  it('⭐ …and where it differs from what is DRAWN, it over-reserves — never under', () => {
+    // Bar N has an end repeat and bar N+1 opens one: the drawing combines them into the shared-thick
+    // back-to-back form, which reaches LESS far into bar N than a full end repeat does.
+    const reserved = barlineSignExtent(ownEndSignKind(bar({ repeatEnd: {} }))).left
+    expect(reserved).toBeGreaterThan(barlineSignExtent('repeatBoth').left)
+  })
+
+  it('repeatStartRoom is the leading term, and only a bar that opens a repeat owes it', () => {
+    expect(repeatStartRoom(bar())).toBe(0)
+    expect(repeatStartRoom(bar({ barline: { style: 'final' }, repeatEnd: {} }))).toBe(0)
+    expect(repeatStartRoom(bar({ repeatStart: {} }))).toBeCloseTo(barlineSignExtent('repeatStart').right, 10)
+  })
+
+  it('🚨 the two terms are on DIFFERENT SIDES, which is why only one of them needed new code', () => {
+    // The trailing sign's ink is all to the LEFT of the boundary, so it lands in the gap before the
+    // barline column — a gap `naturalWidth` already sums. The leading sign's is all to the RIGHT,
+    // inside the bar that BEGINS there, where no gap covers it. That asymmetry is §6.1's geometry
+    // rule showing up in the width path.
+    expect(barlineSignExtent('final').right).toBe(0)
+    expect(barlineSignExtent('repeatEnd').right).toBe(0)
+    expect(barlineSignExtent('repeatStart').left).toBe(0)
   })
 })

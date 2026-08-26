@@ -28,6 +28,7 @@ import type { Measure, Fraction, ChordRest, NotePitch, Clef } from '@/types/musi
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fanSpanRods } from './fanRampRoom'
+import { barlineSignExtent, ownEndSignKind } from './barlineSign'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { voiceOf } from '@/utils/lanes'
@@ -487,8 +488,29 @@ export function measureColumns(
   positions.push(capacity)
   // ⛔ A barline's band is the whole staff on purpose: it can never be vertically clear of anything,
   //   so no kerning rule can ever tuck ink through a barline.
-  //   Size 1 and it reaches nowhere anyway: a barline belongs to the system, not to a staff.
-  inks.push([{ left: 0, right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined, size: 1 }])
+  //
+  // ⭐⭐ **AND ITS LEFT REACH IS THE SIGN'S — which is the whole of §5.1's "trailing term", and it
+  //   turned out to cost nothing.** A final bar is ≈1.0 staff space of ink and an end repeat ≈1.5,
+  //   and §6.1 puts all of it INSIDE the bar the line ends. So it lands in the gap BEFORE this
+  //   column — the one gap `naturalWidth` already sums — and the bar asks for the room by itself.
+  //   ⭐ That is LilyPond's `NoteSpacing.space-to-barline` exactly: the last note is measured to the
+  //   LEFT EDGE of the barline group, so a wide sign does not steal the bar's last beat.
+  //
+  // ⚠️ §5.1 of docs/barline-types-plan.md predicted a separate term "beside `LeadIn`" and it is not
+  //   needed. That section was written while the sign still grew RIGHTWARD, where its ink would have
+  //   fallen past the last column into no gap at all — the symmetric twin of `measureLeadIn`'s own
+  //   bug. §6.1 reversed the direction, and the reversal dissolved the term.
+  //
+  // ⭐ **Local, because of ONE OWNER PER LINE**: the sign this bar ends with is a fact about THIS
+  //   measure's own fields, so nothing here reads a neighbour. ⚠️ Where the drawing combines two
+  //   statements into the back-to-back form its ink is NARROWER than an end repeat's (one shared
+  //   thick line instead of two halves), so reserving this bar's own sign always covers it.
+  //
+  //   Size 1: the room is the SYSTEM's, and a staff drawn small merely uses less of it.
+  inks.push([{
+    left: barlineSignExtent(ownEndSignKind(measure)).left,
+    right: 0, top: 0, bottom: 4, kind: 'barline', staff: undefined, size: 1,
+  }])
 
   // ⭐⭐ A FAN'S RAMP IS A ROD OVER THE GAPS IT CROSSES, not a column of its own — see `Column.rod`
   //   and `engine/layout/fanRampRoom.ts`. Computed here, where the final grid is known: the members

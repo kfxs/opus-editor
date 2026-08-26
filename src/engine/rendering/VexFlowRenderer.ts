@@ -59,6 +59,7 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
+import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
@@ -2465,8 +2466,14 @@ export class VexFlowRenderer {
         : hasClefChange ? { clef, small: true } : undefined,
       meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
     })
+    // ⭐ …and a bar that OPENS A REPEAT starts its music that much further in again, because the sign
+    //   stands between the boundary (or the header) and the first note. The same number the width
+    //   path reserves (`MeasureLayout`'s `sharedOverhead`), so the room and the drawing agree by
+    //   construction — and `BarlineRenderer` then measures the displaced sign back from `noteStartX`,
+    //   which is what this call sets.
     applyLeadIn(stave, x,
-      systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding),
+      (systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
+        + repeatStartRoom(measure),
       systemHeader, scale)
     spreadHeaderToSystem(stave, scale)
     return stave
@@ -3335,11 +3342,27 @@ export class VexFlowRenderer {
       }
     }
 
+    // ⭐⭐ **THE GRAB TARGET GROWS WITH THE SIGN — LEFTWARD** (docs/barline-types-plan.md §6.2).
+    // A plain line's box straddles the boundary by 2px each way and is padded ±4 by
+    // `interactions/elements/barline.ts` to be clickable at all. A final bar is ≈1.0 staff space of
+    // ink and an end repeat ≈1.5 — 10 to 15 px here — and §6.1 puts every bit of it to the LEFT of
+    // the boundary, so without this the drag would start off the ink for two of the three signs.
+    //
+    // ⚠️ **`hitsNoteOrRestBody` is what keeps this honest**, and it matters more now than it did:
+    // the box reaches further into the bar's last column than the ±4 pad ever could, so the chain's
+    // rule — a press that lands on a note or rest body is never the barline's — is the only thing
+    // stopping a repeat sign from swallowing clicks on the notes beside it.
+    //
+    // ⏭️ **The one sign this does NOT cover is the neighbour's `|:`**, whose ink is to the RIGHT of
+    // this boundary and inside the bar that opens there. Covering it needs the next measure's
+    // fields, and this function is handed a LANE and no score; the same asymmetry is owed by the
+    // selection highlight (P5), so both should be fixed together rather than threaded twice.
+    const signLeftPx = barlineSignExtent(ownEndSignKind(measure)).left * stave.getSpacingBetweenLines()
     this.elementRegistry.add({
       type: 'barline',
       measure: measure.number,
       staff: staffIndex,
-      bbox: { x: x + width - 2, y: lineTop, width: 4, height: staffSpan },
+      bbox: { x: x + width - 2 - signLeftPx, y: lineTop, width: 4 + signLeftPx, height: staffSpan },
     })
   }
 
