@@ -145,6 +145,34 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    */
   pedals: 'ignored',
 
+  /**
+   * ⭐ **The line ending this bar is WIDER ink than a plain one, so the bar needs more room.** A
+   * final barline is ≈1.0 staff-space of ink and a repeat ≈1.5 against the plain line's 0.16
+   * (docs/barline-types-plan.md §4.1, §4.2), and §6.1 puts that ink INSIDE the bar that stores it —
+   * so the bar's own width has to pay for it. There is no "extra space *because* a barline is
+   * final": the gap before it stays the pair table's (`note↔barline` 1.2, `rest↔barline` 1.65) and
+   * the sign is simply wider, which is LilyPond's `space-to-barline` exactly (§5).
+   *
+   * ⚠️ **What this table CANNOT say, and the reason it does not have to.** `MEASURE_RENDER_ROLE` is
+   * per-measure and own-fields-only, so it asks what bar *N*'s field does to bar *N*'s keys. A start
+   * repeat also changes the NEIGHBOUR's picture — bar *N* must draw no line into it — and no answer
+   * here can express that. It is not an omission: the barline is drawn by a score-level pass rebuilt
+   * from scratch each render (§4.6.3), so no measure's cached `<g>` holds a barline to go stale, on
+   * the `ottavas` row's reasoning below. ⛔ If that pass is ever descoped back to letting VexFlow
+   * draw the line inside the measure group, this needs a companion entry in `ShapeKeyInputs` — the
+   * seam `crossBarBeams` and `cautionaryEndClef` already use for a neighbour-decided picture — and
+   * without it bar *N* silently reuses a stale group.
+   */
+  barline: 'width',
+
+  /** The opening repeat's ink sits inside the bar it opens, so it is that bar's width — the
+   *  `barline` row above, one boundary over (its leading term folds into `measureLeadIn`, §5.1). */
+  repeatStart: 'width',
+
+  /** The closing repeat, on the `barline` row's terms — and `times` is drawn text beside the sign,
+   *  so a bar that gains "play 3 times" is a different picture as well as a different width. */
+  repeatEnd: 'width',
+
   /** Rewrites tick values *before* the formatter runs, and draws a bracket/number. */
   tuplets: 'width',
 }

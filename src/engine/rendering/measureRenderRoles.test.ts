@@ -63,6 +63,9 @@ const PERTURB: Record<keyof Measure, (m: Measure) => void> = {
   hairpins: m => { m.hairpins = [{ id: 'h1', type: 'cresc', beat: frac(0, 1), length: frac(2, 1) }] },
   ottavas: m => { m.ottavas = [{ id: 'o1', beat: frac(0, 1), length: frac(2, 1), shift: 1 }] },
   pedals: m => { m.pedals = [{ id: 'pd1', beat: frac(0, 1), length: frac(2, 1) }] },
+  barline: m => { m.barline = { style: 'final' } },
+  repeatStart: m => { m.repeatStart = {} },
+  repeatEnd: m => { m.repeatEnd = { times: 3 } },
   tuplets: m => { m.tuplets = [{ id: 'tp1', numNotes: 3, notesOccupied: 2 }] as never },
 }
 

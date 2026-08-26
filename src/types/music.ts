@@ -1876,6 +1876,88 @@ export interface Rest {
 export type ChordRest = Chord | Rest
 
 /**
+ * **The KIND of line drawn at a measure's end** — a barline STYLE, and nothing else.
+ *
+ * ⛔ **A REPEAT IS NOT A STYLE** ({@link RepeatStart} / {@link RepeatEnd}), and that is the one
+ * decision this whole family rests on (docs/barline-types-plan.md §3.2). MNX's `barline-type` list
+ * carries no repeat value; SMuFL puts barlines at U+E030–E039 and repeats at U+E040–E04D; MusicXML,
+ * which does merge them, needs two fields kept consistent (`light-heavy` **and**
+ * `<repeat direction="backward"/>`), and MEI, which merged them harder, had to invent `rptboth` for
+ * "end repeat then start repeat" because one slot could not hold two statements.
+ *
+ * ⭐ **One member today, deliberately.** Of the three signs asked for, ONE is a style — `final` —
+ * and the other two are repeats. A union with a single member is the point of the split, not
+ * evidence against it. The family's other members (`double`, `heavy`, `dashed`, `dotted`, `tick`,
+ * `short`, and the invisible `none`) each cost one member here plus one drawing case; ⛔ none is
+ * added until it is asked for (plan §0) — a value with no drawing behind it is a lie the compiler
+ * cannot catch.
+ */
+export type BarlineStyle = 'final'
+
+/**
+ * **A barline statement: the line that ENDS this measure.**
+ *
+ * The measure the line ends is unanimous across the standards — MNX (*"the barline drawn at the end
+ * of this measure"*), MusicXML (`location` defaults to `right`), MEI (`@right` *"structurally
+ * important"*, `@left` legacy) and Finale — and it is already both our selection identity
+ * (`{ kind: 'barline', measure: N }`) and our drawing rule (a bar draws only the line that ends it).
+ *
+ * ⭐ **`staffId` is the SCOPE, and absent means the WHOLE SYSTEM** — the `Dynamic.voice` /
+ * `Hairpin.voice` rule one axis over (`utils/dynamicScope`), the deliberate inverse of `utils/lanes`'
+ * "absent = the first one". Classical notation states a barline for the system; contemporary music
+ * mixes system-wide and per-staff, so the scope is stored from day one and **nothing reads it yet**
+ * (plan §2). ⛔ Do not read it as "which staves the line spans" — span is a property of the STAFF
+ * everywhere (MuseScore `Staff::barLineSpan`, LilyPond's `SpanBar` grob, Verovio `@bar.thru`), never
+ * of the line.
+ *
+ * ⚠️ **A boundary fact, not a beat anchor.** There is no `beat`: this names the bar's end, which is
+ * why it rides its measure object through a rebar rather than travelling by offset the way a clef
+ * change, a dynamic or a hairpin does.
+ */
+export interface BarlineStatement {
+  /** The kind of line. */
+  style: BarlineStyle
+  /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
+  staffId?: string
+}
+
+/**
+ * **This measure OPENS a repeat** ( `|:` ) — a statement about the line that BEGINS the bar, and the
+ * one member of this family that is not filed under the bar it ends.
+ *
+ * ⭐ **ONE OWNER PER LINE.** The start repeat belongs to the FOLLOWING measure and the end barline to
+ * the preceding one, so no two measures ever name the same line — MuseScore's shape, and the reason
+ * it needs none of Verovio's ~60 lines of `SetDrawingBarLines` conflict resolution (plan §3.2).
+ * Back-to-back repeats therefore need no vocabulary of their own: bar *N* carries {@link RepeatEnd},
+ * bar *N+1* carries this, and the DRAWING combines them.
+ *
+ * `staffId`: the scope, absent = the whole system — see {@link BarlineStatement}.
+ */
+export interface RepeatStart {
+  /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
+  staffId?: string
+}
+
+/**
+ * **This measure CLOSES a repeat** ( `:|` ) — the sign at the end of this bar.
+ *
+ * ⛔ **Drawing `:|` is INK; playing bars twice is a play ORDER**, and nothing in this model expresses
+ * one (plan §7). Playback walks `score.measures` straight through and must keep doing so: a repeat
+ * that silently changed what Play does, with no way to see or edit the resulting order, is worse than
+ * one that only draws. A future play order READS this field as one input among several (voltas,
+ * jumps, `times`) — MuseScore's `RepeatList` never reads the barline at all.
+ */
+export interface RepeatEnd {
+  /**
+   * How many times the passage is played in total (*"play 3 times"*). Absent = twice, the default
+   * every reader assumes. Stored for the sign's text; **nothing plays it** (see above).
+   */
+  times?: number
+  /** Which staff this governs; **absent = the whole system**. Stored, not yet read (plan §2). */
+  staffId?: string
+}
+
+/**
  * Represents a measure in the score
  */
 export interface Measure {
@@ -1961,6 +2043,23 @@ export interface Measure {
    * See docs/pedal-plan.md §3; ops in `engine/models/pedalOps`.
    */
   pedals?: Pedal[]
+  /**
+   * **The kind of line that ENDS this bar.** Absent = a plain single line, by rule — there is no
+   * stored default and no automatic final barline on the last bar of the score (plan §3.3: MNX and
+   * MuseScore add one, LilyPond and Verovio decline, and Gould's final barline marks *"the actual
+   * end of the piece"*, which is a statement a composer makes rather than a property of whichever
+   * bar happens to be last in the file).
+   *
+   * ⛔ Repeats are NOT styles — see {@link repeatStart} / {@link repeatEnd} and {@link BarlineStyle}.
+   * Ops in `engine/models/barlineOps`; see docs/barline-types-plan.md §3.
+   */
+  barline?: BarlineStatement
+  /** **This bar OPENS a repeat** ( `|:` ). The one sign filed under the bar it begins rather than the
+   *  bar it ends — see {@link RepeatStart} for why that is what keeps the picture unambiguous. */
+  repeatStart?: RepeatStart
+  /** **This bar CLOSES a repeat** ( `:|` ). ⛔ Ink only — it does not change what Play does
+   *  ({@link RepeatEnd}, plan §7). */
+  repeatEnd?: RepeatEnd
   /** Tuplets in this measure */
   tuplets: Tuplet[]
 }

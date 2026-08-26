@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment } from '@/types/music'
+import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -49,6 +49,8 @@ import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
 import * as staffSizeOps from './staffSize'
 import { isValidStaffSize } from './staffSize'
+import * as barlineOps from './barlineOps'
+import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf } from './noteProjection'
 import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
@@ -1420,6 +1422,48 @@ export class ScoreModel {
    *  field. Refuses a non-positive size or an unknown staff. See {@link staffSizeOps.setStaffSize}. */
   setStaffSize(staffId: string, size: number): boolean {
     return staffSizeOps.setStaffSize(this.score, staffId, size)
+  }
+
+  // ============ Barline types (the final bar, the two repeats) ============
+  // Thin delegators to `engine/models/barlineOps` — a SCORE operation, so the logic is in the core.
+  // ⭐ THREE setters and not one, because a repeat is NOT a barline style (docs/barline-types-plan.md
+  // §3.2), and the two repeats are owned by DIFFERENT bars: an end repeat by the bar it closes, a
+  // start repeat by the bar it opens (ONE OWNER PER LINE).
+
+  /** The style of the line ENDING this bar, or undefined for the plain single line. */
+  getBarline(measureNumber: number): BarlineStatement | undefined {
+    return barlineOps.barlineAt(this.score, measureNumber)
+  }
+
+  /** The repeat this bar OPENS ( `|:` ), or undefined. */
+  getRepeatStart(measureNumber: number): RepeatStart | undefined {
+    return barlineOps.repeatStartAt(this.score, measureNumber)
+  }
+
+  /** The repeat this bar CLOSES ( `:|` ), or undefined. */
+  getRepeatEnd(measureNumber: number): RepeatEnd | undefined {
+    return barlineOps.repeatEndAt(this.score, measureNumber)
+  }
+
+  /** Set the style of the line ending this bar; `undefined` clears it back to a plain line.
+   *  See {@link barlineOps.setBarlineStyle}. */
+  setBarlineStyle(measureNumber: number, style: BarlineStyle | undefined, staffId?: string): boolean {
+    return barlineOps.setBarlineStyle(this.score, measureNumber, style, staffId)
+  }
+
+  /** Turn this bar's OPENING repeat ( `|:` ) on or off. See {@link barlineOps.setRepeatStart}. */
+  setRepeatStart(measureNumber: number, on: boolean, staffId?: string): boolean {
+    return barlineOps.setRepeatStart(this.score, measureNumber, on, staffId)
+  }
+
+  /** Turn this bar's CLOSING repeat ( `:|` ) on or off. See {@link barlineOps.setRepeatEnd}. */
+  setRepeatEnd(measureNumber: number, on: boolean, options?: { times?: number; staffId?: string }): boolean {
+    return barlineOps.setRepeatEnd(this.score, measureNumber, on, options)
+  }
+
+  /** Back to a plain line: drop this bar's style AND both repeats. See {@link barlineOps.clearBarline}. */
+  clearBarline(measureNumber: number): boolean {
+    return barlineOps.clearBarline(this.score, measureNumber)
   }
 
   // ============ Engraving overrides (authored-geometry compartment) ============
@@ -3445,6 +3489,11 @@ export class ScoreModel {
     // silently clamping a hand-written 0 to 1 would make the file and the picture disagree.
     ScoreModel.validateStaffSizes(scoreData)
 
+    // …and for the barline family, whose fields survive this bare `JSON.parse` with no work at all:
+    // an unknown style string or a `repeatEnd: { times: 0 }` therefore enters just as freely as a
+    // legal one, and `barlineOps` — which refuses both — is not on this road.
+    ScoreModel.validateBarlines(scoreData)
+
     // actualDuration is derived state — recompute it rather than trust the wire.
     // The helper handles measure rests (whole-bar length) in every meter.
     for (const measure of model.score.measures) {
@@ -3482,6 +3531,27 @@ export class ScoreModel {
     for (const s of score.staves ?? []) {
       if (s.size !== undefined && !isValidStaffSize(s.size)) {
         throw new Error(`Invalid staff size ${s.size} on staff ${s.id}: must be a positive ratio (1 = full size).`)
+      }
+    }
+  }
+
+  /**
+   * Reject a loaded score carrying a barline style the drawing has no case for, or a repeat count
+   * that is not a whole number of playings. Guards the only entry point such a value can take —
+   * `barlineOps` refuses both, and absent is legal everywhere.
+   *
+   * ⛔ **Report, never repair** ({@link validateMeters}'s rule, and docs/json-io-plan.md's): silently
+   * clamping a hand-written `times: 0` to 2, or dropping an unknown style, would make the file and
+   * the picture disagree — the one failure this boundary exists to prevent.
+   */
+  private static validateBarlines(score: Score): void {
+    for (const m of score.measures ?? []) {
+      if (m.barline !== undefined && !isBarlineStyle(m.barline.style)) {
+        throw new Error(`Invalid barline style "${String(m.barline.style)}" at measure ${m.number}: not a known barline style.`)
+      }
+      const times = m.repeatEnd?.times
+      if (times !== undefined && !isValidRepeatTimes(times)) {
+        throw new Error(`Invalid repeat count ${times} at measure ${m.number}: must be a whole number of playings, at least 2.`)
       }
     }
   }

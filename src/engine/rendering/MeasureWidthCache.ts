@@ -120,6 +120,12 @@ export function laneFingerprint(lane: Measure): string {
       lane.tuplets ?? null,
       lane.timeSignature,
       lane.actualDurationOverride ?? null, // a pickup bar's capacity → the Voice's mode
+      // The barline family: a final bar or a repeat is wider ink than a plain line, and §6.1 of
+      // docs/barline-types-plan.md puts that ink INSIDE the bar that stores it — so the sign is part
+      // of how much room this bar needs. (`MEASURE_RENDER_ROLE` classifies all three 'width'.)
+      lane.barline ?? null,
+      lane.repeatStart ?? null,
+      lane.repeatEnd ?? null,
     ],
     canonicalizeIds(),
   )

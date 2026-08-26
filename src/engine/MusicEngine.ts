@@ -34,7 +34,7 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef } from '@/types/music'
+import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -722,6 +722,59 @@ export class MusicEngine {
     if (staffId === undefined) return false
     if (!this.scoreModel.setStaffSize(staffId, size)) return false
     this.saveOnly(`Staff ${staffIndex} size ${size}`)
+    return true
+  }
+
+  // ============ Barline types (the final bar, the two repeats) ============
+  // The write lives on the facade for the one reason a write ever does: undo. The values and the
+  // rules are `engine/models/barlineOps`, a SCORE operation (docs/barline-types-plan.md §8 P1).
+  //
+  // ⭐ `saveOnly`, never `commit`: a barline sign is INK. Drawing `:|` and playing bars twice are
+  // different features, and nothing here may change what Play does (plan §7) — so there is no
+  // playback resync to do.
+
+  /**
+   * Set the style of the line ENDING `measureNumber` — `'final'`, or `undefined` to clear it back to
+   * the plain single line. `staffId` is the scope, absent = the whole system (stored, not yet read).
+   *
+   * @returns whether the score changed (false for an unknown measure, an unknown style, or a value
+   *          that was already there).
+   */
+  setBarlineStyle(measureNumber: number, style: BarlineStyle | undefined, staffId?: string): boolean {
+    if (!this.scoreModel.setBarlineStyle(measureNumber, style, staffId)) return false
+    this.saveOnly(style === undefined ? `Clear barline at measure ${measureNumber}` : `Barline ${style} at measure ${measureNumber}`)
+    return true
+  }
+
+  /**
+   * Turn the OPENING repeat ( `|:` ) of `measureNumber` on or off. ⚠️ The bar the music jumps TO —
+   * this sign is stored on the bar it opens, never on the one before it (ONE OWNER PER LINE).
+   *
+   * @returns whether the score changed.
+   */
+  setRepeatStart(measureNumber: number, on: boolean, staffId?: string): boolean {
+    if (!this.scoreModel.setRepeatStart(measureNumber, on, staffId)) return false
+    this.saveOnly(`${on ? 'Open' : 'Clear open'} repeat at measure ${measureNumber}`)
+    return true
+  }
+
+  /**
+   * Turn the CLOSING repeat ( `:|` ) of `measureNumber` on or off. `times` is how many times the
+   * passage is played in total; absent = twice. Refuses a count below 2 rather than clamping it.
+   *
+   * @returns whether the score changed.
+   */
+  setRepeatEnd(measureNumber: number, on: boolean, options?: { times?: number; staffId?: string }): boolean {
+    if (!this.scoreModel.setRepeatEnd(measureNumber, on, options)) return false
+    this.saveOnly(`${on ? 'End' : 'Clear end'} repeat at measure ${measureNumber}`)
+    return true
+  }
+
+  /** Back to a plain line: drop `measureNumber`'s barline style AND both of its repeats — what
+   *  Delete means on a selected barline. @returns whether the score changed. */
+  clearBarline(measureNumber: number): boolean {
+    if (!this.scoreModel.clearBarline(measureNumber)) return false
+    this.saveOnly(`Clear barline at measure ${measureNumber}`)
     return true
   }
 

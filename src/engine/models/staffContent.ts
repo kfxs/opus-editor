@@ -175,6 +175,12 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   // measure-level list the filters don't know about lands UNFILTERED on every staff's lane —
   // silently, since nothing imports differently and nothing throws. That is why `hairpins` is
   // in this list and not merely in `StaffContentView`.
+  //
+  // ⭐ `barline` / `repeatStart` / `repeatEnd` are the deliberate exception, and riding the spread is
+  // what they are FOR: a barline statement with no `staffId` governs the whole system, so reaching
+  // every staff's lane unfiltered IS its semantics (docs/barline-types-plan.md §3.1). The day the
+  // per-staff scope is actually read — §2's "contemporary music can mix individual staff and whole
+  // system" — this is where the filter goes, and it will be a filter on the SCOPE, not on the field.
   return {
     ...measure,
     slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, ottavas: c.ottavas,

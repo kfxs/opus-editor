@@ -8,6 +8,15 @@
 > buttons (`Final`, `Open repeat`, `End repeat`); each calls `dbg()` and changes no score. That was
 > the whole of the first ask — *"for the moment on clicking the palette we just console log and then
 > we will see"* — and it is why this plan could be written before a model field constrained it.
+>
+> **⭐⭐ REVISED 2026-08-26, after his question *"are we using VexFlow to draw? shouldn't we draw
+> ourself following the own engine strategy?"*** — §4.6, §5, §6 and P2 are rewritten around the
+> answer: **we draw it.** §4.6 is now the case for taking the barline from VexFlow (it passes
+> `vexflow-boundary.md`'s test on four counts and is already half ours); §5 corrects a mechanism error
+> (a pair-table row cannot reserve the sign's width — `naturalWidth` sums the gaps *between* columns,
+> and the barline is the last one); §6 corrects the geometry (the sign grows **into its own bar**, not
+> rightward). ⚠️ **The scope consequence is real and is §4.6.7: this takes ALL barlines, plain ones
+> included.**
 
 ---
 
@@ -227,6 +236,17 @@ field and checks the keys really respond that way — so a *wrong* answer fails 
 **The answer is `width`** for all three fields: a final or repeat sign is wider ink than a plain line
 (§5), so it changes how much room the bar needs.
 
+⚠️ **But note exactly what the compiler CAN force, because it is less than it looks.**
+`MEASURE_RENDER_ROLE` is `Record<keyof Measure, …>` — per-measure, own-fields-only — so it asks *"what
+does bar N's own field do to bar N's keys?"* and nothing else. A start repeat also changes the
+**neighbour's** picture (bar *N* must not draw a line into it), and no answer in this table can say
+so: classify all three `width`, the file compiles, the perturbation test passes, and bar *N* still
+reuses a stale `<g>`. ⭐ §4.6.3 removes the question rather than answering it — with the drawing in a
+score-level pass there is no cached measure group holding a barline to go stale. ⛔ That is a
+dependency between §3.4 and P2, not a coincidence: revert P2 and this table needs a companion entry
+in `ShapeKeyInputs`, the seam `crossBarBeams` and `cautionaryEndClef` already use for exactly this
+kind of neighbour-decided picture.
+
 ---
 
 ## 4. The drawing — what the sources actually say
@@ -331,44 +351,151 @@ which staves a barline *connects* and nothing about dots.
 ⭐ This matters for §2: "the line spans the system, the dots are per staff" is already a per-staff
 fact inside a system-wide sign.
 
-### 4.6 What this means for OUR drawing
+### 4.6 ⭐⭐ WE DRAW IT — the barline is the next piece taken from VexFlow
 
-1. **⚠️ The "no opening line" rule is a bug fix, not a default.** A start repeat is a NARROW
-   exception to it — *this bar opens a repeat* — never a relaxation, or every interior barline goes
-   back to being drawn twice and reading heavier than its neighbours.
-2. **⚠️ The thick line is deliberately left as VexFlow draws it.** `barlineInk.ts` re-inks thin
-   barlines and says why it does not touch a thick one: VexFlow draws it 3px where the convention is
-   0.5 spaces (~5px here), and widening it is a **layout** change — the thin and thick are placed 2px
-   apart inside a box VexFlow's own `layoutMetricsMap` sizes (`xMin: -5`), so a 5px thick line would
-   swallow the gap and spill past the reserved room. ⭐ We now know the target number and the
-   convergence behind it: **thick 0.50** (Gould [T], SMuFL [E], measured [M]; LilyPond is the outlier
-   upward at 0.60, and its own comment admits it — *"we opt for a leaner look"*).
-3. **⭐ Our thin line is already right.** `THIN_BARLINE_SPACES` is **0.16**, which is SMuFL's value
-   and sits inside Gould's measured 0.15–0.20.
-4. **`hintBarlines` hints thin lines only** — a repeat's thick line and dots will not be pixel-hinted.
-   Known and accepted, not an oversight to rediscover.
-5. ⭐⭐ **AND A CAUTION ABOUT SMuFL ITSELF, which arrived as a late correction.** It is tempting to
-   read `engravingDefaults` as "what the font says, so what everyone draws". Neither engine that
-   *could* read it actually does, out of the box:
-   - **MuseScore** does not load them at render time. The parsing code exists, but its only consumer
-     in the whole tree is the Style **dialog**, fired when a user changes the music font *and* ticks
-     an "optimize style" box — opt-in and one-shot. Its real barline numbers are its own
-     (**0.18 / 0.55 / 0.37**), authored to match its default font rather than pushed in by it. ⚠️ The
-     reporting agent asserted the opposite, chased the consumer when an independent reader's silence
-     did not match, and **retracted it**.
-   - **Verovio** converts `engravingDefaults` only from an explicitly supplied file, and its shipped
-     fonts carry none — verified three ways.
+His, 2026-08-26, on reading the first draft of this section: *"are we using VexFlow to draw? shouldn't
+we draw ourself following the own engine strategy?"*
 
-   ⇒ **Every engine ships its own numbers.** SMuFL's table is a well-chosen reference point, not a
-   standard anybody defers to at runtime, and our taking 0.16/0.50 should be a decision we make on
-   the evidence (§4.1's treatise numbers agree with it) — ⛔ never "because the font says so".
-6. ⏭️ **A divergence to be aware of, not to act on now.** MuseScore does **not** scale barline widths
-   to a staff's size by default — `Sid::scaleBarlines` is `false`, and its widths are style values a
-   user can edit per score. Ours DO scale: `barlineInk` writes its px width inside a group that
-   carries the staff's own scale, so a small staff gets a proportionally thinner barline. Neither is
-   obviously right — a barline divides the SYSTEM, which is an argument for not scaling it, and this
-   will matter the day §2's per-staff work meets `docs/small-staff-spacing`. ⛔ Not this plan's
-   decision; recorded so it is not discovered as a bug.
+**Yes.** The first draft of §4.6 was a list of things VexFlow gets wrong and how we would live with
+each one. Every item on it was an artefact of letting VexFlow draw, and the repo already has two
+rules that decide this — pointing the same way.
+
+#### 4.6.1 The boundary test, and this passes it
+
+`docs/vexflow-boundary.md`: *take a decision from VexFlow when there is a **RULE we want to state and
+cannot** — never because the decision is theirs.* Four rules this plan states are unsayable through
+`Barline` (measured against `node_modules/vexflow/build/esm/src/stavebarline.js`):
+
+| the rule §4 states | what VexFlow does |
+|---|---|
+| thick line = **0.50 spaces** (§4.1 [T][M]) | `fillRect(x-2, …, 3, …)` — **3 px, a literal** |
+| the sign's ink stays **inside its own bar** (§6) | `END` inks x−5…x+1, `REPEAT_END` x−10…x+1, `REPEAT_BEGIN` x−2…x+10 — a fixed pixel layout we cannot address |
+| dot centres **1.48 / 2.48** (§4.2, Gould [M] + Bravura [E] agreeing to 0.01) | ≈1.40 / 2.40 — a `dotRadius / 2` fudge in `drawRepeatBar`, ~0.1 space low |
+| a sign scales with its staff, and its ink lands on whole device pixels | neither — and only because *we* post-process the one rect it draws |
+
+And `docs/own-engraving-engine.md` states the rule directly, as the one to add beside the boundary
+test:
+
+> **A new drawn element draws through OUR context and OUR primitives — never by instantiating a
+> VexFlow class.**
+
+A final bar and a repeat are new drawn elements. Trills, ottava, pedal, hairpins, ties, slurs, fans
+and the dynamics line already obey it.
+
+#### 4.6.2 ⭐ This is FINISHING a piece, not opening a front
+
+The barline is already half ours, and the half we still take from VexFlow is one `fillRect`. One
+plain barline currently costs three passes:
+
+1. VexFlow `fillRect(x, topY, 1, height)` — 1 px, a literal, inside the measure's `<g>`;
+2. `inkBarlines(group)` (`VexFlowRenderer.ts:1863`) rewrites that rect's width to `THIN_BARLINE_PX`;
+3. `hintBarlines(svg)` (gated at `VexFlowRenderer.ts:4001`) rewrites its `x` onto the device grid.
+
+We already overrule VexFlow on both the **weight** and the **position** of every barline on the page.
+⛔ And the usual argument against taking a piece — `vexflow-boundary.md` §4's *"years of accumulated
+correctness about glyphs, stems and fonts"* — has no purchase here: a barline is rectangles and two
+dots. There is no accumulated correctness in `fillRect(x, topY, 1, height)`.
+
+#### 4.6.3 ⭐⭐ The pass, and what it DISSOLVES
+
+`engine/rendering/BarlineRenderer.ts` — a **score-level pass**, taking the shape the four beside it
+already take (`VexFlowRenderer.ts:3922–3954`):
+
+```ts
+renderBarlines(pass, score, placements, staffIds)   // beside renderHairpins / renderTrills /
+                                                    //   renderOttavas / renderPedals
+```
+
+Every stave gets `setEndBarType(Barline.type.NONE)` alongside the `setBegBarType` already at
+`VexFlowRenderer.ts:2409`, and the pass draws every barline in the score — plain ones included.
+
+⭐⭐ **Rebuilt from scratch each render, it dissolves the hardest problem in this plan.** §3.2's *ONE
+OWNER PER LINE* settles the model; it does **not** settle the picture, because bar *N* draws a line
+at the same x where bar *N+1* would open a repeat. Delegated to VexFlow that is a genuine
+cross-measure dependency — bar *N*'s picture decided by bar *N+1*'s field — and `MEASURE_RENDER_ROLE`
+**cannot express it**: that table is `Record<keyof Measure, …>`, per-measure and own-fields-only, so
+classifying the three fields would compile, pass the perturbation test, and still leave bar *N*
+reusing a stale `<g>`. That is exactly the silent failure `measureRenderRoles.ts`'s header opens with.
+
+A score-level pass ends it the way the ottava's does: **no measure's cached group can hold a stale
+barline, because none of them holds one at all** (`MEASURE_RENDER_ROLE.ottavas: 'ignored'`, and its
+comment is the argument verbatim). The suppression is then a local read in one place that sees both
+bars *and* the casting-off:
+
+> **Bar *N* draws no end line when bar *N+1* opens a repeat AND SITS ON THE SAME SYSTEM.**
+
+⚠️ **The system condition is not decoration.** Drop it and a bar whose successor opens a repeat on
+the *next* line ends its system with no barline at all. `placements` carries `system`, so the pass
+can ask; a per-measure key cannot. This is also what §4.4's engines do — LilyPond prints the start
+repeat at the beginning of the new line and nothing at the end of the previous one.
+
+#### 4.6.4 What the pass absorbs, and what follows it
+
+- **`inkBarlines` and `hintBarlines` fold into it.** Three passes become one: we draw the rect at the
+  width and the device-aligned x we want, first time. ⭐ The hinting *rule* survives intact and is
+  worth keeping — `barlineInk.ts`'s measured phase table is the reason it exists — but it stops being
+  a DOM rewrite of somebody else's rect. ⚠️ It also removes a defect the delegated version would have
+  had: hinting moves a thin rect by up to half a device pixel and leaves an unhinted thick one alone,
+  so a two-line sign's own white gap would wobble from bar to bar.
+- **The numbers come from the seam we already have.** `engravingDefault('thickBarlineThickness')` is
+  **0.50** and `engravingDefault('barlineSeparation')` **0.40** in `engine/fonts/bravuraMetrics.ts`,
+  beside the `thinBarlineThickness` **0.16** that `thinLineWeight.ts` already reads.
+- ⚠️ **Three followers, all mechanical, none optional:** `e2e/harness.ts:314`'s `barlines()` reader
+  selects `g.vf-stavebarline rect` and returns one row per rect — it must move to the pass's own group
+  and cope with a sign being 2–3 rects plus dots; `e2e/barWidth.e2e.ts` reads it; and the
+  `__barlines` census in `App.ts:827`.
+- ⏭️ **The selection highlight becomes answerable.** `HighlightController.applyBarlineSelectionHighlight`
+  paints a 2 px rect and says so: *"3 for a thick end bar, which this deliberately does not fully
+  cover"*. Once we own the sign's extent, the highlight can cover the whole sign instead of
+  apologising for it. §8 P5.
+
+#### 4.6.5 ⭐⭐ A caution about SMuFL that survives the move — and is now sharper
+
+It is tempting to read `engravingDefaults` as "what the font says, so what everyone draws". Neither
+engine that *could* read it actually does, out of the box:
+
+- **MuseScore** does not load them at render time. The parsing code exists, but its only consumer in
+  the whole tree is the Style **dialog**, fired when a user changes the music font *and* ticks an
+  "optimize style" box — opt-in and one-shot. Its real barline numbers are its own
+  (**0.18 / 0.55 / 0.37**), authored to match its default font rather than pushed in by it. ⚠️ The
+  reporting agent asserted the opposite, chased the consumer when an independent reader's silence did
+  not match, and **retracted it**.
+- **Verovio** converts `engravingDefaults` only from an explicitly supplied file, and its shipped
+  fonts carry none — verified three ways.
+
+⇒ **Every engine ships its own numbers**, and now so do we. ⭐ Note this is *not* an argument against
+reading `bravuraMetrics.ts`: it is an argument against reading it **instead of deciding**. The right
+position on 0.50 is the strong one — Gould's *"of beam thickness"* [T], five engraved bars measured at
+450 dpi [M] and Bravura [E] agree, *and* the number is already wired. ⛔ Never "because the font says
+so"; ⭐ always "because three independent sources agree, and here is the seam".
+
+⚠️ **And one number where they do NOT agree, recorded because we now own the choice.** SMuFL's
+`barlineSeparation` is **0.40** (a white gap); Gould's own engraved finals measure **0.30–0.35**
+(§4.1). Her drawing beats her formula (§9) — and it should beat the font here too. **Use 0.32.**
+
+#### 4.6.6 ⭐ The scaling divergence stops being a side effect
+
+MuseScore does **not** scale barline widths to a staff's size by default (`Sid::scaleBarlines` is
+`false`); its widths are style values a user can edit per score. Ours DO scale — but only because
+`inkBarlines` writes its px width inside a group that happens to carry the staff's scale. That is an
+accident of which `<g>` the rect landed in, not a decision.
+
+Drawing it ourselves makes it a decision, and the pass must state it: a score-level pass draws
+outside the measure group, so it scales explicitly (`inStaffSpace` / `staffSpacesToPixels`, the seam
+`PedalRenderer` already uses). ⛔ **Still not this plan's call which way** — a barline divides the
+SYSTEM, which is an argument for not scaling it — but P2 must now write one line saying which it did,
+where §2's per-staff work and `docs/small-staff-spacing` will find it.
+
+#### 4.6.7 ⏳ The scope consequence, stated plainly
+
+⚠️ **This takes ALL barlines, not only the three signs**, and that is a real widening of the ask.
+A half-take does not work: to suppress bar *N*'s plain line before a start repeat you must tell
+*VexFlow* not to draw it, which is a per-bar decision needing the neighbour — straight back into the
+shape key and back to §4.6.3's silent bug. The plain single line has to move with them.
+
+What it is NOT: it does not touch `Stave`, which stays what `own-engraving-engine.md` says it is —
+**a coordinate system** (`lineYPositions`, `noteEndX`, `getYForLine`). We stop asking it to paint one
+kind of mark, and nothing else changes.
 
 ---
 
@@ -378,22 +505,63 @@ fact inside a system-wide sign.
 Ross or Gerou & Lusk, and no engine has such a constant: MuseScore's note↔barline padding and
 LilyPond's `space-alist` are **identical for every barline type**.
 
-That is the cleanest possible answer for us, because the machinery already exists:
+That is the cleanest possible answer for us, because half the machinery already exists:
 
-- **The barline IS a column** (`engine/layout/measureColumns.ts`) — it has a position, it carries ink,
-  and the gap before it is the same question as every other gap. That is what turned `BARLINE_PADDING`
-  from a constant into two rows in the pair table (`note↔barline` 1.2, `rest↔barline` 1.65).
-- So the change is **more ink in that column** — a **ROW**, never a constant elsewhere. Standing rule:
-  ⛔ *a new drawn element adds a row to the pair table.*
+- **The barline IS a column** (`engine/layout/measureColumns.ts:491`) — it has a position, it carries
+  ink, and the gap before it is the same question as every other gap. That is what turned
+  `BARLINE_PADDING` from a constant into two rows in the pair table (`note↔barline` 1.2,
+  `rest↔barline` 1.65).
+- Those rows stand unchanged. ⛔ **No new pair-table row is needed, and one would not help** — see
+  the correction below.
 
-⭐⭐ **The one idea worth stealing, and it is also the answer to §6.** LilyPond's
+### 5.1 🚨 A PAIR-TABLE ROW CANNOT RESERVE THE SIGN'S WIDTH
+
+An earlier draft said the change was *"more ink in that column — a ROW, never a constant elsewhere"*.
+That conflates two different mechanisms, and the plan has to be exact about which one is missing:
+
+- `pairPadding(left, right)` is the **blank BETWEEN two inks**. It governs the gap before the
+  barline, and it is already right.
+- The sign's own width is an **ink extent**. And `naturalWidth` is the sum of the gaps *between*
+  columns (`engine/layout/spacing.ts:288`); the barline is the **LAST** column, its ink is
+  `{ left: 0, right: 0 }`, and there is no column after it — **so its right extent is summed into no
+  gap at all.**
+
+⭐ This is the exact symmetric twin of a bug this codebase has already found and fixed on the other
+side. `measureLeadIn`'s own doc comment (`measureColumns.ts`) records it:
+
+> *"**⚠️ The FIRST column's own left extent, which the width never counted at all.** `naturalWidth`
+> sums the gaps BETWEEN columns, so `columns[0].extent.left` appears in no gap: an accidental on a
+> bar's first note bought exactly no room, and the drawing made room for it anyway out of everything
+> else in the bar."*
+
+Read that sentence with *last* and *right* substituted and it is this section. ⇒ **Two terms are
+owed, and neither is a pair-table row:**
+
+| term | who pays | reachable? |
+|---|---|---|
+| **trailing** — the width of the sign that ENDS this bar (`final`, `repeatEnd`) | bar *N*, as a trailing extent beside `LeadIn` | ✅ it is bar *N*'s own field |
+| **leading** — the width of a start repeat, which sits inside the bar it opens | bar *N+1*, folded into `measureLeadIn` | ✅ it is bar *N+1*'s own field |
+
+⭐⭐ **§3.2's ONE OWNER PER LINE is what makes both of those local.** Each sign's room is owed by the
+bar that *stores* it, so neither term needs to read a neighbour — which is why the model decision
+pays off here and not only in the drawing. (Contrast the *suppression* rule of §4.6.3, which is a
+picture question and genuinely does read the neighbour. Room and ink are different questions; only
+one of them crosses the barline.)
+
+⚠️ `measureLeadIn(measure, clefFor, sizeFor)` takes one measure and no score. The leading term stays
+inside that signature; ⛔ do not widen it to take the previous bar — that would re-introduce the
+cross-bar read the model just eliminated.
+
+### 5.2 ⭐⭐ LilyPond's `space-to-barline`, which is also the answer to §6
+
 `NoteSpacing.space-to-barline` measures the distance from the last note to the **LEFT EDGE of the
 barline group**, not to the line's position — so *a wide repeat sign does not steal room from the
 note before it*. The engines report calls it the subtlest of the three, and it is the rule that keeps
 a 1.9-space repeat sign from crushing the bar's last beat.
 
-For us that means: **the wider ink grows to the RIGHT of the bar boundary**, and the note-to-barline
-gap keeps measuring to where the plain line would have been.
+With §5.1's trailing term that is exactly what we get: the bar reserves the sign's width, so the last
+note is pushed left by it and the drawn gap between ink and ink stays the 1.2 / 1.65 the pair table
+already asks for. **The room is reserved by the bar; the gap keeps measuring to ink.**
 
 Treatise corroboration for the gaps we already have: Gould p. 42 — *"allow a stave-space… **on either
 side of a barline** before a notational symbol"*; p. 43 — *"stems must never come closer to a barline
@@ -407,8 +575,8 @@ space"* (1½ to the note's centre).
 > *"Even if we have the different barline we should be able to change measure space by dragging, the
 > same way we are doing now."*
 
-This is a requirement on the FEATURE, not a nice-to-have, and it is the reason §5's last paragraph
-matters. Three gestures hang off a barline today and all three must survive:
+This is a requirement on the FEATURE, not a nice-to-have, and it is the reason §5.2 matters. Three
+gestures hang off a barline today and all three must survive:
 
 | gesture | what it does | where |
 |---|---|---|
@@ -419,34 +587,79 @@ matters. Three gestures hang off a barline today and all three must survive:
 **⭐ THE INVARIANT THAT PROTECTS ALL THREE: `x` IS THE BAR BOUNDARY.** `barlineInk.ts` states it and
 four readers depend on it — the spacing model measures the lead-in from it, `ElementRegistry`'s
 `noteEndX` hit-box is placed at it, the selection highlight paints from it, and `barWidth.e2e`
-asserts a drawn barline sits at the stave's own `x2`. It is also why the ink pass widens a thin line
-**to the right only** and never re-centres it.
+asserts a drawn barline sits at the stave's own `x2`.
 
-So the rule this feature adopts:
+### 6.1 ⭐⭐ THE RULE: the sign grows INTO ITS OWN BAR; the DIVIDING LINE stays on the boundary
 
-> **A barline sign of any width still has its LEFT EDGE at the bar boundary.** The extra ink of a
-> final bar or a repeat grows to the right, into the next bar's lead-in — never leftward into the
-> music, and never by moving `x`.
+⚠️ An earlier draft of this section said *"a sign of any width keeps its LEFT EDGE at the bar boundary
+and grows RIGHTWARD"*. **That is wrong for two of the three signs**, and it is worth recording why,
+because the reasoning behind it was sound and only the conclusion was not.
 
-That is LilyPond's `space-to-barline` rule restated in our coordinates, and it makes the drag
-arithmetic *unchanged*: every room calculation still measures to the same `x`.
+Two facts kill it:
 
-**What genuinely has to change — three things, all small, all easy to forget:**
+- **The staff lines END at `x2`.** A sign growing rightward from the last bar's boundary would hang
+  its thick line and its dots past the end of the drawn staff lines, attached to nothing.
+- **The dots of `:|` belong to the bar being repeated.** §4.2 has the reading order: a start repeat is
+  THICK → gap+thin → dots, and *an end repeat is its mirror* — dots · thin · **thick**. The thick line
+  IS the divider; everything else in the sign precedes it. Same for the final bar: thin then thick
+  (§4.1), so its ~1.0 space of ink sits to the LEFT of the line that ends the piece.
 
-1. **The HIT-BOX.** The registered box is 4px wide, padded ±4. A final bar is ~1.0 space of ink and a
-   repeat ~1.5–1.9 (≈9–17px at our staff size), so the grab target must grow with the SIGN or the
-   drag starts off the ink. ⚠️ There is already a known small version of this bug on record: *"the
-   final bar draws a thick end-bar slightly left of where the hit-box assumes the line is."* Widen the
-   box from the sign's width, and keep `hitsNoteOrRestBody` — a fatter box must not start stealing
-   the bar's last note.
-2. **`measuredRoom` / `measuredBarlineGapRoom`.** They measure the drawn distance from the last
-   column to the line; with a wider sign, *"the line"* must keep meaning **its left edge**, or every
-   press of `Shift+←` silently loses the sign's width.
-3. **A ROW in the pair table for the wider ink** (§5), so the bar asks for the room the sign takes.
+So:
+
+| sign | whose bar | where the ink goes |
+|---|---|---|
+| **final** | the bar it ends | thick line's **right edge at `x`**; thin + gap grow **left**, ≈1.0 space |
+| **end repeat** `:‖` | the bar it ends | thick line's **right edge at `x`**; thin + dots grow **left**, ≈1.5 |
+| **open repeat** `‖:` | the bar it opens | thick line's **left edge at `x`**; thin + dots grow **right**, ≈1.5 |
+
+> **A sign's ink occupies room INSIDE the bar that stores it. The dividing line never leaves the
+> boundary.**
+
+⭐ **His constraint is satisfied just as fully, and by a better route.** He asked that *"even if we
+have the different barline we should be able to change measure space by dragging, the same way we are
+doing now"* — a requirement on the **drag**, not on which way ink grows. Under this rule `x` never
+moves, so the drag arithmetic is **unchanged**: every room calculation still measures to the same `x`,
+`barWidthRoom`'s slopes are untouched, and `barWidth.e2e`'s "the barline sits at the stave's `x2`"
+still holds — of the dividing line, which is the one anybody points at. What changes is only that the
+bar now **reserves** the sign's width (§5.1), which is LilyPond's `space-to-barline` exactly.
+
+⛔ Note this rule is only available to us because §4.6 takes the drawing. VexFlow's `END` inks
+x−5…x+1 and its `REPEAT_BEGIN` x−2…x+10 on a fixed pixel layout; the direction is not addressable
+from outside.
+
+### 6.2 What genuinely has to change — four things, all small, all easy to forget
+
+1. **⭐ ONE OWNER FOR THE SIGN'S EXTENT.** A pure `barlineSignExtent(score, measureNumber)` in
+   `engine/layout/` returning the ink's reach either side of `x`, read by **all four** consumers: the
+   trailing/leading width terms (§5.1), the hit-box (3), the pass that draws it (§4.6.3), and the
+   selection highlight. ⚠️ It must be a pure function of the score and **not** a lookup into the pass:
+   `ElementRegistry` registers a barline box for **every bar in the score, painted or not**
+   (`ElementRegistry.ts:692`), so registration happens for bars the pass never draws.
+2. **The HIT-BOX.** `VexFlowRenderer.ts:3317` registers `{ x: x + width - 2, width: 4 }`, padded ±4
+   by `interactions/elements/barline.ts`. A final bar is ~1.0 space of ink and a repeat ~1.5
+   (≈9–14 px at our staff size), so the grab target must grow with the SIGN — leftward now, per §6.1
+   — or the drag starts off the ink. ⚠️ Keep `hitsNoteOrRestBody`: a fatter box must not start
+   stealing the bar's last note, and it now reaches further into that note's column than the ±4 pad
+   ever did.
+3. **`measuredBarlineGapRoom`** (`engine/layout/measuredRoom.ts:150`) measures the drawn distance from
+   the last column to the bar's `noteEndX` and floors it at `pairPadding(note|rest, 'barline')`. With
+   a leftward-growing sign that floor must become **`keep + signExtent.left`**, or `Shift+←` will
+   happily squeeze the bar's last note into the repeat dots. ⭐ `noteEndX` itself keeps meaning what
+   it means — the boundary — which is the whole point of §6.1.
+4. **The two width terms of §5.1**, so the bar asks for the room the sign takes in the first place.
 
 ⚠️ **And an e2e spec, because none of this can be tested in jsdom.** `e2e/barWidth.e2e.ts` already
 asserts the barline sits at the stave's `x2`; the new spec is the same assertion **with a final bar
-and with a repeat**, plus a drag that still lands where it was asked.
+and with a repeat**, plus a drag that still lands where it was asked, plus the §6.1 direction claim
+(*the dividing line is at `x2`; the sign's other ink is to its left*). ⚠️ `e2e/harness.ts:314`'s
+`barlines()` reader returns one row per `<rect>` and must be taught the pass's group and the fact
+that one sign is several rects — see §4.6.4.
+
+⛔ **One stale citation removed.** An earlier draft cited a known bug — *"the final bar draws a thick
+end-bar slightly left of where the hit-box assumes the line is"* — as precedent for (2). It is not
+observable: no score bar sets an end barline type today (the only `Barline.type` write in the
+renderer is the `NONE` at `VexFlowRenderer.ts:2409`; every other `setEndBarType` is a ghost's temp
+stave). The hit-box still has to grow; it just has no prior offence on record.
 
 ---
 
@@ -479,7 +692,16 @@ as one input among several (voltas, jumps, `times`); it is not the same field.
 
 **P0 — the palette. ✅ DONE.** Three buttons in `dev/devToolbar.ts`, `dbg()` only.
 
-**P1 — the model + the core op.**
+**P1 — the model + the core op. ✅ DONE** (`types/music.ts`, `engine/models/barlineOps.ts` + its spec,
+the `ScoreModel` / `MusicEngine` delegators, `measureRenderRoles` + `MeasureWidthCache`,
+`ScoreModel.validateBarlines`). ⚠️ **Two things it deliberately left standing, both recorded here so
+they are not found as bugs:** (a) the staff scope is STORED and read by nobody — `staffMeasureView`
+carries a barline statement to every lane unfiltered, which IS the system-wide semantics of §3.1, and
+its comment now names the spot the scope filter goes; (b) a REBAR that grows its region leaves each
+sign on the bar that stored it — a barline is a boundary fact with no beat to re-anchor, so it does
+not ride `captureBeatAnchors` — which means a `repeatEnd` on the last bar of a region can end up
+mid-passage after a meter change. ⏳ Whether it should follow the region's new END boundary is a
+question for the gesture (P4), when there is a user putting one there.
 - the three `Measure` fields (§3.2), optional, each carrying the staff scope of §2. ⭐ **The style
   union ships with exactly ONE member — `final`** (§0): the other two signs asked for are the repeat
   fields, and no other style value is added until it is asked for;
@@ -487,29 +709,99 @@ as one input among several (voltas, jumps, `times`); it is not the same field.
   facade (`DESIGN-PRINCIPLES.md` §5);
 - a one-line delegator on `ScoreModel`, a one-line delegation on `MusicEngine` (where `saveOnly`
   records the undo entry);
-- the `MEASURE_RENDER_ROLE` rows (`width`) and the perturbation test;
-- unit tests beside the module: round-trip, absent-is-legal, and **a rebar / measure-insert keeps the
-  fields on the right bars** (they are measure-owned, so an insert must not slide a repeat onto its
-  neighbour).
+- the `MEASURE_RENDER_ROLE` rows (`width`) and the perturbation test — ⚠️ reading §3.4's caveat about
+  what that table can and cannot force;
+- ⭐ **a `validateBarlines` at the load boundary.** `ScoreModel.fromJSON` is a bare `JSON.parse`
+  assigned onto `model.score` (`ScoreModel.ts:3425`), so these fields survive a round-trip with no
+  work — and an unknown style string or a `repeatEnd: { times: 0 }` enters just as freely. `fromJSON`
+  is the ONE door such a value can take (`barlineOps` refuses it), and it already guards exactly this
+  way twice: `validateMeters` and `validateStaffSizes`, both of which **throw** rather than repair.
+  ⛔ Report, never repair — silently clamping a hand-written 0 would make the file and the picture
+  disagree (`docs/json-io-plan.md`);
+- unit tests beside the module: round-trip, absent-is-legal, the load rejection, and **a rebar /
+  measure-insert keeps the fields on the right bars** (they are measure-owned, so an insert must not
+  slide a repeat onto its neighbour).
 
-**P2 — the drawing.** End style from the model; the start repeat as the narrow exception to the "no
-opening line" rule; back-to-back as a drawing decision over two facts (§4.3); the pair-table row.
-An `e2e/*.e2e.ts` spec — ⚠️ jsdom measures every glyph as 0×0, so a drawn position asserted in a unit
-test agrees with itself and proves nothing.
+**P2 — ⭐⭐ THE DRAWING, and we draw it (§4.6).** The single largest step, and the one that decides
+whether §4.6.3's silent stale-picture bug can exist at all.
 
-**P3 — the drag (§6).** The hit-box from the sign's width; `measuredRoom` reading the left edge; the
-e2e spec that the three gestures still land where they are asked.
+- `engine/rendering/BarlineRenderer.ts` — a **score-level pass**, `renderBarlines(pass, score,
+  placements, staffIds)`, beside `renderHairpins` / `renderTrills` / `renderOttavas` /
+  `renderPedals` (`VexFlowRenderer.ts:3922–3954`). ⛔ Not a VexFlow `Barline`; our context, our
+  primitives (`own-engraving-engine.md`'s rule).
+- `setEndBarType(Barline.type.NONE)` on every stave, beside the `setBegBarType` at
+  `VexFlowRenderer.ts:2409` — ⚠️ **and every barline moves, plain ones included** (§4.6.7). The pass
+  absorbs `inkBarlines` and `hintBarlines`; `barlineInk.ts`'s hinting *rule* survives, its DOM
+  rewrite does not (§4.6.4).
+  - ⚠️ **One thing to VERIFY, not assume, when that line lands.** `Stave.format()` ends with
+    `endX = endModifiers.length === 1 ? x + width : x`, so `getNoteEndX()` — read at ten sites,
+    including the registered `noteEndX` and `spacingPass` — is immune to the end barline's type in
+    the common case, **but not when the bar carries a cautionary clef or meter** (`addEndClef` /
+    `addEndTimeSignature`, i.e. exactly the last-of-line bars §6 already calls the hard ones). There
+    `endModifiers.length > 1` and `endX` is walked back through each modifier's layout metrics, where
+    `NONE` and `SINGLE` differ. `barWidth.e2e` is the instrument; ⛔ do not reason about it in jsdom.
+- The geometry of §6.1: the dividing line on the boundary, the rest of the sign inside its own bar.
+  Numbers from `engravingDefault()` — thin **0.16**, thick **0.50**, separation **0.32** (⚠️ §4.6.5:
+  the scan beats the font on that last one), dots at **1.48 / 2.48**.
+- **The suppression rule**, which is the reason this is a pass and not a per-measure draw: *bar N
+  draws no end line when bar N+1 opens a repeat **and sits on the same system*** (§4.6.3). ⚠️ Drop
+  the system clause and a bar whose successor opens a repeat on the next line ends its system with no
+  barline at all.
+- **Back-to-back** as a drawing decision over two model facts (§4.3) — bar *N*'s `repeatEnd` plus bar
+  *N+1*'s `repeatStart`, combined here and nowhere else. Pick one of Gould's two designs; the other
+  is a later option.
+- ⭐ One line stating whether the sign scales with its staff (§4.6.6) — the pass draws outside the
+  measure group, so it now has to say.
+- **Followers:** `e2e/harness.ts:314`'s `barlines()` reader (one sign is several rects), the
+  `__barlines` census (`App.ts:827`).
+- An `e2e/*.e2e.ts` spec — ⚠️ jsdom measures every glyph as 0×0, so a drawn position asserted in a
+  unit test agrees with itself and proves nothing.
 
-**P4 — the gesture** (select-then-press vs arm-then-click — ⏳ still his call; the Time Signature
-window's *APPLIES if selected, else ARMS* is the shipped precedent for having both). The palette's
-three buttons stop logging and call `barlineOps`.
+⭐ **What P2 does NOT need, and this is the payoff.** No entry in `ShapeKeyInputs` for the neighbour's
+`repeatStart`, and no cross-measure term in any render key: a pass rebuilt from scratch each render
+cannot hold a stale barline, because no measure group holds one (`MEASURE_RENDER_ROLE.ottavas`'
+reasoning verbatim). ⛔ If P2 is ever descoped back to letting VexFlow draw, that entry becomes
+mandatory and §4.6.3 is the bug report waiting to be written.
 
-**P5 — Properties / Delete.** The type in the selection report; Delete = back to a plain line.
+**P3 — the drag (§6.2).** `barlineSignExtent` as the one owner of the number; the hit-box grown from
+it (leftward, per §6.1); `measuredBarlineGapRoom`'s floor raised by the sign's left reach; the e2e
+spec that the three gestures still land where they are asked.
+
+**P4 — the gesture** (⏳ still his call; the Time Signature window's *APPLIES if selected, else ARMS*
+is the shipped precedent for having both). The palette's three buttons stop logging and call
+`barlineOps`.
+
+⚠️ **The two options do NOT cost the same, and the earlier one-line version of this phase hid that.**
+
+| gesture | what it costs |
+|---|---|
+| **select-then-press** (a barline is already selectable, and `←`/`→` already walk barlines) | `barlineOps` + one `PaletteController` method. Nothing else. |
+| **arm-then-click** | a member in the `selectedMarkingTool` union (`interactions/EditorState.ts`), a row in **`MARKING_TOOL_USES_ARMED_LENGTH`** — ⚠️ one of the four tables `npm run lint:tables` holds TOTAL, so this is enforced, not optional — and, if the armed tool previews, a `GHOST_DRAWERS` row + a `ToolGhost` member (`engine/rendering/ghostTypes.ts` + `interactions/toolGhost.ts`, since the engine may not import the editor's vocabulary) |
+
+⭐ That asymmetry is an argument, not a verdict: *"a barline is already a thing you select"* is the
+cheapest route **and** the one that reuses a gesture the user already has. ⛔ But arm-then-click is
+what every other stamp in this editor does, and consistency is a real reason. ⏳ **His call; this
+table is so the price is on the table when he makes it.**
+
+**P5 — Properties / Delete / the highlight.** The type in the selection report
+(`selectionSnapshot.ts:355`, which already calls this measure *"the address a barline TYPE would
+eventually be stored at"*). Delete = back to a plain line — ⚠️ which **overturns a stated
+non-behaviour**: `shortcutWiring.ts:1285` currently reasons that a barline is a BOUNDARY with nothing
+to delete, and that comment is the thing to edit, not to leave contradicting the code. ⭐ And the
+selection highlight can finally cover the whole sign: `applyBarlineSelectionHighlight` paints a 2 px
+rect today and apologises for it in a comment (*"3 for a thick end bar, which this deliberately does
+not fully cover"*) — with `barlineSignExtent` (§6.2) it has the number.
 
 **⏭️ LATER, out of this plan:** the per-staff scope actually being READ (§2 stores it, nothing reads
 it); the repeat PLAY ORDER (§7); the **thin double `||`**, which is the family's fourth member — not
 asked for, but §4 already carries its rule and its 🚨 (below), so it is a row and not a redesign;
 voltas / endings, which every format models as a *container of measures*, never a barline attribute.
+
+⭐ **And one thing that gets CHEAPER after P2, worth knowing when it is asked for.** Once the barline
+draws through our own pass, every remaining member of §0.1's table costs a union member and a case in
+one file — including `none`, whose "draw nothing" is a one-liner there and was a `layoutMetricsMap`
+argument while VexFlow held the pen. ⛔ Still not a licence to build them (§0); the extension test
+just got easier to pass.
 
 ---
 
