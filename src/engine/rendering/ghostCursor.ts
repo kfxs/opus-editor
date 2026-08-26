@@ -30,8 +30,13 @@
  * the gesture, never about a rung above or below the staff.
  */
 
+import type { SVGContext } from 'vexflow'
+
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
 const GHOST_CURSOR_GAP_PX = 10
+
+/** Ghost blue at 0.7 opacity — a preview, not yet content. One definition for every ghost. */
+const GHOST_BLUE = '#3B82F6'
 
 /**
  * The translate that puts `gbox` in the standard ghost position for a pointer at (`cursorX`,
@@ -48,5 +53,59 @@ export function ghostCursorOffset(
   return {
     dx: cursorX - GHOST_CURSOR_GAP_PX - (gbox.x + gbox.width / 2),
     dy: cursorY - (gbox.y + gbox.height / 2),
+  }
+}
+
+/**
+ * ⭐⭐ **DRAW ONE SIGN-SHAPED GHOST** — open a group, let `drawSign` paint into it, then measure it,
+ * paint it ghost blue and park it at the pointer.
+ *
+ * Everything but that one call was written out identically in `PedalGhost`, `OttavaGhost` and
+ * `TrillGhost` — measure, bail if unmeasurable, recolour, translate, swallow. ⭐ A ghost drawer is
+ * now its SIGN and nothing else, which is the part that is genuinely per-mark.
+ *
+ * ⚠️ **The sign is drawn at x = 0** and translated into place below, once its real size is known —
+ * which is why the group is opened before anything is painted, and why a drawer must not park its
+ * own glyph.
+ *
+ * @param groupName the `openGroup` class, ⚠️ which VexFlow prefixes with `vf-`
+ *   (`reference_vexflow_opengroup_prefix`) — so the constant a drawer exports for
+ *   `GHOST_GROUP_SELECTOR` carries that prefix and this argument does not. Get it wrong and the
+ *   ghost smears one copy per mouse position, because `clearGhosts` never sweeps it.
+ * @returns false when nothing MEASURABLE was drawn — which is what jsdom always answers, since a
+ *   glyph there has no size (`reference_jsdom_cannot_measure_glyphs`); the caller treats that as
+ *   "no ghost", ⛔ never as an error.
+ */
+export function drawSignGhost(
+  ctx: SVGContext,
+  groupName: string,
+  cursorX: number,
+  cursorY: number,
+  drawSign: () => void,
+): boolean {
+  try {
+    const group = ctx.openGroup(groupName) as SVGGElement
+    try {
+      drawSign()
+    } finally {
+      ctx.closeGroup()
+    }
+
+    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
+    if (!gbox || gbox.width === 0) {
+      group.remove()
+      return false
+    }
+
+    group.setAttribute('opacity', '0.7')
+    group.querySelectorAll('text, path').forEach(el => {
+      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', GHOST_BLUE)
+    })
+
+    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
+    group.setAttribute('transform', `translate(${dx}, ${dy})`)
+    return true
+  } catch (_e) {
+    return false
   }
 }

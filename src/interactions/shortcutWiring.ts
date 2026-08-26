@@ -24,8 +24,10 @@ import { cycleSlurHandle } from './slurHandleCycle'
 import { cycleHairpinEndpoint, nudgeArmedHairpinMouth, resetArmedHairpinMouth } from './elements/hairpinHandles'
 import { cycleOttavaEndpoint } from './elements/ottavaHandles'
 import { walkOttavaBody, walkOttavaEndpoint } from './ottavaWalk'
-import { walkPedalBody, walkPedalEndpoint } from './pedalWalk'
-import { cyclePedalEndpoint } from './elements/pedalHandles'
+import {
+  cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
+  resetSelectedSpanMark,
+} from './spanMarkKeys'
 import { cycleTrillEndpoint } from './elements/trillHandles'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { walkArmedTrillEndpoint, walkTrillBody } from './trillWalk'
@@ -161,12 +163,12 @@ export function wireShortcuts(
     return true
   }
 
-  // …and a selected PEDAL's squares (`elements/pedalHandles`), chained on for the same reason.
+  // …and a selected PEDAL's squares — ⭐ through the FAMILY's verb (`./spanMarkKeys`) reading its row
+  // in `SPAN_MARK_TOOLS`, which is what the four copies above become one kind at a time.
   // ⚠️ This walk can have ONE stop rather than two — a pedal whose release was not drawn — which the
   // module's wrap arithmetic already answers.
   const walkPedalHandles = (step: 1 | -1): boolean => {
-    const eng = getEngine()
-    if (!eng || !cyclePedalEndpoint(state, eng.getElementRegistry(), step)) return false
+    if (!cycleSpanMarkEnd('pedal', state, getEngine(), step)) return false
     renderer.renderScore()
     return true
   }
@@ -369,13 +371,7 @@ export function wireShortcuts(
    * both have a re-anchor AND an offset.
    */
   const nudgeArmedPedalEnd = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || !pedal?.endpoint) return false
-    const moved = dy === 0 && dx !== 0
-      ? walkPedalEndpoint(eng, pedal.id, pedal.endpoint, dx)
-      : eng.nudgePedalEndpoint(pedal.id, pedal.endpoint, dx, dy)
-    if (!moved) return false
+    if (!nudgeArmedSpanMarkEnd('pedal', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -394,13 +390,7 @@ export function wireShortcuts(
    * ⚠️ ⛔ No screen→outward conversion, unlike the bracket's twin: a pedal has one side permanently.
    */
   const nudgeSelectedPedal = (dx: number, dy: number): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || !pedal || pedal.endpoint) return false
-    const moved = dy === 0 && dx !== 0
-      ? walkPedalBody(eng, pedal.id, dx)
-      : eng.nudgePedal(pedal.id, dx, dy)
-    if (!moved) return false
+    if (!nudgeSelectedSpanMark('pedal', state, getEngine(), dx, dy)) return false
     renderer.renderScore()
     return true
   }
@@ -422,10 +412,7 @@ export function wireShortcuts(
   }
 
   const resetSelectedPedal = (): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || !pedal || pedal.endpoint) return false
-    if (!eng.resetPedalOffset(pedal.id)) return false
+    if (!resetSelectedSpanMark('pedal', state, getEngine())) return false
     renderer.renderScore()
     return true
   }
@@ -433,10 +420,7 @@ export function wireShortcuts(
   /** `Ctrl+Backspace` on an armed pedal square: that sign's `x` and the pair's shared `y` back to the
    *  engraver's own. DECLINEs when it was never nudged, so the key falls through. */
   const resetArmedPedalEnd = (): boolean => {
-    const eng = getEngine()
-    const pedal = selectedOf(state, 'pedal')
-    if (!eng || !pedal?.endpoint) return false
-    if (!eng.resetPedalEndpointOffset(pedal.id, pedal.endpoint)) return false
+    if (!resetArmedSpanMarkEnd('pedal', state, getEngine())) return false
     renderer.renderScore()
     return true
   }

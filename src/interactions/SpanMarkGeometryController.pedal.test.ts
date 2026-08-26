@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest'
-import { PedalGeometryController } from './PedalGeometryController'
+import { SpanMarkGeometryController } from './SpanMarkGeometryController'
 import { bus } from '@/bus'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Score } from '@/types/music'
 
 /**
- * {@link PedalGeometryController} — the apply half of the Properties pedal offset rows (his ask,
- * 2026-08-18). `OttavaGeometryController`'s twin, and what it owns is one conversion: the window
- * writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
+ * {@link SpanMarkGeometryController} as the PEDAL's row drives it (`SPAN_MARK_TOOLS.pedal`) — the
+ * apply half of the Properties pedal offset rows (his ask, 2026-08-18). What the controller owns is
+ * one conversion: the window writes an ABSOLUTE number, the facade takes a RELATIVE nudge.
  *
  * ⭐ Going through `nudgePedalEndpoint` rather than writing the override directly is what puts the
  * panel behind the same PAGE LIMIT as the arrow keys. ⛔ A controller that wrote the compartment
@@ -17,8 +17,8 @@ import type { Score } from '@/types/music'
  * this seam and the facade all speak SCREEN here, so the vertical passes through untouched — the
  * flip lives in the panel's box alone.
  */
-describe('PedalGeometryController', () => {
-  let controller: PedalGeometryController
+describe("SpanMarkGeometryController — the pedal's row", () => {
+  let controller: SpanMarkGeometryController
   let nudge: Mock<(id: string, which: 'start' | 'end', dx: number, dy: number) => boolean>
   let render: Mock<() => void>
   let score: Score
@@ -28,7 +28,7 @@ describe('PedalGeometryController', () => {
     render = vi.fn()
     score = { id: 's', title: '', measures: [], engravingOverrides: {} } as unknown as Score
     const engine = { getScore: () => score, nudgePedalEndpoint: nudge } as unknown as MusicEngine
-    controller = new PedalGeometryController(() => engine, render)
+    controller = new SpanMarkGeometryController('pedal', () => engine, render)
   })
   afterEach(() => { controller.destroy() })
 
@@ -105,7 +105,7 @@ describe('PedalGeometryController', () => {
     bus.pedalGeometry.set({ pedalId: 'P1', y: 1 })
     expect(nudge, 'unsubscribed').not.toHaveBeenCalled()
 
-    const orphan = new PedalGeometryController(() => null, render)
+    const orphan = new SpanMarkGeometryController('pedal', () => null, render)
     bus.pedalGeometry.set({ pedalId: 'P1', y: 1 })
     expect(render, 'no engine to apply through').not.toHaveBeenCalled()
     orphan.destroy()

@@ -1,0 +1,150 @@
+/**
+ * ⭐⭐ **HOW THE EDITOR DRIVES A SPAN MARK** — the interactions half of the family's two tables
+ * (`docs/span-mark-family-plan-2026-08-24.md` Phase 3, decision D2), the twin of
+ * {@link SPAN_MARK_MODEL}.
+ *
+ * ⭐⭐ **WHY TWO TABLES AND NOT ONE.** A mark's ops live in `engine/models/`, its gestures here, and
+ * `lint:boundary` forbids `engine/` from importing `interactions/`. So no single object can name both
+ * halves: the score's vocabulary is in `engine/models/spanMarkModel.ts`, the editor's is here, and the
+ * two are keyed by the same {@link SpanMarkKind}. This side may name `MusicEngine`, the `bus` and the
+ * `ElementRegistry` freely; ⛔ the other side may name none of them.
+ *
+ * ⭐⭐ **IT IS TOTAL** (the plan's `[A4]`): a mapped type over `SpanMarkKind`, so widening that union
+ * makes `tsc` refuse the build until the new kind has written its row. ⛔ Never an array, never a
+ * `Partial<…>`, never an index signature — each silently accepts a kind that forgot to say what it
+ * does, and the miss is invisible until it ships. ⭐ A member only some kinds have is an OPTIONAL
+ * member on the spec, ⛔ never a hole in the table.
+ *
+ * ⭐⭐ **EVERY ROW IS WRITTEN AT ITS OWN KIND, WHICH IS WHY NOTHING HERE CASTS.** The row for `pedal`
+ * calls `armedTool(state, 'pedal')` and `bus.pedalGeometry` by name, so the payload narrows on the
+ * spot and each seam's own spelling — `PedalGeometryRequest`'s `y` where the bracket has `outward` —
+ * is translated INSIDE the row that owns it. The drivers above then see one shape and no unions to
+ * correlate.
+ *
+ * ⚠️ **This is a table of pure specs — DATA, not state** (`lint:singletons` reads SCREAMING_SNAKE as a
+ * lookup table and camelCase as a singleton; the naming *is* the rule). Nothing here holds a mark, an
+ * engine or a subscription: a row is a bundle of functions, and the drivers own every lifetime.
+ *
+ * The drivers that read it: `./spanMarkStamp` (one click), `./SpanMarkGeometryController` (the
+ * Properties boxes), `./spanMarkKeys` (the arrows, `Ctrl+Backspace` and `Tab`).
+ */
+import type { MusicEngine } from '../engine/MusicEngine'
+import type { ElementRegistry } from '../engine/ElementRegistry'
+import type { SpanMarkEnd, SpanMarkKind, SpanMarkOffsetField } from '../engine/models/spanMarkModel'
+import type { EditorState } from './EditorState'
+import { armedTool } from './EditorState'
+import { bus } from '@/bus'
+import { cyclePedalEndpoint } from './elements/pedalHandles'
+import { walkPedalBody, walkPedalEndpoint } from './pedalWalk'
+
+/**
+ * One Properties-panel request, in the family's own words: put THIS number at THIS value.
+ *
+ * ⭐ **Absolute**, because that is what a typed box means; the driver turns it into the engine's
+ * accumulating nudge, which is what keeps the panel behind the same PAGE LIMIT as the keyboard
+ * (docs/engraving-overrides-plan.md §8).
+ */
+export interface SpanMarkGeometryTarget {
+  /** The mark whose ink to move. */
+  id: string
+  /** Which of its three stored numbers (see {@link SpanMarkOffsetField}). */
+  field: SpanMarkOffsetField
+  /** The value the box wants that number to have, in staff-spaces, in the MODEL's own signing. */
+  wanted: number
+}
+
+/** What one CLICK of an armed span-mark tool makes — the row answers only when its tool is armed. */
+export interface SpanMarkStampAction {
+  /** The undo entry's description ("Add pedal", "Add 8va"). */
+  label: string
+  /** Place the mark at one note. `null` when the model refuses the anchor. */
+  create(engine: MusicEngine, noteId: string): { id: string } | null
+}
+
+/** What the editor can do to one kind of span mark. */
+export interface SpanMarkToolSpec {
+  /**
+   * ⭐ THE STAMP — `null` unless THIS kind's tool is the armed one, so `./spanMarkStamp` can ask the
+   * table rather than the state and a kind that is not armed costs one property read.
+   *
+   * ⚠️ It reads the armed tool ITSELF rather than being handed one: the payload differs per kind
+   * (the bracket's `shift`), and reading it inside the row is what keeps that difference typed.
+   */
+  armedStamp(state: EditorState): SpanMarkStampAction | null
+
+  /** ⭐ THE PROPERTIES SEAM — subscribe, translating this kind's request shape into the family's.
+   *  Returns the unsubscribe, like every bus store. */
+  onGeometrySet(fn: (target: SpanMarkGeometryTarget) => void): () => void
+
+  /** Move ONE end's ink, accumulating, undo entry and page limit included. */
+  nudgeEnd(engine: MusicEngine, id: string, which: SpanMarkEnd, dx: number, dy: number): boolean
+
+  /** Move the WHOLE mark's ink — both ends by the same delta. */
+  nudgeWhole(engine: MusicEngine, id: string, dx: number, dy: number): boolean
+
+  /** ⭐ Walk ONE end through the music: the ink moves, and hands the anchor along at each stop
+   *  (`./markDrive`). The horizontal arrows' road. */
+  walkEnd(engine: MusicEngine, id: string, which: SpanMarkEnd, dx: number): boolean
+
+  /** ⭐ Walk the WHOLE mark through the music, length unchanged. */
+  walkWhole(engine: MusicEngine, id: string, dx: number): boolean
+
+  /** Drop ONE end's nudges. DECLINEs when it carries none, so the key falls through. */
+  resetEnd(engine: MusicEngine, id: string, which: SpanMarkEnd): boolean
+
+  /** Drop every nudge the mark carries. DECLINEs when it carries none. */
+  resetWhole(engine: MusicEngine, id: string): boolean
+
+  /** `Tab` / `Shift+Tab`: arm the next drawn square. DECLINEs when this kind is not the selected one
+   *  or its squares are not drawn — the caller CHAINS on a false. */
+  cycleEnd(state: EditorState, registry: ElementRegistry, step: 1 | -1): boolean
+
+  /**
+   * ⭐⭐ **WHICH WAY IS UP, FOR THIS MARK, RIGHT NOW** — `1` when the stored vertical agrees with the
+   * screen, `-1` when a screen-up `↑` has to arrive as a POSITIVE number.
+   *
+   * It is where {@link SpanMarkModelSpec.vertical}'s spelling becomes arithmetic, and it needs the
+   * engine because an `outward` mark's side is DERIVED (a bracket's `shift`, an ornament's
+   * placement) — the sign can differ between two marks of one kind.
+   */
+  verticalSign(engine: MusicEngine, id: string): 1 | -1
+}
+
+export const SPAN_MARK_TOOLS: { [K in SpanMarkKind]: SpanMarkToolSpec } = {
+  pedal: {
+    // ⭐ `createPedal([noteId])` — the engine's one-note resolution, the same pedal the palette row
+    // gives a single selected note, so the two doors to a pedal cannot drift apart.
+    //
+    // ⭐⭐ **A SECOND CLICK LIFTS THE FIRST PEDAL** rather than stacking on it — `createPedal` goes
+    // through `addPedalOverNotes`, whose truncation rule is the pianist's own gesture: press again
+    // and the foot came up first (docs/pedal-plan.md §3.3). So stamping along a run of notes leaves a
+    // chain of abutting pedals, which is exactly what a re-take looks like in this dress: `✻ Ped.`
+    // side by side, as the old editions print it. ⚠️ That is the pedal's answer to a repeated click;
+    // the bracket UPSERTS per (beat, staff) instead, which is why the rule lives in the row rather
+    // than in the driver.
+    armedStamp: (state) => armedTool(state, 'pedal')
+      ? { label: 'Add pedal', create: (engine, noteId) => engine.createPedal([noteId]) }
+      : null,
+
+    // ⭐ The seam carries `PedalOffsetOverride`'s own spelling — two horizontals and ONE screen-signed
+    // vertical, asked for without a sign named because a pedal and its release share a baseline
+    // (Gould p. 333). Translating it here is what lets the driver hold one shape.
+    onGeometrySet: (fn) => bus.pedalGeometry.onSet(req => fn(
+      'y' in req
+        ? { id: req.pedalId, field: 'vertical', wanted: req.y }
+        : { id: req.pedalId, field: req.which, wanted: req.x },
+    )),
+
+    nudgeEnd: (engine, id, which, dx, dy) => engine.nudgePedalEndpoint(id, which, dx, dy),
+    nudgeWhole: (engine, id, dx, dy) => engine.nudgePedal(id, dx, dy),
+    walkEnd: (engine, id, which, dx) => walkPedalEndpoint(engine, id, which, dx),
+    walkWhole: (engine, id, dx) => walkPedalBody(engine, id, dx),
+    resetEnd: (engine, id, which) => engine.resetPedalEndpointOffset(id, which),
+    resetWhole: (engine, id) => engine.resetPedalOffset(id),
+    cycleEnd: (state, registry, step) => cyclePedalEndpoint(state, registry, step),
+
+    // ⛔ No conversion, ever: a pedal has one side permanently, so `+ down` means the same thing
+    // everywhere it can be drawn and the keyboard's number passes straight through.
+    verticalSign: () => 1,
+  },
+}

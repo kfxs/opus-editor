@@ -24,7 +24,7 @@ import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampTrillAtClick } from './trillStamp'
 import { stampOttavaAtClick } from './ottavaStamp'
-import { stampPedalAtClick } from './pedalStamp'
+import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
@@ -2133,7 +2133,9 @@ export class MouseController {
     // its own armed tool, so the order among them decides nothing.
     if (stampTrillAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampOttavaAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
-    if (stampPedalAtClick(this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    // …and the PEDAL's, through the family's one driver (`./spanMarkStamp`) reading its row in
+    // `SPAN_MARK_TOOLS` — the shape the other stamps join one at a time.
+    if (stampSpanMarkAtClick('pedal', this.state, engine, registry, x, y, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

@@ -441,7 +441,7 @@ all — the regression net for the riskiest work already exists and does not hav
 
 ---
 
-## Phase 3 — `SpanMarkSpec`, one family *(≈1–2 days; the real decision point)*
+## ✅ Phase 3 — `SpanMarkSpec`, one family — **DONE 2026-08-26**
 
 Gated on Phase 1 succeeding and on **D2**.
 
@@ -505,6 +505,78 @@ two rows — and **move its specs with it**, per `CLAUDE.md` §Testing.
 
 Stop condition: if porting pedal does not shrink pedal, the abstraction is wrong. Say so and stop —
 the same way Phase 4 of the 2026-07-28 plan spiked to "no" and was closed.
+
+---
+
+### ✅ What actually happened
+
+**The stop condition was met: pedal shrank, so Phase 4 is open.** The pedal's own per-kind logic went
+from **111 code lines to 28** — its two table rows — a 75% cut, measured in code lines (comments
+excluded, since this repo's files are mostly prose):
+
+| pedal's own | before | after |
+|---|---|---|
+| `interactions/pedalStamp.ts` | 77 / **37** | **deleted** |
+| `interactions/PedalGeometryController.ts` | 71 / **36** | **deleted** |
+| `engine/rendering/PedalGhost.ts` | 79 / **28** | 55 / **7** |
+| its five closures in `shortcutWiring` | — / **17** | — / **0** |
+| its rows in the two tables | — | — / **28** |
+
+**🚨 D2 was right about the fence and wrong about the addresses: it is THREE homes, not two.** The
+plan puts "ops + geometry + style + **ghost**" in `engine/models/`. But `engine/models/` imports
+`engine/rendering/` **nowhere** today, and a table there holding a ghost drawer would have been the
+first arrow — the same cycle-shaped mistake Phase 1 hit when the driver could not live in
+`markWalk.ts`. What shipped:
+
+- `engine/models/spanMarkModel.ts` — `SPAN_MARK_MODEL`, the SCORE's vocabulary. ⚠️ It may name
+  nothing above `engine/models/`: not `MusicEngine` (the *editor's* facade, §5), not the renderer. So
+  it holds the `noun`, the `endNoun`, how the vertical is **signed** (`'screen' | 'outward'`) and
+  `offsetOf(score, id, field)` — three numbers (two ends + one shared vertical) read off the
+  compartment, **0** where the mark carries no nudge.
+- `interactions/spanMarkTools.ts` — `SPAN_MARK_TOOLS`, the EDITOR's. It may name `MusicEngine`, the
+  `bus` and the registry freely, and it does.
+- `engine/rendering/ghostCursor.ts` — `drawSignGhost`, and **not a table at all**. The ghost
+  duplication was never per-kind dispatch (`GHOST_DRAWERS` is already total); it was 35 lines of
+  open-group → measure → recolour → park written out identically in three drawers. A helper is the
+  honest shape, and it leaves a drawer as its SIGN and nothing else.
+
+**⭐⭐ The `[A4]` totality was BREAK-TESTED, not asserted.** Adding `'ottava'` to `SpanMarkKind` makes
+`tsc` refuse **both** tables by name (`TS2741: Property 'ottava' is missing`) — which is the whole
+claim, checked rather than promised. `spanMarkModel.test.ts` and `spanMarkTools.test.ts` also assert
+it at runtime, and the second pins the *other* drift: the two tables must stay keyed by one union.
+
+**⭐ Nothing in the rows needs a cast, and that is a design choice worth keeping.** Each row is written
+**at its own kind** — the pedal row calls `armedTool(state, 'pedal')` and `bus.pedalGeometry` **by
+name** — so each seam's own spelling (`PedalGeometryRequest`'s `y` where the bracket has `outward`) is
+translated *inside* the row that owns it, and the drivers above see one shape. The alternative, a
+driver that narrows a union it was handed, is the correlated-union problem and would have needed a
+cast per call.
+
+**What ported, and what deliberately did not.** Ported: the stamp, the Properties geometry seam, the
+five keyboard verbs, the ghost body. **Not** ported: `pedalOps` (830), `PedalRenderer` (629),
+`pedalLane` (286), `pedalWalk` (500), `pedalHandles` (178), `elements/pedal.ts` (90). Measured against
+ottava after normalising the nouns, those are **47–74% alike** where the ported four were **86–89%** —
+i.e. they are where the families genuinely differ, and Phase 1 already took the one composition they
+shared. ⭐ The rows POINT at them; they do not absorb them.
+
+**🚨 The repo grew, and the report has to say so.** The five new shared modules are **264 code lines**
+against **111** removed: net **+150** this phase. That is Phase 1's lesson holding —
+**price it on rows-not-copied, ⛔ not on lines.** The drivers exist and exactly one family uses them;
+the shrink lands in Phase 4, where each remaining kind trades ~110 code lines for ~28 of row.
+⚠️ So the sequence table's "~1,500 lines" for Phase 3 was wrong in the same direction as Phase 1's
+"~1,000", and **Phase 4's "~5,000–6,500" should be read as ~110 code lines × 4 families plus whatever
+the ops/renderer collapse turns out to be worth — ⛔ not as a line count already earned.**
+
+**⭐⭐ D1 has its first real evidence, and it points at NO.** Building the geometry driver put the five
+controllers side by side: pedal, ottava and trill are the same 36 code lines with three nouns changed,
+while **hairpin** carries an `aperture` case and a `null`-means-RESET case, and **slur** carries
+control points, a whole-curve target and its own reset. The wedge did not fit the *simplest* member of
+the family. That is one data point, not the decision — Phase 4 takes it on the evidence of ottava and
+trill — but it is the direction the plan guessed.
+
+**Gate.** `build:check` clean, **5,122 unit tests passed / 7 skipped** (5,109 → +13), and
+`npm run test:e2e` **226 passed** either side — run because `PedalGhost` is drawn ink, per the plan's
+own rule about jsdom.
 
 ---
 
@@ -672,7 +744,7 @@ stack. So the clause should end:
 | 0 | ✅ subtraction | ~~1–2 h~~ **½ day** | none | **83** dead lines, ~~~80~~ ~~242~~ **231** exports | seeing the real seams |
 | 1 | ✅ drag driver **(spike)** | ½–1 day | low | ~~**~1,000** lines~~ **net 0** — 6 copies → 1; 8 methods → 3; **28 fields → 1**; **13 flags → 1**, 20 `if`s → 1 call | the Phase 3 decision, cheaply — **taken: it works** |
 | 2 | outlier functions | ½–1 day | medium | 0 — it is navigation | reading `renderScore` and `App.ts` |
-| 3 | `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~1,500 lines | the shape for the rest |
+| 3 | ✅ `SpanMarkSpec` + pedal | 1–2 days | **medium** | ~~~1,500 lines~~ pedal's own **111 code lines → 28** (a row); repo **+150** | the shape for the rest — **taken: it shrinks** |
 | 4 | ottava, trill, ⟨hairpin⟩ | 2–3 days | medium | **~5,000–6,500** lines | glissando as a row |
 | 5 | verb families — **5a facade + 5b `ScoreModel`** | ~~½~~ **1 day** | low (5a) / **medium (5b)** | ~170 + **96** methods | every future kind |
 | 6 | the rule + its check | 30 min | none | — | all of the above staying done |
