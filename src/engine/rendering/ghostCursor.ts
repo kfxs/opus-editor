@@ -98,6 +98,11 @@ export function drawSignGhost(
     }
 
     group.setAttribute('opacity', '0.7')
+    // ⚠️ `text, path` — a GLYPH's two shapes, which is what every sign ghost draws. It is also a
+    // constraint on drawers: ink of any other kind comes out BLACK. The barline ghost's first build
+    // painted its strokes with `ctx.fillRect` and reported itself — *"why the only thing is blue in
+    // the ghost is the dots?"* — and the answer was to stamp the precomposed glyph instead, which is
+    // what a ghost should have been doing anyway (see `./BarlineGhost`).
     group.querySelectorAll('text, path').forEach(el => {
       if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', GHOST_BLUE)
     })

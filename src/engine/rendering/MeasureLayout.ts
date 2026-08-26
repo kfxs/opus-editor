@@ -8,7 +8,7 @@ import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/lay
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
-import { repeatStartRoom } from '@/engine/layout/barlineSign'
+import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
@@ -221,11 +221,65 @@ function calculateMinimumMeasureWidth(
   // be drawn — is the floor under the cap, and a bar that genuinely needs more room takes it. The
   // line then carries fewer bars, which is what casting-off is for.
   const incompressible = spacingFloor + widestOverhead + sharedOverhead
+  /**
+   * ⭐⭐ **A BAR THAT OPENS A REPEAT IS FLOORED FROM THE SIGN, not from its own left edge** — the
+   * compensation a `|:` in first position owes.
+   *
+   * 🚨 **His report, 2026-08-26, with two screenshots of the same empty score**: without the repeat
+   * *"does not look so bad"*; with a `|:` on bar 1 it *"looks completely incorrect"*. Measured, 64
+   * empty bars, staff spaces:
+   *
+   * | | bars on the line | bar 1 total | bar 1's silence | the others' |
+   * |---|---|---|---|---|
+   * | no `\|:` | 9 | 14.7 | 6.1 | 9.0 |
+   * | with `\|:` | 8 | 17.0 | 6.9 | **10.1** |
+   *
+   * ⭐ **Why the sign is what makes it wrong, and not merely narrower.** `MIN_MEASURE_WIDTH` floors
+   * the bar AS SEEN — from its left barline to its closing one — so a mid-line empty bar is lifted
+   * from 7.65 to 10 and the lift lands in its silence, while a bar carrying a clef and a meter is
+   * already past the floor and keeps only the rule's 6.0. That gap exists either way. What the `|:`
+   * changes is what the EYE reads as the bar: a repeat sign is a barline, so the measure now visibly
+   * begins at the sign, and the span after it — 6.9 spaces against every neighbour's 10.1 — is read
+   * as a whole measure drawn two-thirds the size of its fellows. It also costs the line a bar
+   * (9 → 8), which widens the neighbours and sharpens the contrast.
+   *
+   * ⇒ **Floor the bar the reader sees.** Everything drawn before the sign — the header, and the
+   * space between the header and the sign ({@link HEADER_TO_REPEAT}, LilyPond's `staff-bar`
+   * extra-space) — is added to the floor rather than counted inside it. A bar with no header opens
+   * its repeat on its own boundary, so nothing is added and the floor is unchanged.
+   *
+   * ⛔ **Nothing else moves**, and that is the point of doing it here rather than in the floor
+   * itself: a bar without a `repeatStart` — every bar in his second screenshot — is not touched by
+   * this line. Two attempts that DID touch them (flooring every empty bar's silence, and dropping the
+   * floor for empty bars) were both reported the same hour: *"why is empty measure so big now?"* and
+   * *"first bar width grew a lot… this is not wanted"*.
+   */
+  // ⭐ **BOTH ENDS, or neither** — his correction, and it is right: *"if you are going to do that
+  // then you should compensate also all end repeat"*. A sign at either boundary is ink standing
+  // inside the bar, so the rule is one rule — **the floor measures the bar's MUSIC, and any barline
+  // sign it carries is added to that** — and it is not about first position at all. A bar with no
+  // sign adds nothing and is not touched.
+  //
+  //  - LEADING: everything before the first note that a plain bar does not have — the header, the
+  //    space to the sign (`HEADER_TO_REPEAT`) and the sign itself. What is left for the floor
+  //    to measure is `plain lead-in + music`, exactly what it measures elsewhere.
+  //  - TRAILING: the end sign's own reach back into the bar ({@link barlineSignExtent}) — 0.98
+  //    spaces for a final bar, 1.54 for an end repeat, 0 for the plain line every other bar draws.
+  //
+  // ⚠️ Added to the FLOOR and not to the natural width, so it changes only the bars the floor
+  // decides — the empty and near-empty ones, which are exactly the bars whose spring would otherwise
+  // swallow the sign (§5.1's trailing term "cost nothing" because a bar with music has a gap that
+  // already covers it; a bar-long rest's 6 spaces of spring covers it by hiding it).
+  const plainLeadIn = (leadIn.padding + leadIn.extent) * STAFF_SPACE_PX
+  const leadingSignRoom = measure.repeatStart !== undefined
+    ? Math.max(0, widestOverhead + sharedOverhead - plainLeadIn)
+    : 0
+  const signRoom = leadingSignRoom + barlineSignExtent(ownEndSignKind(measure)).left * STAFF_SPACE_PX
   return {
     total: Math.max(
       Math.min(
-        Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH),
-        LAYOUT_CONFIG.MAX_MEASURE_WIDTH,
+        Math.max(totalWidth, LAYOUT_CONFIG.MIN_MEASURE_WIDTH + signRoom),
+        LAYOUT_CONFIG.MAX_MEASURE_WIDTH + signRoom,
       ),
       incompressible,
     ),

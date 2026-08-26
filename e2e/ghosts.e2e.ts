@@ -266,6 +266,43 @@ test('⭐⭐ the PEDAL ghost is `Ped.` alone — and the three LADDER ghosts sha
   expect(Math.abs(ped.y - CURSOR.y), 'and on the pointer’s own line').toBeLessThan(12)
 })
 
+test('⭐⭐ the BARLINE ghost is the PRECOMPOSED sign — three glyphs, one position', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    await h.render()
+
+    const at = { x: 200, y: 100 }
+    const sign = (s: 'final' | 'repeatStart' | 'repeatEnd') => {
+      h.engine.renderScoreWithToolGhost(at, { kind: 'barline', sign: s })
+      return { groups: h.ghosts(), glyphs: h.placed('.vf-ghost-barline text') }
+    }
+    return { final: sign('final'), start: sign('repeatStart'), end: sign('repeatEnd') }
+  })
+
+  expect(drawn.final.groups).toEqual(['vf-ghost-barline'])
+
+  // ⭐⭐ HIS CALL, 2026-08-26: *"isn't it easy to use the bravura glyphs for ghost?"* — E032 is
+  // `barlineFinal`, E040 `repeatLeft` ( `|:` ), E041 `repeatRight` ( `:|` ). ⚠️ ONE `<text>` each,
+  // which is also why the ghost is BLUE: the family's recolour paints `text` and `path`, so the
+  // first build's `fillRect` strokes came out black — *"why the only thing is blue in the ghost is
+  // the dots?"* ⛔ The PASS does not draw these glyphs: their box is a fixed 4 staff spaces, and an
+  // engraved barline spans whatever staff it is on (docs/barline-types-plan.md §8 P2).
+  expect(drawn.final.glyphs.map(g => g.code), 'barlineFinal').toEqual(['e032'])
+  expect(drawn.start.glyphs.map(g => g.code), 'repeatLeft').toEqual(['e040'])
+  expect(drawn.end.glyphs.map(g => g.code), 'repeatRight').toEqual(['e041'])
+
+  // The standard sign-ghost position, like the ladder family: left of the pointer, on its own line —
+  // and the SAME place for all three, so the eye does not re-find it when the armed sign changes.
+  for (const [name, ghost] of Object.entries(drawn)) {
+    const [g] = ghost.glyphs
+    expect(g.x, `${name} parks left of the pointer`).toBeLessThan(CURSOR.x)
+    expect(Math.abs(g.y - CURSOR.y), `${name} on the pointer’s own line`).toBeLessThan(NEAR)
+    expect(Math.abs(g.x - drawn.final.glyphs[0].x), `${name} at the same x as the final bar's`)
+      .toBeLessThan(4)
+  }
+})
+
 test('the FEATHER ghost is a bare notehead — dot included, stem and flag dropped', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h

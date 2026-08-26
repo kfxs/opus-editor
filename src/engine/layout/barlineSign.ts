@@ -105,6 +105,18 @@ const DOT_WIDTH = glyphBox('repeatDot').advance
  */
 export type BarlineSignKind = 'plain' | 'final' | 'repeatEnd' | 'repeatStart' | 'repeatBoth'
 
+/**
+ * ⭐ **The signs a user PLACES** — the palette's three, and the vocabulary the editor's barline stamp
+ * speaks (`interactions/barlineStamp.ts`, its ghost, docs/barline-types-plan.md P4).
+ *
+ * Declared HERE and narrowed from {@link BarlineSignKind} rather than listed again over there, for
+ * the reason `engine/rendering/ghostTypes.ts` exists at all: the engine owns the vocabulary and the
+ * editor translates into it (CLAUDE.md). The two members left out are the two nobody places —
+ * `plain` is what a boundary carries when nothing was said, and `repeatBoth` is DRAWN from two bars'
+ * statements and stored nowhere.
+ */
+export type PlacedBarlineSign = Extract<BarlineSignKind, 'final' | 'repeatStart' | 'repeatEnd'>
+
 /** One vertical stroke of a sign: its LEFT edge and width, in staff spaces from the boundary
  *  (negative x = left of it, i.e. inside the bar the line ends). */
 export interface SignStroke {
@@ -297,6 +309,21 @@ export function ownEndSignKind(measure: Measure): BarlineSignKind {
   if (measure.barline?.style === 'final') return 'final'
   return 'plain'
 }
+
+/**
+ * ⭐ **The gap between the last header glyph and a start repeat displaced past it**, in staff spaces.
+ *
+ * LilyPond's `TimeSignature.space-alist (staff-bar . (extra-space . 1.0))` — one staff space between
+ * a time signature and a following bar line (its `Clef` says 0.7, its `KeySignature` 1.1; MuseScore's
+ * `timesigBarlineDistance` is 0.5; Ross p. 147 measures from the glyph's LEFT and works out at ≈1.6
+ * for Bravura's meter). It is also exactly half of `HEADER_TO_NOTE`, so the displaced sign lands with
+ * one space either side of it.
+ *
+ * Read by the DRAWING (`BarlineRenderer.displacedRepeatX`) and by the WIDTH
+ * (`MeasureLayout`, which must know how much of the bar stands before the sign) — which is why it
+ * lives here, with the rest of the sign's geometry, and not in either of them.
+ */
+export const HEADER_TO_REPEAT = 1.0
 
 /**
  * ⭐ **How much extra room this bar owes at its START, for a repeat it opens with** — §5.1's

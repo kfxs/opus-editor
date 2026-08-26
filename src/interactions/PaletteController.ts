@@ -15,6 +15,7 @@ import { tempoLabel } from '../utils/tempoMap'
 import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
 import { featherSelectedNote, featherContext } from './fanStamp'
+import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from './barlineStamp'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
 import { staffOf } from '@/utils/lanes'
@@ -958,6 +959,7 @@ export class PaletteController {
       case 'dynamicEntry': // places a text mark, not a note property — nothing to promote to
       case 'tempo':
       case 'tempoEntry':   // places a tempo mark — nothing to promote to (like `tempo`)
+      case 'barline':      // a BOUNDARY between bars — not a property of a note, and it has no length
       case undefined:      // nothing was armed: a plain duration press, which clears a stale dot
         // Dropping a stale accidental here is deliberate: an INTENTIONAL one arms the stamp (and so
         // lands in the 'accidental' case above), meaning one that survives to here can only be left
@@ -1985,6 +1987,38 @@ export class PaletteController {
       return
     }
     this.armMarkingTool({ kind: 'timeSignature', timeSignature: ts })
+  }
+
+  /**
+   * ⭐ **A BARLINE PALETTE PRESS** — final bar / open repeat / end repeat (docs/barline-types-plan.md
+   * P4). One method for all three, because the difference between them is a ROW in `BARLINE_SIGNS`,
+   * not a branch here.
+   *
+   * *"same behaviour of any palette: if nothing selected stamp, if a barline is selected apply to
+   * the barline, if a whole measure is selected apply in relationship with the semantic"* — his rule,
+   * and the whole of it lives in `interactions/barlineStamp.ts`: which bar a selection names is the
+   * one question, and the sign's SIDE answers it (see {@link barlineTargetFromSelection}).
+   *
+   * The selection STAYS after an apply, like the Time Signature window's box: you are looking at the
+   * line you just changed. Re-pressing the armed button disarms, the palette-button gesture every
+   * row in this class shares — ⛔ but only when it ARMED; a press that applies is not a toggle, and
+   * *removing* a sign is Delete on the selected barline (P5), not a second press of the same button.
+   */
+  pressBarline(sign: BarlineSign): void {
+    // ⚠️ The engine is fetched INSIDE the branch that writes, like `createOttava`/`createPedal` and
+    // unlike `createTrill`: a selection means APPLY and never arm, so an engine-less context must
+    // still not fall through to arming — and arming itself is pure state and needs no engine.
+    const target = barlineTargetFromSelection(this.state, sign)
+    if (target !== null) {
+      const engine = this.getEngine()
+      if (engine && applyBarlineSign(engine, sign, target)) this.renderScore()
+      return
+    }
+    if (armedTool(this.state, 'barline')?.sign === sign) {
+      this.disarmToEntry() // re-press disarms
+      return
+    }
+    this.armMarkingTool({ kind: 'barline', sign })
   }
 
   /**

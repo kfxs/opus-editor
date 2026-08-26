@@ -113,7 +113,45 @@ Two details that cost a round-trip each, both about SVG rather than music:
 - **Colouring the stroke instead fixes the colour, not the weight.** A stroke straddles the edge,
   adding half its width to each side, and the selected barline drew visibly fatter than every other
   line on the page. With no stroke, `WIDTH` means what it says: 2px, just enough to cover the
-  engraved line (1px, 2 for a thick end bar) without the selection reading as a change to the music.
+  engraved line without the selection reading as a change to the music.
+
+### 3a. 🚨 …and since 2026-08-26 it is a RECOLOUR again — of ink that is OURS
+
+**Read §3 first: none of it is retracted.** What changed is the DOM the highlight is pointing at.
+Since P2 of `docs/barline-types-plan.md` **we draw every barline ourselves** — one `<g>` per
+(measure, staff, side), id `barline-<measure>-<staff>-end`, built from scratch on every render and
+positioned from the *placement* rather than from a stave that may be stale
+(`rendering/BarlineRenderer`). Every failure §3 lists is a failure of *finding* VexFlow's rects, and
+not one of them survives that:
+
+| §3's failure | why it cannot happen now |
+|---|---|
+| one barline is two rects | one boundary, one group of ours |
+| the second rect is in another group | there is no second rect |
+| the coordinates lie | the pass reads the placement; the highlight reads no geometry at all |
+| matching by raw x | nothing is matched — the group is addressed by id |
+
+**And painting had stopped working**, which is what forced the question. His report: *"when I select
+a barline the highlight is a little bit confusing… are we overlapping the blue to another black
+barline?"*, then *"why was the highlight before starting this project better than now?"* Both right.
+The painted mark is a 2 px rect at `noteEndX`, and a barline is no longer a 1.6 px line there:
+
+- a **final bar** is thin (0.16) + gap (0.32) + THICK (0.50), *all of it left of the boundary*, so
+  the rect covered the last half-pixel of the thick line and laid the rest of itself on blank staff;
+- an **end repeat** adds two dots 1.5 spaces further left again, untouched;
+- and even a **plain** line no longer sits exactly at `noteEndX` — `hintBarlines` rounds it onto the
+  device-pixel grid *after* it is drawn, so the blue rect and the black line disagree by a fraction
+  of a pixel. That is the "confusing" he saw on ordinary barlines.
+
+⇒ `applyBarlineSelectionHighlight` now sets `fill` on the sign's own rects and dot glyphs, through
+the same `setAttr` ledger every other highlight uses, so deselecting restores exactly what the pass
+wrote. ⭐ **It also grows any stroke thinner than 2 px to 2 px, symmetrically about its own centre**
+— his call (*"why not make the highlight 2px again? what was wrong was the black, correct?"*), and
+the right reading of §3's last bullet: 2 px was never the problem, a *separate* mark that missed the
+sign was. A stroke already heavier (a final bar's 0.5-space thick line) is left alone.
+
+⛔ **What has NOT changed:** never recolour a node VexFlow drew. The rule is about ownership, not
+about the verb.
 
 ## 4. The three things you can do to a selected barline
 

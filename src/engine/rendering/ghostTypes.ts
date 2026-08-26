@@ -34,6 +34,7 @@ import type {
   Clef, TimeSignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
   Accidental as ScoreAccidental,
 } from '@/types/music'
+import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 
 export type ToolGhost =
   | { kind: 'clef'; clef: Clef }
@@ -86,3 +87,13 @@ export type ToolGhost =
    * and which pitch the click will place, which is the whole question at the cursor.
    */
   | { kind: 'fan'; duration: NoteDuration; dots: number }
+  /**
+   * ⭐ The BARLINE stamp's sign — the final bar, the open repeat or the end repeat, whichever is
+   * armed. It CARRIES ITS SIGN because the three are three different pictures, and the ghost is what
+   * tells three identically-armed palette buttons apart (the `8va`/`8vb` lesson).
+   *
+   * ⚠️ Typed as the ENGINE's own {@link PlacedBarlineSign}, not as a string the editor invents: the
+   * drawing's vocabulary is what this union is for. `plain` and `repeatBoth` are not members of it —
+   * nobody places them, so no click can be previewing one. See `./BarlineGhost`.
+   */
+  | { kind: 'barline'; sign: PlacedBarlineSign }

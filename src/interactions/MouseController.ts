@@ -24,6 +24,7 @@ import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
+import { stampBarlineAtClick } from './barlineStamp'
 import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
@@ -2133,6 +2134,10 @@ export class MouseController {
     if (stampSpanMarkAtClick('trill', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('ottava', this.state, engine, registry, x, y, () => this.render.renderScore())) return
     if (stampSpanMarkAtClick('pedal', this.state, engine, registry, x, y, () => this.render.renderScore())) return
+    // ⭐ The BARLINE stamp (`./barlineStamp`), and the only one here that reads the MEASURE and
+    // nothing else: its sign goes on the clicked bar's own left or right side (a barline is
+    // system-wide, so the y decides nothing), never at the pointer.
+    if (stampBarlineAtClick(this.state, engine, measureNum, () => this.render.renderScore())) return
 
     // No marking tool armed → note/tuplet entry.
     this.placeNoteAtClick(engine, registry, x, y, measureNum)

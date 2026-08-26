@@ -99,6 +99,13 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // click has picked one. A ghost wedge at the pointer would be previewing a length the click is
     // not going to make (docs/dynamics-line-and-hairpins-plan.md §8 — his call, 2026-08-12).
     case 'hairpin': return null
+    // ⭐ The BARLINE stamp DOES ghost — his call, 2026-08-26, the day it shipped without one:
+    // *"where is the ghost? … we need ghosts for every case using the glyph"*. It arrived in the
+    // `null` arm above on the argument that a barline stands on a BOUNDARY and never at the pointer,
+    // which is the pedal's argument verbatim and was answered there: the cursor says WHAT the click
+    // makes, not where the engraver puts it. Three palette buttons arming identically behind one
+    // blue caret is the `8va`/`8vb` case exactly, so the SIGN is what travels.
+    case 'barline': return { kind: 'barline', sign: tool.sign }
     default: return assertNeverTool(tool)
   }
 }
@@ -127,4 +134,5 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   trill: 'ghost:trill',
   ottava: 'ghost:ottava',
   pedal: 'ghost:pedal',
+  barline: 'ghost:barline',
 }

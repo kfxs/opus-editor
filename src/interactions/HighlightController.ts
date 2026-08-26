@@ -16,6 +16,14 @@ import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
 
 /**
+ * ⭐ **The weight a selected line is drawn at, in px** — the width the barline highlight has had
+ * since it shipped (`docs/barline-selection.md`), kept when it became a recolour. Thin ink reads
+ * paler than a filled glyph at the same hue, and 2 px is what made a selected barline read as
+ * selected. See {@link HighlightController.thickenToHighlightWeight}.
+ */
+const HIGHLIGHT_WEIGHT_PX = 2
+
+/**
  * Applies SVG highlight classes/colors after each render.
  * Framework-agnostic: operates on standard DOM APIs, no Vue/React/Angular imports.
  */
@@ -843,30 +851,41 @@ export class HighlightController {
   }
 
   /**
-   * Highlight the selected barline — the line that ends the selected `barline`'s measure.
+   * Highlight the selected barline — the sign at the boundary that ENDS the selected measure.
    *
-   * ⭐ **PAINTED, not recoloured** — and that distinction is the whole history of this method.
-   * Recolouring means drawing the score black, then hunting down VexFlow's own `<rect>`s and
-   * changing their `fill`. Every failure it had was a *finding* failure, never a painting one:
+   * ⭐⭐ **IT COLOURS THE SIGN WE DREW, whatever that sign is.** 🚨 **His report, 2026-08-26** —
+   * *"when i select a barline the highlight is a little bit confusing… are we overlapping the blue
+   * to another black barline?"*, and then *"why was the highlight before starting this project
+   * better than now?"* Both were right, and the second names the cause exactly.
    *
-   *  - One barline on screen is TWO drawn rects (bar N's end and bar N+1's begin at the same x),
-   *    so colouring one left the other black, painting over the orange.
-   *  - Reaching into bar N+1's group for the second half does not always find it there.
-   *  - ⚠️ And the coordinates lie. A render that REUSES a measure it did not redraw moves it with
-   *    a `translate` on the group (`VexFlowRenderer.replaySnapshot`); the rects keep the numbers
-   *    they were drawn with. So the two halves of one barline could compare hundreds of pixels
-   *    apart — which is why this only misbehaved on bars whose width had been changed (exactly when
-   *    neighbours move without being redrawn), and why an export/import round-trip "fixed" it: a
-   *    fresh score redraws everything, so nothing carries a transform.
+   * This used to PAINT one 2 px rect at `noteEndX`, which was correct while every barline was
+   * VexFlow's 1.6 px line — the rect covered it, and the line read blue. P2 made us draw the signs
+   * ourselves, and a sign is much more ink: a final bar is thin (0.16) + gap (0.32) + THICK (0.50),
+   * all of it to the LEFT of the boundary, and an end repeat adds two dots 1.5 spaces out. The 2 px
+   * rect then covered the last half-pixel of the thick line and laid the rest of itself on blank
+   * staff to the RIGHT of the sign — a blue sliver beside a black sign, which is what he saw.
    *
-   * Painting sidesteps all of it. The registry knows where the barline is — `noteEndX`, offset-
-   * corrected when a measure was moved (`addAll(elements, dx, dy)`), which is precisely the number
-   * the DOM attributes get wrong — so we draw our own mark there and never touch VexFlow's nodes.
-   * Removal is deleting a node (`addNode` logs it), not replaying a colour.
+   * ⚠️ **This is a RECOLOUR, and the rule it looks like it breaks does not apply to it.**
+   * `docs/barline-selection.md` §3 says PAINT, don't RECOLOUR — but read what that rule is about:
+   * recolouring **VexFlow's** nodes. Every failure it lists is a *finding* failure of that DOM (one
+   * barline was two rects, the second not always in the group you expect, and the coordinates lie on
+   * a bar that was reused and translated). None of it survives P2:
+   *
+   *  - the sign is ONE group of ours, `barline-<measure>-<staff>-<side>`, with an id we chose;
+   *  - the pass is rebuilt from scratch every render, from the PLACEMENT and not from a stale stave
+   *    ({@link BarlinePlacement}), so there is nothing stale to find and no coordinate to trust —
+   *    this method reads no geometry at all now;
+   *  - and colouring the group's own ink cannot miss a half of the sign, because the sign IS the
+   *    group. The dots come with it, still drawn by the font.
+   *
+   * ⭐ **Which group.** A boundary carries ONE sign (`signAtBoundary`): normally the one bar *N*
+   * draws at its end, but when bar *N+1* opens a repeat there, bar *N* draws nothing and the sign is
+   * the neighbour's `-start`. So: bar *N*'s end group, else bar *N+1*'s start group. ⛔ Never both —
+   * a displaced `|:` (one pushed past a clef, `BarlineRenderer.displacedRepeatX`) is not at this
+   * boundary at all, and bar *N* keeps its own line there, which the first branch already found.
    *
    * Drawn on EVERY staff of that measure, like the time signature's highlight and for the same
-   * reason: one barline, stated once for the system, drawn once per staff. (The staves are joined
-   * only at the left edge of a system, so these per-staff segments are all the ink there is.)
+   * reason: one barline, stated once for the system, drawn once per staff.
    */
   applyBarlineSelectionHighlight(): void {
     const engine = this.getEngine()
@@ -877,45 +896,60 @@ export class HighlightController {
     const svg = scoreCanvas.querySelector('svg')
     if (!svg) return
 
-    const registry = engine.getElementRegistry()
     const staffCount = engine.getScore().staves?.length ?? 1
-    // Just wide enough to cover the engraved line under it (1.6px — `rendering/barlineInk.ts` —
-    // and 3 for a thick end bar, which this deliberately does not fully cover), so the
-    // result reads as an orange barline rather than an orange fringe around a black one. Any wider
-    // and the selected barline looks heavier than every other line on the page, which reads as the
-    // music changing rather than as a selection.
-    const WIDTH = 2
-    const SELECTION_COLOR = ELEMENT_SELECTION_FILL
-
     for (let staff = 0; staff < staffCount; staff++) {
-      // ⚠️ Geometry is NOT the test for "is this bar on screen". Tier 1 registers a staff geometry
-      // for every bar in the score, culled or not, so this loop used to paint an orange mark across
-      // a bar that had scrolled out of the window — a selection highlight with no barline under it.
-      // `isPainted` is the narrower question, and the right one (`ElementRegistry.painted`).
-      if (!registry.isPainted(measure, staff)) continue
-      const geometry = registry.getStaffGeometry(measure, staff)
-      if (!geometry) continue
-
-      const top = geometry.lineYPositions[0]
-      const bottom = geometry.lineYPositions[4]
-      const mark = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      mark.setAttribute('x', String(geometry.noteEndX - (WIDTH - 1) / 2))
-      mark.setAttribute('y', String(top))
-      mark.setAttribute('width', String(WIDTH))
-      mark.setAttribute('height', String(Math.max(0, bottom - top)))
-      mark.setAttribute('fill', SELECTION_COLOR)
-      // ⚠️ **`stroke: none`, stated — not left unsaid.** An SVG element INHERITS `stroke`, and the
-      // score's root carries a black one, so a rect that declares only its fill comes out orange
-      // inside a black outline. Painting the stroke orange instead fixes the colour but not the
-      // weight: a stroke straddles the edge, adding half its width to each side, which made the
-      // selected barline visibly fatter than every other line on the page. The mark's width is the
-      // whole of its geometry this way, and `WIDTH` means what it says.
-      mark.setAttribute('stroke', 'none')
-      mark.setAttribute('class', 'selected-barline')
-      this.addNode(svg, mark)
+      // The group's existence IS the "is this bar on screen" test — the pass draws one only for a
+      // boundary it actually painted, which is what `registry.isPainted` used to be asked here.
+      const group = this.barlineSignGroup(svg, measure, staff)
+      if (!group) continue
+      for (const ink of group.querySelectorAll('rect, text')) {
+        const el = ink as SVGElement
+        // Both ways, like every other recolour here: the attribute is what VexFlow's own context
+        // wrote, and the style property is what wins if a rule ever sets one.
+        this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
+        this.setStyleProp(el, 'fill', ELEMENT_SELECTION_FILL)
+        this.addClass(el, 'selected-barline')
+        if (el.tagName === 'rect') this.thickenToHighlightWeight(el)
+      }
     }
   }
 
+  /**
+   * ⭐⭐ **NO PART OF A SELECTED SIGN IS THINNER THAN {@link HIGHLIGHT_WEIGHT_PX} of blue** — grown
+   * symmetrically, so the stroke stays where it is drawn.
+   *
+   * ⭐ **HIS CALL, and it is the right reading of the old rule:** *"why not make the highlight 2px
+   * again? what was wrong was the black, correct?"* Yes. The 2 px was never the problem — the old
+   * mark was a SEPARATE rect that missed the sign and left black beside it, and the note that said a
+   * selected barline must not look heavier was answering *"should we paint a fatter line ON TOP of
+   * the engraved one?"*. This is a different question: the drawn stroke itself is the blue, and 1.6
+   * px of blue on white paper simply reads paler than the meter's big filled glyph beside it — his
+   * report, twice.
+   *
+   * ⛔ Only ever GROWS, and only what is thinner: a final bar's 0.5-space thick line is already
+   * heavier than this and must not be touched, or the sign's own proportions change under selection.
+   * ⚠️ The width goes back on `clearHighlights` like every other attribute here ({@link setAttr}),
+   * and the next render redraws the sign from the pass anyway.
+   */
+  private thickenToHighlightWeight(rect: SVGElement): void {
+    const width = Number(rect.getAttribute('width'))
+    if (!Number.isFinite(width) || width >= HIGHLIGHT_WEIGHT_PX) return
+    const grow = HIGHLIGHT_WEIGHT_PX - width
+    this.setAttr(rect, 'x', String(Number(rect.getAttribute('x')) - grow / 2))
+    this.setAttr(rect, 'width', String(HIGHLIGHT_WEIGHT_PX))
+  }
+
+  /** The `<g>` holding the sign drawn at the boundary that ends `measure` on `staff` — bar N's own
+   *  end sign, or the start repeat its neighbour drew there instead. Null when nothing was drawn
+   *  (the bar is culled, or off the last system). The ids are `BarlineRenderer`'s, `vf-`-prefixed by
+   *  `openGroup` (`reference_vexflow_opengroup_prefix`). */
+  private barlineSignGroup(svg: Element, measure: number, staff: number): SVGGElement | null {
+    // ⚠️ `[id="…"]`, not `#…`: an id SELECTOR takes a `getElementById` fast path that answers for
+    // the FIRST match in the DOCUMENT and then checks containment — so with two scores mounted (or
+    // two test fixtures left in the body) it returns null for a group that is right here.
+    const byId = (id: string) => svg.querySelector<SVGGElement>(`[id="vf-barline-${id}"]`)
+    return byId(`${measure}-${staff}-end`) ?? byId(`${measure + 1}-${staff}-start`)
+  }
 
   applyTupletSelectionHighlight(): void {
     const engine = this.getEngine()

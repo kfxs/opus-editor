@@ -6,9 +6,9 @@ import type { NoteDuration } from '../types/music'
 import { durationHighlight } from '../interactions/keypadSync'
 import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
-import { dbg } from '../utils/debug'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
+import type { BarlineSign } from '../interactions/barlineStamp'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -279,42 +279,47 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(staffBox)
 
   /**
-   * --- Barline types ---
+   * --- Barline types (docs/barline-types-plan.md P4) ---
    *
-   * ⚠️ A PALETTE WITH NO FEATURE BEHIND IT YET. Nothing in the model can say what KIND of line ends
-   * a bar: our barlines are boundaries, not objects (see `selectionSnapshot`'s `barline` case, which
-   * calls the measure it closes "the address a barline TYPE would eventually be stored at"). So each
-   * press logs what it would do and changes nothing — deliberately, so the row can be looked at and
-   * argued with before a model field, a renderer branch and a gesture are committed to.
+   * Three buttons, ONE palette gesture, and none of it is here: `palette.pressBarline(sign)` applies
+   * to a selected barline or a selected measure, and otherwise ARMS the stamp — the rule and its
+   * table live in `interactions/barlineStamp.ts`, the split `staffSizeToggle.ts` makes for the
+   * `Small` button beside it. This file stays a strip of one-line buttons.
    *
-   * ⭐ When it does grow a body, the rule goes in a MODULE, not here: `engine/models/barlineOps` for
-   * the score edit, an `interactions/` module for "which line, and what does pressing this mean" —
-   * the split `staffSizeToggle.ts` already makes for the `Small` button beside it. This file stays a
-   * strip of one-line buttons.
+   * ⭐ `toggle`, not `action`, and the light is not decoration: the armed stamp draws NO ghost (a
+   * barline stands on a boundary, not at the pointer), so with the blue cursor these buttons are the
+   * only thing on screen saying which sign the next click will place.
+   *
+   * Always pressable — every one of the three gestures is available at any time, which is the point
+   * of the rule.
    */
-  const BARLINE_TOOLS: ReadonlyArray<{ label: string; sign: string; title: string }> = [
+  const BARLINE_TOOLS: ReadonlyArray<{ label: string; sign: BarlineSign; title: string }> = [
     {
       label: 'Final',
       sign: 'final',
-      title: 'Final barline (thin + thick) — ends the piece, or a section that is finished',
+      title: 'Final barline (thin + thick) — ends the piece, or a section that is finished. '
+        + 'Goes on the RIGHT of the bar: the selected barline, the last bar of a selected passage, '
+        + 'or — with nothing selected — the bar you click next.',
     },
     {
       label: 'Open repeat',
       sign: 'repeatStart',
-      title: 'Open repeat |: — the line the player comes BACK to',
+      title: 'Open repeat |: — the line the player comes BACK to. Goes on the LEFT of the bar: the '
+        + 'bar the selected barline opens, the first bar of a selected passage, or — with nothing '
+        + 'selected — the bar you click next (bar 1 included).',
     },
     {
       label: 'End repeat',
       sign: 'repeatEnd',
-      title: 'End repeat :| — go back to the last open repeat and play it again',
+      title: 'End repeat :| — go back to the last open repeat and play it again. Goes on the RIGHT '
+        + 'of the bar, like the final barline.',
     },
   ]
   const barlineBox = group('Barline:')
   for (const { label, sign, title } of BARLINE_TOOLS) {
-    // Always pressable: with nothing behind it yet there is no selection for it to need, and a row
-    // that is permanently grey says "broken" rather than "not built".
-    action(barlineBox, label, `${title}  [not wired up yet — press to log]`, () => true,
-      () => { dbg(`[Barline] pressed '${sign}' — no model field yet, nothing changed`) })
+    toggle(barlineBox, TOOL_BTN, label, title,
+      () => state.selectedMarkingTool?.kind === 'barline' && state.selectedMarkingTool.sign === sign,
+      () => palette.pressBarline(sign))
   }
   row.appendChild(barlineBox)
   row.appendChild(divider())

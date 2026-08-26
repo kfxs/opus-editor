@@ -223,6 +223,43 @@ test('⭐⭐ a repeat opening a bar that draws a CLEF stands AFTER the clef, not
   expect(opening, 'the system still opens with a line').toHaveLength(1)
 })
 
+test('⭐⭐ a displaced repeat stands ONE SPACE after the header — never on top of the meter', async ({ score }) => {
+  // 🚨 **HIS REPORT, 2026-08-26**: *"look how close is initial repeat barline from time signature"*.
+  // It was not merely close — the sign's thick stroke began 2 units LEFT of where the meter's ink
+  // ended, while 2.4 spaces of air sat between the sign and the first notehead. The cause was the
+  // ANCHOR: the position was measured back from `getNoteStartX()`, which is not where the note's ink
+  // lands. It is now measured forward from the header's own ink (`BarlineRenderer.displacedRepeatX`,
+  // where the three engines' numbers and Ross p. 147 are recorded).
+  const measured = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.setRepeatStart(1, true)
+    await h.render()
+    const meter = h.inkSizes('.vf-timesignature text')
+    const head = h.inkSizes('.vf-notehead')
+    return {
+      meterRight: Math.max(...meter.map(m => m.x + m.width)),
+      headLeft: Math.min(...head.map(n => n.x)),
+      rects: h.barlines(),
+      dots: h.glyphs('g.vf-stavebarline text'),
+    }
+  })
+
+  // The sign, right of the meter: its thick stroke opens it, its dots close it.
+  const sign = measured.rects.filter(r => r.x > measured.meterRight && r.x < measured.headLeft)
+    .sort((a, b) => a.x - b.x)
+  expect(sign.length, 'the two strokes of |: are between the meter and the note').toBe(2)
+  const dotsRight = Math.max(...measured.dots.map(d => d.x)) + 0.4 * SPACE
+
+  // ⭐ 1.0 space after the header — LilyPond's `TimeSignature.space-alist (staff-bar . 1.0)`, and
+  // half of HEADER_TO_NOTE, which is why the other side comes out at least as wide.
+  const before = sign[0].x - measured.meterRight
+  expect(before, 'a full space of air after the meter').toBeGreaterThan(0.8 * SPACE)
+  expect(before, '…and not more than one — the note needs the other half').toBeLessThan(1.4 * SPACE)
+  // ⭐ …and Ross p. 143's one space before the first note survives it.
+  expect(measured.headLeft - dotsRight, 'a space before the note too').toBeGreaterThan(0.8 * SPACE)
+})
+
 test('🚨🚨 a bar that MOVED without being re-engraved takes its barline with it', async ({ score }) => {
   // **His report, 2026-08-26**: *"the final bar and one of the simple bar that are in the second
   // stave [have] been stolen from the first stave"*, and then *"the bug occurs when i add another

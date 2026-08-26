@@ -910,6 +910,100 @@ spec that the three gestures still land where they are asked.
 
 </details>
 
+**P4 — the gesture. ✅ DONE 2026-08-26** — `interactions/barlineStamp.ts` (+ spec),
+`PaletteController.pressBarline`, the `barline` member of `MarkingTool`, one row in
+`MouseController`'s dispatch chain, `engine/rendering/BarlineGhost.ts` (+ spec), and the dev
+palette's three buttons wired to it.
+
+⭐⭐ **HIS ANSWER TO THE QUESTION BELOW — and it was "both, obviously"**: *"isn't it on a palette?
+same behaviour of any palette: if nothing selected stamp, if a barline is selected apply to the
+barline, if a whole measure is selected apply in relationship with the semantic: an endbar is always
+on the right, an open is on the left side of the measure"*. So the table's two options were never
+alternatives; the cost of arm-then-click is paid, and select-then-press comes free on top of it.
+
+⭐ **The whole rule is ONE table**, `BARLINE_SIGNS` (total over `PlacedBarlineSign`,
+`npm run lint:tables`): each sign carries the **SIDE** of a measure it stands on — `final` and
+`repeatEnd` right, `repeatStart` left — plus the one line that writes it. The three gestures are then
+the same sentence read three ways:
+
+| what is selected | where the sign lands |
+|---|---|
+| nothing (or notes) | the tool ARMS; the clicked BAR gets it, on the sign's own side |
+| a barline (`ends measure N`) | the same line read as a side: right → bar *N*, left → bar *N+1* |
+| a measure range | right → its LAST bar, left → its FIRST bar |
+
+⭐ It is also what makes an initial `|:` reachable: bar 1's LEFT side is a bar that exists, so no
+boundary before bar 1 has to be selectable (and none is). ⚠️ A NOTE selection deliberately names no
+bar — his three cases are a barline, a measure, or nothing — so a press with notes selected arms.
+
+⭐⭐ **THE GHOST USES THE PRECOMPOSED GLYPH, and that was his call twice over.** It shipped ghostless
+(blue cursor) on the argument that a barline stands on a boundary and never at the pointer — the
+pedal's argument, already overturned once: *"where is the ghost? i see you are using the blue cursor,
+but we need ghosts for every case using the glyph"*. Then, on the first build drawing the sign out of
+the pass's own strokes: *"why the only thing is blue in the ghost is the dots?"* — because the shared
+recolour paints `text, path` and `ctx.fillRect` makes `<rect>`s. ⇒ *"isn't it easy to use the bravura
+glyphs for ghost?"* It is, and here it is also RIGHT: `barlineFinal` U+E032, `repeatLeft` U+E040,
+`repeatRight` U+E041, one `<text>` each. ⛔ The PASS still strokes its lines — a precomposed glyph's
+box is a fixed 4 staff spaces and an engraved barline spans whatever staff it is on — but a ghost has
+no staff, which is the one case the glyph is correct by construction.
+
+⭐⭐ **AND THE DISPLACED REPEAT'S DISTANCE WAS WRONG** — *"look how close is initial repeat barline
+from time signature"*. Measured: the sign's thick stroke began at x 84 where the meter's ink ends at
+86 — a 2 px OVERLAP — with 2.4 spaces of air between the sign and the first note. The cause was the
+anchor: `displacedRepeatX` measured back from `getNoteStartX()`, which is not where the note's ink
+lands (109.4 against a notehead at 123.4). It now measures FORWARD from the header's own ink, which
+is what the rule is about ("place the repeat marks afterwards"), at **{@link HEADER_TO_REPEAT} = 1.0
+staff space**:
+
+| source | what it says |
+|---|---|
+| **Ross p. 147** | 3½ spaces from the **left side of the time signature** to the repeat's left (5½ after a clef, 3½ after a key signature's last accidental) — plate distances with plate glyph widths; with Bravura's 1.9-space `4` it leaves 0.6 before the first note, under his own p. 143 minimum |
+| **LilyPond** | `TimeSignature.space-alist (staff-bar . (extra-space . 1.0))` — Clef 0.7, KeySignature 1.1 |
+| **MuseScore** | `timesigBarlineDistance` **0.5 sp** (clef 0.5, keysig 1.0) |
+| **Verovio** | `leftMarginBarLine` default **0.0** |
+| **Gould** | the ORDER only (p. 234). ⛔ No distance — UNKNOWN, not "silent" |
+
+1.0 is LilyPond's, and it is exactly half of `HEADER_TO_NOTE`, so the sign lands with a space either
+side of it by construction rather than by luck.
+
+### ⭐⭐ P4a — A BAR THAT CARRIES A SIGN RESERVES ROOM FOR IT (2026-08-26)
+
+**His report, two screenshots of the same empty score:** without repeats it *"does not look so
+bad"*; with a `|:` on bar 1 it *"looks completely incorrect"*. Measured, 64 empty bars, staff spaces:
+
+| | bars on the line | bar 1 total | bar 1's silence | the others' |
+|---|---|---|---|---|
+| no `\|:` | 9 | 14.7 | 6.1 | 9.0 |
+| with `\|:` | 8 | 17.0 | 6.9 | **10.1** |
+
+⚠️ **The repeat does not cause the disparity** — the ratio is 68% either way. `MIN_MEASURE_WIDTH`
+floors the bar AS SEEN, so a mid-line empty bar is lifted from 7.65 to 10 and the lift lands in its
+silence, while a bar carrying a clef and meter is already past the floor and keeps the rule's 6.0.
+⭐ What the sign changes is what the EYE reads as the bar: a repeat sign IS a barline, so the measure
+visibly begins at it, and the span after it is read as a whole measure drawn two-thirds the size of
+its fellows. (It also costs the line a bar, which widens the neighbours and sharpens the contrast.)
+
+⇒ **The rule, stated once:** *the floor measures the bar's MUSIC, and any barline sign the bar
+carries is added to it.* Leading side = everything before the first note a plain bar does not have
+(header + `HEADER_TO_REPEAT` + the sign); trailing side = `barlineSignExtent(...).left` (0.98 for a
+final, 1.54 for an end repeat, 0 for the plain line). ⭐ **Both ends, and at every position — his
+correction**: *"if you are going to do that then you should compensate also all end repeat"*.
+
+⚠️ Added to the **floor**, never to the natural width, so it moves only the bars the floor decides —
+the empty and near-empty ones, which are exactly the bars whose spring would otherwise swallow the
+sign. A bar with no sign is untouched: his second screenshot is byte-identical (14.71 / 6.11 / 8.96).
+
+⛔ **TWO WIDER FIXES WERE TRIED AND BOTH REPORTED THE SAME HOUR** — do not re-propose either without
+re-reading this: flooring every empty bar's *silence* (*"why is empty measure so big now?"*, and it
+also flattened the meter ordering `e2e/spacing.e2e.ts:479` pins), and dropping the floor for empty
+bars altogether — LilyPond's own model, since it has no per-measure minimum at all — (*"first bar
+width grew a lot… this is not wanted"*, and mid-line bars shrank from 10 spaces to 7.4). The general
+asymmetry they were aimed at is still there and is **`docs/bar-width-plan.md` "Known issues" #1's
+neighbour**: bar 1's silence is 68% of a mid-line bar's whenever the floor decides both. He has seen
+the numbers and left it standing.
+
+<details><summary>The original P4 question, as written</summary>
+
 **P4 — the gesture** (⏳ still his call; the Time Signature window's *APPLIES if selected, else ARMS*
 is the shipped precedent for having both). The palette's three buttons stop logging and call
 `barlineOps`.
@@ -926,14 +1020,18 @@ cheapest route **and** the one that reuses a gesture the user already has. ⛔ B
 what every other stamp in this editor does, and consistency is a real reason. ⏳ **His call; this
 table is so the price is on the table when he makes it.**
 
-**P5 — Properties / Delete / the highlight.** The type in the selection report
+
+</details>
+
+**P5 — Properties / Delete / the highlight.** ⭐ **The HIGHLIGHT half is DONE (2026-08-26)**, ahead of
+the rest and because he reported it: the selection now recolours the sign's own ink instead of
+painting a 2 px rect beside it, and grows any stroke thinner than 2 px to 2 px. The reasoning — and
+why this does not retract *PAINT, don't RECOLOUR* — is `docs/barline-selection.md` §3a. ⏭️ Still
+owed: the type in the selection report
 (`selectionSnapshot.ts:355`, which already calls this measure *"the address a barline TYPE would
 eventually be stored at"*). Delete = back to a plain line — ⚠️ which **overturns a stated
 non-behaviour**: `shortcutWiring.ts:1285` currently reasons that a barline is a BOUNDARY with nothing
-to delete, and that comment is the thing to edit, not to leave contradicting the code. ⭐ And the
-selection highlight can finally cover the whole sign: `applyBarlineSelectionHighlight` paints a 2 px
-rect today and apologises for it in a comment (*"3 for a thick end bar, which this deliberately does
-not fully cover"*) — with `barlineSignExtent` (§6.2) it has the number.
+to delete, and that comment is the thing to edit, not to leave contradicting the code.
 
 **⏭️ LATER, out of this plan:** the per-staff scope actually being READ (§2 stores it, nothing reads
 it); the repeat PLAY ORDER (§7); the **thin double `||`**, which is the family's fourth member — not

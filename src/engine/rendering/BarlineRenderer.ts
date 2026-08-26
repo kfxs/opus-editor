@@ -56,7 +56,7 @@
 import { Element, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
 import type { Score } from '@/types/music'
-import { barlineSignParts, dotLines, signAtBoundary, type BarlineSignKind } from '@/engine/layout/barlineSign'
+import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, type BarlineSignKind } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
 import type { RenderPass } from './RenderPass'
 
@@ -133,6 +133,47 @@ function drawRepeatDot(ctx: RenderPass['context'], x: number, y: number, space: 
   dot.renderText(ctx, x, y)
 }
 
+/** The staff a sign is drawn ON, as the numbers painting it needs — taken from a `Stave`, through
+ *  {@link staleShift}. Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
+ *  as five loose parameters. */
+interface SignStaff {
+  /** Space between two staff lines, in the drawing's own units — every part of the sign scales by it. */
+  space: number
+  /** Top and bottom of the drawn lines: how far the strokes reach. */
+  topY: number
+  botY: number
+  /** How many lines, which is what decides WHICH two spaces the repeat dots sit in. */
+  numLines: number
+  /** The y of one staff line, 0 = top. Its own function because a `Stave`'s answer is not
+   *  `topY + line × space` — the line has a thickness, and the pass's y's carry `staleShift`. */
+  yForLine(line: number): number
+}
+
+/**
+ * ⭐ **PAINT ONE SIGN** — its strokes as strokes, its dots as the glyph — centred on `x`, on the staff
+ * described by `staff`. What stays in the caller is everything ABOUT a staff: the group, the scale,
+ * the hinting opt-out, and where the boundary is.
+ *
+ * ⛔ **The STAMP'S GHOST does not come through here**, and that is deliberate: it draws the
+ * precomposed `barlineFinal` / `repeatLeft` / `repeatRight` glyph instead (`./BarlineGhost`). A ghost
+ * sits on a nominal five-line staff, which is the one case the font's fixed 4-space box is right;
+ * this function exists because an ENGRAVED sign has to span whatever staff it is drawn on.
+ */
+function paintBarlineSign(
+  ctx: RenderPass['context'], kind: BarlineSignKind, x: number, staff: SignStaff,
+): void {
+  const { space, topY, botY, numLines } = staff
+  const parts = barlineSignParts(kind)
+  for (const stroke of parts.strokes) {
+    ctx.fillRect(x + stroke.x * space, topY, stroke.width * space, botY - topY)
+  }
+  for (const dot of parts.dots) {
+    for (const line of dotLines(numLines)) {
+      drawRepeatDot(ctx, x + dot.x * space, staff.yForLine(line), space)
+    }
+  }
+}
+
 /** `repeatDot` — the dot of a repeat sign, and NOT `augmentationDot` (U+E1E7), which is a different
  *  glyph that happens to have the same box in Bravura. ⭐ 3 of 3 engines draw THIS code point, and
  *  written as an escape for the same reason `pedalStyle` writes its own: a private-use character is
@@ -163,25 +204,20 @@ function drawSign(
   // 🚨 Every number below is the STAVE's, so it is the last render's for a bar that was reused and
   //    translated. See {@link staleShift}.
   const { dy } = staleShift(placement)
-  const topY = stave.getTopLineTopY() + dy
-  const botY = stave.getBottomLineBottomY() + dy
-  const parts = barlineSignParts(kind)
+  const signStaff: SignStaff = {
+    space,
+    topY: stave.getTopLineTopY() + dy,
+    botY: stave.getBottomLineBottomY() + dy,
+    numLines: stave.getNumLines(),
+    yForLine: line => stave.getYForLine(line) + dy,
+  }
 
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
   // own note, and for the same reason: that class is the handle the hinting pass, the dev census and
   // the e2e harness all collect barlines by. It names what the ink IS, not who put it down.
   const group = ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`) as SVGGElement | undefined
   try {
-    inStaffSpace(pass, staffIndex, group, () => {
-      for (const stroke of parts.strokes) {
-        ctx.fillRect(boundaryX + stroke.x * space, topY, stroke.width * space, botY - topY)
-      }
-      for (const dot of parts.dots) {
-        for (const line of dotLines(stave.getNumLines())) {
-          drawRepeatDot(ctx, boundaryX + dot.x * space, stave.getYForLine(line) + dy, space)
-        }
-      }
-    })
+    inStaffSpace(pass, staffIndex, group, () => paintBarlineSign(ctx, kind, boundaryX, signStaff))
   } finally {
     // ALWAYS close: an open group swallows the whole rest of the render (`renderMeasure`'s note).
     ctx.closeGroup()
@@ -219,19 +255,55 @@ function drawSign(
  * replaces the line before it when it stands *on* that line. Displaced by a clef, it never touches
  * it, and a bar boundary with no line at all is the bug that would follow from forgetting this.
  *
+ * ## ⭐⭐ WHERE, exactly — measured off the HEADER, ⛔ never back from the first note
+ *
+ * 🚨 **HIS REPORT, 2026-08-26** — *"look how close is initial repeat barline from time signature"*,
+ * with a screenshot of `|:` touching a 4/4. It was worse than close: measured in the browser, the
+ * sign's thick line began at **x 84** where the meter's ink ends at **86** — a 2 px OVERLAP — while
+ * **2.4 spaces** of air sat between the sign and the first notehead.
+ *
+ * ⭐ The cause was the anchor, not the number. This measured back from `getNoteStartX()`, and that
+ * is not where the note's ink lands: for the bar above it answers 109.4 while the registered note
+ * start is 121.4 and the notehead is at 123.4. Anchoring to the thing the rule is actually about —
+ * *"place the repeat marks afterwards"* — makes the sign's position independent of how the formatter
+ * pads the note that follows it.
+ *
+ * ⭐ **The gap, and what the sources say.** Measured in three engines' own code plus the one treatise
+ * that gives a number:
+ *
+ *  - **LilyPond** — `TimeSignature`'s `space-alist`: `(staff-bar . (extra-space . 1.0))`, i.e. one
+ *    staff-space between a time signature and a following bar line (`Clef` 0.7, `KeySignature` 1.1);
+ *  - **MuseScore** — `paddingtable.cpp`: `TIMESIG → BAR_LINE = Sid::timesigBarlineDistance`, **0.5 sp**
+ *    (`clefBarlineDistance` 0.5, `keyBarlineDistance` 1.0);
+ *  - **Verovio** — `leftMarginBarLine` defaults to **0.0**; it leans on general overlap avoidance;
+ *  - **Ross p. 147** — the only treatise number, and measured from the glyph's LEFT: *"the space
+ *    between the left side of the time signature, and the left side of the repeat bar, is three and a
+ *    half spaces"* (5½ after a clef, 3½ after a key signature's last accidental). ⚠️ Those are
+ *    plate-engraving distances with plate glyph widths; Bravura's `4` is 1.9 spaces wide, so Ross's
+ *    3½ leaves only **0.6** of a space before the first note — under his own p. 143 minimum. ⇒ his
+ *    number is recorded, and the gap is stated from the header's RIGHT edge instead.
+ *  - **Gould** — the ORDER only (p. 234, above). No distance: ⛔ UNKNOWN, not "silent".
+ *
+ * ⭐ **1.0 space**, LilyPond's, and it is also exactly half of {@link HEADER_TO_NOTE} — which is the
+ * room this bar already reserves beyond the sign's own width (`repeatStartRoom`). So the sign lands
+ * with one space either side of it, by construction and not by luck: 1.0 after the header, the sign,
+ * then 1.0 before the note start — Ross p. 143's *"between the barline and the left side of the first
+ * note is one space"*, satisfied without a clamp that would have to guess where the note's ink is.
+ *
  * @returns the x to centre the sign on, or `null` when the bar has no header and the sign belongs on
  *          its own boundary.
  */
-function displacedRepeatX(stave: Stave, signRight: number, dx = 0): number | null {
+function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null {
   // A `NONE` begin bar is still a modifier, so the question is "anything but a barline".
   const header = stave.getModifiers(StaveModifierPosition.BEGIN).filter(m => m.getCategory() !== 'Barline')
   if (header.length === 0) return null
-  // The sign's own ink ends one staff space before the music — Gould p. 42 (*"allow a stave-space…
-  // on either side of a barline before a notational symbol"*) and Ross p. 143 (*"between the barline
-  // and the left side of the first note is one space"*). ⏭️ The bar does not RESERVE this room yet,
-  // so on a tight header the sign can still crowd the meter glyph; that is §5.1's leading term, P3.
   const space = stave.getSpacingBetweenLines()
-  return stave.getNoteStartX() + dx - space - signRight * space
+  // ⭐ The header's own INK, from the modifiers themselves — `getX() + getWidth()` per modifier is
+  // the drawn glyph box (checked against the rendered `<text>`: the meter answers 67…86, and its
+  // bbox is 67…86). ⛔ Not `headerExtent`, which is the WIDTH model's estimate of the same thing:
+  // where the sign goes is a question about the ink that is actually on the page beside it.
+  const headerRight = Math.max(...header.map(m => m.getX() + m.getWidth()))
+  return headerRight + dx + (HEADER_TO_REPEAT + signLeft) * space
 }
 
 /**
@@ -274,7 +346,7 @@ export function renderBarlines(pass: RenderPass, score: Score, placements: Barli
     if (measure.repeatStart === undefined) continue
 
     // ⭐ A header displaces the sign into the bar, after the clef/key/meter — see `displacedRepeatX`.
-    const displaced = displacedRepeatX(stave, barlineSignParts('repeatStart').extent.right, dx)
+    const displaced = displacedRepeatX(stave, barlineSignParts('repeatStart').extent.left, dx)
     if (displaced !== null) {
       // ⛔ Always `repeatStart` alone, never the back-to-back form: the previous bar's own end sign
       // is a different mark at a different x now, and combining them would draw one sign in the
