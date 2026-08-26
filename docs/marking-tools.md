@@ -2,7 +2,7 @@
 
 A **marking tool** is something armed for placement: arming one switches to entry mode, hides the
 keyboard cursor, previews itself as a ghost at the pointer, and makes the next canvas click *place or
-stamp* instead of entering a note. There are nine:
+stamp* instead of entering a note. There are **ten**:
 
 | | tool | arms | click does |
 |---|---|---|---|
@@ -15,8 +15,16 @@ stamp* instead of entering a note. There are nine:
 | | `tie` | *nothing* | ties the note clicked to the next slot |
 | | `dot` | *nothing* | dots the note **or rest** clicked |
 | **place a length** | `rest` | *nothing — it reads the armed length* | **places** a rest at the beat clicked, replacing what it covers |
+| **place a sign on a LINE** | `barline` | one of the five `PlacedBarlineSign`s | ⭐ puts it on the barline **NEAREST THE POINTER**, ⛔ not in the bar clicked (`interactions/barlineStamp.ts`) |
 
 They are **mutually exclusive**: exactly one is armed, or none.
+
+⭐ **The barline is the odd one in the y**, and it is worth naming beside the rest tool below: every
+other tool asks the click *which slot? which note?*, and this one asks *which LINE?* — the y picks
+only the staff band (a barline is system-wide), and the x picks the nearest boundary rather than the
+containing bar. 🚨 That was his correction, twice, from the running app: `pixelToMeasure` puts a press
+landing ON a boundary in the bar to its RIGHT, so asking "which bar?" handed a user aiming at a line
+the bar past it.
 
 **Arming asks "where?" — so a target already chosen skips it.** `timeSignature` is the first tool
 to act on that: with a bar boxed, the Time Signature window's OK APPLIES the meter to that bar

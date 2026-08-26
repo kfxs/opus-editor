@@ -21,6 +21,11 @@ import type { MenuToggle } from './menuCommands'
  * The two pickers stay IN STEP because neither owns the value: both press `bus.sound`, and both read
  * its highlight (`interactions/soundSync.ts` is what turns a press into an engine call). Choose a
  * sound in the dev dropdown and the tick moves here; choose it here and the dropdown follows.
+ *
+ * ⭐ **Play Repeats** (2026-08-26) is the same arrangement one store over — `bus.playRepeats`, the dev
+ * toolbar's 🔁 checkbox, and `interactions/playRepeatsSync`. ⚠️ It differs from the sound in what it
+ * IS: a sound is stored in the score and undoes with it, while taking the repeats is a statement
+ * about this hearing and is in no file. The play order it switches is `engine/audio/repeatPlan`.
  */
 
 /** The Play menu's commands from the app. The sound needs none — it goes through the bus. */
@@ -42,6 +47,28 @@ export function buildPlayMenu(actions: PlayMenuActions): MenuBarTitle {
         label: () => (actions.playback?.isOn() === true ? 'Stop' : 'Play'),
         shortcut: 'P',
         onSelect: () => actions.playback?.toggle(),
+      },
+      { separator: true },
+      {
+        /**
+         * ⭐ **PLAY REPEATS** — his ask, 2026-08-26: *"we need to add the checkmark also in the Play
+         * menu, saying something like Allow repetition or whatever it spells correct in English."*
+         *
+         * ⚠️ **"Play Repeats" is the phrase**, and it is not a paraphrase: it is what MuseScore's
+         * toolbar toggle and Sibelius's playback option are both called, so a musician arriving from
+         * either reads it without translating. (Dorico and Finale bury the same switch under
+         * *Playback Options ▸ Repeats*.)
+         *
+         * ⛔ It presses `bus.playRepeats` and never touches the engine — the dev toolbar's 🔁 checkbox
+         * offers the same choice, and the two stay in step for `Score Sound`'s reason: neither owns
+         * the value. `interactions/playRepeatsSync` is the one place a press becomes an engine call.
+         *
+         * ⭐ A press of the OPPOSITE value, not a toggle of the store's own: the store's press channel
+         * always fires and the handler decides, so what is sent is what the user is asking for.
+         */
+        label: 'Play Repeats',
+        checked: () => bus.playRepeats.get() !== false,
+        onSelect: () => bus.playRepeats.press(bus.playRepeats.get() === false),
       },
       { separator: true },
       {

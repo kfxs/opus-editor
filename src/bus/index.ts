@@ -24,6 +24,7 @@ import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
 import { createSlurGeometrySelection } from './slurGeometrySelection'
 import { createHairpinGeometrySelection } from './hairpinGeometrySelection'
+import { createPlayRepeatsSelection } from './playRepeatsSelection'
 import { createSoundSelection } from './soundSelection'
 import { createSubdivideSelection } from './subdivideSelection'
 import { createTieSelection } from './tieSelection'
@@ -115,6 +116,8 @@ interface EditorBus {
   rest: ReturnType<typeof createRestSelection>
   /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. The VALUE lives in
    *  the score (`Score.playback`); this is the seam, and its highlight mirrors what is in force. */
+  /** ⭐ Does playback take the repeats? Dev toolbar checkbox + Play ▸ Play Repeats. */
+  playRepeats: ReturnType<typeof createPlayRepeatsSelection>
   sound: ReturnType<typeof createSoundSelection>
   /** The subdivide key (secondary beam break). */
   subdivide: ReturnType<typeof createSubdivideSelection>
@@ -166,6 +169,7 @@ export function createEditorBus(): EditorBus {
     slurGeometry: createSlurGeometrySelection(),
     hairpinGeometry: createHairpinGeometrySelection(),
     rest: createRestSelection(),
+    playRepeats: createPlayRepeatsSelection(),
     sound: createSoundSelection(),
     subdivide: createSubdivideSelection(),
     tie: createTieSelection(),

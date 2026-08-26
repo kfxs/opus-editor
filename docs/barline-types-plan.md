@@ -1,13 +1,27 @@
 # Barline types — the final bar, the open repeat, the end repeat
 
-> **Status: DRAFT for review.** All three research reports have landed (§10). Where they agree, this
-> document decides; where a claim rests on one unverified source it is marked **⚠️ single-source**;
-> where nothing could be established it says **UNKNOWN**, never a plausible number.
+> **🏁 Status: BUILT (2026-08-26).** P0–P6 and §7 are shipped; what is left is listed at the end of
+> §8. Where the research agreed, this document decided; where a claim rested on one unverified source
+> it is marked **⚠️ single-source**; where nothing could be established it says **UNKNOWN**, never a
+> plausible number.
 >
-> **What exists today: a palette that logs.** `src/dev/devToolbar.ts` grew a `Barline:` row of three
-> buttons (`Final`, `Open repeat`, `End repeat`); each calls `dbg()` and changes no score. That was
-> the whole of the first ask — *"for the moment on clicking the palette we just console log and then
-> we will see"* — and it is why this plan could be written before a model field constrained it.
+> **WHERE THE FEATURE LIVES, for a reader arriving cold:**
+> `engine/models/barlineOps.ts` (the score ops) · `engine/layout/barlineSign.ts` (⭐ what a sign is
+> MADE OF — and the `SignHalf` rule three other things read) · `engine/rendering/BarlineRenderer.ts`
+> (we draw every barline) · `engine/audio/repeatPlan.ts` (the PLAY ORDER) ·
+> `interactions/barlineStamp.ts` (the gesture) · `interactions/elements/barline.ts` +
+> `./repeatStart.ts` (the two selections) · **Insert ▸ Barline** and the Properties chooser (the
+> doors) · **Play ▸ Play Repeats** + the dev shell's 🔁 (the performance).
+>
+> <details><summary>How it started: a palette that logs</summary>
+>
+> `src/dev/devToolbar.ts` grew a `Barline:` row of three buttons (`Final`, `Open repeat`, `End
+> repeat`); each called `dbg()` and changed no score. That was the whole of the first ask — *"for the
+> moment on clicking the palette we just console log and then we will see"* — and it is why this plan
+> could be written before a model field constrained it. ⚠️ **Those buttons no longer exist**: they
+> grew to five and were deleted on 2026-08-26 when Insert ▸ Barline arrived (P4's note, P6f).
+>
+> </details>
 >
 > **⭐⭐ REVISED 2026-08-26, after his question *"are we using VexFlow to draw? shouldn't we draw
 > ourself following the own engine strategy?"*** — §4.6, §5, §6 and P2 are rewritten around the
@@ -690,7 +704,9 @@ as one input among several (voltas, jumps, `times`); it is not the same field.
 
 ## 8. Phases
 
-**P0 — the palette. ✅ DONE.** Three buttons in `dev/devToolbar.ts`, `dbg()` only.
+**P0 — the palette. ✅ DONE, and since DELETED.** Three buttons in `dev/devToolbar.ts`, `dbg()` only —
+the scaffolding this plan was written against. They grew to five (P6c) and went out on 2026-08-26
+when Insert ▸ Barline gave the family a real door (P4's note, P6f).
 
 **P1 — the model + the core op. ✅ DONE** (`types/music.ts`, `engine/models/barlineOps.ts` + its spec,
 the `ScoreModel` / `MusicEngine` delegators, `measureRenderRoles` + `MeasureWidthCache`,
@@ -914,6 +930,13 @@ spec that the three gestures still land where they are asked.
 `PaletteController.pressBarline`, the `barline` member of `MarkingTool`, one row in
 `MouseController`'s dispatch chain, `engine/rendering/BarlineGhost.ts` (+ spec), and the dev
 palette's three buttons wired to it.
+
+> ⚠️ **Those buttons are GONE (2026-08-26).** They grew to five (P6c) and were deleted the same day
+> Insert ▸ Barline arrived — *"just delete the barline palette in the shell dev"* — on the rule the
+> Lines row went out under: *"a dev-shell palette earns its place while a feature has no real door;
+> this one now has one."* ⭐ The gesture is untouched; only the door moved. What decided it was the
+> thin double `||`, whose sixth row would have to be added to an array **nothing checks**, where
+> `lint:tables` holds `BARLINE_SIGNS` total and `insertMenu.test.ts` pins the menu's rows.
 
 ⭐⭐ **HIS ANSWER TO THE QUESTION BELOW — and it was "both, obviously"**: *"isn't it on a palette?
 same behaviour of any palette: if nothing selected stamp, if a barline is selected apply to the
@@ -1176,6 +1199,23 @@ full, so an enclosing repeat replays it, which is what a player does.
 every format holds a volta as a *container of measures* rather than a barline attribute. When they
 arrive they are inputs to that same walk — which is why it is a module and not a loop inside
 `PlaybackEngine`, MuseScore's `RepeatList` being the same shape.
+
+**P6f — the two menu doors (2026-08-26).** Both are rows running a command that already existed, which
+is the menu bar's whole rule (`src/menus/`: *"deleting the bar deletes a list of LABELS"*).
+
+- **Insert ▸ Barline ▸ …** — his ask, from a screenshot of Sibelius's own submenu. Five rows in its
+  grouping: *Start Repeat · End Repeat · Final* — rule — *Invisible · Normal*. ⭐ Each runs
+  `PaletteController.pressBarline`, so a row APPLIES to a selected line and ARMS the stamp when
+  nothing is selected, exactly as the palette button does. ⚠️ **The words are the menu's** (*Start /
+  End Repeat*, what Sibelius and MuseScore both say) while `BARLINE_SIGNS`' labels stay log prose; the
+  SIGN each row names is the engine's type, so a rename fails to build. `insertMenu.test.ts` pins that
+  every placeable sign has a row.
+- **Play ▸ Play Repeats** — *"we need to add the checkmark also in the Play menu, saying something
+  like Allow repetition or whatever it spells correct in English."* ⭐ **"Play Repeats"** is the
+  phrase: MuseScore's toolbar toggle and Sibelius's playback option are both called that. ⚠️ It and
+  the dev shell's 🔁 checkbox stay in step through `bus.playRepeats` — the `Score Sound` arrangement
+  one store over, and it fixes a real bug: the checkbox syncs on the editor's STATE notification, and
+  toggling repeats writes no state, so the menu could have turned them off and left the box ticked.
 
 ---
 

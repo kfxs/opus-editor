@@ -8,7 +8,6 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
-import type { BarlineSign } from '../interactions/barlineStamp'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -278,67 +277,20 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     hasStaffContext)
   row.appendChild(staffBox)
 
-  /**
-   * --- Barline types (docs/barline-types-plan.md P4) ---
-   *
-   * Three buttons, ONE palette gesture, and none of it is here: `palette.pressBarline(sign)` applies
-   * to a selected barline or a selected measure, and otherwise ARMS the stamp — the rule and its
-   * table live in `interactions/barlineStamp.ts`, the split `staffSizeToggle.ts` makes for the
-   * `Small` button beside it. This file stays a strip of one-line buttons.
-   *
-   * ⭐ `toggle`, not `action`, and the light is not decoration: the armed stamp draws NO ghost (a
-   * barline stands on a boundary, not at the pointer), so with the blue cursor these buttons are the
-   * only thing on screen saying which sign the next click will place.
-   *
-   * Always pressable — every one of the three gestures is available at any time, which is the point
-   * of the rule.
-   */
-  const BARLINE_TOOLS: ReadonlyArray<{ label: string; sign: BarlineSign; title: string }> = [
-    {
-      // ⭐ THE ERASER, first in the row because it is the one that takes something away — his ask,
-      // 2026-08-26: *"another way to rewrite the open, final and end repeat"*.
-      label: 'Normal',
-      sign: 'plain',
-      title: 'Normal barline — the ordinary single line. The one button that REMOVES: it clears '
-        + 'every special barline the bar owns, on BOTH of its sides, which is how you get rid of the '
-        + 'open repeat at the start of bar 1.',
-    },
-    {
-      label: 'Invisible',
-      sign: 'invisible',
-      title: 'Invisible barline — the bar still ends here and the music is spaced exactly as before; '
-        + 'the line is simply not engraved. Gray on screen so you can still click it, ABSENT from a '
-        + 'PDF export. Goes on the RIGHT of the bar, like the final barline.',
-    },
-    {
-      label: 'Final',
-      sign: 'final',
-      title: 'Final barline (thin + thick) — ends the piece, or a section that is finished. '
-        + 'Goes on the RIGHT of the bar: the selected barline, the last bar of a selected passage, '
-        + 'or — with nothing selected — the bar you click next.',
-    },
-    {
-      label: 'Open repeat',
-      sign: 'repeatStart',
-      title: 'Open repeat |: — the line the player comes BACK to. Goes on the LEFT of the bar: the '
-        + 'bar the selected barline opens, the first bar of a selected passage, or — with nothing '
-        + 'selected — the bar you click next (bar 1 included).',
-    },
-    {
-      label: 'End repeat',
-      sign: 'repeatEnd',
-      title: 'End repeat :| — go back to the last open repeat and play it again. Goes on the RIGHT '
-        + 'of the bar, like the final barline.',
-    },
-  ]
-  const barlineBox = group('Barline:')
-  for (const { label, sign, title } of BARLINE_TOOLS) {
-    toggle(barlineBox, TOOL_BTN, label, title,
-      () => state.selectedMarkingTool?.kind === 'barline' && state.selectedMarkingTool.sign === sign,
-      () => palette.pressBarline(sign))
-  }
-  row.appendChild(barlineBox)
-  row.appendChild(divider())
+  // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a
+  //     row of five buttons here from P4 until Insert ▸ Barline arrived on 2026-08-26 — Start Repeat,
+  //     End Repeat, Final, Invisible, Normal, in Sibelius's own grouping. What they did is
+  //     `palette.pressBarline`, which the menu rows call verbatim, so nothing moved but the door.
+  //
+  //     ⭐ The argument that decided it was the thin double `||`, the family's next member: it costs
+  //     a row in `barlineSignParts`, `BARLINE_SIGNS`, `SIGN_GLYPHS`, the Properties chooser AND the
+  //     menu — and of those, `lint:tables` holds `BARLINE_SIGNS` total while `insertMenu.test.ts`
+  //     pins that every sign has a menu row. **Nothing pinned this array**, so it was the one surface
+  //     that could go stale in silence.
+  //
+  //     ⚠️ The old objection was that these buttons LIT when armed and a menu row cannot. That died
+  //     when he asked for ghosts (P4): the armed sign now follows the cursor, which answers "what
+  //     will my next click place" better than a lit button ever did. ---
 
   // --- Lines: GONE. The family (slur, the two hairpins, trill, the two octave lines, pedal) had a
   //     row of buttons here until the Lines window arrived — Insert ▸ Lines, or L. A dev-shell
@@ -393,9 +345,13 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * thing: a statement about this HEARING, not about the score. It is not persisted, it is not in the
    * JSON, and `engine/audio/repeatPlan` is where the play order it switches actually lives.
    *
-   * ⛔ It reads the ENGINE rather than `EditorState`: nothing in the editor's state holds it, and a
-   * mirror field would be a second place for the answer to live. The box is set from the engine when
-   * the toolbar syncs, so it cannot show a value playback does not have.
+   * ⛔ It presses `bus.playRepeats` and never touches the engine — the bar's Play ▸ Play Repeats row
+   * offers the same choice, and the two stay in step for the sound picker's reason: neither owns the
+   * value. `interactions/playRepeatsSync` is the one place a press becomes an engine call.
+   *
+   * ⚠️ It was an ENGINE read for exactly one hour, which is the bug the store fixes: this box syncs
+   * on the editor's STATE notification, and toggling repeats writes no state — so the menu could turn
+   * them off and leave the box still ticked.
    */
   const repeatsLabel = el('label',
     'flex items-center gap-1 ml-2 px-2 py-1 rounded border border-dashed border-amber-500/70 '
@@ -405,13 +361,15 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   const repeats = el('input', '') as HTMLInputElement
   repeats.type = 'checkbox'
   repeats.checked = true
-  repeats.addEventListener('change', () => getEngine()?.setRepeatsEnabled(repeats.checked))
+  repeats.addEventListener('change', () => bus.playRepeats.press(repeats.checked))
   repeatsLabel.appendChild(repeats)
   repeatsLabel.appendChild(document.createTextNode('🔁 repeats'))
   row.appendChild(repeatsLabel)
-  // ⚠️ An ENGINE read, like the `Small` button's below: no top-level state write happens when this
-  // changes, so the observable Proxy never emits and a state-only sync would light one press behind.
-  syncers.push(() => { repeats.checked = getEngine()?.getRepeatsEnabled() ?? true })
+  // The box FOLLOWS the store, exactly as the sound `<select>` above does — so a press from the menu
+  // moves it too. ⭐ `!== false`: the default is repeats ON, and an unset highlight is that default.
+  const repeatsHighlight = () => { repeats.checked = bus.playRepeats.get() !== false }
+  repeatsHighlight()
+  const stopRepeats = bus.playRepeats.onHighlight(repeatsHighlight)
 
   host.appendChild(row)
 
@@ -442,6 +400,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
       unsubscribe()
       unsubscribeAttach()
       stopSound()
+      stopRepeats()
       stopModel?.()
       row.remove()
     },

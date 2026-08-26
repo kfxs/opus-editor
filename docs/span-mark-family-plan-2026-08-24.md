@@ -476,7 +476,7 @@ are arrays**:
 | `SCOPED_KINDS` (`markVoiceScope.ts`) | `ReadonlyArray<SelectionItem['kind']>` | ⚠️ partial — see `[A5]` |
 
 `ELEMENT_HIT_ORDER`'s partiality is correct and documented: **order is the content** (it answers
-"who wins a press two glyphs both cover"), and 2 of the 18 kinds are set by pre-steps rather than
+"who wins a press two glyphs both cover"), and 2 of the 19 kinds are set by pre-steps rather than
 hit-tested. An array is the right shape for a question whose answer is a sequence.
 
 ⭐ **So the rule is not "always use a `Record`" — it is: a table answering *what does kind K do?* must

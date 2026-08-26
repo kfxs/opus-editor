@@ -35,6 +35,7 @@ import { wireShortcuts } from './interactions/shortcutWiring'
 import { wireKeypadSync } from './interactions/keypadSync'
 import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { wireSoundSync } from './interactions/soundSync'
+import { wirePlayRepeatsSync } from './interactions/playRepeatsSync'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/staffSizeToggle'
 import { exportScoreJson, exportScorePdfFile, importScoreJson } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
@@ -382,6 +383,13 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // Ctrl+E.
   menuActions.insertExpression = () => mouse.insertExpression()
   menuActions.insertTempo = () => mouse.insertTempo()
+  // ⭐ Insert ▸ Barline ▸ … — the palette's own command, so a row APPLIES to a selected line and ARMS
+  // the stamp when nothing is selected. ⛔ Not a second implementation of "place a barline": that
+  // gesture is `interactions/barlineStamp` and it changed twice on the day it was written (the Edit
+  // menu's rule — "a row is not a second implementation of its key").
+  // ⚠️ Since 2026-08-26 this is the family's ONLY door: the dev shell's five buttons were deleted
+  // when it arrived, on the rule the Lines row went out under.
+  menuActions.pressBarline = (sign) => palette.pressBarline(sign)
   // ⭐⭐ …and the way back to a mark whose ink has been nudged off screen: right-click ▸ Select lists
   // what hangs off the ONE selected note (`interactions/attachedMarks`, whose header explains why no
   // affordance drawn ON the ink can serve). The row assigns the very selection a click on that ink
@@ -536,6 +544,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // subscription it needs (an import or an undo changes the sound with nobody pressing) can only be
   // made on a later turn — see the note in the module.
   const stopSoundSync = wireSoundSync(getEngine, onStateChange)
+  // ⭐ …and the PLAY REPEATS seam beside it — `bus.playRepeats` ⇄ the engine, so the dev toolbar's
+  // checkbox and Play ▸ Play Repeats stay in step without either holding the value. ⚠️ No
+  // `onStateChange`: unlike the sound this is not score data, so nothing but a press can move it.
+  const stopPlayRepeatsSync = wirePlayRepeatsSync(getEngine)
 
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
   // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
@@ -857,6 +869,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopKeypadSync()
       stopSelectionInspection()
       stopSoundSync()
+      stopPlayRepeatsSync()
       noteOffset.destroy()
       dynamicOffset.destroy()
       tempoOffset.destroy()

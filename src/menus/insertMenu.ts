@@ -7,6 +7,7 @@ import { openTupletWindow } from '@/windows/tupletWindow'
 import type { MenuLayer } from './MenuLayer'
 import type { MenuBarTitle } from './menuBar'
 import type { MenuItem } from './MenuItem'
+import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 
 /**
  * The Insert menu — the score's own right-click / Menu-key menu, and the FIRST real menu built on
@@ -42,7 +43,48 @@ export interface InsertMenuActions {
    * learns "a label and something to run", never what a slur is.
    */
   attachedMarks?: () => { label: string; select: () => void }[]
+  /**
+   * ⭐ Insert ▸ Barline ▸ … — `PaletteController.pressBarline`, so a row APPLIES to a selected line
+   * and ARMS the stamp when nothing is selected.
+   *
+   * ⚠️ Since 2026-08-26 these rows are the family's ONLY door: the dev shell had five buttons calling
+   * the same method, and they were deleted when this arrived — the rule the Lines row went out under
+   * (`dev/devToolbar.ts`).
+   *
+   * ⚠️ `PlacedBarlineSign` is the ENGINE's type, ⛔ not a list of strings of this menu's own: a
+   * renamed sign must fail to BUILD here rather than leave a row that silently does nothing.
+   */
+  pressBarline?: (sign: PlacedBarlineSign) => void
 }
+
+/**
+ * ⭐ **Insert ▸ Barline**, in Sibelius's order — his ask, 2026-08-26, from a screenshot of exactly
+ * this submenu: *"we should add to insert menu a barline field similar to this, but just with our
+ * options of course."*
+ *
+ * ⭐ **The GROUPING is his screenshot's and it is a real distinction**: the signs a passage is
+ * punctuated with first (the repeats, then the final bar), then — after the rule — the two rows that
+ * say how the ORDINARY line between two bars is drawn. Sibelius's second group holds `Invisible`,
+ * `Normal`, `Tick`, `Short` and `Between Staves`; we have the first two, and the missing three are
+ * §0's *"not until it is asked for"* rather than an oversight.
+ *
+ * ⚠️ **The WORDS are this menu's**, and deliberately so. `BARLINE_SIGNS`' labels read *"open repeat"*
+ * because they are log prose (*"placed open repeat on the line ending measure 3"*); a menu row is a
+ * name. **Start / End Repeat** is what Sibelius and MuseScore both call them, so a musician arriving
+ * from either reads these without translating. ⛔ What may NOT drift is the sign each row names, and
+ * that is the type's job above.
+ */
+const BARLINE_ROWS: ReadonlyArray<{ sign: PlacedBarlineSign; label: string } | { separator: true }> = [
+  { sign: 'repeatStart', label: 'Start Repeat' },
+  { sign: 'repeatEnd', label: 'End Repeat' },
+  { sign: 'final', label: 'Final' },
+  { separator: true },
+  { sign: 'invisible', label: 'Invisible' },
+  // ⚠️ The sign is `plain` and the row says **Normal** — the one place the two vocabularies differ,
+  // and worth the mismatch: `plain` is what the DRAWING calls a bare single line, `Normal` is what
+  // Sibelius calls the row and what a user looking for "undo this special barline" will scan for.
+  { sign: 'plain', label: 'Normal' },
+]
 
 /**
  * The Insert menu's rows. Leaf `onSelect`s read `actions` late (at click), so the app can wire the
@@ -57,6 +99,15 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
   return [
     // Opens the Clef window directly: a window is opened by importing the layer, not by asking the
     // app for a callback, so a command that only puts a window up needs no `actions` field at all.
+    {
+      // ⭐ No shortcuts: a stamp STAYS ARMED, so a run of finals costs one trip through this menu and
+      // then clicks — and inventing five keys would spend them on a family that has none in any
+      // editor. What tells you which sign is armed is the GHOST at the cursor, not a lit row.
+      label: 'Barline',
+      items: BARLINE_ROWS.map((row) => ('separator' in row
+        ? { separator: true as const }
+        : { label: row.label, onSelect: () => actions.pressBarline?.(row.sign) })),
+    },
     { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
     // The shortcut is a display echo of ShortcutConfig's 'Ctrl+f'; keep them in step.
     { label: 'Feathered Beam', shortcut: 'Ctrl+F', onSelect: () => openFeatherWindow(windows) },

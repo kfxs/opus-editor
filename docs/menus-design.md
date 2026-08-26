@@ -1,8 +1,8 @@
 # Menus — the second primitive
 
 **Status: BUILT** (`src/menus/`) — P0–P4. Sibling to `Window` (docs/windows-design.md), not a kind of
-it. Right-click the score → the Insert menu: Clef, `Text ▸ Expression` (Ctrl+E), `Text ▸ Tempo`
-(Alt+Shift+T), Time Signature and Tuplet. And since P4 there is a **menu bar** across the top of the
+it. Right-click the score → the Insert menu: `Barline ▸ …`, Clef, Feathered Beam, Lines,
+`Text ▸ Expression` (Ctrl+E), `Text ▸ Tempo` (Alt+Shift+T), Time Signature and Tuplet. And since P4 there is a **menu bar** across the top of the
 app: File · Edit · View · Create · Staff · Play · Window. Every row on it is a real command.
 
 > # ⚠️ THE MENU BAR IS THE DEMO'S. IT IS NOT THE APP'S UI.
@@ -203,6 +203,13 @@ know you were running.** The menu didn't create this; it revealed it.
 - ✅ **P2 — the Insert menu.** `insertMenu.ts`: right-click the viewport (or the Menu key) → the Insert
   menu, with submenus. Native context menu suppressed on the viewport only. It began all-lorem; real
   commands replaced the rows one at a time (`Text ▸ Expression/Tempo` first) until none were left.
+  ⭐⭐ **And since 2026-08-26 it is the first menu that is a family's ONLY door.** `Barline ▸ …` (Start
+  Repeat · End Repeat · Final ─ Invisible · Normal) replaced the dev shell's five buttons, which were
+  deleted the same day — the rule the Lines row went out under: *"a dev-shell palette earns its place
+  while a feature has no real door; this one now has one, and keeping both would mean two things to
+  change."* ⚠️ Note WHICH menu earned that: the **right-click** tree, the one this file calls real —
+  ⛔ not the bar's Create title, which is provisional chrome and shares the tree rather than owning
+  it. A door being real is what let the scaffolding go.
 - ✅ **P4 — the menu bar.** `menuBar.ts` + one module per title, mounted above the score viewport. It
   needed no new placement rule: a button's bottom edge is a negative y in the layer's box, and
   `placement.ts` clamps it to the top of the score, which is where a dropdown belongs. `MenuLayer`

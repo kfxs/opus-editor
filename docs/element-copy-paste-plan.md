@@ -93,7 +93,7 @@ in a headless spec and on screen, and a culled bar anchors as well as a drawn on
 geometry legitimately decides is the armed CLICK — `MouseController.resolveSlotBeat`, a question
 about pixels.
 
-⚠️ **Total over `SelectedElement`.** An eighteenth kind fails to BUILD until it says where a paste
+⚠️ **Total over `SelectedElement`.** A nineteenth kind fails to BUILD until it says where a paste
 beside it goes — the guarantee `assertNeverElement` gives everywhere else in this family.
 
 ## 🚨 The placement mode draws NOTHING

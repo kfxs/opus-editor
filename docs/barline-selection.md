@@ -1,8 +1,19 @@
 # Barline selection — pointing at the line between two bars
 
 Click a barline and it highlights; `←`/`→` walk to the previous/next one. It is the handle the
-bar-width gesture hangs off (`Shift+Alt+←/→`, docs/bar-width-plan.md), and deliberately nothing
-else — selecting a barline changes no music.
+bar-width gesture hangs off (`Shift+Alt+←/→`, docs/bar-width-plan.md).
+
+> ⚠️ *"…and deliberately nothing else — selecting a barline changes no music"* was true until
+> 2026-08-26 and is not any more. A boundary can now carry a STATEMENT (a final bar, a repeat), so
+> **Delete on a selected barline clears the sign standing on it** and the Properties chooser changes
+> it. ⛔ The identity below is untouched — it still never merges two bars — and that is the point:
+> what changed is that the line has something to say, not what the selection IS.
+
+> ⭐⭐ **THE `|:` IS A SECOND, SEPARATE SELECTION** (2026-08-26, `interactions/elements/repeatStart.ts`).
+> Everything in this file describes *the line that ENDS bar N*, which cannot reach two signs: the
+> repeat opening **bar 1** — displaced past its own clef, so it stands at no boundary at all — and the
+> right half of a `:||:`, where two statements meet on one line. Read this file for the boundary and
+> `docs/barline-types-plan.md` §8 P5b for the sign that is not one.
 
 ## 1. Identity — a barline is a BOUNDARY, not an object
 
