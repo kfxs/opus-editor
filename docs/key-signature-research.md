@@ -201,6 +201,37 @@ short of the next glyph, so the real ink gaps run **~0.3 sp wider** than the pri
 not implement her numbers as ink distances without that correction — this is the same class of trap
 as the thin-double barline, where her stated ¾ sp is contradicted by her own five engravings.
 
+### 9.4.2d ⭐⭐ THE ENGINES STATE THE TWO OUTER GAPS OUTRIGHT — added 2026-08-27, at P3
+
+**Read from the sources on disk (`~/dev/engine-sources`), after his eye rejected numbers derived from
+Gould's labels twice in a row.** These are the gaps either side of the signature, and they are the
+ones the treatises give least clearly:
+
+| gap | LilyPond `scm/define-grobs.scm` | MuseScore `style/styledef.cpp` |
+|---|---|---|
+| clef → key signature | `Clef.space-alist (key-signature . (extra-space . 0.82))` | `styleDef(clefKeyDistance, 0.75_sp)` |
+| key signature → time signature | `KeySignature.space-alist (time-signature . (extra-space . 1.15))` | `styleDef(keyTimesigDistance, 1.0_sp)` |
+| clef → time signature (no key) | `(time-signature . (extra-space . 1.52))` | `styleDef(clefTimesigDistance, 1.0_sp)` |
+| key ↔ barline | `KeySignature.space-alist (staff-bar . 1.1)`; `Clef` gets 0.7 | `keyBarlineDistance 1.0`, `clefBarlineDistance 0.5` |
+| cancellation → key | `KeySignature.space-alist (key-cancellation . 0.3)` | — |
+
+⭐⭐ **Ross's engraved clef → 1st sharp AGREES once converted**: his 3½ sp is origin-to-origin *with his
+own plate's glyph widths* (he says so, p. 143), and Bravura's gClef carries 2.684 sp of ink — so his
+number restates to **0.82**, which is LilyPond's to the hundredth. Three sources, one answer.
+
+🚨🚨 **AND THIS IS WHY A LABEL THAT NEEDS CORRECTING LOSES TO A NUMBER THAT DOES NOT.** §9.4.2b's
+finding — that Gould's p. 42 rulers stop 0.25–0.45 sp short, so her printed gaps understate the ink by
+≈0.3 — is TRUE, and using it here still produced 1.5, nearly double the right answer. A chain of two
+inferences (read a label, correct it, apply it) is not evidence when an engine states the same
+distance directly. ⛔ **Go to the engine sources for a header gap before deriving one from a figure.**
+
+⭐ The last row is worth keeping for P6: LilyPond gives the cancellation group its own **0.3** to the
+new signature, which is the "≈1 sp extra" §9.4.2 attributes to Ross seen from the other side.
+
+⚠️ **All of these are INK distances** — MuseScore's padding table works on bounding boxes and
+LilyPond's `extra-space` on grob extents. ⛔ Never compare one to an origin-to-origin figure without
+converting; that is §9.4.2b's Stone-vs-Ross trap in a second place.
+
 ### 9.4.2c Three findings from Ross and G&L that touch code we already have
 
 - ⭐⭐ **A clef and a key signature ALIGN VERTICALLY ACROSS EVERY STAFF OF THE PAGE** — Ross

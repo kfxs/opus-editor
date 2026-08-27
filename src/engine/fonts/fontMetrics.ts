@@ -153,6 +153,18 @@ const ACCIDENTAL_GLYPHS: Record<string, GlyphName> = {
   'bb': 'accidentalDoubleFlat',
 }
 
+/**
+ * The clef's own glyph — so a caller that needs where a clef's INK ends can ask the font instead of
+ * VexFlow's modifier box.
+ *
+ * ⚠️ **A modifier's `getWidth()` is a LAYOUT box, not ink**, and the two differ by whatever padding
+ * the layout chose to carry. Any spacing decision measured against the box is measuring someone
+ * else's padding as if it were the drawing (`docs/kerning.md`'s rule: ink is LOCATED BOXES).
+ */
+export function clefGlyph(clef: 'treble' | 'bass' | 'alto' | 'tenor'): GlyphName {
+  return clef === 'treble' ? 'gClef' : clef === 'bass' ? 'fClef' : 'cClef'
+}
+
 export function accidentalGlyph(sign: string): GlyphName | null {
   return ACCIDENTAL_GLYPHS[sign] ?? null
 }

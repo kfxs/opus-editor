@@ -11,7 +11,9 @@ warning; **no double bar is generated — Gould's rule, so it is the author's ed
 later the same day); a zero-glyph signature is reachable through a **signpost**; and the accidental
 gap is **one constant, 0.25 sp**.
 
-⛔ **Nothing is built except the dev-shell stubs (§6).** P1 has not started.
+✅ **P1, P2 and P3 are BUILT (2026-08-27)** — the model, the writes, and the drawing. A key
+signature is engraved, at system heads and at mid-score changes. ⏭️ **P4 next: the accidental ripple**
+(§3) and NOTE ENTRY (§3.1). See §8's phase table and §8.1–8.3 for what each one actually landed.
 
 > ### ⚠️ AMENDED 2026-08-27, after reading the plan against the code
 >
@@ -693,7 +695,7 @@ picker is §7, and it is not being designed yet.
 |---|---|---|
 | ✅ **P1** | **BUILT 2026-08-27.** `KeySignature` → list; `fifthsOf` / `keyFromFifths`; `Measure.keys` + `KeyChange`; `keyAt` walks; `measureRenderRoles` row + its `PERTURB` row | ✅ 5358 unit green, `build:check` clean, nothing drawn, `trillPitch`'s source untouched |
 | ✅ **P2** | **BUILT 2026-08-27.** `keyOps` writes + `ScoreModel`/`MusicEngine` delegators + undo, **and the dev palette wired provisionally** | ✅ 5377 unit green; a key can be set/removed **by hand**, watched in the Score-JSON panel, and undone — still nothing drawn |
-| **P3** | `keysByStaff` prepass (§2.1) + `headerInk` key row + `KeySignaturePass` — draws at system starts and at changes, **and registers its own hit boxes** (§5) | e2e measures the room; **run `test:e2e` either side**; ⚠️ a C-major score's header width is UNCHANGED (§4.1) |
+| ✅ **P3** | **BUILT 2026-08-27.** `keysByStaff` prepass (§2.1) + `keySignatureLayout` (the placement table + the gaps) + `headerInk` key row + `KeySignaturePass` | ✅ 5403 unit, **249 e2e** (8 new), `build:check` clean — and it is DRAWN. ⏭️ Hit boxes are P5's after all: nothing selects a signature yet |
 | **P4** | the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | the F♯ in G major loses its sign; the F♮ gains one; **a note typed in G major is an F♯ with no sign**; setting the key at bar 1 repaints bar 40 |
 | **P5** | marking tool + element kind + Delete + dev palette | he can place a key and click it |
 | **P6** | cancellation naturals + cautionary at a break (**+ `cautionaryEndKey` in `ShapeKeyInputs`**) | ⏳ policy from the research |
@@ -721,6 +723,40 @@ picker is §7, and it is not being designed yet.
     writes one (only an import could). ⏭️ The day a mid-bar key change becomes a feature it needs the
     capture/restore pair IN THE SAME COMMIT, and `keys` must join `clearMeasureForRebar`. Written at
     the top of `keyOps.ts`, which is the module that would break it.
+
+### ✅ 8.3 What P3 landed — and the four numbers HIS EYE corrected
+
+⭐⭐ **Every one of these was caught by looking at the screen, and every one of them had a published
+answer nobody had read.** That is the section's lesson, not a list of fixes.
+
+| what | wrong | right | why |
+|---|---|---|---|
+| the sign's SIZE | 38 pt, invented | **30 pt** | Gould p. 78: an accidental is scaled down *"only"* before a grace or cue note — research §9.4.3, written before this pass existed. 30 is VexFlow's `MetricsDefaults.fontSize`, which its `Accidental` inherits |
+| clef ink → 1st sign | 1.02, then 1.5 | **0.82** | LilyPond `Clef.space-alist (key-signature . 0.82)`; MuseScore `clefKeyDistance 0.75`; Ross's engraved 3½ origins − Bravura's gClef ink = 0.82 |
+| last sign → meter | ≈1.6 (VexFlow's leftover) | **1.15** | LilyPond `KeySignature.space-alist (time-signature . 1.15)`; MuseScore `keyTimesigDistance 1.0` |
+| a line-opening whole-bar rest | ½ space right | **centred in the free space** | MuseScore `measurelayout.cpp`: *"centered in free space — x1 [the] left measure position of free space"* |
+
+🚨🚨 **THE RULE THAT WOULD HAVE PREVENTED THREE OF THE FOUR: a space is decided in INK, and it needs a
+QUOTATION.** His words. The 1.5 came from a treatise LABEL plus an inference; the 1.6 was never chosen
+at all (it was whatever VexFlow's own header layout left between clef and meter); the rest's bound was
+`getNoteStartX()`, which is the header's ink PLUS the 2.0 sp the music needs. ⛔ And a bbox is not
+ink: `modifier.getWidth()` is a layout box carrying someone else's padding, and the meter's carries
+0.6 sp of it.
+
+⭐ **…and a centre is a PROPORTION of measured geometry, never a nudge** — his words again. The rest
+is `left + (right − left) / 2` over the span actually measured, so it follows a key gaining a sharp or
+a meter gaining a digit without anyone touching it.
+
+**Also landed:** `engine/layout/keySignatureLayout.ts` (the 56-sign placement table, three sources
+agreeing, plus the gaps) · `resolveStaffKeys` · the `key` part in `headerExtent`, **pair-keyed** now
+that its two neighbours have their own numbers · `KeySignaturePass`, which OWNS where the ink is
+(`keySignatureInkRight`) so the meter is **placed** after it rather than shifted by the reservation —
+they had drifted 0.08 sp apart · `clefGlyph` in `fontMetrics`.
+
+⚠️ **`keySignatureLines` shipped INVERTED and every test agreed with it** — the table's numbers came
+out mirrored through the middle line, and the only assertion that caught it was the one going through
+`staffLineForSpelling`, where two conventions had to agree. ⛔ Do not test a placement table against
+its own arithmetic: name the PITCH each line is.
 
 ### ✅ 8.2 What P2 landed
 

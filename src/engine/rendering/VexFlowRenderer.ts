@@ -12,13 +12,18 @@ import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
 import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
+import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
-import type { Score, Measure, Clef, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
+import type { Score, Measure, Clef, KeySignature, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
 import { effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
+import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
+import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
@@ -291,6 +296,15 @@ export interface MeasurePlacement {
   width: number
   isFirstInLine: boolean
   clef: Clef
+  /**
+   * ⭐ The signature THIS staff draws at this bar's head, absent where it draws none — the answer
+   * `headerKeyAt` gives, resolved once here so the room (`headerExtent`), the meter's x
+   * (`buildStave`) and the glyphs (`KeySignaturePass`) cannot disagree about it.
+   *
+   * Per STAFF, like the clef and unlike the meter: Bartók writes four sharps in one hand against
+   * four flats in the other, and each hand states its own.
+   */
+  headerKey?: KeySignature
   hasClefChange: boolean
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature
@@ -1432,6 +1446,7 @@ export class VexFlowRenderer {
     score: Score,
     staffList: { id?: string }[],
     clefsByStaff: Map<string | undefined, StaffClefs>,
+    keysByStaff: Map<string | undefined, StaffKeys>,
     measureWidths: Map<number, MeasureWidthInfo>,
     spacing: { lineTopPx: number[]; lineLeftPx: number[]; staffTopPx: number[][]; staffSize: number[][]; lineHeightPx: number[] },
   ): Omit<MeasurePlacement, 'stave'>[] {
@@ -1489,11 +1504,15 @@ export class VexFlowRenderer {
         const changed = prevEnd !== undefined && clef !== prevEnd
         const opens = measure.number === 1 || currentX === lineLeft
         void staffIndex
+        const keys = keysByStaff.get(staff.id)
+        const headerKey = keys && headerKeyAt(keys, measure.number, opens)
         return {
           clef,
           changed,
+          headerKey,
           extent: headerExtent({
             clef: opens ? { clef, small: false } : changed ? { clef, small: true } : undefined,
+            key: headerKey,
             meter,
           }),
         }
@@ -1536,6 +1555,7 @@ export class VexFlowRenderer {
           width: widthInfo.finalWidth,
           isFirstInLine,
           clef,
+          headerKey: headers[staffIndex]?.headerKey,
           hasClefChange,
           cautionaryEndClef,
           cautionaryEndTimeSig: widthInfo.cautionaryEndTimeSig,
@@ -1793,7 +1813,7 @@ export class VexFlowRenderer {
     // transform is one multiplication about the origin — no offset term anywhere downstream
     // (docs/staff-size-plan.md §4.1). At full size `k` is 1 and this is the arithmetic it replaced.
     const k = p.scale
-    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.system, k)
+    const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.headerKey, p.system, k)
 
     this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k)
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
@@ -2073,7 +2093,7 @@ export class VexFlowRenderer {
         })
         if (solved) pass.solvedColumns.set(measure.number, solved)
         applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
-        this.centerMeasureRests(vexVoices, stave)
+        this.centerMeasureRests(vexVoices, stave, placement.clef, placement.headerKey)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
         // pass on purpose — reserving the room would make bar width depend on the clef, which this
         // editor measured its way out of (`ledgerAccidentalClearance` states the three measurements).
@@ -2389,6 +2409,8 @@ export class VexFlowRenderer {
     hasClefChange: boolean = false,
     cautionaryEndClef?: Clef,
     cautionaryEndTimeSig?: TimeSignature,
+    /** The signature this bar's head draws, absent where it draws none ({@link headerKeyAt}). */
+    headerKey?: KeySignature,
     system?: MeasurePlacement['system'],
     /** The staff's drawn scale — the stave arrives in its OWN space, while the system's lead-in and
      *  header extent are distances on the page. See {@link applyLeadIn}. */
@@ -2465,6 +2487,7 @@ export class VexFlowRenderer {
       clef: measure.number === 1 || isFirstInLine
         ? { clef, small: false }
         : hasClefChange ? { clef, small: true } : undefined,
+      key: headerKey,
       meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined,
     })
     // ⭐ …and a bar that OPENS A REPEAT starts its music that much further in again, because the sign
@@ -2476,6 +2499,17 @@ export class VexFlowRenderer {
       (systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
         + repeatStartRoom(measure),
       systemHeader, scale)
+    // ⭐⭐ **WE DRAW THE SIGNATURE, so VexFlow's meter has to move over for it.** `applyLeadIn` has
+    // just forced `Stave.format()`, which laid the BEGIN modifiers out clef-then-meter with no room
+    // between them — the room `headerExtent` above has nonetheless already charged this bar for. So
+    // the meter is pushed right by exactly what the width model reserved (`headerKeyRoom`), and
+    // `KeySignaturePass` then draws the signs into the gap that opens.
+    //
+    // ⚠️ BEFORE `spreadHeaderToSystem`, deliberately: that pass divides every BEGIN modifier's
+    // offset by the staff's scale, so a page distance added here is converted with the rest. Added
+    // afterwards it would be a page distance living in a scaled space, and a small staff's meter
+    // would sit too far right by 1/k.
+    placeMeterAfterKeySignature(stave, clef, headerKey)
     spreadHeaderToSystem(stave, scale)
     return stave
   }
@@ -2538,7 +2572,9 @@ export class VexFlowRenderer {
    * and what Gould describes; the alternative (centre between the barlines) would push the rest
    * left, under the clef, on every system-opening bar.
    */
-  private centerMeasureRests(voices: Voice[], stave: Stave): void {
+  private centerMeasureRests(
+    voices: Voice[], stave: Stave, clef: Clef, headerKey: KeySignature | undefined,
+  ): void {
     // ⚠️ **`getNoteStartX()` and NOT `noteStartOf`, and the difference is 6 px of visible error.**
     //    `noteStartOf` is where a NOTE's ink begins — it carries the `Stave.padding` every note gets
     //    — and centring on it put every measure rest **0.65 staff spaces right of its own bar**,
@@ -2547,7 +2583,18 @@ export class VexFlowRenderer {
     //    the barlines, which is what a reader judges a whole-bar rest against. On a bar that DOES
     //    draw a header it is the far side of the clef and meter, which is the case this pass has
     //    always been for — a rest centred between the barlines there would sit under the clef.
-    const areaCenter = (stave.getNoteStartX() + stave.getNoteEndX()) / 2
+    // ⭐⭐ **On a bar that DRAWS a header, the free space begins at the header's INK** — not at
+    //    `getNoteStartX()`, which is that ink plus the 2.0-space `HEADER_TO_NOTE` gap the music
+    //    needs but a centred rest does not. Measured, that put every line-opening whole-bar rest
+    //    **half a staff space right** of where MuseScore puts it. Reported by eye, twice.
+    const freeSpaceLeft = headerInkRightX(stave, clef, headerKey) ?? stave.getNoteStartX()
+    const freeSpaceRight = stave.getNoteEndX()
+    // ⭐⭐ **A PROPORTION OF THE MEASURED SPAN — half of it — and never a constant.** His rule, and it
+    //    is what makes this survive every change to what the header draws: add a sharp to the key,
+    //    switch to `12/8`, shrink the staff, and the centre follows on its own because it is derived
+    //    from the two edges rather than corrected towards them. ⛔ A nudge of "0.5 spaces left" would
+    //    have fixed today's picture and been wrong for the next signature.
+    const areaCenter = freeSpaceLeft + (freeSpaceRight - freeSpaceLeft) / 2
     for (const voice of voices) {
       for (const tickable of voice.getTickables()) {
         if (!tickable.isCenterAligned()) continue
@@ -3547,6 +3594,12 @@ export class VexFlowRenderer {
     for (const staff of staffList) {
       clefsByStaff.set(staff.id, resolveStaffClefs(score, staff.id))
     }
+    // …and the same fold for the key signature, for the same reason (`resolveStaffKeys`' own note):
+    // asking `keyAt` per measure per staff is the shape that made the governing clef 47% of layout.
+    const keysByStaff = new Map<string | undefined, StaffKeys>()
+    for (const staff of staffList) {
+      keysByStaff.set(staff.id, resolveStaffKeys(score, staff.id))
+    }
 
     // Calculate proportional widths for all measures — or reuse a layout we already have.
     //
@@ -3629,7 +3682,7 @@ export class VexFlowRenderer {
     // ---- TIER 1 (§7): place every measure. Pure arithmetic over the casting-off; draws nothing. ----
     // Runs over the WHOLE score, and must keep doing so once P6 draws only a window of it.
     const tTier1 = probeNow() // ⏱ §12.7
-    const plans = this.layoutTier1(score, staffList, clefsByStaff, measureWidths, spacing)
+    const plans = this.layoutTier1(score, staffList, clefsByStaff, keysByStaff, measureWidths, spacing)
     probeSub('tier1', tTier1)
 
     // ---- The redraw decision (§7a). Three outcomes, not two. ----
@@ -3879,6 +3932,12 @@ export class VexFlowRenderer {
     // Here, after the connector and before the cross-bar beams, which is where VexFlow's own lines
     // sat in the paint order: every bar has been drawn, and the beams, ties and slurs that cross a
     // barline still land on top of it.
+    // ⭐⭐ **THE KEY SIGNATURES — ours too** (docs/key-signature-plan.md §4). Every stave was built
+    // with its meter pushed aside (`pushMeterPastKeySignature`); this is what goes in the gap. A
+    // pass rather than per-bar ink for the barline's reason: what a bar draws depends on the bar
+    // before it and on the casting-off, neither of which a per-measure key can express.
+    renderKeySignatures(pass, placements)
+
     renderBarlines(pass, score, placements, this.audience)
 
     // Beams that run through a barline: one `Beam` over both bars, drawn outside either measure
@@ -4744,6 +4803,64 @@ function spreadHeaderToSystem(stave: Stave, scale: number): void {
   const x0 = stave.getX()
   for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
     modifier.setX(x0 + (modifier.getX() - x0) / scale)
+  }
+}
+
+/**
+ * ⭐ **Where this bar's HEADER INK ends** — the right edge of the last thing drawn in front of the
+ * music, or `undefined` for a bar that draws no header at all.
+ *
+ * ⚠️ **Two different sources, and each is the honest one for its part.** The METER is measured from
+ * the FONT: its modifier box carries ≈0.6 sp of padding that is not ink, and a gap measured against
+ * padding is a gap measured against someone else's decision. The CLEF is measured from its MODIFIER
+ * box, and that is not a lapse — VexFlow sizes that box to the glyph it actually draws, so it tracks
+ * a SMALL clef (a mid-line change) which the font table cannot; at full size the two agree to 0.02
+ * staff spaces, measured. The key signature is ours and contributes its own ink exactly.
+ */
+function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined): number | undefined {
+  const space = stave.getSpacingBetweenLines()
+  let right = -Infinity
+  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
+    const category = modifier.getCategory()
+    if (category === 'Barline') continue
+    right = Math.max(right, category === 'TimeSignature'
+      // Every timeSig digit shares one box, so any of them names the ink's right reach.
+      ? modifier.getX() + glyphBox('timeSig4').right * space
+      : modifier.getX() + modifier.getWidth())
+  }
+  if (key && key.alterations.length > 0) {
+    right = Math.max(right, keySignatureInkRight(stave, clef, key))
+  }
+  return Number.isFinite(right) ? right : undefined
+}
+
+/**
+ * ⭐⭐ **Put the time signature after the key signature we draw ourselves** — at the distance
+ * `KEY_TO_METER_INK` states (LilyPond's `KeySignature.space-alist (time-signature . 1.15)`),
+ * measured INK TO INK.
+ *
+ * ⭐ **PLACED, not shifted.** Asking the signature where its ink ends (`keySignatureInkRight`, the
+ * one owner) and putting the meter there is what makes the gap a reader sees the gap that was
+ * chosen. Shifting by the room the width model reserved instead left them 0.08 sp apart — small,
+ * invisible, and a second opinion about the same distance.
+ *
+ * ⚠️ A digit's ink starts 0.08 sp PAST its origin (`timeSig4.left` is −0.08), so the origin is set
+ * back by that much: the number in the style sheets is white space, not an origin distance.
+ *
+ * No-op on every bar that draws no signature — which is every bar of every C-major score.
+ *
+ * ⚠️ Only the **BEGIN** time signature moves. A cautionary meter at the END hangs off the closing
+ * barline, the other edge of the bar — the same BEGIN-only rule `spreadHeaderToSystem` states. And
+ * it relies on `Stave.format()` having run (`applyLeadIn`'s `setNoteStartX` forces it) with nothing
+ * re-formatting after, which is the pair of facts the header spread rides on too.
+ */
+function placeMeterAfterKeySignature(stave: Stave, clef: Clef, key: KeySignature | undefined): void {
+  if (!key || key.alterations.length === 0) return
+  const space = stave.getSpacingBetweenLines()
+  const inkLeft = keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space
+  const origin = inkLeft + glyphBox('timeSig4').left * space
+  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
+    if (modifier.getCategory() === 'TimeSignature') modifier.setX(origin)
   }
 }
 

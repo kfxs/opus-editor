@@ -10,12 +10,19 @@
  * fixtures set the field directly, which is honest for what P1 is: the model and the reads.
  */
 import { describe, it, expect } from 'vitest'
-import { C_MAJOR, fifthsOf, keyAlterOf, keyAt, keyFromFifths, type KeySignature } from './keySignature'
+import { C_MAJOR, fifthsOf, keyAlterOf, keyAt, keyFromFifths, resolveStaffKeys, type KeySignature } from './keySignature'
 import { fracCreate as frac } from './fraction'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import type { Score } from '@/types/music'
 
 const STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+
+/** A two-bar model (kept as the MODEL, for the tests that need `addStaffBelow`). */
+function scoreOf2(): ScoreModel {
+  const model = new ScoreModel()
+  model.addMeasure()
+  return model
+}
 
 /** A score of `n` bars with nothing in it. */
 function scoreOf(n: number): ScoreModel {
@@ -191,5 +198,48 @@ describe('keyAt — the walk', () => {
     ]
     expect(fifthsOf(keyAt(score, 1, undefined, frac(4, 1)))).toBe(-1)
     expect(fifthsOf(keyAt(score, 2))).toBe(-1)
+  })
+})
+
+describe('resolveStaffKeys — the fold the LAYOUT asks, never the walk', () => {
+  it('gives every bar its opening and ending signature in one pass', () => {
+    const score = scoreOf(4).getScore()
+    putKey(score, 2, keyFromFifths(1))
+    putKey(score, 4, keyFromFifths(-2))
+    const { opening, ending } = resolveStaffKeys(score)
+
+    expect([1, 2, 3, 4].map(n => fifthsOf(opening.get(n)!))).toEqual([0, 1, 1, -2])
+    expect([1, 2, 3, 4].map(n => fifthsOf(ending.get(n)!))).toEqual([0, 1, 1, -2])
+  })
+
+  it('⭐ opening and ending DIFFER exactly where a bar changes key mid-way', () => {
+    const score = scoreOf(3).getScore()
+    score.measures[1].keys = [{ id: 'mid', beat: frac(2, 1), key: keyFromFifths(3) }]
+    const { opening, ending } = resolveStaffKeys(score)
+
+    expect(fifthsOf(opening.get(2)!), 'the bar opens in C').toBe(0)
+    expect(fifthsOf(ending.get(2)!), 'and carries A major out of it').toBe(3)
+    expect(fifthsOf(opening.get(3)!)).toBe(3)
+  })
+
+  it('agrees with `keyAt` bar for bar — the fold and the walk are one answer', () => {
+    const score = scoreOf(6).getScore()
+    putKey(score, 3, keyFromFifths(-4))
+    putKey(score, 5, keyFromFifths(2))
+    const { opening } = resolveStaffKeys(score)
+
+    for (const m of [1, 2, 3, 4, 5, 6]) {
+      expect(fifthsOf(opening.get(m)!), `bar ${m}`).toBe(fifthsOf(keyAt(score, m)))
+    }
+  })
+
+  it('is per-staff: one hand\'s fold does not see the other\'s changes', () => {
+    const model = scoreOf2()
+    const lower = model.addStaffBelow(0)
+    const score = model.getScore()
+    putKey(score, 2, keyFromFifths(4), score.staves![0].id)
+
+    expect(fifthsOf(resolveStaffKeys(score, score.staves![0].id).opening.get(2)!)).toBe(4)
+    expect(fifthsOf(resolveStaffKeys(score, lower).opening.get(2)!)).toBe(0)
   })
 })

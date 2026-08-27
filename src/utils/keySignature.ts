@@ -195,6 +195,54 @@ export function keyFromFifths(n: number, mode: 'major' | 'minor' = 'major'): Key
   }
 }
 
+/** One staff's key signature at the start of, and carried out of, each measure. @see resolveStaffKeys */
+export interface StaffKeys {
+  /** measure number → the signature in effect at its first beat. */
+  opening: Map<number, KeySignature>
+  /** measure number → the signature carried into the NEXT measure (its last change, else its opening). */
+  ending: Map<number, KeySignature>
+}
+
+/**
+ * ⭐⭐ Every measure's opening and ending key signature for ONE staff, resolved in a **single forward
+ * pass** — `resolveStaffClefs`' twin, and built for its reason rather than for symmetry.
+ *
+ * ⚠️⚠️ **{@link keyAt} must not be what the layout asks.** It inherits by scanning BACKWARDS over
+ * every earlier measure, each step doing its own `measures.find` — quadratic per measure and cubic
+ * over the score, asked once per (measure, staff) per render by the header. That exact shape, for
+ * the clef, measured **47% of all layout time** before it became a fold (docs/render-performance-plan.md
+ * §4, and docs/key-signature-plan.md §2.1). ⛔ Do not thread `keyAt` into `MeasureLayout`.
+ *
+ * Both halves earn their place: `opening` is what a bar's header draws, and `ending` is what the
+ * next bar compares against to decide whether it must redraw the signature at all — and what the
+ * cautionary at a system break asks.
+ *
+ * Inheritance is a fold: carry the signature forward and read it off. O(measures).
+ */
+export function resolveStaffKeys(score: Score, staffId?: string): StaffKeys {
+  const opening = new Map<number, KeySignature>()
+  const ending = new Map<number, KeySignature>()
+
+  let carried: KeySignature = C_MAJOR // no earlier change → what a score is in until it says otherwise
+  for (const measure of score.measures) {
+    const changes = measureKeyChanges(score, measure.number, staffId)
+
+    // A change AT beat 0 is the measure's opening signature; anything later is mid-measure.
+    let openingKey = carried
+    for (const k of changes) {
+      if (fracLte(k.beat, ZERO)) openingKey = k.key
+      else break
+    }
+    opening.set(measure.number, openingKey)
+
+    const endingKey = changes.length ? changes[changes.length - 1].key : openingKey
+    ending.set(measure.number, endingKey)
+    carried = endingKey
+  }
+
+  return { opening, ending }
+}
+
 /**
  * Are these the SAME signature? Order- and octave-sensitive, because both are printed: two lists
  * holding the same letters in a different order, or the same letter drawn an octave apart, are

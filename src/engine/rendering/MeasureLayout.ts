@@ -1,6 +1,8 @@
 import type { Score, Measure, Clef } from '@/types/music'
 import { fracIsZero } from '@/utils/fraction'
 import { type StaffClefs } from '@/utils/clefUtils'
+import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
+import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
 import { getStaves, staffMeasureView } from '@/engine/models/staffContent'
 import { cautionaryAllowedOf, cautionaryClefAllowedOf, keyStaffId, measureUserSpacePx, measureStretch } from '../models/engravingOverrides'
 import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutConfig'
@@ -124,11 +126,29 @@ function noteSpaceForMeasure(
  * full clef only while it opens a line, so a stretch over the overhead would buy a different number
  * of pixels after every re-wrap.
  */
+/**
+ * Every staff's key signatures, as ONE forward fold each (`resolveStaffKeys`).
+ *
+ * ⚠️ Built HERE, at the entry, and threaded down — ⛔ never asked per measure. `keyAt` inherits by
+ * scanning backwards over every earlier bar, which is the shape that made the governing clef 47% of
+ * all layout time before it became a fold (docs/key-signature-plan.md §2.1).
+ *
+ * Keyed exactly as `clefsByStaff` is, so the two are read side by side with one staff id.
+ */
+function resolveKeysByStaff(
+  score: Score, clefsByStaff: Map<string | undefined, StaffClefs>,
+): Map<string | undefined, StaffKeys> {
+  const keys = new Map<string | undefined, StaffKeys>()
+  for (const staffId of staffIdsOf(score, clefsByStaff)) keys.set(staffId, resolveStaffKeys(score, staffId))
+  return keys
+}
+
 function calculateMinimumMeasureWidth(
   score: Score,
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
+  keysByStaff: Map<string | undefined, StaffKeys>,
 ): { total: number; noteSpace: number; overhead: number; spacingFloor: number } {
   const staffIds = staffIdsOf(score, clefsByStaff)
 
@@ -188,8 +208,16 @@ function calculateMinimumMeasureWidth(
     // Each mid-measure (inline) clef change on THIS staff draws its own small clef — inside the
     // music, so it is not part of the header, only of the room the bar needs.
     const midClefs = (lane.clefs ?? []).filter(c => !fracIsZero(c.beat)).length
-    const staffHeader = headerExtent({ clef: headerClef, meter })
-      + midClefs * inlineClefExtent(clef)
+    // ⭐ …and THIS staff's key signature, where one is drawn — the same question the stave assembly
+    //   and the drawing pass ask (`headerKeyAt`), so the room reserved is the room the glyphs take.
+    //   ⚠️ An empty signature is not a part at all: `headerExtent` refuses to charge a padding for
+    //   ink that does not exist, which is every bar of every C-major score.
+    const staffKeys = keysByStaff.get(staffId)
+    const staffHeader = headerExtent({
+      clef: headerClef,
+      key: staffKeys && headerKeyAt(staffKeys, measure.number, isFirstInLine),
+      meter,
+    }) + midClefs * inlineClefExtent(clef)
 
     widestOverhead = Math.max(widestOverhead, staffHeader * STAFF_SPACE_PX)
   }
@@ -350,9 +378,10 @@ function measureWidthParts(
   measure: Measure,
   isFirstInLine: boolean,
   clefsByStaff: Map<string | undefined, StaffClefs>,
+  keysByStaff: Map<string | undefined, StaffKeys>,
 ): { minWidth: number; userSpace: number; stretchSpace: number; noteSpace: number; overhead: number; stretchScalesShare: boolean; floorWidth: number; naturalWidth: number } {
   const empty = isEmptyBar(measure)
-  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff)
+  const parts = calculateMinimumMeasureWidth(score, measure, isFirstInLine, clefsByStaff, keysByStaff)
   const { total: intrinsic, noteSpace, overhead, spacingFloor } = parts
   const userSpace = measureUserSpacePx(score, measure.id)
   const stretch = measureStretch(score, measure.id)
@@ -850,10 +879,11 @@ function calculateLinearMeasureWidths(
   score: Score,
   clefsByStaff: Map<string | undefined, StaffClefs>,
 ): Map<number, MeasureWidthInfo> {
+  const keysByStaff = resolveKeysByStaff(score, clefsByStaff)
   const results = new Map<number, MeasureWidthInfo>()
 
   score.measures.forEach((measure, index) => {
-    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff)
+    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, index === 0, clefsByStaff, keysByStaff)
 
     results.set(measure.number, {
       measureNumber: measure.number,
@@ -912,6 +942,7 @@ export function calculateMeasureWidths(
 ): Map<number, MeasureWidthInfo> {
   const { mode = 'wrapped', justifyLastLine = false, surface = resolveSurface(SKETCH_CANVAS) } = options
   if (mode === 'linear') return calculateLinearMeasureWidths(score, clefsByStaff)
+  const keysByStaff = resolveKeysByStaff(score, clefsByStaff)
 
   const results = new Map<number, MeasureWidthInfo>()
   const availableWidth = surface.contentWidthPx
@@ -924,7 +955,7 @@ export function calculateMeasureWidths(
 
   for (const measure of score.measures) {
     const isFirstInLine = currentLineMeasures.length === 0
-    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff)
+    const { minWidth, userSpace, stretchSpace, noteSpace, overhead, stretchScalesShare, floorWidth, naturalWidth } = measureWidthParts(score, measure, isFirstInLine, clefsByStaff, keysByStaff)
 
     const incoming = { minWidth, naturalWidth, floorWidth, userSpace, stretchSpace }
     // **How many bars fit is decided GROWTH-BLIND** — on `naturalWidth`, what each bar would ask
@@ -955,7 +986,7 @@ export function calculateMeasureWidths(
 
       // Recalculate width for new line (first-in-line gets a full clef, so a
       // clef change is absorbed into the line-start clef — no extra width)
-      const newParts = measureWidthParts(score, measure, true, clefsByStaff)
+      const newParts = measureWidthParts(score, measure, true, clefsByStaff, keysByStaff)
 
       const info: MeasureWidthInfo = {
         measureNumber: measure.number,

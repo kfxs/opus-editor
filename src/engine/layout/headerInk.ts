@@ -1,4 +1,7 @@
-import type { Clef, TimeSignature } from '@/types/music'
+import type { Clef, KeySignature, TimeSignature } from '@/types/music'
+import {
+  CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
+} from './keySignatureLayout'
 
 /**
  * ⭐⭐ **THE HEADER, AS INK** — what a clef and a meter actually cost at the front of a bar
@@ -109,13 +112,46 @@ export function inlineClefExtent(clef: Clef): number {
 }
 
 /**
- * ⭐ A CAUTIONARY clef or meter, drawn at the END of a line to warn of the next one's — same glyphs,
- * same measurements, and no reason for a second set of numbers.
+ * ⭐⭐ **The room a key signature takes at the head of a bar, INCLUDING the padding that separates it
+ * from whatever is drawn next** — and **0** when it draws nothing.
+ *
+ * Exported because the DRAWING needs the same number the width reserved: `VexFlowRenderer` pushes
+ * VexFlow's own time-signature modifier right by exactly this, so the meter lands one
+ * `BETWEEN_PARTS` past the signature's last sign — which is where {@link headerExtent} has already
+ * charged for it. ⛔ Two numbers here would be the two-sets-of-numbers problem this file exists to
+ * end, one layer down.
  */
-export function cautionaryExtent(part: { clef: Clef } | { meter: TimeSignature }): number {
-  return 'clef' in part
-    ? CLEF_SMALL[part.clef] + BETWEEN_PARTS
-    : meterExtent(part.meter) + BETWEEN_PARTS
+export function headerKeyRoom(key: KeySignature | undefined): number {
+  const ink = key ? keySignatureExtent(key) : 0
+  if (ink <= 0) return 0
+  // What inserting the signature ADDS to a header that already ran clef → meter: its two own gaps
+  // and its ink, less the one gap it displaced.
+  return CLEF_TO_KEY_INK + ink + keyToMeterGap() - BETWEEN_PARTS
+}
+
+/**
+ * ⭐ **The BOX gap the model charges between the signature and the meter** — {@link KEY_TO_METER_INK}
+ * of visible white, less the air the meter's own extent already carries in front of its digits
+ * ({@link METER_PART_LEFT_AIR}). ⛔ Never quote this number; quote the ink one.
+ */
+function keyToMeterGap(): number {
+  return KEY_TO_METER_INK - METER_PART_LEFT_AIR
+}
+
+/**
+ * ⭐ A CAUTIONARY clef, key or meter, drawn at the END of a line to warn of the next one's — same
+ * glyphs, same measurements, and no reason for a second set of numbers.
+ *
+ * ⭐⭐ **A courtesy KEY SIGNATURE takes the METER's branch, not the clef's, and that is sourced**:
+ * Gerou & Lusk p. 52 — a courtesy clef is CUE size, while the key signature and time signature are
+ * NORMAL size. So the clef is the odd one here, and a signature simply costs what it costs.
+ */
+export function cautionaryExtent(
+  part: { clef: Clef } | { meter: TimeSignature } | { key: KeySignature },
+): number {
+  if ('clef' in part) return CLEF_SMALL[part.clef] + BETWEEN_PARTS
+  if ('key' in part) return keySignatureExtent(part.key) + BETWEEN_PARTS
+  return meterExtent(part.meter) + BETWEEN_PARTS
 }
 
 /**
@@ -127,9 +163,19 @@ export function lineOpeningClefPremium(clef: Clef): number {
   return CLEF_FULL[clef] - CLEF_SMALL[clef]
 }
 
-/** What a bar draws before its first note. `clef` absent = no clef drawn; `meter` absent = none. */
+/** What a bar draws before its first note. Each part absent = that part is not drawn. */
 interface Header {
   clef?: { clef: Clef; small: boolean }
+  /**
+   * ⭐ The signature drawn at this bar's head — **between the clef and the meter**, which is the
+   * order every source prints and the order this file's `parts` array must therefore keep.
+   *
+   * 🚨 **Absent, never empty.** A C-major or open signature draws no glyphs, so it is not a PART: a
+   * part that priced itself at 0 would still be charged a `BETWEEN_PARTS` below, widening the header
+   * of every bar of every C-major score — which is every score today. `keySignatureExtent` returning
+   * 0 is the caller's cue to omit it, not this file's cue to add a zero.
+   */
+  key?: KeySignature
   meter?: TimeSignature
 }
 
@@ -141,11 +187,30 @@ interface Header {
  * and there is no special case anywhere.
  */
 export function headerExtent(header: Header): number {
-  const parts: number[] = []
+  /**
+   * ⭐⭐ **Each part, with the gap that goes BEFORE it — because the gaps are not all the same, and
+   * pretending they were is what put half a space too much on each side of a key signature.**
+   *
+   * `BETWEEN_PARTS` remains the answer for the pair it was measured on (clef → meter, where it
+   * reproduces LilyPond's own `Clef.space-alist (time-signature . 1.52)` once the meter's left air
+   * is counted). The key signature's two neighbours have their own numbers, each quoted at its
+   * definition in `keySignatureLayout.ts`. ⛔ A new header part adds a ROW here, never a constant
+   * somewhere else — the same rule `spacingPadding` follows for note columns.
+   */
+  const parts: Array<{ gap: number; extent: number }> = []
   if (header.clef) {
-    parts.push((header.clef.small ? CLEF_SMALL : CLEF_FULL)[header.clef.clef])
+    parts.push({ gap: 0, extent: (header.clef.small ? CLEF_SMALL : CLEF_FULL)[header.clef.clef] })
   }
-  if (header.meter) parts.push(meterExtent(header.meter))
+  // ⚠️ Between the clef and the meter — the printed order, three-way agreement (research §9's table),
+  // and the order the drawing must match.
+  // 🚨 An empty signature is NOT a part: see {@link Header.key}. `keySignatureExtent` is 0 exactly
+  // when there is no ink, so the guard is the extent itself and there is no second rule to keep.
+  const keyInk = header.key ? keySignatureExtent(header.key) : 0
+  if (keyInk > 0) parts.push({ gap: CLEF_TO_KEY_INK, extent: keyInk })
+  if (header.meter) {
+    parts.push({ gap: keyInk > 0 ? keyToMeterGap() : BETWEEN_PARTS, extent: meterExtent(header.meter) })
+  }
   if (parts.length === 0) return 0
-  return parts.reduce((sum, part) => sum + part, 0) + BETWEEN_PARTS * (parts.length - 1)
+  // The FIRST part pays no gap, whatever it is — the bar's lead-in is what stands in front of it.
+  return parts.reduce((sum, part, i) => sum + part.extent + (i === 0 ? 0 : part.gap), 0)
 }
