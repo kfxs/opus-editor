@@ -36,7 +36,8 @@ import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } f
 import { prevailingAlterAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import type { Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle } from '@/types/music'
+import { fifthsOf } from '@/utils/keySignature'
+import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -957,6 +958,46 @@ export class MusicEngine {
   /** Remove the measure's opening clef (beat 0). */
   removeClef(measureNumber: number, staff: number = 0): boolean {
     return this.removeClefAt(measureNumber, beatToFrac(0), staff)
+  }
+
+  // ==================== Key Signature Operations ====================
+
+  /** The key signature in force at a measure on `staff`. */
+  getKeyAt(measureNumber: number, staff: number = 0): KeySignature {
+    return this.scoreModel.getKeyAt(measureNumber, this.staffIdForIndex(staff))
+  }
+
+  /**
+   * Set the key signature at the head of a measure. Normalized like a clef change — a signature
+   * equal to the one already in force stores nothing (`keyOps.setKeyAt`). Saves undo state when
+   * changed.
+   *
+   * ⚠️ **It commits with a playback resync, and a key signature looks like it should not need one.**
+   * It does: the TRILL's auxiliary is resolved against the key in force (`playbackSchedule`'s
+   * `auxiliaryPitchFor` → `keyAt`), so a key change alters what a trill sounds even though it alters
+   * no stored pitch. ⛔ Do not "optimise" this to the visual-only snapshot.
+   *
+   * @returns true if the score changed.
+   */
+  setKeyAt(measureNumber: number, key: KeySignature, staff: number = 0): boolean {
+    const changed = this.scoreModel.setKeyAt(measureNumber, key, this.staffIdForIndex(staff))
+    if (changed) {
+      const name = fifthsOf(key)
+      this.commit(`Set key signature at measure ${measureNumber} staff ${staff}`
+        + ` (${name === null ? 'custom' : `${name} fifths`})`)
+    }
+    return changed
+  }
+
+  /**
+   * Remove a measure's key change, reverting it to the inherited signature. Measure 1 is protected —
+   * change only, never remove. Saves undo state when changed.
+   * @returns true if a change was removed.
+   */
+  removeKeyAt(measureNumber: number, staff: number = 0): boolean {
+    const changed = this.scoreModel.removeKeyAt(measureNumber, this.staffIdForIndex(staff))
+    if (changed) this.commit(`Remove key signature at measure ${measureNumber} staff ${staff}`)
+    return changed
   }
 
   // ==================== Time Signature Operations ====================

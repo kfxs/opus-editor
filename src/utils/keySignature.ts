@@ -195,6 +195,39 @@ export function keyFromFifths(n: number, mode: 'major' | 'minor' = 'major'): Key
   }
 }
 
+/**
+ * Are these the SAME signature? Order- and octave-sensitive, because both are printed: two lists
+ * holding the same letters in a different order, or the same letter drawn an octave apart, are
+ * different engravings and the model carries the difference deliberately.
+ *
+ * ⭐ **`mode` counts**, and it is the line that keeps C major and open/atonal apart — they have the
+ * same (empty) list and are not the same key. ⚠️ An ABSENT mode reads as `'major'`: not stating a
+ * mode is not the same as stating there is no key, which has to be said out loud.
+ */
+export function keysEqual(a: KeySignature, b: KeySignature): boolean {
+  if ((a.mode ?? 'major') !== (b.mode ?? 'major')) return false
+  if (a.alterations.length !== b.alterations.length) return false
+  return a.alterations.every((x, i) => {
+    const y = b.alterations[i]
+    return x.step === y.step && x.alter === y.alter && x.octave === y.octave
+  })
+}
+
+/**
+ * The key in force as a measure BEGINS — i.e. carried out of the previous bar, ignoring any change
+ * at this bar's own beat 0. `effectiveClefBefore`'s twin at bar granularity.
+ *
+ * ⭐ It is what a write asks to decide whether a change is REDUNDANT (`keyOps.setKeyAt`), and what
+ * cancellation will ask for the outgoing signature it draws naturals from.
+ */
+export function keyBefore(score: Score, measureNumber: number, staffId?: string): KeySignature {
+  for (let n = measureNumber - 1; n >= 1; n--) {
+    const changes = measureKeyChanges(score, n, staffId)
+    if (changes.length) return changes[changes.length - 1].key
+  }
+  return C_MAJOR
+}
+
 /** Does a key change belong to the staff being asked about? Both sides resolve absent → the first
  *  staff, so at N=1 (all absent) everything matches. `clefUtils.clefOnStaff`'s twin — ⛔ and NOT
  *  `staffContent.matchesStaff`, which lives a layer up (`engine/models`). */

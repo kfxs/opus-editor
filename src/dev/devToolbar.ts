@@ -9,6 +9,7 @@ import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 import { dbg } from '../utils/debug'
+import { keyFromFifths } from '../utils/keySignature'
 import { openKeySignatureSketch } from './keySignatureSketchWindow'
 
 /**
@@ -308,16 +309,54 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     { label: 'D', fifths: 2, title: 'D major — 2 sharps (F♯ C♯)' },
     { label: 'E♭', fifths: -3, title: 'E♭ major — 3 flats (B♭ E♭ A♭)' },
   ]
+  /**
+   * ⭐ **Which bar a key button writes to — PROVISIONAL, and deliberately not a design.**
+   *
+   * The measure box if one is selected (`Ctrl+Shift+click`, the same context the `Measure:` buttons
+   * above ask for), else bar 1. ⛔ **This is NOT how a key will be placed.** The real gesture is P5's:
+   * an armed marking tool, placed by a click on the score, hit-tested like every other element. This
+   * exists so P2's WRITES can be exercised by hand — against the Score-JSON panel, which polls the
+   * live model — before anything draws, which is the only way to test a phase whose done-when is
+   * "still nothing drawn".
+   */
+  function keyTarget(): { measure: number; staff: number } {
+    const box = selectedOf(state, 'measureRange')
+    return box ? { measure: Math.min(box.anchor, box.focus), staff: box.staff } : { measure: 1, staff: 0 }
+  }
+
   const keyBox = group('Key:')
   for (const { label, fifths, title } of KEY_PALETTE) {
-    action(keyBox, label, `${title} — 🔧 STUB: logs only, places nothing yet`,
-      () => true,
-      // ⛔ No `palette.armKeySignature` to call yet — the marking tool, the model and the pass are
-      // P1–P5 of the plan. Logging the ARGUMENT the button will one day pass is the whole point of
-      // building the door first: the shape is testable by hand before anything can go wrong in it.
-      () => dbg(`🔧 key palette | ${label} major | fifths:${fifths} `
-        + '| STUB — no model yet, see docs/key-signature-plan.md'))
+    action(keyBox, label,
+      `${title} — 🔧 PROVISIONAL: writes at the selected bar (else bar 1); watch the Score-JSON panel`,
+      () => getEngine() !== null,
+      () => {
+        const engine = getEngine()
+        if (!engine) return
+        const { measure, staff } = keyTarget()
+        // ⭐ `keyFromFifths` is the CLASSICAL CONSTRUCTOR the `fifths` column was always an argument
+        // for — the table stopped being a placeholder the moment P1 landed, exactly as promised.
+        const changed = engine.setKeyAt(measure, keyFromFifths(fifths), staff)
+        dbg(`🔧 key palette | ${label} major (fifths:${fifths}) | measure:${measure} staff:${staff}`
+          + ` | ${changed ? 'WROTE' : 'no change — already in force here'}`)
+        if (changed) renderScore()
+      })
   }
+  // ⛔ Removing one needs its own door, because `setKeyAt` normalizes: asking for the signature that
+  // is already in force stores nothing rather than storing a redundant change. So "revert this bar
+  // to the key before it" is a different verb, and it is the one the SIGNPOST exists to make
+  // clickable at P5 (plan §5). Bar 1 refuses, on purpose — MuseScore's reason: with nothing stored
+  // there, C major and open/atonal cannot be told apart.
+  action(keyBox, '✕', 'Remove the key change at the selected bar (bar 1 is protected) — 🔧 PROVISIONAL',
+    () => getEngine() !== null,
+    () => {
+      const engine = getEngine()
+      if (!engine) return
+      const { measure, staff } = keyTarget()
+      const removed = engine.removeKeyAt(measure, staff)
+      dbg(`🔧 key palette | remove | measure:${measure} staff:${staff}`
+        + ` | ${removed ? 'REMOVED' : measure === 1 ? 'refused — bar 1 is change-only' : 'nothing stored here'}`)
+      if (removed) renderScore()
+    })
   // 🚧 …and the SKETCH of a picker, beside the five stubs it is an alternative to. His idea: Finale's
   // stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends thirty rows on
   // one degree of freedom. It logs and closes; ⛔ read `./keySignatureSketchWindow`'s header before

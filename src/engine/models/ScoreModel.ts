@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd } from '@/types/music'
+import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -33,6 +33,8 @@ import {
 } from '@/utils/fraction'
 import { effectiveClefAt, measureOpeningClef } from '@/utils/clefUtils'
 import * as clefOps from './clefOps'
+import * as keyOps from './keyOps'
+import { keyAt } from '@/utils/keySignature'
 import * as rebarOps from './rebarOps'
 import * as overrideOps from './overrideOps'
 import * as slurOps from './slurOps'
@@ -475,6 +477,32 @@ export class ScoreModel {
   /** Remove the measure's opening clef (beat 0). */
   removeClef(measureNumber: number, staffId?: string): boolean {
     return this.removeClefAt(measureNumber, fracCreate(0, 1), staffId)
+  }
+
+  // ==================== Key Signature Operations ====================
+
+  /**
+   * Set the key signature at the head of a measure, on one staff. Normalized like a clef change:
+   * a signature equal to the one already in force entering this bar stores nothing (and clears any
+   * change stored here). See `keyOps.setKeyAt` — including why there is no `beat` parameter.
+   * @returns true if the score changed.
+   */
+  setKeyAt(measureNumber: number, key: KeySignature, staffId?: string): boolean {
+    return keyOps.setKeyAt(this.score, measureNumber, key, staffId)
+  }
+
+  /**
+   * Remove a measure's key change, reverting it to the inherited signature. Measure 1 is
+   * protected — change only, never remove (`keyOps.removeKeyAt` says why).
+   * @returns true if a change was removed.
+   */
+  removeKeyAt(measureNumber: number, staffId?: string): boolean {
+    return keyOps.removeKeyAt(this.score, measureNumber, staffId)
+  }
+
+  /** The key signature in force at a measure on a staff (`utils/keySignature`'s walk). */
+  getKeyAt(measureNumber: number, staffId?: string): KeySignature {
+    return keyAt(this.score, measureNumber, staffId)
   }
 
   /**

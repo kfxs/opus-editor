@@ -640,6 +640,14 @@ so the shape exists.
   placement table existed nowhere when it was written, and drawing one from memory would have been
   inventing a rule. It logs and closes; it arms nothing.
 
+✅ **WIRED PROVISIONALLY 2026-08-27 (P2)** — the five buttons stopped logging and now call
+`engine.setKeyAt`, with a `✕` beside them for `removeKeyAt`. **Target: the selected measure box
+(`Ctrl+Shift+click`), else bar 1.** ⛔ That targeting is NOT a design and must not become one — the
+real gesture is §5's armed tool placed by a click on the score. It exists because P2's done-when is
+*"still nothing drawn"*, and the **Score-JSON panel** (which polls the live model) is the only test
+surface a phase like that has. ⭐ The `fifths` column became five `keyFromFifths(n)` arguments,
+exactly as the stub promised it would.
+
   ⭐⭐ **What the sketch ARGUES**, and it is his point standing up: changing Major↔Minor changes the
   NAME and nothing else. One degree of freedom plus a mode toggle, against Sibelius's 31 cells for 15
   distinct pictures. ✅ The survey later confirmed this is Finale's actual gesture, verbatim, and that
@@ -684,7 +692,7 @@ picker is §7, and it is not being designed yet.
 | # | what | done when |
 |---|---|---|
 | ✅ **P1** | **BUILT 2026-08-27.** `KeySignature` → list; `fifthsOf` / `keyFromFifths`; `Measure.keys` + `KeyChange`; `keyAt` walks; `measureRenderRoles` row + its `PERTURB` row | ✅ 5358 unit green, `build:check` clean, nothing drawn, `trillPitch`'s source untouched |
-| **P2** | `keyOps` writes + `MusicEngine` delegators + undo | a key can be set/removed in a test, still nothing drawn |
+| ✅ **P2** | **BUILT 2026-08-27.** `keyOps` writes + `ScoreModel`/`MusicEngine` delegators + undo, **and the dev palette wired provisionally** | ✅ 5377 unit green; a key can be set/removed **by hand**, watched in the Score-JSON panel, and undone — still nothing drawn |
 | **P3** | `keysByStaff` prepass (§2.1) + `headerInk` key row + `KeySignaturePass` — draws at system starts and at changes, **and registers its own hit boxes** (§5) | e2e measures the room; **run `test:e2e` either side**; ⚠️ a C-major score's header width is UNCHANGED (§4.1) |
 | **P4** | the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | the F♯ in G major loses its sign; the F♮ gains one; **a note typed in G major is an F♯ with no sign**; setting the key at bar 1 repaints bar 40 |
 | **P5** | marking tool + element kind + Delete + dev palette | he can place a key and click it |
@@ -703,11 +711,40 @@ picker is §7, and it is not being designed yet.
   change, and a function that cannot express one would have had to guess. ⛔ The two call sites
   (`trillOps`, `playbackSchedule`) were left passing no beat — correct while nothing writes a
   non-zero one, and a one-line change each when something does.
-- ⏭️ **P2 owes `clearMeasureForRebar` a decision** (`rebarOps`). Its comment is explicit that a new
-  measure-level array which is NOT deleted there *survives a re-tile holding its old beat* — a mark
-  pointing at music that moved, with nothing thrown. A beat-0 signature is a boundary fact and should
-  ride its measure like the meter; a beat > 0 one needs capture/restore. ⛔ Do not land the writes
-  without answering this; it is recorded on `Measure.keys` itself too.
+- ✅ **P2 ANSWERED the `clearMeasureForRebar` question, and the answer was to REMOVE the risk rather
+  than handle it: `keyOps` has NO `beat` parameter.** The write API places at the head of a bar,
+  full stop. So the two halves are:
+  - a **beat-0** signature is a BOUNDARY fact — "this bar is in E♭" — like `timeSignature`, `barline`
+    and `repeatStart`, none of which `clearMeasureForRebar` deletes either. It rides its measure
+    through a re-tile. **Correct, and zero code.**
+  - a **beat > 0** signature would need a `CapturedAnchor` kind, and ⛔ is not built, because nothing
+    writes one (only an import could). ⏭️ The day a mid-bar key change becomes a feature it needs the
+    capture/restore pair IN THE SAME COMMIT, and `keys` must join `clearMeasureForRebar`. Written at
+    the top of `keyOps.ts`, which is the module that would break it.
+
+### ✅ 8.2 What P2 landed
+
+- **`engine/models/keyOps.ts`** — `setKeyAt` / `removeKeyAt`, free functions over a `Score`, the
+  `clefOps` idiom. ⭐ **The rule that makes them more than setters is `clefOps`' normalization:** a
+  signature equal to the one already in force stores NOTHING (and clears any change stored there), so
+  a `keys` entry always means *"the signature changes here"* — never *"someone clicked a button
+  here"*. ⛔ Measure 1 refuses removal (change-only), the clef's protection and MuseScore's reason.
+- ⭐ **`setKeyAt(1, C_MAJOR)` stores nothing; `setKeyAt(1, open)` stores a change** — because
+  `keysEqual` compares `mode`. The ambiguity MuseScore refuses to guess at is one we can record.
+- **`utils/keySignature.ts` gained `keysEqual` and `keyBefore`** — both with a caller: the
+  normalization above. `keyBefore` is `effectiveClefBefore`'s twin at bar granularity, and it is the
+  read cancellation will want for its outgoing signature.
+- ⛔ **`normalizeKeyAt` was NOT built.** The plan listed it because `clefOps` has one — but that one
+  exists for the clef DRAG (redundant positions are allowed transiently mid-drag). There is no key
+  drag, so it would be an export with no caller. ⏭️ It arrives with the gesture that needs it.
+- **`MusicEngine.setKeyAt` commits WITH a playback resync**, which looks wrong for something that
+  changes no stored pitch. It is right: the trill's auxiliary resolves against the key
+  (`playbackSchedule.auxiliaryPitchFor` → `keyAt`), so a key change alters what a trill sounds.
+- **The dev palette now WRITES** (§6) — provisionally, at the selected measure box else bar 1, plus a
+  `✕` to remove. ⛔ Not the gesture; P5's armed tool is. It exists so a phase whose done-when is
+  "still nothing drawn" can be tested by hand at all.
+- ⚠️ **Both new specs were break-tested**: dropping the engine's `commit` turns the two undo tests
+  red. A green test nobody has seen fail proves nothing.
 
 ⚠️ **P4 is the one that can go quietly wrong**, and it is the one with no drawn evidence in jsdom.
 ⚠️ **AMENDED: P4 is now the biggest phase, not the subtlest one** — the amendments moved two whole
