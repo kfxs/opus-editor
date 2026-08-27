@@ -15,6 +15,7 @@ import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
 import type { SignHalf } from '@/engine/layout/barlineSign'
+import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
 
 /**
  * ⭐ **The weight a selected line is drawn at, in px** — the width the barline highlight has had
@@ -911,6 +912,29 @@ export class HighlightController {
     if (measure === null) return
     this.recolourBarlineHalf('start', (svg, staff) =>
       this.signGroupById(svg, `${measure}-${staff}-start`) ?? this.signGroupById(svg, `${measure - 1}-${staff}-end`))
+  }
+
+  /**
+   * 🚧 **THE SKETCHED HEADER LINE, LIT** — the title or the composer at the head of the first page,
+   * recoloured in the element-selection ink (`engine/rendering/ScoreHeaderPass`; ⛔ read its note
+   * before building on it).
+   *
+   * ⭐ It lights only the line that was SELECTED, which is what makes the two separable at all: the
+   * class the pass wrote onto each `<text>` names its field, so the selection's own `field` finds
+   * exactly one of them.
+   *
+   * ⭐ FILL only, never a stroke. It is text: an outlined glyph reads as BOLD, which is the mistake
+   * the note highlight names out loud, and it would be worse on a 4.4-space title than anywhere.
+   */
+  applyScoreTextSelectionHighlight(): void {
+    const selected = selectedOf(this.state, 'scoreText')
+    if (!selected) return
+    const text = this.getScoreCanvas()
+      ?.querySelector('svg')
+      ?.querySelector(`.${scoreTextClass(selected.field)}`) as SVGElement | null
+    if (!text) return
+    this.setAttr(text, 'fill', ELEMENT_SELECTION_FILL)
+    this.setStyleProp(text, 'fill', ELEMENT_SELECTION_FILL)
   }
 
   /**

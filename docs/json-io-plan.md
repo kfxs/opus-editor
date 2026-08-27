@@ -12,7 +12,19 @@ same disclaimer).
 
 ## What we already have
 
-`MusicEngine.exportJSON()` → `ScoreModel.toJSON()` → `JSON.stringify(this.score, null, 2)`.
+`MusicEngine.exportJSON()` → `ScoreModel.toJSON()` → `JSON.stringify(the score, null, 2)`.
+
+🚨 **The top-level key ORDER is stated, and only the top level** (2026-08-27). `id`, then the score's
+own text (`title`, `composer` — 🚧 a sketch, `score-header-sketch.md`), then everything else in
+whatever order the object holds it. His report is why: *"why i dont see in the Score Json in the shell
+script composer and title when i add it?"* — they were there, but a key added to an object AFTER it
+exists is serialized LAST, so a title set on a live score landed underneath sixty-four bars of
+`measures`. The dump is read from the top, so what identifies the document is written at the top.
+⚠️ A spread, ⛔ never a `JSON.stringify` key-array replacer: a replacer applies to every nested object
+too and would silently drop fields from every measure, slot and note. The `...rest` keeps it total, so
+a new `Score` field needs nothing added.
+⭐ Absent stays absent — an optional field is spread in only when it is there, so a deleted title
+exports a file with no `title` key at all.
 That is already a serialization of the **data model**. The `<pre>` in the Score-JSON dev panel
 (`src/dev/scoreJsonPanel.ts`) is a *view* of that string, polled every 400ms.
 
@@ -66,7 +78,8 @@ being deleted. Those files are genuinely dead. That is what the console message 
    ⛔ Do **not** clamp a bad meter to 4/4 or invent a missing field. A guessing fallback gets
    believed. Load cleanly or refuse loudly.
 3. **Two buttons in the Score-JSON panel heading.** Export → Blob download, filename from
-   `score.title`. Import → hidden `<input type="file">`.
+   `score.title` — ⚠️ optional since 2026-08-27, and `scoreFilename` already answered `score.json`
+   for a score without one.
 4. **Import must clear selection first.** `loadJSON` doesn't. `__perf.load` in `App.ts` calls
    `selection.selectNote(null)` itself before loading, for this reason: selection, multi-select
    and the caret all hold ids into the score you just threw away.

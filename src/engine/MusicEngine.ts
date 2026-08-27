@@ -17,6 +17,7 @@ import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredB
 import type { BarlineSignKind } from './layout/barlineSign'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
+import type { ScoreTextField } from './models/scoreTextOps'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
 import type { InkBox } from './layout/pageBounds'
 import { edgeStepFitsOnPage, nudgeFitsOnPage, pageBoxAt, SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
@@ -677,6 +678,29 @@ export class MusicEngine {
   setTitle(title: string): void {
     this.scoreModel.setTitle(title)
     this.saveOnly(`Set title to "${title}"`)
+  }
+
+  /**
+   * 🚧 Write one of the score's own text fields — its TITLE or its COMPOSER — or delete it when what
+   * was typed is blank. Records its own undo entry, like {@link setTitle}, and only when something
+   * changed. ⛔ Read `engine/rendering/ScoreHeaderPass`'s note: both are scaffolding.
+   *
+   * @returns whether the score changed.
+   */
+  setScoreText(field: ScoreTextField, text: string): boolean {
+    if (!this.scoreModel.setScoreText(field, text)) return false
+    this.saveOnly(text.trim() ? `Set ${field}` : `Remove ${field}`)
+    return true
+  }
+
+  /**
+   * Remove one of them — the exported JSON then has no such key. Records its own undo entry.
+   * @returns whether the score changed.
+   */
+  clearScoreText(field: ScoreTextField): boolean {
+    if (!this.scoreModel.clearScoreText(field)) return false
+    this.saveOnly(`Remove ${field}`)
+    return true
   }
 
   /**

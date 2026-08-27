@@ -24,6 +24,9 @@ import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryContr
 import { FanEditController } from './interactions/FanEditController'
 import { TrillEditController } from './interactions/TrillEditController'
 import { BarlineEditController } from './interactions/BarlineEditController'
+import { ScoreTextController } from './interactions/ScoreTextController'
+import { openScoreTextWindow } from './windows/scoreTextWindow'
+import { scoreText, type ScoreTextField } from './engine/models/scoreTextOps'
 import { HairpinEditController } from './interactions/HairpinEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { HairpinGeometryController } from './interactions/HairpinGeometryController'
@@ -465,7 +468,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     })),
   }
 
-  // The Staff menu — the dev shell's `Staff:` and `Measure:` palettes, driving the same palette
+  // The Score menu — the dev shell's `Staff:` and `Measure:` palettes, driving the same palette
   // methods. ⭐ `enabled` is the same question the toolbar's buttons ask, and it is two different
   // questions: the staff commands want a PLAIN-clicked bar (the single box), the measure commands a
   // Ctrl+Shift+click span (the double box). That is why the rows grey out separately.
@@ -481,6 +484,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     toggle: () => { if (toggleSelectedStaffSize(state, getEngine())) renderer.renderScore() },
     enabled: singleBox,
   }
+  // 🚧 The SCORE'S OWN TEXT — Add Title / Add Composer, each opening the one-box dialog on what the
+  // score currently says (the window is a dumb publisher and may not read it —
+  // `bus/scoreTextSelection`). ⛔ Scaffolding: see `engine/rendering/ScoreHeaderPass`.
+  // ⭐ No `enabled`: these edit the document, not a selection, so they are always available.
+  const openScoreText = (field: ScoreTextField) => () => {
+    const score = getEngine()?.getScore()
+    openScoreTextWindow(windows, field, score ? scoreText(score, field) : undefined)
+  }
+  menuActions.addTitle = { run: openScoreText('title') }
+  menuActions.addComposer = { run: openScoreText('composer') }
   menuActions.addMeasureBefore = { run: () => palette.addMeasureBefore(), enabled: doubleBox }
   // The one with a key: Ctrl+Shift+B, so it goes through the registered action like every Edit row.
   menuActions.addMeasureAfter = { run: () => shortcuts.run('addMeasureAfter'), enabled: doubleBox }
@@ -574,6 +587,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // rather than an element id — which is what makes the back-to-back `:||:` reachable at all
   // (docs/barline-types-plan.md §8 P6).
   const barlineEdit = new BarlineEditController(getEngine, () => renderer.renderScore())
+  // …and the 🚧 Add Title / Add Composer dialog, on the same boundary. ⛔ Scaffolding.
+  const scoreTextEdit = new ScoreTextController(getEngine, () => renderer.renderScore())
   // …and the Properties SLUR HANDLE inputs — each end's offset and each arc control point. It takes
   // `state` as well as the engine, the one of these that does: which system a split slur's arc row
   // writes to is the ARMED dot's business, and that lives in the selection.
@@ -880,6 +895,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       fanEdit.destroy()
       trillEdit.destroy()
       hairpinEdit.destroy()
+      scoreTextEdit.destroy()
       barlineEdit.destroy()
       slurGeometry.destroy()
       hairpinGeometry.destroy()

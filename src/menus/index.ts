@@ -4,7 +4,7 @@ import { buildCreateMenu, installInsertMenu, type InsertMenuActions } from './in
 import { buildFileMenu, type FileMenuActions } from './fileMenu'
 import { buildEditMenu, type EditMenuActions } from './editMenu'
 import { buildViewMenu, type ViewMenuActions } from './viewMenu'
-import { buildStaffMenu, type StaffMenuActions } from './staffMenu'
+import { buildScoreMenu, type ScoreMenuActions } from './scoreMenu'
 import { buildPlayMenu, type PlayMenuActions } from './playMenu'
 import { buildWindowMenu } from './windowMenu'
 import type { MenuBarTitle } from './menuBar'
@@ -29,7 +29,7 @@ export const menus = new MenuLayer()
  * Keeping it here — not in App.ts — is what keeps "add a menu" from meaning "edit App.ts"; the app
  * only hands over the callback, it does not know the menu's shape.
  */
-export const menuActions: InsertMenuActions & FileMenuActions & EditMenuActions & ViewMenuActions & StaffMenuActions & PlayMenuActions = {}
+export const menuActions: InsertMenuActions & FileMenuActions & EditMenuActions & ViewMenuActions & ScoreMenuActions & PlayMenuActions = {}
 
 /**
  * THE MENU BAR'S RUNNING ORDER — the one list that says what is on the bar and in what sequence.
@@ -54,7 +54,7 @@ export function buildMenuBarTitles(): MenuBarTitle[] {
     buildViewMenu(menuActions),
     // The right-click menu's own tree, under its other name — one list, two ways in.
     buildCreateMenu(menuActions, windows),
-    buildStaffMenu(menuActions),
+    buildScoreMenu(menuActions),
     buildPlayMenu(menuActions),
     buildWindowMenu(windows),
   ]

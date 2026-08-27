@@ -7,7 +7,7 @@
  * object per command, filled in by App.ts (see `menuActions`).
  *
  * Kept here rather than in whichever menu happened to need one first: `viewMenu` defined `MenuToggle`
- * and then `playMenu` and `staffMenu` imported it from there, which quietly made the View menu the
+ * and then `playMenu` and `scoreMenu` imported it from there, which quietly made the View menu the
  * home of everyone's vocabulary.
  *
  * ⚠️ Both readers are called as the ROW IS PAINTED, never stored. A menu does not outlive the action

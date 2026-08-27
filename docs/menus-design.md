@@ -3,7 +3,7 @@
 **Status: BUILT** (`src/menus/`) — P0–P4. Sibling to `Window` (docs/windows-design.md), not a kind of
 it. Right-click the score → the Insert menu: `Barline ▸ …`, Clef, Feathered Beam, Lines,
 `Text ▸ Expression` (Ctrl+E), `Text ▸ Tempo` (Alt+Shift+T), Time Signature and Tuplet. And since P4 there is a **menu bar** across the top of the
-app: File · Edit · View · Create · Staff · Play · Window. Every row on it is a real command.
+app: File · Edit · View · Create · Score · Play · Window. Every row on it is a real command.
 
 > # ⚠️ THE MENU BAR IS THE DEMO'S. IT IS NOT THE APP'S UI.
 >
@@ -17,12 +17,18 @@ nobody has claimed it will have a menu bar at all.**
 
 So everything about the bar is provisional, and deliberately so:
 
-- **The TITLES are provisional.** File · Edit · View · Create · Staff · Play · Window are the words a
+- **The TITLES are provisional.** File · Edit · View · Create · Score · Play · Window are the words a
   notation editor conventionally uses. They are not a taxonomy anyone chose; they are what makes a
   strip of chrome legible as a menu bar while we learn whether we want one.
-- **The GROUPING is provisional.** Staff carrying both the staff and measure commands, Create being
+- **The GROUPING is provisional.** Score carrying both the staff and measure commands, Create being
   the right-click tree under another name, the transport living under Play — each is a reasonable
-  guess and none is a decision.
+  guess and none is a decision. ⚠️ That title read **Staff** until 2026-08-27 (his call): the rows did
+  not change, but these edit the score's STRUCTURE — how many staves, how many bars, how big a staff
+  is drawn — and "Staff" named the first group while leaving the measure commands filed under
+  something they are not.
+- ⚠️ **And one row's COMMAND is provisional too, which is unusual here**: 🚧 *Add Title…* /
+  *Add Composer…* open a sketch (`score-header-sketch.md`), not a feature. They are the exception the
+  next bullet's rule does not cover.
 - **What is NOT provisional is the behaviour behind each row.** A row runs the same registered action
   its accelerator runs (`ShortcutManager.run`), or the same `PaletteController` method the dev
   toolbar's button calls, or the same function the dev panel's button calls. Nothing was reimplemented
@@ -94,7 +100,7 @@ would show whatever was true that morning):
 | field | who wanted it | why |
 |---|---|---|
 | `checked?: () => boolean` | View, Window, Play ▸ Score Sound | a toggle whose state you cannot see is a button you press twice to find out what it did. A panel with no checkable row grows no tick column at all. |
-| `disabled?: () => boolean` | Staff | its commands need a bar selected *by a specific gesture*, and nothing on screen says so. A greyed row is the menu saying the command is real and its target is missing. It is skipped by the arrow keys, not merely un-clickable. |
+| `disabled?: () => boolean` | Score | its commands need a bar selected *by a specific gesture*, and nothing on screen says so. A greyed row is the menu saying the command is real and its target is missing. It is skipped by the arrow keys, not merely un-clickable. |
 | `label: string \| (() => string)` | Play | one command, one key, and a word that has to say which way it will go: *Play* ⇄ *Stop*. For a row that changes what it SAYS — never one that changes what it DOES. |
 
 **Still not in the vocabulary, on purpose:** radio groups and icons.
@@ -154,7 +160,7 @@ so a `.vue` file never learns that menus exist. Same shape as `installKeypad`.
 | `src/menus/insertMenu.ts` | the Insert item tree (all real commands) + the `contextmenu`/Menu-key listeners, **and** `buildCreateMenu` — the bar's Create title is this same tree, not a copy. |
 | `src/menus/menuBar.ts` | the BAR: buttons, the lit title, slide-along-to-switch. Knows nothing about what is in the menus. |
 | `src/menus/menuCommands.ts` | `MenuToggle` / `MenuCommand` — what a menu module asks the app for: a callback plus the readings the row needs while it is painted. |
-| `src/menus/fileMenu.ts` `editMenu.ts` `viewMenu.ts` `staffMenu.ts` `playMenu.ts` `windowMenu.ts` | one module per bar title. Each is a `build…(actions) → MenuBarTitle` and nothing else. |
+| `src/menus/fileMenu.ts` `editMenu.ts` `viewMenu.ts` `scoreMenu.ts` `playMenu.ts` `windowMenu.ts` | one module per bar title. Each is a `build…(actions) → MenuBarTitle` and nothing else. |
 
 All of it under `npm run lint:boundary`.
 

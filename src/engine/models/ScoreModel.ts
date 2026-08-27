@@ -56,6 +56,8 @@ import { flatNoteOf, flatRestOf } from './noteProjection'
 import { findSlot, writeAttackMarks, projectAttackMarks, type FoundSlot } from './slotLookup'
 import { staffIndexOfId, matchesStaff, staffIdAtIndex, firstStaffId } from './staffContent'
 import * as tupletOps from './tupletOps'
+import * as scoreTextOps from './scoreTextOps'
+import type { ScoreTextField } from './scoreTextOps'
 import { measureDynamics, resolveActiveLevel } from '@/utils/dynamics'
 import { tempoMarks, effectiveTempoAt, MIN_BPM, MAX_BPM } from '@/utils/tempoMap'
 import { v4 as uuidv4 } from 'uuid'
@@ -84,22 +86,6 @@ function fmtSlot(slot: ChordRest): string {
   const pitches = slot.notes.map(n => `${n.step}${alterToString(n.alter)}${n.octave}`).join('+')
   return `v${v} ${pitches} ${slot.duration}${dots} m${slot.measure} b${b}${tup}`
 }
-
-/**
- * The default title of a freshly created, unnamed model.
- *
- * "Fragment", not "Score": what this model holds is **musical content** — staves, bars,
- * notes — with no page, margins, or print size. A *score* is the finished, engraved result,
- * which is content PLUS those engraving concerns (see docs/instruments-plan.md §1: the
- * finished thing wraps the fragment, never the reverse).
- *
- * The trailing "1" is just part of the default label, NOT a live counter — numbering
- * fragments would mean asking "how many exist?", i.e. ambient global state, which
- * DESIGN-PRINCIPLES §1 forbids (a score is a value, never a singleton). When several
- * fragments can be open at once, whoever OPENS them supplies the number via the `title`
- * argument; the model must never invent it.
- */
-const DEFAULT_FRAGMENT_TITLE = 'Fragment 1'
 
 /**
  * What {@link ScoreModel.updateNote} will write onto a FANNED MEMBER — its spelling, and its own
@@ -134,10 +120,22 @@ const STRICT_INVARIANTS: boolean = isTestRun()
 export class ScoreModel {
   private score: Score
 
-  constructor(title: string = DEFAULT_FRAGMENT_TITLE) {
+  /**
+   * @param title what to call it. ⭐ **OMIT IT AND THERE IS NO TITLE AT ALL** — the field is not
+   *   written, so a fresh model exports JSON with no `title` key (his ask, 2026-08-27: *"the default
+   *   score should not have title field in the json"*).
+   *
+   *   ⚠️ This replaced a seeded default of `'Fragment 1'`, and losing that label costs nothing the
+   *   comment on it claimed: its point was that the trailing "1" was NOT a live counter — numbering
+   *   would mean asking "how many exist?", i.e. ambient global state, which DESIGN-PRINCIPLES §1
+   *   forbids — and that whoever OPENS a fragment supplies the name. Writing no name at all says the
+   *   same thing more plainly: **the model must never invent one.** ⛔ And it is never `''`; absent
+   *   is the only "there is none" (`./scoreTextOps`).
+   */
+  constructor(title?: string) {
     this.score = {
       id: uuidv4(),
-      title,
+      ...(title?.trim() ? { title: title.trim() } : {}),
       measures: [],
       // The staff axis: one staff by default (N=1). Content carries no explicit
       // `staffId` at N=1 — absent = this staff. See docs/multi-staff-plan.md §4.
@@ -168,7 +166,31 @@ export class ScoreModel {
    * Set the score title
    */
   setTitle(title: string): void {
-    this.score.title = title
+    scoreTextOps.setScoreText(this.score, 'title', title)
+  }
+
+  /**
+   * Write one of the score's own text fields — the title or the composer — or DELETE it when what
+   * was typed is blank. The rule is `engine/models/scoreTextOps`'; this is the model's door onto it.
+   *
+   * @returns whether the score changed, so a caller can skip the undo entry and the repaint.
+   */
+  setScoreText(field: ScoreTextField, text: string): boolean {
+    return scoreTextOps.setScoreText(this.score, field, text)
+  }
+
+  /**
+   * Remove one of them — the score becomes untitled / anonymous.
+   *
+   * ⭐ `delete`, not `= ''`: the field is optional and its absence IS "there is none", so the
+   * exported JSON simply has no such key (his ask, 2026-08-27 — *"delete the title field from the
+   * json"*). An empty string would be a title that happens to be blank, a different statement and
+   * one nothing in the model means.
+   *
+   * @returns whether the score changed — false when there was nothing to remove.
+   */
+  clearScoreText(field: ScoreTextField): boolean {
+    return scoreTextOps.clearScoreText(this.score, field)
   }
 
   /**
@@ -3488,10 +3510,29 @@ export class ScoreModel {
   }
 
   /**
-   * Serialize the score to JSON
+   * Serialize the score to JSON.
+   *
+   * 🚨 **The score's own TEXT is written first, right after the id — his report, 2026-08-27:**
+   * *"why i dont see in the Score Json in the shell script composer and title when i add it?"*
+   * They were there. A key added to an object later is serialized LAST, so a title set after the
+   * score existed landed underneath sixty-four bars of `measures`, where nobody scrolls. The dump is
+   * read from the top, so what identifies the document belongs at the top.
+   *
+   * ⚠️ **TOP-LEVEL ONLY, and that is why it is a spread rather than a `JSON.stringify` replacer**: a
+   * key-array replacer applies to every nested object too, so it would silently drop fields from
+   * every measure, slot and note. ⛔ And it must stay total — the `...rest` is what carries every
+   * other field, so a new `Score` field needs nothing added here.
    */
   toJSON(): string {
-    return JSON.stringify(this.score, null, 2)
+    const { id, title, composer, ...rest } = this.score
+    return JSON.stringify({
+      id,
+      // ⭐ Absent stays absent: an optional field is spread in only when it is there, so deleting a
+      //   title still exports a file with no `title` key (`./scoreTextOps`).
+      ...(title !== undefined ? { title } : {}),
+      ...(composer !== undefined ? { composer } : {}),
+      ...rest,
+    }, null, 2)
   }
 
   /**

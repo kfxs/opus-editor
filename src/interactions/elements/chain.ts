@@ -1,5 +1,5 @@
 /**
- * THE SEVENTEEN SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
+ * THE EIGHTEEN SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
  *
  * `SelectedElement` made an element's **type** one thing (2026-07-27 Phase 1: 23 scalar fields → one
  * discriminated union). Its **behaviour** stayed spread over four files: `handle*MouseDown` ×12 in
@@ -9,18 +9,18 @@
  * kind was a thin slice across five files (docs/modularity-plan-2026-07-28.md §4, Phase 1).
  *
  * Now each kind is one module in this directory, holding what a press does with it and what it
- * looks like selected. Adding an eighteenth is one new file plus one row here.
+ * looks like selected. Adding a nineteenth is one new file plus one row here.
  *
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 17 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 18 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 19 entries, total over the union, so a twentieth kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 20 entries, total over the union, so a twenty-first kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -39,6 +39,7 @@
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { SelectedElement } from '../EditorState'
+import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { HighlightController } from '../HighlightController'
 
 import { CLEF_ELEMENT } from './clef'
@@ -60,6 +61,7 @@ import { BARLINE_ELEMENT } from './barline'
 import { REPEAT_START_ELEMENT } from './repeatStart'
 import { TUPLET_ELEMENT } from './tuplet'
 import { MEASURE_RANGE_ELEMENT } from './measureRange'
+import { SCORE_TEXT_ELEMENT } from './scoreText'
 
 /**
  * Resolved targets for one selection-tool mousedown, computed once and shared by the hit-tests and
@@ -138,10 +140,24 @@ export interface ElementChainDeps {
    * ⚠️ Manual, not the native `dblclick`: selecting re-renders on every mousedown, which swaps the
    * SVG nodes, so the two clicks land on different element instances and the browser never fires it.
    */
-  isDoubleClick(mark: 'tempo' | 'dynamic', id: string): boolean
+  isDoubleClick(mark: DoubleClickMark, id: string): boolean
   /** Open the in-canvas text overlay over an existing tempo mark / dynamic. */
   openEditor(mark: 'tempo' | 'dynamic', id: string): void
+  /** 🚧 Open the Title / Composer dialog on one of the sketched header lines — what a DOUBLE-click
+   *  on it does (his ask, 2026-08-27). ⛔ Scaffolding: `engine/rendering/ScoreHeaderPass`. */
+  openScoreTextDialog(field: ScoreTextField): void
 }
+
+/**
+ * What a manual double-click can be counted on — the FAMILY, which with the id makes the key
+ * {@link ElementChainDeps.isDoubleClick} remembers.
+ *
+ * ⚠️ `'scoreText'`'s "id" is its {@link ScoreTextField}: there are exactly two header lines and each
+ * is named by which field it draws, so the field IS the identity (`EditorState`'s `scoreText` kind
+ * says the same thing). ⛔ Nothing here may be an element id AND a field name at once — they are
+ * separated by the mark, which is why the key is `mark:id` rather than the id alone.
+ */
+export type DoubleClickMark = 'tempo' | 'dynamic' | 'scoreText'
 
 /** One entry in the priority chain: consumed the press, or declined it and left the state alone. */
 type ElementHit = (ctx: MouseDownCtx, deps: ElementChainDeps) => boolean
@@ -175,6 +191,12 @@ export interface ClickableElementSpec extends ElementKindSpec {
  * travel here verbatim.
  */
 export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
+  // 🚧 The sketched HEADER first — title and composer, ONE spec for both — and the position is free
+  // rather than load-bearing: the block is drawn in the first page's top margin, where no staff, bar
+  // or mark has any ink. It leads because it is the cheapest test here (two boxes, and only on
+  // page 1) and because "is this in the music at all?" is worth settling before any of the musical
+  // questions. (`./scoreText`, and ⛔ read `engine/rendering/ScoreHeaderPass`'s note first.)
+  SCORE_TEXT_ELEMENT,
   CLEF_ELEMENT,
   TIME_SIGNATURE_ELEMENT,
   TEMPO_ELEMENT,
@@ -245,7 +267,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twentieth kind is
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twenty-first kind is
  * a compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
@@ -273,4 +295,5 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   repeatStart: REPEAT_START_ELEMENT,
   tuplet: TUPLET_ELEMENT,
   measureRange: MEASURE_RANGE_ELEMENT,
+  scoreText: SCORE_TEXT_ELEMENT,
 }

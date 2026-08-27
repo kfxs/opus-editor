@@ -2162,9 +2162,24 @@ export interface StaffGroup {
 export interface Score {
   /** Unique identifier for the score */
   id: string
-  /** Title of the score */
-  title: string
-  /** Composer name */
+  /**
+   * Title of the score.
+   *
+   * ⭐ **OPTIONAL, and absent means there is none** — an untitled score, not an empty one. A fresh
+   * model seeds the default label (`ScoreModel`'s `DEFAULT_FRAGMENT_TITLE`), and
+   * `scoreTextOps.clearScoreText` DELETES the key rather than writing `''`: what is exported then
+   * has no `title` at all, which is the honest serialization of "this score does not say". ⛔ Do not
+   * reintroduce a required field with `''` as its "none" — that is the same conflation `Score`
+   * avoids everywhere else (an empty string is a title you happened to type nothing into).
+   *
+   * ⚠️ Every reader must handle its absence; `utils/scoreFile.scoreFilename` and the PDF's filename
+   * already did (`title ?? ''`), and 🚧 `rendering/ScoreHeaderPass` draws nothing when it is missing.
+   * ⭐ {@link composer} is its twin — one family, one table (`engine/models/scoreTextOps`).
+   */
+  title?: string
+  /** Composer name. ⭐ {@link title}'s twin in every respect — absent means there is none, blank is
+   *  not a value, and the two are written and cleared through one table
+   *  (`engine/models/scoreTextOps`). 🚧 Drawn by `rendering/ScoreHeaderPass`, which is a sketch. */
   composer?: string
   /** Measures in the score — the shared horizontal spine (barlines, meter), aligned
    *  across all staves. See docs/multi-staff-plan.md §4. */

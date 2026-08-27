@@ -56,6 +56,9 @@ export function markAtPress(ctx: MouseDownCtx): { kind: MarkKind; id: string } |
     // editor on it". The plain double-click still opens it.
     isDoubleClick: () => false,
     openEditor: () => {},
+    // 🚧 Shut for the same reason, and doubly so: a header line is not a mark a group can hold, so
+    // its spec is filtered out of `MARK_HIT_ORDER` before this object is ever handed to anything.
+    openScoreTextDialog: () => {},
   }
   for (const spec of MARK_HIT_ORDER) {
     if (spec.hit(ctx, deps)) return found.at

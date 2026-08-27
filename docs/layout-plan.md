@@ -325,9 +325,18 @@ what an engraver expects.
 
 Each is a later iteration on the object, not a gap in it: vertical justification of systems on the
 page (pages stay ragged-bottom, LilyPond's default) · a staff-size / scaling control · landscape ·
-odd/even mirrored margins · headers, footers, page numbers, title block · manual page breaks (those
+odd/even mirrored margins · headers, footers, page numbers · manual page breaks (those
 are the *positional* half of principle 6 — a break belongs to the measure it happens before) ·
 persistence of any of it · more than one layout at a time · pages in linear view.
+
+🚧 **The TITLE BLOCK was on that list until 2026-08-27, and what stands there now is a SKETCH** —
+`docs/score-header-sketch.md`, and read its ⛔ note before treating any of it as the feature. His
+framing: *"something provisional but it is important… just something temporal like an sketch"*. A
+title and a composer are drawn at the head of the first page, selectable and deletable, off two
+optional `Score` strings. ⚠️ It is deliberately NOT what this section listed: the real thing is a
+frame of engraved TEXT ITEMS, and the sketch is to be thrown away rather than grown. The one thing it
+does touch here is §8's question — the room it takes is a VERTICAL decision, answered with two
+constants that the vertical chapter must re-make.
 
 ---
 
@@ -357,3 +366,9 @@ claims counted into a system's height so the casting-off knows what hangs above 
 
 ⚠️ Until then the rule stands and is honest: the first system's marks live in the band between the
 staff and the paper, and that band is all there is.
+
+🚧 **One thing now sits in that band on page 1, and it is scaffolding**: the sketched header block
+(`docs/score-header-sketch.md`). It takes its room as an input to the cast-off —
+`pageCastOff(…, firstPageHeadPx)` — which is the right SHAPE for whatever this chapter decides, and
+fills it with two hard-coded constants, which is not. ⛔ Do not read those constants as a first
+answer to the vertical; they are a placeholder that happens to be in the way.

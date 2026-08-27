@@ -134,6 +134,12 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     case 'stem':
     case 'tremolo':
       return noteAnchor(engine, element.noteId)
+    // 🚧 The sketched HEADER names no point in the music — it is not IN the music (it heads the
+    // page). ⛔ `null`, never the opening downbeat: a paste while the title is selected must fall
+    // through to the note selection / the top, exactly as it does with nothing selected, rather than
+    // land somewhere the user did not point at (`engine/rendering/ScoreHeaderPass`).
+    case 'scoreText':
+      return null
     default:
       return assertNeverElement(element)
   }

@@ -1,4 +1,7 @@
 import { dbg } from '@/utils/debug'
+import { windows } from '../windows'
+import { openScoreTextWindow } from '../windows/scoreTextWindow'
+import { scoreText } from '../engine/models/scoreTextOps'
 import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
@@ -26,7 +29,7 @@ import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { stampBarlineAtClick } from './barlineStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
-import { ELEMENT_HIT_ORDER, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
+import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
 import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
@@ -632,12 +635,17 @@ export class MouseController {
     }
   }
 
-  // --- Manual double-click detection for the in-canvas text editor (the native
-  // dblclick event is defeated by the re-render-on-select swapping SVG nodes) ---
-  private lastDynamicDownId: string | null = null
-  private lastDynamicDownTime = 0
-  private lastTempoDownId: string | null = null
-  private lastTempoDownTime = 0
+  // --- Manual double-click detection (the native dblclick event is defeated by the
+  // re-render-on-select swapping SVG nodes) ---
+  /**
+   * The last thing pressed, as `mark:id` — ⭐ ONE pair for every family, where this was a pair of
+   * fields PER MARK until the header lines wanted double-clicking too (2026-08-27). A third family
+   * would have been a third pair and a third branch in {@link pressIsDoubleClick}; keying by the
+   * mark makes it none of either, and it is exactly as strict — two different marks make two
+   * different keys, so a tempo press followed by a dynamic press is still not a double-click.
+   */
+  private lastPressKey: string | null = null
+  private lastPressTime = 0
   private readonly DOUBLE_CLICK_MS = 400
 
   private readonly onDocMouseDown = () => { this.isMouseButtonDown = true }
@@ -919,6 +927,16 @@ export class MouseController {
       if (mark === 'tempo') this.openTempoTextEditor(id, false)
       else this.openTextEditor(id, false)
     },
+    // 🚧 The header lines have no in-canvas editor to open — they are edited in the very dialog the
+    // Score menu opens, so a double-click summons that. ⭐ Opened HERE rather than routed through a
+    // hook, because that is what `shortcutWiring` already does for every window a key opens
+    // (`openClefWindow(windows)`); a second arrangement for one row would be the odd one out. The
+    // dialog opens on what the score says NOW — it is a dumb publisher and may not read it itself
+    // (`bus/scoreTextSelection`).
+    openScoreTextDialog: (field) => {
+      const score = this.getEngine()?.getScore()
+      openScoreTextWindow(windows, field, score ? scoreText(score, field) : undefined)
+    },
   }
 
   /**
@@ -1093,27 +1111,19 @@ export class MouseController {
   }
 
   /**
-   * Record this press on a tempo mark / dynamic and answer whether it was the SECOND on the same
-   * one inside the double-click window, consuming the pair when it was (so a third click is not
-   * another double).
+   * Record this press and answer whether it was the SECOND on the same thing inside the
+   * double-click window, consuming the pair when it was (so a third click is not another double).
    *
    * ⚠️ Manual, not the native `dblclick` event: selecting re-renders the score on every mousedown,
    * which swaps the SVG nodes, so the two clicks land on different element instances and the
    * browser never fires it.
    */
-  private pressIsDoubleClick(mark: 'tempo' | 'dynamic', id: string): boolean {
+  private pressIsDoubleClick(mark: DoubleClickMark, id: string): boolean {
     const now = Date.now()
-    const lastId = mark === 'tempo' ? this.lastTempoDownId : this.lastDynamicDownId
-    const lastTime = mark === 'tempo' ? this.lastTempoDownTime : this.lastDynamicDownTime
-    const isDouble = lastId === id && (now - lastTime) < this.DOUBLE_CLICK_MS
-    const keptId = isDouble ? null : id // consume, so a 3rd click isn't another double
-    if (mark === 'tempo') {
-      this.lastTempoDownId = keptId
-      this.lastTempoDownTime = now
-    } else {
-      this.lastDynamicDownId = keptId
-      this.lastDynamicDownTime = now
-    }
+    const key = `${mark}:${id}`
+    const isDouble = this.lastPressKey === key && (now - this.lastPressTime) < this.DOUBLE_CLICK_MS
+    this.lastPressKey = isDouble ? null : key // consume, so a 3rd click isn't another double
+    this.lastPressTime = now
     return isDouble
   }
 

@@ -45,6 +45,16 @@ export function pageCastOff(
   /** Each system's drawn height, in score order — `StaffSpacingLayout.lineHeightPx`. */
   lineHeightPx: readonly number[],
   surface: SurfaceMetrics,
+  /**
+   * Room the FIRST page owes something drawn above its music — today only the sketched header block
+   * (`rendering/ScoreHeaderPass.sketchHeaderRoomPx`), which is why it defaults to 0 and every other caller
+   * ignores it.
+   *
+   * ⭐ It is an input to the CAST-OFF, not an offset applied afterwards: page 1 holds fewer systems
+   * because of it, and a break has to fall accordingly. Shifting the tops after the fact would walk
+   * the last system on page 1 off the bottom of the sheet.
+   */
+  firstPageHeadPx = 0,
 ): PageCastOff {
   const room = surface.contentHeightPx
   const pageOfLine: number[] = []
@@ -52,7 +62,7 @@ export function pageCastOff(
 
   let page = 0
   /** How much of the current page's room the systems already on it have taken. */
-  let used = 0
+  let used = firstPageHeadPx
 
   for (const height of lineHeightPx) {
     // ⚠️ `used > 0` is what makes a system TALLER THAN A PAGE terminate. Such a system (many

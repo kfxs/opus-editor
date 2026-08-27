@@ -1,5 +1,5 @@
 /**
- * The two tables in {@link chain} — what they say about the nineteen selectable kinds.
+ * The two tables in {@link chain} — what they say about the twenty selectable kinds.
  *
  * These are not decorative assertions. {@link ELEMENT_HIT_ORDER} is an ARRAY whose ORDER IS THE
  * CONTENT: it decides who wins a press two glyphs both cover, and that order was argued for one pair
@@ -16,11 +16,11 @@ import type { SelectedElement } from '../EditorState'
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal',
   'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart', 'tuplet',
-  'measureRange',
+  'measureRange', 'scoreText',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all nineteen kinds, and nothing else', () => {
+  it('answers for all twenty kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -29,7 +29,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — a twentieth cannot be added without deciding', () => {
+  it('every kind says how it paints — a twenty-first cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -37,6 +37,10 @@ describe('ELEMENT_SPECS — total over the union', () => {
 describe('ELEMENT_HIT_ORDER — the priority chain', () => {
   it('⭐ is exactly this order, and the order is the argument', () => {
     expect(ELEMENT_HIT_ORDER.map(e => e.kind)).toEqual([
+      // 🚧 The sketched HEADER first — title and composer, one spec for both — drawn in the first
+      // page's top margin, where nothing else has ink, so its position is free. It leads because it
+      // is the cheapest test in the chain.
+      'scoreText',
       // The big glyphs in their own columns first — nothing competes for those pixels.
       'clef', 'timeSignature',
       // Then the marks above and below the staff, each guarded against stealing a note press.

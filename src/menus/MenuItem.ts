@@ -13,7 +13,7 @@
  * ⚠️ Radio groups and icons are deliberately NOT here. Each earns its place when a menu actually
  * wants it — the same guard the widget toolkit lives under. Four have:
  *
- * `disabled` — the Staff menu's rows need a bar selected, by a SPECIFIC gesture (a plain click for
+ * `disabled` — the Score menu's rows need a bar selected, by a SPECIFIC gesture (a plain click for
  * the staff commands, Ctrl+Shift+click for the measure ones). A row that looks pressable and does
  * nothing is worse than one that says it cannot: the user's report about the dev toolbar's `Small`
  * button was exactly that, which is why those buttons carry `isEnabled` already. A greyed row is the

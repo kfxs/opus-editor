@@ -1336,6 +1336,18 @@ export function wireShortcuts(
             // thing you can do to a note. It is selectable so it can be nudged/dragged, and Delete
             // declines rather than falling through to something else's meaning.
             return
+          case 'scoreText':
+            // 🚧 **DELETE REMOVES THE FIELD** — his, 2026-08-27: *"delete the title field from the
+            // json"*. `Score.title` / `Score.composer` are optional and their ABSENCE is "untitled"
+            // / "anonymous", so `clearScoreText` deletes the key rather than blanking it; the
+            // exported JSON then simply has no such field. ⛔ Not `= ''`, which would be a title you
+            // typed nothing into (see `Score.title` and `engine/models/scoreTextOps`).
+            eng.clearScoreText(element.field)
+            // Cleared like the `|:` above and unlike the barline: this selection names INK, and the
+            // ink is no longer on the page.
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           default:
             assertNeverElement(element)
         }

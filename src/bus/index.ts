@@ -9,6 +9,7 @@ import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
 import { createTrillEditSelection } from './trillEditSelection'
 import { createBarlineEditSelection } from './barlineEditSelection'
+import { createScoreTextSelection } from './scoreTextSelection'
 import { createHairpinEditSelection } from './hairpinEditSelection'
 import { createFanSelection } from './fanSelection'
 import { createFanStampSelection } from './fanStampSelection'
@@ -85,6 +86,9 @@ interface EditorBus {
   trillEdit: ReturnType<typeof createTrillEditSelection>
   /** ⭐ The Properties barline chooser — the sign at one LINE, `:||:` included. */
   barlineEdit: ReturnType<typeof createBarlineEditSelection>
+  /** 🚧 The Add Title / Add Composer dialog — one field's new text. Command-only, and SCAFFOLDING
+   *  (`engine/rendering/ScoreHeaderPass`). */
+  scoreText: ReturnType<typeof createScoreTextSelection>
   hairpinEdit: ReturnType<typeof createHairpinEditSelection>
   /** The two feathered-beam keys, `accel.` and `rit.` — a radio, not a pair of toggles. */
   fan: ReturnType<typeof createFanSelection>
@@ -155,6 +159,7 @@ export function createEditorBus(): EditorBus {
     fanEdit: createFanEditSelection(),
     trillEdit: createTrillEditSelection(),
     barlineEdit: createBarlineEditSelection(),
+    scoreText: createScoreTextSelection(),
     hairpinEdit: createHairpinEditSelection(),
     fan: createFanSelection(),
     fanStamp: createFanStampSelection(),
@@ -198,6 +203,7 @@ export type { ArmedFanStamp, FanStampContext } from './fanStampSelection'
 export type { FanEditRequest } from './fanEditSelection'
 export type { TrillEditRequest } from './trillEditSelection'
 export type { BarlineEditRequest } from './barlineEditSelection'
+export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'

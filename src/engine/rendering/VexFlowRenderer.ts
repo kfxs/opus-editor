@@ -77,6 +77,7 @@ import { pageCastOff, opensPage } from '@/engine/layout/pageCastOff'
 import { inScaledStaffGroup } from './staffScaleGroup'
 import { staveHeightPx, systemStaffTops, spacingAbovePx } from '@/engine/layout/staffStride'
 import { drawPages, pageOriginPx, surfaceSizePx } from './PagePass'
+import { drawSketchHeader, sketchHeaderRoomPx } from './ScoreHeaderPass'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
@@ -3498,7 +3499,10 @@ export class VexFlowRenderer {
     // page is, which is a drawing decision — side by side, with a gutter — and belongs to
     // `PagePass`. On a canvas the first answers "page 0, margin + everything above you" and the
     // second answers (0, 0), so this reduces exactly to the running total it replaced.
-    const pages = pageCastOff(lineHeightPx, surface)
+    // 🚧 The sketched header block (title + composer) takes its room off the top of page 1 BEFORE
+    //    the break decisions — see `./ScoreHeaderPass`, and read its ⛔ note before treating any of
+    //    it as the score-text feature.
+    const pages = pageCastOff(lineHeightPx, surface, sketchHeaderRoomPx(score, surface, this.viewMode))
     const origins = pages.pageOfLine.map(page => pageOriginPx(surface, page))
     const lineTopPx = pages.lineTopInPagePx.map((topInPage, line) => origins[line].y + topInPage)
     const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)
@@ -3765,6 +3769,11 @@ export class VexFlowRenderer {
     // appended. Drawn after the clear (which sweeps the last render's) and before any bar, and it
     // draws nothing at all on a canvas.
     if (svg) drawPages(svg, surface, spacing.pageCount, this.audience)
+
+    // 🚧 The sketched header, over the first sheet. Appended rather than inserted: it is ENGRAVING
+    //    (so it prints, unlike the desk), and it sits in the page's top margin where no measure
+    //    group can reach it. Its room was already taken in `staffSpacingLayout`.
+    if (svg) drawSketchHeader(svg, surface, score, this.viewMode, this.elementRegistry)
 
     // ⭐⭐ **THE LADDER WAS PLANNED HERE UNTIL 2026-08-18, AND IS NOW PLANNED AFTER THE SLURS** —
     // see the three calls below `renderSlurs`. What moved, and why, is

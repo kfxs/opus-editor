@@ -36,9 +36,10 @@ describe('ScoreModel', () => {
       expect(score.measures).toHaveLength(1)
     })
 
-    it('should create score with default title', () => {
+    it('⭐ a model given NO title has no `title` key at all — never an invented one', () => {
       const defaultModel = new ScoreModel()
-      expect(defaultModel.getScore().title).toBe('Fragment 1')
+      expect('title' in defaultModel.getScore()).toBe(false)
+      expect(defaultModel.toJSON()).not.toContain('"title"')
     })
 
     // Tempo is NOT a score field: a fresh score makes no tempo statement at all. It plays
@@ -56,6 +57,42 @@ describe('ScoreModel', () => {
     it('should update the score title', () => {
       model.setTitle('New Title')
       expect(model.getScore().title).toBe('New Title')
+    })
+  })
+
+  describe('clearScoreText', () => {
+    it('⭐ DELETES the key — an untitled score, not one titled ""', () => {
+      expect(model.clearScoreText('title')).toBe(true)
+      expect(model.getScore().title).toBeUndefined()
+      expect('title' in model.getScore()).toBe(false)
+      // …and that is what the export says, which is the whole point of deleting rather than blanking.
+      expect(model.toJSON()).not.toContain('"title"')
+    })
+
+    it('reports no change when there is nothing to remove, so the caller can skip the undo entry', () => {
+      model.clearScoreText('title')
+      expect(model.clearScoreText('title')).toBe(false)
+    })
+
+    it('🚨 serializes the score\'s TEXT right after the id, not underneath the bars (his report)', () => {
+      // A key set after the object existed is stringified LAST — which put a new title under 64 bars
+      // of `measures`, where nobody scrolls, and read as "it did not save".
+      model.setScoreText('title', 'Sonata')
+      model.setScoreText('composer', 'Brahms')
+      const keys = Object.keys(JSON.parse(model.toJSON()) as Record<string, unknown>)
+      expect(keys.slice(0, 3)).toEqual(['id', 'title', 'composer'])
+    })
+
+    it('⭐ answers for the COMPOSER by the same table — one rule, two fields', () => {
+      model.setScoreText('composer', 'Brahms')
+      expect(model.getScore().composer).toBe('Brahms')
+      expect(model.clearScoreText('composer')).toBe(true)
+      expect('composer' in model.getScore()).toBe(false)
+    })
+
+    it('⭐ a BLANK write is the same delete — `setScoreText` needs no Clear button behind it', () => {
+      expect(model.setScoreText('title', '   ')).toBe(true)
+      expect('title' in model.getScore()).toBe(false)
     })
   })
 

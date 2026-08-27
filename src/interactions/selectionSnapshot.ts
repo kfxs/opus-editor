@@ -10,6 +10,7 @@ import { authoredApertureRange } from '../engine/rendering/hairpinShape'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
+import { scoreText } from '@/engine/models/scoreTextOps'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -400,6 +401,17 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
     }
+
+    case 'scoreText':
+      // 🚧 One line of the sketched HEADER (`engine/rendering/ScoreHeaderPass`). ⭐ The locator
+      // carries only WHICH field, so the report's `data` is that plus the one thing there is to
+      // show: the string itself, read from the score. ⛔ Nothing to `derive` and no `overrides` —
+      // the block has no authored geometry, because there is no element for one to be keyed to.
+      out.push({
+        kind: 'scoreText',
+        data: { field: element.field, text: scoreText(score, element.field) },
+      })
+      break
 
     case 'measureRange':
       // A selection of MEASURES, not of anything inside them — the box the user drew.

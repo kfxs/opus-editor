@@ -71,6 +71,38 @@ describe('pageCastOff — the degenerate cases', () => {
 })
 
 /**
+ * The FIRST PAGE'S HEAD START — room something drawn above the music takes off page 1 before any
+ * system is placed. Today that is only the sketched title block (`rendering/TitlePass`).
+ */
+describe('pageCastOff — the first page can owe room to something above the music', () => {
+  it('pushes page 1\'s systems down by it, and page 2\'s not at all', () => {
+    const cast = pageCastOff(systems(11), A4, 100)
+    expect(cast.lineTopInPagePx[0], 'top margin + the head start').toBe(A4.marginTopPx + 100)
+    expect(cast.lineTopInPagePx[1]).toBe(A4.marginTopPx + 100 + 150)
+    // Nine systems fit under the head start (100 + 9 × 150 = 1450 ≤ 1526), so the tenth opens
+    // page 1 — and a fresh sheet owes nothing.
+    expect(cast.pageOfLine).toEqual([...Array(9).fill(0), 1, 1])
+    expect(cast.lineTopInPagePx[9]).toBe(A4.marginTopPx)
+  })
+
+  it('⭐ it is spent BEFORE the break decisions — page 1 holds one system fewer', () => {
+    // Without it, ten 150 px systems fit A4's ~1526 px text block (see above); 100 px of title
+    // leaves 1426, so the tenth goes over.
+    expect(pageCastOff(systems(10), A4, 100).pageOfLine).toEqual([...Array(9).fill(0), 1])
+  })
+
+  it('a canvas takes the room too — it never breaks, so the whole strip just starts lower', () => {
+    const cast = pageCastOff(systems(3), CANVAS, 100)
+    expect(cast.pageOfLine).toEqual([0, 0, 0])
+    expect(cast.lineTopInPagePx[0]).toBe(120)
+  })
+
+  it('defaults to nothing, so every other caller is unchanged', () => {
+    expect(pageCastOff(systems(11), A4)).toEqual(pageCastOff(systems(11), A4, 0))
+  })
+})
+
+/**
  * `opensPage` — which systems have the SHEET above them rather than another system. Asked by the
  * staff-spacing floor: the gap above such a system is paper, and closing it walks the music off the
  * top of the page (`MIN_SPACING_ABOVE_AT_PAGE_TOP` in ./staffStride).

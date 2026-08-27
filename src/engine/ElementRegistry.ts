@@ -10,6 +10,7 @@
  */
 
 import type { PitchSpelling } from '@/types/music'
+import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
 
@@ -151,6 +152,18 @@ export type ElementType =
   | 'articulation'
   | 'dynamic'
   | 'tempo'
+  /**
+   * 🚧 One line of the SKETCHED HEADER at the top of the first page — the title or the composer,
+   * its own drawn ink, registered by `rendering/ScoreHeaderPass` (read its ⛔ note first). WHICH of
+   * them is {@link ElementInfo.scoreTextField}.
+   *
+   * ⚠️ It carries **neither `id` nor `measure`**: these are fields on `Score` and belong to no bar,
+   * so there is nothing to key them by. That makes them invisible to every id-addressed consumer —
+   * `playbackStart`, `pasteAnchor`, the measure-box gather — which is exactly right for something
+   * outside the music, and it is why an entry exists only when the ink was actually MEASURED (jsdom
+   * cannot measure text, so under the unit runner there is no entry and no hit).
+   */
+  | 'scoreText'
 
 /**
  * The small ink glyphs the §6a-ii tripwire polices: each must register its OWN glyph box,
@@ -305,6 +318,10 @@ export interface ElementInfo {
   beat?: number
   /** Clef that cannot be dragged (the big line-start clef) */
   immovable?: boolean
+  /** 🚧 WHICH line of the sketched header this is — set on `'scoreText'` entries and on nothing
+   *  else. ⛔ Not `id`: {@link getById} answers with the first entry holding one, and 'title' is not
+   *  an element id (`engine/models/scoreTextOps`). */
+  scoreTextField?: ScoreTextField
   /** MIDI pitch (for notes) */
   pitch?: number
   /** Pixel bounding box */

@@ -102,7 +102,8 @@ src/
     NoteEntryCoordinator.ts # Note placement, overflow, cross-barline tie-splits
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
-    models/               # ScoreModel (data model), CollisionDetector
+    models/               # ScoreModel (data model), CollisionDetector,
+                          #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH)
     layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
                           #   derived-view arithmetic off the LAST RENDER: surface (canvas
                           #   vs page — authored input, the one member here that isn't
@@ -118,7 +119,12 @@ src/
                           #   + barlineSign (⭐ WHAT SIGN a boundary carries and what it is
                           #   made of — the ONE owner of a final bar's / repeat's extent)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
-                          #   PagePass (the sheets, drawn behind the music) + spacingPass
+                          #   PagePass (the sheets, drawn behind the music)
+                          #   + 🚧 ScoreHeaderPass (⛔ A SKETCH — the title + composer at the
+                          #     head of page 1; read docs/score-header-sketch.md before
+                          #     touching it, and ⛔ do not grow it: the real thing is a FRAME
+                          #     of engraved TEXT ITEMS and this is to be thrown away)
+                          #   + spacingPass
                           #   (⭐ WHERE each column goes — the model's x's, post-format)
                           #   + BarlineRenderer (⭐ WE draw every barline that ends a bar —
                           #   plain, final, both repeats; VexFlow keeps only the line that

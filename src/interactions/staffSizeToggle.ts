@@ -9,7 +9,7 @@ import { dbg } from '../utils/debug'
  * The staff-size control — still **deliberately crude** (docs/staff-size-plan.md P1): two values, one
  * of which is this module's choice, exercising the infrastructure while it is iterated on.
  *
- * ⚠️ It lived in `dev/` until the bar's Staff menu offered it (Staff ▸ Small Staff). That menu SHIPS,
+ * ⚠️ It lived in `dev/` until the bar's Score menu offered it (Score ▸ Small Staff). That menu SHIPS,
  * and nothing that ships may import `dev/` — the shell has to stay deletable — so the rule moved here
  * and the dev toolbar's button became the second caller rather than the only one. The crudeness is
  * unchanged and so is the plan: whatever the real control turns out to be writes the same ratio

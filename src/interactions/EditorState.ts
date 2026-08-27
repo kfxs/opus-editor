@@ -5,6 +5,7 @@ import type { ViewMode } from '../engine/rendering/layoutConfig'
 // TYPE-ONLY, and it has to be: `barlineStamp` imports this file for `selectedOf`, so a value import
 // here would close a runtime cycle. The sign vocabulary lives with the gesture that places it.
 import type { BarlineSign } from './barlineStamp'
+import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 
 /** A value armed on the dynamics palette: an interpreted level, or the custom-text tool. */
 export type DynamicTool = DynamicLevel | 'text'
@@ -436,6 +437,22 @@ export type SelectedElement =
    * model keeps it.
    */
   | { kind: 'repeatStart'; measure: number }
+  /**
+   * 🚧 **ONE LINE OF THE SKETCHED HEADER at the top of the first page** — the title or the composer
+   * (`engine/rendering/ScoreHeaderPass` — read its ⛔ note before building on any of this).
+   *
+   * ⭐ **ONE KIND FOR BOTH, discriminated by `field`.** They differ in nothing a selection cares
+   * about — same press, same paint, same Delete — so two kinds would be two rows in six tables
+   * saying the same thing. ⚠️ `field` is the `ScoreTextField` the whole family carries
+   * (`engine/models/scoreTextOps`), ⛔ never a second copy of that union.
+   *
+   * ⭐ **No id and no position**, and that is the honest shape of what is there today: every other
+   * kind carries one because the model holds an object (or a boundary) behind it, where these are
+   * two optional strings on `Score`. ⛔ **A fact about the SKETCH, not a design.** The real thing is
+   * a FRAME of text items each with its own id, placement and overrides; when it arrives this member
+   * is replaced by one carrying that id, not extended with fields.
+   */
+  | { kind: 'scoreText'; field: ScoreTextField }
   /** An on-score dynamic, selected for removal/edit. Distinct from the armed
    *  `{ kind: 'dynamic' }` marking tool. */
   | { kind: 'dynamic'; id: string }
