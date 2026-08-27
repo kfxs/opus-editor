@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { laneFingerprint } from './MeasureWidthCache'
+import { C_MAJOR } from '@/utils/keySignature'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { MEASURE_RENDER_ROLE } from './measureRenderRoles'
 import type { Clef, Measure, Score } from '@/types/music'
@@ -41,7 +42,7 @@ const widthKey = (view: Measure) => laneFingerprint(view)
 const shapeKey = (score: Score, view: Measure) =>
   measureShapeKey(
     score,
-    { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, hasClefChange: false },
+    { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, key: C_MAJOR, hasClefChange: false },
     null,
     null,
   )

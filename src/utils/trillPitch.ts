@@ -28,7 +28,7 @@
  * wants more signs (docs/trill-plan.md §9, "user chooses the step").
  */
 import type { Accidental, PitchAlter, PitchStep } from '@/types/music'
-import { spellingDiatonicPos } from './pitchSpelling'
+import { alterInForce } from './accidentalState'
 import { keyAlterOf, type KeySignature } from './keySignature'
 
 /** The seven letters, in order — the diatonic ladder the auxiliary climbs one rung of. */
@@ -68,9 +68,11 @@ export function trillAuxiliary(
   // B → C crosses into the next octave: octave numbers change at C, not at A (scientific pitch).
   const octave = step === 'C' ? main.octave + 1 : main.octave
 
+  // ⭐ The bar's running accidental, else the key — `accidentalState.alterInForce`, which is the
+  // SAME rule the drawn signs and note entry read. It was written out here first; naming it there
+  // is what keeps a trill from ever sounding a pitch the page contradicts.
   const fromKey = keyAlterOf(key, step)
-  const inForce = barAlterations.get(spellingDiatonicPos(step, octave))
-  const alter = inForce ?? fromKey
+  const alter = alterInForce(barAlterations, key, step, octave)
 
   return {
     step,

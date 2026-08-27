@@ -15,6 +15,7 @@
  * If the widths come out equal, `clef` does not belong in that key.
  */
 import { describe, it, expect } from 'vitest'
+import { C_MAJOR } from '@/utils/keySignature'
 import { ScoreModel } from '../models/ScoreModel'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { laneFingerprint } from './MeasureWidthCache'
@@ -221,7 +222,7 @@ describe('the clef must stay OUT of the width key and IN the shape key', () => {
     const shape = (clef: Clef) =>
       measureShapeKey(
         {} as never,
-        { view, clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, hasClefChange: false },
+        { view, clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, key: C_MAJOR, hasClefChange: false },
         null,
         null,
       )
@@ -258,7 +259,7 @@ describe('ids in the width key', () => {
     const shape = (view: ReturnType<typeof restBar>) =>
       measureShapeKey(
         {} as never,
-        { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, hasClefChange: false },
+        { view, clef: 'treble' as Clef, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, key: C_MAJOR, hasClefChange: false },
         null,
         null,
       )

@@ -696,7 +696,7 @@ picker is §7, and it is not being designed yet.
 | ✅ **P1** | **BUILT 2026-08-27.** `KeySignature` → list; `fifthsOf` / `keyFromFifths`; `Measure.keys` + `KeyChange`; `keyAt` walks; `measureRenderRoles` row + its `PERTURB` row | ✅ 5358 unit green, `build:check` clean, nothing drawn, `trillPitch`'s source untouched |
 | ✅ **P2** | **BUILT 2026-08-27.** `keyOps` writes + `ScoreModel`/`MusicEngine` delegators + undo, **and the dev palette wired provisionally** | ✅ 5377 unit green; a key can be set/removed **by hand**, watched in the Score-JSON panel, and undone — still nothing drawn |
 | ✅ **P3** | **BUILT 2026-08-27.** `keysByStaff` prepass (§2.1) + `keySignatureLayout` (the placement table + the gaps) + `headerInk` key row + `KeySignaturePass` | ✅ 5403 unit, **249 e2e** (8 new), `build:check` clean — and it is DRAWN. ⏭️ Hit boxes are P5's after all: nothing selects a signature yet |
-| **P4** | the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | the F♯ in G major loses its sign; the F♮ gains one; **a note typed in G major is an F♯ with no sign**; setting the key at bar 1 repaints bar 40 |
+| ✅ **P4** | **BUILT 2026-08-27.** the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | ✅ 5438 unit, **252 e2e** (3 new), `build:check` clean. The F♯ in G major loses its sign; the F♮ gains one; a note typed/clicked/dragged in G major is an F♯ with no sign; setting the key at bar 1 repaints bar 12. ⏭️ See §8.4 |
 | **P5** | marking tool + element kind + Delete + dev palette | he can place a key and click it |
 | **P6** | cancellation naturals + cautionary at a break (**+ `cautionaryEndKey` in `ShapeKeyInputs`**) | ⏳ policy from the research |
 
@@ -723,6 +723,74 @@ picker is §7, and it is not being designed yet.
     writes one (only an import could). ⏭️ The day a mid-bar key change becomes a feature it needs the
     capture/restore pair IN THE SAME COMMIT, and `keys` must join `clearMeasureForRebar`. Written at
     the top of `keyOps.ts`, which is the module that would break it.
+
+### ✅ 8.4 What P4 landed — and the door his eye found the same day
+
+⭐⭐ **The whole phase is ONE function, and naming it is what made the five call sites agree:**
+`accidentalState.alterInForce(barAlterations, key, step, octave)` — *the bar's running accidental at
+this position, else what the key says about the letter.* It was already written out inside
+`trillPitch` (`inForce ?? fromKey`); extracting it is what stopped the drawing, note entry, "remove
+accidental" and the trill's auxiliary from each having their own version.
+
+🚨 **`??`, never `||`.** An explicit natural earlier in the bar is `0`, and it must WIN over a sharp
+in the key. That one line is the difference between "the bar said nothing" and "the bar said
+natural", and it is the only place a signature could silently overrule a written sign.
+
+**The DISPLAY half** — `displayedAccidentals(slots, key)`, with the key threaded to five call sites,
+each taking ITS OWN bar's: `measureColumns.displayedSigns` (per lane, through a new
+`keyResolverFor` — `clefResolverFor`'s twin), `NoteBuilder`, `FanPass` in-bar, `FanPass` cross-bar
+(per member, off a new `CrossBarBar.key`), and `SelectionController`'s report.
+
+**The ENTRY half** — `engine/models/entryAlteration.ts`, a new module. ⭐ *The key is the default
+alteration at entry, and the armed accidental overrides it.* **Six** sites, not the three §3.1 listed:
+the click (`NoteEntryCoordinator`), typing a letter and stacking a chord note and re-typing over a
+selected note (`KeyboardController` ×3), the arrow-key diatonic step (`SelectionController`) — and
+⭐ **the vertical DRAG** (`MouseController.handleNoteDrag`), which §3.1 missed and is the mouse twin
+of the arrow keys: it writes a pitch from a Y coordinate, so without it every drag in G major minted
+a spurious ♮.
+
+⚠️ **`movePitchDiatonically` stopped carrying `alter`.** It returns the next LETTER and nothing else;
+the alteration is `entryAlteration`'s answer at the position it lands on. Before, a step up from F♯
+in G major came out **G♯**, because the sharp belonged to the F it left behind.
+
+**The CACHE half** — `ShapeKeyInputs.key`, fed from a new `MeasurePlacement.key` (the GOVERNING
+signature, ⛔ not `headerKey`, which is what a bar *prints*). Break-tested: remove the row and
+"setting the key at bar 1 changes bar 40's shape key" goes red while bar 40's own `laneFingerprint`
+is byte-for-byte unchanged — which is the whole point, and why `measureRenderRoles.test.ts` cannot
+catch it.
+
+⚠️ **A KEY IS A WIDTH CHANGE**, and it is `measureColumns` that makes it one: the signs are ink, and
+the ink is priced into the column. ⛔ The clef's width-independence proof does not transfer. Also
+break-tested (drop the resolver → two width assertions go red).
+
+### 🚨🚨 8.4b HIS REPORT, same day: *"I added ♯ to the F that is already ♯ — I expect to see the accidental written"*
+
+Gould p. 81 arriving from the user's side, on a score in D major. **The rule was already right** —
+`forceAccidental` beats the suppression, and it was tested. What refused him was a door one layer
+above it: **`MusicEngine.noteDisplaysAccidental` matched on `alter` alone**, so an F carrying
+`alter: 1` answered *"already there"* about a sign that was **not on the page**, and the stamp's
+idempotency check swallowed the click. Both the stamp (`MouseController`) and the palette's group
+toggle (`PaletteController.applyAccidentalToSelection`) go through it, so both were dead.
+
+⭐ **Every branch now asks the same question — is a sign actually DRAWN?** — the alteration matches
+AND it is not silently in force, unless it was forced. The natural branch had always read this way;
+the sharp and the flat now do too. The behaviour he asked for then falls out with **no new state**:
+the click reaches `setNoteAccidental`, which already sets `forceAccidental` when the alteration is
+the one there, and the sign appears. Press again → it now displays → revert to the prevailing
+alteration → it goes. A clean toggle either way.
+
+⭐⭐ **The lesson, and it is the phase's: a RULE being right is not the same as its DOOR being open.**
+`displayedAccidentals` had the courtesy case covered from the first commit; nothing drew it, because
+a guard several modules away was still asking the pre-key question. ⛔ When a feature changes what a
+predicate MEANS, grep for everyone who computes it a second way.
+
+⏭️ **Parentheses around such a courtesy** are his next want, and are a separate authored property —
+not this pass.
+
+⏭️ **Not P4's, recorded so it is not mistaken for a regression:** the ENTRY GHOST draws its sign
+from `alter` alone, so an armed ♯ hovered over an F in G major previews a sharp the committed note
+will not draw. That divergence predates this phase (the same happens in C major after an F♯ earlier
+in the bar) and no new case was created by it — the common case, nothing armed, previews correctly.
 
 ### ✅ 8.3 What P3 landed — and the four numbers HIS EYE corrected
 

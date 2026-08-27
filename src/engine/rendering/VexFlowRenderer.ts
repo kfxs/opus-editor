@@ -63,7 +63,7 @@ import {
 } from './NoteBuilder'
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
-import { clefResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
+import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
@@ -305,6 +305,18 @@ export interface MeasurePlacement {
    * four flats in the other, and each hand states its own.
    */
   headerKey?: KeySignature
+  /**
+   * ⭐⭐ **The signature GOVERNING this bar on this staff** — which is not {@link headerKey}: that
+   * one is what the bar *prints* (absent on every bar mid-line that restates nothing), while this is
+   * what is in FORCE, inherited from wherever it was last set.
+   *
+   * Every note's drawn accidental is decided against it (`accidentalState.displayedAccidentals`),
+   * and so is the bar's WIDTH, since the signs are ink. ⚠️ It is therefore also a row in the shape
+   * key: bar 40's own fields never change when bar 1's signature does, so without it P5 would
+   * replay bar 40's cached `<g>` — the new signature on the stave and the old accidentals
+   * underneath it, forever. That is the governing-CLEF bug verbatim (see `clef` above).
+   */
+  key: KeySignature
   hasClefChange: boolean
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature
@@ -1480,6 +1492,9 @@ export class VexFlowRenderer {
       //   column is a position in the SYSTEM (see `MeasurePlacement.system`). It also stops the
       //   column walk being repeated per staff.
       const clefFor = clefResolverFor(measure, clefsByStaff, staffList[0]?.id)
+      // ⭐ …and the KEY, for the same reason and read the same way: it decides which notes draw an
+      //   accidental, and the columns price that ink. The WIDTH path builds the same resolver.
+      const keyFor = keyResolverFor(measure, keysByStaff, staffList[0]?.id)
       /**
        * How big each staff of THIS system is drawn — the sizes the casting-off already resolved.
        *
@@ -1520,8 +1535,8 @@ export class VexFlowRenderer {
       const system = {
         // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/staff-size-plan.md §6a).
         //   The width path builds the same resolver, so the room reserved is the room asked for.
-        columns: measureColumns(measure, clefFor, sizeFor),
-        leadIn: measureLeadIn(measure, clefFor, sizeFor),
+        columns: measureColumns(measure, clefFor, sizeFor, keyFor),
+        leadIn: measureLeadIn(measure, clefFor, sizeFor, keyFor),
         headerExtent: Math.max(0, ...headers.map(h => h.extent)),
       }
 
@@ -1556,6 +1571,7 @@ export class VexFlowRenderer {
           isFirstInLine,
           clef,
           headerKey: headers[staffIndex]?.headerKey,
+          key: keyFor(staff.id),
           hasClefChange,
           cautionaryEndClef,
           cautionaryEndTimeSig: widthInfo.cautionaryEndTimeSig,
@@ -1855,6 +1871,7 @@ export class VexFlowRenderer {
         drawn: isDrawn(i),
         view: p.view,
         clef: p.clef,
+        key: p.key,
       })),
       (unionSlots, first, forced) => {
         const clef = makeClefResolver(first.bar.view, first.bar.clef)(first.slot.beat)
@@ -1894,7 +1911,7 @@ export class VexFlowRenderer {
   }
 
   private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
-    const { view: measure, x, clef, ghostClefBeat, staffIndex, stave } = placement
+    const { view: measure, x, clef, key, ghostClefBeat, staffIndex, stave } = placement
 
     // The stave was BUILT by tier 1 (`layoutTier1`); tier 2 only paints it.
     this.drawStave(stave)
@@ -1954,7 +1971,7 @@ export class VexFlowRenderer {
         // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
         const restShiftFor = (slot: ChordRest): number =>
           restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
-        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor)
+        const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor, key)
         for (const sn of staveNotes) {
           // Non-measure rests only: measure (whole-bar) rests are centred separately and
           // reset() would disturb that. Their lane line is what draw must honour.
@@ -2164,6 +2181,7 @@ export class VexFlowRenderer {
             (laneOfGroup?.fanned ?? []).flatMap(owners => owners.slots),
             groups[gi].forcedStem,
             placement.scale,
+            key,
           )
         }
 

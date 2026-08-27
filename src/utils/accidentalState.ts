@@ -5,17 +5,33 @@
  * Common-practice rule: an explicit accidental holds for the rest of the bar at its own
  * diatonic position. To decide a note's prevailing alteration (or whether its sign is
  * redundant), we replay the measure's earlier notes and remember the last alteration seen
- * at each diatonic position. Key signatures are NOT folded in here — VexFlow draws those
- * separately (this editor has no key-signature feature yet).
+ * at each diatonic position.
+ *
+ * ## ⭐⭐ THE KEY SIGNATURE IS THE FALLBACK, NOT A PRE-FILL (docs/key-signature-plan.md §3)
+ *
+ * The running map is keyed by **diatonic position** — octave-specific, so F4 and F5 are two
+ * entries. A key signature governs a **LETTER, in all octaves** (Gould pp. 93–94, and it is what
+ * makes a key signature a key signature). So the key is ⛔ never poured into that map: it is the
+ * answer consulted **when a position is absent from it** ({@link alterInForce}). Pre-filling would
+ * need seven entries per octave and would still be wrong at the edges.
+ *
+ * 🚨 **And the key never suppresses a COURTESY.** Gould p. 81, printed: *"This practice holds good
+ * even when a key signature corrects the accidental"* — her figure is in E♭ major and still writes
+ * an explicit ♭ in bar 2. `forceAccidental` is what carries that intent, and it is checked BEFORE
+ * the suppression below. ⛔ Do not re-derive "was this sign explicit?" from `alter`.
  *
  * Pure and dependency-light. The CALLER chooses which notes to feed in (the whole measure
  * across voices, or a single voice) — that scope is the caller's interpretation, not part
- * of this walk. `MusicEngine.getPrevailingAlter` ("prevailing alter") and
+ * of this walk — **and which key**: five call sites ask, and the key each one needs is ITS OWN
+ * BAR'S (a fan member and a cross-bar beam member can live in a different bar from the slot being
+ * drawn), ⛔ never "the key the caller happened to have".
+ * `MusicEngine.getPrevailingAlter` ("prevailing alter") and
  * `SelectionController.computeDisplayedAccidental` ("displayed sign") both build on this;
  * `NoteBuilder`'s render pass implements the same rule incrementally as it lays out slots.
  */
-import type { ChordRest, Fraction, NotePitch, PitchAlter, PitchStep } from '@/types/music'
+import type { ChordRest, Fraction, KeySignature, NotePitch, PitchAlter, PitchStep } from '@/types/music'
 import { fracLt, fracCompare } from './fraction'
+import { keyAlterOf } from './keySignature'
 import { spellingDiatonicPos, alterToString } from './pitchSpelling'
 
 /** The minimal note shape the running-accidental walk reads. */
@@ -45,9 +61,33 @@ export function prevailingAlterations(notes: AccidentalNote[], beat: Fraction): 
   return active
 }
 
-/** The active alteration at one diatonic position for `beat` (0 = natural / none seen). */
-export function prevailingAlterAt(notes: AccidentalNote[], dPos: number, beat: Fraction): PitchAlter {
-  return prevailingAlterations(notes, beat).get(dPos) ?? 0
+/**
+ * ⭐⭐ **THE ALTERATION IN FORCE at one pitch** — the bar's running accidental at that diatonic
+ * position, and where the bar is silent there, **what the KEY says about the letter**.
+ *
+ * ⭐ THE rule of this module, named once so every pass reads the same one: the sign a note draws,
+ * the pitch a new note is born with, the note a trill alternates with and what "remove the
+ * accidental" reverts to are all this question asked from four places
+ * (docs/key-signature-plan.md §3).
+ *
+ * ⚠️ **`?? `, not `||`** — an explicit natural earlier in the bar is `0`, and it must WIN over a
+ * sharp in the key. That is the whole difference between "the bar said nothing" and "the bar said
+ * natural", and it is the one line where a key signature could silently overrule a written sign.
+ */
+export function alterInForce(
+  barAlterations: ReadonlyMap<number, PitchAlter>,
+  key: KeySignature,
+  step: PitchStep,
+  octave: number,
+): PitchAlter {
+  return barAlterations.get(spellingDiatonicPos(step, octave)) ?? keyAlterOf(key, step)
+}
+
+/** {@link alterInForce} from a bar's notes: the walk and the fallback in one call. */
+export function alterInForceAt(
+  notes: AccidentalNote[], beat: Fraction, key: KeySignature, step: PitchStep, octave: number,
+): PitchAlter {
+  return alterInForce(prevailingAlterations(notes, beat), key, step, octave)
 }
 
 /**
@@ -70,12 +110,20 @@ export function prevailingAlterAt(notes: AccidentalNote[], dPos: number, beat: F
  * Returns `pitchId → VexFlow accidental string`, or `null` where the sign is suppressed. Ids that
  * are absent were never asked about (a rest, another lane).
  *
- * Scope is the CALLER's, as everywhere else in this file: pass one lane's slots, in beat order.
+ * Scope is the CALLER's, as everywhere else in this file: pass one lane's slots, in beat order —
+ * ⭐ **and the KEY IN FORCE WHERE THOSE SLOTS ARE**, which is the lane's own bar's, resolved per
+ * staff (a signature is per-staff: Bartók writes four sharps in one hand against four flats in the
+ * other). An F♯ under a signature that already says F♯ draws nothing; an F♮ under it draws a
+ * natural it would not draw in C major.
+ *
+ * ⚠️ ONE key for the whole lane. A mid-bar key change is permitted by the model ({@link KeyChange})
+ * and nothing writes one; the day something does, this parameter becomes a resolver, exactly as
+ * `clefForBeat` already is.
  */
-export function displayedAccidentals(slots: ChordRest[]): Map<string, string | null> {
+export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map<string, string | null> {
   const signs = new Map<string, string | null>()
   // Key = spellingDiatonicPos(step, octave); value = the alteration in force there. A position
-  // absent from the map has not appeared yet in this bar.
+  // absent from the map falls back to the KEY SIGNATURE — never pre-filled from it, see the header.
   const active = new Map<number, PitchAlter>()
 
   const decide = (p: NotePitch): void => {
@@ -84,17 +132,18 @@ export function displayedAccidentals(slots: ChordRest[]): Map<string, string | n
       return
     }
     const dPos = spellingDiatonicPos(p.step, p.octave)
-    const activeAlter = active.get(dPos)
+    const governing = alterInForce(active, key, p.step, p.octave)
     if (p.alter !== 0) {
-      // Altered pitch — show the sign unless the same alteration is already in force.
-      if (!p.forceAccidental && activeAlter === p.alter) {
+      // Altered pitch — show the sign unless the same alteration is already in force (from the bar
+      // OR from the signature), and unless it was explicitly asked for (Gould p. 81).
+      if (!p.forceAccidental && governing === p.alter) {
         signs.set(p.id, null)
       } else {
         signs.set(p.id, alterToString(p.alter))
-        active.set(dPos, p.alter)
       }
-    } else if (activeAlter !== undefined && activeAlter !== 0) {
-      signs.set(p.id, 'n') // cancel an earlier alteration at this position
+      active.set(dPos, p.alter)
+    } else if (governing !== 0) {
+      signs.set(p.id, 'n') // cancel what is in force here — an earlier accidental, or the key
       active.set(dPos, 0)
     } else if (p.forceAccidental) {
       signs.set(p.id, 'n') // a courtesy natural, asked for explicitly

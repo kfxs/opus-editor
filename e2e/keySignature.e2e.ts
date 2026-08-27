@@ -17,6 +17,7 @@ import { test, expect } from './fixtures'
 /** SMuFL, and the codepoints `KeySignaturePass` writes out. */
 const SHARP = 'e262'
 const FLAT = 'e260'
+const NATURAL = 'e261'
 
 /** One staff space, in px (`STAFF_SPACE_PX`). */
 const SPACE = 10
@@ -220,4 +221,75 @@ test('⭐⭐ EVERY bar centres its whole-bar rest in its own FREE SPACE — one 
     const freeCentre = bar.freeLeft + (bar.right - bar.freeLeft) / 2
     expect(Math.abs(bar.restCentre - freeCentre), `bar ${bar.measure}`).toBeLessThan(1)
   }
+})
+
+// ---------------------------------------------------------------------------
+// P4 — the ACCIDENTAL RIPPLE (docs/key-signature-plan.md §3). The signature stops being a picture at
+// the head of the bar and starts deciding what every note under it draws.
+// ---------------------------------------------------------------------------
+
+// ⚠️ The selector and the codepoints are written out INSIDE each `evaluate` below: the closure is
+// serialised into the page, so a module-level const here is not in scope there — a note's own
+// accidental glyphs are `g.vf-notehead text`, sharp `e262` and natural `e261`.
+
+test('⭐⭐ an F♯ in G major draws NO sign, and an F♮ draws a natural — the whole of P4, on the page', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    const G_MAJOR = { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const }
+    // Two bars, each holding one F4: the first sharpened, the second natural.
+    h.engine.addMeasure()
+    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
+
+    await h.render()
+    const signs = () => h.glyphs('g.vf-notehead text')
+      .filter(g => g.code === 'e262' || g.code === 'e261').map(g => g.code)
+    const inC = signs()
+
+    h.engine.setKeyAt(1, G_MAJOR)
+    await h.render()
+    return { inC, inG: signs() }
+  })
+
+  // In C major: the F♯ shows its sharp, the F♮ shows nothing.
+  expect(drawn.inC, 'C major — one sharp, no natural').toEqual([SHARP])
+  // In G major the two swap over: the sharp is what the signature says, the natural contradicts it.
+  expect(drawn.inG, 'G major — the sharp goes, the natural arrives').toEqual([NATURAL])
+})
+
+test('🚨 setting the key at bar 1 REPAINTS a far bar — the governing-key row in the shape key', async ({ score }) => {
+  // ⚠️ The bug this guards is invisible any other way: bar 12's own content never changes, so without
+  // `ShapeKeyInputs.key` the incremental renderer replays its cached `<g>` and the old accidental
+  // stands under the new signature forever. Twelve bars is enough to be well past the first system.
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (let i = 0; i < 12; i++) h.engine.addMeasure()
+    h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 12, beat: h.frac(0, 1) })
+    await h.render()
+    const naturals = () => h.glyphs('g.vf-notehead text').filter(g => g.code === 'e261').length
+    const before = naturals()
+
+    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const })
+    await h.render()
+    return { before, after: naturals() }
+  })
+
+  expect(drawn.before, 'in C major the F♮ at bar 12 needs no sign').toBe(0)
+  expect(drawn.after, 'a key set eleven bars earlier put one there').toBe(1)
+})
+
+test('⭐⭐ a COURTESY survives the key agreeing with it — Gould p. 81, and his report', async ({ score }) => {
+  // *"Suppose the F♯ I want to make it explicit, so I added ♯ to the F that is already ♯ — what I
+  //  expect is to see the accidental written."* The forced sign is drawn although the signature
+  //  already says it; the unforced one beside it is not.
+  const signs = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const })
+    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), forceAccidental: true })
+    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })
+    await h.render()
+    return h.glyphs('g.vf-notehead text').filter(g => g.code === 'e262').length
+  })
+
+  expect(signs, 'the FORCED one only — the other is silent under the signature').toBe(1)
 })

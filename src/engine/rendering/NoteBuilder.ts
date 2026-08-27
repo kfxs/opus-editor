@@ -1,13 +1,14 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot } from 'vexflow'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
-import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction } from '@/types/music'
+import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
 import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { doubleDuration, durationToVexflow, slotLength } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
 import { pickVoiceMode } from '@/utils/restFill'
 import { displayedAccidentals } from '@/utils/accidentalState'
+import { C_MAJOR } from '@/utils/keySignature'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { restStaffLine } from '@/engine/layout/restPlacement'
 
@@ -136,12 +137,16 @@ export function restSupportingLedgerLine(
  *   +up for V1, -down for V2). 0 = centred (single-voice, unchanged). A resolver
  *   `(slot) => number` is accepted so the caller can add a per-rest manual shift on top of
  *   the voice base (see docs/rest-shift-plan.md §6.8) — mirroring the `clefForBeat` overload.
+ * @param key - The KEY SIGNATURE governing this lane's bar. An F♯ under a signature that already
+ *   says F♯ draws no sign; an F♮ under it draws a natural. Defaults to C major so a caller with no
+ *   score behind it gets exactly the arithmetic it got before signatures existed.
  */
 export function createStaveNotesFromSlots(
   slots: ChordRest[],
   clefForBeat: ((beat: Fraction) => Clef) | Clef = 'treble',
   forcedStemDirection?: number,
   restLineShift: number | ((slot: ChordRest) => number) = 0,
+  key: KeySignature = C_MAJOR,
 ): StaveNote[] {
   const resolveClef: (beat: Fraction) => Clef =
     typeof clefForBeat === 'function' ? clefForBeat : () => clefForBeat
@@ -154,7 +159,7 @@ export function createStaveNotesFromSlots(
   // as a query, and the same map the FAN renderer reads for its hand-drawn member heads. It lived
   // inline here until the members needed it; the extraction is what keeps the two from drifting
   // (docs/fanned-beam-pitches-plan.md §2).
-  const displayAccidentals = displayedAccidentals(slots)
+  const displayAccidentals = displayedAccidentals(slots, key)
 
   for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
     const slot = slots[slotIndex]

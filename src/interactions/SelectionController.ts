@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { Accidental, Note, Measure, PitchStep, PitchAlter, Clef, Score } from '../types/music'
+import type { Accidental, Note, Measure, PitchStep, Clef, Score } from '../types/music'
 import { middleLineDiatonicPos } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
@@ -12,7 +12,9 @@ import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
 import { keyStaffId } from '../engine/models/staffContent'
-import { prevailingAlterations } from '../utils/accidentalState'
+import { keyAt } from '../utils/keySignature'
+import { entryAlteration } from '../engine/models/entryAlteration'
+import { alterInForceAt } from '../utils/accidentalState'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
@@ -31,24 +33,26 @@ export class SelectionController {
 
   /**
    * Compute which accidental sign would actually be displayed for a note, given the
-   * running accidental state of its measure up to that beat.
-   * Returns null if no sign is shown, 'n' for a cautionary natural.
+   * running accidental state of its measure up to that beat — and, where the bar is silent at that
+   * position, ⭐ **the KEY SIGNATURE** (`accidentalState.alterInForce`, the same rule the drawing
+   * reads). Returns null if no sign is shown, 'n' for a cautionary natural.
    */
-  private computeDisplayedAccidental(note: Note, measure: Measure): Accidental | 'n' | null {
+  private computeDisplayedAccidental(note: Note, measure: Measure, score: Score): Accidental | 'n' | null {
     if (note.isRest || note.tiedFrom) return null
     if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
 
     // The fanned members count here as well — the sign this reports must be the one the renderer
     // engraves, and that walk sees them (docs/fanned-beam-pitches-plan.md §2).
-    const active = prevailingAlterations(measureAccidentalNotes(measure), note.beat)
-    const dPos = spellingDiatonicPos(note.step!, note.octave!)
-    const activeAlter = active.get(dPos)
+    const governing = alterInForceAt(
+      measureAccidentalNotes(measure), note.beat,
+      keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step!, note.octave!,
+    )
     const noteAlter = note.alter ?? 0
 
     if (noteAlter !== 0) {
-      return activeAlter === noteAlter ? null : (noteAlter > 0 ? '#' : 'b')
+      return governing === noteAlter ? null : (noteAlter > 0 ? '#' : 'b')
     } else {
-      if (activeAlter !== undefined && activeAlter !== 0) return 'n'
+      if (governing !== 0) return 'n'
       if (note.forceAccidental) return 'n'
       return null
     }
@@ -124,10 +128,11 @@ export class SelectionController {
     // Same rule as `syncActiveLaneToNote`: the engine's projection, which sees a fanned member too.
     // A member's DURATION is the slot's — one event — and its accidental is its own.
     const note = engine.getNote(noteId)
-    const measure = note && engine.getScore().measures.find(m => m.number === note.measure)
+    const score = engine.getScore()
+    const measure = note && score.measures.find(m => m.number === note.measure)
     if (note && measure) {
       this.state.selectedDuration = note.duration
-      this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure)
+      this.state.selectedAccidental = this.computeDisplayedAccidental(note, measure, score)
       this.state.selectedDots = note.dots || 0
     }
     // The beam, from the ENGINE's projection and not the loop above: `getMeasureNotes` doesn't carry
@@ -654,12 +659,21 @@ export class SelectionController {
     const ids = selectedNoteIds(this.state.selectedItems.values())
     // One undoable action for the whole selection (a single Ctrl-Z reverts it all).
     const moved = engine.runBatch(`Transpose ${ids.length} note(s)`, () => {
+      const score = engine.getScore()
       for (const id of ids) {
         const note = engine.getNote(id)
         if (!note || note.isRest) continue
-        const newSpelling = this.movePitchDiatonically(note.step!, note.alter!, note.octave!, direction)
+        const newSpelling = this.movePitchDiatonically(note.step!, note.octave!, direction)
+        // ⭐ The new LETTER takes the alteration in force at ITS position — the bar's running
+        //   accidental, else the key ({@link entryAlteration}). ⛔ Not the old note's `alter`, which
+        //   is what this did: a step up from F♯ in G major came out G♯ instead of G♮, because the
+        //   sharp belonged to the F it left behind.
+        const alter = entryAlteration(
+          score, { measure: note.measure, beat: note.beat, staff: note.staff },
+          newSpelling.step, newSpelling.octave,
+        )
         engine.updateNote(id, {
-          step: newSpelling.step, alter: newSpelling.alter, octave: newSpelling.octave,
+          step: newSpelling.step, alter, octave: newSpelling.octave,
         })
       }
     })
@@ -754,15 +768,17 @@ export class SelectionController {
     this.ensureVisible(rect)
   }
 
+  /** The next LETTER up or down, and nothing else — the alteration is `entryAlteration`'s answer at
+   *  the position this lands on, not a property carried over from the note being moved. */
   private movePitchDiatonically(
-    step: PitchStep, alter: PitchAlter, octave: number, direction: number,
-  ): { step: PitchStep; alter: PitchAlter; octave: number } {
+    step: PitchStep, octave: number, direction: number,
+  ): { step: PitchStep; octave: number } {
     const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
     let idx = STEPS.indexOf(step)
     let newOctave = octave
     idx += direction
     if (idx > 6) { idx = 0; newOctave++ }
     else if (idx < 0) { idx = 6; newOctave-- }
-    return { step: STEPS[idx], alter, octave: newOctave }
+    return { step: STEPS[idx], octave: newOctave }
   }
 }

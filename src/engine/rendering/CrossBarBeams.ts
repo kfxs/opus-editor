@@ -28,7 +28,7 @@
  * same run walk as the crossing ones — one computation, one answer.
  */
 
-import type { ChordRest, Clef, Measure } from '@/types/music'
+import type { ChordRest, Clef, KeySignature, Measure } from '@/types/music'
 import { computeCrossBarBeamGroups, secondaryBreakIndices, type BeamBar } from '@/utils/beaming'
 import { fracCompare } from '@/utils/fraction'
 import { getMeterInfo } from '@/utils/meter'
@@ -46,6 +46,9 @@ export interface CrossBarBar {
   view: Measure
   /** The clef in force at the bar's start — the stem-direction rule reads pitches against it. */
   clef: Clef
+  /** The key signature governing the bar — a crossing group can straddle a key change, and each
+   *  member's accidentals are decided against ITS OWN bar's (`CrossBarFanMember.key`). */
+  key: KeySignature
 }
 
 /** One member of a crossing group: `lookupId` is the key it has in `staveNoteMap`. */
@@ -125,6 +128,8 @@ interface CrossBarFanMember {
   clef: Clef
   /** This member's own bar's lane — read for `displayedAccidentals`, never mutated. */
   laneSlots: ChordRest[]
+  /** …and that bar's own key signature, which the walk over `laneSlots` is decided against. */
+  key: KeySignature
   /** Does this slot wear the fan? The rest of the group is its prefix. */
   fan: boolean
   /** The `staveNoteMap` key of the next slot in this member's own bar, if any. */
@@ -357,6 +362,7 @@ export function planCrossBarBeams(
                 slot,
                 clef: run[ref.bar].clef,
                 laneSlots: slotsPerBar[ref.bar],
+                key: run[ref.bar].key,
                 fan: slot.type === 'chord' && !!slot.fan,
                 nextLookupId: next ? lookupIdOf(next) : null,
               }

@@ -18,6 +18,7 @@ import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
+import { entryAlteration } from '../engine/models/entryAlteration'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
@@ -2743,7 +2744,18 @@ export class MouseController {
       if (measure) {
         const barQuarters = measureCapacityQuarters(measure)
         const position = engine.pixelToPosition({ x, y }, barQuarters)
-        const cursorSpelling = position.spelling
+        // ⭐ The drag gives a diatomic position — a LETTER — and its alteration is whatever is in
+        //   force there: the bar's running accidental, else the KEY ({@link entryAlteration}, the
+        //   same rule click entry and the arrow keys read). Without it, dragging a note in G major
+        //   lands an F♮ wearing a natural nobody asked for.
+        const cursorSpelling = {
+          ...position.spelling,
+          alter: entryAlteration(
+            engine.getScore(),
+            { measure: selectedNote.measure, beat: selectedNote.beat, staff: selectedNote.staff },
+            position.spelling.step, position.spelling.octave,
+          ),
+        }
         const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
         const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
 

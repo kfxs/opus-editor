@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from './MusicEngine'
 import { fifthsOf } from '@/utils/keySignature'
 import { keyFromFifths } from '@/utils/keySignature'
+import { fracCreate as frac } from '@/utils/fraction'
 
 /**
  * `MusicEngine.setKeyAt` / `removeKeyAt` — the EDITOR half of the key writes: staff INDEX rather
@@ -81,5 +82,58 @@ describe('MusicEngine key signatures', () => {
 
     expect(fifthsOf(engine.getKeyAt(2, 0))).toBe(4)
     expect(fifthsOf(engine.getKeyAt(2, 1))).toBe(-4)
+  })
+
+  /**
+   * ⭐⭐ **THE COURTESY ACCIDENTAL A KEY WOULD HIDE** — Gould p. 81 from the user's side.
+   *
+   * His report, 2026-08-27, on a score in D major: *"suppose the F♯ I want to make it explicit, so I
+   * added ♯ to the F that is already ♯ — what I expect is to see the accidental written"*. The rule
+   * in `accidentalState` was already right (`forceAccidental` beats the suppression); what refused
+   * him was `noteDisplaysAccidental`, one layer above it, which matched on `alter` alone and so
+   * answered "already there" about a sign that was not on the page.
+   */
+  describe('an explicit sign the key already implies', () => {
+    const D_MAJOR = keyFromFifths(2) // F♯ C♯
+
+    /** An F♯ at bar 1 beat 0, under `fifths`. */
+    const fSharpIn = (fifths: number): { engine: MusicEngine; id: string } => {
+      const e = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+      e.setKeyAt(1, keyFromFifths(fifths))
+      const note = e.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      return { engine: e, id: note.id }
+    }
+
+    it('🚨 an F♯ in D major does NOT display its sharp — the signature says it', () => {
+      const { engine: e, id } = fSharpIn(2)
+      expect(e.noteDisplaysAccidental(id, '#')).toBe(false)
+    })
+
+    it('…so stamping ♯ on it is NOT a no-op: it forces the sign', () => {
+      const { engine: e, id } = fSharpIn(2)
+      expect(e.noteDisplaysAccidental(id, '#'), 'the stamp is allowed through').toBe(false)
+      e.setNoteAccidental(id, '#')
+      expect(e.getNote(id)!.forceAccidental, 'and THAT is what makes it visible').toBe(true)
+      expect(e.getNote(id)!.alter, 'the pitch is untouched').toBe(1)
+      expect(e.noteDisplaysAccidental(id, '#'), 'it now displays, so the next press toggles it off').toBe(true)
+    })
+
+    it('in C major the same F♯ displays its sharp already, and the stamp stays idempotent', () => {
+      const { engine: e, id } = fSharpIn(0)
+      expect(e.noteDisplaysAccidental(id, '#')).toBe(true)
+    })
+
+    it('⛔ and the alteration still has to MATCH — an F♮ in D major displays no sharp', () => {
+      const e = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
+      e.setKeyAt(1, D_MAJOR)
+      const note = e.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      expect(e.noteDisplaysAccidental(note.id, '#')).toBe(false)
+      expect(e.noteDisplaysAccidental(note.id, 'n'), 'it draws a NATURAL, contradicting the key').toBe(true)
+    })
+
+    it('⭐ "remove accidental" reverts to what the KEY says, not to a bare natural', () => {
+      const { engine: e, id } = fSharpIn(2)
+      expect(e.getPrevailingAlter(id)).toBe(1)
+    })
   })
 })

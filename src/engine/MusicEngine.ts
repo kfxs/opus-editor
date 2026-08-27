@@ -27,16 +27,16 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { getStaves, staffIdAtIndex, staffSlots } from './models/staffContent'
+import { getStaves, keyStaffId, staffIdAtIndex, staffSlots } from './models/staffContent'
 import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
 import { quantizeBeat, slotLength } from '@/utils/durations'
-import { spellingToMidi, accidentalToAlter, spellingDiatonicPos, formatPitch } from '@/utils/pitchSpelling'
-import { prevailingAlterAt } from '@/utils/accidentalState'
+import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
+import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
-import { fifthsOf } from '@/utils/keySignature'
+import { fifthsOf, keyAt } from '@/utils/keySignature'
 import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
@@ -4794,20 +4794,24 @@ export class MusicEngine {
    * if it carried no explicit accidental. Returns 0 when nothing earlier altered it.
    *
    * Mirrors the renderer's running-accidental logic (NoteBuilder): only preceding,
-   * non-tied notes on the same diatonic position count; key signature is not folded
-   * in (VexFlow draws those separately). Used by "remove accidental" so the note
-   * reverts to the prevailing alteration and its sign disappears.
+   * non-tied notes on the same diatonic position count — and where the bar is silent there, ⭐ **the
+   * KEY SIGNATURE answers** ({@link alterInForceAt}). Used by "remove accidental" so the note
+   * reverts to the prevailing alteration and its sign disappears: in G major, removing the sign
+   * from an F♮ leaves an F♯ that draws nothing, which is what the signature already promised.
    */
   getPrevailingAlter(noteId: string): PitchAlter {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest || note.step === undefined || note.octave === undefined) return 0
-    const measure = this.scoreModel.getScore().measures.find(m => m.number === note.measure)
+    const score = this.scoreModel.getScore()
+    const measure = score.measures.find(m => m.number === note.measure)
     if (!measure) return 0
-    const targetPos = spellingDiatonicPos(note.step, note.octave)
     // A FANNED member alters its position for the rest of the bar too, so the list includes them
     // (docs/fanned-beam-pitches-plan.md §2) — `getMeasureNotes` alone would answer "nothing in force"
     // for a bar whose only sharp is inside a fan.
-    return prevailingAlterAt(measureAccidentalNotes(measure), targetPos, note.beat)
+    return alterInForceAt(
+      measureAccidentalNotes(measure), note.beat,
+      keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step, note.octave,
+    )
   }
 
   /**
@@ -4835,18 +4839,32 @@ export class MusicEngine {
 
   /**
    * Whether `note` already DISPLAYS `accidental` — used by the stamp tool for its idempotency check
-   * (clicking a note that already has that accidental does nothing). Sharp/flat is a pure alter
-   * match; a natural counts as "already there" only when its sign is actually visible (a required ♮
-   * cancelling an earlier accidental, or a forced courtesy ♮) — a plain natural note with no sign
-   * does NOT, so stamping ♮ on it still forces the courtesy sign to appear.
+   * (clicking a note that already shows that sign does nothing) and by the palette's group toggle.
+   *
+   * ⭐⭐ **DISPLAYS, not "carries" — and under a key signature those stopped being the same
+   * question.** His report, 2026-08-27, on a score in D major: *"suppose the F♯ I want to make it
+   * explicit, so I added ♯ to the F that is already ♯ — what I expect is to see the accidental
+   * written"*. That is Gould p. 81 from the user's side (*"this practice holds good even when a key
+   * signature corrects the accidental"*), and it was refused one layer above the rule: the F carries
+   * `alter: 1`, so a pure alter match answered "already there" and the click did nothing — while
+   * nothing was drawn on the page at all.
+   *
+   * So every branch asks the same thing: **is a sign actually on the page?** — the alteration
+   * matches AND it is not silently in force (from the bar or the key), unless it was explicitly
+   * forced. A natural has always been read this way; the sharp and the flat now are too.
+   *
+   * ⭐ The knock-on is the behaviour he asked for, with no new state: the stamp falls through to
+   * {@link setNoteAccidental}, which sets `forceAccidental` when the alteration is already there,
+   * and the sign appears. Pressing again finds it displayed and reverts to the prevailing
+   * alteration — a clean toggle either way.
+   * ⏭️ Parentheses around such a courtesy are a separate, authored property; not this pass.
    */
   noteDisplaysAccidental(noteId: string, accidental: Accidental): boolean {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return false
-    if (accidental === '#') return note.alter === 1
-    if (accidental === 'b') return note.alter === -1
-    // natural: only if a sign is currently drawn (prevailing cancels it, or it's forced)
-    return note.alter === 0 && (this.getPrevailingAlter(noteId) !== 0 || note.forceAccidental === true)
+    const target: PitchAlter = accidental === '#' ? 1 : accidental === 'b' ? -1 : 0
+    if ((note.alter ?? 0) !== target) return false
+    return note.forceAccidental === true || this.getPrevailingAlter(noteId) !== target
   }
 
   /**

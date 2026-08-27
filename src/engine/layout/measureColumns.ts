@@ -24,7 +24,7 @@
  * with real rest slots, so every drawn column is already in `measure.slots`. The one exception is a
  * bar holding no slots at all, which draws a single measure rest — one column, at beat 0.
  */
-import type { Measure, Fraction, ChordRest, NotePitch, Clef } from '@/types/music'
+import type { Measure, Fraction, ChordRest, NotePitch, Clef, KeySignature } from '@/types/music'
 import { fracCompare, fracCreate, fracIsZero, fracSub } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { fanSpanRods } from './fanRampRoom'
@@ -35,6 +35,7 @@ import { voiceOf } from '@/utils/lanes'
 import { beamRoleAt, isBeamableDuration } from '@/utils/beaming'
 import { getMeterInfo } from '@/utils/meter'
 import { staffLineForSpelling, type StaffClefs } from '@/utils/clefUtils'
+import { C_MAJOR, type StaffKeys } from '@/utils/keySignature'
 import { INK, INK_HEIGHT, STEM_REACH, accidentalExtent, accidentalHeight, dotExtent, pairPadding, restBand, restExtent } from './spacingPadding'
 import { edgeKind, mergedReach, type InkBox } from './kerning'
 import type { Column } from './spacing'
@@ -255,6 +256,13 @@ type ClefResolver = (slot: ChordRest) => Clef
 export type StaffSizeResolver = (staffId: string | undefined) => number
 
 /**
+ * ⭐ Which KEY SIGNATURE governs a staff's lane of this measure — the fallback every note's
+ * displayed accidental is decided against ({@link displayedSigns}). Supplied by the caller for
+ * {@link ClefResolver}'s reason: it is inherited from earlier bars, which this module does not read.
+ */
+export type KeyResolver = (staffId: string | undefined) => KeySignature
+
+/**
  * Every column in this measure, in order, with the BARLINE as the last one.
  *
  * ## ⚠️ THE CLEF IS AN INPUT NOW, and it used to be forbidden
@@ -308,8 +316,9 @@ export function measureLeadIn(
   measure: Measure,
   clefFor: ClefResolver = () => 'treble',
   sizeFor: StaffSizeResolver = () => 1,
+  keyFor: KeyResolver = () => C_MAJOR,
 ): LeadIn {
-  const opening = openingInk(measure, clefFor, sizeFor)
+  const opening = openingInk(measure, clefFor, sizeFor, keyFor)
   return { padding: pairPadding('barline', edgeKind(opening, 'left')), extent: mergedReach(opening).left }
 }
 
@@ -329,14 +338,16 @@ export interface LeadIn {
 }
 
 /** The ink of whatever the bar opens with — every slot at its earliest beat. */
-function openingInk(measure: Measure, clefFor: ClefResolver, sizeFor: StaffSizeResolver): ColumnInk {
+function openingInk(
+  measure: Measure, clefFor: ClefResolver, sizeFor: StaffSizeResolver, keyFor: KeyResolver,
+): ColumnInk {
   const first = measure.slots.reduce<Fraction | null>(
     (earliest, slot) => (earliest === null || fracCompare(slot.beat, earliest) < 0 ? slot.beat : earliest),
     null,
   )
   if (first === null) return [MEASURE_REST_INK()]
 
-  const signs = displayedSigns(measure)
+  const signs = displayedSigns(measure, keyFor)
   const multiVoice = hasSeveralVoices(measure)
   const flagged = flaggedSlots(measure)
   const boxes: ColumnInk = []
@@ -400,12 +411,18 @@ function hasSeveralVoices(measure: Measure): boolean {
  * resolves it: one `displayedAccidentals` walk per (staff, voice), because that is the scope
  * `NoteBuilder` uses when it decides. Ask it at any other scope and the width reserves room for an
  * accidental the drawing suppresses, or forgets one it shows.
+ *
+ * ⚠️⚠️ **AND THE KEY IS WHY A SIGNATURE CHANGES HOW WIDE A BAR IS** — the one place this feature is
+ * a *width* change rather than a picture change (docs/key-signature-plan.md §3). A signature
+ * suppresses accidentals and mints naturals, and the ink of each is priced into the column below.
+ * ⛔ So the clef's width-independence proof (`clefWidthIndependence.test.ts`) does NOT transfer.
  */
-function displayedSigns(measure: Measure): Map<string, string | null> {
+function displayedSigns(measure: Measure, keyFor: KeyResolver): Map<string, string | null> {
   const signs = new Map<string, string | null>()
   for (const lane of lanesOf(measure).values()) {
     const ordered = [...lane].sort((a, b) => fracCompare(a.beat, b.beat))
-    for (const [id, sign] of displayedAccidentals(ordered)) signs.set(id, sign)
+    // The lane's own staff — every slot in it shares one, by construction (`lanesOf`).
+    for (const [id, sign] of displayedAccidentals(ordered, keyFor(lane[0]?.staffId))) signs.set(id, sign)
   }
   return signs
 }
@@ -424,6 +441,23 @@ function displayedSigns(measure: Measure): Map<string, string | null> {
  * staff's two hands at different x's for the same beat: the renderer was resolving a LANE while the
  * width resolved the MEASURE.
  */
+/**
+ * ⭐ **Which key signature governs a STAFF's lane of this measure** — `clefResolverFor`'s twin, and
+ * built for the same reason: the width path and the drawing must ask the same question the same
+ * way, or they price a bar's accidentals differently.
+ *
+ * Per staff and not per slot: a signature governs a letter in every octave and every voice of its
+ * staff, and nothing writes a mid-bar change (`KeyChange.beat` permits one; the day something does,
+ * this becomes a `(slot) => …` like the clef's).
+ */
+export function keyResolverFor(
+  measure: Measure,
+  keysByStaff: Map<string | undefined, StaffKeys>,
+  firstStaffId: string | undefined,
+): KeyResolver {
+  return staffId => keysByStaff.get(staffId ?? firstStaffId)?.opening.get(measure.number) ?? C_MAJOR
+}
+
 export function clefResolverFor(
   measure: Measure,
   clefsByStaff: Map<string | undefined, StaffClefs>,
@@ -445,6 +479,7 @@ export function measureColumns(
   measure: Measure,
   clefFor: ClefResolver = () => 'treble',
   sizeFor: StaffSizeResolver = () => 1,
+  keyFor: KeyResolver = () => C_MAJOR,
 ): Column[] {
   const capacity = measureCapacityFrac(measure)
   const beats = new Map<string, Fraction>()
@@ -464,7 +499,7 @@ export function measureColumns(
     if (drawn) ink.get(key)!.push(...drawn)
   }
 
-  const signs = displayedSigns(measure)
+  const signs = displayedSigns(measure, keyFor)
   const multiVoice = hasSeveralVoices(measure)
   const flagged = flaggedSlots(measure)
 

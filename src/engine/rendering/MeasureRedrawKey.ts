@@ -1,4 +1,4 @@
-import type { Clef, Measure, Score, TimeSignature } from '@/types/music'
+import type { Clef, KeySignature, Measure, Score, TimeSignature } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
 import { laneFingerprint } from './MeasureWidthCache'
 
@@ -69,6 +69,21 @@ interface ShapeKeyInputs {
    */
   scale: number
   clef: Clef
+  /**
+   * ⚠️⚠️ **THE GOVERNING KEY SIGNATURE, and it is here for the governing CLEF's reason verbatim.**
+   *
+   * `laneFingerprint` below carries `lane.keys` — this bar's OWN change — and that is all a
+   * measure's own fields can say. But a signature is **INHERITED**: the key set at bar 1 decides
+   * which accidentals bar 40 draws (`accidentalState.displayedAccidentals`). Bar 40's own fields
+   * never change when bar 1's does, so without this row its shape key is unchanged, so P5 replays
+   * its cached `<g>` — the new signature standing on the stave and the old accidentals underneath
+   * it, forever. Exactly the `clef` row above, one feature later.
+   *
+   * ⛔ It is deliberately NOT in `laneFingerprint`: that key is asked per bar per render, and an
+   * inherited fact in it is what made the clef 47% of all layout time. Nothing memoizes width on it
+   * today (`MeasureLayout.noteSpaceForMeasure` recomputes), so the picture is the only reader.
+   */
+  key: KeySignature
   hasClefChange: boolean
   cautionaryEndClef?: Clef
   cautionaryEndTimeSig?: TimeSignature
@@ -166,6 +181,9 @@ export function measureShapeKey(
     // later bar's key unchanged, so P5 would reuse their drawn groups — the new clef on the stave,
     // the old noteheads underneath it, at the wrong pitches, forever.
     clef,
+    // ⚠️ …and the signature GOVERNING this bar — inherited, so no field of `view` can express it.
+    //    See the `key` row on ShapeKeyInputs for what goes silently wrong without it.
+    input.key,
 
     // ⚠️ THE RAW IDS, and they too must be here even though the width key deliberately erases them.
     //

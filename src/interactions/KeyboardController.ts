@@ -8,6 +8,7 @@ import { getMeasureNotes } from '../utils/musicUtils'
 import { measureCapacityFrac } from '../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../utils/fraction'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
+import { entryAlteration } from '../engine/models/entryAlteration'
 import { fitRestDuration } from '../utils/durations'
 import { staffOf, voiceOf } from '@/utils/lanes'
 
@@ -59,7 +60,6 @@ export class KeyboardController {
     }
 
     // Selection mode: edit in place, then switch to keyboard mode
-    const alter: PitchAlter = accidentalToAlter(this.state.selectedAccidental)
     const reference = this.getContextPitch()
     const naturalPitchClass = STEP_SEMITONES[step]
     const k = Math.round((reference - naturalPitchClass) / 12)
@@ -72,6 +72,14 @@ export class KeyboardController {
     // the bar's remainder is rest-filled downstream. Normal rests keep their own
     // duration (replace a quarter rest with a quarter note).
     const selected = engine.getNote(this.state.selectedNoteId)
+    // The letter lands where the selected note already is, so the key and the bar's accidentals are
+    // read THERE — the same rule as entry ({@link entryAlteration}), armed accidental first.
+    const alter: PitchAlter = selected
+      ? entryAlteration(
+        engine.getScore(), { measure: selected.measure, beat: selected.beat, staff: selected.staff },
+        step, octave, this.state.selectedAccidental,
+      )
+      : accidentalToAlter(this.state.selectedAccidental)
     const measureRestDuration = selected?.isMeasureRest
       ? { duration: this.state.selectedDuration, dots: this.state.selectedDots }
       : {}
@@ -275,7 +283,6 @@ export class KeyboardController {
 
     dbg(`[Cursor] position: m${currentNote.measureNumber} beat:${fracToNumber(currentNote.beat).toFixed(4)} (${currentNote.isRest ? 'rest' : `${currentNote.step ?? '?'}${currentNote.octave ?? ''}`}${currentNote.tupletId ? ' tuplet' : ''}) → targeting m${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(4)}`)
 
-    const alter: PitchAlter = accidentalToAlter(this.state.selectedAccidental)
     const referenceMidi = (!currentNote.isRest && currentNote.step)
       ? spellingToMidi(currentNote.step, currentNote.alter!, currentNote.octave!)
       : this.getContextPitch()
@@ -283,6 +290,14 @@ export class KeyboardController {
     const k = Math.round((referenceMidi - naturalPitchClass) / 12)
     const targetMidi = naturalPitchClass + 12 * k
     const octave = Math.floor(targetMidi / 12) - 1
+    // ⭐ The armed accidental if there is one, else what is in force at the target — the bar's
+    //   running accidental, else the KEY. A typed F in G major is an F♯ that draws no sign
+    //   ({@link entryAlteration}); it used to be an F♮ wearing a natural (plan §3.1).
+    // ⚠️ After the octave, which the LETTER alone decides — nothing above reads the alteration.
+    const alter: PitchAlter = entryAlteration(
+      score, { measure: targetMeasure, beat: targetBeat, staff: cursorStaff },
+      step, octave, this.state.selectedAccidental,
+    )
 
     const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
     dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tuplet:${this.state.armedTuplet ? `${this.state.armedTuplet.numNotes}:${this.state.armedTuplet.notesOccupied}` : 'off'} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
@@ -427,12 +442,18 @@ export class KeyboardController {
       ? Math.max(...chordMidis)
       : spellingToMidi(note.step!, note.alter!, note.octave!)
 
-    const alter: PitchAlter = accidentalToAlter(this.state.selectedAccidental)
     const naturalPitchClass = STEP_SEMITONES[step]
     const k = Math.ceil((baseMidi - naturalPitchClass) / 12)
     let targetMidi = naturalPitchClass + 12 * k
     if (targetMidi === baseMidi) targetMidi += 12
     const octave = Math.floor(targetMidi / 12) - 1
+    // Same rule as plain entry — a chord note is still keyboard entry (see the note below on the
+    // armed accidental), so the key must default it identically or a stacked F in G major alone
+    // would come out natural.
+    const alter: PitchAlter = entryAlteration(
+      score, { measure: note.measure, beat: note.beat, staff: noteStaff },
+      step, octave, this.state.selectedAccidental,
+    )
 
     const newNote = memberPitches
       ? engine.addFanMemberPitch(this.state.selectedNoteId, { step, alter, octave })

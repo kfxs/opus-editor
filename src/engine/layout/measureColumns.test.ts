@@ -4,7 +4,8 @@ import { fracCreate as frac } from '@/utils/fraction'
 import { followingSpace, naturalWidth } from './spacing'
 import { measureColumns } from './measureColumns'
 import { INK, MIN_COLUMN_GAP, pairPadding } from './spacingPadding'
-import type { Measure, NoteParams } from '@/types/music'
+import type { KeySignature, Measure, NoteParams } from '@/types/music'
+import { C_MAJOR, keyFromFifths } from '@/utils/keySignature'
 
 /**
  * A measure's columns — the bridge from the music to the rule (docs/spacing-model-plan.md P2).
@@ -391,5 +392,44 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
     expect(restBar('32'), 'and a 32nd rest the widest — each flag leans further right')
       .toBeCloseTo(1.5, 6)
     expect(restBar('32')).toBeGreaterThan(restBar('q'))
+  })
+
+  /**
+   * ⚠️⚠️ **A KEY SIGNATURE IS A WIDTH CHANGE** (docs/key-signature-plan.md §3), and this is where it
+   * happens: the signature decides which notes DRAW an accidental, and the sign's ink is priced into
+   * the column. ⛔ So the clef's width-independence proof (`MeasureLayout.clefWidthIndependence`)
+   * does not transfer — a clef moves every notehead the same distance vertically and buys nothing;
+   * a key adds and removes glyphs.
+   */
+  describe('…and the KEY the bar is in', () => {
+    const G_MAJOR = keyFromFifths(1) // one sharp: F♯
+
+    /** One bar holding a single F4 of `alter`, measured under `key`. */
+    const fBar = (alter: 0 | 1, key: KeySignature) => {
+      const model = new ScoreModel()
+      model.addNote({ step: 'F', alter, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+      return measureColumns(bar(model), () => 'treble', () => 1, () => key)[0].extent.left
+    }
+
+    it('an F♯ costs an accidental in C major and NOTHING in G major', () => {
+      expect(fBar(1, C_MAJOR), 'the sharp is drawn, so its ink is priced')
+        .toBeGreaterThan(fBar(1, G_MAJOR))
+      expect(fBar(1, G_MAJOR), 'the signature already said it — a bare notehead')
+        .toBeCloseTo(fBar(0, C_MAJOR), 6)
+    })
+
+    it('…and an F♮ costs one in G major that it does not cost in C major', () => {
+      expect(fBar(0, G_MAJOR), 'a natural has to be drawn to contradict the key')
+        .toBeGreaterThan(fBar(0, C_MAJOR))
+    })
+
+    it('a letter the key is silent about is priced exactly as before', () => {
+      const gBar = (key: KeySignature) => {
+        const model = new ScoreModel()
+        model.addNote({ step: 'G', alter: 1, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+        return measureColumns(bar(model), () => 'treble', () => 1, () => key)[0].extent.left
+      }
+      expect(gBar(G_MAJOR)).toBeCloseTo(gBar(C_MAJOR), 6)
+    })
   })
 })

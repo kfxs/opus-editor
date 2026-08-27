@@ -12,6 +12,7 @@
  * get redrawn when the mark changes.
  */
 import { describe, it, expect } from 'vitest'
+import { C_MAJOR } from '@/utils/keySignature'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
 import { planCrossBarBeams, computeSides, type CrossBarBar, type CrossBarJoinMember } from './CrossBarBeams'
@@ -193,6 +194,7 @@ describe('cross-barline beams — the planner', () => {
     staffIndex: 0,
     line: 0,
     drawn: true,
+    key: C_MAJOR,
     view,
     clef: 'treble',
     ...over,
@@ -337,7 +339,7 @@ describe('cross-barline beams — the planner', () => {
   it('the descriptor reaches the shape key', () => {
     const model = twoBarsOfEighths()
     const view = model.getScore().measures[0]
-    const inputs = { view, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, clef: 'treble' as const, hasClefChange: false }
+    const inputs = { view, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, clef: 'treble' as const, key: C_MAJOR, hasClefChange: false }
 
     const plain = measureShapeKey(model.getScore(), inputs, null, null)
     const joinedKey = measureShapeKey(model.getScore(), { ...inputs, crossBarBeams: 'v0/1/a,b' }, null, null)

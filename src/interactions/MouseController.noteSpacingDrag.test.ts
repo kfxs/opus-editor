@@ -207,7 +207,11 @@ describe('note/rest drag — axis decision', () => {
           notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
           fan: {
             direction: 'accel', count: 2, beams: 3,
-            members: [[{ id: 'fm1', step: 'C', alter: 0, octave: 4 }]],
+            // ⚠️ `{ pitches: [...] }`, the real {@link FanMemberChord}. This used to be a bare
+            //   array of pitches, which nothing in this test read — until the drag started asking
+            //   the bar for its accidentals (`measureAccidentalNotes`) to resolve the dragged
+            //   letter's alteration against the key, and walked straight into it.
+            members: [{ pitches: [{ id: 'fm1', step: 'C', alter: 0, octave: 4 }] }],
           },
         }],
       }],

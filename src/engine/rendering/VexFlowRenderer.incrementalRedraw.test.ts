@@ -12,6 +12,7 @@
  * Reuse is observable without any test-only API: a reused measure is the **same DOM node** across
  * renders, a redrawn one is a new node. So these tests assert on node identity.
  */
+import { C_MAJOR } from '@/utils/keySignature'
 import { describe, it, expect, vi } from 'vitest'
 import { levelToGlyphString } from '@/utils/dynamics'
 import { ScoreModel } from '../models/ScoreModel'
@@ -41,7 +42,7 @@ vi.mock('./barlineInk', async (importOriginal) => {
 
 /** Minimal shape inputs — the width is held fixed so only CONTENT can move the key. */
 function keyInputs(view: Measure) {
-  return { view, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, clef: 'treble' as const, hasClefChange: false }
+  return { view, staffIndex: 0, width: 300, isFirstInLine: true, scale: 1, clef: 'treble' as const, key: C_MAJOR, hasClefChange: false }
 }
 
 function makeRenderer() {

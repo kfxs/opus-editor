@@ -9,7 +9,7 @@ import { LAYOUT_CONFIG, type MeasureWidthInfo, type ViewMode } from './layoutCon
 import { resolveSurface, SKETCH_CANVAS, type SurfaceMetrics } from '@/engine/layout/surface'
 import type { MeasureWidthCache } from './MeasureWidthCache'
 import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { clefResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
+import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
@@ -73,6 +73,7 @@ import { drawsTimeSignature } from './NoteBuilder'
 function noteSpaceForMeasure(
   measure: Measure,
   clefsByStaff: Map<string | undefined, StaffClefs>,
+  keysByStaff: Map<string | undefined, StaffKeys>,
   firstStaffId: string | undefined,
   sizeFor: StaffSizeResolver,
 ): { natural: number; floor: number } {
@@ -82,7 +83,13 @@ function noteSpaceForMeasure(
   // "format (VexFlow Formatter) 661 ms" was read back as evidence about a formatter that had not run.
   const probing = renderProbe().recording
   const t0 = probing ? performance.now() : 0
-  const columns = measureColumns(measure, clefResolverFor(measure, clefsByStaff, firstStaffId), sizeFor)
+  // ⭐ …and the KEY, which decides which notes draw an accidental and therefore how much ink the
+  //   columns hold (`measureColumns.displayedSigns`). The drawing builds the same resolver, so the
+  //   room reserved is the room the signs take.
+  const columns = measureColumns(
+    measure, clefResolverFor(measure, clefsByStaff, firstStaffId), sizeFor,
+    keyResolverFor(measure, keysByStaff, firstStaffId),
+  )
   // ⚠️ Staff spaces out, pixels in: the rule is written in the unit Gould's table is, and the
   // casting-off works in px.
   // ⭐ A staff drawn small now multiplies its own INK by its size, inside `measureColumns` — the
@@ -166,7 +173,10 @@ function calculateMinimumMeasureWidth(
     const id = staffId ?? staffIds[0]
     return id ? resolveStaffSize(score, id) : 1
   }
-  const leadIn = measureLeadIn(measure, clefResolverFor(measure, clefsByStaff, staffIds[0]), sizeFor)
+  const leadIn = measureLeadIn(
+    measure, clefResolverFor(measure, clefsByStaff, staffIds[0]), sizeFor,
+    keyResolverFor(measure, keysByStaff, staffIds[0]),
+  )
   const meter = drawsTimeSignature(measure) ? measure.timeSignature : undefined
 
   // At N=1 the lane IS the measure (every slot matches the only staff), so skip the filter —
@@ -179,7 +189,7 @@ function calculateMinimumMeasureWidth(
   //   exceed the width it is a floor on and make the bar incompressible. (That is exactly what the
   //   old pair did the other way round — it counted SLOTS in both, so a two-voice bar's floor
   //   matched its slot-built width.)
-  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, staffIds[0], sizeFor)
+  const { natural: noteSpace, floor: spacingFloor } = noteSpaceForMeasure(measure, clefsByStaff, keysByStaff, staffIds[0], sizeFor)
 
   let widestOverhead = 0
   for (const staffId of staffIds) {

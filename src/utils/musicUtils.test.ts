@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { prevailingAlterAt } from './accidentalState'
-import { spellingDiatonicPos } from './pitchSpelling'
+import { alterInForceAt } from './accidentalState'
 import { fracToNumber } from './fraction'
 import type { FanMemberChord, NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
 import { durationToBeats, midiToNoteName, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
 import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
+import { C_MAJOR } from './keySignature'
 import { fracCreate } from './fraction'
 const frac = fracCreate
 import type { TimeSignature, NoteDuration, Measure, TupletShape } from '@/types/music'
@@ -297,7 +297,7 @@ describe('measureAccidentalNotes', () => {
 
   it('⭐ so a member’s sharp is IN FORCE for a later note in the bar', () => {
     const notes = measureAccidentalNotes(bar([{ pitches: [pitch('m1', 'G', 1)] }]))
-    expect(prevailingAlterAt(notes, spellingDiatonicPos('G', 4), frac(2, 1))).toBe(1)
+    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'G', 4)).toBe(1)
   })
 
   it('a fan with no stored members adds nothing', () => {

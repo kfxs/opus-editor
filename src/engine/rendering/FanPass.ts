@@ -15,12 +15,13 @@
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
 import { Stave, StaveNote, NoteHead, Accidental, Stem, type SVGContext } from 'vexflow'
-import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, NotePitch } from '@/types/music'
+import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { spellingToVexflowKey } from '@/utils/pitchSpelling'
 import { displayedAccidentals } from '@/utils/accidentalState'
+import { C_MAJOR } from '@/utils/keySignature'
 import { slotLength } from '@/utils/durations'
 import { FAN_GROUP, fanMembers, fanMemberPitches, fanJoinSubdivides } from '@/utils/fannedBeam'
 import {
@@ -297,13 +298,16 @@ export function drawFannedBeams(
   /** This staff's drawn scale — see {@link fanRampRoomPx}, the one number here that is the SYSTEM's
    *  and has to be brought into the staff's own space. 1 for a full-size staff. */
   scale: number = 1,
+  /** The KEY SIGNATURE governing this lane's bar — the members' signs are decided against the same
+   *  one the `StaveNote`s were, so the two cannot drift. */
+  key: KeySignature = C_MAJOR,
 ): void {
   // Which sign each pitch of this lane displays — the SAME map NoteBuilder gave the StaveNotes, so
   // a member's accidental obeys one rule with the notes around it, including holding for the rest
   // of the bar (docs/fanned-beam-pitches-plan.md §2). Not free, so not walked for a lane with no
   // fan in it — which is nearly every lane.
   if (!slots.some(s => s.type === 'chord' && s.fan)) return
-  const signs = displayedAccidentals(slots)
+  const signs = displayedAccidentals(slots, key)
 
   const drawings: FanSlotDrawing[] = []
   for (let i = 0; i < slots.length && i < staveNotes.length; i++) {
@@ -379,7 +383,9 @@ export function drawCrossBarFanBeams(pass: RenderPass, joins: CrossBarFanJoin[])
         clef: member.clef,
         // Accidental state is a fact about ONE bar, so it is read per bar and merged. Keyed by
         // pitch id, so the merge cannot conflate two bars' answers about one note.
-        signs: displayedAccidentals(member.laneSlots),
+        // …and against that bar's OWN key: a crossing group can straddle a key change, and the
+        // member's signs belong to the bar it is drawn in.
+        signs: displayedAccidentals(member.laneSlots, member.key),
         prefixNotes: i === fanIndices[0]
           ? join.members.map((m, k) => (!m.fan && k < i ? staveNotes[k]! : null))
             .filter((n): n is StaveNote => n !== null)

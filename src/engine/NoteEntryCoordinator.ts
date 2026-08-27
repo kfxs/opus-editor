@@ -11,7 +11,8 @@ import {
 import { durationToFraction, fitRestDuration, splitBeatsIntoLengths, slotLength, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, PixelCoordinates, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling, Measure } from '@/types/music'
-import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
+import { spellingToMidi, formatPitch } from '@/utils/pitchSpelling'
+import { entryAlteration } from './models/entryAlteration'
 import { ElementRegistry } from './ElementRegistry'
 import type { ElementInfo } from './ElementRegistry'
 import { staffOf, voiceOf } from '@/utils/lanes'
@@ -281,12 +282,10 @@ export class NoteEntryCoordinator {
     // Reject clicks on invalid targets or outside the staff's note-entry area.
     if (!this.isValidEntryClick(coords, measureNumber, entryStaff)) return null
 
-    // Get natural pitch spelling from Y coordinate (that staff's clef), then apply accidental
+    // Get natural pitch spelling from Y coordinate (that staff's clef) — the LETTER the click
+    // landed on. Its alteration is decided below, once the beat is known.
     const naturalSpelling = registry.pixelYToPitch(coords.y, measureNumber, coords.x, entryStaff)
       ?? this.coordinateMapper.pixelYToPitch(coords.y, measureNumber)
-    const alter = accidentalToAlter(accidental)
-    const spelling: PitchSpelling = { ...naturalSpelling, alter }
-    const pitchMidi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
 
     // Resolve beat using directional element logic
     const {
@@ -296,6 +295,18 @@ export class NoteEntryCoordinator {
     } = this.resolveClickToBeat(coords, measureNumber, barQuarters, durationToBeats(duration), entryStaff)
     let finalBeat: Fraction = beatToFrac(resolvedBeat)
     let decisionReason = resolvedReason
+
+    // ⭐ …then the alteration: the ARMED accidental if there is one, else what is in force where the
+    //   click landed — the bar's running accidental, else the KEY SIGNATURE
+    //   ({@link entryAlteration}). Without that last fallback a click in G major enters an F♮ and
+    //   the renderer draws it a natural, on every note (docs/key-signature-plan.md §3.1).
+    // ⚠️ Resolved AFTER the beat, because the question is positional. Nothing above reads the pitch.
+    const alter = entryAlteration(
+      this.getScoreModel().getScore(), { measure: measureNumber, beat: finalBeat, staff: entryStaff },
+      naturalSpelling.step, naturalSpelling.octave, accidental,
+    )
+    const spelling: PitchSpelling = { ...naturalSpelling, alter }
+    const pitchMidi = spellingToMidi(spelling.step, spelling.alter, spelling.octave)
 
     // When using coordinate calculation, we need to find if there's a rest at that beat
     // or if we'd be creating a new note position
