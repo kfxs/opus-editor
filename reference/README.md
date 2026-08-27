@@ -485,6 +485,55 @@ that same hour were Google Books and a forum thread. So: if a source is openly a
 available, take it; if it is only on mirrors, that is the signal to change tactic, not to keep
 digging. The rules we need are answerable from snippets, scans and engravers who own the book.
 
+### What was asked of it on 2026-08-27, and what came back
+
+The question was the **KEY SIGNATURE**, whole: placement per clef, spacing, cancellation, cautionary
+practice, and how the change is edited. Five passes ran in parallel (this library; the three engine
+checkouts; MusicXML/MEI/SMuFL + the four applications; a UI survey).
+
+📄 **The answers are digested in `docs/key-signature-research.md`** — go there, not to the scratchpad,
+which does not survive. Only what is *about this library* is recorded here.
+
+| asked | source | answer |
+|---|---|---|
+| the section itself | **Gould pp. 91–94** | `KEY SIGNATURES` — *Placing and order* 91, *Spacing* 92, *Key changes* 92–93, non-tonal 93–94. ⛔ **The horizontal numbers are NOT there** — they are in *Spacing symbols*, **pp. 41–43**. Cautionary/warning signatures: **pp. 233–235**. Glyph proportions + "same size as any accidental": **pp. 77–78**. |
+| ⭐⭐ staff position per letter per clef | **Gerou & Lusk pp. 80–81** | 4 clefs × 7 sharps + 7 flats, **drawn with no prose at all** — the figure IS the specification. All 56 signs measured at 400 dpi; the table is in the research doc. ⭐ Gould's own four-clef figure (p. 91) and MuseScore's `ClefInfo::m_lines` array agree with it independently. |
+| the tenor-clef exception | **Gould p. 91** + both figures | *"The arrangement is identical in each clef except for the tenor-clef layout of sharps"* — and the drawing says it is exactly **two signs**: F♯ and G♯ drop an octave. ⛔ **There is NO alto-clef exception**; A♯ is at A3, the plain shifted pattern. |
+| ⛔ "keep the signs inside the staff" | **Gould, measured** | **No such rule.** Her bass 7-flat puts F♭2 *below* the bottom line and the treble 7-sharp puts G♯5 *above* the top line. What the drawings obey is the weaker **"never needs a ledger line"** — which no treatise states in prose. |
+| ⭐ kerning a signature | **Gould p. 92** | **Forbidden, in as many words**: flats in ascending fourths *"will fit in very close to each other — but keep the key signature evenly spaced … Do not overlap the flats"*, with four dashed guides marking the even grid. (MuseScore tucks them into the SMuFL cut-out; that is the engine disagreeing with the treatise.) |
+| ⭐ spacing, as an engraver states it | **Ross pp. 143–147** | His prose and his own engraving **AGREE** here (unlike the hairpin): flat→flat **1**, sharp→sharp **1 or 1¼** (he engraves 1.24), clef→1st accidental **3½**, last accidental→note **3½**. ⭐ He states the convention: every number is **left-of-character to left-of-character**. |
+| 🚨 the same, from Stone | **Stone pp. 44–45** | **A DIFFERENT CONVENTION — his numbers are GAPS (white space), Ross's are ORIGINS.** Not a contradiction (his footnote defers to Ross by name), but mixing the two tables is a silent **~1 sp** bug. |
+| ⭐⭐ is cancelling with naturals old-fashioned | **Ross p. 149** vs **G&L p. 79** | **A DATED SHIFT, which is better than an opinion.** Ross, 1970: *"At present, most engraved music employs cancellation signs."* Gerou & Lusk, 1996: *"Cancellations are no longer considered necessary, unless the new key is C major or A minor."* 1996's is where all five modern implementations landed. |
+| a double barline at a key change | **Gould p. 92** | *"A double barline precedes the new key signature **only if the key change coincides with a new musical section**."* Every key change she draws uses a plain single barline. |
+| a simultaneous clef + key change | **Gould p. 92**, **G&L p. 52**, **Ross p. 168** | Three sources, no dissent: the **clef goes BEFORE the barline, the key and meter AFTER it** — and the signature is spelled in the NEW clef. |
+| 🚨 a courtesy accidental the key already covers | **Gould p. 81** | *"This practice holds good **even when a key signature corrects the accidental**"* — with a figure in E♭ major where an explicit ♭ is still written. ⛔ An accidental engine must not suppress it. |
+| ⛔ does a key CHANGE reset in-bar accidentals | — | **UNKNOWN in all three treatises** — checked, not skipped. They say only that a BARLINE resets accidentals and never the signature (Stone p. 53, Ross p. 130). All three engines reset; that rule is taken from code, and it is recorded as such. |
+| ⛔ octave-transposing clefs | — | **UNKNOWN.** Gould pp. 506–507 never mention key signatures; Ross and Stone have nothing. (The three engines all say "no effect".) |
+| ⛔ vertical placement, from Ross or Stone | — | **Checked negatives, so nobody re-reads them**: Ross's index gives only *Key changes 148–149* and *Key signature spacing 143–147*, both read in full; Stone's only entry is *key signatures, 44–45*, which is spacing. |
+
+⚠️ **TWO NEW PAGE OFFSETS, and neither is the simple `+n` the two books above have** — both were
+worked out the hard way on 2026-08-27:
+
+- **Gerou & Lusk: one PDF page is a two-page SPREAD.** `PDF n = printed 2n−4 / 2n−3`.
+- **Stone: `PDF n = printed 2n−22 / 2n−21`.**
+
+⭐ **And Gould's drawings CONFIRM Bravura's metrics**, which is worth knowing before hand-measuring
+anything else: her key-signature sharp is **1.00 sp** wide against the font's 0.996 advance, her flat
+0.85–0.90 against 0.904. (The natural is the one that differs — drawn 0.75 against 0.672.)
+
+⛔ **Dead or moved routes found on 2026-08-27** (the same failure mode as the darkened Gould):
+
+- **SMuFL's spec has moved TWICE** — `w3c.github.io/smufl` → `w3c-cg.github.io/smufl` → and only
+  **`http://smufl.formats.music/latest/…`** serves content today.
+- Bravura's metadata file is **`redist/Bravura.json`**, not `bravura_metadata.json` (404).
+- **`steinberg.help` is a JavaScript reader** — curl and WebFetch get a nav shell, never a topic. The
+  working route is **`archive.steinberg.help/dorico/v2|v4|v5/…`** (v4 has full bodies, v5's are stubs,
+  v3/v3.5 are 404). Dorico ≥6 topic bodies: unreachable.
+- `usermanuals.finalemusic.com/FinaleMac/…` 403s to curl; the **versioned** trees work.
+- ❌ **MPA's *Standard Music Notation Practice* is image-only past p. 3 and has no key-signature
+  section**; **MOLA is silent on cancellation** (checked) though it does require the end-of-line
+  cautionary.
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the

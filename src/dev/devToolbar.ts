@@ -8,6 +8,8 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
+import { dbg } from '../utils/debug'
+import { openKeySignatureSketch } from './keySignatureSketchWindow'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -276,6 +278,53 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     // Nothing to act on until a bar is clicked — the same gesture `+ Above` / `+ Below` wait for.
     hasStaffContext)
   row.appendChild(staffBox)
+
+  /*
+   * --- 🔧 KEY SIGNATURE — SCAFFOLDING, and today a STUB: these buttons LOG, they place nothing. ---
+   *
+   * The temporary door for the key-signature feature (docs/key-signature-plan.md §6), so the thing
+   * can be exercised long before it has a real UI. ⛔ **It has a fate, and it is written down:** the
+   * barline palette lived here in exactly this shape and was DELETED the day Insert ▸ Barline
+   * existed — see the note immediately below this block, which is the argument in full. This row
+   * goes the same way. Do not grow it, do not add a minor-key row, do not give it a custom-signature
+   * editor: the real picker is a design question nobody has answered yet (his own words, 2026-08-27:
+   * *"we are not doing UI now"*), and agent research into Finale's stepper vs Sibelius's list is why.
+   *
+   * ⭐ **The `fifths` column is the useful part.** Each row is one call to the eventual
+   * `keyFromFifths(n)` — the CLASSICAL CONSTRUCTOR, not a second model: a traditional key signature
+   * is an ordered list of altered letters that happens to be in cycle-of-fifths order, and the
+   * integer only names it (`utils/keySignature.ts` argues this at length; ⛔ do not reintroduce
+   * `fifths` as storage). So when P1 lands, this table stops being a placeholder and becomes five
+   * arguments, unchanged.
+   *
+   * ⚠️ C major is in the list on purpose. It is the row that catches the two rules an empty
+   * signature has to obey — it PRINTS NOTHING where a key is in force, and it must print CANCELLING
+   * NATURALS at a change TO it — and a palette that only offered keys with ink would never ask.
+   */
+  const KEY_PALETTE: ReadonlyArray<{ label: string; fifths: number; title: string }> = [
+    { label: 'C', fifths: 0, title: 'C major — no sharps, no flats' },
+    { label: 'G', fifths: 1, title: 'G major — 1 sharp (F♯)' },
+    { label: 'F', fifths: -1, title: 'F major — 1 flat (B♭)' },
+    { label: 'D', fifths: 2, title: 'D major — 2 sharps (F♯ C♯)' },
+    { label: 'E♭', fifths: -3, title: 'E♭ major — 3 flats (B♭ E♭ A♭)' },
+  ]
+  const keyBox = group('Key:')
+  for (const { label, fifths, title } of KEY_PALETTE) {
+    action(keyBox, label, `${title} — 🔧 STUB: logs only, places nothing yet`,
+      () => true,
+      // ⛔ No `palette.armKeySignature` to call yet — the marking tool, the model and the pass are
+      // P1–P5 of the plan. Logging the ARGUMENT the button will one day pass is the whole point of
+      // building the door first: the shape is testable by hand before anything can go wrong in it.
+      () => dbg(`🔧 key palette | ${label} major | fifths:${fifths} `
+        + '| STUB — no model yet, see docs/key-signature-plan.md'))
+  }
+  // 🚧 …and the SKETCH of a picker, beside the five stubs it is an alternative to. His idea: Finale's
+  // stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends thirty rows on
+  // one degree of freedom. It logs and closes; ⛔ read `./keySignatureSketchWindow`'s header before
+  // touching it, and do not mistake it for the design.
+  action(keyBox, '⇅ Stepper…', 'Sketch of a Finale-style key stepper — 🔧 logs only, changes nothing',
+    () => true, () => { openKeySignatureSketch() })
+  row.appendChild(keyBox)
 
   // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a
   //     row of five buttons here from P4 until Insert ▸ Barline arrived on 2026-08-26 — Start Repeat,
