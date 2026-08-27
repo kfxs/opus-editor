@@ -117,6 +117,11 @@ export function laneFingerprint(lane: Measure): string {
     [
       lane.slots,
       lane.clefs ?? null,
+      // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it
+      // decides which of them draw an accidental, and `measureColumns` prices that ink. ⛔ The
+      // INHERITED key is a different question and this fingerprint cannot ask it — see the `keys`
+      // row in `measureRenderRoles.ts`.
+      lane.keys ?? null,
       lane.tuplets ?? null,
       lane.timeSignature,
       lane.actualDurationOverride ?? null, // a pickup bar's capacity → the Voice's mode

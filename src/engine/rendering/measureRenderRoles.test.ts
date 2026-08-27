@@ -22,6 +22,7 @@ import { measureShapeKey } from './MeasureRedrawKey'
 import { MEASURE_RENDER_ROLE } from './measureRenderRoles'
 import type { Clef, Measure, Score } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+import { keyFromFifths } from '@/utils/keySignature'
 
 /** A score whose measure 1 holds notes AND an engraving override anchored to it (so the `id` field
  *  is actually load-bearing — an override-free bar would make `id` look irrelevant). */
@@ -58,6 +59,7 @@ const PERTURB: Record<keyof Measure, (m: Measure) => void> = {
   timeSignatureHidden: m => { m.timeSignatureHidden = !m.timeSignatureHidden },
   actualDurationOverride: m => { m.actualDurationOverride = frac(3, 1) },
   clefs: m => { m.clefs = [{ id: 'c1', beat: frac(2, 1), clef: 'bass' }] },
+  keys: m => { m.keys = [{ id: 'k1', beat: frac(0, 1), key: keyFromFifths(1) }] },
   dynamics: m => { m.dynamics = [{ id: 'd1', beat: frac(0, 1), level: 'f', voice: 0 }] as never },
   tempos: m => { m.tempos = [{ id: 't1', beat: frac(0, 1), text: 'Allegro' }] as never },
   hairpins: m => { m.hairpins = [{ id: 'h1', type: 'cresc', beat: frac(0, 1), length: frac(2, 1) }] },

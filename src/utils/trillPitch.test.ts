@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { trillAuxiliary } from './trillPitch'
-import { C_MAJOR, type KeySignature } from './keySignature'
+import { C_MAJOR, keyFromFifths, type KeySignature } from './keySignature'
 import { spellingDiatonicPos } from './pitchSpelling'
 import type { PitchAlter, PitchStep } from '@/types/music'
 
@@ -36,14 +36,14 @@ describe('trillAuxiliary — which note', () => {
 
 describe('trillAuxiliary — what sounds', () => {
   it('takes the KEY signature where the bar says nothing', () => {
-    const dMajor: KeySignature = { fifths: 2 } // F♯ C♯
+    const dMajor: KeySignature = keyFromFifths(2) // F♯ C♯
     // A trill on E in D major alternates with F♯ — and prints nothing, since the key says so.
     expect(trillAuxiliary({ step: 'E', octave: 4 }, dMajor, NONE))
       .toEqual({ step: 'F', alter: 1, octave: 4, accidental: null })
   })
 
   it('takes the BAR\'s running accidental over the key', () => {
-    const dMajor: KeySignature = { fifths: 2 }
+    const dMajor: KeySignature = keyFromFifths(2)
     // An F♮ earlier in the bar cancels the key's F♯ at that position.
     const aux = trillAuxiliary({ step: 'E', octave: 4 }, dMajor, bar('F', 4, 0))
     expect(aux.alter).toBe(0)
@@ -68,7 +68,7 @@ describe('trillAuxiliary — what is printed', () => {
   })
 
   it('prints NOTHING when the bar merely repeats what the key already said', () => {
-    const gMajor: KeySignature = { fifths: 1 } // F♯
+    const gMajor: KeySignature = keyFromFifths(1) // F♯
     expect(trillAuxiliary({ step: 'E', octave: 4 }, gMajor, bar('F', 4, 1)).accidental).toBeNull()
   })
 })

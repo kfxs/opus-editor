@@ -87,6 +87,27 @@ export const MEASURE_RENDER_ROLE: Record<keyof Measure, MeasureRenderRole> = {
    *  NOT in the width key — see the long comment in MeasureWidthCache. */
   clefs: 'width',
 
+  /**
+   * ⚠️⚠️ **NOT for the reason you would guess, and the wrong reason is right there in the
+   * `timeSignatureChange` row above.** A key signature is drawn at the front of a bar and takes
+   * horizontal room — and that alone would make it `'shape'`, exactly like the meter glyph, whose
+   * room is *overhead* priced outside the note-space path (`headerInk` / `calculateMeasureWidths`).
+   *
+   * It is `'width'` because of what it does to the NOTES: a key signature decides which of them draw
+   * an accidental at all (the F♯ in G major loses its sign, a later F♮ gains one), and
+   * `measureColumns` prices that accidental's ink into the column. So the bar's own music changes
+   * width. ⛔ The clef's exemption does not transfer — a clef is *provably* width-independent
+   * (`clefWidthIndependence.test.ts`); a key is not.
+   *
+   * 🚨🚨 **AND THIS ROW IS NECESSARY, NOT SUFFICIENT — the dangerous half cannot be stated here.**
+   * This table is per-measure and own-fields-only, so it answers for the `keys` bar *N* stores. But a
+   * key signature is INHERITED: the key set in bar 1 decides the accidentals drawn in bar 40, whose
+   * own fields never move. That is the governing clef's bug exactly, it is silent, and its home is
+   * the same one — a governing-`key` row in `MeasureRedrawKey`'s `ShapeKeyInputs`, beside `clef`.
+   * See docs/key-signature-plan.md §1.3. ⛔ Do not read this row as covering it.
+   */
+  keys: 'width',
+
   /** Drawn, weightless. The canonical "shape only" element — copy this row for a hairpin. */
   dynamics: 'shape',
 

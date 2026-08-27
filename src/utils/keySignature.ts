@@ -1,141 +1,89 @@
 /**
  * THE KEY IN FORCE — resolved positionally, bottoming out in C major.
  *
- * ⚠️⚠️ **The editor has no key-signature FEATURE.** Nothing draws a key signature, nothing lets you
- * set one, and `Score` deliberately has no `keySignature` field ({@link Score}'s own note says why:
+ * ⭐ **`keyAt` takes the full positional address**, because a key signature is per-staff and
+ * mid-score: `Measure.keys` is the storage ({@link KeyChange}, the shape of `clefs` / `dynamics` /
+ * `tempos`), and this module is the walk back over it. ⛔ `Score` has no key field and never will —
  * a global would silently mean "the key at bar 1 beat 0", the conflation that made the old
- * `score.clef` bleed across staves). This module is not that feature arriving early — it is the
- * ADDRESS the feature will answer at, written down now because the trill needs to ask the question
- * today (docs/trill-plan.md §3).
+ * `score.clef` bleed across staves.
  *
- * ⭐ **So `keyAt` takes the full positional address and returns the constant.** The point is the
- * CALL SITES: they are already written as "the key at this bar on this staff", which is what
- * `types/music.ts` says a key signature will be (`Measure.keys?: KeyChange[]` carrying a `staffId`,
- * the shape of `clefs` / `dynamics` / `tempos`). The day that field exists, this function grows a
- * walk-back over it — `effectiveClefAt`'s shape, exactly — and **not one caller changes**. The
- * parameters are underscore-prefixed to say, at the definition, that they are not read YET; making
- * them honest is the whole of the change.
+ * ⚠️⚠️ **THE DISCIPLINE THAT KEEPS THIS CHEAP: readers ask {@link keyAlterOf}, never the shape of
+ * the list.** Every reader wants one of three things, and only the third needs a number:
  *
- * ⛔ **Do not add `Measure.keys` here.** A field with no feature is a field nothing maintains, and
- * every score would carry it. The trigger is the key-signature feature itself.
- */
-import type { PitchAlter, PitchStep, Score } from '@/types/music'
-
-/**
- * A key signature as a POSITION ON THE CIRCLE OF FIFTHS, which is how MusicXML (`<fifths>`),
- * LilyPond and MuseScore all store one — never as a list of altered letters. One integer says both
- * which letters are altered and in which direction, and the ORDER of accidentals falls out of it
- * rather than being a second thing to keep in step.
+ *  1. **what a letter is altered to** — pitch resolution, playback, the trill auxiliary:
+ *     {@link keyAlterOf} answers directly;
+ *  2. **the printed order and position of the signs** — that is the list's own order, which is
+ *     AUTHORED data (see below);
+ *  3. **what the key is CALLED** — {@link fifthsOf}, which returns `null` when there is no
+ *     traditional name.
  *
- * `mode` is carried because a key signature does not determine it (three sharps is A major or F♯
- * minor) and a future feature will want to print the difference. Nothing here reads it.
- */
-export interface KeySignature {
-  /** +n = n sharps, −n = n flats, 0 = none. */
-  fifths: number
-  mode?: 'major' | 'minor'
-}
-
-/**
- * ⏭️⭐⭐ **A KEY SIGNATURE MUST NOT STAY FIFTHS-ONLY.** His requirement, 2026-08-13: Bartók's
- * *Mikrokosmos* writes signatures like **one flat plus one sharp**, which no position on the circle
- * of fifths can express — *"the key signature should be open"*. `fifths` above is the SHORTHAND for
- * the traditional case, not the storage that is allowed to forbid the rest.
+ * The first pass that reaches past these and reads `alterations` positionally is the one that makes
+ * a custom signature expensive again.
  *
- * That is the standard-blessed shape rather than an exotic extension: MusicXML's `<key>` accepts
- * repeated `<key-step>`/`<key-alter>`/`<key-accidental>` triples INSTEAD of `<fifths>` for exactly
- * this, and LilyPond's `\set Staff.keyAlterations` takes an arbitrary alist of (degree
- * . alteration). Both keep the fifths form only as the common-case convenience.
+ * ⛔ **The types live in `types/music.ts`** ({@link KeySignature}, {@link KeyAlteration},
+ * {@link KeyChange}) — they are stored model data, serialized into the score file, so they sit with
+ * `Clef` and `TimeSignature` while the resolution sits here. This module re-exports them so a reader
+ * that thinks of the key as one subject can import it as one subject.
  *
- * ## ⭐⭐ How the two models coexist: they are NOT peers
+ * ## ⭐⭐ Why the LIST is the storage and `fifths` is only a NAME
  *
- * The trap is treating "fifths" and "an arbitrary set" as two storage formats to reconcile, and
- * bolting the second on as `{ fifths, custom? }`. That is two answers to one question, and every
- * reader would have to ask which is real. **The open list is the STORAGE; `fifths` is a derived
- * NAME for the subset of signatures that have one.**
+ * His requirement, 2026-08-13: Bartók-style signatures like **one flat plus one sharp**, which no
+ * position on the circle of fifths can express — *"the key signature should be open"*. And it is his
+ * own compositional want, not repertoire fidelity: *"I would be able to write a piece with that key
+ * signature (I think is a nice mode)"* — which raises the bar from round-tripping one through import
+ * to AUTHORING one in the UI.
  *
- * `fifths` looks like a model because it is an integer, but what it is used for splits into three
- * unrelated jobs, and it only wins the third:
+ * That is the standard-blessed shape, not an exotic extension. MusicXML's `<key>` accepts repeated
+ * `<key-step>`/`<key-alter>`/`<key-accidental>` triples INSTEAD of `<fifths>` for exactly this, and
+ * LilyPond's `\set Staff.keyAlterations` takes an arbitrary alist of (degree . alteration). Both
+ * keep the fifths form only as the common-case convenience.
  *
- *  1. **What is each letter altered to?** — pitch resolution, playback, the trill auxiliary. The
- *     list answers directly; fifths answers via a lookup table. The list is strictly better.
- *  2. **What ORDER and staff position do the signs print in?** — for traditional keys the order IS
- *     the fifths order, but a mixed signature has no canonical order, so it is AUTHORED. Make the
- *     open form an **ordered** list and the traditional case is just a list that happens to be in
- *     fifths order. Ordering does not need fifths either.
- *  3. **What is this key CALLED?** ("D major", "three sharps") — this genuinely needs fifths + mode.
- *     And it is genuinely ABSENT for a mixed signature, which is the tell: a property that can be
- *     missing is not the storage.
+ * ⛔ **The trap avoided here was `{ fifths, custom? }`** — two answers to one question, with every
+ * reader having to ask which is real. `fifths` looks like a model because it is an integer, but it
+ * only wins job 3 above, and it is genuinely ABSENT for a mixed signature. **A property that can be
+ * missing is not the storage.**
  *
- * So `fifths` becomes a FUNCTION returning `number | null`, where null means "no traditional name" —
- * the honest answer for a Bartók signature, not a failure. A key picker offers the fifteen named
- * signatures by building their lists; a custom tab builds an arbitrary one.
- *
- * Two things get EASIER, not harder: cautionary naturals at a key change are a set difference
- * between two lists (arithmetic to be careful with, in the fifths model), and transposition maps
- * each altered letter through the interval — the same answer as `fifths ± n` for traditional keys,
- * and actually correct for the rest.
- *
- * ## ⚠️ The discipline that keeps the change cheap
- *
- * **Readers ask {@link keyAlterOf}. Nothing reads `key.fifths` directly.** That is true today (this
- * module has exactly one reader, `utils/trillPitch`), and it is the entire reason the eventual
- * change is one function body plus this type — `trillPitch` would not change a character. The first
- * pass that reaches for the integer instead is the one that makes coexistence a real problem.
- *
- * ⚠️ Per-staff is already accounted for ({@link keyAt} takes a `staffId`), and it matters for the
- * same repertoire: Bartók writes DIFFERENT signatures in the two hands (Bagatelle Op. 6 No. 1 —
- * four sharps in the right hand, four flats in the left; his own words for it were that he had
- * carried the key-signature principle *"ad absurdum"*).
+ * Two things got EASIER, not harder: cancellation naturals at a key change are a set difference
+ * between two lists, and transposition maps each altered letter through the interval — the same
+ * answer as `fifths ± n` for traditional keys, and actually correct for the rest.
  *
  * ## ⭐⭐ The shape, decided by what four engines actually do (researched 2026-08-13)
  *
- * ```ts
- * alterations: Array<{ step: PitchStep; alter: PitchAlter; octave?: number; glyph?: string }>
- * ```
- *
  * **Keyed by LETTER, with an OPTIONAL octave override — and the list ORDER is authored data.**
- * Both halves are what the reference implementations converge on, not a preference:
  *
  *  - **LilyPond** `\set Staff.keyAlterations` takes `((octave . step) . alter)`, with
  *    `(step . alter)` documented as the shorthand meaning "the same alteration in ALL octaves".
  *    ⭐ The octave-scoped form is the primary one; the all-octaves form is the abbreviation.
- *  - **MusicXML** `<key>` offers `<key-step>`/`<key-alter>`/`<key-accidental>` instead of
- *    `<fifths>`, then optional `<key-octave>` — which binds to a signature element **by printed
- *    index, "counted from left to right"**, so the order is load-bearing in the format itself.
- *  - **Finale**'s *Nonstandard Key Signature* dialog had Accidental Order and Amount, plus
- *    Accidental **Octave** Placement *per clef*; its manual says outright that a signature
- *    *"can contain one sharp and one flat… and there need not be any logic to their positions."*
- *  - **Dorico** exposes Order, Note and Octave as three independent arrow-button axes, edited per
- *    clef. **MuseScore** is the outlier — purely positional glyph placement, no letter concept at
- *    all, which is the easiest to build and the hardest to play back.
+ *  - **MusicXML** binds `<key-octave>` to a signature element **by printed index, "counted from left
+ *    to right"** — so the order is load-bearing in the format itself.
+ *  - **Finale**'s *Nonstandard Key Signature* dialog had Accidental Order and Amount plus Accidental
+ *    **Octave** Placement *per clef*; its manual says outright that a signature *"can contain one
+ *    sharp and one flat… and there need not be any logic to their positions."*
+ *  - **Dorico** exposes Order, Note and Octave as three arrow-button axes, per clef. **MuseScore** is
+ *    the outlier — purely positional glyph placement, no letter concept at all, which is the easiest
+ *    to build and the hardest to play back.
  *
- * ⭐ **Store the order; do not derive it.** Once a signature is not a circle-of-fifths position
- * there is no rule left to derive an order FROM. LilyPond is the only engine that derives, it
- * needed a dedicated `keyAlterationOrder` table to do it, and its documented behaviour changed
- * between 2.18 and 2.20 — exactly the instability you get from deriving something users think of as
- * authored. Derivation belongs at CREATION time (fill in the traditional F♯-C♯-G♯… order), after
- * which the list is data.
+ * ⭐ **Store the order; do not derive it.** Once a signature is not a circle-of-fifths position there
+ * is no rule left to derive an order FROM. LilyPond is the only engine that derives, it needed a
+ * dedicated `keyAlterationOrder` table to do it, and its documented behaviour CHANGED between 2.18
+ * and 2.20 — exactly the instability you get from deriving something users think of as authored.
+ * Derivation belongs at CREATION time ({@link keyFromFifths}), after which the list is data.
  *
  * ## ⚠️⚠️ SCOPE and PLACEMENT are two different things — do not conflate them
  *
- * Gould, *Behind Bars* (2011) pp. 93–94, has a section `UNCONVENTIONAL KEY SIGNATURES` whose rule is
- * one sentence: *"Any sharp or flat may be selected as a key signature to alter **all octaves** of
- * the selected pitches"* — followed by *"(Bartók uses many unconventional key signatures in the
- * Mikrokosmos piano pieces.)"*
+ * Gould, *Behind Bars* (2011) pp. 93–94, `UNCONVENTIONAL KEY SIGNATURES`: *"Any sharp or flat may be
+ * selected as a key signature to alter **all octaves** of the selected pitches"* — followed by
+ * *"(Bartók uses many unconventional key signatures in the Mikrokosmos piano pieces.)"* Her own
+ * example draws C♯ on the third space (C5) and it sharpens the C at C4 as well. So:
  *
- * Her own example makes the distinction sharp: the signature draws C♯ on the third space (i.e. at
- * C5) and it sharpens the C at **C4** as well. So:
+ *  - **SCOPE is per-LETTER, all octaves.** That is the rule, flatly, and it is what
+ *    {@link keyAlterOf} implements.
+ *  - **PLACEMENT is a staff position DERIVED from the letter and the clef** — {@link
+ *    KeyAlteration.octave} overrides it and says nothing about which octaves are governed.
  *
- *  - **SCOPE is per-LETTER, all octaves.** That is the rule, flatly.
- *  - **PLACEMENT is a staff position, DERIVED from the letter and the clef** — it is where the glyph
- *    is drawn, and it says nothing about which octaves are governed.
- *
- * ⭐ **So `octave?` above is about PLACEMENT, not scope**, and it is optional because the standard
- * position is derivable. ⛔ **Per-octave SCOPE is not required by any 20th/21st-century repertoire
- * that could be sourced.** The only per-octave precedent found is Renaissance — a flat printed in
- * *two* octaves, which is reinforcement of a letter, not restriction of one. If a restricting form
- * is ever wanted it is a later extension; nothing today justifies it.
+ * ⛔ **Per-octave SCOPE is required by no sourced repertoire.** The only per-octave precedent found
+ * is Renaissance — a flat printed in *two* octaves, which is reinforcement of a letter, not
+ * restriction of one.
  *
  * ## ⭐ Order is authored, and here is the proof
  *
@@ -154,33 +102,26 @@ export interface KeySignature {
  * ## ⚠️ The honest caveat, which belongs in whatever UI is built
  *
  * **A single signature on a single staff mixing sharps AND flats could not be evidenced from any
- * score.** Gould does not show one; Oramo does not; the only named candidate (Rzewski, *God to a
- * Hungry Child* — B♭, E♭, F♯) is uncited. Everything verifiable — Bartók's Bagatelle op. 6 no. 1
- * (4♯ RH against 4♭ LH, which Bartók himself called carrying the principle *ad absurdum*), the
- * *44 Duos*, the *Mikrokosmos* pieces, Stravinsky, Holst, the harp in the Concerto for Orchestra —
- * achieves mixed sharps and flats **across two staves**, never within one signature. The model must
- * still PERMIT it (it costs nothing once a signature is a set of pairs), but the ordering and
- * grouping for that case have no authority to appeal to: whatever we do there is **house style**,
- * and should be documented as such rather than presented as a convention.
+ * score.** Everything verifiable — Bartók's Bagatelle op. 6 no. 1 (4♯ RH against 4♭ LH, which he
+ * himself called carrying the principle *ad absurdum*), the *44 Duos*, the *Mikrokosmos* pieces,
+ * Stravinsky, Holst — achieves mixed sharps and flats **across two staves**, never within one
+ * signature. The model must still PERMIT it (it costs nothing once a signature is a set of pairs),
+ * but the ordering and grouping for that case have no authority to appeal to: whatever we do there
+ * is **house style**, and should be documented as such rather than presented as a convention.
  *
- * ## ⏭️ Two things that are RENDER policy, not model
- *
- *  - **Cancellation.** Gould gives two named practices — traditional (naturals in the order of the
- *    signature being cancelled, then the new signature, both after the barline) and contemporary
- *    (only the new signature; naturals only when the new section has none) — plus two historical
- *    variants. What is stored is *the signature changes here*; how it is cancelled is a policy.
- *  - **Courtesy renders.** A signature must be drawn where it does NOT take effect: at a system
- *    break the cancelling naturals and new signature go at the END of the first system, and a
- *    bracketed reminder is wanted in a second-time bar. That is a layout-keyed decision, never a
- *    second signature in the model.
- *
- * ⚠️ This shape serialises to MusicXML almost 1:1, and to LilyPond with one unit conversion:
- * MusicXML's `alter` is in SEMITONES, LilyPond's is a proportion of a 200-cent whole tone
- * (sharp = 1/2). Ours is MusicXML's, matching {@link PitchAlter} elsewhere in the model.
+ * @see docs/key-signature-plan.md — the build (P1 is this file plus `Measure.keys`)
+ * @see docs/key-signature-research.md — the five research passes behind every number in it
  */
+import type { Fraction, KeyChange, KeySignature, PitchAlter, PitchStep, Score } from '@/types/music'
+import { fracCreate, fracLt, fracLte, fracGt } from './fraction'
 
-/** The key everything resolves to until the key-signature feature exists. */
-export const C_MAJOR: KeySignature = { fifths: 0, mode: 'major' }
+const ZERO: Fraction = fracCreate(0, 1)
+
+export type { KeyAlteration, KeyChange, KeySignature } from '@/types/music'
+
+/** The key everything resolves to when nothing has said otherwise. ⭐ Not a special case anywhere:
+ *  it draws nothing because the list is empty, and every rule reads it the same as any other key. */
+export const C_MAJOR: KeySignature = { alterations: [], mode: 'major' }
 
 /** The order sharps are added in — F♯ C♯ G♯ D♯ A♯ E♯ B♯. */
 const SHARP_ORDER: readonly PitchStep[] = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
@@ -189,25 +130,116 @@ const FLAT_ORDER: readonly PitchStep[] = ['B', 'E', 'A', 'D', 'G', 'C', 'F']
 
 /**
  * What the key signature ALONE does to a letter — the alteration every note of that letter carries
- * unless an accidental in the bar says otherwise. Independent of octave, which is what makes a key
- * signature a key signature.
+ * unless an accidental in the bar says otherwise. **Independent of octave**, which is what makes a
+ * key signature a key signature (and why {@link KeyAlteration.octave}, a placement override, is not
+ * consulted here).
+ *
+ * ⭐ THE reader. Ask this, not the list.
  */
 export function keyAlterOf(key: KeySignature, step: PitchStep): PitchAlter {
-  const n = key.fifths
-  if (n > 0) return SHARP_ORDER.slice(0, Math.min(n, 7)).includes(step) ? 1 : 0
-  if (n < 0) return FLAT_ORDER.slice(0, Math.min(-n, 7)).includes(step) ? -1 : 0
+  for (const a of key.alterations) {
+    if (a.step === step) return a.alter
+  }
   return 0
 }
 
 /**
- * The key in force at a bar on a staff. **Today: always C major** — see the module note for why
- * that is a placeholder with a real address rather than a stub.
+ * The key's traditional NAME as a circle-of-fifths position — `+n` sharps, `−n` flats, `0` for C
+ * major / A minor — or **`null` when it has none**, which is the honest answer for a signature
+ * mixing sharps and flats, and for an open/atonal one.
  *
- * @param _score the score to resolve against (unread — the walk-back lands here)
- * @param _measureNumber where to resolve (unread)
- * @param _staffId which staff (unread) — a key is PER-STAFF, since a transposing instrument's key
- *   differs from the score's. Absent = the first staff, the convention everywhere (`utils/lanes`).
+ * ⭐ **Matched by CONTENT, not by printed order.** D major with its two sharps written in the other
+ * order is still D major: the order is a printing decision (see the header), and this function is
+ * not about printing. {@link KeyAlteration.octave} is ignored for the same reason — it is placement.
+ *
+ * ⛔ **Never rebuild a key from its own `fifthsOf`.** `keyFromFifths(fifthsOf(k))` normalises away
+ * exactly the authored order and placement this model exists to carry.
  */
-export function keyAt(_score: Score, _measureNumber: number, _staffId?: string): KeySignature {
+export function fifthsOf(key: KeySignature): number | null {
+  // ⚠️ An OPEN key is not C major (see {@link KeySignature.mode}). Both have no alterations, and
+  // only this line keeps them apart here: "no key" has no traditional name, it is not the name of
+  // the key with no accidentals.
+  if (key.mode === 'open') return null
+  if (key.alterations.length === 0) return 0
+  if (key.alterations.length > 7) return null
+
+  const sharps = key.alterations.every(a => a.alter === 1)
+  const flats = key.alterations.every(a => a.alter === -1)
+  if (!sharps && !flats) return null
+
+  const order = sharps ? SHARP_ORDER : FLAT_ORDER
+  const n = key.alterations.length
+  const wanted = order.slice(0, n)
+  // A cycle-of-fifths PREFIX, as a set: every letter of the prefix is altered exactly once.
+  const letters = new Set(key.alterations.map(a => a.step))
+  if (letters.size !== n) return null
+  if (!wanted.every(step => letters.has(step))) return null
+  return sharps ? n : -n
+}
+
+/**
+ * The classical constructor — the fifteen traditional signatures, built as lists in cycle order.
+ * ⭐ **This is the whole of "we do classical first":** the classical case is a *constructor*, not a
+ * second model, and the dev palette's buttons are calls to it.
+ *
+ * `n` is clamped to ±7; ⛔ there is no wrap (C♯ major stepping round to C♭ major is a 14-semitone
+ * jump dressed as one step).
+ */
+export function keyFromFifths(n: number, mode: 'major' | 'minor' = 'major'): KeySignature {
+  const count = Math.min(Math.abs(Math.trunc(n)), 7)
+  const order = n > 0 ? SHARP_ORDER : FLAT_ORDER
+  const alter: PitchAlter = n > 0 ? 1 : -1
+  return {
+    alterations: count === 0 ? [] : order.slice(0, count).map(step => ({ step, alter })),
+    mode,
+  }
+}
+
+/** Does a key change belong to the staff being asked about? Both sides resolve absent → the first
+ *  staff, so at N=1 (all absent) everything matches. `clefUtils.clefOnStaff`'s twin — ⛔ and NOT
+ *  `staffContent.matchesStaff`, which lives a layer up (`engine/models`). */
+function keyOnStaff(k: KeyChange, staffId: string | undefined, score: Score): boolean {
+  const first = score.staves?.[0]?.id
+  return (k.staffId ?? first) === (staffId ?? first)
+}
+
+/** Key changes of a measure, sorted ascending by beat (empty if none), filtered to one staff. */
+function measureKeyChanges(score: Score, measureNumber: number, staffId?: string): KeyChange[] {
+  const measure = score.measures.find(m => m.number === measureNumber)
+  if (!measure?.keys?.length) return []
+  return measure.keys
+    .filter(k => keyOnStaff(k, staffId, score))
+    .sort((a, b) => (fracLt(a.beat, b.beat) ? -1 : fracGt(a.beat, b.beat) ? 1 : 0))
+}
+
+/**
+ * The key in force at a bar on a staff — the latest change at or before `beat` in that measure, else
+ * inherited from earlier measures on **this** staff, else {@link C_MAJOR}.
+ *
+ * `beat` defaults to the bar's start, which is what a caller asking "the key at bar N" means and
+ * what every caller wants today: a beat-0 signature is the only kind anything writes. ⭐ Pass a beat
+ * when the question is really "the key at this moment" — a mid-bar change (permitted by
+ * {@link KeyChange}) takes effect from its own beat, exactly as a mid-bar clef change does.
+ *
+ * ⚠️ **Key is per-staff content.** There is no document-level key, so an unset staff cannot inherit
+ * another staff's — the same rule, and for the same reason, as `effectiveClefAt`.
+ *
+ * ⚠️ **This is the MODEL's answer, and it walks.** Layout must not ask it per bar per staff: that
+ * shape, for the clef, was 47% of all layout time until `resolveStaffClefs` replaced it with one
+ * forward pass. See docs/key-signature-plan.md §2.1.
+ */
+export function keyAt(score: Score, measureNumber: number, staffId?: string, beat: Fraction = ZERO): KeySignature {
+  const changes = measureKeyChanges(score, measureNumber, staffId)
+  let best: KeyChange | undefined
+  for (const k of changes) {
+    if (fracLte(k.beat, beat)) best = k // sorted, so the last match wins
+    else break
+  }
+  if (best) return best.key
+
+  for (let n = measureNumber - 1; n >= 1; n--) {
+    const earlier = measureKeyChanges(score, n, staffId)
+    if (earlier.length) return earlier[earlier.length - 1].key
+  }
   return C_MAJOR
 }

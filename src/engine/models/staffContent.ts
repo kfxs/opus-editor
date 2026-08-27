@@ -21,6 +21,7 @@ import type {
   ChordRest,
   ClefChange,
   Dynamic,
+  KeyChange,
   Hairpin,
   Ottava,
   Pedal,
@@ -89,6 +90,7 @@ export function matchesStaff(
 interface StaffContentView {
   slots: ChordRest[]
   clefs: ClefChange[]
+  keys: KeyChange[]
   dynamics: Dynamic[]
   hairpins: Hairpin[]
   ottavas: Ottava[]
@@ -104,6 +106,12 @@ export function staffSlots(measure: Measure, staffId: string | undefined, score:
 /** One staff's clef changes within a measure (empty when the measure has none). */
 export function staffClefs(measure: Measure, staffId: string | undefined, score: Score): ClefChange[] {
   return (measure.clefs ?? []).filter((c) => matchesStaff(c.staffId, staffId, score))
+}
+
+/** One staff's key changes within a measure (empty when the measure has none). A key is per-staff
+ *  for the clef's reason and one more: Bartók writes different signatures in the two hands. */
+export function staffKeys(measure: Measure, staffId: string | undefined, score: Score): KeyChange[] {
+  return (measure.keys ?? []).filter((k) => matchesStaff(k.staffId, staffId, score))
 }
 
 /** One staff's dynamics within a measure. */
@@ -148,6 +156,7 @@ export function staffContent(measure: Measure, staffId: string | undefined, scor
   return {
     slots: staffSlots(measure, staffId, score),
     clefs: staffClefs(measure, staffId, score),
+    keys: staffKeys(measure, staffId, score),
     dynamics: staffDynamics(measure, staffId, score),
     hairpins: staffHairpins(measure, staffId, score),
     ottavas: staffOttavas(measure, staffId, score),
@@ -183,7 +192,7 @@ export function staffMeasureView(measure: Measure, staffId: string | undefined, 
   // system" — this is where the filter goes, and it will be a filter on the SCOPE, not on the field.
   return {
     ...measure,
-    slots: c.slots, clefs: c.clefs, dynamics: c.dynamics, hairpins: c.hairpins, ottavas: c.ottavas,
-    pedals: c.pedals, tuplets: c.tuplets,
+    slots: c.slots, clefs: c.clefs, keys: c.keys, dynamics: c.dynamics, hairpins: c.hairpins,
+    ottavas: c.ottavas, pedals: c.pedals, tuplets: c.tuplets,
   }
 }

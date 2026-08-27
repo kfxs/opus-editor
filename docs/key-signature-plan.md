@@ -7,10 +7,28 @@ this file is the BUILD, that one is the WHY.
 
 ✅ **And the four open decisions were taken the same day** (§10): an open/atonal key is a distinct
 value carried by `mode`; the cautionary at a system break is ON and is *the engraving*, not a
-warning; it takes a generated double bar; a zero-glyph signature is reachable through a **signpost**;
-and the accidental gap is **one constant, 0.25 sp**.
+warning; **no double bar is generated — Gould's rule, so it is the author's edit** (§4.2b, reversed
+later the same day); a zero-glyph signature is reachable through a **signpost**; and the accidental
+gap is **one constant, 0.25 sp**.
 
 ⛔ **Nothing is built except the dev-shell stubs (§6).** P1 has not started.
+
+> ### ⚠️ AMENDED 2026-08-27, after reading the plan against the code
+>
+> Every claim below was checked at the call site. The model half (§1, §2, §5) held up; the numbers in
+> §4.0 are exact. **Eight things did not**, and they are marked ⚠️/🚨 **AMENDED** where they belong
+> rather than in a list here — the two that change the SIZE of the work:
+>
+> 1. 🚨 **§1.3 — the INHERITED key is invisible to the shape key.** `MEASURE_RENDER_ROLE` is
+>    own-fields-only, so a key set in bar 1 leaves bar 40's cached picture — and its old accidentals —
+>    in place. It needs a `ShapeKeyInputs` row, exactly as the governing clef has one.
+> 2. 🚨 **§3.1 — NOTE ENTRY was not in the plan at all.** Entry spells the natural letter, so under
+>    §3's display rule every note typed in G major would draw a spurious ♮.
+>
+> The others: §2's call-site count (two, not one) and its specs; §2.1's missing `keysByStaff` prepass;
+> §3's missing `measureColumns` (which is what makes this a *width* change); §4.1's empty-signature
+> trap; §4.3's wrong table; §5's unregistered hit boxes. One dead reference removed
+> (`docs/render-width-key-vs-shape-key.md` does not exist).
 
 ## 0. What we are building, and what we are not
 
@@ -34,6 +52,14 @@ what `dev/`'s barline palette was before it was deleted the day the real one exi
 
 `utils/keySignature.ts` already argues this at length and the argument is not reopened here. The
 short form:
+
+⚠️ **AMENDED AT BUILD (P1): the TYPES live in `types/music.ts`, the resolution stays in
+`utils/keySignature.ts`.** A `KeySignature` is now stored model data — it serializes into
+`Measure.keys` — so it belongs beside `Clef`, `TimeSignature` and `ClefChange`, which is the split
+every other kind already has (`Clef` in types, `clefUtils` resolving it). ⭐ `utils/keySignature.ts`
+**re-exports** all three names, so `trillPitch`'s import did not change, and it keeps the whole
+argument below in its header. ⛔ The alternative — `types/music.ts` importing a non-primitive from
+`utils/` — would have inverted the one arrow this repo is careful about.
 
 ```ts
 export interface KeyAlteration { step: PitchStep; alter: PitchAlter; octave?: number }
@@ -91,13 +117,42 @@ export interface KeyChange { id: string; beat: Fraction; key: KeySignature; staf
   write path need not refuse it. ⏳ Whether the dev palette should ever WRITE one — *no*, on current
   evidence; a click places at beat 0.
 
-### 1.3 The compiler already asks the questions
+### 1.3 The compiler asks ONE of the questions — and it is not the dangerous one
 
 Adding `keys` to `Measure` makes **`engine/rendering/measureRenderRoles.ts` stop compiling** until it
-is classified. The answer is **`'width'`** — a signature takes horizontal room — which puts it in the
-shape key too, by construction. That is one whole class of silent staleness closed for free.
+is classified, and **`measureRenderRoles.test.ts`'s `PERTURB` table** (also `Record<keyof Measure, …>`)
+until the classification is *exercised*. The answer is **`'width'`**.
 
-⚠️ `docs/render-width-key-vs-shape-key.md` is the required read before this line is written.
+🚨🚨 **AMENDED 2026-08-27, read against the code — the original text of this section said this closed
+"one whole class of silent staleness for free", and that is FALSE for the case that matters.**
+`MEASURE_RENDER_ROLE` is **own-fields-only**: it asks what bar *N*'s field does to bar *N*'s keys. Its
+own `barline` row says so in as many words. But a key signature is **INHERITED**, and §3's rule means
+the key set in bar 1 decides which accidentals are DRAWN in bar 40. Bar 40's own fields never change,
+so `measureShapeKey` is unchanged, so P5 replays its cached `<g>` — **the new signature on the stave
+and the old accidentals underneath it, forever.**
+
+⭐⭐ **That is the GOVERNING-CLEF bug verbatim, and the code already carries both the fix and the
+warning.** `clef` is an explicit row in `MeasureRedrawKey.ts`'s `ShapeKeyInputs` for exactly this
+reason, with the comment *"an alto clef at bar 40 would leave every later bar's key unchanged… the
+old noteheads underneath it, at the wrong pitches, forever."* So:
+
+- ⛔ **`Measure.keys: 'width'` is necessary and NOT sufficient.** The feature also owes a
+  **governing `key` row in `ShapeKeyInputs`** — the same seam `clef`, `crossBarBeams` and
+  `cautionaryEndClef` already use for a fact no `Measure` field can express.
+- …and a **`cautionaryEndKey`** row beside `cautionaryEndClef` / `cautionaryEndTimeSig` when §4.2
+  lands, on the same terms: a neighbour-decided picture.
+
+⚠️ **And the `'width'` answer is right for a reason the first draft got wrong.** It is NOT "a
+signature takes horizontal room" — `timeSignatureChange` is classified **`'shape'`** for precisely
+that shape of glyph, because header overhead is priced outside the note-space path
+(`measureRenderRoles.ts`, the `timeSignatureChange` row). The real reason is §3: a key changes which
+**accidental glyphs** the notes draw, and `measureColumns` prices accidental ink through
+`displayedAccidentals`. ⭐ Which also means the clef's exemption does **not** transfer: a clef is
+provably width-independent (`clefWidthIndependence.test.ts`), a key is not.
+
+⚠️ The required read before this line is written is **`measureRenderRoles.ts`'s header and
+`MeasureRedrawKey.ts`'s header** — `docs/render-width-key-vs-shape-key.md`, cited here in the first
+draft, **does not exist** (the name is a memory index entry, not a file).
 
 **JSON:** additive and optional, so import/export is untouched and there is **no migration** (that is
 policy, not laziness — `docs/no-json-migration.md`).
@@ -108,8 +163,18 @@ policy, not laziness — `docs/no-json-migration.md`).
 
 `keyAt(score, measureNumber, staffId)` returns `C_MAJOR` today from underscore-prefixed parameters.
 It becomes a walk back over `measure.keys` filtered by staff, exactly the shape of
-`effectiveClefBefore`. **Making the parameters honest is the whole of the change** — its one call
-site (`trillOps`, via `trillPitch`) does not move.
+`effectiveClefBefore`. **Making the parameters honest is the whole of the change** — its call sites
+do not move.
+
+⚠️ **AMENDED 2026-08-27: there are TWO call sites, not one** — `trillOps.ts` *and*
+`playbackSchedule.ts` (`auxiliaryPitchFor`). Both reach it through `trillPitch`, so the claim that
+survives is the one that matters: **neither reads `key.fifths`**, so the change really is one function
+body plus the type. ⛔ But the count was wrong, and the count is what "nothing else moves" was resting
+on.
+
+⚠️ **The SPECS do move, and they move in the same commit** (⭐ *a spec moves with its module*):
+`keySignature.test.ts` and `trillPitch.test.ts` both build `{ fifths: n }` object literals as
+fixtures. "`trillPitch` does not change a character" is true of the **source** only.
 
 New reads, all in `utils/keySignature.ts` beside `keyAlterOf`:
 
@@ -122,6 +187,23 @@ New reads, all in `utils/keySignature.ts` beside `keyAlterOf`:
 
 ⭐ **The last row is what cancellation and cautionary rendering both ask**, and it is a set difference
 between two lists — arithmetic that would be fiddly in the fifths model and is trivial here.
+
+### 2.1 ⚠️ AMENDED 2026-08-27 — the walk is the ANSWER, not the LAYOUT'S read
+
+🚨 **`keyAt` alone is a per-bar walk-back, and the layout asks it per bar PER STAFF, every render.**
+That is the shape whose clef version cost **47% of all layout time** — and the clef's answer is
+already written down: layout does not walk. It resolves **once** into a
+`clefsByStaff: Map<staffId, StaffClefs>` with an `opening` and an `ending` map keyed by measure
+number (`resolveStaffClefs`, threaded through `MeasureLayout` as a parameter), and the per-bar
+question is then a `Map.get`.
+
+⭐ So P3 owes the **same prepass** — `keysByStaff`, `opening` + `ending` — and both halves earn their
+place: `opening` is what the header draws at a system start, `ending` is what §4.2's cautionary
+compares against. ⛔ Do not thread `keyAt(score, …)` into `MeasureLayout` and call it per bar; that is
+the census's most expensive lesson, re-learned.
+
+⚠️ `keyAt` itself stays exactly as §2 describes — it is the **model's** answer, and the one the trill
+and playback ask. The prepass is the **layout's** cache of it, not a second source of truth.
 
 ---
 
@@ -147,6 +229,17 @@ Touched, and this list is the honest measure of the feature's size:
 - `NoteBuilder`'s render pass, which implements the same rule incrementally
 - `FanPass`, which must keep reading the SAME map — its header warns that a second accidental rule
   inside the fan renderer is the one thing that feature cannot afford
+- ⚠️ **AMENDED 2026-08-27 — `layout/measureColumns.ts`, which the first draft of this list MISSED**,
+  and it is the one that makes this a *width* change rather than a picture change: it resolves the
+  signs through `displayedAccidentals` and prices the accidental's INK into the column. **A key
+  signature therefore changes how wide a bar is** (§1.3's amendment, and the reason the clef's
+  width-independence proof does not transfer).
+- ⚠️ …and `CrossBarBeams`, which reads a member's **own bar's** lane for the same walk.
+
+🚨 **`displayedAccidentals` has FIVE call sites, and the key each one needs is ITS OWN BAR'S.** A fan
+member and a cross-bar beam member can live in a different bar from the slot being drawn — so the
+parameter is *the key in force where these slots are*, resolved per lane, ⛔ never "the key the caller
+happened to have".
 
 🚨🚨 **THE TRAP, and it is Gould's own sentence (printed p. 81):** *"This practice holds good even
 when a key signature corrects the accidental"* — with a figure in E♭ major where an explicit ♭ is
@@ -169,6 +262,37 @@ the alteration is already on the note. A key signature changes what is *drawn*, 
 notes.** MuseScore touches pitches only when the *instrument's* transposition changed
 (`editing/editkeysig.cpp:85-143`). So a key signature changes what is drawn, never what is stored —
 which is the answer our spelling-based model wanted anyway.
+
+### 3.1 🚨🚨 AMENDED 2026-08-27 — NOTE ENTRY, which the plan did not mention at all
+
+**The rule above is only half of it, and the missing half is the half the user meets first.**
+
+`NoteEntryCoordinator` takes *"natural pitch spelling from Y coordinate (that staff's clef), then
+apply accidental"* — the click gives a diatonic position, the entered pitch is that letter with
+`alter: 0`, and the armed accidental is the only thing that changes it. Combine that with §3's display
+rule and **G major breaks on the first click**: the entered F carries `alter: 0`, the key says F♯, the
+signs disagree, so the renderer draws a **natural**. Every note typed in a sharp or flat key gets a
+spurious ♮, and the score is unusable in any key but C.
+
+⭐ **So the key is the DEFAULT ALTERATION AT ENTRY, and the armed accidental overrides it.** That is
+what every editor does and it is the other face of the same fallback: the running map first, the key
+underneath it, `alter: 0` only when the key is silent there.
+
+⚠️ Three sites ask the same question and must give the same answer — ⛔ this is a rule, not three
+patches:
+- `NoteEntryCoordinator` (click entry and keyboard entry),
+- the arrow-key pitch moves (a step up from F♮ in G major is G♮, but the F it left must not have been
+  an F♮ to begin with),
+- `midiToSpelling` on **paste** — where the incoming note already carries its own spelling, so the
+  question is whether we respell it. ⏳ *No: paste keeps its spelling* (a pasted F♯ stays F♯ and simply
+  stops drawing its sign), which is the same "changes what is drawn, never what is stored" the
+  paragraph above just decided. Recorded so it is decided once.
+
+⚠️ **`forceAccidental` already exists on the model** and is the courtesy's home: it is what makes an
+explicit sign survive a rule that would suppress it. 🚨 It is therefore also where Gould's p. 81 trap
+gets its teeth — ⛔ do not re-derive "was this sign explicit?" from `alter` in the drawing.
+
+⏭️ **Phase:** this is P4's, and it doubles P4's size. §8's row is amended to say so.
 
 ---
 
@@ -256,6 +380,17 @@ re-measured in the browser by `e2e/spacing.e2e.ts`. A `key` row owes an e2e asse
 commit. ⛔ And a drawn position is not a unit test — jsdom measures every glyph as 0×0 and will agree
 with whatever it is told.
 
+🚨 **AMENDED 2026-08-27 — an EMPTY signature must add NOTHING, and `headerExtent`'s shape makes that a
+real trap.** It collects the drawn parts into an array and returns
+`Σ parts + BETWEEN_PARTS × (parts.length − 1)`. Push a `key` part for C major and the bar pays a whole
+`BETWEEN_PARTS` (1.0 sp) for ink that does not exist — **on every bar of a C-major score**, which is
+every score today. ⭐ The rule is `alterations.length === 0 ⇒ push nothing`, and §6 already guarantees
+it gets exercised: **C is in the dev palette on purpose.**
+
+⚠️ And "one new row" is one row plus **three call sites** (`MeasureLayout`, and `VexFlowRenderer`
+twice — the second reading a per-system cached `headerExtent`), plus `cautionaryExtent`'s union. The
+`Header` interface is where the compiler will start asking.
+
 ### 4.2 What has to be drawn, not just what is in force
 
 - at the **start of every system**, restated (⏳ agents confirm the exception list)
@@ -326,15 +461,41 @@ with whatever it is told.
   quotations are in the research record). ⭐ The cancellation group owes **≈1 sp extra** before the
   new signature — Ross's "half a space or more", measured, and MuseScore's constant exactly.
 
-### 4.2b The double barline before a key change is LAYOUT, not data
+### 4.2b The double barline before a key change is the AUTHOR's, not ours
 
-✅ **DECIDED 2026-08-27: we DO draw one, at the cautionary — and it stays GENERATED, never stored.**
-His words: *"by default I would say we do the double bar too … and the double bar can be a single
-[later], but this is not priority now."*
+🚨🚨 **REVERSED 2026-08-27, later the same day, by him — and this is the standing decision.
+⛔ WE GENERATE NO DOUBLE BAR.** His words: *"i decided before that double bar for cautionary is
+default, but i didnt remember that the cautionary goes always after the bar, in that case i think
+following Gould rule is better as a default and the double bar is just an edit the user can change."*
 
-⚠️⚠️ **I had recorded the opposite earlier in this same session, on ONE source, and reopened it when
-the second contradicted it.** The two treatises disagree, and they disagree about *different
-questions*, which is why both sentences are true:
+⭐⭐ **What moved was the EVIDENCE, not the taste.** Gerou & Lusk's *"add double bar"* was read here as
+a rule about the system-break courtesy — but it sits inside their numbered rules for **where the
+courtesy goes**, and where it goes is *after the last barline* **in every case**, cautionary or not.
+So "after the barline" was never the double bar's reason; it is just where a key signature is. Strip
+that away and G&L stop contradicting Gould at all, and only Gould is left holding a rule:
+
+> **Gould p. 92** — *"A double barline precedes the new key signature **only if the key change
+> coincides with a new musical section**."*
+
+⭐ **A new musical section is an AUTHORED fact only the composer knows.** So the double bar is a thing
+the user WRITES on the bar before, exactly like any other barline — and *ONE OWNER PER LINE* is
+satisfied by there being nothing to own: **`BarlineRenderer` gets no new rule from this feature at
+all.** This is the cheapest possible answer, and it is the one the sources actually support.
+
+🚨 **DEPENDENCY, and it is not optional: the thin double `||` DOES NOT EXIST YET.** `BarlineStyle` is
+`'final' | 'invisible'` today, and the plain double is the type `barline-types-plan.md` lists as still
+unbuilt. ⛔ So "the user can change it" is a promise resting on an unbuilt type: until `'double'`
+joins `BarlineStyle` (its own row in the barline plan's tables, ⛔ not a slice added here), the
+default is correct and **unreachable by hand**. Say so to him rather than quietly generating one.
+
+⏭️ **An automatic double bar may come back later as a per-change OPTION** — but if it does it is a
+WRITE the user's click makes, ⛔ never a sign the renderer invents. MuseScore's `DOUBLE_BEFORE_COURTESY`
+stays in the research record as *what an engine does*, no longer as our rule.
+
+---
+
+⚠️ **The record of how this was decided, kept because it reversed twice in one day** — the two
+treatises looked like they disagreed, and they were answering *different questions*:
 
 - **Gould p. 92** — about a key change ANYWHERE: *"A double barline precedes the new key signature
   **only if the key change coincides with a new musical section**."* A new section is an AUTHORED
@@ -342,32 +503,39 @@ questions*, which is why both sentences are true:
 - **Gerou & Lusk p. 28** — about the SYSTEM-BREAK courtesy specifically: the courtesy key signature
   is placed after the last barline, ***"add double bar"***.
 
-⭐⭐ **And MuseScore implements G&L's rule exactly** — its default is literally
-`DOUBLE_BEFORE_COURTESY`: a double bar **only where a courtesy key signature actually prints**, never
-at every mid-line change. Dorico and Sibelius generate one too (Sibelius unconditionally; Finale not
-at all).
+**And MuseScore implements G&L's rule exactly** — its default is literally `DOUBLE_BEFORE_COURTESY`:
+a double bar **only where a courtesy key signature actually prints**, never at every mid-line change.
+Dorico and Sibelius generate one too (Sibelius unconditionally; Finale not at all). ⛔ Recorded as
+*what four engines do*, no longer as an argument for doing it — and note Finale, which does not.
 
-**So the rule we take is MuseScore's/G&L's**: a double bar at the cautionary, and *nothing* at a
-mid-line key change — where Gould's "new musical section" remains the user's own statement.
+~~**So the rule we take is MuseScore's/G&L's**: a double bar at the cautionary.~~ ⛔ **SUPERSEDED by
+the block at the top of this section** — the G&L sentence was about placement, not about the sign,
+and once that is seen there is no second rule to weigh against Gould's.
 
-🚨 **It is GENERATED, so it must never become a written `barline` field.** `BarlineRenderer` is
-already a score-level pass that decides each boundary's sign from both neighbours and the casting-off
-— which is exactly the shape this rule needs, and the reason it costs nothing. ⛔ An engraving default
-written into the model would be indistinguishable from an authored one, and *ONE OWNER PER LINE*
-(`barline-types-plan.md` §3.2) is what keeps them apart.
+⭐ **What survives from that reading, and it is worth keeping:** had we generated one, it could
+**never** have become a written `barline` field. An engraving default written into the model is
+indistinguishable from an authored one, and *ONE OWNER PER LINE* (`barline-types-plan.md` §3.2) is
+what keeps them apart. ⚠️ That argument now points the other way and finishes the case: since the
+double bar IS authored, it belongs in the model — where the user put it — and nowhere else.
 
-⏭️ **Overridable to a single bar later** — his FYI, not this pass.
+### 4.3 A new drawn element owes rows, not constants — ⚠️ AMENDED: which table, though?
 
-⭐ **That lands exactly right for us**: `BarlineRenderer` is already a score-level pass that decides
-each boundary's sign from both neighbours, so this is a rule it can state — and ⛔ it must NOT become
-a written `barline` field on the measure, which would make an engraving default look like an
-authored one.
+The standing rule stands. **But the first draft of this section named the wrong table**, and it named
+it because the rule was pasted in without checking what the clef and the meter actually did:
 
-### 4.3 A new drawn element owes rows, not constants
-
-⛔ `layout/spacingPadding.ts` gets a **row keyed by the pair**, never a constant somewhere else; and
-`layout/kerning.ts` cares only where two inks share a vertical band. This is the standing rule for
-every drawn element and it is not negotiable for this one.
+- 🚨 **`spacingPadding.ts` is NOT the key signature's table.** Its `InkKind` is
+  `note | rest | accidental | dot | ledger | stem | flag | barline` — **neither the clef nor the meter
+  is in it**, because header ink is not a column against another column. A key signature is header
+  ink, and header ink is priced in **`headerInk.ts`** by `BETWEEN_PARTS`, which is what §4.1 already
+  says. ⭐ So the row this feature owes is §4.1's, and §4.3 was contradicting it.
+- ⏳ A `spacingPadding` row becomes right only if a **mid-bar (beat > 0)** key change is ever drawn as
+  a column — and note the inline CLEF is not one either (`inlineClefExtent`), so that would be a new
+  decision, not a precedent.
+- 🚨 **`kerning.ts`: the signature is ONE atomic ink box, and that is load-bearing.** Gould p. 92 —
+  *"keep the key signature evenly spaced … Do not overlap the flats"* — **forbids** kerning the signs
+  against each other, so ⛔ the glyphs must never be handed to the band test individually. What may
+  kern is the signature's box against what stands beside it (the meter, the first note's accidental),
+  and even that only where they share a vertical band.
 
 ---
 
@@ -390,6 +558,14 @@ Three tables, one row each, following the standing rule that a new feature adds 
    argument, resolved left to right).
 4. `SelectedElement` gains a `keySignature` kind; `assertNeverElement` then names the two sites that
    stay switches — Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`).
+
+⚠️ **AMENDED 2026-08-27 — the list above says who HIT-TESTS and never says who REGISTERS.** A hit-test
+resolves a press against `ElementRegistry` boxes, and a score-level pass has to put them there itself:
+the `|:` is *"registered from the pen … the only place both facts are known"* (`BarlineRenderer`), and
+the ordinary barline box is registered per bar and filtered by `registry.isPainted` at press time. So
+**`KeySignaturePass` registers its own boxes as it draws** (P3's commit, not P5's) — otherwise P5
+arrives to find the hit-test has nothing to hit. ⭐ It is also the answer to the signpost's geometry
+below: the signpost's drawing owns its box, like every other kind.
 
 🚨🚨 **A KEY SIGNATURE IS THE FIRST ELEMENT WHOSE VALID STATE IS ZERO GLYPHS**, and our whole
 selection design rests on ink: `ELEMENT_HIT_ORDER` resolves a press against drawn boxes, and
@@ -507,14 +683,37 @@ picker is §7, and it is not being designed yet.
 
 | # | what | done when |
 |---|---|---|
-| **P1** | `KeySignature` → list; `fifthsOf` / `keyFromFifths`; `Measure.keys` + `KeyChange`; `keyAt` walks; `measureRenderRoles` row | unit-green, nothing drawn, `trillPitch` untouched |
+| ✅ **P1** | **BUILT 2026-08-27.** `KeySignature` → list; `fifthsOf` / `keyFromFifths`; `Measure.keys` + `KeyChange`; `keyAt` walks; `measureRenderRoles` row + its `PERTURB` row | ✅ 5358 unit green, `build:check` clean, nothing drawn, `trillPitch`'s source untouched |
 | **P2** | `keyOps` writes + `MusicEngine` delegators + undo | a key can be set/removed in a test, still nothing drawn |
-| **P3** | `headerInk` key row + `KeySignaturePass` — draws at system starts and at changes | e2e measures the room; **run `test:e2e` either side** |
-| **P4** | the accidental ripple (§3) — one rule, read by every pass | the F♯ in G major loses its sign; the F♮ gains one |
+| **P3** | `keysByStaff` prepass (§2.1) + `headerInk` key row + `KeySignaturePass` — draws at system starts and at changes, **and registers its own hit boxes** (§5) | e2e measures the room; **run `test:e2e` either side**; ⚠️ a C-major score's header width is UNCHANGED (§4.1) |
+| **P4** | the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | the F♯ in G major loses its sign; the F♮ gains one; **a note typed in G major is an F♯ with no sign**; setting the key at bar 1 repaints bar 40 |
 | **P5** | marking tool + element kind + Delete + dev palette | he can place a key and click it |
-| **P6** | cancellation naturals + cautionary at a break | ⏳ policy from the research |
+| **P6** | cancellation naturals + cautionary at a break (**+ `cautionaryEndKey` in `ShapeKeyInputs`**) | ⏳ policy from the research |
+
+### ✅ 8.1 What P1 actually landed — including two rows this plan did not list
+
+- The type moved to `types/music.ts` (§1.1's amendment); `utils/keySignature.ts` re-exports it.
+- ⭐ **`engine/models/staffContent.ts` gained `staffKeys` + a `keys` field in `StaffContentView` and
+  in `staffMeasureView`.** ⚠️ Not optional and not a nicety: that function's own header warns that a
+  measure-level array it does not NAME rides the object spread and lands **unfiltered on every
+  staff's lane, silently**. Bartók's two hands would have shown each other's signature — and
+  `laneFingerprint` reads the lane, so the width key would have been wrong on every staff but one.
+  Its spec asserts the negative (the top staff does NOT see the bottom's key), the file's own idiom.
+- ⭐ **`keyAt` gained an optional `beat`**, defaulting to the bar's start. §1.2 permits a mid-bar key
+  change, and a function that cannot express one would have had to guess. ⛔ The two call sites
+  (`trillOps`, `playbackSchedule`) were left passing no beat — correct while nothing writes a
+  non-zero one, and a one-line change each when something does.
+- ⏭️ **P2 owes `clearMeasureForRebar` a decision** (`rebarOps`). Its comment is explicit that a new
+  measure-level array which is NOT deleted there *survives a re-tile holding its old beat* — a mark
+  pointing at music that moved, with nothing thrown. A beat-0 signature is a boundary fact and should
+  ride its measure like the meter; a beat > 0 one needs capture/restore. ⛔ Do not land the writes
+  without answering this; it is recorded on `Measure.keys` itself too.
 
 ⚠️ **P4 is the one that can go quietly wrong**, and it is the one with no drawn evidence in jsdom.
+⚠️ **AMENDED: P4 is now the biggest phase, not the subtlest one** — the amendments moved two whole
+jobs into it (note entry, and the cache row that decides whether any of it repaints). ⭐ Splitting it
+is fine and probably right — **P4a display, P4b entry** — but ⛔ they cannot ship in either order
+without the other being *known*: P4a alone puts a natural on every note the user types.
 
 ## 9. The research that decided all of this
 
@@ -535,7 +734,7 @@ with another. ⛔ Re-deciding one without reading why costs more than reading it
 |---|---|---|
 | ~~l~~ | ~~is an open/atonal key a distinct value~~ | ✅ **decided 2026-08-27: YES, and `mode` carries it** (§1.1) — *"we need to have the atonal key"* |
 | ~~d~~ | ~~cautionary at a system break: ON or opt-in~~ | ✅ **decided 2026-08-27: ON, and it is the ENGRAVING, not a warning** (§4.2) |
-| ~~o~~ | ~~double bar at that cautionary~~ | ✅ **decided 2026-08-27: YES, generated** (§4.2b) — ⚠️ reversed an earlier one-source call |
+| ~~o~~ | ~~double bar at that cautionary~~ | ✅ **decided 2026-08-27: NO — we generate NONE. Gould's rule; the double bar is the AUTHOR's edit** (§4.2b). ⚠️⚠️ This reversed TWICE in one day (no → yes → no); the second reversal is HIS and is the standing one. 🚨 It depends on the thin double `||`, which `BarlineStyle` does not have yet |
 | ⏭️ p | user controls to HIDE the cautionary and to force a single bar | ⛔ **explicitly not this pass** — his FYI |
 | ~~m~~ | ~~how a zero-glyph key change is SELECTED~~ | ✅ **decided 2026-08-27: a SIGNPOST** (§5), riding the existing hidden-ink/audience seam |
 | ~~n~~ | ~~flat→flat pitch: 1.00 / 1.08 / 1.12~~ | ✅ **decided 2026-08-27: ONE gap of 0.25** → flat 1.15 / sharp 1.25 (§4.0b) — ⚠️ a prediction, owed his eye at P3 |

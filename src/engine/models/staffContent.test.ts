@@ -12,7 +12,8 @@ import {
   DEFAULT_STAFF_INDEX,
 } from './staffContent'
 import { measureOpeningClef, measureEndingClef } from '@/utils/clefUtils'
-import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, Hairpin, Pedal, Tuplet } from '@/types/music'
+import type { Score, Measure, Chord, Rest, ClefChange, Dynamic, Hairpin, KeyChange, Pedal, Tuplet } from '@/types/music'
+import { fifthsOf, keyFromFifths } from '@/utils/keySignature'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /**
@@ -41,6 +42,10 @@ function twoStaffScore(): Score {
     { id: 'c0', beat: frac(0, 1), clef: 'treble' }, // absent staffId → staff 0
     { id: 'c1', beat: frac(0, 1), clef: 'bass', staffId: S1 },
   ]
+  const keys: KeyChange[] = [
+    { id: 'k0', beat: frac(0, 1), key: keyFromFifths(1) }, // absent staffId → staff 0 (G major)
+    { id: 'k1', beat: frac(0, 1), key: keyFromFifths(-1), staffId: S1 }, // F major
+  ]
   const dynamics: Dynamic[] = [
     { id: 'd0', beat: frac(0, 1), text: levelToGlyphString('mf') }, // → staff 0
     { id: 'd1', beat: frac(0, 1), text: levelToGlyphString('p'), staffId: S1 },
@@ -68,6 +73,7 @@ function twoStaffScore(): Score {
       rest('d', 1, S1),
     ],
     clefs,
+    keys,
     dynamics,
     hairpins,
     pedals,
@@ -149,6 +155,10 @@ describe('staffMeasureView (per-staff Measure narrowing — the render seam)', (
     expect((top.clefs ?? []).map((c) => c.clef)).toEqual(['treble'])
     expect((bottom.clefs ?? []).map((c) => c.clef)).toEqual(['bass'])
     expect((bottom.dynamics ?? []).map((d) => dynamicLevelOf(d))).toEqual(['p'])
+    // …and the KEY, where riding the spread would put the right hand's sharps on the left hand's
+    // stave — Bartók's Bagatelle op. 6 no. 1 is exactly this pair of signatures.
+    expect((top.keys ?? []).map((k) => fifthsOf(k.key))).toEqual([1])
+    expect((bottom.keys ?? []).map((k) => fifthsOf(k.key))).toEqual([-1])
     // ⚠️ The trap this line exists for: a measure-level array the view does not NAME rides the
     // object spread and lands unfiltered on EVERY staff's lane — silently. So assert the top
     // staff does NOT see the bottom's wedge, not merely that the bottom sees its own.

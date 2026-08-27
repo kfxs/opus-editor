@@ -477,6 +477,71 @@ export interface ClefChange {
 }
 
 /**
+ * ONE altered letter of a key signature — the letter, what it is altered to, and optionally where
+ * the sign is DRAWN.
+ *
+ * ⚠️⚠️ **SCOPE and PLACEMENT are two different things, and `octave` is the second one.** A key
+ * signature alters its letter in **all octaves** (Gould, *Behind Bars* pp. 93–94 — it is what makes
+ * a key signature a key signature); `octave` overrides only the staff position the glyph is printed
+ * at, which is otherwise derived from the letter and the clef. ⛔ It never restricts which octaves
+ * are governed — see `utils/keySignature.ts` for the sourcing and for why per-octave *scope* is not
+ * modelled.
+ *
+ * `alter` is in SEMITONES, MusicXML's unit and {@link PitchAlter}'s, ⛔ not LilyPond's fraction of a
+ * whole tone.
+ */
+export interface KeyAlteration {
+  step: PitchStep
+  alter: PitchAlter
+  /** PLACEMENT override — the octave the sign is printed at. Absent = the clef's standard row. */
+  octave?: number
+}
+
+/**
+ * ⭐⭐ **A KEY SIGNATURE IS AN ORDERED SET OF ALTERED LETTERS — never a position on the circle of
+ * fifths.** The traditional keys are the subset of this shape whose letters happen to be a
+ * cycle-of-fifths prefix; `fifthsOf` names those and returns `null` for the rest, which is the
+ * honest answer for a signature mixing sharps and flats.
+ *
+ * ⛔ The full argument, its four-engine sourcing and the repertoire evidence live in
+ * `utils/keySignature.ts`'s header — read it before changing this shape. The short form:
+ *
+ *  - **the ORDER of `alterations` is authored data**, defaulted from the cycle of fifths at
+ *    creation, because a signature that is not a cycle position has no rule to derive an order from;
+ *  - **`mode` is three-valued.** `'open'` (atonal) is NOT `'major'` with no accidentals: both have
+ *    an empty `alterations`, and they differ in transposition (Stone p. 174) and in whether a change
+ *    *to* them draws cancelling naturals. ⚠️ Any `switch` over `mode` must stay total.
+ */
+export interface KeySignature {
+  alterations: KeyAlteration[]
+  mode?: 'major' | 'minor' | 'open'
+}
+
+/**
+ * A key change within a measure — `ClefChange`'s shape, field for field, because it is the same kind
+ * of thing: a positional statement that governs everything after it until the next one.
+ *
+ * `beat` 0 is the measure's opening signature and is what the dev palette writes. A change at
+ * beat > 0 is permitted by the model (MuseScore allows one, reached through its list selections) and
+ * nothing writes one yet.
+ */
+export interface KeyChange {
+  /** Unique identifier */
+  id: string
+  /** Beat position within the measure (0 = the measure's opening signature) */
+  beat: Fraction
+  /** The signature that takes effect at this beat */
+  key: KeySignature
+  /**
+   * Staff this key change belongs to (a {@link StaffInfo} id). A key is per-staff: Bartók writes
+   * four sharps in one hand against four flats in the other (Bagatelle op. 6 no. 1), and a
+   * transposing instrument's written key differs from the score's. Absent = staff 0, the
+   * {@link ClefChange.staffId} convention.
+   */
+  staffId?: string
+}
+
+/**
  * Interpreted dynamic levels — the marks that drive playback loudness. Ordered quietest → loudest;
  * DYNAMIC_VELOCITY (utils/dynamics.ts) must keep a row for every member, and the tests assert the
  * ladder rises monotonically in THIS order. Nothing else hardcodes the list.
@@ -2047,6 +2112,23 @@ export interface Measure {
    */
   clefs?: ClefChange[]
   /**
+   * Key changes within this measure, sorted ascending by beat (mirrors the `clefs` convention).
+   * A change at beat 0 is the measure's opening signature; when empty/undefined the measure
+   * inherits the signature in force from earlier measures **on its own staff**, bottoming out in
+   * C major. Resolution helpers live in utils/keySignature (`keyAt`).
+   *
+   * ⚠️ **Per-staff, like `clefs`** — see {@link KeyChange.staffId}. Which means the per-staff LANE
+   * filter (`engine/models/staffContent`) must name it; a measure-level array it does not name
+   * rides the spread onto every staff unfiltered.
+   *
+   * ⏭️ **Rebar has not been told about this field yet, and that is safe only while nothing writes
+   * one** (P2). `clearMeasureForRebar` deletes every *beat-anchored* array before a bar is re-tiled,
+   * precisely so a missed re-anchor is a visible loss rather than a mark pointing at music that
+   * moved. A beat-0 signature is a boundary fact and rides its measure like the meter does; a
+   * beat > 0 one would need capturing. See docs/key-signature-plan.md §1.2.
+   */
+  keys?: KeyChange[]
+  /**
    * Dynamic markings within this measure, sorted ascending by beat (mirrors the
    * `clefs` convention). Multiple dynamics MAY share a (beat, voice) — they stack
    * and are rendered side-by-side (e.g. `p dolce`); placement order is preserved
@@ -2207,13 +2289,12 @@ export interface Score {
    * not two. See docs/tempo-marks-plan.md §0.
    */
   /**
-   * NOTE: there is deliberately **no `keySignature` field** (and none on {@link Measure}).
-   * The editor has no key-signature feature yet; when one is built, a key signature is
-   * positional AND per-staff — a modulation is a positional event like a clef change, and
-   * a transposing instrument's key differs from the score's. It will therefore land as
-   * `Measure.keys?: KeyChange[]` carrying a `staffId` (the shape of `clefs` / `dynamics` /
-   * `tempos`), resolving positionally to a constant "no accidentals" — never to a value
-   * stored on the score. A global key would be, implicitly, "the key at bar 1 beat 0"; that
+   * NOTE: there is deliberately **no `keySignature` field** — and ✅ the prediction this note used
+   * to make has come true exactly: a key signature is positional AND per-staff (a modulation is a
+   * positional event like a clef change, and a transposing instrument's key differs from the
+   * score's), so it landed as {@link Measure.keys} carrying a `staffId`, resolving positionally
+   * through `utils/keySignature`'s `keyAt` and bottoming out in C major — never to a value stored
+   * on the score. A global key would be, implicitly, "the key at bar 1 beat 0"; that
    * conflation is what made `score.clef` bleed across staves (docs/clef-model-plan.md).
    *
    * Nor is there a **`defaultTimeSignature`**, for the same reason (it was, in truth,
