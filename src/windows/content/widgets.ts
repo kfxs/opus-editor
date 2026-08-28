@@ -330,7 +330,13 @@ export class Label implements Widget {
     parts.forEach((part, i) => {
       if (part.newLine && i > 0) el.appendChild(document.createElement('br'))
       const span = document.createElement('span')
-      span.textContent = part.text
+      // 🚨 **AN EMPTY RUN STILL HOLDS ITS LINE.** A `<br>` followed by nothing collapses — the line
+      // box never exists, the label is a line shorter, and in a fit-to-content window everything
+      // BELOW it moves: his report, 2026-08-28, of the Key Signature dialog jumping as the first
+      // accidental appeared (*"adding accidental push the label up... the space should be reserved"*).
+      // A no-break space is what keeps the line there, and `lines` alone cannot: that reserves the
+      // BLOCK's height, and a run bigger than one line (a `size` run) already exceeds it.
+      span.textContent = part.text === '' ? '\u00A0' : part.text
       span.style.color = toneInk(part.tone)
       if (part.size !== undefined) {
         span.style.fontSize = `${part.size}px`

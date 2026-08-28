@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { ChoiceList, NumberInput, RadioGroup, Select } from './widgets'
+import { ChoiceList, Label, NumberInput, RadioGroup, Select } from './widgets'
 
 /**
  * `ChoiceList` is the "pick one picture" box behind the Clef window (and, in time, the key- and
@@ -134,5 +134,38 @@ describe('RadioGroup.setOptionDisabled', () => {
     const { group } = mount()
     group.setOptionDisabled('major', true)
     expect(group.value).toBe('major')
+  })
+})
+
+/**
+ * 🚨 The reserved line. A `<br>` with nothing after it collapses, so a label whose last run went
+ * empty was a line SHORTER than the same label with text — and in a fit-to-content window that moves
+ * everything below it (the Key Signature dialog jumped as the first accidental appeared).
+ */
+describe('Label.setParts', () => {
+  /** The Key Signature readout's shape: a name, a count, and the letters — which may be empty. */
+  const mount = (letters: string) => {
+    const host = document.createElement('div')
+    const label = new Label('', { lines: 3 })
+    label.mount(host)
+    label.setParts([
+      { text: 'C major', tone: 'value', size: 20 },
+      { text: 'no sharps or flats', tone: 'muted', newLine: true },
+      { text: letters, newLine: true },
+    ])
+    return host.firstElementChild as HTMLElement
+  }
+
+  it('keeps an empty run on its own line, so the label does not shrink', () => {
+    const el = mount('')
+    // Three runs and two breaks, whether or not the last one has words in it.
+    expect(el.querySelectorAll('span')).toHaveLength(3)
+    expect(el.querySelectorAll('br')).toHaveLength(2)
+    // The empty run holds a no-break space — the character that keeps the line box alive.
+    expect(el.querySelectorAll('span')[2].textContent).toBe('\u00A0')
+  })
+
+  it('leaves a run that has text alone', () => {
+    expect(mount('F\u266F').querySelectorAll('span')[2].textContent).toBe('F\u266F')
   })
 })
