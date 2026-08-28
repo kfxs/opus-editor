@@ -12,6 +12,8 @@ import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
 import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
+import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
+import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
@@ -1922,6 +1924,11 @@ export class VexFlowRenderer {
   private drawMeasureContent(pass: RenderPass, placement: MeasurePlacement, beamPlan?: CrossBarBeamPlan): Stave {
     const { view: measure, x, clef, key, ghostClefBeat, staffIndex, stave } = placement
 
+    // ⭐ A bar's OPENING clef is a stave modifier, so its hand-nudge has to land BEFORE the stave
+    // paints its modifiers — the other half of `clefOffsetPass`, and the half his report was about
+    // (*"i am offseting in the properties but i dont see anything changing"* on a beat-0 clef).
+    applyStaveClefOffset(
+      measure, keyStaffId(pass.score, staffIndex), pass.score, stave, placement.isFirstInLine)
     // The stave was BUILT by tier 1 (`layoutTier1`); tier 2 only paints it.
     this.drawStave(stave)
 
@@ -2167,6 +2174,15 @@ export class VexFlowRenderer {
         // A FANNED slot's stem holds the beam levels, so it grows here — a WRITE, pre-draw; every
         // measurement the fan needs waits for `drawFannedBeams`, below.
         this.applyFanStemStretch(sortedSlots, staveNotes)
+        // Hand-nudged INLINE CLEF offsets (his ask, 2026-08-28) — the note offsets' twin, in the same
+        // post-format / pre-draw window and for the same reason: the column is already reserved, so a
+        // nudged clef moves its own ink and nothing else's. Before the draw so the glyph REPORTS the
+        // shift, which is what the hit box and the clef segment below are both measured from.
+        // ⚠️ `keyStaffId`, ⛔ NOT `staffIdAtIndex`: a `ClefChange` on staff 0 stores an ABSENT staffId
+        // (the write convention), and `staffIdAtIndex` hands back that staff's REAL id — which would
+        // match no clef and silently offset nothing on the first staff.
+        applyClefOffsets(
+          measure, keyStaffId(pass.score, staffIndex), built[0]?.clefNoteByBeat ?? [], pass.score, stave)
 
         for (const b of built) {
           b.voice.draw(this.context!, stave)

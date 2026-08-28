@@ -1536,6 +1536,34 @@ export interface BarWidthOverride extends EngravingOverride {
 }
 
 /**
+ * ⭐ A free horizontal nudge of ONE inline clef off where the engraver put it (his ask, 2026-08-28:
+ * *"when the clef is not in the beguining of a line (i mean a header clef) i want to be able to
+ * offset it horizontally either by keys in the keyboard or be the property"*). `x` is in
+ * **staff-spaces**, +right — added at render via the clef's own `setXShift`
+ * (`rendering/clefOffsetPass`), which moves its reported geometry so the hit box and the clef's
+ * pixel↔pitch region follow it.
+ *
+ * ⚠️ **An OFFSET, not a space** — {@link NoteOffsetOverride}'s rule and for its reason: applied
+ * post-format / pre-draw, after the column's width is already reserved at the un-shifted position, so
+ * nudging a clef never re-spaces the bar or moves anything else's ink.
+ *
+ * ⛔ **A HEADER clef cannot carry one.** The clef standing at the head of a system belongs to the
+ * line, not to a moment in the music, and its x is the header layout's — which is exactly the clef he
+ * excluded. Structurally this is free rather than guarded: only a clef drawn as an inline glyph is
+ * reachable by the gesture at all.
+ *
+ * **Keyed by the CLEF CHANGE's own id** ({@link ClefChange.id}), which an upsert preserves — so
+ * changing treble→bass at the same spot keeps the nudge, while a clef DRAGGED to another slot drops
+ * it (the re-anchor rule every offset client follows). Returning to `x = 0` clears the entry, so
+ * "absent = default" holds.
+ */
+export interface ClefOffsetOverride extends EngravingOverride {
+  kind: 'clefOffset'
+  /** Horizontal offset in staff-spaces, relative to where the engraver put the clef. +right. */
+  x: number
+}
+
+/**
  * Client #12 of the engraving-overrides compartment: a free horizontal nudge of a single note off
  * its natural (formatted) column, on top of the automatic spacing (see docs/note-offset-plan.md).
  * `x` is in **staff-spaces**, +right — added to the note's own X at render via

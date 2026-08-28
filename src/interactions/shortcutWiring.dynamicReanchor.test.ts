@@ -50,6 +50,9 @@ describe('moving a dynamic from the keyboard', () => {
       // ⚠️ …and what lies ahead, which the walk asks before it decides anything. Null = nothing to
       // arrive at, so the press stays the plain nudge these cases are about.
       nextDynamicSlot: () => null,
+      // ⚠️ `Ctrl+Shift+←/→` also ends at the CLEF move, which reads the beat map. An empty score =
+      // no slot to step to, so that branch DECLINES — which is what the clef case below asserts.
+      getScore: () => ({ measures: [] }),
     } as unknown as MusicEngine
 
     state = createEditorState()
@@ -105,7 +108,11 @@ describe('moving a dynamic from the keyboard', () => {
   })
 
   it('⛔ leaves the chord alone when the selected element is not a dynamic', () => {
-    state.selectedElement = { kind: 'clef', measure: 1, beat: { num: 0, den: 1 }, clef: 'treble' } as never
+    // ⚠️ A REAL clef selection: `beat` is a NUMBER here (`SelectedElement`), ⛔ not a `Fraction`, and
+    // the cast that used to hide the difference hid a freeze. Once `moveSelectedClef` joined this
+    // chord it became the first branch to READ `clef.beat`, and an object reached `beatToFrac` →
+    // `fracCreate(NaN, 96)` → `gcd`'s `while (b !== 0)`, which NaN never leaves.
+    state.selectedElement = { kind: 'clef', measure: 1, beat: 0, staff: 0 }
     run('ctrlShiftArrowRight')
     expect(reanchor).not.toHaveBeenCalled()
   })

@@ -3,6 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
+import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
@@ -338,6 +339,15 @@ export class MusicEngine {
    * ⛔ Silently ALLOWS when the surface is not paper (canvas, linear view — his call) and when the
    * element has no drawn ink to measure. See `nudgeFitsOnPage`.
    */
+  /**
+   * ⭐ {@link nudgeStaysOnPage} for ink the registry does NOT key by element id — a clef, whose
+   * entries are addressed positionally (measure, beat, staff). Same rule, same refusal, and the
+   * caller collects the boxes it means.
+   */
+  private nudgeBoxesStayOnPage(boxes: { x: number; y: number; width: number; height: number }[], dx: number, dy: number): boolean {
+    return nudgeFitsOnPage(resolveSurface(this.surface), boxes, dx * STAFF_SPACE_PX, dy * STAFF_SPACE_PX)
+  }
+
   private nudgeStaysOnPage(type: ElementType, id: string, dx: number, dy: number): boolean {
     // ⚠️ `getByType` is called through an optional chain because the registry is STUBBED in several
     // engine specs (a partial object with the handful of methods those files need). No entries means
@@ -4385,6 +4395,74 @@ export class MusicEngine {
     const target = this.scoreModel.offsetTargetOf(noteId)
     if (!target) return 0
     return noteOffsetOverrideOf(this.scoreModel.getScore(), target.key)?.x ?? 0
+  }
+
+  /**
+   * ⭐⭐ **Nudge an INLINE CLEF sideways** by `dx` staff-spaces (+right) — his ask, 2026-08-28: *"when
+   * the clef is not in the beguining of a line (i mean a header clef) i want to be able to offset it
+   * horizontally"*. {@link nudgeNoteOffset}'s twin: accumulating, one undo step per press, and the
+   * override cleared when it returns to 0.
+   *
+   * Addressed POSITIONALLY (measure, beat, staff) because that is what a clef selection carries, and
+   * resolved here to the change's own id, which is what the compartment is keyed by.
+   *
+   * ⛔ **Refused for a clef that is not drawn as its own glyph** — the header clef at a system's
+   * head, which is the one he excluded. The test is the ink: a clef with no INLINE box registered
+   * this render was either drawn by the stave's header or not drawn at all, and neither is a glyph
+   * this offset can move.
+   *
+   * @returns true if the offset changed.
+   */
+  nudgeClefOffset(measureNumber: number, beat: Fraction, staff: number, dx: number): boolean {
+    const change = this.scoreModel.clefChangeAt(measureNumber, beat, this.staffIdForIndex(staff))
+    if (!change) return false
+    const boxes = this.inlineClefBoxes(measureNumber, beat, staff)
+    if (boxes.length === 0) return false
+    if (!this.nudgeBoxesStayOnPage(boxes, dx, 0)) return false
+    if (!this.scoreModel.nudgeClefOffset(change.id, dx)) return false
+    this.saveOnly('Nudge clef')
+    dbg(`[Clef] nudge ${measureNumber}:${fracToNumber(beat).toFixed(3)} staff ${staff} by ${dx} `
+      + `→ offset ${this.getClefOffset(measureNumber, beat, staff)} staff-space(s)`)
+    return true
+  }
+
+  /** Drop an inline clef's horizontal offset outright — the first-class reset every override client
+   *  gets. One undo step. @returns true if an offset was there to reset. */
+  resetClefOffset(measureNumber: number, beat: Fraction, staff: number): boolean {
+    const change = this.scoreModel.clefChangeAt(measureNumber, beat, this.staffIdForIndex(staff))
+    if (!change || !this.scoreModel.clearClefOffset(change.id)) return false
+    this.saveOnly('Reset clef offset')
+    return true
+  }
+
+  /** An inline clef's current horizontal offset in staff-spaces (0 when none) — the absolute value
+   *  the Properties input reads and steps from. */
+  getClefOffset(measureNumber: number, beat: Fraction, staff: number): number {
+    const change = this.scoreModel.clefChangeAt(measureNumber, beat, this.staffIdForIndex(staff))
+    if (!change) return 0
+    return clefOffsetOverrideOf(this.scoreModel.getScore(), change.id)?.x ?? 0
+  }
+
+  /**
+   * ⭐⭐ **CAN THIS CLEF BE NUDGED AT ALL?** — true only for one drawn as its own inline glyph, which
+   * is exactly *"not a header clef"* (his words). ⛔ Not a model question: whether a clef is engraved
+   * in a system's header depends on the CASTING-OFF, so the ink is the only honest witness, and this
+   * asks the registry what the last render actually drew.
+   */
+  clefIsOffsettable(measureNumber: number, beat: Fraction, staff: number): boolean {
+    return this.inlineClefBoxes(measureNumber, beat, staff).length > 0
+  }
+
+  /** The registry boxes of the INLINE glyph drawn for this clef, if any. ⚠️ `immovable` is what marks
+   *  the line-start header clef (`registerMeasureElements`), and dropping those here is what makes
+   *  the header clef unreachable by every route above. */
+  private inlineClefBoxes(measureNumber: number, beat: Fraction, staff: number): ElementInfo['bbox'][] {
+    const registry = this.renderer.getElementRegistry() as { getByType?: (t: ElementType) => ElementInfo[] }
+    return (registry.getByType?.('clef') ?? [])
+      .filter(e => e.measure === measureNumber && (e.staff ?? 0) === staff
+        && e.beat !== undefined && Math.abs(e.beat - fracToNumber(beat)) < 1e-9
+        && e.immovable !== true)
+      .map(e => e.bbox)
   }
 
   /** The compartment key a note's horizontal offset lives at, and which fan member (0 = none) it

@@ -17,6 +17,7 @@ import { createFanStampSelection } from './fanStampSelection'
 import { createLineSelection } from './lineSelection'
 import { createModeSelection } from './modeSelection'
 import { createNoteOffsetSelection } from './noteOffsetSelection'
+import { createClefOffsetSelection } from './clefOffsetSelection'
 import { createDynamicOffsetSelection } from './dynamicOffsetSelection'
 import { createTempoOffsetSelection } from './tempoOffsetSelection'
 import { createOttavaGeometrySelection } from './ottavaGeometrySelection'
@@ -110,6 +111,8 @@ interface EditorBus {
   mode: ReturnType<typeof createModeSelection>
   /** Properties' horizontal note-offset input. Command-only. */
   noteOffset: ReturnType<typeof createNoteOffsetSelection>
+  /** Properties' horizontal INLINE-CLEF offset input — `noteOffset`'s twin, addressed positionally. */
+  clefOffset: ReturnType<typeof createClefOffsetSelection>
   /** The Properties dynamic/expression offset inputs — `noteOffset`'s twin, two axes. */
   dynamicOffset: ReturnType<typeof createDynamicOffsetSelection>
   tempoOffset: ReturnType<typeof createTempoOffsetSelection>
@@ -175,6 +178,7 @@ export function createEditorBus(): EditorBus {
     line: createLineSelection(),
     mode: createModeSelection(),
     noteOffset: createNoteOffsetSelection(),
+    clefOffset: createClefOffsetSelection(),
     dynamicOffset: createDynamicOffsetSelection(),
     tempoOffset: createTempoOffsetSelection(),
     ottavaGeometry: createOttavaGeometrySelection(),
@@ -216,6 +220,7 @@ export type { BarlineEditRequest } from './barlineEditSelection'
 export type { ScoreTextRequest } from './scoreTextSelection'
 export type { HairpinEditRequest } from './hairpinEditSelection'
 export type { NoteOffsetRequest } from './noteOffsetSelection'
+export type { ClefOffsetRequest } from './clefOffsetSelection'
 export type { DynamicOffsetRequest } from './dynamicOffsetSelection'
 export type { TempoOffsetRequest } from './tempoOffsetSelection'
 export type { OttavaGeometryRequest, OttavaEndRequest, OttavaHeightRequest } from './ottavaGeometrySelection'

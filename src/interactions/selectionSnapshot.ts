@@ -9,6 +9,7 @@ import {
 import { authoredApertureRange } from '../engine/rendering/hairpinShape'
 import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { beatToFrac } from '@/utils/musicUtils'
 import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 import { scoreText } from '@/engine/models/scoreTextOps'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
@@ -324,6 +325,12 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
           beat: element.beat,
           staff: element.staff,
           clefs: measure?.clefs,
+          // ⭐ The hand-nudged horizontal offset, and whether this clef can carry one at all (his
+          // ask, 2026-08-28). ⚠️ `offsettable` is a RENDER fact — a clef standing in a system's
+          // header is laid out by the header and cannot be nudged — so it comes from the engine's
+          // reading of the drawn ink, ⛔ never from the score.
+          offset: engine.getClefOffset(element.measure, beatToFrac(element.beat), element.staff),
+          offsettable: engine.clefIsOffsettable(element.measure, beatToFrac(element.beat), element.staff),
         },
         // Now that clefs HAVE an override kind, this branch has a key to ask for — per staff, like
         // the flag itself. The first staff is ABSENT in the key, not named — `staffIdForIndex`'s

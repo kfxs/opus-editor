@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd } from '@/types/music'
+import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd, ClefChange } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -451,7 +451,24 @@ export class ScoreModel {
     return measureOpeningClef(this.score, measureNumber, staffId)
   }
 
-  /**
+    /** The clef CHANGE written at (measure, beat) on a staff — the object, so a caller can key by its
+   *  id (the hand-nudged offset). See {@link clefOps.clefChangeAt}. */
+  clefChangeAt(measureNumber: number, beat: Fraction, staffId?: string): ClefChange | undefined {
+    return clefOps.clefChangeAt(this.score, measureNumber, beat, staffId)
+  }
+
+  /** Nudge an inline clef's hand offset by `dx` staff-spaces, keyed by the change's id. No undo
+   *  here — the facade owns it. See {@link overrideOps.nudgeClefOffset}. */
+  nudgeClefOffset(clefId: string, dx: number): boolean {
+    return overrideOps.nudgeClefOffset(this.score, clefId, dx)
+  }
+
+  /** Drop an inline clef's hand offset outright. See {@link overrideOps.clearClefOffset}. */
+  clearClefOffset(clefId: string): boolean {
+    return overrideOps.clearClefOffset(this.score, clefId)
+  }
+
+/**
    * Set/change the clef at (measure, beat). `beat` must already be snapped to a
    * slot boundary by the caller. Clef is per-staff content — there is no
    * document-level clef.

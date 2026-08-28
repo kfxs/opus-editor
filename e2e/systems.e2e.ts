@@ -125,13 +125,23 @@ test('⭐⭐ a GRAND STAFF agrees on x: the same beat lands at the same place on
     const upper = staves.find(stave => stave.staff === 0)!
     const lower = staves.find(stave => stave.staff === 1)!
     const space = (upper.bottom - upper.top) / 4
-    const headsOf = (top: number) => h.noteheads()
-      .filter(g => Math.abs(g.y - top) < 90 && g.x > upper.x1 && g.x < upper.x2)
+    // ⭐ A head belongs to whichever staff it sits NEARER to.
+    // ⚠️ This was a fixed `< 90` px window until 2026-08-28, which quietly assumed the old 150px
+    // stride (`STAVE_HEIGHT` 120 + `VERTICAL_SPACING` 30). The staff gap is now 105px (4 lines +
+    // `STAFF_GAP_SPACES`), so the window reached into the NEXT staff and counted every head twice —
+    // eight "eighths above" that were really four, each x appearing once per staff. A COMPARISON has
+    // no constant in it to go stale the next time the default spacing moves.
+    const headsOf = (top: number, otherTop: number) => h.noteheads()
+      .filter(g => Math.abs(g.y - top) < Math.abs(g.y - otherTop) && g.x > upper.x1 && g.x < upper.x2)
       .map(g => (g.x - upper.x1) / space)
       .sort((a, b) => a - b)
     const noteStart = (staff: number) =>
       (h.engine.getElementRegistry().getStaffGeometry(2, staff)!.noteStartX - upper.x1) / space
-    return { upper: headsOf(upper.top), lower: headsOf(lower.top), noteStart: [noteStart(0), noteStart(1)] }
+    return {
+      upper: headsOf(upper.top, lower.top),
+      lower: headsOf(lower.top, upper.top),
+      noteStart: [noteStart(0), noteStart(1)],
+    }
   })
 
   console.log(`[census] grand staff, bar 2: upper ${drawn.upper.map(x => x.toFixed(2)).join(' ')} · ` +
@@ -169,11 +179,13 @@ test('⭐ …and a CLEF CHANGE on one staff alone does not move that staff\'s mu
     const upper = staves.find(stave => stave.staff === 0)!
     const lower = staves.find(stave => stave.staff === 1)!
     const space = (upper.bottom - upper.top) / 4
-    const headsOf = (top: number) => h.noteheads()
-      .filter(g => Math.abs(g.y - top) < 90 && g.x > upper.x1 && g.x < upper.x2)
+    // ⭐ Nearer staff wins — see the same helper in the grand-staff test above for why this stopped
+    // being a fixed pixel window on 2026-08-28.
+    const headsOf = (top: number, otherTop: number) => h.noteheads()
+      .filter(g => Math.abs(g.y - top) < Math.abs(g.y - otherTop) && g.x > upper.x1 && g.x < upper.x2)
       .map(g => (g.x - upper.x1) / space)
       .sort((a, b) => a - b)
-    return { upper: headsOf(upper.top), lower: headsOf(lower.top) }
+    return { upper: headsOf(upper.top, lower.top), lower: headsOf(lower.top, upper.top) }
   })
 
   console.log(`[census] one clef change: upper ${drawn.upper.map(x => x.toFixed(2)).join(' ')} · ` +

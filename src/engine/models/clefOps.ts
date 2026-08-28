@@ -12,6 +12,7 @@ import type { Score, Measure, Clef, ClefChange, Fraction } from '@/types/music'
 import { fracEq, fracCompare, fracIsZero } from '@/utils/fraction'
 import { effectiveClefBefore } from '@/utils/clefUtils'
 import { v4 as uuidv4 } from 'uuid'
+import { clearClefOffset } from './overrideOps'
 
 /**
  * Same-staff test for two clef changes. Staff 0 always stores an ABSENT `staffId`
@@ -65,7 +66,30 @@ export function removeClefAt(score: Score, measureNumber: number, beat: Fraction
   if (measureNumber === 1 && fracIsZero(beat)) return false
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
-  return removeClefChangeAt(measure, beat, staffId)
+  // ⛔ **An override must not outlive its anchor** — the sweep every id-keyed client owes the
+  // compartment (`removeDynamic`'s rule). Read the id BEFORE the removal, or there is nothing left
+  // to key by.
+  const dying = clefChangeAt(score, measureNumber, beat, staffId)
+  const removed = removeClefChangeAt(measure, beat, staffId)
+  if (removed && dying) clearClefOffset(score, dying.id)
+  return removed
+}
+
+/**
+ * ⭐ **The clef change written at (measure, beat) on a staff**, or undefined when nothing is written
+ * there. The one lookup that hands back the CHANGE OBJECT rather than a resolved clef — which is what
+ * anything keyed by {@link ClefChange.id} needs (the hand-nudged horizontal offset, his ask of
+ * 2026-08-28).
+ *
+ * ⚠️ ⛔ Not `getEffectiveClefAt`: that answers *what clef sounds here*, walking back through earlier
+ * bars, and a caller asking it for an id would be handed the id of a change written somewhere else.
+ * This one is strictly *is there a change AT this address*.
+ */
+export function clefChangeAt(
+  score: Score, measureNumber: number, beat: Fraction, staffId?: string,
+): ClefChange | undefined {
+  const measure = getMeasure(score, measureNumber)
+  return measure?.clefs?.find(c => fracEq(c.beat, beat) && sameStaff(c.staffId, staffId))
 }
 
 /**
@@ -100,6 +124,11 @@ export function moveClef(score: Score, fromMeasure: number, fromBeat: Fraction, 
   moving.beat = toBeat
   dst.clefs.push(moving)
   dst.clefs.sort((a, b) => fracCompare(a.beat, b.beat))
+  // ⭐⭐ **A RE-ANCHOR DROPS THE HAND NUDGE** — the offset family's standing rule (the dynamic's
+  // `moveDynamicBySlot` and the note's `moveNoteOffset` both do this). The nudge said *"a little to
+  // the right of where the engraver put you HERE"*; carried to another slot it is a sentence about a
+  // place the clef has left, and it would land the glyph at an offset nobody authored.
+  clearClefOffset(score, moving.id)
   return true
 }
 

@@ -14,8 +14,19 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
-import { LAYOUT_CONFIG } from './layoutConfig'
+import { staffLinesPx } from '@/engine/layout/staffStride'
 import { fracCreate as frac } from '@/utils/fraction'
+
+/**
+ * ⭐ **What a staff drawn at 0.7 GIVES BACK — its five LINES, not its whole slot.**
+ *
+ * ⚠️ This was `LAYOUT_CONFIG.STAVE_HEIGHT * 0.3` until 2026-08-28, and it stopped being true when
+ * the stride became *lines + a constant of AIR* (`staffStride.ts`, `STAFF_GAP_SPACES`): a gap is not
+ * made of ink, so it does not shrink with the staff. `STAVE_HEIGHT` is 12 spaces and the lines are
+ * 4, so the old form over-claimed the shortening by 8 spaces × 0.3 = 24px — which is precisely what
+ * these three assertions failed by.
+ */
+const GIVEN_BACK_AT_0_7 = staffLinesPx(1) - staffLinesPx(0.7)
 
 /** Two staves, three bars, a note on each staff so nothing is empty. Three bars because only the
  *  first of a line is REDRAWN on a multi-staff score — bars 2 and 3 take the translate path, which
@@ -83,7 +94,7 @@ describe('a small staff takes a smaller slot', () => {
 
     // The staff below is full size in both renders, so its own lines sit the same distance into
     // its slot — the whole move is the slot's.
-    expect(staffTop(r, 1, 1)).toBeCloseTo(below - LAYOUT_CONFIG.STAVE_HEIGHT * 0.3, 6)
+    expect(staffTop(r, 1, 1)).toBeCloseTo(below - GIVEN_BACK_AT_0_7, 6)
     // The small staff's SLOT did not move…
     expect(slotTop(r, 1)).toBeCloseTo(slot0, 6)
     // …but its five lines sit closer to the top of it, because the room above them is ink and
@@ -101,7 +112,7 @@ describe('a small staff takes a smaller slot', () => {
 
     // Bar 3 is mid-line: its group is reused and given a transform, and its registered geometry is
     // offset by the same dy. Leave the offset out and the music is drawn here and clickable there.
-    expect(staffTop(r, 3, 1)).toBeCloseTo(before - LAYOUT_CONFIG.STAVE_HEIGHT * 0.3, 6)
+    expect(staffTop(r, 3, 1)).toBeCloseTo(before - GIVEN_BACK_AT_0_7, 6)
     expect(staffTop(r, 3, 1)).toBeCloseTo(staffTop(r, 1, 1), 6)
   })
 
@@ -130,7 +141,7 @@ describe('a small staff takes a smaller slot', () => {
 
     // On the sketching canvas the SVG is as tall as the music; on paper the same shortening is
     // what lets one more system fit on a page (pageCastOff reads the system heights).
-    expect(svgHeight(r)).toBeCloseTo(tall - LAYOUT_CONFIG.STAVE_HEIGHT * 0.3, 0)
+    expect(svgHeight(r)).toBeCloseTo(tall - GIVEN_BACK_AT_0_7, 0)
   })
 
   it('leaves a full-size score exactly where it was — size 1 is not a special case', () => {

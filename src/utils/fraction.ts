@@ -48,6 +48,15 @@ function gcd(a: number, b: number): number {
  */
 export function fracCreate(num: number, den: number): Fraction {
   if (den === 0) throw new Error(`Fraction denominator cannot be zero`)
+  // 🚨🚨 **A NaN HERE USED TO HANG THE EDITOR, SILENTLY AND FOREVER.** `gcd` loops on `b !== 0`, and
+  // `NaN !== 0` is true every time round — so one bad number did not produce a bad fraction, it
+  // wedged the thread that was drawing the score, with no error and nothing in the log. It cost a
+  // 90-second "is a test stuck?" hunt on 2026-08-28 (a non-number `beat` reaching `beatToFrac`).
+  // ⭐ A number that cannot be a fraction is a CALLER's bug: say so where it enters, ⛔ never let it
+  // travel on as arithmetic that silently never returns.
+  if (!Number.isFinite(num) || !Number.isFinite(den)) {
+    throw new Error(`Fraction needs two finite numbers, got ${num}/${den}`)
+  }
   if (num === 0) return { num: 0, den: 1 }
   const sign = den < 0 ? -1 : 1
   const g = gcd(Math.abs(num), Math.abs(den))

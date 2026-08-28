@@ -47,6 +47,10 @@ describe('nudging a tempo mark from the keyboard', () => {
       // nudge these cases are about; the walk's own arithmetic is proven in `tempoWalk.test.ts`.
       nextTempoSlot: () => null,
       getScore: () => ({ measures: [] }),
+      // ⚠️ The clef shares all three of these chords now (the plain and `Ctrl` arrows nudge its ink,
+      // `Ctrl+Shift` moves it). `false` = "nothing to offset here", so the branch DECLINES and the
+      // press carries on down the chain — which is the whole claim of the clef case below.
+      nudgeClefOffset: () => false,
     } as unknown as MusicEngine
 
     state = createEditorState()
@@ -137,7 +141,9 @@ describe('nudging a tempo mark from the keyboard', () => {
   })
 
   it('⛔ leaves the arrows alone when the selected element is not a tempo mark', () => {
-    state.selectedElement = { kind: 'clef', measure: 1, beat: { num: 0, den: 1 }, clef: 'treble' } as never
+    // ⚠️ A REAL clef selection — `beat` is a NUMBER (`SelectedElement`), ⛔ not a `Fraction`. See the
+    // same fixture in `shortcutWiring.dynamicReanchor.test.ts` for what the old cast cost.
+    state.selectedElement = { kind: 'clef', measure: 1, beat: 0, staff: 0 }
     run('selectNextNote')
     run('ctrlArrowRight')
     run('ctrlShiftArrowRight')

@@ -26,11 +26,12 @@
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
   BarlineSpaceOverride, BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride,
-  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride } from '@/types/music'
+  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride, ClefOffsetOverride } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import {
   restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf,
-  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf } from './engravingOverrides'
+  staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf,
+  clefOffsetOverrideOf } from './engravingOverrides'
 
 /**
  * Upsert an override: replaces any existing entry of the same `kind` on this
@@ -291,6 +292,35 @@ export function nudgeNoteOffset(score: Score, key: string, dx: number): boolean 
     const next: NoteOffsetOverride = { kind: 'noteOffset', x }
     setEngravingOverride(score, key, next)
   }
+  return true
+}
+
+/**
+ * Nudge an inline clef's manual horizontal offset by `dx` staff-spaces, **accumulating** onto any
+ * existing offset — {@link nudgeNoteOffset}'s twin, keyed by the {@link ClefChange} id (his ask,
+ * 2026-08-28). Returning to a net `x` of 0 clears the entry, so "absent = default" holds and the JSON
+ * stays clean. No undo snapshot here; the facade (`MusicEngine.nudgeClefOffset`) owns the per-press
+ * `saveOnly`.
+ * @returns true (the override always exists/updates for a valid id).
+ */
+export function nudgeClefOffset(score: Score, clefId: string, dx: number): boolean {
+  const prev = clefOffsetOverrideOf(score, clefId)
+  const x = (prev?.x ?? 0) + dx
+  if (x === 0) {
+    clearEngravingOverride(score, clefId, 'clefOffset')
+  } else {
+    const next: ClefOffsetOverride = { kind: 'clefOffset', x }
+    setEngravingOverride(score, clefId, next)
+  }
+  return true
+}
+
+/** Drop an inline clef's horizontal offset outright, back to where the engraver put it — the
+ *  first-class reset every override client gets. No undo snapshot here; the facade owns it.
+ *  @returns true if an offset was there to clear. */
+export function clearClefOffset(score: Score, clefId: string): boolean {
+  if (!clefOffsetOverrideOf(score, clefId)) return false
+  clearEngravingOverride(score, clefId, 'clefOffset')
   return true
 }
 

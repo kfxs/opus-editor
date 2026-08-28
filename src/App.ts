@@ -18,6 +18,7 @@ import { DomTextEdit } from './interactions/DomTextEdit'
 import { GutterController } from './interactions/GutterController'
 import { ClipboardController } from './interactions/ClipboardController'
 import { NoteOffsetController } from './interactions/NoteOffsetController'
+import { ClefOffsetController } from './interactions/ClefOffsetController'
 import { DynamicOffsetController } from './interactions/DynamicOffsetController'
 import { TempoOffsetController } from './interactions/TempoOffsetController'
 import { SpanMarkGeometryController } from './interactions/SpanMarkGeometryController'
@@ -566,6 +567,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Properties note-offset input publishes to `noteOffsetSelection`; this controller owns the
   // engine apply (client #12, docs/note-offset-plan.md §B) so the window stays a dumb publisher.
   const noteOffset = new NoteOffsetController(getEngine, () => renderer.renderScore())
+  // …and the INLINE CLEF's horizontal offset, addressed positionally (his ask, 2026-08-28).
+  const clefOffset = new ClefOffsetController(getEngine, () => renderer.renderScore())
   // …and the same wire for a dynamic/expression's offset (his ask, 2026-08-17). Two axes, one seam.
   const dynamicOffset = new DynamicOffsetController(getEngine, () => renderer.renderScore())
   // …and the tempo mark's, the same two axes through the same kind of seam (his ask, 2026-08-19).
@@ -889,6 +892,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       stopSoundSync()
       stopPlayRepeatsSync()
       noteOffset.destroy()
+      clefOffset.destroy()
       dynamicOffset.destroy()
       tempoOffset.destroy()
       ottavaGeometry.destroy()

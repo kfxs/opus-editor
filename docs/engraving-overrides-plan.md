@@ -356,6 +356,53 @@ No teardown of earlier work at any step; adding element K never touches element 
 
 ---
 
+## 6a. ⭐⭐ Client #14 — THE INLINE CLEF'S HORIZONTAL OFFSET (2026-08-28, BUILT)
+
+His ask: *"when the clef is not in the beguining of a line (i mean a header clef) i want to be able to
+offset it horizontally either by keys in the keyboard or be the property"*.
+
+**The model.** `ClefOffsetOverride { kind:'clefOffset', x }`, `x` in staff-spaces, +right, keyed by
+the **`ClefChange`'s own id**. ⭐ An upsert preserves that id, so changing treble→bass at the same spot
+KEEPS the nudge, while a clef dragged elsewhere DROPS it (`moveClef` clears it — the offset family's
+re-anchor rule) and a removed clef sweeps it (`removeClefAt`).
+
+**Which clefs.** ⭐ *"Not a header clef"* is not a model question — whether a clef is engraved in a
+system's header depends on the CASTING-OFF — so the INK answers it: `MusicEngine.clefIsOffsettable`
+asks the registry for a drawn clef box at that address that is not `immovable`, which is precisely the
+flag `registerMeasureElements` puts on the line-start clef. Every route (keyboard, panel, the panel's
+row appearing at all) reads that one predicate.
+
+**The gestures**, and ⭐ they are the MARK family's, ⛔ not the note offset's:
+
+| chord | what it does |
+|---|---|
+| ←/→ | nudge the ink, FINE (¼ sp) — what a selected dynamic/hairpin/ottava already does |
+| Ctrl+←/→ | nudge the ink, COARSE (1 sp) |
+| **Ctrl+Shift+←/→** | **MOVE the clef one slot** — his ask: *"when we drag the cleff we change the position, it will be good to wire ctr shift arrow to the same thing"*. The INK/MUSIC split this family draws on every mark, and it ends on the drag's own `commitClefMove`, so keyboard and mouse cannot drift |
+| Ctrl+Backspace | reset the nudge |
+
+🚨🚨 **THREE traps, all found from his report *"i am offseting in the properties but i dont see
+anything changing in the score"*** — the value was stored, logged, and drawn nowhere:
+
+1. ⭐⭐ **`ClefNote.setXShift` IS INERT.** `ClefNote.draw()` places its glyph at
+   `this.clef.setX(this.getAbsoluteX())`, and **`Note.getAbsoluteX()` never adds `xShift`** (vexflow
+   `note.js`) — so the shift is stored, reported by `getXShift`, and ignored. ⛔ This is NOT the note
+   offset's situation, where `StaveNote`'s own draw path folds it in; the two look identical in the
+   source. **The shift goes on the inner `Clef` element**, whose `Element.renderText` draws at
+   `x + xShift` and whose `getBoundingBox` reports it — which is also what makes the hit box and the
+   clef's pixel↔pitch segment follow the ink.
+2. ⭐⭐ **A bar's OPENING clef is not an inline glyph at all.** `interleaveClefNotes` filters
+   `beat > 0`; a beat-0 clef is a **stave modifier**, so it needs its own pass
+   (`applyStaveClefOffset`, run BEFORE `drawStave`) — and that was his actual case, a clef applied to
+   the start of bar 4 mid-line.
+3. ⭐⭐ **The measure REDRAW KEY** — `docs/note-offset-plan.md`'s trap, third occurrence. The override
+   is keyed by the clef's uuid, which `overridesFor` (position keys only) never sees, and `view.clefs`
+   itself does not change when it is nudged ⇒ the bar keeps its drawn group and the pass never re-runs.
+   One line in the SHAPE key (⛔ not the width key: an offset must not re-space the bar) fixes it.
+   **WIDTH ≠ PICTURE, silently** — and this is now the fourth client to learn it.
+
+---
+
 ## 7. Open questions / not-yet-decided
 
 - **Exact `Override` schema** (the §4 sketch) — pinned in Phase 1 against the one real client.
@@ -444,6 +491,7 @@ two of them, and one sheet's edges say nothing about the other's.
 | dynamic + expression | `dynamic` | `nudgeDynamicOffset` — ⭐ also the Properties row's road, via `bus.dynamicOffset` → `DynamicOffsetController` |
 | note | `note` | `nudgeNoteOffset` — likewise, via `bus.noteOffset` → `NoteOffsetController` |
 | rest | `rest` | `nudgeRestShift` ⚠️ its `delta` counts steps **upward**, so the sign flips on the way in |
+| **clef** (inline / a bar's opening) | `clef` | `nudgeClefOffset` — via `bus.clefOffset` → `ClefOffsetController` too. ⚠️ The one client addressed **positionally** (measure, beat, staff), so it goes through `nudgeBoxesStayOnPage` and collects its own boxes: `nudgeStaysOnPage` filters the registry by element **id**, and a clef has none in it |
 
 ⭐⭐ **Routing the panel's typed value through the same NUDGE is what puts it behind the same limit** —
 the controllers turn an absolute into `next − current` rather than writing the override directly, so

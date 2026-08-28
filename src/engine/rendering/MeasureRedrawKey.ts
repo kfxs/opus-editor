@@ -223,6 +223,13 @@ export function measureShapeKey(
     view.slots.map(s => (s.type === 'chord' && s.fan?.members
       ? s.fan.members.map(m => (m.pitches[0] ? score.engravingOverrides?.[m.pitches[0].id] ?? null : null))
       : null)),
+    // ⚠️ …and an inline/opening CLEF's hand-nudged OFFSET (2026-08-28), the dynamic's trap exactly:
+    // it is keyed by the CLEF CHANGE's uuid, which `overridesFor` (position keys only) never sees,
+    // and `view.clefs` itself is unchanged by a nudge. Leave this out and the bar keeps its drawn
+    // group, so `clefOffsetPass` never re-runs and the clef sits still while the model moves —
+    // reported from the running app: *"i am offseting in the properties but i dont see anything
+    // changing in the score"*. WIDTH≠PICTURE, silently.
+    view.clefs?.map(c => score.engravingOverrides?.[c.id] ?? null) ?? null,
     view.tempos ?? null,
     // ⚠️ …and a tempo mark's hand-nudged OFFSET (client #13), for the dynamic's reason exactly: it
     // is id-keyed, so nothing else in this key moves when it changes, and `TempoLayout`'s

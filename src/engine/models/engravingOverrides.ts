@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, ClefOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -492,6 +492,17 @@ export function tempoOffsetOverrideOf(score: Score, tempoId: string): TempoOffse
  */
 export function noteOffsetOverrideOf(score: Score, slotId: string): NoteOffsetOverride | undefined {
   return engravingOverrideOf(score, slotId, 'noteOffset') as NoteOffsetOverride | undefined
+}
+
+/**
+ * The inline clef's hand-nudged horizontal offset, if any (his ask, 2026-08-28). `x` is in
+ * **staff-spaces**, +right; the renderer folds it into the drawn glyph's `setXShift`
+ * (`rendering/clefOffsetPass`), so the hit box and the clef's pixel↔pitch region move with the ink.
+ * Keyed by the {@link ClefChange} id — see {@link ClefOffsetOverride} for why that key and not a
+ * position. Absent = no offset (the clef sits where the engraver put it).
+ */
+export function clefOffsetOverrideOf(score: Score, clefId: string): ClefOffsetOverride | undefined {
+  return engravingOverrideOf(score, clefId, 'clefOffset') as ClefOffsetOverride | undefined
 }
 
 /** Convenience read: the staff's GLOBAL extra space-above in staff-spaces, 0 when absent —

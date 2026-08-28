@@ -12,6 +12,8 @@ import type { RenderController } from './RenderController'
 import type { ClipboardController } from './ClipboardController'
 import type { ViewportHost } from './ViewportHost'
 import { ShortcutManager } from '../shortcuts'
+import { buildBeatMap } from '@/utils/beatMap'
+import { fracToNumber } from '@/utils/fraction'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { markItems, marksLabel, removeMarks } from './enclosedMarks'
@@ -705,6 +707,81 @@ export function wireShortcuts(
     const item = [...state.selectedItems.values()][0]
     if (item.kind !== 'note') return false
     if (!eng.nudgeNoteOffset(item.id, dx)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  // ⭐⭐ The same two chords on a selected INLINE CLEF = nudge it sideways (his ask, 2026-08-28:
+  // *"when the clef is not in the beguining of a line (i mean a header clef) i want to be able to
+  // offset it horizontally either by keys in the keyboard or be the property"*). One more link in
+  // the chain, ⛔ not a new gesture: the same keys the note offset uses, so the hand learns "these
+  // chords nudge whatever is selected" once.
+  //
+  // ⚠️ It DECLINES for a HEADER clef — the one he excluded — and the engine is what says so, from
+  // the INK (`MusicEngine.clefIsOffsettable`): whether a clef stands in a system's header is a fact
+  // about the casting-off, not about the score, so no rule here could know it.
+  // ⚠️ **It rides FOUR chords, not the note offset's two** — his ask, 2026-08-28: *"still waiting for
+  // arrow/control arrow and ctr backspace for clear"*. That is the MARK family's arrangement (a
+  // dynamic, a hairpin end, an ottava): plain ←/→ nudges finely, Ctrl+←/→ coarsely, Ctrl+Backspace
+  // resets — and a clef nudge is a mark's nudge, ⛔ not a note's. The note offset hides on the
+  // deliberate chords for its own reason (*"should not offset that much"* — plain arrows there are
+  // NAVIGATION, which a clef selection has no use for). It keeps the note's two chords as well, so
+  // one hand's habit works on either.
+  const nudgeSelectedClefOffset = (dx: number): boolean => {
+    const eng = getEngine()
+    const clef = selectedOf(state, 'clef')
+    if (!eng || !clef) return false
+    if (!eng.nudgeClefOffset(clef.measure, beatToFrac(clef.beat), clef.staff, dx)) return false
+    renderer.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **Ctrl+Shift+←/→ MOVES a selected clef through the music** — one slot earlier or later, which
+   * is what DRAGGING it already does. His ask, 2026-08-28: *"when we drag the cleff we change the
+   * position, it will be good to wire ctr shift arrow to the same thing"*.
+   *
+   * ⭐ It is the MARK family's split, arriving at the clef: the plain and Ctrl arrows nudge the INK
+   * (an engraving offset), and **Ctrl+Shift re-anchors the MUSIC** — exactly what
+   * `reanchorSelectedDynamic` does on the same chord, and why that chord was left free above.
+   *
+   * ⭐ **The next slot is the BEAT MAP's**, the same stop the → key walks and the same one the clef
+   * APPLY uses (`PaletteController.selectedClefTarget`) — so a clef at a bar's first slot steps back
+   * into the previous bar rather than stopping at the barline, and nothing here has to know a bar's
+   * length. ⚠️ Scoped to the clef's own STAFF: a clef is a per-staff statement.
+   *
+   * ⚠️ It ends on `commitClefMove`, the drag's own tail — which drops the clef if it landed somewhere
+   * redundant (equal to the clef already in force there) and records ONE undo entry. Sharing it is
+   * the point: a keyboard move and a mouse drag cannot drift apart.
+   */
+  const moveSelectedClef = (direction: 1 | -1): boolean => {
+    const eng = getEngine()
+    const clef = selectedOf(state, 'clef')
+    if (!eng || !clef) return false
+    const from = beatToFrac(clef.beat)
+    const { beats } = buildBeatMap(eng.getScore(), undefined, clef.staff)
+    const at = beats.findIndex((b: { measureNumber: number; beat: Fraction }) =>
+      b.measureNumber === clef.measure && fracToNumber(b.beat) >= clef.beat - 1e-9)
+    const target = at === -1 ? undefined : beats[at + direction]
+    if (!target) return false
+    if (!eng.moveClef(clef.measure, from, target.measureNumber, target.beat)) return false
+    eng.commitClefMove(target.measureNumber, target.beat)
+    // ⭐ The selection FOLLOWS the clef, or the next press would move whatever is left at the old
+    // address — and there is usually nothing there at all.
+    state.selectedElement = {
+      kind: 'clef', measure: target.measureNumber, beat: fracToNumber(target.beat), staff: clef.staff,
+    }
+    renderer.renderScore()
+    dbg(`[Clef] moved ${direction > 0 ? '→' : '←'} to measure ${target.measureNumber} `
+      + `beat ${fracToNumber(target.beat).toFixed(3)} staff ${clef.staff}`)
+    return true
+  }
+
+  const resetSelectedClefOffset = (): boolean => {
+    const eng = getEngine()
+    const clef = selectedOf(state, 'clef')
+    if (!eng || !clef) return false
+    if (!eng.resetClefOffset(clef.measure, beatToFrac(clef.beat), clef.staff)) return false
     renderer.renderScore()
     return true
   }
@@ -1473,6 +1550,7 @@ export function wireShortcuts(
       if (nudgeSelectedTrill(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedTempo(NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedClefOffset(NUDGE_FINE_SS)) return
       // A selected BARLINE walks to the next one — same dispatch-on-selection as Shift+Alt+←/→.
       if (selection.navigateBarline(1)) return
       if (state.selectedTool === 'entry') {
@@ -1498,6 +1576,7 @@ export function wireShortcuts(
       if (nudgeSelectedTrill(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedDynamic(-NUDGE_FINE_SS, 0)) return
       if (nudgeSelectedTempo(-NUDGE_FINE_SS, 0)) return
+      if (nudgeSelectedClefOffset(-NUDGE_FINE_SS)) return
       if (selection.navigateBarline(-1)) return
       if (state.selectedTool === 'entry') {
         dbg(`[Nav] ArrowLeft in entry mode → switching to selection`)
@@ -1567,6 +1646,7 @@ export function wireShortcuts(
       || nudgeSelectedDynamic(-NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(-NUDGE_COARSE_SS, 0)
       || nudgeArmedPedalEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(-NUDGE_COARSE_SS, 0)
       || nudgeArmedTrillEnd(-NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(-NUDGE_COARSE_SS, 0)
+      || nudgeSelectedClefOffset(-NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(-NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(-BAR_WIDTH_STEP_PX),
     ctrlArrowRight: () =>
       nudgeArmedSlurPoint(NUDGE_COARSE_SS, 0) || nudgeSelectedSlur(NUDGE_COARSE_SS, 0) || nudgeArmedHairpinEnd(NUDGE_COARSE_SS, 0)
@@ -1574,12 +1654,14 @@ export function wireShortcuts(
       || nudgeSelectedDynamic(NUDGE_COARSE_SS, 0) || nudgeSelectedTempo(NUDGE_COARSE_SS, 0)
       || nudgeArmedPedalEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedPedal(NUDGE_COARSE_SS, 0)
       || nudgeArmedTrillEnd(NUDGE_COARSE_SS, 0) || nudgeSelectedTrill(NUDGE_COARSE_SS, 0)
+      || nudgeSelectedClefOffset(NUDGE_COARSE_SS)
       || nudgeSelectedNoteSpacing(NOTE_SPACING_STEP_SS) || nudgeSelectedBarWidth(BAR_WIDTH_STEP_PX),
     // Ctrl+Backspace = reset the MOVE (the space before the note / the bar's width).
     resetMove: () => resetArmedSlurPoint() || resetSelectedSlur() || resetArmedHairpinEnd() || resetSelectedHairpin()
       || resetArmedOttavaEnd() || resetSelectedOttava() || resetArmedPedalEnd() || resetSelectedPedal()
       || resetArmedTrillEnd() || resetSelectedTrill()
       || resetSelectedDynamic() || resetSelectedTempo()
+      || resetSelectedClefOffset()
       || resetSelectedNoteSpacing() || resetSelectedBarWidth(),
 
     // ── Note OFFSET (the small, deliberate nudge off the natural column) rides the harder chords:
@@ -1611,13 +1693,13 @@ export function wireShortcuts(
       || resizeSelectedOttava(-1) || moveSelectedOttavaStart(-1)
       || resizeSelectedPedal(-1) || moveSelectedPedalStart(-1) || reanchorArmedTrill(-1)
       || reanchorSelectedDynamic(-1) || reanchorSelectedTempo(-1)
-      || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS),
+      || nudgeSelectedNoteOffset(-NUDGE_COARSE_SS) || moveSelectedClef(-1),
     ctrlShiftArrowRight: () =>
       reanchorArmedEndpoint(1) || resizeSelectedHairpin(1) || moveSelectedHairpinStart(1)
       || resizeSelectedOttava(1) || moveSelectedOttavaStart(1)
       || resizeSelectedPedal(1) || moveSelectedPedalStart(1) || reanchorArmedTrill(1)
       || reanchorSelectedDynamic(1) || reanchorSelectedTempo(1)
-      || nudgeSelectedNoteOffset(NUDGE_COARSE_SS),
+      || nudgeSelectedNoteOffset(NUDGE_COARSE_SS) || moveSelectedClef(1),
     nudgeNoteOffsetFineLeft: () => nudgeSelectedNoteOffset(-NUDGE_FINE_SS),
     nudgeNoteOffsetFineRight: () => nudgeSelectedNoteOffset(NUDGE_FINE_SS),
     // Ctrl+Shift+Backspace AND Shift+Alt+Backspace both reset the offset — it is one value, and each
