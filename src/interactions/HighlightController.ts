@@ -8,6 +8,7 @@ import { ELEMENT_SELECTION_FILL, ELEMENT_SELECTION_STROKE, markSelectionColor } 
 import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
+import { barlineJoinHandles } from './elements/barlineJoinHandles'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
 import { pedalEndpointHandles } from './elements/pedalHandles'
@@ -15,7 +16,7 @@ import { pedalTethers, tetherDashArray } from './elements/pedalTether'
 import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
-import type { SignHalf } from '@/engine/layout/barlineSign'
+import { signAtBoundary, type SignHalf } from '@/engine/layout/barlineSign'
 import { scoreTextClass } from '@/engine/rendering/ScoreHeaderPass'
 
 /**
@@ -108,6 +109,7 @@ export class HighlightController {
     registry?.removeByType('pedal-endpoint')
     registry?.removeByType('pedal-tether')
     registry?.removeByType('trill-endpoint')
+    registry?.removeByType('barline-join')
   }
 
   /** A full redraw already threw the old SVG away, so the log's targets are detached nodes:
@@ -917,6 +919,68 @@ export class HighlightController {
       this.barlineSignGroup(svg, measure, staff),
       this.barlineGapGroup(svg, measure, staff),
     ])
+  }
+
+  /**
+   * ⭐⭐ **THE SELECTED BARLINE'S JOIN SQUARES** — one under each staff and one over the staff below
+   * it, at every gap of the system (docs/barline-join-plan.md §1, P2). Grabbing one is how a gap is
+   * joined, and how a joined one is disjoined — ⏭️ P3, ⛔ nothing here drags yet.
+   *
+   * ⭐ **{@link applyPedalHandles} verbatim but for the geometry it reads**, which is the point: the
+   * editor has ONE look for "this is a handle you can grab", so the same blue, the same size, the same
+   * white ring, and the same registered-by-the-highlight / removed-by-`clearHighlights` life.
+   *
+   * ⭐ **THE SQUARE NEVER CHANGES WITH THE STATE** — his call, 2026-08-28: *"always the same square"*.
+   * A joined gap is told by the ink running through it; the square only ever says *grab here*, and it
+   * has to look the same on a joined gap because that is the one you grab to disjoin.
+   *
+   * ⚠️ **And none of them is ARMED**, unlike every other family here: a join square is not a selectable
+   * element (there is no `SelectedElement` kind for it), so there is no "picked" square to draw bigger.
+   * ⇒ one size, one fill, one stroke width.
+   */
+  applyBarlineJoinHandles(): void {
+    const engine = this.getEngine()
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'barline')
+    const measure = selected?.measure ?? null
+    if (!engine || !scoreCanvas || measure === null) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    const registry = engine.getElementRegistry()
+    const S = HighlightController.SLUR_HANDLE_R + 1 // the slur squares' half-side, one family
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    // ⭐ WHICH SIGN stands on this line, so the square can centre on the ink the join would draw
+    // rather than on the boundary coordinate — his report, and `strokeCentrePx`'s reason. The
+    // two-measure question is `signAtBoundary`'s, the same one the recolour above asks by group id.
+    const measures = engine.getScore().measures
+    const kind = signAtBoundary(measures[measure - 1], measures[measure]) ?? 'plain'
+    // ⭐ …and only the ONE square at the spot that was pressed — his calls: *"just in the stave we
+    // clicked"*, then *"the spot to click is critical"*. An absent spot (a keyboard walk with no
+    // press behind it) narrows nothing rather than guessing one (`offeredAt`).
+    const pressedAt = { staff: selected?.staff, end: selected?.staffEnd }
+    for (const handle of barlineJoinHandles(registry, measure, kind, pressedAt)) {
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      sq.setAttribute('x', String(handle.x - S))
+      sq.setAttribute('y', String(handle.y - S))
+      sq.setAttribute('width', String(S * 2))
+      sq.setAttribute('height', String(S * 2))
+      sq.setAttribute('fill', '#2563EB')
+      sq.setAttribute('stroke', '#ffffff')
+      sq.setAttribute('stroke-width', '1.5')
+      sq.setAttribute('class', `barline-join-handle barline-join-handle--${handle.side}`)
+      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'pointer'
+      this.addNode(svg, sq)
+
+      // ⚠️ `staff` is the staff ABOVE the gap — the model's key — so both squares of one gap register
+      // the same (measure, staff) pair and a P3 press writes one fact whichever it grabbed.
+      registry.add({
+        type: 'barline-join',
+        measure,
+        staff: handle.staffAbove,
+        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
+    }
   }
 
   /**

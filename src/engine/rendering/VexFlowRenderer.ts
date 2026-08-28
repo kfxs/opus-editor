@@ -65,7 +65,7 @@ import {
 import { calculateMeasureWidths } from './MeasureLayout'
 import { MeasureWidthCache } from './MeasureWidthCache'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
-import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
+import { BARLINE_BOX_STRADDLE_PX, barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import type { Column } from '@/engine/layout/spacing'
 import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
@@ -3523,12 +3523,17 @@ export class VexFlowRenderer {
     // this boundary and inside the bar that opens there. Covering it needs the next measure's
     // fields, and this function is handed a LANE and no score; the same asymmetry is owed by the
     // selection highlight (P5), so both should be fixed together rather than threaded twice.
+    //
+    // ⚠️ The straddle is {@link BARLINE_BOX_STRADDLE_PX} rather than a literal 2 (and 4 rather than
+    // its double) because the join squares read it BACKWARDS to recover the boundary from the box —
+    // see the constant.
     const signLeftPx = barlineSignExtent(ownEndSignKind(measure)).left * stave.getSpacingBetweenLines()
+    const straddle = BARLINE_BOX_STRADDLE_PX
     this.elementRegistry.add({
       type: 'barline',
       measure: measure.number,
       staff: staffIndex,
-      bbox: { x: x + width - 2 - signLeftPx, y: lineTop, width: 4 + signLeftPx, height: staffSpan },
+      bbox: { x: x + width - straddle - signLeftPx, y: lineTop, width: 2 * straddle + signLeftPx, height: staffSpan },
     })
   }
 

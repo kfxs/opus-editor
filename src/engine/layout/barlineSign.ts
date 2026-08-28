@@ -194,6 +194,23 @@ function dotsAt(edge: number, direction: 1 | -1): SignDots {
   return { x: left, width: DOT_WIDTH, half: direction === 1 ? 'start' : 'end' }
 }
 
+/**
+ * ⭐ **HOW FAR A BARLINE'S REGISTERED HIT BOX STRADDLES THE BOUNDARY**, on each side, in px.
+ *
+ * A barline box is `[boundary − straddle − extent.left, boundary + straddle]`
+ * (`VexFlowRenderer.registerMeasureElements`): it grows LEFTWARD with the sign's ink
+ * ({@link barlineSignExtent}) and straddles the line itself by this much either way, because the
+ * drawn stroke sits ON the boundary and a box that started there would be un-clickable from the left.
+ *
+ * ⭐ **Named because a second reader now has to run the arithmetic BACKWARDS.** The join squares
+ * (`interactions/elements/barlineJoinHandles`) must sit exactly on the drawn line, so they recover
+ * `boundary = box.right − straddle` — and a box whose right edge and this constant disagreed would
+ * put every square a pixel or two off the line it belongs to. ⛔ Not the box's CENTRE, which is what
+ * `barlineStamp.nearestBoundary` uses: that one is only ever compared with other boxes' centres, so
+ * the sign's leftward growth cancels; here it would not.
+ */
+export const BARLINE_BOX_STRADDLE_PX = 2
+
 /** The extent a set of parts reaches either side of 0. */
 function extentOf(strokes: SignStroke[], dots: SignDots[]): { left: number; right: number } {
   let left = 0

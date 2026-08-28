@@ -500,7 +500,8 @@ export class SelectionController {
    */
   navigateBarline(direction: number): boolean {
     const engine = this.getEngine()
-    const current = selectedOf(this.state, 'barline')?.measure ?? null
+    const selected = selectedOf(this.state, 'barline')
+    const current = selected?.measure ?? null
     if (!engine || current === null) return false
 
     const last = engine.getScore().measures.length
@@ -510,7 +511,11 @@ export class SelectionController {
       return true
     }
 
-    this.state.selectedElement = { kind: 'barline', measure: target }
+    // ⭐ The staff comes along unchanged: walking the barlines does not move you off the staff you
+    // were on, and it is what the join squares are offered on (`SelectedElement`'s `barline`).
+    this.state.selectedElement = {
+      kind: 'barline', measure: target, staff: selected?.staff, staffEnd: selected?.staffEnd,
+    }
     dbg(`[Nav] barline ${direction > 0 ? '→' : '←'} → ends measure:${target}`)
     this.renderScore()
     // Tier-1 geometry, so it answers for bars that virtualization has never drawn — which is

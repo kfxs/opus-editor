@@ -63,14 +63,37 @@ has nothing to iterate** — ⛔ never an `if (staves.length === 1) return`. Eac
 which is the same thing the model stores (§2), so there is no square a user can grab that the model
 cannot express.
 
-⚠️ **But the affordance and the stored fact are NOT 1:1, and the plan must not pretend they are.**
-His spec puts **two** squares on every gap (the upper staff's bottom and the lower staff's top — the
-table above), and the squares are drawn at whichever boundary is SELECTED, so what the user sees is
-`boundaries × gaps × 2` squares all writing **one score-wide field**. That is MuseScore's behaviour
-and it is what he asked for (§6 finding 3 — nobody makes a plain drag local), but saying it out loud
-is what keeps §2.4 honest: the day the per-boundary mix arrives it arrives as a **MODIFIER on this
-same gesture**, which is MuseScore's Ctrl+drag (`barline.cpp:675`, already in the research). ⭐ So P3
-leaves Ctrl+drag unclaimed rather than discovering later that it is spoken for.
+🚨🚨 **BUT THAT IS THE GEOMETRY, NOT WHAT IS SHOWN — P2 OFFERS EXACTLY ONE SQUARE, AT THE SPOT THAT
+WAS PRESSED.** Built 2026-08-28, after he saw the table above drawn in full and reported it twice:
+*"we should show the blue square just in the stave we clicked and not in all staves"*, then — asking
+the research first — *"i'm having the impresion up and down is too much"* and **the rule that
+settled it**: *"the spot to click is critical… if the user click in that area we show the blue square
+related with that"*.
+
+⭐ **That IS Sibelius's gesture, and the research already held the sentence** (§6, and it was read
+back to him before this changed): *"Click carefully at the top or bottom of a normal barline… a
+purple square 'handle' will appear"* (Reference 2022.3 §4.5 p. 343) — one handle, at the end you
+clicked. MuseScore 4 shows one too: `BarLine::gripsPositions` returns exactly one grip, the top one
+commented out in the source. ⇒ **the count is 1, not `gaps × 2`.**
+
+- The press's HALF of the staff names the END — top half → the square above the staff, bottom half →
+  the square below it. ⭐ Sibelius's *"click **carefully**"* is a precision we do not impose: its END
+  is our HALF, so every press on the line answers one of the two.
+- **A pressed end with no gap behind it offers NOTHING** (the top of the first staff, the bottom of
+  the last). ⛔ Not a special case — there is no space there for a line to run through. The gap on
+  that staff's far side belongs to its neighbour and is offered by pressing THAT line.
+- ⚠️ The selection carries it: `SelectedElement`'s `barline` gained `staff?` + `staffEnd?`, ⛔ **not
+  as identity** — the boundary is still ONE system-wide selection, lit on every staff and deleted
+  from all of them. Absent (a keyboard walk, playback's start line) offers every gap's squares rather
+  than guessing a spot.
+
+⚠️ **The affordance and the stored fact are still NOT 1:1, and the plan must not pretend they are.**
+Two squares exist per gap and either writes the same `barlineJoinBelow` on the same upper staff, so
+one gesture still writes **one score-wide field**. That is MuseScore's behaviour and what he asked for
+(§6 finding 3 — nobody makes a plain drag local), but saying it out loud is what keeps §2.4 honest:
+the day the per-boundary mix arrives it arrives as a **MODIFIER on this same gesture**, which is
+MuseScore's Ctrl+drag (`barline.cpp:675`, already in the research). ⭐ So P3 leaves Ctrl+drag
+unclaimed rather than discovering later that it is spoken for.
 
 - **Drag AWAY from the staff (down from a bottom square, up from a top square) = JOIN that gap.**
 - **Drag BACK TOWARD the staff = DISJOIN it.** ⭐ His requirement, stated when the gesture was:
@@ -94,9 +117,24 @@ MUSICAL statement about the ensemble — and a mis-swipe must not cross that lin
 the square's size is off by the `+ 1` every one of those four modules writes. ⭐ Sibelius's is
 purple; ours is the blue every non-note selection in this editor already uses.
 
-⏭️ **Two things about the square this plan does NOT yet decide, and P2 must:** WHERE in the gap it
-sits (just outside the staff's own line, or the gap's midpoint), and what it looks like once the gap
-is ALREADY joined — it has to stay grabbable there, because grabbing it is how you disjoin.
+✅ **The two things P2 owed, both decided 2026-08-28:**
+
+1. **WHERE it sits: 10 px outside its own staff's line**, centre to ink — the same air the hairpin's,
+   ottava's and pedal's squares use (`BARLINE_JOIN_HANDLE_GAP_PX`), ⛔ not the gap's midpoint. His
+   spec attaches the square to a STAVE (*"on the first stave the square is just in the bottom"*), and
+   the default stride leaves ~110 px of gap, so hugging the staff is unambiguous about which staff it
+   belongs to.
+2. **What it looks like when the gap is ALREADY joined: exactly the same square** — his call,
+   *"always the same square"*. The ink crossing the gap is what says a gap is joined; the square only
+   ever says *grab here*, which is what keeps a joined gap grabbable.
+
+🚨 **And a third the plan had not seen, from his eye on the running app**: *"i have the feeling the
+blue square is not centered regarding the barline"*. Measured, and right — **the square centres on
+the sign's INK, ⛔ never on the boundary COORDINATE**. A plain stroke sits at `[boundary, boundary +
+0.16sp]`, so a boundary-centred square is 0.8 px left of its own line; a final bar's and an end
+repeat's strokes are **entirely left** of the boundary, which would have stood the square ~5 px off.
+⭐ It is the STROKES' span and never the dots — the same ink `barlineGap` draws, since the dots do not
+cross (`barlineJoinHandles.strokeCentrePx`).
 
 ---
 
@@ -329,7 +367,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
 | | what | done when |
 |---|---|---|
 | **P1** ✅ **BUILT** | The resolver (§2.4) + the gap segment DRAWN, in its own module + the model write path it needs to be visible at all. No squares, no drag. | ✅ A JOINED two-staff score shows continuous barlines and an unjoined one is untouched; a repeat's dots stay per staff; a small staff's join is not distorted; the gap ink is findable under the id the selection highlight looks up and carries `data-half`; an `invisible` one is tinted, not black. 6 e2e + 13 unit, and ⭐ **no existing test moved** — the default being OFF is what makes P1 inert until asked for. |
-| **P2** | The squares, PAINTED per gap on a selected barline — the highlight's own node + registry entry, the pre-step's target. No drag. | Bottom-only on the first staff, top-only on the last, both on the middle, none at N=1 — **and each one says where it sits and how it reads on an already-joined gap** (§1). |
+| **P2** ✅ **BUILT** | The square, PAINTED on a selected barline — the highlight's own node + registry entry, the pre-step's target. No drag. | ✅ **ONE square, at the staff and END that were pressed** (§1, his rule); none where that end has no gap, none at N=1, none for a `repeatStart` selection; it centres on the sign's INK and looks the same joined or not; the entry is keyed by the staff ABOVE the gap and comes off with the highlight layer. `interactions/elements/barlineJoinHandles.ts` + `HighlightController.applyBarlineJoinHandles` + `SelectedElement.barline.staff/staffEnd`. 21 unit tests; 5546 green. |
 | **P3** | The DRAG — join and disjoin, writing `barlineJoinBelow` for the whole score, one undo entry, a live preview. | Dragging the bottom square down joins; dragging it back disjoins; the width drag still behaves identically; **Ctrl+drag stays unclaimed** (§2.1). |
 | **P4** | ⏭️ **NOT THIS PLAN** — the contemporary mix (per-boundary exceptions), Mensurstrich, the vocal default, the wings rule. | — |
 

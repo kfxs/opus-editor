@@ -461,7 +461,45 @@ export type SelectedElement =
    * is why the highlight paints every staff of the measure), unlike a clef, which each staff
    * states for itself.
    */
-  | { kind: 'barline'; measure: number }
+  | {
+      kind: 'barline'
+      measure: number
+      /**
+       * ⭐⭐ **WHICH STAFF THE PRESS LANDED ON — ⛔ NOT part of the boundary's identity.** The
+       * selection above is still ONE system-wide line: the highlight lights every staff, Delete
+       * removes the sign from all of them, and the Properties panel reports the boundary. This field
+       * says only *where you were standing when you picked it*.
+       *
+       * ⭐ It exists for the JOIN SQUARES, his call 2026-08-28: *"we should show the blue square just
+       * in the stave we clicked and not in all staves"*. A three-staff system offers four handles,
+       * and all four writing one score-wide fact is a lot of blue for one gesture; the staff you
+       * clicked names the one or two that are about the gaps you can see yourself working in
+       * (`interactions/elements/barlineJoinHandles`).
+       *
+       * ⚠️ **Absent is legal and means "no staff in particular"** — a selection made by the keyboard
+       * walk carries the one it came from, but a programmatic one (playback's start line) has no
+       * press behind it, and then EVERY gap's squares are offered. ⛔ Not "staff 0": that would be a
+       * guess about where the user is, and it would hide half the handles for no reason.
+       */
+      staff?: number
+      /**
+       * ⭐⭐ **WHICH END OF THAT STAFF'S LINE THE PRESS WAS NEAREST** — and so which ONE join square
+       * is offered: `top` shows the square over the staff (the gap above it), `bottom` the square
+       * under it (the gap below).
+       *
+       * ⭐ **THE SPOT YOU CLICK IS THE CHOICE** — his call, 2026-08-28: *"the spot to click is
+       * critical… if the user click in that area we show the blue square related with that"*. It is
+       * Sibelius's own gesture, and the research holds the sentence: *"Click carefully at the top or
+       * bottom of a normal barline… a purple square 'handle' will appear"* (Reference 2022.3 §4.5,
+       * p. 343). MuseScore 4 shows ONE grip too — `BarLine::gripsPositions` returns exactly one, at
+       * the bottom, the top one commented out. ⇒ ⛔ never two at once, which is what he saw and what
+       * made him ask.
+       *
+       * ⚠️ Absent means the end is unknown (a keyboard walk that never had a press to read), and
+       * then BOTH of that staff's squares are offered rather than a guessed one.
+       */
+      staffEnd?: 'top' | 'bottom'
+    }
   /**
    * ⭐⭐ **THE OPEN REPEAT** (`|:`) — the line that OPENS this measure, and the one barline sign that
    * is NOT a boundary selection.

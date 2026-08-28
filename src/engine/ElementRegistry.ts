@@ -67,6 +67,20 @@ export type ElementType =
   | 'keySignature'
   | 'barline'
   /**
+   * ⭐⭐ One of the blue SQUARES a selected barline draws in the gaps between the staves — the handle
+   * that JOINS that gap or disjoins it (docs/barline-join-plan.md §1). The `'pedal-endpoint'` family's
+   * arrangement: registered by the HIGHLIGHT pass so it exists only while its barline is selected,
+   * removed again by `clearHighlights`, and answered by a MouseController pre-step rather than by a
+   * row in `ELEMENT_HIT_ORDER` — ⛔ a join square is not a selectable element and there is no
+   * `SelectedElement` kind for it.
+   *
+   * ⚠️ It carries `measure` + `staff`, and `staff` is **THE STAFF ABOVE THE GAP** — `barlineJoinBelow`'s
+   * own key (`engine/models/barlineJoin`), so the TWO squares of one gap register the same pair. ⛔ Not
+   * the staff the square is drawn nearest: `interactions/elements/barlineJoinHandles` keeps that
+   * distinction, and only for which way a P3 drag means "join".
+   */
+  | 'barline-join'
+  /**
    * ⭐ The **OPEN REPEAT** (`|:`) — the one barline sign registered by the DRAWING pass rather than
    * by tier 1, because it is the one whose position tier 1 cannot know: a bar with a header displaces
    * it past the clef/meter, so it may stand at no boundary at all. Owned by the bar it OPENS

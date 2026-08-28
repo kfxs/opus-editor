@@ -65,8 +65,20 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     }
     dbg(`✓ Barline selected | ends measure:${measure} · staff ${barlineAt.staff ?? 0} · `
       + `box @${barlineAt.bbox.x.toFixed(1)} · press @${x.toFixed(1)}`)
-    return deps.pick({ kind: 'barline', measure }, () => deps.armBarWidthDrag(measure, x))
+    // ⚠️ `staff` and `staffEnd` ride along for the JOIN SQUARES alone (`SelectedElement`'s own
+    // notes) — the selection is still the one system-wide boundary, and nothing downstream reads
+    // either as identity.
+    //
+    // ⭐ **THE HALF OF THE LINE YOU PRESSED IN NAMES THE END** — Sibelius's *"click carefully at the
+    // top or bottom of a normal barline"* (§4.5 p. 343), made forgiving: its END is our HALF, so
+    // there is no precision to learn and every press still answers one of the two ends. The box is
+    // exactly the five staff lines, so its middle is the middle line.
+    const staffEnd = y < barlineAt.bbox.y + barlineAt.bbox.height / 2 ? 'top' : 'bottom'
+    return deps.pick(
+      { kind: 'barline', measure, staff: barlineAt.staff ?? 0, staffEnd },
+      () => deps.armBarWidthDrag(measure, x),
+    )
   },
 
-  highlight: h => h.applyBarlineSelectionHighlight(),
+  highlight: h => { h.applyBarlineSelectionHighlight(); h.applyBarlineJoinHandles() },
 }
