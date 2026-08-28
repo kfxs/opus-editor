@@ -305,6 +305,11 @@ Stack N staves per system, sharing barlines. **No brace yet.**
   ghost-note vertical paths (`:1240`, `:1201-1270`) follow.
 - Barlines: each staff draws its own; shared `x` aligns them into one visual barline.
   (A single joined barline via `StaveConnector` is deferred with the brace.)
+  ⭐ **PLANNED SEPARATELY, 2026-08-28: `docs/barline-join-plan.md`** — and ⛔ **not via
+  `StaveConnector` after all.** We draw every barline ourselves now (`barline-types-plan.md` §4.6),
+  and the join is ⛔ **not deferred with the brace**: the research found the bracket does not own it
+  (LilyPond's `GrandStaff` and `ChoirStaff` differ in the delimiter and the span bar independently),
+  so it does not wait for one.
 - `MeasureBounds` and `ElementRegistry` geometry are written per `(measure, staffId)`
   (see §6).
 - All vertical numbers (heights, gaps) are **render-layer constants/derived** — none

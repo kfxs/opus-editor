@@ -119,10 +119,31 @@ Two things make that cheap, and neither is invented:
   the first one". A barline statement with no `staffId` governing the whole system is that rule one
   axis over.
 
-⭐ **And the engines say the same thing structurally**: in all three, barline SPAN is a **staff or
-group property, never a barline property** — MuseScore `Staff::barLineSpan`, LilyPond a separate
-`SpanBar` grob, Verovio `@bar.thru` (default *off*). So "which staves this line covers" is already,
-everywhere, a different question from "what kind of line is it".
+⭐ **And the engines say the same thing structurally**: barline SPAN is a **different question from
+what kind of line it is** — MuseScore `Staff::barLineSpan`, LilyPond a separate `SpanBar` grob,
+Verovio `@bar.thru` (default *off*). So "which staves this line covers" is already, everywhere, asked
+apart from "what sign is this".
+
+> 🚨 **CORRECTED 2026-08-28, from the source.** This paragraph used to say span is *"a staff or group
+> property, **never** a barline property"*. Two agents reading the clones (`~/dev/engine-sources`,
+> MuseScore `929d1e9` · LilyPond `beedbfa` · Verovio `efff0bc`) contradict the absolute, and it is the
+> half a reader would quote:
+>
+> - **MuseScore keeps BOTH.** `Staff::m_barLineSpan` is the default, and **every `BarLine` item carries
+>   a per-instance copy** (`dom/barline.h:178`) that layout re-seeds from the staff *while the item is
+>   `generated()`* — the moment the user touches one it becomes a **local override** and layout stops
+>   overwriting it (`barline.cpp:901`). It serializes as `<span>`. ⭐ That mechanism is worth more than
+>   the correction: the exception EXISTS ONLY ONCE AUTHORED, and until then the default is live.
+> - **LilyPond** is owned by the CONTEXT TYPE (`\consists Span_bar_engraver`, `ly/engraver-init.ly:474`
+>   — inherited by GrandStaff/PianoStaff, `\remove`d by ChoirStaff), but carries a **positional
+>   per-boundary veto**: `\once \override Staff.BarLine.allow-span-bar = ##f`, re-read every timestep.
+> - **Verovio** is the only one where the absolute holds — `<staffGrp @bar.thru>`, read in one place
+>   (`barline.cpp:87`), granularity per `<score>`, no mid-score change. ⚠️ It is a RENDERER of MEI and
+>   not an editor, which is the likeliest reason.
+>
+> ⭐⭐ **The conclusion §2 drew survives, and is strengthened**: two of the three engines that can be
+> EDITED implement exactly *default from the group/staff, exception at a boundary* — which is the
+> "mix" requirement above, already shipped twice.
 
 **Committed:** what is stored carries an OPTIONAL staff scope from day one, absent = the whole
 system. Nothing in P1 reads it. It is one optional field and a doc comment, and it is what keeps the
@@ -1252,6 +1273,14 @@ exposes the shape while the others pick it for you.
 it); the repeat PLAY ORDER (§7); the **thin double `||`**, which is the family's fourth member — not
 asked for, but §4 already carries its rule and its 🚨 (below), so it is a row and not a redesign;
 voltas / endings, which every format models as a *container of measures*, never a barline attribute.
+
+⭐ **AND THE JOIN — a barline running unbroken through the gap between two staves — LEFT THIS PLAN
+ENTIRELY on 2026-08-28: `docs/barline-join-plan.md`, with `docs/barline-join-research.md` under it.**
+⚠️ ⛔ **It is not this plan's §2.** They are two different questions and the words for them are close
+enough to fuse by accident: §2's scope is **which staves a SIGN applies to** (this bar repeats on
+staff 3 alone); the join is **where the drawn LINE runs** (staff 3's line continues into the gap
+below it). A system-wide final bar can still be drawn as separate per-staff lines — which is exactly
+what we draw today — and a joined line can carry a per-staff sign.
 
 ⭐ **And one thing that gets CHEAPER after P2, worth knowing when it is asked for.** Once the barline
 draws through our own pass, every remaining member of §0.1's table costs a union member and a case in

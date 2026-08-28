@@ -456,8 +456,8 @@ export function renderBarlines(
      * which reaches the same picture by suppressing tips wherever a span bar continues. ⭐ Both of
      * those follow from a barline that SPANS the staves, and ours does not: each staff draws its own
      * line, so each staff's line gets its own tips. ⏭️ The day span bars arrive
-     * (`docs/multi-staff-plan.md`), this is the line to revisit — and the two engines already agree
-     * on what it should become.
+     * (**`docs/barline-join-plan.md`**, which names this very comment in §3), this is the line to
+     * revisit — and the two engines already agree on what it should become.
      */
     const wingsOn = (ends: Measure | undefined, begins: Measure | undefined): boolean =>
       ends?.barline?.winged === true
