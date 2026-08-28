@@ -129,6 +129,9 @@ src/
                           #   + BarlineRenderer (⭐ WE draw every barline that ends a bar —
                           #   plain, final, both repeats; VexFlow keeps only the line that
                           #   OPENS a system. docs/barline-types-plan.md §4.6)
+                          #   + barlineGap (⭐ the JOIN: the same sign's strokes crossing the
+                          #   space BETWEEN two staves — ⛔ never inside `inStaffSpace`, and
+                          #   ⛔ never the dots. docs/barline-join-plan.md)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

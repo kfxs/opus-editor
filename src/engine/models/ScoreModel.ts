@@ -50,6 +50,7 @@ import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
 import * as staffSizeOps from './staffSize'
+import * as barlineJoinOps from './barlineJoin'
 import { isValidStaffSize } from './staffSize'
 import * as barlineOps from './barlineOps'
 import type { BarlineSignKind } from '@/engine/layout/barlineSign'
@@ -1491,6 +1492,13 @@ export class ScoreModel {
    *  field. Refuses a non-positive size or an unknown staff. See {@link staffSizeOps.setStaffSize}. */
   setStaffSize(staffId: string, size: number): boolean {
     return staffSizeOps.setStaffSize(this.score, staffId, size)
+  }
+
+  /** Join or disjoin the gap BELOW a staff — whether its barlines run on into the next staff down.
+   *  Writing the default (not joined) clears the field; the bottom staff has no gap and is refused.
+   *  See {@link barlineJoinOps.setBarlineJoinBelow} (docs/barline-join-plan.md). */
+  setBarlineJoinBelow(staffId: string, on: boolean): boolean {
+    return barlineJoinOps.setBarlineJoinBelow(this.score, staffId, on)
   }
 
   // ============ Barline types (the final bar, the two repeats) ============

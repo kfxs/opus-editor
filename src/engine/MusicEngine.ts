@@ -751,6 +751,23 @@ export class MusicEngine {
     return true
   }
 
+  /**
+   * **Join or disjoin the gap below a staff** — whether its barlines run unbroken into the next
+   * staff down (docs/barline-join-plan.md). Ordinal in, id out, exactly as {@link setStaffSize}:
+   * the field is keyed by staff identity and only the facade speaks in indices.
+   *
+   * ⭐ `saveOnly`, ⛔ never `commit`: a join is INK. It changes no note's time, so there is nothing
+   * for playback to resync — `barlineOps`' own rule for the signs, arriving at the line between
+   * them. And it is what marks the model dirty, which is what makes the next render happen at all.
+   */
+  setBarlineJoinBelow(staffIndex: number, on: boolean): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (staffId === undefined) return false
+    if (!this.scoreModel.setBarlineJoinBelow(staffId, on)) return false
+    this.saveOnly(`Staff ${staffIndex} barline join ${on ? 'on' : 'off'}`)
+    return true
+  }
+
   // ============ Barline types (the final bar, the two repeats) ============
   // The write lives on the facade for the one reason a write ever does: undo. The values and the
   // rules are `engine/models/barlineOps`, a SCORE operation (docs/barline-types-plan.md §8 P1).

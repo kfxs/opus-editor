@@ -911,8 +911,12 @@ export class HighlightController {
   applyBarlineSelectionHighlight(): void {
     const measure = selectedOf(this.state, 'barline')?.measure ?? null
     if (measure === null) return
-    // The END half: the sign's ink LEFT of the divider, plus the divider itself.
-    this.recolourBarlineHalf('end', (svg, staff) => this.barlineSignGroup(svg, measure, staff))
+    // The END half: the sign's ink LEFT of the divider, plus the divider itself — on the staff, and
+    // in the gap below it when the two are joined.
+    this.recolourBarlineHalf('end', (svg, staff) => [
+      this.barlineSignGroup(svg, measure, staff),
+      this.barlineGapGroup(svg, measure, staff),
+    ])
   }
 
   /**
@@ -929,8 +933,11 @@ export class HighlightController {
   applyRepeatStartSelectionHighlight(): void {
     const measure = selectedOf(this.state, 'repeatStart')?.measure ?? null
     if (measure === null) return
-    this.recolourBarlineHalf('start', (svg, staff) =>
-      this.signGroupById(svg, `${measure}-${staff}-start`) ?? this.signGroupById(svg, `${measure - 1}-${staff}-end`))
+    this.recolourBarlineHalf('start', (svg, staff) => [
+      this.signGroupById(svg, `${measure}-${staff}-start`) ?? this.signGroupById(svg, `${measure - 1}-${staff}-end`),
+      // …and the same line's ink in the gap below that staff, filed by the bar that drew it.
+      this.signGroupById(svg, `gap-${measure}-${staff}-start`) ?? this.signGroupById(svg, `gap-${measure - 1}-${staff}-end`),
+    ])
   }
 
   /**
@@ -1048,7 +1055,7 @@ export class HighlightController {
    */
   private recolourBarlineHalf(
     half: SignHalf,
-    groupFor: (svg: Element, staff: number) => SVGGElement | null,
+    groupFor: (svg: Element, staff: number) => (SVGGElement | null)[],
   ): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()
@@ -1061,9 +1068,16 @@ export class HighlightController {
     for (let staff = 0; staff < staffCount; staff++) {
       // The group's existence IS the "is this bar on screen" test — the pass draws one only for a
       // boundary it actually painted, which is what `registry.isPainted` used to be asked here.
-      const signGroup = groupFor(svg, staff)
-      if (!signGroup) continue
-      const ink = [...signGroup.querySelectorAll('rect, text')] as SVGElement[]
+      //
+      // ⭐⭐ **SEVERAL GROUPS, because one line is now drawn in several pieces.** A joined barline is
+      // this staff's own sign PLUS the segment crossing the gap below it, which cannot be drawn in
+      // the staff's scale group and so is a group of its own (`engine/rendering/barlineGap`). They
+      // are one line to the eye and must be one line to the selection: lighting only the sign leaves
+      // black ink between the staves, which is his *"are we overlapping the blue to another black
+      // barline?"* report arriving in a new place.
+      const groups = groupFor(svg, staff).filter((g): g is SVGGElement => g !== null)
+      if (groups.length === 0) continue
+      const ink = groups.flatMap(g => [...g.querySelectorAll('rect, text')]) as SVGElement[]
       const halfOf = (el: SVGElement) => el.closest('[data-half]')?.getAttribute('data-half')
       // ⭐ Whether this selection owns any of the sign at all — see the header. When it does not, the
       // whole sign is what stands on its line, and lighting the divider alone would be the fragment.
@@ -1113,6 +1127,21 @@ export class HighlightController {
   private barlineSignGroup(svg: Element, measure: number, staff: number): SVGGElement | null {
     return this.signGroupById(svg, `${measure}-${staff}-end`)
       ?? this.signGroupById(svg, `${measure + 1}-${staff}-start`)
+  }
+
+  /**
+   * {@link barlineSignGroup}'s twin for the ink BELOW that staff — the piece of the same line
+   * crossing into the gap, when the two staves are joined (docs/barline-join-plan.md).
+   *
+   * ⭐ Deliberately the same two-lookup rule and the same order, because it is the same question:
+   * a boundary carries one sign, drawn either by the bar that ends there or by the bar that opens a
+   * repeat there, and the gap segment is filed under whichever of the two put the pen down. Null
+   * whenever the gap is not joined, the staves are not drawn, or this is the bottom staff — the
+   * group's existence is the whole test, exactly as above.
+   */
+  private barlineGapGroup(svg: Element, measure: number, staff: number): SVGGElement | null {
+    return this.signGroupById(svg, `gap-${measure}-${staff}-end`)
+      ?? this.signGroupById(svg, `gap-${measure + 1}-${staff}-start`)
   }
 
   /** One drawn sign's `<g>` by the tail of its id. The ids are `BarlineRenderer`'s, `vf-`-prefixed by

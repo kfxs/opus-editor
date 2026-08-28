@@ -58,6 +58,7 @@ import type { Stave } from 'vexflow'
 import type { Measure, Score } from '@/types/music'
 import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
+import { drawBarlineGap } from './barlineGap'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
 
@@ -468,6 +469,38 @@ export function renderBarlines(
     const neighbour = (offset: -1 | 1): BarlinePlacement | undefined =>
       lineOf(n + offset) === line ? at.get(`${n + offset}:${placement.staffIndex}`) : undefined
 
+    /**
+     * ⭐⭐ **AND THE SAME SIGN, CONTINUED INTO THE GAP BELOW THIS STAFF** — one call per sign drawn,
+     * so the gap can never carry a different sign from the staves it joins (docs/barline-join-plan.md
+     * §3). Everything about HOW it is drawn — score space, the weight, the hinting choice, the
+     * hidden treatment, the dots it must NOT draw — is `./barlineGap`'s; what stays here is what
+     * this loop already knows: which sign stands at this boundary, and where.
+     *
+     * ⚠️ `xBelow` is computed by the caller because only this loop can: a start repeat displaced
+     * past a header stands at a position derived from THAT staff's own header ink, and the two
+     * staves need not agree. The gap module declines rather than guessing when they do not.
+     */
+    const joinBelow = (
+      xAboveStave: number,
+      kind: BarlineSignKind,
+      side: Side,
+      xBelowOf: (below: BarlinePlacement) => number,
+    ): void => {
+      const below = at.get(`${n}:${placement.staffIndex + 1}`)
+      if (!below) return
+      drawBarlineGap(pass, score, {
+        above: placement,
+        below,
+        xAbove: xAboveStave * placement.scale,
+        xBelow: xBelowOf(below) * below.scale,
+        kind,
+        side,
+        audience,
+      })
+    }
+    /** A placement's own `staleShift` dx, for a boundary read off ITS stave. */
+    const shiftOf = (p: BarlinePlacement): number => staleShift(p).dx
+
     // ---- The boundary this bar ENDS at.
     //
     // ⭐ Its neighbour counts only if that bar is on this system AND was drawn AND puts its repeat on
@@ -481,18 +514,27 @@ export function renderBarlines(
     // 🚨 The boundary comes from the PLACEMENT, never from `stave.getX() + stave.getWidth()` — a
     //    reused bar's stave reports where it was last painted. See {@link staleShift}.
     const { dx } = staleShift(placement)
-    if (endKind) drawSign(pass, placement, stave.getX() + stave.getWidth() + dx, endKind, 'end', audience, wingsOn(measure, next))
+    if (endKind) {
+      const endX = stave.getX() + stave.getWidth() + dx
+      drawSign(pass, placement, endX, endKind, 'end', audience, wingsOn(measure, next))
+      joinBelow(endX, endKind, 'end', b => b.stave.getX() + b.stave.getWidth() + shiftOf(b))
+    }
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
     if (measure.repeatStart === undefined) continue
 
     // ⭐ A header displaces the sign into the bar, after the clef/key/meter — see `displacedRepeatX`.
-    const displaced = displacedRepeatX(stave, barlineSignParts('repeatStart').extent.left, dx)
+    const signLeft = barlineSignParts('repeatStart').extent.left
+    const displaced = displacedRepeatX(stave, signLeft, dx)
     if (displaced !== null) {
       // ⛔ Always `repeatStart` alone, never the back-to-back form: the previous bar's own end sign
       // is a different mark at a different x now, and combining them would draw one sign in the
       // place of two.
       drawSign(pass, placement, displaced, 'repeatStart', 'start', audience, wingsOn(undefined, measure))
+      // ⚠️ Each staff's own displacement, measured off its OWN header — two staves whose headers
+      // differ put the sign at two x's, and the gap module declines rather than drawing a kink.
+      joinBelow(displaced, 'repeatStart', 'start',
+        b => displacedRepeatX(b.stave, signLeft, shiftOf(b)) ?? Number.NaN)
       continue
     }
 
@@ -503,6 +545,10 @@ export function renderBarlines(
     if (neighbour(-1)) continue
     const prev = lineOf(n - 1) === line ? byNumber.get(n - 1) : undefined
     const startKind = signAtBoundary(prev, measure)
-    if (startKind) drawSign(pass, placement, stave.getX() + dx, startKind, 'start', audience, wingsOn(prev, measure))
+    if (startKind) {
+      const startX = stave.getX() + dx
+      drawSign(pass, placement, startX, startKind, 'start', audience, wingsOn(prev, measure))
+      joinBelow(startX, startKind, 'start', b => b.stave.getX() + shiftOf(b))
+    }
   }
 }

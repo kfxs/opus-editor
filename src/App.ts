@@ -862,6 +862,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       rehint: () => { engine?.hintBarlines(true); dumpBarlineCensus(document.querySelector('.score-container') ?? document) },
       // Which barlines can be CLICKED, which can be SEEN, and which will refuse a width drag.
       boxes: () => engine && barlineBoxes(engine, document.querySelector('.score-container') ?? document),
+      // ⏭️ **THE JOIN'S ONLY DOOR, until P2's squares arrive** (docs/barline-join-plan.md). Nothing
+      // is joined by default, so without this P1 has no way to be looked at by eye — which is the
+      // one test that matters here. `__barlines.join(0)` joins the gap BELOW staff 0.
+      // ⛔ Delete this the day the square can be dragged; a dev door outliving its feature is how
+      // the old barline palette ended up shipping in the demo shell.
+      join: (staffIndex: number, on = true) => {
+        if (!engine?.setBarlineJoinBelow(staffIndex, on)) return false
+        renderer.renderScore()
+        return true
+      },
     }
     // WHICH CALL SITE pays the forced style+layout flush — the question the region census
     // structurally cannot answer, because a wall-clock region reports where the bill LANDED

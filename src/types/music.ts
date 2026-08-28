@@ -2246,6 +2246,25 @@ export interface StaffInfo {
    * that is where per-system size will arrive. See docs/staff-size-plan.md §2, §3.
    */
   size?: number
+  /**
+   * ⭐⭐ **"My barlines continue into the gap BELOW me"** — whether a barline is drawn unbroken
+   * through the space between this staff and the next one down. Absent = **NOT joined**, his call
+   * of 2026-08-28 (*"default should be not joined"*); what joins "all barlines" is the default
+   * reach of the GESTURE, not the state a score starts in. The last staff has no gap below it, so
+   * the field is meaningless there.
+   *
+   * ⭐ **Keyed by the GAP, via the staff above it** — 1:1 with the thing a user drags and with
+   * MuseScore's own field (`Staff::m_barLineSpan`, a bool meaning exactly this). ⛔ Not on
+   * {@link Score} (principle 6: a `Score.barlineJoin` would silently mean "the join at bar 1"), and
+   * ⛔ not a boolean on {@link StaffGroup} — the bracket does not own the join (LilyPond's
+   * `GrandStaff` and `ChoirStaff` differ in the delimiter and the span bar *independently*), and a
+   * group-wide flag cannot say "staves 2–3 joined while staff 1 stands alone".
+   *
+   * ⚠️ Read it through `barlineJoinsBelow` (engine/models/barlineJoin.ts), **never directly** — that
+   * function takes the BOUNDARY as well, which is where the contemporary per-boundary mix will
+   * arrive without a single caller moving. See docs/barline-join-plan.md §2.4.
+   */
+  barlineJoinBelow?: boolean
 }
 
 /**
