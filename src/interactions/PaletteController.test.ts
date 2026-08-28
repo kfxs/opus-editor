@@ -163,22 +163,44 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
  */
 describe('PaletteController — the Clef window applies to a SELECTED bar', () => {
   let state: EditorState
-  let set: { measure: number; clef: string; staff: number }[]
+  let set: { measure: number; clef: string; staff: number; beat: number }[]
   let courtesy: { measure: number; staff: number; on: boolean }[]
   let palette: PaletteController
+
+  /** Two quarters in bar 2 and two in bar 3, on staff 0 — enough for "the slot after this one",
+   *  including the case where that slot is the next BAR. `slots` fills the measures the beat map
+   *  walks (`utils/beatMap` reads the score, so the fake has to be a real-shaped one). */
+  const frac = (num: number, den = 4) => ({ num, den })
+  const notes = [
+    { id: 'n1', measure: 2, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'C', alter: 0, octave: 4 },
+    { id: 'n2', measure: 2, beat: frac(2), staff: 0, voice: 0, duration: 'q', step: 'D', alter: 0, octave: 4 },
+    { id: 'n3', measure: 3, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'E', alter: 0, octave: 4 },
+  ]
+  const score = {
+    measures: [1, 2, 3, 4].map(number => ({
+      number,
+      slots: notes.filter(n => n.measure === number).map(n => ({
+        type: 'chord', id: n.id, measure: n.measure, beat: n.beat, duration: n.duration, voice: n.voice,
+        notes: [{ id: n.id, step: n.step, alter: n.alter, octave: n.octave }],
+      })),
+    })),
+  }
 
   beforeEach(() => {
     state = createEditorState()
     set = []
     courtesy = []
     const engine = {
-      setClef: (measure: number, clef: string, staff: number) => {
-        set.push({ measure, clef, staff })
+      setClefAt: (measure: number, beat: { num: number; den: number }, clef: string, staff: number) => {
+        set.push({ measure, clef, staff, beat: beat.num / beat.den })
         return true
       },
       setCautionaryClefAllowed: (measure: number, staff: number, on: boolean) => {
         courtesy.push({ measure, staff, on })
       },
+      // A four-bar score: bar 4's barline is the last one, with nothing after it.
+      getScore: () => score,
+      getNote: (id: string) => notes.find(n => n.id === id),
     }
     palette = new PaletteController(
       () => engine as never,
@@ -198,7 +220,7 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
   it('applies at the boxed bar’s BEGINNING instead of arming the stamp', () => {
     boxBars(3, 3)
     palette.armClef('bass')
-    expect(set).toEqual([{ measure: 3, clef: 'bass', staff: 0 }])
+    expect(set).toEqual([{ measure: 3, clef: 'bass', staff: 0, beat: 0 }])
     expect(armedTool(state, 'clef')).toBeNull() // nothing left waiting for a click
     expect(state.selectedTool).toBe('selection') // and we did not jump into entry mode
   })
@@ -206,7 +228,7 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
   it('⭐ takes the box’s OWN STAFF — a clef is stated per staff, ⛔ unlike a meter', () => {
     boxBars(2, 2, 1)
     palette.armClef('treble')
-    expect(set).toEqual([{ measure: 2, clef: 'treble', staff: 1 }])
+    expect(set).toEqual([{ measure: 2, clef: 'treble', staff: 1, beat: 0 }])
   })
 
   it('lands on the LOWEST bar of a span — a clef change is a point event, not a fill', () => {
@@ -237,11 +259,100 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
     expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, boxStyle: 'single' })
   })
 
-  it('arms the stamp as before when NO bar is selected', () => {
+  it('arms the stamp as before when NOTHING is selected', () => {
     palette.armClef('bass', true)
     expect(set).toEqual([])
     expect(armedTool(state, 'clef')?.clef).toBe('bass')
     expect(state.selectedTool).toBe('entry')
+  })
+
+  /**
+   * ⭐⭐ **A SELECTED NOTE OR REST puts the clef in the slot AFTER it** — his report, 2026-08-28: *"if
+   * a note or a rest is selected i expect instead of stamp clef to add the cleff after the note or
+   * the rest"*. A clef anchors to a slot and is engraved BEFORE it, so "after this note" and "before
+   * the next slot" are the same place said from either side.
+   */
+  describe('…and a selected NOTE puts it in the slot after that note', () => {
+    const selectNote = (id: string): void => {
+      state.selectedTool = 'selection'
+      state.selectedNoteId = id
+    }
+
+    it('lands on the next slot in the same bar', () => {
+      selectNote('n1') // bar 2, beat 0 — the next slot is beat 2
+      palette.armClef('bass')
+      expect(set).toEqual([{ measure: 2, clef: 'bass', staff: 0, beat: 0.5 }])
+      expect(armedTool(state, 'clef')).toBeNull()
+    })
+
+    it('⭐ the LAST note of a bar hands it to the NEXT BAR’S OPENING — engraved after the barline', () => {
+      selectNote('n2') // bar 2, beat 2 — the next slot is bar 3, beat 0
+      palette.armClef('alto')
+      expect(set).toEqual([{ measure: 3, clef: 'alto', staff: 0, beat: 0 }])
+    })
+
+    it('⛔ declines when nothing follows — the music stops there, so there is no slot to sit before', () => {
+      selectNote('n3') // the last note on the staff
+      palette.armClef('tenor')
+      expect(set).toEqual([])
+      expect(armedTool(state, 'clef')?.clef).toBe('tenor')
+    })
+
+    it('⚠️ takes the LAST of a passage, not its anchor — the clef goes after the music you chose', () => {
+      state.selectedTool = 'selection'
+      state.selectedNoteId = 'n1'
+      state.selectedItems = new Map([
+        ['n1', { kind: 'note', id: 'n1' }],
+        ['n2', { kind: 'note', id: 'n2' }],
+      ]) as never
+      palette.armClef('bass')
+      expect(set.map(x => [x.measure, x.beat])).toEqual([[3, 0]])
+    })
+  })
+
+  /**
+   * ⭐⭐ **A SELECTED BARLINE puts the clef in the bar AFTER it** — his report, 2026-08-28: *"if a
+   * barline is selected i expect that the clef comes after the barline, now we are stamping clef in
+   * this case"*. It falls out of what the selection means: a `barline` names *the line that ENDS bar
+   * N*, so the music after it is bar N+1.
+   */
+  describe('…and a selected BARLINE puts it in the bar after the line', () => {
+    const selectBarline = (measure: number, staff: number | undefined = 0): void => {
+      state.selectedTool = 'selection'
+      state.selectedElement = { kind: 'barline', measure, staff, pressedAt: 'bottom' }
+    }
+
+    it('lands at the opening of the NEXT bar, on the staff that was pressed', () => {
+      selectBarline(2, 1)
+      palette.armClef('bass')
+      expect(set).toEqual([{ measure: 3, clef: 'bass', staff: 1, beat: 0 }])
+      expect(armedTool(state, 'clef')).toBeNull()
+    })
+
+    it('⛔ never the bar the line ENDS — that is the far end of the bar you pointed past', () => {
+      selectBarline(2)
+      palette.armClef('alto')
+      expect(set.map(s => s.measure)).toEqual([3])
+    })
+
+    it('⛔ declines on the LAST barline — there is no bar after it, so the stamp arms', () => {
+      selectBarline(4)
+      palette.armClef('tenor')
+      expect(set).toEqual([])
+      expect(armedTool(state, 'clef')?.clef).toBe('tenor')
+    })
+
+    it('⛔ declines when the barline carries no staff — which staff is not a question to guess', () => {
+      // A selection with no press behind it (playback's start line). The stamp asks the very
+      // question that could not be answered here.
+      // ⚠️ The key is ABSENT, not passed as `undefined`: a default parameter substitutes its default
+      // for an explicit `undefined`, so `selectBarline(2, undefined)` would quietly say staff 0.
+      state.selectedTool = 'selection'
+      state.selectedElement = { kind: 'barline', measure: 2, pressedAt: 'bottom' }
+      palette.armClef('bass')
+      expect(set).toEqual([])
+      expect(armedTool(state, 'clef')?.clef).toBe('bass')
+    })
   })
 })
 

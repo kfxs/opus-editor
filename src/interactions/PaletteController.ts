@@ -7,6 +7,7 @@ import { applyMarkVoiceScope } from './markVoiceScope'
 import { activeVoiceToModel, armedTool, armedToolUsesLength, selectedOf, DEFAULT_DURATION, DEFAULT_DOTS, DEFAULT_BEAM } from './EditorState'
 import { durationHighlight, beamHighlight, beamRoleHighlight, secondaryBreakHighlight, beamOverHighlight, tremoloHighlight, tremoloPairHighlight, fanHighlight } from './keypadSync'
 import { fracToNumber } from '../utils/fraction'
+import { navBeatMap } from '../utils/beatMap'
 import { DEFAULT_FAN_BEAMS, DEFAULT_FAN_COUNT, fanIsJoined, fanJoinSubdivides } from '../utils/fannedBeam'
 import { resolveTupletInTimeOf, type TupletResolution } from '../utils/musicUtils'
 import { accidentalTypeToKey, formatPitch } from '../utils/pitchSpelling'
@@ -1933,13 +1934,12 @@ export class PaletteController {
       // the measure"* means. ⛔ Never the nearest slot: that is the CLICK's question
       // (`MouseController.placeClefAtClick` resolves it from the pointer's x), and there is no
       // pointer here.
-      const changed = engine.setClef(target.measure, clef, target.staff)
+      const changed = engine.setClefAt(target.measure, target.beat, clef, target.staff)
       // The courtesy decision belongs to the change just made — the stamp's own rule, so a dialog
       // that carried an opinion applies it whichever way the clef arrives.
       if (cautionary !== undefined) engine.setCautionaryClefAllowed(target.measure, target.staff, cautionary)
-      dbg(changed
-        ? `✓ Clef set on the selected bar | ${clef} at measure ${target.measure} staff ${target.staff}`
-        : `Clef unchanged at the selected measure ${target.measure} staff ${target.staff}`)
+      dbg(`${changed ? '✓ Clef set on the selection' : 'Clef unchanged at the selection'} | ${clef} `
+        + `at measure ${target.measure} beat ${fracToNumber(target.beat).toFixed(3)} staff ${target.staff}`)
       // The box STAYS, {@link armTimeSignature}'s rule: you are looking at the bar you just changed.
       this.renderScore()
       return
@@ -1948,21 +1948,118 @@ export class PaletteController {
   }
 
   /**
-   * The (bar, staff) a clef-shaped choice should land on when a bar is already boxed, or null to
-   * fall back to arming.
+   * The (bar, staff) a clef-shaped choice should land on when something on the score has already
+   * said where, or null to fall back to arming the stamp.
    *
    * ⚠️ **It carries a STAFF where {@link selectedMeasureTarget} does not, and that is the whole
    * difference between the two marks**: a meter is one statement for the system, while a clef is
-   * stated by each staff for itself (`types/music.ts` on `Measure.clefs`) — so the box's own staff
-   * is the answer, and applying to every staff would overwrite a hand the user never selected.
+   * stated by each staff for itself (`types/music.ts` on `Measure.clefs`) — so the selection's own
+   * staff is the answer, and applying to every staff would overwrite a hand the user never selected.
    *
-   * The LOWEST bar of a span, for the meter's reason: a clef change is a point event that runs until
-   * the next one, so "bass clef on bars 5–8" is a bass clef at bar 5.
+   * **Three selections answer, and they answer differently:**
+   *
+   * - **A BOXED BAR → that bar's opening.** The LOWEST bar of a span, for the meter's reason: a clef
+   *   change is a point event that runs until the next one, so "bass clef on bars 5–8" is a bass clef
+   *   at bar 5.
+   * - ⭐⭐ **A SELECTED BARLINE → the bar AFTER it.** His report, 2026-08-28: *"if a barline is
+   *   selected i expect that the clef comes after the barline, now we are stamping clef in this
+   *   case"*. Exactly right, and it falls straight out of what the selection MEANS: a `barline` names
+   *   *the line that ENDS bar N* (`SelectedElement`), so the music after it is bar N+1 and a clef
+   *   placed there is engraved immediately to the right of that line. ⛔ Never bar N — that would put
+   *   the clef at the far end of the bar you were pointing past.
+   * - ⭐⭐ **A SELECTED NOTE OR REST → the slot AFTER it** (asked LAST — see the code's note on why
+   *   an explicit element outranks the note anchor).** His report, 2026-08-28: *"if a note or a
+   *   rest is selected i expect instead of stamp clef to add the cleff after the note or the rest"*.
+   *   ⭐ A clef anchors to a SLOT and is engraved immediately BEFORE it (`MusicEngine.setClefAt`), so
+   *   *"after this note"* and *"before the next slot"* are the same place, said from either side —
+   *   which is why this needs no new model and no new drawing. The next slot is the beat map's
+   *   (`utils/beatMap`), the same answer the arrow keys walk, so a note at the end of a bar hands the
+   *   clef to the NEXT BAR'S OPENING and it is engraved after the barline, exactly as the barline
+   *   case above would have put it.
+   *
+   * ⚠️ **The LAST of a passage, not its anchor**, when several notes are selected: the clef belongs
+   * after the music you chose, ⛔ not inside it.
+   *
+   * ⚠️ **Two ways it declines rather than guessing**, and both matter on a grand staff:
+   *  - the barline that ends the LAST bar has no bar after it, so there is nowhere for the clef to go;
+   *  - a barline selected with no press behind it (playback's start line) carries no staff, and
+   *    *which staff* is not a question a clef may answer by picking the first one;
+   *  - the LAST note of a staff has no slot after it — the music simply stops there.
+   * In each case the stamp arms, which is the honest fallback: it asks the very question that could
+   * not be answered here.
    */
-  private selectedClefTarget(): { measure: number; staff: number } | null {
+  private selectedClefTarget(): { measure: number; staff: number; beat: Fraction } | null {
+    if (this.state.selectedTool !== 'selection') return null
+    const opening = { num: 0, den: 1 }
+
     const range = selectedOf(this.state, 'measureRange')
-    if (!range || this.state.selectedTool !== 'selection') return null
-    return { measure: Math.min(range.anchor, range.focus), staff: range.staff }
+    if (range) return { measure: Math.min(range.anchor, range.focus), staff: range.staff, beat: opening }
+
+    // ⚠️ **`selectedElement` is asked BEFORE the note selection, and the order is load-bearing.** The
+    // two are separate fields (`SelectedElement`'s own note: the selection is TWO things), and while
+    // picking an element clears the notes, `selectedNoteId` also doubles as the ENTRY CURSOR — so a
+    // stale one must never outrank the barline the user just clicked.
+    const barline = selectedOf(this.state, 'barline')
+    if (barline) {
+      const after = barline.measure + 1
+      const last = this.getEngine()?.getScore().measures.length ?? 0
+      if (after > last) {
+        dbg(`Clef: the selected barline ends the last bar (${barline.measure}) — nothing after it to `
+          + 'put a clef in, so the stamp arms instead')
+        return null
+      }
+      if (barline.staff === undefined) {
+        dbg('Clef: the selected barline carries no staff (it was not picked by a press), and which '
+          + 'staff is not a question to guess — the stamp arms instead')
+        return null
+      }
+      return { measure: after, staff: barline.staff, beat: opening }
+    }
+
+    return this.clefTargetAfterSelectedNote()
+  }
+
+  /**
+   * ⭐⭐ **THE SLOT AFTER THE SELECTED NOTE OR REST**, or null when nothing is selected / nothing
+   * follows it. The third answer {@link selectedClefTarget} accepts — see its header for the rule.
+   *
+   * ⭐ **The BEAT MAP is what "the next slot" means here** (`utils/beatMap`), and reusing it is the
+   * point: it is already the answer the arrow keys walk, so the clef lands exactly where pressing →
+   * would take you — including the case where that is the NEXT BAR, which it reports as beat 0 of
+   * that bar without this function needing to know a bar's length.
+   *
+   * ⚠️ Scoped to the note's OWN staff and voice: a clef is a per-staff statement, so the slot that
+   * follows is the next slot on that staff, ⛔ never the next event anywhere in the score.
+   */
+  private clefTargetAfterSelectedNote(): { measure: number; staff: number; beat: Fraction } | null {
+    const engine = this.getEngine()
+    if (!engine) return null
+    const ids = selectedNoteIds(this.state.selectedItems.values())
+    const anchor = this.state.selectedNoteId
+    const candidates = ids.length > 0 ? ids : anchor ? [anchor] : []
+    if (candidates.length === 0) return null
+
+    // ⭐ The LAST of the selection in time — a clef belongs after the music you chose, not inside it.
+    let last: { id: string; measure: number; beat: Fraction; staff: number; voice: number } | null = null
+    for (const id of candidates) {
+      const n = engine.getNote(id)
+      if (!n) continue
+      const at = { id, measure: n.measure, beat: n.beat, staff: n.staff ?? 0, voice: n.voice ?? 0 }
+      if (last === null
+        || at.measure > last.measure
+        || (at.measure === last.measure && fracToNumber(at.beat) > fracToNumber(last.beat))) last = at
+    }
+    if (!last) return null
+
+    const { beats } = navBeatMap(engine.getScore(), last.id, last.voice, last.staff)
+    const here = beats.findIndex(b => b.measureNumber === last.measure && fracToNumber(b.beat) === fracToNumber(last.beat))
+    const next = here === -1 ? undefined : beats[here + 1]
+    if (!next) {
+      dbg('Clef: nothing follows the selected note on its staff — no slot to put a clef before, so '
+        + 'the stamp arms instead')
+      return null
+    }
+    return { measure: next.measureNumber, staff: last.staff, beat: next.beat }
   }
 
   /**

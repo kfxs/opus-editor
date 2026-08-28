@@ -136,6 +136,30 @@ anchored to a beat and a staff, not just a bar — so, answered:
 - Everything else is this section verbatim — the lowest bar of a span, either box style, the box
   stays up, and the courtesy flag is written only when the dialog carried an opinion.
 
+⭐⭐ **And the clef then went further than the meter can, because a clef can land anywhere a SLOT is.**
+Two more selections answer it, both his, the same day:
+
+| what is selected | where the clef goes | why |
+|---|---|---|
+| a **bar** (either box) | that bar's opening, beat 0 | the meter's rule above |
+| a **barline** | the opening of the bar **AFTER** it | *"if a barline is selected i expect that the clef comes after the barline"* — a `barline` selection names *the line that ENDS bar N*, so the music after it is bar N+1. ⛔ Never bar N, which is the far end of the bar you were pointing past |
+| a **note or rest** | the **slot after it** | *"if a note or a rest is selected i expect instead of stamp clef to add the cleff after the note or the rest"*. ⭐ A clef anchors to a slot and is engraved immediately BEFORE it, so *"after this note"* and *"before the next slot"* are the same place said from either side — no new model, no new drawing |
+
+⭐ **The next slot is the BEAT MAP's** (`utils/beatMap`), which is the answer the arrow keys already
+walk: the clef lands exactly where pressing → would take you, and a note at the end of a bar hands it
+to the next bar's opening — engraved after the barline, which is where the barline row above would
+have put it. Two routes, one answer.
+
+⚠️ **Three refusals, and each is a question the stamp then asks properly** rather than a guess:
+the barline that ends the LAST bar (nothing after it), a barline carrying no staff (selected with no
+press behind it — *which staff* is not a clef's to guess), and the last note on a staff (the music
+stops there, so there is no slot to sit before).
+
+⚠️ **The order of the three is load-bearing**: `selectedElement` is asked before the note selection,
+because the two are separate fields and `selectedNoteId` doubles as the entry cursor — a stale one
+must not outrank the barline just clicked. And a passage answers with its **LAST** note, not its
+anchor: the clef belongs after the music you chose, not inside it.
+
 Three things travel with the armed meter, all of them properties of the change about to be made,
 none of which has anywhere else to wait until the target bar is known:
 
