@@ -74,6 +74,19 @@ export interface BarlineGap {
   /** Which end of the bar the sign was drawn at — only ever used to make the group's id unique,
    *  matching `BarlineRenderer`'s own ids. */
   side: 'end' | 'start'
+  /**
+   * ⭐⭐ **WHICH BAR THIS LINE ENDS — the identity a press on the gap ink resolves to**, or `null`
+   * when the sign stands at no boundary at all.
+   *
+   * ⚠️ **Computed by the caller, because only that loop can.** A sign drawn at a bar's END ends that
+   * bar; one drawn at its START is normally the boundary that ends the bar BEFORE it — but not
+   * always, and the exceptions are exactly the two the drawing loop already distinguishes: a `|:`
+   * DISPLACED past its own header stands inside the bar (`displacedRepeatX`), and a system-opening
+   * `|:` stands at a line's left edge whose boundary lives at the end of the line above. ⛔ Neither is
+   * a boundary a press may select, so both come through as `null` and register no hit box — the ink
+   * is still drawn, it is simply not a barline you can click *here*.
+   */
+  endsMeasure: number | null
   audience: RenderAudience
 }
 
@@ -157,4 +170,41 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
   // ⭐ An invisible line is invisible in the gap too: TINTED for the editor, REMOVED for print
   // (`./hiddenElements`). Without this the one thing hiding is for would fail between the staves.
   if (group && kind === 'invisible') applyHiddenTreatment(group, audience)
+
+  registerGapHit(pass, gap, xAbove, top, bottom, parts.strokes)
+}
+
+/**
+ * ⭐⭐ **THE GAP INK, MADE CLICKABLE** — his ask, 2026-08-28: *"if the barline is join and i click on
+ * in the empty space of the two staves i want to be able to select it too and move and do the normal
+ * barline operations"*.
+ *
+ * ⭐ **Registered where it is DRAWN**, `registerRepeatStart`'s rule and for its reason: this is the
+ * only place that knows both that the join is on and that the ink actually landed. So the entry's
+ * existence IS the "is it there?" test, and an unjoined gap — or one this module declined — registers
+ * nothing at all.
+ *
+ * ⚠️ **The box is the STROKES' span, ⛔ not the sign's full extent**: the dots never cross the gap
+ * (see the header), so a box that reserved room for them would answer presses over blank paper.
+ * `interactions/elements/barline.ts` pads it to a clickable size, exactly as it pads the staff ink's.
+ */
+function registerGapHit(
+  pass: RenderPass,
+  gap: BarlineGap,
+  xAbove: number,
+  top: number,
+  bottom: number,
+  strokes: readonly { x: number; width: number }[],
+): void {
+  if (gap.endsMeasure === null || strokes.length === 0) return
+  const left = Math.min(...strokes.map(s => s.x))
+  const right = Math.max(...strokes.map(s => s.x + s.width))
+  pass.elementRegistry.add({
+    type: 'barline-gap',
+    measure: gap.endsMeasure,
+    // ⭐ The staff ABOVE the gap — `barlineJoinBelow`'s own key, so a press here names the same gap
+    // the join squares do.
+    staff: gap.above.staffIndex,
+    bbox: { x: xAbove + left * GAP_SPACE, y: top, width: (right - left) * GAP_SPACE, height: bottom - top },
+  })
 }

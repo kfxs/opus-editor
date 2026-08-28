@@ -483,9 +483,16 @@ export type SelectedElement =
        */
       staff?: number
       /**
-       * ⭐⭐ **WHICH END OF THAT STAFF'S LINE THE PRESS WAS NEAREST** — and so which ONE join square
-       * is offered: `top` shows the square over the staff (the gap above it), `bottom` the square
-       * under it (the gap below).
+       * ⭐⭐ **WHERE ON THE LINE THE PRESS LANDED** — and so which ONE join square is offered: `top`
+       * shows the square over the staff (the gap above it), `bottom` the square under it (the gap
+       * below), and **`gap` offers NONE**.
+       *
+       * ⭐ **`gap` is a press on the ink BETWEEN two staves**, which a joined barline now answers
+       * (`ElementInfo`'s `'barline-gap'`). His call, 2026-08-28: *"when i select the barline in the
+       * midle, in the white space i dont need to see the square, the square is related just to the
+       * stave"*. Right — a handle marks the END of a staff's line, and a press out in the gap is at
+       * no end: the line is already there, and what you wanted was the barline, not a handle.
+       * ⛔ It is NOT the same as absent, which means *no press told us* and offers every square.
        *
        * ⭐ **THE SPOT YOU CLICK IS THE CHOICE** — his call, 2026-08-28: *"the spot to click is
        * critical… if the user click in that area we show the blue square related with that"*. It is
@@ -495,10 +502,10 @@ export type SelectedElement =
        * the bottom, the top one commented out. ⇒ ⛔ never two at once, which is what he saw and what
        * made him ask.
        *
-       * ⚠️ Absent means the end is unknown (a keyboard walk that never had a press to read), and
+       * ⚠️ Absent means the spot is unknown (a keyboard walk that never had a press to read), and
        * then BOTH of that staff's squares are offered rather than a guessed one.
        */
-      staffEnd?: 'top' | 'bottom'
+      pressedAt?: 'top' | 'bottom' | 'gap'
     }
   /**
    * ⭐⭐ **THE OPEN REPEAT** (`|:`) — the line that OPENS this measure, and the one barline sign that

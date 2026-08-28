@@ -139,6 +139,13 @@ describe('the join squares of a selected barline', () => {
     expect(sides(2)).toEqual(['above'])
   })
 
+  it('⭐⭐ a press OUT IN THE GAP offers no square at all — a handle belongs to a staff\'s line end', () => {
+    // His call, 2026-08-28: *"when i select the barline in the midle, in the white space i dont need
+    // to see the square"*. ⛔ And it is not the same as an absent spot, which offers every square.
+    expect(barlineJoinHandles(registryOf(staves(3)), MEASURE, 'plain', { staff: 1, end: 'gap' })).toEqual([])
+    expect(barlineJoinHandles(registryOf(staves(3)), MEASURE, 'plain', {}).length).toBe(4)
+  })
+
   it('⭐⭐ ONE square, at the END that was pressed — the spot IS the choice', () => {
     // His call, 2026-08-28: *"the spot to click is critical… if the user click in that area we show
     // the blue square related with that"*, which is Sibelius's own gesture (§4.5 p. 343) and

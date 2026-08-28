@@ -485,6 +485,9 @@ export function renderBarlines(
       kind: BarlineSignKind,
       side: Side,
       xBelowOf: (below: BarlinePlacement) => number,
+      /** Which bar this line ENDS — `null` when the sign stands at no boundary a press may select
+       *  ({@link BarlineGap.endsMeasure}). Only this loop knows, so only this loop says. */
+      endsMeasure: number | null,
     ): void => {
       const below = at.get(`${n}:${placement.staffIndex + 1}`)
       if (!below) return
@@ -496,6 +499,7 @@ export function renderBarlines(
         kind,
         side,
         audience,
+        endsMeasure,
       })
     }
     /** A placement's own `staleShift` dx, for a boundary read off ITS stave. */
@@ -517,7 +521,8 @@ export function renderBarlines(
     if (endKind) {
       const endX = stave.getX() + stave.getWidth() + dx
       drawSign(pass, placement, endX, endKind, 'end', audience, wingsOn(measure, next))
-      joinBelow(endX, endKind, 'end', b => b.stave.getX() + b.stave.getWidth() + shiftOf(b))
+      // The plain case: a sign at a bar's end IS the boundary that ends it.
+      joinBelow(endX, endKind, 'end', b => b.stave.getX() + b.stave.getWidth() + shiftOf(b), n)
     }
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
@@ -533,8 +538,10 @@ export function renderBarlines(
       drawSign(pass, placement, displaced, 'repeatStart', 'start', audience, wingsOn(undefined, measure))
       // ⚠️ Each staff's own displacement, measured off its OWN header — two staves whose headers
       // differ put the sign at two x's, and the gap module declines rather than drawing a kink.
+      // ⛔ `null`: a DISPLACED `|:` stands inside the bar, past its header, at no boundary at all —
+      // so its gap ink is drawn and deliberately not clickable as a barline.
       joinBelow(displaced, 'repeatStart', 'start',
-        b => displacedRepeatX(b.stave, signLeft, shiftOf(b)) ?? Number.NaN)
+        b => displacedRepeatX(b.stave, signLeft, shiftOf(b)) ?? Number.NaN, null)
       continue
     }
 
@@ -548,7 +555,11 @@ export function renderBarlines(
     if (startKind) {
       const startX = stave.getX() + dx
       drawSign(pass, placement, startX, startKind, 'start', audience, wingsOn(prev, measure))
-      joinBelow(startX, startKind, 'start', b => b.stave.getX() + shiftOf(b))
+      // ⭐ This bar picked up a boundary the previous bar could not draw — so the line ends bar
+      // `n − 1`, and it is one only when that bar is on THIS system: at a system start the boundary
+      // that ends it is at the end of the line above, and this ink is not it (`prev` is exactly that
+      // test, and it is why this is not simply `n - 1`).
+      joinBelow(startX, startKind, 'start', b => b.stave.getX() + shiftOf(b), prev ? n - 1 : null)
     }
   }
 }

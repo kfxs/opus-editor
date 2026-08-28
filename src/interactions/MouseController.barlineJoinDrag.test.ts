@@ -58,7 +58,7 @@ describe('barline join drag', () => {
     state = createEditorState()
     state.selectedTool = 'selection'
     // The barline is selected — that is what put the square on the page in the first place.
-    state.selectedElement = { kind: 'barline', measure: 1, staff: 0, staffEnd: 'bottom' }
+    state.selectedElement = { kind: 'barline', measure: 1, staff: 0, pressedAt: 'bottom' }
     svg = fakeSvg()
     canvas = document.createElement('div')
     canvas.querySelector = ((sel: string) => (sel === 'svg' ? svg : null)) as typeof canvas.querySelector
@@ -111,7 +111,7 @@ describe('barline join drag', () => {
     // There is no `SelectedElement` kind for a square, and the barline staying picked is what keeps
     // the square painted for the whole drag.
     mc.handleMouseDown(ev({ clientX: 200, clientY: 140 }))
-    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1, staff: 0, staffEnd: 'bottom' })
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1, staff: 0, pressedAt: 'bottom' })
   })
 
   it('⭐⭐ dragging PAST THE MIDDLE of the gap joins it, and redraws', () => {

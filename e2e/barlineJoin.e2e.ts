@@ -169,3 +169,45 @@ test('⭐ a joined barline is SELECTED as one line — the gap ink lights with t
   expect(lit.gapFound, 'and the gap segment, under the id the highlight looks up').toBe(true)
   expect(lit.halves, 'a plain line’s single stroke is shared between the bars it divides').toEqual(['shared'])
 })
+
+/**
+ * ⭐⭐ **THE GAP INK IS CLICKABLE — and the box is where the ink is.** His ask, 2026-08-28: *"if the
+ * barline is join and i click on in the empty space of the two staves i want to be able to select it
+ * too and move and do the normal barline operations"*.
+ *
+ * ⚠️ **A browser test, not a unit one**, for the reason the whole file exists: the box's y comes from
+ * the PLACEMENTS of two staves and its x from a boundary that a reused bar reports stale. Only a real
+ * render can say whether the hit box and the ink ended up in the same place — which is the one thing
+ * that must be true, or the press lands on paper (*a press may only reach ink*).
+ */
+test('⭐ a joined gap registers a hit box, exactly on its own ink', async ({ score }) => {
+  await joinedGrandStaff(score)
+  const { boxes, gap } = await score.evaluate(() => ({
+    boxes: window.__h.engine.getElementRegistry().getByType('barline-gap')
+      .map(el => ({ measure: el.measure, staff: el.staff, ...el.bbox })),
+    gap: window.__h.inkSizes('g[id^="vf-barline-gap-"] rect'),
+  }))
+  expect(boxes.length, 'one box for the one joined gap').toBe(1)
+  // The bar it ENDS, and the staff ABOVE the gap — `barlineJoinBelow`'s own key.
+  expect([boxes[0].measure, boxes[0].staff]).toEqual([1, 0])
+  expect(boxes[0].x, 'the box starts at the stroke').toBeCloseTo(gap[0].x, 1)
+  // ⚠️ WITHIN A PIXEL on the width, ⛔ not exactly: `hintBarlines` runs AFTER this box is registered
+  // and rounds a thin line onto whole device pixels (1.6 → 2 here), so the ink is a shade wider than
+  // the box that named it. It costs nothing — `BARLINE_PRESS_PAD_PX` pads the box by 6 either way —
+  // and chasing the hinted value would make the registry describe the device instead of the score.
+  expect(Math.abs(boxes[0].width - gap[0].width), 'and as wide as it, to the pixel').toBeLessThan(1)
+  expect(boxes[0].y, 'top of the gap').toBeCloseTo(gap[0].y, 1)
+  expect(boxes[0].height, 'the whole space between the staves').toBeCloseTo(gap[0].height, 1)
+})
+
+test('⛔ …and an UNJOINED gap registers none — nothing is drawn there to press', async ({ score }) => {
+  await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addStaffBelow(0)
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), staff: 0 })
+    await h.render()
+  })
+  const boxes = await score.evaluate(() =>
+    window.__h.engine.getElementRegistry().getByType('barline-gap').length)
+  expect(boxes, 'the existence of a box IS the proof it was drawn').toBe(0)
+})

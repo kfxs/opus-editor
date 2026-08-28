@@ -129,11 +129,11 @@ export function barlineJoinHandles(
 }
 
 /** Where on the line the press landed, when a press is what selected the barline — the staff, and
- *  which END of it (`SelectedElement`'s `barline`). Either half may be absent, and an absent half
- *  narrows nothing: ⛔ an unknown spot is never a guessed one. */
+ *  which END of it, or the GAP between two staves (`SelectedElement`'s `barline`). Either half may be
+ *  absent, and an absent half narrows nothing: ⛔ an unknown spot is never a guessed one. */
 export interface PressedAt {
   staff?: number
-  end?: 'top' | 'bottom'
+  end?: 'top' | 'bottom' | 'gap'
 }
 
 /**
@@ -150,8 +150,15 @@ export interface PressedAt {
  * of the last — and that is the rule doing its job, not a case to special-case: there is no space
  * there for a line to run through, so there is nothing to join. The gap on the other side of that
  * staff belongs to its neighbour and is offered by pressing THAT line.
+ *
+ * ⭐⭐ **AND A PRESS IN THE GAP ITSELF OFFERS NONE EITHER** — his call, 2026-08-28: *"when i select
+ * the barline in the midle, in the white space i dont need to see the square, the square is related
+ * just to the stave"*. A handle marks the END of a staff's line; out in the gap there is no end, and
+ * the line you would be reaching for is already there. ⛔ Not the same as an absent spot, which means
+ * nobody said where the press was.
  */
 function offeredAt(handle: BarlineJoinHandle, pressed: PressedAt | undefined): boolean {
+  if (pressed?.end === 'gap') return false
   if (pressed?.staff !== undefined && nearStaff(handle) !== pressed.staff) return false
   if (pressed?.end !== undefined && handle.side !== (pressed.end === 'top' ? 'above' : 'below')) return false
   return true

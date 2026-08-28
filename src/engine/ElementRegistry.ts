@@ -67,6 +67,23 @@ export type ElementType =
   | 'keySignature'
   | 'barline'
   /**
+   * ⭐⭐ **THE PART OF A JOINED BARLINE THAT CROSSES THE GAP** between two staves — the ink
+   * `rendering/barlineGap` draws, made clickable (docs/barline-join-plan.md). His ask, 2026-08-28:
+   * *"if the barline is join and i click on in the empty space of the two staves i want to be able to
+   * select it too and move and do the normal barline operations"*.
+   *
+   * ⭐ **It selects the same thing the staff ink does** — the one system-wide `barline` element at
+   * that boundary, with the same width drag armed. ⛔ It is NOT a second selectable kind, and there
+   * is no `SelectedElement` for it: `interactions/elements/barline.ts` simply counts these boxes as
+   * candidates beside the tier-1 ones.
+   *
+   * ⚠️ Registered by the DRAWING pass and only where ink actually landed, so unlike `'barline'` it
+   * needs no `isPainted` filter — and a gap that is not joined registers nothing, because nothing is
+   * drawn there. `measure` is the bar the line ENDS (⛔ not always the bar that drew it) and `staff`
+   * is the staff ABOVE the gap.
+   */
+  | 'barline-gap'
+  /**
    * ⭐⭐ One of the blue SQUARES a selected barline draws in the gaps between the staves — the handle
    * that JOINS that gap or disjoins it (docs/barline-join-plan.md §1). The `'pedal-endpoint'` family's
    * arrangement: registered by the HIGHLIGHT pass so it exists only while its barline is selected,

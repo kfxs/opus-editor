@@ -21,7 +21,7 @@ const MEASURE = 3
 function paint(
   selected: 'barline' | 'repeatStart' | null,
   staffCount = 3,
-  pressedAt?: { staff: number; staffEnd?: 'top' | 'bottom' },
+  pressedAt?: { staff: number; pressedAt?: 'top' | 'bottom' },
 ) {
   const registry = new ElementRegistry()
   for (let staff = 0; staff < staffCount; staff++) {
@@ -58,13 +58,13 @@ describe('a selected barline', () => {
   it('⭐⭐ draws ONE square — at the staff and the end that were pressed', () => {
     // His calls, 2026-08-28: *"just in the stave we clicked"*, then *"the spot to click is
     // critical"*. Sibelius's gesture, and MuseScore's single grip.
-    const { svg } = paint('barline', 3, { staff: 1, staffEnd: 'bottom' })
+    const { svg } = paint('barline', 3, { staff: 1, pressedAt: 'bottom' })
     expect(squares(svg)).toHaveLength(1)
     expect(squares(svg)[0].getAttribute('class')).toContain('barline-join-handle--below')
   })
 
   it('…and none when that end has no gap behind it — the top of the first staff', () => {
-    expect(squares(paint('barline', 3, { staff: 0, staffEnd: 'top' }).svg)).toHaveLength(0)
+    expect(squares(paint('barline', 3, { staff: 0, pressedAt: 'top' }).svg)).toHaveLength(0)
   })
 
   it('a selection with no press behind it narrows nothing: every gap\'s squares', () => {

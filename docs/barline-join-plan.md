@@ -1,6 +1,6 @@
 # Continuous barlines — joining the staves of a system
 
-**Status: ✅ P1 + P2 + P3 BUILT (2026-08-28) — the whole gesture works.** Select a barline, and one
+**Status: ✅ P1 + P2 + P3 BUILT (2026-08-28), plus the gap ink made CLICKABLE (§4a).** Select a barline, and one
 blue square appears at the end of the line you pressed; pull it past the middle of the gap and the
 gap FLIPS — an unjoined one joins, a joined one comes apart. ⏭️ What is left is §7 and P4 (the
 per-boundary mix, Mensurstrich, instrument-aware defaults). The research is
@@ -12,7 +12,8 @@ the write) · `engine/rendering/barlineGap.ts` (the ink) · one call at each of 
 draw sites · `HighlightController` lighting gap ink with the sign's, and painting the square ·
 `interactions/elements/barlineJoinHandles.ts` (where the square is, what a press grabbed, what the
 cursor then means) · `MouseController`'s `barlineJoin` drag · `MusicEngine.setBarlineJoinBelow` +
-`barlineJoinsBelow` + `previewBarlineJoinBelow` / `commitBarlineJoin`.
+`barlineJoinsBelow` + `previewBarlineJoinBelow` / `commitBarlineJoin` · the `'barline-gap'` hit box
+(§4a).
 
 ⭐ **Read against the CODE on 2026-08-28, and the corrections are folded in where they belong** (§1's
 constants, §2.1's affordance count, §2.3's default, §2.4's `staffId`, §3's drawing hazards, §4's
@@ -391,6 +392,42 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
   which is STROKES and not lines (its own note) — so joining by default adds rows to it on every
   multi-staff fixture. Those counts change **deliberately, in the same commit**, or "each phase
   independently green" is not true of P1.
+
+---
+
+## 4a. ⭐⭐ THE GAP INK IS PART OF THE BARLINE YOU CAN CLICK
+
+His ask, 2026-08-28, once the join was working: *"if the barline is join and i click on in the empty
+space of the two staves i want to be able to select it too and move and do the normal barline
+operations"*. A joined barline is ONE line to the eye, so it must be one line to the hand.
+
+- **It registers a `'barline-gap'` hit box where it DRAWS**, `registerRepeatStart`'s arrangement and
+  for its reason: only the drawing knows both that the join is on and that ink actually landed. ⇒ the
+  entry's existence IS the "is it there?" test, so ⛔ **no `isPainted` filter** at press time (and the
+  filter would be wrong as well as redundant — the bar a gap's line *ends* is not always the bar that
+  drew it). An unjoined gap registers nothing, because nothing is drawn there.
+- **The box is the STROKES' span**, ⛔ never the sign's full extent: the dots do not cross the gap, so
+  a box that reserved room for them would answer presses over blank paper.
+- 🚨 **`BarlineGap.endsMeasure` is computed by the DRAWING LOOP, because only it can.** A sign at a
+  bar's end ends that bar; one at its start is *normally* the boundary ending the bar before — except
+  for the two cases that loop already distinguishes, a **displaced** `|:` (standing inside its own bar,
+  past the header) and a **system-opening** `|:` (whose boundary is at the end of the line above).
+  Both pass `null` and register nothing: the ink is drawn, it is simply not a barline you can click
+  *there*. ⛔ Never `measureNumber − 1` unconditionally.
+- **It resolves to the SAME selection** — the one system-wide `barline` element, with the same width
+  drag armed. ⛔ Not a second `SelectedElement` kind; `elements/barline.ts` just counts these boxes as
+  candidates beside the tier-1 ones, and the barline being LAST in `ELEMENT_HIT_ORDER` is what keeps a
+  hairpin or a dynamic sitting in that same gap ahead of it.
+- ⭐⭐ **But a press out there shows NO join square** — his call, same day: *"when i select the barline
+  in the midle, in the white space i dont need to see the square, the square is related just to the
+  stave"*. A handle marks the END of a staff's line; in the gap there is no end, and the line you
+  would be reaching for is already there. That is `pressedAt: 'gap'` on the selection — ⛔ and it is
+  **not** the same as an absent spot, which means *nobody said where the press was* and offers every
+  square.
+- ⚠️ **The registered box and the drawn ink differ by up to a pixel in WIDTH**, on purpose:
+  `hintBarlines` rounds a thin line onto whole device pixels *after* registration (1.6 → 2). Chasing
+  that would make the registry describe the device instead of the score, and the press pad is 6 either
+  way. `e2e/barlineJoin.e2e.ts` asserts the agreement to the pixel.
 
 ---
 

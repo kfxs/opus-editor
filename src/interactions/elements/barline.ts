@@ -32,6 +32,14 @@ import type { ClickableElementSpec } from './chain'
  */
 export const BARLINE_PRESS_PAD_PX = 6
 
+/** One box a press could be answering: the line's ink ON a staff, or the piece of the same line
+ *  crossing the GAP below one (`engine/rendering/barlineGap`). The two resolve to the SAME
+ *  selection; `inGap` only changes which join square the press is handed. */
+interface Candidate {
+  el: { measure?: number; staff?: number; bbox: { x: number; y: number; width: number; height: number } }
+  inGap: boolean
+}
+
 export const BARLINE_ELEMENT: ClickableElementSpec = {
   kind: 'barline',
   /**
@@ -45,10 +53,11 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     // The registered box straddles the drawn line by 2px each way — not a clickable target on its
     // own, so it is padded to be one at all ({@link BARLINE_PRESS_PAD_PX}, both axes).
     const pad = BARLINE_PRESS_PAD_PX
-    const inRange = registry.getByType('barline').filter(el => {
+    const covers = (el: { bbox: { x: number; y: number; width: number; height: number } }) => {
       const b = el.bbox
       return x >= b.x - pad && x <= b.x + b.width + pad && y >= b.y - pad && y <= b.y + b.height + pad
-    })
+    }
+    const inRange = registry.getByType('barline').filter(covers)
 
     // ⭐ **A PRESS MAY ONLY REACH INK.** Tier 1 registers a barline box for every bar in the SCORE,
     // painted or not (`ElementRegistry.painted`), so an off-screen bar's box can answer a press that
@@ -56,19 +65,36 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     // and is not possible to move it"* — it selected, and then the width drag found no drawn columns
     // to measure and declined in silence. Dropping the unpainted candidates is the whole fix: the
     // press either finds a real barline or falls through to whatever is genuinely under it.
-    const drawn = inRange.filter(el => el.measure !== undefined && registry.isPainted(el.measure, el.staff ?? 0))
+    const drawn: Candidate[] = inRange
+      .filter(el => el.measure !== undefined && registry.isPainted(el.measure, el.staff ?? 0))
+      .map(el => ({ el, inGap: false }))
+
+    // ⭐⭐ **AND THE SAME LINE WHERE IT CROSSES THE GAP** — his ask, 2026-08-28: *"if the barline is
+    // join and i click on in the empty space of the two staves i want to be able to select it too and
+    // move and do the normal barline operations"*. A joined barline is ONE line to the eye and must be
+    // one line to the hand, so the ink between two staves answers for the same boundary the ink on
+    // them does, with the same width drag armed.
+    //
+    // ⚠️ ⛔ NO `isPainted` filter, unlike above: these are registered by the DRAWING pass
+    // (`rendering/barlineGap`), so their existence already IS the proof they were drawn — and the
+    // filter would be wrong as well as redundant, since the bar a gap's line ENDS is not always the
+    // bar that drew it.
+    for (const el of registry.getByType('barline-gap')) {
+      if (el.measure !== undefined && covers(el)) drawn.push({ el, inGap: true })
+    }
 
     // ⚠️ NEAREST, not first-registered. Registration order is by bar, so `find` used to hand an
     // ambiguous press — the boxes are a few px wide and padded wider still — to whichever bar
     // happened to be numbered lower. Between two real barlines the honest answer is the one you
     // aimed at. ⚠️ By X only: two staves are ~110 px apart, so the vertical pad cannot put two of
     // them in range of one press.
-    const centre = (el: { bbox: { x: number; width: number } }) => el.bbox.x + el.bbox.width / 2
-    const barlineAt = drawn.reduce<typeof drawn[number] | null>(
-      (best, el) => (best === null || Math.abs(centre(el) - x) < Math.abs(centre(best) - x) ? el : best),
+    const centre = (c: Candidate) => c.el.bbox.x + c.el.bbox.width / 2
+    const hit = drawn.reduce<Candidate | null>(
+      (best, c) => (best === null || Math.abs(centre(c) - x) < Math.abs(centre(best) - x) ? c : best),
       null,
     )
-    if (barlineAt?.measure === undefined) {
+    const barlineAt = hit?.el
+    if (!hit || barlineAt?.measure === undefined) {
       if (inRange.length > 0) {
         dbg(`Barline press at x=${x.toFixed(1)} landed only on UNPAINTED bars `
           + `(${inRange.map(el => el.measure).join(', ')}) — declined, nothing is drawn there`)
@@ -83,14 +109,14 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
 
     // When a press is ambiguous, say who took it and who lost — `__barlines.boxes()` is the
     // standing view of the same facts.
-    if (inRange.length > 1) {
-      dbg(`Barline press at x=${x.toFixed(1)} matched ${inRange.length} boxes (${drawn.length} painted): `
-        + inRange.map(el => `bar ${el.measure}/staff ${el.staff ?? 0} @${el.bbox.x.toFixed(1)}`).join(' · ')
-        + ` — nearest painted wins (bar ${measure})`)
+    if (drawn.length > 1) {
+      dbg(`Barline press at x=${x.toFixed(1)} matched ${drawn.length} drawn boxes: `
+        + drawn.map(c => `bar ${c.el.measure}/staff ${c.el.staff ?? 0}${c.inGap ? ' (gap)' : ''} @${c.el.bbox.x.toFixed(1)}`).join(' · ')
+        + ` — nearest wins (bar ${measure})`)
     }
-    dbg(`✓ Barline selected | ends measure:${measure} · staff ${barlineAt.staff ?? 0} · `
+    dbg(`✓ Barline selected | ends measure:${measure} · ${hit.inGap ? 'gap below ' : ''}staff ${barlineAt.staff ?? 0} · `
       + `box @${barlineAt.bbox.x.toFixed(1)} · press @${x.toFixed(1)}`)
-    // ⚠️ `staff` and `staffEnd` ride along for the JOIN SQUARES alone (`SelectedElement`'s own
+    // ⚠️ `staff` and `pressedAt` ride along for the JOIN SQUARES alone (`SelectedElement`'s own
     // notes) — the selection is still the one system-wide boundary, and nothing downstream reads
     // either as identity.
     //
@@ -98,9 +124,15 @@ export const BARLINE_ELEMENT: ClickableElementSpec = {
     // top or bottom of a normal barline"* (§4.5 p. 343), made forgiving: its END is our HALF, so
     // there is no precision to learn and every press still answers one of the two ends. The box is
     // exactly the five staff lines, so its middle is the middle line.
-    const staffEnd = y < barlineAt.bbox.y + barlineAt.bbox.height / 2 ? 'top' : 'bottom'
+    //
+    // ⭐⭐ **…and a press in the GAP is at no end at all, so it offers NO square** — his call:
+    // *"when i select the barline in the midle, in the white space i dont need to see the square, the
+    // square is related just to the stave"*. It still selects the same barline and arms the same
+    // width drag; what it does not do is hand you a handle for a join that is already made.
+    const above = y < barlineAt.bbox.y + barlineAt.bbox.height / 2
+    const pressedAt = hit.inGap ? 'gap' : above ? 'top' : 'bottom'
     return deps.pick(
-      { kind: 'barline', measure, staff: barlineAt.staff ?? 0, staffEnd },
+      { kind: 'barline', measure, staff: barlineAt.staff ?? 0, pressedAt },
       () => deps.armBarWidthDrag(measure, x),
     )
   },

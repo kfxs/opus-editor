@@ -958,7 +958,7 @@ export class HighlightController {
     // ⭐ …and only the ONE square at the spot that was pressed — his calls: *"just in the stave we
     // clicked"*, then *"the spot to click is critical"*. An absent spot (a keyboard walk with no
     // press behind it) narrows nothing rather than guessing one (`offeredAt`).
-    const pressedAt = { staff: selected?.staff, end: selected?.staffEnd }
+    const pressedAt = { staff: selected?.staff, end: selected?.pressedAt }
     for (const handle of barlineJoinHandles(registry, measure, kind, pressedAt)) {
       const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
       sq.setAttribute('x', String(handle.x - S))
