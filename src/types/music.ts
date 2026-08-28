@@ -1126,6 +1126,31 @@ export interface HairpinApertureOverride extends EngravingOverride {
 }
 
 /**
+ * ⭐⭐ **A hand-set TRAILING GAP for one cautionary key signature** — how much bare staff is drawn
+ * after it, in **staff-spaces** (his ask, 2026-08-28: *"lets make what we have now default but give
+ * the user the freedom to change the number in properties"*).
+ *
+ * ⭐ **Why this number and not the other one.** A courtesy at a system break has two gaps: 0.75 sp
+ * from the barline to its first sign, and the bare staff after its last. The first is a spacing rule
+ * measured off Gould p. 93 and is not the author's to move any more than the gap after a clef is; the
+ * second is the *tail of the system*, which is the part a reader can reasonably want longer or
+ * shorter. ⛔ So this is deliberately ONE number, not a pair.
+ *
+ * ⚠️ **Keyed by the CHANGE's measure, never by the bar that happens to draw the courtesy** — which
+ * bar ends a system moves on every reflow, and the author's decision must not move with it. That is
+ * the rule the meter's and the clef's cautionary overrides already follow (`cautionaryKey`,
+ * `cautionaryClefKey`), and this key is `cautionKeyGap:` + the same shape.
+ *
+ * ⭐ It REPLACES the default (`CAUTIONARY_KEY_TO_LINE_END`) rather than adding to it, like the
+ * hairpin's aperture: a hand-set gap is a human answering the question the default guesses at.
+ */
+export interface CautionaryKeyGapOverride extends EngravingOverride {
+  kind: 'cautionaryKeyGap'
+  /** Staff-spaces of bare staff after the courtesy's last sign, ≥ 0. */
+  gap: number
+}
+
+/**
  * A hand-nudged OCTAVE BRACKET — where its ink is drawn, in **staff-spaces**, reached from either of
  * its two endpoint squares (his ask, 2026-08-17: *"the square points offset"*).
  *

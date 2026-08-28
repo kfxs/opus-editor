@@ -2,11 +2,12 @@ import { Element, StaveModifierPosition, type Stave } from 'vexflow'
 import type { Clef, KeySignature } from '@/types/music'
 import type { RenderPass } from './RenderPass'
 import {
-  BARLINE_TO_KEY_INK, CLEF_TO_KEY_INK, KEY_ACCIDENTAL_GAP, keySignatureLines,
+  BARLINE_TO_KEY_INK, CLEF_TO_KEY_INK, KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph,
 } from '@/engine/layout/keySignatureLayout'
-import { accidentalGlyph, clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
-import { alterToString } from '@/utils/pitchSpelling'
+import { BARLINE_TO_CAUTIONARY_KEY_INK, CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
+import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
+import { STAVE_LINE_WIDTH_PX } from './VexFlowRenderer'
 
 /**
  * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
@@ -45,6 +46,16 @@ export interface KeySignaturePlacement {
   clef: Clef
   /** The signature this bar's head draws, absent where it draws none (`headerKeyAt`). */
   headerKey?: KeySignature
+  /** ⭐⭐ The CAUTIONARY row this bar draws at its END — a key change lands on the system break after
+   *  it, so the cancelling naturals and the new signature are engraved here (Gould p. 93). Absent on
+   *  every other bar. See `engine/layout/cautionaryKey.ts`. */
+  cautionaryKey?: KeySignature
+  /** The bare staff after it, in staff spaces — the engraver's default or the author's
+   *  (`cautionaryKeyGapKey`). Absent falls back to {@link CAUTIONARY_KEY_TO_LINE_END}. */
+  cautionaryKeyTrailing?: number
+  /** The bar's own width, in the stave's space — only the cautionary needs it, to start after this
+   *  bar's closing barline. */
+  width: number
 }
 
 /**
@@ -144,7 +155,7 @@ export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature
   const space = stave.getSpacingBetweenLines()
   let x = firstSignX(stave, clef, 0)
   key.alterations.forEach((alteration, i) => {
-    const glyph = accidentalGlyph(alterToString(alteration.alter))
+    const glyph = signGlyph(alteration.alter)
     if (!glyph) return
     // The last sign contributes its ink; every earlier one its advance and the gap after it.
     x += i === key.alterations.length - 1
@@ -188,6 +199,144 @@ function registerKeySignature(
 }
 
 /**
+ * ⭐⭐ **THE CAUTIONARY AT A SYSTEM BREAK — after this bar's closing barline, staff left open.**
+ *
+ * Gould, printed p. 93: *"When a key change coincides with a system break, the cancelling naturals
+ * and the new key signature go at the end of the first system. The new system takes only the new key
+ * signature."* ⭐ Measured on that figure: **0.75 sp** after the barline
+ * ({@link BARLINE_TO_CAUTIONARY_KEY_INK}), and no barline after it — the line simply ends.
+ *
+ * ⭐ **Drawn by this pass, not as a stave END modifier**, which is what the courtesy METER is. Two
+ * reasons, and both are this pass's own: a signature is ours to draw at all (VexFlow cannot express
+ * one of ours), and a score-level pass is rebuilt every render — so a courtesy can never be left
+ * behind in a bar's cached picture when the key after the break changes. ⚠️ That is also why P6 owes
+ * no `ShapeKeyInputs` row, which the plan predicted it would: measured, a change to the OUTGOING key
+ * that leaves the row's width identical (three flats → three sharps) still redraws, because the row
+ * is not inside any measure group.
+ *
+ * ⛔ Left of the ink, nothing: the room was taken off the LINE (`cautionaryKey.ts`), so this draws
+ * into space no bar owns rather than into the last bar's own span.
+ */
+function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): void {
+  const row = placement.cautionaryKey
+  if (!row || row.alterations.length === 0) return
+  const { stave, staffIndex } = placement
+  const { dx, dy } = staleShift(placement)
+  const space = stave.getSpacingBetweenLines()
+  // The bar's closing barline is at its right edge — the placement's, never the stave's (see the
+  // header's staleShift note).
+  const barlineX = stave.getX() + dx + placement.width / placement.scale
+  const group = pass.context.openGroup?.(
+    'keysig', `keysig-caution-${placement.measureNumber}-${staffIndex}`,
+  ) as SVGGElement | undefined
+  inStaffSpace(pass, staffIndex, group, () => {
+    const inkLeft = barlineX + BARLINE_TO_CAUTIONARY_KEY_INK * space
+    const inkRight = drawSignRow(pass, row, placement.clef, stave, inkLeft, dy)
+    // ⚠️ `??`, never `||`: a gap of 0 is a real answer ("no tail after the signs") and must not fall
+    //    back to the default.
+    const trailing = placement.cautionaryKeyTrailing ?? CAUTIONARY_KEY_TO_LINE_END
+    drawOpenStaffTail(pass, placement, barlineX, inkRight + trailing * space, dy)
+    // ⭐⭐ **A PRESS ON THE COURTESY SELECTS THE CHANGE IT ANNOUNCES** — his report, 2026-08-28: *"the
+    //    cautionary is not clickable and neither selectable."* One statement, two pieces of ink (this,
+    //    and the signature at the head of the new line), so both boxes name the SAME element: the
+    //    change's own bar. The `|:` family settled this shape already — a displaced sign resolves to
+    //    the bar it belongs to, not to the bar that happens to draw it.
+    //
+    // ⚠️ `measureNumber + 1` is not a guess: `applyCautionaryKeys` walks CONSECUTIVE bars and sets
+    //    this row only where the NEXT one opens the following line (`engine/layout/cautionaryKey.ts`),
+    //    so the change is always the bar after this one.
+    pass.elementRegistry.add({
+      type: 'keySignature',
+      measure: placement.measureNumber + 1,
+      staff: staffIndex,
+      bbox: {
+        x: inkLeft,
+        y: stave.getTopLineTopY() + dy,
+        width: inkRight - inkLeft,
+        height: stave.getBottomLineBottomY() - stave.getTopLineTopY(),
+      },
+    })
+  })
+  pass.context.closeGroup?.()
+}
+
+/**
+ * ⭐⭐ **THE OPEN STAFF UNDER THE COURTESY — five lines past the last barline, and no line closing them.**
+ *
+ * 🚨 **His report, 2026-08-28, on the first build:** *"look, the key cautionary is there, but where is
+ * the pentagram?"* Dead right — the signs were floating past the end of the staff. The room for them
+ * is taken off the LINE rather than out of the bar (`cautionaryKey.ts` says why: a bar's own barline
+ * is drawn at its right edge, so room added inside would put the courtesy on the wrong side of it),
+ * and a bar draws staff lines only across its own span. So the tail belongs to nobody — which is
+ * exactly what it is: **not part of any bar, but part of the SYSTEM**, and this pass owns it because
+ * this pass is what puts ink there.
+ *
+ * ⭐ *"The staff is left open after the courtesy key signature"* — Gerou & Lusk p. 28, Ross p. 148
+ * (*"the staff remains open"*), and Gould's p. 93 figure measures **1.9 sp** of bare staff after the
+ * last sign ({@link CAUTIONARY_KEY_TO_LINE_END}). ⛔ So nothing closes it: no barline, no bracket.
+ *
+ * ⭐⭐ **The thickness is READ, not chosen** — {@link STAVE_LINE_WIDTH_PX}, the one constant
+ * `drawStave` pins before it strokes any stave. His challenge, and it is the repo's own doctrine:
+ * *"vexflow? shouldnt the solution follow the rules of own engine md?"* — so this is not "match
+ * VexFlow's default", it is *the tail of a line is as thick as the line*, asked of the one place that
+ * decides it. ⏭️ That constant carries the note that SMuFL says 0.13 sp (1.3 px) and why moving every
+ * staff line in the score is not this phase's to do; when it moves, the tail moves with it.
+ *
+ * ⭐ Drawn inside {@link inStaffSpace}, so a small staff's tail scales with its own lines rather than
+ * standing thicker than them.
+ */
+function drawOpenStaffTail(
+  pass: RenderPass, placement: KeySignaturePlacement, fromX: number, toX: number, dy: number,
+): void {
+  if (toX <= fromX) return
+  const { stave } = placement
+  for (let line = 0; line < stave.getNumLines(); line++) {
+    pass.context.fillRect(fromX, stave.getYForLine(line) + dy, toX - fromX, STAVE_LINE_WIDTH_PX)
+  }
+}
+
+/**
+ * ⭐ **Draw one row of signs from `x`, and answer where its INK ended** — the head signature and the
+ * cautionary are the same drawing, so they are one function: the step from sign to sign, the glyph
+ * table and the line conversion cannot differ between them.
+ *
+ * ⚠️ **The answer is the last sign's ink edge, NOT the x the loop stopped at.** The step between signs
+ * is `advance + gap`, so after the last one `x` stands where a further sign's ORIGIN would go —
+ * roughly a third of a space past the ink. Returning that made the cautionary's hit box 3 px wider
+ * than its glyphs and would put the open staff tail's start inside dead air. ⭐ `keySignatureInkRight`
+ * makes the same distinction for the head row, and for the same reason.
+ */
+function drawSignRow(
+  pass: RenderPass, key: KeySignature, clef: Clef, stave: Stave, startX: number, dy: number,
+): number {
+  const space = stave.getSpacingBetweenLines()
+  const lines = keySignatureLines(key, clef)
+  let x = startX
+  let inkRight = startX
+  key.alterations.forEach((alteration, i) => {
+    const glyph = signGlyph(alteration.alter)
+    if (!glyph) return
+    // ⭐ The row from the measured table, and the y from the STAVE — `getYForLine` counts from the
+    //   top line downward, while the table's line numbers count from the bottom up
+    //   (`staffLineForSpelling`'s convention). The conversion is here, at the one place they meet.
+    const y = stave.getYForLine(5 - lines[i]) + dy
+    const char = SIGN_CHARS[glyph]
+    if (!char) return
+    const element = new Element('KeySignaturePass.sign')
+    element.setText(char)
+    element.setFontSize(SIGN_FONT_SIZE)
+    element.renderText(pass.context, x, y)
+    // ⚠️ The step is the FONT's advance plus our own gap — the same arithmetic `keySignatureExtent`
+    // reserved room with, so the last sign ends where the meter was pushed to. ⛔ Never the DRAWN
+    // width of the glyph just rendered: in jsdom that is 0, and this pass would silently stack every
+    // sign at one x while agreeing with itself.
+    inkRight = x + glyphBox(glyph).right * space
+    x += (glyphBox(glyph).advance + KEY_ACCIDENTAL_GAP) * space
+  })
+  return inkRight
+}
+
+/**
  * **Draw every key signature of this render.**
  *
  * One per (bar, staff) that draws one — a system head, or a bar where the key changed across the
@@ -196,42 +345,22 @@ function registerKeySignature(
  */
 export function renderKeySignatures(pass: RenderPass, placements: KeySignaturePlacement[]): void {
   for (const placement of placements) {
+    drawCautionary(pass, placement)
     const key = placement.headerKey
     if (!key || key.alterations.length === 0) continue
 
     const { stave, staffIndex } = placement
     const { dx, dy } = staleShift(placement)
-    const space = stave.getSpacingBetweenLines()
-    const lines = keySignatureLines(key, placement.clef)
 
     const group = pass.context.openGroup?.(
       'keysig', `keysig-${placement.measureNumber}-${staffIndex}`,
     ) as SVGGElement | undefined
 
     inStaffSpace(pass, staffIndex, group, () => {
-      let x = firstSignX(stave, placement.clef, dx)
+      const x = firstSignX(stave, placement.clef, dx)
       // Before the ink, so a drawer that throws still leaves no half-registered box behind.
       registerKeySignature(pass, placement, key, x, dy)
-      key.alterations.forEach((alteration, i) => {
-        const glyph = accidentalGlyph(alterToString(alteration.alter))
-        if (!glyph) return
-        // ⭐ The row from the measured table, and the y from the STAVE — `getYForLine` counts from
-        //   the top line downward, while the table's line numbers count from the bottom up
-        //   (`staffLineForSpelling`'s convention, which is what `keySignatureLines` returns). The
-        //   conversion is here, at the one place the two meet.
-        const y = stave.getYForLine(5 - lines[i]) + dy
-        const char = SIGN_CHARS[glyph]
-        if (!char) return
-        const element = new Element('KeySignaturePass.sign')
-        element.setText(char)
-        element.setFontSize(SIGN_FONT_SIZE)
-        element.renderText(pass.context, x, y)
-        // ⚠️ The step is the FONT's advance plus our own gap — the same arithmetic
-        // `keySignatureExtent` reserved room with, so the last sign ends where the meter was pushed
-        // to. ⛔ Never the DRAWN width of the glyph just rendered: in jsdom that is 0, and this pass
-        // would silently stack every sign at one x while agreeing with itself.
-        x += (glyphBox(glyph).advance + KEY_ACCIDENTAL_GAP) * space
-      })
+      drawSignRow(pass, key, placement.clef, stave, x, dy)
     })
 
     pass.context.closeGroup?.()

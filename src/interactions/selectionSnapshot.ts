@@ -3,7 +3,7 @@ import { assertNeverElement } from './EditorState'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EngravingOverride, Note, Score } from '../types/music'
 import {
-  cautionaryClefKey, cautionaryKey, restPositionKey,
+  cautionaryClefKey, cautionaryKey, cautionaryKeyGapKey, cautionaryKeyGapOf, restPositionKey,
   curveShapeOverrideOf, segmentCurveShapeOverrideOf, hairpinApertureOverrideOf,
 } from '../engine/models/engravingOverrides'
 import { authoredApertureRange } from '../engine/rendering/hairpinShape'
@@ -12,6 +12,7 @@ import { staffOf, voiceOf } from '@/utils/lanes'
 import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 import { scoreText } from '@/engine/models/scoreTextOps'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
+import { CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -365,8 +366,25 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       out.push({
         kind: 'keySignature',
         data: { measure: element.measure, staff: element.staff, keys: measure?.keys },
+        overrides: overridesAt(score, measure ? cautionaryKeyGapKey(measure.id, staffId) : undefined),
         derived: {
           inForce: keyAt(score, element.measure, staffId),
+          /**
+           * ⭐ The bare staff drawn after this change's CAUTIONARY at a system break, and whether the
+           * number is the AUTHOR's or the engraver's — the pair the panel's row needs (the hairpin's
+           * `mouth` reports the same shape, and for the same reason: a blank box would make the first
+           * press of a spinner jump to the minimum instead of nudging what is on the page).
+           *
+           * ⚠️ Reported whether or not this change happens to land on a break in the CURRENT
+           * casting-off: the author's decision belongs to the change, and which bar ends a system
+           * moves on every reflow.
+           */
+          cautionaryGap: measure
+            ? {
+              value: cautionaryKeyGapOf(score, measure.id, staffId) ?? CAUTIONARY_KEY_TO_LINE_END,
+              authored: cautionaryKeyGapOf(score, measure.id, staffId) !== undefined,
+            }
+            : null,
           // ⭐ The traditional NAME's shorthand, or null for a signature the circle of fifths cannot
           // name — a Bartók one mixing sharps and flats. ⛔ Reported as `derived` and never stored:
           // `fifths` is not the model (`utils/keySignature.ts` argues it at length).

@@ -26,7 +26,9 @@
  *
  * @see docs/key-signature-plan.md §1.2, §8.1
  */
-import type { KeyChange, KeySignature, Measure, Score } from '@/types/music'
+import type { CautionaryKeyGapOverride, KeyChange, KeySignature, Measure, Score } from '@/types/music'
+import { cautionaryKeyGapKey, cautionaryKeyGapOf } from './engravingOverrides'
+import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
 import { fracCreate, fracCompare, fracIsZero } from '@/utils/fraction'
 import { keyBefore, keysEqual } from '@/utils/keySignature'
 import { v4 as uuidv4 } from 'uuid'
@@ -160,6 +162,46 @@ function cloneKey(key: KeySignature): KeySignature {
     alterations: key.alterations.map(a => ({ ...a })),
     ...(key.mode !== undefined ? { mode: key.mode } : {}),
   }
+}
+
+/**
+ * ⭐⭐ **Set (or clear) the bare staff drawn after this change's CAUTIONARY at a system break** — in
+ * staff spaces, `null` to hand it back to the engraver.
+ *
+ * 🚨 **His ask, 2026-08-28:** *"lets make what we have now default but give the user the freedom to
+ * change the number in properties."* The default is `CAUTIONARY_KEY_TO_LINE_END`, and Gould's own
+ * figure measures 1.9 sp there — so the freedom matters precisely because the sources and his eye
+ * disagree, and neither should be nailed into the drawing.
+ *
+ * ⚠️ **Keyed by the measure the CHANGE starts at**, not by the bar that happens to draw the courtesy
+ * — which bar ends a system moves on every reflow, and the author's decision must not move with it.
+ * `cautionaryKeyGapKey` is that key, and the meter's and the clef's cautionary overrides are keyed
+ * the same way for the same reason.
+ *
+ * ⭐ **Geometry, so it lives in the OVERRIDES compartment** and never on `KeyChange`: a number of
+ * staff spaces is not what key the music is in, and transposition, playback and re-barring must be
+ * able to walk the model without stepping over pixels (docs/engraving-overrides-plan.md).
+ *
+ * ⛔ A gap of **0 is a real answer** ("no tail at all") and is stored, not treated as absent.
+ *
+ * @returns true if the score changed.
+ */
+export function setCautionaryKeyGap(
+  score: Score, measureNumber: number, gap: number | null, staffId?: string,
+): boolean {
+  const measure = getMeasure(score, measureNumber)
+  if (!measure) return false
+  const key = cautionaryKeyGapKey(measure.id, staffId)
+  if (gap === null) {
+    if (cautionaryKeyGapOf(score, measure.id, staffId) === undefined) return false
+    clearEngravingOverride(score, key, 'cautionaryKeyGap')
+    return true
+  }
+  if (!(gap >= 0) || !Number.isFinite(gap)) return false
+  if (cautionaryKeyGapOf(score, measure.id, staffId) === gap) return false
+  const override: CautionaryKeyGapOverride = { kind: 'cautionaryKeyGap', gap }
+  setEngravingOverride(score, key, override)
+  return true
 }
 
 /** Insert or replace the beat-0 key change of a measure ON A STAFF, keeping the list sorted. */

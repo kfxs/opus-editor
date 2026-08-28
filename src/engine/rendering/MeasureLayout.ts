@@ -12,6 +12,8 @@ import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
+import { cautionaryKeyAt, cautionaryKeyRoom } from '@/engine/layout/cautionaryKey'
+import { cautionaryKeyGapOf } from '@/engine/models/engravingOverrides'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
 import { EMPTY_BAR_FLOOR_PX } from '@/engine/layout/spacingPadding'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
@@ -225,7 +227,7 @@ function calculateMinimumMeasureWidth(
     const staffKeys = keysByStaff.get(staffId)
     const staffHeader = headerExtent({
       clef: headerClef,
-      key: staffKeys && headerKeyAt(staffKeys, measure.number, isFirstInLine),
+      key: staffKeys && headerKeyAt(staffKeys, measure.number, isFirstInLine, clef),
       meter,
     }) + midClefs * inlineClefExtent(clef)
 
@@ -831,6 +833,69 @@ function applyCautionaryTimeSignatures(
   }
 }
 
+/**
+ * ⭐⭐ **The CAUTIONARY KEY SIGNATURE at a system break** — the rows to draw, and the room the line
+ * gives up for them (`engine/layout/cautionaryKey.ts` holds the rule and the sources).
+ *
+ * ⚠️ **The room comes off the LINE, not out of the bar** — the one structural difference from the two
+ * passes above, and it is what puts the ink on the right side of the barline: a bar's own line is
+ * drawn at its right edge, so room added to `minWidth` would sit BEFORE it (Gould p. 93 measures the
+ * courtesy 0.75 sp AFTER the barline, staff left open). Shrinking the width the line justifies into
+ * leaves exactly that space past the last barline.
+ *
+ * ⛔ No opt-in gate, unlike the clef's and the meter's: this is not a warning, it is where the change
+ * is engraved.
+ */
+function applyCautionaryKeys(
+  score: Score,
+  keysByStaff: Map<string | undefined, StaffKeys>,
+  clefsByStaff: Map<string | undefined, StaffClefs>,
+  staffIds: (string | undefined)[],
+  results: Map<number, MeasureWidthInfo>,
+  availableWidth: number,
+): void {
+  for (let i = 0; i < score.measures.length - 1; i++) {
+    const current = results.get(score.measures[i].number)
+    const next = results.get(score.measures[i + 1].number)
+    if (!current || !next || next.lineNumber <= current.lineNumber) continue
+
+    const clefOf = (staffIndex: number): Clef =>
+      clefsByStaff.get(staffIds[staffIndex])?.ending.get(current.measureNumber) ?? 'treble'
+    // ⭐ The author's own trailing gap, if any (his ask, 2026-08-28) — keyed by the CHANGE's measure
+    //   and staff (`cautionaryKeyGapKey`). ⚠️ ONE number for the line even though the override is per
+    //   staff: the tail is the SYSTEM's edge, and two staves ending at different x would read as a
+    //   ragged staff rather than as two decisions. The widest authored wish wins, so nobody's is cut.
+    const changeMeasure = score.measures.find(m => m.number === next.measureNumber)
+    // 🚨🚨 **`keyStaffId`, ⛔ NOT the staff's own id** — his report, 2026-08-28: *"i'm changing the
+    //    courtesy tail but i dont see change in real time in the score."* The write goes through
+    //    `MusicEngine.staffIdForIndex`, which returns **undefined for staff 0** (the absent-`staffId`
+    //    convention every position key in this repo follows), while `staffIds` here holds the staff's
+    //    REAL id. So the override was stored under `cautionKeyGap:<m>` and looked up under
+    //    `cautionKeyGap:<m>:s<id>` — a silent miss, with the write returning true.
+    //
+    // ⚠️ The clef's cautionary calls the same helper one loop up, for the same reason. Any key built
+    //    from an ORDINAL needs it (`engravingOverrides.keyStaffId`).
+    const authored = changeMeasure
+      ? staffIds
+        .map((staffId, staffIndex) => cautionaryKeyGapOf(score, changeMeasure.id, keyStaffId(staffIndex, staffId)))
+        .filter((gap): gap is number => gap !== undefined)
+      : []
+    const plan = cautionaryKeyAt(
+      keysByStaff, staffIds, clefOf, current.measureNumber, next.measureNumber,
+      authored.length ? Math.max(...authored) : undefined,
+    )
+    if (!plan) continue
+
+    current.cautionaryEndKeys = plan.rows
+    current.cautionaryKeyTrailing = plan.trailing
+    // The line re-justifies into what is left. ⚠️ Its bars keep their own floors, so a line that
+    // cannot give the room up simply stays as tight as it can — the courtesy then overlaps nothing
+    // because `distributeLineWidths` never pushes past the margin.
+    const lineMeasures = [...results.values()].filter(m => m.lineNumber === current.lineNumber)
+    distributeLineWidths(lineMeasures, availableWidth - cautionaryKeyRoom(plan, STAFF_SPACE_PX))
+  }
+}
+
 /** The width fields pass 1 reasons about — so the bar it is *considering* can be asked the same
  *  questions as the bars already on the line, before it is an info with a line number. */
 type SqueezableWidth = Pick<MeasureWidthInfo, 'minWidth' | 'naturalWidth' | 'floorWidth' | 'userSpace' | 'stretchSpace'>
@@ -1058,6 +1123,9 @@ export function calculateMeasureWidths(
 
   applyCautionaryClefs(score, clefsByStaff, staffIdsOf(score, clefsByStaff), results, availableWidth)
   applyCautionaryTimeSignatures(score, results, availableWidth)
+  // ⭐ LAST of the three, deliberately: it re-justifies its line into a NARROWER width, so it must
+  //   see the room the other two have already claimed rather than have them added on top of it.
+  applyCautionaryKeys(score, keysByStaff, clefsByStaff, staffIdsOf(score, clefsByStaff), results, availableWidth)
 
   return results
 }

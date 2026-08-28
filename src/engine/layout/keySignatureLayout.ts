@@ -14,7 +14,7 @@
  * @see docs/key-signature-research.md §9.4.1b — the table, measured
  * @see docs/key-signature-research.md §9.4.2, §9.4.2b — the spacing, measured twice
  */
-import type { Clef, KeySignature, PitchAlter, PitchStep } from '@/types/music'
+import type { Clef, KeyAlteration, KeySignature, PitchAlter, PitchStep } from '@/types/music'
 import { accidentalGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { alterToString } from '@/utils/pitchSpelling'
 import { staffLineForSpelling } from '@/utils/clefUtils'
@@ -129,8 +129,24 @@ export const BARLINE_TO_KEY_INK = 1.0
 export const METER_PART_LEFT_AIR = 0.6
 
 /** The glyph a signature member is drawn with — the ORDINARY accidentals, per SMuFL. */
-function signGlyph(alter: PitchAlter): ReturnType<typeof accidentalGlyph> {
-  return accidentalGlyph(alterToString(alter))
+/**
+ * ⭐⭐ **THE GLYPH ONE SIGN OF A SIGNATURE IS DRAWN WITH — and `alter: 0` is a NATURAL here.**
+ *
+ * 🚨 **`alterToString(0)` is the empty string, and that is correct where it lives:** in a pitch LABEL
+ * a natural is the absence of a sign (`E4`, not `En4`). In a SIGNATURE a natural is a drawn glyph —
+ * it is the whole of a cancellation — so this function cannot be a pass-through.
+ *
+ * ⚠️ It cost the first build of P6 a silent nothing: every cancelling natural resolved to `null` and
+ * was skipped by both the extent (0 advance) and the pass (`if (!glyph) return`), so a change to C
+ * major drew no signs and reserved no room, with no error anywhere. ⛔ Do not "simplify" this back to
+ * `accidentalGlyph(alterToString(alter))`.
+ *
+ * ⭐ Exported so the DRAWING asks the same question: `KeySignaturePass` and `KeySignatureGhost` both
+ * read it, which is this file's standing rule — the glyph that is drawn and the advance the room was
+ * computed from are the same glyph by construction.
+ */
+export function signGlyph(alter: PitchAlter): ReturnType<typeof accidentalGlyph> {
+  return alter === 0 ? 'accidentalNatural' : accidentalGlyph(alterToString(alter))
 }
 
 /**
@@ -151,13 +167,108 @@ function signGlyph(alter: PitchAlter): ReturnType<typeof accidentalGlyph> {
  */
 export function headerKeyAt(
   keys: StaffKeys, measureNumber: number, isFirstInLine: boolean,
+  /** ⭐ The staff's clef, needed only to place CANCELLING NATURALS — a natural stands where the sign
+   *  it cancels stood, and which line that is depends on the clef ({@link withCancellation}). */
+  clef: Clef,
 ): KeySignature | undefined {
   const opening = keys.opening.get(measureNumber)
   if (!opening) return undefined
+  // ⭐⭐ **A SYSTEM HEAD RESTATES THE SIGNATURE ALONE — no naturals.** Gould, printed p. 93: *"When a
+  //    key change coincides with a system break, the cancelling naturals and the new key signature go
+  //    at the end of the first system. **The new system takes only the new key signature.**"* So the
+  //    cancellation belongs to the CAUTIONARY at the end of the previous line (P6b), never here.
   if (isFirstInLine) return opening
   const previousEnding = keys.ending.get(measureNumber - 1)
   if (previousEnding === undefined) return undefined
-  return keysEqual(opening, previousEnding) ? undefined : opening
+  return keyChangeRow(opening, previousEnding, clef)
+}
+
+/**
+ * ⭐⭐ **THE ROW A KEY CHANGE DRAWS AT A BOUNDARY** — cancelling naturals then the new signature, or
+ * **undefined when nothing changed**. The ONE owner of that answer, because two places ask it and
+ * they must draw the same thing: a mid-line change at a bar's head ({@link headerKeyAt}), and the
+ * CAUTIONARY at the end of the previous system (`engine/layout/cautionaryKey.ts`).
+ *
+ * ⭐ **That the two are one question is Gould's own sentence**, printed p. 93: *"When a key change
+ * coincides with a system break, the cancelling naturals and the new key signature go at the end of
+ * the first system."* The cautionary is not a reduced or decorated variant — it is this row, drawn
+ * somewhere else.
+ */
+export function keyChangeRow(
+  opening: KeySignature, previousEnding: KeySignature, clef: Clef,
+): KeySignature | undefined {
+  if (keysEqual(opening, previousEnding)) return undefined
+  return withCancellation(opening, previousEnding, clef)
+}
+
+/**
+ * ⭐⭐ **THE ROW A KEY CHANGE DRAWS — cancelling naturals, then the new signature.**
+ *
+ * ⭐ **The naturals ride in the RETURNED SIGNATURE as alterations with `alter: 0`**, and that is the
+ * whole of the implementation: a natural at a letter's own step lands on the same staff line the old
+ * sign stood on (`keySignatureLines`), `accidentalGlyph('natural')` is its glyph, and
+ * `keySignatureExtent` prices its advance. So the extent model, the placement table, the drawing pass
+ * and `keySignatureInkRight` all handle a cancellation without knowing there is such a thing.
+ * ⛔ It is NOT a claim about the model: `headerKeyAt` answers *what this bar's head DRAWS*, which has
+ * always been a render-time row rather than a stored key (see this function's own header).
+ *
+ * ## ⭐⭐ WHEN — only when the new key has no signs of its own
+ *
+ * **Gerou & Lusk p. 79:** *"Cancellations are no longer considered necessary, unless the new key is
+ * C major or A minor."* Five implementations converged on that, and MusicXML states it as a spec
+ * sentence — *"This will always happen when changing to C major or A minor and need not be specified
+ * then"*. ⭐ So this needs no author control to be correct today, and the default is `none` in MEI's
+ * vocabulary (`data.CANCELACCID`), which is the enum the author's choice will speak when it exists.
+ *
+ * ⚠️ **The practice FLIPPED**, which is why the citation matters: Ross p. 149 (1970) —
+ * *"At present, most engraved music employs cancellation signs"* — against G&L (1996) above. ⛔ 1996's
+ * is where the modern implementations landed; settled, do not reopen (plan §4.2).
+ *
+ * ## ⭐ WHICH LETTERS — the outgoing signature MINUS the incoming, in the OUTGOING order
+ *
+ * ⭐ **Gould's drawn 5♭ → 1♭ example settles it, and it is not "cancel the old signature":** she
+ * prints four naturals (E♮ A♮ D♮ G♮) and does **not** cancel the B♭ that survives, then states the
+ * new B♭. So a surviving letter is never naturalised. ⚠️ Today only the empty-incoming case draws at
+ * all, where the difference is the whole outgoing list — but the set is written the general way
+ * because the rule is the general one, and `after`/`before-bar` will need exactly this.
+ */
+function withCancellation(
+  opening: KeySignature, previousEnding: KeySignature, clef: Clef,
+): KeySignature {
+  if (opening.alterations.length > 0) return opening
+  const surviving = new Set(opening.alterations.map(a => a.step))
+  const naturals: KeyAlteration[] = previousEnding.alterations
+    .filter(a => !surviving.has(a.step))
+    .map(a => ({ step: a.step, alter: 0 as PitchAlter, octave: cancelledOctave(a, clef) }))
+  if (naturals.length === 0) return opening
+  return { alterations: [...naturals, ...opening.alterations], ...(opening.mode !== undefined ? { mode: opening.mode } : {}) }
+}
+
+/**
+ * ⭐⭐ **A NATURAL STANDS WHERE THE SIGN IT CANCELS STOOD** — so the cancellation carries that sign's
+ * own OCTAVE, and {@link keySignatureLines}' override branch places it with no new rule at all.
+ *
+ * 🚨 **Without this it would be placed on the SHARP row**, whatever it cancels: that function reads
+ * `alter >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a natural is 0. Cancelling three flats would then draw
+ * three naturals in the SHARP positions — B♮ E♮ A♮ a third or a sixth away from the flats they
+ * answer. ⚠️ The bug is invisible in a one-sign key (B♭ and B♯ share no line, but a single natural
+ * still *looks* plausible), which is exactly why it is written down here.
+ *
+ * ⭐ The octave is recovered by asking the placement table where the outgoing sign is drawn and then
+ * finding the octave that lands on that line — `staffLineForSpelling`'s inverse, over the only range
+ * a stave can show. ⛔ Not a second placement table: one table, read forwards to place the sign and
+ * backwards to name the pitch under it, so the two can never disagree.
+ */
+function cancelledOctave(outgoing: KeyAlteration, clef: Clef): number {
+  if (outgoing.octave !== undefined) return outgoing.octave
+  const table = outgoing.alter >= 0 ? SHARP_STEPS : FLAT_STEPS
+  const line = stepsToStaffLine(table[clef][outgoing.step])
+  for (let octave = 0; octave <= 9; octave++) {
+    if (staffLineForSpelling(outgoing.step, octave, clef) === line) return octave
+  }
+  // ⛔ Unreachable for any sign the table places: every line a stave draws has an octave. Answering
+  //    the middle octave rather than throwing keeps a corrupt import drawing something visible.
+  return 4
 }
 
 /**

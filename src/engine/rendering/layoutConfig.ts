@@ -1,4 +1,4 @@
-import type { Clef, TimeSignature } from '@/types/music'
+import type { Clef, KeySignature, TimeSignature } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 
@@ -423,4 +423,17 @@ export interface MeasureWidthInfo {
    *  (unlike the cautionary clef), per standard engraving — it sits after the final
    *  barline of the line. */
   cautionaryEndTimeSig?: TimeSignature
+  /**
+   * ⭐⭐ The cautionary KEY SIGNATURE each staff draws at this measure's end, when the next line opens
+   * with a key change — per staff, like `cautionaryEndClefs` and for its reason (a key is per-staff
+   * content). Each entry is the whole ROW: cancelling naturals then the new signature.
+   *
+   * ⚠️ Unlike the two above, the room for it is NOT in this bar's `minWidth`: it is taken off the
+   * LINE, so the ink lands after the last barline where Gould p. 93 measures it
+   * (`engine/layout/cautionaryKey.ts`).
+   */
+  cautionaryEndKeys?: (KeySignature | undefined)[]
+  /** ⭐ The bare staff drawn after that courtesy, in staff spaces — the engraver's default, or the
+   *  author's own (`cautionaryKeyGapKey`). ONE number for the line: the tail is the system's edge. */
+  cautionaryKeyTrailing?: number
 }

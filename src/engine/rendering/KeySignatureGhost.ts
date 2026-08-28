@@ -30,9 +30,8 @@
 import { Element } from 'vexflow'
 import type { SVGContext } from 'vexflow'
 import type { KeySignature } from '@/types/music'
-import { KEY_ACCIDENTAL_GAP, keySignatureLines } from '@/engine/layout/keySignatureLayout'
-import { accidentalGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
-import { alterToString } from '@/utils/pitchSpelling'
+import { KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph } from '@/engine/layout/keySignatureLayout'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { SIGN_CHARS, SIGN_FONT_SIZE } from './KeySignaturePass'
 import { drawSignGhost } from './ghostCursor'
@@ -65,7 +64,7 @@ export function drawKeySignatureGhost(
   return drawSignGhost(ctx, 'ghost-keysig', cursorX, cursorY, () => {
     let x = 0
     key.alterations.forEach((alteration, i) => {
-      const glyph = accidentalGlyph(alterToString(alteration.alter))
+      const glyph = signGlyph(alteration.alter)
       if (!glyph) return
       const char = SIGN_CHARS[glyph]
       if (!char) return

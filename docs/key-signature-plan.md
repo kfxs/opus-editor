@@ -701,7 +701,7 @@ picker is §7, and it is not being designed yet.
 | ✅ **P3** | **BUILT 2026-08-27.** `keysByStaff` prepass (§2.1) + `keySignatureLayout` (the placement table + the gaps) + `headerInk` key row + `KeySignaturePass` | ✅ 5403 unit, **249 e2e** (8 new), `build:check` clean — and it is DRAWN. ⏭️ Hit boxes are P5's after all: nothing selects a signature yet |
 | ✅ **P4** | **BUILT 2026-08-27.** the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | ✅ 5438 unit, **252 e2e** (3 new), `build:check` clean. The F♯ in G major loses its sign; the F♮ gains one; a note typed/clicked/dragged in G major is an F♯ with no sign; setting the key at bar 1 repaints bar 12. ⏭️ See §8.4 |
 | ✅ **P5** | **BUILT 2026-08-28.** hit boxes (registered by the pass) + `keySignature` element kind + marking tool + its GHOST + `keySignatureStamp` + Delete + the Properties report + the dev palette now ARMS | ✅ 5466 unit, **254 e2e**, `build:check` clean. He can arm a key, click a bar, select the signs, and Delete them. ⏭️ See §8.5 |
-| **P6** | cancellation naturals + cautionary at a break (**+ `cautionaryEndKey` in `ShapeKeyInputs`**) | ⏳ policy from the research |
+| ✅ **P6** | **BUILT 2026-08-28.** cancelling naturals + the cautionary at a break + the OPEN STAFF TAIL under it + an authorable trailing gap (Properties). ⛔ **NO `cautionaryEndKey` in `ShapeKeyInputs` — measured, it is not needed** (§8.6) | ✅ 5496 unit, **257 e2e**, `build:check` clean. A change to C major draws naturals where the old signs stood; a change on a break is engraved at the end of the previous line, staff left open |
 
 ### ✅ 8.1 What P1 actually landed — including two rows this plan did not list
 
@@ -726,6 +726,100 @@ picker is §7, and it is not being designed yet.
     writes one (only an import could). ⏭️ The day a mid-bar key change becomes a feature it needs the
     capture/restore pair IN THE SAME COMMIT, and `keys` must join `clearMeasureForRebar`. Written at
     the top of `keyOps.ts`, which is the module that would break it.
+
+### ✅ 8.6 What P6 landed — the cancellation, the courtesy, and a tail nobody owned
+
+**1. CANCELLING NATURALS.** `keyChangeRow(opening, previousEnding, clef)` is the one owner of *what a
+key change draws*, and both the bar's head (`headerKeyAt`) and the cautionary read it — ⭐ because
+Gould p. 93 makes them one question. Naturals only when the new key has none of its own (G&L p. 79:
+*"Cancellations are no longer considered necessary, unless the new key is C major or A minor"*;
+MusicXML says it as a spec sentence). The set is outgoing − incoming in the OUTGOING order.
+
+⭐⭐ **The naturals ride as `alter: 0` alterations carrying the cancelled sign's own OCTAVE**, so the
+extent model, the placement table, the drawing pass and `keySignatureInkRight` handle a cancellation
+with no new type. 🚨 The octave is what makes it correct: `keySignatureLines` reads
+`alter >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a natural is 0 — without it, cancelling three flats would
+draw three naturals in the SHARP positions.
+
+🚨🚨 **`alterToString(0)` IS THE EMPTY STRING**, which cost the first build a silent nothing: every
+natural resolved to `null` and was skipped by both the extent (0 advance) and the pass
+(`if (!glyph) return`), with no error anywhere. ⭐ `signGlyph` now owns that question and the pass and
+the ghost both read it. ⛔ Do not simplify it back to `accidentalGlyph(alterToString(alter))`.
+
+**2. THE CAUTIONARY AT A BREAK** — `engine/layout/cautionaryKey.ts`, its own module rather than a third
+copy of `MeasureLayout`'s loop, and it differs from the clef's and the meter's in three ways (no
+opt-in gate; the room comes off the LINE; per staff). Drawn by `KeySignaturePass`, 0.75 sp after the
+last barline, staff left open, and the new system takes only the new signature.
+
+⚠️ **The room comes off the LINE, not the bar** — a bar's own barline is drawn at its right edge, so
+room added to `minWidth` would put the courtesy on the wrong side of it. `distributeLineWidths` gets a
+narrower width and the leftover is the courtesy's.
+
+🚨 **His report: *"look, the key cautionary is there, but where is the pentagram?"*** The signs were
+floating past the staff's end — a bar draws staff lines only across its own span, and the courtesy
+zone belongs to no bar. ⭐ It belongs to the SYSTEM, so the pass that puts ink there draws its five
+lines (`drawOpenStaffTail`). ⭐ Its thickness is `STAVE_LINE_WIDTH_PX`, the one constant `drawStave`
+pins — **his challenge**: *"vexflow? shouldnt the solution follow the rules of own engine md?"* So it
+is *the tail of a line is as thick as the line*, asked of the place that decides it, and that constant
+carries the note that SMuFL says 0.13 sp and why moving every staff line is not this phase's to do.
+
+**3. ⛔ NO `ShapeKeyInputs` ROW — the plan predicted one and it is not needed.** Measured: a change to
+the OUTGOING key that leaves the row's width identical (three flats → three sharps) still repaints,
+because the signature is drawn by a SCORE-LEVEL pass and is not inside any measure group. ⭐ That is
+the same property that makes `KeySignaturePass` immune to a stale cached picture (its own header).
+
+#### ⭐⭐ 8.6a THE TRAILING GAP — three answers, his choice, and now a control
+
+His question of the bare staff after the courtesy — *"is this the space in the cautionary key
+correct… what does the literature say? what the 3 engines say?"* — sent to two agents, and they
+disagree by almost a space and a half:
+
+| source | trailing gap | how it was established |
+|---|---|---|
+| **Gould p. 93** | **≈1.9 sp** (1.89 / 1.85 / 2.08) | measured at 600 dpi, three instances. ⚠️ Her staff ends far short of the text measure — a free-length EXCERPT |
+| **Gerou & Lusk pp. 78, 52** | **0.42 / 0.53 sp** | the library's only MATCHED PAIR: the courtesy staff and the staff below it drawn to the same right edge |
+| **MuseScore** | **0.5 sp** | `Sid::systemTrailerRightMargin`, `style/styledef.cpp:228` |
+| **LilyPond** | **0.5 sp** | `KeySignature.space-alist (right-edge . (extra-space . 0.5))`, and the same on `KeyCancellation` |
+| **Verovio** | **0.5 sp** | `rightMarginKeySig` = 1.0 MEI unit, and a unit is *"1⁄2 of the distance between the staff lines"* |
+| ⭐ **OURS** | **0.75 sp** | **HIS choice** — *"i liked it, it was a good compromise between gould and what the engines say"* |
+
+⭐⭐ **AND NO SOURCE STATES A DISTANCE AT ALL.** G&L p. 78 rule 3 says only *"The staff is left open
+after the courtesy key signature"*; Ross p. 148 the same. The drawn numbers differ because Gould's is
+a LEFTOVER on a free-length excerpt and G&L's is a MARGIN on a fixed-width figure — which is also what
+ours is (the line gives up `0.75 + ink + tail`, so the staff runs to the margin, exactly as G&L's
+matched pair does).
+
+⭐ **So it is authorable** (his ask: *"give the user the freedom to change the number in properties"*):
+`CautionaryKeyGapOverride`, keyed by the CHANGE's measure and staff (`cautionaryKeyGapKey`), written
+through `keyOps.setCautionaryKeyGap` → `bus.cautionaryKeyGap` → `CautionaryKeyGapController`, and shown
+as the Properties panel's **courtesy tail (sp)** row. `null` resets; ⛔ **0 is a real value**, not
+"absent".
+
+🚨 **His report while testing it: *"i'm changing the courtesy tail but i dont see change in real
+time"*** — a genuine bug, and the oldest kind in this repo: the WRITE goes through
+`MusicEngine.staffIdForIndex`, which returns **undefined for staff 0** (the absent-`staffId`
+convention), while the layout's lookup used the staff's **real id**. Stored under `cautionKeyGap:<m>`,
+read under `cautionKeyGap:<m>:s<id>` — a silent miss with the write returning true. ⭐ Fixed by
+`keyStaffId(staffIndex, staffId)`, the adapter the clef's cautionary one loop up already used. ⛔ Any
+override key built from an ORDINAL needs it.
+
+#### ⏭️ 8.6b What P6 did NOT do, deliberately
+
+- **The `after` / `before-bar` cancellation placements** (MEI's `data.CANCELACCID`). The vocabulary is
+  settled (§4.2) and `none`/`before` are what the rule needs today; ⛔ an enum with two members
+  nothing can reach would be a table that lies about being total.
+- **A double barline before the courtesy.** ⚠️ **MuseScore draws one by default**
+  (`CourtesyBarlineMode::DOUBLE_BEFORE_COURTESY`), and Ross p. 148 and G&L p. 78 both engrave a thin
+  double before it — while Gould p. 93 draws a single. ⛔ We generate none: **his standing decision**
+  (§4.2b), reversed by him the same day he first made it. Recorded here because three of five sources
+  disagree with us, so this WILL come up again.
+- **The courtesy CLEF's side.** The literature is unanimous that a clef goes BEFORE the last barline
+  and is CLOSED by it, where the key and meter go after and stay open (Gould p. 7, Stone p. 57, G&L
+  p. 52 — measured: clef→barline 0.52 sp, then a full-height line). ⚠️ Our courtesy METER is drawn on
+  the wrong side of the line (VexFlow's END modifier sits inside the bar) — ⏭️ the meter's own change,
+  not bundled here.
+- **Suppressing a cautionary.** ⏭️ His *"everything can be tuned… but this is not priority now"*, and
+  ⛔ it must not be built by inverting the other two kinds' override table.
 
 ### ✅ 8.5 What P5 landed — and the two reports his eye made the same hour
 

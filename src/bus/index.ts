@@ -25,6 +25,7 @@ import { createRestSelection } from './restSelection'
 import { createSelectionInspection } from './selectionInspection'
 import { createSlurGeometrySelection } from './slurGeometrySelection'
 import { createHairpinGeometrySelection } from './hairpinGeometrySelection'
+import { createCautionaryKeyGapSelection } from './cautionaryKeyGapSelection'
 import { createPlayRepeatsSelection } from './playRepeatsSelection'
 import { createSoundSelection } from './soundSelection'
 import { createSubdivideSelection } from './subdivideSelection'
@@ -116,6 +117,9 @@ interface EditorBus {
   slurGeometry: ReturnType<typeof createSlurGeometrySelection>
   /** Properties' hairpin-end inputs — the wedge's RESHAPE only, never its extent. Command-only. */
   hairpinGeometry: ReturnType<typeof createHairpinGeometrySelection>
+  /** ⭐ The bare staff after a CAUTIONARY key signature, asked for from Properties (his ask,
+   *  2026-08-28). Geometry: it moves ink and changes no key. */
+  cautionaryKeyGap: ReturnType<typeof createCautionaryKeyGapSelection>
   /** Whether what is selected IS A REST — the other half of the duration keys' statement. */
   rest: ReturnType<typeof createRestSelection>
   /** The score's playback sound (a GM program). Dev picker + Play ▸ Score Sound. The VALUE lives in
@@ -173,6 +177,7 @@ export function createEditorBus(): EditorBus {
     trillGeometry: createTrillGeometrySelection(),
     slurGeometry: createSlurGeometrySelection(),
     hairpinGeometry: createHairpinGeometrySelection(),
+    cautionaryKeyGap: createCautionaryKeyGapSelection(),
     rest: createRestSelection(),
     playRepeats: createPlayRepeatsSelection(),
     sound: createSoundSelection(),
@@ -213,4 +218,5 @@ export type { PedalGeometryRequest, PedalEndRequest, PedalHeightRequest } from '
 export type { TrillGeometryRequest, TrillEndRequest, TrillHeightRequest } from './trillGeometrySelection'
 export type { SlurGeometryRequest, SlurGeometryTarget } from './slurGeometrySelection'
 export type { HairpinGeometryRequest, HairpinEndRequest, HairpinApertureRequest } from './hairpinGeometrySelection'
+export type { CautionaryKeyGapRequest } from './cautionaryKeyGapSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'

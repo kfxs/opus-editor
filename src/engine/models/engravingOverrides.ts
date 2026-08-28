@@ -1,4 +1,4 @@
-import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride } from '@/types/music'
+import type { Score, EngravingOverride, CurveShapeOverride, SegmentCurveShapeOverride, SlurEndpointOffsetOverride, SlurOffsetOverride, SegmentEndpointOffsetOverride, HairpinEndpointOffsetOverride, HairpinApertureOverride, OttavaOffsetOverride, PedalOffsetOverride, TrillOffsetOverride, RestShiftOverride, StaffSpacingOverride, DynamicOffsetOverride, NoteOffsetOverride, LeadingSpaceOverride, BarlineSpaceOverride, BarWidthOverride, CurveControlPointDeltas, Fraction, TempoOffsetOverride, CautionaryKeyGapOverride } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from './staffSize'
 
@@ -419,6 +419,27 @@ export function cautionaryAllowedOf(score: Score, measureId: string): boolean {
  */
 export function keyStaffId(index: number, staffId: string | undefined): string | undefined {
   return index === 0 ? undefined : staffId
+}
+
+/**
+ * ⭐⭐ **The key under which a hand-set TRAILING GAP for a cautionary key signature is filed** — the
+ * bare staff after the courtesy, in staff spaces (his ask, 2026-08-28).
+ *
+ * ⚠️ Keyed by the measure the CHANGE starts at and by the staff, exactly like {@link cautionaryClefKey}
+ * and for its reason: which bar ends a system moves on every reflow, and the author's decision must
+ * not move with it.
+ */
+export function cautionaryKeyGapKey(measureId: string, staffId?: string): string {
+  return `cautionKeyGap:${measureId}${staffId ? `:s${staffId}` : ''}`
+}
+
+/** The hand-set trailing gap for that courtesy, or **undefined for the engraver's own**
+ *  (`CAUTIONARY_KEY_TO_LINE_END`). ⭐ Absent ≠ 0: zero is a real answer a user may ask for. */
+export function cautionaryKeyGapOf(score: Score, measureId: string, staffId?: string): number | undefined {
+  const found = engravingOverrideOf(
+    score, cautionaryKeyGapKey(measureId, staffId), 'cautionaryKeyGap',
+  ) as CautionaryKeyGapOverride | undefined
+  return found?.gap
 }
 
 export function cautionaryClefKey(measureId: string, staffId?: string): string {

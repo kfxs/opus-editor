@@ -12,7 +12,7 @@
  * trusting the conversion.
  */
 import { describe, it, expect } from 'vitest'
-import { KEY_ACCIDENTAL_GAP, keySignatureExtent, keySignatureLines } from './keySignatureLayout'
+import { KEY_ACCIDENTAL_GAP, keyChangeRow, keySignatureExtent, keySignatureLines, signGlyph } from './keySignatureLayout'
 import { C_MAJOR, keyFromFifths } from '@/utils/keySignature'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import type { KeySignature } from '@/types/music'
@@ -116,5 +116,72 @@ describe('keySignatureLines — the measured table, checked by naming the pitch'
   it('keeps the AUTHORED order — the lines come back in the list\'s order, not the cycle\'s', () => {
     const reordered: KeySignature = { alterations: [{ step: 'C', alter: 1 }, { step: 'F', alter: 1 }] }
     expect(keySignatureLines(reordered, 'treble')).toEqual([3.5, 5])
+  })
+})
+
+describe('keyChangeRow — the cancelling naturals (P6)', () => {
+  const G = keyFromFifths(1)          // F♯
+  const E_FLAT = keyFromFifths(-3)    // B♭ E♭ A♭
+  const D = keyFromFifths(2)          // F♯ C♯
+
+  it('answers UNDEFINED when nothing changed — the bar draws no row at all', () => {
+    expect(keyChangeRow(E_FLAT, E_FLAT, 'treble')).toBeUndefined()
+  })
+
+  it('⛔ draws NO naturals when the new key has signs of its own — the modern default', () => {
+    // Gerou & Lusk p. 79: *"Cancellations are no longer considered necessary, unless the new key is
+    // C major or A minor."* ⚠️ The practice FLIPPED — Ross p. 149 (1970) says most engraved music
+    // cancels — and 1996's is where five implementations landed (plan §4.2). ⛔ Settled.
+    expect(keyChangeRow(D, E_FLAT, 'treble')).toEqual(D)
+  })
+
+  it('⭐⭐ draws them when the new key is C MAJOR — otherwise the change would be invisible', () => {
+    const row = keyChangeRow(C_MAJOR, E_FLAT, 'treble')!
+    expect(row.alterations.map(a => a.step)).toEqual(['B', 'E', 'A'])
+    expect(row.alterations.every(a => a.alter === 0), 'all naturals').toBe(true)
+    // MusicXML states the same rule as a spec sentence: *"This will always happen when changing to
+    // C major or A minor and need not be specified then."*
+  })
+
+  it('🚨 a natural stands where the sign it CANCELS stood — flats, not the sharp row', () => {
+    // The bug this guards: `keySignatureLines` reads `alter >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a
+    // natural is 0 — so without the octave the cancellation of three flats would be drawn in the
+    // SHARP positions, a third or a sixth from the signs it answers.
+    const cancelling = keyChangeRow(C_MAJOR, E_FLAT, 'treble')!
+    expect(keySignatureLines(cancelling, 'treble')).toEqual(keySignatureLines(E_FLAT, 'treble'))
+  })
+
+  it('…and the same in BASS, where every line differs — the clef is why it takes one', () => {
+    const cancelling = keyChangeRow(C_MAJOR, E_FLAT, 'bass')!
+    expect(keySignatureLines(cancelling, 'bass')).toEqual(keySignatureLines(E_FLAT, 'bass'))
+    expect(keySignatureLines(cancelling, 'bass')).not.toEqual(keySignatureLines(E_FLAT, 'treble'))
+  })
+
+  it('⭐ a SURVIVING letter is never naturalised — Gould\'s 5♭ → 1♭ drawing', () => {
+    // She prints four naturals (E♮ A♮ D♮ G♮) and does NOT cancel the B♭ that survives, then states
+    // the new B♭. ⚠️ Today only the empty-incoming case draws, so this exercises the SET rule via a
+    // hand-built row rather than through `keyChangeRow`'s current gate.
+    const fiveFlats = keyFromFifths(-5)   // B E A D G
+    const oneFlat = keyFromFifths(-1)     // B
+    const surviving = new Set(oneFlat.alterations.map(a => a.step))
+    const cancelled = fiveFlats.alterations.filter(a => !surviving.has(a.step)).map(a => a.step)
+    expect(cancelled).toEqual(['E', 'A', 'D', 'G'])
+  })
+
+  it('the row is PRICED — its naturals cost room, which is what stops the notes overlapping', () => {
+    const row = keyChangeRow(C_MAJOR, G, 'treble')!
+    expect(keySignatureExtent(row)).toBeGreaterThan(0)
+    expect(keySignatureExtent(row)).toBeCloseTo(glyphBox('accidentalNatural').advance, 5)
+  })
+})
+
+describe('signGlyph — a natural is a DRAWN sign in a signature', () => {
+  it('🚨 answers the natural glyph for alter 0, where `alterToString` answers the empty string', () => {
+    // In a pitch LABEL a natural is the absence of a sign (`E4`, not `En4`) — correct there, and it
+    // cost P6 a silent nothing here: every cancelling natural resolved to null and was skipped by
+    // both the extent and the pass, with no error anywhere.
+    expect(signGlyph(0)).toBe('accidentalNatural')
+    expect(signGlyph(1)).toBe('accidentalSharp')
+    expect(signGlyph(-1)).toBe('accidentalFlat')
   })
 })

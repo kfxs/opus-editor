@@ -810,8 +810,26 @@ export class HighlightController {
       if (!elBBox) continue
       if (elBBox.width > 40) continue // skip staff lines / wide elements
 
-      const cx = elBBox.x + elBBox.width / 2
-      const cy = elBBox.y + elBBox.height / 2
+      // 🚨🚨 **THROUGH THE CTM, because a SMALL staff draws inside `scale(k)`** — his report,
+      //    2026-08-28: *"on small staff the time signature is not highlited."* `getBBox()` answers in
+      //    the element's OWN user space, which for a 0.7 staff is 1/0.7 of the page, while the
+      //    registry's box is SVG space (the registry scales its records out — `ElementRegistry.
+      //    withScale`). Comparing the two directly is `docs/staff-size-plan.md`'s named bug class:
+      //    "visual coords in a scaled scope".
+      //
+      // ⚠️ It went unseen because it was HIDDEN BY A LOOSE BOX: the meter's hit box used to be a
+      //    30 px region and overlapped the mis-mapped centre anyway. The moment that box became the
+      //    digits' own ink (17 px, 2026-08-28) the mismatch had nowhere to hide — a tighter box makes
+      //    a wrong coordinate visible, which is worth remembering as a pair.
+      //
+      // ⭐ `getCTM()` is the element→viewport matrix, so this is the e2e suite's own rule (⛔ never
+      //    compare an untransformed `getBBox()` across a scaled group) applied in app code. jsdom
+      //    answers null and cannot measure glyphs at all, so the fallback is the raw box.
+      const ctm = (el as SVGGraphicsElement).getCTM?.()
+      const rawX = elBBox.x + elBBox.width / 2
+      const rawY = elBBox.y + elBBox.height / 2
+      const cx = ctm ? ctm.a * rawX + ctm.c * rawY + ctm.e : rawX
+      const cy = ctm ? ctm.b * rawX + ctm.d * rawY + ctm.f : rawY
       if (cx >= bbox.x && cx <= bbox.x + bbox.width && cy >= bbox.y && cy <= bbox.y + bbox.height) {
         const svgEl = el as SVGElement
         const currentFill = svgEl.getAttribute('fill')
@@ -948,14 +966,30 @@ export class HighlightController {
     const svg = this.getScoreCanvas()?.querySelector('svg')
     if (!engine || !selected || !svg) return
     for (const staff of keySignatureStavesAt(engine, selected.measure, selected.staff)) {
-      // The group's existence IS the "was this signature painted?" test — the pass draws one only for
-      // a signature it actually put on the page (`ElementRegistry`'s `keySignature` note).
-      const group = svg.querySelector<SVGGElement>(`[id="vf-keysig-${selected.measure}-${staff}"]`)
-      if (!group) continue
-      for (const el of group.querySelectorAll('text, path')) {
-        this.setAttr(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
-        this.setStyleProp(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
-        this.addClass(el as SVGElement, 'selected-keysig')
+      // ⭐⭐ **BOTH PIECES OF ITS INK.** A change that lands on a system break is engraved twice — the
+      //    CAUTIONARY at the end of the previous line and the signature at the head of the new one
+      //    (Gould p. 93) — and they are ONE statement, so selecting it lights both. His report,
+      //    2026-08-28: *"the cautionary is not clickable and neither selectable."*
+      //
+      // ⚠️ The caution group is filed under the bar that DRAWS it, which is the bar BEFORE the change
+      //    — that asymmetry is the pass's (`KeySignaturePass.drawCautionary`), and it is why this is
+      //    two lookups rather than one id built from the selection.
+      //
+      // ⭐ The group's existence IS the "was this painted?" test — the pass draws one only for ink it
+      //    actually put on the page (`ElementRegistry`'s `keySignature` note).
+      const groups = [
+        svg.querySelector<SVGGElement>(`[id="vf-keysig-${selected.measure}-${staff}"]`),
+        svg.querySelector<SVGGElement>(`[id="vf-keysig-caution-${selected.measure - 1}-${staff}"]`),
+      ]
+      for (const group of groups) {
+        if (!group) continue
+        // ⛔ `text` only, never `rect`: the caution group also holds the five rects of the OPEN STAFF
+        //    TAIL it draws, and recolouring the staff would paint a blue box under the signs.
+        for (const el of group.querySelectorAll('text, path')) {
+          this.setAttr(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
+          this.setStyleProp(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
+          this.addClass(el as SVGElement, 'selected-keysig')
+        }
       }
     }
   }

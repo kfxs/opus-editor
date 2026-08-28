@@ -378,3 +378,150 @@ test('⭐⭐ a COURTESY survives the key agreeing with it — Gould p. 81, and h
 
   expect(signs, 'the FORCED one only — the other is silent under the signature').toBe(1)
 })
+
+// ---------------------------------------------------------------------------
+// P6 — CANCELLING NATURALS and the CAUTIONARY at a system break
+// (docs/key-signature-plan.md §4.2, and the measurements from Gould p. 93.)
+// ---------------------------------------------------------------------------
+
+test('⭐⭐ a change to C MAJOR draws cancelling naturals, where the old signs stood', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 2; m <= 8; m++) h.engine.addMeasure()
+    const E_FLAT = {
+      alterations: [
+        { step: 'B' as const, alter: -1 as const },
+        { step: 'E' as const, alter: -1 as const },
+        { step: 'A' as const, alter: -1 as const },
+      ],
+      mode: 'major' as const,
+    }
+    h.engine.setKeyAt(3, E_FLAT)
+    h.engine.setKeyAt(6, { alterations: [], mode: 'major' })
+    await h.render()
+    const at = (m: number) => {
+      const s = h.staves().find(v => v.measure === m)!
+      return h.glyphs('g.vf-keysig text')
+        .filter(g => g.x >= s.x1 - 2 && g.x < s.x2 && Math.abs(g.y - s.top) < 60)
+        .map(g => ({ code: g.code, y: Math.round(g.y) }))
+    }
+    const geom = h.engine.getElementRegistry().getStaffGeometry(6, 0)
+    return { flats: at(3), naturals: at(6), inherited: at(7), noteStartX: geom?.noteStartX ?? 0 }
+  })
+
+  // ⭐ **Gerou & Lusk p. 79:** *"Cancellations are no longer considered necessary, unless the new key
+  //   is C major or A minor."* Bar 6 is that exception — without the naturals the change would draw
+  //   nothing at all and the reader would never learn of it.
+  expect(drawn.naturals.map(n => n.code), 'three naturals').toEqual([NATURAL, NATURAL, NATURAL])
+  // 🚨 **Each stands where the sign it cancels stood** — the same three y's as the flats in bar 3. A
+  //   natural is `alter: 0`, and the placement table reads `alter >= 0` as the SHARP row, so this is
+  //   the assertion that the cancellation carries the cancelled sign's own position.
+  expect(drawn.naturals.map(n => n.y)).toEqual(drawn.flats.map(f => f.y))
+  expect(drawn.flats.map(f => f.code), 'and bar 3 is flats').toEqual([FLAT, FLAT, FLAT])
+  // ⭐ Bar 7 inherits C major and restates nothing — a cancellation is a CHANGE's ink, not a state's.
+  expect(drawn.inherited, 'nothing at bar 7').toEqual([])
+  // …and the room was really reserved: the notes start past the naturals.
+  expect(drawn.noteStartX).toBeGreaterThan(0)
+})
+
+test('⭐⭐ a key change ON a system break is engraved at the END of the previous line — Gould p. 93', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 2; m <= 30; m++) h.engine.addMeasure()
+    await h.render()
+    // Which bar ends line 1 is the casting-off's answer, so ask it rather than assuming.
+    const top0 = Math.round(h.staves()[0].top)
+    const line1 = h.staves().filter(s => Math.round(s.top) === top0)
+    const last = line1[line1.length - 1]
+    h.engine.setKeyAt(last.measure + 1, {
+      alterations: [{ step: 'F' as const, alter: 1 as const }, { step: 'C' as const, alter: 1 as const }],
+      mode: 'major' as const,
+    })
+    await h.render()
+    const endsLine = h.staves().find(v => v.measure === last.measure)!
+    const opensNext = h.staves().find(v => v.measure === last.measure + 1)!
+    // ⚠️ x-restricted as well as banded: the LINE's own head signature shares the y band, so a
+    //    y-only filter would pick it up too (it did, first time round).
+    const band = (s: { top: number; x1: number }) => (g: { y: number; x: number }) =>
+      Math.abs(g.y - s.top) < 60 && g.x > s.x1
+    return {
+      endsLine: {
+        measure: last.measure,
+        barlineX: endsLine.x2,
+        signs: h.glyphs('g.vf-keysig text').filter(band(endsLine)).map(g => g.x),
+        // The OPEN STAFF the courtesy stands on — five rects drawn by the pass that owns the tail.
+        tail: [...document.querySelectorAll('[id^="vf-keysig-caution"] rect')].map(r => ({
+          x: +(r.getAttribute('x') ?? 0),
+          right: +(r.getAttribute('x') ?? 0) + +(r.getAttribute('width') ?? 0),
+        })),
+        // Every barline drawn on that line, to prove none follows the courtesy.
+        barlines: h.barlines().filter(b => Math.abs(b.y - endsLine.top) < 60).map(b => b.x),
+      },
+      opensNext: {
+        measure: opensNext.measure,
+        signs: h.glyphs('g.vf-keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
+      },
+    }
+  })
+
+  // ⭐⭐ **Gould, printed p. 93:** *"When a key change coincides with a system break, the cancelling
+  //    naturals and the new key signature go at the end of the first system. The new system takes
+  //    only the new key signature."* No option to omit is offered — MOLA requires it, Dorico cannot
+  //    switch it off — so ⛔ there is no override to set for this test.
+  expect(drawn.endsLine.signs, 'two sharps at the end of line 1').toHaveLength(2)
+  // ⭐ **AFTER the barline, 0.75 sp** — measured off that very figure at 450 dpi. G&L p. 52 states
+  //   the asymmetry: a courtesy CLEF goes before the last barline, a key signature and meter after it.
+  const firstSign = Math.min(...drawn.endsLine.signs)
+  expect((firstSign - drawn.endsLine.barlineX) / SPACE, 'barline → first sign').toBeCloseTo(0.75, 1)
+  // ⭐ **And the staff is LEFT OPEN** — no barline after the courtesy (Ross p. 148: *"the staff
+  //   remains open"*; G&L p. 28: *"leave open"*).
+  expect(Math.max(...drawn.endsLine.barlines), 'the last line drawn is the bar’s own')
+    .toBeCloseTo(drawn.endsLine.barlineX, 0)
+  // ⭐ The new system then takes ONLY the new signature — the naturals stay behind on the break.
+  expect(drawn.opensNext.signs, 'two sharps and nothing else').toBe(2)
+  // 🚨🚨 **AND IT STANDS ON A STAFF — his report, 2026-08-28:** *"look, the key cautionary is there,
+  //    but where is the pentagram?"* The room is taken off the LINE, not out of the bar, so the last
+  //    bar's own staff lines stop at its barline: the tail belongs to the SYSTEM and is drawn by the
+  //    pass that puts the courtesy there (`KeySignaturePass.drawOpenStaffTail`).
+  expect(drawn.endsLine.tail, 'five staff lines under the courtesy').toHaveLength(5)
+  expect(drawn.endsLine.tail[0].x, 'starting at the barline').toBeCloseTo(drawn.endsLine.barlineX, 0)
+  expect(drawn.endsLine.tail[0].right, '…and reaching past the last sign')
+    .toBeGreaterThan(Math.max(...drawn.endsLine.signs))
+})
+
+test('⭐ …and when the break lands on a change to C major, the NATURALS are what the courtesy carries', async ({ score }) => {
+  const drawn = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 2; m <= 30; m++) h.engine.addMeasure()
+    h.engine.setKeyAt(3, {
+      alterations: [
+        { step: 'B' as const, alter: -1 as const },
+        { step: 'E' as const, alter: -1 as const },
+        { step: 'A' as const, alter: -1 as const },
+      ],
+      mode: 'major' as const,
+    })
+    await h.render()
+    const top0 = Math.round(h.staves()[0].top)
+    const line1 = h.staves().filter(s => Math.round(s.top) === top0)
+    const last = line1[line1.length - 1]
+    h.engine.setKeyAt(last.measure + 1, { alterations: [], mode: 'major' })
+    await h.render()
+    const endsLine = h.staves().find(v => v.measure === last.measure)!
+    const opensNext = h.staves().find(v => v.measure === last.measure + 1)!
+    // ⚠️ Past the last bar's left edge, so the LINE's own head signature (E♭, reprinted at every
+    //    system head) is not counted as part of the courtesy.
+    const band = (s: { top: number; x1: number }) => (g: { y: number; x: number }) =>
+      Math.abs(g.y - s.top) < 60 && g.x > s.x1
+    return {
+      courtesy: h.glyphs('g.vf-keysig text').filter(band(endsLine)).map(g => g.code),
+      newLine: h.glyphs('g.vf-keysig text').filter(band(opensNext)).filter(g => g.x < opensNext.x2).length,
+    }
+  })
+
+  // ⭐ The one case where the courtesy is the ONLY ink the change ever gets: the new line's signature
+  //   is empty, so if the naturals did not go at the break, nothing on the page would say the key
+  //   changed at all.
+  expect(drawn.courtesy, 'three naturals at the break').toEqual([NATURAL, NATURAL, NATURAL])
+  expect(drawn.newLine, 'and C major draws nothing on the new line').toBe(0)
+})

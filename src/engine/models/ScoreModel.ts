@@ -512,6 +512,12 @@ export class ScoreModel {
     return keyOps.removeKeyAt(this.score, measureNumber, staffId)
   }
 
+  /** ⭐ The bare staff after this change's CAUTIONARY at a break, in staff spaces — `null` hands it
+   *  back to the engraver. See {@link keyOps.setCautionaryKeyGap}. */
+  setCautionaryKeyGap(measureNumber: number, gap: number | null, staffId?: string): boolean {
+    return keyOps.setCautionaryKeyGap(this.score, measureNumber, gap, staffId)
+  }
+
   /** The key signature in force at a measure on a staff (`utils/keySignature`'s walk). */
   getKeyAt(measureNumber: number, staffId?: string): KeySignature {
     return keyAt(this.score, measureNumber, staffId)

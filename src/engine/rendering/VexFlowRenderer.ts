@@ -306,6 +306,12 @@ export interface MeasurePlacement {
    * four flats in the other, and each hand states its own.
    */
   headerKey?: KeySignature
+  /** ⭐⭐ The CAUTIONARY row this bar draws at its END — set only on the last bar of a line whose next
+   *  line opens a key change (`engine/layout/cautionaryKey.ts`, Gould p. 93). Per staff, because a
+   *  key is per-staff content. */
+  cautionaryKey?: KeySignature
+  /** The bare staff after that courtesy, in staff spaces — default or authored (`cautionaryKeyGapKey`). */
+  cautionaryKeyTrailing?: number
   /**
    * ⭐⭐ **The signature GOVERNING this bar on this staff** — which is not {@link headerKey}: that
    * one is what the bar *prints* (absent on every bar mid-line that restates nothing), while this is
@@ -1521,7 +1527,7 @@ export class VexFlowRenderer {
         const opens = measure.number === 1 || currentX === lineLeft
         void staffIndex
         const keys = keysByStaff.get(staff.id)
-        const headerKey = keys && headerKeyAt(keys, measure.number, opens)
+        const headerKey = keys && headerKeyAt(keys, measure.number, opens, clef)
         return {
           clef,
           changed,
@@ -1572,6 +1578,8 @@ export class VexFlowRenderer {
           isFirstInLine,
           clef,
           headerKey: headers[staffIndex]?.headerKey,
+          cautionaryKey: widthInfo.cautionaryEndKeys?.[staffIndex],
+          cautionaryKeyTrailing: widthInfo.cautionaryKeyTrailing,
           key: keyFor(staff.id),
           hasClefChange,
           cautionaryEndClef,
@@ -2690,8 +2698,8 @@ export class VexFlowRenderer {
   private drawStave(stave: Stave): void {
     // VexFlow's Stem.draw() leaves ctx.lineWidth at Stem.WIDTH (1.5) and Stave.draw()
     // strokes its lines with whatever width is current — so a prior measure's stems
-    // would thicken this staff. Pin it back to 1 before drawing the staff lines.
-    this.context!.setLineWidth?.(1)
+    // would thicken this staff. Pin it back before drawing the staff lines.
+    this.context!.setLineWidth?.(STAVE_LINE_WIDTH_PX)
     stave.setContext(this.context!).draw()
   }
 
@@ -4886,6 +4894,25 @@ export class VexFlowRenderer {
  * is a number the model chose, so the geometry has to report the place the model actually put the
  * ink.
  */
+/**
+ * ⭐⭐ **HOW THICK A STAFF LINE IS DRAWN — one owner, and it is OURS rather than VexFlow's default.**
+ *
+ * `Stave.draw()` strokes its five lines with whatever `lineWidth` the context happens to carry, so
+ * this is pinned before every stave (a preceding stem leaves it at 1.5, which used to thicken the
+ * next staff). ⭐ Named because a SECOND place needs the same answer: the open staff TAIL under a
+ * cautionary key signature (`KeySignaturePass.drawOpenStaffTail`), which continues these very lines
+ * past the last barline. A tail of a different weight is visible instantly.
+ *
+ * ⚠️ **SMuFL says 0.13 staff spaces — 1.3 px at `STAFF_SPACE_PX` — and we draw 1.**
+ * `bravuraMetrics.staffLineThickness` is that number, and `docs/own-engraving-engine.md`'s direction
+ * is that a rule we can state should be stated from the font. ⛔ Not changed here, and deliberately:
+ * it moves EVERY staff line in every score by 30%, which is a taste call for his eye and not a
+ * side-effect of a key-signature phase (`feedback_fix_what_was_reported`). ⏭️ When the engine draws
+ * its own staves, this becomes `engravingDefault('staffLineThickness') * space` and the tail follows
+ * it with no second edit — which is the whole point of it being one constant.
+ */
+export const STAVE_LINE_WIDTH_PX = 1
+
 function noteStartOf(stave: Stave): number {
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
 }

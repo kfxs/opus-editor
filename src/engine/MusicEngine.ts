@@ -994,6 +994,20 @@ export class MusicEngine {
    * change only, never remove. Saves undo state when changed.
    * @returns true if a change was removed.
    */
+  /**
+   * ⭐ Set the bare staff drawn after this change's CAUTIONARY at a system break, in staff spaces —
+   * `null` restores the engraver's own (his ask, 2026-08-28). Saves undo state when changed.
+   *
+   * ⚠️ Geometry, so it repaints without touching the music: no playback resync, unlike `setKeyAt`.
+   */
+  setCautionaryKeyGap(measureNumber: number, gap: number | null, staff: number = 0): boolean {
+    const changed = this.scoreModel.setCautionaryKeyGap(measureNumber, gap, this.staffIdForIndex(staff))
+    if (changed) {
+      this.saveUndoState(`${gap === null ? 'Reset' : 'Set'} cautionary key gap at measure ${measureNumber}`)
+    }
+    return changed
+  }
+
   removeKeyAt(measureNumber: number, staff: number = 0): boolean {
     const changed = this.scoreModel.removeKeyAt(measureNumber, this.staffIdForIndex(staff))
     if (changed) this.commit(`Remove key signature at measure ${measureNumber} staff ${staff}`)
