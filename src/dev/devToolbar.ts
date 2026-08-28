@@ -279,6 +279,47 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(staffBox)
 
   /*
+   * --- 🔧 GROUP SYMBOL — BRACE and BRACKET: a door that LOGS, and does nothing else. ---
+   *
+   * His call, 2026-08-28: *"lets also create in the devshell a palette with bracket and brace, for
+   * the moment dont do anything just console log"*. So both buttons are **deliberately inert** —
+   * one line each, and they touch neither the score nor the render.
+   *
+   * ⛔ **DO NOT GROW THEM INTO THE FEATURE.** `Score.staffGroups` exists already and the grouping
+   * SYMBOL is deliberately deferred (docs/multi-staff-plan.md §0/§1, and `VexFlowRenderer`'s note at
+   * its draw site). The research under `docs/braces-brackets-research.md` is still landing, and the
+   * question it is answering — **span vs container, and whether a group can change mid-score** — is
+   * exactly the one a button wired up in a hurry would decide by accident.
+   *
+   * 🚨 And when it is built: **the bracket does NOT own the barline join** (`types/music.ts` ~2287,
+   * `docs/barline-join-research.md` §5.1) — ⛔ no join flag on `StaffGroup`, whatever MusicXML's
+   * `<group-barline>` and MEI's `@bar.thru` do.
+   *
+   * ⏭️ Its fate is written: when the feature has real UI these go the way the Barlines and Lines rows
+   * went — a menu row calling the same method, and this group deleted.
+   */
+  const groupBox = group('Group:')
+  /** What a press can say TODAY: the symbol asked for, where the user is standing, and what the score
+   *  already stores. ⭐ The last part is the point — `staffGroups` is legal ABSENT (a sketch), so the
+   *  log has to distinguish *no groups* from *a group with no symbol*. */
+  const logGroupSymbol = (symbol: 'brace' | 'bracket') => {
+    const engine = getEngine()
+    const box = selectedOf(state, 'measureRange')
+    const score = engine?.getScore()
+    const groups = score?.staffGroups
+    dbg(`🔧 group palette | ${symbol} | `
+      + (box ? `measure:${Math.min(box.anchor, box.focus)} staff:${box.staff}` : 'nothing selected')
+      + ` | staves:${score?.staves?.length ?? 'unknown'}`
+      + ` | staffGroups:${groups === undefined ? 'absent (a sketch)' : JSON.stringify(groups)}`
+      + ' | ⛔ inert: the symbol is deferred, docs/braces-brackets-research.md')
+  }
+  action(groupBox, '{ Brace', 'Log a BRACE for the selected staves — 🔧 inert, logs only (the grouping symbol is deferred)',
+    () => true, () => logGroupSymbol('brace'))
+  action(groupBox, '[ Bracket', 'Log a BRACKET for the selected staves — 🔧 inert, logs only (the grouping symbol is deferred)',
+    () => true, () => logGroupSymbol('bracket'))
+  row.appendChild(groupBox)
+
+  /*
    * --- 🔧 KEY SIGNATURE — ONE BUTTON LEFT, and it is the INKLESS-KEY DOOR. ---
    *
    * 🏁 **The five preset buttons and the `⇅ Stepper…` button are GONE (2026-08-28, his call:**

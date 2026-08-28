@@ -105,8 +105,8 @@ with a browser User-Agent and `Referer: https://books.google.de/`. Returns
 - OCR inserts spaces around hyphens (`stave - space`).
 
 ⭐ **Third-party page scans, for anything with a picture.** Snippets are prose only; when the
-question is *what did she draw*, find a scan. `scoringnotes.com` and the `notat.io` forum (needs a
-browser UA — `WebFetch` gets 403) both reproduce printed pages, and notat.io additionally quotes
+question is *what did she draw*, find a scan. `scoringnotes.com` and the `notat.io` forum both
+reproduce printed pages, and notat.io additionally quotes
 house styles **with numbers** and Ross with page numbers.
 
 ### What was asked of it on 2026-08-17, and what came back
@@ -292,10 +292,17 @@ index points at it. (2) **Gould's ¾ stave-space for the thin double is contradi
 engraved thin doubles** (≈0.5 sp left-to-left, ≈0.30 sp gap), and every engine draws what she drew
 rather than what she wrote — the third time the SCAN has beaten the sentence in this directory.
 
-## ⭐⭐ THE FOUR ENGINE SOURCES — on disk, and NOT in this directory
+## ⭐⭐ THE FIVE ENGINE SOURCES — on disk, and NOT in this directory
 
-**`~/dev/engine-sources/{MuseScore,lilypond,verovio,inkscape}`** — shallow clones; the three
-engraving engines re-fetched 2026-08-18, Inkscape added 2026-08-22.
+**`~/dev/engine-sources/{MuseScore,lilypond,verovio,inkscape,musxdom}`** — shallow clones; the three
+engraving engines re-fetched 2026-08-18, Inkscape added 2026-08-22, **`musxdom` added 2026-08-28**.
+
+⭐⭐ **`musxdom` (`rpatters1/musxdom`, MIT) is FINALE, and it is not an engine** — a C++17 DOM for
+Finale's `.musx`/ENIGMA document model, **with 99 real Finale 27.4 fixtures**. Finale shipped no
+source and was discontinued in 2024, so this is the closest thing to reading it. ⭐ It is a
+**searchable map of Finale's whole document model**, and it is how the brace's numbers were got:
+`pianoBraceBracketOptions` (12 fractional-EVPU fields) and the per-group `brackSpec`, measured across
+all 99 files at 1 sp = 24 EVPU.
 ⭐ **Look here BEFORE cloning anything**: they have now been lost twice to `/tmp` being cleared
 (2026-08-16 and again before 2026-08-18), and each rediscovery costs an agent its budget.
 
@@ -569,6 +576,28 @@ looked long on screen. A parallel pass read the three engines (⛔ not this libr
 | a closing mark after a courtesy key/meter | **Gould pp. 93 & 152, G&L pp. 78 & 52** | **None** — pixel-checked at each staff end (14 / 13 / 20 / 17 px = staff lines only). G&L p. 52 labels it in the figure: *"Also notice the **open staff** after the courtesy key signature and time signature."* |
 | ⚠️ a DOUBLE barline before the courtesy | **Ross p. 148**, **G&L p. 78** vs **Gould p. 93** | Ross and G&L both engrave a **thin double** before it; Gould draws a **single** (0.30 sp). ⛔ We generate none — his standing decision (plan §4.2b), recorded because three of five sources disagree with us. |
 
+### What was asked of it on 2026-08-28 (third question), and what came back
+
+The question was **BRACES and BRACKETS** — which sign for which ensemble, the nesting order, and the
+geometry of each. Five parallel agents read the engines, SMuFL and the standards (⛔ not this library;
+they are in `docs/braces-brackets-research.md`). ⭐⭐ **Almost every NUMBER here is a MEASUREMENT, not
+a quotation** — §3.8 of that document lists what the books state in words, and it is almost nothing.
+
+| asked | source | answer |
+|---|---|---|
+| WHICH SIGN | **Gould pp. 514–519**, **Ross p. 155**, **Gerou & Lusk p. 43** | **Brace** = one instrument / one performer on 2+ staves (keyboard, harp, marimba, organ manuals) — *"but not to the pedal stave in organ music"* (Gould pp. 342–3). **Square bracket** = a section or family of SEPARATE players. **Thin secondary bracket** = a sub-group inside a section (Gould p. 518). *"An instrumental section of only one stave takes a square bracket. A score system of only one stave takes a square bracket as well as a systemic barline"* (p. 516); timpani, single percussion, soloists and solo vocal lines take **none**. |
+| ⭐⭐ the NESTING ORDER | **Gould p. 509 Table 2 (a)+(c)** and **p. 518**, **Ross pp. 155–6** (all measured) + **Stone p. 6** | **THE SMALLER THE GROUP, THE FURTHER LEFT ITS SIGN**: `[innermost] [outer] [section bracket] [systemic barline]`. Stated: *"A brace should only ever be used as the **outermost** bracket"* (Gould p. 516). Stone, independently, on organ: *"the curly brace covers the two manual staves only, while **the straight line that follows** must always connect all three"*. ⭐ This settled a question **three engine code-reads disagreed on** — LilyPond and Verovio match her, MuseScore is the odd one out. |
+| BRACKET thickness | **Gould p. 516** + **p. 21**, **Ross p. 155** | **0.50 sp**, *stated identically by both*: *"the square bracket is beam thickness"* + *"beam thickness is ½ stave-space"*; Ross, *"a vertical line half a space thick (the same as a beam)"*. ⭐ It is **Bravura's `bracketThickness` exactly**. 🚨 Measured, Gould draws **0.50** and **Ross 0.52–0.62** — fat against his own sentence, the same drawing-beats-the-sentence pattern as his wedge. |
+| ⭐ the bracket's PROJECTION past the staves | measured (Gould Table 2, Ross p. 155) | **≈1.0 sp each way** — 0.99 / 1.05 and 0.90 / 1.04 (up to 1.35 in Ross's larger schematics). ⛔ **No book states it.** It settles a number no font specifies and no two engines agree on (LilyPond ≈1.59, Verovio ≈1.47, MuseScore 0.25 + tips). Serifs hook **right**, overhanging the barline; clearance to the systemic barline **0.35–0.45 sp**. |
+| ⭐⭐ the BRACE's depth | **Gould p. 331 Table 1**, measured; **Ross p. 155** stated | **CONSTANT — 0.89 / 0.89 / 0.84 sp for 2 / 3 / 4 staves. It stretches ONLY vertically.** And it runs **flush from the top staff-line to the bottom staff-line, no overshoot** (*"from the top line of one staff to the bottom line of the staff below"*), measured in all six examples to within 0.15 sp; cusp at the exact midpoint; clearance to the barline 0.24–0.49 sp. 🚨🚨 **This CONTRADICTS SMuFL**, which says a brace *"should be scaled proportionally (i.e. in both dimensions, not only in the vertical dimension)"*. ⭐ **The scan beats the sentence, a fourth time.** |
+| the SUB-BRACKET | **Gould p. 518**, measured | A **hairline OUTLINE: 0.10 sp stroke, 0.60 sp wide, NO serifs** — ⛔ not merely a thinner rod. 🚨 **Ross p. 156's "second bracket" is 0.63 sp, identical to his main one.** Gould + all three engines (~0.10–0.11) against Ross, and all four against Bravura's `subBracketThickness` **0.16**. ⛔ The term *"sub-brace"* appears in **no source**. |
+| the SYSTEMIC barline | **Gould p. 38** + **p. 516** + **p. 521**, **Ross pp. 151–2** | *"A barline connects all staves at the beginning of a system… **A single-stave part does not have this barline. (A single stave in a full score does, however)**"* (p. 38, verbatim). It **accompanies** the bracket and is never replaced by it — *"as well as a systemic barline"* (p. 516). Ross pp. 151–2 has the fullest seven-case list. ⚠️ **One drawn exception**: *"In most modern typographically printed hymnals, the bracket replaces the systemic barline"* (Ross p. 157). |
+| on WHICH systems | **Gould p. 509 Table 2 col. (c)**, **p. 239**, **Stone p. 6** | **Every one.** Table 2's third column is headed *"Subsequent page"* and carries identical brackets, sub-brackets and braces (measured); *"restate margin brackets… restate the curly brace"*; *"the brace at the beginning of each line"*. |
+| ⚠️ a brace for Vln I + II | **Ross p. 155** vs **Gould pp. 516/518** vs **G&L p. 120** | **A real disagreement.** Ross lists it as a *main use*; Gould calls it *"now rarely used"* and *"1st and 2nd violins… are not joined by a secondary bracket"*; Gerou & Lusk side with Gould — *"In all cases a bracket should be used, not a brace."* |
+| ⛔ the INDENTED first system | — | **UNKNOWN — nothing anywhere**, checked Gould pp. 486–7 and 507, Gerou p. 117. ⭐ A parallel agent searching MusicXML, MEI, Dorico, Sibelius and Finale found the same silence. **Two independent searches, no source.** |
+| ❌ **STONE** on brace/bracket | **Stone**, index + pp. 6–7, 257–8, 274, 217 | **Essentially nothing, and he says so**: no index entry for brace or bracket; pp. 257–8 (piano) and 274 (organ) are figures with no geometry; **p. 217 refuses outright** — *"The lengths of vertical brackets at the beginning of the lines… must be decided from case to case."* ⛔ Do not check Stone for bracket geometry again. |
+| ❌ **GEROU & LUSK** on geometry | **G&L pp. 43–44, 75, 120** | **Definitions only, no geometry** — the signs are named and their uses listed (p. 75: *"joined by a brace and a systemic barline"*), and not one measurement is given. |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the
@@ -583,3 +612,19 @@ silent".
 
 ❌ **MOLA's Guidelines for Music Preparation genuinely say nothing** about slurs, ties or hairpins —
 verified by extracting the whole PDF twice. Stop checking it.
+
+## 🚨🚨 `notat.io` and `musescore.org` are CLOUDFLARE-GATED — and one workaround FAILS SILENTLY
+
+**Corrected 2026-08-28**, superseding the *"needs a browser UA"* note above. Measured, all three:
+
+- `WebFetch` → **403**.
+- `curl` with a browser User-Agent → **403** as well. ⛔ The UA workaround no longer works.
+- 🚨 **`r.jina.ai` returns HTTP 200 carrying Cloudflare's *"Just a moment…"* interstitial** — i.e. a
+  **SILENT failure**: a success status wrapping a page with none of the content in it. ⛔ An agent
+  that does not read the body will report the fetch as fine and quote nothing, or worse, fill the gap.
+
+⭐ **What DOES work: `WebSearch`** — it surfaces their prose in snippets, which is how both Finale
+brace quotations were got (2026-08-28). ⭐ And `usermanuals.finalemusic.com`'s versioned trees serve
+fine, **images included** — a dialog screenshot is what settled Finale's nine bracket shapes.
+
+⛔ `www.finaletips.nu` is **DNS-dead**; the Finale plug-in reference lives at `pdk.finalelua.com`.
