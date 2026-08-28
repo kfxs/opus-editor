@@ -4,6 +4,7 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { Fraction } from '@/types/music'
 import type { EditorState } from './EditorState'
 import { assertNeverElement, selectedOf } from './EditorState'
+import { keySignatureStavesAt } from './keySignatureScope'
 import type { SelectionController } from './SelectionController'
 import type { PaletteController } from './PaletteController'
 import type { KeyboardController } from './KeyboardController'
@@ -1287,6 +1288,41 @@ export function wireShortcuts(
               // A mid-score change: revert this region to the prior meter and rebar.
               eng.removeTimeSignatureChange(measureNum)
             }
+            state.selectedElement = null
+            renderer.renderScore()
+            return
+          }
+          case 'keySignature': {
+            // ⭐⭐ **BACK TO THE KEY THE BAR BEFORE IT WAS IN** — the only thing "delete" can mean for
+            // a signature: every bar is in SOME key, so removing the change at this bar reverts it
+            // (and the bars after it, until the next change) to the inherited one. `keyOps.removeKeyAt`
+            // is the write, and it does not touch its neighbours — propagation is a WALK, never a
+            // rewrite (docs/key-signature-plan.md §5.1).
+            //
+            // ⭐ **Measure 1 is NOT refused** — his report, 2026-08-28: *"here i remove the key but
+            // nothing hapend i still see the key on screen."* The guard that swallowed it was
+            // MuseScore's, and `keyOps.removeKeyAt` says why their reason does not transfer: our
+            // `mode` field tells C major from open/atonal, so a bar-1 removal means C major, full stop.
+            //
+            // ⭐⭐ **EVERY STAFF THE HIGHLIGHT LIT — his report, 2026-08-28:** *"and if i remove i
+            // remove the first stave only."* The scope is one function, shared with the highlight
+            // (`./keySignatureScope`), which is what makes the lit ink a promise rather than a
+            // coincidence: a key placed on all staves is ONE statement, so Delete takes it all back;
+            // two staves in genuinely different keys are two statements and are deleted separately.
+            //
+            // ⭐ ONE undo for the whole gesture, for `applyKeySignature`'s reason: you deleted one
+            // signature, and taking that back must not cost one Ctrl+Z per staff.
+            const staves = keySignatureStavesAt(eng, element.measure, element.staff)
+            let removed = false
+            eng.runBatch(`Remove key signature at measure ${element.measure}`, () => {
+              for (const staff of staves) removed = eng.removeKeyAt(element.measure, staff) || removed
+            })
+            if (!removed) {
+              dbg(`Cannot remove key signature at measure ${element.measure} staves [${staves.join(',')}]`
+                + ' (nothing stored here — this bar reprints the key it inherited)')
+            }
+            // Cleared like the `|:` and unlike the barline: this selection names INK, and where the
+            // removal succeeded the ink is no longer on the page.
             state.selectedElement = null
             renderer.renderScore()
             return

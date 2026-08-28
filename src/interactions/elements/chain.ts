@@ -1,5 +1,5 @@
 /**
- * THE EIGHTEEN SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
+ * THE TWENTY-ONE SELECTABLE ELEMENTS, filed by KIND — two tables and the shared tail.
  *
  * `SelectedElement` made an element's **type** one thing (2026-07-27 Phase 1: 23 scalar fields → one
  * discriminated union). Its **behaviour** stayed spread over four files: `handle*MouseDown` ×12 in
@@ -9,18 +9,18 @@
  * kind was a thin slice across five files (docs/modularity-plan-2026-07-28.md §4, Phase 1).
  *
  * Now each kind is one module in this directory, holding what a press does with it and what it
- * looks like selected. Adding a nineteenth is one new file plus one row here.
+ * looks like selected. Adding a twenty-second is one new file plus one row here.
  *
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 18 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 19 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 20 entries, total over the union, so a twenty-first kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 21 entries, total over the union, so a twenty-second kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -44,6 +44,7 @@ import type { HighlightController } from '../HighlightController'
 
 import { CLEF_ELEMENT } from './clef'
 import { TIME_SIGNATURE_ELEMENT } from './timeSignature'
+import { KEY_SIGNATURE_ELEMENT } from './keySignature'
 import { TEMPO_ELEMENT } from './tempo'
 import { DYNAMIC_ELEMENT } from './dynamic'
 import { TIE_ELEMENT } from './tie'
@@ -197,6 +198,24 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // page 1) and because "is this in the music at all?" is worth settling before any of the musical
   // questions. (`./scoreText`, and ⛔ read `engine/rendering/ScoreHeaderPass`'s note first.)
   SCORE_TEXT_ELEMENT,
+  // ⭐⭐ **THE KEY SIGNATURE FIRST OF THE THREE HEADER GLYPHS — its box is INK, theirs are REGIONS.**
+  //
+  // 🚨 **HIS REPORT, 2026-08-28:** with two sharps at bar 1, *"here the key signature is not been
+  // selected or at least not highlited"* — and the log said why: every press landed on
+  // `timeSignature`. Measured at bar 1, the three registered boxes are clef **20→65**, meter
+  // **65→95**, signature **60→82**: the meter's box begins where the CLEF's ends rather than at its
+  // own digits, so it covers 17 of the signature's 22 px, and the clef's covers the other 5. Behind
+  // those two the signature was unreachable.
+  //
+  // ⭐ The order is the fix, and it is the `|:`-before-barline lesson again — **a press resolves to
+  // the sign it landed on**: `KeySignaturePass` registers the signs' OWN ink (first sign's edge to
+  // last's), while the clef's and the meter's are tier-1 layout regions padded to be clickable. The
+  // tight, real-ink box is asked first; the two loose ones keep every pixel it does not claim, which
+  // is all of their own ink (the clef's stops at ~47, the meter's digits start at ~93).
+  //
+  // ⏭️ The honest other half, not done here: the METER's box could be narrowed to its digits, which
+  // would make this ordering free rather than load-bearing. That is the meter's own change.
+  KEY_SIGNATURE_ELEMENT,
   CLEF_ELEMENT,
   TIME_SIGNATURE_ELEMENT,
   TEMPO_ELEMENT,
@@ -267,7 +286,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 ]
 
 /**
- * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twenty-first kind is
+ * TOTAL over `SelectedElement['kind']` — the exhaustiveness site for painting. A twenty-second kind is
  * a compile error here until someone decides how it shows.
  *
  * ⚠️ The `apply*Highlight` BODIES stay in {@link HighlightController}: they lean on ~10 of that
@@ -278,6 +297,7 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
 export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   clef: CLEF_ELEMENT,
   timeSignature: TIME_SIGNATURE_ELEMENT,
+  keySignature: KEY_SIGNATURE_ELEMENT,
   tempo: TEMPO_ELEMENT,
   dynamic: DYNAMIC_ELEMENT,
   tie: TIE_ELEMENT,

@@ -29,6 +29,7 @@ import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
 import { stampBarlineAtClick } from './barlineStamp'
+import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
@@ -2122,6 +2123,11 @@ export class MouseController {
     // Marking tools place at the click; each returns true if it consumed the click.
     if (this.placeTimeSignatureAtClick(engine, measureNum)) return
     if (this.placeClefAtClick(engine, x, y, measureNum)) return
+    // ⭐ The KEY SIGNATURE stamp (`./keySignatureStamp`): the key goes at the head of the bar the
+    // press landed in — the clef's and the meter's question, ⛔ not the barline's nearest-LINE one.
+    // The event travels because `Ctrl`/`Cmd` NARROWS the drop to the staff under the pointer, which
+    // is MuseScore's polarity and all four apps' default (plan §5.1).
+    if (stampKeySignatureAtClick(this.state, engine, y, measureNum, event, () => this.render.renderScore())) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return

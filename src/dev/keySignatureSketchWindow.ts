@@ -3,6 +3,8 @@ import type { Window } from '@/windows/Window'
 import { Column, Row } from '@/windows/content/layout'
 import { Button, Label, RadioGroup } from '@/windows/content/widgets'
 import { dbg } from '@/utils/debug'
+import { keyFromFifths } from '@/utils/keySignature'
+import type { KeySignature } from '@/types/music'
 
 /**
  * 🚧 **A SKETCH OF A KEY PICKER — it edits NOTHING, and it is not the design.**
@@ -80,7 +82,17 @@ function countPhrase(fifths: number): string {
   return `${n} ${fifths > 0 ? 'sharp' : 'flat'}${n === 1 ? '' : 's'}`
 }
 
-export function openKeySignatureSketch(): Window {
+/**
+ * ⭐ **The OK button ARMS the key stamp** — his report, 2026-08-28: *"i open in the palette the
+ * stepper, arm for A major, hit ok but the key is not armed."* Right: the dialog was written before
+ * P1 existed and its own comment said it *"arms nothing"*, which was true for four phases and is not
+ * any more. It now hands the signature to the same door the five palette buttons use.
+ *
+ * ⚠️ `arm` is INJECTED rather than imported, because `dev/` may not reach into the editor's
+ * controllers on its own — `devToolbar` owns the palette and passes this in, which is the seam that
+ * keeps this window deletable (`dev/`'s whole rule).
+ */
+export function openKeySignatureSketch(arm?: (key: KeySignature) => void): Window {
   // A `let`, because the buttons are built before `open()` returns and only run afterwards — the
   // same shape `openClefWindow` uses.
   let win: Window | null = null
@@ -134,10 +146,14 @@ export function openKeySignatureSketch(): Window {
     },
   )
 
-  /** 🚧 Commit: logs what it WOULD arm, and closes. There is no model to write to yet (P1–P5). */
+  /** Commit: ARM the stepped signature for the next click on the score, and close. */
   const accept = (): void => {
-    dbg(`🚧 key sketch | OK | ${keyName(fifths, mode)} | fifths:${fifths} `
-      + `| ${alterationLetters(fifths) || 'empty'} — SKETCH: arms nothing, see docs/key-signature-plan.md`)
+    // ⭐ `keyFromFifths(fifths, mode)` — the CLASSICAL CONSTRUCTOR, the same call the five palette
+    //   buttons make. The stepper's whole argument is that this dialog has ONE degree of freedom plus
+    //   a mode toggle, and this is where that pays: one integer and one enum become the signature.
+    dbg(`🔧 key sketch | OK | ${keyName(fifths, mode)} | fifths:${fifths} `
+      + `| ${alterationLetters(fifths) || 'empty'} — ${arm ? 'ARMED (click a bar to place it)' : 'no door wired'}`)
+    arm?.(keyFromFifths(fifths, mode))
     win?.close()
   }
 

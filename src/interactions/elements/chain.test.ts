@@ -1,5 +1,5 @@
 /**
- * The two tables in {@link chain} — what they say about the twenty selectable kinds.
+ * The two tables in {@link chain} — what they say about the twenty-one selectable kinds.
  *
  * These are not decorative assertions. {@link ELEMENT_HIT_ORDER} is an ARRAY whose ORDER IS THE
  * CONTENT: it decides who wins a press two glyphs both cover, and that order was argued for one pair
@@ -14,13 +14,13 @@ import type { SelectedElement } from '../EditorState'
 
 /** Every kind in the union, as `SelectedElement['kind']` — the list `assertNeverElement` polices. */
 const ALL_KINDS: SelectedElement['kind'][] = [
-  'clef', 'timeSignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill', 'ottava', 'pedal',
-  'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart', 'tuplet',
-  'measureRange', 'scoreText',
+  'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
+  'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
+  'tuplet', 'measureRange', 'scoreText',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty kinds, and nothing else', () => {
+  it('answers for all twenty-one kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -29,7 +29,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — a twenty-first cannot be added without deciding', () => {
+  it('every kind says how it paints — a twenty-second cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -41,8 +41,11 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // page's top margin, where nothing else has ink, so its position is free. It leads because it
       // is the cheapest test in the chain.
       'scoreText',
-      // The big glyphs in their own columns first — nothing competes for those pixels.
-      'clef', 'timeSignature',
+      // ⭐⭐ The big header glyphs — and the KEY comes first of the three, which is load-bearing: its
+      // box is the signs' own INK, while the clef's and the meter's are padded tier-1 REGIONS that
+      // overlap it (measured at bar 1: clef 20→65, meter 65→95, signature 60→82). His report,
+      // 2026-08-28: every press on the sharps was answering `timeSignature`.
+      'keySignature', 'clef', 'timeSignature',
       // Then the marks above and below the staff, each guarded against stealing a note press.
       'tempo', 'dynamic',
       // Then the curves, then the sub-elements hanging off a notehead.

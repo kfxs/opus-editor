@@ -101,6 +101,11 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     // The meter belongs to the whole bar — its downbeat is the only point it names.
     case 'timeSignature':
       return downbeatOf(score, element.measure)
+    // ⭐ The KEY SIGNATURE, the meter's twin here: it is a statement about the whole bar (the write
+    // API takes no beat at all), so the bar's downbeat is the only point it names. On the signature's
+    // OWN staff, which the meter has no equivalent of — a key change is stored per staff.
+    case 'keySignature':
+      return withLane(downbeatOf(score, element.measure), element.staff, undefined)
     case 'barline':
       return afterBarline(score, element.measure)
     // ⭐ The `|:` OPENS its bar, so the nearest point music can hang off is that bar's own downbeat —

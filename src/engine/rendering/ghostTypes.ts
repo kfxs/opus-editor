@@ -31,7 +31,7 @@
  * for the two families.
  */
 import type {
-  Clef, TimeSignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
+  Clef, TimeSignature, KeySignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
@@ -39,6 +39,12 @@ import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 export type ToolGhost =
   | { kind: 'clef'; clef: Clef }
   | { kind: 'timeSignature'; timeSignature: TimeSignature }
+  /**
+   * ⭐ The armed KEY SIGNATURE — the whole signature, ⛔ never a `fifths` shorthand: the model is a
+   * LIST of altered letters so a custom signature is expressible, and a preview that could not show
+   * one would be previewing a different feature. See `./KeySignatureGhost`.
+   */
+  | { kind: 'keySignature'; key: KeySignature }
   /** The finished mark ('Allegro (♩ = 120)'), so what you see is what gets engraved. */
   | { kind: 'tempo'; mark: TempoMark }
   /** The finished mark too — a level's glyph, or the custom-text placeholder. */

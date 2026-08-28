@@ -39,6 +39,12 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
   switch (tool.kind) {
     case 'clef': return { kind: 'clef', clef: tool.clef }
     case 'timeSignature': return { kind: 'timeSignature', timeSignature: tool.timeSignature }
+    // ⭐ The KEY SIGNATURE travels WHOLE — the list of altered letters, not a `fifths` name — for the
+    // reason the model stores it that way: a custom signature (mixed signs, authored order) has no
+    // integer, and a preview that could only show the traditional twelve would be previewing a
+    // different feature. `KeySignatureGhost` draws the row at the staff lines the signs will sit on,
+    // so the five palette buttons no longer arm identically behind one blue caret.
+    case 'keySignature': return { kind: 'keySignature', key: tool.key }
     // Through the SAME tool→text step the click uses (MouseController), so the preview shows the
     // string that will actually be engraved. Spreading the raw tool instead left a bare-metronome
     // ghost with no `text` — and a mark with no text draws nothing, so it never appeared.
@@ -122,6 +128,7 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
 export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   clef: 'ghost:clef',
   timeSignature: 'ghost:timesig',
+  keySignature: 'ghost:keysig',
   tempo: 'ghost:tempo',
   dynamic: 'ghost:dynamic',
   articulation: 'ghost:articulation',

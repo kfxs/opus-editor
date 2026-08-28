@@ -1,5 +1,6 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
+import { keySignatureStavesAt } from './keySignatureScope'
 import { activeVoiceToModel, selectedIdsOf, selectedOf } from './EditorState'
 import { navBeatMap } from '../utils/beatMap'
 import { voiceFillColor, voiceStrokeColor } from '../utils/voiceColors'
@@ -912,6 +913,51 @@ export class HighlightController {
     if (measure === null) return
     this.recolourBarlineHalf('start', (svg, staff) =>
       this.signGroupById(svg, `${measure}-${staff}-start`) ?? this.signGroupById(svg, `${measure - 1}-${staff}-end`))
+  }
+
+  /**
+   * ⭐ **THE KEY SIGNATURE, LIT** — the row of signs at the head of the selected bar, on the staff it
+   * was clicked on.
+   *
+   * ⭐ **It recolours OUR OWN GROUP's ink**, the barline's treatment and not the clef's: `keysig-<measure>-<staff>`
+   * is a group this repo's own pass opened, rebuilt from scratch every render, holding exactly the
+   * signs of one signature and nothing else. So there is no bbox scan to mis-aim and no neighbour to
+   * bleed onto — the two failure modes {@link applyClefSelectionHighlight}'s glyph scan has to guard
+   * against by scoping itself to a measure group.
+   *
+   * ⭐⭐ **EVERY STAFF THAT SAYS THE SAME THING — his report, 2026-08-28:** *"the key is for all the
+   * staves in this case however when i selected it only select the first stave."* Dead right. A key is
+   * STORED per staff (that is what lets Bartók's two hands differ), but a plain drop writes them all,
+   * so what stands at that bar is normally ONE statement drawn N times — exactly the time signature's
+   * and the barline's case, and both of those light every staff.
+   *
+   * ⭐ **So the scope is READ FROM THE MODEL rather than assumed either way**
+   * ({@link keySignatureStavesAt}): every staff whose signature at this bar IS the selected one. Two
+   * staves in different keys light separately, because they are two statements; two staves in the same
+   * key light together, because they are one. ⛔ Not "all staves" and ⛔ not "the clicked staff".
+   *
+   * ⚠️ Delete reads the SAME predicate, which is the rule that makes this honest — the highlight
+   * promises what the edit does (`shortcutWiring`'s `keySignature` case).
+   *
+   * ⛔ FILL only, no stroke: these are glyphs, and an outlined glyph reads as bold (the note
+   * highlight's own rule).
+   */
+  applyKeySignatureSelectionHighlight(): void {
+    const engine = this.getEngine()
+    const selected = selectedOf(this.state, 'keySignature')
+    const svg = this.getScoreCanvas()?.querySelector('svg')
+    if (!engine || !selected || !svg) return
+    for (const staff of keySignatureStavesAt(engine, selected.measure, selected.staff)) {
+      // The group's existence IS the "was this signature painted?" test — the pass draws one only for
+      // a signature it actually put on the page (`ElementRegistry`'s `keySignature` note).
+      const group = svg.querySelector<SVGGElement>(`[id="vf-keysig-${selected.measure}-${staff}"]`)
+      if (!group) continue
+      for (const el of group.querySelectorAll('text, path')) {
+        this.setAttr(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
+        this.setStyleProp(el as SVGElement, 'fill', ELEMENT_SELECTION_FILL)
+        this.addClass(el as SVGElement, 'selected-keysig')
+      }
+    }
   }
 
   /**

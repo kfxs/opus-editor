@@ -11,6 +11,7 @@ import { selectedNoteIds } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { boundarySign, boundaryWinged } from '@/engine/models/barlineOps'
 import { scoreText } from '@/engine/models/scoreTextOps'
+import { fifthsOf, keyAt } from '@/utils/keySignature'
 
 /**
  * What is selected in the score, resolved to the OBJECTS behind it.
@@ -346,6 +347,31 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
         // exactly what this did until a selected meter turned out to have a cautionary flag worth
         // seeing.
         overrides: overridesAt(score, measure ? cautionaryKey(measure.id) : undefined),
+      })
+      break
+    }
+
+    case 'keySignature': {
+      // ⭐ Positional like the clef above, and per STAFF for the clef's reason: the model stores a
+      // key change per staff (`Measure.keys`, `staffId` absent = staff 0).
+      //
+      // ⭐⭐ **TWO ANSWERS, and they are different questions** — which is why `derived` earns its place
+      // here rather than the branch reporting `measure.keys` alone. The bar's own `keys` array is what
+      // this bar SAYS (empty at a system head, which reprints without changing anything); `keyAt` is
+      // what is IN FORCE here, which is what the signs on the page are drawing. A panel that showed
+      // only the first would read "nothing" under a signature you can see.
+      const measure = score.measures.find((m) => m.number === element.measure)
+      const staffId = element.staff ? score.staves?.[element.staff]?.id : undefined
+      out.push({
+        kind: 'keySignature',
+        data: { measure: element.measure, staff: element.staff, keys: measure?.keys },
+        derived: {
+          inForce: keyAt(score, element.measure, staffId),
+          // ⭐ The traditional NAME's shorthand, or null for a signature the circle of fifths cannot
+          // name — a Bartók one mixing sharps and flats. ⛔ Reported as `derived` and never stored:
+          // `fifths` is not the model (`utils/keySignature.ts` argues it at length).
+          fifths: fifthsOf(keyAt(score, element.measure, staffId)),
+        },
       })
       break
     }

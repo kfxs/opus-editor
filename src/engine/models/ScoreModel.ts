@@ -223,10 +223,15 @@ export class ScoreModel {
     const insertAt = position === 'above' ? ref : ref + 1
     if (insertAt === 0) this.solidifyFirstStaffContent()
 
+    const refStaffId = staves[ref]?.id
     const newStaff: StaffInfo = { id: uuidv4() }
     staves.splice(insertAt, 0, newStaff)
     this.score.staves = staves
     this.ensureSingleGroupSpansAllStaves()
+    // ⭐⭐ **The new staff adopts the reference staff's KEY SIGNATURES** — his report, 2026-08-28:
+    //    *"the new stave has no key signature"*. ⛔ Unlike the clef, which is deliberately left at the
+    //    universal default for the user to state: `keyOps.copyStaffKeys` says why the two differ.
+    keyOps.copyStaffKeys(this.score, refStaffId, newStaff.id)
 
     // fillGapsWithRests loops score.staves, so this rest-fills the new (empty) lane in every bar.
     this.repairAllMeasureGaps()
@@ -256,6 +261,11 @@ export class ScoreModel {
     for (const m of this.score.measures) {
       for (const slot of m.slots) if (slot.staffId === undefined) slot.staffId = firstId
       for (const clef of m.clefs ?? []) if (clef.staffId === undefined) clef.staffId = firstId
+      // ⚠️ The KEY too, and it was missing until 2026-08-28: `Measure.keys` is per-staff exactly as
+      //    `clefs` is, so without this a PREPENDED staff would silently inherit the outgoing first
+      //    staff's signatures and leave that staff in C major — the very re-pointing this pass exists
+      //    to prevent (docs/key-signature-plan.md §1.2).
+      for (const key of m.keys ?? []) if (key.staffId === undefined) key.staffId = firstId
       for (const dyn of m.dynamics ?? []) if (dyn.staffId === undefined) dyn.staffId = firstId
       for (const tup of m.tuplets ?? []) if (tup.staffId === undefined) tup.staffId = firstId
     }
@@ -493,7 +503,9 @@ export class ScoreModel {
 
   /**
    * Remove a measure's key change, reverting it to the inherited signature. Measure 1 is
-   * protected — change only, never remove (`keyOps.removeKeyAt` says why).
+   * ⭐ Measure 1 is NOT protected: our model tells C major from open/atonal by `mode`, so removing a
+   * change there means C major and nothing else (`keyOps.removeKeyAt` says why, and why MuseScore's
+   * own refusal does not transfer).
    * @returns true if a change was removed.
    */
   removeKeyAt(measureNumber: number, staffId?: string): boolean {

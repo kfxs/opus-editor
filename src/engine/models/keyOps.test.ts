@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { removeKeyAt, setKeyAt } from './keyOps'
+import { copyStaffKeys, removeKeyAt, setKeyAt } from './keyOps'
 import { C_MAJOR, fifthsOf, keyAt, keyFromFifths } from '@/utils/keySignature'
 import type { Score } from '@/types/music'
 
@@ -124,11 +124,20 @@ describe('removeKeyAt', () => {
     expect(fifthsOf(keyAt(score, 3)), 'back to bar 2\'s G major').toBe(1)
   })
 
-  it('⛔ refuses measure 1 — change only, never remove', () => {
-    const score = scoreOf(2)
-    setKeyAt(score, 1, keyFromFifths(2))
+  it('⭐ REMOVES at measure 1 too — his report, 2026-08-28, and MuseScore\'s reason does not transfer', () => {
+    // The guard here was copied from MuseScore, which refuses because it *"is impossible to know
+    // whether you want a C major/A minor key signature, or an 'open/atonal' one"*. Our `mode` field
+    // says which, so nothing-stored-at-bar-1 means C major and only that (`removeKeyAt` says it in
+    // full). ⛔ Do not restore the refusal by citing MuseScore again.
+    const score = scoreOf(3)
+    setKeyAt(score, 1, keyFromFifths(-3))
+    expect(stored(score, 1)).toHaveLength(1)
+
+    expect(removeKeyAt(score, 1)).toBe(true)
+    expect(stored(score, 1), 'the change is gone').toBeUndefined()
+    expect(fifthsOf(keyAt(score, 1)), 'and the bar is in C major').toBe(0)
+    // Idempotent: nothing left to remove.
     expect(removeKeyAt(score, 1)).toBe(false)
-    expect(fifthsOf(keyAt(score, 1))).toBe(2)
   })
 
   it('answers false where nothing is stored', () => {
@@ -148,5 +157,53 @@ describe('removeKeyAt', () => {
     expect(removeKeyAt(score, 2, lower)).toBe(true)
     expect(fifthsOf(keyAt(score, 2, upper)), 'the other hand is untouched').toBe(4)
     expect(fifthsOf(keyAt(score, 2, lower))).toBe(0)
+  })
+})
+
+describe('copyStaffKeys — a new staff adopts its neighbour\'s signatures', () => {
+  /**
+   * 🚨 His report, 2026-08-28: three flats at bar 1, then *"Added staff below staff 0 … the new stave
+   * has no key signature."* The per-staff model showing through — see `copyStaffKeys`.
+   */
+  it('copies every change from the reference staff, cloned', () => {
+    const score = scoreOf(4)
+    score.staves = [{ id: 'top' }, { id: 'bottom' }]
+    // Staff 0 owns the ABSENT-staffId convention, so its change is untagged — the case his report hit.
+    setKeyAt(score, 1, keyFromFifths(-3))
+    setKeyAt(score, 3, keyFromFifths(2))
+
+    expect(copyStaffKeys(score, 'top', 'bottom')).toBe(true)
+
+    for (const [n, fifths] of [[1, -3], [3, 2]] as const) {
+      const onBottom = score.measures.find(m => m.number === n)?.keys?.find(k => k.staffId === 'bottom')
+      expect(onBottom, `measure ${n}`).toBeDefined()
+      expect(fifthsOf(onBottom!.key)).toBe(fifths)
+    }
+    // ⭐ CLONED: the two staves must not share one object, or editing either would move both.
+    const top = score.measures[0].keys!.find(k => k.staffId === undefined)!
+    const bottom = score.measures[0].keys!.find(k => k.staffId === 'bottom')!
+    expect(bottom.key).not.toBe(top.key)
+    expect(bottom.key.alterations).not.toBe(top.key.alterations)
+    expect(bottom.id).not.toBe(top.id)
+  })
+
+  it('answers false when the reference staff has no key of its own', () => {
+    const score = scoreOf(3)
+    score.staves = [{ id: 'top' }, { id: 'bottom' }]
+    expect(copyStaffKeys(score, 'top', 'bottom')).toBe(false)
+    expect(score.measures.some(m => m.keys)).toBe(false)
+  })
+
+  it('OVERWRITES a target change at the same bar, and says nothing changed when they already agree', () => {
+    const score = scoreOf(2)
+    score.staves = [{ id: 'top' }, { id: 'bottom' }]
+    setKeyAt(score, 1, keyFromFifths(-3))
+    setKeyAt(score, 1, keyFromFifths(2), 'bottom')
+
+    expect(copyStaffKeys(score, 'top', 'bottom')).toBe(true)
+    const bottom = () => score.measures[0].keys!.find(k => k.staffId === 'bottom')!
+    expect(fifthsOf(bottom().key)).toBe(-3)
+    // Idempotent: the second copy has nothing to say.
+    expect(copyStaffKeys(score, 'top', 'bottom')).toBe(false)
   })
 })

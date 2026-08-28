@@ -26,7 +26,7 @@
  *
  * @see docs/key-signature-plan.md §1.2, §8.1
  */
-import type { KeySignature, Measure, Score } from '@/types/music'
+import type { KeyChange, KeySignature, Measure, Score } from '@/types/music'
 import { fracCreate, fracCompare, fracIsZero } from '@/utils/fraction'
 import { keyBefore, keysEqual } from '@/utils/keySignature'
 import { v4 as uuidv4 } from 'uuid'
@@ -74,20 +74,92 @@ export function setKeyAt(score: Score, measureNumber: number, key: KeySignature,
 
 /**
  * Remove a measure's key change, reverting it to the signature inherited from earlier bars on this
- * staff.
+ * staff — and at measure 1, to C major.
  *
- * ⛔ **Measure 1 is protected — change only, never remove.** The clef has the same protection at
- * m1 b0 (`elements/clef.ts`: *"measure 1 opening: change only, cannot remove"*), and two shipped
- * applications reach the same answer for the key specifically, MuseScore stating the reason: with
- * nothing stored there, C major and open/atonal are indistinguishable.
+ * ## ⭐⭐ MEASURE 1 IS **NOT** PROTECTED, and the reason it once was does not apply to us
+ *
+ * 🚨 **His report, 2026-08-28:** three flats at bar 1, selected, Delete — *"here i remove the key but
+ * nothing hapend i still see the key on screen."* The guard that refused him was copied from
+ * MuseScore, which disables deleting bar 1's key **in its own words** because *"it is impossible to
+ * know whether you want a C major/A minor key signature, or an 'open/atonal' one"*.
+ *
+ * ⭐ **That impossibility is theirs, not ours.** §1.1 decided open/atonal is a DISTINCT VALUE carried
+ * by `mode` — `keysEqual` compares it, so an open key at measure 1 stores a real change while C major
+ * stores nothing. Our model can tell the two apart, so "nothing stored at bar 1" has exactly one
+ * meaning (C major) and removing a change there is a sayable, unambiguous edit. ⛔ Do not restore the
+ * refusal by pointing at MuseScore again: the citation is right and the premise is not.
+ *
+ * ⚠️ **And it is NOT the clef's case either**, which is the comparison that made the guard look
+ * natural: a staff must be read in SOME clef, so there is no "no clef" state to revert to and removal
+ * is genuinely meaningless there (`elements/clef.ts`). Every bar is in some key, and C major is one.
  *
  * @returns true if a change was removed.
  */
 export function removeKeyAt(score: Score, measureNumber: number, staffId?: string): boolean {
-  if (measureNumber === 1) return false
   const measure = getMeasure(score, measureNumber)
   if (!measure) return false
   return removeKeyChangeAt(measure, staffId)
+}
+
+/**
+ * ⭐⭐ **A NEW STAFF ADOPTS ITS NEIGHBOUR'S KEY SIGNATURES** — every change on `fromStaffId`, copied
+ * onto `toStaffId` bar for bar.
+ *
+ * 🚨 **His report, 2026-08-28:** with three flats set at bar 1, *"Added staff below staff 0 … the new
+ * stave has no key signature."* Dead right, and it is the per-staff model showing through: a key
+ * change is stored per staff (that is what lets Bartók write four sharps against four flats), so a
+ * staff that did not exist when the key was written carries none and reads as C major.
+ *
+ * ⭐ **Why a key is not a CLEF here**, which is the comparison that decides the fix: a fresh staff
+ * deliberately carries no clef change and resolves to the universal `'treble'` default, because
+ * "which clef" is a fact about the INSTRUMENT and the user is expected to say. A key signature is a
+ * fact about the MUSIC — one statement for the system in every classical score, which is why a plain
+ * drop writes all staves (`interactions/keySignatureStamp`, MuseScore's polarity). Defaulting a new
+ * staff to C major would be answering that question wrongly rather than leaving it open.
+ *
+ * ⚠️ Copies from the REFERENCE staff rather than from staff 0, so an added staff joins the hand it
+ * was added beside — the best available answer where the two hands genuinely differ, and identical to
+ * "all staves" in every score where they do not.
+ *
+ * ⭐ The signature is CLONED, never shared: two staves pointing at one `KeySignature` object would
+ * make a later edit of one silently change the other.
+ *
+ * @returns true if the score changed.
+ */
+export function copyStaffKeys(score: Score, fromStaffId: string | undefined, toStaffId: string): boolean {
+  // The absent-`staffId` convention, resolved on BOTH sides exactly as `keyOnStaff` does — the source
+  // staff's changes are untagged whenever it is (or was) the first staff.
+  const first = score.staves?.[0]?.id
+  const onFrom = (k: KeyChange) => (k.staffId ?? first) === (fromStaffId ?? first)
+  const onTo = (k: KeyChange) => (k.staffId ?? first) === toStaffId
+
+  let changed = false
+  for (const measure of score.measures) {
+    const sources = (measure.keys ?? []).filter(onFrom)
+    if (sources.length === 0) continue
+    measure.keys ??= []
+    for (const source of sources) {
+      const copy = cloneKey(source.key)
+      const existing = measure.keys.find(k => onTo(k) && fracCompare(k.beat, source.beat) === 0)
+      if (existing) {
+        if (keysEqual(existing.key, copy)) continue
+        existing.key = copy
+      } else {
+        measure.keys.push({ id: uuidv4(), beat: source.beat, key: copy, staffId: toStaffId })
+      }
+      changed = true
+    }
+    measure.keys.sort((a, b) => fracCompare(a.beat, b.beat))
+  }
+  return changed
+}
+
+/** A signature nobody else holds a reference to — see {@link copyStaffKeys}. */
+function cloneKey(key: KeySignature): KeySignature {
+  return {
+    alterations: key.alterations.map(a => ({ ...a })),
+    ...(key.mode !== undefined ? { mode: key.mode } : {}),
+  }
 }
 
 /** Insert or replace the beat-0 key change of a measure ON A STAFF, keeping the list sorted. */

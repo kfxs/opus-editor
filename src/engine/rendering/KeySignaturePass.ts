@@ -57,8 +57,11 @@ export interface KeySignaturePlacement {
  * ⛔ Keyed by the same {@link GlyphName}s `fontMetrics` measures, so the glyph that is DRAWN and the
  * advance the room was computed from are the same glyph by construction — not two tables that
  * happen to agree.
+ *
+ * ⭐ Exported for the GHOST (`./KeySignatureGhost`), which draws the same signs at the pointer: one
+ * table, so a preview cannot show a glyph the click will not engrave.
  */
-const SIGN_CHARS: Partial<Record<GlyphName, string>> = {
+export const SIGN_CHARS: Partial<Record<GlyphName, string>> = {
   accidentalFlat: '\uE260',
   accidentalNatural: '\uE261',
   accidentalSharp: '\uE262',
@@ -94,7 +97,7 @@ const SIGN_CHARS: Partial<Record<GlyphName, string>> = {
  * ⭐ G&L p. 52 says the same thing from the other end: a courtesy CLEF is cue size, while a courtesy
  * key signature and time signature are drawn normal. Two sources, no cautionary variant either way.
  */
-const SIGN_FONT_SIZE = 30
+export const SIGN_FONT_SIZE = 30
 
 /** How far this render moved the bar since its stave was built — `BarlineRenderer.staleShift`. */
 function staleShift(placement: KeySignaturePlacement): { dx: number; dy: number } {
@@ -152,6 +155,39 @@ export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature
 }
 
 /**
+ * ⭐⭐ **THE HIT BOX — registered from the pen, which is the only place both facts are known.**
+ *
+ * `BarlineRenderer.registerRepeatStart`'s rule verbatim (docs/key-signature-plan.md §5): a hit-test
+ * resolves a press against `ElementRegistry` boxes, and a score-level pass has to put them there
+ * itself. Nothing else knows both WHERE this render put the bar and WHETHER it drew a signature —
+ * the two questions a press asks.
+ *
+ * ⭐ **From the first sign's ink to the last's**, and five staff lines tall: the box is the
+ * STATEMENT, not its letters. There is no removing the C♯ from D major and keeping the F♯, so one
+ * box per row is the honest target — the clef's own call, one column to the left.
+ *
+ * ⚠️ Registered INSIDE {@link inStaffSpace}, so a small staff's box scales with its ink
+ * (`ElementRegistry.withScale`). ⛔ Never after it: the coordinates here are the stave's own.
+ */
+function registerKeySignature(
+  pass: RenderPass, placement: KeySignaturePlacement, key: KeySignature, x: number, dy: number,
+): void {
+  const { stave } = placement
+  const left = firstSignX(stave, placement.clef, 0)
+  pass.elementRegistry.add({
+    type: 'keySignature',
+    measure: placement.measureNumber,
+    staff: placement.staffIndex,
+    bbox: {
+      x,
+      y: stave.getTopLineTopY() + dy,
+      width: keySignatureInkRight(stave, placement.clef, key) - left,
+      height: stave.getBottomLineBottomY() - stave.getTopLineTopY(),
+    },
+  })
+}
+
+/**
  * **Draw every key signature of this render.**
  *
  * One per (bar, staff) that draws one — a system head, or a bar where the key changed across the
@@ -174,6 +210,8 @@ export function renderKeySignatures(pass: RenderPass, placements: KeySignaturePl
 
     inStaffSpace(pass, staffIndex, group, () => {
       let x = firstSignX(stave, placement.clef, dx)
+      // Before the ink, so a drawer that throws still leaves no half-registered box behind.
+      registerKeySignature(pass, placement, key, x, dy)
       key.alterations.forEach((alteration, i) => {
         const glyph = accidentalGlyph(alterToString(alteration.alter))
         if (!glyph) return

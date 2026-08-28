@@ -223,6 +223,91 @@ test('⭐⭐ EVERY bar centres its whole-bar rest in its own FREE SPACE — one 
   }
 })
 
+test('⭐⭐ a bar whose header ends in a SIGNATURE centres its rest in the room it may OCCUPY', async ({ score }) => {
+  const bar = await score.evaluate(async () => {
+    const h = window.__h
+    for (let m = 2; m <= 10; m++) h.engine.addMeasure()
+    // A MID-LINE change, so the signature is the last thing in the bar's header (no meter after it).
+    h.engine.setKeyAt(3, {
+      alterations: [{ step: 'B', alter: -1 }, { step: 'E', alter: -1 }, { step: 'A', alter: -1 }],
+      mode: 'major',
+    })
+    await h.render()
+    const staves = h.staves()
+    const s = staves.find(v => v.measure === 3)!
+    const inBar = (g: { x: number; y: number }) =>
+      Math.abs(g.y - s.top) < 60 && g.x >= s.x1 - 2 && g.x < s.x2
+    const signs = h.glyphs('g.vf-keysig text').filter(inBar)
+    const rest = h.rests().filter(inBar)[0]
+    return {
+      // ⚠️ INK, both of them: the last flat's own right edge (`accidentalFlat.right` = 0.904 sp past
+      //   its origin) and the whole rest's (`restWhole` runs 0 → 1.128 sp).
+      signInkRight: Math.max(...signs.map(g => g.x)) + 9.04,
+      restInkLeft: rest.x,
+      restInkRight: rest.x + 11.28,
+      barlineRight: s.x2,
+      signs: signs.length,
+    }
+  })
+
+  expect(bar.signs, 'three flats').toBe(3)
+  // ⭐⭐ **The span is the room a REST may stand in, not the bare gap** — his report of 2026-08-28,
+  //    *"the rest should be center in the empty space… i dont see the rest centered, is more to the
+  //    right"*, and then the same correction placed BY HAND on two different bars (−0.5 and −0.75 sp).
+  //
+  // ⭐ Both bounds are `pairPadding` rows that predate this bar: a rest may come within **0.5** sp of
+  //    an accidental and must stop **1.65** sp short of a barline (MuseScore `table[REST][BAR_LINE]`).
+  //    ⛔ Nothing is added to the ANSWER — his rule: *"dont apply a magic number, cause with
+  //    different keys will be different."* The left bound is measured ink, so another key moves it.
+  const left = bar.signInkRight + 0.5 * SPACE
+  const right = bar.barlineRight - 1.65 * SPACE
+  const centre = left + (right - left) / 2
+  const restCentre = (bar.restInkLeft + bar.restInkRight) / 2
+  expect(Math.abs(restCentre - centre), 'centred in the occupiable span').toBeLessThan(1)
+  // …and that is measurably NOT the bare-gap centre, which is where it sat before (about 0.57 sp right).
+  const bareCentre = bar.signInkRight + (bar.barlineRight - bar.signInkRight) / 2
+  expect(bareCentre - restCentre, 'and left of the bare-gap answer').toBeGreaterThan(0.4 * SPACE)
+})
+
+test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, signature, meter', async ({ score }) => {
+  const boxes = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addMeasure()
+    h.engine.setKeyAt(1, {
+      alterations: [{ step: 'F' as const, alter: 1 as const }, { step: 'C' as const, alter: 1 as const }],
+      mode: 'major' as const,
+    })
+    await h.render()
+    const reg = h.engine.getElementRegistry()
+    const box = (t: 'clef' | 'keySignature' | 'timeSignature') => {
+      const e = reg.getByType(t).find(el => el.measure === 1)!
+      return { x: e.bbox.x, right: e.bbox.x + e.bbox.width }
+    }
+    return {
+      clef: box('clef'), key: box('keySignature'), meter: box('timeSignature'),
+      signs: h.glyphs('g.vf-keysig text').map(g => g.x),
+      // The meter's DIGITS as drawn — any of them names the column.
+      digits: h.glyphs('text').filter(g => g.code >= 'e080' && g.code <= 'e089').map(g => g.x).sort((a, b) => a - b),
+    }
+  })
+
+  // 🚨 **HIS TWO REPORTS, 2026-08-28:** *"here the key signature is not been selected or at least not
+  //    highlited"* (every press on the sharps answered `timeSignature`), then *"here the time signature
+  //    is not selected or highlited either"* (a press on the digits answered nothing). ONE bug: the
+  //    meter's box was `bar left edge + a CONSTANT clef width`, written when nothing could stand
+  //    between the clef and the meter. Measured then: meter 65→95, signs 60→82, digits from 93.
+  //
+  // ⭐ Now each box is its own INK, so the two claims below are what a press can rely on.
+  // 1. The meter's box is ON its digits — the failure that made the meter unselectable.
+  expect(boxes.meter.x, 'the meter box starts at its first digit').toBeGreaterThan(boxes.digits[0] - 2)
+  expect(boxes.meter.x, '…and not before it').toBeLessThan(boxes.digits[0] + 3)
+  // 2. It does NOT reach back over the signature — the failure that made the KEY unselectable.
+  expect(boxes.meter.x, 'the meter box clears the signature').toBeGreaterThan(boxes.key.right)
+  // …and the signature's own box covers every sign it drew.
+  expect(boxes.key.x).toBeLessThanOrEqual(Math.min(...boxes.signs) + 0.01)
+  expect(boxes.key.right, 'past the last sign').toBeGreaterThan(Math.max(...boxes.signs))
+})
+
 // ---------------------------------------------------------------------------
 // P4 — the ACCIDENTAL RIPPLE (docs/key-signature-plan.md §3). The signature stops being a picture at
 // the head of the bar and starts deciding what every note under it draws.

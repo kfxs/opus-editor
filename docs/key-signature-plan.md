@@ -640,7 +640,10 @@ so the shape exists.
   major stepping round to C♭ major is a 14-semitone jump dressed as one click), the key name over its
   count and letters, and a Major/Minor radio. ⭐ It shows **letters, not glyphs on a staff** — the
   placement table existed nowhere when it was written, and drawing one from memory would have been
-  inventing a rule. It logs and closes; it arms nothing.
+  inventing a rule. ✅ **Its OK now ARMS the stamp (P5, 2026-08-28)** — his report: *"i open in the
+  palette the stepper, arm for A major, hit ok but the key is not armed"*. It calls
+  `palette.pressKeySignature(keyFromFifths(fifths, mode))`, the same door the five buttons use, with
+  the function INJECTED by `devToolbar` so `dev/` still reaches no controller of its own.
 
 ✅ **WIRED PROVISIONALLY 2026-08-27 (P2)** — the five buttons stopped logging and now call
 `engine.setKeyAt`, with a `✕` beside them for `removeKeyAt`. **Target: the selected measure box
@@ -697,7 +700,7 @@ picker is §7, and it is not being designed yet.
 | ✅ **P2** | **BUILT 2026-08-27.** `keyOps` writes + `ScoreModel`/`MusicEngine` delegators + undo, **and the dev palette wired provisionally** | ✅ 5377 unit green; a key can be set/removed **by hand**, watched in the Score-JSON panel, and undone — still nothing drawn |
 | ✅ **P3** | **BUILT 2026-08-27.** `keysByStaff` prepass (§2.1) + `keySignatureLayout` (the placement table + the gaps) + `headerInk` key row + `KeySignaturePass` | ✅ 5403 unit, **249 e2e** (8 new), `build:check` clean — and it is DRAWN. ⏭️ Hit boxes are P5's after all: nothing selects a signature yet |
 | ✅ **P4** | **BUILT 2026-08-27.** the accidental ripple (§3) — one rule, read by every pass — **plus entry (§3.1) and the governing-key `ShapeKeyInputs` row (§1.3)** | ✅ 5438 unit, **252 e2e** (3 new), `build:check` clean. The F♯ in G major loses its sign; the F♮ gains one; a note typed/clicked/dragged in G major is an F♯ with no sign; setting the key at bar 1 repaints bar 12. ⏭️ See §8.4 |
-| **P5** | marking tool + element kind + Delete + dev palette | he can place a key and click it |
+| ✅ **P5** | **BUILT 2026-08-28.** hit boxes (registered by the pass) + `keySignature` element kind + marking tool + its GHOST + `keySignatureStamp` + Delete + the Properties report + the dev palette now ARMS | ✅ 5466 unit, **254 e2e**, `build:check` clean. He can arm a key, click a bar, select the signs, and Delete them. ⏭️ See §8.5 |
 | **P6** | cancellation naturals + cautionary at a break (**+ `cautionaryEndKey` in `ShapeKeyInputs`**) | ⏳ policy from the research |
 
 ### ✅ 8.1 What P1 actually landed — including two rows this plan did not list
@@ -723,6 +726,169 @@ picker is §7, and it is not being designed yet.
     writes one (only an import could). ⏭️ The day a mid-bar key change becomes a feature it needs the
     capture/restore pair IN THE SAME COMMIT, and `keys` must join `clearMeasureForRebar`. Written at
     the top of `keyOps.ts`, which is the module that would break it.
+
+### ✅ 8.5 What P5 landed — and the two reports his eye made the same hour
+
+**The phase itself**, one row per table the standing rule asks for:
+
+- **The hit boxes**, registered by `KeySignaturePass` as it draws — ONE box per signature (the row from the
+  first sign's ink to the last's, five lines tall), because the signature is what you select and delete.
+  ⚠️ No `isPainted` filter, unlike the clef and meter beside it in the chain: this box is written by the
+  PEN, so its existence is proof it was painted (`repeatStart`'s position exactly).
+- **`interactions/elements/keySignature.ts`** + its rows in `ELEMENT_HIT_ORDER` (with the clef and the
+  meter — the three header glyphs sit in their own columns, so their order among themselves decides
+  nothing) and `ELEMENT_SPECS` (now 21 kinds).
+- **`SelectedElement` gains `keySignature`** — positional and per-STAFF, the clef's shape, because that
+  is how the model stores it. The compiler then named FIVE sites, not the two the plan predicted: Delete
+  (`shortcutWiring`), the Properties report (`selectionSnapshot`), the paint table, **`pasteAnchor`**
+  (a third `assertNeverElement` switch nobody had listed) and **`PaletteController.promoteStampToNoteEntry`**.
+- **`MarkingTool` gains `keySignature`** + its `MARKING_TOOL_USES_ARMED_LENGTH` row + `toolGhost` case +
+  `GHOST_CAUSE` label. ⛔ **No `cautionary` field** — the clef's and the meter's ride along because a
+  DIALOG decided it; nothing decides a key's courtesy today, and P6 is the engraving's own answer.
+- **`engine/rendering/KeySignatureGhost.ts`** — the row of signs at the pointer, drawn on their real
+  staff LINES (`keySignatureLines`) so G major and F major are told apart by their picture. It shares
+  `SIGN_CHARS` and `SIGN_FONT_SIZE` with the pass, so a preview cannot show a glyph the click will not
+  engrave. ⛔ An empty signature previews NOTHING and says so — the signpost's hole, not papered over.
+- **`interactions/keySignatureStamp.ts`** — a click places at the HEAD of the bar it lands in (⛔ not the
+  barline stamp's nearest-LINE rule: a key is a statement about a BAR, which is why `keyOps` takes no
+  beat). ⭐ **Plain drop = ALL staves, `Ctrl`/`Cmd` = the clicked staff** — MuseScore's polarity, all four
+  apps' default (§5.1), and ONE undo batch for the whole gesture.
+- **Delete** reverts the bar to the inherited key, bar 1 refused (`keyOps.removeKeyAt`'s guard).
+- **The dev palette's five buttons now ARM** instead of writing at "the selected bar, else bar 1" — the
+  provisional targeting §6 warned against is gone. ⚠️ The `✕` STAYS: a C-major change has no ink, so
+  until the signpost is drawn that button is the only way to take one back.
+
+#### 🚨🚨 8.5a HIS REPORT: *"the empty rest is not centered… is more to the right"*
+
+An empty score with a mid-line E♭ change. Measured, that bar kept **6.0** spaces of silence against its
+neighbours' **8.8**, because the signature and its gaps took 5.2 of an 11.2-space bar.
+
+⭐⭐ **The FREE-SPACE rule was confirmed in all three engines before anything was touched, and it stands** —
+⛔ so do not move the rest's left bound back to the barline: MuseScore centres in *"free space"* whose left
+edge is the previous enabled segment (`measurelayout.cpp`); LilyPond's `MultiMeasureRest.spacing-pair`
+defaults to `break-alignment` and its property doc offers `(staff-bar . staff-bar)` as the override *"to
+ignore prefatory items"*; Verovio's `Measure::GetInnerCenterX()` measures from `GetLeftBarLineRight()`.
+
+⭐⭐ **What was wrong was the SPAN, and the fix is that the two bounds are not the same kind of ink.** A rest
+may stand much nearer a sign than a barline, and `pairPadding` already said so: `('accidental','rest')`
+= 0.5 sp, `('rest','barline')` = 1.65 sp (MuseScore's `table[REST][BAR_LINE]`). So the rest is centred in
+`[signature ink + 0.5, barline − 1.65]` — the room it may OCCUPY. That is 0.575 sp left of the bare-gap
+answer, and he had already placed it there by hand, twice (`noteOffset` −0.5 and −0.75) on two different
+bars. ⚠️ SCOPED to a bar whose header ENDS in a signature; a clef or meter would need `InkKind` rows of
+their own, and a new padding row needs his eye.
+
+⛔ **TWO fixes were built, measured and thrown away — do not re-derive them:**
+
+| what | the source that supports it | why it is out |
+|---|---|---|
+| grow the bar until its silence matches its neighbours' | MuseScore `computeMinMeasureWidth` adds the header span; Verovio floors the header-EXCLUDED inner width and makes the header non-justifiable | *"I dont think in this case of an empty measure the bar have to grow so much in comparison with the others"* — it came out 150 px against 110 |
+| centre between the BARLINES (clamped off the signature) | LilyPond's documented `spacing-pair` override | *"wrong again… the rest should be center in the empty space of the measure, not in the whole measure"* |
+
+⭐ **And his rule that killed the first two attempts, worth keeping:** *"dont apply a magic number, cause
+with different keys will be different."* Nothing is added to the ANSWER — the left bound is measured INK,
+so seven sharps move it right and one flat moves it left on their own.
+
+#### 🚨🚨 8.5c FOUR MORE OF HIS REPORTS — the SCOPE of a selection, and a hit box that was never on its glyph
+
+**1. *"the key is for all the staves … however when i selected it only select the first stave"*, and an
+hour later *"and if i remove i remove the first stave only."*** Both were one bug: the selection was
+scoped to the staff whose ink was clicked.
+
+⭐⭐ **`interactions/keySignatureScope.ts` — the scope is READ FROM THE MODEL, not decided.** Every staff
+whose signature at that bar IS the selected one (`getKeyAt` + `keysEqual`, so a system-head REPRINT
+that stores nothing still counts). Two staves in one key light and delete together, because they are
+one statement; ⭐ **two staves in genuinely different keys stay separate** — his own warning the same
+hour: *"be carefull here case the case change if there is different key signature in staves (not for
+transposition, but in modern scores)"*. ⚠️ The highlight and Delete call the SAME function; that is
+what makes the lit ink a promise rather than a coincidence.
+
+**2. *"here the key signature is not been selected or at least not highlited"*, then *"here the time
+signature is not selected or highlited either."*** One bug again, and it was the METER's box:
+`x + CLEF_HIT_WIDTH` with a constant width — a bar's left edge plus a guess, written when nothing
+could stand between the clef and the meter. Measured at bar 1 with two sharps: clef **20→65**, meter
+**65→95**, signature **60→82**, digits drawn from **93**. The meter's box covered the signature and
+missed its own glyph.
+
+⭐ Fixed at the source: the box is now the modifier's own x plus `glyphBox('timeSig4')`'s ink, with the
+reused-bar `staleShift` correction — **94→111**, disjoint from the key's 60→82. And the KEY moved to
+the FRONT of the three header glyphs in `ELEMENT_HIT_ORDER`, because its box is real ink where the
+clef's and the meter's are padded regions (the `|:`-before-barline lesson). ⏭️ The clef's box is still
+a 45 px region for a ~27 px glyph; narrowing it would make that order free rather than load-bearing.
+
+**3. *"here i remove the key but nothing hapend i still see the key on screen"*** — Delete at bar 1.
+⭐⭐ **The measure-1 protection is GONE, and the citation that justified it was sound while the premise
+was not.** MuseScore disables it because *"it is impossible to know whether you want a C major/A minor
+key signature, or an 'open/atonal' one"* — but §1.1 decided open/atonal is a distinct value carried by
+`mode`, so OUR model can tell them apart and "nothing stored at bar 1" means C major, full stop.
+⛔ Do not restore the guard by citing MuseScore again. ⚠️ Nor is it the CLEF's case: a staff must be
+read in some clef, so removal there is meaningless; every bar is in some key, and C major is one.
+
+**4. *"i selected barline before measure 3 and clicked D … expected is that we make a D major key
+change in measure 3."*** ⭐ A selected BARLINE now names the bar it OPENS (`keyTargetFromSelection`),
+and a `|:` names its own — the same sentence from either side of the line. System-wide, because a
+barline selection has no staff of its own.
+
+**5. *"i open in the palette the stepper, arm for A major, hit ok but the key is not armed."*** The
+sketch dialog was written before P1 and its own comment said it armed nothing — true for four phases.
+Its OK now calls `palette.pressKeySignature`, the same door the five buttons use, with the function
+INJECTED by `devToolbar` so `dev/` still reaches no controller of its own.
+
+#### ⏭️ 8.5d THE TIME SIGNATURE ACROSS STAVES — asked, answered, NOT yet built
+
+His question, from the grand-staff screenshot: where two staves' headers differ in width, where does
+each staff's meter go? Two agents were sent at it — the literature, and the three engines' sources —
+and they agree.
+
+⭐⭐ **THE METER IS ALIGNED ACROSS THE SYSTEM, AND IT CLEARS THE WIDEST HEADER. The key signatures are
+LEFT-aligned with each other.**
+
+| source | what it says |
+|---|---|
+| **Gould p. 326** (the Cowell *Tides of Manaunaun* extract, MEASURED off the 450 dpi scan) | grand staff, **6 flats over 1 flat**, both printing `4/2`: the two meters' ink is **513–543 on both staves — Δ = 0.00 sp**. Both key signatures BEGIN at x = 380. The one-flat staff's meter is not placed after its own key; it waits **5.80 sp**. |
+| **Gould p. 94** | *"An instrument on two (or more) staves can take an individual key signature for each stave. (Bartók employs this frequently … see also Cowell extract, p. 326.)"* — the sentence that licenses the case, and its pointer IS that engraving |
+| **MuseScore** | one `Segment` = one x for every staff (`dom/segment.h:98`: *"A segment holds all vertical aligned staff elements"*); `horizontalspacing.cpp:1328`: *"first chordrest of a staff should clear the widest header for any staff"* |
+| **LilyPond** | `BreakAlignGroup` (`scm/define-grobs.scm:625`): *"An auxiliary grob to group several breakable items of the same type (clefs, time signatures, etc.) across staves so that they will be aligned horizontally"* — and `Break_align_engraver` is consisted in **Score**, so one group per column |
+| **Verovio** | one `Alignment` per (time, type), shared by every staff (`horizontalaligner.h:425`); `view_page.cpp:140`: *"longest key signature of the staffDefs"* → one `SetDrawingWidth` for the system |
+
+⚠️ **UNKNOWN in prose:** no treatise on disk STATES the rule — Gould pp. 41–43/91–94/233–235, Ross
+pp. 143–152, Stone pp. 44–45 and G&L pp. 78–81 were read. It rests on that one measured engraving plus
+three engines agreeing. ⛔ So quote the measurement, not an invented sentence.
+
+⏭️ **NOT BUILT.** `placeMeterAfterKeySignature` is per-STAVE, so two staves in genuinely different keys
+would still put their meters at different x. `keyOps.copyStaffKeys` hides it in the common case (both
+staves get the same key), which is why the screenshot that raised it no longer reproduces. The fix is
+to place every staff's meter at the SYSTEM's widest signature ink — the machinery is already there
+(`MeasurePlacement.system.headerExtent` maxes over staves, and `spreadHeaderToSystem` exists for
+exactly this class of problem). ⛔ Do not start it without saying so: it moves every meter in every
+grand staff.
+
+#### ⏳ 8.5e A KEY CHANGE INSIDE A BAR — research commissioned 2026-08-28, literature only
+
+The model already permits one (`KeyChange.beat`, and `keyAt` takes a beat — §1.2, on MuseScore's
+evidence), nothing writes one, and `keyOps` deliberately offers no `beat` parameter (§8.1: it is what
+keeps `rebarOps` correct). His question is what we would have to obey IF it is ever built. ⏳ An agent
+is reading the treatises; ⛔ nothing is decided here until it reports, and a mid-bar change stays
+unwritable meanwhile.
+
+#### 🚨 8.5b HIS REPORT: *"the new stave has no key signature"*
+
+Three flats at bar 1, then a staff added below — and the new staff read as C major. The per-staff model
+showing through: a key change is stored per staff, so a staff that did not exist when the key was written
+carries none.
+
+⭐ **`keyOps.copyStaffKeys`** — a new staff adopts the REFERENCE staff's signatures, bar for bar, cloned.
+⭐ **Why a key is not a CLEF here:** a fresh staff deliberately keeps the universal `'treble'` default,
+because which clef it wants is a fact about the INSTRUMENT and the user must say. A signature is a fact
+about the MUSIC, one statement for the system — which is why a plain drop writes all staves.
+
+⚠️ **And a second bug found beside it:** `ScoreModel.solidifyFirstStaffContent` did not stamp `keys`, so
+PREPENDING a staff would have silently re-pointed the outgoing first staff's signatures at the new top
+staff — the exact re-pointing that pass exists to prevent. Fixed in the same commit.
+
+⏭️ **OPEN, his ask:** where two staves' headers differ in width (one has a key, the other none — or two
+different keys), is the TIME SIGNATURE aligned across the system or placed per staff? Two agents were sent
+at it (the literature; the three engines' sources). ⚠️ With `copyStaffKeys` in place the common case no
+longer diverges, so what is left is the Bartók case — do not treat it as settled until those answers land.
 
 ### ✅ 8.4 What P4 landed — and the door his eye found the same day
 

@@ -281,7 +281,7 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(staffBox)
 
   /*
-   * --- 🔧 KEY SIGNATURE — SCAFFOLDING, and today a STUB: these buttons LOG, they place nothing. ---
+   * --- 🔧 KEY SIGNATURE — SCAFFOLDING: five buttons that ARM the key stamp (P5). ---
    *
    * The temporary door for the key-signature feature (docs/key-signature-plan.md §6), so the thing
    * can be exercised long before it has a real UI. ⛔ **It has a fate, and it is written down:** the
@@ -309,60 +309,47 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
     { label: 'D', fifths: 2, title: 'D major — 2 sharps (F♯ C♯)' },
     { label: 'E♭', fifths: -3, title: 'E♭ major — 3 flats (B♭ E♭ A♭)' },
   ]
-  /**
-   * ⭐ **Which bar a key button writes to — PROVISIONAL, and deliberately not a design.**
-   *
-   * The measure box if one is selected (`Ctrl+Shift+click`, the same context the `Measure:` buttons
-   * above ask for), else bar 1. ⛔ **This is NOT how a key will be placed.** The real gesture is P5's:
-   * an armed marking tool, placed by a click on the score, hit-tested like every other element. This
-   * exists so P2's WRITES can be exercised by hand — against the Score-JSON panel, which polls the
-   * live model — before anything draws, which is the only way to test a phase whose done-when is
-   * "still nothing drawn".
-   */
-  function keyTarget(): { measure: number; staff: number } {
-    const box = selectedOf(state, 'measureRange')
-    return box ? { measure: Math.min(box.anchor, box.focus), staff: box.staff } : { measure: 1, staff: 0 }
-  }
-
   const keyBox = group('Key:')
   for (const { label, fifths, title } of KEY_PALETTE) {
-    action(keyBox, label,
-      `${title} — 🔧 PROVISIONAL: writes at the selected bar (else bar 1); watch the Score-JSON panel`,
+    // ⭐⭐ **P5: the button ARMS, the SCORE places.** It used to write at "the selected measure box,
+    // else bar 1" — a targeting rule the plan marked PROVISIONAL and told the next agent not to
+    // mistake for a design. It is gone: `pressKeySignature` is the palette bargain every row in this
+    // editor shares (a selection applies, nothing selected arms, a re-press disarms), and an armed
+    // key is placed by a click on the bar you want it in, ghost and all.
+    //
+    // ⭐ `keyFromFifths` is the CLASSICAL CONSTRUCTOR the `fifths` column was always an argument for.
+    action(keyBox, label, `${title} — 🔧 arms the key stamp; click a bar to place it (Ctrl = that staff only)`,
       () => getEngine() !== null,
-      () => {
-        const engine = getEngine()
-        if (!engine) return
-        const { measure, staff } = keyTarget()
-        // ⭐ `keyFromFifths` is the CLASSICAL CONSTRUCTOR the `fifths` column was always an argument
-        // for — the table stopped being a placeholder the moment P1 landed, exactly as promised.
-        const changed = engine.setKeyAt(measure, keyFromFifths(fifths), staff)
-        dbg(`🔧 key palette | ${label} major (fifths:${fifths}) | measure:${measure} staff:${staff}`
-          + ` | ${changed ? 'WROTE' : 'no change — already in force here'}`)
-        if (changed) renderScore()
-      })
+      () => palette.pressKeySignature(keyFromFifths(fifths)))
   }
-  // ⛔ Removing one needs its own door, because `setKeyAt` normalizes: asking for the signature that
-  // is already in force stores nothing rather than storing a redundant change. So "revert this bar
-  // to the key before it" is a different verb, and it is the one the SIGNPOST exists to make
-  // clickable at P5 (plan §5). Bar 1 refuses, on purpose — MuseScore's reason: with nothing stored
-  // there, C major and open/atonal cannot be told apart.
-  action(keyBox, '✕', 'Remove the key change at the selected bar (bar 1 is protected) — 🔧 PROVISIONAL',
+  // ⛔ THE ONE DOOR P5 DID NOT REPLACE, and it is here for a reason worth reading: `setKeyAt`
+  // normalizes, so "revert this bar to the key before it" is a different verb from "set C major"
+  // — and the real door for it is Delete on the SELECTED signature, which needs the signature to
+  // have ink to click. A C-major change has NONE (the first element whose valid state is zero
+  // glyphs), so until the SIGNPOST is drawn this button is the only way to take one back (plan §5).
+  // ⭐ Bar 1 is removable too (his report, 2026-08-28) — `keyOps.removeKeyAt` says why MuseScore's
+  // refusal there does not transfer to a model that stores open/atonal explicitly.
+  action(keyBox, '✕', 'Remove the key change at the selected bar (else bar 1) — 🔧 the inkless-key door; otherwise use Delete on the signature',
     () => getEngine() !== null,
     () => {
       const engine = getEngine()
       if (!engine) return
-      const { measure, staff } = keyTarget()
+      const box = selectedOf(state, 'measureRange')
+      const { measure, staff } = box
+        ? { measure: Math.min(box.anchor, box.focus), staff: box.staff }
+        : { measure: 1, staff: 0 }
       const removed = engine.removeKeyAt(measure, staff)
       dbg(`🔧 key palette | remove | measure:${measure} staff:${staff}`
-        + ` | ${removed ? 'REMOVED' : measure === 1 ? 'refused — bar 1 is change-only' : 'nothing stored here'}`)
+        + ` | ${removed ? 'REMOVED' : 'nothing stored here'}`)
       if (removed) renderScore()
     })
-  // 🚧 …and the SKETCH of a picker, beside the five stubs it is an alternative to. His idea: Finale's
+  // 🚧 …and the SKETCH of a picker, beside the five buttons it is an alternative to. Its OK now ARMS
+  //     the stamp (his report, 2026-08-28) — same door as the buttons, so the two cannot drift. His idea: Finale's
   // stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends thirty rows on
-  // one degree of freedom. It logs and closes; ⛔ read `./keySignatureSketchWindow`'s header before
+  // one degree of freedom. ⛔ Read `./keySignatureSketchWindow`'s header before
   // touching it, and do not mistake it for the design.
   action(keyBox, '⇅ Stepper…', 'Sketch of a Finale-style key stepper — 🔧 logs only, changes nothing',
-    () => true, () => { openKeySignatureSketch() })
+    () => true, () => { openKeySignatureSketch(key => palette.pressKeySignature(key)) })
   row.appendChild(keyBox)
 
   // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a

@@ -400,8 +400,21 @@ test('…and the header’s HIT BOXES follow the ink, so what reads them is not 
 
   console.log(`[census] meter boxes ${drawn.boxes.map(x => x.toFixed(1)).join(' / ')} · ` +
     `glyphs ${drawn.glyphs.map(x => x.toFixed(1)).join(' / ')}`)
-  expect(drawn.boxes[0], 'one meter box x for the system').toBeCloseTo(drawn.boxes[1], 1)
+  // ⭐ One meter COLUMN for the system, ⚠️ to within a sub-pixel rather than exactly — and the residue
+  //   is real ink, not slack. Since 2026-08-28 this box is the digit's own INK (its modifier's x plus
+  //   `glyphBox('timeSig4').left`, which is −0.08 sp: a digit's ink starts 0.08 spaces RIGHT of its
+  //   origin). That offset is measured in the STAFF's own space, so a 0.7 staff's digits — being
+  //   smaller — start 0.08 × 0.3 sp = **0.24 px** earlier than the full-size staff's. The two ORIGINS
+  //   still land on one x (`spreadHeaderToSystem`, asserted by the test above); what differs is how
+  //   far into each glyph its own ink begins, which is the thing this box is now honest about.
+  expect(Math.abs(drawn.boxes[0] - drawn.boxes[1]), 'one meter box x for the system').toBeLessThan(0.5)
   // …and it is where the ink is, not merely self-consistent: within a hit-box's slack of the glyph.
+  //
+  // 🚨 **This box used to be a GUESS** — `bar left edge + a constant clef width` — and the guess broke
+  // the moment a key signature could stand between the clef and the meter: measured at bar 1 with two
+  // sharps, the box came out 65→95 while the digits were drawn from 93, so it covered the SIGNATURE
+  // and missed its own glyph (his two reports, 2026-08-28; plan §8.5c). Hence the tolerance below is
+  // the assertion that matters most here.
   for (const [i, box] of drawn.boxes.entries()) {
     expect(Math.abs(box - drawn.glyphs[i]), `staff ${i}: the box is on its glyph`).toBeLessThan(6)
   }

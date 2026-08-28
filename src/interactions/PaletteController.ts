@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, Fraction, TupletFormat, TremoloMark, FanMark } from '../types/music'
+import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, Fraction, TupletFormat, TremoloMark, FanMark } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
 import type { EditorState, DynamicTool, TempoTool, MarkingTool } from './EditorState'
@@ -16,6 +16,8 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } from './selection'
 import { featherSelectedNote, featherContext } from './fanStamp'
 import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from './barlineStamp'
+import { applyKeySignature, keyTargetFromSelection } from './keySignatureStamp'
+import { keysEqual } from '@/utils/keySignature'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
 import { staffOf } from '@/utils/lanes'
@@ -953,8 +955,9 @@ export class PaletteController {
       case 'pedal':        // …and the pedal: how long the damper is down is a fact about the MUSIC
       case 'hairpin':      // a span as well — and its length is the MUSIC's, never the armed one
       case 'trill':        // an ornament ON a note, whose extent is the ties' — nothing to carry
-      case 'clef':         // the four below place OBJECTS, not note properties: nothing to carry
+      case 'clef':         // the five below place OBJECTS, not note properties: nothing to carry
       case 'timeSignature':
+      case 'keySignature': // a BOUNDARY statement about a bar — no note property, and no length
       case 'dynamic':
       case 'dynamicEntry': // places a text mark, not a note property — nothing to promote to
       case 'tempo':
@@ -2019,6 +2022,37 @@ export class PaletteController {
       return
     }
     this.armMarkingTool({ kind: 'barline', sign })
+  }
+
+  /**
+   * ⭐ **A KEY SIGNATURE PALETTE PRESS** — one method for every signature, because the difference
+   * between C and E♭ is an ARGUMENT and not a branch (`utils/keySignature.keyFromFifths` builds the
+   * classical ones; a custom signature is the same call with a hand-built list).
+   *
+   * The palette bargain every row in this class shares: a selection means APPLY, nothing selected
+   * means ARM, and re-pressing the armed button disarms. Which bar a selection names is
+   * `keyTargetFromSelection`'s one question — ⛔ never asked here.
+   *
+   * ⭐ Re-pressing compares the SIGNATURE, not an identity: two `keyFromFifths(1)` results are two
+   * objects and one statement, so `keysEqual` is what "the same button" means (the `sameTempoTool`
+   * idiom two rows up).
+   */
+  pressKeySignature(key: KeySignature): void {
+    // The engine is fetched INSIDE the writing branch, like `pressBarline`: a selection means APPLY
+    // and never arm, so an engine-less context must not fall through to arming — and arming itself
+    // is pure state and needs no engine.
+    const target = keyTargetFromSelection(this.state)
+    if (target !== null) {
+      const engine = this.getEngine()
+      if (engine && applyKeySignature(engine, key, target)) this.renderScore()
+      return
+    }
+    const armed = armedTool(this.state, 'keySignature')
+    if (armed && keysEqual(armed.key, key)) {
+      this.disarmToEntry() // re-press disarms, like the clef and meter buttons it sits beside
+      return
+    }
+    this.armMarkingTool({ kind: 'keySignature', key })
   }
 
   /**

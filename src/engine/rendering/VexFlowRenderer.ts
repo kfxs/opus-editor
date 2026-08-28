@@ -22,6 +22,7 @@ import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/
 import { effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
+import { pairPadding } from '@/engine/layout/spacingPadding'
 import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
@@ -2589,6 +2590,49 @@ export class VexFlowRenderer {
    * in the space left over, not between the barlines. That is what VexFlow was already aiming at
    * and what Gould describes; the alternative (centre between the barlines) would push the rest
    * left, under the clef, on every system-opening bar.
+   *
+   * ## ⭐⭐ BESIDE A KEY SIGNATURE, THE SPAN IS THE ROOM THE REST MAY **OCCUPY** — not the bare gap
+   *
+   * 🚨 **His report, 2026-08-28**, on an empty score with a mid-line E♭ change: *"the empty rest is
+   * not centered… is more to the right"*, and then he placed it by hand — a `noteOffset` of **−0.5**,
+   * then **−0.75** staff spaces, *"this is how i see it better"*. Measured, that bar: the last flat's
+   * ink ends at 409, the barline is at 479, so the bare-gap centre is 444 and the rest's ink sat
+   * 438.4…449.6 — 29 px of air on each side. Arithmetically centred, and his eye still read it right.
+   *
+   * ⭐ **Why the bare gap is the wrong span, and it is not a taste argument: THE TWO BOUNDS ARE NOT
+   * THE SAME KIND OF INK.** A rest may stand much nearer a sign than a barline — `pairPadding` says
+   * so in the two rows this pass now reads, and both were sourced long before this bar existed:
+   * `('accidental','rest')` = **0.5** sp, `('rest','barline')` = **1.65** sp (MuseScore's
+   * `table[REST][BAR_LINE]`, quoted at the row). So the space the rest may actually stand in is
+   * `[signature ink + 0.5, barline − 1.65]`, and centring THAT is what balances the two gaps a reader
+   * compares. It lands at 438.3 — his own −0.5 nudge, from two numbers already in the model.
+   *
+   * ⛔ **Not a nudge, and not a constant chosen to fit this picture** — his rule, and the reason the
+   * first two attempts were thrown away: *"dont apply a magic number, cause with different keys will
+   * be different."* Nothing here is added to the ANSWER. The left bound is measured INK
+   * (`keySignatureInkRight`), so seven sharps move it right and one flat moves it left on their own;
+   * the two paddings are rows the whole spacing model already uses.
+   *
+   * ⚠️ **SCOPED to a bar whose header ENDS IN A SIGNATURE**, deliberately. Extending it to a clef or a
+   * meter needs `InkKind` rows for those glyphs — which is a new padding row, and a new padding row
+   * needs HIS eye and a source (`spacingPadding`'s own rule). Every other bar keeps today's answer
+   * byte for byte: a plain empty bar is still centred between its barlines.
+   *
+   * ⛔ **Two other fixes were built, measured and thrown away the same hour** — recorded so they are
+   * not re-derived from the engines and re-applied:
+   *  - **growing the bar** until its silence matched its neighbours' (what MuseScore's
+   *    `computeMinMeasureWidth` and Verovio's header-excluded `minMeasureWidth` both do): *"I dont
+   *    think in this case of an empty measure the bar have to grow so much in comparison with the
+   *    others"*;
+   *  - **centring between the barlines** (LilyPond's documented `spacing-pair = (staff-bar . staff-bar)`
+   *    override): *"wrong again… the rest should be center in the empty space of the measure, not in
+   *    the whole measure"*.
+   *
+   * ⭐ And the FREE-SPACE rule itself is confirmed by all three engines, so ⛔ do not move the left
+   * bound back to the barline: MuseScore centres in *"free space"* whose left edge is the previous
+   * enabled segment's ink (`measurelayout.cpp`); LilyPond's `MultiMeasureRest.spacing-pair` defaults
+   * to `break-alignment`, i.e. past the prefatory matter; Verovio's `Measure::GetInnerCenterX()`
+   * measures from `GetLeftBarLineRight()`, which the mid-system keySig alignment sits left of.
    */
   private centerMeasureRests(
     voices: Voice[], stave: Stave, clef: Clef, headerKey: KeySignature | undefined,
@@ -2605,14 +2649,30 @@ export class VexFlowRenderer {
     //    `getNoteStartX()`, which is that ink plus the 2.0-space `HEADER_TO_NOTE` gap the music
     //    needs but a centred rest does not. Measured, that put every line-opening whole-bar rest
     //    **half a staff space right** of where MuseScore puts it. Reported by eye, twice.
-    const freeSpaceLeft = headerInkRightX(stave, clef, headerKey) ?? stave.getNoteStartX()
-    const freeSpaceRight = stave.getNoteEndX()
+    const space = stave.getSpacingBetweenLines()
+    const headerInk = headerInkRightX(stave, clef, headerKey)
+    // ⭐ Does the header END in the signature? Only then are both bounds ones this pass has a padding
+    //   row for — see the header's scope note. `headerInkRightX` takes the MAX over the header's
+    //   parts, so the signature is the last thing drawn exactly when it owns that max.
+    const signatureEnds = headerKey !== undefined && headerKey.alterations.length > 0
+      && headerInk !== undefined
+      && Math.abs(headerInk - keySignatureInkRight(stave, clef, headerKey)) < 0.01
+    const bareLeft = headerInk ?? stave.getNoteStartX()
+    const bareRight = stave.getNoteEndX()
+    // ⭐⭐ The room the rest may OCCUPY, where both bounds have a row — else the bare gap, unchanged.
+    const freeSpaceLeft = signatureEnds ? bareLeft + pairPadding('accidental', 'rest') * space : bareLeft
+    const freeSpaceRight = signatureEnds ? bareRight - pairPadding('rest', 'barline') * space : bareRight
     // ⭐⭐ **A PROPORTION OF THE MEASURED SPAN — half of it — and never a constant.** His rule, and it
     //    is what makes this survive every change to what the header draws: add a sharp to the key,
     //    switch to `12/8`, shrink the staff, and the centre follows on its own because it is derived
     //    from the two edges rather than corrected towards them. ⛔ A nudge of "0.5 spaces left" would
     //    have fixed today's picture and been wrong for the next signature.
-    const areaCenter = freeSpaceLeft + (freeSpaceRight - freeSpaceLeft) / 2
+    // ⚠️ A signature wide enough to leave no legal room at all falls back to the bare gap rather
+    //   than centring in a negative span — the degenerate case, and it keeps the rest on the page.
+    const usable = freeSpaceRight > freeSpaceLeft
+    const areaCenter = usable
+      ? freeSpaceLeft + (freeSpaceRight - freeSpaceLeft) / 2
+      : bareLeft + (bareRight - bareLeft) / 2
     for (const voice of voices) {
       for (const tickable of voice.getTickables()) {
         if (!tickable.isCenterAligned()) continue
@@ -3375,24 +3435,56 @@ export class VexFlowRenderer {
     }
 
     if (drawsTimeSignature(measure)) {
-      // Position after whatever clef glyph (if any) was drawn at the measure start.
-      // ÷ scale: how far the meter sits past the clef is a SYSTEM distance now (the header is laid
-      // out in the system's space so the meters of a mixed-size system line up), and this box has to
-      // land on the glyph it is the handle for. Without it a 0.7 staff's meter box sits 30% nearer
-      // the barline than its own ink — and the linear-view gutter, which reads this box to decide
-      // how far it may hang over the paper, believed the smaller number.
+      // ⭐⭐ **THE METER'S BOX IS THE METER'S OWN INK — asked of the drawn modifier, not guessed from
+      //    the bar's left edge.**
+      //
+      // 🚨 **HIS TWO REPORTS, 2026-08-28, and they are one bug.** With a key signature at bar 1:
+      //    *"here the key signature is not been selected or at least not highlited"* (every press on
+      //    the sharps answered `timeSignature`), and then *"here the time signature is not selected
+      //    or highlited either"* (a press on the digits answered nothing at all). Measured, bar 1
+      //    with two sharps: this box came out **65→95** while the signs stood at **60→82** and the
+      //    digits were drawn from **~93**. It covered the signature and missed its own glyph.
+      //
+      // ⭐ The cause was the arithmetic below it: `x + CLEF_HIT_WIDTH`, a bar's left edge plus a
+      //    CONSTANT clef width, with a constant width of its own. That was right while nothing could
+      //    stand between the clef and the meter. A key signature can, and `placeMeterAfterKeySignature`
+      //    moves the meter for exactly that reason — so the box had to move with it.
+      //
+      // ⭐ **Which it now does by asking the modifier where it is** (`headerInkRightX`'s own source
+      //    for the same number), plus `glyphBox('timeSig4')` for the ink either side of that origin:
+      //    a digit's ink starts 0.08 spaces RIGHT of its origin (`left` is −0.08). ⛔ Not
+      //    `modifier.getWidth()`, which is a layout box carrying VexFlow's own padding — the repo's
+      //    rule is that every space is decided in INK.
+      //
+      // 🚨 **The PLACEMENT's x, never the stave's** (`reference_a_reused_bars_stave_reports_where_it_WAS`):
+      //    a bar whose shape did not change is reused and moved with a transform, so `modifier.getX()`
+      //    is where it was last PAINTED. `staleShift` is that correction — the same one
+      //    `KeySignaturePass` and `BarlineRenderer` apply, here written as `x − stave.getX()`.
+      const meterModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
+        .find(m => m.getCategory() === 'TimeSignature')
+      const space = stave.getSpacingBetweenLines()
+      const digit = glyphBox('timeSig4')
+      // FALLBACK, and it is the old guess: a measure that is never drawn still gets a box, and a
+      // stave built without its meter modifier has nothing to ask. ÷ scale for the reason the header
+      // is laid out in the SYSTEM's space (see the `scale` parameter).
       const clefOffset =
         (measure.number === 1 || isFirstInLine
           ? LAYOUT_CONFIG.CLEF_HIT_WIDTH
           : hasClefChange
             ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
             : 0) / scale
-      // Clamp the TS hit-box so its right edge never crosses noteStartX. The
-      // approximate TIME_SIG_HIT_WIDTH over-estimates the real glyph and would
-      // otherwise bleed into the note-entry zone, swallowing clicks that land
-      // just right of the glyph (rejected as "clicked on timeSignature").
-      const tsX = x + clefOffset
-      const tsWidth = Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, stave.getNoteStartX() - tsX)
+      const staleShift = x - stave.getX()
+      const inkX = meterModifier
+        ? meterModifier.getX() + staleShift - digit.left * space
+        : x + clefOffset
+      const inkWidth = meterModifier
+        ? (digit.right + digit.left) * space
+        : Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, stave.getNoteStartX() - (x + clefOffset))
+      // ⚠️ Still clamped off the note area: the box is the handle for a glyph, and a box that reached
+      //    past `noteStartX` would swallow presses meant for the first note (the clamp's original
+      //    reason, and it costs nothing now that the width is real ink).
+      const tsX = inkX
+      const tsWidth = Math.min(inkWidth, stave.getNoteStartX() + staleShift - tsX)
       if (tsWidth > 0) {
         this.elementRegistry.add({
           type: 'timeSignature',

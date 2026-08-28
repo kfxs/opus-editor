@@ -534,6 +534,22 @@ anything else: her key-signature sharp is **1.00 sp** wide against the font's 0.
   section**; **MOLA is silent on cancellation** (checked) though it does require the end-of-line
   cautionary.
 
+### What was asked of it on 2026-08-28, and what came back
+
+The question was **the TIME SIGNATURE ACROSS STAVES**: where two staves of one system carry key
+signatures of DIFFERENT widths (one has a key and the other none, or the two hands are in different
+keys), is each staff's meter placed after its own signature, or are the meters aligned? Asked because
+of a grand-staff screenshot in which the two meters did not line up. A second pass read the three
+engine checkouts (⛔ not this library — see `docs/key-signature-plan.md` §8.5d for that half).
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ are the two meters ALIGNED? | **Gould p. 326** (the Cowell *The Tides of Manaunaun* extract, under *Keyboard ▸ Note clusters*) | **YES, to the pixel.** Grand staff, **upper staff 6 flats, lower staff 1 flat**, both printing `4/2`. Measured off the 450 dpi scan (staff lines give 1 sp = 20 px exactly, ink-column profile with the staff-line rows masked): clef ink 302–359 / 303–358, key ink 380–**487** / 380–**397**, and `4/2` ink **513–543 on BOTH staves — Δ = 0.00 sp**. The one-flat staff's meter is not placed after its own key: it waits **5.80 sp**, where the six-flat staff waits 1.30. ⭐ Both signatures also BEGIN at the same x (380). |
+| the sentence that licenses the case | **Gould p. 94** | *"An instrument on two (or more) staves can take an individual key signature for each stave. (Bartók employs this frequently, e.g. in 14 Bagatelles, op. 6; see also Cowell extract, p. 326.)"* ⚠️ p. 94 itself has **no figure** — the pointer to p. 326 IS the drawing. |
+| ⛔ a PROSE statement of the alignment rule | — | **UNKNOWN.** Read and not found: Gould pp. 41–43, 91–94, 233–235; Ross pp. 143–152; Stone pp. 44–45; Gerou & Lusk pp. 78–81 (their whole alignment sentence is *"Key signatures appear after the clef but before the time signature"*). ⭐ So the rule rests on the measured p. 326 engraving — quote the measurement, ⛔ never an invented sentence. |
+| the nearest prose PRINCIPLE (analogy only — it is about notes, not meters) | **Stone p. 45** | *"In music requiring two or more staves, the notes having accidentals (if any) are spaced according to the rules above, and the notes without accidentals must be aligned vertically with the notes having the accidentals, not with the accidentals"* — drawn on a grand staff with a dashed guide. |
+| ⭐ key signature → time signature, a THIRD opinion (we use 1.15 sp, ink to ink, from LilyPond) | **Gould p. 41**, **Stone p. 45**, **Ross p. 145** | Gould: *"Separate the clef, key signature, time signature by 1–1½ stave-spaces"* (her p. 42 figure's brackets measure 1.0 and 1.53; ⚠️ her own engraving of it runs 1.88 sp ink-to-ink, and the Cowell staff measures 1.30). Stone: *"between the key signature and the time signature: one staff-space"*, and he says these are GAPS (*"With cutting edges of staff to show how to measure the gaps"*) — **1.00 sp ink-to-ink**, our convention exactly. Ross: *"the space between the left side of the last sharp or flat in the key signature, and the left side of the time signature, is two and a half spaces"* — ORIGIN to origin, so ≈**1.5 sp** in ink. ⇒ our 1.15 sits inside Gould's stated range and just above Stone; Ross is the outlier. |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the

@@ -47,6 +47,24 @@ export type ElementType =
   | 'rest'
   | 'clef'
   | 'timeSignature'
+  /**
+   * ⭐ A **KEY SIGNATURE** — the whole row of signs at a bar's head, as ONE box from the first
+   * sign's ink to the last's, five staff lines tall.
+   *
+   * ONE box for the row and not one per sign, deliberately: the signature is what you select, edit
+   * and delete (there is no such thing as removing the C♯ from D major and keeping the F♯), so the
+   * box is the statement rather than its letters. The same call the clef's box makes one column
+   * over.
+   *
+   * ⚠️ Registered by the DRAWING pass, like `'repeatStart'` and for its reason: what a bar draws
+   * depends on the bar before it and on the casting-off, so tier 1 cannot know it. Its existence IS
+   * proof it was painted, so a press needs no `isPainted` filter.
+   *
+   * ⛔ A bar whose signature is EMPTY (C major, an open key) registers nothing, because it draws
+   * nothing — the first element whose valid state is zero ink, and why a SIGNPOST is owed
+   * (docs/key-signature-plan.md §5). See `engine/rendering/KeySignaturePass`.
+   */
+  | 'keySignature'
   | 'barline'
   /**
    * ⭐ The **OPEN REPEAT** (`|:`) — the one barline sign registered by the DRAWING pass rather than
@@ -169,7 +187,7 @@ export type ElementType =
  * The small ink glyphs the §6a-ii tripwire polices: each must register its OWN glyph box,
  * never a StaveNote container that unions attached modifiers. Deliberately excludes
  * `note` (keeps a semantic head box that intentionally spans its stem/beam), the region
- * click-targets (`clef`/`timeSignature`/`staff`/`barline`/`beam`), the span types
+ * click-targets (`clef`/`timeSignature`/`keySignature`/`staff`/`barline`/`beam`), the span types
  * (`tie`/`slur*`/`tuplet`), and `dynamic`/`tempo` (their own text boxes, large by design).
  */
 const GLYPH_TYPES: ReadonlySet<ElementType> = new Set<ElementType>([

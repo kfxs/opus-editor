@@ -1,4 +1,4 @@
-import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, DynamicLevel, ArticulationType, Fraction, TupletFormat, TremoloMark } from '../types/music'
+import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, DynamicLevel, ArticulationType, Fraction, TupletFormat, TremoloMark } from '../types/music'
 import { deriveTupletM } from '../utils/musicUtils'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -55,6 +55,31 @@ export type MarkingTool =
    *  known until the click — so it has nowhere else to wait. It is a property of the change that is
    *  about to be made, which is exactly what an armed stamp is. */
   | { kind: 'timeSignature'; timeSignature: TimeSignature; cautionary?: boolean; pickup?: Fraction | null }
+  /**
+   * ⭐ The KEY SIGNATURE stamp — a click puts `key` at the head of the bar it lands on
+   * (`interactions/keySignatureStamp.ts`, docs/key-signature-plan.md §5).
+   *
+   * ⭐ **It CARRIES THE SIGNATURE ITSELF**, ⛔ never a `fifths` integer: the model stores a LIST of
+   * altered letters precisely so a custom signature (mixed sharps and flats, authored order) is
+   * expressible, and a tool that carried the shorthand would be a second model that cannot say what
+   * the first one can. The classical palette's five buttons arm five `keyFromFifths(n)` results —
+   * the constructor, not the storage (`utils/keySignature.ts`).
+   *
+   * ⛔ **No `cautionary` field, unlike the clef and the meter above.** Theirs rides along because a
+   * DIALOG decided it before the target bar was known; nothing decides a key's courtesy today —
+   * the cautionary at a system break is P6's, and it is the ENGRAVING's own answer rather than a
+   * property of the click (plan §10). A field with no feature behind it would be a promise this
+   * union cannot keep.
+   *
+   * ⛔ It carries no LENGTH — a signature is a boundary statement (`false` in
+   * {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   *
+   * ⭐ It DOES ghost — the row of signs follows the pointer (`engine/rendering/KeySignatureGhost.ts`),
+   * so this tool is NOT in {@link scoreCursorClass}'s blue-pointer list. His standing call, from the
+   * barline's day: *"we need ghosts for every case using the glyph"* — and five palette buttons that
+   * arm identically behind one blue caret is the `8va`/`8vb` case exactly.
+   */
+  | { kind: 'keySignature'; key: KeySignature }
   | { kind: 'dynamic'; dynamic: DynamicTool }
   | { kind: 'tempo'; tempo: TempoTool }
   /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying
@@ -241,6 +266,8 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   fan: false,        // ALSO a length — but its OWN, typed in the dialog that armed it (see the member)
   clef: false,       // the four below place OBJECTS — a length means nothing to them
   timeSignature: false,
+  keySignature: false, // a signature is a BOUNDARY statement — "this bar is in E♭" — like the meter
+                       //   beside it: there is no length for a click to give it
   dynamic: false,
   dynamicEntry: false, // places a text mark; a length means nothing to it (like `dynamic`)
   tempo: false,
@@ -407,6 +434,24 @@ export type SelectedElement =
   /** The on-score time-signature glyph in a measure. Distinct from the armed
    *  `{ kind: 'timeSignature' }` MARKING tool (the meter waiting to be placed). */
   | { kind: 'timeSignature'; measure: number }
+  /**
+   * ⭐ A KEY SIGNATURE — the row of signs drawn at a bar's head, on one staff.
+   *
+   * Positional and per-STAFF, the clef's shape exactly and for the clef's reason: the model stores
+   * a key change per staff (`Measure.keys`, `staffId` absent = staff 0), because Bartók writes four
+   * sharps in one hand against four flats in the other. So the (measure, staff) pair IS the
+   * identity — there is no signature object to hold an id.
+   *
+   * ⚠️ **The measure is the one the signs are DRAWN in, which is not always the one that CHANGED
+   * the key**: a system head reprints the signature in force, so selecting it names that bar. Both
+   * `keyOps.setKeyAt` and `removeKeyAt` are addressed the same way and normalize on their own —
+   * asking for the key already in force at a reprint stores nothing, and removing where nothing is
+   * stored answers false. ⛔ So this selection never has to know which of the two it is looking at.
+   *
+   * ⛔ A C-major signature has NO ink and so cannot be selected at all — the first kind whose valid
+   * state is zero glyphs, and what the SIGNPOST is owed for (docs/key-signature-plan.md §5).
+   */
+  | { kind: 'keySignature'; measure: number; staff: number }
   /**
    * The line that ENDS this measure.
    *

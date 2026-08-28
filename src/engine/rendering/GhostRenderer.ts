@@ -51,6 +51,7 @@ import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
 import { drawBarlineGhost, BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
+import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { ghostCursorOffset } from './ghostCursor'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 
@@ -66,7 +67,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -1077,6 +1078,7 @@ export const GHOST_DRAWERS: {
 } = {
   clef: (ctx, svg, x, y, g) => drawClefGhost(ctx, svg, x, y, g.clef),
   timeSignature: (ctx, svg, x, y, g) => drawTimeSignatureGhost(ctx, svg, x, y, g.timeSignature),
+  keySignature: (ctx, _svg, x, y, g) => drawKeySignatureGhost(ctx, x, y, g.key),
   tempo: (ctx, _svg, x, y, g) => drawTempoGhost(ctx, x, y, g.mark),
   dynamic: (ctx, svg, x, y, g) => drawDynamicGhost(ctx, svg, x, y, g.dynamic),
   articulation: (ctx, _svg, x, y, g) => drawArticulationGhost(ctx, x, y, g.types),
