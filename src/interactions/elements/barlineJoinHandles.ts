@@ -15,7 +15,9 @@
  * the loop below has nothing to iterate and produces nothing.
  *
  * What is OFFERED is the second half, and it is a much smaller set: {@link offeredAt} keeps the ONE
- * square at the staff and the END the press landed on. His two calls, 2026-08-28 — *"we should show
+ * square at the staff and the END the press landed on — and then {@link squareAtPointer} lets a
+ * DRAG move that end across the gap, which is the same filter doing the same job for a spot the
+ * gesture named rather than the press. His two calls, 2026-08-28 — *"we should show
  * the blue square just in the stave we clicked and not in all staves"*, then *"the spot to click is
  * critical… if the user click in that area we show the blue square related with that"* — and both
  * programs that have this gesture agree (Sibelius §4.5 p. 343, MuseScore's single grip).
@@ -303,6 +305,53 @@ export function barlineJoinGrabAt(
  * by returning to where it started.
  */
 export function joinedAtPointer(grab: BarlineJoinGrab, y: number, wasJoined: boolean): boolean {
-  const crossed = grab.awayIsDown ? y > grab.gapMidY : y < grab.gapMidY
-  return crossed ? !wasJoined : wasJoined
+  return crossedMiddle(grab, y) ? !wasJoined : wasJoined
+}
+
+/**
+ * **Has the grabbed square been pulled PAST THE MIDDLE of its gap?** — the ONE geometric fact the
+ * whole gesture is made of: {@link joinedAtPointer} turns it into the gap's state, and
+ * {@link squareAtPointer} into where the square is drawn.
+ *
+ * ⭐ It is one function so those two can never disagree about where the threshold is. The square
+ * jumps on the very frame the gap flips, which is the entire reason the jump is worth drawing —
+ * a square that moved at some other moment would be announcing something that had not happened.
+ */
+export function crossedMiddle(grab: BarlineJoinGrab, y: number): boolean {
+  return grab.awayIsDown ? y > grab.gapMidY : y < grab.gapMidY
+}
+
+/** Which staff's line a square stands at, and which END of it — `SelectedElement.barline`'s own
+ *  `staff` + `pressedAt` pair, because that pair IS what the highlight reads to pick the one square
+ *  it draws ({@link offeredAt}). */
+export interface BarlineJoinSquareEnd {
+  staff: number
+  end: 'top' | 'bottom'
+}
+
+/**
+ * ⭐⭐ **THE SQUARE TELEPORTS ACROSS THE GAP** — his call, 2026-08-28: *"the idea is that this
+ * square teleport in the direction the user drag so is clear visually of the gesture"*.
+ *
+ * ⭐ **It costs no new drawing.** Both squares of a gap are already built above and one is already
+ * filtered out; the jump is only ever *turn the grabbed one off, turn the far one on*. His own
+ * reading of it: *"we already have all the squares, we just have to off the current one and
+ * visualize the next one with the gesture"*.
+ *
+ * ⭐⭐ **AND IT JUMPS AT THE GAP'S MIDDLE — the same threshold the join flips at.** So the square
+ * is ⛔ not a cursor following the mouse: it is the WITNESS that the line now reaches the staff it
+ * landed on. Pull back over the middle and it hops home, exactly as the flip is cancelled — which
+ * is the same *pull to flip / come back to cancel* pair {@link joinedAtPointer} carries.
+ *
+ * ⚠️ The two ends are the gap's, ⛔ not one staff's: a `below` square hangs off the staff ABOVE the
+ * gap and an `above` square off the staff BELOW it ({@link nearStaff}'s rule, read backwards).
+ */
+export function squareAtPointer(grab: BarlineJoinGrab, y: number): BarlineJoinSquareEnd {
+  // ⭐ `awayIsDown` already IS "which square was grabbed": only the square hanging UNDER the upper
+  // staff has the rest of the gap below it. ⛔ Nothing stores that — the grab reads it off the
+  // square's own y, and this reads it back rather than adding a second way to say it.
+  const grabbedUpper = grab.awayIsDown
+  return grabbedUpper !== crossedMiddle(grab, y)
+    ? { staff: grab.staffAbove, end: 'bottom' }
+    : { staff: grab.staffAbove + 1, end: 'top' }
 }

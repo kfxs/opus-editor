@@ -480,6 +480,10 @@ export type SelectedElement =
        * walk carries the one it came from, but a programmatic one (playback's start line) has no
        * press behind it, and then EVERY gap's squares are offered. ⛔ Not "staff 0": that would be a
        * guess about where the user is, and it would hide half the handles for no reason.
+       *
+       * ⭐⭐ **AND A JOIN DRAG MOVES IT** — the press sets the pair, the drag carries it across the
+       * gap (`squareAtPointer`, and `MouseController.moveJoinSquare`). So read this pair as *where
+       * the square is standing*, of which the press is only the first answer.
        */
       staff?: number
       /**
@@ -504,6 +508,12 @@ export type SelectedElement =
        *
        * ⚠️ Absent means the spot is unknown (a keyboard walk that never had a press to read), and
        * then BOTH of that staff's squares are offered rather than a guessed one.
+       *
+       * ⭐⭐ **A JOIN DRAG REWRITES IT MID-GESTURE.** Pulling the square past the middle of its gap
+       * flips the join AND teleports the square to the far end of that gap — his call, 2026-08-28:
+       * *"so is clear visually of the gesture"* — and this field with {@link staff} is exactly how
+       * that is drawn, since the far square was built already and only filtered out. ⛔ So the name
+       * is now half the story: it is the square's END, and the press merely sets it first.
        */
       pressedAt?: 'top' | 'bottom' | 'gap'
     }

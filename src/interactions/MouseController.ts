@@ -40,7 +40,8 @@ import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
 import { ottavaStaffSpacePx } from './ottavaLane'
-import { barlineJoinGrabAt, joinedAtPointer, type BarlineJoinGrab } from './elements/barlineJoinHandles'
+import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGrab,
+  type BarlineJoinSquareEnd } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
 import { pedalStaffSpacePx } from './pedalLane'
 import { dragPedalBody, dragPedalEndpoint } from './pedalWalk'
@@ -2083,9 +2084,34 @@ export class MouseController {
     if (want === drag.current) return true
     if (engine.previewBarlineJoinBelow(drag.staffAbove, want)) {
       drag.current = want
+      this.moveJoinSquare(squareAtPointer(drag, y))
       this.render.renderScore()
     }
     return true
+  }
+
+  /**
+   * ⭐⭐ **THE SQUARE JUMPS TO THE END THE DRAG REACHED** — his call, 2026-08-28: *"the idea is that
+   * this square teleport in the direction the user drag so is clear visually of the gesture"*.
+   *
+   * ⭐ **The selection's own `staff` + `pressedAt` ARE the lever** — they are what the highlight
+   * filters the gap's two squares by (`barlineJoinHandles`'s `offeredAt`), so moving the pair turns
+   * the grabbed square off and the far one on with ⛔ no new state, no second square drawn and no
+   * extra render: this runs on the one frame that was already re-rendering for the flip.
+   *
+   * ⚠️ **REASSIGN, never mutate** — `EditorState`'s Proxy traps the SET of a top-level field only, so
+   * `selectedElement.staff = …` would move nothing on screen.
+   *
+   * ⚠️ It does not change WHAT is selected: the barline is one system-wide boundary and this pair was
+   * never part of its identity (`EditorState`'s note on the field). Which is also why the drag may
+   * write it at all — the square stays grabbed, because the press armed a drag rather than a
+   * selection.
+   */
+  private moveJoinSquare({ staff, end }: BarlineJoinSquareEnd): void {
+    const selected = this.state.selectedElement
+    if (selected?.kind !== 'barline') return
+    if (selected.staff === staff && selected.pressedAt === end) return
+    this.state.selectedElement = { ...selected, staff, pressedAt: end }
   }
 
   /**

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  barlineJoinHandles, barlineJoinGrabAt, joinedAtPointer,
+  barlineJoinHandles, barlineJoinGrabAt, joinedAtPointer, squareAtPointer,
   BARLINE_JOIN_HANDLE_GAP_PX, type BarlineBoxRegistry,
 } from './barlineJoinHandles'
 
@@ -227,5 +227,41 @@ describe('what the cursor means once a square is grabbed', () => {
     const up = { ...grab, awayIsDown: false }
     expect(joinedAtPointer(up, 194, false)).toBe(true)   // pulled UP, past the middle → flipped
     expect(joinedAtPointer(up, 196, false)).toBe(false)  // still on its own side → unchanged
+  })
+})
+
+describe('⭐⭐ the square teleports across the gap with the drag', () => {
+  /** The gap of the two-staff fixture: middle at y 195, grabbed by the square UNDER staff 0. */
+  const grab = { measure: MEASURE, staffAbove: 0, gapMidY: 195, awayIsDown: true }
+
+  it('stays at the end it was grabbed from while the pointer is on that side', () => {
+    expect(squareAtPointer(grab, 150)).toEqual({ staff: 0, end: 'bottom' })
+    expect(squareAtPointer(grab, 194)).toEqual({ staff: 0, end: 'bottom' })
+  })
+
+  it('⭐ jumps to the far end of the gap once the pointer crosses the middle', () => {
+    // *"so is clear visually of the gesture"* — the square lands on the staff the line now reaches.
+    expect(squareAtPointer(grab, 196)).toEqual({ staff: 1, end: 'top' })
+    expect(squareAtPointer(grab, 260)).toEqual({ staff: 1, end: 'top' })
+  })
+
+  it('⭐ hops home when the drag comes back — the same frame the flip is cancelled', () => {
+    expect(squareAtPointer(grab, 260)).toEqual({ staff: 1, end: 'top' })
+    expect(squareAtPointer(grab, 150)).toEqual({ staff: 0, end: 'bottom' })
+  })
+
+  it('the square OVER the lower staff mirrors it — grabbed at staff 1, lands on staff 0', () => {
+    const up = { ...grab, awayIsDown: false }
+    expect(squareAtPointer(up, 196)).toEqual({ staff: 1, end: 'top' })   // its own side of the middle
+    expect(squareAtPointer(up, 194)).toEqual({ staff: 0, end: 'bottom' }) // pulled UP, across
+  })
+
+  it('⭐⭐ moves on EXACTLY the threshold the join flips at — ⛔ never a different one', () => {
+    // The two answers are one function (`crossedMiddle`), and this is what that buys: a square that
+    // moved at some other moment would be announcing a flip that had not happened.
+    for (const y of [150, 194, 195, 196, 260]) {
+      const jumped = squareAtPointer(grab, y).staff === grab.staffAbove + 1
+      expect(jumped).toBe(joinedAtPointer(grab, y, false))
+    }
   })
 })

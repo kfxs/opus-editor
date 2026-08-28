@@ -168,6 +168,24 @@ describe('barline join drag', () => {
     expect(engine.commitBarlineJoin).not.toHaveBeenCalled()
   })
 
+  it('⭐⭐ the square TELEPORTS to the far staff when the drag crosses the middle', () => {
+    // *"so is clear visually of the gesture"* — the selection's `staff`+`pressedAt` pair IS which of
+    // the gap's two squares the highlight draws, so moving the pair moves the square.
+    grabAndMove(GAP_MIDDLE + 20)
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1, staff: 1, pressedAt: 'top' })
+  })
+
+  it('…and hops home when the drag comes back over the middle', () => {
+    grabAndMove(GAP_MIDDLE + 20)
+    mc.handleMouseMove(ev({ clientX: 200, clientY: GAP_MIDDLE - 20 }))
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1, staff: 0, pressedAt: 'bottom' })
+  })
+
+  it('⛔ and it does not move while the pointer stays on its own side of the middle', () => {
+    grabAndMove(GAP_MIDDLE - 20)
+    expect(state.selectedElement).toEqual({ kind: 'barline', measure: 1, staff: 0, pressedAt: 'bottom' })
+  })
+
   it('a press that misses the square arms nothing', () => {
     mc.handleMouseDown(ev({ clientX: 200, clientY: 300 }))
     mc.handleMouseMove(ev({ clientX: 200, clientY: GAP_MIDDLE + 20 }))
