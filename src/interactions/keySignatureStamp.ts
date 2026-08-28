@@ -45,9 +45,13 @@ import { fifthsOf } from '@/utils/keySignature'
  * debug line is not a place to mint a second naming table.
  */
 function keyLabel(key: KeySignature): string {
+  // ⚠️ The open key FIRST, because `fifthsOf` answers `null` for it (an atonal key has no position on
+  // the circle) and the `null` branch below would call it a custom signature. It was unreachable
+  // while nothing could author one; the Key Signature window's *Atonal* row can (2026-08-28).
+  if (key.mode === 'open') return 'open/atonal'
   const fifths = fifthsOf(key)
   if (fifths === null) return 'custom signature'
-  if (fifths === 0) return key.mode === 'open' ? 'open/atonal' : 'no sharps or flats'
+  if (fifths === 0) return 'no sharps or flats'
   const n = Math.abs(fifths)
   return `${n} ${fifths > 0 ? 'sharp' : 'flat'}${n > 1 ? 's' : ''}`
 }

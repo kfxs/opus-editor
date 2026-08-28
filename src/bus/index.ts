@@ -4,6 +4,7 @@ import { createArticulationStemAlignSelection } from './articulationStemAlignSel
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
 import { createClefSelection } from './clefSelection'
+import { createKeySignatureSelection } from './keySignatureSelection'
 import { createDotSelection } from './dotSelection'
 import { createDurationSelection } from './durationSelection'
 import { createFanEditSelection } from './fanEditSelection'
@@ -80,6 +81,9 @@ interface EditorBus {
   beamOver: ReturnType<typeof createBeamOverSelection>
   /** The armed clef, plus the cautionary decision that travels with it. */
   clef: ReturnType<typeof createClefSelection>
+  /** ⭐ The armed KEY SIGNATURE — the Key Signature window's stepper. The value is an alteration
+   *  LIST, never a `fifths` integer (`bus/keySignatureSelection`). */
+  keySignature: ReturnType<typeof createKeySignatureSelection>
   /** The dot key. */
   dot: ReturnType<typeof createDotSelection>
   /** Properties' fan inputs (count / beams / ramp range / spread). Command-only. */
@@ -159,6 +163,7 @@ export function createEditorBus(): EditorBus {
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
     clef: createClefSelection(),
+    keySignature: createKeySignatureSelection(),
     dot: createDotSelection(),
     fanEdit: createFanEditSelection(),
     trillEdit: createTrillEditSelection(),

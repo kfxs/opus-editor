@@ -369,6 +369,15 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Open the lines window (slur, hairpins, trill, ottava, pedal)',
   },
 
+  // Key signature: opens the Key Signature window — the same action as Insert ▸ Key Signature.
+  // His ask, 2026-08-28. K joins Q (clef), T (meter), L (lines) and U (tuplet) as the bare-letter
+  // Insert dialogs, and it was free. (Dorico's own key-signature popover is Shift+K — see
+  // docs/key-signature-plan.md §7; the bare letter is what this editor's other dialogs use.)
+  'k': {
+    action: 'openKeySignatureWindow',
+    description: 'Open the key signature window (a stepper along the circle of fifths)',
+  },
+
   // Clef: opens the clef entry window — the same action as Insert ▸ Clef.
   'q': {
     action: 'openClefWindow',

@@ -635,15 +635,74 @@ so the shape exists.
   `dbg()`s. ⚠️ **C is in the list on purpose** — it is the row that catches the two rules an empty
   signature must obey (prints nothing where in force; prints cancelling naturals at a change *to*
   it), and a palette of only keys-with-ink would never ask.
-- **`dev/keySignatureSketchWindow.ts`** — 🚧 a SKETCH of the picker, opened by `⇅ Stepper…` in the
-  same group. ▲ sharpwards / ▼ flatwards along the circle of fifths, clamped at ±7 (⛔ no wrap: C♯
-  major stepping round to C♭ major is a 14-semitone jump dressed as one click), the key name over its
-  count and letters, and a Major/Minor radio. ⭐ It shows **letters, not glyphs on a staff** — the
-  placement table existed nowhere when it was written, and drawing one from memory would have been
-  inventing a rule. ✅ **Its OK now ARMS the stamp (P5, 2026-08-28)** — his report: *"i open in the
-  palette the stepper, arm for A major, hit ok but the key is not armed"*. It calls
-  `palette.pressKeySignature(keyFromFifths(fifths, mode))`, the same door the five buttons use, with
-  the function INJECTED by `devToolbar` so `dev/` still reaches no controller of its own.
+- **`⇅ Stepper…`** in the same group — 🏁 **PROMOTED 2026-08-28: it is `windows/keySignatureWindow.ts`
+  now, titled *Key Signature*, and it is the real dialog.** His call: *"the idea is turn this sketch
+  in the real thing"*. It was `dev/keySignatureSketchWindow.ts` from 2026-08-27, built explicitly to
+  be thrown away while the survey below was out; the survey came back saying the gesture is Finale's
+  verbatim and Dorico ships one too, so what was thrown away is the SKETCH FRAMING, not the window.
+  What moved with it, unchanged: ▲ sharpwards / ▼ flatwards along the circle of fifths, clamped at ±7
+  (⛔ no wrap: C♯ major stepping round to C♭ major is a 14-semitone jump dressed as one click), the
+  key name over its count and letters, and a Major/Minor radio.
+  - ⭐ **The injected `arm` callback is gone, replaced by a bus seam** — `bus.keySignature`
+    (highlight + press, `clefSelection`'s shape), because a window in `windows/` may not reach a
+    controller and the injection existed only to keep `dev/` clean. `keypadSync` routes the press to
+    `palette.pressKeySignature`, the same door the five buttons use, so the two cannot drift. ⭐ The
+    highlight channel buys one thing the sketch never had: **re-opening steps from the ARMED key**
+    (`fifthsOf`, null for a mixed or open signature → the axis starts at C).
+  - ✅ **Its real door, same day: `Insert ▸ Key Signature`, shortcut `K`** (his ask). K joins Q/T/L/U
+    as the bare-letter Insert dialogs and was free; the row is a display echo of `ShortcutConfig`'s
+    `'k'`, and both reach `openKeySignatureWindow(windows)` — ⛔ a row is not a second implementation
+    of its key. ⏭️ The dev strip's `⇅ Stepper…` is now kept only while the dialog is being iterated
+    on; by the rule the barline and lines rows went out under, it goes with the `Key:` group.
+  - ✅ **The mode radio is THREE-valued: Major · Minor · Atonal** (his ask, same day —
+    *"in the mode we have to add atonal (this should be choisable just in the case of no alteration in
+    the key)"*). ⭐ It is `KeySignature.mode`'s own third value, `'open'`, reaching the UI for the
+    first time: an empty alteration list with `mode: 'open'`, which `keyFromFifths` deliberately
+    cannot build (its argument is a position on the circle, and an open key has none). **Atonal greys
+    the moment the axis leaves 0**, and stepping off 0 while it is chosen steps the mode back to
+    Major — ⛔ freezing the arrows instead would make the axis a dead end. The readout says *"no key
+    signature — not C major"*, which is the distinction `keyOps` already stores (an open key at bar 1
+    is a real change; C major there is nothing).
+    - The widget grew one generic capability for it — `RadioGroup.setOptionDisabled` (greyed, ⛔ never
+      hidden: a row that vanishes takes its own existence with it). ⚠️ It does not move the dot; that
+      is the dialog's question and the dialog answers it.
+    - 🚨 `keySignatureStamp.keyLabel` had an UNREACHABLE `'open/atonal'` branch — `fifthsOf` answers
+      `null` for an open key, so the `null` test above it called one a *custom signature*. Nothing
+      could author one until now. Fixed by asking the mode first.
+  - 🏁 **THE SIGNATURE IS DRAWN — a staff with a treble clef, restated on every step**
+    (`windows/keySignaturePicture.ts`, his ask: *"insert the staff with a treble clef so the user can
+    see the key while is adding the accidentals"*). This is what the sketch could not do: the letters
+    `F♯ C♯` were a stand-in for a placement table that did not exist when it was written, and P1–P6
+    built one.
+    - ⭐⭐ **It invents no placement and no space.** Rows from {@link keySignatureLines} (the 56-sign
+      table: Gerou & Lusk, Gould p. 91, MuseScore's `ClefInfo::m_lines`), clef ink → first sign from
+      `CLEF_TO_KEY_INK` (0.82), sign → sign from `KEY_ACCIDENTAL_GAP` plus each glyph's own advance,
+      glyphs from the pass's own `SIGN_CHARS` and `clefGlyph`. ⛔ **So a placement question is
+      answered by changing the ENGINE and the dialog follows** — a second table "just for the
+      thumbnail" is `keySignatureInkRight`'s two-sets-of-numbers problem in a window nobody audits.
+      Sharps therefore space wider than flats here without either number being hand-set.
+    - ⚠️ ITS OWN, marked as such in the file: the staff-space size, the air left of the clef, the
+      reserved height (worst-case, so the dialog cannot resize under the pointer while you step).
+      ⭐ The size is the **Clef window's 7px**, his reference — two dialogs drawing the same kind of
+      thing at one size.
+    - ⚠️ **Treble is fixed for now.** The signs sit differently under each clef and the picture already
+      takes the argument; ⏭️ WHICH clef a picker should show — the one at the bar you will click, or
+      one you choose — is an open question, not an oversight.
+    - The spec asserts every row **by naming the pitch** (F♯ the top line, B♭ the middle line), which
+      is `keySignatureLayout`'s own warning obeyed: its first draft was mirrored through the middle
+      line and passed every test written against its own arithmetic.
+  - **The layout, settled by eye over four rounds** (his calls, all 2026-08-28): the caption *"Step ▲
+    for sharps, ▼ for flats."* is GONE — the picture demonstrates the sentence; the arrows moved
+    BESIDE the staff (⚠️ still stacked ▲ over ▼: a left/right pair would not mean "up the circle of
+    fifths"); the staff is as short as the widest signature allows (14 spaces); the ▲▼ buttons take a
+    new generic `Button` option **`compact`** — tighter padding and no leading, ⛔ the label's own size
+    untouched (*"the size of the label of the buttons are ok"*); and the body and the Cancel/OK row
+    are TWO nested stacks, so the air before the buttons widened without widening every gap above it.
+    - The window toolkit gained the two generic widgets this needed and nothing key-specific:
+      **`Picture`** (a block of SVG the dialog can redraw — {@link ChoiceList}'s idea where the
+      picture is the ANSWER rather than a row you pick) and `Button`'s `compact`.
+  - ⛔ **The stepper reaches the fifteen circle-of-fifths signatures and nothing else** — that is all
+    an AXIS can reach. The mixed/custom editor is a separate room (§7); do not grow it out of this one.
 
 ✅ **WIRED PROVISIONALLY 2026-08-27 (P2)** — the five buttons stopped logging and now call
 `engine.setKeyAt`, with a `✕` beside them for `removeKeyAt`. **Target: the selected measure box

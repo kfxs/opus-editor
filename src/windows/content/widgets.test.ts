@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { ChoiceList, NumberInput, Select } from './widgets'
+import { ChoiceList, NumberInput, RadioGroup, Select } from './widgets'
 
 /**
  * `ChoiceList` is the "pick one picture" box behind the Clef window (and, in time, the key- and
@@ -88,5 +88,51 @@ describe('setValue', () => {
     const select = mount(new Select([{ value: '4', label: '4' }], { selected: '4' })) as Select
     select.setValue('5')
     expect(select.value).toBe('4')
+  })
+})
+
+/**
+ * A radio option that EXISTS but is not available in the state the dialog is in — the Key Signature
+ * window's *Atonal*, which only means anything with no accidentals. Two things are worth pinning:
+ * the row is refused, and it is still THERE (greyed, never removed).
+ */
+describe('RadioGroup.setOptionDisabled', () => {
+  const mount = () => {
+    const host = document.createElement('div')
+    const group = new RadioGroup(
+      [{ value: 'major', label: 'Major' }, { value: 'open', label: 'Atonal' }],
+      { selected: 'major' },
+    )
+    group.mount(host)
+    const inputs = [...host.querySelectorAll('input')] as HTMLInputElement[]
+    return { group, inputs }
+  }
+
+  it('refuses a disabled option and greys its whole row, without removing it', () => {
+    const { group, inputs } = mount()
+    group.setOptionDisabled('open', true)
+
+    expect(inputs).toHaveLength(2) // still offered, not hidden
+    expect(inputs[1].disabled).toBe(true)
+    // The label greys with the radio — the word is half of what the option is.
+    expect((inputs[1].parentElement as HTMLElement).style.opacity).toBe('0.5')
+    // The other rows are untouched.
+    expect(inputs[0].disabled).toBe(false)
+  })
+
+  it('takes the refusal back off', () => {
+    const { group, inputs } = mount()
+    group.setOptionDisabled('open', true)
+    group.setOptionDisabled('open', false)
+    expect(inputs[1].disabled).toBe(false)
+    expect((inputs[1].parentElement as HTMLElement).style.opacity).toBe('1')
+  })
+
+  // Whether a disabled option may stay selected is the DIALOG's question (the Key Signature window
+  // steps the mode back to Major itself), so the widget must not move the dot behind its back.
+  it('does not move the selection', () => {
+    const { group } = mount()
+    group.setOptionDisabled('major', true)
+    expect(group.value).toBe('major')
   })
 })

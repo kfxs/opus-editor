@@ -1,7 +1,7 @@
 # Menus — the second primitive
 
 **Status: BUILT** (`src/menus/`) — P0–P4. Sibling to `Window` (docs/windows-design.md), not a kind of
-it. Right-click the score → the Insert menu: `Barline ▸ …`, Clef, Feathered Beam, Lines,
+it. Right-click the score → the Insert menu: `Barline ▸ …`, Clef, Feathered Beam, Key Signature (K), Lines,
 `Text ▸ Expression` (Ctrl+E), `Text ▸ Tempo` (Alt+Shift+T), Time Signature and Tuplet. And since P4 there is a **menu bar** across the top of the
 app: File · Edit · View · Create · Score · Play · Window. Every row on it is a real command.
 

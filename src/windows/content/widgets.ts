@@ -179,6 +179,15 @@ interface ButtonOptions {
   /** 'primary' is the one that commits — the Save in a Save window. */
   variant?: 'primary' | 'default'
   disabled?: boolean
+  /**
+   * Tighter padding, SAME TYPE — for a button whose label is one glyph and whose size is therefore
+   * all air (the Key Signature window's ▲▼, beside a staff they must not tower over).
+   *
+   * ⭐ It shrinks the BOX and not the words, and that is the whole option: a smaller face would make
+   * this a second class of button, and the label is the one part of a button that must stay the size
+   * every other button's label is.
+   */
+  compact?: boolean
 }
 
 /** A button. It calls back; it does not know what it is for. */
@@ -199,13 +208,17 @@ export class Button implements Widget {
 
     const primary = this.opts.variant === 'primary'
     const s = el.style
-    s.padding = '6px 14px'
+    s.padding = this.opts.compact ? '0 3px' : '6px 14px'
     s.borderRadius = '6px'
     s.border = `1px solid ${primary ? CHROME.accent : CHROME.edge}`
     s.background = primary ? CHROME.accent : CHROME.surface
     s.color = CHROME.ink
     s.font = 'inherit'
     s.fontWeight = '600'
+    // ⭐ Compact shrinks the box by taking the LEADING out too, not just the padding: a button's
+    // height is its line box, and prose leading around a single glyph is air nobody asked for. The
+    // face stays `inherit` — the label is the part that must not shrink.
+    if (this.opts.compact) s.lineHeight = '1'
     s.cursor = el.disabled ? 'default' : 'pointer'
     s.opacity = el.disabled ? '0.5' : '1'
     s.flex = 'none'
@@ -396,6 +409,15 @@ interface RadioOption {
   picture?: string
   /** Extra widget shown after the label — the spinners beside Sibelius's "Other:". */
   trailing?: Widget
+  /**
+   * Greyed and unclickable — an alternative that EXISTS but is not available in the state the dialog
+   * is in (the Key Signature window's *Atonal*, which only means anything with no accidentals).
+   *
+   * ⭐ Shown-and-greyed, never hidden: a row that vanishes takes its own existence with it, and the
+   * user is left to wonder whether the option was ever there. Greying says "here, but not now".
+   * Flip it later with {@link RadioGroup.setOptionDisabled}.
+   */
+  disabled?: boolean
 }
 
 /** Exactly one of N, laid out in a row — or stacked, with `direction: 'column'`. The horizontal
@@ -404,6 +426,9 @@ interface RadioOption {
 export class RadioGroup implements Widget {
   private selected: string
   private readonly inputs: HTMLInputElement[] = []
+  /** The <label> rows, parallel to {@link inputs} — greying an option greys the WORD with it, since
+   *  the word is half of what a radio is (the same rule {@link Checkbox.setDisabled} follows). */
+  private readonly rows: HTMLElement[] = []
   /** Radios only group by shared `name`; two RadioGroups in one window must not fight. */
   private static nextName = 1
   private readonly name = `radio-group-${RadioGroup.nextName++}`
@@ -467,6 +492,8 @@ export class RadioGroup implements Widget {
       row.addEventListener('dblclick', () => this.opts.onActivate?.(option.value))
       row.appendChild(input)
       this.inputs.push(input)
+      this.rows.push(row)
+      if (option.disabled) this.applyDisabled(this.inputs.length - 1, true)
 
       if (option.picture) {
         const picture = document.createElement('span')
@@ -513,8 +540,69 @@ export class RadioGroup implements Widget {
     if (index >= 0 && this.inputs[index]) this.inputs[index].checked = true
   }
 
+  /**
+   * Grey ONE option and refuse it, leaving the rest alone — an alternative that is not available in
+   * the state the dialog is in right now.
+   *
+   * ⚠️ It does NOT move the dot. Whether a disabled option may stay selected is the dialog's
+   * question, not the widget's: the Key Signature window answers it by stepping the mode back to
+   * Major itself, which is a statement about keys and belongs where keys are known.
+   */
+  setOptionDisabled(value: string, disabled: boolean): void {
+    const index = this.options.findIndex((o) => o.value === value)
+    if (index >= 0) this.applyDisabled(index, disabled)
+  }
+
+  private applyDisabled(index: number, disabled: boolean): void {
+    const input = this.inputs[index]
+    const row = this.rows[index]
+    if (!input || !row) return
+    input.disabled = disabled
+    row.style.cursor = disabled ? 'default' : 'pointer'
+    row.style.opacity = disabled ? '0.5' : '1'
+  }
+
   destroy(): void {
     for (const option of this.options) option.trailing?.destroy?.()
+  }
+}
+
+/**
+ * ⭐ **A PICTURE that can change** — one block of SVG the dialog redraws as its state moves (the Key
+ * Signature window's staff, restated on every step).
+ *
+ * {@link ChoiceList} already shows pictures, and this is the other half of that idea: there the
+ * picture is a ROW you pick, here it is the dialog's ANSWER, drawn. ⛔ It holds no state and decides
+ * nothing — the caller owns the drawing and hands it over; this only mounts it and swaps it.
+ *
+ * ⚠️ The markup is the CALLER's, built in code from its own numbers. ⛔ Never route text a user typed
+ * through here.
+ */
+export class Picture implements Widget {
+  private el: HTMLElement | null = null
+
+  constructor(
+    private svg: string,
+    private readonly opts: { align?: 'start' | 'center' | 'end' } = {},
+  ) {}
+
+  mount(host: HTMLElement): void {
+    const el = document.createElement('div')
+    el.style.display = 'flex'
+    el.style.flex = 'none'
+    el.style.justifyContent = { start: 'flex-start', center: 'center', end: 'flex-end' }[
+      this.opts.align ?? 'center'
+    ]
+    el.innerHTML = this.svg
+    host.appendChild(el)
+    this.el = el
+  }
+
+  /** Redraw. The node stays; only what is inside it changes, so nothing below the picture moves as
+   *  long as the caller keeps the drawing one size (which is what a stepped dialog must do). */
+  setPicture(svg: string): void {
+    this.svg = svg
+    if (this.el) this.el.innerHTML = svg
   }
 }
 

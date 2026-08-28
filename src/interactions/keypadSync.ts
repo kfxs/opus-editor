@@ -360,6 +360,9 @@ export function wireKeypadSync(
     // The Clef window lights the clef that is ARMED, and nothing otherwise: unlike a duration,
     // a clef is never "the selected note's" — it belongs to a measure, not a note.
     bus.clef.setHighlight(armed?.kind === 'clef' ? armed.clef : null)
+    // The Key Signature window's stepper opens on the armed signature, for the clef's reason: a key
+    // belongs to a bar and never to a note, so what is ARMED is the only thing there is to show.
+    bus.keySignature.setHighlight(armed?.kind === 'keySignature' ? armed.key : null)
     // The Lines window lights the armed line tool, for the clef's reason: a line stamp belongs to no
     // note, so the only thing to show is what is ARMED (`./lineTools` answers with the ROW, which is
     // not the same question as which model tool is live — two rows share one tool twice over).
@@ -436,6 +439,10 @@ export function wireKeypadSync(
     bus.voice.onPress((v) => palette.setActiveVoice(v)),
     // armClef, not setClef: the Clef window's OK confirms a choice, it does not toggle a button.
     bus.clef.onPress((a) => palette.armClef(a.clef, a.cautionary)),
+    // The Key Signature window's OK. `pressKeySignature` is the same door the dev palette's buttons
+    // use — a selection applies, nothing selected arms, a re-press disarms — so a press from the
+    // dialog and a press from the palette are one action and cannot drift.
+    bus.keySignature.onPress((key) => palette.pressKeySignature(key)),
     // The Lines window's OK, routed by one table: with notes selected it makes the mark, with
     // nothing selected it arms the stamp, and pressing the armed one again turns it off
     // (`./lineTools`, and PaletteController's own rule — the same three the keys `s`/`h` reach).

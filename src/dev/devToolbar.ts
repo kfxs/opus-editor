@@ -10,7 +10,8 @@ import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 import { dbg } from '../utils/debug'
 import { keyFromFifths } from '../utils/keySignature'
-import { openKeySignatureSketch } from './keySignatureSketchWindow'
+import { windows } from '../windows'
+import { openKeySignatureWindow } from '../windows/keySignatureWindow'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -343,13 +344,18 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
         + ` | ${removed ? 'REMOVED' : 'nothing stored here'}`)
       if (removed) renderScore()
     })
-  // 🚧 …and the SKETCH of a picker, beside the five buttons it is an alternative to. Its OK now ARMS
-  //     the stamp (his report, 2026-08-28) — same door as the buttons, so the two cannot drift. His idea: Finale's
-  // stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends thirty rows on
-  // one degree of freedom. ⛔ Read `./keySignatureSketchWindow`'s header before
-  // touching it, and do not mistake it for the design.
-  action(keyBox, '⇅ Stepper…', 'Sketch of a Finale-style key stepper — 🔧 logs only, changes nothing',
-    () => true, () => { openKeySignatureSketch(key => palette.pressKeySignature(key)) })
+  // …and THE KEY SIGNATURE WINDOW, beside the five buttons it is an alternative to. It was a sketch
+  // in `dev/` until 2026-08-28 and is the real dialog now (`windows/keySignatureWindow`): a Finale-
+  // style stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends
+  // thirty-one cells on one degree of freedom. Its OK arms through `bus.keySignature`, the same door
+  // `pressKeySignature` these buttons call, so the two cannot drift.
+  //
+  // ⚠️ The window has a REAL door now — Insert ▸ Key Signature, or K (his ask, 2026-08-28) — so by
+  // the rule the barline and lines rows went out under, this button has nothing left to earn. It is
+  // kept only while the dialog is being iterated on, beside the five stub buttons it will outlive:
+  // ⏭️ when the `Key:` group goes, this goes with it and nothing is lost (same command, two doors).
+  action(keyBox, '⇅ Stepper…', 'Key Signature — a stepper along the circle of fifths; OK arms the key, click a bar to place it',
+    () => true, () => { openKeySignatureWindow(windows) })
   row.appendChild(keyBox)
 
   // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a

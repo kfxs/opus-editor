@@ -31,6 +31,7 @@ import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
+import { openKeySignatureWindow } from '../windows/keySignatureWindow'
 import { openLinesWindow } from '../windows/lines'
 import { toggleSymbolsWindow } from '../windows/symbols'
 import { openTimeSignatureWindow } from '../windows/timeSignatureWindow'
@@ -1062,6 +1063,10 @@ export function wireShortcuts(
     // L — the same action as Insert ▸ Lines; reaches the window layer directly, like Q.
     openLinesWindow: () => {
       openLinesWindow(windows)
+    },
+    // K — the same action as Insert ▸ Key Signature; reaches the window layer directly, like Q.
+    openKeySignatureWindow: () => {
+      openKeySignatureWindow(windows)
     },
     // T — the same action as Insert ▸ Time Signature; reaches the window layer directly, like Q.
     openTimeSignatureWindow: () => {

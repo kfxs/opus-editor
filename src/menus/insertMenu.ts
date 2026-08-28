@@ -1,6 +1,7 @@
 import type { WindowLayer } from '@/windows/WindowLayer'
 import { openClefWindow } from '@/windows/clefWindow'
 import { openFeatherWindow } from '@/windows/featherWindow'
+import { openKeySignatureWindow } from '@/windows/keySignatureWindow'
 import { openLinesWindow } from '@/windows/lines'
 import { openTimeSignatureWindow } from '@/windows/timeSignatureWindow'
 import { openTupletWindow } from '@/windows/tupletWindow'
@@ -111,6 +112,10 @@ function buildInsertItems(actions: InsertMenuActions, windows: WindowLayer): Men
     { label: 'Clef', shortcut: 'Q', onSelect: () => openClefWindow(windows) },
     // The shortcut is a display echo of ShortcutConfig's 'Ctrl+f'; keep them in step.
     { label: 'Feathered Beam', shortcut: 'Ctrl+F', onSelect: () => openFeatherWindow(windows) },
+    // K — a display echo of ShortcutConfig's 'k'; keep them in step. His ask, 2026-08-28: this row
+    // is the Key Signature window's first real door, and the dev strip's `⇅ Stepper…` button now has
+    // the barline and lines rows' exit written for it.
+    { label: 'Key Signature', shortcut: 'K', onSelect: () => openKeySignatureWindow(windows) },
     // The shortcut is a display echo of ShortcutConfig's 'l'; keep them in step. (Sibelius's own key
     // for its Lines dialog is L too.)
     { label: 'Lines', shortcut: 'L', onSelect: () => openLinesWindow(windows) },
