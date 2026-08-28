@@ -9,9 +9,6 @@ import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
 import { dbg } from '../utils/debug'
-import { keyFromFifths } from '../utils/keySignature'
-import { windows } from '../windows'
-import { openKeySignatureWindow } from '../windows/keySignatureWindow'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -282,52 +279,33 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   row.appendChild(staffBox)
 
   /*
-   * --- 🔧 KEY SIGNATURE — SCAFFOLDING: five buttons that ARM the key stamp (P5). ---
+   * --- 🔧 KEY SIGNATURE — ONE BUTTON LEFT, and it is the INKLESS-KEY DOOR. ---
    *
-   * The temporary door for the key-signature feature (docs/key-signature-plan.md §6), so the thing
-   * can be exercised long before it has a real UI. ⛔ **It has a fate, and it is written down:** the
-   * barline palette lived here in exactly this shape and was DELETED the day Insert ▸ Barline
-   * existed — see the note immediately below this block, which is the argument in full. This row
-   * goes the same way. Do not grow it, do not add a minor-key row, do not give it a custom-signature
-   * editor: the real picker is a design question nobody has answered yet (his own words, 2026-08-27:
-   * *"we are not doing UI now"*), and agent research into Finale's stepper vs Sibelius's list is why.
+   * 🏁 **The five preset buttons and the `⇅ Stepper…` button are GONE (2026-08-28, his call:**
+   * *"now that the key signature menu is ready i think we can get rid of the key pallete in the dev
+   * shell"*). They were the temporary door for a feature with no UI (docs/key-signature-plan.md §6),
+   * and the fate written into that block has arrived: **Insert ▸ Key Signature, or `K`**, opens the
+   * real dialog, and its stepper reaches all fifteen circle-of-fifths signatures — a superset of the
+   * five presets — through `bus.keySignature`, which lands on the very `pressKeySignature` those
+   * buttons called. Nothing moved but the door. Same rule the barline and lines rows went out under
+   * (see the note below this block for the argument in full).
    *
-   * ⭐ **The `fifths` column is the useful part.** Each row is one call to the eventual
-   * `keyFromFifths(n)` — the CLASSICAL CONSTRUCTOR, not a second model: a traditional key signature
-   * is an ordered list of altered letters that happens to be in cycle-of-fifths order, and the
-   * integer only names it (`utils/keySignature.ts` argues this at length; ⛔ do not reintroduce
-   * `fifths` as storage). So when P1 lands, this table stops being a placeholder and becomes five
-   * arguments, unchanged.
+   * ⛔ **WHY `✕` STAYS, and it is not sentiment.** Delete on a selected signature is the real removal
+   * (`shortcutWiring`, which reverts the bar to the key before it, on every staff the highlight lit).
+   * It needs INK to click — and a stored key change can have none:
    *
-   * ⚠️ C major is in the list on purpose. It is the row that catches the two rules an empty
-   * signature has to obey — it PRINTS NOTHING where a key is in force, and it must print CANCELLING
-   * NATURALS at a change TO it — and a palette that only offered keys with ink would never ask.
+   *  - **atonal at bar 1** — nothing before it to cancel, so nothing is drawn;
+   *  - **atonal, or C major, after a key that had no accidentals** — the cancellation is a set
+   *    difference, and there is nothing to take back.
+   *
+   * ⚠️ The Atonal row shipped the same day (`windows/keySignatureWindow`), so the editor can now
+   * AUTHOR both of those, which makes this button MORE necessary than it was this morning, not less.
+   * ⏭️ Its real successor is the **SIGNPOST** — the mark MuseScore draws where a change has no glyphs
+   * of its own (plan §5). The day that exists, this goes and the `Key:` group with it.
    */
-  const KEY_PALETTE: ReadonlyArray<{ label: string; fifths: number; title: string }> = [
-    { label: 'C', fifths: 0, title: 'C major — no sharps, no flats' },
-    { label: 'G', fifths: 1, title: 'G major — 1 sharp (F♯)' },
-    { label: 'F', fifths: -1, title: 'F major — 1 flat (B♭)' },
-    { label: 'D', fifths: 2, title: 'D major — 2 sharps (F♯ C♯)' },
-    { label: 'E♭', fifths: -3, title: 'E♭ major — 3 flats (B♭ E♭ A♭)' },
-  ]
   const keyBox = group('Key:')
-  for (const { label, fifths, title } of KEY_PALETTE) {
-    // ⭐⭐ **P5: the button ARMS, the SCORE places.** It used to write at "the selected measure box,
-    // else bar 1" — a targeting rule the plan marked PROVISIONAL and told the next agent not to
-    // mistake for a design. It is gone: `pressKeySignature` is the palette bargain every row in this
-    // editor shares (a selection applies, nothing selected arms, a re-press disarms), and an armed
-    // key is placed by a click on the bar you want it in, ghost and all.
-    //
-    // ⭐ `keyFromFifths` is the CLASSICAL CONSTRUCTOR the `fifths` column was always an argument for.
-    action(keyBox, label, `${title} — 🔧 arms the key stamp; click a bar to place it (Ctrl = that staff only)`,
-      () => getEngine() !== null,
-      () => palette.pressKeySignature(keyFromFifths(fifths)))
-  }
-  // ⛔ THE ONE DOOR P5 DID NOT REPLACE, and it is here for a reason worth reading: `setKeyAt`
-  // normalizes, so "revert this bar to the key before it" is a different verb from "set C major"
-  // — and the real door for it is Delete on the SELECTED signature, which needs the signature to
-  // have ink to click. A C-major change has NONE (the first element whose valid state is zero
-  // glyphs), so until the SIGNPOST is drawn this button is the only way to take one back (plan §5).
+  // ⭐ Not the same verb as "set C major": `setKeyAt` normalizes, so writing the key already in force
+  // stores nothing, while this REMOVES the change stored here and lets the bar inherit again.
   // ⭐ Bar 1 is removable too (his report, 2026-08-28) — `keyOps.removeKeyAt` says why MuseScore's
   // refusal there does not transfer to a model that stores open/atonal explicitly.
   action(keyBox, '✕', 'Remove the key change at the selected bar (else bar 1) — 🔧 the inkless-key door; otherwise use Delete on the signature',
@@ -344,18 +322,6 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
         + ` | ${removed ? 'REMOVED' : 'nothing stored here'}`)
       if (removed) renderScore()
     })
-  // …and THE KEY SIGNATURE WINDOW, beside the five buttons it is an alternative to. It was a sketch
-  // in `dev/` until 2026-08-28 and is the real dialog now (`windows/keySignatureWindow`): a Finale-
-  // style stepper — ▲ a sharp, ▼ a flat — against Sibelius's enumerated list, which spends
-  // thirty-one cells on one degree of freedom. Its OK arms through `bus.keySignature`, the same door
-  // `pressKeySignature` these buttons call, so the two cannot drift.
-  //
-  // ⚠️ The window has a REAL door now — Insert ▸ Key Signature, or K (his ask, 2026-08-28) — so by
-  // the rule the barline and lines rows went out under, this button has nothing left to earn. It is
-  // kept only while the dialog is being iterated on, beside the five stub buttons it will outlive:
-  // ⏭️ when the `Key:` group goes, this goes with it and nothing is lost (same command, two doors).
-  action(keyBox, '⇅ Stepper…', 'Key Signature — a stepper along the circle of fifths; OK arms the key, click a bar to place it',
-    () => true, () => { openKeySignatureWindow(windows) })
   row.appendChild(keyBox)
 
   // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a

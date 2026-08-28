@@ -627,6 +627,22 @@ so the shape exists.
 
 ## 6. The dev palette (throwaway, on purpose)
 
+🏁 **DELETED 2026-08-28, all but the `✕` — the fate written below arrived.** His call: *"now that the
+key signature menu is ready i think we can get rid of the key pallete in the dev shell"*. The five
+preset buttons and the `⇅ Stepper…` button are gone; **Insert ▸ Key Signature / `K`** reaches all
+fifteen circle-of-fifths signatures (a superset of the presets) through the same
+`pressKeySignature`, so nothing moved but the door — the rule the barline and lines rows went out
+under.
+
+⛔ **`✕` stays, and not out of sentiment.** Delete on a selected signature is the real removal, and it
+needs INK to click; a stored key change can have none — **atonal at bar 1** (nothing before it to
+cancel), or **atonal / C major after a key with no accidentals** (a cancellation is a set difference).
+⚠️ The Atonal row shipped the same day, so the editor can now AUTHOR both, which makes this button
+*more* necessary than it was that morning. ⏭️ Its successor is the **SIGNPOST** (§5); the day that
+exists, the `Key:` group goes with it.
+
+The record of what it was, kept because the argument still applies to the next scaffolded palette:
+
 ✅ **BUILT 2026-08-27, as STUBS** — before P1, so the door exists before there is anything behind it:
 
 - **`Key:` group in `dev/devToolbar.ts`** — five buttons, C · G · F · D · E♭. ⭐ Each row is
