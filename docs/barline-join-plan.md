@@ -1,13 +1,18 @@
 # Continuous barlines — joining the staves of a system
 
-**Status: ✅ P1 BUILT (2026-08-28) — the line is drawn; nothing can be edited yet.** P2 (the squares)
-and P3 (the drag) are open. The research is `docs/barline-join-research.md` (three agents,
-2026-08-28, sourced) — ⛔ read it before re-asking any question below; do not re-run it.
+**Status: ✅ P1 + P2 + P3 BUILT (2026-08-28) — the whole gesture works.** Select a barline, and one
+blue square appears at the end of the line you pressed; pull it past the middle of the gap and the
+gap FLIPS — an unjoined one joins, a joined one comes apart. ⏭️ What is left is §7 and P4 (the
+per-boundary mix, Mensurstrich, instrument-aware defaults). The research is
+`docs/barline-join-research.md` (three agents, 2026-08-28, sourced) — ⛔ read it before re-asking any
+question below; do not re-run it.
 
-**What P1 put on disk:** `StaffInfo.barlineJoinBelow` · `engine/models/barlineJoin.ts` (the resolver
-+ the write) · `engine/rendering/barlineGap.ts` (the ink) · one call at each of `renderBarlines`'
-three draw sites · `HighlightController` lighting gap ink with the sign's ·
-`MusicEngine.setBarlineJoinBelow(staffIndex, on)`, which is the only way to join anything today.
+**What is on disk:** `StaffInfo.barlineJoinBelow` · `engine/models/barlineJoin.ts` (the resolver +
+the write) · `engine/rendering/barlineGap.ts` (the ink) · one call at each of `renderBarlines`' three
+draw sites · `HighlightController` lighting gap ink with the sign's, and painting the square ·
+`interactions/elements/barlineJoinHandles.ts` (where the square is, what a press grabbed, what the
+cursor then means) · `MouseController`'s `barlineJoin` drag · `MusicEngine.setBarlineJoinBelow` +
+`barlineJoinsBelow` + `previewBarlineJoinBelow` / `commitBarlineJoin`.
 
 ⭐ **Read against the CODE on 2026-08-28, and the corrections are folded in where they belong** (§1's
 constants, §2.1's affordance count, §2.3's default, §2.4's `staffId`, §3's drawing hazards, §4's
@@ -95,9 +100,30 @@ the day the per-boundary mix arrives it arrives as a **MODIFIER on this same ges
 MuseScore's Ctrl+drag (`barline.cpp:675`, already in the research). ⭐ So P3 leaves Ctrl+drag
 unclaimed rather than discovering later that it is spoken for.
 
-- **Drag AWAY from the staff (down from a bottom square, up from a top square) = JOIN that gap.**
-- **Drag BACK TOWARD the staff = DISJOIN it.** ⭐ His requirement, stated when the gesture was:
-  *"important disjoint should be also managed here"* — one square, both directions, no second control.
+🚨🚨 **THE DRAG FLIPS THE STATE — ⛔ IT DOES NOT SET AN ABSOLUTE ONE.** His rule, 2026-08-28, from the
+running app: *"somehow the gesture should be oposite to the state… i have two staves, go to the first
+and go down and join, correct; then if i go to the second and go up i should be able to disjoin cause
+is already joined"*. ⭐ **And it is what makes every square live**: the first build read the pointer
+absolutely (past the middle = joined), so a square on an already-joined gap did **nothing at all**
+when pulled — the answer was already `true`. A handle you can see must do something when you pull it.
+
+| grabbed square, gap was | pulled past the middle |
+|---|---|
+| not joined | **joins** |
+| joined | **disjoins** |
+
+- ✅ **HOW FAR: PAST THE MIDDLE OF THE GAP** (P3, built 2026-08-28). ⭐ The music's own geometry is the
+  threshold, so there is no constant to tune and no dead zone to pick: the grabbed end has crossed
+  most of the space it would fill, or it has not. ⚠️ It is also **more forgiving than either
+  reference** — Sibelius and MuseScore want the handle dragged the whole way onto the next staff —
+  and forgiving in the direction that costs nothing, since a mistaken join is one drag back.
+  ⛔ **And no time threshold**, unlike every other handle drag here: the decision is a POSITION and
+  not a delta, so a press that never moves is still on its own side of the middle and a click cannot
+  flip anything.
+- **Coming back before the middle restores what was there**, so a drag can always be called off by
+  returning to where it started. ⭐ That is where his earlier *"important disjoint should be also
+  managed here"* landed: ONE square still does both directions, but the pair is **pull to flip /
+  come back to cancel** rather than the *away joins, back disjoins* that sketch guessed.
 - The squares appear **only while the barline is selected**, like every other handle here.
 
 **⛔ THE BAR-WIDTH DRAG IS UNCHANGED.** Drag the LINE sideways → bar width, exactly as today. Drag the
@@ -368,7 +394,7 @@ Lusk — three hits, none about barlines), so its rules would have to come from 
 |---|---|---|
 | **P1** ✅ **BUILT** | The resolver (§2.4) + the gap segment DRAWN, in its own module + the model write path it needs to be visible at all. No squares, no drag. | ✅ A JOINED two-staff score shows continuous barlines and an unjoined one is untouched; a repeat's dots stay per staff; a small staff's join is not distorted; the gap ink is findable under the id the selection highlight looks up and carries `data-half`; an `invisible` one is tinted, not black. 6 e2e + 13 unit, and ⭐ **no existing test moved** — the default being OFF is what makes P1 inert until asked for. |
 | **P2** ✅ **BUILT** | The square, PAINTED on a selected barline — the highlight's own node + registry entry, the pre-step's target. No drag. | ✅ **ONE square, at the staff and END that were pressed** (§1, his rule); none where that end has no gap, none at N=1, none for a `repeatStart` selection; it centres on the sign's INK and looks the same joined or not; the entry is keyed by the staff ABOVE the gap and comes off with the highlight layer. `interactions/elements/barlineJoinHandles.ts` + `HighlightController.applyBarlineJoinHandles` + `SelectedElement.barline.staff/staffEnd`. 21 unit tests; 5546 green. |
-| **P3** | The DRAG — join and disjoin, writing `barlineJoinBelow` for the whole score, one undo entry, a live preview. | Dragging the bottom square down joins; dragging it back disjoins; the width drag still behaves identically; **Ctrl+drag stays unclaimed** (§2.1). |
+| **P3** ✅ **BUILT** | The DRAG — join and disjoin, writing `barlineJoinBelow` for the whole score, one undo entry, a live preview. | ✅ Pulling the square past the gap's middle FLIPS that gap (⭐ *"the gesture should be oposite to the state"* — an already-joined gap comes apart, which an absolute reading could not do); coming back before the middle cancels; every frame is a PREVIEW and the drop commits **once, and only if the gap ended up different** (a crossing that came back files nothing); the press selects nothing, so the barline stays picked and the square stays on screen; the width drag is untouched; **Ctrl+drag stays unclaimed** (§2.1). `MouseController.armBarlineJoinDrag/handleBarlineJoinDrag/endBarlineJoinDrag` + `MusicEngine.previewBarlineJoinBelow`/`commitBarlineJoin`/`barlineJoinsBelow` + `barlineJoinGrabAt`/`joinedAtPointer`. ⛔ `__barlines.join()` is **deleted** — the square is the door now. 5562 unit + 263 e2e. |
 | **P4** | ⏭️ **NOT THIS PLAN** — the contemporary mix (per-boundary exceptions), Mensurstrich, the vocal default, the wings rule. | — |
 
 ---

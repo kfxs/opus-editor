@@ -2,6 +2,7 @@ import { dbg, debugEnabled } from '@/utils/debug'
 import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
+import { barlineJoinsBelow } from './models/barlineJoin'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
 import type { Stop as TempoStop } from './models/tempoOps'
@@ -766,6 +767,41 @@ export class MusicEngine {
     if (!this.scoreModel.setBarlineJoinBelow(staffId, on)) return false
     this.saveOnly(`Staff ${staffIndex} barline join ${on ? 'on' : 'off'}`)
     return true
+  }
+
+  /** **Does the barline run into the gap below this staff?** — {@link setBarlineJoinBelow}'s read
+   *  half, which the join DRAG needs to know what it started from. One line onto
+   *  `engine/models/barlineJoin`, whose signature carries the boundary from day one. */
+  barlineJoinsBelow(staffIndex: number, measureNumber?: number): boolean {
+    const score = this.scoreModel.getScore()
+    return barlineJoinsBelow(score, staffIdAtIndex(score, staffIndex), measureNumber)
+  }
+
+  /**
+   * Live (preview) join/disjoin of the gap below a staff — writes the model but records **no undo**;
+   * {@link commitBarlineJoin} records the whole drag once on the drop. The pair is
+   * `previewStaffSpacing` / `commitStaffSpacing`'s, one gesture over (docs/barline-join-plan.md P3).
+   *
+   * ⚠️ **`markModelDirty` only when it actually changed** — the trap `previewBarWidth` records in
+   * full: `modelDirty` means *the model has moved on from the picture*, and only a render clears it,
+   * so a no-op frame that marks it leaves it dirty forever (the caller repaints on `true` alone).
+   * Here the model's own write already answers false for a value that was there.
+   *
+   * @returns true if the stored join changed — the caller's "did this drag do anything" flag.
+   */
+  previewBarlineJoinBelow(staffIndex: number, on: boolean): boolean {
+    const staffId = staffIdAtIndex(this.scoreModel.getScore(), staffIndex)
+    if (staffId === undefined) return false
+    if (!this.scoreModel.setBarlineJoinBelow(staffId, on)) return false
+    this.markModelDirty()
+    return true
+  }
+
+  /** Record ONE undo entry after a join drag settles (a drag whose every frame went through
+   *  {@link previewBarlineJoinBelow}). ⭐ `commitPreviewed`, ⛔ never `commit`: a join is INK and
+   *  changes no note's time, so there is no playback to resync. */
+  commitBarlineJoin(): void {
+    this.commitPreviewed('Barline join')
   }
 
   // ============ Barline types (the final bar, the two repeats) ============

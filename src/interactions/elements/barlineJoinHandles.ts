@@ -1,7 +1,11 @@
 /**
  * ⭐⭐ **THE JOIN SQUARE OF A SELECTED BARLINE** — the handle that joins the gap between two staves,
- * or disjoins it. P2 of docs/barline-join-plan.md; the drag that grabs one is P3, and ⛔ none of it is
- * here yet.
+ * or disjoins it: where it is (P2), what a press on it grabbed and what the cursor then means (P3).
+ * docs/barline-join-plan.md.
+ *
+ * ⚠️ The gesture's *plumbing* is `MouseController`'s — arming, previewing, the one undo entry on the
+ * drop — and everything here is a pure function of the registry and a coordinate, which is what lets
+ * the whole rule be tested without a mouse.
  *
  * ## ⭐⭐ A SQUARE EXISTS EXACTLY WHERE A GAP EXISTS — and ONE is offered, at the end you pressed
  *
@@ -19,9 +23,8 @@
  * ⚠️ **TWO squares, ONE gap, ONE stored fact.** Both squares of a gap name the same
  * `barlineJoinBelow` on the same upper staff (`engine/models/barlineJoin`) — which is why either end
  * of either staff can author the same join, and why {@link BarlineJoinHandle.staffAbove} is the
- * model's key while `side` is only ever which staff's edge the square hangs off. P3 reads `side` for
- * the DIRECTION of the drag (away from the staff joins, back toward it disjoins); ⛔ nothing reads it
- * as an identity.
+ * model's key while `side` is only ever which staff's edge the square hangs off — which way is
+ * "pull" for the drag ({@link joinedAtPointer}). ⛔ Nothing reads it as an identity.
  *
  * ## ⭐ The look does NOT say whether the gap is joined
  *
@@ -64,9 +67,10 @@ export interface BarlineJoinHandle {
   y: number
 }
 
-/** What this needs of the {@link ElementRegistry}: the barline boxes, and which bars were painted. */
+/** What this needs of the {@link ElementRegistry}: the barline boxes, the SQUARES the highlight
+ *  registered, and which bars were painted. */
 export interface BarlineBoxRegistry {
-  getByType(type: 'barline'): ReadonlyArray<{
+  getByType(type: 'barline' | 'barline-join'): ReadonlyArray<{
     measure?: number
     staff?: number
     bbox: { x: number; y: number; width: number; height: number }
@@ -196,4 +200,102 @@ function strokeCentrePx(kind: BarlineSignKind): number {
   const left = Math.min(...strokes.map(s => s.x))
   const right = Math.max(...strokes.map(s => s.x + s.width))
   return ((left + right) / 2) * STAFF_SPACE_PX
+}
+
+/**
+ * ⭐⭐ **WHAT A PRESS ON A SQUARE GRABBED** — everything the join drag needs, captured once at the
+ * grab, off the picture the user actually grabbed (the bar-width drag's rule, and for its reason:
+ * the picture moves under the gesture).
+ */
+export interface BarlineJoinGrab {
+  /** The boundary — the bar the line ENDS. */
+  measure: number
+  /** The gap, named by the staff above it: `barlineJoinBelow`'s own key. */
+  staffAbove: number
+  /** Halfway down the gap, in SVG y. ⭐ **The whole gesture is this one number**: the barline is
+   *  joined when the pointer has dragged the grabbed end PAST the middle of the space it would
+   *  cross, and disjoined when it comes back. No threshold to tune, no dead zone to pick — the
+   *  music's own geometry says how far "onto the next staff" is. ⭐ It is also forgiving where the
+   *  references are not: Sibelius and MuseScore want the handle dragged the WHOLE way onto the next
+   *  staff, and half of it is enough here. */
+  gapMidY: number
+  /** Which way is AWAY from the grabbed square's own staff — true for a square hanging UNDER a
+   *  staff, false for one sitting OVER the staff below. ⚠️ Read from the square's own y against the
+   *  gap's middle, ⛔ never stored on the registry entry: the two squares of a gap write the same
+   *  fact, so the entry names the GAP, and where a square sits is what says which end of it is. */
+  awayIsDown: boolean
+}
+
+/**
+ * ⭐⭐ **THE PRESS THAT ARMS THE JOIN DRAG** — run as a PRE-STEP in `MouseController`, before the hit
+ * chain, exactly where the hairpin's, the slur's, the ottava's and the pedal's handle presses run
+ * (docs/barline-join-plan.md §4, P3).
+ *
+ * ⚠️ **Before the chain, and it must be**: the square sits ~10 px into the gap, inside the PADDED
+ * staff band (`staffBand`'s 12 px) that the staff-spacing drag claims, and that gesture is armed in
+ * the same block. A handle you can SEE has to win the press over whatever it happens to overlap.
+ *
+ * ⭐ **It arms and selects NOTHING.** A join square is not a selectable element — the barline stays
+ * selected right through the drag, which is exactly what keeps the square painted while you hold it.
+ *
+ * The squares are only in the registry while a barline is selected (the highlight pass puts them
+ * there), so no "is a barline selected" guard is needed — nothing else can be hit.
+ */
+export function barlineJoinGrabAt(
+  registry: BarlineBoxRegistry,
+  x: number,
+  y: number,
+): BarlineJoinGrab | null {
+  const hit = registry.getByType('barline-join').find(el => {
+    const b = el.bbox
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+  })
+  if (!hit || hit.measure === undefined || hit.staff === undefined) return null
+
+  const boxOf = (staff: number) => registry.getByType('barline')
+    .find(el => el.measure === hit.measure && (el.staff ?? 0) === staff)
+  const above = boxOf(hit.staff)
+  const below = boxOf(hit.staff + 1)
+  // ⛔ No fallback midpoint. Without both staves there is no gap to measure, and a guessed one would
+  // make the drag flip at a place the music never named (*a guessing fallback gets believed*).
+  if (!above || !below) return null
+
+  const gapMidY = (above.bbox.y + above.bbox.height + below.bbox.y) / 2
+  return {
+    measure: hit.measure,
+    staffAbove: hit.staff,
+    gapMidY,
+    awayIsDown: hit.bbox.y + hit.bbox.height / 2 < gapMidY,
+  }
+}
+
+/**
+ * **Is the gap joined, for a pointer at `y`?** — the drag's whole decision, and a pure function of
+ * the grab, the cursor and what the gap was when it was grabbed.
+ *
+ * ⭐⭐ **THE DRAG FLIPS THE STATE; IT DOES NOT SET AN ABSOLUTE ONE.** His rule, 2026-08-28: *"somehow
+ * the gesture should be oposite to the state… i have two staves, go to the first and go down and
+ * join, correct; then if i go to the second and go up i should be able to disjoin cause is already
+ * joined"*. So the pointer crossing the middle of the gap means **"do the thing"**, and what the
+ * thing is depends on what is there:
+ *
+ * | at the grab | dragged past the middle |
+ * |---|---|
+ * | not joined | **joins** |
+ * | joined | **disjoins** |
+ *
+ * ⭐ **Which is what makes every square live.** Under the absolute reading, a square on an
+ * already-joined gap did nothing at all when dragged away from its staff — the answer was already
+ * `true` — and his report is exactly that: he went to the second staff, dragged up, and nothing
+ * happened. A handle you can see must do something when you pull it.
+ *
+ * ⭐ **And it keeps ONE square doing both directions**, his requirement from the first sketch
+ * (*"important disjoint should be also managed here"*) — just not the way that sketch guessed: the
+ * pair is now *pull to flip* / *come back to cancel*, rather than *away joins, back disjoins*.
+ * Coming back before the middle restores exactly what was there, so a drag can always be called off
+ * by returning to where it started.
+ */
+export function joinedAtPointer(grab: BarlineJoinGrab, y: number, wasJoined: boolean): boolean {
+  const crossed = grab.awayIsDown ? y > grab.gapMidY : y < grab.gapMidY
+  return crossed ? !wasJoined : wasJoined
 }

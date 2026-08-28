@@ -40,6 +40,7 @@ import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
 import { ottavaStaffSpacePx } from './ottavaLane'
+import { barlineJoinGrabAt, joinedAtPointer, type BarlineJoinGrab } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
 import { pedalStaffSpacePx } from './pedalLane'
 import { dragPedalBody, dragPedalEndpoint } from './pedalWalk'
@@ -139,7 +140,7 @@ interface MarkEndSession {
  * branches that each `return`, so a press arms one thing or nothing.
  */
 type DragKind =
-  | 'note' | 'barWidth' | 'clef' | 'staffSpacing'
+  | 'note' | 'barWidth' | 'barlineJoin' | 'clef' | 'staffSpacing'
   | 'slurHandle' | 'slurEndpoint' | 'slurBody'
   | 'dynamic' | 'tempo'
   | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
@@ -249,6 +250,18 @@ export class MouseController {
   private barWidthDragLineKey: string | null = null
   /** True once the press has left the dead zone; until then it is still just a click. */
   private isDraggingBarWidth = false
+
+  // --- Barline JOIN drag (docs/barline-join-plan.md P3) ---
+  /**
+   * The gap being joined or disjoined, captured ONCE at the grab ({@link BarlineJoinGrab}) — plus
+   * what it was when the press landed and what is applied right now.
+   *
+   * ⭐ **`baseline` and `current` are what keep the drop honest**: a gesture that crosses the gap's
+   * middle and comes back has written twice and changed nothing, and committing that would file an
+   * undo entry for a score that never moved. ⛔ Not `changed`-on-any-write, which is what the two
+   * drags beside this one can afford because their values are continuous.
+   */
+  private barlineJoinDrag: (BarlineJoinGrab & { baseline: boolean; current: boolean }) | null = null
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
   private draggedClefMeasure: number | null = null      // current measure (updates during drag)
@@ -1249,6 +1262,19 @@ export class MouseController {
       event.preventDefault()
       return
     }
+    // …and a press on a selected barline's JOIN SQUARE arms the join drag (P3 of
+    // docs/barline-join-plan.md). ⚠️ **BEFORE the staff-spacing drag, and it must be**: the square
+    // sits 10 px into the gap, inside the 12 px PADDED band (`./staffBand`) that gesture claims, and
+    // a handle you can SEE has to win the press over whatever it happens to overlap.
+    //
+    // ⭐ It selects NOTHING — the barline stays selected right through the drag, which is what keeps
+    // the square painted while you hold it.
+    const joinGrab = barlineJoinGrabAt(registry, coords.x, coords.y)
+    if (joinGrab) {
+      this.armBarlineJoinDrag(joinGrab)
+      event.preventDefault()
+      return
+    }
     if (this.handleStaffSpacingMouseDown(ctx)) return
 
     // Whatever was picked is gone; the handlers below each set what this press picked instead.
@@ -2012,6 +2038,74 @@ export class MouseController {
     return true
   }
 
+  /**
+   * ⭐⭐ **ARM THE JOIN DRAG** — a press on a selected barline's blue square, in the gap between two
+   * staves (docs/barline-join-plan.md P3). Everything the gesture needs is fixed at this moment
+   * (`barlineJoinGrabAt`), the bar-width drag's rule: the picture moves under the gesture, so a
+   * geometry re-measured per frame would be judging the drag against a score the drag is changing.
+   *
+   * ⛔ **No selection change, and no time threshold.** The barline stays selected (that is what keeps
+   * the square on screen), and there is no dead zone to tune because the decision is a POSITION and
+   * not a delta: a press that never moves is still on its own side of the gap's middle, so a click
+   * cannot flip anything.
+   */
+  private armBarlineJoinDrag(grab: BarlineJoinGrab): void {
+    const engine = this.getEngine()
+    const baseline = engine?.barlineJoinsBelow(grab.staffAbove, grab.measure) ?? false
+    this.activeDrag = { kind: 'barlineJoin', end: () => this.endBarlineJoinDrag() }
+    this.barlineJoinDrag = { ...grab, baseline, current: baseline }
+    dbg(`Barline join drag ready | bar ${grab.measure} · gap below staff ${grab.staffAbove} · `
+      + `${baseline ? 'joined' : 'not joined'} · middle of the gap at y ${grab.gapMidY.toFixed(1)} · `
+      + `away is ${grab.awayIsDown ? 'down' : 'up'}`)
+  }
+
+  /**
+   * ⭐⭐ **THE JOIN DRAG** — pull the grabbed end PAST THE MIDDLE of the gap and the gap **flips**:
+   * an unjoined one joins, a joined one comes apart. Come back before the middle and it is as it was.
+   *
+   * ⭐ **The gesture is relative to the STATE, ⛔ not an absolute position** — his rule, 2026-08-28:
+   * *"the gesture should be oposite to the state"*, reported from exactly the case that proves it
+   * (grab the lower staff's square on an already-joined gap, pull away, and the absolute reading had
+   * nothing to do). {@link joinedAtPointer} carries the table.
+   *
+   * ⭐ **The preview IS the picture.** `previewBarlineJoinBelow` writes the model without undo and
+   * `renderScore` redraws, so what you see mid-drag is drawn by exactly the code that will draw it
+   * after the drop (`previewBarWidth`'s pattern — ⛔ never `GhostRenderer`, which is the table of what
+   * an armed MARKING TOOL will do to the next click).
+   *
+   * ⚠️ Writes only on a CHANGE of the boolean, so a drag that wanders inside one half of the gap
+   * costs no renders at all.
+   */
+  private handleBarlineJoinDrag(engine: MusicEngine, y: number): boolean {
+    const drag = this.barlineJoinDrag
+    if (this.activeDrag?.kind !== 'barlineJoin' || !drag) return false
+    const want = joinedAtPointer(drag, y, drag.baseline)
+    if (want === drag.current) return true
+    if (engine.previewBarlineJoinBelow(drag.staffAbove, want)) {
+      drag.current = want
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * Finish a join drag: ONE undo entry, and only if the gap ended up different from how it started.
+   *
+   * ⭐ A gesture that crossed the middle and came back wrote twice and changed nothing — committing
+   * that would file an undo step for a score that never moved. ⛔ So the test is `current !==
+   * baseline`, never "did anything get written".
+   */
+  private endBarlineJoinDrag(): void {
+    const engine = this.getEngine()
+    const drag = this.barlineJoinDrag
+    if (engine && drag && drag.current !== drag.baseline) {
+      engine.commitBarlineJoin()
+      dbg(`Barline join ${drag.current ? 'made' : 'removed'} | gap below staff ${drag.staffAbove}`)
+    }
+    this.activeDrag = null
+    this.barlineJoinDrag = null
+  }
+
   /** Finish a staff-spacing drag: record one undo entry if it actually moved, then reset. */
   private endStaffSpacingDrag(): void {
     const engine = this.getEngine()
@@ -2694,6 +2788,7 @@ export class MouseController {
     if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
+    if (this.handleBarlineJoinDrag(engine, y)) return
     if (this.handleClefDrag(engine, x, y)) return
 
     // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is

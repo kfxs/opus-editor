@@ -8,7 +8,10 @@
  * (jsdom measures every glyph 0×0 — these boxes are all fixtures, so nothing here reads a font).
  */
 import { describe, it, expect } from 'vitest'
-import { barlineJoinHandles, BARLINE_JOIN_HANDLE_GAP_PX, type BarlineBoxRegistry } from './barlineJoinHandles'
+import {
+  barlineJoinHandles, barlineJoinGrabAt, joinedAtPointer,
+  BARLINE_JOIN_HANDLE_GAP_PX, type BarlineBoxRegistry,
+} from './barlineJoinHandles'
 
 const MEASURE = 5
 /** A staff's five lines: 40 px tall, at the default 150 px stride, so the gap below one is 110 px. */
@@ -25,13 +28,26 @@ function box(staff: number, top: number, boundary = 300, signLeft = 0) {
   }
 }
 
+type Box = ReturnType<typeof box>
+
 function registryOf(
-  boxes: ReturnType<typeof box>[],
+  boxes: Box[],
   unpainted: number[] = [],
+  squares: Box[] = [],
 ): BarlineBoxRegistry {
   return {
-    getByType: () => boxes,
+    getByType: type => (type === 'barline' ? boxes : squares),
     isPainted: (_measure, staff) => !unpainted.includes(staff),
+  }
+}
+
+/** A registered join square, as the highlight pass writes it: hit half-extent 9 around its centre,
+ *  and `staff` is the staff ABOVE the gap it names. */
+function square(staffAbove: number, centreY: number, centreX = 300): Box {
+  return {
+    measure: MEASURE,
+    staff: staffAbove,
+    bbox: { x: centreX - 9, y: centreY - 9, width: 18, height: 18 },
   }
 }
 
@@ -146,5 +162,63 @@ describe('the join squares of a selected barline', () => {
     const other = { ...box(0, 100), measure: MEASURE + 1 }
     const handles = barlineJoinHandles(registryOf([...staves(2), other]), MEASURE, 'plain')
     expect(handles).toHaveLength(2)
+  })
+})
+
+describe('the press that grabs a join square', () => {
+  // Two staves at the default stride: the gap runs 140…250, so its MIDDLE is 195.
+  const two = staves(2)
+  const grabAt = (squares: Box[], x: number, y: number) =>
+    barlineJoinGrabAt(registryOf(two, [], squares), x, y)
+
+  it('names the GAP and measures its middle from the two staves', () => {
+    const grab = grabAt([square(0, 150)], 300, 150)
+    expect(grab).toEqual({ measure: MEASURE, staffAbove: 0, gapMidY: 195, awayIsDown: true })
+  })
+
+  it('⭐ reads which way is AWAY from the square\'s own y, ⛔ not from a stored side', () => {
+    // The same gap, grabbed by the square sitting OVER the lower staff: away is UP.
+    expect(grabAt([square(0, 240)], 300, 240)?.awayIsDown).toBe(false)
+  })
+
+  it('declines a press that is not on a square', () => {
+    expect(grabAt([square(0, 150)], 300, 200)).toBeNull()
+    expect(grabAt([], 300, 150)).toBeNull()
+  })
+
+  it('⛔ declines rather than guessing a middle when a staff of the gap was not drawn', () => {
+    const oneStaff = registryOf(staves(1), [], [square(0, 150)])
+    expect(barlineJoinGrabAt(oneStaff, 300, 150)).toBeNull()
+  })
+})
+
+describe('what the cursor means once a square is grabbed', () => {
+  const grab = { measure: MEASURE, staffAbove: 0, gapMidY: 195, awayIsDown: true }
+
+  it('⭐⭐ pulling past the middle of the gap FLIPS it — his rule, ⛔ not an absolute state', () => {
+    // *"the gesture should be oposite to the state"* (2026-08-28). An unjoined gap joins…
+    expect(joinedAtPointer(grab, 196, false)).toBe(true)
+    // …and a joined one comes apart, which is the case that reported it: under the absolute reading
+    // a square on a joined gap did nothing at all when pulled.
+    expect(joinedAtPointer(grab, 196, true)).toBe(false)
+  })
+
+  it('coming back before the middle restores what was there — a drag can be called off', () => {
+    expect(joinedAtPointer(grab, 194, false)).toBe(false)
+    expect(joinedAtPointer(grab, 194, true)).toBe(true)
+  })
+
+  it('⭐ HIS CASE, both staves of one gap: join from the top staff, disjoin from the bottom one', () => {
+    // Grab the square UNDER staff 0 on an unjoined gap and pull DOWN past the middle → joined.
+    expect(joinedAtPointer(grab, 220, false)).toBe(true)
+    // Then grab the square OVER staff 1 — same gap, now joined — and pull UP past the middle.
+    const fromBelow = { ...grab, awayIsDown: false }
+    expect(joinedAtPointer(fromBelow, 170, true)).toBe(false)
+  })
+
+  it('the square OVER the lower staff reads the same rule mirrored', () => {
+    const up = { ...grab, awayIsDown: false }
+    expect(joinedAtPointer(up, 194, false)).toBe(true)   // pulled UP, past the middle → flipped
+    expect(joinedAtPointer(up, 196, false)).toBe(false)  // still on its own side → unchanged
   })
 })
