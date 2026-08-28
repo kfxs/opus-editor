@@ -670,12 +670,14 @@ from outside.
    selection highlight. ⚠️ It must be a pure function of the score and **not** a lookup into the pass:
    `ElementRegistry` registers a barline box for **every bar in the score, painted or not**
    (`ElementRegistry.ts:692`), so registration happens for bars the pass never draws.
-2. **The HIT-BOX.** `VexFlowRenderer.ts:3317` registers `{ x: x + width - 2, width: 4 }`, padded ±4
-   by `interactions/elements/barline.ts`. A final bar is ~1.0 space of ink and a repeat ~1.5
-   (≈9–14 px at our staff size), so the grab target must grow with the SIGN — leftward now, per §6.1
-   — or the drag starts off the ink. ⚠️ Keep `hitsNoteOrRestBody`: a fatter box must not start
-   stealing the bar's last note, and it now reaches further into that note's column than the ±4 pad
-   ever did.
+2. **The HIT-BOX.** `VexFlowRenderer` registers `{ x: boundary − straddle − signExtent.left,
+   width: 2·straddle + signExtent.left }` (`BARLINE_BOX_STRADDLE_PX` = 2), padded by
+   `BARLINE_PRESS_PAD_PX` = 6 **on both axes** in `interactions/elements/barline.ts` (2026-08-28: it
+   was ±4 horizontal and none vertical — his *"the area should be le[s]s tight… i mean in general"*).
+   A final bar is ~1.0 space of ink and a repeat ~1.5 (≈9–14 px at our staff size), so the grab target
+   must grow with the SIGN — leftward now, per §6.1 — or the drag starts off the ink. ⚠️ Keep
+   `hitsNoteOrRestBody`: a fatter box must not start stealing the bar's last note, and it now reaches
+   further into that note's column than the old ±4 pad ever did.
 3. **`measuredBarlineGapRoom`** (`engine/layout/measuredRoom.ts:150`) measures the drawn distance from
    the last column to the bar's `noteEndX` and floors it at `pairPadding(note|rest, 'barline')`. With
    a leftward-growing sign that floor must become **`keep + signExtent.left`**, or `Shift+←` will

@@ -128,11 +128,17 @@ when pulled — the answer was already `true`. A handle you can see must do some
 
 **⛔ THE BAR-WIDTH DRAG IS UNCHANGED.** Drag the LINE sideways → bar width, exactly as today. Drag the
 SQUARE → the join. Two targets, so there is no threshold to tune, no axis lock, no modifier needed to
-tell the two apart, and no way for a width edit to join two staves by accident. ⭐ The barline's own
-hit box already leaves the square's ground vacant: `elements/barline.ts` pads it **horizontally
-only** — *"the box is exactly the five staff lines, and a click in the gap between two staves is on
-no barline at all"*. (§2.1 does reserve a modifier, for a different question: not *which gesture*,
-but *how many boundaries it reaches*.) ⚠️ That separation is the reason for the square:
+tell the two apart, and no way for a width edit to join two staves by accident. ⭐ And nothing has to
+keep the square's ground vacant: it is armed in a `MouseController` **PRE-STEP**, before the hit chain
+runs at all, so the square wins any press it covers.
+⚠️ **The barline's own box grew a little in both directions on 2026-08-28** — `BARLINE_PRESS_PAD_PX`
+= 6, his report: *"the point is dificult to reach, it is very co[mm]on that is confused by a whole
+meassure selection… not too much but a tyni"*, and *"i mean in general"*. That retired the older rule
+(*"pads horizontally only — a click in the gap between two staves is on no barline at all"*), which
+was written when the gap held nothing and the ends of a line meant nothing to aim at. ⛔ It is still
+far short of the staff band's 12 px, so a press out in the gap reaches the music behind it.
+(§2.1 does reserve a modifier, for a different question: not *which gesture*, but *how many
+boundaries it reaches*.) ⚠️ That separation is the reason for the square:
 the two gestures author **different categories** — width is INK (an engraving override), a join is a
 MUSICAL statement about the ensemble — and a mis-swipe must not cross that line.
 

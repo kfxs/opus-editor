@@ -91,6 +91,29 @@ describe('BARLINE_ELEMENT.hit', () => {
       { kind: 'barline', measure: 5, staff: 2, staffEnd: 'bottom' }, expect.any(Function))
   })
 
+  it('⭐ answers a press a few px PAST the staff\'s last line — his *"less tight"*, 2026-08-28', () => {
+    // A barline is 1.6 px of ink and the ENDS of it are where the hand aims (the join squares live
+    // there). Missing by two pixels used to fall through to the bar behind it and select the whole
+    // measure. ⚠️ The box is y 0…40, so 40 + a little is still the line.
+    const above = deps()
+    expect(BARLINE_ELEMENT.hit(ctx([box(5, 100)], [5], 101, -4), above)).toBe(true)
+    expect(above.pick).toHaveBeenCalledWith(
+      { kind: 'barline', measure: 5, staff: 0, staffEnd: 'top' }, expect.any(Function))
+
+    const below = deps()
+    expect(BARLINE_ELEMENT.hit(ctx([box(5, 100)], [5], 101, 44), below)).toBe(true)
+    expect(below.pick).toHaveBeenCalledWith(
+      { kind: 'barline', measure: 5, staff: 0, staffEnd: 'bottom' }, expect.any(Function))
+  })
+
+  it('⛔ …and a press well clear of the line is still on no barline at all', () => {
+    // ⛔ Not the staff BAND's 12 px (`../staffBand`): a press out in the gap between two staves
+    // reaches the music behind it, exactly as before.
+    const d = deps()
+    expect(BARLINE_ELEMENT.hit(ctx([box(5, 100)], [5], 101, 60), d)).toBe(false)
+    expect(d.pick).not.toHaveBeenCalled()
+  })
+
   it('arms the width drag on the bar it actually selected', () => {
     const d = deps()
     BARLINE_ELEMENT.hit(ctx([box(9, 100), box(40, 101)], [40], 102), d)
