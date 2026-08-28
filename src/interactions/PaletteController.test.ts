@@ -152,6 +152,99 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
   })
 })
 
+/**
+ * ⭐⭐ **THE SAME BARGAIN FOR THE CLEF** — his report, 2026-08-28: *"i select a measure then i go to
+ * clef and select a clef, i expect to apply the clef in the beguining of the measure, instead i have
+ * stamp clef (stamp clef should be done only when there is no element to aply selected)"*.
+ *
+ * ⚠️ The one thing that is NOT the meter's: a clef carries the box's **STAFF**. A meter is one
+ * statement for the system; a clef is stated per staff, so applying to all of them would overwrite a
+ * hand nobody selected.
+ */
+describe('PaletteController — the Clef window applies to a SELECTED bar', () => {
+  let state: EditorState
+  let set: { measure: number; clef: string; staff: number }[]
+  let courtesy: { measure: number; staff: number; on: boolean }[]
+  let palette: PaletteController
+
+  beforeEach(() => {
+    state = createEditorState()
+    set = []
+    courtesy = []
+    const engine = {
+      setClef: (measure: number, clef: string, staff: number) => {
+        set.push({ measure, clef, staff })
+        return true
+      },
+      setCautionaryClefAllowed: (measure: number, staff: number, on: boolean) => {
+        courtesy.push({ measure, staff, on })
+      },
+    }
+    palette = new PaletteController(
+      () => engine as never,
+      state,
+      vi.fn(),
+      vi.fn(),
+      () => null,
+      vi.fn(),
+    )
+  })
+
+  const boxBars = (anchor: number, focus: number, staff = 0, style: 'single' | 'double' = 'single'): void => {
+    state.selectedTool = 'selection'
+    state.selectedElement = { kind: 'measureRange', anchor, focus, staff, boxStyle: style }
+  }
+
+  it('applies at the boxed bar’s BEGINNING instead of arming the stamp', () => {
+    boxBars(3, 3)
+    palette.armClef('bass')
+    expect(set).toEqual([{ measure: 3, clef: 'bass', staff: 0 }])
+    expect(armedTool(state, 'clef')).toBeNull() // nothing left waiting for a click
+    expect(state.selectedTool).toBe('selection') // and we did not jump into entry mode
+  })
+
+  it('⭐ takes the box’s OWN STAFF — a clef is stated per staff, ⛔ unlike a meter', () => {
+    boxBars(2, 2, 1)
+    palette.armClef('treble')
+    expect(set).toEqual([{ measure: 2, clef: 'treble', staff: 1 }])
+  })
+
+  it('lands on the LOWEST bar of a span — a clef change is a point event, not a fill', () => {
+    boxBars(8, 5)
+    palette.armClef('alto')
+    expect(set.map(s => s.measure)).toEqual([5])
+  })
+
+  it('takes the DOUBLE box too — both gestures name a bar out loud', () => {
+    boxBars(2, 2, 0, 'double')
+    palette.armClef('tenor')
+    expect(set.map(s => s.measure)).toEqual([2])
+  })
+
+  it('carries the dialog’s courtesy opinion, and only when it has one', () => {
+    boxBars(4, 4)
+    palette.armClef('bass', false)
+    expect(courtesy).toEqual([{ measure: 4, staff: 0, on: false }])
+
+    courtesy.length = 0
+    palette.armClef('bass')
+    expect(courtesy, 'no opinion, no write — the stamp’s own rule').toEqual([])
+  })
+
+  it('keeps the box up, so you can see the bar you just changed', () => {
+    boxBars(4, 4)
+    palette.armClef('bass')
+    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, boxStyle: 'single' })
+  })
+
+  it('arms the stamp as before when NO bar is selected', () => {
+    palette.armClef('bass', true)
+    expect(set).toEqual([])
+    expect(armedTool(state, 'clef')?.clef).toBe('bass')
+    expect(state.selectedTool).toBe('entry')
+  })
+})
+
 describe('PaletteController — dynamics tool', () => {
   let state: EditorState
   let palette: PaletteController

@@ -1917,7 +1917,52 @@ export class PaletteController {
    * silently disarm it.
    */
   armClef(clef: Clef, cautionary?: boolean): void {
+    // ⭐⭐ **A BAR ALREADY CHOSEN ANSWERS THE QUESTION ARMING EXISTS TO ASK** — his report,
+    // 2026-08-28: *"i select a measure then i go to clef and select a clef, i expect to apply the
+    // clef in the beguining of the measure, instead i have stamp clef (stamp clef should be done
+    // only when there is no element to aply selected)"*. Arming means *I know WHAT, not WHERE — the
+    // next click will say*; with a bar boxed, where is already said, and making him click it again
+    // is the dialog ignoring what it was handed. {@link armTimeSignature} struck this bargain first
+    // and this is deliberately its twin, ⛔ not a variation: two dialogs that answer a selection
+    // differently is a rule nobody can learn.
+    const target = this.selectedClefTarget()
+    if (target !== null) {
+      const engine = this.getEngine()
+      if (!engine) return
+      // ⭐ Beat 0 — the bar's OPENING clef, drawn at the barline, which is what *"the beguining of
+      // the measure"* means. ⛔ Never the nearest slot: that is the CLICK's question
+      // (`MouseController.placeClefAtClick` resolves it from the pointer's x), and there is no
+      // pointer here.
+      const changed = engine.setClef(target.measure, clef, target.staff)
+      // The courtesy decision belongs to the change just made — the stamp's own rule, so a dialog
+      // that carried an opinion applies it whichever way the clef arrives.
+      if (cautionary !== undefined) engine.setCautionaryClefAllowed(target.measure, target.staff, cautionary)
+      dbg(changed
+        ? `✓ Clef set on the selected bar | ${clef} at measure ${target.measure} staff ${target.staff}`
+        : `Clef unchanged at the selected measure ${target.measure} staff ${target.staff}`)
+      // The box STAYS, {@link armTimeSignature}'s rule: you are looking at the bar you just changed.
+      this.renderScore()
+      return
+    }
     this.armMarkingTool({ kind: 'clef', clef, cautionary })
+  }
+
+  /**
+   * The (bar, staff) a clef-shaped choice should land on when a bar is already boxed, or null to
+   * fall back to arming.
+   *
+   * ⚠️ **It carries a STAFF where {@link selectedMeasureTarget} does not, and that is the whole
+   * difference between the two marks**: a meter is one statement for the system, while a clef is
+   * stated by each staff for itself (`types/music.ts` on `Measure.clefs`) — so the box's own staff
+   * is the answer, and applying to every staff would overwrite a hand the user never selected.
+   *
+   * The LOWEST bar of a span, for the meter's reason: a clef change is a point event that runs until
+   * the next one, so "bass clef on bars 5–8" is a bass clef at bar 5.
+   */
+  private selectedClefTarget(): { measure: number; staff: number } | null {
+    const range = selectedOf(this.state, 'measureRange')
+    if (!range || this.state.selectedTool !== 'selection') return null
+    return { measure: Math.min(range.anchor, range.focus), staff: range.staff }
   }
 
   /**

@@ -121,9 +121,20 @@ gesture, and arms when nothing is selected — with the window publishing the sa
 and the controller resolving it against the selection. Same reason as here: a dialog that cannot see
 the score must not be the thing deciding what OK means.
 
-(⏭️ The **Clef** window still always arms. It should learn the same rule — the argument is identical,
-and there are now TWO worked examples — but a clef is anchored to a beat and a staff, not just a bar,
-so "the selected bar" is not the whole of its answer.)
+✅ **And the CLEF window learned it, 2026-08-28** — his report: *"i select a measure then i go to
+clef and select a clef, i expect to apply the clef in the beguining of the measure, instead i have
+stamp clef (**stamp clef should be done only when there is no element to aply selected**)"*. The
+paragraph that stood here predicted the rule and named the one thing it could not settle — a clef is
+anchored to a beat and a staff, not just a bar — so, answered:
+
+- **The BEAT is 0**, the bar's opening clef drawn at the barline, which is what *"the beginning of
+  the measure"* means. There is nothing to guess: the nearest-slot question is the CLICK's, resolved
+  from the pointer's x (`MouseController.placeClefAtClick`), and a dialog has no pointer.
+- **The STAFF is the box's own** (`PaletteController.selectedClefTarget`, which is why it is not
+  `selectedMeasureTarget`). A meter is one statement for the system; a clef is stated per staff, so
+  applying to every staff would overwrite a hand nobody selected.
+- Everything else is this section verbatim — the lowest bar of a span, either box style, the box
+  stays up, and the courtesy flag is written only when the dialog carried an opinion.
 
 Three things travel with the armed meter, all of them properties of the change about to be made,
 none of which has anywhere else to wait until the target bar is known:
