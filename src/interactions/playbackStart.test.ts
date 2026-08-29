@@ -110,7 +110,7 @@ describe('playbackStartMeasure', () => {
   })
 
   it('a range of bars starts at its first, whichever end was dragged from', () => {
-    state.selectedElement = { kind: 'measureRange', anchor: 7, focus: 4, staff: 0, boxStyle: 'single' }
+    state.selectedElement = { kind: 'measureRange', anchor: 7, focus: 4, staff: 0, focusStaff: 0, boxStyle: 'single' }
     expect(playbackStartMeasure(state, engine)).toBe(4)
   })
 

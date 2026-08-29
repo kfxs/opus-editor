@@ -33,7 +33,7 @@ let state: EditorState
 
 /** Select bar 1 on staff `staff` the way a plain click does (the SINGLE box). */
 function plainClickBar(staff: number): void {
-  state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 1, staff, boxStyle: 'single' }
+  state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 1, staff, focusStaff: staff, boxStyle: 'single' }
 }
 
 beforeEach(() => {
@@ -54,7 +54,7 @@ describe('staffSizeTarget — which staff a press acts on', () => {
 
   it('is nothing with no selection, and nothing under a Ctrl+Shift measure RANGE box', () => {
     expect(staffSizeTarget(state, engine)).toBeNull()
-    state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 2, staff: 0, boxStyle: 'double' }
+    state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 2, staff: 0, focusStaff: 0, boxStyle: 'double' }
     expect(staffSizeTarget(state, engine)).toBeNull()
   })
 

@@ -150,3 +150,49 @@ and — since they overlap — unclickable. Handles are for editing ONE mark.
 - `selectedItems` is still note-anchored: the anchor and Shift pivot are always notes, so a group
   of marks alone has no anchor for note navigation or the palette to follow (it selects and deletes
   fine).
+
+---
+
+## ⭐⭐ A PASSAGE IS A RECTANGLE — bars × STAVES (2026-08-29)
+
+🚨 **His report, with the console log**, on a two-staff score: click a bar on staff 0, then
+shift-click the same bar on staff 1 to select *"the measure but in both staves"* —
+
+```
+✓ Measure selected (plain click) | measure:6 staff:0 | items:1
+✓ Range extended to Rest | id:5600b4d0… | size:2        ← went to the NOTE-range path
+```
+
+⛔ **Not a dispatch bug — it was not REPRESENTABLE.** `SelectedElement`'s `measureRange` carried
+`staff: number`, ONE staff, so a measure selection spanning two staves had nowhere to be put. The
+press then fell to the note fallback, and it landed there at all only because **an empty bar's whole
+rest sits mid-bar, inside that fallback's 30 px reach** — ⛔ so no amount of tuning that radius could
+ever have fixed it.
+
+⚠️ **And "all staves" already existed, in the wrong half of the model.** `boxStyle: 'double'` (the
+Ctrl+Shift box) has always painted staff 0 → the last staff — but it is *"purely visual: NO objects
+are selected"*. So the two things a user wants together — **the whole column AND its contents** —
+were split across two gestures and neither did both.
+
+### What changed
+
+- **`measureRange` gained `focusStaff`.** `staff` keeps its meaning as the **ANCHOR** staff, because
+  ~21 sites read it for a per-staff operation (the size toggle, the add-staff-above/below reference,
+  the key and barline stamps) and every one is correct for the single-staff case it was written for.
+  ⭐ Making the field **required** made the compiler list every construction site — 12 of them, all
+  found at once. ⏭️ Each per-staff reader can grow to the whole span when its own feature wants it.
+- **`interactions/measurePassage.ts`** — normalise both axes (`passageOf`) and answer *what is
+  inside* (`passageNoteIds`). ⭐ **It is a module because it has three callers**: the plain click, the
+  shift extension, and the highlight. *The highlight promises the copy* — the box drawn and the ids a
+  Delete or Copy acts on now come from **one** answer, ⛔ not from two `staffOf` filters that agree
+  by inspection until one of them drifts.
+- **Shift alone, on a showing passage, EXTENDS it** — in bars and staves at once, anchor fixed, focus
+  wherever the click landed. ⭐ Sibelius's rule, which is the model he named for this feature. It runs
+  **before** the note-range branch and before the dismissal that used to clear the box.
+- **The painter spans `fromStaff → toStaff`** for a `single` box instead of one staff.
+
+### ⚠️ Still one-staff, and each is its own decision
+
+`boxStyle: 'double'` keeps its all-staves span and its no-objects rule — it is the *add/remove
+measure* gesture, a different operation. And the per-staff readers listed above still act on the
+anchor staff alone; ⏭️ widening any of them to the passage is that feature's call, not this one's.

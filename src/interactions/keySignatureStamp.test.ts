@@ -137,7 +137,7 @@ describe('keySignatureStamp', () => {
 
     it('a measure BOX names its first bar, system-wide — a box names bars, not a row of signs', () => {
       state.selectedTool = 'selection'
-      state.selectedElement = { kind: 'measureRange', anchor: 5, focus: 3, staff: 0, boxStyle: 'double' }
+      state.selectedElement = { kind: 'measureRange', anchor: 5, focus: 3, staff: 0, focusStaff: 0, boxStyle: 'double' }
       expect(keyTargetFromSelection(state)).toEqual({ measure: 3, staff: null })
     })
 

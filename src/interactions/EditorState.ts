@@ -695,7 +695,31 @@ export type SelectedElement =
    * enclosed dynamics/slurs) ARE selected — so this one rides alongside a populated
    * `selectedItems`, like the articulation anchor above.
    */
-  | { kind: 'measureRange'; anchor: number; focus: number; staff: number; boxStyle: 'single' | 'double' }
+  | {
+    kind: 'measureRange'
+    anchor: number
+    focus: number
+    /**
+     * ⭐ The ANCHOR staff — where the selection started. ⛔ Not "the staff this is about" in the
+     * plural case: a passage may span several, and {@link focusStaff} is the other end.
+     *
+     * ⚠️ It keeps the anchor's meaning because ~21 sites read it for a PER-STAFF operation (the
+     * size toggle, the add-staff-above/below reference, the key and barline stamps), and every one
+     * of them is correct for the single-staff case it was written for. ⏭️ Each can grow to the
+     * whole span when its own feature wants it — `interactions/measurePassage.passageOf` is the
+     * one place that normalises the two ends.
+     */
+    staff: number
+    /**
+     * ⭐⭐ The other end of the STAFF span — equal to {@link staff} for a one-staff selection.
+     *
+     * 🚨 His report, 2026-08-29: click a bar on staff 0, shift-click it on staff 1, expecting *"the
+     * measure but in both staves"*. It fell through to the note-range path because a two-staff
+     * measure selection was **not representable** — this field is what makes it so.
+     */
+    focusStaff: number
+    boxStyle: 'single' | 'double'
+  }
 
 /**
  * The selected element IF it is of `kind`, else null — the read half of {@link SelectedElement},

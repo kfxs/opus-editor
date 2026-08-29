@@ -114,7 +114,7 @@ describe('flipSelection — the `x` key', () => {
     // fall-through is deliberate and pre-dates the table: a `measureRange` rides ALONGSIDE a
     // populated note selection (it is what a measure box-select leaves behind), so the notes under
     // the box are what `x` is about.
-    state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 1, staff: 0, boxStyle: 'single' }
+    state.selectedElement = { kind: 'measureRange', anchor: 1, focus: 1, staff: 0, focusStaff: 0, boxStyle: 'single' }
     expect(flipSelection(state, engine), 'a kind absent from the table, and no notes under it').toBe(false)
   })
 

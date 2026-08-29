@@ -50,7 +50,7 @@ describe('barlineStamp', () => {
   }
   const selectMeasures = (anchor: number, focus: number) => {
     state.selectedTool = 'selection'
-    state.selectedElement = { kind: 'measureRange', anchor, focus, staff: 0, boxStyle: 'double' }
+    state.selectedElement = { kind: 'measureRange', anchor, focus, staff: 0, focusStaff: 0, boxStyle: 'double' }
   }
 
   beforeEach(() => {
@@ -125,7 +125,7 @@ describe('barlineStamp', () => {
 
     it('a SINGLE box counts as well as the double one — both name bars out loud', () => {
       state.selectedTool = 'selection'
-      state.selectedElement = { kind: 'measureRange', anchor: 2, focus: 3, staff: 0, boxStyle: 'single' }
+      state.selectedElement = { kind: 'measureRange', anchor: 2, focus: 3, staff: 0, focusStaff: 0, boxStyle: 'single' }
       expect(barlineTargetFromSelection(state, 'final')).toEqual({ endsMeasure: 3 })
     })
 

@@ -52,7 +52,8 @@ import { markAtPress } from './markGroupSelect'
 /** Placeholder for a Ctrl+Alt+T tempo mark — exists only so the mark renders a measurable box; the
  *  edit box opens blank over it and an empty commit deletes it, so it is never actually seen. */
 const DEFAULT_TEMPO_TEXT = 'Tempo'
-import { measureSelectableNotes, beatToFrac } from '../utils/musicUtils'
+import { beatToFrac } from '../utils/musicUtils'
+import { passageOf, passageNoteIds, spansStaves } from './measurePassage'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -1317,6 +1318,24 @@ export class MouseController {
     // Any modifier press dismisses a showing measure box — but capture the current span
     // FIRST so a Ctrl+Shift+click can extend from its anchor (re-set in selectMeasureBox).
     const prevRange = selectedOf(this.state, 'measureRange')
+
+    // ⭐⭐ **SHIFT ALONE, ON A SHOWING PASSAGE, EXTENDS THE PASSAGE** — in BARS and in STAVES.
+    //
+    // 🚨 His report, 2026-08-29: with two staves, click a bar on staff 0 then shift-click the bar
+    // below to select *"the measure but in both staves"*. It went to the note-range path instead
+    // (`Range extended to Rest`) — twice over: the passage was cleared two lines below before
+    // anything could extend it, and a two-staff measure selection had no way to be REPRESENTED
+    // (`measurePassage.ts`). ⚠️ Note it landed on a rest at all only because an empty bar's whole
+    // rest sits mid-bar, inside the note fallback's 30 px reach — so this could never have been
+    // fixed by nudging that radius.
+    //
+    // ⭐ Sibelius's rule, which is the one he named for this feature: with a passage selected,
+    //   shift-click grows the passage. ⛔ Before the note-range branch, and before the dismissal
+    //   below, so it wins over both.
+    if (range && !additive && prevRange?.boxStyle === 'single' && this.extendPassage(ctx, prevRange)) {
+      return true
+    }
+
     if (prevRange) this.state.selectedElement = null
 
     // Ctrl+Shift+click on empty space inside a bar → Sibelius-style blue measure box.
@@ -1434,12 +1453,58 @@ export class MouseController {
       // Which stacked staff the click fell on — the reference staff the "Staff:" add-above/below
       // buttons insert relative to (multi-staff Phase 4). N=1 → always 0.
       staff: engine.getElementRegistry().staffIndexAtY(measure, y),
+      // ⭐ The `double` box has ALWAYS covered every staff (its painter spans staff 0 → the last),
+      //   because add/remove-measure is a system-wide edit. `focusStaff` now says so in the model
+      //   rather than only in the drawing — ⛔ it is not a new behaviour.
+      focusStaff: (engine.getScore().staves?.length ?? 1) - 1,
       boxStyle: 'double',
     }
     dbg(
       lo === hi
         ? `✓ Measure box selected | measure:${measure}`
         : `✓ Measure span selected | measures:${lo}–${hi} (grew to include ${measure})`,
+    )
+    this.render.renderScore()
+    return true
+  }
+
+  /**
+   * ⭐⭐ **Grow a showing passage to the clicked bar AND the clicked staff.**
+   *
+   * The anchor end never moves; the focus end goes wherever the shift-click landed, on both axes at
+   * once — so one gesture reaches a bar to the right, a staff below, or both. ⭐ Re-gathering through
+   * {@link passageNoteIds} is what keeps *the highlight promising the copy*: the box the user sees
+   * and the ids a Delete or a Copy will act on come from **one** answer.
+   *
+   * @returns false when the press was not inside any bar, so the caller keeps looking (a shift-click
+   *   out in the margin should still fall through to whatever else wants it).
+   */
+  private extendPassage(
+    ctx: MouseDownCtx,
+    prev: { anchor: number; focus: number; staff: number; focusStaff: number },
+  ): boolean {
+    const { engine, x, y } = ctx
+    const measure = engine.pixelToMeasure({ x, y })
+    const rect = engine.getMeasureRect(measure)
+    // ⚠️ `pixelToMeasure` falls back to the nearest bar on the line, so a press far from any bar
+    //    would otherwise silently extend to it. The rect test is what makes the gesture local.
+    if (!rect || x < rect.x || x >= rect.x + rect.width) return false
+
+    const registry = engine.getElementRegistry()
+    const staff = registry.staffIndexAtY(measure, y)
+    const span = { anchor: prev.anchor, focus: measure, staff: prev.staff, focusStaff: staff }
+    const passage = passageOf(span)
+    const score = engine.getScore()
+    const ids = passageNoteIds(score, passage)
+    if (!ids.length) return false
+
+    this.selection.selectMeasureContents(ids)
+    // AFTER selectMeasureContents, which clears the element selection on its way through.
+    this.state.selectedElement = { kind: 'measureRange', ...span, boxStyle: 'single' }
+    dbg(
+      `✓ Passage extended | measures:${passage.fromMeasure}–${passage.toMeasure} ` +
+      `staves:${passage.fromStaff}–${passage.toStaff}` +
+      `${spansStaves(passage) ? ' (multi-staff)' : ''} | items:${this.state.selectedItems.size}`,
     )
     this.render.renderScore()
     return true
@@ -1483,14 +1548,13 @@ export class MouseController {
     // of six for a bar holding a fan — so the delete or copy that followed took one note out of
     // six. In beat order, so the anchor is genuinely the bar's last event (`measureSelectableNotes`).
     // These ids drive both the selection and the enclosed-dynamics/slurs pull.
-    const ids = measureSelectableNotes(m, score).filter(n => staffOf(n) === staff).map(n => n.id)
+    const span = { anchor: measure, focus: measure, staff, focusStaff: staff }
+    const ids = passageNoteIds(score, passageOf(span))
     if (!ids.length) return false
 
     this.selection.selectMeasureContents(ids)
     // AFTER selectMeasureContents, which clears the element selection on its way through.
-    this.state.selectedElement = {
-      kind: 'measureRange', anchor: measure, focus: measure, staff, boxStyle: 'single',
-    }
+    this.state.selectedElement = { kind: 'measureRange', ...span, boxStyle: 'single' }
     dbg(`✓ Measure selected (plain click) | measure:${measure} staff:${staff} | items:${this.state.selectedItems.size}`)
     return true
   }

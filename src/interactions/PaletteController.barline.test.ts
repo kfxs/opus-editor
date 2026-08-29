@@ -93,7 +93,7 @@ describe('PaletteController — the barline row', () => {
 
   it('⭐ with a MEASURE RANGE selected, applies on the sign\'s own side of it', () => {
     state.selectedTool = 'selection'
-    state.selectedElement = { kind: 'measureRange', anchor: 2, focus: 4, staff: 0, boxStyle: 'double' }
+    state.selectedElement = { kind: 'measureRange', anchor: 2, focus: 4, staff: 0, focusStaff: 0, boxStyle: 'double' }
 
     palette.pressBarline('repeatStart')
     palette.pressBarline('repeatEnd')

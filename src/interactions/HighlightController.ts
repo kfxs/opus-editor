@@ -1,3 +1,4 @@
+import { passageOf } from './measurePassage'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { EditorState } from './EditorState'
 import { keySignatureStavesAt } from './keySignatureScope'
@@ -214,15 +215,20 @@ export class HighlightController {
     //     system-wide edit that hits all staves. At N=1 both collapse to the single staff.
     const isSingle = range.boxStyle === 'single'
     const staffCount = engine.getScore().staves?.length ?? 1
+    // ⭐⭐ **A `single` passage spans a RANGE of staves, not one** — his report of 2026-08-29, where a
+    //   shift-click onto the staff below had to select *"the measure but in both staves"*. The two
+    //   ends are normalised by `interactions/measurePassage`, the same call the selection itself
+    //   makes, so ⭐ **the box and the selected ids cannot disagree** — the highlight promises the copy.
+    const passage = passageOf(range)
     const lines = new Map<number, { left: number; right: number; top: number; bottom: number }>()
     for (let m = lo; m <= hi; m++) {
       const rect = engine.getMeasureRect(m)
       if (!rect) continue
       const topGeo = isSingle
-        ? (registry.getStaffGeometry(m, range.staff) ?? registry.getStaffGeometry(m, 0))
+        ? (registry.getStaffGeometry(m, passage.fromStaff) ?? registry.getStaffGeometry(m, 0))
         : registry.getStaffGeometry(m, 0)
       const bottomGeo = isSingle
-        ? topGeo
+        ? (registry.getStaffGeometry(m, passage.toStaff) ?? topGeo)
         : (registry.getStaffGeometry(m, staffCount - 1) ?? registry.getStaffGeometry(m, 0))
       if (!topGeo || !bottomGeo) continue
       const top = topGeo.lineYPositions[0] - 12

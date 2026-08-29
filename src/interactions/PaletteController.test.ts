@@ -112,7 +112,7 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
 
   const boxBars = (anchor: number, focus: number, style: 'single' | 'double' = 'single'): void => {
     state.selectedTool = 'selection'
-    state.selectedElement = { kind: 'measureRange', anchor, focus, staff: 0, boxStyle: style }
+    state.selectedElement = { kind: 'measureRange', anchor, focus, staff: 0, focusStaff: 0, boxStyle: style }
   }
 
   it('applies to the boxed bar instead of arming', () => {
@@ -141,7 +141,7 @@ describe('PaletteController — the Time Signature window applies to a SELECTED 
   it('keeps the box up, so you can see the bar you just changed', () => {
     boxBars(4, 4)
     palette.armTimeSignature({ numerator: 2, denominator: 4 }, true, null)
-    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, boxStyle: 'single' })
+    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, focusStaff: 0, boxStyle: 'single' })
   })
 
   it('arms as before when NO bar is selected', () => {
@@ -214,7 +214,7 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
 
   const boxBars = (anchor: number, focus: number, staff = 0, style: 'single' | 'double' = 'single'): void => {
     state.selectedTool = 'selection'
-    state.selectedElement = { kind: 'measureRange', anchor, focus, staff, boxStyle: style }
+    state.selectedElement = { kind: 'measureRange', anchor, focus, staff, focusStaff: staff, boxStyle: style }
   }
 
   it('applies at the boxed bar’s BEGINNING instead of arming the stamp', () => {
@@ -256,7 +256,7 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
   it('keeps the box up, so you can see the bar you just changed', () => {
     boxBars(4, 4)
     palette.armClef('bass')
-    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, boxStyle: 'single' })
+    expect(state.selectedElement).toEqual({ kind: 'measureRange', anchor: 4, focus: 4, staff: 0, focusStaff: 0, boxStyle: 'single' })
   })
 
   it('arms the stamp as before when NOTHING is selected', () => {
