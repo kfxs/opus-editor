@@ -109,6 +109,17 @@ const GLYPHS = {
 
   // Tremolo strokes — one glyph per stroke count, ours going to three.
   tremolos: ['tremolo1', 'tremolo2', 'tremolo3'],
+
+  // ⭐⭐ THE LEFT-EDGE SIGNS (`docs/braces-brackets-plan.md` P4a). The piano BRACE, plus the four
+  //   alternates — ⭐ all five are exactly 4 staff spaces tall and differ ONLY in width, so the
+  //   choice between them is *"which drawing holds its weight when stretched this far"*, not
+  //   *"how wide should it be"* (the depth is CONSTANT — Gould p. 331, measured).
+  //   ⚠️ `brace` is the glyph the version skew shows on: 0.320 spaces in the OTF we ship against
+  //   0.277 in the metadata we vendor, ~13% apart, and the cross-check below is what says so out
+  //   loud. ⛔ The four alternates live in SMuFL's `optionalGlyphs`, not in `glyphnames.json`, and
+  //   the metadata publishes no box for them — so they are measured off the font alone.
+  //   The BRACKET's own terminals are already above under `barlineWings`; its rod is a rectangle.
+  groupings: ['brace', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat'],
 }
 
 const REQUESTED = Object.values(GLYPHS).flat()
@@ -159,10 +170,18 @@ const missing = []
 const empty = []
 const disagreements = []
 
+/**
+ * ⭐ Name → codepoint, and it takes TWO maps. `glyphnames.json` is SMuFL's recommended set;
+ * **stylistic alternates are not in it** — they live in the font metadata's `optionalGlyphs`
+ * (the brace variants at U+F400–F403). ⛔ Reaching them by hardcoding a codepoint here would put
+ * the one number this script exists to *read* back into the script.
+ */
+const codepointOf = name => glyphNames[name]?.codepoint ?? metadata.optionalGlyphs?.[name]?.codepoint
+
 for (const name of REQUESTED) {
-  const entry = glyphNames[name]
+  const entry = codepointOf(name) ? { codepoint: codepointOf(name) } : undefined
   if (!entry) {
-    missing.push(`${name} — no such name in glyphnames.json`)
+    missing.push(`${name} — no such name in glyphnames.json, nor in the metadata's optionalGlyphs`)
     continue
   }
   const codepoint = parseInt(entry.codepoint.replace('U+', ''), 16)
@@ -227,6 +246,25 @@ const notWeights = Object.entries(metadata.engravingDefaults)
   .map(([name, value]) => `${name} = ${JSON.stringify(value)}`)
 const names = Object.keys(boxes)
 
+/**
+ * ⭐⭐ **WHAT THE CROSS-CHECK FOUND, WRITTEN INTO THE FILE IT CHECKED.**
+ *
+ * ⛔ Not a fixed sentence. This header used to say *"found them identical to 0.001 spaces for all N
+ * glyphs"* whatever the run actually reported — so the first glyph that disagreed (`brace`, when the
+ * left-edge signs were added) left the file **asserting the opposite of its own run**. A comment that
+ * a reader can catch lying is worse than no comment: it teaches them to skip the next one
+ * (`docs/font-metrics-plan.md`, and the same lesson as `satisfies Record<keyof T, true>`).
+ */
+const crossCheckReport = disagreements.length === 0
+  ? ` * ⭐ All ${names.length} boxes agree to within 0.001 spaces, so the version skew is recorded\n` +
+    ` * rather than papered over — and the cross-check is what says it is harmless.`
+  : ` * 🚨 **${disagreements.length} of ${names.length} DISAGREE** — the rest are identical to within 0.001 spaces:\n` +
+    disagreements.map(d => ` *   · ${d}`).join('\n') + '\n' +
+    ` *\n * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph\n` +
+    ` * is listed above, ⛔ do not reach for the metadata's figure to "correct" it — it would describe\n` +
+    ` * a Bravura this editor does not ship.`
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** House style: single quotes, and an identifier-safe key is left bare. */
@@ -281,9 +319,10 @@ import type { GlyphBox } from './fontMetrics'
  *
  * ⚠️ **TWO versions, and they are not the same number.** The font file we ship and measure is
  * ${revision}; Steinberg's metadata, which supplies the anchors and the weights below, is
- * ${metadata.fontVersion}. The generator cross-checks every box against that metadata and (at the time
- * this was written) found them identical to 0.001 spaces for all ${names.length} glyphs — so the skew is
- * recorded rather than papered over, and the cross-check is what says it is harmless.
+ * ${metadata.fontVersion}. The generator cross-checks every box against that metadata, and this is what
+ * that check found on the run that wrote this file:
+ *
+${crossCheckReport}
  */
 export const BRAVURA = {
   name: ${str(metadata.fontName)},

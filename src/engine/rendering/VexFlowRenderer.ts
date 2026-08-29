@@ -10,8 +10,9 @@ import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
-import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
+import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
+import { renderSystemStarts } from './systemStart'
 import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
@@ -4041,26 +4042,16 @@ export class VexFlowRenderer {
 
     renderProbe().measuresRedrawn(redrawn, plans.length)
 
-    // Join the stacked staves into one system with a vertical line at the left edge of each line's
-    // first measure (grand-staff look). A single connecting line only — the brace/bracket grouping
-    // symbol (StaffGroup) is deferred (docs/multi-staff-plan.md §0). Connectors live at the SVG's
-    // top level, not inside a measure group, so they are torn down and redrawn every render — which
-    // is why a REUSED measure still has to keep its `Stave` around (see MeasureSnapshot).
-    if (staffList.length > 1) {
-      const byKey = new Map(placements.map(p => [measureGroupKey(p.measureNumber, p.staffIndex), p]))
-      const drawnKeys = new Set(groupKeys.filter((_, i) => draws[i]))
-      const bottomStaff = staffList.length - 1
-      for (const p of placements) {
-        if (!p.isFirstInLine || p.staffIndex !== 0) continue
-        const bottom = byKey.get(measureGroupKey(p.measureNumber, bottomStaff))
-        if (!bottom) continue
-        // A connector joins the TOP and BOTTOM staves of a system. Under vertical culling neither
-        // may be on screen while the middle of the system is, so it is drawn whenever *any* staff of
-        // its opening measure is — not when its own two endpoints happen to be.
-        if (this.cullWindow && !this.systemIsDrawn(p.measureNumber, staffList.length, drawnKeys)) continue
-        this.drawSystemConnector(p, bottom)
-      }
-    }
+    // ⭐⭐ **THE SIGNS AT A SYSTEM'S LEFT EDGE** — `./systemStart`, which owns both the drawing and
+    // the rule for *which* system edges get one. Today that is the systemic barline alone (the
+    // grand-staff look); ⏭️ the brace and the bracket join it there, ⛔ never here
+    // (docs/braces-brackets-plan.md P1). They live at the SVG's top level, not inside a measure
+    // group, so they are torn down and redrawn every render — which is why a REUSED measure still
+    // has to keep its `Stave` around (see MeasureSnapshot).
+    renderSystemStarts(
+      pass, placements, staffList.length,
+      this.cullWindow ? new Set(groupKeys.filter((_, i) => draws[i])) : null,
+    )
 
     // ⭐⭐ **THE BARLINES — ours, not VexFlow's** (docs/barline-types-plan.md §4.6). Every stave was
     // built with `setEndBarType(NONE)`, so every end line in the score is drawn here: the plain
@@ -4369,53 +4360,6 @@ export class VexFlowRenderer {
    *  knows (it owns `modelDirty`); see {@link layoutReusable} for why the default is `false`. */
   setLayoutReusable(reusable: boolean): void {
     this.layoutReusable = reusable
-  }
-
-  /**
-   * The single vertical line joining a system's top and bottom staves (the grand-staff look).
-   *
-   * ⛔ **Drawn by hand rather than with `StaveConnector`, and this is the one place in §4.3 where
-   * that is the answer.** Every other pass outside a measure group belongs to ONE staff, so it can
-   * be drawn inside that staff's own scale (`inStaffSpace`). A connector cannot: it runs from the
-   * top staff's first line to the bottom staff's last, and those two may be drawn at different
-   * sizes, so there is no single scale to put it in. It has to speak the SVG's coordinates, which
-   * means composing each end through its own staff's.
-   *
-   * The line itself is what VexFlow's `singleLeft` draws — `fillRect(x, topY, 1, height)`
-   * (staveconnector.js:70, :144) — so nothing is lost by drawing it: it is a rectangle, not an
-   * engraved glyph. Its width is deliberately NOT scaled; a system bracket belongs to the system,
-   * not to either staff's ink. It takes the same {@link THIN_BARLINE_PX} the barlines it joins do,
-   * so the join and the lines it joins read as one continuous stroke.
-   */
-  private drawSystemConnector(top: MeasurePlacement, bottom: MeasurePlacement): void {
-    const ctx = this.context
-    if (!ctx) return
-    const topY = top.stave.getYForLine(0) * top.scale
-    // `+ 1` for the bottom line's own thickness (`Tables.STAVE_LINE_THICKNESS`, what VexFlow adds
-    // here), in that staff's ink and so at its scale — otherwise the line stops a hair short of the
-    // staff it is joining.
-    const bottomY = (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
-    // The staves share an x (barlines align), and it is already in SVG coordinates on the
-    // placement — no need to take the scaled staff's word for it.
-    //
-    // ⚠️ Drawn inside a `stavebarline` group ON PURPOSE, though VexFlow is not drawing it: that is
-    // the handle `hintBarlines` collects, and a connector left outside it would be the one line of
-    // the system still landing between pixels while every barline it joins is crisp.
-    ctx.openGroup('stavebarline')
-    try {
-      ctx.fillRect(top.x, topY, THIN_BARLINE_PX, bottomY - topY)
-    } finally {
-      ctx.closeGroup()
-    }
-  }
-
-  /** Is any staff of this measure being painted? (The system connector's own two staves may both be
-   *  culled while the system is on screen — see the call site.) */
-  private systemIsDrawn(measureNumber: number, numStaves: number, drawnKeys: Set<string>): boolean {
-    for (let s = 0; s < numStaves; s++) {
-      if (drawnKeys.has(measureGroupKey(measureNumber, s))) return true
-    }
-    return false
   }
 
   /** Is this measure inside the window this render is painting? Tier 1 runs for it either way. */

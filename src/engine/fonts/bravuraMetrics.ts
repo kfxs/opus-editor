@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 65 of Bravura's 3434 glyphs: the ones the editor draws
+ * 70 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -20,9 +20,15 @@ import type { GlyphBox } from './fontMetrics'
  *
  * ⚠️ **TWO versions, and they are not the same number.** The font file we ship and measure is
  * 1.392; Steinberg's metadata, which supplies the anchors and the weights below, is
- * 1.481. The generator cross-checks every box against that metadata and (at the time
- * this was written) found them identical to 0.001 spaces for all 65 glyphs — so the skew is
- * recorded rather than papered over, and the cross-check is what says it is harmless.
+ * 1.481. The generator cross-checks every box against that metadata, and this is what
+ * that check found on the run that wrote this file:
+ *
+ * 🚨 **1 of 70 DISAGREE** — the rest are identical to within 0.001 spaces:
+ *   · brace — off by 0.051 spaces
+ *
+ * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
+ * is listed above, ⛔ do not reach for the metadata's figure to "correct" it — it would describe
+ * a Bravura this editor does not ship.
  */
 export const BRAVURA = {
   name: 'Bravura',
@@ -102,6 +108,11 @@ export type GlyphName =
   | 'tremolo1'
   | 'tremolo2'
   | 'tremolo3'
+  | 'brace'
+  | 'braceSmall'
+  | 'braceLarge'
+  | 'braceLarger'
+  | 'braceFlat'
 
 /** The ink each glyph draws, in staff spaces from its own origin. See {@link GlyphBox}. */
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
@@ -182,6 +193,12 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   tremolo1: { left: 0.6, right: 0.6, up: 0.376, down: 0.372, advance: 0.6 },
   tremolo2: { left: 0.604, right: 0.596, up: 0.748, down: 0.748, advance: 0.596 },
   tremolo3: { left: 0.6, right: 0.6, up: 1.112, down: 1.12, advance: 0.6 },
+  // groupings
+  brace: { left: -0.008, right: 0.328, up: 3.988, down: 0, advance: 0.336 },
+  braceSmall: { left: 0, right: 0.412, up: 3.988, down: 0, advance: 0.412 },
+  braceLarge: { left: 0, right: 0.268, up: 3.992, down: -0.004, advance: 0.268 },
+  braceLarger: { left: 0, right: 0.24, up: 3.988, down: 0, advance: 0.244 },
+  braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 },
 }
 
 /**
