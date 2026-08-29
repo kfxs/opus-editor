@@ -601,6 +601,12 @@ export class VexFlowRenderer {
    *  linear mode. Never persisted — see MusicEngine.linearStaffSpacing. */
   private linearStaffSpacing = new Map<string, number>()
 
+  /** ⭐ Does this render's score stack more than one staff — i.e. will `./systemStart` draw a
+   *  connector? Then the connector OWNS the line at a system's left edge and VexFlow must not draw
+   *  its own (see `buildStave`). A derived per-render value, set from the staff list; ⛔ not state. */
+  private systemHasConnector = false
+
+
   /** Take down whatever ghost is showing — every group named in {@link GHOST_GROUP_SELECTOR}, which
    *  is the list the ghost drawings themselves keep. O(1) in the score's size, which is the whole
    *  point of P4: hovering an invalid element, or leaving the canvas, used to cost a FULL render
@@ -2500,7 +2506,30 @@ export class VexFlowRenderer {
     // beginning of a repeated section, place the repeat marks afterwards"* — and Ross p. 147 gives
     // the same order as three numbered spacings. So the boundary keeps its own line and the repeat
     // stands after the clef, which is `BarlineRenderer.displacedRepeatX`.
-    if (!(measure.number === 1 || isFirstInLine)) stave.setBegBarType(Barline.type.NONE)
+    // ⭐⭐ **ONE OWNER PER LINE, AND AT A SYSTEM'S LEFT EDGE THAT OWNER IS `./systemStart`.**
+    //
+    // 🚨 **His report, 2026-08-29** (screenshot): *"what about the thin lines i see sometimes"* — the
+    // systemic barline reading THINNER where it crosses the gap between two staves than it does over
+    // them. Measured at the system's left edge, four rects and three of them the same line:
+    //
+    //   x=34 w=2 y=60  h=41   inside a measure group   ← VexFlow's begin barline, staff 0
+    //   x=34 w=2 y=165 h=41   inside a measure group   ← VexFlow's begin barline, staff 1
+    //   x=34 w=2 y=60  h=146  top level                ← the systemic connector, spanning both
+    //
+    // ⇒ **over each staff the ink is laid down TWICE and in the gap only ONCE.** Two coincident lines
+    // are not invisible — `barlineInk.hintBarlines`' own measurement — so the doubled part reads
+    // darker and the single part reads thin. ⭐ This is the SAME defect `./BarlineRenderer`'s header
+    // records for interior boundaries (*"every interior boundary was being drawn TWICE… materially
+    // darker"*), which it fixed with `setEndBarType(NONE)`; the system's LEFT edge was the one it
+    // left out, and it kept the bug.
+    //
+    // ⇒ A multi-staff system's opening bar suppresses VexFlow's begin barline too: the connector runs
+    // from the top staff's first line to the bottom staff's last, so it already covers every pixel
+    // VexFlow would have drawn, plus the gaps. ⛔ A SINGLE-staff score keeps VexFlow's — it has no
+    // connector, so suppressing there would erase the line entirely.
+    if (!(measure.number === 1 || isFirstInLine) || this.systemHasConnector) {
+      stave.setBegBarType(Barline.type.NONE)
+    }
 
     if (measure.number === 1 || isFirstInLine) {
       // Line start: full-size clef showing the effective clef for this measure
@@ -2540,6 +2569,17 @@ export class VexFlowRenderer {
     //   path reserves (`MeasureLayout`'s `sharedOverhead`), so the room and the drawing agree by
     //   construction — and `BarlineRenderer` then measures the displaced sign back from `noteStartX`,
     //   which is what this call sets.
+    // ⛔ **A GROUPING SIGN RESERVES NOTHING HERE, AND THAT IS A DECISION** — 2026-08-29. A bracket's
+    //   serif hooks RIGHT, over the systemic barline, so it does reach into the region in front of
+    //   the clef; the first fix pushed the whole header aside for it and he was right to reject it
+    //   (*"i dont think the position of the cleff is correct"*). ⭐ **Engravers do not move a clef
+    //   because a bracket is present**: Gould's own tip reaches ≈0.85 sp past the barline (1.75 from
+    //   the rod's left edge, less the 0.5 rod and its gap) and her clefs sit at their normal distance.
+    //   ⚠️ What looked like a collision is a BOUNDING-BOX overlap — the serif's ink is 0.25–1.43 sp
+    //   ABOVE the top staff line while the clef's there is its thin upper curl, so the two interleave.
+    //   That is exactly the distinction `layout/kerning.ts` draws (*two inks only clash where they
+    //   share a vertical BAND*), and a blanket header shift is the crude answer it warns against.
+    //   ⏭️ If a real clash is ever measured, it is a KERNING row, ⛔ never a column of reserved room.
     applyLeadIn(stave, x,
       (systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
         + repeatStartRoom(measure),
@@ -3724,6 +3764,9 @@ export class VexFlowRenderer {
     // reader gets which, and `ScoreHeaderPass` is the one that must keep the page's.
     // ⭐ Identical to `surface` (the same object) for every score with no authored `symbol`.
     const musicSurf = musicSurface(surface, score)
+    // ⭐ Whether a systemic connector will be drawn, which decides who owns the line at a system's
+    //   left edge — `buildStave` is four calls deep and does not carry the score.
+    this.systemHasConnector = getStaves(score).length > 1
 
     // The staff axis (multi-staff): staves stack vertically within each system, sharing
     // barlines. N = 1 is the single-staff default. Where each staff of a system SITS is
@@ -4065,7 +4108,7 @@ export class VexFlowRenderer {
     // group, so they are torn down and redrawn every render — which is why a REUSED measure still
     // has to keep its `Stave` around (see MeasureSnapshot).
     renderSystemStarts(
-      pass, placements, staffList.length,
+      pass, score, placements, staffList.length,
       this.cullWindow ? new Set(groupKeys.filter((_, i) => draws[i])) : null,
     )
 

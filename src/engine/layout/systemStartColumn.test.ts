@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx, musicSurface,
-  BRACE_DEPTH_SPACES, BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES,
+  BRACE_DEPTH_SPACES, BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES,
 } from './systemStartColumn'
 import { groupsAt } from '@/engine/models/staffGroups'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -35,14 +35,15 @@ describe('one sign', () => {
   it('a brace stands its own depth beyond the separation from the systemic barline', () => {
     const { signs, indentSpaces } = systemStartColumn([sign('brace')])
     expect(signs[0].depthSpaces).toBe(BRACE_DEPTH_SPACES)
-    expect(signs[0].leftSpaces).toBeCloseTo(SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES, 10)
-    expect(indentSpaces).toBeCloseTo(signs[0].leftSpaces, 10)
+    expect(signs[0].leftSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES, 10)
+    // ⭐ The INDENT is one separation MORE than the sign's own reach — the air at the margin.
+    expect(indentSpaces).toBeCloseTo(signs[0].leftSpaces + SIGN_SEPARATION_SPACES, 10)
   })
 
   it('⭐ a bracket takes only its ROD — its serifs hook RIGHT, over the barline, and cost nothing here', () => {
     const { indentSpaces } = systemStartColumn([sign('bracket')])
     expect(BRACKET_DEPTH_SPACES).toBe(0.5) // Gould p. 516 + Ross p. 155, = Bravura's bracketThickness
-    expect(indentSpaces).toBeCloseTo(SIGN_SEPARATION_SPACES + 0.5, 10)
+    expect(indentSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + 0.5 + SIGN_SEPARATION_SPACES, 10)
   })
 })
 
@@ -50,10 +51,10 @@ describe('nested signs — ⭐⭐ the indent is the SUM of what they take', () =
   it('the second sign clears the first, and the total is every depth plus every gap', () => {
     const { signs, indentSpaces } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
     // innermost brace, then the bracket outside it
-    expect(signs[0].leftSpaces).toBeCloseTo(SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES, 10)
+    expect(signs[0].leftSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES, 10)
     expect(signs[1].leftSpaces).toBeCloseTo(
-      SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES + SIGN_SEPARATION_SPACES + BRACKET_DEPTH_SPACES, 10)
-    expect(indentSpaces).toBeCloseTo(signs[1].leftSpaces, 10)
+      SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES + SIGN_SEPARATION_SPACES + BRACKET_DEPTH_SPACES, 10)
+    expect(indentSpaces).toBeCloseTo(signs[1].leftSpaces + SIGN_SEPARATION_SPACES, 10)
   })
 
   it('⭐ each sign’s ink never overlaps its neighbour’s — right edge to left edge is the separation', () => {
@@ -83,14 +84,15 @@ describe('the score’s indent', () => {
 
   it('the braced grand staff’s indent, in spaces and in pixels', () => {
     const s = score(2, [{ id: 'g', staffIds: ['st0', 'st1'], symbol: 'brace' }], 8)
-    const expected = SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES
+    const expected = SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES + SIGN_SEPARATION_SPACES
     expect(scoreSystemStartIndentSpaces(s)).toBeCloseTo(expected, 10)
     expect(scoreSystemStartIndentPx(s)).toBeCloseTo(expected * STAFF_SPACE_PX, 10)
   })
 
   it('⭐ answers even with NO measures — the bar-less call is the seed, not a special case', () => {
     const s = score(2, [{ id: 'g', staffIds: ['st0', 'st1'], symbol: 'brace' }], 0)
-    expect(scoreSystemStartIndentSpaces(s)).toBeCloseTo(SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES, 10)
+    expect(scoreSystemStartIndentSpaces(s))
+      .toBeCloseTo(SIGN_TO_BARLINE_SPACES + SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES, 10)
   })
 
   it('⭐⭐ it is the MAXIMUM over bars — asked of every bar, because per-system would be CIRCULAR', () => {
@@ -99,6 +101,19 @@ describe('the score’s indent', () => {
     const s = score(2, [{ id: 'g', staffIds: ['st0', 'st1'], symbol: 'brace' }], 40)
     const perBar = s.measures.map(m => systemStartColumn(groupsAt(s, m.number)).indentSpaces)
     expect(scoreSystemStartIndentSpaces(s)).toBeCloseTo(Math.max(...perBar), 10)
+  })
+})
+
+describe('the air at the MARGIN — 🚨 his report, *"almost touching the border"*', () => {
+  it('⭐⭐ the outermost sign stands as clear of the margin as every sign does of its neighbour', () => {
+    const { signs, indentSpaces } = systemStartColumn([sign('bracket')])
+    // The indent is where the STAVES start; the sign's own left edge is `leftSpaces` from them. What
+    // is left over is the air before the page margin — ⛔ it was 0.00 sp, measured, before this.
+    expect(indentSpaces - signs[0].leftSpaces).toBeCloseTo(SIGN_SEPARATION_SPACES, 10)
+  })
+
+  it('⛔ …and NO signs still indents by exactly zero — no air where there is nothing to clear', () => {
+    expect(systemStartColumn([]).indentSpaces).toBe(0)
   })
 })
 

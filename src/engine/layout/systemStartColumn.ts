@@ -80,6 +80,107 @@ export const BRACKET_DEPTH_SPACES = ENGRAVING_DEFAULTS.bracketThickness
  */
 export const SIGN_SEPARATION_SPACES = ENGRAVING_DEFAULTS.barlineSeparation
 
+/**
+ * ⭐⭐ **HOW THE BRACKET'S END IS BUILT — the ROD exceeds the staff line, and the WING caps it just
+ * inside that.** Verovio's construction, **read from its source** and re-derived from OUR font.
+ *
+ * 🚨 **HIS CORRECTION, 2026-08-29**: *"are you just measuring the bracket in general? this makes no
+ * sense, it depends on the distance between the staves. What you have to look is how much the WINGS
+ * are from the top or bottom of the pentagram — that gives the answer. The problem is how much the
+ * LINE of the bracket exceeds the limit."* ⛔ He is right: the bracket's total height is not a
+ * quantity, it is the staff span. The two real numbers are **how far the rod passes the outer staff
+ * line** and **how far out the wing then reaches**.
+ *
+ * ## 🚨 THE TREATISES MEASURED ONLY THE SUM
+ *
+ * research §3.3 gives the **total** ink projection past each outer staff line — Gould **0.99 / 1.05**,
+ * Ross **0.90 / 1.04** — and ⛔ never splits it; §3.8 confirms no book states any of it in words. ⇒
+ * **the split can only come from an engine**, and it is the split that decides what the end looks
+ * like.
+ *
+ * ## ⭐⭐ VEROVIO'S SOURCE, verbatim (`src/view_page.cpp`, `View::DrawBracket`)
+ *
+ * ```cpp
+ * const int offset = m_doc->GetDrawingStaffLineWidth(staffSize) / 2;          // ½ a staff line
+ * const int bracketThickness = GetDrawingUnit(staffSize) * m_bracketThickness; // 1 unit = 0.5 sp
+ *
+ * DrawSmuflCode(dc, x1, y1 + offset + bracketThickness / 2, SMUFL_E003_bracketTop, …);
+ * DrawFilledRectangle(dc, x1, y1 + 2 * offset + bracketThickness / 2, x2, …);
+ * ```
+ *
+ * ⭐ **`bracketThickness / 2` — HALF THE ROD'S OWN THICKNESS**, so the rod's **corner** lands on the
+ * staff line rather than its edge stopping short of it. 🚨 **This is the "plus half the stroke" I
+ * took from MuseScore and then discarded as *"an engine's implementation detail, not a
+ * measurement"*. It is not a MuseScore quirk — it is the shared rule of BOTH engines that draw this
+ * sign**, and discarding it was the error.
+ *
+ * ⭐ **And the rod and the wing do NOT end together.** The wing's origin is `½ lineWidth + ½ rod`
+ * above the line; the rod reaches `lineWidth + ½ rod`. So the wing sits **half a staff-line INSIDE**
+ * the rod's end and overlaps its corner rather than perching on it — the detail the research summary
+ * flattened into a single "0.325 sp" and the reason a wing stamped at the rod's tip looks stuck on.
+ *
+ * ## ⭐ DERIVED FROM OUR FONT, ⛔ not copied
+ *
+ * Verovio's `staffLineWidth` is 0.15 unit = 0.075 sp; **ours is Bravura's `staffLineThickness`,
+ * 0.13**. So its literals (0.2875 / 0.325) are ⛔ not ours — the FORMULA is what transfers:
+ *
+ * | | formula | ours |
+ * |---|---|---|
+ * | wing origin above the line | `½ lineWidth + ½ rod` | 0.065 + 0.25 = **0.315 sp** |
+ * | rod end above the line | `lineWidth + ½ rod` | 0.13 + 0.25 = **0.38 sp** |
+ * | total ink (wing origin + 1.18) | | **≈1.50 sp** |
+ *
+ * ## 🚨 THE FOUR EARLIER ATTEMPTS, each wrong differently
+ *
+ * 1. ⛔ Natural wing, **no overshoot** (1.18) — the font's default, chosen by not choosing.
+ * 2. ⛔ 0.25 overshoot from MuseScore — right rule, dismissed for the wrong reason (see above).
+ * 3. ⛔ Gould's **1.75** wing, no overshoot (1.10) — **the smallest figure in the research**, so
+ *    reaching for it made the thing he called short shorter still.
+ * 4. ⛔ Ross's **2.3** wing, no overshoot (1.45) — right total, wrong construction: the largest wing
+ *    in the research and no rod overshoot at all, the reverse of how it is drawn.
+ *
+ * ⭐ **The lesson: a composed measurement must be composed the way it is DRAWN.** Matching a total
+ * while distributing it differently gives the same number and a different picture.
+ */
+export const BRACKET_ROD_PROJECTION_SPACES
+  = ENGRAVING_DEFAULTS.staffLineThickness + BRACKET_DEPTH_SPACES / 2
+
+/**
+ * ⭐ **How far INSIDE the rod's end the wing is stamped** — half a staff line, so it overlaps the
+ * corner. Verovio's `offset`, and the difference between its two y expressions above.
+ */
+export const BRACKET_SERIF_INSET_SPACES = ENGRAVING_DEFAULTS.staffLineThickness / 2
+
+/** ⭐ **The wing at the font's NATURAL size** — Verovio stamps this glyph unscaled, and the overshoot
+ *  above is measured against it. ⛔ Not scaled to a treatise's tip width: that was attempts 3 and 4,
+ *  and it changes the height the rest of the construction is built around. */
+export const BRACKET_SERIF_WIDTH_SPACES = 1.876
+
+/**
+ * ⭐⭐ **THE GAP BETWEEN A SIGN AND THE SYSTEMIC BARLINE — 0.45 sp, and it has its OWN source.**
+ *
+ * 🚨 **His report, 2026-08-29**: *"the space between the bracket and the beginning of the staff is
+ * too short too"*. It was **0.40** — {@link SIGN_SEPARATION_SPACES}, Bravura's `barlineSeparation`,
+ * which is a **barline-to-barline** number borrowed for a job the research answers directly. ⛔ Two
+ * different distances should not share one constant just because they were close.
+ *
+ * | | value | source |
+ * |---|---|---|
+ * | Gould / Ross | **0.35 – 0.45 sp** | research §3.3, **measured** off the plates |
+ * | MuseScore `bracketDistance` | **0.45** | §2.1 style defaults |
+ * | Verovio | 0.50 (1 unit) | §2.3 |
+ * | ⛔ ours, before | 0.40 | Bravura's `barlineSeparation` — the wrong table |
+ *
+ * ⭐ **0.45 is the top of the measured range AND MuseScore's own named constant** — two independent
+ * sources on one number, which is as good as this question gets. ⏳ Verovio's **0.50** is the ceiling
+ * with a source behind it; ⛔ past that there is none.
+ *
+ * ⚠️ The BRACE keeps its own measured clearance (§3.4: **0.24–0.49 sp**, and MuseScore's
+ * `akkoladeBarDistance` is 0.35) — ⏭️ it is inside this range, so the two share a number today; the
+ * day his eye splits them, that is a second row here and not a fudge to this one.
+ */
+export const SIGN_TO_BARLINE_SPACES = 0.45
+
 /** How deep one sign's ink is, in staff spaces. ⭐ A total over `StaffGroup['symbol']` — a new
  *  member of that union is a row HERE, not a `default` somewhere. */
 const DEPTH_SPACES: Record<ResolvedStaffGroup['symbol'], number> = {
@@ -119,13 +220,31 @@ export function systemStartColumn(groups: readonly ResolvedStaffGroup[]): System
   let edge = 0
   for (const group of groups) {
     const depthSpaces = DEPTH_SPACES[group.symbol]
-    const leftSpaces = edge + SIGN_SEPARATION_SPACES + depthSpaces
+    // ⭐ The INNERMOST sign clears the systemic BARLINE — a distance the treatises measured
+    //   ({@link SIGN_TO_BARLINE_SPACES}). Every sign after it clears the sign before, for which
+    //   there is no measurement anywhere ({@link SIGN_SEPARATION_SPACES}).
+    const gap = signs.length === 0 ? SIGN_TO_BARLINE_SPACES : SIGN_SEPARATION_SPACES
+    const leftSpaces = edge + gap + depthSpaces
     signs.push({ group, leftSpaces, depthSpaces })
     edge = leftSpaces
   }
   // ⭐ `edge` is the outermost sign's left edge, and 0 when nothing was placed — so the "no groups
   //   indent by zero" case falls out of the walk rather than being a guard of its own.
-  return { signs, indentSpaces: edge }
+  return {
+    signs,
+    // ⭐⭐ **…and ONE MORE SEPARATION, so the outermost sign stands as clear of the MARGIN as every
+    //   sign stands of its neighbour.** 🚨 His report, 2026-08-29: *"brackets are almost touching the
+    //   border"* — measured at **0.00 sp** from the page margin, because the indent was exactly the
+    //   signs' reach and no more. ⭐ This is not a new constant, it is **this walk's own rule applied
+    //   to its own outer edge**: every sign is placed `SIGN_SEPARATION_SPACES` clear of whatever
+    //   stands beside it — the barline for the innermost, the previous sign for the rest — and the
+    //   thing beside the OUTERMOST one is the margin. ⛔ The treatises say nothing about it (research
+    //   §3.8: *nothing anywhere on how an indented first system affects bracket geometry*, two
+    //   independent searches), so a number invented for it would have no source; this one has the
+    //   module's.
+    // ⚠️ Zero when nothing was placed, so a score with no sign still indents by exactly nothing.
+    indentSpaces: edge > 0 ? edge + SIGN_SEPARATION_SPACES : 0,
+  }
 }
 
 /**

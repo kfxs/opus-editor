@@ -45,6 +45,7 @@ import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/st
 import { exportScoreJson, exportScorePdfFile, importScoreJson } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
+import { groupSignConsole } from './dev/groupSignConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
@@ -870,11 +871,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // structurally cannot answer, because a wall-clock region reports where the bill LANDED
     // (src/dev/layoutFlushCensus.ts). ⛔ Patches prototypes, so it is off until `enable()`.
     w.__flush = layoutFlushCensus
+    // ⭐ The GROUPING SIGNS — author a brace/bracket from the console and see whether it drew, since
+    // the real authoring (docs/braces-brackets-plan.md P5) does not exist yet. See the module for
+    // the three ways it is scaffolding and not the feature.
+    w.__groups = groupSignConsole(() => engine, () => document.querySelector('.score-container') ?? document)
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
     dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
+    dbg('[groups] brace/bracket: __groups.bracket() / .brace() / .none() / .dump() — needs 2+ staves')
   }
 
   return {

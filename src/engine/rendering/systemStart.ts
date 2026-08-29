@@ -39,8 +39,17 @@
  * scale to put them in. They speak the SVG's coordinates, composing each end through its own staff's
  * scale — the same rule, and the same reason, as `./barlineGap`.
  */
+import { Element } from 'vexflow'
 import type { Stave } from 'vexflow'
+import type { Score } from '@/types/music'
 import { THIN_BARLINE_PX } from './barlineInk'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
+import { groupsAt } from '@/engine/models/staffGroups'
+import {
+  systemStartColumn, BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
+  BRACKET_SERIF_WIDTH_SPACES, type PlacedSystemStartSign,
+} from '@/engine/layout/systemStartColumn'
 import type { RenderPass } from './RenderPass'
 import { measureGroupKey } from './VexFlowRenderer'
 
@@ -72,6 +81,7 @@ export interface SystemStartPlacement {
  */
 export function renderSystemStarts(
   pass: RenderPass,
+  score: Score,
   placements: SystemStartPlacement[],
   staffCount: number,
   drawnKeys: Set<string> | null,
@@ -89,8 +99,138 @@ export function renderSystemStarts(
     // opening measure is — not when its own two endpoints happen to be.
     if (drawnKeys && !systemIsDrawn(p.measureNumber, staffCount, drawnKeys)) continue
     drawSystemConnector(pass, p, bottom)
+
+    // ⭐ Then the GROUPING signs, standing to the left of it — innermost first, each already told
+    //   where it goes by `layout/systemStartColumn` (the same numbers that bought the indent, so
+    //   the ink and the room cannot disagree).
+    for (const sign of systemStartColumn(groupsAt(score, p.measureNumber)).signs) {
+      const top = byKey.get(measureGroupKey(p.measureNumber, sign.group.topStaffIndex))
+      const bot = byKey.get(measureGroupKey(p.measureNumber, sign.group.bottomStaffIndex))
+      if (!top || !bot) continue
+      if (sign.group.symbol === 'bracket') drawBracket(pass, p, sign, top, bot)
+    }
   }
 }
+
+/** The y a system-spanning sign starts at: the TOP staff's first line, in the SVG's space. */
+function spanTopY(top: SystemStartPlacement): number {
+  return top.stave.getYForLine(0) * top.scale
+}
+
+/** …and where it ends: the BOTTOM staff's last line, `+ 1` for that line's own thickness — the same
+ *  hair {@link drawSystemConnector} adds, and for the same reason. */
+function spanBottomY(bottom: SystemStartPlacement): number {
+  return (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
+}
+
+/**
+ * ⭐⭐ **THE SQUARE BRACKET** — a rod with a serif at each end. P3 of docs/braces-brackets-plan.md.
+ *
+ * | | | source |
+ * |---|---|---|
+ * | rod thickness | **0.50 sp** | Gould p. 516 + p. 21 and Ross p. 155 state it *identically*, and it is Bravura's own `bracketThickness`. ⛔ VexFlow's 0.30 is the outlier |
+ * | rod extent | top staff-line → bottom staff-line | the serifs are what project past them |
+ * | serif | `bracketTop` / `bracketBottom` at natural size | ⭐ the SAME two glyphs we already stamp as the winged repeat's tips (`BarlineRenderer.drawWing`) |
+ *
+ * ## ⏳ THE PROJECTION — a decision, and it is 1.18 sp rather than the books' ≈1.0
+ *
+ * ⚠️ **Two measurements that one uniform scale cannot both satisfy.** Gould's tip reaches **1.75 sp**
+ * right of the rod's left edge and projects **0.99 / 1.05 sp** above the line (Ross: 0.90 / 1.04).
+ * Bravura's `bracketTop` is **1.876 × 1.180 sp** — an aspect of 1.59 against her drawn 1.75. Scale it
+ * to project 1.0 and the serif shrinks to 1.59 sp wide, *below* everything she draws.
+ *
+ * ⭐ **So the glyph is stamped at natural size and the projection is whatever its ink is** — the
+ * argument the brace's own mechanism note makes: *a glyph is ink a type designer drew*, and scaling
+ * it to hit one measurement distorts the relationship the designer set. 1.18 sp sits inside the
+ * spread real engraving shows (Ross's larger schematics reach **1.35**), and three of the four
+ * engines project further still (LilyPond 1.59, Verovio 1.47).
+ * ⏳ **It is one call, in one place, if his eye disagrees.**
+ *
+ * ## ⏳ Both serifs, and that too is open
+ *
+ * Gould draws curved ends unconditionally; Ross says they are *"sometimes omitted entirely"*; and
+ * Gould's own p. 518 figures draw a **TOP SERIF ONLY** (research §3.7). Both are drawn here, which is
+ * her stated practice — ⏭️ the taste call is noted in the plan and is not settled by this code.
+ */
+function drawBracket(
+  pass: RenderPass,
+  at: SystemStartPlacement,
+  sign: PlacedSystemStartSign,
+  top: SystemStartPlacement,
+  bottom: SystemStartPlacement,
+): void {
+  const ctx = pass.context
+  if (!ctx) return
+  // ⭐⭐ The rod runs PAST each outer staff line before its tip is stamped on the end — see
+  //   {@link BRACKET_ROD_PROJECTION_SPACES}. ⛔ Not scaled: the projection is the SYSTEM's, like
+  //   everything else here, and one sign may span two staves of different sizes.
+  const project = BRACKET_ROD_PROJECTION_SPACES * STAFF_SPACE_PX
+  const topY = spanTopY(top) - project
+  const bottomY = spanBottomY(bottom) + project
+  // ⛔ NOT scaled by either staff: `leftSpaces` came from `systemStartColumn`, which reserved the
+  //   room in the SYSTEM's spaces for `drawSystemConnector`'s reason — a sign that spans two staves
+  //   of different sizes has no staff whose scale it could take.
+  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+
+  // ⭐ Its OWN group, ⛔ deliberately not the connector's `stavebarline` — see {@link SYSTEM_SIGN_GROUP}.
+  ctx.openGroup(SYSTEM_SIGN_GROUP, `bracket-${sign.group.group.id}-m${at.measureNumber}`)
+  try {
+    ctx.fillRect(leftX, topY, sign.depthSpaces * STAFF_SPACE_PX, bottomY - topY)
+    // The serifs spring from the rod's own top and bottom and hook RIGHT, over the systemic barline:
+    // each glyph's box runs rightward from its origin (`left: 0, right: 1.876`) and outward from the
+    // line it stands on (`up: 1.18` / `down: 1.18`), so the origin is simply the rod's corner.
+    // ⭐⭐ The wings are stamped HALF A STAFF LINE INSIDE the rod's ends, so each overlaps its
+    //   corner rather than perching on it — Verovio's `offset`, and the reason its two y expressions
+    //   differ ({@link BRACKET_SERIF_INSET_SPACES}).
+    const inset = BRACKET_SERIF_INSET_SPACES * STAFF_SPACE_PX
+    const serifScale = BRACKET_SERIF_WIDTH_SPACES / glyphBox('bracketTop').right
+    stampGlyph(ctx, BRACKET_SERIF.top, leftX, topY + inset, serifScale)
+    stampGlyph(ctx, BRACKET_SERIF.bottom, leftX, bottomY - inset, serifScale)
+  } finally {
+    ctx.closeGroup()
+  }
+}
+
+/** `bracketTop` / `bracketBottom` — ⭐ the very glyphs the winged repeat already stamps
+ *  (`BarlineRenderer`'s `WING_GLYPHS.right`), written as escapes for that file's reason: a
+ *  private-use character is invisible in every editor and diff. */
+const BRACKET_SERIF = { top: '\uE003', bottom: '\uE004' } as const
+
+/**
+ * One glyph at its NATURAL size, in the SYSTEM's spaces.
+ *
+ * `3 × space` is {@link drawnFontSize}'s arithmetic and `BarlineRenderer.drawWing`'s: a SMuFL em is
+ * 4 staff spaces and VexFlow reads a bare font size as POINTS at 4/3 px each, so 3 × space draws the
+ * glyph at exactly one staff's height. ⛔ `STAFF_SPACE_PX` rather than a staff's own — these signs
+ * belong to the system.
+ */
+function stampGlyph(
+  ctx: RenderPass['context'], glyph: string, x: number, y: number, scale = 1,
+): void {
+  const el = new Element('systemStart.sign')
+  el.setText(glyph)
+  el.setFontSize(3 * STAFF_SPACE_PX * scale)
+  el.renderText(ctx, x, y)
+}
+
+/**
+ * ⭐⭐ **THE GROUPING SIGNS GET THEIR OWN GROUP, AND ⛔ NOT THE CONNECTOR'S `stavebarline`.**
+ *
+ * 🚨 `stavebarline` is a **COLLECTOR, not a label**, and four readers sweep it:
+ * `barlineInk.inkBarlines` widens any thin rect in it · **`barlineInk.hintBarlines` snaps every rect
+ * in it onto whole DEVICE PIXELS** · `e2e/harness.barlines()` counts them · and
+ * `e2e/staffSize.e2e.ts` finds the connector as *the tall rect* in it.
+ *
+ * ⭐ **The second is the engraving reason.** Hinting exists because a HAIRLINE at different
+ * sub-pixel phases looks like a different line — measured, on 1.6 px barlines. A bracket's rod is
+ * **0.50 sp**, a number four sources state identically; rounding it to a whole device pixel at every
+ * zoom would overrule all four for a crispness a 5 px rod has no need of. ⇒ the rod keeps its weight
+ * and stays out of the collector.
+ *
+ * ⭐ The connector STAYS in `stavebarline` for the opposite reason: it *is* barline-weight, and it
+ * has to read continuous with the lines it joins.
+ */
+const SYSTEM_SIGN_GROUP = 'systemsign'
 
 /** Is any staff of this measure being painted? (The system connector's own two staves may both be
  *  culled while the system is on screen — see {@link renderSystemStarts}.) */

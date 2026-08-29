@@ -361,11 +361,91 @@ they already read, and the fifth (`ScoreHeaderPass`) keeps the raw one.
 [[reference_render_width_key_vs_shape_key]] says ⚠️ **READ BEFORE ADDING AN ELEMENT**. ⇒ P2 states in
 its own header which key owns the indent, so the next element in this family does not have to guess.
 
-### P3 — THE BRACKET (nearly free, and now fully specified)
+### P3 — THE BRACKET — ✅ **BUILT 2026-08-29**, and its geometry took SIX passes
 
-`bracketTop` + a `fillRect` rod + `bracketBottom`, in **SCORE space** — ⛔ never inside
-`inStaffSpace`, `barlineGap.ts`'s rule and for its reason (a 0.7 staff's `scale(k)` breaks a line
-crossing two staves).
+> ✅ `engine/rendering/systemStart.ts` (+ unit specs) with **6 e2e** measuring the ink
+> (`e2e/systemStart.e2e.ts`). **Green: 5668 unit + 271 e2e, `build:check` clean.**
+>
+> #### ✅ The numbers, as drawn, each with its source
+>
+> | | value | source |
+> |---|---|---|
+> | rod thickness | **0.50 sp** | Gould p. 516 + p. 21, Ross p. 155, = Bravura `bracketThickness` |
+> | **rod exceeds each outer staff line** | **`staffLineThickness + ½ rod` = 0.38 sp** | ⭐ **Verovio's formula, read from its source**, re-derived with OUR font |
+> | **wing stamped INSIDE the rod's end** | **`½ staffLineThickness` = 0.065 sp** | Verovio's `offset` — the wing overlaps the corner, ⛔ does not perch on it |
+> | wing size | **natural** (1.876 × 1.18) | the glyph Verovio stamps unscaled |
+> | total ink past the staff line | **≈1.50 sp** | ⚠️ above the treatises' measured 0.90–1.05 — see below |
+> | **gap to the systemic barline** | **0.45 sp** | §3.3 measured **0.35–0.45**, at its top; = MuseScore's `bracketDistance`. ⏳ Verovio uses 0.50 |
+> | air before the page margin | **0.40 sp** | ⭐ the module's own separation rule applied to its outer edge |
+>
+> #### ⭐⭐ VEROVIO'S SOURCE IS THE ANSWER FOR THE VERTICAL, AND THE TREATISES CANNOT BE
+>
+> 🚨 **The treatises measured only the SUM** (§3.3: Gould **0.99/1.05**, Ross **0.90/1.04**) and ⛔
+> never split it into *rod overshoot* + *wing*. §3.8 confirms no book states any of it in words. **It
+> is the split that decides what the end looks like**, so the split can only come from an engine —
+> and Verovio is the one that builds this sign exactly as we do, *a filled rectangle plus
+> `bracketTop`/`bracketBottom`, ⛔ not a path* (`src/view_page.cpp`, `View::DrawBracket`).
+>
+> ⭐ **`bracketThickness / 2` — half the rod's own thickness, so its CORNER lands on the line.** ⚠️
+> This was dismissed once as *"MuseScore's implementation detail, not a measurement"*. **It is not a
+> MuseScore quirk: Verovio does the same thing.** It is the shared rule of both engines that draw
+> this sign, and discarding it was the error.
+>
+> #### 🚨 SIX PASSES, AND WHAT EACH ONE GOT WRONG — the record, so it is not repeated
+>
+> 1. ⛔ **Natural wing, no overshoot** (1.18 sp) — the font's default, chosen by not choosing.
+>    His report: *"the bracket height maybe is too short"*.
+> 2. ⛔ **Moved the CLEF** to clear the serif. Reverted: **engravers do not move a clef because a
+>    bracket is present** — Gould's own tip reaches ≈0.85 sp past the barline and her clefs sit
+>    normally. What looked like a collision was a **bounding-box** overlap; the inks are at different
+>    heights and interleave (`layout/kerning.ts`'s rule). His: *"i dont think the position of the
+>    cleff is correct"*.
+> 3. ⛔ **0.25 sp overshoot from MuseScore** — right rule, dismissed for the wrong reason (see above).
+>    His: *"you should not make an arbitrary solution… look the research and find the solution there,
+>    we don't want to invent things."*
+> 4. ⛔ **Gould's 1.75 sp wing, no overshoot** (1.10) — **1.75 is the smallest figure in the whole
+>    research**, so reaching for it made the thing he called short shorter still.
+> 5. ⛔ **Ross's 2.3 sp wing, no overshoot** (1.45) — the right total by the **wrong construction**:
+>    the largest wing in the research and no rod overshoot at all, the reverse of how it is drawn.
+> 6. ✅ **Verovio's split, derived from our font.**
+>
+> ⭐⭐ **THE TWO LESSONS.** *"Are you just measuring the bracket in general? That makes no sense, it
+> depends on the distance between the staves — what you have to look is how much the WINGS are from
+> the top or bottom of the pentagram"* — ⛔ **the bracket's total height is not a quantity**, it is the
+> staff span. And: **a composed measurement must be composed the way it is DRAWN** — matching a total
+> while distributing it differently gives the same number and a different picture.
+>
+> #### ✅ THE GROUP: its own `vf-systemsign`, ⛔ not `stavebarline`
+>
+> 🚨 `stavebarline` is a **collector** — `hintBarlines` snaps every rect in it onto whole device
+> pixels, which would round the sourced **0.50 sp** rod at every zoom. ⭐ Hinting earns its keep on
+> **hairlines**, where sub-pixel phase makes 1.6 px lines look different; a 5 px rod has no such
+> problem. The connector STAYS in `stavebarline` — it *is* barline-weight and must read continuous
+> with the lines it joins.
+>
+> #### 🚨🚨 AND IT UNCOVERED A PRE-EXISTING DEFECT: THE LEFT EDGE HAD THREE OWNERS
+>
+> **His report (screenshot): *"what about the thin lines i see sometimes"*.** Measured at a system's
+> left edge — **four rects, three of them the same line**:
+>
+> ```
+> x=34 w=2 y=60  h=41   inside a measure group   ← VexFlow's begin barline, staff 0
+> x=34 w=2 y=165 h=41   inside a measure group   ← VexFlow's begin barline, staff 1
+> x=34 w=2 y=60  h=146  top level                ← the systemic connector, spanning both
+> ```
+>
+> ⇒ **over each staff the ink was laid down TWICE, and in the gap only ONCE** — so the segment
+> crossing the gap read thinner and lighter than the same line over the staves. ⭐ **The same defect
+> `BarlineRenderer` records for interior boundaries** (*"drawn TWICE… materially darker"*), which it
+> fixed with `setEndBarType(NONE)`; **the system's LEFT edge was the one it left out.** ✅ Fixed: a
+> multi-staff system's opening bar suppresses VexFlow's begin barline, and `systemStart` is the ONE
+> OWNER of that line. ⛔ A single-staff score keeps VexFlow's — it has no connector.
+>
+> #### 🔧 A CONSOLE TOOL, because P5 does not exist yet
+>
+> `src/dev/groupSignConsole.ts` — `__groups.bracket()` / `.brace()` / `.none()` / `.dump()`. ⛔
+> Scaffolding: it writes `symbol` **behind the model** (no undo), therefore **re-engraves by hand**,
+> and sets **every** group because a selection does not exist.
 
 - ⭐ **We already stamp both terminals in production** — they are the winged repeat tips. Boxes
   measured (`bravuraMetrics.ts:137-140`), sizing solved (`BarlineRenderer.drawWing`, `3 × space`,
