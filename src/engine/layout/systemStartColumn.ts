@@ -30,6 +30,7 @@
 import type { Score } from '@/types/music'
 import { groupsAt, type ResolvedStaffGroup } from '@/engine/models/staffGroups'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SurfaceMetrics } from './surface'
 
@@ -217,6 +218,35 @@ const DEPTH_SPACES: Record<ResolvedStaffGroup['symbol'], number> = {
   brace: BRACE_DEPTH_SPACES,
   bracket: BRACKET_DEPTH_SPACES,
   subBracket: SUB_BRACKET_WIDTH_SPACES,
+}
+
+/**
+ * ⭐⭐ **HOW FAR A SIGN'S INK REACHES PAST EACH OUTER STAFF LINE**, in staff spaces.
+ *
+ * 🚨 **His report, 2026-08-29**: *"in the brace the squares are good in position, but in the brackets
+ * the squares vertically are too close."* ⭐ Dead right, and the cause is that the sign's registered
+ * box was its **SPAN** (staff line to staff line) rather than its **INK** — so a handle hanging
+ * 10 px off the box sat *inside* a bracket's serif, which reaches ~1.5 sp further out. A brace is
+ * FLUSH, which is exactly why its squares looked right.
+ *
+ * ⭐ It fixes the HIT-BOX too, and that was the same bug wearing another hat: a press on a bracket's
+ * serif was outside the box and selected nothing.
+ *
+ * ⚠️ A total over `StaffGroup['symbol']` — a new sign is a row HERE. ⛔ Never a single constant: the
+ * three signs genuinely differ, and that difference is the whole content of this table.
+ */
+export function signOutwardReachSpaces(symbol: ResolvedStaffGroup['symbol']): number {
+  switch (symbol) {
+    // ⭐ FLUSH — top staff-line to bottom staff-line, no overshoot (Ross p. 155, measured in all six
+    //   of Gould's examples; MuseScore and LilyPond both give it zero).
+    case 'brace': return 0
+    // The rod passes the line, the wing is stamped a little INSIDE that end, and its own box rises
+    // from there — `rendering/systemStart.drawBracket` composes exactly these three.
+    case 'bracket':
+      return BRACKET_ROD_PROJECTION_SPACES - BRACKET_SERIF_INSET_SPACES + glyphBox('bracketTop').up
+    // Its arms sit ON the outer lines and are a staff line thick, so it reaches out by half of one.
+    case 'subBracket': return ENGRAVING_DEFAULTS.staffLineThickness / 2
+  }
 }
 
 /** One sign, placed. All distances are staff spaces LEFT of the staves' edge — see the header. */

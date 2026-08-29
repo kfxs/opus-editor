@@ -108,3 +108,34 @@ describe('the reserved bar', () => {
     expect(groupsAt(s)).toEqual(groupsAt(s, 1))
   })
 })
+
+describe('🚨🚨 A BRACE IS ALWAYS OUTERMOST — Gould p. 516, stated', () => {
+  // *"A brace should only ever be used as the outermost bracket."* ⛔ A SECOND rule: sorting by span
+  // alone does not imply it, and his report of 2026-08-29 is the case that proves it.
+
+  it('⭐⭐ EQUAL spans: the brace goes outside — span cannot decide, so the stated rule does', () => {
+    // His case exactly: a bracket over staves 0–1 and a brace over 1–2, both spanning two.
+    const found = groupsAt(score(3, [
+      { id: 'bracket', staffIds: ['st0', 'st1'], symbol: 'bracket' },
+      { id: 'brace', staffIds: ['st1', 'st2'], symbol: 'brace' },
+    ]), 1)
+    // `[0]` is the outermost — `systemStartColumn` walks the list backwards.
+    expect(found[0].group.id).toBe('brace')
+  })
+
+  it('⭐ a brace stays outermost even when it is the WIDER group', () => {
+    const found = groupsAt(score(4, [
+      { id: 'brace', staffIds: ['st0', 'st1', 'st2', 'st3'], symbol: 'brace' },
+      { id: 'bracket', staffIds: ['st1', 'st2'], symbol: 'bracket' },
+    ]), 1)
+    expect(found[0].group.id).toBe('brace')
+  })
+
+  it('⭐ among NON-braces the smaller group is still the outer one', () => {
+    const found = groupsAt(score(6, [
+      { id: 'wide', staffIds: ['st0', 'st1', 'st2', 'st3'], symbol: 'bracket' },
+      { id: 'narrow', staffIds: ['st1', 'st2'], symbol: 'subBracket' },
+    ]), 1)
+    expect(found.map(g => g.group.id)).toEqual(['narrow', 'wide'])
+  })
+})

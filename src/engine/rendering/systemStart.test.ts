@@ -21,7 +21,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import {
   BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES, scoreSystemStartIndentPx,
-  BRACKET_SERIF_INSET_SPACES, BRACE_DEPTH_SPACES,
+  BRACKET_SERIF_INSET_SPACES, BRACE_DEPTH_SPACES, signOutwardReachSpaces,
   BRACKET_ROD_PROJECTION_SPACES,
 } from '@/engine/layout/systemStartColumn'
 import type { RenderPass } from './RenderPass'
@@ -335,13 +335,27 @@ describe('the sign’s HIT-BOX — 🚨 registered from the PEN, in SVG space', 
     expect(box!.id).toBe('g1')
   })
 
-  it('⭐ spans the staves the sign does', () => {
+  it('⭐⭐ covers the sign’s INK, ⛔ not just its span — his report about the squares', () => {
+    // *"in the brace the squares are good in position, but in the brackets the squares vertically
+    //  are too close."* A bracket's serifs reach ~1.5 sp past each staff line; a box that stopped at
+    //  the line put the handle inside the ink and left the serif unclickable.
     const { boxes, rects, pass } = recorder()
     renderSystemStarts(pass, bracketed, grandStaff, 2, null)
     const box = boxes.find(b => b.type === 'staffGroupSign')!
     const connector = rects.find(r => r.group === 'stavebarline')!
+    const reach = signOutwardReachSpaces('bracket') * STAFF_SPACE_PX
+    expect(reach, 'a bracket reaches past the staff line').toBeGreaterThan(0)
+    expect(box.bbox.y).toBeCloseTo(connector.y - reach, 6)
+    expect(box.bbox.height).toBeCloseTo(connector.h + 2 * reach, 6)
+  })
+
+  it('⭐ …and a BRACE, being flush, reaches nothing — which is why only the bracket looked wrong', () => {
+    const { boxes, rects, pass } = recorder()
+    renderSystemStarts(pass, braced, grandStaff, 2, null)
+    const box = boxes.find(b => b.type === 'staffGroupSign')!
+    const connector = rects.find(r => r.group === 'stavebarline')!
+    expect(signOutwardReachSpaces('brace')).toBe(0)
     expect(box.bbox.y).toBeCloseTo(connector.y, 6)
-    expect(box.bbox.height).toBeCloseTo(connector.h, 6)
   })
 
   it('⚠️ is WIDER than the ink — a 0.89 sp hairline would be unclickable', () => {

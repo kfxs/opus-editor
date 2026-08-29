@@ -6,7 +6,7 @@
  * 2026-08-29 the model owned both and rebuilt `staffGroups` as one group over every staff.
  */
 import { describe, it, expect } from 'vitest'
-import { applyGroupSymbol, pruneStaffGroups } from './staffGroupOps'
+import { applyGroupSymbol, pruneStaffGroups, setGroupSpan } from './staffGroupOps'
 import type { Score, StaffGroup } from '@/types/music'
 
 const score = (staffCount = 4, groups?: StaffGroup[]): Score => ({
@@ -135,5 +135,50 @@ describe('🚨🚨 the id trap — a group is a LIST OF MEMBERS, not staff-ancho
     applyGroupSymbol(s, [undefined as unknown as string, 'st1'], 'bracket')
     expect(s.staffGroups![0].staffIds, 'the group is staff 1 alone — visibly wrong, ⛔ not silently')
       .toEqual(['st1'])
+  })
+})
+
+describe('⭐⭐ re-spanning a group — the handle drag', () => {
+  it('moves the span and KEEPS THE GROUP’S IDENTITY', () => {
+    const s = score(4)
+    applyGroupSymbol(s, ['st0', 'st1'], 'bracket')
+    const id = s.staffGroups![0].id
+    expect(setGroupSpan(s, id, 0, 3)).toBe(true)
+    // ⛔ Not a second group: `applyGroupSymbol` keys on MEMBERSHIP, so it would have made one — and
+    // the user's selection, which names the ID, would have gone stale mid-drag.
+    expect(s.staffGroups).toHaveLength(1)
+    expect(s.staffGroups![0].id).toBe(id)
+    expect(s.staffGroups![0].staffIds).toEqual(['st0', 'st1', 'st2', 'st3'])
+  })
+
+  it('⭐ shrinks too, down to a single staff', () => {
+    const s = score(4)
+    applyGroupSymbol(s, ['st0', 'st1', 'st2'], 'bracket')
+    setGroupSpan(s, s.staffGroups![0].id, 2, 2)
+    expect(s.staffGroups![0].staffIds).toEqual(['st2'])
+  })
+
+  it('⚠️ CLAMPS to the staves the score has — a drag past the ends stops', () => {
+    const s = score(3)
+    applyGroupSymbol(s, ['st0', 'st1'], 'brace')
+    setGroupSpan(s, s.staffGroups![0].id, -5, 99)
+    expect(s.staffGroups![0].staffIds).toEqual(['st0', 'st1', 'st2'])
+  })
+
+  it('⭐ normalises crossed ends rather than refusing them', () => {
+    const s = score(4)
+    applyGroupSymbol(s, ['st1', 'st2'], 'brace')
+    setGroupSpan(s, s.staffGroups![0].id, 3, 1)
+    expect(s.staffGroups![0].staffIds).toEqual(['st1', 'st2', 'st3'])
+  })
+
+  it('⛔ answers false for no change, so a wandering drag files no undo entry', () => {
+    const s = score(4)
+    applyGroupSymbol(s, ['st0', 'st1'], 'brace')
+    expect(setGroupSpan(s, s.staffGroups![0].id, 0, 1)).toBe(false)
+  })
+
+  it('⛔ …and false for a group that is not there', () => {
+    expect(setGroupSpan(score(3), 'ghost', 0, 1)).toBe(false)
   })
 })

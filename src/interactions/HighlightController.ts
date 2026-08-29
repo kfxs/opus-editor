@@ -10,6 +10,8 @@ import { tremoloGlyph } from '../utils/tremoloGlyphs'
 import { TREMOLO_PAIR_GROUP } from '../utils/tremoloPair'
 import { staffOf } from '@/utils/lanes'
 import { barlineJoinHandles } from './elements/barlineJoinHandles'
+import { staffGroupHandles } from './elements/staffGroupHandles'
+import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
 import { pedalEndpointHandles } from './elements/pedalHandles'
@@ -797,6 +799,42 @@ export class HighlightController {
         this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
         this.setStyleProp(el, 'fill', ELEMENT_SELECTION_FILL)
       }
+    }
+
+    // ⭐⭐ …and the TWO SQUARES that resize the group — his ask, 2026-08-29: *"we should be able to
+    //   see the two squares up and down so we can enlarge or shrink the groups."* ⛔ None on a
+    //   one-staff system: `staffGroupHandles` returns nothing when there is nowhere to move an end
+    //   to, which is his rule falling out of the geometry rather than being written as an `if`.
+    const engine = this.getEngine()
+    if (!engine) return
+    const registry = engine.getElementRegistry()
+    const staffCount = engine.getScore().staves?.length ?? 1
+    const S = HighlightController.SLUR_HANDLE_R + 1 // one family with the slur and join squares
+    const HIT = HighlightController.SLUR_HANDLE_HIT
+    // ⭐ Whether this sign's ink already projects past the staff lines — which decides how much air
+    //   its squares need (his *"can be tiny closer"*, 2026-08-29).
+    const projects = signOutwardReachSpaces(selected.symbol) > 0
+    for (const handle of staffGroupHandles(registry, selected.groupId, staffCount, projects)) {
+      const sq = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+      sq.setAttribute('x', String(handle.x - S))
+      sq.setAttribute('y', String(handle.y - S))
+      sq.setAttribute('width', String(S * 2))
+      sq.setAttribute('height', String(S * 2))
+      sq.setAttribute('fill', '#2563EB')
+      sq.setAttribute('stroke', '#ffffff')
+      sq.setAttribute('stroke-width', '1.5')
+      sq.setAttribute('class', `staff-group-handle staff-group-handle--${handle.end}`)
+      ;(sq as SVGElement & { style: CSSStyleDeclaration }).style.cursor = 'ns-resize'
+      this.addNode(svg, sq)
+
+      // ⚠️ `staff` carries WHICH END this square is, encoded as 0 (top) / 1 (bottom) — the press
+      //    needs to know which end it grabbed, and the registry has no field of its own for it.
+      registry.add({
+        type: 'staff-group-handle',
+        id: selected.groupId,
+        staff: handle.end === 'top' ? 0 : 1,
+        bbox: { x: handle.x - HIT, y: handle.y - HIT, width: HIT * 2, height: HIT * 2 },
+      })
     }
   }
 

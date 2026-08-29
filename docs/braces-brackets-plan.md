@@ -778,6 +778,57 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > = 8**, on both axes — the barline's *"six pixels of forgiveness"* scaled to a taller target, and
 > affordable because **nothing competes for those pixels**.
 
+### P7 — THE HANDLES: resize a group by dragging its ends — ✅ **BUILT 2026-08-29**
+
+> **His ask**: *"when a brace or bracket is selected we should be able to see the two squares up and
+> down so we can enlarge or shrink the groups… the only case we don't show the squares is in a
+> single staff system."*
+>
+> ✅ `interactions/elements/staffGroupHandles.ts` (geometry, 12 specs) + `staffGroupOps.setGroupSpan`
+> (6 specs) + the drag in `MouseController`, in the barline join's shape: arm, preview each frame
+> without undo, **ONE undo entry on the drop** — and only if the span ended up different from how it
+> started, so a wandering gesture files nothing.
+>
+> ⭐ **The drag resolves to a STAFF, ⛔ never a pixel delta**: a group spans whole staves, so those are
+> the only positions reachable. `staffAtPointer` answers by **BAND** — ⛔ not `round(y / stride)`,
+> because staves may be drawn at different sizes.
+>
+> ⭐ **`setGroupSpan` edits the group IN PLACE**, ⛔ not `applyGroupSymbol` with new ids: that keys on
+> MEMBERSHIP, so it would make a SECOND group and the selection (which names the ID) would go stale
+> mid-drag.
+>
+> ⭐ **His single-staff rule falls out of the geometry rather than being written as an `if`**: a handle
+> offers a staff to move an end TO, and a one-staff score has none, so the loop produces nothing —
+> `barlineJoinHandles`' own argument about gaps.
+>
+> #### 🚨🚨 IT EXPOSED THE HIT-BOX BEING THE *SPAN* AND NOT THE *INK*
+>
+> **His report**: *"in the brace the squares are good in position but in the brackets the squares
+> vertically are too close."* ⭐ The box stopped at the staff lines, so a square hanging off it sat
+> **inside** a bracket's serif — which reaches ~1.5 sp further out — while a brace, being FLUSH,
+> looked right. ⇒ `signOutwardReachSpaces` (a total over `symbol`) and the box now covers the ink.
+> ⭐ **It fixed a second bug wearing the same hat**: a press on a bracket's serif was outside the box
+> and selected nothing.
+>
+> Then: *"the squares in the bracket look better but i think now it can be tiny closer."* ⭐ Both signs
+> sat 10 px from their OWN ink, but a bracket's ink already projects — so the projection was doing
+> part of the separating. A projecting sign gets **6 px**, a flush one keeps **10**. ⛔ Not a smaller
+> shared constant, which would have moved the brace's squares too.
+
+### 🚨🚨 P7a — AND THE ORDER WAS STILL WRONG: **A BRACE IS ALWAYS OUTERMOST**
+
+> **His report**, with a screenshot: *"the problem with the order is not fixed either (brace is still
+> inside)"* — a bracket over staves 1–2 and a brace over 2–3.
+>
+> ⛔ **`smaller-further-left` CANNOT DECIDE EQUAL SPANS**, and both of his groups spanned two staves.
+> ⭐ §3.2 carries a **second rule, stated rather than measured**, which I had quoted at him one round
+> earlier and not implemented: *"A brace should only ever be used as the **outermost** bracket"*
+> (**Gould p. 516**, verified on the scan).
+>
+> ✅ `groupsAt` now sorts **braces first** (= outermost), then by ascending span, then stably by top
+> staff. ⚠️ He had asked *"are you sure the brace must go inside the bracket?"* the round before —
+> **the answer was no**, and this is why.
+
 ### P6 — LEFTOVERS — ⭐ **TWO OF THE FIVE WERE DISSOLVED BY P5**
 
 > ✅ ~~**Nesting** (decision 3)~~ — he answered it (allowed), and P5 made it **expressible with no new

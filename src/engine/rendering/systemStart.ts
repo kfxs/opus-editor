@@ -47,7 +47,8 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
 import {
-  systemStartColumn, SIGN_TO_BARLINE_SPACES, BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
+  systemStartColumn, SIGN_TO_BARLINE_SPACES, signOutwardReachSpaces,
+  BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
   BRACKET_SERIF_WIDTH_SPACES, SUB_BRACKET_STROKE_SPACES, type PlacedSystemStartSign,
 } from '@/engine/layout/systemStartColumn'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
@@ -148,8 +149,14 @@ function registerSignBox(
   bottom: SystemStartPlacement,
 ): void {
   const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
-  const topY = spanTopY(top)
-  const bottomY = spanBottomY(bottom)
+  // ⭐⭐ **THE INK'S extent, ⛔ not the SPAN's** — his report, 2026-08-29: *"in the brace the squares
+  //   are good in position, but in the brackets the squares vertically are too close."* A bracket's
+  //   serif reaches ~1.5 sp past each staff line, so a box that stopped at the line put the handle
+  //   inside the ink — and left the serif itself unclickable. A brace is flush and reaches 0, which
+  //   is why only the bracket looked wrong ({@link signOutwardReachSpaces}).
+  const reach = signOutwardReachSpaces(sign.group.symbol) * STAFF_SPACE_PX
+  const topY = spanTopY(top) - reach
+  const bottomY = spanBottomY(bottom) + reach
   // Its own depth plus the clearance it keeps from whatever stands to its right.
   const width = (sign.depthSpaces + SIGN_TO_BARLINE_SPACES) * STAFF_SPACE_PX
   pass.elementRegistry.add({

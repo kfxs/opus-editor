@@ -3,6 +3,7 @@ import { ScoreModel } from './models/ScoreModel'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacingAbove, staffSystemSpacingKey, dynamicOffsetOverrideOf, tempoOffsetOverrideOf, noteOffsetOverrideOf, spacingPositionKey, leadingSpaceOverrideOf, barlineSpaceKey, barlineSpaceOf, barWidthKey, measureStretch, BAR_STRETCH_MIN } from './models/engravingOverrides'
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
+import * as staffGroupOps from './models/staffGroupOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
@@ -806,6 +807,29 @@ export class MusicEngine {
     if (!this.scoreModel.setBarlineJoinBelow(staffId, on)) return false
     this.markModelDirty()
     return true
+  }
+
+  /**
+   * ⭐⭐ **RE-SPAN a group DURING a drag** — one frame of the handle gesture, ⛔ no undo entry.
+   * {@link commitStaffGroupSpan} records the whole drag once on the drop, the pair
+   * `previewBarlineJoinBelow` / `commitBarlineJoin` already uses.
+   *
+   * ⚠️ `markModelDirty` only when it actually changed, that pair's rule: `modelDirty` means *the
+   * model has moved on from the picture*, and only a render clears it — so a no-op frame that marks
+   * it leaves it dirty forever. `setGroupSpan` already answers false for a span that is there.
+   *
+   * @returns true if the span changed — the caller's "did this drag do anything" flag.
+   */
+  previewStaffGroupSpan(groupId: string, fromStaff: number, toStaff: number): boolean {
+    if (!staffGroupOps.setGroupSpan(this.scoreModel.getScore(), groupId, fromStaff, toStaff)) return false
+    this.markModelDirty()
+    return true
+  }
+
+  /** Record ONE undo entry after a group-span drag settles. ⭐ `commitPreviewed`, ⛔ never `commit`:
+   *  a grouping sign is INK and changes no note's time, so there is no playback to resync. */
+  commitStaffGroupSpan(): void {
+    this.commitPreviewed('Resize group')
   }
 
   /** Record ONE undo entry after a join drag settles (a drag whose every frame went through

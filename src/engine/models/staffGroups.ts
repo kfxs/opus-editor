@@ -108,9 +108,22 @@ export function groupsAt(
     })
   }
 
-  // Innermost first — the smaller span is drawn nearer the staves. ⭐ A stable tie-break on the top
-  // staff keeps two same-size groups in score order rather than in `sort`'s.
+  // ⭐⭐ **INNERMOST FIRST** — the list is ordered so that `[0]` ends up FURTHEST LEFT and the last
+  // entry sits nearest the staves (`layout/systemStartColumn` walks it backwards).
+  //
+  // 🚨🚨 **A BRACE IS ALWAYS OUTERMOST, whatever it spans** — *"A brace should only ever be used as
+  // the **outermost** bracket"* (Gould **p. 516**, stated and verified on the scan; research §3.2).
+  // ⛔ This is a SECOND rule, and sorting by span alone does not imply it: his report of 2026-08-29
+  // is the case that proves it — a bracket over staves 1–2 and a brace over 2–3, **the same size**,
+  // where span cannot decide and the brace came out inside. ⭐ He had asked *"are you sure the brace
+  // must go inside the bracket?"* one round earlier; the answer was no, and this is why.
+  //
+  // ⭐ Then the SMALLER group further left (measured — Gould p. 509/518, Ross pp. 155–6, Stone p. 6;
+  // LilyPond and Verovio agree, ⛔ MuseScore is the odd one out), and a stable tie-break on the top
+  // staff so two identical spans keep score order rather than `sort`'s.
+  const braceFirst = (g: ResolvedStaffGroup) => (g.symbol === 'brace' ? 0 : 1)
   return resolved.sort((a, b) =>
-    (a.bottomStaffIndex - a.topStaffIndex) - (b.bottomStaffIndex - b.topStaffIndex)
+    braceFirst(a) - braceFirst(b)
+    || (a.bottomStaffIndex - a.topStaffIndex) - (b.bottomStaffIndex - b.topStaffIndex)
     || a.topStaffIndex - b.topStaffIndex)
 }

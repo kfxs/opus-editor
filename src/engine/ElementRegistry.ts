@@ -28,6 +28,10 @@ export type ElementType =
    * corners in the SVG's own coordinates, so it writes them down there.
    */
   | 'staffGroupSign'
+  /** ⭐ One of the two SQUARES of a selected grouping sign — grab it to grow or shrink the group
+   *  (`interactions/elements/staffGroupHandles`). Registered by the HIGHLIGHT, like the barline
+   *  join's square, because it exists only while something is selected. */
+  | 'staff-group-handle'
   | 'note'
   /**
    * A note's STEM, as its own ink rect — registered per stemmed slot (a chord has one stem, and

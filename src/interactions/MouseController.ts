@@ -55,6 +55,7 @@ const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { beatToFrac } from '../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from './measurePassage'
 import { stampGroupAtClick } from './groupStamp'
+import { staffAtPointer, spanAfterDrag, type StaffGroupHandleEnd } from './elements/staffGroupHandles'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -143,7 +144,7 @@ interface MarkEndSession {
  * branches that each `return`, so a press arms one thing or nothing.
  */
 type DragKind =
-  | 'note' | 'barWidth' | 'barlineJoin' | 'clef' | 'staffSpacing'
+  | 'note' | 'barWidth' | 'barlineJoin' | 'clef' | 'staffSpacing' | 'staffGroupSpan'
   | 'slurHandle' | 'slurEndpoint' | 'slurBody'
   | 'dynamic' | 'tempo'
   | 'markEnd' | 'hairpinBody' | 'ottavaBody' | 'pedalBody' | 'trillBody'
@@ -265,6 +266,23 @@ export class MouseController {
    * drags beside this one can afford because their values are continuous.
    */
   private barlineJoinDrag: (BarlineJoinGrab & { baseline: boolean; current: boolean }) | null = null
+
+  // --- GROUPING-SIGN span drag (his ask, 2026-08-29: the two squares that resize a group) ---
+  /**
+   * The group being resized, captured ONCE at the grab — which END was grabbed, the span the press
+   * started from, and the span applied right now.
+   *
+   * ⭐ `baseline` and `current` are what keep the drop honest, the join drag's rule: a gesture that
+   * wanders and comes back has written and changed nothing, and committing that would file an undo
+   * entry for a score that never moved.
+   */
+  private staffGroupSpanDrag: {
+    groupId: string
+    end: StaffGroupHandleEnd
+    measure: number
+    baseline: { fromStaff: number; toStaff: number }
+    current: { fromStaff: number; toStaff: number }
+  } | null = null
 
   // --- Clef drag state (selection-tool drag, across slots and measures) ---
   private draggedClefMeasure: number | null = null      // current measure (updates during drag)
@@ -1275,6 +1293,14 @@ export class MouseController {
     //
     // ⭐ It selects NOTHING — the barline stays selected right through the drag, which is what keeps
     // the square painted while you hold it.
+    // ⭐⭐ A press on a SELECTED GROUPING SIGN'S SQUARE resizes the group — his ask, 2026-08-29.
+    //   ⚠️ Before the join square and the staff-spacing drag, for the join square's reason: a handle
+    //   you can SEE has to win the press over whatever band it happens to sit in. ⭐ It selects
+    //   NOTHING — the sign stays selected through the drag, which keeps its squares painted.
+    if (this.armStaffGroupSpanDrag(registry, coords.x, coords.y)) {
+      event.preventDefault()
+      return
+    }
     const joinGrab = barlineJoinGrabAt(registry, coords.x, coords.y)
     if (joinGrab) {
       this.armBarlineJoinDrag(joinGrab)
@@ -2118,6 +2144,89 @@ export class MouseController {
    * not a delta: a press that never moves is still on its own side of the gap's middle, so a click
    * cannot flip anything.
    */
+  /**
+   * ⭐ Arm the group-resize drag if this press landed on one of the two squares.
+   *
+   * ⚠️ The square's registered `staff` carries WHICH END it is (0 = top, 1 = bottom) — the registry
+   * has no field of its own for that, and the press has to know which end it grabbed.
+   *
+   * @returns whether the press was consumed.
+   */
+  private armStaffGroupSpanDrag(registry: ElementRegistry, x: number, y: number): boolean {
+    const selected = selectedOf(this.state, 'staffGroup')
+    if (!selected) return false
+    const hit = registry.getByType('staff-group-handle').find(el => {
+      const b = el.bbox
+      return el.id === selected.groupId
+        && x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height
+    })
+    if (!hit) return false
+
+    const engine = this.getEngine()
+    const group = engine?.getScore().staffGroups?.find(g => g.id === selected.groupId)
+    if (!engine || !group) return false
+    const staves = engine.getScore().staves ?? []
+    const indices = group.staffIds.map(id => staves.findIndex(s => s.id === id)).filter(i => i >= 0)
+    if (indices.length === 0) return false
+    const span = { fromStaff: Math.min(...indices), toStaff: Math.max(...indices) }
+
+    this.activeDrag = { kind: 'staffGroupSpan', end: () => this.endStaffGroupSpanDrag() }
+    this.staffGroupSpanDrag = {
+      groupId: selected.groupId,
+      end: (hit.staff ?? 0) === 0 ? 'top' : 'bottom',
+      measure: hit.measure ?? 1,
+      baseline: span,
+      current: span,
+    }
+    dbg(`Group resize ready | ${selected.symbol} · staves ${span.fromStaff}–${span.toStaff} · `
+      + `grabbed the ${(hit.staff ?? 0) === 0 ? 'top' : 'bottom'} square`)
+    return true
+  }
+
+  /**
+   * ⭐⭐ **THE GROUP-RESIZE DRAG** — the grabbed end follows the pointer to whichever STAFF it is
+   * over, and the other end stays put.
+   *
+   * ⭐ **The staff, ⛔ never a pixel delta**: a group spans whole staves, so the only positions the
+   * gesture can reach are staff indices — and `staffAtPointer` answers by BAND rather than by a
+   * stride, because staves may be drawn at different sizes.
+   *
+   * ⭐ **The preview IS the picture** — `previewStaffGroupSpan` writes the model without undo and the
+   * render draws the sign at its new span, so what you see mid-drag is what the drop keeps.
+   */
+  private handleStaffGroupSpanDrag(engine: MusicEngine, y: number): boolean {
+    const drag = this.staffGroupSpanDrag
+    if (this.activeDrag?.kind !== 'staffGroupSpan' || !drag) return false
+    const registry = engine.getElementRegistry()
+    const staffCount = engine.getScore().staves?.length ?? 1
+    const staff = staffAtPointer(registry, drag.measure, staffCount, y)
+    if (staff === null) return true
+    const want = spanAfterDrag(drag.current, drag.end, staff)
+    if (want.fromStaff === drag.current.fromStaff && want.toStaff === drag.current.toStaff) return true
+    if (engine.previewStaffGroupSpan(drag.groupId, want.fromStaff, want.toStaff)) {
+      drag.current = want
+      this.render.renderScore()
+    }
+    return true
+  }
+
+  /**
+   * Finish a group-resize drag: ONE undo entry, and only if the span ended up different from how it
+   * started — the join drag's rule, and for its reason.
+   */
+  private endStaffGroupSpanDrag(): void {
+    const engine = this.getEngine()
+    const drag = this.staffGroupSpanDrag
+    if (engine && drag
+      && (drag.current.fromStaff !== drag.baseline.fromStaff
+        || drag.current.toStaff !== drag.baseline.toStaff)) {
+      engine.commitStaffGroupSpan()
+      dbg(`Group resized | staves ${drag.current.fromStaff}–${drag.current.toStaff}`)
+    }
+    this.activeDrag = null
+    this.staffGroupSpanDrag = null
+  }
+
   private armBarlineJoinDrag(grab: BarlineJoinGrab): void {
     const engine = this.getEngine()
     const baseline = engine?.barlineJoinsBelow(grab.staffAbove, grab.measure) ?? false
@@ -2885,6 +2994,7 @@ export class MouseController {
     if (this.handleTrillBodyDrag(engine, x, y)) return
     if (this.handleSlurEndpointDrag(engine, x, y)) return
     if (this.handleStaffSpacingDrag(engine, x, y)) return
+    if (this.handleStaffGroupSpanDrag(engine, y)) return
     if (this.handleBarlineJoinDrag(engine, y)) return
     if (this.handleClefDrag(engine, x, y)) return
 
