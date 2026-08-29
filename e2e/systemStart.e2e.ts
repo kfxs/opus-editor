@@ -27,9 +27,10 @@ async function bracketedSystem(score: Page): Promise<void> {
     for (const staff of [0, 1]) {
       h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), staff })
     }
-    // ⭐ `addStaff` has ALREADY created the group — this supplies only the `symbol`, which is exactly
-    //   the half a user authors and the model's auto-writer never invents.
-    h.engine.getScore().staffGroups![0].symbol = 'bracket'
+    // ⭐ P5's real write — the same call the palette makes: apply a sign to a run of staves.
+    //   ⚠️ Until 2026-08-29 this reached for a group `addStaff` had auto-created and set its
+    //   `symbol`; that auto-writer is gone, because the USER owns membership now.
+    h.engine.applyGroupSymbol(0, 1, 'bracket')
     await h.render()
   })
 }

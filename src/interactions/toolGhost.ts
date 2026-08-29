@@ -112,6 +112,12 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // makes, not where the engraver puts it. Three palette buttons arming identically behind one
     // blue caret is the `8va`/`8vb` case exactly, so the SIGN is what travels.
     case 'barline': return { kind: 'barline', sign: tool.sign }
+    // ⏭️ The GROUPING SIGN does not ghost YET, and that is a gap rather than a decision. ⚠️ It is
+    // against his standing call — *"we need ghosts for every case using the glyph"* — and a brace IS
+    // a glyph. What stops it is that a grouping sign's preview needs the STAFF SPAN the click will
+    // make, which is a shape no ghost drawn so far has: every other one previews ink at the POINTER.
+    // Until then the blue caret says a stamp is armed (`scoreCursorClass`).
+    case 'group': return null
     default: return assertNeverTool(tool)
   }
 }

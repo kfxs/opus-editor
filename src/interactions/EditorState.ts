@@ -80,6 +80,27 @@ export type MarkingTool =
    * arm identically behind one blue caret is the `8va`/`8vb` case exactly.
    */
   | { kind: 'keySignature'; key: KeySignature }
+  /**
+   * ⭐⭐ The GROUPING-SIGN stamp — a click puts a brace or a bracket on the staff it lands on
+   * (P5 of docs/braces-brackets-plan.md, `interactions/groupStamp.ts`).
+   *
+   * ⭐ **It is the ARM half of his rule of 2026-08-29**: *"if no staff is selected we arm a stamp and
+   * apply to the staff we click."* The APPLY half never reaches here — a selection that names staves
+   * writes immediately and arms nothing (`PaletteController.pressGroupSymbol`).
+   *
+   * ⭐ **It carries the SYMBOL**, like the hairpin's `cresc`/`dim` and for the same reason: the brace
+   * and the bracket are two palette rows that must light independently, ⛔ not one tool with a
+   * setting.
+   *
+   * ⛔ It carries no LENGTH — a click names a STAFF, and the armed duration says nothing about that
+   * (`false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}).
+   *
+   * ⏭️ **It does NOT ghost yet**, so it is in {@link scoreCursorClass}'s blue-pointer list. ⚠️ That is
+   * a gap against his standing call — *"we need ghosts for every case using the glyph"* — and the
+   * brace is a glyph. It is left open because a grouping sign's preview needs the STAFF SPAN the
+   * click will make, which is a different shape from every ghost drawn so far.
+   */
+  | { kind: 'group'; symbol: 'brace' | 'bracket' }
   | { kind: 'dynamic'; dynamic: DynamicTool }
   | { kind: 'tempo'; tempo: TempoTool }
   /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying
@@ -268,6 +289,7 @@ export const MARKING_TOOL_USES_ARMED_LENGTH: Record<MarkingTool['kind'], boolean
   timeSignature: false,
   keySignature: false, // a signature is a BOUNDARY statement — "this bar is in E♭" — like the meter
                        //   beside it: there is no length for a click to give it
+  group: false,      // a click names a STAFF, and a duration says nothing about which staff
   dynamic: false,
   dynamicEntry: false, // places a text mark; a length means nothing to it (like `dynamic`)
   tempo: false,

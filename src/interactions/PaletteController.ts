@@ -18,6 +18,7 @@ import { selectedNoteIds, selectedArticulationNoteIds, multipleNotesSelected } f
 import { featherSelectedNote, featherContext } from './fanStamp'
 import { applyBarlineSign, barlineTargetFromSelection, type BarlineSign } from './barlineStamp'
 import { applyKeySignature, keyTargetFromSelection } from './keySignatureStamp'
+import { groupTargetFromSelection } from './groupStamp'
 import { keysEqual } from '@/utils/keySignature'
 import { bus } from '@/bus'
 import type { ArmedFanStamp } from '@/bus'
@@ -964,6 +965,7 @@ export class PaletteController {
       case 'tempo':
       case 'tempoEntry':   // places a tempo mark — nothing to promote to (like `tempo`)
       case 'barline':      // a BOUNDARY between bars — not a property of a note, and it has no length
+      case 'group':        // a sign beside the STAVES — not a note property, and no length to carry
       case undefined:      // nothing was armed: a plain duration press, which clears a stale dot
         // Dropping a stale accidental here is deliberate: an INTENTIONAL one arms the stamp (and so
         // lands in the 'accidental' case above), meaning one that survives to here can only be left
@@ -2164,6 +2166,52 @@ export class PaletteController {
       return
     }
     this.armMarkingTool({ kind: 'barline', sign })
+  }
+
+  /**
+   * ⭐⭐ **A GROUPING SIGN — APPLIES, else ARMS.** P5 of docs/braces-brackets-plan.md.
+   *
+   * **His rule, 2026-08-29**: *"for applying the brace or bracket we check the measure selection: if
+   * multiple staves are selected we apply to those staves; if just one staff is selected we apply
+   * just to that staff; if no staff is selected we arm a stamp and apply to the staff we click."*
+   *
+   * ⭐ His first two cases need no branch here: a measure selection carries a staff SPAN
+   * (`interactions/measurePassage`), so "one staff" is simply a span of one.
+   * {@link groupTargetFromSelection} is the one place that asks, ⛔ never this method.
+   *
+   * The engine is fetched INSIDE the writing branch, like `pressBarline` and `pressKeySignature`: a
+   * selection means APPLY and never arm, so an engine-less context must not fall through to arming.
+   */
+  pressGroupSymbol(symbol: 'brace' | 'bracket'): void {
+    const target = groupTargetFromSelection(this.state)
+    if (target !== null) {
+      const engine = this.getEngine()
+      if (engine && engine.applyGroupSymbol(target.fromStaff, target.toStaff, symbol)) this.renderScore()
+      return
+    }
+    const armed = armedTool(this.state, 'group')
+    if (armed && armed.symbol === symbol) {
+      this.disarmToEntry() // re-press disarms, like every stamp button it sits beside
+      return
+    }
+    this.armMarkingTool({ kind: 'group', symbol })
+  }
+
+  /**
+   * ⭐ **REMOVE the grouping sign from the selected staves** — his *"none"*.
+   *
+   * ⛔ APPLY-only, with no arming half, and that is deliberate: arming "remove nothing" and hunting
+   * for a click to spend it on is not a gesture anyone wants. With nothing selected this does
+   * nothing and says so.
+   */
+  pressGroupNone(): void {
+    const target = groupTargetFromSelection(this.state)
+    if (target === null) {
+      dbg('⛔ Group: nothing selected — select the staves whose sign should go')
+      return
+    }
+    const engine = this.getEngine()
+    if (engine && engine.applyGroupSymbol(target.fromStaff, target.toStaff, undefined)) this.renderScore()
   }
 
   /**

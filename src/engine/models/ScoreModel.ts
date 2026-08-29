@@ -53,6 +53,7 @@ import * as staffSizeOps from './staffSize'
 import * as barlineJoinOps from './barlineJoin'
 import { isValidStaffSize } from './staffSize'
 import * as barlineOps from './barlineOps'
+import * as staffGroupOps from './staffGroupOps'
 import type { BarlineSignKind } from '@/engine/layout/barlineSign'
 import { isBarlineStyle, isValidRepeatTimes } from './barlineOps'
 import { flatNoteOf, flatRestOf } from './noteProjection'
@@ -228,7 +229,7 @@ export class ScoreModel {
     const newStaff: StaffInfo = { id: uuidv4() }
     staves.splice(insertAt, 0, newStaff)
     this.score.staves = staves
-    this.ensureSingleGroupSpansAllStaves()
+    this.pruneStaffGroups()
     // ⭐⭐ **The new staff adopts the reference staff's KEY SIGNATURES** — his report, 2026-08-28:
     //    *"the new stave has no key signature"*. ⛔ Unlike the clef, which is deliberately left at the
     //    universal default for the user to state: `keyOps.copyStaffKeys` says why the two differ.
@@ -273,25 +274,25 @@ export class ScoreModel {
   }
 
   /**
-   * Keep the one staff group spanning all staves in top→bottom order. This subsumes both the
-   * **0→1 group creation** (the first time a 2nd staff appears there is no group yet — §9) and
-   * growing that single group on later adds. Scope this pass is a single group (organ/piano
-   * growth); adding a SEPARATE group is a §10 future-open op. A lone staff is not a group, so
-   * the overlay is cleared below N=2.
+   * ⭐⭐ **THE USER OWNS GROUP MEMBERSHIP — the model only keeps it honest.**
+   *
+   * ⛔ **This replaced `ensureSingleGroupSpansAllStaves`**, which rebuilt `staffGroups` as ONE group
+   * over EVERY staff on each `addStaff`. That was invisible while nothing drew, and it is
+   * **incompatible with authoring** (P5, his rule of 2026-08-29: a sign applies to *the staves the
+   * selection names*) — it would have overwritten `staffIds` and destroyed a user's group the moment
+   * a staff was added, and it deleted the whole overlay below two staves.
+   *
+   * ⭐ What is left is referential integrity and nothing else: no group may name a staff the score
+   * does not have. See `models/staffGroupOps.pruneStaffGroups`.
    */
-  private ensureSingleGroupSpansAllStaves(): void {
-    const staves = this.score.staves ?? []
-    if (staves.length < 2) {
-      this.score.staffGroups = undefined
-      return
-    }
-    const existing = this.score.staffGroups?.[0]
-    const group: StaffGroup = {
-      id: existing?.id ?? uuidv4(),
-      staffIds: staves.map(s => s.id),
-      ...(existing?.symbol ? { symbol: existing.symbol } : {}),
-    }
-    this.score.staffGroups = [group]
+  private pruneStaffGroups(): void {
+    staffGroupOps.pruneStaffGroups(this.score)
+  }
+
+  /** ⭐ Apply a grouping sign to exactly these staves — P5's ONE write.
+   *  See {@link staffGroupOps.applyGroupSymbol}. */
+  applyGroupSymbol(staffIds: readonly string[], symbol: StaffGroup['symbol'] | undefined): boolean {
+    return staffGroupOps.applyGroupSymbol(this.score, staffIds, symbol)
   }
 
   /**

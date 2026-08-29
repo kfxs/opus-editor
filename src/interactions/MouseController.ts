@@ -54,6 +54,7 @@ import { markAtPress } from './markGroupSelect'
 const DEFAULT_TEMPO_TEXT = 'Tempo'
 import { beatToFrac } from '../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from './measurePassage'
+import { stampGroupAtClick } from './groupStamp'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
@@ -2312,6 +2313,9 @@ export class MouseController {
     // The event travels because `Ctrl`/`Cmd` NARROWS the drop to the staff under the pointer, which
     // is MuseScore's polarity and all four apps' default (plan §5.1).
     if (stampKeySignatureAtClick(this.state, engine, y, measureNum, event, () => this.render.renderScore())) return
+    // ⭐ The GROUPING SIGN's armed click — his third case, and the only one that reaches the score
+    //   through a click rather than through a selection (`interactions/groupStamp`).
+    if (stampGroupAtClick(this.state, engine, y, measureNum, () => this.render.renderScore())) return
     if (this.placeDynamicAtClick(engine, x, y, measureNum)) return
     if (this.placeDynamicEntryAtClick(engine, x, y, measureNum)) return
     if (this.placeTempoAtClick(engine, x, measureNum)) return

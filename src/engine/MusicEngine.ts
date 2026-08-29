@@ -862,6 +862,39 @@ export class MusicEngine {
 
   /** Back to a plain line: drop `measureNumber`'s barline style AND both of its repeats — what
    *  Delete means on a selected barline. @returns whether the score changed. */
+  /**
+   * ⭐⭐ **Apply a grouping sign to a run of staves, as ONE undoable edit** — P5's only write.
+   *
+   * `symbol: undefined` REMOVES the sign from those staves (his *"none"*), which is a real operation
+   * and not "set it to nothing": a group with no symbol draws nothing but still occupies the overlay.
+   *
+   * ⭐ Takes staff INDICES because that is what a selection and a click both produce, and converts
+   * to ids here — `StaffGroup.staffIds` is keyed by identity, and an ordinal is one staff insertion
+   * away from naming a different staff. See {@link staffGroupOps.applyGroupSymbol}.
+   *
+   * @returns whether the score changed.
+   */
+  applyGroupSymbol(fromStaff: number, toStaff: number, symbol: 'brace' | 'bracket' | undefined): boolean {
+    // 🚨🚨 **`staffIdAtIndex`, ⛔ NEVER `staffIdForIndex`** — and the difference is silent.
+    //    `staffIdForIndex` is the CONTENT write convention: staff 0 stamps **no id** (absent = staff
+    //    0, which keeps single-staff JSON byte-identical). ⭐ A GROUP is not content anchored to a
+    //    staff — it is a LIST OF MEMBERS, and every member needs a real id. Using the content helper
+    //    dropped staff 0 from every group and drew the sign over staff 1 alone; the e2e caught it as
+    //    a rod starting 10 staff spaces too low, which is the only way it ever showed.
+    const score = this.scoreModel.getScore()
+    const ids: string[] = []
+    for (let i = Math.min(fromStaff, toStaff); i <= Math.max(fromStaff, toStaff); i++) {
+      const id = staffIdAtIndex(score, i)
+      if (id !== undefined) ids.push(id)
+    }
+    if (!this.scoreModel.applyGroupSymbol(ids, symbol)) return false
+    const what = symbol ?? 'no sign'
+    this.saveUndoState(ids.length > 1
+      ? `${what} over staves ${Math.min(fromStaff, toStaff) + 1}–${Math.max(fromStaff, toStaff) + 1}`
+      : `${what} on staff ${Math.min(fromStaff, toStaff) + 1}`)
+    return true
+  }
+
   /** ⭐ Wings on or off for the sign at this line, as one undoable edit — the Properties checkbox.
    *  Refuses a line whose sign cannot carry them. See {@link barlineOps.setBoundaryWinged}. */
   setBoundaryWinged(endsMeasure: number | null, on: boolean): boolean {

@@ -63,10 +63,11 @@ export interface ResolvedStaffGroup {
  * than drawn wrongly, because each would put ink somewhere no engraver would:
  *
  * - **no `symbol`** — nobody asked for a sign (see the header);
- * - **fewer than two staves in the score, or a group naming none of them** — a sign spanning nothing;
- * - **a single-staff group** — ⛔ not a system. (⏭️ Gould p. 516 gives a single stave in a full score
- *   both a bracket and a systemic barline; that is a P6 question and needs the *whole score's* staff
- *   count in the answer, so it is not silently smuggled in here.)
+ * - **fewer than two staves in the score, or a group naming none of them** — a sign spanning nothing.
+ *
+ * ⭐ A **single-staff group** is NOT skipped (since 2026-08-29): Gould p. 516 gives a single stave in
+ * a full score both a bracket and a systemic barline, and it is what his authoring rule produces
+ * from a one-staff selection.
  *
  * ⚠️ A group whose staves are **not contiguous** (staves 1 and 3, skipping 2) is not engravable —
  * there is no way to draw it. It is resolved to the span it *encloses* rather than dropped, so the
@@ -87,7 +88,13 @@ export function groupsAt(
   for (const group of score.staffGroups ?? []) {
     if (!group.symbol) continue
     const indices = group.staffIds.map(id => indexOf.get(id)).filter((i): i is number => i !== undefined)
-    if (indices.length < 2) continue
+    // ⭐⭐ **ONE STAFF IS ENOUGH, and the books say so for the BRACKET** — *"A score system of only
+    //   one stave takes a square bracket **as well as** a systemic barline"* (Gould p. 516; Ross
+    //   pp. 151–2). It is also his authoring rule of 2026-08-29: *"if just one staff selected we
+    //   apply just to that staff"*. ⛔ This guard used to be `< 2` and was mine, not a source's.
+    //   ⏭️ A one-staff BRACE is not engraving anyone draws — that refusal, if it is ever wanted,
+    //   belongs to the authoring (`models/staffGroupOps`), ⛔ not to this reader.
+    if (indices.length < 1) continue
     resolved.push({
       group,
       symbol: group.symbol,

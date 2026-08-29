@@ -299,24 +299,24 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * went — a menu row calling the same method, and this group deleted.
    */
   const groupBox = group('Group:')
-  /** What a press can say TODAY: the symbol asked for, where the user is standing, and what the score
-   *  already stores. ⭐ The last part is the point — `staffGroups` is legal ABSENT (a sketch), so the
-   *  log has to distinguish *no groups* from *a group with no symbol*. */
-  const logGroupSymbol = (symbol: 'brace' | 'bracket') => {
-    const engine = getEngine()
-    const box = selectedOf(state, 'measureRange')
-    const score = engine?.getScore()
-    const groups = score?.staffGroups
-    dbg(`🔧 group palette | ${symbol} | `
-      + (box ? `measure:${Math.min(box.anchor, box.focus)} staff:${box.staff}` : 'nothing selected')
-      + ` | staves:${score?.staves?.length ?? 'unknown'}`
-      + ` | staffGroups:${groups === undefined ? 'absent (a sketch)' : JSON.stringify(groups)}`
-      + ' | ⛔ inert: the symbol is deferred, docs/braces-brackets-research.md')
-  }
-  action(groupBox, '{ Brace', 'Log a BRACE for the selected staves — 🔧 inert, logs only (the grouping symbol is deferred)',
-    () => true, () => logGroupSymbol('brace'))
-  action(groupBox, '[ Bracket', 'Log a BRACKET for the selected staves — 🔧 inert, logs only (the grouping symbol is deferred)',
-    () => true, () => logGroupSymbol('bracket'))
+  /**
+   * ⭐⭐ **LIVE since P5 (2026-08-29)** — these were `dbg` calls that drew nothing.
+   *
+   * **His rule**: *"if multiple staves are selected we apply to those staves; if just one staff is
+   * selected we apply just to that staff; if no staff is selected we arm a stamp and apply to the
+   * staff we click."* ⭐ All of it is `PaletteController.pressGroupSymbol` — ⛔ nothing is decided
+   * here, exactly like every other row in this shell.
+   */
+  action(groupBox, '{ Brace',
+    'Brace the SELECTED staves — or arm a stamp when nothing is selected, and click a staff',
+    () => true, () => palette.pressGroupSymbol('brace'))
+  action(groupBox, '[ Bracket',
+    'Bracket the SELECTED staves — or arm a stamp when nothing is selected, and click a staff',
+    () => true, () => palette.pressGroupSymbol('bracket'))
+  // ⛔ APPLY-only: arming "remove nothing" and hunting for a click to spend it on is not a gesture.
+  action(groupBox, '✕ None',
+    'Remove the grouping sign from the SELECTED staves (select staves first)',
+    () => selectedOf(state, 'measureRange') !== null, () => palette.pressGroupNone())
   row.appendChild(groupBox)
 
   /*

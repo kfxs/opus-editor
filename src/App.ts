@@ -874,7 +874,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⭐ The GROUPING SIGNS — author a brace/bracket from the console and see whether it drew, since
     // the real authoring (docs/braces-brackets-plan.md P5) does not exist yet. See the module for
     // the three ways it is scaffolding and not the feature.
-    w.__groups = groupSignConsole(() => engine, () => document.querySelector('.score-container') ?? document)
+    w.__groups = groupSignConsole(
+      () => engine, () => document.querySelector('.score-container') ?? document,
+      () => state, () => renderer.renderScore(),
+    )
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')

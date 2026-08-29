@@ -1,37 +1,39 @@
 /**
- * ⭐ **THE GROUPING SIGNS, FROM THE CONSOLE** — turn a brace or a bracket on and see whether it drew.
+ * ⭐ **THE GROUPING SIGNS, FROM THE CONSOLE** — author a brace or a bracket and see whether it drew.
  *
  * His ask, 2026-08-29: *"is it possible to give me a console tool so i check that the brackets
- * draw?"*. `docs/braces-brackets-plan.md` P3 has the bracket drawing but **P5 — the authoring — is
- * not built**, so there is no gesture that puts a `symbol` on a group yet. This is the stand-in.
+ * draw?"*, when P5 did not exist and nothing could put a `symbol` on a score.
  *
  * ```js
- *   __groups.bracket()   // every group in the score draws a bracket
- *   __groups.brace()     // …or a brace (⏭️ P4b — not drawn yet, so this shows the ROOM only)
- *   __groups.none()      // clear it: back to the systemic barline alone
+ *   __groups.bracket()   // apply to the SELECTED staves, or the whole score if none are selected
+ *   __groups.brace()
+ *   __groups.none()      // remove the sign from those staves
  *   __groups.dump()      // what is stored, what resolves, what room it took, what actually DREW
  * ```
  *
- * ## ⛔ THIS IS SCAFFOLDING, NOT THE FEATURE — three ways, and each matters
+ * ## ⭐ IT GOES THROUGH THE MODEL NOW — so it is UNDOABLE
  *
- * - **It writes `symbol` straight onto the score**, ⛔ bypassing `ScoreModel`'s mutators. So there is
- *   **no undo entry** and no model-change notification. ⭐ That is exactly why P5 exists: the real
- *   authoring goes through the model like every other edit
- *   ([[reference_mutators_must_save_undo_state]]).
- * - **It re-engraves by hand** (`engine.renderScore()`, not the controller's gated one) precisely
- *   *because* nothing was marked dirty — `RenderController` would ask `isRenderStale()`, be told no,
- *   and draw nothing. ⚠️ ⛔ Do not read that as a licence to render reflexively
- *   ([[feedback_think_before_rendering]]): it is the honest consequence of writing behind the model.
- * - **It sets EVERY group**, because a score has exactly one today
- *   (`ScoreModel.ensureSingleGroupSpansAllStaves`). ⛔ Not a policy — a stand-in for a selection.
+ * ⚠️ It used to write `symbol` **straight onto the score** and re-engrave by hand, which meant no
+ * undo entry and no model notification ([[reference_mutators_must_save_undo_state]]). ⛔ That hack is
+ * gone: P5 built the real write (`MusicEngine.applyGroupSymbol` → `models/staffGroupOps`), and this
+ * calls it like any other caller.
  *
- * ⚠️ **And a group the model wrote has no `symbol`** (the auto-writer never invents one — the plan's
- * §1a). So on a fresh two-staff score `dump()` reports a group and *no sign*, which is correct and is
- * the whole safety of the feature: **`symbol` is what says a sign was asked for.**
+ * ## ⭐⭐ AND IT HONOURS THE SAME SELECTION RULE THE PALETTE WILL
+ *
+ * His rule of 2026-08-29 — *"if multiple staves are selected we apply to those staves; if just one
+ * staff, just that staff; if none, arm a stamp"* — lives in `interactions/groupStamp`, and this tool
+ * asks **that** function rather than a copy of it. ⚠️ The one thing it cannot do is ARM: a console
+ * call has no click to follow it, so where the palette would arm, this falls back to the whole
+ * score and says so.
+ *
+ * ⛔ **Still scaffolding** in one respect: it is a console entry point, not a gesture. The palette
+ * and menu rows are P5's remaining half.
  */
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { StaffGroup } from '@/types/music'
 import { groupsAt } from '@/engine/models/staffGroups'
+import { groupTargetFromSelection } from '@/interactions/groupStamp'
+import type { EditorState } from '@/interactions/EditorState'
 import { systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 
 /** The class `systemStart` draws its signs into, once VexFlow's `openGroup` has prefixed it. */
@@ -47,24 +49,38 @@ export interface GroupSignConsole {
 export function groupSignConsole(
   getEngine: () => MusicEngine | null,
   container: () => ParentNode,
+  /** The editor's state, so the console honours the SAME selection rule the palette will. */
+  getState?: () => EditorState,
+  /** Re-engrave. ⭐ Needed because `applyGroupSymbol` records undo but this is a dev call outside
+   *  the controller's own render cycle. */
+  render: () => void = () => getEngine()?.renderScore(),
 ): GroupSignConsole {
   function apply(symbol: StaffGroup['symbol'] | undefined): void {
     const engine = getEngine()
     if (!engine) return
-    const groups = engine.getScore().staffGroups
-    if (!groups?.length) {
-      console.warn('[groups] no staff groups in this score — add a second staff first (the model '
-        + 'creates the group itself; this only supplies the symbol).')
-      return
-    }
-    for (const group of groups) {
-      if (symbol === undefined) delete group.symbol
-      else group.symbol = symbol
-    }
-    // See the header: nothing marked the model dirty, so the gated path would decline to draw.
-    engine.renderScore()
-    console.log(`[groups] symbol = ${symbol ?? '(none)'} on ${groups.length} group(s) — redrawn.`)
+    const staves = engine.getScore().staves ?? []
+    if (staves.length === 0) { console.warn('[groups] no staves'); return }
+
+    // ⭐⭐ **THROUGH THE MODEL, so it is UNDOABLE** — since P5 landed there is a real write
+    // (`MusicEngine.applyGroupSymbol` → `models/staffGroupOps`). ⚠️ This used to set `symbol`
+    // straight on the score and re-engrave by hand, which meant no undo and no model notification.
+    // ⛔ That hack is gone; what is left here is only the *targeting*, which the real gesture takes
+    // from the selection (`interactions/groupStamp`).
+    const target = targetFromSelection() ?? { fromStaff: 0, toStaff: staves.length - 1 }
+    const changed = engine.applyGroupSymbol(target.fromStaff, target.toStaff, symbol)
+    console.log(
+      `[groups] ${symbol ?? '(none)'} on staves ${target.fromStaff + 1}–${target.toStaff + 1}` +
+      ` — ${changed ? 'applied (undoable)' : 'no change'}`,
+    )
+    if (changed) render()
     dump()
+  }
+
+  /** ⭐ The SAME rule the palette will use — his APPLIES-else-ARMS of 2026-08-29. Null here means
+   *  "nothing named the staves", and this console tool falls back to the whole score rather than
+   *  arming, because a console call has no click to follow it. */
+  function targetFromSelection(): { fromStaff: number; toStaff: number } | null {
+    return getState ? groupTargetFromSelection(getState()) : null
   }
 
   function dump(): void {
@@ -76,7 +92,7 @@ export function groupSignConsole(
 
     console.log(`[groups] ${staves.length} stave(s), ${groups.length} group(s)`)
     if (groups.length === 0) {
-      console.log('  (none — a single-staff score has nothing to group)')
+      console.log('  (none — nobody has applied a sign; the model no longer invents one)')
     } else {
       console.table(groups.map(g => ({
         id: g.id.slice(0, 8),
@@ -109,10 +125,6 @@ export function groupSignConsole(
     console.log(`  DRAWN: ${drawn.length} sign group(s) in the SVG — ${rects} rod(s), ${glyphs} serif(s).`)
     if (resolved.length > 0 && drawn.length === 0) {
       console.warn('  🚨 resolved a sign but drew none — that is a real bug, not a missing symbol.')
-    }
-    if (resolved.some(r => r.symbol === 'brace')) {
-      console.log('  ⏭️ NOTE: the BRACE is not drawn yet (plan P4b). Its ROOM is reserved — '
-        + 'the staves move right — but no ink lands in it.')
     }
   }
 

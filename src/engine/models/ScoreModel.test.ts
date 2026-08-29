@@ -1683,22 +1683,38 @@ describe('ScoreModel.addStaff (multi-staff Phase 4)', () => {
     }
   })
 
-  it('creates a single group spanning both staves on the FIRST add (0→1 transition)', () => {
-    expect(model.getScore().staffGroups).toBeUndefined() // a lone staff is not a group
-    const id = model.addStaffBelow(0)
-    const groups = model.getScore().staffGroups!
-    expect(groups).toHaveLength(1)
-    expect(groups[0].staffIds).toEqual([model.getScore().staves![0].id, id])
+  it('⛔ does NOT invent a group — the USER owns membership (P5, 2026-08-29)', () => {
+    // 🚨 This asserted the opposite until 2026-08-29: `ensureSingleGroupSpansAllStaves` rebuilt
+    //    `staffGroups` as ONE group over EVERY staff on each add. Harmless while nothing drew, and
+    //    ⛔ incompatible with authoring — it would overwrite `staffIds` and destroy a user's group
+    //    the moment a staff was added. `models/staffGroupOps` has the whole argument.
+    expect(model.getScore().staffGroups).toBeUndefined()
+    model.addStaffBelow(0)
+    expect(model.getScore().staffGroups, 'still nobody has asked for a sign').toBeUndefined()
+    model.addStaffBelow(1)
+    expect(model.getScore().staffGroups).toBeUndefined()
   })
 
-  it('GROWS the one group (not a new group) on a later add', () => {
-    model.addStaffBelow(0)                              // 2 staves, 1 group
-    const groupId = model.getScore().staffGroups![0].id
-    model.addStaffBelow(1)                              // add a 3rd staff below
+  it('⭐ a group the user authored SURVIVES a later staff add — the whole point of the change', () => {
+    const first = model.getScore().staves![0].id
+    const second = model.addStaffBelow(0)
+    expect(model.applyGroupSymbol([first, second], 'brace')).toBe(true)
+
+    model.addStaffBelow(1) // a third staff arrives
     const groups = model.getScore().staffGroups!
-    expect(groups).toHaveLength(1)
-    expect(groups[0].id).toBe(groupId)                 // same group object, grown
-    expect(groups[0].staffIds).toEqual(model.getScore().staves!.map(s => s.id))
+    expect(groups, 'the authored group is untouched').toHaveLength(1)
+    expect(groups[0].staffIds).toEqual([first, second]) // ⛔ NOT grown to cover the new staff
+    expect(groups[0].symbol).toBe('brace')
+  })
+
+  it('⭐ PRUNES a group that names a staff the score no longer has', () => {
+    const first = model.getScore().staves![0].id
+    const second = model.addStaffBelow(0)
+    model.applyGroupSymbol([first, second], 'bracket')
+    // Forge a group over a staff that was never in the score, then let the model see the axis.
+    model.getScore().staffGroups!.push({ id: 'ghost', staffIds: ['gone'], symbol: 'bracket' })
+    model.addStaffBelow(1)
+    expect(model.getScore().staffGroups!.map(g => g.id)).not.toContain('ghost')
   })
 
   it('addStaffAbove(0) prepends and keeps existing content on its (now 2nd) staff', () => {

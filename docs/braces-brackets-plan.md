@@ -694,31 +694,89 @@ here because it **constrains P4's drawing**: a mechanism that cannot be hit-test
 mechanism, and this is the second reason (after the cusp-thickening in the section above) that the
 glyph-vs-curve question is genuinely open rather than a formality.
 
-### P5 — AUTHORING (only once P1–P4 draw)
+### P5 — AUTHORING — ✅ **BUILT 2026-08-29**
 
-- The dev shell's `Group:` row already exists and **logs** (`src/dev/devToolbar.ts:305-319`) — that
-  is the door, and it is where the first real call lands.
-- If the sign is selectable: a `SelectedElement` kind, ONE module in `interactions/elements/`, a row
-  in `ELEMENT_SPECS` and a place in `ELEMENT_HIT_ORDER`. Standard shape — 🔎 ⛔ **except the hit-box,
-  which is NOT free**: see P4's transform note. Under a non-uniform scale the registry has no box.
-- 🔎 🚨 **AUTHORING HAS TO SURVIVE `addStaff`, and today it would not** (§1a). A user's group is
-  overwritten on every staff add and **deleted** when the score drops below two staves. ⇒ P5's first
-  question is not "what gesture", it is **who owns `staffGroups`** — the auto-writer, the user, or a
-  split where the writer keeps `staffIds` and the user keeps `symbol`. ⭐ That third reading is
-  already what the code does by accident (`...(existing?.symbol ? … : {})` preserves the user's
-  half), and making it deliberate is the cheapest landing.
-- ⏭️ Dorico's **signpost** is the model for a positional group with no ink (research §5.3), and it is
-  the same successor already named for the dev shell's inkless-key `✕`.
+> ✅ **HIS RULE, and it is the APPLIES-else-ARMS bargain this editor already makes** (the Time
+> Signature window, the Clef window, the key and barline stamps):
+>
+> > *"For applying the brace or bracket we check the measure selection: if multiple staves are
+> > selected we apply to those staves; if just one staff is selected we apply just to that staff; if
+> > no staff is selected we arm a stamp and apply to the staff we click."*
+>
+> **Green: 5712 unit + 271 e2e, `build:check` clean.**
+>
+> #### ⭐⭐ HIS FIRST TWO CASES ARE ONE CASE
+>
+> *"Multiple staves"* and *"just one staff"* need no branch — a `measureRange` carries a staff SPAN
+> since the same day's passage work (`interactions/measurePassage`), so a one-staff selection is
+> simply `fromStaff === toStaff`. ⛔ Two rules would have been two places to keep in step for one
+> sentence of behaviour.
+>
+> #### 🚨🚨 IT FORCED THE AUTO-WRITER OUT, AND THAT IS THE REAL CHANGE
+>
+> `ScoreModel.ensureSingleGroupSpansAllStaves` rebuilt `staffGroups` as **one group over every
+> staff** on each `addStaff`. Invisible while nothing drew, and ⛔ **incompatible with authoring**: it
+> would have overwritten `staffIds` and destroyed an authored group the moment a staff was added, and
+> it deleted the whole overlay below two staves.
+>
+> ⭐ Replaced by `staffGroupOps.pruneStaffGroups` — the honest division: **the user owns MEMBERSHIP,
+> the model owns REFERENTIAL INTEGRITY** (no group may name a staff the score does not have).
+> ⛔ The model no longer invents a group at all.
+>
+> #### ⭐ A ONE-STAFF GROUP IS NOW LEGAL, and a source says so
+>
+> `groupsAt` skipped groups of fewer than two staves — **a guard of mine, not a source's**. His rule
+> produces one-staff groups directly, and it is real engraving: *"A score system of only one stave
+> takes a square bracket **as well as** a systemic barline"* (Gould p. 516; Ross pp. 151–2).
+> ⏭️ A one-staff **BRACE** is not something any source draws; the asymmetry is noted, ⛔ not enforced.
+>
+> #### 🚨🚨 THE ID TRAP — a group is a LIST OF MEMBERS, not staff-anchored content
+>
+> The first write used `MusicEngine.staffIdForIndex`, which returns **`undefined` for staff 0 BY
+> DESIGN** — the CONTENT convention (absent = staff 0, keeping single-staff JSON byte-identical).
+> ⇒ **staff 0 was dropped from every group** and the sign drew over staff 1 alone. ⛔ Nothing in the
+> model complained; the **browser suite** caught it as a rod starting 10 staff spaces too low. ⭐ Use
+> `staffIdAtIndex`. Two specs pin it.
+>
+> #### What landed
+>
+> | | |
+> |---|---|
+> | `engine/models/staffGroupOps.ts` | the SCORE op — `applyGroupSymbol` (⭐ `undefined` REMOVES) + `pruneStaffGroups`. 17 specs |
+> | `MusicEngine.applyGroupSymbol` | the one **undoable** write, indices → ids |
+> | `interactions/groupStamp.ts` | `groupTargetFromSelection` (APPLIES-else-ARMS) + `stampGroupAtClick`. 11 specs |
+> | `MarkingTool` `{ kind: 'group', symbol }` | + its three tables — `MARKING_TOOL_USES_ARMED_LENGTH`, `promoteStampToNoteEntry`, `toolGhost` |
+> | the dev shell's `Group:` row | ⭐ **live** — it logged and drew nothing before |
+> | `dev/groupSignConsole` | rewired through the model, so `__groups.*` is undoable too |
+>
+> ⏭️ **NO GHOST**, and it is a gap rather than a decision: ⚠️ against his standing call *"we need
+> ghosts for every case using the glyph"*, and a brace IS a glyph. What stops it is that a grouping
+> sign's preview needs the **staff span the click will make**, a shape no ghost drawn so far has —
+> every other previews ink at the POINTER. Until then the blue caret says a stamp is armed.
+>
+> ⏭️ **NOT SELECTABLE YET.** ⛔ And it is not the free `ELEMENT_SPECS` row this plan assumed: under the
+> brace's non-uniform `scale(sx, sy)` a hit-box has **no representation** (`ElementRegistry.withScale`
+> takes one number), so its box must be computed in SVG space, outside the transform.
 
-### P6 — LEFTOVERS, each its own question
+### P6 — LEFTOVERS — ⭐ **TWO OF THE FIVE WERE DISSOLVED BY P5**
 
-- **Sub-bracket** — ⛔ there is **no SMuFL glyph**. ⭐ Gould draws it as a **hairline OUTLINE: a
-  0.10 sp stroke, 0.60 sp wide, with NO serifs** (§3.3, measured) — ⛔ not merely a thinner rod.
-  ⚠️ **Gould + all three engines (~0.10–0.11 sp) against Ross (0.63, full thickness) and against
-  Bravura's `subBracketThickness` 0.16.** `symbol` has no member for it. ⛔ And the term
-  *"sub-brace"* appears in **no source**.
-- **Nesting** (decision 3), **`none`** (load-bearing in both file formats, unrepresentable for us),
-  and `group-name` / `group-abbreviation` / `group-time`, which have nowhere to land.
+> ✅ ~~**Nesting** (decision 3)~~ — he answered it (allowed), and P5 made it **expressible with no new
+> field**: groups are arbitrary staff runs, so a group whose staves are a SUBSET of another's simply
+> IS the inner one, and `groupsAt` already sorts by span. ⛔ Nothing left to build.
+>
+> ✅ ~~**`none`**~~ — recorded as *"load-bearing in both file formats, unrepresentable for us"*. It is
+> representable now: **a group with `symbol` absent**. That is the same gate that keeps every
+> unsigned score unchanged, and it maps MusicXML's `<group-symbol>none</group-symbol>` directly.
+
+**What is genuinely left:**
+
+- **⭐ THE SUB-BRACKET** — the substantive one. ⛔ There is **no SMuFL glyph**, and `symbol` has no
+  member for it. ⭐ Gould draws it as a **hairline OUTLINE: a 0.10 sp stroke, 0.60 sp wide, with NO
+  serifs** (§3.3, measured) — ⛔ not merely a thinner rod. ⚠️ **A four-way disagreement**: Gould + all
+  three engines (~0.10–0.11 sp) against **Ross** (0.63, full thickness) against **Bravura's
+  `subBracketThickness` 0.16**. ⛔ And the term *"sub-brace"* appears in **no source**.
+- **`group-name` / `group-abbreviation` / `group-time`** — the instrument name beside the bracket, and
+  whether a group shares one time signature. Nowhere in our model to land.
 - **MusicXML import/export** — the known lossiness is §5.4's: *joined across two groups* needs an
   invented enclosing group, and a non-contiguous join is inexpressible. ⭐ Report, never repair
   (`docs/json-io-plan.md`).

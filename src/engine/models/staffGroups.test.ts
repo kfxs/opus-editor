@@ -40,12 +40,23 @@ describe('what is skipped rather than drawn wrongly', () => {
     expect(groupsAt(score(1, [{ id: 'g', staffIds: ['st0'], symbol: 'brace' }]), 1)).toEqual([])
   })
 
-  it('⛔ a single-staff group is not a system either', () => {
-    expect(groupsAt(score(3, [{ id: 'g', staffIds: ['st1'], symbol: 'bracket' }]), 1)).toEqual([])
+  it('⭐⭐ a SINGLE-STAFF group DOES draw — Gould p. 516, and his authoring rule', () => {
+    // *"A score system of only one stave takes a square bracket as well as a systemic barline"*
+    // (Gould p. 516; Ross pp. 151–2). 🚨 This asserted the opposite until 2026-08-29 — the `< 2`
+    // guard was mine, not a source's, and his rule produces one-staff groups directly:
+    // *"if just one staff selected we apply just to that staff"*.
+    const found = groupsAt(score(3, [{ id: 'g', staffIds: ['st1'], symbol: 'bracket' }]), 1)
+    expect(found).toHaveLength(1)
+    expect([found[0].topStaffIndex, found[0].bottomStaffIndex]).toEqual([1, 1])
   })
 
-  it('⛔ staff ids that are not in the score are dropped, and a group left with one is skipped', () => {
-    expect(groupsAt(score(2, [{ id: 'g', staffIds: ['st0', 'gone'], symbol: 'brace' }]), 1)).toEqual([])
+  it('⛔ staff ids that are not in the score are dropped; what is left still draws', () => {
+    const found = groupsAt(score(2, [{ id: 'g', staffIds: ['st0', 'gone'], symbol: 'brace' }]), 1)
+    expect([found[0].topStaffIndex, found[0].bottomStaffIndex]).toEqual([0, 0])
+  })
+
+  it('⛔ …but a group naming NONE of the score’s staves draws nothing', () => {
+    expect(groupsAt(score(2, [{ id: 'g', staffIds: ['ghost'], symbol: 'brace' }]), 1)).toEqual([])
   })
 
   it('⚠️ a NON-CONTIGUOUS group resolves to the span it encloses — visibly too wide, ⛔ not silent', () => {

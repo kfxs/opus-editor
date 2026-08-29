@@ -36,15 +36,14 @@ function buildScore(): ScoreModel {
   return model
 }
 
-/**
- * ⭐ Author the sign the way the model already stores it. `addStaff` has ALREADY created the group
- * (`ensureSingleGroupSpansAllStaves`) — this only adds the `symbol`, which is precisely the half a
- * user supplies and the auto-writer never invents.
- */
+/** ⭐ Author a sign the way P5's rule does — on the staves a selection names. */
 function brace(score: Score): Score {
-  expect(score.staffGroups, 'the model auto-created a group for the two staves').toHaveLength(1)
-  expect(score.staffGroups![0].symbol, 'and left its symbol absent').toBeUndefined()
-  score.staffGroups![0].symbol = 'brace'
+  // ⭐ AUTHORED, the way P5's rule does it: a sign applies to the staves the selection names.
+  // 🚨 This used to reach for a group the MODEL had created (`ensureSingleGroupSpansAllStaves`) and
+  //    only supply its `symbol`. That writer is gone since 2026-08-29 — the user owns membership —
+  //    so the test now authors the whole group, which is what the app does.
+  expect(score.staffGroups, 'the model invents no group').toBeUndefined()
+  score.staffGroups = [{ id: 'g1', staffIds: score.staves!.map(s => s.id), symbol: 'brace' }]
   return score
 }
 
@@ -140,9 +139,10 @@ describe('a score with a brace — 🚨 the wire this file exists to prove', () 
     plain.renderScore(buildScore().getScore())
     const plainX = firstBarX(plain)
 
-    // The model's own auto-created group, untouched.
+    // A group with membership but NO symbol — nobody has asked for a sign.
     const model = buildScore()
-    expect(model.getScore().staffGroups).toHaveLength(1)
+    const score = model.getScore()
+    score.staffGroups = [{ id: 'g1', staffIds: score.staves!.map(s => s.id) }]
     const r = makeRenderer()
     r.renderScore(model.getScore())
     expect(firstBarX(r)).toBe(plainX)
