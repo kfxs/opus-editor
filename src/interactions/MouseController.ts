@@ -929,6 +929,9 @@ export class MouseController {
       return true
     },
     armClefDrag: (clef, event) => this.armClefDrag(clef, event),
+    // ⭐ The SCORE's answer, asked at press time — see `ElementChainDeps.groupSymbolOf`.
+    groupSymbolOf: (groupId) =>
+      this.getEngine()?.getScore().staffGroups?.find(g => g.id === groupId)?.symbol,
     armBarWidthDrag: (measure, x) => {
       const engine = this.getEngine()
       if (engine) this.armBarWidthDrag(engine, measure, x)

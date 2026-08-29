@@ -94,9 +94,15 @@ describe('the score’s indent', () => {
     expect(scoreSystemStartIndentSpaces(score(2, [{ id: 'g', staffIds: ['st0', 'st1'] }], 8))).toBe(0)
   })
 
-  it('zero for a score with no groups at all, and for a one-staff score', () => {
+  it('zero for a score with no groups at all', () => {
     expect(scoreSystemStartIndentSpaces(score(2, undefined, 8))).toBe(0)
-    expect(scoreSystemStartIndentSpaces(score(1, [{ id: 'g', staffIds: ['st0'], symbol: 'brace' }]))).toBe(0)
+  })
+
+  it('⭐⭐ a ONE-STAFF score with a sign DOES indent — his report, 2026-08-29', () => {
+    // Gould p. 516: a score system of only one stave takes a square bracket. ⛔ This asserted zero
+    // until then, on a `< 2` guard of mine rather than a source's.
+    expect(scoreSystemStartIndentSpaces(score(1, [{ id: 'g', staffIds: ['st0'], symbol: 'bracket' }])))
+      .toBeGreaterThan(0)
   })
 
   it('the braced grand staff’s indent, in spaces and in pixels', () => {
@@ -186,5 +192,50 @@ describe('the SUB-BRACKET — ⭐ P6, a hairline `[`', () => {
     expect(sub.depthSpaces).toBe(SUB_BRACKET_WIDTH_SPACES)
     expect(sub.leftSpaces, 'the divisi sign stands OUTSIDE the section bracket')
       .toBeGreaterThan(bracket.leftSpaces)
+  })
+})
+
+describe('⭐⭐ the stacking is a SKYLINE — 🚨 his report, 2026-08-29', () => {
+  // *"The brace somehow is displacing the position of the bracket but there is no reason for this…
+  //  both are independent, applied to independent groups."* ⛔ The walk used to give every sign its
+  //  own column. §2.2 named the fix before it was built: LilyPond stacks by SKYLINE
+  //  (`side-position-interface.cc`), so **vertically disjoint signs can share an x**.
+
+  it('two signs on DISJOINT staves sit at the SAME distance from the barline', () => {
+    // ⚠️ Their RIGHT edges, not their left: `leftSpaces` is the sign's own left edge, and a brace is
+    //    deeper than a bracket — so two signs standing against the same barline differ on the left.
+    const { signs } = systemStartColumn([sign('bracket', 0, 0), sign('brace', 1, 1)])
+    const rightEdge = (s: { leftSpaces: number; depthSpaces: number }) => s.leftSpaces - s.depthSpaces
+    expect(rightEdge(signs[0])).toBeCloseTo(rightEdge(signs[1]), 10)
+    expect(rightEdge(signs[0])).toBeCloseTo(SIGN_TO_BARLINE_SPACES, 10)
+  })
+
+  it('…and neither is pushed out — each clears only the BARLINE', () => {
+    const { signs } = systemStartColumn([sign('bracket', 0, 0), sign('brace', 1, 1)])
+    const bracket = signs.find(s => s.depthSpaces === BRACKET_DEPTH_SPACES)!
+    expect(bracket.leftSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + BRACKET_DEPTH_SPACES, 10)
+  })
+
+  it('⭐ but OVERLAPPING signs still stack — the nesting rule is untouched', () => {
+    const { signs } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
+    expect(signs[0].leftSpaces).toBeGreaterThan(signs[1].leftSpaces)
+  })
+
+  it('⭐ a sign overlapping ONE of two disjoint neighbours clears only that one', () => {
+    // brackets on staves 0 and 3 share nothing; a brace over 0–1 must clear the first, not the second.
+    const { signs } = systemStartColumn([
+      sign('brace', 0, 1), sign('bracket', 0, 0), sign('bracket', 3, 3),
+    ])
+    const [brace, first, far] = signs
+    expect(first.leftSpaces).toBeCloseTo(far.leftSpaces, 10) // the disjoint pair share an x
+    expect(brace.leftSpaces).toBeGreaterThan(first.leftSpaces)
+  })
+
+  it('the INDENT is the widest reach of any sign, ⛔ not the last one placed', () => {
+    const { signs, indentSpaces } = systemStartColumn([
+      sign('brace', 0, 1), sign('bracket', 0, 3), sign('bracket', 5, 5),
+    ])
+    expect(indentSpaces).toBeCloseTo(
+      Math.max(...signs.map(s => s.leftSpaces)) + SIGN_SEPARATION_SPACES, 10)
   })
 })

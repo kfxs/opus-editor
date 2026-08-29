@@ -56,7 +56,11 @@ function recorder() {
     fillText: (glyph: string, x: number, y: number) =>
       { stamps.push({ glyph, x, y, group: open[open.length - 1] }) },
   }
-  return { rects, stamps, groups, pass: { context } as unknown as RenderPass }
+  // ⭐ The pen also FILES the sign's hit-box (`registerSignBox`) — recorded here so the spec can
+  //   assert it, and because without a registry the pass would throw.
+  const boxes: { type: string; id?: string; bbox: { x: number; y: number; width: number; height: number } }[] = []
+  const elementRegistry = { add: (el: typeof boxes[number]) => { boxes.push(el) } }
+  return { rects, stamps, groups, boxes, pass: { context, elementRegistry } as unknown as RenderPass }
 }
 
 /**
@@ -319,5 +323,40 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
     // The group is translated to the ink's BOTTOM; the connector spans exactly the same staves.
     const ty = Number(/translate\([-\d.]+, ([-\d.]+)\)/.exec(braceGroup(groups).transform ?? '')![1])
     expect(ty).toBeCloseTo(connector.y + connector.h, 6)
+  })
+})
+
+describe('the sign’s HIT-BOX — 🚨 registered from the PEN, in SVG space', () => {
+  it('⭐⭐ files a box carrying the GROUP’s id, so a press can name the group', () => {
+    const { boxes, pass } = recorder()
+    renderSystemStarts(pass, bracketed, grandStaff, 2, null)
+    const box = boxes.find(b => b.type === 'staffGroupSign')
+    expect(box, 'a grouping sign registers a hit-box').toBeDefined()
+    expect(box!.id).toBe('g1')
+  })
+
+  it('⭐ spans the staves the sign does', () => {
+    const { boxes, rects, pass } = recorder()
+    renderSystemStarts(pass, bracketed, grandStaff, 2, null)
+    const box = boxes.find(b => b.type === 'staffGroupSign')!
+    const connector = rects.find(r => r.group === 'stavebarline')!
+    expect(box.bbox.y).toBeCloseTo(connector.y, 6)
+    expect(box.bbox.height).toBeCloseTo(connector.h, 6)
+  })
+
+  it('⚠️ is WIDER than the ink — a 0.89 sp hairline would be unclickable', () => {
+    const { boxes, rects, pass } = recorder()
+    renderSystemStarts(pass, bracketed, grandStaff, 2, null)
+    const box = boxes.find(b => b.type === 'staffGroupSign')!
+    const rod = rects.find(r => r.group === 'systemsign')!
+    expect(box.bbox.width).toBeGreaterThan(rod.w)
+    // ⭐ Its own depth plus the clearance it keeps from the barline — dead space nothing else claims.
+    expect(box.bbox.width).toBeCloseTo((BRACKET_DEPTH_SPACES + SIGN_TO_BARLINE_SPACES) * STAFF_SPACE_PX, 6)
+  })
+
+  it('⛔ no sign, no box — the `symbol` gate reaches the registry too', () => {
+    const { boxes, pass } = recorder()
+    renderSystemStarts(pass, noSigns, grandStaff, 2, null)
+    expect(boxes.filter(b => b.type === 'staffGroupSign')).toHaveLength(0)
   })
 })

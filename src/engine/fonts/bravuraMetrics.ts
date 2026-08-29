@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 70 of Bravura's 3434 glyphs: the ones the editor draws
+ * 71 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 70 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 71 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -113,6 +113,7 @@ export type GlyphName =
   | 'braceLarge'
   | 'braceLarger'
   | 'braceFlat'
+  | 'bracket'
 
 /** The ink each glyph draws, in staff spaces from its own origin. See {@link GlyphBox}. */
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
@@ -199,6 +200,7 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   braceLarge: { left: 0, right: 0.268, up: 3.992, down: -0.004, advance: 0.268 },
   braceLarger: { left: 0, right: 0.24, up: 3.988, down: 0, advance: 0.244 },
   braceFlat: { left: 0, right: 0.224, up: 4, down: -0.004, advance: 0.228 },
+  bracket: { left: 0, right: 1.876, up: 5.284, down: 1.272, advance: 2.232 },
 }
 
 /**

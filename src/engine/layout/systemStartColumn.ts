@@ -252,30 +252,43 @@ export function systemStartColumn(groups: readonly ResolvedStaffGroup[]): System
   //
   //     [innermost group's sign] [outer group's sign] [section bracket] [systemic barline = staves]
   //
-  // So the sign NEAREST the staves belongs to the WIDEST group, and the innermost group's sign is
-  // furthest out. Gould p. 509/518, Ross pp. 155–6 and Stone p. 6 all measured; LilyPond states it
-  // outright (*"a piano context included within a staff group should cause the piano brace to be
-  // drawn to the left of the staff angle bracket"*), and Verovio agrees. ⛔ MuseScore is the odd one
-  // out, which is why the research says do not settle this from code.
+  // Measured in Gould p. 509/518, Ross pp. 155–6 and Stone p. 6; LilyPond states it outright (*"a
+  // piano context included within a staff group should cause the piano brace to be drawn to the left
+  // of the staff angle bracket"*) and Verovio agrees. ⛔ MuseScore is the odd one out. ⭐ Gould p. 516
+  // adds the corollary: *"A brace should only ever be used as the OUTERMOST bracket."*
   //
-  // ⚠️ `groupsAt` hands them **innermost-first** (smallest span first), so the WALK runs the list
-  // backwards: the widest sign takes the place next to the barline and each narrower one steps
-  // further left. ⛔ Walking it forwards put the sub-bracket INSIDE its own section bracket — which
-  // is what a three-staff render showed the moment two signs could coexist.
+  // ⚠️ `groupsAt` hands them **innermost-first**, so the walk runs the list backwards.
+  //
+  // ## ⭐⭐ AND IT IS A SKYLINE, ⛔ NOT FIXED COLUMNS
+  //
+  // 🚨 **His report, 2026-08-29** (screenshot): a bracket on staff 1 and a brace on staff 2 — two
+  // INDEPENDENT one-staff groups — drew at **different x's**. *"The brace somehow is displacing the
+  // position of the bracket but there is no reason for this… both are independent, applied to
+  // independent groups."* ⛔ Dead right: a sign only has to clear signs it could COLLIDE with, and
+  // two signs on disjoint staves never touch.
+  //
+  // ⭐ The research named this before it was built — §2.2 on LilyPond: *"Stacking is a SKYLINE, not
+  // fixed columns (`side-position-interface.cc:263-322`), so **vertically disjoint signs can share
+  // an x**."* So each sign clears only the placed signs whose STAFF SPAN overlaps its own; where
+  // nothing overlaps, it sits against the barline like a first sign.
   const outermostFirst = [...groups].reverse()
   const placed = new Map<ResolvedStaffGroup, PlacedSystemStartSign>()
-  // `edge` is the left edge of everything placed so far — the systemic barline's own position (0)
-  // before the first sign, and each sign's left edge after it.
-  let edge = 0
   for (const group of outermostFirst) {
     const depthSpaces = DEPTH_SPACES[group.symbol]
+    // The left edge of everything already placed that shares a staff with this sign — 0 when
+    // nothing does, which puts it against the systemic barline.
+    let edge = 0
+    let blocked = false
+    for (const [other, sign] of placed) {
+      if (other.bottomStaffIndex < group.topStaffIndex || other.topStaffIndex > group.bottomStaffIndex) continue
+      blocked = true
+      edge = Math.max(edge, sign.leftSpaces)
+    }
     // ⭐ The sign next to the staves clears the systemic BARLINE — a distance the treatises measured
-    //   ({@link SIGN_TO_BARLINE_SPACES}). Every sign further out clears the sign before it, for
+    //   ({@link SIGN_TO_BARLINE_SPACES}). One stacked outside another clears that one instead, for
     //   which there is no measurement anywhere ({@link SIGN_SEPARATION_SPACES}).
-    const gap = placed.size === 0 ? SIGN_TO_BARLINE_SPACES : SIGN_SEPARATION_SPACES
-    const leftSpaces = edge + gap + depthSpaces
-    placed.set(group, { group, leftSpaces, depthSpaces })
-    edge = leftSpaces
+    const gap = blocked ? SIGN_SEPARATION_SPACES : SIGN_TO_BARLINE_SPACES
+    placed.set(group, { group, leftSpaces: edge + gap + depthSpaces, depthSpaces })
   }
   // ⭐ Returned in the order they arrived — innermost first — so a caller that walks `signs` sees the
   //   same ordering `groupsAt` promised. Only the POSITIONS were computed outward-in.
@@ -295,7 +308,11 @@ export function systemStartColumn(groups: readonly ResolvedStaffGroup[]): System
     //   independent searches), so a number invented for it would have no source; this one has the
     //   module's.
     // ⚠️ Zero when nothing was placed, so a score with no sign still indents by exactly nothing.
-    indentSpaces: edge > 0 ? edge + SIGN_SEPARATION_SPACES : 0,
+    //    ⭐ The WIDEST reach of any sign, not the last one placed — with a skyline the outermost sign
+    //    is no longer necessarily the one furthest left.
+    indentSpaces: signs.length > 0
+      ? Math.max(...signs.map(s => s.leftSpaces)) + SIGN_SEPARATION_SPACES
+      : 0,
   }
 }
 

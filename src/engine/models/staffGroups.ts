@@ -63,7 +63,7 @@ export interface ResolvedStaffGroup {
  * than drawn wrongly, because each would put ink somewhere no engraver would:
  *
  * - **no `symbol`** — nobody asked for a sign (see the header);
- * - **fewer than two staves in the score, or a group naming none of them** — a sign spanning nothing.
+ * - **a score with NO staves, or a group naming none of the ones it has** — a sign spanning nothing.
  *
  * ⭐ A **single-staff group** is NOT skipped (since 2026-08-29): Gould p. 516 gives a single stave in
  * a full score both a bracket and a systemic barline, and it is what his authoring rule produces
@@ -81,7 +81,12 @@ export function groupsAt(
 ): ResolvedStaffGroup[] {
   void measureNumber // reserved — the positional range arrives with P5's authoring.
   const staves = getStaves(score)
-  if (staves.length < 2) return []
+  // ⭐⭐ **A ONE-STAFF SCORE CAN CARRY A SIGN** — his report, 2026-08-29: *"why the bracket and the
+  //   brace not working on single staff score… it should work too."* ⛔ The `< 2` guard here was
+  //   MINE, not a source's, and Gould contradicts it outright: *"A score system of only one stave
+  //   takes a square bracket **as well as** a systemic barline"* (p. 516; Ross pp. 151–2 gives the
+  //   fullest list). ⚠️ It is only `staves.length === 0` that has nothing to sign.
+  if (staves.length === 0) return []
   const indexOf = new Map(staves.map((s, i) => [s.id, i]))
 
   const resolved: ResolvedStaffGroup[] = []

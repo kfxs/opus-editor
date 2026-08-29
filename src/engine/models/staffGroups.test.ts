@@ -36,8 +36,17 @@ describe('the gate — ⛔ `symbol`, not the overlay’s presence', () => {
 })
 
 describe('what is skipped rather than drawn wrongly', () => {
-  it('⛔ a one-staff score has no system to group', () => {
-    expect(groupsAt(score(1, [{ id: 'g', staffIds: ['st0'], symbol: 'brace' }]), 1)).toEqual([])
+  it('⭐⭐ a ONE-STAFF SCORE can carry a sign — his report, 2026-08-29', () => {
+    // *"why the bracket and the brace not working on single staff score… it should work too."*
+    // ⛔ This asserted the opposite: the `< 2` guard was mine, and Gould p. 516 contradicts it —
+    // *"a score system of only one stave takes a square bracket as well as a systemic barline"*.
+    const found = groupsAt(score(1, [{ id: 'g', staffIds: ['st0'], symbol: 'bracket' }]), 1)
+    expect(found).toHaveLength(1)
+    expect([found[0].topStaffIndex, found[0].bottomStaffIndex]).toEqual([0, 0])
+  })
+
+  it('⛔ a score with NO staves has nothing to sign', () => {
+    expect(groupsAt(score(0, [{ id: 'g', staffIds: ['st0'], symbol: 'brace' }]), 1)).toEqual([])
   })
 
   it('⭐⭐ a SINGLE-STAFF group DOES draw — Gould p. 516, and his authoring rule', () => {

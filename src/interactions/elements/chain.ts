@@ -14,13 +14,13 @@
  * ⚠️ **It is TWO structures, because the two axes genuinely have two shapes.** The chain is
  * *ordered and partial*; the paint is *unordered and total*:
  *
- *  - {@link ELEMENT_HIT_ORDER} — 19 entries. ORDER IS THE CONTENT: an array position is the answer
+ *  - {@link ELEMENT_HIT_ORDER} — 20 entries. ORDER IS THE CONTENT: an array position is the answer
  *    to "who gets a press two glyphs both cover?", and the comments in it are the most valuable
  *    thing that used to be in `handleMouseDown`. `tuplet` and `measureRange` are NOT here: they are
  *    set by the pre-steps that run before the selection is cleared (a tuplet bracket press, a
  *    Ctrl+Shift box), which are gestures rather than kinds. `slur` appears here once, as an arc
  *    press; its endpoint HANDLES are a pre-step drag, also outside.
- *  - {@link ELEMENT_SPECS} — 21 entries, total over the union, so a twenty-second kind fails to BUILD
+ *  - {@link ELEMENT_SPECS} — 22 entries, total over the union, so a twenty-third kind fails to BUILD
  *    until it says how it paints. That is the guarantee `assertNeverElement` gives, from a table.
  *
  * ⚠️ Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) deliberately stay as
@@ -43,6 +43,7 @@ import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { HighlightController } from '../HighlightController'
 
 import { CLEF_ELEMENT } from './clef'
+import { STAFF_GROUP_ELEMENT } from './staffGroup'
 import { TIME_SIGNATURE_ELEMENT } from './timeSignature'
 import { KEY_SIGNATURE_ELEMENT } from './keySignature'
 import { TEMPO_ELEMENT } from './tempo'
@@ -105,6 +106,14 @@ export interface ElementChainDeps {
   /** Arm the horizontal drag that slides a movable clef along its bar. The event travels because
    *  arming must also `preventDefault` — and only when it really arms. */
   armClefDrag(clef: ElementInfo, event: MouseEvent): void
+  /**
+   * ⭐ Which sign a grouping-sign hit-box belongs to — the SCORE's answer, ⛔ not the registry's.
+   *
+   * The registered box carries the group's ID and nothing else, because a `symbol` can change while
+   * the box stays put; asking the score at press time means the selection can never name a sign the
+   * model no longer has. Undefined when the group is gone (a stale box after a staff removal).
+   */
+  groupSymbolOf(groupId: string): 'brace' | 'bracket' | 'subBracket' | undefined
   /** Arm the drag that stretches the bar to the LEFT of the grabbed barline. */
   armBarWidthDrag(measure: number, x: number): void
   /** Arm the drag that walks a dynamic along its lane. ⚠️ The mark is its own handle, so this arms
@@ -198,6 +207,10 @@ export const ELEMENT_HIT_ORDER: ReadonlyArray<ClickableElementSpec> = [
   // page 1) and because "is this in the music at all?" is worth settling before any of the musical
   // questions. (`./scoreText`, and ⛔ read `engine/rendering/ScoreHeaderPass`'s note first.)
   SCORE_TEXT_ELEMENT,
+  // ⭐ The GROUPING SIGN — free rather than load-bearing, like the header above it: the sign is drawn
+  // OUTSIDE the staves in the indent it reserved for itself (`layout/systemStartColumn`), where no
+  // staff, bar, note or mark has ink. Nothing competes for those pixels.
+  STAFF_GROUP_ELEMENT,
   // ⭐⭐ **THE KEY SIGNATURE FIRST OF THE THREE HEADER GLYPHS — its box is INK, theirs are REGIONS.**
   //
   // 🚨 **HIS REPORT, 2026-08-28:** with two sharps at bar 1, *"here the key signature is not been
@@ -315,5 +328,6 @@ export const ELEMENT_SPECS: Record<SelectedElement['kind'], ElementKindSpec> = {
   repeatStart: REPEAT_START_ELEMENT,
   tuplet: TUPLET_ELEMENT,
   measureRange: MEASURE_RANGE_ELEMENT,
+  staffGroup: STAFF_GROUP_ELEMENT,
   scoreText: SCORE_TEXT_ELEMENT,
 }

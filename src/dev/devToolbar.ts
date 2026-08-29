@@ -8,7 +8,6 @@ import { DEV_SOUNDS } from '../engine/audio/WebAudioFontInstrument'
 import { bus } from '../bus'
 import { exportScorePdfFile } from '../interactions/scoreFileIo'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from '../interactions/staffSizeToggle'
-import { dbg } from '../utils/debug'
 
 /**
  * The development toolbar — **scaffolding, deliberately kept**.
@@ -313,57 +312,33 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
   action(groupBox, '[ Bracket',
     'Bracket the SELECTED staves — or arm a stamp when nothing is selected, and click a staff',
     () => true, () => palette.pressGroupSymbol('bracket'))
-  // ⛔ APPLY-only: arming "remove nothing" and hunting for a click to spend it on is not a gesture.
-  action(groupBox, '✕ None',
-    'Remove the grouping sign from the SELECTED staves (select staves first)',
-    () => selectedOf(state, 'measureRange') !== null, () => palette.pressGroupNone())
+  // ⛔ **NO `✕ None` ROW — his call, 2026-08-29** (*"what is this none on the palette? we don't need
+  //    it"*). Removal lives in the console (`__groups.none()`), the same place the sub-bracket does.
+  //    ⭐ Unlike the `Key:` row's `✕`, nothing here is unreachable without a button: a grouping sign
+  //    has no inkless case, so when the sign becomes SELECTABLE, Delete is its natural removal.
   row.appendChild(groupBox)
 
   /*
-   * --- 🔧 KEY SIGNATURE — ONE BUTTON LEFT, and it is the INKLESS-KEY DOOR. ---
+   * 🏁 --- THE `Key:` ROW IS GONE (2026-08-29, his call) ---
    *
-   * 🏁 **The five preset buttons and the `⇅ Stepper…` button are GONE (2026-08-28, his call:**
-   * *"now that the key signature menu is ready i think we can get rid of the key pallete in the dev
-   * shell"*). They were the temporary door for a feature with no UI (docs/key-signature-plan.md §6),
-   * and the fate written into that block has arrived: **Insert ▸ Key Signature, or `K`**, opens the
-   * real dialog, and its stepper reaches all fifteen circle-of-fifths signatures — a superset of the
-   * five presets — through `bus.keySignature`, which lands on the very `pressKeySignature` those
-   * buttons called. Nothing moved but the door. Same rule the barline and lines rows went out under
-   * (see the note below this block for the argument in full).
+   * The five presets and the `⇅ Stepper…` went on 2026-08-28 when **Insert ▸ Key Signature / `K`**
+   * shipped. The lone `✕` outlived them on an argument I defended twice and which does not hold:
+   * *"a stored key change can have no ink to click, so Delete cannot reach it."*
    *
-   * ⛔ **WHY `✕` STAYS, and it is not sentiment.** Delete on a selected signature is the real removal
-   * (`shortcutWiring`, which reverts the bar to the key before it, on every staff the highlight lit).
-   * It needs INK to click — and a stored key change can have none:
+   * 🚨 **His questions took it apart, and he was right both times.**
+   *  - *"in the middle of the score an atonal or C major change will make naturals, so it is also
+   *    possible to delete — what am I missing?"* Nothing. The cancellation only draws NOTHING when
+   *    the PREVIOUS key was also accidental-free, which the old comment never said. The common case
+   *    was always deletable.
+   *  - *"isn't delete enough?"* It is. ⭐ **The residue has a workaround**: write a VISIBLE key over
+   *    the invisible one, select it, Delete. `keyOps.removeKeyAt` drops the change and the bar
+   *    inherits again — so nothing was ever unremovable, which is what I had implied.
    *
-   *  - **atonal at bar 1** — nothing before it to cancel, so nothing is drawn;
-   *  - **atonal, or C major, after a key that had no accidentals** — the cancellation is a set
-   *    difference, and there is nothing to take back.
-   *
-   * ⚠️ The Atonal row shipped the same day (`windows/keySignatureWindow`), so the editor can now
-   * AUTHOR both of those, which makes this button MORE necessary than it was this morning, not less.
-   * ⏭️ Its real successor is the **SIGNPOST** — the mark MuseScore draws where a change has no glyphs
-   * of its own (plan §5). The day that exists, this goes and the `Key:` group with it.
+   * ⇒ What is left is a two-step dance for a change between two accidental-free statements
+   * (C major ↔ atonal, atonal at bar 1). ⏭️ Its proper fix is the **SIGNPOST** — the mark drawn
+   * wherever a change has no glyphs of its own (docs/key-signature-plan.md §5), which reaches EVERY
+   * inkless change and not just the one a button could cover.
    */
-  const keyBox = group('Key:')
-  // ⭐ Not the same verb as "set C major": `setKeyAt` normalizes, so writing the key already in force
-  // stores nothing, while this REMOVES the change stored here and lets the bar inherit again.
-  // ⭐ Bar 1 is removable too (his report, 2026-08-28) — `keyOps.removeKeyAt` says why MuseScore's
-  // refusal there does not transfer to a model that stores open/atonal explicitly.
-  action(keyBox, '✕', 'Remove the key change at the selected bar (else bar 1) — 🔧 the inkless-key door; otherwise use Delete on the signature',
-    () => getEngine() !== null,
-    () => {
-      const engine = getEngine()
-      if (!engine) return
-      const box = selectedOf(state, 'measureRange')
-      const { measure, staff } = box
-        ? { measure: Math.min(box.anchor, box.focus), staff: box.staff }
-        : { measure: 1, staff: 0 }
-      const removed = engine.removeKeyAt(measure, staff)
-      dbg(`🔧 key palette | remove | measure:${measure} staff:${staff}`
-        + ` | ${removed ? 'REMOVED' : 'nothing stored here'}`)
-      if (removed) renderScore()
-    })
-  row.appendChild(keyBox)
 
   // --- Barlines: GONE, and by the same rule the Lines row went out under (below). The family had a
   //     row of five buttons here from P4 until Insert ▸ Barline arrived on 2026-08-26 — Start Repeat,

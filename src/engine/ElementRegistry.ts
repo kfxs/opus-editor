@@ -18,6 +18,16 @@ import { staffOf } from '@/utils/lanes'
  * Types of elements we track
  */
 export type ElementType =
+  /**
+   * ⭐ A GROUPING SIGN at a system's left edge — the brace, bracket or sub-bracket
+   * (`rendering/systemStart`). Registered from the PEN, in SVG space.
+   *
+   * ⚠️ **It has to be**, and that is not a style choice: the brace is drawn inside a NON-UNIFORM
+   * `scale(sx, sy)` group, and {@link ElementRegistry.withScale} takes ONE number — so a box filed
+   * through the usual scaled path has no representation. The drawing already knows the sign's
+   * corners in the SVG's own coordinates, so it writes them down there.
+   */
+  | 'staffGroupSign'
   | 'note'
   /**
    * A note's STEM, as its own ink rect — registered per stemmed slot (a chord has one stem, and

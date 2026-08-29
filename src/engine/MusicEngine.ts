@@ -895,6 +895,21 @@ export class MusicEngine {
     return true
   }
 
+  /**
+   * ⭐ **Remove a grouping sign by its GROUP ID, as one undoable edit** — what Delete means on a
+   * selected brace or bracket. See {@link staffGroupOps.applyGroupSymbol}, which this reaches by
+   * naming the group's own staves.
+   *
+   * @returns whether the score changed.
+   */
+  removeStaffGroup(groupId: string): boolean {
+    const group = this.scoreModel.getScore().staffGroups?.find(g => g.id === groupId)
+    if (!group) return false
+    if (!this.scoreModel.applyGroupSymbol(group.staffIds, undefined)) return false
+    this.saveUndoState(`Remove ${group.symbol ?? 'grouping sign'}`)
+    return true
+  }
+
   /** ⭐ Wings on or off for the sign at this line, as one undoable edit — the Properties checkbox.
    *  Refuses a line whose sign cannot carry them. See {@link barlineOps.setBoundaryWinged}. */
   setBoundaryWinged(endsMeasure: number | null, on: boolean): boolean {

@@ -51,6 +51,7 @@ import { drawTrillGhost, TRILL_GHOST_GROUP_CLASS } from './TrillGhost'
 import { drawOttavaGhost, OTTAVA_GHOST_GROUP_CLASS } from './OttavaGhost'
 import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
 import { drawBarlineGhost, BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
+import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGhost'
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { ghostCursorOffset } from './ghostCursor'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
@@ -67,7 +68,7 @@ import type { SurfaceMetrics } from '@/engine/layout/surface'
  * full render that used to hide the leak.)
  */
 export const GHOST_GROUP_SELECTOR =
-  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}`
+  `.ghost-note-group, .ghost-rest-group, .${FAN_GHOST_GROUP_CLASS}, .ghost-clef-group, .ghost-timesig-group, .ghost-dynamic-group, .vf-ghost-articulation, .vf-ghost-accidental, .vf-ghost-tie, .vf-ghost-dot, .vf-ghost-tremolo, .vf-ghost-tempo, .${TRILL_GHOST_GROUP_CLASS}, .${OTTAVA_GHOST_GROUP_CLASS}, .${PEDAL_GHOST_GROUP_CLASS}, .${BARLINE_GHOST_GROUP_CLASS}, .${KEY_SIGNATURE_GHOST_GROUP_CLASS}, .${GROUP_SIGN_GHOST_GROUP_CLASS}`
 
 /**
  * How far the ghost's tuplet number floats above the note, in STAFF SPACES — measured from the stem
@@ -1092,6 +1093,7 @@ export const GHOST_DRAWERS: {
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),
   pedal: (ctx, _svg, x, y) => drawPedalGhost(ctx, x, y),
   barline: (ctx, _svg, x, y, g) => drawBarlineGhost(ctx, x, y, g.sign),
+  group: (ctx, _svg, x, y, g) => drawGroupSignGhost(ctx, x, y, g.symbol),
 }
 
 /**

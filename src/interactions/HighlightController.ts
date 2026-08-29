@@ -768,6 +768,38 @@ export class HighlightController {
     })
   }
 
+  /**
+   * ⭐⭐ **A SELECTED GROUPING SIGN — painted by RECOLOURING ITS OWN GROUP.**
+   *
+   * 🚨 His report, 2026-08-29: *"i'm not able to select bracket or brace… i should be able to click
+   * on it and select."*
+   *
+   * ⭐ Every part of the sign — the bracket's rod and its two serif glyphs, the brace's single
+   * stretched glyph, the sub-bracket's three rectangles — is drawn inside ONE `vf-systemsign` group
+   * carrying the group's id (`rendering/systemStart`). So the highlight is a sweep of that group's
+   * `rect` and `text` children, ⛔ not a box drawn over the top.
+   *
+   * ⚠️ `setAttribute('fill')` and ⛔ never VexFlow's `setStyle`, which leaks its context
+   * ([[reference_vexflow_setstyle_context_leak]]) — the rule the whole recolouring family follows.
+   */
+  applyStaffGroupHighlight(): void {
+    const scoreCanvas = this.getScoreCanvas()
+    const selected = selectedOf(this.state, 'staffGroup')
+    if (!scoreCanvas || !selected) return
+    const svg = scoreCanvas.querySelector('svg')
+    if (!svg) return
+
+    // ⭐ Every system's copy of the sign, not just one: a group spans the whole score, so selecting
+    //   it lights it on every system it is drawn on — the way a selected slur lights both halves.
+    for (const group of svg.querySelectorAll(`g.vf-systemsign[id*="${CSS.escape(selected.groupId)}"]`)) {
+      for (const ink of group.querySelectorAll('rect, text, path')) {
+        const el = ink as SVGElement
+        this.setAttr(el, 'fill', ELEMENT_SELECTION_FILL)
+        this.setStyleProp(el, 'fill', ELEMENT_SELECTION_FILL)
+      }
+    }
+  }
+
   applyClefSelectionHighlight(): void {
     const engine = this.getEngine()
     const scoreCanvas = this.getScoreCanvas()

@@ -749,14 +749,34 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > | the dev shell's `Group:` row | ⭐ **live** — it logged and drew nothing before |
 > | `dev/groupSignConsole` | rewired through the model, so `__groups.*` is undoable too |
 >
-> ⏭️ **NO GHOST**, and it is a gap rather than a decision: ⚠️ against his standing call *"we need
-> ghosts for every case using the glyph"*, and a brace IS a glyph. What stops it is that a grouping
-> sign's preview needs the **staff span the click will make**, a shape no ghost drawn so far has —
-> every other previews ink at the POINTER. Until then the blue caret says a stamp is armed.
+> ✅ **THE GHOST — BUILT** (`engine/rendering/GroupSignGhost.ts`). ⛔ The objection recorded here was
+> the BARLINE's objection verbatim and wrong for its reason: *"its preview needs the staff span the
+> click will make."* The ARMED click applies to **ONE staff**, so there is no span to know — and the
+> cursor says WHAT the click makes, not where the engraver puts it.
+> ⭐ **Precomposed glyphs, and here that is REQUIRED, not merely convenient**: `drawSignGhost`
+> recolours `text, path`, so a `fillRect` rod would ghost **BLACK** (his 2026-08-26 report of the
+> barline: *"why the only thing is blue in the ghost is the dots?"*). Both signs have one — `brace`
+> U+E000 and **`bracket` U+E002**, the whole sign in one glyph.
+> 🚨 **It smeared on the first build** — his screenshot, blue trails across four systems. The class
+> was exported and never added to `GHOST_GROUP_SELECTOR`, so `clearGhosts` never swept it. **The
+> SECOND ghost to hit that exact trap**, so `GroupSignGhost.test.ts` now asserts the whole family's
+> classes, not just its own. ⏭️ The real fix is for `GHOST_DRAWERS` and the selector to share a table.
+> 🚨 **Sizing, both his**: *"make the bracket glyph the same size as the brace"* — the bracket is
+> **6.556 sp** tall against the brace's **3.988**, so both are now scaled to **one staff**; and *"the
+> brace is not thick enough"* — the ghost stamped it at the glyph's natural **0.268 sp** while we
+> ENGRAVE it at **0.89**, so the ghost now takes the same non-uniform scale the drawing does.
 >
-> ⏭️ **NOT SELECTABLE YET.** ⛔ And it is not the free `ELEMENT_SPECS` row this plan assumed: under the
-> brace's non-uniform `scale(sx, sy)` a hit-box has **no representation** (`ElementRegistry.withScale`
-> takes one number), so its box must be computed in SVG space, outside the transform.
+> ✅ **SELECTABLE — BUILT.** His report: *"i'm not able to select bracket or brace… i should be able to
+> click on it and select."* ⭐ The obstacle was real but had a way round: the box is computed **in SVG
+> space at the point of drawing** (`systemStart.registerSignBox`), where the corners are already
+> known — so it never goes through `ElementRegistry.withScale` and never needs unscaling.
+> `staffGroup` joins the union (22 kinds), gets its module, a row in `ELEMENT_SPECS`, a place in
+> `ELEMENT_HIT_ORDER` (⭐ **first**, and free: nothing else has ink in the indent), a highlight that
+> recolours the sign's own `vf-systemsign` group **on every system**, and **Delete** →
+> `MusicEngine.removeStaffGroup`.
+> 🚨 *"It's a little difficult to select, i have to click very accurate"* ⇒ **`GROUP_SIGN_PRESS_PAD_PX`
+> = 8**, on both axes — the barline's *"six pixels of forgiveness"* scaled to a taller target, and
+> affordable because **nothing competes for those pixels**.
 
 ### P6 — LEFTOVERS — ⭐ **TWO OF THE FIVE WERE DISSOLVED BY P5**
 
@@ -769,6 +789,22 @@ glyph-vs-curve question is genuinely open rather than a formality.
 > unsigned score unchanged, and it maps MusicXML's `<group-symbol>none</group-symbol>` directly.
 
 **What is genuinely left:**
+
+- ✅ **A ONE-STAFF SCORE CAN CARRY A SIGN** — his report: *"why the bracket and the brace not working
+  on single staff score… it should work too."* ⛔ Two guards of mine, both wrong: `groupsAt` returned
+  `[]` below two staves, and `renderSystemStarts` returned early. ⭐ Gould p. 516 contradicts both:
+  *"A score system of only one stave takes a square bracket **as well as** a systemic barline."*
+  ⇒ the CONNECTOR still needs two staves (it joins them); the SIGNS do not.
+
+- 🚨🚨 **THE STACKING IS A SKYLINE, ⛔ NOT FIXED COLUMNS.** His report, with a screenshot: a bracket on
+  staff 1 and a brace on staff 2 — *"the brace somehow is displacing the position of the bracket but
+  there is no reason for this… both are independent, applied to independent groups."* ⭐ Dead right,
+  and **the research had already named the fix** (§2.2, LilyPond): *"Stacking is a SKYLINE, not fixed
+  columns (`side-position-interface.cc:263-322`), so **vertically disjoint signs can share an x**."*
+  ⇒ a sign now clears only the placed signs whose STAFF SPAN overlaps its own.
+  ⚠️ And he asked whether the ORDER was right — it is, and it is §3.2's: **Gould / Ross / Stone all
+  measured, LilyPond and Verovio agreeing, MuseScore the odd one out**; plus Gould p. 516 stated,
+  *"a brace should only ever be used as the OUTERMOST bracket."*
 
 - ✅ **THE SUB-BRACKET — BUILT 2026-08-29**, and ⭐ **CONSOLE-ONLY BY HIS CALL**: *"i don't need a
   palette with sub-bracket… i will not test sub-bracket either, since we don't need it now but in the

@@ -96,10 +96,14 @@ export type MarkingTool =
    * ⛔ It carries no LENGTH — a click names a STAFF, and the armed duration says nothing about that
    * (`false` in {@link MARKING_TOOL_USES_ARMED_LENGTH}).
    *
-   * ⏭️ **It does NOT ghost yet**, so it is in {@link scoreCursorClass}'s blue-pointer list. ⚠️ That is
-   * a gap against his standing call — *"we need ghosts for every case using the glyph"* — and the
-   * brace is a glyph. It is left open because a grouping sign's preview needs the STAFF SPAN the
-   * click will make, which is a different shape from every ghost drawn so far.
+   * ⭐ **It DOES ghost** — the sign follows the pointer (`engine/rendering/GroupSignGhost.ts`), so
+   * this tool is NOT in {@link scoreCursorClass}'s blue-pointer list. ⚠️ It shipped ghostless in P5
+   * on the objection that *"a grouping sign's preview needs the STAFF SPAN the click will make"* —
+   * which was the BARLINE's objection verbatim and wrong for its reason: the armed click applies to
+   * ONE staff, and the cursor says WHAT the click makes, not where the engraver puts it.
+   *
+   * ⛔ `subBracket` has no ghost — SMuFL has no glyph for it, and it cannot be armed anyway (no
+   * palette button by his call; the console applies rather than arms).
    */
   | { kind: 'group'; symbol: NonNullable<StaffGroup['symbol']> }
   | { kind: 'dynamic'; dynamic: DynamicTool }
@@ -718,6 +722,16 @@ export type SelectedElement =
    * enclosed dynamics/slurs) ARE selected — so this one rides alongside a populated
    * `selectedItems`, like the articulation anchor above.
    */
+  /**
+   * ⭐⭐ A GROUPING SIGN — the brace, bracket or sub-bracket at a system's left edge.
+   *
+   * 🚨 His report, 2026-08-29: *"i'm not able to select bracket or brace… i should be able to click
+   * on it and select."* ⭐ It carries the GROUP'S ID, not a staff range: the sign IS the group, and
+   * Delete removes that group wherever it spans. Its box is registered from the pen in SVG space
+   * (`rendering/systemStart.registerSignBox`), because the brace's non-uniform scale has no
+   * representation in `ElementRegistry.withScale`.
+   */
+  | { kind: 'staffGroup'; groupId: string; symbol: 'brace' | 'bracket' | 'subBracket' }
   | {
     kind: 'measureRange'
     anchor: number

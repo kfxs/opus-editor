@@ -145,6 +145,10 @@ export function anchorOfElement(engine: PasteAnchorEngine, element: SelectedElem
     // land somewhere the user did not point at (`engine/rendering/ScoreHeaderPass`).
     case 'scoreText':
       return null
+    // ⭐ A GROUPING SIGN names no point in the music either — it is a statement about the STAVES, and
+    // it stands outside them. A paste while one is selected falls through to the note selection.
+    case 'staffGroup':
+      return null
     default:
       return assertNeverElement(element)
   }

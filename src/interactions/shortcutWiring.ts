@@ -1466,6 +1466,17 @@ export function wireShortcuts(
             state.selectedElement = null
             renderer.renderScore()
             return
+          case 'staffGroup':
+            // ⭐⭐ **DELETE REMOVES THE GROUP** — the only thing "delete" can mean for a grouping
+            // sign: the sign IS the group, so there is no sign left to keep once it goes.
+            // `staffGroupOps.applyGroupSymbol(…, undefined)` is the write, through the engine so it
+            // records undo like every other edit.
+            eng.removeStaffGroup(element.groupId)
+            // Cleared, like the score text above and unlike the barline: this selection names INK,
+            // and the ink is no longer on the page.
+            state.selectedElement = null
+            renderer.renderScore()
+            return
           default:
             assertNeverElement(element)
         }

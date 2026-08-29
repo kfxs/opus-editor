@@ -16,11 +16,11 @@ import type { SelectedElement } from '../EditorState'
 const ALL_KINDS: SelectedElement['kind'][] = [
   'clef', 'timeSignature', 'keySignature', 'tempo', 'dynamic', 'tie', 'slur', 'hairpin', 'trill',
   'ottava', 'pedal', 'accidental', 'articulation', 'dot', 'tremolo', 'stem', 'barline', 'repeatStart',
-  'tuplet', 'measureRange', 'scoreText',
+  'tuplet', 'measureRange', 'scoreText', 'staffGroup',
 ]
 
 describe('ELEMENT_SPECS — total over the union', () => {
-  it('answers for all twenty-one kinds, and nothing else', () => {
+  it('answers for all twenty-two kinds, and nothing else', () => {
     expect(Object.keys(ELEMENT_SPECS).sort()).toEqual([...ALL_KINDS].sort())
   })
 
@@ -29,7 +29,7 @@ describe('ELEMENT_SPECS — total over the union', () => {
     for (const key of ALL_KINDS) expect(ELEMENT_SPECS[key].kind).toBe(key)
   })
 
-  it('every kind says how it paints — a twenty-second cannot be added without deciding', () => {
+  it('every kind says how it paints — a twenty-third cannot be added without deciding', () => {
     for (const key of ALL_KINDS) expect(typeof ELEMENT_SPECS[key].highlight).toBe('function')
   })
 })
@@ -41,6 +41,10 @@ describe('ELEMENT_HIT_ORDER — the priority chain', () => {
       // page's top margin, where nothing else has ink, so its position is free. It leads because it
       // is the cheapest test in the chain.
       'scoreText',
+      // ⭐ The GROUPING SIGN — free rather than load-bearing, like the header above it: it is drawn
+      // OUTSIDE the staves, in the indent it reserved for itself, where no staff, bar, note or mark
+      // has ink. Nothing competes for those pixels.
+      'staffGroup',
       // ⭐⭐ The big header glyphs — and the KEY comes first of the three, which is load-bearing: its
       // box is the signs' own INK, while the clef's and the meter's are padded tier-1 REGIONS that
       // overlap it (measured at bar 1: clef 20→65, meter 65→95, signature 60→82). His report,

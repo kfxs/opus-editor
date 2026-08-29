@@ -47,7 +47,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
 import {
-  systemStartColumn, BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
+  systemStartColumn, SIGN_TO_BARLINE_SPACES, BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
   BRACKET_SERIF_WIDTH_SPACES, SUB_BRACKET_STROKE_SPACES, type PlacedSystemStartSign,
 } from '@/engine/layout/systemStartColumn'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
@@ -87,7 +87,7 @@ export function renderSystemStarts(
   staffCount: number,
   drawnKeys: Set<string> | null,
 ): void {
-  if (staffCount <= 1) return
+  if (staffCount < 1) return
   const byKey = new Map(placements.map(p => [measureGroupKey(p.measureNumber, p.staffIndex), p]))
   const bottomStaff = staffCount - 1
 
@@ -99,7 +99,14 @@ export function renderSystemStarts(
     // on screen while the middle of the system is, so it is drawn whenever *any* staff of its
     // opening measure is — not when its own two endpoints happen to be.
     if (drawnKeys && !systemIsDrawn(p.measureNumber, staffCount, drawnKeys)) continue
-    drawSystemConnector(pass, p, bottom)
+
+    // ⭐⭐ **THE CONNECTOR NEEDS TWO STAVES; THE GROUPING SIGNS DO NOT** — his report, 2026-08-29:
+    //   *"why the bracket and the brace not working on single staff score… it should work too."*
+    //   ⛔ This whole pass used to return at `staffCount <= 1`, so a one-staff score got no sign
+    //   either. A systemic barline JOINS staves and has nothing to join here; a bracket does not.
+    //   ⭐ Gould p. 516: *"A score system of only one stave takes a square bracket as well as a
+    //   systemic barline."*
+    if (staffCount > 1) drawSystemConnector(pass, p, bottom)
 
     // ⭐ Then the GROUPING signs, standing to the left of it — innermost first, each already told
     //   where it goes by `layout/systemStartColumn` (the same numbers that bought the indent, so
@@ -111,8 +118,47 @@ export function renderSystemStarts(
       if (sign.group.symbol === 'bracket') drawBracket(pass, p, sign, top, bot)
       else if (sign.group.symbol === 'subBracket') drawSubBracket(pass, p, sign, top, bot)
       else drawBrace(pass, p, sign, top, bot)
+      registerSignBox(pass, p, sign, top, bot)
     }
   }
+}
+
+/**
+ * ⭐⭐ **THE SIGN'S HIT-BOX, IN SVG SPACE — registered from the PEN.**
+ *
+ * 🚨 His report, 2026-08-29: *"i'm not able to select bracket or brace… i should be able to click on
+ * it and select."* P5 recorded selection as blocked because **`ElementRegistry.withScale` takes ONE
+ * number** and the brace is drawn inside a NON-UNIFORM `scale(sx, sy)` — so a box filed through the
+ * usual scaled path has no representation.
+ *
+ * ⭐ **The way round is to not go through it.** This function runs at the point of drawing, where the
+ * sign's corners are already known in the SVG's own coordinates — the same numbers the `fillRect`
+ * and the transform were built from. Nothing is scaled, so nothing needs unscaling.
+ *
+ * ⚠️ **A little wider than the ink, on purpose.** A brace is 0.89 sp of hairline curve and a
+ * sub-bracket 0.10 sp of stroke; a box that hugged them would be unclickable. It is padded to the
+ * sign's own COLUMN — the gap it keeps from the barline is dead space nothing else claims — which is
+ * the `barlineInk` rule that *only ink is selectable* relaxed exactly where there is no rival ink.
+ */
+function registerSignBox(
+  pass: RenderPass,
+  at: SystemStartPlacement,
+  sign: PlacedSystemStartSign,
+  top: SystemStartPlacement,
+  bottom: SystemStartPlacement,
+): void {
+  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+  const topY = spanTopY(top)
+  const bottomY = spanBottomY(bottom)
+  // Its own depth plus the clearance it keeps from whatever stands to its right.
+  const width = (sign.depthSpaces + SIGN_TO_BARLINE_SPACES) * STAFF_SPACE_PX
+  pass.elementRegistry.add({
+    type: 'staffGroupSign',
+    id: sign.group.group.id,
+    measure: at.measureNumber,
+    staff: sign.group.topStaffIndex,
+    bbox: { x: leftX, y: topY, width, height: bottomY - topY },
+  })
 }
 
 /** The y a system-spanning sign starts at: the TOP staff's first line, in the SVG's space. */

@@ -119,7 +119,11 @@ const GLYPHS = {
   //   loud. ⛔ The four alternates live in SMuFL's `optionalGlyphs`, not in `glyphnames.json`, and
   //   the metadata publishes no box for them — so they are measured off the font alone.
   //   The BRACKET's own terminals are already above under `barlineWings`; its rod is a rectangle.
-  groupings: ['brace', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat'],
+  //   ⭐ `bracket` (U+E002) is the PRECOMPOSED bracket — rod and both serifs in one glyph. ⛔ We do
+  //   NOT engrave it (the drawn sign is a rod plus the two tips, so it can span any staff height);
+  //   it is the GHOST's, where a fixed box is correct by construction. Its BOX is needed so the
+  //   ghost can be scaled to the brace's height rather than towering over it.
+  groupings: ['brace', 'braceSmall', 'braceLarge', 'braceLarger', 'braceFlat', 'bracket'],
 }
 
 const REQUESTED = Object.values(GLYPHS).flat()

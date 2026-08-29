@@ -45,6 +45,14 @@ export type ToolGhost =
    * one would be previewing a different feature. See `./KeySignatureGhost`.
    */
   | { kind: 'keySignature'; key: KeySignature }
+  /**
+   * ⭐ The armed GROUPING SIGN — a brace or a bracket following the cursor. See `./GroupSignGhost`.
+   *
+   * ⛔ **No `subBracket`**, and that is not an oversight: SMuFL has no glyph for it, and it cannot be
+   * armed — it has no palette button (his call, 2026-08-29) and the console APPLIES rather than arms.
+   * `interactions/toolGhost` returns no ghost for it, so this member is never constructed with one.
+   */
+  | { kind: 'group'; symbol: 'brace' | 'bracket' }
   /** The finished mark ('Allegro (♩ = 120)'), so what you see is what gets engraved. */
   | { kind: 'tempo'; mark: TempoMark }
   /** The finished mark too — a level's glyph, or the custom-text placeholder. */

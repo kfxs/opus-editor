@@ -112,12 +112,15 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // makes, not where the engraver puts it. Three palette buttons arming identically behind one
     // blue caret is the `8va`/`8vb` case exactly, so the SIGN is what travels.
     case 'barline': return { kind: 'barline', sign: tool.sign }
-    // ⏭️ The GROUPING SIGN does not ghost YET, and that is a gap rather than a decision. ⚠️ It is
-    // against his standing call — *"we need ghosts for every case using the glyph"* — and a brace IS
-    // a glyph. What stops it is that a grouping sign's preview needs the STAFF SPAN the click will
-    // make, which is a shape no ghost drawn so far has: every other one previews ink at the POINTER.
-    // Until then the blue caret says a stamp is armed (`scoreCursorClass`).
-    case 'group': return null
+    // ⭐⭐ The GROUPING SIGN ghosts — his ask, 2026-08-29, and the objection recorded when P5 shipped
+    // it ghostless was the BARLINE's objection verbatim: *"its preview needs the STAFF SPAN the click
+    // will make."* ⛔ Wrong twice over. The ARMED click applies to ONE staff
+    // (`groupStamp.stampGroupAtClick` takes `staffIndexAtY`), so there is no span to know — and the
+    // cursor says WHAT the click makes, not where the engraver puts it.
+    // ⛔ `subBracket` gets none: SMuFL has no glyph, and it cannot be armed (no palette button by his
+    //    call; the console APPLIES rather than arms). Returning null keeps `ToolGhost` honest rather
+    //    than inventing a preview for a sign the font cannot draw.
+    case 'group': return tool.symbol === 'subBracket' ? null : { kind: 'group', symbol: tool.symbol }
     default: return assertNeverTool(tool)
   }
 }
@@ -148,4 +151,5 @@ export const GHOST_CAUSE: Record<ToolGhost['kind'], string> = {
   ottava: 'ghost:ottava',
   pedal: 'ghost:pedal',
   barline: 'ghost:barline',
+  group: 'ghost:groupsign',
 }

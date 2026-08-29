@@ -43,6 +43,7 @@ export function markAtPress(ctx: MouseDownCtx): { kind: MarkKind; id: string } |
     },
     // The tail's other doors, all shut: a Ctrl-press picks membership, never a gesture.
     pickArticulationGroup: () => true,
+    groupSymbolOf: () => undefined,
     armClefDrag: () => {},
     armBarWidthDrag: () => {},
     armDynamicDrag: () => {},

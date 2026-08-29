@@ -477,6 +477,18 @@ export function selectedElements(state: EditorState, engine: MusicEngine | null)
       })
       break
 
+    case 'staffGroup':
+      // ⭐ The sign IS the group, so the report shows WHICH sign and the staves it spans — read from
+      // the score at report time, because a group's membership can change while its id does not.
+      out.push({
+        kind: 'staffGroup',
+        data: {
+          symbol: element.symbol,
+          staves: (score.staffGroups?.find(g => g.id === element.groupId)?.staffIds ?? []).length,
+        },
+      })
+      break
+
     default:
       assertNeverElement(element)
   }
