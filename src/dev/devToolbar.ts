@@ -297,26 +297,20 @@ export function mountDevToolbar(host: HTMLElement, deps: DevToolbarDeps): DevToo
    * ⏭️ Its fate is written: when the feature has real UI these go the way the Barlines and Lines rows
    * went — a menu row calling the same method, and this group deleted.
    */
-  const groupBox = group('Group:')
-  /**
-   * ⭐⭐ **LIVE since P5 (2026-08-29)** — these were `dbg` calls that drew nothing.
+  /*
+   * 🏁 --- THE `Group:` ROW IS GONE (2026-08-29, his call) ---
    *
-   * **His rule**: *"if multiple staves are selected we apply to those staves; if just one staff is
-   * selected we apply just to that staff; if no staff is selected we arm a stamp and apply to the
-   * staff we click."* ⭐ All of it is `PaletteController.pressGroupSymbol` — ⛔ nothing is decided
-   * here, exactly like every other row in this shell.
+   * It went the way the Barlines, Lines and Key rows went, and for the same reason: **Score ▸ Insert
+   * Brace / Insert Bracket** runs the very method these buttons ran
+   * (`PaletteController.pressGroupSymbol`), so deleting them deleted two LABELS and no behaviour.
+   *
+   * ⭐ Nothing was lost with them, and it is worth saying which nothing: the row had no armed-state
+   * light to give up — an armed grouping stamp says so with its **GHOST**
+   * (`engine/rendering/GroupSignGhost`), which the menu path arms identically.
+   *
+   * ⭐ The SUB-BRACKET keeps its console door (`__groups.subBracket()`) — his call, and unaffected:
+   * it never had a palette button to lose.
    */
-  action(groupBox, '{ Brace',
-    'Brace the SELECTED staves — or arm a stamp when nothing is selected, and click a staff',
-    () => true, () => palette.pressGroupSymbol('brace'))
-  action(groupBox, '[ Bracket',
-    'Bracket the SELECTED staves — or arm a stamp when nothing is selected, and click a staff',
-    () => true, () => palette.pressGroupSymbol('bracket'))
-  // ⛔ **NO `✕ None` ROW — his call, 2026-08-29** (*"what is this none on the palette? we don't need
-  //    it"*). Removal lives in the console (`__groups.none()`), the same place the sub-bracket does.
-  //    ⭐ Unlike the `Key:` row's `✕`, nothing here is unreachable without a button: a grouping sign
-  //    has no inkless case, so when the sign becomes SELECTABLE, Delete is its natural removal.
-  row.appendChild(groupBox)
 
   /*
    * 🏁 --- THE `Key:` ROW IS GONE (2026-08-29, his call) ---

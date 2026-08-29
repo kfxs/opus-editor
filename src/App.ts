@@ -495,6 +495,11 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     const score = getEngine()?.getScore()
     openScoreTextWindow(windows, field, score ? scoreText(score, field) : undefined)
   }
+  // ⭐ THE GROUPING SIGNS — the same `PaletteController` method the dev shell's `Group:` row runs,
+  //   so the menu and the toolbar cannot drift. ⭐ No `enabled`: APPLIES-else-ARMS means an empty
+  //   selection is a legal input (it arms the stamp), not a missing one.
+  menuActions.insertBrace = { run: () => palette.pressGroupSymbol('brace') }
+  menuActions.insertBracket = { run: () => palette.pressGroupSymbol('bracket') }
   menuActions.addTitle = { run: openScoreText('title') }
   menuActions.addComposer = { run: openScoreText('composer') }
   menuActions.addMeasureBefore = { run: () => palette.addMeasureBefore(), enabled: doubleBox }

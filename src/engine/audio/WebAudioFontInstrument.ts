@@ -59,6 +59,7 @@ const PRESET_BASE = 'https://surikov.github.io/webaudiofontdata/sound/'
 const GM_PRESETS: Record<number, string> = {
   0: '0000_JCLive_sf2_file', // Acoustic Grand Piano (Phase-1 default — unchanged)
   4: '0040_FluidR3_GM_sf2_file', // Electric Piano
+  6: '0060_FluidR3_GM_sf2_file', // Harpsichord (his ask, 2026-08-29)
   11: '0110_FluidR3_GM_sf2_file', // Vibraphone
   19: '0190_FluidR3_GM_sf2_file', // Church Organ
   24: '0240_FluidR3_GM_sf2_file', // Nylon Guitar
@@ -82,6 +83,7 @@ const GM_PRESETS: Record<number, string> = {
 export const DEV_SOUNDS: ReadonlyArray<{ program: number; label: string }> = [
   { program: 0, label: 'Piano' },
   { program: 4, label: 'E. Piano' },
+  { program: 6, label: 'Harpsichord' },
   { program: 11, label: 'Vibraphone' },
   { program: 19, label: 'Church Organ' },
   { program: 24, label: 'Nylon Guitar' },

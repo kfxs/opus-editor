@@ -41,6 +41,18 @@ export interface ScoreMenuActions {
   addMeasureBefore?: MenuCommand
   /** `PaletteController.addMeasureAfter` — needs a Ctrl+Shift+click span. */
   addMeasureAfter?: MenuCommand
+  /**
+   * `PaletteController.pressGroupSymbol('brace')` — the SAME method the toolbar's `{ Brace` runs.
+   *
+   * ⭐ **Always enabled, and that is the point of the gesture**: it APPLIES to the selected staves,
+   * else it ARMS a stamp and the next click says where (his rule, 2026-08-29). ⛔ So there is no
+   * selection to require — unlike the four rows above, which grey out because they genuinely have
+   * nothing to act on.
+   */
+  insertBrace?: MenuCommand
+  /** `PaletteController.pressGroupSymbol('bracket')`. Always enabled, for {@link insertBrace}'s
+   *  reason. */
+  insertBracket?: MenuCommand
   /** 🚧 Open the Title dialog. Always enabled — it edits the SCORE, not a selection. */
   addTitle?: MenuCommand
   /** 🚧 Open the Composer dialog. Always enabled, for {@link addTitle}'s reason. */
@@ -88,6 +100,30 @@ export function buildScoreMenu(actions: ScoreMenuActions): MenuBarTitle {
         shortcut: 'Ctrl+Shift+B',
         disabled: () => off(actions.addMeasureAfter),
         onSelect: () => actions.addMeasureAfter?.run(),
+      },
+      { separator: true },
+      // ⭐⭐ **THE GROUPING SIGNS** — his ask, 2026-08-29: a section before the title one, *"wired
+      // like the palette"*. Each row runs `PaletteController.pressGroupSymbol`, the very method the
+      // dev shell's `Group:` buttons run — ⛔ nothing is reimplemented here, which is this menu's
+      // whole rule (`./index`).
+      //
+      // ⭐ **Their own group, and no `disabled`.** The four rows above grey out because they need a
+      // bar selected by a particular gesture; these never can, because APPLIES-else-ARMS means an
+      // empty selection is a legal input rather than a missing one — it arms a stamp and the next
+      // click says where. A row that greys and a row that cannot should not share a block, which is
+      // the same argument the title group below makes for itself.
+      //
+      // ⛔ **No sub-bracket row, by his call**: *"i don't need a palette with sub-bracket… just make
+      // the console for it"* (`__groups.subBracket()`).
+      {
+        label: 'Insert Brace',
+        disabled: () => off(actions.insertBrace),
+        onSelect: () => actions.insertBrace?.run(),
+      },
+      {
+        label: 'Insert Bracket',
+        disabled: () => off(actions.insertBracket),
+        onSelect: () => actions.insertBracket?.run(),
       },
       { separator: true },
       // 🚧 **THE SCORE'S OWN TEXT** — its title and its composer, each opening a one-box dialog
