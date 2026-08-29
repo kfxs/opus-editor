@@ -214,6 +214,19 @@ be made *consciously* before more code piles onto it.
   Do not add a second document-wide look setting without settling this; two of them arriving by
   different routes is how the compartment stops meaning anything.
 
+  ⭐⭐ **A THIRD stakeholder, recorded 2026-08-29: AN AUTHORED STAFF TRANSFORMATION** — a bent, curved
+  or spiral staff, i.e. the eye-music half of the engine's goal (`docs/own-engraving-engine.md`
+  §7.5). ⛔ **It is not music** — principle 3 keeps it out of the content model outright. ⛔ **And it
+  is not `engravingOverrides`** — that compartment is id-keyed and anchor-relative, and a
+  transformation has no single element to hang off; its key is a **staff × range**, the shape
+  `staffSpacing` already uses (`staffId@openingMeasureId`). ⭐ But it is unmistakably **authored**,
+  and by the discriminator above it is **positional, not document-wide** — which makes it the first
+  client that lands on the *left* branch while still needing somewhere to be saved. ⏭️ Nothing to
+  decide until it is asked for; what this note buys is that whoever settles the engraving object
+  knows a positional presentation statement is coming and does not build a document-wide-only box.
+  ⚠️ The door that would actually shut is not in this file — it is the RENDERER assuming a straight
+  staff (§7.5.2 of that plan), which is why the four items there are the ones with a deadline.
+
 - **~~`Slur.cps` stores geometry in the model (re: principle 3).~~ RESOLVED (Phase 1,
   engraving-overrides plan).** The hand-edited slur shape no longer lives on `Slur`.
   Authored geometry now goes in a dedicated **engraving-overrides compartment**

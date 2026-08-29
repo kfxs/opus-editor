@@ -18,9 +18,74 @@
 > opinion of our own we *port, attributed*, rather than invent — which is what
 > `chordAccidentalColumns` already did once.
 >
+> ⭐⭐ **§0 is the short version, and it is the one to read before touching a drawn feature** — the
+> goal order, the build order, the twelve standing rules with *when each binds*, and the one-line
+> test that keeps eye music possible without anyone working on it.
+>
 > 📄 Read with `docs/vexflow-boundary.md`, which inventories who decides what today. This document
 > is the second question: not *which decision to take next* but *whether the DRAWING should move
 > too*. It also corrects one premise in that doc's §4 — see §4 below.
+
+---
+
+## ⭐⭐ 0. THE STANDING RULES — what binds while we develop
+
+**Added 2026-08-29**, at his request: *"make clear what are the priorities and rules in the future
+while we develop to make sure we will not close the door."* ⭐ **If you read one section of this
+document before touching a drawn feature, read this one.** Everything here is argued somewhere
+below; the **statement** is canonical here, the **argument** is canonical in the section named.
+⚠️ Change one and change both — a rule list that drifts from its argument teaches readers to skip it.
+
+### 0.1 The GOAL ORDER — his, and it settles every trade-off below
+
+1. ⭐⭐ **Professional engraving.** The plate is the judge. When a rule and a convenience disagree,
+   the rule wins; when a source and our taste disagree, we go and measure (`reference/README.md`).
+2. ⭐ **Contemporary notation.** A first-class user of the engine, not an extension bolted on later —
+   the survey of what it will ask for is already written (`docs/20c-notation-survey.md`).
+3. **Eye music and graphic scores.** ⛔ **Never designed for. Never foreclosed.** The author decides
+   what transformation their score wants; our only job is to not have made it impossible.
+
+⭐⭐ **The practical reading, and it is the whole point: NONE of the rules below is work on eye
+music.** Every one is a shape that costs nothing today and cannot be retrofitted cheaply after P3.
+⛔ This section is not a licence to build graphic-notation features, and not an argument for
+delaying engraving work by one day.
+
+### 0.2 The BUILD ORDER
+
+> **P2 ✅ done (2026-08-16) → P3 → P1 → P4 → P5.**
+
+⚠️ This is §5's corrected order — P2 first, **P1 after P3** — not the original one. 🚨 §9 still
+carries the pre-correction sentence *"the one thing to do now: P1"*; it is marked there, and §5 is
+the authority. ⛔ **The one hard gate: do not start P3 before the golden-image net exists** (§6.3).
+
+### 0.3 The RULES, ranked by when they bind
+
+| # | rule | binds | argued in |
+|---|---|---|---|
+| 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** | **now** | §9 |
+| 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. | **now** | §9 |
+| 3 | ⭐ **Where we have no engraving opinion: PORT it, attributed — do not invent.** VexFlow is MIT; the notice travels with the code, and you port the ALGORITHM, not the file. | **now** | §6.7 |
+| 4 | ⭐ **A new drawn element = a MODULE + a ROW in its table + an EXISTING scene primitive.** A new primitive needs a reason. | **now** (the module+row half is already `CLAUDE.md`) | §8.2 |
+| 5 | ⛔ **No inverse mapping written as straight-staff arithmetic.** Ask the placement; never compute `(staffTop − y) / spacing` by hand. | **now** | §7.5.4 |
+| 6 | ⛔⛔ **A staff is a SPINE plus a thickness — not "a y and five lines".** One module owns where the lines go. | **now** — and it is the **hardest of all of these to undo** | §7.5.4 |
+| 7 | ⭐⭐ **The rigid unit is a FRAGMENT.** A bar and a beamed group must be able to be REAL groups carrying their own transform, composed down the stack — ⛔ never flattened into absolute coordinates at build time. **Measured**: *Bike Ride* bends nothing, not even its beams; it rotates whole beamed groups on arc staff lines. ⛔ And therefore no non-affine WARP on spec. | **now** (it is a shape, not work) | §7.5.5 |
+| 8 | ⭐⭐ **A scene primitive carries a PLACEMENT (an affine), not an (x, y).** Identity for every note ever engraved normally; `paint/` composes it down the group stack. | the day `scene/` is typed (**P1**) | §7.2, §7.5.4 |
+| 9 | ⭐⭐ **The registry records the SPACE an element was drawn in, beside its box.** `withScale(k)` generalises to `withSpace(affine)`; the AABB fast path stays while the space is a translation. | when the scene lands — or sooner, the next time a coordinate field is added to `ElementInfo` | §7.5.2–7.5.4 |
+| 10 | ⛔ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.** Its LOC is the migration's progress bar. | **P1** | §8.2 |
+| 11 | ⛔ **`layout/` and `engrave/` import no DOM and no `vexflow`** (one named exception). | partly **now** — `engine/layout/` and `engine/fonts/` are already fenced by `lint:boundary` | §8.2, `ARCHITECTURE.md` |
+| 12 | ⛔ **`paint/` may not import `models/`.** It knows the scene and nothing else — that is what makes a second painter cost nothing. | **P1** | §8.2 |
+
+### 0.4 ⭐⭐ The one-line test, for any drawn feature
+
+> **"If the staff were a circle, how many files would have to change?"**
+> The only acceptable answer is **two** — the module that draws the staff, and the one that places
+> music on it. **Every other file that would have to change is a reader that assumes**, and
+> `ARCHITECTURE.md` already states the general form of this: *what forecloses a future is a READER
+> THAT ASSUMES, never a field that is missing.*
+
+⭐ It is a cheap test because it needs no eye-music feature to exist: it is answerable by reading the
+diff you are about to write. ⚠️ And it is the *whole* obligation — ⛔ nobody is being asked to make
+the circle work, only to not be the reason it can't.
 
 ---
 
@@ -449,6 +514,196 @@ it gives the migration **one number to watch**: the LOC of that directory, falli
   layout) → scene`, then `paint(scene, surface)`. That is the one-line delegation CLAUDE.md asks
   for, and it keeps a SCORE operation out of the editor's facade.
 
+### 7.5 ⭐⭐ The scene must not assume the staff is STRAIGHT — read out of *Belle, Bonne, Sage*'s source
+
+> His brief (2026-08-29): *"main goal primary of our project is make really beautiful and well
+> engraved music very professional, but the goal of the engine is also to do contemporary music and
+> graphic scores… with our own engine we will be able to do other eye music scores, so doing
+> transformations like bending a staff or a spiral staff for example — it is just an example, we
+> should do any number of transformations, the author of the score should decide… eye music is not
+> the main goal, the main goal is professional engraving and contemporary music, however we should
+> have all this into account cause we should not limit our engine to not make eye music."*
+
+**The order is: professional engraving first, contemporary notation with it, eye music never
+*designed for* but never made IMPOSSIBLE.** That is not a feature request; it is a constraint on
+§7.2's scene, it costs nothing today, and every part of it gets expensive after P3.
+
+⭐⭐ **The precedent is on disk and it was READ, not guessed** — `~/dev/engine-sources/belle`
+(BSD-2-Clause, one commit; papers and manifest in `reference/belle/` + `reference/README.md`).
+*Belle, Bonne, Sage* exists because William Andrew Burnson needed to engrave one piece of eye music
+— *Bike Ride* (2007/2009, solo piano, the staves are the two wheels of a bicycle) — and no tool
+would do it; it then grew into a conventional engraver that *"strives to conform to typesetting
+guidelines set forth in Behind Bars"*. ⛔⛔ **It is still NOT a source for traditional engraving**
+(`reference/README.md`): conventions stay with the treatises and Verovio / LilyPond / MuseScore.
+It is read for one thing only — **what shape lets a score be a wheel.**
+
+#### 7.5.1 ⭐⭐ What Belle actually does — and the surprise is that the ENGRAVER is translate-only
+
+Four files answer it (`belle-graphic.h`, `belle-stamp.h`, `belle-abstracts.h`, `belle-placement.h`):
+
+1. ⭐ **A `Graphic` is a path + an affine + a colour + a back-reference.** Verbatim: *"Persistent
+   graphical object containing path, affine transform, and color. It can also link back to a node on
+   the graph, which is useful for tracking where the graphic object originated from."* Fields:
+   `Pointer<const Path> p`, `Affine a`, `Color c`, `number w` (*"if non-zero, strokes the path with
+   this width instead of filling it"*), `Music::ConstNode Context`, `bool Spans`. **That is §7.2's
+   scene primitive, already built, in 182 lines** — and its `Context` is our element id.
+2. ⭐⭐ **A `Stamp` is an array of `Graphic`s plus ONE affine** — *"the transformation (in system
+   space) to be applied to the stamp"* — hung off one island of the music graph. `Paint()` is
+   `Painter.Transform(a)` → paint each graphic → `Revert()`. Nesting composes:
+   `AccumulateGraphics` sets `child.a = parent.a * child.a`.
+3. **The `Painter` is a device-independent affine STACK**: `Translate` / `Scale` / `Rotate` /
+   `Transform` / `Revert` / `CurrentSpace()`, and every device (PDF, SVG, CoreGraphics, JUCE)
+   implements exactly one primitive — `virtual void Draw(const Path&, const Affine&) = 0`.
+4. 🚨🚨 **And yet every engraving module writes only a TRANSLATION.** Grepped across all 200 headers:
+   every `->a =` site — accidentals, flags, articulations, dots, key signatures, ledger lines, octave
+   signs, pedal, rests, notes, measure rests, time signatures — is `Affine::Translate(...)`; the clef
+   alone adds a `Scale`. `Affine::Rotate` appears in the whole engraver **once**, in
+   `belle-optics.h`, and it is angle arithmetic for a slur anchor, not a placement.
+
+⭐⭐ **So the eye music is not in the engraver. It is in the SEAM, and the seam is ONE LINE.**
+`belle-placement.h` paints a system as: `PaintStaffLines(...)` → `PaintStaffBrackets(...)` → for each
+island, `s->a = Affine::Translate(Vector(in["TypesetX"], y)); s->Paint(Painter);`. **That is the only
+place in the library where a musical position becomes a page position.** Bend the staff lines in
+`PaintStaffLines` and replace that one affine with a point-and-angle on the curve, and every module
+that draws a notehead, a flag, a dot or an accidental is untouched, because all of them draw in
+**stamp space** — relative to their island's origin — and none of them ever asks where the page is.
+
+⚠️ **The honest caveat, so nobody quotes this as more than it is.** Belle 1.0.2 *does not* engrave
+*Bike Ride*: the piece was drawn in 2010 against the vector-graphics layer directly, years before
+this engraver existed, and nothing in the shipped code places music on a curve. The claim is only —
+and it is the useful claim — that **its architecture leaves exactly one line to change**, and ours
+today leaves none.
+
+#### 7.5.2 ⚠️ Where WE would close the door — three places, all measurable today
+
+- 🚨 **There is no stamp space. VexFlow objects place *and* paint themselves in page coordinates.**
+  `new Stave(x, y, width)` then `.draw()`; every pass computes absolute y from `getYForLine`. There
+  is nothing between "which staff line" and "which pixel" that could be given a transform. **This is
+  what P1 + `scene/` fix anyway** — §7.5 asks for one extra field while it happens, not for a
+  different project.
+- 🚨🚨 **`ElementRegistry`'s vocabulary is AABB + TRANSLATION, and it is the source of truth for
+  geometry** (`ARCHITECTURE.md` §"The renderer is the source of truth for geometry"). Every entry is
+  `bbox {x, y, width, height}`; `offsetElement(dx, dy)` and `shiftById(dx, dy)` translate the box
+  **and** each per-kind coordinate field one by one — `points`, `controlPoints`, `slurEndpoints`,
+  `segmentEndpoints`, `ottavaAxis`, `guideLine`. Under a rotation every one of those is wrong, and
+  an axis-aligned box around rotated ink is not the ink. ⭐ **Belle already solved this and the fix
+  is one field**: `Graphic` caches `PaintedSpace` (*"the affine space of the graphic as painted"*)
+  **beside** `PaintedBounds`, both *"generated after the paint because that is when the final
+  position is known"* — which is our registry's own timing exactly.
+- ⭐ **We have already built a transform scope once, and its comment is the argument.**
+  `ElementRegistry.withScale(k)` exists because a small staff is drawn inside
+  `<g transform="scale(k)">`: *"one seam, so no call site changes… it is scoped state rather than a
+  parameter for the same reason a graphics context has a transform: the code in between does not
+  want to know"* — ~30 `add` sites across seven modules, none of which learned anything. That is
+  Belle's `AffineStack` with one coefficient instead of six. 🚨 It is also, per
+  `docs/staff-size-plan.md`, **THE bug class** (visual coordinates inside a scaled scope), which is
+  the reason to generalise the seam *once*, deliberately, rather than to grow a second one by hand.
+
+#### 7.5.3 Where it fits in ARCHITECTURE and DESIGN-PRINCIPLES — it already fits, in ONE compartment
+
+- ⭐⭐ **`DESIGN-PRINCIPLES.md` §3 settles the model question outright.** A bent staff is *how it is
+  shown*, so ⛔ it is **not** music: no `Score` field, no measure property, nothing in the JSON's
+  content half. But §3 also names **three** compartments, and the third is *authored presentation* —
+  the reason `engravingOverrides` is allowed to live in the score value at all: *"a user expects a
+  choice they made to still be there tomorrow"*. **An author-chosen transformation is that
+  compartment's kind of thing, not layout's** — it is a decision, not a derived view, and a layout
+  pass must never write one.
+- ⚠️ **But it is not `engravingOverrides` as built**, and for the reason already written down there:
+  that compartment is **id-keyed, element → adjustment, anchor-relative**. A staff transformation has
+  no single element to anchor to — its key is a **staff × range**, the same shape as
+  `staffSpacing`'s `staffId@openingMeasureId`. ⭐ So it lands on the **already-parked boundary case**
+  *"Where do document-wide ENGRAVING settings live?"*, whose stated resolution is a document-level
+  compartment beside content. ⛔ **Nothing to decide now** — the entry exists to hold the question
+  open, and this is a third stakeholder for it, recorded in that file.
+- **Contemporary notation needs none of this and is not blocked by it.** `docs/20c-notation-survey.md`
+  §7 is staff-and-clef departures, and Belle makes the same point without meaning to: its staff line
+  **count** is per-staff state (`"Lines"`, and `<= 0` draws none), which is all a 1-line percussion
+  staff or a staffless passage ever needed. ⭐ That half is a *model* question, already surveyed, and
+  independent of any transform.
+- ⭐ **`ARCHITECTURE.md`'s existing rule covers the rest**: *"what forecloses a future is a READER
+  THAT ASSUMES, never a field that is missing"* (the `barlineJoinsBelow` entry). Every item below is
+  a reader, not a field.
+
+#### 7.5.4 ⭐⭐ What to change in the plan — four decisions, ZERO work now (a fifth arrives in §7.5.5)
+
+None of these builds eye music; each stops one door from shutting. Three are decided when `scene/`
+is written (P1), one is a rule.
+
+1. ⭐⭐ **A scene primitive carries a PLACEMENT, not an (x, y).** One field — a 2×3 affine, identity
+   for every note ever engraved normally — and `paint/` composes it down the group stack, exactly as
+   `Stamp::Paint` does. ⛔ The alternative (bake page coordinates into each primitive at build time)
+   makes eye music a second renderer, and it also costs us the cheap version of the ghost, the PDF
+   painter and the scene diff, all of which want a primitive to be movable without being rebuilt.
+2. ⭐⭐ **The registry records the SPACE an element was drawn in, beside its box.** Generalise
+   `withScale(k)` → `withSpace(affine)` on the same seam that already works, and store the local box
+   **plus** the space (Belle's `PaintedSpace` + `PaintedBounds`). Hit-testing keeps its fast AABB
+   path when the space is a translation — i.e. always, today — and stays *correct* rather than
+   silently wrong the first time it is not. ⚠️ The alternative is discovering the ~30 `add` sites and
+   six coordinate fields again, later, under a feature.
+3. ⛔ **No inverse mapping may be arithmetic on a straight staff.** `pixelToPosition`-shaped code
+   asks the placement (invert its affine), it does not compute `(staffTop − y) / spacing`. ⭐ Cheap
+   to hold now because `CoordinateMapper` is already documented as the *fallback* and the registry is
+   the truth.
+4. ⛔ **A staff is a SPINE plus a thickness, not "a y and five lines".** One module owns where the
+   lines go — Belle's whole staff drawing is one function, `PaintStaffLines` — so that bending them
+   is an edit in one file rather than a search across the engraver. This is the one item that is
+   genuinely hard to undo, because it is the assumption every other pass reads.
+
+⚠️ **On the limit — an earlier draft of this section overstated it, and §7.5.5 below is the
+correction.** It said a curved staff would eventually need a **non-affine warp** of the paths. ⛔ It
+does not: the plate was then measured, and *Bike Ride* warps nothing at all. Read §7.5.5 before
+designing anything here.
+
+#### 7.5.5 ⭐⭐ …and the PLATE says NOTHING IS WARPED — measured on *Bike Ride* itself, 2026-08-29
+
+> His pushback, thinking out loud: *"no the glyphs are not bended, they are rotated, but the beams
+> can bend and probably other elements… i'm not sure if what i say make sense."*
+
+**It makes sense, he is right about the glyphs, and the engraving goes one step further than his
+guess — the beams do not bend either.** Rendered from the ICMC PDF at 600 and 1200 dpi and read
+(`reference/belle/bike-ride-rim-detail-600dpi.png`, `bike-ride-beamgroup-detail-1200dpi.png`):
+
+| ink | what *Bike Ride* actually does |
+|---|---|
+| staff lines | ⭐ **true concentric ARCS** — the only genuinely curved ink in the picture |
+| noteheads, accidentals, clefs, rests | **rotated, never deformed** — the ovals tilt with the local angle. ✅ exactly his point |
+| **beams** | 🚨 **STRAIGHT.** Every triplet group's beam is a straight chord *crossing* the arcs beneath it. ⛔ Not an arc, not a wedge |
+| stems inside a group | **parallel to each other**, tilted as a unit — not radially splayed |
+| tuplet numerals, `Molto accelerando!!!`, `pp` / `p` | rotated with their group |
+| the `pp` line, the long lead line | drawn **straight**; the score does not insist that spans follow the rim |
+
+⭐⭐ **So the rigid unit is the BEAMED GROUP, and the whole group is placed by ONE affine.** The
+curvature is absorbed *between* fragments, never inside one — a polygon of straight groups laid on a
+circle of staff lines, and at reading size the eye accepts it completely. **There is no warp
+anywhere in the one piece of eye music we hold.**
+
+⭐⭐ **Which retires the "warp" question and replaces it with a much cheaper one.** The design
+requirement is not a non-affine deformation. It is:
+
+> ⭐⭐ **The scene's unit of placement must be able to be a FRAGMENT — a bar, a beamed group, a
+> single stemmed note — not only a whole system.** §7.2 already lists `group` among the primitives;
+> the rule this adds is that the natural rigid units must be REAL groups carrying their own
+> transform, composed down the stack (Belle: `child.a = parent.a * child.a`), rather than flattened
+> into absolute coordinates at build time.
+
+Three kinds of ink, and each has an answer that already exists:
+
+1. **POINT ink** (every glyph) — one affine: translate + rotate. ⛔ Never deformed.
+2. **RIGID FRAGMENT** (a beamed group, a stem + head, a bar) — one affine for the whole group. This
+   is what the plate does, beams included.
+3. **SPINE ink** (staff lines; and any span an author *chooses* to make follow the curve — slur,
+   hairpin, ottava) — ⛔ not a transform at all: **re-solved from the spine**. Same primitive (arc,
+   Bézier, quad), different control points. ⭐ And we have already built exactly this reasoning once,
+   for a different reason: a **multi-system span re-solves per segment** (`docs/multisystem-slur-plan.md`,
+   the span-mark family). A curved staff is that problem with a curved spine instead of a line break.
+
+⚠️ **What would still need a warp**, so the limit is not lost: insisting that a *single* beam bend
+within its own group, or that a notehead squash to the local curvature. **No source we hold does
+either**, and Solomon's LP (ICMC 2011, `docs/spacing-model-research.md` §6f) warps a *graphic*, not a
+staff. ⛔ Still nothing to build on spec — but the honest statement is now *"a warp is a taste
+upgrade nobody has taken"*, not *"the hard part we cannot do"*.
+
+
 ---
 
 ## 8. ⭐ The folder structure
@@ -545,7 +800,14 @@ the page pass, both tremolos, both curve families. The rule just stops the excep
 **And the one thing to do now: P1, the context seam.** Small, independently valuable, reversible —
 and until it exists, every other piece has to be done twice.
 
-Then P2 → P3 → P4 → P5. Stop after P2 and we have still killed a bug class. Stop after P3 and
+Then P2 → P3 → P4 → P5.
+
+> 🚨 **STALE — corrected 2026-08-16, in §5, and left standing here so the change is visible.** The
+> order is **P2 → P3 → P1 → P4 → P5**: P1 is the *highest*-blast-radius piece, not the lowest,
+> because while VexFlow objects still paint themselves our context must implement **VexFlow's**
+> `RenderContext` anyway. P2 is done. **P3 is next** (⛔ after the golden net). The two sentences
+> above keep their reasoning — a context seam really is what stops work being done twice — but
+> ⛔ **do not read them as the running order.** §5 and §0.2 are the authority. Stop after P2 and we have still killed a bug class. Stop after P3 and
 `Stave.padding` is gone. **There is no point in this sequence where we are committed to finishing**,
 which is the property that makes it worth starting.
 

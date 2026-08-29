@@ -270,6 +270,14 @@ Gourlay's spring solve — TeX's glue, and what LilyPond and MuseScore both do:
 #10's leading space is *an incompressible addition to one gap* (= "the gap you drag is the gap you
 get"), and client #11's bar stretch is *a bigger target width* (= "hand the formatter a bigger box").
 
+⭐ **The primary source for this vocabulary is now on disk** (2026-08-29):
+`reference/belle/haken-blostein-horizontal-spacing-icmc1995.pdf`, read and summarised in
+`docs/spacing-model-research.md` §6f. Two details there that this section does not have: their spring
+constant comes from *"the shortest note sounding"* — which **may be held over from a previous
+simultaneity**, not merely starting at it — and their rod solve is a **greedy maximal-force sweep**,
+not a global solve. ⛔ Neither changes anything we ship; both are what to read before the next change
+to `spacing.ts`.
+
 ⛔ **Justification BETWEEN bars is not touched.** `distributeLineWidths`'s tiered transfer — a bar of
 music pays nothing while an empty bar still has slack — is a rule he reported into existence, and
 springs do not express it. Springs go *inside* a bar; the tiers stay *between* bars.

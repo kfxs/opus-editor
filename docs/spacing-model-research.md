@@ -569,10 +569,106 @@ graphic option, not a rhythmic claim.
 grid-free events. TENOR's proceedings were searched specifically; the nearest is Fournier-S'niehotta,
 *Is There a Data Model in Music Notation?* (TENOR 2016). Reported as **not found**, not as absent.
 
+> ⭐ **PARTLY ANSWERED 2026-08-29 — see §6f.** Solomon's *The Horizontal Spacing of Graphical
+> Notation* (ICMC 2011), found while cloning *Belle, Bonne, Sage* and now on disk, is the nearest
+> published work: a linear program that stretches a **graphic** so it hits horizontal target points
+> inside an ordinary spring/rod line, spreading the distortion instead of kinking it at the anchors.
+> ⚠️ It is not the missing solver — it anchors *one graphic* to a grid the events already fixed, it
+> does not solve over a mixture of grid-pinned and grid-free **events**. That is still not found.
+
 Lineage, if any of this is ever cited: Gourlay, *Spacing a Line of Music* (OSU-CISRC-10/87-TR35, 1987)
 · Haken & Blostein, *A New Algorithm for Horizontal Spacing of Printed Music* (ICMC 1995, the Lime
 editor) · Byrd, *Extremes of Conventional Music Notation* (2003), which catalogues exactly these
 boundary cases.
+
+⭐ **Haken & Blostein is no longer a bibliography line — it is ON DISK and read (§6f).** Gourlay 1987
+is still not: it is an OSU tech report, and nothing has been fetched. ⛔ UNKNOWN, not silent.
+
+## 6f. ⭐⭐ THE TWO PAPERS BEHIND THE VOCABULARY ARE NOW ON DISK — read, 2026-08-29
+
+Until today, Haken & Blostein and Gourlay were a **lineage line** in §6e and a **bibliography entry**
+in §7 — cited, never read. Two of that family are now in `reference/belle/` (manifest and the fetch
+route in `reference/README.md`), reached sideways while cloning *Belle, Bonne, Sage*. ⛔ **Nothing
+below changes a number we ship.** What it changes is that the words `layout/spacing.ts` uses now
+have a primary source behind them instead of a second-hand attribution.
+
+### ⭐⭐ Haken & Blostein, *A New Algorithm for Horizontal Spacing of Printed Music* (ICMC 1995, pp. 118–119)
+
+`reference/belle/haken-blostein-horizontal-spacing-icmc1995.pdf`. 🚨 **A 2-page SCAN with NO text
+layer** — `pdftotext` yields nothing and `tesseract` is not installed here, so read the two PNGs
+beside it (`haken-blostein-icmc1995-p1.png`, `-p2.png`). Both pages read 2026-08-29.
+
+This is the **Lime** editor's algorithm, and it is where the pair of words comes from:
+
+- **A spring per simultaneity gap.** *"Vertical dashed lines mark the musical simultaneities… One
+  spring is created between each successive simultaneity."* ⭐ Its constant comes from the **shortest
+  note SOUNDING at that spring** — and, verbatim, *"This shortest note may have started at this
+  simultaneity or it may be held over from a previous simultaneity."* ⚠️ That is a sharper rule than
+  "the shortest note starting here", and it is a real difference from what `measureColumns` asks.
+- **The duration→constant function is INVERSE LOGARITHMIC**, with *"parameters controllable by the
+  user"*; longer durations get smaller constants (stretch easily), shorter ones larger. Same shape as
+  the log law we ship (§1.0), independently arrived at eight years before LilyPond.
+- **A barline is a very stiff spring**, not a rod: *"if all staves in the system have a bar at the
+  same time… a spring with a very large spring constant is created to represent the bar line's white
+  space."* ⚠️ We do the opposite — the barline is our last **column**. Not wrong, but it is a
+  documented alternative, and it is the reason their model needs no special barline case.
+- **Rods are per STAFF, and they are the ink.** *"Each staff is treated in isolation. The length of
+  the rod corresponds to the total width of the noteheads, accidentals, flags, dots, lyrics, clefs,
+  or other symbols which appear between the notes on that staff."* Because staves are treated in
+  isolation, *"rods can span several springs, and they can span (or partially span) rods from
+  parallel staves."* ⭐ That is exactly our `Column.rod` (§6e), and exactly why a rod may not be
+  expressible as a per-gap minimum.
+- ⭐ **The SOLVE ORDER, which no summary of this paper states**: rods spanning a *single* spring are
+  applied first and discarded (their force stored on the spring); then, repeatedly, **the remaining
+  rod requiring the maximal force** is applied to every spring it spans that is not already under a
+  greater force, and discarded, recomputing after each. *"This sequence… is repeated until no rods
+  remain."* A greedy maximal-force sweep — ⚠️ **not** a global solve.
+- **The staff width is itself a rod** spanning everything, which is what fills the line out.
+- **Overflow is linear compression**, and it is not uniform: *"this compression not only moves notes
+  closer together, but other symbols, such as accidentals, move closer to the notes."*
+- ⭐ It positions itself against Gourlay explicitly — *"has similarities to two existing algorithms
+  (Blostein and Haken, 1991) (Gourlay, 1987) but differs significantly by its use of
+  duration-dependent spring constants."* ⚠️ So §1.3 of the plan and `ARCHITECTURE.md` attributing
+  "the spring solve" to **Gourlay 1987** is right about the mechanism and **understates who made the
+  spring constant depend on duration** — that is this paper.
+
+### ⭐⭐ Solomon, *The Horizontal Spacing of Graphical Notation* (ICMC 2011, pp. 689ff)
+
+`reference/belle/solomon-horizontal-spacing-graphical-notation-icmc2011.pdf` + `…-fulltext.txt`
+(clean text layer, quotable). §§1–3.1 read 2026-08-29; the LP matrices later in §3 are not.
+
+Two things for us, and they are unrelated to each other:
+
+1. **§2.2 is the compact, sourced history of everything in this document** — Gourlay's box-glue
+   (*"itself based on the one developed for text layout in TeX"*), **Haken & Blostein for the words
+   *spring* and *rod***, Renz's "neighbourhoods" (already in §6e), and a bulleted summary of
+   LilyPond's algorithm attributed to Nienhuys: one paper column per time point (chord notes,
+   articulations, dots, accidentals all in it, across voices and staves), **one spring per adjacent
+   column pair only**, rods allowed between **arbitrary, including non-adjacent** columns, spacing
+   measured left-edge-of-head to left-edge-of-head, `S → 2W` where `W` is a black notehead's width,
+   `D(2S) = 3W`, `D(4S) = 4W`, the **common shortest duration** (*"the one which appears in most
+   measures… to prevent a single short note from stretching the entire piece"*), `W + W×R/S` for
+   durations shorter than the CSD, `DT/SP × D(SP)` for polyphony, a **constant rod from the first
+   clef to the first note irrespective of the above**, and force applied at the final column of a
+   line. ⚠️ **This is a SECONDARY summary** — where it disagrees with `lily/spacing-options.cc`, the
+   source wins (§7). ⭐ But it is the shortest correct statement of the whole model in one place, and
+   the CSD paragraph is the clearest published statement of *why* the shortest duration is measured
+   per piece rather than per bar — compare `docs/shortest-duration-plan.md`.
+2. ⭐⭐ **Its own contribution is the nearest published thing to §6e's "nobody was found to have done
+   this".** A composer wants a vector graphic superposed on a normal line of music, hitting
+   horizontal **target points** (*"28% of its width at the left edge of the C♯ on beat two"*). Cutting
+   the graphic at those points and stretching each piece gives visibly different stretch factors and
+   *"awkward kinks… at the borders"* — so he solves a **linear program** that distributes the
+   stretching error over the whole graphic, minimally distorting it and keeping the distortion away
+   from the anchors. ⭐ And his argument for why the graphic must ride the *piece-wide* spring/rod
+   solve rather than its own is one we would have had to make ourselves: **spanners** (beams, slurs,
+   hairpins, ottavas) group notes across line breaks, so *"one would assume that the composer would
+   want consistent spacing rules that controlled the horizontal layout at all of these target
+   points"* — otherwise a small edit on one line visibly rescales a graphic on another.
+
+⏭️ **When this becomes real** (a boxed cell, a duration line, a graphic gesture — `docs/20c-notation-survey.md`
+§5), Solomon §3 is the paper to finish reading, and `docs/own-engraving-engine.md` §7.5 is where the
+drawing-side constraint lives.
 
 ---
 
@@ -601,6 +697,14 @@ boundary cases.
 - J. S. Gourlay, *Spacing a Line of Music*, OSU-CISRC-10/87-TR35 (1987) — the spring/rod model every
   engine's justifier descends from; see also LilyPond's
   [essay on automated engraving](https://lilypond.org/doc/v2.24/Documentation/essay-big-page.html).
+- ⭐⭐ L. Haken & D. Blostein, *A New Algorithm for Horizontal Spacing of Printed Music*, ICMC 1995,
+  pp. 118–119 — **on disk**, `reference/belle/haken-blostein-horizontal-spacing-icmc1995.pdf`
+  (🚨 scan, no text layer: read the `-p1/-p2.png` beside it). Read and summarised in §6f: the Lime
+  editor, duration-dependent spring constants, per-staff rods, the greedy maximal-force sweep.
+- ⭐⭐ M. Solomon, *The Horizontal Spacing of Graphical Notation*, ICMC 2011, pp. 689ff — **on disk**,
+  `reference/belle/solomon-horizontal-spacing-graphical-notation-icmc2011.pdf` (+ `.txt`, clean text
+  layer). §2.2 is a sourced history of the whole spring/rod line plus a bulleted LilyPond algorithm;
+  §3 is a linear program that fits a graphic to horizontal target points. See §6f.
 - Ted Ross, *The Art of Music Engraving and Processing* (1970) — the pre-computer tradition, and the
   source usually cited for 3½ spaces per quarter.
 - LilyPond's prefatory-matter distances: [Clef grob](https://lilypond.org/doc/v2.25/Documentation/internals/clef)

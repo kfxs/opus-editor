@@ -56,6 +56,78 @@ mozilla-central changeset they are from is not recorded and cannot be recovered 
 a number from them is ever cited, re-fetch the file from searchfox/hg first and quote the revision —
 ⛔ do not cite these copies as if their line numbers were stable.
 
+### ⭐⭐ `belle/` — BELLE, BONNE, SAGE: the EYE-MUSIC precedent (and the two SPACING papers it led to)
+
+**Added 2026-08-29, at his request.** ⛔⛔ **THIS IS NOT A SOURCE FOR TRADITIONAL ENGRAVING, AND IT
+IS NOT A FOURTH ENGINE.** The engines asked *what did they engrave* are still, and only,
+**Verovio · LilyPond · MuseScore** (the section below). Belle is asked exactly one kind of question:
+**the one the other three cannot be asked at all** — *what does a drawing model have to look like so
+that a score can be a bicycle, a spiral, or a bent staff, without giving up professional engraving?*
+⛔ Do not cite Belle for a notehead's spacing, a slur's shape, a barline's thickness or any other
+convention: the treatises and the three engines answer those, and Belle would only be a fourth
+opinion with no plate behind it.
+
+⭐ **Why it earns a place anyway.** `docs/own-engraving-engine.md` plans a **SCENE** (§7.2), and the
+open question in a scene is what a primitive is allowed to be *placed by*. Our stated goals are
+professional engraving **and** contemporary music / graphic scores, with eye-music transformations
+(a bent staff, a spiral staff, a staff around a wheel) as something the engine must not make
+*impossible* — a score's author decides. Belle is the one **precedent** for that combination: it
+exists because its author needed to engrave one piece of eye music and no tool would do it, and it
+grew from there into a conventional engraver that *"strives to conform to typesetting guidelines set
+forth in Behind Bars"*.
+
+| file | what it is | where it came from |
+|---|---|---|
+| ⭐⭐ `burnson-introducing-belle-bonne-sage-icmc2010.pdf` / `belle-icmc2010-fulltext.txt` | **Burnson, *Introducing Belle, Bonne, Sage*, ICMC 2010, pp. 482–485** — 4pp, clean embedded text layer, so the `.txt` is **quotable as it stands** (⛔ unlike Gould's OCR). ⭐ **The origin, stated in the abstract**: *"In the search for a suitable tool for notation to engrave his graphic symbol piece Bike Ride, the composer starts from scratch, developing a corpus of vector-graphics tools for music notation Belle, Bonne, Sage in deference to a 14th century piece of eye music under the same name by Baude Cordier. The technical problems posed by this feat, once solved, become solutions to other gaps in current music notation technology."* ⭐⭐ And §3 RENDERING is the part that matters to us: *everything* — glyphs, stems, lines, text — is converted to **filled vector paths** so that one scanline algorithm draws all of it, and a stemmed note is drawn as **a single union outline** so the join cannot show. | wayback → ICMC proceedings, 2026-08-29 |
+| ⭐⭐ `bike-ride-icmc2010-p2-200dpi.png` / `…-450dpi.png` | **Figure 2 — *Bike Ride* (2007, rev. 2009) for solo piano, dedicated to Barry and Mary Hannigan, print 18″ × 32″** — page 483 rendered whole. ⭐ **Look at it before designing anything for eye music**: the two wheels are staves bent into circles with beamed music running round the rims, the spokes are drawn as radial lines, and *two* straight staves run along the bottom as the road. A SCAN beats a sentence here too — it shows what the geometry actually had to do. ⭐⭐ **And it was MEASURED on 2026-08-29** — `bike-ride-rim-detail-600dpi.png` and `bike-ride-beamgroup-detail-1200dpi.png` beside it: the staff lines are **true arcs**, the noteheads/accidentals/clefs/tuplet numerals/text are **rotated, never deformed**, and 🚨 **the beams are STRAIGHT chords crossing the arcs** — the rigid unit is the *beamed group*, rotated whole, with the curvature absorbed between groups. **Nothing in the piece is warped.** Written up as `docs/own-engraving-engine.md` §7.5.5. | rendered from the PDF above |
+| ⭐ `burnson-kaper-automatic-notation-icmc2010.pdf` / `burnson-kaper-icmc2010-fulltext.txt` | **Burnson, Kaper & Tipei, *Automatic Notation of Computer-Generated Scores for Instruments, Voices and Electro-Acoustic Sounds*, ICMC 2010** — Belle as the printing back-end for **DISSCO** (CMOD + LASS). Its subject is the interface between a *generated* score and an engraver, and its requirement list is the one we share: *"handling of both traditional, proportional, and graphic notation; dealing with instrumental/vocal parts as well as electro-acoustic sounds; and providing high quality, publishable documents"*. ⚠️ Only the abstract and §1 have been read (2026-08-29). | wayback → ICMC proceedings, 2026-08-29 |
+| ⭐⭐ `solomon-horizontal-spacing-graphical-notation-icmc2011.pdf` / `solomon-icmc2011-fulltext.txt` | **Mike Solomon, *The Horizontal Spacing of Graphical Notation*, ICMC 2011, pp. 689ff** — ⭐⭐ **the single most useful thing in this folder for the "contemporary music" half of the goal**, and it is not by Burnson. It asks the question we will have to answer: *how does a GRAPHIC object take part in a normal spring/rod line of music?* Its answer is a **linear program** that stretches a vector graphic so it hits horizontal **"target points"** in the score while spreading the distortion over the whole graphic instead of at the anchors. ⭐ §2.2 is also a compact, sourced history of spacing itself — Gourlay's box-glue, **Haken & Blostein for the words *spring* and *rod***, Renz's "neighbourhoods", and a bulleted summary of **LilyPond's algorithm** (columns, one spring per adjacent pair, non-adjacent rods, `S → 2W`, `D(2S)=3W`, `D(4S)=4W`, the common-shortest-duration). ⭐ **What it answered (2026-08-29): `docs/spacing-model-research.md` §6f** — the sourced history, the bulleted LilyPond algorithm, and the *spanners across line breaks* argument for why a graphic must ride the piece-wide solve. It also **partly answers §6e's "nobody was found to have done this"**. ⚠️ §§1–3.1 read; the LP matrices later in §3 are unread. ⚠️ It is also mildly **critical of Belle** — *"context-agnostic tools such as this do not draw upon the many musical engraving conventions"* — which is exactly the trap our own engine has to avoid. | wayback → ICMC proceedings, 2026-08-29 |
+| ⭐⭐ `haken-blostein-horizontal-spacing-icmc1995.pdf` + `haken-blostein-icmc1995-p1.png` / `-p2.png` | **Lippold Haken & Dorothea Blostein, *A New Algorithm for Horizontal Spacing of Printed Music*, ICMC 1995, pp. 118–119** — the algorithm used in the **Lime** editor, and ⭐⭐ **the primary source for the vocabulary `docs/fixed-vs-unfixed-time-space.md` already uses**: *springs* between simultaneities with a constant derived from the **shortest note sounding**, an **inverse-logarithmic** duration→constant function, *rods* spanning one or more springs, a very stiff spring standing for a barline's white space. 🚨 **2 pages, and it is a SCAN with NO text layer** (`pdftotext` yields nothing, `tesseract` is not installed) — read the two PNGs beside it. Reached from Solomon's bibliography and from Belle's own README, which links it as the source of its "spring spaces". ⭐ **Both pages read; what it answered is `docs/spacing-model-research.md` §6f** — incl. two details no summary of it states: the spring constant comes from the shortest note **sounding** (*"may be held over from a previous simultaneity"*), and the rod solve is a **greedy maximal-force sweep**, not a global one. ⚠️ **Gourlay 1987 itself is NOT on disk** — an OSU tech report, never fetched: ⛔ UNKNOWN, not silent. | wayback → ICMC proceedings, 2026-08-29 |
+| `eye-music-wikipedia.html` / `.txt` | **Wikipedia, *Eye music*** — the term itself and its canon: Cordier's heart-shaped `Belle, bonne, sage` and circular `Tout par compas suy composés`, Josquin's blackened notation, Bull's circular canon, Marcello's enharmonic spellings, Telemann's `3/32` and `24/1` in the *Gulliver Suite*, and Crumb's circles/spirals/crosses. ⚠️ **A tertiary source** — fine for the vocabulary and for a list of what has been done, ⛔ never for a rule. | `en.wikipedia.org/wiki/Eye_music`, 2026-08-29 |
+
+⭐ **The code is a CLONE, and it is NOT in this directory** — `~/dev/engine-sources/belle`,
+`main` @ `25012b1` *"Belle 1.0.2: open-source release of Belle"*, 7.1 MB, same rule as the five
+below. ⚠️ **The whole repo is ONE commit** — `git fetch --unshallow` returns nothing, so there is no
+history to read. **BSD-2-Clause** (`Copyright 2007-2013, 2017 Andi; 2013-2016 Robert Taub`, per-file
+headers) — i.e. the same *port-it-attributed* footing as VexFlow's MIT
+(`docs/own-engraving-engine.md` §6.7), ⛔ **not** the LGPL the 2010 paper announces. Note it is a
+header-only C++ library in two halves: `include/prim-*.h` (the utility layer — `Affine`, `Path`,
+`Bezier`, rationals) and `include/belle-*.h` (the music layer — `belle-engraver.h`,
+`belle-spacing.h`, `belle-springs.h`, `belle-island.h`, `belle-house-style.h`, painters for PDF /
+SVG / CoreGraphics / JUCE / MIDI).
+
+🚨 **The finding that matters, measured in the clone on 2026-08-29: Belle's transform vocabulary is
+AFFINE ONLY.** `belle-transform.h` defines `struct Affine` (a six-coefficient CTM) and
+`AffineStack`; `belle-path.h`'s only transform entry point is `Path::Transform(Affine)`, and a grep
+of all 200 headers for `warp` / `deform` / `distort` / `non-linear` returns **one hit — the General
+MIDI patch name "Distortion Guitar"**. So *Bike Ride*'s circular staves are **many objects each
+placed by its own affine** (rotated round a centre), ⛔ **not a warped staff**: nothing in Belle
+bends a glyph. ⭐ That is a real design answer for our SCENE — *a per-primitive transform buys the
+whole Bike Ride class of eye music*, and a genuinely **bent** staff is a further, separate step that
+Belle never took (Solomon's LP above is the closest anyone in this folder gets to it).
+
+⚠️ **Two different things share the name.** The 2010 paper describes a **vector-graphics library
+with music glyphs** — the composer drew *Bike Ride* with it. The clone is the 2017 **Belle 1.0.2**,
+by then a real engraver with a graph/"island" model, spring spacing, SMuFL support and MusicXML
+import. ⛔ Do not quote the paper as a description of the code, or the code as evidence for the
+paper.
+
+🚨🚨 **THE ROUTE — `quod.lib.umich.edu` (the whole ICMC proceedings archive) IS CLOUDFLARE-GATED.**
+Measured 2026-08-29: `WebFetch` → 403; `curl` with a browser User-Agent → **403 with a *"Just a
+moment…"* interstitial**, the same silent-failure shape as `notat.io` below. ⭐ **What works is the
+WAYBACK MACHINE'S `id_` FORM**, which serves the original bytes with no rewriting:
+
+```
+# 1. find the snapshot (the CDX API is NOT gated)
+curl -sS "http://web.archive.org/cdx/search/cdx?url=quod.lib.umich.edu/cgi/p/pod/dod-idx/*&filter=original:.*<slug>.*&fl=timestamp,original,statuscode"
+# 2. fetch it verbatim — note the "id_" after the timestamp
+curl -sSL -o out.pdf "https://web.archive.org/web/<timestamp>id_/<original-url>"
+```
+
+⚠️ Wayback answers **503** under load; retry a few times before concluding anything. The PDF slug is
+the paper's title in kebab-case plus `?c=icmc;idno=bbp2372.<year>.<paper>;format=pdf` — which means
+**any ICMC paper is reachable this way**, not just these.
+
 ## ⭐⭐ Gould is ON DISK — how to page into 249 MB without drowning
 
 **Added 2026-08-17.** ⛔ **Read this before the web section below it**, which was written on 2026-08-17
@@ -305,6 +377,12 @@ source and was discontinued in 2024, so this is the closest thing to reading it.
 all 99 files at 1 sp = 24 EVPU.
 ⭐ **Look here BEFORE cloning anything**: they have now been lost twice to `/tmp` being cleared
 (2026-08-16 and again before 2026-08-18), and each rediscovery costs an agent its budget.
+
+⭐⭐ **A SIXTH checkout since 2026-08-29: `~/dev/engine-sources/belle`** — *Belle, Bonne, Sage*,
+BSD-2-Clause, one commit. ⛔ **It is NOT a fourth engraving opinion**: for what a convention is,
+the three above remain the whole list. Belle is asked only what none of them can be asked — how a
+score gets to be a bicycle. Everything about it, including the four ICMC papers now on disk, is in
+the `belle/` section above.
 
 ⚠️ **Inkscape answers a DIFFERENT KIND of question** and is filed here only because it lives in the
 same directory. The other three are asked *what did they engrave*; Inkscape is asked **how does an
