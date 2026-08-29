@@ -27,8 +27,11 @@
  * ink off the paper. ⇒ its consumer subtracts it from the content width — see the plan's P2, which
  * lists the four sites that must agree and the one (`ScoreHeaderPass`) that must not move.
  */
-import type { ResolvedStaffGroup } from '@/engine/models/staffGroups'
+import type { Score } from '@/types/music'
+import { groupsAt, type ResolvedStaffGroup } from '@/engine/models/staffGroups'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import type { SurfaceMetrics } from './surface'
 
 /**
  * ⭐⭐ **THE BRACE'S DEPTH, AND IT IS CONSTANT — ⛔ it does NOT widen with height.**
@@ -123,4 +126,72 @@ export function systemStartColumn(groups: readonly ResolvedStaffGroup[]): System
   // ⭐ `edge` is the outermost sign's left edge, and 0 when nothing was placed — so the "no groups
   //   indent by zero" case falls out of the walk rather than being a guard of its own.
   return { signs, indentSpaces: edge }
+}
+
+/**
+ * ⭐⭐ **THE SCORE'S INDENT — the widest left edge any bar asks for, in staff spaces.**
+ *
+ * ## 🚨🚨 WHY THE MAXIMUM, AND NOT "THE INDENT OF EACH SYSTEM"
+ *
+ * The obvious reading of a positional grouping is *"each system indents by its own signs"*. ⛔ **That
+ * is CIRCULAR and cannot be computed**: the indent shrinks the width the casting-off gets, the
+ * casting-off decides which bars OPEN systems, and which bars open systems is what would decide the
+ * indent. A layout cannot depend on its own output.
+ *
+ * ⭐ So the question is asked of **every bar in the score**, not of the system openings — a set that
+ * exists before any casting-off — and the widest answer wins. It is an upper bound, so no system can
+ * ever want more room than it was given.
+ *
+ * ⭐ **And it is the right picture anyway**: the systems of a score share one left edge. A score
+ * whose grouping changes at bar 40 does not step its staves sideways there — the signs differ, the
+ * margin does not.
+ *
+ * ⚠️ Today `groupsAt` answers the same at every bar, so this loop has one distinct answer. It is
+ * written as a loop regardless: the day a group carries a measure range, ⛔ **nothing here changes**,
+ * which is the whole point of asking per bar (`models/staffGroups`' header).
+ */
+export function scoreSystemStartIndentSpaces(score: Score): number {
+  // The bar-less call covers a score with no measures, and is the answer for every bar today.
+  let widest = systemStartColumn(groupsAt(score)).indentSpaces
+  for (const measure of score.measures) {
+    widest = Math.max(widest, systemStartColumn(groupsAt(score, measure.number)).indentSpaces)
+  }
+  return widest
+}
+
+/**
+ * ⛔ **NOT scaled by staff size.** A staff drawn at 0.7 gets smaller ink; the signs at a system's
+ * left edge do not, for `systemStart.drawSystemConnector`'s reason — *a system bracket belongs to
+ * the SYSTEM, not to either staff's ink* — and because one sign may span staves of two different
+ * sizes, so there is no staff whose scale it could take.
+ */
+export function scoreSystemStartIndentPx(score: Score): number {
+  return scoreSystemStartIndentSpaces(score) * STAFF_SPACE_PX
+}
+
+/**
+ * ⭐⭐ **THE MUSIC'S SURFACE — the page, minus what the left-edge signs took.**
+ *
+ * ⛔ **This is not the PAGE's surface and the two must not be confused**, which is the distinction
+ * P2 of docs/braces-brackets-plan.md exists to draw. The paper does not shrink when a brace is
+ * added; what shrinks is the room the *music* is cast off into.
+ *
+ * | reads the PAGE (raw) | reads the MUSIC (this) |
+ * |---|---|
+ * | `pageCastOff` · `pageOriginPx` · `surfaceSizePx` — where the sheets are | `MeasureLayout`'s `availableWidth` — casting-off AND justification |
+ * | `ScoreHeaderPass` — ⛔ **the title centres on the PAGE**, and a brace must not move it | `lineLeftPx` — where a system's first bar starts |
+ * | | `layout/barWidthRoom`'s `lineTotal` — or the derived view disagrees with the layout it describes |
+ *
+ * ⚠️ ⛔ **Never into the margin.** The indent is room the system gives up, not room borrowed from
+ * the page: `marginLeftPx` grows by exactly what `contentWidthPx` loses, so the right edge does not
+ * move and nothing is pushed off the paper (`docs/pdf-export.md`'s audience rule, `layout/pageBounds`).
+ */
+export function musicSurface(surface: SurfaceMetrics, score: Score): SurfaceMetrics {
+  const indentPx = scoreSystemStartIndentPx(score)
+  if (indentPx === 0) return surface // ⭐ byte-identical for every score with no authored sign.
+  return {
+    ...surface,
+    marginLeftPx: surface.marginLeftPx + indentPx,
+    contentWidthPx: surface.contentWidthPx - indentPx,
+  }
 }

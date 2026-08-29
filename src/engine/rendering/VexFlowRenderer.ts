@@ -13,6 +13,7 @@ import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fil
 import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
+import { musicSurface, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
@@ -3692,7 +3693,12 @@ export class VexFlowRenderer {
     const pages = pageCastOff(lineHeightPx, surface, sketchHeaderRoomPx(score, surface, this.viewMode))
     const origins = pages.pageOfLine.map(page => pageOriginPx(surface, page))
     const lineTopPx = pages.lineTopInPagePx.map((topInPage, line) => origins[line].y + topInPage)
-    const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx)
+    // ⭐⭐ **THE MUSIC'S LEFT EDGE, WHICH IS NOT THE PAGE'S MARGIN.** The signs at a system's left
+    // edge (brace, bracket) stand OUTSIDE the staves, and ⛔ never in the margin — print is the
+    // reason (`docs/pdf-export.md`'s audience rule). So the system indents by what they take.
+    // ⚠️ `surface` above stays the PAGE's: `pageCastOff` and the sketched header are laid out on the
+    // paper, and a brace must not re-centre the title (`layout/systemStartColumn.musicSurface`).
+    const lineLeftPx = origins.map(at => at.x + surface.marginLeftPx + scoreSystemStartIndentPx(score))
     return {
       lineTopPx, lineLeftPx, staffTopPx, staffSize, lineHeightPx, contentHeightPx,
       pageOfLine: pages.pageOfLine, pageCount: pages.pageCount,
@@ -3712,6 +3718,12 @@ export class VexFlowRenderer {
     // margin and width below is read off it, and re-resolving mid-render is how a picture ends up
     // half on one page and half on another. (docs/layout-plan.md §5)
     const surface = this.surfaceMetrics()
+    // ⭐⭐ **AND THE MUSIC'S SURFACE, which is the page minus what the left-edge signs took.** The
+    // paper does not shrink when a brace is added; the room the music is CAST OFF into does. ⛔ The
+    // two must not be swapped — `layout/systemStartColumn.musicSurface` carries the table of which
+    // reader gets which, and `ScoreHeaderPass` is the one that must keep the page's.
+    // ⭐ Identical to `surface` (the same object) for every score with no authored `symbol`.
+    const musicSurf = musicSurface(surface, score)
 
     // The staff axis (multi-staff): staves stack vertically within each system, sharing
     // barlines. N = 1 is the single-staff default. Where each staff of a system SITS is
@@ -3760,7 +3772,9 @@ export class VexFlowRenderer {
         mode: this.viewMode,
         cache: this.widthCache,
         justifyLastLine: this.justifyLastLine,
-        surface,
+        // ⭐ The MUSIC's, not the page's: `availableWidth` is read twice in there — for the
+        //   casting-off AND for the justification — and both are about the room the music has.
+        surface: musicSurf,
       })
     if (!this.frozenLayout) this.layoutCache = { key: layoutKey, widths: measureWidths }
     renderProbe().endLayout()
@@ -3788,7 +3802,9 @@ export class VexFlowRenderer {
     const contentWidth = this.viewMode === 'linear'
       ? Math.max(
           spread.width,
-          surface.marginLeftPx + surface.marginRightPx
+          // ⭐ The MUSIC's margins: in linear view the bars run off to the right from the indented
+          //   left edge, so the SVG has to be wide enough for the indent too.
+          musicSurf.marginLeftPx + musicSurf.marginRightPx
             + [...measureWidths.values()].reduce((sum, m) => sum + m.finalWidth, 0),
         )
       : spread.width
@@ -4807,7 +4823,10 @@ export class VexFlowRenderer {
     return this.ghostOverlay((ctx, svg) => drawNoteGhost(
       ctx, svg, ghostNote, score, this.measureLayoutInfo,
       this.staffSpacingLayout(score, this.measureLayoutInfo),
-      this.surfaceMetrics(),
+      // ⭐ The MUSIC's surface: the ghost stands where the committed note will, and that is inside
+      //   the indent the left-edge signs took. Its `marginLeftPx` is only a FALLBACK for a line with
+      //   no `lineLeftPx` — but a fallback that disagrees with the real edge is a ghost that jumps.
+      musicSurface(this.surfaceMetrics(), score),
     ))
   }
 

@@ -18,6 +18,7 @@ import type { ToolGhost } from './rendering/ghostTypes'
 import { measuredShrinkRoom, fanMemberShrinkRoom, measuredBarShrinkPx, measuredBarlineGapRoom } from './layout/measuredRoom'
 import type { BarlineSignKind } from './layout/barlineSign'
 import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barWidthRoom'
+import { musicSurface } from './layout/systemStartColumn'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import type { ScoreTextField } from './models/scoreTextOps'
 import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
@@ -4061,7 +4062,10 @@ export class MusicEngine {
       layout: this.renderer.getMeasureLayoutInfo(),
       stretch: this.getBarWidth(measureNumber),
       viewMode: this.getViewMode(),
-      surface: resolveSurface(this.surface),
+      // ⭐ The MUSIC's surface, not the page's: `barWidthRoom` reads `contentWidthPx` as the line's
+      //   TOTAL, and a derived view that disagrees with the layout it describes is worse than none
+      //   (docs/braces-brackets-plan.md P2's consumer table).
+      surface: musicSurface(resolveSurface(this.surface), this.scoreModel.getScore()),
       slackPx,
     })
   }

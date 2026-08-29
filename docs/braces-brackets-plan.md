@@ -278,7 +278,29 @@ commit that gives it a home. ⇒ **the exemption's reasoning moves into `systemS
 and `barlineGap.ts:101` gets a `{@link}` to it — otherwise the next reader of `systemStart.ts` has a
 landmine that says nothing about itself.
 
-### P2 — THE ROOM (the one genuinely new idea)
+### P2 — THE ROOM (the one genuinely new idea) — ✅ **BUILT 2026-08-29**
+
+> ✅ `engine/layout/systemStartColumn.ts` (+ 14 specs) and the wiring, with a **feature test** at
+> `engine/rendering/__tests__/systemStartIndent.test.ts` (5 specs) — because the whole 5657-test
+> suite passing proves **nothing** about a wire nobody's score crosses. All three wires
+> break-tested: unwire the widths → 2 fail; unwire `lineLeftPx` → 2 fail; break the `symbol` gate →
+> 3 fail. **Green: 5657 unit + 265 e2e, `build:check` clean.**
+>
+> **⭐⭐ THE SHAPE THAT SETTLED IT: the PAGE's surface vs the MUSIC's surface.** The paper does not
+> shrink when a brace is added; what shrinks is the room the *music* is cast off into. So
+> `musicSurface(surface, score)` is the page minus the indent — margin gaining exactly what the
+> content width loses, so the right edge never moves and nothing reaches the margin — and the table
+> of who reads which lives in its doc comment. `VexFlowRenderer.surfaceMetrics()` stays the PAGE's,
+> which is what keeps `ScoreHeaderPass` centring the title on the sheet.
+>
+> **🚨🚨 AND THE INDENT IS A MAXIMUM OVER BARS, because per-system is CIRCULAR** — this was not in
+> the draft and it is the one real discovery of the phase. The indent shrinks the width the
+> casting-off gets; the casting-off decides which bars OPEN systems; which bars open systems would
+> decide the indent. ⇒ the question is asked of **every bar in the score** (a set that exists before
+> any casting-off) and the widest answer wins. ⭐ It is also the right picture: the systems of a score
+> share one left edge — a grouping that changes at bar 40 changes the signs, not the margin.
+>
+> ⭐ **Zero-cost when nothing is authored**: `musicSurface` returns the **same object** at indent 0.
 
 `engine/layout/systemStartColumn.ts` — **what the signs of a system take at its left edge, in staff
 spaces**, and the indent that implies.
@@ -288,8 +310,8 @@ spaces**, and the indent that implies.
 - Structurally the below-staff LADDER turned ninety degrees (`layout/outsideStaffBand.ts`), so it
   follows that module's shape: **pure, ordered, unit-testable**, and the ORDER is the pass order.
 - ⚠️ ⛔ **Never into the margin** — print is the reason (`docs/pdf-export.md`'s audience rule).
-- **Done when**: a score with **no `symbol`** indents by **zero** (§1a — ⛔ *not* "no groups", which
-  is not a case that exists) and every existing test still passes.
+- ✅ **Done**: a score with **no `symbol`** indents by **zero** (§1a — ⛔ *not* "no groups", which is
+  not a case that exists) and every existing test still passes.
 
 #### 🔎 🚨 THE CONSUMER LIST WAS SHORT, AND IT POINTED AT THE WRONG PLACE
 
