@@ -1,4 +1,5 @@
 import type { Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, DynamicLevel, ArticulationType, Fraction, TupletFormat, TremoloMark } from '../types/music'
+import type { StaffGroup } from '@/types/music'
 import { deriveTupletM } from '../utils/musicUtils'
 import type { SelectionItem } from './selection'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -100,7 +101,7 @@ export type MarkingTool =
    * brace is a glyph. It is left open because a grouping sign's preview needs the STAFF SPAN the
    * click will make, which is a different shape from every ghost drawn so far.
    */
-  | { kind: 'group'; symbol: 'brace' | 'bracket' }
+  | { kind: 'group'; symbol: NonNullable<StaffGroup['symbol']> }
   | { kind: 'dynamic'; dynamic: DynamicTool }
   | { kind: 'tempo'; tempo: TempoTool }
   /** ADDITIVE: pressing another articulation key grows the set; all get stamped together. Emptying

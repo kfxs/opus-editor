@@ -770,11 +770,35 @@ glyph-vs-curve question is genuinely open rather than a formality.
 
 **What is genuinely left:**
 
-- **⭐ THE SUB-BRACKET** — the substantive one. ⛔ There is **no SMuFL glyph**, and `symbol` has no
-  member for it. ⭐ Gould draws it as a **hairline OUTLINE: a 0.10 sp stroke, 0.60 sp wide, with NO
-  serifs** (§3.3, measured) — ⛔ not merely a thinner rod. ⚠️ **A four-way disagreement**: Gould + all
-  three engines (~0.10–0.11 sp) against **Ross** (0.63, full thickness) against **Bravura's
-  `subBracketThickness` 0.16**. ⛔ And the term *"sub-brace"* appears in **no source**.
+- ✅ **THE SUB-BRACKET — BUILT 2026-08-29**, and ⭐ **CONSOLE-ONLY BY HIS CALL**: *"i don't need a
+  palette with sub-bracket… i will not test sub-bracket either, since we don't need it now but in the
+  future — just make the console for it, and when this is needed we will go back to it."*
+  ⇒ `__groups.subBracket()`; ⛔ no palette row. The model, the layout and the drawing are done.
+
+  | | value | source |
+  |---|---|---|
+  | width | **0.60 sp** | Gould, measured (§3.3). ⏳ Verovio uses 0.5 |
+  | vertical stroke | **0.10 sp** | Gould measured, **= Verovio's `subBracketThickness` default (0.20 unit)** |
+  | arms | a staff line thick, and they ARE the terminals | Verovio's `View::DrawSquareBracket` passes `staffLineWidth` |
+  | serifs | ⛔ **none** | measured |
+
+  ⭐ **Three rectangles, ⛔ not a glyph and not a closed outline** — SMuFL has none, and Verovio's
+  `DrawSquareBracket` is a vertical plus two arms. ⚠️ It reads as a closed rectangle on Gould's plate
+  because **its open side abuts the main bracket**.
+  🚨 **A four-way disagreement, and the font loses**: Gould + all three engines (~0.10–0.11 sp)
+  against **Ross 0.63** (full thickness) and against **Bravura's own `subBracketThickness` 0.16**.
+  ⚠️ **Gould p. 509 Table 2 could NOT re-confirm the weight** — a miniature schematic at **9.0 px per
+  staff space**, where 0.10 sp is under one pixel. It confirms the SHAPE only. ⛔ *"Sub-brace"*
+  appears in **no source**.
+
+- 🚨🚨 **AND IT EXPOSED A REAL BUG IN P2's WALK — the NESTING ORDER WAS BACKWARDS.**
+  `systemStartColumn` walked `groupsAt`'s innermost-first list and placed the FIRST sign nearest the
+  staves ⇒ **the sub-bracket drew INSIDE its own section bracket.** ⛔ Invisible until two signs could
+  coexist; a three-staff render showed it at once. ⭐ The rule is §3.2's, measured in Gould p. 509/518,
+  Ross pp. 155–6 and Stone p. 6, and stated outright by LilyPond (*"a piano context included within a
+  staff group should cause the piano brace to be drawn **to the left of** the staff angle bracket"*):
+  **the WIDEST group's sign sits next to the staves and the narrowest goes outermost.** ✅ The walk now
+  runs the list backwards; `signs` still comes back innermost-first, so no caller moved.
 - **`group-name` / `group-abbreviation` / `group-time`** — the instrument name beside the bracket, and
   whether a group shares one time signature. Nowhere in our model to land.
 - **MusicXML import/export** — the known lossiness is §5.4's: *joined across two groups* needs an

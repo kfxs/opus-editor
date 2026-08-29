@@ -24,6 +24,7 @@
  * line, ⛔ never a run of staves.
  */
 import type { EditorState } from './EditorState'
+import type { StaffGroup } from '@/types/music'
 import { selectedOf } from './EditorState'
 import { passageOf } from './measurePassage'
 
@@ -81,7 +82,7 @@ export function targetStaffIds(target: GroupTarget, staffIds: readonly string[])
 export function stampGroupAtClick(
   state: EditorState,
   engine: {
-    applyGroupSymbol(from: number, to: number, symbol: 'brace' | 'bracket' | undefined): boolean
+    applyGroupSymbol(from: number, to: number, symbol: StaffGroup['symbol'] | undefined): boolean
     getElementRegistry(): { staffIndexAtY(measure: number, y: number): number }
   },
   y: number,

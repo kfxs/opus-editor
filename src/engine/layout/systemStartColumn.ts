@@ -181,11 +181,42 @@ export const BRACKET_SERIF_WIDTH_SPACES = 1.876
  */
 export const SIGN_TO_BARLINE_SPACES = 0.45
 
+/**
+ * ⭐⭐ **THE SUB-BRACKET — a hairline `[`, ⛔ NOT a thinner rod.**
+ *
+ * The thin secondary sign grouping a subset inside a bracket — divisi strings under the section's
+ * own bracket. P6 of docs/braces-brackets-plan.md.
+ *
+ * | | value | source |
+ * |---|---|---|
+ * | **width** | **0.60 sp** | Gould, measured (research §3.3) — ⏳ Verovio uses 0.5 |
+ * | **vertical stroke** | **0.10 sp** | Gould measured, **and Verovio's `subBracketThickness` default of 0.20 unit = 0.10 sp exactly** |
+ * | arm thickness | a staff line's | Verovio draws the arms at `staffLineWidth` (`View::DrawSquareBracket`) |
+ * | serifs | ⛔ **none** | measured; the arms ARE the terminals |
+ *
+ * 🚨 **A FOUR-WAY DISAGREEMENT, and the font loses.** Gould **0.10** + all three engines
+ * (**0.10–0.11**) against **Ross 0.63** (his *"second bracket"*, full thickness — identical to his
+ * main one) and against **Bravura's own `subBracketThickness` 0.16**. ⭐ Four drawings against one
+ * sentence and one font default: this repo takes the drawings
+ * ([[reference_behind_bars_full_text]]'s *the scan beats the sentence*).
+ *
+ * ⚠️ **Gould's p. 509 Table 2 could NOT re-confirm the weight, and that is an honest limit:** it is a
+ * miniature schematic at **9.0 px per staff space** at 450 dpi, so a 0.10 sp stroke is under one
+ * pixel. ⭐ What the plate DOES confirm is the SHAPE — a thin `[` with square ends and **no serifs**,
+ * its open side abutting the main bracket, which is why it reads as a closed rectangle.
+ *
+ * ⛔ **The term *"sub-brace"* appears in no source** — there is no thin brace.
+ */
+export const SUB_BRACKET_WIDTH_SPACES = 0.60
+/** Its vertical stroke — Gould measured, = Verovio's own default. ⛔ Not Bravura's 0.16. */
+export const SUB_BRACKET_STROKE_SPACES = 0.10
+
 /** How deep one sign's ink is, in staff spaces. ⭐ A total over `StaffGroup['symbol']` — a new
  *  member of that union is a row HERE, not a `default` somewhere. */
 const DEPTH_SPACES: Record<ResolvedStaffGroup['symbol'], number> = {
   brace: BRACE_DEPTH_SPACES,
   bracket: BRACKET_DEPTH_SPACES,
+  subBracket: SUB_BRACKET_WIDTH_SPACES,
 }
 
 /** One sign, placed. All distances are staff spaces LEFT of the staves' edge — see the header. */
@@ -214,20 +245,41 @@ export interface SystemStartColumn {
  * @param groups from `models/staffGroups.groupsAt` — already ordered and already gated on `symbol`.
  */
 export function systemStartColumn(groups: readonly ResolvedStaffGroup[]): SystemStartColumn {
-  const signs: PlacedSystemStartSign[] = []
-  // Walk outward. `edge` is the left edge of everything placed so far — the systemic barline's own
-  // position (0) before the first sign, and each sign's left edge after it.
+  // 🚨🚨 **THE ORDER IS OUTERMOST-FIRST, AND GETTING IT BACKWARDS IS THE EASY MISTAKE.**
+  //
+  // ⭐⭐ *THE SMALLER THE GROUP, THE FURTHER LEFT ITS SIGN* — research §3.2, and the layout it draws
+  // reads left-to-right as:
+  //
+  //     [innermost group's sign] [outer group's sign] [section bracket] [systemic barline = staves]
+  //
+  // So the sign NEAREST the staves belongs to the WIDEST group, and the innermost group's sign is
+  // furthest out. Gould p. 509/518, Ross pp. 155–6 and Stone p. 6 all measured; LilyPond states it
+  // outright (*"a piano context included within a staff group should cause the piano brace to be
+  // drawn to the left of the staff angle bracket"*), and Verovio agrees. ⛔ MuseScore is the odd one
+  // out, which is why the research says do not settle this from code.
+  //
+  // ⚠️ `groupsAt` hands them **innermost-first** (smallest span first), so the WALK runs the list
+  // backwards: the widest sign takes the place next to the barline and each narrower one steps
+  // further left. ⛔ Walking it forwards put the sub-bracket INSIDE its own section bracket — which
+  // is what a three-staff render showed the moment two signs could coexist.
+  const outermostFirst = [...groups].reverse()
+  const placed = new Map<ResolvedStaffGroup, PlacedSystemStartSign>()
+  // `edge` is the left edge of everything placed so far — the systemic barline's own position (0)
+  // before the first sign, and each sign's left edge after it.
   let edge = 0
-  for (const group of groups) {
+  for (const group of outermostFirst) {
     const depthSpaces = DEPTH_SPACES[group.symbol]
-    // ⭐ The INNERMOST sign clears the systemic BARLINE — a distance the treatises measured
-    //   ({@link SIGN_TO_BARLINE_SPACES}). Every sign after it clears the sign before, for which
-    //   there is no measurement anywhere ({@link SIGN_SEPARATION_SPACES}).
-    const gap = signs.length === 0 ? SIGN_TO_BARLINE_SPACES : SIGN_SEPARATION_SPACES
+    // ⭐ The sign next to the staves clears the systemic BARLINE — a distance the treatises measured
+    //   ({@link SIGN_TO_BARLINE_SPACES}). Every sign further out clears the sign before it, for
+    //   which there is no measurement anywhere ({@link SIGN_SEPARATION_SPACES}).
+    const gap = placed.size === 0 ? SIGN_TO_BARLINE_SPACES : SIGN_SEPARATION_SPACES
     const leftSpaces = edge + gap + depthSpaces
-    signs.push({ group, leftSpaces, depthSpaces })
+    placed.set(group, { group, leftSpaces, depthSpaces })
     edge = leftSpaces
   }
+  // ⭐ Returned in the order they arrived — innermost first — so a caller that walks `signs` sees the
+  //   same ordering `groupsAt` promised. Only the POSITIONS were computed outward-in.
+  const signs = groups.map(g => placed.get(g)!)
   // ⭐ `edge` is the outermost sign's left edge, and 0 when nothing was placed — so the "no groups
   //   indent by zero" case falls out of the walk rather than being a guard of its own.
   return {

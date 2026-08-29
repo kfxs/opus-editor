@@ -48,8 +48,9 @@ import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
 import {
   systemStartColumn, BRACKET_ROD_PROJECTION_SPACES, BRACKET_SERIF_INSET_SPACES,
-  BRACKET_SERIF_WIDTH_SPACES, type PlacedSystemStartSign,
+  BRACKET_SERIF_WIDTH_SPACES, SUB_BRACKET_STROKE_SPACES, type PlacedSystemStartSign,
 } from '@/engine/layout/systemStartColumn'
+import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
 import type { RenderPass } from './RenderPass'
 import { measureGroupKey } from './VexFlowRenderer'
 
@@ -108,6 +109,7 @@ export function renderSystemStarts(
       const bot = byKey.get(measureGroupKey(p.measureNumber, sign.group.bottomStaffIndex))
       if (!top || !bot) continue
       if (sign.group.symbol === 'bracket') drawBracket(pass, p, sign, top, bot)
+      else if (sign.group.symbol === 'subBracket') drawSubBracket(pass, p, sign, top, bot)
       else drawBrace(pass, p, sign, top, bot)
     }
   }
@@ -187,6 +189,55 @@ function drawBracket(
     const serifScale = BRACKET_SERIF_WIDTH_SPACES / glyphBox('bracketTop').right
     stampGlyph(ctx, BRACKET_SERIF.top, leftX, topY + inset, serifScale)
     stampGlyph(ctx, BRACKET_SERIF.bottom, leftX, bottomY - inset, serifScale)
+  } finally {
+    ctx.closeGroup()
+  }
+}
+
+/**
+ * ⭐⭐ **THE SUB-BRACKET — a hairline `[`, ⛔ NOT a thinner rod and ⛔ NOT a glyph.** P6 of
+ * docs/braces-brackets-plan.md.
+ *
+ * The thin secondary sign grouping a subset inside a bracket — divisi strings under the section's
+ * own bracket. 🚨 **SMuFL has no glyph for it**, so it is drawn: **three rectangles**, which is
+ * exactly Verovio's `View::DrawSquareBracket` (`src/view_graph.cpp`) — one vertical stroke and two
+ * arms, ⛔ never a closed outline.
+ *
+ * ⚠️ **It reads as a closed rectangle on Gould's plate because its open side abuts the main
+ * bracket** — that is the shape confirmed off p. 509 Table 2, along with **square ends and NO
+ * serifs**. ⛔ What that plate could NOT confirm is the WEIGHT: it is a miniature schematic at 9.0 px
+ * per staff space, where a 0.10 sp stroke is under one pixel. The numbers are
+ * {@link SUB_BRACKET_WIDTH_SPACES} and {@link SUB_BRACKET_STROKE_SPACES}, which carry their sources.
+ *
+ * ⭐ **The arms are a STAFF LINE thick**, thinner than the vertical — Verovio passes
+ * `staffLineWidth` as its `horizontalThickness` while the vertical takes `subBracketThickness`. Two
+ * different weights in one sign, which is why this is three rectangles and not a stroked path.
+ *
+ * ⛔ **Flush, like the brace**: the arms sit ON the outer staff lines. There is no projection to
+ * decide — the sign has no terminal that reaches past them.
+ */
+function drawSubBracket(
+  pass: RenderPass,
+  at: SystemStartPlacement,
+  sign: PlacedSystemStartSign,
+  top: SystemStartPlacement,
+  bottom: SystemStartPlacement,
+): void {
+  const ctx = pass.context
+  if (!ctx) return
+  const topY = spanTopY(top)
+  const bottomY = spanBottomY(bottom)
+  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+  const stroke = SUB_BRACKET_STROKE_SPACES * STAFF_SPACE_PX
+  const arm = ENGRAVING_DEFAULTS.staffLineThickness * STAFF_SPACE_PX
+  const width = sign.depthSpaces * STAFF_SPACE_PX
+
+  ctx.openGroup(SYSTEM_SIGN_GROUP, `subbracket-${sign.group.group.id}-m${at.measureNumber}`)
+  try {
+    // The vertical, and the two arms reaching RIGHT toward the staves — Verovio's three rectangles.
+    ctx.fillRect(leftX, topY - arm / 2, stroke, (bottomY - topY) + arm)
+    ctx.fillRect(leftX, topY - arm / 2, width, arm)
+    ctx.fillRect(leftX, bottomY - arm / 2, width, arm)
   } finally {
     ctx.closeGroup()
   }

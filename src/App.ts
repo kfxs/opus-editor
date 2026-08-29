@@ -883,7 +883,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
     dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
-    dbg('[groups] brace/bracket: __groups.bracket() / .brace() / .none() / .dump() — needs 2+ staves')
+    dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
   }
 
   return {

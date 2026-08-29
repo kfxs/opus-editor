@@ -2306,8 +2306,21 @@ export interface StaffGroup {
   id: string
   /** Ordered member staff ids of this unit (a piano = its two staff ids). */
   staffIds: string[]
-  /** Bracket/brace symbol; rendering DEFERRED, default 'brace' when drawn. */
-  symbol?: 'brace' | 'bracket'
+  /**
+   * ⭐⭐ **The sign drawn at the system's left edge for this group — and ABSENT means NO SIGN.**
+   *
+   * ⛔ **There is no default.** An absent `symbol` is not "draw a brace"; it is *nobody has asked for
+   * a sign*, which is the whole safety of the feature: `models/staffGroups.groupsAt` gates on it, so
+   * a group that exists for another reason (a future cross-staff legality scope, a MusicXML
+   * `<group-symbol>none</group-symbol>`) draws nothing. ⚠️ This field said *"default 'brace' when
+   * drawn"* until 2026-08-29, which would have put a brace on every multi-staff score the day
+   * anything drew.
+   *
+   * ⭐ `subBracket` is the thin secondary sign that groups a subset inside a bracket — divisi
+   * strings under the section's own bracket. ⛔ It has **no SMuFL glyph** and is not a thinner rod:
+   * Gould draws it as a hairline `[` — see `engine/rendering/systemStart.drawSubBracket`.
+   */
+  symbol?: 'brace' | 'bracket' | 'subBracket'
 }
 
 /**

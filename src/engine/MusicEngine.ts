@@ -40,7 +40,7 @@ import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { naturalStemDirection } from '@/utils/clefUtils'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
-import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle } from '@/types/music'
+import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -874,7 +874,7 @@ export class MusicEngine {
    *
    * @returns whether the score changed.
    */
-  applyGroupSymbol(fromStaff: number, toStaff: number, symbol: 'brace' | 'bracket' | undefined): boolean {
+  applyGroupSymbol(fromStaff: number, toStaff: number, symbol: StaffGroup['symbol'] | undefined): boolean {
     // 🚨🚨 **`staffIdAtIndex`, ⛔ NEVER `staffIdForIndex`** — and the difference is silent.
     //    `staffIdForIndex` is the CONTENT write convention: staff 0 stamps **no id** (absent = staff
     //    0, which keeps single-staff JSON byte-identical). ⭐ A GROUP is not content anchored to a

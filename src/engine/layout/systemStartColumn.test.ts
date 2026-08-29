@@ -11,13 +11,15 @@ import { describe, it, expect } from 'vitest'
 import {
   systemStartColumn, scoreSystemStartIndentSpaces, scoreSystemStartIndentPx, musicSurface,
   BRACE_DEPTH_SPACES, BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES,
+  SUB_BRACKET_WIDTH_SPACES, SUB_BRACKET_STROKE_SPACES,
 } from './systemStartColumn'
 import { groupsAt } from '@/engine/models/staffGroups'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SurfaceMetrics } from './surface'
 import type { Score, StaffGroup } from '@/types/music'
+import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
 
-const sign = (symbol: 'brace' | 'bracket', top = 0, bottom = 1) =>
+const sign = (symbol: 'brace' | 'bracket' | 'subBracket', top = 0, bottom = 1) =>
   ({ group: { id: `g${top}-${bottom}`, staffIds: [] }, symbol, topStaffIndex: top, bottomStaffIndex: bottom })
 
 const score = (staffCount: number, groups?: StaffGroup[], bars = 1): Score => ({
@@ -47,28 +49,43 @@ describe('one sign', () => {
   })
 })
 
-describe('nested signs — ⭐⭐ the indent is the SUM of what they take', () => {
-  it('the second sign clears the first, and the total is every depth plus every gap', () => {
-    const { signs, indentSpaces } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
-    // innermost brace, then the bracket outside it
-    expect(signs[0].leftSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES, 10)
-    expect(signs[1].leftSpaces).toBeCloseTo(
-      SIGN_TO_BARLINE_SPACES + BRACE_DEPTH_SPACES + SIGN_SEPARATION_SPACES + BRACKET_DEPTH_SPACES, 10)
-    expect(indentSpaces).toBeCloseTo(signs[1].leftSpaces + SIGN_SEPARATION_SPACES, 10)
+describe('nested signs — ⭐⭐ THE SMALLER GROUP GOES FURTHER LEFT', () => {
+  // research §3.2, measured in Gould p. 509/518, Ross pp. 155–6, Stone p. 6, and stated outright by
+  // LilyPond: *"a piano context included within a staff group should cause the piano brace to be
+  // drawn to the LEFT of the staff angle bracket"*. ⛔ MuseScore is the odd one out.
+  //     [innermost sign] [outer sign] [section bracket] [systemic barline = the staves]
+
+  it('⭐⭐ the WIDEST group takes the place next to the staves, the narrowest goes outermost', () => {
+    // Handed innermost-first, as `groupsAt` promises: a 2-staff brace inside a 4-staff bracket.
+    const { signs } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
+    const [brace, bracket] = signs
+    expect(bracket.leftSpaces, 'the wider group is nearer the staves')
+      .toBeLessThan(brace.leftSpaces)
+    // The bracket clears the barline by the measured distance; the brace clears the bracket.
+    expect(bracket.leftSpaces).toBeCloseTo(SIGN_TO_BARLINE_SPACES + BRACKET_DEPTH_SPACES, 10)
+    expect(brace.leftSpaces).toBeCloseTo(
+      bracket.leftSpaces + SIGN_SEPARATION_SPACES + BRACE_DEPTH_SPACES, 10)
   })
 
-  it('⭐ each sign’s ink never overlaps its neighbour’s — right edge to left edge is the separation', () => {
-    const { signs } = systemStartColumn([sign('brace'), sign('bracket'), sign('bracket')])
-    for (let i = 1; i < signs.length; i++) {
-      const innerLeft = signs[i - 1].leftSpaces
-      const outerRight = signs[i].leftSpaces - signs[i].depthSpaces
+  it('the indent is still the SUM of every depth plus every gap', () => {
+    const { signs, indentSpaces } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
+    const outermost = Math.max(...signs.map(s => s.leftSpaces))
+    expect(indentSpaces).toBeCloseTo(outermost + SIGN_SEPARATION_SPACES, 10)
+  })
+
+  it('⭐ no sign’s ink overlaps its neighbour’s — right edge to left edge is the separation', () => {
+    const { signs } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3), sign('bracket', 0, 5)])
+    const byPosition = [...signs].sort((a, b) => a.leftSpaces - b.leftSpaces)
+    for (let i = 1; i < byPosition.length; i++) {
+      const innerLeft = byPosition[i - 1].leftSpaces
+      const outerRight = byPosition[i].leftSpaces - byPosition[i].depthSpaces
       expect(outerRight - innerLeft).toBeCloseTo(SIGN_SEPARATION_SPACES, 10)
     }
   })
 
-  it('order is preserved — this module places what it is handed, ⛔ it does not re-sort', () => {
-    const { signs } = systemStartColumn([sign('bracket', 0, 5), sign('brace', 0, 1)])
-    expect(signs.map(s => s.depthSpaces)).toEqual([BRACKET_DEPTH_SPACES, BRACE_DEPTH_SPACES])
+  it('⭐ `signs` comes back in the order it was HANDED IN — only the positions run outward-in', () => {
+    const { signs } = systemStartColumn([sign('brace', 0, 1), sign('bracket', 0, 3)])
+    expect(signs.map(s => s.depthSpaces)).toEqual([BRACE_DEPTH_SPACES, BRACKET_DEPTH_SPACES])
   })
 })
 
@@ -143,5 +160,31 @@ describe('the MUSIC’s surface — ⛔ not the page’s', () => {
     expect(music.heightPx).toBe(page.heightPx)
     expect(music.marginRightPx).toBe(page.marginRightPx)
     expect(page.contentWidthPx).toBe(920) // ⚠️ and the input was not mutated
+  })
+})
+
+describe('the SUB-BRACKET — ⭐ P6, a hairline `[`', () => {
+  it('takes its own measured WIDTH, ⛔ not the bracket’s rod thickness', () => {
+    const { signs } = systemStartColumn([sign('subBracket')])
+    expect(signs[0].depthSpaces).toBeCloseTo(SUB_BRACKET_WIDTH_SPACES, 10)
+    expect(SUB_BRACKET_WIDTH_SPACES, 'Gould, measured — research §3.3').toBe(0.60)
+  })
+
+  it('🚨 its stroke is 0.10 sp — Gould + all three engines, ⛔ NOT Bravura’s 0.16', () => {
+    expect(SUB_BRACKET_STROKE_SPACES).toBe(0.10)
+    // Bravura's own default disagrees, and four drawings outvote it. Pinned so a later "read it
+    // from the font" refactor has to argue with this line rather than silently win.
+    expect(ENGRAVING_DEFAULTS.subBracketThickness, 'the font says otherwise').toBe(0.16)
+  })
+
+  it('🚨 nests OUTSIDE its own section bracket — the smaller group goes further left', () => {
+    // ⛔ This drew INSIDE the bracket until 2026-08-29: `systemStartColumn` walked innermost-first
+    //    and placed the first sign nearest the staves. Invisible until two signs could coexist, and
+    //    a three-staff render showed it at once.
+    const { signs } = systemStartColumn([sign('subBracket', 1, 2), sign('bracket', 0, 5)])
+    const [sub, bracket] = signs
+    expect(sub.depthSpaces).toBe(SUB_BRACKET_WIDTH_SPACES)
+    expect(sub.leftSpaces, 'the divisi sign stands OUTSIDE the section bracket')
+      .toBeGreaterThan(bracket.leftSpaces)
   })
 })

@@ -1,4 +1,5 @@
 import { dbg } from '@/utils/debug'
+import type { StaffGroup } from '@/types/music'
 import type { ArticulationType, Accidental, NoteDuration, BeamMode, Clef, TimeSignature, KeySignature, Fraction, TupletFormat, TremoloMark, FanMark } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ViewMode } from '../engine/rendering/layoutConfig'
@@ -2182,7 +2183,7 @@ export class PaletteController {
    * The engine is fetched INSIDE the writing branch, like `pressBarline` and `pressKeySignature`: a
    * selection means APPLY and never arm, so an engine-less context must not fall through to arming.
    */
-  pressGroupSymbol(symbol: 'brace' | 'bracket'): void {
+  pressGroupSymbol(symbol: NonNullable<StaffGroup['symbol']>): void {
     const target = groupTargetFromSelection(this.state)
     if (target !== null) {
       const engine = this.getEngine()

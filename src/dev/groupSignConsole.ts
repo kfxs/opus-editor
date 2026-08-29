@@ -5,9 +5,10 @@
  * draw?"*, when P5 did not exist and nothing could put a `symbol` on a score.
  *
  * ```js
- *   __groups.bracket()   // apply to the SELECTED staves, or the whole score if none are selected
+ *   __groups.bracket()    // apply to the SELECTED staves, or the whole score if none are selected
  *   __groups.brace()
- *   __groups.none()      // remove the sign from those staves
+ *   __groups.subBracket() // ⭐ CONSOLE-ONLY — the thin `[` for a divisi subset, no palette row
+ *   __groups.none()       // remove the sign from those staves
  *   __groups.dump()      // what is stored, what resolves, what room it took, what actually DREW
  * ```
  *
@@ -42,6 +43,10 @@ const SIGN_SELECTOR = 'g.vf-systemsign'
 export interface GroupSignConsole {
   brace(): void
   bracket(): void
+  /** ⭐ CONSOLE-ONLY, and that is his call (2026-08-29): *"i don't need a palette with sub-bracket…
+   *  just make the console for sub-bracket, and in the future when this is needed we will go back to
+   *  it."* ⇒ the model, the layout and the drawing are BUILT and tested; only the UI is deferred. */
+  subBracket(): void
   none(): void
   dump(): void
 }
@@ -128,5 +133,11 @@ export function groupSignConsole(
     }
   }
 
-  return { brace: () => apply('brace'), bracket: () => apply('bracket'), none: () => apply(undefined), dump }
+  return {
+    brace: () => apply('brace'),
+    bracket: () => apply('bracket'),
+    subBracket: () => apply('subBracket'),
+    none: () => apply(undefined),
+    dump,
+  }
 }
