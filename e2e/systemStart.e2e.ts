@@ -168,3 +168,23 @@ test('⛔ a group with no symbol draws nothing at all — the gate, at the pen',
   await plainSystem(score)
   expect(await rod(score), 'no grouping sign was drawn').toHaveLength(0)
 })
+
+/**
+ * ⛔⛔ **THE BRACE HAS NO E2E HERE, AND THAT IS A MEASURED LIMITATION, NOT AN OMISSION.**
+ *
+ * A brace is ONE glyph inside a `scale(sx, sy)` group, and a stretched `<text>` cannot be measured
+ * through the DOM: `getBoundingClientRect()` returns the FONT'S EM BOX multiplied by `sy`, not the
+ * ink. Measured — a brace spanning **145 px** reported a box of **589 px** starting 88 px above the
+ * staff. Two tests written against it were removed rather than tuned to pass, because they would
+ * have been asserting the ascender-to-descender extent of Bravura and calling it a brace.
+ * ⛔ `getBBox()` is out for the same reason the rest of this suite avoids it on glyphs.
+ *
+ * ⭐ So the brace's contract lives in `src/engine/rendering/systemStart.test.ts`, on the **transform**
+ * — which is the actual drawing instruction, not a derived box: that the scale is non-uniform, that
+ * `sx × the glyph's own ink width` is the CONSTANT depth at 2 staves and at 4, and that the group is
+ * translated flush to the connector's ends.
+ *
+ * ⏭️ The only honest browser measurement of stretched glyph ink is a **pixel** one — screenshot the
+ * strip and find the black extent. Worth building if the brace ever grows a rule that the transform
+ * alone cannot express; ⛔ not worth faking with a box that measures something else.
+ */

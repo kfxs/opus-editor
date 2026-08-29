@@ -100,7 +100,7 @@ already writes an overlay, and `symbol` is the only thing that does not lie.**
 | ~~3~~ | ~~**Nesting: a level, a tree, or nothing?**~~ | ✅ **ANSWERED — HIS CALL, 2026-08-29: NESTING ALLOWED.** ⭐ **No new field**: because *smaller group = further left* (decision 4), a group whose `staffIds` are a **subset** of another's IS the inner one, so depth is derivable and the order is a sort by size. ⛔ MuseScore's column integer exists only because it stacks outer-first. The one rule owed: groups **nest cleanly or do not touch** — a 1–3 overlapping a 2–4 is not engravable |
 | ~~4~~ | ~~**The nesting ORDER**~~ | ✅ **ANSWERED — research §3.2.** ⭐⭐ **The SMALLER the group, the FURTHER LEFT its sign** — Gould p. 509 / p. 518, Ross pp. 155–6, Stone p. 6, all measured, unanimous. LilyPond and Verovio already do this; **MuseScore is the odd one out.** |
 | ~~5~~ | ~~**How wide is a brace of height H?**~~ | ✅ **ANSWERED FOUR TIMES — research §3.4 / §2.4.** 🚨 **The depth is CONSTANT: 0.89 / 0.89 / 0.84 sp for 2 / 3 / 4 staves** (Gould p. 331, measured), flat 1.0 sp in Verovio, **1.00 sp across 99 real Finale files**. ⛔ It does NOT widen. |
-| 6 | ⏳ **GLYPH or CURVE for the brace?** — the only open mechanism question | ⏳ **his eye** on a rendered ladder. Bravura's five variants vs Finale's tapered two-curve fill (centre 0.15 sp, tip 0.30 sp) |
+| ~~6~~ | ~~⏳ **GLYPH or CURVE, and which variant?**~~ | ✅ **GLYPH, `braceLarge` — ANSWERED BY MEASUREMENT, ⛔ not by taste.** All five rendered at our span and measured against Gould p. 331's scan; `braceLarge` matches her stroke profile best (mean err 0.026 sp) and fixes the cusp from 35% over to 10%. See P4. ⏳ **His eye is still unsatisfied** — the SHAPE remains open even though every number is now measured |
 
 ---
 
@@ -491,7 +491,87 @@ of the two it is paying for.** ⛔ Do not let it be settled by which group the `
 be written inside. ⭐ And whichever wins, `e2e/staffSize.e2e.ts:236-241` needs a narrower selector in
 the same commit: it identifies the connector by *being tall*, and it is about to have company.
 
-### P4 — THE BRACE
+### P4 — THE BRACE — ✅ **BUILT 2026-08-29**, and decision 6 was ANSWERED BY MEASUREMENT
+
+> ✅ Drawn in `engine/rendering/systemStart.ts` (+ unit specs). **Green: 5672 unit + 271 e2e,
+> `build:check` clean.** ⏳ **HIS EYE IS NOT SATISFIED YET** — *"i'm still not sure about how the
+> brace looks"* (2026-08-29). ⛔ Do not read what follows as closed; the numbers below are each
+> measured, and it is the SHAPE he is still weighing.
+>
+> #### ⭐⭐ GOULD p. 331 TABLE 1, MEASURED OFF THE SCAN — the primary evidence, so nobody re-measures
+>
+> 450 dpi render, **20.25 px per staff space**, her three-staff brace (span 23.70 sp):
+>
+> | | measured | ours |
+> |---|---|---|
+> | **depth** | **0.889 sp** | 0.887 |
+> | **above the top staff line** | **+0.000 sp** | flush |
+> | **below the bottom staff line** | **+0.099 sp** | flush |
+> | **clear gap, brace → systemic barline** | **0.444 sp** | 0.45 |
+> | stroke: tip / belly / **cusp** / belly / tip | 0.148 / 0.444 / **0.148** / 0.494 / 0.148 | 0.175 / 0.475 / **0.163** / 0.463 / 0.175 |
+>
+> ⭐ **Her cusp, 0.148, is exactly Finale's published centre thickness of 0.15** (§2.4) — two
+> independent sources on one number. ⭐ And her staff gap works out at **5.85 sp** where ours is 6.5,
+> so **our brace is already LONGER than hers** (14.50 sp against her 13.83 for two staves).
+>
+> #### ⭐⭐ ALL FOUR ENGINES, READ FROM SOURCE — and they are unanimous on the length
+>
+> | | depth at a grand staff | widens? | overshoot | gap to barline |
+> |---|---|---|---|---|
+> | LilyPond | ≈0.93 (`mf/feta-braces.mf`: `x = 2pt + 18pt·(y/575)`) | ✅ | **zero** (binary-searches the glyph whose height IS the span; no scaling) | `padding` **0.30** |
+> | Verovio | **1.00** (`braceWidth = 2 units`, *"always"*) | ⛔ | **zero** (spans `y1..y2`) | `basicDist` **0.50** |
+> | Finale | **1.00** across 99 files | ⛔ | — | — |
+> | MuseScore | **1.19** (`symWidth × magx`, `magx = v + 1.625(v−1)`) | ✅ | **zero** (`RectF(0,0,w,h)`) | `akkoladeBarDistance` **0.35** |
+>
+> 🚨 **Six sources, no dissent, on the vertical: the brace is FLUSH.** Every engine reaches zero
+> overshoot by a *different mechanism*, plus Ross's words and Gould's plate. ⛔ **Do not re-open it.**
+> ⚠️ MuseScore's `magx` comment names *"akkoladeDistance/4.0 (default 6.5)"* — **the same staff gap we
+> use** — so its 1.19 is the one directly comparable figure, and we are the narrowest of everything.
+>
+> #### ⭐⭐ DECISION 6 — SETTLED BY MEASURING, ⛔ NOT BY HIS EYE ON A LADDER
+>
+> The plan expected to settle *"which of the five variants"* by taste. **It did not have to be.** All
+> five were drawn at our own grand-staff span and their stroke profiles measured against her scan:
+>
+> | variant | drawn depth | tip | belly 25% | **cusp** | belly 75% | mean err |
+> |---|---|---|---|---|---|---|
+> | `brace` | 0.850 | 0.175 | 0.487 | **0.200** | 0.475 | 0.0337 |
+> | `braceSmall` | 0.887 | 0.163 | 0.537 | 0.312 | 0.537 | 0.0661 |
+> | ✅ **`braceLarge`** | **0.887** | 0.175 | 0.475 | **0.163** | 0.463 | **0.0262** |
+> | `braceLarger` | 0.875 | 0.188 | 0.388 | 0.125 | 0.375 | 0.0530 |
+> | `braceFlat` | 0.875 | 0.138 | 0.175 | 0.087 | 0.175 | 0.1322 |
+>
+> 🚨 **His question was *"is the thickness of the brace correct?"* and it was NOT** — plain `brace` put
+> the **cusp 35% over** her weight and the tips 27% over, while the bellies matched. ⭐ **Exactly the
+> distortion this plan predicted before the code existed** (*"the cusp and the tips, where the curve
+> runs horizontally, thicken with the stretch"*), and the five variants are what SMuFL provides to
+> absorb it.
+>
+> ⭐ **The choice is SPAN-INDEPENDENT**, which falls out of the constant-depth rule: `sx` is always
+> `0.89 ÷ the glyph's ink width`, so the horizontal profile never moves with height. ⛔ Unlike
+> MuseScore, which picks by staff count (2 → `brace`, 3 → `braceLarge`) — its mapping is paired with
+> its own widening `magx`, a different construction.
+>
+> #### 🚨🚨 THE DEPTH IS RIGHT BY THIS GLYPH'S PROPERTY, ⛔ NOT BY CONSTRUCTION
+>
+> `sx = BRACE_DEPTH_SPACES ÷ (box.right − box.left)` assumes the reported ink box is what the font
+> renders. **For `brace` it is not**: asking 0.89 drew **0.85**, and that shortfall is **stable across
+> ink thresholds <100…<250**, so ⛔ not an artifact. `braceLarge`'s box is honest and lands on 0.887.
+> ⇒ **a future variant change silently moves the DEPTH too**, while the constant still reads 0.89.
+> **Re-measure the drawn ink after any change here.**
+>
+> #### ⚠️ THE MECHANISM, and what it costs
+>
+> A y-only stretch at constant depth is `scale(sx, sy)` with **sx ≠ sy** (≈`scale(3.3, 3.7)`) — the
+> only non-uniform transform in this renderer. 🚨 **`ElementRegistry.withScale` takes ONE number**, so
+> a hit-box has no representation under it. ⏭️ **P5's "selectable" is NOT the free `ELEMENT_SPECS` row
+> the plan assumes** for the brace: its box must be computed in SVG space, outside the transform.
+>
+> ⛔ **No e2e, and that is measured rather than skipped**: a stretched `<text>` returns Bravura's EM
+> BOX × `sy` from `getBoundingClientRect` — a 145 px brace reported 589 px. Two tests written against
+> it were deleted rather than tuned. The contract lives on the **transform** in the unit spec.
+
+### P4 — THE BRACE (original notes)
 
 **P4a — measure the glyph we actually ship. ✅ BUILT 2026-08-29.**
 

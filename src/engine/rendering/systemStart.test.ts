@@ -18,9 +18,10 @@ import type { Stave } from 'vexflow'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
 import {
   BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES, scoreSystemStartIndentPx,
-  BRACKET_SERIF_INSET_SPACES,
+  BRACKET_SERIF_INSET_SPACES, BRACE_DEPTH_SPACES,
   BRACKET_ROD_PROJECTION_SPACES,
 } from '@/engine/layout/systemStartColumn'
 import type { RenderPass } from './RenderPass'
@@ -39,8 +40,14 @@ function recorder() {
   const rects: Rect[] = []
   const stamps: Stamp[] = []
   const open: string[] = []
+  const groups: { cls: string; transform: string | null }[] = []
   const context = {
-    openGroup: (cls: string) => { open.push(cls); return undefined },
+    openGroup: (cls: string) => {
+      open.push(cls)
+      const g = { cls, transform: null as string | null }
+      groups.push(g)
+      return { setAttribute: (k: string, v: string) => { if (k === 'transform') g.transform = v } }
+    },
     closeGroup: () => { open.pop() },
     fillRect: (x: number, y: number, w: number, h: number) =>
       { rects.push({ x, y, w, h, group: open[open.length - 1] }) },
@@ -49,7 +56,7 @@ function recorder() {
     fillText: (glyph: string, x: number, y: number) =>
       { stamps.push({ glyph, x, y, group: open[open.length - 1] }) },
   }
-  return { rects, stamps, pass: { context } as unknown as RenderPass }
+  return { rects, stamps, groups, pass: { context } as unknown as RenderPass }
 }
 
 /**
@@ -250,5 +257,67 @@ describe('the bracket’s SERIFS — ⚠️ which glyph, at which origin; ⛔ ne
     const { stamps, pass } = recorder()
     renderSystemStarts(pass, bracketed, grandStaff, 2, null)
     expect(stamps.every(s => s.group === 'systemsign')).toBe(true)
+  })
+})
+
+/** A two-staff score whose group carries a `brace`. */
+const braced = {
+  id: 's', title: '', measures: [],
+  staves: [{ id: 'a' }, { id: 'b' }],
+  staffGroups: [{ id: 'g1', staffIds: ['a', 'b'], symbol: 'brace' }],
+} as unknown as Score
+
+describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
+  const braceGroup = (gs: { cls: string; transform: string | null }[]) =>
+    gs.find(g => g.cls === 'systemsign')!
+
+  it('stamps `braceLarge` (U+F401), ⛔ and draws no rod — a brace is one glyph, not a rule and two tips', () => {
+    const { rects, stamps, pass } = recorder()
+    renderSystemStarts(pass, braced, grandStaff, 2, null)
+    // ⭐⭐ The VARIANT is measured, ⛔ not chosen: `braceLarge` matches Gould p. 331's engraved
+    //    stroke profile best of the five (mean error 0.026 sp against `brace`'s 0.034), and it takes
+    //    the cusp from 35% over her weight to 10%. See the drawBrace glyph constant for the ladder.
+    expect(stamps.map(s => s.glyph)).toEqual(['\uF401'])
+    // Only the connector's rect — the brace contributes none.
+    expect(rects.map(r => r.group)).toEqual(['stavebarline'])
+  })
+
+  it('⭐⭐ its transform is NON-UNIFORM — the thing nothing else in this renderer draws', () => {
+    const { groups, pass } = recorder()
+    renderSystemStarts(pass, braced, grandStaff, 2, null)
+    const m = /scale\(([-\d.]+), ([-\d.]+)\)/.exec(braceGroup(groups).transform ?? '')
+    expect(m, 'a scale(sx, sy) was written').not.toBeNull()
+    const [sx, sy] = [Number(m![1]), Number(m![2])]
+    expect(sx).not.toBeCloseTo(sy, 3)
+    expect(sy, 'stretched MORE vertically than horizontally').toBeGreaterThan(sx)
+  })
+
+  it('⭐⭐ THE DEPTH IS CONSTANT — ⛔ it does NOT widen with the span (Gould p. 331, measured)', () => {
+    const box = glyphBox('braceLarge')
+    const depthOf = (placements: SystemStartPlacement[], staffCount: number) => {
+      const { groups, pass } = recorder()
+      const score = {
+        ...braced,
+        staves: Array.from({ length: staffCount }, (_, i) => ({ id: `s${i}` })),
+        staffGroups: [{ id: 'g1', staffIds: Array.from({ length: staffCount }, (_, i) => `s${i}`), symbol: 'brace' }],
+      } as unknown as Score
+      renderSystemStarts(pass, score, placements, staffCount, null)
+      const sx = Number(/scale\(([-\d.]+),/.exec(braceGroup(groups).transform ?? '')![1])
+      return sx * (box.right - box.left)
+    }
+    // Two staves, then four — a span more than twice as tall.
+    const two = depthOf(grandStaff, 2)
+    const four = depthOf([at(1, 0, 0), at(1, 1, 200), at(1, 2, 400), at(1, 3, 600)], 4)
+    expect(two).toBeCloseTo(BRACE_DEPTH_SPACES, 6)
+    expect(four, '🚨 SMuFL says scale proportionally; her engraving does not').toBeCloseTo(two, 6)
+  })
+
+  it('⭐ FLUSH — line to line, ⛔ no overshoot (Ross p. 155, and both engines agree)', () => {
+    const { groups, rects, pass } = recorder()
+    renderSystemStarts(pass, braced, grandStaff, 2, null)
+    const connector = rects.find(r => r.group === 'stavebarline')!
+    // The group is translated to the ink's BOTTOM; the connector spans exactly the same staves.
+    const ty = Number(/translate\([-\d.]+, ([-\d.]+)\)/.exec(braceGroup(groups).transform ?? '')![1])
+    expect(ty).toBeCloseTo(connector.y + connector.h, 6)
   })
 })

@@ -108,6 +108,7 @@ export function renderSystemStarts(
       const bot = byKey.get(measureGroupKey(p.measureNumber, sign.group.bottomStaffIndex))
       if (!top || !bot) continue
       if (sign.group.symbol === 'bracket') drawBracket(pass, p, sign, top, bot)
+      else drawBrace(pass, p, sign, top, bot)
     }
   }
 }
@@ -190,6 +191,126 @@ function drawBracket(
     ctx.closeGroup()
   }
 }
+
+/**
+ * ⭐⭐ **THE PIANO BRACE** — P4b of docs/braces-brackets-plan.md.
+ *
+ * | | | source |
+ * |---|---|---|
+ * | **flush**, top staff-line to bottom staff-line, ⛔ NO overshoot | | Ross p. 155 *stated*, and measured in **all six examples to within 0.15 sp** (research §3.4). ⭐ Agrees with MuseScore and LilyPond, both of which give the brace **zero** overshoot |
+ * | **depth CONSTANT** at {@link BRACE_DEPTH_SPACES} | 0.89 sp | Gould p. 331 Table 1 measured **0.89 / 0.89 / 0.84** for 2/3/4 staves — flat |
+ * | cusp at the exact vertical midpoint | | measured |
+ *
+ * 🚨 **IT STRETCHES ONLY IN Y, AND SMuFL SAYS THE OPPOSITE.** The spec instructs that a brace *"should
+ * be scaled proportionally (i.e. in both dimensions, not only in the vertical dimension)"* — **and
+ * her engraving does not**: a proportional scale would have widened the four-staff brace by half
+ * again, and Gould's is *narrower* than her two-staff one. ⭐ **The scan beats the sentence**, for the
+ * fourth time in this repo. **Four independent confirmations** (§3.4): Gould measured · Ross stated ·
+ * Verovio a flat 1.0 sp in code · **Finale exactly 1.00 sp across 99 real files, with no per-group
+ * width field to vary it.** ⛔ Against: only MuseScore's `magx` and LilyPond's 576-glyph ladder.
+ *
+ * ## ⚠️ THE MECHANISM: a NON-UNIFORM transform, which nothing else in this renderer draws
+ *
+ * A y-only stretch at a constant depth is `scale(sx, sy)` with **sx ≠ sy** — roughly `scale(2.6, 3.6)`
+ * for a two-staff brace. ⛔ `Element.setFontSize` scales uniformly and `./staffScaleGroup` is
+ * deliberately uniform-only, so this opens its own group and writes the transform.
+ *
+ * 🚨 **AND IT COSTS THE HIT-BOX.** `ElementRegistry.withScale` takes ONE number, so **under a
+ * `scale(sx, sy)` group a box has no representation**. ⏭️ When P5 makes the sign selectable, the
+ * brace's box must be computed in SVG space and registered OUTSIDE this transform — ⛔ it is not the
+ * free `ELEMENT_SPECS` row the plan's P5 assumes.
+ *
+ * ⏳ **Which VARIANT is decision 6 and is still open** — `braceSmall` is the WIDEST (0.412 sp) and
+ * `braceFlat` the narrowest (0.224), the name saying which SPAN it is for, so a taller brace wants a
+ * narrower drawing: the x-scale back to 0.89 sp then thins the stroke less. This draws plain `brace`
+ * until his eye has seen the ladder.
+ */
+function drawBrace(
+  pass: RenderPass,
+  at: SystemStartPlacement,
+  sign: PlacedSystemStartSign,
+  top: SystemStartPlacement,
+  bottom: SystemStartPlacement,
+): void {
+  const ctx = pass.context
+  if (!ctx) return
+  // ⭐ FLUSH: the brace's ink runs exactly line to line, so ⛔ no projection term here — unlike the
+  //   bracket, whose rod passes the line before its wing caps it.
+  const topY = spanTopY(top)
+  const bottomY = spanBottomY(bottom)
+  const box = glyphBox('braceLarge')
+
+  // The glyph's ink, at the natural size {@link stampGlyph} draws it: `right - left` wide and `up`
+  // tall, in staff spaces. The two scales are what take that to the depth and span we want.
+  const sx = sign.depthSpaces / (box.right - box.left)
+  const sy = (bottomY - topY) / (box.up * STAFF_SPACE_PX)
+  const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
+
+  const group = ctx.openGroup?.(SYSTEM_SIGN_GROUP, `brace-${sign.group.group.id}-m${at.measureNumber}`) as
+    SVGGElement | undefined
+  try {
+    // ⭐ The glyph is stamped at the ORIGIN and the group carries everything: the origin sits at the
+    //   ink's BOTTOM-left (`down: 0`, so the ink rises from the baseline), which is the bottom of the
+    //   span. `-box.left` puts the ink's own left edge on `leftX` rather than the glyph's origin.
+    group?.setAttribute('transform',
+      `translate(${leftX + (-box.left) * STAFF_SPACE_PX * sx}, ${bottomY}) scale(${sx}, ${sy})`)
+    stampGlyph(ctx, BRACE_GLYPH, 0, 0)
+  } finally {
+    ctx.closeGroup?.()
+  }
+}
+
+/**
+ * ⭐⭐ **`braceLarge` — U+F401, and the choice is MEASURED, not a taste call.**
+ *
+ * Decision 6 of docs/braces-brackets-plan.md was *"which of the five variants, and at what height"*,
+ * and the plan expected to settle it by his eye on a rendered ladder. ⭐ **It did not have to be**:
+ * all five were drawn at our own grand-staff span and their stroke profiles measured against
+ * **Gould p. 331's engraved brace, measured off the scan at 450 dpi** (20.25 px per staff space):
+ *
+ * | variant | drawn depth | tip | belly 25% | **cusp** | belly 75% | mean err |
+ * |---|---|---|---|---|---|---|
+ * | `brace` | 0.850 | 0.175 | 0.487 | **0.200** | 0.475 | 0.0337 |
+ * | `braceSmall` | 0.887 | 0.163 | 0.537 | 0.312 | 0.537 | 0.0661 |
+ * | ✅ **`braceLarge`** | **0.887** | 0.175 | 0.475 | **0.163** | 0.463 | **0.0262** |
+ * | `braceLarger` | 0.875 | 0.188 | 0.388 | 0.125 | 0.375 | 0.0530 |
+ * | `braceFlat` | 0.875 | 0.138 | 0.175 | 0.087 | 0.175 | 0.1322 |
+ * | **GOULD** | **0.889** | **0.148** | **0.444** | **0.148** | **0.494** | — |
+ *
+ * 🚨 **His question was *"is the thickness of the brace correct?"*** and it was not: stamping plain
+ * `brace` put the **cusp 35% over** Gould's (0.200 against 0.148) and the tips 27% over, while the
+ * bellies matched. ⭐ That is exactly the distortion this plan predicted before the code existed —
+ * *"the cusp and the tips, where the curve runs horizontally, thicken with the stretch"* — and the
+ * five variants are what SMuFL provides to absorb it. `braceLarge` takes the cusp to 0.163 and the
+ * drawn depth to 0.887 against her 0.889.
+ *
+ * ⭐ **And the choice is SPAN-INDEPENDENT, which falls out of the constant-depth rule**: `sx` is
+ * always `BRACE_DEPTH_SPACES ÷ the glyph's own ink width`, so the horizontal stroke profile above
+ * never changes with how tall the brace is. ⛔ Unlike MuseScore, which picks by staff count
+ * (2 → `brace`, 3 → `braceLarge`) — but its mapping is paired with its own widening `magx`, a
+ * different construction, and we are matching her plate rather than its policy.
+ *
+ * ⚠️ What DOES grow with the span is the stroke weight measured VERTICALLY — the cusp and tips
+ * scale with `sy`. ⏭️ If a very tall brace ever looks wrong, that is the axis to measure, and the
+ * ladder above is the method.
+ *
+ * ## 🚨🚨 THE DEPTH IS RIGHT BY THIS GLYPH'S PROPERTY, ⛔ NOT BY CONSTRUCTION
+ *
+ * `sx` is `BRACE_DEPTH_SPACES ÷ (box.right − box.left)`, which assumes the reported ink box is what
+ * the font actually renders. **For `brace` it is not**: asking for 0.89 draws **0.85**, a 4.5%
+ * shortfall — measured, and stable across ink thresholds from <100 to <250, so ⛔ not an artifact of
+ * where the black cut-off was put. `braceLarge`'s box matches its ink, and the same arithmetic lands
+ * on **0.887** against Gould's 0.889.
+ *
+ * ⚠️ ⛔ **So a future variant change silently moves the DEPTH as well as the weight**, and the
+ * constant will still read 0.89 while the page says otherwise. ⇒ **re-measure the drawn ink after any
+ * change here** — render the brace large, threshold it, and check the width against
+ * {@link BRACE_DEPTH_SPACES}. The ladder above is the same procedure and takes a minute.
+ *
+ * ⭐ Written as an escape for `BarlineRenderer`'s reason: a private-use character is invisible in
+ * every editor and diff, so the source has to say which one it is.
+ */
+const BRACE_GLYPH = '\uF401'
 
 /** `bracketTop` / `bracketBottom` — ⭐ the very glyphs the winged repeat already stamps
  *  (`BarlineRenderer`'s `WING_GLYPHS.right`), written as escapes for that file's reason: a
