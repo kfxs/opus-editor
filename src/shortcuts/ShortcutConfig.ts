@@ -521,6 +521,14 @@ export const SHORTCUTS: Record<string, ShortcutDefinition> = {
     description: 'Open the Symbols window — the SMuFL glyph chart',
   },
 
+  // ⭐ REPEAT — Sibelius's own `R`: the selected bar (or passage) is copied over the bars that
+  // follow it. A copy-paste, ⛔ never an insertion — nothing shifts right (`interactions/
+  // repeatPassage`). DECLINES (keeps the key free) unless a measure box is selected.
+  'r': {
+    action: 'repeatSelection',
+    description: 'Repeat the selected measure(s) into the bars that follow',
+  },
+
   // Stem direction
   'x': { action: 'flipStemDirection', description: 'Flip: hairpin cresc./dim., octave line 8va/8vb, selected slur/trill/tie/tuplet side, articulation side, else note stem direction' },
 

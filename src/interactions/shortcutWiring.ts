@@ -18,6 +18,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { markItems, marksLabel, removeMarks } from './enclosedMarks'
 import { flipSelection } from './flipSelection'
+import { repeatSelectedPassage } from './repeatPassage'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
 import { walkArmedSlurEndpoint } from './slurEndpointWalk'
 import { walkDynamic } from './dynamicWalk'
@@ -1741,6 +1742,14 @@ export function wireShortcuts(
     flipStemDirection: () => {
       const eng = getEngine()
       if (eng && flipSelection(state, eng)) renderer.renderScore()
+    },
+    // `r` = repeat the selected bar(s) forward — a copy-paste over what follows, never an
+    // insertion. WHICH passage and WHERE it lands is `interactions/repeatPassage.ts`; the decline
+    // (no measure box selected) returns the key, and the repaint stays conditional on it.
+    repeatSelection: () => {
+      const eng = getEngine()
+      if (!eng || !repeatSelectedPassage(eng, state, selection)) return false
+      renderer.renderScore()
     },
     toggleDot: () => palette.toggleDot(),
     // One handler per preset, generated from the SAME table the keys are — see tupletPresets. The M
