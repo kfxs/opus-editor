@@ -19,9 +19,20 @@
  *
  * ⭐ When the bracket style arrives the line becomes ink and the band test becomes the right one — a
  * change here and in `PedalRenderer`, nowhere else.
+ *
+ * ## ⚠️⚠️ AMENDED, EXPLORATORY (2026-08-30) — the TETHER'S strip is hittable before it is drawn
+ *
+ * *"first it will be good if i can select the pedal by clickin on the invisible dotted line that
+ * later is visible when selected"*. The paragraphs above stay, because what they argue is still
+ * true of the PAGE: there is no ink between the signs, and the reason this is defensible is that the
+ * strip claimed is not the band — it is the dashed line's own thin row (`./pedalTether.TETHER_HIT`,
+ * the same six pixels the drawn line answers a press in), on the pedal's rung below everything the
+ * ladder placed. ⛔ Nothing about it is settled: it is one thing to look at, and it trades the
+ * fall-through in that row for a target the user says they are already aiming at.
  */
 import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
+import { pedalTetherAt } from './pedalTether'
 
 /** A few px of grace at the edges — the pad the slur, hairpin, trill and ottava already share. */
 const PAD = 7
@@ -41,20 +52,22 @@ export const PEDAL_ELEMENT: ClickableElementSpec = {
 
     // ⭐⭐ **…OR THE DASHED TETHER, WHICH IS INK WHILE IT IS DRAWN** — his ask, 2026-08-21: *"when the
     // pedal is selected, the dashed line should be selectable too for the draging, now is invisible
-    // for the click"*.
-    //
-    // ⚠️ **This does NOT weaken the rule at the top of this file.** The band between the signs is
-    // empty on the page and stays unhittable; what is hittable is the LINE the selection draws
-    // there, registered by the highlight pass and removed with it (`'pedal-tether'`). So only the
-    // SELECTED pedal has anything to hit between its signs, and it has it exactly while the user can
-    // see it.
+    // for the click"*. The LINE the selection draws is registered by the highlight pass and removed
+    // with it (`'pedal-tether'`), so the selected pedal's own line answers a press for exactly as
+    // long as the user can see it.
     //
     // ⭐ It answers the same press as a sign — select, and arm the body drag — because that is what
     // the line is a picture of: the pedal as one object.
+    //
+    // ⚠️⚠️ **EXPLORATORY (2026-08-30) — …AND SO DOES THE LINE THAT IS NOT DRAWN YET.** His ask:
+    // *"first it will be good if i can select the pedal by clickin on the invisible dotted line that
+    // later is visible when selected"*. Same strip, same band, one gesture earlier — the geometry is
+    // a pure read off the last render (`./pedalTether.pedalTetherAt`), so the press that SELECTS the
+    // pedal and the line it then shows cannot be two different answers.
     const id = pedalAt?.id ?? registry.getByType('pedal-tether').find(el => {
       const b = el.bbox
       return x >= b.x - PAD && x <= b.x + b.width + PAD && y >= b.y && y <= b.y + b.height
-    })?.pedalId
+    })?.pedalId ?? pedalTetherAt(registry.getByType('pedal'), registry, x, y, PAD)
     if (!id) return false
 
     // ⭐ Click = select; drag = move the WHOLE pedal (his ask, 2026-08-21) — through the music

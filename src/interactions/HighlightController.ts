@@ -15,7 +15,7 @@ import { signOutwardReachSpaces } from '@/engine/layout/systemStartColumn'
 import { hairpinEndpointHandles } from './elements/hairpinHandles'
 import { ottavaEndpointHandles } from './elements/ottavaHandles'
 import { pedalEndpointHandles } from './elements/pedalHandles'
-import { pedalTethers, tetherDashArray } from './elements/pedalTether'
+import { pedalTethers, tetherDashArray, TETHER_HIT } from './elements/pedalTether'
 import { pedalStaffSpacePx } from './pedalLane'
 import { trillEndpointHandles } from './elements/trillHandles'
 import type { MarkKind } from './enclosedMarks'
@@ -1783,17 +1783,13 @@ export class HighlightController {
         pedalId,
         bbox: {
           x: Math.min(tether.x1, tether.x2),
-          y: tether.y - HighlightController.TETHER_HIT,
+          y: tether.y - TETHER_HIT,
           width: Math.abs(tether.x2 - tether.x1),
-          height: HighlightController.TETHER_HIT * 2,
+          height: TETHER_HIT * 2,
         },
       })
     }
   }
-
-  /** How far either side of the dashed line a press still counts, in px — a thin line needs a
-   *  reachable target, and this is the slur handle's own hit pad. */
-  private static readonly TETHER_HIT = 6
 
   /**
    * ⭐ **THE SELECTED PEDAL'S TWO ENDPOINT SQUARES** — one beyond the `Ped.`, one beyond the `✻`

@@ -48,6 +48,16 @@ interface PedalTether {
 }
 
 /**
+ * ⭐ **HOW FAR EITHER SIDE OF THE LINE A PRESS STILL COUNTS**, in px — a thin line needs a reachable
+ * target, and this is the slur handle's own hit pad.
+ *
+ * ⚠️ It lives here rather than on `HighlightController` (where it was until 2026-08-30) because two
+ * routes now measure it: the entry the highlight registers while the line is DRAWN, and
+ * {@link pedalTetherAt}, which answers the same press before it ever is.
+ */
+export const TETHER_HIT = 6
+
+/**
  * ⭐ **THE AIR BETWEEN THE TETHER'S DASHES**, in staff spaces — his number, 2026-08-21, replacing the
  * bracket's own {@link OTTAVA_DASH_GAP} (0.4) after seeing them side by side.
  *
@@ -134,6 +144,44 @@ export function pedalTethers(
     }
   }
   return tethers
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHICH PEDAL A PRESS ON THE EMPTY BAND BELONGS TO, drawn line or
+ * not.** His ask: *"first it will be good if i can select the pedal by clickin on the invisible
+ * dotted line that later is visible when selected"*.
+ *
+ * ⭐ It is the SAME geometry {@link pedalTethers} draws, asked before anything is drawn — so the
+ * strip a press reaches and the line the selection then shows are one answer, and cannot drift into
+ * two. ⛔ Not a wider reach than the drawn line's: {@link TETHER_HIT} is the same band either way.
+ *
+ * ⚠️ **This DOES amend `./pedal`'s opening rule** (*a press may only reach INK* — the band between
+ * `Ped.` and `✻` is empty on the page). What is claimed is a thin strip on the pedal's own rung,
+ * below everything else the ladder placed; ⛔ it is not declared settled, and the honest cost is that
+ * a press there can no longer fall through to whatever the pedal merely passes over.
+ *
+ * @returns the pedal's id, or null when the press is on no pedal's row.
+ */
+export function pedalTetherAt(
+  entries: readonly ElementInfo[],
+  registry: TetherRegistry,
+  x: number,
+  y: number,
+  /** The horizontal grace the signs themselves get, so the run and its two ends read as one target. */
+  pad: number,
+): string | null {
+  const ids: string[] = []
+  for (const el of entries) {
+    if (el.id && el.pedalSign && !ids.includes(el.id)) ids.push(el.id)
+  }
+  for (const id of ids) {
+    for (const tether of pedalTethers(entries, id, registry)) {
+      const left = Math.min(tether.x1, tether.x2)
+      const right = Math.max(tether.x1, tether.x2)
+      if (x >= left - pad && x <= right + pad && Math.abs(y - tether.y) <= TETHER_HIT) return id
+    }
+  }
+  return null
 }
 
 /** What finding a row needs of the last render — a Pick, so a spec can stand it up with a list. */
