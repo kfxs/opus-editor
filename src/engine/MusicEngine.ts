@@ -2779,9 +2779,9 @@ export class MusicEngine {
   /** The whole wedge's RE-BASE — {@link rebaseHairpinEndpointOffset} for both ends at once, and ⛔
    *  outside the page limit for its reason: the pair (anchor moves, ink gives the same back) does not
    *  move the drawn wedge at all. */
-  previewHairpinOffsetRebase(id: string, dx: number): boolean {
+  previewHairpinOffsetRebase(id: string, dx: number, dy = 0): boolean {
     this.markModelDirty()
-    return this.scoreModel.setHairpinOffset(id, dx, 0)
+    return this.scoreModel.setHairpinOffset(id, dx, dy)
   }
 
   /**

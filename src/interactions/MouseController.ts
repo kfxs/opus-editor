@@ -33,7 +33,7 @@ import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
-import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
+import { dragHairpinBody, dragHairpinEndpoint, settleHairpinLanding } from './hairpinWalk'
 import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
@@ -3429,6 +3429,15 @@ export class MouseController {
       // onto the other hand of a grand staff redrew it on the staff it had left — and the walk, seeing
       // ink that had not moved, crossed again, and again. See the trace in `HairpinRenderer`.
       this.render.previewMarks('hairpin', this.draggedHairpinBodyId)
+      // ⚠️⚠️ EXPLORATORY (2026-08-30) — **a flip may not move the drawing** (his *"look how it
+      // jumps"*, the ink 444.6 → 378.2 on a 3px frame). What the other side of the staff gives the
+      // wedge is only knowable once it has been drawn there, so the payment is made HERE, after the
+      // draw above and inside the same mouse event: on the next frame instead, the leap would be on
+      // screen for one frame. ⭐ It writes at most once per gesture, so the second draw is not a cost
+      // the ordinary frame pays.
+      if (frame.jumped && settleHairpinLanding(engine, this.draggedHairpinBodyId)) {
+        this.render.previewMarks('hairpin', this.draggedHairpinBodyId)
+      }
     }
     return true
   }

@@ -40,6 +40,15 @@ import { type BreakWrapPort, type SystemInk } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
 import { dbg, debugEnabled } from '../utils/debug'
 
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — the one FLIP a drag is still owed a settlement for.**
+ *
+ * ⛔ It is NOT drag state and carries no travel: one id and one y, written by a flip
+ * ({@link flipPlacement}) and spent in the same mouse event ({@link settleHairpinLanding}). A gesture
+ * that ends in between simply leaves it, and the next wedge's flip drops it on sight.
+ */
+let landed: { id: string; inkY: number } | null = null
+
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type HairpinWalkEngine = Pick<MusicEngine,
   'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
@@ -567,7 +576,13 @@ function jumpStaves(
   if (!hairpin || inkY === null) return false
 
   const target = hairpinSystemSlotFor(engine, hairpin, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewHairpinStaffSlot(id, target)) return false
+  if (!target) return false
+
+  // ⚠️ Read the home BEFORE the write — afterwards the lane answers about the staff it has left.
+  const from = hairpinStartAddress(engine.getScore(), id)
+  const fromX = from ? hairpinBoundaryX(engine, hairpin, from) : null
+
+  if (!engine.previewHairpinStaffSlot(id, target)) return false
 
   // ⭐⭐ **IT ARRIVES ON THE SIDE IT CAME FROM** — his correction, 2026-08-20: *"i don't like that
   // going down jumps from below the staff to below, and going up from above to above; it is not
@@ -578,11 +593,26 @@ function jumpStaves(
   const facing: 'above' | 'below' = dyPx > 0 ? 'above' : 'below'
   engine.previewHairpinPlacement(id, facing)
 
+  // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A RE-ANCHOR DOES NOT MOVE THE DRAWING** (his *"and by the way
+  // when reanchoring it jumps"*, measured: the anchor 251 → 307 with the offset zeroed). The old
+  // line dropped BOTH axes, which is why the wedge left the hand on the frame it landed. Now the
+  // anchor's own travel is paid back into the x, and the vertical — which cannot be predicted, the
+  // wedge arriving on the OTHER side of a different staff — is settled from the render
+  // ({@link settleHairpinLanding}), exactly as the placement flip is.
+  const after = engine.getHairpinById(id)
+  const toX = after ? hairpinBoundaryX(engine, after, target) : null
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
-  if (offset && (offset.x || offset.y)) engine.previewHairpinOffset(id, -offset.x, -offset.y)
+  if (offset?.y) engine.previewHairpinOffset(id, 0, -offset.y)
+  // ⚠️ Whatever the picture could not say is paid as 0 — the no-guessing rule (`./markWalk`).
+  const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : -(offset?.x ?? 0)
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no limit has anything to judge.
+  if (dx) engine.previewHairpinOffsetRebase(id, dx)
+  landed = { id, inkY: inkY + dyPx }
   dbg(`[Hairpin] jumped ${facing} the staff it now belongs to | id:${id} → m${target.measure}`
     + ` staff:${target.staffId ?? 0} | decided from inkY ${inkY.toFixed(1)} + dy ${dyPx.toFixed(1)}`
-    + ` = ${(inkY + dyPx).toFixed(1)} at cursor x${cursorX.toFixed(0)}`)
+    + ` = ${(inkY + dyPx).toFixed(1)} at cursor x${cursorX.toFixed(0)}`
+    + ` | anchor ${fromX?.toFixed(0) ?? '—'}→${toX?.toFixed(0) ?? '—'} paid dx ${dx.toFixed(2)}ss`
+    + ` | the ink is to stay at ${(inkY + dyPx).toFixed(1)}`)
   return true
 }
 
@@ -622,7 +652,44 @@ function flipPlacement(engine: HairpinWalkEngine, id: string, dyPx: number): boo
 
   const offset = hairpinEndpointOffsetOverrideOf(engine.getScore(), id)?.start
   if (offset?.y) engine.previewHairpinOffset(id, 0, -offset.y)
-  dbg(`[Hairpin] moved ${flipped} its own staff | id:${id}`)
+  // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A FLIP DOES NOT MOVE THE DRAWING** ({@link settleLanding}).
+  // His report, *"look how it jumps"*: measured, the ink leapt **444.6 → 378.2** on a frame the hand
+  // had moved 3px, because the wedge is re-engraved on the other side of its staff and the lift it
+  // had is dropped as meaningless there. It IS meaningless there — ⛔ the line above stays — but the
+  // PICTURE has to stay under the hand, so where it is meant to be is remembered and paid as soon as
+  // the render says what the other side's ladder gave it.
+  landed = { id, inkY: next }
+  dbg(`[Hairpin] moved ${flipped} its own staff | id:${id} | the ink is to stay at ${next.toFixed(1)}`)
+  return true
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHAT THE FLIP ACTUALLY DID WITH THE INK, paid back.** The
+ * pedal's and the bracket's rule of the same day ([[reference_a_drag_decision_cannot_read_its_own_outcome]]),
+ * and here it is the WHOLE payment rather than a residual: the two sides of a staff have no arithmetic
+ * relation a caller could predict from — what the wedge gets above is whatever the ladder has left
+ * above, which is only knowable once the render has run.
+ *
+ * ⭐ So it is measured AFTER it: {@link flipPlacement} remembers where the ink was meant to be, the
+ * caller re-draws, and this pays the difference in the SAME mouse event — ⛔ not on the next frame,
+ * which would leave a 66px flash on screen for one frame.
+ *
+ * @returns true when it wrote, so the caller knows to draw again.
+ */
+export function settleHairpinLanding(engine: HairpinWalkEngine, id: string): boolean {
+  if (!landed || landed.id !== id) { landed = null; return false }
+  const was = landed.inkY
+  landed = null
+  const drawn = hairpinInkY(engine, id)
+  const staffSpacePx = hairpinStaffSpacePx(engine.getElementRegistry(), id)
+  // Half a pixel is the rounding of the drawing, ⛔ not a debt.
+  if (drawn === null || !staffSpacePx || Math.abs(was - drawn) < 0.5) return false
+
+  const debt = was - drawn
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so the page limit has nothing to judge.
+  engine.previewHairpinOffsetRebase(id, 0, debt / staffSpacePx)
+  dbg(`[Hairpin] flip settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
+    + ` (${debt.toFixed(1)}px the other side of the staff gave or took)`)
   return true
 }
 

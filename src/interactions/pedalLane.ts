@@ -281,8 +281,9 @@ export function pedalSystemSlotFor(
     // His call: *"the reanchor y is the middle of the staff [below], i think it should be the upper
     // line of the staff that is down"*. The natural-home rule put the switch a third of the way INTO
     // that staff (measured, 432 against its lines 404…444) because a pedal hangs 52px below its own.
-    // ⭐ ONE line between two staves, both directions — see the port's own note.
-    belongsToTheStaffOverhead: () => true,
+    // ⭐ ONE line between two staves, both directions — see the port's own note. ⛔ `'topLine'` and
+    // ⛔ never the hairpin's `'betweenTheMusic'`: a pedal's home already sits past that middle.
+    belongsToTheStaffOverhead: () => 'topLine',
     // ⚠️ Unread while the rule above is on — it is the natural rule's input, and that rule is not
     // what this family asks. ⛔ Left in place rather than removed: the choice is exploratory.
     liftPx: () => (pedalOffsetOverrideOf(engine.getScore(), pedal.id)?.y ?? 0) * staffSpacePx,

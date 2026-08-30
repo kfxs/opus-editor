@@ -60,6 +60,31 @@ interface StaffBand {
   inkBottom?: number
 }
 
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHERE ONE STAFF'S TERRITORY ENDS AND THE NEXT BEGINS.** One line
+ * between two staves, read the same in both directions, so a hand-over down and the hand-over back up
+ * happen on the same pixel and there is no dead zone. ⛔ Which line it is, is the MARK's question and
+ * has to be answered per family — his two answers, one afternoon apart:
+ *
+ * - **`'topLine'`** (the PEDAL): *"the reanchor y is the middle of the staff [below], i think it
+ *   should be the upper line of the staff that is down"*. A pedal has ONE rung per staff — always
+ *   below it — so a staff's territory runs from its own top line to the top line of the staff beneath.
+ *   ⭐ It is `pedalTether.rowInkAt`'s rule, so the row a sign is DRAWN on and the staff it is FILED
+ *   under cannot disagree.
+ * - **`'betweenTheMusic'`** (the HAIRPIN): *"still here not reanchoring while i'm on the space of the
+ *   elements of the staff"*, with the screenshot — the wedge sitting among the lower staff's notes,
+ *   still filed under the upper one. ⭐⭐ A wedge has TWO rungs per staff (it has a `placement`), so
+ *   *below staff 0* and *above staff 1* are the SAME strip of paper and only something INSIDE that
+ *   strip can separate them: the middle of the white space between the two staves' own music.
+ *
+ * 🚨 **⛔ They may not be swapped.** A pedal judged by the music between would hand over on the first
+ * pixel — it is engraved 52px below its staff where the musics are ~105px apart, so its home already
+ * sits past the middle (his *"the pedal is completly crazy"*, eight hand-overs in one gesture). A
+ * hairpin judged by the top line has to be dragged 97px, ⛔ past the rung it is actually going to land
+ * on, which is what he reported here.
+ */
+type TerritoryRule = 'topLine' | 'betweenTheMusic'
+
 /** One place the mark could be anchored, as the last render drew it. */
 interface JumpCandidate<Stop> {
   x: number
@@ -98,9 +123,9 @@ export interface SystemJumpPort<Stop> {
    */
   waitsForTheWhiteSpace?(): boolean
   /**
-   * ⚠️⚠️ **EXPLORATORY (2026-08-30), and PEDAL-ONLY — the mark belongs to the staff OVERHEAD**: the
-   * last one whose TOP line is above the ink. ⛔ Instead of the natural-home rule below, not as well
-   * as it.
+   * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHICH STAFF'S TERRITORY THE INK IS IN**, ⛔ instead of the
+   * natural-home rule below, not as well as it. Two families, two landmarks, and ⛔ they are not
+   * interchangeable — each is the one HE named for that mark ({@link TerritoryRule}).
    *
    * His call, on the pedal's drag: *"the reanchor y is the middle of the staff [below], i think it
    * should be the upper line of the staff that is down"* — and then, on a first cut that read the
@@ -126,7 +151,7 @@ export interface SystemJumpPort<Stop> {
    * hand-over fires on. ⛔ Off for every other family, whose drags are not what is being looked at —
    * and ⛔ it assumes a mark drawn BELOW its staff, which is why it is not simply switched on for all.
    */
-  belongsToTheStaffOverhead?(): boolean
+  belongsToTheStaffOverhead?(): TerritoryRule | null
   /** The mark's own stored vertical, in PIXELS and SCREEN-signed (+down), so it can be taken back
    *  out. ⚠️ A mark whose model stores it outward converts here and nowhere else. */
   liftPx(): number
@@ -191,18 +216,19 @@ export function systemStopFor<Stop>(
   // staff OVERHEAD ({@link SystemJumpPort.belongsToTheStaffOverhead}). ⛔ It REPLACES the natural
   // rule for that family rather than gating it: his line has to be reached EARLIER than halfway
   // between the two homes, and no gate can do that.
-  const overhead = port.belongsToTheStaffOverhead?.() === true
+  const territory = port.belongsToTheStaffOverhead?.() ?? null
   const gated = port.waitsForTheWhiteSpace?.() === true
-  const target = overhead
-    ? (staffOverhead(here, inkY) ?? home)
+  const target = territory
+    ? (bandOwning(here, inkY, territory) ?? home)
     : natural !== home && (!gated || pastTheMusicBetween(home, natural, inkY))
       ? natural : home
-  if (debugEnabled() && overhead) {
+  if (debugEnabled() && territory) {
     dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
-      + ` | the staff-overhead rule (the last TOP line above the ink) ${target === home
+      + ` (its music ${musicTop(home).toFixed(0)}…${musicBottom(home).toFixed(0)})`
+      + ` | the '${territory}' territory rule ${target === home
         ? 'holds it here' : `says GO to ${target.top.toFixed(0)}…${target.bottom.toFixed(0)}`}`)
   }
-  if (debugEnabled() && !overhead && natural !== home) {
+  if (debugEnabled() && !territory && natural !== home) {
     dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
       + ` (its music ${musicTop(home).toFixed(0)}…${musicBottom(home).toFixed(0)})`
       + ` | the natural-home rule (gap ${naturalGap.toFixed(0)}px) says GO to`
@@ -231,30 +257,35 @@ export function systemStopFor<Stop>(
 
 
 /**
- * ⚠️⚠️ **EXPLORATORY (2026-08-30) — THE STAFF OVERHEAD**: of the runs on this sheet, the one whose
- * TOP line is the last one ABOVE the ink. {@link SystemJumpPort.belongsToTheStaffOverhead}'s whole
- * body, and `pedalTether.rowInkAt`'s rule for finding the row a sign was drawn on.
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHOSE TERRITORY IS THIS INK IN?** The two rules
+ * {@link TerritoryRule} names, which is where the reports and the reasons are.
  *
- * ⭐⭐ **ONE LINE BETWEEN TWO STAVES, read the same in both directions** — his correction: *"is not
- * the neighboring staff… is the upper line of the staff that is down"*. A staff's territory runs from
- * its own top line down to the top line of the staff beneath it, so the hand-over DOWN and the
- * hand-over back UP happen on the same pixel and there is no dead zone between them.
+ * ⭐ Both are ⛔ NOT "the nearest staff": a pedal is engraved 52px under its staff where the staves
+ * are 88px apart, so it begins life nearer its neighbour, and nearest-wins hands it down the page on
+ * the first pixel of a drag (his *"the pedal is completly crazy"*).
  *
- * ⭐ It is ⛔ NOT "the nearest staff": a pedal is engraved 52px under its staff where the staves'
- * lines are 88px apart, so it begins life nearer its neighbour, and nearest-wins would hand it down
- * the page on the first pixel of a drag (his *"the pedal is completly crazy"*, eight hand-overs in
- * one gesture).
- *
- * ⛔ Null when the ink is above every top line on the sheet — dragged over the first staff, a mark
- * drawn below has no staff overhead, and the caller then leaves it where it is.
+ * ⛔ Null when no staff owns it — a below-staff mark dragged over the FIRST staff of the sheet has
+ * nothing overhead — and the caller then leaves it where it is.
  */
-function staffOverhead(bands: StaffBand[], inkY: number): StaffBand | null {
-  let best: StaffBand | null = null
-  for (const band of bands) {
-    if (band.top > inkY) continue
-    if (!best || band.top > best.top) best = band
+function bandOwning(bands: StaffBand[], inkY: number, rule: TerritoryRule): StaffBand | null {
+  const rows = [...bands].sort((a, b) => a.top - b.top)
+  if (rule === 'topLine') {
+    // The last TOP LINE above the ink: a staff's territory reaches down to the next staff's top line.
+    let best: StaffBand | null = null
+    for (const band of rows) {
+      if (band.top <= inkY) best = band
+    }
+    return best
   }
-  return best
+  // 'betweenTheMusic': the middle of the white space between each pair's own MUSIC divides them, so a
+  // mark's territory is symmetric about its staff and covers BOTH of a wedge's rungs.
+  for (let i = 0; i < rows.length; i++) {
+    const ceiling = i === 0 ? -Infinity : (musicBottom(rows[i - 1]) + musicTop(rows[i])) / 2
+    const floor = i === rows.length - 1
+      ? Infinity : (musicBottom(rows[i]) + musicTop(rows[i + 1])) / 2
+    if (inkY >= ceiling && inkY < floor) return rows[i]
+  }
+  return null
 }
 
 /** The staff line a mark of this placement hangs off: the TOP for one above, the BOTTOM for one

@@ -254,6 +254,15 @@ export function hairpinSystemSlotFor(
     candidates: () => lane.map(b => ({ x: b.x, y: b.y, stop: b.target })),
     anchor: () => (anchor ? { x: anchor.x, y: anchor.y } : null),
     inkY: () => hairpinInkY(engine, hairpin.id),
+    // ⚠️⚠️ EXPLORATORY (2026-08-30) — ⛔ THE HAIRPIN ALONE. His report, with the screenshot: *"still
+    // here not reanchoring while i'm on the space of the elements of the staff"*, and before it
+    // *"look how low i have to go to reanchor"* — measured, 97px down to reach a rung 36px away, and
+    // the mirror going back up made him drag the wedge INSIDE the staff above (ink 303 against its
+    // lines 276…316). The natural-home rule prices the journey to *the same side of the other staff*,
+    // which is ⛔ not where `hairpinWalk.jumpStaves` lands it (*"it arrives on the side it came
+    // from"*), so a wedge's two rungs — below staff N and above staff N+1 — share one strip of paper
+    // and only a line INSIDE that strip can tell them apart.
+    belongsToTheStaffOverhead: () => 'betweenTheMusic',
     liftPx: () =>
       (hairpinEndpointOffsetOverrideOf(engine.getScore(), hairpin.id)?.start?.y ?? 0) * staffSpacePx,
     above: () => (hairpin.placement ?? 'below') === 'above',
