@@ -669,13 +669,17 @@ describe('walkPedalEndpoint', () => {
       expect(pedalMeasure(), 'it now lives on the next system').toBe(2)
     })
 
-    it('⭐ …and it arrives where the ENGRAVER would put it — both offsets dropped', () => {
+    it('⭐⭐ …and it arrives WHERE THE HAND HAD IT — the offset pays for the ink to stay', () => {
       twoSystemLane()
       frame(110, 0, -30)
       expect(y(), 'a lift first').toBeCloseTo(-3)
       frame(150, 0, 260)
-      expect(y(), 'gone: over there it was never a lift').toBe(0)
-      expect(offset('start')).toBe(0)
+      // ⚠️⚠️ **EXPLORATORY (2026-08-30) — THIS RULE INVERTED, and the spec follows it.** A landing
+      //   used to drop both offsets, putting the pedal where the engraver would. It now pays them
+      //   whatever keeps the DRAWN INK under the hand (`jumpStaves`' rebase + `settleLanding`) — the
+      //   rule the trill's landing already carried: *"a landing does not move the drawn mark"*.
+      //   ⛔ So `0` is no longer the claim; what the pair must NOT be is the lift it arrived with.
+      expect(y(), 'not the lift it came with — the new staff paid its own way').not.toBeCloseTo(-3)
     })
 
     it('⛔ a jump ENDS THE FRAME, ⛔ not the gesture — the hand carries on down there', () => {
@@ -712,7 +716,10 @@ describe('walkPedalEndpoint', () => {
         type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 170, width: 10, height: 10 },
       }))
 
-      expect(frame(150, 0, 50)!.jumped, 'still its own room').toBe(false)
+      // ⚠️ EXPLORATORY (2026-08-30): the switch now reads where the ink WOULD land — `inkY + dyPx`,
+      //   this frame's own travel included — so it fires earlier than when it read the ink alone.
+      //   ⛔ The exact boundary is deliberately NOT pinned here (his eye's to settle); the rule is.
+      expect(frame(150, 0, 10)!.jumped, 'still its own room').toBe(false)
       expect(frame(150, 0, 70)!.jumped).toBe(true)
       // ⭐⭐ The LANDING NAMES A STAFF — and on this family that is more than placement: a pedal
       // governs the staff it is filed under, so moving it moves what it damps.

@@ -677,7 +677,13 @@ describe('walkHairpinEndpoint', () => {
       const frame = dragHairpinBody(engine, wedgeId, 210, 0, 200)
       expect(frame).toEqual({ moved: true, jumped: true })
       expect(span().beat, 'it landed on the slot nearest the hand, down there').toBe(1)
-      expect(offset('start'), 'and where the engraver would put it').toEqual({ x: 0, y: 0 })
+      // ⚠️⚠️ **EXPLORATORY (2026-08-30) — THIS RULE INVERTED, and the spec follows it.** A landing
+      //   used to drop both offsets, putting the wedge where the engraver would. It now pays them
+      //   whatever keeps the DRAWN INK under the hand (`jumpStaves`' rebase + `settleLanding`), the
+      //   same rule the trill's landing carries: *"a landing does not move the drawn mark"*.
+      //   ⭐ Here that comes to −10 across (the two systems' anchors differ by that much in this
+      //   fixture) and exactly 0 down, which is why the lift above still reads as gone.
+      expect(offset('start'), 'and where the HAND had it').toEqual({ x: -10, y: 0 })
       // ⭐⭐ …ON THE SIDE IT CAME FROM: coming down, the next rung of the ladder is ABOVE the staff
       // below — ⛔ not below it, which skips a rung and puts the wedge past the hand.
       expect(engine.getHairpinById(wedgeId)?.placement).toBe('above')
@@ -699,7 +705,12 @@ describe('walkHairpinEndpoint', () => {
         type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
 
-      expect(dragHairpinBody(engine, wedgeId, 210, 0, 90), 'not yet').toEqual({ moved: true, jumped: false })
+      // ⚠️ EXPLORATORY (2026-08-30): the switch now reads where the ink WOULD land — `inkY + dyPx`,
+      //   this frame's own travel included — so it fires a frame earlier than when it read the ink
+      //   alone. ⛔ The exact boundary is deliberately NOT pinned here (it is his eye's to settle);
+      //   what this asserts is the rule, with a frame plainly inside its own room and one plainly
+      //   past it.
+      expect(dragHairpinBody(engine, wedgeId, 210, 0, 20), 'not yet').toEqual({ moved: true, jumped: false })
       expect(dragHairpinBody(engine, wedgeId, 210, 0, 200)).toEqual({ moved: true, jumped: true })
       // ⭐⭐ The LANDING NAMES A STAFF — that is the whole of what was missing.
       expect(engine.getHairpinById(wedgeId)?.staffId, 'it is the left hand’s wedge now').toBe(lower)

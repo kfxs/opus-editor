@@ -144,6 +144,19 @@ export function inkNudge(port: MarkWalkPort, dx: number): boolean {
  * ⭐ The DRAG got its one-line-per-frame trace long ago (see {@link dragFrame}); this is the same
  * claim for the other device, and it names the read that failed.
  */
+/**
+ * ⏱ One stop, in a few characters — every family's stop is a different shape (a slot address, a
+ * note id, a whole `FlatNote`), so this reads what it can find and never walks the object.
+ */
+function stopLabel(stop: unknown): string {
+  if (stop === null || typeof stop !== 'object') return 'none'
+  const it = stop as { note?: { id?: string; measureNumber?: number }; bar?: number; beat?: unknown }
+  if (it.note?.id) return `note ${it.note.id.slice(0, 8)} bar ${it.note.measureNumber ?? '—'}`
+  // ⚠️ Anything else stays JSON — the point marks' addresses are small, and a fresh family's stop
+  //   must not print as `[object Object]` the day it is being debugged.
+  return JSON.stringify(stop)
+}
+
 function tracePress(spec: MarkDriveSpec, dx: number, crossing: boolean): void {
   const { port } = spec
   const direction = dx > 0 ? 1 : -1
@@ -162,7 +175,12 @@ function tracePress(spec: MarkDriveSpec, dx: number, crossing: boolean): void {
     ? ((stopX - anchor) / staffSpacePx).toFixed(2) : '—'
   dbg(`[${port.label}] press ${dx > 0 ? '+' : ''}${dx.toFixed(2)}ss`
     + ` | anchor ${anchor?.toFixed(0) ?? '—'} offset ${port.offsetX().toFixed(2)}ss`
-    + ` | stop ${stop === null ? 'none' : JSON.stringify(stop)} at ${stopX?.toFixed(0) ?? '—'}`
+    // ⏱ 2026-08-30 — ⛔ NOT `JSON.stringify(stop)`. A trill's stop carries a whole FlatNote, so that
+    //   printed ~400 characters of JSON on every press, and his held-key trace showed the cost:
+    //   `press 50.4ms` with a note stringified against `press 15.5ms` on the identical path with
+    //   `stop none`. The console is charged per character, and DevTools charges more as its buffer
+    //   fills — which is why a held key got slower the longer the session ran.
+    + ` | stop ${stopLabel(stop)} at ${stopX?.toFixed(0) ?? '—'}`
     + ` gap ${gap}ss`
     + ` | ${why ? `⛔ NO CROSSING: ${why}` : `crosses ${markWalkCrosses(port, dx)}`}`
     + ` | wrap ${crossing ? 'pending' : 'no'}`)

@@ -1,4 +1,4 @@
-import { dbg } from '@/utils/debug'
+import { dbg, setDebugLogging } from '@/utils/debug'
 import './app.css'
 import { MusicEngine } from './engine/MusicEngine'
 import { attachedMarksOf } from './interactions/attachedMarks'
@@ -887,6 +887,16 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       () => engine, () => document.querySelector('.score-container') ?? document,
       () => state, () => renderer.renderScore(),
     )
+    // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
+    //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
+    //   is charged per character AND per line, and DevTools charges more as its buffer fills — so a
+    //   trace that is free in a production build (where the switch is off) is not free while he is
+    //   watching it. ⛔ Not a preference: it is the control in the experiment.
+    w.__dbg = {
+      on: () => { setDebugLogging(true); console.log('[dbg] on') },
+      off: () => { console.log('[dbg] off — hold the key and see'); setDebugLogging(false) },
+    }
+    dbg('[dbg] __dbg.off() / __dbg.on() — the trace is ON a hot path; turn it off to time the app')
     dbg('[perf] P0 instruments: __perf.load(200), __census.enable(), __census.dump()')
     dbg('[flush] forced-layout census: __flush.enable() … __flush.dump() — WHO pays the reflow')
     dbg('[bbox] hit-box visualizer: __bbox.show() / __bbox.show(\'rest\') / __bbox.hide()')
