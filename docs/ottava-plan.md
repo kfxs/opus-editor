@@ -1175,8 +1175,8 @@ to"*. ⛔ Not a new rule: that is the sentence that produced `layout/systemBand`
 the WEDGE, and the bracket simply had no vertical drag to be judged until now
 (`MusicEngine.ottavaEndpointOffsetAllowed`). The switch falls **halfway to the neighbouring staff**,
 ⛔ never at its lines, and ink already outside may always come back. ⚠️ **Where that switch falls is
-being re-decided by eye (2026-08-30) — see `docs/mark-drag-and-reanchor.md`: a DRAG now hands the
-bracket over in the middle of the white space between the two staves' INK.** ⚠️ Each FRAGMENT is judged
+being re-decided by eye (2026-08-30) — see `docs/mark-drag-and-reanchor.md`: a DRAG now WAITS for the
+middle of the white space between the two staves' INK before handing the bracket over.** ⚠️ Each FRAGMENT is judged
 against its OWN system's band — a bracket cut by a break has pieces on two staves, and one staff's
 neighbours say nothing about the other's. ⚠️ The keyboard's `↑`/`↓` and the whole-bracket move go
 through the same gate, so the two devices cannot disagree about what is allowed.
@@ -1215,10 +1215,11 @@ continuous to travel through, so coming down onto the staff below is a **JUMP**
 (`interactions/markSystemJump`, the dynamic's, the tempo mark's and the wedge's rule). ⭐ The two meet
 exactly: the band refuses the ink at the same halfway line the jump fires on.
 
-⚠️⚠️ **EXPLORATORY, 2026-08-30 — the DRAG's half of this has changed and is not settled.** The switch
-is now the middle of the white space between the two staves' **ink**, the landing is the onset
-nearest the bracket's own beginning, and the re-anchor **does not move the drawing**: it pays the
-anchor's travel into the offset and settles the ladder's residual on the next frame. His reports, the
+⚠️⚠️ **EXPLORATORY, 2026-08-30 — the DRAG's half of this has changed and is not settled.** The
+hand-over waits for the middle of the white space between the two staves' **ink** (⛔ the bracket
+alone opts into that gate — `SystemJumpPort.waitsForTheWhiteSpace`), the landing is the onset nearest
+the bracket's own beginning, and the re-anchor **does not move the drawing**: it pays the anchor's
+travel into the offset and settles the ladder's residual on the next frame. His reports, the
 measurements and the four cuts that failed are in `docs/mark-drag-and-reanchor.md`. ⛔ The keyboard is
 untouched.
 

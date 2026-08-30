@@ -159,9 +159,8 @@ describe('systemSlotFor', () => {
 
   /**
    * The mark is anchored at 1@0 (the TOP system) and DRAWN at `inkAt` — 110 by default, i.e. 30 px
-   * below its staff's bottom line. ⚠️ EXPLORATORY (2026-08-30): the switch is now the middle of the
-   * WHITE SPACE between the two staves (these fixtures declare no ink, so their five lines answer),
-   * i.e. the middle of 80…340: **210**.
+   * below its staff's bottom line, which is its natural home. Its twin position on the second staff
+   * is therefore 410, and the switch sits halfway between: **260**.
    */
   const engine = (inkAt = 110, notes = TWO_SYSTEMS, bands = BANDS, lift = 0) => {
     const base = laneEngine(notes)
@@ -182,10 +181,10 @@ describe('systemSlotFor', () => {
     } as LaneEngine
   }
 
-  it('⭐⭐ hands the mark over in the MIDDLE OF THE WHITE SPACE to the next system', () => {
-    // ⛔ Not at the staff's lines (340), which is late. One pixel either side of 210.
-    expect(systemSlotFor(engine(), mark(), 290, 209, 10)).toBeNull()
-    expect(systemSlotFor(engine(), mark(), 290, 211, 10))
+  it('⭐⭐ hands the mark over HALFWAY to where it would sit on the next system', () => {
+    // ⛔ Not at the staff's lines (340): that is late and lopsided. One pixel either side of 260.
+    expect(systemSlotFor(engine(), mark(), 290, 259, 10)).toBeNull()
+    expect(systemSlotFor(engine(), mark(), 290, 261, 10))
       .toEqual({ measure: 5, beat: { num: 1, den: 1 } })
   })
 
@@ -201,19 +200,20 @@ describe('systemSlotFor', () => {
     expect(systemSlotFor(engine(), mark(), 290, 20, 10)).toBeNull()
   })
 
-  it('⚠️ a mark the hand has CARRIED is judged by where it is, lift and all', () => {
-    // ⭐ The lift no longer enters the decision (it was there to work out where the mark would "look
-    // at home" on each staff, and the white space does not care). A mark drawn at 260 because the
-    // user dragged it 15 spaces down is simply a mark at 260 — past the middle.
+  it('🚨 the mark\'s own LIFT is taken back out before the halfway point is worked out', () => {
+    // The bug this rule replaced (`y: 44.86`, a guide line over three staves): with the lift left in,
+    // the mark's "natural" home follows it down for ever and the switch never arrives. Here the mark
+    // is drawn at 260 because the user has already dragged it 15 spaces (150 px) down — its natural
+    // home is still 110, so it is exactly at the boundary and one pixel more hands it over.
     expect(systemSlotFor(engine(260, TWO_SYSTEMS, BANDS, 15), mark(), 290, 261, 10))
       .toEqual({ measure: 5, beat: { num: 1, den: 1 } })
   })
 
-  it('⭐ the same middle for a mark hanging ABOVE its staff — one rule, both directions', () => {
-    // ⛔ The side no longer moves the switch: the space is the space, whichever way the mark hangs.
+  it('⭐ an ABOVE mark measures from the staff\'s TOP line, so the rule mirrors', () => {
+    // Drawn 30 px ABOVE its own staff (10), its twin on the second staff is 310, halfway is 160.
     const above = mark({ placement: 'above' })
-    expect(systemSlotFor(engine(10), above, 290, 209, 10)).toBeNull()
-    expect(systemSlotFor(engine(10), above, 290, 211, 10)).toMatchObject({ measure: 5 })
+    expect(systemSlotFor(engine(10), above, 290, 159, 10)).toBeNull()
+    expect(systemSlotFor(engine(10), above, 290, 161, 10)).toMatchObject({ measure: 5 })
   })
 
   it('⛔ null when the system it now belongs to carries no music in this lane', () => {
@@ -246,8 +246,7 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
   ]
 
   /** The mark is anchored 1@0 on the TOP staff and drawn at `inkAt` — 110 by default, 30 px below
-   *  its staff's bottom line. ⚠️ EXPLORATORY (2026-08-30): the switch is the middle of the white
-   *  space between the two hands, 80…160, so **120**. */
+   *  its staff's bottom line. Its twin under the LEFT hand is 230, so the switch sits at **170**. */
   const engine = (inkAt = 110) => {
     const base = laneEngine(GRAND)
     const registry = base.getElementRegistry()
@@ -266,11 +265,11 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
     } as LaneEngine
   }
 
-  it('⭐⭐ hands the mark to the LEFT HAND in the middle of the space between the hands', () => {
+  it('⭐⭐ hands the mark to the LEFT HAND halfway to where it would sit there', () => {
     // ⛔ Not at the lower staff's lines (160), and ⛔ not at the next system either — the answer that
-    // sailed past the left hand entirely. One pixel either side of 120.
-    expect(systemSlotFor(engine(), mark(), 290, 119, 10)).toBeNull()
-    expect(systemSlotFor(engine(), mark(), 290, 121, 10))
+    // sailed past the left hand entirely. One pixel either side of 170.
+    expect(systemSlotFor(engine(), mark(), 290, 169, 10)).toBeNull()
+    expect(systemSlotFor(engine(), mark(), 290, 171, 10))
       .toEqual({ measure: 1, beat: { num: 1, den: 1 }, staffId: 's1' })
   })
 
@@ -283,9 +282,9 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
 
   it('⭐ and back UP: a mark on the lower staff belongs to the upper one past the same line', () => {
     const onLower = mark({ staffId: 's1' })
-    // Drawn 30 px below the LOWER staff (230), and read back across the same middle: 120.
-    expect(systemSlotFor(engine(230), onLower, 110, 121, 10)).toBeNull()
-    expect(systemSlotFor(engine(230), onLower, 110, 119, 10))
+    // Drawn 30 px below the LOWER staff (230) — its natural home there; the twin above is 110.
+    expect(systemSlotFor(engine(230), onLower, 110, 171, 10)).toBeNull()
+    expect(systemSlotFor(engine(230), onLower, 110, 169, 10))
       .toEqual({ measure: 1, beat: { num: 0, den: 1 }, staffId: undefined })
   })
 })

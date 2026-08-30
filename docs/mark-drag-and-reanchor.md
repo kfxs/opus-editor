@@ -154,7 +154,7 @@ true rather than nearly true, and the decision reads a number its outcome no lon
 ⛔ Not hysteresis, ⛔ not an accumulator of the hand's travel — both were tried that afternoon and both
 failed.
 
-### 3. The switch is the middle of the WHITE SPACE, measured between the staves' INK
+### 3. ⛔ THE OTTAVA ALONE: a hand-over waits for the middle of the WHITE SPACE
 
 Two reports, one rule:
 
@@ -169,19 +169,28 @@ staff* — reads badly for a mark that hangs on the far side of its own staff: a
 staff ABOVE is inside the gap, so for a treble ending at 316 and a bass ending at 501 the switch fell
 at **y ≈ 428**, a third of the way up a gap whose middle is 388.
 
-So the mark now belongs to the staff whose own music is nearest its ink:
+So a hand-over now **waits** until the ink has crossed the middle of the space between the two
+staves' own music:
 
 - `ElementRegistry.staffRuns()` carries `inkTop`/`inkBottom` per painted (system, staff) — the run's
   own **notes and rests**, stems and beams included. ⛔ Never a mark's box, or a dragged bracket
   carries the boundary with it and can never leave.
-- `markSystemJump.systemStopFor` measures to that ink instead of the five lines. ⭐ ONE rule for both
-  directions: the side (`shift`, and it has always been derived — 8va above, 8vb below) is the input
-  it already took, ⛔ not a second rule to write twice.
-- The superseded rule is still computed one line away and printed in the `[jump]` trace, so the two
-  can be compared while he is judging by eye.
+- `markSystemJump.pastTheMusicBetween` gates the natural rule on that. ⭐ Directional, so it reads the
+  same both ways; the side (`shift` — 8va above, 8vb below, always derived) is the input the chooser
+  already took, ⛔ not a second rule to write twice.
 
-⚠️ This is the SHARED rule, so the dynamic, the tempo mark, the wedge and the pedal changed with it —
-their specs' fixtures now state the new boundary.
+🚨🚨 **A GATE, ⛔ NEVER THE CHOOSER — and ⛔ ONLY THE OTTAVA.** Two mistakes, both his reports, minutes
+apart:
+
+1. *"the pedal is completly crazy… jumping randomly"* — measured, **eight hand-overs down the page in
+   one gesture**. Nearest-by-ink as the chooser cannot work: a pedal is engraved 52 px below its
+   staff where the staves' music is 105 px apart, so its own home IS the middle and every staff below
+   it is nearer. ⭐ A mark's own home distance has to stay in the decision, which is exactly what the
+   natural rule knows and a distance to the ink does not.
+2. *"we were exploring ottava… does an ottava change the pedal? this should not happen"* — ⛔ right,
+   and it did because `markSystemJump` is ONE module five families share. The gate is now opt-in
+   (`SystemJumpPort.waitsForTheWhiteSpace`) and only `ottavaLane` opts in; the dynamic, the tempo
+   mark, the wedge and the pedal are byte-for-byte what they were, specs included.
 
 ### And the landing lands near the MARK, not near the hand
 

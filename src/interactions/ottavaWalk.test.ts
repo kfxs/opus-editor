@@ -528,8 +528,9 @@ describe('walkOttavaEndpoint', () => {
         // distance off both; he does not, so the ink moved after all — and the decision reads that
         // ink. The residual cannot be known before the render, so it is measured after it.
         twoSystemLane()
-        drawnBracket().y = 350                     // its centre, 355, is just above the middle (360)
-        expect(frame(150, 0, 10)!.jumped, 'over the line by five pixels').toBe(true)
+        // The bracket's ink is at 225; the white space between the two staves is 280…440, so the
+        // hand carrying it to 365 is five pixels past that middle.
+        expect(frame(150, 0, 140)!.jumped, 'over the line by five pixels').toBe(true)
         const paid = outward()
 
         // The render then puts it where the NEW staff's ladder wants it — 15 px below the 365 the

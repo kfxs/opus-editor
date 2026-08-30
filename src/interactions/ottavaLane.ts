@@ -238,6 +238,8 @@ export function ottavaSystemSlotFor(
     inkY: () => ottavaInkY(engine, ottava.id),
     // ⚠️ EXPLORATORY (2026-08-30): the landing is the onset nearest the BRACKET's own beginning.
     inkX: () => ottavaInkX(engine, ottava.id),
+    // ⚠️ EXPLORATORY (2026-08-30) — ⛔ the ottava ALONE, while its drag is what he is looking at.
+    waitsForTheWhiteSpace: () => true,
     // ⚠️ OUTWARD → SCREEN: further out is UP for an 8va, DOWN for an 8vb.
     liftPx: () => {
       const outward = ottavaOffsetOverrideOf(engine.getScore(), ottava.id)?.outward ?? 0

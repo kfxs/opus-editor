@@ -420,8 +420,8 @@ tempo's lift answers the ladder's ROW, ⛔ unlike a slur endpoint's, which answe
 therefore settles). ⭐⭐ **Leaving a system is a JUMP** — `interactions/markSystemJump`, shared with the
 dynamic: the mark belongs to whichever system it would LOOK AT HOME on (its natural distance from its
 own staff, read from every other staff), so the switch falls halfway between where it sits and where
-it would sit. ⚠️ **Superseded for now (2026-08-30, exploratory): the shared rule hands a mark over in
-the middle of the white space between the two staves' INK — `docs/mark-drag-and-reanchor.md`.** 🚨 The mark's own lift must come back out of that measurement first, or its "home"
+it would sit. ⚠️ **Unchanged (2026-08-30): the OTTAVA's drag grew a white-space gate on top of this
+rule, opt-in, and the tempo mark does not opt in — `docs/mark-drag-and-reanchor.md`.** 🚨 The mark's own lift must come back out of that measurement first, or its "home"
 follows it down for ever and the switch never arrives.
 
 ## 11. It joins the GROUP SELECTION (2026-08-19)

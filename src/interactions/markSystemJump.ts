@@ -90,6 +90,13 @@ export interface SystemJumpPort<Stop> {
    * was eight spaces away and the offset had to hold the drawing back by that much.
    */
   inkX?(): number | null
+  /**
+   * ⚠️⚠️ **EXPLORATORY (2026-08-30), and OTTAVA-ONLY** — opt in to the white-space gate below
+   * ({@link pastTheMusicBetween}). ⛔ Off for every other family: the octave line is the one being
+   * explored by eye, and a shared rule changed underneath the other four is exactly what he
+   * objected to — *"we were exploring ottava… does an ottava change the pedal?"*.
+   */
+  waitsForTheWhiteSpace?(): boolean
   /** The mark's own stored vertical, in PIXELS and SCREEN-signed (+down), so it can be taken back
    *  out. ⚠️ A mark whose model stores it outward converts here and nowhere else. */
   liftPx(): number
@@ -136,26 +143,31 @@ export function systemStopFor<Stop>(
   const natural = here.reduce((a, b) =>
     Math.abs(inkY - (edgeOf(b, above) + naturalGap)) < Math.abs(inkY - (edgeOf(a, above) + naturalGap)) ? b : a)
 
-  // ⚠️⚠️ **EXPLORATORY (2026-08-30) — THE SWITCH IS THE MIDDLE OF THE WHITE SPACE, for now.**
+  // ⚠️⚠️ **EXPLORATORY (2026-08-30) — AND NOT BEFORE THE MIDDLE OF THE WHITE SPACE.**
   //
   // His report on the octave line: *"the mark is still down the uppest element of the down staff and
   // on the other size have not even reach the middle of the white space, so this reanchor is not
-  // correct"*. Measured, an 8vb between a treble staff ending at 316 and a bass staff ending at 501:
-  // its natural home is 20px BELOW its staff, so its home on the treble (336) is INSIDE the gap, and
-  // `natural` above puts the switch halfway between 336 and 521 — y ≈ 428, a third of the way up the
-  // white space and still under the bass staff's stems.
+  // correct"* — the rule above hands a mark over a third of the way across the gap when it hangs on
+  // the far side of its own staff, because "where it would sit on the other staff" is then INSIDE
+  // the gap. So the hand-over waits until the ink has crossed the middle of the white space between
+  // the two staves' own MUSIC ({@link pastTheMusicBetween}).
   //
-  // So while this is being explored the mark belongs to the staff whose five lines are NEAREST its
-  // ink, which puts the switch in the middle of the gap between them. ⛔ Not declared a rule, and
-  // `natural` stays right here (with its reasons above) because it is one line to go back to.
-  const target = here.reduce((a, b) => (bandDistance(b, inkY) < bandDistance(a, inkY) ? b : a))
-  if (debugEnabled() && (target !== home || natural !== home)) {
+  // ⛔ **A GATE, never the chooser** — 🚨 his report minutes later, on the pedal: nearest-by-ink alone
+  // walked it eight staves down the page in one gesture (*"the pedal is completly crazy"*). A pedal
+  // is engraved 52 px below its staff where the staves' music is 105 px apart, so its own home IS
+  // the middle and every staff below it is "nearer". A mark's own home distance therefore has to
+  // stay in the decision, which is exactly what `natural` knows and a distance to the ink does not.
+  const gated = port.waitsForTheWhiteSpace?.() === true
+  const target = natural !== home && (!gated || pastTheMusicBetween(home, natural, inkY))
+    ? natural : home
+  if (debugEnabled() && natural !== home) {
     dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
-      + ` (its music ${(home.inkTop ?? home.top).toFixed(0)}…${(home.inkBottom ?? home.bottom).toFixed(0)})`
-      + ` | nearest staff ${target.top.toFixed(0)}…${target.bottom.toFixed(0)}`
-      + ` (music ${(target.inkTop ?? target.top).toFixed(0)}…${(target.inkBottom ?? target.bottom).toFixed(0)})`
-      + ` says ${target === home ? 'STAY' : 'GO'}`
-      + ` | the natural-home rule (gap ${naturalGap.toFixed(0)}px) would say ${natural === home ? 'stay' : 'go'}`)
+      + ` (its music ${musicTop(home).toFixed(0)}…${musicBottom(home).toFixed(0)})`
+      + ` | the natural-home rule (gap ${naturalGap.toFixed(0)}px) says GO to`
+      + ` ${natural.top.toFixed(0)}…${natural.bottom.toFixed(0)}`
+      + ` (music ${musicTop(natural).toFixed(0)}…${musicBottom(natural).toFixed(0)})`
+      + ` | the white space between them ${!gated ? '(not asked — this family does not gate)'
+        : target === home ? '⛔ REFUSES it — not past the middle yet' : 'allows it'}`)
   }
   if (target === home) return null
 
@@ -190,11 +202,37 @@ function nearestBand(bands: StaffBand[], x: number, y: number): StaffBand {
   return runsOnSheetAt(bands, x).reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
 }
 
-/** 0 inside the band, else the gap to its nearer edge — measured to the staff's INK where the run
- *  knows it (see {@link StaffBand.inkTop}), which is what puts the switch in the middle of the white
- *  space a reader actually sees. `ElementRegistry.staffIndexAtY`'s arithmetic otherwise. */
+/** 0 inside the band, else the gap to its nearer edge. `ElementRegistry.staffIndexAtY`'s arithmetic.
+ *  ⛔ The five LINES, not the ink: this answers *"which staff is this point on"* for an anchor and
+ *  for a candidate, both of which are staff-resident. The ink has one job, below. */
 function bandDistance(band: StaffBand, y: number): number {
-  return spanDistance(band.inkTop ?? band.top, band.inkBottom ?? band.bottom, y)
+  return spanDistance(band.top, band.bottom, y)
+}
+
+/**
+ * ⚠️ **EXPLORATORY (2026-08-30) — has the mark crossed the middle of the white space between these
+ * two staves?** Measured between their MUSIC (stems and beams included), which is the white space a
+ * reader sees; their five lines answer for a run that drew none.
+ *
+ * ⭐ Directional, so it reads the same both ways: a hand-over DOWN needs the ink below the middle,
+ * a hand-over UP needs it above.
+ */
+function pastTheMusicBetween(home: StaffBand, target: StaffBand, inkY: number): boolean {
+  const down = musicTop(target) > musicTop(home)
+  const middle = down
+    ? (musicBottom(home) + musicTop(target)) / 2
+    : (musicBottom(target) + musicTop(home)) / 2
+  return down ? inkY > middle : inkY < middle
+}
+
+/** How far up this run's own music reaches — its top line when the run drew none. */
+function musicTop(band: StaffBand): number {
+  return Math.min(band.inkTop ?? band.top, band.top)
+}
+
+/** …and how far down. */
+function musicBottom(band: StaffBand): number {
+  return Math.max(band.inkBottom ?? band.bottom, band.bottom)
 }
 
 /** 0 inside [lo, hi], else the gap to its nearer end — the one shape both axes are measured with. */
