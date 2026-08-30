@@ -17,6 +17,7 @@ import { fracToNumber } from '@/utils/fraction'
 import { beatToFrac } from '../utils/musicUtils'
 import { selectedArticulationNoteIds } from './selection'
 import { markItems, marksLabel, removeMarks } from './enclosedMarks'
+import { passageOf, spansStaves } from './measurePassage'
 import { flipSelection } from './flipSelection'
 import { repeatSelectedPassage } from './repeatPassage'
 import { reanchorArmedSlurEndpoint } from './slurReanchor'
@@ -1228,7 +1229,7 @@ export function wireShortcuts(
       if (element) {
         switch (element.kind) {
           case 'measureRange': {
-            const { anchor, focus, staff, boxStyle } = element
+            const { anchor, focus, staff, focusStaff, boxStyle } = element
             if (boxStyle === 'double') {
               // A measure span is box-selected via Ctrl+Shift+click (the DOUBLE box, extendable) —
               // Delete removes every WHOLE bar in the span and its contents (Sibelius-style),
@@ -1238,20 +1239,33 @@ export function wireShortcuts(
               dbg(`✓ Removed ${removed} measure(s) in span ${Math.min(anchor, focus)}–${Math.max(anchor, focus)}`)
               state.selectedElement = null
             } else {
-              // A single bar is plain-click-selected (the SINGLE box) — Delete CLEARS its content
-              // rather than removing the bar: the clicked staff's notes/rests reset to the default
+              // The SINGLE box is plain-click-selected and shift-extendable — Delete CLEARS its
+              // content rather than removing the bar: every cell's notes/rests reset to the default
               // rest fill (one measure rest, not a per-gap recompute) and the dynamics/slurs the box
               // pulled in are removed, all as ONE undo step (runBatch coalesces).
-              const measure = anchor // single box: anchor === focus
+              //
+              // 🚨 **HIS REPORT, 2026-08-30**: a bar selected on BOTH staves cleared only the
+              // first. The box is a PASSAGE — bars × staves (`./measurePassage`) — and this read
+              // `anchor` and `staff` alone, i.e. the anchor CELL of a rectangle. The highlight had
+              // already grown to the rectangle, so Delete was taking less than the box promised
+              // ([[project_passage_selection_marks]]). ⛔ Not `anchor === focus`: the shift
+              // extension moves BOTH axes, so the run of bars is as real as the run of staves.
+              const passage = passageOf({ anchor, focus, staff, focusStaff })
               // ⭐ Every mark the box dragged in goes with it — the dynamics and slurs it always
               // took, and (2026-08-19) the four SPANS it now also highlights. Delete takes what the
               // highlight showed, or the highlight is a promise the editor does not keep.
               const marks = markItems(state.selectedItems.values())
-              eng.runBatch(`Clear measure ${measure}`, () => {
-                eng.clearMeasureStaff(measure, staff)
+              const bars = `${passage.fromMeasure}${passage.toMeasure > passage.fromMeasure ? `–${passage.toMeasure}` : ''}`
+              eng.runBatch(`Clear measure ${bars}`, () => {
+                for (let m = passage.fromMeasure; m <= passage.toMeasure; m++) {
+                  for (let s = passage.fromStaff; s <= passage.toStaff; s++) eng.clearMeasureStaff(m, s)
+                }
                 removeMarks(eng, marks)
               })
-              dbg(`✓ Cleared measure ${measure} (staff ${staff}) to default rest`)
+              dbg(
+                `✓ Cleared measures ${bars} (staves ${passage.fromStaff}–${passage.toStaff}` +
+                `${spansStaves(passage) ? ', multi-staff' : ''}) to default rest`,
+              )
               selection.deselectAll()
             }
             renderer.renderScore()

@@ -1,4 +1,5 @@
 import type { MusicEngine } from '@/engine/MusicEngine'
+import { dbg } from '@/utils/debug'
 import { readScoreFile, scoreFilename, wrapScoreJson } from '@/utils/scoreFile'
 
 /**
@@ -94,11 +95,16 @@ export async function openExampleScore(
   const env = (import.meta as unknown as { env?: { BASE_URL?: string } }).env
   const url = `${env?.BASE_URL ?? '/'}examples/${file}`
   hooks.status?.(`opening ${file}…`)
+  // The menu passes no `status`, so the console is the ONLY place this door reports from. Both
+  // halves are traced — the fetch and the swap — because they fail differently: a missing file is a
+  // 404 here, a bad file is a refusal in `loadScoreText`.
+  dbg(`[example] open ${file} ← ${url}`)
   let text: string
   try {
     const response = await fetch(url)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     text = await response.text()
+    dbg(`[example] fetched ${file} — ${text.length} chars`)
   } catch (err) {
     // The file ships with the app, so a miss here is a BUILD fault (a row naming a file nobody
     // added), not a user's bad input. Say which one, and leave the open score alone.
@@ -134,6 +140,8 @@ function loadScoreText(engine: MusicEngine, text: string, hooks: ScoreFileHooks)
   }
   hooks.afterLoad?.()
   hooks.status?.(summary)
+  const score = engine.getScore()
+  dbg(`[score-file] ${summary} — "${score.title}" (${score.measures.length} bars, ${score.staves?.length ?? 1} staves)`)
 }
 
 /**
