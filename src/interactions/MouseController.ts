@@ -34,7 +34,10 @@ import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint, settleHairpinLanding } from './hairpinWalk'
-import { dragTrillBody, dragTrillEndpoint, settleTrillLanding } from './trillWalk'
+import {
+  beginTrillBodySpan, dragTrillBody, dragTrillEndpoint, endTrillBodySpan, endTrillHandTrace,
+  settleTrillLanding, traceTrillHandVsInk,
+} from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint, settleOttavaLanding } from './ottavaWalk'
@@ -1065,6 +1068,12 @@ export class MouseController {
   private armTrillOffsetDrag(trillId: string, x: number, y: number, event: MouseEvent): void {
     const engine = this.getEngine()
     if (!engine || !trillStaffSpacePx(engine.getElementRegistry(), trillId)) return
+    // ⛔ A FRESH LEDGER PER GESTURE (`./dragHold`), as every other mark drag arms one.
+    this.markHold = releaseHold()
+    // ⭐⭐ …and the ornament's MUSIC, measured once for the whole gesture — the far end rides on it
+    //   (`trillWalk.beginTrillBodySpan`). ⛔ Here, not on the first frame: by then the drag may
+    //   already have moved the pair it is supposed to be measured from.
+    beginTrillBodySpan(engine, trillId)
     this.activeDrag = { kind: 'trillBody', end: () => this.endTrillBodyDrag() }
     this.draggedTrillBodyId = trillId
     this.trillBodyLastX = x
@@ -3634,11 +3643,26 @@ export class MouseController {
     if (!(this.activeDrag?.kind === 'trillBody' && this.draggedTrillBodyId)) return false
     if (this.trillBodyDragStartTime !== null
         && Date.now() - this.trillBodyDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const frame = dragTrillBody(
-      engine, this.draggedTrillBodyId, x, x - this.trillBodyLastX, y - this.trillBodyLastY)
+    // ⭐ THE HOLD, exactly as {@link handleMarkEndDrag} has it — the body's frame is the square's
+    //   frame, latch included, so what the latch drops is repaid the same way (`./dragHold`).
+    const rawDx = x - this.trillBodyLastX
+    const heldDx = spendHold(this.markHold, rawDx)
+    const dy = y - this.trillBodyLastY
+    if (heldDx === 0 && dy === 0) {
+      logHold('Trill', this.markHold, rawDx, 0, false)
+      this.trillBodyLastX = x
+      return true
+    }
+    const frame = dragTrillBody(engine, this.draggedTrillBodyId, x, heldDx, dy)
     // ⛔ null = the ornament is not drawn, so there is no scale to convert with; leave it alone.
     if (frame === null) return true
     if (frame.moved) {
+      if (frame.latched) {
+        takeHold(this.markHold, {
+          gapAheadPx: frame.gapAheadPx, discardedPx: frame.droppedPx, dirSign: Math.sign(heldDx),
+        })
+      }
+      logHold('Trill', this.markHold, rawDx, heldDx, frame.latched)
       this.trillBodyLastX = x
       this.trillBodyLastY = y
       this.trillBodyDragChanged = true
@@ -3670,6 +3694,15 @@ export class MouseController {
         this.render.previewMarks('trill', this.draggedTrillBodyId)
       }
     }
+    // ⏱ TEMPORARY (2026-08-30) — his report: *"it is not moving with my hand"*. ⭐ AFTER the draw,
+    //   and OUTSIDE the `moved` branch: a refused frame is one where the hand moved and the ornament
+    //   did not, which is the whole complaint and is invisible to every trace taken before the write
+    //   ({@link traceTrillHandVsInk}).
+    traceTrillHandVsInk(engine, this.draggedTrillBodyId, x)
+    // ⭐⭐ A WRAP ENDS THE GESTURE — the square drag's rule (`MARK_END_DRAGS.trill.endsOnWrap`), and
+    //   now the body's too: the ornament is a line away and the hand is not, so every further pixel
+    //   would measure against a system it has left. It stays SELECTED, so the arrows carry on.
+    if (frame.wrapped) this.endTrillBodyDrag()
     return true
   }
 
@@ -3684,6 +3717,8 @@ export class MouseController {
       this.render.renderScore()
       dbg(`Trill moved | id:${this.draggedTrillBodyId}`)
     }
+    endTrillHandTrace() // ⏱ TEMPORARY — one summary line per gesture.
+    endTrillBodySpan() // ⭐ The next grab measures its own music.
     this.activeDrag = null
     this.draggedTrillBodyId = null
     this.trillBodyDragChanged = false

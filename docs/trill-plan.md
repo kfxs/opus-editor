@@ -1324,3 +1324,115 @@ behind.** That is the whole distinction, and it is why the two devices differ he
 ⭐ And the ribbon stays, so where the next system has no note to land on the ink still goes on as
 pure offset (his rule, 2026-08-21) — `breakCrossing` simply returns null, because `nextStop` gave it
 nothing, and the drawing folds the ink onward.
+
+---
+
+## ✅⭐⭐ THE BODY DRAG IS THE START SQUARE'S DRAG, AND THE FAR END RIDES ON MUSIC (2026-08-30, BUILT)
+
+An afternoon of *"it is not moving with my hand"*, *"why the move is not smooth?"*, *"is worst"* —
+and the fix was not in any of the places the reports pointed at.
+
+### ⭐⭐ His instruction, and it is the section's title
+
+*"lets do the trill whole horizontal drag the same that the first endpoint drag"*, then *"dont share
+the same function… replicate the code, we will adapt it to the new"*, then, when I was still
+paraphrasing it, *"just duplicate the same code than the first endpoint drag"*.
+
+So `dragTrillBody`'s horizontal is now `dragTrillEndpoint`'s code with `which = 'start'`, line for
+line: the same `trillPort`, the same `crossTheBareSign` rung, the same ribbon cursor, the same
+`wrapPort`, the same `latch: true` — and the caller repays the latch through the same `dragHold`
+ledger `handleMarkEndDrag` uses. ⛔ **A deliberate duplicate, not a seam to collapse** (`CLAUDE.md`'s
+*A NAME IS NOT A BODY*): the two gestures are expected to diverge, and the copy is where the body's
+own rules get found.
+
+**What went with the copy**, both deliberate:
+
+- the body's own `wouldLeaveLineStart` refusal — the WRAP is the principled version of it, and the
+  refusal was holding the mark at a wall his hand could feel (*"but why the trill refuse to move? it
+  should not refuse to move"*, measured at **28 consecutive frames that moved the hand and not the
+  ink**, 63 px of drag lost);
+- `bodyPort` and the body's own writes on the drag path — `bodyPort` now serves the ARROWS and the
+  frame trace only.
+
+### 🚨🚨 WHY THIS FAMILY NEEDED ANY OF IT — his question, and it is the right one
+
+*"what is the difference between horizontal drag in the ottava or the hairpin and the horizontal drag
+in the trill, why those work and not the trill?"*
+
+⭐ **The ottava, the pedal and the hairpin store a `length`.** Their whole body reanchor is one line
+(`previewOttavaSlot(id, target)`): they write the START and stop, the far end is `start + length`,
+**derived**, and the shape cannot change while you drag.
+
+🚨 **The trill stores an `endNoteId`.** So moving the body cannot just write the start — it has to
+*choose a new end note* on every crossing, and whatever that choice returns IS the new shape,
+re-decided twenty times a gesture. Every stretching and shrinking report of that afternoon is this
+one difference. ⛔ It is not a bug in the walk, and no amount of tuning the walk reaches it.
+
+### ⭐⭐ THE RULE — his, in his words
+
+> *"the initial trill is anchored to 2 points, that means that we know the duration in music of it…
+> so when we move the trill we know how much duration in music we have to move… you evaluate the
+> closest to the duration, and if the evaluation say that the closest is a biger duration you target
+> the before to the closest."*
+
+`trillWalk.carriedEnd`, once the start lands on `target`:
+
+1. `reach = position(target) + D₀`, in **QUARTERS** — the one ruler two lanes share, and the only
+   unit that survives a jump to another staff, where a count of notes means nothing.
+2. Of the destination lane's candidates after `target`, take the **NEAREST** to `reach`.
+3. If that nearest **OVERSHOOTS**, take **the one before it**.
+4. Nothing left ⇒ `undefined`, the single-note trill.
+
+⚠️ It can only come back the same or SHORTER, never longer — the sibling families' rule (a span is
+clamped where it is READ).
+
+### 🚨🚨 `D₀` IS MEASURED ONCE PER GESTURE, ⛔ NEVER RE-DERIVED
+
+The landing rounds down. A duration re-measured from the pair that rounding just produced rounds down
+again, and again: one step loses a fraction, a drag takes forty of them, **and the loss never comes
+back**. `beginTrillBodySpan` measures at mousedown, `endTrillBodySpan` clears at the drop, and every
+frame lands from the ORIGINAL duration — so dragging out into sparse music and back into dense music
+returns the trill you started with.
+
+⛔ Gesture state, ⛔ not a model field: a trill is anchored to two NOTES, and that is unchanged.
+
+### ⭐⭐ …AND THE KEYS KNOW THEIR OWN RUN BY THE PAIR THEY LEFT
+
+*"the arrow ctr arrow walking is not smooth"* — once the drag was, the same compounding arrived by
+the other door, because a press has no mousedown to measure at.
+
+⭐ So the run **validates itself**, with no timer and no hook to forget it: the ledger records the two
+note ids it left the ornament on, and the next press keeps `D₀` only if the trill still stands exactly
+there. An undo, a drag, the square's own keys, any other edit ⇒ a different pair ⇒ measured afresh.
+`bodyKeyWrites` then uses the same `carriedEnd`, so **a press and a drag frame leave the ornament in
+the same state** — this family's own rule, on both devices.
+
+⛔ `extentFrom` survives for ONE caller: `jumpTrillStaves`, which also runs from the SQUARE's drag,
+where there is no `D₀` to read.
+
+### ⏱ A HELD KEY IS A GESTURE, so it DRAWS like one
+
+*"if i leave the key dow it is not smooth it freeze somehow"*. Measured on his Prelude, per repeat:
+
+```
+[Trill key] press 50.4ms = walk 25.6ms + render 24.8ms      (~57ms on a crossing press)
+```
+
+against a ~33 ms key repeat — 1.5 s of work per second. The render half is §12.5a's own lesson
+arriving on the other device: the key was doing a full 35-bar re-derive on a score whose music had
+not changed. It now `previewMarks('trill', id)` per press and renders for real ONCE, 150 ms after the
+repeats stop — the settle pays for the ladder and the page cast-off exactly as a drag's DROP does.
+
+⚠️ **OPT-IN, this family only.** The ottava, the pedal and the wedge keep their full render until
+their own eye-test asks otherwise (`CLAUDE.md`: a shared rule changed is five families changed).
+
+⏭️ **Still owed, and measured:** the other ~25 ms. Two candidates, not yet separated — the UNDO
+SNAPSHOT of the 450 KB score that every `nudgeTrill`/`moveTrill` records (a drag pays none: preview
+writes, one commit at the drop), and this family's own press trace, which re-asks
+`nextStop`/`stopX`/`anchorX` — each rebuilding the lane — and `JSON.stringify`s a whole note.
+
+### ⭐ The lesson, for the next family that behaves unlike its siblings
+
+Three of the four span families are smooth because a `length` makes their shape **underivable during
+a gesture**. Where a family must re-derive its far end, the thing to freeze is not the walk, the
+latch or the render — it is **the quantity the re-derivation reads**.

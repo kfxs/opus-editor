@@ -154,6 +154,22 @@ describe('runsOnSheetAt', () => {
     expect(runsOnSheetAt(RUNS, 40).map(r => r.top)).toEqual([276, 404])
   })
 
+  it('🚨🚨 keeps SYSTEM 1 even though bar 1’s music starts later — a sheet, ⛔ not the nearest run', () => {
+    // His Prelude, measured 2026-08-30: system 1's `noteStartX` is 192 (clef AND the time signature)
+    // and every later system's is 158. A cursor at 192 in the margin is nearer to systems 2…n, and
+    // per-run nearest-wins deleted system 1 from its own page — the trill then landed on system 2.
+    const page = [
+      { top: 276, bottom: 316, left: 192, right: 1114 },
+      { top: 404, bottom: 444, left: 192, right: 1114 },
+      { top: 554, bottom: 594, left: 158, right: 1114 },
+      { top: 682, bottom: 722, left: 158, right: 1114 },
+    ]
+    expect(runsOnSheetAt(page, 192).map(r => r.top)).toEqual([276, 404, 554, 682])
+    // ⭐ And the pixel either side of it reads the same — there was no boundary here at all.
+    expect(runsOnSheetAt(page, 193).map(r => r.top)).toEqual([276, 404, 554, 682])
+    expect(runsOnSheetAt(page, 0).map(r => r.top)).toEqual([276, 404, 554, 682])
+  })
+
   it('⭐ on a ONE-PAGE score every run ties, so the rule reads as it always did', () => {
     const one = RUNS.slice(0, 2)
     expect(runsOnSheetAt(one, 300)).toEqual(one)

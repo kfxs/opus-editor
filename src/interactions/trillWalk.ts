@@ -313,6 +313,39 @@ function extentFrom(engine: TrillWalkEngine, id: string, target: string): string
   const dest = trillLane(engine, landing).filter(n => !n.isRest)
   const from = dest.findIndex(n => n.id === target)
   if (from === -1) return undefined
+
+  // ⭐⭐ **WITHIN ONE LANE THE EXTENT IS NOT RE-DERIVED AT ALL — BOTH ENDS STEP TOGETHER.** His
+  // question, 2026-08-30, and it is the right one: *"what is the difference between horizontal drag
+  // in the ottava or the hairpin and the horizontal drag in the trill, why those work and not the
+  // trill?"* — with the pedal added a minute later.
+  //
+  // ⭐ **All three store a `length: Fraction`; the trill stores an `endNoteId`.** So their body drag
+  // writes the START and nothing else — `ottavaOps.setOttavaAtSlot` sets `ottava.beat` and stops,
+  // and its own note says why that is safe: *"the LENGTH rides along… a span running past what the
+  // target staff carries is clamped where it is READ, never here."* Clamped on the way OUT, so a
+  // drag can always be dragged back.
+  //
+  // 🚨 The trill has no such field, so this function had to find a new end note on EVERY step of a
+  // sideways walk — and it clamps on the way IN, downward (the last stop still inside the span). One
+  // step loses a rounding; his gesture took ~40 of them, and the loss never comes back. That is both
+  // halves of what he has been reporting all afternoon: the ornament stretching
+  // (`the_body_walk_stretches_a_span_mark`) and the ornament shrinking.
+  //
+  // ⭐ **So the same-lane walk now does what the siblings do**: the end moves by the SAME NUMBER OF
+  // STOPS the start did. Integer arithmetic on one list — nothing measured, nothing rounded, nothing
+  // to lose. ⛔ The music-measuring below is kept for the ONE case it was written for (2026-08-21): a
+  // jump onto ANOTHER STAFF, where the destination is a different list of notes at different moments
+  // and there is no shared index to step by.
+  //
+  // ⚠️ Clamped at the lane's end, as it has always been, and by the same rule — a span with nowhere
+  // left to go arrives SHORTER rather than refused. ⛔ But it is no longer clamped when it has room.
+  const here = trillLane(engine, start).filter(n => !n.isRest)
+  const wasStart = here.findIndex(n => n.id === start.id)
+  const wasEnd = here.findIndex(n => n.id === end.id)
+  const sameLane = wasStart !== -1 && wasEnd !== -1 && here[from]?.id === target
+  if (sameLane) {
+    return dest[Math.min(from + (wasEnd - wasStart), dest.length - 1)]?.id
+  }
   const reach = at(landing) + span + 1e-6 // the float slack a Fraction's division leaves behind
   let last: string | undefined
   for (const note of dest.slice(from + 1)) {
@@ -346,7 +379,10 @@ function bodyPort(engine: TrillWalkEngine, id: string, write: TrillWrite): MarkW
   }
   return {
     label: 'Trill',
-    nextStop: (direction) => nextTrillAnchorStop(engine, id, 'body', direction),
+    // ⭐ The START square's stops, ⛔ not `'body'`'s — with the far end frozen
+    // ({@link bodyPreviewWrites}) the ornament may not walk past it, and `'body'` has no such clamp,
+    // so it would offer a note the model then refuses and the ink would jam against it.
+    nextStop: (direction) => nextTrillAnchorStop(engine, id, 'start', direction),
     stopX: (stop) => {
       const lane = laneOf(engine, id)
       return lane ? baseXAt(stopIndex(engine, id, lane, stop as TrillAnchorStop)) : null
@@ -364,22 +400,113 @@ function bodyPort(engine: TrillWalkEngine, id: string, write: TrillWrite): MarkW
 }
 
 /**
- * Would this frame's `dx` carry the drawn ink before the first ink of the line it stands on?
+ * ⏱ TEMPORARY (2026-08-30) — **DID THE DRAWN ORNAMENT GO AS FAR AS THE HAND DID?** His report:
+ * *"it is not moving with my hand"*.
  *
- * ⭐ Both numbers are RAW drawn x's in the same space — the registry's own — which is the whole
- * reason this is asked here and not through the walk's port: `MarkWalkPort.anchorX` answers on the
- * RIBBON (`trillLane.trillRibbonX`), a continuous coordinate across the unrolled score, and on his
- * score that reads **2175** for a note whose line spans 138…1114. Ribbon and raw agree only on the
- * first system, so the comparison has to be made on the drawn side.
+ * 🚨 **Why the existing `[Trill frame]` line CANNOT answer that**, and why I read his log wrongly
+ * once already: its `ink x` is fetched at the TOP of {@link dragTrillBody} — before the frame writes
+ * anything and before the preview redraws. Every line therefore reports the PREVIOUS frame's
+ * drawing, so laying its ink deltas beside its cursor deltas compares two different moments and
+ * always looks like it tracks. ⭐ This one runs AFTER the render, in the same mouse event, so `ink`
+ * is what his eye is actually looking at.
+ *
+ * ⭐ **Cumulative, ⛔ not per-frame.** A drift of half a pixel a frame is invisible one line at a time
+ * and is the whole complaint after two hundred of them, so the number that settles it is
+ * `RESIDUAL` — how far the hand has gone since the grab, minus how far the ink has. Constant ⇒ the
+ * grab offset and nothing is wrong; growing ⇒ the ornament is falling behind, and the ratio says
+ * whether it is a scale (a fixed fraction) or a stall (whole frames lost).
+ *
+ * ⭐ And it counts the frames where **the hand moved and the ink did not** — a refused frame is
+ * invisible in a per-frame trace and is exactly what "not moving" feels like.
  */
-function wouldLeaveLineStart(engine: TrillWalkEngine, id: string, dxPx: number): boolean {
-  const drawn = engine.getElementRegistry().getByType('trill').find(e => e.id === id)
-  const staff = trillStaff(engine, id)
-  const measure = engine.getNote(engine.getTrillById(id)?.startNoteId ?? '')?.measure
-  if (!drawn || staff === null || measure === undefined) return false
-  const here = systemInkAt(
-    engine.getElementRegistry(), staff, measure, lastMeasureNumber(engine.getScore()))
-  return here !== null && drawn.bbox.x + dxPx < here.min
+let handVsInk: {
+  id: string
+  hand0: number; ink0: number
+  hand: number; ink: number
+  frames: number; still: number
+  span0: string; span: string; spanChanges: number
+} | null = null
+
+/**
+ * ⏱ TEMPORARY (2026-08-30) — **HOW MUCH MUSIC THE ORNAMENT COVERS**, the axis {@link handVsInk}
+ * could not see and the one his *"the trill is not moving correctly"* most likely means.
+ *
+ * 🚨 Every walk step re-derives the far end ({@link extentFrom} through `previewTrillMove`), and that
+ * derivation CLAMPS — it takes the last stop still inside the span, so it can only ever come back
+ * the same or SHORTER (`d5d61d1`: *"the degradation is a SHORTER trill, ⛔ never a longer one"*). One
+ * step loses at most a rounding; his last gesture took ~20 steps left and ~20 back, and nothing in
+ * any trace says what the span was at either end of that.
+ *
+ * ⚠️ Reported in QUARTERS and in STOPS, because the two disagree exactly where the bug would live: a
+ * span held in quarters lands on a different NUMBER of notes wherever the note values change.
+ */
+function trillSpanOf(engine: TrillWalkEngine, id: string): string {
+  const trill = engine.getTrillById(id)
+  const start = trill && engine.getNote(trill.startNoteId)
+  if (!start) return '—'
+  const end = trill.endNoteId ? engine.getNote(trill.endNoteId) : null
+  if (!end) return 'single'
+  const ms = engine.getScore().measures
+  const at = (n: { measure: number; beat: Fraction }) =>
+    measureStartQuarters(ms, n.measure) + fracToNumber(n.beat)
+  const lane = trillLane(engine, start).filter(n => !n.isRest)
+  const stops = lane.findIndex(n => n.id === end.id) - lane.findIndex(n => n.id === start.id)
+  return `${(at(end) - at(start)).toFixed(2)}q/${stops < 0 ? '?' : stops} stops`
+}
+
+/** ⏱ TEMPORARY — call AFTER the preview has drawn. See {@link handVsInk}. */
+export function traceTrillHandVsInk(engine: TrillWalkEngine, id: string, cursorX: number): void {
+  if (!debugEnabled()) return
+  const ink = inkXOf(engine, id)
+  if (ink === null) {
+    dbg(`[Trill hand] ⛔ nothing drawn for ${id.slice(0, 8)} — the ink cannot be compared this frame`)
+    return
+  }
+  const span = trillSpanOf(engine, id)
+  if (!handVsInk || handVsInk.id !== id) {
+    handVsInk = {
+      id, hand0: cursorX, ink0: ink, hand: cursorX, ink, frames: 0, still: 0,
+      span0: span, span, spanChanges: 0,
+    }
+    dbg(`[Trill hand] gesture starts | hand ${cursorX.toFixed(1)} ink ${ink.toFixed(1)}`
+      + ` | the grab holds them ${(cursorX - ink).toFixed(1)}px apart — that gap is what must NOT change`
+      + ` | it covers ${span}`)
+    return
+  }
+  const s = handVsInk
+  if (span !== s.span) {
+    s.spanChanges++
+    dbg(`[Trill span] ⚠️ ${s.span} → ${span} (change #${s.spanChanges} this gesture,`
+      + ` it started at ${s.span0}) — the walk re-derives the far end on every step`)
+    s.span = span
+  }
+  const dHand = cursorX - s.hand
+  const dInk = ink - s.ink
+  s.frames++
+  if (dHand !== 0 && dInk === 0) s.still++
+  const hand = cursorX - s.hand0
+  const moved = ink - s.ink0
+  dbg(`[Trill hand] hand ${cursorX.toFixed(1)} (${dHand >= 0 ? '+' : ''}${dHand.toFixed(1)} now,`
+    + ` ${hand >= 0 ? '+' : ''}${hand.toFixed(1)} since the grab)`
+    + ` | ink ${ink.toFixed(1)} (${dInk >= 0 ? '+' : ''}${dInk.toFixed(1)} now,`
+    + ` ${moved >= 0 ? '+' : ''}${moved.toFixed(1)} since the grab)`
+    + ` | covers ${span}`
+    + ` | RESIDUAL ${(hand - moved).toFixed(1)}px`
+    + `${hand !== 0 ? ` (the ink went ${((moved / hand) * 100).toFixed(0)}% of the way)` : ''}`
+    + ` | ${s.still}/${s.frames} frames moved the HAND and not the INK`)
+  s.hand = cursorX
+  s.ink = ink
+}
+
+/** ⏱ TEMPORARY — the drop ends the comparison, so the next gesture measures its own grab. */
+export function endTrillHandTrace(): void {
+  if (handVsInk && debugEnabled()) {
+    const s = handVsInk
+    dbg(`[Trill hand] gesture ends | hand ${(s.hand - s.hand0).toFixed(1)}px,`
+      + ` ink ${(s.ink - s.ink0).toFixed(1)}px, RESIDUAL ${((s.hand - s.hand0) - (s.ink - s.ink0)).toFixed(1)}px`
+      + ` over ${s.frames} frames, ${s.still} of which moved the hand alone`)
+  }
+  handVsInk = null
 }
 
 /** ⏱ TEMPORARY — see the call site in {@link dragTrillBody}. ⛔ Not on the hot path: the caller
@@ -423,18 +550,45 @@ function traceTrillFrame(
  *  press wraps them in one batch ({@link walkTrillBody}). */
 function bodyKeyWrites(engine: TrillWalkEngine, id: string): TrillWrite {
   return {
-    reanchor: (stop) => engine.moveTrill(id, stop.note.id, extentFrom(engine, id, stop.note.id)),
+    // ⭐⭐ **THE DRAG'S RULE, on the other device** ({@link carriedEnd}) — nearest to `start + D₀`,
+    // the one before it when that overshoots. ⛔ Not `extentFrom`, whose two branches are neither:
+    // it steps by a COUNT OF NOTES in one lane and rounds strictly DOWN across staves. A press and a
+    // drag frame now leave the ornament in the same state, which is this family's own rule.
+    reanchor: (stop) => engine.moveTrill(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
     nudge: (dx, dy) => engine.nudgeTrill(id, dx, dy),
     rebase: (dx) => engine.rebaseTrillOffset(id, dx),
   }
 }
 
-/** The drag's: the same three edits with no undo entry of their own. */
+/**
+ * ⭐⭐ **THE DRAG'S — AND THEY ARE THE START SQUARE'S THREE, WRITTEN OUT AGAIN.** His call,
+ * 2026-08-30: *"lets do the trill whole horizontal drag the same that the first endpoint drag"*, and
+ * then, watching it: *"i see when dragging that the endpoint is moving"*.
+ *
+ * 🚨 **So the far end is not touched at all** — not its NOTE and not its INK. The three body writes
+ * it had were each a way for the end to move:
+ *
+ * | | start square | body (before) |
+ * |---|---|---|
+ * | reanchor | `previewTrillAnchor(id,'start',note)` | `previewTrillMove(id, note, extentFrom(…))` — a NEW end note every step |
+ * | nudge    | `previewTrillEndpointOffset(id,'start',…)` | `previewTrillOffset(…)` — **both** offsets |
+ * | rebase   | `previewTrillEndpointRebase(id,'start',…)` | `previewTrillOffsetRebase(…)` — **both** |
+ *
+ * ⚠️ **The cost, stated plainly: the ornament STRETCHES as the start walks away from its end.** That
+ * is what the start square's drag does, and it is what he asked to see — the two gestures identical
+ * first, then adapted. ⛔ Do not "fix" it by putting an extent derivation back: carrying the end is
+ * the ADAPTATION still to be made, and it is his to call.
+ *
+ * ⚠️ The ARROWS with nothing armed are untouched ({@link bodyKeyWrites} still moves the whole
+ * ornament) — the drag is the gesture under the hand.
+ */
 function bodyPreviewWrites(engine: TrillWalkEngine, id: string): TrillWrite {
   return {
-    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, extentFrom(engine, id, stop.note.id)),
-    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
-    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
+    // ⚠️ `null` is the CLEAR — a stop that would leave the ornament with no end. It goes through the
+    // PREVIEW op like every other frame, or that one crossing would record its own undo entry.
+    reanchor: (stop) => engine.previewTrillAnchor(id, 'start', stop.clearsEnd ? null : stop.note.id),
+    nudge: (dx, dy) => engine.previewTrillEndpointOffset(id, 'start', dx, dy),
+    rebase: (dx) => engine.previewTrillEndpointRebase(id, 'start', dx),
   }
 }
 
@@ -451,7 +605,13 @@ function bodyPreviewWrites(engine: TrillWalkEngine, id: string): TrillWrite {
  * @returns true when something was written (the caller repaints).
  */
 export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): boolean {
-  return walkPress(trillDrive(engine, id, bodyPort(engine, id, bodyKeyWrites(engine, id)), 'Move trill'), dx)
+  // ⭐⭐ The run's own grab — see {@link keepOrMeasureSpan}: `D₀` survives consecutive presses on
+  // this ornament and is re-measured the moment anything else has moved it.
+  keepOrMeasureSpan(engine, id)
+  const moved = walkPress(
+    trillDrive(engine, id, bodyPort(engine, id, bodyKeyWrites(engine, id)), 'Move trill'), dx)
+  rememberTrillPair(engine, id)
+  return moved
 }
 
 /**
@@ -469,8 +629,19 @@ export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): 
  *    ({@link flipTrillPlacement}, {@link jumpTrillStaves}) — and a rung ends the FRAME, ⛔ never the
  *    gesture: the hand is travelling with the ornament, so the next rung comes when it gets there.
  *
- * ⛔ **No latch and no ink limit on a frame.** A frame is not a step (the wedge's recorded lesson),
- * and an ornament moved as one is not aimed at a note's edge the way a single end is.
+ * 🚨🚨 **THE HORIZONTAL IS {@link dragTrillEndpoint}'s CODE, DUPLICATED** — his call, 2026-08-30,
+ * after an afternoon of the two gestures disagreeing: *"lets do the trill whole horizontal drag the
+ * same that the first endpoint drag"*, then *"dont share the same function… replicate the code, we
+ * will adapt it to the new"*, then *"just duplicate the same code than the first endpoint drag"*.
+ *
+ * ⛔ **So every line below is that function's, with `which = 'start'` — the PORT included.** Not
+ * `bodyPort`, not the body's writes, no `latch: false`, no `wouldLeaveLineStart`: the square's
+ * gesture is the one that works, and this one is to be identical to it before anything is adapted.
+ * ⚠️ A DELIBERATE COPY, ⛔ not a seam waiting to be collapsed — the two are expected to diverge as
+ * the body's own rules are found ('A NAME IS NOT A BODY', CLAUDE.md).
+ *
+ * ⚠️ The ornament therefore STRETCHES as the start walks away from its frozen end. That is what the
+ * square's drag does, and it is the state we are testing from.
  *
  * ⛔ Declines — **null** — when the ornament is not drawn, so there is no staff-space size to convert
  * the cursor's pixels with.
@@ -481,8 +652,15 @@ export function dragTrillBody(
   cursorX: number,
   dxPx: number,
   dyPx: number,
-): { moved: boolean; jumped?: boolean } | null {
-  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+): TrillDragFrame | null {
+  // ⭐⭐ **THE ONE ADAPTATION — the far end rides along** ({@link carriedEnd}). Everything else below
+  // is the square's, line for line; what changes is the WRITE: the anchor step moves BOTH notes and
+  // the ink nudge moves BOTH offsets, so the ornament keeps its shape instead of stretching.
+  const port = trillPort(engine, id, 'start', {
+    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
+    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
+    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
+  })
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
@@ -496,46 +674,149 @@ export function dragTrillBody(
   //   ⚠️ Lazily built: a suppressed `dbg` still evaluates its arguments (docs/logging.md).
   if (debugEnabled()) traceTrillFrame(engine, id, cursorX, dxPx, dyPx, staffSpacePx)
 
-  // ⭐⭐ ITS OWN STAFF FIRST, then the system — the same two rungs the squares' drag climbs, and the
-  // same reason for the order.
+  // ⭐⭐ THE BARE `tr` — {@link dragTrillEndpoint}'s first rung. ⚠️ Inert on `'start'`
+  // ({@link crossTheBareSign} returns at once), and duplicated anyway: this function is that one.
+  if (crossTheBareSign(engine, id, 'start', dxPx / staffSpacePx, {
+    extension: (to) => engine.previewTrillExtension(id, to),
+    nudge: (ddx, ddy) => engine.previewTrillEndpointOffset(id, 'end', ddx, ddy),
+  })) return { ...NO_TRAVEL, moved: true }
+
+  // ⭐⭐ ITS OWN STAFF FIRST, then the system — the squares' two rungs, and the same order.
   // ⚠️ EXPLORATORY (2026-08-30): `jumped` says the mark changed RUNG, so the caller draws and then
   // pays what that cost ({@link settleTrillLanding}) inside the same mouse event.
-  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true }
-  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true }
-  if (dxPx === 0 && dyPx === 0) return { moved: false }
+  if (flipTrillPlacement(engine, id, dyPx)) return { ...NO_TRAVEL, moved: true, jumped: true }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { ...NO_TRAVEL, moved: true, jumped: true }
+  if (dxPx === 0 && dyPx === 0) return { ...NO_TRAVEL }
 
-  // ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
+  // ⭐⭐ **THE VERTICAL IS ONE NUMBER FOR THE WHOLE ORNAMENT** — the sign and the wiggle sit on one
+  // baseline. ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts
+  // here. ⛔ Through the ENDPOINT op, as the square's does — see the header.
   const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
-  const dy = (above ? -dyPx : dyPx) / staffSpacePx
-  const lifted = dyPx !== 0 && engine.previewTrillOffset(id, 0, dy)
-  // ⛔⛔ **A BODY DRAG MAY NOT PUSH THE INK OFF THE FRONT OF ITS OWN LINE** — his bug, 2026-08-22:
-  //   *"the trill is landing at the end very far from the target y and the mouse y"*, and then
-  //   *"after some dragging again completely in the wrong place"*.
-  //
-  // 🚨 Traced twice on his grand staff. The ornament lands on the FIRST note of a system, so its ink
-  // sits flush against that line's first ink — `x137.7` against a line starting at `138`. **Three
-  // pixels** of leftward drag make the offset −0.3ss, which is before the line's start, and
-  // `TrillRenderer.foldPastSystemEnd` does what it was built to do and continues the ink at the END
-  // of the previous line: x 1111, y 93 — a system away from the hand, in both axes. One pixel back
-  // the other way returns it. The trace is pages of that flip-flop.
-  //
-  // ⭐ **The fold is his own 2026-08-20 rule and is untouched.** It is what carries a mark over a
-  // passage of empty bars where a trill's note-anchors offer nothing to land on, and the END-SQUARE
-  // walk still has every bit of it. What it must not do is fire under a hand that is dragging the
-  // whole ornament: a body drag's contract is that the mark follows the mouse, and a mark that has
-  // folded a system backwards has stopped following it — permanently, since the ink is then nowhere
-  // near the cursor and every later frame compounds it.
-  //
-  // ⚠️ Judged on where the ink WOULD land, ⛔ not on where it is: at offset 0 the ink is already ON
-  // the line's first ink, so an "is it there now" test would refuse every leftward drag instead of
-  // only the one with nowhere to go.
-  if (dxPx < 0 && wouldLeaveLineStart(engine, id, dxPx)) {
-    dbg(`[Trill] ⛔ the ink is against the start of its line — the body does not fold backwards`)
-    return { moved: lifted }
-  }
-  // ⛔ No wrap, no latch and no vertical here: the lift above is this family's own ladder rung.
-  const frame = dragFrame({ port, latch: false, vertical: () => 0 }, cursorX, dxPx, 0)
-  return { moved: (frame?.moved ?? false) || lifted }
+  const lifted = dyPx !== 0
+    && engine.previewTrillEndpointOffset(id, 'start', 0, (above ? -dyPx : dyPx) / staffSpacePx)
+
+  // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`.
+  // ⚠️ The cursor goes in ON THE RIBBON ({@link cursorOnRibbon}), because everything else this family
+  //   hands `breakCrossing` is measured there.
+  const hand = cursorOnRibbon(engine, id, 'start', cursorX)
+  const frame = dragFrame(
+    { port, wrap: wrapPort(engine, id, 'start'), latch: true, vertical: () => 0 },
+    hand ?? cursorX, dxPx, 0,
+  )
+  return frame
+    ? { ...frame, moved: frame.moved || lifted, jumped: false }
+    : { ...NO_TRAVEL, moved: lifted }
+}
+
+/** A position in QUARTERS from the top of the score — the one ruler two different lanes share. */
+function quartersAt(engine: TrillWalkEngine, measure: number, beat: Fraction): number {
+  return measureStartQuarters(engine.getScore().measures, measure) + fracToNumber(beat)
+}
+
+/**
+ * ⭐⭐ **HOW MUCH MUSIC THE ORNAMENT COVERED WHEN THE HAND GRABBED IT — measured ONCE, and held.**
+ * His rule, 2026-08-30: *"the initial trill is anchored to 2 points, that means that we know the
+ * duration in music of it… so when we move the trill we know how much duration in music we have to
+ * move"*.
+ *
+ * 🚨 **⛔ NEVER RE-DERIVED MID-GESTURE, and that is the whole reason it lives here.** The landing
+ * rounds DOWN ({@link carriedEnd}); a duration re-measured from the pair that rounding just produced
+ * rounds down again, and again — one step loses a fraction, a drag takes forty of them, and the
+ * ornament shrinks away and never comes back. Measured once, every frame lands from the ORIGINAL
+ * duration, so dragging out into sparse music and back into dense music returns the trill you had.
+ *
+ * ⛔ Gesture state, ⛔ not a model field — a trill is anchored to two NOTES, and that is unchanged.
+ */
+let bodySpan: {
+  id: string
+  quarters: number
+  /** ⭐ The pair this ledger last left behind — see {@link keepOrMeasureSpan}. */
+  startId?: string
+  endId?: string
+} | null = null
+
+/** ⭐ The grab: measure the ornament's music once. Called when the body drag arms. */
+export function beginTrillBodySpan(engine: TrillWalkEngine, id: string): void {
+  const trill = engine.getTrillById(id)
+  const start = trill && engine.getNote(trill.startNoteId)
+  const end = trill?.endNoteId ? engine.getNote(trill.endNoteId) : null
+  const quarters = start && end
+    ? quartersAt(engine, end.measure, end.beat) - quartersAt(engine, start.measure, start.beat)
+    : 0
+  bodySpan = { id, quarters, startId: trill?.startNoteId, endId: trill?.endNoteId }
+  dbg(`[Trill] body span measured | id:${id} | it covers ${quarters.toFixed(2)}q`
+    + ' — held for the gesture, ⛔ never re-measured')
+}
+
+/** ⭐ The drop. ⚠️ A gesture that ends between the two simply leaves the next grab to measure again. */
+export function endTrillBodySpan(): void {
+  bodySpan = null
+}
+
+/**
+ * ⭐⭐ **THE KEYBOARD'S GRAB — A RUN OF PRESSES, and it knows its own run by the PAIR IT LEFT.**
+ *
+ * 🚨 His report, 2026-08-30: *"the arrow ctrl arrow walking is not smooth"*, once the drag was.
+ * A drag has a mousedown to measure at; a press has nothing, so measuring per press means measuring
+ * the pair the PREVIOUS press's rounding produced — the compounding shrink {@link bodySpan} exists
+ * to stop, arriving by the other door.
+ *
+ * ⭐ **So the run validates itself, ⛔ with no timer and no hook to forget it.** The ledger records
+ * the two note ids it left the ornament on; the next press keeps `D₀` only if the trill still stands
+ * exactly there. Anything else that has touched it in between — an undo, a drag, the square's own
+ * keys, another edit — leaves a different pair, and the duration is measured afresh.
+ */
+function keepOrMeasureSpan(engine: TrillWalkEngine, id: string): void {
+  const trill = engine.getTrillById(id)
+  const mine = bodySpan?.id === id
+    && bodySpan.startId === trill?.startNoteId
+    && bodySpan.endId === trill?.endNoteId
+  if (!mine) beginTrillBodySpan(engine, id)
+}
+
+/** ⭐ …and where the press left it, so the next one can recognise its own run. */
+function rememberTrillPair(engine: TrillWalkEngine, id: string): void {
+  const trill = engine.getTrillById(id)
+  if (bodySpan?.id !== id) return
+  bodySpan.startId = trill?.startNoteId
+  bodySpan.endId = trill?.endNoteId
+}
+
+/**
+ * ⭐⭐ **WHERE THE FAR END LANDS WHEN THE START ARRIVES ON `target`** — his rule, in his words:
+ * *"you evaluate the closest to the duration, and if the evaluation says that the closest is a
+ * bigger duration you target the before to the closest"*.
+ *
+ * So: the destination lane's candidates are measured against `target + D₀` in QUARTERS, the NEAREST
+ * one wins, and if that nearest OVERSHOOTS the duration the one before it takes its place.
+ *
+ * ⭐ **Quarters, ⛔ not a count of notes** — the unit both lanes share. A jump onto another staff is
+ * a different list of notes at different moments, and stepping by index there means nothing.
+ *
+ * ⚠️ **It can only come back the same or SHORTER, never longer** — the sibling families' rule (a span
+ * is clamped where it is read). Nothing at or before the reach ⇒ `undefined`, which the model reads
+ * as the single-note trill; `D₀ = 0` says it was one already.
+ */
+function carriedEnd(engine: TrillWalkEngine, id: string, target: string): string | undefined {
+  const quarters = bodySpan?.id === id ? bodySpan.quarters : 0
+  const landing = quarters > 0 ? engine.getNote(target) : null
+  if (!landing) return undefined
+
+  const lane = trillLane(engine, landing).filter(n => !n.isRest)
+  const from = lane.findIndex(n => n.id === target)
+  const after = from === -1 ? [] : lane.slice(from + 1)
+  if (!after.length) return undefined
+
+  const reach = quartersAt(engine, landing.measure, landing.beat) + quarters
+  const gapTo = (n: FlatNote) => quartersAt(engine, n.measureNumber, n.beat) - reach
+  let best = 0
+  after.forEach((note, i) => {
+    if (Math.abs(gapTo(note)) < Math.abs(gapTo(after[best]))) best = i
+  })
+  // ⭐ …and the one BEFORE the closest when the closest is longer than the duration. ⚠️ The float
+  //   slack is the one a Fraction's division leaves behind, ⛔ not a tolerance.
+  if (gapTo(after[best]) > 1e-6) best -= 1
+  return best >= 0 ? after[best].id : undefined
 }
 
 /**
@@ -905,8 +1186,6 @@ export function dragTrillEndpoint(
   const lifted = dyPx !== 0
     && engine.previewTrillEndpointOffset(id, which, 0, (above ? -dyPx : dyPx) / staffSpacePx)
 
-  // ⛔ **NO WRAP** — see {@link trillDrive}: this family's stops are note ids. ⛔ And no vertical
-  // through the driver: the lift above is one number for the whole ornament and is already written.
   // ⭐⭐ **IT WRAPS, exactly as the other three do** — {@link wrapPort} + `markBreakWrap`, ⛔ not a
   // rule of its own. `breakCrossing` reports ARRIVED when the hand passes the line's edge (either
   // edge — the test is symmetric), `leaveSystem` re-anchors the end onto the next system's stop and
@@ -914,6 +1193,8 @@ export function dragTrillEndpoint(
   // gesture with the square still armed, so the arrows carry on from over there.
   // ⚠️ The cursor goes in ON THE RIBBON, because everything else this family hands `breakCrossing`
   //   is measured there ({@link cursorOnRibbon}).
+  // ⛔ And no vertical through the driver: the lift above is one number for the whole ornament and is
+  //   already written.
   const hand = cursorOnRibbon(engine, id, which, cursorX)
   const frame = dragFrame(
     { port, wrap: wrapPort(engine, id, which), latch: true, vertical: () => 0 },

@@ -610,39 +610,32 @@ describe('walkTrillEndpoint', () => {
     })
 
     /**
-     * 🚨🚨 **HIS BUG, 2026-08-22** — *"the trill is landing at the end very far from the target y and
-     * the mouse y"*, then *"after some dragging again completely in the wrong place"*, with a
-     * screenshot of the `tr~~~` parked at the top RIGHT of the system ABOVE its own note.
+     * ⭐⭐ **HIS CALL, 2026-08-30**: *"but why the trill refuse to move? it should not refuse to
+     * move"*, and then, once the body drag became the square's own frame, *"lets do the trill whole
+     * horizontal drag the same that the first endpoint drag"*.
      *
-     * ⭐ Traced on his own score. The ornament lands on the FIRST note of a system, so its ink sits
-     * flush against that line's first ink — `x137.7` against a line starting at `138`. **Three
-     * pixels** of leftward drag make the offset −0.3ss, which is before the line's start, and
-     * `TrillRenderer.foldPastSystemEnd` continues the ink at the END of the previous line: x 1111,
-     * y 93. One pixel back the other way returns it, and the trace is pages of that flip-flop.
+     * 🚨 The body used to carry a refusal of its own (`wouldLeaveLineStart`, 2026-08-22): with the
+     * ink against the first ink of its line, a leftward frame was declined outright, because
+     * `TrillRenderer.foldPastSystemEnd` would otherwise continue it at the END of the previous line
+     * — a system away from the hand. Measured on his trace, that wall cost **28 consecutive frames
+     * that moved the hand and not the ink**, 63px of drag, on a line that had nothing to fold onto.
      *
-     * ⛔ **The fold is not the bug and is untouched** — his own 2026-08-20 rule, still carrying the
-     * END SQUARE over passages of empty bars (the spec above still proves it). What it may not do is
-     * fire under a hand dragging the WHOLE ornament, whose contract is that the mark follows the
-     * mouse.
+     * ⭐ **It is gone, and the WRAP is what replaced it** — `markBreakWrap`, the mechanism the square
+     * drag and the other three families already use: the crossing test is symmetric, so passing the
+     * line's first ink is a system crossing, not a wall. The body follows the hand, as its contract
+     * says. ⛔ The fold itself is untouched — the END SQUARE still rides it over empty bars (the
+     * spec above proves it).
      */
-    it('🚨🚨 the BODY dragged off the front of its own line stops, ⛔ it does not fold backwards', () => {
+    it('⭐⭐ the BODY at the front of its line FOLLOWS THE HAND — ⛔ it does not refuse', () => {
       const sign = drawn.entries.find(e => e.type === 'trill')!
-
-      // ⚠️ Judged on where the ink WOULD land, ⛔ not on where it is. Out in the middle of the line
-      //    (the fixture's bar 1 runs 90…430) a 50 px drag has room, and refusing it too would leave
-      //    a mark that cannot move at all.
-      sign.bbox = { x: 200, y: 20, width: 200, height: 10 }
-      expect(dragTrillBody(engine, trillId, 0, -50, 0)?.moved, 'it still has room to travel').toBe(true)
-      const afterRoom = offset('start')
-      expect(afterRoom, 'and it spent the whole delta on ink').toBeCloseTo(-5)
-
-      // …and now the one with nowhere to go — the `tr` five pixels inside its line's first ink,
-      // exactly as landing on a system's FIRST note leaves it: 95 − 100 is before 90.
+      // The `tr` five pixels inside its line's first ink, exactly as landing on a system's FIRST
+      // note leaves it: 95 − 50 is before the fixture line's 90.
+      // ⚠️ 50px, not 100: the fixture's stops are 100px apart, so a 100px frame WALKS to the next
+      //    one and the offset lands back near zero — which would prove nothing.
       sign.bbox = { x: 95, y: 20, width: 200, height: 10 }
-      expect(dragTrillBody(engine, trillId, 0, -100, 0)?.moved, 'the frame declines the horizontal')
-        .toBe(false)
-      expect(offset('start'), 'the offset did NOT grow — before the fix this ran on and the drawing '
-        + 'continued the ink at the end of the previous line').toBeCloseTo(afterRoom)
+      expect(dragTrillBody(engine, trillId, 0, -50, 0)?.moved, 'the body follows the hand').toBe(true)
+      expect(offset('start'), 'and it spent the WHOLE delta on ink, past the line\'s first ink')
+        .toBeCloseTo(-5)
     })
   })
 

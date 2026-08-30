@@ -153,12 +153,56 @@ export interface StaffRun {
  * over the page's margin, and it is still plainly on that sheet. Nearest-wins needs no constant and
  * no knowledge of how wide a gutter is.
  *
- * ⭐ On a one-page score every run ties at distance 0, so every caller reads exactly as it did before
- * pages could stand side by side.
+ * ⭐ On a one-page score every run is on the one sheet, so every caller reads exactly as it did
+ * before pages could stand side by side.
+ *
+ * 🚨🚨 **THE DISTANCE IS TO THE *SHEET*, ⛔ NEVER TO A SINGLE RUN — and asking a run was a bug in
+ * one page.** His report, 2026-08-30: a trill dragged left along system 1 pinned itself at the start
+ * of its line and then landed anchored on SYSTEM 2, with the guide line running down the page. From
+ * his own trace, one pixel apart and nothing else changed:
+ *
+ *     cursor x193 … | [jump] ink 247 | home 276…316 | the 'betweenTheMusic' rule holds it here
+ *     cursor x192 … | [jump] ink 247 | home 276…316 | the 'betweenTheMusic' rule says GO to 554…594
+ *
+ * ⭐ **Because a run's `left` is `noteStartX` — AFTER the clef *and*, in bar 1 only, the time
+ * signature.** Measured on his Prelude: system 1's music begins at 192 and every later system's at
+ * 158. So a cursor in the left margin is genuinely *nearer* to systems 2…n, and a per-run
+ * nearest-wins deletes SYSTEM 1 from its own page — leaving `bandOwning` to hand the mark whichever
+ * staff happened to sort first, 300px away. ⛔ Nothing to do with pages; the whole gesture was on one.
+ *
+ * ⭐ **A SHEET IS A CLUSTER OF RUNS THAT OVERLAP HORIZONTALLY**, which needs no gutter constant and
+ * no page count: every system on one sheet spans that sheet's music area and so overlaps its
+ * neighbours, while two sheets standing side by side never do. The nearest CLUSTER answers, and
+ * every run in it comes along — a system is never separated from the page it is printed on.
  */
 export function runsOnSheetAt<T extends StaffRun>(runs: readonly T[], x: number): T[] {
   if (!runs.length) return []
-  const gap = (run: StaffRun) => (x < run.left ? run.left - x : x > run.right ? x - run.right : 0)
-  const nearest = Math.min(...runs.map(gap))
-  return runs.filter(run => gap(run) === nearest)
+  const gap = (sheet: { left: number; right: number }) =>
+    (x < sheet.left ? sheet.left - x : x > sheet.right ? x - sheet.right : 0)
+  const sheet = sheetsOf(runs).reduce((a, b) => (gap(b) < gap(a) ? b : a))
+  // ⚠️ Filtered from the ORIGINAL array: the merge has to sort by x, and a caller reading the runs
+  // in the order the registry painted them (top to bottom) must not have them handed back reordered.
+  const mine = new Set(sheet.runs)
+  return runs.filter(run => mine.has(run))
+}
+
+/**
+ * The sheets `runs` are printed on, left to right — runs merged wherever their x's overlap.
+ *
+ * ⚠️ The classic interval merge, and it is the only honest reading of "the same sheet" available
+ * here: `StaffRun` carries no page, so the paper has to be recovered from the ink. ⭐ Touching is
+ * enough (`<=`): two systems whose music happens to abut share a page, and no gutter is ever zero.
+ */
+function sheetsOf<T extends StaffRun>(runs: readonly T[]): { left: number; right: number; runs: T[] }[] {
+  const sheets: { left: number; right: number; runs: T[] }[] = []
+  for (const run of [...runs].sort((a, b) => a.left - b.left)) {
+    const open = sheets[sheets.length - 1]
+    if (open && run.left <= open.right) {
+      open.right = Math.max(open.right, run.right)
+      open.runs.push(run)
+    } else {
+      sheets.push({ left: run.left, right: run.right, runs: [run] })
+    }
+  }
+  return sheets
 }
