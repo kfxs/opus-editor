@@ -328,3 +328,56 @@ describe('ElementRegistry stem hit-detection', () => {
     expect(registry.getByType('stem')[0].id).toBeUndefined()
   })
 })
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — HOW FAR A PAINTED STAFF'S OWN MUSIC REACHES**, which is what a
+ * mark dragged into the white space between two staves is judged against (`interactions/
+ * markSystemJump`). His call, on an 8va left sitting on the lower staff's stems: *"as the ottava
+ * alta is more closer to the upper element of the down staff … we should reanchor"*.
+ */
+describe('ElementRegistry.staffRuns — the run’s own ink', () => {
+  const geometry = (measure: number, staff: number, top: number): StaffGeometry => ({
+    measure, staff, lineYPositions: [top, top + 10, top + 20, top + 30, top + 40],
+    lineSpacing: 10, noteStartX: 50, noteEndX: 450, clef: 'treble',
+  })
+
+  it('⭐ the five lines are the FLOOR — a staff with no music still occupies itself', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(1, 0, 40))
+    registry.setStaffGeometry(geometry(1, 1, 240))
+    expect(registry.staffRuns().map(r => [r.inkTop, r.inkBottom])).toEqual([[40, 80], [240, 280]])
+  })
+
+  it('⭐⭐ …and the music stretches it: a stem reaching up out of the staff is that staff’s ink', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(1, 0, 40))
+    registry.setStaffGeometry(geometry(1, 1, 240))
+    // A left-hand note whose box (stem included — a registered note carries the whole StaveNote's)
+    // reaches 30 px above its own top line.
+    registry.add({ type: 'note', id: 'lh', measure: 1, staff: 1, beat: 0, pitch: 48,
+      bbox: { x: 100, y: 210, width: 10, height: 60 } })
+    const lower = registry.staffRuns().find(r => r.staff === 1)!
+    expect(lower.inkTop, 'up into the white space').toBe(210)
+    expect(lower.inkBottom, '⛔ never inside the lines — the floor still holds').toBe(280)
+  })
+
+  it('⛔ a MARK’s own box is not the staff’s ink — a dragged bracket may never carry the boundary', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(1, 0, 40))
+    registry.setStaffGeometry(geometry(1, 1, 240))
+    registry.add({ type: 'ottava', id: '8va', measure: 1, staff: 1,
+      bbox: { x: 100, y: 120, width: 200, height: 10 } })
+    expect(registry.staffRuns().find(r => r.staff === 1)!.inkTop).toBe(240)
+  })
+
+  it('⭐ each RUN is measured on its own bars — a second system does not lend its ink to the first', () => {
+    const registry = new ElementRegistry()
+    registry.setStaffGeometry(geometry(1, 0, 40))
+    registry.setStaffGeometry(geometry(2, 0, 240))
+    registry.add({ type: 'note', id: 'n2', measure: 2, staff: 0, beat: 0, pitch: 72,
+      bbox: { x: 100, y: 200, width: 10, height: 60 } })
+    const [first, second] = registry.staffRuns()
+    expect([first.inkTop, first.inkBottom], 'bar 1 drew no notes').toEqual([40, 80])
+    expect([second.inkTop, second.inkBottom]).toEqual([200, 280])
+  })
+})

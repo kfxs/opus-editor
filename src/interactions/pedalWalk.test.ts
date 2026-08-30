@@ -681,6 +681,10 @@ describe('walkPedalEndpoint', () => {
     it('⛔ a jump ENDS THE FRAME, ⛔ not the gesture — the hand carries on down there', () => {
       twoSystemLane()
       expect(frame(150, 0, 260)!.jumped).toBe(true)
+      // ⚠️ The registry is a FIXTURE and does not redraw itself: a real render would put the `Ped.`
+      // under its new system, so the test does that before asking the next frame anything — the
+      // rule reads the mark's DRAWN ink, and a stale one says it is still up on system 1.
+      pedalInk().y = 290
       // The very next frame moves the pedal on its NEW system, which is the whole point of not
       // ending the gesture (the square's wrap is the one that does).
       expect(frame(150, 0, -10)!.jumped, 'settled — this one is ordinary ink').toBe(false)
@@ -705,15 +709,16 @@ describe('walkPedalEndpoint', () => {
       const lower = engine.addStaffBelow(0)
       const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
         engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
-      // ONE system, two staves: 40…80 and 160…200. The pedal's ink is at 125, 45 below its own
-      // staff, so its twin under the left hand is 245 and the switch falls at 185.
-      drawn.secondStaffDrop = 120
+      // ONE system, two staves: 40…80 and 200…240. The pedal's ink is at 125, 45 below its own
+      // staff. ⚠️ EXPLORATORY (2026-08-30): the switch is the middle of the white space between the
+      // two hands — 80…200, so **140**.
+      drawn.secondStaffDrop = 160
       left.forEach((id, i) => drawn.entries.push({
-        type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 170, width: 10, height: 10 },
+        type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 210, width: 10, height: 10 },
       }))
 
-      expect(frame(150, 0, 50)!.jumped, 'still its own room').toBe(false)
-      expect(frame(150, 0, 70)!.jumped).toBe(true)
+      expect(frame(150, 0, 10)!.jumped, 'still its own room').toBe(false)
+      expect(frame(150, 0, 30)!.jumped).toBe(true)
       // ⭐⭐ The LANDING NAMES A STAFF — and on this family that is more than placement: a pedal
       // governs the staff it is filed under, so moving it moves what it damps.
       expect(engine.getPedalById(pedalId)?.staffId, 'the left hand’s damper now').toBe(lower)

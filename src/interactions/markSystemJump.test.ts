@@ -8,10 +8,15 @@ import { systemStopFor, type SystemJumpPort } from './markSystemJump'
  * mark wanted it too. Its two real ports are exercised through their own chapters; what this file
  * states is the rule itself, which belongs to neither mark:
  *
- * **the mark belongs to whichever system it would LOOK AT HOME on** — its natural distance from its
- * own staff, read from every other staff, nearest wins — so the switch falls exactly halfway between
- * where it sits and where it would sit. ⛔ NOT crossing the staff's five lines, which is late and
- * lopsided (his verdict after trying it).
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — the rule is being found by eye, one change at a time.** What it
+ * says today: **the mark belongs to the staff whose own MUSIC is nearest its ink**, so the switch
+ * falls in the middle of the white space a reader actually sees — between the two staves' notes,
+ * ⛔ not between their five lines, and ⛔ no longer halfway between where the mark sits and where it
+ * would sit (that one fired a third of the way up the gap for a mark hanging on the far side of its
+ * staff, which he rejected: *"have not even reach the middle of the white space"*).
+ *
+ * ⭐ The superseded rule is still computed in the module, one line away, and printed in the trace —
+ * so these two chapters state the difference rather than pretending it was never there.
  */
 
 /** Two staves, 40–80 and 340–380, each running x 100…300, with a candidate at each end of each. */
@@ -27,9 +32,9 @@ const CANDIDATES = [
 ]
 
 /**
- * The mark is anchored top-left and DRAWN at `inkAt` — 110 by default, i.e. 30 px below its staff's
- * bottom line, which is its natural home. Its twin position on the second staff is 410, so the
- * switch sits halfway between: **260**.
+ * The mark is anchored top-left and DRAWN at 110 by default, i.e. 30 px below its staff's bottom
+ * line. These bands declare no ink of their own, so the five lines answer for it and the white
+ * space between the staves runs 80…340 — the switch is its middle, **210**.
  */
 const port = (over: Partial<SystemJumpPort<string>> = {}): SystemJumpPort<string> => ({
   bands: () => BANDS,
@@ -42,11 +47,33 @@ const port = (over: Partial<SystemJumpPort<string>> = {}): SystemJumpPort<string
 })
 
 describe('systemStopFor', () => {
-  it('⭐⭐ hands the mark over HALFWAY to where it would sit on the next system', () => {
-    // ⛔ Not at the staff's lines (340): that is late, and it is lopsided for a mark that hangs to
-    // one side. One pixel either side of 260.
-    expect(systemStopFor(port(), 290, 259)).toBeNull()
-    expect(systemStopFor(port(), 290, 261)).toBe('low-right')
+  it('⭐⭐ hands the mark over in the MIDDLE OF THE WHITE SPACE between the two staves', () => {
+    // ⛔ Not at the staff's lines (340), which is late — and ⛔ not a third of the way up the gap,
+    // which is what "halfway to where it would sit there" came to for a mark hanging below its own
+    // staff. One pixel either side of 210.
+    expect(systemStopFor(port(), 290, 209)).toBeNull()
+    expect(systemStopFor(port(), 290, 211)).toBe('low-right')
+  })
+
+  it('⭐⭐ …and it is the staves’ MUSIC that the middle is measured between', () => {
+    // The lower staff's stems reach 100 px up into the gap, so its music starts at 240 and the
+    // middle moves with it, to 160. His call, 2026-08-30, on an 8va left sitting on those stems.
+    const withInk = port({
+      bands: () => [
+        { top: 40, bottom: 80, left: 100, right: 300, inkTop: 40, inkBottom: 80 },
+        { top: 340, bottom: 380, left: 100, right: 300, inkTop: 240, inkBottom: 380 },
+      ],
+    })
+    expect(systemStopFor(withInk, 290, 159)).toBeNull()
+    expect(systemStopFor(withInk, 290, 161)).toBe('low-right')
+  })
+
+  it('⭐ the landing is the stop nearest the mark’s own BEGINNING when it can say where that is', () => {
+    // The hand is over the right-hand stop; the bracket itself begins on the left, and it is the
+    // bracket that lands (his report: the guide line ran off to "a space where there is nothing").
+    expect(systemStopFor(port({ inkX: () => 100 }), 290, 300)).toBe('low-left')
+    // ⛔ …and without it, the hand still answers — every family but the ottava, for now.
+    expect(systemStopFor(port(), 290, 300)).toBe('low-right')
   })
 
   it('⭐ the x picks the stop WITHIN the system it landed on — never a hypotenuse', () => {
@@ -59,19 +86,19 @@ describe('systemStopFor', () => {
     expect(systemStopFor(port(), 290, 20)).toBeNull()
   })
 
-  it('🚨 the mark’s own LIFT is taken back out before the halfway point is worked out', () => {
-    // The bug this rule replaced: with the lift left in, the mark's "natural" home follows it down
-    // for ever and the switch never arrives (a dynamic at y: 44.86, a guide line over three staves).
-    // Here the mark is DRAWN at 260 because the hand has already carried it 150 px down — its
-    // natural home is still 110, so 261 hands it over.
+  it('⚠️ a mark the hand has CARRIED is judged by where it is, lift and all', () => {
+    // ⭐ The lift no longer enters the decision at all — it was there to work out where the mark
+    // would "look at home" on each staff, and the white space does not care. A mark drawn at 260 because
+    // the hand carried it 150 px down is simply a mark at 260, which is past the middle.
     expect(systemStopFor(port({ inkY: () => 260, liftPx: () => 150 }), 290, 261)).toBe('low-right')
   })
 
-  it('⭐ an ABOVE mark measures from the staff’s TOP line, so the rule mirrors', () => {
-    // Drawn 30 px above its own staff (10); its twin on the second staff is 310, halfway is 160.
+  it('⭐ the same middle for a mark that hangs ABOVE its staff — one rule, both directions', () => {
+    // ⛔ The side no longer moves the switch: a mark in the white space is judged by the space, so
+    // an 8va and an 8vb dragged to the same y belong to the same staff.
     const above = port({ inkY: () => 10, above: () => true })
-    expect(systemStopFor(above, 290, 159)).toBeNull()
-    expect(systemStopFor(above, 290, 161)).toBe('low-right')
+    expect(systemStopFor(above, 290, 209)).toBeNull()
+    expect(systemStopFor(above, 290, 211)).toBe('low-right')
   })
 
   it('⛔ null when the system it now belongs to holds nothing this mark can anchor to', () => {

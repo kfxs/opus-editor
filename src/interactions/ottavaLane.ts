@@ -236,6 +236,8 @@ export function ottavaSystemSlotFor(
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
     inkY: () => ottavaInkY(engine, ottava.id),
+    // ⚠️ EXPLORATORY (2026-08-30): the landing is the onset nearest the BRACKET's own beginning.
+    inkX: () => ottavaInkX(engine, ottava.id),
     // ⚠️ OUTWARD → SCREEN: further out is UP for an 8va, DOWN for an 8vb.
     liftPx: () => {
       const outward = ottavaOffsetOverrideOf(engine.getScore(), ottava.id)?.outward ?? 0
@@ -243,6 +245,34 @@ export function ottavaSystemSlotFor(
     },
     above: () => above,
   }, cursorX, inkY)
+}
+
+/**
+ * ⚠️ **EXPLORATORY (2026-08-30) — not a settled rule.** The drawn staff line a bracket of this side
+ * hangs off in a given bar: the TOP line for an 8va, the BOTTOM for an 8vb. Two of these, one either
+ * side of a staff jump, say how far the mark's HOME moved — which is what a landing has to pay back
+ * if it is not to move the drawing (`./ottavaWalk.jumpStaves`).
+ *
+ * Null when that bar drew no staff there — the no-guessing rule, and the caller then pays nothing.
+ */
+export function ottavaStaffEdgeY(
+  engine: OttavaLaneEngine,
+  staffId: string | undefined,
+  measure: number,
+  above: boolean,
+): number | null {
+  const staff = staffIndexOf(engine.getScore(), staffId)
+  const lines = engine.getElementRegistry().getStaffGeometry(measure, staff)?.lineYPositions
+  return lines ? (above ? lines[0] : lines[lines.length - 1]) : null
+}
+
+/** ⚠️ **EXPLORATORY (2026-08-30).** The LEFT EDGE of the bracket's own ink in the last render — where
+ *  the `8va` actually begins on the page, offset and all. ⛔ Not its anchor: the whole point of a
+ *  mark carried away from home is that the two differ, and a landing chosen by the hand instead of
+ *  by this walked the anchor onto a note nowhere near the drawing (his report, 2026-08-30). */
+export function ottavaInkX(engine: OttavaLaneEngine, ottavaId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('ottava').find(e => e.id === ottavaId)
+  return piece ? piece.bbox.x : null
 }
 
 /** The vertical centre of the bracket's own ink in the last render — its FIRST fragment, which is the

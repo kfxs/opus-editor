@@ -39,6 +39,7 @@
  * nearest candidate — measured, x 1382 while his cursor was at 334, a page away and off screen.
  */
 import { runsOnSheetAt } from '@/engine/layout/systemBand'
+import { dbg, debugEnabled } from '@/utils/debug'
 
 interface StaffBand {
   top: number
@@ -47,6 +48,16 @@ interface StaffBand {
    *  since a mark may legitimately be dragged over a margin. */
   left: number
   right: number
+  /**
+   * ⚠️ **EXPLORATORY (2026-08-30) — how far this staff's own MUSIC reaches**, stems and beams
+   * included (`ElementRegistry.staffRuns`). His call, on an 8va left sitting on the lower staff's
+   * stems: *"as the ottava alta is more closer to the upper element of the down staff and we are
+   * kind of the middle or more that the white space between, we should reanchor"*. So the white
+   * space a mark is judged in is the one between the two staves' INK, ⛔ not between their lines.
+   * Absent, the five lines answer, exactly as before.
+   */
+  inkTop?: number
+  inkBottom?: number
 }
 
 /** One place the mark could be anchored, as the last render drew it. */
@@ -69,6 +80,16 @@ export interface SystemJumpPort<Stop> {
   anchor(): { x: number; y: number } | null
   /** Where the mark's ink was drawn last render. Null when it drew none. */
   inkY(): number | null
+  /**
+   * ⚠️ **EXPLORATORY (2026-08-30) — where the mark's ink BEGINS, left to right.** Supplied, the
+   * landing is the candidate nearest THIS; absent, it is the one nearest the hand (every family but
+   * the ottava, for now).
+   *
+   * His report, 2026-08-30: the guide line ran from the bracket to *"a space in the score where
+   * there is nothing"* — measured, the hand at 290 while the bracket began at 205, so the landing
+   * was eight spaces away and the offset had to hold the drawing back by that much.
+   */
+  inkX?(): number | null
   /** The mark's own stored vertical, in PIXELS and SCREEN-signed (+down), so it can be taken back
    *  out. ⚠️ A mark whose model stores it outward converts here and nowhere else. */
   liftPx(): number
@@ -112,17 +133,42 @@ export function systemStopFor<Stop>(
   // system on the next page win a row it merely shares — the mark then lands a page away, off
   // screen, which is exactly what he saw (2026-08-30, and again on the ottava).
   const here = runsOnSheetAt(bands, cursorX)
-  const target = here.reduce((a, b) =>
+  const natural = here.reduce((a, b) =>
     Math.abs(inkY - (edgeOf(b, above) + naturalGap)) < Math.abs(inkY - (edgeOf(a, above) + naturalGap)) ? b : a)
+
+  // ⚠️⚠️ **EXPLORATORY (2026-08-30) — THE SWITCH IS THE MIDDLE OF THE WHITE SPACE, for now.**
+  //
+  // His report on the octave line: *"the mark is still down the uppest element of the down staff and
+  // on the other size have not even reach the middle of the white space, so this reanchor is not
+  // correct"*. Measured, an 8vb between a treble staff ending at 316 and a bass staff ending at 501:
+  // its natural home is 20px BELOW its staff, so its home on the treble (336) is INSIDE the gap, and
+  // `natural` above puts the switch halfway between 336 and 521 — y ≈ 428, a third of the way up the
+  // white space and still under the bass staff's stems.
+  //
+  // So while this is being explored the mark belongs to the staff whose five lines are NEAREST its
+  // ink, which puts the switch in the middle of the gap between them. ⛔ Not declared a rule, and
+  // `natural` stays right here (with its reasons above) because it is one line to go back to.
+  const target = here.reduce((a, b) => (bandDistance(b, inkY) < bandDistance(a, inkY) ? b : a))
+  if (debugEnabled() && (target !== home || natural !== home)) {
+    dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
+      + ` (its music ${(home.inkTop ?? home.top).toFixed(0)}…${(home.inkBottom ?? home.bottom).toFixed(0)})`
+      + ` | nearest staff ${target.top.toFixed(0)}…${target.bottom.toFixed(0)}`
+      + ` (music ${(target.inkTop ?? target.top).toFixed(0)}…${(target.inkBottom ?? target.bottom).toFixed(0)})`
+      + ` says ${target === home ? 'STAY' : 'GO'}`
+      + ` | the natural-home rule (gap ${naturalGap.toFixed(0)}px) would say ${natural === home ? 'stay' : 'go'}`)
+  }
   if (target === home) return null
 
+  // ⚠️ EXPLORATORY (2026-08-30): the mark's own BEGINNING chooses where it lands, falling back on the
+  // hand for the families that cannot say where their ink begins. See {@link SystemJumpPort.inkX}.
+  const from = port.inkX?.() ?? cursorX
   let best: Stop | null = null
   let bestDistance = Infinity
   for (const candidate of candidates) {
     // ⚠️ The candidate's OWN x as well as its y — the same reason the target was chosen that way. A
     // note on the next sheet sits in this row too, and would otherwise be "on" this system.
     if (nearestBand(bands, candidate.x, candidate.y) !== target) continue
-    const d = Math.abs(cursorX - candidate.x)
+    const d = Math.abs(from - candidate.x)
     if (d < bestDistance) { bestDistance = d; best = candidate.stop }
   }
   return best
@@ -144,9 +190,11 @@ function nearestBand(bands: StaffBand[], x: number, y: number): StaffBand {
   return runsOnSheetAt(bands, x).reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
 }
 
-/** 0 inside the band, else the gap to its nearer edge. `ElementRegistry.staffIndexAtY`'s arithmetic. */
+/** 0 inside the band, else the gap to its nearer edge — measured to the staff's INK where the run
+ *  knows it (see {@link StaffBand.inkTop}), which is what puts the switch in the middle of the white
+ *  space a reader actually sees. `ElementRegistry.staffIndexAtY`'s arithmetic otherwise. */
 function bandDistance(band: StaffBand, y: number): number {
-  return spanDistance(band.top, band.bottom, y)
+  return spanDistance(band.inkTop ?? band.top, band.inkBottom ?? band.bottom, y)
 }
 
 /** 0 inside [lo, hi], else the gap to its nearer end — the one shape both axes are measured with. */

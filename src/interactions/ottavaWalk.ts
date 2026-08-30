@@ -51,13 +51,22 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { OttavaSlotTarget } from '../engine/models/ottavaOps'
 import { ottavaOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  ottavaEdgeX, ottavaInkY, ottavaStaffSpacePx, ottavaStartAddress, ottavaSystemInkLimit,
-  ottavaSystemSlotFor,
+  ottavaEdgeX, ottavaInkY, ottavaStaffEdgeY, ottavaStaffSpacePx, ottavaStartAddress,
+  ottavaSystemInkLimit, ottavaSystemSlotFor,
 } from './ottavaLane'
 import { type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
 import { dbg } from '../utils/debug'
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — the one landing a drag is still owed a settlement for.**
+ *
+ * ⛔ It is NOT drag state and carries no travel: one id and one y, written by a landing and spent by
+ * the very next frame ({@link settleLanding}). A drag that stops in between simply leaves it, and
+ * the next drag of another bracket drops it on sight.
+ */
+let landed: { id: string; inkY: number } | null = null
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type OttavaWalkEngine = Pick<MusicEngine,
@@ -280,9 +289,8 @@ export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number)
  * meet exactly: the band refuses the ink at the same halfway line the jump fires on.
  *
  * ⛔ **A jump ENDS THE FRAME**: the anchor has moved, so this frame's `dx` would be spent against a
- * slot the hand was never near. ⭐ And it lands where the engraver would put it — both axes of the
- * offset go, the height because on that gesture it was not a lift at all but the distance the hand
- * travelled to reach the other staff.
+ * slot the hand was never near. ⚠️ And, while this is being explored (2026-08-30), it lands WITHOUT
+ * MOVING THE DRAWING — see {@link jumpStaves}.
  *
  * ⛔ **THE SIDE NEVER FLIPS.** A wedge dragged up off its staff belongs ABOVE it — it has a
  * `placement`, so the space above is a place it can live. An octave bracket's side is DERIVED from
@@ -306,7 +314,12 @@ export function dragOttavaBody(
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
-  if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+  // ⚠️ EXPLORATORY (2026-08-30): pay off the last landing before deciding anything — see
+  // {@link settleLanding}. The pixels it just wrote are not drawn yet, so THIS frame adds them.
+  const settled = settleLanding(engine, id, staffSpacePx)
+  if (jumpStaves(engine, id, cursorX, settled + dyPx, staffSpacePx, settled)) {
+    return { moved: true, jumped: true }
+  }
 
   // ⭐⭐ SCREEN → OUTWARD, the same conversion {@link dragOttavaEndpoint} makes, and for its reason.
   // ⛔ No wrap and no latch: a whole bracket leaves its staff by a JUMP, and it is placed by eye.
@@ -315,7 +328,56 @@ export function dragOttavaBody(
     { port, latch: false, vertical: (px, space) => (above ? -px : px) / space },
     cursorX, dxPx, dyPx,
   )
-  return frame && { moved: frame.moved, jumped: false }
+  return frame && { moved: frame.moved || settled !== 0, jumped: false }
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHAT THE LAST LANDING ACTUALLY DID WITH THE INK, paid back.**
+ *
+ * 🚨 His report: *"there was a strange jump back and forth in a sweet spot… this kind of glitches
+ * should not happen"* — measured, the ink alternating 390 ↔ 406, one flip per mousemove.
+ *
+ * {@link jumpStaves} keeps the drawing still by paying the difference between the two staves' EDGE
+ * LINES into the offset, which is only right if the engraver would hang the bracket the same
+ * distance off both. He does not: the same log shows a gap of 26px on one staff and 41px on the
+ * other, so the landing moved the ink 15px after all — and the decision reads that ink, so the two
+ * answers chase each other for ever ([[reference_a_drag_decision_cannot_read_its_own_outcome]]).
+ *
+ * ⭐ The residual cannot be known before the render, so it is measured AFTER it: a landing remembers
+ * where the ink was, and the next frame pays whatever the re-render did with it. Two frames on, "a
+ * re-anchor does not move the drawing" is true rather than nearly true, and the decision is reading
+ * a number its outcome no longer writes. ⛔ Not hysteresis, and ⛔ not the hand's travel — both were
+ * tried on 2026-08-30 and both failed.
+ *
+ * @returns the pixels it just wrote (screen, +down), which are not drawn yet — so this frame's
+ *   reader must add them to what the registry says.
+ */
+function settleLanding(engine: OttavaWalkEngine, id: string, staffSpacePx: number): number {
+  if (!landed || landed.id !== id) return 0
+  const was = landed.inkY
+  landed = null
+  const drawn = ottavaInkY(engine, id)
+  // Half a pixel is the rounding of the drawing, ⛔ not a debt.
+  if (drawn === null || Math.abs(was - drawn) < 0.5) return 0
+
+  const debt = was - drawn
+  const above = (engine.getOttavaById(id)?.shift ?? 1) > 0
+  engine.previewOttavaOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
+  dbg(`[Ottava] landing settled | id:${id} | ink ${drawn.toFixed(0)} → ${was.toFixed(0)}`
+    + ` (${debt.toFixed(0)}px the ladder gave or took on the new staff)`)
+  return debt
+}
+
+/**
+ * ⚠️ **EXPLORATORY (2026-08-30) — the same settlement at the DROP**, for a landing on the very last
+ * frame of a gesture: there is no next frame to pay it, and an unpaid debt would otherwise be spent
+ * by the FIRST frame of the next drag, yanking the bracket by whatever the ladder had given it.
+ * ⛔ Nothing happens when the gesture owes nothing, which is the common case.
+ */
+export function settleOttavaLanding(engine: OttavaWalkEngine, id: string): void {
+  const staffSpacePx = ottavaStaffSpacePx(engine.getElementRegistry(), id)
+  if (staffSpacePx) settleLanding(engine, id, staffSpacePx)
+  landed = null
 }
 
 /**
@@ -329,8 +391,14 @@ export function dragOttavaBody(
  * neither does the side: an 8va stays above whatever staff it lands on.
  *
  * ⭐ The lift comes back out first — left in, the bracket's "home" follows it down for ever and the
- * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
- * the offset go: over there the old x means nothing, and the y was never a lift.
+ * switch never arrives (the report that produced the rule, 2026-08-19).
+ *
+ * ⚠️ **EXPLORATORY (2026-08-30, and only for a DRAG) — a RE-ANCHOR DOES NOT MOVE THE DRAWING.** His
+ * report: *"it is jumping… a reanchor should not jump, should keep the same mark position as
+ * offset"* — measured, the anchor went 195 → 251 with the offset zeroed, so the bracket leapt five
+ * spaces sideways on a frame the hand had only moved a pixel down. So the landing now pays the
+ * anchor's whole travel back into the offset, both axes: the address and the staff change, the ink
+ * stays under the hand. ⛔ Not declared a rule; it is one thing to look at.
  */
 function jumpStaves(
   engine: OttavaWalkEngine,
@@ -338,19 +406,51 @@ function jumpStaves(
   cursorX: number,
   dyPx: number,
   staffSpacePx: number,
+  /** What {@link settleLanding} has already written and the render has not shown yet. */
+  settled = 0,
 ): boolean {
   const ottava = engine.getOttavaById(id)
   const inkY = ottavaInkY(engine, id)
   if (!ottava || inkY === null) return false
 
   const target = ottavaSystemSlotFor(engine, ottava, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewOttavaStaffSlot(id, target)) return false
+  if (!target) return false
 
-  const offset = ottavaOffsetOverrideOf(engine.getScore(), id)
-  if (offset?.startX || offset?.outward) {
-    engine.previewOttavaOffset(id, -(offset.startX ?? 0), -(offset.outward ?? 0))
-  }
-  dbg(`[Ottava] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
+  // ⚠️ Read the home BEFORE the write: the lane reads the bracket's CURRENT staff, so afterwards
+  // these two answer about the staff it has just left.
+  const above = ottava.shift > 0
+  const from = ottavaStartAddress(engine.getScore(), id)
+  const fromX = from ? ottavaEdgeX(engine, ottava, from, 'start') : null
+  const fromEdgeY = from ? ottavaStaffEdgeY(engine, ottava.staffId, from.measure, above) : null
+
+  if (!engine.previewOttavaStaffSlot(id, target)) return false
+
+  const after = engine.getOttavaById(id)
+  const toX = after ? ottavaEdgeX(engine, after, target, 'start') : null
+  const toEdgeY = ottavaStaffEdgeY(engine, target.staffId, target.measure, above)
+  // ⚠️ Whatever the picture could not say is paid as 0 — the no-guessing rule (`./markWalk`).
+  const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : 0
+  // ⭐⭐ **WHERE THE INK IS MEANT TO END UP: under the hand, this frame's own `dy` INCLUDED.** The
+  // bracket's home moved down the page by `toEdgeY - fromEdgeY`, and the hand moved it by the rest.
+  // ⚠️ The `dy` matters even at a pixel a frame: a jump fires when the ink PLUS this frame's travel
+  // crosses the line, so a landing that dropped that travel would come to rest a pixel back on the
+  // side it just left — and the next frame would hand it straight back.
+  const vertical = fromEdgeY !== null && toEdgeY !== null
+  const screenPay = vertical ? (dyPx - settled) - (toEdgeY! - fromEdgeY!) : 0
+  const outward = (above ? -screenPay : screenPay) / staffSpacePx
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so neither the page limit nor the band
+  // has anything to judge — and the band, measured off the render the mark has just left, would
+  // refuse exactly the payment that keeps it still.
+  if (dx || outward) engine.previewOttavaOffsetRebase(id, dx, outward)
+  // ⚠️ EXPLORATORY: where the ink is meant to stay. The next frame reads what the render really did
+  // and pays the difference ({@link settleLanding}). ⛔ The frame's `dx` really is dropped — a jump
+  // ends the frame, as it always has, and that x means nothing over there.
+  landed = { id, inkY: inkY + (vertical ? dyPx : settled) }
+  dbg(`[Ottava] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`
+    + ` | anchor ${fromX?.toFixed(0) ?? '—'}→${toX?.toFixed(0) ?? '—'} staff edge ${fromEdgeY?.toFixed(0) ?? '—'}→${toEdgeY?.toFixed(0) ?? '—'}`
+    + ` | paid into the offset: dx ${dx.toFixed(2)}ss outward ${outward.toFixed(2)}ss`
+    + ` | the ink is to stay at ${(inkY + (vertical ? dyPx : settled)).toFixed(0)}`
+    + ` | offset now ${JSON.stringify(ottavaOffsetOverrideOf(engine.getScore(), id) ?? {})}`)
   return true
 }
 

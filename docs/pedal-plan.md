@@ -922,7 +922,10 @@ ported.
 
 - ⭐⭐ **TWO KINDS OF VERTICAL**: inside its own staff's room the `y` is plain INK (bounded by the page
   and the band); past halfway to the neighbouring staff it is a JUMP (`markSystemJump`), ⛔ decided at
-  the halfway line and never at the pentagram (his rule, 2026-08-19). The lift comes back OUT before
+  the halfway line and never at the pentagram (his rule, 2026-08-19). ⚠️ **That line moved on
+  2026-08-30 while the ottava's drag was being explored** — the shared rule now hands a mark over in
+  the middle of the white space between the two staves' INK, so the pedal's switch moved with it
+  (`docs/mark-drag-and-reanchor.md`; the pedal itself was not touched). The lift comes back OUT before
   the measurement, or the pedal's "home" follows it down for ever and the switch never arrives.
 - ⭐ **A jump ENDS THE FRAME, ⛔ not the gesture** — the pedal has landed where the hand is, so the hand
   carries on down there. (A SQUARE's cross-system wrap is the one that ends the drag.)

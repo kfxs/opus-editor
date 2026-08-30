@@ -1752,10 +1752,14 @@ export class MusicEngine {
   }
 
   /** The whole bracket's RE-BASE during a DRAG — {@link rebaseOttavaOffset} with no undo of its own,
-   *  and ⛔ never judged by the page limit or the band. */
-  previewOttavaOffsetRebase(id: string, dx: number): boolean {
+   *  and ⛔ never judged by the page limit or the band.
+   *
+   *  ⚠️ `outward` is the second half of the same bookkeeping and is unjudged for the same reason: a
+   *  re-base pays back a move the ANCHOR made, so the drawn ink does not move and there is nothing
+   *  for a limit to have an opinion about (`interactions/ottavaWalk.jumpStaves`). */
+  previewOttavaOffsetRebase(id: string, dx: number, outward = 0): boolean {
     this.markModelDirty()
-    return this.scoreModel.setOttavaOffset(id, dx, 0)
+    return this.scoreModel.setOttavaOffset(id, dx, outward)
   }
 
   /** Record ONE undo entry after a bracket BODY drag settles. */

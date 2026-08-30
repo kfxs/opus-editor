@@ -37,7 +37,7 @@ import { dragHairpinBody, dragHairpinEndpoint } from './hairpinWalk'
 import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
-import { dragOttavaBody, dragOttavaEndpoint } from './ottavaWalk'
+import { dragOttavaBody, dragOttavaEndpoint, settleOttavaLanding } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
 import { ottavaStaffSpacePx } from './ottavaLane'
 import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGrab,
@@ -3587,6 +3587,11 @@ export class MouseController {
   private endOttavaBodyDrag(): void {
     const engine = this.getEngine()
     if (engine && this.ottavaBodyDragChanged) {
+      // ⚠️ EXPLORATORY (2026-08-30): a landing on the very last frame is still owed its settlement,
+      // and there is no next frame to pay it — `ottavaWalk.settleOttavaLanding` does it here, before
+      // the commit, so the one undo entry carries it. ⛔ Also stops a stale debt reaching the NEXT
+      // drag, which would yank the bracket on its first frame.
+      if (this.draggedOttavaBodyId) settleOttavaLanding(engine, this.draggedOttavaBodyId)
       engine.commitOttavaOffsetDrag()
       // ⛔⛔ **THE DROP MUST RENDER FOR REAL, and this line is not optional** (§12.5a). The frames of
       // this gesture draw only the ottavas (`RenderController.previewMarks`), which deliberately does

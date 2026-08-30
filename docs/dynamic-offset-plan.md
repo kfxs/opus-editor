@@ -482,7 +482,11 @@ state.
     measure the mark's NATURAL distance from its own staff — its drawn ink with its own lift taken
     back out — and read that same distance from every other staff as "where it would sit there". The
     mark belongs to the nearest of those, so **the switch falls exactly halfway between where it sits
-    and where it would sit**. ⭐ No constant anywhere in it: the gap is measured every frame (it
+    and where it would sit**. ⚠️⚠️ **SUPERSEDED WHILE THE OTTAVA'S DRAG IS BEING EXPLORED
+    (2026-08-30)**: that line falls a third of the way up the gap for a mark hanging on the far side
+    of its staff, which he rejected by eye, so the shared rule now hands a mark over in the middle of
+    the white space between the two staves' **INK** — `docs/mark-drag-and-reanchor.md`. The rule
+    above is still computed one line away in the module, and printed in the `[jump]` trace. ⭐ No constant anywhere in it: the gap is measured every frame (it
     contains whatever the ladder granted this mark) and the staves are the painted ones. ⭐ It mirrors
     itself for an `above` mark by measuring off the staff's TOP line.
   - 🚨 **The lift MUST come back out first.** Left in, the mark's "natural" home follows it down for

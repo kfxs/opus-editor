@@ -478,6 +478,9 @@ describe('walkOttavaEndpoint', () => {
       /** A frame at `cursorX`, having moved (`dxPx`,`dyPx`) since the last accepted one. */
       const frame = (cursorX: number, dxPx: number, dyPx = 0) =>
         dragOttavaBody(engine, bracketId, cursorX, dxPx, dyPx)
+      /** The bracket's own drawn box. ⚠️ The registry is a FIXTURE, so it does not redraw itself —
+       *  a test that cares what the RENDER did with the ink has to say so. */
+      const drawnBracket = () => drawn.entries.find(e => e.type === 'ottava')!.bbox
 
       it('carries the whole bracket sideways when the ink ARRIVES, length and all', () => {
         expect(frame(240, 30)!.moved).toBe(true)
@@ -501,13 +504,41 @@ describe('walkOttavaEndpoint', () => {
         expect(ottavaMeasure(), 'it now lives on the next system').toBe(2)
       })
 
-      it('⭐ …and it arrives where the ENGRAVER would put it — both offsets dropped', () => {
+      it('⚠️ EXPLORATORY: …and the landing does NOT move the drawing — the offset absorbs it', () => {
+        // His report, 2026-08-30: *"a reanchor should not jump, should keep the same mark position
+        // as offset"*. ⛔ The opposite of what this used to say (both axes dropped), and the reason
+        // it changed is in `ottavaWalk.jumpStaves`.
         twoSystemLane()
         frame(210, 0, -30)
         expect(outward(), 'a lift first').toBeCloseTo(3)
         frame(150, 0, 260)
-        expect(outward(), 'gone: over there it was never a lift').toBe(0)
-        expect(ink()).toBe(0)
+        // The bracket's home moved 200 px down the page (its staff's top line, 240 → 440) and the
+        // hand moved 260, so the ink ends 60 px BELOW where the new staff would have put it: six
+        // spaces less far out than the three it was lifted by.
+        expect(outward(), 'the anchor moved; the drawing follows the HAND').toBeCloseTo(-3)
+        // ⭐ And sideways it owes nothing: the beginning lands on the same x over there (100).
+        expect(ink()).toBeCloseTo(0)
+      })
+
+      it('⚠️ EXPLORATORY: the NEXT frame pays back whatever the ladder did with the ink over there', () => {
+        // 🚨 His report, 2026-08-30: *"there was a strange jump back and forth in a sweet spot…
+        // this kind of glitches should not happen"* — the ink alternating 390 ↔ 406, one flip per
+        // mousemove. The landing keeps the drawing still by paying the difference between the two
+        // staves' EDGE LINES, which is only right if the engraver hangs the bracket the same
+        // distance off both; he does not, so the ink moved after all — and the decision reads that
+        // ink. The residual cannot be known before the render, so it is measured after it.
+        twoSystemLane()
+        drawnBracket().y = 350                     // its centre, 355, is just above the middle (360)
+        expect(frame(150, 0, 10)!.jumped, 'over the line by five pixels').toBe(true)
+        const paid = outward()
+
+        // The render then puts it where the NEW staff's ladder wants it — 15 px below the 365 the
+        // landing asked for, which no edge arithmetic could have known.
+        drawnBracket().y = 375
+        expect(frame(150, 0, 0)!.moved, 'a frame that only settles is still a write').toBe(true)
+        expect(outward(), 'those 15 px, given back').toBeCloseTo(paid + 1.5)
+        expect(ottavaMeasure(), '⛔ and it does NOT flip back — the ink is where it was asked to be')
+          .toBe(2)
       })
 
       it('⛔ NEVER flips the side — that would be a change to the MUSIC', () => {
@@ -531,7 +562,8 @@ describe('walkOttavaEndpoint', () => {
         const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
           engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
         // ONE system, two staves: 240…280 and 380…420. The bracket's ink is at 225, fifteen ABOVE
-        // its own top line, so its twin over the left hand is 365 and the switch falls at 295.
+        // its own top line. ⚠️ EXPLORATORY (2026-08-30): the switch is the middle of the white space
+        // between the two hands — 280…380, so **330**.
         drawn.staffOffset = { 1: 140 }
         drawn.bands = [{ top: 240, bottom: 280 }, { top: 380, bottom: 420 }, { top: 440, bottom: 480 }]
         left.forEach((id, i) => drawn.entries.push({
@@ -539,7 +571,7 @@ describe('walkOttavaEndpoint', () => {
         }))
 
         expect(frame(210, 0, 50)!.jumped, 'still its own room').toBe(false)
-        expect(frame(210, 0, 70)!.jumped).toBe(true)
+        expect(frame(210, 0, 120)!.jumped).toBe(true)
         // ⭐⭐ The LANDING NAMES A STAFF — and here that is AUDIBLE: an octave line transposes the
         // staff it is filed under, so this moves which notes sound an octave away.
         expect(engine.getOttavaById(bracketId)?.staffId, 'the left hand’s bracket now').toBe(lower)

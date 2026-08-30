@@ -691,15 +691,15 @@ describe('walkHairpinEndpoint', () => {
       const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
         engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
       render()
-      // ONE system, two staves: 40…80 and 240…280. The wedge's ink is at 90, ten below its own
-      // staff, so its twin under the left hand is 290 and the switch falls at 190.
+      // ONE system, two staves: 40…80 and 240…280. ⚠️ EXPLORATORY (2026-08-30): the switch is the
+      // middle of the WHITE SPACE between them — 80…240, so **160**.
       drawn.staffOffset = { 1: 200 }
       drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
       left.forEach((id, i) => drawn.entries.push({
         type: 'note', id, staff: 1, bbox: { x: 100 + i * 100, y: 250, width: 10, height: 10 },
       }))
 
-      expect(dragHairpinBody(engine, wedgeId, 210, 0, 90), 'not yet').toEqual({ moved: true, jumped: false })
+      expect(dragHairpinBody(engine, wedgeId, 210, 0, 50), 'not yet').toEqual({ moved: true, jumped: false })
       expect(dragHairpinBody(engine, wedgeId, 210, 0, 200)).toEqual({ moved: true, jumped: true })
       // ⭐⭐ The LANDING NAMES A STAFF — that is the whole of what was missing.
       expect(engine.getHairpinById(wedgeId)?.staffId, 'it is the left hand’s wedge now').toBe(lower)

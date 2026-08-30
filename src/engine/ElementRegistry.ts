@@ -285,6 +285,23 @@ export interface ClefSegment {
 }
 
 /**
+ * One painted (system, staff): its five lines, the x its music occupies — and ⚠️ how far that
+ * music's INK reaches above and below (2026-08-30), which is what a mark dragged into the white
+ * space between two staves is judged against. `ElementRegistry.staffRuns`.
+ */
+export interface StaffRun {
+  top: number
+  bottom: number
+  left: number
+  right: number
+  staff: number
+  /** The run's topmost ink — its own notes and rests, stems and all. Never above `top`. */
+  inkTop: number
+  /** The run's lowest ink, by the same measure. Never below `bottom`. */
+  inkBottom: number
+}
+
+/**
  * Staff geometry for a measure - stores actual Y positions of staff lines
  * Used for accurate pitch calculation from cursor Y position
  */
@@ -932,17 +949,18 @@ export class ElementRegistry {
    * `layout/systemBand` ask *"what other staff is nearest, above and below"* and deliberately do not
    * care whose system it is. Two questions, two readers — ⛔ do not merge them.
    */
-  staffRuns(): { top: number; bottom: number; left: number; right: number; staff: number }[] {
+  staffRuns(): StaffRun[] {
     const byStaff = new Map<number, StaffGeometry[]>()
     for (const g of this.staffGeometries.values()) {
       const list = byStaff.get(g.staff)
       if (list) list.push(g)
       else byStaff.set(g.staff, [g])
     }
-    const runs: { top: number; bottom: number; left: number; right: number; staff: number }[] = []
+    type Building = StaffRun & { first: number; last: number }
+    const runs: Building[] = []
     for (const [staff, geometries] of byStaff) {
       geometries.sort((a, b) => a.measure - b.measure)
-      let run: { top: number; bottom: number; left: number; right: number; staff: number } | null = null
+      let run: Building | null = null
       let previousMeasure = 0
       for (const g of geometries) {
         const top = g.lineYPositions[0]
@@ -950,14 +968,33 @@ export class ElementRegistry {
         // A new run when the row changes, or when a bar is MISSING between this and the last — an
         // undrawn bar ends a run for `systemInkAt`'s reason, and so does a jump to the next sheet.
         if (!run || run.top !== top || run.bottom !== bottom || g.measure !== previousMeasure + 1) {
-          run = { top, bottom, left: g.noteStartX, right: g.noteEndX, staff }
+          run = {
+            top, bottom, left: g.noteStartX, right: g.noteEndX, staff,
+            // ⭐ The five lines are the FLOOR of a run's ink: a staff with no music at all still
+            // occupies itself, so no reader has to special-case an empty system.
+            inkTop: top, inkBottom: bottom, first: g.measure, last: g.measure,
+          }
           runs.push(run)
         } else {
           run.left = Math.min(run.left, g.noteStartX)
           run.right = Math.max(run.right, g.noteEndX)
+          run.last = g.measure
         }
         previousMeasure = g.measure
       }
+    }
+
+    // ⭐⭐ **HOW FAR THE RUN'S OWN MUSIC REACHES**, stems and beams and ledger lines included: a
+    // registered note's box is the whole `StaveNote`'s. ⛔ Notes and rests ONLY — never a mark's box,
+    // or a dragged bracket carries the boundary with it and can never leave the staff it is over
+    // (2026-08-30).
+    for (const el of [...this.getByType('note'), ...this.getByType('rest')]) {
+      if (el.measure === undefined) continue
+      const measure = el.measure
+      const run = runs.find(r => r.staff === (el.staff ?? 0) && measure >= r.first && measure <= r.last)
+      if (!run) continue
+      run.inkTop = Math.min(run.inkTop, el.bbox.y)
+      run.inkBottom = Math.max(run.inkBottom, el.bbox.y + el.bbox.height)
     }
     return runs
   }
