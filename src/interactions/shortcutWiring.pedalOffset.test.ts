@@ -45,6 +45,18 @@ describe('nudging a sustain pedal\'s ink from the keyboard', () => {
     adjustPitch = vi.fn()
     const engine = {
       nudgePedalEndpoint: nudge,
+      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+      //   key writes which ink, and that is unchanged.
+      previewPedalEndpointOffset: nudge,
+      previewPedalEndpointRebase: vi.fn(() => true),
+      previewPedalStartAtSlot: vi.fn(() => true),
+      previewPedalLiftAt: vi.fn(() => true),
+      previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+      previewPedalOffsetRebase: vi.fn(() => true),
+      previewPedalSlot: vi.fn(() => true),
+      commitPedalDrag: vi.fn(),
+      commitPedalOffsetDrag: vi.fn(),
       nudgePedal: whole,
       resetPedalEndpointOffset: reset,
       resetPedalOffset: resetWhole,

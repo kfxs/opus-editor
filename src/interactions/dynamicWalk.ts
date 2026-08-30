@@ -54,6 +54,7 @@ import { fracCompare } from '../utils/fraction'
 import { type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress } from './markDrive'
+import { withoutAnEntry } from './keyRun'
 import { dbg } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -145,9 +146,9 @@ function wrapPort(engine: DynamicWalkEngine, id: string): BreakWrapPort {
 export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
   const port = dynamicPort(engine, id, {
-    reanchor: (i, target) => engine.moveDynamicToSlotKeepingOffset(i, target),
-    nudge: (i, ddx, ddy) => engine.nudgeDynamicOffset(i, ddx, ddy),
-    rebase: (i, ddx) => engine.rebaseDynamicOffset(i, ddx),
+    reanchor: (i, target) => engine.previewDynamicSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.previewDynamicOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.previewDynamicOffsetRebase(i, ddx),
   })
 
   // ⭐ A POINT MARK ON THE SHARED DRIVER (`./markDrive`) — no armed end and no length, which is the
@@ -157,7 +158,7 @@ export function walkDynamic(engine: DynamicWalkEngine, id: string, dx: number): 
     port,
     wrap: wrapPort(engine, id),
     label: 'Move dynamic',
-    runBatch: (description, fn) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
   }, dx)
 }
 

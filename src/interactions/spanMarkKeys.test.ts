@@ -41,6 +41,15 @@ describe('the span-mark key verbs, at the pedal row', () => {
     engine = {
       nudgePedalEndpoint: nudge,
       nudgePedal: whole,
+      // ⭐ The WALK previews since 2026-08-30 — a run of presses is ONE undo entry (`./keyRun`).
+      //   Aliased to the same mocks: the claim here is the ROUTING, which is unchanged.
+      previewPedalEndpointOffset: nudge,
+      previewPedalOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+      previewPedalEndpointRebase: vi.fn(() => true),
+      previewPedalOffsetRebase: vi.fn(() => true),
+      previewPedalStartAtSlot: vi.fn(() => true),
+      previewPedalLiftAt: vi.fn(() => true),
+      previewPedalSlot: vi.fn(() => true),
       resetPedalEndpointOffset: resetEnd,
       resetPedalOffset: resetWhole,
       // Nothing drawn to walk onto, so both horizontals fall through to the ink nudge.
@@ -150,6 +159,13 @@ describe("the span-mark key verbs, at the ottava row — screen → outward", ()
   const engineFor = (): MusicEngine => ({
     nudgeOttavaEndpoint: nudge,
     nudgeOttava: whole,
+    // ⭐ As the pedal row above: the walk previews, the run commits (`./keyRun`).
+    previewOttavaEndpointOffset: nudge,
+    previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+    previewOttavaEndpointRebase: vi.fn(() => true),
+    previewOttavaOffsetRebase: vi.fn(() => true),
+    previewOttavaEnd: vi.fn(() => true),
+    previewOttavaSlot: vi.fn(() => true),
     getOttavaById: () => ({ id: 'O1', shift }),
     // Nothing drawn to walk onto, so a horizontal press stays the plain ink nudge.
     nextOttavaStartSlot: vi.fn(() => null),

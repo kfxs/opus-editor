@@ -31,6 +31,12 @@ describe('nudging a tempo mark from the keyboard', () => {
     renderScore = vi.fn()
     const engine = {
       nudgeTempoOffset: nudge,
+      // ⭐ The WALK writes through the preview twins now — a run of presses is one undo entry
+      //   (`./keyRun`). Same mock: the claim here is which key writes which ink, unchanged.
+      previewTempoOffset: nudge,
+      previewTempoOffsetRebase: vi.fn(() => true),
+      previewTempoSlotKeepingOffset: vi.fn(() => true),
+      commitTempoDrag: vi.fn(),
       resetTempoOffset: reset,
       moveTempoBySlot: reanchor,
       resetDynamicOffset: vi.fn(() => false),
@@ -62,7 +68,7 @@ describe('nudging a tempo mark from the keyboard', () => {
       { selectNote: vi.fn(), deselectAll: vi.fn(), adjustPitch: vi.fn(), adjustOctave: vi.fn(), navigateNext: vi.fn(), navigateSelection: vi.fn(), navigateBarline: vi.fn(() => false) } as never,
       { clearArmedArticulations: vi.fn() } as never,
       {} as never,
-      { renderScore } as never,
+      { renderScore, previewMarks: vi.fn() } as never,
       {} as never,
       { model: { getViewportSize: () => ({ w: 800, h: 400 }) } } as never,
       () => null, () => {}, () => {}, () => false,

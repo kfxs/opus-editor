@@ -128,12 +128,17 @@ describe('walkTempo', () => {
     expect(offsetX()).toBeCloseTo(-20)
   })
 
-  it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {
+  it('⭐ the RUN is ONE undo entry, however many presses it took', () => {
     for (let i = 0; i < 10; i++) walkTempo(engine, markId, 1)
     expect(at()).toBe('1@2')
+    // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so it has to be
+    //   settled before there is anything to undo, which in the app is `shortcutWiring`'s 150 ms
+    //   settle (`./keyRun`). ⭐ And the ink presses go back with it: one undo returns to where the
+    //   key went down, where the old rule left the nine nudges standing at 9 spaces.
+    engine.commitTempoDrag()
     engine.undo()
     expect(at()).toBe('1@1')
-    expect(offsetX()).toBeCloseTo(9)
+    expect(offsetX()).toBeCloseTo(0)
   })
 
   it('⭐⭐ it is AUDIBLE — a crossing moves the tempo map, an ink nudge does not', () => {

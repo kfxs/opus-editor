@@ -198,12 +198,15 @@ describe('walkHairpinEndpoint', () => {
     expect(offset('start').x).toBeCloseTo(-5)
   })
 
-  it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {
+  it('⭐ the RUN is ONE undo entry, however many presses it took — the re-anchor and the re-base go back together', () => {
     for (let i = 0; i < 10; i++) walkHairpinEndpoint(engine, wedgeId, 'start', 1)
     expect(span().beat).toBe(1)
+    // ⭐⭐ THE RUN IS THE UNDO ENTRY, ⛔ not the press — settle it first, as
+    //   `shortcutWiring`'s 150 ms does in the app (`./keyRun`).
+    engine.commitHairpinDrag('start')
     engine.undo()
     expect(span()).toEqual({ beat: 0, length: 3 })
-    expect(offset('start').x).toBeCloseTo(9)
+    expect(offset('start').x).toBeCloseTo(0)
   })
   /**
    * ⭐⭐ THE RIGHT SQUARE — the DURATION end (his name for it, 2026-08-20).
@@ -278,12 +281,17 @@ describe('walkHairpinEndpoint', () => {
       expect(offset('end').x).toBeCloseTo(-15)
     })
 
-    it('⭐ a crossing press is ONE undo entry, on this end too', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took, on this end too', () => {
       for (let i = 0; i < 10; i++) walkHairpinEndpoint(engine, wedgeId, 'end', -1)
       expect(span().length).toBe(2)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitHairpinDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 3 })
-      expect(offset('end').x).toBeCloseTo(-9)
+      expect(offset('end').x).toBeCloseTo(0)
     })
   })
 
@@ -626,12 +634,17 @@ describe('walkHairpinEndpoint', () => {
       expect(offset('end').x, 'both ends re-based together').toBeCloseTo(0, 6)
     })
 
-    it('⭐ a crossing press is ONE undo entry — and it takes the whole wedge back', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took — and it takes the whole wedge back', () => {
       for (let i = 0; i < 10; i++) walkHairpinBody(engine, wedgeId, 1)
       expect(span().beat).toBe(1)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitHairpinOffsetDrag()
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 3 })
-      expect(offset('start').x).toBeCloseTo(9, 6)
+      expect(offset('start').x, 'the ink presses went back with it').toBeCloseTo(0, 6)
     })
 
     it('🚨⭐⭐ dragged UP off its staff, the wedge goes ABOVE that staff — ⛔ not to the system over it', () => {

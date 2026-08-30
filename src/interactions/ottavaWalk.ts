@@ -57,6 +57,7 @@ import {
 import { type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
+import { withoutAnEntry } from './keyRun'
 import { dbg } from '../utils/debug'
 
 /**
@@ -98,21 +99,6 @@ interface OttavaWrite {
   rebase: (dx: number) => boolean
 }
 
-/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
- *  batch ({@link walkOttavaEndpoint}). */
-function keyWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
-  return {
-    reanchor: (target) => which === 'start'
-      ? engine.moveOttavaStartToSlot(id, target)
-      : engine.moveOttavaEndToSlot(id, target),
-    // ⛔ **The second argument is 0, ⚠️ NEVER a `dy`.** `nudgeOttavaEndpoint` speaks
-    // OUTWARD-from-the-staff, where a walk's vertical is screen-down — and it lands on the WHOLE
-    // bracket, both ends at once. Nothing on this road has a vertical to write.
-    nudge: (dx, outward) => engine.nudgeOttavaEndpoint(id, which, dx, outward),
-    rebase: (dx) => engine.rebaseOttavaEndpointOffset(id, which, dx),
-  }
-}
-
 /** The drag's writes: the same three edits with no undo entry of their own. */
 function previewWrites(engine: OttavaWalkEngine, id: string, which: 'start' | 'end'): OttavaWrite {
   return {
@@ -150,7 +136,7 @@ export function walkOttavaEndpoint(
   which: 'start' | 'end',
   dx: number,
 ): boolean {
-  return walkPress(endpointDrive(engine, id, which, keyWrites(engine, id, which)), dx)
+  return walkPress(endpointDrive(engine, id, which, previewWrites(engine, id, which)), dx)
 }
 
 /**
@@ -172,7 +158,7 @@ function endpointDrive(
     port: portFor(engine, id, which, write),
     wrap: wrapPort(engine, id, which),
     label: which === 'start' ? 'Move octave line start' : 'Resize octave line',
-    runBatch: (description: string, fn: () => void) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     // ⭐ ONE stop per press — an end whose ink has been nudged far ahead of its note is already PAST
     // every stop between the two, so an unbounded loop would hop the whole distance on one keystroke.
     maxCrossings: 1,
@@ -266,11 +252,11 @@ export function dragOttavaEndpoint(
  */
 export function walkOttavaBody(engine: OttavaWalkEngine, id: string, dx: number): boolean {
   return walkPress({
-    port: bodyPort(engine, id, bodyWrites(engine, id)),
+    port: bodyPort(engine, id, bodyPreviewWrites(engine, id)),
     // ⭐ The BEGINNING's system, because a bracket moved as one is moved by its beginning.
     wrap: wrapPort(engine, id, 'start'),
     label: 'Move octave line',
-    runBatch: (description, fn) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     maxCrossings: 1,
   }, dx)
 }
@@ -461,17 +447,6 @@ function bodyPreviewWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
     reanchor: (target) => engine.previewOttavaSlot(id, target),
     nudge: (dx, outward) => engine.previewOttavaOffset(id, dx, outward),
     rebase: (dx) => engine.previewOttavaOffsetRebase(id, dx),
-  }
-}
-
-/** The body's three writes, on the KEYBOARD — each records its own undo entry, and a crossing press
- *  wraps them in one batch. ⚠️ `nudgeOttava`'s second argument is OUTWARD and stays 0: no walk has a
- *  vertical, and the bracket's is one shared number anyway. */
-function bodyWrites(engine: OttavaWalkEngine, id: string): OttavaWrite {
-  return {
-    reanchor: (target) => engine.moveOttavaToSlot(id, target),
-    nudge: (dx, outward) => engine.nudgeOttava(id, dx, outward),
-    rebase: (dx) => engine.rebaseOttavaOffset(id, dx),
   }
 }
 

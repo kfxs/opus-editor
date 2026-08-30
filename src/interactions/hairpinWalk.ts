@@ -38,6 +38,7 @@ import { hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { type MarkStop, type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort, type SystemInk } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
+import { withoutAnEntry } from './keyRun'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /**
@@ -74,17 +75,6 @@ interface HairpinWrite {
    *  the page limit, or a refused re-base leaves the anchor ahead of the ink and the next press
    *  crosses again. */
   rebase: (dx: number) => boolean
-}
-
-/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
- *  batch ({@link walkHairpinEndpoint}). */
-function keyWrites(engine: HairpinWalkEngine, id: string, which: 'start' | 'end'): HairpinWrite {
-  return {
-    moveStart: (target) => engine.moveHairpinStartToSlot(id, target),
-    moveEnd: (stop) => engine.moveHairpinEndToStop(id, stop),
-    nudge: (dx, dy) => engine.nudgeHairpinEndpoint(id, which, dx, dy),
-    rebase: (dx) => engine.rebaseHairpinEndpointOffset(id, which, dx),
-  }
 }
 
 /** The drag's writes: the same three edits with no undo entry of their own. */
@@ -279,7 +269,7 @@ export function walkHairpinEndpoint(
   which: 'start' | 'end',
   dx: number,
 ): boolean {
-  return walkPress(endpointDrive(engine, id, which, keyWrites(engine, id, which)), dx)
+  return walkPress(endpointDrive(engine, id, which, previewWrites(engine, id, which)), dx)
 }
 
 /**
@@ -303,7 +293,7 @@ function endpointDrive(
     port,
     wrap: wrapPort(engine, id, which),
     label: which === 'start' ? 'Move hairpin start' : 'Resize hairpin',
-    runBatch: (description: string, fn: () => void) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     inkGuard: (crossing: boolean, dx: number) => {
       if (crossing || inkStaysOnSystem(engine, id, which, port, dx)) return true
       dbg(`[${port.label}] refused — the ink would leave this system, and there is nothing to wrap onto`)
@@ -454,12 +444,6 @@ interface HairpinBodyWrite {
   rebase: (dx: number) => boolean
 }
 
-const bodyKeyWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWrite => ({
-  move: (target) => engine.moveHairpinToSlot(id, target),
-  nudge: (dx, dy) => engine.nudgeHairpin(id, dx, dy),
-  rebase: (dx) => engine.rebaseHairpinOffset(id, dx),
-})
-
 const bodyPreviewWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWrite => ({
   move: (target) => engine.previewHairpinSlot(id, target),
   nudge: (dx, dy) => engine.previewHairpinOffset(id, dx, dy),
@@ -476,13 +460,13 @@ const bodyPreviewWrites = (engine: HairpinWalkEngine, id: string): HairpinBodyWr
  * say which staff it means.
  */
 export function walkHairpinBody(engine: HairpinWalkEngine, id: string, dx: number): boolean {
-  const port = bodyPort(engine, id, bodyKeyWrites(engine, id))
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
   return walkPress({
     port,
     // ⭐ The START's system, because a wedge moved as one is moved by its beginning.
     wrap: wrapPort(engine, id, 'start'),
     label: 'Move hairpin',
-    runBatch: (description, fn) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     inkGuard: (crossing, step) => {
       if (crossing || inkStaysOnSystem(engine, id, 'start', port, step)) return true
       dbg(`[${port.label}] refused — the ink would leave this system, and there is nothing to wrap onto`)

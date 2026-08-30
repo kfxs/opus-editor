@@ -33,6 +33,13 @@ describe('moving a dynamic from the keyboard', () => {
     const engine = {
       moveDynamicBySlot: reanchor,
       nudgeDynamicOffset: nudgeOffset,
+      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+      //   key writes which ink, and that is unchanged.
+      previewDynamicOffset: nudgeOffset,
+      previewDynamicOffsetRebase: vi.fn(() => true),
+      previewDynamicSlotKeepingOffset: vi.fn(() => true),
+      commitDynamicDrag: vi.fn(),
       nudgeNoteOffset: noteOffset,
       resizeHairpinBySlot: vi.fn(() => false),
       moveHairpinStartBySlot: vi.fn(() => false),

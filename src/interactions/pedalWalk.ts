@@ -58,6 +58,7 @@ import {
 import { type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
+import { withoutAnEntry } from './keyRun'
 import { dbg } from '../utils/debug'
 
 /**
@@ -105,17 +106,6 @@ interface PedalWrite {
   rebase: (dx: number) => boolean
 }
 
-/** The keyboard's writes: each records its own undo entry, and a crossing press wraps them in one
- *  batch ({@link walkPedalEndpoint}). */
-function keyWrites(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): PedalWrite {
-  return {
-    press: (target) => engine.movePedalStartToSlot(id, target),
-    lift: (target) => engine.movePedalLiftTo(id, target),
-    nudge: (dx, dy) => engine.nudgePedalEndpoint(id, which, dx, dy),
-    rebase: (dx) => engine.rebasePedalEndpointOffset(id, which, dx),
-  }
-}
-
 /** The drag's writes: the same four edits with no undo entry of their own. */
 function previewWrites(engine: PedalWalkEngine, id: string, which: 'start' | 'end'): PedalWrite {
   return {
@@ -154,7 +144,7 @@ export function walkPedalEndpoint(
   which: 'start' | 'end',
   dx: number,
 ): boolean {
-  return walkPress(endpointDrive(engine, id, which, keyWrites(engine, id, which)), dx)
+  return walkPress(endpointDrive(engine, id, which, previewWrites(engine, id, which)), dx)
 }
 
 /**
@@ -176,7 +166,7 @@ function endpointDrive(
     port: portFor(engine, id, which, write),
     wrap: wrapPort(engine, id, which),
     label: which === 'start' ? 'Move pedal start' : 'Move pedal lift',
-    runBatch: (description: string, fn: () => void) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     // ⭐ ONE stop per press — the trill's report, and the rule for every span end.
     maxCrossings: 1,
   }
@@ -274,11 +264,11 @@ export function dragPedalEndpoint(
  */
 export function walkPedalBody(engine: PedalWalkEngine, id: string, dx: number): boolean {
   return walkPress({
-    port: bodyPort(engine, id, bodyWrites(engine, id)),
+    port: bodyPort(engine, id, bodyPreviewWrites(engine, id)),
     // ⭐ The PRESS's system, because a pedal moved as one is moved by the foot going down.
     wrap: wrapPort(engine, id, 'start'),
     label: 'Move pedal',
-    runBatch: (description, fn) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
     maxCrossings: 1,
   }, dx)
 }
@@ -467,20 +457,6 @@ function bodyPreviewWrites(
     lift: () => false,
     nudge: (dx, dy) => engine.previewPedalOffset(id, dx, dy, throughTheBand),
     rebase: (dx) => engine.previewPedalOffsetRebase(id, dx),
-  }
-}
-
-/** The whole pedal's writes on the KEYBOARD — each records its own undo entry, and a crossing press
- *  wraps them in one batch. ⚠️ `nudgePedal`'s second argument is the shared vertical and stays 0: no
- *  walk has one ({@link PedalWrite}). */
-function bodyWrites(engine: PedalWalkEngine, id: string): PedalWrite {
-  return {
-    press: (target) => engine.movePedalToSlot(id, target),
-    // ⛔ The body has no LIFT door: moved as one, the pedal is re-anchored by its press and the
-    // release simply travels. A stop of the lift's own would RESHAPE it, which is the squares' job.
-    lift: () => false,
-    nudge: (dx, dy) => engine.nudgePedal(id, dx, dy),
-    rebase: (dx) => engine.rebasePedalOffset(id, dx),
   }
 }
 

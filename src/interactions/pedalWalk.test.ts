@@ -167,12 +167,20 @@ describe('walkPedalEndpoint', () => {
       expect(offset('start'), 'those presses were ink — ⭐ which is FREE, see the header').toBeCloseTo(-5)
     })
 
-    it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took — the re-anchor and the re-base go back together', () => {
       for (let i = 0; i < 10; i++) walkPedalEndpoint(engine, pedalId, 'start', 1)
       expect(span().beat).toBe(1)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitPedalDrag('start')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
-      expect(offset('start')).toBeCloseTo(9)
+      // ⭐⭐ **AND THE INK PRESSES GO BACK WITH IT.** Under the old rule only the CROSSING press
+      //   recorded an entry, so an undo left the nine ink nudges standing at 9 spaces. A run is
+      //   one gesture, so one undo returns to where the key went down — offset and all.
+      expect(offset('start')).toBeCloseTo(0)
     })
   })
 
@@ -228,12 +236,20 @@ describe('walkPedalEndpoint', () => {
       expect(offset('end'), 'the presses past the end of the road were ink').toBeGreaterThan(0)
     })
 
-    it('⭐ a crossing press is ONE undo entry, on this end too', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took, on this end too', () => {
       for (let i = 0; i < 10; i++) walkPedalEndpoint(engine, pedalId, 'end', 1)
       expect(span().length).toBe(3)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitPedalDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
-      expect(offset('end')).toBeCloseTo(9)
+      // ⭐⭐ **AND THE INK PRESSES GO BACK WITH IT.** Under the old rule only the CROSSING press
+      //   recorded an entry, so an undo left the nine ink nudges standing at 9 spaces. A run is
+      //   one gesture, so one undo returns to where the key went down — offset and all.
+      expect(offset('end')).toBeCloseTo(0)
     })
   })
 
@@ -274,9 +290,14 @@ describe('walkPedalEndpoint', () => {
       expect(offset('end')).toBeLessThan(0)
     })
 
-    it('⭐ a crossing press is ONE undo entry here too', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took here too', () => {
       walkPedalEndpoint(engine, pedalId, 'end', 1)
       expect(span().length).toBe(5)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitPedalDrag('end')
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 4 })
       expect(offset('end')).toBeCloseTo(0)
@@ -590,12 +611,17 @@ describe('walkPedalEndpoint', () => {
       expect(span(), 'the tenth says the damper falls a beat later').toEqual({ beat: 1, length: 2 })
     })
 
-    it('⭐ a crossing press is ONE undo entry', () => {
+    it('⭐ the RUN is ONE undo entry, however many presses it took', () => {
       for (let i = 0; i < 10; i++) walkPedalBody(engine, pedalId, 1)
       expect(span().beat).toBe(1)
+      // ⭐⭐ **THE RUN IS THE UNDO ENTRY, ⛔ not the press** (his rule, 2026-08-30) — so the run
+      //   has to be settled before there is anything to undo. In the app that is
+      //   `shortcutWiring`'s settle, 150 ms after the repeats stop (`./keyRun`); here it is the
+      //   family's own commit, which is exactly what the run calls.
+      engine.commitPedalOffsetDrag()
       engine.undo()
       expect(span()).toEqual({ beat: 0, length: 2 })
-      expect(ink()).toBeCloseTo(9)
+      expect(ink()).toBeCloseTo(0)
     })
 
     it('walks back too, and stops at the start of the score — the ink carries on', () => {

@@ -31,8 +31,9 @@ import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
   resetSelectedSpanMark,
 } from './spanMarkKeys'
-import { commitTrillKeyRun } from './trillWalk'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
+import { keyRunTick } from './keyRun'
+import type { MarkPreviewKind } from '../engine/rendering/markPreviewPass'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
 import { openClefWindow } from '../windows/clefWindow'
@@ -45,13 +46,6 @@ import { openTupletWindow } from '../windows/tupletWindow'
 import { keypadCellForCode } from '../windows/keypad/keypadLayouts'
 import { pressKeypadCell } from '../windows/keypad/keypadPress'
 import { keypadPageSelection } from '../windows/keypad/keypadPageSelection'
-
-/**
- * ⏱ How long after the LAST press a held trill key waits before rendering for real
- * ({@link nudgeSelectedTrill}). ⚠️ Comfortably longer than a key repeat (~33 ms) so a held key pays
- * once, and short enough that letting go feels instant.
- */
-const TRILL_KEY_SETTLE_MS = 150
 
 /**
  * Wires keyboard shortcuts to controller actions. Framework-agnostic: it reads and writes
@@ -76,9 +70,6 @@ export function wireShortcuts(
   togglePlayback: () => void,
 ): { enable: () => void; disable: () => void; run: (action: string) => void } {
   const shortcutManager = new ShortcutManager()
-  /** ⏱ The trill key run's settle — see {@link nudgeSelectedTrill}. ⚠️ One timer, cleared and
-   *  re-armed by each press, so a held key pays for ONE real render however long it is held. */
-  let trillKeySettle: ReturnType<typeof setTimeout> | null = null
 
   // Focal point for keyboard zoom = the viewport center (screen coords); the keys carry no
   // cursor position, so the center is the natural anchor (the wheel uses the cursor instead).
@@ -284,12 +275,13 @@ export function wireShortcuts(
   const nudgeArmedHairpinEnd = (dx: number, dy: number): boolean => {
     const eng = getEngine()
     const hairpin = selectedOf(state, 'hairpin')
-    if (!eng || !hairpin?.endpoint) return false
+    const endpoint = hairpin?.endpoint
+    if (!eng || !hairpin || !endpoint) return false
     const moved = dy === 0 && dx !== 0
-      ? walkHairpinEndpoint(eng, hairpin.id, hairpin.endpoint, dx)
-      : eng.nudgeHairpinEndpoint(hairpin.id, hairpin.endpoint, dx, dy)
+      ? walkHairpinEndpoint(eng, hairpin.id, endpoint, dx)
+      : eng.nudgeHairpinEndpoint(hairpin.id, endpoint, dx, dy)
     if (!moved) return false
-    renderer.renderScore()
+    afterMarkPress('hairpin', hairpin.id, dx, dy, () => eng.commitHairpinDrag(endpoint))
     return true
   }
 
@@ -318,9 +310,41 @@ export function wireShortcuts(
    *
    * ⚠️ Screen-down is +dy, so "up" arrives negative and becomes a POSITIVE outward for an 8va.
    */
+  /**
+   * ⭐⭐ **AFTER AN ACCEPTED ARROW ON A MARK — a WALK is a RUN, anything else renders.** His rule,
+   * 2026-08-30: *"we should apply the same solution of the held to all walkings — pedal, ottava,
+   * hairpin, dynamics and tempo"*, after the trill's held key was measured at ~50 ms a press
+   * against a ~33 ms repeat (`./keyRun` carries the numbers).
+   *
+   * ⭐ The horizontal walk previews and settles once — ONE undo entry, ONE real render. ⛔ The
+   * VERTICAL is not a run: it still writes an entry per press and renders for real, because it goes
+   * through different ops (`nudgeWhole` / `nudgeEnd`) that have no preview twin on this path.
+   */
+  const afterMarkPress = (
+    kind: MarkPreviewKind,
+    id: string,
+    dx: number,
+    dy: number,
+    commit: () => void,
+  ): void => {
+    if (dy !== 0 || dx === 0) {
+      renderer.renderScore()
+      return
+    }
+    keyRunTick({
+      key: `${kind}:${id}`,
+      commit,
+      preview: () => renderer.previewMarks(kind, id),
+      render: () => renderer.renderScore(),
+    })
+  }
+
   const nudgeArmedOttavaEnd = (dx: number, dy: number): boolean => {
-    if (!nudgeArmedSpanMarkEnd('ottava', state, getEngine(), dx, dy)) return false
-    renderer.renderScore()
+    const eng = getEngine()
+    const mark = selectedOf(state, 'ottava')
+    const endpoint = mark?.endpoint
+    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('ottava', state, eng, dx, dy)) return false
+    afterMarkPress('ottava', mark.id, dx, dy, () => eng.commitOttavaDrag(endpoint))
     return true
   }
 
@@ -340,8 +364,11 @@ export function wireShortcuts(
    * mark and reshaping it.
    */
   const nudgeSelectedOttava = (dx: number, dy: number): boolean => {
-    if (!nudgeSelectedSpanMark('ottava', state, getEngine(), dx, dy)) return false
-    renderer.renderScore()
+    const eng = getEngine()
+    const mark = selectedOf(state, 'ottava')
+    if (!eng || !mark || mark.endpoint) return false
+    if (!nudgeSelectedSpanMark('ottava', state, eng, dx, dy)) return false
+    afterMarkPress('ottava', mark.id, dx, dy, () => eng.commitOttavaOffsetDrag())
     return true
   }
 
@@ -368,8 +395,11 @@ export function wireShortcuts(
    * both have a re-anchor AND an offset.
    */
   const nudgeArmedPedalEnd = (dx: number, dy: number): boolean => {
-    if (!nudgeArmedSpanMarkEnd('pedal', state, getEngine(), dx, dy)) return false
-    renderer.renderScore()
+    const eng = getEngine()
+    const mark = selectedOf(state, 'pedal')
+    const endpoint = mark?.endpoint
+    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('pedal', state, eng, dx, dy)) return false
+    afterMarkPress('pedal', mark.id, dx, dy, () => eng.commitPedalDrag(endpoint))
     return true
   }
 
@@ -387,8 +417,11 @@ export function wireShortcuts(
    * ⚠️ ⛔ No screen→outward conversion, unlike the bracket's twin: a pedal has one side permanently.
    */
   const nudgeSelectedPedal = (dx: number, dy: number): boolean => {
-    if (!nudgeSelectedSpanMark('pedal', state, getEngine(), dx, dy)) return false
-    renderer.renderScore()
+    const eng = getEngine()
+    const mark = selectedOf(state, 'pedal')
+    if (!eng || !mark || mark.endpoint) return false
+    if (!nudgeSelectedSpanMark('pedal', state, eng, dx, dy)) return false
+    afterMarkPress('pedal', mark.id, dx, dy, () => eng.commitPedalOffsetDrag())
     return true
   }
 
@@ -445,8 +478,11 @@ export function wireShortcuts(
    * else; every press either side of it is ink.
    */
   const nudgeArmedTrillEnd = (dx: number, dy: number): boolean => {
-    if (!nudgeArmedSpanMarkEnd('trill', state, getEngine(), dx, dy)) return false
-    renderer.renderScore()
+    const eng = getEngine()
+    const mark = selectedOf(state, 'trill')
+    const endpoint = mark?.endpoint
+    if (!eng || !endpoint || !nudgeArmedSpanMarkEnd('trill', state, eng, dx, dy)) return false
+    afterMarkPress('trill', mark.id, dx, dy, () => eng.commitTrillDrag(endpoint))
     return true
   }
 
@@ -461,44 +497,11 @@ export function wireShortcuts(
    * side of the crossing is ink.
    */
   const nudgeSelectedTrill = (dx: number, dy: number): boolean => {
-    // ⏱ TEMPORARY (2026-08-30) — his report: holding the arrow down *"is not smooth, it freezes
-    //   somehow"*. ⭐ SPLIT, because the two halves have different cures: `walk` is the model write
-    //   (and the UNDO SNAPSHOT of the whole score it records), `render` is the drawing. Measured at
-    //   **~50ms a press = ~25ms + ~25ms** on his Prelude, against a ~33ms key repeat.
-    const t0 = performance.now()
-    const walked = nudgeSelectedSpanMark('trill', state, getEngine(), dx, dy)
-    const t1 = performance.now()
-    if (!walked) return false
-    // ⭐⭐ **A HELD KEY IS A GESTURE, so it DRAWS like one** — the drag's own lesson
-    //   (docs/render-performance-plan.md §12.5a): redraw this family against the standing render and
-    //   re-cast the page ONCE, when the repeats stop. His measurement: the full `renderScore()` this
-    //   key used to make cost **~25ms of every ~33ms repeat**, on a score whose music never changed.
-    //
-    // ⚠️ **OPT-IN, this family only** — the ottava, the pedal and the wedge keep their full render
-    //   until their own eye-test says otherwise (CLAUDE.md: a shared rule changed is five families
-    //   changed). ⛔ And the settle is not optional: a preview deliberately does NOT restack the
-    //   ladder or re-cast the page, so something must pay for that, exactly as a drag's DROP does.
-    const trill = selectedOf(state, 'trill')
-    if (trill) {
-      renderer.previewMarks('trill', trill.id)
-      if (trillKeySettle !== null) clearTimeout(trillKeySettle)
-      trillKeySettle = setTimeout(() => {
-        trillKeySettle = null
-        // ⭐⭐ **THE RUN'S DROP — his rule**: *"we don't have to record all changes with the key
-        //   held, just know what was the previous state before the held, so we go back"*. One undo
-        //   entry for the whole run (`trillWalk.commitTrillKeyRun`), which is also what takes the
-        //   per-press SNAPSHOT of the score off the repeat path. ⚠️ Before the render, as a drag's
-        //   drop is: `commitPreviewed` records history and deliberately does not re-engrave.
-        const settling = getEngine()
-        if (settling) commitTrillKeyRun(settling)
-        renderer.renderScore()
-        dbg('[Trill key] the run settled — one undo entry, one real render, the page re-cast')
-      }, TRILL_KEY_SETTLE_MS)
-    } else {
-      renderer.renderScore()
-    }
-    dbg(`[Trill key] press ${(performance.now() - t0).toFixed(1)}ms`
-      + ` = walk ${(t1 - t0).toFixed(1)}ms + draw ${(performance.now() - t1).toFixed(1)}ms`)
+    const eng = getEngine()
+    const mark = selectedOf(state, 'trill')
+    if (!eng || !mark || mark.endpoint) return false
+    if (!nudgeSelectedSpanMark('trill', state, eng, dx, dy)) return false
+    afterMarkPress('trill', mark.id, dx, dy, () => eng.commitTrillDrag('start'))
     return true
   }
 
@@ -558,7 +561,7 @@ export function wireShortcuts(
       ? walkHairpinBody(eng, hairpin.id, dx)
       : eng.nudgeHairpin(hairpin.id, dx, dy)
     if (!moved) return false
-    renderer.renderScore()
+    afterMarkPress('hairpin', hairpin.id, dx, dy, () => eng.commitHairpinOffsetDrag())
     return true
   }
 
@@ -653,7 +656,7 @@ export function wireShortcuts(
       ? walkDynamic(eng, dynamicId, dx)
       : eng.nudgeDynamicOffset(dynamicId, dx, dy)
     if (!moved) return false
-    renderer.renderScore()
+    afterMarkPress('dynamic', dynamicId, dx, dy, () => eng.commitDynamicDrag())
     return true
   }
 
@@ -680,7 +683,7 @@ export function wireShortcuts(
       ? walkTempo(eng, tempoId, dx)
       : eng.nudgeTempoOffset(tempoId, dx, dy)
     if (!moved) return false
-    renderer.renderScore()
+    afterMarkPress('tempo', tempoId, dx, dy, () => eng.commitTempoDrag())
     return true
   }
 

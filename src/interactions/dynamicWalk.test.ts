@@ -173,12 +173,15 @@ describe('walkDynamic', () => {
     expect(offsetY()).toBeCloseTo(3, 6)
   })
 
-  it('⭐ a crossing press is ONE undo entry — the re-anchor and the re-base go back together', () => {
+  it('⭐ the RUN is ONE undo entry, however many presses it took — the re-anchor and the re-base go back together', () => {
     // An undo that took back only half of it would leave the mark somewhere nobody put it.
     for (let i = 0; i < 10; i++) walkDynamic(engine, dynamicId, 1)
     expect(at()).toBe('1@2')
+    // ⭐⭐ THE RUN IS THE UNDO ENTRY, ⛔ not the press — settle it first, as
+    //   `shortcutWiring`'s 150 ms does in the app (`./keyRun`).
+    engine.commitDynamicDrag()
     engine.undo()
     expect(at()).toBe('1@1')
-    expect(offsetX()).toBeCloseTo(9)
+    expect(offsetX()).toBeCloseTo(0)
   })
 })

@@ -43,6 +43,17 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
     adjustPitch = vi.fn()
     const engine = {
       nudgeOttavaEndpoint: nudge,
+      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+      //   key writes which ink, and that is unchanged.
+      previewOttavaEndpointOffset: nudge,
+      previewOttavaEndpointRebase: vi.fn(() => true),
+      previewOttavaEnd: vi.fn(() => true),
+      previewOttavaOffset: (id: string, dx: number, dy: number) => whole(id, dx, dy),
+      previewOttavaOffsetRebase: vi.fn(() => true),
+      previewOttavaSlot: vi.fn(() => true),
+      commitOttavaDrag: vi.fn(),
+      commitOttavaOffsetDrag: vi.fn(),
       nudgeOttava: whole,
       resetOttavaOffset: vi.fn(() => true),
       // ⚠️ The wiring asks which SIDE the bracket is on, to turn the key's screen direction into the
@@ -59,6 +70,12 @@ describe('nudging an octave bracket\'s ink from the keyboard', () => {
       // The hairpin's own branches sit ahead of the ottava's in every chain — stubbed so the last
       // case can prove they answer FIRST for a wedge rather than crashing past it.
       nudgeHairpinEndpoint: vi.fn(() => true),
+      // ⭐ The neighbour family reaches its WALK in the 'answers for an OTTAVA only' case,
+      //   and a walk previews now (`./keyRun`).
+      previewHairpinEndpointOffset: vi.fn(() => true),
+      previewHairpinEndpointRebase: vi.fn(() => true),
+      previewHairpinEnd: vi.fn(() => true),
+      commitHairpinDrag: vi.fn(),
       // ⭐ Both squares' horizontals ask the WALK first (`./hairpinWalk`); nothing is drawn here, so
       // "nowhere to go" keeps the press the plain nudge this case is about.
       nextHairpinStartSlot: vi.fn(() => null),

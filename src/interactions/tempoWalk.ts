@@ -28,6 +28,7 @@ import { fracCompare } from '../utils/fraction'
 import { type MarkWalkPort } from './markWalk'
 import { lastMeasureNumber, systemInkAt, type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress } from './markDrive'
+import { withoutAnEntry } from './keyRun'
 import { systemStopFor } from './markSystemJump'
 import { dbg, debugEnabled } from '../utils/debug'
 
@@ -238,9 +239,9 @@ function wrapPort(engine: TempoWalkEngine, id: string): BreakWrapPort {
 export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): boolean {
   if (dx === 0) return false
   const port = tempoPort(engine, id, {
-    reanchor: (i, target) => engine.moveTempoToSlotKeepingOffset(i, target),
-    nudge: (i, ddx, ddy) => engine.nudgeTempoOffset(i, ddx, ddy),
-    rebase: (i, ddx) => engine.rebaseTempoOffset(i, ddx),
+    reanchor: (i, target) => engine.previewTempoSlotKeepingOffset(i, target),
+    nudge: (i, ddx, ddy) => engine.previewTempoOffset(i, ddx, ddy),
+    rebase: (i, ddx) => engine.previewTempoOffsetRebase(i, ddx),
   })
 
   // ⭐ THE SECOND POINT MARK ON THE SHARED DRIVER (`./markDrive`), and with the dynamic the pair that
@@ -250,7 +251,7 @@ export function walkTempo(engine: TempoWalkEngine, id: string, dx: number): bool
     port,
     wrap: wrapPort(engine, id),
     label: 'Move tempo mark',
-    runBatch: (description, fn) => engine.runBatch(description, fn),
+    runBatch: withoutAnEntry,
   }, dx)
 }
 

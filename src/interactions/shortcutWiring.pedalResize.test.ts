@@ -39,6 +39,18 @@ describe('moving a sustain pedal\'s ends from the keyboard', () => {
       movePedalStartBySlot: moveStart,
       nudgeNoteOffset: noteOffset,
       nudgePedal: nudgeWhole,
+      // ⭐ The WALK writes through the preview twins since 2026-08-30 — a run of presses is ONE
+      //   undo entry (`./keyRun`). Aliased to the same mocks: what these cases claim is which
+      //   key writes which ink, and that is unchanged.
+      previewPedalOffset: (id: string, dx: number, dy: number) => nudgeWhole(id, dx, dy),
+      previewPedalOffsetRebase: vi.fn(() => true),
+      previewPedalSlot: vi.fn(() => true),
+      previewPedalEndpointOffset: vi.fn(() => true),
+      previewPedalEndpointRebase: vi.fn(() => true),
+      previewPedalStartAtSlot: vi.fn(() => true),
+      previewPedalLiftAt: vi.fn(() => true),
+      commitPedalDrag: vi.fn(),
+      commitPedalOffsetDrag: vi.fn(),
       nudgePedalEndpoint: vi.fn(() => true),
       // ⭐ An armed square's horizontal asks the WALK first (`./pedalWalk`); nothing is drawn here,
       // so "nowhere to go" leaves the press the plain ink nudge these cases are about.
