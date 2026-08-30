@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
 import { createEditorState, type EditorState } from './EditorState'
-import { dragTrillBody, dragTrillEndpoint, walkTrillBody, walkTrillEndpoint } from './trillWalk'
+import {
+  commitTrillKeyRun, dragTrillBody, dragTrillEndpoint, walkTrillBody, walkTrillEndpoint,
+} from './trillWalk'
 import { trillOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac } from '../utils/fraction'
 import { setDebugLogging } from '../utils/debug'
@@ -517,11 +519,35 @@ describe('walkTrillEndpoint', () => {
     it('⭐⭐ a drag and N presses over the same distance land in the SAME state', () => {
       for (let i = 0; i < 10; i++) walkTrillBody(engine, trillId, 1)
       const byKeys = { anchor: idx(trill().startNoteId), end: idx(trill().endNoteId) }
+      // ⭐⭐ **THE RUN IS ONE UNDO ENTRY** (his rule, 2026-08-30) — so the run must be COMMITTED
+      //   before there is anything to undo. In the app that is `shortcutWiring`'s settle, 150 ms
+      //   after the repeats stop; here it is the same call. ⛔ Without it these presses record
+      //   nothing at all and this `undo()` reaches past them to the trill's own creation.
+      expect(commitTrillKeyRun(engine), 'the run had something to commit').toBe(true)
       engine.undo()
 
       dragTrillBody(engine, trillId, 0, 100, 0)
       expect(idx(trill().startNoteId), 'the drag crossed too').toBe(byKeys.anchor)
       expect(idx(trill().endNoteId), 'and carried the extent').toBe(byKeys.end)
+    })
+
+    /**
+     * ⭐⭐ **HIS RULE, 2026-08-30**: *"for the undo with the key held is easy, cause we don't have to
+     * record all changes with the key held, just know what was the previous state before the held,
+     * so we go back — it is just a walking."*
+     *
+     * 🚨 It is also what took the FREEZE off a held key: every press used to record an undo entry,
+     * i.e. a snapshot of the whole score (450 KB on his Prelude) inside a ~33 ms key repeat.
+     */
+    it('⭐⭐ …and ONE undo takes back the whole run, however many presses it took', () => {
+      const before = { anchor: idx(trill().startNoteId), end: idx(trill().endNoteId) }
+      for (let i = 0; i < 30; i++) walkTrillBody(engine, trillId, 1)
+      expect(idx(trill().startNoteId), 'it really walked').not.toBe(before.anchor)
+
+      commitTrillKeyRun(engine)
+      engine.undo()
+      expect(idx(trill().startNoteId), 'back where the key went down').toBe(before.anchor)
+      expect(idx(trill().endNoteId), 'the far end with it').toBe(before.end)
     })
 
     it('⭐ the vertical writes the height as OUTWARD, and BOTH ends move as one', () => {

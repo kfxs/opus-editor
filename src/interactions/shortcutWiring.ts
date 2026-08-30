@@ -31,6 +31,7 @@ import {
   cycleSpanMarkEnd, nudgeArmedSpanMarkEnd, nudgeSelectedSpanMark, resetArmedSpanMarkEnd,
   resetSelectedSpanMark,
 } from './spanMarkKeys'
+import { commitTrillKeyRun } from './trillWalk'
 import { reanchorArmedTrillEndpoint } from './trillReanchor'
 import { nudgeArmedSlurControlPoint, resetArmedSlurHandle } from './slurHandleNudge'
 import { windows } from '../windows'
@@ -483,8 +484,15 @@ export function wireShortcuts(
       if (trillKeySettle !== null) clearTimeout(trillKeySettle)
       trillKeySettle = setTimeout(() => {
         trillKeySettle = null
+        // ⭐⭐ **THE RUN'S DROP — his rule**: *"we don't have to record all changes with the key
+        //   held, just know what was the previous state before the held, so we go back"*. One undo
+        //   entry for the whole run (`trillWalk.commitTrillKeyRun`), which is also what takes the
+        //   per-press SNAPSHOT of the score off the repeat path. ⚠️ Before the render, as a drag's
+        //   drop is: `commitPreviewed` records history and deliberately does not re-engrave.
+        const settling = getEngine()
+        if (settling) commitTrillKeyRun(settling)
         renderer.renderScore()
-        dbg('[Trill key] the run settled — one real render, and the page re-casts around it')
+        dbg('[Trill key] the run settled — one undo entry, one real render, the page re-cast')
       }, TRILL_KEY_SETTLE_MS)
     } else {
       renderer.renderScore()

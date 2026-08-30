@@ -77,7 +77,7 @@ type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
   | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
   | 'setTrillExtension' | 'previewTrillExtension'
-  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset'
+  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset' | 'commitTrillDrag'
   | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
 
 /**
@@ -380,7 +380,7 @@ function bodyPort(engine: TrillWalkEngine, id: string, write: TrillWrite): MarkW
   return {
     label: 'Trill',
     // ⭐ The START square's stops, ⛔ not `'body'`'s — with the far end frozen
-    // ({@link bodyPreviewWrites}) the ornament may not walk past it, and `'body'` has no such clamp,
+    // ({@link bodyMoveWrites}) the ornament may not walk past it, and `'body'` has no such clamp,
     // so it would offer a note the model then refuses and the ink would jam against it.
     nextStop: (direction) => nextTrillAnchorStop(engine, id, 'start', direction),
     stopX: (stop) => {
@@ -522,7 +522,7 @@ function traceTrillFrame(
   const trill = engine.getTrillById(id)
   const drawn = engine.getElementRegistry().getByType('trill').find(e => e.id === id)
   const anchor = engine.getNote(trill?.startNoteId ?? '')
-  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
+  const port = bodyPort(engine, id, bodyMoveWrites(engine, id))
   const staff = trillStaff(engine, id)
   const here = staff === null || anchor?.measure === undefined ? null
     : systemInkAt(engine.getElementRegistry(), staff, anchor.measure,
@@ -546,49 +546,50 @@ function traceTrillFrame(
     + ` stopX ${num(stop ? port.stopX(stop) : null)}`)
 }
 
-/** The keyboard's writes for the whole ornament: each records its own undo entry, and a crossing
- *  press wraps them in one batch ({@link walkTrillBody}). */
-function bodyKeyWrites(engine: TrillWalkEngine, id: string): TrillWrite {
-  return {
-    // ⭐⭐ **THE DRAG'S RULE, on the other device** ({@link carriedEnd}) — nearest to `start + D₀`,
-    // the one before it when that overshoots. ⛔ Not `extentFrom`, whose two branches are neither:
-    // it steps by a COUNT OF NOTES in one lane and rounds strictly DOWN across staves. A press and a
-    // drag frame now leave the ornament in the same state, which is this family's own rule.
-    reanchor: (stop) => engine.moveTrill(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
-    nudge: (dx, dy) => engine.nudgeTrill(id, dx, dy),
-    rebase: (dx) => engine.rebaseTrillOffset(id, dx),
-  }
-}
+/**
+ * ⭐⭐ **A RUN OF PRESSES IS ONE WALK, SO IT IS ONE UNDO ENTRY — his rule, 2026-08-30:** *"for the
+ * undo with the key held is easy, cause we don't have to record all changes with the key held, just
+ * know what was the previous state before the held, so we go back — it is just a walking."*
+ *
+ * ⭐ So the keys write through the DRAG's ops, and the run's end commits once
+ * ({@link commitTrillKeyRun}) — `MusicEngine.commitPreviewed` pushes the state after the walk, so
+ * one `Ctrl+Z` returns to where the key went down.
+ *
+ * 🚨 **And it is also the freeze.** Every `moveTrill`/`nudgeTrill` recorded its own entry, i.e. a
+ * SNAPSHOT of the whole score — 450 KB on his Prelude — inside a ~33 ms key repeat, measured at
+ * ~25 ms of walk per press with the drawing already down to ~1 ms.
+ *
+ * ⚠️ They are {@link bodyMoveWrites}, the DRAG's own three, and that is not a coincidence to be
+ * tidied away: a press and a drag frame must leave the ornament in the same state.
+ */
+const bodyKeyWrites = bodyMoveWrites
 
 /**
- * ⭐⭐ **THE DRAG'S — AND THEY ARE THE START SQUARE'S THREE, WRITTEN OUT AGAIN.** His call,
- * 2026-08-30: *"lets do the trill whole horizontal drag the same that the first endpoint drag"*, and
- * then, watching it: *"i see when dragging that the endpoint is moving"*.
+ * ⭐⭐ **MOVING THE WHOLE ORNAMENT — the three writes, for BOTH devices.**
  *
- * 🚨 **So the far end is not touched at all** — not its NOTE and not its INK. The three body writes
- * it had were each a way for the end to move:
+ * 🚨 His report, 2026-08-30, the minute this was got wrong: *"now the key walking is shrinking the
+ * trill size"*. The keys had been pointed at the START SQUARE's writes by mistake — the frozen-end
+ * set the drag was built from — so a press moved the sign and left the end where it was.
  *
- * | | start square | body (before) |
+ * ⭐ The whole ornament needs all three to agree:
+ *
+ * | | one end (the square) | the whole ornament |
  * |---|---|---|
- * | reanchor | `previewTrillAnchor(id,'start',note)` | `previewTrillMove(id, note, extentFrom(…))` — a NEW end note every step |
- * | nudge    | `previewTrillEndpointOffset(id,'start',…)` | `previewTrillOffset(…)` — **both** offsets |
+ * | reanchor | `previewTrillAnchor(id,'start',note)` | `previewTrillMove(id, note, carriedEnd(…))` — the far end rides on `D₀` |
+ * | nudge    | `previewTrillEndpointOffset(id,'start',…)` | `previewTrillOffset(…)` — **both** inks |
  * | rebase   | `previewTrillEndpointRebase(id,'start',…)` | `previewTrillOffsetRebase(…)` — **both** |
  *
- * ⚠️ **The cost, stated plainly: the ornament STRETCHES as the start walks away from its end.** That
- * is what the start square's drag does, and it is what he asked to see — the two gestures identical
- * first, then adapted. ⛔ Do not "fix" it by putting an extent derivation back: carrying the end is
- * the ADAPTATION still to be made, and it is his to call.
- *
- * ⚠️ The ARROWS with nothing armed are untouched ({@link bodyKeyWrites} still moves the whole
- * ornament) — the drag is the gesture under the hand.
+ * ⚠️ The nudge and the rebase must move BOTH inks or the shape breathes: between crossings the
+ * start's ink would carry the whole offset while the end's stayed on its note, stretching by a gap
+ * and snapping back at every step. ⛔ `preview*` throughout — no undo entry per press or per frame;
+ * the drop commits ({@link MusicEngine.commitTrillDrag}), and so does the key run
+ * ({@link commitTrillKeyRun}).
  */
-function bodyPreviewWrites(engine: TrillWalkEngine, id: string): TrillWrite {
+function bodyMoveWrites(engine: TrillWalkEngine, id: string): TrillWrite {
   return {
-    // ⚠️ `null` is the CLEAR — a stop that would leave the ornament with no end. It goes through the
-    // PREVIEW op like every other frame, or that one crossing would record its own undo entry.
-    reanchor: (stop) => engine.previewTrillAnchor(id, 'start', stop.clearsEnd ? null : stop.note.id),
-    nudge: (dx, dy) => engine.previewTrillEndpointOffset(id, 'start', dx, dy),
-    rebase: (dx) => engine.previewTrillEndpointRebase(id, 'start', dx),
+    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
+    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
+    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
   }
 }
 
@@ -608,11 +609,37 @@ export function walkTrillBody(engine: TrillWalkEngine, id: string, dx: number): 
   // ⭐⭐ The run's own grab — see {@link keepOrMeasureSpan}: `D₀` survives consecutive presses on
   // this ornament and is re-measured the moment anything else has moved it.
   keepOrMeasureSpan(engine, id)
-  const moved = walkPress(
-    trillDrive(engine, id, bodyPort(engine, id, bodyKeyWrites(engine, id)), 'Move trill'), dx)
+  const moved = walkPress({
+    ...trillDrive(engine, id, bodyPort(engine, id, bodyKeyWrites(engine, id)), 'Move trill'),
+    // ⛔⛔ **NO BATCH, because there is no entry to batch** — see {@link bodyKeyWrites}. `runBatch`
+    //   exists to make a crossing press's two writes ONE undo entry; these writes record none, and
+    //   the batch would cost the very snapshot the run is avoiding. The RUN is the entry
+    //   ({@link commitTrillKeyRun}).
+    runBatch: (_description, fn) => { fn(); return true },
+  }, dx)
   rememberTrillPair(engine, id)
+  if (moved) keyRunOpen = true
   return moved
 }
+
+/**
+ * ⭐⭐ **THE RUN'S END — one undo entry for however many presses it took.** Called when the repeats
+ * stop (`shortcutWiring`'s settle, the same moment the page renders for real), which is a key run's
+ * answer to a drag's DROP.
+ *
+ * ⚠️ Declines when nothing was previewed, so a settle that fires after a refused press does not push
+ * a duplicate entry.
+ */
+export function commitTrillKeyRun(engine: TrillWalkEngine): boolean {
+  if (!keyRunOpen) return false
+  keyRunOpen = false
+  engine.commitTrillDrag('start')
+  dbg('[Trill] the key run committed — ONE undo entry, back to before the key went down')
+  return true
+}
+
+/** ⏱ Whether presses have previewed something nobody has committed yet. See {@link walkTrillBody}. */
+let keyRunOpen = false
 
 /**
  * ⭐⭐ **ONE FRAME OF A SHAPE DRAG — the whole ornament, grabbed by its own ink.** His ask,
@@ -653,14 +680,10 @@ export function dragTrillBody(
   dxPx: number,
   dyPx: number,
 ): TrillDragFrame | null {
-  // ⭐⭐ **THE ONE ADAPTATION — the far end rides along** ({@link carriedEnd}). Everything else below
-  // is the square's, line for line; what changes is the WRITE: the anchor step moves BOTH notes and
-  // the ink nudge moves BOTH offsets, so the ornament keeps its shape instead of stretching.
-  const port = trillPort(engine, id, 'start', {
-    reanchor: (stop) => engine.previewTrillMove(id, stop.note.id, carriedEnd(engine, id, stop.note.id)),
-    nudge: (dx, dy) => engine.previewTrillOffset(id, dx, dy),
-    rebase: (dx) => engine.previewTrillOffsetRebase(id, dx),
-  })
+  // ⭐⭐ **THE ONE ADAPTATION — the far end rides along** ({@link bodyMoveWrites}). Everything else
+  // below is the square's, line for line; what changes is the WRITE, and it is the same write the
+  // ARROWS make, so the two devices cannot drift apart.
+  const port = trillPort(engine, id, 'start', bodyMoveWrites(engine, id))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
 
