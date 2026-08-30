@@ -202,7 +202,8 @@ describe('⭐ clipboard — SILENCE travels (his report, 2026-08-19)', () => {
     // for a REBAR (which must be free to re-shape inherited silence) and content for a CLIP.
     expect(payload.lanes[0].events).toHaveLength(1)
     expect(payload.lanes[0].events[0].isRest).toBe(true)
-    expect(payload.lanes[0].events[0].written).toEqual({ duration: 'q', dots: 0 })
+    // A SEQUENCE since 2026-08-30 — one entry here, several for a collapsed tie chain (`utils/rebar`).
+    expect(payload.lanes[0].events[0].written).toEqual([{ duration: 'q', dots: 0 }])
   })
 
   it('⭐ a DOTTED rest keeps its dot through the paste', () => {

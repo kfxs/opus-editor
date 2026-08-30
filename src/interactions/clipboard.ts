@@ -43,7 +43,9 @@ function engravingOf(score: Score, id: string): { engraving?: EngravingOverride[
  */
 export interface ClipboardPayload extends Clip {
   format: 'opus-editor/clipboard'
-  version: 4
+  /** ⚠️ Bumped to 5 on 2026-08-30: a `RebarEvent`'s authored shape became a SEQUENCE (a tie chain
+   *  is one event and several figures — `utils/rebar`), so the events section changed shape. */
+  version: 5
   /** Where it was copied from (reference / debugging only). */
   origin: { measure: number; beat: Fraction }
   /** Number of staves the selection covered (for clamp math / UX). 1 for a single-staff clip. */
@@ -719,7 +721,7 @@ export function buildClipboardFromSelection(
   }
 
   return {
-    format: 'opus-editor/clipboard', version: 4, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
+    format: 'opus-editor/clipboard', version: 5, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
     ...(ottavas.length ? { ottavas } : {}),

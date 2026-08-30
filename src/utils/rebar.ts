@@ -99,8 +99,21 @@ export interface RebarEvent {
    * cross a beat stronger than its own endpoints; a NOTE has no such rule (a dotted quarter on a
    * downbeat is ordinary notation), so re-deriving one is a wrong answer to a question that was
    * already answered when the note was written.
+   *
+   * ⭐⭐ **A SEQUENCE, because a tie chain is one event and several shapes.** His report,
+   * 2026-08-30 (the Prelude, bar 1 of the bass staff copied onto bar 2): a **dotted eighth tied to
+   * a quarter** came back as a 16th + an eighth + a quarter — the same length, three notes instead
+   * of two. The chain collapses into ONE event here (that is what lets a paste re-split it at a
+   * barline), and a single shape could not describe 7/4 of a beat, so the whole authored spelling
+   * was dropped and `decomposeSpan` re-tiled it by the metre. The tie chain IS the answer the user
+   * already gave; it just takes more than one figure to say.
+   *
+   * ⚠️ INVARIANT: the entries' written lengths sum to `duration`. `flattenRegion` only records a
+   * shape that describes its own slot's length, and the merge only concatenates when BOTH sides
+   * carry one — a piece with no authored shape breaks the chain and the relay re-derives, which is
+   * the honest answer when part of the spelling is unknown.
    */
-  written?: { duration: NoteDuration; dots: number }
+  written?: { duration: NoteDuration; dots: number }[]
   /**
    * ⭐ True for an event that is SILENCE. ⚠️ Only ever set when {@link FlattenOptions.keepRests} is
    * on: for a rebar a rest is a GAP the relay regenerates (which is how a meter change re-shapes
@@ -263,7 +276,7 @@ export function flattenRegion(
       // rest whose `w` stands for whatever the bar holds — has no authored shape to keep, and taking
       // its written value would quietly shorten the music (`rebarOps.fan.test`). Those re-derive.
       const authored = fracEq(writtenLength(slot), slotActual)
-        ? { duration: slot.duration, dots: slot.dots ?? 0 }
+        ? [{ duration: slot.duration, dots: slot.dots ?? 0 }]
         : undefined
       track(fracAdd(slot.beat, slotActual))
       if (slot.tupletId) continue // owned by an atomic tuplet event above
@@ -339,16 +352,40 @@ function collapseTies(events: FlatEvent[]): RebarEvent[] {
       // the far half of a tie) nothing in the editor asks for.
       prev.duration = fracAdd(prev.duration, ev.duration)
       prev.tiedForward = ev.tiedForward
-      // ⚠️ The merged note is LONGER than the shape either piece was drawn as, so the authored
-      // shape is no longer true of it and the relay must re-derive one. (It re-splits the merged
-      // note itself, which is the whole point of collapsing.)
-      prev.written = undefined
+      // ⭐ **The chain's spelling travels with it.** The merged note is longer than either piece was
+      // drawn as, so no single shape describes it — but the SEQUENCE of shapes does, and it is the
+      // answer the author already gave. Concatenating here is what lets a paste re-lay a dotted
+      // eighth tied to a quarter as itself, instead of re-tiling 7/4 of a beat by the rests' metric
+      // rules (his report, 2026-08-30). ⚠️ Both sides must carry one: a piece whose spelling was
+      // unknown makes the whole chain unknown, and the relay re-derives — which it must, because a
+      // partial sequence would not sum to the length.
+      prev.written = prev.written && ev.written ? [...prev.written, ...ev.written] : undefined
     } else {
       out.push({ ...ev })
     }
   }
   // Drop the internal marker from the returned events.
   return out.map(({ tiedForward: _tiedForward, ...rest }) => rest)
+}
+
+/**
+ * The authored shapes placed end to end from `startBeat` — the relay's reading of
+ * {@link RebarEvent.written}.
+ *
+ * Each figure starts where the previous one ended, which is only meaningful because of the field's
+ * invariant: every entry's written length IS its own sounding length, so the run covers exactly the
+ * event. The relay's own tie loop then ties consecutive pieces, which is what the chain was.
+ */
+function writtenSegments(
+  written: { duration: NoteDuration; dots: number }[],
+  startBeat: Fraction,
+): { beat: Fraction; duration: NoteDuration; dots: number }[] {
+  let beat = startBeat
+  return written.map(({ duration, dots }) => {
+    const at = beat
+    beat = fracAdd(beat, writtenLength({ duration, dots }))
+    return { beat: at, duration, dots }
+  })
 }
 
 function pitchesEqual(a: RebarPitch[], b: RebarPitch[]): boolean {
@@ -440,8 +477,11 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
       // by the metre), and its answer for 1.5 beats at a downbeat is a quarter tied to an eighth —
       // right for a rest, wrong for the dotted quarter somebody typed. See {@link RebarEvent.written}.
       const whole = fracEq(p, startAt) && fracEq(fragEnd, endAt)
+      // ⭐ A SEQUENCE, laid in the order it was written: one figure for a plain note, several for a
+      // tie chain that was collapsed on the way in. Each starts where the one before it ended,
+      // which is exactly what `written`'s invariant (the lengths sum to `duration`) buys.
       const segments = ev.written && whole
-        ? [{ beat: fracSub(p, bs), duration: ev.written.duration, dots: ev.written.dots }]
+        ? writtenSegments(ev.written, fracSub(p, bs))
         : decomposeSpan(fracSub(p, bs), fracSub(fragEnd, bs), meter)
       for (const s of segments) {
         const piece: RebarPiece = {
