@@ -1522,3 +1522,77 @@ what `OttavaRenderer` and `PedalRenderer` always did, and why neither ever had i
   taken — it moves a mark out of the arrangement `MeasureRedrawKey` was built around, and the win is
   one gesture's horizontal.
 - The `[Hairpin frame]` / `[Trill frame]` traces in the walks are marked ⏱ TEMPORARY and are still in.
+
+---
+
+## ✅ 12.5c — A HELD KEY IS A GESTURE TOO (BUILT 2026-08-30)
+
+§12.5a gave the DRAG its cheap frame and its one drop. The keyboard was left as it was, and on his
+Prelude a held arrow was worse than any drag ever measured.
+
+### The measurement, which is the whole argument
+
+His report: *"if i leave the key dow it is not smooth, it freeze somehow"*, then *"sometime the keys
+are ok sometime not"*. A split timer on the trill's own key (35 bars, 450 KB of score):
+
+```
+[Trill key] press 50.4ms = walk 25.6ms + render 24.8ms       against a ~33 ms key repeat
+[Trill key] press 56.8ms = walk 32.0ms + render 24.8ms       …a crossing press
+```
+
+1.5 s of work per second of holding. **Both halves were the same mistake — treating a repeat as an
+isolated edit:**
+
+- the **render** re-derived 35 bars whose music had not changed (§12.5a's own case, on the other
+  device);
+- the **walk** recorded an undo entry per press, and an entry is a SNAPSHOT of the whole score.
+
+### The rule — his, and it is the drag's
+
+> *"for the undo with the key held is easy, cause we don't have to record all changes with the key
+> held, just know what was the previous state before the held, so we go back — it is just a
+> walking."* … *"we should apply the same solution of the held to all walkings — pedal, ottava,
+> hairpin, dynamics and tempo."*
+
+`interactions/keyRun.ts`. An accepted press draws the cheap picture (`previewMarks`) and re-arms one
+150 ms timer; when the repeats stop the run settles: **one commit** (the family's own `commit…Drag`,
+so a single `Ctrl+Z` returns to where the key went down) and **one real render** — which is what
+re-stacks the ladder and re-casts the page, exactly as a drop does.
+
+⚠️ **A run belongs to one mark.** A press on another mark, or another kind, settles the one in flight
+first; otherwise the second mark's commit takes the first one's edit with it.
+
+### ⭐ What made it cheap to build: the preview twins were already there
+
+Every walking family had a `previewWrites` beside its `keyWrites` — built for its drag, in matching
+pairs, for all six. So the change per family was to point the key walk at the twin it already had,
+and to drop `runBatch` (`keyRun.withoutAnEntry`): a batch exists to make a crossing press's two
+writes ONE entry, and there is no entry left to batch. The six `keyWrites` factories are deleted.
+
+| | ottava | pedal | hairpin | trill | dynamic | tempo |
+|---|---|---|---|---|---|---|
+| armed end walk | ✓ | ✓ | ✓ | ✓ | — | — |
+| whole-mark walk | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+### 🚨 The trace was inside the measurement
+
+Two presses of the identical path, from his log:
+
+```
+stop {"note":{"id":"580052ba…","step":"E","alter":0, … ~400 chars … }}   press 50.4ms
+stop none at — gap —ss                                                  press 15.5ms
+```
+
+`markDrive.tracePress` was `JSON.stringify`ing the stop, and a trill's stop carries a whole
+`FlatNote`. The console is charged per character and DevTools charges more as its buffer fills, which
+is why a held key got slower the longer the session ran — the *"sometime ok sometime not"*. It prints
+`note 580052ba bar 1` now, and `__dbg.off()` / `__dbg.on()` exist so the trace can be taken out of a
+measurement: **an instrument that is part of what it measures needs a switch.**
+
+### ⏭️ Left open
+
+- **The VERTICALS are not runs.** `nudgeWhole` / `nudgeEnd` still record an entry per press and
+  render for real — the same freeze, through ops with no preview twin on that path.
+- The remaining ~25 ms of walk, once the trace is off: unmeasured. The candidates are this family's
+  repeated lane rebuilds (`trillLane` is built several times per press) and the id-lookup cliff of
+  §12.2.

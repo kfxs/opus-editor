@@ -1423,8 +1423,9 @@ arriving on the other device: the key was doing a full 35-bar re-derive on a sco
 not changed. It now `previewMarks('trill', id)` per press and renders for real ONCE, 150 ms after the
 repeats stop — the settle pays for the ladder and the page cast-off exactly as a drag's DROP does.
 
-⚠️ **OPT-IN, this family only.** The ottava, the pedal and the wedge keep their full render until
-their own eye-test asks otherwise (`CLAUDE.md`: a shared rule changed is five families changed).
+⚠️ **It was opt-in for a day.** *"we should apply the same solution of the held to all walkings"* —
+the trill's run is now every family's, `interactions/keyRun.ts`, and the undo went with it: a run is
+ONE entry rather than one per press. See docs/render-performance-plan.md §12.5c.
 
 ⏭️ **Still owed, and measured:** the other ~25 ms. Two candidates, not yet separated — the UNDO
 SNAPSHOT of the 450 KB score that every `nudgeTrill`/`moveTrill` records (a drag pays none: preview
