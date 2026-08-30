@@ -2,7 +2,7 @@ import type { MusicEngine } from '@/engine/MusicEngine'
 import { readScoreFile, scoreFilename, wrapScoreJson } from '@/utils/scoreFile'
 
 /**
- * Getting a score IN and OUT — download, open, print — as three functions two surfaces share.
+ * Getting a score IN and OUT — download, open, print — as the functions two surfaces share.
  *
  * The dev shell's Score-JSON panel had these as private handlers, which was fine while it was the
  * only door. File ▸ Export JSON / Import JSON / Export PDF is a second door, and a second door onto
@@ -75,8 +75,47 @@ export function importScoreJson(engine: MusicEngine, hooks: ScoreFileHooks = {})
   picker.click()
 }
 
+/**
+ * Open one of the scores the editor SHIPS with, REPLACING the open score.
+ *
+ * The third door, and deliberately the same room: an example is a file in the same envelope, so it
+ * arrives at the same `loadScoreText` the picker feeds, with the same refusal path and the same
+ * hooks. What differs is only how the text is got — a `fetch` of `public/examples/`, not a picker —
+ * because an example needs no gesture to choose it; the menu row already did that.
+ *
+ * ⚠️ Fetched, never imported: `public/` is served verbatim in dev and copied into `dist/`, so a
+ * 450 kB Prelude stays out of the bundle for the sessions that never open it.
+ */
+export async function openExampleScore(
+  engine: MusicEngine,
+  file: string,
+  hooks: ScoreFileHooks = {},
+): Promise<void> {
+  const env = (import.meta as unknown as { env?: { BASE_URL?: string } }).env
+  const url = `${env?.BASE_URL ?? '/'}examples/${file}`
+  hooks.status?.(`opening ${file}…`)
+  let text: string
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    text = await response.text()
+  } catch (err) {
+    // The file ships with the app, so a miss here is a BUILD fault (a row naming a file nobody
+    // added), not a user's bad input. Say which one, and leave the open score alone.
+    console.error(`[score-file] cannot fetch the example at ${url} — is it in public/examples/?`, err)
+    hooks.status?.(`refused: cannot open ${file} (see console)`)
+    return
+  }
+  loadScoreText(engine, text, hooks)
+}
+
 async function loadFile(engine: MusicEngine, file: File, hooks: ScoreFileHooks): Promise<void> {
-  const { scoreJson, summary } = readScoreFile(await file.text())
+  loadScoreText(engine, await file.text(), hooks)
+}
+
+/** The one swap, whatever brought the text — a picked file or a shipped example. */
+function loadScoreText(engine: MusicEngine, text: string, hooks: ScoreFileHooks): void {
+  const { scoreJson, summary } = readScoreFile(text)
   if (scoreJson === null) {
     hooks.status?.(summary)
     return

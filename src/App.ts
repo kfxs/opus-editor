@@ -42,7 +42,7 @@ import { wireSelectionInspection } from './interactions/selectionInspectionSync'
 import { wireSoundSync } from './interactions/soundSync'
 import { wirePlayRepeatsSync } from './interactions/playRepeatsSync'
 import { isSelectedStaffSmall, toggleSelectedStaffSize } from './interactions/staffSizeToggle'
-import { exportScoreJson, exportScorePdfFile, importScoreJson } from './interactions/scoreFileIo'
+import { exportScoreJson, exportScorePdfFile, importScoreJson, openExampleScore } from './interactions/scoreFileIo'
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
 import { groupSignConsole } from './dev/groupSignConsole'
@@ -464,11 +464,15 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const withEngine = (fn: (e: MusicEngine) => void) => () => { const e = getEngine(); if (e) fn(e) }
   menuActions.exportPdf = { run: withEngine(e => { void exportScorePdfFile(e) }) }
   menuActions.exportJson = { run: withEngine(e => exportScoreJson(e)) }
-  menuActions.importJson = {
-    run: withEngine(e => importScoreJson(e, {
-      beforeLoad: () => selection.deselectAll(),
-      afterLoad: () => renderer.renderScore(),
-    })),
+  const loadHooks = {
+    beforeLoad: () => selection.deselectAll(),
+    afterLoad: () => renderer.renderScore(),
+  }
+  menuActions.importJson = { run: withEngine(e => importScoreJson(e, loadHooks)) }
+  // An example is a load like any other — same hooks, same swap, only the text comes from
+  // `public/examples/` instead of a picker.
+  menuActions.openExample = {
+    run: (example) => { const e = getEngine(); if (e) void openExampleScore(e, example.file, loadHooks) },
   }
 
   // The Score menu — the dev shell's `Staff:` and `Measure:` palettes, driving the same palette
