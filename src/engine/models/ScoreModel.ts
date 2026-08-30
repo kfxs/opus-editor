@@ -1,7 +1,7 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
 import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd, ClefChange } from '@/types/music'
-import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
+import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, restPositionKey } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
 import { durationToFraction, slotLength, writtenLength } from '@/utils/durations'
@@ -2439,6 +2439,19 @@ export class ScoreModel {
     return { evicted, remaining }
   }
 
+  /**
+   * A NOTE is taking this rest's position, so the rest's HIDDEN flag goes with it — it was
+   * authored for a rest that will not be there (his report, 2026-08-30). ⛔ The rest SHIFT at the
+   * same address stays: `docs/rest-shift-plan.md` §4 accepts resurrect-on-return. See
+   * `overrideOps.clearRestHiddenAt` for why the two differ, and why this is operation-driven
+   * rather than a sweep over what looks orphaned.
+   */
+  private dropRestHiddenOf(measure: Measure, rest: Rest): void {
+    overrideOps.clearRestHiddenAt(
+      this.score, restPositionKey(measure.id, voiceOf(rest), rest.beat, rest.staffId),
+    )
+  }
+
   private evictRestsOverlapping(measure: Measure, incoming: ChordRest): string | undefined {
     const incomingDurFrac = slotLength(incoming)
     const incomingVoice = voiceOf(incoming)
@@ -2459,6 +2472,12 @@ export class ScoreModel {
       if (tieTarget) {
         if (existing.tiedFrom) tieTarget.tiedFrom = existing.tiedFrom
         this.migrateRestTieTo(existing.id, tieTarget.id)
+      }
+      // ⭐ Only when a NOTE takes the position: a rest evicted by another rest is the rest-fill
+      // churn the position key exists to survive, so its hidden flag must stay put.
+      // See `overrideOps.clearRestHiddenAt`.
+      if (incoming.type === 'chord') {
+        this.dropRestHiddenOf(measure, existing)
       }
     }
 
@@ -2511,6 +2530,7 @@ export class ScoreModel {
     for (const existing of evicted) {
       dbg(`[Model.evictRests] remove overlapping ${fmtSlot(existing)} (chord grew, v${chordVoice})`)
       if (chord.notes.length > 0) this.migrateRestTieTo(existing.id, chord.notes[0].id)
+      this.dropRestHiddenOf(measure, existing)
     }
 
     measure.slots = remaining
@@ -2968,6 +2988,12 @@ export class ScoreModel {
         measure.slots = measure.slots.filter(s => s.id !== rest.id)
         measure.slots.push(chord)
         measure.slots.sort((a, b) => fracCompare(a.beat, b.beat))
+
+        // ⭐ The rest's hand-positioning goes with the rest (his report, 2026-08-30): hiding a rest
+        // and then typing a note over it left `restHidden` filed under the position the note now
+        // occupies. The position keeps holding a slot, so `clearRemovedContentOverrides` never
+        // sees it — only this operation knows a rest just stopped existing here.
+        this.dropRestHiddenOf(measure, rest)
 
         return this.toFlatNote(chord, notePitch)
       }

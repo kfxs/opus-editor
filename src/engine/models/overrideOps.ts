@@ -130,6 +130,36 @@ export function toggleRestHidden(score: Score, posKey: string): boolean {
 }
 
 /**
+ * Drop the HIDDEN flag (client #6) filed at ONE position address — the auto-reset owed when a NOTE
+ * takes that position, so the rest it was written for will not be there.
+ *
+ * 🚨 **HIS REPORT, 2026-08-30**: hide a rest, then overwrite it with a note. The slot became a
+ * chord, but `{measureId}:v0:b0/1` still carried `{kind:'restHidden'}` in the exported JSON — an
+ * instruction about a rest that no longer exists, waiting to be inherited by whatever rest refills
+ * that beat later. The Prelude example had 24 of them, every one sitting on a chord.
+ *
+ * ⛔ **The SHIFT at the same address is deliberately left standing** — `rest-shift-plan.md` §4
+ * accepts resurrect-on-return, and a settled decision is not mine to retire. The asymmetry is the
+ * point and it is written up in `rest-hide-plan.md` §"A hide does not resurrect": a resurrected
+ * shift ANNOUNCES itself (the rest returns in the wrong place, and one nudge answers it), while a
+ * resurrected hide is a rest that silently is not drawn — nothing on the page to select, and
+ * nothing to undo.
+ *
+ * ⚠️ **The narrowness is the whole point, and it is the same line {@link clearRemovedContentOverrides}
+ * draws.** A rest override outliving its rest is the DESIGN — rest ids churn on every edit, so the
+ * override is filed by POSITION and *must* survive the rest-fill churn that a duration change or a
+ * gap refill sets off (shorten a hidden whole rest to a quarter and it stays hidden). Only the
+ * operation can tell the two apart, so this is called by the finite set of ops that put a NOTE
+ * where a rest was — never by a sweep over "what looks orphaned".
+ * @returns true if a hidden flag was dropped.
+ */
+export function clearRestHiddenAt(score: Score, posKey: string): boolean {
+  const removed = clearEngravingOverride(score, posKey, 'restHidden')
+  if (removed) dbg(`[overrides] dropped restHidden at ${posKey} — a note took the position`)
+  return removed
+}
+
+/**
  * Set the user-authored **leading space** before one rhythmic column (client #10 — see
  * docs/note-spacing-plan.md), in staff-spaces, signed. Stored as a {@link LeadingSpaceOverride}
  * keyed by the column's position address (`posKey`, built by `spacingPositionKey`) — a column

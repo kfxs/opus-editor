@@ -133,6 +133,13 @@ parity with the shipped `segmentCurveShape` decision ("accept resurrect-on-retur
 no sweep") — it matches the engraving-overrides "operation-driven, not a sweep"
 rule. No prune pass.
 
+⚠️ **The twin does NOT follow this any more (2026-08-30).** `restHidden` (client #6,
+`docs/rest-hide-plan.md` §11) is now dropped when a note takes the rest's position. The
+acceptance above rests on a resurrected shift being *visible* — the rest returns in the wrong
+place and one nudge answers it — and a resurrected hide is not: the rest is silently not drawn.
+This clause still stands for the SHIFT, and `ScoreModel.test.ts`'s "resurrects on a plain
+rest→note→rest" is its guard. Retiring it is a separate, deliberate decision.
+
 ## 5. Scope & controls
 
 - **Any rest**, not just multi-voice bars (a lone rest can be nudged too).
