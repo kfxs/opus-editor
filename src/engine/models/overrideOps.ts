@@ -410,3 +410,64 @@ export function setStaffSpacing(score: Score, staffId: string, above: number): b
 export function resetStaffSpacing(score: Score, staffId: string): boolean {
   return clearEngravingOverride(score, staffId, 'staffSpacing')
 }
+
+/**
+ * ⭐⭐ **Drop the overrides that addressed content a bar-staff just LOST** — the auto-reset (§3.3)
+ * for a clear, whose anchors are provably gone because the slots holding them were deleted.
+ *
+ * 🚨 **HIS REPORT, 2026-08-30** (the Prelude, staff 2 of bar 1): clearing a measure left its default
+ * whole-bar rest sitting six steps HIGH. The bar's old voice-0 rest had been lifted by hand, and that
+ * lift is filed under a POSITION — `{measureId}:s{staffId}:v0:b0/1` — not under the rest. Clearing
+ * removed the rest and refilled the same address, so the fresh rest inherited a nudge authored for a
+ * rest that no longer exists.
+ *
+ * ⭐ **That is the cost of a position key, and it is worth naming**: a position key survives its
+ * element on purpose — rest-fill mints new ids on every edit, so an id-keyed shift would evaporate
+ * the moment you typed the note after it (`nudgeRestShift`). The flip side is that the compartment
+ * cannot see the difference between *this rest was regenerated* (keep the nudge) and *this rest was
+ * deleted* (drop it). Only the OPERATION knows, which is why this is a function a clear CALLS rather
+ * than a sweep over what looks orphaned.
+ *
+ * Two addresses go, both belonging to the removed content:
+ *   - every **position** key in this measure on this staff (`…:v{n}:b{a}/{b}`) — the rest shifts and
+ *     the hidden-rest flags of every voice that stood there;
+ *   - every **slot id** among `slotIds` — the note offsets of the notes just deleted, whose keys can
+ *     never be reached again.
+ *
+ * ⛔ **NOT the column keys** (`{measureId}:space:…`, the barline space, the bar width). A leading
+ * space belongs to the COLUMN and is deliberately shared by every voice and both staves
+ * (`spacingPositionKey`) — clearing one staff of a grand staff must not silently re-space the other.
+ * ⛔ And not the measure's cautionaries: a courtesy clef/meter is score policy at a barline, not
+ * something the cleared notes owned.
+ *
+ * @returns how many compartment entries were removed.
+ */
+export function clearRemovedContentOverrides(
+  score: Score,
+  measureId: string,
+  staffId: string | undefined,
+  slotIds: readonly string[],
+): number {
+  const all = score.engravingOverrides
+  if (!all) return 0
+  // ⚠️ Absent staffId IS the first staff (`keyStaffId`), so its prefix has no `:s` segment — and
+  // because every other staff's key puts `:s{uuid}` immediately after the measure id, the short
+  // prefix cannot reach them.
+  const prefix = `${measureId}${staffId ? `:s${staffId}` : ''}:v`
+  let removed = 0
+  for (const key of Object.keys(all)) {
+    if (key.startsWith(prefix)) {
+      delete all[key]
+      removed++
+    }
+  }
+  for (const id of slotIds) {
+    if (all[id]) {
+      delete all[id]
+      removed++
+    }
+  }
+  if (Object.keys(all).length === 0) delete score.engravingOverrides
+  if (removed) dbg(`[overrides] cleared ${removed} entr(ies) with the content of ${measureId} staff ${staffId ?? 0}`)
+  return removed
+}

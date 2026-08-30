@@ -393,10 +393,16 @@ export class ScoreModel {
     if (!measure) return false
     const staffId = this.staffIdForParams(staff)
     // Drop every slot/tuplet on this staff (all voices); leave the other staves' content.
+    const dropped = measure.slots.filter(s => matchesStaff(s.staffId, staffId, this.score))
     measure.slots = measure.slots.filter(s => !matchesStaff(s.staffId, staffId, this.score))
     if (measure.tuplets) {
       measure.tuplets = measure.tuplets.filter(t => !matchesStaff(t.staffId, staffId, this.score))
     }
+    // ⭐ The hand-positioning that belonged to what just went — or the refill inherits it. A rest
+    // shift is filed by POSITION, and the position is about to be refilled, so a nudge authored for
+    // the old rest would silently become the new one's (his report, 2026-08-30). See
+    // `overrideOps.clearRemovedContentOverrides` for what is NOT dropped and why.
+    overrideOps.clearRemovedContentOverrides(this.score, measure.id, staffId, dropped.map(s => s.id))
     // Refill this staff with the default rest fill (collapses to one measure rest per meter).
     const meter = getMeterInfo(measure.timeSignature)
     const rests = fillRests(fracCreate(0, 1), measureCapacityFrac(measure), meter)
