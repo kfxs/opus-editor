@@ -344,7 +344,7 @@ function jumpSystems(
   const onsets = drawnOnsets(engine)
 
   const target = systemStopFor<Stop>({
-    bands: () => engine.getElementRegistry().staffBands(),
+    bands: () => engine.getElementRegistry().staffRuns(),
     candidates: () => onsets,
     anchor: () => onsetPoint(engine, here),
     inkY: () => inkY,

@@ -64,6 +64,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
       staffBands: () => { drawn.bandsReads++; return drawn.bands },
+      staffRuns: () => { drawn.bandsReads++; return drawn.bands.map(b => ({ ...b, left: -Infinity, right: Infinity })) },
     }))
   },
 }))

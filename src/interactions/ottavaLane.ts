@@ -232,7 +232,7 @@ export function ottavaSystemSlotFor(
   const above = ottava.shift > 0
 
   return systemStopFor<OttavaStaffSlotTarget>({
-    bands: () => engine.getElementRegistry().staffBands(),
+    bands: () => engine.getElementRegistry().staffRuns(),
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
     inkY: () => ottavaInkY(engine, ottava.id),

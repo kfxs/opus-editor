@@ -28,10 +28,23 @@
  * whole system is judged by where it ENDED, so a fast hand cannot fly over a staff.
  */
 
-/** A painted staff's five lines, top to bottom — `ElementRegistry.staffBands()`' shape. */
+/**
+ * One painted (system, staff) — its five lines top to bottom, and the x its music occupies.
+ * `ElementRegistry.staffRuns()`' shape.
+ *
+ * 🚨🚨 **THE X IS LOAD-BEARING, and it is why this is not `staffBands()`.** His report, 2026-08-30:
+ * a dragged hairpin, then an octave line, vanished mid-drag. `PagePass` draws the sheets SIDE BY
+ * SIDE, so page 2's third system shares page 1's third system's ROW; a band keyed by its y alone
+ * folds the two into one, and the jump then landed the mark on whichever sheet happened to hold the
+ * nearest candidate — measured, x 1382 while his cursor was at 334, a page away and off screen.
+ */
 interface StaffBand {
   top: number
   bottom: number
+  /** The run's music, left to right. A cursor outside it is simply further away — ⛔ never excluded,
+   *  since a mark may legitimately be dragged over a margin. */
+  left: number
+  right: number
 }
 
 /** One place the mark could be anchored, as the last render drew it. */
@@ -44,7 +57,8 @@ interface JumpCandidate<Stop> {
 /** Everything the rule needs of one mark. Every reader answers off the LAST RENDER and may answer
  *  null — null meaning *"the picture cannot say"*, which is always answered with "no jump". */
 export interface SystemJumpPort<Stop> {
-  /** The painted staves, top and bottom line of each. */
+  /** The painted (system, staff) runs — ⚠️ `staffRuns()`, ⛔ never `staffBands()`: a jump must be
+   *  able to tell two sheets apart, and only the x can. */
   bands(): StaffBand[]
   /** Every place this mark could be anchored, drawn. */
   candidates(): JumpCandidate<Stop>[]
@@ -87,22 +101,41 @@ export function systemStopFor<Stop>(
   if (drawn === null || !anchor) return null
 
   const above = port.above()
-  const home = nearestBand(bands, anchor.y)
+  const home = nearestBand(bands, anchor.x, anchor.y)
   // Where the ENGRAVER put this mark, and how far that is from the edge of its own staff.
   const naturalGap = (drawn - port.liftPx()) - edgeOf(home, above)
 
-  const target = bands.reduce((a, b) =>
+  // ⭐⭐ **THE SHEET UNDER THE HAND, FIRST.** A drag is vertical travel on ONE sheet: the mark may
+  // change system and staff, ⛔ never page. Sheets stand side by side, so choosing by y alone lets a
+  // system on the next page win a row it merely shares — the mark then lands a page away, off
+  // screen, which is exactly what he saw (2026-08-30, and again on the ottava).
+  const here = onSheet(bands, cursorX)
+  const target = here.reduce((a, b) =>
     Math.abs(inkY - (edgeOf(b, above) + naturalGap)) < Math.abs(inkY - (edgeOf(a, above) + naturalGap)) ? b : a)
   if (target === home) return null
 
   let best: Stop | null = null
   let bestDistance = Infinity
   for (const candidate of candidates) {
-    if (nearestBand(bands, candidate.y) !== target) continue
+    // ⚠️ The candidate's OWN x as well as its y — the same reason the target was chosen that way. A
+    // note on the next sheet sits in this row too, and would otherwise be "on" this system.
+    if (nearestBand(bands, candidate.x, candidate.y) !== target) continue
     const d = Math.abs(cursorX - candidate.x)
     if (d < bestDistance) { bestDistance = d; best = candidate.stop }
   }
   return best
+}
+
+/**
+ * The runs on the sheet the cursor is over — those no further from it horizontally than the nearest
+ * is. On a one-page score that is every run, so the rule below reads exactly as it always did.
+ *
+ * ⚠️ Distance, ⛔ not containment: a hand dragging in a page's margin, or over the clef before the
+ * first note, is outside every run's music and still plainly on that sheet.
+ */
+function onSheet(bands: StaffBand[], x: number): StaffBand[] {
+  const nearest = Math.min(...bands.map(b => spanDistance(b.left, b.right, x)))
+  return bands.filter(b => spanDistance(b.left, b.right, x) === nearest)
 }
 
 /** The staff line a mark of this placement hangs off: the TOP for one above, the BOTTOM for one
@@ -113,11 +146,18 @@ function edgeOf(band: StaffBand, above: boolean): number {
 
 /** Which painted staff a y belongs to — the one whose five lines it is inside, or nearest to (a
  *  notehead on ledger lines is outside its own staff, and still that staff's). */
-function nearestBand(bands: StaffBand[], y: number): StaffBand {
-  return bands.reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
+function nearestBand(bands: StaffBand[], x: number, y: number): StaffBand {
+  // ⭐ The sheet decides first, then the row within it — two sheets' rows are not one ruler, so a
+  // point 1000px to the right is not "nearly" in this system however well its y lines up.
+  return onSheet(bands, x).reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
 }
 
 /** 0 inside the band, else the gap to its nearer edge. `ElementRegistry.staffIndexAtY`'s arithmetic. */
 function bandDistance(band: StaffBand, y: number): number {
-  return y < band.top ? band.top - y : y > band.bottom ? y - band.bottom : 0
+  return spanDistance(band.top, band.bottom, y)
+}
+
+/** 0 inside [lo, hi], else the gap to its nearer end — the one shape both axes are measured with. */
+function spanDistance(lo: number, hi: number, v: number): number {
+  return v < lo ? lo - v : v > hi ? v - hi : 0
 }

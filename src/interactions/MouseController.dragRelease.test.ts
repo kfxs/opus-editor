@@ -59,6 +59,7 @@ describe('a drag released out of sight', () => {
     commit = vi.fn()
     const registry = {
       staffBands: () => [{ top: 90, bottom: 110 }],
+      staffRuns: () => ([{ top: 90, bottom: 110 }]).map(b => ({ ...b, left: -Infinity, right: Infinity })),
       findClosestNoteOrRest: () => null,
       getTupletAt: () => null,
       hitsNoteOrRestBody: () => false,

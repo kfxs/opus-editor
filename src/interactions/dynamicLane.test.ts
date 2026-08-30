@@ -168,6 +168,8 @@ describe('systemSlotFor', () => {
     registry.add({ type: 'dynamic', id: 'D1', staff: 0,
       bbox: { x: 100, y: inkAt - 5, width: 12, height: 10 } } as ElementInfo)
     ;(registry as unknown as { staffBands: () => unknown }).staffBands = () => bands
+    ;(registry as unknown as { staffRuns: () => unknown }).staffRuns = () =>
+      (bands).map(b => ({ ...b, left: -Infinity, right: Infinity }))
     return {
       ...base,
       getElementRegistry: () => registry,
@@ -251,6 +253,8 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
     registry.add({ type: 'dynamic', id: 'D1', staff: 0,
       bbox: { x: 100, y: inkAt - 5, width: 12, height: 10 } } as ElementInfo)
     ;(registry as unknown as { staffBands: () => unknown }).staffBands = () => BANDS
+    ;(registry as unknown as { staffRuns: () => unknown }).staffRuns = () =>
+      (BANDS).map(b => ({ ...b, left: -Infinity, right: Infinity }))
     return {
       ...base,
       getElementRegistry: () => registry,

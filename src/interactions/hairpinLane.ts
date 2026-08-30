@@ -250,7 +250,7 @@ export function hairpinSystemSlotFor(
   const anchor = here && lane.find(b => b.staff === staff && compareAddress(b.target, here) === 0)
 
   return systemStopFor<HairpinStaffSlotTarget>({
-    bands: () => engine.getElementRegistry().staffBands(),
+    bands: () => engine.getElementRegistry().staffRuns(),
     candidates: () => lane.map(b => ({ x: b.x, y: b.y, stop: b.target })),
     anchor: () => (anchor ? { x: anchor.x, y: anchor.y } : null),
     inkY: () => hairpinInkY(engine, hairpin.id),

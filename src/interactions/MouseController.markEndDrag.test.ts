@@ -127,6 +127,7 @@ describe.each(FAMILIES)('the $kind square drag, through the one shared handler',
     previewMarks = vi.fn()
     const registry = {
       staffBands: () => [{ top: 90, bottom: 110 }],
+      staffRuns: () => ([{ top: 90, bottom: 110 }]).map(b => ({ ...b, left: -Infinity, right: Infinity })),
       findClosestNoteOrRest: () => null,
       getTupletAt: () => null,
       hitsNoteOrRestBody: () => false,

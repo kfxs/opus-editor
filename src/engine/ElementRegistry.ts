@@ -912,6 +912,57 @@ export class ElementRegistry {
   }
 
   /**
+   * 🚨🚨 **ONE ENTRY PER (SYSTEM, STAFF), WITH THE X IT OCCUPIES** — what {@link staffBands} cannot
+   * say, and the difference is a whole sheet wide.
+   *
+   * **His report, 2026-08-30** (the Prelude, 35 bars): dragging a hairpin — and an octave line, and
+   * *"i suppose other lines too"* — made the mark vanish. It had teleported onto **another page**:
+   * `PagePass` draws the sheets SIDE BY SIDE, so page 2's third system shares page 1's third
+   * system's row, and a band keyed by its y-range alone folds them into one. The jump then chose
+   * "the nearest candidate on that band" from a row whose only members were on the next sheet:
+   * measured, one such band held notes from x 1382…2607 while his cursor was at 334.
+   *
+   * ⭐⭐ **A SYSTEM IS THE CONTIGUOUS RUN OF BARS THAT SHARE THE ROW** — the law
+   * `markBreakWrap.systemInkAt` already states, and which the trill's ribbon was repaired with on
+   * 2026-08-24 (`ac9fc12`, *"two sheets side by side put two systems on the same row"*). The bands
+   * never got it. Contiguity is what the y alone cannot say: between two same-y systems lie the bars
+   * of the lines in between, so the run stops at the break — on this page or the next.
+   *
+   * ⚠️ {@link staffBands} is NOT this and keeps its own meaning: `MusicEngine.nudgeStaysInBand` and
+   * `layout/systemBand` ask *"what other staff is nearest, above and below"* and deliberately do not
+   * care whose system it is. Two questions, two readers — ⛔ do not merge them.
+   */
+  staffRuns(): { top: number; bottom: number; left: number; right: number; staff: number }[] {
+    const byStaff = new Map<number, StaffGeometry[]>()
+    for (const g of this.staffGeometries.values()) {
+      const list = byStaff.get(g.staff)
+      if (list) list.push(g)
+      else byStaff.set(g.staff, [g])
+    }
+    const runs: { top: number; bottom: number; left: number; right: number; staff: number }[] = []
+    for (const [staff, geometries] of byStaff) {
+      geometries.sort((a, b) => a.measure - b.measure)
+      let run: { top: number; bottom: number; left: number; right: number; staff: number } | null = null
+      let previousMeasure = 0
+      for (const g of geometries) {
+        const top = g.lineYPositions[0]
+        const bottom = g.lineYPositions[4]
+        // A new run when the row changes, or when a bar is MISSING between this and the last — an
+        // undrawn bar ends a run for `systemInkAt`'s reason, and so does a jump to the next sheet.
+        if (!run || run.top !== top || run.bottom !== bottom || g.measure !== previousMeasure + 1) {
+          run = { top, bottom, left: g.noteStartX, right: g.noteEndX, staff }
+          runs.push(run)
+        } else {
+          run.left = Math.min(run.left, g.noteStartX)
+          run.right = Math.max(run.right, g.noteEndX)
+        }
+        previousMeasure = g.measure
+      }
+    }
+    return runs
+  }
+
+  /**
    * Which staff (0-based index) does a click Y fall on, within a measure? Picks the staff
    * whose lines are vertically nearest the click (by distance to the staff's [top,bottom]
    * band, so a click in the gap between two staves resolves to the closer one, and a click

@@ -318,7 +318,7 @@ export function trillSystemNoteFor(
     .flatMap(staff => trillLaneOnStaff(engine, start, staff).map(n => ({ note: n, staff })))
     .filter(n => !n.note.isRest)
   return systemStopFor<string>({
-    bands: () => registry.staffBands(),
+    bands: () => registry.staffRuns(),
     candidates: () => lane.flatMap(({ note, staff }) => {
       const el = registry.getByType('note').find(e => e.id === note.id)
       if (!el) return []

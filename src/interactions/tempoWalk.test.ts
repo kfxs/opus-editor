@@ -28,6 +28,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       // One system in this fixture: nothing to jump to, so every case is about the WALK and the
       // LATCH. `markSystemJump.test.ts` owns the crossing between systems.
       staffBands: () => [{ top: 240, bottom: 280 }],
+      staffRuns: () => ([{ top: 240, bottom: 280 }]).map(b => ({ ...b, left: -Infinity, right: Infinity })),
     }))
   },
 }))

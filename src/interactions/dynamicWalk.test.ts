@@ -29,6 +29,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       // One system in this fixture: no second staff to cross onto, so the jump never fires and
       // every case below is about the WALK. `dynamicLane.test.ts` owns the crossing.
       staffBands: () => [{ top: 40, bottom: 80 }],
+      staffRuns: () => ([{ top: 40, bottom: 80 }]).map(b => ({ ...b, left: -Infinity, right: Infinity })),
     }))
   },
 }))

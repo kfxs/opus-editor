@@ -268,7 +268,7 @@ export function pedalSystemSlotFor(
   const anchor = here && lane.find(o => o.staff === staff && sameAddress(o.target, here))
 
   return systemStopFor<PedalStaffSlotTarget>({
-    bands: () => engine.getElementRegistry().staffBands(),
+    bands: () => engine.getElementRegistry().staffRuns(),
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
     inkY: () => pedalInkY(engine, pedal.id),

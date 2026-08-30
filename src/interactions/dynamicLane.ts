@@ -156,7 +156,7 @@ export function systemSlotFor(
     && h.target.measure === address.measure && fracCompare(h.target.beat, address.beat) === 0)
 
   return systemStopFor<DynamicStaffSlotTarget>({
-    bands: () => engine.getElementRegistry().staffBands(),
+    bands: () => engine.getElementRegistry().staffRuns(),
     candidates: () => heads.map(h => ({ x: h.x, y: h.y, stop: h.target })),
     anchor: () => anchor ?? null,
     inkY: () => markInkY(engine, dynamic.id),

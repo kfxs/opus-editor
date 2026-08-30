@@ -64,6 +64,12 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
           ? [] : [{ top: 40 + drawn.secondStaffDrop, bottom: 80 + drawn.secondStaffDrop }]),
         { top: 240, bottom: 280 },
       ],
+      staffRuns: () => [
+        { top: 40, bottom: 80 },
+        ...(drawn.secondStaffDrop === null
+          ? [] : [{ top: 40 + drawn.secondStaffDrop, bottom: 80 + drawn.secondStaffDrop }]),
+        { top: 240, bottom: 280 },
+      ].map(b => ({ ...b, left: -Infinity, right: Infinity })),
     }))
   },
 }))
