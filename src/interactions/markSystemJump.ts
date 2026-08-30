@@ -38,6 +38,8 @@
  * folds the two into one, and the jump then landed the mark on whichever sheet happened to hold the
  * nearest candidate — measured, x 1382 while his cursor was at 334, a page away and off screen.
  */
+import { runsOnSheetAt } from '@/engine/layout/systemBand'
+
 interface StaffBand {
   top: number
   bottom: number
@@ -109,7 +111,7 @@ export function systemStopFor<Stop>(
   // change system and staff, ⛔ never page. Sheets stand side by side, so choosing by y alone lets a
   // system on the next page win a row it merely shares — the mark then lands a page away, off
   // screen, which is exactly what he saw (2026-08-30, and again on the ottava).
-  const here = onSheet(bands, cursorX)
+  const here = runsOnSheetAt(bands, cursorX)
   const target = here.reduce((a, b) =>
     Math.abs(inkY - (edgeOf(b, above) + naturalGap)) < Math.abs(inkY - (edgeOf(a, above) + naturalGap)) ? b : a)
   if (target === home) return null
@@ -126,17 +128,7 @@ export function systemStopFor<Stop>(
   return best
 }
 
-/**
- * The runs on the sheet the cursor is over — those no further from it horizontally than the nearest
- * is. On a one-page score that is every run, so the rule below reads exactly as it always did.
- *
- * ⚠️ Distance, ⛔ not containment: a hand dragging in a page's margin, or over the clef before the
- * first note, is outside every run's music and still plainly on that sheet.
- */
-function onSheet(bands: StaffBand[], x: number): StaffBand[] {
-  const nearest = Math.min(...bands.map(b => spanDistance(b.left, b.right, x)))
-  return bands.filter(b => spanDistance(b.left, b.right, x) === nearest)
-}
+
 
 /** The staff line a mark of this placement hangs off: the TOP for one above, the BOTTOM for one
  *  below. What makes the rule read the same in both directions. */
@@ -149,7 +141,7 @@ function edgeOf(band: StaffBand, above: boolean): number {
 function nearestBand(bands: StaffBand[], x: number, y: number): StaffBand {
   // ⭐ The sheet decides first, then the row within it — two sheets' rows are not one ruler, so a
   // point 1000px to the right is not "nearly" in this system however well its y lines up.
-  return onSheet(bands, x).reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
+  return runsOnSheetAt(bands, x).reduce((a, b) => (bandDistance(b, y) < bandDistance(a, y) ? b : a))
 }
 
 /** 0 inside the band, else the gap to its nearer edge. `ElementRegistry.staffIndexAtY`'s arithmetic. */

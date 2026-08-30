@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { neighbourBandOf, stepStaysInBand } from './systemBand'
+import { neighbourBandOf, runsOnSheetAt, stepStaysInBand } from './systemBand'
 
 /**
  * How far a hand-nudged mark may reach before it is in a neighbouring staff's room.
@@ -119,5 +119,52 @@ describe('stepStaysInBand', () => {
 
   it('judges only the VERTICAL — a band has no left or right edge', () => {
     expect(stepStaysInBand({ top: -Infinity, bottom: Infinity }, [ink], 9999)).toBe(true)
+  })
+})
+
+/**
+ * 🚨🚨 **A STAFF ON THE NEXT SHEET IS NOT ABOVE OR BELOW — IT IS BESIDE.**
+ *
+ * His report, 2026-08-30: *"why can i not make the 8va go up once it is down?"*. `PagePass` draws
+ * the pages SIDE BY SIDE, and the band limit asked `staffBands()`, which keys a staff by its y-range
+ * alone. His log: `mine 276…316 | band 270…361` — six pixels of room above a first-system staff
+ * whose real ceiling is the top of the paper, because staves on pages 2 and 3 happened to sit at
+ * that height. Measured in the browser, page 1's rows are 276/404/554… and page 3's 230/361/470…,
+ * so the two interleave.
+ */
+describe('runsOnSheetAt', () => {
+  /** Page 1 at x 100…1100, page 3 at x 2500…3500, its rows INTERLEAVED with page 1's. */
+  const RUNS = [
+    { top: 276, bottom: 316, left: 100, right: 1100 },
+    { top: 404, bottom: 444, left: 100, right: 1100 },
+    { top: 230, bottom: 270, left: 2500, right: 3500 },
+    { top: 361, bottom: 401, left: 2500, right: 3500 },
+  ]
+
+  it('🚨 keeps only this sheet’s staves, so the other page cannot fence the mark in', () => {
+    expect(runsOnSheetAt(RUNS, 300).map(r => r.top)).toEqual([276, 404])
+  })
+
+  it('and a mark over the far sheet is judged by THAT sheet', () => {
+    expect(runsOnSheetAt(RUNS, 3000).map(r => r.top)).toEqual([230, 361])
+  })
+
+  it('⚠️ distance, ⛔ not containment — a mark in the margin still belongs to its sheet', () => {
+    // x 40 is left of page 1's music and 2460 px from page 3's.
+    expect(runsOnSheetAt(RUNS, 40).map(r => r.top)).toEqual([276, 404])
+  })
+
+  it('⭐ on a ONE-PAGE score every run ties, so the rule reads as it always did', () => {
+    const one = RUNS.slice(0, 2)
+    expect(runsOnSheetAt(one, 300)).toEqual(one)
+    expect(runsOnSheetAt(one, 9999)).toEqual(one)
+  })
+
+  it('the neighbour band above is then the SHEET, not a staff on another page', () => {
+    const mine = { top: 276, bottom: 316 }
+    const page = { top: 40, bottom: 1500 }
+    const others = runsOnSheetAt(RUNS, 300).filter(r => r.top !== mine.top)
+    // ⭐ Ceiling = the paper (40), ⛔ not 270 — the bottom of page 3's first staff.
+    expect(neighbourBandOf(mine, others, page)).toEqual({ top: 40, bottom: 404 })
   })
 })

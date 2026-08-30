@@ -129,3 +129,36 @@ export function stepStaysInBand(band: Band, drawn: readonly InkBox[], dy: number
   const sheet = { left: -Infinity, right: Infinity, top: band.top, bottom: band.bottom }
   return !drawn.some(ink => stepLeavesPage(sheet, ink, 0, dy))
 }
+
+/** A painted (system, staff) as `ElementRegistry.staffRuns()` reports it — a y band and the x its
+ *  music occupies. */
+export interface StaffRun {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+/**
+ * ⭐⭐ **THE RUNS ON THE SHEET UNDER A GIVEN x** — those no further from it horizontally than the
+ * nearest is.
+ *
+ * 🚨🚨 `PagePass` draws the sheets SIDE BY SIDE, so a staff's y says nothing about which PAGE it is
+ * on. Two of his reports on 2026-08-30 came from asking a y alone: a dragged mark jumped onto the
+ * next sheet (`interactions/markSystemJump`), and an `8va` on page 1's first system was fenced in by
+ * staves on pages 2 and 3 that merely sat at that height — `mine 276…316 | band 270…361`, six pixels
+ * of room under a ceiling that should have been the top of the paper.
+ *
+ * ⚠️ **Distance, ⛔ not containment.** A mark legitimately hangs past the last note of its line, or
+ * over the page's margin, and it is still plainly on that sheet. Nearest-wins needs no constant and
+ * no knowledge of how wide a gutter is.
+ *
+ * ⭐ On a one-page score every run ties at distance 0, so every caller reads exactly as it did before
+ * pages could stand side by side.
+ */
+export function runsOnSheetAt<T extends StaffRun>(runs: readonly T[], x: number): T[] {
+  if (!runs.length) return []
+  const gap = (run: StaffRun) => (x < run.left ? run.left - x : x > run.right ? x - run.right : 0)
+  const nearest = Math.min(...runs.map(gap))
+  return runs.filter(run => gap(run) === nearest)
+}

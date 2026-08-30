@@ -22,7 +22,7 @@ import { barWidthRoom as barWidthRoomOf, type BarWidthRoom } from './layout/barW
 import { musicSurface } from './layout/systemStartColumn'
 import { resolveSurface, SKETCH_CANVAS, type Surface } from './layout/surface'
 import type { ScoreTextField } from './models/scoreTextOps'
-import { neighbourBandOf, stepStaysInBand } from './layout/systemBand'
+import { neighbourBandOf, runsOnSheetAt, stepStaysInBand } from './layout/systemBand'
 import type { InkBox } from './layout/pageBounds'
 import { edgeStepFitsOnPage, nudgeFitsOnPage, pageBoxAt, SPAN_HANDLE_ROOM_PX } from './layout/pageBounds'
 import { CULL_OVERSCAN, expandRect, rectContains, type Rect } from './ViewportModel'
@@ -407,7 +407,7 @@ export class MusicEngine {
   private nudgeStaysInBand(drawn: readonly InkBox[], measure: number, staff: number, dy: number): boolean {
     const registry = this.renderer.getElementRegistry() as {
       getStaffGeometry?: (m: number, s: number) => { lineYPositions: readonly number[] } | undefined
-      staffBands?: () => { top: number; bottom: number }[]
+      staffRuns?: () => { top: number; bottom: number; left: number; right: number }[]
     }
     const geometry = registry.getStaffGeometry?.(measure, staff)
     if (!geometry) return true
@@ -415,11 +415,24 @@ export class MusicEngine {
     // ⭐ Every OTHER painted staff, of my system or any other — the rule no longer tells them apart,
     // because it stops at the near edge either way ({@link neighbourBandOf}, and the two reports in
     // its header that killed the midpoint).
-    const others = (registry.staffBands?.() ?? [])
+    //
+    // 🚨🚨 **ON THIS SHEET, THOUGH** — his report, 2026-08-30: *"why can i not make the 8va go up
+    // once it is down?"*. `PagePass` draws the sheets SIDE BY SIDE, and this asked `staffBands()`,
+    // which keys a staff by its Y-RANGE ALONE. So the octave line on page 1's FIRST system was being
+    // fenced in by staves on pages 2 and 3 that merely happen to sit at that height: his log reads
+    // `mine 276…316 | band 270…361`, six pixels of room above a staff whose real ceiling is the top
+    // of the sheet. ⭐ Same fault as the staff JUMP's (fixed in `markSystemJump`, 2026-08-30) and the
+    // trill ribbon's before it (`ac9fc12`) — a y does not name a system, and here it does not even
+    // name a page.
+    const inkX = drawn[0]?.x ?? 0
+    const allOthers = (registry.staffRuns?.() ?? [])
       .filter(b => b.top !== mine.top || b.bottom !== mine.bottom)
+    // ⚠️ …and then only the ones on the mark's own SHEET: a staff on the next page is not above or
+    // below this one, it is BESIDE it ({@link runsOnSheetAt}, which both this and the staff jump ask).
+    const others = runsOnSheetAt(allOthers, inkX)
     // ⭐ What is above/below when no STAFF is: the sheet itself ({@link layout/systemBand}, his rule
     // of 2026-08-21). ⛔ Never a made-up allowance — that is what stopped an `8va` on the top system.
-    const sheet = pageBoxAt(resolveSurface(this.surface), drawn[0]?.x ?? 0, mine.top)
+    const sheet = pageBoxAt(resolveSurface(this.surface), inkX, mine.top)
     const page = sheet ? { top: sheet.top, bottom: sheet.bottom } : undefined
     const band = neighbourBandOf(mine, others, page)
     const allowed = stepStaysInBand(band, drawn, dy * STAFF_SPACE_PX)
