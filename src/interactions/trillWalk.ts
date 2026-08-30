@@ -65,7 +65,10 @@ import {
   trillSquareBaseX, trillSquareMeasure, trillStaffBand, trillStaffSpacePx, trillSystemNoteFor,
 } from './trillLane'
 import type { FlatNote } from '../utils/beatMap'
-import { staffOf } from '../utils/lanes'
+import type { Fraction } from '../types/music'
+import { fracToNumber } from '../utils/fraction'
+import { measureStartQuarters } from '../utils/measureCapacity'
+import { staffOf, voiceOf } from '../utils/lanes'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
@@ -272,30 +275,51 @@ function inkStaysOnTheRibbon(
 /**
  * ⭐⭐ **THE FAR END, WHEN THE WHOLE ORNAMENT MOVES ONTO `target`** — its extent carried along.
  *
- * ⭐ **Counted in the LANE's own stops**, which is a trill's only measure of how much music it
- * covers: a span of N notes arrives as a span of N notes, whatever the bars in between are doing.
+ * ⭐⭐ **AN AMOUNT OF MUSIC, ⛔ NOT A COUNT OF NOTES** — his report, 2026-08-30, with the picture:
+ * *"i dont know why the trill line grows desproportionally when reanchor"*. A trill over five
+ * SIXTEENTHS of the right hand — one quarter of music — landed on the left hand as five of ITS
+ * notes, which in his Prelude is four bars: the wavy line ran off the end of the system and resumed
+ * `(tr)` on the next one.
+ *
+ * ⭐ The count was *"a trill's only measure of how much music it covers"* only while both ends of the
+ * move were in ONE lane, which is every landing but the one this function grew for: a jump ONTO
+ * ANOTHER STAFF (2026-08-21). Two staves do not count alike, and the unit that survives the crossing
+ * is the one every sibling already travels in — the LENGTH rides along, clamped where it is READ
+ * (`pedalOps.pedalSpan`'s rule, and the wedge's).
+ *
  * ⚠️ Counted HERE and not in the model, because the lane is an interaction-side question
  * (`./trillLane`) — `trillOps.moveTrillTo` is simply told which two notes.
  *
- * ⚠️ Clamped at the end of the lane: a span pushed off the end arrives shortened rather than
- * refused, which is the same degradation a lost end has always had.
+ * ⚠️ **The degradation is a SHORTER trill, ⛔ never a longer one**: the far end is the last stop of
+ * the destination lane that still falls inside the span, and `undefined` when none does — which the
+ * model reads as *"the start note's own duration"*, the single-note trill. That is the same
+ * shortening a span pushed off the end of a lane has always had.
  */
 function extentFrom(engine: TrillWalkEngine, id: string, target: string): string | undefined {
   const trill = engine.getTrillById(id)
   const start = trill && engine.getNote(trill.startNoteId)
-  if (!trill?.endNoteId || !start) return undefined
-  const lane = trillLane(engine, start).filter(n => !n.isRest)
-  const at = (noteId: string) => lane.findIndex(n => n.id === noteId)
-  const span = at(trill.endNoteId) - at(start.id)
-  if (span <= 0) return undefined
-  // ⚠️ **The span is counted in the ORIGIN's lane and spent in the TARGET's**, which are the same
-  // list for every landing but one: a jump ONTO ANOTHER STAFF (2026-08-21). Counting N stops in a
-  // lane the target is not in would look the target up at −1 and hand back a note N−1 from the
-  // lane's start — a far end nowhere near the ornament.
+  const end = trill?.endNoteId ? engine.getNote(trill.endNoteId) : null
   const landing = engine.getNote(target)
-  const dest = landing ? trillLane(engine, landing).filter(n => !n.isRest) : lane
+  if (!start || !end || !landing) return undefined
+
+  const measures = engine.getScore().measures
+  const at = (note: { measure: number; beat: Fraction }) =>
+    measureStartQuarters(measures, note.measure) + fracToNumber(note.beat)
+  const span = at(end) - at(start)
+  if (span <= 0) return undefined
+
+  // ⭐ The DESTINATION's lane, which on a cross-staff landing is a different list of notes at
+  // different moments — that difference is the whole point of measuring in music rather than stops.
+  const dest = trillLane(engine, landing).filter(n => !n.isRest)
   const from = dest.findIndex(n => n.id === target)
-  return from === -1 ? undefined : dest[Math.min(from + span, dest.length - 1)]?.id
+  if (from === -1) return undefined
+  const reach = at(landing) + span + 1e-6 // the float slack a Fraction's division leaves behind
+  let last: string | undefined
+  for (const note of dest.slice(from + 1)) {
+    if (at({ measure: note.measureNumber, beat: note.beat }) > reach) break
+    last = note.id
+  }
+  return last
 }
 
 /**
@@ -382,7 +406,13 @@ function traceTrillFrame(
     + ` | ink x${num(drawn?.bbox.x)} y${num(drawn ? drawn.bbox.y + drawn.bbox.height / 2 : null)}`
     + ` drawnInBar ${drawn?.measure ?? '—'}`
     + ` | anchor ${trill?.startNoteId.slice(0, 8) ?? '—'} bar ${anchor?.measure ?? '—'}`
-    + ` staff ${staff ?? '—'} placement:${trill?.placement ?? 'auto'}`
+    // ⚠️ The VOICE is here since 2026-08-30, on his report *"it seems that the trill just get
+    // reanchor to voice 1 but it should not be"*: the lane holds the voice by construction
+    // (`trillLane.trillLaneOnStaff` = `buildBeatMap(score, voiceOf(start), staff)`), so the trace
+    // has to say which voice the anchor is actually IN before anything is changed. ⛔ Never leave an
+    // axis out of the one line per frame.
+    + ` staff ${staff ?? '—'} voice ${anchor ? voiceOf(anchor) : '—'}`
+    + ` placement:${trill?.placement ?? 'auto'}`
     + ` | offset ${num(port.offsetX())}ss anchorX ${num(port.anchorX())} ss ${staffSpacePx.toFixed(2)}`
     + ` | system ${here ? `bar${here.key} ink ${here.min.toFixed(0)}…${here.max.toFixed(0)}` : '—'}`
     + ` | nextStop ${stop ? JSON.stringify((stop as TrillAnchorStop).note.id.slice(0, 8)) : 'none'}`
@@ -451,7 +481,7 @@ export function dragTrillBody(
   cursorX: number,
   dxPx: number,
   dyPx: number,
-): { moved: boolean } | null {
+): { moved: boolean; jumped?: boolean } | null {
   const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
   const staffSpacePx = port.staffSpacePx()
   if (!staffSpacePx) return null
@@ -468,8 +498,10 @@ export function dragTrillBody(
 
   // ⭐⭐ ITS OWN STAFF FIRST, then the system — the same two rungs the squares' drag climbs, and the
   // same reason for the order.
-  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true }
-  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true }
+  // ⚠️ EXPLORATORY (2026-08-30): `jumped` says the mark changed RUNG, so the caller draws and then
+  // pays what that cost ({@link settleTrillLanding}) inside the same mouse event.
+  if (flipTrillPlacement(engine, id, dyPx)) return { moved: true, jumped: true }
+  if (jumpTrillStaves(engine, id, cursorX, dyPx)) return { moved: true, jumped: true }
   if (dxPx === 0 && dyPx === 0) return { moved: false }
 
   // ⚠️ Screen-down is +dy and the stored number is OUTWARD from the staff, so it converts here.
@@ -543,7 +575,12 @@ function flipTrillPlacement(engine: TrillWalkEngine, id: string, dyPx: number): 
         : null
   if (!flipped || !engine.previewTrillPlacement(id, flipped)) return false
   dropTheLift(engine, id)
-  dbg(`[Trill] moved ${flipped} its own staff | id:${id}`)
+  // ⚠️⚠️ EXPLORATORY (2026-08-30) — **A RUNG-CHANGE DOES NOT MOVE THE DRAWING**
+  // ({@link settleTrillLanding}). The dropped lift IS right — a height measured above the staff means
+  // nothing below it — but the picture has to stay under the hand, and measured in his trace the ink
+  // leapt 314.7 → 352.2 on a frame the hand had moved a pixel.
+  landed = { id, inkY: next }
+  dbg(`[Trill] moved ${flipped} its own staff | id:${id} | the ink is to stay at ${next.toFixed(1)}`)
   return true
 }
 
@@ -595,7 +632,12 @@ function jumpTrillStaves(
 
   engine.previewTrillPlacement(id, dyPx > 0 ? 'above' : 'below')
   landWhereItWasDrawn(engine, id, target, inkBefore)
-  dbg(`[Trill] jumped to the staff it now belongs to | id:${id} → ${target.slice(0, 8)}`)
+  // ⚠️ EXPLORATORY (2026-08-30): the x is preserved above, by the rule that function carries; the
+  // VERTICAL cannot be predicted — the ornament arrives on the other side of a different staff — so
+  // it is settled from the render ({@link settleTrillLanding}).
+  landed = { id, inkY: inkY + dyPx }
+  dbg(`[Trill] jumped to the staff it now belongs to | id:${id} → ${target.slice(0, 8)}`
+    + ` | the ink is to stay at ${(inkY + dyPx).toFixed(1)}`)
   return true
 }
 
@@ -670,6 +712,49 @@ function landWhereItWasDrawn(
  * again it has to be visible, and a reason that CHANGES is exactly the interesting case — so the
  * dedup is on the message, per trill, and a new reason prints at once.
  */
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — the one rung-change a drag is still owed a settlement for.**
+ * The wedge's and the pedal's, the third family on ({@link settleTrillLanding}).
+ *
+ * ⛔ Not drag state and it carries no travel: one id and one y, written by a flip or a landing and
+ * spent in the same mouse event. A gesture that ends in between simply leaves it.
+ */
+let landed: { id: string; inkY: number } | null = null
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHAT THE RUNG-CHANGE ACTUALLY DID WITH THE INK, paid back.**
+ * `hairpinWalk.settleHairpinLanding`'s port, and here it is the WHOLE payment rather than a residual:
+ * what an ornament gets on the other side of a staff — or on another staff entirely — is whatever the
+ * ladder has left there, which is only knowable once the render has run.
+ *
+ * 🚨 His report, with the trace: *"look how close i come to the element of the other staff and the
+ * trill still dont reanchor"*, and one line above it the flip leaping **314.7 → 352.2** on a frame the
+ * hand had moved a pixel.
+ *
+ * ⭐ The lift is stored OUTWARD, so the debt converts here — and against the placement the mark has
+ * NOW, which is the side the offset is about.
+ *
+ * @returns true when it wrote, so the caller knows to draw again.
+ */
+export function settleTrillLanding(engine: TrillWalkEngine, id: string): boolean {
+  if (!landed || landed.id !== id) { landed = null; return false }
+  const was = landed.inkY
+  landed = null
+  const registry = engine.getElementRegistry()
+  const drawn = trillInkY(registry, id)
+  const staffSpacePx = trillStaffSpacePx(registry, id)
+  // Half a pixel is the rounding of the drawing, ⛔ not a debt.
+  if (drawn === null || !staffSpacePx || Math.abs(was - drawn) < 0.5) return false
+
+  const debt = was - drawn
+  const above = (engine.getTrillById(id)?.placement ?? 'above') === 'above'
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no limit has anything to judge.
+  engine.previewTrillOffsetRebase(id, 0, (above ? -debt : debt) / staffSpacePx)
+  dbg(`[Trill] rung settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
+    + ` (${debt.toFixed(1)}px the new rung gave or took)`)
+  return true
+}
+
 const lastNoRung = new Map<string, string>()
 function logNoRung(engine: TrillWalkEngine, id: string, start: Note, inkY: number): void {
   if (!debugEnabled()) return

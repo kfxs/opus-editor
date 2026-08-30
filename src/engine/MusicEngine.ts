@@ -3636,9 +3636,9 @@ export class MusicEngine {
 
   /** The whole ornament's re-base during a DRAG — {@link rebaseTrillOffset} with no undo of its own,
    *  and ⛔ never judged by the page limit. */
-  previewTrillOffsetRebase(id: string, dx: number): boolean {
+  previewTrillOffsetRebase(id: string, dx: number, dy = 0): boolean {
     this.markModelDirty()
-    return this.scoreModel.setTrillOffset(id, dx, 0)
+    return this.scoreModel.setTrillOffset(id, dx, dy)
   }
 
   /** Live (preview) move of the WHOLE ornament onto another note, keeping its extent — a vertical

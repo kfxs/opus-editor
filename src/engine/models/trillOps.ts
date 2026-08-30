@@ -311,6 +311,16 @@ export function setTrillStart(score: Score, id: string, noteId: string): boolean
     }
   }
   trill.startNoteId = noteId
+  // ⚠️⚠️ EXPLORATORY (2026-08-30) — **THE VOICE FOLLOWS THE ANCHOR.** {@link Trill.voice} is stated
+  // as *"both anchors share it"*, i.e. it is DERIVED from where the ornament sits, and until now
+  // nothing kept it so: every route moved the start inside one lane, where the voice cannot change,
+  // so the field could never go stale. A drag onto the other hand's second voice can move it (his
+  // report, *"the trill does not anchor to voice 2"*), and a trill filed under a voice it no longer
+  // sits in would build its lane from music it is not on.
+  // ⭐ A no-op for every route that stays in its lane, which is all of them but that landing.
+  const landed = findSlot(score, noteId)
+  const voice = landed?.type === 'chord' ? voiceOf(landed.chord) : (trill.voice ?? 0)
+  if (voice !== (trill.voice ?? 0)) trill.voice = voice as Trill['voice']
   return true
 }
 

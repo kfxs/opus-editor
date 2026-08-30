@@ -46,7 +46,7 @@ import type { ElementRegistry } from '../engine/ElementRegistry'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Fraction, Note } from '../types/music'
 import { buildBeatMap, type FlatNote } from '../utils/beatMap'
-import { fracEq } from '../utils/fraction'
+import { fracCompare, fracEq } from '../utils/fraction'
 import { staffOf, voiceOf } from '../utils/lanes'
 import { systemStopFor } from './markSystemJump'
 
@@ -60,7 +60,17 @@ type TrillLaneEngine = Pick<MusicEngine, 'getScore' | 'getElementRegistry'>
  * be a wrong trill, not a recovered one (`./trillReanchor`'s rule, and the slur's before it).
  */
 export function trillLane(engine: TrillLaneEngine, start: Note): FlatNote[] {
-  return trillLaneOnStaff(engine, start, staffOf(start))
+  const staff = staffOf(start)
+  // ⭐⭐ **EXPLORATORY (2026-08-30) — EVERY VOICE OF THE STAFF, in musical order.** His rule, the same
+  // one the LANDING now uses: *"pick the nearest, no matter what voice"*. The landing alone was not
+  // enough — measured in his trace, once the ornament was on the bass staff every `nextStop` was a
+  // voice-1 note (`6239bd86`, `a65cadb1`, `f4e155b9`) and voice 2's (`88483769`, `de94d05c`) were
+  // never offered, so dragging SIDEWAYS could not reach them however near they were.
+  // ⚠️ Merged per voice, ⛔ not one voice-less `buildBeatMap`: that collapses simultaneous slots to
+  // ONE representative, which is exactly how a second voice disappears.
+  return VOICES
+    .flatMap(voice => trillLaneOnStaff(engine, start, staff, voice))
+    .sort((a, b) => a.measureNumber - b.measureNumber || fracCompare(a.beat, b.beat))
 }
 
 /**
@@ -78,9 +88,19 @@ export function trillLane(engine: TrillLaneEngine, start: Note): FlatNote[] {
  * voice 2 finds NO candidate there, and the frame stays a plain ink move
  * (`trillWalk.jumpTrillStaves` logs why). ⛔ Better than landing it in a voice the user never named.
  */
-export function trillLaneOnStaff(engine: TrillLaneEngine, start: Note, staff: number): FlatNote[] {
-  return buildBeatMap(engine.getScore(), voiceOf(start), staff).beats
+export function trillLaneOnStaff(
+  engine: TrillLaneEngine,
+  start: Note,
+  staff: number,
+  /** ⚠️ EXPLORATORY (2026-08-30): the voice to read, defaulting to the ornament's own — see
+   *  {@link trillSystemNoteFor}, the one caller that passes another. */
+  voice: number = voiceOf(start),
+): FlatNote[] {
+  return buildBeatMap(engine.getScore(), voice, staff).beats
 }
+
+/** How many voices a lane may be asked for. `Note.voice` is `0 | 1 | 2 | 3`. */
+const VOICES = [0, 1, 2, 3] as const
 
 /**
  * Where a slot sits in the lane, ⚠️ located by POSITION rather than by id: a chord's representative
@@ -314,9 +334,23 @@ export function trillSystemNoteFor(
 ): string | null {
   const registry = engine.getElementRegistry()
   const staves = engine.getScore().staves?.length ?? 1
+  // ⭐⭐ **EXPLORATORY (2026-08-30) — EVERY NOTE OF EVERY VOICE, and the NEAREST ONE WINS.** His rule,
+  // in his words: *"isn't enough to see the horizontal distance between the beginning of the trill
+  // and the notes of the score and pick the nearest, no matter what voice?"*
+  //
+  // 🚨 It replaces four rules of mine that each got a *"wrong"*: the voice held by the lane, a filter
+  // by the ornament's SIDE, a vertical rank by the notehead, and a re-pick at the placement flip. The
+  // vertical was never the discriminator his eye was using — measured, the two voices of this bass
+  // staff are **5 px apart** (half a space), so every rule built on that gap turned on a hair.
+  // ⭐ The VERTICAL still chooses the STAFF (`markSystemJump`'s bands and territory rule); the
+  // horizontal chooses the note ON it, and the voice simply comes along with whatever note wins.
+  // ⚠️ Per (staff, voice) rather than one voice-less read: `buildBeatMap` collapses simultaneous slots
+  // to ONE representative, so voice 2 would vanish behind voice 1 wherever they strike together.
   const lane = Array.from({ length: Math.max(staves, 1) }, (_, staff) => staff)
-    .flatMap(staff => trillLaneOnStaff(engine, start, staff).map(n => ({ note: n, staff })))
-    .filter(n => !n.note.isRest)
+    .flatMap(staff => VOICES.flatMap(voice =>
+      trillLaneOnStaff(engine, start, staff, voice)
+        .filter(n => !n.isRest)
+        .map(note => ({ note, staff }))))
   return systemStopFor<string>({
     bands: () => registry.staffRuns(),
     candidates: () => lane.flatMap(({ note, staff }) => {
@@ -337,6 +371,17 @@ export function trillSystemNoteFor(
       return el ? { x: el.headX ?? el.bbox.x, y: el.bbox.y + el.bbox.height / 2 } : null
     },
     inkY: () => trillInkY(registry, trillId),
+    // ⭐ EXPLORATORY (2026-08-30): **THE BEGINNING OF THE TRILL** — his own words for what the
+    // distance is measured from, and it is the `tr` sign's own left edge, ⛔ not the hand: a grab has
+    // an offset, and the sign is not drawn under the mouse.
+    inkX: () => registry.getByType('trill').find(e => e.id === trillId)?.bbox.x ?? null,
+    // ⚠️⚠️ EXPLORATORY (2026-08-30) — the WEDGE's territory rule, and for its reason: a trill has a
+    // `placement` too, so *below staff N* and *above staff N+1* are ONE strip of paper and only a
+    // line inside it can separate them. His report, with the screenshot: *"look how close i come to
+    // the element of the other staff and the trill still dont reanchor"* — the ornament was among
+    // the lower staff's notes and the natural-home rule was still pricing the journey to the far
+    // side of that staff, which is ⛔ not the rung `jumpTrillStaves` lands on.
+    belongsToTheStaffOverhead: () => 'betweenTheMusic',
     liftPx: () => liftPx,
     above: () => above,
   }, cursorX, inkY)

@@ -34,7 +34,7 @@ import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt, hairpinStaffSpacePx } from './elements/hairpinHandles'
 import { dragHairpinBody, dragHairpinEndpoint, settleHairpinLanding } from './hairpinWalk'
-import { dragTrillBody, dragTrillEndpoint } from './trillWalk'
+import { dragTrillBody, dragTrillEndpoint, settleTrillLanding } from './trillWalk'
 import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './slurBodyDrag'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint, settleOttavaLanding } from './ottavaWalk'
@@ -3661,6 +3661,14 @@ export class MouseController {
       // the staff it had left (`HairpinRenderer.renderHairpins`). Slot membership is exactly what a
       // mark drag does not touch.
       this.render.previewMarks('trill', this.draggedTrillBodyId)
+      // ⚠️⚠️ EXPLORATORY (2026-08-30) — **a rung-change may not move the drawing** (his trace: the
+      // flip leaping 314.7 → 352.2 on a one-pixel frame). What the new rung gives the ornament is
+      // only knowable once it has been drawn there, so the payment is made HERE, after the draw above
+      // and inside the same mouse event — the wedge's line, one family on. ⭐ At most once per
+      // gesture, so the ordinary frame pays for no second draw.
+      if (frame.jumped && settleTrillLanding(engine, this.draggedTrillBodyId)) {
+        this.render.previewMarks('trill', this.draggedTrillBodyId)
+      }
     }
     return true
   }
