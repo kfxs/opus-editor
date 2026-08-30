@@ -52,13 +52,22 @@ import type { MusicEngine } from '../engine/MusicEngine'
 import type { PedalLiftTarget, PedalSlotTarget } from '../engine/models/pedalOps'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import {
-  pedalInkY, pedalLiftX, pedalPressAddress, pedalPressX, pedalStaffSpacePx, pedalSystemInkLimit,
-  pedalSystemSlotFor,
+  pedalCanHandOver, pedalInkY, pedalLiftX, pedalPressAddress, pedalPressX, pedalStaffEdgeY,
+  pedalStaffSpacePx, pedalSystemInkLimit, pedalSystemSlotFor,
 } from './pedalLane'
 import { type MarkWalkPort } from './markWalk'
 import { type BreakWrapPort } from './markBreakWrap'
 import { dragFrame, walkPress, type DragFrame } from './markDrive'
 import { dbg } from '../utils/debug'
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — the one landing a drag is still owed a settlement for.**
+ *
+ * ⛔ It is NOT drag state and carries no travel: one id and one y, written by a landing and spent by
+ * the very next frame ({@link settleLanding}). A drag that stops in between simply leaves it, and the
+ * next drag of another pedal drops it on sight.
+ */
+let landed: { id: string; inkY: number } | null = null
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type PedalWalkEngine = Pick<MusicEngine,
@@ -309,15 +318,64 @@ export function dragPedalBody(
   dxPx: number,
   dyPx: number,
 ): { moved: boolean; jumped: boolean } | null {
-  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id))
-  const staffSpacePx = port.staffSpacePx()
+  const staffSpacePx = pedalStaffSpacePx(engine.getElementRegistry(), id)
   if (!staffSpacePx) return null
 
-  if (jumpStaves(engine, id, cursorX, dyPx, staffSpacePx)) return { moved: true, jumped: true }
+  // ⚠️ EXPLORATORY (2026-08-30): pay off the last landing before deciding anything — see
+  // {@link settleLanding}. The pixels it just wrote are not drawn yet, so THIS frame adds them.
+  const settled = settleLanding(engine, id, staffSpacePx)
+  if (jumpStaves(engine, id, cursorX, settled + dyPx, staffSpacePx, settled)) {
+    return { moved: true, jumped: true }
+  }
 
+  // ⚠️⚠️ EXPLORATORY (2026-08-30) — **the band may not pin the ink short of the line the hand-over
+  // fires on** (`./pedalLane.pedalCanHandOver`, which carries his report and the measurement). ⛔ Only
+  // this frame kind, and only where there IS a hand-over to reach.
+  const port = bodyPort(engine, id, bodyPreviewWrites(engine, id, pedalCanHandOver(engine, cursorX)))
   // ⛔ No wrap and no latch: a whole pedal leaves its staff by a JUMP, and it is placed by eye.
   const frame = dragFrame({ port, latch: false }, cursorX, dxPx, dyPx)
-  return frame && { moved: frame.moved, jumped: false }
+  return frame && { moved: frame.moved || settled !== 0, jumped: false }
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — WHAT THE LAST LANDING ACTUALLY DID WITH THE INK, paid back.**
+ * `ottavaWalk.settleLanding`'s port, and it arrives with that one's report attached: the payment
+ * below predicts the landing from the two staves' EDGE LINES, which is only right if the engraver
+ * hangs the mark the same distance off both — and he does not, since the ladder grants each staff
+ * whatever its own music leaves. So the landing still moves the ink a little, and the jump's decision
+ * READS that ink ([[reference_a_drag_decision_cannot_read_its_own_outcome]]).
+ *
+ * ⭐ The residual cannot be known before the render, so it is measured AFTER it: a landing remembers
+ * where the ink was meant to be, and the next frame pays whatever the re-render really did.
+ *
+ * @returns the pixels it just wrote (screen, +down), which are not drawn yet — so this frame's
+ *   reader must add them to what the registry says.
+ */
+function settleLanding(engine: PedalWalkEngine, id: string, staffSpacePx: number): number {
+  if (!landed || landed.id !== id) return 0
+  const was = landed.inkY
+  landed = null
+  const drawn = pedalInkY(engine, id)
+  // Half a pixel is the rounding of the drawing, ⛔ not a debt.
+  if (drawn === null || Math.abs(was - drawn) < 0.5) return 0
+
+  const debt = was - drawn
+  engine.previewPedalOffsetRebase(id, 0, debt / staffSpacePx)
+  dbg(`[Pedal] landing settled | id:${id} | ink ${drawn.toFixed(0)} → ${was.toFixed(0)}`
+    + ` (${debt.toFixed(0)}px the ladder gave or took on the new staff)`)
+  return debt
+}
+
+/**
+ * ⚠️ **EXPLORATORY (2026-08-30) — the same settlement at the DROP**, for a landing on the very last
+ * frame of a gesture: there is no next frame to pay it, and an unpaid debt would otherwise be spent
+ * by the FIRST frame of the next drag, yanking the pedal by whatever the ladder had given it.
+ * ⛔ Nothing happens when the gesture owes nothing, which is the common case.
+ */
+export function settlePedalLanding(engine: PedalWalkEngine, id: string): void {
+  const staffSpacePx = pedalStaffSpacePx(engine.getElementRegistry(), id)
+  if (staffSpacePx) settleLanding(engine, id, staffSpacePx)
+  landed = null
 }
 
 /**
@@ -330,8 +388,19 @@ export function dragPedalBody(
  * more than placement: a pedal governs the staff it is filed under, so moving it moves what it damps.
  *
  * ⭐ The lift comes back out first — left in, the pedal's "home" follows it down for ever and the
- * switch never arrives (the report that produced the rule, 2026-08-19). And on arrival BOTH axes of
- * the offset go: over there the old x means nothing, and the y was never a lift.
+ * switch never arrives (the report that produced the rule, 2026-08-19).
+ *
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30, and only for a DRAG) — a RE-ANCHOR DOES NOT MOVE THE DRAWING.**
+ * `ottavaWalk.jumpStaves`' rule of the day before, arriving at the family that showed it worst: this
+ * landing used to DROP both axes of the offset, so the pair snapped to its engraved home on the new
+ * staff wherever the hand was — measured in his log, the anchor 335 → 419 with the offset zeroed, an
+ * 89px sideways leap on a frame that had moved one pixel down (*"it jumps to the other staff and this
+ * is wrong"*). Now the landing pays the anchor's whole travel back into the offset, both axes: the
+ * address and the staff change, and the ink stays under the hand.
+ *
+ * ⭐ Its own `dy` is in that payment: a jump fires when the ink PLUS this frame's travel crosses the
+ * line, so a landing that dropped that travel would settle a pixel back on the side it just left —
+ * and the next frame would hand it straight back.
  */
 function jumpStaves(
   engine: PedalWalkEngine,
@@ -339,29 +408,64 @@ function jumpStaves(
   cursorX: number,
   dyPx: number,
   staffSpacePx: number,
+  /** What {@link settleLanding} has already written and the render has not shown yet. */
+  settled = 0,
 ): boolean {
   const pedal = engine.getPedalById(id)
   const inkY = pedalInkY(engine, id)
   if (!pedal || inkY === null) return false
 
   const target = pedalSystemSlotFor(engine, pedal, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewPedalStaffSlot(id, target)) return false
+  if (!target) return false
 
-  const offset = pedalOffsetOverrideOf(engine.getScore(), id)
-  if (offset?.startX || offset?.y) {
-    engine.previewPedalOffset(id, -(offset.startX ?? 0), -(offset.y ?? 0))
-  }
-  dbg(`[Pedal] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
+  // ⚠️ Read the home BEFORE the write: the lane reads the pedal's CURRENT staff, so afterwards these
+  // two answer about the staff it has just left.
+  const from = pedalPressAddress(engine.getScore(), id)
+  const fromX = from ? pedalPressX(engine, pedal, from) : null
+  const fromEdgeY = from ? pedalStaffEdgeY(engine, pedal.staffId, from.measure) : null
+
+  if (!engine.previewPedalStaffSlot(id, target)) return false
+
+  const after = engine.getPedalById(id)
+  const toX = after ? pedalPressX(engine, after, target) : null
+  const toEdgeY = pedalStaffEdgeY(engine, target.staffId, target.measure)
+  // ⚠️ Whatever the picture could not say is paid as 0 — the no-guessing rule (`./markWalk`).
+  const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : 0
+  // ⭐⭐ **WHERE THE INK IS MEANT TO END UP: under the hand, this frame's own `dy` INCLUDED.** The
+  // pedal's home moved down the page by `toEdgeY - fromEdgeY`, and the hand moved it by the rest.
+  const vertical = fromEdgeY !== null && toEdgeY !== null
+  const screenPay = vertical ? (dyPx - settled) - (toEdgeY! - fromEdgeY!) : 0
+  const dy = screenPay / staffSpacePx
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so neither the page limit nor the band has
+  // anything to judge — and the band, measured off the render the pedal has just left, would refuse
+  // exactly the payment that keeps it still.
+  if (dx || dy) engine.previewPedalOffsetRebase(id, dx, dy)
+  // ⚠️ EXPLORATORY: where the ink is meant to stay. The next frame reads what the render really did
+  // and pays the difference ({@link settleLanding}). ⛔ The frame's `dx` really is dropped — a jump
+  // ends the frame, as it always has, and that x means nothing over there.
+  landed = { id, inkY: inkY + (vertical ? dyPx : settled) }
+  dbg(`[Pedal] jumped to the staff it now belongs to | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`
+    + ` | anchor ${fromX?.toFixed(0) ?? '—'}→${toX?.toFixed(0) ?? '—'} staff edge ${fromEdgeY?.toFixed(0) ?? '—'}→${toEdgeY?.toFixed(0) ?? '—'}`
+    + ` | paid into the offset: dx ${dx.toFixed(2)}ss dy ${dy.toFixed(2)}ss`
+    + ` | the ink is to stay at ${(inkY + (vertical ? dyPx : settled)).toFixed(0)}`
+    + ` | offset now ${JSON.stringify(pedalOffsetOverrideOf(engine.getScore(), id) ?? {})}`)
   return true
 }
 
 /** The whole pedal's writes during a DRAG: the same edits with no undo entry of their own — the drop
- *  commits once ({@link MusicEngine.commitPedalOffsetDrag}). */
-function bodyPreviewWrites(engine: PedalWalkEngine, id: string): PedalWrite {
+ *  commits once ({@link MusicEngine.commitPedalOffsetDrag}).
+ *
+ *  ⚠️ EXPLORATORY (2026-08-30): `throughTheBand` lets the vertical past the limit that would
+ *  otherwise pin the ink short of the hand-over line — see {@link dragPedalBody}. */
+function bodyPreviewWrites(
+  engine: PedalWalkEngine,
+  id: string,
+  throughTheBand = false,
+): PedalWrite {
   return {
     press: (target) => engine.previewPedalSlot(id, target),
     lift: () => false,
-    nudge: (dx, dy) => engine.previewPedalOffset(id, dx, dy),
+    nudge: (dx, dy) => engine.previewPedalOffset(id, dx, dy, throughTheBand),
     rebase: (dx) => engine.previewPedalOffsetRebase(id, dx),
   }
 }

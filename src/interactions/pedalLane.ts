@@ -39,6 +39,7 @@ import { keyStaffId } from '../engine/models/staffContent'
 import { fracCompare } from '../utils/fraction'
 import { lastMeasureNumber, systemInkAt, type SystemInk } from './markBreakWrap'
 import { systemStopFor } from './markSystemJump'
+import { runsOnSheetAt } from '@/engine/layout/systemBand'
 import { pedalOffsetOverrideOf } from '../engine/models/engravingOverrides'
 
 /** What reading the lane needs off the engine — a Pick, so a spec can stand up the reads without a
@@ -272,6 +273,18 @@ export function pedalSystemSlotFor(
     candidates: () => lane.map(o => ({ x: o.left, y: o.y, stop: o.target })),
     anchor: () => (anchor ? { x: anchor.left, y: anchor.y } : null),
     inkY: () => pedalInkY(engine, pedal.id),
+    // ⚠️ EXPLORATORY (2026-08-30): the landing is the onset nearest the PEDAL's own beginning, ⛔ not
+    // the hand's x — this drag can be grabbed by either sign, so a landing chosen by the hand slides
+    // the whole pedal by the span's length (measured, anchor 335 → 419 on one frame).
+    inkX: () => pedalInkX(engine, pedal.id),
+    // ⚠️⚠️ EXPLORATORY (2026-08-30) — ⛔ THE PEDAL ALONE, while its drag is what he is looking at.
+    // His call: *"the reanchor y is the middle of the staff [below], i think it should be the upper
+    // line of the staff that is down"*. The natural-home rule put the switch a third of the way INTO
+    // that staff (measured, 432 against its lines 404…444) because a pedal hangs 52px below its own.
+    // ⭐ ONE line between two staves, both directions — see the port's own note.
+    belongsToTheStaffOverhead: () => true,
+    // ⚠️ Unread while the rule above is on — it is the natural rule's input, and that rule is not
+    // what this family asks. ⛔ Left in place rather than removed: the choice is exploratory.
     liftPx: () => (pedalOffsetOverrideOf(engine.getScore(), pedal.id)?.y ?? 0) * staffSpacePx,
     // ⛔ Never asked: one side, permanently.
     above: () => false,
@@ -283,4 +296,51 @@ export function pedalSystemSlotFor(
 export function pedalInkY(engine: PedalLaneEngine, pedalId: string): number | null {
   const piece = engine.getElementRegistry().getByType('pedal').find(e => e.id === pedalId)
   return piece ? piece.bbox.y + piece.bbox.height / 2 : null
+}
+
+/** ⚠️ **EXPLORATORY (2026-08-30).** The LEFT EDGE of the pedal's own ink — where the `Ped.` actually
+ *  begins on the page, offset and all. ⛔ Not its anchor: the whole point of a mark carried away from
+ *  home is that the two differ, and a landing chosen by the HAND instead of by this walks the anchor
+ *  onto a note nowhere near the drawing (`ottavaInkX`'s report, one lane over). */
+export function pedalInkX(engine: PedalLaneEngine, pedalId: string): number | null {
+  const piece = engine.getElementRegistry().getByType('pedal').find(e => e.id === pedalId)
+  return piece ? piece.bbox.x : null
+}
+
+/**
+ * ⚠️ **EXPLORATORY (2026-08-30) — not a settled rule.** The drawn staff line a pedal hangs off in a
+ * given bar: always the BOTTOM one, a pedal having one side. Two of these, one either side of a
+ * hand-over, say how far the mark's HOME moved — which is what a landing has to pay back if it is
+ * not to move the drawing (`./pedalWalk.jumpStaves`).
+ *
+ * Null when that bar drew no staff there — the no-guessing rule, and the caller then pays nothing.
+ */
+export function pedalStaffEdgeY(
+  engine: PedalLaneEngine,
+  staffId: string | undefined,
+  measure: number,
+): number | null {
+  const staff = staffIndexOf(engine.getScore(), staffId)
+  const lines = engine.getElementRegistry().getStaffGeometry(measure, staff)?.lineYPositions
+  return lines ? lines[lines.length - 1] : null
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — HAS THIS PEDAL ANYWHERE TO BE HANDED TO on the sheet under the
+ * hand?** True when that sheet carries more than one painted staff row, which is the only condition
+ * {@link pedalSystemSlotFor} can ever fire under.
+ *
+ * 🚨 **What it is FOR — his report, 2026-08-30**: *"it is not move at all it jumps to the other staff
+ * and this is wrong i have to drag a lot"*, with a log of ~40 consecutive `[Band] REFUSED` frames.
+ * The band floors a below-staff mark at the partner staff's EDGE (measured, 404) while the hand-over
+ * fires halfway between the mark's two homes (432, 28px lower) — so the ink is pinned at the wall
+ * while the hand travels on, and the switch arrives only on the travel the band already refused.
+ * ⛔ The two do NOT "meet exactly", whatever `markSystemJump`'s header says.
+ *
+ * ⭐ So the room a hand-over is going to cross belongs to the GESTURE, and the band is not asked
+ * while there is a hand-over to reach. ⛔ Where there is none — one staff on the sheet — the limit
+ * stands untouched, and so does the keyboard's, and so do both squares'.
+ */
+export function pedalCanHandOver(engine: PedalLaneEngine, cursorX: number): boolean {
+  return runsOnSheetAt(engine.getElementRegistry().staffRuns(), cursorX).length > 1
 }

@@ -97,6 +97,36 @@ export interface SystemJumpPort<Stop> {
    * objected to — *"we were exploring ottava… does an ottava change the pedal?"*.
    */
   waitsForTheWhiteSpace?(): boolean
+  /**
+   * ⚠️⚠️ **EXPLORATORY (2026-08-30), and PEDAL-ONLY — the mark belongs to the staff OVERHEAD**: the
+   * last one whose TOP line is above the ink. ⛔ Instead of the natural-home rule below, not as well
+   * as it.
+   *
+   * His call, on the pedal's drag: *"the reanchor y is the middle of the staff [below], i think it
+   * should be the upper line of the staff that is down"* — and then, on a first cut that read the
+   * NEAREST staff's near edge (its top going down, its bottom coming back up): *"is not the
+   * neighboring staff… is the upper line of the staff that is down, that is completely another
+   * thing"*. ⭐⭐ **Dead right, and the difference is the whole rule**: a near-edge test is two lines
+   * and so has a dead zone between them — measured on his layout, hand over DOWN at 404 but back UP
+   * only at 316, so the pedal had to be dragged inside the upper staff to be given back. **One line
+   * between two staves**, read the same in both directions, has none.
+   *
+   * ⭐ It is a CHOOSER and cannot be written as a gate ({@link waitsForTheWhiteSpace}): a gate can
+   * only postpone a hand-over, and this one arrives EARLIER than the natural rule's halfway line
+   * (measured, 432 where the lower staff's lines are 404…444 — a third of the way INTO it, because a
+   * pedal hangs 52px below its own staff and "where it would sit there" is 52px below that one).
+   *
+   * ⭐⭐ **It is `pedalTether.rowInkAt`'s rule arriving in the drag** — *a pedal is always drawn BELOW
+   * its staff, so its row is the staff whose top line is the LAST one above the sign*. The same
+   * sentence already decides which row a sign was DRAWN on, and now decides which staff it BELONGS
+   * to; ⛔ two answers to that would be a mark drawn on one row and filed under another.
+   *
+   * ⭐⭐ **And it makes the band and the jump meet exactly**, which the natural rule never did: the
+   * band floors a below-staff mark at the partner staff's top line, which is now the same line the
+   * hand-over fires on. ⛔ Off for every other family, whose drags are not what is being looked at —
+   * and ⛔ it assumes a mark drawn BELOW its staff, which is why it is not simply switched on for all.
+   */
+  belongsToTheStaffOverhead?(): boolean
   /** The mark's own stored vertical, in PIXELS and SCREEN-signed (+down), so it can be taken back
    *  out. ⚠️ A mark whose model stores it outward converts here and nowhere else. */
   liftPx(): number
@@ -157,10 +187,22 @@ export function systemStopFor<Stop>(
   // is engraved 52 px below its staff where the staves' music is 105 px apart, so its own home IS
   // the middle and every staff below it is "nearer". A mark's own home distance therefore has to
   // stay in the decision, which is exactly what `natural` knows and a distance to the ink does not.
+  // ⚠️⚠️ **EXPLORATORY (2026-08-30) — THE PEDAL PICKS ITS TARGET A DIFFERENT WAY ENTIRELY**: the
+  // staff OVERHEAD ({@link SystemJumpPort.belongsToTheStaffOverhead}). ⛔ It REPLACES the natural
+  // rule for that family rather than gating it: his line has to be reached EARLIER than halfway
+  // between the two homes, and no gate can do that.
+  const overhead = port.belongsToTheStaffOverhead?.() === true
   const gated = port.waitsForTheWhiteSpace?.() === true
-  const target = natural !== home && (!gated || pastTheMusicBetween(home, natural, inkY))
-    ? natural : home
-  if (debugEnabled() && natural !== home) {
+  const target = overhead
+    ? (staffOverhead(here, inkY) ?? home)
+    : natural !== home && (!gated || pastTheMusicBetween(home, natural, inkY))
+      ? natural : home
+  if (debugEnabled() && overhead) {
+    dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
+      + ` | the staff-overhead rule (the last TOP line above the ink) ${target === home
+        ? 'holds it here' : `says GO to ${target.top.toFixed(0)}…${target.bottom.toFixed(0)}`}`)
+  }
+  if (debugEnabled() && !overhead && natural !== home) {
     dbg(`[jump] ink ${inkY.toFixed(0)} | home ${home.top.toFixed(0)}…${home.bottom.toFixed(0)}`
       + ` (its music ${musicTop(home).toFixed(0)}…${musicBottom(home).toFixed(0)})`
       + ` | the natural-home rule (gap ${naturalGap.toFixed(0)}px) says GO to`
@@ -187,6 +229,33 @@ export function systemStopFor<Stop>(
 }
 
 
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-30) — THE STAFF OVERHEAD**: of the runs on this sheet, the one whose
+ * TOP line is the last one ABOVE the ink. {@link SystemJumpPort.belongsToTheStaffOverhead}'s whole
+ * body, and `pedalTether.rowInkAt`'s rule for finding the row a sign was drawn on.
+ *
+ * ⭐⭐ **ONE LINE BETWEEN TWO STAVES, read the same in both directions** — his correction: *"is not
+ * the neighboring staff… is the upper line of the staff that is down"*. A staff's territory runs from
+ * its own top line down to the top line of the staff beneath it, so the hand-over DOWN and the
+ * hand-over back UP happen on the same pixel and there is no dead zone between them.
+ *
+ * ⭐ It is ⛔ NOT "the nearest staff": a pedal is engraved 52px under its staff where the staves'
+ * lines are 88px apart, so it begins life nearer its neighbour, and nearest-wins would hand it down
+ * the page on the first pixel of a drag (his *"the pedal is completly crazy"*, eight hand-overs in
+ * one gesture).
+ *
+ * ⛔ Null when the ink is above every top line on the sheet — dragged over the first staff, a mark
+ * drawn below has no staff overhead, and the caller then leaves it where it is.
+ */
+function staffOverhead(bands: StaffBand[], inkY: number): StaffBand | null {
+  let best: StaffBand | null = null
+  for (const band of bands) {
+    if (band.top > inkY) continue
+    if (!best || band.top > best.top) best = band
+  }
+  return best
+}
 
 /** The staff line a mark of this placement hangs off: the TOP for one above, the BOTTOM for one
  *  below. What makes the rule read the same in both directions. */

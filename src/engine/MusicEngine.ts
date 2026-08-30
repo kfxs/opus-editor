@@ -2396,19 +2396,34 @@ export class MusicEngine {
    * Live (preview) nudge of the WHOLE pedal's ink — a BODY drag. {@link nudgePedal} without the undo,
    * and accumulating like it; the page limit and the band still refuse the write, so the pair stops
    * at the edge rather than being clamped in the drawing.
+   *
+   * @param throughTheBand ⚠️⚠️ **EXPLORATORY (2026-08-30) — let the vertical PASS the band**, for the
+   *   one frame kind that has somewhere to be handed to (`interactions/pedalLane.pedalCanHandOver`,
+   *   which carries his report and the measurement). The band floors this mark at the partner staff's
+   *   EDGE while the hand-over fires 28px lower, so the two rules deadlock and the gesture stalls.
+   *   ⛔ Off everywhere else — the keyboard nudge, both squares, and a sheet with one staff on it —
+   *   so the limit he asked for on 2026-08-21 stands wherever a hand-over cannot relieve it.
+   *   ⚠️ The PAGE is still judged; it is the only stop left on that road.
    */
-  previewPedalOffset(id: string, dx: number, dy: number): boolean {
+  previewPedalOffset(id: string, dx: number, dy: number, throughTheBand = false): boolean {
     if (!this.nudgeStaysOnPage('pedal', id, dx, dy)) return false
-    if (dy !== 0 && !this.pedalStaysInBand(id, dy)) return false
+    if (dy !== 0 && !throughTheBand && !this.pedalStaysInBand(id, dy)) return false
     this.markModelDirty() // live drag, undo deferred to commitPedalOffsetDrag
     return this.scoreModel.setPedalOffset(id, dx, dy)
   }
 
   /** The whole pedal's RE-BASE during a DRAG — {@link rebasePedalOffset} with no undo of its own, and
-   *  ⛔ never judged by the page limit or the band. */
-  previewPedalOffsetRebase(id: string, dx: number): boolean {
+   *  ⛔ never judged by the page limit or the band.
+   *
+   *  ⚠️ **EXPLORATORY (2026-08-30): it grew a `dy`** — a LANDING pays the travel of the mark's home
+   *  into the offset so the re-anchor does not move the drawing (`interactions/pedalWalk.jumpStaves`),
+   *  and that payment is vertical as well as horizontal. ⛔ It must not come through
+   *  {@link previewPedalOffset}: the drawn ink does not move, so neither the page nor the band has
+   *  anything to judge — and the band, measured off the render the pedal has just left, would refuse
+   *  exactly the payment that keeps it still. */
+  previewPedalOffsetRebase(id: string, dx: number, dy = 0): boolean {
     this.markModelDirty()
-    return this.scoreModel.setPedalOffset(id, dx, 0)
+    return this.scoreModel.setPedalOffset(id, dx, dy)
   }
 
   /** Record ONE undo entry after a pedal BODY drag settles. */

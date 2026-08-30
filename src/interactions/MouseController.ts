@@ -44,7 +44,7 @@ import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGr
   type BarlineJoinSquareEnd } from './elements/barlineJoinHandles'
 import { armPedalEndpointAt } from './elements/pedalHandles'
 import { pedalStaffSpacePx } from './pedalLane'
-import { dragPedalBody, dragPedalEndpoint } from './pedalWalk'
+import { dragPedalBody, dragPedalEndpoint, settlePedalLanding } from './pedalWalk'
 import { armTrillEndpointAt } from './elements/trillHandles'
 import { trillStaffSpacePx } from './trillLane'
 import { articulationHit } from './elements/articulation'
@@ -3568,6 +3568,11 @@ export class MouseController {
   private endPedalBodyDrag(): void {
     const engine = this.getEngine()
     if (engine && this.pedalBodyDragChanged) {
+      // ⚠️ EXPLORATORY (2026-08-30): a landing on the very last frame is still owed its settlement,
+      // and there is no next frame to pay it — `pedalWalk.settlePedalLanding` does it here, before
+      // the commit, so the one undo entry carries it. ⛔ Also stops a stale debt reaching the NEXT
+      // drag, which would yank the pedal on its first frame. (The bracket's line, one lane over.)
+      if (this.draggedPedalBodyId) settlePedalLanding(engine, this.draggedPedalBodyId)
       engine.commitPedalOffsetDrag()
       // ⛔ **THE DROP RENDERS FOR REAL** — §12.5a. The frames drew only this family, which does not
       // restack the ladder around it; leaving the cheap picture standing is the one thing a preview
