@@ -18,6 +18,9 @@ function fakePort(options: {
   anchorDrawn?: boolean
   refuseReanchor?: boolean
   refuseNudge?: boolean
+  /** ⭐ A VERTICAL limit, like the band: any write carrying a `dy` is refused, the horizontal is not.
+   *  His 2026-08-30 case, where a wedge pinned at the bottom of its band stopped growing sideways. */
+  refuseVertical?: boolean
   /** Give the port a REBASE writer of its own — the crossing's second half, which must not be
    *  refusable. Off by default, as it is for the two marks that predate it. */
   rebasing?: boolean
@@ -46,6 +49,7 @@ function fakePort(options: {
     },
     nudge: (dx, dy) => {
       if (options.refuseNudge) return false
+      if (options.refuseVertical && dy !== 0) return false
       state.offset += dx
       state.nudges.push([dx, dy])
       return true
@@ -249,5 +253,48 @@ describe('crossWithoutArrival — the walk against a wall', () => {
     const { port, state } = fakePort({ refuseReanchor: true })
     expect(crossWithoutArrival(port, 1)).toBe(false)
     expect(state.offset, 'nothing re-based either').toBe(0)
+  })
+})
+
+/**
+ * 🚨🚨 **ONE AXIS'S LIMIT MUST NOT VETO THE OTHER** — his report, 2026-08-30: dragging a wedge's end
+ * to lengthen it *"is refusing to grow it, it gets stuck"*.
+ *
+ * His log, on frame after frame: `dx 3.57ss dy 0.14ss` → `[Band] REFUSED dy 0.14ss (1px)` → `frame
+ * REFUSED — the model wrote nothing`. The ink was already a pixel past the bottom of its band, so
+ * every further downward pixel was refused — and a hand dragging sideways always carries one. The
+ * horizontal travel he was asking for died with the vertical he was not.
+ */
+describe('a refused axis does not take the other down with it', () => {
+  it('🚨 writes the HORIZONTAL when the vertical is refused', () => {
+    const { port, state } = fakePort({ refuseVertical: true })
+    expect(carryMark(port, 0.5, 0.2).moved).toBe(true)
+    expect(state.nudges).toEqual([[0.5, 0]])
+    expect(state.offset).toBeCloseTo(0.5)
+  })
+
+  it('and the VERTICAL when the horizontal is the one refused', () => {
+    // The mirror case — the page limit judges the x, and it must not pin the y either.
+    const { port, state } = fakePort()
+    let refuseX = true
+    const guarded: MarkWalkPort = {
+      ...port,
+      nudge: (dx, dy) => (refuseX && dx !== 0 ? false : port.nudge(dx, dy)),
+    }
+    expect(carryMark(guarded, 0.5, 0.2).moved).toBe(true)
+    expect(state.nudges).toEqual([[0, 0.2]])
+    refuseX = false
+  })
+
+  it('⛔ still refuses when BOTH axes are refused — the limits are obeyed, not relaxed', () => {
+    const { port, state } = fakePort({ refuseNudge: true })
+    expect(carryMark(port, 0.5, 0.2).moved).toBe(false)
+    expect(state.nudges).toEqual([])
+  })
+
+  it('⛔ and asks ONCE when the write is accepted — no second call on the happy path', () => {
+    const { port, state } = fakePort()
+    expect(carryMark(port, 0.5, 0.2).moved).toBe(true)
+    expect(state.nudges).toEqual([[0.5, 0.2]])
   })
 })

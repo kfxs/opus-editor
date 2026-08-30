@@ -219,6 +219,32 @@ export function crossWithoutArrival(port: MarkWalkPort, dx: number): boolean {
  *
  * @returns how many stops the anchor crossed, and whether anything was written at all.
  */
+/**
+ * ⭐⭐ **ONE AXIS'S LIMIT MUST NOT VETO THE OTHER.**
+ *
+ * 🚨 **HIS REPORT, 2026-08-30**: dragging a wedge's END to lengthen it *"is refusing to grow it, it
+ * gets stuck"*. His log says why, on every frame: `dx 3.57ss dy 0.14ss` → `[Band] REFUSED dy 0.14ss
+ * (1px)` → `frame REFUSED — the model wrote nothing`. The wedge's ink was already a pixel past its
+ * band's bottom edge (`ink 471…489`, `band 401…470`), so every further DOWNWARD pixel was refused —
+ * and a hand dragging sideways always carries a pixel or two of vertical. ⛔ The horizontal travel
+ * he was actually asking for died with it, over and over.
+ *
+ * ⭐ A write is one call, and the limits are per axis (the BAND judges the vertical,
+ * `MusicEngine.nudgeStaysInBand`; the PAGE judges the horizontal). So a refusal of the pair says
+ * nothing about which half was unacceptable: ask again for each half alone, and let the axis that
+ * was fine through.
+ *
+ * ⛔ NOT a relaxation of either limit — each is still asked, and still obeyed. What changes is only
+ * that a mark pinned vertically can still be moved sideways, which is what a hand pressed against
+ * the bottom of a band expects.
+ */
+function nudgeAxes(port: MarkWalkPort, dx: number, dy: number): boolean {
+  if (port.nudge(dx, dy)) return true
+  // Both axes were asked together and something said no. Split the ask.
+  if (dx !== 0 && dy !== 0) return port.nudge(dx, 0) || port.nudge(0, dy)
+  return false
+}
+
 export function carryMark(
   port: MarkWalkPort,
   dx: number,
@@ -263,7 +289,7 @@ export function carryMark(
   // which is the point (the anchor's own position is what the hand was reaching for).
   const offset = port.offsetX()
   if (latching && dx !== 0 && offset !== 0 && Math.sign(offset + dx) !== Math.sign(offset)) {
-    const moved = port.nudge(-offset, dy)
+    const moved = nudgeAxes(port, -offset, dy)
     // ⭐⭐ **`dropped` is the travel this cut short**, signed and in staff-spaces — and it is the
     // caller's to REPAY. Those pixels were made by the hand; a drag that swallows them leaves the
     // ink behind the cursor a little at every stop and never catches up, which is Baudisch's own
@@ -288,6 +314,6 @@ export function carryMark(
 
   // ⚠️ Guarded: a drag frame whose delta rounded to nothing must not write, or every mouse move over
   // a held-still hand marks the model dirty and repaints the score.
-  const nudged = (dx !== 0 || dy !== 0) && port.nudge(dx, dy)
+  const nudged = (dx !== 0 || dy !== 0) && nudgeAxes(port, dx, dy)
   return { crossings, moved: crossings > 0 || nudged, latched: false, dropped: 0, gapAhead: 0 }
 }
