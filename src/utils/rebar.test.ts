@@ -37,7 +37,8 @@ function noteLen(bars: BarPlan[]): number {
   return total
 }
 
-const unbounded = (targetBars: number) => ({ targetBars, bounded: false })
+// Every case in this file is a METER CHANGE, so the relay is asked to re-spell as needed.
+const unbounded = (targetBars: number) => ({ targetBars, bounded: false, respell: 'as-needed' as const })
 
 // --- relayEvents -----------------------------------------------------------
 
@@ -140,7 +141,7 @@ describe('rebar — relayEvents', () => {
     const bars = relayEvents(
       [note(0, 1), note(1, 1), note(2, 1), note(3, 1)],
       getMeterInfo(ts(2, 4)),
-      { targetBars: 1, bounded: true },
+      { targetBars: 1, bounded: true, respell: 'as-needed' as const },
     )
     expect(bars).toHaveLength(1)
     expect(noteLen(bars)).toBeCloseTo(4, 9) // all four quarters survive

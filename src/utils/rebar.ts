@@ -124,6 +124,9 @@ export interface RebarEvent {
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
   articulationPlacement?: 'above' | 'below'
+  /** Stem-side alignment for those marks — an authored decision about the SAME marks, so it travels
+   *  with them (`utils/slotFieldTravel`). Onto every piece of a split, like the marks themselves. */
+  articulationStemAlign?: boolean
   /** Single-note tremolo on the event. Carried through the relay so a meter change or a paste does
    *  not silently drop it — and carried onto EVERY piece a tie-split makes of this event, because a
    *  tremolo interrupted at a barline is still being played across it. */
@@ -168,6 +171,8 @@ export interface RebarPiece {
   stemDirection?: StemDirection
   articulations?: ArticulationType[]
   articulationPlacement?: 'above' | 'below'
+  /** Stem-side alignment. See {@link RebarEvent.articulationStemAlign}. */
+  articulationStemAlign?: boolean
   /** Single-note tremolo. See {@link RebarEvent.tremolo} — every piece of a split event keeps it. */
   tremolo?: TremoloMark
   /** Fanned beam. See {@link RebarEvent.fan} — only the FIRST piece of a split event keeps it. */
@@ -195,6 +200,37 @@ interface RelayOptions {
   targetBars: number
   /** True when a following explicit TS change pins the region's bar count. */
   bounded: boolean
+  /**
+   * ⭐⭐ **WHAT THIS CALLER IS ASKING THE RELAY TO DO** — and the two callers are asking opposite
+   * things, which is the distinction this field exists to stop being implicit.
+   *
+   *  - `'as-needed'` — a METER CHANGE. Re-spelling IS the job: the barlines moved, so the figures
+   *    that fitted the old bar are not the figures that fit the new one. Inventing a spelling here
+   *    is the correct answer.
+   *  - `'faithful'` — a PASTE. The music is being put back, not re-shaped, so the authored figures
+   *    stand and anything the relay has to invent is a change to notation NOBODY ASKED FOR. It is
+   *    reported through {@link RelayOptions.onImprovised} rather than happening quietly.
+   *
+   * 🚨 Until 2026-08-30 this was carried implicitly — by whether an event happened to have a
+   * `written` shape — so a spelling that went missing anywhere upstream silently changed the user's
+   * notation instead of failing loudly. That cost two of his reports (see {@link RebarEvent.written})
+   * and an audit that found a third field being eaten (`utils/slotFieldTravel`).
+   *
+   * ⚠️ REQUIRED, deliberately: a third caller must decide which of the two it is. There is no
+   * sensible default, because the wrong one is silent both ways.
+   */
+  respell: 'as-needed' | 'faithful'
+  /**
+   * Called under `'faithful'` whenever the relay had to invent a spelling anyway — once per piece
+   * it minted. ⛔ It is a REPORT, not a veto: the music cannot be dropped, so the relay lays what it
+   * can and says so. What to do about it (warn, refuse the paste) is the caller's.
+   *
+   * `'split-at-barline'` is expected and unavoidable — the event genuinely straddles a barline and
+   * its halves are new shapes (MuseScore's `shouldSplit` reaches the same conclusion in the same
+   * place). `'no-authored-shape'` is the one worth acting on: the event survived whole and we STILL
+   * had nothing to draw it as — a collapsed fan, or a tie chain one of whose pieces was unspellable.
+   */
+  onImprovised?: (info: { offset: Fraction; reason: 'split-at-barline' | 'no-authored-shape' }) => void
 }
 
 // Internal flatten event with the tie-forward marker used only for collapsing.
@@ -306,6 +342,7 @@ export function flattenRegion(
         stemDirection: slot.stemDirection,
         articulations: slot.articulations,
         articulationPlacement: slot.articulationPlacement,
+        articulationStemAlign: slot.type === 'chord' ? slot.articulationStemAlign : undefined,
         tremolo: slot.tremolo,
         // ⚠️ A COPY, not the slot's own mark. The flattened stream is also the clipboard's payload —
         // documented as position-independent and re-pasteable — and `fan` is the one field on an
@@ -480,8 +517,14 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
       // ⭐ A SEQUENCE, laid in the order it was written: one figure for a plain note, several for a
       // tie chain that was collapsed on the way in. Each starts where the one before it ended,
       // which is exactly what `written`'s invariant (the lengths sum to `duration`) buys.
-      const segments = ev.written && whole
-        ? writtenSegments(ev.written, fracSub(p, bs))
+      const faithful = ev.written && whole
+      if (!faithful && opts.respell === 'faithful') {
+        // ⭐ The caller asked for the music back as written and is about to get something else. Say
+        // which of the two reasons it is — one is unavoidable, the other is worth refusing over.
+        opts.onImprovised?.({ offset: ev.offset, reason: whole ? 'no-authored-shape' : 'split-at-barline' })
+      }
+      const segments = faithful
+        ? writtenSegments(ev.written!, fracSub(p, bs))
         : decomposeSpan(fracSub(p, bs), fracSub(fragEnd, bs), meter)
       for (const s of segments) {
         const piece: RebarPiece = {
@@ -493,6 +536,7 @@ export function relayEvents(events: RebarEvent[], meter: MeterInfo, opts: RelayO
           stemDirection: ev.stemDirection,
           articulations: ev.articulations,
           articulationPlacement: ev.articulationPlacement,
+          articulationStemAlign: ev.articulationStemAlign,
           // EVERY piece, not just the head: a tremolo interrupted at a barline is still being
           // played across it, so both halves of a tie-split carry the mark.
           tremolo: ev.tremolo,

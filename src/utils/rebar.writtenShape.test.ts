@@ -40,7 +40,7 @@ const chord = (beat: Fraction, duration: Chord['duration'], notes: NotePitch[], 
 const measure = (slots: Chord[]): Measure => ({ id: id(), number: 1, slots, timeSignature: ts(4, 4), tuplets: [] })
 type Fraction = ReturnType<typeof F>
 
-const relayWhole = (events: RebarEvent[]) => relayEvents(events, getMeterInfo(ts(4, 4)), { targetBars: 1, bounded: false })
+const relayWhole = (events: RebarEvent[]) => relayEvents(events, getMeterInfo(ts(4, 4)), { targetBars: 1, bounded: false, respell: 'faithful' })
 
 describe('the authored shape survives a re-lay', () => {
   it('a dotted quarter stays a dotted quarter — not a quarter tied to an eighth', () => {
@@ -96,10 +96,59 @@ describe('what must still be re-derived', () => {
     const bars = relayEvents(
       [{ offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] }],
       getMeterInfo(ts(4, 4)),
-      { targetBars: 2, bounded: false },
+      { targetBars: 2, bounded: false, respell: 'faithful' },
     )
     // The tail piece lands in the next bar; the authored dotted quarter cannot describe either half.
     expect(bars[1].some(p => !p.isRest)).toBe(true)
     expect(bars[0].filter(p => !p.isRest).every(p => !(p.duration === 'q' && p.dots === 1))).toBe(true)
+  })
+})
+
+/**
+ * ⭐⭐ The RELAY'S TWO CALLERS, made explicit (`RelayOptions.respell`, 2026-08-30).
+ *
+ * A meter change and a paste ask opposite things of the same function: one wants the music re-shaped
+ * for new barlines, the other wants it put back. Until this field existed the difference was carried
+ * implicitly — by whether an event happened to have a spelling — so a spelling lost anywhere upstream
+ * changed the notation silently instead of saying so.
+ */
+describe('the relay reports what it had to invent', () => {
+  const improvised = (events: RebarEvent[], targetBars = 1) => {
+    const seen: string[] = []
+    relayEvents(events, getMeterInfo(ts(4, 4)), {
+      targetBars, bounded: false, respell: 'faithful',
+      onImprovised: ({ reason }) => seen.push(reason),
+    })
+    return seen
+  }
+
+  it('says nothing when every event is laid exactly as it was written', () => {
+    expect(improvised([
+      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
+    ])).toEqual([])
+  })
+
+  it("⭐ reports 'no-authored-shape' — the one worth refusing over: it fitted, and we still guessed", () => {
+    expect(improvised([
+      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }] },
+    ])).toEqual(['no-authored-shape'])
+  })
+
+  it("reports 'split-at-barline' — expected and unavoidable, once per fragment it minted", () => {
+    const seen = improvised([
+      { offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
+    ], 2)
+    expect(seen.length).toBeGreaterThan(0)
+    expect(new Set(seen)).toEqual(new Set(['split-at-barline']))
+  })
+
+  it('⛔ stays SILENT under `as-needed` — for a meter change, re-spelling is the job', () => {
+    const seen: string[] = []
+    relayEvents(
+      [{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }] }],
+      getMeterInfo(ts(4, 4)),
+      { targetBars: 1, bounded: false, respell: 'as-needed', onImprovised: ({ reason }) => seen.push(reason) },
+    )
+    expect(seen).toEqual([])
   })
 })

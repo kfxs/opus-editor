@@ -245,7 +245,8 @@ export function rebarRegion(score: Score, deps: RebarDeps, fromMeasure: number, 
   const lanes: Array<{ staff: number; voice: number; plan: BarPlan[] }> = []
   let maxBars = targetBars
   for (const lane of laneEvents) {
-    const plan = relayEvents(lane.events, meter, { targetBars, bounded: false })
+    // 'as-needed': this IS the meter change — the barlines moved, so re-spelling is the job.
+    const plan = relayEvents(lane.events, meter, { targetBars, bounded: false, respell: 'as-needed' })
     lanes.push({ staff: lane.staff, voice: lane.voice, plan })
     if (plan.length > maxBars) maxBars = plan.length
   }
@@ -463,7 +464,15 @@ export function pasteEvents(
         // this lane ignores). This is what keeps the non-target staves intact.
         events = existing
       }
-      const p = relayEvents(events, meter, { targetBars, bounded })
+      // ⭐ 'faithful': a paste puts music BACK, it does not re-shape it — so the authored figures
+      // stand, and anything the relay has to invent is reported rather than done quietly. ⚠️ This
+      // lane may be untouched destination music passed through, which needs the promise just as
+      // much: a paste into bar 4 must not re-spell bar 5.
+      const p = relayEvents(events, meter, {
+        targetBars, bounded, respell: 'faithful',
+        onImprovised: ({ offset, reason }) =>
+          dbg(`[paste] respelled staff ${staff} voice ${v} at beat ${offset.num}/${offset.den} — ${reason}`),
+      })
       lanes.push({ staff, voice: v, plan: p })
       if (p.length > maxBars) maxBars = p.length
     }
@@ -1709,6 +1718,7 @@ function materializeVoiceBar(
     if (piece.stemDirection) chord.stemDirection = piece.stemDirection
     if (piece.articulations) chord.articulations = piece.articulations
     if (piece.articulationPlacement) chord.articulationPlacement = piece.articulationPlacement
+    if (piece.articulationStemAlign) chord.articulationStemAlign = true
     if (piece.tremolo) chord.tremolo = piece.tremolo
     // ⭐ Cloned with FRESH member pitch ids, for the same reason the chord's own notes get them just
     // above: a relay piece is a copy, and a paste can land the same payload twice. Two live slots
