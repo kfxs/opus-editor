@@ -12,6 +12,7 @@
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Stop } from '../engine/models/tempoOps'
+import { tempoStops } from '../engine/models/tempoOps'
 import { fracCompare, fracToNumber } from '../utils/fraction'
 
 /** What the readers need off the engine — a Pick, so a spec can stand them up without a renderer. */
@@ -44,6 +45,52 @@ export function tempoAddress(engine: TempoAnchorEngine, id: string): Stop | null
  */
 export function onsetAnchorX(engine: TempoAnchorEngine, stop: Stop): number | null {
   return engine.getElementRegistry().tempoAnchorX(stop.measure, fracToNumber(stop.beat))
+}
+
+/**
+ * 🚨🚨 **THE NEXT ANCHOR POINT IS THE NEXT COLUMN, ⛔ NOT THE NEXT STOP** — his reports of
+ * 2026-08-31, one per device, from the same emptied bar: the mouse *"does not find the next anchor
+ * point in measure 3"*, and then the keys walking out of that bar for ever without re-anchoring
+ * (`⛔ NO CROSSING: the gap runs the other way`, 62 presses of pure ink).
+ *
+ * ⭐ **Why a stop is not an anchor point.** The mark is engraved on the first element at-or-after its
+ * beat *on the staff it sits above* ({@link onsetAnchorX}, Gould p. 183), so when that staff holds
+ * one whole rest, every one of the bar's onsets resolves to the SAME x — measured in his log,
+ * `m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539`. Several stops, ONE place to put the mark.
+ * Neither device can aim inside that column: the hand has no pixel to reach and the ink has no gap to
+ * cross. ⭐ So the stops sharing the current anchor's x are passed OVER, and the next anchor point is
+ * the nearest stop drawn somewhere else.
+ *
+ * ⚠️ **What it fixes is a break that read as a stop.** Both devices ended the search at the first
+ * stop whose x was not strictly ahead — which is right for the next SYSTEM (below) and fatal for a
+ * shared column: the first equal x killed it, so nothing past his emptied bar was reachable at all.
+ *
+ * ⛔ **A stop drawn BEHIND the anchor is still the end of the road** — it is on the next system, and
+ * two systems' x's are not one ruler (`./markSystemJump`). ⛔ So is one the last render drew no
+ * anchor for: an x we do not have is not an x to compare.
+ *
+ * ⚠️ Pass `stops` when calling this in a LOOP — otherwise every turn rebuilds the score's whole onset
+ * list, which is the hot path the drag pays per frame.
+ */
+export function nextAnchorPoint(
+  engine: TempoAnchorEngine,
+  from: Stop,
+  direction: 1 | -1,
+  stops: Stop[] = tempoStops(engine.getScore()),
+): { stop: Stop; x: number } | null {
+  const fromX = onsetAnchorX(engine, from)
+  if (fromX === null) return null
+  let i = stops.findIndex(s => s.measure === from.measure && fracCompare(s.beat, from.beat) === 0)
+  if (i === -1) return null
+  for (i += direction; i >= 0 && i < stops.length; i += direction) {
+    const x = onsetAnchorX(engine, stops[i])
+    if (x === null) return null
+    const sign = Math.sign(x - fromX)
+    if (sign === -direction) return null
+    if (sign === direction) return { stop: stops[i], x }
+    // sign 0 — the same column, which neither device can address separately. Keep looking.
+  }
+  return null
 }
 
 /**

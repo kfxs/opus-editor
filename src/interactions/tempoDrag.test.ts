@@ -95,22 +95,40 @@ describe('dragTempo', () => {
     expect(tempoAnchorXOf(engine, markId)).toBe(205)
   })
 
-  it('⭐⭐ writes NOTHING until the hand reaches the next anchor', () => {
+  it('⭐⭐ keeps the ANCHOR until the hand reaches the next one', () => {
     // His rule, verbatim: *"till the beginning of the ink doesn't reach the next anchor point,
-    // nothing; when it reaches it, re-anchor"*. ⛔ No offset creeps in on the way — that interpolating
-    // half is what he asked to remove.
+    // nothing; when it reaches it, re-anchor"* — about the ANCHOR, which is the model.
     for (const handX of [206, 250, 280, 304.9]) {
-      expect(dragTempo(engine, markId, handX, 0)?.moved, `hand at ${handX}`).toBe(false)
+      dragTempo(engine, markId, handX, 0)
+      expect(at(), `hand at ${handX}`).toBe('1@1')
     }
-    expect(at()).toBe('1@1')
-    expect(offsetX(), 'the mark did not budge').toBe(0)
   })
 
-  it('⭐⭐ …and re-anchors the moment it does', () => {
+  it('⭐⭐ …while the INK trails the hand the whole way (his ask, 2026-08-31)', () => {
+    // *"we are not offsetting, so we must offset"*. The offset is `hand − anchor`, absolute, so the
+    // drawn mark sits under the hand between two onsets instead of stopping dead at one.
+    // ⛔ Nothing accumulates: each frame is computed from those two numbers alone.
+    dragTempo(engine, markId, 250, 0)
+    expect(offsetX(), '(250 − 205) / 10 px-per-space').toBeCloseTo(4.5, 6)
+    dragTempo(engine, markId, 280, 0)
+    expect(offsetX(), 'and again from scratch, ⛔ not 4.5 + 3').toBeCloseTo(7.5, 6)
+    // ⭐ Going back is the same computation, so it cannot drift out of step with the hand.
+    dragTempo(engine, markId, 206, 0)
+    expect(offsetX()).toBeCloseTo(0.1, 6)
+  })
+
+  it('⭐⭐ …and re-anchors the moment it does, without the INK moving', () => {
+    // ⭐⭐ The identity holds for FREE: the anchor grows by the gap and the offset shrinks by the
+    //    gap in the same frame, because the offset is measured from the anchor rather than carried.
+    //    ⛔ No re-base, which is what the old walk needed a whole mechanism for.
+    dragTempo(engine, markId, 304.9, 0)
+    const before = 304.9
     const frame = dragTempo(engine, markId, 305, 0)
     expect(frame?.moved).toBe(true)
     expect(at()).toBe('1@2')
-    expect(frame?.snappedPx, 'the anchor travelled the whole gap').toBeCloseTo(100)
+    expect(offsetX(), 'offset zero at the new anchor').toBeCloseTo(0, 6)
+    expect(frame?.inkPx, 'the drawn mark moved the tenth of a pixel the hand did')
+      .toBeCloseTo(305 - before, 6)
   })
 
   it('⭐ one fast frame crosses every anchor the hand flew over', () => {
@@ -123,9 +141,11 @@ describe('dragTempo', () => {
   it('⭐ and it snaps backwards the same way', () => {
     expect(dragTempo(engine, markId, 105, 0)?.moved).toBe(true)
     expect(at()).toBe('1@0')
-    // …then stops at the front of the score rather than running off it.
-    expect(dragTempo(engine, markId, -500, 0)?.moved).toBe(false)
+    // …then the ANCHOR stops at the front of the score rather than running off it — the ink still
+    // trails, which is the offset's job and the page limit's to refuse.
+    dragTempo(engine, markId, 55, 0)
     expect(at()).toBe('1@0')
+    expect(offsetX(), 'the ink went where the hand did').toBeCloseTo(-5, 6)
   })
 
   it('⭐⭐ a re-anchor DROPS the sideways nudge and KEEPS the lift', () => {
@@ -141,16 +161,16 @@ describe('dragTempo', () => {
 
   it('🚨 refuses an anchor whose x runs the wrong way — two systems, two rulers', () => {
     render([100, 200, 20, 120])
-    expect(dragTempo(engine, markId, 1000, 0)?.moved).toBe(false)
-    expect(at()).toBe('1@1')
+    dragTempo(engine, markId, 1000, 0)
+    expect(at(), 'the anchor stayed — the next stop in TIME is on another system').toBe('1@1')
   })
 
   it('⛔ …and stops at an onset another tempo mark is sitting on', () => {
     // One mark per beat: the model refuses the write, so the drag stops there — the same answer it
     // gives at the end of the score, and ⛔ never an overwrite.
     const other = engine.addTempoMark(1, { beat: frac(2, 1), text: 'Presto' })!.id
-    expect(dragTempo(engine, markId, 1000, 0)?.moved).toBe(false)
-    expect(at()).toBe('1@1')
+    dragTempo(engine, markId, 1000, 0)
+    expect(at(), 'the anchor stopped at the taken beat').toBe('1@1')
     expect(engine.getTempoMarkById(other)).not.toBeNull()
   })
 
@@ -179,6 +199,38 @@ describe('dragTempo', () => {
     dragTempo(engine, markId, 305, 0)
     engine.undo()
     expect(at(), 'the undo took back the mark itself, so the frame pushed nothing').toBe('gone')
+  })
+
+  it('🚨🚨 an EMPTIED bar has ONE x for every beat — and the ink still follows the hand', () => {
+    // ⭐⭐ **His report, 2026-08-31**, after clearing a measure: an empty bar's onsets all land on the
+    // same column, which his log says outright —
+    //   `[tempo-anchors] m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539`
+    // The snap has nothing to reach (a next stop whose x is not AHEAD is not one ruler's worth of
+    // travel, so it breaks out), and before the offset existed the mark stopped dead there: measured,
+    // `hand 541.4 reached the next anchor 538.9` and then silence while the hand ran on to 657 —
+    // 116 px behind. ⭐ The trail is the whole of the gesture here.
+    drawn.anchors = new Map([['1:0', 105], ['1:1', 205], ['1:2', 205], ['1:3', 205]])
+    dragTempo(engine, markId, 400, 0)
+    expect(at(), 'nothing AHEAD to snap to — the anchor stays').toBe('1@1')
+    expect(offsetX(), 'and the ink is under the hand: (400 − 205) / 10').toBeCloseTo(19.5, 6)
+  })
+
+  it('🚨🚨 …and the drag CROSSES that bar — the next anchor point is the next COLUMN', () => {
+    // ⭐⭐ **His report with the picture, 2026-08-31**: *"when is a measure with no music it offset,
+    // and this is corect… but it does not find the next anchor point in measure 3"*. The mark hung
+    // two bars right of the bar it was still anchored in.
+    //
+    // The old rule ended the search at the first stop whose x was not strictly ahead — which the
+    // emptied bar's SECOND onset already is. Beats 1 and 2 share a column (his `0@539 0.25@539`),
+    // so they are one anchor point, and the one after it is beat 3.
+    drawn.anchors = new Map([['1:0', 105], ['1:1', 205], ['1:2', 205], ['1:3', 405]])
+    dragTempo(engine, markId, 404.9, 0)
+    expect(at(), 'the hand is short of the next COLUMN, and beat 2 is not one of its own').toBe('1@1')
+    dragTempo(engine, markId, 405, 0)
+    expect(at(), 'reaching it re-anchors — ⛔ never to a beat inside the column it stepped over')
+      .toBe('1@3')
+    expect(offsetX(), 'and the ink did not move: the offset shrank by the gap the anchor grew by')
+      .toBeCloseTo(0, 6)
   })
 
   it('⛔ the drag DECLINES (null) when the mark is not drawn — ⚠️ null, not false', () => {
@@ -244,11 +296,10 @@ describe('dragTempo — the vertical, on a grand staff', () => {
   it('🚨🚨 does NOT hand the mark to the staff BELOW it in its own system', () => {
     // 70 px down puts the ink at 303 — past halfway between its home (233) and where it would sit
     // under the bass staff (361), which is exactly where his drag died.
-    const frame = dragTempo(engine, markId, 150, 70)
+    dragTempo(engine, markId, 150, 70)
     expect(at(), 'it is still anchored where it was').toBe('1@0')
     expect(offsetY(), 'and the lift was written — the vertical is the whole gesture here')
       .toBeCloseTo(-7, 6)
-    expect(frame?.snappedPx, 'nothing re-anchored').toBe(0)
   })
 
   it('⭐⭐ …and DOES hand it to the next SYSTEM once the ink belongs there', () => {

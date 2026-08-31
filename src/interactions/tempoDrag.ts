@@ -9,10 +9,19 @@
  * `./markDrive`): the ink followed the hand as an OFFSET and the anchor came along once the ink had
  * arrived at the next onset. That is still what ←/→ do. It is no longer what the mouse does.
  *
- * ⭐ **Here the mark has no in-between.** It sits ON an anchor; the hand carries that anchor point
- * along, and when it reaches the next one the mark is re-anchored there — offset and all
- * (`MusicEngine.previewTempoSlot`, the whole-stop write, which drops the sideways nudge and keeps
- * the lift). Between two onsets the horizontal writes nothing at all.
+ * ⭐ **The ANCHOR snaps; the INK trails.** The hand carries the anchor point along, and when it
+ * reaches the next onset the mark is re-anchored there (`MusicEngine.previewTempoSlot`). What is
+ * left over between the anchor and the hand is written as the offset ({@link trailTheHand}), so the
+ * drawn mark is under the hand at all times and the snap happens underneath it.
+ *
+ * ⚠️ **The trail arrived second, 2026-08-31**, when he cleared a bar and found the mark stranded: an
+ * empty bar's onsets share ONE x, so there was nothing to snap to and a snap-only drag stopped dead.
+ * ⛔ It is NOT the old walk's offset — see {@link trailTheHand} for the difference, which is the
+ * whole reason this can stay simple.
+ *
+ * ⚠️ **And the column rule arrived third, the same day**, when that bar turned out to end the drag
+ * altogether: several stops on one x are ONE anchor point, and the search steps over the rest of them
+ * to the next place the mark can actually be drawn ({@link nextAnchorPoint}).
  *
  * ⚠️ **THE HAND CARRIES THE ANCHOR, ⛔ not the cursor's own x.** `handX` is where the mark's anchor
  * would be if it had followed the hand: the anchor's x when the gesture began, plus everything the
@@ -24,27 +33,29 @@
  *
  * ⛔ **What is deliberately NOT here**, because it is what he asked to remove:
  *
- * - **the interpolating offset** — a dragged mark cannot be parked between two onsets any more. The
- *   keys still park it, and `Ctrl+Backspace` still resets it.
- * - **the LATCH and its repayment** (`markDrive.DragFrame.droppedPx`) — a snap has nothing to cut
- *   short, so there is no debt for the caller to hold its baseline back by.
+ * - **the ACCUMULATED offset** — nothing is carried from frame to frame; see {@link trailTheHand}.
+ * - **the LATCH and its repayment** (`markDrive.DragFrame.droppedPx`) — nothing is ever cut short,
+ *   so there is no debt for the caller to hold its baseline back by.
+ * - **the RE-BASE at a crossing** — the identity holds by construction rather than by a second
+ *   write undoing the first.
  *
  * ⭐ **The VERTICAL is untouched** — it stays a plain ink offset, and it stays the one offset in the
  * compartment that is OUTWARD (+up), converted here and nowhere else.
  */
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Stop } from '../engine/models/tempoOps'
+import { tempoStops } from '../engine/models/tempoOps'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { systemStopFor } from './markSystemJump'
 import {
-  drawnOnsets, markInkY, onsetAnchorX, onsetPoint, staffSpacePxOf, tempoAddress,
+  drawnOnsets, markInkY, nextAnchorPoint, onsetAnchorX, onsetPoint, staffSpacePxOf, tempoAddress,
 } from './tempoAnchors'
 import { dbg, debugEnabled } from '../utils/debug'
 
 /** What the drag needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type TempoDragEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote'
-  | 'nextTempoSlot' | 'previewTempoSlot' | 'previewTempoOffset'>
+  | 'previewTempoSlot' | 'previewTempoOffset'>
 
 /** Where the mark's anchor is drawn right now — what a gesture measures its hand against at the
  *  press (see {@link dragTempo}'s `handX`). Null when the last render drew neither the mark nor the
@@ -54,11 +65,12 @@ export function tempoAnchorXOf(engine: TempoDragEngine, id: string): number | nu
   return here ? onsetAnchorX(engine, here) : null
 }
 
-/** What one frame of a tempo drag tells its caller. ⭐ `moved` repaints; `snappedPx` is how far the
- *  ANCHOR travelled, which is the only travel this gesture has — 0 on a frame between two onsets. */
+/** What one frame of a tempo drag tells its caller. ⭐ `moved` repaints; `inkPx` is how far the DRAWN
+ *  mark travelled — anchor plus offset, which since the offset trails the hand is the hand's own
+ *  travel. ⛔ Not the anchor's: that jumps a whole gap at a time and says nothing about the picture. */
 export interface TempoDragFrame {
   moved: boolean
-  snappedPx: number
+  inkPx: number
 }
 
 /**
@@ -67,9 +79,12 @@ export interface TempoDragFrame {
  *
  *  1. **the SYSTEM**, if the hand has taken the mark to another one — that ends the frame, or this
  *     frame's horizontal would be spent against stops the hand was never near;
- *  2. **the VERTICAL**, a plain ink offset (⚠️ OUTWARD, so the cursor's screen-down `dy` flips here
- *     and nowhere else);
- *  3. **the HORIZONTAL**, which is the snap and nothing else.
+ *  2. **the SNAP** — the anchor is handed to every onset the hand has passed ({@link
+ *     snapToAnchorUnderHand});
+ *  3. **the TRAIL** — and then the offset is set to whatever is left over, so the ink is under the
+ *     hand ({@link trailTheHand}). ⚠️ In that order: the leftover is measured from the NEW anchor;
+ *  4. **the VERTICAL**, a plain ink offset (⚠️ OUTWARD, so the cursor's screen-down `dy` flips here
+ *     and nowhere else).
  *
  * @param handX where the mark's ANCHOR would be if it had followed the hand — see the header. ⛔ Not
  *   the raw cursor x.
@@ -91,12 +106,74 @@ export function dragTempo(
     return null
   }
 
-  if (jumpSystems(engine, id, handX, dyPx, ss)) return { moved: true, snappedPx: 0 }
+  if (jumpSystems(engine, id, handX, dyPx, ss)) return { moved: true, inkPx: 0 }
 
+  const was = drawnX(engine, id, ss)
+  // ⚠️ SNAP first, TRAIL second: the leftover the trail writes is measured from the anchor the snap
+  //    has just handed the mark, so a crossing frame does not double-count the gap.
+  const snapped = snapToAnchorUnderHand(engine, id, handX) !== 0
+  const trailed = trailTheHand(engine, id, handX, ss)
   // ⚠️ Screen-down → OUTWARD. This mark's stored `y` is the one in the compartment that is +up.
   const lifted = dyPx !== 0 && engine.previewTempoOffset(id, 0, -dyPx / ss)
-  const snappedPx = snapToAnchorUnderHand(engine, id, handX)
-  return { moved: lifted || snappedPx !== 0, snappedPx }
+  const now = drawnX(engine, id, ss)
+  return {
+    moved: lifted || snapped || trailed,
+    inkPx: was === null || now === null ? 0 : now - was,
+  }
+}
+
+/** Where the mark's ink is, by the identity the whole gesture is built on: `anchor + offset`.
+ *  Null when the last render drew neither the mark nor the onset it hangs off. */
+function drawnX(engine: TempoDragEngine, id: string, staffSpacePx: number): number | null {
+  const anchorX = tempoAnchorXOf(engine, id)
+  if (anchorX === null) return null
+  return anchorX + (tempoOffsetOverrideOf(engine.getScore(), id)?.x ?? 0) * staffSpacePx
+}
+
+/**
+ * ⭐⭐ **THE OFFSET — WHATEVER IS LEFT OVER BETWEEN THE ANCHOR AND THE HAND** (his ask, 2026-08-31:
+ * *"we are not offsetting, so we must offset… but build the offset from scratch, the way it was
+ * before was not working so is better not to redo the same mistakes"*).
+ *
+ * 🚨 **What made him ask, measured in his own log.** He cleared a bar, and an empty bar's onsets all
+ * land on ONE x — `[tempo-anchors] m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539`. The snap has
+ * nothing to reach, so it stopped: `hand 541.4 reached the next anchor 538.9` and then not another
+ * word while the hand ran on to 657. The mark sat 116 px behind it.
+ *
+ * ⭐⭐ **ABSOLUTE, ⛔ never accumulated — and that is the whole of "not the same mistakes".** The old
+ * walk ADDED the frame's `dx` to a stored offset and then spent its complexity undoing the
+ * consequences: a latch that stopped the ink at each stop, a `droppedPx` debt for the caller to
+ * repay, a re-base at every crossing to keep the two halves cancelling. Every one of those exists
+ * only because the offset was a running sum, so nothing could ever be checked against the truth.
+ *
+ * ⭐ Here it is `hand − anchor`, computed fresh from two absolute numbers every frame:
+ *
+ * - it cannot drift, because nothing is carried between frames;
+ * - a SNAP needs no bookkeeping — the anchor grows by the gap, so this shrinks by the gap in the
+ *   same breath and the ink does not move (the identity holds for free, ⛔ not by a re-base);
+ * - a refused write is simply retried next frame from the same two numbers;
+ * - and inside a column with nothing to snap to — his empty bar, all of it one x — it is the whole
+ *   of the gesture until the hand reaches the next one ({@link nextAnchorPoint}).
+ *
+ * ⚠️ `previewTempoOffset` ADDS (it is the keys' nudge), so the delta to the target is what goes in.
+ * ⛔ Its page limit still judges it: a hand past the sheet's edge writes nothing and the mark stops
+ * there, which is the honest answer rather than ink off the paper.
+ */
+function trailTheHand(
+  engine: TempoDragEngine,
+  id: string,
+  handX: number,
+  staffSpacePx: number,
+): boolean {
+  const anchorX = tempoAnchorXOf(engine, id)
+  if (anchorX === null) return false
+  const want = (handX - anchorX) / staffSpacePx
+  const have = tempoOffsetOverrideOf(engine.getScore(), id)?.x ?? 0
+  const delta = want - have
+  // ⛔ A frame that asks for nothing writes nothing — the caller repaints on `moved`, and a repaint
+  //    per mouse event that moved the mark by a millionth of a space is a repaint for nobody.
+  if (Math.abs(delta) < 1e-6) return false
+  return engine.previewTempoOffset(id, delta, 0)
 }
 
 /**
@@ -104,9 +181,9 @@ export function dragTempo(
  * anchor point, nothing; when it reaches it, re-anchor"* — with the hand carrying the anchor point,
  * since the ink no longer moves between two onsets.
  *
- * ⭐ **It LOOPS**, because one frame of a fast hand really can fly over several onsets and
+ * ⭐ **It LOOPS**, because one frame of a fast hand really can fly over several anchor points and
  * re-anchoring once would leave the mark trailing the cursor by however many it skipped. Each turn
- * moves to a strictly later (or earlier) stop, so the loop is bounded by the score.
+ * moves to a strictly later (or earlier) column, so the loop is bounded by the score.
  *
  * ⛔ **A stop whose x runs the WRONG WAY is the end of the road** — it is on another system, and two
  * systems' x's are not one ruler (`./markSystemJump`). Leaving the system is {@link jumpSystems}'
@@ -117,24 +194,25 @@ export function dragTempo(
 function snapToAnchorUnderHand(engine: TempoDragEngine, id: string, handX: number): number {
   const from = tempoAnchorXOf(engine, id)
   if (from === null) return 0
+  // ⚠️ Built ONCE for the whole frame: the search below walks it several rows at a time, and the
+  //    per-step question (`tempoOps.nextTempoSlot`) rebuilt the score's onset list on every row.
+  const stops = tempoStops(engine.getScore())
 
   for (;;) {
-    const anchorX = tempoAnchorXOf(engine, id)
-    if (anchorX === null) break
+    const here = tempoAddress(engine, id)
+    const anchorX = here && onsetAnchorX(engine, here)
+    if (!here || anchorX === null) break
     const direction: 1 | -1 = handX >= anchorX ? 1 : -1
-    const next = engine.nextTempoSlot(id, direction)
-    const nextX = next ? onsetAnchorX(engine, next) : null
-    if (!next || nextX === null) break
-    // ⛔ Not one ruler — the next stop in TIME is on the next system, so its x means nothing here.
-    if (Math.sign(nextX - anchorX) !== direction) break
+    const next = nextAnchorPoint(engine, here, direction, stops)
+    if (!next) break
     // ⭐ THE RULE: has the hand reached it? A hand short of the next anchor writes nothing at all.
-    if (direction === 1 ? handX < nextX : handX > nextX) break
+    if (direction === 1 ? handX < next.x : handX > next.x) break
     // ⚠️ The model refuses a beat another tempo mark already holds (one mark per beat, `tempoOps`),
     //    and the drag stops there — the same answer it gives at the end of the score.
-    if (!engine.previewTempoSlot(id, next)) break
+    if (!engine.previewTempoSlot(id, next.stop)) break
     if (debugEnabled()) {
-      dbg(`[TempoDrag] hand ${handX.toFixed(1)} reached the next anchor ${nextX.toFixed(1)}`
-        + ` — re-anchored to m${next.measure} beat ${next.beat.num}/${next.beat.den}`)
+      dbg(`[TempoDrag] hand ${handX.toFixed(1)} reached the next anchor ${next.x.toFixed(1)}`
+        + ` — re-anchored to m${next.stop.measure} beat ${next.stop.beat.num}/${next.stop.beat.den}`)
     }
   }
 

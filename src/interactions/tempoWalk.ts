@@ -34,12 +34,12 @@ import { type MarkWalkPort } from './markWalk'
 import { lastMeasureNumber, systemInkAt, type BreakWrapPort } from './markBreakWrap'
 import { walkPress } from './markDrive'
 import { withoutAnEntry } from './keyRun'
-import { onsetAnchorX, staffSpacePxOf, tempoAddress } from './tempoAnchors'
+import { nextAnchorPoint, onsetAnchorX, staffSpacePxOf, tempoAddress } from './tempoAnchors'
 
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type TempoWalkEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextTempoSlot' | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
+  | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
   | 'rebaseTempoOffset' | 'previewTempoOffsetRebase'
   | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'>
 
@@ -58,11 +58,19 @@ function tempoPort(
 ): MarkWalkPort {
   return {
     label: 'Tempo',
-    // ⭐ The SAME candidate rule `Ctrl+Shift+←/→` uses, which is why it lives in the model: two rules
-    // would mean the same key landing the mark on a different onset depending on how far you had
-    // nudged. ⚠️ It does not skip an onset another mark sits on — the model refuses the write, and
-    // the walk then stops there, which is the same answer as the end of the score.
-    nextStop: (direction) => engine.nextTempoSlot(id, direction),
+    // ⭐ The SAME candidate rule the DRAG uses (`./tempoAnchors.nextAnchorPoint`): the next place the
+    // mark can be DRAWN, which is the next stop whose x differs — a bar whose top staff holds one
+    // whole rest draws all six of its onsets on one x, and neither device can address them apart.
+    // 🚨 His report, 2026-08-31, is what put it here: without it the walk left such a bar for ever
+    // (`⛔ NO CROSSING: the gap runs the other way`, 62 presses and not one re-anchor), because a
+    // zero gap is not a gap the ink can cross. ⚠️ It does not skip an onset another mark sits on —
+    // the model refuses the write, and the walk stops there as it does at the end of the score.
+    // ⚠️ `Ctrl+Shift+←/→` keeps the model's own step (`tempoOps.nextTempoSlot`): a whole-stop press
+    // is about the MUSIC and may land on a beat that shares its neighbour's ink.
+    nextStop: (direction) => {
+      const here = tempoAddress(engine, id)
+      return here ? nextAnchorPoint(engine, here, direction)?.stop ?? null : null
+    },
     stopX: (stop) => onsetAnchorX(engine, stop as Stop),
     anchorX: () => {
       const here = tempoAddress(engine, id)

@@ -123,6 +123,21 @@ describe('walkTempo', () => {
     expect(offsetX()).toBeCloseTo(30)
   })
 
+  it('🚨🚨 walks OUT of an emptied bar — the next stop is the next COLUMN', () => {
+    // ⭐⭐ **His report, 2026-08-31**, the drag's bug arriving on the other device: he cleared bar 2's
+    // top staff, and the walk then left it never — `⛔ NO CROSSING: the gap runs the other way`,
+    // sixty-two presses of pure ink. An emptied bar draws every one of its onsets on ONE x
+    // (`m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539`), and a zero gap is not a gap the ink can
+    // cross, so the mark could not reach the bar after it.
+    // ⭐ Beats 1 and 2 share a column here; beat 3 is 20 spaces on, and that is the next stop.
+    drawn.anchors = new Map([['1:0', 105], ['1:1', 205], ['1:2', 205], ['1:3', 405]])
+    for (let i = 0; i < 19; i++) walkTempo(engine, markId, 1)
+    expect(at(), 'the ink is still short of the column after it').toBe('1@1')
+    expect(walkTempo(engine, markId, 1)).toBe(true)
+    expect(at(), 'the twentieth press arrives — ⛔ never on the beat inside the column').toBe('1@3')
+    expect(offsetX(), 'and the gap came back out of the offset').toBeCloseTo(0)
+  })
+
   it('⛔ never guesses the staff-space size — no drawn mark means no crossing', () => {
     render([100, 200, 300, 400], null)
     for (let i = 0; i < 15; i++) walkTempo(engine, markId, 1)

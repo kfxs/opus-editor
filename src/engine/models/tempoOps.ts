@@ -56,12 +56,15 @@ function locate(score: Score, id: string): { mark: TempoMark; measure: Measure }
 }
 
 /**
- * Every onset in the score, in reading order, each appearing once.
+ * Every onset in the score, in reading order, each appearing once — ⭐ **the list of stops itself**,
+ * exported since 2026-08-31 for the one caller that has to look PAST the next one
+ * (`interactions/tempoDrag`: several stops can share a drawn x, and the mouse cannot aim inside a
+ * column). ⛔ Asking for it per step would rebuild it per step; the drag builds it once a frame.
  *
  * ⭐ Every staff and every voice, unlike the dynamic's lane — see the header. A column sounded by
  * three voices is ONE stop: the clock changes at a moment, not at a notehead.
  */
-function onsets(score: Score): Stop[] {
+export function tempoStops(score: Score): Stop[] {
   const stops: Stop[] = []
   for (const measure of score.measures) {
     for (const slot of measure.slots) {
@@ -110,7 +113,7 @@ function moveTempoToMeasure(score: Score, mark: TempoMark, measureNumber: number
  * question about ink, answered where the ink is.
  */
 export function tempoAnchorAt(score: Score, at: Stop): Stop | null {
-  const stops = onsets(score)
+  const stops = tempoStops(score)
   if (stops.length === 0) return null
   return stops.find(s => compare(s, at) >= 0) ?? stops[stops.length - 1]
 }
@@ -137,7 +140,7 @@ export function nextTempoSlot(score: Score, id: string, direction: 1 | -1): Stop
   const found = locate(score, id)
   if (!found) return null
   const here: Stop = { measure: found.measure.number, beat: found.mark.beat }
-  const stops = onsets(score)
+  const stops = tempoStops(score)
   const dest = direction === -1
     ? [...stops].reverse().find(s => compare(s, here) < 0)
     : stops.find(s => compare(s, here) > 0)

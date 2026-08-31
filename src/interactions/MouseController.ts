@@ -3344,13 +3344,12 @@ export class MouseController {
       // about the drag.
       const startedAt = performance.now()
       this.render.previewMarks('tempo', this.draggedTempoId)
-      // ⚠️ The ink's travel is now the ANCHOR's, in jumps: a snap frame moves it a whole gap and every
-      //    frame between two onsets moves it by nothing. So `askedPx` is what the mark got and the
-      //    difference from the hand is what the trace calls STOPPED — ⛔ no latch is doing it any more,
-      //    the gesture simply has no in-between. A DEVIATION that oscillates around zero over the
-      //    gesture is the snap keeping up; one that GROWS is the bug.
+      // ⚠️ `askedPx` is what the DRAWN mark got — anchor plus offset. Since 2026-08-31 the offset
+      //    trails the hand (`tempoDrag.trailTheHand`), so hand and ink should read 1:1 on every
+      //    frame and the DEVIATION should sit at zero. ⭐ A deviation that GROWS is the bug he
+      //    reported on an empty bar, where the snap had nothing to reach and the ink stopped dead.
       traceFrame('TempoDrag', this.tempoTrace, {
-        cursorX: x, askedPx: frame.snappedPx, droppedPx: 0, renderMs: performance.now() - startedAt,
+        cursorX: x, askedPx: frame.inkPx, droppedPx: 0, renderMs: performance.now() - startedAt,
         walkMs, drawnX: this.drawnMarkX(this.draggedTempoId),
       })
     }

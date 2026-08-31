@@ -590,3 +590,62 @@ with `dbg`: every reader walks the registry and a suppressed `dbg` still evaluat
 crossing (the identity, visible) and the latch's actual test; and the preview seam is loud —
 `markPreviewPass` says *which* anchor disagreed, `RenderController` says when a frame fell back to a
 full render. Both of the last two found their bug on the first run.
+
+## ✅⭐⭐ THE DRAG IS A SNAP, AND THE NEXT ANCHOR POINT IS THE NEXT **COLUMN** (2026-08-31, BUILT)
+
+⚠️ **This section supersedes §10.3 for the MOUSE.** The latch, the hold, the accumulated offset and
+the `droppedPx` repayment are gone with it; §10.3 stands as the record of what was tried and why the
+walk (the KEYS) still works that way.
+
+### The drag: the ANCHOR snaps, the INK trails
+
+His call: *"make the drag not a walk but anchor when the mouse hit the next anchor point"*, and then
+*"till the beginning of the ink doesn't reach the next anchor point, nothing; when it reaches it,
+re-anchor"*. `interactions/tempoDrag.ts`, and the whole of it is:
+
+1. **the HAND carries the anchor**, ⛔ not the raw pointer — the press lands anywhere inside
+   `Allegro (♩ = 120)`, so `MouseController` charges that grab distance once and every frame after
+   asks *where would the anchor be if it had followed the hand?*;
+2. **the SNAP** hands the anchor to every anchor point the hand has passed (it loops: one fast frame
+   really can fly over several);
+3. **the TRAIL** writes whatever is left over as the offset — ⭐⭐ `hand − anchor`, **absolute**,
+   recomputed from two numbers every frame. Nothing accumulates, so there is nothing to drift, no
+   re-base at a crossing (the anchor grows by the gap and the offset shrinks by it in the same
+   breath — the ink does not move, for free), and a refused write is simply retried next frame.
+
+### 🚨🚨 A COLUMN IS ONE ANCHOR POINT — the bug both devices had
+
+He cleared bar 2's top staff and dragged across it: *"when is a measure with no music it offset, and
+this is corect… but it does not find the next anchor point in measure 3"*. Then the same bar on the
+keys — 62 presses of pure ink, `⛔ NO CROSSING: the gap runs the other way`, and the mark never left
+the bar.
+
+⭐ **One cause.** §6.5 anchors the mark to the first notational element at-or-after its beat *on the
+staff it is engraved above*; when that staff holds one whole rest, every onset in the bar resolves to
+the same x — measured in his log, `m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539`. Several stops,
+**one place to put the mark**. Both devices then ended their search at the first stop whose x was not
+strictly ahead — a test that is right for the next SYSTEM (two systems' x's are not one ruler) and
+fatal for a shared column: the hand has no pixel to reach and the ink has no gap to cross, so nothing
+past the emptied bar was reachable at all.
+
+⭐⭐ **The rule, once, for both**: `interactions/tempoAnchors.nextAnchorPoint` — the stops sharing the
+current anchor's x are passed OVER, and the next anchor point is the nearest stop drawn somewhere
+else. ⛔ A stop drawn BEHIND the anchor still ends the road (that is the system change), and so does
+one the last render published no anchor for.
+
+- ⭐ It lives in `tempoAnchors` **because both devices read it**: two answers to *"where is that stop
+  drawn?"* is exactly how the walk and the engraver drifted apart in the first place (§6.5).
+- ⛔ **Not a change to the shared walk rule** (`markWalk`'s gap test): five other families read it and
+  none of them anchors to a column. The tempo mark opts in through its own PORT
+  (`tempoWalk.tempoPort.nextStop`).
+- ⚠️ `Ctrl+Shift+←/→` keeps the model's own step (`tempoOps.nextTempoSlot`): a whole-stop press is
+  about the MUSIC, and may land on a beat that shares its neighbour's ink.
+- ⭐ Forward, it lands on the FIRST stop of the next column (bar 3's downbeat). Backward, it lands on
+  the nearest stop to the left — the last of that column — which is what the walk does at every
+  ordinary barline too.
+- ⚠️ `tempoOps.tempoStops` (the score's onset list) is exported for it, and the drag builds it ONCE
+  per frame instead of once per step: the per-step question rebuilt the whole list on every row.
+
+**Specs**: `tempoDrag.test.ts` (the hand short of the column, then reaching it, with the ink not
+moving) and `tempoWalk.test.ts` (19 presses of ink, the 20th crosses) — both break-tested against the
+old rule.
