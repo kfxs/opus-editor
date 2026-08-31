@@ -46,6 +46,7 @@ import { exportScoreJson, exportScorePdfFile, importScoreJson, openExampleScore 
 import { renderCensus, buildSyntheticScore } from './dev/renderCensus' // P0 instrument — temporary
 import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument — temporary
 import { groupSignConsole } from './dev/groupSignConsole'
+import { slurShapeConsole } from './dev/slurShapeConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
@@ -887,6 +888,10 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       () => engine, () => document.querySelector('.score-container') ?? document,
       () => state, () => renderer.renderScore(),
     )
+    // ⚠️ HIS EXPERIMENT, 2026-08-31 — the slur's SHAPE, live: three engines' height laws and the
+    // control indent, so the taste call is settled by his eye on his own music rather than by my
+    // arithmetic (src/dev/slurShapeConsole.ts). ⛔ Default = what shipped.
+    w.__slur = slurShapeConsole(() => renderer.renderScore())
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
     //   is charged per character AND per line, and DevTools charges more as its buffer fills — so a
@@ -903,6 +908,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[spacing] column census: __spacing.dump() — drawn gaps in staff spaces')
     dbg('[barlines] pixel-grid census: __barlines.dump() — are they landing on whole pixels?')
     dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
+    dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset()")
   }
 
   return {

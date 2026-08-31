@@ -39,6 +39,7 @@
  * it stays a number an eye may overrule.
  */
 import { CURVE, SLUR_ARCH_TILT, SLUR_ARCH_TILT_LIMIT, SLUR_HEIGHT_RATIO, curvePx } from './curveStyle'
+import { slurLawHeightSpaces } from './slurShapeExperiment'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
@@ -65,9 +66,17 @@ function saturate(x: number): number {
  */
 export function slurArchHeight(spanPx: number, extraHeight = 0): number {
   const widthSpaces = Math.abs(spanPx) / STAFF_SPACE_PX
-  const heightSpaces = saturate((widthSpaces * SLUR_HEIGHT_RATIO) / CURVE.slurHeightLimit)
-    * CURVE.slurHeightLimit
+  // ⚠️ EXPERIMENT, HIS (2026-08-31): the law is armable from the console while he judges the three
+  //    by eye (`./slurShapeExperiment`). ⛔ Its default IS the line below, so nothing changed —
+  //    `slurLawHeightSpaces` returns exactly `saturate(w·ratio/limit)·limit` under `'lilypond'`.
+  const heightSpaces = slurLawHeightSpaces(widthSpaces)
   return curvePx(heightSpaces) + extraHeight
+}
+
+/** LilyPond's law as this file has always computed it — kept as the ARMED default's twin so the
+ *  experiment's `'lilypond'` row can be checked against the code it replaced. */
+export function lilypondArchHeightSpaces(widthSpaces: number): number {
+  return saturate((widthSpaces * SLUR_HEIGHT_RATIO) / CURVE.slurHeightLimit) * CURVE.slurHeightLimit
 }
 
 

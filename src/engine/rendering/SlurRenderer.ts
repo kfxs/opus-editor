@@ -25,6 +25,7 @@ import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
 import { archLean, slurArchHeightFor } from './slurArchHeight'
+import { slurIndentFraction } from './slurShapeExperiment'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
 import { curveObstacleBox } from './accidentalCutOut'
@@ -411,9 +412,17 @@ function slurArchCps(
   // ⭐⭐ …and the LEAN is bounded by the arch it leans (`./slurArchHeight.archLean`, his report of
   // 2026-08-31: unbounded, it put one control through the chord line and drew a bent stick).
   const lean = archLean(dy, direction, H)
+  // ⚠️ EXPERIMENT, HIS (2026-08-31): the INDENT — how far in from each end the controls sit — is
+  //    VexFlow's own `span/4` unless the console says otherwise (`./slurShapeExperiment`; both
+  //    engines vary it with length and we never have). `cps.x` is an ADDITIVE delta on top of that
+  //    `span/4` in `curveArcPoints` AND in VexFlow's `renderCurve`, so the difference is what goes
+  //    in — and 0.25 puts a 0 there, which is what shipped.
+  const indent = (slurIndentFraction() - 0.25) * (p1.x - p0.x)
   return [
-    { x: 0, y: H + lean + lift.c0 },
-    { x: 0, y: H - lean + lift.c1 },
+    { x: indent, y: H + lean + lift.c0 },
+    // ⚠️ `0 - indent`, ⛔ not `-indent`: the default puts a NEGATIVE ZERO there, and `toEqual`
+    //    tells the two apart — a spec failing on the sign of nothing.
+    { x: 0 - indent, y: H - lean + lift.c1 },
   ]
 }
 

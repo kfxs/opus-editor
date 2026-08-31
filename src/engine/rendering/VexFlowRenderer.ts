@@ -52,6 +52,7 @@ import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { ottavaSpan } from '@/engine/models/ottavaOps'
 import { pedalSpan } from '@/engine/models/pedalOps'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
+import { slurShapeGeneration } from './slurShapeExperiment'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -671,6 +672,11 @@ export class VexFlowRenderer {
       //
       // ⚠️ Rounded, or a sub-pixel reflow re-engraves for a difference nobody can see.
       this.suppressedDynamicInkWidth === null ? null : Math.round(this.suppressedDynamicInkWidth),
+      // ⚠️ EXPERIMENT, HIS (2026-08-31) — the armed slur-shape law (`./slurShapeExperiment`). A law
+      //    is a PICTURE change with no model change, so without it here `isRenderStale()` answers
+      //    "no" and the console call draws nothing (`reference_only_a_stale_render_runs`). ⛔ Not the
+      //    layout key: a slur takes no width, so the casting-off cannot depend on it.
+      slurShapeGeneration(),
     ])
   }
 

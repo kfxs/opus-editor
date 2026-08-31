@@ -2376,3 +2376,31 @@ against our 8.49/3.49) — the height law again, and two samples are not a law. 
 also move the controls HORIZONTALLY (+0.5, +0.75 sp; and −0.5 on the flat). Our indent is pinned at
 ±span/4 where LilyPond computes one that varies with width (`get_slur_indent_height`) and Verovio eases
 `dist/6` → `dist/3`. That third dimension is untouched.
+
+
+## ⚠️ THE SHAPE KNOB — three engines' laws, live in the console (2026-08-31, HIS)
+
+*"so, do you have any idea how to improve the slur now?"* → *"yes"* to putting the choice under his
+eye rather than under my arithmetic. `__slur.law('musescore'|'verovio'|'lilypond')`,
+`__slur.indent(0.167)`, `.dump()`, `.reset()` — each call re-renders.
+
+⭐ **Why a knob and not a patch.** A slur's height has **no published source** (searched again the
+same day: UNDOCUMENTED), the three engines disagree most exactly where most slurs live — at 2.4 sp
+the apexes are LilyPond **0.42**, Verovio **0.45**, MuseScore **0.58** — and his two hand-drawn shapes
+both asked for MORE than ours (×1.33 and ×1.93). ⛔ Fitting a fourth law to two samples is what this
+avoids.
+
+- ⭐ **The INDENT is the other half**, and it is the dimension we never varied: ours is pinned at
+  VexFlow's `span/4` where Verovio eases `dist/6` (short) → `dist/3` (long) and LilyPond grows one
+  with width. Same height, faster shoulders — possibly what *"not that curvy"* really is.
+- ⛔ **Default = what shipped**, asserted to twelve decimals against the old code.
+- 🚨 **The generation counter is in `viewStateKey`** — a law is a PICTURE change with no model
+  change, so without it `isRenderStale()` answers "no" and the console call draws nothing.
+- ⛔ **`engine/` may not import `dev/`**: the setting lives in `rendering/slurShapeExperiment`, the
+  console entry point in `dev/slurShapeConsole`, and `App.ts` wires them — `RenderProbe`'s shape.
+- ⚠️ `indent(0.5)` is ALLOWED (his call, after the first cut refused it): both controls land on one
+  point and the arc draws pointier — a drawable extreme a knob built for an eye must not withhold.
+  Only *past* 0.5 is refused, where the controls swap sides and the curve loops.
+
+⏭️ **When his eye has chosen**: freeze the winner in `slurArchHeight` / `curveStyle` with his choice
+as the citation — the way the 0.693 lean ratio was settled — and delete both files.
