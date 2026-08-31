@@ -387,6 +387,10 @@ Three specific gaps, in order of how visible they are:
 - Whether to add MuseScore's `alignRests` consistency pass. It is the only such pass in any engine,
   and the prelude is exactly the repeating texture that would show its absence — but Gould's p. 37
   figure is evidence *against* enforcing it in general.
+  ⭐ **ANSWERED 2026-08-31: NO.** His call, after seeing the derived rule on his own score — *"i
+  think we should not do p3, it makes no sense for me at the moment and i still dont see how it
+  brings value"*. ⛔ The research stands as written; this line records that the question stopped
+  being open, so nobody re-opens it as a finding.
 - ⚠️ **What happens to `restShift` values already saved.** Moving the base changes the meaning of
   every stored `steps`: a saved `+6` currently means "+6 from centred" and would become "+6 from
   wherever the rule now puts it", i.e. doubled displacement. The prelude is cleared, so our test file

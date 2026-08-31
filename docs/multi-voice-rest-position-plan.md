@@ -8,10 +8,13 @@
 > printed pages, four engines with file:line, and the regression on his 67 placements. ⛔ **This plan
 > does not restate it.** Every number below cites its section there.
 >
+> ✅ **SHIPPED 2026-08-31 — P0, P1 and P2 are done and P3 is CLOSED by his call (§5).** The feature
+> is complete; what follows is the record of why it is shaped as it is, ⛔ not a work list.
+>
 > ⭐⭐ **The finding this plan implements, in one line:**
 > **the SIGN is positional, the MAGNITUDE is DERIVED from surrounding content, and the RESULT is
-> QUANTISED to whole staff spaces** (research §3.3). What we ship today can express the sign and
-> nothing else.
+> QUANTISED to whole staff spaces** (research §3.3). ⚠️ Written when the fixed lane table was still
+> live, which could express the sign and nothing else; it is gone.
 >
 > ---
 >
@@ -347,9 +350,17 @@ rule in the present tense:
   causes it. ⛔ A comment fix only: the arithmetic is already spaces and ⛔ must not change.
 - `GhostRenderer.ts:435`'s *"the ghost lands where the real rest will"* — see §8.
 
-**P2 — the browser assertion.** One `e2e/*.e2e.ts` case: a two-voice bass staff whose upper voice
-rests under a held lower note, asserting the 16th rest's drawn y is above the held notehead's.
-⛔ Not a unit test — jsdom measures glyphs 0×0.
+**P2 — the browser assertion. ✅ DONE 2026-08-31.** `e2e/restVoicePlacement.e2e.ts` — the prelude's
+bar built by hand (bass clef, a held C4 under an upper voice's 16th rest), asserting the rest's
+drawn y is above the held notehead's AND clear of it by more than a staff space, plus ⭐ **the
+CONTROL**: the identical bar with ONE voice keeps its rest on the middle line. The control is what
+makes the first case mean anything — it says the displacement is caused by the other VOICE and not
+by the rule having moved every rest in the app. Break-tested: neutralising the renderer seam fails
+the multi-voice case and leaves the control green.
+⚠️ **One claim was withdrawn after checking it.** The spec's header first said this also guards the
+`intendedRestLine` re-assertion after `format()`. It does not: disabling that line leaves both cases
+GREEN, because VexFlow's nudge does not fire on this texture and is one line where it does. The
+header now says so — ⛔ a net that claims coverage it has not got is worse than no net.
 
 ⚠️ **⛔ It cannot "load the prelude".** `e2e/harness.ts` has no `loadJSON` and no fixture loader, and
 the example lives in `public/`. What it exposes is `engine`, so the texture is **built by hand**
@@ -357,10 +368,21 @@ through `addNoteAtBeat`. The readers the assertion needs — `rests()` and `note
 SMuFL range — already exist (`harness.ts:289-290`). This is the first geometry net any of the rest
 work has ever had.
 
-**P3 — ⏸️ the consistency pass, ONLY if his eye asks for it.** MuseScore's `alignRests`
-(`restlayout.cpp:417-451`) snaps a per-(staff, measure, voice) group to its outermost line. ⚠️
-Deliberately **not** in P0–P2: Gould p. 37 engraves rests at six different heights on one page
-precisely *because* the context changes, so blanket alignment is evidence-free until wobble is seen.
+**P3 — ⛔ CLOSED 2026-08-31, HIS CALL. NOT TO BE REOPENED without him asking.** The consistency pass
+(MuseScore's `alignRests`, `restlayout.cpp:417-451`, which snaps a per-(staff, measure, voice) group
+to its outermost line) **is not being built.** His words, after seeing P0–P2 on his own score:
+
+> *"i think we should not do p3, it makes no sense for me at the moment and i still dont see how it
+> brings value"*
+
+⭐ **The feature is therefore COMPLETE at P2.** This phase was conditional from the day it was
+written — *"ONLY if his eye asks for it"* — and the condition has been answered, not merely left
+unmet: he has looked and does not want it. ⛔ The evidence was already against it (Gould p. 37
+engraves rests at six different heights on ONE page precisely *because* the context changes, and
+MuseScore is the only one of four engines that aligns), so nothing here is a compromise.
+⛔ **A later session must not read this section as remaining work** — `feedback_a_decision_list_is_not_a_queue`,
+and ⛔ an idea with a source is still not a task. Reopening it needs a NEW report of visible wobble,
+from him.
 
 ---
 
@@ -410,7 +432,9 @@ it rejected, so overruling one is a one-line change and not an archaeology exerc
    is narrower and is still his: whether the shorter rests' base is 1 space (Gould/MuseScore) or 2
    (LilyPond). Reversing that is one number in `base`.
 2. ⭐ **`GAP = 0.75` sp**, LilyPond's, labelled an engine constant because no book states one (§3.3).
-3. ⏸️ **No consistency pass yet** (P3), because the evidence cuts both ways.
+3. ⛔ **No consistency pass — CLOSED, not deferred** (P3). It was taken as *"not yet, the evidence
+   cuts both ways"*; he closed it outright on 2026-08-31 having seen the result. The research's
+   third open call (§7) is answered.
 
 **And one consequence that is NOT a free choice** (research §7): moving the base changes the meaning
 of every `restShift` already saved — a stored `+6` means "+6 from centred" today and would become
