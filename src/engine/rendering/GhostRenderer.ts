@@ -26,7 +26,7 @@
  */
 import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
 import type { Score, Clef, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, PitchStep, Accidental as ScoreAccidental, ArticulationType } from '@/types/music'
-import type { ToolGhost } from './ghostTypes'
+import type { GhostColor, ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -423,7 +423,7 @@ export function drawNoteGhost(
  *
  * @returns true if the ghost rest was drawn
  */
-export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, duration: NoteDuration, dots: number): boolean {
+export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, duration: NoteDuration, dots: number, color: GhostColor): boolean {
   try {
     const childrenBefore = svg.children.length
 
@@ -472,6 +472,13 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
 
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
     group.setAttribute('class', 'ghost-rest-group')
+    // ⭐ The ACTIVE VOICE's colour, handed down as two CUSTOM PROPERTIES rather than painted onto
+    // each node: `notation.css` already owns this ghost's appearance with `!important` rules (it has
+    // to — VexFlow writes its own fill onto every path it draws), and an inline attribute would lose
+    // to them. A variable the stylesheet reads means the CSS keeps saying WHAT gets coloured and the
+    // caller says WITH WHAT, which is the same split the ghost NOTE has. Absent = the family blue.
+    group.style.setProperty('--ghost-fill', color.fill)
+    group.style.setProperty('--ghost-stroke', color.stroke)
     for (const el of newElements) svg.removeChild(el)
     for (const el of newElements) group.appendChild(el)
     svg.appendChild(group)
@@ -1094,7 +1101,7 @@ export const GHOST_DRAWERS: {
   tremolo: (ctx, _svg, x, y, g) => drawTremoloGhost(ctx, x, y, g.mark),
   tie: (ctx, _svg, x, y) => drawTieGhost(ctx, x, y),
   dot: (ctx, _svg, x, y) => drawDotGhost(ctx, x, y),
-  rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots),
+  rest: (ctx, svg, x, y, g) => drawRestGhost(ctx, svg, x, y, g.duration, g.dots, g.color),
   fan: (ctx, svg, x, y, g) => drawFanGhost(ctx, svg, x, y, g.duration, g.dots),
   trill: (ctx, _svg, x, y) => drawTrillGhost(ctx, x, y),
   ottava: (ctx, _svg, x, y, g) => drawOttavaGhost(ctx, x, y, g.shift),

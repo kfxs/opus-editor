@@ -81,9 +81,17 @@ test('the CLEF and REST ghosts draw their glyph at the cursor', async ({ score }
 
     h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'clef', clef: 'bass' })
     const clef = h.placed('.ghost-clef-group text')
-    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'rest', duration: 'h', dots: 0 })
+    // ⭐ The rest ghost is the ONE tool ghost that carries a colour — the active voice's, because a
+    // rest is the only marking tool entering content INTO a voice (his report, 2026-08-31).
+    const V2 = { fill: '#10B981', stroke: '#059669' }
+    h.engine.renderScoreWithToolGhost({ x: 200, y: 100 }, { kind: 'rest', duration: 'h', dots: 0, color: V2 })
     const rest = h.placed('.ghost-rest-group text')
-    return { clef, rest }
+    // ⚠️ Only a browser can answer this: the colour arrives as a CSS custom property that a
+    // `!important` stylesheet rule reads, so what is actually painted is the RESOLVED value — and
+    // jsdom resolves neither `var()` nor the cascade.
+    const painted = [...document.querySelectorAll('.ghost-rest-group text')]
+      .map(el => getComputedStyle(el).fill)
+    return { clef, rest, painted }
   })
 
   // U+E062 is SMuFL's F clef — the ghost draws the clef it was ARMED with, not the score's.
@@ -91,6 +99,10 @@ test('the CLEF and REST ghosts draw their glyph at the cursor', async ({ score }
   // A half rest: U+E4E4. A whole rest is the same rectangle at U+E4E3, so this also pins that the
   // ghost answers "how long?" — the one thing a rest IS.
   expect(drawn.rest.map(g => g.code), 'the half rest glyph').toEqual(['e4e4'])
+
+  // ⭐⭐ …and it is painted in the voice it will land in, not the family blue it used to be.
+  expect(drawn.painted.length, 'the rest glyph was painted').toBeGreaterThan(0)
+  for (const fill of drawn.painted) expect(fill).toBe('rgb(16, 185, 129)') // voice 2 green
 
   // Both land at the pointer — read through the group's own transform, which is what moves them.
   for (const glyph of [...drawn.clef, ...drawn.rest]) {

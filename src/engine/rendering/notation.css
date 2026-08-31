@@ -16,7 +16,17 @@
 
 /* Free-floating translucent ghost REST that follows the cursor (the armed rest stamp).
    Includes its attach line — the `line` rule below is what makes a whole rest read as
-   hanging and a half rest as sitting, which is the only thing telling them apart. */
+   hanging and a half rest as sitting, which is the only thing telling them apart.
+
+   ⭐ It paints in the ACTIVE VOICE'S COLOUR (his report, 2026-08-31: "the colour of the ghost
+   rest dont match the color of the voice"), which is why these are variables and not literals:
+   a rest is the only marking tool that enters CONTENT INTO A VOICE, so its preview follows the
+   same rule as the ghost note, the keyboard cursor and the selection. `drawRestGhost` sets
+   --ghost-fill / --ghost-stroke on the group; the fallbacks below are voice 1's blue, so a
+   caller that sets neither gets exactly what this rule used to say.
+   ⚠️ The `!important` stays and cannot go: VexFlow writes its own fill onto every path it draws,
+   so the stylesheet has to outrank a presentation attribute. That is also why the colour arrives
+   as a variable rather than as an inline style — an inline style would lose to these rules. */
 .ghost-rest-group {
   opacity: 0.7;
   pointer-events: none;
@@ -24,16 +34,16 @@
 .ghost-rest-group path,
 .ghost-rest-group ellipse,
 .ghost-rest-group circle {
-  fill: #3B82F6 !important;
-  stroke: #2563EB !important;
+  fill: var(--ghost-fill, #3B82F6) !important;
+  stroke: var(--ghost-stroke, #2563EB) !important;
 }
 .ghost-rest-group text {
-  fill: #3B82F6 !important;
+  fill: var(--ghost-fill, #3B82F6) !important;
 }
 .ghost-rest-group line,
 .ghost-rest-group rect {
-  stroke: #2563EB !important;
-  fill: #3B82F6 !important;
+  stroke: var(--ghost-stroke, #2563EB) !important;
+  fill: var(--ghost-fill, #3B82F6) !important;
 }
 
 /* Free-floating translucent ghost NOTEHEAD that follows the cursor (the armed feather stamp).

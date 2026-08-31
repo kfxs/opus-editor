@@ -287,7 +287,14 @@ export class RenderController {
     // of them, including the two that then draw nothing.
     this.state.showCursor = false
 
-    const ghost = toolGhost(tool, { duration: this.state.selectedDuration, dots: this.state.selectedDots })
+    // The armed length AND the active voice's colour — the two things the rest ghost reads off
+    // state. `v` is the same model voice the ghost NOTE paints in, four lines up in `renderPreview`.
+    const restVoice = activeVoiceToModel(this.state.activeVoice)
+    const ghost = toolGhost(tool, {
+      duration: this.state.selectedDuration,
+      dots: this.state.selectedDots,
+      color: { fill: voiceFillColor(restVoice), stroke: voiceStrokeColor(restVoice) },
+    })
     // A tool with no preview (the click-to-type entry tools) draws nothing AND skips the repaint —
     // the blue cursor is the signal, and there is nothing to put on the page.
     if (!ghost) return

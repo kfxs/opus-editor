@@ -20,12 +20,22 @@ import { dynamicTextFromTool } from '../utils/dynamics'
 import type { NoteDuration } from '../types/music'
 import type { MarkingTool } from './EditorState'
 import { assertNeverTool } from './EditorState'
-import type { ToolGhost } from '../engine/rendering/ghostTypes'
+import type { GhostColor, ToolGhost } from '../engine/rendering/ghostTypes'
 
-/** The armed note-entry length, which the rest ghost (and only the rest ghost) reads. */
-interface ArmedLength {
+/**
+ * What the REST ghost (and only the rest ghost) reads off editor state — the armed note-entry
+ * length, and the ACTIVE VOICE's colour.
+ *
+ * ⭐ Both are here for one reason: a rest is the only marking tool that enters CONTENT INTO A VOICE.
+ * Its length is the note-entry length because a rest tool has none of its own
+ * (`MARKING_TOOL_USES_ARMED_LENGTH`), and its colour is the voice's because everything else that
+ * voice owns already paints in it — the ghost note, the keyboard cursor, the selection. ⛔ No other
+ * tool takes either: a clef or a barline belongs to the staff, not to a voice.
+ */
+interface ArmedRestFields {
   duration: NoteDuration
   dots: number
+  color: GhostColor
 }
 
 /**
@@ -35,7 +45,7 @@ interface ArmedLength {
  * {@link assertNeverTool} until someone decides what it shows at the pointer — the guarantee the old
  * switch gave, kept.
  */
-export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | null {
+export function toolGhost(tool: MarkingTool, armed: ArmedRestFields): ToolGhost | null {
   switch (tool.kind) {
     case 'clef': return { kind: 'clef', clef: tool.clef }
     case 'timeSignature': return { kind: 'timeSignature', timeSignature: tool.timeSignature }
@@ -90,7 +100,10 @@ export function toolGhost(tool: MarkingTool, armed: ArmedLength): ToolGhost | nu
     // The one stamp whose ghost carries a VALUE, and it reads it from the ARMED length rather than
     // from the tool: a rest IS its duration + dots, and those are the note-entry fields the
     // duration/dot keys go on setting while this tool is live (MARKING_TOOL_USES_ARMED_LENGTH).
-    case 'rest': return { kind: 'rest', duration: armed.duration, dots: armed.dots }
+    // ⭐ …and the ACTIVE VOICE's colour with them — his report, 2026-08-31: *"the colour of the
+    // ghost rest dont match the color of the voice"*. It is the only tool ghost that takes one,
+    // because it is the only one entering content into a voice.
+    case 'rest': return { kind: 'rest', duration: armed.duration, dots: armed.dots, color: armed.color }
     // The other tool with a value to show — and it reads it from the TOOL, not the armed length:
     // the dialog that armed it said how long the gesture lasts (see the `fan` member of MarkingTool).
     case 'fan': return { kind: 'fan', duration: tool.unit, dots: tool.dots }

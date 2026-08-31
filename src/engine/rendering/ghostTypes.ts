@@ -36,6 +36,9 @@ import type {
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 
+/** The fill/stroke pair a ghost paints in — the editor's answer, not the engine's. */
+export interface GhostColor { fill: string; stroke: string }
+
 export type ToolGhost =
   | { kind: 'clef'; clef: Clef }
   | { kind: 'timeSignature'; timeSignature: TimeSignature }
@@ -90,8 +93,22 @@ export type ToolGhost =
    * was the clearest case for having no ghost at all.
    */
   | { kind: 'pedal' }
-  /** The one ghost with a value to show, and it is the armed length: a rest IS its duration. */
-  | { kind: 'rest'; duration: NoteDuration; dots: number }
+  /**
+   * The one ghost with a value to show, and it is the armed length: a rest IS its duration.
+   *
+   * ⭐ **And the one that carries a COLOUR**, for the reason the ghost NOTE does (`GhostNote.
+   * fillColor`): a rest is the only marking tool that enters CONTENT INTO A VOICE, so the preview
+   * paints in the **active voice's** colour like every other thing that voice owns — the ghost note,
+   * the keyboard cursor, the selection. His report, 2026-08-31: *"the colour of the ghost rest dont
+   * match the color of the voice"*. ⛔ The other tools stay the family blue on purpose: a clef, a
+   * barline or a dynamic is not entered into a voice, so a voice colour would be a claim about them
+   * that is not true.
+   *
+   * ⚠️ Two named colours, ⛔ not a voice NUMBER: the engine draws, and which colour a voice wears is
+   * the editor's (`utils/voiceColors`, read by the keypad and the highlighter too). Same shape as
+   * the ghost note's, and the same reason.
+   */
+  | { kind: 'rest'; duration: NoteDuration; dots: number; color: GhostColor }
   /**
    * The feather stamp: the NOTEHEAD of the value the dialog typed, dot and all — and nothing else.
    *

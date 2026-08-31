@@ -12,8 +12,9 @@ import { toolGhost, GHOST_CAUSE } from './toolGhost'
 import type { MarkingTool } from './EditorState'
 import { levelToGlyphString } from '@/utils/dynamics'
 
-/** The armed note-entry length — only the rest ghost reads it. */
-const ARMED = { duration: 'h' as const, dots: 1 }
+/** What the rest ghost — and only the rest ghost — reads off state: the armed length and a colour. */
+const V2 = { fill: '#10B981', stroke: '#059669' }
+const ARMED = { duration: 'h' as const, dots: 1, color: V2 }
 
 describe('toolGhost — the armed tool becomes what the engine draws', () => {
   it('carries the plain payloads straight across', () => {
@@ -61,9 +62,26 @@ describe('toolGhost — the armed tool becomes what the engine draws', () => {
   it('⭐ the REST ghost takes the ARMED length, not anything on the tool', () => {
     // A rest tool has no length of its own — it reads selectedDuration/selectedDots, which is why
     // the duration and dot keys stay live under it (MARKING_TOOL_USES_ARMED_LENGTH).
-    expect(toolGhost({ kind: 'rest' }, ARMED)).toEqual({ kind: 'rest', duration: 'h', dots: 1 })
-    expect(toolGhost({ kind: 'rest' }, { duration: '16', dots: 0 }))
-      .toEqual({ kind: 'rest', duration: '16', dots: 0 })
+    expect(toolGhost({ kind: 'rest' }, ARMED))
+      .toEqual({ kind: 'rest', duration: 'h', dots: 1, color: V2 })
+    expect(toolGhost({ kind: 'rest' }, { duration: '16', dots: 0, color: V2 }))
+      .toEqual({ kind: 'rest', duration: '16', dots: 0, color: V2 })
+  })
+
+  it('⭐⭐ …and the ACTIVE VOICE’s colour, which no other tool ghost carries', () => {
+    // His report, 2026-08-31: "the colour of the ghost rest dont match the color of the voice".
+    // A rest is the only marking tool that enters CONTENT INTO A VOICE, so it is the only preview
+    // that paints in that voice — the same rule the ghost note, the keyboard cursor and the
+    // selection already follow. ⛔ A clef or a barline belongs to the staff, not to a voice.
+    const V1 = { fill: '#3B82F6', stroke: '#2563EB' }
+    expect(toolGhost({ kind: 'rest' }, { ...ARMED, color: V1 }))
+      .toMatchObject({ color: V1 })
+    for (const tool of [
+      { kind: 'clef', clef: 'bass' }, { kind: 'dot' }, { kind: 'tie' }, { kind: 'pedal' },
+      { kind: 'fan', attacks: 4, unit: '16', dots: 0, direction: 'accel' },
+    ] as MarkingTool[]) {
+      expect(toolGhost(tool, ARMED), `${tool.kind} takes no voice colour`).not.toHaveProperty('color')
+    }
   })
 
   it('⭐ the TEMPO ghost is a finished mark with TEXT — a mark with none draws nothing', () => {
