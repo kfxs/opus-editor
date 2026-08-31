@@ -1595,11 +1595,11 @@ Three corroborations for the surrounding decisions, each from a second book:
 
 ### What was built
 
-`engine/rendering/hairpinBreaks.ts` (new module, pure) + `interiorMarkGaps` in `HairpinRenderer`:
+`engine/rendering/hairpinBreaks.ts` (new module, pure) + `markGaps` in `HairpinRenderer`:
 
-1. every dynamic **strictly inside** the span and in the wedge's **own voice** contributes its DRAWN
-   ink, padded by `HAIRPIN.BREAK_PADDING`, as a gap — a mark ON an end stays the endpoint skyline's
-   business (§7), or the padding would come off twice;
+1. every dynamic on this staff's line whose DRAWN ink lands on the wedge contributes that ink,
+   padded by `HAIRPIN.BREAK_PADDING`, as a gap. ⚠️ It read **strictly inside the span** until
+   2026-08-31 — see §11.12 below, which is where the anchor stopped mattering;
 2. `breakWedgeAtGaps` cuts the system fragments around those slices, merging co-located marks
    (`p dolce` is one obstacle) and matching gaps to fragments **by system**, since two systems' x's
    are not one ruler;
@@ -2184,3 +2184,64 @@ publisher and the controller is the one place holding the engine. ⭐ **A separa
 which way the wedge opens is MUSIC (the model, an undo entry, and playback reads it). ⛔ Re-choosing
 the value it already has writes nothing — a `<select>` fires `change` on a re-pick, and an undo step
 whose effect nobody can see is worse than none.
+
+---
+
+## §11.12 — A DYNAMIC DOES NOT PUSH THE HAIRPIN (2026-08-31, his call)
+
+> *"the drawing for the whole note should be similar to the drawing in the case of 8th notes… what
+> the system should detect is when the dynamic is overlaying the hairpin and apply this no matter if
+> it is a note or three or four or what is the anchor point"*
+>
+> …and, on seeing why they differed: **"because the dynamic is pushing the hairpin… but it should
+> not do it"**.
+
+### The split that caused it
+
+Two rules decided what a wedge did about a letter, and they split on the mark's **anchor**:
+
+| the mark's beat | the rule | what it did |
+| --- | --- | --- |
+| strictly inside the span | the interior break | cut a **window** — `< f <` |
+| exactly at either end | the endpoint **skyline** | **shoved the whole wedge** aside |
+
+Side by side in his score: four notes with an `f` on the third drew a correct `< f <`; a whole note
+with the `f` on its own note drew a stub, because there the second rule was in charge.
+
+### 🚨 And the shove followed the DRAG
+
+The skyline read the letter's **drawn** ink, which includes the composer's hand nudge. So dragging
+the letter dragged the wedge's end with it. Measured in his log — the span never moves
+(`m3b0/1→m3b4/1`, `raw x 363…457`), one gesture:
+
+```
+skyline start 371…406 → drawn x 419…454
+skyline start 400…422 → drawn x 435…454
+skyline start 407…429 → drawn x 442…454   ← 12 px of wedge left
+```
+
+`endX = min(rawEnd, ink.left − pad)` does the same from the other side, which is his *"in both
+directions is incorrect"*. It also breaks a rule this document already states, twelve hundred lines
+up: ⭐ **an offset moves INK, not LAYOUT** — *"a hairpin still stops short of where that `p` belongs,
+not where it was dragged"*.
+
+### ⭐⭐ The rule now: ONE question, measured on ink
+
+**Does the letter's ink land on the wedge's?** If yes, cut a window for it. If no, do nothing. The
+anchor does not come into it.
+
+- ⛔ **The endpoint skyline is deleted** (`drawWedge` no longer takes `span`). Nothing replaces it,
+  because the window already covers the case: a window at the wedge's first note *draws as* a wedge
+  beginning after the letter — the same picture the shove produced, without a shove.
+- ⭐ `interiorMarkGaps` → `markGaps`: the two beat tests are gone; `inksClash` was always the real
+  question and is now the only one.
+- ⭐ **A drag can no longer move a wedge.** What the letter's own offset changes is *where the window
+  is cut*, never where the wedge is.
+
+⚠️ **One consequence, stated rather than discovered later:** the air around a letter at an END is now
+`HAIRPIN.BREAK_PADDING` (the window's) rather than `HAIRPIN.BOUND_PADDING` (the skyline's, 1.0 sp) —
+a window needs less air than the gap between two separate objects (§11.11's own note). If an end
+looks tight to his eye, that constant is the knob, ⛔ not a resurrected skyline.
+
+⚠️ **Browser-only, like everything in §11.11**: in jsdom every glyph measures 0×0, so there are no
+gaps and the wedge draws whole. `e2e/hairpin.e2e.ts` is where this is visible.

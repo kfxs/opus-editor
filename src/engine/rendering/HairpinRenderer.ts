@@ -285,13 +285,26 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
 }
 
 /**
- * ⭐⭐ **THE SLICES A WEDGE IS BROKEN AT — every dynamic INSIDE its span** (Gould printed p. 107,
- * *"A hairpin may be broken for an interim dynamic"*; `./hairpinBreaks` carries the quotation and
- * the measurement).
+ * ⭐⭐ **THE SLICES A WEDGE IS BROKEN AT — every dynamic whose INK LANDS ON IT** (Gould printed
+ * p. 107, *"A hairpin may be broken for an interim dynamic"*; `./hairpinBreaks` carries the
+ * quotation and the measurement).
  *
- * ⭐ **STRICTLY inside.** A mark ON either end is the endpoint skyline's business — it shortens the
- * wedge from that end rather than cutting a hole in it — and letting both rules see the same mark
- * would take the padding out twice.
+ * ⭐⭐ **THE ANCHOR DOES NOT COME INTO IT — his rule, 2026-08-31.** It used to: a mark STRICTLY
+ * inside the span got a window cut for it, while a mark on either END was the endpoint skyline's
+ * business and SHOVED the whole wedge aside instead. His two bars, side by side, are what that
+ * split looks like — four notes with an `f` on the third drew a correct `< f <`, and a whole note
+ * with the `f` on its own note drew a stub, because there the shove was eating the wedge:
+ *
+ * > *"the drawing for the whole note should be similar to the drawing in the case of 8th notes…
+ * > what the system should detect is when the dynamic is overlaying the hairpin and apply this no
+ * > matter if it is a note or three or four or what is the anchor point"* — and then, seeing it:
+ * > **"because the dynamic is pushing the hairpin… but it should not do it"**.
+ *
+ * ⭐ **So there is ONE question now and it is measured: does the letter's ink land on the wedge's?**
+ * A letter at the START gets its window at the start, which draws as a wedge beginning after it —
+ * the same picture the shove produced, without a shove. One in the middle gets `< f <`. One at the
+ * END ends the wedge before it. ⛔ And a DRAG can no longer move the wedge: what the letter's own
+ * offset changes is where the window is cut, never where the wedge is.
  *
  * ⭐ **EVERY mark on this staff's line, whatever either of them speaks for.** There is ONE dynamics
  * line per staff (`dynamicsLinePlan`), so a letter drawn on it is in the wedge's way whether or not
@@ -303,19 +316,15 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
  * ⚠️ Each gap carries the SYSTEM it is on: a wedge cut across a break has fragments in different
  * systems' coordinates, and x's from two systems are not one ruler.
  *
- * ⚠️ Read off the letters as DRAWN, via {@link markInkX} — so this is browser-only in exactly the
- * way the endpoint skyline is, and in jsdom it returns nothing and the wedge draws whole.
+ * ⚠️ Read off the letters as DRAWN, via {@link markInkX} — so this is browser-only, and in jsdom it
+ * returns nothing and the wedge draws whole.
  */
-function interiorMarkGaps(
+function markGaps(
   pass: RenderPass,
-  span: HairpinSpan,
   covered: readonly HairpinPlacement[],
   pad: number,
   wedgeBandAt: (line: number, x: number) => InkBand | null,
 ): WedgeGap[] {
-  const after = (measure: number, beat: Fraction, m: number, b: Fraction) =>
-    measure !== m ? measure > m : fracCompare(beat, b) > 0
-
   const gaps: WedgeGap[] = []
   for (const placement of covered) {
     const seen: Fraction[] = []
@@ -324,8 +333,7 @@ function interiorMarkGaps(
       // is ONE line per staff (`dynamicsLinePlan`), so a letter drawn on it is in the wedge's way
       // regardless of scope — and whether it really is in the way is `inksClash`'s answer below,
       // measured, not a lane comparison standing in for one.
-      if (!after(placement.measureNumber, dyn.beat, span.startMeasure, span.startBeat)) continue
-      if (!after(span.endMeasure, span.endBeat, placement.measureNumber, dyn.beat)) continue
+      // ⛔ NO beat test any more: the anchor does not decide this (see the header).
       // Co-located marks (`p dolce`) share a beat and merge into one box, so ask once per beat.
       if (seen.some(b => fracEq(b, dyn.beat))) continue
       seen.push(dyn.beat)
@@ -453,7 +461,7 @@ export function renderHairpins(
         // would yield `class="vf-vf-hairpin"`, the mistake the slur's comment records.
         const group = pass.context.openGroup?.('hairpin', `hairpin-${hairpin.id}`) as SVGGElement | undefined
         inStaffSpace(pass, staffIndex, group, () => {
-          drawWedge(pass, hairpin, span, x, covered, plan, from, to)
+          drawWedge(pass, hairpin, x, covered, plan, from, to)
         })
         pass.context.closeGroup?.()
         if (group) pass.hairpinGroupMap.set(hairpin.id, group)
@@ -487,11 +495,12 @@ export function hairpinEndpointOffsetPx(
   return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
 }
 
-/** The drawing itself, once the span and the two x's are known. */
+/** The drawing itself, once the span and the two x's are known.
+ *  ⛔ No `span` any more: nothing in here asks WHERE the wedge's notes are since the endpoint
+ *  skyline went (below) — the two x's say it, and the letters are found by ink. */
 function drawWedge(
   pass: RenderPass,
   hairpin: Hairpin,
-  span: HairpinSpan,
   x: { startX: number; endX: number },
   covered: readonly HairpinPlacement[],
   plan: DynamicsLinePlan,
@@ -499,14 +508,22 @@ function drawWedge(
   to: HairpinPlacement,
 ): void {
   const px = (spaces: number, stave: Stave) => staffSpacesToPixels(spaces, stave)
-  const pad = px(HAIRPIN.BOUND_PADDING, from.stave)
 
-  // Stop short of a dynamic at either end — the skyline. A mark at the START pushes the wedge
-  // right; one at the END pulls it left.
-  const atStart = markInkX(pass, from.view, span.startBeat)
-  const atEnd = markInkX(pass, to.view, span.endBeat)
-  let startX = atStart ? Math.max(x.startX, atStart.right + pad) : x.startX
-  let endX = atEnd ? Math.min(x.endX, atEnd.left - pad) : x.endX
+  // ⭐⭐ **THE WEDGE SPANS ITS OWN NOTES, and a dynamic does not move it** — his call, 2026-08-31:
+  // *"the dynamic is pushing the hairpin… but it should not do it"*.
+  //
+  // ⛔ **The endpoint SKYLINE is gone.** It used to stop the wedge short of a mark on its first or
+  // last note — `startX = max(rawStart, ink.right + pad)`, `endX = min(rawEnd, ink.left − pad)` —
+  // and because it measured the letter's DRAWN ink, dragging that letter dragged the wedge's end
+  // with it until there was none left. Measured in his log, span fixed at `m3b0/1→m3b4/1` and
+  // `raw x 363…457`, one gesture: `skyline start 371…406 → 400…422 → 407…429`, wedge
+  // `365…454 → 435…454 → 442…454`. Both ends could do it, which was his *"in both directions"*.
+  //
+  // ⭐ What replaces it is nothing, because {@link markGaps} already covers the case: a letter whose
+  // ink lands on the wedge has a WINDOW cut for it, wherever it is anchored, and a window at the
+  // wedge's first note draws as a wedge that begins after the letter. One rule, measured on ink.
+  let startX = x.startX
+  let endX = x.endX
 
   // ⭐⭐ …and a little air at BOTH ends, always: a wedge never quite touches what it runs up
   // against, so two wedges that abut leave twice this between them and neither has to know the
@@ -585,7 +602,7 @@ function drawWedge(
     pieces,
     // ⚠️ `HAIRPIN.BREAK_PADDING`, ⛔ never the `pad` the two ENDS use: a window cut in a continuous
     // wedge needs far less air than the gap between two separate objects (his call, 2026-08-18).
-    interiorMarkGaps(pass, span, covered, px(HAIRPIN.BREAK_PADDING, from.stave), wedgeBandAt),
+    markGaps(pass, covered, px(HAIRPIN.BREAK_PADDING, from.stave), wedgeBandAt),
     px(HAIRPIN.MIN_FRAGMENT, from.stave))
 
   const ctx = pass.context

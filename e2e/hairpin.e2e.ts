@@ -189,31 +189,54 @@ test('⭐⭐ the wedge sits on the DYNAMICS LINE — level with the letters besi
   expect(axis - mark.y).toBeCloseTo(-1.0 * staff.spacing, 0)
 })
 
-test('⭐ a wedge STOPS SHORT of a dynamic it runs into', async ({ score }) => {
-  const withMark = await score.evaluate(async () => {
+/**
+ * 🚨🚨 **A DYNAMIC DOES NOT PUSH THE WEDGE — his call, 2026-08-31** (docs/dynamics-line-and-hairpins-
+ * plan.md §11.12): *"because the dynamic is pushing the hairpin… but it should not do it"*.
+ *
+ * ⚠️ **This test used to claim the opposite** — *"a wedge STOPS SHORT of a dynamic it runs into"* —
+ * and it was pinning the endpoint SKYLINE, which shortened the wedge for a mark on either end
+ * whether or not the two inks ever touched. That rule is deleted. A letter is dealt with by the
+ * WINDOW, wherever it is anchored, and a letter the wedge does not touch changes nothing.
+ *
+ * ⭐ What this now pins is the half that actually broke, and it is the half no other test covers:
+ * **the letter's own hand-nudge may not move the wedge.** Measured in his log, dragging an `f` along
+ * a one-note wedge took it from `365…454` to `442…454` — the skyline followed the drag until there
+ * was no wedge left, in both directions.
+ */
+test('🚨🚨 a NUDGED dynamic moves ITSELF and not the wedge — no pushing', async ({ score }) => {
+  // What the wedge's own notes give it, with no letter anywhere — the span it has to keep.
+  const bare = await score.evaluate(async () => {
     const h = window.__h
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
-    // A crescendo running INTO an `f` on beat 3.
     h.engine.addHairpin(1, { type: 'cresc', beat: h.frac(0, 1), length: h.frac(3, 1) })
-    h.engine.addDynamic(1, { beat: h.frac(3, 1), text: 'f' })
     await h.render()
-    return window.__h.segments('g.vf-hairpin path')[0].x2
+    const segs = window.__h.segments('g.vf-hairpin path')
+    return { x1: segs[0].x1, x2: segs[segs.length - 1].x2 }
   })
 
-  const withoutMark = await score.evaluate(async () => {
+  const nudged = await score.evaluate(async () => {
     const h = window.__h
-    const score = h.engine.getScore()
-    const mark = score.measures[0].dynamics![0]
-    h.engine.removeDynamic(mark.id)
+    // An `f` anchored to the wedge's LAST note — the anchor the old skyline owned, and the shape of
+    // his bar 2. ⚠️ A REAL dynamics glyph, ⛔ not the ASCII letter: an ASCII `f` is prose in a serif
+    // face and carries no centring translate, which is a different measurement entirely.
+    const mark = h.engine.addDynamic(1, { beat: h.frac(3, 1), text: '𝆑' })!
+    // …then dragged four staff-spaces LEFT, so it sits INSIDE the wedge rather than at its end.
+    // His gesture exactly, and where the old rule started eating the wedge.
+    h.engine.nudgeDynamicOffset(mark.id, -4, 0)
     await h.render()
-    return window.__h.segments('g.vf-hairpin path')[0].x2
+    const segs = window.__h.segments('g.vf-hairpin path')
+    return { x1: segs[0].x1, x2: segs[segs.length - 1].x2, count: segs.length }
   })
 
-  // Gould: about a space of clearance (LilyPond's `bound-padding`). With the mark gone the wedge
-  // reaches further right — so the gap is the mark's doing, not an accident of the layout.
-  expect(withMark).toBeLessThan(withoutMark)
+  // ⭐⭐ The letter is INSIDE the wedge now, so the wedge is cut in two around it — four arms rather
+  //    than two — and BOTH ENDS are exactly where the bare wedge's were. The letter moved itself; it
+  //    did not move the wedge. ⛔ Under the endpoint skyline this end came back short and kept going
+  //    as the drag continued (his log: `365…454` → `442…454`).
+  expect(nudged.count, 'cut in two around the letter — two arms per fragment').toBe(4)
+  expect(nudged.x1, 'the wedge still starts where its first note is').toBeCloseTo(bare.x1, 0)
+  expect(nudged.x2, 'and still ends where its last note is').toBeCloseTo(bare.x2, 0)
 })
 
 test('⭐⭐ a wedge crossing a system break is SPLIT, and it STEPS at the break', async ({ score }) => {
