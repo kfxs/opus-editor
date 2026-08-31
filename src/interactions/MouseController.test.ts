@@ -256,4 +256,63 @@ describe('MouseController', () => {
       mc.teardown()
     })
   })
+
+  /**
+   * ⭐⭐ **Ctrl+Alt+T — WHERE the mark lands, and what the gesture SPENDS** (his asks, 2026-08-31).
+   *
+   * The address itself is `tempoInsertAnchor`'s table and is proven in its own spec beside it; what
+   * this chapter owns is the WIRING — that the controller asks that table rather than reading
+   * `selectedNoteId` on its own, and that the selection which said *where* is cleared before the
+   * edit box opens: *"we are doing tempo editing now and no measure selection operations"*.
+   */
+  describe('insertTempo', () => {
+    let addTempoMark: ReturnType<typeof vi.fn>
+    let armTempoEntry: ReturnType<typeof vi.fn<() => void>>
+    let opened: ReturnType<typeof vi.fn>
+    let tempo: MouseController
+
+    beforeEach(() => {
+      addTempoMark = vi.fn(() => ({ id: 't1' }))
+      armTempoEntry = vi.fn<() => void>()
+      opened = vi.fn()
+      engine = {
+        ...engine,
+        getElementRegistry: () => ({ getByType: () => [], getByMeasure: vi.fn(() => []) }),
+        getScore: () => ({ measures: [1, 2].map(number => ({ number, slots: [{ beat: frac(0, 1) }] })) }),
+        getNote: () => null,
+        addTempoMark,
+        // `TempoTextSource` measures the drawn mark on construction; nothing is drawn here.
+        getTempoSVGGroup: () => null,
+        getTempoMarkById: () => ({ id: 't1', text: '' }),
+      } as never
+      // Its own controller: this flow needs a text editor, and the shared one is built with none.
+      tempo = new MouseController(
+        () => engine as never, () => canvas, state, selection as never, render as never,
+        () => undefined, () => ({ open: opened }) as never, clipboard as never,
+        () => {}, armTempoEntry, panBy, () => 1,
+      )
+    })
+
+    it('⭐⭐ a BARLINE puts the mark in the bar AFTER it', () => {
+      state.selectedElement = { kind: 'barline', measure: 1 }
+      tempo.insertTempo()
+      expect(addTempoMark).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
+    })
+
+    it('⭐⭐ …and the selection that said WHERE is spent — the bar is no longer selected', () => {
+      state.selectedElement = {
+        kind: 'measureRange', anchor: 2, focus: 2, staff: 0, focusStaff: 0, boxStyle: 'single',
+      }
+      tempo.insertTempo()
+      expect(addTempoMark).toHaveBeenCalledWith(2, expect.objectContaining({ beat: frac(0, 1) }))
+      expect(selection.selectNote).toHaveBeenCalledWith(null)
+      expect(opened, 'and the edit box opened on the new mark').toHaveBeenCalled()
+    })
+
+    it('⛔ a selection that names no place arms the click-to-place tool instead', () => {
+      tempo.insertTempo()
+      expect(addTempoMark).not.toHaveBeenCalled()
+      expect(armTempoEntry).toHaveBeenCalled()
+    })
+  })
 })

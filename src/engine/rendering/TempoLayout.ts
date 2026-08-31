@@ -33,7 +33,6 @@ import type { RenderPass } from './RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
-import { dbg } from '@/utils/debug'
 
 /**
  * Apply the mark's two sizes (`./tempoStyle`, where they live because the ink extents and the row's
@@ -394,12 +393,12 @@ function registerTempoAnchors(
   pass.elementRegistry.withScale(scale, () => {
     pass.elementRegistry.registerTempoAnchors(measure.number, anchors)
   })
-  // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — his screenshot: the mark stopped re-anchoring at the
-  // last stop of bar 1 and its guide line pointed back there, with the walk reading `m2b0/1@—`. So
-  // some bar publishes nothing and this says which, and from what.
-  dbg(`[tempo-anchors] m${measure.number}: ${anchors.length} of ${beats.length} beats`
-    + ` (${columns ? 'columns' : 'this staff’s slots'})`
-    + ` | ${anchors.slice(0, 3).map(a => `${a.beat}@${a.x.toFixed(0)}`).join(' ')}`)
+  // ⚠️ A `[tempo-anchors]` census used to print here, one line PER BAR PER RENDER (his log opened
+  // with 64 of them). It did its job — `m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539` is the
+  // measurement the COLUMN rule was built from (`interactions/tempoAnchors.nextAnchorPoint`) — and he
+  // asked for it back out, 2026-08-31: *"we have a lot of temp console logs that i think we dont need
+  // anymore"*. ⭐ The reader that answers the same question on demand is `__spacing.dump()`'s
+  // neighbour: `ElementRegistry.tempoAnchorX` is a Map anyone can print from the console.
 }
 
 export function drawTempoMarks(

@@ -649,3 +649,36 @@ one the last render published no anchor for.
 **Specs**: `tempoDrag.test.ts` (the hand short of the column, then reaching it, with the ink not
 moving) and `tempoWalk.test.ts` (19 presses of ink, the 20th crosses) — both break-tested against the
 old rule.
+
+## ✅⭐⭐ WHERE Ctrl+Alt+T PUTS THE MARK — the SELECTION's table (2026-08-31, BUILT)
+
+His ask: *"when a measure is selected and i chose to enter tempo the anchor point should be the
+current measure, however if a barline is selected the anchor point should be the measure after this
+barline"*. The action read ONE thing — `selectedNoteId` — which is right for a note and wrong for the
+two selections that name a PLACE rather than a sounding thing.
+
+`interactions/tempoInsertAnchor.tempoInsertStop(state, engine)`:
+
+| selected | the mark anchors at |
+|---|---|
+| a BARLINE | ⭐ the bar AFTER it, beat 0 — the line is a BOUNDARY, and *"from here on"* is the bar it opens |
+| a MEASURE / passage | ⭐ its FIRST bar, beat 0 — ⛔ not wherever inside it the box-select left `selectedNoteId` (a single-bar box populates the item selection too, so the ELEMENT must be read first) |
+| a note or rest | its own (measure, beat), as before |
+| anything else | null — the caller arms the click-to-place tool |
+
+- ⭐ **A MODULE, ⛔ not a branch in `MouseController`** (CLAUDE.md: the controller is where per-kind
+  slices breed). ⏭️ `PaletteController.placeTempoAtSelectedNote` is the other half of the same seam
+  and should read it the day a tempo palette lands.
+- ⭐ Every answer goes through `tempoOps.tempoAnchorAt` — the model's own *"where may a mark land?"*,
+  at-or-after. ⛔ Never a raw beat 0: what the mark is drawn ON is an onset (§6.5).
+- ⛔ **The FINAL barline answers nothing.** There is no bar after it, and `tempoAnchorAt`'s
+  end-of-score fallback would quietly put the mark on the last onset in the score instead.
+- ⭐⭐ **And the selection is SPENT** (his second call): the mark is placed, the selection cleared, the
+  edit box opened — *"we are doing tempo editing now and no measure selection operations"*. Via
+  `selection.selectNote(null)` and ⛔ not `deselectAll`, which also sends note ENTRY back to voice 1 /
+  staff 0; typing a tempo is not a change of lane.
+
+⚠️ **The `[tempo-anchors]` census is GONE** (his call the same day: *"we have a lot of temp console
+logs that i think we dont need anymore"*). It printed one line per bar per render — 64 on load — and
+it had done its job: `m2: 6 of 6 beats (columns) | 0@539 0.25@539 1@539` is the measurement the COLUMN
+rule above was built from.

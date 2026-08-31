@@ -25,6 +25,8 @@ import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { dragDynamic, settleDynamicLanding } from './dynamicWalk'
 import { dragTempo, tempoAnchorXOf } from './tempoDrag'
+import { tempoInsertStop } from './tempoInsertAnchor'
+import type { Stop as TempoStop } from '../engine/models/tempoOps'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
@@ -1967,37 +1969,45 @@ export class MouseController {
 
   /**
    * The "insert a tempo" action — the tempo twin of {@link insertExpression}, and the one thing
-   * Ctrl+Alt+T does. With a note/rest selected, place a tempo mark at its (measure, beat) and open
-   * the edit box blank to type the whole mark; with nothing selected, arm the click-to-type tempo
-   * tool (blue cursor) so the next canvas click places and edits one.
+   * Ctrl+Alt+T (and the Insert menu's *Tempo* row) does. With a selection that names a place, place a
+   * tempo mark there and open the edit box blank to type the whole mark; with nothing selected, arm
+   * the click-to-type tempo tool (blue cursor) so the next canvas click places and edits one.
+   *
+   * ⭐ **WHERE it lands is `./tempoInsertAnchor`'s table**, ⛔ not a branch here: a barline names the
+   * bar AFTER it, a measure selection names its FIRST bar, a note names its own beat (his ask,
+   * 2026-08-31).
    */
   insertTempo(): void {
-    if (this.state.selectedNoteId) this.editTempoOnSelection()
+    const engine = this.getEngine()
+    const stop = engine ? tempoInsertStop(this.state, engine) : null
+    if (stop) this.editTempoAt(stop)
     else this.armTempoEntry()
   }
 
   /**
-   * Ctrl+Alt+T with a note/rest selected: place a tempo mark at that element's (measure, beat) and
-   * open the edit box blank. Tempo is system-level, so — unlike a dynamic — the mark carries NO
-   * staffId and NO voice (it governs the clock, not the staff it was placed from). The placeholder
-   * text only exists so the mark renders a measurable box; the box opens blank (seedText `''`) and,
-   * being `isNew`, deletes the mark on an empty commit.
+   * Place a tempo mark at `stop` and open the edit box blank. Tempo is system-level, so — unlike a
+   * dynamic — the mark carries NO staffId and NO voice (it governs the clock, not the staff it was
+   * placed from). The placeholder text only exists so the mark renders a measurable box; the box
+   * opens blank (seedText `''`) and, being `isNew`, deletes the mark on an empty commit.
    */
-  private editTempoOnSelection(): void {
+  private editTempoAt(stop: TempoStop): void {
     const engine = this.getEngine()
     const textEdit = this.getTextEdit()
     if (!engine || !textEdit || this.state.editingText) return
-    const noteId = this.state.selectedNoteId
-    if (!noteId) return
-    const note = engine.getNote(noteId)
-    if (!note) return
-    const created = engine.addTempoMark(note.measure, { beat: note.beat, text: DEFAULT_TEMPO_TEXT })
+    const created = engine.addTempoMark(stop.measure, { beat: stop.beat, text: DEFAULT_TEMPO_TEXT })
     if (!created) return
+    // ⭐ The selection that SAID WHERE is spent — his call, 2026-08-31: *"if we select a measure and
+    //   then chose to enter tempo… the measure should not be selected anymore (we are doing tempo
+    //   editing now and no measure selection operations)"*. It goes before the render, so the bar's
+    //   blue box is gone in the same paint the edit box opens in. ⛔ Not `deselectAll`, which also
+    //   sends note ENTRY back to voice 1 / staff 0 — typing a tempo is not a change of lane.
+    this.selection.selectNote(null)
     // Render so the mark is in the DOM for TempoTextSource to measure; openTempoTextEditor then
     // suppresses + re-renders it — both before paint, so the placeholder never flashes.
     this.render.renderScore()
     this.openTempoTextEditor(created.id, true, '')
-    dbg(`✓ Insert tempo on selection: measure ${note.measure} beat ${fracToNumber(note.beat).toFixed(3)} (note ${noteId})`)
+    dbg(`✓ Insert tempo on selection: measure ${stop.measure}`
+      + ` beat ${fracToNumber(stop.beat).toFixed(3)}`)
   }
 
   /**
