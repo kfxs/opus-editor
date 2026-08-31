@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import type { Accidental, Note, Measure, PitchStep, Clef, Score } from '../types/music'
-import { middleLineDiatonicPos } from '../utils/clefUtils'
+import { diatonicPosForStaffLine } from '../utils/clefUtils'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { Rect } from '../engine/ViewportModel'
 import type { EditorState } from './EditorState'
@@ -11,12 +11,13 @@ import { fracEq, fracCompare, fracToNumber } from '../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../utils/musicUtils'
 import { spellingToMidi, spellingDiatonicPos } from '../utils/pitchSpelling'
 import { restShiftOverrideOf, restPositionKey } from '../engine/models/engravingOverrides'
-import { keyStaffId } from '../engine/models/staffContent'
+import { keyStaffId, staffSlots } from '../engine/models/staffContent'
 import { keyAt } from '../utils/keySignature'
 import { entryAlteration } from '../engine/models/entryAlteration'
 import { alterInForceAt } from '../utils/accidentalState'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from './selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
+import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 
 /**
  * Handles note selection, navigation, pitch adjustment, and scroll-into-view.
@@ -578,22 +579,33 @@ export class SelectionController {
    * offset is < 1, so it only ever breaks ties — it never reorders genuinely different
    * pitches (which differ by whole diatonic steps).
    *
-   * REST POSITIONING: a rest sits in its voice's default lane PLUS any manual vertical
-   * shift the user applied (Alt+Shift+↑/↓, engraving client #5). We add the shift's
-   * `steps` onto the lane exactly as the renderer's `restShiftFor` does, so the hop
-   * follows the DRAWN geometry rather than the un-shifted default — the two stay in
-   * lockstep by construction.
+   * REST POSITIONING: ⭐⭐ a rest sits where `restLineForVoice` puts it — **the same rule the
+   * renderer draws with, IMPORTED** (`engine/layout/restVoicePlacement.ts`) — plus any manual
+   * vertical shift the user applied (Alt+Shift+↑/↓, engraving client #5).
+   *
+   * 🚨 It used to be a SECOND COPY of that rule (`lane = voice === 0 ? 2 : -2`), whose comment
+   * claimed the two *"stay in lockstep by construction"*. They did not, and had not since the
+   * ladder was written: the lane was in DIATONIC units where the renderer's was staff SPACES, and
+   * the user's own `steps` was added to a diatonic scale unconverted, moving the hop at half
+   * strength. ⛔ The import IS the lockstep — not a comment promising one, and not a copy.
+   * (docs/multi-voice-rest-position-plan.md §4.2.)
    */
-  private elementVerticalPos(n: Note, clef: Clef, score: Score, measureId: string): number {
+  private elementVerticalPos(n: Note, clef: Clef, score: Score, measure: Measure): number {
     const voice = voiceOf(n)
     // Tiebreak only: lower voice index ranks higher. < 1 so it never crosses a real
     // pitch step. (Supports many voices before the cumulative offset approaches 1.)
     const voiceRank = -voice * 0.01
     if (n.isRest) {
-      const lane = voice === 0 ? 2 : -2
-      // Mirror VexFlowRenderer.restShiftFor: voice lane + the rest's own manual shift.
-      const shift = restShiftOverrideOf(score, restPositionKey(measureId, voice, n.beat, keyStaffId(score, n.staff)))?.steps ?? 0
-      return middleLineDiatonicPos(clef) + lane + shift + voiceRank
+      const staffId = keyStaffId(score, n.staff)
+      // This staff's LANE — every voice of it and nothing else, the rule's whole context.
+      const slots = staffSlots(measure, staffId, score)
+      const line = new Set(slots.map(voiceOf)).size > 1
+        ? restLineInStaff(slots, n, clef)
+        : restNeutralLine(restDrawnDuration(n))
+      const shift = restShiftOverrideOf(score, restPositionKey(measure.id, voice, n.beat, staffId))?.steps ?? 0
+      // ONE conversion, at the boundary: a line and a `steps` are both staff SPACES; this scale is
+      // DIATONIC, two units to the space.
+      return diatonicPosForStaffLine(line + shift, clef) + voiceRank
     }
     return spellingDiatonicPos(n.step!, n.octave!) + voiceRank
   }
@@ -620,7 +632,7 @@ export class SelectionController {
     const currentVoice = voiceOf(current)
     const currentStaff = staffOf(current)
     const clef = engine.getEffectiveClefAt(current.measure, current.beat, currentStaff)
-    const currentPos = this.elementVerticalPos(current, clef, score, measure.id)
+    const currentPos = this.elementVerticalPos(current, clef, score, measure)
 
     // Candidate elements live in OTHER voices OF THE SAME STAFF (a voice hop never targets our
     // own chord, and never crosses into another staff — that's a different vertical axis).
@@ -639,7 +651,7 @@ export class SelectionController {
     // one (nearest notehead/rest above for up, below for down). No match → no jump
     // (e.g. pressing up from the top voice). Ties break toward the nearer beat.
     const dirElements = pool
-      .map(n => ({ n, pos: this.elementVerticalPos(n, clef, score, measure.id) }))
+      .map(n => ({ n, pos: this.elementVerticalPos(n, clef, score, measure) }))
       .filter(({ pos }) => direction > 0 ? pos > currentPos : pos < currentPos)
     if (!dirElements.length) return
 

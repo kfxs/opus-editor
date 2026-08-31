@@ -50,6 +50,20 @@ export function staffLineForSpelling(step: PitchStep, octave: number, clef: Clef
 }
 
 /**
+ * The INVERSE of {@link staffLineForSpelling}: the diatonic position a staff LINE corresponds to
+ * under a clef — where a thing drawn on that line would rank against real pitches.
+ *
+ * ⭐ It exists because a REST has a line but no pitch, and the voice hop
+ * (`SelectionController.elementVerticalPos`) has to order rests and noteheads on ONE scale. Written
+ * here, beside its inverse, so the two `3`s and the two `2`s are the same two numbers and cannot
+ * drift apart — the pair had drifted, with a rest's manual shift added to a diatonic scale in staff
+ * SPACES and so moving the hop at half strength (docs/multi-voice-rest-position-plan.md §4.2).
+ */
+export function diatonicPosForStaffLine(line: number, clef: Clef): number {
+  return middleLineDiatonicPos(clef) + (line - 3) * 2
+}
+
+/**
  * Does a clef change belong to the staff addressed by `staffId`? Clef is per-staff
  * (multi-staff, docs/multi-staff-plan.md §4): an absent `staffId` on either side resolves
  * to the first staff, so at N=1 (all absent, query undefined) every clef matches the one

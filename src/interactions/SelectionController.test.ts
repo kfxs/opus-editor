@@ -486,6 +486,33 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     expect(state.selectedNoteId).toBe(v2Rest.id)
   })
 
+  it('⭐⭐ a rest’s manual shift moves the hop by a WHOLE staff space per step', () => {
+    // 🚨 The drift this seam carried since the rest ladder was written: `steps` is in staff SPACES
+    // and was added to a DIATONIC scale (two units to the space) unconverted, so the user's own
+    // shift moved the hop at HALF strength — a rest they had dragged clear of a note still hopped
+    // as though it were where they left it. (docs/multi-voice-rest-position-plan.md §4.2.)
+    //
+    // Voice 1 sings G5, voice 2 rests at beat 0 and has an E4 at beat 1. The derived rule puts that
+    // rest on line 1 (its own voice's E4 is what it tracks; the G5 is far above and does not press
+    // it down further) = 4 diatonic units below the middle line. Five whole spaces lift it to ten
+    // units ABOVE the middle — clear of the G5. Read at half strength it lands short, below it.
+    const v1 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+
+    const measure = engine.getScore().measures.find(m => m.number === 1)!
+    const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
+
+    expect(engine.nudgeRestShift(v2Rest.id, 4)).toBe(true)
+    selection.selectNote(v1)
+    selection.navigateVoice(1)
+    expect(state.selectedNoteId, 'four spaces is not yet clear of the G5').toBe(v1)
+
+    expect(engine.nudgeRestShift(v2Rest.id, 1)).toBe(true) // → 5 spaces
+    selection.selectNote(v1)
+    selection.navigateVoice(1)
+    expect(state.selectedNoteId, 'five spaces clears it').toBe(v2Rest.id)
+  })
+
   it('hops between voices at a UNISON (same pitch) — V1 is up, V2 is down', () => {
     const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
     const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id

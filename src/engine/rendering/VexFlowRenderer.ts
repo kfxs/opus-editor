@@ -91,6 +91,7 @@ import { drawSketchHeader, sketchHeaderRoomPx } from './ScoreHeaderPass'
 import type { Rect } from '@/engine/ViewportModel'
 import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
+import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
@@ -1967,15 +1968,24 @@ export class VexFlowRenderer {
       // Group slots by model voice (0 = primary). With more than one voice, engrave
       // them as independent streams (Sibelius-style) by voice PARITY: odd voices
       // (V1/V3, model 0/2) stems up, even voices (V2/V4, model 1/3) stems down.
-      //
-      // Rests get their OWN vertical lane per voice so same-parity voices never overlap
-      // (each entry × REST_LINE_STEP lines, + = up): a top-to-bottom ladder V3 / V1 / V2 / V4
-      // — V1 centred like a single voice, V3 above it, V2 below it, V4 below V2. REST_LINE_STEP
-      // is the one knob to retune the spread by eye. (docs/multi-voice-plan.md §13.)
-      const REST_LINE_STEP = 3
-      const REST_LANE = [0, -1, 1, -2] // × REST_LINE_STEP, indexed by 0-based model voice
       const voiceIds = [...new Set(sortedAll.map(s => voiceOf(s)))].sort((a, b) => a - b)
       const multiVoice = voiceIds.length > 1
+
+      // ⭐⭐ WHERE A MULTI-VOICE REST SITS — DERIVED from what else is in the staff, and the whole
+      // rule lives in `engine/layout/restVoicePlacement.ts` with its sources. This is the one line
+      // that asks it. It replaces a fixed four-lane ladder (`REST_LANE × REST_LINE_STEP`) that could
+      // express the SIGN and nothing else, and that cost 67 hand-placed `restShift` overrides in the
+      // prelude example. Single voice: 0 — Gould p. 34's centred rest, untouched.
+      // (docs/multi-voice-rest-position-plan.md §4.1.)
+      //
+      // ⭐ `measure` here is THIS STAFF'S LANE (`placement.view`, a `staffMeasureView` copy), so
+      // `sortedAll` already holds every voice of this staff and nothing else — which is exactly the
+      // context the rule needs, and the reason it needs no cross-staff lookup.
+      const derivedRestShift = (slot: ChordRest): number => {
+        if (!multiVoice || slot.type !== 'rest') return 0
+        return restLineInStaff(sortedAll, slot, clefForBeat(slot.beat))
+          - restNeutralLine(restDrawnDuration(slot))
+      }
       // Our intended rest line / stem direction / horizontal shift per StaveNote, captured
       // BEFORE formatting. VexFlow's StaveNote.format rewrites all three for same-tick
       // multi-voice collisions — it nudges rests apart (can lift V1's centred rest off the
@@ -1990,11 +2000,12 @@ export class VexFlowRenderer {
         const slots = sortedAll.filter(s => voiceOf(s) === v)
         const stemUp = v % 2 === 0
         const forcedStem = multiVoice ? (stemUp ? 1 : -1) : undefined
-        const restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
-        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The
-        // resolver adds each rest's manual vertical shift (if any) on top of the voice base.
+        // notesOnly: one StaveNote per slot (used for beams, tuplets, registration). The resolver
+        // adds each rest's manual vertical shift (if any) on top of the DERIVED position — the
+        // override stays a deviation from where the rule puts the rest, exactly as LilyPond's
+        // explicit `staff-position` overrides its own collision result.
         const restShiftFor = (slot: ChordRest): number =>
-          restShift + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
+          derivedRestShift(slot) + (restShiftOverrideOf(pass.score, restPositionKey(measure.id, voiceOf(slot), slot.beat, slot.staffId))?.steps ?? 0)
         const staveNotes = createStaveNotesFromSlots(slots, clefForBeat, forcedStem, restShiftFor, key)
         for (const sn of staveNotes) {
           // Non-measure rests only: measure (whole-bar) rests are centred separately and

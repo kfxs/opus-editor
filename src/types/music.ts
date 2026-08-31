@@ -1326,10 +1326,18 @@ export interface SegmentEndpointOffsetOverride extends EngravingOverride {
 
 /**
  * Client #5 of the engraving-overrides compartment: a manual vertical shift of a rest,
- * in whole **staff-steps** (signed, +up), added on top of the automatic multi-voice
+ * in whole **staff SPACES** (signed, +up), added on top of the automatic multi-voice
  * placement (see docs/rest-shift-plan.md). A rest is pitchless, so its vertical position
  * carries no musical meaning — this is pure engraving/clarity geometry, not content, and
- * staff-steps keep it resolution-independent (no pixels in the model, principle 3).
+ * staff spaces keep it resolution-independent (no pixels in the model, principle 3).
+ *
+ * ⚠️ **A SPACE, not a "staff-step".** This doc and `docs/rest-shift-plan.md` both said *step*
+ * while every consumer treated it as a SPACE — the arithmetic is `getLineForRest() + steps` and a
+ * VexFlow line IS a space — so a `steps: 6` here is **6 staff spaces = 12 diatonic steps**, twice
+ * what the word suggests. That ambiguity cost a research pass: a stored 6 was read as matching
+ * Gould's measured ±3 spaces when it is double it (docs/multi-voice-rest-position.md §1), and it is
+ * what let the voice hop add a space count to a diatonic scale unconverted. ⛔ A COMMENT fix only:
+ * the arithmetic is already spaces and must not change.
  *
  * Unlike every other client, this one is **position-keyed, not element-id-keyed**: rests
  * are regenerated (fresh ids) on every edit, so the override hangs off the rest's
@@ -1338,7 +1346,7 @@ export interface SegmentEndpointOffsetOverride extends EngravingOverride {
  */
 export interface RestShiftOverride extends EngravingOverride {
   kind: 'restShift'
-  /** Whole staff-steps, signed. Added on top of the default voice shift. +up. */
+  /** Whole staff SPACES, signed, +up. Added on top of the DERIVED multi-voice placement. */
   steps: number
 }
 

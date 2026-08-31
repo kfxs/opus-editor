@@ -433,8 +433,15 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
     tempStave.setEndBarType(Barline.type.NONE)
     tempStave.setContext(ctx)
 
-    // ⭐ Placed by `restKey`, the same rule NoteBuilder uses, so the ghost lands where the real rest
-    //   will — a whole rest on the fourth line, everything shorter on the middle one.
+    // ⭐ Placed by `restKey`, the same rule NoteBuilder uses — a whole rest on the fourth line,
+    //   everything shorter on the middle one: the NEUTRAL position, Gould p. 34.
+    // ⚠️ ⛔ It does NOT follow that the ghost lands where the real rest will, and the claim that it
+    //   did is withdrawn. In a multi-voice staff the real rest is DISPLACED from this line by what
+    //   else is in the bar (`engine/layout/restVoicePlacement.ts`), and this preview knows none of
+    //   it — it never knew about the old fixed lanes either, so the gap is older than the derived
+    //   rule and merely wider now. Not fixed here (the plan's §9), but a preview that lies about
+    //   where the mark lands is the same family of fault as a rest the user has to drag.
+    //   (docs/multi-voice-rest-position-plan.md §8.)
     const rest = new StaveNote({ keys: [restKey(duration)], duration: convertDuration(duration, dots) + 'r' })
     for (let d = 0; d < dots; d++) Dot.buildAndAttach([rest], { all: true })
     rest.setStave(tempStave)

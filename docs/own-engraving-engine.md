@@ -200,8 +200,8 @@ Beside it, the standing repairs:
 
 - `renderOptions` written as a field, not an API: un-setting `draw = false` on rests VexFlow merged
   away, `strokePx` for ledger overhang, reading `beamWidth` for beam thickness.
-- After `format()` we **re-assert** stem directions, rest lane lines, measure-rest centring and
-  clear VexFlow's auto x-shift — `StaveNote.format()` rewrites all four for multi-voice.
+- After `format()` we **re-assert** stem directions, the rest lines we decided, measure-rest centring
+  and clear VexFlow's auto x-shift — `StaveNote.format()` rewrites all four for multi-voice.
 - `Stave.padding` = 12px with **no setter** is why `barline↔note` is 1.2 staff spaces and not the
   1.0 the model wants (LilyPond: 0.9). ⭐ **A stated rule we cannot express**, open since July, and
   the only item on `vexflow-boundary.md` §3 that survived every other fix.
@@ -230,6 +230,93 @@ Three things make it the canonical example:
   (`engine/rendering/musicFontReady.ts`), not a retry.
 
 ⭐ A font-metrics layer of our own would have made this unrepresentable.
+
+### 3.1 ⭐⭐ …and this is the class of RULE it has no answer to — multi-voice rest placement
+
+2026-08-31, his report: *"we are having an issue with multivoice rest placement… this is because we
+don't have a proper mechanism to vertical position rest in the good spot so the user have to do it,
+but this must not be… i think the rule we have of the position that is very relative was before we
+had real literature."*
+
+⭐ **§3 is the ruler being wrong. This is the ruler having no opinion at all**, and it is the second
+canonical example this audit has — worth folding in whole, **question and answer**, because it is
+the first time the two halves have been measured on the same page.
+
+**THE QUESTION — what four books and four engines say.** Full evidence in
+`docs/multi-voice-rest-position.md`; the shape of it:
+
+| | LilyPond | Verovio | MuseScore 4 | **VexFlow 5** |
+|---|---|---|---|---|
+| per-voice constant | ±2 sp (`voiced-position`) | none — a 4-D default table | ±1 sp (parity) | **none** |
+| content-aware | ✔ notehead **ink** | ✔ note positions, no ink | ✔ **shape**, incl. stem | **✘** |
+| sees a *sustaining* note | ✔ | ✔ | ✔ | **✘** |
+| consistency pass | ✘ | ✘ | ✔ `alignRests` | ✘ |
+
+And the books are unanimous where the engines differ — Gould pp. 34–37, Ross pp. 173–176, Gerou &
+Lusk pp. 114–115, Stone p. 135, agreeing that **the SIGN is positional, the MAGNITUDE is derived
+from surrounding content, and the RESULT is quantised to whole staff spaces.**
+
+⛔ **VexFlow's entire contribution is `rest.line += 1`** — one nudge, in `StaveNote.format`, gated on
+notes at the **same start tick**; `Formatter.AlignRestsToNotes` is per-voice and default off. ⭐⭐ And
+**we already suppress even that**, by re-asserting `intendedRestLine` after `format()` (correctly —
+its nudge is wrong for our voice model). So **100% of this rule comes from us, and there is no
+library behaviour to fall back on.** What we had instead was a fixed four-lane table
+(`REST_LANE × REST_LINE_STEP`) sitting in the paint layer, which can express the sign and nothing
+else. The bill arrived as **67 hand-placed `restShift` overrides** in one example file, in a piece
+with one repeating texture — the user doing, by hand and 67 times, what no layer of ours had an
+opinion about.
+
+**THE ANSWER — `engine/layout/restVoicePlacement.ts`** (plan: `docs/multi-voice-rest-position-plan.md`).
+Verovio's shape (the outermost of named candidates) with LilyPond's ink clearance. Four properties
+matter to *this* audit, and each is an argument the rest of this document makes in the abstract:
+
+1. ⭐⭐ **The missing input was never precision — it was the MODEL.** The fact the rule needs is
+   *what SOUNDS across the rest's span*, not what starts at its tick, and VexFlow's
+   `ModifierContext` is keyed on the start tick, so it **structurally cannot represent the
+   question**. LilyPond names it in a comment (*"Include notes that started any time"*). ⛔ No
+   amount of reaching past the public type fixes that; only owning the layer does. That is a
+   sharper version of §2.3's finding: VexFlow is a ruler, and a ruler cannot be told about time.
+2. ⭐ **It yields a LINE, not a pixel** — the exact shape §7.2's SCENE wants, and the reason the PDF
+   export (`export/scoreSvg.ts`, its own `VexFlowRenderer`) is carried by the same seam with nothing
+   added. §0.4's one-line test decides that much: a headless export needs the identical position, so
+   the rule cannot live where only the editor's renderer can reach it. ⭐⭐ **But *which stage* it
+   belongs to is the sharper question, and it is the best probe this project has yet had for the
+   LAYOUT / ENGRAVE line — §7.2.1.**
+3. ⭐⭐ **It is ink-aware WITHOUT `getBBox()`**, because P2 gave us a measured extent table
+   (`layout/spacingPadding`, held against Bravura by its own font test). LilyPond's and MuseScore's
+   clearance can only ever be exercised in a browser; ours is a pure function and its whole spec
+   runs in jsdom. ⭐ **That is the P2 dividend, arriving in a feature P2 never anticipated** — and
+   the concrete reply to §6.2: this rule is not "newly wrong", it is newly *checkable*.
+4. 🚨 **The second owner is the tell.** `SelectionController` held a private copy of the rest-lane
+   rule for the voice hop, with a comment claiming the two *"stay in lockstep by construction"*.
+   They had not been in lockstep since either was written — one counted staff spaces, the other
+   diatonic steps. ⭐ That is §2.4's coupling cost in a place §2.4 does not count: not a cast or a
+   monkeypatch, but a **rule with no home**, copied because there was no module to import.
+
+⚠️ **The one place it argues AGAINST us — and the correction it got within the hour.** Three and
+four voices are **UNKNOWN in every book and declined in Verovio's own code**, so the derived rule
+first gave V1 and V3 the same line where the old ladder separated them. It shipped as a *stated*
+regression rather than a discovery on his screen, and he refused it on sight: the V3/V1/V2/V4 order
+was **his call, made 2026-07-23**, and a rule that cannot derive something has no standing to delete
+a decision that was never derived in the first place.
+
+⭐⭐ **That is the sharpest lesson in this section for the engine project**, because it is the shape
+every P3–P5 item will meet: §6.1 says the residue is *"the part with no rules written down"*, and
+this is what that residue actually looks like from inside — not a blank to be filled by whichever
+engine we last read, but **a place where his taste is already the specification**. ⛔ The failure
+mode is not "we have no opinion"; it is *forgetting that he does*. ⭐ And the fix cost nothing
+architecturally: the order came back as one more candidate in the same outermost-wins combination,
+priced in the same measured ink and the same `GAP` — **no new constant**. ⭐ A taste call that can
+be expressed in the rule's own vocabulary is not a compromise of the rule.
+
+⭐⭐ **Read together with §6.1, this is the strongest correction to it in the document.** §6.1 warns
+that the residue is the part with no rules written down. Rest placement *looked* like that residue —
+a taste constant nobody had questioned — and turned out to have **four books in agreement, three
+engines to compare against, and a measurable fit against his own 67 hand-drags**. ⛔ The lesson is
+not that §6.1 is wrong; it is that *"we have no opinion"* is a claim about the library shelf, and
+this project's shelf is now good enough that the claim has to be **re-checked per feature**, not
+assumed. `reference/README.md` is the first stop, and it had no row for this question before
+2026-08-31.
 
 ---
 
@@ -495,6 +582,60 @@ That is one new artefact and it pays for all four rows above:
 (`docs/render-performance-findings.md`) is how we would answer it rather than guess. And a
 discipline problem: **a primitive that smuggles a DOM node into the scene defeats the whole thing.**
 That is `lint:boundary`'s job, not review's.
+
+### 7.2.1 ⭐⭐ Where does LAYOUT end and ENGRAVE begin? — the rest's line is the sharpest probe yet
+
+The four stages above read cleanly until a real question is put to them. **Multi-voice rest
+placement (§3.1) puts it three ways at once**, and gets three different answers:
+
+| what the rule does | which stage that says |
+|---|---|
+| reads the MODEL and nothing drawn — the other voices' pitches, their **sounding spans**, the clef | `models/` → `layout/` |
+| answers with a **STAFF LINE** — a symbol's position, not an amount of room | `engrave/` — *"what SYMBOLS, where"* is its own definition |
+| needs measured **INK** — the rest's own extents, half a notehead, a 0.75 sp clearance | reads like `engrave/`, yet the table has lived in `layout/spacingPadding.ts` since the horizontal spacing needed it first |
+
+It landed in `engine/layout/restVoicePlacement.ts`, beside `restPlacement.ts`, for three reasons
+that are all the same reason: it is **pure** (no DOM, no VexFlow, no context — so its whole spec runs
+in jsdom); the **PDF export needs the identical answer** (§0.4); and its neighbours were already
+there.
+
+⚠️ **Notice what that admits about the stage diagram.** `layout/` is not "how much room" alone — it
+has been deciding **vertical positions** for months: `restPlacement`, `dynamicsLine`,
+`outsideStaffBand`, the above- and below-staff ladders, `staffStride`, and now this. §8.1 already
+says as much about `MeasureLayout`/`spacingPass` — *"they are layout and always were — misfiled by
+history"*. So the honest reading of today's tree is not the one the arrow diagram suggests:
+
+> ⭐⭐ **`layout/` = every position DERIVABLE FROM THE MODEL PLUS A METRICS TABLE.**
+> ⭐⭐ **`engrave/` = every position that needs a DRAWN OBJECT to exist first** — a stem's actual
+> tip, a beam's solved slope, a formatted column's x, a glyph's own anchor point.
+
+⭐ That line is worth stating because it is **checkable and it predicts**. Anything answerable from
+the score plus a table is a unit test; anything that must interrogate a laid-out object needs the
+scene, and until the scene exists it can only be an e2e case. Every current browser-only assertion
+sits on the right-hand side of it, and that is not a coincidence.
+
+⭐⭐ **And it is why P2 is the load-bearing piece, in a way §5 does not make obvious: every metric we
+can put in a table moves a decision from `engrave/` to `layout/`** — from browser-only to
+unit-testable, from "we must draw it to know" to arithmetic. Rest clearance is the **first decision
+to have crossed that line**, and it crossed only because P2 had already measured the rest extents
+into `spacingPadding`. ⭐ That reframes P2's value: it was scoped as *"stop the font from lying"*
+(§3), and it is also *"grow the testable half of the engine"*.
+
+⛔ **What is NOT settled, and it is his call.** Two readings of the boundary are live and this
+document contains both:
+
+- **`engrave/` stays SMALL** — only the genuinely drawn-object-dependent decisions — and `layout/`
+  keeps growing every position it can derive. That is what §8's tree assumes, and what the code has
+  actually been doing.
+- **`layout/` stops at horizontal room**, and every vertical position moves to `engrave/`. That is
+  what §7.2's arrow diagram reads like.
+
+⚠️ They disagree today. ⛔ Nothing forces the choice until `scene/` exists, and choosing early would
+move a dozen working modules for a name — so this is recorded as an **open question with its
+evidence**, not as a decision. The one thing that would settle it cheaply: write the rule down as
+*"can this be answered without drawing anything?"* and sort the existing modules by it. If the
+answer partitions `layout/` and `engrave/` the way they already sit, the first reading wins by
+measurement rather than by taste.
 
 ### 7.3 The seam
 

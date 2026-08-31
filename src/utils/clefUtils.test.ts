@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
-import { resolveStaffClefs, measureOpeningClef, measureEndingClef, staffLineForSpelling } from './clefUtils'
+import { resolveStaffClefs, measureOpeningClef, measureEndingClef, staffLineForSpelling, diatonicPosForStaffLine } from './clefUtils'
+import { spellingDiatonicPos } from './pitchSpelling'
 import { fracCreate as frac } from './fraction'
-import type { Score } from '@/types/music'
+import type { Clef, PitchStep, Score } from '@/types/music'
 
 /**
  * `resolveStaffClefs` exists for speed: the per-measure helpers inherit by scanning *backwards*
@@ -100,5 +101,36 @@ describe('staffLineForSpelling', () => {
 
   it('ignores the alteration — a sharp does not move the head', () => {
     expect(staffLineForSpelling('F', 4, 'treble')).toBe(staffLineForSpelling('F', 4, 'treble'))
+  })
+})
+
+/**
+ * ⭐⭐ The INVERSE, and the reason it is worth a spec of its own: a REST has a line but no pitch, so
+ * the voice hop (`SelectionController.elementVerticalPos`) has to rank rests and noteheads on ONE
+ * scale, and the conversion between the two had drifted — a rest's manual shift, in staff SPACES,
+ * was added to the DIATONIC scale unconverted and moved the hop at half strength
+ * (docs/multi-voice-rest-position-plan.md §4.2).
+ */
+describe('diatonicPosForStaffLine', () => {
+  it('⭐ is the exact inverse of `staffLineForSpelling`, in every clef', () => {
+    const clefs: Clef[] = ['treble', 'bass', 'alto', 'tenor']
+    const spellings: [PitchStep, number][] = [
+      ['C', 4], ['E', 4], ['B', 4], ['F', 5], ['A', 3], ['D', 3], ['G', 2], ['C', 6],
+    ]
+    for (const clef of clefs) {
+      for (const [step, octave] of spellings) {
+        expect(diatonicPosForStaffLine(staffLineForSpelling(step, octave, clef), clef))
+          .toBe(spellingDiatonicPos(step, octave))
+      }
+    }
+  })
+
+  it('⚠️ ONE staff SPACE is TWO diatonic units — the conversion the voice hop was missing', () => {
+    for (const clef of ['treble', 'bass'] as Clef[]) {
+      const middle = diatonicPosForStaffLine(3, clef)
+      expect(diatonicPosForStaffLine(4, clef) - middle).toBe(2)
+      expect(diatonicPosForStaffLine(3.5, clef) - middle).toBe(1) // the space between two lines
+      expect(diatonicPosForStaffLine(0, clef) - middle).toBe(-6)  // a rest lifted clear of the staff
+    }
   })
 })

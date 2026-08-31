@@ -276,9 +276,12 @@ rule.
   colours via `voiceFillColor(i)`. (The keypad's own `this.voice` is still **not** wired to editor
   entry — pre-existing open item; use Alt+1..4 to pick the entry voice.)
 
-**Per-voice rest lanes — DONE 2026-07-23.** Each voice gets its own vertical rest lane, so same-parity
-voices no longer overlap. V1 is centred (like a single voice); the others are offset off it. Implemented
-as a table in `VexFlowRenderer.renderMeasure`:
+**Per-voice rest lanes — DONE 2026-07-23, ⛔ REPLACED 2026-08-31.** ⚠️ **Read this section as
+history.** The rule it describes is gone; the live one is
+`engine/layout/restVoicePlacement.ts` (`docs/multi-voice-rest-position-plan.md`).
+
+Each voice got its own fixed vertical rest lane, so same-parity voices could not overlap — a table
+in `VexFlowRenderer.renderMeasure`:
 
 ```js
 const REST_LINE_STEP = 3                     // the one knob — lines between adjacent lanes
@@ -286,12 +289,24 @@ const REST_LANE = [0, -1, 1, -2]            // × REST_LINE_STEP, by 0-based mod
 restShift = multiVoice ? (REST_LANE[v] ?? 0) * REST_LINE_STEP : 0
 ```
 
-With `STEP = 3` the lanes are **V3 +3 / V1 0 / V2 −3 / V4 −6** top-to-bottom (the values the user
-picked). It **anchors on V1 (centred)** rather than the old symmetric ±2 split — the 2-voice look
-changed on purpose (V1 centre / V2 below instead of V1 raised / V2 lowered). The per-rest manual
-override and hide/show still ride on top of this base. Both `REST_LANE` and `REST_LINE_STEP` are pure
-retune-by-eye knobs. This is a deliberately simple deterministic scheme — 3–4 simultaneous voices have no clean
-engraving standard (even Sibelius uses fixed offsets, not true collision avoidance), so revisit by taste.
+With `STEP = 3` the lanes were **V3 +3 / V1 0 / V2 −3 / V4 −6** top-to-bottom (the values the user
+picked), anchored on V1 (centred) rather than a symmetric ±2 split. It was labelled here as a
+deliberately simple deterministic scheme to revisit by taste, and that revisit happened.
+
+🚨 **Why it went.** The literature is unanimous that the SIGN of a rest's displacement is positional
+but its MAGNITUDE is derived from surrounding content — and a fixed per-voice table can express the
+sign and nothing else. Three specific faults: `REST_LANE[0] = 0` left the upper voice **on the
+middle line** where every book and engine lifts it; nothing read the other voice; and the ±3-space
+magnitudes had no source (LilyPond ±2, MuseScore ±1). The prelude example carried **67 hand-placed
+`restShift` overrides** paying for it by hand. The four-lane ladder also had no counterpart in any
+reference engine — LilyPond's V3/V4 are vertically identical to V1/V2 — and the first version of the derived rule therefore
+put V1 and V3 on one line. ⭐⭐ **He refused that**, 2026-08-31 — the ORDER above is his and it
+stands. ⚠️ What did not survive is `REST_LINE_STEP`: the lane gap is now the two rests' measured INK
+plus the same clearance the rule already uses, so it varies by duration instead of being a flat 3.
+
+⭐ What survives unchanged: the per-rest manual override and hide/show still ride on top, and the
+base is still a single number added to `getLineForRest()`. Only *where that number comes from*
+changed.
 
 ⚠️ **VexFlow rewrites same-tick multi-voice notes, and we undo it.** `StaveNote.format` (runs inside
 `Formatter.format`) does four things to colliding voices that fight our voice model:
