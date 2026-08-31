@@ -1098,6 +1098,31 @@ describe('MusicEngine.deleteNote — staff scoping (multi-staff)', () => {
     expect(engine.getNote(bottom.id)).toBeTruthy()
     expect(engine.getNote(bottom.id)!.isRest).toBeFalsy()
   })
+
+  it('replaces a LOWER staff\'s note with a rest on THAT staff, in its own voice', () => {
+    // ⭐ The mirror of the case above, and the one that was missing: deleting the TOP note passes
+    // whether or not the staff travels, because `addNote` defaults an absent staff to 0. His report
+    // (2026-08-31, bar 1 of the Prelude): clearing the bass staff's voice-1 half note put a half
+    // REST into a voice 1 the treble staff never had — a phantom voice on the wrong staff, while
+    // the bass was left with a hole for `fillGapsWithRests` to re-fill.
+    // TWO half notes in that voice, the file's own shape — deleting the only note of a secondary
+    // voice collapses the lane (Sibelius-style), which is a different rule and would hide this one.
+    const engine = makeEngine()
+    engine.addStaffBelow(0)
+    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1, voice: 1 })
+    const second = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), staff: 1, voice: 1 })
+
+    expect(engine.deleteNote(second.id)).toBe(true)
+
+    const staff1Id = engine.getScore().staves![1].id
+    const atTwo = engine.getScore().measures[0].slots.filter(s => fracToNumber(s.beat) === 2)
+    const replacement = atTwo.find(s => s.type === 'rest' && s.duration === 'h')!
+    expect(replacement).toBeTruthy()
+    expect(replacement.staffId).toBe(staff1Id)
+    expect(replacement.voice).toBe(1)
+    // ⛔ And nothing landed in a voice 1 on the TOP staff, which is what the bug looked like.
+    expect(atTwo.some(s => s.staffId !== staff1Id && s.voice === 1)).toBe(false)
+  })
 })
 
 describe('MusicEngine.toggleTie — staff scoping (multi-staff)', () => {

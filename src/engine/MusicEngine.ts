@@ -5252,6 +5252,16 @@ export class MusicEngine {
         dots: note.dots,
         tupletId: note.tupletId, // Preserve tuplet membership
         ...(note.voice && { voice: note.voice }), // keep the rest in the note's own voice
+        // ⭐ …and in the note's own STAFF. `addNote` defaults an absent `staff` to 0, so every rest
+        // replacing a note on a lower staff was minted on the TOP one — his report, 2026-08-31,
+        // deleting the second half of bar 1 of the Prelude: the bass `C4 h` in voice 1 came back as
+        // a half rest in a voice 1 the TREBLE staff never had, and the bass's `8.`/`q` came back as
+        // rests on the treble that `evictRestsOverlapping` then used to delete the treble's OWN
+        // rests. One staff's delete was editing another staff's bar, and `fillGapsWithRests`
+        // re-filled the holes it left, so the damage looked like a spacing bug rather than a
+        // misplaced slot. Every other site that mints a rest (`addRestAtPosition`, both tuplet
+        // fills, the Keyboard's rest key) already passed the staff; this one alone did not.
+        ...(note.staff && { staff: note.staff }),
       })
 
       // Re-point every tie that targeted the deleted note onto the replacement rest,
