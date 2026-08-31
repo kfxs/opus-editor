@@ -45,7 +45,7 @@ export interface BoxedNote {
 }
 
 /** A rectangle in the drawing's own pixels; `y` grows DOWN. */
-interface NoteInkRect {
+export interface NoteInkRect {
   x: number
   y: number
   width: number
@@ -64,12 +64,19 @@ const LANE_MODIFIER_CATEGORIES = new Set(['Annotation'])
  * ⭐⭐ **THE NOTE'S OWN INK** — head, stem, flag and the modifiers that really ride with it
  * (accidentals, dots, articulations), with the dynamics-line marks left out.
  *
+ * @param alsoWithout further modifier categories to leave out of the measurement — ⭐ the ONE caller
+ *   is `./accidentalCutOut`, which needs the same note measured twice (with and without its
+ *   accidentals) to know which of the two set the edge a curve is looking at. ⛔ Not a general
+ *   filter to reach for: every category left out here is ink somebody stops clearing.
  * @returns null when VexFlow cannot answer for the note (not drawn, or a degenerate box), which
  *   every caller reads as *"not an obstacle"* rather than as a box at the origin.
  */
-export function noteInkBox(note: BoxedNote): NoteInkRect | null {
+export function noteInkBox(note: BoxedNote, alsoWithout?: ReadonlySet<string>): NoteInkRect | null {
   const modifiers = note.getModifiers?.()
-  const lane = modifiers?.filter(m => LANE_MODIFIER_CATEGORIES.has(m.getCategory?.() ?? ''))
+  const lane = modifiers?.filter(m => {
+    const category = m.getCategory?.() ?? ''
+    return LANE_MODIFIER_CATEGORIES.has(category) || (alsoWithout?.has(category) ?? false)
+  })
 
   // ⛔ Only touch the array when there is something to take out — the common note keeps VexFlow's
   // own object untouched, and the restore below cannot then be the thing that breaks it.

@@ -27,6 +27,7 @@ import { tiltWithThePitches } from './slurMelodicTilt'
 import { slurArchHeight } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
+import { curveObstacleBox } from './accidentalCutOut'
 import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -263,12 +264,16 @@ function slurObstaclesOf(
   pass: RenderPass,
   score: Score,
   slur: { startNoteId: string; endNoteId: string },
+  /** −1 above / +1 below — which edge of each box the curve is looking at (`./accidentalCutOut`). */
+  direction: number,
 ): SlurObstacle[] {
   const boxes: SlurObstacle[] = []
   for (const id of coveredChordIds(score, slur.startNoteId, slur.endNoteId)) {
     const note = pass.staveNoteMap.get(id)?.staveNote
     if (!note) continue
-    const box = noteInkBox(note)
+    // ⭐ …and the box a CURVE clears is not quite the note's ink: an accidental has a NOTCH, and a
+    //   slur is allowed into it (`./accidentalCutOut`, Verovio's rule and his two reports).
+    const box = curveObstacleBox(note, direction, note.getStave?.())
     if (box) boxes.push(box)
   }
   return boxes
@@ -759,7 +764,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           const clearance = shapeOverride
             ? { c0: 0, c1: 0 }
             : slurArchClearance(autoP0, autoP1, slurArchHeight(autoP1.x - autoP0.x, nestLift),
-              direction, slurObstaclesOf(pass, score, slur))
+              direction, slurObstaclesOf(pass, score, slur, direction))
           const cps = resolveCps(shapeOverride, stave, autoP0, autoP1, direction, nestLift, clearance)
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
           // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-

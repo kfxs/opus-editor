@@ -608,3 +608,47 @@ test('🚨 pushing one end DOWN must not send the arc UP off the sheet', async (
   // ⚠️ …and it is still ABOVE its own staff, so this does not pass by the curve collapsing flat.
   expect(r.tops[0]).toBeLessThan(r.staffTop + 20)
 })
+
+/**
+ * 🚨🚨 **AN ACCIDENTAL IS A NOTCH, NOT A RECTANGLE** — his report, 2026-08-31, with a picture:
+ * *"the slur here is very ugly, i supose cause the accidental is like an obstacle"*, and then the
+ * pair that isolated it — *"two thirds with accidental two diferent shapes"* (`B4 → G♯4` beside
+ * `A4 → F♭4`, same interval, same beam, same span to within a pixel).
+ *
+ * ⭐ Measured before the fix: the sharp's ink box reached **8.5 px below its notehead** and lifted
+ * the arch **12.4 / 15.7 px on a 6.6 px arch**; the flat's reached 2.5 px and lifted 1. The rule is
+ * `rendering/accidentalCutOut` (Verovio's SMuFL cut-out), and the claim below is the one that
+ * matters to the eye: **a sharp costs the slur nearly what a natural does**.
+ *
+ * ⚠️ Browser-only, twice over: the boxes are VexFlow's post-draw ones, and jsdom measures every
+ * glyph as 0×0 (`reference_jsdom_cannot_measure_glyphs`) — the arithmetic alone is
+ * `accidentalCutOut.test.ts`.
+ */
+async function slurDepthBelow(
+  score: import('@playwright/test').Page,
+  alter: number,
+) {
+  return score.evaluate(async (alter: number) => {
+    const h = window.__h
+    const b = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })!
+    const g = h.engine.addNoteAtBeat({ step: 'G', octave: 4, alter, duration: '8', measure: 1, beat: h.frac(1, 2) })!
+    h.engine.createSlur([b.id, g.id])
+    await h.render()
+    const ys = h.curveSamples('g.vf-slur path', 40).map(p => p.y)
+    return { deepest: Math.max(...ys), staffBottom: h.staves()[0].bottom }
+  }, alter)
+}
+
+test('⭐⭐ a slur under a SHARP is drawn like one under a natural — the cut-out', async ({ score }) => {
+  const sharp = await slurDepthBelow(score, 1)
+  // ⭐ THE BREAK-TEST, in one number: the arc's lowest ink sits **3.6 px** under the staff's bottom
+  // line with the notch and **11.8 px** without it — measured, both. A slur over two eighths has no
+  // business hanging a whole space below the staff.
+  expect(sharp.deepest - sharp.staffBottom, 'it stays close to the staff').toBeLessThan(6)
+})
+
+test('⭐ …and the two are within half a space of each other', async ({ score }) => {
+  const sharp = await slurDepthBelow(score, 1)
+  const natural = await slurDepthBelow(score, 0)
+  expect(Math.abs(sharp.deepest - natural.deepest)).toBeLessThan(5)
+})

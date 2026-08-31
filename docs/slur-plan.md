@@ -2256,3 +2256,64 @@ it — the obstacle scan and `nearestCoveredOuterY` (the broken half's open end)
 obstacle within a whisker of an endpoint is deliberately left uncleared
 (`SLUR_OBSTACLE_MAX_LIFT_RATIO`), so a mark on the first note proves nothing. With the fix reverted
 the arc moves **19.5 px** (~2 staff spaces); with it, 0. `e2e/slur.e2e.ts`.
+
+## 🚨🚨 AN ACCIDENTAL IS A NOTCH, NOT A RECTANGLE (2026-08-31, FIXED)
+
+His report, with a picture: *"the slur here is very ugly, i supose cause the accidental is like an
+obstacle"* — two beamed eighths a third apart, slurred below, the second carrying a sharp. Then the
+pair that isolated it: *"two thirds with accidental two diferent shapes"* — `B4 → G♯4` beside
+`A4 → F♭4`, same interval, same beam, same span to within a pixel, two different curves.
+
+### What it cost, measured on drawn ink
+
+| | end note's ink box | below its notehead | arch lift (on a 6.6 px arch) |
+|---|---|---|---|
+| B4 → **G♯**4 | y 51.0 – **104.0** | **+8.5 px** | **+12.4 / +15.7** |
+| A4 → **F♭**4 | y 55.9 – **103.0** | +2.5 px | +1.7 / +1.0 |
+| control: the same bar with a **natural** | y 50.8 – 96.0 | 0 | **0 / 0** |
+
+⭐ The whole difference is the GLYPH. A sharp is symmetric about its line and hangs a full space
+under the notehead; a flat is nearly all above it. `slurObstacles` cleared the note's ink RECTANGLE,
+so the sharp bought 12–16 px of extra arch and the slur ballooned a staff space below the staff.
+
+### The rule: Verovio's SMuFL cut-out (`rendering/accidentalCutOut.ts`)
+
+Researched at source in all three engines. ⛔ **All three treat an accidental as an obstacle — the
+endpoint note's own included**: Verovio skips the start/end *element* but descends into its children
+and `Accid` is one (`findlayerelementsfunctor.cpp:186`); MuseScore drops only `startCR` and an
+`Accidental`'s parent is the *Note*; LilyPond has no ownership test at all. So "exempt the endpoint
+note" is nobody's rule and is not what we do. ⛔ And none of the three flips the slur, lengthens it,
+or moves an endpoint horizontally to dodge an accidental — every remedy is vertical.
+
+⭐ But all three are LENIENT with accidentals specifically, and Verovio's is the one shaped like the
+glyph rather than like a tuning constant — `FloatingCurvePositioner::CalcDirectionalLeftRightAdjustment`
+(`floatingobject.cpp:836`), *for slurs and phrases only, and only against an `ACCID`*, replaces the
+box edge with `BoundingBox::GetCutOutBottom/Top`. MuseScore instead gives an accidental 0.1 sp of
+clearance against a notehead's 0.4; LilyPond charges `accidental-collision` **3** against
+`extra-object-collision-penalty` 50 and often accepts a small overlap.
+
+**Ours reads the same anchors, from the font we already hold** (`bravuraMetrics`): the tuck is
+`glyphBox(g).down − |cutOutSW/SE.y|` on the side the curve is on — **0.496 sp for a sharp** (box
+1.392, notch 0.896 — Verovio's own *"−0.9 instead of −1.392"*), **0.224 sp for a flat**, 0.51 for a
+natural. ⛔ Not a number chosen to make one bar look right.
+
+- ⚠️ **Bounded by the rest of the note**: the trimmed edge never passes the note's ink measured
+  WITHOUT its accidentals, so every notehead, stem, flag and dot is still cleared in full.
+- ⚠️ Asked of the DRAWN modifiers, not of the model's `alter` — whether a note prints an accidental
+  is the running-accidental rule's answer, and a courtesy accidental is ink like any other.
+- ⚠️ The **deeper** of the two notches on a side wins, which is Verovio's reading of its three
+  rectangles. ⭐ If his eye ever finds a slur grazing a sharp, that is the one line to make
+  conservative.
+
+### After
+
+The sharp's lift falls to **3.8 / 2.2**, the flat's to 0, and the sharp's arc bottoms out **3.6 px**
+below the staff where it was 11.8. His verdict: *"b g# looks much better now"*. Pinned in
+`e2e/slur.e2e.ts` (a sharp is drawn like a natural, within half a space) and
+`accidentalCutOut.test.ts` (the tucks, and the two bounds); both break-tested against the rectangle.
+
+⏭️ **Still open, and a different mechanism**: *"a f flat still loks a little flat"* and *"b3 a4 slur
+looks odd not that curvy"* — the ARCH's lean (`SLUR_ARCH_TILT`, ±0.25·dy) is unbounded, so on a short
+steep slur it exceeds the arch height and pushes one control through the chord line (measured on his
+`B3 → A4`: `h0 = 5.61 − 7.5 = −1.89 px`). ⭐ His own hand-fix of that bar keeps the lean at 7.5 px and
+raises the arch to 10.8 — i.e. lean/arch **0.69** — which is the next thing to build.
