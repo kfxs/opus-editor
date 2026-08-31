@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragDynamic, walkDynamic } from './dynamicWalk'
+import { dragDynamic, settleDynamicLanding, walkDynamic } from './dynamicWalk'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 import { levelToGlyphString } from '../utils/dynamics'
@@ -15,7 +15,12 @@ import { levelToGlyphString } from '../utils/dynamics'
  * what makes the arithmetic testable — the notes sit 100 px apart at 10 px per staff-space, so the
  * gap is exactly 10 staff-spaces and a 1-space press has to be taken ten times to cross it.
  */
-const drawn = vi.hoisted(() => ({ entries: [] as { type: string; id?: string; bbox: { x: number; y: number; width: number; height: number }; staffSpacePx?: number }[] }))
+const drawn = vi.hoisted(() => ({
+  entries: [] as { type: string; id?: string; bbox: { x: number; y: number; width: number; height: number }; staffSpacePx?: number }[],
+  /** The painted staves. ⚠️ ONE by default, so the jump never fires and every walk case below is
+   *  about the WALK; the landing cases set two. */
+  bands: [{ top: 40, bottom: 80 }] as { top: number; bottom: number }[],
+}))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
   VexFlowRenderer: class {
@@ -26,10 +31,10 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
-      // One system in this fixture: no second staff to cross onto, so the jump never fires and
-      // every case below is about the WALK. `dynamicLane.test.ts` owns the crossing.
-      staffBands: () => [{ top: 40, bottom: 80 }],
-      staffRuns: () => ([{ top: 40, bottom: 80 }]).map(b => ({ ...b, left: -Infinity, right: Infinity })),
+      // ⭐ WHICH staff the mark belongs to is `dynamicLane.test.ts`'s subject; what the cases here
+      // ask is what the LANDING does once that rule has spoken.
+      staffBands: () => drawn.bands,
+      staffRuns: () => drawn.bands.map(b => ({ ...b, left: -Infinity, right: Infinity })),
     }))
   },
 }))
@@ -66,6 +71,7 @@ describe('walkDynamic', () => {
   }
 
   beforeEach(() => {
+    drawn.bands = [{ top: 40, bottom: 80 }]
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
     // Four quarters in one bar, one voice: C4 D4 E4 F4, with an `f` on the second of them.
@@ -183,5 +189,72 @@ describe('walkDynamic', () => {
     engine.undo()
     expect(at()).toBe('1@1')
     expect(offsetX()).toBeCloseTo(0)
+  })
+
+  /**
+   * ⚠️⚠️ **EXPLORATORY (2026-08-31) — THE LANDING, when the ink has crossed onto another staff.**
+   * His report on the dynamic's drag: *"look how it jumps when going to the next staff… it jumps to
+   * the ladder that is down, is not going to the upside"*, and *"the movement should be smooth"*.
+   * ⛔ Not a settled rule; it is the wedge's (`hairpinWalk.jumpStaves`) arriving one lane over.
+   *
+   * WHICH staff the mark belongs to is `dynamicLane.test.ts`'s subject. These two ask what happens
+   * once it has been given away.
+   */
+  describe('the landing on another staff', () => {
+    /** A grand staff: lines 40…80 and 240…280, so the middle of the white space is 160. The lower
+     *  hand's notes are drawn 30 px to the RIGHT of the upper's, which is what makes the anchor's
+     *  own travel visible in the offset. */
+    const grandStaff = () => {
+      drawn.bands = [{ top: 40, bottom: 80 }, { top: 240, bottom: 280 }]
+      const lower = engine.addStaffBelow(0)
+      const left = (['G', 'A', 'B', 'C'] as const).map((step, i) =>
+        engine.addNoteAtBeat({ step, octave: 3, duration: 'q', measure: 1, beat: frac(i, 1), staff: 1 })!.id)
+      drawn.entries = ids.map((id, i) => ({
+        type: 'note', id, bbox: { x: 100 + i * 100, y: 50, width: 10, height: 10 },
+      }))
+      left.forEach((id, i) => drawn.entries.push({
+        type: 'note', id, bbox: { x: 130 + i * 100, y: 250, width: 10, height: 10 },
+      }))
+      // The mark's own ink: centred at 94, fourteen px under its staff.
+      drawn.entries.push({
+        type: 'dynamic', id: dynamicId, bbox: { x: 200, y: 90, width: 12, height: 8 }, staffSpacePx: 10,
+      })
+      return lower
+    }
+
+    it('🚨⭐⭐ arrives on the side it CAME FROM — one rung of the ladder, ⛔ not the far side', () => {
+      // His report in one assertion: coming down, the next rung is ABOVE the staff below, which is
+      // where the hand already has the ink. Landing below it skips a rung and drops the mark a whole
+      // staff past the hand — *"it jumps to the ladder that is down"*.
+      const lower = grandStaff()
+      expect(dragDynamic(engine, dynamicId, 205, 0, 100)).toBe(true)
+      const mark = engine.getScore().measures[0].dynamics![0]
+      expect(mark.staffId, 'it is the left hand’s mark now').toBe(lower)
+      expect(mark.placement).toBe('above')
+    })
+
+    it('⭐⭐ …and the RE-ANCHOR does not move the drawing — the anchor’s travel is paid back', () => {
+      // *"the movement should be smooth"*. Measured on the Prelude: the anchor 257 → 201 with the
+      // offset zeroed, so the mark leapt 5½ spaces left on a frame the hand had moved a pixel. Here
+      // the two hands' columns are 30 px apart, so the landing owes exactly −3 spaces.
+      grandStaff()
+      expect(dragDynamic(engine, dynamicId, 205, 0, 100)).toBe(true)
+      expect(at(), 'the slot nearest the mark’s own x, down there').toBe('1@1')
+      expect(offsetX()).toBeCloseTo(-3, 6)
+    })
+
+    it('⭐⭐ …and what the other staff’s LADDER did with the ink is paid after the render', () => {
+      // ⛔ A decision may not read a number its own outcome writes: the jump decides from the drawn
+      // ink, and re-engraving the mark on another ladder is exactly what moves that ink. The residual
+      // is unknowable before the render, so the caller draws and then settles — here the "render" has
+      // put the mark at 224 where the hand had it at 194, a debt of 3 spaces up.
+      grandStaff()
+      dragDynamic(engine, dynamicId, 205, 0, 100)
+      const mark = drawn.entries.find(e => e.type === 'dynamic')!
+      mark.bbox = { x: 200, y: 220, width: 12, height: 8 }
+      expect(settleDynamicLanding(engine, dynamicId)).toBe(true)
+      expect(offsetY()).toBeCloseTo(-3, 6)
+      expect(settleDynamicLanding(engine, dynamicId), 'once per landing').toBe(false)
+    })
   })
 })

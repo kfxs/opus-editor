@@ -23,7 +23,7 @@ import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
-import { dragDynamic } from './dynamicWalk'
+import { dragDynamic, settleDynamicLanding } from './dynamicWalk'
 import { dragTempo } from './tempoWalk'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
@@ -3299,6 +3299,14 @@ export class MouseController {
       // `dynamic` row). A frame that has walked the mark onto another slot REFUSES and renders for
       // real; the annotation hangs off a note, and no transform reaches another one.
       this.render.previewMarks('dynamic', this.draggedDynamicId)
+      // ⚠️⚠️ EXPLORATORY (2026-08-31) — **a landing may not move the drawing** (his *"the movement
+      // should be smooth"*). What the other staff's ladder gives the mark is only knowable once it
+      // has been drawn there, so the payment is made HERE, after the draw above and inside the same
+      // mouse event: on the next frame instead, the leap would be on screen for one frame. ⭐ It
+      // writes at most once per landing, so an ordinary frame pays for the second draw.
+      if (settleDynamicLanding(engine, this.draggedDynamicId)) {
+        this.render.previewMarks('dynamic', this.draggedDynamicId)
+      }
     }
     return true
   }

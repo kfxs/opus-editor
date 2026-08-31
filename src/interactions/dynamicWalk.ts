@@ -47,7 +47,7 @@
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { DynamicSlotTarget } from '../engine/models/dynamicOps'
 import {
-  dynamicAddress, dynamicLaneHeads, dynamicSystemInkLimit, markInkY, systemSlotFor,
+  dynamicAddress, dynamicLaneHeads, dynamicSlotX, dynamicSystemInkLimit, markInkY, systemSlotFor,
 } from './dynamicLane'
 import { dynamicOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCompare } from '../utils/fraction'
@@ -62,7 +62,8 @@ type DynamicWalkEngine = Pick<MusicEngine,
   'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
   | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'
   | 'rebaseDynamicOffset' | 'previewDynamicOffsetRebase'
-  | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'>
+  | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'
+  | 'previewDynamicPlacement'>
 
 /**
  * ⭐ **THE DYNAMIC'S PORT** — where its stops are, how far away they are drawn, and which model ops
@@ -221,6 +222,17 @@ export function dragDynamic(
 }
 
 /**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-31) — WHERE THE INK WAS MEANT TO STAY when a jump landed**, held from
+ * the frame that landed to the settle that pays it ({@link settleDynamicLanding}), inside one mouse
+ * event. The hairpin's `landed`, one lane over, and for its reason: what the ladder gives a mark on
+ * the other staff is only knowable once the render has put it there.
+ *
+ * ⛔ One at a time, and dropped on sight by the next landing — a gesture that ends before the settle
+ * simply leaves it.
+ */
+let landed: { id: string; inkY: number } | null = null
+
+/**
  * ⭐⭐ **LEAVING THE MARK'S OWN STAFF** — the half of a drag the walk cannot do, and the answer to
  * his report that a dragged mark *"does not catch other system"* (2026-08-19).
  *
@@ -236,11 +248,10 @@ export function dragDynamic(
  * well as its address — `dynamicOps.setDynamicAtStaffSlot`, the one write in the family that moves
  * a mark between lanes.
  *
- * ⭐⭐ **A jump lands the mark where the ENGRAVER would put it** — the offset goes, both axes. The `x`
- * goes because every re-anchor drops it (`dynamicOps`), and the `y` because on this gesture it is
- * not a lift at all: it is the distance the hand travelled to reach the other staff, and keeping it
- * would leave the mark hanging a system-height below its new home — which is the very picture he
- * reported (`y: 44.86`, a guide line over three staves).
+ * ⭐⭐ **The lift is dropped**: on this gesture it is not a lift at all — it is the distance the hand
+ * travelled to reach the other staff, and keeping it would leave the mark hanging a system-height
+ * below its new home (his `y: 44.86`, a guide line over three staves). What replaces it is ⛔ not
+ * nothing: see the two EXPLORATORY paragraphs below.
  *
  * ⛔ And the frame stops there: the walk does not also run. The anchor has moved, so this frame's
  * `dx` would be spent against a slot the hand was never near.
@@ -256,11 +267,70 @@ function jumpStaves(
   const inkY = markInkY(engine, id)
   if (!dynamic || inkY === null) return false
   const target = systemSlotFor(engine, dynamic, cursorX, inkY + dyPx, staffSpacePx)
-  if (!target || !engine.previewDynamicSlot(id, target)) return false
+  if (!target) return false
 
-  // The re-anchor kept the lift (its rule since 2026-08-19); on a jump there is nothing to keep.
+  // ⚠️ Both x's off the SAME render, and read BEFORE the write — afterwards the mark's own address
+  // is the one it has just been given.
+  const here = dynamicAddress(engine.getScore(), id)
+  const fromX = here ? dynamicSlotX(engine, here, dynamic.staffId) : null
+  const toX = dynamicSlotX(engine, target, target.staffId)
+  if (!engine.previewDynamicSlot(id, target)) return false
+
+  // ⚠️⚠️ EXPLORATORY (2026-08-31) — **IT ARRIVES ON THE SIDE IT CAME FROM.** His report: *"it jumps
+  // to the ladder that is down, is not going to the upside"*. The vertical is a LADDER of the places
+  // a mark may stand — …above N, below N, above N+1… — and a jump takes ONE rung: coming down, the
+  // next rung is ABOVE the staff below, which is also where the hand already has the ink. ⛔ Landing
+  // on the far side skips a rung and drops the mark a whole staff past the hand. The wedge's rule
+  // verbatim (`hairpinWalk.jumpStaves`, 2026-08-20).
+  engine.previewDynamicPlacement(id, dyPx > 0 ? 'above' : 'below')
+
+  // ⚠️⚠️ EXPLORATORY (2026-08-31) — **A RE-ANCHOR DOES NOT MOVE THE DRAWING** (*"the movement should
+  // be smooth"*). Measured on the Prelude: the anchor 257 → 201 with the offset zeroed, so the mark
+  // leapt 5½ spaces left on a frame the hand had moved one pixel. The anchor's own travel is now paid
+  // back into the x; the vertical cannot be predicted — the mark arrives on the other side of a
+  // different staff, where the ladder gives it whatever it has left — so it is settled from the
+  // render instead ({@link settleDynamicLanding}).
   const lift = dynamicOffsetOverrideOf(engine.getScore(), id)?.y ?? 0
   if (lift !== 0) engine.previewDynamicOffset(id, 0, -lift)
-  dbg(`[Dynamic] jumped to the staff it crossed | id:${id} → m${target.measure} staff:${target.staffId ?? 0}`)
+  // ⚠️ Whatever the picture could not say is paid as 0 — `./markWalk`'s no-guessing rule.
+  const dx = fromX !== null && toX !== null ? (fromX - toX) / staffSpacePx : 0
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so no page limit has anything to judge.
+  if (dx) engine.previewDynamicOffsetRebase(id, dx)
+  landed = { id, inkY: inkY + dyPx }
+  dbg(`[Dynamic] jumped ${dyPx > 0 ? 'above' : 'below'} the staff it crossed | id:${id}`
+    + ` → m${target.measure} staff:${target.staffId ?? 0}`
+    + ` | anchor ${fromX?.toFixed(0) ?? '—'}→${toX?.toFixed(0) ?? '—'} paid dx ${dx.toFixed(2)}ss`
+    + ` | the ink is to stay at ${(inkY + dyPx).toFixed(1)}`)
+  return true
+}
+
+/**
+ * ⚠️⚠️ **EXPLORATORY (2026-08-31) — WHAT THE LANDING ACTUALLY DID WITH THE INK, paid back.** The
+ * wedge's `settleHairpinLanding` and the bracket's rule of the day before
+ * (`reference_a_drag_decision_cannot_read_its_own_outcome`): ⛔ **a decision may not read a number
+ * its own outcome writes** — the jump decides from the mark's drawn ink, and re-engraving the mark on
+ * another staff's ladder is exactly what moves that ink.
+ *
+ * ⭐ The residual cannot be known before the render, so it is measured AFTER it: {@link jumpStaves}
+ * remembers where the ink was meant to be, the caller re-draws, and this pays the difference in the
+ * SAME mouse event — ⛔ not on the next frame, which would leave the leap on screen for one frame.
+ *
+ * @returns true when it wrote, so the caller knows to draw again.
+ */
+export function settleDynamicLanding(engine: DynamicWalkEngine, id: string): boolean {
+  if (!landed || landed.id !== id) { landed = null; return false }
+  const was = landed.inkY
+  landed = null
+  const drawn = markInkY(engine, id)
+  const staffSpacePx = engine.getElementRegistry().getByType('dynamic')
+    .find(el => el.id === id)?.staffSpacePx
+  // Half a pixel is the rounding of the drawing, ⛔ not a debt.
+  if (drawn === null || !staffSpacePx || Math.abs(was - drawn) < 0.5) return false
+
+  const debt = was - drawn
+  // ⛔ A REBASE, not a nudge: the drawn ink does not move, so the page limit has nothing to judge.
+  engine.previewDynamicOffsetRebase(id, 0, debt / staffSpacePx)
+  dbg(`[Dynamic] landing settled | id:${id} | ink ${drawn.toFixed(1)} → ${was.toFixed(1)}`
+    + ` (${debt.toFixed(1)}px the other staff's ladder gave or took)`)
   return true
 }

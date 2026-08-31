@@ -142,10 +142,16 @@ describe('dynamicStaffLaneHeads', () => {
  * ⭐⭐ {@link systemSlotFor} — which system the mark now BELONGS to.
  *
  * His call, 2026-08-19, after trying the staff's five lines as the boundary: *"crossing the stave is
- * not a good limit… a more organic limit vertically"*. The rule under test is **where this mark
- * would look at home**: its natural distance from its own staff, measured off the render with its
- * own lift taken back out, applied to every other staff — nearest wins, so the switch falls exactly
- * halfway between where it sits and where it would sit.
+ * not a good limit… a more organic limit vertically"*.
+ *
+ * ⚠️⚠️ **EXPLORATORY (2026-08-31) — THE RULE UNDER TEST CHANGED, and this spec follows it.** It was
+ * *where this mark would look at home* (its natural distance from its own staff, lift taken back
+ * out, applied to every other staff — the switch halfway between where it sits and where it would
+ * sit). His report on the dynamic's drag: *"is reanchor very late… it should take into account the
+ * elements y of the staff similar to what we do with hairpin"* — measured on the Prelude, the
+ * hand-over fired at ink 458 with the two staves' music ending at 366 and beginning at 404, i.e. the
+ * whole white space crossed first. It is now the wedge's rule, `betweenTheMusic`: **the middle of
+ * the white space between the two staves' own MUSIC**, one line read the same in both directions.
  */
 describe('systemSlotFor', () => {
   /** Two staves, 40–80 and 340–380, with two lane slots drawn on each. */
@@ -159,8 +165,8 @@ describe('systemSlotFor', () => {
 
   /**
    * The mark is anchored at 1@0 (the TOP system) and DRAWN at `inkAt` — 110 by default, i.e. 30 px
-   * below its staff's bottom line, which is its natural home. Its twin position on the second staff
-   * is therefore 410, and the switch sits halfway between: **260**.
+   * below its staff's bottom line. ⚠️ Neither that nor its lift decides any more: these runs draw no
+   * music, so their five lines answer for it and the switch sits at **(80 + 340) / 2 = 210**.
    */
   const engine = (inkAt = 110, notes = TWO_SYSTEMS, bands = BANDS, lift = 0) => {
     const base = laneEngine(notes)
@@ -181,11 +187,24 @@ describe('systemSlotFor', () => {
     } as LaneEngine
   }
 
-  it('⭐⭐ hands the mark over HALFWAY to where it would sit on the next system', () => {
-    // ⛔ Not at the staff's lines (340): that is late and lopsided. One pixel either side of 260.
-    expect(systemSlotFor(engine(), mark(), 290, 259, 10)).toBeNull()
-    expect(systemSlotFor(engine(), mark(), 290, 261, 10))
+  it('⭐⭐ hands the mark over at the MIDDLE OF THE WHITE SPACE between the two staves', () => {
+    // ⛔ Not at the staff's lines (340), which is late and lopsided, and ⚠️ no longer halfway to
+    // where the mark would sit down there (260), which is late for a mark hanging on the far side of
+    // its own staff. One pixel either side of 210.
+    expect(systemSlotFor(engine(), mark(), 290, 209, 10)).toBeNull()
+    expect(systemSlotFor(engine(), mark(), 290, 211, 10))
       .toEqual({ measure: 5, beat: { num: 1, den: 1 } })
+  })
+
+  it('⭐⭐ …and it is the MUSIC that says where that middle is — ⛔ not the five lines', () => {
+    // ⚠️⚠️ EXPLORATORY (2026-08-31) — the whole of what he asked for: *"it should take into account
+    // the elements y of the staff"*. The upper run's stems reach to 240 where its lines stop at 80,
+    // so the white space a reader sees is 240…340 and its middle moves down with them: 290, ⛔ not
+    // 210. (`ElementRegistry.staffRuns` carries the run's own notes and rests.)
+    const withInk = [{ ...BANDS[0], inkTop: 40, inkBottom: 240 }, { ...BANDS[1] }]
+    expect(systemSlotFor(engine(110, TWO_SYSTEMS, withInk), mark(), 290, 289, 10)).toBeNull()
+    expect(systemSlotFor(engine(110, TWO_SYSTEMS, withInk), mark(), 290, 291, 10))
+      .toMatchObject({ measure: 5 })
   })
 
   it('⭐ the x picks the slot within the system it landed on', () => {
@@ -200,20 +219,25 @@ describe('systemSlotFor', () => {
     expect(systemSlotFor(engine(), mark(), 290, 20, 10)).toBeNull()
   })
 
-  it('🚨 the mark\'s own LIFT is taken back out before the halfway point is worked out', () => {
-    // The bug this rule replaced (`y: 44.86`, a guide line over three staves): with the lift left in,
-    // the mark's "natural" home follows it down for ever and the switch never arrives. Here the mark
-    // is drawn at 260 because the user has already dragged it 15 spaces (150 px) down — its natural
-    // home is still 110, so it is exactly at the boundary and one pixel more hands it over.
+  it('🚨 the mark\'s own LIFT no longer enters the decision — WHERE THE INK IS is the whole of it', () => {
+    // ⚠️⚠️ EXPLORATORY (2026-08-31). The rule this replaced had to take the lift back out to find the
+    // mark's natural home, or the mark carried its own boundary down with it for ever and the switch
+    // never arrived (`y: 44.86`, a guide line over three staves). A territory is a place, so the same
+    // ink answers the same whether a lift or an engraver put it there.
     expect(systemSlotFor(engine(260, TWO_SYSTEMS, BANDS, 15), mark(), 290, 261, 10))
+      .toEqual({ measure: 5, beat: { num: 1, den: 1 } })
+    expect(systemSlotFor(engine(260), mark(), 290, 261, 10), 'no lift, same ink, same answer')
       .toEqual({ measure: 5, beat: { num: 1, den: 1 } })
   })
 
-  it('⭐ an ABOVE mark measures from the staff\'s TOP line, so the rule mirrors', () => {
-    // Drawn 30 px ABOVE its own staff (10), its twin on the second staff is 310, halfway is 160.
+  it('⭐⭐ …and a mark ABOVE its staff reads the SAME line — one line, both rungs', () => {
+    // ⚠️⚠️ EXPLORATORY (2026-08-31). The rule this replaced measured off the mark's own side (the TOP
+    // line for a mark above), giving the two rungs of one staff two different boundaries. A dynamic
+    // has both rungs — *below staff N* and *above staff N+1* are one strip of paper — so the line
+    // that separates them is INSIDE that strip and is the same for both.
     const above = mark({ placement: 'above' })
-    expect(systemSlotFor(engine(10), above, 290, 159, 10)).toBeNull()
-    expect(systemSlotFor(engine(10), above, 290, 161, 10)).toMatchObject({ measure: 5 })
+    expect(systemSlotFor(engine(10), above, 290, 209, 10)).toBeNull()
+    expect(systemSlotFor(engine(10), above, 290, 211, 10)).toMatchObject({ measure: 5 })
   })
 
   it('⛔ null when the system it now belongs to carries no music in this lane', () => {
@@ -246,7 +270,8 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
   ]
 
   /** The mark is anchored 1@0 on the TOP staff and drawn at `inkAt` — 110 by default, 30 px below
-   *  its staff's bottom line. Its twin under the LEFT hand is 230, so the switch sits at **170**. */
+   *  its staff's bottom line. ⚠️ EXPLORATORY (2026-08-31): the switch is the middle of the white
+   *  space between the two hands' music, and these runs draw none, so **(80 + 160) / 2 = 120**. */
   const engine = (inkAt = 110) => {
     const base = laneEngine(GRAND)
     const registry = base.getElementRegistry()
@@ -265,11 +290,11 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
     } as LaneEngine
   }
 
-  it('⭐⭐ hands the mark to the LEFT HAND halfway to where it would sit there', () => {
+  it('⭐⭐ hands the mark to the LEFT HAND in the middle of the white space between the hands', () => {
     // ⛔ Not at the lower staff's lines (160), and ⛔ not at the next system either — the answer that
-    // sailed past the left hand entirely. One pixel either side of 170.
-    expect(systemSlotFor(engine(), mark(), 290, 169, 10)).toBeNull()
-    expect(systemSlotFor(engine(), mark(), 290, 171, 10))
+    // sailed past the left hand entirely. One pixel either side of 120.
+    expect(systemSlotFor(engine(), mark(), 290, 119, 10)).toBeNull()
+    expect(systemSlotFor(engine(), mark(), 290, 121, 10))
       .toEqual({ measure: 1, beat: { num: 1, den: 1 }, staffId: 's1' })
   })
 
@@ -282,9 +307,11 @@ describe('systemSlotFor — the other hand of a grand staff', () => {
 
   it('⭐ and back UP: a mark on the lower staff belongs to the upper one past the same line', () => {
     const onLower = mark({ staffId: 's1' })
-    // Drawn 30 px below the LOWER staff (230) — its natural home there; the twin above is 110.
-    expect(systemSlotFor(engine(230), onLower, 110, 171, 10)).toBeNull()
-    expect(systemSlotFor(engine(230), onLower, 110, 169, 10))
+    // ⭐ ONE line, read the same in both directions, so there is no dead zone between the hand-over
+    // down and the hand-over back up — the pixel that gives the mark away is the pixel that gives it
+    // back.
+    expect(systemSlotFor(engine(230), onLower, 110, 121, 10)).toBeNull()
+    expect(systemSlotFor(engine(230), onLower, 110, 119, 10))
       .toEqual({ measure: 1, beat: { num: 0, den: 1 }, staffId: undefined })
   })
 })

@@ -1418,11 +1418,22 @@ export class MusicEngine {
     return ok
   }
 
-  /** The re-base during a DRAG — {@link rebaseDynamicOffset} with no undo entry of its own. */
-  previewDynamicOffsetRebase(dynamicId: string, dx: number): boolean {
+  /** The re-base during a DRAG — {@link rebaseDynamicOffset} with no undo entry of its own.
+   *  ⚠️ EXPLORATORY (2026-08-31): a `dy` too, for the same reason `previewHairpinOffsetRebase` has
+   *  one — a landing on another staff pays back what the ladder over there gave it, and that
+   *  payment leaves the DRAWN mark exactly where the hand has it. */
+  previewDynamicOffsetRebase(dynamicId: string, dx: number, dy = 0): boolean {
     if (!this.scoreModel.getDynamicById(dynamicId)) return false
     this.markModelDirty()
-    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, 0)
+    return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
+  }
+
+  /** Live (preview) side of the staff a dynamic is drawn on, no undo entry — the drop commits once.
+   *  `previewHairpinPlacement`'s twin, and the drag's only writer of it: {@link
+   *  flipDynamicPlacement} is the KEY's, and commits. */
+  previewDynamicPlacement(id: string, placement: 'above' | 'below'): boolean {
+    this.markModelDirty()
+    return !!this.scoreModel.updateDynamic(id, { placement })
   }
 
   /** The undo-free twin of {@link nudgeDynamicOffset} — accumulates the same way, keeps the same

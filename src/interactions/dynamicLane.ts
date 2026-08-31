@@ -160,10 +160,38 @@ export function systemSlotFor(
     candidates: () => heads.map(h => ({ x: h.x, y: h.y, stop: h.target })),
     anchor: () => anchor ?? null,
     inkY: () => markInkY(engine, dynamic.id),
+    // ⚠️⚠️ EXPLORATORY (2026-08-31) — ⛔ NOT A SETTLED RULE. His report on the dynamic's drag:
+    // *"is reanchor very late… it should take into account the elements y of the staff similar to
+    // what we do with hairpin"*. Measured on the Prelude: the natural-home rule handed the mark over
+    // at ink 458, with the two staves' own music ending at 366 and beginning at 404 — i.e. the whole
+    // white space crossed and the mark sitting among the lower staff's notes before anything fired.
+    // ⭐ So the dynamic now reads the same landmark the wedge does, and for the wedge's reason: a
+    // dynamic has TWO rungs per staff (it has a `placement`), so *below staff N* and *above staff
+    // N+1* are one strip of paper and only a line INSIDE that strip can separate them.
+    belongsToTheStaffOverhead: () => 'betweenTheMusic',
     // ⚠️ A dynamic's stored `y` is already SCREEN-signed (+down), unlike the tempo mark's.
     liftPx: () => (dynamicOffsetOverrideOf(engine.getScore(), dynamic.id)?.y ?? 0) * staffSpacePx,
     above: () => (dynamic.placement ?? 'below') === 'above',
   }, cursorX, inkY)
+}
+
+/**
+ * ⭐ **WHERE ONE SLOT OF ONE STAFF WAS DRAWN, left to right** — the centre of the column a mark
+ * anchored there is centred on ({@link dynamicLaneHeads}'s x, asked about a staff the mark may not
+ * be on yet).
+ *
+ * ⚠️ EXPLORATORY (2026-08-31): a JUMP pays the distance between two of these into the mark's offset,
+ * so that changing the address does not move the drawing (`./dynamicWalk.jumpStaves`). ⛔ Null when
+ * that slot drew nothing — the no-guessing rule, and the caller pays 0 rather than a made-up gap.
+ */
+export function dynamicSlotX(
+  engine: LaneEngine,
+  at: DynamicSlotTarget,
+  staffId: string | undefined,
+): number | null {
+  const staff = staffIndexOf(engine.getScore(), staffId)
+  return drawnHeads(engine).find(h => h.staff === staff && h.target.measure === at.measure
+    && fracCompare(h.target.beat, at.beat) === 0)?.x ?? null
 }
 
 /** The vertical centre of the mark's own ink in the last render, or null if it drew none (culled,
