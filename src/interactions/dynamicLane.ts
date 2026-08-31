@@ -105,6 +105,10 @@ function drawnHeads(engine: LaneEngine): DynamicStaffLaneHead[] {
   const score = engine.getScore()
   const heads: DynamicStaffLaneHead[] = []
   const registry = engine.getElementRegistry()
+  // ⭐ NOTES BEFORE RESTS, and it is load-bearing rather than incidental: first-wins below, so this
+  // is the same preference the RENDER's anchor applies at a shared beat
+  // (`DynamicsLayout.anchorSlotIndex`, his report of 2026-08-31). ⛔ Swap the two and the drag would
+  // walk to one column while the mark hung off another.
   for (const el of [...registry.getByType('note'), ...registry.getByType('rest')]) {
     if (!el.id) continue
     const note = engine.getNote(el.id)

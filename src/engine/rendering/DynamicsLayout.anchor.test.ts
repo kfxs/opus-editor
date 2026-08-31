@@ -31,6 +31,18 @@ function slot(voice: 0 | 1 | 2 | 3, beatNum: number, den = 1): ChordRest {
   } as ChordRest
 }
 
+/** The same, as a REST — what `restFill` puts in a voice that is quiet at that beat. */
+function rest(voice: 0 | 1 | 2 | 3, beatNum: number, den = 1): ChordRest {
+  return {
+    id: `v${voice}@${beatNum}/${den}r`,
+    type: 'rest',
+    beat: frac(beatNum, den),
+    duration: 'q',
+    measure: 0,
+    voice,
+  } as ChordRest
+}
+
 /** Voice-major, exactly as the renderer hands it over: all of voice 0, then all of voice 1. */
 const VOICE_MAJOR = [slot(0, 0), slot(0, 3), slot(1, 1), slot(1, 2)]
 
@@ -63,6 +75,26 @@ describe('anchorSlotIndex — every voice of the staff, whatever the mark govern
   it('breaks a tie by VOICE, so the anchor cannot move when a voice is added', () => {
     const tied = [slot(1, 2), slot(0, 2)] // deliberately voice 1 FIRST in the array
     expect(anchorSlotIndex(tied, frac(2, 1))).toBe(1) // the voice-0 slot
+  })
+
+  it('🚨⭐⭐ …but a SOUNDING slot beats a REST at that beat, whatever the voices', () => {
+    // His report, 2026-08-31: *"it prefers the rest of voice 1 to a note of voice 2"*. A staff whose
+    // music is in voice 2 has a `restFill` rest in voice 1 at every one of those beats, so
+    // voice-first hung every mark on the bar off a rest.
+    const quietFirstVoice = [rest(0, 2), slot(1, 2)]
+    expect(anchorSlotIndex(quietFirstVoice, frac(2, 1))).toBe(1)
+    // …and the order in the array is not the answer either.
+    expect(anchorSlotIndex([slot(1, 2), rest(0, 2)], frac(2, 1))).toBe(0)
+  })
+
+  it('⭐ …and a bar of rests still resolves by voice — there is nothing sounding to prefer', () => {
+    expect(anchorSlotIndex([rest(1, 2), rest(0, 2)], frac(2, 1))).toBe(1)
+  })
+
+  it('⛔ the preference never reaches ACROSS a beat — the nearer column still wins', () => {
+    // ⚠️ The rule is a tie-break, ⛔ not a search for the nearest note: a mark at beat 1 belongs
+    // under beat 1's column even when the only thing there is a rest and beat 2 has a note.
+    expect(anchorSlotIndex([rest(0, 1), slot(1, 2)], frac(1, 1))).toBe(0)
   })
 
   it('the LAST resort is the latest slot of any voice, not of the last group', () => {

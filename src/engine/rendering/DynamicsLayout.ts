@@ -47,15 +47,33 @@ import { voiceOf } from '@/utils/lanes'
  * every voice, and a plain scan would hang it on voice 1's next slot even when voice 2 has one
  * nearer its beat.
  *
- * ⭐ The voice is the tie-break, so two voices striking one beat resolve to the SAME slot every
- * render: an anchor that moved when a second voice was added would move the drawn mark with it.
+ * ⭐⭐ **A SOUNDING SLOT BEATS A REST at the same beat, whatever their voices** — his report,
+ * 2026-08-31: *"the dynamic is not anchoring to other voices, just to voice 1, and it prefers the
+ * rest of voice 1 to a note of voice 2… it should be able to anchor to any voice of the staff no
+ * matter what is the voice of the dynamic"*. Voice-first made voice 1 the answer at every beat both
+ * voices occupy, and `restFill` gives a quiet voice 1 a rest at every one of them — so a mark on a
+ * staff whose music is in voice 2 hung off rests all bar. 🚨 Worse where that rest is the WHOLE-BAR
+ * one: VexFlow centres it, so the mark was drawn in the middle of the bar rather than under the note
+ * the reader would say it belongs to. ⭐ The trill's rule, one family over
+ * (`interactions/trillLane`: *"pick the nearest, no matter what voice"*).
+ *
+ * ⚠️ **It changes NOTHING about what the mark GOVERNS.** `Dynamic.voice` is the author's statement
+ * about loudness (`utils/dynamicScope`, and his own line: *"that is a decision by the author"*);
+ * this is about which column the ink hangs off, and the two have never been the same question.
+ *
+ * ⭐ The voice is still the LAST tie-break, so two voices striking one beat with the same kind of
+ * slot resolve the same way every render: an anchor that moved when a second voice was added would
+ * move the drawn mark with it.
  *
  * Exported for its own spec: the ordering trap above is the whole of it, and asserting it through
  * `attachDynamicsToSlots` would mean standing up VexFlow annotations to measure an ARRAY INDEX.
  */
 export function anchorSlotIndex(slots: readonly ChordRest[], beat: Fraction): number {
+  const silent = (i: number) => (slots[i].type === 'rest' ? 1 : 0)
   const earlier = (a: number, b: number) =>
-    fracCompare(slots[a].beat, slots[b].beat) || voiceOf(slots[a]) - voiceOf(slots[b])
+    fracCompare(slots[a].beat, slots[b].beat)
+    || silent(a) - silent(b)
+    || voiceOf(slots[a]) - voiceOf(slots[b])
   let next = -1
   let last = -1
   for (let i = 0; i < slots.length; i++) {
