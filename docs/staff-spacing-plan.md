@@ -190,6 +190,29 @@ grabbed this staff" state — no new selection kind needed.
 **Undo:** each committed nudge/drag is one atomic history entry (the compartment rides the
 score-value snapshot — free via P1).
 
+### ✅🚨🚨 THE GRAB IS THE EMPTY-SPACE FALLBACK'S FIRST QUESTION, ⛔ NOT THE PRESS'S (2026-08-31)
+
+His report: *"if a measure is selected and we click inside on a selectable object, we should reselect
+and not keep the measure selection"*.
+
+⭐ **The grab's only question is *did the press land in this bar's staff band?*** — and every object
+drawn inside the bar answers YES: its notes, its dynamics, its clef, its accidentals, its barline.
+The test used to run BEFORE `ELEMENT_HIT_ORDER`, so one selected bar turned the whole bar into a
+spacing handle: clicking a note in it selected nothing at all, and the box stayed.
+
+⭐ It now runs where the SELECT-and-grab path beside it already ran — inside
+`MouseController.beginBoxSelectOrPan`, reached only after every element hit-test has declined. ⛔ The
+alternative (asking the grab whether an object was hit) is a second copy of the chain's answer, and a
+copy that can disagree.
+
+- ⚠️ The press clears `selectedElement` on its way past the chain, so the box is remembered for the
+  length of one press (`MouseController.boxBeforePress`) and PUT BACK when the grab claims it — the
+  highlight still survives the press and follows the drag live.
+- ⭐ It runs before the re-select, so a passage extended over several bars survives its own grab
+  instead of collapsing to the one bar the press landed in.
+- **Spec**: `MouseController.measureBoxPress.test.ts` — the note and the barline both reselect, empty
+  space still grabs. Break-tested against the old order (both reselect cases fail there).
+
 ## 6b. Shrink floor (collision boundary) — DECIDED 2026-07-08
 
 `above` is signed, so shrinking (negative) can push a staff up INTO the staff above it — and

@@ -5,7 +5,7 @@ import { scoreText } from '../engine/models/scoreTextOps'
 import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddress } from '../types/music'
 import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
-import type { EditorState } from './EditorState'
+import type { EditorState, SelectedElement } from './EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, selectedOf, spendArmedTuplet } from './EditorState'
 import { tempoLabel } from '../utils/tempoMap'
 import { tempoFieldsFromTool } from '../utils/tempoText'
@@ -558,6 +558,10 @@ export class MouseController {
   private trillBodyDragStartTime: number | null = null
 
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
+  /** ⭐ The measure box that was showing when THIS press began, remembered across the element
+   *  clear so the empty-space fallback can re-grab it ({@link grabSelectedBox}). ⛔ Not state the
+   *  app can read: it is alive for the length of one mousedown and means nothing after it. */
+  private boxBeforePress: Extract<SelectedElement, { kind: 'measureRange' }> | null = null
   private draggedSpacingStaff = 0            // staff index being spaced
   private draggedSpacingMeasure = 0          // a measure on the target SYSTEM (per-system key)
   private draggedSpacingBaseline = 0         // its `above` (staff-spaces) at drag start
@@ -1327,11 +1331,13 @@ export class MouseController {
       event.preventDefault()
       return
     }
-    if (this.handleStaffSpacingMouseDown(ctx)) return
-
     // Whatever was picked is gone; the handlers below each set what this press picked instead.
     // ⭐ ONE assignment — this used to be twelve fields, and the third of four clear-lists that had
     // to agree (it was the one missing the accidental, articulation, dot, stem and tremolo).
+    //
+    // ⭐ **The measure box outlives the clear by exactly one press**, because the gesture that
+    // re-grabs it ({@link grabSelectedBox}) runs at the very END — see there for why.
+    this.boxBeforePress = selectedOf(this.state, 'measureRange')
     this.state.selectedElement = null
 
     // Single-click element hit-tests, in priority order — one entry per selectable kind, each
@@ -1753,15 +1759,30 @@ export class MouseController {
   }
 
   /**
-   * If a plain-click SINGLE measure box is already selected and this press lands inside its
-   * band, arm a vertical drag that adjusts the staff's "space above" (Sibelius staff drag —
-   * Client #7, docs/staff-spacing-plan.md §6). Runs before the selection clear so the box
-   * stays selected through the drag; the box highlight follows live as the model re-renders.
+   * ⭐⭐ **RE-GRAB THE BOX THIS PRESS LANDED INSIDE** — a plain-click SINGLE measure box that is
+   * already selected keeps its selection, and the press arms the vertical drag that adjusts the
+   * staff's "space above" (Sibelius staff drag — Client #7, docs/staff-spacing-plan.md §6).
    * Mirrors {@link handleSlurHandleMouseDown}: you first select the box, then grab it.
+   *
+   * 🚨🚨 **IT RUNS LAST, AND THAT IS THE WHOLE POINT — his report, 2026-08-31**: *"if a measure is
+   * selected and we click inside on a selectable object, we should reselect and not keep the measure
+   * selection"*. This test used to run BEFORE the element chain, and its only question is *did the
+   * press land in this bar's staff band?* — which every note, dynamic, clef, accidental and barline
+   * inside the bar answers YES to. So one bar selected turned the whole bar into a spacing handle:
+   * clicking a note in it selected nothing, and the box stayed.
+   *
+   * ⭐ Now it is the EMPTY-SPACE fallback's first question ({@link beginBoxSelectOrPan}), reached
+   * only after every element hit-test has declined — the same position the select-and-grab path
+   * beside it already had. ⛔ The alternative (asking here whether an object was hit) is a second
+   * copy of `ELEMENT_HIT_ORDER`'s answer, and a copy that can disagree.
+   *
+   * ⚠️ It reads {@link boxBeforePress}, because by the time the fallback is reached the press has
+   * already cleared the element selection — and it puts that box back, so the highlight survives the
+   * press and follows the drag live.
    */
-  private handleStaffSpacingMouseDown(ctx: MouseDownCtx): boolean {
+  private grabSelectedBox(ctx: MouseDownCtx): boolean {
     const { engine, event, registry, x, y } = ctx
-    const box = selectedOf(this.state, 'measureRange')
+    const box = this.boxBeforePress
     if (!box || box.boxStyle !== 'single') return false
     const measure = box.anchor // single box: anchor === focus
     const rect = engine.getMeasureRect(measure)
@@ -1774,6 +1795,9 @@ export class MouseController {
     if (!geo) return false
     if (y < geo.lineYPositions[0] - STAFF_BAND_PAD_PX || y > geo.lineYPositions[4] + STAFF_BAND_PAD_PX) return false
 
+    // ⭐ Put the box back before arming: the drag reads the selected staff off it, the highlight
+    //   paints from it, and this press cleared it on its way past the element chain.
+    this.state.selectedElement = box
     if (!this.armStaffSpacingDrag(engine, measure, y)) return false
     dbg(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
     event.preventDefault()
@@ -2065,6 +2089,10 @@ export class MouseController {
    */
   private beginBoxSelectOrPan(ctx: MouseDownCtx): void {
     const { engine, event, x, y } = ctx
+    // ⭐ A press on empty space INSIDE the box that was already showing keeps that selection exactly
+    //   as it is — a passage extended over several bars survives its own grab — and only arms the
+    //   drag. ⛔ Before the re-select below, which would collapse such a passage to one bar.
+    if (this.grabSelectedBox(ctx)) return
     if (this.selectMeasureAt(x, y)) {
       this.render.renderScore()
       this.armStaffSpacingDrag(engine, selectedOf(this.state, 'measureRange')!.anchor, y)
