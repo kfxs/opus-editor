@@ -322,6 +322,32 @@ export const BROKEN_SLUR_MAX_SLOPE = 0.5
 export const SLUR_ARCH_TILT = 0.25
 
 /**
+ * ⭐⭐ **HOW MUCH OF THE ARCH THE LEAN MAY SPEND** — the bound {@link SLUR_ARCH_TILT} never had.
+ *
+ * 🚨 His report, 2026-08-31: *"b3 a4 slur looks odd not that curvy"*. The lean is `±0.25 · dy` and
+ * the arch is a law of the SPAN, so a short slur under a big leap leans further than it is tall:
+ * measured on that bar, arch **5.61 px** against a lean of **7.50**, which puts the first control at
+ * **−1.89** — through the chord line, on the wrong side of its own endpoint. The drawn result is a
+ * bent stick rather than a bow, and no clamp anywhere caught it.
+ *
+ * ⭐ **The ratio is HIS OWN HAND'S.** He reshaped that slur by dragging and sent the result back:
+ * control heights **0.332 sp and 1.832 sp**, i.e. an arch of 10.82 px carrying a lean of **7.50** —
+ * the same lean ours computes, against a taller arch. Lean ÷ arch = **0.693**. ⛔ Not a number chosen
+ * to make one picture work: it is the proportion he drew when nothing constrained him.
+ *
+ * ⚠️ Both engines that solve this bound it too, by different means — Verovio's step 6 exists to
+ * *"restore minimal height and convexity"* and requires ∠C1P1C2 ≥ 3° (`adjustslursfunctor.cpp`),
+ * MuseScore keeps a slur *"never taller than wide"*. ⛔ Neither publishes a ratio, so the citation
+ * for this one is his drawing.
+ *
+ * ⏭️ **What it does NOT do is make the arch taller.** His hand also doubled the arch on that bar
+ * (5.61 → 10.82), which is Verovio's *"short and angled slurs are made rounder"*
+ * ({@link SLUR_CONTROL_ANGLE}) — a change to the HEIGHT LAW he settled on 2026-08-16, and his to
+ * make.
+ */
+export const SLUR_ARCH_TILT_LIMIT = 0.693
+
+/**
  * ⏭️ **Verovio's minimum control angle, kept here as the RECORD of a rule we costed and did not
  * build** (`GetMinControlPointAngle`, `adjustslursfunctor.cpp:944`): a short, steeply tilted slur is
  * made rounder — 30° at least, +15° in proportion to the tilt, fading out from 4 sp of span to 8.

@@ -37,7 +37,8 @@
  * already follows — the user owns that curve), and it runs **post-layout**, on where the ink
  * actually landed rather than on where the model thinks the notes are.
  */
-import { CURVE_PX, SLUR_ARCH_TILT, SLUR_OBSTACLE_MARGIN_RATIO, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
+import { CURVE_PX, SLUR_OBSTACLE_MARGIN_RATIO, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
+import { archLean } from './slurArchHeight'
 
 /**
  * ⭐⭐ **HOW MUCH AIR THIS slur leaves over what it covers** — MuseScore's length law
@@ -107,8 +108,11 @@ export function slurArchClearance(
   // Sampling costs 64 evaluations per slur and removes both. The curve is convex, so the sample
   // nearest each obstacle is the one that matters.
   const dy = p1.y - p0.y
-  const h0 = archHeight + SLUR_ARCH_TILT * dy * direction + applied.c0
-  const h1 = archHeight - SLUR_ARCH_TILT * dy * direction + applied.c1
+  // ⭐ THE SAME BOUNDED LEAN THE DRAWING USES (`./slurArchHeight.archLean`) — ⛔ never the raw tilt,
+  //   or this solver bows over a curve nobody draws.
+  const lean = archLean(dy, direction, archHeight)
+  const h0 = archHeight + lean + applied.c0
+  const h1 = archHeight - lean + applied.c1
   const c0 = { x: p0.x + span / 4, y: p0.y + h0 * direction }
   const c1 = { x: p1.x - span / 4, y: p1.y + h1 * direction }
   const STEPS = 64

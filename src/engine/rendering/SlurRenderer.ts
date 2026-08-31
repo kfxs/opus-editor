@@ -17,14 +17,14 @@ import type { RenderPass } from './RenderPass'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { curveArcPoints, drawCurveArc } from './curveArc'
-import { CURVE_PX, SLUR_ARCH_TILT } from './curveStyle'
+import { CURVE_PX } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
 import { slurAttachments, type SlurAttachment } from './slurStemEndpoint'
 import { encompassCeiling } from './slurEncompass'
 import { tiltWithThePitches } from './slurMelodicTilt'
-import { slurArchHeight } from './slurArchHeight'
+import { archLean, slurArchHeightFor } from './slurArchHeight'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchClearance, type SlurObstacle } from './slurObstacles'
 import { curveObstacleBox } from './accidentalCutOut'
@@ -405,12 +405,15 @@ function slurArchCps(
   // ⏭️ A short, steeply tilted slur should be rounder than this law asks (Verovio's minimum control
   // angle) — measured, costed and NOT built: see the tail of `./slurSlantLimit` for why it is a
   // shape decision rather than an import.
-  const H = slurArchHeight(p1.x - p0.x, extraHeight)
+  const H = slurArchHeightFor(p0, p1, extraHeight)
   // ⭐ The two obstacle lifts are per-CONTROL (`./slurObstacles`) — the whole point of solving them
   // separately is that they may differ, so they are added here rather than folded into `H`.
+  // ⭐⭐ …and the LEAN is bounded by the arch it leans (`./slurArchHeight.archLean`, his report of
+  // 2026-08-31: unbounded, it put one control through the chord line and drew a bent stick).
+  const lean = archLean(dy, direction, H)
   return [
-    { x: 0, y: H + SLUR_ARCH_TILT * dy * direction + lift.c0 },
-    { x: 0, y: H - SLUR_ARCH_TILT * dy * direction + lift.c1 },
+    { x: 0, y: H + lean + lift.c0 },
+    { x: 0, y: H - lean + lift.c1 },
   ]
 }
 
@@ -763,7 +766,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           const autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }
           const clearance = shapeOverride
             ? { c0: 0, c1: 0 }
-            : slurArchClearance(autoP0, autoP1, slurArchHeight(autoP1.x - autoP0.x, nestLift),
+            : slurArchClearance(autoP0, autoP1, slurArchHeightFor(autoP0, autoP1, nestLift),
               direction, slurObstaclesOf(pass, score, slur, direction))
           const cps = resolveCps(shapeOverride, stave, autoP0, autoP1, direction, nestLift, clearance)
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,

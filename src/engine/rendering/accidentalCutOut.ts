@@ -34,6 +34,30 @@
  *
  * ⚠️ **It never eats into the rest of the note.** The trim is bounded by the note's ink WITHOUT its
  * accidentals: a slur still clears every notehead, stem, flag and dot in full.
+ *
+ * ## ⛔⛔ AND IT IS **NOT** AN ENGRAVING-TREATISE RULE — searched, 2026-08-31
+ *
+ * The library on disk was read for it (`reference/README.md`'s manifest: Gould full text + scans,
+ * Ross, Gerou & Lusk, Stone) and the honest verdict is **UNDOCUMENTED**. ⛔ So this cites Verovio,
+ * ⛔ never a book. Worse than silent, the two sentences that DO exist prescribe a different remedy:
+ *
+ * - **Gould p. 130** (in the GRACE-NOTE chapter): *"A slur should always be placed **above** the
+ *   notes when it would otherwise collide with the accidentals of a measured value"* — she moves the
+ *   slur to the other SIDE.
+ * - **Gould p. 71**, for ties: *"Curve a tie away from an added note with an accidental, so that the
+ *   two do not collide"*.
+ * - ⭐ And her one measured plate goes the other way from a notch: on p. 71 at 1200 dpi the tie
+ *   clears the sharp's **bounding rectangle** entirely, passing under it with 0.19 sp of air.
+ *
+ * ⚠️ There is precedent for the disagreement: `reference/README.md` already records the SMuFL
+ * cut-out licence colliding with Gould at p. 92 (*"Do not overlap the flats"* in a key signature,
+ * which MuseScore tucks). ⭐ The one number any treatise gives in this frame is **Gould p. 110**: a
+ * slur end *"may be placed as close as half a stave-space from the CENTRE of noteheads"* — a
+ * centre-relative datum, exactly like the cut-out's.
+ *
+ * ⏭️ So the SIDE FLIP is the documented answer and we do not do it: our slur side is decided by the
+ * stems (`./slurDirection`) and an accidental has no vote. If his eye ever prefers Gould's remedy,
+ * that is where it would go — ⛔ not here.
  */
 import type { Stave } from 'vexflow'
 import { anchor, glyphBox, accidentalGlyph } from '@/engine/fonts/fontMetrics'

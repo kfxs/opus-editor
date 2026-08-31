@@ -2312,8 +2312,67 @@ below the staff where it was 11.8. His verdict: *"b g# looks much better now"*. 
 `e2e/slur.e2e.ts` (a sharp is drawn like a natural, within half a space) and
 `accidentalCutOut.test.ts` (the tucks, and the two bounds); both break-tested against the rectangle.
 
-⏭️ **Still open, and a different mechanism**: *"a f flat still loks a little flat"* and *"b3 a4 slur
-looks odd not that curvy"* — the ARCH's lean (`SLUR_ARCH_TILT`, ±0.25·dy) is unbounded, so on a short
-steep slur it exceeds the arch height and pushes one control through the chord line (measured on his
-`B3 → A4`: `h0 = 5.61 − 7.5 = −1.89 px`). ⭐ His own hand-fix of that bar keeps the lean at 7.5 px and
-raises the arch to 10.8 — i.e. lean/arch **0.69** — which is the next thing to build.
+### ⛔⛔ It is NOT in the books — searched the same day
+
+`reference/README.md`'s library was read for it (Gould full text + 300/450/1200 dpi scans, Ross,
+Gerou & Lusk, Stone). **UNDOCUMENTED**, and the two sentences that exist prescribe the OTHER remedy:
+**Gould p. 130**, in the grace-note chapter — *"A slur should always be placed **above** the notes
+when it would otherwise collide with the accidentals of a measured value"* — and **p. 71** for ties,
+*"Curve a tie away from an added note with an accidental"*. ⭐ Her one measured plate agrees with the
+rectangle: on p. 71 at 1200 dpi the tie clears the sharp's whole bbox, passing under it with 0.19 sp
+of air. ⚠️ There is precedent for the disagreement — `reference/README.md` already records the SMuFL
+cut-out colliding with Gould p. 92 over key-signature flats.
+
+⭐ The only treatise number in this frame is **Gould p. 110**: a slur end *"may be placed as close as
+half a stave-space from the CENTRE of noteheads"* — centre-relative, like the cut-out itself. ⛔ No
+source gives a vertical clearance for a slur over an obstacle: UNKNOWN, not silent.
+
+⏭️ So the documented answer is the **side flip**, which we do not do (our side is the stems',
+`slurDirection`, and an accidental has no vote). It stays available if his eye ever wants it.
+
+## 🚨🚨 THE LEAN COULD INVERT A CONTROL, AND THE ARCH WAS FED THE WRONG LENGTH (2026-08-31, FIXED)
+
+Two reports, one bar: *"b3 a4 slur looks odd not that curvy"* and *"a f flat still loks a little
+flat"*. Two independent causes, both in the shape laws and neither in the obstacle pass.
+
+### 1. The lean was unbounded — `slurArchHeight.archLean`
+
+`SLUR_ARCH_TILT` offsets the two controls by `±0.25 · dy` so the arch follows the line between the
+endpoints. Nothing bounded it against the arch it was leaning. Measured on his `B3 → A4`: arch
+**5.61 px**, lean **7.50** ⇒ first control at **−1.89**, *through the chord line and on the wrong side
+of its own endpoint*. The drawn result is a bent stick.
+
+⭐ **The bound's ratio is HIS OWN HAND'S**: the shape he dragged that bar into has control heights
+0.332 and 1.832 sp — an arch of 10.82 px carrying a lean of 7.50, i.e. **lean ÷ arch = 0.693**
+({@link SLUR_ARCH_TILT_LIMIT}). Both engines bound this too and neither publishes a ratio (Verovio's
+step 6 *"restore minimal height and convexity"* + ∠C1P1C2 ≥ 3°; MuseScore's *"never taller than
+wide"*), so the citation is his drawing. ⚠️ Shared with `slurObstacles`, which samples the curve it
+will draw — ⛔ a bound in one and not the other is a solver bowing over a shape nobody draws.
+
+### 2. The height law was fed the SPAN where LilyPond feeds the CHORD — `slurArchHeightFor`
+
+`lily/slur-configuration.cc:140-147`, verbatim:
+
+```cpp
+Offset dz = attachment_[RIGHT] - attachment_[LEFT];
+get_slur_indent_height (&indent, &height, dz.length (), h_inf, r_0);
+```
+
+⭐ Identical for a level slur, quietly wrong for a steep one: his bar spans **2.4 sp** horizontally
+and its chord is **3.84 sp**, so the law returned 5.61 px where its own input gives **8.23**. ⛔ Not a
+change to the height law he settled on 2026-08-16 — that law, fed what it is defined on. ⚠️ The height
+is still applied VERTICALLY; rotating the frame onto the chord is Verovio's and LilyPond's, and the
+difference is what the tail of `slurSlantLimit` costed and left for his eye.
+
+### The evidence, and it is his own hand
+
+With both, the automatic `B3 → A4` is **2.53 / 13.93 px** against the **2.59 / 14.28** he drew — inside
+0.35 px, 4/100 of a staff space. A level slur is untouched (the two inputs are the same number, and
+the lean is nowhere near its bound). Whole browser suite green: 142 e2e, nothing in the ladder, trill,
+hairpin or tie families moved.
+
+⏭️ **Still open, recorded not chased.** (a) His `A → F♭` hand-fix wants ~**1.33×** the arch (11.69/4.19
+against our 8.49/3.49) — the height law again, and two samples are not a law. (b) Both of his overrides
+also move the controls HORIZONTALLY (+0.5, +0.75 sp; and −0.5 on the flat). Our indent is pinned at
+±span/4 where LilyPond computes one that varies with width (`get_slur_indent_height`) and Verovio eases
+`dist/6` → `dist/3`. That third dimension is untouched.

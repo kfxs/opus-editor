@@ -38,7 +38,7 @@
  * slur height — so the honest citation is "LilyPond's `slur_height`, adopted by him 2026-08-16", and
  * it stays a number an eye may overrule.
  */
-import { CURVE, SLUR_HEIGHT_RATIO, curvePx } from './curveStyle'
+import { CURVE, SLUR_ARCH_TILT, SLUR_ARCH_TILT_LIMIT, SLUR_HEIGHT_RATIO, curvePx } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
@@ -70,3 +70,52 @@ export function slurArchHeight(spanPx: number, extraHeight = 0): number {
   return curvePx(heightSpaces) + extraHeight
 }
 
+
+/**
+ * ⭐⭐ **THE ARCH'S LEAN, BOUNDED** — `±SLUR_ARCH_TILT · dy`, clamped so it can never spend more of
+ * the arch than {@link SLUR_ARCH_TILT_LIMIT} allows.
+ *
+ * ⭐ **Two callers, one answer, and that is the point of it being here**: the DRAWING leans the two
+ * controls (`SlurRenderer.slurArchCps`) and the obstacle solve samples the curve it will draw
+ * (`./slurObstacles`). They already shared the tilt constant; a clamp in one and not the other would
+ * make the solver bow over a shape nobody draws — the same "two answers to one question" that cost
+ * the stem flip a whole afternoon.
+ *
+ * @param dy `p1.y − p0.y` in pixels (screen-down), @param direction −1 above / +1 below,
+ * @param archHeight the control height the law produced, ⚠️ INCLUDING any nest lift — a slur pushed
+ *   clear of the one inside it is taller, and tolerates its lean in proportion.
+ */
+export function archLean(dy: number, direction: number, archHeight: number): number {
+  const limit = Math.abs(archHeight) * SLUR_ARCH_TILT_LIMIT
+  return Math.max(-limit, Math.min(limit, SLUR_ARCH_TILT * dy * direction))
+}
+
+/**
+ * ⭐⭐ **THE ARCH FOR TWO ENDPOINTS — measured along the CHORD, which is the input LilyPond's own law
+ * takes** (his report, 2026-08-31: *"b3 a4 slur looks odd not that curvy"*).
+ *
+ * 🚨 We fed {@link slurArchHeight} the HORIZONTAL SPAN. LilyPond feeds the distance between the two
+ * attachments and builds the curve in a frame rotated onto it — `lily/slur-configuration.cc:140-147`,
+ * verbatim:
+ *
+ * ```cpp
+ * Offset dz = attachment_[RIGHT] - attachment_[LEFT];
+ * get_slur_indent_height (&indent, &height, dz.length (), h_inf, r_0);
+ * ```
+ *
+ * ⭐ Identical for a level slur and quietly wrong for a steep one: his `B3 → A4` spans **2.4 sp**
+ * horizontally but its chord is **3.84 sp**, so the law returned 5.61 px where its own input gives
+ * **8.22**. ⛔ This is not a change to the height law he settled on 2026-08-16 — it is that law, fed
+ * what it is defined on.
+ *
+ * ⚠️ The height is still applied VERTICALLY, not perpendicular to the chord: rotating the frame is
+ * Verovio's and LilyPond's, ours leans instead ({@link archLean}), and the two are different shapes.
+ * ⏭️ That difference is what the tail of `./slurSlantLimit` costed and left for his eye.
+ */
+export function slurArchHeightFor(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  extraHeight = 0,
+): number {
+  return slurArchHeight(Math.hypot(p1.x - p0.x, p1.y - p0.y), extraHeight)
+}
