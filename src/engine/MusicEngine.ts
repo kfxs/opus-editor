@@ -4,6 +4,7 @@ import { restPositionKey, restShiftOverrideOf, restHiddenOf, resolveStaffSpacing
 import { resolveStaffSize, STAFF_SPACE_PX } from './models/staffSize'
 import { barlineJoinsBelow } from './models/barlineJoin'
 import * as staffGroupOps from './models/staffGroupOps'
+import * as clearOps from './models/clearOps'
 import { clefOffsetOverrideOf } from './models/engravingOverrides'
 import type { HairpinDragWrite, HairpinEndStop, HairpinSlotTarget, HairpinStaffSlotTarget } from './models/hairpinOps'
 import type { DynamicSlotTarget, DynamicStaffSlotTarget } from './models/dynamicOps'
@@ -5301,6 +5302,46 @@ export class MusicEngine {
       this.saveUndoState(description)
     }
     return result
+  }
+
+  /**
+   * ⭐⭐ **DELETE A SELECTION — the region is cleared, and the METER decides the silence.** The
+   * command behind Delete, whatever the selection's size. Returns how many ids it acted on.
+   *
+   * Not a loop of {@link deleteNote}, which is what it was until 2026-08-31 and why clearing the
+   * second half of a 4/4 bar came back as `8 + 16×6` instead of one half rest: each iteration
+   * replaced its own slot with a rest of that slot's own length, so the freed SPAN was never seen
+   * whole. The passage is removed first and each bar it touched is refilled once, meter-aware —
+   * `clearOps.clearNoteRange`, which holds the argument and the three exceptions.
+   *
+   * ⭐ **A single note is a range of one** (his call): there is no size branch here. The rest that
+   * replaces one deleted note is the one the meter puts in the hole it left, which is the same
+   * answer its own length gave in every ordinary case, and a better one where the two disagree (a
+   * dotted quarter on the "and of 2" leaves an 8th + a quarter, never a dotted-quarter rest across
+   * the middle of the bar).
+   *
+   * ⛔ **Only the REGION is refilled** — rests already standing outside the selection are slots,
+   * so they bound the hole and are never swallowed into it. Clearing a quarter next to an
+   * untouched quarter rest gives two quarter rests, not a half.
+   *
+   * {@link deleteNote} stays the per-slot primitive underneath (and every other caller's), so
+   * nothing else changes shape.
+   */
+  deleteNotes(noteIds: readonly string[]): number {
+    let cleared = 0
+    this.runBatch(`Delete ${noteIds.length} note(s)`, () => {
+      cleared = clearOps.clearNoteRange(this.scoreModel.getScore(), noteIds, {
+        removeSlot: id => this.scoreModel.deleteNote(id),
+        deleteOne: id => this.deleteNote(id),
+        fillMeasureGaps: m => this.scoreModel.fillMeasureGaps(m),
+        collapseEmptyVoices: m => this.scoreModel.collapseEmptyVoices(m),
+        reanchorSlurs: (oldId, newId) => this.reanchorSlurs(oldId, newId),
+      })
+      // `deleteOne` commits for the ids it took, but the cleared REGION is this module's own write
+      // — without this the batch would see no change for a plain range and push no undo entry.
+      if (cleared) this.commit(`Delete ${cleared} note(s)`)
+    })
+    return cleared
   }
 
   /**

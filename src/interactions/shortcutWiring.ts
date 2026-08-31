@@ -1555,8 +1555,12 @@ export function wireShortcuts(
         const marks = markItems(items)
         const extra = marksLabel(marks)
         const label = `Delete ${noteIds.length} note(s)${extra ? ` + ${extra}` : ''}`
+        // ⭐ ONE call, not a loop: Delete clears the REGION, and the meter decides the silence that
+        // replaces it (`engine/models/clearOps`). Looping `deleteNote` gave each slot a rest of its
+        // own length, so clearing half a 4/4 bar came back as `8 + 16×6` instead of one half rest.
+        // No size branch — a single note is a range of one.
         eng.runBatch(label, () => {
-          for (const id of noteIds) eng.deleteNote(id)
+          eng.deleteNotes(noteIds)
           removeMarks(eng, marks)
         })
         selection.selectNote(null)

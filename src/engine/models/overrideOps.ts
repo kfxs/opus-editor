@@ -26,12 +26,13 @@
 import type {
   Score, EngravingOverride, RestShiftOverride, RestHiddenOverride, LeadingSpaceOverride,
   BarlineSpaceOverride, BarWidthOverride, DynamicOffsetOverride, NoteOffsetOverride,
-  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride, ClefOffsetOverride } from '@/types/music'
+  StaffSpacingOverride, FanMemberChord, TempoOffsetOverride, ClefOffsetOverride, Fraction } from '@/types/music'
 import { dbg } from '@/utils/debug'
+import { fracLt, fracLte } from '@/utils/fraction'
 import {
   restShiftOverrideOf, restHiddenOf, dynamicOffsetOverrideOf, noteOffsetOverrideOf,
   staffSpacingOverrideOf, BAR_STRETCH_MIN, BAR_STRETCH_MAX, tempoOffsetOverrideOf,
-  clefOffsetOverrideOf } from './engravingOverrides'
+  clefOffsetOverrideOf, parseRestPositionKey } from './engravingOverrides'
 
 /**
  * Upsert an override: replaces any existing entry of the same `kind` on this
@@ -499,5 +500,68 @@ export function clearRemovedContentOverrides(
   }
   if (Object.keys(all).length === 0) delete score.engravingOverrides
   if (removed) dbg(`[overrides] cleared ${removed} entr(ies) with the content of ${measureId} staff ${staffId ?? 0}`)
+  return removed
+}
+
+/** One lane's cleared time: `[from, to)` of `voice` on `staffId` in `measureId`. Absent `staffId`
+ *  is the first staff, the {@link restPositionKey} convention. */
+export interface ClearedSpan {
+  measureId: string
+  staffId: string | undefined
+  voice: number
+  from: Fraction
+  to: Fraction
+}
+
+/**
+ * ⭐⭐ **The same auto-reset, for a cleared REGION rather than a whole bar-staff.**
+ *
+ * 🚨 **HIS REPORT, 2026-08-31** (the Prelude again, staff 2 of bar 1): clearing the second half of
+ * the bar gave the right half rest in the right lane — drawn six steps high. That score lifts every
+ * bass-staff voice-0 rest by hand, and the lift is filed under a POSITION
+ * (`{measureId}:s{staffId}:v0:b2/1`) precisely because rest ids churn on every edit. The clear
+ * refilled that position, and the new rest inherited a nudge authored for a 16th rest that had a
+ * half note above it — *"we are clearing, that means the override should be cleared too"*.
+ *
+ * ⛔ **Span-scoped, not bar-scoped, and that is the whole difference from
+ * {@link clearRemovedContentOverrides}.** A range clear empties only what was selected, so an
+ * override at a position the clear never reached is still describing a rest that is still on the
+ * page: dropping the bar's would silently un-lift the b0 rest that nobody touched. The two
+ * functions are the same rule at two scales, which is why they live side by side.
+ *
+ * ⭐ Only POSITION keys are span-tested; `slotIds` covers the id-keyed entries (a note offset) of
+ * the slots that went, whose anchors can never be reached again. Column keys (`:space:`) are
+ * shared by every staff and are not this operation's to touch — the sibling's rule, unchanged.
+ */
+export function clearClearedSpanOverrides(
+  score: Score,
+  spans: readonly ClearedSpan[],
+  slotIds: readonly string[],
+): number {
+  const all = score.engravingOverrides
+  if (!all) return 0
+  let removed = 0
+
+  for (const key of Object.keys(all)) {
+    const at = parseRestPositionKey(key)
+    if (!at) continue
+    const inside = spans.some(span =>
+      span.measureId === at.measureId
+      && span.staffId === at.staffId
+      && span.voice === at.voice
+      && fracLte(span.from, at.beat) && fracLt(at.beat, span.to))
+    if (!inside) continue
+    delete all[key]
+    removed++
+  }
+  for (const id of slotIds) {
+    if (all[id]) {
+      delete all[id]
+      removed++
+    }
+  }
+
+  if (Object.keys(all).length === 0) delete score.engravingOverrides
+  if (removed) dbg(`[overrides] cleared ${removed} entr(ies) with the content of ${spans.length} cleared span(s)`)
   return removed
 }

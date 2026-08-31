@@ -103,6 +103,9 @@ src/
     ElementRegistry.ts    # Authoritative hit-testing + pixel↔position
     ViewportModel.ts      # Scroll/zoom viewport state
     models/               # ScoreModel (data model), CollisionDetector,
+                          #   clearOps (⭐ a cleared REGION is refilled by the METER, once —
+                          #     docs/clear-range-plan.md; ⛔ never one rest per deleted slot,
+                          #     and ⛔ never past the region's edge),
                           #   🚧 scoreTextOps (the title + composer as ONE table — SKETCH)
     layout/               # WHAT the music is drawn on, HOW MUCH ROOM the music earns, and
                           #   derived-view arithmetic off the LAST RENDER: surface (canvas

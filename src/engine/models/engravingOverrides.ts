@@ -195,6 +195,28 @@ export function restPositionKey(measureId: string, voice: number, beat: Fraction
 }
 
 /**
+ * What a {@link restPositionKey} addresses, or undefined if the key is not one. The inverse is
+ * written here, beside the builder, so the two can never drift — {@link parseSpacingPositionKey}'s
+ * argument exactly, and for the same kind of reader: an operation that has to ask *which* positions
+ * an edit reached, rather than build the one address it already knows.
+ *
+ * `staffId` comes back absent for the first staff, matching what the builder was given.
+ */
+export function parseRestPositionKey(key: string): { measureId: string; staffId?: string; voice: number; beat: Fraction } | undefined {
+  const parts = key.split(':')
+  if (parts.length < 3 || parts.length > 4) return undefined
+  const beatPart = parts[parts.length - 1]
+  const voicePart = parts[parts.length - 2]
+  if (!beatPart.startsWith('b') || !voicePart.startsWith('v')) return undefined
+  const [num, den] = beatPart.slice(1).split('/')
+  const n = Number(num), d = Number(den), v = Number(voicePart.slice(1))
+  if (!Number.isFinite(n) || !Number.isFinite(d) || !Number.isFinite(v) || d === 0) return undefined
+  const staffPart = parts.length === 4 ? parts[1] : undefined
+  if (parts.length === 4 && !staffPart!.startsWith('s')) return undefined
+  return { measureId: parts[0], staffId: staffPart?.slice(1), voice: v, beat: fracCreate(n, d) }
+}
+
+/**
  * The manual vertical shift on the rest at this position address, if any (client #5 — see
  * docs/rest-shift-plan.md). `steps` is in whole staff-steps (signed, +up), added on top of
  * the automatic multi-voice placement at render. Key it with {@link restPositionKey}. Absent

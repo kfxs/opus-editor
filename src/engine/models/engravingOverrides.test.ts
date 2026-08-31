@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { curveShapeOverrideOf, endpointOffsetOverrideOf, reconcileSegmentShape, reconcileSegmentEndpointOffset, restPositionKey, staffSpacingOverrideOf, staffSpacingAbove, staffSystemSpacingKey, perSystemStaffSpacingOf, resolveStaffSpacingAbove } from './engravingOverrides'
+import { curveShapeOverrideOf, endpointOffsetOverrideOf, reconcileSegmentShape, reconcileSegmentEndpointOffset, restPositionKey, parseRestPositionKey, spacingPositionKey, staffSpacingOverrideOf, staffSpacingAbove, staffSystemSpacingKey, perSystemStaffSpacingOf, resolveStaffSpacingAbove } from './engravingOverrides'
 import type { CurveShapeOverride, SegmentCurveShapeOverride, SegmentEndpointOffsetOverride, CurveControlPointDeltas, Score, Slur } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -154,6 +154,22 @@ describe('restPositionKey (pure key builder)', () => {
     expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2')).not.toBe(restPositionKey('mA', 0, frac(0, 1), 'staff-3'))
     // Still prefixed by `{measureId}:`, so MeasureRedrawKey.overridesFor keeps matching it.
     expect(restPositionKey('mA', 0, frac(0, 1), 'staff-2').startsWith('mA:')).toBe(true)
+  })
+
+  it('round-trips through parseRestPositionKey, on both staff conventions', () => {
+    // The inverse sits beside the builder so the two cannot drift — a range clear has to ask which
+    // POSITIONS its cleared span reached, which is the one reader that cannot build the key first.
+    expect(parseRestPositionKey('mA:sstaff-2:v1:b3/4'))
+      .toEqual({ measureId: 'mA', staffId: 'staff-2', voice: 1, beat: frac(3, 4) })
+    expect(parseRestPositionKey(restPositionKey('mA', 0, frac(2, 4))))
+      .toEqual({ measureId: 'mA', staffId: undefined, voice: 0, beat: frac(1, 2) })
+  })
+
+  it('declines every key that is NOT a rest position — it shares the compartment with them', () => {
+    expect(parseRestPositionKey(spacingPositionKey('mA', frac(1, 2)))).toBeUndefined() // a COLUMN
+    expect(parseRestPositionKey('caution:mA')).toBeUndefined()
+    expect(parseRestPositionKey('cautionClef:mA:sstaff-2')).toBeUndefined()
+    expect(parseRestPositionKey('some-slot-uuid')).toBeUndefined() // an id-keyed client
   })
 })
 

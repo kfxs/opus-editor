@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from './ScoreModel'
-import { clearRemovedContentOverrides, clearRestHiddenAt, setEngravingOverride } from './overrideOps'
+import { clearRemovedContentOverrides, clearClearedSpanOverrides, clearRestHiddenAt, setEngravingOverride } from './overrideOps'
 import { restPositionKey, restShiftOverrideOf, restHiddenOf, noteOffsetOverrideOf, leadingSpaceOverrideOf, spacingPositionKey } from './engravingOverrides'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score, RestShiftOverride, RestHiddenOverride, NoteOffsetOverride, LeadingSpaceOverride } from '@/types/music'
@@ -99,6 +99,76 @@ describe('clearRemovedContentOverrides', () => {
     setEngravingOverride(score, restPositionKey('m1', 0, frac(0, 1), 'staff-2'), { kind: 'restShift', steps: 6 } as RestShiftOverride)
     clearRemovedContentOverrides(score, 'm1', 'staff-2', [])
     expect(score.engravingOverrides).toBeUndefined()
+  })
+})
+
+describe('clearClearedSpanOverrides — the same reset, span-scoped', () => {
+  /** `[from, to)` of voice 0 on staff 2 of m1 — the shape a range clear hands in. */
+  const span = (from: number, to: number, voice = 0, staffId: string | undefined = 'staff-2') =>
+    ({ measureId: 'm1', staffId, voice, from: frac(from, 1), to: frac(to, 1) })
+
+  it('🚨 drops a rest shift INSIDE the cleared span — his report of 2026-08-31', () => {
+    const score = bareScore()
+    const key = restPositionKey('m1', 0, frac(2, 1), 'staff-2')
+    setEngravingOverride(score, key, { kind: 'restShift', steps: 6 } as RestShiftOverride)
+
+    expect(clearClearedSpanOverrides(score, [span(2, 4)], [])).toBe(1)
+    expect(restShiftOverrideOf(score, key)).toBeUndefined()
+  })
+
+  it('⛔ leaves one OUTSIDE it standing — the region is cleared, not the bar', () => {
+    // The whole difference from `clearRemovedContentOverrides`: the b0 rest was never selected and
+    // is still on the page, still lifted. Dropping the bar's keys would silently un-lift it.
+    const score = bareScore()
+    const kept = restPositionKey('m1', 0, frac(0, 1), 'staff-2')
+    const gone = restPositionKey('m1', 0, frac(2, 1), 'staff-2')
+    setEngravingOverride(score, kept, { kind: 'restShift', steps: 6 } as RestShiftOverride)
+    setEngravingOverride(score, gone, { kind: 'restShift', steps: 6 } as RestShiftOverride)
+
+    expect(clearClearedSpanOverrides(score, [span(2, 4)], [])).toBe(1)
+    expect(restShiftOverrideOf(score, kept)?.steps).toBe(6)
+    expect(restShiftOverrideOf(score, gone)).toBeUndefined()
+  })
+
+  it('is half-open: the span\'s END belongs to the next slot', () => {
+    const score = bareScore()
+    const atEnd = restPositionKey('m1', 0, frac(3, 1), 'staff-2')
+    setEngravingOverride(score, atEnd, { kind: 'restShift', steps: 2 } as RestShiftOverride)
+
+    expect(clearClearedSpanOverrides(score, [span(2, 3)], [])).toBe(0)
+    expect(restShiftOverrideOf(score, atEnd)?.steps).toBe(2)
+  })
+
+  it('separates the lanes — another voice or staff at the same beat is a different seat', () => {
+    const score = bareScore()
+    const otherVoice = restPositionKey('m1', 1, frac(2, 1), 'staff-2')
+    const otherStaff = restPositionKey('m1', 0, frac(2, 1), undefined)
+    const otherBar = restPositionKey('m2', 0, frac(2, 1), 'staff-2')
+    for (const k of [otherVoice, otherStaff, otherBar]) {
+      setEngravingOverride(score, k, { kind: 'restShift', steps: 6 } as RestShiftOverride)
+    }
+
+    expect(clearClearedSpanOverrides(score, [span(2, 4)], [])).toBe(0)
+    for (const k of [otherVoice, otherStaff, otherBar]) {
+      expect(restShiftOverrideOf(score, k)?.steps).toBe(6)
+    }
+  })
+
+  it('drops the id-keyed entries of the slots that went, and prunes an emptied compartment', () => {
+    const score = bareScore()
+    setEngravingOverride(score, 'slot-a', { kind: 'noteOffset', x: 1.5 } as NoteOffsetOverride)
+
+    expect(clearClearedSpanOverrides(score, [], ['slot-a'])).toBe(1)
+    expect(score.engravingOverrides).toBeUndefined()
+  })
+
+  it('⛔ does NOT touch the column keys — a leading space is shared by both staves', () => {
+    const score = bareScore()
+    const column = spacingPositionKey('m1', frac(2, 1))
+    setEngravingOverride(score, column, { kind: 'leadingSpace', space: 2 } as LeadingSpaceOverride)
+
+    expect(clearClearedSpanOverrides(score, [span(2, 4, 0, undefined)], [])).toBe(0)
+    expect(leadingSpaceOverrideOf(score, column)?.space).toBe(2)
   })
 })
 

@@ -119,6 +119,8 @@ change re-tiled the gap so nothing begins exactly there), the shift is **dropped
 | **Rebar / meter change** | Shift travels **best-effort**: re-stamped onto whatever rest now *starts* at the same region-relative offset (so a quarter rest merged into a half rest at the same start keeps it); **dropped** only when the new tiling puts no rest start at that offset. |
 | Insert / remove a measure | Survives (measure-`id` key, §3.1). |
 | Rest's beat becomes a note (plain edit) | Stored entry stops being read (no rest there) — visually gone. Restoring a rest there later resurrects the prior shift (accepted, see below). |
+| **A bar-staff is CLEARED** (`clearMeasureStaff`) | **Dropped**, every voice and beat of that bar-staff — `overrideOps.clearRemovedContentOverrides`. |
+| **A RANGE is cleared** (Delete on a selection) | **Dropped inside the cleared span only** — `overrideOps.clearClearedSpanOverrides`. A shift at a position the clear never reached still describes a rest still on the page, and stays. |
 
 **Identity rule:** a rest is matched by its **start offset within its voice**,
 duration-agnostic. This is the most a pitchless, regenerated object can offer; it
@@ -139,6 +141,13 @@ acceptance above rests on a resurrected shift being *visible* — the rest retur
 place and one nudge answers it — and a resurrected hide is not: the rest is silently not drawn.
 This clause still stands for the SHIFT, and `ScoreModel.test.ts`'s "resurrects on a plain
 rest→note→rest" is its guard. Retiring it is a separate, deliberate decision.
+
+⚠️ **Nor does a CLEAR (2026-08-31).** Resurrection is about a position an edit gave back; a clear
+*empties* one and immediately refills it, so what returns is not the rest you nudged — his report
+on the Prelude, where clearing beats 3–4 of the bass staff produced the right half rest drawn six
+steps high, wearing a lift authored for a 16th rest that had a half note above it. Both clears
+(row above) drop the entry rather than let the refill inherit it. The plain `rest → note → rest`
+of the clause above is untouched: nothing was cleared there.
 
 ## 5. Scope & controls
 
