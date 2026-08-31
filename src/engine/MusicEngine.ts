@@ -32,7 +32,7 @@ import { CollisionDetector } from './models/CollisionDetector'
 import { PlaybackEngine, type PlaybackCallbacks } from './audio/PlaybackEngine'
 import { UndoRedoManager } from './UndoRedoManager'
 import { NoteEntryCoordinator, INVALID_NOTE_ENTRY_TYPES } from './NoteEntryCoordinator'
-import { getStaves, keyStaffId, staffIdAtIndex, staffSlots } from './models/staffContent'
+import { getStaves, keyStaffId, staffIdAtIndex } from './models/staffContent'
 import { midiToNoteName, beatToFrac, compareByPosition, measureAccidentalNotes, deriveTupletM, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityQuarters } from '@/utils/measureCapacity'
 import { fracToNumber, fracEq } from '@/utils/fraction'
@@ -40,7 +40,6 @@ import { quantizeBeat, slotLength } from '@/utils/durations'
 import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
-import { naturalStemDirection } from '@/utils/clefUtils'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
 import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
@@ -5509,43 +5508,19 @@ export class MusicEngine {
   }
 
   /**
-   * Toggle stem direction for a note between auto and the opposite of its natural direction.
-   * - If already forced (up/down): reset to auto.
-   * - If auto: calculate natural direction from pitch, force the opposite.
-   * Rests are ignored (no stem).
+   * ⭐⭐ Turn the stem around — **the note's BEAM GROUP's**, because a beam has one side (his report,
+   * 2026-08-31). Forced → auto on the second press. The rule, and the log that found it, are
+   * `models/stemOps.flipStems`; this is the facade's undo entry and the fan's refusal.
+   *
+   * @returns the note, or null when nothing was flipped (a rest, a fan member, no such note).
    */
   flipStemDirection(noteId: string): Note | null {
     // The stem is the GROUP's — one beam, one side — so a member cannot flip it (P2 decided it over
     // every member's pitches). Refused rather than written and ignored.
     if (this.refusesFanMember(noteId, 'stem flip')) return null
-    const note = this.scoreModel.getNote(noteId)
-    if (!note || note.isRest) return null
-
-    let newDirection: 'auto' | 'up' | 'down'
-
-    if (note.stemDirection === 'up' || note.stemDirection === 'down') {
-      // Already forced — toggle back to auto
-      newDirection = 'auto'
-    } else {
-      // Auto state — force the opposite of the direction actually DISPLAYED. In a
-      // multi-voice bar the shown stem is forced by voice PARITY (V1/V3 up, V2/V4 down),
-      // NOT the pitch-natural one — so flipping against pitch would target the side the
-      // note is already on and do nothing (repro: a low V2/V4 note never flipped). Mirror
-      // the renderer's per-staff multiVoice + forcedStem (VexFlowRenderer: stemUp = voice % 2 === 0).
-      const staffId = this.staffIdForIndex(note.staff)
-      const measure = this.scoreModel.getMeasure(note.measure)
-      const multiVoice = measure
-        ? new Set(staffSlots(measure, staffId, this.scoreModel.getScore()).map(s => voiceOf(s))).size > 1
-        : false
-      const displayed: 'up' | 'down' = multiVoice
-        ? (voiceOf(note) % 2 === 0 ? 'up' : 'down')
-        : naturalStemDirection(note.step!, note.octave!, this.scoreModel.getEffectiveClefAt(note.measure, note.beat, staffId))
-      newDirection = displayed === 'down' ? 'up' : 'down'
-    }
-
-    const updated = this.scoreModel.updateNote(noteId, { stemDirection: newDirection })
+    if (!this.scoreModel.flipStemDirection(noteId)) return null
     this.commit('Flip stem direction')
-    return updated
+    return this.scoreModel.getNote(noteId) ?? null
   }
 
   /**

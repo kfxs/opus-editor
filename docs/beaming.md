@@ -160,10 +160,39 @@ whole-group fact (stem direction, the crossing beam count) — is in `docs/cross
 ## A beam group has ONE stem direction
 
 A beam cannot attach to stems pointing opposite ways, so the group's direction is a property of the
-*group*: `calculateBeamGroupStemDirection` resolves it once — an explicit `stemDirection` on any
-member wins, then the multi-voice lane's forced side, then the pitch furthest from the middle line —
-and every note in the group is set to it. **An `x` flip on any member therefore flips the whole
-beam**, which is the only thing it can mean.
+*group*: **`engine/models/stemOps.beamGroupStemDirection`** resolves it once — an explicit
+`stemDirection` on any member wins, then the multi-voice lane's forced side, then the pitch furthest
+from the middle line — and every note in the group is set to it. **An `x` flip on any member
+therefore flips the whole beam**, which is the only thing it can mean.
+
+### 🚨🚨 …and until 2026-08-31 the FLIP did not know that
+
+His report: *"the two notes are beamed and grouped with stem down so im flipin B and nothing
+hapends… in case is a beamed group what the user expect is to flip the group"*, on a log where the
+key worked perfectly and the picture never moved:
+
+```
+[Model.updateNote] v0 B4 8 m1 b0.000 ← {stemDirection} {stemDirection: 'up'}
+[Model.updateNote] v0 B4 8 m1 b0.000 ← {stemDirection} {stemDirection: 'auto'}   ← and repeat
+```
+
+⭐ **The flip asked the wrong thing which way the note is drawn.** It read the pressed note's OWN
+pitch against the middle line (B4 in treble → down) and wrote the opposite — but his group, B4 with a
+G4 under it, was already drawn UP by the rule above. So `x` wrote the direction the group already had,
+and the second press released it back to the same picture. Nothing was wrong with the write, the undo
+or the render: the DECISION was measured against a note that does not decide.
+
+⭐⭐ The flip is now **`stemOps.flipStems`** and the GROUP is the unit: a press on any member reads the
+group's drawn direction and writes the opposite to every member; a second press clears them all back
+to auto; a group only *half* pinned (the state the old per-note flip could leave) is turned around
+rather than released. A note that is not beamed is a group of one — the behaviour that was always
+there.
+
+⭐ **And the group's rule moved into that module, so there is ONE of it.** `VexFlowRenderer` keeps a
+one-line delegation and draws with the same answer `x` decides against; two answers to *"which way
+does this group point?"* is exactly the bug that cost. ⏭️ A beam that crosses a BARLINE is planned
+over a run of bars, so a flip on one turns around the half of it that lives in the pressed note's
+bar — the honest fix needs the renderer's plan, not a guess from one bar.
 
 ⚠️ In a multi-voice bar that collides with the re-assert. `VexFlowRenderer` captures each note's
 intended stem *before* the beams exist (to undo VexFlow's same-tick reshuffling after `format`), so

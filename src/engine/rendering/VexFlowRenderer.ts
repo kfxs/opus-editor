@@ -23,7 +23,7 @@ import type { SVGContext } from 'vexflow'
 import './notation.css'
 import type { Score, Measure, Clef, KeySignature, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
-import { effectiveClefAt, effectiveClefBefore, middleLineDiatonicPos, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { effectiveClefAt, effectiveClefBefore, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
 import { pairPadding } from '@/engine/layout/spacingPadding'
@@ -36,7 +36,7 @@ import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
-import { spellingToMidi, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { spellingToMidi } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies, drawTieArc } from './TieRenderer'
 import { tieEndpointX, tieEndpointY } from './tieEndpoints'
@@ -51,6 +51,7 @@ import { planDynamicsLines } from './dynamicsLinePlan'
 import { hairpinSpan } from '@/engine/models/hairpinOps'
 import { ottavaSpan } from '@/engine/models/ottavaOps'
 import { pedalSpan } from '@/engine/models/pedalOps'
+import { beamGroupStemDirection } from '@/engine/models/stemOps'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -1348,42 +1349,14 @@ export class VexFlowRenderer {
 
 
   /**
-   * Calculate the stem direction for an entire beam group.
-   * Uses the pitch furthest from the middle line across all slots.
-   * @param slots - ChordRest slots in the beam group
-   * @param clef - Clef type for middle line reference
-   * @returns VexFlow stem direction value (1 = UP, -1 = DOWN)
+   * The side a beam group's stems take — ⭐ `models/stemOps.beamGroupStemDirection`, which is where
+   * the rule moved on 2026-08-31 so that `x` can ask the SAME question before turning a group around
+   * (his report: a flip measured against one note's pitch wrote the direction the group already had,
+   * and nothing ever moved). ⛔ Not a copy: two answers to *"which way does this group point?"* is
+   * exactly the bug that cost.
    */
   private calculateBeamGroupStemDirection(slots: ChordRest[], clef: Clef = 'treble', forcedStemDirection?: number): number {
-    // Explicit override on any note in the group takes priority over pitch calculation
-    for (const slot of slots) {
-      if (slot.type === 'chord' && slot.stemDirection === 'up') return 1
-      if (slot.type === 'chord' && slot.stemDirection === 'down') return -1
-    }
-
-    // Multi-voice default (V1 up / V2 down) wins over the pitch calculation.
-    if (forcedStemDirection !== undefined) return forcedStemDirection
-
-    // No override — use the pitch furthest from the middle line
-    const middleDiatonic = middleLineDiatonicPos(clef)
-    let maxDistance = 0
-    let furthestDiatonic = middleDiatonic
-    let hasPitch = false
-
-    for (const slot of slots) {
-      if (slot.type === 'rest') continue
-      for (const p of slot.notes) {
-        const dPos = spellingDiatonicPos(p.step, p.octave)
-        const distance = Math.abs(dPos - middleDiatonic)
-        if (!hasPitch || distance > maxDistance) {
-          maxDistance = distance
-          furthestDiatonic = dPos
-          hasPitch = true
-        }
-      }
-    }
-
-    return furthestDiatonic >= middleDiatonic ? -1 : 1
+    return beamGroupStemDirection(slots, clef, forcedStemDirection)
   }
 
   /**

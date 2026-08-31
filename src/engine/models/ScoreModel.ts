@@ -42,6 +42,7 @@ import * as trillOps from './trillOps'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import * as dynamicOps from './dynamicOps'
 import * as tempoOps from './tempoOps'
+import * as stemOps from './stemOps'
 import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
 import * as pedalOps from './pedalOps'
@@ -1224,6 +1225,12 @@ export class ScoreModel {
    *  whether a press re-anchors. See {@link tempoOps.nextTempoSlot}. */
   nextTempoSlot(id: string, direction: 1 | -1): tempoOps.Stop | null {
     return tempoOps.nextTempoSlot(this.score, id, direction)
+  }
+
+  /** Turn this note's stem around — its whole BEAM GROUP's, since a beam has one side. The rule and
+   *  the reason are {@link stemOps.flipStems}'; the caller commits. */
+  flipStemDirection(noteId: string): string[] | null {
+    return stemOps.flipStems(this.score, noteId)
   }
 
   /** Find a tempo mark anywhere in the score by id (live reference), or null. Used by
