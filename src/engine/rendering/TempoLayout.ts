@@ -33,6 +33,7 @@ import type { RenderPass } from './RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
+import { dbg } from '@/utils/debug'
 
 /**
  * Apply the mark's two sizes (`./tempoStyle`, where they live because the ink extents and the row's
@@ -358,6 +359,49 @@ function columnXFromNeighbour(
  * the resolver, not this call. Without it, a grand staff would print `Allegro` above every staff
  * and register duplicate ids.
  */
+/**
+ * ⭐⭐ **THE ANSWER THE WALK ASKS FOR** — for every onset of this bar, where {@link anchorX} would
+ * put a mark anchored there, filed in the registry under `measure:beat`
+ * (`ElementRegistry.registerTempoAnchors`, which carries the report this exists for).
+ *
+ * ⭐ It calls {@link anchorX} rather than reimplementing it, which is the whole point: the meter
+ * branch, the centred whole-bar rest and the system's column grid are one rule with one
+ * implementation, and a second copy is exactly the drift this replaces.
+ *
+ * ⚠️ The COLUMNS' beats, ⛔ not this staff's slots: a tempo mark's stops are the system's onsets, so
+ * a beat sounded only by the other hand is a stop too (`interactions/tempoWalk`, and `anchorX`'s own
+ * note on the grand staff). Falls back to this staff's slots when the bar solved no columns.
+ */
+function registerTempoAnchors(
+  pass: RenderPass,
+  measure: Measure,
+  slots: ChordRest[],
+  staveNotes: StaveNote[],
+  stave: Stave,
+  scale: number,
+): void {
+  const columns = pass.solvedColumns.get(measure.number)
+  // ⚠️ The barline column is last and is not an onset — `targetColumn` already excludes it, and so
+  //    does this, or a mark could "anchor" to the end of the bar.
+  const beats = columns
+    ? columns.columns.slice(0, -1).map(c => c.beat)
+    : slots.map(s => s.beat)
+  const anchors: { beat: number; x: number }[] = []
+  for (const beat of beats) {
+    const at = anchorX({ id: '', beat } as TempoMark, slots, staveNotes, stave, columns, scale)
+    if (Number.isFinite(at)) anchors.push({ beat: fracToNumber(beat), x: at })
+  }
+  pass.elementRegistry.withScale(scale, () => {
+    pass.elementRegistry.registerTempoAnchors(measure.number, anchors)
+  })
+  // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — his screenshot: the mark stopped re-anchoring at the
+  // last stop of bar 1 and its guide line pointed back there, with the walk reading `m2b0/1@—`. So
+  // some bar publishes nothing and this says which, and from what.
+  dbg(`[tempo-anchors] m${measure.number}: ${anchors.length} of ${beats.length} beats`
+    + ` (${columns ? 'columns' : 'this staff’s slots'})`
+    + ` | ${anchors.slice(0, 3).map(a => `${a.beat}@${a.x.toFixed(0)}`).join(' ')}`)
+}
+
 export function drawTempoMarks(
   pass: RenderPass,
   measure: Measure,
@@ -369,8 +413,18 @@ export function drawTempoMarks(
    *  SYSTEM's column grid and needs it to come back into the stave's own space. */
   scale = 1,
 ): void {
-  if (!measure.tempos?.length) return
   if (staffIndex !== topStaffIndexForScope(undefined)) return
+
+  // ⭐⭐ **PUBLISH WHERE EVERY ONSET WOULD PUT A MARK, drawn or not** ({@link registerTempoAnchors}),
+  // ⛔ BEFORE the "this bar has no tempo mark" return below: the drag's next stop is by definition a
+  // beat with no mark on it, and it is the distance to THAT the walk splits the hand's travel with.
+  // 🚨 His report, 2026-08-31 — *"i'm moving the hand and the tempo is not moving on certain
+  // occasions"* — was two functions answering this one question: the engraver's (here) and a
+  // notehead-to-notehead guess in `interactions/tempoWalk`, which differ by the whole distance from
+  // a time signature to the first note of its bar. One answer now, and the walk asks for it.
+  registerTempoAnchors(pass, measure, slots, staveNotes, stave, scale)
+
+  if (!measure.tempos?.length) return
 
   const ctx = pass.context
   // ⭐ The bar's column solve — where the SYSTEM put each beat, over every staff. A tempo mark is

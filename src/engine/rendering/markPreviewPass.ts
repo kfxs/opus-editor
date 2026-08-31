@@ -56,6 +56,7 @@ import { renderSlurs } from './SlurRenderer'
 import { planDynamicsLines } from './dynamicsLinePlan'
 import { MARK_INK } from './dynamicsLinePass'
 import { applyTempoNudges } from './tempoNudgePass'
+import { tempoAnchorTravelPx } from './tempoAnchorInk'
 import { dbg } from '@/utils/debug'
 import { fracToNumber } from '@/utils/fraction'
 import { placeTempoMarksOnLine } from './tempoLinePass'
@@ -261,32 +262,33 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
         dbg(`[Preview] tempo ${id}: no glyph in this render's SVG — the frame cannot move it`)
         return false
       }
-      // 🚨🚨 **THE ANCHOR, ⛔ NOT THE BAR** — his report, 2026-08-22: *"while dragging the tempo gets
-      //    stuck at certain points and doesn't offset smoothly"*, with a trace of the ink jumping
-      //    ~39 px BACKWARDS on every `[Tempo] walked onto its next stop`.
+      // 🚨🚨 **THE ANCHOR'S TRAVEL, ⛔ NOT WHETHER IT MOVED** — his report, 2026-08-22: *"while
+      //    dragging the tempo gets stuck at certain points and doesn't offset smoothly"*, with a
+      //    trace of the ink jumping ~39 px BACKWARDS on every `[Tempo] walked onto its next stop`.
       //
-      // The first cut of this row asked whether the glyph was still inside the bar the mark belongs
-      // to, which every crossing WITHIN a bar passes. But a crossing re-anchors, and the glyph's own
-      // `x` was measured from the OLD anchor when its bar was drawn (`TempoLayout.drawTempoMarks`,
-      // which now stamps the address it used). The identity the walk relies on is
-      // `drawn = base(anchor) + offset`, and the crossing pair moves BOTH halves — while a preview
-      // can only rewrite the offset. So the frame wrote offset 0 against a base still sitting at the
-      // previous onset, and the mark snapped back there: a sawtooth, once per stop.
+      // The glyph's own `x` was measured from the anchor its bar was drawn for
+      // (`TempoLayout.drawTempoMarks` stamps that address). The identity the walk relies on is
+      // `drawn = base(anchor) + offset`, and a crossing moves BOTH halves; a preview that rewrote
+      // only the offset wrote it against a base still at the previous onset, and the mark snapped
+      // back there — a sawtooth, once per stop.
       //
-      // ⭐ The bar test was not too strict but too LOOSE. What a preview may move is a mark whose
-      //   anchor has not changed; anything else is a re-engraving, which is exactly what
-      //   `MeasureRedrawKey` folding the mark's overrides into its bar's shape key is for.
-      const drawnFor = el.getAttribute('data-tempo-anchor')
-      const measure = pass.score.measures.find(m => m.tempos?.some(t => t.id === id))
-      const mark = measure?.tempos?.find(t => t.id === id)
-      const belongsTo = measure && mark ? `${measure.number}:${fracToNumber(mark.beat)}` : null
-      const agreed = drawnFor !== null && belongsTo !== null && drawnFor === belongsTo
-      if (!agreed) {
-        dbg(`[Preview] tempo ${id}: drawn for anchor ${drawnFor ?? '—'} but now anchored at`
-          + ` ${belongsTo ?? '—'} — its glyph's x was measured from the old one, so this frame owes`
-          + ` a real render`)
+      // ⭐⭐ **The cut taken then was to REFUSE any frame whose anchor had moved, and that was the
+      //   wrong fix** — his call, 2026-08-31: *"i think it was the wrong fix to the issue described
+      //   here"*. A horizontal drag crosses on most frames, so it switched the preview off in
+      //   practice: measured with `interactions/dragTrace`, an accepted frame repaints in 0.3–0.7 ms
+      //   and a refused one in **33–46 ms**, which stretched the hand's own delta from ~3 px to
+      //   24–35 px and left the latch eating 70 px of a 564 px gesture.
+      //
+      // ⭐ What the frame actually needed is the missing half: how far `base` moved
+      //   (`./tempoAnchorInk`, measured off the same drawn onsets the walk pays its `gap` from, so
+      //   the two cancel to the pixel). ⛔ Null is still a refusal — an onset that drew no ink has no
+      //   x to subtract, and guessing 0 is exactly the snap-back above.
+      const travel = tempoAnchorTravelPx(pass, id)
+      if (travel === null) {
+        dbg(`[Preview] tempo ${id}: cannot measure how far its anchor has travelled since the glyph`
+          + ` was drawn (an address that drew no ink) — so this frame owes a real render`)
       }
-      return agreed
+      return travel !== null
     },
     draw: ({ pass, placements, staffIds }) => {
       applyTempoNudges(pass, placements)

@@ -24,12 +24,28 @@ import type { RenderPass } from './RenderPass'
 const LINE_ATTR = 'data-tempo-line'
 /** The hand nudge, `"x,y"` in local px — client #13. */
 const OFFSET_ATTR = 'data-tempo-offset'
+/**
+ * ⭐⭐ **HOW FAR THE MARK'S BASE HAS TRAVELLED SINCE THE GLYPH WAS DRAWN**, local px — a preview's
+ * third contribution (`./tempoAnchorInk`), and 0 on every full render.
+ *
+ * ⚠️ It is kept APART from {@link OFFSET_ATTR} even though both land in the translate's `x`, because
+ * only one of them moves what the mark points AT. A hand nudge slides the ink away from its anchor
+ * and the attachment guide stretches; a re-anchor moves the anchor itself and the guide's far end
+ * goes with it (his report, 2026-08-31: *"the anchor line is not updating during the drag"*). Fold
+ * the two into one number and that distinction is gone.
+ *
+ * ⚠️⚠️ ⛔ Not `data-tempo-anchor`, which is the ADDRESS the glyph's `x` was measured from
+ * (`./tempoAnchorInk.TEMPO_ANCHOR_ATTR`) and which only a real draw may write.
+ */
+const BASE_ATTR = 'data-tempo-base'
 
-/** What the mark's `transform` is made of. Its sum is `(x, y + line)`. */
+/** What the mark's `transform` is made of. Its sum is `(x + base, y + line)`. */
 interface MarkTransform {
   x: number
   y: number
   line: number
+  /** The anchor's own travel — see {@link BASE_ATTR}. */
+  base: number
 }
 
 const finite = (value: number): number => (Number.isFinite(value) ? value : 0)
@@ -37,7 +53,12 @@ const finite = (value: number): number => (Number.isFinite(value) ? value : 0)
 /** What was last written to this element — all zeros for a freshly drawn one. */
 function componentsOf(el: SVGGraphicsElement): MarkTransform {
   const [x, y] = (el.getAttribute(OFFSET_ATTR) ?? '').split(',').map(Number)
-  return { x: finite(x), y: finite(y), line: finite(Number(el.getAttribute(LINE_ATTR))) }
+  return {
+    x: finite(x),
+    y: finite(y),
+    line: finite(Number(el.getAttribute(LINE_ATTR))),
+    base: finite(Number(el.getAttribute(BASE_ATTR))),
+  }
 }
 
 /** Write the composed transform, and move the registry box by the CHANGE it caused. */
@@ -45,8 +66,13 @@ function write(pass: RenderPass, id: string, el: SVGGraphicsElement, next: MarkT
   const was = componentsOf(el)
   el.setAttribute(OFFSET_ATTR, `${next.x},${next.y}`)
   el.setAttribute(LINE_ATTR, `${next.line}`)
-  el.setAttribute('transform', `translate(${next.x}, ${next.y + next.line})`)
-  pass.elementRegistry.shiftById(id, next.x - was.x, next.y + next.line - (was.y + was.line))
+  el.setAttribute(BASE_ATTR, `${next.base}`)
+  el.setAttribute('transform', `translate(${next.x + next.base}, ${next.y + next.line})`)
+  pass.elementRegistry.shiftById(id,
+    next.x + next.base - (was.x + was.base), next.y + next.line - (was.y + was.line))
+  // ⭐⭐ …and the guide's FAR end travels with the base alone — ⛔ never with the sum, which would
+  //    carry the anchor along with the ink and make the line a stick of constant length.
+  if (next.base !== was.base) pass.elementRegistry.repointGuidesById(id, next.base - was.base)
 }
 
 /**
@@ -77,4 +103,25 @@ export function setTempoMarkOffset(
   y: number,
 ): void {
   write(pass, id, el, { ...componentsOf(el), x, y })
+}
+
+/**
+ * ⭐⭐ **Move the mark by how far its ANCHOR has travelled since the glyph was drawn**, in local px —
+ * a PREVIEW's contribution and nobody else's (`./tempoNudgePass` ← `./tempoAnchorInk`); a full render
+ * draws the mark at its anchor and this is 0.
+ *
+ * ⭐ It is a component of its own rather than a term added to {@link setTempoMarkOffset}'s `x`
+ * because the attachment GUIDE tells the two apart: this moves what the mark points at, a nudge does
+ * not (see {@link BASE_ATTR}).
+ *
+ * ⭐ **SET, never add** — the same rule the whole file is built on: this pass runs on every frame of
+ * a drag over a group that still carries the last frame's answer.
+ */
+export function setTempoMarkBase(
+  pass: RenderPass,
+  id: string,
+  el: SVGGraphicsElement,
+  base: number,
+): void {
+  write(pass, id, el, { ...componentsOf(el), base })
 }

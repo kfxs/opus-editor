@@ -381,3 +381,96 @@ describe('ElementRegistry.staffRuns — the run’s own ink', () => {
     expect([second.inkTop, second.inkBottom]).toEqual([200, 280])
   })
 })
+
+describe('ElementRegistry tempo anchors — capture and replay', () => {
+  it('⭐ a bar’s anchors come back when the bar is REUSED rather than redrawn', () => {
+    const registry = new ElementRegistry()
+    registry.registerTempoAnchors(2, [{ beat: 0, x: 400 }, { beat: 0.25, x: 430 }])
+    const captured = registry.tempoAnchorsOf(2)
+
+    // What a render does: wipe the lot, then replay the bars it chose not to draw.
+    registry.clear()
+    expect(registry.tempoAnchorX(2, 0), 'the wipe really did take them').toBeNull()
+    registry.addTempoAnchors(2, captured)
+    expect(registry.tempoAnchorX(2, 0)).toBe(400)
+    expect(registry.tempoAnchorX(2, 0.25)).toBe(430)
+  })
+
+  it('⭐ a reused bar that MOVED carries its anchors with it — dx, measured from where it was drawn', () => {
+    const registry = new ElementRegistry()
+    registry.registerTempoAnchors(2, [{ beat: 0, x: 400 }])
+    const captured = registry.tempoAnchorsOf(2)
+    registry.clear()
+    registry.addTempoAnchors(2, captured, -60)
+    expect(registry.tempoAnchorX(2, 0)).toBe(340)
+    // ⛔ Twice from the SAME capture is the same answer — the snapshot is never mutated, so a bar
+    //    that moves on every frame of a drag accumulates nothing.
+    registry.clear()
+    registry.addTempoAnchors(2, captured, -60)
+    expect(registry.tempoAnchorX(2, 0)).toBe(340)
+  })
+
+  it('⛔ the capture is one bar’s, and ⛔ a replay never re-scales what is already in page space', () => {
+    const registry = new ElementRegistry()
+    registry.withScale(0.5, () => registry.registerTempoAnchors(2, [{ beat: 0, x: 400 }]))
+    registry.registerTempoAnchors(3, [{ beat: 0, x: 900 }])
+    expect(registry.tempoAnchorsOf(2), 'the staff’s scale is applied ONCE, at registration')
+      .toEqual([{ beat: 0, x: 200 }])
+    const captured = registry.tempoAnchorsOf(2)
+    registry.clear()
+    registry.withScale(0.5, () => registry.addTempoAnchors(2, captured))
+    expect(registry.tempoAnchorX(2, 0), '⛔ not 100 — the replay is not a registration').toBe(200)
+  })
+})
+
+/**
+ * ⭐⭐ **THE TWO ENDS OF AN ATTACHMENT GUIDE MOVE FOR DIFFERENT REASONS**, and the registry is where
+ * that distinction is enforced: `shiftById` is *the element moved*, `repointGuidesById` is *what it
+ * hangs off moved*.
+ *
+ * 🚨 His report, 2026-08-31, on the tempo mark's snap drag: *"the anchor line is not updating during
+ * the drag"*. The drag hands the mark to the next onset, so the place it points at genuinely moves —
+ * and every pass a preview may run could only reach the `from` end.
+ */
+describe('ElementRegistry guides — which end a move is allowed to touch', () => {
+  const withGuide = () => {
+    const registry = new ElementRegistry()
+    registry.add({ type: 'tempo', id: 'T1', bbox: { x: 100, y: 50, width: 40, height: 12 },
+      guides: [{ from: { x: 100, y: 62 }, to: { x: 100, y: 120 } }] })
+    return registry
+  }
+
+  it('⛔ shiftById moves the element’s end and LEAVES the anchor — the guide stretches', () => {
+    const registry = withGuide()
+    registry.shiftById('T1', 30, 0)
+    const [guide] = registry.getById('T1')!.guides!
+    expect(guide.from.x, 'the ink travelled').toBe(130)
+    expect(guide.to.x, 'and the thing it hangs off did not').toBe(100)
+  })
+
+  it('⭐⭐ repointGuidesById moves the ANCHOR’s end and leaves the ink', () => {
+    const registry = withGuide()
+    registry.repointGuidesById('T1', 100)
+    const [guide] = registry.getById('T1')!.guides!
+    expect(guide.to.x).toBe(200)
+    expect(guide.from.x, 'the ink is the transform’s business, ⛔ not this one’s').toBe(100)
+    expect(registry.getById('T1')!.bbox.x, 'and so is the box').toBe(100)
+  })
+
+  it('⭐ …in LOCAL pixels, so a reduced staff is scaled the same way the box is', () => {
+    const registry = new ElementRegistry()
+    registry.withScale(0.5, () => registry.add({ type: 'tempo', id: 'T2',
+      bbox: { x: 100, y: 50, width: 40, height: 12 },
+      guides: [{ from: { x: 100, y: 62 }, to: { x: 100, y: 120 } }] }))
+    registry.withScale(0.5, () => registry.repointGuidesById('T2', 100))
+    // Registered at half scale (to.x 50), then moved by 100 local px = 50 page px.
+    expect(registry.getById('T2')!.guides![0].to.x).toBe(100)
+  })
+
+  it('⛔ says nothing about an element that draws no guide', () => {
+    const registry = new ElementRegistry()
+    registry.add({ type: 'tempo', id: 'T3', bbox: { x: 0, y: 0, width: 1, height: 1 } })
+    expect(() => registry.repointGuidesById('T3', 10)).not.toThrow()
+    expect(() => registry.repointGuidesById('nope', 10)).not.toThrow()
+  })
+})

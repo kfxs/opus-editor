@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import type { RenderPass } from './RenderPass'
-import { placeTempoMark, setTempoMarkOffset } from './tempoMarkTransform'
+import { placeTempoMark, setTempoMarkBase, setTempoMarkOffset } from './tempoMarkTransform'
 
 /**
  * WHO OWNS A TEMPO MARK'S TRANSFORM — the composition the ladder and the hand nudge share
@@ -17,9 +17,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 
 function fixture() {
   const shiftById = vi.fn()
-  const pass = { elementRegistry: { shiftById } } as unknown as RenderPass
+  const repointGuidesById = vi.fn()
+  const pass = { elementRegistry: { shiftById, repointGuidesById } } as unknown as RenderPass
   const el = document.createElementNS(SVG_NS, 'g') as SVGGraphicsElement
-  return { pass, el, shiftById, transform: () => el.getAttribute('transform') }
+  return { pass, el, shiftById, repointGuidesById, transform: () => el.getAttribute('transform') }
 }
 
 describe('placeTempoMark — the ladder SETS the row', () => {
@@ -77,5 +78,67 @@ describe('setTempoMarkOffset — the hand nudge', () => {
     placeTempoMark(pass, 't1', el, -20)
     expect(transform()).toBe('translate(4, -23)')
     expect(shiftById).toHaveBeenCalledWith('t1', 0, -8)
+  })
+
+  it('⛔ …and it does NOT move the guide’s far end — a nudge slides the ink AWAY from the anchor', () => {
+    const { pass, el, repointGuidesById } = fixture()
+    setTempoMarkOffset(pass, 't1', el, 4, -3)
+    expect(repointGuidesById).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ⭐⭐ **THE THIRD COMPONENT — how far the mark's ANCHOR has moved since the glyph was drawn**, which
+ * only a preview writes (`./tempoNudgePass` ← `./tempoAnchorInk`).
+ *
+ * 🚨 His report, 2026-08-31, on the snap drag: *"the anchor line is not updating during the drag"*.
+ * The travel used to be folded into the nudge's `x`, so the two were one number and the attachment
+ * guide could not tell them apart — it stayed pinned to the onset the mark had been drawn at while
+ * the mark itself walked to the next one.
+ */
+describe('setTempoMarkBase — the anchor’s own travel', () => {
+  it('lands in the same translate as the nudge', () => {
+    const { pass, el, transform } = fixture()
+    setTempoMarkOffset(pass, 't1', el, 4, -3)
+    setTempoMarkBase(pass, 't1', el, 100)
+    expect(transform()).toBe('translate(104, -3)')
+  })
+
+  it('⭐⭐ …but it CARRIES THE GUIDE’S FAR END, by the travel alone', () => {
+    const { pass, el, repointGuidesById } = fixture()
+    setTempoMarkOffset(pass, 't1', el, 4, -3)
+    setTempoMarkBase(pass, 't1', el, 100)
+    // ⛔ 104 would drag the anchor along with the ink and make the guide a stick of fixed length.
+    expect(repointGuidesById).toHaveBeenCalledWith('t1', 100)
+  })
+
+  it('⭐ SETS rather than adds — a drag frame runs over the last frame’s answer', () => {
+    const { pass, el, shiftById, repointGuidesById, transform } = fixture()
+    setTempoMarkBase(pass, 't1', el, 100)
+    shiftById.mockClear()
+    repointGuidesById.mockClear()
+    setTempoMarkBase(pass, 't1', el, 100)
+    expect(transform()).toBe('translate(100, 0)')
+    expect(shiftById).toHaveBeenCalledWith('t1', 0, 0)
+    expect(repointGuidesById, 'nothing moved, so nothing is repointed').not.toHaveBeenCalled()
+  })
+
+  it('⭐ a frame that snaps ON corrects both by exactly the change', () => {
+    const { pass, el, shiftById, repointGuidesById } = fixture()
+    setTempoMarkBase(pass, 't1', el, 100)
+    shiftById.mockClear()
+    repointGuidesById.mockClear()
+    setTempoMarkBase(pass, 't1', el, 200)
+    expect(shiftById).toHaveBeenCalledWith('t1', 100, 0)
+    expect(repointGuidesById).toHaveBeenCalledWith('t1', 100)
+  })
+
+  it('⭐ and the drop takes it back to zero, guide and all', () => {
+    // A full render draws the mark at its own anchor, so the travel is 0 and the guide is a stub.
+    const { pass, el, repointGuidesById } = fixture()
+    setTempoMarkBase(pass, 't1', el, 100)
+    repointGuidesById.mockClear()
+    setTempoMarkBase(pass, 't1', el, 0)
+    expect(repointGuidesById).toHaveBeenCalledWith('t1', -100)
   })
 })

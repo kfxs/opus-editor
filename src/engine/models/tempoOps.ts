@@ -186,9 +186,11 @@ export function setTempoAtSlotKeepingOffset(score: Score, id: string, target: St
 }
 
 /**
- * ⭐ **PUT THE MARK ON `target`** — the write a DRAG lands with when it leaves the mark's own system
- * (`interactions/tempoWalk`), where the walk's crossings use the keep-the-nudge twin above. It takes
- * the whole-stop rule: the sideways nudge goes, because a jump is the user saying *"not there"*.
+ * ⭐ **PUT THE MARK ON `target`** — ⭐⭐ since 2026-08-31 this is EVERY write a DRAG makes
+ * (`interactions/tempoDrag`: the mouse snaps from anchor to anchor and has no in-between), as well as
+ * the landing when it leaves the mark's own system. The KEYS' walk still uses the keep-the-nudge twin
+ * above. It takes the whole-stop rule: the sideways nudge goes, because arriving on another element
+ * is the user saying *"not there"*.
  *
  * ⚠️ Declines (false) for an id no longer in the score, a target that is not a bar of it, the mark's
  * own address (nothing to do — and a caller that repainted on a true would repaint every frame), and

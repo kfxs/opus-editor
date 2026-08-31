@@ -812,9 +812,95 @@ export class ElementRegistry {
    */
   private painted: Set<string> = new Set()
 
+  /**
+   * ⭐⭐ **WHERE A TEMPO MARK ANCHORED AT THIS BEAT IS DRAWN** — `measure:beat` → x, filled by the
+   * one function that decides it (`rendering/TempoLayout.anchorX`) as each bar is drawn.
+   *
+   * 🚨🚨 **IT EXISTS BECAUSE TWO FUNCTIONS WERE ANSWERING ONE QUESTION**, and his report of
+   * 2026-08-31 is what that costs: *"i'm moving the hand and the tempo is not moving on certain
+   * occasions"*. A dragged mark is `drawn = base(anchor) + offset`, and the walk has to know `base`
+   * to split the hand's travel between the two terms — but it had no way to ask, so it measured
+   * NOTEHEAD to NOTEHEAD off this registry while the engraver placed the mark at *the first
+   * notational element at-or-after the beat*, which at a downbeat that prints a meter is the TIME
+   * SIGNATURE (LilyPond, MuseScore and Verovio all do the same; see `anchorX`). The two differ by
+   * ~45 px in bar 1 of the Prelude, measured — so the offset was written from an origin the drawing
+   * does not use, and the mark sat that far from the hand until the drop re-drew it.
+   *
+   * ⭐ So the render publishes the answer and the walk asks. ⛔ Not a copy of the rule in the
+   * interactions layer: a second implementation is how the two drifted apart in the first place.
+   *
+   * ⚠️ Every ONSET of the bar, ⛔ not just the beats a mark sits on — the walk needs the x of the
+   * stop it is moving TOWARDS, which by definition has no mark on it yet.
+   */
+  private tempoAnchors: Map<string, number> = new Map()
+
   /** Composite key for {@link staffGeometries}: a measure has one geometry per staff. */
   private geomKey(measure: number, staff: number): string {
     return `${measure}:${staff}`
+  }
+
+  /** Composite key for {@link tempoAnchors}. ⚠️ The beat as a NUMBER, matching the `beat` every
+   *  other row here carries (`fracToNumber`), so a caller never has to hold a Fraction. */
+  private tempoKey(measure: number, beat: number): string {
+    return `${measure}:${beat}`
+  }
+
+  /**
+   * The render's answer for one bar: each onset's beat and the x a tempo mark anchored there is
+   * drawn at, in the staff's own space (scaled here like every other x).
+   */
+  registerTempoAnchors(measure: number, anchors: readonly { beat: number; x: number }[]): void {
+    for (const anchor of anchors) {
+      this.tempoAnchors.set(this.tempoKey(measure, anchor.beat), anchor.x * this.scale)
+    }
+  }
+
+  /**
+   * ⭐ Where a tempo mark anchored at `measure:beat` was drawn, or **null** when this render did not
+   * draw that bar — the no-guessing rule: a caller that cannot be told must not invent a distance.
+   */
+  tempoAnchorX(measure: number, beat: number): number | null {
+    return this.tempoAnchors.get(this.tempoKey(measure, beat)) ?? null
+  }
+
+  /**
+   * ⭐⭐ **ONE BAR'S ANCHORS, SO A REUSED BAR CAN PUT THEM BACK** — {@link sliceFrom}/{@link addAll}
+   * for this map, and the third site `resetPerRenderState` warns every new map about.
+   *
+   * 🚨🚨 **His report, 2026-08-31**: *"anchoring to notes… this is incorrect and while the hand
+   * moving it gets stuck"*, with a screenshot of a mark drawn most of a bar away from the note its
+   * guide line pointed at. Measured in his log: the walk crossed every stop of bar 1 and then read
+   * `next m2b0/1@—` and stopped re-anchoring for good, while the offset ran to **29 staff-spaces**.
+   *
+   * ⭐ The cause is not the walk — its rule is his own (*"till the beginning of the ink doesn't reach
+   * the next anchor point, nothing; when it reaches it, re-anchor"*) and it needs the next anchor's
+   * x to test it. A bar whose shape key is unchanged is REUSED rather than redrawn
+   * (`VexFlowRenderer.replaySnapshot`), so `TempoLayout.registerTempoAnchors` never runs for it and
+   * this map answered null for every bar but the one being edited. ⛔ Null then means *"the picture
+   * cannot say"* and the walk correctly declines — for ever, because the next full render reuses
+   * that bar too.
+   */
+  tempoAnchorsOf(measure: number): { beat: number; x: number }[] {
+    const out: { beat: number; x: number }[] = []
+    for (const [key, x] of this.tempoAnchors) {
+      const split = key.lastIndexOf(':')
+      if (Number(key.slice(0, split)) === measure) out.push({ beat: Number(key.slice(split + 1)), x })
+    }
+    return out
+  }
+
+  /**
+   * Re-file anchors captured by {@link tempoAnchorsOf}, shifted by `dx` when the bar merely moved.
+   *
+   * ⛔ **Already in the page's own space, so ⛔ NOT scaled again** — the same contract as
+   * {@link addAll} against {@link add}: capture happens after {@link registerTempoAnchors} has
+   * applied the staff's scale, and the offset is measured from where the bar was *drawn*, so a bar
+   * that moves ten times still carries one exact shift.
+   */
+  addTempoAnchors(measure: number, anchors: readonly { beat: number; x: number }[], dx = 0): void {
+    for (const anchor of anchors) {
+      this.tempoAnchors.set(this.tempoKey(measure, anchor.beat), anchor.x + dx)
+    }
   }
 
   /**
@@ -823,6 +909,7 @@ export class ElementRegistry {
   clear(): void {
     this.elements = []
     this.staffGeometries.clear()
+    this.tempoAnchors.clear()
     this.painted.clear()
   }
 
@@ -1099,6 +1186,31 @@ export class ElementRegistry {
         to: g.to,
       }))
     }
+  }
+
+  /**
+   * ⭐⭐ **MOVE THE `to` ENDS — the one thing {@link shiftById} may never do, for the one reason it
+   * may be done: the element changed WHAT IT HANGS OFF.**
+   *
+   * 🚨 His report, 2026-08-31, on the tempo mark's new snap drag: *"the anchor line is not updating
+   * during the drag"*. A preview may only rewrite a mark's transform, and that is `shiftById`'s
+   * whole world — the box and the guides' `from` ends. Correct for a NUDGE, where the far end
+   * staying put is the guide's entire point. ⛔ Wrong for a RE-ANCHOR: the drag hands the mark to the
+   * next onset, so the place it points at genuinely moved, and a line still drawn to the old one is
+   * saying something false about the model.
+   *
+   * ⚠️ **`dx` is the ANCHOR's travel, ⛔ not the element's** — the two differ by whatever offset the
+   * mark carries, and passing the element's would drag the far end along with the ink and turn the
+   * guide into a stick of constant length. Local (pre-transform) pixels, exactly like
+   * {@link shiftById}, so the caller does not have to know the staff's scale.
+   */
+  repointGuidesById(id: string, dx: number, dy = 0): void {
+    const entry = this.getById(id)
+    if (!entry?.guides) return
+    entry.guides = entry.guides.map(g => ({
+      from: g.from,
+      to: { x: g.to.x + dx * this.scale, y: g.to.y + dy * this.scale },
+    }))
   }
 
   /**

@@ -309,12 +309,12 @@ describe('🚨 a mark that crossed to the OTHER STAFF is previewed on the staff 
  * nothing: it re-applies the composer's nudge (`./tempoNudgePass`) and re-runs the ladder
  * (`./tempoLinePass`), both of which the full render runs anyway.
  *
- * 🚨🚨 **And that only works while the mark stays in its bar.** His report, 2026-08-22: *"while
- * dragging tempo refuses to move and after mouse release it lands in the cursor"*. A tempo drag's
- * HORIZONTAL is a re-anchor — his trace is `[Tempo] walked onto its next stop` on every frame, with
- * the latch dropping the offset back to ~0 each time — and no transform can carry a glyph into a
- * different bar's group. It sat still for the whole gesture and jumped on the drop, which was the
- * full render finally drawing it where it belonged.
+ * 🚨🚨 **A tempo drag's HORIZONTAL is a RE-ANCHOR** — his trace is `[Tempo] walked onto its next
+ * stop` on nearly every frame — so what this family may preview is decided by what a transform can
+ * absorb. ⚠️⚠️ **That answer changed on 2026-08-31** (his call: the 2026-08-22 refusal *"was the
+ * wrong fix"*): a frame now absorbs the ANCHOR'S OWN TRAVEL as well as the offset
+ * (`./tempoAnchorInk`), so a crossing previews. ⛔ What still refuses is another SYSTEM, because the
+ * travel is horizontal and a row is not.
  */
 describe('the TEMPO family is moved, not redrawn', () => {
   let tempoRenderer: VexFlowRenderer
@@ -356,26 +356,75 @@ describe('the TEMPO family is moved, not redrawn', () => {
       .toBe(before!.replace(/^translate\(0,/, 'translate(30,'))
   })
 
-  it('🚨🚨 …and a RE-ANCHOR refuses, because no transform reaches another bar\'s group', () => {
-    expect(mark().closest('.vf-measure')?.id, 'drawn in bar 1 to begin with').toMatch(/^vf-m1-s/)
+  /**
+   * ⭐⭐ Where the last render would put a mark ANCHORED at `measure@beat` — the engraver's own answer,
+   * published by `TempoLayout` and read back here (`ElementRegistry.tempoAnchorX`).
+   *
+   * 🚨 ⛔ **NOT the notehead** (2026-08-31): `anchorX` puts a downbeat mark on the bar's TIME
+   * SIGNATURE, so the two differ by the whole meter-to-first-note distance in bar 1 — which is
+   * exactly the gap that had the mark sitting 45 px from his hand. The pass and this spec must ask
+   * the same function, or the spec cannot tell a working preview from that bug.
+   */
+  const anchorAt = (measure: number, beat: number): number =>
+    tempoRenderer.getElementRegistry().tempoAnchorX(measure, beat)!
 
-    setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 3, beat: frac(0, 1) })
-
-    // ⛔ The caller must render for real. Before this refusal the frame reported success and moved
-    //   nothing — the mark sat still for the whole drag and jumped on the drop.
-    expect(tempoRenderer.previewMarks('tempo', tempoId),
-      'the glyph is in bar 1 and the mark now belongs to bar 3').toBe(false)
-  })
-
-  it('🚨🚨 …and so does a re-anchor WITHIN the bar — the base moved, and only the offset is ours', () => {
-    // His report, 2026-08-22: the drag *"gets stuck at certain points"*. Every crossing inside a bar
-    // passed the first version of this vouch (same bar, same group), so the frame wrote the latch's
-    // offset of 0 against a base still measured from the PREVIOUS onset — and the ink jumped back
-    // there. One sawtooth per stop, which is what the drag looked like.
+  it('🚨⭐⭐ a RE-ANCHOR previews too — the frame absorbs the ANCHOR\'S TRAVEL', () => {
+    // ⚠️⚠️ **THE RULE INVERTED, 2026-08-31, and the spec follows it.** This used to refuse: the
+    // glyph's x was measured from the old anchor and the frame could only rewrite the offset, so an
+    // offset of 0 snapped the mark back to the beat it was engraved at (his 2026-08-22 sawtooth).
+    // The refusal was the wrong cut — his call: *"i think it was the wrong fix to the issue described
+    // here"* — because a horizontal drag re-anchors on most frames, so it switched the preview off
+    // and cost a 33–46 ms full render per crossing (measured, `interactions/dragTrace`). The frame
+    // now absorbs the missing half (`./tempoAnchorInk`) and the identity holds.
+    const before = mark().getAttribute('transform')!
     setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 1, beat: frac(2, 1) })
 
+    expect(tempoRenderer.previewMarks('tempo', tempoId), 'it took the cheap path').toBe(true)
+    // ⭐ THE CLAIM: with no offset of its own the mark is drawn AT its new onset, so the transform
+    //   carries exactly the distance between the two onsets — measured off the render, not assumed.
+    const travel = anchorAt(1, 2) - anchorAt(1, 0)
+    expect(travel, 'the fixture really did move it').toBeGreaterThan(1)
+    expect(mark().getAttribute('transform'))
+      .toBe(before.replace(/^translate\(0,/, `translate(${travel},`))
+  })
+
+  it('⭐ …and another BAR of the same system is the same move — a translate is not clipped', () => {
+    expect(mark().closest('.vf-measure')?.id, 'drawn in bar 1 to begin with').toMatch(/^vf-m1-s/)
+    const before = mark().getAttribute('transform')!
+    setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: 3, beat: frac(0, 1) })
+
+    // ⛔ The bar's `<g>` is not a boundary: the glyph stays in bar 1's group and is translated over
+    //   bar 3. What matters is that both addresses were drawn on ONE ROW.
+    expect(tempoRenderer.previewMarks('tempo', tempoId)).toBe(true)
+    expect(mark().getAttribute('transform'))
+      .toBe(before.replace(/^translate\(0,/, `translate(${anchorAt(3, 0) - anchorAt(1, 0)},`))
+  })
+
+  it('🚨🚨 …but ANOTHER SYSTEM still refuses — the travel is horizontal and a row is not', () => {
+    // ⛔ Two systems' x's are not one ruler, and no translate puts the mark on the other one's row.
+    //   The bar is found from the RENDER rather than assumed, so a change to the casting-off cannot
+    //   quietly turn this case into the one above.
+    const rowOf = (m: number) =>
+      tempoRenderer.getElementRegistry().getStaffGeometry(m, 0)?.lineYPositions[0]
+    let below = 0
+    for (let m = 2; m <= 4; m++) if (!below && rowOf(m) !== rowOf(1)) below = m
+    if (!below) {
+      // The fixture fits on one system — add bars until the caster puts one on the next.
+      for (let i = 0; i < 16 && !below; i++) {
+        const m = tempoModel.getScore().measures.length + 1
+        tempoModel.addMeasure()
+        for (let b = 0; b < 4; b++) {
+          tempoModel.addNote({ step: 'C', octave: 5, duration: 'q', measure: m, beat: frac(b, 1) })
+        }
+        tempoRenderer.renderScore(tempoModel.getScore())
+        if (rowOf(m) !== undefined && rowOf(m) !== rowOf(1)) below = m
+      }
+    }
+    expect(below, 'the fixture must reach a second system for this case to mean anything').toBeGreaterThan(0)
+
+    setTempoAtSlot(tempoModel.getScore(), tempoId, { measure: below, beat: frac(0, 1) })
     expect(tempoRenderer.previewMarks('tempo', tempoId),
-      'same bar, but the glyph was drawn from beat 0').toBe(false)
+      'the caller must render for real').toBe(false)
   })
 })
 

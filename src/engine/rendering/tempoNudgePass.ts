@@ -33,8 +33,10 @@ import type { Stave } from 'vexflow'
 import type { Column } from '@/engine/layout/spacing'
 import type { RenderPass } from './RenderPass'
 import { tempoOffsetOverrideOf } from '@/engine/models/engravingOverrides'
-import { setTempoMarkOffset } from './tempoMarkTransform'
+import { setTempoMarkBase, setTempoMarkOffset } from './tempoMarkTransform'
+import { tempoAnchorTravelPx } from './tempoAnchorInk'
 import { staffSpacesToPixels } from './staffSpace'
+import { dbg } from '@/utils/debug'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./tempoLinePass` already declares. */
 interface TempoNudgePlacement {
@@ -82,11 +84,37 @@ export function applyTempoNudges(
         const el = svg.querySelector(`#vf-${mark.id}`) as SVGGraphicsElement | null
         if (!el) continue
 
+        // ⭐⭐ **THE ANCHOR'S OWN TRAVEL, and it is the half this pass used to be missing**
+        // (`./tempoAnchorInk`, 2026-08-31). A crossing moves the mark's base and its offset together
+        // so the drawing stands still; the glyph's base is baked in at draw time, so a preview that
+        // wrote only the offset put the mark back on the beat it was engraved at. ⛔ A null is
+        // "the picture cannot say" and the mark is left exactly where it is — `./markPreviewPass`
+        // asks the same question first and refuses the whole frame, so this is the belt to that
+        // brace and ⛔ never a 0 guessed in its place.
+        //
+        // ⚠️ PAGE pixels out of the registry, LOCAL pixels into the transform (it rides inside the
+        //    staff's `scale(k)` group) — the one conversion, and it is the same `scale` the registry
+        //    is told to apply back.
+        const travel = tempoAnchorTravelPx(pass, mark.id)
+        if (travel === null) continue
+
         // 🚨 `offset.y` is OUTWARD (+up), the one offset in the compartment that is. Screen y grows
         //    downward, so it is negated exactly here — the same negation `drawTempoMarks` makes.
         const offset = tempoOffsetOverrideOf(pass.score, mark.id)
-        setTempoMarkOffset(pass, mark.id, el,
-          staffSpacesToPixels(offset?.x ?? 0, placement.stave),
+        const base = travel / (placement.scale || 1)
+        const x = staffSpacesToPixels(offset?.x ?? 0, placement.stave)
+        // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — the two halves and their sum, per frame. His
+        // report survives a trace that says the model is perfect, and BOTH his logs put the whole
+        // residual in the FIRST accepted frame (46px against a 45.7px first move; 1px against 1.4px).
+        // So the question is now which half this pass wrote on that frame, and only this can say.
+        dbg(`[Preview] tempo ${mark.id}: base+travel ${travel.toFixed(1)}px (scale ${placement.scale})`
+          + ` + offset ${(offset?.x ?? 0).toFixed(3)}ss → transform x ${(x + base).toFixed(1)} local px`)
+        // ⭐⭐ **TWO COMPONENTS, ⛔ not one sum** (2026-08-31, his report: *"the anchor line is not
+        //    updating during the drag"*). They land in the same translate, but only the BASE moves
+        //    what the mark is attached to — so the attachment guide's far end follows that one and
+        //    ignores the nudge, which is `./tempoMarkTransform`'s whole reason for keeping them apart.
+        setTempoMarkBase(pass, mark.id, el, base)
+        setTempoMarkOffset(pass, mark.id, el, x,
           staffSpacesToPixels(-(offset?.y ?? 0), placement.stave))
       }
     })

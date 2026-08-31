@@ -398,6 +398,14 @@ interface MeasureSnapshot {
   fanMemberAnchors: [string, FanMemberAnchor][]
   tuplets: [string, ScoreTuplet][]
   dynamics: [string, Annotation][]
+  /**
+   * ⭐ **Where a tempo mark anchored at each of this bar's onsets would be drawn**
+   * (`ElementRegistry.tempoAnchorsOf`) — captured for the same reason `elements` is: the map is
+   * cleared wholesale every render and only a bar that is REDRAWN refills it, so without this a
+   * reused bar has no anchor x and the tempo walk can never cross into it (his report, 2026-08-31 —
+   * the registry method carries it).
+   */
+  tempoAnchors: { beat: number; x: number }[]
 }
 
 /** Every FANNED MEMBER pitch id in a measure — the ids `captureById`'s default list cannot reach,
@@ -4107,6 +4115,9 @@ export class VexFlowRenderer {
         fanMemberAnchors: this.captureById(plan.view, this.fanMemberAnchorMap, fanMemberIdsOf(plan.view)),
         tuplets: this.captureById({ ...plan.view, slots: [] }, this.tupletObjectMap, plan.view.tuplets?.map(t => t.id)),
         dynamics: this.captureById({ ...plan.view, slots: [] }, this.dynamicObjectMap, plan.view.dynamics?.map(d => d.id)),
+        // ⚠️ Keyed by MEASURE, not by (measure, staff): a tempo mark is engraved once above the top
+        //    staff, so only that lane's draw fills them and the other lane captures an empty list.
+        tempoAnchors: this.elementRegistry.tempoAnchorsOf(plan.measureNumber),
       })
     }
 
@@ -4561,6 +4572,9 @@ export class VexFlowRenderer {
     }
 
     this.elementRegistry.addAll(snapshot.elements, dx, dy)
+    // ⭐ The tempo walk's ruler for this bar, back with the rest of the bookkeeping — `dx` only,
+    //   since an anchor is an x (`ElementRegistry.addTempoAnchors`, which carries the report).
+    this.elementRegistry.addTempoAnchors(snapshot.measureNumber, snapshot.tempoAnchors, dx)
     // A reused bar is painted exactly when it still HAS a group: the culled branch of the reuse
     // decision replays a bar whose `<g>` is null, and that one is invisible however complete its
     // registry entries look (`ElementRegistry.painted`).

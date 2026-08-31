@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { MusicEngine } from '../engine/MusicEngine'
-import { dragTempo, walkTempo } from './tempoWalk'
+import { walkTempo } from './tempoWalk'
 import { tempoOffsetOverrideOf } from '../engine/models/engravingOverrides'
 import { fracCreate as frac, fracToNumber } from '../utils/fraction'
 
 /**
  * ←/→ moves a selected tempo mark's INK, and carries the ANCHOR along once the ink arrives.
+ *
+ * ⚠️ **THE KEYS ONLY, since 2026-08-31** — the mouse is a SNAP now and has its own module and its own
+ * chapter (`tempoDrag.test.ts`, where these drag cases went).
  *
  * Subject: {@link tempoWalk} — the PORT beside this file; the arithmetic it hands to is
  * `./markWalk`'s and is proven from both ends (the dynamic's chapter exercises the same code).
@@ -14,7 +17,20 @@ import { fracCreate as frac, fracToNumber } from '../utils/fraction'
  * (`reference_jsdom_cannot_measure_glyphs`). The notes sit 100 px apart at 10 px per staff-space, so
  * the gap is exactly 10 staff-spaces and a 1-space press has to be taken ten times to cross it.
  */
-const drawn = vi.hoisted(() => ({ entries: [] as { type: string; id?: string; staff?: number; bbox: { x: number; y: number; width: number; height: number }; staffSpacePx?: number }[] }))
+const drawn = vi.hoisted(() => ({
+  entries: [] as { type: string; id?: string; staff?: number; bbox: { x: number; y: number; width: number; height: number }; staffSpacePx?: number }[],
+  /**
+   * ⭐⭐ **WHERE THE ENGRAVER WOULD PUT A MARK ANCHORED AT `measure:beat`** — what the render
+   * publishes (`TempoLayout` → `ElementRegistry.tempoAnchorX`) and the walk now asks for, 2026-08-31.
+   *
+   * 🚨 It is a SEPARATE table from the noteheads on purpose, because that is the whole point: a
+   * downbeat mark anchors to the bar's TIME SIGNATURE, ⛔ not to the note (`TempoLayout.anchorX`), so
+   * the two lists genuinely differ and a fixture that reused one for both could not tell the walk
+   * apart from the bug it had. The default fills it FROM the noteheads (no meter in this fixture);
+   * the meter case sets it by hand.
+   */
+  anchors: new Map<string, number>(),
+}))
 
 vi.mock('../engine/rendering/VexFlowRenderer', () => ({
   VexFlowRenderer: class {
@@ -25,6 +41,7 @@ vi.mock('../engine/rendering/VexFlowRenderer', () => ({
       registerStaffGeometry: vi.fn(), getStaffGeometry: vi.fn(() => null),
       getByMeasure: vi.fn(() => []),
       getByType: (t: string) => drawn.entries.filter(e => e.type === t),
+      tempoAnchorX: (measure: number, beat: number) => drawn.anchors.get(`${measure}:${beat}`) ?? null,
       // One system in this fixture: nothing to jump to, so every case is about the WALK and the
       // LATCH. `markSystemJump.test.ts` owns the crossing between systems.
       staffBands: () => [{ top: 240, bottom: 280 }],
@@ -62,6 +79,9 @@ describe('walkTempo', () => {
       type: 'tempo', id: markId, bbox: { x: 0, y: 210, width: 40, height: 12 },
       ...(staffSpacePx === null ? {} : { staffSpacePx }),
     })
+    // ⭐ No meter in this bar, so the engraver's anchor IS the notehead — the two tables agree and
+    //   every case below reads exactly as it did before the walk stopped guessing.
+    drawn.anchors = new Map(xs.map((x, i) => [`1:${i}`, x + 5]))
   }
 
   beforeEach(() => {
@@ -110,6 +130,25 @@ describe('walkTempo', () => {
     expect(offsetX()).toBeCloseTo(15)
   })
 
+  it('🚨⭐⭐ the gap is the ENGRAVER\u2019s distance — a downbeat anchors to the TIME SIGNATURE', () => {
+    // ⚠️⚠️ **THE CASE THAT WAS MISSING, and the bug it hid** (2026-08-31). His report: *"i\u2019m moving
+    // the hand and the tempo is not moving on certain occasions"* — the occasions being bars that
+    // print a meter. `TempoLayout.anchorX` puts a downbeat mark on the time signature (Gould p. 183;
+    // LilyPond, MuseScore and Verovio all do the same), so beat 0\u2019s base is nowhere near beat 0\u2019s
+    // notehead. The walk used to measure note-to-note, wrote the offset against an origin the drawing
+    // never used, and left the mark ~45 px from the hand until the drop re-drew it.
+    // ⭐ Here the meter sits 4.5 spaces left of the first note, so crossing onto beat 0 is a 14.5-space
+    //   journey, ⛔ not the 10 the noteheads would suggest.
+    drawn.anchors.set('1:0', 60)
+    for (let i = 0; i < 14; i++) walkTempo(engine, markId, -1)
+    expect(at(), 'the notes\u2019 10 spaces would have crossed by now').toBe('1@1')
+    walkTempo(engine, markId, -1)
+    expect(at(), 'the engraver\u2019s 14.5 have').toBe('1@0')
+    // ⭐ And the crossing pair is still an IDENTITY: the anchor absorbed 14.5 spaces, so the offset
+    //   gives exactly those back and the drawn mark does not move.
+    expect(offsetX()).toBeCloseTo(-15 + 14.5, 6)
+  })
+
   it('⛔ …and stops at an onset another tempo mark is sitting on', () => {
     // One mark per beat: the model refuses the crossing write, so the walk stops there — the same
     // answer it gives at the end of the score, and ⛔ never an overwrite.
@@ -151,56 +190,12 @@ describe('walkTempo', () => {
     expect(engine.getEffectiveTempoAt(1, frac(1, 1))).not.toBe(144)
   })
 
-  it('⭐⭐ the DRAG is the same journey — one 10-press frame lands where 10 presses do', () => {
-    expect(dragTempo(engine, markId, 0, 100, 0)).toBe(true)
+  it('⭐⭐ …and the LIFT is the walk’s business either way — ↑/↓ stay a pure offset', () => {
+    // ⚠️ The horizontal is all this device has: `walkTempo` takes one `dx` and nothing else, so a
+    //    mark's OUTWARD `y` cannot be touched by a press that crosses.
+    engine.nudgeTempoOffset(markId, 0, -1.5)
+    for (let i = 0; i < 10; i++) walkTempo(engine, markId, 1)
     expect(at()).toBe('1@2')
-    expect(offsetX()).toBeCloseTo(0, 6)
-  })
-
-  it('⭐⭐ …and it LATCHES on the anchor, so Gould’s alignment is reachable EXACTLY', () => {
-    // His call, 2026-08-19. The ink is pushed 5 spaces out and then dragged 8 back: it stops DEAD at
-    // offset zero rather than sailing 3 spaces past, because that position — where the engraver put
-    // the mark — is the one most likely to be wanted, and luck is no way to hit it.
-    dragTempo(engine, markId, 0, 50, 0)
-    expect(offsetX()).toBeCloseTo(5, 6)
-    expect(dragTempo(engine, markId, 0, -80, 0)).toBe(true)
-    expect(offsetX(), 'stopped dead on the anchor').toBeCloseTo(0, 6)
-    expect(at(), 'and it did not cross').toBe('1@1')
-  })
-
-  it('…and the ink can still LEAVE an anchor it is latched on', () => {
-    // ⛔ The guard that makes the latch a stop rather than a trap: at zero every direction "passes
-    // through", so latching there unconditionally would pin the mark for good.
-    dragTempo(engine, markId, 0, 50, 0)
-    dragTempo(engine, markId, 0, -80, 0)
-    dragTempo(engine, markId, 0, -20, 0)
-    expect(offsetX()).toBeCloseTo(-2, 6)
-  })
-
-  it('⭐ the drag moves BOTH axes, and the vertical is OUTWARD — a cursor going DOWN lowers it', () => {
-    // ⚠️ The one conversion this mark needs: the cursor is screen-down and the model is +up.
-    dragTempo(engine, markId, 0, 0, 30)
-    expect(offsetY(), 'dragging down is a NEGATIVE outward offset').toBeCloseTo(-3, 6)
-  })
-
-  it('⭐ …and the lift SURVIVES a crossing — a tempo’s y answers the ladder’s row', () => {
-    // ⛔ Unlike the slur endpoint's drag, which settles its y at a crossing because that lift answers
-    // one note's stem and beam.
-    dragTempo(engine, markId, 0, 0, -20)   // 2 spaces up
-    dragTempo(engine, markId, 0, 100, 0)   // one whole gap right → crosses
-    expect(at()).toBe('1@2')
-    expect(offsetY()).toBeCloseTo(2, 6)
-  })
-
-  it('⭐ a drag frame records NO undo entry — the drop commits the whole gesture once', () => {
-    dragTempo(engine, markId, 0, 30, 0)
-    engine.undo()
-    expect(at(), 'the undo took back the mark itself, so the frame pushed nothing').toBe('gone')
-  })
-
-  it('⛔ the drag DECLINES (null) when the mark is not drawn — ⚠️ null, not false', () => {
-    render([100, 200, 300, 400], null)
-    expect(dragTempo(engine, markId, 0, 100, 0)).toBeNull()
-    expect(offsetX()).toBe(0)
+    expect(offsetY()).toBeCloseTo(-1.5)
   })
 })

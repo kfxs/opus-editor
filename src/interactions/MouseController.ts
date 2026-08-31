@@ -24,7 +24,7 @@ import { stampSlurAtClick } from './slurStamp'
 import { cpsFromDrawnControlPoints } from './slurHandleNudge'
 import { dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { dragDynamic, settleDynamicLanding } from './dynamicWalk'
-import { dragTempo } from './tempoWalk'
+import { dragTempo, tempoAnchorXOf } from './tempoDrag'
 import { pickSlurHandleAt } from './slurHandlePick'
 import { stampSpanMarkAtClick } from './spanMarkStamp'
 import { stampHairpinAtClick } from './hairpinStamp'
@@ -42,6 +42,7 @@ import { slurBodyStaffSpacePx, slurBodyDragStep, type SlurBodyAnchor } from './s
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { dragOttavaBody, dragOttavaEndpoint, settleOttavaLanding } from './ottavaWalk'
 import { logHold, releaseHold, spendHold, takeHold } from './dragHold'
+import { startTrace, traceFrame } from './dragTrace'
 import { ottavaStaffSpacePx } from './ottavaLane'
 import { barlineJoinGrabAt, joinedAtPointer, squareAtPointer, type BarlineJoinGrab,
   type BarlineJoinSquareEnd } from './elements/barlineJoinHandles'
@@ -485,14 +486,21 @@ export class MouseController {
   private dynamicDragLastY = 0
   private dynamicDragStartTime: number | null = null
 
-  // --- Tempo mark drag (docs/tempo-marks-plan.md). The dynamic's arrangement above, one mark over:
-  //     the MARK is its own handle, so this arms on the very press that selects it, and the frame
-  //     runs the same interpolating walk with a LATCH (his call — a tempo wants its anchor exactly).
+  // --- Tempo mark drag (docs/tempo-marks-plan.md). The MARK is its own handle, so this arms on the
+  //     very press that selects it. ⚠️ Since 2026-08-31 the frame is a SNAP from anchor to anchor
+  //     (`./tempoDrag`), ⛔ no longer the dynamic's interpolating walk — his call, and this family
+  //     alone.
   private draggedTempoId: string | null = null
   private tempoDragChanged = false
   private tempoDragLastX: number | null = null
   private tempoDragLastY = 0
+  /** ⭐ How far the pointer sat from the mark's ANCHOR when the drag began — the fixed reference the
+   *  snap is measured against ({@link handleTempoDrag}). */
+  private tempoDragGrabDx = 0
   private tempoDragStartTime: number | null = null
+  /** ⚠️ EXPLORATORY INSTRUMENT (2026-08-31, `./dragTrace`) — the running hand-vs-ink ledger for one
+   *  tempo drag. ⛔ Reads nothing back into the gesture; it only prints. */
+  private tempoTrace = startTrace()
 
   // --- The SQUARE drag, for all four span families at once ({@link MARK_END_DRAGS}). ⭐ Since
   //     2026-08-20 it is the WALK, not a snap: the ink follows the hand and the mark comes along
@@ -1018,14 +1026,15 @@ export class MouseController {
    * MOVE. ⛔ That is also why this must not consume the press: the double-click that opens the text
    * editor has already been decided one branch above, and a plain click still selects.
    */
-  /** ⭐ Arm the drag that walks a tempo mark — {@link armDynamicDrag}'s twin, and armed on the
-   *  SELECTING press for its reason: the mark has no handle but itself. ⛔ It must not consume the
-   *  press, or the double-click that opens the text editor (decided one branch above) would break. */
+  /** ⭐ Arm the drag that snaps a tempo mark from anchor to anchor (`./tempoDrag`) — armed on the
+   *  SELECTING press, because the mark has no handle but itself. ⛔ It must not consume the press, or
+   *  the double-click that opens the text editor (decided one branch above) would break. */
   private armTempoDrag(tempoId: string, event: MouseEvent): void {
     this.activeDrag = { kind: 'tempo', end: () => this.endTempoDrag() }
     this.draggedTempoId = tempoId
     this.tempoDragChanged = false
     this.tempoDragLastX = null
+    this.tempoDragGrabDx = 0
     this.tempoDragStartTime = Date.now()
     event.preventDefault()
   }
@@ -2339,13 +2348,32 @@ export class MouseController {
       engine.commitTempoDrag()
       // ⛔ THE DROP RENDERS FOR REAL — see `endHairpinBodyDrag`. Here it also re-engraves the mark's
       // bar, which the preview frames deliberately did not.
+      // ⚠️ EXPLORATORY (2026-08-31) — where the glyph was drawn on the LAST PREVIEW FRAME, and where
+      // the real render below has just put it. ⭐ A difference here is the drop moving the mark, which
+      // no other line in the trace can see.
+      const dragged = this.draggedTempoId ?? ''
+      const previewed = this.drawnMarkX(dragged)
       this.render.renderScore()
-      dbg(`Tempo mark dragged | id:${this.draggedTempoId}`)
+      const rendered = this.drawnMarkX(dragged)
+      dbg(`Tempo mark dragged | id:${dragged}`
+        + ` | 🖉 the drop redrew it ${previewed === null || rendered === null
+          ? '(not on screen)' : `${(rendered - previewed).toFixed(1)}px from where the drag left it`}`)
+      // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31, `./dragTrace`) — the whole gesture in one line, which
+      // is the one worth reading: how far the hand travelled, how far the ink did, and which of the
+      // two suspects owns the difference.
+      dbg(`[TempoDrag] GESTURE | ${this.tempoTrace.frames} frames`
+        + ` | hand ${this.tempoTrace.handPx.toFixed(0)}px → anchor ${this.tempoTrace.inkPx.toFixed(0)}px`
+        + ` | worst frame ${this.tempoTrace.worstWalkMs.toFixed(1)}ms`
+        + ` | worst repaint ${this.tempoTrace.worstMs.toFixed(1)}ms`
+        // ⚠️ For a SNAP this is the distance to the nearest anchor at the drop, ⛔ not a debt: the
+        //    mark has no in-between to be behind in. It should end well under one gap.
+        + ` | DEVIATION ${(this.tempoTrace.handPx - this.tempoTrace.inkPx).toFixed(0)}px`)
     }
     this.activeDrag = null
     this.draggedTempoId = null
     this.tempoDragChanged = false
     this.tempoDragLastX = null
+    this.tempoDragGrabDx = 0
     this.tempoDragStartTime = null
   }
 
@@ -3216,17 +3244,36 @@ export class MouseController {
    * would start the gesture with a jump.
    */
   /**
-   * ⭐⭐ **One frame of a TEMPO MARK drag** — {@link handleDynamicDrag}'s twin, sharing its
-   * arithmetic (`./markWalk`) and differing in the two ways the marks differ.
+   * ⭐⭐ **One frame of a TEMPO MARK drag** — and since 2026-08-31 it is ⛔ NOT the dynamic's twin
+   * any more: his call that afternoon (*"the tempo drag is not working, lets do it from scratch…
+   * first make the drag not a walk but anchor when the mouse hit the next anchor point"*) took this
+   * one family off the shared walk and onto a SNAP (`./tempoDrag`).
    *
-   * ⭐ **It LATCHES** (his call, 2026-08-19): the ink stops dead at offset zero of the stop it is
-   * nearest, so Gould's own alignment is reachable exactly rather than by luck. ⛔ Still no hold and
-   * no catch-up — the slur endpoint's motor space was tuned against note spacing, and a tempo's
-   * stops are onsets.
+   * ⭐⭐ **THE HAND CARRIES THE ANCHOR POINT.** The gesture's baseline is not a delta to accumulate
+   * but a fixed reference: {@link tempoDragGrabDx} is how far the pointer sat from the mark's anchor
+   * when the drag began, so `x − grabDx` is where that anchor would be if it had followed the hand.
+   * The snap is tested against THAT, ⛔ never against a running sum — an absolute reference cannot
+   * drift, which is half of what the walk kept getting wrong.
    *
-   * ⚠️ The delta is measured from the last ACCEPTED frame, and the baseline is taken on the first
-   * frame PAST the time threshold — the dynamic drag's two rules, for its reasons.
+   * ⛔ **No baseline repayment any more**: the latch is gone with the walk, so there is nothing the
+   * frame cut short for this method to hold back (`markDrive.DragFrame.droppedPx`).
+   *
+   * ⚠️ The VERTICAL is still a delta from the last ACCEPTED frame, and the baseline is still taken on
+   * the first frame PAST the time threshold — the dynamic drag's two rules, for its reasons.
    */
+  /**
+   * ⚠️ EXPLORATORY INSTRUMENT (2026-08-31, `./dragTrace`) — **where a mark's glyph really is on the
+   * page**, in the viewport's own pixels, straight off the DOM.
+   *
+   * 🚨 It exists because every other number in the tempo trace is the MODEL's or the registry's, and
+   * both of those move when a transform is written whether or not the ink did. ⛔ Null when the
+   * glyph is not in this render's SVG — which is itself an answer.
+   */
+  private drawnMarkX(id: string): number | null {
+    const el = this.getScoreCanvas()?.querySelector(`#vf-${id}`) as SVGGraphicsElement | null
+    return el ? el.getBoundingClientRect().x : null
+  }
+
   private handleTempoDrag(engine: MusicEngine, x: number, y: number): boolean {
     if (!(this.activeDrag?.kind === 'tempo' && this.draggedTempoId)) return false
     if (this.tempoDragStartTime !== null
@@ -3242,25 +3289,43 @@ export class MouseController {
     if (this.tempoDragLastX === null) {
       this.tempoDragLastX = x
       this.tempoDragLastY = y
+      // ⭐⭐ **THE GRAB, and it is the whole reference the snap is measured against** (2026-08-31).
+      //    The press lands anywhere inside `Allegro (♩ = 120)`, so the pointer is typically some way
+      //    right of the mark's anchor; charge that distance once here and the hand carries the ANCHOR
+      //    from then on. ⛔ Without it the mark would re-anchor the moment the pointer passed the next
+      //    onset, which on a wide mark is before the hand has travelled anywhere.
+      // ⚠️ 0 when the last render could not say where the anchor is — the frames then measure from
+      //    the pointer itself, which is wrong by the grab and never by more.
+      this.tempoDragGrabDx = x - (tempoAnchorXOf(engine, this.draggedTempoId) ?? x)
+      // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — a fresh ledger per gesture (`./dragTrace`).
+      this.tempoTrace = startTrace()
       dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)}) — baseline taken`
+        + ` | the hand sits ${this.tempoDragGrabDx.toFixed(1)}px right of the anchor`
         + ` | id:${this.draggedTempoId}`)
       return true
     }
 
-    // ⚠️ The delta is from the last ACCEPTED frame, not from the last mousemove — a refused frame
-    //    leaves the baseline where it was on purpose (see the header), and that is why the `d=` this
-    //    logs can be much larger than one mouse step while the hand is against a limit.
-    const dx = x - this.tempoDragLastX
+    // ⭐ Where the mark's ANCHOR would be if it had followed the hand — absolute, so it cannot drift.
+    const handX = x - this.tempoDragGrabDx
+    // ⚠️ The vertical delta is from the last ACCEPTED frame, not from the last mousemove — a refused
+    //    frame leaves the baseline where it was on purpose, and that is why the `dy` this logs can be
+    //    larger than one mouse step while the hand is against the page limit.
     const dy = y - this.tempoDragLastY
-    const moved = dragTempo(engine, this.draggedTempoId, x, dx, dy)
-    if (moved === null) return true
-    if (!moved) {
-      dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)})`
-        + ` d=(${dx.toFixed(1)}, ${dy.toFixed(1)})px from the last ACCEPTED frame`
-        + ` — nothing written (the delta rounded away, or a limit refused the ink);`
-        + ` the baseline stays put`)
+    // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — **THE MODEL HALF IS TIMED TOO.** His report: *"the
+    //    movement is not smooth, the tempo freezes while the hand is still moving"*, on a log whose
+    //    every repaint was 0.4 ms and whose frames were 24–27 ms apart. A frame is the model's work
+    //    plus the repaint, and only the second half was ever measured — so the trace could not see
+    //    its own blind spot (`./dragTrace`, `walkMs`).
+    const walkStartedAt = performance.now()
+    const frame = dragTempo(engine, this.draggedTempoId, handX, dy)
+    const walkMs = performance.now() - walkStartedAt
+    if (frame === null) return true
+    if (!frame.moved) {
+      dbg(`[TempoDrag] mouse (${x.toFixed(1)}, ${y.toFixed(1)}) → hand ${handX.toFixed(1)}`
+        + ` dy=${dy.toFixed(1)}px from the last ACCEPTED frame`
+        + ` — nothing written (the hand has not reached the next anchor, or a limit refused the ink)`)
     }
-    if (moved) {
+    if (frame.moved) {
       this.tempoDragLastX = x
       this.tempoDragLastY = y
       this.tempoDragChanged = true
@@ -3271,7 +3336,23 @@ export class MouseController {
       // ⚠️ It is the one family whose full render really does re-engrave a bar — the nudge is applied
       // at draw time and `MeasureRedrawKey` folds it into that bar's shape key on purpose. So the
       // preview saves the eight whole-score passes AND the bar; the drop pays both once.
+      //
+      // ⚠️⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — **THE REPAINT IS TIMED, and the frame is traced**
+      // (`./dragTrace`). His ask: *"do you want to add logs to debug so we can fix it?"*. A frame
+      // `markPreviewPass` REFUSED re-engraves the whole score here, so this call is where the ms go —
+      // and the line beneath it says whether the ink kept up with the hand. ⛔ It changes nothing
+      // about the drag.
+      const startedAt = performance.now()
       this.render.previewMarks('tempo', this.draggedTempoId)
+      // ⚠️ The ink's travel is now the ANCHOR's, in jumps: a snap frame moves it a whole gap and every
+      //    frame between two onsets moves it by nothing. So `askedPx` is what the mark got and the
+      //    difference from the hand is what the trace calls STOPPED — ⛔ no latch is doing it any more,
+      //    the gesture simply has no in-between. A DEVIATION that oscillates around zero over the
+      //    gesture is the snap keeping up; one that GROWS is the bug.
+      traceFrame('TempoDrag', this.tempoTrace, {
+        cursorX: x, askedPx: frame.snappedPx, droppedPx: 0, renderMs: performance.now() - startedAt,
+        walkMs, drawnX: this.drawnMarkX(this.draggedTempoId),
+      })
     }
     return true
   }
