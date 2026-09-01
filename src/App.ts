@@ -48,6 +48,7 @@ import { layoutFlushCensus } from './dev/layoutFlushCensus' // P0 instrument —
 import { groupSignConsole } from './dev/groupSignConsole'
 import { slurShapeConsole } from './dev/slurShapeConsole'
 import { beamSlopeConsole } from './dev/beamSlopeConsole'
+import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
@@ -896,6 +897,9 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ⚠️ EXPERIMENT, HIS (2026-09-01) — which beam-slope rule is armed. ⛔ Default = what P4b built,
     // and `__beams.rule('vexflow')` is yesterday's picture (src/dev/beamSlopeConsole.ts).
     w.__beams = beamSlopeConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-01) — the SPACING law, six houses live. ⛔ Default = LilyPond's,
+    // which is what ships (src/dev/spacingConsole.ts).
+    w.__spacing = spacingConsole(() => renderer.renderScore())
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
     //   is charged per character AND per line, and DevTools charges more as its buffer fills — so a
@@ -914,6 +918,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg('[groups] __groups.bracket() / .brace() / .subBracket() / .none() / .dump() — needs 2+ staves')
     dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset()")
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")
+    dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico') / .dump() / .reset()")
   }
 
   return {

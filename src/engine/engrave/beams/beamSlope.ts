@@ -34,10 +34,15 @@
  * Both budgets are counted in **quarter-spaces**, because that is the unit the tradition is written
  * in — Ross's chart, Gould's ¼/½/1, MuseScore's integers.
  *
- * ⭐⭐ **And the width budget is the one that bites here**, because this editor already spaces music by
- * Gould's own law (`layout/spacing`, 3.5 × √t ⇒ **2.47 spaces for a quaver**) and her beam rule says
- * that below three spaces a beam takes *"only a slight angle (¼ or ½ space) regardless of the
- * interval"*. ⭐ The two rules are from the same book and they compose: tight spacing ⇒ flat beams.
+ * ⭐⭐ **And the width budget is the one that bites here**, because a quaver in this editor stands only
+ * ~2.4 spaces from its neighbour, while Gould's rule flattens anything *"closer than three spaces"*.
+ *
+ * 🚨 **CORRECTED 2026-09-01, by him.** That number is **LilyPond's**, ⛔ not Gould's: `layout/spacing`
+ * runs `LILYPOND_SPACING` (a log law) by his own instruction, and `GOULD_SPACING` sits beside it
+ * unused. ⇒ ⛔ the tidy *"two rules from one book compose"* claim this comment used to make is FALSE.
+ * ⭐ What it becomes instead is a better question: **we live in LilyPond's spacing house, so the beam
+ * rule from that house is the `lilypond` row below — not Ross's tables**, whose width thresholds
+ * describe pages spaced by somebody else.
  */
 
 /**
@@ -148,8 +153,9 @@ export const BEAM_SLOPE_RULES = {
    * 2026-09-01 within minutes of `tables` reaching his screen: *"(to my eyes the angle looks too
    * flat now)"*.
    *
-   * ⚠️ **The width rule is what flattens everything here**, because our quavers stand 2.47 spaces
-   * apart (Gould's own spacing law) and her threshold is *"closer than three spaces"* — so every
+   * ⚠️ **The width rule is what flattens everything here**, because our quavers stand ~2.4 spaces
+   * apart (⚠️ under LILYPOND's law — see the header's correction) and Gould's threshold is
+   * *"closer than three spaces"* — so every
    * ordinary beam lands on the flattest rung, ¼ space, whatever its interval. 🚨 And there is a real
    * question underneath his reaction: **"three spaces apart" is not defined in the book** — stem to
    * stem (what we measure), notehead centre to centre, or the white gap between the heads are three
@@ -225,7 +231,7 @@ export type BeamSlopeRuleName = keyof typeof BEAM_SLOPE_RULES
  * ⭐⭐ **So P4b ships moving NO PIXEL.** He looked at all three on his own music: `tables` read *"too
  * flat"*, `interval` *"really angled"*, and the angle cap we already had is the one his eye keeps.
  * ⛔ That is a verdict on a PICTURE, ⛔ not a finding that the treatises are wrong — the two things
- * this session could not settle are whether our 2.47-space quaver spacing is what the books assume,
+ * this session could not settle are whether our ~2.4-space quaver spacing is what the books assume,
  * and whether *"closer than three spaces"* is even measured the way we measure it
  * (`docs/beam-engraving-plan.md`).
  *

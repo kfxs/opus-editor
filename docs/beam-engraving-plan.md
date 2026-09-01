@@ -74,8 +74,10 @@ and would pass while the app stayed broken).
 
 ⏭️ **What is still open after P4b** — ⛔ none of it decided by this commit:
 - **which rule** is right. Five are on the shelf; one is armed; the comparison is his to make.
-- ⭐ **whether our SPACING is what the books assume.** A quaver stands 2.47 spaces here (Gould's own
-  law) while her plates draw beamed quavers at ~4.5. Until that is understood, every width-based rule
+- ⭐ **whether our SPACING is what the books assume.** A quaver stands ~2.4 spaces here — under
+  **LilyPond's** log law, his own call, ⛔ **not** Gould's (corrected by him, 2026-09-01) — while her
+  plates draw beamed quavers at ~4.5. ⭐ Which also means Ross's width thresholds were written for a
+  different spacing house than the one we live in. Until that is understood, every width-based rule
   is being fed a number the books may not recognise.
 - **what *"closer than three spaces"* measures** — stem to stem, head centre to head centre, or the
   white gap. ⛔ UNKNOWN.
@@ -128,8 +130,9 @@ music:
 
 ⚠️ All three put us under it, so the threshold is not the whole story — but ⭐ **the plates are**:
 Gould draws her own examples at **4.4 and 4.8 spaces**, nearly twice our quaver spacing. Either
-engraved pages space quavers much wider than our 2.47, or her threshold is not measured the way we
-measure it. ⛔ **UNKNOWN, and it is the next thing to look at** — ⛔ not a number to bend meanwhile.
+engraved pages space quavers much wider than our ~2.4, or her threshold is not measured the way we
+measure it. ⚠️ **And our ~2.4 is LilyPond's number, not hers** — see the correction in the research
+doc §3.1d. ⛔ **UNKNOWN, and it is the next thing to look at** — ⛔ not a number to bend meanwhile.
 
 ⇒ `interval` was added as a third row the same hour: **Ross's interval table with Gould's width rule
 left out**, which is the middle ground between yesterday's picture and the flattest reading.

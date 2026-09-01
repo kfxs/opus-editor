@@ -283,6 +283,23 @@ the width rule is not importing a foreign opinion — it is finishing the one we
 ⚠️ And it explains her p. 19 plate, where the examples are drawn at ~4½ spaces: those are isolated
 figures with room, not a bar of quavers.
 
+> 🚨🚨 **CORRECTED 2026-09-01, by HIM: *"if i dont remember bad spacing we are using lilypond
+> algorithm"*. He is right and the paragraph above is WRONG.** The active rule is
+> **`LILYPOND_SPACING`** — a LOG law, `(2 + log₂(t/♪)) × 1.2`, giving a quaver **2.40** spaces — his
+> own call (*"in general we should approximate to LilyPond as much as possible"*). `GOULD_SPACING`
+> exists in the same file and is **not** the default; `docs/ARCHITECTURE.md` §"Which house?" already
+> said so and I misread the module.
+>
+> ⭐ **What survives:** the NUMBER (2.4–2.5 spaces between beamed quavers, still well under Gould's
+> three) and therefore the whole audit. ⛔ **What dies is the pretty argument** — *"two rules from one
+> book compose"*. They are two rules from two houses, and that is a weaker claim, not a stronger one.
+>
+> ⭐⭐ **And the correction is more interesting than the mistake.** We are in **LilyPond's spacing
+> house**, so the beam rule from the same house is the `lilypond` row — ⛔ not Ross's tables, whose
+> width thresholds were written for pages spaced by somebody else entirely. ⇒ **the coherent pairing
+> to test is lilypond spacing + lilypond beam slope**, and nobody has looked at it.
+
+
 ---
 
 ## 4. What the three engines do
@@ -438,8 +455,8 @@ Each is a place where the tradition says something we do not currently say.
    Changes wide intervals in wide bars; leaves 2nds and 3rds where they are.
 3. ⭐⭐ **Add the horizontal-distance rule?** *"Closer than three spaces ⇒ ¼ or ½ regardless of
    interval."* ⭐ **The audit promoted this to first place**: our quavers stand **2.50 spaces** apart
-   because we already implement Gould's spacing law (2.47), so **her own beam rule applies to almost
-   every beam we draw** — and 85% of them are currently steeper than it allows, by a mean of 0.276
+   because our quavers stand that close (⚠️ under **LilyPond's** log law, ⛔ not Gould's — see §3.1d's
+   correction), so **her beam rule applies to almost every beam we draw** — and 85% of them are currently steeper than it allows, by a mean of 0.276
    spaces. ⚠️ It is the highest-impact line in this document, and the change is *visible*.
 4. **Add the flat cases** (same outer pitch, repeated intervals, contradicting inner notes)?
 5. 🚨 **The BEAM GAP when slanted** — Stone: three or more slanting beams widen to **½ space**
@@ -461,7 +478,7 @@ comparison is his to run whenever he wants it.
 
 ⭐ **The evidence below is not wrong and is not withdrawn** — 85% of our beams *are* steeper than any
 source allows, and that is still true. ⚠️ What his eye adds is the other half of the argument: **at
-2.47-space quaver spacing the tradition's own numbers look wrong on this page**, which points at the
+2.4-space quaver spacing the tradition's own numbers look wrong on this page**, which points at the
 two UNKNOWNs in §7.0 rather than at his taste. ⛔ Do not re-propose the tables as a default without
 settling those first.
 

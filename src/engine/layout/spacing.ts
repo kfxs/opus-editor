@@ -117,8 +117,52 @@ export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, rat
  */
 export const LILYPOND_SPACING: SpacingRule = { law: 'log', base: 1.2, shortest: 0.5 }
 
-/** The rule in force. ⭐ ONE for the whole score — never a per-context or per-gesture variant. */
+/** What SHIPS. ⭐ ONE for the whole score — never a per-context or per-gesture variant. */
 const DEFAULT_SPACING: SpacingRule = LILYPOND_SPACING
+
+/**
+ * ⚠️⚠️ **THE KNOB'S CELL, AND IT IS HIS** (2026-09-01) — *"it would be nice to have also an
+ * instrument to changes the algorithm so we can really test and decide"*.
+ *
+ * ⭐⭐ Which spacing law this editor should use is **not settled**, and the honest way to keep it open
+ * is the shape P4b's beam slope arrived at: **a table of named laws** (`./spacingExperiment`) with
+ * one of them armed, swapped from the console live. ⛔ Default = `LILYPOND_SPACING`, so a session
+ * that never opens the console spaces exactly as it always did.
+ *
+ * ⛔ The named TABLE deliberately lives in `./spacingExperiment` and not here: this module must stay
+ * importable by the layout without dragging an experiment's vocabulary in, and the arrow only runs
+ * one way (experiment → spacing).
+ */
+let activeRule: SpacingRule = DEFAULT_SPACING
+let generation = 0
+
+/** The rule in force right now — what {@link followingSpace} uses when a caller names none. */
+export function activeSpacingRule(): SpacingRule {
+  return activeRule
+}
+
+/**
+ * 🚨🚨 **In the LAYOUT key AND the width-cache fingerprint, both.** A spacing law changes how WIDE
+ * every bar is, so unlike a beam's slope it is not merely a picture: leave it out of `laneFingerprint`
+ * and the memoised note-space is served back unchanged — the law switches and every bar keeps the
+ * width it had, silently (`reference_render_width_key_vs_shape_key`, and the same trap P4b was caught
+ * by one level shallower).
+ */
+export function spacingGeneration(): number {
+  return generation
+}
+
+/** Arm a rule. ⛔ Only `./spacingExperiment` should call this — it owns the names. */
+export function setActiveSpacingRule(rule: SpacingRule): void {
+  activeRule = rule
+  generation++
+}
+
+/** Back to what ships. */
+export function resetActiveSpacingRule(): void {
+  activeRule = DEFAULT_SPACING
+  generation++
+}
 
 /**
  * The space that FOLLOWS an event of this duration, in staff spaces.
@@ -134,7 +178,7 @@ const DEFAULT_SPACING: SpacingRule = LILYPOND_SPACING
  * ⭐ **Rests are notes.** One curve, no rest branch. What differs about a rest is its *extent* and
  * its padding to a barline, both of which are the other half's business.
  */
-export function followingSpace(quarters: Fraction, rule: SpacingRule = DEFAULT_SPACING): number {
+export function followingSpace(quarters: Fraction, rule: SpacingRule = activeRule): number {
   const t = fracToNumber(quarters)
   if (t <= 0) return 0
   if (rule.law === 'power') return rule.quarterSpace * t ** Math.log2(rule.ratio)
@@ -284,7 +328,7 @@ const naturalLength = (gap: Gap): number => gap.rigid + Math.max(gap.spring, gap
  * casting-off in place of `max(vexflowInk × 1.15, columns × MIN_NOTE_SPACING)`. Include the barline
  * as the last column and it is the whole bar less its header.
  */
-export function naturalWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPACING): number {
+export function naturalWidth(columns: Column[], rule: SpacingRule = activeRule): number {
   return gapsBetween(columns, rule).reduce((total, gap) => total + naturalLength(gap), 0)
 }
 
@@ -296,7 +340,7 @@ export function naturalWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPAC
  * casting-off needs to know before it decides how many bars fit on a line — and what stops a cap
  * like `MAX_MEASURE_WIDTH` from clamping a bar that genuinely cannot be narrower.
  */
-export function minimumWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPACING): number {
+export function minimumWidth(columns: Column[], rule: SpacingRule = activeRule): number {
   return gapsBetween(columns, rule).reduce((total, gap) => total + gap.rigid + gap.floor, 0)
 }
 
@@ -323,7 +367,7 @@ export function minimumWidth(columns: Column[], rule: SpacingRule = DEFAULT_SPAC
 export function spaceColumns(
   columns: Column[],
   targetWidth: number,
-  rule: SpacingRule = DEFAULT_SPACING,
+  rule: SpacingRule = activeRule,
 ): number[] {
   if (columns.length === 0) return []
   const gaps = gapsBetween(columns, rule)

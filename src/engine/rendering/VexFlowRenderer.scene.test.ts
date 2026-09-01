@@ -425,7 +425,8 @@ describe('⭐⭐ P4b — the beam’s SLOPE, and it is the first step that MOVES
   it('⭐⭐ two quavers stand 2.5 spaces apart — so Gould’s width rule governs every one of them', () => {
     const drawn = beamRun(pair(4))
     // ⚠️ This assertion is the REASON the rule bites here, and it is our own spacing law speaking:
-    // `layout/spacing` is Gould's 3.5 × √t, which gives a quaver 2.47 spaces.
+    // `layout/spacing` runs LILYPOND's log law (his call), which gives a quaver 2.40 spaces.
+    // ⛔ NOT Gould's √2 power law — that is `GOULD_SPACING`, present and unused (corrected 2026-09-01).
     expect(drawn.run, 'first stem to last stem').toBeCloseTo(2.5, 1)
   })
 

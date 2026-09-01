@@ -62,6 +62,7 @@ import { pedalSpan } from '@/engine/models/pedalOps'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
 import { slurShapeGeneration } from './slurShapeExperiment'
 import { beamSlopeGeneration } from './beamSlopeExperiment'
+import { spacingGeneration } from '@/engine/layout/spacing'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -713,6 +714,9 @@ export class VexFlowRenderer {
       getStaves(score).map(staff => resolveStaffSize(score, staff.id)),
       this.justifyLastLine,
       this.surface,
+      // ⚠️ HIS EXPERIMENT (2026-09-01) — the armed SPACING law. ⭐ Here and not merely in the view
+      //    key: a spacing law changes WIDTHS, so the casting-off itself depends on it.
+      spacingGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,

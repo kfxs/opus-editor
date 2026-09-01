@@ -872,6 +872,74 @@ it, which is worth knowing before import/export work.
 
 ---
 
+## 3b. ⏳⏳ THE LAW IS OPEN, AND THERE IS AN INSTRUMENT (2026-09-01)
+
+> *"lets use lilypond now as default, but again this is open we will not choose now this or the
+> angles"* — his call, and it is a decision to **keep two questions open**, not to settle either.
+
+⭐ **`lilypond` remains the armed law and nothing about the page changed.** What was added is the
+ability to swap it: `engine/layout/spacingExperiment.ts` holds **six named houses**, one is armed,
+and `__spacing.law(…)` swaps them live with `.dump()` printing all six against Gould's own units.
+⛔ The shipped default (`DEFAULT_SPACING = LILYPOND_SPACING`) is untouched — the instrument changes
+nothing until somebody calls it.
+
+⭐⭐ **This is the second time the same shape has answered a question this project could not settle
+by argument** — `docs/beam-engraving-plan.md` P4b was the first. Both remain open on purpose:
+
+| open question | armed today | where the alternatives live |
+|---|---|---|
+| the SPACING law | `lilypond` (his) | `engine/layout/spacingExperiment.ts` — 6 rows |
+| the BEAM slope | `vexflow` (his) | `engine/engrave/beams/beamSlope.ts` — 5 rows |
+
+### 🚨 The staleness this turned up, and it is HIS catch
+
+He asked whether the spacing research predated the library — *"i think the research was done before
+we had the reference folder with the books"*, then *"and… before we had the repository with all the
+engines cloned"*. **Both are true, and it matters:**
+
+| | date |
+|---|---|
+| `docs/spacing-model-research.md` written | **2026-07-30** |
+| Gould on disk | 2026-08-17 |
+| Ross, Stone, Gerou & Lusk on disk | 2026-08-18 |
+| the engine clones (`~/dev/engine-sources`) | 2026-08-18 (⚠️ earlier `/tmp` copies were lost twice) |
+
+⇒ **every number in that research was second-hand.** §1 says so in its own words: Gould's table was
+quoted *"via the facsimile in MuseScore's spacing paper"*. ⛔ And **Ross's spacing material has never
+been opened** — the book usually credited for the 3½, and the one Gould p. 21 and Stone p. 12 both
+defer to on beam angles.
+
+✅ **The ENGINE half is now verified at source (2026-09-01), and it holds:**
+
+| law | verified at | reads |
+|---|---|---|
+| LilyPond | `lily/spacing-options.cc::get_duration_space`; `scm/define-grobs.scm:3249` (`SpacingSpanner`: `shortest-duration-space 2.0`, `spacing-increment 1.2`) | `(2.0 + log₂(t/shortest)) × 1.2`, and a linear branch below `shortest` |
+| MuseScore | `rendering/score/horizontalspacing.cpp::durationStretchForTicks`; `style/styledef.cpp:270` (`measureSpacing 1.5`) | `pow(1.5, log₂(t / ♩))` |
+| Verovio | `src/horizontalaligner.cpp::HorizontalSpaceForDuration`; `src/options.cpp:1509/1513` | `pow(t × 1024, 0.6) × 0.25 × 10` ⇒ per-doubling `2^0.6` |
+
+⭐ Our own transcription of LilyPond's linear branch is **exact**: ours reads `(1 + ratio) × 1.2`,
+theirs `(shortest_duration_space + ratio − 1) × increment` with `shortest_duration_space = 2.0`.
+⚠️ **Dorico, Finale and Sibelius are CLOSED and stay second-hand** — marked as such in the table, and
+⛔ not to be cited as read. Sibelius cannot even be a row: it is a hand-tuned lookup table, not a
+curve, so adding it means a third `law` shape in `spacing.ts`.
+
+⏭️ **The BOOK half is out with an agent** (2026-09-01): read Gould's p. 39 in the book rather than in
+a facsimile, read Ross on spacing for the first time, ask Stone and Gerou & Lusk, and — the thing
+nobody has ever done — **measure real engraved passages** to find what a quaver actually gets on a
+printed page. ⛔ Until that lands, *"our 2.40 is mid-pack"* rests on a second-hand table.
+
+### ⚠️ The trap this hit, and it is the same one twice in one day
+
+A spacing law changes **WIDTHS**, so its generation has to reach `laneFingerprint` — the width memo —
+and not only the layout key. Leave it out and arming a law hands back every bar's **memoised** width:
+the console reports success, the page does not move, nothing fails. ⭐ Break-tested by reverting the
+fix; exactly one test fails, and it renders the **same renderer twice** on purpose, because a fresh
+one has an empty cache and would pass while the app stayed broken.
+🚨 `docs/beam-engraving-plan.md` records the identical trap in the **shape** key, found the same day
+by him at the running app. ⇒ `reference_render_width_key_vs_shape_key` now has a third instance.
+
+---
+
 ## 4. ⏭️ Open decisions (musician's calls)
 
 - ✅ **Does a FAN space linearly? — NO. Decided 2026-07-30 (his call).** The question was whether a

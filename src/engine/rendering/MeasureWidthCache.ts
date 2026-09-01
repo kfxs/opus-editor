@@ -1,5 +1,6 @@
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
+import { spacingGeneration } from '@/engine/layout/spacing'
 
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
@@ -115,6 +116,14 @@ export function laneFingerprint(lane: Measure): string {
   const t0 = probing ? performance.now() : 0
   const key = JSON.stringify(
     [
+      // 🚨🚨 **THE ARMED SPACING LAW, and it has to be in the WIDTH key** (his experiment,
+      // 2026-09-01). This fingerprint memoises how much room a lane's notes need — which is exactly
+      // what a spacing law decides. Leave it out and swapping the law hands back every bar's
+      // MEMOISED width unchanged: the console says it worked, the page does not move, and nothing
+      // fails. ⭐ Cheap: one number, identical for every lane, so it invalidates all of them at once
+      // and only when he arms something. (`reference_render_width_key_vs_shape_key` — and P4b was
+      // caught by the same trap one level shallower, in the SHAPE key.)
+      spacingGeneration(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it
