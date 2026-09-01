@@ -357,7 +357,8 @@ export function pairPadding(left: InkKind, right: InkKind): number {
   //   `getNoteStartX` — which is what our own geometry, hit-testing and shrink-room all read — does
   //   not carry it. So a lead-in under 1.2 spaces can only be drawn by pushing the note-start LEFT
   //   OF THE BARLINE, and then the bar's clickable area begins outside the bar
-  //   (`tier1Geometry.test.ts` pins that it may not). 1.2 is the tightest the drawing and the model
+  //   (`rendering/__tests__/tier1Geometry.test.ts` pins that it may not — ⚠️ written 2026-09-01; the
+  //   citation had stood for weeks with no such file behind it). 1.2 is the tightest the drawing and the model
   //   can BOTH say, and saying the same thing is the property worth having: an aspirational 1.0 that
   //   comes out at 1.2 is the silent disagreement this whole table exists to end. It also sits
   //   between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, which is where a leading gap

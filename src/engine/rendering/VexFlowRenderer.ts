@@ -5156,7 +5156,8 @@ function applyLeadIn(stave: Stave, staveX: number, padding: number, header: numb
   //   music starts, which is the way round a reader needs it.
   const leadIn = ((padding + header) * STAFF_SPACE_PX) / scale
   // ⚠️ Never left of the barline: `getNoteStartX` is what the hit-testing and the shrink-room read,
-  //    and a note area that begins outside its own bar is a bug (`tier1Geometry.test.ts`). The pair
+  //    and a note area that begins outside its own bar is a bug
+  //    (`rendering/__tests__/tier1Geometry.test.ts`). The pair
   //    table is chosen so this clamp does not bite — it is here so that a future row which forgets
   //    the constraint fails visibly narrow rather than silently wrong.
   stave.setNoteStartX(Math.max(staveX, staveX + leadIn - Metrics.get('Stave.padding', 0)))
