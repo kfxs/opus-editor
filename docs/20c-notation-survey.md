@@ -934,6 +934,19 @@ naming what a "free" generalisation would destroy is the point, and what a spati
 destroy is the Fraction/float invariant in `ARCHITECTURE.md` — which is load-bearing for rebar,
 tuplets, ties and the spacing rule alike.
 
+### ⏭️ And an axis he named later: FREE STAVES — music that does not share the columns
+
+⭐ **His note, 2026-09-01**: *"for contemporary music in the future we should also be able to dont
+use the columns in all the staff.. so the music is free"*. Today a beat is one x shared by every
+staff in the system, which is what makes simultaneity legible down the page; the axis is the option
+to switch that off so each staff runs on its own horizontal timeline — *ad libitum* counterpoint,
+spatial parts, mobile forms.
+
+⚠️ It belongs on the §11 table above as a **widening of the LAYOUT, not of the model** — a `beat` stays
+an exact `Fraction`, so ⛔ it does not touch Principle 3 the way proportional notation does. What it
+costs is the column as the unit of the spacing solve. 📄 Written up where the column is defined:
+`docs/spacing-model-plan.md` §3c.
+
 ### And a second, smaller finding: the escape hatch
 
 MusicXML's answer to *"a symbol we did not anticipate"* is a family of **`<other-*>` elements**

@@ -118,7 +118,12 @@ test('a beam over rising pitches slopes up, and never past VexFlow’s cap', asy
   // SVG y grows downward, so "up" is a smaller y on the right.
   expect(beam.yRight, 'the beam rises with the music').toBeLessThan(beam.yLeft - 1)
   const slope = (beam.yLeft - beam.yRight) / (beam.right - beam.left)
-  expect(slope, 'but engraving caps a beam’s slope — it never follows the interval').toBeLessThan(1)
+  // ⚠️ **TIGHTENED 2026-09-01, and the old number is the lesson.** This read `< 1` while the armed
+  // rule's cap is **0.25** — four times looser than the thing its own message names. ⇒ every
+  // flattening this editor can draw passed it, which is how P4b's research could move 85% of beams
+  // with all 276 browser tests green. ⭐ `e2e/beam.e2e.ts` now pins the rise from BOTH sides in staff
+  // spaces; this stays the loose floor, but honest about what it bounds.
+  expect(slope, 'but the armed rule caps a beam’s slope — it never follows the interval').toBeLessThan(0.3)
 })
 
 /**

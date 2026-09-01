@@ -919,6 +919,39 @@ names cannot be confused later.
 those get believed. ⏭️ A real row means a third `law` shape carrying the voice's total through
 `followingSpace`; cheap, ⛔ not written until somebody wants it.
 
+### ⏭️⏭️ FOR LATER — FREE STAVES: music that does NOT share the columns (his note, 2026-09-01)
+
+> *"for contemporary music in the future we should also be able to dont use the columns in all the
+> staff.. so the music is free… we will have to build an instrument for exploring later"*
+
+⛔ **Nothing to build now. This is recorded so it is not re-discovered.**
+
+**What it means.** Today a beat is a **COLUMN shared by every staff**: one x per (measure, beat)
+across the whole system, which is what makes a chord read as simultaneous down the page
+(`layout/measureColumns`, and `reference_drawmeasurecontent_measure_is_the_lane` — *a beat = ONE x
+per SYSTEM*). His axis is the option to **switch that off** — per staff, or per passage — so each
+staff is placed on its own horizontal timeline and the parts are free to drift apart.
+
+**It is a real practice, not an exotic one.** Aleatoric counterpoint / *ad libitum* passages where
+each player runs at their own speed, spatial notation where x is elapsed seconds per part, and mobile
+forms where two staves are not meant to line up at all. `docs/20c-notation-survey.md` §4/§5 is the
+survey of that territory.
+
+**What it would cost, named honestly, because the number is not the point — the SHAPE is.**
+⭐ The column is the **unit of the whole spacing model**: the spring solve prices gaps *between
+columns*, `spaceColumns` takes its `max` over what every staff wants of the *same* column, and the
+casting-off measures a system by them. So this is not a flag on a staff — it is *a second kind of
+system*, in which some staves are laid out independently and then set beside each other. ⚠️ And four
+things downstream assume the shared column just as hard: barlines drawn across staves, the cursor's
+pixel→beat mapping, hit-testing, and cross-staff beams/spans.
+
+⇒ ⭐ **The instrument first, as with every open question this file now carries**: a way to draw a
+passage both ways and look at it, ⛔ before any of the above is touched. 📄 The `FIXED vs UNFIXED
+time-space` distinction is the vocabulary — fixed music makes columns, unfixed music makes demands on
+the gaps it crosses — and free staves are the case where a staff stops making columns *at all*.
+
+---
+
 ### 🚨 The staleness this turned up, and it is HIS catch
 
 He asked whether the spacing research predated the library — *"i think the research was done before
