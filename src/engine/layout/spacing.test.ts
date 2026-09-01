@@ -38,7 +38,9 @@ describe('followingSpace — the POWER law, where Gould\'s table is the contract
    */
   const GOULD: { name: string; quarters: [number, number]; gould: number; ours: number }[] = [
     { name: '16th',           quarters: [1, 4],  gould: 2,    ours: 1.75 },
-    { name: '8th',            quarters: [1, 2],  gould: 2.25, ours: 2.475 },
+    // 🚨 CORRECTED 2026-09-01: this read `gould: 2.25`, from the facsimile the research quoted
+    // rather than from the book. Printed p. 39 says **2½**, and Ross's own table says 2½ too.
+    { name: '8th',            quarters: [1, 2],  gould: 2.5,  ours: 2.475 },
     { name: 'dotted 8th',     quarters: [3, 4],  gould: 3,    ours: 3.031 },
     { name: 'quarter',        quarters: [1, 1],  gould: 3.5,  ours: 3.5 },
     { name: 'dotted quarter', quarters: [3, 2],  gould: 4,    ours: 4.287 },
@@ -53,24 +55,39 @@ describe('followingSpace — the POWER law, where Gould\'s table is the contract
     })
   }
 
-  it('agrees with Gould on FIVE of the eight', () => {
-    // ⚠️ "Within 1%" as both docs put it is the ROUNDED reading: the worst of the five is 1.04%
+  it('agrees with Gould on SIX of the eight', () => {
+    // ⚠️ "Within 1%" as both docs put it is the ROUNDED reading: the worst of the six is 1.04%
     // (the dotted half at +1.036%, the dotted 8th at +1.037%, the half at −1.005%). Two are exact.
     // Pinned at the real number, because a spec that rounds is a spec that can drift.
+    // 🚨 It was FIVE until 2026-09-01, and the eighth joined it by the table being corrected rather
+    // than by the curve changing: at her real 2½ the fit is −1.0%, not the +10% this file recorded.
     const agrees = GOULD.filter(row => Math.abs(followingSpace(q(...row.quarters), GOULD_SPACING) / row.gould - 1) <= 0.0105)
     expect(agrees.map(row => row.name)).toEqual([
-      'dotted 8th', 'quarter', 'half', 'dotted half', 'whole',
+      '8th', 'dotted 8th', 'quarter', 'half', 'dotted half', 'whole',
     ])
   })
 
-  it('and misses the other three by exactly this much — the fit, stated', () => {
+  it('and misses the other two by exactly this much — the fit, stated', () => {
     const error = (name: string) => {
       const row = GOULD.find(entry => entry.name === name)!
       return Math.round((followingSpace(q(row.quarters[0], row.quarters[1]), GOULD_SPACING) / row.gould - 1) * 1000) / 10
     }
     expect(error('16th'), 'tight at the short end, where the INK will lift it').toBe(-12.5)
-    expect(error('8th'), 'generous — and no floor can push a value DOWN, so this is the curve').toBe(10)
-    expect(error('dotted quarter'), 'generous').toBe(7.2)
+    expect(error('dotted quarter'), 'generous — dotted values sit under the curve').toBe(7.2)
+  })
+
+  // ⭐⭐ THE FINDING THE CORRECTION HANDED US, and it is worth more than the fit's error bars: read
+  // her table as DOUBLINGS and three of the four are √2 to within 2% — 8th→♩ ×1.40, ♩→𝅗𝅥 ×1.43,
+  // 𝅗𝅥→𝅝 ×1.40. Only 𝅘𝅥𝅯→♪ breaks it, at ×1.25. ⇒ **her table IS a √2 power law except at the 16th**,
+  // where the notehead is the floor. The old "no single ratio fits both" reading was an artefact of
+  // the mistyped 2¼ (which made that step ×1.125).
+  it('⭐⭐ her own table is √2 per doubling — except at the 16th, where ink takes over', () => {
+    const value = (name: string) => GOULD.find(entry => entry.name === name)!.gould
+    const step = (from: string, to: string) => value(to) / value(from)
+    expect(step('16th', '8th'), 'the one that breaks it').toBeCloseTo(1.25, 2)
+    for (const [from, to] of [['8th', 'quarter'], ['quarter', 'half'], ['half', 'whole']] as const) {
+      expect(step(from, to), `${from}→${to}`).toBeCloseTo(Math.SQRT2, 1)
+    }
   })
 
   it('is anchored on the QUARTER: 3.5 spaces, and the argument is already in quarters', () => {

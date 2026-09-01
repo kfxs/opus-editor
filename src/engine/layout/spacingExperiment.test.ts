@@ -27,10 +27,41 @@ describe('spacingExperiment', () => {
   })
 
   it('⭐ arming a law changes what a duration earns', () => {
-    expect(setSpacingLaw('gould')).toBe(true)
-    // Gould's √2 power law: 3.5 × √t ⇒ a quaver 2.47, a crotchet 3.50.
+    expect(setSpacingLaw('dorico')).toBe(true)
+    // The √2 power law — Gould read as Dorico reads her: 3.5 × √t ⇒ a quaver 2.47, a crotchet 3.50.
     expect(followingSpace(frac(1, 2))).toBeCloseTo(2.475, 3)
     expect(followingSpace(frac(1, 1))).toBeCloseTo(3.5, 6)
+  })
+
+  // ⭐⭐ THE PRINTED TABLES, as printed — read from the books 2026-09-01. These are the only rows in
+  // the whole table that are SOURCES rather than readings, so they are pinned exactly rather than
+  // to a tolerance: a drift here is a transcription error, not a taste change.
+  it('⭐⭐ `gould` is her p. 39 table verbatim — and her quaver is 2½, not 2¼', () => {
+    setSpacingLaw('gould')
+    const printed: Array<[number, number, number]> = [
+      [1, 4, 2], [1, 2, 2.5], [3, 4, 3], [1, 1, 3.5], [3, 2, 4], [2, 1, 5], [3, 1, 6], [4, 1, 7],
+    ]
+    for (const [n, d, spaces] of printed) {
+      expect(followingSpace(frac(n, d)), `${n}/${d} quarters`).toBeCloseTo(spaces, 9)
+    }
+  })
+
+  it('⭐⭐ `ross` is his p. 77 table — the SAME table, apart only at the two longest values', () => {
+    setSpacingLaw('ross')
+    for (const [n, d, spaces] of [[1, 2, 2.5], [3, 4, 3], [1, 1, 3.5]] as const) {
+      expect(followingSpace(frac(n, d)), 'identical to Gould here').toBeCloseTo(spaces, 9)
+    }
+    expect(followingSpace(frac(2, 1)), 'a minim: he says 4¾ where she says 5').toBeCloseTo(4.75, 9)
+    expect(followingSpace(frac(4, 1)), 'a semibreve: 7¼ against her 7').toBeCloseTo(7.25, 9)
+  })
+
+  it('⚠️ …and a duration a table does not print is INTERPOLATED — ours, not the book’s', () => {
+    setSpacingLaw('ross')
+    // He prints nothing shorter than a quaver, so a semiquaver continues his own shortest pair's
+    // slope in log₂(duration). ⛔ It is a reading of the source, and the spec says so.
+    const semiquaver = followingSpace(frac(1, 4))
+    expect(semiquaver, 'below his shortest printed value').toBeLessThan(2.5)
+    expect(semiquaver, '…and it does NOT clamp to it').not.toBeCloseTo(2.5, 3)
   })
 
   it('⭐ …and the armed NAME and armed RULE never drift apart', () => {
@@ -52,16 +83,33 @@ describe('spacingExperiment', () => {
     expect(spacingGeneration()).toBeGreaterThan(before)
   })
 
-  it('⭐ the six houses differ most at the ENDS, which is the thing an eye is being asked about', () => {
+  it('⭐ the houses differ most at the ENDS, which is the thing an eye is being asked about', () => {
     const semiquaver = (n: keyof typeof SPACING_LAWS) => followingSpace(frac(1, 4), SPACING_LAWS[n])
     const semibreve = (n: keyof typeof SPACING_LAWS) => followingSpace(frac(4, 1), SPACING_LAWS[n])
     // The log law holds the short end open and squeezes the long end; the power laws do the reverse.
-    expect(semiquaver('lilypond')).toBeGreaterThan(semiquaver('gould'))
-    expect(semibreve('lilypond')).toBeLessThan(semibreve('gould'))
+    expect(semiquaver('lilypond'), 'the log law holds the SHORT end open').toBeGreaterThan(semiquaver('dorico'))
+    expect(semibreve('lilypond'), '…and squeezes the long one').toBeLessThan(semibreve('dorico'))
     // …and the dynamic range (longest ÷ shortest) is what that difference IS.
     const range = (n: keyof typeof SPACING_LAWS) => semibreve(n) / semiquaver(n)
-    expect(range('lilypond')).toBeLessThan(range('gould'))
-    expect(range('finale'), 'the golden ratio spreads hardest of all').toBeGreaterThan(range('gould'))
+    expect(range('lilypond')).toBeLessThan(range('dorico'))
+    expect(range('finale'), 'the golden ratio spreads hardest of all').toBeGreaterThan(range('dorico'))
+  })
+
+  // ⭐⭐ …and the fit lands close to the source it fits, which is the check that the two rows named
+  // after Gould are the same author: within 1% on six of her eight values, the 16th and the dotted
+  // crotchet being the two the √2 curve cannot hold (`spacing.test.ts` pins those exactly).
+  it('⭐⭐ `dorico` is a FIT of `gould`, and this is how close', () => {
+    const rows: Array<[number, number]> = [[1, 2], [3, 4], [1, 1], [2, 1], [3, 1], [4, 1]]
+    for (const [n, d] of rows) {
+      const printed = followingSpace(frac(n, d), SPACING_LAWS.gould)
+      const fitted = followingSpace(frac(n, d), SPACING_LAWS.dorico)
+      expect(Math.abs(fitted / printed - 1), `${n}/${d} quarters`).toBeLessThan(0.011)
+    }
+    // ⛔ And the two it misses, so the closeness above cannot be read as "the same thing".
+    const miss = (n: number, d: number) =>
+      followingSpace(frac(n, d), SPACING_LAWS.dorico) / followingSpace(frac(n, d), SPACING_LAWS.gould) - 1
+    expect(miss(1, 4), 'the 16th, where her table flattens into the notehead').toBeCloseTo(-0.125, 3)
+    expect(miss(3, 2), 'the dotted crotchet').toBeCloseTo(0.072, 3)
   })
 })
 

@@ -118,22 +118,37 @@ exercise.
 is the flattest of the three readings, and at this editor's spacing it is *very* flat: every ordinary
 beam lands on the width ladder's bottom rung, **¼ space**, whatever the interval.
 
-🚨 **And there is a real question underneath his reaction, worth chasing before anybody defends the
-number: *"closer than three spaces" is not defined in the book.*** Gould p. 20 gives the threshold
-and never says three spaces *between what*. Three readings, three different answers for the same
-music:
+🚨 **And there was a real question underneath his reaction: *"closer than three spaces" is not defined
+on Gould's page.*** She gives the threshold and never says three spaces *between what*.
 
-| measured as | our two quavers |
-|---|---|
-| stem to stem (what `EngravedBeam` measures) | **2.50 sp** ⇒ under the threshold |
-| notehead centre to centre | ≈ 2.5 sp ⇒ under |
-| the white GAP between the two heads | ≈ 1.3 sp ⇒ far under |
+> ✅ **ANSWERED 2026-09-01, from ROSS — it is the WHITE GAP between noteheads**, and I had recorded it
+> here as UNKNOWN the same morning. Printed p. 112: *"notes that have **less than 3 spaces between
+> noteheads or stems** … our beams in close spacing will slant ¼ to ½ space at all times"* — which is,
+> word for word, the source of Gould's sentence. ⭐ Corroborated by his own eight-example ruler figure
+> (p. 100: the too-close/normal boundary lands at a **gap of ≈2.4 sp**, his "normal" examples spanning
+> 2.81→3.79 — literally *"between three or four spaces apart"*), and by Gould's own compressed
+> example, which measures **3.66 centre-to-centre but 2.45 as a gap**: only the gap reading makes her
+> picture agree with her own caption. 📄 `docs/spacing-model-research.md` §1c.
 
-⚠️ All three put us under it, so the threshold is not the whole story — but ⭐ **the plates are**:
-Gould draws her own examples at **4.4 and 4.8 spaces**, nearly twice our quaver spacing. Either
-engraved pages space quavers much wider than our ~2.4, or her threshold is not measured the way we
-measure it. ⚠️ **And our ~2.4 is LilyPond's number, not hers** — see the correction in the research
-doc §3.1d. ⛔ **UNKNOWN, and it is the next thing to look at** — ⛔ not a number to bend meanwhile.
+⚠️ **The two numbers in these books are measured differently ON PURPOSE**: note-value spacing is
+left-to-left / centre-to-centre (Ross p. 75 states it outright), the beam threshold is the gap.
+**Converter, with her measured 1.20 sp notehead: gap 3 sp ⇔ 4.2 sp centre-to-centre.**
+
+🚨 **What that does to us.** `BeamShape.widthSpaces` is **stem-to-stem** — the centre-to-centre family
+— fed into a threshold the books define as a gap. ⇒ **we flatten LESS often than the books intend**,
+not more: ours bites below 3 centre-to-centre (a gap of 1.8), theirs below 4.2. ⛔ Not changed; the
+rule is his open question and this is a fact for that decision.
+
+⭐⭐ **AND HERE IS WHY THE TABLES LOOKED WRONG TO HIS EYE.** Ross's ¼–½ rule is explicitly a
+**TWO-NOTE-GROUP** rule — *"In normal spacing two notes and an interval dictate the amount of slant …
+in close spacing, almost without exception **one note alone serves as a dictator**"* (p. 112) — and
+Stone's footnote confirms the shape of the material: *"charts with close to 300 different **two-note**
+single beam slants alone"*. **Gould dropped the qualifier**, and her own engraving breaks the rule as
+she wrote it: a six-note group on her p. 490 is drawn at a **1.08 sp** angle where the sentence allows
+¼–½. ⇒ ⏭️ **the honest next experiment is a row that flattens TWO-NOTE groups only** and lets longer
+groups take the interval table. ⛔ His call; not built.
+
+⚠️ **And our ~2.4 is LilyPond's number, not Gould's** — see the research doc's §3.1d correction.
 
 ⇒ `interval` was added as a third row the same hour: **Ross's interval table with Gould's width rule
 left out**, which is the middle ground between yesterday's picture and the flattest reading.

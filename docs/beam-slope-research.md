@@ -482,6 +482,34 @@ source allows, and that is still true. ⚠️ What his eye adds is the other hal
 two UNKNOWNs in §7.0 rather than at his taste. ⛔ Do not re-propose the tables as a default without
 settling those first.
 
+### ✅✅ …AND THE SAME DAY, THE BOOKS ANSWERED BOTH OF THOSE UNKNOWNS
+
+An agent read the primary sources — Gould in the book rather than in a facsimile, and **Ross's
+spacing chapter, which nobody in this project had ever opened.** Written up in
+`docs/spacing-model-research.md` §§1b–1f. The three findings that bear on this document:
+
+1. ✅ **"Three spaces" is the WHITE GAP between noteheads** — Ross p. 112, in words, and it is the
+   source of Gould's sentence: *"notes that have **less than 3 spaces between noteheads or stems** …
+   our beams in close spacing will slant ¼ to ½ space at all times."* His p. 100 ruler figure measures
+   the boundary at a **gap of ≈2.4 sp**; Gould's own compressed example is 3.66 centre-to-centre but
+   **2.45 as a gap**, and only the gap reading agrees with her caption.
+   ⚠️ **Our `widthSpaces` is stem-to-stem**, so §3.1's audit compared the wrong quantity to the
+   threshold: we flatten **below 3 centre-to-centre (a gap of 1.8)** where the books flatten **below
+   4.2 centre-to-centre**. ⇒ the tables would flatten **MORE** than we measured, not less.
+2. ⭐⭐ **Ross's ¼–½ rule is a TWO-NOTE-GROUP rule, and Gould dropped the qualifier.** *"In normal
+   spacing two notes and an interval dictate the amount of slant … in close spacing, almost without
+   exception **one note alone serves as a dictator**"* (p. 112); Stone's footnote says the same of the
+   material — *"300 different **two-note** single beam slants alone"*. And **her own engraving breaks
+   the rule as written**: a six-note group on her p. 490 is drawn at **1.08 sp** where her sentence
+   allows ¼–½. ⇒ ⭐ **that is the likeliest explanation of why `musescore` read "too flat" to him** —
+   we applied a two-note close-spacing rule to every group. ⏭️ A row that flattens two-note groups
+   only is the honest next experiment; ⛔ his call.
+3. **Gould's spacing table is 2½ at the quaver, not 2¼** — so the arithmetic in §3.1(d) still holds
+   (her own table's quaver leaves a gap of 1.30 sp, far inside the threshold) but for a corrected
+   reason. ⭐ At her recommended spacing **every beamable value is inside the close band**, which is
+   the sharpest form of the tension: *the rule as she states it annihilates itself*, and only the
+   two-note qualifier rescues it.
+
 ---
 
 ⭐⭐ **THE RECOMMENDATION AS IT WAS WRITTEN (superseded above): take #3 + #2 together and nothing else yet.** They are

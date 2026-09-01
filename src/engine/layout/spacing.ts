@@ -51,6 +51,18 @@ export type SpacingRule =
    * `(1 + t / shortest) × base` below it — `lily/spacing-options.cc`, `get_duration_space`.
    */
   | { law: 'log'; base: number; shortest: number }
+  /**
+   * ⭐⭐ **A PRINTED TABLE, as printed** — added 2026-09-01, and it is a third SHAPE rather than a
+   * third constant: Gould's p. 39, Ross's p. 77 and Sibelius's shipped widths are **lookups**, not
+   * curves, and until this existed the only way to hold them was to fit one and lose the numbers.
+   *
+   * ⚠️ **The interpolation is OURS and the books do not authorise it.** A table names a handful of
+   * durations; a score contains others (a 32nd, a double-dotted quaver). Between two entries we
+   * interpolate **linearly in log₂(duration)** — the axis every curve in this file is straight on —
+   * and beyond the ends we continue the nearest pair's slope. ⛔ That makes a table a *reading* of
+   * the source, not the source: the printed values are exact, everything between them is inference.
+   */
+  | { law: 'table'; spaces: ReadonlyArray<readonly [quarters: number, spaces: number]> }
 
 /**
  * The default rule: **3.5 staff spaces for a quarter, ×√2 per doubling.**
@@ -66,12 +78,20 @@ export type SpacingRule =
  * is metrical notation with a ramp drawn over it — *"not symmetrical or even"* — so Gould's
  * literal-time-space exception does not reach it, and there is no per-context rule.
  *
- * ⚠️ **It is a FIT, not a reproduction.** Measured against Gould's eight values it lands within 1% on
- * five and misses three — the 16th by −12.5%, the 8th by +10%, the dotted quarter by +7.2% — because
- * her own 16th→8th step is ×1.125 against her 8th→♩ step of ×1.556, and **no single ratio fits
- * both**. `spacing.test.ts` pins all eight, the misses at their measured error rather than under a
- * tolerance loose enough to swallow them. The ratio is the knob if it reads wrong by eye; it is one
- * field for the whole score, never a second rule for one gesture.
+ * ⚠️ **It is a FIT, not a reproduction** — but a much better one than this comment used to claim.
+ *
+ * 🚨 **CORRECTED 2026-09-01, from the book.** It read *"within 1% on five, misses three — the 16th by
+ * −12.5%, the **8th by +10%**, the dotted quarter by +7.2% — because her own 16th→8th step is ×1.125
+ * against her 8th→♩ step of ×1.556, and no single ratio fits both"*. **The 8th's +10% was an
+ * artefact of a mistyped table**: the research quoted her quaver as 2¼ from a facsimile, and printed
+ * p. 39 says **2½** (Ross's table says 2½ independently).
+ *
+ * ⇒ the fit lands within 1% on **six** of eight and misses **two**: the 16th by −12.5% and the dotted
+ * quarter by +7.2%. ⭐⭐ And the real finding: read her table as DOUBLINGS and three of the four are
+ * √2 to within 2% — **her table IS this curve except at the 16th**, where the notehead is the floor.
+ * `spacing.test.ts` pins all eight, the misses at their measured error rather than under a tolerance
+ * loose enough to swallow them, plus the doublings. The ratio is the knob if it reads wrong by eye;
+ * it is one field for the whole score, never a second rule for one gesture.
  */
 export const GOULD_SPACING: SpacingRule = { law: 'power', quarterSpace: 3.5, ratio: Math.SQRT2 }
 
@@ -182,11 +202,35 @@ export function followingSpace(quarters: Fraction, rule: SpacingRule = activeRul
   const t = fracToNumber(quarters)
   if (t <= 0) return 0
   if (rule.law === 'power') return rule.quarterSpace * t ** Math.log2(rule.ratio)
+  if (rule.law === 'table') return tableSpace(t, rule.spaces)
   // LilyPond's, `lily/spacing-options.cc`. ⚠️ The LINEAR branch below `shortest` is the whole reason
   // the curve does not collapse at the dense end: a log law alone reaches zero at `shortest / 4` and
   // goes negative below it, which is why LilyPond stops using it there rather than flooring it.
   const ratio = t / rule.shortest
   return (ratio < 1 ? 1 + ratio : 2 + Math.log2(ratio)) * rule.base
+}
+
+/**
+ * A printed table read at an arbitrary duration — see the `table` arm of {@link SpacingRule} for why
+ * the interpolation is ours rather than the book's.
+ *
+ * ⚠️ Straight in **log₂(duration)**, which is the axis a doubling is one step on; a table's own
+ * entries are exact and are returned untouched. Past either end the nearest pair's slope continues,
+ * ⛔ never a clamp: a clamp would make every note shorter than the table's shortest take the same
+ * space, which is the one thing every source in the library forbids.
+ */
+function tableSpace(t: number, spaces: ReadonlyArray<readonly [number, number]>): number {
+  const rows = [...spaces].sort((a, b) => a[0] - b[0])
+  const exact = rows.find(([duration]) => Math.abs(duration - t) < 1e-9)
+  if (exact) return exact[1]
+  const x = Math.log2(t)
+  const at = (row: readonly [number, number]) => [Math.log2(row[0]), row[1]] as const
+  // The bracketing pair, or the nearest pair when `t` is off either end.
+  const upper = rows.findIndex(([duration]) => duration > t)
+  const i = upper <= 0 ? 0 : upper === -1 ? rows.length - 2 : upper - 1
+  const [x0, y0] = at(rows[i])
+  const [x1, y1] = at(rows[i + 1])
+  return y0 + ((x - x0) / (x1 - x0)) * (y1 - y0)
 }
 
 /** The ink either side of a column's notehead, in staff spaces from the head's own x. */

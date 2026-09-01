@@ -6,8 +6,22 @@
 
 ## 1. Gould's table, verbatim
 
-*Behind Bars*, p. 39, "Rhythmic spacing" — the paragraph and the figure, quoted in full because
-everything below is measured against it:
+> 🚨🚨 **CORRECTED 2026-09-01, FROM THE BOOK — this section was written 2026-07-30, three weeks
+> before Gould reached the disk, and it says so itself: the table came *"via the facsimile in
+> MuseScore's spacing paper"*. His catch: *"i think the research was done before we had the reference
+> folder with the books"*.**
+>
+> **The quaver is 2½, not 2¼.** Read off printed p. 39 (PDF 59) at 600 dpi: the run is
+> **`2 · 2½ · 3 · 3½ · 4 · 5 · 6 · 7`**. ⭐ **Ross's own table says 2½ independently** (§1b) — two
+> primary sources against one second-hand one.
+>
+> ⭐⭐ **What the error cost:** §2 below reports the √2 power law missing Gould's quaver by **+10%**,
+> and that "divergence" is an artefact of the wrong number. Against 2½, `3.5 × √0.5 = 2.47` is
+> **−1.2%**, and the curve then fits her whole table to ≤1.2% **except the 16th**. ⛔ Every argument
+> anywhere in this repo that leans on "no single ratio fits both her 16th→8th and 8th→♩ steps" was
+> reasoning from a mistyped fraction — the real misfit is the 16th alone.
+>
+> ⛔ **And the unit is NOT hers to call a stave-space** — see the correction under the table.
 
 > Musicians rely heavily on good spacing to read rhythm. Poor horizontal spacing is often the main
 > problem of badly presented music and hinders the reading of it.
@@ -16,14 +30,14 @@ everything below is measured against it:
 > more space than the next shortest value** (units of relative measurement are given as a guide to
 > the spacing proportions):
 
-The figure's "number of units per note-value" is a run of eight values, `2 · 2¼ · 3 · 3½ · 4 · 5 ·
+The figure's "number of units per note-value" is a run of eight values, `2 · 2½ · 3 · 3½ · 4 · 5 ·
 6 · 7`, over durations in the ratio `1 : 2 : 3 : 4 : 6 : 8 : 12 : 16` — i.e. **the dotted values are
 in the table too**:
 
 | note value | Gould units |
 |---|---|
 | 𝅘𝅥𝅯 16th | 2 |
-| ♪ 8th | 2¼ |
+| ♪ 8th | **2½** ⚠️ *(was written 2¼ here until 2026-09-01 — see the correction above)* |
 | ♪. dotted 8th | 3 |
 | ♩ **quarter** | **3½** |
 | ♩. dotted quarter | 4 |
@@ -31,10 +45,23 @@ in the table too**:
 | 𝅗𝅥. dotted half | 6 |
 | 𝅝 whole | 7 |
 
-⭐ **The unit is the staff space.** Three independent confirmations: the quarter's 3½ is the number
-Sibelius ships as its *reference* width, it is the number MuseScore 4 hard-codes
-(`DEFAULT_QUARTER_NOTE_SPACE = 3.5_sp`), and Ross's engraving manual is cited for the same 3½ for a
-quarter — which is also ~3½ × ¹⁄₁₆ inch, the traditional engraver's unit.
+⭐ **The unit is the staff space** — but ⛔ **not on Gould's say-so, and that matters.** Her words are
+only *"units of relative measurement are given as a guide to the spacing **proportions**"*, and
+**her figure has no stave at all** — one horizontal line — so nothing in it can be converted.
+Measured 2026-09-01: her schematic's notehead is 38 × 28 px against a unit of 36.8 px, giving bounds
+of **1.16–1.31 stave-spaces per unit** depending on which head dimension you assume, and its head
+(aspect 1.36) is not the head her music examples draw (aspect ~1.18). ⇒ **from Gould alone the unit's
+identity is UNKNOWN.**
+
+⭐⭐ **It is ROSS who makes them stave-spaces** (§1b), stating the same values as *spaces* outright.
+The corroborations stand either way: 3½ for a quarter is what Sibelius ships as its *reference*
+width, what MuseScore 4 hard-codes (`DEFAULT_QUARTER_NOTE_SPACE = 3.5_sp`), and ~3½ × ¹⁄₁₆ inch, the
+traditional engraver's unit.
+
+⭐ **And the figure is drawn exactly to its own numbers** (measured, 600 dpi): note-centre distances
+of 75.0 / 90.5 / 110.5 / 127.5 / 147.0 / 185.5 / 223.0 px divided by 2 / 2½ / 3 / 3½ / 4 / 5 / 6 give
+one constant to ±1.7% — and the printed grid behind it has **one rule per unit**. ⇒ the table is
+measured **centre-to-centre**. ⚠️ Which is *not* how her beam threshold is measured — see §1c.
 
 She then adds the sentence that kills any literal proportional reading:
 
@@ -43,7 +70,175 @@ She then adds the sentence that kills any literal proportional reading:
 
 So: **spacing is monotonic in duration and strongly compressed.** Twice the duration is nowhere near
 twice the space (quarter → half is ×1.43, not ×2), and at the short end the table nearly flattens
-(16th → 8th is only ×1.125) because a notehead plus a legible gap is a hard floor.
+(16th → 8th is only **×1.25** ⚠️ — this read ×1.125 while the quaver was mistyped as 2¼) because a
+notehead plus a legible gap is a hard floor.
+
+## 1b. ⭐⭐ ROSS ON SPACING — the chapter is *"Punctuation"*, printed pp. 74–79 (2026-09-01)
+
+⛔ **Nobody in this project had ever opened it**, though he is the source usually credited for the 3½
+and the book both Gould (p. 21) and Stone (p. 12 footnote) defer to. It is deeper than Gould on this
+subject. PDF = printed + 12, so pp. **86–91**.
+
+**His table, printed p. 77 — and it is Gould's table:**
+
+| | Ross p. 77 | Gould p. 39 |
+|---|---|---|
+| ♪ eighth | **2½ spaces** | 2½ |
+| ♪. dotted eighth | **3** | 3 |
+| ♩ quarter | **3½** | 3½ |
+| 𝅗𝅥 half | **4¾** | 5 |
+| 𝅝 whole | **7¼** | 7 |
+
+⭐ Identical on the first three, and apart by a quarter-space at the two longest. ⚠️ **And Ross gives a
+SECOND set two pages earlier**, which is the honest account of where any of these come from: the
+engraver *"might set his compass at three and one-half spaces for the quarter note, use two and one
+half spaces for the eighth note, five spaces for the half note"* and, when it will not fit, *"close
+the compass to three spaces for the quarter note, two spaces for the eighth"*. ⇒ **3½ is a starting
+setting, not a constant.**
+
+**The rest of the chapter, and it answers questions this repo asked elsewhere:**
+
+- **The unit is chosen per staff** — *"what denomination note is in the majority"* sets it, and
+  everything else is judged from that. (⭐ Our `shortest-duration-plan` census, from 1970.)
+- **The barline** — *"The traditional engraving practice gives **one space for the barline** … given
+  after the barline prior to the first note"*; from the note's *centre* that is 1½.
+- **Consistency** — *"a measure of four quarter notes will have the same amount of space if both
+  measures appear **on the same staff** but if a like measure appears on a **different staff**, this
+  measure does not necessarily have to be spaced the same."* ⭐ The same rule Gould states on p. 40.
+- **Back-to-back stems** — *"an additional ¼ space is given between these notes"* (LilyPond's
+  `stem-spacing-correction`, and Gould's optical correction on p. 41).
+- **Accidentals** — *"accidentals have no rhythmic value and therefore extra space should not be
+  allowed unless the spacing is too close … Unfortunately most plate engravers allow extra space for
+  accidentals, whether needed or not."*
+- **Multi-staff** — *"the beats containing the notes with the lowest valuation dictate the
+  punctuation."*
+- **Printed p. 78** is a **chart of 4/4 measures** *"using the quarter note's 3½ spaces as a unit"*,
+  drawn on a real five-line stave — measurable, and measured in §1d.
+
+## 1c. 🚨🚨 THE MEASUREMENT CONVENTION — and there are TWO, on purpose
+
+⭐⭐ **Ross states it outright, printed p. 75**, which settles a question this project had marked
+UNKNOWN as recently as the same morning:
+
+> *"plate engravers **measure from the left side of the characters**. For example, the distance
+> between two quarter notes is measured by the space from the left side of the first notehead (or
+> character) to the left side of the next notehead (or character)."*
+>
+> *"**Machine engraving** and most other process engravings are **measured from the center** of the
+> music character."*
+
+For a run of equal noteheads, left-to-left ≡ centre-to-centre. ⛔ **It is not the white gap.**
+
+🚨 **But the BEAM threshold is measured the other way, and that is not a contradiction — it is two
+different numbers.** Ross, printed p. 112: *"notes that have **less than 3 spaces between noteheads
+or stems**"*. ⇒
+
+> **Note-value spacing is left-to-left / centre-to-centre. The beam's close-spacing threshold is the
+> WHITE GAP.** With Gould's own measured notehead (1.20 sp): **gap 3 sp ⇔ 4.2 sp centre-to-centre.**
+
+⭐ Corroborated three ways, all measured 2026-09-01: Ross's own eight-example ruler figure (p. 100)
+puts the too-close/normal boundary at a **gap of ≈2.4 sp**, with his "normal" examples spanning
+2.81 → 3.79 — literally *"between three or four spaces apart"*, which the centre-to-centre reading
+(4.27 → 5.25) does not say. Gould's own *"notation compressed"* example measures **3.66 c-to-c but
+2.45 as a gap**, so only the gap reading makes the picture agree with its own caption. And her
+dimension brackets on p. 42 carry one tick per stave-space and **land on ink edges**, measured to
+0.06 sp. Stone draws the same convention physically, captioning his figures *"(With cutting edges of
+staff to show how to measure **the gaps**)"* — strips of staff paper standing in the white space.
+
+⚠️ **What this means for us:** `BeamShape.widthSpaces` (`engine/engrave/beams/beamSlope.ts`) is
+**stem-to-stem**, i.e. the centre-to-centre family, fed into a threshold the books define as a gap.
+⇒ we currently flatten **less often than the books intend**, not more: ours bites below 3 c-to-c
+(gap 1.8), theirs below 4.2 c-to-c. ⛔ Not corrected in code — the beam rule is his open question
+(`docs/beam-engraving-plan.md`), and this is a fact for that decision, not a bug fix.
+
+## 1d. What the second-hand version dropped — Gould pp. 40–43, read from the book
+
+- **p. 40** — *"longer durations are compressed to create more even spacing. Notes or rests of
+  different durations should have just enough space to appear longer or shorter than those
+  surrounding them, although **in reality they may be virtually equidistant**."*
+- **p. 40** — *"Each longer value … should have more space than its shorter neighbour (a), **or at
+  least as much** (b)"*, with (b) labelled **acceptable**. ⭐ A monotone-NONdecreasing curve is
+  sanctioned, which no formula in §2 exploits.
+- ⭐⭐ **p. 40, and this is the justification statement nobody had** — *"**Notes of equal duration
+  require equal spacing for an entire system**, even when the speed of the note-values changes"*,
+  followed by: *"The uniform space allotted to a note-value **can vary from system to system
+  according to the number of bars on that system**. … Where the density of the notation increases,
+  the uniform space for a note-value may need to be noticeably different from that of an adjacent
+  system."*
+- ⭐⭐ **p. 41, THE MINIMUM** — *"Where space is limited, the distance between characters should **not
+  be less than ½ stave-space** and no characters should collide."*
+- **p. 41** — the optical correction (back-to-back stems look too close; stems facing away look too
+  far), and a bar-length single note *"is placed just left of the centre of the bar"*.
+- **pp. 41–42, prefatory** — clef / key / time separated by **1–1½ sp**; *"The greatest distance
+  between symbols should precede the first note. For a note without an accidental, allow **2–3
+  stave-spaces**"*; and a **Recommended distances before first note** table (clef only / key sig /
+  time sig × none / one accidental / more): **2½ · 1½ · 1 | 2½ · 1½ · 1 | 2 · 1 · 1**.
+- **p. 42, mid-system** — one stave-space after a clef and either side of a barline; **two** after a
+  time or key signature; one at the end of the stave.
+- **p. 43** — *"an accidental or grace note may be closed up to within **½ space** of a barline.
+  **Stems must never come closer to a barline than one space**"*, and in cramped music *"reduce the
+  space around clefs and accidentals to ½ space"*.
+
+## 1e. ❌ Stone and Gerou & Lusk — asked 2026-09-01, ⛔ do not ask again
+
+**Stone**, *Spacings, Positions, and Sizes*, printed pp. 44–45 (⚠️ 2-up ⇒ PDF **33**):
+*"The proper horizontal spacing of notes and accidentals, etc., is too complex to be included in
+these rather general guidelines.\* … \*For details, see engravers' manuals such as **The Art of Music
+Engraving and Processing by Ted Ross**."* ⇒ ❌ **no per-duration table, no note-value numbers at
+all.** He hands the question to Ross, as he does for beam angles.
+✅ He *does* give prefatory distances, and they are **not Gould's**: clef→next *"one staff-space or a
+little less"*; key→time *"one staff-space"*; any of those→first note **1½ sp** where Gould says 2½.
+⭐ A real house-style disagreement, and the first one found on this axis.
+
+**Gerou & Lusk**, *Spacing*, printed pp. 131–133: ❌ **no numbers whatsoever.** Principle only —
+*"a half note, for example, must get more space than a quarter note, but not twice as much"*, and
+spacing as *"a compromise between two extremes: 1) Space given according to note-value … 2) Equal
+spacing given to each note"* with three drawn examples. ⭐ One useful line, a third witness to the
+consistency rule: *"Make sure that **consecutive notes of equal value have equal space following each
+note**."*
+
+## 1f. ⭐⭐ WHAT REAL ENGRAVED MUSIC MEASURES — the thing nobody here had ever done (2026-09-01)
+
+⛔ Every number above this line comes from a table, a formula or a manual. These come from **pages of
+engraved music**, rendered and measured pixel-wise, staff space always taken as line-1→line-5 ÷ 4 in
+the *same* figure.
+
+| source (printed / PDF) | what the music is | **centre-to-centre** | white gap¹ | justified? |
+|---|---|---|---|---|
+| **Gould 490 / 510** sys 1 | a whole system of **demisemiquavers**, real repertoire | **2.38 sp** (30 gaps, sd 0.2 px) | 1.18 | yes |
+| **Gould 490 / 510** sys 2 | the same passage, next system | **2.72–2.81** · with an accidental **3.3–3.5** | 1.55 | yes |
+| **Gould 489 / 509** | **Bruckner Sym. 8, Vln 1** — bars of 4 **crotchets** with acciaccaturas | **4.07–4.49** · across a barline 6.21–6.54 | — | yes |
+| **Ross 79 / 91** | *"plate engraved music … (Engraved In England)"* — the one real commercial plate we hold | beamed **quavers 2.28–2.31** · a quaver **with a sharp 3.43–3.69** · **crotchet ≈3.65** | ~0.8 | probably |
+| **Ross 78 / 90** | his own 4/4 chart, the bar of four **crotchets** | **3.27–3.39** (mean 3.35) | 1.85 | no |
+| **Gould 41 / 61** | eight **quavers**, the mathematically even version | **4.21–4.40** (mean 4.29) | 3.08 | no |
+| **Gould 20 / 40** | **quavers**, labelled *"notation compressed"* | **3.62–3.70** | 2.45 | no |
+| the same figure, *"more widely spaced"* | | **7.13–7.40** | 6.07 | no |
+
+¹ centre-to-centre − the notehead width measured in the same figure (Gould 1.20 sp; Ross ~1.49 sp).
+
+⭐⭐ **What this says about our own 2.40-space quaver** (LilyPond's log law: 32nd 1.50 · 16th 1.80 ·
+**♪ 2.40** · ♩ 3.60 · 𝅗𝅥 4.80):
+
+- **Against the books it is right** — both primary tables put the quaver at **2½**, and 2.40 is 4%
+  under it.
+- **Against a real engraved plate it is right** — Ross's engraved quavers measure **2.28–2.31 sp**,
+  *narrower* than ours.
+- **Against Gould's own drawn quavers it is not** — she draws them at **3.66 sp and calls that
+  "compressed"**, and at 4.29 untitled. Ours is 35% under her compressed one.
+- 🚨 **And in real justified music, 2.40 is a THIRTY-SECOND-note number**: Gould's engraver gives a
+  demisemiquaver 2.38–2.75 sp. ⚠️ Both those systems are justified, so this bounds nothing from
+  above — but the two systems differ by **16% on the same page for the same note-value**, which is
+  her p. 40 *"can vary from system to system"* engraved rather than stated.
+- ⭐ **Consistency holds tightly in real engraving**: within a system, equal values sit within ~2%
+  (30 consecutive gaps at 63.0–63.5 px). It is BARS that shift (one Bruckner bar is 7% narrower than
+  its neighbours), not individual notes.
+- ⭐ **An accidental costs ≈0.6–0.75 sp** — measured on one system, same duration, bare vs signed.
+  ⛔ Not a doubling, which is what a naive ink-based reservation would give it.
+
+⛔ **UNKNOWN and worth stating**: no real justified passage of **plain quavers or semiquavers**, free
+of graces and accidentals, was found in either book. The clean measurable passages were 32nds and
+crotchets-with-graces. Ross's plate has quavers but the scan is faint, skewed and pre-1970 halftone —
+treat its 2.28–2.31 as ±0.1 sp.
 
 ## 2. The four engines, reduced to one formula each
 

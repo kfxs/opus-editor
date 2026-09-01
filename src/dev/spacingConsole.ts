@@ -6,7 +6,10 @@
  * biggest of the three, because a spacing law changes **every horizontal distance on the page**.
  *
  * ```js
- *   __spacing.law('gould')     // 3.5 × √t
+ *   __spacing.law('gould')     // ⭐ her PRINTED TABLE (p. 39), not a fit of it
+ *   __spacing.law('ross')      // ⭐ his printed table (p. 77) — the same table, two values apart
+ *   __spacing.law('dorico')    // 3.5 × √t — Gould read as Dorico reads her
+ *   __spacing.law('sibelius')  // ⚠️ second-hand: the shipped lookup
  *   __spacing.law('musescore') // power, ratio 1.5
  *   __spacing.law('verovio')   // power, ratio 2^0.6
  *   __spacing.law('finale')    // ⚠️ second-hand: the golden ratio
@@ -39,8 +42,9 @@ const DURATIONS: ReadonlyArray<readonly [string, number, number]> = [
   ['♩. dotted ♩', 3, 2], ['𝅗𝅥 half', 2, 1], ['𝅗𝅥. dotted 𝅗𝅥', 3, 1], ['𝅝 whole', 4, 1],
 ]
 
-/** ⭐ Gould's own units, for the same rows — the thing every law is a fit to (`spacing.ts` §1). */
-const GOULD_UNITS = [2, 2.25, 3, 3.5, 4, 5, 6, 7]
+/** ⭐ Gould's own units, for the same rows — the thing every law is a fit to.
+ *  🚨 The quaver is **2½**: this read 2¼ until 2026-09-01, from a facsimile rather than the book. */
+const GOULD_UNITS = [2, 2.5, 3, 3.5, 4, 5, 6, 7]
 
 export interface SpacingConsole {
   law(law: SpacingLawName): SpacingReadout
@@ -93,7 +97,7 @@ export function spacingConsole(render: () => void): SpacingConsole {
         const cells = names.map(n => followingSpace(q, SPACING_LAWS[n]).toFixed(2).padStart(9)).join('')
         dbg(`  ${what.padEnd(16)} ${GOULD_UNITS[i].toFixed(2).padStart(6)}${cells}`)
       })
-      dbg('[spacing] ⚠️ finale + dorico are SECOND-HAND (closed source); sibelius is a lookup table and is not a row.')
+      dbg('[spacing] ⚠️ finale + dorico + sibelius are SECOND-HAND (closed source). ⭐ gould + ross are PRINTED TABLES, read from the books 2026-09-01.')
       dbg("[spacing] ⭐ 'even' = every event alike (the pre-model rule); 'proportional' = space ∝ time (his axis). ⛔ VexFlow's own law is not a curve — see spacingExperiment's header.")
       return readout()
     },

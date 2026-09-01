@@ -52,8 +52,53 @@ export const SPACING_LAWS = {
   /** ⭐ **TODAY'S**, his call: *"in general we should approximate to LilyPond as much as possible."* */
   lilypond: LILYPOND_SPACING,
 
-  /** Gould's √2 power law — *"Gould read as Dorico reads her"*, and the fit `spacing.ts` documents. */
-  gould: GOULD_SPACING,
+  /**
+   * ⭐⭐ **GOULD'S TABLE, AS PRINTED** — *Behind Bars* p. 39, read from the book at 600 dpi
+   * (2026-09-01), ⛔ not the √2 fit of her, which is {@link SPACING_LAWS.dorico}.
+   *
+   * `2 · 2½ · 3 · 3½ · 4 · 5 · 6 · 7` over 𝅘𝅥𝅯 ♪ ♪. ♩ ♩. 𝅗𝅥 𝅗𝅥. 𝅝. 🚨 The quaver is **2½** — this repo
+   * said 2¼ from 2026-07-30 to 2026-09-01, quoting a facsimile rather than the book, and Ross's own
+   * table says 2½ too.
+   *
+   * ⚠️ **Her figure has no stave**, so ⛔ she never calls these stave-spaces: it is Ross who states
+   * the same values as *spaces*. Measured bounds on her own schematic put the unit at 1.16–1.31 sp,
+   * which is why the identity rests on him and not on her.
+   */
+  gould: {
+    law: 'table',
+    spaces: [[0.25, 2], [0.5, 2.5], [0.75, 3], [1, 3.5], [1.5, 4], [2, 5], [3, 6], [4, 7]],
+  } as SpacingRule,
+
+  /**
+   * ⭐⭐ **ROSS'S TABLE, AS PRINTED** — *The Art of Music Engraving*, the *Punctuation* chapter,
+   * printed p. 77 (2026-09-01, and nobody in this project had ever opened that chapter).
+   *
+   * ⭐ **It is Gould's table**: identical at the quaver, dotted quaver and crotchet, and apart by a
+   * quarter-space at the two longest (he gives the minim 4¾ and the semibreve 7¼ where she gives 5
+   * and 7). ⚠️ He also gives a *different* set in prose two pages earlier — a compass *"set at three
+   * and one-half spaces for the quarter … two and one half for the eighth, five for the half"*, and
+   * a cramped setting of *"three spaces for the quarter, two for the eighth"* — so **3½ is a starting
+   * setting, not a constant**, in his own account.
+   *
+   * ⛔ He prints no value shorter than a quaver; the semiquaver below is `tableSpace`'s
+   * extrapolation, ⛔ not his number.
+   */
+  ross: {
+    law: 'table',
+    spaces: [[0.5, 2.5], [0.75, 3], [1, 3.5], [2, 4.75], [4, 7.25]],
+  } as SpacingRule,
+
+  /**
+   * ⚠️ **SECOND-HAND** (Scoring Notes, via the research doc): Sibelius's shipped lookup, reported as
+   * a mathematical ratio *"fine-tuned by eye against classic European engravings"*.
+   *
+   * ⭐ It could not be a row at all until the `table` law existed — the note in
+   * `dev/spacingConsole` that said so is now out of date, which is the good kind of stale.
+   */
+  sibelius: {
+    law: 'table',
+    spaces: [[0.125, 1.41], [0.25, 1.94], [0.5, 2.53], [1, 3.5], [2, 5.94], [4, 8.19]],
+  } as SpacingRule,
 
   /** ⭐ MuseScore 4's shipped `measureSpacing`, verified at `styledef.cpp:270`. */
   musescore: { law: 'power', quarterSpace: QUARTER_SPACE, ratio: 1.5 } as SpacingRule,
@@ -67,8 +112,15 @@ export const SPACING_LAWS = {
    *  thing we hold and ⏭️ has never been asked this question. */
   finale: { law: 'power', quarterSpace: QUARTER_SPACE, ratio: 1.618 } as SpacingRule,
 
-  /** ⚠️ **SECOND-HAND**: Dorico's *"spacing ratio"* default is reported as 1.41 = √2, i.e. the same
-   *  curve as {@link SPACING_LAWS.gould}. ⛔ Closed source; the row exists so the name is findable. */
+  /**
+   * ⚠️ **SECOND-HAND**: Dorico's *"spacing ratio"* default is reported as 1.41 = √2 — which is
+   * exactly `GOULD_SPACING`, the **fit** of her table that `spacing.ts` documents.
+   *
+   * ⭐⭐ **This row used to be called `gould` as well, and separating them is the point**: her printed
+   * numbers are {@link SPACING_LAWS.gould} above, and this is *Gould read as Dorico reads her*. The
+   * two are close — the fit is within 1% on six of her eight values — but they are not the same
+   * object, and one of them is a source while the other is an interpretation.
+   */
   dorico: GOULD_SPACING,
 
   /**
@@ -124,9 +176,10 @@ export const VEXFLOW_SOFTMAX_FACTOR = 10
 
 export type SpacingLawName = keyof typeof SPACING_LAWS
 
-/** ⛔ Sibelius is a hand-tuned LOOKUP TABLE, not a curve, so it cannot be a row of this union at all
- *  (32nd 1.41 · 16th 1.94 · 8th 2.53 · ♩ 3.5 · 𝅗𝅥 5.94 · 𝅝 8.19, second-hand). ⏭️ Adding it means a
- *  third `law` shape in `spacing.ts` — worth doing only if his eye wants to see it. */
+/** ✅ **Sibelius IS a row now** — see {@link SPACING_LAWS.sibelius}. This constant said it could not
+ *  be one *"without a third `law` shape in `spacing.ts`"*, and on 2026-09-01 Gould's and Ross's
+ *  printed tables needed exactly that shape, so Sibelius came along for free. ⭐ Kept as the flat
+ *  reading of the same numbers, for a `dump()` that wants them without a `Fraction`. */
 export const SIBELIUS_TABLE_SPACES = [1.41, 1.94, 2.53, 3.5, 5.94, 8.19]
 
 const state = { law: 'lilypond' as SpacingLawName }

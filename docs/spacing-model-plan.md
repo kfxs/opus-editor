@@ -984,10 +984,31 @@ theirs `(shortest_duration_space + ratio − 1) × increment` with `shortest_dur
 ⛔ not to be cited as read. Sibelius cannot even be a row: it is a hand-tuned lookup table, not a
 curve, so adding it means a third `law` shape in `spacing.ts`.
 
-⏭️ **The BOOK half is out with an agent** (2026-09-01): read Gould's p. 39 in the book rather than in
-a facsimile, read Ross on spacing for the first time, ask Stone and Gerou & Lusk, and — the thing
-nobody has ever done — **measure real engraved passages** to find what a quaver actually gets on a
-printed page. ⛔ Until that lands, *"our 2.40 is mid-pack"* rests on a second-hand table.
+✅ **AND THE BOOK HALF LANDED THE SAME DAY.** Written up in `docs/spacing-model-research.md`
+§§1b–1f; the four findings that change something:
+
+1. 🚨 **Gould's quaver is 2½, not 2¼** — read from printed p. 39, and **Ross's table says 2½
+   independently**. The `+10%` misfit the research blamed on the √2 curve was an artefact of the
+   mistyped fraction; against her real number it is **−1.0%**, the fit agrees with her on **six** of
+   eight rather than five, and ⭐⭐ **her table turns out to BE a √2 power law except at the 16th**
+   (doublings ×1.40, ×1.43, ×1.40 — only 𝅘𝅥𝅯→♪ breaks it at ×1.25). `spacing.test.ts` pinned the old
+   error and is corrected.
+2. ⭐⭐ **Ross's spacing chapter exists, is called *Punctuation* (pp. 74–79), and nobody had opened
+   it.** His table IS Gould's table, apart by a quarter-space at the two longest values. He also
+   supplies, from 1970, the per-staff unit census, the one-space barline, the ¼-space back-to-back
+   stem correction, and *"accidentals have no rhythmic value"*.
+3. ⭐⭐ **The measurement convention is stated, and there are TWO of them on purpose** — note-value
+   spacing left-to-left / centre-to-centre (p. 75), the beam threshold as the **white gap** (p. 112).
+   ⚠️ That answers an UNKNOWN `beam-engraving-plan.md` recorded the same morning.
+4. ⭐ **Real engraved music, measured for the first time in this project.** Our 2.40-space quaver is
+   right against both books (2½) and against Ross's real plate (**2.28–2.31 sp**) — but Gould *draws*
+   quavers at **3.66 sp and calls that "compressed"**, and in real justified repertoire 2.40 is what
+   a **demisemiquaver** gets. ⇒ *"our 2.40 is mid-pack"* survives, ⛔ but only against tables and one
+   faint plate.
+
+⛔ **Still UNKNOWN**: no clean justified passage of plain quavers or semiquavers, free of graces and
+accidentals, exists in either book — so the one measurement that would settle our own quaver directly
+was not available.
 
 ### ⚠️ The trap this hit, and it is the same one twice in one day
 

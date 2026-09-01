@@ -757,6 +757,34 @@ Engraving and Processing.)"* — and Stone p. 12's footnote names the same book 
 | ⚠️ **Gerou & Lusk** as a witness | **G&L pp. 40–43** | ⛔ **Read their preamble first**: *"approximate guidelines, **modified from the strict traditional rules**"*, because *"the consistency of the computer and the quality of modern printing make it no longer necessary to avoid the small 'wedges'"*. Their numbers are one step steeper throughout, by design. Their FLAT cases are still worth having. |
 | ❌ a formula anywhere | all four | **None.** Every source is a table or an enumeration; the only formulas in existence are the engines' (LilyPond's `0.6·tanh(s)/damping`, MuseScore's two `min`s, Verovio's step ladder). |
 
+### What was asked of it on 2026-09-01 (third question), and what came back
+
+The question was **HORIZONTAL SPACING — what a note-value is actually worth**, asked because HE
+noticed the dating: *"i think the research was done before we had the reference folder with the
+books"*, and then *"before we had the repository with all the engines cloned"*. Both true —
+`docs/spacing-model-research.md` is **2026-07-30**, Gould arrived **2026-08-17**, Ross/Stone/G&L
+**2026-08-18**, the engine clones **2026-08-18**. ⇒ **every number in that document was second-hand**,
+and it says so itself: Gould's table came *"via the facsimile in MuseScore's spacing paper"*.
+
+⭐⭐ **THE FINDING THAT MATTERS FOR THIS MANIFEST: ROSS HAS A SPACING CHAPTER — *"Punctuation"*,
+printed pp. 74–79 (PDF 86–91) — AND NOBODY HAD EVER OPENED IT.** He is the source usually credited
+for the 3½, and both Gould (p. 21) and Stone (p. 12) defer to him on beam angles. It is deeper than
+Gould on this subject.
+
+| asked | source | answer |
+|---|---|---|
+| 🚨 the note-value TABLE | **Gould printed p. 39 = PDF 59** (read at 600 dpi) | **`2 · 2½ · 3 · 3½ · 4 · 5 · 6 · 7`** — ⛔ **the quaver is 2½, and this repo said 2¼ for five weeks** from the facsimile. ⭐ The figure is drawn exactly to its own numbers (unit constant to ±1.7%, one printed grid rule per unit) and is measured **centre-to-centre**. |
+| …and independently | **Ross printed p. 77 = PDF 89** | ♪ **2½** · ♪. 3 · ♩ **3½** · 𝅗𝅥 4¾ · 𝅝 7¼ — ⭐ **the same table**, apart only at the two longest. ⚠️ He gives a SECOND set in prose two pages earlier (compass at 3½/2½/5, cramped 3/2), so **3½ is a starting setting, not a constant**. |
+| ⛔ is the unit a stave-space? | **Gould p. 39** | ⛔ **She never says so** — *"units of relative measurement … a guide to the spacing PROPORTIONS"*, and **her figure has no stave at all**. Measured bounds on her schematic: **1.16–1.31 sp** per unit. ⭐ **It is ROSS who states them as spaces.** |
+| ⭐⭐ what are they measured BETWEEN? | **Ross printed p. 75** | *"plate engravers **measure from the left side of the characters** … from the left side of the first notehead to the left side of the next"*; **machine engraving "from the center"**. ⛔ Not the white gap. |
+| ⭐⭐ …and the BEAM threshold? | **Ross printed p. 112 = PDF 124** | *"notes that have **less than 3 spaces between noteheads or stems** … our beams in close spacing will slant ¼ to ½ space at all times"* ⇒ **the WHITE GAP**, and this is the source of Gould p. 20's sentence. 🚨 **So the two numbers use different conventions on purpose.** Converter: gap 3 sp ⇔ 4.2 sp centre-to-centre. |
+| ⭐⭐ …and is it a TWO-NOTE rule? | **Ross p. 112**, + **Stone p. 12** | *"In normal spacing two notes and an interval dictate the amount of slant … in close spacing, almost without exception **one note alone serves as a dictator**"*; Stone: *"300 different **two-note** single beam slants alone"*. ⇒ **Gould dropped the qualifier**, and her own p. 490 six-note group is engraved at **1.08 sp** where her sentence allows ¼–½. |
+| what the facsimile DROPPED | **Gould pp. 40–43 = PDF 60–63** | ⭐⭐ the consistency rule *"**Notes of equal duration require equal spacing for an entire system**"* AND its justification clause *"can vary from system to system according to the number of bars on that system"* · ⭐⭐ **the minimum: "not less than ½ stave-space"** · the ≥/= *"or at least as much"* licence for a non-decreasing curve · the optical back-to-back stem correction · the *Recommended distances before first note* table (2½ · 1½ · 1 …) · *"stems must never come closer to a barline than one space"*. |
+| ⭐ REAL ENGRAVED MUSIC, measured | **Gould 489–490 = PDF 509–510**; **Ross 78–79 = PDF 90–91** | Real justified 32nds **2.38** and **2.72–2.81 sp** (same page, 16% apart — her *"vary from system to system"*, engraved); Bruckner crotchets **4.07–4.49**; Ross's *"Engraved In England"* plate: quavers **2.28–2.31**, crotchet ≈3.65. ⭐ An accidental costs **≈0.6–0.75 sp**, ⛔ not a doubling. |
+| ❌ **STONE** on note-value spacing | **printed pp. 44–45 = PDF 33** (⚠️ 2-UP) | **NOTHING — checked, do not check again.** *"too complex to be included in these rather general guidelines\*"*, footnote: *"see engravers' manuals such as **The Art of Music Engraving and Processing by Ted Ross**."* ✅ He DOES give prefatory distances, and they are **not Gould's** (first note **1½ sp** where she says 2½) — a real house-style disagreement. |
+| ❌ **GEROU & LUSK** on it | **printed pp. 131–133** | **NO NUMBERS AT ALL — checked.** Principle only: *"a half note … must get more space than a quarter note, but not twice as much"*. ⭐ One useful line, a third witness to the consistency rule: *"consecutive notes of equal value have equal space following each note"*. |
+| ⛔ a clean justified passage of plain QUAVERS | both books | **UNKNOWN — none exists in either.** The measurable clean passages were 32nds and crotchets-with-graces. ⇒ the one measurement that would settle our own quaver directly was not available. |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the
