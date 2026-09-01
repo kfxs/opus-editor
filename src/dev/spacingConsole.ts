@@ -10,6 +10,8 @@
  *   __spacing.law('musescore') // power, ratio 1.5
  *   __spacing.law('verovio')   // power, ratio 2^0.6
  *   __spacing.law('finale')    // ⚠️ second-hand: the golden ratio
+ *   __spacing.law('even')      // ⭐ every event the same 1.8 spaces — what we drew BEFORE the model
+ *   __spacing.law('proportional') // ⭐ twice the duration, twice the space — his "evenness" axis
  *   __spacing.law('lilypond')  // the LOG law — TODAY'S
  *   __spacing.dump()           // every law's spaces-per-duration, side by side
  *   __spacing.reset()
@@ -92,6 +94,7 @@ export function spacingConsole(render: () => void): SpacingConsole {
         dbg(`  ${what.padEnd(16)} ${GOULD_UNITS[i].toFixed(2).padStart(6)}${cells}`)
       })
       dbg('[spacing] ⚠️ finale + dorico are SECOND-HAND (closed source); sibelius is a lookup table and is not a row.')
+      dbg("[spacing] ⭐ 'even' = every event alike (the pre-model rule); 'proportional' = space ∝ time (his axis). ⛔ VexFlow's own law is not a curve — see spacingExperiment's header.")
       return readout()
     },
   }

@@ -65,6 +65,36 @@ describe('spacingExperiment', () => {
   })
 })
 
+describe('⭐⭐ the two rows his memory asked for, and they are OPPOSITES', () => {
+  it('⭐ `even` ignores duration entirely — every event 1.8 spaces, the rule we drew BEFORE the model', () => {
+    for (const [n, d] of [[1, 4], [1, 2], [1, 1], [2, 1], [4, 1]] as const) {
+      expect(followingSpace(frac(n, d), SPACING_LAWS.even), `${n}/${d} quarters`).toBeCloseTo(1.8, 6)
+    }
+  })
+
+  it('⭐ `proportional` obeys duration exactly — twice the note, twice the space', () => {
+    const q = followingSpace(frac(1, 1), SPACING_LAWS.proportional)
+    expect(followingSpace(frac(1, 2), SPACING_LAWS.proportional)).toBeCloseTo(q / 2, 6)
+    expect(followingSpace(frac(2, 1), SPACING_LAWS.proportional)).toBeCloseTo(q * 2, 6)
+    // ⭐ His bar's four quavers, measured in `docs/shortest-duration-plan.md` §9.5 as 1.80 under
+    // LilyPond's own proportional mode — ours lands within a twentieth of a space of that.
+    expect(followingSpace(frac(1, 2), SPACING_LAWS.proportional)).toBeCloseTo(1.75, 2)
+  })
+
+  // 🚨 The two things the word "even" can mean, asserted against each other so the names cannot be
+  // confused later: one flattens the curve to nothing, the other is the steepest curve there is.
+  it('🚨 …so they are at OPPOSITE ends, and every other law lies between them', () => {
+    const range = (r: typeof SPACING_LAWS.even) =>
+      followingSpace(frac(4, 1), r) / followingSpace(frac(1, 4), r)
+    expect(range(SPACING_LAWS.even), 'no spread at all').toBeCloseTo(1, 6)
+    expect(range(SPACING_LAWS.proportional), 'a semibreve is 16 semiquavers').toBeCloseTo(16, 6)
+    for (const n of ['lilypond', 'gould', 'musescore', 'verovio', 'finale'] as const) {
+      expect(range(SPACING_LAWS[n]), n).toBeGreaterThan(range(SPACING_LAWS.even))
+      expect(range(SPACING_LAWS[n]), n).toBeLessThan(range(SPACING_LAWS.proportional))
+    }
+  })
+})
+
 describe('🚨🚨 the regression that the WIDTH CACHE would otherwise hide', () => {
   /** Two bars whose durations differ enough that the laws disagree about them: 16ths, then a semibreve. */
   function fixture(): ScoreModel {

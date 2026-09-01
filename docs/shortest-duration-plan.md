@@ -368,5 +368,16 @@ become 1.80 each, and the bar gets narrower than today, not wider.
 2. **The evenness** — a PRESET (fixed time-space), his call, and a separate plan. ⛔ Not to be
    smuggled into 1.
 
+> ⭐⭐ **UPDATE 2026-09-01 — the axis is now VISIBLE, though still not built.** He remembered this
+> thread himself (*"i made a comment somewhere saying that it will be good to have a feature"*), and
+> `engine/layout/spacingExperiment.ts` gained a **`proportional`** row: the curve §9.5 describes,
+> as a power law of ratio 2, reproducing this plan's measured **1.80** for his bar's quavers.
+> `__spacing.law('proportional')` draws it. ⛔ **That is not this plan being built** — a preset is a
+> saved *set* of engraving choices with a UI, and this is one law behind a console knob so his eye
+> can see the aesthetic before anybody designs the feature. ⭐ It also gained **`even`** — the flat
+> pre-model rule (1.8 spaces per column, duration ignored), which is the OPPOSITE end of the same
+> axis and is easy to confuse with this one by name alone.
+> 📄 `docs/spacing-model-plan.md` §3b.
+
 ⚠️ Gould, Ross and Read: **NOT FOUND**. Nothing citable was obtained on a dense staff against a sparse
 one; the agent flagged it rather than paraphrasing, and so does this plan.

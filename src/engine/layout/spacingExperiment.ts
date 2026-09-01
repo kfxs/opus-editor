@@ -70,7 +70,57 @@ export const SPACING_LAWS = {
   /** ⚠️ **SECOND-HAND**: Dorico's *"spacing ratio"* default is reported as 1.41 = √2, i.e. the same
    *  curve as {@link SPACING_LAWS.gould}. ⛔ Closed source; the row exists so the name is findable. */
   dorico: GOULD_SPACING,
+
+  /**
+   * ⭐⭐ **EVEN — every event the same space, whatever it lasts.** His memory, 2026-09-01: *"i see
+   * before we have an even space rule"*. He is right: this editor's width rule before the spacing
+   * model was `laneColumns × MIN_NOTE_SPACING` — a flat **1.8 staff spaces per column**, so a bar of
+   * four semiquavers and a bar of four crotchets came out identical
+   * (`docs/spacing-model-research.md` §5.1).
+   *
+   * ⭐ It is a power law with **ratio 1**: `t^log₂(1) = t^0 = 1`, i.e. duration cancels out entirely.
+   * ⛔ **No engraver's rule has this shape** — it is here as the BASELINE the model replaced, so
+   * *"what did it look like before we had rhythmic spacing at all"* is one call away.
+   */
+  even: { law: 'power', quarterSpace: 1.8, ratio: 1 } as SpacingRule,
+
+  /**
+   * ⭐⭐ **PROPORTIONAL — twice the duration, twice the space.** ⚠️ The OTHER thing "even" can mean,
+   * and the two are opposites, so the names are kept apart deliberately: {@link SPACING_LAWS.even}
+   * ignores duration, this one obeys it exactly.
+   *
+   * ⭐ This is **his own axis**, already written up as a separate plan rather than a bug fix:
+   * *"the second group can have more space so it looks more even matching with the first group… it
+   * will look more beautiful"* (`docs/shortest-duration-plan.md` §1, §9.5). The mechanism it names is
+   * LilyPond's `proportionalNotationDuration` (`lily/spacing-engraver.cc`), which overwrites every
+   * column's shortest-duration with one fixed value so that `fraction = delta_t / that` is **pure
+   * elapsed time** — a quaver is a quaver everywhere.
+   *
+   * ⭐ As a curve that is simply **ratio 2**. ⚠️ And it is a **different aesthetic** (proportional
+   * notation), ⛔ not "the same picture, tidier": that plan measured his bar's four quavers coming
+   * out at **1.80 each** and the bar getting NARROWER, not wider. ⇒ ⏭️ the ENGRAVING PRESETS item
+   * this row now makes visible, ⛔ still not a default.
+   */
+  proportional: { law: 'power', quarterSpace: QUARTER_SPACE, ratio: 2 } as SpacingRule,
 } satisfies Record<string, SpacingRule>
+
+/**
+ * ⛔⛔ **AND WHY VEXFLOW'S OWN LAW IS NOT A ROW — his question, 2026-09-01** (*"i remember we tried
+ * also… the vexflow law for spacing"*). We did draw with it, for months; it cannot become a row here,
+ * and the reason is worth stating because it is not laziness:
+ *
+ * > **It is not a function of duration at all.** `Formatter.preFormat` distributes a bar's width by
+ * > `Voice.softmax`: `ideal(event) ∝ SOFTMAX_FACTOR ^ (ticks / voice.ticksUsed)` (`voice.js:115`,
+ * > factor 10) — the exponent is the event's **fraction of ITS BAR**, so the same rhythm is spaced
+ * > differently depending on the meter. A quarter against an eighth is **1.33× in 4/4** and
+ * > **1.78× in 2/4** (`docs/spacing-model-research.md` §5.2).
+ *
+ * ⇒ A `SpacingRule` maps a DURATION to a space; VexFlow's needs the bar as well. Faking it with the
+ * 4/4-equivalent ratio 1.33 would be a row that is wrong in every other meter — ⛔ a guessing
+ * fallback, and those get believed. ⏭️ A real row means a third `law` shape carrying the voice's
+ * total, threaded through `followingSpace`. Cheap enough, ⛔ not written until somebody wants it.
+ */
+export const VEXFLOW_SOFTMAX_FACTOR = 10
 
 export type SpacingLawName = keyof typeof SPACING_LAWS
 

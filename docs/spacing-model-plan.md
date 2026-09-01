@@ -891,6 +891,34 @@ by argument** — `docs/beam-engraving-plan.md` P4b was the first. Both remain o
 | the SPACING law | `lilypond` (his) | `engine/layout/spacingExperiment.ts` — 6 rows |
 | the BEAM slope | `vexflow` (his) | `engine/engrave/beams/beamSlope.ts` — 5 rows |
 
+### ⭐⭐ EIGHT rows, because he remembered two more (2026-09-01)
+
+> *"i remember we tried also even space and also the vexflow law for spacing… i made a comment
+> somewhere saying that it will be good to have a feature"*
+
+All three memories were right, and finding them turned up a feature idea already written down:
+
+| he remembered | what it actually is | now |
+|---|---|---|
+| *"even space"* | ⭐ this editor's own PRE-MODEL rule: `laneColumns × MIN_NOTE_SPACING`, a flat **1.8 spaces per column**, so four semiquavers and four crotchets came out identical (research §5.1) | ✅ row `even` — a power law with **ratio 1**, i.e. duration cancels |
+| …or the OTHER even | ⭐ **his own axis**, `docs/shortest-duration-plan.md` §9.5: *"the second group can have more space so it looks more even matching with the first group… it will look more beautiful"* — LilyPond's `proportionalNotationDuration`, pure elapsed time | ✅ row `proportional` — **ratio 2**, and it reproduces that plan's measured 1.80 for his bar's quavers |
+| *"the vexflow law"* | ⛔ **cannot be a row** — see below | ❌ documented instead |
+| *"a comment… it will be good to have a feature"* | ⭐ **ENGRAVING PRESETS**, named in four places in `shortest-duration-plan.md` (§0.1, §5.3, §9.5, §9.6) as the home for exactly this | ⏭️ still a plan, now visible from the console |
+
+🚨 **"Even" means two OPPOSITE things and the rows are named apart on purpose.** `even` flattens the
+curve to nothing (dynamic range **1.0**); `proportional` is the steepest curve there is (**16.0** from
+semiquaver to semibreve). Every other law lies between them, and a spec asserts exactly that so the
+names cannot be confused later.
+
+⛔ **And why VexFlow's own law is NOT a row.** It is not a function of duration at all:
+`Formatter.preFormat` distributes a bar's width by `Voice.softmax`,
+`ideal ∝ 10 ^ (ticks / voice.ticksUsed)` (`voice.js:115`) — the exponent is the event's fraction of
+**its bar**, so a quarter against an eighth is **1.33× in 4/4 and 1.78× in 2/4** (research §5.2). A
+`SpacingRule` maps a duration to a space; VexFlow's needs the bar too. ⚠️ Faking it with the
+4/4-equivalent 1.33 would be a row that is wrong in every other meter — a guessing fallback, and
+those get believed. ⏭️ A real row means a third `law` shape carrying the voice's total through
+`followingSpace`; cheap, ⛔ not written until somebody wants it.
+
 ### 🚨 The staleness this turned up, and it is HIS catch
 
 He asked whether the spacing research predated the library — *"i think the research was done before
