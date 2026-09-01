@@ -17,6 +17,8 @@ import {
   drawBeamLines as fillBeamRun,
 } from '@/engine/engrave/beams/beamLines'
 import { EngravedBeam, applyFractionalBeamSides, drawBeamInkThrough } from './EngravedBeam'
+import { EngravedStave, drawStaveInkThrough } from './EngravedStave'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
@@ -1960,7 +1962,7 @@ export class VexFlowRenderer {
     applyStaveClefOffset(
       measure, keyStaffId(pass.score, staffIndex), pass.score, stave, placement.isFirstInLine)
     // The stave was BUILT by tier 1 (`layoutTier1`); tier 2 only paints it.
-    this.drawStave(stave)
+    this.drawStave(stave, pass.context)
 
     // Resolve the clef in effect at any beat within this measure: starts from the
     // opening clef and applies each clef change at/after its beat.
@@ -2512,7 +2514,7 @@ export class VexFlowRenderer {
      *  header extent are distances on the page. See {@link applyLeadIn}. */
     scale: number = 1,
   ): Stave {
-    const stave = new Stave(x, y, width)
+    const stave = new EngravedStave(x, y, width)
     stave.setDefaultLedgerLineStyle(LEDGER_LINE_STYLE)
 
     // ⭐ **A barline belongs to the END of a bar, and is drawn ONCE.** VexFlow gives every stave both
@@ -2797,12 +2799,20 @@ export class VexFlowRenderer {
     }
   }
 
-  /** **Tier 2** — paint the staff lines. The only part of a stave that a culled measure skips. */
-  private drawStave(stave: Stave): void {
-    // VexFlow's Stem.draw() leaves ctx.lineWidth at Stem.WIDTH (1.5) and Stave.draw()
-    // strokes its lines with whatever width is current — so a prior measure's stems
-    // would thicken this staff. Pin it back before drawing the staff lines.
-    this.context!.setLineWidth?.(STAVE_LINE_WIDTH_PX)
+  /**
+   * **Tier 2** — paint the staff lines. The only part of a stave that a culled measure skips.
+   *
+   * ⭐ **P5a**: the five lines are ours now (`engrave/staff/staffLines`), so they go on the pass's
+   * surface and the SCENE can see them. ⚠️ The stave still gets the real context as well, because its
+   * MODIFIERS — the clef, the meter, the opening barline — still paint themselves.
+   *
+   * ⛔ The `setLineWidth` pin that used to stand here is gone, and deliberately: `drawStaffLines` now
+   * sets the width from the same constant that positions the stroke. The hazard it guarded (a
+   * preceding `Stem.draw()` leaves the context at 1.5) is still real and is still handled — one line
+   * later, and by the code that actually needs the number.
+   */
+  private drawStave(stave: Stave, ctx: DrawContext): void {
+    drawStaveInkThrough([stave], ctx)
     stave.setContext(this.context!).draw()
   }
 
@@ -4999,23 +5009,11 @@ export class VexFlowRenderer {
  * ink.
  */
 /**
- * ⭐⭐ **HOW THICK A STAFF LINE IS DRAWN — one owner, and it is OURS rather than VexFlow's default.**
- *
- * `Stave.draw()` strokes its five lines with whatever `lineWidth` the context happens to carry, so
- * this is pinned before every stave (a preceding stem leaves it at 1.5, which used to thicken the
- * next staff). ⭐ Named because a SECOND place needs the same answer: the open staff TAIL under a
- * cautionary key signature (`KeySignaturePass.drawOpenStaffTail`), which continues these very lines
- * past the last barline. A tail of a different weight is visible instantly.
- *
- * ⚠️ **SMuFL says 0.13 staff spaces — 1.3 px at `STAFF_SPACE_PX` — and we draw 1.**
- * `bravuraMetrics.staffLineThickness` is that number, and `docs/own-engraving-engine.md`'s direction
- * is that a rule we can state should be stated from the font. ⛔ Not changed here, and deliberately:
- * it moves EVERY staff line in every score by 30%, which is a taste call for his eye and not a
- * side-effect of a key-signature phase (`feedback_fix_what_was_reported`). ⏭️ When the engine draws
- * its own staves, this becomes `engravingDefault('staffLineThickness') * space` and the tail follows
- * it with no second edit — which is the whole point of it being one constant.
+ * ⭐ **`STAVE_LINE_WIDTH_PX` moved to `engine/engrave/staff/staffLines` at P5a** — the staff's own ink
+ * property, beside the code that now draws it, exactly as its old comment predicted it would.
+ * Re-exported here because `KeySignaturePass` and the browser suite reach for it by this path.
  */
-export const STAVE_LINE_WIDTH_PX = 1
+export { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 
 function noteStartOf(stave: Stave): number {
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)

@@ -448,7 +448,30 @@ knot, so P1 is cut there.
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
 | **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
-| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED until P3**, and the doc always said why — see below |
+| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED — and by a CONDITION, ⛔ not by a milestone.** See the row below |
+
+🚨🚨 **WHAT ACTUALLY GATES P1e — corrected 2026-09-01, because the old wording misled a reader.**
+
+This row used to say *"BLOCKED until P3"*, and P3 finished on 2026-09-01 without unblocking anything.
+⭐ **The gate was never a milestone; it is the condition quoted in P1d's section below:**
+
+> *"while VexFlow objects still paint themselves our context must implement **VexFlow's**
+> `RenderContext` anyway — so it re-implements their interface rather than escaping it."*
+
+⭐⭐ **The measurable form of that condition is `npm run lint:paint`'s `vexContext` count, and P3 and
+P4 did not move it: 18/18, exactly as when P1d was written.** Taking the note's five drawing calls
+and the beam's lines did not reduce it, because the objects still painting themselves are others:
+
+| still paints itself | where | which phase takes it |
+|---|---|---|
+| **`Stave`** — the staff's own five lines, and it places the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐⭐ **P5** — the largest of the three |
+| **`Curve`** — the tie's and slur's arc | `rendering/curveArc`, `TieRenderer` | ⛔ **unlettered** — no phase names it yet |
+| **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` | ⛔ **unlettered** — P3 took the NOTE's ink, not the fan's copy of it |
+
+⇒ ⭐ **P1e comes after P5** (§0.2's order), and even then the `Curve` and `FanPass` rows above have to
+be answered — either by moving them, or by a deliberate decision that our painter implements enough
+of `RenderContext` for those two to keep working. ⛔ Neither has been decided, and this table is that
+gap named, exactly as §5's P6 named the ruler's.
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 
@@ -755,6 +778,34 @@ and hooks.
 `engine/layout/headerInk.ts` already **measures** what a clef and a meter cost; `Stave` still
 **places** them — the two-sets-of-numbers problem in its last hiding place. Small once P2 exists.
 
+| step | what | state |
+|---|---|---|
+| **P5a** | the staff's own **FIVE LINES** | ✅ **2026-09-01** — `engrave/staff/staffLines` + `rendering/EngravedStave`. ⭐ The dividend is that **staff-line geometry is now a unit test**: the lines are in the SCENE, where before they were VexFlow's and needed a browser |
+| **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⏭️ **researched first**: `docs/header-spacing-research.md`. This is the two-sets-of-numbers pair the section names |
+| **P5c** | ⏳ the staff line's **THICKNESS** | ⛔ **gated, and it is a taste call**: SMuFL says 0.13 sp, we draw 0.1 sp, and changing it moves every staff line in every score. `docs/staff-line-research.md`; HIS |
+
+#### ✅ P5a — the five lines (2026-09-01)
+
+⭐ Same shape as P4a: the ink that had **two owners** moves to one module, the objects that paint
+themselves keep the VexFlow context, and **no pixel moves**.
+
+🚨 **The two owners drew the same line with DIFFERENT PRIMITIVES and agreed by accident.**
+`Stave.draw()` strokes a path at `y + 0.5` at whatever width the context carries;
+`KeySignaturePass.drawOpenStaffTail` fills a rect at `y`, `STAVE_LINE_WIDTH_PX` tall. Both cover
+`[y, y+1]` — ⚠️ **but only because the thickness is 1.** VexFlow's `lineWidthCorrection` is
+`lineWidth % 2 === 0 ? 0 : 0.5`, a crispness idiom for odd INTEGER widths that never becomes `w/2`.
+⇒ at SMuFL's 1.3 px it would stroke `[y−0.15, y+1.15]` while the tail fills `[y, y+1.3]`. The module
+derives the offset from the thickness instead (`y + t/2`), which is identical at 1 and correct above
+it — so **P5c cannot silently break P5a**.
+
+⭐ `STAVE_LINE_WIDTH_PX` moved from `rendering/VexFlowRenderer` to the new module, which is exactly
+what its own comment had been waiting for (*"when the engine draws its own staves…"*), and the
+renderer's `setLineWidth` pin is gone: `drawStaffLines` sets the width from the same constant that
+positions the stroke.
+
+⛔ **What P5a did NOT take**: the clef, the meter and the opening barline are stave MODIFIERS and
+still paint themselves — that is P5b, and it is the half with the engraving questions in it.
+
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 
 > *"are we planning to manage the bounding box at a certain moment? and do we need the bbox once we
@@ -851,7 +902,8 @@ document's own argument** — the one that demoted P1 in the first place, quoted
 ⭐ That is exactly as true today as when it was written: **18 `vexContext` uses**, every one a
 `StaveNote`, a `Beam`, a `Stave` or a `Curve` painting itself. A from-scratch `paint/svg/` would
 have to satisfy their interface as well as ours, at the highest blast radius in the plan, in
-exchange for four small gotchas. ⛔ So it is **P1e, after P3**, and the four gotchas stay open.
+exchange for four small gotchas. ⛔ So it is **P1e — and after P5, not after P3**: see the corrected
+gate under §5's P1 table. The count is unchanged at **18/18**, and the four gotchas stay open.
 
 ⭐⭐ **But the OTHER implementation has no such constraint, and it is the one §7.2 has been pointing
 at all along:**

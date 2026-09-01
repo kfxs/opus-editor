@@ -137,10 +137,20 @@ describe('⭐⭐ the barlines, measured in jsdom — what used to need a browser
 })
 
 describe('⭐⭐ P3a — the LEDGER LINES, the first piece of a NOTE in the scene', () => {
-  /** Every stroked two-point horizontal path — what a ledger line is (`engrave/notes/ledgerLines`). */
+  /**
+   * Every stroked two-point horizontal path — what a ledger line is (`engrave/notes/ledgerLines`).
+   *
+   * 🚨 **…OUTSIDE the stave's own group, and that clause arrived with P5a.** The staff's five lines
+   * are the same primitive — a stroked two-point horizontal path — and since P5a they are OUR ink and
+   * therefore IN THE SCENE, where before they were VexFlow's and invisible here. ⇒ every count below
+   * silently gained five per bar until this filter was added. ⭐ The group is the honest
+   * discriminator: a ledger line belongs to a NOTE, a staff line to the STAVE.
+   */
   function horizontalStrokes(scene: ReturnType<typeof render>['scene']) {
+    const staveInk = new Set(sceneGroups(scene, 'stave').flatMap(g => scenePrimitives(g)))
     return scenePrimitives(scene).filter(p =>
-      p.kind === 'path' && p.painted === 'stroke' && p.ops.length === 2
+      !staveInk.has(p)
+      && p.kind === 'path' && p.painted === 'stroke' && p.ops.length === 2
       && p.ops[0].op === 'moveTo' && p.ops[1].op === 'lineTo' && p.ops[0].y === p.ops[1].y)
   }
 

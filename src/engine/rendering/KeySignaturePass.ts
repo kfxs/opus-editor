@@ -9,7 +9,7 @@ import { BARLINE_TO_CAUTIONARY_KEY_INK, CAUTIONARY_KEY_TO_LINE_END } from '@/eng
 import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawGroupOf } from './svgDrawGroup'
-import { STAVE_LINE_WIDTH_PX } from './VexFlowRenderer'
+import { STAVE_LINE_WIDTH_PX, fillStaffLine, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 
 /**
  * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
@@ -292,8 +292,13 @@ function drawOpenStaffTail(
 ): void {
   if (toX <= fromX) return
   const { stave } = placement
-  for (let line = 0; line < stave.getNumLines(); line++) {
-    pass.context.fillRect(fromX, stave.getYForLine(line) + dy, toX - fromX, STAVE_LINE_WIDTH_PX)
+  const ys: number[] = []
+  for (let line = 0; line < stave.getNumLines(); line++) ys.push(stave.getYForLine(line) + dy)
+  // ⭐ **P5a**: the same module the stave's own lines come from, so the tail cannot drift off them.
+  // ⛔ Still FILLED rather than stroked — see `fillStaffLine` for why the two primitives stay
+  // different — but the y and the extent are now one owner's answer instead of two.
+  for (const ink of staffLinesInk(fromX, toX - fromX, ys, STAVE_LINE_WIDTH_PX)) {
+    fillStaffLine(pass.context, ink)
   }
 }
 
