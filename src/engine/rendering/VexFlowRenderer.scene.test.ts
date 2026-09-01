@@ -31,6 +31,7 @@ import { VexFlowRenderer } from './VexFlowRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from './layoutConfig'
 import { fracCreate as frac } from '@/utils/fraction'
+import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
 
 function makeRenderer() {
   const container = document.createElement('div')
@@ -392,6 +393,93 @@ describe('⭐⭐ P4a — the BEAM’s lines, the first ink of P4 in the scene', 
     const groups = sceneGroups(renderModel(beamedBar(2, '8')).scene, 'beam')
     expect(groups.length).toBeGreaterThan(0)
     for (const g of groups) expect(g.id, 'an id, or the beam is unreachable').toBeTruthy()
+  })
+})
+
+describe('⭐⭐ P4b — the beam’s SLOPE, and it is the first step that MOVES PIXELS', () => {
+  /** One bar of two beamed quavers, `interval` diatonic steps apart, low in the treble staff. */
+  function pair(interval: number): ScoreModel {
+    const ladder = [
+      ['E', 4], ['F', 4], ['G', 4], ['A', 4], ['B', 4], ['C', 5], ['D', 5], ['E', 5],
+    ] as const
+    const model = new ScoreModel()
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(0, 2) })
+    model.addNote({
+      step: ladder[interval][0], octave: ladder[interval][1],
+      duration: '8', measure: 1, beat: frac(1, 2),
+    })
+    return model
+  }
+
+  /** The primary beam line's climb and run, in staff spaces. */
+  function beamRun(model: ScoreModel) {
+    const { scene } = renderModel(model)
+    const quad = sceneGroups(scene, 'beam')
+      .flatMap(g => g.children.filter(c => c.kind === 'path'))
+      .flatMap(p => (p.kind === 'path' && p.ops[0].op === 'moveTo' && p.ops[3]?.op === 'lineTo'
+        ? [{ rise: Math.abs(p.ops[3].y - p.ops[0].y) / 10, run: Math.abs(p.ops[3].x - p.ops[0].x) / 10 }]
+        : []))[0]
+    return quad
+  }
+
+  it('⭐⭐ two quavers stand 2.5 spaces apart — so Gould’s width rule governs every one of them', () => {
+    const drawn = beamRun(pair(4))
+    // ⚠️ This assertion is the REASON the rule bites here, and it is our own spacing law speaking:
+    // `layout/spacing` is Gould's 3.5 × √t, which gives a quaver 2.47 spaces.
+    expect(drawn.run, 'first stem to last stem').toBeCloseTo(2.5, 1)
+  })
+
+  // ⚠️ ARMED EXPLICITLY, and that is the point of the file after his call of 2026-09-01: the ACTIVE
+  // rule is `vexflow` — P4b moved no pixel — so a test that asserted the tradition's numbers without
+  // arming them would be asserting a rule nobody is running.
+  it('⭐⭐ …and under `musescore` such a beam climbs at most a QUARTER space, whatever the interval', () => {
+    setBeamSlopeRule('musescore')
+    try {
+      for (const interval of [1, 2, 3, 4, 5, 6, 7]) {
+        expect(beamRun(pair(interval)).rise, `an interval of ${interval + 1} at 2.5 spaces’ width`)
+          .toBeLessThanOrEqual(0.25 + 1e-6)
+      }
+    } finally { resetBeamSlope() }
+  })
+
+  it('⭐ …while the ACTIVE rule (`vexflow`, his call) leaves them where they always were', () => {
+    // The measured "before P4b" table is in `docs/beam-slope-research.md` §3: a 4th and everything
+    // wider drew 0.60 spaces. ⭐ This asserts P4b moved NO PIXEL — the whole shape of that decision.
+    expect(beamRun(pair(7)).rise, 'an octave').toBeCloseTo(0.6, 2)
+    expect(beamRun(pair(1)).rise, 'a 2nd').toBeCloseTo(0.24, 2)
+  })
+
+  // 🚨🚨 THE REGRESSION TEST FOR A LIVE BUG REPORT — *"im changing it but dont see any difference on
+  // screen"* (2026-09-01). Arming a rule bumped `beamSlopeGeneration()`, which was in the renderer's
+  // VIEW key… and a beam is drawn INSIDE a measure group, so every group was REUSED and the old
+  // beams were replayed. Nothing failed. The generation had to go in the SHAPE key as well.
+  // ⚠️ This test renders the SAME renderer twice on purpose: a fresh renderer has nothing to reuse,
+  // so a per-render fixture would pass while the app stayed broken.
+  it('🚨🚨 arming a different rule REDRAWS — the same renderer, twice, with the bar reused', () => {
+    const model = pair(7) // an octave: the rules differ most here
+    const renderer = makeRenderer()
+    const riseOf = (scene: ReturnType<typeof render>['scene']) => {
+      const p = sceneGroups(scene, 'beam').flatMap(g => g.children.filter(c => c.kind === 'path'))[0]
+      return p?.kind === 'path' && p.ops[0].op === 'moveTo' && p.ops[3]?.op === 'lineTo'
+        ? Math.abs(p.ops[3].y - p.ops[0].y) / 10 : NaN
+    }
+    const first = renderer.recordScene(() => renderer.renderScore(model.getScore())).scene
+    setBeamSlopeRule('musescore')
+    try {
+      const second = renderer.recordScene(() => renderer.renderScore(model.getScore())).scene
+      expect(riseOf(second), '`musescore` flattens an octave that `vexflow` lets climb')
+        .toBeLessThan(riseOf(first))
+    } finally {
+      resetBeamSlope()
+    }
+  })
+
+  it('⛔ a unison stays flat', () => {
+    // 🚨 AND IT IS ALSO THE BREAK-TEST FOR `FLAT_SLOPE_RANGE`. A unison's budget is zero, and
+    // VexFlow's slope search steps by `(max - min) / 20` — so if the adapter ever passes a
+    // zero-width range, this test does not FAIL, it HANGS the thread. A timeout here means that
+    // guard was removed (`EngravedBeam`), not that an assertion is wrong.
+    expect(beamRun(pair(0)).rise).toBeCloseTo(0, 6)
   })
 })
 

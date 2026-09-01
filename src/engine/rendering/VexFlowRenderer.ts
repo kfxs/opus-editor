@@ -61,6 +61,7 @@ import { ottavaSpan } from '@/engine/models/ottavaOps'
 import { pedalSpan } from '@/engine/models/pedalOps'
 import { beamGroupStemDirection } from '@/engine/models/stemOps'
 import { slurShapeGeneration } from './slurShapeExperiment'
+import { beamSlopeGeneration } from './beamSlopeExperiment'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -687,6 +688,9 @@ export class VexFlowRenderer {
       //    "no" and the console call draws nothing (`reference_only_a_stale_render_runs`). ⛔ Not the
       //    layout key: a slur takes no width, so the casting-off cannot depend on it.
       slurShapeGeneration(),
+      // ⚠️ EXPERIMENT, HIS (2026-09-01) — the armed beam-slope rule (`./beamSlopeExperiment`), here
+      //    for the same reason and with the same warning as the line above it.
+      beamSlopeGeneration(),
     ])
   }
 
@@ -4026,6 +4030,10 @@ export class VexFlowRenderer {
       this.suppressedDynamicId,
       this.suppressedTempoId,
       this.suppressedDynamicInkWidth,
+      // ⚠️ HIS EXPERIMENT (2026-09-01): arming a beam-slope rule redraws every bar and changes no
+      //    bar's content, so without this every group is REUSED and the console call does nothing
+      //    visible — which is exactly what he reported. See the parameter's comment.
+      beamSlopeGeneration(),
     ))
 
     probeSub('shapeKey', tShapeKey)

@@ -6,8 +6,14 @@
 > half has been ours since long before this migration; what P4 is about is **what the drawn line
 > looks like once the grouping is settled.**
 >
-> **Status: P4a ✅ the beam's LINES — 2026-09-01.** ⏳ What is left is the SHAPE: the slope, the
-> hooks, and the stem lengths a beam imposes.
+> **Status: P4a ✅ the beam's LINES · P4b ✅ the SLOPE, as a TABLE OF RULES — both 2026-09-01.**
+> ⭐⭐ **P4b moved no pixel**: five rules are on the shelf, the one his eye kept is the one we already
+> drew, and `__beams.rule(…)` swaps them live. ⏳ What is left is the HOOKS (P4c) and the stem lengths
+> a beam imposes.
+>
+> 📄 **P4b's research is DONE and is `docs/beam-slope-research.md`** (2026-09-01) — four treatises,
+> three engines, and our own drawn beams measured through the scene. ⛔ **It builds nothing**: its §7
+> is a decision list and every row on it is HIS.
 
 ---
 
@@ -32,13 +38,119 @@ is drawn by the BEAM, not by the note — `StaveNote.draw` skips a stem whose `b
 | | piece | why here | state |
 |---|---|---|---|
 | **P4a** | **the beam's LINES** | ⭐ the ink had **four owners**, three of which already shared our quad — VexFlow's was the odd one out; ⛔ no engraving opinion needed, the x's and the slope are read as public API | ✅ **2026-09-01** |
-| **P4b** | ⏳ the **SLOPE** | ⛔ **gated on research.** `calculateSlope` is a cost solve (`slopeCost`, `slopeIterations`, `maxSlope`, `minSlope`); the books state the rule as a table of pitch-interval → rise. ⚠️ Nobody has complained about the current picture | ⏭️ |
+| **P4b** | the **SLOPE** | ✅ **2026-09-01 — researched (`docs/beam-slope-research.md`), then BUILT AS A TABLE OF FIVE RULES with an instrument.** ⭐ His eye picked `vexflow`, the one we already drew ⇒ **no pixel moved**. ⛔ Which rule is *right* stays open, on purpose | ✅ **built, ⏳ undecided** |
 | **P4c** | ⏳ the **HOOKS** (partial beams) | ⛔ **gated**: §6.1 of the parent names beam hooks among the places *"where we currently have no opinion"* — `getBeamLines` decides left/right on its own, and this editor has never stated a rule | ⏭️ |
 | **P4d** | the **cross-system fragments**, folded in | ⭐ cheap once P4b/P4c exist: the renderer's two hand-drawn fragments continue *"the group's own slope and levels"* by hand today, which is a copy of arithmetic that would then have a home | ⏭️ |
 | … | the beam's own **stem lengths** | `applyStemExtensions` — ⚠️ the same research as P3e (`docs/stem-length-research.md`), from the other end | ⏭️ |
 
 ⛔ **Nothing below P4a is scheduled**, and none of it is a defect list: the beams on his screen are
 not wrong, they are *unsourced*. Taking a rule we cannot state is the one move this project reverts.
+
+---
+
+## ✅ P4b — WHAT LANDED, AND IT MOVED NO PIXEL (2026-09-01)
+
+> *"i prefer vexflow angle for the moment… interval is really angled so is not nice.. and probably we
+> should ad also verovio and lylypond solutions so is easy to explore later and to take a real
+> solution"*
+
+⭐⭐ **His eye saw all of it on his own music within the hour, and the verdict was the picture we
+already had.** So P4b ships as: **the research, the instrument, five rules — and the same page.**
+
+| | |
+|---|---|
+| **ACTIVE rule** | ⭐ `vexflow` — the angle cap. ⛔ **No pixel moved**, and the scene spec asserts exactly that (an octave still climbs 0.60, a 2nd 0.24). |
+| what he rejected | `musescore` *"too flat"* · `interval` *"really angled so is not nice"* |
+| the instrument | `__beams.rule(…)` / `.dump()` / `.reset()` — `dev/beamSlopeConsole.ts` |
+| the rules | `engine/engrave/beams/beamSlope.ts`, five rows, each with its source and its **divergences** written down |
+
+🚨 **AND A REAL BUG CAME OUT OF HIM TESTING IT** — *"im changing it but dont see any difference on
+screen"*. The armed rule was in the renderer's **view key**, which decides whether a render RUNS; a
+beam is drawn INSIDE a measure group, and groups are **reused** unless the **SHAPE key** changes. So
+the render ran, every group was replayed, and the old beams came back — silently, exactly as
+`reference_render_width_key_vs_shape_key` warns. ⇒ `measureShapeKey` gained a `pictureGeneration`,
+and the regression test renders the SAME renderer twice on purpose (a fresh one has nothing to reuse
+and would pass while the app stayed broken).
+
+⏭️ **What is still open after P4b** — ⛔ none of it decided by this commit:
+- **which rule** is right. Five are on the shelf; one is armed; the comparison is his to make.
+- ⭐ **whether our SPACING is what the books assume.** A quaver stands 2.47 spaces here (Gould's own
+  law) while her plates draw beamed quavers at ~4.5. Until that is understood, every width-based rule
+  is being fed a number the books may not recognise.
+- **what *"closer than three spaces"* measures** — stem to stem, head centre to head centre, or the
+  white gap. ⛔ UNKNOWN.
+
+---
+
+## ⏳⏳ HIS STANDING DECISION — THE SLOPE ALGORITHM STAYS OPEN (2026-09-01)
+
+> *"lets not fix the rule, but leave it open, i would like to test the three engine solutions… but we
+> dont have to do it now, so make a note about this and lets built it as you propose but in a way we
+> dont close the door to change the algorithm so we can in the future test the posibilities and try an
+> optimal solution"*
+
+⛔ **So the question "which beam-slope algorithm is best?" is NOT answered, and ⛔ nothing in this
+repo may be written as if it were.** What P4b builds is **one row in a table of rules**, chosen
+because it is the best-sourced one available today — ⛔ not because it won a comparison. The
+comparison has not happened.
+
+⭐ **What "the three engine solutions" means**, and each is measured in `docs/beam-slope-research.md`
+§4, ready to become a row:
+
+| engine | its answer | state |
+|---|---|---|
+| **MuseScore** | two integer tables in quarter-spaces — the smaller of the interval's budget and the width's | ✅ `musescore` — ⛔ minus its concave FLAT rule and its line attachment |
+| **LilyPond** | least squares → `0.6·tanh(slope)/damping` → quanting onto sit/straddle/hang with demerits | ✅ `lilypond` — ⛔ **the damping only**: no concaveness, no quanting, no minimum-dy |
+| **Verovio** | a step ladder in half-spaces, branching on note count, distance and duration | ✅ `verovio` |
+| — | Ross's interval table with Gould's close-notes flattening left out | ✅ `interval` — a hybrid, ⛔ nobody's engine |
+| **VexFlow** | the ANGLE cap, `maxSlope 0.25` | ✅ `vexflow` — ⭐ **THE ACTIVE ONE, his call** |
+
+⚠️ **And the fourth row is what we drew before P4b** — VexFlow's angle cap — kept deliberately as
+`vexflow`, so *"what did it look like yesterday"* is a one-word edit rather than an archaeology
+exercise.
+
+### 🚨 HIS EYE, THE SAME DAY: *"to my eyes the angle looks too flat now"* (2026-09-01)
+
+⭐⭐ **The instrument earned its place within minutes of the first rule reaching the page.** `tables`
+is the flattest of the three readings, and at this editor's spacing it is *very* flat: every ordinary
+beam lands on the width ladder's bottom rung, **¼ space**, whatever the interval.
+
+🚨 **And there is a real question underneath his reaction, worth chasing before anybody defends the
+number: *"closer than three spaces" is not defined in the book.*** Gould p. 20 gives the threshold
+and never says three spaces *between what*. Three readings, three different answers for the same
+music:
+
+| measured as | our two quavers |
+|---|---|
+| stem to stem (what `EngravedBeam` measures) | **2.50 sp** ⇒ under the threshold |
+| notehead centre to centre | ≈ 2.5 sp ⇒ under |
+| the white GAP between the two heads | ≈ 1.3 sp ⇒ far under |
+
+⚠️ All three put us under it, so the threshold is not the whole story — but ⭐ **the plates are**:
+Gould draws her own examples at **4.4 and 4.8 spaces**, nearly twice our quaver spacing. Either
+engraved pages space quavers much wider than our 2.47, or her threshold is not measured the way we
+measure it. ⛔ **UNKNOWN, and it is the next thing to look at** — ⛔ not a number to bend meanwhile.
+
+⇒ `interval` was added as a third row the same hour: **Ross's interval table with Gould's width rule
+left out**, which is the middle ground between yesterday's picture and the flattest reading.
+
+### What "not closing the door" cost, concretely
+
+- ⭐ `engine/engrave/beams/beamSlope.ts` is a **table keyed by rule name**, not a function. Adding
+  LilyPond's or Verovio's is adding a row and a spec, and touches nothing else.
+- ⭐ `ACTIVE_BEAM_SLOPE_RULE` is **one identifier**. Comparing two algorithms is that word plus
+  `npm run dev`.
+- ⚠️ **One honest limit, written down so it is not discovered later**: a rule currently returns a
+  **budget** (the most a beam may climb) and VexFlow's own solver picks inside it. LilyPond and
+  Verovio both want to **choose** the rise outright. ⇒ that needs one more line in
+  `rendering/EngravedBeam.postFormat` — assign `this.slope` after `super.postFormat()` and re-run
+  `applyStemExtensions()`. ⛔ Deliberately not written until somebody is actually comparing, because
+  an untested branch that exists is worse than a documented one that does not.
+- ⏭️ **If comparing by eye on the same page becomes the job**, the next step is a dev-only setter so
+  the rule can be swapped without a rebuild. ⛔ Not built — nobody has asked yet.
+
+⛔ **The old behaviour is not gone and must not be deleted**: `BEAM_SLOPE_RULES.vexflow` is the
+baseline every future comparison is measured against.
 
 ---
 
@@ -132,11 +244,13 @@ reproducing it would mean casting to read a field that is always `undefined`. Re
 
 ## 3. ⏭️ WHAT IS NEXT — ⛔ not a queue
 
-- **The SLOPE (P4b).** VexFlow solves it as a cost function; Gould and Stone state it as a table
-  (interval spanned → rise, in spaces, with a ceiling). ⭐ The research shape is the same one
-  `docs/stem-length-research.md` used, and the sources are on the shelf. ⚠️ Note the trap that work
-  found: **a book's plate can disagree with the book's own sentence**, and the plate wins
-  (`docs/note-engraving-plan.md` §3.4).
+- ✅ **The SLOPE (P4b) — RESEARCHED, ⛔ not built: `docs/beam-slope-research.md`.** Six rules are
+  unanimous across the four treatises and three engines; **two of them we do not implement at all**
+  (a beam end must sit on / hang from / straddle a stave-line — VexFlow's `Beam` never consults the
+  stave; and *"closer than three spaces ⇒ ¼ or ½ regardless of interval"*), and one we implement
+  **in the wrong currency** (we cap the ANGLE at 0.25; every source caps the RISE in stave-spaces).
+  ⭐ What we already get right: a 2nd is drawn at 0.24 sp = Ross's ¼, and a 3rd at 0.48 = Gould's own
+  drawn ½. ⏳ §7 of that document is the decision list, and it is HIS.
 - **The HOOKS (P4c).** Which side a partial beam points is a real engraving rule (it follows the
   beat's subdivision, not the neighbour's duration), and `getBeamLines` decides it with
   `lookupBeamDirection`. ⛔ Until the rule is written down, changing it is inventing one.

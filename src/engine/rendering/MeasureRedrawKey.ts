@@ -146,6 +146,23 @@ export function measureShapeKey(
   suppressedDynamicId: string | null,
   suppressedTempoId: string | null,
   suppressedDynamicInkWidth: number | null = null,
+  /**
+   * 🚨🚨 **A GLOBAL PICTURE-ONLY CHANGE — a counter that moves when something re-draws every bar
+   * without changing any bar's CONTENT.** Today that is exactly one thing: the armed beam-slope rule
+   * (`./beamSlopeExperiment`, his experiment of 2026-09-01).
+   *
+   * ⚠️ **It has to be HERE and not only in `viewStateKey`, and the difference cost a live bug
+   * report** — *"im changing it but dont see any difference on screen"*. `viewStateKey` decides
+   * whether a render RUNS; this key decides whether a bar is **re-engraved or its drawn `<g>`
+   * replayed**. A beam is drawn INSIDE the measure group, so a render that runs and then reuses
+   * every group draws the old beams again, forever, with nothing failing.
+   *
+   * ⭐ That is why `slurShapeGeneration` needed only the view key and this one needs both: a slur is
+   * top-level content, torn down every render; a beam is not.
+   * (`reference_render_width_key_vs_shape_key`: *missing from the shape key → the element never
+   * redraws… you hunt in the renderer for a bug that isn't there*.)
+   */
+  pictureGeneration: number = 0,
 ): string {
   const { view, clef } = input
 
@@ -166,6 +183,10 @@ export function measureShapeKey(
   ]
 
   return JSON.stringify([
+    // ⚠️ A global picture-only knob — see the parameter's own comment. Cheap: one number, and it is
+    //    the same number for every bar, so it only ever invalidates ALL of them at once.
+    pictureGeneration,
+
     // ── content that takes width (P2's key, reused wholesale — never re-derived) ──
     laneFingerprint(view),
 

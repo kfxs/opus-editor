@@ -32,9 +32,12 @@
  * `getBeamLines`, `getSlopeY`, `getBeamYToDraw`) is public, and the body below is VexFlow's own
  * arithmetic moved rather than rewritten.
  */
-import { Beam } from 'vexflow'
+import { Beam, Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { type BeamLineInk, beamLevelY, drawBeamLines } from '@/engine/engrave/beams/beamLines'
+import { type BeamShape, beamRiseCap } from '@/engine/engrave/beams/beamSlope'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { armedBeamSlopeRule } from './beamSlopeExperiment'
 
 /**
  * The durations a beam level exists for, in level order — VexFlow's `validBeamDurations`, kept
@@ -51,6 +54,16 @@ const VALID_BEAM_DURATIONS = ['4', '8', '16', '32', '64']
  */
 const BEAM_END_OVERSHOOT = 1
 
+/**
+ * 🚨🚨 **A FLAT BEAM IS A RANGE NARROWER THAN A PIXEL — ⛔ NEVER A RANGE OF ZERO.**
+ *
+ * VexFlow searches for its slope with `for (s = minSlope; s <= maxSlope; s += (maxSlope - minSlope) / 20)`.
+ * ⇒ if the two bounds are equal the increment is **0** and that loop **never terminates** — a frozen
+ * tab, no error, nothing in the console. A unison's budget is legitimately zero (`INTERVAL_QUARTERS[0]`),
+ * so this case is reached by ordinary music, not by a bug.
+ */
+const FLAT_SLOPE_RANGE = 1e-6
+
 export class EngravedBeam extends Beam {
   /**
    * The surface this beam's own ink draws on — `RenderPass.context`, which is the recorder during a
@@ -63,6 +76,62 @@ export class EngravedBeam extends Beam {
   /** @see EngravedBeam.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /**
+   * ⭐⭐ **P4b — THE SLOPE'S BUDGET.** The one place VexFlow's solver is told how steep this beam may
+   * be; the rule that decides it is `engrave/beams/beamSlope`, and ⛔ **which rule that is stays
+   * open** (his call — see that module's header).
+   *
+   * ⭐ **A BUDGET, ⛔ not a slope.** We narrow `minSlope`/`maxSlope` and let VexFlow's own cost search
+   * run inside them, which is what keeps the behaviour a bound cannot express: a beam is never left
+   * cutting through an inner note's stem, because that search still prefers the cheapest total stem
+   * extension. ⇒ ⭐ the whole of P4b is *"tell the existing solver a smaller room"*.
+   *
+   * ⚠️ Here rather than in `calculateSlope()` because the budget needs the formatted x's, and
+   * `postFormat` is the last moment before the slope is solved. The `postFormatted` guard is
+   * VexFlow's own, repeated so that the shape is not measured twice.
+   */
+  override postFormat(): void {
+    if (this.postFormatted) return
+    if (this.notes.length >= 2) {
+      const shape = this.beamShape()
+      // ⭐ `armedBeamSlopeRule()` and ⛔ not the module default: WHICH rule is an open question, and
+      // `./beamSlopeExperiment` is the knob his console arms it with (`__beams.rule(…)`).
+      const cap = shape.widthSpaces > 0
+        ? beamRiseCap(shape, armedBeamSlopeRule()) / shape.widthSpaces
+        : 0
+      const range = Math.max(cap, FLAT_SLOPE_RANGE)
+      this.renderOptions.maxSlope = range
+      this.renderOptions.minSlope = -range
+    }
+    super.postFormat()
+  }
+
+  /**
+   * What this beam looks like to a slope rule — the adapter's whole job, and the reason
+   * `engrave/beams/beamSlope` needs no VexFlow.
+   *
+   * ⚠️ **The interval is read from the notes NEAREST THE BEAM** (`getLineNumber(up)`), ⛔ not from
+   * their outer pitches: a chord's beam is decided by the head the stem's tip belongs to, which is
+   * the same choice MuseScore makes (`closestChordsToBeam`). ⚠️ `line` is in VexFlow's units where
+   * **1 = a whole space = two diatonic steps**, hence the doubling.
+   */
+  private beamShape(): BeamShape {
+    const first = this.notes[0]
+    const last = this.notes[this.notes.length - 1]
+    const up = this.getStemDirection() !== Stem.DOWN
+    return {
+      intervalSteps: Math.abs(last.getLineNumber(up) - first.getLineNumber(up)) * 2,
+      widthSpaces: Math.abs(last.getStemX() - first.getStemX()) / STAFF_SPACE_PX,
+      noteCount: this.notes.length,
+      // ⭐ The two outer stem TIPS as they stand before any slope is solved — VexFlow's own
+      // `getStemSlope`, which reads exactly this pair (`beam.js`). ⚠️ Valid here and not later:
+      // `super.postFormat()` is about to move them.
+      naturalRiseSpaces:
+        Math.abs(last.getStemExtents().topY - first.getStemExtents().topY) / STAFF_SPACE_PX,
+      beamCount: this.getBeamCount(),
+    }
   }
 
   /**

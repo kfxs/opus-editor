@@ -735,6 +735,28 @@ commented out as crashing, the two-voice reduction its own header calls for is u
 the chord path hard-codes a 5-line staff). ⚠️ **MuseScore has moved the algorithm again**: it is now
 `src/engraving/rendering/score/stemlayout.cpp`, ⛔ no longer `chordlayout.cpp`.
 
+### What was asked of it on 2026-09-01 (second question), and what came back
+
+The question was **THE BEAM'S SLOPE**, asked for **P4b** of `docs/beam-engraving-plan.md` — the same
+gate the stem's length is behind. Written up in full as **`docs/beam-slope-research.md`**.
+⭐⭐ **THE FINDING THAT MATTERS FOR THIS MANIFEST: ALL FOUR TREATISES ANSWER, AND TWO OF THEM POINT AT
+THE THIRD.** Gould p. 21 — *"(For a detailed study of beam angles, see Ted Ross, The Art of Music
+Engraving and Processing.)"* — and Stone p. 12's footnote names the same book **and the same pages**:
+*"charts with close to 300 different two-note single beam slants alone! … pages 104 ff."*
+⇒ **Ross pp. 104ff is the primary source for this question and the other books say so.**
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ where a beam END may land | **Gould p. 20**, **Ross pp. 99–100**, **Stone pp. 10–11** | Unanimous: **sit on / hang from / straddle a stave-line — never mid-space.** *"Both ends of a slanted beam should be attached to a stave-line. This is the engraving tradition"* (Gould); *"Beams should never be centered between two staff-lines"* (Stone); Ross's whole 300-case chart is the enumeration of it, with `(¼)` marking the straddle's extra stem. 🚨 **VexFlow's `Beam` never consults the stave at all** — measured, §3 of the research doc. |
+| ⭐⭐ the interval → RISE table | **Ross p. 102** | 2nd **¼** · 3rd **½–1** · 4th **½–1¼** · octave **up to 2** · anything past the first ledger line **never more than ½**. ⭐ MuseScore's `_maxSlopes` is exactly this, one row per diatonic step in quarter-spaces. |
+| ⭐⭐ …and what Gould DRAWS | **Gould p. 19** (MEASURED at 1200 dpi) | Her *beam angle* figure has only two examples and no table: **B3→D4, a 3rd, labelled ½ (drawn 0.46)** and **G3→F4, a 7th, labelled 1 (drawn 1.02)**, both at ≈4½ spaces' spacing. ⭐ **The flattest reading in the library at the wide end** — MuseScore would give that 7th 1½. |
+| ⭐⭐ the HORIZONTAL-distance rule | **Gould p. 20**, **Ross p. 101** | *"Notes spaced very close together horizontally (**closer than three spaces**) take only a slight angle (¼ or ½ space) **regardless of the interval**"* · *"beamed notes should be between **three or four spaces** apart to use normal beam slanting"*. ⭐ MuseScore's first width breakpoint is `< 3.0 → ¼` and Verovio's is `≤ 3 spaces → ¼`. ⛔ We have no such rule. |
+| the CEILING | **Ross p. 99**, **Stone p. 12**, **Gould p. 20** | *"never exceeding a slant of **one space** up or down"* (Ross, as the apprentice's compromise) · *"**not more than one staff-space**"* (Stone) · Gould: short groups **one**, long groups *"one or possibly two"*. |
+| a beam over LEDGER-LINE notes | **Gould p. 21**, **Ross p. 102**, **G&L p. 43** | Slight slope regardless of pitch: a 2nd **¼**, everything wider **½**. |
+| 🚨 the beam GAP when SLANTED | **Stone p. 12**, **Gould p. 21 (c)** | *"the spaces between **three or more slanting beams** are generally widened to **half a staff-space** to avoid wedges"*, and outside the stave the normal **¼** returns. Gould offers the same as *"a good compromise"* against her (a): with a third beam, **slant a whole stave-space**. ⚠️ P4a's constant stride knows nothing of this. |
+| ⚠️ **Gerou & Lusk** as a witness | **G&L pp. 40–43** | ⛔ **Read their preamble first**: *"approximate guidelines, **modified from the strict traditional rules**"*, because *"the consistency of the computer and the quality of modern printing make it no longer necessary to avoid the small 'wedges'"*. Their numbers are one step steeper throughout, by design. Their FLAT cases are still worth having. |
+| ❌ a formula anywhere | all four | **None.** Every source is a table or an enumeration; the only formulas in existence are the engines' (LilyPond's `0.6·tanh(s)/damping`, MuseScore's two `min`s, Verovio's step ladder). |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the

@@ -741,8 +741,15 @@ and hooks.
 > The ink had **four** owners and three already shared ours, so the finding was that VexFlow's copy
 > was the only beam here not drawn by our primitive. ⭐ Half of `Beam.draw()` was already ours before
 > P4 began — a beamed note's stem is drawn by the BEAM, and P3c had moved that ink.
-> ⏳ What is left is the SHAPE: the slope (P4b) and the hooks (P4c), both ⛔ gated on research the
-> way P3e is.
+> ⭐⭐ **P4b — the SLOPE (2026-09-01), and it is a shape worth copying: a TABLE OF RULES, ⛔ not a
+> rule.** The research (`docs/beam-slope-research.md`) found all four treatises answering and two of
+> them pointing at Ross pp. 104ff; the audit found 85% of our beams steeper than any source allows;
+> and then **his eye rejected the sourced answer as too flat and kept the picture we already had**.
+> ⇒ five rules (`vexflow` · `musescore` · `interval` · `lilypond` · `verovio`) live in
+> `engine/engrave/beams/beamSlope.ts` with a console instrument, the active one is `vexflow`, and
+> **no pixel moved**. ⭐ *"We have no opinion"* (§6.1) can be answered by BUILDING THE OPINIONS AND
+> LETTING HIM LOOK — a third option beside "invent a rule" and "keep the dependency".
+> ⏳ What is left is the hooks (P4c), still ⛔ gated on research the way P3e is.
 
 ### P5 — The staff and the header
 `engine/layout/headerInk.ts` already **measures** what a clef and a meter cost; `Stave` still
