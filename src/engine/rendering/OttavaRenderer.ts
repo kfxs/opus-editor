@@ -45,7 +45,7 @@
  * makes. `TrillRenderer`'s note, and it applies here verbatim.
  */
 import type { Stave } from 'vexflow'
-import { Element } from 'vexflow'
+import { drawGlyph, drawTextRun } from './glyphPainter'
 import type { Score, Ottava, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { ottavaSpan, type OttavaSpan } from '@/engine/models/ottavaOps'
@@ -329,15 +329,6 @@ function cutIntoPieces(
     })
   }
   return pieces
-}
-
-/** A glyph's drawn width, or 0 when the font cannot be measured (jsdom). */
-function glyphWidth(el: Element): number {
-  try {
-    return el.getWidth() || 0
-  } catch {
-    return 0
-  }
 }
 
 /**
@@ -681,25 +672,16 @@ export function drawOttavaNumeral(
   shift: Ottava['shift'],
   parenthesised: boolean,
 ): number {
-  const glyph = (text: string, at: number): number => {
-    const el = new Element('OttavaRenderer.numeral')
-    el.setText(text)
-    el.setFontSize(OTTAVA_GLYPH_SIZE)
-    el.renderText(ctx, at, y)
-    return glyphWidth(el)
-  }
+  const glyph = (text: string, at: number): number =>
+    drawGlyph(ctx, 'OttavaRenderer.numeral', text, at, y, OTTAVA_GLYPH_SIZE)
   const numeral = OTTAVA_NUMERAL_GLYPHS[shift]
   if (!parenthesised) return glyph(numeral, x)
 
   const size = OTTAVA_GLYPH_SIZE * OTTAVA_PAREN_SCALE
   const parenY = y - size * OTTAVA_PAREN_RAISE
-  const paren = (text: string, at: number): number => {
-    const el = new Element('OttavaRenderer.paren')
-    el.setFont(OTTAVA_PAREN_FONT, size, 'normal', 'italic')
-    el.setText(text)
-    el.renderText(ctx, at, parenY)
-    return glyphWidth(el)
-  }
+  const paren = (text: string, at: number): number =>
+    drawTextRun(ctx, 'OttavaRenderer.paren', text, at, parenY,
+      { family: OTTAVA_PAREN_FONT, sizePt: size, style: 'italic' })
 
   let width = paren(OTTAVA_PAREN_LEFT, x)
   width += glyph(numeral, x + width)

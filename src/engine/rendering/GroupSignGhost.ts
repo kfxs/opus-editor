@@ -32,8 +32,8 @@
  * ⭐ Both signs are drawn at ONE STAFF's height, and the brace at the DEPTH it is engraved at — see
  * {@link GHOST_HEIGHT_SPACES} and {@link drawGroupSignGhost}, each carrying the report that set it.
  */
-import { Element } from 'vexflow'
 import type { SVGContext } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -105,10 +105,8 @@ export function drawGroupSignGhost(
     try {
       // Scaled about the cursor, so the sign hangs where the pointer is whatever its own box says.
       group?.setAttribute('transform', `translate(0, ${cursorY}) scale(${sx}, ${sy}) translate(0, ${-cursorY})`)
-      const glyph = new Element('GroupSignGhost.sign')
-      glyph.setText(SIGN_GLYPHS[symbol])
-      glyph.setFontSize(3 * STAFF_SPACE_PX)
-      glyph.renderText(ctx, 0, cursorY + (inkHeight / 2 - box.down) * STAFF_SPACE_PX)
+      drawGlyph(ctx, 'GroupSignGhost.sign', SIGN_GLYPHS[symbol], 0,
+        cursorY + (inkHeight / 2 - box.down) * STAFF_SPACE_PX, 3 * STAFF_SPACE_PX)
     } finally {
       ctx.closeGroup()
     }

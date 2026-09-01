@@ -39,7 +39,7 @@
  * conversion `planSlurSegments` makes and for the same reason.
  */
 import type { Stave } from 'vexflow'
-import { Element } from 'vexflow'
+import { drawGlyph, drawTextRun, measureGlyph } from './glyphPainter'
 import type { Score, Trill, TrillContinuationLabel, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import { trillSpan, type TrillSpan } from '@/engine/models/trillOps'
@@ -469,15 +469,6 @@ function cutIntoPieces(
   return pieces
 }
 
-/** A glyph's drawn width, or 0 when the font cannot be measured (jsdom). */
-function glyphWidth(el: Element): number {
-  try {
-    return el.getWidth() || 0
-  } catch {
-    return 0
-  }
-}
-
 /**
  * Draw every trill in the score, above (or below) the music it covers, split at system breaks.
  */
@@ -890,13 +881,8 @@ function firstNoteXOnLine(
  * ghost shares `drawTempoText` for the same reason.
  */
 export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, parenthesised: boolean): number {
-  const glyph = (text: string, at: number): number => {
-    const el = new Element('TrillRenderer.sign')
-    el.setText(text)
-    el.setFontSize(TRILL_GLYPH_SIZE)
-    el.renderText(ctx, at, y)
-    return glyphWidth(el)
-  }
+  const glyph = (text: string, at: number): number =>
+    drawGlyph(ctx, 'TrillRenderer.sign', text, at, y, TRILL_GLYPH_SIZE)
   if (!parenthesised) return glyph(TRILL_SIGN_GLYPH, x)
 
   // ⚠️ The parens are TEXT and the sign is a music GLYPH, so each needs its own font — and the
@@ -904,13 +890,9 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
   // Raised off the sign's baseline because a text paren descends and a `tr` does not.
   const size = TRILL_GLYPH_SIZE * TRILL_PAREN_SCALE
   const parenY = y - size * TRILL_PAREN_RAISE
-  const paren = (text: string, at: number): number => {
-    const el = new Element('TrillRenderer.paren')
-    el.setFont(TRILL_PAREN_FONT, size, 'normal', 'italic')
-    el.setText(text)
-    el.renderText(ctx, at, parenY)
-    return glyphWidth(el)
-  }
+  const paren = (text: string, at: number): number =>
+    drawTextRun(ctx, 'TrillRenderer.paren', text, at, parenY,
+      { family: TRILL_PAREN_FONT, sizePt: size, style: 'italic' })
 
   let width = paren(TRILL_PAREN_LEFT, x)
   width += glyph(TRILL_SIGN_GLYPH, x + width)
@@ -931,10 +913,8 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
  * about the wiggle lives in the browser suite.
  */
 function drawWiggle(pass: RenderPass, startX: number, endX: number, y: number, stave: Stave): void {
-  const probe = new Element('TrillRenderer.wiggle')
-  probe.setText(TRILL_WIGGLE_GLYPH)
-  probe.setFontSize(staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, stave))
-  const unit = glyphWidth(probe)
+  const size = staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, stave)
+  const unit = measureGlyph('TrillRenderer.wiggle', TRILL_WIGGLE_GLYPH, size)
   if (!(unit > 0)) return
 
   const width = endX - startX
@@ -944,9 +924,7 @@ function drawWiggle(pass: RenderPass, startX: number, endX: number, y: number, s
   const slack = count > 1 ? (width - count * unit) / (count - 1) : 0
 
   for (let i = 0; i < count; i++) {
-    const glyph = new Element('TrillRenderer.wiggle')
-    glyph.setText(TRILL_WIGGLE_GLYPH)
-    glyph.setFontSize(staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, stave))
-    glyph.renderText(pass.context, startX + i * (unit + slack), y)
+    drawGlyph(pass.context, 'TrillRenderer.wiggle', TRILL_WIGGLE_GLYPH,
+      startX + i * (unit + slack), y, size)
   }
 }

@@ -1,4 +1,5 @@
-import { Element, StaveModifierPosition, type Stave } from 'vexflow'
+import { StaveModifierPosition, type Stave } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import type { Clef, KeySignature } from '@/types/music'
 import type { RenderPass } from './RenderPass'
 import {
@@ -322,10 +323,7 @@ function drawSignRow(
     const y = stave.getYForLine(5 - lines[i]) + dy
     const char = SIGN_CHARS[glyph]
     if (!char) return
-    const element = new Element('KeySignaturePass.sign')
-    element.setText(char)
-    element.setFontSize(SIGN_FONT_SIZE)
-    element.renderText(pass.context, x, y)
+    drawGlyph(pass.context, 'KeySignaturePass.sign', char, x, y, SIGN_FONT_SIZE)
     // ⚠️ The step is the FONT's advance plus our own gap — the same arithmetic `keySignatureExtent`
     // reserved room with, so the last sign ends where the meter was pushed to. ⛔ Never the DRAWN
     // width of the glyph just rendered: in jsdom that is 0, and this pass would silently stack every

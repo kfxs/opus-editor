@@ -52,17 +52,27 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
-> **P2 ✅ done (2026-08-16) → P3 → P1 → P4 → P5.**
+> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1 (in three steps, P1a ✅) → P3 → P4 → P5.**
 
-⚠️ This is §5's corrected order — P2 first, **P1 after P3** — not the original one. 🚨 §9 still
-carries the pre-correction sentence *"the one thing to do now: P1"*; it is marked there, and §5 is
-the authority. ⛔ **The one hard gate: do not start P3 before the golden-image net exists** (§6.3).
+⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
+verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
+after P3. §5's P1 section carries the argument and the three steps. ⭐ The demotion's reasoning
+still stands for P1's *implementation* and never applied to its *interface*, which is where the loop
+is cut.
+
+⛔ **The hard gate is unchanged: do not start P3 before the net exists** (§6.3) — and P1b is now the
+cheapest way to get one, because once every drawing site takes a `DrawContext`, a **recording**
+implementation of it *is* the scene, and a scene diff is a better golden than a pixel diff.
+
+🚨 §9 still carries the pre-correction sentence *"the one thing to do now: P1"*. It is marked stale
+there — ⚠️ note that its *conclusion* has now come back round to being right, by a different route
+than the one it argued; §5 and this section remain the authority on the order.
 
 ### 0.3 The RULES, ranked by when they bind
 
 | # | rule | binds | argued in |
 |---|---|---|---|
-| 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** | **now** | §9 |
+| 1 | ⭐⭐ **A new drawn element draws through OUR context and OUR primitives — never by instantiating a VexFlow class.** ⭐ The one sanctioned way to put a music glyph down is `rendering/glyphPainter.ts` (P1a) — ⛔ not `new Element(...)` in your own file. | **now** — ✅ held through 277 commits, re-checked 2026-09-01 (§2.2) | §9, §5 P1a |
 | 2 | **We decide the geometry; we increasingly own the INK.** VexFlow's job shrinks to glyph shapes we do not want to invent. | **now** | §9 |
 | 3 | ⭐ **Where we have no engraving opinion: PORT it, attributed — do not invent.** VexFlow is MIT; the notice travels with the code, and you port the ALGORITHM, not the file. | **now** | §6.7 |
 | 4 | ⭐ **A new drawn element = a MODULE + a ROW in its table + an EXISTING scene primitive.** A new primitive needs a reason. | **now** (the module+row half is already `CLAUDE.md`) | §8.2 |
@@ -136,6 +146,40 @@ framework-agnostic port bought.
 (`StaveNote`, `Stave`, `SVGContext`, `RenderContext`). Those are the seam, and they are the work.
 
 ### 2.2 Size — the residue is smaller than it looks
+
+> 🚨🚨 **RE-MEASURED 2026-09-01 (HEAD `e4ebaba`) — the surface GREW 39% in 16 days, and that is the
+> single most important fact this document has gained since it was written.** 277 commits between
+> `7b4f5da` and here, none of them on this plan:
+>
+> | | audit (08-16) | now (09-01) | Δ |
+> |---|---|---|---|
+> | `engine/rendering/` non-test LOC | 20,053 | **27,813** | **+39%** |
+> | files there | 66 | 92 | +26 |
+> | non-test files importing `vexflow` | 27 | **41** | +52% |
+> | files whose signatures carry a VexFlow type (§2.1's "40") | 31 | **45** | +14 |
+> | `ctx: SVGContext` parameters | 21 | 28 | +7 |
+> | `ElementRegistry.ts` LOC | 1,490 | 2,013 | +35% |
+> | coordinate fields the registry's 3 handlers must translate | 8 | **12** | +4 |
+>
+> ⭐ **The good news first, and it is real: RULE 1 HELD.** Every one of the 14 new `vexflow`
+> importers is an `import type` or VexFlow's `Element` used as a glyph painter — ⛔ not one new file
+> instantiates a drawing class to place music. Instantiation is still in the same six files it was.
+>
+> 🚨 **So the diagnosis is precise: the rules that bind "now" are being kept, and the rules that bind
+> "at P1" are violated by default because P1 has not happened** — and their surface is the fastest-
+> growing number in the repo, because every new mark family adds one or two `ctx: SVGContext`
+> signatures for want of anything else to name. ⭐ That is the argument that moved P1 to the front
+> (§5).
+>
+> 🚨🚨 **Rule 9's stated trigger fired four times, unnoticed.** It binds *"when the scene lands — or
+> sooner, **the next time a coordinate field is added to `ElementInfo`**"*. Four were added since the
+> audit, one at a time, each under a feature: exactly the *"discovering the ~30 `add` sites and six
+> coordinate fields again, later, under a feature"* that the rule exists to prevent. ⛔ It is twelve
+> fields now. ⭐ A trigger nobody is scheduled to check is a trigger that does not fire.
+>
+> ⚠️ The absolute numbers below are the 2026-08-16 ones and are kept as written — the argument they
+> support (*the residue is not one lump*) is unchanged, and re-stamping them every fortnight would
+> cost the comparison above its baseline.
 
 | | LOC |
 |---|---|
@@ -357,7 +401,7 @@ Not one project. Five, each standalone, each leaving the editor working.
 > and a prerequisite for P3. P1's real job — *stop calling `.draw()` on VexFlow objects* — only
 > becomes available after P3.
 
-### P1 — Our own render context ⏭️ AFTER P3
+### P1 — Our own render context ⏭️ **STARTED 2026-09-01 — and it goes FIRST after all, in three steps**
 Our renderers already use **20 primitives**: `openGroup`/`closeGroup`, `beginPath`/`moveTo`/
 `lineTo`/`closePath`/`stroke`/`fill`/`fillRect`, `setLineWidth`/`setStrokeStyle`/`setFillStyle`/
 `setLineDash`, `setFont`/`fillText`/`measureText`, `save`/`restore`, `scale`, `pointerRect`.
@@ -367,6 +411,82 @@ VexFlow's `SVGContext` is 394 LOC.
 VexFlow objects only have to hand us numbers, never paint. It also closes four standing gotchas at
 once: `save`/`restore` being no-ops, the `setStyle` context leak, `openGroup`'s `vf-` prefix, and
 `getSVGElement`'s document-wide `getElementById`.
+
+#### 🚨 Why it moved back to the front — the ORDER in §0.2/§5 was CIRCULAR
+
+His question, 2026-09-01: *"what should we do next"* — and the plan could not answer it, because the
+three sentences it is built from close a loop:
+
+- §5/§0.2: **P3 next**, hard-gated on the golden-image net (§6.3).
+- §7.2: the SCENE makes geometry a jsdom unit test, is *"worth more than the golden-image net of
+  §6.3, and it is what makes P3 safe."*
+- §8.3: *"The directory that must exist first is `scene/`"* — and `scene/` lands with **P1**.
+
+⭐⭐ **P3 waits on a net; the best net is the scene; the scene ships with P1; P1 is after P3.** So
+nothing could start, and 277 commits in 16 days went into `rendering/` instead — see the re-measure
+in §2.2.
+
+⭐ **The demotion argument was right about the IMPLEMENTATION and wrong about the INTERFACE.** It
+said our context must implement *VexFlow's* `RenderContext` while VexFlow objects still paint
+themselves. True — but *declaring our own interface* and letting `SVGContext` satisfy it
+structurally inverts the dependency while implementing nothing. That is the reversible end of the
+knot, so P1 is cut there.
+
+#### The three steps
+
+| step | what | state |
+|---|---|---|
+| **P1a** | the **glyph adapter** — one module owns `new Element` | ✅ **DONE 2026-09-01** |
+| **P1b** | `DrawContext` — our interface, and the signatures retyped | ⏭️ next |
+| **P1c** | the **group handle** — the three things a group is used for | ⏭️ |
+
+#### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
+
+⚠️ **The first measurement inverted the step order, and it is the useful finding.** A pure signature
+retype could not go first: **our own renderers do not draw glyphs through context primitives — they
+draw them through VexFlow's `Element`.** 21 `renderText(ctx, x, y)` sites in 14 files, in two
+near-identical shapes, so those files need a `ctx` that is a real VexFlow context and cannot be
+handed one of ours until the glyph stamping moves.
+
+⭐ **That was never a breach of rule 1** — a glyph shape is precisely what we do not want to invent —
+but it was the last **value** import of `vexflow` in nine of those files, and therefore the reason
+none of them could be given a context of ours. Nine files wrote the same four lines by hand; they
+now call `drawGlyph` / `measureGlyph` / `drawTextRun`. **9 files → 1**, −74 lines, no pixel moved
+(5,976 unit + 275 browser tests green; the browser suite is the one that can see a glyph at all).
+
+⭐⭐ **Two facts, measured in vexflow 5.0.0's own source, that the rest of P1 leans on:**
+
+1. **`Element.renderText` is two calls and nothing else** (`element.js:331`):
+   `ctx.setFont(this._fontInfo)` then `ctx.fillText(this._text, x…, y…)`. So `Element` is a **font
+   resolver** at these sites, not a painter — the drawing half was already ours. ⏭️ That is what
+   makes the adapter's own `vexflow` import deletable once `fonts/` can answer *which face, at what
+   size*; ⛔ not today, and not as a guess — changing which face a glyph lands in moves engraving.
+2. 🚨 **The tag is not a debug label — it selects the FONT.** `new Element(tag)` does
+   `Metrics.getFontInfo(tag)` (`element.js:61`). Our tags have no row in VexFlow's table so they all
+   resolve to the same default; a tag that IS a VexFlow category resolves differently, which is the
+   whole mechanism `TempoLayout.drawTempoText` runs on (`'StaveTempo.glyph'` vs `'StaveTempo.name'`).
+   ⛔ So `TempoLayout` and `ScoreTuplet` are **deliberately not ported** — they hold `Element`s across
+   layout and draw, and do font-stack surgery per run. They are the only two constructors left.
+
+⭐ **And it collected a rule with no home**: `glyphWidth` existed as **three byte-identical private
+copies** in `TrillRenderer`, `PedalRenderer` and `OttavaRenderer` — §3.1's *"the second owner is the
+tell"*, found in the wild rather than argued.
+
+#### ⏭️ P1c — what a GROUP is, answered by reading the 21 `openGroup` sites
+
+⭐ The question §7.2 warns about (*"a primitive that smuggles a DOM node into the scene defeats the
+whole thing"*) arrives here, small: 12 of the 21 sites capture the returned `SVGGElement`, and they
+do exactly three things with it.
+
+| use | sites | what it asks the scene for |
+|---|---|---|
+| `setAttribute('transform', 'scale(k)')` | `VexFlowRenderer.renderMeasure`, `GutterRenderer`, `GroupSignGhost`, `staffScaleGroup.inStaffSpace` (serving 6 passes) | ⭐⭐ **rule 8's PLACEMENT**, already needed today |
+| `getBBox()` → `remove()` when empty | 6 ghosts | *"what did this group draw, and drop it if nothing"* |
+| `group.lastElementChild.setAttribute('data-half', …)` | `BarlineRenderer`, `barlineGap` | tag the last primitive |
+
+🚨🚨 **The third one is the scene's own argument, and it was already written down twice** — both
+sites carry the comment *"a context's drawing calls return the context and not the node"*. In a
+scene a primitive is a **value with fields**, so that whole workaround stops existing.
 
 ### P2 — Glyphs and font metrics ✅ **DONE 2026-08-16 (F1–F4)**
 📄 **`docs/font-metrics-plan.md`** — the decision record, and the log of what each phase found.

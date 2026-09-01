@@ -35,8 +35,8 @@
  * ours). That is the right trade for a preview, and ⛔ it is NOT licence to stamp these glyphs in
  * `BarlineRenderer`, where the staff is real and the four-space box would be a lie.
  */
-import { Element } from 'vexflow'
 import type { SVGContext } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'
@@ -86,9 +86,6 @@ export function drawBarlineGhost(
   ctx: SVGContext, cursorX: number, cursorY: number, sign: PlacedBarlineSign,
 ): boolean {
   return drawSignGhost(ctx, 'ghost-barline', cursorX, cursorY, () => {
-    const glyph = new Element('BarlineGhost.sign')
-    glyph.setText(SIGN_GLYPHS[sign])
-    glyph.setFontSize(3 * STAFF_SPACE_PX)
-    glyph.renderText(ctx, 0, cursorY)
+    drawGlyph(ctx, 'BarlineGhost.sign', SIGN_GLYPHS[sign], 0, cursorY, 3 * STAFF_SPACE_PX)
   })
 }

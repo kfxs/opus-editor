@@ -39,7 +39,7 @@
  * makes. `OttavaRenderer`'s note, and it applies here verbatim.
  */
 import type { Stave } from 'vexflow'
-import { Element } from 'vexflow'
+import { drawGlyph, measureGlyph } from './glyphPainter'
 import type { Score, Pedal, Measure, Fraction } from '@/types/music'
 import type { Column } from '@/engine/layout/spacing'
 import type { GuideLine } from '@/engine/ElementRegistry'
@@ -311,15 +311,6 @@ function nudgeOf(pass: RenderPass, id: string): number {
   return pedalOffsetOverrideOf(pass.score, id)?.endX ?? 0
 }
 
-/** A glyph's drawn width, or 0 when the font cannot be measured (jsdom). */
-function glyphWidth(el: Element): number {
-  try {
-    return el.getWidth() || 0
-  } catch {
-    return 0
-  }
-}
-
 /** Draw every sustain pedal in the score, below the staff it is attached to, split at system
  *  breaks. */
 export function renderPedals(
@@ -490,10 +481,7 @@ function drawPedal(
     // DRAWN rather than merely as computed: the lift x is often the bar's `noteEndX`, so a
     // left-aligned `✻` would put its ink straight through the barline Gould says it must stay
     // inside of.
-    const up = new Element('PedalRenderer.up')
-    up.setText(PEDAL_UP_GLYPH)
-    up.setFontSize(PEDAL_GLYPH_SIZE)
-    const upWidth = glyphWidth(up)
+    const upWidth = measureGlyph('PedalRenderer.up', PEDAL_UP_GLYPH, PEDAL_GLYPH_SIZE)
 
     // ⚠️ …but never so close that the two signs collide. Two floors, both in staff spaces: air after
     // the `Ped.`'s own ink ({@link PEDAL_SIGN_GAP}) and a least total width for the pair
@@ -524,7 +512,7 @@ function drawPedal(
       signX + downWidth + px(PEDAL_SIGN_GAP),
       signX + px(PEDAL_MIN_SPAN) - upWidth,
     )
-    up.renderText(ctx, upX, y)
+    drawGlyph(ctx, 'PedalRenderer.up', PEDAL_UP_GLYPH, upX, y, PEDAL_GLYPH_SIZE)
     registerGlyph(pass, pedal.id, from, here[0]?.measureNumber ?? from.measureNumber,
       upX, y, upWidth, px, 'up')
   }
@@ -554,13 +542,8 @@ export function drawPedalSign(
   y: number,
   parenthesised: boolean,
 ): number {
-  const glyph = (text: string, at: number): number => {
-    const el = new Element('PedalRenderer.sign')
-    el.setText(text)
-    el.setFontSize(PEDAL_GLYPH_SIZE)
-    el.renderText(ctx, at, y)
-    return glyphWidth(el)
-  }
+  const glyph = (text: string, at: number): number =>
+    drawGlyph(ctx, 'PedalRenderer.sign', text, at, y, PEDAL_GLYPH_SIZE)
   if (!parenthesised) return glyph(PEDAL_DOWN_GLYPH, x)
 
   let width = glyph(PEDAL_PAREN_LEFT, x)

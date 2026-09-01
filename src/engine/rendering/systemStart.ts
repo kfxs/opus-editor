@@ -39,8 +39,8 @@
  * scale to put them in. They speak the SVG's coordinates, composing each end through its own staff's
  * scale — the same rule, and the same reason, as `./barlineGap`.
  */
-import { Element } from 'vexflow'
 import type { Stave } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import type { Score } from '@/types/music'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -432,10 +432,7 @@ const BRACKET_SERIF = { top: '\uE003', bottom: '\uE004' } as const
 function stampGlyph(
   ctx: RenderPass['context'], glyph: string, x: number, y: number, scale = 1,
 ): void {
-  const el = new Element('systemStart.sign')
-  el.setText(glyph)
-  el.setFontSize(3 * STAFF_SPACE_PX * scale)
-  el.renderText(ctx, x, y)
+  drawGlyph(ctx, 'systemStart.sign', glyph, x, y, 3 * STAFF_SPACE_PX * scale)
 }
 
 /**

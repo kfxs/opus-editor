@@ -27,8 +27,8 @@
  * hole the SIGNPOST is owed for (docs/key-signature-plan.md §5), and ⛔ it is not patched here with
  * an invented placeholder glyph.
  */
-import { Element } from 'vexflow'
 import type { SVGContext } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import type { KeySignature } from '@/types/music'
 import { KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph } from '@/engine/layout/keySignatureLayout'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -68,10 +68,8 @@ export function drawKeySignatureGhost(
       if (!glyph) return
       const char = SIGN_CHARS[glyph]
       if (!char) return
-      const element = new Element('KeySignatureGhost.sign')
-      element.setText(char)
-      element.setFontSize(SIGN_FONT_SIZE)
-      element.renderText(ctx, x, cursorY - (lines[i] - CURSOR_LINE) * STAFF_SPACE_PX)
+      drawGlyph(ctx, 'KeySignatureGhost.sign', char, x,
+        cursorY - (lines[i] - CURSOR_LINE) * STAFF_SPACE_PX, SIGN_FONT_SIZE)
       x += (glyphBox(glyph).advance + KEY_ACCIDENTAL_GAP) * STAFF_SPACE_PX
     })
   })

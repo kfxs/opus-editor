@@ -53,8 +53,9 @@
  * already drawn by hand beside it. The exception is a first-in-line bar that OPENS A REPEAT — there
  * the boundary's sign is `|:`, so the stave's begin bar is turned off and this pass draws it.
  */
-import { Element, StaveModifierPosition } from 'vexflow'
+import { StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
+import { drawGlyph } from './glyphPainter'
 import type { Measure, Score } from '@/types/music'
 import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
@@ -129,10 +130,7 @@ type Side = 'end' | 'start'
  * `3 × space` is the size that draws this staff's own dot.
  */
 function drawRepeatDot(ctx: RenderPass['context'], x: number, y: number, space: number): void {
-  const dot = new Element('BarlineRenderer.repeatDot')
-  dot.setText(REPEAT_DOT_GLYPH)
-  dot.setFontSize(3 * space)
-  dot.renderText(ctx, x, y)
+  drawGlyph(ctx, 'BarlineRenderer.repeatDot', REPEAT_DOT_GLYPH, x, y, 3 * space)
 }
 
 /**
@@ -231,10 +229,7 @@ function paintBarlineSign(
  * line it springs from — the tip's own box then puts it above or below that line.
  */
 function drawWing(ctx: RenderPass['context'], glyph: string, x: number, y: number, space: number): void {
-  const wing = new Element('BarlineRenderer.wing')
-  wing.setText(glyph)
-  wing.setFontSize(3 * space)
-  wing.renderText(ctx, x, y)
+  drawGlyph(ctx, 'BarlineRenderer.wing', glyph, x, y, 3 * space)
 }
 
 /** `repeatDot` — the dot of a repeat sign, and NOT `augmentationDot` (U+E1E7), which is a different
