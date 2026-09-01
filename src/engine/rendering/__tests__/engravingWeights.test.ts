@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
+import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { THIN_LINE_SPACES, HAIRPIN_LINE_SPACES } from '../thinLineWeight'
 import { THIN_BARLINE_SPACES } from '../barlineInk'
 import { CURVE } from '../curveStyle'
@@ -117,21 +118,26 @@ describe('the beam', () => {
 
 describe('the ledger line — the one weight that is a RATIO, not a thickness', () => {
   it('⛔ is NOT the font\'s absolute weight, which would be too heavy', () => {
-    // 0.16 spaces is 1.6 px at our staff size. Taking it would put a ledger line more than half
-    // again over the 1 px staff line VexFlow draws beside it.
+    // 0.16 spaces is 1.6 px at our staff size. Taking it would put a ledger line half again over
+    // the 1.1 px staff line we draw beside it (Gould's 0.11 sp).
     const absolute = engravingDefault('legerLineThickness') * STAFF_SPACE_PX
     expect(LEDGER_LINE_STYLE.lineWidth).toBeLessThan(absolute)
   })
 
-  it('⭐⭐ is the font\'s ledger-to-staff-line RATIO, against the staff line VexFlow draws', () => {
+  it('⭐⭐ is the font\'s ledger-to-staff-line RATIO, against the staff line WE draw', () => {
     // The distinction F3 turned up: a weight from the font only agrees with its neighbours while
-    // the neighbours come from the font too, and VexFlow's staff lines are the SVG context's
-    // default stroke-width — 1 px — not `staffLineThickness`.
+    // the neighbours come from the font too, and our staff line does not come from the font — it is
+    // Gould's measured 0.11 sp (docs/staff-line-research.md §8 A), not Bravura's 0.13.
+    //
+    // ⭐⭐ THE POINT OF THIS SPEC, and it earned its keep on 2026-09-01: it is written against the
+    // RATIO rather than a baked number, so when the staff line moved from 0.10 to 0.11 sp the ledger
+    // followed it (1.23 → 1.354 px) and this assertion never had to change. A spec pinned to `1.23`
+    // would have failed and taught somebody to "fix" it by breaking the relationship.
     const ratio = engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeCloseTo(ratio, 10)
+    expect(LEDGER_LINE_STYLE.lineWidth).toBeCloseTo(STAVE_LINE_WIDTH_PX * ratio, 10)
     // …and the two things the ratio claims: heavier than a staff line, nowhere near VexFlow's 2.
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeGreaterThan(1)
-    expect(LEDGER_LINE_STYLE.lineWidth).toBeLessThan(1.5)
+    expect(LEDGER_LINE_STYLE.lineWidth).toBeGreaterThan(STAVE_LINE_WIDTH_PX)
+    expect(LEDGER_LINE_STYLE.lineWidth).toBeLessThan(2 * STAVE_LINE_WIDTH_PX)
   })
 
   it('is still black — the other half of that override', () => {

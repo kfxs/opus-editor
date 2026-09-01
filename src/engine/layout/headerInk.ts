@@ -67,6 +67,41 @@ import {
  */
 export const HEADER_TO_NOTE = 2.0
 
+/**
+ * ⭐⭐ **…AND AFTER A CLEF OR A KEY SIGNATURE IT IS 2½, not 2 — decision D, HIS, 2026-09-01**
+ * (`docs/header-spacing-research.md` §8 D).
+ *
+ * **Gould p. 42** keys this gap on **what stands immediately before the note**: 2½ staff spaces after
+ * a clef or a key signature, 2 after a time signature. Her own drawn examples measure
+ * **2.60 / 2.59 / 2.11**.
+ *
+ * ⭐⭐ **And it is not her alone — MuseScore has exactly this pair as two named constants**, keyed the
+ * same way: `systemHeaderDistance` **2.5** and `systemHeaderTimeSigDistance` **2.0**. LilyPond
+ * distinguishes it too, with three separate `space-alist` tags.
+ *
+ * 🚨 **So the single 2.0 above was LilyPond's TIME-SIGNATURE row promoted to the only row** — the
+ * same shape as the fractional-beam defect found the same day, where VexFlow took LilyPond's
+ * non-default branch and made it the whole rule. ⭐ It was right for one of the three cases and ~0.5
+ * sp tight for the other two.
+ *
+ * ⚠️ **This is a LAYOUT number, ⛔ not ink**: widening the header takes room from the music, so it can
+ * change how many bars fit on a line. ⭐ And per his standing directive it is one HOUSE STYLE's
+ * answer — the user will be able to set it (`project_engraving_defaults_are_a_house_style`).
+ */
+export const HEADER_TO_NOTE_AFTER_SIGN = 2.5
+
+/**
+ * ⭐ Which of the two gaps this header earns — keyed on the part that ENDS it.
+ *
+ * ⚠️ The test is simply *"is a meter drawn?"*, and that is total rather than lazy: a time signature is
+ * always the LAST part of the run (`headerExtent` builds the parts in printed order — clef, key,
+ * meter), so a header carrying one always ends with it, and a header without one ends with a key
+ * signature or a clef. ⇒ ⛔ there is no fourth case to miss.
+ */
+export function headerToNoteGap(header: Header): number {
+  return header.meter ? HEADER_TO_NOTE : HEADER_TO_NOTE_AFTER_SIGN
+}
+
 /** A full-size clef, at a line start. Measured from the stave's x to the first notehead, less the lead-in. */
 const CLEF_FULL: Record<Clef, number> = {
   treble: 3.2,
@@ -164,7 +199,7 @@ export function lineOpeningClefPremium(clef: Clef): number {
 }
 
 /** What a bar draws before its first note. Each part absent = that part is not drawn. */
-interface Header {
+export interface Header {
   clef?: { clef: Clef; small: boolean }
   /**
    * ⭐ The signature drawn at this bar's head — **between the clef and the meter**, which is the

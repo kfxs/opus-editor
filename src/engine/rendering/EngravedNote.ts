@@ -34,7 +34,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
-import { stampGlyph } from '@/engine/engrave/glyph'
+import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 
 /**
  * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
@@ -210,23 +210,24 @@ export class EngravedNote extends StaveNote {
       vex.save()
       head.applyStyle(vex)
       head.setRendered()
-      surface.openGroup('notehead', head.getAttribute('id'))
       try {
         // 🚨 ONCE, and once only — see (1) above. ⚠️ And the value is KEPT rather than read back
         // with `getX()`: a `NoteHead` is a `Tickable`, whose `getX()` throws `NoTickContext` — which
         // is exactly why `NoteHead.draw` reads the raw `x` field instead. (It threw here first.)
         const x = head.getAbsoluteX()
         head.setX(x)
-        stampGlyph(
-          surface, head.getText(),
-          x + head.getXShift(), head.getY() + head.getYShift(),
-          head.fontInfo,
-        )
-        this.drawModifiers(head)
+        // ⭐ The ink itself is `engrave/notes/noteheads`, shared with `FanPass` — see that module's
+        // header for why a second owner was what earned it a module.
+        drawNoteHead(surface, {
+          id: head.getAttribute('id'),
+          glyph: head.getText(),
+          x: x + head.getXShift(),
+          y: head.getY() + head.getYShift(),
+          font: head.fontInfo,
+        }, () => this.drawModifiers(head))
       } finally {
-        surface.closeGroup()
+        vex.restore()
       }
-      vex.restore()
     }
   }
 

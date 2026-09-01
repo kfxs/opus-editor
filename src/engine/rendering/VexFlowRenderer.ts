@@ -88,7 +88,7 @@ import { MeasureWidthCache } from './MeasureWidthCache'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type LeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { BARLINE_BOX_STRADDLE_PX, barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
 import type { Column } from '@/engine/layout/spacing'
-import { HEADER_TO_NOTE, headerExtent } from '@/engine/layout/headerInk'
+import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import {
@@ -218,6 +218,19 @@ export interface MeasureBounds {
   noteStartX: number
   /** X position where notes must end */
   noteEndX: number
+  /**
+   * ⭐ **This SYSTEM's header→first-note gap, in staff spaces** — 2½ after a clef or key signature,
+   * 2 after a meter (decision D, `docs/header-spacing-research.md` §8).
+   *
+   * ⚠️ **The system's, ⛔ not "what this bar spent".** A bar drawing no header spends its own lead-in
+   * padding instead and ignores this — it is recorded on every bar because the reader that wants it
+   * ({@link lineLeftCurveX}) looks up the bar that OPENS a line, and that bar always draws a clef.
+   *
+   * 🚨 Published because `systemEdges.lineLeftCurveX` DERIVES the header's ink edge by subtracting it
+   * from `noteStartX`, and before decision D it could assume one constant. ⛔ A second copy of that
+   * number would go stale exactly like `VEXFLOW_STAFF_LINE_PX` did — so the bar reports what it used.
+   */
+  headerToNote?: number
   /** REAL vertical span of this measure's whole system in px (staff 0's top → below the last
    *  staff), including any Client #7 per-system staff-spacing extra. Undefined until a render
    *  populates it; `pixelToMeasure` falls back to the uniform `staffHeight·numStaves` when
@@ -310,6 +323,8 @@ export interface MeasurePlacement {
      * this is the drawing agreeing with it.
      */
     headerExtent: number
+    /** ⭐ The gap this system's header earns before its first note — see {@link headerToNoteGap}. */
+    headerToNote: number
   }
   measureNumber: number
   staffIndex: number
@@ -1576,6 +1591,10 @@ export class VexFlowRenderer {
         columns: measureColumns(measure, clefFor, sizeFor, keyFor),
         leadIn: measureLeadIn(measure, clefFor, sizeFor, keyFor),
         headerExtent: Math.max(0, ...headers.map(h => h.extent)),
+        // ⭐ Decision D: the gap before the first note depends on what ENDS the header — 2½ after a
+        //   clef or key signature, 2 after a meter (Gould p. 42). A SYSTEM answer like the extent
+        //   above, and for the same reason: the meter is drawn on every staff or on none.
+        headerToNote: headerToNoteGap({ meter }),
       }
 
       // Each staff of this measure sits at its own Y with its own clef and its own slice of the
@@ -1871,7 +1890,7 @@ export class VexFlowRenderer {
     const k = p.scale
     const stave = this.buildStave(p.view, p.x / k, p.y / k, p.width / k, p.isFirstInLine, p.clef, p.hasClefChange, p.cautionaryEndClef, p.cautionaryEndTimeSig, p.headerKey, p.system, k)
 
-    this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k)
+    this.recordMeasureBounds(stave, p.view, p.x, p.y, p.width, p.staffIndex, k, p.system?.headerToNote)
     // Per-measure geometry is keyed by (measure, staffIndex), so every stacked staff registers its
     // own — pitch↔y resolves against each staff's real clef + line Y positions, and a click is
     // attributed to a staff by its y-band (ElementRegistry.staffIndexAtY). Everything it reads off
@@ -2627,8 +2646,12 @@ export class VexFlowRenderer {
     //   That is exactly the distinction `layout/kerning.ts` draws (*two inks only clash where they
     //   share a vertical BAND*), and a blanket header shift is the crude answer it warns against.
     //   ⏭️ If a real clash is ever measured, it is a KERNING row, ⛔ never a column of reserved room.
+    // ⭐ Decision D again, on the DRAWING side — and it must be the same answer the width path used
+    //   (`MeasureLayout`'s `sharedOverhead`), or the room reserved and the room taken disagree.
+    const headerGap = system?.headerToNote
+      ?? headerToNoteGap({ meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined })
     applyLeadIn(stave, x,
-      (systemHeader > 0 ? HEADER_TO_NOTE : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
+      (systemHeader > 0 ? headerGap : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
         + repeatStartRoom(measure),
       systemHeader, scale)
     // ⭐⭐ **WE DRAW THE SIGNATURE, so VexFlow's meter has to move over for it.** `applyLeadIn` has
@@ -2668,6 +2691,8 @@ export class VexFlowRenderer {
      *  own. These bounds do not go through the ElementRegistry, so the two stave reads convert
      *  here — the one place in tier 1 where both spaces meet. */
     scale: number,
+    /** @see MeasureBounds.headerToNote */
+    headerToNote?: number,
   ): void {
     if (staffIndex !== 0) return
     this.measureBounds.set(measure.number, {
@@ -2676,6 +2701,7 @@ export class VexFlowRenderer {
       measureWidth: width,
       noteStartX: noteStartOf(stave) * scale,
       noteEndX: stave.getNoteEndX() * scale,
+      headerToNote,
     })
   }
 

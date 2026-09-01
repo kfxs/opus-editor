@@ -45,6 +45,20 @@ export function lineLeftEdgeX(pass: SystemEdgeLookup, line: number): number | un
 }
 
 /**
+ * The header→first-note gap the bar that OPENS `line` actually used, in staff spaces — the twin of
+ * {@link lineLeftEdgeX}, reading the same bar. ⛔ Undefined when that bar never reported one, which is
+ * every render before decision D and any bar drawing no header at all.
+ */
+function lineLeftHeaderGap(pass: SystemEdgeLookup, line: number): number | undefined {
+  let firstMeasure: number | undefined
+  for (const [num, info] of pass.measureLayoutInfo) {
+    if (info.lineNumber !== line) continue
+    if (firstMeasure === undefined || num < firstMeasure) firstMeasure = num
+  }
+  return firstMeasure === undefined ? undefined : pass.measureBounds.get(firstMeasure)?.headerToNote
+}
+
+/**
  * ⭐⭐ **X where an open-ended CURVE begins on `line`** — a slur's or tie's continuation, which starts
  * after the header's **INK** rather than at the padded boundary the music starts at.
  *
@@ -71,7 +85,13 @@ export function lineLeftEdgeX(pass: SystemEdgeLookup, line: number): number | un
 export function lineLeftCurveX(pass: SystemEdgeLookup, line: number): number | undefined {
   const musicX = lineLeftEdgeX(pass, line)
   if (musicX === undefined) return undefined
-  const headerInkX = musicX - HEADER_TO_NOTE * STAFF_SPACE_PX
+  // ⭐ The gap the bar ACTUALLY used, not a constant: since decision D it is 2½ after a clef or key
+  //   signature and 2 after a meter (Gould p. 42), so a system opening without a meter — which is
+  //   every system after the first — subtracts a different number.
+  //   🚨 The old code read `HEADER_TO_NOTE` here and would have put the curve's start 0.5 sp off on
+  //   exactly those systems. `MeasureBounds.headerToNote` is the bar reporting what it used.
+  const gap = lineLeftHeaderGap(pass, line) ?? HEADER_TO_NOTE
+  const headerInkX = musicX - gap * STAFF_SPACE_PX
   // MuseScore's own clamp, verbatim in shape (`Measure::firstNoteRestSegmentX`): the margin may
   // never carry the curve past the note it is running to, however the two numbers are tuned.
   return Math.min(headerInkX + CURVE.curveFromHeader * STAFF_SPACE_PX, musicX)

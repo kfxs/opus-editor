@@ -50,7 +50,7 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3a** | **ledger lines** | ⭐ the only piece with **three owners already**; pure arithmetic; no font in it; no formatter interaction; ⛔ nothing else reads it | ✅ **2026-09-01** |
 | **P3b** | **the flag** | ⭐ the only piece with **no owner at all** — no selection kind, no anchor map, no registry entry — and 🚨 it is §3's **bug class in the open**: VexFlow places it with a runtime `measureText` | ✅ **2026-09-01** |
 | **P3c** | **the stem's INK** | ⭐ a third element with **three owners** (VexFlow's `Stem.draw` + `FanPass` twice); ⛔ the LENGTH left behind deliberately — see below | ✅ **2026-09-01** |
-| **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line | ✅ **2026-09-01** |
+| **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line. ⚠️ Its ink stayed INLINE in `EngravedNote` until 2026-09-01, when it moved to **`engrave/notes/noteheads.ts`** beside its three siblings — see §1d.5 | ✅ **2026-09-01** |
 | **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
 | … | the dots, the accidentals | modifiers — they draw from inside a head's group, and both are selectable kinds with registered hit boxes | ⏭️ |
 | **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; **§1e** has the audit | ⏸️ |
@@ -281,6 +281,20 @@ collected on the commit that produced the second owner rather than after a third
 deliberately **not** `rendering/glyphPainter`: that module owns font RESOLUTION (`new Element(tag)`
 → `Metrics.getFontInfo(tag)`), and here the face arrives as a value, which is what keeps `engrave/`
 free of `vexflow`.
+
+### 1d.5 ⭐ Where the ink went, and the SECOND OWNER that is waiting for it (2026-09-01)
+
+P3d took the heads' ink but left it **inline in the override**, so the one piece of the note that is
+pure glyph-stamping was also the only one with no module beside `ledgerLines` (P3a), `flag` (P3b) and
+`stem` (P3c). ⭐ It now has one — **`engine/engrave/notes/noteheads.ts`** — and `drawNoteHeads` reads
+as the adapter it is.
+
+🚨 **The second owner is `FanPass`, and it is BLOCKED — ⛔ do not "just move it".** A fanned group's
+MEMBERS are bare `NoteHead`s painted on `vexContext`, which looks like a ten-line job and is not: the
+fan's per-member group is stored as a raw `SVGGElement` for the highlight and the incremental-redraw
+capture, so it cannot open on a `DrawContext` without an 11th `svgNode()` escape past a ceiling that
+may only fall. Attempted and reverted 2026-09-01 — the measurements are
+`own-engraving-engine.md` §5's **U2**, and the real blocker is **U3, the highlight**.
 
 ### 1d.4 ⛔ What P3d did NOT take — **§3 row 7**
 

@@ -58,6 +58,12 @@ delaying engraving work by one day.
 > ⭐ **P6 — the RULER — was added 2026-09-01 on his call**, and it is the one piece nothing in this
 > plan had ever named: we have been taking the INK one element at a time while every BOX is still
 > VexFlow's or the page's. See §5's P6 for the audit.
+>
+> 🚨🚨 **…and the LETTERS ARE NOT THE WHOLE JOB.** Three pieces are owned by no phase at all — the
+> **`Curve`**, the **fan's member group**, and the **HIGHLIGHT** — and they are one knot rather than
+> three chores. All three were found by pulling on P1e on 2026-09-01, two of them for the second
+> time. ⇒ ⭐ **§5's "THE UNLETTERED WORK" (U1–U3) is where they now live**; read it before assuming
+> the lettered sequence is a complete plan.
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -464,14 +470,99 @@ and the beam's lines did not reduce it, because the objects still painting thems
 
 | still paints itself | where | which phase takes it |
 |---|---|---|
-| **`Stave`** — the staff's own five lines, and it places the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐⭐ **P5** — the largest of the three |
-| **`Curve`** — the tie's and slur's arc | `rendering/curveArc`, `TieRenderer` | ⛔ **unlettered** — no phase names it yet |
-| **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` | ⛔ **unlettered** — P3 took the NOTE's ink, not the fan's copy of it |
+| **`Stave`** — the staff's own five lines, and it places the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01); the clef/meter placement is **P5b** |
+| **`Curve`** — the tie's and slur's arc | `rendering/curveArc` (4), `TieRenderer` (1) | ⛔ **unlettered** — the largest single block left |
+| **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` (2) | ⛔ **unlettered** — ⚠️ and BLOCKED on the highlight, see U2 |
 
-⇒ ⭐ **P1e comes after P5** (§0.2's order), and even then the `Curve` and `FanPass` rows above have to
-be answered — either by moving them, or by a deliberate decision that our painter implements enough
-of `RenderContext` for those two to keep working. ⛔ Neither has been decided, and this table is that
-gap named, exactly as §5's P6 named the ruler's.
+⚠️ The remaining four `vexContext` uses are `vexContext?.svg` — **measurement escapes**, not painting
+(`tempoAnchorInk`, `tempoLinePass`, `tempoNudgePass`, `markPreviewPass` reach for the SVG to measure
+text). ⛔ A different problem from this table's, and not one a painter of ours solves.
+
+⇒ ⭐ **P1e comes after P5** (§0.2's order), and even then the rows above have to be answered — either
+by moving them, or by a deliberate decision that our painter implements enough of `RenderContext` for
+them to keep working.
+
+### ⛔⛔ THE UNLETTERED WORK — three pieces nothing owns, and they are ONE KNOT (2026-09-01)
+
+🚨 **All three were found by pulling on P1e in a single sitting, and two of them were rediscovered
+because nothing had written them down.** They are recorded here so that stops happening. ⛔ None is
+scheduled, none is a defect list, and the order below is the order they UNBLOCK each other in — ⛔ not
+a priority.
+
+#### U1 — the `Curve`: ties and slurs
+
+**5 of the painting uses, the biggest single block.** ⭐ **HIS CALL, 2026-09-01:** *"about the curve
+experiment… i want still to leave the answer open so for the curve we should do it too and leave the
+experiment open and we can decide after our engine is ready."*
+
+⇒ ⭐⭐ **the P4a/P4b split, applied to the curve**: take the INK, leave the SHAPE open. Exactly as the
+beam's quads became ours (P4a) while *which slope rule is right* stayed a live table with a console
+knob (P4b), the arc's drawing can move while `__slur`'s experiment keeps running. ⛔ Taking the ink
+does NOT close the shape question, and this row exists to say so before somebody assumes it does.
+
+#### U2 — the fan's member group, and why the fan's NOTEHEADS are not a ten-line move
+
+`FanPass` builds bare `NoteHead`s for a fanned group's members and paints them on `vexContext`. Its
+own comment calls this *"P3's own territory"*, which makes it look like the smallest job on the list.
+🚨 **It was attempted on 2026-09-01 and reverted. The measurements, so nobody repeats it:**
+
+1. The fan opens **one group per MEMBER** (`FAN_HEAD_GROUP`) and stores it in the renderer's
+   `fanMemberGroupMap` as a **raw `SVGGElement`** — read back by the incremental-redraw capture
+   (`captureById`) and by the highlight, which recolours a member by walking that group.
+2. ⇒ that group cannot open on a `DrawContext`: getting the element back needs a `svgNode()` escape,
+   and `lint:paint` holds those at **10/10, a ceiling that may only FALL**.
+3. ⇒ drawing the heads on our surface while the member group stays on VexFlow's puts them under
+   `fan` in the SCENE and under `fanhead` in the SVG — ⛔ the *"splitting one member's ink across two
+   contexts would nest the scene wrongly"* that `FanPass`'s own header warns about.
+4. 🚨 **And it buys nothing**: the pass keeps `vexContext` regardless, because the `Accidental`s and
+   the topped-up `Stem`s still paint themselves there. The gate does not move by one.
+
+⇒ ⭐ **the fan's blocker is U3, ⛔ not the notehead.** The ink itself now has a home waiting for it —
+`engine/engrave/notes/noteheads.ts`, extracted from `EngravedNote` at the same sitting — so when the
+group can move, the heads move with it in one step.
+
+#### U3 — the HIGHLIGHT, and it is the root of the knot
+
+**⛔ Not a bug and ⛔ not a leftover.** The editor highlights a selection by **recolouring ink through
+the DOM**: six maps (`hairpinGroupMap` and its five siblings, plus `fanMemberGroupMap` and
+`staveNoteMap`) hold the drawn `<g>`, and the controller walks it and rewrites the fill. §P1c already
+called it *"a real seam… out of scope here"*, and `DrawGroup`'s own table calls `node()` **"the
+escape, and the next number to drive down"**. ⭐ The distinction it rests on is stated in `FanPass`:
+*"the 'paint a highlight, don't recolour it' lesson (the barline) is about ink you do NOT own; this
+ink is ours."*
+
+⚠️ **A correction worth keeping**: `svgNode` does **not** gate P1e. A painter of ours can implement
+`node()` perfectly well. The tension is with the **RECORDER** — §P1c's own note that *"`node()`
+answered the scene group while teeing… six highlight maps store what it returns"* — so it constrains
+**scene-only** rendering, not the SVG painter. ⛔ An earlier draft of this section said otherwise.
+
+⭐⭐ **Is recolouring still the right approach once we own the ink? — asked by him, 2026-09-01.**
+⛔ The problem is NOT efficiency: recolouring is the *cheap* option, because a selection change
+re-renders nothing and rewrites an attribute. **The cost is correctness work, and it is all downstream
+of mutating ink that was already committed** — every one of these lives in `HighlightController` for
+that reason alone:
+
+- *"Raise a group above a coincident sibling so the recoloured glyph is the one that paints"*
+- *"Raise this note's group… the recolored head can be hidden behind the other voice"*
+- *"Confining the recolor to that group"* / *"Scope the scan to the selected measure's own group"*
+- fill-**and**-stroke special-casing, because `fillBeamQuad` fills and a stroke-only recolour is wrong
+- the `setStyle` context-leak workaround, *"the rule the whole recolouring family follows"*
+
+⇒ ⭐⭐ **Once the engine owns the ink, a selection becomes an INPUT TO PAINTING rather than a mutation
+after it** — the style and the draw ORDER are both decided while emitting, so the whole "raise the
+group so the recolour wins" family stops existing. That is the barline's *"PAINT don't RECOLOUR"*
+generalised, and it takes `node()` and the six maps to zero with it.
+
+🚨 **The one real caution, so this is not read as "just repaint"**: paint-on-select must NOT mean a
+full re-render per selection change — arrow-keying through notes would be far worse than an attribute
+write. It needs **repainting the affected SUBTREE**, and ⛔ that capability is not built: the scene
+records, but nothing re-emits a branch. ⚠️ And a selection is a PICTURE-ONLY change, so it must reach
+`viewStateKey` or the render is judged non-stale and nothing draws at all
+(`reference_only_a_stale_render_runs`).
+
+⭐ A cheap complement, already suggested in `docs/barline-selection.md` for its own reasons: an
+**OVERLAY** (a box drawn on top) needs neither mutation nor re-render — ⛔ but it can only frame ink,
+never recolour a glyph, so it is a complement and not a replacement.
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 

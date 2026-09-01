@@ -8,7 +8,10 @@
  * every part is charged a `BETWEEN_PARTS`.
  */
 import { describe, it, expect } from 'vitest'
-import { cautionaryExtent, headerExtent, headerKeyRoom } from './headerInk'
+import {
+  HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN,
+  cautionaryExtent, headerExtent, headerKeyRoom, headerToNoteGap,
+} from './headerInk'
 import {
   CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
 } from './keySignatureLayout'
@@ -64,5 +67,40 @@ describe('cautionaryExtent — a key takes the METER\'s branch', () => {
     // ⚠️ Deliberately unlike `headerExtent`: this function answers "how much does THIS cautionary
     // cost", and the decision not to draw one is the caller's, made before it asks.
     expect(cautionaryExtent({ key: C_MAJOR })).toBe(BETWEEN_PARTS)
+  })
+})
+
+/**
+ * ⭐⭐ **DECISION D — the gap before the first note is keyed on what ENDS the header**
+ * (Gould p. 42; `docs/header-spacing-research.md` §8 D, his call 2026-09-01).
+ *
+ * 🚨 There was NO coverage of this gap before the decision — the single `HEADER_TO_NOTE` was applied
+ * everywhere and nothing asserted it, so changing it broke not one test. That absence is why this
+ * block exists.
+ */
+describe('headerToNoteGap — 2½ after a sign, 2 after a meter', () => {
+  it('⭐ a header ending in a TIME SIGNATURE earns 2', () => {
+    expect(headerToNoteGap({ clef: CLEF, meter: METER })).toBe(HEADER_TO_NOTE)
+    expect(headerToNoteGap({ clef: CLEF, key: keyFromFifths(3), meter: METER })).toBe(HEADER_TO_NOTE)
+    expect(headerToNoteGap({ meter: METER })).toBe(HEADER_TO_NOTE)
+  })
+
+  it('⭐⭐ a header ending in a CLEF or a KEY SIGNATURE earns 2½ — the case we never had', () => {
+    // Every system after the first opens this way: a clef, no meter.
+    expect(headerToNoteGap({ clef: CLEF })).toBe(HEADER_TO_NOTE_AFTER_SIGN)
+    expect(headerToNoteGap({ clef: CLEF, key: keyFromFifths(3) })).toBe(HEADER_TO_NOTE_AFTER_SIGN)
+  })
+
+  it('🚨 the two are genuinely different — the pair is the decision, not either half', () => {
+    expect(headerToNoteGap({ clef: CLEF })).not.toBe(headerToNoteGap({ clef: CLEF, meter: METER }))
+    expect(HEADER_TO_NOTE_AFTER_SIGN - HEADER_TO_NOTE).toBeCloseTo(0.5, 10)
+  })
+
+  it('⭐ …and Gould\'s own drawn examples bracket both numbers', () => {
+    // She measures 2.60 / 2.59 after a clef and a key signature, 2.11 after a meter (§3 of the
+    // research). Pinned as a RANGE, because a plate is measured and not stated.
+    expect(HEADER_TO_NOTE_AFTER_SIGN).toBeGreaterThan(2.11)
+    expect(HEADER_TO_NOTE_AFTER_SIGN).toBeLessThanOrEqual(2.60)
+    expect(HEADER_TO_NOTE).toBeLessThanOrEqual(2.11)
   })
 })

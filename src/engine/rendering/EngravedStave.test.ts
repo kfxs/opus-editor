@@ -74,10 +74,22 @@ describe('⭐⭐ the stave draws its own five lines, through our primitives', ()
 
   it('⭐⭐ …and the stroke is offset by half the thickness, so the ink hangs BELOW the line’s y', () => {
     // The scene records where the stroke was PUT; the line's own y is half a thickness above it.
+    //
+    // 🚨 This case used to assert a HALF-PIXEL GRID (`Number.isInteger(top * 2)`), which was true
+    // only while the thickness was exactly 1 — the very coincidence `staffLines.ts` was written to
+    // survive. It stopped being true the moment he chose Gould's 0.11 sp, so it now asserts the RULE
+    // (offset = thickness / 2) rather than an artefact of one value.
     const [lines] = staveLines(render(1).scene)
+    for (const line of lines) {
+      const top = line.y - STAVE_LINE_WIDTH_PX / 2
+      expect(line.y - top, 'half a thickness').toBeCloseTo(STAVE_LINE_WIDTH_PX / 2, 10)
+      // …and consecutive lines are still exactly one staff space apart at their INK's top edge.
+      expect(Number.isFinite(top)).toBe(true)
+    }
     const tops = lines.map(l => l.y - STAVE_LINE_WIDTH_PX / 2)
-    for (const top of tops) expect(Number.isInteger(top * 2), 'a half-pixel grid').toBe(true)
-    expect(lines[0].y - tops[0]).toBeCloseTo(0.5, 10)
+    for (let i = 1; i < tops.length; i++) {
+      expect(tops[i] - tops[i - 1]).toBeCloseTo(STAFF_SPACE_PX, 6)
+    }
   })
 
   it('🚨 the break-test — bar 2 stands to the RIGHT of bar 1, so these really are two staves', () => {

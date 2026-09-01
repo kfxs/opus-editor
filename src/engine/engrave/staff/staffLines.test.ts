@@ -44,18 +44,30 @@ describe('⭐⭐ the stroke lands the ink on [y, y + thickness]', () => {
   })
 })
 
-describe("🚨 …and VexFlow's correction only agrees at thickness 1", () => {
-  it('⭐ agrees at the thickness we ship, which is why P5a moves no pixel', () => {
-    expect(STAVE_LINE_WIDTH_PX).toBe(1)
+describe("🚨 …and VexFlow's correction only ever agreed at thickness 1", () => {
+  /**
+   * ⭐⭐ **THE PREDICTION CAME TRUE, and this spec is the record of it.** P5a wrote that the two
+   * owners of a staff line agreed *"only because the thickness is exactly 1"* and that the day it
+   * changed they would come apart. On **2026-09-01 he chose Gould's 0.11 sp** (decision A) and they
+   * did — so the module's own rule is now the only thing keeping the ink where it belongs.
+   */
+  it('🚨 at the thickness we NOW ship, the two no longer agree', () => {
+    expect(STAVE_LINE_WIDTH_PX).toBeCloseTo(1.1, 10)
     expect(staffLineStrokeY(40, STAVE_LINE_WIDTH_PX))
-      .toBe(40 + vexflowCorrection(STAVE_LINE_WIDTH_PX))
+      .not.toBeCloseTo(40 + vexflowCorrection(STAVE_LINE_WIDTH_PX), 6)
   })
 
-  it('🚨 …and DIVERGES at SMuFL’s 0.13 sp — the bug that was waiting for the thickness to change', () => {
-    const smufl = 0.13 * 10 // staffLineThickness × STAFF_SPACE_PX
-    expect(staffLineStrokeY(40, smufl)).not.toBeCloseTo(40 + vexflowCorrection(smufl), 6)
-    // VexFlow would have put the ink on [39.85, 41.15]; the rule puts it on [40, 41.3].
-    expect(40 + vexflowCorrection(smufl) - smufl / 2).toBeCloseTo(39.85, 10)
-    expect(staffLineStrokeY(40, smufl) - smufl / 2).toBeCloseTo(40, 10)
+  it('⭐ …and OURS is the one that puts the ink on [y, y + thickness]', () => {
+    const t = STAVE_LINE_WIDTH_PX
+    // VexFlow's correction is a flat 0.5 for any odd width, so it would hang the ink 0.05 px high.
+    expect(40 + vexflowCorrection(t) - t / 2).toBeCloseTo(39.95, 10)
+    expect(staffLineStrokeY(40, t) - t / 2).toBeCloseTo(40, 10)
+  })
+
+  it('🚨 …and it would have diverged at Bravura’s 0.13 too — the value we did NOT pick', () => {
+    const bravura = 0.13 * 10
+    expect(staffLineStrokeY(40, bravura)).not.toBeCloseTo(40 + vexflowCorrection(bravura), 6)
+    expect(40 + vexflowCorrection(bravura) - bravura / 2).toBeCloseTo(39.85, 10)
+    expect(staffLineStrokeY(40, bravura) - bravura / 2).toBeCloseTo(40, 10)
   })
 })

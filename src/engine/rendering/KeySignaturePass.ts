@@ -281,7 +281,7 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
  * `drawStave` pins before it strokes any stave. His challenge, and it is the repo's own doctrine:
  * *"vexflow? shouldnt the solution follow the rules of own engine md?"* — so this is not "match
  * VexFlow's default", it is *the tail of a line is as thick as the line*, asked of the one place that
- * decides it. ⏭️ That constant carries the note that SMuFL says 0.13 sp (1.3 px) and why moving every
+ * decides it. ⏭️ That constant carries the note that Bravura says 0.13 sp (1.3 px) — ⛔ SMuFL publishes no default at all — and why moving every
  * staff line in the score is not this phase's to do; when it moves, the tail moves with it.
  *
  * ⭐ Drawn inside {@link inStaffSpace}, so a small staff's tail scales with its own lines rather than

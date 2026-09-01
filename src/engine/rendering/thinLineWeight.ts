@@ -115,10 +115,32 @@ export const THIN_LINE_SPACES = engravingDefault('thinBarlineThickness')
  *
  * ⏭️ **THE REAL FIX IS TO RAISE THE STAFF LINE, NOT TO LOWER THE HAIRPIN** (his call, 2026-08-18:
  * *"we should somehow at some point in the future take control of the staff line width, so
- * everything looks neat"*). Draw staves at the font's own 0.13 and the ratio is Gould's 1.00 with no
- * conversion anywhere — at which point this constant and `THIN_LINE_SPACES` are simply two font
- * weights and `VEXFLOW_STAFF_LINE_PX` disappears. Scheduled as P3 of docs/font-metrics-plan.md.
- * Until then 0.13 is the closest a hairpin gets to her page without going thinner than his eye
- * accepts.
+ * everything looks neat"*).
+ *
+ * ✅ **HALF DONE, 2026-09-01 — and the number is not the one this note assumed.** P5a took control of
+ * the staff line (`engine/engrave/staff/staffLines`), and he then chose **Gould's measured 0.11 sp**
+ * over Bravura's 0.13 (decision A, `docs/staff-line-research.md` §8), because **no treatise states a
+ * thickness at all** and her own engraved staves measure 0.110–0.111.
+ *
+ * ⇒ ⭐ the gap this comment is about **narrowed from 1.30× to 1.18×**, ⛔ but did not close: a hairpin
+ * is still heavier than the staff line it is supposed to EQUAL (Gould p. 103, Ross p. 187, and her
+ * plate at ratio 0.97–1.03).
+ *
+ * ## ✅ AND HE CLOSED IT THE OTHER WAY — decision D, 2026-09-01: **KEEP 0.13**
+ *
+ * ⛔ **So the 1.18× is now DELIBERATE, ⛔ not a leftover, and ⛔ not something to "finish" later.**
+ * Presented with *"make them equal, which is what both books say and what she draws"* against
+ * *"keep the difference"*, he took the difference. ⭐ The reason is in this file already and it is
+ * about OUR OUTPUT rather than her page: **his eye rejected 0.10 and 0.12 as "too thin"**, because a
+ * horizontal staff line hints onto the device grid and stays solid while a DIAGONAL hairpin cannot
+ * and smears into grey. A plate cannot overrule a measurement of what this editor actually renders.
+ *
+ * 🚨 **Do NOT re-open this by citing Gould p. 103 or Ross p. 187.** Both were read, quoted and
+ * weighed when the decision was made (`docs/staff-line-research.md` §8 D). ⏳ The question that IS
+ * still open is **F — screen versus paper**, which is the real cause; if that is ever settled with
+ * separate weights for the two media, this row is worth revisiting THEN.
+ *
+ * ⭐ And per his standing directive, this is a HOUSE STYLE'S answer: the user will be able to set a
+ * different hairpin weight (`project_engraving_defaults_are_a_house_style`).
  */
 export const HAIRPIN_LINE_SPACES = engravingDefault('staffLineThickness')

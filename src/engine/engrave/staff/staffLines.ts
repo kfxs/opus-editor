@@ -20,13 +20,13 @@
  * ⚠️ **but only because the thickness is exactly 1.** VexFlow's correction is
  * `lineWidth % 2 === 0 ? 0 : 0.5`, a canvas crispness idiom for ODD INTEGER widths; it is `0.5` for
  * *any* odd width and never becomes `w / 2`. ⇒ 🚨 **the day the thickness stops being 1, the two
- * owners come apart** — at SMuFL's 0.13 sp (1.3 px) VexFlow would stroke `[y − 0.15, y + 1.15]`
+ * owners come apart** — at Bravura's 0.13 sp (1.3 px) VexFlow would stroke `[y − 0.15, y + 1.15]`
  * while the tail fills `[y, y + 1.3]`.
  *
  * ⭐⭐ **So {@link staffLineStrokeY} derives the offset from the thickness itself** (`y + t/2`), which
  * is *numerically identical at t = 1* — P5a moves no pixel — and stays correct when the thickness
  * changes. ⛔ It does not CHANGE the thickness: that is an open question with a live disagreement
- * (SMuFL 0.13 sp vs our 1 px = 0.1 sp) and it is HIS, exactly as `STAVE_LINE_WIDTH_PX`'s own comment
+ * (Bravura 0.13 sp vs our 1 px = 0.1 sp) and it is HIS, exactly as `STAVE_LINE_WIDTH_PX`'s own comment
  * has said all along.
  *
  * ## ⭐ …and the second half of P5's brief, named
@@ -39,6 +39,7 @@
  * ⛔ **No DOM, no vexflow** (`lint:boundary`).
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
  * One staff line's ink — the bar it occupies, ⛔ not the path used to make it.
@@ -118,16 +119,32 @@ export function fillStaffLine(ctx: DrawContext, line: StaffLineInk): void {
  * cautionary key signature (`KeySignaturePass.drawOpenStaffTail`), which continues these very lines
  * past the last barline. A tail of a different weight is visible instantly.
  *
- * ⚠️ **SMuFL says 0.13 staff spaces — 1.3 px at `STAFF_SPACE_PX` — and we draw 1.**
- * `bravuraMetrics.staffLineThickness` is that number, and `docs/own-engraving-engine.md`'s direction
- * is that a rule we can state should be stated from the font. ⛔ Not changed here, and deliberately:
- * it moves EVERY staff line in every score by 30%, which is a taste call for his eye and not a
- * side-effect of a key-signature phase (`feedback_fix_what_was_reported`). ⏭️ When the engine draws
- * its own staves, this becomes `engravingDefault('staffLineThickness') * space` and the tail follows
- * it with no second edit — which is the whole point of it being one constant.
+ * 🚨🚨 **CORRECTED 2026-09-01 — this used to read "SMuFL says 0.13", and SMuFL says NOTHING.**
+ * `docs/staff-line-research.md` §5.1 checked the spec live: it defines `staffLineThickness` only as
+ * *"expressed in staff spaces"* and publishes **no default**. ⭐ **0.13 is BRAVURA's own number**, and
+ * calling it a standard promoted one font to one. ⚠️ And we are not an outlier: the field is
+ * LilyPond **0.100** (our value exactly), MuseScore **0.11**, Verovio **0.0722**, Bravura **0.13** —
+ * so 0.13 is the TOP of the range, ⛔ not its middle. ⭐ Gould's own engraved staves measure
+ * **0.110–0.111 sp**, which is MuseScore's number.
  *
- * ⭐ **P5a moved it here, from `rendering/VexFlowRenderer`**, which is what that ⏭️ was waiting for:
- * the engine now draws the lines, so the number lives beside them. ⛔ Its VALUE is untouched, and the
- * disagreement above is under research (`docs/staff-line-research.md`) — it is HIS call, ⛔ not P5a's.
+ * ⭐ **P5a moved it here, from `rendering/VexFlowRenderer`**, which is what the old ⏭️ note was
+ * waiting for: the engine now draws the lines, so the number lives beside them.
+ *
+ * ## ✅ HIS DECISION, 2026-09-01: **GOULD — 0.11 staff spaces**
+ *
+ * > *"lets do gould"* — decision **A** of `docs/staff-line-research.md` §8, taken after the research.
+ *
+ * ⭐ **0.11 sp is what Gould's own engraved staves MEASURE** — four pages, nine staves, calibrated
+ * against her own beam thicknesses (`staff-line-research.md` §3.1) — and it is MuseScore's
+ * `Sid::staffLineWidth` exactly. ⛔ It is deliberately **not** Bravura's 0.13: no book states a
+ * thickness at all (Ross p. 72 says why — on a plate it was *"controlled by the pressure exerted on
+ * the tilting arbor plate"*), so the printed evidence beats the font here.
+ *
+ * ⚠️ **This is a DEFAULT, ⛔ not a law — his standing instruction with the same breath:** *"remember
+ * in the future the user will be able to change this, we will be able to apply in general other
+ * engraving rules… but for the moment the default is gould."* ⇒ ⭐ treat every number in this family
+ * as **one house style's answer**, and ⛔ never write code that assumes it cannot move: the eventual
+ * shape is a swappable set of engraving defaults, the direction `__beams.rule(…)` and
+ * `__spacing.law(…)` already point in. See `project_engraving_defaults_are_a_house_style`.
  */
-export const STAVE_LINE_WIDTH_PX = 1
+export const STAVE_LINE_WIDTH_PX = 0.11 * STAFF_SPACE_PX

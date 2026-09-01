@@ -19,10 +19,18 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
+import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 
 /** What the font says a ledger is worth in staff lines — the whole of the decision under test. */
 const LEDGER_TO_STAFF_LINE =
   engravingDefault('legerLineThickness') / engravingDefault('staffLineThickness')
+
+/**
+ * ⭐ …applied to the staff line WE draw, which since 2026-09-01 is Gould's measured **0.11 sp** and
+ * ⛔ no longer 1 px (`docs/staff-line-research.md` §8 A). Written as the product rather than a baked
+ * number so the ledger keeps FOLLOWING the staff line, which is the entire point of a ratio.
+ */
+const LEDGER_WIDTH_PX = STAVE_LINE_WIDTH_PX * LEDGER_TO_STAFF_LINE
 
 let container: HTMLElement
 let engine: MusicEngine
@@ -68,12 +76,11 @@ describe('ledger line ink', () => {
     expect(lines.length).toBeGreaterThan(0)
     for (const line of lines) {
       const drawn = Number(line.getAttribute('stroke-width'))
-      // ⭐ The staff line VexFlow draws is 1 px, so the drawn width IS the ratio.
-      expect(drawn).toBeCloseTo(LEDGER_TO_STAFF_LINE, 6)
+      expect(drawn).toBeCloseTo(LEDGER_WIDTH_PX, 6)
       // …and the two things that ratio is claiming, said plainly: heavier than a staff line, and
       // nothing like VexFlow's double.
-      expect(drawn, 'heavier than a staff line').toBeGreaterThan(1)
-      expect(drawn, 'and not VexFlow\'s double').toBeLessThan(1.5)
+      expect(drawn, 'heavier than a staff line').toBeGreaterThan(STAVE_LINE_WIDTH_PX)
+      expect(drawn, 'and not VexFlow\'s double').toBeLessThan(2 * STAVE_LINE_WIDTH_PX)
     }
   })
 
@@ -84,6 +91,6 @@ describe('ledger line ink', () => {
 
     const widths = new Set(ledgerLines().map(l => Number(l.getAttribute('stroke-width'))))
     expect(widths.size, 'one weight, wherever the ledger is').toBe(1)
-    expect([...widths][0]).toBeCloseTo(LEDGER_TO_STAFF_LINE, 6)
+    expect([...widths][0]).toBeCloseTo(LEDGER_WIDTH_PX, 6)
   })
 })

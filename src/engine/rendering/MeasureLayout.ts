@@ -11,7 +11,7 @@ import type { MeasureWidthCache } from './MeasureWidthCache'
 import { resolveStaffSize, STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { clefResolverFor, keyResolverFor, measureColumns, measureLeadIn, type StaffSizeResolver } from '@/engine/layout/measureColumns'
 import { barlineSignExtent, ownEndSignKind, repeatStartRoom } from '@/engine/layout/barlineSign'
-import { HEADER_TO_NOTE, cautionaryExtent, headerExtent, inlineClefExtent } from '@/engine/layout/headerInk'
+import { cautionaryExtent, headerExtent, headerToNoteGap, inlineClefExtent } from '@/engine/layout/headerInk'
 import { cautionaryKeyAt, cautionaryKeyRoom } from '@/engine/layout/cautionaryKey'
 import { cautionaryKeyGapOf } from '@/engine/models/engravingOverrides'
 import { naturalWidth, minimumWidth } from '@/engine/layout/spacing'
@@ -249,7 +249,10 @@ function calculateMinimumMeasureWidth(
   //   number to where the notes are actually drawn, so the reservation and the drawing agree.
   //   ⛔ The trailing side needs nothing here: §6.1 puts an end sign's ink INSIDE its own bar, so it
   //   falls in the gap before the barline column, which `naturalWidth` already sums.
-  const sharedOverhead = ((widestOverhead > 0 ? HEADER_TO_NOTE : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
+  // ⭐ **2½ after a clef or key signature, 2 after a meter** — Gould p. 42, decision D
+  //   (`docs/header-spacing-research.md` §8). ⚠️ Keyed on the METER, which is a system-wide statement,
+  //   so every staff of this bar earns the same gap even though `widestOverhead` came from one of them.
+  const sharedOverhead = ((widestOverhead > 0 ? headerToNoteGap({ meter }) : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
   // must not dominate a line", which is a taste about bars that could be narrower — and it was being
