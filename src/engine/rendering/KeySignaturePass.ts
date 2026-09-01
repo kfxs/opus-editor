@@ -139,8 +139,26 @@ export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
   const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
     .find(m => m.getCategory() === 'Clef')
   if (!clefModifier) return stave.getX() + dx + BARLINE_TO_KEY_INK * space
-  const inkRight = clefModifier.getX() + glyphBox(clefGlyph(clef)).right * space
+  const inkRight = clefModifier.getX() + clefShiftOf(clefModifier)
+    + glyphBox(clefGlyph(clef)).right * space
   return inkRight + dx + CLEF_TO_KEY_INK * space
+}
+
+/**
+ * 🚨🚨 **A CLEF'S `getX()` IS ITS UNSHIFTED ORIGIN — the shift is a separate number, and reading one
+ * without the other puts everything after the clef in the wrong place.**
+ *
+ * Found 2026-09-01, by `keySignature.e2e.ts` catching decision A: indenting the clef by 0.2 sp moved
+ * the drawn glyph and left the signature where it was, so the gap the engines' number had bought
+ * (0.82 sp) silently became 0.62. ⚠️ **The same latent bug sat under `clefOffsetPass`** — a user's
+ * hand nudge on a beat-0 clef moved the glyph and not the signature after it; nobody had put a key
+ * signature on such a bar and looked.
+ *
+ * ⭐ This is the `reference_vexflow_clefnote_xshift_is_inert` family: VexFlow's clefs answer about
+ * where they were PLACED, never about where they were DRAWN. ⇒ ⛔ never measure from `getX()` alone.
+ */
+function clefShiftOf(clefModifier: { getX(): number }): number {
+  return (clefModifier as unknown as { getXShift?(): number }).getXShift?.() ?? 0
 }
 
 /**

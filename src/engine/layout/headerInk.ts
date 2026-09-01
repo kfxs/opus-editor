@@ -102,7 +102,43 @@ export function headerToNoteGap(header: Header): number {
   return header.meter ? HEADER_TO_NOTE : HEADER_TO_NOTE_AFTER_SIGN
 }
 
-/** A full-size clef, at a line start. Measured from the stave's x to the first notehead, less the lead-in. */
+/**
+ * ⭐⭐ **THE INDENTATION — how far the clef's ink sits inside the staff's left edge.**
+ * Decision **A**, HIS, 2026-09-01 (`docs/header-spacing-research.md` §8 A, §3.4).
+ *
+ * > *"A clef is indented into the stave by one stave-space (⌐) **or a little less**"* — Gould p. 6
+ * > *"indented from the open end of the staff (or from the systematic barline) by **½ to 1 space**"* — Ross p. 144
+ *
+ * ⭐ **Three sources and no dissent.** Gould's four drawn clefs measure **0.67 / 0.74 / 0.67 / 0.70**
+ * — she really does draw the *"little less"* she writes. Gerou & Lusk's figures measure **0.62** and
+ * **0.70**. LilyPond uses **0.80** and MuseScore **0.75** (`clefLeftMargin`), both just above.
+ *
+ * 🚨 **This was the ONE gap in the whole run nobody here had ever chosen.** It was **0.50** — not a
+ * decision but a side effect: VexFlow's own opening barline is 5 px wide and its first modifier slot
+ * carries no padding (`stave.js:393–400`), so the clef landed against it. Verovio happens to use
+ * 0.50 too, which is the only reason it looked defensible.
+ */
+export const CLEF_INDENT = 0.7
+
+/**
+ * What VexFlow leaves us at, so {@link CLEF_INDENT_SHIFT} is a DIFFERENCE and not a second copy of
+ * the indent. ⛔ Not a choice — see {@link CLEF_INDENT}.
+ */
+const VEXFLOW_CLEF_INDENT = 0.5
+
+/**
+ * ⭐ How far right a line-opening clef must move to reach {@link CLEF_INDENT}, in staff spaces.
+ *
+ * ⚠️ **A line-opening clef only.** The indent is measured from *"the open end of the staff or the
+ * systematic barline"* (Ross p. 144) — a mid-line clef CHANGE follows a barline inside the music and
+ * is not indented from anything, which is why `headerExtent` adds this to the full clef and never to
+ * the small one.
+ */
+export const CLEF_INDENT_SHIFT = CLEF_INDENT - VEXFLOW_CLEF_INDENT
+
+/** A full-size clef, at a line start. Measured from the stave's x to the first notehead, less the lead-in.
+ *  ⚠️ **The indent is INSIDE these numbers** — they were measured from the stave's own x — so moving it
+ *  widens the part by exactly {@link CLEF_INDENT_SHIFT}, which {@link headerExtent} adds. */
 const CLEF_FULL: Record<Clef, number> = {
   treble: 3.2,
   bass: 3.5,
@@ -234,7 +270,14 @@ export function headerExtent(header: Header): number {
    */
   const parts: Array<{ gap: number; extent: number }> = []
   if (header.clef) {
-    parts.push({ gap: 0, extent: (header.clef.small ? CLEF_SMALL : CLEF_FULL)[header.clef.clef] })
+    // ⭐ The full clef carries the INDENT shift (decision A); the small one does not — a mid-line
+    //   clef change is not indented from anything. See {@link CLEF_INDENT_SHIFT}.
+    parts.push({
+      gap: 0,
+      extent: header.clef.small
+        ? CLEF_SMALL[header.clef.clef]
+        : CLEF_FULL[header.clef.clef] + CLEF_INDENT_SHIFT,
+    })
   }
   // ⚠️ Between the clef and the meter — the printed order, three-way agreement (research §9's table),
   // and the order the drawing must match.

@@ -575,6 +575,32 @@ only) **5.7 sp** = clef 3.2 + 2.5. Before D the latter was 5.2.
 result now have specs (`headerInk.test.ts`, `MeasureLayout.headerGap.test.ts`), and both were
 break-tested by forcing the single constant back.
 
+### ✅ A — DECIDED AND BUILT, 2026-09-01
+
+> **"i"** ⇒ **the clef's ink begins 0.7 staff spaces inside the staff's left edge.** Gould p. 6
+> (*"one stave-space or a little less"*, drawn 0.67–0.74), Ross p. 144 (*"½ to 1 space"*), Gerou &
+> Lusk (0.62–0.70); LilyPond 0.80 and MuseScore 0.75 just above.
+
+⭐ **This was the one gap in the run nobody had ever chosen** — 0.50 was VexFlow's opening barline
+width leaking through an unpadded first modifier slot. It is now `CLEF_INDENT` in `layout/headerInk`
+and `rendering/clefIndentPass`.
+
+🚨🚨 **THE BROWSER SUITE CAUGHT THREE WAYS OF GETTING IT WRONG, and every one of them was invisible in
+jsdom and in the unit suite (6200 tests, all green through all three).** Recorded because each is a
+trap of its own:
+
+| what was wrong | how it showed | the lesson |
+|---|---|---|
+| shifted the clef in TIER 2, after layout | the clef moved INTO the key signature: the 0.82 sp gap the engines' number bought became 0.62 | the header is assembled in tier 1; anything positioned *from* the clef must see the final clef |
+| used **`setXShift`** rather than `setX` | ⭐ two staves' clefs stopped lining up by `0.2 × (1 − k)` on a **small staff** — `spreadHeaderToSystem` converts `setX` and never looks at the shift | ⛔ a shift is not a placement |
+| moved the **clef only** | the clef→meter gap grew by 0.2 **only when a key signature was present**, because `placeMeterAfterKeySignature` re-places the meter from the signature and a bare meter kept VexFlow's x | the indent moves the whole header run — ⛔ except the barline, which it is measured FROM |
+
+⭐⭐ **And it exposed a latent bug that had nothing to do with A**: `firstSignX` measured the clef with
+`clefModifier.getX()`, the **unshifted** origin. So a user's hand nudge on a beat-0 clef
+(`clefOffsetPass`) moved the glyph and left the key signature behind — nobody had put a signature on
+such a bar and looked. Fixed in the same commit; it is the
+`reference_vexflow_clefnote_xshift_is_inert` family — ⛔ **never measure from `getX()` alone.**
+
 ### The table
 
 ⛔ **Nothing below is a defect list.** Every gap in the run, with the options and their provenance,

@@ -24,6 +24,7 @@ import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
 import { musicSurface, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
+import { applyClefIndent } from './clefIndentPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
@@ -2664,6 +2665,13 @@ export class VexFlowRenderer {
     // offset by the staff's scale, so a page distance added here is converted with the rest. Added
     // afterwards it would be a page distance living in a scaled space, and a small staff's meter
     // would sit too far right by 1/k.
+    // ⭐⭐ …indented into the stave (decision A — Gould p. 6, Ross p. 144), and the POSITION IN THIS
+    //   SEQUENCE is the whole of what makes it correct:
+    //   • AFTER `applyLeadIn` forced `Stave.format()`, because a modifier has no `x` before that;
+    //   • BEFORE `placeMeterAfterKeySignature`, so the meter is placed from the indented clef;
+    //   • BEFORE `spreadHeaderToSystem`, so a small staff's indent is converted with everything else.
+    //   🚨 Two browser tests caught the two ways of getting this wrong — see `clefIndentPass`.
+    applyClefIndent(stave, measure.number === 1 || isFirstInLine)
     placeMeterAfterKeySignature(stave, clef, headerKey)
     spreadHeaderToSystem(stave, scale)
     return stave

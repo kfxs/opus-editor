@@ -579,7 +579,12 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
   //     number rather than a taste: `TimeSignature.space-alist (first-note fixed-space . 2.0)`, which is
   //     also where `Clef.space-alist (first-note minimum-fixed-space . 5.0)` lands measured from the
   //     clef's left edge.
-  expect(drawn.trebleAndFourFour, 'clef + meter, then LilyPond\'s gap').toBeCloseTo(2.0 + 3.2 + 1.0 + 2.4, 1)
+  // ⭐ …plus the clef's INDENTATION (decision A, 2026-09-01): 0.7 sp inside the staff's left edge
+  //   where VexFlow left it at 0.5, so the whole header — and the first note with it — moved right by
+  //   0.2. `headerInk.CLEF_INDENT_SHIFT` is that difference, and `clefIndentPass.test.ts` pins the
+  //   drawn indent itself; here it is only a term in the header's total.
+  expect(drawn.trebleAndFourFour, 'clef + meter, then LilyPond\'s gap')
+    .toBeCloseTo(2.0 + 3.2 + 0.2 + 1.0 + 2.4, 1)
   // ⛔ …and a bar with NO header is untouched: there the gap is the barline's own, and LilyPond would go
   //    tighter than the drawing can (0.9 mid-line against our 1.2 floor — see `pairPadding`).
   expect(drawn.nothing, 'a bar drawing no header at all is just the lead-in').toBeCloseTo(1.2, 1)

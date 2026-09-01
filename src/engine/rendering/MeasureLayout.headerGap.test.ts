@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
-import { HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN } from '@/engine/layout/headerInk'
+import { CLEF_INDENT_SHIFT, HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
 
@@ -78,7 +78,9 @@ describe('⭐⭐ the header→first-note gap is keyed on what ENDS the header', 
     // mix in the meter's own width, so this asserts the later system against its OWN parts.
     const openers = lineOpeners(leadIns())
     const later = openers[1]
-    const CLEF_TREBLE_FULL = 3.2 // `headerInk`'s measured constant for a line-opening treble clef
+    // `headerInk`'s measured constant for a line-opening treble clef, PLUS the engraved indentation
+    // (decision A) — the clef part carries it, so the lead-in does too.
+    const CLEF_TREBLE_FULL = 3.2 + CLEF_INDENT_SHIFT
     expect(later.leadIn).toBeCloseTo(CLEF_TREBLE_FULL + HEADER_TO_NOTE_AFTER_SIGN, 6)
     // …and it is half a space more than the old single constant would have given.
     expect(later.leadIn - (CLEF_TREBLE_FULL + HEADER_TO_NOTE)).toBeCloseTo(0.5, 6)
