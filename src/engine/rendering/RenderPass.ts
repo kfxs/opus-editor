@@ -1,4 +1,5 @@
 import type { StaveNote, Annotation, Tuplet as VexFlowTuplet, SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { Score } from '@/types/music'
 import type { SpacedColumns } from './spacingPass'
@@ -48,8 +49,33 @@ export interface RenderPass {
   /** The score being rendered this pass — read for engraving-override lookups (e.g. per-rest
    *  vertical shifts; see docs/rest-shift-plan.md §6.8). */
   score: Score
-  /** The VexFlow SVG rendering context for this pass (rebuilt by `initialize`). */
-  context: SVGContext
+  /**
+   * ⭐⭐ **THE SURFACE THIS PASS DRAWS ON** (rebuilt by `initialize`) — our own type, `paint/`'s
+   * {@link DrawContext}, satisfied structurally by the VexFlow `SVGContext` that is still the
+   * object behind it. `docs/own-engraving-engine.md` P1b.
+   *
+   * ⭐ Every pass that only *draws* takes this and no longer names a VexFlow type. Reach for
+   * {@link RenderPass.vexContext} only for the two things this cannot do — see there.
+   */
+  context: DrawContext
+  /**
+   * ⛔⛔ **THE COUPLING THAT IS LEFT, AND IT IS THE MIGRATION'S PROGRESS BAR.**
+   *
+   * The same object as {@link RenderPass.context} — a different NAME, so that what still requires
+   * VexFlow specifically is countable rather than hidden behind a shared type. Two kinds of use,
+   * and both are a piece of work rather than a permanent need:
+   *
+   * 1. **A VexFlow object painting itself** — `beam.setContext(pass.vexContext).draw()`. Every one
+   *    of these is P3/P4's territory: the note, the beams, the stave. ⛔ A new drawn element may
+   *    NOT add one (rule 1).
+   * 2. **Reaching past the surface into the PAGE** — `.svg` for a DOM read-back, and the two
+   *    `state`/`attributes` casts. ⚠️ These are the ones that would make a non-SVG painter
+   *    impossible, so they are the more interesting half despite being the smaller one.
+   *
+   * ⭐ **The number only goes down.** When it reaches zero, `paint/` can be given an implementation
+   * that is not VexFlow's, and `scene/` becomes a recording one.
+   */
+  vexContext: SVGContext
   /** Note/rest id → its rendered StaveNote (+ chord-head index), for ties & slurs. */
   staveNoteMap: Map<string, { staveNote: StaveNote; noteIndex: number }>
   /**

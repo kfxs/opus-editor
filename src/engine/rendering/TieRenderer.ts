@@ -61,12 +61,13 @@ function staffLineYs(stave: Stave | undefined): number[] {
  * the cursor previews do.
  */
 export function drawTieArc(
-  pass: Pick<RenderPass, 'context'>,
+  // ⛔ `vexContext`: the arc itself is drawn by VexFlow's `Curve` — see `./curveArc`.
+  pass: Pick<RenderPass, 'vexContext'>,
   geom: { firstX: number; lastX: number; y: number; direction: number },
   notes: { from: StaveNote; to: StaveNote },
   stave?: Stave,
 ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
-  if (!pass.context) return null
+  if (!pass.vexContext) return null
   try {
     // A staff line running ALONGSIDE the arc is the fault (Gould p. 61). The repair makes the arc
     // ROUNDER and leaves the tips on their noteheads — his eye, 2026-08-16, on a translation that

@@ -55,6 +55,26 @@
  */
 import { Element } from 'vexflow'
 import type { RenderContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
+
+/**
+ * ⭐⭐ **THE ONE CAST, AND IT IS THIS MODULE'S WHOLE JOB.**
+ *
+ * `Element.renderText` asks for a VexFlow `RenderContext`, but — measured above — it only ever calls
+ * `setFont` and `fillText`, both of which {@link DrawContext} declares. So the cast is sound by the
+ * source, not by hope, and putting it HERE is what lets every caller speak our type instead.
+ *
+ * ⭐ **Exported for the two passes that must keep their own `Element`** — `TempoLayout` (its runs
+ * resolve two different font categories, `'StaveTempo.glyph'` vs `'StaveTempo.name'`) and
+ * `ScoreTuplet` (it holds elements across layout and draw). They get the same soundness argument
+ * and the same one-line escape, rather than each keeping a `RenderContext` in its own signature and
+ * pulling VexFlow back up into the passes that call them.
+ *
+ * ⏭️ It disappears with the `vexflow` import, when `fonts/` can answer *which face, at what size*.
+ */
+export function asGlyphPaintContext(ctx: DrawContext): RenderContext {
+  return ctx as unknown as RenderContext
+}
 
 /** A text run's face, for the one shape that is TEXT rather than a music glyph — see
  *  {@link drawTextRun}. `sizePt` is points, like every size in this module. */
@@ -105,10 +125,10 @@ function glyphElement(tag: string, glyph: string, sizePt: number): Element {
  * @param sizePt  POINTS, the number VexFlow reads as `Npt`. See `./drawnFontSize`.
  */
 export function drawGlyph(
-  ctx: RenderContext, tag: string, glyph: string, x: number, y: number, sizePt: number,
+  ctx: DrawContext, tag: string, glyph: string, x: number, y: number, sizePt: number,
 ): number {
   const el = glyphElement(tag, glyph, sizePt)
-  el.renderText(ctx, x, y)
+  el.renderText(asGlyphPaintContext(ctx), x, y)
   return widthOf(el)
 }
 
@@ -133,11 +153,11 @@ export function measureGlyph(tag: string, glyph: string, sizePt: number): number
  * does not choose one.
  */
 export function drawTextRun(
-  ctx: RenderContext, tag: string, text: string, x: number, y: number, font: TextRunFont,
+  ctx: DrawContext, tag: string, text: string, x: number, y: number, font: TextRunFont,
 ): number {
   const el = new Element(tag)
   el.setFont(font.family, font.sizePt, font.weight ?? 'normal', font.style ?? 'normal')
   el.setText(text)
-  el.renderText(ctx, x, y)
+  el.renderText(asGlyphPaintContext(ctx), x, y)
   return widthOf(el)
 }

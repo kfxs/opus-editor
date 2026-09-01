@@ -437,8 +437,9 @@ knot, so P1 is cut there.
 | step | what | state |
 |---|---|---|
 | **P1a** | the **glyph adapter** — one module owns `new Element` | ✅ **DONE 2026-09-01** |
-| **P1b** | `DrawContext` — our interface, and the signatures retyped | ⏭️ next |
-| **P1c** | the **group handle** — the three things a group is used for | ⏭️ |
+| **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
+| **P1c** | the **group handle** — the three things a group is used for | ⏭️ next |
+| **P1d** | an **implementation of our own** — `paint/svg/`, and stop calling VexFlow's context | ⏭️ |
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 
@@ -471,6 +472,54 @@ now call `drawGlyph` / `measureGlyph` / `drawTextRun`. **9 files → 1**, −74 
 ⭐ **And it collected a rule with no home**: `glyphWidth` existed as **three byte-identical private
 copies** in `TrillRenderer`, `PedalRenderer` and `OttavaRenderer` — §3.1's *"the second owner is the
 tell"*, found in the wild rather than argued.
+
+#### ✅ P1b — `engine/paint/DrawContext.ts` (2026-09-01)
+
+⭐⭐ **`paint/` now exists, and the engine draws through a type of ours.** 19 primitives, declared by
+us, importing nothing — and **satisfied structurally by VexFlow's `SVGContext`**, which is what makes
+this a type change with no pixel in it. ⛔ Nothing is implemented; the object flowing through every
+renderer is the same object it was.
+
+⭐ **`RenderPass` carries ONE object under TWO names**, and that is the substance of the step:
+
+| field | what it is | count |
+|---|---|---|
+| `context: DrawContext` | what a pass **draws** through — our type | everything else |
+| `vexContext: SVGContext` | ⛔ what still needs VexFlow **specifically** | **24 uses, 16 files** |
+
+⭐⭐ **The second name is the point.** Before it, that coupling was invisible: every drawing site and
+every VexFlow-object site were both spelled `SVGContext`, so *"how much is left"* had no answer.
+Now it has one, it is two kinds of thing, and both are work rather than a permanent need:
+
+1. **A VexFlow object painting itself** — `beam.setContext(pass.vexContext).draw()`. P3/P4's
+   territory: the ghosts (14), the fan (5), the note, the beams, the stave, `Curve`.
+2. ⚠️ **Reaching past the surface into the PAGE** — four `.svg` read-backs and two `state`/
+   `attributes` casts. The smaller half, and the more interesting one: these are what would make a
+   non-SVG painter impossible.
+
+⭐ **And it is a RATCHET, not a note** — `npm run lint:paint` (in `build:check`): a file not on the
+allowlist may not name `SVGContext`/`RenderContext` or use `vexContext`, and the count may not rise.
+🚨 That guard exists because of §2.2's re-measure: for 16 days **every stated rule was kept while the
+coupling grew 39%**, precisely because no number was being looked at — the same way rule 9's trigger
+fired four times unseen. ⭐⭐ **A trigger nobody is scheduled to check is a trigger that does not
+fire**, so the ceiling is now checked by the build.
+
+⭐ `paint/` is fenced by `lint:boundary` the way `fonts/` is: ⛔ no DOM, ⛔ no `vexflow`, ⛔ and no
+`models/` — §8.2's rules 2, 11 and 12, arriving with the directory they govern rather than after it.
+And its spec asserts the load-bearing claim directly: *VexFlow's `SVGContext` is assignable to
+`DrawContext`*, plus a runtime check that the real object implements all 19. ⚠️ The first draft of
+that break-test spread the context (`{ ...ctx }`) and so found **every** primitive missing —
+`SVGContext`'s methods are on its PROTOTYPE. It now shadows one name on a real chain.
+
+⛔ **What P1b does NOT do**: it implements no context, so `save`/`restore` are still VexFlow's
+no-ops, `openGroup` still prefixes `vf-`, and the four standing gotchas are still there. Those are
+**P1d**.
+
+⚠️ **One question it raises and does not settle — §8's tree says `engrave/vexflow/` is the only
+directory importing `vexflow`, and that shape did not survive contact.** P1a found VexFlow doing
+**two** distinct jobs here: a **RULER** (`Stave`/`StaveNote` geometry — engrave's) and a **FONT
+RENDERER** (`Element` — paint's). `glyphPainter` is the second and has no home in that tree; it was
+left in `rendering/` rather than silently rewriting rule 10. ⛔ Open, and his call.
 
 #### ⏭️ P1c — what a GROUP is, answered by reading the 21 `openGroup` sites
 

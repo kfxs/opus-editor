@@ -128,6 +128,30 @@
       }
     },
     {
+      "files": ["src/engine/paint/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          { "name": "document", "message": "src/engine/paint is the DRAWING SURFACE, declared by us — no DOM. A primitive that smuggles a DOM node in is what makes a second painter (PDF, canvas, a recording SCENE) impossible, and that is the one thing this layer exists to prevent (docs/own-engraving-engine.md §7.2, P1b)." },
+          { "name": "window", "message": "src/engine/paint: no DOM — docs/own-engraving-engine.md P1b." },
+          { "name": "navigator", "message": "src/engine/paint: no browser APIs — docs/own-engraving-engine.md P1b." },
+          { "name": "SVGElement", "message": "src/engine/paint declares WHAT can be drawn, never what it is drawn ONTO. An SVG type here would make the SVG painter the only possible one — docs/own-engraving-engine.md §7.2." }
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["vexflow", "@/engine/rendering/*", "**/rendering/*", "@/engine/models/*", "**/models/*"],
+                "message": "src/engine/paint knows the SCENE and nothing else — no VexFlow, no renderer, and ⛔ NOT the model: that is what makes a second painter cost nothing (docs/own-engraving-engine.md §8.2 rule 2/12). ⭐ It is deliberately satisfied BY VexFlow's SVGContext today, which is a fact about the caller, never an import here."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/engine/layout/**/*.ts"],
       "excludedFiles": ["**/*.test.ts"],
       "rules": {

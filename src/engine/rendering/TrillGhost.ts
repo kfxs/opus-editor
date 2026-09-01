@@ -28,7 +28,7 @@
  * mark. Plain, never parenthesised: the brackets mean "this trill CARRIES OVER from the last
  * system", which is a fact about a trill that does not exist yet.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawTrillSign } from './TrillRenderer'
 import { drawSignGhost } from './ghostCursor'
 
@@ -42,7 +42,7 @@ export const TRILL_GHOST_GROUP_CLASS = 'vf-ghost-trill'
  * Draw `tr` at the cursor. Returns false when nothing measurable was drawn — see
  * {@link drawSignGhost}, which owns that answer for the family.
  */
-export function drawTrillGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
+export function drawTrillGhost(ctx: DrawContext, cursorX: number, cursorY: number): boolean {
   return drawSignGhost(ctx, 'ghost-trill', cursorX, cursorY,
     () => drawTrillSign(ctx, 0, cursorY, false))
 }

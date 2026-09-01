@@ -7,7 +7,7 @@
  *
  * Nothing here reads renderer state — a quad is four points and a fill.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -53,7 +53,7 @@ export const crossSystemStub = (direction: number): number =>
 
 /** One beam quad, from `drawBeamLines`' vertices (beam.js:596-604): top edge start→end, thickness down. */
 export function fillBeamQuad(
-  ctx: SVGContext,
+  ctx: DrawContext,
   startX: number,
   startY: number,
   endX: number,

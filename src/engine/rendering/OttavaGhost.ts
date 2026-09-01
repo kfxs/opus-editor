@@ -29,7 +29,7 @@
  * from the mark. Plain, never parenthesised: the brackets mean "this line CARRIES OVER from the last
  * system", which is a fact about an ottava that does not exist yet.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Ottava } from '@/types/music'
 import { drawOttavaNumeral } from './OttavaRenderer'
 import { drawSignGhost } from './ghostCursor'
@@ -45,7 +45,7 @@ export const OTTAVA_GHOST_GROUP_CLASS = 'vf-ghost-ottava'
  * drawn — see {@link drawSignGhost}, which owns that answer for the family.
  */
 export function drawOttavaGhost(
-  ctx: SVGContext, cursorX: number, cursorY: number, shift: Ottava['shift'],
+  ctx: DrawContext, cursorX: number, cursorY: number, shift: Ottava['shift'],
 ): boolean {
   return drawSignGhost(ctx, 'ghost-ottava', cursorX, cursorY,
     () => drawOttavaNumeral(ctx, 0, cursorY, shift, false))

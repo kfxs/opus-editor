@@ -97,7 +97,7 @@ export function placeTempoMarksOnLine(
   placements: readonly TempoLinePlacement[],
   staffIds: readonly (string | undefined)[],
 ): void {
-  const svg = pass.context?.svg as SVGSVGElement | undefined
+  const svg = pass.vexContext?.svg as SVGSVGElement | undefined
   if (!svg) return
 
   const starts = measureStartOffsets(pass.score)

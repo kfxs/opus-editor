@@ -1,0 +1,129 @@
+#!/usr/bin/env node
+/**
+ * `npm run lint:paint` — ⭐⭐ **THE MIGRATION'S PROGRESS BAR, AS A RATCHET**
+ * (`docs/own-engraving-engine.md` P1b, and rule 10's *"its LOC is the migration's progress bar"*).
+ *
+ * ## THE FACT it protects
+ *
+ * Since P1b the engine draws through **our own** `paint/DrawContext`, and what still requires
+ * VexFlow's context specifically is spelled `vexContext` (`rendering/RenderPass`) or names
+ * `SVGContext` / `RenderContext` outright. That residue is the work left in P3–P5, and it has
+ * exactly one legitimate direction: **down**.
+ *
+ * ⚠️ **Why a script and not a promise.** The same document measured, on 2026-09-01, that in the 16
+ * days after the plan was written `engine/rendering/` grew 39%, the files naming a VexFlow type went
+ * 31 → 45, and `ctx: SVGContext` parameters 21 → 28 — while every *stated* rule was being kept. The
+ * growth was invisible because there was no number anyone was scheduled to look at. A design claim
+ * ("the engine draws through our own context") cannot rot, because the types enforce it; a repo
+ * claim ("only these N files still need VexFlow's") can, so it gets a check.
+ *
+ * 🚨 And the sharper lesson from the same measurement: rule 9's stated trigger — *"or sooner, the
+ * next time a coordinate field is added to `ElementInfo`"* — fired FOUR times and nobody noticed.
+ * **A trigger nobody is scheduled to check is a trigger that does not fire.**
+ *
+ * ## THE RULE
+ *
+ * 1. ⛔ **A file not on the allowlist may not name `SVGContext` / `RenderContext`, or use
+ *    `vexContext`.** A new drawn element draws through `DrawContext` (rule 1). Adding a file here
+ *    is a decision, and it should be an uncomfortable one.
+ * 2. ⛔ **The `vexContext` count may not rise.** Each is either a VexFlow object painting itself
+ *    (P3/P4 territory) or a reach past the surface into the page.
+ *
+ * ⭐ Both numbers are expected to fall to zero. When they do, `paint/` can be given an implementation
+ * that is not VexFlow's, and `scene/` a recording one — which is the golden net P3 is gated on.
+ */
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
+
+const SRC = 'src'
+const DOC = 'docs/own-engraving-engine.md'
+
+/**
+ * The files still entitled to VexFlow's own context, and WHY each one is — because a list with no
+ * reasons is a list nobody can shorten.
+ *
+ * ⛔ Adding a row is not a formality: it says a new piece of drawing could not be expressed through
+ * `DrawContext`, which is a finding worth writing down in the plan doc, not a lint fix.
+ */
+const ALLOWED = new Map([
+  ['engine/paint/DrawContext.ts', 'declares the interface; names the VexFlow types only in prose'],
+  ['engine/rendering/RenderPass.ts', 'declares `vexContext` — the named coupling itself'],
+  ['engine/rendering/VexFlowRenderer.ts', 'OWNS the context: it is the one that creates it'],
+  ['engine/rendering/glyphPainter.ts', 'THE ADAPTER — the one place VexFlow still paints a glyph'],
+  ['engine/rendering/GhostRenderer.ts', 'P3: ghosts built from VexFlow objects that paint themselves'],
+  ['engine/rendering/FanGhost.ts', 'P3: same, for the fan'],
+  ['engine/rendering/FanPass.ts', 'P3: paints VexFlow `NoteHead`s and `Accidental`s directly'],
+  ['engine/rendering/fanArticulations.ts', 'P3: VexFlow `Articulation`s painting themselves'],
+  ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],
+  ['engine/rendering/markPreviewPass.ts', 'reads the context STATE; prose only, plus one cast'],
+  ['engine/rendering/curveArc.ts', "P3: VexFlow's `Curve` renders the arc"],
+  ['engine/rendering/TieRenderer.ts', 'threads the curve context through to `curveArc`'],
+  ['engine/rendering/TempoLayout.ts', 'its runs resolve two font categories — see glyphPainter'],
+  ['engine/rendering/tempoAnchorInk.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
+  ['engine/rendering/tempoLinePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
+  ['engine/rendering/tempoNudgePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
+])
+
+/** ⚠️ The ceiling, not a target. Lower it when a migration lands; ⛔ never raise it. */
+const VEX_CONTEXT_CEILING = 24
+
+const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
+
+function walk(dir) {
+  const out = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) out.push(...walk(full))
+    else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts')) out.push(full)
+  }
+  return out
+}
+
+const offenders = []
+let vexContextUses = 0
+
+for (const file of walk(SRC)) {
+  const rel = relative(SRC, file).split('\\').join('/')
+  const text = readFileSync(file, 'utf8')
+  const lines = text.split('\n')
+  // `vexContext` is counted everywhere it is USED, including in allowed files — the point of the
+  // ceiling is the total amount of coupling, not how many files hold it.
+  if (rel !== 'engine/rendering/RenderPass.ts') {
+    vexContextUses += lines.filter(l => /\bvexContext\b/.test(l)).length
+  }
+  if (ALLOWED.has(rel)) continue
+  const hit = lines.findIndex(l => NAMES.test(l))
+  if (hit >= 0) offenders.push(`${rel}:${hit + 1}  ${lines[hit].trim().slice(0, 96)}`)
+}
+
+let failed = false
+
+if (offenders.length) {
+  failed = true
+  console.error(`\n✗ ${offenders.length} file(s) name a VexFlow render context outside the allowlist.\n`)
+  for (const o of offenders) console.error(`    ${o}`)
+  console.error(`
+  A new drawn element draws through OUR context: import \`DrawContext\` from
+  '@/engine/paint/DrawContext' and take that. To stamp a glyph, use \`rendering/glyphPainter\`.
+
+  If the drawing genuinely cannot be expressed that way, that is a FINDING — write it in
+  ${DOC} and add a row (with its reason) to ALLOWED in this script.
+`)
+}
+
+if (vexContextUses > VEX_CONTEXT_CEILING) {
+  failed = true
+  console.error(`
+✗ \`vexContext\` is used ${vexContextUses} times; the ceiling is ${VEX_CONTEXT_CEILING}.
+
+  Every use is a VexFlow object painting itself (P3/P4) or a reach past the drawing surface
+  into the page. The number goes DOWN. See ${DOC} P1b.
+`)
+}
+
+if (failed) process.exit(1)
+
+console.log(
+  `✓ ${ALLOWED.size} files still entitled to VexFlow's context, ` +
+  `${vexContextUses}/${VEX_CONTEXT_CEILING} \`vexContext\` uses. Everything else draws through DrawContext.`,
+)

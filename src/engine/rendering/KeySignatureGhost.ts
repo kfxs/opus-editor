@@ -27,7 +27,7 @@
  * hole the SIGNPOST is owed for (docs/key-signature-plan.md §5), and ⛔ it is not patched here with
  * an invented placeholder glyph.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph } from './glyphPainter'
 import type { KeySignature } from '@/types/music'
 import { KEY_ACCIDENTAL_GAP, keySignatureLines, signGlyph } from '@/engine/layout/keySignatureLayout'
@@ -55,7 +55,7 @@ const CURSOR_LINE = 3
  * the standard ghost position, so a drawer that parked itself would be parking twice.
  */
 export function drawKeySignatureGhost(
-  ctx: SVGContext, cursorX: number, cursorY: number, key: KeySignature,
+  ctx: DrawContext, cursorX: number, cursorY: number, key: KeySignature,
 ): boolean {
   if (key.alterations.length === 0) return false
   // The nominal staff — see the header. `treble` is the placement table's own default column, and the

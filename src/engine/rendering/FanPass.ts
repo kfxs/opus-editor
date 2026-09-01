@@ -449,7 +449,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
       // PLACEHOLDER beam, so `StaveNote.draw` skipped those stems and nobody else is coming for
       // them — put them back at their natural length rather than leave a row of stemless heads.
       // Degraded either way (the flag is suppressed too), but a stem is not missing ink.
-      drawFanPrefixStems(pass.context, prefixNotes, [])
+      drawFanPrefixStems(pass.vexContext, prefixNotes, [])
       continue
     }
 
@@ -459,7 +459,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
     // could never be selected. The heads are added in the draw loop below.
     registerFanInk(pass.elementRegistry, geometry, headX, baseY, measureNumber, staffIndex, prefixNotes, joinQuads)
 
-    const ctx = pass.context
+    // ⛔ `vexContext`: this pass still paints VexFlow `NoteHead`s and `Accidental`s directly
+    // (`head.setContext(ctx).draw()` below) — it is P3's own territory, and the name says so.
+    const ctx = pass.vexContext
     ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
     try {
       // ⭐ THE REAL NOTE'S STEM, TOPPED UP. When a member's pitch pushes the beam line away, the

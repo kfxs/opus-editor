@@ -977,7 +977,7 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
     const group = ctx.openGroup('ghost-tie') as SVGGElement
     try {
       drawCurveArc(
-        { context: ctx },
+        { vexContext: ctx },
         { x: x0, y }, { x: x0 + WIDTH, y },
         cps, DIRECTION, CURVE_PX.thickness, anchor, anchor,
       )

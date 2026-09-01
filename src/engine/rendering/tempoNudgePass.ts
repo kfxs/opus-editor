@@ -58,7 +58,7 @@ export function applyTempoNudges(
   pass: RenderPass,
   placements: readonly TempoNudgePlacement[],
 ): void {
-  const svg = pass.context?.svg as SVGSVGElement | undefined
+  const svg = pass.vexContext?.svg as SVGSVGElement | undefined
   if (!svg) return
 
   // 🚨 From the SCORE, ⛔ never `placement.view.tempos` — `tempoOps` replaces the property slot a

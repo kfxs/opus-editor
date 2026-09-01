@@ -30,7 +30,7 @@
  * the gesture, never about a rung above or below the staff.
  */
 
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
 const GHOST_CURSOR_GAP_PX = 10
@@ -77,7 +77,7 @@ export function ghostCursorOffset(
  *   "no ghost", ⛔ never as an error.
  */
 export function drawSignGhost(
-  ctx: SVGContext,
+  ctx: DrawContext,
   groupName: string,
   cursorX: number,
   cursorY: number,

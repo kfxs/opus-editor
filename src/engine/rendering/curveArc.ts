@@ -45,7 +45,9 @@ export function curveFillGap(nominalThickness: number): number {
  * hit geometry matches the drawn path exactly.
  */
 export function drawCurveArc(
-  pass: Pick<RenderPass, 'context'>, // only the context is used — so a ghost can call this too
+  // ⛔ `vexContext`, not `context`: the arc is drawn by VexFlow's own `Curve`, which paints itself.
+  // Only the context is used, so a ghost can call this too.
+  pass: Pick<RenderPass, 'vexContext'>,
   p0: { x: number; y: number },
   p1: { x: number; y: number },
   cps: [{ x: number; y: number }, { x: number; y: number }],
@@ -61,7 +63,7 @@ export function drawCurveArc(
     xShift: 0,
     yShift: 0,
   })
-  curve.setContext(pass.context)
+  curve.setContext(pass.vexContext)
   // renderCurve strokes the body with the context's *current* line width, so pin a thin slur
   // outline: the fill tapers on its own (it pinches to a point at each endpoint), and a thick
   // stroke blunts those tips and over-weights the whole curve.
@@ -71,10 +73,10 @@ export function drawCurveArc(
   // `stroke-width` by hand, and any code that "restored" a style was quietly doing nothing. The
   // stubs are gone — see the history in `initialize()` — so the idiom means what it says again.
   // It matters here because the ghost tie draws through this on every mouse move.
-  pass.context.save()
-  pass.context.setLineWidth(CURVE_OUTLINE)
+  pass.vexContext.save()
+  pass.vexContext.setLineWidth(CURVE_OUTLINE)
   curve.renderCurve({ firstX: p0.x, firstY: p0.y, lastX: p1.x, lastY: p1.y, direction })
-  pass.context.restore()
+  pass.vexContext.restore()
 
   const { points, c0, c1 } = curveArcPoints(p0, p1, cps, direction)
 

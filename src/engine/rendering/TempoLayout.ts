@@ -21,7 +21,9 @@
  * so we lose no engraving quality, only its opinions.
  */
 import { Element, Metrics, MetricsDefaults, StaveModifierPosition, TimeSignature } from 'vexflow'
-import type { RenderContext, Stave, StaveNote } from 'vexflow'
+import type { Stave, StaveNote } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
+import { asGlyphPaintContext } from './glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -141,7 +143,8 @@ export function splitRuns(text: string): Run[] {
  * `Element` is VexFlow's text/glyph primitive: it carries the font from Metrics and measures its
  * own width, which is how the runs are laid end to end.
  */
-export function drawTempoText(ctx: RenderContext, text: string, x: number, y: number): void {
+export function drawTempoText(ctx: DrawContext, text: string, x: number, y: number): void {
+  const paint = asGlyphPaintContext(ctx)
   for (const run of splitRuns(text)) {
     // 'StaveTempo.name' is the mark's text font (bold, VexFlow's text face); 'StaveTempo.glyph' is
     // the music font, at the size set above. Both resolved from Metrics, exactly as StaveTempo did.
@@ -158,7 +161,7 @@ export function drawTempoText(ctx: RenderContext, text: string, x: number, y: nu
     }
 
     el.setText(run.glyph ?? keepSpaces(run.text!))
-    el.renderText(ctx, x, y)
+    el.renderText(paint, x, y)
     x += el.getWidth()
   }
 }

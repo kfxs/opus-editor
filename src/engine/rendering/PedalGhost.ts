@@ -36,7 +36,7 @@
  * mark. Plain, never parenthesised: the brackets mean "this pedalling CARRIES OVER from the last
  * system", which is a fact about a pedal that does not exist yet.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawPedalSign } from './PedalRenderer'
 import { drawSignGhost } from './ghostCursor'
 
@@ -50,6 +50,6 @@ export const PEDAL_GHOST_GROUP_CLASS = 'vf-ghost-pedal'
  * Draw `Ped.` at the cursor. Returns false when nothing measurable was drawn — see
  * {@link drawSignGhost}, which owns that answer for the family.
  */
-export function drawPedalGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
+export function drawPedalGhost(ctx: DrawContext, cursorX: number, cursorY: number): boolean {
   return drawSignGhost(ctx, 'ghost-pedal', cursorX, cursorY, () => drawPedalSign(ctx, 0, cursorY, false))
 }

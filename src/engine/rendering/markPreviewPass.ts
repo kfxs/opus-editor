@@ -256,7 +256,7 @@ const MARK_PREVIEW_FAMILIES: Record<MarkPreviewKind, MarkPreviewFamily> = {
     //    `try` that `getBBox` throws out of before layout, so the row is a browser-only artifact and
     //    vouching on it would refuse every frame in a spec.
     placed: (pass, id) => {
-      const svg = pass.context?.svg as SVGSVGElement | undefined
+      const svg = pass.vexContext?.svg as SVGSVGElement | undefined
       const el = svg?.querySelector(`#vf-${id}`)
       if (!el) {
         dbg(`[Preview] tempo ${id}: no glyph in this render's SVG — the frame cannot move it`)

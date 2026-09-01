@@ -790,7 +790,10 @@ export class VexFlowRenderer {
   private createRenderPass(score: Score): RenderPass {
     return {
       score,
+      // ⭐ ONE object, two names: `context` is what a pass draws through (our own `DrawContext`),
+      // `vexContext` is the same thing spelled as the coupling it still is — see `RenderPass`.
       context: this.context!,
+      vexContext: this.context!,
       staveNoteMap: this.staveNoteMap,
       fanMemberAnchorMap: this.fanMemberAnchorMap,
       fanMemberGroupMap: this.fanMemberGroupMap,
@@ -2967,7 +2970,7 @@ export class VexFlowRenderer {
   private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[], scale: number): void {
     const beam = new Beam(staveNotes)
     if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
-    beam.setContext(pass.context).draw()
+    beam.setContext(pass.vexContext).draw()
 
     // The overhang continues the group's own slope and levels — `drawBeamLines`' arithmetic, with the
     // line's `end` a fixed stub instead of the next notehead (beam.js:583-612). Every method it reads
@@ -3023,7 +3026,7 @@ export class VexFlowRenderer {
     const stem = note.getStem()
     if (!stem) return
     stem.adjustHeightForBeam() // swap the flag's height fudge for the beam's; the tip does not move.
-    stem.setContext(pass.context).drawWithStyle()
+    stem.setContext(pass.vexContext).drawWithStyle()
 
     const levels = side.members[0].beamCount
     const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
@@ -4706,7 +4709,7 @@ export class VexFlowRenderer {
       staffIndexOfId(score, foundStaffId),
       `pendingtie-${noteId}`,
       () => drawTieArc(
-        { context: this.context! },
+        { vexContext: this.context! },
         {
           firstX,
           lastX: firstX + CURVE_PX.tieStubLength,

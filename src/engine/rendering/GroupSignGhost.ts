@@ -32,7 +32,7 @@
  * ⭐ Both signs are drawn at ONE STAFF's height, and the brace at the DEPTH it is engraved at — see
  * {@link GHOST_HEIGHT_SPACES} and {@link drawGroupSignGhost}, each carrying the report that set it.
  */
-import type { SVGContext } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph } from './glyphPainter'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'
@@ -92,7 +92,7 @@ export type GhostableGroupSymbol = keyof typeof SIGN_GLYPHS
  * never distorted.
  */
 export function drawGroupSignGhost(
-  ctx: SVGContext, cursorX: number, cursorY: number, symbol: GhostableGroupSymbol,
+  ctx: DrawContext, cursorX: number, cursorY: number, symbol: GhostableGroupSymbol,
 ): boolean {
   const box = glyphBox(SIGN_BOXES[symbol])
   const inkHeight = box.up + box.down

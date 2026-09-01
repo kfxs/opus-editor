@@ -239,16 +239,28 @@ npm run lint:boundary   # fails the build if any of those dirs import a UI frame
 
 It is wired into `build:check`, and so is the full `npm run lint` (since 2026-07-27):
 the backlog this paragraph used to describe was ten trivial findings, and they are
-fixed, so the gate is closed behind them. `build:check` now runs four checks before
+fixed, so the gate is closed behind them. `build:check` runs these checks before
 `tsc`:
 
 ```bash
 npm run lint:boundary     # no framework anywhere below App.ts; dev/ out of the engine;
-                          # engine/ AND the score layer fenced against interactions/ and bus/
+                          # engine/ AND the score layer fenced against interactions/ and bus/;
+                          # layout/ + fonts/ + paint/ fenced against the DOM and vexflow
 npm run lint:testnames    # a spec is named after its sibling subject
 npm run lint:singletons   # the singleton count in DESIGN-PRINCIPLES.md is still true
+npm run lint:tables       # the kind-tables are still TOTAL over their union
+npm run lint:paint        # ⭐⭐ how much VexFlow is LEFT — and it may only fall
 npm run lint              # the full ESLint pass
 ```
+
+⭐⭐ **`lint:paint` is the newest and it is a PROGRESS BAR** (`docs/own-engraving-engine.md` P1b).
+Since the engine draws through its own `engine/paint/DrawContext`, what still needs VexFlow's
+context specifically is spelled `vexContext` or names `SVGContext`/`RenderContext` — a countable
+residue with an allowlist that carries a REASON per file, and a ceiling that may not rise.
+🚨 It exists because of a measurement rather than a worry: in the 16 days after the migration plan
+was written, **every stated rule was kept while the coupling grew 39%**, invisibly, because no
+number was being looked at — and a stated trigger in that same plan fired four times unnoticed.
+⭐ **A trigger nobody is scheduled to check is a trigger that does not fire.**
 
 The last two are there for the same reason, stated as a rule in
 `docs/refactor-plan-2026-07-27.md` Phase 0c: **a comment asserting a fact about the
@@ -399,6 +411,7 @@ sites* — that number, not the number of families, is what the work costs and w
 | Adding a 9th marking tool (clef/dynamic/stamp/…) | `EditorState.MarkingTool` + build: the compiler names every site — see `docs/marking-tools.md` |
 | Adding a selectable on-score element (a new thing a click can pick) | ⭐ ONE new module: `interactions/elements/<kind>.ts` (its hit-test AND how it paints), a row in `ELEMENT_SPECS` and — if a press can land on it — a position in `ELEMENT_HIT_ORDER` (`elements/chain.ts`; the ORDER is the content, and `chain.test.ts` pins it). Then `EditorState.SelectedElement` + build: `assertNeverElement` still names the two sites that stay switches, Delete (`shortcutWiring`) and the Properties report (`selectionSnapshot`) |
 | How notation is drawn to SVG | `engine/rendering/VexFlowRenderer.ts` — the pass ORDER and the per-bar work. One family per module beside it, each a free function over `RenderPass`: `TieRenderer`, `SlurRenderer`, `DynamicsLayout`, `TempoLayout`, `FanPass`, `GhostRenderer`. ⭐ A new drawn family joins that list; it does not join the renderer |
+| **The surface anything is drawn on** | ⭐⭐ `engine/paint/DrawContext.ts` — OUR type, 19 primitives, importing nothing, and satisfied structurally by the VexFlow `SVGContext` still behind it. A pass takes `RenderPass.context`. ⛔ Reach for `RenderPass.vexContext` only when a VexFlow object must paint itself or the PAGE must be read back — it is the counted residue, `npm run lint:paint` holds the ceiling, and it may only fall (`docs/own-engraving-engine.md` P1b). ⛔ `paint/` may not import the DOM, `vexflow`, or `models/` |
 | **Stamping one music glyph** (a repeat dot, a `tr`, a key-signature sign, a grouping brace) | ⭐⭐ `engine/rendering/glyphPainter.ts` — `drawGlyph` / `measureGlyph` / `drawTextRun`, and ⛔ **never `new Element(...)` in your own file**: it is the ONE place VexFlow still paints a glyph for us (`docs/own-engraving-engine.md` P1a). ⚠️ Sizes are POINTS (`./drawnFontSize`), the `y` is the BASELINE, and a returned width of 0 means *no measurable font* (jsdom), which callers already treat as "draw nothing". 🚨 The tag argument is not a label — it resolves the FONT via VexFlow's `Metrics`, which is why `TempoLayout` and `ScoreTuplet` keep their own `Element`s |
 | A cursor GHOST (the translucent preview an armed tool shows) | `engine/rendering/GhostRenderer.ts` — a `draw*Ghost`, a `ToolGhost` member (`ghostTypes.ts`), a `GHOST_DRAWERS` row, and a case in `interactions/toolGhost.ts`. ⭐ A ghost with any drawing of its own gets its OWN module beside it (`FanGhost`, `TrillGhost`, `OttavaGhost`, `PedalGhost`) and reuses ITS PASS's own draw function, so a preview cannot become a different glyph from the engraved mark. ⚠️ The payload is ENGINE-owned, never the editor's `MarkingTool`: `lint:boundary` fences `src/engine/**` off from `@/interactions`. `VexFlowRenderer.ghostOverlay` frames every one: take the last ghost down, refuse if there is no page. ⚠️ A ghost's class must be in `GHOST_GROUP_SELECTOR` or it is never removed and smears a trail — and in `e2e/harness.ts`'s own copy of that list, or the browser test reads an empty page |
 | **THE INTERPOLATING WALK** — ←/→ moving a mark's INK, and the anchor going with it | `interactions/markWalk.ts` — the identity, the arrival test, the latch, `crossWithoutArrival`; `interactions/markBreakWrap.ts` — the SYSTEM BREAK, and `systemInkAt`. Six families PORT them (`dynamicWalk`, `tempoWalk`, `hairpinWalk`, `ottavaWalk`, `pedalWalk`, and the trill's own FOLD), each with a `*Lane` module holding the drawn x's the mouse and the keyboard both measure. ⭐ **A seventh writes a port, ⛔ never a copy and ⛔ never a `kind` switch.** 🚨🚨 **A system is NOT named by its staff's top-line y** — the first line of every page shares it, which made the wrap measure another sheet's bar (a gap of 128 sp, a mark landed at −117): `systemInkAt` names it by the CONTIGUOUS RUN of bars sharing the row. ⭐ A crossing needs a RE-BASE the page limit does not judge, or a refused re-base leaves the anchor ahead of the ink and the next press crosses again. ⭐ A press whose ink a limit refuses still steps the ANCHOR (`crossWithoutArrival`) — the offset goes HOME, ⛔ not re-based by the gap. See `docs/ottava-plan.md` §P11 and `docs/pedal-plan.md` §P6 |

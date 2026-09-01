@@ -135,6 +135,13 @@ src/
                           #   + barlineGap (⭐ the JOIN: the same sign's strokes crossing the
                           #   space BETWEEN two staves — ⛔ never inside `inStaffSpace`, and
                           #   ⛔ never the dots. docs/barline-join-plan.md)
+                          #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
+                          #   ⛔ never `new Element(...)` in your own file)
+    paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext`, 19
+                          #   primitives, ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
+                          #   `RenderPass.context`; `RenderPass.vexContext` is the VexFlow that
+                          #   is LEFT and `npm run lint:paint` holds its ceiling (it may only
+                          #   fall). docs/own-engraving-engine.md P1b
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,
