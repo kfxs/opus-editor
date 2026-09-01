@@ -52,7 +52,7 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
-> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 → P4 → P5 → P1e.**
+> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (⏳ P3a ✅) → P4 → P5 → P1e.**
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -608,7 +608,41 @@ not re-litigating taste, it is re-sourcing agreed numbers from something that ca
 distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
 re-sourced. Both are why that plan exists.
 
-### P3 — The note — ⚠️ THE BIG ONE
+### P3 — The note — ⚠️ THE BIG ONE — ⏳ **STARTED 2026-09-01: P3a, the LEDGER LINES**
+📄 **`docs/note-engraving-plan.md`** — P3's own plan: the five things `StaveNote.draw()` does, the
+order they come back in, what each one costs, and the research per piece.
+
+> ⭐⭐ **The shape, and it is the finding that made P3 startable: KEEP THE OBJECT, EMPTY THE
+> DRAWING, one method at a time.** The same `StaveNote` is the RULER seven of our own renderers read
+> (§2.3), so it must keep *answering* while it stops *painting* — which rules out a big-bang
+> replacement and rules in a subclass whose override list is the progress bar
+> (`rendering/EngravedNote.ts`).
+>
+> ✅ **P3a — the ledger lines (2026-09-01).** Chosen first because it was the only piece with
+> **three owners already** — VexFlow's `StaveNote.drawLedgerLines`, `FanPass.drawFanLedgerLines` and
+> `VexFlowRenderer.drawRestLedgerLines`, the last two written from VexFlow's source and kept in
+> agreement by hand. 🚨 §3.1's *"the second owner is the tell"*, three times inside one element.
+> ⭐ `engine/engrave/notes/ledgerLines.ts` now owns the rule **and** the ink; **`engrave/` exists**,
+> fenced by `lint:boundary` (rule 11) and arriving on the commit that touched it, ⛔ never as a
+> rename move (§8.3). One `renderOptions` poke retired with it (§2.4's list).
+>
+> ⭐⭐ **And the gate of §6.3 moved for the first time from the inside:** ledger lines draw through a
+> `DrawContext`, so they are in the SCENE — *"one ledger line per bar, at this y, marching left to
+> right"* is now a jsdom assertion in `VexFlowRenderer.scene.test.ts`. ⛔ No pixel moved: the generic
+> rule reproduces VexFlow's `doubleWidth` case exactly, and that equivalence is a spec rather than an
+> assumption.
+>
+> ⏳ **Two numbers it deliberately did NOT decide**, both now one line to flip and both HIS: the
+> overhang (we draw 0.3 spaces, the font says 0.4, Gould says the line is *"just over two spaces
+> long"* — ⚠️ and the ink table already reserves the font's 0.4, so the two halves of this editor
+> disagree today) and the weight (we draw 1.23× a staff line from the font's ratio, Gould says
+> *"about twice as thick"*). `note-engraving-plan.md` §3.
+>
+> 🚨 **And one correction to §6.1 fell out of the research**: *"stem lengths… are places where we
+> currently have no opinion"* is **out of date** — Gould's stem-length rules are on her printed
+> pp. 16–19 and nobody had looked. ⭐ The parent's own lesson (§3.1): *"we have no opinion" is a claim
+> about the library shelf, and this project's shelf has to be re-checked per feature.*
+
 Notehead, stem, flag, ledger lines, dots. **We have already built this once:** `FanPass` draws
 heads, stems, accidentals and ledger lines by hand today for fan members — including ledger lines,
 because `drawLedgerLines` belongs to `StaveNote` and a bare `NoteHead` has none. `chordHeadLayout`,
@@ -617,7 +651,8 @@ because `drawLedgerLines` belongs to `StaveNote` and a bare `NoteHead` has none.
 Generalising from "fan members" to "all notes" is the largest single item, and it is the one that
 **unblocks `Stave.padding`** — the last item on `vexflow-boundary.md` §3 with no route around it.
 
-⛔ **Do not start P3 before the golden-image net exists** (§6.3).
+⛔ **Do not start P3 before the golden-image net exists** (§6.3). ✅ It does: the SCENE, and P3a is
+the first element to have crossed into it.
 
 ### P4 — Beams
 `FannedBeam`, `CrossBarBeams` and `beamInk` already fill beam quads; `docs/beaming.md` already

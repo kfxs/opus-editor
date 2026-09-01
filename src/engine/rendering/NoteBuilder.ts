@@ -1,4 +1,5 @@
 import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot } from 'vexflow'
+import { EngravedNote } from './EngravedNote'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
@@ -175,13 +176,13 @@ export function createStaveNotesFromSlots(
         //   All three reference engines place a measure rest exactly where they place a duration
         //   whole rest, and two of them do not even distinguish the cases: MuseScore's `V_MEASURE`
         //   falls through to `V_WHOLE`, and its `isWholeRest()` answers true for both.
-        const measureRest = new StaveNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true })
+        const measureRest = new EngravedNote({ keys: [restKey('w')], duration: 'wr', alignCenter: true })
         if (shift) measureRest.setKeyLine(0, measureRest.getLineForRest() + shift)
         staveNotes.push(measureRest)
         continue
       }
       const vexDuration = convertDuration(slot.duration, slot.dots || 0)
-      const staveNote = new StaveNote({ keys: [restKey(slot.duration)], duration: vexDuration + 'r' })
+      const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: vexDuration + 'r' })
       for (let d = 0; d < (slot.dots || 0); d++) {
         Dot.buildAndAttach([staveNote], { all: true })
       }
@@ -277,7 +278,10 @@ export function createStaveNotesFromSlots(
     // `measureColumns`, so the bar asks for their room directly, and `spacingPass` writes the x's
     // rather than letting the tick-proportional formatter decide them.
     const noteStruct = { keys, duration: vexDuration, clef: slotClef, autoStem: false }
-    const staveNote = new StaveNote(noteStruct)
+    // ⭐ {@link EngravedNote}, ⛔ not a bare `StaveNote`: the seam P3 empties one drawn part at a
+    // time (P3a took the ledger lines). Everything else about it is still VexFlow's, including the
+    // whole geometry API seven of our own renderers read.
+    const staveNote = new EngravedNote(noteStruct)
     // ⚠️ TICKS. The StaveNote now carries TWICE the ticks its slot has, and a FULL-mode voice handed
     // twice the bar's ticks throws. `applyTickMultiplier(1, 2)` halves them back — the same call
     // VexFlow's own `Tuplet` makes (`setTuplet` → `applyTickMultiplier(notesOccupied, noteCount)`) —

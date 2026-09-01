@@ -35,6 +35,7 @@ import {
   type FanQuad,
 } from './FannedBeam'
 import { CROSS_SYSTEM_BEAM_WIDTH, fillBeamQuad } from './beamInk'
+import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
@@ -969,15 +970,16 @@ function registerFanInk(
  * floating heads. Per-note pitch makes that the ordinary case rather than the exception, which is
  * why it is fixed here (docs/fanned-beam-pitches-plan.md §2).
  *
- * VexFlow's own bounds and its own loop: staff lines are 1–5, so a head needs lines from 6 up to
- * its own, or from 0 down to it, at the INTEGER lines only (a head in a space hangs off the last
- * one). The line is drawn a glyph wide plus a little each side — `strokePx`, VexFlow's default.
+ * ⭐⭐ **The RULE and the INK both left this file in P3a** — `engrave/notes/ledgerLines`, which is
+ * now the one owner of both (`docs/note-engraving-plan.md`). What was here was a hand-written copy
+ * of VexFlow's loop, and it agreed with it to the pixel; that agreement is a spec now instead of a
+ * coincidence maintained in two places. All that remains here is the fan's own three answers: which
+ * heads, how wide its glyph is, and how far it overhangs.
  *
- * ⭐ The WHOLE member at once, because a ledger line is a fact about the LEVEL and not about one
- * head: every head standing at or beyond it shares the same line, so a chord with a second gets one
- * ledger reaching across both columns rather than two stubs with a gap between them. That is
- * `StaveNote.drawLedgerLines`' own rule (it widens to `doubleWidth` from the leftmost head when a
- * displaced head reaches the same level), stated once here for any number of heads.
+ * ⚠️ Still drawn on the fan's own `ctx` (`pass.vexContext`), ⛔ not on a recording surface: this
+ * whole pass paints VexFlow `NoteHead`s and `Accidental`s into groups opened on that context, and
+ * splitting one member's ink across two contexts would nest the scene wrongly. The member heads are
+ * P3's own territory and the ledgers travel with them.
  */
 function drawFanLedgerLines(
   ctx: SVGContext,
@@ -986,23 +988,11 @@ function drawFanLedgerLines(
   glyphWidth: number,
   overhang: number,
 ): void {
-  if (!heads.length) return
-  const highest = Math.max(...heads.map(h => h.line))
-  const lowest = Math.min(...heads.map(h => h.line))
-  if (highest < 6 && lowest > 0) return
-  // The stave's own ledger style, so these are the same ink as every other ledger on the page —
-  // save/restore keeps it local (the rest ledgers do exactly this).
-  ctx.save()
-  stave.applyStyle(ctx, stave.getDefaultLedgerLineStyle())
-  const stroke = (l: number, reaching: { x: number }[]): void => {
-    const xs = reaching.map(h => h.x)
-    const y = stave.getYForNote(l)
-    ctx.beginPath()
-    ctx.moveTo(Math.min(...xs) - overhang, y)
-    ctx.lineTo(Math.max(...xs) + glyphWidth + overhang, y)
-    ctx.stroke()
-  }
-  for (let l = 6; l <= highest; l++) stroke(l, heads.filter(h => h.line >= l))
-  for (let l = 0; l >= lowest; l--) stroke(l, heads.filter(h => h.line <= l))
-  ctx.restore()
+  drawLedgerLines(
+    ctx,
+    ledgerLineRuns(heads, glyphWidth, overhang),
+    line => stave.getYForNote(line),
+    // The stave's own ledger style, so these are the same ink as every other ledger on the page.
+    stave.getDefaultLedgerLineStyle(),
+  )
 }

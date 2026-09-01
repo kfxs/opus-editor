@@ -150,6 +150,13 @@ src/
                           #   `RenderPass.context`; `RenderPass.vexContext` and `svgNode()` are
                           #   the VexFlow/DOM that is LEFT, and `npm run lint:paint` holds both
                           #   ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
+    engrave/              # ⭐⭐ WHAT SYMBOLS, WHERE — music → ink through `paint/`, and the home
+                          #   P3 moves the NOTE into one piece at a time (docs/note-engraving-plan.md).
+                          #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` is the
+                          #   first inhabitant: the ONE owner of the ledger rule AND its ink, where
+                          #   three copies used to be. ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
+                          #   override list is the progress bar.
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

@@ -6,6 +6,8 @@ import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesD
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
+import { drawNoteInkThrough } from './EngravedNote'
+import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
@@ -2209,6 +2211,12 @@ export class VexFlowRenderer {
         applyClefOffsets(
           measure, keyStaffId(pass.score, staffIndex), built[0]?.clefNoteByBeat ?? [], pass.score, stave)
 
+        // ⭐ P3a — the parts of a note that are OURS draw on OUR surface (`EngravedNote`: the ledger
+        // lines, so far). `voice.draw` below hands VexFlow the real `SVGContext`, as it must while
+        // VexFlow's objects paint themselves, and a note taking its surface from there would be
+        // invisible to `recordScene`. One line, and the ink we have taken back stays in the scene.
+        drawNoteInkThrough(staveNotes, pass.context)
+
         for (const b of built) {
           b.voice.draw(this.context!, stave)
           for (const beam of b.beams) {
@@ -2340,14 +2348,17 @@ export class VexFlowRenderer {
       const ledgerStyle = hidden
         ? { ...stave.getDefaultLedgerLineStyle(), strokeStyle: HIDDEN_ELEMENT_COLOR }
         : stave.getDefaultLedgerLineStyle()
-      ctx.save()
-      stave.applyStyle(ctx, ledgerStyle)
-      const y = stave.getYForNote(line)
-      ctx.beginPath()
-      ctx.moveTo(cx - halfW, y)
-      ctx.lineTo(cx + halfW, y)
-      ctx.stroke()
-      ctx.restore()
+      // ⭐ P3a — the same INK as every other ledger on the page (`engrave/notes/ledgerLines`), and
+      // ⛔ deliberately NOT the same RULE: a rest's supporting ledger is ONE line at its own key
+      // line, already decided by `restSupportingLedgerLine`, and it spans the REST glyph rather than
+      // a notehead. So this hands the drawer a run it computed itself — which is what a run being a
+      // value rather than a hidden step of the drawer is for.
+      drawLedgerLines(
+        ctx,
+        [{ line, x1: cx - halfW, x2: cx + halfW }],
+        l => stave.getYForNote(l),
+        ledgerStyle,
+      )
     }
   }
 

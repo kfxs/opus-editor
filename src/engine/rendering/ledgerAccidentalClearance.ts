@@ -40,11 +40,14 @@
  * `overhang + gap - standoff`. Trimming 3→2 makes that **1px** for 2px of air — a third of the
  * dense bar's slack, and the sign stays within half a staff space of its notehead.
  *
- * ⚠️ VexFlow's `strokePx` is ONE symmetric number per note, so the trim shortens that note's ledger
- * lines at both ends. The asymmetric version — trim the left, keep the right — is what LilyPond
- * does, and it needs the lines to be ours to draw. If they ever are, this module changes its mind.
+ * ⚠️ The trim is ONE symmetric number per note, so it shortens that note's ledger lines at both
+ * ends. The asymmetric version — trim the left, keep the right — is what LilyPond does, and it needs
+ * the lines to be ours to draw. ⭐ **As of P3a they are** (`engrave/notes/ledgerLines`), so this is
+ * now a choice rather than a limit; ⛔ still not taken, because the symmetric trim is what is on his
+ * screen and nobody has reported it. `docs/note-engraving-plan.md` §4 holds the question.
  */
 import { Metrics, StaveNote, Accidental } from 'vexflow'
+import { trimLedgers } from './EngravedNote'
 
 /**
  * The clear air left between the end of the ledger line and the accidental — 0.2 of a staff space,
@@ -154,7 +157,7 @@ export function clearLedgersForAccidentals(notes: StaveNote[]): void {
     )))
     if (shift <= 0) continue
     // The line gives up a third of its overhang…
-    ;(note.renderOptions as { strokePx?: number }).strokePx = LEDGER_OVERHANG_BESIDE_ACCIDENTAL
+    trimLedgers(note, LEDGER_OVERHANG_BESIDE_ACCIDENTAL)
     // …and the signs move the rest of the way out. ⚠️ `Modifier.setXShift` NEGATES for a LEFT
     // modifier, so the stored value is negative and the amount to add back is its magnitude.
     for (const acc of accidentals) acc.setXShift(-acc.getXShift() + shift)

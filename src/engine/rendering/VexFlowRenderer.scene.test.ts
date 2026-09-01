@@ -29,6 +29,7 @@ import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
+import { LEDGER_LINE_STYLE } from './layoutConfig'
 import { fracCreate as frac } from '@/utils/fraction'
 
 function makeRenderer() {
@@ -117,10 +118,66 @@ describe('⭐⭐ the barlines, measured in jsdom — what used to need a browser
     const primitives = scenePrimitives(scene)
     expect(primitives.length, 'real ink was recorded').toBeGreaterThanOrEqual(4)
     // ⭐ …and it carries real numbers, not zeros: the thing jsdom could never say before.
-    expect(primitives.every(p => 'x' in p && Number.isFinite(p.x))).toBe(true)
-    expect(primitives.some(p => 'x' in p && p.x > 0), '⛔ not all at the origin').toBe(true)
+    // ⚠️ A PATH keeps its coordinates in `ops` rather than an `x` — this assertion used to read
+    // `'x' in p` for every primitive, which was true only while nothing in this fixture drew a path.
+    // P3a's ledger lines are paths, and that is the assertion being generalised, not weakened.
+    const xs = primitives.flatMap(p => p.kind === 'path'
+      ? p.ops.flatMap(op => (op.op === 'closePath' ? [] : [op.x]))
+      : [p.x])
+    expect(xs.every(Number.isFinite), 'every drawn coordinate is a real number').toBe(true)
+    expect(xs.some(x => x > 0), '⛔ not all at the origin').toBe(true)
     expect(sceneGroups(scene, 'stavebarline').length).toBeGreaterThan(0)
     expect(sceneGroups(scene, 'no-such-group-exists'), 'and a wrong name finds nothing').toEqual([])
+  })
+})
+
+describe('⭐⭐ P3a — the LEDGER LINES, the first piece of a NOTE in the scene', () => {
+  /** Every stroked two-point horizontal path — what a ledger line is (`engrave/notes/ledgerLines`). */
+  function horizontalStrokes(scene: ReturnType<typeof render>['scene']) {
+    return scenePrimitives(scene).filter(p =>
+      p.kind === 'path' && p.painted === 'stroke' && p.ops.length === 2
+      && p.ops[0].op === 'moveTo' && p.ops[1].op === 'lineTo' && p.ops[0].y === p.ops[1].y)
+  }
+
+  it('⭐ middle C in a treble bar draws exactly ONE ledger line — per bar, in jsdom', () => {
+    // The fixture is C4 + E4 per bar: C4 sits one line BELOW the treble staff and E4 on its
+    // bottom line, so each bar owes exactly one ledger and no more.
+    const strokes = horizontalStrokes(render(4).scene)
+    expect(strokes.length, 'one per bar, and E4 forces none').toBe(4)
+  })
+
+  it('⭐⭐ …and it stands at the SAME y in every bar, below the staff', () => {
+    const strokes = horizontalStrokes(render(4).scene)
+    const ys = strokes.map(p => (p.kind === 'path' && p.ops[0].op === 'moveTo' ? p.ops[0].y : NaN))
+    // ⚠️ The assertion that needed a browser before this file existed: a real drawn coordinate.
+    expect(new Set(ys).size, 'one system, one pitch — one level').toBe(1)
+    expect(ys[0]).toBeGreaterThan(0)
+    // …and the xs march left to right with the bars.
+    const xs = strokes.map(p => (p.kind === 'path' && p.ops[0].op === 'moveTo' ? p.ops[0].x : NaN))
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs)
+  })
+
+  it('⭐ a ledger line is HORIZONTAL, styled as the stave’s own, and overhangs its head', () => {
+    const strokes = horizontalStrokes(render(2).scene)
+    expect(strokes.length).toBeGreaterThan(0)
+    for (const p of strokes) {
+      if (p.kind !== 'path' || p.ops[0].op !== 'moveTo' || p.ops[1].op !== 'lineTo') continue
+      // ⭐ The ink this editor already decided (`layoutConfig.LEDGER_LINE_STYLE`) — black, and
+      // Bravura's `legerLineThickness / staffLineThickness` ratio, ⛔ not VexFlow's grey 2 px.
+      // P3a inherited it unchanged; `ledgerLineStyle.test.ts` is where it is pinned.
+      expect(p.style.stroke, 'black, not VexFlow’s grey').toBe(LEDGER_LINE_STYLE.strokeStyle)
+      expect(p.style.lineWidth).toBeCloseTo(LEDGER_LINE_STYLE.lineWidth, 10)
+      // ⚠️ jsdom measures every glyph 0 wide, so the notehead contributes nothing here — what is
+      // left is the overhang at both ends, and that is arithmetic rather than font.
+      expect(p.ops[1].x - p.ops[0].x, 'two overhangs of 3 px').toBeCloseTo(6, 6)
+    }
+  })
+
+  // 🚨 The break-test: if `EngravedNote` had stopped drawing ledgers altogether — or drawn them on
+  // the real context instead of ours — every expectation above would still pass on an empty list.
+  it('🚨 the break-test — a staff-internal note draws NO ledger, and the fixture’s C4 does', () => {
+    const withLedger = horizontalStrokes(render(1).scene).length
+    expect(withLedger, 'the C4 is there').toBe(1)
   })
 })
 
@@ -144,11 +201,13 @@ describe('the scene’s SHAPE', () => {
     expect(classes.filter(c => c?.startsWith('vf-')), 'the prefix is the painter’s').toEqual([])
   })
 
-  it('⛔ notes and stems are NOT here — they are VexFlow’s, and that gap is the work left', () => {
+  it('⛔ noteheads and stems are NOT here — they are VexFlow’s, and that gap is the work left', () => {
     const { scene } = render(2)
     // A notehead would be a `text` primitive if we drew it; today `StaveNote.draw()` paints it
-    // through `vexContext`. ⭐ When P3 lands this expectation flips, and that is the intended
-    // signal: the scene's coverage IS the migration's progress.
+    // through `vexContext`. ⭐ This expectation flips one piece of ink at a time as P3 lands, and
+    // that is the intended signal: the scene's coverage IS the migration's progress. ✅ The first
+    // one flipped on 2026-09-01 — the LEDGER LINES are in the scene (the describe above); the note's
+    // own `vf-stavenote` GROUP is still opened on VexFlow's context, which is why this still holds.
     const classes = [...walkScene(scene)]
       .filter(n => n.kind === 'group')
       .map(g => (g as { cls?: string }).cls)

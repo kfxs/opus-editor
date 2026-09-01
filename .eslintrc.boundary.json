@@ -175,6 +175,29 @@
       }
     },
     {
+      "files": ["src/engine/engrave/**/*.ts"],
+      "excludedFiles": ["**/*.test.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          { "name": "document", "message": "src/engine/engrave decides WHAT SYMBOLS GO WHERE and draws them through `paint/` — no DOM. A pass that needed a page could never be run by the PDF painter or recorded as a scene (docs/own-engraving-engine.md §7.2, §8.2 rule 11)." },
+          { "name": "window", "message": "src/engine/engrave: no DOM — docs/own-engraving-engine.md §8.2 rule 11." },
+          { "name": "SVGElement", "message": "src/engine/engrave emits ink through `paint/DrawContext`, never nodes. An SVG type here would make the SVG painter the only possible one." }
+        ],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["vexflow"],
+                "message": "⛔ src/engine/engrave may not import vexflow (docs/own-engraving-engine.md §8.2 rule 11). ⭐ The ADAPTER is what holds VexFlow — `engine/rendering/EngravedNote` and friends hand this layer plain numbers. A rule that needed a `StaveNote` to state itself is a rule that cannot be unit-tested and cannot be painted to PDF."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/engine/layout/**/*.ts"],
       "excludedFiles": ["**/*.test.ts"],
       "rules": {
