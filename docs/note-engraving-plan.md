@@ -53,7 +53,7 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line | ✅ **2026-09-01** |
 | **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
 | … | the dots, the accidentals | modifiers — they draw from inside a head's group, and both are selectable kinds with registered hit boxes | ⏭️ |
-| **last** | the pointer rect + `getBoundingBox` | ⚠️ that one is the RULER, not the ink — it moves with the registry, not with the drawing | ⏭️ |
+| **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; §5 has the audit | ⏸️ |
 
 ⛔ **`Stave.padding` is not unblocked until the noteheads move**, which is what the parent plan
 promises for P3 as a whole and what makes it worth finishing.
@@ -288,6 +288,72 @@ the other three, his call rather than a tidy-up.
 
 ---
 
+## 1e. ⏸️ THE POINTER RECT — audited, and DEFERRED to P1e (his call, 2026-09-01)
+
+### 1e.1 What it is
+
+The last thing `StaveNote.draw()` does, and ⛔ **it is not ink**:
+
+```js
+const bb = this.getBoundingBox()
+ctx.pointerRect(bb.getX(), bb.getY(), bb.getW(), bb.getH())
+```
+
+…which in the SVG context is `rect(x, y, w, h, { opacity: '0', 'pointer-events': 'auto' })` — an
+**invisible rectangle over the note's whole bounding box, whose only job is to be clicked.** It is
+VexFlow's offer to applications that hit-test through the DOM. Only `StaveNote` and `Tuplet` emit
+one.
+
+⚠️ And that box is a fat one: `StaveNote.getBoundingBox()` **unions every modifier**, so it spans the
+note plus its accidentals, dots and articulations (this codebase already met that — it is why
+`noteInkBox` exists).
+
+### 1e.2 ⭐ The audit — measured and grepped, 2026-09-01
+
+**Emitted:** one per drawn `StaveNote`, rests included — counted **6 for 6** in a real render, each a
+direct child of its own `g.vf-stavenote`.
+
+**Consumed by: NOTHING in this repo.**
+
+| candidate | verdict |
+|---|---|
+| `elementFromPoint` / DOM hit-testing | ⛔ does not exist in `src/` — hit-testing is `ElementRegistry`, pixel → stored box |
+| `event.target` on the score | the only three reads are `MouseController`'s, and all ask *"is the target the scroll CONTAINER (scrollbar/gutter)?"* — a click anywhere on the SVG targets the `<svg>`, so its contents are irrelevant to the guard |
+| the note's selection highlight | sweeps `text, path` — ⛔ never `rect` |
+| the stem's highlight | `querySelectorAll('path, line')` — ⛔ never `rect` |
+| the one highlight that DOES sweep rects | scoped to `g.vf-systemsign` (braces/brackets) — never reaches a note |
+| the browser harness's rect readers | scoped: `g.vf-stavebarline rect`, `rect.score-page-sheet` |
+| CSS | no rule targets them |
+
+⇒ **inert DOM: one extra element per note, per render**, plus a copy in every exported SVG/PDF
+(where the export's own `pointer-events:none` makes them doubly inert).
+
+⚠️ One detail for whoever measures them later: **in jsdom they are ZERO-WIDTH** — the sample rect has
+no `width` attribute at all, because `getBoundingBox()` unions glyph widths and a glyph measures 0
+without a font. In a browser they carry the note's real box.
+
+### 1e.3 ⛔ HIS DECISION: not now — and it is the right layer, not just the safe one
+
+> *"if at the end when we finish and we are safe to get rid of VexFlow we realize we don't really
+> need it then we know we can really drop it"* (2026-09-01)
+
+⭐ **And it is not merely deferral — it is the correct owner.** The pointer rect cannot be dropped
+from where P3 stands anyway: `ctx.pointerRect(...)` is called by `StaveNote.draw()` itself, not by
+any of the four methods P3a–P3d override, so removing it means overriding **`draw()`** — and that
+method also opens the note's own `vf-stavenote` group, which is **P1e's** territory (it is the last
+thing keeping a whole note out of the scene).
+
+⭐⭐ **So the question resolves itself at P1e rather than being answered twice**: a painter of ours
+emits a hit surface only if something asks for one, and today nothing does. ⚠️ `paint/DrawContext`
+keeps `pointerRect` as a declared primitive regardless — the scene records it as *"not ink"* on
+purpose, because *"a hit surface silently going missing is a real bug"*.
+
+⚠️ **What to re-check before dropping it, whenever that is:** that nothing has since started reading
+`event.target` inside the score SVG, and that no browser behaviour depends on a note being a pointer
+target (the audit above is a grep and a render — it is not proof about a browser's own hit testing).
+
+---
+
 ## 2. ⭐ What the books say about a ledger line — Gould pp. 26–27
 
 Located in `reference/gould-behind-bars-fulltext.txt`, read on the rendered pages (PDF page =
@@ -380,6 +446,57 @@ still ink that moved. One argument, `EngravedNote.drawFlag`'s `reach`.
    inside the spec investigating it.** The spec now asserts `document.fonts.check(...)` before it
    believes a number.
 
+### 3.4 🚨🚨 THE STEM'S LENGTH — MEASURED 2026-09-01, and VexFlow already does 2½ of the 3 rules
+
+📄 `docs/stem-length-research.md` is the literature. This is what the **running code** does, which is
+a different question and had to be measured rather than read.
+
+**Five unbeamed notes, treble, rendered and read off the SCENE (P3c put stems there):**
+
+| note | stem | tip y |
+|---|---|---|
+| G4 — inside the staff | 3.50 sp | 55 |
+| C4 — 1st ledger below | 3.50 sp | 75 |
+| A3 — 2nd ledger below | **4.00 sp** | **80** |
+| F3 — 3rd ledger below | **5.00 sp** | **80** |
+| C3 — 5th ledger below | **6.50 sp** | **80** |
+
+⭐ On this staff **y = 80 is B4, the middle line.** Every stem from the second ledger line out is
+clamped to it, and C4 keeps 3½ because its tip already passes it. The source is
+`StaveNote.getStemExtension()`:
+
+```js
+const MIDDLE_LINE = 3
+midLineDistance = up ? MIDDLE_LINE - this.maxLine : this.minLine - MIDDLE_LINE
+const linesOverOctaveFromMidLine = midLineDistance - 3.5
+if (linesOverOctaveFromMidLine <= 0) return superStemExtension
+return superStemExtension + linesOverOctaveFromMidLine * spacingBetweenLines
+```
+
+| the treatises' rule (§`stem-length-research.md` §1) | the running code |
+|---|---|
+| 3½ spaces from the notehead's centre | ✅ `Tables.STEM_HEIGHT = 35` |
+| always reach or cross the middle line | ✅ the override above, biting in exactly the right place |
+| forced-away stems shorten, floor 2½ (a sixth) | ⚠️ **HALF** — it *declines to lengthen* a forced stem (`if (stemDirection !== calculateOptimalStemDirection()) return superStemExtension`) but never shortens one |
+
+⏳ **So the only gap is the SHORTENING RAMP — and it is the one thing five sources disagree about**
+(§5.1 of the research: Gould draws ¼ sp per degree while writing three quantised values, LilyPond
+and Verovio ramp at ⅙, Ross quantises, Stone gives a range, Gerou & Lusk call it contextual).
+⛔ **HIS call. There is nothing here to implement without picking a slope**, and §6.1's rule is that
+a re-implementation with no opinion is worse than the dependency.
+
+#### 🚨🚨 The lesson, and it nearly cost a duplicated rule
+
+I reported *"VexFlow does not implement the middle-line rule"* after reading
+`StemmableNote.getStemExtension()` — and **missed that `StaveNote` overrides it**. ⭐ **His eye caught
+it from the page** (*"why do I see in the UI that the stem reaches the middle?"*, with a B2 in treble
+whose stem runs 7 spaces to B4), and a five-line probe through the scene settled it in seconds.
+
+⭐⭐ **§6.1 says *"we have no opinion"* is a claim about the library shelf that must be re-checked per
+feature. This is its MIRROR: *"VexFlow has no opinion"* is also a claim, and it has to be MEASURED,
+not read.** A class chain is not a function. ⛔ Had it gone unchecked, P3 would have added a rule the
+renderer already applies — and applied it twice.
+
 ---
 
 ## 4. ⏭️ WHAT IS NEXT — the candidates, ⛔ not a queue
@@ -399,14 +516,13 @@ still ink that moved. One argument, `EngravedNote.drawFlag`'s `reach`.
 - **The DOTS.** `dotPlacement` is already ours and already moves them post-format; drawing them
   would let `reserveDotRoom` stop being a modifier-width trick. ⚠️ Dots are `Modifier`s, so this is
   the first piece that touches the modifier machinery.
-- **The STEM.** ⚠️ Needs research committed first, and it exists: Gould's stem-length rules are on
-  printed pp. 16–19 — *"a stem length of 2½ spaces can accommodate a tail"*, *"when notes are on a
-  line, the stem is shortened to 3¼ spaces"*, *"stems for notes on more than one ledger line extend
-  to the middle stave-line"*. ⭐ §6.1 of the parent says *"stem lengths… are places where we
-  currently have no opinion"* — **that is now out of date, and this paragraph is the correction:
-  the opinion is on the shelf, unread.**
-- **The NOTEHEAD.** The big one inside the big one, and the one that unblocks `Stave.padding`.
-  ⛔ Do not start it before the stem, whose geometry it decides.
+- ✅ ~~**The STEM's ink.**~~ — done, P3c. ⏳ Its **LENGTH** is researched
+  (`docs/stem-length-research.md`) and **measured against the running code** (§3.4): VexFlow already
+  applies 2½ of the 3 unanimous rules, and the only gap — the shortening ramp — is the one thing
+  five sources disagree about. ⛔ **Nothing to build without HIS slope.**
+- ✅ ~~**The NOTEHEAD.**~~ — done, P3d. ⚠️ Note that `Stave.padding`, which the parent plan hangs on
+  P3, is NOT unblocked by owning the head's ink: it is a LAYOUT number (where the note area starts),
+  and that is a different piece of VexFlow.
 
 ---
 

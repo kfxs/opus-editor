@@ -443,7 +443,7 @@ knot, so P1 is cut there.
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
 | **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
-| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas | ⛔ **BLOCKED until P3**, and the doc always said why — see below |
+| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas ⭐ **+ the POINTER RECT question**, deferred here by him 2026-09-01 (`note-engraving-plan.md` §1e: audited, and NOTHING in this repo consumes it — but a painter of ours emits a hit surface only if something asks) | ⛔ **BLOCKED until P3**, and the doc always said why — see below |
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 
