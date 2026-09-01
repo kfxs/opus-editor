@@ -1,13 +1,13 @@
 /**
- * How a beam is INKED — the quad every beam line is drawn as, and the sizes a beam that leaves its
- * bar is drawn at. Extracted from {@link VexFlowRenderer} (docs/refactor-plan-2026-07-27.md Phase
- * 6a) because three drawing passes share it and no two of them live in the same module any more:
- * the cross-barline beams (still in the renderer), the two-note tremolo's strokes, and
- * {@link FanPass}. A constant reached for from three places is not one file's private business.
+ * The sizes a beam that leaves its bar is drawn at. Extracted from {@link VexFlowRenderer}
+ * (docs/refactor-plan-2026-07-27.md Phase 6a) because three drawing passes share them and no two of
+ * them live in the same module any more: the cross-barline beams (still in the renderer), the
+ * two-note tremolo's strokes, and {@link FanPass}. A constant reached for from three places is not
+ * one file's private business.
  *
- * Nothing here reads renderer state — a quad is four points and a fill.
+ * ⭐ The QUAD they are all drawn as went to `engine/engrave/beams/beamLines` with P4a — see the note
+ * where it used to be, below. Nothing here reads renderer state.
  */
-import type { DrawContext } from '@/engine/paint/DrawContext'
 import { engravingDefault } from '@/engine/fonts/fontMetrics'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -51,20 +51,11 @@ export const CROSS_SYSTEM_BEAM_WIDTH = engravingDefault('beamThickness') * STAFF
 export const crossSystemStub = (direction: number): number =>
   direction > 0 ? CROSS_SYSTEM_BEAM_STUB_LINE_END : CROSS_SYSTEM_BEAM_STUB_LINE_START
 
-/** One beam quad, from `drawBeamLines`' vertices (beam.js:596-604): top edge start→end, thickness down. */
-export function fillBeamQuad(
-  ctx: DrawContext,
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-  thickness: number,
-): void {
-  ctx.beginPath()
-  ctx.moveTo(startX, startY)
-  ctx.lineTo(startX, startY + thickness)
-  ctx.lineTo(endX, endY + thickness)
-  ctx.lineTo(endX, endY)
-  ctx.closePath()
-  ctx.fill()
-}
+/**
+ * ⛔ **`fillBeamQuad` no longer lives here — it is `engine/engrave/beams/beamLines` (P4a).** The quad
+ * moved on the commit that gave VexFlow's own beam the same primitive, which made it the ink of
+ * FOUR drawers rather than three; what stays in this file is the cross-SYSTEM fragment's sizes, and
+ * those are the renderer's arithmetic against `measureBounds`, not ink anyone else draws.
+ * (`docs/own-engraving-engine.md` §8.3: a file migrates into `engrave/` on the commit that touches
+ * it anyway — ⛔ never as a rename of its own.)
+ */

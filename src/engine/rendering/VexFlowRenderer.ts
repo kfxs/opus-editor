@@ -11,7 +11,9 @@ import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
-import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub, fillBeamQuad } from './beamInk'
+import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beamInk'
+import { beamLevelY, fillBeamQuad } from '@/engine/engrave/beams/beamLines'
+import { EngravedBeam, drawBeamInkThrough } from './EngravedBeam'
 import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
@@ -1056,7 +1058,7 @@ export class VexFlowRenderer {
     for (const { first, second, beamed } of this.twoNoteTremoloPairs(slots, staveNotes)) {
       if (!beamed) continue
       try {
-        beams.push(new Beam([first, second]))
+        beams.push(new EngravedBeam([first, second]))
       } catch (beamError) {
         console.warn(`Could not create two-note tremolo beam: ${beamError}`)
       }
@@ -2219,6 +2221,10 @@ export class VexFlowRenderer {
 
         for (const b of built) {
           b.voice.draw(this.context!, stave)
+          // ⭐ P4a — and the beams' lines are ours too (`EngravedBeam`). Same line, same reason as
+          // the note's ink above: `setContext` below hands VexFlow the real `SVGContext`, as it must
+          // while `Beam.draw` still owns the stems and the group.
+          drawBeamInkThrough(b.beams, pass.context)
           for (const beam of b.beams) {
             beam.setContext(this.context!).draw()
           }
@@ -2916,7 +2922,7 @@ export class VexFlowRenderer {
         for (const staveNote of groupNotes) {
           staveNote.setStemDirection(beamStemDirection)
         }
-        const beam = new Beam(groupNotes)
+        const beam = new EngravedBeam(groupNotes)
         // Secondary beam breaks — VexFlow's own primitive, no geometry of ours. The index translation
         // (our flag is on the note the break is IN FRONT OF; VexFlow wants the note the beam ends
         // AFTER) lives in the pure module beside the grouping.
@@ -2995,8 +3001,9 @@ export class VexFlowRenderer {
   /** A side of two or more notes: the real `Beam` (VexFlow draws stems, slope and beam), plus a
    *  half-beam stub past the edge note's stem at each open end. */
   private drawCrossBarSideBeam(pass: RenderPass, side: CrossBarSide, staveNotes: StaveNote[], scale: number): void {
-    const beam = new Beam(staveNotes)
+    const beam = new EngravedBeam(staveNotes)
     if (side.secondaryBreaks.length) beam.breakSecondaryAt(side.secondaryBreaks)
+    drawBeamInkThrough([beam], pass.context)
     beam.setContext(pass.vexContext).draw()
 
     // The overhang continues the group's own slope and levels — `drawBeamLines`' arithmetic, with the
@@ -3009,7 +3016,7 @@ export class VexFlowRenderer {
       const startX = edge.getStemX() - Stem.WIDTH / 2
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       for (let k = 0; k < levels; k++) {
-        const beamY = beamY0 + k * beamThickness * 1.5
+        const beamY = beamLevelY(beamY0, k, beamThickness)
         const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
         const endY = beam.getSlopeY(endX, firstStemX, beamY, beam.slope)
         fillBeamQuad(pass.context, startX, startY, endX, endY, beamThickness)
@@ -3065,7 +3072,7 @@ export class VexFlowRenderer {
     let minY = Infinity, maxY = -Infinity
     const stub = (endX: number) => {
       for (let k = 0; k < levels; k++) {
-        const beamY = beamY0 + k * beamThickness * 1.5
+        const beamY = beamLevelY(beamY0, k, beamThickness)
         fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
         minY = Math.min(minY, beamY, beamY + beamThickness)
         maxY = Math.max(maxY, beamY, beamY + beamThickness)

@@ -52,7 +52,12 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
-> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (⏳ P3a ✅) → P4 → P5 → P1e.**
+> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 (a ✅) → P5 → P1e
+> → P6.**
+>
+> ⭐ **P6 — the RULER — was added 2026-09-01 on his call**, and it is the one piece nothing in this
+> plan had ever named: we have been taking the INK one element at a time while every BOX is still
+> VexFlow's or the page's. See §5's P6 for the audit.
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -717,6 +722,13 @@ because `drawLedgerLines` belongs to `StaveNote` and a bare `NoteHead` has none.
 Generalising from "fan members" to "all notes" is the largest single item, and it is the one that
 **unblocks `Stave.padding`** — the last item on `vexflow-boundary.md` §3 with no route around it.
 
+> ⚠️ **CORRECTED 2026-09-01, by doing it.** That last clause is **wrong**, and P3a–P3d are the proof:
+> all five of `StaveNote.draw()`'s drawing calls are ours and `Stave.padding` is exactly where it
+> was. ⭐ It is a **LAYOUT** number — where the note area starts inside the stave — not a drawn one,
+> so owning the note's INK cannot reach it. It moves with the STAVE, which is **P5**.
+> `docs/note-engraving-plan.md` §0.1 carries the same correction. ⛔ The sentence stays as written so
+> the change is visible; ⛔ do not plan work against it.
+
 ⛔ **Do not start P3 before the golden-image net exists** (§6.3). ✅ It does: the SCENE, and P3a is
 the first element to have crossed into it.
 
@@ -725,9 +737,93 @@ the first element to have crossed into it.
 states our rules; we already borrow VexFlow's `maxSlope`. What is missing is ordinary slope choice
 and hooks.
 
+> ⭐⭐ **P4a — the beam's LINES (2026-09-01). 📄 `docs/beam-engraving-plan.md` is P4's own plan.**
+> The ink had **four** owners and three already shared ours, so the finding was that VexFlow's copy
+> was the only beam here not drawn by our primitive. ⭐ Half of `Beam.draw()` was already ours before
+> P4 began — a beamed note's stem is drawn by the BEAM, and P3c had moved that ink.
+> ⏳ What is left is the SHAPE: the slope (P4b) and the hooks (P4c), both ⛔ gated on research the
+> way P3e is.
+
 ### P5 — The staff and the header
 `engine/layout/headerInk.ts` already **measures** what a clef and a meter cost; `Stave` still
 **places** them — the two-sets-of-numbers problem in its last hiding place. Small once P2 exists.
+
+### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
+
+> *"are we planning to manage the bounding box at a certain moment? and do we need the bbox once we
+> have our own engine built?"* — his question, and the audit below is the answer to both: **nothing
+> planned it, and yes we need it — just not VexFlow's.**
+
+⚠️ **Three different things are called "the bbox" here, and only ONE of them was scheduled.**
+
+| | what | who needs it | after VexFlow |
+|---|---|---|---|
+| 1 | the **pointer rect** — an invisible `<rect>` per note | ⛔ nobody: audited 2026-09-01, `note-engraving-plan.md` §1e | **dropped**, at P1e |
+| 2 | the **hit box** — `ElementRegistry`, pixel → element | ⭐ every click in the editor | ⭐⭐ **P6** |
+| 3 | the **ink extent** — how much room a symbol takes | `layout/spacingPadding`, `kerning`, the ladder, a slur's obstacles, a ghost's *"did anything draw?"* | ⭐⭐ **P6** |
+
+⭐ P1e answers (1) and nothing answers (2) or (3): **this section is that gap, named.**
+
+#### ⭐ The audit — measured 2026-09-01
+
+**The ruler today is TWO mechanisms, and neither is ours.**
+
+**(a) VexFlow's object arithmetic — 14 code sites.** `Element.getBoundingBox()` is
+`new BoundingBox(x + xShift, y + yShift − textMetrics.ascent, width, height)`; 31 `elementRegistry.add`
+sites file hit boxes, and the ones that need a drawn object are fed from there.
+
+🚨 **And we already disagree with it in four places, each with its own workaround** — which is the
+real finding, because it means the box is not a dependency we are content with:
+
+| who refuses it | why |
+|---|---|
+| `rendering/noteInkBox` | `StaveNote.getBoundingBox()` **unions every attached modifier**, so a note's "box" spans its accidentals, dots and articulations — his report |
+| `rendering/CenteredTremolo` | *"NOT `Element.getBoundingBox()`… that box is built from `this.x`/`this.y`"* — a mark left at the origin reports the origin |
+| `rendering/DynamicsLayout` | reads the **rendered SVG** instead, because the modifier's width is deliberately zeroed |
+| `rendering/clefOffsetPass` | depends on the `x + xShift` behaviour, and says so — everything downstream of an offset clef is measured from that box |
+
+**(b) The PAGE, read back — ~24 `getBBox()` code sites in `engine/`** (GhostRenderer ×9,
+DynamicsLayout ×5, HairpinRenderer ×2, TempoLayout, dynamicsLinePass, ScoreHeaderPass, FanGhost,
+`svgDrawGroup`), plus 5 in `HighlightController`. Every one needs a browser, is absent or throws in
+jsdom, and carries a `try/catch` whose fallback means *"nothing measurable was drawn"*.
+
+🚨🚨 **…and this half is a measured PERFORMANCE bill, not just an inconvenience.** `dev/layoutFlushCensus`
+exists because `getBBox`/`getCTM`/`getScreenCTM` **force a style+layout flush** — verified against
+Blink's `svg_graphics_element.cc`, WebKit's `SVGGraphicsElement::computeBBox` and Gecko's
+`GetPrimaryFrame(FlushType::Layout)` (`docs/render-performance-research.md` §7a). ⭐ **A box computed
+from the scene costs no reflow at all**, so P6 is the one item on this plan that pays in milliseconds
+as well as in independence.
+
+#### ⭐⭐ What P6 is
+
+> **A box is COMPUTED from what was drawn, not measured off the page and not asked of an object.**
+
+`engine/scene/` already holds every primitive as a value, and P2 already holds the font: `GLYPH_BOXES`
+gives **71 glyphs** their `left/right/up/down/advance` in staff spaces. So:
+
+- a **path** or a **rect** → arithmetic over its own ops;
+- a **text** primitive → the glyph's box, scaled by the drawn size and placed by the group's `Affine`;
+- a **group** → the union of its children, ⭐ **with the caller choosing which children count** — the
+  one thing VexFlow's box cannot do, and the reason `noteInkBox` had to exist.
+
+⭐⭐ **The payoff is the same shape P1d's was: a hit box becomes a jsdom UNIT test.** Today
+`ElementRegistry`'s boxes can only be checked in the browser suite; after P6 *"a click at this pixel
+selects that clef"* is arithmetic on a scene. And `DrawGroup.inkBox()` — 2 callers, `getBBox()`
+underneath, `null` in jsdom — gets an implementation that answers everywhere, which is why
+`SceneRecorder` returns null today rather than guessing (*"a recorder never guesses a box"*).
+
+#### ⛔ Why it is P6 and not sooner
+
+**Because a box may only be derived from ink we actually own.** Half-done, it would answer for the
+primitives we draw and need a **fallback** for everything VexFlow still paints — and a guessing
+fallback gets believed. ⇒ P6 runs after P4 and P5, when the scene is complete enough that no fallback
+is needed. ⭐ The migration's own progress bar says when that is: `lint:paint`'s residue and the
+scene's coverage are the same number.
+
+⚠️ **Two things to settle when it starts, ⛔ not now:** whether `ElementRegistry` keeps STORING boxes
+or starts QUERYING the scene (storing is a cache; a cache of a derived value is a staleness bug
+waiting), and whether an ink extent stays in pixels or becomes staff spaces like the rest of
+`fonts/`.
 
 ### ⛔ Not on this list
 **Accidental column stacking** (`Accidental.format`) and **articulation placement**

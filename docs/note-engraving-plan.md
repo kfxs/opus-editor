@@ -53,10 +53,13 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line | ✅ **2026-09-01** |
 | **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
 | … | the dots, the accidentals | modifiers — they draw from inside a head's group, and both are selectable kinds with registered hit boxes | ⏭️ |
-| **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; §5 has the audit | ⏸️ |
+| **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; **§1e** has the audit | ⏸️ |
 
-⛔ **`Stave.padding` is not unblocked until the noteheads move**, which is what the parent plan
-promises for P3 as a whole and what makes it worth finishing.
+⚠️ **A CORRECTION to the parent plan, found by doing the work.** `own-engraving-engine.md` §5 says
+P3 *"unblocks `Stave.padding`"*. ⛔ **Owning the note's INK does not** — and P3d proved it: every one
+of the five drawing calls is ours and `Stave.padding` is untouched, because it is a **LAYOUT** number
+(where the note area starts inside the stave), not a drawn one. It moves when the STAVE's geometry
+moves, which is **P5**. ⭐ The residue of P3 that could reach it is the *ruler*, not the ink.
 
 ---
 
@@ -217,7 +220,7 @@ VexFlow's own **moved rather than rewritten** — which is what "no pixel moved"
 initialisers — so it may touch nothing but the base's `isRest()`. That is why the ink surface is a
 later setter rather than a constructor argument.
 
-### 1c.3 ⏳ …and a third two-sources number, ⛔ not settled
+### 1c.3 ⏳ …and a third two-sources number, ⛔ not settled — **§3 row 5**
 
 We stroke at VexFlow's `Stem.WIDTH` = **1.5 px = 0.15 staff spaces**, while `engine/fonts/` has had
 Bravura's `stemThickness` = **0.12** since P2 — and `fontMetrics` already spends the font's number
@@ -279,7 +282,7 @@ deliberately **not** `rendering/glyphPainter`: that module owns font RESOLUTION 
 → `Metrics.getFontInfo(tag)`), and here the face arrives as a value, which is what keeps `engrave/`
 free of `vexflow`.
 
-### 1d.4 ⛔ What P3d did NOT take
+### 1d.4 ⛔ What P3d did NOT take — **§3 row 7**
 
 **Which glyph a duration gets.** `fonts/noteheadGlyph()` has answered that from Bravura since P2, so
 it is a **fourth** *"the room reserved and the ink drawn come from two sources"* candidate — beside
@@ -373,11 +376,32 @@ printed page + 20; printed 26 carries the general rules, printed 27 *Adjacent-no
 
 ---
 
-## 3. ⏳ TWO NUMBERS THAT ARE HIS, AND P3A DID NOT TOUCH EITHER
+## 3. ⏳⏳ WHAT AWAITS HIS EYE — every number P3 found and did not change
 
-⛔ **Neither is a drift to fix, and ⛔ neither is decided by finding a citation.** Both are places
-where a source disagrees with a number already on his screen, which makes them taste calls with
-evidence — the shape `docs/font-metrics-plan.md` §3.6 already batches six of.
+⛔ **None of these is a drift to fix, and ⛔ none is decided by finding a citation.** Each is a place
+where a source disagrees with a number already on his screen, which makes it a **taste call with
+evidence** — the shape `docs/font-metrics-plan.md` §3.6 already batches six of, and this is P3's own
+list beside it. ⭐ **Every one is a ONE-ARGUMENT change**; what they need is his eye, not work.
+
+⭐⭐ **The recurring shape, and it is why they are collected rather than scattered: four times over,
+THE ROOM WE RESERVE AND THE INK WE DRAW COME FROM TWO DIFFERENT SOURCES.** `engine/fonts/` has
+answered each of these from Bravura since P2, while the drawing keeps VexFlow's number. That is not
+a bug — nothing looks wrong — but it means the layout is spacing for one picture and the painter is
+drawing another.
+
+| # | what | we draw | the source says | argued in |
+|---|---|---|---|---|
+| 1 | ledger **overhang** | 0.30 sp | font **0.40**; Gould p. 26 *"just over two spaces long"* — ⚠️ and `INK.ledgerLeft/Right` **already reserve 0.40** | §3.1 |
+| 2 | ledger **weight** | 1.23× a staff line (the font's ratio) | Gould p. 26 *"about **twice** as thick"* | §3.2 |
+| 3 | flag **reach** | the canvas, 1 px | Bravura 0.36 px — ✅ **measured, they agree within a device pixel**, and the table is the finer instrument | §3.3 |
+| 4 | stem **shortening ramp** | nothing (VexFlow never shortens) | 🚨 five sources, **five different slopes** | §3.4 |
+| 5 | stem **thickness** | **1.5× a staff line** | ⭐ three treatises: *thinner*; Bravura 0.12/0.13. **Nothing supports what we draw** | §1c.3 |
+| 6 | `FAN_MIN_STEM_SPACES` | **2.0 sp**, marked *PROVISIONAL* in its own comment | the books' floor is **2.5** (a sixth) | §3.5 |
+| 7 | which **notehead glyph** a duration gets | VexFlow's table | `fonts/noteheadGlyph()` since P2 | §1d.4 |
+
+⚠️ **#5 is the sharpest**, because it is the only one where no source at all backs the current
+number: three books say a stem is thinner than a staff line, Bravura encodes that, and the two
+engines that disagree (LilyPond +30%, Verovio +33%) are still less extreme than ours at +50%.
 
 ### 3.1 The OVERHANG — 0.3 spaces drawn, 0.4 in the font, *"just over two spaces"* in Gould
 
@@ -496,6 +520,32 @@ whose stem runs 7 spaces to B4), and a five-line probe through the scene settled
 feature. This is its MIRROR: *"VexFlow has no opinion"* is also a claim, and it has to be MEASURED,
 not read.** A class chain is not a function. ⛔ Had it gone unchecked, P3 would have added a rule the
 renderer already applies — and applied it twice.
+
+### 3.5 ⏳ `FAN_MIN_STEM_SPACES` — 2 spaces, and the books say 2½
+
+`rendering/FannedBeam.ts` sets the shortest stem a fanned MEMBER may keep before the beam line is
+pushed away to give it room:
+
+```ts
+export const FAN_MIN_STEM_SPACES = 2
+```
+
+…and its own comment ends **"PROVISIONAL"**. ⭐ It is not tidiness — without a floor a member whose
+pitch sits past the line's reach gets a zero-length and then a NEGATIVE stem, drawing through its own
+head. But the number was invented, honestly labelled as such, and the literature now answers it:
+**the minimum stem is a sixth, 2½ spaces** — Gould p. 14, Stone p. 49 and Gerou & Lusk p. 137 all
+name the interval and the number in the same breath (`docs/stem-length-research.md` §1).
+
+⚠️ **Two honest qualifications, and they cut both ways:**
+
+- ⛔ A fanned member is **contemporary notation, outside those treatises' scope**. They are describing
+  ordinary stems; nobody wrote a rule for a feathered beam's inner members. So 2 is not *wrong*, it is
+  *unsourced* — a different thing.
+- ⭐ And Gould's own plate goes below her stated floor anyway: her p. 14 shortening figure draws
+  **2.41 sp** at its shortest (§3.4). So even the book that states 2½ engraves less.
+
+⛔ **Not changed. HIS.** One constant, and the case for moving it is "the only number in the family
+with no source" rather than anything visible on the page.
 
 ---
 

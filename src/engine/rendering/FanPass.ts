@@ -34,7 +34,8 @@ import {
   type FanGeometryOptions,
   type FanQuad,
 } from './FannedBeam'
-import { CROSS_SYSTEM_BEAM_WIDTH, fillBeamQuad } from './beamInk'
+import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
+import { fillBeamQuad } from '@/engine/engrave/beams/beamLines'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import type { CrossBarFanJoin } from './CrossBarBeams'

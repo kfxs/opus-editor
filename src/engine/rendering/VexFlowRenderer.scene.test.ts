@@ -329,6 +329,72 @@ describe('⭐⭐ P3d — the NOTEHEAD in the scene, and the note is complete', (
   })
 })
 
+describe('⭐⭐ P4a — the BEAM’s lines, the first ink of P4 in the scene', () => {
+  /** One bar of `count` beamed notes of `duration`, filling from beat 0. */
+  function beamedBar(count: number, duration: '8' | '16'): ScoreModel {
+    const model = new ScoreModel()
+    const perNote = duration === '8' ? 2 : 4 // notes to the quarter
+    for (let i = 0; i < count; i++) {
+      model.addNote({ step: 'C', octave: 4, duration, measure: 1, beat: frac(i, perNote) })
+    }
+    return model
+  }
+
+  /** Every filled quad inside a `beam` group — what `EngravedBeam` draws. */
+  function beamQuads(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'beam')
+      .flatMap(g => g.children.filter(c => c.kind === 'path'))
+      .flatMap(p => (p.kind === 'path' && p.ops[0].op === 'moveTo' && p.ops[1]?.op === 'lineTo'
+        ? [{
+            startX: p.ops[0].x, startY: p.ops[0].y,
+            thickness: p.ops[1].y - p.ops[0].y,
+            vertices: p.ops.length, painted: p.painted,
+          }]
+        : []))
+  }
+
+  it('⭐ a beamed pair draws ONE beam line — a filled quad, in its own `beam` group', () => {
+    const quads = beamQuads(renderModel(beamedBar(2, '8')).scene)
+    expect(quads.length, 'two eighths under one primary beam').toBe(1)
+    expect(quads[0].painted, 'a beam is FILLED, ⛔ never stroked').toBe('fill')
+    expect(quads[0].vertices, 'four corners and a close').toBe(5)
+  })
+
+  it('⭐⭐ …at the beam’s own thickness — Bravura’s half staff space, which is VexFlow’s 5px', () => {
+    const quads = beamQuads(renderModel(beamedBar(2, '8')).scene)
+    // ⚠️ SIGNED: these notes are low in the treble staff, so the stems are up and the beam is
+    // filled downward from its top edge.
+    expect(quads[0].thickness, 'stem-up ⇒ filled downward, 0.5 staff spaces').toBe(5)
+  })
+
+  it('⭐⭐ sixteenths draw TWO levels, one stride apart — the stack, measured in jsdom', () => {
+    const quads = beamQuads(renderModel(beamedBar(2, '16')).scene)
+    expect(quads.length, 'a primary beam and a secondary').toBe(2)
+    // ⭐ `beamLevelY`'s 1.5 × thickness, asserted as drawn ink rather than as arithmetic —
+    // the assertion that needed a browser before the scene existed.
+    expect(quads[1].startY - quads[0].startY).toBeCloseTo(1.5 * 5, 6)
+    expect(quads[1].startX, 'both levels start at the same stem').toBeCloseTo(quads[0].startX, 6)
+  })
+
+  it('⭐ the beamed notes still draw their stems — P3c’s ink, drawn BY the beam', () => {
+    // 🚨 The break-test for `drawStems`: `StaveNote.draw` skips a stem whose `beam` is set, so if
+    // the override below ever stopped calling it, four notes would stand with no stems at all and
+    // the beam would float. (Two beams of two here — the meter's own grouping.)
+    const { scene } = renderModel(beamedBar(4, '8'))
+    expect(sceneGroups(scene, 'stem').length, 'one stem per beamed note').toBe(4)
+    expect(beamQuads(scene).length, '…and a beam line over each pair').toBeGreaterThanOrEqual(2)
+  })
+
+  // 🚨 THE SEAM. The element registry files a beam's hit box off `getBoundingBox()`, and
+  // `Element.getSVGElement()` resolves ink by `getElementById(prefix(id))`. Open the group without
+  // the id and beam selection silently stops resolving, with nothing failing.
+  it('🚨 the beam’s group carries its own ID — the registry and the highlight resolve by it', () => {
+    const groups = sceneGroups(renderModel(beamedBar(2, '8')).scene, 'beam')
+    expect(groups.length).toBeGreaterThan(0)
+    for (const g of groups) expect(g.id, 'an id, or the beam is unreachable').toBeTruthy()
+  })
+})
+
 describe('the scene’s SHAPE', () => {
   it('⭐ groups nest, and every group carries a placement', () => {
     const { scene } = render(2)
