@@ -36,6 +36,7 @@ import {
 } from './FannedBeam'
 import { CROSS_SYSTEM_BEAM_WIDTH, fillBeamQuad } from './beamInk'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
+import { drawStem } from '@/engine/engrave/notes/stem'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
@@ -472,11 +473,11 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
       // is simply drawn here, from the tip VexFlow gave it to the line. Never a shortening: the
       // line only ever moves AWAY from the heads.
       if (geometry.stemLift > 0) {
-        ctx.beginPath()
-        ctx.setLineWidth(Stem.WIDTH)
-        ctx.moveTo(geometry.stems[0].stemX, note.getStemExtents().topY)
-        ctx.lineTo(geometry.stems[0].stemX, geometry.stems[0].tipY)
-        ctx.stroke()
+        drawStem(ctx, {
+          x: geometry.stems[0].stemX,
+          fromY: note.getStemExtents().topY,
+          toY: geometry.stems[0].tipY,
+        }, Stem.WIDTH)
       }
       // The joined group's own stems, re-aimed onto the line.
       drawFanPrefixStems(ctx, prefixNotes, geometry.prefixStems)
@@ -573,11 +574,10 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               acc.renderText(ctx, 0, 0)
             }
           }
-          ctx.beginPath()
-          ctx.setLineWidth(Stem.WIDTH)
-          ctx.moveTo(member.stemX, member.baseY)
-          ctx.lineTo(member.stemX, member.tipY)
-          ctx.stroke()
+          // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where
+          //   these four lines used to be written out here and once more above. ⛔ No group: a
+          //   member's stem shares its member's, which the highlight recolours.
+          drawStem(ctx, { x: member.stemX, fromY: member.baseY, toY: member.tipY }, Stem.WIDTH)
           // The slot's articulation, on THIS head. The mark belongs to the gesture and playback
           // already spends it across the whole group, so drawing it once on member 0 made the
           // picture disagree with the sound — see `fanArticulations`. Inside the member's group,

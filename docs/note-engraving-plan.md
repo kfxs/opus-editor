@@ -4,7 +4,8 @@
 > calls *"⚠️ THE BIG ONE"*. ⛔ Read §0 of that document first — the goal order, the twelve standing
 > rules, and the one-line test — because everything below is an application of it.
 >
-> **Status: P3a ✅ (the LEDGER LINES) · P3b ✅ (the FLAG), both 2026-09-01. P3c not chosen — §4.**
+> **Status: P3a ✅ ledger lines · P3b ✅ the flag · P3c ✅ the stem's INK — all 2026-09-01.**
+> **⏳ The stem's LENGTH is next, and it is gated on `docs/stem-length-research.md`.**
 
 ---
 
@@ -47,8 +48,9 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 |---|---|---|---|
 | **P3a** | **ledger lines** | ⭐ the only piece with **three owners already**; pure arithmetic; no font in it; no formatter interaction; ⛔ nothing else reads it | ✅ **2026-09-01** |
 | **P3b** | **the flag** | ⭐ the only piece with **no owner at all** — no selection kind, no anchor map, no registry entry — and 🚨 it is §3's **bug class in the open**: VexFlow places it with a runtime `measureText` | ✅ **2026-09-01** |
-| **P3c** | ⛔ **not chosen** — the candidates and their prices are §4 | | ⏭️ |
-| … | the stem, the noteheads, the dots | each needs its own research committed first (§6.1 of the parent) | ⏭️ |
+| **P3c** | **the stem's INK** | ⭐ a third element with **three owners** (VexFlow's `Stem.draw` + `FanPass` twice); ⛔ the LENGTH left behind deliberately — see below | ✅ **2026-09-01** |
+| **P3d** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
+| … | the noteheads, the dots | each needs its own research committed first | ⏭️ |
 | **last** | the pointer rect + `getBoundingBox` | ⚠️ that one is the RULER, not the ink — it moves with the registry, not with the drawing | ⏭️ |
 
 ⛔ **`Stave.padding` is not unblocked until the noteheads move**, which is what the parent plan
@@ -169,6 +171,62 @@ Element(tag)` turning a tag into a `FontInfo`, its own header's *"the tag is not
 selects the font"*. The flag's face is already resolved, so `Element.renderText` is exactly the two
 primitives we own. ⭐ And it has to be that way round: a layer that needed an `Element` to put a
 glyph down could never be painted to PDF or recorded as a scene. Both files now say so.
+
+---
+
+## 1c. ✅ P3c — THE STEM'S INK (2026-09-01), ⛔ and NOT its length
+
+### 1c.1 The split, and it is the whole point of the commit
+
+⛔ **P3c did not take the stem's LENGTH.** `own-engraving-engine.md` §6.1 lists stem length among
+the places *"where we currently have no opinion"*, and its own rule is that a re-implementation
+without an opinion is **strictly worse than a dependency**. ⭐ The opinion turns out to exist — Gould
+prints it on pp. 16–19 — so `docs/stem-length-research.md` is being written before a line of it is
+coded. ⛔ Taking the length now would be inventing a rule, which is the failure mode this project
+catches hardest.
+
+⭐ **So the ink came alone, and it earned the trip on its own**, for P3a's reason: three owners.
+
+| who stroked a stem | for what |
+|---|---|
+| `Stem.draw` (VexFlow) | every ordinary note |
+| `FanPass`, the member loop | a fanned member's hand-drawn stem |
+| `FanPass`, `geometry.stemLift` | the real note's stem, topped up to a lifted beam line |
+
+The two in `FanPass` were the same four lines written twice — 🚨 *"the second owner is the tell"* for
+the third time inside one element.
+
+### 1c.2 🚨 The seam it had to keep, and it is an ID
+
+The stem is the **first piece with a downstream reader**. The editor finds a stem's ink with
+`note.getStem().getSVGElement()` — `document.getElementById(prefix(attrs.id))` — and then recolours
+`querySelectorAll('path, line')` inside it (`HighlightController.applyStemHighlight`).
+
+⭐ So `EngravedStem.draw()` opens `openGroup('stem', this.getAttribute('id'))` **exactly as VexFlow
+did**, and the seam needs no change at all. ⛔ Drop the id and stem selection stops painting
+silently, with nothing failing — which is why the scene spec asserts the group carries one.
+
+⭐ **A `Stem` SUBCLASS, because every number `Stem.draw` reads is `protected`**: `xBegin`/`xEnd`,
+`yTop`/`yBottom`, both y-offsets, both base offsets, `renderHeightAdjustment`, the stemlet pair.
+From outside that is a cast per field; from inside it is ordinary access, and the expression is
+VexFlow's own **moved rather than rewritten** — which is what "no pixel moved" means here.
+
+⚠️ `EngravedNote.buildStem()` runs inside `StaveNote`'s CONSTRUCTOR, before the subclass's own field
+initialisers — so it may touch nothing but the base's `isRest()`. That is why the ink surface is a
+later setter rather than a constructor argument.
+
+### 1c.3 ⏳ …and a third two-sources number, ⛔ not settled
+
+We stroke at VexFlow's `Stem.WIDTH` = **1.5 px = 0.15 staff spaces**, while `engine/fonts/` has had
+Bravura's `stemThickness` = **0.12** since P2 — and `fontMetrics` already spends the font's number
+on the ink table's arithmetic. ⭐ The same shape as the ledger overhang (§3.1) and the flag's reach
+(§3.3), for the third time: **the room we reserve and the ink we draw come from two different
+sources.** ⛔ HIS call, one argument.
+
+⚠️ It is also a **stroked path, ⛔ not a filled rect** — VexFlow strokes, and matching it is what
+keeps the commit pixel-free. `paint/DrawContext`'s header calls `fillRect` *"the workhorse… every
+stem in this engine"*, which was true of the fan's beams and is not true of a note's stem. When the
+length becomes ours the shape can be revisited on its own merits.
 
 ---
 

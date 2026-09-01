@@ -608,7 +608,7 @@ not re-litigating taste, it is re-sourcing agreed numbers from something that ca
 distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
 re-sourced. Both are why that plan exists.
 
-### P3 — The note — ⚠️ THE BIG ONE — ⏳ **STARTED 2026-09-01: P3a ledger lines, P3b the FLAG**
+### P3 — The note — ⚠️ THE BIG ONE — ⏳ **P3a ledger lines · P3b the flag · P3c the stem's INK**
 📄 **`docs/note-engraving-plan.md`** — P3's own plan: the five things `StaveNote.draw()` does, the
 order they come back in, what each one costs, and the research per piece.
 
@@ -672,6 +672,24 @@ order they come back in, what each one costs, and the research per piece.
 > currently have no opinion"* is **out of date** — Gould's stem-length rules are on her printed
 > pp. 16–19 and nobody had looked. ⭐ The parent's own lesson (§3.1): *"we have no opinion" is a claim
 > about the library shelf, and this project's shelf has to be re-checked per feature.*
+
+> ✅ **P3c — the STEM'S INK (2026-09-01), ⛔ and NOT its length.** §6.1 lists stem length among the
+> places *"where we currently have no opinion"*, and its own rule is that a re-implementation without
+> an opinion is **strictly worse than a dependency** — so the length waits on
+> `docs/stem-length-research.md` (Gould prints the rules on her pp. 16–19). ⭐ The ink earned the trip
+> alone: **three owners again** — `Stem.draw` plus `FanPass` twice, the latter two being the same four
+> lines written out in both places.
+>
+> 🚨 **It is the first piece with a DOWNSTREAM READER, and the seam is an ID.** The editor resolves a
+> stem's ink by `getStem().getSVGElement()` → `getElementById(prefix(attrs.id))`, then recolours the
+> paths inside. ⭐ `EngravedStem.draw` opens `openGroup('stem', id)` exactly as VexFlow did, so the
+> seam needs no change; ⛔ drop the id and stem selection stops painting **silently**. A `Stem`
+> SUBCLASS because every field its draw reads is `protected` — VexFlow's expression moved, not
+> rewritten.
+>
+> ⏳ **A third two-sources number, ⛔ not settled**: we stroke at `Stem.WIDTH` 0.15 spaces while the
+> font says `stemThickness` 0.12. Ledger overhang, flag reach, stem thickness — the same shape three
+> times, and all three are HIS.
 
 Notehead, stem, flag, ledger lines, dots. **We have already built this once:** `FanPass` draws
 heads, stems, accidentals and ledger lines by hand today for fan members — including ledger lines,

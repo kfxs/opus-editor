@@ -237,6 +237,54 @@ describe('⭐⭐ P3b — the FLAG, the first GLYPH of a note in the scene', () =
   })
 })
 
+describe('⭐⭐ P3c — the STEM’s ink in the scene, and the seam that survives it', () => {
+  /** Every stroked line inside a `stem` group — what `EngravedStem` draws. */
+  function stems(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'stem')
+      .flatMap(g => g.children.filter(c => c.kind === 'path'))
+      .flatMap(p => (p.kind === 'path' && p.ops[0].op === 'moveTo' && p.ops[1]?.op === 'lineTo'
+        ? [{ x: p.ops[0].x, fromY: p.ops[0].y, toY: p.ops[1].y, width: p.style.lineWidth }]
+        : []))
+  }
+
+  it('⭐ every quarter draws one stem — a vertical line, in its own `stem` group', () => {
+    // The fixture is two quarters a bar; a rest has a `Stem` too but it is built `hide: true`.
+    const drawn = stems(render(2).scene)
+    expect(drawn.length, 'two notes a bar, two bars').toBe(4)
+    for (const stem of drawn) {
+      expect(stem.fromY, '⛔ never a zero-length stem').not.toBe(stem.toY)
+      expect(stem.width, 'VexFlow’s `Stem.WIDTH`, kept — the font’s 0.12 is a separate question')
+        .toBe(1.5)
+    }
+  })
+
+  it('⭐⭐ …and it is VERTICAL — one x for both ends, which is the whole shape of the ink', () => {
+    for (const stem of stems(render(2).scene)) expect(Number.isFinite(stem.x)).toBe(true)
+    // A stem's two ops share an x by construction; this asserts the drawing agrees.
+    const paths = sceneGroups(render(2).scene, 'stem').flatMap(g => g.children.filter(c => c.kind === 'path'))
+    expect(paths.length).toBeGreaterThan(0)
+    for (const p of paths) {
+      if (p.kind !== 'path' || p.ops[0].op !== 'moveTo' || p.ops[1].op !== 'lineTo') continue
+      expect(p.ops[1].x, 'both ends on one x').toBe(p.ops[0].x)
+    }
+  })
+
+  it('⛔ a hidden stem (a rest’s) draws nothing — `hide` still short-circuits', () => {
+    // Four quarter slots a bar, two of them notes ⇒ two rests, each with a hidden Stem object.
+    expect(stems(render(1).scene).length, 'the rests’ stems are hidden, not drawn').toBe(2)
+  })
+
+  // 🚨 THE BREAK-TEST FOR THE SEAM. The editor finds a stem's ink by the GROUP'S ID
+  // (`getSVGElement` → `getElementById`), then recolours the paths inside it. If `EngravedStem.draw`
+  // ever stops opening that group, or opens it without the id, stem SELECTION silently stops
+  // painting and nothing else fails. This asserts the id is there and is VexFlow's own.
+  it('🚨 the stem’s group carries its own ID — the selection highlight resolves ink by it', () => {
+    const groups = sceneGroups(render(1).scene, 'stem')
+    expect(groups.length).toBeGreaterThan(0)
+    for (const g of groups) expect(g.id, 'an id, or `applyStemHighlight` finds nothing').toBeTruthy()
+  })
+})
+
 describe('the scene’s SHAPE', () => {
   it('⭐ groups nest, and every group carries a placement', () => {
     const { scene } = render(2)

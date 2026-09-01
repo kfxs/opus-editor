@@ -18,7 +18,7 @@
  * | part of the note | drawn by | since |
  * |---|---|---|
  * | **ledger lines** | ⭐ **us** — `engrave/notes/ledgerLines` | P3a, 2026-09-01 |
- * | stem | VexFlow | ⏭️ P3 — ⚠️ it drags the stem SELECTION with it (the highlight resolves a stem by its own SVG element) |
+ * | **stem** (the INK; ⛔ not its LENGTH) | ⭐ **us** — `engrave/notes/stem`, via {@link EngravedStem} | P3c, 2026-09-01 |
  * | noteheads | VexFlow | ⏭️ P3 — and each head paints its own modifiers |
  * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
@@ -33,6 +33,61 @@ import { StaveNote, Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
+import { drawStem } from '@/engine/engrave/notes/stem'
+
+/**
+ * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
+ * (`engrave/notes/stem`) instead of VexFlow's context.
+ *
+ * ⭐ **A subclass, because every number `Stem.draw` reads is `protected`** — `xBegin`/`xEnd`,
+ * `yTop`/`yBottom`, the two y-offsets, the two base offsets, `renderHeightAdjustment`, the stemlet
+ * pair. Reaching them from outside would be a cast per field; from inside it is ordinary access,
+ * and the expression below is VexFlow's own, moved rather than rewritten.
+ *
+ * 🚨🚨 **The group is load-bearing and its ID is the whole seam.** The editor finds a stem's ink with
+ * `note.getStem().getSVGElement()`, which is `document.getElementById(prefix(attrs.id))`, and then
+ * recolours `querySelectorAll('path, line')` inside it (`HighlightController.applyStemHighlight`).
+ * ⛔ So this override must open `openGroup('stem', this.getAttribute('id'))` exactly as VexFlow did:
+ * drop the id and stem selection silently stops painting, with nothing failing.
+ *
+ * ⛔ **The LENGTH is still VexFlow's** — see `engrave/notes/stem`'s header. P3c is the ink.
+ */
+export class EngravedStem extends Stem {
+  /** @see EngravedNote.inkSurface — set by {@link drawNoteInkThrough}, via the note that owns it. */
+  private inkSurface: DrawContext | null = null
+
+  setInkSurface(ctx: DrawContext): void {
+    this.inkSurface = ctx
+  }
+
+  override draw(): void {
+    this.setRendered()
+    if (this.hide) return
+    const ctx = this.inkSurface ?? this.checkContext()
+
+    // ⚠️ VexFlow's own arithmetic, transcribed with its branches intact — ⛔ not a rule of ours, and
+    // deliberately not tidied into one: which x and which y a stem starts from is exactly the part
+    // `docs/stem-length-research.md` is being written to replace.
+    const down = this.stemDirection === Stem.DOWN
+    const x = down ? this.xBegin : this.xEnd
+    const from = down ? this.yTop + this.stemDownYOffset : this.yBottom - this.stemUpYOffset
+    const baseOffset = down ? this.stemDownYBaseOffset : this.stemUpYBaseOffset
+    const height = this.getHeight()
+    // A STEMLET is the stub a beamed rest hangs off — it starts short of the noteheads.
+    const stemletOffset = this.isStemlet ? height - this.stemletHeight * this.stemDirection : 0
+
+    ctx.openGroup('stem', this.getAttribute('id'))
+    try {
+      drawStem(ctx, {
+        x,
+        fromY: from - stemletOffset + baseOffset,
+        toY: from - height - this.renderHeightAdjustment * this.stemDirection,
+      }, Stem.WIDTH)
+    } finally {
+      ctx.closeGroup()
+    }
+  }
+}
 
 export class EngravedNote extends StaveNote {
   /**
@@ -52,6 +107,18 @@ export class EngravedNote extends StaveNote {
    * spaces = 4 px), which is open taste call #5 and his to make (`docs/font-metrics-plan.md` §3.6).
    */
   private ledgerOverhang: number = StaveNote.LEDGER_LINE_OFFSET
+
+  /**
+   * ⭐ P3c — the note's stem is one of ours, so its ink comes back with the rest.
+   *
+   * ⚠️ Called from `StaveNote`'s CONSTRUCTOR, before this subclass's own field initialisers have
+   * run — so it may touch nothing but `this.isRest()`, which is the base's. That is also why
+   * {@link EngravedStem.setInkSurface} is a later call rather than a constructor argument.
+   */
+  override buildStem(): this {
+    this.setStem(new EngravedStem({ hide: this.isRest() }))
+    return this
+  }
 
   /** @see EngravedNote.ledgerOverhang — the accidental clearance's one lever. */
   setLedgerOverhang(px: number): void {
@@ -140,6 +207,8 @@ export class EngravedNote extends StaveNote {
 export function drawNoteInkThrough(notes: readonly StaveNote[], ctx: DrawContext): void {
   for (const note of notes) {
     if (note instanceof EngravedNote) note.setInkSurface(ctx)
+    const stem = note.getStem()
+    if (stem instanceof EngravedStem) stem.setInkSurface(ctx)
   }
 }
 
