@@ -3,7 +3,7 @@ import { bus } from '@/bus'
 import type { InspectedElement } from '../../interactions/selectionSnapshot'
 import { MAX_FAN_BEAMS, MAX_FAN_COUNT, MAX_FAN_SPREAD, fanRampRange, fanSpread } from '../../utils/fannedBeam'
 import type { TrillContinuationLabel } from '../../types/music'
-import type { ArticulationType, FanMark, Hairpin } from '../../types/music'
+import type { ArticulationType, FanMark, FractionalBeamSide, Hairpin } from '../../types/music'
 import { wingsAllowed, type BarlineSignKind } from '@/engine/layout/barlineSign'
 
 /**
@@ -121,6 +121,19 @@ export class PropertiesWidget implements Widget {
           const fan = (element.data as { fan?: FanMark }).fan
           if (element.kind === 'note' && fan) {
             body.appendChild(this.buildFanInputs(id, fan))
+          }
+          // ⭐ …and which way its FRACTIONAL BEAM points (his ask, 2026-09-01).
+          //
+          // ⚠️ **The gate is the note's DURATION, which is looser than the truth**: only a note
+          // shorter than its beam group's common level actually carries a stub, and that is a fact
+          // about the GROUP, which this snapshot does not hold. So the row can appear on a semiquaver
+          // in a run of semiquavers, where it has nothing to move. ⛔ Deliberately not faked tighter
+          // by guessing — the honest fix is the one `offsettable` uses below: ask the engine what was
+          // DRAWN. See docs/beam-hook-research.md §8.
+          if (element.kind === 'note' && canCarryFractionalBeam(element)) {
+            body.appendChild(
+              this.buildFractionalBeamSideSelect(id, currentFractionalBeamSide(element)),
+            )
           }
         }
       }
@@ -1385,6 +1398,67 @@ export class PropertiesWidget implements Widget {
    * align to the stem (modern), unchecked = notehead (traditional default). Publishes `{id, align}`
    * to {@link bus.articulationStemAlign}; the controller holds the engine, the window does not.
    */
+  /**
+   * ⭐⭐ **WHICH WAY THIS NOTE'S FRACTIONAL BEAM POINTS** — his ask, 2026-09-01: *"on fractional beams
+   * we should be able the user decide the direction… it is good the default like it is but it will
+   * be good also have it on properties"*.
+   *
+   * ⭐ **`auto` is a real option and it is the FIRST**, because absent is what a score carries until
+   * somebody overrides it: auto means the four treatises' metric rule
+   * (`engine/engrave/beams/fractionalBeam`), ⛔ not "whatever it happens to look like now". Choosing
+   * it back therefore *restores the engraved default* rather than freezing today's picture.
+   *
+   * ⚠️ The window is a DUMB PUBLISHER — it writes to `bus.fractionalBeamSide` and never touches the
+   * engine, the boundary the trill, fan and hairpin rows all keep.
+   */
+  private buildFractionalBeamSideSelect(
+    noteId: string,
+    current: FractionalBeamSide | null,
+  ): HTMLElement {
+    const wrap = document.createElement('label')
+    const ws = wrap.style
+    ws.display = 'flex'
+    ws.alignItems = 'center'
+    ws.gap = '6px'
+    ws.color = BISHOP
+    ws.margin = '2px 0 4px'
+    wrap.title =
+      'Which side the short beam stub on this note points. Auto follows the beat it belongs to.'
+
+    const caption = document.createElement('span')
+    caption.textContent = 'fractional beam direction'
+    wrap.appendChild(caption)
+
+    const select = document.createElement('select')
+    const ss = select.style
+    ss.font = 'inherit'
+    ss.color = BISHOP
+    ss.background = 'transparent'
+    ss.border = `1px solid ${BISHOP}`
+    ss.borderRadius = '2px'
+    ss.padding = '1px 4px'
+
+    const options: Array<[string, string]> = [
+      ['auto', 'auto'],
+      ['left', 'left'],
+      ['right', 'right'],
+    ]
+    for (const [value, text] of options) {
+      const option = document.createElement('option')
+      option.value = value
+      option.textContent = text
+      if (value === (current ?? 'auto')) option.selected = true
+      select.appendChild(option)
+    }
+    select.addEventListener('change', () => {
+      const picked = select.value
+      bus.fractionalBeamSide.set(noteId, picked === 'auto' ? null : (picked as FractionalBeamSide))
+    })
+
+    wrap.appendChild(select)
+    return wrap
+  }
+
   private buildStemAlignCheckbox(noteId: string, current: boolean): HTMLElement {
     const row = document.createElement('label')
     const rs = row.style
@@ -1412,6 +1486,18 @@ export class PropertiesWidget implements Widget {
 /** The note/rest's current horizontal offset in staff-spaces (0 when none), read from the element's
  *  own overrides — the entry at whichever key the engine writes (the slot's, or a fanned MEMBER's
  *  own; `selectionSnapshot` resolves it through `offsetTargetOf`, so a member shows ITS number). */
+/** A note's stored fractional-beam override, or null for auto (the metric rule). */
+function currentFractionalBeamSide(element: InspectedElement): FractionalBeamSide | null {
+  return (element.data as { fractionalBeamSide?: FractionalBeamSide }).fractionalBeamSide ?? null
+}
+
+/** ⚠️ Necessary, ⛔ not sufficient — see the call site: only a value that can BE a fraction of a
+ *  coarser beam may carry a stub at all, but whether one is drawn depends on the beam group. */
+function canCarryFractionalBeam(element: InspectedElement): boolean {
+  const data = element.data as { duration?: string; isRest?: boolean }
+  return !data.isRest && (data.duration === '16' || data.duration === '32')
+}
+
 function currentNoteOffset(element: InspectedElement): number {
   const entry = element.overrides?.find((o) => o.kind === 'noteOffset') as { x?: number } | undefined
   return entry?.x ?? 0

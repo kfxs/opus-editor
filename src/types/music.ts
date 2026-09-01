@@ -1715,6 +1715,19 @@ export interface Note {
   beam?: BeamMode
   /** Secondary beams break in front of this note; the primary beam runs through. */
   secondaryBreak?: boolean
+  /**
+   * ⭐ **Which way this note's FRACTIONAL BEAM points** — the short stub of secondary beam that
+   * belongs to one note only (Gould pp. 157–158; `docs/beam-hook-research.md`).
+   *
+   * **Omitted = AUTO**, and auto is the four treatises' rule: the beam points at the beat, or
+   * division of the beat, that the note belongs to (`engine/engrave/beams/fractionalBeam`). Set only
+   * when the user overrides that by hand, from Properties.
+   *
+   * ⚠️ It is a decision about ONE note's stub and ⛔ not about the group's beaming — {@link BeamMode}
+   * is the field that says where a beam starts and stops.
+   */
+  fractionalBeamSide?: FractionalBeamSide
+
   /** REST only: beam over this rest instead of breaking at it. See {@link Rest.beamOver}. */
   beamOver?: boolean
   /** Single-note tremolo on this note's slot. See {@link Chord.tremolo}. */
@@ -1845,11 +1858,18 @@ export interface PitchInsert {
   articulationStemAlign?: boolean
   beam?: BeamMode
   secondaryBreak?: boolean
+  fractionalBeamSide?: FractionalBeamSide
   tremolo?: TremoloMark
   tremoloPair?: true
   tremoloPairStyle?: 'joined' | 'open'
   fan?: FanMark
 }
+
+/**
+ * ⭐ Which side of its stem a note's FRACTIONAL BEAM lies — the stub of secondary beam belonging to
+ * one note. ⛔ Absent means AUTO (the metric rule), never a default side.
+ */
+export type FractionalBeamSide = 'left' | 'right'
 
 /** A rhythmic slot containing one or more pitches */
 export interface Chord extends Attack {
@@ -1864,6 +1884,18 @@ export interface Chord extends Attack {
   beam?: BeamMode
   /** Secondary beams break in front of this slot — see the type note on {@link BeamMode}. */
   secondaryBreak?: boolean
+  /**
+   * ⭐ **Which way this note's FRACTIONAL BEAM points** — the short stub of secondary beam that
+   * belongs to one note only (Gould pp. 157–158; `docs/beam-hook-research.md`).
+   *
+   * **Omitted = AUTO**, and auto is the four treatises' rule: the beam points at the beat, or
+   * division of the beat, that the note belongs to (`engine/engrave/beams/fractionalBeam`). Set only
+   * when the user overrides that by hand, from Properties.
+   *
+   * ⚠️ It is a decision about ONE note's stub and ⛔ not about the group's beaming — {@link BeamMode}
+   * is the field that says where a beam starts and stops.
+   */
+  fractionalBeamSide?: FractionalBeamSide
   tupletId?: string
   actualDuration?: Fraction
   /** Stem-side articulations align to the stem (modern) not the notehead (default). */
@@ -2574,6 +2606,8 @@ export interface NoteParams {
   beam?: BeamMode
   /** Secondary beams break in front of this note. See the type note on {@link BeamMode}. */
   secondaryBreak?: boolean
+  /** ⭐ Override the fractional beam's side; omitted = auto. See {@link Chord.fractionalBeamSide}. */
+  fractionalBeamSide?: FractionalBeamSide
   /** REST only: beam over this rest instead of breaking at it. See {@link Rest.beamOver}. */
   beamOver?: boolean
   /** Voice index (0–3). Defaults to 0. See {@link Note.voice}. */

@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd, ClefChange } from '@/types/music'
+import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd, ClefChange, FractionalBeamSide } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, restPositionKey } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -47,6 +47,7 @@ import * as hairpinOps from './hairpinOps'
 import * as ottavaOps from './ottavaOps'
 import * as pedalOps from './pedalOps'
 import * as soundOps from './soundOps'
+import * as beamOps from './beamOps'
 import * as markOps from './markOps'
 import * as fanCollapse from './fanCollapse'
 import * as voiceOps from './voiceOps'
@@ -2372,6 +2373,7 @@ export class ScoreModel {
       articulationStemAlign: params.articulationStemAlign,
       beam: params.beam === 'auto' ? undefined : params.beam,
       secondaryBreak: params.secondaryBreak || undefined,
+      fractionalBeamSide: params.fractionalBeamSide,
       notes: [notePitch],
     }
     if (params.voice) chord.voice = params.voice
@@ -2828,6 +2830,12 @@ export class ScoreModel {
     return markOps.setArticulationStemAlign(this.score, noteId, align)
   }
 
+  /** Override which side the fractional beam on `noteId` points, or `null` for the metric default.
+   *  See {@link beamOps.setFractionalBeamSide} for the why. */
+  setFractionalBeamSide(noteId: string, side: FractionalBeamSide | null): Note | null {
+    return beamOps.setFractionalBeamSide(this.score, noteId, side)
+  }
+
   /** Set — or with `null`, remove — the single-note tremolo on the slot containing `noteId`. See {@link markOps.setTremolo} for the why. */
   setTremolo(noteId: string, tremolo: TremoloMark | null): Note | null {
     return markOps.setTremolo(this.score, noteId, tremolo)
@@ -3065,6 +3073,9 @@ export class ScoreModel {
     if (updates.tiedFrom !== undefined) pitch.tiedFrom = updates.tiedFrom
     writeAttackMarks(chord, updates)
     if ('articulationStemAlign' in updates) chord.articulationStemAlign = updates.articulationStemAlign
+    // ⭐ Stored ABSENT for auto, like `beam: 'auto'` — the metric rule is the default and costs no
+    // JSON (`docs/beam-hook-research.md`). An explicit `undefined` clears the override.
+    if ('fractionalBeamSide' in updates) chord.fractionalBeamSide = updates.fractionalBeamSide ?? undefined
 
     // Handle explicit undefined for tie fields
     if ('tiedTo' in updates && updates.tiedTo === undefined) pitch.tiedTo = undefined
@@ -3399,6 +3410,7 @@ export class ScoreModel {
     }
     if (payload.articulations?.length) chord.articulations = [...payload.articulations]
     if (payload.articulationStemAlign) chord.articulationStemAlign = true
+    if (payload.fractionalBeamSide) chord.fractionalBeamSide = payload.fractionalBeamSide
     if (payload.beam) chord.beam = payload.beam
     if (payload.secondaryBreak) chord.secondaryBreak = true
     if (payload.tremolo) chord.tremolo = payload.tremolo

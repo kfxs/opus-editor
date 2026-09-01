@@ -1735,6 +1735,7 @@ function materializeVoiceBar(
     if (chord.fan?.length && !fracEq(chord.fan.length, writtenLength(piece))) delete chord.fan.length
     if (piece.beam) chord.beam = piece.beam
     if (piece.secondaryBreak) chord.secondaryBreak = true
+    if (piece.fractionalBeamSide) chord.fractionalBeamSide = piece.fractionalBeamSide
     measure.slots.push(chord)
     created.push({ piece, chord })
   }

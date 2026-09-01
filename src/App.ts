@@ -33,6 +33,7 @@ import { HairpinEditController } from './interactions/HairpinEditController'
 import { SlurGeometryController } from './interactions/SlurGeometryController'
 import { HairpinGeometryController } from './interactions/HairpinGeometryController'
 import { ArticulationStemAlignController } from './interactions/ArticulationStemAlignController'
+import { FractionalBeamSideController } from './interactions/FractionalBeamSideController'
 import { createViewportHost } from './interactions/ViewportHost'
 import { playbackStartMeasure } from './interactions/playbackStart'
 import { PASTEBOARD_MARGIN } from './engine/pasteboard'
@@ -594,6 +595,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   // The Properties "align to stem" checkbox publishes to `articulationStemAlignSelection`; this
   // controller owns the engine apply, same boundary as the note-offset input above.
   const articulationStemAlign = new ArticulationStemAlignController(getEngine, () => renderer.renderScore())
+  // …and the Properties fractional-beam control, on the same boundary (docs/beam-hook-research.md §8).
+  const fractionalBeamSide = new FractionalBeamSideController(getEngine, () => renderer.renderScore())
   // The Properties fan inputs publish to `fanEditSelection`; this controller owns the engine apply
   // (docs/fanned-beams-plan.md §3, P4), the same boundary as the two above.
   const fanEdit = new FanEditController(getEngine, () => renderer.renderScore())
@@ -943,6 +946,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
       pedalGeometry.destroy()
       trillGeometry.destroy()
       articulationStemAlign.destroy()
+      fractionalBeamSide.destroy()
       fanEdit.destroy()
       trillEdit.destroy()
       hairpinEdit.destroy()

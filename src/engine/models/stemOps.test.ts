@@ -59,7 +59,8 @@ describe('flipStems — the group is the unit', () => {
 
   it('⭐ …and a group only HALF pinned is turned around, ⛔ not released', () => {
     // The state the old per-note flip could leave behind: one member forced, the rest on auto.
-    ;(score.measures[0].slots[0] as Chord).stemDirection = 'down'
+    const first = score.measures[0].slots[0] as Chord
+    first.stemDirection = 'down'
     flipStems(score, idAt(0.5))
     expect(stemAt(0)).toBe('up')
     expect(stemAt(0.5)).toBe('up')

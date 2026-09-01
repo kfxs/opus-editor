@@ -785,6 +785,29 @@ Gould on this subject.
 | ❌ **GEROU & LUSK** on it | **printed pp. 131–133** | **NO NUMBERS AT ALL — checked.** Principle only: *"a half note … must get more space than a quarter note, but not twice as much"*. ⭐ One useful line, a third witness to the consistency rule: *"consecutive notes of equal value have equal space following each note"*. |
 | ⛔ a clean justified passage of plain QUAVERS | both books | **UNKNOWN — none exists in either.** The measurable clean passages were 32nds and crotchets-with-graces. ⇒ the one measurement that would settle our own quaver directly was not available. |
 
+### What was asked of it on 2026-09-01 (fourth question), and what came back
+
+The question was the **FRACTIONAL BEAM — which side a "hook" points, and how long it is** (P4c of
+`docs/beam-engraving-plan.md`; the write-up is `docs/beam-hook-research.md`). ⭐⭐ **The single most
+useful thing learned is the SEARCH TERM**: the object is a **fractional beam** in every book — Ross
+also allows *broken beam*, LilyPond's source says *beamlet*, Verovio *partial flag*, VexFlow *partial
+beam*. ⛔ Grepping these books for **"hook"** finds the **REST** chapters instead (a quaver rest has
+hooks) and looks like a dead end when the topic is in fact covered by all four treatises.
+
+⭐ Unlike the slope, this topic is **not a taste call** — the four books agree with each other, with
+Gould's own plates, and with the engines.
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ which SIDE does it point? | **Gould printed p. 157 = PDF 177** | *"This beam points in the direction of **the beat or division of the beat to which it belongs**"* — and the ⅜ / compound-time rider: *"a fractional beam that is part of a second quaver must point in the direction of the second quaver"*. |
+| …independently | **Ross p. 124** (PDF 136, *section 9*) · **Gerou & Lusk p. 31** (PDF 17, ⚠️ 2-UP) · **Stone pp. 12–13** (⚠️ 2-UP) | Ross: *"always inside a group … **pointing in the direction of the note to which it is a fraction**"*. Stone: *"must point toward the note of which they are a fraction"* + *"in cases of syncopation … in the direction of the syncopated note"*. ⭐⭐ Stone alone makes it a METRE claim on a drawn Correct/Incorrect pair: *"It would be correct if the time signature were binary (⁶⁄₈)"*. |
+| ⭐⭐ …and DRAWN, measured | **Gould p. 157, 600 dpi ink profile** | Her ⅜ pair: `♪. ♬ ♪` stub **LEFT**, `♪ ♬ ♪.` stub **RIGHT** — **same three note-values, opposite hooks**, which is the whole rule in one figure. The *correct/and not* pair above it: correct = both LEFT, rejected = both RIGHT (the last one leaving the group entirely). |
+| ⭐ how LONG? | **all four books** + the plate | *"the length of a notehead"* (Gould **p. 17**), *"the exact width of the notehead"* (Ross), *"the same as the width of a notehead"* (G&L), *"as long as the note-head is wide"* (Stone). ⭐ **Measured on her own plate: stubs 102–103 px vs noteheads 105–106 px = 0.97** — the drawing agrees with the sentence. Bravura `noteheadBlack` = **1.18 sp**; MuseScore `beamMinLen` **1.1 sp**; LilyPond `beamlet-default-length` **1.1**; Verovio reads the glyph's width. 🚨 **We draw 0.9 sp** — agreeing with nobody. |
+| next to a REST | **Gould p. 158** | ⭐ **The one open choice, and she opens it**: *"Fractional beams point away from a rest so as to stay inside the main beam"* … *"**It is equally acceptable to point beams towards the rests**, to clarify the metrical grouping"*. Verovio picks the first. |
+| ⭐⭐ what do the ENGINES do? | `beaming-pattern.cc`, `beamlayout.cpp`, `view_beam.cpp` | **LilyPond has BOTH rules and a user switch**: `strict_beat_beaming_` chooses between *"which neighbour has more beams"* and *"does this note start on the beat"*, with `rhythmic_importance_` as tie-break. ⭐ **VexFlow implements only the first — LilyPond's non-default fallback.** MuseScore is structural but consults `calcBeamBreaks`, so the meter reaches it indirectly; Verovio is purely structural + one rest case. |
+| 🚨 and what do WE draw? | measured through the SCENE, jsdom | Gould's ⅜ pair renders as **LEFT in both bars**. ⛔ Not a bug in a branch: `lookupBeamDirection(duration, prevTick, tick, nextTick, noteIndex)` **has no beat and no metre in its signature**, and the two bars present it identical neighbour durations. ⭐ `Beam.setPartialBeamSideAt` is public API and is checked first — but ⚠️ only on the `beamAlone` branch. |
+| ⛔ MIXED stem directions in the group | — | **UNKNOWN.** Verovio has a whole `CalcPartialFlagPlace` for it; **no book we hold discusses it.** |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the

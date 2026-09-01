@@ -41,7 +41,7 @@ import { spellingToMidi, accidentalToAlter, formatPitch } from '@/utils/pitchSpe
 import { alterInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
-import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup } from '@/types/music'
+import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, GhostNote, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, PitchAlter, PitchStep, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
@@ -5548,6 +5548,17 @@ export class MusicEngine {
     const result = this.scoreModel.setArticulationStemAlign(noteId, align)
     if (!result) return null
     this.saveOnly('Align articulation to stem')
+    return result
+  }
+
+  /**
+   * ⭐ Override which side the fractional beam on `noteId` points — or with `null`, clear the
+   * override so the metric rule decides again (`engine/models/beamOps`).
+   */
+  setFractionalBeamSide(noteId: string, side: FractionalBeamSide | null): Note | null {
+    const result = this.scoreModel.setFractionalBeamSide(noteId, side)
+    if (!result) return null
+    this.saveOnly(side ? `Fractional beam ${side}` : 'Fractional beam auto')
     return result
   }
 

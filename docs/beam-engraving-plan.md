@@ -6,11 +6,20 @@
 > half has been ours since long before this migration; what P4 is about is **what the drawn line
 > looks like once the grouping is settled.**
 >
-> **Status: P4a ✅ the beam's LINES · P4b ✅ the SLOPE (a table of rules) · P4d ✅ the cross-system
-> fragments folded in — all 2026-09-01. ⏭️ P4c (the hooks) is the one lettered step left.**
+> **Status: P4a ✅ the beam's LINES · P4b ✅ the SLOPE (a table of rules) · P4c ✅ the FRACTIONAL
+> BEAMS' SIDE · P4d ✅ the cross-system fragments folded in — all 2026-09-01. ⭐⭐ P4 IS COMPLETE as a
+> lettered sequence.** ⏳ What is left of the beam is the stub's LENGTH (decision A) and the stem
+> lengths a beam imposes — both HIS.
 > ⭐⭐ **P4b moved no pixel**: five rules are on the shelf, the one his eye kept is the one we already
 > drew, and `__beams.rule(…)` swaps them live. ⏳ What is left is the HOOKS (P4c) and the stem lengths
 > a beam imposes.
+>
+> 📄 **P4c's research is DONE and is `docs/beam-hook-research.md`** (2026-09-01) — four treatises,
+> three engines, VexFlow's source and two of Gould's plates measured. ⭐⭐ **Unlike the slope, it is
+> not a taste call**: the books agree with each other and with the engines. 🚨 It found **two measured
+> defects** — our fractional beam is **0.9 sp** where every source says a notehead (**1.18 sp**), and
+> the SIDE ignores the beat, so Gould's own ⅜ pair (p. 157) draws the same hook in both bars where she
+> draws opposite ones. ⛔ It still **builds nothing**: its §8 is the decision list and it is HIS.
 >
 > 📄 **P4b's research is DONE and is `docs/beam-slope-research.md`** (2026-09-01) — four treatises,
 > three engines, and our own drawn beams measured through the scene. ⛔ **It builds nothing**: its §7
@@ -40,7 +49,7 @@ is drawn by the BEAM, not by the note — `StaveNote.draw` skips a stem whose `b
 |---|---|---|---|
 | **P4a** | **the beam's LINES** | ⭐ the ink had **four owners**, three of which already shared our quad — VexFlow's was the odd one out; ⛔ no engraving opinion needed, the x's and the slope are read as public API | ✅ **2026-09-01** |
 | **P4b** | the **SLOPE** | ✅ **2026-09-01 — researched (`docs/beam-slope-research.md`), then BUILT AS A TABLE OF FIVE RULES with an instrument.** ⭐ His eye picked `vexflow`, the one we already drew ⇒ **no pixel moved**. ⛔ Which rule is *right* stays open, on purpose | ✅ **built, ⏳ undecided** |
-| **P4c** | ⏳ the **HOOKS** (partial beams) | ⛔ **gated**: §6.1 of the parent names beam hooks among the places *"where we currently have no opinion"* — `getBeamLines` decides left/right on its own, and this editor has never stated a rule | ⏭️ |
+| **P4c** | the **FRACTIONAL BEAMS' side** | ✅ **RESEARCHED then BUILT, 2026-09-01 — `docs/beam-hook-research.md`.** ⭐ The term of art is **fractional beam**, not "hook" (grepping the books for *hook* finds the REST chapters). The rule is Gould p. 157's *"points in the direction of the beat, or division of the beat, to which it belongs"*, unanimous across four treatises ⇒ ⛔ **not a taste call**, so unlike P4b it is armed rather than left open. 🚨 **THE PIXEL MOVED**: Gould's ⅜ pair drew the same stub in both bars and now draws opposite ones. ⭐ Plus a per-note OVERRIDE in Properties (his ask). ⏳ The stub's **LENGTH** is untouched — decision A | ✅ **built** |
 | **P4d** | the **cross-system fragments**, folded in | ✅ **2026-09-01** — and cheaper than this row predicted, because P4a had already given the two fragments `fillBeamQuad` and `beamLevelY`. What was left was the level LOOP and the start-x rule; both now live in `engrave/beams/beamLines` ({@link beamLevelRun}, {@link beamLineStartX}), and the lone fragment's hit box is DERIVED from its run instead of accumulated inside the fill loop | ✅ |
 | … | the beam's own **stem lengths** | `applyStemExtensions` — ⚠️ the same research as P3e (`docs/stem-length-research.md`), from the other end | ⏭️ |
 
@@ -270,9 +279,14 @@ reproducing it would mean casting to read a field that is always `undefined`. Re
   **in the wrong currency** (we cap the ANGLE at 0.25; every source caps the RISE in stave-spaces).
   ⭐ What we already get right: a 2nd is drawn at 0.24 sp = Ross's ¼, and a 3rd at 0.48 = Gould's own
   drawn ½. ⏳ §7 of that document is the decision list, and it is HIS.
-- **The HOOKS (P4c).** Which side a partial beam points is a real engraving rule (it follows the
-  beat's subdivision, not the neighbour's duration), and `getBeamLines` decides it with
-  `lookupBeamDirection`. ⛔ Until the rule is written down, changing it is inventing one.
+- ✅ **The FRACTIONAL BEAMS (P4c) — RESEARCHED *and* BUILT: `docs/beam-hook-research.md`.** The guess
+  in this bullet was right and is now sourced: it *does* follow the beat's subdivision rather than the
+  neighbour's duration — Gould p. 157, Ross p. 124, Gerou & Lusk p. 31 and Stone p. 12 in four
+  wordings. ⭐⭐ And LilyPond implements **both** rules with `strict-beat-beaming` switching between
+  them, of which **VexFlow's is the non-default fallback**, promoted to the only rule. ⭐ The rule
+  lives in `engrave/beams/fractionalBeam` as a two-row table; `EngravedBeam.applyFractionalBeamSides`
+  supplies it through `setPartialBeamSideAt`, and a per-note override rides the slot
+  (`models/beamOps`, Properties). ⏳ What is still open in §8 is **A the LENGTH** and **C the rests**.
 - **The cross-system fragments (P4d).** Two places in `VexFlowRenderer` continue a beam's slope and
   levels by hand. They are correct and they are copies; they fold in once the slope has an owner.
 - **`Stave.padding`** is ⛔ **not** here. It is a LAYOUT number and it moves with **P5**

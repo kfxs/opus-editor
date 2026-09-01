@@ -135,6 +135,9 @@ export function moveNoteToVoice(score: Score, deps: VoiceDeps, pitchId: string, 
     // behind, an explicitly beamed run would silently fall back to auto beat groups.
     beam: chord.beam,
     secondaryBreak: chord.secondaryBreak,
+    // The same reasoning once more: an overridden fractional-beam side is a statement about THIS
+    // note's own stub, and nothing about it is voice-derived.
+    fractionalBeamSide: chord.fractionalBeamSide,
     // Also a SLOT statement, and not voice-derived: which note you repeat and how finely says
     // nothing about which voice it is in, so the mark travels with the note.
     tremolo: chord.tremolo,
@@ -391,6 +394,7 @@ function moveTupletNoteToVoice(score: Score, deps: VoiceDeps, measure: Measure, 
     if (g === idx) {
       if (chord.beam) newChord.beam = chord.beam
       if (chord.secondaryBreak) newChord.secondaryBreak = true
+      if (chord.fractionalBeamSide) newChord.fractionalBeamSide = chord.fractionalBeamSide
     }
     measure.slots.push(newChord)
   }

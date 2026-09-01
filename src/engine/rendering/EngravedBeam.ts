@@ -18,12 +18,15 @@
  *
  * ## ⛔ What this does NOT take, and it is the larger half
  *
- * ⛔ **Which x's a beam line runs between** (`getBeamLines` — the partial beams and hooks) and
- * ⛔ **what SLOPE it takes** (`calculateSlope`, `getBeamYToDraw`) are still VexFlow's, called as
- * public API. `own-engraving-engine.md` §6.1 names beam hooks among the places *"where we currently
- * have no opinion"*, and its rule is that a re-implementation without an opinion is strictly worse
- * than a dependency. ⭐ `docs/beaming.md` states this editor's GROUPING rules and they are already
- * ours; the SHAPE of the drawn line is the research still owed.
+ * ⛔ **Which x's a beam line runs between** (`getBeamLines`) and ⛔ **what SLOPE it takes**
+ * (`calculateSlope`, `getBeamYToDraw`) are still VexFlow's, called as public API.
+ *
+ * ⭐⭐ **…except the fractional beams' SIDE, which is ours as of P4c** — the opinion §6.1 of
+ * `own-engraving-engine.md` said we did not have is now written down (`docs/beam-hook-research.md`:
+ * four treatises, unanimous) and supplied through `setPartialBeamSideAt` by
+ * {@link applyFractionalBeamSides}. ⛔ The LENGTH of a stub is still VexFlow's `partialBeamLength`
+ * and is still wrong by every source — decision A of that document's §8, and HIS.
+ * ⭐ `docs/beaming.md` states this editor's GROUPING rules and they were already ours.
  *
  * ⚠️ **A subclass, for the reason `EngravedStem` is one**: `drawBeamLines` is `protected` and takes
  * VexFlow's `RenderContext`, so an override could not be typed without naming that type — which is
@@ -34,10 +37,22 @@
  */
 import { Beam, Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { FractionalBeamSide, NoteDuration } from '@/types/music'
+import type { Fraction } from '@/utils/fraction'
 import { type BeamLineInk, beamLevelY, drawBeamLines } from '@/engine/engrave/beams/beamLines'
 import { type BeamShape, beamRiseCap } from '@/engine/engrave/beams/beamSlope'
+import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from './beamSlopeExperiment'
+
+/**
+ * VexFlow's `PartialBeamDirection` values. ⚠️ Written as literals because `BEAM_LEFT`/`BEAM_RIGHT`
+ * are declared in `beam.js` but ⛔ **not re-exported from the package root** — `require('vexflow')`
+ * has no such key. The literal union is what `setPartialBeamSideAt` takes, so this still typechecks
+ * against their type rather than around it.
+ */
+const BEAM_LEFT = 'L'
+const BEAM_RIGHT = 'R'
 
 /**
  * The durations a beam level exists for, in level order — VexFlow's `validBeamDurations`, kept
@@ -199,6 +214,63 @@ export class EngravedBeam extends Beam {
     }
     return lines
   }
+}
+
+/**
+ * ⭐⭐ **P4c — TELL THE BEAM WHICH WAY ITS FRACTIONAL BEAMS POINT**
+ * (`docs/beam-hook-research.md`; the rule itself is `engrave/beams/fractionalBeam`).
+ *
+ * ⚠️ **This is a TRANSLATION and nothing else** — the metre is the editor's and the rule is the
+ * engine's; what happens here is the one step between them, exactly as `interactions/toolGhost.ts`
+ * translates an armed tool into `ghostTypes`. ⛔ No engraving decision is taken in this function.
+ *
+ * ## ⭐ Why `setPartialBeamSideAt` is enough, and ⛔ NOT a half-measure
+ *
+ * `Beam.setPartialBeamSideAt` is public API (`beam.js:340`) and `lookupBeamDirection` consults it
+ * **first** — but only on the `beamAlone` branch, i.e. a note alone at its beam level *between two
+ * notes that both lack that level*. That looks like a gap until you ask what the other branches are:
+ *
+ * | case | who decides | why it is not ours to choose |
+ * |---|---|---|
+ * | **first** note of a group | VexFlow ⇒ right | ⭐ forced — a left stub would leave the group, and Ross p. 124 / Gerou & Lusk p. 31 both say *"always inside the grouping"* |
+ * | **last** note of a group | VexFlow ⇒ left | ⭐ forced, same rule, mirrored |
+ * | after a secondary BREAK | VexFlow ⇒ right | that break is already OUR decision (`secondaryBreakIndices`) |
+ * | **interior**, alone at its level | ⭐⭐ **US** | the only case where the metre has a free choice — and it is exactly Gould's |
+ *
+ * ⇒ **the hatch covers every case the books actually legislate.** `fractionalBeamSides` answers
+ * `null` for the first and last slots for this reason, so the two agree by construction rather than
+ * by luck.
+ *
+ * ⛔ Owning `getBeamLines` outright would buy only the ability to draw a stub *outside* its group,
+ * which is the thing Gould's p. 157 *"and not"* figure is rejected for.
+ */
+export function applyFractionalBeamSides(beam: Beam, slots: readonly FractionalBeamSlot[]): void {
+  const auto = fractionalBeamSides(
+    slots.map(slot => ({
+      start: slot.beat,
+      duration: slot.duration,
+      dots: slot.dots,
+      actualLength: slot.actualDuration,
+      isRest: slot.type === 'rest',
+    })),
+  )
+  slots.forEach((slot, i) => {
+    // ⭐ THE AUTHORED SIDE WINS. Absent = auto, exactly as `beam: 'auto'` is absent — so a score that
+    // has never been touched by hand is engraved entirely by the metric rule.
+    const side = slot.fractionalBeamSide ?? auto[i]
+    if (side) beam.setPartialBeamSideAt(i, side === 'left' ? BEAM_LEFT : BEAM_RIGHT)
+  })
+}
+
+/** One slot, as {@link applyFractionalBeamSides} reads it. */
+interface FractionalBeamSlot {
+  beat: Fraction
+  duration: NoteDuration
+  dots?: number
+  actualDuration?: Fraction
+  type: string
+  /** ⭐ The user's own choice, from Properties — beats the metric rule when set. */
+  fractionalBeamSide?: FractionalBeamSide
 }
 
 /**

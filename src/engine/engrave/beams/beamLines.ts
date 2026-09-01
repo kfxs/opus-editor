@@ -7,11 +7,11 @@
  * > downward — stacked at a fixed multiple of that thickness.
  *
  * That is the whole content of this module, and it is deliberately thin: everything interesting
- * about a beam is *which notes a line runs between* (the hooks and partial beams) and *what SLOPE it
- * takes*, and neither is here. ⛔ Both are still VexFlow's, and taking them is the next piece of work
- * rather than an oversight — `own-engraving-engine.md` §6.1 lists beam hooks among the places
- * *"where we currently have no opinion"*, and a re-implementation without an opinion is strictly
- * worse than a dependency.
+ * about a beam is *which notes a line runs between* (the fractional beams) and *what SLOPE it
+ * takes*, and neither is here. ⭐ Both now have an owner beside this file: the SIDE a fractional beam
+ * points is `./fractionalBeam` (P4c, the four treatises' rule) and the slope's budget is
+ * `./beamSlope` (P4b). ⛔ What is still VexFlow's is the x's themselves — `getBeamLines` — and a
+ * stub's LENGTH.
  *
  * ## 🚨 Why the ink alone was worth a commit: it had FOUR owners
  *

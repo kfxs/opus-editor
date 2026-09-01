@@ -1,6 +1,7 @@
 import { createAccidentalSelection } from './accidentalSelection'
 import { createArticulationSelection } from './articulationSelection'
 import { createArticulationStemAlignSelection } from './articulationStemAlignSelection'
+import { createFractionalBeamSideSelection } from './fractionalBeamSideSelection'
 import { createBeamOverSelection } from './beamOverSelection'
 import { createBeamSelection } from './beamSelection'
 import { createClefSelection } from './clefSelection'
@@ -76,6 +77,8 @@ interface EditorBus {
   articulation: ReturnType<typeof createArticulationSelection>
   /** Properties' "align to stem" checkbox. Command-only. */
   articulationStemAlign: ReturnType<typeof createArticulationStemAlignSelection>
+  /** ⭐ Which way one note's fractional beam points; `null` = the metric default. */
+  fractionalBeamSide: ReturnType<typeof createFractionalBeamSideSelection>
   /** The beam MODE keys — a set, because authored beam and engraved role can differ. */
   beam: ReturnType<typeof createBeamSelection>
   /** The beam-over-a-rest flag. */
@@ -163,6 +166,7 @@ export function createEditorBus(): EditorBus {
     accidental: createAccidentalSelection(),
     articulation: createArticulationSelection(),
     articulationStemAlign: createArticulationStemAlignSelection(),
+    fractionalBeamSide: createFractionalBeamSideSelection(),
     beam: createBeamSelection(),
     beamOver: createBeamOverSelection(),
     clef: createClefSelection(),
@@ -230,3 +234,4 @@ export type { SlurGeometryRequest, SlurGeometryTarget } from './slurGeometrySele
 export type { HairpinGeometryRequest, HairpinEndRequest, HairpinApertureRequest } from './hairpinGeometrySelection'
 export type { CautionaryKeyGapRequest } from './cautionaryKeyGapSelection'
 export type { ArticulationStemAlignRequest } from './articulationStemAlignSelection'
+export type { FractionalBeamSideRequest } from './fractionalBeamSideSelection'

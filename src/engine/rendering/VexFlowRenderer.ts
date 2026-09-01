@@ -16,7 +16,7 @@ import {
   beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,
   drawBeamLines as fillBeamRun,
 } from '@/engine/engrave/beams/beamLines'
-import { EngravedBeam, drawBeamInkThrough } from './EngravedBeam'
+import { EngravedBeam, applyFractionalBeamSides, drawBeamInkThrough } from './EngravedBeam'
 import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
@@ -2939,6 +2939,7 @@ export class VexFlowRenderer {
         // AFTER) lives in the pure module beside the grouping.
         const breaks = secondaryBreakIndices(groupSlots)
         if (breaks.length) beam.breakSecondaryAt(breaks)
+        applyFractionalBeamSides(beam, groupSlots)
         beams.push(beam)
       } catch (beamError) {
         console.warn(`Could not create beam: ${beamError}`)
