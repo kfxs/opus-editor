@@ -137,11 +137,13 @@ src/
                           #   ⛔ never the dots. docs/barline-join-plan.md)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
-    paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext`, 19
-                          #   primitives, ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
-                          #   `RenderPass.context`; `RenderPass.vexContext` is the VexFlow that
-                          #   is LEFT and `npm run lint:paint` holds its ceiling (it may only
-                          #   fall). docs/own-engraving-engine.md P1b
+    paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (19
+                          #   primitives) + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
+                          #   + `Affine` (⭐ a PLACEMENT is a matrix, ⛔ never an x/y).
+                          #   ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
+                          #   `RenderPass.context`; `RenderPass.vexContext` and `svgNode()` are
+                          #   the VexFlow/DOM that is LEFT, and `npm run lint:paint` holds both
+                          #   ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

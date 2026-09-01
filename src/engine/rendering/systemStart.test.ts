@@ -275,6 +275,23 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
   const braceGroup = (gs: { cls: string; transform: string | null }[]) =>
     gs.find(g => g.cls === 'systemsign')!
 
+  /**
+   * ⭐ **THE BRACE'S PLACEMENT, read out of the attribute** — `{ sx, sy, tx, ty }`.
+   *
+   * ⚠️ It arrives as `matrix(...)` since P1c (`docs/own-engraving-engine.md`): the pass now writes an
+   * {@link Affine} through `DrawGroup.setPlacement`, and a scale composed with a translate has no
+   * shorthand form. ⛔ The engraving facts below are unchanged — the brace is still non-uniform, its
+   * depth still constant, its foot still flush — only the notation they are written in moved, which
+   * is why this reader exists rather than three edited regexes.
+   */
+  const placementOf = (gs: { cls: string; transform: string | null }[]) => {
+    const attr = braceGroup(gs).transform ?? ''
+    const m = /matrix\(([-\d.]+), ([-\d.]+), ([-\d.]+), ([-\d.]+), ([-\d.]+), ([-\d.]+)\)/.exec(attr)
+    expect(m, `a placement was written — got ${attr}`).not.toBeNull()
+    const n = m!.slice(1).map(Number)
+    return { sx: n[0], sy: n[3], tx: n[4], ty: n[5] }
+  }
+
   it('stamps `braceLarge` (U+F401), ⛔ and draws no rod — a brace is one glyph, not a rule and two tips', () => {
     const { rects, stamps, pass } = recorder()
     renderSystemStarts(pass, braced, grandStaff, 2, null)
@@ -289,9 +306,7 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
   it('⭐⭐ its transform is NON-UNIFORM — the thing nothing else in this renderer draws', () => {
     const { groups, pass } = recorder()
     renderSystemStarts(pass, braced, grandStaff, 2, null)
-    const m = /scale\(([-\d.]+), ([-\d.]+)\)/.exec(braceGroup(groups).transform ?? '')
-    expect(m, 'a scale(sx, sy) was written').not.toBeNull()
-    const [sx, sy] = [Number(m![1]), Number(m![2])]
+    const { sx, sy } = placementOf(groups)
     expect(sx).not.toBeCloseTo(sy, 3)
     expect(sy, 'stretched MORE vertically than horizontally').toBeGreaterThan(sx)
   })
@@ -306,8 +321,7 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
         staffGroups: [{ id: 'g1', staffIds: Array.from({ length: staffCount }, (_, i) => `s${i}`), symbol: 'brace' }],
       } as unknown as Score
       renderSystemStarts(pass, score, placements, staffCount, null)
-      const sx = Number(/scale\(([-\d.]+),/.exec(braceGroup(groups).transform ?? '')![1])
-      return sx * (box.right - box.left)
+      return placementOf(groups).sx * (box.right - box.left)
     }
     // Two staves, then four — a span more than twice as tall.
     const two = depthOf(grandStaff, 2)
@@ -321,8 +335,7 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
     renderSystemStarts(pass, braced, grandStaff, 2, null)
     const connector = rects.find(r => r.group === 'stavebarline')!
     // The group is translated to the ink's BOTTOM; the connector spans exactly the same staves.
-    const ty = Number(/translate\([-\d.]+, ([-\d.]+)\)/.exec(braceGroup(groups).transform ?? '')![1])
-    expect(ty).toBeCloseTo(connector.y + connector.h, 6)
+    expect(placementOf(groups).ty).toBeCloseTo(connector.y + connector.h, 6)
   })
 })
 

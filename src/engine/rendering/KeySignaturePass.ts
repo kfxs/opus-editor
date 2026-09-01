@@ -8,6 +8,7 @@ import {
 import { BARLINE_TO_CAUTIONARY_KEY_INK, CAUTIONARY_KEY_TO_LINE_END } from '@/engine/layout/cautionaryKey'
 import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
+import { svgDrawGroup } from './svgDrawGroup'
 import { STAVE_LINE_WIDTH_PX } from './VexFlowRenderer'
 
 /**
@@ -227,9 +228,9 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
   // The bar's closing barline is at its right edge — the placement's, never the stave's (see the
   // header's staleShift note).
   const barlineX = stave.getX() + dx + placement.width / placement.scale
-  const group = pass.context.openGroup?.(
+  const group = svgDrawGroup(pass.context.openGroup?.(
     'keysig', `keysig-caution-${placement.measureNumber}-${staffIndex}`,
-  ) as SVGGElement | undefined
+  ))
   inStaffSpace(pass, staffIndex, group, () => {
     const inkLeft = barlineX + BARLINE_TO_CAUTIONARY_KEY_INK * space
     const inkRight = drawSignRow(pass, row, placement.clef, stave, inkLeft, dy)
@@ -350,9 +351,9 @@ export function renderKeySignatures(pass: RenderPass, placements: KeySignaturePl
     const { stave, staffIndex } = placement
     const { dx, dy } = staleShift(placement)
 
-    const group = pass.context.openGroup?.(
+    const group = svgDrawGroup(pass.context.openGroup?.(
       'keysig', `keysig-${placement.measureNumber}-${staffIndex}`,
-    ) as SVGGElement | undefined
+    ))
 
     inStaffSpace(pass, staffIndex, group, () => {
       const x = firstSignX(stave, placement.clef, dx)

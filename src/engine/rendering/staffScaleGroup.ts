@@ -1,4 +1,7 @@
 import type { RenderPass } from './RenderPass'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
+import { scaling } from '@/engine/paint/Affine'
+import { svgDrawGroup } from './svgDrawGroup'
 
 /**
  * **Ink that belongs to one staff but is drawn outside its measure groups** — the ties, slurs and
@@ -47,7 +50,7 @@ export function inScaledStaffGroup<T>(
   const k = pass.staffScale(staffIndex)
   if (k === 1) return draw()
 
-  const group = pass.context.openGroup?.(STAFF_SCALE_GROUP, id) as SVGGElement | undefined
+  const group = svgDrawGroup(pass.context.openGroup?.(STAFF_SCALE_GROUP, id))
   try {
     return inStaffSpace(pass, staffIndex, group, draw)
   } finally {
@@ -61,12 +64,12 @@ export function inStaffSpace<T>(
   /** 0-based index of the staff this ink belongs to. */
   staffIndex: number,
   /** The pass's own group, if it opened one — the thing that carries the scale. */
-  group: SVGGElement | null | undefined,
+  group: DrawGroup | null | undefined,
   draw: () => T,
 ): T {
   const k = pass.staffScale(staffIndex)
   // The registry too: what these passes register (a tie's box, a slur's handles and sampled arc)
   // is read off the same local geometry, and hit-testing works in the SVG's coordinates.
-  if (k !== 1 && group) group.setAttribute('transform', `scale(${k})`)
+  if (k !== 1 && group) group.setPlacement(scaling(k))
   return pass.elementRegistry.withScale(k, draw)
 }

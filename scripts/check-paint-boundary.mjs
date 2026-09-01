@@ -28,6 +28,10 @@
  *    is a decision, and it should be an uncomfortable one.
  * 2. ⛔ **The `vexContext` count may not rise.** Each is either a VexFlow object painting itself
  *    (P3/P4 territory) or a reach past the surface into the page.
+ * 3. ⛔ **The `svgNode` count may not rise** (P1c). A group is now a {@link DrawGroup} — a placement,
+ *    an ink box, a discard, two tags — and `svgNode` is the one way back to the DOM element. Every
+ *    use is either the EDITOR being handed ink to highlight later, or a recolour/hide done through
+ *    the page. ⭐ Both are real seams; ⛔ neither is a capability the SCENE will need.
  *
  * ⭐ Both numbers are expected to fall to zero. When they do, `paint/` can be given an implementation
  * that is not VexFlow's, and `scene/` a recording one — which is the golden net P3 is gated on.
@@ -64,8 +68,10 @@ const ALLOWED = new Map([
   ['engine/rendering/tempoNudgePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
 ])
 
-/** ⚠️ The ceiling, not a target. Lower it when a migration lands; ⛔ never raise it. */
+/** ⚠️ The ceilings, not targets. Lower one when a migration lands; ⛔ never raise either. */
 const VEX_CONTEXT_CEILING = 24
+/** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
+const SVG_NODE_CEILING = 10
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 
@@ -81,6 +87,7 @@ function walk(dir) {
 
 const offenders = []
 let vexContextUses = 0
+let svgNodeUses = 0
 
 for (const file of walk(SRC)) {
   const rel = relative(SRC, file).split('\\').join('/')
@@ -90,6 +97,10 @@ for (const file of walk(SRC)) {
   // ceiling is the total amount of coupling, not how many files hold it.
   if (rel !== 'engine/rendering/RenderPass.ts') {
     vexContextUses += lines.filter(l => /\bvexContext\b/.test(l)).length
+  }
+  // The escape's own definition does not count against its ceiling.
+  if (rel !== 'engine/rendering/svgDrawGroup.ts') {
+    svgNodeUses += lines.filter(l => /\bsvgNode\(/.test(l)).length
   }
   if (ALLOWED.has(rel)) continue
   const hit = lines.findIndex(l => NAMES.test(l))
@@ -121,9 +132,22 @@ if (vexContextUses > VEX_CONTEXT_CEILING) {
 `)
 }
 
+if (svgNodeUses > SVG_NODE_CEILING) {
+  failed = true
+  console.error(`
+✗ \`svgNode\` is used ${svgNodeUses} times; the ceiling is ${SVG_NODE_CEILING}.
+
+  A group is a DrawGroup: setPlacement / inkBox / discard / tag / tagLast. Reach for the DOM
+  element only to hand drawn ink to the EDITOR, or to recolour it through the page — and if
+  you are doing something else, it wants a capability on DrawGroup instead. See ${DOC} P1c.
+`)
+}
+
 if (failed) process.exit(1)
 
 console.log(
   `✓ ${ALLOWED.size} files still entitled to VexFlow's context, ` +
-  `${vexContextUses}/${VEX_CONTEXT_CEILING} \`vexContext\` uses. Everything else draws through DrawContext.`,
+  `${vexContextUses}/${VEX_CONTEXT_CEILING} \`vexContext\` uses, ` +
+  `${svgNodeUses}/${SVG_NODE_CEILING} \`svgNode\` escapes. ` +
+  `Everything else draws through DrawContext and DrawGroup.`,
 )

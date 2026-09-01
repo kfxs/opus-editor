@@ -41,6 +41,8 @@
  */
 import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
+import { compose, scaling, translation } from '@/engine/paint/Affine'
+import { svgDrawGroup } from './svgDrawGroup'
 import type { Score } from '@/types/music'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -350,14 +352,17 @@ function drawBrace(
   const sy = (bottomY - topY) / (box.up * STAFF_SPACE_PX)
   const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
 
-  const group = ctx.openGroup?.(SYSTEM_SIGN_GROUP, `brace-${sign.group.group.id}-m${at.measureNumber}`) as
-    SVGGElement | undefined
+  const group = svgDrawGroup(
+    ctx.openGroup?.(SYSTEM_SIGN_GROUP, `brace-${sign.group.group.id}-m${at.measureNumber}`))
   try {
     // ⭐ The glyph is stamped at the ORIGIN and the group carries everything: the origin sits at the
     //   ink's BOTTOM-left (`down: 0`, so the ink rises from the baseline), which is the bottom of the
     //   span. `-box.left` puts the ink's own left edge on `leftX` rather than the glyph's origin.
-    group?.setAttribute('transform',
-      `translate(${leftX + (-box.left) * STAFF_SPACE_PX * sx}, ${bottomY}) scale(${sx}, ${sy})`)
+    // ⭐ Scale THEN translate — `compose(p, q)` is "p then q", which is the order the SVG attribute
+    //   `translate(...) scale(...)` reads in (the translation applies to already-scaled ink).
+    group?.setPlacement(compose(
+      scaling(sx, sy),
+      translation(leftX + (-box.left) * STAFF_SPACE_PX * sx, bottomY)))
     stampGlyph(ctx, BRACE_GLYPH, 0, 0)
   } finally {
     ctx.closeGroup?.()

@@ -79,7 +79,7 @@ than the one it argued; §5 and this section remain the authority on the order.
 | 5 | ⛔ **No inverse mapping written as straight-staff arithmetic.** Ask the placement; never compute `(staffTop − y) / spacing` by hand. | **now** | §7.5.4 |
 | 6 | ⛔⛔ **A staff is a SPINE plus a thickness — not "a y and five lines".** One module owns where the lines go. | **now** — and it is the **hardest of all of these to undo** | §7.5.4 |
 | 7 | ⭐⭐ **The rigid unit is a FRAGMENT.** A bar and a beamed group must be able to be REAL groups carrying their own transform, composed down the stack — ⛔ never flattened into absolute coordinates at build time. **Measured**: *Bike Ride* bends nothing, not even its beams; it rotates whole beamed groups on arc staff lines. ⛔ And therefore no non-affine WARP on spec. | **now** (it is a shape, not work) | §7.5.5 |
-| 8 | ⭐⭐ **A scene primitive carries a PLACEMENT (an affine), not an (x, y).** Identity for every note ever engraved normally; `paint/` composes it down the group stack. | the day `scene/` is typed (**P1**) | §7.2, §7.5.4 |
+| 8 | ⭐⭐ **A scene primitive carries a PLACEMENT (an affine), not an (x, y).** Identity for every note ever engraved normally; `paint/` composes it down the group stack. | ✅ **LANDED — `paint/Affine.ts` + `DrawGroup.setPlacement`, P1c 2026-09-01.** Every group placement in the engine is now an affine | §7.2, §7.5.4, §5 P1c |
 | 9 | ⭐⭐ **The registry records the SPACE an element was drawn in, beside its box.** `withScale(k)` generalises to `withSpace(affine)`; the AABB fast path stays while the space is a translation. | when the scene lands — or sooner, the next time a coordinate field is added to `ElementInfo` | §7.5.2–7.5.4 |
 | 10 | ⛔ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.** Its LOC is the migration's progress bar. | **P1** | §8.2 |
 | 11 | ⛔ **`layout/` and `engrave/` import no DOM and no `vexflow`** (one named exception). | partly **now** — `engine/layout/` and `engine/fonts/` are already fenced by `lint:boundary` | §8.2, `ARCHITECTURE.md` |
@@ -438,8 +438,8 @@ knot, so P1 is cut there.
 |---|---|---|
 | **P1a** | the **glyph adapter** — one module owns `new Element` | ✅ **DONE 2026-09-01** |
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
-| **P1c** | the **group handle** — the three things a group is used for | ⏭️ next |
-| **P1d** | an **implementation of our own** — `paint/svg/`, and stop calling VexFlow's context | ⏭️ |
+| **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
+| **P1d** | an **implementation of our own** — `paint/svg/`, and stop calling VexFlow's context | ⏭️ next |
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 
@@ -521,7 +521,7 @@ directory importing `vexflow`, and that shape did not survive contact.** P1a fou
 RENDERER** (`Element` — paint's). `glyphPainter` is the second and has no home in that tree; it was
 left in `rendering/` rather than silently rewriting rule 10. ⛔ Open, and his call.
 
-#### ⏭️ P1c — what a GROUP is, answered by reading the 21 `openGroup` sites
+#### ✅ P1c — `engine/paint/DrawGroup.ts` + `paint/Affine.ts` (2026-09-01)
 
 ⭐ The question §7.2 warns about (*"a primitive that smuggles a DOM node into the scene defeats the
 whole thing"*) arrives here, small: 12 of the 21 sites capture the returned `SVGGElement`, and they
@@ -536,6 +536,38 @@ do exactly three things with it.
 🚨🚨 **The third one is the scene's own argument, and it was already written down twice** — both
 sites carry the comment *"a context's drawing calls return the context and not the node"*. In a
 scene a primitive is a **value with fields**, so that whole workaround stops existing.
+
+⚠️ **The count above was wrong when it was written, and the correction matters.** It said *12 of 21*,
+from a grep for `const group = ctx.openGroup(`. Nine more sites capture through `openGroup?.()` —
+every span-mark pass — so it is **22 captures**, and they do a **fourth** thing the first reading
+missed: they hand the drawn node to the EDITOR (`hairpinGroupMap` and its five siblings), which
+recolours it for a selection highlight. ⭐ That is a real seam, not a leftover, and it is out of
+scope here.
+
+⭐⭐ **So a group is now a {@link DrawGroup}** — `setPlacement` · `inkBox` · `discard` · `tag` ·
+`tagLast` — **plus one named escape, `node()`**, for the two DOM-level uses (the editor's highlight
+maps, and recolouring a ghost's own ink). Three of the five capabilities need no page at all, which
+is what makes a recording implementation possible. `npm run lint:paint` now counts the escape too:
+**10 uses, ceiling 10, may only fall.**
+
+⭐⭐ **And rule 8 arrives with it: `paint/Affine.ts`.** A placement is a 2×3 matrix, ⛔ not a scale
+and ⛔ not an `(x, y)` — *"identity for every note ever engraved normally"*, with `compose` in
+Belle's own order (`child.a = parent.a * child.a`) and an `invert` that returns **null** for a
+singular placement rather than guessing an identity. It is pure arithmetic, so its whole spec runs
+in jsdom — §7.2.1's *"grow the testable half of the engine"*, arriving for free.
+
+🚨 **The one thing that made this more than mechanical: the transform string is OBSERVED.**
+`VexFlowRenderer.moveMeasureGroup` re-composes it by text when a bar moves without being
+re-engraved, and four specs assert it exactly (`'scale(0.7)'`). So `svgDrawGroup` emits the SVG
+**shorthand wherever it is exactly equivalent** and a `matrix(...)` otherwise — which keeps every
+byte this renderer used to write. ⚠️ The brace is the one placement with no shorthand (a scale
+composed with a translate), so its three specs now read the matrix instead of a `scale(sx, sy)`;
+the engraving facts they assert — non-uniform, constant depth, flush foot — are untouched.
+
+⛔ **Left alone deliberately:** `GhostRenderer`'s six inline ghosts still cast. They hold a
+`SVGContext` for VexFlow objects that paint themselves and are explicitly P3's territory — §7.2 says
+a ghost is *"a scene with a style"* and most of those 1,217 lines are **deletion, not migration**.
+⭐ Converting them now would be churn in a file that is going away.
 
 ### P2 — Glyphs and font metrics ✅ **DONE 2026-08-16 (F1–F4)**
 📄 **`docs/font-metrics-plan.md`** — the decision record, and the log of what each phase found.

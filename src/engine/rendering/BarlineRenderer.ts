@@ -56,6 +56,8 @@
 import { StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
+import type { DrawGroup } from '@/engine/paint/DrawGroup'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 import type { Measure, Score } from '@/types/music'
 import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
@@ -175,7 +177,7 @@ interface SignStaff {
  */
 function paintBarlineSign(
   ctx: RenderPass['context'], kind: BarlineSignKind, x: number, staff: SignStaff,
-  group: SVGGElement | null | undefined, wings: boolean,
+  group: DrawGroup | null | undefined, wings: boolean,
 ): void {
   const { space, topY, botY, numLines } = staff
   const parts = barlineSignParts(kind)
@@ -184,13 +186,13 @@ function paintBarlineSign(
   // highlights so a `:||:` lights the half that was clicked and not the whole junction (his report,
   // 2026-08-26; the rule is {@link SignHalf}).
   //
-  // ⚠️ Written by reading the group's LAST CHILD back, because the context's drawing calls return
-  // the context and not the node: `fillRect` and `fillText` both `appendChild` onto the open group
-  // (`vexflow/src/svgcontext`), so the element just drawn is the one at the end. ⛔ Not a nested
-  // `<g>` per half — that would be a wrapper on every plain barline in the score to serve the one
-  // sign in a hundred that has two halves, and `hintBarlines` collects barline groups by class.
+  // ⚠️ Tagging the LAST primitive drawn, because a context's drawing calls return the context and
+  // not the node — the workaround {@link DrawGroup.tagLast} now owns for the whole engine, and the
+  // one a SCENE makes unnecessary outright (a primitive there is a value with fields). ⛔ Not a
+  // nested `<g>` per half — that would be a wrapper on every plain barline in the score to serve the
+  // one sign in a hundred that has two halves, and `hintBarlines` collects barline groups by class.
   const tag = (half: SignHalf): void => {
-    group?.lastElementChild?.setAttribute('data-half', half)
+    group?.tagLast('data-half', half)
   }
 
   for (const stroke of parts.strokes) {
@@ -320,7 +322,7 @@ function drawSign(
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
   // own note, and for the same reason: that class is the handle the hinting pass, the dev census and
   // the e2e harness all collect barlines by. It names what the ink IS, not who put it down.
-  const group = ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`) as SVGGElement | undefined
+  const group = svgDrawGroup(ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`))
   try {
     inStaffSpace(pass, staffIndex, group, () => {
       paintBarlineSign(ctx, kind, boundaryX, signStaff, group, wings)
@@ -338,7 +340,7 @@ function drawSign(
   // sign's own white gap — the 0.32 spaces that IS the final barline — would come out a different
   // width in every bar that has one. ⛔ So the sign opts out, exactly as VexFlow's 3 px thick line
   // always has. It is 0.5 spaces of ink; it does not vanish for want of alignment.
-  if (group && kind !== 'plain' && kind !== 'invisible') group.dataset.noHint = '1'
+  if (group && kind !== 'plain' && kind !== 'invisible') group.tag('data-no-hint', '1')
 
   // ⭐⭐ **THE INVISIBLE LINE, AND WHO IS LOOKING** — his ask, 2026-08-26: *"what we do on screen we
   // use the same colour of hidden we are using for rest, and not printing it on PDF export."*
@@ -347,7 +349,10 @@ function drawSign(
   // stays visible enough to click and un-hide, and REMOVED outright for print. ⚠️ Applied AFTER the
   // draw, which is that module's own rule and matters just as much here: the sign has already
   // reserved its room, so hiding a line never re-spaces the music around it.
-  if (group && kind === 'invisible') applyHiddenTreatment(group, audience)
+  // ⛔ The NODE, because hiding is DOM work on the drawn ink (a tint, or removal outright) — the
+  // counted escape, not a capability the scene will need. See {@link DrawGroup.node}.
+  const node = svgNode(group)
+  if (node && kind === 'invisible') applyHiddenTreatment(node, audience)
 }
 
 /**

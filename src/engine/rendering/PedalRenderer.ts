@@ -60,6 +60,7 @@ import {
   PEDAL_MARK_INK, PEDAL_MIN_SPAN, PEDAL_PAREN_LEFT, PEDAL_PAREN_RIGHT, PEDAL_SIGN_GAP, PEDAL_UP_GLYPH,
 } from './pedalStyle'
 import type { RenderPass } from './RenderPass'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -367,13 +368,14 @@ export function renderPedals(
       try {
         // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-pedal' here
         // would yield `class="vf-vf-pedal"`, the mistake the slur's comment records.
-        const group = pass.context.openGroup?.('pedal', `pedal-${pedal.id}`) as SVGGElement | undefined
+        const group = svgDrawGroup(pass.context.openGroup?.('pedal', `pedal-${pedal.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawPedal(pass, pedal, span, { startX: x.startX, endX }, reach, from, endLine,
             wrapped !== null, staffIds[staffIndex], staffIds[0], starts)
         })
         pass.context.closeGroup?.()
-        if (group) pass.pedalGroupMap.set(pedal.id, group)
+        const node = svgNode(group)
+        if (node) pass.pedalGroupMap.set(pedal.id, node)
       } catch (e) {
         console.error('Could not render pedal:', e)
       }

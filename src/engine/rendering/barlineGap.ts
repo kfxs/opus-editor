@@ -30,6 +30,7 @@ import { barlineJoinsBelow } from '@/engine/models/barlineJoin'
 import { staffIdAtIndex } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { dbg } from '@/utils/debug'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 import type { BarlinePlacement } from './BarlineRenderer'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
@@ -144,7 +145,7 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
 
   const ctx = pass.context
   const parts = barlineSignParts(kind)
-  const group = ctx.openGroup('stavebarline', `barline-gap-${above.measureNumber}-${above.staffIndex}-${side}`) as SVGGElement | undefined
+  const group = svgDrawGroup(ctx.openGroup('stavebarline', `barline-gap-${above.measureNumber}-${above.staffIndex}-${side}`))
   try {
     for (const stroke of parts.strokes) {
       ctx.fillRect(xAbove + stroke.x * GAP_SPACE, top, stroke.width * GAP_SPACE, bottom - top)
@@ -152,7 +153,7 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
       // back by the same two selection highlights, so a `:||:`'s gap ink lights the half that was
       // clicked exactly as its staff ink does. Written by reading the group's last child back,
       // because a context's drawing calls return the context and not the node.
-      group?.lastElementChild?.setAttribute('data-half', stroke.half)
+      group?.tagLast('data-half', stroke.half)
     }
   } finally {
     // ALWAYS close: an open group swallows the whole rest of the render (`renderMeasure`'s note).
@@ -165,11 +166,13 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
   // the SAME choice as the staff strokes it continues — hinted for a plain line, opted out for a
   // composite one — or the two pieces of one stroke land on different sub-pixel phases and the join
   // reads as a step exactly where the eye is looking.
-  if (group && kind !== 'plain' && kind !== 'invisible') group.dataset.noHint = '1'
+  if (group && kind !== 'plain' && kind !== 'invisible') group.tag('data-no-hint', '1')
 
   // ⭐ An invisible line is invisible in the gap too: TINTED for the editor, REMOVED for print
   // (`./hiddenElements`). Without this the one thing hiding is for would fail between the staves.
-  if (group && kind === 'invisible') applyHiddenTreatment(group, audience)
+  // ⛔ The NODE: hiding is DOM work on drawn ink — the counted escape (`DrawGroup.node`).
+  const node = svgNode(group)
+  if (node && kind === 'invisible') applyHiddenTreatment(node, audience)
 
   registerGapHit(pass, gap, xAbove, top, bottom, parts.strokes)
 }

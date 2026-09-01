@@ -18,6 +18,8 @@ import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
+import { scaling } from '@/engine/paint/Affine'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
@@ -1896,21 +1898,22 @@ export class VexFlowRenderer {
     }
 
     const key = measureGroupKey(placement.measureNumber, placement.staffIndex)
-    const group = this.context.openGroup('measure', key) as SVGGElement
-    this.measureGroups.set(key, group)
+    const group = svgDrawGroup(this.context.openGroup('measure', key))
+    const groupNode = svgNode(group)!
+    this.measureGroups.set(key, groupNode)
     // ⭐ THE staff-size mechanism, and it is one attribute: the bar's own `<g>` — which already
     // exists at exactly the right granularity, one per measure PER STAFF — carries the scale, so
     // lines, glyphs, stems, beams and dynamics all shrink together because it is one transform.
     // ⛔ Not `ctx.scale`, which rewrites the SVG's viewBox and would rescale the whole score
     // including what is already drawn (docs/staff-size-plan.md §4.1).
-    if (placement.scale !== 1) group.setAttribute('transform', `scale(${placement.scale})`)
+    if (placement.scale !== 1) group?.setPlacement(scaling(placement.scale))
     try {
       // Everything inside draws in the staff's own space, which is where its `stave` already is.
       const stave = this.elementRegistry.withScale(placement.scale, () =>
         this.drawMeasureContent(pass, localPlacement(placement), beamPlan))
       // The one engraving rule VexFlow hard-codes past: a barline is 0.16 staff spaces, not the 1px
       // it draws (`./barlineInk`). Applied to the group's own rects, so it rides the staff's scale.
-      inkBarlines(group)
+      inkBarlines(groupNode)
       return stave
     } finally {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append

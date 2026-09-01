@@ -31,6 +31,8 @@
  */
 
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { translation } from '@/engine/paint/Affine'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
 const GHOST_CURSOR_GAP_PX = 10
@@ -84,31 +86,38 @@ export function drawSignGhost(
   drawSign: () => void,
 ): boolean {
   try {
-    const group = ctx.openGroup(groupName) as SVGGElement
+    const group = svgDrawGroup(ctx.openGroup(groupName))
     try {
       drawSign()
     } finally {
       ctx.closeGroup()
     }
+    if (!group) return false
 
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
+    // 🚨 The box BEFORE the placement — the sign is drawn at x = 0 and parked below, so measuring
+    // after moving it would measure the answer we are still computing ({@link DrawGroup.inkBox}).
+    const gbox = group.inkBox()
+    if (!gbox) {
+      group.discard()
       return false
     }
 
-    group.setAttribute('opacity', '0.7')
+    group.tag('opacity', '0.7')
+    // ⛔ The NODE: recolouring the drawn shapes is DOM work on ink, not a placement — the counted
+    //   escape (`npm run lint:paint`). ⏭️ In a SCENE a ghost is the same scene with a STYLE, and
+    //   this sweep stops existing (`docs/own-engraving-engine.md` §7.2).
+    const node = svgNode(group)!
     // ⚠️ `text, path` — a GLYPH's two shapes, which is what every sign ghost draws. It is also a
     // constraint on drawers: ink of any other kind comes out BLACK. The barline ghost's first build
     // painted its strokes with `ctx.fillRect` and reported itself — *"why the only thing is blue in
     // the ghost is the dots?"* — and the answer was to stamp the precomposed glyph instead, which is
     // what a ghost should have been doing anyway (see `./BarlineGhost`).
-    group.querySelectorAll('text, path').forEach(el => {
+    node.querySelectorAll('text, path').forEach(el => {
       if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', GHOST_BLUE)
     })
 
     const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
+    group.setPlacement(translation(dx, dy))
     return true
   } catch (_e) {
     return false

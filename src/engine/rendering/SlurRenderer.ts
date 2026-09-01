@@ -14,6 +14,7 @@ import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from 
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo, GuideLine } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
+import { svgDrawGroup, svgNode } from './svgDrawGroup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { curveArcPoints, drawCurveArc } from './curveArc'
@@ -662,7 +663,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       // highlight can recolor exactly this slur without a bbox path-scan.
       // `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-slur' here would
       // yield `class="vf-vf-slur"`, which is what this used to do.
-      const group = pass.context.openGroup?.('slur', `slur-${slur.id}`) as SVGGElement | undefined
+      const group = svgDrawGroup(pass.context.openGroup?.('slur', `slur-${slur.id}`))
       const slurStaffIndex = staffIndexOfId(score, startSlot?.staffId)
 
       // A slur is built from its two notes' own coordinates, which live in their staff's scaled
@@ -987,7 +988,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
       })
 
       pass.context.closeGroup?.()
-      if (group) pass.slurGroupMap.set(slur.id, group)
+      const node = svgNode(group)
+      if (node) pass.slurGroupMap.set(slur.id, node)
     } catch (e) {
       console.error('Could not render slur:', e)
     }
