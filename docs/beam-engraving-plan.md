@@ -6,7 +6,8 @@
 > half has been ours since long before this migration; what P4 is about is **what the drawn line
 > looks like once the grouping is settled.**
 >
-> **Status: P4a ✅ the beam's LINES · P4b ✅ the SLOPE, as a TABLE OF RULES — both 2026-09-01.**
+> **Status: P4a ✅ the beam's LINES · P4b ✅ the SLOPE (a table of rules) · P4d ✅ the cross-system
+> fragments folded in — all 2026-09-01. ⏭️ P4c (the hooks) is the one lettered step left.**
 > ⭐⭐ **P4b moved no pixel**: five rules are on the shelf, the one his eye kept is the one we already
 > drew, and `__beams.rule(…)` swaps them live. ⏳ What is left is the HOOKS (P4c) and the stem lengths
 > a beam imposes.
@@ -40,7 +41,7 @@ is drawn by the BEAM, not by the note — `StaveNote.draw` skips a stem whose `b
 | **P4a** | **the beam's LINES** | ⭐ the ink had **four owners**, three of which already shared our quad — VexFlow's was the odd one out; ⛔ no engraving opinion needed, the x's and the slope are read as public API | ✅ **2026-09-01** |
 | **P4b** | the **SLOPE** | ✅ **2026-09-01 — researched (`docs/beam-slope-research.md`), then BUILT AS A TABLE OF FIVE RULES with an instrument.** ⭐ His eye picked `vexflow`, the one we already drew ⇒ **no pixel moved**. ⛔ Which rule is *right* stays open, on purpose | ✅ **built, ⏳ undecided** |
 | **P4c** | ⏳ the **HOOKS** (partial beams) | ⛔ **gated**: §6.1 of the parent names beam hooks among the places *"where we currently have no opinion"* — `getBeamLines` decides left/right on its own, and this editor has never stated a rule | ⏭️ |
-| **P4d** | the **cross-system fragments**, folded in | ⭐ cheap once P4b/P4c exist: the renderer's two hand-drawn fragments continue *"the group's own slope and levels"* by hand today, which is a copy of arithmetic that would then have a home | ⏭️ |
+| **P4d** | the **cross-system fragments**, folded in | ✅ **2026-09-01** — and cheaper than this row predicted, because P4a had already given the two fragments `fillBeamQuad` and `beamLevelY`. What was left was the level LOOP and the start-x rule; both now live in `engrave/beams/beamLines` ({@link beamLevelRun}, {@link beamLineStartX}), and the lone fragment's hit box is DERIVED from its run instead of accumulated inside the fill loop | ✅ |
 | … | the beam's own **stem lengths** | `applyStemExtensions` — ⚠️ the same research as P3e (`docs/stem-length-research.md`), from the other end | ⏭️ |
 
 ⛔ **Nothing below P4a is scheduled**, and none of it is a defect list: the beams on his screen are

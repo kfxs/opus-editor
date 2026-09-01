@@ -12,7 +12,10 @@ import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
 import type { ToolGhost } from './ghostTypes'
 import { CROSS_SYSTEM_BEAM_WIDTH, CROSS_SYSTEM_BEAM_MARGIN, crossSystemStub } from './beamInk'
-import { beamLevelY, fillBeamQuad } from '@/engine/engrave/beams/beamLines'
+import {
+  beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,
+  drawBeamLines as fillBeamRun,
+} from '@/engine/engrave/beams/beamLines'
 import { EngravedBeam, drawBeamInkThrough } from './EngravedBeam'
 import { inkBarlines, hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
@@ -3014,21 +3017,22 @@ export class VexFlowRenderer {
     drawBeamInkThrough([beam], pass.context)
     beam.setContext(pass.vexContext).draw()
 
-    // The overhang continues the group's own slope and levels — `drawBeamLines`' arithmetic, with the
-    // line's `end` a fixed stub instead of the next notehead (beam.js:583-612). Every method it reads
-    // is public. `getStemX() - Stem.WIDTH / 2` is the x VexFlow itself ends a beam line at (beam.js:515).
+    // ⭐ P4d — the overhang continues the group's own slope and levels, and that run is now
+    // `engrave/beams`' arithmetic rather than this method's: {@link beamLevelRun} walks the levels and
+    // {@link beamLineStartX} answers where a line sits on its stem. What stays here is the only part
+    // that is genuinely the renderer's — where the stub ENDS, which depends on `measureBounds`.
     const firstStemX = staveNotes[0].getStemX()
     const beamThickness = beam.renderOptions.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
-      const startX = edge.getStemX() - Stem.WIDTH / 2
+      const startX = beamLineStartX(edge.getStemX(), Stem.WIDTH)
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
-      for (let k = 0; k < levels; k++) {
-        const beamY = beamLevelY(beamY0, k, beamThickness)
-        const startY = beam.getSlopeY(startX, firstStemX, beamY, beam.slope)
-        const endY = beam.getSlopeY(endX, firstStemX, beamY, beam.slope)
-        fillBeamQuad(pass.context, startX, startY, endX, endY, beamThickness)
-      }
+      fillBeamRun(pass.context, beamLevelRun(
+        { startX, endX }, beamY0, beamThickness, levels,
+        // ⚠️ The group's own slope, continued past its last stem — VexFlow's `getSlopeY`, which is
+        // why the callback exists rather than a slope number: `engrave/` may not import vexflow.
+        (x, baselineY) => beam.getSlopeY(x, firstStemX, baselineY, beam.slope),
+      ), beamThickness)
     }
     if (side.openLeft) overhang(staveNotes[0], -1, side.crossingLeft ?? 0)
     if (side.openRight) overhang(staveNotes[staveNotes.length - 1], 1, side.crossingRight ?? 0)
@@ -3073,32 +3077,23 @@ export class VexFlowRenderer {
     const levels = side.members[0].beamCount
     const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
-    const startX = note.getStemX() - Stem.WIDTH / 2
+    const startX = beamLineStartX(note.getStemX(), Stem.WIDTH)
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
     const leftEndX = this.crossSystemOverhangEndX(side, startX, -1, scale)
     const rightEndX = this.crossSystemOverhangEndX(side, startX, 1, scale)
-    let minY = Infinity, maxY = -Infinity
-    const stub = (endX: number) => {
-      for (let k = 0; k < levels; k++) {
-        const beamY = beamLevelY(beamY0, k, beamThickness)
-        fillBeamQuad(pass.context, startX, beamY, endX, beamY, beamThickness)
-        minY = Math.min(minY, beamY, beamY + beamThickness)
-        maxY = Math.max(maxY, beamY, beamY + beamThickness)
-      }
-    }
-    if (side.openLeft) stub(leftEndX)
-    if (side.openRight) stub(rightEndX)
+    // ⭐ P4d — the same run the side beam draws, with the identity for a slope: a lone note has none
+    //   to continue. ⭐ And the hit box is DERIVED from that run rather than accumulated inside the
+    //   fill loop, which is what it used to be (`beamRunInkBox`, and its comment on why).
+    const drawn = [
+      ...(side.openLeft ? beamLevelRun({ startX, endX: leftEndX }, beamY0, beamThickness, levels, (_x, y) => y) : []),
+      ...(side.openRight ? beamLevelRun({ startX, endX: rightEndX }, beamY0, beamThickness, levels, (_x, y) => y) : []),
+    ]
+    fillBeamRun(pass.context, drawn, beamThickness)
 
-    // A lone side has no `Beam` to ask for a bbox — build it from the stub ends. (x spans both
-    // directions if the note is open on both, which only a middle-of-three-systems lone note is.)
-    const left = side.openLeft ? leftEndX : startX
-    const right = side.openRight ? rightEndX : startX
-    if (minY <= maxY) {
-      this.elementRegistry.add({
-        type: 'beam',
-        measure: side.measures[0],
-        bbox: { x: left, y: minY, width: right - left, height: maxY - minY },
-      })
+    // A lone side has no `Beam` to ask for a bbox — build it from what was drawn.
+    const box = beamRunInkBox(drawn, beamThickness)
+    if (box) {
+      this.elementRegistry.add({ type: 'beam', measure: side.measures[0], bbox: box })
     }
   }
 

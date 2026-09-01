@@ -105,3 +105,74 @@ export function drawBeamLines(
     fillBeamQuad(ctx, line.startX, line.startY, line.endX, line.endY, thickness)
   }
 }
+
+/**
+ * ⭐ **WHERE A BEAM LINE STARTS, relative to the stem it hangs on** — half a stem-width left of the
+ * stem's own x, so the beam's edge is flush with the stem's edge rather than with its centre.
+ *
+ * ⚠️ It is VexFlow's number (`beam.js:515`) and P4a kept it, but the rule had **three owners**: theirs,
+ * inside `getBeamLines`, and both cross-system fragments in `VexFlowRenderer`, each spelling
+ * `getStemX() - Stem.WIDTH / 2` by hand. ⭐ This is the one owner on our side of the fence; theirs goes
+ * when the x's do (P4c).
+ *
+ * ⭐ Measured in a browser rather than merely transcribed: `e2e/beam.e2e.ts` asserts the drawn beam
+ * clears its first stem by exactly this much.
+ */
+export function beamLineStartX(stemX: number, stemWidth: number): number {
+  return stemX - stemWidth / 2
+}
+
+/**
+ * ⭐⭐ **A RUN OF BEAM LINES BETWEEN TWO X'S — every level of a fragment, at one slope** (P4d).
+ *
+ * The two cross-system fragments (`VexFlowRenderer.drawCrossBarSideBeam` and
+ * `…LoneFragment`) each walked their own level loop, differing only in whether there was a slope to
+ * continue. ⭐ That loop is this function, and the difference is the `levelY` argument: a side beam
+ * passes its group's slope, a lone note passes the identity because it has no slope to continue.
+ *
+ * ⛔ **`EngravedBeam` deliberately does NOT use this**, and the reason is worth stating so nobody
+ * "finishes the job" later: a real beam has a **different set of x-spans per level** (the hooks and
+ * partial beams `getBeamLines` decides), while a fragment has **one span repeated across levels**.
+ * Forcing both through one helper would mean an abstraction that fits neither.
+ *
+ * @param levelY maps a level's baseline y at an x — `(x, y) => y` for a flat stub.
+ */
+export function beamLevelRun(
+  span: { startX: number; endX: number },
+  firstLevelY: number,
+  thickness: number,
+  levels: number,
+  levelY: (x: number, baselineY: number) => number,
+): BeamLineInk[] {
+  const run: BeamLineInk[] = []
+  for (let level = 0; level < levels; level++) {
+    const baseline = beamLevelY(firstLevelY, level, thickness)
+    run.push({
+      startX: span.startX,
+      startY: levelY(span.startX, baseline),
+      endX: span.endX,
+      endY: levelY(span.endX, baseline),
+    })
+  }
+  return run
+}
+
+/**
+ * The box a run of beam lines actually inks — ⭐ **derived from the run, ⛔ not accumulated while
+ * drawing it.** The lone fragment used to widen a `minY`/`maxY` pair inside its fill loop, which made
+ * the hit box a side effect of painting: draw one fewer level and the box silently shrank.
+ *
+ * ⚠️ `thickness` is SIGNED by the stem direction (see {@link beamLevelY}), so the run's y's may be
+ * either edge — hence the min/max over both.
+ */
+export function beamRunInkBox(
+  run: readonly BeamLineInk[],
+  thickness: number,
+): { x: number; y: number; width: number; height: number } | null {
+  if (!run.length) return null
+  const xs = run.flatMap(l => [l.startX, l.endX])
+  const ys = run.flatMap(l => [l.startY, l.startY + thickness, l.endY, l.endY + thickness])
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
+}
