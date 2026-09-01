@@ -137,6 +137,12 @@ src/
                           #   ⛔ never the dots. docs/barline-join-plan.md)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
+    scene/                # ⭐⭐ WHAT WAS DRAWN, as VALUES — `Scene` + `SceneRecorder`, a
+                          #   `DrawContext` that records instead of painting. ⛔ no DOM, ⛔ no
+                          #   vexflow, ⛔ no models. `VexFlowRenderer.recordScene(fn)` tees it onto
+                          #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⚠️ It sees OUR
+                          #   primitives only; what VexFlow paints itself is the work LEFT.
+                          #   docs/own-engraving-engine.md §7.2, P1d
     paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (19
                           #   primitives) + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
                           #   + `Affine` (⭐ a PLACEMENT is a matrix, ⛔ never an x/y).
@@ -281,3 +287,10 @@ through `e2e/harness.ts`'s `window.__h` (readers for noteheads, stems, beam quad
 staves, barlines). It is NOT part of `build:check` — that gate stays browser-free —
 so run it either side of any renderer change. See `docs/ARCHITECTURE.md` §"The
 browser suite".
+
+⭐⭐ **…except through a SCENE, and that exception is now the preferred route where it reaches.**
+`VexFlowRenderer.recordScene(fn)` renders normally and hands back what was drawn as plain values
+(`engine/scene/`), so *"the barline of bar 3 stands right of bar 2's"* is arithmetic in jsdom —
+see `VexFlowRenderer.scene.test.ts`. ⚠️ It sees what OUR primitives drew, ⛔ **never** what a
+VexFlow object painted itself (noteheads, stems, beams, the stave's own lines) and ⛔ never an INK
+EXTENT, which still needs a font. The browser suite stays for exactly that half.

@@ -3,7 +3,7 @@ import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { scaling } from '@/engine/paint/Affine'
-import { svgDrawGroup } from './svgDrawGroup'
+import { drawGroupOf } from './svgDrawGroup'
 
 /**
  * The gutter's ink. Sibelius tints its Panorama gutter blue, and the tint is doing real work: it
@@ -119,7 +119,7 @@ export class GutterRenderer {
       // No barlines: the gutter is a window onto the music, not a measure of its own.
       stave.setBegBarType(Barline.type.NONE)
       stave.setEndBarType(Barline.type.NONE)
-      const group = svgDrawGroup(ctx.openGroup('gutterstaff'))
+      const group = drawGroupOf(ctx.openGroup('gutterstaff'))
       try {
         if (k !== 1) group?.setPlacement(scaling(k))
         stave.setContext(ctx).draw()

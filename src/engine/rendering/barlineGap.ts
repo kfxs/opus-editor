@@ -30,7 +30,7 @@ import { barlineJoinsBelow } from '@/engine/models/barlineJoin'
 import { staffIdAtIndex } from '@/engine/models/staffContent'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { dbg } from '@/utils/debug'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 import type { BarlinePlacement } from './BarlineRenderer'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
@@ -145,7 +145,7 @@ export function drawBarlineGap(pass: RenderPass, score: Score, gap: BarlineGap):
 
   const ctx = pass.context
   const parts = barlineSignParts(kind)
-  const group = svgDrawGroup(ctx.openGroup('stavebarline', `barline-gap-${above.measureNumber}-${above.staffIndex}-${side}`))
+  const group = drawGroupOf(ctx.openGroup('stavebarline', `barline-gap-${above.measureNumber}-${above.staffIndex}-${side}`))
   try {
     for (const stroke of parts.strokes) {
       ctx.fillRect(xAbove + stroke.x * GAP_SPACE, top, stroke.width * GAP_SPACE, bottom - top)

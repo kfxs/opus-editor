@@ -65,7 +65,7 @@ import {
   OTTAVA_PAREN_FONT, OTTAVA_PAREN_LEFT, OTTAVA_PAREN_RAISE, OTTAVA_PAREN_RIGHT, OTTAVA_PAREN_SCALE,
 } from './ottavaStyle'
 import type { RenderPass } from './RenderPass'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -439,7 +439,7 @@ export function renderOttavas(
       try {
         // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-ottava' here
         // would yield `class="vf-vf-ottava"`, the mistake the slur's comment records.
-        const group = svgDrawGroup(pass.context.openGroup?.('ottava', `ottava-${ottava.id}`))
+        const group = drawGroupOf(pass.context.openGroup?.('ottava', `ottava-${ottava.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawOttava(pass, ottava, span, x, covered, from, to, staffIds[staffIndex], staffIds[0], starts, bands)
         })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 
 /**
  * ⭐⭐ **THE SHORTHAND IS THE CONTRACT HERE**, not a formatting preference.
@@ -21,7 +21,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 /** A real `<g>` — `svgDrawGroup` is handed exactly what VexFlow's `openGroup` returns. */
 function group() {
   const g = document.createElementNS(SVG_NS, 'g') as SVGGElement
-  const handle = svgDrawGroup(g)!
+  const handle = drawGroupOf(g)!
   return { g, handle }
 }
 
@@ -133,8 +133,8 @@ describe('svgDrawGroup', () => {
   // ⚠️ Several passes call `openGroup?.()`, and `inStaffSpace` has always accepted an absent group:
   // a staff at full scale needs none.
   it('answers null for a group that was never opened', () => {
-    expect(svgDrawGroup(undefined)).toBeNull()
-    expect(svgDrawGroup(null)).toBeNull()
+    expect(drawGroupOf(undefined)).toBeNull()
+    expect(drawGroupOf(null)).toBeNull()
     expect(svgNode(null)).toBeUndefined()
   })
 })

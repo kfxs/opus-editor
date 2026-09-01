@@ -32,7 +32,7 @@
 
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { translation } from '@/engine/paint/Affine'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 
 /** Px a cursor ghost is parked LEFT of the pointer. Taste, and the one number to tune. */
 const GHOST_CURSOR_GAP_PX = 10
@@ -86,7 +86,7 @@ export function drawSignGhost(
   drawSign: () => void,
 ): boolean {
   try {
-    const group = svgDrawGroup(ctx.openGroup(groupName))
+    const group = drawGroupOf(ctx.openGroup(groupName))
     try {
       drawSign()
     } finally {

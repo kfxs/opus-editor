@@ -57,7 +57,7 @@ import { StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 import type { Measure, Score } from '@/types/music'
 import { HEADER_TO_REPEAT, barlineSignParts, dotLines, signAtBoundary, signHasHalf, signWings, type BarlineSignKind, type SignHalf } from '@/engine/layout/barlineSign'
 import { inStaffSpace } from './staffScaleGroup'
@@ -322,7 +322,7 @@ function drawSign(
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
   // own note, and for the same reason: that class is the handle the hinting pass, the dev census and
   // the e2e harness all collect barlines by. It names what the ink IS, not who put it down.
-  const group = svgDrawGroup(ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`))
+  const group = drawGroupOf(ctx.openGroup('stavebarline', `barline-${measureNumber}-${staffIndex}-${side}`))
   try {
     inStaffSpace(pass, staffIndex, group, () => {
       paintBarlineSign(ctx, kind, boundaryX, signStaff, group, wings)

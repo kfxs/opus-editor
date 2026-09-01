@@ -42,7 +42,7 @@
 import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
-import { svgDrawGroup } from './svgDrawGroup'
+import { drawGroupOf } from './svgDrawGroup'
 import type { Score } from '@/types/music'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -352,7 +352,7 @@ function drawBrace(
   const sy = (bottomY - topY) / (box.up * STAFF_SPACE_PX)
   const leftX = at.x - sign.leftSpaces * STAFF_SPACE_PX
 
-  const group = svgDrawGroup(
+  const group = drawGroupOf(
     ctx.openGroup?.(SYSTEM_SIGN_GROUP, `brace-${sign.group.group.id}-m${at.measureNumber}`))
   try {
     // ⭐ The glyph is stamped at the ORIGIN and the group carries everything: the origin sits at the

@@ -56,7 +56,7 @@ import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls
@@ -460,7 +460,7 @@ export function renderHairpins(
       try {
         // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-hairpin' here
         // would yield `class="vf-vf-hairpin"`, the mistake the slur's comment records.
-        const group = svgDrawGroup(pass.context.openGroup?.('hairpin', `hairpin-${hairpin.id}`))
+        const group = drawGroupOf(pass.context.openGroup?.('hairpin', `hairpin-${hairpin.id}`))
         inStaffSpace(pass, staffIndex, group, () => {
           drawWedge(pass, hairpin, x, covered, plan, from, to)
         })

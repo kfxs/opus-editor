@@ -39,21 +39,16 @@
  */
 
 /**
- * A group in the drawn output — the handle every `openGroup` site casts today.
+ * ⭐ **A group in the drawn output** — see `./DrawGroup`, which is what a painter hands back.
  *
- * ⏳ **`unknown` is a placeholder, and it is P1c's question.** VexFlow returns the `SVGGElement` it
- * created, and 12 of the 21 call sites cast it back to do one of exactly three things: set a
- * `transform` (rule 8's PLACEMENT), measure what the group drew and drop it if it drew nothing (the
- * ghosts), or tag the last primitive that landed in it. 🚨 Two of those sites carry the same comment
- * — *"a context's drawing calls return the context and not the node"* — which is the scene's own
- * argument written down before the scene existed: a scene primitive is a VALUE with fields, so that
- * whole read-back stops being necessary.
- *
- * ⛔ Not typed as `SVGGElement` here: that would put the DOM in this file and make a non-SVG painter
- * unrepresentable, which is the one thing this interface exists to prevent. The casts stay at the
- * call sites, where they are visible and countable, until P1c replaces them with a real handle.
+ * ⚠️ This used to be `export type DrawGroup = unknown`, a placeholder for the 12 call sites that
+ * cast `openGroup`'s result to an `SVGGElement`. P1c replaced it with a real handle: a placement, an
+ * ink box, a discard and two tags — 🚨 and one of those, `tagLast`, exists because two passes
+ * carried the same comment, *"a context's drawing calls return the context and not the node"*. In a
+ * scene a primitive is a value with fields, so that whole read-back stops being necessary.
  */
-export type DrawGroup = unknown
+export type { OpenedGroup, DrawGroup } from './DrawGroup'
+import type { OpenedGroup } from './DrawGroup'
 
 /**
  * ⭐ The 19 primitives, in the four families they fall into.
@@ -102,7 +97,7 @@ export interface DrawContext {
   // ── Grouping + hit surface ───────────────────────────────────────────────────────────────────
   /** ⚠️ VexFlow PREFIXES the class with `vf-`, so the bare name goes in — and `closeGroup()` must
    *  always run, or an open group swallows the whole rest of the render. */
-  openGroup(cls?: string, id?: string): DrawGroup
+  openGroup(cls?: string, id?: string): OpenedGroup
   closeGroup(): void
   /** An invisible rect that only exists to be hit — the pointer's target, not ink. */
   pointerRect(x: number, y: number, width: number, height: number): void

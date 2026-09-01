@@ -52,7 +52,7 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
-> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1 (in three steps, P1a ✅) → P3 → P4 → P5.**
+> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 → P4 → P5 → P1e.**
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -60,9 +60,12 @@ after P3. §5's P1 section carries the argument and the three steps. ⭐ The dem
 still stands for P1's *implementation* and never applied to its *interface*, which is where the loop
 is cut.
 
-⛔ **The hard gate is unchanged: do not start P3 before the net exists** (§6.3) — and P1b is now the
-cheapest way to get one, because once every drawing site takes a `DrawContext`, a **recording**
-implementation of it *is* the scene, and a scene diff is a better golden than a pixel diff.
+✅ **The hard gate of §6.3 is answered** — the net exists, and it is the scene rather than a pixel
+golden (`engine/scene/`, P1d). ⚠️ Half-lifted, not lifted: the scene sees what OUR primitives draw,
+and P3 is the work of moving the note into that half — so P3 builds the rest of its own net as it
+goes, element by element. ⛔ **P1e** (a painter of ours) stays after P3, for the reason that demoted
+P1 originally and still holds: while VexFlow objects paint themselves, a replacement painter must
+implement *their* interface too.
 
 🚨 §9 still carries the pre-correction sentence *"the one thing to do now: P1"*. It is marked stale
 there — ⚠️ note that its *conclusion* has now come back round to being right, by a different route
@@ -439,7 +442,8 @@ knot, so P1 is cut there.
 | **P1a** | the **glyph adapter** — one module owns `new Element` | ✅ **DONE 2026-09-01** |
 | **P1b** | `DrawContext` — our interface, and the signatures retyped | ✅ **DONE 2026-09-01** |
 | **P1c** | the **group handle** — the four things a group is used for | ✅ **DONE 2026-09-01** |
-| **P1d** | an **implementation of our own** — `paint/svg/`, and stop calling VexFlow's context | ⏭️ next |
+| **P1d** | ⭐⭐ an **implementation of our own — and it is the RECORDER**: `scene/`, the golden net | ✅ **DONE 2026-09-01** |
+| **P1e** | the **SVG painter** — `paint/svg/`, closing the four gotchas | ⛔ **BLOCKED until P3**, and the doc always said why — see below |
 
 #### ✅ P1a — `engine/rendering/glyphPainter.ts` (2026-09-01)
 
@@ -632,6 +636,57 @@ never had a complaint about. §6.1 is why that matters more than it sounds.
 ⭐ **But not "never", either — see §6.7.** VexFlow is MIT, so these two sit on a **port-if-needed**
 list rather than a build list, and we have already done it once (`chordAccidentalColumns`).
 
+#### ✅ P1d — `engine/scene/` (2026-09-01), and it is the RECORDER, ⛔ not the painter
+
+⚠️ **P1d was written as *"stop calling VexFlow's context"*. That one is still blocked, by this
+document's own argument** — the one that demoted P1 in the first place, quoted in §5 above:
+
+> *"while VexFlow objects still paint themselves our context must implement **VexFlow's**
+> `RenderContext` anyway — so it re-implements their interface rather than escaping it."*
+
+⭐ That is exactly as true today as when it was written: **18 `vexContext` uses**, every one a
+`StaveNote`, a `Beam`, a `Stave` or a `Curve` painting itself. A from-scratch `paint/svg/` would
+have to satisfy their interface as well as ours, at the highest blast radius in the plan, in
+exchange for four small gotchas. ⛔ So it is **P1e, after P3**, and the four gotchas stay open.
+
+⭐⭐ **But the OTHER implementation has no such constraint, and it is the one §7.2 has been pointing
+at all along:**
+
+> *"Geometry becomes a UNIT test… this is the single most valuable item in this document — it is
+> worth more than the golden-image net of §6.3, and it is what makes P3 safe."*
+
+**`SceneRecorder` is a `DrawContext` that writes down what it was told to draw.** `recordScene(fn)`
+tees it onto the real painter, so a render paints exactly as before *and* hands back a {@link Scene}
+of plain typed values — glyph, text, rect, path, group — with **no DOM and no VexFlow**
+(`lint:boundary` fences `scene/` the way it fences `paint/` and `fonts/`).
+
+⭐⭐ **The payoff, demonstrated rather than promised:** `VexFlowRenderer.scene.test.ts` renders a real
+four-bar score **in jsdom** and asserts that every bar's barline stands at an ascending x, that each
+is taller than it is wide, and that none is at the origin. ⚠️ **Every one of those needed a browser
+before this file existed.** §7.2's third promise — the golden becoming a diff that names *which
+primitive moved* — is now a `toEqual` on a value.
+
+⚠️ **What the scene does NOT hold, and this is the honest half:** anything a VexFlow object paints
+itself. Noteheads, stems, flags, beams, the stave's own lines. ⭐ **That gap is not a defect of the
+scene — it is the migration's remaining work, and it is the same number `lint:paint` reports from
+the other side.** Every P3/P4 commit that stops a VexFlow object painting itself adds its ink here
+for free, so **the scene's coverage and the migration's progress are one measurement.**
+
+🚨 **Two bugs the recorder's own spec caught, both silent, both worth recording:**
+1. **The tee forwarded no GROUP operations.** The real painter hands back its raw `SVGGElement`, not
+   a handle, so every placement, tag and discard was recorded and **never painted**. ⇒ the recorder
+   takes a `wrapGroup` constructor parameter (`rendering/svgDrawGroup`), because `scene/` may not
+   import `rendering/`.
+2. **`node()` answered the scene group while teeing.** Six highlight maps store what it returns and
+   the editor recolours it later — they would have filled with objects no highlight can paint. ⇒ it
+   defers to the real painter's node whenever there is one.
+
+⭐ And a third, in the ratchet rather than the code: `lint:paint` counted **comment lines**, so
+writing `scene/`'s doc comment "raised" the residue from 24 to 28 and reported two files that draw
+nothing as offenders. ⛔ **A ratchet that punishes writing down WHY gets routed around by people not
+explaining themselves.** It now measures code only, and the ceiling fell to the honest **18** — the
+residue did not shrink, the measurement got honest.
+
 ---
 
 ## 6. The honest risks
@@ -657,6 +712,15 @@ code-motion regression in the renderer, not a picture-perfect golden of every fe
 
 ⭐ **Replacing note drawing needs image-diff goldens, and we do not have them.** That is the one
 piece of infrastructure to build before P3 — not after, and not "as we go".
+
+> ✅ **ANSWERED 2026-09-01, and by the better of the two candidates** (§7.2's own claim: the scene is
+> *"worth more than the golden-image net"*). `engine/scene/` records a render as values, so the net
+> for P3 is a **scene diff**, not a pixel diff: stable across browsers and font versions, readable
+> in review, and it names which primitive moved. ⚠️ **The gate is only half-lifted**: the scene sees
+> what OUR primitives draw, and P3 is precisely the work of moving the NOTE into that half. ⭐ The
+> honest reading is that P3 now builds its own net as it goes — each element, once ours, is
+> unit-testable the moment it stops being VexFlow's — which is a better position than a pixel
+> golden of a picture nobody can diff by eye.
 
 ### 6.4 ⚠️ jsdom sees none of this
 Every geometry assertion in the unit suite measures zeros

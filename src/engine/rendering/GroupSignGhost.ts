@@ -34,7 +34,7 @@
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { scalingAbout } from '@/engine/paint/Affine'
-import { svgDrawGroup } from './svgDrawGroup'
+import { drawGroupOf } from './svgDrawGroup'
 import { drawGlyph } from './glyphPainter'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawSignGhost } from './ghostCursor'
@@ -103,7 +103,7 @@ export function drawGroupSignGhost(
   const sx = symbol === 'brace' ? BRACE_DEPTH_SPACES / (box.right - box.left) : sy
 
   return drawSignGhost(ctx, 'ghost-groupsign', cursorX, cursorY, () => {
-    const group = svgDrawGroup(ctx.openGroup('groupsign-scale'))
+    const group = drawGroupOf(ctx.openGroup('groupsign-scale'))
     try {
       // Scaled about the cursor, so the sign hangs where the pointer is whatever its own box says.
       group?.setPlacement(scalingAbout(sx, sy, 0, cursorY))

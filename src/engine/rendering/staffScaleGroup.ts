@@ -1,7 +1,7 @@
 import type { RenderPass } from './RenderPass'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { scaling } from '@/engine/paint/Affine'
-import { svgDrawGroup } from './svgDrawGroup'
+import { drawGroupOf } from './svgDrawGroup'
 
 /**
  * **Ink that belongs to one staff but is drawn outside its measure groups** — the ties, slurs and
@@ -50,7 +50,7 @@ export function inScaledStaffGroup<T>(
   const k = pass.staffScale(staffIndex)
   if (k === 1) return draw()
 
-  const group = svgDrawGroup(pass.context.openGroup?.(STAFF_SCALE_GROUP, id))
+  const group = drawGroupOf(pass.context.openGroup?.(STAFF_SCALE_GROUP, id))
   try {
     return inStaffSpace(pass, staffIndex, group, draw)
   } finally {

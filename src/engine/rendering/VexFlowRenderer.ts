@@ -19,7 +19,9 @@ import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
 import { scaling } from '@/engine/paint/Affine'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { SceneRecorder } from '@/engine/scene/SceneRecorder'
+import type { Scene } from '@/engine/scene/Scene'
 // Engine-owned notation styles (cursor ghosts, selection highlight). Imported here
 // so they travel with the renderer — no UI-framework wiring required. See notation.css.
 import './notation.css'
@@ -444,6 +446,8 @@ function logSystemChanges(
 export class VexFlowRenderer {
   private renderer: Renderer | null = null
   private context: SVGContext | null = null
+  /** The scene being recorded this render, or null — see {@link VexFlowRenderer.recordScene}. */
+  private recorder: SceneRecorder | null = null
   private readonly svgContainer: HTMLElement
   /** Stored bounds for each rendered measure (keyed by measure number) */
   private measureBounds: Map<number, MeasureBounds> = new Map()
@@ -794,7 +798,14 @@ export class VexFlowRenderer {
       score,
       // ⭐ ONE object, two names: `context` is what a pass draws through (our own `DrawContext`),
       // `vexContext` is the same thing spelled as the coupling it still is — see `RenderPass`.
-      context: this.context!,
+      //
+      // ⭐⭐ …and when a SCENE is being recorded, `context` is the recorder TEEING onto it: every
+      // pass paints exactly as before and the drawing is written down as values as well
+      // (`engine/scene/`, `docs/own-engraving-engine.md` P1d). ⛔ `vexContext` is never the
+      // recorder — a VexFlow object needs the real thing, and what it paints is invisible to the
+      // scene by construction. That gap IS the migration's remaining work, so it is the same
+      // number `lint:paint` reports.
+      context: this.recorder ?? this.context!,
       vexContext: this.context!,
       staveNoteMap: this.staveNoteMap,
       fanMemberAnchorMap: this.fanMemberAnchorMap,
@@ -1898,7 +1909,9 @@ export class VexFlowRenderer {
     }
 
     const key = measureGroupKey(placement.measureNumber, placement.staffIndex)
-    const group = svgDrawGroup(this.context.openGroup('measure', key))
+    // ⭐ Through the PASS's context, so a recorded render captures the measure group and everything
+    //   our own primitives draw inside it. `this.context` would bypass the recorder entirely.
+    const group = drawGroupOf(pass.context.openGroup('measure', key))
     const groupNode = svgNode(group)!
     this.measureGroups.set(key, groupNode)
     // ⭐ THE staff-size mechanism, and it is one attribute: the bar's own `<g>` — which already
@@ -1919,7 +1932,7 @@ export class VexFlowRenderer {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
       // target; leaving it open would nest the entire rest of the score — every later measure, the
       // ties, the slurs, the ghosts — inside this one measure's group (cf. TempoLayout's own note).
-      this.context.closeGroup()
+      pass.context.closeGroup()
     }
   }
 
@@ -3746,6 +3759,34 @@ export class VexFlowRenderer {
     return {
       lineTopPx, lineLeftPx, staffTopPx, staffSize, lineHeightPx, contentHeightPx,
       pageOfLine: pages.pageOfLine, pageCount: pages.pageCount,
+    }
+  }
+
+  /**
+   * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN AS VALUES** — `docs/own-engraving-engine.md` P1d.
+   *
+   * Runs `fn` (normally one `renderScore`) with a {@link SceneRecorder} teed onto the real context,
+   * so the page is painted exactly as it would have been *and* the drawing is written down. ⭐ §7.2's
+   * whole promise in one method: **geometry becomes a unit test** — a scene is plain values, so
+   * *"the barline of bar 3 stands at x"* is arithmetic in jsdom rather than a browser assertion.
+   *
+   * ⚠️ **The scene holds what OUR primitives drew, ⛔ not what VexFlow objects painted themselves.**
+   * Noteheads, stems, beams and the stave's own lines go through `vexContext` and are invisible here.
+   * ⭐ That is not a limitation to work around — it is the migration's remaining work, measured:
+   * every P3/P4 commit that stops a VexFlow object painting itself adds its ink to this scene, and
+   * `npm run lint:paint` reports the same number from the other side.
+   *
+   * ⛔ Not re-entrant, and it restores the previous recorder rather than clearing it — nesting would
+   * silently give the inner call an empty scene and the outer one a doubled one.
+   */
+  recordScene<T>(fn: () => T): { scene: Scene; result: T } {
+    const previous = this.recorder
+    const recorder = new SceneRecorder(this.context ?? undefined, drawGroupOf)
+    this.recorder = recorder
+    try {
+      return { scene: recorder.scene, result: fn() }
+    } finally {
+      this.recorder = previous
     }
   }
 

@@ -61,7 +61,7 @@ import {
   TRILL_WIGGLE_GLYPH,
 } from './trillStyle'
 import type { RenderPass } from './RenderPass'
-import { svgDrawGroup, svgNode } from './svgDrawGroup'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -575,7 +575,7 @@ export function renderTrills(
     try {
       // ⚠️ `openGroup` prefixes both class and id with `vf-` itself — passing 'vf-trill' here
       // would yield `class="vf-vf-trill"`, the mistake the slur's comment records.
-      const group = svgDrawGroup(pass.context.openGroup?.('trill', `trill-${trill.id}`))
+      const group = drawGroupOf(pass.context.openGroup?.('trill', `trill-${trill.id}`))
       inStaffSpace(pass, from.staffIndex, group, () => {
         drawTrill(pass, trill, span, voice, geometry, covered, from, staffIds[from.staffIndex], staffIds[0], bands)
       })

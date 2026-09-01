@@ -80,14 +80,24 @@ class SvgDrawGroup implements DrawGroup {
 }
 
 /**
- * Wrap what `DrawContext.openGroup` handed back, when the painter is the SVG one.
+ * ⭐⭐ **THE HANDLE FOR WHATEVER `openGroup` HANDED BACK** — and a call site must not care which
+ * painter is installed.
+ *
+ * `OpenedGroup` is deliberately painter-specific: the SVG painter returns its `SVGGElement`, and a
+ * recording one (`engine/scene/SceneRecorder`) returns a handle it made itself. ⭐ Normalising here,
+ * once, is what lets every pass write `drawGroupOf(ctx.openGroup(...))` and keep working when a
+ * scene is being recorded — 🚨 the alternative, tried first, was a `painter === theRealOne`
+ * conditional at the one call site that needed the node, which is a reader that assumes.
  *
  * ⚠️ **Answers null for a group that was never opened.** Several passes call `openGroup?.()`, which
  * is `undefined` on a context that does not group — and `inStaffSpace` has always taken a
  * possibly-absent group, because a staff at full scale needs no group at all.
  */
-export function svgDrawGroup(opened: OpenedGroup): DrawGroup | null {
-  return opened ? new SvgDrawGroup(opened as SVGGElement) : null
+export function drawGroupOf(opened: OpenedGroup): DrawGroup | null {
+  if (!opened) return null
+  // Already a handle — a recording painter's, which knows how to forward to the real page.
+  if (typeof (opened as DrawGroup).setPlacement === 'function') return opened as DrawGroup
+  return new SvgDrawGroup(opened as SVGGElement)
 }
 
 /** The `SVGGElement` behind a handle this renderer made — for the maps the EDITOR reads back.

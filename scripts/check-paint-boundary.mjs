@@ -68,12 +68,30 @@ const ALLOWED = new Map([
   ['engine/rendering/tempoNudgePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
 ])
 
-/** ⚠️ The ceilings, not targets. Lower one when a migration lands; ⛔ never raise either. */
-const VEX_CONTEXT_CEILING = 24
+/** ⚠️ The ceilings, not targets. Lower one when a migration lands; ⛔ never raise either.
+ *  ⭐ 24 → 18 when this check stopped counting comment lines (see {@link isComment}) — the residue
+ *  did not shrink, the measurement got honest. */
+const VEX_CONTEXT_CEILING = 18
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
 const SVG_NODE_CEILING = 10
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
+
+/**
+ * ⚠️ **COMMENTS DO NOT COUNT, and learning that was worth a paragraph.**
+ *
+ * The first version of this check matched any line, so the moment `engine/scene/` was written — a
+ * module whose whole doc comment is *about* the VexFlow residue and quotes the number — the count
+ * "rose" from 24 to 28 and two files that draw nothing at all were reported as offenders.
+ *
+ * 🚨 A ratchet that punishes writing down WHY is a ratchet people route around by not explaining
+ * themselves, which costs far more than it protects. So the residue is measured in CODE, and prose
+ * about the residue is free — which is what lets the argument live next to the thing it argues about.
+ */
+function isComment(line) {
+  const t = line.trim()
+  return t.startsWith('*') || t.startsWith('//') || t.startsWith('/*')
+}
 
 function walk(dir) {
   const out = []
@@ -95,15 +113,16 @@ for (const file of walk(SRC)) {
   const lines = text.split('\n')
   // `vexContext` is counted everywhere it is USED, including in allowed files — the point of the
   // ceiling is the total amount of coupling, not how many files hold it.
+  const code = lines.map(l => (isComment(l) ? '' : l))
   if (rel !== 'engine/rendering/RenderPass.ts') {
-    vexContextUses += lines.filter(l => /\bvexContext\b/.test(l)).length
+    vexContextUses += code.filter(l => /\bvexContext\b/.test(l)).length
   }
   // The escape's own definition does not count against its ceiling.
   if (rel !== 'engine/rendering/svgDrawGroup.ts') {
-    svgNodeUses += lines.filter(l => /\bsvgNode\(/.test(l)).length
+    svgNodeUses += code.filter(l => /\bsvgNode\(/.test(l)).length
   }
   if (ALLOWED.has(rel)) continue
-  const hit = lines.findIndex(l => NAMES.test(l))
+  const hit = code.findIndex(l => NAMES.test(l))
   if (hit >= 0) offenders.push(`${rel}:${hit + 1}  ${lines[hit].trim().slice(0, 96)}`)
 }
 
