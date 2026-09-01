@@ -608,7 +608,7 @@ not re-litigating taste, it is re-sourcing agreed numbers from something that ca
 distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
 re-sourced. Both are why that plan exists.
 
-### P3 — The note — ⚠️ THE BIG ONE — ⏳ **STARTED 2026-09-01: P3a, the LEDGER LINES**
+### P3 — The note — ⚠️ THE BIG ONE — ⏳ **STARTED 2026-09-01: P3a ledger lines, P3b the FLAG**
 📄 **`docs/note-engraving-plan.md`** — P3's own plan: the five things `StaveNote.draw()` does, the
 order they come back in, what each one costs, and the research per piece.
 
@@ -632,7 +632,28 @@ order they come back in, what each one costs, and the research per piece.
 > rule reproduces VexFlow's `doubleWidth` case exactly, and that equivalence is a spec rather than an
 > assumption.
 >
-> ⏳ **Two numbers it deliberately did NOT decide**, both now one line to flip and both HIS: the
+> ✅ **P3b — the FLAG (2026-09-01).** Chosen next because it has the **opposite** property to P3a:
+> ⛔ **no owner at all** — `vf-flag` is read by nothing, it is not a kind in the `selectedElement`
+> union, no anchor or highlight map holds one — 🚨 **and it is §3's bug class sitting in the open.**
+> VexFlow places a flag vertically with `getTextMetrics().actualBoundingBoxDescent`, a **runtime
+> `measureText`**: the identical mechanism that put every whole rest ~9.7 px off-centre until
+> `musicFontReady` gated the first render, and it answers **0 in jsdom**.
+>
+> ⭐⭐ **P3b's real contribution is that the dependency is now a NAMED ARGUMENT** — `flagPlacement`'s
+> `glyphReach` — instead of a call buried inside a draw method. ⛔ It did **not** re-source it:
+> `fonts/flagDropFromTip` has answered the same question from Bravura since P2, and 🚨 the room a bar
+> RESERVES for a flag already comes from that one while the flag is DRAWN from the canvas — the same
+> two-sources shape as the ledger overhang, one layer down. ⭐ It is a one-argument swap now, and
+> `note-engraving-plan.md` §3.3 says what to measure before taking it. First **glyph** of a note in
+> the scene; no pixel moved.
+>
+> ⚠️ One rule bent, and both files say so: `engrave/notes/flag.ts` stamps its own glyph rather than
+> calling `rendering/glyphPainter`. ⭐ What that module owns is font RESOLUTION, and the flag's face
+> is already resolved — so `Element.renderText` is exactly the two primitives we own. It has to be
+> that way round: `engrave/` may not import `vexflow`, and a layer needing an `Element` to put a
+> glyph down could never be painted to PDF or recorded as a scene.
+>
+> ⏳ **Two numbers P3a deliberately did NOT decide**, both now one line to flip and both HIS: the
 > overhang (we draw 0.3 spaces, the font says 0.4, Gould says the line is *"just over two spaces
 > long"* — ⚠️ and the ink table already reserves the font's 0.4, so the two halves of this editor
 > disagree today) and the weight (we draw 1.23× a staff line from the font's ratio, Gould says

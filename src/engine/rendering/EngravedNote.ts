@@ -18,9 +18,9 @@
  * | part of the note | drawn by | since |
  * |---|---|---|
  * | **ledger lines** | ⭐ **us** — `engrave/notes/ledgerLines` | P3a, 2026-09-01 |
- * | stem | VexFlow | ⏭️ P3 |
- * | noteheads | VexFlow | ⏭️ P3 |
- * | flag | VexFlow | ⏭️ P3 |
+ * | stem | VexFlow | ⏭️ P3 — ⚠️ it drags the stem SELECTION with it (the highlight resolves a stem by its own SVG element) |
+ * | noteheads | VexFlow | ⏭️ P3 — and each head paints its own modifiers |
+ * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
  *
  * ⚠️ **Not every `StaveNote` in the app is one of these.** `GhostRenderer` builds plain ones for the
@@ -29,14 +29,15 @@
  * two pictures are identical today (this commit moved no pixel), so there is nothing to drift yet;
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
-import { StaveNote } from 'vexflow'
+import { StaveNote, Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
+import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 
 export class EngravedNote extends StaveNote {
   /**
    * The surface this note's OWN ink draws on — `RenderPass.context`, which is the recorder during a
-   * `recordScene` render and the real painter otherwise.
+   * `recordScene` render and the real painter otherwise. Read by every override above.
    *
    * ⭐ It is a field rather than a parameter because `draw()` is VexFlow's and takes none. Null until
    * {@link drawNoteInkThrough} sets it, and then the note falls back to `checkContext()` — the same
@@ -87,6 +88,40 @@ export class EngravedNote extends StaveNote {
       // The stave's ledger style with this note's own on top — VexFlow's own merge, kept because
       // `hiddenElements` recolours a note by that second half.
       { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() },
+    )
+  }
+
+  /**
+   * ⭐ **OURS as of P3b.** The rule is `engrave/notes/flag`: *the flag's outer edge meets the stem
+   * tip, on the stem's own x.* Everything here is the adapter's half — the four numbers only a
+   * `StaveNote` can answer.
+   *
+   * ⚠️ `shouldDrawFlag()` stays VexFlow's and is not second-guessed: it is `hasStem && hasFlagGlyph
+   * && !beam && !isRest`, and the `!beam` half is load-bearing in this editor — a fanned slot wears
+   * a PLACEHOLDER beam precisely so its flag is suppressed, and `applyTremoloStemStretch` keys off
+   * the same predicate.
+   *
+   * 🚨 **`getTextMetrics()` is a runtime `measureText`** — §3's bug class — and P3b's whole
+   * contribution is that it now leaves this file as a NAMED ARGUMENT instead of hiding inside a draw
+   * method. ⛔ Not re-sourced: swapping it for `fonts/flagDropFromTip` is a measurement to make
+   * first (`docs/note-engraving-plan.md` §3.3), and P3b moved no pixel.
+   */
+  override drawFlag(): void {
+    if (!this.shouldDrawFlag()) return
+    const { yTop, yBottom } = this.getNoteHeadBounds()
+    const up = this.getStemDirection() !== Stem.DOWN
+    // ⚠️ `Stem.getHeight()` is SIGNED by the stem's direction, which is what lets one subtraction
+    // answer both ways up — VexFlow spells it as two branches and this is the same arithmetic.
+    const tipY = (up ? yBottom : yTop) - this.checkStem().getHeight()
+    const metrics = this.flag.getTextMetrics()
+    const reach = up ? metrics.actualBoundingBoxAscent : metrics.actualBoundingBoxDescent
+    drawFlag(
+      this.inkSurface ?? this.checkContext(),
+      this.flag.getText(),
+      flagPlacement({ x: this.getStemX(), tipY, up }, Stem.WIDTH, reach),
+      // ⭐ The face VexFlow resolved for this note when it built the flag — handed over as a value,
+      // which is what keeps `engrave/` free of `vexflow` (see that module's header).
+      this.flag.fontInfo,
     )
   }
 }

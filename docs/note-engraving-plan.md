@@ -4,7 +4,7 @@
 > calls *"⚠️ THE BIG ONE"*. ⛔ Read §0 of that document first — the goal order, the twelve standing
 > rules, and the one-line test — because everything below is an application of it.
 >
-> **Status: P3a ✅ (2026-09-01, the LEDGER LINES). P3b next, and ⛔ not yet chosen — §4.**
+> **Status: P3a ✅ (the LEDGER LINES) · P3b ✅ (the FLAG), both 2026-09-01. P3c not chosen — §4.**
 
 ---
 
@@ -46,8 +46,9 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | | piece | why here | state |
 |---|---|---|---|
 | **P3a** | **ledger lines** | ⭐ the only piece with **three owners already**; pure arithmetic; no font in it; no formatter interaction; ⛔ nothing else reads it | ✅ **2026-09-01** |
-| **P3b** | ⛔ **not chosen** — the candidates and their prices are §4 | | ⏭️ |
-| … | the stem, the flag, the noteheads, the dots | each needs its own research committed first (§6.1 of the parent) | ⏭️ |
+| **P3b** | **the flag** | ⭐ the only piece with **no owner at all** — no selection kind, no anchor map, no registry entry — and 🚨 it is §3's **bug class in the open**: VexFlow places it with a runtime `measureText` | ✅ **2026-09-01** |
+| **P3c** | ⛔ **not chosen** — the candidates and their prices are §4 | | ⏭️ |
+| … | the stem, the noteheads, the dots | each needs its own research committed first (§6.1 of the parent) | ⏭️ |
 | **last** | the pointer rect + `getBoundingBox` | ⚠️ that one is the RULER, not the ink — it moves with the registry, not with the drawing | ⏭️ |
 
 ⛔ **`Stave.padding` is not unblocked until the noteheads move**, which is what the parent plan
@@ -117,6 +118,60 @@ that by design. It is generalised now, not weakened.
 
 ---
 
+## 1b. ✅ P3b — THE FLAG (2026-09-01)
+
+### 1b.1 Why it was the second piece
+
+**Because it has no owner at all, and because of what it exposes.**
+
+- ⭐ **Eight lines, one glyph, one placement.** Grepped: `vf-flag` is read by nothing in `src/`, the
+  flag is not a kind in the `selectedElement` union, and no anchor or highlight map holds one. It
+  draws inside the note's own `vf-stavenote` group, so the selection recolour keeps working
+  untouched — the same free ride P3a got.
+- 🚨🚨 **It is `own-engraving-engine.md` §3's BUG CLASS, sitting in the open.** VexFlow places the
+  flag vertically with `this.flag.getTextMetrics().actualBoundingBoxDescent` — a **runtime
+  `measureText` on a canvas**. That is the identical mechanism that put every whole rest ~9.7 px
+  off-centre until `musicFontReady` gated the first render. It answers **0 in jsdom**, and
+  `engine/fonts/` has held Bravura's own answer to the same question since P2 (`flagGlyph`,
+  `flagDropFromTip`).
+
+### 1b.2 The rule, stated
+
+> ⭐ **The flag's own outer edge meets the stem TIP** — its top for an up-stem, its bottom for a
+> down-stem — **and it stands on the stem's left edge**, half a stem back from its centre line.
+
+That is VexFlow's two branches with the sign of `Stem.getHeight()` folded out, and it agrees with
+Gould from the other end (printed p. 16): a stem is measured so *"the tail should avoid overshooting
+the notehead"* — ⭐ the flag hangs FROM the tip and the STEM is what grows, never the flag that
+moves. ⛔ So nothing in `engrave/notes/flag.ts` clamps or nudges: a flag that looks wrong is a
+stem-length question, and that is P3's stem piece.
+
+### 1b.3 What landed
+
+- `engine/engrave/notes/flag.ts` — `flagPlacement` (the rule, pure) + `drawFlag` (the ink).
+- `EngravedNote.drawFlag()` — the adapter's half: the four numbers only a `StaveNote` can answer.
+  ⚠️ `shouldDrawFlag()` stays VexFlow's and is **not** second-guessed; its `!beam` half is
+  load-bearing here (a fanned slot wears a placeholder beam precisely to suppress its flag, and
+  `applyTremoloStemStretch` keys off the same predicate).
+- ⭐⭐ **The first GLYPH of a note in the scene**, where P3a put the first line: a `flag` group with
+  one `text` primitive, asserted in jsdom — *a lone eighth draws one, a quarter draws none, two
+  beamed eighths draw none.*
+
+**⛔ NO PIXEL MOVED.** The glyph, its x, its baseline and its FACE are the ones VexFlow used — the
+face is handed over as a value (`this.flag.fontInfo`), which is also what keeps `engrave/` free of
+`vexflow`. 6060+ unit tests and 275 browser tests green.
+
+### 1b.4 ⚠️ The one rule it bends, and the sentence that keeps it honest
+
+`rendering/glyphPainter` is *"the one place VexFlow still paints a glyph"*, and `flag.ts` stamps its
+own. ⭐ **That is not a second copy**: what `glyphPainter` owns is **font RESOLUTION** — `new
+Element(tag)` turning a tag into a `FontInfo`, its own header's *"the tag is not a comment, it
+selects the font"*. The flag's face is already resolved, so `Element.renderText` is exactly the two
+primitives we own. ⭐ And it has to be that way round: a layer that needed an `Element` to put a
+glyph down could never be painted to PDF or recorded as a scene. Both files now say so.
+
+---
+
 ## 2. ⭐ What the books say about a ledger line — Gould pp. 26–27
 
 Located in `reference/gould-behind-bars-fulltext.txt`, read on the rendered pages (PDF page =
@@ -170,6 +225,27 @@ evidence — the shape `docs/font-metrics-plan.md` §3.6 already batches six of.
 
 ---
 
+### 3.3 ⏭️ The FLAG's REACH — a MEASUREMENT to make, ⛔ not a refactor to assume
+
+Unlike §3.1 and §3.2 this one is not a taste call; it is a question with a checkable answer, and it
+is the natural follow-on to P3b.
+
+- We place the flag with **`getTextMetrics().actualBoundingBoxAscent/Descent`** — VexFlow's runtime
+  canvas measurement of the drawn glyph.
+- `engine/fonts/flagDropFromTip(duration, stemUp)` answers the same question from **Bravura's own
+  metrics** — `glyphBox(flag).down` for an up-stem, `.up` for a down-stem — and it is already used
+  by `layout/measureColumns` to reserve the flag's room.
+- 🚨 **So the room a bar reserves for a flag and the place the flag is drawn come from two different
+  sources today.** That is the same shape as §3.1's ledger overhang, one layer down.
+- ⭐ P3b made it a **one-argument swap** (`flagPlacement`'s `glyphReach`). ⛔ Do not take it blind:
+  **measure both in a browser first** — if they agree, the swap kills a font-race dependency for
+  free; if they do not, the difference is a finding for his eye, not a bug to fix quietly.
+- ⚠️ And the browser is the only place that measurement can be made: in jsdom the canvas number is 0
+  and the font number is not, so a unit test comparing them would be comparing one real number with
+  a zero.
+
+---
+
 ## 4. ⏭️ WHAT IS NEXT — the candidates, ⛔ not a queue
 
 ⛔ Nothing here is scheduled. Listed with its price so the choice can be made on evidence.
@@ -182,9 +258,8 @@ evidence — the shape `docs/font-metrics-plan.md` §3.6 already batches six of.
 - **The asymmetric accidental trim** (LilyPond: shorten the LEFT end only, keep the right).
   `ledgerAccidentalClearance` says in as many words that it *"needs the lines to be ours to draw"*.
   ⭐ They are now. ⛔ Still not taken — the symmetric trim is what is on his screen.
-- **The FLAG.** Self-contained (one glyph on a stem tip), and `fonts/flagDropFromTip` already
-  measures it. ⚠️ But it interacts with the beam (`shouldDrawFlag` reads `!this.beam`) and with the
-  tremolo stem stretch.
+- ✅ ~~**The FLAG.**~~ — done, P3b. ⏭️ What it left behind is §3.3, and that is a browser
+  measurement rather than a code change.
 - **The DOTS.** `dotPlacement` is already ours and already moves them post-format; drawing them
   would let `reserveDotRoom` stop being a modifier-width trick. ⚠️ Dots are `Modifier`s, so this is
   the first piece that touches the modifier machinery.
@@ -195,7 +270,7 @@ evidence — the shape `docs/font-metrics-plan.md` §3.6 already batches six of.
   currently have no opinion"* — **that is now out of date, and this paragraph is the correction:
   the opinion is on the shelf, unread.**
 - **The NOTEHEAD.** The big one inside the big one, and the one that unblocks `Stave.padding`.
-  ⛔ Do not start it before the flag and the stem, whose geometry it decides.
+  ⛔ Do not start it before the stem, whose geometry it decides.
 
 ---
 

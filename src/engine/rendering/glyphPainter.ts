@@ -47,6 +47,19 @@
  * ⭐ So the tag stays a parameter: it is load-bearing, and it doubles as the debug label it has
  * always been.
  *
+ * ## ⚠️ The ONE stamping site that is deliberately not here — and the line that keeps "one place" true
+ *
+ * `engrave/notes/flag.ts` (P3b) calls `ctx.setFont` + `ctx.fillText` itself. That is not a second
+ * copy of this module: what this one owns is **font RESOLUTION** (a tag → a `FontInfo`, via
+ * `Element`), and the flag's face is **already resolved** — VexFlow assigned it when it built the
+ * flag, and the adapter hands it over as a value. With nothing left to resolve, `Element.renderText`
+ * is exactly those two primitives.
+ *
+ * ⭐ And it has to be that way round: `engrave/` may not import `vexflow` (§8.2 rule 11), so a layer
+ * that needed an `Element` to put a glyph down could never be painted to PDF or recorded as a
+ * scene. ⛔ The rule this preserves is *"never `new Element(...)` in your own file"* — which that
+ * module does not do.
+ *
  * ## ⚠️ The size is in POINTS
  *
  * Every `sizePt` here is the number handed to `setFontSize`, and VexFlow reads a bare font size as

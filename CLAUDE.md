@@ -152,9 +152,10 @@ src/
                           #   ceilings (they may only fall). docs/own-engraving-engine.md P1b/P1c
     engrave/              # ⭐⭐ WHAT SYMBOLS, WHERE — music → ink through `paint/`, and the home
                           #   P3 moves the NOTE into one piece at a time (docs/note-engraving-plan.md).
-                          #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` is the
-                          #   first inhabitant: the ONE owner of the ledger rule AND its ink, where
-                          #   three copies used to be. ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` (P3a — the
+                          #   ONE owner of the rule AND its ink, where three copies used to be) and
+                          #   `notes/flag` (P3b — ⭐ its FONT REACH is a named argument, not a hidden
+                          #   `measureText`). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)

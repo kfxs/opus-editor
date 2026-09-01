@@ -52,8 +52,12 @@ function buildScore(bars = 4): ScoreModel {
 
 /** Render once, with the drawing written down. */
 function render(bars = 4) {
+  return renderModel(buildScore(bars))
+}
+
+/** …and the same, for a fixture built by hand. */
+function renderModel(model: ScoreModel) {
   const renderer = makeRenderer()
-  const model = buildScore(bars)
   const { scene, result } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
   return { renderer, model, scene, drew: result }
 }
@@ -178,6 +182,58 @@ describe('⭐⭐ P3a — the LEDGER LINES, the first piece of a NOTE in the scen
   it('🚨 the break-test — a staff-internal note draws NO ledger, and the fixture’s C4 does', () => {
     const withLedger = horizontalStrokes(render(1).scene).length
     expect(withLedger, 'the C4 is there').toBe(1)
+  })
+})
+
+describe('⭐⭐ P3b — the FLAG, the first GLYPH of a note in the scene', () => {
+  /** SMuFL's flag range — E240 `flag8thUp` … E24F. The only thing that tells one glyph from another. */
+  const isFlag = (code: number): boolean => code >= 0xe240 && code <= 0xe24f
+
+  /** Every glyph drawn inside a `flag` group, as its codepoint and anchor. */
+  function flags(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'flag')
+      .flatMap(g => g.children.filter(c => c.kind === 'text'))
+      .map(t => (t.kind === 'text' ? { code: t.text.codePointAt(0) ?? 0, x: t.x, y: t.y } : null))
+      .filter((f): f is { code: number; x: number; y: number } => f !== null)
+  }
+
+  /** One bar, one lone eighth — a single eighth has nothing to beam with, so it keeps its flag. */
+  function loneEighth(): ScoreModel {
+    const model = new ScoreModel()
+    model.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })
+    return model
+  }
+
+  it('⭐ a lone eighth draws ONE flag glyph, in its own `flag` group', () => {
+    const drawn = flags(renderModel(loneEighth()).scene)
+    expect(drawn).toHaveLength(1)
+    expect(isFlag(drawn[0].code), `E${drawn[0].code.toString(16)} is in SMuFL's flag range`).toBe(true)
+    // ⭐ A real drawn coordinate in jsdom — the note is somewhere in the bar, ⛔ not at the origin.
+    expect(drawn[0].x).toBeGreaterThan(0)
+  })
+
+  it('⛔ a QUARTER draws none — `shouldDrawFlag` is still VexFlow’s, and still governs', () => {
+    expect(flags(render(1).scene), 'the fixture is quarters').toEqual([])
+  })
+
+  it('⛔ …and neither do two BEAMED eighths — the `!beam` half of that predicate', () => {
+    const model = new ScoreModel()
+    model.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 5, duration: '8', measure: 1, beat: frac(1, 2) })
+    expect(flags(renderModel(model).scene), 'a beam replaces both flags').toEqual([])
+  })
+
+  it('⚠️ the flag’s baseline sits ON the stem tip here — because jsdom cannot measure the font', () => {
+    // 🚨 THE POINT OF THE WHOLE PIECE, asserted rather than described: VexFlow places a flag with a
+    // runtime `measureText`, which answers 0 with no canvas — so in jsdom the glyph's reach is 0 and
+    // its baseline lands exactly at the tip. In a browser it does not. That is §3's bug class, and
+    // P3b's contribution is that the number is now an ARGUMENT (`flagPlacement`'s `glyphReach`)
+    // instead of a hidden call. ⛔ Where it comes from is unchanged — see note-engraving-plan §3.3.
+    const drawn = flags(renderModel(loneEighth()).scene)
+    expect(drawn[0].y, 'a stem tip is above the staff top, and the staff starts below y=0')
+      .toBeGreaterThan(0)
+    expect(Number.isFinite(drawn[0].y), '⛔ never NaN — the empty metrics are zeros, not undefined')
+      .toBe(true)
   })
 })
 
