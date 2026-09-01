@@ -225,24 +225,44 @@ evidence — the shape `docs/font-metrics-plan.md` §3.6 already batches six of.
 
 ---
 
-### 3.3 ⏭️ The FLAG's REACH — a MEASUREMENT to make, ⛔ not a refactor to assume
+### 3.3 ✅ The FLAG's REACH — MEASURED 2026-09-01, and the answer is: they agree
 
-Unlike §3.1 and §3.2 this one is not a taste call; it is a question with a checkable answer, and it
-is the natural follow-on to P3b.
+⭐ Unlike §3.1 and §3.2 this was not a taste call but a question with a checkable answer, and P3b
+left it open on purpose. `e2e/flag.e2e.ts` is the measurement.
 
-- We place the flag with **`getTextMetrics().actualBoundingBoxAscent/Descent`** — VexFlow's runtime
-  canvas measurement of the drawn glyph.
-- `engine/fonts/flagDropFromTip(duration, stemUp)` answers the same question from **Bravura's own
-  metrics** — `glyphBox(flag).down` for an up-stem, `.up` for a down-stem — and it is already used
-  by `layout/measureColumns` to reserve the flag's room.
-- 🚨 **So the room a bar reserves for a flag and the place the flag is drawn come from two different
-  sources today.** That is the same shape as §3.1's ledger overhang, one layer down.
-- ⭐ P3b made it a **one-argument swap** (`flagPlacement`'s `glyphReach`). ⛔ Do not take it blind:
-  **measure both in a browser first** — if they agree, the swap kills a font-race dependency for
-  free; if they do not, the difference is a finding for his eye, not a bug to fix quietly.
-- ⚠️ And the browser is the only place that measurement can be made: in jsdom the canvas number is 0
-  and the font number is not, so a unit test comparing them would be comparing one real number with
-  a zero.
+| | canvas (`actualBoundingBox*`) | Bravura (`glyphBox`) | Δ |
+|---|---|---|---|
+| up-stem, `flag8thUp` U+E240 | 1 px | 0.36 px | 0.64 px |
+| down-stem, `flag8thDown` U+E241 | 1 px | 0.56 px | 0.44 px |
+
+🚨 **Chromium reports those metrics as WHOLE DEVICE PIXELS** — every probe came back an integer — so
+the canvas *cannot* say 0.36, and both its answers are exactly the font's number rounded UP to the
+next pixel (asserted, not merely tolerated). ⭐⭐ **So the table is not merely as good as the runtime
+measurement, it is finer**, and the placement can stop depending on a canvas altogether — which
+would also make the flag's y a jsdom unit test instead of a browser one.
+
+⏳ **⛔ NOT SWAPPED. HIS CALL** — it moves every flag by ~0.6 px toward its stem tip. Sub-pixel, and
+still ink that moved. One argument, `EngravedNote.drawFlag`'s `reach`.
+
+#### ⚠️ Three things the measurement got wrong before it got it right — all worth keeping
+
+1. **§3.3's own first draft named the wrong font number.** It said `flagDropFromTip`. ⛔ That one
+   takes the OPPOSITE side of the glyph (`box.down` for an up-stem) because it answers *"how far
+   does the flag hang back from the tip"* — an ink EXTENT, which is what `layout/measureColumns`
+   reserves room with. The placement needs the reach on the side that MEETS the tip:
+   `glyphBox(flag).up` for an up-stem. ⭐ A plausible one-line change, and a wrong one. **This is
+   what "measure first, do not assume" was protecting.**
+2. **Inferring the reach from the DRAWN PICTURE gave −0.2 sp both ways up.** `Stem.draw` ends its
+   line at `stemY − height − renderHeightAdjustment × direction`, and `adjustHeightForFlag` writes
+   that adjustment **from the flag's own height** — so the drawn stem tip and the tip the flag is
+   placed against are ⛔ not the same y, and anything measured between them is two numbers added.
+3. 🚨🚨 **Measuring the glyph in the WRONG FACE gave a confident 0.66 sp disagreement.** The spec read
+   `font-family` off the `<text>`, which has none — VexFlow's SVG context puts the font on the
+   **GROUP** and the text inherits it. `canvas.font = '30pt '` is invalid, so the canvas kept its
+   default 10 px sans-serif and measured the **tofu box** of a glyph that face does not have.
+   ⭐⭐ **That is §3's own bug — *beating the font bakes in a FALLBACK* — reproduced by accident
+   inside the spec investigating it.** The spec now asserts `document.fonts.check(...)` before it
+   believes a number.
 
 ---
 

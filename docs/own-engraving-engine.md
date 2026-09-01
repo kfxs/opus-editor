@@ -643,9 +643,18 @@ order they come back in, what each one costs, and the research per piece.
 > `glyphReach` — instead of a call buried inside a draw method. ⛔ It did **not** re-source it:
 > `fonts/flagDropFromTip` has answered the same question from Bravura since P2, and 🚨 the room a bar
 > RESERVES for a flag already comes from that one while the flag is DRAWN from the canvas — the same
-> two-sources shape as the ledger overhang, one layer down. ⭐ It is a one-argument swap now, and
-> `note-engraving-plan.md` §3.3 says what to measure before taking it. First **glyph** of a note in
-> the scene; no pixel moved.
+> two-sources shape as the ledger overhang, one layer down. ⭐ It is a one-argument swap now. First
+> **glyph** of a note in the scene; no pixel moved.
+>
+> ✅ **AND THE MEASUREMENT IS IN (`e2e/flag.e2e.ts`, 2026-09-01): THEY AGREE.** The canvas says 1 px
+> both ways up; Bravura says 0.36 and 0.56. 🚨 Chromium reports `actualBoundingBox*` as **whole
+> device pixels**, so its answers are the font's own numbers rounded UP — the table is not merely as
+> good, **it is finer**. ⏳ ⛔ Not swapped: it moves every flag ~0.6 px, and moving ink is his call.
+> 🚨🚨 **The investigation reproduced §3's own bug by accident**: its first attempt read
+> `font-family` off the `<text>`, which has none (the font lives on the GROUP), so `canvas.font` was
+> invalid and it measured the **tofu box in 10 px sans-serif** — and reported a confident 0.66 sp
+> disagreement. ⭐ *Beating the font bakes in a FALLBACK*, one layer up from where that lesson was
+> learnt. The spec now asserts `document.fonts.check(...)` before believing a number.
 >
 > ⚠️ One rule bent, and both files say so: `engrave/notes/flag.ts` stamps its own glyph rather than
 > calling `rendering/glyphPainter`. ⭐ What that module owns is font RESOLUTION, and the flag's face
