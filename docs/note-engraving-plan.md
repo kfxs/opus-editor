@@ -4,8 +4,9 @@
 > calls *"⚠️ THE BIG ONE"*. ⛔ Read §0 of that document first — the goal order, the twelve standing
 > rules, and the one-line test — because everything below is an application of it.
 >
-> **Status: P3a ✅ ledger lines · P3b ✅ the flag · P3c ✅ the stem's INK — all 2026-09-01.**
-> **⏳ The stem's LENGTH is next, and it is gated on `docs/stem-length-research.md`.**
+> **Status: P3a ✅ ledger lines · P3b ✅ flag · P3c ✅ stem INK · P3d ✅ NOTEHEADS — all 2026-09-01.**
+> ⭐⭐ **All five of `StaveNote.draw()`'s drawing calls are ours** (the pointer rect is the RULER, not
+> ink). ⏳ **What is left is the stem's LENGTH**, gated on `docs/stem-length-research.md`.
 
 ---
 
@@ -49,8 +50,9 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3a** | **ledger lines** | ⭐ the only piece with **three owners already**; pure arithmetic; no font in it; no formatter interaction; ⛔ nothing else reads it | ✅ **2026-09-01** |
 | **P3b** | **the flag** | ⭐ the only piece with **no owner at all** — no selection kind, no anchor map, no registry entry — and 🚨 it is §3's **bug class in the open**: VexFlow places it with a runtime `measureText` | ✅ **2026-09-01** |
 | **P3c** | **the stem's INK** | ⭐ a third element with **three owners** (VexFlow's `Stem.draw` + `FanPass` twice); ⛔ the LENGTH left behind deliberately — see below | ✅ **2026-09-01** |
-| **P3d** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
-| … | the noteheads, the dots | each needs its own research committed first | ⏭️ |
+| **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line | ✅ **2026-09-01** |
+| **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
+| … | the dots, the accidentals | modifiers — they draw from inside a head's group, and both are selectable kinds with registered hit boxes | ⏭️ |
 | **last** | the pointer rect + `getBoundingBox` | ⚠️ that one is the RULER, not the ink — it moves with the registry, not with the drawing | ⏭️ |
 
 ⛔ **`Stave.padding` is not unblocked until the noteheads move**, which is what the parent plan
@@ -227,6 +229,62 @@ sources.** ⛔ HIS call, one argument.
 keeps the commit pixel-free. `paint/DrawContext`'s header calls `fillRect` *"the workhorse… every
 stem in this engine"*, which was true of the fan's beams and is not true of a note's stem. When the
 length becomes ours the shape can be revisited on its own merits.
+
+---
+
+## 1d. ✅ P3d — THE NOTEHEADS (2026-09-01), and the note's ink is complete
+
+### 1d.1 Why it needed no research, when the stem's length does
+
+⭐ **Because nothing is being decided.** The glyph is chosen by the duration (VexFlow's table,
+unchanged), the x comes from our own column solve, the y from the staff line — all three were
+already ours or already settled. That is the same test P3a, P3b and P3c passed and the stem's
+LENGTH fails: *is there a rule here we would have to invent?* ⛔ For the length there is, and §6.1 is
+explicit that inventing one is worse than depending on VexFlow.
+
+### 1d.2 ⚠️ An override of `drawNoteHeads`, ⛔ not a `NoteHead` subclass
+
+The stem got a subclass because `buildStem()` is a one-line factory. `buildNoteHeads()` is
+overridable too — but its `new NoteHead(…)` sits at the bottom of **forty lines** of VexFlow's own
+second-interval displacement walk, and §6.7's rule cuts both ways: *"port the ALGORITHM, not the
+FILE"* — copying that loop to change one constructor would re-import the dependency under another
+name. ⭐ So the head objects stay VexFlow's and only their **ink** moves.
+
+What the override transcribes, from `NoteHead.draw()` inside `Element.drawWithStyle()`:
+
+1. 🚨 **`setX(getAbsoluteX())` is a WRITE-BACK, and it is load-bearing.** `FanPass` already carries
+   the warning — *"`NoteHead.draw` writes its own absolute x back into `x`, so a displaced head asked
+   twice displaces twice"*. Exactly once, here.
+2. 🚨 **…and the value must be KEPT, ⛔ not read back with `getX()`.** A `NoteHead` is a `Tickable`,
+   whose `getX()` throws `NoTickContext` — which is precisely why `NoteHead.draw` reads the raw `x`
+   field. ⚠️ **It threw on the first run**, and the renderer's per-measure `try/catch` swallowed it
+   into a half-drawn bar: the scene spec caught it as *two stems where four were expected*, which is
+   a good argument for asserting counts rather than presence.
+3. ⚠️ **`drawModifiers` stays INSIDE the head's group** — that is where a chord's accidentals, dots
+   and articulations land, and the highlight recolours by walking that group.
+4. ⚠️ **The style wrapper stays on the VexFlow context.** `drawWithStyle` is `save` → `applyStyle` →
+   `draw` → `restore`, and `applyStyle` can reach for shadow primitives {@link DrawContext}
+   deliberately does not declare. Nothing here styles a notehead (`setStyle` is unused in this
+   editor — every recolour goes through the DOM afterwards), so this is fidelity, not need.
+5. 🚨 **The group's id is the seam**, exactly as for the stem: `g.vf-notehead` is read by the
+   highlight *and* by a dozen browser specs (`glyphs('g.vf-notehead text')`). That coverage is why
+   this was a safe piece to take: **276 browser tests are watching where noteheads land.**
+
+### 1d.3 ⭐ The stamp got a home, because it had a second owner
+
+P3b wrote `setFont` + `fillText` inside `engrave/notes/flag.ts`. P3d needed the same two lines.
+⇒ `engine/engrave/glyph.ts` — *"putting one music glyph down, in a face that is already resolved"* —
+collected on the commit that produced the second owner rather than after a third. ⭐ It is
+deliberately **not** `rendering/glyphPainter`: that module owns font RESOLUTION (`new Element(tag)`
+→ `Metrics.getFontInfo(tag)`), and here the face arrives as a value, which is what keeps `engrave/`
+free of `vexflow`.
+
+### 1d.4 ⛔ What P3d did NOT take
+
+**Which glyph a duration gets.** `fonts/noteheadGlyph()` has answered that from Bravura since P2, so
+it is a **fourth** *"the room reserved and the ink drawn come from two sources"* candidate — beside
+the ledger overhang (§3.1), the stem's thickness (§1c.3) and the flag's reach (§3.3, measured). ⛔ Like
+the other three, his call rather than a tidy-up.
 
 ---
 

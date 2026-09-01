@@ -608,7 +608,7 @@ not re-litigating taste, it is re-sourcing agreed numbers from something that ca
 distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
 re-sourced. Both are why that plan exists.
 
-### P3 — The note — ⚠️ THE BIG ONE — ⏳ **P3a ledger lines · P3b the flag · P3c the stem's INK**
+### P3 — The note — ⚠️ THE BIG ONE — ⏳ **a ledgers · b flag · c stem INK · d NOTEHEADS ✅**
 📄 **`docs/note-engraving-plan.md`** — P3's own plan: the five things `StaveNote.draw()` does, the
 order they come back in, what each one costs, and the research per piece.
 
@@ -690,6 +690,24 @@ order they come back in, what each one costs, and the research per piece.
 > ⏳ **A third two-sources number, ⛔ not settled**: we stroke at `Stem.WIDTH` 0.15 spaces while the
 > font says `stemThickness` 0.12. Ledger overhang, flag reach, stem thickness — the same shape three
 > times, and all three are HIS.
+
+> ⭐⭐ **P3d — the NOTEHEADS (2026-09-01), and with them ALL FIVE of `StaveNote.draw()`'s drawing
+> calls are ours.** (The pointer rect that follows them is `getBoundingBox` — the RULER, not ink —
+> and moves with the registry.) ⭐ It needed **no research**, and that is the test the stem's LENGTH
+> fails: *is there a rule here we would have to invent?* The glyph is chosen by duration, the x by
+> our own column solve, the y by the staff line — nothing was being decided.
+>
+> ⚠️ An override of `drawNoteHeads`, ⛔ **not** a `NoteHead` subclass: `buildNoteHeads()`'s
+> `new NoteHead(…)` sits at the bottom of forty lines of VexFlow's displacement walk, and §6.7 cuts
+> both ways — *port the ALGORITHM, not the FILE*. 🚨 The transcription threw on its first run
+> (`NoTickContext`: a `NoteHead` is a `Tickable`, so `getX()` needs a tick context — which is why
+> `NoteHead.draw` reads the raw field), and the renderer's per-measure `try/catch` swallowed it into
+> a **half-drawn bar**. ⭐ The scene spec caught it as *two stems where four were expected* — an
+> argument for asserting COUNTS rather than presence.
+>
+> ⭐ And the glyph stamp got a home — `engine/engrave/glyph.ts` — because the flag and the notehead
+> were two owners of the same `setFont` + `fillText`. ⛔ Not `rendering/glyphPainter`: that one owns
+> font RESOLUTION, and here the face arrives as a value.
 
 Notehead, stem, flag, ledger lines, dots. **We have already built this once:** `FanPass` draws
 heads, stems, accidentals and ledger lines by hand today for fan members — including ledger lines,

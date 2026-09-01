@@ -36,24 +36,15 @@
  * here clamps or nudges: a flag that looks wrong is a stem-length question (⏭️ P3's stem piece,
  * where Gould's pp. 16–19 rules go).
  *
- * ## ⚠️ Why this stamps its own glyph instead of calling `rendering/glyphPainter`
+ * ## ⚠️ Why it stamps its own glyph instead of calling `rendering/glyphPainter`
  *
- * `glyphPainter` is *"the one place VexFlow still paints a glyph"*, and it earns that name by owning
- * **font RESOLUTION** — `new Element(tag)` turning a tag into a `FontInfo` (its own header: *"the tag
- * is not a comment, it selects the font"*). ⭐ Here the font is **already resolved**: the flag is
- * drawn in the note's own face, which VexFlow assigned when it built the flag, so there is nothing
- * left to resolve and the whole of `Element.renderText` is two primitives we own —
- * `setFont` then `fillText`.
- *
- * ⭐⭐ **And `engrave/` may not import `vexflow` (rule 11), which is the point rather than an
- * obstacle**: a layer that had to instantiate an `Element` to put a glyph down could never be
- * painted to PDF or recorded as a scene. The font arrives as a value; ⛔ this module never asks what
- * it is.
+ * ⭐ Because the font is **already resolved** — see `engrave/glyph.ts`, which is where those two
+ * lines moved when P3d gave them a second owner.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { stampGlyph, type GlyphFont } from '../glyph'
 
-/** A resolved face, exactly as {@link DrawContext.setFont} takes it — ⛔ never inspected here. */
-export type GlyphFont = Parameters<DrawContext['setFont']>[0]
+export type { GlyphFont }
 
 /** The stem a flag hangs off, as the flag cares about it. */
 export interface FlagStem {
@@ -108,8 +99,7 @@ export function drawFlag(
   if (!glyph) return
   ctx.openGroup('flag')
   try {
-    ctx.setFont(font)
-    ctx.fillText(glyph, at.x, at.baselineY)
+    stampGlyph(ctx, glyph, at.x, at.baselineY, font)
   } finally {
     // ⚠️ In a `finally`, like every other `openGroup` in this engine: an unbalanced pair swallows
     // the rest of the render.

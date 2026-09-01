@@ -285,6 +285,50 @@ describe('⭐⭐ P3c — the STEM’s ink in the scene, and the seam that surviv
   })
 })
 
+describe('⭐⭐ P3d — the NOTEHEAD in the scene, and the note is complete', () => {
+  /** Every glyph stamped inside a `notehead` group — codepoint and anchor. */
+  function heads(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'notehead')
+      .flatMap(g => g.children.filter(c => c.kind === 'text'))
+      .flatMap(t => (t.kind === 'text'
+        ? [{ code: t.text.codePointAt(0) ?? 0, x: t.x, y: t.y, font: t.font }]
+        : []))
+  }
+
+  it('⭐⭐ every note draws its head — a SMuFL notehead glyph, in its own group', () => {
+    const drawn = heads(render(2).scene)
+    // ⚠️ A REST comes through this group too — VexFlow gives a rest a `StaveNote`, and its glyph is
+    // that note's single "head" (`harness.ts` carries the same warning about `g.vf-notehead text`).
+    // Two quarters and one half rest a bar, two bars.
+    expect(drawn.length, 'four heads and two rests').toBe(6)
+    const noteheads = drawn.filter(h => h.code >= 0xe0a0 && h.code <= 0xe0ff)
+    expect(noteheads.length, 'four are noteheads (U+E0A0…E0FF)').toBe(4)
+    const rests = drawn.filter(h => h.code >= 0xe4e0 && h.code <= 0xe4ff)
+    expect(rests.length, '…and two are rests (U+E4E0…E4FF) — beats 3–4 filled as one half').toBe(2)
+  })
+
+  it('⭐⭐ …at ASCENDING x, on the same line, in Bravura — the whole geometry, in jsdom', () => {
+    const noteheads = heads(render(1).scene).filter(h => h.code >= 0xe0a0 && h.code <= 0xe0ff)
+    expect(noteheads.length).toBe(2)
+    // ⭐ C4 then E4: the second is to the RIGHT and HIGHER (SVG y grows downward).
+    expect(noteheads[1].x, 'the beat-2 note stands right of the beat-1 note').toBeGreaterThan(noteheads[0].x)
+    expect(noteheads[1].y, 'E4 sits above C4').toBeLessThan(noteheads[0].y)
+    // ⚠️ Two staff spaces apart exactly — C4 to E4 is a third, and a third is one space. The staff
+    // space is 10 px, so a diatonic step is 5. ⭐ This is the assertion that needed a browser
+    // yesterday and is arithmetic today.
+    expect(noteheads[0].y - noteheads[1].y, 'a third = one staff space').toBeCloseTo(10, 6)
+    expect(noteheads[0].font.family, 'the face VexFlow resolved for the note').toContain('Bravura')
+  })
+
+  // 🚨 The seam, same shape as the stem's: the highlight and a dozen browser specs find a head by
+  // `g.vf-notehead`, and its id is how `getSVGElement` resolves one.
+  it('🚨 each head’s group carries its own ID — the highlight resolves ink by it', () => {
+    const groups = sceneGroups(render(1).scene, 'notehead')
+    expect(groups.length).toBeGreaterThan(0)
+    for (const g of groups) expect(g.id, 'an id, or the recolour finds nothing').toBeTruthy()
+  })
+})
+
 describe('the scene’s SHAPE', () => {
   it('⭐ groups nest, and every group carries a placement', () => {
     const { scene } = render(2)
@@ -305,17 +349,19 @@ describe('the scene’s SHAPE', () => {
     expect(classes.filter(c => c?.startsWith('vf-')), 'the prefix is the painter’s').toEqual([])
   })
 
-  it('⛔ noteheads and stems are NOT here — they are VexFlow’s, and that gap is the work left', () => {
+  it('⭐⭐ the note’s five drawing calls are OURS — only its own GROUP is still VexFlow’s', () => {
     const { scene } = render(2)
-    // A notehead would be a `text` primitive if we drew it; today `StaveNote.draw()` paints it
-    // through `vexContext`. ⭐ This expectation flips one piece of ink at a time as P3 lands, and
-    // that is the intended signal: the scene's coverage IS the migration's progress. ✅ The first
-    // one flipped on 2026-09-01 — the LEDGER LINES are in the scene (the describe above); the note's
-    // own `vf-stavenote` GROUP is still opened on VexFlow's context, which is why this still holds.
+    // ⭐ This test used to read *"noteheads and stems are NOT here — that gap is the work left"*.
+    // It flipped one piece of ink at a time across P3a–P3d (ledger lines, flag, stem, noteheads),
+    // which is the intended signal: the scene's coverage IS the migration's progress.
+    // ⚠️ `stavenote` is still absent because the note's OWN group is opened by VexFlow's `draw()`
+    // on `vexContext` — that one goes with P1e, not P3.
     const classes = [...walkScene(scene)]
       .filter(n => n.kind === 'group')
       .map(g => (g as { cls?: string }).cls)
     expect(classes, 'the measure group is opened by the renderer itself').toContain('measure')
-    expect(classes).not.toContain('stavenote')
+    expect(classes, '✅ P3a–P3d: the parts of the note are here').toEqual(
+      expect.arrayContaining(['notehead', 'stem']))
+    expect(classes, '⛔ …but the note’s own group is still VexFlow’s — P1e').not.toContain('stavenote')
   })
 })

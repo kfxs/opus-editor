@@ -19,7 +19,7 @@
  * |---|---|---|
  * | **ledger lines** | ⭐ **us** — `engrave/notes/ledgerLines` | P3a, 2026-09-01 |
  * | **stem** (the INK; ⛔ not its LENGTH) | ⭐ **us** — `engrave/notes/stem`, via {@link EngravedStem} | P3c, 2026-09-01 |
- * | noteheads | VexFlow | ⏭️ P3 — and each head paints its own modifiers |
+ * | **noteheads** | ⭐ **us** — `engrave/glyph`'s stamp | P3d, 2026-09-01 |
  * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
  *
@@ -34,6 +34,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
+import { stampGlyph } from '@/engine/engrave/glyph'
 
 /**
  * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
@@ -173,6 +174,62 @@ export class EngravedNote extends StaveNote {
    * method. ⛔ Not re-sourced: swapping it for `fonts/flagDropFromTip` is a measurement to make
    * first (`docs/note-engraving-plan.md` §3.3), and P3b moved no pixel.
    */
+  /**
+   * ⭐ **OURS as of P3d — and it is the last of the five drawing calls.**
+   *
+   * ⚠️ **An override of `drawNoteHeads`, ⛔ not a `NoteHead` subclass**, which is the shape the stem
+   * got. `buildNoteHeads()` is overridable, but the `new NoteHead(…)` inside it sits at the bottom of
+   * forty lines of VexFlow's own second-interval displacement walk — and *"port the ALGORITHM, not
+   * the FILE"* (§6.7) cuts both ways: copying that loop to change one constructor would re-import
+   * the dependency under another name. So the head objects stay VexFlow's and only their INK moves.
+   *
+   * ⭐ The body is `NoteHead.draw()` (`notehead.js`) wrapped in `Element.drawWithStyle()`, both
+   * transcribed rather than rewritten:
+   *
+   * 1. 🚨 **`setX(getAbsoluteX())` is a WRITE-BACK, and it is load-bearing.** `FanPass` already
+   *    carries the warning — *"`NoteHead.draw` writes its own absolute x back into `x`, so a
+   *    displaced head asked twice displaces twice"*. It must happen exactly once, here.
+   * 2. ⚠️ **`drawModifiers` stays INSIDE the head's group.** That is where a chord's accidentals,
+   *    dots and articulations land, and the selection highlight recolours by walking that group.
+   * 3. ⚠️ **The style wrapper stays on the VexFlow context.** `drawWithStyle` is `save` → `applyStyle`
+   *    → `draw` → `restore`, and `applyStyle` can reach for shadow primitives that {@link DrawContext}
+   *    deliberately does not declare. Nothing in this editor styles a notehead (`setStyle` is unused
+   *    here — every recolour goes through the DOM afterwards), so this is fidelity rather than need.
+   * 4. 🚨 **The group's id is the seam**, exactly as it was for the stem: `g.vf-notehead` is read by
+   *    the highlight and by a dozen browser specs (`glyphs('g.vf-notehead text')`).
+   *
+   * ⛔ **What is NOT taken**: which glyph a duration gets. `fonts/noteheadGlyph()` has answered that
+   * from Bravura since P2, so it is a fourth *"the room reserved and the ink drawn come from two
+   * sources"* candidate — ⛔ and, like the other three, his call rather than a tidy-up.
+   */
+  override drawNoteHeads(): void {
+    const vex = this.checkContext()
+    const surface = this.inkSurface ?? vex
+    for (const head of this.noteHeads) {
+      head.setContext(vex)
+      vex.save()
+      head.applyStyle(vex)
+      head.setRendered()
+      surface.openGroup('notehead', head.getAttribute('id'))
+      try {
+        // 🚨 ONCE, and once only — see (1) above. ⚠️ And the value is KEPT rather than read back
+        // with `getX()`: a `NoteHead` is a `Tickable`, whose `getX()` throws `NoTickContext` — which
+        // is exactly why `NoteHead.draw` reads the raw `x` field instead. (It threw here first.)
+        const x = head.getAbsoluteX()
+        head.setX(x)
+        stampGlyph(
+          surface, head.getText(),
+          x + head.getXShift(), head.getY() + head.getYShift(),
+          head.fontInfo,
+        )
+        this.drawModifiers(head)
+      } finally {
+        surface.closeGroup()
+      }
+      vex.restore()
+    }
+  }
+
   override drawFlag(): void {
     if (!this.shouldDrawFlag()) return
     const { yTop, yBottom } = this.getNoteHeadBounds()
