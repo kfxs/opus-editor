@@ -344,7 +344,16 @@ The three sources give three flat pitches and two sharp pitches:
 to both advances** gives **flat 1.15 / sharp 1.25** — it reproduces the twice-confirmed sharp
 *exactly* and Gould's measured flat to within **0.03 sp**.
 
-✅ **DECIDED: one constant, `KEY_ACCIDENTAL_GAP = 0.25`**, not a per-glyph table. ⭐ The whole reason
+✅ **DECIDED: one constant, `KEY_ACCIDENTAL_GAP = 0.25`**, not a per-glyph table.
+
+> 🚨 **RE-CONFIRMED 2026-09-01, and the re-confirming is the lesson.** `docs/header-spacing-research.md`
+> — a fresh survey of the literature — listed this gap as an open row with three models, two of which
+> §4.0b had already weighed and rejected. It was put to him as a live choice and he caught it:
+> *"didnt we made the keysignature plan already with research included?"* ⇒ ⛔ **a research document
+> surveys the books; it does not know what this repo has decided.** The MODEL is closed here; only the
+> value's look is outstanding (below).
+
+ ⭐ The whole reason
 is that it makes the flat/sharp difference **fall out of the glyph** instead of being two hand-set
 numbers — which is exactly the cause Ross names: sharps *"expand until the bar-ends align rather than
 overlap"*. A rule, not a pair of constants.

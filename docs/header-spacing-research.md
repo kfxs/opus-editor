@@ -616,7 +616,21 @@ and the one we draw today named honestly.
 | **F** | **BARLINE → first note, no header** | (i) **1.0** — Gould *"a stave-space on either side of a barline"* (drawn 1.05–1.08), Ross *"one space"*, Verovio · (ii) **0.9** mid-line / **1.3** at a line start — LilyPond's `BarLine.space-alist` · (iii) **1.25** — MuseScore `barNoteDistance`, with **0.65** when the note carries an accidental | ⛔⛔ **NOT A CHOICE — BLOCKED, and the number every source prefers is BELOW the floor.** 1.2 is `Stave.padding` (12 px), which VexFlow adds to every note in `getAbsoluteX` and does **not** expose a setter for (`Metrics` is not exported from the package root). ⇒ drawing Gould's 1.0 would mean pushing the note-start LEFT OF THE BARLINE, so a bar's clickable area would begin outside the bar. ⭐ 1.2 is also defensible on its own: it sits between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, and a leading gap earns more air than a trailing one. ⏳ **Unblocks with P5b/P1e**, when the note-start is ours |
 | **G** | **a CRAMPED minimum** | (i) Gould's **½ sp** floor between any two characters (p. 41), with *"reduce the space around clefs and accidentals to ½ space"* and *"stems must never come closer to a barline than one space"* (p. 43) · (ii) none | ⛔ **none** — the spacing solve has no header-specific floor |
 | **H** | **inside a TIME SIGNATURE** | ⛔ **UNKNOWN in every book** (§2.8); the only rule is vertical — *"numerals should exactly fill the height of the stave"* (Gould p. 152). The engines split: **2.0 sp between the rows** (LilyPond `time-signature-settings.scm:902`, Verovio `view_element.cpp:2139`, VexFlow lines 1↔3) vs **a 0.0 clear gap, bboxes touching** (MuseScore `timeSigNormalNumDist`) | VexFlow's — 2.0 sp, or **3.0** when the measured glyph exceeds 30 px (`timesignature.js:82`) |
-| **I** | **between a signature's ACCIDENTALS** | (i) **one gap + the glyph's advance** — ours, which reproduces Ross's sharp 1¼ and Gould's flat · (ii) **0.0 added, let the font's side bearings do it** — LilyPond, which adds padding only for naturals · (iii) a per-kind constant — MuseScore **0.30**, doubled to **0.60** on a change of symbol, **0.40** natural-after-natural, then *reduced* by the SMuFL cut-out where glyphs interlock 🚨 (Gould p. 92 forbids exactly that tucking); Verovio **0.20** hardcoded, naturals 0.30 | **0.25 sp gap** ⇒ 1.25 sharp / 1.15 flat pitch. ⚠️ its own comment calls it *"a PREDICTION… owed his eye"* |
+| **I** | **between a signature's ACCIDENTALS** | (i) **one gap + the glyph's advance** — ours · (ii) **0.0 added, side bearings only** — LilyPond · (iii) a **per-kind constant** — MuseScore, Verovio | ⛔⛔ **THE MODEL IS NOT OPEN — decided 2026-08-27**, `key-signature-plan.md` **§4.0b**: *"ONE constant, `KEY_ACCIDENTAL_GAP = 0.25`, **not a per-glyph table**"*. (ii) and (iii) were weighed and rejected there. ⏳ What is outstanding is **only his EYE on the value** (flats come out 1.15 against Gould's 1.12 / Ross's 1.00) — ⭐ **a LOOK, ⛔ not a decision between models** |
+
+🚨🚨🚨 **READ THIS BEFORE PUTTING ANY ROW OF THIS TABLE TO HIM.**
+
+⚠️ **This document is a fresh survey of the LITERATURE. It is ⛔ NOT an audit of what this repo has
+already decided**, and on 2026-09-01 that difference cost two rounds: **B** and **I** were both put to
+him as open choices when both were settled — B by his own rejection of 1.5, I by
+`key-signature-plan.md` §4.0b eight days earlier, which had already weighed and rejected two of the
+three options this table lists. He caught both (*"wasn't it already decided?"*, *"didnt we made the
+keysignature plan already with research included?"*).
+
+⇒ ⭐⭐ **A row here means "the literature has something to say", ⛔ never "we have not chosen".**
+Before asking: read the *what we do now* column, the constant's own comment, **and any older plan
+that owns the feature**. Where any of them names a decision, a rejection or one of his reports, the
+row is CLOSED.
 
 🚨🚨 **AUDIT, 2026-09-01 — TWO OF THESE ROWS WERE NEVER OPEN, and listing them as options nearly
 re-opened a decision he had already made with his own eyes.**
@@ -630,7 +644,9 @@ open** — the "what we do now" column has to be read, and where it names a reje
 (`project_engraving_defaults_are_a_house_style`) — that is why the losing options stay. ⛔ It does not
 follow that every row is still a question.
 
-⭐ **Genuinely open after A and D: E · G · H · I.** ⛔ **F is BLOCKED by VexFlow** (see its row) —
+⭐ **Genuinely open after A and D: E · G.** ⛔ **F is BLOCKED by VexFlow.** ⏳ **I is a LOOK, not a
+decision** — its model was settled on 2026-08-27. **H** is ⛔ **UNKNOWN in every book**, so there is no
+rule to adopt: the engines split 2.0 against 0.0 and we already draw the majority answer. ⛔ **F is BLOCKED by VexFlow** (see its row) —
 it is not a question his eye can settle, and it becomes one only when the note-start is ours.
 
 ⭐ **If only one row is ever acted on, D is the one**: it is the only place where a book states a rule
