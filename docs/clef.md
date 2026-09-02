@@ -1,0 +1,415 @@
+# THE CLEF — its home in this repo
+
+> ⭐ **Open this before touching a clef.** It gathers what a clef IS here, where each half of it
+> lives, what has already been DECIDED (and by whom, and when), and what is still open —
+> with **pointers to the code, ⛔ not copies of it**.
+>
+> ⛔ **This is a REFERENCE, not a plan and not a work list.** Nothing below is scheduled. Where a
+> question is open it says so; where it is closed it names its closer.
+>
+> 📄 The EVIDENCE for every engraving number here is `docs/clef-research.md` (the books and the three
+> engine clones, question by question) and its predecessor `docs/clef-spacing-research.md` (the
+> 2026-08-29 treatise pass: position, spacing and the mid-score change). ⛔ Do not re-run either.
+>
+> ⏭️ **§0 is a TODO LIST and the only part of this file that is one** — his instruction, 2026-09-02:
+> the clef's engraving RULES are owed a review, later, and ⛔ **not as part of the own-engine work**.
+>
+> Written 2026-09-02.
+
+---
+
+## 0. ⏭️⏭️ TODO — **THE CLEF'S ENGRAVING RULES ARE OWED A REVIEW, and it is NOT the engine migration's job**
+
+> **HIS instruction, 2026-09-02:** *"in general the clef rules should be reviewed later and applied
+> properly but this is out of the scope of own engine, just mark this as TODO in the future… change
+> clef at beguining of bar it should be i guess in the last bar not in the beguining, in general
+> cleff should be review in the future."*
+
+⛔⛔ **READ THIS BEFORE OPENING A CLEF TICKET.** There are **two different jobs** with the word *clef*
+in them and they must not be run together:
+
+| | what it is | status |
+|---|---|---|
+| **owning the clef's INK** | moving the glyph off VexFlow into `engrave/header/clef` — P5b of `docs/own-engraving-engine.md` | ⏳ in progress, and it moves **no pixel** by design |
+| ⏭️ **reviewing the clef's RULES** | where a change is drawn, how small it is, which glyph it uses | ⛔ **NOT SCHEDULED, and explicitly out of scope of the engine work** |
+
+⭐ **Why the split matters:** every item below CHANGES THE PICTURE. The migration's whole safety
+argument is that it does not. Folding a rule change into a migration commit destroys the one property
+that makes the migration checkable — *"the suite is green and nothing moved"*.
+
+⇒ ⛔ **Do not fix any of these while taking a piece of the clef's drawing.** They are a separate pass,
+on his say-so, one at a time, with his eye on each — the way decisions A, D and E were taken.
+
+### ⏭️ 0.1 The list, as it stands on 2026-09-02
+
+| # | what | the evidence | why it is not done |
+|---|---|---|---|
+| ⭐⭐ **1** | **A clef change at a bar's start belongs at the END of the PREVIOUS bar — BEFORE the barline. We draw it after.** ⭐ **This is his own example**, and the books were already unanimous before he raised it. | Gould p. 8 *"The clef always goes before the barline"* · Ross p. 166 · Stone pp. 46/57 · Gerou & Lusk p. 27 — **four books, no dissent**; three add that only a *systemic* barline may precede a clef. §5 below, and `clef-spacing-research.md` PART 7 (first recorded 2026-08-29) | It is a real engraving defect, ⛔ not a taste call — but fixing it moves the glyph into the **previous bar's** width, which is a layout change, not a drawing one. ⚠️ And the bar that OWNS the change is not the bar that DRAWS it, which is the *"a span belongs to where it BEGINS"* problem one element over |
+| ⭐⭐ **2** | **A SMALL-STAFF clef and a CHANGE clef are different reductions, and we conflate them.** See §0.2 — the font itself says so. | `clef-research.md` §9.1; Bravura `ss01`; LilyPond states the principle in prose | Nobody has asked for it, and it needs the small-clef ratio (row 3) decided first |
+| **3** | **The small-clef RATIO** — what fraction a mid-score change is drawn at | ⚠️ the literature contradicts itself: Gould *writes* ⅔ and *draws* ¾ six times; Gerou & Lusk *state* 75%; Ross *draws* 0.65–0.68; the engines span 0.65–0.88; VexFlow uses exactly ⅔, which is what we inherit | ⛔ **No single sourced answer to adopt** ⇒ a house-style choice, and HIS. The table-of-rows pattern (`__header.rule(…)`, `__beams.rule(…)`) is the shape it would take |
+| **4** | **WHICH LINE each clef names** — the anchor table | `clef-research.md` §2; the books state it | Still VexFlow's `Clef.types`. ⛔ Parked as a named parameter in `engrave/header/clef`, deliberately |
+| **5** | **The cramped floor around a clef** — Gould's ½ stave-space | `clef-research.md` §5.2; stated three times by one author | The same question as `header-spacing-research.md` §8 **G**, which is the one row of the header run still open. ⛔ Answer it once, not twice |
+| **6** | **Octave clefs** — the `8`/`15` numeral, and the model behind it | `clef-research.md` §8 | ⏳ unbuilt entirely (`docs/octave-clefs-plan.md`). ⭐ And the research found the model needs widening before it is built — see §0.3 |
+
+### ⭐⭐ 0.2 Bravura ships a SEPARATE small clef, and it is not a scaled-down big one
+
+**The finding, and it is the one most likely to be got wrong by anyone who reads only the ratio:**
+
+> Bravura contains a stylistic set, **`ss01`**, whose `gClefSmall` / `fClefSmall` / `cClefSmall` are
+> the **same HEIGHT as the full-size glyph and up to 10% WIDER** — while its `*Change` glyphs are the
+> ones drawn at **0.65–0.72**.
+
+⭐ **They answer two different questions, and the font names both:**
+
+| | what it is for | what it does |
+|---|---|---|
+| `*Change` | a clef CHANGE inside the music — a smaller symbol, because it is a reminder rather than a heading | **reduced** to ~0.65–0.72 |
+| `ss01` (`*Small`) | a clef on a **SMALL STAFF** — a cue staff, an ossia, a reduced part | ⭐ **an OPTICAL MASTER: not reduced at all.** The whole staff is already being scaled down, so the glyph is redrawn *heavier and wider* so it does not go thin and spidery at the smaller size |
+
+🚨 **We conflate them, and so does every engine surveyed.** We draw ONE clef glyph, scaled twice —
+once by the staff group's own `scale(k)` (`docs/staff-size-plan.md`) and again by VexFlow's ⅔ when the
+clef is a change. ⛔ Nothing anywhere reaches for `ss01`. ⚠️ **This is not a bug report**: our small
+staves look acceptable, and no one has complained. It is a *named opportunity*, and the reason it is
+written down is that *"the small clef is ⅔"* is a sentence that hides two independent decisions.
+
+⭐ **LilyPond states the same principle in prose** — a reduced-size glyph is redrawn, not merely
+scaled — which is why its font ships optical masters per staff size at all.
+
+### ⏭️ 0.3 …and one MODEL widening the research asked for
+
+⭐ **The octave numeral's slot is not an octave slot.** Stone p. 57 puts a **5** and a **4** in it for
+the horn's bass clef, and LilyPond — the one engine that draws the numeral as *text* rather than as a
+ligature — can draw exactly that (`\clef "alto_2"`). ⇒ `docs/octave-clefs-plan.md`'s `(clef, ±octave)`
+model **cannot express it**; `(clef, numeral, side)` gets it, and `15` for free. ⛔ Unbuilt, and this
+is a note for whoever builds it, ⛔ not a decision to build it now.
+
+---
+
+## 1. What a clef IS here
+
+### 1.1 Four types, and why exactly four
+
+```ts
+export type Clef = 'treble' | 'bass' | 'alto' | 'tenor'   // src/types/music.ts:454
+```
+
+⭐ **`alto` and `tenor` are the same GLYPH on different lines** — `fontMetrics.clefGlyph` maps both to
+`cClef` (`src/engine/fonts/fontMetrics.ts:164`), and only the anchor line differs. That is the C
+clef's whole nature (`docs/clef-research.md` §7.2), and it is the reason a fifth C-clef position would
+be a row in the tables rather than a new glyph.
+
+⛔ **There is NO percussion row, and that is a decision, not an omission.** A percussion staff is not
+a fifth clef but *a staff whose lines are not pitches* — see `docs/unpitched-staves-plan.md`. Adding
+it to this union would make every `Record<Clef, …>` table below claim a pitch mapping that does not
+exist. (Closer: the Clef window's own design note, 2026-07-20.)
+
+⏳ **Octave clefs (`treble8vb`, `bass8vb`) are PLANNED and unbuilt** — `docs/octave-clefs-plan.md`,
+whose §1 decision is the load-bearing one: **the model keeps storing WRITTEN pitch**, and the octave
+is applied once, at playback. ⚠️ That plan's §4 open question (what MusicXML's
+`clef-octave-change` means for `<pitch>`) is still open.
+
+⭐⭐ **Two things the 2026-09-02 research says about that plan** (`docs/clef-research.md` §8.7),
+recorded here because they would be found late otherwise — ⛔ neither is a proposed change:
+
+1. 🚨 **The numeral's slot is not an OCTAVE slot.** Stone p. 57 puts a **`5`** and a **`4`** in it, for
+   the horn's bass clef (*"sounds a fifth lower"* / *"sounds a fourth higher"*). ⇒ the drawn thing is
+   **(clef, numeral, side)**, not `(clef, ±octave)` — and modelled that way, `15` and the horn clefs
+   fall out for free.
+2. The plan calls bass-8vb *"rarer"*. **Gould p. 506 and Stone p. 57 both treat it as the PRIMARY
+   case** — contrabass clarinet, contrabassoon, double bass.
+
+### 1.2 Where a clef is STORED — positionally, and never on the `Score`
+
+A clef change lives on the measure it happens in:
+
+```ts
+ClefChange { id; beat: Fraction; clef: Clef; staffId? }   // src/types/music.ts:464
+Measure.clefs?: ClefChange[]                              // sorted ascending by beat
+```
+
+- **`beat === 0`** is the measure's *opening* clef. **`beat > 0`** is a mid-measure (inline) change.
+  The two are drawn by completely different machinery — §3.1.
+- **`staffId` absent means staff 0** — the `utils/lanes` write convention, and `sameStaff` in
+  `clefOps.ts:23` relies on it exactly.
+- 🚨🚨 **There is no `Score.clef` field and there must never be one.** It existed, it conflated *"the
+  document default"* with *"staff 0's opening clef"*, and at N > 1 staves it bled: changing the top
+  staff's clef changed every staff that had not set its own. `docs/clef-model-plan.md` is the whole
+  autopsy; `src/types/music.ts` records the rule on `tempo`, `keySignature` and
+  `defaultTimeSignature` in the same words. ✅ **Removed** — `setClefAt` no longer mirrors anything
+  (`clefOps.ts:46`), and the resolution falls back to a universal constant `'treble'`, which cannot
+  bleed because it is the same value for every staff.
+
+### 1.3 Where the OPERATIONS live — the split every kind here has
+
+| half | module | what it owns |
+|---|---|---|
+| **writes** | `src/engine/models/clefOps.ts` | `setClefAt` · `removeClefAt` · `clefChangeAt` · `moveClef` · `moveClefWithinMeasure` · `normalizeClefAt`. Free functions over a `Score`, the `rebar`/`restFill` idiom |
+| **reads** | `src/utils/clefUtils.ts` | `effectiveClefAt` · `effectiveClefBefore` · `measureOpeningClef` · `measureEndingClef` · `resolveStaffClefs` · `middleLineDiatonicPos` · `staffLineForSpelling` / `diatonicPosForStaffLine` |
+| **facade** | `MusicEngine.setClefAt` / `setClef` / `removeClefAt` | thin delegators — ⛔ no clef logic |
+
+Two behaviours in `setClefAt` are worth knowing before you debug one:
+
+1. ⭐ **A redundant change is not stored, it is REMOVED.** Setting the clef already in effect
+   immediately before that beat deletes any change there. So *"set treble at bar 1 beat 0"* on a
+   fresh score stores **nothing** and still renders treble, via the default.
+2. ⛔ **The m1 b0 opening clef cannot be deleted, on ANY staff** — `removeClefAt`'s guard, decision
+   **(b)** of `docs/clef-model-plan.md` §4, HIS choice, *"for symmetry"*. It can only be changed.
+
+### 1.4 The two tables that make a clef mean a pitch
+
+Both are keyed by `Clef` and both are **single sources of truth** — ⛔ do not re-inline either:
+
+- `CLEF_MIDDLE_LINE_DIATONIC` (`clefUtils.ts:19`) — the diatonic position of each clef's **middle
+  (3rd) line**: treble = B4, bass = D3, alto = C4, tenor = A3. Everything else is derived from it —
+  `staffLineForSpelling`, its inverse `diatonicPosForStaffLine`, and `naturalStemDirection`.
+- `ElementRegistry.CLEF_REFERENCES` — the registry's own pixel↔pitch reference.
+
+⭐ A clef added later needs **one row** in the first table and nothing in the derivations. That is why
+they are derivations.
+
+### 1.5 Selection, hit-testing and the hand nudge
+
+- A clef is one kind in the `SelectedElement` union, with its own module
+  `src/interactions/elements/clef.ts` (hit-test + how it paints) and its row in `ELEMENT_SPECS` /
+  `ELEMENT_HIT_ORDER`.
+- ⚠️ **The hit boxes are CONSTANTS, not ink**: `LAYOUT_CONFIG.CLEF_HIT_WIDTH` = 4.5 sp and
+  `CLEF_CHANGE_HIT_WIDTH` = 3 sp (`rendering/layoutConfig.ts:110,112`). ⛔ Neither is a spacing
+  number and neither may be used as one — the ink extents are §2.1's, and the standing trap is
+  `reference: a hit box written from a constant drifts off its glyph`.
+- **The hand offset** is client #14 of the overrides compartment: `ClefOffsetOverride { x }` in staff
+  spaces, keyed by the **`ClefChange` id** so an upsert keeps it and a MOVE drops it.
+  `docs/clef-offset*`, `rendering/clefOffsetPass.ts`. ⭐⭐ *"Is this a header clef?"* is answered by
+  **the INK** — `MusicEngine.clefIsOffsettable` asks the registry for a drawn, non-`immovable` box —
+  ⛔ never by the model, because whether a clef is engraved in a system's header is a casting-off
+  fact.
+
+---
+
+## 2. How a clef is LAID OUT
+
+### 2.1 The numbers, and what each one actually is
+
+All in `src/engine/layout/headerInk.ts`, all in staff spaces:
+
+| constant | value | what it is |
+|---|---|---|
+| `CLEF_INDENT` | **0.7** | ⭐ **a CHOSEN engraving number** — decision A, §4.1 |
+| `CLEF_INDENT_SHIFT` | 0.7 − 0.5 = **0.2** | the DIFFERENCE from where VexFlow leaves the clef. ⛔ Not a second copy of the indent |
+| `CLEF_FULL` | treble **3.2** · bass **3.5** · alto/tenor **3.6** | ⚠️ **a MEASUREMENT of VexFlow's drawing written down**, from the stave's own x past the clef. The old indent (0.5) is INSIDE these numbers |
+| `CLEF_SMALL` | treble/bass **2.6** · alto/tenor **2.7** | the same, for the reduced clef VexFlow draws at ⅔ |
+| `lineOpeningClefPremium` | `FULL − SMALL` ⇒ **0.6 / 0.9 / 0.9 / 0.9** | what a bar pays the moment it becomes line-opening |
+| `inlineClefExtent` | `CLEF_SMALL + 1.0` | a mid-BAR change: it buys room the same way but adds nothing to the lead-in |
+| `cautionaryExtent({clef})` | `CLEF_SMALL + 1.0` | a courtesy clef is **cue size** — Gerou & Lusk p. 52, and the key signature and meter take the full-size branch beside it |
+
+🚨 **A checkable oddity in `CLEF_FULL`, recorded and ⛔ not acted on.** Bravura's clef advances are in
+this repo already (`src/engine/fonts/bravuraMetrics.ts:154–156`: gClef 2.684, fClef 2.736,
+cClef 2.796). Against `0.5 + advance`, every row of `CLEF_FULL`/`CLEF_SMALL` sits a consistent
+**≈ +0.3** — **except `CLEF_FULL.treble`, which sits +0.02**. The same asymmetry shows in the premium:
+0.9 for bass/alto/tenor (which is ⅓ of each advance, exactly what a ⅔ small clef implies) against
+**0.6** for treble. First noticed 2026-08-29 (`docs/clef-spacing-research.md` §A.7). ⚠️
+`e2e/spacing.e2e.ts` pins 3.2 against the current drawing, so nothing is silently wrong today.
+
+### 2.2 The header run, and where the clef sits in it
+
+```
+[system left edge] →0.7→ CLEF →0.82→ KEY SIGNATURE →1.15→ TIME SIGNATURE →2.5 or 2.0→ FIRST NOTE
+```
+
+The gaps either side of the clef are **not** this file's to re-decide — `docs/header-spacing-research.md`
+§8 owns them, and rows **B** (clef → key, 0.82) and **C** (key → meter, 1.15) are ⛔ **CLOSED by his
+own reports**. The last gap is keyed on what ENDS the header (`headerToNoteGap`): **2.5** after a clef
+or key signature, **2.0** after a time signature — decision D.
+
+⭐ **A clef is provably width-independent**, and there is a spec that says so:
+`MeasureLayout.clefWidthIndependence.test.ts` — a bar's *note-space* width does not depend on its
+clef, which is why `clef` was removable from the width cache's key. ⚠️ It is still a `ShapeKeyInputs`
+row, because the PICTURE depends on it.
+
+---
+
+## 3. How a clef is DRAWN, and by whom
+
+### 3.1 ⭐⭐ THE DISTINCTION THAT CATCHES PEOPLE: a modifier or a tickable
+
+**These are two different objects, laid out by two different mechanisms, and a change that only
+touches one of them draws nothing for the other.** It has already cost one round trip
+(*"i am offseting in the properties but i dont see anything changing in the score"*).
+
+| the clef | when | how it is drawn | placed by |
+|---|---|---|---|
+| **header clef** | first bar of a system (`measure.number === 1 \|\| isFirstInLine`) | `stave.addClef(clef)` — a **stave MODIFIER**, full size | `Stave.format()` |
+| **a bar's opening change** | `beat === 0`, mid-line, clef differs from the previous bar's ending clef | `stave.addClef(clef, 'small')` — also a **stave MODIFIER** | `Stave.format()` |
+| **a mid-measure change** | `beat > 0` | `new ClefNote(clef, 'small')`, interleaved into the voice immediately **before** the note at or after its beat (`interleaveClefNotes`, `VexFlowRenderer.ts:1348`) | the FORMATTER, as a tickable |
+| **a cautionary clef** | at a line end, when the next line's opening clef differs — **and only if allowed** | `stave.addEndClef(clef, 'small')`, before the closing barline | `Stave` |
+
+⚠️ `clefOffsetPass` has **two entry points for exactly this reason** — `applyClefOffsets` for the
+tickables and `applyStaveClefOffset` for the bar-opening modifier — and
+`reference: vexflow ClefNote setXShift is inert` is the trap that made it three bugs instead of one.
+
+### 3.2 The cautionary clef is OPT-IN, per change
+
+`cautionaryClefAllowedOf(score, measureId, staffId)` — a payloadless override, **presence = allowed**
+(`models/engravingOverrides.ts:475`). Absent ⇒ no courtesy clef is drawn at all.
+
+⭐ **That is HIS decision twice over**: first as a deferral (2026-06-01 — *"courtesy clef at the end
+of the previous measure for beat-0 changes"*, explicitly not wanted unless asked), then as the *Allow
+cautionary* control in the Clef window (`1b4a656`, `69d2755`). ⚠️ It **diverges from the key
+signature**, whose courtesy at a break is always on because there it *is* the engraving
+(`docs/key-signature-plan.md` §4.2). ⛔ Do not "fix" the divergence — it is two different decisions
+about two different symbols.
+
+The override is keyed by **the measure the change starts at**, not by the bar that happens to end the
+system: which bar ends a system moves on every reflow, and the author's decision must not.
+Width is charged **once** per measure even when several staves warn (`MeasureLayout.ts:750–782`).
+
+### 3.3 ⏳ The seam as of 2026-09-02 — the ink is moving, the placement is not
+
+**P5b of `docs/own-engraving-engine.md`** is under way. Read the seam as it is:
+
+- ⭐ **The INK is becoming ours** — `src/engine/engrave/header/clef.ts` (+ its adapter
+  `rendering/EngravedClef.ts`): `clefPlacement()` states the one vertical rule and `drawClef()`
+  stamps the glyph into the SCENE. ⛔ No DOM, ⛔ no vexflow.
+- ⛔ **The PLACEMENT is still `Stave.format()`**, plus two nudge passes that run **before** the stave
+  draws: `clefIndentPass.applyClefIndent` (the engraved indentation, line-opening bars only) and
+  `clefOffsetPass` (a hand offset). ⭐ The two compose — a bar can carry both, and they add.
+- ⛔ **WHICH LINE each clef names is still VexFlow's `Clef.types` table**, arriving as
+  `ClefAnchor.lineY` already resolved. ⛔ **How big a clef is drawn** — including the **⅔** reduction
+  for a change clef (`Clef.getPoint`) — is still VexFlow's, arriving as a resolved font.
+- 🚨 **The group id `g.vf-clef` is load-bearing** — `clefIndentPass.test.ts` and `e2e/slur.e2e.ts`
+  both find clefs by it, and the registry's box resolves back to that ink.
+
+⚠️ **A drawn POSITION is not a unit test** — jsdom measures every glyph at 0×0. Clef geometry belongs
+in `e2e/` or, where our own primitives draw it, in the SCENE.
+
+### 3.4 The other places a clef glyph appears
+
+| where | what it draws |
+|---|---|
+| `rendering/GutterRenderer.ts:118` | the frozen gutter clef — `stave.addClef(staff.clef)`, full size |
+| `rendering/GhostRenderer.ts` `drawClefGhost` | the armed-clef preview: one glyph on a **0-line stave**, following the cursor |
+| `windows/clefWindow.ts` | the picker's four rows — 5 lines + a Bravura glyph, `font-size = 4 × SPACE` because **SMuFL's em square IS the staff height** |
+
+⭐ **A small STAFF scales its clef for free.** A staff is drawn inside a `<g transform="scale(k)">`
+group, so the clef shrinks with everything else — there is no clef magnification of our own, and
+⛔ there must not be one. (`docs/small-staff-spacing.md`; the standing trap is visual coordinates
+inside a scaled scope.)
+
+---
+
+## 4. The decisions already taken
+
+| # | decision | value | who / when | where it lives |
+|---|---|---|---|---|
+| **A** | **the clef's INDENTATION** — how far its ink sits inside the staff's left edge | **0.7 sp** | HIS, **2026-09-01** (`docs/header-spacing-research.md` §8 A) | `headerInk.CLEF_INDENT` + `rendering/clefIndentPass` |
+| **B** | clef → key signature | **0.82 sp** | HIS, by rejecting 1.5 — *"isn't the first accidental too far from the clef?"* | `keySignatureLayout.CLEF_TO_KEY_INK` |
+| **D** | header → first note, keyed on what ends the header | **2.5** after a clef, **2.0** after a meter | HIS, 2026-09-01 | `headerInk.headerToNoteGap` |
+| — | **no `Score.clef`** — clef is per-staff content, resolved positionally | — | `docs/clef-model-plan.md`; the hot fix was **explicitly rejected** by him | `clefOps` + `clefUtils` |
+| — | the **m1 b0 opening clef is undeletable on every staff** | — | HIS, decision (b), `clef-model-plan.md` §4 | `clefOps.removeClefAt` |
+| — | **the courtesy clef is OPT-IN**, per change | — | HIS: deferred 2026-06-01, then built as *Allow cautionary* | `cautionaryClefAllowedOf` |
+| — | **beams stay beamed across a mid-measure clef change** | — | HIS, 2026-06-01 — *"I want the groups remain beamed"* | `createBeamGroups` groups by beat only |
+| — | **the model stores WRITTEN pitch** under an octave clef | — | `docs/octave-clefs-plan.md` §1 (sounding pitch explicitly rejected) | ⏳ unbuilt |
+| — | **no percussion clef** in the `Clef` union | — | Clef window design, 2026-07-20 | `docs/unpitched-staves-plan.md` |
+
+⛔ **A** is CLOSED. ⛔ Do not re-open it by re-quoting Gould's drawing — she is one of the three
+sources that produced 0.7, and the row is settled.
+
+---
+
+## 5. What the research settled, and what it left open
+
+⭐ Evidence: **`docs/clef-research.md`** (2026-09-02, general) and **`docs/clef-spacing-research.md`**
+(2026-08-29, position and spacing). This section is the index; ⛔ the numbers live there.
+
+### ✅ Settled in the literature, and we agree
+
+- **The order is clef → key → meter → note.** Four books, no dissent.
+- **The clef is indented, by less than a whole space** — 0.6–0.8 sp across three books. ⇒ decision A.
+- **A courtesy clef is CUE size; a courtesy key signature and meter are FULL size** — Gerou & Lusk
+  p. 52, stated outright. ✅ `cautionaryExtent` implements exactly this.
+- **A mid-measure change is drawn immediately before the note it affects** — Ross p. 167, Gerou &
+  Lusk pp. 51–52. ✅ `interleaveClefNotes` does this.
+- **A cautionary clef goes before the closing barline, and the next system's clef is full size** —
+  all four books. ✅ We draw this (when allowed).
+- **A key signature after a clef change is written in the NEW clef** — Gould p. 93. ✅
+  `keySignatureLayout.cancelledOctave` resolves cancelling naturals against the new clef.
+
+### 🚨 Where the literature and our drawing disagree
+
+- ⭐⭐ **A clef change at a barline belongs BEFORE the barline. We draw it AFTER.** Gould p. 8
+  (*"The clef always goes before the barline"*), Ross p. 166, Stone pp. 46/57, Gerou & Lusk p. 27 —
+  and three of them add that only a *systemic* barline may precede a clef. Our bar-opening change is
+  `stave.addClef(clef, 'small')` at the head of the new bar. First recorded 2026-08-29
+  (`clef-spacing-research.md` PART 7); ⛔ **it is a drawing question and nothing here says how to fix
+  it, or that it should be fixed.**
+
+### ⏳ Open, and named as open by the code itself
+
+`engine/engrave/header/clef.ts` parks two things as parameters rather than inventing a rule:
+
+1. **WHICH LINE each clef names** — still VexFlow's `Clef.types`. The books state the rule
+   (`clef-research.md` §2); nobody here has yet chosen to own the table.
+2. **The small-clef RATIO.** ⚠️ The literature does **not** agree with itself: Gould *writes*
+   two-thirds and *draws* three-quarters, six times; Gerou & Lusk *state* 75%; Ross *draws* 0.65–0.68;
+   the engines span 0.65–0.88 and VexFlow uses exactly ⅔. ⛔ There is no single sourced answer to
+   adopt — this is a house-style choice, and it is HIS.
+
+⭐⭐ **And a third thing, which the research turned up and no code here distinguishes: a SMALL-STAFF
+clef and a CHANGE clef are different reductions.** Bravura ships a stylistic set (`ss01`) whose
+`gClefSmall`/`fClefSmall`/`cClefSmall` are the **same height and up to 10% WIDER** — an optical master
+for a glyph already being scaled down — against `*Change` at 0.65–0.72. LilyPond states the same
+principle in prose. ⛔ No engine surveyed uses `ss01`, and neither do we: we draw one glyph, scaled by
+the staff group and again by VexFlow's ⅔. `docs/clef-research.md` §9.1.
+
+### ⛔ UNKNOWN in every source that was read
+
+⭐ Each of these was **looked for and not found**, with the pages read recorded in the research docs —
+⛔ none of them is "the books are silent" standing in for not having looked:
+
+- **The clef's ink extent above and below the stave as a STATED rule.** Every number we have is
+  measured off a plate or read out of the font.
+- **Why the treble clef's vertical split differs between engravers** (Gould draws it ≈0.3 sp higher
+  on the stave than Ross and Gerou & Lusk, at the same total height).
+- **Optical centring of a clef.** The word `optical` appears **nowhere** in Gould's whole book, and
+  none of the three engines has a horizontal optical-centre rule for a clef.
+- **A clef change WITHIN a measure, as a general rule** — ⭐ and Stone p. 46 *refuses* it in words:
+  *"There are no specific rules for clef changes within a measure."* A stated non-rule is not a
+  silence.
+- **The FRENCH VIOLIN clef (G on line 1) and the BARITONE F clef (F on line 3)** — in **none** of the
+  four books; a grep for *"French violin"* across all four returns 0 hits. ⛔ Absent, ⛔ not rejected.
+  (All four engines support both.)
+- **A stated SIZE or DISTANCE for an octave clef's numeral.** Every number is measured. ⚠️ Ross's
+  *"the 8 being approximately 1½ spaces in height"* is the **ottava sign's** 8, ⛔ not a clef's.
+- **Gardner Read**, *Music Notation*, and **Chlapik** — still not on disk.
+
+---
+
+## 6. Traps, in one place
+
+1. 🚨 **`ClefNote.setXShift` is INERT** — shift the inner `Clef` element.
+   `reference: vexflow ClefNote setXShift is inert`.
+2. 🚨 **A bar's opening clef is a stave MODIFIER, not a `ClefNote`** — §3.1. A pass that walks
+   tickables will miss it entirely.
+3. 🚨 **Never measure a clef from `getX()` alone** — a hand-nudged clef reports its position through
+   `xShift`, and `firstSignX` measuring the unshifted origin left a key signature behind the clef
+   the user had moved (fixed 2026-09-01).
+4. 🚨 **A reused bar's stave reports where it WAS** — take x from the PLACEMENT, and apply
+   `staleShift` when asking a modifier where it is.
+5. ⚠️ **The indent moves the WHOLE header run** — ⛔ except the barline, which it is measured *from*.
+   Moving the clef alone opened a gap only when a key signature was present.
+6. ⚠️ **A modifier's `getWidth()` is a layout box, not ink** (`fontMetrics.clefGlyph`'s own note).
+   Every spacing decision here is made in INK.
+7. ⚠️ **The override compartment is uuid-keyed, so nothing in the redraw key moves** — a bar carrying
+   only a clef-offset change is reused and the pass never runs.
+   `reference: render width key vs shape key`.
+
+---
+
+## 7. Where to look next
+
+| you are… | read |
+|---|---|
+| choosing an engraving number | `docs/clef-research.md` (general) · `docs/clef-spacing-research.md` (position & spacing) · `docs/header-spacing-research.md` (the run) |
+| moving the drawing off VexFlow | `docs/own-engraving-engine.md` §P5 · `src/engine/engrave/header/clef.ts` |
+| changing the model | `docs/clef-model-plan.md` · `docs/octave-clefs-plan.md` |
+| touching the header's other symbol | `docs/key-signature-plan.md` — the closest sibling in every respect |
+| adding a clef TYPE | `clefUtils.CLEF_MIDDLE_LINE_DIATONIC` + `ElementRegistry.CLEF_REFERENCES` + `fontMetrics.CLEF_GLYPHS` + `CLEF_CHOICES` in the window, and nothing else |

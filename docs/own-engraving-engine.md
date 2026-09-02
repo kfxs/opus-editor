@@ -938,6 +938,20 @@ reach, stated there: *"the reach is a parameter rather than a `getTextMetrics()`
 draw method… P3b did not change where it comes from."* ⛔ Taking a table or a ratio into `engrave/`
 ahead of the research would be inventing a rule that predates it.
 
+⛔⛔ **AND THE CLEF'S ENGRAVING RULES ARE NOT THIS PLAN'S JOB — HIS instruction, 2026-09-02**:
+*"in general the clef rules should be reviewed later and applied properly but this is out of the
+scope of own engine, just mark this as TODO in the future."* The research that landed the same day
+(`docs/clef-research.md`) found real things to fix — ⭐ **a clef change at a bar's start belongs at the
+END of the previous bar, before the barline, and all four books agree** (his own example); the small
+clef's ratio is unsourced; and Bravura ships a *separate* small-staff clef that is an optical master
+rather than a reduction, which nothing here distinguishes. ⇒ **the list is `docs/clef.md` §0**, and it
+is a separate pass on his say-so.
+
+⭐ **Why the split is load-bearing rather than bureaucratic:** every item on that list CHANGES THE
+PICTURE, and this migration's entire safety argument is that it does not. A rule change folded into a
+migration commit destroys the one property that makes the migration checkable — *"the suite is green
+and nothing moved"*.
+
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 
 > *"are we planning to manage the bounding box at a certain moment? and do we need the bbox once we
