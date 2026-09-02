@@ -8,7 +8,7 @@
  * ctx.openGroup('stave', id)
  * …the five lines…        // ← P5a: now `engrave/staff/staffLines`
  * ctx.closeGroup()
- * for (modifier of this.modifiers) modifier.drawWithStyle()   // ⛔ still VexFlow's, see below
+ * for (modifier of this.modifiers) modifier.drawWithStyle()   // ← P5b took the CLEF; see below
  * if (this.measure > 0) …the measure number…                  // ⛔ unreachable here, see below
  * ```
  *
@@ -17,11 +17,15 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **The modifiers** — the clef, the time signature, the opening barline — still paint themselves,
- * handed the VexFlow context exactly as `EngravedBeam` hands `drawStems` one. ⭐ That is the rest of
- * P5: the parent plan's *"`headerInk.ts` already MEASURES what a clef and a meter cost; `Stave` still
- * PLACES them"*. ⚠️ The key signature is already NOT among them — `stave.addKeySignature` is never
- * called in this repo; `KeySignaturePass` draws it.
+ * ⛔ **The modifiers** — the time signature and the opening barline — still paint themselves, handed
+ * the VexFlow context exactly as `EngravedBeam` hands `drawStems` one. ⭐ **The CLEF no longer does:**
+ * P5b (2026-09-02) gave it `EngravedClef` + `engrave/header/clef`, and {@link EngravedStave.addClef}
+ * below is what puts one on every stave of the page. ⚠️ The key signature was never among them
+ * either — `stave.addKeySignature` is never called in this repo; `KeySignaturePass` draws it.
+ *
+ * ⭐ So what is left of the header here is the METER and the opening BARLINE's ink — and, for all
+ * three, the parent plan's other half: *"`headerInk.ts` already MEASURES what a clef and a meter
+ * cost; `Stave` still PLACES them"*. ⛔ P5b took the clef's INK, ⛔ not its PLACEMENT.
  *
  * ⚠️ **A subclass, for the reason `EngravedBeam` and `EngravedStem` are ones.** Every number read
  * below is public API (`getX`, `getWidth`, `getYForLine`, `getNumLines`, `options`) or `protected`
@@ -34,9 +38,10 @@
  * opened as `openGroup('stave', …)` — which is why {@link drawStaffLines} strokes rather than filling,
  * even though a filled bar is the honester description of the ink.
  */
-import { Stave } from 'vexflow'
+import { Stave, StaveModifierPosition } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { EngravedClef } from './EngravedClef'
 
 export class EngravedStave extends Stave {
   /**
@@ -72,10 +77,15 @@ export class EngravedStave extends Stave {
       surface.closeGroup()
     }
 
-    // ⛔ Still VexFlow's, and given VexFlow's context deliberately — see the header.
     for (const modifier of this.modifiers) {
+      // ⛔ Still VexFlow's, and given VexFlow's context deliberately — see the header. ⭐ …except
+      // the CLEF, which since P5b draws its glyph on OUR surface and is handed it here: the
+      // modifier walk is the one place that knows both the stave's surface and its modifiers.
+      // ⚠️ `setContext` still happens for every one of them, the clef included — `drawWithStyle`
+      // calls `checkContext()` before it calls `draw()`, so a modifier without one throws.
       modifier.setContext(vex)
       modifier.setStave(this)
+      if (modifier instanceof EngravedClef) modifier.setInkSurface(surface)
       modifier.drawWithStyle()
     }
 
@@ -86,6 +96,29 @@ export class EngravedStave extends Stave {
       const textWidth = vex.measureText('' + this.measure).width
       vex.fillText('' + this.measure, this.getX() - textWidth / 2, this.getYForTopText(0) + 3)
     }
+  }
+
+  /**
+   * ⭐⭐ **P5b — every clef this stave carries is one of OURS.**
+   *
+   * ⚠️ `Stave.addClef` hard-codes `new Clef(...)`, so this is the only way to substitute the
+   * subclass without touching the six call sites that add a clef. The body is VexFlow's own
+   * (`stave.js:321`) with that one word changed — `clef`/`endClef` are `protected` and therefore
+   * ours to keep writing, and `getClef()` must keep answering or the header's own layout stops
+   * working.
+   *
+   * ⭐ **The GHOST and GUTTER staves are deliberately not affected**: they are plain `Stave`s
+   * (`GhostRenderer`, `GutterRenderer`), so they keep VexFlow's clef exactly as they keep VexFlow's
+   * staff lines after P5a. A preview is not the page.
+   */
+  override addClef(clef: string, size?: string, annotation?: string, position?: number): this {
+    if (position === undefined || position === StaveModifierPosition.BEGIN) {
+      this.clef = clef
+    } else if (position === StaveModifierPosition.END) {
+      this.endClef = clef
+    }
+    this.addModifier(new EngravedClef(clef, size, annotation), position)
+    return this
   }
 
   /**

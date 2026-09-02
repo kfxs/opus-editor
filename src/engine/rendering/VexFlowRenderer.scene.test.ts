@@ -494,6 +494,99 @@ describe('⭐⭐ P4b — the beam’s SLOPE, and it is the first step that MOVES
   })
 })
 
+describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER that is ours', () => {
+  /** Every glyph stamped inside a `clef` group — codepoint, anchor, and the face it was drawn in. */
+  function clefs(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'clef')
+      .flatMap(g => g.children.filter(c => c.kind === 'text'))
+      .flatMap(t => (t.kind === 'text'
+        ? [{ code: t.text.codePointAt(0) ?? 0, x: t.x, y: t.y, font: t.font }]
+        : []))
+  }
+
+  /**
+   * The y of every staff line the STAVE drew, read back out of P5a's own ink.
+   *
+   * ⚠️ A staff line is STROKED through the middle of its bar (`staffLineStrokeY` — `y + t/2`),
+   * so the line's own y is the stroke's minus half the thickness. ⭐ Deriving it here rather than
+   * hard-coding 40/50/60… is what makes the assertion below a statement about the RULE.
+   */
+  function staffLineYs(scene: ReturnType<typeof render>['scene']): number[] {
+    return sceneGroups(scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
+        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        : []))
+  }
+
+  it('⭐⭐ a treble system draws ONE clef — a SMuFL gClef, in its own group', () => {
+    // Four bars, one system, one header clef: VexFlow's `addClef` runs on bar 1 only
+    // (`VexFlowRenderer.buildStave`), and nothing else in the score stamps one.
+    const drawn = clefs(render(4).scene)
+    expect(drawn.length, 'one system, one clef').toBe(1)
+    expect(drawn[0].code, 'SMuFL gClef, U+E050').toBe(0xe050)
+    expect(drawn[0].font.family, 'the face VexFlow resolved for the clef').toContain('Bravura')
+  })
+
+  it('⭐⭐ …and its baseline sits EXACTLY on a staff line — the rule, in jsdom', () => {
+    // ⭐ The whole of `clefPlacement`, asserted against the OTHER half of our own scene: P5a drew
+    // the five lines, P5b stamps the glyph, and the claim is that the second lands on the first.
+    // ⚠️ This needed a browser yesterday — and a font, which is why it could not be checked there
+    // either without measuring ink.
+    const { scene } = render(2)
+    const [clef] = clefs(scene)
+    const lines = staffLineYs(scene)
+    expect(lines.length, 'five lines per stave, at least one stave').toBeGreaterThanOrEqual(5)
+    const onALine = lines.filter(y => Math.abs(y - clef.y) < 1e-6)
+    expect(onALine.length, 'the clef stands on a line, not between two').toBeGreaterThan(0)
+    // ⭐ …and it is the SECOND LINE UP — the G line, which is what makes it a G clef. The lines
+    // come back top-to-bottom, so that is index 3 of the first stave's five.
+    const first = lines.slice(0, 5)
+    expect(clef.y, 'the G line — second from the bottom').toBeCloseTo(first[3], 10)
+  })
+
+  it('⭐ it stands INSIDE the staff’s left edge, and left of every notehead', () => {
+    const { scene } = render(2)
+    const [clef] = clefs(scene)
+    const staveX = sceneGroups(scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo' ? [p.ops[0].x] : []))
+    // ⭐ The engraved indentation (`clefIndentPass`, 0.7 sp) — the clef begins inside the edge.
+    expect(clef.x, 'indented from the system’s left edge').toBeGreaterThan(Math.min(...staveX))
+    const headXs = sceneGroups(scene, 'notehead')
+      .flatMap(g => g.children.filter(c => c.kind === 'text'))
+      .flatMap(t => (t.kind === 'text' ? [t.x] : []))
+    expect(headXs.length).toBeGreaterThan(0)
+    expect(clef.x, 'the header runs before the music').toBeLessThan(Math.min(...headXs))
+  })
+
+  it('⚠️ a MID-LINE clef change draws a second clef, at VexFlow’s two-thirds — ⏳ unsourced', () => {
+    // ⚠️ `Clef.getPoint('small')` is `fontSize * 2 / 3`, and NOTHING in this repo chose that ratio.
+    // ⭐ It is question 3 of `docs/clef-research.md`; this assertion exists so that the day someone
+    // changes it, a spec says so out loud rather than a picture changing quietly.
+    const model = buildScore(4)
+    model.setClef(3, 'bass')
+    const drawn = clefs(renderModel(model).scene)
+    expect(drawn.length, 'the header’s, plus the change at bar 3').toBe(2)
+    const [header, change] = drawn
+    expect(change.code, 'SMuFL fClef, U+E062').toBe(0xe062)
+    expect(change.x, 'the change stands later in the system').toBeGreaterThan(header.x)
+    const headerSize = header.font.size
+    expect(typeof headerSize, 'the resolved face carries a size').toBe('number')
+    expect(change.font.size, 'two thirds of the header clef, floored')
+      .toBe(Math.floor(Number(headerSize) * 2 / 3))
+  })
+
+  // 🚨 The break-test: every expectation above would pass vacuously on an empty list, and the
+  // count is what proves the clef reaches OUR surface rather than VexFlow's.
+  it('🚨 the break-test — the clef count RESPONDS to the score', () => {
+    expect(clefs(render(1).scene).length, 'one bar, one clef').toBe(1)
+    const model = buildScore(2)
+    model.setClef(2, 'alto')
+    expect(clefs(renderModel(model).scene).length, '…and a change adds one').toBe(2)
+  })
+})
+
 describe('the scene’s SHAPE', () => {
   it('⭐ groups nest, and every group carries a placement', () => {
     const { scene } = render(2)

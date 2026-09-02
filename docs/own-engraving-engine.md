@@ -52,8 +52,8 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
-> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 (a ✅) → P5 → P1e
-> → P6.**
+> 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
+> c ✅) → P1e → P6.**
 >
 > ⭐ **P6 — the RULER — was added 2026-09-01 on his call**, and it is the one piece nothing in this
 > plan had ever named: we have been taking the INK one element at a time while every BOX is still
@@ -470,7 +470,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 
 | still paints itself | where | which phase takes it |
 |---|---|---|
-| **`Stave`** — the staff's own five lines, and it places the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01); the clef/meter placement is **P5b** |
+| **`Stave`** — and it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01) and **P5b ✅ the CLEF's GLYPH** (2026-09-02); the METER's ink and all three PLACEMENTS are what is left of **P5b** |
 | **`Curve`** — the tie's and slur's arc | `rendering/curveArc` (4), `TieRenderer` (1) | ⛔ **unlettered** — the largest single block left |
 | **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` (2) | ⛔ **unlettered** — ⚠️ and BLOCKED on the highlight, see U2 |
 
@@ -872,8 +872,8 @@ and hooks.
 | step | what | state |
 |---|---|---|
 | **P5a** | the staff's own **FIVE LINES** | ✅ **2026-09-01** — `engrave/staff/staffLines` + `rendering/EngravedStave`. ⭐ The dividend is that **staff-line geometry is now a unit test**: the lines are in the SCENE, where before they were VexFlow's and needed a browser |
-| **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⏭️ **researched first**: `docs/header-spacing-research.md`. This is the two-sets-of-numbers pair the section names |
-| **P5c** | ⏳ the staff line's **THICKNESS** | ⛔ **gated, and it is a taste call**: SMuFL says 0.13 sp, we draw 0.1 sp, and changing it moves every staff line in every score. `docs/staff-line-research.md`; HIS |
+| **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⭐ **the CLEF's INK is ours as of 2026-09-02** (below), and TWO of the run's gaps were decided and built the day before (`docs/header-spacing-research.md` §8): **A** the clef's indentation 0.7 sp, and **D** the header→first-note gap keyed on what ends the header (2½ / 2). ⚠️ Of the nine rows the research raised, **only E and G are genuinely open** — B/C settled by his own earlier reports, F blocked by VexFlow, H unknown in every book, I settled by `key-signature-plan.md` §4.0b. ⏭️ What is LEFT: the **METER's** ink, and every **PLACEMENT** moving off `Stave.format()` |
+| **P5c** | the staff line's **THICKNESS** | ✅ **2026-09-01 — HIS call, and he took Gould**: 0.11 sp, what her engraved staves measure, ⛔ not Bravura's 0.13 (which is a FONT's number, not a spec's — `docs/staff-line-research.md` §5.1). `engrave/staff/staffLines.STAVE_LINE_WIDTH_PX`. ⚠️ A **default**, ⛔ not a law: *"the user will be able to change this"* |
 
 #### ✅ P5a — the five lines (2026-09-01)
 
@@ -896,6 +896,47 @@ positions the stroke.
 
 ⛔ **What P5a did NOT take**: the clef, the meter and the opening barline are stave MODIFIERS and
 still paint themselves — that is P5b, and it is the half with the engraving questions in it.
+
+#### ✅ P5b, first step — the CLEF's glyph (2026-09-02)
+
+> *"we still have to do the clef so start with that"* — his call, taken while the clef RESEARCH was
+> still running (`docs/clef-research.md`, `docs/clef.md`).
+
+⭐ Same shape as P5a and P3b: **the ink moves to a module of ours and enters the SCENE, and the
+numbers that decide WHERE stay exactly where they were, as named inputs.** `engrave/header/clef` +
+`rendering/EngravedClef`, substituted onto every score stave by one `EngravedStave.addClef` override.
+⛔ **No pixel moved** — 6218 unit tests and all 279 e2e green either side, and `lint:paint` unchanged
+at 18/18.
+
+**The rule, and it is the whole of a clef's vertical placement:**
+
+> **A clef stands ON A STAFF LINE — the one its name names — and that line's y is the glyph's
+> BASELINE**, ⛔ not its top and ⛔ not its centre.
+
+⭐ SMuFL cuts the glyphs so the ORIGIN sits on the anchor line (`gClef`'s curl encircles it,
+`fClef`'s dots straddle it, `cClef` is centred on it), so the rule reduces to *put the origin on the
+line* and the font does the rest. ⛔ Which is why nothing in the module nudges.
+
+⭐⭐ **The dividend, and it is the P5a one again: a clef's geometry is a UNIT TEST.**
+`VexFlowRenderer.scene.test.ts` now asserts, in jsdom, that the treble clef's baseline lands
+**exactly on the second line up** — ⭐ checked against P5a's own staff lines read back out of the same
+scene, so it is a statement about the RULE rather than about the number 55. That assertion needed a
+browser *and* a font the day before.
+
+⛔ **What it did NOT take, and it is most of P5b:**
+
+| ⛔ still VexFlow's | where | why it was left |
+|---|---|---|
+| the clef's **x** | `Stave.format()`'s BEGIN-modifier walk, plus `clefIndentPass` and `clefOffsetPass` nudging by `setX`/`setXShift` | this is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after — the next step, not this one |
+| **which line** each clef names | `Clef.types` | ⏳ question 2 of the clef research |
+| the **⅔** a mid-score clef is reduced by | `Clef.getPoint` | ⏳ question 3 of the clef research — ⚠️ and nothing in this repo ever chose it. A spec now says the number out loud so a change cannot be quiet |
+| the **inline** clef (a change at `beat > 0`) | `ClefNote`, which builds its own `Clef` | ⏭️ it becomes ours when `ClefNote` does |
+| the **METER** and the opening **BARLINE** | stave modifiers | the rest of P5b |
+
+⭐ **Both of the middle two are parameters, deliberately** — P3b's precedent with the flag's font
+reach, stated there: *"the reach is a parameter rather than a `getTextMetrics()` call buried in a
+draw method… P3b did not change where it comes from."* ⛔ Taking a table or a ratio into `engrave/`
+ahead of the research would be inventing a rule that predates it.
 
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 
