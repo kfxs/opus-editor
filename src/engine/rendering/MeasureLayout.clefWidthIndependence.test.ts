@@ -25,6 +25,8 @@ import { fracAdd } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import type { Clef } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
+import { armedHeaderGapRule } from '@/engine/layout/headerAccidentalLadder'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const CLEFS: Clef[] = ['treble', 'bass', 'alto', 'tenor']
 
@@ -114,7 +116,7 @@ describe('control — the harness can actually see a width change', () => {
     expect(four).toBeGreaterThan(two)
   })
 
-  it('🚨 REVERSED: an accidental on the FIRST note DOES widen a bar', () => {
+  it('🚨 REVERSED TWICE OVER: an accidental on the FIRST note barely widens a bar', () => {
     // ⚠️ The long history of this one assertion is worth keeping, because it has now been wrong
     //    twice in opposite directions.
     //
@@ -125,19 +127,42 @@ describe('control — the harness can actually see a width change', () => {
     //    `MIN_NOTE_SPACING` per event and glyphs did not move it. The comment of the day added
     //    *"whether that is GOOD is a live question — accidentals do want room"*.
     //
-    // ⭐ The spacing model settled that question, and this is where the answer shows. A sign on the
+    // ⭐ The spacing model settled that question, and this is where the answer showed: a sign on the
     //   FIRST note lands in the bar's LEAD-IN, which is pure ink with no duration rule over it to
-    //   swallow it — so it is paid for, in full, every time. (Mid-bar it usually is not: there the
+    //   swallow it — so it was paid for, in full, every time. (Mid-bar it usually is not: there the
     //   sign sits in a gap that already has a quarter's 3.5 spaces, far more than the ink needs.
     //   That is the `max`, and both halves of it are correct.)
+    //
+    // ⭐⭐ **AND THEN DECISION E CHANGED THE OTHER HALF** (2026-09-02, HIS: *"lets do what gould
+    //   say"*). Gould p. 42 closes the header gap when the first note carries an accidental — 2½ → 1½
+    //   — so the ink is no longer paid for ON TOP of the gap; it moves INTO it. Measured here, and it
+    //   is the whole rule in two numbers:
+    //
+    //   | | staff spaces | px |
+    //   |---|---|---|
+    //   | the sharp's extra ink (1.4 reach against a bare ledgered head's 0.3) | **+1.1** | +11 |
+    //   | the header gap closing for one accidental — **the armed row** | **−0.85** | −8.5 |
+    //   | ⇒ what the bar actually grows by | **+0.25** | **+2.5** |
+    //
+    // ⚠️ **Bar 1 draws a clef AND a meter**, so it is the ladder's `meter` row that applies here,
+    //   ⛔ not `sign`. And the closing term is READ from the armed rule rather than written down:
+    //   which row is armed is an open experiment of his (`layout/headerAccidentalLadder`,
+    //   `__header.rule(…)`), and a hard-coded 8.5 here would fail the moment he tried another.
+    //
+    // ⚠️ **This is no longer the harness's control** — a 2.5 px difference proves little. The control
+    //   is the test above (four notes wider than two); this one is now decision E's own record here,
+    //   and `MeasureLayout.headerGap.test.ts` is where the rule is pinned properly.
     const plain = widthOf([{ step: 'C', octave: 4, duration: 'h' }, { step: 'D', octave: 4, duration: 'h' }], 'treble')
     const sharp = widthOf(
       [{ step: 'C', alter: 1, octave: 4, duration: 'h' }, { step: 'D', alter: -1, octave: 4, duration: 'h' }],
       'treble',
     )
-    // The sharp reaches 1.4 spaces left of its notehead where a bare head reaches 0.3 (C4 is on a
-    // ledger line in treble) — so the lead-in, and the bar, grow by the difference.
-    expect(sharp - plain).toBeCloseTo(11, 0)
+    // ⭐ The accidental's ink is paid out of the gap, ⛔ no longer on top of it — see the table above.
+    const closing = (armedHeaderGapRule().meter[0] - armedHeaderGapRule().meter[1]) * STAFF_SPACE_PX
+    expect(sharp - plain).toBeCloseTo(11 - closing, 0)
+    // 🚨 The break-test, and it is the whole point of the rule: without it the bar would grow by the
+    //   full 11 px it grew by before 2026-09-02.
+    expect(closing).toBeGreaterThan(0)
   })
 })
 

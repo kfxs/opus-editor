@@ -69,6 +69,7 @@ import { beamGroupStemDirection } from '@/engine/models/stemOps'
 import { slurShapeGeneration } from './slurShapeExperiment'
 import { beamSlopeGeneration } from './beamSlopeExperiment'
 import { spacingGeneration } from '@/engine/layout/spacing'
+import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -738,6 +739,10 @@ export class VexFlowRenderer {
       // ⚠️ HIS EXPERIMENT (2026-09-01) — the armed SPACING law. ⭐ Here and not merely in the view
       //    key: a spacing law changes WIDTHS, so the casting-off itself depends on it.
       spacingGeneration(),
+      // ⚠️ HIS EXPERIMENT (2026-09-02) — the armed header-gap row (`layout/headerAccidentalLadder`).
+      //    Here for the same reason as the line above: the gap is a WIDTH, so the casting-off
+      //    depends on it.
+      headerGapGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,
@@ -1586,16 +1591,20 @@ export class VexFlowRenderer {
           }),
         }
       })
+      const leadIn = measureLeadIn(measure, clefFor, sizeFor, keyFor)
       const system = {
         // ⭐ Each staff's ink at its OWN size — the spine stays global (docs/staff-size-plan.md §6a).
         //   The width path builds the same resolver, so the room reserved is the room asked for.
         columns: measureColumns(measure, clefFor, sizeFor, keyFor),
-        leadIn: measureLeadIn(measure, clefFor, sizeFor, keyFor),
+        leadIn,
         headerExtent: Math.max(0, ...headers.map(h => h.extent)),
         // ⭐ Decision D: the gap before the first note depends on what ENDS the header — 2½ after a
         //   clef or key signature, 2 after a meter (Gould p. 42). A SYSTEM answer like the extent
         //   above, and for the same reason: the meter is drawn on every staff or on none.
-        headerToNote: headerToNoteGap({ meter }),
+        // ⭐ Decision E: …and it closes up when that first note carries an accidental — 1½ with one,
+        //   1 with more. ⚠️ `leadIn.accidentals` counts every slot at the bar's first beat, across
+        //   staves and voices, so this stays ONE answer for the system exactly as the extent does.
+        headerToNote: headerToNoteGap({ meter }, leadIn.accidentals),
       }
 
       // Each staff of this measure sits at its own Y with its own clef and its own slice of the
@@ -2649,8 +2658,12 @@ export class VexFlowRenderer {
     //   ⏭️ If a real clash is ever measured, it is a KERNING row, ⛔ never a column of reserved room.
     // ⭐ Decision D again, on the DRAWING side — and it must be the same answer the width path used
     //   (`MeasureLayout`'s `sharedOverhead`), or the room reserved and the room taken disagree.
+    // ⭐ Decision E rides along: the fallback re-derives the same pair of arguments the system's
+    //   answer was built from, so a bar drawn without a system placement closes the gap too.
     const headerGap = system?.headerToNote
-      ?? headerToNoteGap({ meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined })
+      ?? headerToNoteGap(
+        { meter: drawsTimeSignature(measure) ? measure.timeSignature : undefined },
+        measureLeadIn(measure, () => clef).accidentals)
     applyLeadIn(stave, x,
       (systemHeader > 0 ? headerGap : (system?.leadIn.padding ?? measureLeadIn(measure, () => clef).padding))
         + repeatStartRoom(measure),

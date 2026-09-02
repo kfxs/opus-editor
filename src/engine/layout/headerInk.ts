@@ -2,6 +2,7 @@ import type { Clef, KeySignature, TimeSignature } from '@/types/music'
 import {
   CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
 } from './keySignatureLayout'
+import { armedHeaderGapRule } from './headerAccidentalLadder'
 
 /**
  * ⭐⭐ **THE HEADER, AS INK** — what a clef and a meter actually cost at the front of a bar
@@ -91,15 +92,80 @@ export const HEADER_TO_NOTE = 2.0
 export const HEADER_TO_NOTE_AFTER_SIGN = 2.5
 
 /**
- * ⭐ Which of the two gaps this header earns — keyed on the part that ENDS it.
+ * ⭐⭐ **…AND IT CLOSES UP WHEN THE FIRST NOTE CARRIES AN ACCIDENTAL — decision E, HIS, 2026-09-02**
+ * (*"lets do what gould say"*; `docs/header-spacing-research.md` §8 E).
  *
- * ⚠️ The test is simply *"is a meter drawn?"*, and that is total rather than lazy: a time signature is
- * always the LAST part of the run (`headerExtent` builds the parts in printed order — clef, key,
- * meter), so a header carrying one always ends with it, and a header without one ends with a key
- * signature or a clef. ⇒ ⛔ there is no fourth case to miss.
+ * > *"A first note or chord with an accidental **may move closer to the preceding symbol(s)**. When
+ * > further accidentals are added, these move closer to the clef. However, **an accidental should
+ * > never be closer to a preceding symbol than one stave-space**"* — Gould p. 42
+ *
+ * Her *Recommended distances before first note*, p. 42 — the whole of this table:
+ *
+ * | | plain | with one accidental | with more |
+ * |---|---|---|---|
+ * | after a **clef** | 2½ | **1½** | **1** |
+ * | after a **key signature** | 2½ | **1½** | **1** |
+ * | after a **time signature** | 2 | **1** | **1** |
+ *
+ * ⭐⭐ **AND SHE DRAWS IT — all nine cells of that figure, measured off the scan** (450 dpi, staff
+ * space 20.0 px, ink to ink, `docs/header-spacing-research.md` §3.7):
+ *
+ * | | plain | one accidental | more |
+ * |---|---|---|---|
+ * | clef only | **2.65** | **1.65** | **1.15** |
+ * | key signature | **2.49** | **1.45** | **1.10** |
+ * | time signature | **2.15** | **1.15** | **1.10** |
+ *
+ * — every cell her printed label plus a consistent 0.10–0.15 sp. ⛔ There was no guessing left to do.
+ *
+ * 🚨🚨 **AND THE MEASUREMENT OVERTURNED THE OBVIOUS READING, which is why it was made.** The
+ * plausible model — *"measure the gap to the NOTEHEAD and let the accidental live inside it"*, which
+ * is what MuseScore's mechanism does (`horizontalspacing.cpp:1360–1374`: 2.5 to the note's own
+ * position, floored at 1.5 of clear white) — predicts the head standing at a CONSTANT distance. Her
+ * plate says otherwise: after a clef her noteheads sit at **2.65 · 3.05 · 3.75**. ⇒ ⭐ **the ladder
+ * is on the FRONT of the note group, and the head drifts right as accidentals are added.** That is
+ * also what the brackets in her figure span — clef to *the sharp*, not clef to the note.
+ *
+ * ⏳⏳ **AND WHICH ROW IS DRAWN IS OPEN, and it is HIS** — `layout/headerAccidentalLadder` holds four
+ * sourced ladders and `__header.rule(…)` arms one, because minutes after her printed table reached
+ * the page his eye reported one cell of it: *"i the case of the clef is not problem but when there is
+ * a time signature, is a little too close to the time signature"*. ⛔ So this function reads the ARMED
+ * row rather than a constant, and nothing below is frozen except decision D's `none` column.
+ *
+ * ⚠️ **It is keyed on a COUNT, ⛔ not on the ink's width**, because that is what she wrote. Two
+ * engines disagree with her outright and are recorded for the day the house style changes: Verovio
+ * gives an accidental its own `leftMarginAccid` (0.5 sp, the same margin a note gets) so an opening
+ * with an accidental comes out WIDER, and VexFlow — what we drew until today — does the same by
+ * adding `Stave.padding` to every note regardless.
+ *
+ * ⭐ Which of the two ROWS this is comes from the part that ENDS the header. ⚠️ That test is simply
+ * *"is a meter drawn?"*, and it is total rather than lazy: a time signature is always the LAST part
+ * of the run (`headerExtent` builds the parts in printed order — clef, key, meter), so a header
+ * carrying one always ends with it, and a header without one ends with a key signature or a clef.
+ * ⇒ ⛔ there is no fourth case to miss.
  */
-export function headerToNoteGap(header: Header): number {
-  return header.meter ? HEADER_TO_NOTE : HEADER_TO_NOTE_AFTER_SIGN
+/**
+ * ⭐ **Gould's floor, and it is why every row of {@link HEADER_TO_NOTE_LADDER} bottoms out at the
+ * same number**: *"an accidental should never be closer to a preceding symbol than one
+ * stave-space"* (p. 42). She draws 1.10–1.15.
+ *
+ * ⛔ Not read by the table — the table states her numbers directly. It is here so the 1.0 in two
+ * rows is a quoted rule rather than a coincidence, and so a house style that moves the ladder knows
+ * what it may not go below.
+ */
+export const HEADER_ACCIDENTAL_FLOOR = 1.0
+
+/**
+ * ⭐ The gap this header earns before the first note — see {@link HEADER_TO_NOTE_LADDER}.
+ *
+ * @param accidentals how many accidentals stand in front of the bar's FIRST note group
+ *   (`measureColumns`' `LeadIn.accidentals`). ⚠️ Clamped to the table's last row, so *"more"* means
+ *   two or twelve alike — which is Gould's own wording.
+ */
+export function headerToNoteGap(header: Header, accidentals = 0): number {
+  const rule = armedHeaderGapRule()
+  const row = header.meter ? rule.meter : rule.sign
+  return row[Math.min(Math.max(accidentals, 0), row.length - 1)]
 }
 
 /**

@@ -1,6 +1,7 @@
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
 import { spacingGeneration } from '@/engine/layout/spacing'
+import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
 
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
@@ -124,6 +125,10 @@ export function laneFingerprint(lane: Measure): string {
       // and only when he arms something. (`reference_render_width_key_vs_shape_key` — and P4b was
       // caught by the same trap one level shallower, in the SHAPE key.)
       spacingGeneration(),
+      // 🚨 …and the armed HEADER-GAP row, for exactly the same reason (his experiment, 2026-09-02):
+      // closing the gap in front of an accidental makes a bar NARROWER, so a memoised width would be
+      // served back unchanged and the console would report a success that moved nothing.
+      headerGapGeneration(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it

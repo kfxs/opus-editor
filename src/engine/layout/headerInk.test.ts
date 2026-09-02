@@ -7,11 +7,14 @@
  * for the trap that row carries: **an empty signature must cost nothing at all**, in a file whose
  * every part is charged a `BETWEEN_PARTS`.
  */
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import {
   HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN,
   cautionaryExtent, headerExtent, headerKeyRoom, headerToNoteGap,
 } from './headerInk'
+import {
+  HEADER_GAP_RULES, resetHeaderGapRule, setHeaderGapRule,
+} from './headerAccidentalLadder'
 import {
   CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
 } from './keySignatureLayout'
@@ -103,4 +106,66 @@ describe('headerToNoteGap — 2½ after a sign, 2 after a meter', () => {
     expect(HEADER_TO_NOTE_AFTER_SIGN).toBeLessThanOrEqual(2.60)
     expect(HEADER_TO_NOTE).toBeLessThanOrEqual(2.11)
   })
+})
+
+/**
+ * ⭐⭐ **DECISION E — the gap CLOSES UP in front of an accidental** (Gould p. 42, his call
+ * 2026-09-02: *"lets do what gould say"*).
+ *
+ * ⚠️ Every assertion here reads the ARMED row rather than a literal, because which row is drawn is an
+ * open experiment of his (`./headerAccidentalLadder`, `__header.rule(…)`). What is pinned is the
+ * SHAPE of the rule — monotonic, floored, and never touching decision D's plain column — plus the two
+ * quotations that make each row a source rather than a taste.
+ */
+describe('⭐⭐ headerToNoteGap — decision E, the accidental ladder', () => {
+  afterEach(() => resetHeaderGapRule())
+
+  it('⭐ a plain first note is unchanged — decision D is NOT re-opened by E', () => {
+    for (const name of Object.keys(HEADER_GAP_RULES) as Array<keyof typeof HEADER_GAP_RULES>) {
+      setHeaderGapRule(name)
+      expect(headerToNoteGap({ clef: CLEF }), `${name}, after a clef`).toBe(HEADER_TO_NOTE_AFTER_SIGN)
+      expect(headerToNoteGap({ clef: CLEF, meter: METER }), `${name}, after a meter`).toBe(HEADER_TO_NOTE)
+    }
+  })
+
+  it('⭐⭐ …and an accidental CLOSES it — the whole of E, in one assertion', () => {
+    expect(headerToNoteGap({ clef: CLEF }, 1)).toBeLessThan(headerToNoteGap({ clef: CLEF }, 0))
+    expect(headerToNoteGap({ clef: CLEF, meter: METER }, 1))
+      .toBeLessThan(headerToNoteGap({ clef: CLEF, meter: METER }, 0))
+  })
+
+  it('⭐ …and it never OPENS again — more accidentals are never further out than one', () => {
+    for (const name of Object.keys(HEADER_GAP_RULES) as Array<keyof typeof HEADER_GAP_RULES>) {
+      setHeaderGapRule(name)
+      expect(headerToNoteGap({ clef: CLEF }, 2), name).toBeLessThanOrEqual(headerToNoteGap({ clef: CLEF }, 1))
+    }
+  })
+
+
+  it('⚠️ *"more"* means two or twelve alike — the count is CLAMPED, not scaled', () => {
+    const more = headerToNoteGap({ clef: CLEF }, 2)
+    expect(headerToNoteGap({ clef: CLEF }, 3)).toBe(more)
+    expect(headerToNoteGap({ clef: CLEF }, 99)).toBe(more)
+    // ⛔ …and a nonsense count cannot fall off the front of the table either.
+    expect(headerToNoteGap({ clef: CLEF }, -1)).toBe(headerToNoteGap({ clef: CLEF }, 0))
+  })
+
+  it('⭐ the ARMED row is what the function reads — the experiment is wired, not decorative', () => {
+    setHeaderGapRule('gould')
+    expect(headerToNoteGap({ clef: CLEF, meter: METER }, 1)).toBe(HEADER_GAP_RULES.gould.meter[1])
+    setHeaderGapRule('musescore')
+    expect(headerToNoteGap({ clef: CLEF, meter: METER }, 1)).toBe(HEADER_GAP_RULES.musescore.meter[1])
+    // 🚨 The break-test: the two rows really are different, so the assertion above cannot pass by
+    //    accident on a table whose rows had been made equal.
+    expect(HEADER_GAP_RULES.gould.meter[1]).not.toBe(HEADER_GAP_RULES.musescore.meter[1])
+  })
+
+  it("⛔ …and 'none' is the era before E — an accidental changes nothing", () => {
+    setHeaderGapRule('none')
+    for (const n of [0, 1, 2, 5]) {
+      expect(headerToNoteGap({ clef: CLEF }, n)).toBe(HEADER_TO_NOTE_AFTER_SIGN)
+      expect(headerToNoteGap({ clef: CLEF, meter: METER }, n)).toBe(HEADER_TO_NOTE)
+    }
+  })
+
 })

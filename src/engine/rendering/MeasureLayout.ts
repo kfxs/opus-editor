@@ -252,7 +252,11 @@ function calculateMinimumMeasureWidth(
   // ⭐ **2½ after a clef or key signature, 2 after a meter** — Gould p. 42, decision D
   //   (`docs/header-spacing-research.md` §8). ⚠️ Keyed on the METER, which is a system-wide statement,
   //   so every staff of this bar earns the same gap even though `widestOverhead` came from one of them.
-  const sharedOverhead = ((widestOverhead > 0 ? headerToNoteGap({ meter }) : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
+  // ⭐ **…and it CLOSES UP when that first note carries an accidental** — 1½ with one, 1 with more
+  //   (Gould p. 42, decision E, and her own plate measured at 1.65 / 1.15). ⚠️ `leadIn.accidentals`,
+  //   ⛔ never `leadIn.extent`: her table is keyed on a COUNT, and the extent is already the term
+  //   beside it. The drawing reads the same pair (`VexFlowRenderer`'s `system.headerToNote`).
+  const sharedOverhead = ((widestOverhead > 0 ? headerToNoteGap({ meter }, leadIn.accidentals) : leadIn.padding) + leadIn.extent + repeatStartRoom(measure)) * STAFF_SPACE_PX
   const totalWidth = noteSpace + widestOverhead + sharedOverhead
   // ⭐ **THE CAP IS A PREFERENCE; THE FLOOR IS THE MUSIC.** `MAX_MEASURE_WIDTH` says "one measure
   // must not dominate a line", which is a taste about bars that could be narrower — and it was being

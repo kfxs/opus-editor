@@ -319,7 +319,43 @@ export function measureLeadIn(
   keyFor: KeyResolver = () => C_MAJOR,
 ): LeadIn {
   const opening = openingInk(measure, clefFor, sizeFor, keyFor)
-  return { padding: pairPadding('barline', edgeKind(opening, 'left')), extent: mergedReach(opening).left }
+  return {
+    padding: pairPadding('barline', edgeKind(opening, 'left')),
+    extent: mergedReach(opening).left,
+    accidentals: openingAccidentals(measure, keyFor),
+  }
+}
+
+/**
+ * ⭐ **How many accidentals stand in front of the bar's FIRST note group** — the key to Gould's
+ * *Recommended distances before first note* (`layout/headerInk.headerToNoteGap`, decision E).
+ *
+ * ⚠️ **A COUNT, ⛔ not a width**, and that is her rule rather than a shortcut: her table has three
+ * columns — none, one, more — and the ink's actual reach is already {@link LeadIn.extent}, which
+ * answers a different question (how far the column pokes left of its own notehead).
+ *
+ * ⚠️ It sums across every slot at that beat, so two VOICES each carrying one accidental read as
+ * *"more"*. That is the right answer for the same reason the ink boxes are merged: their accidentals
+ * stack into columns at one x, and the group really does reach further left.
+ *
+ * ⭐ It asks {@link displayedSigns}, ⛔ never `alter`: a pitch whose sign is suppressed by the
+ * running-accidental rule draws nothing and must not close the gap.
+ */
+function openingAccidentals(measure: Measure, keyFor: KeyResolver): number {
+  const first = measure.slots.reduce<Fraction | null>(
+    (earliest, slot) => (earliest === null || fracCompare(slot.beat, earliest) < 0 ? slot.beat : earliest),
+    null,
+  )
+  if (first === null) return 0
+  const signs = displayedSigns(measure, keyFor)
+  let count = 0
+  for (const slot of measure.slots) {
+    if (fracCompare(slot.beat, first) !== 0 || slot.type !== 'chord') continue
+    for (const pitch of slot.notes ?? []) {
+      if (typeof signs.get(pitch.id) === 'string') count++
+    }
+  }
+  return count
 }
 
 /**
@@ -335,6 +371,12 @@ export interface LeadIn {
   padding: number
   /** How far left of its notehead the first column reaches — an accidental, or a ledger line. */
   extent: number
+  /**
+   * ⭐ How many accidentals that first column draws — ⛔ **not a width**. It is the key to Gould's
+   * first-note table (`layout/headerInk.headerToNoteGap`): the gap after a header closes up from 2½
+   * to 1½ with one accidental and to 1 with more. See {@link openingAccidentals}.
+   */
+  accidentals: number
 }
 
 /** The ink of whatever the bar opens with — every slot at its earliest beat. */

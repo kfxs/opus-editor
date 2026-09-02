@@ -327,6 +327,39 @@ independent confirmation of that pitch (`layout/keySignatureLayout.ts` records G
 
 ⭐ Three gaps drawn at 1.0–1.1 sp against a stated 1 — her mid-system rule is engraved as written.
 
+### 3.7 ⭐⭐ THE ACCIDENTAL TABLE, MEASURED — all nine cells of her p. 42 figure (2026-09-02)
+
+**Why it was measured:** row **E** was about to be built from her printed table, and the obvious
+mental model — *"measure the gap to the NOTEHEAD and let the accidental live inside it"* — predicts
+something her plate can falsify. It does.
+
+Rendered at 450 dpi (PDF p. 62), staff space **20.0 px**, every figure ink to ink — the last ink of
+the header to the **first ink of the note group**, which IS the accidental where there is one:
+
+| | plain | with one accidental | with more |
+|---|---|---|---|
+| **with clef only** | **2.65** (label 2½) | **1.65** (1½) | **1.15** (1) |
+| **with key signature** | **2.49** (2½) | **1.45** (1½) | **1.10** (1) |
+| **with time signature** | **2.15** (2) | **1.15** (1) | **1.10** (1) |
+
+⭐ **Every cell is her printed label plus a consistent 0.10–0.15 sp.** Nine for nine: the drawing and
+the table are the same rule, unlike the p. 111 slurs where they came apart.
+
+🚨🚨 **AND IT OVERTURNED THE OBVIOUS READING.** Measured from the same plate, her NOTEHEADS after a
+clef stand at **2.65 · 3.05 · 3.75** — the head is *not* held at a constant distance. ⇒ **her numbers
+are a ladder on the FRONT of the note group, and the head drifts right as accidentals are added.**
+That is also what the brackets in her own figure span: clef to *the sharp*, ⛔ not clef to the note.
+
+⚠️ So MuseScore's mechanism is **not** hers, though the two nearly coincide: it targets 2.5 to the
+notehead and floors the clear white at 1.5, which reproduces her *"one accidental"* row and then
+parts company from her *"more accidentals"* row (it stays at 1.5 where she goes to 1).
+
+⭐ Method, for the next reader: locate the row's five staff lines by counting dark pixels across the
+band, mask them out, then take a column-darkness profile over `[topLine − 30, bottomLine + 30]` and
+read the ink groups off it. ⚠️ **The bracket marks sit just above the staff and WILL be read as music**
+if the band is opened wider than that — they cost one wrong measurement here before the band was
+tightened.
+
 ## 4. 🚨 WHAT WE RESERVE AND DRAW TODAY — read off the source, ⛔ not intentions
 
 Two files own the header. **`src/engine/layout/headerInk.ts`** prices it for the spacing model;
@@ -601,6 +634,49 @@ trap of its own:
 such a bar and looked. Fixed in the same commit; it is the
 `reference_vexflow_clefnote_xshift_is_inert` family — ⛔ **never measure from `getX()` alone.**
 
+### ✅ E — DECIDED AND BUILT, 2026-09-02, and it took THREE of his messages
+
+> **"lets do what gould say"** ⇒ the gap closes up when the first note carries an accidental.
+> Then, minutes later, on the running app: **"i have the feeling that with the accidental is a little
+> too close"** … **"i the case of the clef is not problem but when there is a time signature, is a
+> little too close to the time signature"**. Then, after comparing the rows:
+> **"lets make musescore default"**.
+
+⭐⭐ **That sequence is the whole argument for building this as a TABLE rather than a constant.** Her
+printed ladder was right about the *shape* and, to his eye, wrong about one *cell* — and the books do
+not settle that cell: Gould's label is **1**, her own drawing of it is **1.15**, MuseScore refuses to
+go below **1.5**, LilyPond goes as low as **0.30**. ⇒ five sourced rows in
+`engine/layout/headerAccidentalLadder`, armed by `__header.rule(…)` (`dev/headerGapConsole`), and his
+eye picked one the same day.
+
+**Armed: `musescore`** — 2½ / 2 plain (decision D, untouched), and **1.5 of clear white** before the
+first ink whenever an accidental is there. ⭐ Also the most defensible row on the page: 1.5 is
+`absoluteMinHeaderDist`, not a number anyone here chose.
+
+| row | after a clef or key | after a meter | source |
+|---|---|---|---|
+| ✅ **`musescore`** | 2.5 · **1.5** · **1.5** | 2.0 · **1.5** · **1.5** | `horizontalspacing.cpp:1358` — its rule at our accidental widths |
+| `gouldDrawn` | 2.5 · 1.65 · 1.15 | 2.0 · 1.15 · 1.10 | her own plate, §3.7 |
+| `gould` | 2.5 · 1.5 · 1.0 | 2.0 · 1.0 · 1.0 | her printed table, p. 42 |
+| `lilypond` | 2.5 · 1.10 · 0.30 | 2.0 · 0.60 · 0.30 | `staff-spacing.cc:211` — ⚠️ **below her floor**, deliberately |
+| `none` | 2.5 · 2.5 · 2.5 | 2.0 · 2.0 · 2.0 | Verovio / VexFlow — what we drew until today |
+
+⚠️ **Keyed on a COUNT, ⛔ not on the ink's width**, because that is what she wrote — `LeadIn.accidentals`
+(`layout/measureColumns`), which asks `displayedSigns` and so ⛔ never counts a sign the running-accidental
+rule suppresses. It is summed across every slot at the bar's first beat, so it stays ONE answer for the
+system exactly as the header extent does.
+
+🚨 **Wired through both paths, and into both render keys.** The width path (`MeasureLayout`'s
+`sharedOverhead`) and the drawing path (`VexFlowRenderer`'s `system.headerToNote`) read the same pair
+of arguments — D's lesson, applied. And because closing this gap makes a bar NARROWER,
+`headerGapGeneration()` is in `laneFingerprint` **and** `layoutStateKey`, like `spacingGeneration`:
+leave it out of either and arming a row hands back memoised widths while the console reports success.
+
+⭐ **One test failed when the rule changed, and it was the right one.**
+`MeasureLayout.clefWidthIndependence` asserted that an accidental on the first note widens a bar by
+**11 px**. It now grows by 2.5: +11 px of accidental ink, −8.5 px of gap. That test now reads the
+armed rule rather than a literal, so it survives him arming another row.
+
 ### The table
 
 ⛔ **Nothing below is a defect list.** Every gap in the run, with the options and their provenance,
@@ -612,7 +688,7 @@ and the one we draw today named honestly.
 | **B** | **CLEF → KEY SIGNATURE** | (i) **0.82** — LilyPond `Clef.space-alist`, Ross converted, MuseScore 0.75 · (ii) **1.0–1.3** — Gould stated *"1–1½"*, drawn 1.02–1.31 · (iii) **~1.0** — Stone *"one staff-space or a little less"* | ⛔⛔ **NOT OPEN — ALREADY DECIDED, and (i) is the ANSWER, not the default.** It was **1.5 for one commit and HIS EYE rejected it** (*"isn't the first accidental too far from the clef?"*). ⛔ Do not re-open it by re-quoting Gould's drawing: that is the source that LOST. `keySignatureLayout.CLEF_TO_KEY_INK` carries the ruling |
 | **C** | **KEY SIGNATURE → TIME SIGNATURE** | (i) **1.15** — LilyPond · (ii) **1.0** — Stone, MuseScore · (iii) **~1.5** — Ross converted, and Gould's own drawing at 1.57 | ⛔ **NOT OPEN — ALREADY DECIDED**, and decided in answer to HIS OWN REPORT (*"isn't the last accidental too far from the time signature?"* — it was, by half a space, and nobody had chosen the number). `keySignatureLayout.KEY_TO_METER_INK` carries the ruling |
 | **D** | **HEADER → FIRST NOTE** ⭐⭐ the big one | (i) **one number for all three cases** — ours, and LilyPond's `TimeSignature` row read alone · (ii) ⭐⭐ **keyed on what precedes**: **2½** after a clef or key signature, **2** after a time signature — **Gould p. 42 (drawn 2.60/2.59/2.11) AND MuseScore's `systemHeaderDistance 2.5` / `systemHeaderTimeSigDistance 2.0`, the same pair**, and LilyPond's three different `space-alist` tags (§5.3) · (iii) **1½ flat** — Stone p. 44, Ross converted after a meter, and MuseScore's own `absoluteMinHeaderDist` floor | **2.0 for all three.** ✅ right after a meter, 🚨 ~0.5 sp tight after a clef or key signature |
-| **E** | **does an ACCIDENTAL on the first note close the gap?** | (i) yes, and by a stated ladder — Gould 2½ → **1½** with one accidental → **1** with more, *"an accidental should never be closer to a preceding symbol than one stave-space"* · (ii) Ross's version: the NOTE moves right half a space and the accidental takes the room (p. 146) · (iii) no rule | ⛔ **no rule.** The column pays `HEADER_TO_NOTE` whatever is in front of it |
+| **E** | **does an ACCIDENTAL on the first note close the gap?** | (i) yes, by a stated ladder — Gould 2½ → **1½** → **1**, floor *"never closer to a preceding symbol than one stave-space"* · (ii) Ross: the NOTE moves right half a space and the accidental takes the room (p. 146) · (iii) no rule — Verovio, VexFlow | ✅✅ **DECIDED AND BUILT 2026-09-02 — see §8 E.** Yes, and by a TABLE of five sourced rows; **`musescore` is armed** (his choice): 1.5 sp of clear white before the first ink. ⛔ The row is not frozen — `__header.rule(…)` |
 | **F** | **BARLINE → first note, no header** | (i) **1.0** — Gould *"a stave-space on either side of a barline"* (drawn 1.05–1.08), Ross *"one space"*, Verovio · (ii) **0.9** mid-line / **1.3** at a line start — LilyPond's `BarLine.space-alist` · (iii) **1.25** — MuseScore `barNoteDistance`, with **0.65** when the note carries an accidental | ⛔⛔ **NOT A CHOICE — BLOCKED, and the number every source prefers is BELOW the floor.** 1.2 is `Stave.padding` (12 px), which VexFlow adds to every note in `getAbsoluteX` and does **not** expose a setter for (`Metrics` is not exported from the package root). ⇒ drawing Gould's 1.0 would mean pushing the note-start LEFT OF THE BARLINE, so a bar's clickable area would begin outside the bar. ⭐ 1.2 is also defensible on its own: it sits between our trailing 1.0 and MuseScore's `barline↔barline` 1.35, and a leading gap earns more air than a trailing one. ⏳ **Unblocks with P5b/P1e**, when the note-start is ours |
 | **G** | **a CRAMPED minimum** | (i) Gould's **½ sp** floor between any two characters (p. 41), with *"reduce the space around clefs and accidentals to ½ space"* and *"stems must never come closer to a barline than one space"* (p. 43) · (ii) none | ⛔ **none** — the spacing solve has no header-specific floor |
 | **H** | **inside a TIME SIGNATURE** | ⛔ **UNKNOWN in every book** (§2.8); the only rule is vertical — *"numerals should exactly fill the height of the stave"* (Gould p. 152). The engines split: **2.0 sp between the rows** (LilyPond `time-signature-settings.scm:902`, Verovio `view_element.cpp:2139`, VexFlow lines 1↔3) vs **a 0.0 clear gap, bboxes touching** (MuseScore `timeSigNormalNumDist`) | VexFlow's — 2.0 sp, or **3.0** when the measured glyph exceeds 30 px (`timesignature.js:82`) |
@@ -644,10 +720,10 @@ open** — the "what we do now" column has to be read, and where it names a reje
 (`project_engraving_defaults_are_a_house_style`) — that is why the losing options stay. ⛔ It does not
 follow that every row is still a question.
 
-⭐ **Genuinely open after A and D: E · G.** ⛔ **F is BLOCKED by VexFlow.** ⏳ **I is a LOOK, not a
-decision** — its model was settled on 2026-08-27. **H** is ⛔ **UNKNOWN in every book**, so there is no
-rule to adopt: the engines split 2.0 against 0.0 and we already draw the majority answer. ⛔ **F is BLOCKED by VexFlow** (see its row) —
-it is not a question his eye can settle, and it becomes one only when the note-start is ours.
+⭐ **Genuinely open after A, D and E: G alone.** ⛔ **F is BLOCKED by VexFlow** (see its row) — it is
+not a question his eye can settle, and it becomes one only when the note-start is ours. ⏳ **I is a
+LOOK, not a decision** — its model was settled on 2026-08-27. **H** is ⛔ **UNKNOWN in every book**, so
+there is no rule to adopt: the engines split 2.0 against 0.0 and we already draw the majority answer.
 
 ⭐ **If only one row is ever acted on, D is the one**: it is the only place where a book states a rule
 we do not implement *in kind* — Gould keys the first-note gap on what precedes it, and we key it on

@@ -20,9 +20,14 @@ import { VexFlowRenderer } from './VexFlowRenderer'
 import { CLEF_INDENT_SHIFT, HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
+import { armedHeaderGapRule } from '@/engine/layout/headerAccidentalLadder'
 
-/** Render enough bars to be cast off onto more than one system, and report each bar's lead-in. */
-function leadIns(bars = 12) {
+/**
+ * Render enough bars to be cast off onto more than one system, and report each bar's lead-in.
+ *
+ * @param alter the accidental every first note carries, or none — decision E's input.
+ */
+function leadIns(bars = 12, alter?: 1 | -1) {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const renderer = new VexFlowRenderer(container)
@@ -31,7 +36,7 @@ function leadIns(bars = 12) {
   const model = new ScoreModel()
   for (let i = 1; i < bars; i++) model.addMeasure()
   for (let b = 1; b <= bars; b++) {
-    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: b, beat: frac(0, 1) })
+    model.addNote({ step: 'C', alter, octave: 5, duration: 'q', measure: b, beat: frac(0, 1) })
   }
   renderer.renderScore(model.getScore())
 
@@ -95,5 +100,37 @@ describe('⭐⭐ the header→first-note gap is keyed on what ENDS the header', 
       expect(bar.leadIn, `bar ${bar.number} draws no header`)
         .toBeLessThan(HEADER_TO_NOTE) // …nowhere near a header's cost
     }
+  })
+})
+
+/**
+ * ⭐⭐ **DECISION E, THROUGH THE SAME REAL RENDER** — an accidental on the first note pulls the music
+ * back toward the header (Gould p. 42; his call 2026-09-02).
+ *
+ * 🚨 **The same reason this file exists at all applies twice over here**: E is wired through the very
+ * same two paths D was, and a pure test of `headerToNoteGap` would again not notice if only one of
+ * them were reading the accidental count. ⛔ So the assertion is on the DRAWN lead-in.
+ */
+describe('⭐⭐ …and it closes up when the first note carries an accidental', () => {
+  /** The same fixture, with a sharp on the first note of every bar. */
+  const sharpened = (bars = 12) => leadIns(bars, 1)
+
+  it('⭐⭐ a system whose first note carries an accidental starts its music EARLIER', () => {
+    const plain = lineOpeners(leadIns())
+    const sharp = lineOpeners(sharpened())
+    expect(plain.length).toBeGreaterThan(1)
+    const rule = armedHeaderGapRule()
+    // Bar 1 draws a clef AND a meter, so it is the `meter` row; later systems draw a clef alone.
+    expect(plain[0].leadIn - sharp[0].leadIn, 'system 1, after a meter')
+      .toBeCloseTo(rule.meter[0] - rule.meter[1], 6)
+    expect(plain[1].leadIn - sharp[1].leadIn, 'a later system, after a clef')
+      .toBeCloseTo(rule.sign[0] - rule.sign[1], 6)
+  })
+
+  it('🚨 the break-test — the fixture really did put an accidental there', () => {
+    // ⛔ Without this, a `sharpened` that silently produced the plain score would make every
+    //    difference above 0 and every `toBeCloseTo` fail loudly rather than pass — but a rule armed
+    //    to `none` would make them 0 and pass. This pins the direction independently.
+    expect(armedHeaderGapRule().meter[1]).toBeLessThan(armedHeaderGapRule().meter[0])
   })
 })
