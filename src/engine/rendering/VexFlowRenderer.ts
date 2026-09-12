@@ -70,6 +70,7 @@ import { slurShapeGeneration } from './slurShapeExperiment'
 import { beamSlopeGeneration } from './beamSlopeExperiment'
 import { spacingGeneration } from '@/engine/layout/spacing'
 import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
+import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
 import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
@@ -743,6 +744,9 @@ export class VexFlowRenderer {
       //    Here for the same reason as the line above: the gap is a WIDTH, so the casting-off
       //    depends on it.
       headerGapGeneration(),
+      // 🚨 A WIDTH, like the line above it: arming a clef→meter row makes every header narrower or
+      //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
+      clefMeterGapGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,

@@ -10,8 +10,7 @@
 import { afterEach, describe, it, expect } from 'vitest'
 import {
   HEADER_TO_NOTE, HEADER_TO_NOTE_AFTER_SIGN,
-  cautionaryExtent, headerExtent, headerKeyRoom, headerToNoteGap,
-} from './headerInk'
+  cautionaryExtent, headerExtent, headerKeyRoom, headerToNoteGap, clefToMeterGap } from './headerInk'
 import {
   HEADER_GAP_RULES, resetHeaderGapRule, setHeaderGapRule,
 } from './headerAccidentalLadder'
@@ -36,10 +35,14 @@ describe('headerExtent — the key part', () => {
   it('⭐ a signature costs its own ink plus its TWO OWN gaps, less the one it displaced', () => {
     const withoutKey = headerExtent({ clef: CLEF, meter: METER })
     const withKey = headerExtent({ clef: CLEF, key: keyFromFifths(2), meter: METER })
-    // clef→key (0.82, LilyPond/MuseScore/Ross) + the ink + key→meter (1.15 of white, less the 0.52
-    // of air the meter's own extent carries) − the clef→meter padding it replaced.
+    // clef→key (0.82, LilyPond/MuseScore/Ross) + the ink + key→meter (1.15 of white, less the air
+    // the meter's own extent carries) − the clef→meter gap it DISPLACED.
+    // ⚠️ That last term reads `clefToMeterGap()` rather than a literal, so this survives HIS eye
+    //    arming another row of `layout/clefMeterGap` — the same lesson `MeasureLayout`'s
+    //    `clefWidthIndependence` learnt when decision E moved (`header-spacing-research.md` §8 E).
     expect(withKey - withoutKey).toBeCloseTo(
-      CLEF_TO_KEY_INK + keySignatureExtent(keyFromFifths(2)) + (KEY_TO_METER_INK - METER_PART_LEFT_AIR) - BETWEEN_PARTS,
+      CLEF_TO_KEY_INK + keySignatureExtent(keyFromFifths(2))
+        + (KEY_TO_METER_INK - METER_PART_LEFT_AIR) - clefToMeterGap(),
       5,
     )
     // ⭐ …and that is exactly what the drawing is told to shift the meter by.

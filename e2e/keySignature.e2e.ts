@@ -122,11 +122,17 @@ test('⭐⭐ the METER moved over for the signature — the room reserved is the
 
   // ⭐⭐ **The room the model RESERVED against the distance the meter actually MOVED.** The reservation
   //    is `headerKeyRoom` — clef→key 0.82 + the ink 2.242 + (key→meter 1.15 less the meter's own 0.6
-  //    of left air) − the 1.0 clef→meter padding it displaced = 2.61 spaces. The movement is decided
-  //    independently, by placing the meter after the signature's ink. **They must agree**: this is
-  //    the one assertion that catches the width model and the drawing drifting apart, which is the
-  //    whole reason `headerInk.ts` exists.
-  expect((moved.meterAfter - moved.meterBefore) / 10, 'reserved = drawn').toBeCloseTo(2.61, 1)
+  //    of left air) − **the clef→meter gap it DISPLACED**. The movement is decided independently, by
+  //    placing the meter after the signature's ink. **They must agree**: this is the one assertion
+  //    that catches the width model and the drawing drifting apart, which is the whole reason
+  //    `headerInk.ts` exists.
+  //
+  // ⭐ **2.61 → 3.04 on 2026-09-12, and BOTH SIDES moved by the same 0.6**, which is why this test is
+  //   worth having. The displaced term was a flat `BETWEEN_PARTS` of 1.0 and is now
+  //   `clefToMeterGap()` = 0.4 (the armed 1.0 sp of clear white, less the meter's left air —
+  //   `engine/layout/clefMeterGap`). So the no-key BASELINE this delta is measured from tightened by
+  //   0.6, and `headerKeyRoom` grew by 0.6 to match. ⛔ The signature's own two gaps did not change.
+  expect((moved.meterAfter - moved.meterBefore) / 10, 'reserved = drawn').toBeCloseTo(3.04, 1)
   // ⭐⭐ **The white a reader actually sees, INK TO INK** — the sharp's ink ends at its origin + its
   //   advance (0.996, and `left` is 0 so the origin IS its left edge), and the digit's ink begins
   //   0.08 sp PAST its own origin (`timeSig4.left` is −0.08).

@@ -933,6 +933,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[slur] shape experiment: __slur.law('musescore'|'verovio'|'lilypond') / .indent(0.167) / .dump() / .reset()")
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")
     dbg("[header] accidental gap: __header.rule('musescore'|'gouldDrawn'|'gould'|'lilypond'|'none') / .dump() / .reset()")
+    dbg("[header] CLEF→METER gap: __header.clefMeter('stone'|'books'|'rossCompass'|'lilypond') / .dumpClefMeter() / .resetClefMeter()")
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }
 

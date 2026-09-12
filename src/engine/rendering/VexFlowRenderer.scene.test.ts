@@ -670,11 +670,20 @@ describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER
   })
 
   it('🚨 ⛔ and the CLEF→METER ORDER is NOT assertable here — it is width-driven', () => {
-    // 🚨🚨 **The sharpest reminder in this file of where the scene's line falls, and it cost a
-    // failing assertion to find.** `Stave.format()` advances its begin-modifier walk by each
-    // modifier's `Element.getWidth()`, which is a runtime `measureText` — and in jsdom every music
-    // glyph measures 0×0 (`reference: jsdom cannot measure glyphs`). ⇒ the clef and the meter come
-    // out at THE SAME x here, and a `toBeGreaterThan` between them would be asserting a bug.
+    // 🚨🚨 **The sharpest reminder in this file of where the scene's line falls, and it cost two
+    // failing assertions to find — one of them on 2026-09-12, after the gap became ours.**
+    // `Stave.format()` advances its begin-modifier walk by each modifier's `Element.getWidth()`,
+    // which is a runtime `measureText` — and in jsdom every music glyph measures 0×0
+    // (`reference: jsdom cannot measure glyphs`).
+    //
+    // ⚠️⚠️ **And the second half is worse than "the width is zero", which is why arming a gap does
+    // not show up here either.** The walk reads `padding = modifier.getPadding(i + offset)` and then
+    // `if (padding + width === 0) offset--`. A zero-width clef therefore DECREMENTS the offset, so
+    // the time signature at index 2 is asked for `getPadding(1)` — and `StaveModifier.getPadding`
+    // returns 0 below index 2. ⇒ 🚨 **in jsdom a zero-width modifier EATS THE NEXT ONE'S PADDING**,
+    // so the clef and the meter come out at THE SAME x whatever `layout/clefMeterGap` says, and both
+    // a `toBeGreaterThan` and an assertion of the armed gap would be asserting a bug.
+    // ⇒ the clef→meter gap is measured in `e2e/headerGap.e2e.ts`, and ⛔ cannot move here.
     // ⭐ This is the scene's stated limit — *"⛔ never an INK EXTENT"* — reached from a new angle:
     // not an extent being READ, but a POSITION that was computed from one. The notehead comparison
     // above survives because our own column solve places those, ⛔ not `measureText`.

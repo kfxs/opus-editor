@@ -1,4 +1,5 @@
 import type { Clef, KeySignature, TimeSignature } from '@/types/music'
+import { armedClefMeterInk } from './clefMeterGap'
 import {
   CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
 } from './keySignatureLayout'
@@ -254,7 +255,7 @@ export function inlineClefExtent(clef: Clef): number {
  *
  * Exported because the DRAWING needs the same number the width reserved: `VexFlowRenderer` pushes
  * VexFlow's own time-signature modifier right by exactly this, so the meter lands one
- * `BETWEEN_PARTS` past the signature's last sign — which is where {@link headerExtent} has already
+ * {@link keyToMeterGap} past the signature's last sign — which is where {@link headerExtent} has already
  * charged for it. ⛔ Two numbers here would be the two-sets-of-numbers problem this file exists to
  * end, one layer down.
  */
@@ -262,8 +263,30 @@ export function headerKeyRoom(key: KeySignature | undefined): number {
   const ink = key ? keySignatureExtent(key) : 0
   if (ink <= 0) return 0
   // What inserting the signature ADDS to a header that already ran clef → meter: its two own gaps
-  // and its ink, less the one gap it displaced.
-  return CLEF_TO_KEY_INK + ink + keyToMeterGap() - BETWEEN_PARTS
+  // and its ink, less the one gap it DISPLACED.
+  // 🚨 That last term is `clefToMeterGap()` and ⛔ no longer a flat `BETWEEN_PARTS` — caught by
+  //    `headerInk.test.ts`'s own pairing of this against `headerExtent`, which is exactly the
+  //    two-numbers failure this function's header warns about: a signature's room and the shift the
+  //    drawing is given must come from ONE arithmetic, or arming a clef→meter row would move the
+  //    meter without moving the width that pays for it.
+  return CLEF_TO_KEY_INK + ink + keyToMeterGap() - clefToMeterGap()
+}
+
+/**
+ * ⭐⭐ **The BOX gap the model charges between a CLEF and the METER, with no key signature between
+ * them** — the armed ink gap (`layout/clefMeterGap`) less the meter part's own left air, exactly as
+ * {@link keyToMeterGap} does for the pair next door.
+ *
+ * 🚨 **This subtraction is the whole point, and its absence was a real defect.** Until 2026-09-12
+ * this pair was charged a flat `BETWEEN_PARTS` (1.0) with the air left IN, so the model reserved
+ * ≈**1.6 sp** of ink gap while the drawing used **1.42** — two numbers for one distance, neither
+ * chosen (`docs/header-spacing-research.md` §4.4, §4.5). ⭐ Now both sides read
+ * {@link armedClefMeterInk}, so they agree by construction.
+ *
+ * ⚠️ ⛔ Never quote this number; quote the ink one.
+ */
+export function clefToMeterGap(): number {
+  return armedClefMeterInk() - METER_PART_LEFT_AIR
 }
 
 /**
@@ -352,7 +375,7 @@ export function headerExtent(header: Header): number {
   const keyInk = header.key ? keySignatureExtent(header.key) : 0
   if (keyInk > 0) parts.push({ gap: CLEF_TO_KEY_INK, extent: keyInk })
   if (header.meter) {
-    parts.push({ gap: keyInk > 0 ? keyToMeterGap() : BETWEEN_PARTS, extent: meterExtent(header.meter) })
+    parts.push({ gap: keyInk > 0 ? keyToMeterGap() : clefToMeterGap(), extent: meterExtent(header.meter) })
   }
   if (parts.length === 0) return 0
   // The FIRST part pays no gap, whatever it is — the bar's lead-in is what stands in front of it.

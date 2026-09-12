@@ -23,6 +23,13 @@
  *   __header.rule('lilypond')       // the TIGHTEST — it closes by the accidental's own ink
  *   __header.rule('none')           // what we drew before 2026-09-02 — no rule at all
  *   __header.reset()
+ *
+ *   __header.dumpClefMeter()        // ⭐ the OTHER gap: CLEF → METER, no key signature
+ *   __header.clefMeter('stone')     // ✅ ARMED, his choice — 1.0 sp of clear white
+ *   __header.clefMeter('books')     // 1.05 — the median of every plate in the library
+ *   __header.clefMeter('rossCompass')  // 0.82 — spaced like the first accidental, as Ross does
+ *   __header.clefMeter('lilypond')  // 1.52 — ≈ the picture we drew before 2026-09-12
+ *   __header.resetClefMeter()
  * ```
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly**: the setting lives in the ENGINE (`engine/` may not
@@ -35,11 +42,29 @@ import {
   HEADER_GAP_RULES, headerGapSettings, resetHeaderGapRule, setHeaderGapRule,
   type HeaderGapRuleName,
 } from '@/engine/layout/headerAccidentalLadder'
+import {
+  CLEF_METER_RULES, clefMeterSettings, resetClefMeterRule, setClefMeterRule,
+  type ClefMeterRuleName,
+} from '@/engine/layout/clefMeterGap'
 
 export interface HeaderGapConsole {
   rule(rule: HeaderGapRuleName): HeaderGapReadout
   reset(): HeaderGapReadout
   dump(): HeaderGapReadout
+  /**
+   * ⭐ **The OTHER header gap his eye found, 2026-09-12: CLEF → METER with no key signature**
+   * (`engine/layout/clefMeterGap`). A second question on the same run, so it lives on the same
+   * console rather than growing a second global.
+   */
+  clefMeter(rule: ClefMeterRuleName): ClefMeterReadout
+  resetClefMeter(): ClefMeterReadout
+  dumpClefMeter(): ClefMeterReadout
+}
+
+export interface ClefMeterReadout {
+  armed: ClefMeterRuleName
+  /** The clear white each row would draw, in staff spaces, ink to ink. */
+  ink: Record<string, number>
 }
 
 export interface HeaderGapReadout {
@@ -62,6 +87,11 @@ export function headerGapConsole(render: () => void): HeaderGapConsole {
     }
   }
   const report = () => dbg(`[header] rule:${headerGapSettings().rule} — __header.dump() for the table`)
+  const cmNames = Object.keys(CLEF_METER_RULES) as ClefMeterRuleName[]
+  const cmReadout = (): ClefMeterReadout => ({
+    armed: clefMeterSettings().rule,
+    ink: Object.fromEntries(cmNames.map(n => [n, CLEF_METER_RULES[n].ink])),
+  })
   return {
     rule: (rule) => {
       // ⛔ A typo that looked like it worked would be the worst possible instrument.
@@ -90,6 +120,32 @@ export function headerGapConsole(render: () => void): HeaderGapConsole {
       }
       dbg('[header] ⛔ the FIRST number of each pair is decision D (2½ / 2, his, 2026-09-01) and is not open.')
       return readout()
+    },
+    clefMeter: (rule) => {
+      if (!setClefMeterRule(rule)) {
+        dbg(`[header] ⛔ no such clef→meter rule: ${rule} — try ${cmNames.map(n => `'${n}'`).join(', ')}`)
+        return cmReadout()
+      }
+      render()
+      dbg(`[header] clef→meter:${clefMeterSettings().rule} — __header.dumpClefMeter() for the table`)
+      return cmReadout()
+    },
+    resetClefMeter: () => {
+      resetClefMeterRule()
+      render()
+      return cmReadout()
+    },
+    dumpClefMeter: () => {
+      const { rule, generation } = clefMeterSettings()
+      dbg(`[header] clef→meter armed: ${rule} (generation ${generation}). CLEAR WHITE in staff spaces,`)
+      dbg('         the clef’s rightmost ink → the time signature’s leftmost, with NO key signature:')
+      for (const name of cmNames) {
+        const r = CLEF_METER_RULES[name]
+        const mark = name === rule ? '▶' : ' '
+        dbg(`  ${mark} ${name.padEnd(12)} ${r.ink.toFixed(2)} sp   — ${r.source}`)
+      }
+      dbg('[header] ⛔ before 2026-09-12 this was VexFlow’s 15 px padding — 1.42 sp, and nobody chose it.')
+      return cmReadout()
     },
   }
 }

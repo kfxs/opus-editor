@@ -583,8 +583,15 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
   //   where VexFlow left it at 0.5, so the whole header — and the first note with it — moved right by
   //   0.2. `headerInk.CLEF_INDENT_SHIFT` is that difference, and `clefIndentPass.test.ts` pins the
   //   drawn indent itself; here it is only a term in the header's total.
+  // ⭐⭐ **The clef→meter term is 0.4 as of 2026-09-12, where it was 1.0** — and that is not a tweak:
+  //   it is the armed rule of `engine/layout/clefMeterGap` (`stone`, 1.0 sp of CLEAR WHITE, his
+  //   choice) less the 0.6 of air the meter part's own extent carries, the same subtraction
+  //   `keyToMeterGap()` has always made for the pair next door. Before that this gap was the only one
+  //   in the run still charged BOX to BOX, and it reserved ≈1.6 sp of ink against 1.42 drawn —
+  //   two numbers for one distance, neither chosen (`docs/header-spacing-research.md` §4.4).
+  //   ⇒ the header is 0.6 sp NARROWER, and `e2e/headerGap.e2e.ts` measures the white it buys.
   expect(drawn.trebleAndFourFour, 'clef + meter, then LilyPond\'s gap')
-    .toBeCloseTo(2.0 + 3.2 + 0.2 + 1.0 + 2.4, 1)
+    .toBeCloseTo(2.0 + 3.2 + 0.2 + 0.4 + 2.4, 1)
   // ⛔ …and a bar with NO header is untouched: there the gap is the barline's own, and LilyPond would go
   //    tighter than the drawing can (0.9 mid-line against our 1.2 floor — see `pairPadding`).
   expect(drawn.nothing, 'a bar drawing no header at all is just the lead-in').toBeCloseTo(1.2, 1)
