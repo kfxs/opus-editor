@@ -472,6 +472,12 @@ export function createEditorApp(host: HTMLElement): EditorApp {
   const loadHooks = {
     beforeLoad: () => selection.deselectAll(),
     afterLoad: () => renderer.renderScore(),
+    // ⭐ A file may say how it was being LOOKED at, and it is applied through the SAME path the View
+    //   menu takes — `palette.setJustifyLastLine` does engine, then state, then render, so the
+    //   toolbar's checkmark cannot drift from what was drawn. ⛔ Never `engine.set…` from here.
+    applyView: (view: { justifyLastLine?: boolean }) => {
+      if (view.justifyLastLine !== undefined) palette.setJustifyLastLine(view.justifyLastLine)
+    },
   }
   menuActions.importJson = { run: withEngine(e => importScoreJson(e, loadHooks)) }
   // An example is a load like any other — same hooks, same swap, only the text comes from

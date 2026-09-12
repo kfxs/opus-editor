@@ -1,6 +1,6 @@
 import type { MusicEngine } from '@/engine/MusicEngine'
 import { dbg } from '@/utils/debug'
-import { readScoreFile, scoreFilename, wrapScoreJson } from '@/utils/scoreFile'
+import { readScoreFile, scoreFilename, wrapScoreJson, type ScoreFileView } from '@/utils/scoreFile'
 
 /**
  * Getting a score IN and OUT — download, open, print — as the functions two surfaces share.
@@ -29,6 +29,18 @@ interface ScoreFileHooks {
   beforeLoad?: () => void
   /** After a successful load — the app's own render path, so highlights come back with it. */
   afterLoad?: () => void
+  /**
+   * ⭐ **What the FILE said about how it was being looked at** — the envelope's `view` block
+   * (`utils/scoreFile.ScoreFileView`), handed over so the app can apply it through the SAME path a
+   * menu toggle takes (`PaletteController.setJustifyLastLine`: engine, then state, then render).
+   *
+   * ⛔ Called only when the file actually carries the block — absent means the file does not say,
+   * ⛔ never "turn it off", so a score written before this existed leaves the session alone.
+   *
+   * ⚠️ It is deliberately a HOOK rather than a call into the palette from here: this module owns
+   * files, and the mirror on `EditorState` belongs to whoever owns the toolbar.
+   */
+  applyView?: (view: ScoreFileView) => void
 }
 
 /**
@@ -38,7 +50,11 @@ interface ScoreFileHooks {
  * *view* of the same string, which is exactly what makes reaching for it tempting and wrong.
  */
 export function exportScoreJson(engine: MusicEngine, hooks: ScoreFileHooks = {}): void {
-  const text = wrapScoreJson(engine.exportJSON(), new Date().toISOString())
+  // ⭐ The engine is asked how the score is being LOOKED at, and that travels in the ENVELOPE beside
+  //   the model — ⛔ never inside it (`utils/scoreFile.ScoreFileView` says why at length).
+  const text = wrapScoreJson(engine.exportJSON(), new Date().toISOString(), {
+    justifyLastLine: engine.getJustifyLastLine(),
+  })
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
   const link = document.createElement('a')
   link.href = url
@@ -121,7 +137,7 @@ async function loadFile(engine: MusicEngine, file: File, hooks: ScoreFileHooks):
 
 /** The one swap, whatever brought the text — a picked file or a shipped example. */
 function loadScoreText(engine: MusicEngine, text: string, hooks: ScoreFileHooks): void {
-  const { scoreJson, summary } = readScoreFile(text)
+  const { scoreJson, summary, view } = readScoreFile(text)
   if (scoreJson === null) {
     hooks.status?.(summary)
     return
@@ -138,6 +154,10 @@ function loadScoreText(engine: MusicEngine, text: string, hooks: ScoreFileHooks)
     hooks.status?.('refused: rejected by the engine (see console)')
     return
   }
+  // ⚠️ BEFORE `afterLoad`, which is the app's render: applying the view re-casts the score
+  //    (`justifyLastLine` is in `layoutStateKey`), so doing it after would render twice and show the
+  //    old casting for a frame. ⛔ And only when the file SAID something — see `applyView`.
+  if (view) hooks.applyView?.(view)
   hooks.afterLoad?.()
   hooks.status?.(summary)
   const score = engine.getScore()

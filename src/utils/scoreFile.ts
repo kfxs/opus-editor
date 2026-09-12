@@ -64,10 +64,42 @@ const KNOWN_SCORE_KEYS = Object.keys({
   playback: true,
 } satisfies Record<keyof Score, true>)
 
+/**
+ * ⭐⭐ **HOW THE FILE WAS BEING LOOKED AT** — the envelope's one non-score block.
+ *
+ * > *"i dont want to make decisions about layout in this state of the development cause layout will
+ * > be in the future, but the examples should be able (and the json score) to store that
+ * > information"* — HIS framing, 2026-09-12, and it is what decides the SHAPE of this.
+ *
+ * ⛔ **This is NOT the engraving object, and must not be mistaken for it.**
+ * `docs/DESIGN-PRINCIPLES.md`'s boundary case *"Where do document-wide ENGRAVING settings live?"*
+ * is still **OPEN and deliberately parked**: the eventual answer is a document-level engraving
+ * object holding *page size, margins, staff size, ragged-last*, of which `engine/layout/surface.ts`
+ * is the first built member. ⛔ Nothing here settles that.
+ *
+ * ⭐ What it does instead is exploit the fact that **this module is scaffolding** (see the file
+ * header): the FILE may carry how the editor was showing the score without the MODEL learning
+ * anything, so principle 3 — *"Forbidden: page-layout state in the data model or its JSON"* — keeps
+ * its full meaning. ⭐ `Score` gains no field; the compartment sits BESIDE the content, which is the
+ * shape the boundary case predicts the real object will take anyway.
+ *
+ * ⚠️ **Named `view`, ⛔ not `engraving` or `layout`**, on purpose: these are the settings the code
+ * already calls *view state* (`EditorState.justifyLastLine`, `VexFlowRenderer.justifyLastLine` —
+ * *"view state, not a score field"*), and a bolder name would be a claim about the future.
+ *
+ * ⚠️ Absent means **nothing was stated**, ⛔ never "false" — a file written before this existed must
+ * not silently turn a toggle off. Every reader takes `undefined` as "leave the session alone".
+ */
+export interface ScoreFileView {
+  /** Was the LAST system stretched to the page width? ⛔ Absent = the file does not say. */
+  justifyLastLine?: boolean
+}
+
 interface ScoreFileEnvelope {
   format: string
   version: number
   savedAt: string
+  view?: ScoreFileView
   score: unknown
 }
 
@@ -77,6 +109,12 @@ interface ReadResult {
   scoreJson: string | null
   /** One-line summary for the panel. The console carries the detail. */
   summary: string
+  /**
+   * ⭐ What the file says about how it was being LOOKED at ({@link ScoreFileView}) — `undefined`
+   * when it says nothing, which is every file written before the block existed and every
+   * hand-written bare `Score`.
+   */
+  view?: ScoreFileView
 }
 
 /**
@@ -86,14 +124,41 @@ interface ReadResult {
  * and this module has no business holding a reference to it. Re-parsing to nest it costs a
  * round-trip that nobody will ever notice on a dev button.
  */
-export function wrapScoreJson(scoreJson: string, savedAt: string): string {
+export function wrapScoreJson(scoreJson: string, savedAt: string, view?: ScoreFileView): string {
   const envelope: ScoreFileEnvelope = {
     format: SCORE_FILE_FORMAT,
     version: SCORE_FILE_VERSION,
     savedAt,
+    // ⭐ Absent stays absent, exactly as `ScoreModel.toJSON` treats a missing title: a caller that
+    //   states nothing writes no key, so an export gains no block it did not ask for.
+    ...(view && Object.keys(view).length > 0 ? { view } : {}),
     score: JSON.parse(scoreJson),
   }
   return JSON.stringify(envelope, null, 2)
+}
+
+/**
+ * Read the envelope's {@link ScoreFileView} block, or `undefined` when the file does not carry one.
+ *
+ * ⛔ **Report, never repair** — the file header's rule, applied to a block whose every member is
+ * optional: a `justifyLastLine` that is not a boolean is DROPPED with a warning rather than coerced,
+ * because a guessing fallback gets believed. ⚠️ Dropping one member does not refuse the file: this
+ * block is how the score was being LOOKED at, and a bad look setting is not a bad score.
+ */
+function readView(data: Record<string, unknown>): ScoreFileView | undefined {
+  const raw = data.view
+  if (raw === undefined) return undefined
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    console.warn('[score-file] `view` is not an object — ignored.', raw)
+    return undefined
+  }
+  const view: ScoreFileView = {}
+  const justify = (raw as Record<string, unknown>).justifyLastLine
+  if (justify !== undefined) {
+    if (typeof justify === 'boolean') view.justifyLastLine = justify
+    else console.warn('[score-file] `view.justifyLastLine` is not a boolean — ignored.', justify)
+  }
+  return Object.keys(view).length > 0 ? view : undefined
 }
 
 /**
@@ -118,6 +183,9 @@ export function readScoreFile(text: string): ReadResult {
 
   const warnings: string[] = []
   let score: unknown
+  // ⚠️ Envelope-only: a bare pre-envelope `Score` has nowhere to put one, and inventing a place
+  //    inside the model is exactly what principle 3 forbids.
+  let view: ScoreFileView | undefined
 
   if ('format' in data) {
     if (data.format !== SCORE_FILE_FORMAT) {
@@ -138,6 +206,7 @@ export function readScoreFile(text: string): ReadResult {
       )
     }
     score = data.score
+    view = readView(data)
   } else if (Array.isArray(data.measures)) {
     // Every export taken before the envelope existed, plus all hand-written test JSON.
     console.info('[score-file] no envelope — reading as a bare Score.')
@@ -166,6 +235,7 @@ export function readScoreFile(text: string): ReadResult {
     summary: warnings.length
       ? `loaded ${bars} bars — ${warnings.join('; ')} (see console)`
       : `loaded ${bars} bars`,
+    ...(view ? { view } : {}),
   }
 }
 

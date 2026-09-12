@@ -2,6 +2,9 @@
   "format": "opus-editor-score",
   "version": 1,
   "savedAt": "2026-08-29T13:50:54.750Z",
+  "view": {
+    "justifyLastLine": true
+  },
   "score": {
     "id": "f0fd5158-0954-4d2a-974a-915023905e12",
     "title": "Prelude BWV846",
@@ -16596,18 +16599,6 @@
       "cautionClef:86ca5afd-27c5-4ddb-9d28-3fe5b61cf8d0": [
         {
           "kind": "cautionaryClef"
-        }
-      ],
-      "663a1ae6-4aa9-48f0-9375-96a2c0190337:barwidth": [
-        {
-          "kind": "barWidth",
-          "stretch": 1.3573749187784263
-        }
-      ],
-      "86ca5afd-27c5-4ddb-9d28-3fe5b61cf8d0:barwidth": [
-        {
-          "kind": "barWidth",
-          "stretch": 1.188383045525903
         }
       ],
       "d22c4912-b150-4a80-9a4d-e85da7f4f9e6": [

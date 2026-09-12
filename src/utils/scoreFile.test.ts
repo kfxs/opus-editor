@@ -129,3 +129,74 @@ describe('scoreFile', () => {
     })
   })
 })
+
+/**
+ * ⭐⭐ **THE `view` BLOCK — how the file says the score was being LOOKED at.**
+ *
+ * > *"i dont want to make decisions about layout in this state of the development cause layout will
+ * > be in the future, but the examples should be able (and the json score) to store that
+ * > information"* — HIS framing, 2026-09-12.
+ *
+ * ⛔ What these pin is that the block lives in the ENVELOPE and the SCORE never learns of it —
+ * `docs/DESIGN-PRINCIPLES.md` principle 3 forbids page-layout state *"in the data model or its
+ * JSON"*, and its boundary case (*"Where do document-wide ENGRAVING settings live?"*) is still
+ * OPEN. ⛔ Nothing here is that engraving object.
+ */
+describe('the envelope’s `view` block', () => {
+  const bareScore = JSON.stringify({ id: 's', measures: [{ id: 'm', number: 1, slots: [] }] })
+
+  it('⭐ round-trips a stated `justifyLastLine`', () => {
+    const file = wrapScoreJson(bareScore, '2026-09-12T00:00:00.000Z', { justifyLastLine: true })
+    expect(readScoreFile(file).view).toEqual({ justifyLastLine: true })
+    expect(readScoreFile(wrapScoreJson(bareScore, 'x', { justifyLastLine: false })).view)
+      .toEqual({ justifyLastLine: false })
+  })
+
+  it('⛔ writes NO key when the caller states nothing — an export gains no block it did not ask for', () => {
+    expect(JSON.parse(wrapScoreJson(bareScore, 'x'))).not.toHaveProperty('view')
+    expect(JSON.parse(wrapScoreJson(bareScore, 'x', {}))).not.toHaveProperty('view')
+  })
+
+  it('🚨 absent is NOT false — a file written before the block existed leaves the session alone', () => {
+    // The whole reason `view` and its members are optional: `undefined` means *the file does not
+    // say*, and a reader that read it as `false` would silently turn a shipped toggle off.
+    expect(readScoreFile(wrapScoreJson(bareScore, 'x')).view).toBeUndefined()
+    expect(readScoreFile(bareScore).view, 'a bare pre-envelope Score has nowhere to put one')
+      .toBeUndefined()
+  })
+
+  it('⛔ REPORTS, never repairs — a non-boolean is dropped and the score still loads', () => {
+    const file = JSON.stringify({
+      format: SCORE_FILE_FORMAT, version: SCORE_FILE_VERSION, savedAt: 'x',
+      view: { justifyLastLine: 'yes' },
+      score: JSON.parse(bareScore),
+    })
+    const result = readScoreFile(file)
+    expect(result.view, 'the bad member is dropped, ⛔ not coerced').toBeUndefined()
+    // 🚨 And the FILE is not refused: how a score was looked at is not the score.
+    expect(result.scoreJson).not.toBeNull()
+  })
+
+  it('⛔ a `view` that is not an object is ignored, and the score still loads', () => {
+    for (const bad of ['nope', 42, [], null]) {
+      const file = JSON.stringify({
+        format: SCORE_FILE_FORMAT, version: SCORE_FILE_VERSION, savedAt: 'x',
+        view: bad, score: JSON.parse(bareScore),
+      })
+      const result = readScoreFile(file)
+      expect(result.view).toBeUndefined()
+      expect(result.scoreJson).not.toBeNull()
+    }
+  })
+
+  it('🚨🚨 the SCORE never learns of it — principle 3’s line, as an assertion', () => {
+    const file = wrapScoreJson(bareScore, 'x', { justifyLastLine: true })
+    const { scoreJson } = readScoreFile(file)
+    // ⛔ No `view`, no `layout`, no stray key: what reaches `MusicEngine.loadJSON` is the model and
+    //    nothing else. This is the test that fails the day somebody "simplifies" the block onto
+    //    `Score` — which `docs/DESIGN-PRINCIPLES.md` forbids outright.
+    expect(JSON.parse(scoreJson!)).not.toHaveProperty('view')
+    expect(JSON.parse(scoreJson!)).not.toHaveProperty('layout')
+    expect(Object.keys(JSON.parse(scoreJson!)).sort()).toEqual(['id', 'measures'])
+  })
+})
