@@ -2623,7 +2623,14 @@ export class VexFlowRenderer {
     }
     if (cautionaryEndTimeSig) {
       // Cautionary time signature before a line break: warns of the next line's new
-      // meter. Drawn full size (no 'small') and placed after the final barline.
+      // meter. Drawn full size (no 'small') — ✅ which is what Gould p. 152 draws.
+      // 🚨🚨 **…but "placed after the final barline" is what this comment USED to claim, and we
+      //    draw it BEFORE the line.** His report, 2026-09-12, measured: the meter lands at 958 and
+      //    our barline at 980. ⭐ VexFlow places the meter correctly (its `SORT_ORDER_END_MODIFIERS`
+      //    sorts a TimeSignature OUTSIDE the barline, which is Gould's rule); what is wrong is that
+      //    `BarlineRenderer` draws at the stave's right EDGE since it took the end barlines over.
+      //    ⛔ Not fixed here — it moves ink. The finding, the citation and the fix's shape are
+      //    `docs/barline-types-plan.md` §4.4a.
       stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
     }
 

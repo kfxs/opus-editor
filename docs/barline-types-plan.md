@@ -367,6 +367,76 @@ independently by the engine closest to our shape.
   announcing what the music reverts to on the jump back. ⛔ **Not a barline**, and it does not
   falsify the line above.
 
+### 4.4a 🚨🚨 THE CAUTIONARY METER IS ON THE WRONG SIDE OF THE LINE — his report, 2026-09-12
+
+> *"the problem is the barline should be before the cautionary (i think we had this correct before
+> our own engine)"* — ⭐ **both halves are right**, and the second one names the cause.
+
+⛔ **Not scheduled here.** This section is the finding, its citation and its measurement, written down
+on the day it was diagnosed so the next reader does not re-derive it.
+
+**What the books say — and it is the OPPOSITE of the clef's rule.** Gould, *Behind Bars* **p. 152**
+(*Placing time-signature changes*), read on the scan, with a drawn example:
+
+> *"The new time signature is always placed **after the barline**. When a change of time signature
+> occurs between systems, add a cautionary indication at the end of the first system, **after the last
+> barline**."*
+
+⭐ Her figure draws it: notes → **barline** → **2/4** → the staff ends. **Full size**, ⛔ not reduced —
+which is what `VexFlowRenderer`'s own comment already says (*"Drawn full size (no 'small')"*).
+⚠️ Contrast `docs/clef-research.md` §4.3, where four books put a cautionary **clef** *before* the
+barline. ⇒ the two cautionaries go on opposite sides, and any code that treats them as one family is
+wrong about one of them.
+
+**What we draw — measured in the browser, 2026-09-12**, a meter change at bar 10 with the cautionary
+allowed:
+
+| | x |
+|---|---|
+| the last bar of system 1 | 844.6 → 980 |
+| **its cautionary `6/8`** | **958** |
+| **its closing barline** | **980** |
+
+⇒ **meter, then barline.** Backwards.
+
+🚨 **And the cause is OURS, ⛔ not VexFlow's — which is why it is a regression.** VexFlow's
+`SORT_ORDER_END_MODIFIERS` is `TimeSignature: 0, KeySignature: 1, Barline: 2, Clef: 3`, and the
+end-modifier walk places index 0 at the right edge working LEFTWARDS. ⭐ So VexFlow deliberately puts
+an end time signature **outside** the barline — Gould's picture — and the meter at 958 is correctly
+placed. What moved is the LINE: since this plan's own P2 forced `setEndBarType(NONE)` on every stave,
+`BarlineRenderer` draws at
+
+```ts
+const endX = stave.getX() + stave.getWidth() + dx   // BarlineRenderer.ts:519
+```
+
+— the stave's right EDGE, unconditionally. That equals VexFlow's `endX` for every ordinary bar
+(`endX = endModifiers.length === 1 ? x + width : x`) and ⛔ **not for a bar carrying end modifiers**,
+which is exactly the cautionary case.
+
+⭐⭐ **THIS PLAN PREDICTED IT, WORD FOR WORD, AND THE VERIFICATION WAS NEVER RUN.** P2's own bullet:
+*"⚠️ One thing to **VERIFY, not assume**, when that line lands… immune to the end barline's type in
+the common case, **but not when the bar carries a cautionary clef or meter**… `barWidth.e2e` is the
+instrument; ⛔ do not reason about it in jsdom."* ⇒ 🚨 the standing lesson of `lint:paint`'s own
+header, met again: **a trigger nobody is scheduled to check is a trigger that does not fire.** A
+`VERIFY` written in a plan is not a verification.
+
+⛔ **Only the METER is affected**, and the sort order is the reason:
+
+| end modifier | sorts | lands | correct? |
+|---|---|---|---|
+| **TimeSignature** | 0 | OUTSIDE the barline | 🚨 **the bug** — our line is drawn further right still |
+| KeySignature | 1 | outside | ⛔ unreachable: `stave.addKeySignature` is never called here — `KeySignaturePass` draws it, through our own context, and already past the line |
+| Barline | 2 | — | forced `NONE` by P2 |
+| Clef | 3 | INSIDE the bar | ✅ correct by the four books, and correct here by luck |
+
+⏭️ **The shape of the fix, when it is scheduled:** the closing barline's x is the END-BARLINE
+MODIFIER's own x — which `Stave.format()` already walks back correctly for every combination —
+⛔ never the stave's right edge, and ⛔ never `getEndX()` either (that is left of a cautionary *clef*,
+which must stay inside). ⚠️ It MOVES INK, so it is its own commit: ⛔ never folded into a P5
+migration step, whose entire safety argument is that the picture does not change. It wants the
+browser probe that found it, kept as a regression test.
+
 ### 4.5 Multi-staff — ⭐ the LINES run through the system, the DOTS do not
 
 ⭐⭐ **Unanimous, 3 of 3, by three DIFFERENT mechanisms** — which is about as strong as engine
@@ -878,6 +948,10 @@ whether §4.6.3's silent stale-picture bug can exist at all.
     `addEndTimeSignature`, i.e. exactly the last-of-line bars §6 already calls the hard ones). There
     `endModifiers.length > 1` and `endX` is walked back through each modifier's layout metrics, where
     `NONE` and `SINGLE` differ. `barWidth.e2e` is the instrument; ⛔ do not reason about it in jsdom.
+  - 🚨🚨 **IT WAS NEVER VERIFIED, AND IT WAS RIGHT — see §4.4a** (his report, 2026-09-12). The
+    cautionary METER now sits on the wrong side of its own barline. ⭐ The bullet above named the
+    exact bar (*"when the bar carries a cautionary clef or meter"*) and the exact mechanism; what was
+    missing was anybody scheduled to run it.
 - The geometry of §6.1: the dividing line on the boundary, the rest of the sign inside its own bar.
   Numbers from `engravingDefault()` — thin **0.16**, thick **0.50**, separation **0.32** (⚠️ §4.6.5:
   the scan beats the font on that last one), dots at **1.48 / 2.48**.
