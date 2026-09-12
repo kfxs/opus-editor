@@ -1031,6 +1031,38 @@ VexFlow's signature, because `DrawContext` is an interface their context satisfi
 overridden with a signature naming nothing of VexFlow's, so `lint:paint` sees a file that draws only
 through us.
 
+#### ⏭️ P5b, what is LEFT — the PLACEMENT, and it now has a FIRST CONCRETE JOB (2026-09-12)
+
+🚨 **Found by HIS EYE, then measured**: *"the placement of the meter after the clef seems to be
+because of the bbox, not the ink."* ⭐ Right that it is not ink-driven; ⛔ wrong that the bbox is the
+cause. Full workings in `docs/header-spacing-research.md` **§4.4**; the conclusion:
+
+- ⛔ **Side bearings are not the problem.** A clef has NO right side bearing — Bravura's `gClef` ink
+  `right` **2.684** IS its `advance` — and `headerInkRightX`'s own earlier measurement puts VexFlow's
+  modifier box and the font's ink within **0.02 sp** at full size.
+- 🚨 **The gap is `TimeSignature`'s `customPadding`, default 15 px = 1.5 sp**, because
+  `StaveModifier.getPadding(i)` is 0 for `i < 2` and with no key signature the meter is index 2.
+  Less the digit's −0.08 left bearing ⇒ ⭐ **1.42 sp of white, measured identical for all four
+  clefs** — and the identity across clefs is itself the proof that it is a constant, not a
+  derivation.
+- 🚨🚨 **And `headerInk.BETWEEN_PARTS` reserves 1.0 while we draw 1.42.** ⇒ the two-sets-of-numbers
+  pair **this phase is named after**, surviving in the one gap of the run nobody ever converted.
+  ⭐ `BETWEEN_PARTS` is the only header gap still expressed **box to box**; `CLEF_TO_KEY_INK` and
+  `KEY_TO_METER_INK` are both ink to ink.
+
+⭐⭐ **The template already exists and ships**: `VexFlowRenderer.placeMeterAfterKeySignature()` asks
+the previous sign where its INK ends, adds a named staff-space constant, converts that ink target to
+an ORIGIN through `glyphBox('timeSig4').left`, and `setX`es the modifier — *"PLACED, not shifted…
+the number in the style sheets is WHITE SPACE, not an origin distance."* ⇒ 🚨 **the same gap is
+engraved two different ways today depending on whether a key signature is present.**
+
+⇒ ⏭️ **P5b's placement step starts with `CLEF_TO_METER_INK` + a `placeMeterAfterClef` twin.** ⛔ The
+preset is NOT chosen: the candidates (Gould stated 1–1½ / drawn 1.06, LilyPond 1.52, MuseScore 1.00,
+Verovio 1.00, ours 1.42) are ⚠️ **not yet verified for which convention each is stated in**, which is
+what the two research agents of 2026-09-12 were sent to settle. It lands as a **row table with a
+console knob** and ⭐ **HIS EYE arms the row**
+(`project_engraving_defaults_are_a_house_style`). ⚠️ It MOVES INK ⇒ its own commit.
+
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 
 > *"are we planning to manage the bounding box at a certain moment? and do we need the bbox once we

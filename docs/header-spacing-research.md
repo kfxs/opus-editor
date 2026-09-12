@@ -116,7 +116,9 @@ He opens by stating the convention, twice:
 > note with a down stem is measured from its stem side. A sharp is measured from the vertical line on
 > its left side. A flat is also measured from its left side."*
 >
-> p. 75: *"plate engravers **measure from the left side of the characters** … from the left side of
+> p. **74** (⚠️ **CORRECTED 2026-09-12 — this doc said p. 75; p. 75 carries the barline's "one space"
+> and the machine-engraving "from the center" sentence**): *"plate engravers **measure from the left
+> side of the characters** … from the left side of
 > the first notehead (or character) to the left side of the next notehead (or character)."* And
 > *"Machine engraving and most other process engravings are measured **from the center** of the music
 > character."*
@@ -273,8 +275,16 @@ drawing is 3–6% loose against its own labels, which is the printer's, not a ru
 | key signature → time signature | **1.57 sp** | 1–1½ |
 | time signature → first note | **2.06 sp** (bracket) / **2.54 sp** (ink to ink) | 2 |
 
-⚠️ On this figure the last bracket stops 12 px short of the notehead's ink, unlike every bracket in
-the table above. ⛔ Not explained; both numbers are given rather than one being chosen.
+🚨🚨 **CORRECTED 2026-09-12 — ALL THREE of the numbers above are BRACKET LENGTHS, ⛔ not ink gaps,
+and on THIS figure the two are different things.** Re-measured at 450 dpi: the **ink** gaps under
+those brackets are **1.63 · 1.83 · 2.47 sp**, i.e. every bracket floats ~**0.35 sp** inside its gap.
+⭐ That is unlike her p. 42 **table**, where the brackets land on the ink to 1–2 px (re-verified on
+two further cells). ⇒ ⚠️ **§3.1's ink-edge finding holds for the TABLE and ⛔ NOT for this figure**,
+and this section inherits numbers that are neither the label nor the gap.
+
+⚠️ Consequence for §4.3: its *"Gould measured 1.02 · 1.31"* row for clef→key **mixes one ink
+measurement with one bracket measurement**. The **1.02** is sound (independently re-measured at 1.01
+on the table's row 2); the 1.31 is a bracket.
 
 ### 3.4 ⭐ THE INDENTATION — three sources, one answer
 
@@ -407,7 +417,7 @@ Both columns are **ink to ink**, so they are directly comparable (§3.1).
 | left edge → clef | ⛔ not ours | *"one stave-space or a little less"* (p. 6) | **0.67–0.74** | ⛔ unowned |
 | clef → key signature | **0.82** | *"1–1½"* (p. 41); figure labels 1–1¼ | **1.02 · 1.31** | 🚨 **we are 20–37% tight** |
 | key signature → time signature | **1.15** | *"1–1½"* (p. 41); figure labels 1–1½ | **1.57** | ⚠️ inside her range, at its floor |
-| clef → time signature (no key) | **1.0** | *"1–1½"* | **1.06** | ✅ agrees |
+| clef → time signature (no key) | ~~**1.0**~~ 🚨 **DRAWN 1.42 · RESERVED ≈1.6** — §4.4, §4.5 | *"1–1½"* | **1.00 · 1.06 · 1.10 · 1.10** (§4.5) | 🚨 **CORRECTED 2026-09-12, and the old ✅ WAS NOT SOUND: 1.0 was the BOX number compared against an INK one.** We are **~0.3–0.5 sp LOOSE** — ⚠️ the OPPOSITE sign to clef→key two rows up, where we are tight |
 | header → first note | **2.0** | **2½** after a clef or key, **2** after a meter (p. 42) | **2.60 · 2.59 · 2.11** | 🚨 **right after a meter, ~0.5 sp tight after a clef or a key signature** |
 | barline → first note (no header) | **1.2** | *"a stave-space… on either side of a barline"* (p. 42) | **1.05–1.08** | ⚠️ we are 0.15 sp loose |
 | accidental → accidental | **1.25 / 1.15** origin-to-origin | *"keep the key signature evenly spaced… do not overlap"* (p. 92) | 1.12 (flat) / 1.25 (sharp) | ✅ agrees |
@@ -417,6 +427,248 @@ clef, 2½ after a key signature, 2 after a time signature.** Her sentence is *"N
 slightly closer to a time signature than to a clef or key signature"*, i.e. the gap is keyed on
 **what the note follows**, and `HEADER_TO_NOTE` has no such key. We draw her *time-signature* row for
 all three cases.
+
+### 4.4 🚨🚨 THE CLEF → METER GAP IS THE ONE NOBODY CHOSE — measured 2026-09-12
+
+> *"i see the placement of the meter after the clef seems to be because of the bbox, not the ink…
+> what information do we have to know the x where to place it? i think we should have a kind of
+> variable, so in the future the user can apply their house style, but we must start with a preset"*
+> — HIS question. ⭐ **His instinct was right and his diagnosis was not**, and the difference is the
+> whole of this section.
+
+#### ⛔ It is NOT the bbox — for a CLEF, box and ink agree to 0.02 sp
+
+Two independent confirmations, neither of them an opinion:
+
+| evidence | says |
+|---|---|
+| Bravura's own table (`fonts/bravuraMetrics.GLYPH_BOXES`) | `gClef` ink `right` **2.684** = `advance` **2.684**; `fClef` 2.736/2.736; `cClef` 2.796/2.796 ⇒ ⭐ **a clef has NO right side bearing** |
+| `headerInkRightX()`'s own comment, measured earlier | *"VexFlow sizes that box to the glyph it actually draws… at full size the two agree to **0.02 staff spaces**, measured"* |
+
+⇒ ⛔ **Side bearings are worth 0.02 sp here and cannot explain anything.** The meter's own left bearing
+is the only one that bites, and it is **−0.08 sp** (`timeSig4.left`), i.e. a digit's ink starts
+*before* its origin.
+
+#### 🚨 What it really is: VexFlow's `customPadding`, and NOBODY EVER CHOSE IT
+
+`Stave.format()`'s begin walk is `x += padding; modifier.setX(x); x += width`, and
+`StaveModifier.getPadding(i)` returns **0 for `i < 2`**. With no key signature the run is
+`[Barline, Clef, TimeSignature]`, so the meter is index **2** and the ONLY thing between the clef and
+the meter is `TimeSignature`'s **`customPadding`, default 15 px = 1.5 sp**. The meter's ink then starts
+0.08 sp before its origin ⇒ **1.42 sp of white**.
+
+✅ **Measured on our own render** (`inkSizes` on `g.vf-clef text` vs `.vf-timesignature text`, the
+browser, default score):
+
+| clef | drawn white gap |
+|---|---|
+| treble · bass · alto · tenor | **1.4 sp — identical for all four** |
+
+⭐ The identity across all four clefs is itself the proof that the gap is a CONSTANT PADDING and not
+anything derived from the glyph.
+
+#### 🚨🚨 …and we RESERVE 1.0 while we DRAW 1.42 — the two-sets-of-numbers problem, still live
+
+`headerInk.BETWEEN_PARTS = 1.0` is what the width model charges; 1.42 is what a reader sees. ⇒ §4.3's
+*"✅ agrees"* verdict was comparing **the reserved number**, not the drawn one, and its row is now
+corrected. ⭐ This is exactly the pair `own-engraving-engine.md` §P5 is named after — *"`headerInk`
+already MEASURES what a clef and a meter cost; `Stave` still PLACES them"* — surviving in the one gap
+of the run that was never converted.
+
+#### ⭐⭐ THE ANSWER TO HIS QUESTION: every piece already exists, and the neighbouring gap already does it
+
+`VexFlowRenderer.placeMeterAfterKeySignature()` (line ~5150) is the mechanism, built and shipping:
+
+```ts
+const inkLeft = keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space
+const origin  = inkLeft + glyphBox('timeSig4').left * space   // the −0.08: ink → ORIGIN
+modifier.setX(origin)
+```
+
+⭐ Its own comment states the principle: *"**PLACED, not shifted**"* and *"the number in the style
+sheets is **white space**, not an origin distance."*
+
+| piece | gives | state |
+|---|---|---|
+| `glyphBox(name)` | per-glyph ink `left`/`right`/`advance` in staff spaces, from Bravura | ✅ P2 |
+| `headerInkRightX()` | where the header's ink actually ends | ✅ built |
+| `CLEF_TO_KEY_INK` 0.82 · `KEY_TO_METER_INK` 1.15 | named, ink-to-ink, **house-style** constants | ✅ built |
+| `modifier.setX(origin)` + `space = getSpacingBetweenLines()` | the placement seam, scale-correct | ✅ built |
+| **`CLEF_TO_METER_INK`** + a `placeMeterAfterClef` twin | the same for clef→meter | ⛔ **MISSING — the whole of the job** |
+
+🚨 **So the SAME GAP is engraved two different ways depending on whether a key signature is present**:
+with one, WE place the meter from ink at a number we chose; without one, VexFlow places it from an
+advance plus a padding nobody chose. ⭐ `BETWEEN_PARTS` is the only gap in the header run still
+expressed **box to box**, which is the odd-one-out he spotted by eye.
+
+#### ⏭️ What is owed
+
+⛔ **Not built, and the PRESET is not chosen.** The candidates in hand — ⚠️ **none yet verified for
+which convention it is stated in**, which is the question two agents were sent to settle on
+2026-09-12 (the books, and the three clones):
+
+| source | number | measured between |
+|---|---|---|
+| **Gould**, stated p. 41 | 1–1½ | ✅ **white gap, ink to ink** — §4.5 |
+| **Gould**, her plate measured | **1.00 · 1.06 · 1.10 · 1.10** | ink to ink |
+| **Ross** p. 145, the ONLY book to give this pair its own number | 3½ **origin to origin** ⇒ **0.98** of white on his own plate | ⭐ left INK edge to left INK edge — §4.5 |
+| **Stone** p. 44, stated | *"one staff-space or a little less"* ⇒ **1.14** measured | white gap — §4.5 |
+| LilyPond `Clef.space-alist` | **1.52** | ✅ **INK to INK** — §5.6 |
+| MuseScore `clefTimesigDistance` | **1.00** | ✅ **INK to INK** — §5.6 |
+| Verovio `rightMarginClef` + `leftMarginMeterSig` | **1.00** ⚠️ (1.0 + 1.0 **MEI units**, ½ sp each) | ✅ **INK to INK** — §5.6 |
+| **what we draw today** | **1.42** | ⛔ clef ADVANCE end → meter ORIGIN |
+
+⭐⭐ **BOTH HALVES ARE IN (2026-09-12), and the KIND of number is settled from both sides.** The
+engines are **3 of 3 from INK** and the only advance-based one in the comparison is VexFlow, the
+dependency we are removing (§5.6); the books are **3 of 4 measuring white ink gaps**, and their
+plates land on **0.98–1.14, median 1.10** despite stating three different numbers in three different
+conventions (§4.5). ⇒ ⭐ **only the VALUE is open**, and it clusters hard: **1.0** (Stone stated,
+MuseScore, Verovio), **1.05** (the plates' median), **0.82** (Ross's own compass setting, which is
+`CLEF_TO_KEY_INK` — the number HIS EYE already accepted), **1.52** (LilyPond, ≈ what we draw today).
+⚠️ And we are **LOOSE**, ⛔ not tight — the opposite sign to the clef→key row.
+
+⇒ ⭐ it becomes a **row table with a console knob**, the shape `__header.rule(…)`, `__beams.rule(…)`
+and `__spacing.law(…)` already established, and **HIS EYE picks the armed row**
+(`project_engraving_defaults_are_a_house_style`). ⚠️ It MOVES INK ⇒ its own commit, ⛔ never folded
+into a P5 migration step.
+
+### 4.5 ⭐⭐ THE BOOKS, RE-CHECKED ON THE SCANS — 2026-09-12
+
+> Sent with §4.4's question and one instruction: ⛔ **a number without its *measured between* is
+> worse than no number.** Every quotation below is read off a RENDERED page, ⛔ never the OCR layer.
+
+#### ⭐ Q1 — only ROSS gives this pair its own number, and it is not special to the meter
+
+| source | printed page | what it says | pair-specific? |
+|---|---|---|---|
+| **Ross** | **145** | *"the space between the left side of the clef, and the left side of the time signature, is **three and a half spaces**"* — with a figure bracketed and labelled `3½ Spaces` | ⭐⭐ **YES — the only stated number for this pair in the library** |
+| **Stone** | **44** | *"between the clef and any subsequent symbol (key signature **or time signature**): **one staff-space or a little less**"* | ⭐ names the pair, but gives it the SAME value as clef→key |
+| **Gould** | **41** | *"Separate the clef, key signature, time signature by 1–1½ stave-spaces."* | ⛔ generic; her p. 152 is vertical only |
+| **Gerou & Lusk** | 51, 149 | *"The time signature is indicated after the clef and key signature."* | ⛔ **no number for ANY header gap**, and they never draw a clef followed by a meter |
+
+⭐ **Ross's 3½ is one compass setting used four times** — he gives the same to clef→first sharp and
+clef→first flat (p. 144), and 5½ to clef→first note and clef→repeat bar (p. 147). ⇒ in the one system
+that states a number, **the time signature is spaced exactly like the first accidental.**
+
+#### ⭐⭐ Q2 — ink or origins: §0's headline CONFIRMED, with one correction that matters
+
+| source | convention | the evidence |
+|---|---|---|
+| **Ross** | ⭐⭐ **left INK edge → left INK edge** | p. 143: *"Metal-plate engravers… **measure their spacing from the left side of the character**. A quarter note with a down stem is measured from **its stem side**. A sharp is measured from **the vertical line on its left side**."* ⇒ ⭐ his measuring points are **ink features**, so there is no side bearing in his system. ✅ And his own p. 145 plate proves it: the bracket's left tick sits on the clef's leftmost ink (771 vs 772) and its right tick on the meter's (851–853 vs 851) |
+| **Gould** | **white gap, ink to ink** | re-confirmed on a p. 42 cell §3.1 never used: bracket **1185→1226**, meter ink ends **1185**, notehead ink starts **1226** — exact at both ends |
+| **Stone** | **white gap** | p. 44: *"**The gaps between them** can best be measured by **cutting a short strip of staff**… using its **cutting edge** as a measuring device"*, and p. 45's figures literally draw staff strips stood on end **inside the white gaps**, cut ends butted against the ink |
+| **Gerou & Lusk** | ⛔ **UNKNOWN** | they state no distance, so there is no convention to classify |
+
+🚨 **THE CORRECTION: Ross's "origin" is the glyph's LEFTMOST INK — ⛔ not a box origin and ⛔ not an
+advance width.** ⇒ converting Ross to a white gap means subtracting the **ink width** of the left
+glyph, ⛔ never its advance. (§7.1 got this wrong — see below.)
+
+⚠️ **And he names a THIRD convention nobody here had noticed** — p. 75: *"Machine engraving and most
+other process engravings are measured **from the center of the music character**."* His own
+left↔centre conversion for a notehead is **½ space**.
+
+#### ⭐⭐ THE PLATES, MEASURED — three books, three conventions, ONE answer
+
+| plate | clef ink → meter ink |
+|---|---|
+| **Ross p. 145** (400 dpi, 1 sp = 22.5 px) — his own `3½ Spaces` figure | **0.98** |
+| **Gould p. 42** (450 dpi, 1 sp = 20.0 px) — the *"with time signature"* row, all three cells | **1.00 · 1.10 · 1.10** |
+| **Stone p. 45** (400 dpi, 1 sp = 19.25 px) | **1.14** |
+
+⭐⭐ **Median 1.10, mean 1.06 — they agree to within 0.16 sp while stating three different numbers in
+three different conventions.** (Stone's is the loosest and his reproduction the blurriest, which
+biases *toward* a smaller gap, so 1.14 is if anything a floor for him.)
+
+Also measured, because they bear on the conversions: Ross's `5½` clef→first note = **2.82 sp** of
+white; his `3½` meter→first note = **1.70**; his key→meter `2½` comes out **2.21** and **2.79** on his
+two figures — ⚠️ **his engraving runs ±12% against his own labels.**
+
+#### 🚨🚨 …and it found the §4.1-vs-§4.3 contradiction to be REAL — the old "✅ agrees" was NOT sound
+
+§4.1 calls `BETWEEN_PARTS` *"box to box"*; §4.3's header claimed both its columns were ink to ink and
+scored the row ✅. ⭐ The arithmetic settles it: the key path subtracts the air explicitly
+(`keyToMeterGap() = KEY_TO_METER_INK − METER_PART_LEFT_AIR`) and **the no-key path does not**, so the
+reserved ink-to-ink gap is `BETWEEN_PARTS + METER_PART_LEFT_AIR` ≈ **1.6 sp**.
+
+⚠️ **That is the RESERVED number and it does not match the DRAWN one** — §4.4 measured **1.42** in a
+browser. ⭐ Both are "nobody chose it", by two different routes, and the disagreement between them is
+itself a third instance of *reserve ≠ draw*. ⛔ The agent's 1.6 is DERIVED from the constants and is
+in its own UNKNOWN list as unmeasured; §4.4's 1.42 is measured ink to ink. **What both agree on is
+the SIGN**: against the books' ~1.05 we are **loose**, ⚠️ the opposite of clef→key where we are tight.
+
+⭐ Now that the meter's ink is ours (`engrave/header/meter`, P5b) this is settleable as a **scene
+assertion in jsdom** rather than by argument — that is the check to run before acting on it.
+
+#### 🚨 Two further corrections to THIS document
+
+1. **§7.1 mis-assigns Ross after a time signature.** It says *"his time signature is about 2 sp of
+   ink, so 3½ from its left side ≈ 1½ of white — which is Stone's number, not Gould's."* ⛔ Measured
+   on his own plates his meter ink is **1.56** (`3/4`) and **1.83** (`C`), **never 2.0** ⇒ the
+   conversion gives **1.94** (numerals) or **1.70** (measured directly on his `C`) — ⭐ **Gould's 2,
+   not Stone's 1½.** The sentence should read *"Ross agrees with Gould after a meter (1.7–1.95) and
+   after a clef (2.82 measured)"*. His clef→note conversion in the same paragraph (≈2.8 vs a measured
+   2.82) is correct.
+2. **§3.3 and the p. 74/75 citation** — both corrected in place above.
+
+✅ **Confirmed unchanged**: §2.1–§2.4, §2.6, §2.7 verbatim against the scans; §3.1's ink-edge finding
+on two further cells; §3.2's 1.06; §4.2's *"Ross p. 143's 3½ re-expressed as ink = 0.82"* (his plate
+measures 0.84).
+
+#### ⛔ Q3 — the meter's left side bearing has NO PRINTED BASIS
+
+Every source measures **to the sign's ink**, and one of them says so glyph by glyph. ⛔ Nobody
+reserves air in front of a sign, and nobody discusses a time signature's width at all. Searched:
+Gould pp. 41–43, 92–93, 152–153; Ross pp. 143–147, 74–75; Stone pp. 44–47; Gerou & Lusk pp. 50–52,
+148–150. ⇒ ⭐ `METER_PART_LEFT_AIR = 0.6` is exactly what its own comment says it is — and §5.6 found
+that **no engine needs such a constant either**.
+
+⚠️⚠️ **A measured fact that prices the same box, and is a finding of its own**: a stacked two-digit
+meter's **ink** is **1.43–1.60 sp** on Gould's, Ross's and Stone's plates (Ross's `C` is 1.83).
+`keySignatureLayout.ts` records ours at **1.88 sp of ink** inside a **2.40 sp** box. ⇒ 🚨 **our
+numerals are ~20% wider than any plate in the library**, independently of the gap question.
+
+#### ⛔ Q4 — a cramped minimum: only GOULD, and only as a general floor
+
+> *"Where space is limited, **the distance between characters should not be less than ½ stave-space**
+> and no characters should collide."* — p. 41
+
+p. 43 adds *"reduce the space around clefs and accidentals to ½ space, to minimize distortion"*
+(⚠️ about **mid-music** clef changes, ⛔ not the system head) and *"stems must never come closer to a
+barline than one space"*. ⛔ **Ross: none** — he acknowledges only the variable (*"attributed to
+crowded or uncrowded music"*, p. 143) and his numbers are compass settings. ⛔ **Stone: none.**
+⛔ **Gerou & Lusk: none.** ⇒ with §5.6's engine finding, row **G** has no per-pair rule to adopt from
+either side.
+
+#### ⛔ UNKNOWN — looked for, not found
+
+- A clef→meter number from **Gerou & Lusk** — pp. 50–52 and 148–150 read as scans, whole text
+  grepped. ⛔ Not "silent on the pair": silent on the whole run.
+- Any statement, in any of the four books, about **air built into a time signature before its
+  digits**.
+- A **second Gould plate** of the pair — p. 43's mid-system figure puts a barline between the bass
+  clef and the `3/8` (so it measures barline→meter), and her p. 41 meters have no clef. **The p. 42
+  table row is the only Gould evidence, and it is three cells of one engraving.**
+- **Whether our drawn gap really is 1.6** — derived from the constants, ⛔ not measured in a browser
+  (and §4.4's measurement says 1.42).
+- **Gardner Read** and **Chlapik** — still not on disk. ⚠️ Read is LilyPond's own cited authority for
+  a neighbouring rule and has **never** been consulted here.
+
+#### ⭐ The rows it recommends — unit **INK TO INK**
+
+⛔ **Do not express this one origin-to-origin**: Ross's 3½ minus *our* clef's ~2.9 sp of ink is
+**0.6 sp** of white against **0.98** on his own narrower clef — a ~0.4 sp trap, and it bites because
+the conversion is a function of **the clef's font**, ⛔ not of the rule.
+
+| row | value | provenance |
+|---|---|---|
+| ⭐ **`books`** | **1.05** | the median of every plate in the library that draws the pair: Ross **0.98**, Gould **1.00 / 1.10 / 1.10**, Stone **1.14** |
+| **`stone` / `musescore`** | **1.0** | Stone p. 44 stated — the only source naming this pair in gap units — **and** MuseScore's `clefTimesigDistance`, **and** Verovio. ⭐ The most defensible if a round number is wanted |
+| **`rossCompass`** | **= `CLEF_TO_KEY_INK` (0.82)** | ⭐ Ross uses the **same compass setting** for clef→first accidental and clef→meter, so in the one system that states a number the meter is spaced *exactly like the first sharp*. Also LilyPond's `Clef.space-alist (key-signature . 0.82)` — ⭐ the number HIS EYE has already accepted. Tightest row |
+| **`lilypond`** | **1.52** | `Clef.space-alist (time-signature . 1.52)`. ⚠️ Keep it because it is **within ~0.1 sp of what we draw today**, so it is the **"no visible change"** row — and the citation if his eye prefers the current picture |
+
+⭐⭐ **Its one-line recommendation: if only one thing is acted on, fix the UNIT, not the value.**
+Whatever row is armed, the no-key path has to subtract `METER_PART_LEFT_AIR` the way `keyToMeterGap()`
+already does, or the constant keeps meaning something 0.6 sp different from the constant beside it.
 
 ## 5. What the three engines do
 
@@ -444,8 +696,8 @@ and LilyPond's `minimum-space` are origin-based; VexFlow is advance-based.**
 | barline → **CLEF** (mid-line) | **1.00** `define-grobs.scm:296` | **0.75** `paddingtable.cpp:132` | 0.50 | 0.5 | `inlineClefExtent` |
 | **CLEF → KEY** | **0.82** `define-grobs.scm:920` | **0.75** `clefKeyDistance` `styledef.cpp:221` | **1.00** `options.cpp:1783,1717` | **1.0** (10 px at index 2) `stavemodifier.js:22` | **0.82** |
 | **KEY → METER** | **1.15** `define-grobs.scm:1990` (⭐ a key *cancellation* → meter is **1.25**, `:1942`) | **1.00** `keyTimesigDistance` `styledef.cpp:223` | **1.00** `options.cpp:1787,1729` | **1.5** (15 px) `timesignature.js:17` | **1.15** |
-| **CLEF → METER** (no key) | **1.52** `define-grobs.scm:921` | **1.00** `clefTimesigDistance` `styledef.cpp:222` | 1.00 | 1.0 | **1.0** |
-| **header end → FIRST NOTE** | ⭐ **keyed on what precedes**: after a meter `semi-shrink-space 2.0`; after a key signature `shrink-space 2.5`; after a clef `minimum-fixed-space 5.0` (⚠️ **from the clef's LEFT edge**) — `define-grobs.scm:3955`, `:1997`, `:924` | ⭐⭐ **keyed too**: **2.00** `systemHeaderTimeSigDistance` when the header ends in a meter, **2.50** `systemHeaderDistance` otherwise — `styledef.cpp:225–226`, `horizontalspacing.cpp:1360–1365`. Floor **1.5** (`:1357`) | **1.00 + 1.00** through the left barline `options.cpp:1799,1721,1791,1749` | **1.2** — `Stave.padding = 12` added to every note `note.js:343`, `metrics.js:132` | **2.0**, one number |
+| **CLEF → METER** (no key) | **1.52** `define-grobs.scm:921` | **1.00** `clefTimesigDistance` `styledef.cpp:222` | **1.00** = `rightMarginClef` **1.0** + `leftMarginMeterSig` **1.0**, ⚠️ **in MEI units = ½ sp each** — `options.cpp:1783`, `:1729` | 🚨 **1.5**, ⛔ not 1.0 — `TimeSignature`'s own `customPadding = 15` px overrides the base 10 (`timesignature.js:17`) | ⚠️ we RESERVE **1.0** and DRAW **1.42** — §4.4 |
+| **header end → FIRST NOTE** | ⭐ **keyed on what precedes**: after a meter **`semi-shrink-space 2.0`** (⚠️ **CORRECTED 2026-09-12 — this doc used to say `fixed-space`; same number, ⛔ different mechanics: half the distance is fixed and half shrinkable-but-not-stretchable, `staff-spacing.cc:193–198`**); after a key signature `shrink-space 2.5`; after a clef `minimum-fixed-space 5.0` (⚠️ **from the clef's LEFT edge**) — `define-grobs.scm:3955`, `:1997`, `:924` | ⭐⭐ **keyed too**: **2.00** `systemHeaderTimeSigDistance` when the header ends in a meter, **2.50** `systemHeaderDistance` otherwise — `styledef.cpp:225–226`, `horizontalspacing.cpp:1360–1365`. Floor **1.5** (`:1357`) | **1.00 + 1.00** through the left barline `options.cpp:1799,1721,1791,1749` | **1.2** — `Stave.padding = 12` added to every note `note.js:343`, `metrics.js:132` | **2.0**, one number |
 | barline → first note, **no header** | **0.9** mid-line (`next-note semi-fixed-space`, `define-grobs.scm:302`); **1.3** at a line start (`first-note`, `:301`) | **1.25** `barNoteDistance` `styledef.cpp:265`; **0.65** if the note carries an accidental (`barAccidentalDistance`) | **1.00** | **1.7** = 5 px barline + 12 px `Stave.padding` | **1.2** |
 | **accidental → accidental** in a signature | ⭐ **0.0 added** — `KeySignature.padding` is unset ⇒ the C++ fallback 0.0 (`key-signature-interface.cc:106`); all the white is the font's side bearings. **Naturals**: +0.30 when the slices overlap, +0.15 when corners touch (`:113–115`) | **0.30** `keysigAccidentalDistance`, **doubled to 0.60 when the symbol changes**, **0.40** natural-after-natural — `styledef.cpp:293–294`, `tlayout.cpp:3474–3478`; then **reduced by the SMuFL cut-out** where the glyphs interlock (`:3481–3489`) | **0.20** (`TEMP_KEYSIG_STEP`, marked `// HARDCODED`), naturals **0.30**, added on top of each glyph's **advance** — `include/vrv/options.h:51–54`, `src/view_element.cpp:1060–1062` | **0.10** (1 px); **0.20** when either glyph is a natural and the two are within 10 px vertically — `keysignature.js:24–36` | **0.25** on top of the advance |
 | between the two **TIME-SIG rows** | **2.0 sp**, by translating the denominator `staff-space × −2` inside a `\combine` — `scm/time-signature-settings.scm:889–903` | **0.0** clear gap by default (`timeSigNormalNumDist`, `styledef.cpp:243`) — the two bboxes touch | **2.0 sp** centre-to-centre, ±1 sp about the staff middle, hardcoded — `src/view_element.cpp:2139–2140` | **2.0 sp** (top digits on line 1, bottom on line 3); **3.0 sp** when the measured glyph exceeds 30 px — `timesignature.js:29–30, 82, 136` | VexFlow's |
@@ -499,6 +751,78 @@ number `layout/measureColumns.ts:312` and `rendering/VexFlowRenderer.ts:5019` al
 (`rendering/EngravedStave.ts:23`, `rendering/KeySignaturePass.ts`) — so the 1.0 sp clef→key row above
 is VexFlow's and not what we draw. The **barline (5 px), the clef, the time signature's 15 px and the
 12 px `Stave.padding` still are.**
+
+### 5.6 ⭐⭐ RE-CHECK, 2026-09-12 — **ALL THREE ENGINES SPACE THE CLEF→METER GAP FROM INK**
+
+> Sent to answer HIS question of §4.4 (*"is it the bbox, not the ink?"*), with one instruction: ⛔ **a
+> number without its *measured between* is worse than no number.** Clone commits verified —
+> lilypond `beedbfa0752a`, MuseScore `929d1e99d729`, verovio `efff0bc99241`.
+
+| engine | value | ⭐ measured between | the function that applies it |
+|---|---|---|---|
+| **LilyPond** | **1.52 sp** | ⭐ **INK to INK** | `extra-space` is edge-to-edge: `offsets[next] = extents[idx].RIGHT + distance − extents[next].LEFT` (`break-alignment-interface.cc:242–243`). The extents are the grobs' own, and `Clef` sets no `X-extent`, so it falls back to the **stencil** — `Clef::print` → `find_by_name` → `get_indexed_char_dimensions` → `freetype.cc:57–64`, `horiBearingX … + width`, ⛔ **never `horiAdvance`** |
+| **MuseScore** | **1.0 sp** | ⭐ **INK to INK** | `dist = max(dist, r1.right() − r2.left() + padding)` over `Shape` rects (`horizontalspacing.cpp:1261`, table at `paddingtable.cpp:125`). The clef's rect is `symBbox` → `engravingfont.cpp:919 sym(id).bbox`, and `:853–854` fills **`bbox` from `boundingRect` and `advance` from `horizontalAdvance` as two separate fields** — the spacing reads the former |
+| **Verovio** | **1.0 sp** ⚠️ = 1.0 + 1.0 **MEI units**, and a unit is ½ sp | ⭐ **INK to INK** | `selfRight + rightMargin ≤ selfLeft − leftMargin` (`adjustxposfunctor.cpp:157`, `:342–343`), `m_selfBB` filled from `glyph->GetBoundingBox`, while `horizAdvX` only moves the pen (`bboxdevicecontext.cpp:371–384`) |
+| *(VexFlow 5)* | *1.5 sp* | ⛔ **ADVANCE edge → next ORIGIN** | `Element.getWidth()` is a `measureText` (`element.js:347–350`) |
+
+🚨🚨 **THE HEADLINE: the ONLY engine in the comparison that spaces this gap from an ADVANCE is
+VexFlow — the dependency we are removing.** ⇒ ⭐ HIS instinct in §4.4 was right about the *design*
+even though the *mechanism* here is a padding rather than a side bearing: an ink-based rule is what
+every real engraver uses, and `BETWEEN_PARTS` is the wrong KIND of number regardless of its value.
+
+#### ⭐⭐ …and the one engine that touches side bearings CANCELS them rather than budgeting for them
+
+```cpp
+// MuseScore, src/engraving/rendering/score/tlayout.cpp:6392
+ldata->setPosX(-shape.bbox().left());
+```
+
+It normalises the **time signature's origin onto its own ink-left edge**, so `pos().x` and *"where
+the ink starts"* become the same number and ⛔ no downstream consumer can price the bearing by
+accident. ⭐ And it gives the **clef the opposite treatment** (`x = 0`, `tlayout.cpp:1851–1852`) —
+i.e. the normalisation is applied exactly where it matters.
+
+⇒ 🚨 **`METER_PART_LEFT_AIR = 0.6` is confirmed as an artefact of pricing a BOX, exactly as its own
+comment suspected.** ⛔ **No engine needs such a constant, because no engine prices a box.** An
+ink-based placement does not reproduce it — it deletes it.
+
+#### ⭐ *Measured between* is SETTLED; *how much* is NOT
+
+**MuseScore 1.0 · Verovio 1.0 · LilyPond 1.52** — a **50% spread on a number all three measure the
+same way**. ⇒ ⭐ that is precisely the shape a house-style table with a preset exists for: the
+majority preset is **1.0 sp of clear ink**, with LilyPond's **1.52** as a named alternative row.
+
+#### ⛔ There is NO precedent for a "cramped clef→meter" second number
+
+| engine | compressible? |
+|---|---|
+| **LilyPond** | ⛔ **No** — break-alignment offsets are computed once and applied by `translate_axis` (`break-alignment-interface.cc:279–282`); no spring, no floor for this pair. `minimum-space` exists as a floor-flavoured type and is ⛔ **not used on this row** |
+| **MuseScore** | ⚠️ **Only globally** — `squeezeSystemToFit` walks a `squeezeFactor` 0.8 → 0.0 (`horizontalspacing.cpp:146–156`) and `:1248 padding *= squeezeFactor` scales **every** padding, the nominal floor included. ⛔ Not a per-pair constant |
+| **Verovio** | ⛔ **No** — nothing before the left barline is justified (`justifyfunctor.cpp:40–42`), and `AdjustXPos` only ever pushes apart. 1.0 is simultaneously the value and the floor |
+
+⇒ ⭐ if a cramped mode is ever wanted, the engines' precedent is **a factor over the whole padding
+table**, ⛔ never a second row for this pair. (Relevant to row **G**, which is still open.)
+
+#### 🚨 Three corrections this re-check made to THIS DOCUMENT
+
+1. **Verovio's "1.00" was right only after a unit conversion the doc never stated.** The source says
+   `1.0` **twice**, in **MEI units = ½ staff space**, and the gap is their SUM. ⚠️ A reader checking
+   `options.cpp` would find `1.0`, believe the doc confirmed, and be **off by 2×**. Fixed in §5.2.
+2. **The doc contradicted itself on VexFlow**: §5.2 said 1.0 for CLEF→METER while §4.4 derives **1.5**
+   (`customPadding = 15` overrides `StaveModifier`'s base 10). Fixed in §5.2.
+3. **LilyPond's `first-note` after a meter is `semi-shrink-space`, ⛔ not `fixed-space`** — same 2.0,
+   different mechanics. Row **D**'s number survives; the claim that LilyPond makes it *rigid* does
+   not. Fixed in §5.2.
+
+⚠️ **Two stale-citation traps recorded for the next reader of Verovio**: `adjustxposfunctor.cpp:99`
+excludes only literal `<scoreDef>` descendants, ⛔ not the header copies; and `:132` skips
+`ALIGNMENT_CLEF`, which is the **mid-measure** clef, ⛔ not `ALIGNMENT_SCOREDEF_CLEF`. Both look like
+they exclude the header and do not.
+
+⛔ **UNKNOWN, and it does not change the answer**: MuseScore's concrete `IFontProvider::boundingRect`
+lives in the `muse_framework` submodule, which is **not checked out in this clone** (only stubs), so
+whether it is FreeType's outline bbox or Qt's tight rect is unknown from this tree. ⭐ The interface
+separates it from `horizontalAdvance`, which is what the ink-vs-advance question needed.
 
 ## 6. ⭐ Where they all agree
 
