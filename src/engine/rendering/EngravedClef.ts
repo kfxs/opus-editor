@@ -43,13 +43,15 @@
 import { Clef } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { clefPlacement, drawClef } from '@/engine/engrave/header/clef'
+import type { InkSurfaceAware } from './inkSurface'
 
-export class EngravedClef extends Clef {
+export class EngravedClef extends Clef implements InkSurfaceAware {
   /**
    * The surface this clef's glyph draws on — the stave's own, handed over by `EngravedStave` a line
    * before it draws its modifiers. Null until then, and then the clef falls back to
    * `checkContext()`, so an unset surface is a lost SCENE entry and ⛔ never a lost pixel.
-   * (`EngravedStave.inkSurface` and `EngravedNote.inkSurface` carry the same contract.)
+   * (`EngravedStave.inkSurface` and `EngravedNote.inkSurface` carry the same contract, and
+   * `./inkSurface` is how the stave's modifier walk finds the members that take one.)
    */
   private inkSurface: DrawContext | null = null
 

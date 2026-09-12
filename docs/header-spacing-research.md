@@ -396,7 +396,7 @@ so — so it describes the picture rather than choosing it. `e2e/spacing.e2e.ts`
 | header → first note | **2.0** | LilyPond `TimeSignature.space-alist (first-note fixed-space . 2.0)` and, cross-checked, `Clef.space-alist (first-note minimum-fixed-space . 5.0)` |
 | **clef → meter, no key** | **1.0** (`BETWEEN_PARTS`) | ⚠️ a MEASUREMENT of VexFlow's drawing, reconciled after the fact to LilyPond's `Clef.space-alist (time-signature . 1.52)` |
 | **the clef's INDENT** | ⛔ **none — we have no constant for it** | it is whatever VexFlow's `Stave` does, absorbed inside `CLEF_FULL`. 🚨 The one gap in the run that nobody here has ever chosen |
-| **inside a time signature** | ⛔ **none** | the glyph pair is VexFlow's `TimeSignature`; we only price its box |
+| **inside a time signature** | ⛔ **none** | ⭐ **the INK is ours as of 2026-09-12** (`engrave/header/meter`, P5b) — ⛔ **but not the GAP**: `topLine`/`bottomLine`/`lineShift` stay VexFlow's and arrive resolved, deliberately, because row **H** is UNKNOWN in every book. We still only price the box |
 
 ### 4.3 🚨 Ours against Gould's plate, gap by gap
 

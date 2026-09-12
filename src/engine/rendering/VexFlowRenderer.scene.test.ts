@@ -17,10 +17,12 @@
  * wedge, the octave line, the pedal's dashes, page sheets. Their coordinates are arithmetic over
  * stave geometry and the layout, and jsdom computes all of it.
  *
- * ⛔ **Anything a VexFlow object painted itself** — noteheads, stems, flags, beams, the stave's own
- * five lines. Those go through `vexContext`, never reach a `DrawContext`, and are invisible to the
- * recorder. ⭐ That gap is the migration's remaining work rather than a defect of the scene, and it
- * shrinks with every P3/P4 commit; the browser suite stays for exactly that half.
+ * ⛔ **Anything a VexFlow object still paints itself** — today the ties and slurs (`Curve`), the
+ * fan's own noteheads, and the opening barline. Those go through `vexContext`, never reach a
+ * `DrawContext`, and are invisible to the recorder. ⭐ That gap is the migration's remaining work
+ * rather than a defect of the scene, and it shrinks with every commit: the noteheads, stems, flags
+ * and ledger lines arrived with P3, the beams with P4, and the staff's five lines, the clef and the
+ * meter with P5. The browser suite stays for exactly that half.
  *
  * ⛔ **And still not INK EXTENTS.** A glyph's drawn width needs a font. The scene says *where a
  * glyph was stamped and which codepoint it was*, ⛔ never how wide it came out.
@@ -584,6 +586,129 @@ describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER t
     const model = buildScore(2)
     model.setClef(2, 'alto')
     expect(clefs(renderModel(model).scene).length, '…and a change adds one').toBe(2)
+  })
+})
+
+describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER that is ours', () => {
+  /** Every numeral stamped inside a `timesignature` group — codepoint, anchor, and its face. */
+  function meters(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'timesignature')
+      .map(g => g.children.flatMap(c => (c.kind === 'text'
+        ? [{ code: c.text.codePointAt(0) ?? 0, x: c.x, y: c.y, font: c.font }]
+        : [])))
+  }
+
+  /**
+   * The y of every staff line the STAVE drew, read back out of P5a's own ink — the twin of the clef
+   * block's, and it is the same derivation for the same reason: a staff line is STROKED through the
+   * middle of its bar (`staffLineStrokeY` — `y + t/2`), so the line's own y is the stroke's minus
+   * half the thickness. ⭐ Deriving it beats hard-coding 40/50/60…, which would make the assertions
+   * below statements about numbers rather than about the RULE.
+   */
+  function staffLineYs(scene: ReturnType<typeof render>['scene']): number[] {
+    return sceneGroups(scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
+        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        : []))
+  }
+
+  it('⭐⭐ a 4/4 system draws ONE meter — TWO numerals, in one group', () => {
+    // ⚠️ The default meter is 4/4 and only bar 1 draws it (`drawsTimeSignature`), so a four-bar
+    // score has exactly one sign — of exactly two glyphs, because a numeric meter is TWO ROWS.
+    const drawn = meters(render(4).scene)
+    expect(drawn.length, 'one system, one meter').toBe(1)
+    expect(drawn[0].length, 'a numerator and a denominator').toBe(2)
+    // SMuFL `timeSig4`, U+E084 — `0xe080 + the digit`, which is how VexFlow builds it too.
+    expect(drawn[0].map(n => n.code), 'four over four').toEqual([0xe084, 0xe084])
+    expect(drawn[0][0].font.family, 'the face VexFlow resolved for the meter').toContain('Bravura')
+  })
+
+  it('⭐⭐ …and each numeral is CENTRED ON a staff line — the 2nd and the 4th — in jsdom', () => {
+    // ⭐ The whole of `meterRowBaseline`, asserted against the OTHER half of our own scene, exactly
+    // as the clef's rule is: P5a drew the five lines, P5b stamps the glyphs, and the claim is that
+    // the second lands on the first. ⚠️ A numeral is CENTRED on that line rather than sitting on
+    // it — the digit is cut symmetric about its own origin (`engrave/header/meter`, and
+    // `meter.test.ts` checks that premise against the font's table).
+    const { scene } = render(2)
+    const [[top, bottom]] = meters(scene)
+    const lines = staffLineYs(scene).slice(0, 5)
+    expect(lines.length, 'five lines on the first stave').toBe(5)
+    // The lines come back top-to-bottom: index 1 is the second from the top, index 3 the fourth.
+    expect(top.y, 'the numerator on the 2nd line down').toBeCloseTo(lines[1], 10)
+    expect(bottom.y, 'the denominator on the 4th').toBeCloseTo(lines[3], 10)
+  })
+
+  it('⭐ …so the pair EXACTLY FILLS the staff — Gould p. 152, as arithmetic', () => {
+    // ⭐⭐ The two numerals are two staff spaces tall and centred on their baselines, so rows two
+    // LINES apart put the upper across the staff's top half and the lower across its bottom half,
+    // meeting on the middle line. ⚠️ Asserted as a RATIO of the staff's own height, ⛔ not in
+    // pixels, so a change of staff size cannot make it pass vacuously.
+    const { scene } = render(2)
+    const [[top, bottom]] = meters(scene)
+    const lines = staffLineYs(scene).slice(0, 5)
+    const staffHeight = lines[4] - lines[0]
+    expect((bottom.y - top.y) / staffHeight, 'half the staff between the two baselines')
+      .toBeCloseTo(0.5, 10)
+    // ⭐ And the pair is centred on the staff: the middle line is midway between the baselines.
+    expect((top.y + bottom.y) / 2, 'centred on the middle line').toBeCloseTo(lines[2], 10)
+    // ⛔ The GAP between the rows is not asserted as a NUMBER on purpose: it is UNKNOWN in every
+    // treatise (`docs/header-spacing-research.md` row H) and falls out of the two lines VexFlow
+    // names. What is pinned here is the SHAPE — symmetric, filling the staff.
+  })
+
+  it('⭐ the numerals stack on ONE x, and the sign stands before the music', () => {
+    const { scene } = render(2)
+    const [[top, bottom]] = meters(scene)
+    // ⚠️ Equal digits are equally wide, so 4/4 centres both rows on the same x. A row's own x is
+    // VexFlow's `topStartX`/`botStartX` centring, which this step deliberately did NOT take.
+    expect(bottom.x, 'the two rows are centred on each other').toBeCloseTo(top.x, 10)
+    const headXs = sceneGroups(scene, 'notehead')
+      .flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x] : [])))
+    expect(headXs.length).toBeGreaterThan(0)
+    expect(top.x, 'the header runs before the music').toBeLessThan(Math.min(...headXs))
+  })
+
+  it('🚨 ⛔ and the CLEF→METER ORDER is NOT assertable here — it is width-driven', () => {
+    // 🚨🚨 **The sharpest reminder in this file of where the scene's line falls, and it cost a
+    // failing assertion to find.** `Stave.format()` advances its begin-modifier walk by each
+    // modifier's `Element.getWidth()`, which is a runtime `measureText` — and in jsdom every music
+    // glyph measures 0×0 (`reference: jsdom cannot measure glyphs`). ⇒ the clef and the meter come
+    // out at THE SAME x here, and a `toBeGreaterThan` between them would be asserting a bug.
+    // ⭐ This is the scene's stated limit — *"⛔ never an INK EXTENT"* — reached from a new angle:
+    // not an extent being READ, but a POSITION that was computed from one. The notehead comparison
+    // above survives because our own column solve places those, ⛔ not `measureText`.
+    // ⇒ the header's horizontal ORDER belongs to the browser suite (`e2e/staffSize.e2e.ts` reads
+    // `.vf-timesignature text` for exactly this reason), and it moves here when the PLACEMENT does —
+    // the next step of P5b.
+    const { scene } = render(2)
+    const [[top]] = meters(scene)
+    const clefX = sceneGroups(scene, 'clef')
+      .flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x] : [])))
+    expect(clefX.length, 'the header has a clef').toBe(1)
+    expect(top.x, 'a zero-width clef advances the walk by nothing').toBeCloseTo(clefX[0], 10)
+  })
+
+  it('⭐ a mid-score METER CHANGE draws a second sign, with its own digits', () => {
+    const model = buildScore(4)
+    model.setTimeSignature(3, { numerator: 3, denominator: 4 })
+    const drawn = meters(renderModel(model).scene)
+    expect(drawn.length, 'the header’s, plus the change at bar 3').toBe(2)
+    const [header, change] = drawn
+    expect(change.map(n => n.code), 'three over four').toEqual([0xe083, 0xe084])
+    expect(change[0].x, 'the change stands later in the system').toBeGreaterThan(header[0].x)
+    // ⭐ Same rule, same lines: a change is not a smaller or a shifted meter — ⛔ unlike a clef,
+    // which VexFlow reduces to two thirds. Nothing in the meter's path has a `size` branch.
+    expect(change[0].y, 'the numerator, on the same line as the header’s').toBeCloseTo(header[0].y, 10)
+  })
+
+  // 🚨 The break-test: every expectation above would pass vacuously on an empty list, and the
+  // count is what proves the meter reaches OUR surface rather than VexFlow's.
+  it('🚨 the break-test — the meter count RESPONDS to the score', () => {
+    expect(meters(render(1).scene).length, 'one bar, one meter').toBe(1)
+    const model = buildScore(2)
+    model.setTimeSignature(2, { numerator: 5, denominator: 8 })
+    expect(meters(renderModel(model).scene).length, '…and a change adds one').toBe(2)
   })
 })
 

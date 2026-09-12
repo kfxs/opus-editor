@@ -8,7 +8,7 @@
  * ctx.openGroup('stave', id)
  * …the five lines…        // ← P5a: now `engrave/staff/staffLines`
  * ctx.closeGroup()
- * for (modifier of this.modifiers) modifier.drawWithStyle()   // ← P5b took the CLEF; see below
+ * for (modifier of this.modifiers) modifier.drawWithStyle()   // ← P5b took the CLEF + METER; below
  * if (this.measure > 0) …the measure number…                  // ⛔ unreachable here, see below
  * ```
  *
@@ -17,15 +17,17 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **The modifiers** — the time signature and the opening barline — still paint themselves, handed
- * the VexFlow context exactly as `EngravedBeam` hands `drawStems` one. ⭐ **The CLEF no longer does:**
- * P5b (2026-09-02) gave it `EngravedClef` + `engrave/header/clef`, and {@link EngravedStave.addClef}
- * below is what puts one on every stave of the page. ⚠️ The key signature was never among them
- * either — `stave.addKeySignature` is never called in this repo; `KeySignaturePass` draws it.
+ * ⛔ **The opening BARLINE** still paints itself, handed the VexFlow context exactly as
+ * `EngravedBeam` hands `drawStems` one. ⭐ **The CLEF and the METER no longer do:** P5b gave them
+ * `EngravedClef` + `engrave/header/clef` (2026-09-02) and `EngravedTimeSignature` +
+ * `engrave/header/meter` (2026-09-12), and {@link EngravedStave.addClef} /
+ * {@link EngravedStave.addTimeSignature} below are what put ours on every stave of the page.
+ * ⚠️ The key signature was never among the modifiers at all — `stave.addKeySignature` is never called
+ * in this repo; `KeySignaturePass` draws it, and already through our own context.
  *
- * ⭐ So what is left of the header here is the METER and the opening BARLINE's ink — and, for all
- * three, the parent plan's other half: *"`headerInk.ts` already MEASURES what a clef and a meter
- * cost; `Stave` still PLACES them"*. ⛔ P5b took the clef's INK, ⛔ not its PLACEMENT.
+ * ⭐ So what is left of the header here is the opening BARLINE's ink — and, for all of them, the
+ * parent plan's other half: *"`headerInk.ts` already MEASURES what a clef and a meter cost; `Stave`
+ * still PLACES them"*. ⛔ P5b has taken two sets of INK, ⛔ not one PLACEMENT.
  *
  * ⚠️ **A subclass, for the reason `EngravedBeam` and `EngravedStem` are ones.** Every number read
  * below is public API (`getX`, `getWidth`, `getYForLine`, `getNumLines`, `options`) or `protected`
@@ -42,6 +44,8 @@ import { Stave, StaveModifierPosition } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { EngravedClef } from './EngravedClef'
+import { EngravedTimeSignature } from './EngravedTimeSignature'
+import { acceptsInkSurface } from './inkSurface'
 
 export class EngravedStave extends Stave {
   /**
@@ -78,14 +82,16 @@ export class EngravedStave extends Stave {
     }
 
     for (const modifier of this.modifiers) {
-      // ⛔ Still VexFlow's, and given VexFlow's context deliberately — see the header. ⭐ …except
-      // the CLEF, which since P5b draws its glyph on OUR surface and is handed it here: the
-      // modifier walk is the one place that knows both the stave's surface and its modifiers.
-      // ⚠️ `setContext` still happens for every one of them, the clef included — `drawWithStyle`
+      // ⛔ Still VexFlow's, and given VexFlow's context deliberately — see the header. ⭐ …except the
+      // ones P5b has taken, the CLEF and the METER, which draw their glyphs on OUR surface and are
+      // handed it here: the modifier walk is the one place that knows both the stave's surface and
+      // its modifiers. ⭐ `acceptsInkSurface` is what keeps that a MEMBERSHIP rather than a growing
+      // chain of `instanceof` — see `./inkSurface`.
+      // ⚠️ `setContext` still happens for every one of them, those two included — `drawWithStyle`
       // calls `checkContext()` before it calls `draw()`, so a modifier without one throws.
       modifier.setContext(vex)
       modifier.setStave(this)
-      if (modifier instanceof EngravedClef) modifier.setInkSurface(surface)
+      if (acceptsInkSurface(modifier)) modifier.setInkSurface(surface)
       modifier.drawWithStyle()
     }
 
@@ -118,6 +124,27 @@ export class EngravedStave extends Stave {
       this.endClef = clef
     }
     this.addModifier(new EngravedClef(clef, size, annotation), position)
+    return this
+  }
+
+  /**
+   * ⭐⭐ **P5b — every time signature this stave carries is one of OURS.**
+   *
+   * ⚠️ The twin of {@link EngravedStave.addClef}, and for the same reason: `Stave.addTimeSignature`
+   * hard-codes `new TimeSignature(...)` (`stave.js:335`), so this is the only way to substitute the
+   * subclass without touching the call sites. ⭐ It has none of `addClef`'s bookkeeping because
+   * VexFlow's has none — a meter is looked up through `getModifiers(position, CATEGORY)`, ⛔ not held
+   * in a field — so the body is its two lines with one word changed.
+   *
+   * ⚠️ `customPadding` is passed through UNTOUCHED, `undefined` included: the constructor's own
+   * default is 15, and naming it here would be a second copy of a number nobody chose.
+   *
+   * ⭐ **The GHOST and GUTTER staves are deliberately not affected**: they are plain `Stave`s
+   * (`GhostRenderer`, `GutterRenderer`), so they keep VexFlow's meter exactly as they keep VexFlow's
+   * clef and staff lines. A preview is not the page.
+   */
+  override addTimeSignature(timeSpec: string, customPadding?: number, position?: number): this {
+    this.addModifier(new EngravedTimeSignature(timeSpec, customPadding), position)
     return this
   }
 
