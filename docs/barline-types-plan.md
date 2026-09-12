@@ -367,13 +367,19 @@ independently by the engine closest to our shape.
   announcing what the music reverts to on the jump back. ⛔ **Not a barline**, and it does not
   falsify the line above.
 
-### 4.4a 🚨🚨 THE CAUTIONARY METER IS ON THE WRONG SIDE OF THE LINE — his report, 2026-09-12
+### 4.4a ✅ THE CAUTIONARY METER WAS ON THE WRONG SIDE OF THE LINE — his report, ✅ FIXED 2026-09-12
 
 > *"the problem is the barline should be before the cautionary (i think we had this correct before
 > our own engine)"* — ⭐ **both halves are right**, and the second one names the cause.
 
-⛔ **Not scheduled here.** This section is the finding, its citation and its measurement, written down
-on the day it was diagnosed so the next reader does not re-derive it.
+✅ **FIXED the same day it was diagnosed.** `BarlineRenderer.endBoundaryX()` now asks VexFlow's own
+END BARLINE modifier where it stands instead of deriving the stave's right edge — ⭐ **the number was
+already computed correctly and we were recomputing it wrongly.** Regression spec:
+`e2e/cautionaryMeter.e2e.ts`, which pins **both** rules (the meter outside, the clef inside) because a
+test for one alone would let the other regress.
+
+⛔ This section keeps the finding, its citation and its measurement, so the next reader does not
+re-derive them.
 
 **What the books say — and it is the OPPOSITE of the clef's rule.** Gould, *Behind Bars* **p. 152**
 (*Placing time-signature changes*), read on the scan, with a drawn example:
@@ -430,12 +436,29 @@ header, met again: **a trigger nobody is scheduled to check is a trigger that do
 | Barline | 2 | — | forced `NONE` by P2 |
 | Clef | 3 | INSIDE the bar | ✅ correct by the four books, and correct here by luck |
 
-⏭️ **The shape of the fix, when it is scheduled:** the closing barline's x is the END-BARLINE
-MODIFIER's own x — which `Stave.format()` already walks back correctly for every combination —
-⛔ never the stave's right edge, and ⛔ never `getEndX()` either (that is left of a cautionary *clef*,
-which must stay inside). ⚠️ It MOVES INK, so it is its own commit: ⛔ never folded into a P5
-migration step, whose entire safety argument is that the picture does not change. It wants the
-browser probe that found it, kept as a regression test.
+✅ **THE FIX, as built:** the closing barline's x is the **END-BARLINE MODIFIER's own x** — which
+`Stave.format()` already walks back correctly for every combination — ⛔ never the stave's right edge,
+and ⛔ never `getEndX()` either (that is walked back PAST a cautionary *clef*, which must stay inside).
+
+```ts
+// BarlineRenderer.endBoundaryX
+const endBarline = stave.getModifiers(StaveModifierPosition.END, Barline.CATEGORY)[0]
+return endBarline ? endBarline.getX() : stave.getX() + stave.getWidth()
+```
+
+⭐ **Identical to the old expression for every ordinary bar** (with the barline the only end
+modifier, the walk sets its x to exactly `x + width`), so ⛔ only the bars carrying a cautionary
+moved — which is what makes a picture-changing fix reviewable.
+
+⭐⭐ **And it gets the THREE-WAY case right for free**: with both cautionaries the sort order yields
+`[NONE, TimeSignature, Barline, Clef]`, walked right-to-left ⇒ **clef · line · meter**, which is both
+books' rules at once.
+
+⚠️ The barline modifier is still forced to `NONE` and draws nothing — it is kept purely as the
+POSITION, which is why the helper reads `getX()` and never asks its type.
+
+⚠️ It MOVED INK, so it was its own commit: ⛔ never folded into a P5 migration step, whose entire
+safety argument is that the picture does not change.
 
 ### 4.5 Multi-staff — ⭐ the LINES run through the system, the DOTS do not
 
@@ -948,10 +971,12 @@ whether §4.6.3's silent stale-picture bug can exist at all.
     `addEndTimeSignature`, i.e. exactly the last-of-line bars §6 already calls the hard ones). There
     `endModifiers.length > 1` and `endX` is walked back through each modifier's layout metrics, where
     `NONE` and `SINGLE` differ. `barWidth.e2e` is the instrument; ⛔ do not reason about it in jsdom.
-  - 🚨🚨 **IT WAS NEVER VERIFIED, AND IT WAS RIGHT — see §4.4a** (his report, 2026-09-12). The
-    cautionary METER now sits on the wrong side of its own barline. ⭐ The bullet above named the
-    exact bar (*"when the bar carries a cautionary clef or meter"*) and the exact mechanism; what was
-    missing was anybody scheduled to run it.
+  - 🚨🚨 **IT WAS NEVER VERIFIED, AND IT WAS RIGHT — see §4.4a** (his report, ✅ fixed 2026-09-12).
+    The cautionary METER had ended up on the wrong side of its own barline. ⭐ The bullet above named
+    the exact bar (*"when the bar carries a cautionary clef or meter"*) and the exact mechanism; what
+    was missing was anybody scheduled to run it. ⇒ ⭐⭐ **the standing lesson stands: a `VERIFY`
+    written in a plan is not a verification — it needs a test, a gate, or a line in the resuming
+    block.** It now has a test (`e2e/cautionaryMeter.e2e.ts`).
 - The geometry of §6.1: the dividing line on the boundary, the rest of the sign inside its own bar.
   Numbers from `engravingDefault()` — thin **0.16**, thick **0.50**, separation **0.32** (⚠️ §4.6.5:
   the scan beats the font on that last one), dots at **1.48 / 2.48**.

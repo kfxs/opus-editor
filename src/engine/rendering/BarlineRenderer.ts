@@ -53,7 +53,7 @@
  * already drawn by hand beside it. The exception is a first-in-line bar that OPENS A REPEAT — there
  * the boundary's sign is `|:`, so the stave's begin bar is turned off and this pass draws it.
  */
-import { StaveModifierPosition } from 'vexflow'
+import { Barline, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
@@ -429,6 +429,49 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
 }
 
 /**
+ * ⭐⭐ **WHERE THE LINE THAT ENDS THIS BAR STANDS — ask VexFlow's own END BARLINE, ⛔ never the
+ * stave's right EDGE.**
+ *
+ * 🚨 **His report, 2026-09-12**: *"the barline should be before the cautionary (i think we had this
+ * correct before our own engine)"* — and both halves were right.
+ *
+ * **Gould, *Behind Bars* p. 152**, with a drawn example: *"The new time signature is always placed
+ * **after the barline**. When a change of time signature occurs between systems, add a cautionary
+ * indication at the end of the first system, **after the last barline**."* ⚠️ Note this is the
+ * OPPOSITE of a cautionary CLEF, which all four books put BEFORE the barline
+ * (`docs/clef-research.md` §4.3) — ⛔ the two cautionaries are not one family.
+ *
+ * ⭐ **VexFlow already gets it right, and always did.** Its `SORT_ORDER_END_MODIFIERS` is
+ * `TimeSignature: 0, KeySignature: 1, Barline: 2, Clef: 3`, and `Stave.format()`'s end walk places
+ * index 0 at the right edge working LEFTWARDS — so a trailing meter is deliberately placed OUTSIDE
+ * the barline and a trailing clef INSIDE it, which is exactly what the books say.
+ *
+ * 🚨 **What broke it was ours**: since this pass took the end barlines over (`setEndBarType(NONE)`
+ * on every stave), it drew at `stave.getX() + stave.getWidth()`. That EQUALS the barline modifier's
+ * own x for an ordinary bar — and ⛔ not for one carrying END MODIFIERS, where the walk steps back
+ * past each of them. ⇒ the line landed to the RIGHT of the cautionary meter it should precede.
+ *
+ * ⭐⭐ **So the fix is to stop deriving a number VexFlow already computed.** Reading the modifier's
+ * x is also what keeps a cautionary CLEF correct: `getEndX()` would be wrong there (it is walked back
+ * PAST the clef, which must stay inside the bar), and a bar carrying both gets clef · line · meter
+ * left to right, which is the picture both rules want.
+ *
+ * ⚠️ **The barline is forced to `NONE`, so it draws nothing itself** — it is kept solely as the
+ * POSITION, which is why this reads `getX()` and never asks its type. ⛔ And nothing here constructs
+ * a `Barline`: the class is imported for its category name alone.
+ *
+ * ⛔ Falls back to the stave's edge only if there is no end barline modifier at all — which
+ * `Stave`'s constructor makes impossible (`modifiers[1]` is always one), so it is a guard against a
+ * future VexFlow, ⛔ not a case that runs.
+ *
+ * `docs/barline-types-plan.md` §4.4a carries the measurement and the citation.
+ */
+function endBoundaryX(stave: Stave): number {
+  const endBarline = stave.getModifiers(StaveModifierPosition.END, Barline.CATEGORY)[0]
+  return endBarline ? endBarline.getX() : stave.getX() + stave.getWidth()
+}
+
+/**
  * **Draw every barline of this render.** One sign per boundary, at the ends of the bars that were
  * actually placed.
  *
@@ -519,10 +562,10 @@ export function renderBarlines(
     //    reused bar's stave reports where it was last painted. See {@link staleShift}.
     const { dx } = staleShift(placement)
     if (endKind) {
-      const endX = stave.getX() + stave.getWidth() + dx
+      const endX = endBoundaryX(stave) + dx
       drawSign(pass, placement, endX, endKind, 'end', audience, wingsOn(measure, next))
       // The plain case: a sign at a bar's end IS the boundary that ends it.
-      joinBelow(endX, endKind, 'end', b => b.stave.getX() + b.stave.getWidth() + shiftOf(b), n)
+      joinBelow(endX, endKind, 'end', b => endBoundaryX(b.stave) + shiftOf(b), n)
     }
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
