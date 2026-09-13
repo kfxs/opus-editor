@@ -33,7 +33,7 @@ import { VexFlowRenderer } from './VexFlowRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from './layoutConfig'
 import { THIN_BARLINE_PX } from './barlineInk'
-import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { STAVE_LINE_WIDTH_PX, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { fracCreate as frac } from '@/utils/fraction'
 import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
 
@@ -753,23 +753,28 @@ describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair th
       .toBeCloseTo(Math.min(...staveX), 10)
   })
 
-  it('⭐⭐ …it spans the staff — the five lines it closes are INSIDE it', () => {
+  it('⭐⭐ …it spans the staff, from the top line’s MIDDLE to the bottom line’s', () => {
     // ⭐ Asserted against the OTHER half of our own scene, as the clef's baseline is: P5a drew the
-    // lines, and the claim is that this rect covers all of them.
+    // lines, and the claim is where this rect stops relative to them.
+    //
+    // ⭐⭐ **This assertion is the one that changed the picture.** It used to pin VexFlow's own
+    // extent — the top line's top edge down to `bottomLine + 1`, a hard 1 that was ITS staff-line
+    // thickness — as a PASSING assertion, so that the day the rule got an owner it would fail and
+    // say why. It did, on 2026-09-13: a barline now runs line-middle to line-middle
+    // (`engrave/staff/barlineExtent`; LilyPond, MuseScore and Verovio unanimous).
     const { scene } = render(2)
     const [opening] = barlineRects(scene)
     const lines = staffLineYs(scene).slice(0, 5)
     expect(lines.length, 'five lines on the first stave').toBe(5)
-    expect(opening.y, 'from the top line').toBeCloseTo(lines[0], 10)
-    // 🚨 **THE 0.1 px, PINNED AS A PASSING ASSERTION** rather than left in prose. VexFlow's
-    // `getBottomLineBottomY()` adds `getStyle().lineWidth ?? 1` — and P5c made a staff line 1.1 px
-    // thick, so the barline stops 0.1 px short of the bottom line's ink. ⛔ Not fixed inside a
-    // migration step; the day the edge is derived from the thickness that drew it, THIS fails and
-    // says why (the same device the meter's jsdom limit is recorded with).
-    expect(opening.y + opening.height, 'to the bottom line + VexFlow’s hard 1')
-      .toBeCloseTo(lines[4] + 1, 10)
-    expect(opening.y + opening.height, '⛔ and NOT to that line’s own 1.1 px of ink')
-      .not.toBeCloseTo(lines[4] + STAVE_LINE_WIDTH_PX, 10)
+    expect(opening.y, 'the top line’s middle')
+      .toBeCloseTo(staffLineMidY(lines[0], STAVE_LINE_WIDTH_PX), 10)
+    expect(opening.y + opening.height, 'the bottom line’s middle')
+      .toBeCloseTo(staffLineMidY(lines[4], STAVE_LINE_WIDTH_PX), 10)
+    // ⭐ …so it is exactly four staff spaces, and ⛔ no longer a staff plus a line thickness.
+    expect(opening.height, 'four spaces, whatever the lines are drawn at')
+      .toBeCloseTo(lines[4] - lines[0], 10)
+    expect(opening.y + opening.height, '⛔ NOT VexFlow’s bottom + 1')
+      .not.toBeCloseTo(lines[4] + 1, 10)
   })
 
   it('⭐⭐ it is DRAWN at 0.16 staff spaces — ⛔ no longer a 1 px rect widened afterwards', () => {

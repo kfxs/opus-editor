@@ -20,9 +20,15 @@
  * }
  * ```
  *
+ * ⚠️ **Both of those numbers have since moved**, and neither is transcribed here any more: the WIDTH
+ * is ours (below), and the vertical EXTENT is `staveBarlineExtent` — a barline stops at the MIDDLE of
+ * each outer staff line rather than at its edge (`engrave/staff/barlineExtent`, three engines and
+ * LilyPond's stated reason).
+ *
  * ⭐ Same shape as P5a, `EngravedClef` and `EngravedTimeSignature`: the ink moves to a module of ours
- * and enters the SCENE, the object keeps answering every question it answered before, and **no pixel
- * moves**. What is bought is that *"a system opens with a line spanning its staff"* is arithmetic in
+ * and enters the SCENE, and the object keeps answering every question it answered before. ⚠️ **The
+ * MOVE moved no pixel; the EXTENT RULE that followed it did** — a separate commit, as a rule change
+ * must be. What is bought is that *"a system opens with a line spanning its staff"* is arithmetic in
  * jsdom, where before it was a `<rect>` only a browser could see.
  *
  * ⭐⭐ **And this one ALSO DELETES A PASS, which the other three did not.** A plain opening barline
@@ -52,14 +58,13 @@
  * keeps VexFlow's own empty `<g>` exactly where it has always been in the SVG.
  *
  * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedClef` and `EngravedTimeSignature` are
- * ones.** Everything read below is public API (`getX`, `getType`, `getAttribute`,
- * `Stave.getTopLineTopY` / `getBottomLineBottomY`) — the body is VexFlow's own arithmetic MOVED,
- * ⛔ not rewritten.
+ * ones.** Everything read below is public API (`getX`, `getType`, `getAttribute`, and the stave's own
+ * `getYForLine` / `getNumLines` through `staveBarlineExtent`).
  */
 import { Barline, BarlineType } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawOpeningBarline, openingBarlineInk } from '@/engine/engrave/staff/openingBarline'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { THIN_BARLINE_PX, staveBarlineExtent } from './barlineInk'
 import type { InkSurfaceAware } from './inkSurface'
 
 export class EngravedBarline extends Barline implements InkSurfaceAware {
@@ -94,14 +99,10 @@ export class EngravedBarline extends Barline implements InkSurfaceAware {
     }
     const stave = this.checkStave()
     this.setRendered()
+    const extent = staveBarlineExtent(stave)
     drawOpeningBarline(
       this.inkSurface ?? stave.checkContext(),
-      openingBarlineInk(
-        this.getX(),
-        stave.getTopLineTopY(),
-        stave.getBottomLineBottomY(),
-        THIN_BARLINE_PX,
-      ),
+      openingBarlineInk(this.getX(), extent.topY, extent.bottomY, THIN_BARLINE_PX),
       this.getAttribute('id'),
     )
   }

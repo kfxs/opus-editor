@@ -44,7 +44,8 @@ import { drawGlyph } from './glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from './svgDrawGroup'
 import type { Score } from '@/types/music'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { THIN_BARLINE_PX, staveBarlineExtent } from './barlineInk'
+import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { groupsAt } from '@/engine/models/staffGroups'
@@ -175,10 +176,21 @@ function spanTopY(top: SystemStartPlacement): number {
   return top.stave.getYForLine(0) * top.scale
 }
 
-/** …and where it ends: the BOTTOM staff's last line, `+ 1` for that line's own thickness — the same
- *  hair {@link drawSystemConnector} adds, and for the same reason. */
+/**
+ * …and where it ends: the BOTTOM staff's last line, plus that line's own thickness — the staff's
+ * OUTER edge, which is where a mark flush with the staff stops.
+ *
+ * ⚠️⚠️ **⛔ NOT where {@link drawSystemConnector} stops, and the difference is a rule rather than an
+ * oversight.** A brace or a bracket is flush with the STAFF (Ross p. 155); a barline — the systemic
+ * connector included — stops at the MIDDLE of each outer line (`engrave/staff/barlineExtent`). So the
+ * two differ by half a staff line at each end, exactly as they do in LilyPond, where a
+ * `System_start_delimiter` spans the staff symbol's own extent while `calc-bar-extent` narrows.
+ * 🚨 This used to add a hand-written `1` and say it was the same hair the connector added. It was —
+ * and both were VexFlow's staff-line thickness rather than ours (P5c: 1.1 px).
+ */
 function spanBottomY(bottom: SystemStartPlacement): number {
-  return (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
+  const last = bottom.stave.getYForLine(bottom.stave.getNumLines() - 1)
+  return staffLineInkBottomY(last, STAVE_LINE_WIDTH_PX) * bottom.scale
 }
 
 /**
@@ -487,11 +499,13 @@ function drawSystemConnector(
 ): void {
   const ctx = pass.context
   if (!ctx) return
-  const topY = top.stave.getYForLine(0) * top.scale
-  // `+ 1` for the bottom line's own thickness (`Tables.STAVE_LINE_THICKNESS`, what VexFlow adds
-  // here), in that staff's ink and so at its scale — otherwise the line stops a hair short of the
-  // staff it is joining.
-  const bottomY = (bottom.stave.getYForLine(bottom.stave.getNumLines() - 1) + 1) * bottom.scale
+  // ⭐⭐ **The same extent the barlines it joins have** — top line's MIDDLE to bottom line's MIDDLE
+  // (`engrave/staff/barlineExtent`), each in its own staff's ink and so at its own scale.
+  // 🚨 This used to add a hand-written `+ 1` for "the bottom line's own thickness", naming
+  // `Tables.STAVE_LINE_THICKNESS` — VexFlow's number, and a SECOND copy of the one
+  // `Stave.getBottomLineBottomY()` adds. Both stopped being ours when P5c made a staff line 1.1 px.
+  const topY = staveBarlineExtent(top.stave).topY * top.scale
+  const bottomY = staveBarlineExtent(bottom.stave).bottomY * bottom.scale
   // The staves share an x (barlines align), and it is already in SVG coordinates on the
   // placement — no need to take the scaled staff's word for it.
   //

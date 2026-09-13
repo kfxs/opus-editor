@@ -1,5 +1,8 @@
+import type { Stave } from 'vexflow'
 import { STAFF_SPACE_PX } from '../models/staffSize'
 import { THIN_LINE_SPACES } from './thinLineWeight'
+import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
+import { barlineExtent, type BarlineExtent } from '@/engine/engrave/staff/barlineExtent'
 
 /**
  * **How thick a barline is inked** — the one engraving rule VexFlow gives no seam for.
@@ -31,6 +34,28 @@ export const THIN_BARLINE_SPACES = THIN_LINE_SPACES
 /** The thin barline in px at staff size 1. A bar's `<g>` carries the staff's scale, so a rect
  *  written in this unit inside that group is already proportional to its staff. */
 export const THIN_BARLINE_PX = THIN_BARLINE_SPACES * STAFF_SPACE_PX
+
+/**
+ * ⭐⭐ **HOW FAR ONE STAVE'S BARLINES REACH** — the rule of `engrave/staff/barlineExtent`, asked of a
+ * `Stave`. Every vertical line drawn on this staff stops here: the bar-ending signs
+ * (`BarlineRenderer`), the line that opens a system (`EngravedBarline`), the systemic connector
+ * (`systemStart`) and the piece crossing the gap to the next staff (`barlineGap`).
+ *
+ * ⚠️ **In the STAVE's own coordinates**, thickness included — a caller working in SVG space scales
+ * the result, exactly as it already scales the ys it used to read.
+ *
+ * 🚨 **This replaces `stave.getTopLineTopY()` / `getBottomLineBottomY()` for barlines, and the second
+ * of those is why the rule needed an owner.** `getBottomLineBottomY()` is the last line's y plus
+ * `getStyle().lineWidth ?? 1` — a hard **1**, VexFlow's own staff-line thickness, which stopped being
+ * ours when P5c made a staff line 0.11 sp = **1.1 px**. Two files had hand-written that `1`.
+ */
+export function staveBarlineExtent(stave: Stave): BarlineExtent {
+  return barlineExtent(
+    stave.getYForLine(0),
+    stave.getYForLine(stave.getNumLines() - 1),
+    STAVE_LINE_WIDTH_PX,
+  )
+}
 
 /* ⚠️ A note about what is NOT here, ⛔ not a doc comment on the constant below.
  *

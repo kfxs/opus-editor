@@ -55,6 +55,35 @@ export interface StaffLineInk {
 }
 
 /**
+ * ⭐⭐ **THE MIDDLE OF A STAFF LINE'S INK** — the line's own y is the TOP of the bar, so its middle is
+ * half a thickness below it.
+ *
+ * ⭐ **One expression, two readers, and naming it is what keeps them one rule.** A stroke is centred
+ * on what it covers, so {@link staffLineStrokeY} IS this number; and a BARLINE stops at the middle of
+ * the outer line it connects rather than at its edge, so `engrave/staff/barlineExtent` stops here
+ * too. ⚠️ Those are different statements about the same point — ⛔ writing `y + t / 2` in the second
+ * place would have been the "second owner" this module was extracted to prevent.
+ */
+export function staffLineMidY(y: number, thickness: number): number {
+  return y + thickness / 2
+}
+
+/**
+ * ⭐ **The BOTTOM of a staff line's ink** — its own y plus the thickness it hangs by.
+ *
+ * ⚠️ **The staff's outer edge, and ⛔ not where a BARLINE stops** — those are two different rules and
+ * this module owns only the first. A mark FLUSH with the staff ends here (the brace and the bracket's
+ * rod, `rendering/systemStart`); a barline stops half a thickness earlier, at
+ * {@link staffLineMidY} (`./barlineExtent`, and LilyPond makes exactly this distinction).
+ *
+ * 🚨 It exists because VexFlow's `Stave.getBottomLineBottomY()` answers `y + (getStyle().lineWidth ??
+ * 1)` — a hard **1** that was ITS staff-line thickness, not ours, from P5c onward.
+ */
+export function staffLineInkBottomY(y: number, thickness: number): number {
+  return y + thickness
+}
+
+/**
  * ⭐ **Where to STROKE so the ink lands on `[y, y + thickness]`** — the centre of that bar.
  *
  * ⚠️ At `thickness = 1` this is `y + 0.5`, which is VexFlow's `lineWidthCorrection` exactly, so
@@ -62,7 +91,7 @@ export interface StaffLineInk {
  * two stop agreeing above 1.
  */
 export function staffLineStrokeY(y: number, thickness: number): number {
-  return y + thickness / 2
+  return staffLineMidY(y, thickness)
 }
 
 /** Every visible line of one stave, as ink, given each line's own y. */

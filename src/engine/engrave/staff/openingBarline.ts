@@ -12,8 +12,10 @@
  *
  * ## ⭐ THE RULE — three sentences, and each was a scattered fact before
  *
- * 1. **It spans the staff's full ink**: from the top line's top to the bottom line's bottom, so the
- *    five lines it closes are all *inside* it. The two ys arrive resolved (see the ⚠️ below).
+ * 1. **It runs between the two outer lines' MIDDLES** — ⛔ not their outer edges, so the staff lines'
+ *    outer halves stick out past it rather than the other way round. That rule is
+ *    {@link module:engine/engrave/staff/barlineExtent}'s, shared with every other vertical line in the
+ *    score, and the two ys arrive here already resolved by it (see the ⚠️ below).
  * 2. **`x` IS the boundary, and the ink grows RIGHTWARD from it** — ⛔ it is not centred on it.
  *    That was `barlineInk.inkBarlines`' finding and its words are kept because the reasons are all
  *    still true: *"in this renderer `x` IS the bar boundary — the spacing model measures the lead-in
@@ -52,18 +54,16 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 /**
  * One opening barline's ink — the bar it occupies, ⛔ not the boundary it stands on.
  *
- * ⚠️ `topY`/`bottomY` are the staff's ink edges as the STAVE reports them, and they arrive resolved
- * for the reason the meter's baselines do: which lines they come from is the stave's own arithmetic,
- * ⛔ not a rule this module gets to restate.
+ * ⚠️ `topY`/`bottomY` arrive RESOLVED, for the reason the meter's baselines do: where a barline stops
+ * is `staff/barlineExtent`'s rule and which lines a stave has is the stave's own arithmetic —
+ * ⛔ neither is a thing this module gets to restate.
  *
- * 🚨 **A 0.1 px disagreement lives in `bottomY` today, and it is worth knowing about before anyone
- * measures this line.** VexFlow's `Stave.getBottomLineBottomY()` is `getYForLine(last) +
- * (getStyle().lineWidth ?? 1)` — nothing here sets a stave style, so it adds **1**, while P5c made a
- * staff line's ink **0.11 sp = 1.1 px** thick (`staff/staffLines.STAVE_LINE_WIDTH_PX`). ⇒ the barline
- * stops 0.1 px above the bottom line's ink. ⛔ Left exactly as it was rather than fixed here: this
- * step moves no pixel, and *"two primitives that coincide at one value are not one rule"* is P5a's
- * own finding — the fix is to derive the edge from the thickness that drew it, which is a decision
- * with a picture attached.
+ * ✅ **They used to be `Stave.getTopLineTopY()` / `getBottomLineBottomY()`, and the second of those is
+ * what made the rule need an owner**: it is `getYForLine(last) + (getStyle().lineWidth ?? 1)`, a hard
+ * **1** — VexFlow's staff-line thickness, which stopped being ours when P5c made a staff line 1.1 px,
+ * and which `systemStart` had hand-written a second copy of. ⭐ The 0.1 px that fell out of that is
+ * gone with the constant; what replaced it is a rule with three engines behind it, ⛔ not a repaired
+ * number.
  */
 export interface OpeningBarlineInk {
   /** ⭐ The BOUNDARY. The ink runs from here to `x + thickness`. */

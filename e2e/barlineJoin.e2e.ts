@@ -93,11 +93,14 @@ test('⭐⭐ a JOINED barline runs THROUGH the gap: from the upper staff to the 
   // …and it stands on the boundary, where the two staves' own lines are.
   expect(gap[0].x, 'on the bar boundary').toBeCloseTo(upper.x2, 0)
   expect(lower.x2, 'the two staves share that boundary').toBeCloseTo(upper.x2, 0)
-  // It really does cross the empty space, rather than being a hair on one staff's edge. ⚠️ Less the
-  // two half staff-lines it stops short of: `staves()` reports a line's CENTRE and the strokes meet
-  // at its INK, at each end (both staves are full size here, so that is 0.5 + 0.5).
+  // It really does cross the empty space, rather than being a hair on one staff's edge — and it is
+  // now EXACTLY the distance between the two line centres. ⭐ `staves()` reports a line's CENTRE
+  // (our staff lines are stroked through the middle of their ink), and since 2026-09-13 a barline
+  // stops at exactly that point (`engrave/staff/barlineExtent`), the piece crossing the gap
+  // included. ⚠️ It used to stop at each line's INK edge instead, which is the `- 1` that stood here
+  // — two half staff-lines, at VexFlow's thickness rather than ours.
   expect(gap[0].height, 'the gap it fills is the space between the staves')
-    .toBeCloseTo(lower.top - upper.bottom - 1, 0)
+    .toBeCloseTo(lower.top - upper.bottom, 0)
 })
 
 test('⭐⭐ a REPEAT’s dots stay per staff — only the strokes cross the gap', async ({ score }) => {

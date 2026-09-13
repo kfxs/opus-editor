@@ -53,11 +53,16 @@
  * a different mark: it opens a stave rather than dividing two bars, it has no neighbour to agree
  * with, and the grand staff's own connector is already drawn by hand beside it. ⭐ **Its INK is ours
  * as of 2026-09-13** — `EngravedBarline` + `engrave/staff/openingBarline` (P5b), ⛔ which does not
- * move it here: this pass owns the SIGNS at boundaries, and that line is part of the STAVE. The exception is a first-in-line bar that OPENS A REPEAT — there
- * the boundary's sign is `|:`, so the stave's begin bar is turned off and this pass draws it.
+ * move it here: this pass owns the SIGNS at boundaries, and that line is part of the STAVE. ⭐ The two
+ * do share one rule, and it is the one they must: how far a barline reaches
+ * (`engrave/staff/barlineExtent`).
+ *
+ * The exception is a first-in-line bar that OPENS A REPEAT — there the boundary's sign is `|:`, so
+ * the stave's begin bar is turned off and this pass draws it.
  */
 import { Barline, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
+import { staveBarlineExtent } from './barlineInk'
 import { drawGlyph } from './glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
@@ -315,10 +320,13 @@ function drawSign(
   // 🚨 Every number below is the STAVE's, so it is the last render's for a bar that was reused and
   //    translated. See {@link staleShift}.
   const { dy } = staleShift(placement)
+  // ⭐ Where a barline STOPS is one rule for the whole family — `engrave/staff/barlineExtent`, via
+  // `./barlineInk`. ⛔ Not the staff's outer ink edges, which is what this read before 2026-09-13.
+  const extent = staveBarlineExtent(stave)
   const signStaff: SignStaff = {
     space,
-    topY: stave.getTopLineTopY() + dy,
-    botY: stave.getBottomLineBottomY() + dy,
+    topY: extent.topY + dy,
+    botY: extent.bottomY + dy,
     numLines: stave.getNumLines(),
     yForLine: line => stave.getYForLine(line) + dy,
   }

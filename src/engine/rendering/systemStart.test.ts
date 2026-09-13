@@ -18,6 +18,7 @@ import type { Stave } from 'vexflow'
 import { renderSystemStarts, type SystemStartPlacement } from './systemStart'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY, staffLineMidY } from '@/engine/engrave/staff/staffLines'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import {
   BRACKET_DEPTH_SPACES, SIGN_SEPARATION_SPACES, SIGN_TO_BARLINE_SPACES, scoreSystemStartIndentPx,
@@ -26,6 +27,27 @@ import {
 } from '@/engine/layout/systemStartColumn'
 import type { RenderPass } from './RenderPass'
 import type { Score } from '@/types/music'
+
+/**
+ * ⭐⭐ **THE TWO SPANS THIS FILE MEASURES AGAINST, and they are deliberately different.**
+ *
+ * The `grandStaff` fixture below puts staff 0's top line at y = 0 and staff 1's bottom line at
+ * 200 + 4 × 10 = 240. From those two lines, two marks reach two different distances:
+ *
+ * - the **STAFF span** — outer edge to outer edge — is where a mark FLUSH with the staff stops: the
+ *   brace, and the bracket's rod before its serifs project past it (Ross p. 155);
+ * - the **BARLINE span** — line MIDDLE to line MIDDLE — is where the systemic connector stops, with
+ *   every other barline in the score (`engrave/staff/barlineExtent`).
+ *
+ * ⚠️ They differ by half a staff line at each end, and ⛔ that is a rule rather than a rounding: it
+ * is the same split LilyPond makes between `System_start_delimiter` (the staff symbol's own extent)
+ * and `ly:bar-line::calc-bar-extent` (narrowed by half a line). 🚨 These specs used to measure the
+ * brace and the bracket against the CONNECTOR's rect, which worked only while the two agreed.
+ */
+const SPAN_TOP = 0
+const SPAN_BOTTOM = staffLineInkBottomY(240, STAVE_LINE_WIDTH_PX)
+const BAR_TOP = staffLineMidY(0, STAVE_LINE_WIDTH_PX)
+const BAR_BOTTOM = staffLineMidY(240, STAVE_LINE_WIDTH_PX)
 
 /** A two-staff score with NO grouping symbol — so only the systemic barline is ever drawn. */
 const noSigns = { id: 's', title: '', measures: [], staves: [{ id: 'a' }, { id: 'b' }] } as unknown as Score
@@ -89,9 +111,11 @@ describe('the systemic barline — where its ink lands', () => {
     const { rects, pass } = recorder()
     renderSystemStarts(pass, noSigns, grandStaff, 2, null)
     expect(rects).toHaveLength(1)
-    // top line of staff 0 = 0; bottom line of staff 1 = 200 + 4*10 = 240, +1 for its own thickness.
-    expect(rects[0].y).toBe(0)
-    expect(rects[0].h).toBe(241)
+    // ⭐ A BARLINE's extent: the MIDDLE of staff 0's top line to the MIDDLE of staff 1's bottom one,
+    //   so exactly the 240 between those two lines — ⛔ not the 241 the staff's outer edges span.
+    expect(rects[0].y).toBeCloseTo(BAR_TOP, 10)
+    expect(rects[0].h).toBeCloseTo(BAR_BOTTOM - BAR_TOP, 10)
+    expect(rects[0].h, 'four staff spaces per staff, plus the gap between them').toBeCloseTo(240, 10)
   })
 
   it('⭐ takes x from the PLACEMENT, and the barline’s own weight — ⛔ never a scaled stave’s word', () => {
@@ -105,10 +129,11 @@ describe('the systemic barline — where its ink lands', () => {
     const { rects, pass } = recorder()
     renderSystemStarts(pass, noSigns, [
       at(1, 0, 100, { scale: 1 }),      // full size: top line at 100
-      at(1, 1, 300, { scale: 0.5 }),    // a SMALL staff: its bottom line at (300+40+1) × 0.5
+      at(1, 1, 300, { scale: 0.5 }),    // a SMALL staff: its bottom line's middle at 340.55 × 0.5
     ], 2, null)
-    expect(rects[0].y).toBe(100)
-    expect(rects[0].h).toBeCloseTo(341 * 0.5 - 100, 6)
+    const top = staffLineMidY(100, STAVE_LINE_WIDTH_PX)
+    expect(rects[0].y).toBeCloseTo(top, 10)
+    expect(rects[0].h).toBeCloseTo(staffLineMidY(340, STAVE_LINE_WIDTH_PX) * 0.5 - top, 6)
   })
 
   it('⚠️ draws inside a `stavebarline` group, which is the handle `hintBarlines` collects', () => {
@@ -209,15 +234,16 @@ describe('the BRACKET — ⭐ the rod; its serifs are the browser suite’s', ()
   it('⭐⭐ the rod spans the same staves the connector does, and PROJECTS past each outer line', () => {
     const { rects, pass } = recorder()
     renderSystemStarts(pass, bracketed, grandStaff, 2, null)
-    const connector = rects.find(r => r.group === 'stavebarline')!
     const project = BRACKET_ROD_PROJECTION_SPACES * STAFF_SPACE_PX
     // ⭐⭐ **The rod EXCEEDS the staff line before its wing caps it** — his correction, 2026-08-29:
     //    *"the problem is how much the LINE of the bracket exceeds the limit"*. Verovio's split,
     //    taken whole because it is the engine that builds this sign exactly as we do
     //    ({@link BRACKET_ROD_PROJECTION_SPACES}).
     expect(BRACKET_ROD_PROJECTION_SPACES).toBeGreaterThan(0)
-    expect(rod(rects)!.y).toBeCloseTo(connector.y - project, 6)
-    expect(rod(rects)!.h).toBeCloseTo(connector.h + 2 * project, 6)
+    // ⚠️ Past the STAFF's outer lines, ⛔ not past the connector: a barline stops half a line short
+    //   of them (see SPAN_TOP / BAR_TOP above), so the connector is the wrong ruler for this.
+    expect(rod(rects)!.y).toBeCloseTo(SPAN_TOP - project, 6)
+    expect(rod(rects)!.h).toBeCloseTo((SPAN_BOTTOM - SPAN_TOP) + 2 * project, 6)
   })
 
   it('⛔ a group with no symbol draws no rod — the gate, reaching all the way to the pen', () => {
@@ -333,9 +359,11 @@ describe('the BRACE — ⭐⭐ one glyph, stretched in y ALONE', () => {
   it('⭐ FLUSH — line to line, ⛔ no overshoot (Ross p. 155, and both engines agree)', () => {
     const { groups, rects, pass } = recorder()
     renderSystemStarts(pass, braced, grandStaff, 2, null)
-    const connector = rects.find(r => r.group === 'stavebarline')!
-    // The group is translated to the ink's BOTTOM; the connector spans exactly the same staves.
-    expect(placementOf(groups).ty).toBeCloseTo(connector.y + connector.h, 6)
+    // The group is translated to the ink's BOTTOM — the STAFF's own outer edge. ⛔ Not the
+    // connector's, which stops half a staff line higher because it is a barline.
+    expect(placementOf(groups).ty).toBeCloseTo(SPAN_BOTTOM, 6)
+    expect(rects.find(r => r.group === 'stavebarline')!.y + rects.find(r => r.group === 'stavebarline')!.h,
+      'and the connector really is the shorter of the two').toBeLessThan(SPAN_BOTTOM)
   })
 })
 
@@ -352,23 +380,21 @@ describe('the sign’s HIT-BOX — 🚨 registered from the PEN, in SVG space', 
     // *"in the brace the squares are good in position, but in the brackets the squares vertically
     //  are too close."* A bracket's serifs reach ~1.5 sp past each staff line; a box that stopped at
     //  the line put the handle inside the ink and left the serif unclickable.
-    const { boxes, rects, pass } = recorder()
+    const { boxes, pass } = recorder()
     renderSystemStarts(pass, bracketed, grandStaff, 2, null)
     const box = boxes.find(b => b.type === 'staffGroupSign')!
-    const connector = rects.find(r => r.group === 'stavebarline')!
     const reach = signOutwardReachSpaces('bracket') * STAFF_SPACE_PX
     expect(reach, 'a bracket reaches past the staff line').toBeGreaterThan(0)
-    expect(box.bbox.y).toBeCloseTo(connector.y - reach, 6)
-    expect(box.bbox.height).toBeCloseTo(connector.h + 2 * reach, 6)
+    expect(box.bbox.y).toBeCloseTo(SPAN_TOP - reach, 6)
+    expect(box.bbox.height).toBeCloseTo((SPAN_BOTTOM - SPAN_TOP) + 2 * reach, 6)
   })
 
   it('⭐ …and a BRACE, being flush, reaches nothing — which is why only the bracket looked wrong', () => {
-    const { boxes, rects, pass } = recorder()
+    const { boxes, pass } = recorder()
     renderSystemStarts(pass, braced, grandStaff, 2, null)
     const box = boxes.find(b => b.type === 'staffGroupSign')!
-    const connector = rects.find(r => r.group === 'stavebarline')!
     expect(signOutwardReachSpaces('brace')).toBe(0)
-    expect(box.bbox.y).toBeCloseTo(connector.y, 6)
+    expect(box.bbox.y).toBeCloseTo(SPAN_TOP, 6)
   })
 
   it('⚠️ is WIDER than the ink — a 0.89 sp hairline would be unclickable', () => {

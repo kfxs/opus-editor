@@ -847,6 +847,28 @@ library that can answer *"does this quantity scale with the staff?"* for anythin
 | ⭐ the staff line, in the engines | LilyPond `scm/paper.scm:52–66`; MuseScore `styledef.cpp:277`; Verovio `src/options.cpp:1528`; VexFlow `stave.js:461` | **LilyPond 0.100 sp** at a 20 pt staff (⭐ *our* value exactly) · **MuseScore 0.11** (⭐ Gould's measured value exactly) · **Verovio 0.075 stated, 0.0722 drawn** (an `int` truncation in `doc.cpp:2057`) · **VexFlow 0.10**, and only because it never sets a stroke width and inherits the SVG default. 🚨 LilyPond's is an affine function of the staff space **in points**, so its relative weight GROWS as the staff shrinks — *"stafflinethickness is largely independent on staff size"* (`mf/feta-params.mf:31–32`) — the opposite of what Gould's rastral table draws |
 | ⭐ the LEDGER line, in the engines | LilyPond `scm/define-grobs.scm:3399` | `ledger-line-thickness '(1.0 . 0.1)` = **the staff line plus 0.1 sp**, which at its default staff is **exactly 2.0×** — ⭐ Gould's *"about twice"*, reached by a different construction. Bravura's ratio is 1.23× |
 
+### What was asked of it on 2026-09-13, and what came back
+
+The question was **HOW FAR UP AND DOWN A BARLINE REACHES** — raised by P5b taking the opening
+barline's ink, which exposed that every vertical line in the score ended at *"the bottom line's y
+plus 1"*, VexFlow's staff-line thickness rather than ours. Written up in
+`docs/own-engraving-engine.md` P5b's fourth step; the rule lives in
+`src/engine/engrave/staff/barlineExtent.ts`.
+
+⭐⭐ **THE MANIFEST-LEVEL FACT: THE BOOKS DO NOT RESOLVE IT, AND THE ENGINES ARE UNANIMOUS.** This is
+the clean case of a question the treatises answer one level coarser than the code needs — Ross says
+*which lines* a barline connects, and the half-line-thickness question simply does not arise on a
+plate, where an engraver's cut either meets the line or does not.
+
+| asked | source | answer |
+|---|---|---|
+| ⛔ how far does a barline reach? | **Gould**, whole text searched | **UNKNOWN.** No statement of a barline's vertical extent at any precision. ⛔ Searched 2026-09-13, ⛔ do not repeat |
+| ⭐ …and Ross? | **Ross p. 151** (printed; the *Barlines* chapter, between the page markers for 151 and 152 in the fulltext) | *"The lengths of barlines vary with different types of music. 1. For single-line music the barline connects the top and bottom lines of the staff."* ⚠️ Names **which lines**, ⛔ not which EDGE of them. The rest of the numbered list is about which STAVES a systemic barline joins (keyboard, three-stave organ, piano-vocal), ⛔ not about vertical extent |
+| ⭐⭐ so what do the engines do? | LilyPond `scm/bar-line.scm:641` + `lily/staff-symbol.cc:346`; MuseScore `tlayout.cpp:1115`; Verovio `src/view_page.cpp:747` | **All three: line CENTRE to line CENTRE, exactly four staff spaces.** LilyPond takes the staff symbol's outer-edge extent and narrows it by half a line thickness at each end; MuseScore's `y2 − y1` is `4 × spatium` outright; Verovio's is `2 × (lines − 1) × unit`. 🚨 **The only engine spanning the outer EDGES is VexFlow** |
+| ⭐⭐ …and one of them says WHY | **LilyPond**, source comment at `scm/bar-line.scm:648` | *"Due to rounding problems, bar lines extending to the outermost edges of the staff lines appear wrongly in on-screen display (and, to a lesser extent, in print) — they stick out a pixel. The solution is to extend bar lines only to the middle of the staff line — unless they have different colors, when it would be undesirable."* ⭐ A RESAMPLING argument, and this editor is the case it describes |
+| ⭐ does a BRACE or BRACKET follow the same rule? | LilyPond `lily/system-start-delimiter.cc:114` | ⛔ **No, and deliberately.** A `System_start_delimiter` spans each staff symbol's OWN extent — the outer edges — while bar lines are narrowed. ⇒ the two marks differ by half a staff line at each end, which is what this repo now implements (Ross p. 155's *flush* brace against `barlineExtent`'s middles) |
+| ⭐ what happens where a JOIN meets? | LilyPond `bar-line::widen-bar-extent-on-span` (`scm/bar-line.scm:691`) | The narrowing is **reverted on whichever side a span bar appears**, so the join and the line it joins are one stroke. ⚠️ Here it falls out of the geometry instead: `barlineGap` runs centre to centre too, so it overlaps the outer half of both lines |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the

@@ -1075,13 +1075,58 @@ post-pass repairing the very ink it is taking, the repair comes with it.
 | the **HINTING** of that x onto whole device pixels | `barlineInk.hintBarlines` | a page-wide pass over marks four modules drew, ⛔ not this line's business |
 | every other **TYPE** — `DOUBLE`, `END`, both repeats | `Barline.draw`, via `super.draw()` | ⭐⭐ **porting them would import a rule we have already replaced.** `BarlineRenderer` exists because those rules are unsayable through `Barline` (the 3 px thick line, the fixed pixel layout, the dots' ≈0.1-space fudge, none of it scaling with its staff). A score stave's BEGIN bar is `SINGLE` or `NONE` and its END bar is always `NONE`, so the fall-through is a guard against a future caller, ⛔ not a case that runs |
 
-🚨 **One finding, reported and ⛔ NOT fixed here.** `Stave.getBottomLineBottomY()` is
-`getYForLine(last) + (getStyle().lineWidth ?? 1)` — nothing sets a stave style, so it adds **1**,
-while **P5c** made a staff line's ink **1.1 px**. ⇒ the opening barline stops **0.1 px above** the
-bottom line's ink. It is P5a's own lesson from the other side (*"two primitives that coincide at one
-value are not one rule"*), it moves ink to fix, and it is pinned as a **passing** assertion in
-`VexFlowRenderer.scene.test.ts` so the day the edge is derived from the thickness that drew it, the
-spec fails and says why.
+🚨 **One finding, reported and ⛔ not fixed in that commit — ✅ and then fixed in the next one, which
+is the step below.** `Stave.getBottomLineBottomY()` is `getYForLine(last) + (getStyle().lineWidth ??
+1)`; nothing sets a stave style, so it added **1** while **P5c** had made a staff line's ink **1.1
+px**. It was pinned as a **passing** assertion in `VexFlowRenderer.scene.test.ts` so that the day the
+edge got an owner the spec would fail and say why. ⭐ It did.
+
+#### ✅ P5b, fourth step — WHERE A BARLINE STOPS (2026-09-13), and it is a RULE rather than a repair
+
+🚨 **The 0.1 px was the small half of the finding.** `getBottomLineBottomY()` is read by
+`BarlineRenderer` (every line that ends a bar), the opening line, the join (`barlineGap`) and the
+key-signature hit box — and `systemStart.drawSystemConnector` had **hand-written a second copy** of
+VexFlow's `1`, naming `Tables.STAVE_LINE_THICKNESS`, with `spanTopY`/`spanBottomY` a third. ⇒ every
+vertical line in the score, ⛔ not one of them.
+
+⭐⭐ **The rule, and it is not the one we had.** A barline runs between the **CENTRES of the two outer
+staff lines**, so it is exactly **four staff spaces** tall — ⛔ not between their outer edges.
+
+| | on the barline's vertical extent |
+|---|---|
+| **Gould** | ⛔ **UNKNOWN** — nothing in *Behind Bars* states it at this precision. ⛔ Which is ⛔ not "the books are silent": it is the result of a search, recorded so it is not repeated |
+| **Ross, p. 151** | *"The lengths of barlines vary with different types of music. 1. For single-line music the barline connects the top and bottom lines of the staff."* ⚠️ Names WHICH LINES, ⛔ not which edge — consistent with the rule, ⛔ does not decide it |
+| **LilyPond** | `ly:bar-line::calc-bar-extent` (`scm/bar-line.scm:641`) narrows the staff symbol's own outer-edge extent by **half a line thickness at each end** |
+| **MuseScore** | `y1 = spatium × .5 × spanFrom` (0), `y2 = spatium × .5 × (8 + spanTo)` (`tlayout.cpp:1115`) ⇒ 4 spaces |
+| **Verovio** | `yStaffTop` → `yStaffTop − 2(lines−1)·unit` (`view_page.cpp:747`) ⇒ 4 spaces |
+
+⭐⭐ **And LilyPond states the reason in its own source, which is what makes it a rule rather than a
+tally of three votes:** *"Due to rounding problems, bar lines extending to the outermost edges of the
+staff lines appear wrongly in on-screen display (and, to a lesser extent, in print) — they stick out
+a pixel. The solution is to extend bar lines only to the middle of the staff line."* ⚠️ That is an
+argument about RESAMPLING, and this editor is the case it describes — the same family of reasoning as
+`hintBarlines`, which exists because of a measured version of it.
+
+⭐ **Two rules, kept apart on purpose.** `engrave/staff/barlineExtent` (line MIDDLES) is for barlines;
+`staffLines.staffLineInkBottomY` (the outer EDGE) is for a mark flush with the staff — the brace and
+the bracket's rod (Ross p. 155). ⚠️ They differ by half a staff line at each end, and 🚨 **that split
+is LilyPond's too**: a `System_start_delimiter` spans the staff symbol's own extent
+(`system-start-delimiter.cc:114`) while `calc-bar-extent` narrows. ⇒ three specs in
+`systemStart.test.ts` that had been measuring the brace and the bracket **against the connector's
+rect** now measure them against the staff — they had been using the wrong ruler and it only worked
+while the two agreed.
+
+⭐ **LilyPond's first rider falls out of the geometry** rather than needing a flag: the piece crossing
+the gap between two staves (`barlineGap`) now runs centre to centre as well, so it overlaps the outer
+half of both lines and meets the bars exactly — which is what `bar-line::widen-bar-extent-on-span`
+does by reverting the narrowing at a span. ⚠️ **Its second rider is NOT implemented and is named in
+the module**: a barline in a different colour from its staff should keep the full extent, and this
+editor recolours a selected one.
+
+⚠️ It **MOVES INK** — a barline on a five-line staff is **40 px** tall where it was 41, its top edge
+0.55 px lower and its bottom 0.45 px higher — ⇒ its own commit. `e2e/barlineJoin` measured the join's height as
+*"the space between the staves less two half staff-lines"* and now measures it as exactly the
+distance between the two line centres.
 
 #### ⏭️ P5b, what is LEFT — the PLACEMENT, and its FIRST CONCRETE JOB IS DONE (2026-09-12)
 

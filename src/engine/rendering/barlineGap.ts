@@ -32,6 +32,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { dbg } from '@/utils/debug'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import type { BarlinePlacement } from './BarlineRenderer'
+import { staveBarlineExtent } from './barlineInk'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
 
@@ -107,7 +108,13 @@ export interface BarlineGap {
  */
 function lineY(p: BarlinePlacement, which: 'top' | 'bottom'): number {
   const dy = p.y / p.scale - p.stave.getY()
-  const local = which === 'top' ? p.stave.getTopLineTopY() : p.stave.getBottomLineBottomY()
+  // ⭐⭐ **The MIDDLE of the outer line, ⛔ not its edge** — the same rule the bars above and below
+  // this gap stop at (`engrave/staff/barlineExtent`). ⚠️ So this piece OVERLAPS the outer half of
+  // both lines it runs between, which is what makes the join one continuous stroke rather than a
+  // stroke with a notch at each staff: LilyPond's `bar-line::widen-bar-extent-on-span`, arrived at
+  // by geometry instead of by a flag.
+  const extent = staveBarlineExtent(p.stave)
+  const local = which === 'top' ? extent.topY : extent.bottomY
   return (local + dy) * p.scale
 }
 
