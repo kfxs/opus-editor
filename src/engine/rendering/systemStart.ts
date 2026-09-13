@@ -443,10 +443,11 @@ function stampGlyph(
 /**
  * ⭐⭐ **THE GROUPING SIGNS GET THEIR OWN GROUP, AND ⛔ NOT THE CONNECTOR'S `stavebarline`.**
  *
- * 🚨 `stavebarline` is a **COLLECTOR, not a label**, and four readers sweep it:
- * `barlineInk.inkBarlines` widens any thin rect in it · **`barlineInk.hintBarlines` snaps every rect
- * in it onto whole DEVICE PIXELS** · `e2e/harness.barlines()` counts them · and
- * `e2e/staffSize.e2e.ts` finds the connector as *the tall rect* in it.
+ * 🚨 `stavebarline` is a **COLLECTOR, not a label**, and three readers sweep it:
+ * **`barlineInk.hintBarlines` snaps every rect in it onto whole DEVICE PIXELS** ·
+ * `e2e/harness.barlines()` counts them · and `e2e/staffSize.e2e.ts` finds the connector as *the tall
+ * rect* in it. (⭐ A fourth, `barlineInk.inkBarlines`, widened any thin rect in it until P5b made
+ * every barline draw at its own weight — 2026-09-13.)
  *
  * ⭐ **The second is the engraving reason.** Hinting exists because a HAIRLINE at different
  * sub-pixel phases looks like a different line — measured, on 1.6 px barlines. A bracket's rod is
@@ -498,8 +499,8 @@ function drawSystemConnector(
   // the handle `hintBarlines` collects, and a connector left outside it would be the one line of
   // the system still landing between pixels while every barline it joins is crisp.
   //
-  // 🔎 ⚠️ **That group is a COLLECTOR, not a label** — `inkBarlines` widens any thin rect in it and
-  // `hintBarlines` snaps every rect in it onto whole device pixels. ⛔ A future left-edge sign whose
+  // 🔎 ⚠️ **That group is a COLLECTOR, not a label** — `hintBarlines` snaps every rect in it onto
+  // whole device pixels. ⛔ A future left-edge sign whose
   // WEIGHT is engraved (the bracket's rod, at Bravura's 0.5 spaces) must not be put here without
   // deciding that it wants to be pixel-snapped too — docs/braces-brackets-plan.md P3.
   ctx.openGroup('stavebarline')

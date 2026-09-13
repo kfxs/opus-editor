@@ -55,9 +55,14 @@ delaying engraving work by one day.
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**
 >
-> ⏳ **P5b, 2026-09-12: the INK of the header is now COMPLETE — clef, key and METER.** What is left
-> of P5b is the **PLACEMENT** alone (and the opening barline's ink). ⇒ the two-sets-of-numbers pair
-> P5 is named after is the whole of the remaining work, ⛔ no longer half of it.
+> ⏳ **P5b, 2026-09-13: EVERY PIECE OF INK A SCORE STAVE DRAWS IS NOW OURS** — the five lines (P5a),
+> the clef (09-02), the meter (09-12) and the **opening BARLINE** (09-13); the key signature never
+> was VexFlow's. ⇒ what is left of P5b is the **PLACEMENT ALONE**: every x below is still
+> `Stave.format()`'s modifier walk. ⭐ The two-sets-of-numbers pair P5 is named after is the whole of
+> the remaining work, ⛔ no longer half of it.
+>
+> ⭐⭐ **And the barline step deleted a PASS rather than only moving ink** — `barlineInk.inkBarlines`,
+> the DOM repair that widened VexFlow's 1 px rect to 0.16 sp on every render. See P5b's third step.
 >
 > ⭐ **P6 — the RULER — was added 2026-09-01 on his call**, and it is the one piece nothing in this
 > plan had ever named: we have been taking the INK one element at a time while every BOX is still
@@ -474,7 +479,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 
 | still paints itself | where | which phase takes it |
 |---|---|---|
-| **`Stave`** — and it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01), **P5b ✅ the CLEF's GLYPH** (2026-09-02) and **✅ the METER's** (2026-09-12); the opening BARLINE's ink and all three PLACEMENTS are what is left of **P5b** |
+| **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01), **P5b ✅ the CLEF's GLYPH** (2026-09-02), **✅ the METER's** (2026-09-12) and **✅ the opening BARLINE's** (2026-09-13); all three PLACEMENTS are what is left of **P5b** |
 | **`Curve`** — the tie's and slur's arc | `rendering/curveArc` (4), `TieRenderer` (1) | ⛔ **unlettered** — the largest single block left |
 | **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` (2) | ⛔ **unlettered** — ⚠️ and BLOCKED on the highlight, see U2 |
 
@@ -876,7 +881,7 @@ and hooks.
 | step | what | state |
 |---|---|---|
 | **P5a** | the staff's own **FIVE LINES** | ✅ **2026-09-01** — `engrave/staff/staffLines` + `rendering/EngravedStave`. ⭐ The dividend is that **staff-line geometry is now a unit test**: the lines are in the SCENE, where before they were VexFlow's and needed a browser |
-| **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⭐ **the CLEF's INK is ours as of 2026-09-02** (below), and TWO of the run's gaps were decided and built the day before (`docs/header-spacing-research.md` §8): **A** the clef's indentation 0.7 sp, and **D** the header→first-note gap keyed on what ends the header (2½ / 2). ⚠️ Of the nine rows the research raised, **only E and G are genuinely open** — B/C settled by his own earlier reports, F blocked by VexFlow, H unknown in every book, I settled by `key-signature-plan.md` §4.0b. ✅ **the METER's ink followed on 2026-09-12** (below). ⏭️ What is LEFT: the opening **BARLINE's** ink, and every **PLACEMENT** moving off `Stave.format()` |
+| **P5b** | ⏳ the **HEADER RUN** — clef, key, meter, and the gaps between them | ⭐ **the CLEF's INK is ours as of 2026-09-02** (below), and TWO of the run's gaps were decided and built the day before (`docs/header-spacing-research.md` §8): **A** the clef's indentation 0.7 sp, and **D** the header→first-note gap keyed on what ends the header (2½ / 2). ⚠️ Of the nine rows the research raised, **only E and G are genuinely open** — B/C settled by his own earlier reports, F blocked by VexFlow, H unknown in every book, I settled by `key-signature-plan.md` §4.0b. ✅ **the METER's ink followed on 2026-09-12** and ✅ **the opening BARLINE's on 2026-09-13** (both below) ⇒ ⭐⭐ **the INK is COMPLETE**. ⏭️ What is LEFT: every **PLACEMENT** moving off `Stave.format()` |
 | **P5c** | the staff line's **THICKNESS** | ✅ **2026-09-01 — HIS call, and he took Gould**: 0.11 sp, what her engraved staves measure, ⛔ not Bravura's 0.13 (which is a FONT's number, not a spec's — `docs/staff-line-research.md` §5.1). `engrave/staff/staffLines.STAVE_LINE_WIDTH_PX`. ⚠️ A **default**, ⛔ not a law: *"the user will be able to change this"* |
 
 #### ✅ P5a — the five lines (2026-09-01)
@@ -1020,7 +1025,7 @@ placement becomes ours, it FAILS and says why.
 | the sign's **x** | `Stave.format()`'s BEGIN-modifier walk | the *"`headerInk` MEASURES, `Stave` PLACES"* pair — the next step |
 | the rows' **CENTRING on each other** (`topStartX` / `botStartX`) | `makeTimeSignatureGlyph`, off a runtime `measureText` | a MEASUREMENT, not ink — P6's territory |
 | **which lines** the rows name, and `lineShift` | `TimeSignature.topLine` / `bottomLine` | see the row gap above |
-| the **opening BARLINE** | a stave modifier | the rest of P5b |
+| the **opening BARLINE** | a stave modifier | ✅ **taken the next day** — the step below |
 
 ⚠️ **`drawAt` was overridden too, and the reason is worth keeping.** It is reachable by a second path
 (a `TimeSigNote`'s mid-bar meter change, which this repo does not use today), so overriding `draw`
@@ -1031,7 +1036,54 @@ VexFlow's signature, because `DrawContext` is an interface their context satisfi
 overridden with a signature naming nothing of VexFlow's, so `lint:paint` sees a file that draws only
 through us.
 
-#### ⏭️ P5b, what is LEFT — the PLACEMENT, and it now has a FIRST CONCRETE JOB (2026-09-12)
+#### ✅ P5b, third step — the OPENING BARLINE (2026-09-13)
+
+⭐ Same shape as P5a, the clef and the meter: `engine/engrave/staff/openingBarline` +
+`rendering/EngravedBarline`, put on every score stave by the `EngravedStave` **constructor** (⚠️ not
+an `addX` override — `Stave`'s own constructor hard-codes `new Barline(...)` into `modifiers[0]` and
+`[1]`, and `setBegBarType`/`setEndBarType` write the TYPE into those two slots by index, so the
+substitution has to be a replacement in place). ⛔ **No pixel moved** — 6274 unit + 282 e2e green,
+`build:check`, `lint:paint` still 18/18 + 10/10.
+
+⭐ **THE RULE, and all three sentences of it were scattered facts before:** the line spans the
+staff's full ink (top line's top to bottom line's bottom, so the five lines it closes are inside it);
+**`x` IS the boundary and the ink grows RIGHTWARD from it**, ⛔ never centred — because the spacing
+model measures the lead-in from that x, the registry's `noteEndX` hit box sits at it and
+`barWidth.e2e` asserts a drawn barline stands at the stave's own `x2`; and it is a **filled rect**
+rather than a stroked path, because `g.vf-stavebarline rect` is what four readers find a barline by.
+
+⭐⭐ **AND IT DELETED A PASS — the first step of this migration that removed code rather than moving
+it.** `barlineInk.inkBarlines` walked every measure's `<g>` after every render and rewrote the
+`width` of VexFlow's 1 px rect to the 0.16 sp we actually want. By 2026-09-13 that opening line was
+its ONLY target — `BarlineRenderer`, `barlineGap`, `systemStart` and `GutterRenderer` have all drawn
+at `THIN_BARLINE_PX` from the start — so taking its ink left the pass with nothing to repair.
+⇒ ⭐ *"we already overruled VexFlow on both the WEIGHT and the POSITION of every line on the page;
+this draws it right the first time"* (`BarlineRenderer`'s own header, written for the interior lines)
+now holds for the one line that pass deliberately left out.
+
+🚨 **And folding the weight in was NOT tidying — a DOM repair is invisible to the SCENE.** Had the ink
+moved at VexFlow's literal `1`, `recordScene` would have recorded a 1 px barline while the page
+carried a 1.6 px one. ⭐ **A scene that disagrees with the picture is worse than no scene**: every
+assertion written against it afterwards asserts the wrong number. ⇒ where a migration step finds a
+post-pass repairing the very ink it is taking, the repair comes with it.
+
+⛔ **What it did NOT take:**
+
+| ⛔ still VexFlow's | where | why it was left |
+|---|---|---|
+| the line's **x** | `Stave.format()`'s BEGIN-modifier walk | the PLACEMENT — what is left of P5b |
+| the **HINTING** of that x onto whole device pixels | `barlineInk.hintBarlines` | a page-wide pass over marks four modules drew, ⛔ not this line's business |
+| every other **TYPE** — `DOUBLE`, `END`, both repeats | `Barline.draw`, via `super.draw()` | ⭐⭐ **porting them would import a rule we have already replaced.** `BarlineRenderer` exists because those rules are unsayable through `Barline` (the 3 px thick line, the fixed pixel layout, the dots' ≈0.1-space fudge, none of it scaling with its staff). A score stave's BEGIN bar is `SINGLE` or `NONE` and its END bar is always `NONE`, so the fall-through is a guard against a future caller, ⛔ not a case that runs |
+
+🚨 **One finding, reported and ⛔ NOT fixed here.** `Stave.getBottomLineBottomY()` is
+`getYForLine(last) + (getStyle().lineWidth ?? 1)` — nothing sets a stave style, so it adds **1**,
+while **P5c** made a staff line's ink **1.1 px**. ⇒ the opening barline stops **0.1 px above** the
+bottom line's ink. It is P5a's own lesson from the other side (*"two primitives that coincide at one
+value are not one rule"*), it moves ink to fix, and it is pinned as a **passing** assertion in
+`VexFlowRenderer.scene.test.ts` so the day the edge is derived from the thickness that drew it, the
+spec fails and says why.
+
+#### ⏭️ P5b, what is LEFT — the PLACEMENT, and its FIRST CONCRETE JOB IS DONE (2026-09-12)
 
 🚨 **Found by HIS EYE, then measured**: *"the placement of the meter after the clef seems to be
 because of the bbox, not the ink."* ⭐ Right that it is not ink-driven; ⛔ wrong that the bbox is the
@@ -1056,12 +1108,21 @@ an ORIGIN through `glyphBox('timeSig4').left`, and `setX`es the modifier — *"P
 the number in the style sheets is WHITE SPACE, not an origin distance."* ⇒ 🚨 **the same gap is
 engraved two different ways today depending on whether a key signature is present.**
 
-⇒ ⏭️ **P5b's placement step starts with `CLEF_TO_METER_INK` + a `placeMeterAfterClef` twin.** ⛔ The
-preset is NOT chosen: the candidates (Gould stated 1–1½ / drawn 1.06, LilyPond 1.52, MuseScore 1.00,
-Verovio 1.00, ours 1.42) are ⚠️ **not yet verified for which convention each is stated in**, which is
-what the two research agents of 2026-09-12 were sent to settle. It lands as a **row table with a
-console knob** and ⭐ **HIS EYE arms the row**
-(`project_engraving_defaults_are_a_house_style`). ⚠️ It MOVES INK ⇒ its own commit.
+✅✅ **BUILT THE SAME DAY — `engine/layout/clefMeterGap.ts` (commit `8849d2e`).** The research settled
+the KIND of number before the value: LilyPond (1.52), MuseScore (1.00) and Verovio (1.00) all space it
+**ink to ink**, and 🚨 **the only advance-based engine in the comparison is VexFlow, the dependency we
+are removing**. It landed as a **4-row table with a console knob** (`__header.clefMeter(…)`), and
+⭐ **HIS EYE armed the row**: `stone` — *"we can start with a value of 1.0 as default but the user in
+the future will be able to change it"* — measured drawn **0.98** in `e2e/headerGap.e2e.ts`, which is
+also Ross's own plate. ⚠️ It MOVED INK (the header is **0.6 sp narrower**) and took its own commit,
+as the safety argument requires.
+
+⭐ **It needed no `placeMeterAfterClef` after all**: `EngravedStave.addTimeSignature` computes
+VexFlow's `customPadding` itself, because that padding IS the gap — and `headerInk.clefToMeterGap()`
+feeds the RESERVATION the same number, so the two sets of numbers became one.
+
+⇒ ⏭️ **What is left of the placement is the rest of the run**: the clef's own x (still the walk plus
+`clefIndentPass`/`clefOffsetPass` by `setX`), the meter's origin, and the opening barline's.
 
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 

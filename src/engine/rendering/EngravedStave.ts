@@ -17,17 +17,17 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **The opening BARLINE** still paints itself, handed the VexFlow context exactly as
- * `EngravedBeam` hands `drawStems` one. ⭐ **The CLEF and the METER no longer do:** P5b gave them
- * `EngravedClef` + `engrave/header/clef` (2026-09-02) and `EngravedTimeSignature` +
- * `engrave/header/meter` (2026-09-12), and {@link EngravedStave.addClef} /
- * {@link EngravedStave.addTimeSignature} below are what put ours on every stave of the page.
+ * ⭐⭐ **Nothing this stave draws is VexFlow's ink any more.** P5b took the CLEF (`EngravedClef` +
+ * `engrave/header/clef`, 2026-09-02), the METER (`EngravedTimeSignature` + `engrave/header/meter`,
+ * 2026-09-12) and the opening BARLINE (`EngravedBarline` + `engrave/staff/openingBarline`,
+ * 2026-09-13); {@link EngravedStave.addClef}, {@link EngravedStave.addTimeSignature} and the
+ * constructor below are what put ours on every stave of the page.
  * ⚠️ The key signature was never among the modifiers at all — `stave.addKeySignature` is never called
  * in this repo; `KeySignaturePass` draws it, and already through our own context.
  *
- * ⭐ So what is left of the header here is the opening BARLINE's ink — and, for all of them, the
- * parent plan's other half: *"`headerInk.ts` already MEASURES what a clef and a meter cost; `Stave`
- * still PLACES them"*. ⛔ P5b has taken two sets of INK, ⛔ not one PLACEMENT.
+ * ⛔ **What is left is the parent plan's other half**: *"`headerInk.ts` already MEASURES what a clef
+ * and a meter cost; `Stave` still PLACES them"*. ⇒ P5b has taken every set of INK on this stave and
+ * ⛔ not one PLACEMENT — every x below is still `Stave.format()`'s modifier walk.
  *
  * ⚠️ **A subclass, for the reason `EngravedBeam` and `EngravedStem` are ones.** Every number read
  * below is public API (`getX`, `getWidth`, `getYForLine`, `getNumLines`, `options`) or `protected`
@@ -40,9 +40,10 @@
  * opened as `openGroup('stave', …)` — which is why {@link drawStaffLines} strokes rather than filling,
  * even though a filled bar is the honester description of the ink.
  */
-import { Stave, StaveModifierPosition } from 'vexflow'
+import { Barline, Stave, StaveModifierPosition, type StaveOptions } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
 import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
@@ -57,6 +58,42 @@ export class EngravedStave extends Stave {
    * and ⛔ never a lost pixel. (`EngravedBeam.inkSurface` carries the same contract.)
    */
   private inkSurface: DrawContext | null = null
+
+  /**
+   * ⭐⭐ **P5b — the two barlines VexFlow's own constructor made are OURS.**
+   *
+   * ⚠️ Unlike the clef and the meter, a stave's barlines are not added by a caller we could
+   * intercept: `Stave`'s constructor hard-codes `new Barline(...)` into `modifiers[0]` and
+   * `modifiers[1]` (`stave.js:55`), and `setBegBarType`/`setEndBarType` write the TYPE straight into
+   * those two slots by index. ⇒ the substitution must be a REPLACEMENT IN PLACE that keeps both
+   * positions, ⛔ not an `addModifier` (which appends, and would leave the originals drawing).
+   *
+   * ⭐ Both are replaced, not just the opening one. The END barline is forced to `NONE` on every
+   * score stave (`BarlineRenderer` draws every line that ends a bar), so it paints nothing either
+   * way — but it is still READ as a position (`endBoundaryX`), and one owner for a pair is the whole
+   * point of a family. ⚠️ The type is carried over, so this changes no picture.
+   *
+   * ⛔ **`format()` can still splice PLAIN barlines into its own local lists**, and both arms are
+   * worth knowing: a `new Barline(NONE)` before the end modifiers (`stave.js:387`), which draws
+   * nothing; and a `new Barline(SINGLE)` before a REPEAT_BEGIN's other modifiers (`stave.js:384`),
+   * which WOULD draw 1 px of VexFlow's own ink. ⭐ Unreachable here — nothing in this repo ever sets a
+   * begin bar to `REPEAT_BEGIN` (`BarlineRenderer` draws every repeat itself, and
+   * `VexFlowRenderer.drawMeasureContent` only ever sets `NONE`) — ⚠️ and the day something does, that
+   * spliced line is the one that will not be ours.
+   */
+  constructor(x: number, y: number, width: number, options?: StaveOptions) {
+    super(x, y, width, options)
+    this.modifiers[0] = this.engraved(this.modifiers[0] as Barline)
+    this.modifiers[1] = this.engraved(this.modifiers[1] as Barline)
+  }
+
+  /** One of VexFlow's barlines as one of ours — same type, same position, same stave. */
+  private engraved(barline: Barline): EngravedBarline {
+    const mine = new EngravedBarline(barline.getType())
+    mine.setPosition(barline.getPosition())
+    mine.setStave(this)
+    return mine
+  }
 
   /** @see EngravedStave.inkSurface */
   setInkSurface(ctx: DrawContext): void {
@@ -84,11 +121,12 @@ export class EngravedStave extends Stave {
     }
 
     for (const modifier of this.modifiers) {
-      // ⛔ Still VexFlow's, and given VexFlow's context deliberately — see the header. ⭐ …except the
-      // ones P5b has taken, the CLEF and the METER, which draw their glyphs on OUR surface and are
-      // handed it here: the modifier walk is the one place that knows both the stave's surface and
-      // its modifiers. ⭐ `acceptsInkSurface` is what keeps that a MEMBERSHIP rather than a growing
-      // chain of `instanceof` — see `./inkSurface`.
+      // ⭐ Every modifier a score stave carries has been taken by P5b — the CLEF, the METER and the
+      // opening BARLINE — so each draws on OUR surface and is handed it here: the modifier walk is
+      // the one place that knows both the stave's surface and its modifiers. ⭐ `acceptsInkSurface`
+      // is what keeps that a MEMBERSHIP rather than a growing chain of `instanceof` — see
+      // `./inkSurface`. ⚠️ VexFlow's context is still passed as well, because a modifier this repo
+      // never adds (or one a future VexFlow adds for us) would still be entitled to paint itself.
       // ⚠️ `setContext` still happens for every one of them, those two included — `drawWithStyle`
       // calls `checkContext()` before it calls `draw()`, so a modifier without one throws.
       modifier.setContext(vex)

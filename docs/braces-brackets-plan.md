@@ -471,12 +471,13 @@ its own header which key owns the indent, so the next element in this family doe
 #### 🔎 🚨 WHICH GROUP THE ROD GOES IN IS A DECISION, AND THE DRAFT DIDN'T MAKE IT
 
 `stavebarline` is not a label, it is a **COLLECTOR**. Put a `fillRect` in it — which is where
-`drawSystemConnector` puts the connector, for hinting — and **four** existing readers pick the rod up:
+`drawSystemConnector` puts the connector, for hinting — and **three** existing readers pick the rod up
+(⚠️ a fourth, `barlineInk.inkBarlines`, widened **any** thin rect in the group until P5b deleted it on
+2026-09-13):
 
 | reader | what it does to a bracket rod |
 |---|---|
-| `barlineInk.ts:59` `inkBarlines` | widens **any** rect in the group whose width is `VEXFLOW_THIN_PX` |
-| `barlineInk.ts:131` `hintBarlines` | 🚨 **snaps every rect in the group onto whole DEVICE PIXELS** |
+| `barlineInk.ts` `hintBarlines` | 🚨 **snaps every rect in the group onto whole DEVICE PIXELS** |
 | `e2e/harness.ts:320` `barlines()` | the rod becomes **a barline** to the whole browser suite |
 | `e2e/staffSize.e2e.ts:236-241` | finds the connector as `rects.find(r => r.h > 50)` — 🚨 **a bracket rod is also tall**, so this existing test breaks, or worse, silently asserts against the wrong rect |
 

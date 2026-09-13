@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { THIN_BARLINE_PX, inkBarlines, hintBarlines } from './barlineInk'
+import { THIN_BARLINE_PX, hintBarlines } from './barlineInk'
 
 /**
  * Attributes, not geometry: jsdom has no layout and no fonts, so nothing here asks where the ink
  * LANDED (that is `e2e/barlineInk.e2e.ts`). What it can answer is what this pass writes on the
- * rects VexFlow left behind, which is the whole of the module.
+ * rects it finds, which is the whole of the module.
+ *
+ * ⭐ **`inkBarlines`' own tests left with it on 2026-09-13** (P5b). Every barline is now DRAWN at
+ * this width, so the three statements worth keeping — the ink grows rightward from the boundary, it
+ * is measured in staff spaces, and it lands in a `stavebarline` group — moved to
+ * `engine/engrave/staff/openingBarline.test.ts`, beside the code that now makes them true.
  */
 const NS = 'http://www.w3.org/2000/svg'
 
@@ -26,67 +31,9 @@ function measureGroup(rects: { x: number; width: number }[]): SVGGElement {
   return group
 }
 
-const widths = (g: Element) =>
-  [...g.querySelectorAll('rect')].map(r => parseFloat(r.getAttribute('width')!))
-const xs = (g: Element) =>
-  [...g.querySelectorAll('rect')].map(r => parseFloat(r.getAttribute('x')!))
-
 describe('barlineInk', () => {
   it('is 0.16 staff spaces — heavier than a stem (1.5) and a staff line (1)', () => {
     expect(THIN_BARLINE_PX).toBeCloseTo(1.6)
-  })
-
-  it('widens the 1px line VexFlow drew', () => {
-    const g = measureGroup([{ x: 100, width: 1 }])
-    inkBarlines(g)
-    expect(widths(g)).toEqual([THIN_BARLINE_PX])
-  })
-
-  it('leaves x alone — the bar boundary is what every other reader measures from', () => {
-    const g = measureGroup([{ x: 100, width: 1 }])
-    inkBarlines(g)
-    expect(xs(g)).toEqual([100])
-  })
-
-  it('leaves the thick line of a final bar alone — that one is a layout change', () => {
-    // `drawVerticalEndBar`: a 1px thin at x-5 and a 3px thick at x-2.
-    const g = measureGroup([{ x: 95, width: 1 }, { x: 98, width: 3 }])
-    inkBarlines(g)
-    expect(widths(g)).toEqual([THIN_BARLINE_PX, 3])
-    expect(xs(g)[1]).toBe(98)
-  })
-
-  it('is idempotent — a REUSED measure group is re-inked, never re-shifted', () => {
-    const g = measureGroup([{ x: 100, width: 1 }])
-    inkBarlines(g)
-    const once = { w: widths(g), x: xs(g) }
-    inkBarlines(g)
-    inkBarlines(g)
-    expect(widths(g)).toEqual(once.w)
-    expect(xs(g)).toEqual(once.x)
-  })
-
-  it('is measured in staff spaces, so it comes down with a small staff', () => {
-    // The pass writes into the bar's own `<g>`, which carries the staff's scale — so a 0.7-size
-    // staff gets 0.7 × 1.6 on screen without this module knowing that staff sizes exist.
-    const g = measureGroup([{ x: 100, width: 1 }])
-    inkBarlines(g)
-    expect(widths(g)[0] / 10).toBeCloseTo(0.16) // = THIN_BARLINE_SPACES, in staff spaces
-  })
-
-  it('touches nothing outside a barline group', () => {
-    const g = measureGroup([{ x: 100, width: 1 }])
-    const other = document.createElementNS(NS, 'g')
-    other.setAttribute('class', 'vf-stem')
-    const stem = document.createElementNS(NS, 'rect')
-    stem.setAttribute('x', '50')
-    stem.setAttribute('width', '1')
-    other.appendChild(stem)
-    g.appendChild(other)
-
-    inkBarlines(g)
-    expect(stem.getAttribute('width')).toBe('1')
-    expect(stem.getAttribute('x')).toBe('50')
   })
 })
 
@@ -99,8 +46,9 @@ describe('hintBarlines', () => {
   /** An `<svg>` holding one barline group, with every CTM stubbed to `scale`. */
   function scoreAt(scale: number, xs: number[]): SVGSVGElement {
     const svg = document.createElementNS(NS, 'svg')
-    const group = measureGroup(xs.map(x => ({ x, width: 1 })))
-    inkBarlines(group)
+    // ⭐ At the width they are DRAWN at since P5b — this used to build 1 px rects and call
+    // `inkBarlines` on them, which is the pass that no longer exists.
+    const group = measureGroup(xs.map(x => ({ x, width: THIN_BARLINE_PX })))
     svg.appendChild(group)
     const ctm = { a: scale, b: 0, c: 0, d: scale, e: 0, f: 0 } as DOMMatrix
     for (const el of [svg, ...svg.querySelectorAll('rect')]) {

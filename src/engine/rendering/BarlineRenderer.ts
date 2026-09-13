@@ -20,7 +20,9 @@
  * ⭐ It is also **finishing** a piece rather than opening a front. One plain barline used to cost
  * three passes: VexFlow's 1 px `fillRect`, `inkBarlines` rewriting that rect's width, and
  * `hintBarlines` rewriting its x. We already overruled VexFlow on both the WEIGHT and the POSITION of
- * every line on the page; this draws it right the first time.
+ * every line on the page; this draws it right the first time. ✅ **And the sentence finished on
+ * 2026-09-13**: P5b took the one line this pass left out (see below), `inkBarlines` had no target
+ * left and was deleted — so no barline anywhere on the page is a repaired rect any more.
  *
  * ## ⭐⭐ What being a PASS dissolves
  *
@@ -47,10 +49,11 @@
  *
  * ## ⚠️ What this pass does NOT take
  *
- * **The line at a system's LEFT EDGE.** That one is still VexFlow's `setBegBarType` (re-inked by
- * `inkBarlines` inside the measure group), and it is a different mark: it opens a stave rather than
- * dividing two bars, it has no neighbour to agree with, and the grand staff's own connector is
- * already drawn by hand beside it. The exception is a first-in-line bar that OPENS A REPEAT — there
+ * **The line at a system's LEFT EDGE.** ⚠️ It is still placed by VexFlow's `setBegBarType`, and it is
+ * a different mark: it opens a stave rather than dividing two bars, it has no neighbour to agree
+ * with, and the grand staff's own connector is already drawn by hand beside it. ⭐ **Its INK is ours
+ * as of 2026-09-13** — `EngravedBarline` + `engrave/staff/openingBarline` (P5b), ⛔ which does not
+ * move it here: this pass owns the SIGNS at boundaries, and that line is part of the STAVE. The exception is a first-in-line bar that OPENS A REPEAT — there
  * the boundary's sign is `|:`, so the stave's begin bar is turned off and this pass draws it.
  */
 import { Barline, StaveModifierPosition } from 'vexflow'
@@ -291,7 +294,8 @@ function registerRepeatStart(
  * ⭐ **It scales with its staff**, and this is now a decision rather than an accident (§4.6.6). It
  * used to be one: `inkBarlines` wrote a px width inside a group that happened to carry the staff's
  * scale, so a small staff got a proportionally thinner barline because of which `<g>` the rect landed
- * in. Drawing outside the measure group means saying so — and the answer keeps today's picture:
+ * in. ⚠️ That accident still stands for the OPENING line, deliberately — `EngravedBarline`'s own
+ * note says so, and says this comment is the argument for keeping it. Drawing outside the measure group means saying so — and the answer keeps today's picture:
  * a cue-size staff's own divider is part of that staff's ink. ⚠️ The argument the other way is real
  * and is MuseScore's default (`Sid::scaleBarlines` is false — a barline divides the SYSTEM); the day
  * §2's per-staff work meets `docs/small-staff-spacing`, this is the line to revisit.

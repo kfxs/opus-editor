@@ -881,8 +881,10 @@ dots stamped** — and it is not a preference to revisit.
 
 ⚠️ **Two places the build diverged from this section, both deliberate and neither hidden:**
 
-1. **The line at a system's LEFT EDGE stays VexFlow's** (`setBegBarType` + `inkBarlines` inside the
-   measure group). §4.6.7's argument for taking *all* barlines is about END lines — bar *N*'s plain
+1. **The line at a system's LEFT EDGE stays VexFlow's** (`setBegBarType` inside the measure group).
+   ⭐ **Half of that ended on 2026-09-13**: P5b took its INK (`EngravedBarline` +
+   `engrave/staff/openingBarline`) and `inkBarlines` was deleted with it — but the line is still
+   PLACED by `setBegBarType` and is still not this pass's, for the reason that follows. §4.6.7's argument for taking *all* barlines is about END lines — bar *N*'s plain
    line must move with the signs because suppressing it needs the neighbour — and a system's opening
    edge has no neighbour to agree with. The one exception is a first-in-line bar that OPENS a repeat:
    there the boundary's sign is `|:`, the begin bar is turned off and the pass draws it.

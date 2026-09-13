@@ -32,35 +32,24 @@ export const THIN_BARLINE_SPACES = THIN_LINE_SPACES
  *  written in this unit inside that group is already proportional to its staff. */
 export const THIN_BARLINE_PX = THIN_BARLINE_SPACES * STAFF_SPACE_PX
 
-/** What VexFlow drew, and so what marks a rect as one we have not re-inked yet. */
-const VEXFLOW_THIN_PX = 1
-
-/**
- * Re-ink every thin barline VexFlow drew inside `group` (one measure on one staff).
+/* ⚠️ A note about what is NOT here, ⛔ not a doc comment on the constant below.
  *
- * **Width only — `x` is left exactly where it was.** The extra ink goes on the right, because in
- * this renderer `x` IS the bar boundary: the spacing model measures the lead-in from it, the
- * registry's `noteEndX` hit-box is placed at it, the selection highlight paints from it, and
- * `barWidth.e2e` asserts a drawn barline sits at the stave's own `x2`. Centring the line on the
- * boundary would be the engraver's reading of "where the line is", and it would put every one of
- * those 0.3 px out of agreement with the ink for no visible gain.
+ * ⭐⭐ **THE REPAIR THAT USED TO LIVE HERE IS GONE (P5b, 2026-09-13) — every barline on the page is
+ * now DRAWN at this width rather than widened afterwards.**
  *
- * ⚠️ The thick line of a final/repeat bar is deliberately left alone. It is 3 px where the
- * convention is 0.5 spaces (5 px), but widening it is a LAYOUT change, not an ink one: the thin and
- * thick lines are placed 2 px apart by `drawVerticalEndBar`, inside a reserved box VexFlow's own
- * `layoutMetricsMap` sizes (`xMin: -5`), so a 5 px thick line would swallow the gap and spill past
- * the room the stave set aside for it. It is also 3 px, which is not a mark that disappears.
+ * `inkBarlines(group)` walked each measure's `<g>` and rewrote the `width` of any 1 px rect inside a
+ * `g.vf-stavebarline` — which was VexFlow's opening barline and, by then, nothing else: this repo's
+ * own signs (`BarlineRenderer`, `barlineGap`, `systemStart`, `GutterRenderer`) have all drawn at
+ * {@link THIN_BARLINE_PX} from the start. ⇒ when P5b took that last line's ink
+ * (`engine/engrave/staff/openingBarline`, through `rendering/EngravedBarline`), the pass had no
+ * target left and was deleted rather than kept as a no-op.
  *
- * Idempotent: a re-inked rect is 1.6 wide and so no longer matches, which matters because a bar
- * whose shape has not changed is REUSED between renders rather than redrawn (the `MOVED` path) —
- * this pass sees the same rects again and must not shift them a second time.
+ * ⭐ **Its rationale did not die with it** — *"`x` IS the bar boundary, so the extra ink goes on the
+ * RIGHT"* is now stated in the ink module, where the drawing is. ⚠️ **And so did its exclusion**: the
+ * pass deliberately never touched the THICK line of a final or repeat bar (3 px where the convention
+ * is 0.5 spaces), because widening that is a LAYOUT change inside a box VexFlow's `layoutMetricsMap`
+ * sized — a question `layout/barlineSign` now owns outright.
  */
-export function inkBarlines(group: Element): void {
-  for (const rect of group.querySelectorAll('g.vf-stavebarline rect')) {
-    if (parseFloat(rect.getAttribute('width') ?? '') !== VEXFLOW_THIN_PX) continue
-    rect.setAttribute('width', String(THIN_BARLINE_PX))
-  }
-}
 
 /** Where a barline was asked to be, before hinting moved its ink. Latched on the first hint, and
  *  every later hint is computed from it — so re-hinting can never drift. (`data-baseline-x`.) */
@@ -146,8 +135,9 @@ export function hintBarlines(
     if (base === undefined) {
       // First sight of this rect: only a thin barline is hinted — the system connector and the
       // plain single lines — and its asked-for x is remembered from here on. (The composite signs
-      // are already gone, above; this test still guards VexFlow's own begin bar, which is 1 px
-      // until `inkBarlines` has widened it.)
+      // are already gone, above. ⭐ Since P5b every line reaching this test is DRAWN at
+      // `THIN_BARLINE_PX`, the opening one included — it used to arrive as VexFlow's 1 px rect and
+      // depend on `inkBarlines` having run first.)
       if (parseFloat(rect.getAttribute('width') ?? '') !== THIN_BARLINE_PX) continue
       base = rect.getAttribute('x') ?? '0'
       rect.dataset[BASE_X] = base

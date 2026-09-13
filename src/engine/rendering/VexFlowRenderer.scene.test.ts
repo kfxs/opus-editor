@@ -17,12 +17,12 @@
  * wedge, the octave line, the pedal's dashes, page sheets. Their coordinates are arithmetic over
  * stave geometry and the layout, and jsdom computes all of it.
  *
- * ⛔ **Anything a VexFlow object still paints itself** — today the ties and slurs (`Curve`), the
- * fan's own noteheads, and the opening barline. Those go through `vexContext`, never reach a
- * `DrawContext`, and are invisible to the recorder. ⭐ That gap is the migration's remaining work
- * rather than a defect of the scene, and it shrinks with every commit: the noteheads, stems, flags
- * and ledger lines arrived with P3, the beams with P4, and the staff's five lines, the clef and the
- * meter with P5. The browser suite stays for exactly that half.
+ * ⛔ **Anything a VexFlow object still paints itself** — today the ties and slurs (`Curve`) and the
+ * fan's own noteheads. Those go through `vexContext`, never reach a `DrawContext`, and are invisible
+ * to the recorder. ⭐ That gap is the migration's remaining work rather than a defect of the scene,
+ * and it shrinks with every commit: the noteheads, stems, flags and ledger lines arrived with P3,
+ * the beams with P4, and the staff's five lines, the clef, the meter and the opening barline with
+ * P5 — ⇒ ⭐⭐ **nothing a score STAVE draws is outside the scene any more.** The browser suite stays for exactly that half.
  *
  * ⛔ **And still not INK EXTENTS.** A glyph's drawn width needs a font. The scene says *where a
  * glyph was stamped and which codepoint it was*, ⛔ never how wide it came out.
@@ -32,6 +32,8 @@ import { ScoreModel } from '../models/ScoreModel'
 import { VexFlowRenderer } from './VexFlowRenderer'
 import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from './layoutConfig'
+import { THIN_BARLINE_PX } from './barlineInk'
+import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 import { fracCreate as frac } from '@/utils/fraction'
 import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
 
@@ -718,6 +720,79 @@ describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER
     const model = buildScore(2)
     model.setTimeSignature(2, { numerator: 5, denominator: 8 })
     expect(meters(renderModel(model).scene).length, '…and a change adds one').toBe(2)
+  })
+})
+
+describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair that is gone', () => {
+  /** Every rect drawn inside a `stavebarline` group, leftmost first. */
+  function barlineRects(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'stavebarline')
+      .flatMap(g => g.children.filter(c => c.kind === 'rect'))
+      .flatMap(r => (r.kind === 'rect' ? [r] : []))
+      .sort((a, b) => a.x - b.x)
+  }
+
+  /** The y of every staff line the STAVE drew — P5a's ink, read back. @see the CLEF block above. */
+  function staffLineYs(scene: ReturnType<typeof render>['scene']): number[] {
+    return sceneGroups(scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo'
+        ? [p.ops[0].y - (p.style.lineWidth ?? 0) / 2]
+        : []))
+  }
+
+  it('⭐⭐ a system OPENS with a line, and it stands on the stave’s own left edge', () => {
+    const { scene } = render(4)
+    const staveX = sceneGroups(scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo' ? [p.ops[0].x] : []))
+    const [opening] = barlineRects(scene)
+    // ⭐ The BOUNDARY, not a centre: `x` is the stave's own edge and every pixel of ink is to the
+    // right of it (`engrave/staff/openingBarline`'s rule 2).
+    expect(opening.x, 'the leftmost barline is the one that opens the stave')
+      .toBeCloseTo(Math.min(...staveX), 10)
+  })
+
+  it('⭐⭐ …it spans the staff — the five lines it closes are INSIDE it', () => {
+    // ⭐ Asserted against the OTHER half of our own scene, as the clef's baseline is: P5a drew the
+    // lines, and the claim is that this rect covers all of them.
+    const { scene } = render(2)
+    const [opening] = barlineRects(scene)
+    const lines = staffLineYs(scene).slice(0, 5)
+    expect(lines.length, 'five lines on the first stave').toBe(5)
+    expect(opening.y, 'from the top line').toBeCloseTo(lines[0], 10)
+    // 🚨 **THE 0.1 px, PINNED AS A PASSING ASSERTION** rather than left in prose. VexFlow's
+    // `getBottomLineBottomY()` adds `getStyle().lineWidth ?? 1` — and P5c made a staff line 1.1 px
+    // thick, so the barline stops 0.1 px short of the bottom line's ink. ⛔ Not fixed inside a
+    // migration step; the day the edge is derived from the thickness that drew it, THIS fails and
+    // says why (the same device the meter's jsdom limit is recorded with).
+    expect(opening.y + opening.height, 'to the bottom line + VexFlow’s hard 1')
+      .toBeCloseTo(lines[4] + 1, 10)
+    expect(opening.y + opening.height, '⛔ and NOT to that line’s own 1.1 px of ink')
+      .not.toBeCloseTo(lines[4] + STAVE_LINE_WIDTH_PX, 10)
+  })
+
+  it('⭐⭐ it is DRAWN at 0.16 staff spaces — ⛔ no longer a 1 px rect widened afterwards', () => {
+    // 🚨 The assertion the whole step is for. `inkBarlines` used to rewrite this width in the DOM,
+    // where the scene could not see it: a recorded 1 would have been a scene DISAGREEING with the
+    // page. Every barline in the score now leaves the engine at its own weight.
+    const { scene } = render(4)
+    const rects = barlineRects(scene)
+    expect(rects.length, 'the opening line, plus one per bar boundary').toBeGreaterThanOrEqual(5)
+    for (const r of rects) expect(r.width, 'one weight for every line on the page').toBeCloseTo(THIN_BARLINE_PX, 10)
+  })
+
+  // 🚨 The break-test: an empty scene, or a leftmost rect that is really an end barline, would slip
+  // past the three above. This pins the count against the score.
+  it('🚨 the break-test — one opening line per system, and the rest RESPOND to the bar count', () => {
+    const two = barlineRects(render(2).scene)
+    const five = barlineRects(render(5).scene)
+    expect(five.length, 'more bars, more lines').toBeGreaterThan(two.length)
+    // ⭐ …and exactly one of them stands at the stave's edge: the opening line has no twin.
+    const staveX = Math.min(...sceneGroups(render(5).scene, 'stave')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo' ? [p.ops[0].x] : [])))
+    expect(five.filter(r => Math.abs(r.x - staveX) < 1e-6), 'one, and only one').toHaveLength(1)
   })
 })
 

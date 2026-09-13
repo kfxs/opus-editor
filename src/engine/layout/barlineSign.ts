@@ -28,7 +28,8 @@
  * LilyPond's `space-to-barline` exactly.
  *
  * ⚠️ **The plain single line is the one member that keeps its ink to the RIGHT of `x`,** where it has
- * always been (`barlineInk.inkBarlines` widened VexFlow's rect rightward and says why). At 0.16
+ * always been (`engrave/staff/openingBarline`'s rule 2 states why, inherited from the DOM repair
+ * that used to do it). At 0.16
  * spaces the line straddles nothing — it IS the boundary within its own thickness — and moving every
  * barline in every score 1.6 px leftward to make the table look tidier is a change nobody asked for.
  * A composite sign is 1.0–1.5 spaces and must therefore choose a side; the plain line need not.
@@ -253,7 +254,7 @@ export function barlineSignParts(kind: BarlineSignKind): BarlineSignParts {
     // adjacent to the case (`reference_eslint_no_fallthrough_multiline_comment`).
     case 'invisible':
       // ⚠️ The one sign whose ink is to the RIGHT of the boundary — see the header. This is byte for
-      // byte where `inkBarlines` has always put it, and moving it would move every bar in the score.
+      // byte where the plain line has always been drawn, and moving it would move every bar.
       return parts([{ x: 0, width: THIN, half: 'shared' }], [], 0)
 
     case 'final': {

@@ -19,7 +19,7 @@ import {
 import { EngravedBeam, applyFractionalBeamSides, drawBeamInkThrough } from './EngravedBeam'
 import { EngravedStave, drawStaveInkThrough } from './EngravedStave'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { inkBarlines, hintBarlines } from './barlineInk'
+import { hintBarlines } from './barlineInk'
 import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
 import { musicSurface, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
@@ -1972,12 +1972,12 @@ export class VexFlowRenderer {
     if (placement.scale !== 1) group?.setPlacement(scaling(placement.scale))
     try {
       // Everything inside draws in the staff's own space, which is where its `stave` already is.
-      const stave = this.elementRegistry.withScale(placement.scale, () =>
+      // ⭐ P5b, 2026-09-13: `inkBarlines(groupNode)` used to run here, widening VexFlow's 1 px
+      // opening barline to the 0.16 staff spaces we actually want. That line is now DRAWN at its own
+      // weight (`EngravedBarline` + `engrave/staff/openingBarline`), so the repair has no target and
+      // the group needs no post-pass at all.
+      return this.elementRegistry.withScale(placement.scale, () =>
         this.drawMeasureContent(pass, localPlacement(placement), beamPlan))
-      // The one engraving rule VexFlow hard-codes past: a barline is 0.16 staff spaces, not the 1px
-      // it draws (`./barlineInk`). Applied to the group's own rects, so it rides the staff's scale.
-      inkBarlines(groupNode)
-      return stave
     } finally {
       // ALWAYS close, even if the draw threw. VexFlow's openGroup pushes the context's append
       // target; leaving it open would nest the entire rest of the score — every later measure, the
