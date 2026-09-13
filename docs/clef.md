@@ -49,7 +49,67 @@ on his say-so, one at a time, with his eye on each — the way decisions A, D an
 | **3** | **The small-clef RATIO** — what fraction a mid-score change is drawn at | ⚠️ the literature contradicts itself: Gould *writes* ⅔ and *draws* ¾ six times; Gerou & Lusk *state* 75%; Ross *draws* 0.65–0.68; the engines span 0.65–0.88; VexFlow uses exactly ⅔, which is what we inherit | ⛔ **No single sourced answer to adopt** ⇒ a house-style choice, and HIS. The table-of-rows pattern (`__header.rule(…)`, `__beams.rule(…)`) is the shape it would take |
 | **4** | **WHICH LINE each clef names** — the anchor table | `clef-research.md` §2; the books state it | Still VexFlow's `Clef.types`. ⛔ Parked as a named parameter in `engrave/header/clef`, deliberately |
 | **5** | **The cramped floor around a clef** — Gould's ½ stave-space | `clef-research.md` §5.2; stated three times by one author | The same question as `header-spacing-research.md` §8 **G**, which is the one row of the header run still open. ⛔ Answer it once, not twice |
+| 🚨 **7** | **A MID-BAR clef COLLIDES with the note it precedes — no room is reserved for it.** HIS report, 2026-09-13, with a score: bar 3 = quarter rest, chord A3 at beat 1, half rest at beat 2, alto clef change at beat 1 ⇒ *"the glyph sometime is over the note"*. ⭐ **The RULE is not missing** — `clef-spacing-research.md` §4.3 has it MEASURED off Gould p. 8: **0.75 sp before the clef, 0.80 sp after** (her *recommended* version; her *"rather than"* version draws 1.25 / 0.55), with Ross p. 167 and Gerou & Lusk pp. 51–52 on WHERE it goes and ⛔ Stone p. 46 refusing to give one (*"there are no specific rules for clef changes within a measure"*) | ⚠️ **Diagnosed by READING, ⛔ not yet measured in a browser** — see §2.3 | ⏭️ Not built. It is a SPACING fix, ⛔ not a drawing one, and it widens the bar |
 | **6** | **Octave clefs** — the `8`/`15` numeral, and the model behind it | `clef-research.md` §8 | ⏳ unbuilt entirely (`docs/octave-clefs-plan.md`). ⭐ And the research found the model needs widening before it is built — see §0.3 |
+
+### ✅ 0.1a **HIS DECISION on row 1, 2026-09-13 — and it is TWO statements, not one**
+
+> *"yes, the rule should be that the sign is before, but anyway i think we should make the user able
+> to place it after if the user want, we should not reduce editing options to the user"*
+
+1. ⭐⭐ **The RULE: a clef change goes BEFORE the barline.** Settled — four books unanimous (row 1
+   above) and now two of the three engines measured as well: LilyPond puts it before by default
+   (`Clef.space-alist (staff-bar . (extra-space . 0.7))`, ordering in `break-align-orders`) and so
+   does MuseScore (`clefBarlineDistance 0.5_sp`, with a per-clef `AUTO/BEFORE/AFTER` property).
+   Only Verovio puts it after. See `docs/mid-bar-sign-spacing-research.md`.
+2. ⭐⭐ **…and the user may put it AFTER.** *"We should not reduce editing options to the user."*
+   ⇒ the side is **AUTHORED**, with the rule as its default.
+
+🚨🚨 **THAT SECOND HALF CHANGES WHAT THIS IS.** Row 1 alone would be a renderer fix — draw the glyph
+on the other side of a line. A per-change OVERRIDE is a **MODEL** widening: the side has to be stored
+on the clef change, survive save/load, be selectable, and be editable. ⇒ it lands in the shape this
+repo already has for authored-not-derived facts, ⛔ not as a flag in a pass:
+
+| | where |
+|---|---|
+| the stored side | the `ClefChange` itself (`engine/models/**`) — ⚠️ ⛔ **not** a `Score` global: *what changes mid-score is never a `Score` field* |
+| the default | the RULE — before. ⭐ Absent means "the rule", exactly as an absent `voice`/`staff` means the first one |
+| selecting it | the `selectedElement` union already carries `clef`; the side is a property of that selection |
+| editing it | the Properties window's clef row |
+| ⚠️ the LAYOUT | 🚨 **a clef drawn BEFORE the barline is paid for by the PREVIOUS bar** — its width, its casting-off, its `headerInk` reservation. That is the hard half, and it is the *"a span belongs to where it BEGINS"* problem again: the bar that OWNS the change is not the bar that DRAWS it |
+
+#### ⭐⭐ …and the INTERACTION he wants for it (2026-09-13)
+
+> *"the user introduce the clef, by default it goes before the barline, then the user can drag
+> similar to what we do and it can be moved to after the barline, and after that the normal drag we
+> already have"*
+
+⇒ **one gesture, two stages**: insert → the RULE places it (before) → dragging it across the barline
+flips the stored side to *after* → from there it is the ordinary hand nudge this repo already has
+(`clefOffsetPass`). ⭐ The two stages edit two different things — a **discrete stored side** and a
+**continuous offset** — which is what makes the seam between them the whole design.
+
+🚨🚨 **The two rules that make or break it, both already settled here for other marks:**
+
+| | |
+|---|---|
+| ⭐ **Crossing the barline is a RE-ANCHOR, so it CLEARS the nudge** | the slur endpoint's rule (`docs/slur-endpoint-offset-plan.md`). ⛔ Without it the glyph JUMPS at the switch: the same offset means something different measured from the other side of the line |
+| 🚨 **The switch reads the CURSOR, ⛔ never the drawn ink** | *a drag decision cannot read its own outcome*. If *"which side am I on"* is answered from where the glyph ENDED UP, and the answer moves the glyph, it can flip back and forth across the boundary. ⭐ The ink is a GATE, ⛔ never the chooser |
+
+⚠️ **Two things deliberately NOT decided**: where exactly the switch fires and whether it has FRICTION
+(a bare threshold at the barline will jitter when the cursor sits on it — ⭐ this repo already holds
+the two papers for that, `snap-and-go` and `Oh Snap`, used by the slur endpoint drag); and whether the
+drag is the ONLY way to set the side (a Properties row costs nothing once the field exists, and is
+discoverable in a way a drag is not).
+
+⚠️ Because the side is STORED, the drag is a **model mutation** — it saves undo state and re-renders
+like any other edit (`reference: mutators must save undo state`), ⛔ not a view-only tweak.
+
+⛔ **Still not scheduled by this note.** It is recorded here so the decision is not re-litigated, and
+so that whoever builds it knows it is a model change with a layout consequence — ⛔ not a one-line
+flip of a sign. ⚠️ And the same question exists for a **METER** change (all three engines and the
+books put that one AFTER the barline — Gould p. 152, already fixed in `336b1c0`); whether the
+override is one shared "which side" property for both, or the clef's alone, is ⛔ **not decided**.
 
 ### ⭐⭐ 0.2 Bravura ships a SEPARATE small clef, and it is not a scaled-down big one
 
@@ -74,6 +134,50 @@ written down is that *"the small clef is ⅔"* is a sentence that hides two inde
 
 ⭐ **LilyPond states the same principle in prose** — a reduced-size glyph is redrawn, not merely
 scaled — which is why its font ships optical masters per staff size at all.
+
+### ✅ 0.2a **HIS DECISION, 2026-09-13 — ASK THE FONT FIRST, and keep what we do now as the FALLBACK**
+
+> *"the small clef that bravura have glyph for that so we can use it, but of course probably other
+> fonts dont have glyph for that so the solution we do now should persist, and only use it when the
+> font of the user don't have glyph for that"*
+
+⇒ ⭐⭐ **A CAPABILITY RULE, not a constant**: if the font ships a dedicated change clef, draw **that
+glyph at its natural size**; if it does not, keep today's behaviour — the full-size glyph reduced by a
+ratio. ⛔ The fallback is not deleted, and ⭐ that matters more the moment the user can change the font
+(`docs/smufl-fonts-research.md`).
+
+**⭐ MEASURED across every free SMuFL font on 2026-09-13** (`opentype.js` over the OTFs; the ratio is
+`gClefChange`'s bbox height ÷ `gClef`'s — ⚠️ my measurement, ⛔ not a number the font states):
+
+| font | `gClefChange` / `cClefChange` / `fClefChange` | drawn ratio | stylistic sets |
+|---|---|---|---|
+| **Bravura** | ✅ all three | **0.662** | `ss01`–`ss10` |
+| **Sebastian** | ✅ | 0.654 | `ss01`,`ss02`,`ss05`,`ss09` |
+| **Petaluma** | ✅ | 0.667 | — |
+| **Leland** | ✅ | 0.750 | `ss03` only |
+| **Finale Maestro** | ✅ | 0.756 | — |
+| **Leipzig** | ✅ | 0.777 | — |
+| **Gonville** | ✅ | 0.800 | — |
+| **MuseJazz** | ✅ | 0.805 | — |
+| ⛔ **Finale Ash / Broadway / Jazz**, **Gootville** | ⛔ **none** | — | — |
+
+🚨🚨 **THIS ANSWERS ROW 3 OF §0.1 — "what fraction is a mid-score change drawn at?" — by DISSOLVING
+it.** The free fonts disagree from **0.65 to 0.81**, and each disagreement is the type designer's own
+optical judgement about their own outlines. ⇒ ⭐ **there is no ratio to pick while the font has the
+glyph: asking the font IS the answer**, and a single house number would override eight designers at
+once. The ratio only becomes a house-style choice for the four fonts that ship nothing — and ⛔ it is
+still HIS.
+
+⭐⭐ **Two glyph families, and only ONE of them is portable** — the distinction §0.2 draws, now with
+its consequence:
+
+| | how it is addressed | portable? |
+|---|---|---|
+| `*Change` (the clef CHANGE) | **standard SMuFL codepoints** `U+E07A` / `U+E07B` / `U+E07C` | ✅ **yes** — any font may have them, and presence is a one-line test |
+| `ss01` (`*Small`, the small-STAFF optical master) | ⛔ **NOT a SMuFL name at all** — an OpenType *stylistic set* mapping the ordinary codepoint to an alternate | ⚠️ **no** — it needs the GSUB feature, and only Bravura (and partly Sebastian) has it |
+
+⇒ ⚠️ **The capability test is different for the two**, and a design that treats them as one thing will
+work for the change clef and silently do nothing for the small staff.
 
 ### ⏭️ 0.3 …and one MODEL widening the research asked for
 
@@ -226,6 +330,38 @@ clef, which is why `clef` was removable from the width cache's key. ⚠️ It is
 row, because the PICTURE depends on it.
 
 ---
+
+### 🚨 2.3 A MID-BAR clef takes NO ROOM — the collision of row 7, and where it comes from
+
+⚠️ **This section is a DIAGNOSIS from reading the code, ⛔ not a measurement.** It is written down so
+the next person starts from a hypothesis with an address rather than from a screenshot. ⭐ The
+instrument to confirm it is the browser suite (`e2e/`, `h.inkSizes` on `g.vf-clef text` against the
+notehead) — the mid-bar clef is ⛔ **NOT in the scene** and so cannot be measured in jsdom: it is a
+VexFlow `Clef` inside a `ClefNote` (§3.1), and P5b took only the stave-MODIFIER clef.
+
+**The chain, as far as reading gets it:**
+
+1. a mid-bar change is emitted as a `ClefNote` tickable, interleaved into the voice immediately
+   before the note at or after its beat (`VexFlowRenderer.interleaveClefNotes`);
+2. at `beat > 0` that `ClefNote` and the note it precedes are **at the same tick**, so they share a
+   tick context;
+3. ⭐⭐ **but the COLUMN model never hears about it.** `layout/measureColumns` builds each column's ink
+   from the SLOTS — noteheads, accidentals, dots, ledgers, flags — and reads the clef only to decide
+   *where a note sits* (stem direction, ledger lines). ⇒ a column whose tick also carries a clef is
+   priced as if it did not, so the solve grants it no extra width;
+4. our own `spacingPass` then places that column at the model's x. ⛔ **Whatever room VexFlow's
+   formatter would have made for the extra tickable is not what decides the picture** — we overwrite
+   it — so the clef lands on top of the notehead.
+
+⇒ ⭐ **If the diagnosis holds, the fix belongs in the COLUMN INK, not in the renderer**: the clef's
+ink plus Gould's two gaps become part of the LEAD-IN of the column it precedes — the same shape an
+accidental already has, which is ink standing to the left of the notehead inside its own column
+(`measureLeadIn`, and `spacingPadding`'s pair table). ⚠️ It **widens the bar**, so it is a layout
+change with a casting-off consequence, ⛔ not a nudge.
+
+⚠️ **What is NOT known**: whether the same defect hits a mid-bar clef at a beat where the note is
+absent (Ross p. 167 and Gerou & Lusk put the clef before the REST in that case), and whether a
+cautionary clef at a line end is priced correctly — ⛔ neither has been looked at.
 
 ## 3. How a clef is DRAWN, and by whom
 
