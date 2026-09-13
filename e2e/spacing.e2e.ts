@@ -581,7 +581,7 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
   //     clef's left edge.
   // ⭐ …plus the clef's INDENTATION (decision A, 2026-09-01): 0.7 sp inside the staff's left edge
   //   where VexFlow left it at 0.5, so the whole header — and the first note with it — moved right by
-  //   0.2. `headerInk.CLEF_INDENT_SHIFT` is that difference, and `clefIndentPass.test.ts` pins the
+  //   0.2. `headerInk.CLEF_INDENT_SHIFT` is that difference, and `headerPlacementPass.test.ts` pins the
   //   drawn indent itself; here it is only a term in the header's total.
   // ⭐⭐ **The clef→meter term is 0.4 as of 2026-09-12, where it was 1.0** — and that is not a tweak:
   //   it is the armed rule of `engine/layout/clefMeterGap` (`stone`, 1.0 sp of CLEAR WHITE, his

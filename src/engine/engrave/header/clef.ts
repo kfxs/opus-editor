@@ -53,8 +53,8 @@ export type { GlyphFont }
  * What a clef is anchored to, as the ink cares about it.
  *
  * ⚠️ `x` is the glyph's ORIGIN — the left edge of where it is stamped, which is where the header's
- * layout put the modifier plus whatever the two nudge passes added (`clefIndentPass` for the
- * engraved indentation, `clefOffsetPass` for a hand offset). ⛔ Not a centre.
+ * placement put it (`rendering/headerPlacementPass`, from {@link clefOriginX}) plus a hand offset if
+ * one was nudged in (`clefOffsetPass`). ⛔ Not a centre.
  */
 export interface ClefAnchor {
   x: number
@@ -83,10 +83,28 @@ export function clefPlacement(anchor: ClefAnchor): ClefPlacement {
 }
 
 /**
+ * ⭐⭐ **THE OTHER HALF OF "WHERE A CLEF GOES" — its ORIGIN x, stated from the boundary it is
+ * indented from** (P5b's placement step; the caller is `rendering/headerPlacementPass`).
+ *
+ * A clef's INK begins `indent` staff spaces inside the staff's left edge — 0.7 by his call, three
+ * sources agreeing (`layout/headerInk.CLEF_INDENT`). ⚠️ **The ink, ⛔ not the origin**: a glyph's ink
+ * may start beside its origin (`fClef` by 0.02 sp), so the origin is set back by that bearing and the
+ * INK lands where the rule says. ⭐ The same correction the meter has always made for a digit's.
+ *
+ * ⛔ Nothing here decides WHICH boundary or WHAT indent — both are the caller's, because the answer
+ * differs for a line-opening clef and a mid-bar change, and the second is an open question.
+ */
+export function clefOriginX(
+  boundaryX: number, indent: number, glyphLeft: number, space: number,
+): number {
+  return boundaryX + (indent - glyphLeft) * space
+}
+
+/**
  * ⭐ **THE INK** — one glyph, in the face it was handed, inside its own group.
  *
  * 🚨 **The group is load-bearing and must keep its id.** `g.vf-clef` is what
- * `clefIndentPass.test.ts` reads to find a drawn clef (`g.vf-clef text` — a looser selector falls
+ * `headerPlacementPass.test.ts` reads to find a drawn clef (`g.vf-clef text` — a looser selector falls
  * through to the first notehead) and what `e2e/slur.e2e.ts` measures clefs with, and the ID is how
  * `ElementRegistry`'s box resolves back to ink. ⇒ this reproduces `Clef.draw`'s
  * `openGroup('clef', id)` exactly.

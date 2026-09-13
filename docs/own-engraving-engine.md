@@ -1166,8 +1166,45 @@ as the safety argument requires.
 VexFlow's `customPadding` itself, because that padding IS the gap — and `headerInk.clefToMeterGap()`
 feeds the RESERVATION the same number, so the two sets of numbers became one.
 
-⇒ ⏭️ **What is left of the placement is the rest of the run**: the clef's own x (still the walk plus
-`clefIndentPass`/`clefOffsetPass` by `setX`), the meter's origin, and the opening barline's.
+#### ✅ P5b, fifth step — THE PLACEMENT (2026-09-13): the header run is PLACED, not walked
+
+⭐⭐ `rendering/headerPlacementPass` replaces `clefIndentPass`. **A line-opening CLEF is placed from
+the staff's own edge** — its INK at `CLEF_INDENT` 0.7 sp, the origin set back by the glyph's left
+bearing (`engrave/header/clef.clefOriginX`) — and **the METER is placed from the INK of whatever
+precedes it**, the key signature or the clef.
+
+⭐ **"PLACED, not shifted" is the whole of the step.** A shift is an opinion about somebody else's
+number: the drawn position stayed VexFlow's 0.5 (*its own opening barline's width*, which nobody
+chose) plus our 0.2 correction. ⇒ ⛔ nothing of VexFlow's is inside the answer now, and
+`VEXFLOW_CLEF_INDENT` survives only in the WIDTH model, where `CLEF_FULL` was measured at that
+baseline.
+
+⭐⭐ **THE DIVIDEND, and it is the one this phase was named for: the header's horizontal ORDER is a
+jsdom assertion.** The meter's x came from `Stave.format()`'s walk — `x += clef.getWidth()`, a
+runtime `measureText` — plus the gap as `customPadding`. `VexFlowRenderer.scene.test.ts` held that as
+a **passing** assertion of the limit (*"a zero-width clef advances the walk by nothing"*, clef and
+meter at the same x), written so it would fail the day the placement became ours. ⭐ **It failed in
+the run that landed this**, and now states the rule instead: the meter stands right of the clef, at
+the armed gap, computed from `glyphBox`. ⇒ `EngravedStave.clefToMeterPadding` is gone with it.
+
+🚨🚨 **AND UNIFYING THE TWO ARMS FOUND A CONTRADICTION THAT IS ⛔ NOT SETTLED.** The clef→meter and
+key→meter gaps convert an ink target to an origin **with opposite signs** for the digit's 0.08 bearing
+— and *each measures correct against its own browser spec*: written with one conversion,
+`e2e/headerGap` read **0.80** against the armed 1.0; written with the other, `e2e/keySignature` read
+**1.31** against LilyPond's 1.15. Both cannot be true of one conversion ⇒ **one of the two ANCHORS is
+off by 0.16 sp** — `keySignatureInkRight`, or the font's clef ink-right. ⭐ Settling it means measuring
+those anchors against the DRAWN ink, ⛔ not reasoning about bearings; each arm therefore keeps the
+expression its own spec verifies, stated side by side with the finding. ⚠️ **No score moves by a
+pixel from it.**
+
+⚠️ What DOES move: a **bass clef by 0.2 px** (its 0.02 sp bearing, now honoured so *"the ink begins at
+0.7"* is true rather than true-to-within-a-bearing), and the clef→meter anchor by the 0.02 sp between
+the font's clef ink and VexFlow's box.
+
+⇒ ⏭️ **What is left of the placement is one question, ⛔ not a list**: a **MID-BAR** clef or meter
+change still sits at VexFlow's 0.5 sp after the boundary. ⭐ That is *"how far after a barline does a
+mid-bar sign stand?"* — Gould p. 42–43 allows *"a stave-space… on either side of a barline"* — and it
+belongs to the **CLEF REVIEW**, which is HIS. ⛔ A migration step may not choose it.
 
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 

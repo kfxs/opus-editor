@@ -25,9 +25,10 @@
  * ⚠️ The key signature was never among the modifiers at all — `stave.addKeySignature` is never called
  * in this repo; `KeySignaturePass` draws it, and already through our own context.
  *
- * ⛔ **What is left is the parent plan's other half**: *"`headerInk.ts` already MEASURES what a clef
- * and a meter cost; `Stave` still PLACES them"*. ⇒ P5b has taken every set of INK on this stave and
- * ⛔ not one PLACEMENT — every x below is still `Stave.format()`'s modifier walk.
+ * ⭐ **And the parent plan's other half has followed it** — *"`headerInk.ts` already MEASURES what a
+ * clef and a meter cost; `Stave` still PLACES them"*. `rendering/headerPlacementPass` now places the
+ * line-opening clef and the meter from INK; ⛔ what is still `Stave.format()`'s walk is a MID-BAR
+ * clef or meter change, which sits at VexFlow's 0.5 sp because nobody has chosen otherwise.
  *
  * ⚠️ **A subclass, for the reason `EngravedBeam` and `EngravedStem` are ones.** Every number read
  * below is public API (`getX`, `getWidth`, `getYForLine`, `getNumLines`, `options`) or `protected`
@@ -46,8 +47,6 @@ import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/eng
 import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
-import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
-import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { acceptsInkSurface } from './inkSurface'
 
 export class EngravedStave extends Stave {
@@ -184,47 +183,21 @@ export class EngravedStave extends Stave {
    * clef and staff lines. A preview is not the page.
    */
   override addTimeSignature(timeSpec: string, customPadding?: number, position?: number): this {
-    this.addModifier(
-      new EngravedTimeSignature(timeSpec, customPadding ?? this.clefToMeterPadding()),
-      position,
-    )
+    this.addModifier(new EngravedTimeSignature(timeSpec, customPadding), position)
     return this
   }
 
-  /**
-   * ⭐⭐ **WHAT SEPARATES A CLEF FROM THE METER AFTER IT — ours as of 2026-09-12, and it is the last
-   * gap of the header run that nobody had ever chosen** (`layout/clefMeterGap` carries the whole
-   * finding; `docs/header-spacing-research.md` §4.4).
+  /*
+   * ⭐ `clefToMeterPadding` used to stand here — the clef→meter gap expressed as VexFlow's
+   * `customPadding`, so that `Stave.format()`'s walk would land the meter in the right place
+   * (`8849d2e`). ⛔ It decides nothing now: P5b's placement step PLACES the meter from the clef's own
+   * ink (`rendering/headerPlacementPass`), which is how the same gap after a KEY SIGNATURE had always
+   * been done. ⚠️ And the pair disagreed by a bearing — see `engrave/header/meter.meterOriginX`.
    *
-   * `Stave.format()`'s begin walk is `x += padding; setX(x); x += width`, and
-   * `StaveModifier.getPadding(i)` is **0 for `i < 2`** — so with the run `[Barline, Clef,
-   * TimeSignature]` this one number IS the gap. It was VexFlow's `customPadding` default of **15 px**
-   * (`timesignature.js:17`), which is why the drawn white measured **1.42 sp, identical for all four
-   * clefs**: ⭐ nothing derived it from any glyph.
-   *
-   * **The arithmetic, and every term is named:**
-   * - the armed rule is **clear white, INK to INK** (`armedClefMeterInk`);
-   * - a clef has **no right side bearing** — Bravura's `gClef` ink `right` 2.684 IS its `advance`,
-   *   and VexFlow's modifier box agrees with the font to 0.02 sp (`headerInkRightX`'s own
-   *   measurement) — so the walk's `x += width` lands on the clef's INK edge and needs no correction;
-   * - a digit's ink starts **0.08 sp BEFORE its origin** (`timeSig4.left` is −0.08), so the origin is
-   *   set that much later. ⭐ Identical to `placeMeterAfterKeySignature`'s correction, and for its
-   *   stated reason: *"the number in the style sheets is white space, not an origin distance."*
-   *
-   * ⚠️ **In the STAVE's own space** (`getSpacingBetweenLines()`), ⛔ not `STAFF_SPACE_PX`: a small
-   * staff must get the same gap **in staff spaces**, which is a different number of pixels.
-   *
-   * ⚠️ **A caller's explicit padding still wins** — `??`, not an override. Nothing in this repo
-   * passes one, and a future caller that does is saying something this default should not silently
-   * contradict.
-   *
-   * ⛔ **It does not reach a CAUTIONARY meter**, and that is VexFlow's doing rather than a guard
-   * here: in the END walk the padding is read as `getPadding(i − lastBarlineIdx)`, which is index 1
-   * for a trailing meter and therefore 0.
+   * ⚠️ The override below therefore passes `customPadding` straight through again, `undefined`
+   * included: VexFlow's own default of 15 px still sizes the walk's slot, and nothing reads the
+   * meter's walked x any more.
    */
-  private clefToMeterPadding(): number {
-    return (armedClefMeterInk() - glyphBox('timeSig4').left) * this.getSpacingBetweenLines()
-  }
 
   /**
    * Every visible line of this stave, as ink. ⚠️ `lineConfig[line].visible` is VexFlow's own per-line

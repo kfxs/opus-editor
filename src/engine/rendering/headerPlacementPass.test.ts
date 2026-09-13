@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 /**
+ * Subject: `./headerPlacementPass` — where each sign of the header stands.
+ *
  * ⭐⭐ **DECISION A — the clef's INDENTATION, measured in a real render**
- * (`docs/header-spacing-research.md` §8 A / §3.4, his call 2026-09-01).
+ * (`docs/header-spacing-research.md` §8 A / §3.4, his call 2026-09-01). ⚠️ This spec moved here with
+ * the code on 2026-09-13, when the indent stopped being a NUDGE applied to VexFlow's 0.5 and became
+ * a PLACEMENT stated from the staff's own edge. The assertions did not change: the drawn answer is
+ * the same 0.7, which is the point of doing it that way.
  *
  * 🚨 **The gap this pass exists for was never a wrong number — it was an ABSENT one.** VexFlow put a
  * line-opening clef 0.50 staff spaces inside the staff, which is its own opening barline's width and

@@ -34,6 +34,10 @@ import { scenePrimitives, sceneGroups, walkScene } from '@/engine/scene/Scene'
 import { LEDGER_LINE_STYLE } from './layoutConfig'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { STAVE_LINE_WIDTH_PX, staffLineMidY } from '@/engine/engrave/staff/staffLines'
+import { meterOriginX } from '@/engine/engrave/header/meter'
+import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
+import { glyphBox } from '@/engine/fonts/fontMetrics'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
 import { resetBeamSlope, setBeamSlopeRule } from './beamSlopeExperiment'
 
@@ -555,7 +559,7 @@ describe('⭐⭐ P5b — the CLEF in the scene, the first symbol of the HEADER t
     const staveX = sceneGroups(scene, 'stave')
       .flatMap(g => scenePrimitives(g))
       .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo' ? [p.ops[0].x] : []))
-    // ⭐ The engraved indentation (`clefIndentPass`, 0.7 sp) — the clef begins inside the edge.
+    // ⭐ The engraved indentation (`headerPlacementPass`, 0.7 sp) — the clef begins inside the edge.
     expect(clef.x, 'indented from the system’s left edge').toBeGreaterThan(Math.min(...staveX))
     const headXs = sceneGroups(scene, 'notehead')
       .flatMap(g => g.children.filter(c => c.kind === 'text'))
@@ -671,33 +675,32 @@ describe('⭐⭐ P5b — the METER in the scene, the second symbol of the HEADER
     expect(top.x, 'the header runs before the music').toBeLessThan(Math.min(...headXs))
   })
 
-  it('🚨 ⛔ and the CLEF→METER ORDER is NOT assertable here — it is width-driven', () => {
-    // 🚨🚨 **The sharpest reminder in this file of where the scene's line falls, and it cost two
-    // failing assertions to find — one of them on 2026-09-12, after the gap became ours.**
-    // `Stave.format()` advances its begin-modifier walk by each modifier's `Element.getWidth()`,
-    // which is a runtime `measureText` — and in jsdom every music glyph measures 0×0
-    // (`reference: jsdom cannot measure glyphs`).
+  it('⭐⭐ the CLEF→METER ORDER and its GAP — assertable HERE as of P5b’s placement step', () => {
+    // ⭐⭐⭐ **THIS ASSERTION USED TO SAY THE OPPOSITE, AND THAT WAS THE POINT.** Until the placement
+    // became ours it read *"a zero-width clef advances the walk by nothing"* and pinned the clef and
+    // the meter at THE SAME x — a passing statement of a jsdom LIMIT, written so that it would fail
+    // the day the limit lifted. It failed on 2026-09-13, in the run that lifted it.
     //
-    // ⚠️⚠️ **And the second half is worse than "the width is zero", which is why arming a gap does
-    // not show up here either.** The walk reads `padding = modifier.getPadding(i + offset)` and then
-    // `if (padding + width === 0) offset--`. A zero-width clef therefore DECREMENTS the offset, so
-    // the time signature at index 2 is asked for `getPadding(1)` — and `StaveModifier.getPadding`
-    // returns 0 below index 2. ⇒ 🚨 **in jsdom a zero-width modifier EATS THE NEXT ONE'S PADDING**,
-    // so the clef and the meter come out at THE SAME x whatever `layout/clefMeterGap` says, and both
-    // a `toBeGreaterThan` and an assertion of the armed gap would be asserting a bug.
-    // ⇒ the clef→meter gap is measured in `e2e/headerGap.e2e.ts`, and ⛔ cannot move here.
-    // ⭐ This is the scene's stated limit — *"⛔ never an INK EXTENT"* — reached from a new angle:
-    // not an extent being READ, but a POSITION that was computed from one. The notehead comparison
-    // above survives because our own column solve places those, ⛔ not `measureText`.
-    // ⇒ the header's horizontal ORDER belongs to the browser suite (`e2e/staffSize.e2e.ts` reads
-    // `.vf-timesignature text` for exactly this reason), and it moves here when the PLACEMENT does —
-    // the next step of P5b.
+    // 🚨 The limit was real and worth recording: `Stave.format()` advanced its begin walk by each
+    // modifier's `Element.getWidth()`, a runtime `measureText` that is 0 in jsdom — and worse, the
+    // walk reads `padding = getPadding(i + offset)` and decrements `offset` when `padding + width`
+    // is zero, so a zero-width clef ATE the meter's padding and no armed gap could show up here.
+    // ⇒ ⭐ **placing from `glyphBox` instead of walking past a `measureText` is what moved the
+    // header's horizontal order out of the browser and into this file.**
     const { scene } = render(2)
     const [[top]] = meters(scene)
     const clefX = sceneGroups(scene, 'clef')
       .flatMap(g => g.children.flatMap(c => (c.kind === 'text' ? [c.x] : [])))
     expect(clefX.length, 'the header has a clef').toBe(1)
-    expect(top.x, 'a zero-width clef advances the walk by nothing').toBeCloseTo(clefX[0], 10)
+    expect(top.x, 'the meter stands RIGHT of the clef').toBeGreaterThan(clefX[0])
+
+    // ⭐ …and at the stated distance: the clef's ink right (the FONT's, not a measured box) plus the
+    // armed clef→meter white, converted to an origin by the digit's own bearing. Every term is a
+    // number we chose, which is why it is checkable without a font.
+    const inkRight = clefX[0] + glyphBox('gClef').right * STAFF_SPACE_PX
+    expect(top.x, 'the armed gap, ink to ink')
+      .toBeCloseTo(meterOriginX(inkRight + armedClefMeterInk() * STAFF_SPACE_PX,
+        glyphBox('timeSig4').left, STAFF_SPACE_PX), 6)
   })
 
   it('⭐ a mid-score METER CHANGE draws a second sign, with its own digits', () => {

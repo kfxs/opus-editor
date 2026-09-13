@@ -20,7 +20,7 @@
  *
  * ⛔ **The PLACEMENT.** A clef's `x` is still `Stave.format()`'s BEGIN-modifier walk (`x += padding;
  * modifier.setX(x); x += width`), and its width is still `Element.getWidth()`, a runtime
- * `measureText`. The two nudge passes still nudge — `clefIndentPass` for the engraved 0.7 sp
+ * `measureText`. The clef is PLACED by `headerPlacementPass` at the engraved 0.7 sp, and a hand offset still nudges
  * indentation, `clefOffsetPass` for a hand offset — and both still work by `setX`/`setXShift` on
  * this very object, which is why every one of those numbers is READ here rather than replaced.
  * ⭐ That is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after, and it is the next

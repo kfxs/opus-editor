@@ -4,7 +4,7 @@
  * ⭐ The rule under test is deliberately small: *the anchor line's y IS the glyph's baseline*. What
  * the spec is really pinning is the two things around it — that the y is a BASELINE rather than a
  * top or a centre (the mistake `CenteredTremolo`'s header is the cautionary tale for), and that the
- * `clef` GROUP and its id survive, because `clefIndentPass.test.ts` finds a drawn clef by
+ * `clef` GROUP and its id survive, because `headerPlacementPass.test.ts` finds a drawn clef by
  * `g.vf-clef text` and `ElementRegistry` resolves its hit box by that id.
  */
 import { describe, it, expect } from 'vitest'

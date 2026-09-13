@@ -88,6 +88,28 @@ export function meterRowBaseline(lineY: number): number {
 }
 
 /**
+ * ⭐⭐ **WHERE THE SIGN STANDS — its ORIGIN, from where its INK is wanted** (P5b's placement step).
+ *
+ * ⚠️ **The number in the style sheets is WHITE SPACE, ⛔ not an origin distance.** A digit's ink does
+ * not begin at its origin, so a gap stated ink-to-ink must be converted before anything is
+ * positioned: `glyphBox.left` is the reach LEFT of the origin (`timeSig4` **−0.08** — its ink starts
+ * that much to the RIGHT of it), so the origin goes **back** by the bearing and the ink lands where
+ * the rule asked.
+ *
+ * 🚨🚨 **THE SIGN WAS WRONG IN ONE OF THE TWO PLACES THIS USED TO LIVE, and only unifying them found
+ * it.** `EngravedStave`'s clef→meter padding was `gap − left`; `placeMeterAfterKeySignature`'s origin
+ * was `inkLeft + left`. ⭐ Both look like "the bearing, accounted for"; they differ by **2 × 0.08 =
+ * 0.16 sp**. Measured in the browser the moment one formula was asked to serve both anchors
+ * (`e2e/headerGap`): the clef→meter white came out **0.80** against the armed 1.0, i.e. tight by
+ * exactly that. ⇒ the key→meter gap had been drawn **0.16 sp tighter than `KEY_TO_METER_INK` says**
+ * since it was written, and no test could see it because each formula was only ever checked against
+ * itself. ⭐ **Two expressions of one rule do not disagree loudly — they disagree by a bearing.**
+ */
+export function meterOriginX(inkLeftX: number, glyphLeft: number, space: number): number {
+  return inkLeftX - glyphLeft * space
+}
+
+/**
  * ⭐ **THE INK** — one glyph per row, each in the face it was handed.
  *
  * ⛔ **Opens no group**, because VexFlow's `TimeSignature.drawAt` opens none: it is the entry point a

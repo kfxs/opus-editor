@@ -1,0 +1,168 @@
+/**
+ * ⭐⭐ **WHERE EACH SIGN OF THE HEADER STANDS — P5b's second half, and the pair P5 is NAMED after.**
+ *
+ * > *"`headerInk.ts` already MEASURES what a clef and a meter cost; `Stave` still PLACES them."*
+ *
+ * P5b took the header's INK one glyph at a time (the clef 2026-09-02, the meter 09-12, the opening
+ * barline 09-13). This is the other set of numbers: the **x** of each of those signs. It replaces
+ * `clefIndentPass`, which nudged the clef by a DIFFERENCE from where VexFlow had left it.
+ *
+ * ## ⭐ THE RULE — each sign is placed from the INK of what precedes it
+ *
+ * | sign | its ink begins | source |
+ * |---|---|---|
+ * | the **CLEF** that opens a line | {@link CLEF_INDENT} **0.7 sp** inside the staff's left edge | Gould p. 6 (*"indented into the stave by one stave-space or a little less"*, drawn 0.67–0.74), Ross p. 144 (*"½ to 1 space"*), Gerou & Lusk (0.62–0.70); LilyPond 0.80, MuseScore 0.75 |
+ * | the **KEY SIGNATURE** | `CLEF_TO_KEY_INK` past the clef's ink | already ours — `KeySignaturePass.firstSignX` |
+ * | the **METER**, after a key signature | `KEY_TO_METER_INK` past the signature's ink | already ours |
+ * | the **METER**, after a clef | {@link armedClefMeterInk} past the clef's ink | ours since `8849d2e` — ⚠️ it reached the page as VexFlow's `customPadding` until this pass, and now it is a PLACEMENT like its twin |
+ *
+ * ⭐⭐ **"PLACED, not shifted", and it is the whole point of the step.** A shift is an opinion about
+ * somebody else's number: it says *"wherever `Stave.format()` left this, add 0.2"*, so the drawn
+ * position is VexFlow's 0.5 — its own opening barline's width, which nobody chose — plus a
+ * correction. ⇒ two numbers describing one distance, which is precisely the pair this phase exists
+ * to close. Placing states the distance once, from the boundary, and ⛔ nothing of VexFlow's is left
+ * inside the answer.
+ *
+ * ⚠️ **A clef's ORIGIN is not its ink**, so the origin is set back by the glyph's left side bearing
+ * (`gClef` and `cClef` 0, `fClef` **0.02 sp**) — the same correction `placeMeterAfterKeySignature`
+ * has always made for a digit's −0.08. ⭐ It is what makes *"the ink begins at 0.7"* true rather than
+ * true-to-within-a-bearing: a bass clef moves 0.2 px left, and is the only thing in the score that
+ * moves.
+ *
+ * ## ⛔ What this does NOT place, and why each is left
+ *
+ * | ⛔ still `Stave.format()`'s walk | why |
+ * |---|---|
+ * | a **MID-LINE clef change** | it sits at VexFlow's 0.5 sp — *its own barline's width*. ⏳ **UNCHOSEN**, and choosing it is a rule about a clef after a barline (Gould p. 42–43 allows *"a stave-space… on either side of a barline"*), which belongs to the CLEF REVIEW and is HIS. ⛔ A migration may not decide it |
+ * | a **MID-LINE meter change** with no clef | the same 0.5, for the same reason, and it is the same question |
+ * | the opening **BARLINE** | it stands ON the boundary; there is nothing to place it from |
+ *
+ * ⭐ So the two cases left are both *"how far after a barline does a mid-bar sign stand?"* — ⭐ **one
+ * question, not two loose ends**, and it is already on someone's list.
+ *
+ * ## 🚨 THE SEQUENCE IS LOAD-BEARING (three wrong attempts, all caught by the BROWSER suite)
+ *
+ * This must run **after** `applyLeadIn` has forced `Stave.format()` (a modifier has no `x` before
+ * that) and **before** `spreadHeaderToSystem` (which divides every BEGIN modifier's offset from the
+ * stave by the staff's scale — a page distance added afterwards would live in a scaled space and a
+ * small staff's header would land 1/k too far right). ⛔ And `setX`, ⛔ never `setXShift`: only `setX`
+ * is what that pass converts. ⭐ A hand nudge (`clefOffsetPass`) is a `setXShift` applied later still,
+ * so the two compose rather than fight.
+ */
+import { Barline, Clef as VexClef, StaveModifierPosition, TimeSignature, type Stave } from 'vexflow'
+import type { Clef, KeySignature } from '@/types/music'
+import { CLEF_INDENT } from '@/engine/layout/headerInk'
+import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
+import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
+import { clefOriginX } from '@/engine/engrave/header/clef'
+import { meterOriginX } from '@/engine/engrave/header/meter'
+import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
+import { keySignatureInkRight } from './KeySignaturePass'
+
+/**
+ * Place every header sign this bar draws that we have a rule for.
+ *
+ * ⛔ Silent about everything else: a bar with no clef and no meter, a mid-line change, the cautionary
+ * signs at the END — all keep the positions `Stave.format()` gave them.
+ */
+export function placeHeaderRun(
+  stave: Stave,
+  isFirstInLine: boolean,
+  clef: Clef,
+  key: KeySignature | undefined,
+): void {
+  if (isFirstInLine) placeOpeningClef(stave, clef)
+  placeMeter(stave, clef, key)
+}
+
+/**
+ * ⭐ **The clef that opens a line, at its engraved indentation** — and the rest of the header run
+ * moves with it.
+ *
+ * ⚠️ **The whole run, ⛔ except the barline it is measured FROM.** A key signature is drawn by
+ * `KeySignaturePass` from this clef's own ink, so it follows without being touched; the meter is
+ * re-placed a line later anyway. What the shared move protects is any BEGIN modifier we have no rule
+ * for yet — it keeps its distance from the clef instead of being left behind, which is the behaviour
+ * `clefIndentPass` had and the reason it moved more than the clef.
+ */
+function placeOpeningClef(stave: Stave, clef: Clef): void {
+  const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
+  if (!modifier) return
+  const space = stave.getSpacingBetweenLines()
+  const target = clefOriginX(stave.getX(), CLEF_INDENT, glyphBox(clefGlyph(clef)).left, space)
+  const dx = target - modifier.getX()
+  if (dx === 0) return
+  for (const other of stave.getModifiers(StaveModifierPosition.BEGIN)) {
+    if (other.getCategory() === Barline.CATEGORY) continue
+    other.setX(other.getX() + dx)
+  }
+}
+
+/**
+ * ⭐⭐ **The meter, at a stated distance past the ink of whatever precedes it** — the key signature if
+ * this bar draws one, otherwise the clef.
+ *
+ * 🚨 **Those two used to be engraved two different ways, and the seam was invisible.** With a key
+ * signature the meter was PLACED from ink at a number we chose (`placeMeterAfterKeySignature`, which
+ * this absorbs); without one it was WALKED there — `x += clef.getWidth()` off a runtime `measureText`
+ * — and the gap arrived as `TimeSignature.customPadding`, which `EngravedStave` had been computing
+ * from {@link armedClefMeterInk} since `8849d2e`. ⭐ Same number, two mechanisms; now one.
+ *
+ * ⚠️ **And the mechanism mattered, not just the tidiness**: a padding is added to whatever the walk
+ * had accumulated, so the clef's drawn width — a font measurement taken at render time — was still
+ * deciding where the meter stood. ⛔ Placing from `glyphBox` means the header's x's no longer depend
+ * on `measureText` at all, which is what lets them be asserted in jsdom.
+ *
+ * ⛔ Declines when nothing it has a rule for precedes the meter — a mid-line meter change with no
+ * clef keeps the walk's position. See the module header's table.
+ */
+function placeMeter(stave: Stave, clef: Clef, key: KeySignature | undefined): void {
+  const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)[0]
+  if (!modifier) return
+  const origin = meterOrigin(stave, clef, key, stave.getSpacingBetweenLines())
+  if (origin === undefined) return
+  modifier.setX(origin)
+}
+
+/**
+ * The meter's ORIGIN, from whichever sign precedes it — or `undefined` when that is nothing this
+ * pass has a rule for.
+ *
+ * ⭐ The gap is keyed on the PAIR, like every other distance in this engine: `KEY_TO_METER_INK`
+ * (LilyPond's `KeySignature.space-alist`) after a signature, {@link armedClefMeterInk} (his `stone`,
+ * 1.0 sp) after a clef.
+ *
+ * 🚨🚨 **THE TWO ARMS CONVERT INK→ORIGIN WITH OPPOSITE SIGNS, AND EACH MEASURES CORRECT. NOT
+ * SETTLED — ⛔ do not "tidy" one into the other.**
+ *
+ * Unifying them is what found it, on 2026-09-13. Written with one conversion
+ * ({@link meterOriginX}, which moves BACK by the digit's bearing), `e2e/headerGap` measured the
+ * clef→meter white at **0.80** against the armed 1.0 — tight by exactly twice the 0.08 bearing.
+ * Written the other way, `e2e/keySignature` measured the key→meter gap at **1.31** against
+ * LilyPond's 1.15 — wide by the same amount. ⇒ ⭐ **each arm is correct with its own sign and wrong
+ * with the other's**, which cannot be true of one conversion — so one of the two ANCHORS is off by
+ * 0.16 sp: either `keySignatureInkRight`, or the font's clef ink-right that this reads. ⛔ Settling
+ * it means measuring those two anchors against the DRAWN ink in a browser, ⛔ not reasoning about
+ * bearings, and ⛔ not a guess inside a migration step. ⚠️ Until then each arm keeps the expression
+ * its own spec verifies, so **no score moves by a pixel** and the disagreement is stated instead of
+ * averaged away.
+ */
+function meterOrigin(
+  stave: Stave, clef: Clef, key: KeySignature | undefined, space: number,
+): number | undefined {
+  const bearing = glyphBox('timeSig4').left * space
+  // ⚠️ Verbatim from `placeMeterAfterKeySignature`, bearing sign included — see the 🚨 above.
+  if (key && key.alterations.length > 0) {
+    return keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space + bearing
+  }
+  const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
+  if (!clefModifier) return undefined
+  // ⚠️ The clef's ink from the FONT, ⛔ not its modifier box: the box is a `measureText`, and a
+  // placement built on one cannot be checked without a browser. ⭐ `firstSignX` already reads the
+  // clef this way to place the key signature, so this is the same measurement, not a second opinion.
+  // 🚨 `getX()` alone is never the answer — a hand offset lives in `getXShift()`
+  // (`reference: a clef's getX is its unshifted origin`).
+  const inkRight = clefModifier.getX() + clefModifier.getXShift()
+    + glyphBox(clefGlyph(clef)).right * space
+  return meterOriginX(inkRight + armedClefMeterInk() * space, glyphBox('timeSig4').left, space)
+}

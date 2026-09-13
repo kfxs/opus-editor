@@ -24,7 +24,7 @@ import { renderBarlines } from './BarlineRenderer'
 import { renderSystemStarts } from './systemStart'
 import { musicSurface, scoreSystemStartIndentPx } from '@/engine/layout/systemStartColumn'
 import { applyClefOffsets, applyStaveClefOffset } from './clefOffsetPass'
-import { applyClefIndent } from './clefIndentPass'
+import { placeHeaderRun } from './headerPlacementPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
@@ -41,7 +41,6 @@ import { effectiveClefAt, effectiveClefBefore, resolveStaffClefs, type StaffClef
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
 import { pairPadding } from '@/engine/layout/spacingPadding'
-import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -2689,14 +2688,14 @@ export class VexFlowRenderer {
     // offset by the staff's scale, so a page distance added here is converted with the rest. Added
     // afterwards it would be a page distance living in a scaled space, and a small staff's meter
     // would sit too far right by 1/k.
-    // ⭐⭐ …indented into the stave (decision A — Gould p. 6, Ross p. 144), and the POSITION IN THIS
-    //   SEQUENCE is the whole of what makes it correct:
-    //   • AFTER `applyLeadIn` forced `Stave.format()`, because a modifier has no `x` before that;
-    //   • BEFORE `placeMeterAfterKeySignature`, so the meter is placed from the indented clef;
-    //   • BEFORE `spreadHeaderToSystem`, so a small staff's indent is converted with everything else.
-    //   🚨 Two browser tests caught the two ways of getting this wrong — see `clefIndentPass`.
-    applyClefIndent(stave, measure.number === 1 || isFirstInLine)
-    placeMeterAfterKeySignature(stave, clef, headerKey)
+    // ⭐⭐ …and the clef indented into the stave (decision A — Gould p. 6, Ross p. 144). ⭐ **Both
+    //   signs are now PLACED rather than nudged** (`./headerPlacementPass`, P5b's placement step),
+    //   and the POSITION IN THIS SEQUENCE is still the whole of what makes it correct:
+    //   • AFTER `applyLeadIn` forced `Stave.format()`, because a modifier has no `x` before that
+    //     — the meter is placed from the CLEF's, which the walk has to have set;
+    //   • BEFORE `spreadHeaderToSystem`, so a small staff's header is converted with everything else.
+    //   🚨 Two browser tests caught the two ways of getting this wrong — see `headerPlacementPass`.
+    placeHeaderRun(stave, measure.number === 1 || isFirstInLine, clef, headerKey)
     spreadHeaderToSystem(stave, scale)
     return stave
   }
@@ -5131,35 +5130,10 @@ function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined
   return Number.isFinite(right) ? right : undefined
 }
 
-/**
- * ⭐⭐ **Put the time signature after the key signature we draw ourselves** — at the distance
- * `KEY_TO_METER_INK` states (LilyPond's `KeySignature.space-alist (time-signature . 1.15)`),
- * measured INK TO INK.
- *
- * ⭐ **PLACED, not shifted.** Asking the signature where its ink ends (`keySignatureInkRight`, the
- * one owner) and putting the meter there is what makes the gap a reader sees the gap that was
- * chosen. Shifting by the room the width model reserved instead left them 0.08 sp apart — small,
- * invisible, and a second opinion about the same distance.
- *
- * ⚠️ A digit's ink starts 0.08 sp PAST its origin (`timeSig4.left` is −0.08), so the origin is set
- * back by that much: the number in the style sheets is white space, not an origin distance.
- *
- * No-op on every bar that draws no signature — which is every bar of every C-major score.
- *
- * ⚠️ Only the **BEGIN** time signature moves. A cautionary meter at the END hangs off the closing
- * barline, the other edge of the bar — the same BEGIN-only rule `spreadHeaderToSystem` states. And
- * it relies on `Stave.format()` having run (`applyLeadIn`'s `setNoteStartX` forces it) with nothing
- * re-formatting after, which is the pair of facts the header spread rides on too.
- */
-function placeMeterAfterKeySignature(stave: Stave, clef: Clef, key: KeySignature | undefined): void {
-  if (!key || key.alterations.length === 0) return
-  const space = stave.getSpacingBetweenLines()
-  const inkLeft = keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space
-  const origin = inkLeft + glyphBox('timeSig4').left * space
-  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
-    if (modifier.getCategory() === 'TimeSignature') modifier.setX(origin)
-  }
-}
+/* ⭐ `placeMeterAfterKeySignature` used to live here. It is now one arm of
+ * `./headerPlacementPass`, beside the clef→meter arm it had been drifting from — the two were the
+ * same distance engraved two different ways (one PLACED from ink, one a `customPadding` added to
+ * `Stave.format()`'s walk), which is exactly the pair P5 is named after. */
 
 function applyLeadIn(stave: Stave, staveX: number, padding: number, header: number, scale: number): void {
   // ⚠️ `padding` only, never `padding + extent`: VexFlow's formatter already shifts the first tick
