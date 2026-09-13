@@ -30,6 +30,13 @@
  *   __header.clefMeter('rossCompass')  // 0.82 — spaced like the first accidental, as Ross does
  *   __header.clefMeter('lilypond')  // 1.52 — ≈ the picture we drew before 2026-09-12
  *   __header.resetClefMeter()
+ *
+ *   __header.dumpBarlineMeter()        // ⭐ the THIRD gap: BARLINE → METER, a mid-line change
+ *   __header.barlineMeter('gerouLusk') // ✅ ARMED, his choice — 0.75, "a little less" than the books
+ *   __header.barlineMeter('books')     // 1.00 — Stone p. 46, stated AND drawn
+ *   __header.barlineMeter('musescore') // 0.63
+ *   __header.barlineMeter('vexflow')   // 0.50 — the unchosen number we drew before
+ *   __header.resetBarlineMeter()
  * ```
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly**: the setting lives in the ENGINE (`engine/` may not
@@ -42,6 +49,10 @@ import {
   HEADER_GAP_RULES, headerGapSettings, resetHeaderGapRule, setHeaderGapRule,
   type HeaderGapRuleName,
 } from '@/engine/layout/headerAccidentalLadder'
+import {
+  BARLINE_METER_RULES, barlineMeterSettings, resetBarlineMeterRule, setBarlineMeterRule,
+  type BarlineMeterRuleName,
+} from '@/engine/layout/barlineMeterGap'
 import {
   CLEF_METER_RULES, clefMeterSettings, resetClefMeterRule, setClefMeterRule,
   type ClefMeterRuleName,
@@ -59,6 +70,19 @@ export interface HeaderGapConsole {
   clefMeter(rule: ClefMeterRuleName): ClefMeterReadout
   resetClefMeter(): ClefMeterReadout
   dumpClefMeter(): ClefMeterReadout
+  /**
+   * ⭐ The third gap on the same run: how far after a BARLINE a mid-line time-signature change
+   * stands (`engine/layout/barlineMeterGap`). ⚠️ Only a bar whose header is a meter and nothing
+   * else changes — a meter after a clef or a key signature is the other two knobs.
+   */
+  barlineMeter(rule: BarlineMeterRuleName): BarlineMeterReadout
+  resetBarlineMeter(): BarlineMeterReadout
+  dumpBarlineMeter(): BarlineMeterReadout
+}
+
+export interface BarlineMeterReadout {
+  armed: BarlineMeterRuleName
+  ink: Record<string, number>
 }
 
 export interface ClefMeterReadout {
@@ -87,6 +111,11 @@ export function headerGapConsole(render: () => void): HeaderGapConsole {
     }
   }
   const report = () => dbg(`[header] rule:${headerGapSettings().rule} — __header.dump() for the table`)
+  const bmNames = Object.keys(BARLINE_METER_RULES) as BarlineMeterRuleName[]
+  const bmReadout = (): BarlineMeterReadout => ({
+    armed: barlineMeterSettings().rule,
+    ink: Object.fromEntries(bmNames.map(n => [n, BARLINE_METER_RULES[n].ink])),
+  })
   const cmNames = Object.keys(CLEF_METER_RULES) as ClefMeterRuleName[]
   const cmReadout = (): ClefMeterReadout => ({
     armed: clefMeterSettings().rule,
@@ -146,6 +175,32 @@ export function headerGapConsole(render: () => void): HeaderGapConsole {
       }
       dbg('[header] ⛔ before 2026-09-12 this was VexFlow’s 15 px padding — 1.42 sp, and nobody chose it.')
       return cmReadout()
+    },
+    barlineMeter: (rule) => {
+      if (!setBarlineMeterRule(rule)) {
+        dbg(`[header] ⛔ no such barline→meter rule: ${rule} — try ${bmNames.map(n => `'${n}'`).join(', ')}`)
+        return bmReadout()
+      }
+      render()
+      dbg(`[header] barline→meter:${barlineMeterSettings().rule} — __header.dumpBarlineMeter() for the table`)
+      return bmReadout()
+    },
+    resetBarlineMeter: () => {
+      resetBarlineMeterRule()
+      render()
+      return bmReadout()
+    },
+    dumpBarlineMeter: () => {
+      const { rule, generation } = barlineMeterSettings()
+      dbg(`[header] barline→meter armed: ${rule} (generation ${generation}). CLEAR WHITE in staff spaces,`)
+      dbg('         the barline’s right ink → the digits’ leftmost, on a MID-LINE meter change:')
+      for (const name of bmNames) {
+        const r = BARLINE_METER_RULES[name]
+        const mark = name === rule ? '▶' : ' '
+        dbg(`  ${mark} ${name.padEnd(10)} ${r.ink.toFixed(2)} sp   — ${r.source}`)
+      }
+      dbg('[header] ⚠️ the books say 1.0 and HIS EYE said less — `books` is the row to go back to.')
+      return bmReadout()
     },
   }
 }

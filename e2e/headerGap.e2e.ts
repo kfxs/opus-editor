@@ -142,3 +142,40 @@ test('🚨 readerInflation — every ink box measures ~1 px per side TOO WIDE', 
   //    why the rule above is asserted on origins: this error (~0.2 sp) is larger than the 0.16 sp
   //    that told two conversions apart.
 })
+
+/**
+ * ⭐⭐ **THE THIRD GAP OF THE HEADER RUN — a MID-LINE meter change, after nothing but the barline**
+ * (`engine/layout/barlineMeterGap`, armed at 0.75 by his call on 2026-09-13).
+ *
+ * ⚠️ Asserted on the ORIGIN for the reason the rule above is: this distance is 0.75 sp and the ink
+ * reader's bias is 0.2 — see `readerInflation`.
+ */
+test('⭐⭐ a mid-line meter change stands the ARMED distance after the barline', async ({ score }) => {
+  const placed = await score.evaluate(async () => {
+    const h = window.__h
+    // A meter change at bar 3 — mid-line, so no clef and no key signature stand in front of it.
+    while (h.engine.getScore().measures.length < 6) h.engine.addMeasure()
+    h.engine.setTimeSignature(3, { numerator: 3, denominator: 4 })
+    await h.render()
+    const stave = h.staves().find(s => s.measure === 3 && s.staff === 0)!
+    const meters = h.glyphs('.vf-timesignature text')
+    // The bar-3 meter is the one whose origin lies inside bar 3.
+    const mine = meters.filter(g => g.x >= stave.x1 - 1 && g.x <= stave.x2)
+    return { staveX: stave.x1, meterOriginX: Math.min(...mine.map(g => g.x)), count: mine.length }
+  })
+
+  expect(placed.count, 'bar 3 draws its own meter').toBeGreaterThan(0)
+
+  // ⭐ The rule: the barline's INK RIGHT (the line grows rightward from the boundary — 0.16 sp of it)
+  //   plus the armed clear white, converted to an origin by the digit's own bearing.
+  const ARMED_BARLINE_METER_SP = 0.75
+  const THIN_BARLINE_SP = 0.16
+  const expected = placed.staveX
+    + (THIN_BARLINE_SP + ARMED_BARLINE_METER_SP + TIME_SIG_LEFT_BEARING) * SPACE
+  expect(placed.meterOriginX, 'the armed gap past the barline’s ink').toBeCloseTo(expected, 2)
+
+  // 🚨 ⛔ NOT VexFlow's 0.5 — the unchosen barline width that placed this until 2026-09-13. The two
+  //    differ by 0.25 sp, which is 2.5 px and well clear of any rounding in an `x` ATTRIBUTE.
+  const vexflow = placed.staveX + (0.5 + TIME_SIG_LEFT_BEARING) * SPACE
+  expect(Math.abs(placed.meterOriginX - vexflow), 'moved off the unchosen number').toBeGreaterThan(2)
+})

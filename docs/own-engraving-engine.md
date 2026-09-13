@@ -1215,10 +1215,42 @@ exact — with the ink checked only as far as the reader can honestly resolve.
 0.7"* is true rather than true-to-within-a-bearing), and the clef→meter anchor by the 0.02 sp between
 the font's clef ink and VexFlow's box.
 
-⇒ ⏭️ **What is left of the placement is one question, ⛔ not a list**: a **MID-BAR** clef or meter
-change still sits at VexFlow's 0.5 sp after the boundary. ⭐ That is *"how far after a barline does a
-mid-bar sign stand?"* — Gould p. 42–43 allows *"a stave-space… on either side of a barline"* — and it
-belongs to the **CLEF REVIEW**, which is HIS. ⛔ A migration step may not choose it.
+#### ✅ P5b, sixth step — the BARLINE → METER gap (2026-09-13), and the header run is complete
+
+The last distance still VexFlow's: a **mid-line time-signature change** sat 0.50 sp past its bar's
+boundary, which is `Barline.widths[SINGLE] = 5 px` — ⭐ the same unchosen number decision A took off
+the clef, arriving by the same route (the begin walk gives the first modifier slot no padding).
+
+⭐⭐ **The books answer this one better than any other gap in the run.** **Stone p. 46** states it in
+prose *and draws what he states* — *"changes of time signatures must be placed one staff-line space
+after the barline, whether within a line or at the end of it"*, plate 0.83/0.97 — with **Gould p. 43**
+measuring 0.94–1.09 and **Ross p. 168** ≈0.9–1.15. The engines sit well below: LilyPond 0.75,
+MuseScore 0.63, Verovio 0.50.
+
+⭐ **HIS EYE LANDED BETWEEN THEM, on the one number the two sides share.** He first took the books'
+1.0 — *"lets use 1.0 as the books, but again this can be changed in the future by the user"* — then
+stood it down: *"1.0 seems to big for me, lets make the default a litle less"*. The armed row is
+**`gerouLusk` 0.75**, which is Gerou & Lusk's drawing AND LilyPond's `TimeSignature.space-alist`
+constant — ⇒ *"a little less"* had a citation waiting and ⛔ no number had to be invented.
+`engine/layout/barlineMeterGap`, four rows, `__header.barlineMeter(…)`.
+
+🚨 **And it moved the WIDTH MODEL, which is the half that would have collided.** `headerExtent` gave
+the FIRST header part no gap at all — *"the bar's lead-in is what stands in front of it"* — so a lone
+meter reserved **nothing** between the barline and its digits while VexFlow drew 0.5. ⇒ a lone meter
+is now the one part that pays a gap while being first, and ⭐ **the exception is real rather than
+tidy**: every other opening part is either a clef (whose distance from the edge is its own INDENT) or
+stands after a part that already paid. ⚠️ Caught by `e2e/spacing`'s two-digit-meter row moving by
+exactly 0.15 = the armed 0.75 less the meter's own 0.6 of air.
+
+⚠️ **Untested until it wasn't**: no `headerExtent` case in the suite had ever had a meter WITHOUT a
+clef, so the reservation change passed 6278 tests silently. `layout/barlineMeterGap.test.ts` now pins
+the branch, and the drawn side is an ORIGIN assertion in `e2e/headerGap`.
+
+⇒ ⏭️ **What is left of the placement is ONE case, and it is not a gap**: a **mid-line CLEF change**
+still sits at that 0.5. ⭐ But the books are unanimous that a clef change belongs **BEFORE** the
+barline (Gould p. 8; Ross p. 167 and Gerou & Lusk p. 51 forbid the other arrangement outright) and two
+of three engines place it there — so its 0.5 is not a gap to tune but a **SIDE to change**, which is
+a model widening and HIS (`docs/clef.md` §0.1a). ⛔ A migration step may not choose it.
 
 ### P6 — THE RULER (the bounding box) — ⭐ added 2026-09-01, HIS call
 

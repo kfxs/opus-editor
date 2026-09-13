@@ -15,6 +15,7 @@
  * | the **KEY SIGNATURE** | `CLEF_TO_KEY_INK` past the clef's ink | already ours — `KeySignaturePass.firstSignX` |
  * | the **METER**, after a key signature | `KEY_TO_METER_INK` past the signature's ink | already ours |
  * | the **METER**, after a clef | {@link armedClefMeterInk} past the clef's ink | ours since `8849d2e` — ⚠️ it reached the page as VexFlow's `customPadding` until this pass, and now it is a PLACEMENT like its twin |
+ * | the **METER**, after nothing but the BARLINE | `armedBarlineMeterInk` past the barline's ink | ⭐ the books state this one — Stone p. 46, armed at **1.0** (`layout/barlineMeterGap`) |
  *
  * ⭐⭐ **"PLACED, not shifted", and it is the whole point of the step.** A shift is an opinion about
  * somebody else's number: it says *"wherever `Stave.format()` left this, add 0.2"*, so the drawn
@@ -34,11 +35,14 @@
  * | ⛔ still `Stave.format()`'s walk | why |
  * |---|---|
  * | a **MID-LINE clef change** | it sits at VexFlow's 0.5 sp — *its own barline's width*. ⏳ **UNCHOSEN**, and choosing it is a rule about a clef after a barline (Gould p. 42–43 allows *"a stave-space… on either side of a barline"*), which belongs to the CLEF REVIEW and is HIS. ⛔ A migration may not decide it |
- * | a **MID-LINE meter change** with no clef | the same 0.5, for the same reason, and it is the same question |
+ * | ~~a **MID-LINE meter change** with no clef~~ | ✅ **taken 2026-09-13** — the books state this one (Stone p. 46, *"one staff-line space after the barline"*), armed at 1.0 in `layout/barlineMeterGap` |
  * | the opening **BARLINE** | it stands ON the boundary; there is nothing to place it from |
  *
- * ⭐ So the two cases left are both *"how far after a barline does a mid-bar sign stand?"* — ⭐ **one
- * question, not two loose ends**, and it is already on someone's list.
+ * ⭐ **So ONE case is left, and it is not really this module's**: a mid-line CLEF change. The books
+ * are unanimous that a clef change belongs **BEFORE** the barline (Gould p. 8, *"the clef always goes
+ * before the barline"*; Ross p. 167 and Gerou & Lusk p. 51 forbid the other arrangement outright), and
+ * two of the three engines place it there. ⇒ its 0.5 is not a gap to tune but a SIDE to change, which
+ * is a model widening and HIS — `docs/clef.md` §0.1a.
  *
  * ## 🚨 THE SEQUENCE IS LOAD-BEARING (three wrong attempts, all caught by the BROWSER suite)
  *
@@ -54,10 +58,12 @@ import type { Clef, KeySignature } from '@/types/music'
 import { CLEF_INDENT } from '@/engine/layout/headerInk'
 import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
 import { armedClefMeterInk } from '@/engine/layout/clefMeterGap'
+import { armedBarlineMeterInk } from '@/engine/layout/barlineMeterGap'
 import { clefOriginX } from '@/engine/engrave/header/clef'
 import { meterOriginX } from '@/engine/engrave/header/meter'
 import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { keySignatureInkRight } from './KeySignaturePass'
+import { THIN_BARLINE_PX } from './barlineInk'
 
 /**
  * Place every header sign this bar draws that we have a rule for.
@@ -150,7 +156,14 @@ function meterOrigin(
     return meterOriginX(keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space, bearing, space)
   }
   const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
-  if (!clefModifier) return undefined
+  // ⭐ Nothing in front of it but the boundary ⇒ a MID-LINE meter change, and the books give that
+  //   pair its own number (`layout/barlineMeterGap` — Stone p. 46, armed at 1.0 by his call).
+  //   ⚠️ The anchor is the barline's INK RIGHT, ⛔ not the boundary: the line grows RIGHTWARD from
+  //   the boundary (`engrave/staff/openingBarline`'s rule 2), so its ink ends a thickness later.
+  if (!clefModifier) {
+    return meterOriginX(
+      stave.getX() + THIN_BARLINE_PX + armedBarlineMeterInk() * space, bearing, space)
+  }
   // ⚠️ The clef's ink from the FONT, ⛔ not its modifier box: the box is a `measureText`, and a
   // placement built on one cannot be checked without a browser. ⭐ `firstSignX` already reads the
   // clef this way to place the key signature, so this is the same measurement, not a second opinion.

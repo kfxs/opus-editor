@@ -1,5 +1,6 @@
 import type { Clef, KeySignature, TimeSignature } from '@/types/music'
 import { armedClefMeterInk } from './clefMeterGap'
+import { armedBarlineMeterInk } from './barlineMeterGap'
 import {
   CLEF_TO_KEY_INK, KEY_TO_METER_INK, METER_PART_LEFT_AIR, keySignatureExtent,
 } from './keySignatureLayout'
@@ -299,6 +300,21 @@ function keyToMeterGap(): number {
 }
 
 /**
+ * ⭐ **The BOX gap the model charges between the BARLINE and a meter that follows it with nothing in
+ * between** — a mid-line time-signature change. {@link armedBarlineMeterInk} of visible white, less
+ * the air the meter's own extent already carries in front of its digits. ⛔ Never quote this number;
+ * quote the ink one.
+ *
+ * 🚨 **This is the one part that pays a gap while being FIRST**, and the exception is real rather
+ * than tidy: every other opening part is either a clef (whose distance from the edge is its own
+ * INDENT, decision A) or stands after a part that already paid. A lone meter follows a drawn
+ * BARLINE, and the books give that pair its own number — Stone p. 46 states it outright.
+ */
+export function barlineToMeterGap(): number {
+  return armedBarlineMeterInk() - METER_PART_LEFT_AIR
+}
+
+/**
  * ⭐ A CAUTIONARY clef, key or meter, drawn at the END of a line to warn of the next one's — same
  * glyphs, same measurements, and no reason for a second set of numbers.
  *
@@ -357,7 +373,7 @@ export function headerExtent(header: Header): number {
    * definition in `keySignatureLayout.ts`. ⛔ A new header part adds a ROW here, never a constant
    * somewhere else — the same rule `spacingPadding` follows for note columns.
    */
-  const parts: Array<{ gap: number; extent: number }> = []
+  const parts: Array<{ gap: number; extent: number; paysWhenFirst?: boolean }> = []
   if (header.clef) {
     // ⭐ The full clef carries the INDENT shift (decision A); the small one does not — a mid-line
     //   clef change is not indented from anything. See {@link CLEF_INDENT_SHIFT}.
@@ -375,9 +391,17 @@ export function headerExtent(header: Header): number {
   const keyInk = header.key ? keySignatureExtent(header.key) : 0
   if (keyInk > 0) parts.push({ gap: CLEF_TO_KEY_INK, extent: keyInk })
   if (header.meter) {
-    parts.push({ gap: keyInk > 0 ? keyToMeterGap() : clefToMeterGap(), extent: meterExtent(header.meter) })
+    // ⭐ Keyed on WHAT PRECEDES IT — a key signature, a clef, or (below) the barline itself.
+    parts.push({
+      gap: keyInk > 0 ? keyToMeterGap() : header.clef ? clefToMeterGap() : barlineToMeterGap(),
+      extent: meterExtent(header.meter),
+      paysWhenFirst: true,
+    })
   }
   if (parts.length === 0) return 0
-  // The FIRST part pays no gap, whatever it is — the bar's lead-in is what stands in front of it.
-  return parts.reduce((sum, part, i) => sum + part.extent + (i === 0 ? 0 : part.gap), 0)
+  // ⭐ The FIRST part pays no gap — the bar's lead-in is what stands in front of it — ⚠️ **except a
+  // lone METER, which follows a drawn BARLINE and whose distance from it the books do state**
+  // ({@link barlineToMeterGap}). A clef never pays here: its distance from the edge is its INDENT.
+  return parts.reduce(
+    (sum, part, i) => sum + part.extent + (i > 0 || part.paysWhenFirst ? part.gap : 0), 0)
 }

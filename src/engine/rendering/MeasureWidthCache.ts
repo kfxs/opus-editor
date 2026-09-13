@@ -3,6 +3,7 @@ import type { Measure } from '@/types/music'
 import { spacingGeneration } from '@/engine/layout/spacing'
 import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
 import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
+import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 
 /**
  * Memo for the expensive half of the width calc: the VexFlow `Formatter` call that decides how
@@ -133,6 +134,7 @@ export function laneFingerprint(lane: Measure): string {
       // 🚨 A WIDTH, like the line above it: arming a clef→meter row makes every header narrower or
       //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
       clefMeterGapGeneration(),
+      barlineMeterGapGeneration(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it

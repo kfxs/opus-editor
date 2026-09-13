@@ -596,7 +596,13 @@ test('⭐⭐ the HEADER is ours: what the layout reserves is where the first not
   //    tighter than the drawing can (0.9 mid-line against our 1.2 floor — see `pairPadding`).
   expect(drawn.nothing, 'a bar drawing no header at all is just the lead-in').toBeCloseTo(1.2, 1)
   // ⭐ The case one constant could never describe: two digits are 1.2 spaces wider than one.
-  expect(drawn.twoDigitMeter, 'a two-digit meter').toBeCloseTo(2.0 + 3.6, 1)
+  // ⭐⭐ **+0.15 as of 2026-09-13, and it is the first gap a FIRST header part has ever paid.** A
+  //   lone meter — a mid-line time-signature change — follows a drawn BARLINE, and the books give
+  //   that pair its own number: `layout/barlineMeterGap`, armed at 0.75 sp of clear white by his
+  //   call, less the 0.6 of air the meter part's extent already carries. Before this the model
+  //   reserved NOTHING there while VexFlow drew it at its own barline's width (0.5), which is the
+  //   same unchosen number decision A took off the clef.
+  expect(drawn.twoDigitMeter, 'a two-digit meter, after the barline gap').toBeCloseTo(2.0 + 3.6 + 0.15, 1)
 
   // ⭐⭐ And the payoff: the system-opening bar's music is no longer stretched more than its
   //     neighbours', because the room reserved for its header is the room the header takes.
