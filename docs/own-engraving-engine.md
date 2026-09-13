@@ -1158,7 +1158,8 @@ the KIND of number before the value: LilyPond (1.52), MuseScore (1.00) and Verov
 **ink to ink**, and 🚨 **the only advance-based engine in the comparison is VexFlow, the dependency we
 are removing**. It landed as a **4-row table with a console knob** (`__header.clefMeter(…)`), and
 ⭐ **HIS EYE armed the row**: `stone` — *"we can start with a value of 1.0 as default but the user in
-the future will be able to change it"* — measured drawn **0.98** in `e2e/headerGap.e2e.ts`, which is
+the future will be able to change it"* — ⚠️ *measured drawn 0.98* at the time, which the fifth step
+below shows was the reader's bias over a true **1.16**; it draws 1.0 as of 2026-09-13. The 0.98 is
 also Ross's own plate. ⚠️ It MOVED INK (the header is **0.6 sp narrower**) and took its own commit,
 as the safety argument requires.
 
@@ -1187,15 +1188,28 @@ meter at the same x), written so it would fail the day the placement became ours
 the run that landed this**, and now states the rule instead: the meter stands right of the clef, at
 the armed gap, computed from `glyphBox`. ⇒ `EngravedStave.clefToMeterPadding` is gone with it.
 
-🚨🚨 **AND UNIFYING THE TWO ARMS FOUND A CONTRADICTION THAT IS ⛔ NOT SETTLED.** The clef→meter and
-key→meter gaps convert an ink target to an origin **with opposite signs** for the digit's 0.08 bearing
-— and *each measures correct against its own browser spec*: written with one conversion,
-`e2e/headerGap` read **0.80** against the armed 1.0; written with the other, `e2e/keySignature` read
-**1.31** against LilyPond's 1.15. Both cannot be true of one conversion ⇒ **one of the two ANCHORS is
-off by 0.16 sp** — `keySignatureInkRight`, or the font's clef ink-right. ⭐ Settling it means measuring
-those anchors against the DRAWN ink, ⛔ not reasoning about bearings; each arm therefore keeps the
-expression its own spec verifies, stated side by side with the finding. ⚠️ **No score moves by a
-pixel from it.**
+🚨🚨 **UNIFYING THE TWO ARMS FOUND A CONTRADICTION — ✅ SETTLED THE SAME DAY, AND THE INSTRUMENT WAS
+THE CULPRIT.** The clef→meter and key→meter gaps converted an ink target to an origin **with opposite
+signs** for the digit's 0.08 bearing, and *each measured correct against its own browser spec*. Both
+specs were wrong the same way:
+
+⭐⭐ **`getBoundingClientRect` rounds every ink box OUTWARD by up to a device pixel per side**, so a
+white gap between two glyphs reads **~0.2 sp too small** at the default staff — larger than the 0.16
+the two signs differ by. ⇒ 🚨 **the instrument confirmed whichever form was tried last.** Calibrated
+against two glyphs of known width at staff sizes 1 and 8 — the measurement is now a spec of its own
+(`e2e/headerGap`'s `readerInflation`) — both converge on the font's numbers as the pixel shrinks:
+notehead **1.300 → 1.187** against the font's 1.18, clef **2.900 → 2.687** against 2.684.
+
+✅ **So `+ bearing` is right** — the form all three engines compute (LilyPond's
+`extents[RIGHT] + distance − extents[next][LEFT]`, `docs/ink-anchors-and-side-bearings.md`), and the
+one the key→meter arm always had. ⇒ ⚠️ **the clef→meter gap had been drawing at ~1.16 since
+`8849d2e`, not the 1.0 he armed** — the *"measured drawn 0.98"* that ratified it was reading the bias.
+It draws 1.0 now, and the two arms are one conversion again.
+
+⭐⭐ **The lesson outlives the sign**: two expressions of one rule do not disagree loudly — they
+disagree by a bearing; and a spec whose tolerance (±0.05) is smaller than its instrument's bias
+(0.2 sp) reads as confirmation. ⇒ the gap is now asserted on **the ORIGIN we placed** — an attribute,
+exact — with the ink checked only as far as the reader can honestly resolve.
 
 ⚠️ What DOES move: a **bass clef by 0.2 px** (its 0.02 sp bearing, now honoured so *"the ink begins at
 0.7"* is true rather than true-to-within-a-bearing), and the clef→meter anchor by the 0.02 sp between

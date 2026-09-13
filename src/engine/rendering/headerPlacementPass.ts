@@ -132,28 +132,22 @@ function placeMeter(stave: Stave, clef: Clef, key: KeySignature | undefined): vo
  * (LilyPond's `KeySignature.space-alist`) after a signature, {@link armedClefMeterInk} (his `stone`,
  * 1.0 sp) after a clef.
  *
- * 🚨🚨 **THE TWO ARMS CONVERT INK→ORIGIN WITH OPPOSITE SIGNS, AND EACH MEASURES CORRECT. NOT
- * SETTLED — ⛔ do not "tidy" one into the other.**
- *
- * Unifying them is what found it, on 2026-09-13. Written with one conversion
- * ({@link meterOriginX}, which moves BACK by the digit's bearing), `e2e/headerGap` measured the
- * clef→meter white at **0.80** against the armed 1.0 — tight by exactly twice the 0.08 bearing.
- * Written the other way, `e2e/keySignature` measured the key→meter gap at **1.31** against
- * LilyPond's 1.15 — wide by the same amount. ⇒ ⭐ **each arm is correct with its own sign and wrong
- * with the other's**, which cannot be true of one conversion — so one of the two ANCHORS is off by
- * 0.16 sp: either `keySignatureInkRight`, or the font's clef ink-right that this reads. ⛔ Settling
- * it means measuring those two anchors against the DRAWN ink in a browser, ⛔ not reasoning about
- * bearings, and ⛔ not a guess inside a migration step. ⚠️ Until then each arm keeps the expression
- * its own spec verifies, so **no score moves by a pixel** and the disagreement is stated instead of
- * averaged away.
+ * ✅✅ **THE TWO ARMS ARE ONE RULE AGAIN (2026-09-13), and the detour is the part worth keeping.**
+ * They briefly converted ink→origin with OPPOSITE signs, each "verified" by its own browser spec.
+ * Both specs were wrong the same way: `getBoundingClientRect` rounds an ink box outward by up to a
+ * device pixel per side, so a white gap reads **~0.2 sp too small** — more than the 0.16 the two
+ * signs differ by ([[reference_the_browser_ink_reader_inflates_every_box]]). ⇒ 🚨 **the instrument
+ * confirmed whichever form was tried last.** Calibrated against glyphs of known width, `+ left` is
+ * right — and it is what all three engines compute (`docs/ink-anchors-and-side-bearings.md`).
+ * ⭐ So there is one conversion, {@link meterOriginX}, and the arms differ only in **what precedes
+ * the meter** and **which gap belongs to that pair** — which is all they ever should have.
  */
 function meterOrigin(
   stave: Stave, clef: Clef, key: KeySignature | undefined, space: number,
 ): number | undefined {
-  const bearing = glyphBox('timeSig4').left * space
-  // ⚠️ Verbatim from `placeMeterAfterKeySignature`, bearing sign included — see the 🚨 above.
+  const bearing = glyphBox('timeSig4').left
   if (key && key.alterations.length > 0) {
-    return keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space + bearing
+    return meterOriginX(keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space, bearing, space)
   }
   const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
   if (!clefModifier) return undefined
@@ -164,5 +158,5 @@ function meterOrigin(
   // (`reference: a clef's getX is its unshifted origin`).
   const inkRight = clefModifier.getX() + clefModifier.getXShift()
     + glyphBox(clefGlyph(clef)).right * space
-  return meterOriginX(inkRight + armedClefMeterInk() * space, glyphBox('timeSig4').left, space)
+  return meterOriginX(inkRight + armedClefMeterInk() * space, bearing, space)
 }

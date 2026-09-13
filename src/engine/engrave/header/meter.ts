@@ -96,17 +96,30 @@ export function meterRowBaseline(lineY: number): number {
  * that much to the RIGHT of it), so the origin goes **back** by the bearing and the ink lands where
  * the rule asked.
  *
- * 🚨🚨 **THE SIGN WAS WRONG IN ONE OF THE TWO PLACES THIS USED TO LIVE, and only unifying them found
- * it.** `EngravedStave`'s clef→meter padding was `gap − left`; `placeMeterAfterKeySignature`'s origin
- * was `inkLeft + left`. ⭐ Both look like "the bearing, accounted for"; they differ by **2 × 0.08 =
- * 0.16 sp**. Measured in the browser the moment one formula was asked to serve both anchors
- * (`e2e/headerGap`): the clef→meter white came out **0.80** against the armed 1.0, i.e. tight by
- * exactly that. ⇒ the key→meter gap had been drawn **0.16 sp tighter than `KEY_TO_METER_INK` says**
- * since it was written, and no test could see it because each formula was only ever checked against
- * itself. ⭐ **Two expressions of one rule do not disagree loudly — they disagree by a bearing.**
+ * 🚨🚨 **THE SIGN WAS WRONG IN ONE OF THE TWO PLACES THIS USED TO LIVE, AND THE INSTRUMENT THAT
+ * "SETTLED" IT WAS BIASED — the whole episode is worth more than the function.** `EngravedStave`'s
+ * clef→meter padding was `gap − left`; `placeMeterAfterKeySignature`'s origin was `inkLeft + left`.
+ * ⭐ Both look like *"the bearing, accounted for"*; they differ by **2 × 0.08 = 0.16 sp**.
+ *
+ * ⚠️ **The first attempt to settle it MEASURED THE WRONG WAY ROUND.** Asked to serve both anchors,
+ * the `+ left` form read **0.80** in the browser against the armed 1.0 and was "corrected" to
+ * `− left`, which read 0.96. ⇒ 🚨 **both readings were ≈0.17 sp too small**, because
+ * `getBoundingClientRect` rounds every ink box OUTWARD by up to a device pixel per side and a white
+ * gap therefore reads ~2 px short ([[reference_the_browser_ink_reader_inflates_every_box]] — the
+ * calibration is in `e2e/headerGap`). The true drawn gaps were **1.0** and **1.16**.
+ *
+ * ✅ **So `+ left` is right**, and it is what all three engines compute: LilyPond's own line is
+ * `offsets[next] = extents[idx][RIGHT] + distance − extents[next][LEFT]`
+ * (`break-alignment-interface.cc:243`), and `extents[LEFT]` is the ink's signed offset from the
+ * origin — the negative of our `glyphBox.left`. ⇒ ⭐ **the key→meter arm had been right all along**,
+ * and the clef→meter gap had been ~1.16 since `8849d2e` rather than the 1.0 he armed.
+ *
+ * ⭐⭐ **The lesson is not the sign.** Two expressions of one rule do not disagree loudly — they
+ * disagree by a bearing; and an instrument whose error (0.2 sp) exceeds the effect (0.16 sp) will
+ * confirm whichever one you tried last. `docs/ink-anchors-and-side-bearings.md`.
  */
 export function meterOriginX(inkLeftX: number, glyphLeft: number, space: number): number {
-  return inkLeftX - glyphLeft * space
+  return inkLeftX + glyphLeft * space
 }
 
 /**

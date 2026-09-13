@@ -132,7 +132,16 @@ test('⭐⭐ the METER moved over for the signature — the room reserved is the
   //   `clefToMeterGap()` = 0.4 (the armed 1.0 sp of clear white, less the meter's left air —
   //   `engine/layout/clefMeterGap`). So the no-key BASELINE this delta is measured from tightened by
   //   0.6, and `headerKeyRoom` grew by 0.6 to match. ⛔ The signature's own two gaps did not change.
-  expect((moved.meterAfter - moved.meterBefore) / 10, 'reserved = drawn').toBeCloseTo(3.04, 1)
+  //
+  // ⭐ **3.04 → 3.21 on 2026-09-13, and again only the BASELINE moved.** The no-key meter is placed
+  //   from the clef's ink by the same conversion this arm uses, and that conversion's bearing had
+  //   the wrong SIGN — it read as correct because the browser's ink reader under-reports a white gap
+  //   by ~0.2 sp, more than the 0.16 the two signs differ by
+  //   (`e2e/headerGap`'s `readerInflation` calibration). ⇒ the no-key meter moved 1.6 px LEFT, onto
+  //   the armed 1.0 of clear white it was always supposed to have, and this delta grew by exactly
+  //   that. ⛔ The WITH-key placement did not move — the assertion below is unchanged, and that is
+  //   the proof this was the baseline and not the signature.
+  expect((moved.meterAfter - moved.meterBefore) / 10, 'reserved = drawn').toBeCloseTo(3.21, 1)
   // ⭐⭐ **The white a reader actually sees, INK TO INK** — the sharp's ink ends at its origin + its
   //   advance (0.996, and `left` is 0 so the origin IS its left edge), and the digit's ink begins
   //   0.08 sp PAST its own origin (`timeSig4.left` is −0.08).
