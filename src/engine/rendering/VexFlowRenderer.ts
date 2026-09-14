@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, Stem, ClefNote, Metrics } from 'vexflow'
+import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -30,6 +30,7 @@ import { placeHeaderRun } from './headerPlacementPass'
 import { keyStaffId } from '@/engine/models/staffContent'
 import { keySignatureInkRight, renderKeySignatures } from './KeySignaturePass'
 import type { SVGContext } from 'vexflow'
+import { NOTE_AREA_PADDING_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { scaling } from '@/engine/paint/Affine'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { SceneRecorder } from '@/engine/scene/SceneRecorder'
@@ -1315,9 +1316,9 @@ export class VexFlowRenderer {
         measure: measureNumber,
         staff: staffIndex,
         beat,
-        // The drawn line is Stem.WIDTH wide, centred on x. Clicking it is padded by the registry
+        // The drawn line is STEM_THICKNESS_PX wide, centred on x. Clicking it is padded by the registry
         // (STEM_CLICK_PAD) rather than here, so what is stored stays the ink and not a target.
-        bbox: { x: x - Stem.WIDTH / 2, y, width: Stem.WIDTH, height },
+        bbox: { x: x - STEM_THICKNESS_PX / 2, y, width: STEM_THICKNESS_PX, height },
       })
     } catch (_e) { /* stem geometry may not be available pre-draw */ }
   }
@@ -3110,7 +3111,7 @@ export class VexFlowRenderer {
     const beamThickness = beam.renderOptions.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
-      const startX = beamLineStartX(edge.getStemX(), Stem.WIDTH)
+      const startX = beamLineStartX(edge.getStemX(), STEM_THICKNESS_PX)
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       fillBeamRun(pass.context, beamLevelRun(
         { startX, endX }, beamY0, beamThickness, levels,
@@ -3162,7 +3163,7 @@ export class VexFlowRenderer {
     const levels = side.members[0].beamCount
     const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
-    const startX = beamLineStartX(note.getStemX(), Stem.WIDTH)
+    const startX = beamLineStartX(note.getStemX(), STEM_THICKNESS_PX)
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
     const leftEndX = this.crossSystemOverhangEndX(side, startX, -1, scale)
     const rightEndX = this.crossSystemOverhangEndX(side, startX, 1, scale)
@@ -5124,7 +5125,7 @@ export class VexFlowRenderer {
 export { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 
 function noteStartOf(stave: Stave): number {
-  return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
+  return stave.getNoteStartX() + NOTE_AREA_PADDING_PX
 }
 
 /**
@@ -5209,5 +5210,5 @@ function applyLeadIn(stave: Stave, staveX: number, padding: number, header: numb
   //    (`rendering/__tests__/tier1Geometry.test.ts`). The pair
   //    table is chosen so this clamp does not bite — it is here so that a future row which forgets
   //    the constraint fails visibly narrow rather than silently wrong.
-  stave.setNoteStartX(Math.max(staveX, staveX + leadIn - Metrics.get('Stave.padding', 0)))
+  stave.setNoteStartX(Math.max(staveX, staveX + leadIn - NOTE_AREA_PADDING_PX))
 }

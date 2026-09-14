@@ -32,12 +32,12 @@
 import { Accidental, StaveNote } from 'vexflow'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedAccidentalGap } from '@/engine/layout/accidentalGap'
-import { VEXFLOW_ACCIDENTAL_STANDOFF } from './ledgerAccidentalClearance'
+import { ACCIDENTAL_STANDOFF_PX } from './ledgerAccidentalClearance'
 
-/** VexFlow's own standoff, in staff spaces — what the `house` row reproduces, read rather than
- *  restated (`ledgerAccidentalClearance` derives it from the metric plus the literal). */
-export function vexflowAccidentalGapSpaces(): number {
-  return VEXFLOW_ACCIDENTAL_STANDOFF / STAFF_SPACE_PX
+/** The inherited standoff, in staff spaces — what the `house` row reproduces, read rather than
+ *  restated (`ledgerAccidentalClearance` sums `engrave/inheritedDefaults`' two halves). */
+export function inheritedAccidentalGapSpaces(): number {
+  return ACCIDENTAL_STANDOFF_PX / STAFF_SPACE_PX
 }
 
 /**
@@ -47,13 +47,13 @@ export function vexflowAccidentalGapSpaces(): number {
  * `house` row answers exactly 0, which is why arming the default draws the page it already drew.
  */
 export function accidentalShiftPx(): number {
-  return (armedAccidentalGap().gap - vexflowAccidentalGapSpaces()) * STAFF_SPACE_PX
+  return (armedAccidentalGap().gap - inheritedAccidentalGapSpaces()) * STAFF_SPACE_PX
 }
 
 /** Where a note's accidental stands once this pass has run — what the ledger clearance must measure
- *  from. ⚠️ In PIXELS from the notehead's left edge, like {@link VEXFLOW_ACCIDENTAL_STANDOFF}. */
+ *  from. ⚠️ In PIXELS from the notehead's left edge, like {@link ACCIDENTAL_STANDOFF_PX}. */
 export function armedStandoffPx(): number {
-  return VEXFLOW_ACCIDENTAL_STANDOFF + accidentalShiftPx()
+  return ACCIDENTAL_STANDOFF_PX + accidentalShiftPx()
 }
 
 /**

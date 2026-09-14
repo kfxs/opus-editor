@@ -234,7 +234,7 @@ One staff space is **10 px** (`STAFF_SPACE_PX`).
 
 | row | what we draw | where it comes from | the books | verdict |
 |---|---|---|---|---|
-| **A1** accidental → notehead | **0.3 sp** of ink (`VEXFLOW_ACCIDENTAL_STANDOFF` = `Accidental.noteheadAccidentalPadding` 1 px + `getModifierStartXY`'s literal 2 px) | VexFlow; we only re-read it | Gould's plate **0.19–0.38 sp**; Ross's stated 1½ sp ⇒ **0.54 sp** of ink | ⚖️ **MATCHES Gould's drawing; ≈0.24 sp tighter than Ross** |
+| **A1** accidental → notehead | **0.3 sp** of ink (`VEXFLOW_ACCIDENTAL_STANDOFF` — renamed `ACCIDENTAL_STANDOFF_PX` at S1b, 2026-09-14 — = `Accidental.noteheadAccidentalPadding` 1 px + `getModifierStartXY`'s literal 2 px) | VexFlow; we only re-read it | Gould's plate **0.19–0.38 sp**; Ross's stated 1½ sp ⇒ **0.54 sp** of ink | ⚖️ **MATCHES Gould's drawing; ≈0.24 sp tighter than Ross** |
 | **A2** vertical anchor | the note's own line/space — `accidental.y` = the notehead's y, unchanged | `EngravedAccidental`, from `getModifierStartXY` | Gould p. 78 | ✅ **MATCHES** (the one source) |
 | **A3** column ORDER, close position | highest → col 1, lowest → col 2, then alternating (`accidentalColumns[4].a = [1,3,4,2]`) | VexFlow's table | Gould p. 89, Ross p. 133, G&L p. 7 | ✅ **MATCHES, unanimously** |
 | **A3** outer notes ≥ a 7th | both outer signs in col 1 (`[1,2,1]`, `[1,2,3,1]`) | VexFlow's table, via `checkCollision` | Gould p. 89, Ross rule 1, G&L p. 7 | ✅ **MATCHES, unanimously** |

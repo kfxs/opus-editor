@@ -261,6 +261,10 @@ visible once `noUnusedLocals` can see them — `elements/trillHandles.TrillDragW
 `lineOff` appears nowhere else in the repo) and `models/CollisionDetector.CollisionResult`
 (`hasCollision` has no other mention). Both deleted.
 
+> ⏭️ **2026-09-14:** `VEXFLOW_LEDGER_OVERHANG` was deleted in S1b of `docs/vexflow-removal-map.md`: its
+> value is now the attributed row `LEDGER_OVERHANG_PX` in `engine/engrave/inheritedDefaults.ts`, which is
+> read, so the export no longer needed to exist.
+
 🚨 **A measurement trap worth keeping.** The first scan used `git ls-files 'src/**/*.ts'`, which in git
 pathspec does **not** match top-level `src/*.ts` — so `App.ts` and `main.ts` were outside the corpus —
 and `'e2e/**/*.ts'` matched **zero** of the 27 e2e files. That inflated the count to 249 and

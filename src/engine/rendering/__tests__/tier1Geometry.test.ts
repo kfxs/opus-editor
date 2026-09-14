@@ -20,15 +20,16 @@
  * `Stave.padding` (`docs/test-layout-plan.md`'s rule for a test that drives several modules).
  */
 import { describe, it, expect } from 'vitest'
-import { Metrics } from 'vexflow'
+import { NOTE_AREA_PADDING_PX } from '@/engine/engrave/inheritedDefaults'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { VexFlowRenderer } from '../VexFlowRenderer'
 import { pairPadding } from '@/engine/layout/spacingPadding'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { fracCreate as frac } from '@/utils/fraction'
 
-/** VexFlow's own floor, in staff spaces — added to every note inside `getAbsoluteX`, ⛔ no setter. */
-const STAVE_PADDING_SPACES = Metrics.get('Stave.padding', 0) / STAFF_SPACE_PX
+/** The note-area padding, in staff spaces — added to every note inside `getAbsoluteX`, ⛔ no setter
+ *  (the inherited `Stave.padding`, `engrave/inheritedDefaults`). */
+const STAVE_PADDING_SPACES = NOTE_AREA_PADDING_PX / STAFF_SPACE_PX
 
 /** Render a mixed score and report each bar's box against where its notes may start. */
 function bars(opts: { key?: boolean; smallStaff?: boolean } = {}) {

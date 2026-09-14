@@ -43,6 +43,7 @@
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
 import { StaveNote, Stem } from 'vexflow'
+import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
@@ -97,7 +98,7 @@ export class EngravedStem extends Stem {
         x,
         fromY: from - stemletOffset + baseOffset,
         toY: from - height - this.renderHeightAdjustment * this.stemDirection,
-      }, Stem.WIDTH)
+      }, STEM_THICKNESS_PX)
     } finally {
       ctx.closeGroup()
     }
@@ -121,11 +122,11 @@ export class EngravedNote extends StaveNote {
   private drawnHeadCentreX: number[] = []
 
   /**
-   * How far this note's ledger lines run past its heads, in px. VexFlow's own default, kept exactly
-   * ({@link StaveNote.LEDGER_LINE_OFFSET}, 3) — ⛔ **not** the font's `legerLineExtension` (0.4
-   * spaces = 4 px), which is open taste call #5 and his to make (`docs/font-metrics-plan.md` §3.6).
+   * How far this note's ledger lines run past its heads, in px — the inherited default
+   * ({@link LEDGER_OVERHANG_PX}, 3), ⛔ **not** the font's `legerLineExtension` (0.4 spaces = 4 px);
+   * the alternatives are `docs/ledger-line-length-research.md`'s preset rows.
    */
-  private ledgerOverhang: number = StaveNote.LEDGER_LINE_OFFSET
+  private ledgerOverhang: number = LEDGER_OVERHANG_PX
 
   /**
    * ⭐ P3c — the note's stem is one of ours, so its ink comes back with the rest.
@@ -285,7 +286,7 @@ export class EngravedNote extends StaveNote {
     const tipY = (up ? yBottom : yTop) - this.checkStem().getHeight()
     const metrics = this.flag.getTextMetrics()
     const reach = up ? metrics.actualBoundingBoxAscent : metrics.actualBoundingBoxDescent
-    const at = flagPlacement({ x: this.getStemX(), tipY, up }, Stem.WIDTH, reach)
+    const at = flagPlacement({ x: this.getStemX(), tipY, up }, STEM_THICKNESS_PX, reach)
 
     // 🚨🚨 **THE WRITE-BACK, and it is the whole reason this class keeps the object.** VexFlow's own
     // `drawFlag` is `this.flag.setContext(ctx).setX(flagX).setY(flagY).drawWithStyle()` — the
@@ -305,7 +306,7 @@ export class EngravedNote extends StaveNote {
     // one member of the family that stopped painting without keeping its answer.
     //
     // ⚠️ The numbers are VexFlow's own, not a re-derivation: `flagPlacement` folds its two branches
-    // into one subtraction, and `Stem.WIDTH` IS `Tables.STEM_WIDTH`. ⇒ the box is what it was.
+    // into one subtraction, and `STEM_THICKNESS_PX` is `Tables.STEM_WIDTH`'s 1.5. ⇒ the box is what it was.
     this.flag.setX(at.x)
     this.flag.setY(at.baselineY)
 

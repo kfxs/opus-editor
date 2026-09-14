@@ -46,7 +46,8 @@
  * now a choice rather than a limit; ⛔ still not taken, because the symmetric trim is what is on his
  * screen and nobody has reported it. `docs/note-engraving-plan.md` §4 holds the question.
  */
-import { Metrics, StaveNote, Accidental } from 'vexflow'
+import { StaveNote, Accidental } from 'vexflow'
+import { ACCIDENTAL_NOTEHEAD_PADDING_PX, MODIFIER_LEFT_OFFSET_PX } from '@/engine/engrave/inheritedDefaults'
 import { trimLedgers } from './EngravedNote'
 
 /**
@@ -65,9 +66,6 @@ export const LEDGER_ACCIDENTAL_GAP = 2 // 0.2 staff-spaces of INK — scaled by 
  */
 const ACCIDENTAL_REACH_LINES = 1.4
 
-/** VexFlow's own ledger overhang, when nothing is beside the line (`StaveNote.drawLedgerLines`). */
-export const VEXFLOW_LEDGER_OVERHANG = StaveNote.LEDGER_LINE_OFFSET
-
 /**
  * …and what it is trimmed to on a note whose accidental stands beside the line. Two thirds of the
  * default: still a visible overhang on both sides, and it halves what the sign has to give up.
@@ -75,21 +73,14 @@ export const VEXFLOW_LEDGER_OVERHANG = StaveNote.LEDGER_LINE_OFFSET
 export const LEDGER_OVERHANG_BESIDE_ACCIDENTAL = 2
 
 /**
- * VexFlow's notehead-to-accidental padding, read from the same metric `Accidental.format` reads, so
- * the two can never drift: what we spend is the difference between these numbers, and a VexFlow
- * release that changed either one would otherwise leave us over- or under-shifting in silence.
+ * Where a real note's accidental actually stands, measured from the notehead's left edge: the
+ * notehead-to-accidental padding ({@link ACCIDENTAL_NOTEHEAD_PADDING_PX}, the metric
+ * `Accidental.format` reads) plus where every LEFT modifier begins ({@link MODIFIER_LEFT_OFFSET_PX},
+ * a literal in `StaveNote.getModifierStartXY`). ⚠️ Both halves: the second is two thirds of the
+ * distance, and reading the metric alone (as this module first did) mis-states where the sign is.
+ * ⚠️ They must stay equal to what the drawing library does while it still formats accidentals (S5).
  */
-const VEXFLOW_ACCIDENTAL_PADDING = (Metrics.get('Accidental.noteheadAccidentalPadding') as number) ?? 1
-
-/**
- * ⚠️ …and the OTHER half of the standoff, which is not a metric at all: `StaveNote.getModifierStartXY`
- * begins every LEFT modifier at `-1 * 2`, a literal in VexFlow's source. It is two thirds of the
- * distance, so reading the metric alone (as this module first did) mis-states where the sign is.
- */
-const MODIFIER_LEFT_OFFSET = 2
-
-/** Where a real note's accidental actually stands, measured from the notehead's left edge. */
-export const VEXFLOW_ACCIDENTAL_STANDOFF = VEXFLOW_ACCIDENTAL_PADDING + MODIFIER_LEFT_OFFSET
+export const ACCIDENTAL_STANDOFF_PX = ACCIDENTAL_NOTEHEAD_PADDING_PX + MODIFIER_LEFT_OFFSET_PX
 
 /**
  * The ledger LEVELS a set of heads forces: whole lines from 6 upward, and from 0 downward — the
@@ -147,7 +138,7 @@ export function accidentalMeetsLedger(accidentalLine: number, headLines: number[
  * Every sign of an affected note moves by the SAME amount — they are a column, and a per-sign shift
  * would rake it.
  */
-export function clearLedgersForAccidentals(notes: StaveNote[], standoffPx = VEXFLOW_ACCIDENTAL_STANDOFF): void {
+export function clearLedgersForAccidentals(notes: StaveNote[], standoffPx = ACCIDENTAL_STANDOFF_PX): void {
   for (const note of notes) {
     if (note.isRest()) continue
     const accidentals = note.getModifiers().filter((m): m is Accidental => m instanceof Accidental)

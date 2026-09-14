@@ -5,7 +5,7 @@ import {
   ledgerLevels,
   LEDGER_ACCIDENTAL_GAP,
   LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
-  VEXFLOW_ACCIDENTAL_STANDOFF,
+  ACCIDENTAL_STANDOFF_PX,
 } from './ledgerAccidentalClearance'
 
 // The fan's own two numbers (FanPass), so the arithmetic is exercised with both callers' inputs.
@@ -46,19 +46,19 @@ describe('accidentalMeetsLedger', () => {
 
 describe('ledgerAccidentalClearance', () => {
   it('asks for nothing when the note has no ledger lines', () => {
-    expect(ledgerAccidentalClearance(3, [1, 3], LEDGER_OVERHANG_BESIDE_ACCIDENTAL, VEXFLOW_ACCIDENTAL_STANDOFF)).toBe(0)
+    expect(ledgerAccidentalClearance(3, [1, 3], LEDGER_OVERHANG_BESIDE_ACCIDENTAL, ACCIDENTAL_STANDOFF_PX)).toBe(0)
   })
 
   it('moves the sign the distance the trimmed line still asks for', () => {
     // Real notes: a 2px overhang against a 3px standoff — 1px opens the 2px gap.
-    expect(ledgerAccidentalClearance(0, [0], LEDGER_OVERHANG_BESIDE_ACCIDENTAL, VEXFLOW_ACCIDENTAL_STANDOFF))
-      .toBe(LEDGER_OVERHANG_BESIDE_ACCIDENTAL + LEDGER_ACCIDENTAL_GAP - VEXFLOW_ACCIDENTAL_STANDOFF)
+    expect(ledgerAccidentalClearance(0, [0], LEDGER_OVERHANG_BESIDE_ACCIDENTAL, ACCIDENTAL_STANDOFF_PX))
+      .toBe(LEDGER_OVERHANG_BESIDE_ACCIDENTAL + LEDGER_ACCIDENTAL_GAP - ACCIDENTAL_STANDOFF_PX)
     // The fan's members stand closer to begin with, so they give up more.
     expect(ledgerAccidentalClearance(0, [0], LEDGER_OVERHANG_BESIDE_ACCIDENTAL, FAN_STANDOFF)).toBe(2)
   })
 
   it('asks for MORE where the line keeps its full overhang', () => {
-    expect(ledgerAccidentalClearance(0, [0], 3, VEXFLOW_ACCIDENTAL_STANDOFF)).toBe(2)
+    expect(ledgerAccidentalClearance(0, [0], 3, ACCIDENTAL_STANDOFF_PX)).toBe(2)
   })
 
   it('leaves alone a sign far enough from every ledger line', () => {

@@ -190,7 +190,8 @@ publishes no default (`staff-line-research.md` §5.1), so every row is one font'
 ## 4. What this repo draws today
 
 - **Ink:** `drawStem(ctx, stem, thickness)` strokes one line (`src/engine/engrave/notes/stem.ts:65-71`).
-  Every caller passes VexFlow's **`Stem.WIDTH` = 1.5 px = 0.15 sp**:
+  Every caller passes VexFlow's **`Stem.WIDTH` = 1.5 px = 0.15 sp** — ⭐ since S1b (2026-09-14) as the
+  attributed row `STEM_THICKNESS_PX` in `src/engine/engrave/inheritedDefaults.ts`, same value:
   - `EngravedStem.draw` (`src/engine/rendering/EngravedNote.ts:96-100`);
   - both `FanPass` stems (`src/engine/rendering/FanPass.ts:477-481, 581`).
   The module's header already names this a two-source question (`stem.ts:37-43`).

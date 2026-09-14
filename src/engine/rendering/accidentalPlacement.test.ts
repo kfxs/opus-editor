@@ -5,8 +5,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { Accidental, StaveNote } from 'vexflow'
-import { accidentalShiftPx, armedStandoffPx, placeAccidentals, vexflowAccidentalGapSpaces } from './accidentalPlacement'
-import { VEXFLOW_ACCIDENTAL_STANDOFF } from './ledgerAccidentalClearance'
+import { accidentalShiftPx, armedStandoffPx, placeAccidentals, inheritedAccidentalGapSpaces } from './accidentalPlacement'
+import { ACCIDENTAL_STANDOFF_PX } from './ledgerAccidentalClearance'
 import { resetAccidentalGapRule, setAccidentalGapRule } from '@/engine/layout/accidentalGap'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
@@ -22,7 +22,7 @@ const shiftOf = (note: StaveNote) =>
 
 describe('the armed shift', () => {
   it('⭐⭐ the `house` row is VexFlow’s own standoff, so it moves NOTHING', () => {
-    expect(vexflowAccidentalGapSpaces()).toBeCloseTo(0.3, 10)
+    expect(inheritedAccidentalGapSpaces()).toBeCloseTo(0.3, 10)
     expect(accidentalShiftPx()).toBe(0)
     const note = sharpNote()
     placeAccidentals([note])
@@ -68,8 +68,8 @@ describe('the armed shift', () => {
 
 describe('what the LEDGER pass is told', () => {
   it('⭐⭐ the standoff it measures from follows the armed row — ⛔ or the clearance is bought twice', () => {
-    expect(armedStandoffPx()).toBe(VEXFLOW_ACCIDENTAL_STANDOFF)
+    expect(armedStandoffPx()).toBe(ACCIDENTAL_STANDOFF_PX)
     setAccidentalGapRule('ross')
-    expect(armedStandoffPx()).toBeCloseTo(VEXFLOW_ACCIDENTAL_STANDOFF + accidentalShiftPx(), 10)
+    expect(armedStandoffPx()).toBeCloseTo(ACCIDENTAL_STANDOFF_PX + accidentalShiftPx(), 10)
   })
 })

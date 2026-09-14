@@ -258,7 +258,9 @@ Finale Broadway 0.19 and MuseJazz 0.20. ⛔ Thickness stays decided; this only f
 ### 4.1 The ordinary line
 
 - **Overhang 3 px = 0.30 sp a side**, VexFlow's constant kept on purpose:
-  `EngravedNote.ledgerOverhang = StaveNote.LEDGER_LINE_OFFSET` (`src/engine/rendering/EngravedNote.ts:124-128`),
+  `EngravedNote.ledgerOverhang = StaveNote.LEDGER_LINE_OFFSET` (`src/engine/rendering/EngravedNote.ts:124-128`)
+  — ⭐ since S1b (2026-09-14) the attributed row `LEDGER_OVERHANG_PX` in `src/engine/engrave/inheritedDefaults.ts`,
+  same 3 px,
   drawn at `:162-178`. On Bravura's 1.18 head that is **1.78 sp** total
   (`src/engine/engrave/notes/ledgerLines.ts:37-42`).
 - **The rule**: `ledgerLineRuns` (`ledgerLines.ts:105-129`) reaches from the leftmost head at that level

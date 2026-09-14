@@ -409,9 +409,12 @@ no hits).
 ⇒ **Deleting the package without S1 blanks every glyph in the editor.** No test would catch it in
 jsdom. `e2e/appFirstRender.e2e.ts` might.
 
-⚠️ **UNKNOWN: whether VexFlow's embedded Bravura is the same version as `public/fonts/Bravura.otf`.**
-Compare the `name` table's version string before swapping. If they differ, glyph advances may move by
-sub-pixels. That is rule 13 territory — a note, not a blocker.
+✅ **ANSWERED 2026-09-14 (S1a), measured in Chromium with each build alone on the page:** Bravura's
+ADVANCES are identical glyph for glyph, but its ink boxes are not — VexFlow's woff2 read a notehead
+1.30 sp and a G clef 2.90 at staff size 1 where our `.otf` reads 1.20 / 2.70 (the "reader inflation"
+three browser specs were calibrated to), and the canvas rounds a flag's reach up in one build and to
+the nearest pixel in the other. Academico's advances differ by up to ~2%. The screen now draws in our
+files, which is also what the PDF outlines.
 
 ### 8.2 The constants
 
@@ -449,7 +452,7 @@ step (`steps.cjs`, 0 unassigned).
 | # | step | removes (uses / files) | needs | pixels | end signal |
 |---|---|---|---|---|---|
 | **S0** ✅ | **Census ratchet** — `npm run lint:vexflow` (`scripts/check-vexflow-census.mjs`, in `build:check`), per-role ceilings that may only fall | 0 — makes every later number checkable | — | none | the census runs in `build:check` |
-| **S1** | **Fonts + numbers**: our `@font-face` from `public/fonts/`; `Metrics`/`Tables` constants → attributed rows; font categories → our table | **41 / 13** + the import side effect | — | none (if font versions match — §8.1 UNKNOWN) | no `Metrics`, `MetricsDefaults`, `Stem.WIDTH`, `fontInfo` outside the adapter; glyphs render with VexFlow's faces unloaded |
+| **S1** | **Fonts + numbers**: our `@font-face` from `public/fonts/`; `Metrics`/`Tables` constants → attributed rows; font categories → our table — ✅ **S1a** fonts (`engine/fonts/fontFiles` + `rendering/musicFontFaces`) · ✅ **S1b** numbers (`engine/engrave/inheritedDefaults`, R7 50 → 29) · ⏳ **S1c** font categories (`fontInfo`, `MetricsDefaults`, `Metrics.clear`) | **41 / 13** + the import side effect | — | none (if font versions match — §8.1 UNKNOWN) | no `Metrics`, `MetricsDefaults`, `Stem.WIDTH`, `fontInfo` outside the adapter; glyphs render with VexFlow's faces unloaded |
 | **S2** | **Staff frame** (§2) | **165 / 25**; frees 4 files | — | none (exact port) | no `Stave.getYForLine` / `getSpacingBetweenLines` / `getNoteStartX` / `getYForNote` outside `engrave/vexflow/` |
 | **S3** | **Note ruler seam** — `NoteGeometry`, captured after draw; P6b's readers generalised (§3) | **170 / 21**; with S2 frees 7 more files (Tie, Trill, Ottava, Pedal, Hairpin, `dynamicsLinePass`, `dynamicNudgePass`) | S2 (readers take both) | none (copied values) | no `StaveNote` type outside `engrave/vexflow/` + `NoteBuilder`; no registry box from `getBoundingBox()` |
 | **S4** | **The stave object**: header + barline signs placed by us; `Stave` → frame + a sign run; END modifiers and the **mid-line clef change ported at today's 0.5 sp as a row** (rule 13 — ⛔ not waiting on the clef review) | **181 / 12** (EngravedStave 34, EngravedTimeSignature 30, GutterRenderer 28, VexFlowRenderer 25, headerPlacementPass 17…) | S2 | none | no `Stave`, `Clef`, `TimeSignature`, `Barline`, `StaveModifierPosition` import; gutter on our painter's API |
@@ -509,7 +512,7 @@ The map's counts (§0) are USES; this section is the NAMES, measured 2026-09-14:
 |---|---|---|
 | **file names** | `VexFlowRenderer.ts` + its 7 specs `VexFlowRenderer.*.test.ts` | **renamed** to what the file does (e.g. `ScoreRenderer.ts`), specs with it — ONE commit of its own near the end (S12/S14), a `git mv` so `git log --follow` keeps the history (§8.2's *"never a big rename"* protects the history; a rename alone in its commit keeps it) |
 | **names that TRANSLATE into VexFlow's format** | `durationToVexflow`, `spellingToVexflowKey`, `timeSignatureVexKey`, `articulationVexCodes`, `vexDuration`, `vexNote`, `vexVoices`, `vexTuplet(s)` | **deleted, not renamed** — with no VexFlow there is nothing to translate into; they go with the step that stops building VexFlow objects (S4–S11) |
-| **names of things that STAY** | `vexContext` → e.g. `drawContext`; `VEXFLOW_ACCIDENTAL_STANDOFF`, `VEXFLOW_DOT_SPACING`, `VEXFLOW_DOT_BASE_GAP`, `VEXFLOW_MAX_SLOPE` → the name of the quantity (`ACCIDENTAL_STANDOFF`…); `vexFontSpacePx`, `vexflowCorrection`, `vexflowAccidentalGapSpaces` | **renamed** in the step that already rewrites that file — ⛔ never renamed twice |
+| **names of things that STAY** | `vexContext` → e.g. `drawContext`; `VEXFLOW_ACCIDENTAL_STANDOFF` (✅ `ACCIDENTAL_STANDOFF_PX`, S1b), `VEXFLOW_DOT_SPACING`, `VEXFLOW_DOT_BASE_GAP`, `VEXFLOW_MAX_SLOPE` → the name of the quantity (`ACCIDENTAL_STANDOFF`…); `vexFontSpacePx`, `vexflowCorrection`, `vexflowAccidentalGapSpaces` | **renamed** in the step that already rewrites that file — ⛔ never renamed twice |
 | **the SVG prefix** `vf-` (`g.vf-notehead`, `vf-slur`…) — read by the highlight and 200+ e2e selectors | | **S13**, together with moving the highlight and the e2e readers (§11 row "the `vf-` ids") |
 | **comments** explaining what VexFlow does (≈1,200 lines) | | rewritten when their file is touched; a last sweep at S14. ⭐ **Kept:** the attribution line of each port, e.g. `// Based on VexFlow's beam slope calculation (MIT licence, © VexFlow authors)`, plus a NOTICE file |
 

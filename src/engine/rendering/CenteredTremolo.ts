@@ -1,5 +1,6 @@
-import { Tremolo, Metrics, Stem } from 'vexflow'
+import { Tremolo, Stem } from 'vexflow'
 import type { Note } from 'vexflow'
+import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
 import { PENDERECKI_TREMOLO } from '@/utils/tremoloGlyphs'
 
@@ -144,9 +145,9 @@ export class CenteredTremolo extends Tremolo {
    * nothing is drawn.
    */
   strokeStackHeight(): number {
-    const scale = this.checkAttachedNote().getFontScale()
+    const scale = NOTE_GLYPH_SCALE
     const { ink } = this.measureStroke(scale)
-    return Math.abs(Metrics.get('Tremolo.spacing') * scale) * (this.num - 1) + ink
+    return Math.abs(TREMOLO_STROKE_STEP_PX * scale) * (this.num - 1) + ink
   }
 
   /**
@@ -158,7 +159,7 @@ export class CenteredTremolo extends Tremolo {
    * `[y − ascent, y + descent]`.
    */
   private measureStroke(scale: number): { ascent: number; descent: number; ink: number } {
-    this.setFontSize(Metrics.get('Tremolo.fontSize') * scale)
+    this.setFontSize(TREMOLO_FONT_SIZE * scale)
     const { actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent } = this.textMetrics
     return { ascent, descent, ink: ascent + descent }
   }
@@ -192,10 +193,10 @@ export class CenteredTremolo extends Tremolo {
     this.setRendered()
 
     const stemDirection = note.getStemDirection()
-    const scale = note.getFontScale()
+    const scale = NOTE_GLYPH_SCALE
     // Signed: positive steps DOWN for a stem-up note, up for stem-down — i.e. always tip → notehead,
     // exactly as VexFlow's loop walks. So the centring below needs no per-direction case.
-    const ySpacing = Metrics.get('Tremolo.spacing') * stemDirection * scale
+    const ySpacing = TREMOLO_STROKE_STEP_PX * stemDirection * scale
     // ⚠️ A STEMLESS NOTE HAS NO STEM TO SIT ON. The stem x is the notehead's right EDGE (stem-up) or
     // its left (stem-down) — right where the stem is drawn, and beside the head where it is not. On a
     // whole note that leaves the strokes hanging off the side of the notehead instead of over it
@@ -205,7 +206,7 @@ export class CenteredTremolo extends Tremolo {
     // a height from — VexFlow builds the `Stem` object regardless — but no stem INK to line up with.
     // Height from the imaginary stem, x from the notehead.
     const x = note.hasStem()
-      ? note.getAbsoluteX() + (stemDirection === Stem.UP ? note.getGlyphWidth() - Stem.WIDTH / 2 : Stem.WIDTH / 2)
+      ? note.getAbsoluteX() + (stemDirection === Stem.UP ? note.getGlyphWidth() - STEM_THICKNESS_PX / 2 : STEM_THICKNESS_PX / 2)
       : note.getAbsoluteX() + note.getGlyphWidth() / 2
 
     const { ascent, descent } = this.measureStroke(scale)
