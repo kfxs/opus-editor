@@ -21,9 +21,10 @@
  * ## ⚠️ What is NOT in a scene today, and it is the honest half
  *
  * ⛔ **Anything a VexFlow object paints itself.** ⭐ That list is now SHORT — P3, P4, P5 and U1 took
- * the note's five drawing calls, its ACCIDENTALS and DOTS, the beam's lines, the staff's own lines,
- * the header run and both curves — and what is left of it is the ARTICULATION, the fan's own heads,
- * and the ghosts built from `StaveNote`s.
+ * the note's five drawing calls, its ACCIDENTALS, DOTS and ARTICULATIONS, the beam's lines, the
+ * staff's own lines, the header run and both curves ⇒ ⭐⭐ **every glyph an ordinary bar draws is in
+ * here**, and what is left of the list is the FAN's own heads and marks and the ghosts built from
+ * `StaveNote`s.
  *
  * 🚨🚨 **⛔ And `lint:paint`'s count does NOT tell you which — that claim was wrong and it cost a
  * step.** The check counts the identifier `vexContext`; a MODIFIER never writes one, because

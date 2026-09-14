@@ -36,10 +36,11 @@
  * ## 🚨🚨 WHAT THIS NUMBER IS NOT — measured 2026-09-14, and it cost a whole migration step
  *
  * It counts the identifier `vexContext`. ⛔ **It is not a measure of how much VexFlow ink is left.**
- * A `StaveNote`'s MODIFIERS — every accidental, every augmentation dot — take their context from
- * `StaveNote.drawModifiers`, which reads `checkContext()`; the word `vexContext` appears nowhere near
- * them. So they were VexFlow ink through P3, P4, P5 and U1, while this gauge fell 24 → 9 without
- * ever having seen them (`docs/note-engraving-plan.md` §1f).
+ * A `StaveNote`'s MODIFIERS — every accidental, every augmentation dot, every articulation — take
+ * their context from `StaveNote.drawModifiers`, which reads `checkContext()`; the word `vexContext`
+ * appears nowhere near them. So they were VexFlow ink through P3, P4, P5 and U1, while this gauge
+ * fell 24 → 9 without ever having seen them (`docs/note-engraving-plan.md` §1f, §1g) — and taking
+ * all three back moved it by ZERO, which is the same statement from the other side.
  *
  * ⭐ The measure of INK is the SCENE: render, and diff the page's primitives against the recorded
  * ones. That census lives in `VexFlowRenderer.scene.test.ts` and it is the number to trust for

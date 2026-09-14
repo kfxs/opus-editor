@@ -81,6 +81,9 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
       x: this.x + this.getXShift(),
       y: this.y + this.getYShift(),
       font: this.fontInfo,
+      // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
+      //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
+      id: this.getAttribute('id'),
     })
   }
 }

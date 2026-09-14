@@ -88,6 +88,14 @@ delaying engraving work by one day.
 > by CENSUS — the page's glyphs diffed against the scene's — which is now a test
 > (`note-engraving-plan.md` §1f). ⇒ ⭐⭐ **count the INK, not the identifier**; the ceiling measures
 > COUPLING and always did.
+>
+> ✅✅ **…and P3g CLOSED that census the same day — the ARTICULATION's ink is ours**, which §0.1 of
+> the P3 plan had refused as *"not ink alone"*. ⭐⭐ **The refusal was about WHERE TO CUT, not about
+> the piece**: `Articulation.draw()` is forty lines of placement and one of ink, so cutting at
+> `draw()` would have meant transcribing the rule — but `renderText` is public, and cutting THERE
+> leaves the rule with its ONE owner. ⇒ **every glyph an ordinary bar draws is now in the SCENE**,
+> and the census asserts it. ⛔ The gauge did not move and could not: an articulation never wrote
+> `vexContext` either (`note-engraving-plan.md` §1g).
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -789,7 +797,7 @@ not re-litigating taste, it is re-sourcing agreed numbers from something that ca
 distance we measured off VexFlow), and 🚨 **the existing e2e silently changes subject** when they are
 re-sourced. Both are why that plan exists.
 
-### P3 — The note — ⚠️ THE BIG ONE — ⏳ **a ledgers · b flag · c stem INK · d NOTEHEADS ✅**
+### P3 — The note — ⚠️ THE BIG ONE — ⏳ **a ledgers · b flag · c stem INK · d NOTEHEADS · f the ACCIDENTAL + the DOT · g the ARTICULATION ✅**
 📄 **`docs/note-engraving-plan.md`** — P3's own plan: the five things `StaveNote.draw()` does, the
 order they come back in, what each one costs, and the research per piece.
 
@@ -889,6 +897,24 @@ order they come back in, what each one costs, and the research per piece.
 > ⭐ And the glyph stamp got a home — `engine/engrave/glyph.ts` — because the flag and the notehead
 > were two owners of the same `setFont` + `fillText`. ⛔ Not `rendering/glyphPainter`: that one owns
 > font RESOLUTION, and here the face arrives as a value.
+
+> ✅✅ **P3f — the ACCIDENTAL and the DOT (2026-09-14), and P3g — the ARTICULATION (same day).**
+> ⭐⭐ Together they close the CENSUS: **every glyph an ordinary bar draws is in the scene.** 🚨 None of
+> the three had ever been seen by `lint:paint`, which counts `vexContext` — a modifier never writes
+> one, because `StaveNote.drawModifiers` hands it `checkContext()`. They were found by diffing the
+> page's glyphs against the scene's, and that diff is now a test.
+>
+> ⭐⭐ **P3g is the one with a lesson in it, and the lesson is WHERE TO CUT.** §0.1 of the P3 plan had
+> refused the articulation as *"not ink alone"* because `Articulation.draw()` is a placement RULE —
+> true, and the wrong conclusion: cutting at the public **`renderText`** instead leaves all forty
+> lines of that rule with their ONE owner and takes only the stamp. ⛔ The piece was never gated on
+> research. 🚨 And the alternative had already been priced here: `fanArticulations` hand-rolled a
+> spacing rule and landed a staccato 2 px off the identical mark on the next note — §3.1's *"the
+> second owner is the tell"*, met before writing the second owner rather than after.
+> ⚠️ A mark's CENTRING is `setOrigin` ⇒ `getBoundingBox` ⇒ a runtime `measureText`, so it is **0 in
+> jsdom** (§3's bug class again) — one more customer for **P6**'s ruler.
+> ⛔ Still VexFlow's: the FAN's marks and the GHOST's, both drawn inside groups opened on its context
+> (U2), and both `format` rules above.
 
 Notehead, stem, flag, ledger lines, dots. **We have already built this once:** `FanPass` draws
 heads, stems, accidentals and ledger lines by hand today for fan members — including ledger lines,
@@ -1438,10 +1464,31 @@ it: *"the ruler declined"* and *"there was nothing there"* must not look the sam
 ⏭️ **P6b** is the switch: `ElementRegistry` fed from the scene instead of from `Element.getBoundingBox()`
 — and it is where the two open decisions above finally have to be answered.
 
+##### ⭐⭐ P6b GAINED ITS SEAM ON 2026-09-14, and it came from looking at `__bbox.ink()`
+
+🚨 **A box can only be queried for ink the scene lets you FIND, and three selectable marks could not
+be found.** His four reports — no box for the articulation, none for the dot, none for the accidental,
+and the notehead's box growing to swallow them — are one fact: **VexFlow's modifiers open no group**,
+so their ink lay loose inside the notehead's.
+
+⇒ each now opens a group named for **the kind the REGISTRY files it under** (`accidental`, `dot`,
+`articulation`), carrying the drawn sign's own id. ⭐ That is the P6b join: *scene group ↔ hit box*,
+by name and by id. And `__bbox.ink()` now draws **a group's OWN ink** — `sceneInkBox`'s *"the caller
+chooses which children count"*, used for the first time, which is also the answer to
+`noteInkBox`'s complaint arriving from our side of the ruler.
+⚠️ ⛔ SELECTION did not change and did not need to: a click resolves against the registry, which has
+filed a separate box per mark all along (`docs/note-engraving-plan.md` §1g.6).
+
 ### ⛔ Not on this list
 **Accidental column stacking** (`Accidental.format`) and **articulation placement**
 (`Articulation`). They are the only two places where VexFlow does real engraving thinking we have
 never had a complaint about. §6.1 is why that matters more than it sounds.
+
+⚠️ **Read this as PLACEMENT, ⛔ never as the INK** — both marks' glyphs came back to us on
+2026-09-14 (P3f, P3g) without either rule being touched, and the two halves are separable precisely
+because the placement writes a point and the ink reads it. 🚨 The cost of confusing them is
+measured in this repo: `fanArticulations` hand-rolled a spacing rule for a fan's members and put a
+staccato **2 px** off the identical mark on the note beside it.
 
 ⭐ **But not "never", either — see §6.7.** VexFlow is MIT, so these two sit on a **port-if-needed**
 list rather than a build list, and we have already done it once (`chordAccidentalColumns`).

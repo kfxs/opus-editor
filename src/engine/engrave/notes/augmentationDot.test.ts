@@ -28,12 +28,18 @@ describe('dotBaselineY', () => {
 })
 
 describe('drawAugmentationDot', () => {
-  it('⭐ stamps ONE glyph, and opens no group', () => {
+  it('⭐ stamps ONE glyph, in a group of its OWN kind, carrying the dot’s id', () => {
+    // ⭐⭐ **A group of its own, as of 2026-09-14** — his report: a sign that can be SELECTED must be
+    // findable in the scene, or `__bbox.ink()` has no box to draw for it and the notehead's box
+    // silently swallows it. ⚠️ VexFlow opened none; this is the family's one DOM change.
     const r = new SceneRecorder()
-    drawAugmentationDot(r, { glyph: '', x: 55, y: 35, font: { family: 'Bravura', size: 30 } })
+    drawAugmentationDot(r, { glyph: '', x: 55, y: 35, font: { family: 'Bravura', size: 30 }, id: 'auto7' })
     const prims = scenePrimitives(r.scene)
     expect(prims).toHaveLength(1)
     expect(prims[0].kind === 'text' && [prims[0].text, prims[0].x, prims[0].y]).toEqual(['', 55, 35])
-    expect(r.scene.children.every(c => c.kind !== 'group')).toBe(true)
+    const [group] = r.scene.children
+    // ⚠️ The REGISTRY's kind name, ⛔ not VexFlow's category: P6b has to match this group to the
+    // hit box the editor already files for the same dot.
+    expect(group.kind === 'group' && [group.cls, group.id]).toEqual(['dot', 'auto7'])
   })
 })

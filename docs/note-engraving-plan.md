@@ -4,9 +4,12 @@
 > calls *"⚠️ THE BIG ONE"*. ⛔ Read §0 of that document first — the goal order, the twelve standing
 > rules, and the one-line test — because everything below is an application of it.
 >
-> **Status: P3a ✅ ledger lines · P3b ✅ flag · P3c ✅ stem INK · P3d ✅ NOTEHEADS — all 2026-09-01.**
+> **Status: P3a ✅ ledger lines · P3b ✅ flag · P3c ✅ stem INK · P3d ✅ NOTEHEADS — all 2026-09-01;
+> P3f ✅ the ACCIDENTAL + the DOT · P3g ✅ the ARTICULATION — both 2026-09-14.**
 > ⭐⭐ **All five of `StaveNote.draw()`'s drawing calls are ours** (the pointer rect is the RULER, not
-> ink). ⏳ **What is left is the stem's LENGTH**, gated on `docs/stem-length-research.md`.
+> ink), ⭐⭐ **and with P3g every glyph an ordinary bar draws is in the SCENE** — that is the census,
+> asserted, in `VexFlowRenderer.scene.test.ts`. ⏳ **What is left is the stem's LENGTH**, gated on
+> `docs/stem-length-research.md`.
 
 ---
 
@@ -53,7 +56,7 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line. ⚠️ Its ink stayed INLINE in `EngravedNote` until 2026-09-01, when it moved to **`engrave/notes/noteheads.ts`** beside its three siblings — see §1d.5 | ✅ **2026-09-01** |
 | **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
 | **P3f** | **the MODIFIERS — the accidental and the augmentation dot** | ⭐ they draw from inside a head's group, and both are selectable kinds with registered hit boxes. 🚨 **And they were the last glyph ink on an ordinary bar, invisible to the gauge**: `lint:paint` counts `vexContext`, and a modifier never mentions it — see §1f | ✅ **2026-09-14** |
-| … | the ARTICULATION | ⛔ **not ink alone**: its `draw()` is a placement RULE (above/below, clear of the staff, between lines), so it is gated on research the way the stem's length is | ⏭️ |
+| **P3g** | **the ARTICULATION** | ⚠️ This row used to read *"⛔ **not ink alone**: its `draw()` is a placement RULE (above/below, clear of the staff, between lines), so it is gated on research the way the stem's length is"* — ⭐⭐ **and the correction is the step's whole finding: the ink IS separable, just not at `draw()`.** Cut at `renderText` and the rule keeps its ONE owner — see §1g | ✅ **2026-09-14** |
 | **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; **§1e** has the audit | ⏸️ |
 
 ⚠️ **A CORRECTION to the parent plan, found by doing the work.** `own-engraving-engine.md` §5 says
@@ -377,6 +380,116 @@ repo) and the `TabNote` case in `Dot.draw` (no tablature here). Each class hands
 `super.draw()`, so *"not transcribed"* can never become *"silently not drawn"*.
 
 ---
+
+## 1g. ✅ P3g — THE ARTICULATION (2026-09-14), and it is a lesson about WHERE TO CUT
+
+### 1g.1 ⭐⭐ The row that said "not ink alone" was wrong, and the correction is worth more than the step
+
+§0.1's table used to refuse this piece:
+
+> *"⛔ **not ink alone**: its `draw()` is a placement RULE (above/below, clear of the staff, between
+> lines), so it is gated on research the way the stem's length is."*
+
+⭐ The first half is TRUE — `Articulation.draw()` is forty lines of placement (`getTopY` /
+`getBottomY` / `getInitialOffset`, a private `snapLineToStaff`, and `setOrigin`) and exactly ONE line
+of ink. ⛔ **The conclusion drawn from it was not.** It assumed the cut has to be `draw()`, because
+that is where P3a–P3f cut — and at `draw()` taking the ink does mean transcribing the rule.
+
+⭐⭐ **`Articulation.draw()` ends with `this.renderText(ctx, 0, 0)`, and `renderText` is a public
+method.** Override THAT and the placement is untouched: the rule keeps its one owner, the ink becomes
+ours, and the seam is a point that VexFlow has just finished computing. ⇒ **the piece was never
+gated on research; it was gated on a reading of the class.**
+
+🚨 And the cost of the other choice was already MEASURED in this repo, which is what makes this
+more than a preference: `rendering/fanArticulations` hand-rolled a *"one staff space per mark"* rule
+for a fan's members and landed a staccato **2 px** off the identical mark on the note beside it,
+*"because a between-lines glyph gets snapped into a space and re-originned"*. ⭐ §3.1 of the parent
+(*"the second owner is the tell"*), applied BEFORE writing the second owner instead of after.
+
+⭐ That same file had already found this seam from the outside — it runs `draw()` against a context
+that throws the ink away, then calls `renderText` itself. ⚠️ Nobody had read it as a statement about
+where an articulation's ink separates.
+
+### 1g.2 What landed
+
+| | where |
+|---|---|
+| the ink, and the one thing it says (*an articulation STRADDLES its point — its siblings meet it or sit on it*) | `engine/engrave/notes/articulation.ts` |
+| the seam | `rendering/EngravedArticulation.ts` — `InkSurfaceAware`, so joining `drawNoteInkThrough`'s walk was a ROW and nothing else |
+| the builder | `NoteBuilder` builds ours; ⛔ `GhostRenderer`'s and `fanArticulations`' stay VexFlow's (P3/U2 territory, both allowlisted) |
+
+⭐ **The census is now COMPLETE for an ordinary bar** — the test that used to assert *"exactly ONE
+glyph the page draws is missing from the scene"* now asserts the page and the scene hold the same
+glyphs, in the same order, on a bar carrying a sharp, a dot AND a mark.
+
+### 1g.3 ⚠️ `_ctx: unknown` — the one thing here that needed a decision
+
+`renderText`'s first parameter is VexFlow's `RenderContext`, and ⛔ naming that type outside
+`lint:paint`'s allowlist is the one thing that check refuses — it is why `EngravedBeam`
+overrides the public `draw()` rather than the `protected drawBeamLines(ctx: RenderContext)` it would
+rather have had.
+
+⭐ Here the honest answer is that **the file does not use VexFlow's context at all**: the ink goes to
+our surface, and the fallback (an unset ink surface) asks `checkContext()` — which every reachable
+caller has just handed in as that very argument. ⇒ the parameter is genuinely unused, so it is typed
+`unknown` and the allowlist did not grow. ⛔ Not a dodge and ⛔ not a precedent for naming-around the
+check: if a file ever DRAWS on VexFlow's context, it belongs on the list.
+
+### 1g.4 🚨 What the step found, and it is a P6 customer
+
+**An articulation's CENTRING is a runtime `measureText`.** `setOrigin(0.5, …)` is `getBoundingBox()`
+arithmetic and that box comes from `Element.measureText()` — so it answers **0 in jsdom**, exactly as
+the flag's reach does (§3.3) and as every whole rest's centring did before `musicFontReady`. ⇒ ⭐ **an
+articulation in a unit test is not centred**, and that is a fact about the instrument rather than
+about the drawing. It is one more customer for **P6**'s own ruler, which can answer a glyph's box
+without a page.
+
+### 1g.5 ⛔ What P3g did NOT take
+
+⛔ **`Articulation.draw` and `Articulation.format`** — the side, the distance out, the stacking, the
+snap onto a line or into a space. The parent's §"Not on this list" keeps them on a **port-if-needed**
+list for a reason, and no research of ours answers them yet.
+⭐ One part of the placement was ALREADY ours and stays so: notehead-vs-stem alignment on the stem
+side (`docs/articulation-stem-align.md`), which reaches the ink inside the x.
+
+⛔ **The FAN's marks** (`rendering/fanArticulations`) and ⛔ **the GHOST's**. Both draw inside groups
+opened on VexFlow's context — U2's nesting argument, unchanged by this step.
+
+### 1g.6 ⭐⭐ …and then he looked at `__bbox.ink()`, and the family grew a GROUP
+
+Three reports, one gap (2026-09-14): *"i dont see the articulation on `__bbox.ink()`"* → *"the
+`__bbox.ink()` of the notehead becomes bigger with articulation, is this correct?"* → *"i dont see
+the bbox of the dot either"* → *"same with accidental"*.
+
+⭐ **All four are one fact: VexFlow's modifiers open NO group.** An accidental's, a dot's and a mark's
+`<text>` landed loose inside the notehead group its note had opened ⇒ the overlay, which draws one box
+per GROUP, had nothing to draw for any of them — **and the head's box silently swallowed all three.**
+
+🚨 **That second half is `noteInkBox`'s complaint, arriving from our own side of the ruler**:
+*"`StaveNote.getBoundingBox()` unions every attached modifier"* was HIS report, and the scene had just
+reproduced it. ⭐ `sceneInkBox` was built with the answer — *the CALLER chooses which children count* —
+and `__bbox.ink()` now makes that choice: **a group's box is its OWN ink; a nested group is drawn on
+its own.**
+
+⭐ So each mark opens a group named for **the kind the REGISTRY files it under** (`accidental`,
+`dot`, `articulation`) and carrying the drawn sign's own id — which is P6b's seam: a scene group that
+can be matched to the hit box a click already resolves against.
+
+⚠️ **It is a DOM change, and the only one this family has made.** What makes it safe is that every
+selector that reaches these glyphs is a DESCENDANT search — `group.querySelectorAll('text')` for the
+accidental and the dots, and the articulation's `'text, path'` walk **whose index 0 is still the
+head** — so document order and every index are unchanged. Asserted in
+`VexFlowRenderer.scene.test.ts` rather than assumed, and 291 e2e agree.
+⚠️ The FACE is unaffected too, and that needed checking: `SVGContext.applyAttributes` omits an
+attribute equal to the enclosing group's, so the worry was that a new group would swallow the font.
+It does not — `fillText` writes the font onto the `<text>` whenever it differs from the group's.
+
+⭐ **What this did NOT change: SELECTION.** A click resolves against `ElementRegistry`, which has
+filed a separate box per accidental, dot and articulation all along (`__bbox.show()`, 208 boxes to
+`ink()`'s 149) — his question, and the answer is that the scene was the only ruler missing them.
+
+---
+
 
 ## 1e. ⏸️ THE POINTER RECT — audited, and DEFERRED to P1e (his call, 2026-09-01)
 

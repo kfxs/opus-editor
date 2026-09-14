@@ -1,6 +1,7 @@
-import { StaveNote, Voice, Articulation, Modifier } from 'vexflow'
+import { StaveNote, Voice, Modifier } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
 import { EngravedAccidental } from './EngravedAccidental'
+import { EngravedArticulation } from './EngravedArticulation'
 import { attachEngravedDots } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
@@ -342,7 +343,10 @@ export function createStaveNotesFromSlots(
       (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
     )
     for (const art of sortedArticulations) {
-      staveNote.addModifier(new Articulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
+      // ⭐ OURS since 2026-09-14 — the glyph draws through our own primitives (`EngravedArticulation`);
+      // everything about WHERE it lands is still `Articulation`'s, which is what that class takes care
+      // not to touch.
+      staveNote.addModifier(new EngravedArticulation(articulationVexCodes[art]).setPosition(articulationPosition), 0)
     }
 
     // Single-note tremolo — per-chord like the articulations, and for the same reason (the mark

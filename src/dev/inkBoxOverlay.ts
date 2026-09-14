@@ -20,7 +20,7 @@
  * |---|---|
  * | `__bbox.show()` | the REGISTRY's boxes — VexFlow's arithmetic, what a click uses today |
  * | `__bbox.ink()` | **ours**, computed from the scene |
- * | `__bbox.ink('notehead')` | …only the groups with that class |
+ * | `__bbox.ink('notehead')` | …only the groups with that class — also `accidental`, `dot`, `articulation` |
  * | `__bbox.hide()` | clears both |
  *
  * ⚠️ **It re-renders every bar** (`MusicEngine.recordFullScene`), because a scene is a record of one
@@ -36,7 +36,7 @@
  * look the same, which is the same rule `sceneInkBox` follows by answering null.
  */
 import type { MusicEngine } from '@/engine/MusicEngine'
-import type { SceneGroup } from '@/engine/scene/Scene'
+import type { SceneGroup, SceneNode } from '@/engine/scene/Scene'
 import { walkScene } from '@/engine/scene/Scene'
 import { drawnInkBoxDetail } from '@/engine/rendering/sceneInk'
 
@@ -98,10 +98,27 @@ export function createInkBoxOverlay(getEngine: () => MusicEngine | null): InkBox
   }
 }
 
-/** Draw one group's box, or its refusal. ⚠️ The group's own placement is NOT applied: the overlay
- *  is appended to the score's root `<svg>`, where a scene's top-level coordinates already live. */
+/**
+ * Draw one group's box, or its refusal. ⚠️ The group's own placement is NOT applied: the overlay
+ * is appended to the score's root `<svg>`, where a scene's top-level coordinates already live.
+ *
+ * ⭐⭐ **A group's box is its OWN ink — a nested group is drawn on its own line, ⛔ not folded into
+ * its parent's.** His report, 2026-09-14: *"the `__bbox.ink()` of the notehead becomes bigger with
+ * articulation, is this correct?"* — it was a truthful UNION and a useless ruler, and it is the same
+ * complaint that made `rendering/noteInkBox` exist on VexFlow's side (*"`StaveNote.getBoundingBox()`
+ * unions every attached modifier"*). ⭐ `sceneInkBox` was built to answer it: **the CALLER chooses
+ * which children count**. This is that choice, made for the picture — every mark now has a box, and
+ * the head's box is the head.
+ *
+ * ⚠️ The filter must let the ROOT through, which is what the identity test is for: a filter that
+ * simply said *"no groups"* would reject the very node being measured.
+ */
 function outline(overlay: SVGGElement, group: SceneGroup): 'box' | 'refused' | 'empty' {
-  const { box, unmeasured } = drawnInkBoxDetail({ ...group, placement: IDENTITY_PLACEMENT })
+  // ⚠️ The identity test names the SPREAD COPY, ⛔ not `group`: the copy is what the walk starts
+  // from, and comparing against the original would reject the root and answer null every time.
+  const root: SceneGroup = { ...group, placement: IDENTITY_PLACEMENT }
+  const ownInk = (node: SceneNode) => node === root || node.kind !== 'group'
+  const { box, unmeasured } = drawnInkBoxDetail(root, ownInk)
   if (!box || box.width <= 0 || box.height <= 0) return unmeasured.length ? refuse(overlay, group, unmeasured) : 'empty'
   if (unmeasured.length) return refuse(overlay, group, unmeasured, box)
 

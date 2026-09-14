@@ -109,6 +109,12 @@ not one sign):
   `HighlightController.colorNoteArticulations(noteId, color)` — find each registered articulation
   element, colour the closest glyph inside the note's own `vf-notehead` group (skip the notehead at
   index 0). `applyArticulationHighlight` was refactored to call it too.
+  ⚠️ **Still true after 2026-09-14, and it was checked rather than assumed.** Each accidental, dot
+  and articulation now draws inside a `<g>` of its own (`vf-accidental` / `vf-dot` /
+  `vf-articulation`), nested in that same `vf-notehead` group, so P6's ruler can measure a mark on
+  its own — `docs/note-engraving-plan.md` §1g.6. ⭐ Nothing here changes because every selector in
+  this family is a DESCENDANT search and **index 0 is still the head**; that is asserted in
+  `VexFlowRenderer.scene.test.ts` so the day a group nests differently, it fails and says so.
 
 ## 5. Keypad Select arrow clears the whole selection
 

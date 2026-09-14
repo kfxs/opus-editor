@@ -34,6 +34,8 @@ export interface AccidentalInk {
   /** ⚠️ The BASELINE — the y of the notehead this accidental belongs to (see {@link stampGlyph}). */
   y: number
   font: GlyphFont
+  /** The drawn sign's own id, so the group it opens can be found again — see {@link drawAccidental}. */
+  id?: string
 }
 
 /**
@@ -54,13 +56,31 @@ export function accidentalOriginX(modifierStartX: number, width: number): number
 }
 
 /**
- * ⭐ Stamp one accidental.
+ * ⭐ Stamp one accidental, **in a group of its own**.
  *
- * ⛔ **Opens no group**, because VexFlow's never did: an accidental's `<text>` lands directly inside
- * the notehead group its note opened, which is where `HighlightController` finds it (it recolours a
- * selected note's accidental by filling every `<text>` in that group). Opening one here would be a
- * DOM change, and this step moves no pixel.
+ * ⚠️ **The group is OURS, ⛔ not VexFlow's** — `Accidental.draw` opened none, and its `<text>`
+ * landed loose in the notehead group its note had opened. ⭐ It is here because *a sign that can be
+ * SELECTED must be findable in the scene*: `__bbox.ink()` draws one box per group, so without it a
+ * note's box silently swallowed its accidental and the sign itself had no box at all — his report,
+ * 2026-09-14 (`docs/own-engraving-engine.md` §5 P6).
+ *
+ * ⚠️ It is a DOM change and the only one this family has made: an extra `<g class="vf-accidental">`
+ * INSIDE the notehead group, in the same place in draw order. ⭐ Every highlight selector that reaches
+ * these glyphs is a DESCENDANT search (`group.querySelectorAll('text')`, and the articulation's
+ * `'text, path'` walk whose index 0 is still the head) ⇒ document order and every index are
+ * unchanged. ⚠️ The face is unaffected too: `SVGContext.fillText` writes the font onto the `<text>`
+ * whenever it differs from the enclosing group's.
+ *
+ * ⭐ The class is the REGISTRY's kind name (`'accidental'`), ⛔ not VexFlow's category — P6b has to
+ * match a scene group to the hit box the editor already files for the same sign.
  */
 export function drawAccidental(ctx: DrawContext, ink: AccidentalInk): void {
-  stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+  ctx.openGroup('accidental', ink.id)
+  try {
+    stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+  } finally {
+    // ⚠️ In a `finally`, like every other `openGroup` in this engine: an unbalanced pair swallows
+    // the rest of the page's ink into a group that never closes.
+    ctx.closeGroup()
+  }
 }

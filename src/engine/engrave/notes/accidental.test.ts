@@ -36,9 +36,16 @@ describe('drawAccidental', () => {
     ])
   })
 
-  it('⛔ opens NO group — an accidental’s text belongs inside its notehead’s, where the highlight looks', () => {
+  it('⭐ opens a group of its OWN kind, carrying the sign’s id', () => {
+    // ⭐⭐ **A group of its own, as of 2026-09-14** — his report: a sign that can be SELECTED must be
+    // findable in the scene, or `__bbox.ink()` has no box to draw for it and the notehead's box
+    // silently swallows it. ⚠️ VexFlow opened none; this is the family's one DOM change.
     const r = new SceneRecorder()
-    drawAccidental(r, { glyph: '', x: 0, y: 0, font: undefined })
-    expect(r.scene.children.every(c => c.kind !== 'group')).toBe(true)
+    drawAccidental(r, { glyph: '', x: 0, y: 0, font: undefined, id: 'auto3' })
+    const [group] = r.scene.children
+    expect(group.kind === 'group' && [group.cls, group.id]).toEqual(['accidental', 'auto3'])
+    // ⚠️ and the glyph is INSIDE it — a group that opened and closed around nothing would pass the
+    // assertion above on its own.
+    expect(group.kind === 'group' && scenePrimitives(group)).toHaveLength(1)
   })
 })

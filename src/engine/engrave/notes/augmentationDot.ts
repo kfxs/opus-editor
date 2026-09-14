@@ -33,6 +33,8 @@ export interface AugmentationDotInk {
   /** ⚠️ The BASELINE, after {@link dotBaselineY} has applied the half-space lift. */
   y: number
   font: GlyphFont
+  /** The drawn dot's own id, so the group it opens can be found again — see `./accidental`. */
+  id?: string
 }
 
 /**
@@ -49,11 +51,16 @@ export function dotBaselineY(noteY: number, dotShiftY: number, staffSpace: numbe
 }
 
 /**
- * ⭐ Stamp one augmentation dot.
+ * ⭐ Stamp one augmentation dot, **in a group of its own** — `./accidental`'s {@link drawAccidental}
+ * carries the whole argument for why these three marks opened one on 2026-09-14, and what it cost.
  *
- * ⛔ **Opens no group** — like the accidental, its `<text>` belongs inside the notehead group its
- * note opened, which is where the selection highlight looks for it.
+ * ⭐ The class is the REGISTRY's kind name, `'dot'`.
  */
 export function drawAugmentationDot(ctx: DrawContext, ink: AugmentationDotInk): void {
-  stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+  ctx.openGroup('dot', ink.id)
+  try {
+    stampGlyph(ctx, ink.glyph, ink.x, ink.y, ink.font)
+  } finally {
+    ctx.closeGroup()
+  }
 }

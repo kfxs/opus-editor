@@ -17,16 +17,17 @@
  * wedge, the octave line, the pedal's dashes, page sheets. Their coordinates are arithmetic over
  * stave geometry and the layout, and jsdom computes all of it.
  *
- * ⛔ **Anything a VexFlow object still paints itself** — today the ARTICULATION, and the fan's own
- * noteheads and accidentals (U2, blocked on U3's highlight). 🚨 ⛔ **And `lint:paint` will not tell
- * you which**: it counts the identifier `vexContext`, which a MODIFIER never writes — the accidental
- * and the dot were missing from this file's scenes for four migration steps without moving that
- * number by one (`docs/note-engraving-plan.md` §1f). ⭐ Hence the CENSUS below: the page's glyphs,
- * diffed against the scene's.
+ * ⛔ **Anything a VexFlow object still paints itself** — today the FAN's own noteheads, accidentals
+ * and marks (U2, blocked on U3's highlight), and the ghosts. 🚨 ⛔ **And `lint:paint` will not tell
+ * you which**: it counts the identifier `vexContext`, which a MODIFIER never writes — the accidental,
+ * the dot and the articulation were missing from this file's scenes for four migration steps without
+ * moving that number by one (`docs/note-engraving-plan.md` §1f, §1g). ⭐ Hence the CENSUS below: the
+ * page's glyphs, diffed against the scene's.
  * ⭐ That gap is the migration's remaining work rather than a defect of the scene, and it shrinks
  * with every commit: the noteheads, stems, flags and ledger lines arrived with P3, the beams with
  * P4, the staff's five lines, the clef, the meter and the opening barline with P5 — ⇒ ⭐⭐ **nothing
- * a score STAVE draws is outside the scene any more** — and **every slur and tie arc with U1**.
+ * a score STAVE draws is outside the scene any more** — **every slur and tie arc with U1**, and with
+ * P3f/P3g every MODIFIER glyph an ordinary note carries.
  * The browser suite stays for exactly that half.
  *
  * ⛔ **And still not INK EXTENTS.** A glyph's drawn width needs a font. The scene says *where a
@@ -862,14 +863,14 @@ describe('⭐⭐ U1 — the CURVE in the scene: a tie’s arc, drawn by us', () 
   })
 })
 
-describe('⭐⭐ the note’s MODIFIERS — the accidental and the dot in the scene', () => {
+describe('⭐⭐ the note’s MODIFIERS — the accidental, the dot and the articulation in the scene', () => {
   /** A bar with a sharp on the first note and a dot on the second. */
-  function marked(articulate = false): ScoreModel {
+  function marked(articulate?: 'staccato' | 'accent'): ScoreModel {
     const model = new ScoreModel()
     model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), alter: 1 })
     model.addNote({
       step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), dots: 1,
-      ...(articulate ? { articulations: ['staccato' as const] } : {}),
+      ...(articulate ? { articulations: [articulate] } : {}),
     })
     model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(5, 2) })
     return model
@@ -888,6 +889,10 @@ describe('⭐⭐ the note’s MODIFIERS — the accidental and the dot in the sc
 
   const SHARP = '\ue262'
   const AUGMENTATION_DOT = '\ue1e7'
+  /** ⚠️ The two ACCENTS — the SIDE is in the GLYPH, not in a flag: `Articulation.setPosition`
+   *  swaps `aboveCode` for `belowCode`, and nothing downstream of it knows which side it is on. */
+  const ACCENT_ABOVE = '\ue4a0'
+  const ACCENT_BELOW = '\ue4a1'
 
   it('⭐⭐ an accidental and a dot are OURS — the last two glyphs of an ordinary bar', () => {
     const glyphs = sceneGlyphs(renderModel(marked()).scene)
@@ -905,21 +910,63 @@ describe('⭐⭐ the note’s MODIFIERS — the accidental and the dot in the sc
     expect(pageGlyphs(renderer)).toEqual(sceneGlyphs(scene))
   })
 
-  it('🚨 …and it is a census of a PLAIN bar: an ARTICULATION is still VexFlow’s', () => {
-    // ⭐ A PASSING assertion that states the boundary, so the day the articulation's ink moves it
-    // fails and says so — the idiom the barline extent and the header walk both used.
-    const { renderer, scene } = renderModel(marked(true))
-    // ⚠️ A MULTISET difference, ⛔ not `includes`: VexFlow draws a staccato with the augmentation
-    // dot's own codepoint, so a membership test says "present" while the page holds TWO of them and
-    // the scene one. The first draft of this test passed for exactly that reason.
-    const bag = sceneGlyphs(scene)
-    const missing = pageGlyphs(renderer).filter(g => {
-      const at = bag.indexOf(g)
-      if (at < 0) return true
-      bag.splice(at, 1)
-      return false
-    })
-    expect(missing.length, 'the articulation, and nothing else, is still a VexFlow modifier').toBe(1)
+  it('⭐⭐ …and the ARTICULATION with them — an articulated bar’s census is COMPLETE', () => {
+    // ⭐ This test used to be the BOUNDARY. It asserted that exactly ONE glyph the page drew was
+    // missing from the scene — a PASSING statement of what was left, written so that the day the
+    // articulation's ink moved it would fail and say so. 2026-09-14 is that day, and what it states
+    // now is the same census with nothing left out of it.
+    // ⚠️ A MULTISET equality and ⛔ not `includes`: VexFlow draws a STACCATO with the augmentation
+    // dot's own codepoint, so a membership test reads "present" while the page holds TWO of them and
+    // the scene one. The first draft of the old test passed for exactly that reason.
+    const { renderer, scene } = renderModel(marked('staccato'))
+    expect(pageGlyphs(renderer)).toEqual(sceneGlyphs(scene))
+  })
+
+  it('⭐ an ACCENT is ours by its own codepoint — ⚠️ and which one says which SIDE it took', () => {
+    const { renderer, scene } = renderModel(marked('accent'))
+    const accents = sceneGlyphs(scene).filter(g => g === ACCENT_ABOVE || g === ACCENT_BELOW)
+    expect(accents, 'one accent, stamped through our own primitives').toHaveLength(1)
+    expect(pageGlyphs(renderer)).toEqual(sceneGlyphs(scene))
+  })
+
+  it('⭐⭐ each mark is a GROUP OF ITS OWN, named for the kind the registry files it under', () => {
+    // 🚨 His report, 2026-09-14: *"i dont see the bbox of the dot in `__bbox.ink()` either"*, and
+    // *"the `__bbox.ink()` of the notehead becomes bigger with articulation"*. Both are one gap:
+    // VexFlow's modifiers open NO group, so their ink landed loose in the notehead's and the ruler
+    // had nothing to draw a box around — while the head's box swallowed all three.
+    // ⭐ A group per mark is what makes a mark MEASURABLE on its own, and the class is the REGISTRY's
+    // kind name so P6b can match a scene group to the hit box a click already resolves against.
+    const { scene } = renderModel(marked('accent'))
+    for (const [cls, glyph] of [['accidental', SHARP], ['dot', AUGMENTATION_DOT], ['articulation', ACCENT_BELOW]] as const) {
+      const groups = sceneGroups(scene, cls)
+      expect(groups, `one ‘${cls}’ group`).toHaveLength(1)
+      expect(sceneGlyphs(groups[0]), `and its glyph is inside it`).toEqual([glyph])
+      expect(groups[0].id, 'carrying the drawn sign’s own id').toBeTruthy()
+    }
+  })
+
+  it('⭐ …and they are NESTED in the notehead group — ⛔ the DOM order the highlight reads is unchanged', () => {
+    // ⚠️ This is the one DOM change the modifier family has made, and it is safe for exactly this
+    // reason: every highlight selector is a DESCENDANT search (`group.querySelectorAll('text')`, and
+    // the articulation walk whose index 0 is still the head), so wrapping a glyph in a `<g>` moves
+    // nothing in document order. The assertion below is that fact, stated where it can fail.
+    const { renderer } = renderModel(marked('accent'))
+    const heads = [...(renderer.getSVGElement()?.querySelectorAll('g.vf-notehead') ?? [])]
+    expect(heads.length, 'the bar drew a head group per note').toBeGreaterThanOrEqual(3)
+    // ⚠️ The sharp is on the FIRST note and the dot and the mark on the SECOND — a modifier belongs
+    // to the head it hangs off, so each one nests in its own head's group. ⚠️ A REST draws as a
+    // `vf-notehead` too (the harness records the same surprise), so this counts rather than indexes.
+    expect(
+      heads.map(h => [...h.querySelectorAll('g')].map(g => g.getAttribute('class'))).filter(cs => cs.length),
+      'each mark nests in the head it belongs to, and no head holds a mark that is not its own',
+    ).toEqual([['vf-accidental'], ['vf-dot', 'vf-articulation']])
+    for (const head of heads) {
+      const first = head.querySelector('text')?.textContent ?? ''
+      expect(
+        (first.codePointAt(0) ?? 0) >= 0xe0a0 && (first.codePointAt(0) ?? 0) <= 0xe4ff,
+        '⛔ the HEAD (or a rest) is still the first glyph in document order, which is the index the highlight skips',
+      ).toBe(true)
+    }
   })
 })
 

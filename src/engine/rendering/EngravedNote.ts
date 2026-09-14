@@ -299,11 +299,12 @@ export function drawNoteInkThrough(notes: readonly StaveNote[], ctx: DrawContext
     if (note instanceof EngravedNote) note.setInkSurface(ctx)
     const stem = note.getStem()
     if (stem instanceof EngravedStem) stem.setInkSurface(ctx)
-    // ⭐ …and every MODIFIER that can take one — today the accidental and the augmentation dot
-    // (2026-09-14). ⚠️ Asked as a MEMBERSHIP, ⛔ not as a third and fourth `instanceof`: that is
-    // the family `./inkSurface` exists for, and joining it is what a new one implements. A
-    // modifier that does not (an `Articulation`, a `CenteredTremolo`, an `Annotation`) keeps
-    // painting itself on VexFlow's context, which is the honest state of the migration.
+    // ⭐ …and every MODIFIER that can take one — the accidental, the augmentation dot and the
+    // ARTICULATION (all 2026-09-14). ⚠️ Asked as a MEMBERSHIP, ⛔ not as a third, fourth and fifth
+    // `instanceof`: that is the family `./inkSurface` exists for, and joining it is what a new one
+    // implements — the articulation joined it by adding a row and nothing else. A modifier that
+    // does not (a `CenteredTremolo`, an `Annotation`) keeps painting itself on VexFlow's context,
+    // which is the honest state of the migration.
     for (const modifier of note.getModifiers()) {
       if (acceptsInkSurface(modifier)) modifier.setInkSurface(ctx)
     }
