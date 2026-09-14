@@ -29,10 +29,10 @@
  * ## ⏳ What this module deliberately does NOT own yet
  *
  * ⛔ **WHICH line each clef names** (treble → the second line up, bass → the fourth, C clefs → the
- * line they are centred on) is still VexFlow's `Clef.types` table, arriving here as
- * {@link ClefAnchor.lineY} already resolved. ⛔ **How big a clef is drawn** — and in particular the
- * **⅔** a mid-score clef change is reduced by (`Clef.getPoint`) — is still VexFlow's, arriving as
- * the resolved `font`.
+ * line they are centred on) and ⛔ **how big a clef is drawn** (the **⅔** of a mid-score change) are
+ * not decided in THIS module: they arrive as {@link ClefAnchor.lineY} and the `font`, resolved by
+ * `./clefSign` — today's values as rows since S4b0, where they used to be VexFlow's `Clef.types` and
+ * `Clef.getPoint`.
  *
  * ⭐ **Both are open research questions as of 2026-09-02**, being asked of the books and the three
  * engine clones (`docs/clef-research.md`): the vertical anchor per clef, and the small-clef ratio.

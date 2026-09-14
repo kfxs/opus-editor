@@ -82,6 +82,9 @@ const GLYPHS = {
   timeSignatures: [
     'timeSig0', 'timeSig1', 'timeSig2', 'timeSig3', 'timeSig4',
     'timeSig5', 'timeSig6', 'timeSig7', 'timeSig8', 'timeSig9',
+    // ⭐ The two meters that are a SYMBOL rather than numerals — `C` and `C|` (S4b0 of
+    //   docs/vexflow-removal-map.md: the meter's glyph is chosen by us, not by VexFlow's table).
+    'timeSigCommon', 'timeSigCutCommon',
   ],
 
   // The letters a dynamic mark is composed of (`dynamics.ts` builds the words from these).

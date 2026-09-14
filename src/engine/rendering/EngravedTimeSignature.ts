@@ -37,23 +37,23 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **The PLACEMENT.** The sign's `x` is still `Stave.format()`'s BEGIN-modifier walk, and its width
- * is still `Element.getWidth()`, a runtime `measureText` — as are the `topStartX`/`botStartX` that
- * centre the shorter row over the wider. ⭐ That is the *"`headerInk` MEASURES, `Stave` PLACES"* pair
- * P5 is named after, and it is the next step of P5b, not this one.
+ * ⛔ **The PLACEMENT.** The sign's `x` is still `Stave.format()`'s BEGIN-modifier walk — S4b1 takes it.
  *
- * ⛔ **WHICH lines the rows sit on, and the ROW GAP between them.** `topLine`/`bottomLine`/`lineShift`
- * stay VexFlow's and arrive at the ink as resolved ys. 🚨 The gap is ⛔ **UNKNOWN in every treatise**
- * (`docs/header-spacing-research.md` row **H**) and the engines split 2.0 sp against 0.0 — so a
- * migration is the last place it may be chosen. See the ink module's header.
+ * ✅ **The ROWS are ours since S4b0** — `engrave/header/meterSign` composes them from the score's own
+ * `TimeSignature`: the numerals, the lines they stand on, the half-line shift, and the centring of the
+ * shorter row over the wider, from widths measured here through `./glyphPainter` (the same
+ * `measureText` VexFlow used). 🚨 The ROW GAP stays today's 2 sp: it is ⛔ **UNKNOWN in every treatise**
+ * (`docs/header-spacing-research.md` row **H**), so a migration is the last place it may be chosen.
  *
  * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedClef`, `EngravedBeam` and `EngravedNote`
- * are ones.** Everything read below is public API (`getX`, `getXShift`, `getY`, `getYShift`,
- * `getText`, `fontInfo`, `getLine`, `topLine`, `bottomLine`) or `protected` and therefore ours by
- * inheritance (`topText`, `botText`, `topStartX`, `botStartX`, `lineShift`, `isNumeric`) — the body is
- * VexFlow's own arithmetic MOVED, ⛔ not rewritten.
+ * are ones.** What is still read off it is public API (`getX`, `getXShift`, `getY`, `getYShift`) —
+ * the sign's own position, which stays VexFlow's until the walk is ours.
  */
-import { TimeSignature, type Element, type Stave } from 'vexflow'
+import { TimeSignature, type Stave } from 'vexflow'
+import type { TimeSignature as Meter } from '@/types/music'
+import { timeSignatureVexKey } from '@/utils/meter'
+import { meterLayout, type MeterLayout, type MeterRowLine } from '@/engine/engrave/header/meterSign'
+import { measureGlyph } from './glyphPainter'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawMeter, stampMeter, type MeterRow } from '@/engine/engrave/header/meter'
@@ -73,6 +73,17 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
   /** @see EngravedTimeSignature.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /**
+   * ⭐ **What this meter draws, as ours** — S4b0 (`engrave/header/meterSign`), laid out once here, where
+   * VexFlow's constructor measured its own rows.
+   */
+  private readonly layout: MeterLayout
+
+  constructor(meter: Meter, customPadding?: number) {
+    super(timeSignatureVexKey(meter), customPadding)
+    this.layout = meterLayout(meter, glyphs => measureGlyph('EngravedTimeSignature.row', glyphs, MUSIC_GLYPH_FONT.size))
   }
 
   /**
@@ -111,52 +122,25 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
   }
 
   /**
-   * ⭐⭐ **The one body of placement arithmetic** — VexFlow's `drawAt`, read out as values.
+   * ⭐ The rows this meter stamps at `x` — laid out by `engrave/header/meterSign` from the MODEL (S4b0),
+   * ⛔ no longer read off VexFlow's `topText`/`botText`/`topStartX`/`lineShift`.
    *
-   * ⚠️ The `C`/`C|` branch is a ONE-ROW meter and nothing more special than that: VexFlow draws it
-   * with `this.renderText(ctx, x - this.x, …)`, whose subtraction exists only because `renderText`
-   * adds `this.x` straight back — so {@link rowOf} is handed `x - this.getX()` and the two cancel,
-   * leaving the sign's own `xShift`. ⛔ Transcribed rather than simplified to `x`, because the day
-   * something sets `this.x` and the caller's `x` apart, the cancellation is the behaviour.
+   * ⚠️ A SYMBOL meter (`C`, `C|`) still adds the sign's own `xShift` and `y`/`yShift`, as VexFlow's
+   * `renderText` added them to it; the numeral rows were bare elements VexFlow never positioned, so
+   * theirs were 0 and are not read.
    */
   private meterRows(frame: StaffFrame, x: number): MeterRow[] {
-    if (!this.isNumeric) {
-      return [this.rowOf(this, x - this.getX(), staffLineY(frame, this.getLine()))]
-    }
-    // ⭐ A row is centred on the line it names — see `engrave/header/meter`'s header for why that is
-    // a BASELINE. ⚠️ `lineShift` is VexFlow's own ±½-line compensation for an oversized glyph, folded
-    // in here so the ink never sees it.
-    const topY = this.botText.getText().length > 0
-      ? staffLineY(frame, this.topLine - this.lineShift)
-      // ⚠️ A lone upper row is centred between the two lines — VexFlow's own midpoint of the two
-      // PLACEMENTS, ⛔ not `staffLineY(frame, 2)`: the two differ the moment a staff's lines are not evenly
-      // spaced (`own-engraving-engine.md` §0.3 rule 5).
-      : (staffLineY(frame, this.topLine) + staffLineY(frame, this.bottomLine)) / 2
-    return [
-      this.rowOf(this.topText, x + this.topStartX, topY),
-      this.rowOf(this.botText, x + this.botStartX, staffLineY(frame, this.bottomLine + this.lineShift)),
-    ]
-  }
-
-  /**
-   * One `Element.renderText(ctx, xPos, yPos)` call, as a value — `element.js:331`, which stamps at
-   * `xPos + this.x + this.xShift` / `yPos + this.y + this.yShift`.
-   *
-   * ⚠️ Every one of those four offsets is **0 on a `topText`/`botText` today** (they are bare
-   * `new Element()`s that VexFlow never positions — the whole placement arrives in `xPos`/`yPos`).
-   * They are read anyway, because this is a transcription: a row that started carrying a shift would
-   * otherwise be silently ignored, which is the class of bug this migration exists to stop making.
-   *
-   * ⚠️ `renderText` also stamps an element's `children`; neither a `TimeSignature` nor its two rows
-   * has any — the digits are folded into ONE codepoint string by `makeTimeSignatureGlyph` — so there
-   * is nothing here to lose.
-   */
-  private rowOf(el: Element, x: number, lineY: number): MeterRow {
-    return {
-      glyph: el.getText(),
-      x: x + el.getX() + el.getXShift(),
-      lineY: lineY + el.getY() + el.getYShift(),
+    const own = this.layout.numeric ? { x: 0, y: 0 } : { x: this.getXShift(), y: this.getY() + this.getYShift() }
+    return this.layout.rows.map(row => ({
+      glyph: row.glyph,
+      x: x + row.dx + own.x,
+      lineY: rowLineY(frame, row.line) + own.y,
       font: MUSIC_GLYPH_FONT,
-    }
+    }))
   }
+}
+
+/** A row's baseline y — on its line, or midway between the placements of its two. */
+function rowLineY(frame: StaffFrame, line: MeterRowLine): number {
+  return typeof line === 'number' ? staffLineY(frame, line) : (staffLineY(frame, line[0]) + staffLineY(frame, line[1])) / 2
 }

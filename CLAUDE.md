@@ -183,6 +183,8 @@ src/
                           #   in a reader, rule 5) + `notes/noteRuler` (the questions a reader asks
                           #   of a drawn note — ⛔ not its BOX, which is P6b's per-reader work)
                           #   + `staff/signRun` (the signs a bar opens and ends with, and where)
+                          #   + `header/clefSign` / `header/meterSign` (what a clef / a meter DRAWS —
+                          #   glyph, line, face, the meter's rows from the MODEL — today's rows)
                           #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces
                           #   taken from VexFlow, today's values as sourced ROWS)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)

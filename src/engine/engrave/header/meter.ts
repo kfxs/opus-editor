@@ -36,10 +36,10 @@
  *
  * | ⛔ not ours | where it still lives | why it was left |
  * |---|---|---|
- * | **WHICH lines** the two rows name | VexFlow's `TimeSignature.topLine` / `bottomLine` (1 and 3) | the same call P5b made for `Clef.types`: it arrives resolved, as a y |
+ * | **WHICH lines** the two rows name | ✅ `./meterSign` since S4b0 (today's 1 and 3, as rows) | it still arrives here resolved, as a y |
  * | the **GAP between the rows** | ⛔ nobody chose it — it FALLS OUT of the two lines | 🚨 see below, and it is the sharpest ⛔ UNKNOWN in the header research |
- * | `lineShift` — ±½ line when the glyph is over 30 px tall | VexFlow's `makeTimeSignatureGlyph` | an unsourced compensation of theirs; it arrives folded into the y |
- * | the rows' **CENTRING on each other** (`topStartX` / `botStartX`) | VexFlow's `makeTimeSignatureGlyph`, off a runtime `measureText` | a MEASUREMENT, not ink — and it is P6's territory, not this step's |
+ * | `lineShift` — ±½ line when the glyph is over 30 px tall | ✅ `./meterSign` since S4b0, as a row | an unsourced compensation of VexFlow's, kept; it arrives folded into the y |
+ * | the rows' **CENTRING on each other** | ✅ `./meterSign` since S4b0, off a width the renderer measures | a MEASUREMENT, not ink — it arrives folded into each row's x |
  * | the **x** of the whole sign | `Stave.format()`'s BEGIN-modifier walk | *"`headerInk` MEASURES, `Stave` PLACES"* — the next step of P5b, ⛔ not this one |
  *
  * 🚨🚨 **THE ROW GAP IS UNKNOWN IN EVERY BOOK, AND THAT IS A FINDING, ⛔ NOT AN OMISSION.**

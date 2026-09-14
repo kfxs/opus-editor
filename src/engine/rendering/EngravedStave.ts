@@ -43,6 +43,7 @@
  */
 import { Barline, Stave, StaveModifierPosition, type StaveOptions } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import type { TimeSignature as Meter } from '@/types/music'
 import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
@@ -173,23 +174,23 @@ export class EngravedStave extends Stave {
   }
 
   /**
-   * ⭐⭐ **P5b — every time signature this stave carries is one of OURS.**
+   * ⭐⭐ **Every time signature this stave carries is one of OURS, built from the MODEL** — S4b0.
    *
-   * ⚠️ The twin of {@link EngravedStave.addClef}, and for the same reason: `Stave.addTimeSignature`
-   * hard-codes `new TimeSignature(...)` (`stave.js:335`), so this is the only way to substitute the
-   * subclass without touching the call sites. ⭐ It has none of `addClef`'s bookkeeping because
-   * VexFlow's has none — a meter is looked up through `getModifiers(position, CATEGORY)`, ⛔ not held
-   * in a field — so the body is its two lines with one word changed.
+   * ⚠️ `Stave.addTimeSignature` hard-codes `new TimeSignature(...)` (`stave.js:335`) and takes VexFlow's
+   * spec STRING. This takes the score's `TimeSignature` itself, so the meter's rows are composed from
+   * what the score says (`engrave/header/meterSign`) ⛔ rather than parsed back out of a string. ⭐ It
+   * has none of `addClef`'s bookkeeping because VexFlow's has none — a meter is looked up through
+   * `getModifiers(position, CATEGORY)`, ⛔ not held in a field.
    *
-   * ⚠️ `customPadding` is passed through UNTOUCHED, `undefined` included: the constructor's own
-   * default is 15, and naming it here would be a second copy of a number nobody chose.
+   * ⚠️ `customPadding` is left to the constructor's own default (15): naming it here would be a second
+   * copy of a number nobody chose.
    *
    * ⭐ **The GHOST and GUTTER staves are deliberately not affected**: they are plain `Stave`s
    * (`GhostRenderer`, `GutterRenderer`), so they keep VexFlow's meter exactly as they keep VexFlow's
    * clef and staff lines. A preview is not the page.
    */
-  override addTimeSignature(timeSpec: string, customPadding?: number, position?: number): this {
-    this.addModifier(new EngravedTimeSignature(timeSpec, customPadding), position)
+  addMeter(meter: Meter, position?: number): this {
+    this.addModifier(new EngravedTimeSignature(meter), position)
     return this
   }
 

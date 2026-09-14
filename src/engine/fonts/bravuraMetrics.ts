@@ -1,7 +1,7 @@
 /**
  * ⛔⛔ **GENERATED — DO NOT EDIT.** `node scripts/generate-font-metrics.mjs`
  *
- * 71 of Bravura's 3434 glyphs: the ones the editor draws
+ * 73 of Bravura's 3434 glyphs: the ones the editor draws
  * (`docs/font-metrics-plan.md` F1). Hand-editing a number here would recreate by hand the very
  * drift the file exists to end — change the glyph list in the script and re-run.
  *
@@ -23,7 +23,7 @@ import type { GlyphBox } from './fontMetrics'
  * 1.481. The generator cross-checks every box against that metadata, and this is what
  * that check found on the run that wrote this file:
  *
- * 🚨 **1 of 71 DISAGREE** — the rest are identical to within 0.001 spaces:
+ * 🚨 **1 of 73 DISAGREE** — the rest are identical to within 0.001 spaces:
  *   · brace — off by 0.051 spaces
  *
  * ⚠️ The numbers below are the **OTF's**, because that is the file we draw with. Where a glyph
@@ -83,6 +83,8 @@ export type GlyphName =
   | 'timeSig7'
   | 'timeSig8'
   | 'timeSig9'
+  | 'timeSigCommon'
+  | 'timeSigCutCommon'
   | 'dynamicPiano'
   | 'dynamicMezzo'
   | 'dynamicForte'
@@ -165,6 +167,8 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
   timeSig7: { left: -0.08, right: 1.684, up: 0.996, down: 1, advance: 1.764 },
   timeSig8: { left: -0.08, right: 1.664, up: 1.036, down: 1.036, advance: 1.744 },
   timeSig9: { left: -0.08, right: 1.656, up: 1.004, down: 0.996, advance: 1.736 },
+  timeSigCommon: { left: -0.02, right: 1.696, up: 1.004, down: 0.996, advance: 1.696 },
+  timeSigCutCommon: { left: 0, right: 1.672, up: 1.444, down: 1.436, advance: 1.668 },
   // dynamics
   dynamicPiano: { left: 0.356, right: 1.464, up: 1.096, down: 0.568, advance: 1.46 },
   dynamicMezzo: { left: 0.08, right: 1.784, up: 1.096, down: 0.04, advance: 1.748 },
@@ -261,6 +265,8 @@ export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
   timeSig7: 57479,
   timeSig8: 57480,
   timeSig9: 57481,
+  timeSigCommon: 57482,
+  timeSigCutCommon: 57483,
   // dynamics
   dynamicPiano: 58656,
   dynamicMezzo: 58657,

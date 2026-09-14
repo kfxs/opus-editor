@@ -47,7 +47,7 @@ import { pairPadding } from '@/engine/layout/spacingPadding'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
 import { tupletBracketed, tupletBracketEnd, tupletMarkRuns } from '@/utils/musicUtils'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
-import { getMeterInfo, timeSignatureVexKey, type MeterInfo } from '@/utils/meter'
+import { getMeterInfo, type MeterInfo } from '@/utils/meter'
 import { computeBeamGroups, secondaryBreakIndices } from '@/utils/beaming'
 import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, type CrossBarFanJoin, type CrossBarSide, type LaneBeamPlan } from './CrossBarBeams'
 import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
@@ -2643,7 +2643,7 @@ export class VexFlowRenderer {
       stave.addClef(clef, 'small')
     }
     if (drawsTimeSignature(measure)) {
-      stave.addTimeSignature(timeSignatureVexKey(measure.timeSignature))
+      stave.addMeter(measure.timeSignature)
     }
     if (cautionaryEndClef) {
       // Cautionary clef before a line break: warns of the next line's new clef.
@@ -2659,7 +2659,7 @@ export class VexFlowRenderer {
       //    `BarlineRenderer` draws at the stave's right EDGE since it took the end barlines over.
       //    ⛔ Not fixed here — it moves ink. The finding, the citation and the fix's shape are
       //    `docs/barline-types-plan.md` §4.4a.
-      stave.addEndTimeSignature(timeSignatureVexKey(cautionaryEndTimeSig))
+      stave.addMeter(cautionaryEndTimeSig, StaveModifierPosition.END)
     }
 
     // ⭐⭐ Where this staff's notes START is a SYSTEM answer, never this lane's: the measure's own
