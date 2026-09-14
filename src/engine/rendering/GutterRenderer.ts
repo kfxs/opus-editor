@@ -1,13 +1,13 @@
 import { Renderer } from 'vexflow'
 import { GUTTER_WIDTH, type GutterState } from './layoutConfig'
 import { INDICATOR_INK } from '../../utils/selectionColors'
-import { THIN_BARLINE_PX } from './barlineInk'
+import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
 import { scaling } from '@/engine/paint/Affine'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGroupOf } from './svgDrawGroup'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
-import { drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
+import { STAVE_LINE_WIDTH_PX, drawStaffLines, staffLinesInk } from '@/engine/engrave/staff/staffLines'
 import { walkSigns } from '@/engine/engrave/staff/signWalk'
 import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
@@ -22,15 +22,6 @@ const GUTTER_INK = INDICATOR_INK
 
 /** Left inset of the gutter's staves (layout px) — see the system-connector note in `render`. */
 const GUTTER_INSET = 10
-
-/**
- * How thick the gutter's staff lines are stroked, in px — **1**, today's value: the gutter's staves
- * were plain VexFlow `Stave`s, whose `draw()` never sets a width, so their lines took the SVG context's
- * default `stroke-width` of 1.0 (`svgcontext.js`). ⚠️ The score's own lines are 0.11 sp (1.1 px,
- * `engrave/staff/staffLines`) — the gutter has been that little thinner since before S4d, and whether it
- * should match is a question about the picture, ⛔ not this migration's to answer.
- */
-const GUTTER_STAFF_LINE_PX = 1
 
 /**
  * Bar number: font, size, and how far its baseline sits above the top staff's first line (px).
@@ -62,8 +53,9 @@ const GUTTER_NUMBER_LIFT_PX = 8
  * ⭐ **S4d of `docs/vexflow-removal-map.md`: no VexFlow stave is built here any more.** Each gutter
  * staff is a frame of ours, its lines are `engrave/staff/staffLines`, and its clef and its two empty
  * barlines are the score's own sign objects walked by the score's own walk (`engrave/staff/signWalk`)
- * — the same ink and the same positions the plain `Stave` gave them. VexFlow's `Renderer` still makes
- * the SVG, until the painter is ours (S13).
+ * — the same positions the plain `Stave` gave them. ⚠️ Since then the LINES are the score's weight and the
+ * system connector the score's extent (below), no longer VexFlow's 1 px. VexFlow's `Renderer` still
+ * makes the SVG, until the painter is ours (S13).
  */
 export class GutterRenderer {
   private renderer: Renderer | null = null
@@ -142,7 +134,10 @@ export class GutterRenderer {
         surface.openGroup('stave')
         try {
           const ys = Array.from({ length: frame.lineCount }, (_, line) => staffLineY(frame, line))
-          drawStaffLines(surface, staffLinesInk(x, width, ys, GUTTER_STAFF_LINE_PX))
+          // ⭐ At the SCORE's thickness (the user's call, 2026-09-14): a staff line in the gutter is the same line
+          //   as the one it repeats. It used to be 1 px — the SVG context's default stroke, which VexFlow's
+          //   `Stave.draw` never overrode — against the score's 0.11 sp.
+          drawStaffLines(surface, staffLinesInk(x, width, ys, STAVE_LINE_WIDTH_PX))
         } finally {
           surface.closeGroup()
         }
@@ -165,9 +160,11 @@ export class GutterRenderer {
     if (frames.length > 1) {
       const first = frames[0]
       const last = frames[frames.length - 1]
-      const topY = staffLineY(first.frame, 0) * first.size
-      // `+ 1` for the bottom line's own thickness, in that staff's ink and so at its scale.
-      const bottomY = (staffBottomLineY(last.frame) + 1) * last.size
+      // ⭐ The score's own connector extent — top line's MIDDLE to bottom line's MIDDLE
+      //   (`engrave/staff/barlineExtent`), each in its own staff's ink and so at its own scale. It used to
+      //   run from the top line's edge to the bottom line + a hand-written 1, VexFlow's line thickness.
+      const topY = staffBarlineExtent(first.frame).topY * first.size
+      const bottomY = staffBarlineExtent(last.frame).bottomY * last.size
       // Its width is deliberately NOT scaled: a system line belongs to the system, not to either
       // staff's ink — the same call the score makes.
       ctx.fillRect(GUTTER_INSET, topY, THIN_BARLINE_PX, bottomY - topY)

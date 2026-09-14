@@ -324,6 +324,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // The controller works out how far it may hang over (from where the score's opening meter is
     // engraved); the viewport turns that into a scroll range.
     gutter => viewport.setPinnedGutter(gutter),
+    () => scoreCanvas,
   )
 
   // ⭐ The page floats on a PASTEBOARD and the editor opens looking at the middle of it — the score

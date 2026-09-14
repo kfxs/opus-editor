@@ -38,6 +38,8 @@ export class GutterController {
     /** Declare the pinned strip to the viewport HOST (not the model): the limit it implies can move
      *  the scroll, and only the host can put the element where the model then says it is. */
     private setPin: (gutter: PinnedGutter | null) => void,
+    /** The score's SCROLL element — the gutter's vertical placement reads the scroll it actually holds. */
+    private getScrollElement: () => HTMLElement | null = () => null,
   ) {}
 
   /** Drop the renderer — the element it drew into is gone (host left linear view). */
@@ -60,7 +62,13 @@ export class GutterController {
     if (!this.renderer) this.renderer = new GutterRenderer(el)
 
     const zoom = this.viewport.getZoom()
-    const { x, y } = this.viewport.getScroll()
+    const { x, y: modelY } = this.viewport.getScroll()
+    // 🚨 The y the score is REALLY scrolled to, ⛔ not the model's. The model keeps a fractional scroll
+    //   (a zoom around the cursor, a fractional limit) that the element rounds to what it can hold — a
+    //   whole pixel at DPR 1 — and the score moves by the ELEMENT's. Placed from the model's, the gutter's
+    //   staff lines sat up to 0.3 px off the score's (measured in Chromium, 2026-09-14), enough to land a
+    //   thin line on a different pixel row. The x stays the model's: it only picks which bar to describe.
+    const y = this.getScrollElement()?.scrollTop ?? modelY
     const pad = this.contentPadding()
     const svgHeight = this.scoreSvgHeight()
 
@@ -88,7 +96,15 @@ export class GutterController {
     // (top and bottom edges must line up — the two whites read as one sheet). This is also what
     // lets the renderer work in plain layout y: the element already carries the pad + scroll.
     // Same displacement on the vertical: the paper's top is a margin down the surface.
-    el.style.top = `${(margin.y + pad.y) * zoom - y}px`
+    // 🚨 A WHOLE-pixel `top`, and the fraction as a TRANSFORM. The browser paints an SVG placed by `top`
+    //   at a whole pixel while its geometry keeps the fraction, so the gutter's lines landed up to ½ px
+    //   from where its own coordinates (and the score's lines) say — varying with zoom. The score is
+    //   placed by a transform, which is not rounded; this puts the gutter on the same footing (measured
+    //   in Chromium, 2026-09-14: ink−geometry ±0.5 px → ≈0).
+    const top = (margin.y + pad.y) * zoom - y
+    const wholeTop = Math.floor(top)
+    el.style.top = `${wholeTop}px`
+    el.style.transform = `translateY(${top - wholeTop}px)`
     el.style.height = `${svgHeight * zoom}px`
 
     this.renderer.render(state, zoom, svgHeight)

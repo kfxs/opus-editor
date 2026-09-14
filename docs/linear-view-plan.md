@@ -306,6 +306,24 @@ deliberately **darker than voice 1's `#3B82F6`** so a gutter clef can never be m
 voice-coloured notation. The gutter's white tracks the score SVG's own vertical bounds, so the two
 whites read as one sheet of paper.
 
+⚠️ **Known issue — the gutter's staff lines are not yet pixel-aligned with the score's at every zoom**
+(the user's screenshots, 2026-09-14; ⏸️ parked at the user's word). The gutter is a *second* SVG laid
+over the first, so any rounding the two go through differently shows as a line a fraction of a pixel
+off its neighbour. Two such roundings were found, measured and fixed in `GutterController`:
+
+| rounding | measured (Chromium, DPR 1) | fix |
+|---|---|---|
+| the viewport MODEL keeps a fractional scroll; the scroll ELEMENT holds a whole pixel, and the score moves by the element's | gutter geometry 0.01–0.3 px off the score's | place from `scrollElement.scrollTop`, ⛔ not `ViewportModel.getScroll().y` |
+| an SVG placed by `top` is PAINTED at a whole pixel while its geometry keeps the fraction; the score is placed by a transform, which is not rounded | gutter ink ±0.5 px off its own geometry, varying with zoom | a whole-pixel `top` + the fraction as `translateY(…)` |
+
+After both, a screenshot probe (each line's ink centroid, both sides) put the gutter within ~0.1 px of
+the score from zoom 0.34 to 1.1. **The user still sees it off** at a larger zoom. Not yet covered, and
+so the places to look next: zooms above ~1.1 (the probe's clip went unclean there), a display with
+DPR ≠ 1 (a fractional `scrollTop`, paint snapped to device pixels), and per-line anti-aliasing a
+single origin fix cannot reach. ⭐ The probe method matters: a geometry read (`getScreenCTM`,
+`getBoundingClientRect`) agreed to 0.015 px while the paint was half a pixel off — only a decoded
+screenshot sees the second rounding.
+
 ### P4 — Virtualization — **deliberately out of scope**
 
 *Virtualization = draw only the bars you can actually see.* Today every keystroke re-lays-out and
