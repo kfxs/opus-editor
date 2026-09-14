@@ -17,7 +17,8 @@ import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
-import { curveArcPoints, drawCurveArc } from './curveArc'
+import { curveArcPoints } from '@/engine/engrave/curves/curveInk'
+import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
@@ -67,8 +68,8 @@ function measureOfNoteId(score: Score, noteId: string): number | undefined {
  *
  * A member has no `StaveNote`: its head is drawn by hand, so the geometry a slur needs comes from
  * the anchor the fan renderer recorded (`RenderPass.fanMemberAnchorMap`). The `staveNote` it carries
- * is the SLOT's, and it is used for exactly two things — constructing VexFlow's `Curve` and asking
- * for the `Stave` — never for x or y. The endpoints reach `renderCurve` explicitly, which is what
+ * is the SLOT's, and since U1 it is used for exactly ONE thing — asking for the `Stave` (it used to
+ * construct VexFlow's `Curve` too) — never for x or y. The endpoints reach the arc explicitly, which is what
  * makes anchoring to something VexFlow never drew possible at all.
  */
 interface SlurEnd {
@@ -376,7 +377,7 @@ function representativeStaveOnLine(
 }
 
 /**
- * Compute the cubic `cps` (control-point deltas for `Curve.renderCurve`) that bow the
+ * Compute the cubic `cps` (control-point deltas for `engrave/curves/curveInk`) that bow the
  * arc by `SLUR_BOW` **vertically above the line between its endpoints** — the two control
  * points stay horizontally centered (no sideways shift) and lift straight up, *following*
  * the chord's slope. This is the engraving default (MuseScore: "slight contour asymmetry,
@@ -389,7 +390,7 @@ function representativeStaveOnLine(
  * which blew up for closely-spaced steps (seconds went flat-and-skewed) — hence the
  * vertical-above-chord-line formula here.
  *
- * `renderCurve` places each control point at `(endpointX ± dx/4, endpointY + cp.y·dir)`;
+ * `curveControlPoints` places each control point at `(endpointX ± dx/4, endpointY + cp.y·dir)`;
  * we target the chord line at 25%/75% lifted by `BOW`, then invert to recover the deltas.
  */
 function slurArchCps(
@@ -416,7 +417,7 @@ function slurArchCps(
   // ⚠️ EXPERIMENT, HIS (2026-08-31): the INDENT — how far in from each end the controls sit — is
   //    VexFlow's own `span/4` unless the console says otherwise (`./slurShapeExperiment`; both
   //    engines vary it with length and we never have). `cps.x` is an ADDITIVE delta on top of that
-  //    `span/4` in `curveArcPoints` AND in VexFlow's `renderCurve`, so the difference is what goes
+  //    `span/4` in `curveControlPoints`, the one owner of both, so the difference is what goes
   //    in — and 0.25 puts a 0 there, which is what shipped.
   const indent = (slurIndentFraction() - 0.25) * (p1.x - p0.x)
   return [
@@ -709,7 +710,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           p1: { x: number; y: number },
           cps: [{ x: number; y: number }, { x: number; y: number }],
           direction: number,
-        ) => curveArcPoints(p0, p1, cps, direction).points
+        ) => curveArcPoints({ p0, p1, cps, direction }).points
 
         const fromNote = fromEnd.staveNote
         const toNote = toEnd.staveNote
@@ -789,7 +790,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // ⭐ Filed from `autoP0`/`autoP1` — the ends before BOTH hand moves, which this branch
           // already had in hand for the arch solve.
           fileCurve(autoArc(autoP0, autoP1, cps, direction), fromLine)
-          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote)
+          const arc = drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness)
           // Store the on-screen control points + endpoint geometry so a selected slur can
           // show draggable handles (Phase 7), plus the stave's staff-space size so a handle
           // drag can convert the new pixel shape back to staff-spaces for storage. Same-line
@@ -917,7 +918,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeFrom.x; p0.y += wholeFrom.y
               p1.x += wholeFrom.x; p1.y += wholeFrom.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
                 'end', { p0, p1, direction }, stave, 'begin',
               )
             } else if (seg.type === 'end') {
@@ -945,7 +946,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeTo.x; p0.y += wholeTo.y
               p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
                 'start', { p0, p1, direction }, stave, 'end',
               )
             } else if (seg.type === 'middle') {
@@ -978,7 +979,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p0.x += wholeMid.x; p0.y += wholeMid.y
               p1.x += wholeMid.x; p1.y += wholeMid.y
               registerSeg(
-                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness, fromNote, toNote),
+                drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
                 'middle', { p0, p1, direction }, stave, 'middle', ordinal,
               )
             }

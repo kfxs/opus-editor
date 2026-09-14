@@ -35,13 +35,25 @@ function realSvgContext(): SVGContext {
  *  from the interface by testing a subset of it. ⚠️ Keep in step with the interface; the type
  *  assertion below is what fails if a name here is wrong. */
 const PRIMITIVES = [
-  'beginPath', 'moveTo', 'lineTo', 'closePath', 'stroke', 'fill',
+  'beginPath', 'moveTo', 'lineTo', 'bezierCurveTo', 'closePath', 'stroke', 'fill',
   'fillRect',
   'setFont', 'fillText',
   'setFillStyle', 'setStrokeStyle', 'setLineWidth', 'setLineDash',
   'save', 'restore', 'scale',
   'openGroup', 'closeGroup', 'pointerRect',
 ] as const satisfies readonly (keyof DrawContext)[]
+
+/**
+ * 🚨 **A hand-kept list ROTS**, and `satisfies` only checks that each name IS a primitive — ⛔ not
+ * that every primitive is named. U1 added `bezierCurveTo` and both runtime checks above would have
+ * gone on passing without it, testing a subset and saying nothing.
+ *
+ * ⇒ this line fails to COMPILE if `DrawContext` declares something the list omits.
+ */
+type AssertNever<T extends never> = T
+// ⚠️ Exported only so `noUnusedLocals` keeps it: the CHECK is the type argument, not any value.
+export type EveryPrimitiveIsListed =
+  AssertNever<Exclude<keyof DrawContext, (typeof PRIMITIVES)[number]>>
 
 describe('DrawContext', () => {
   it("⭐⭐ is satisfied by VexFlow's SVGContext — the premise of the whole retype", () => {
@@ -70,9 +82,10 @@ describe('DrawContext', () => {
     expect(missing).toEqual(['fillRect'])
   })
 
-  it('⛔ stays SMALL — 19 primitives, not a transcription of RenderContext’s ~35', () => {
+  it('⛔ stays SMALL — 20 primitives, not a transcription of RenderContext’s ~35', () => {
     // ⭐ Rule 4: a new primitive needs a reason. This number going up is a design decision, so it is
-    // written down where a diff shows it.
-    expect(PRIMITIVES).toHaveLength(19)
+    // written down where a diff shows it. ⭐ 19 → 20 with U1's `bezierCurveTo`, and the reason is
+    // that a curve is the one thing in this engine not made of straight edges.
+    expect(PRIMITIVES).toHaveLength(20)
   })
 })

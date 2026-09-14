@@ -27,7 +27,7 @@
  *
  * ## ⛔ What is deliberately NOT here
  *
- * `RenderContext` has ~35 members; we call 19. The absent ones are absent on purpose — this is the
+ * `RenderContext` has ~35 members; we call 20. The absent ones are absent on purpose — this is the
  * measured set, not a transcription, and a primitive that nothing draws with is a primitive nobody
  * has had to justify. ⭐ Rule 4: *a new drawn element = a MODULE + a ROW in its table + an EXISTING
  * scene primitive; a new primitive needs a reason.*
@@ -51,7 +51,7 @@ export type { OpenedGroup, DrawGroup } from './DrawGroup'
 import type { OpenedGroup } from './DrawGroup'
 
 /**
- * ⭐ The 19 primitives, in the four families they fall into.
+ * ⭐ The 20 primitives, in the four families they fall into.
  *
  * ⚠️ Every method returns `void` rather than `this`. VexFlow's return the context for chaining and
  * nothing in this codebase chains, so requiring it would be requiring a property of *their*
@@ -63,6 +63,11 @@ export interface DrawContext {
   beginPath(): void
   moveTo(x: number, y: number): void
   lineTo(x: number, y: number): void
+  /** ⭐ The 20th primitive, and the only one added since this set was measured: **a curve is the one
+   *  thing in this engine that is not made of straight edges** (U1 — a slur's and a tie's arc are
+   *  two cubics, `engrave/curves/curveInk`). ⛔ Nothing else uses it; `quadraticCurveTo` and `arc`
+   *  stayed out, because a primitive nothing draws with is one nobody has had to justify. */
+  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void
   closePath(): void
   stroke(): void
   fill(): void

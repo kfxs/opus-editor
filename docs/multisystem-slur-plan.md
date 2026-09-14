@@ -90,12 +90,12 @@ and drawing each with the shared `drawCurveArc(...)`. Keep the existing
 `fromLine === toLine` branch verbatim (SINGLE — it owns the override + handle
 registration; multi-system gets neither, exactly as today).
 
-**Curve ctor note:** `Curve.renderCurve` uses only the explicit
-`firstX/firstY/lastX/lastY/direction` it's handed — it never reads the `from`/`to`
-notes passed to the `Curve` constructor (those are used only by `Curve.draw()`,
-which `drawCurveArc` never calls). So every segment can pass the slur's own
-`fromNote`/`toNote` to `drawCurveArc`; no per-line "representative note" is needed
-for the draw. (A representative stave is still useful for the MIDDLE baseline Y —
+**Curve ctor note:** an arc is drawn from the explicit
+`p0`/`p1`/`cps`/`direction` it's handed and nothing else. ✅ **2026-09-14 (U1):** the
+`from`/`to` notes this paragraph worked around are GONE — they only ever satisfied
+`new Curve(from, to, …)`, whose `renderCurve` never read them, and the ink is now ours
+(`engine/engrave/curves/curveInk`). So no per-line "representative note" is needed
+for the draw, and there is no ctor to feed. (A representative stave is still useful for the MIDDLE baseline Y —
 or derive that Y from `measureBounds.measureY` of any measure on the line, in
 staff-spaces, which avoids the `staveNoteMap` lookup entirely.)
 
@@ -115,8 +115,8 @@ Per line, build a segment with explicit endpoint geometry, draw it with the shar
   - `leftX = lineLeftEdgeX(line)`, `rightX = lineRightEdgeX(line)`, both ends at the
     baseline Y → a symmetric full-width bow via `slurArchCps`.
   - register `partialType: 'middle'`.
-  - pass the slur's own `fromNote`/`toNote` to `drawCurveArc` (see the Curve ctor
-    note above — `renderCurve` ignores them; geometry comes from the explicit X/Y).
+  - ⭐ no notes are passed at all (U1, see the Curve ctor note above): the geometry
+    comes from the explicit X/Y.
 - **END** (`line === toLine`):
   - `leftX = lineLeftEdgeX(toLine)`, apex `= endY + ARC*dir`
   - `lastX = toNote.getTieLeftX()`, `endY = toY + LIFT*dir`
@@ -162,8 +162,7 @@ function planSlurSegments(
 ```
 
 `renderSlurs` then loops the returned descriptors and draws each with `drawCurveArc`
-(passing the slur's own `fromNote`/`toNote` to the `Curve` ctor — `renderCurve`
-ignores them, see §4). The descriptor X coords come from the §3 edge helpers, which
+(⭐ which takes no notes at all since U1 — see §4). The descriptor X coords come from the §3 edge helpers, which
 stay pure too.
 
 Tests:

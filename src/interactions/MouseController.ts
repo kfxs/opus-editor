@@ -3219,7 +3219,7 @@ export class MouseController {
 
   /**
    * Slur handle drag: the grabbed control point follows the cursor. Invert the
-   * renderCurve math to a cps delta, hold the other control point fixed, live-update
+   * `curveControlPoints` math to a cps delta, hold the other control point fixed, live-update
    * (no undo) and re-render — the re-render redraws the handles at the new spots.
    * Returns true while a slur-handle drag is active.
    */

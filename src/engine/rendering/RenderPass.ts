@@ -82,8 +82,8 @@ export interface RenderPass {
    * FANNED MEMBER pitch id → where its head was actually drawn, so a SLUR can anchor to one
    * (docs/fanned-beam-pitches-plan.md). A member has no `StaveNote` of its own, and everything a
    * slur endpoint needs is geometry the fan renderer already computed: the head's edges and centre,
-   * the stem tip it hangs from, and the SLOT's note — which VexFlow's `Curve` only needs in order
-   * to be constructed (the endpoints are passed to `renderCurve` explicitly).
+   * the stem tip it hangs from, and the SLOT's note. ⭐ (The note used to be needed only to
+   * CONSTRUCT VexFlow's `Curve`; since U1 the arc takes no note at all — just its endpoints.)
    */
   fanMemberAnchorMap: Map<string, FanMemberAnchor>
   /**

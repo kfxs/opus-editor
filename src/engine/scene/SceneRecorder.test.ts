@@ -29,6 +29,7 @@ function fakePainter(log: string[]): { ctx: DrawContext; wrap: (o: OpenedGroup) 
     beginPath: () => log.push('beginPath'),
     moveTo: () => log.push('moveTo'),
     lineTo: () => log.push('lineTo'),
+    bezierCurveTo: () => log.push('bezierCurveTo'),
     closePath: () => log.push('closePath'),
     stroke: () => log.push('stroke'),
     fill: () => log.push('fill'),

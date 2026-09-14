@@ -56,7 +56,8 @@ Two things worth saying before the list, because they change how it reads:
 | The bar's **lead-in** (headerless bars) | `applyLeadIn` → `stave.setNoteStartX` | P3.2 |
 | Which bars go on which line; how a line's surplus is shared | `MeasureLayout`, `distributeLineWidths` | long before |
 | Which page a system lands on | `layout/pageCastOff.ts` | the layout plan |
-| **Slur geometry** — endpoints, angle, belly, multi-system segments | `SlurRenderer` + `curveArc` (`renderCurve` with our own coordinates) | the slur plans |
+| **Slur geometry** — endpoints, angle, belly, multi-system segments | `SlurRenderer` + `curveArc` | the slur plans |
+| **The arc's INK** — every slur and tie, the two cubic passes | `engine/engrave/curves/curveInk` — ⭐ ours since **U1**, 2026-09-14; ⛔ it was `Curve.renderCurve` | `own-engraving-engine.md` U1 |
 | **Fanned beams entirely** — heads, stems, ramp lines | `FannedBeam` + `FanPass` | the fan plans |
 | Cross-barline beams; two-note tremolo strokes | `CrossBarBeams`, `TwoNoteTremolo`, `beamInk` | |
 | **Every BARLINE that ends a bar** — the plain line, the final bar, both repeats | `rendering/BarlineRenderer` (the pass) + `layout/barlineSign` (the geometry) | 2026-08-26, `docs/barline-types-plan.md` P2 |

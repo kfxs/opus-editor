@@ -938,9 +938,9 @@ function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: number, mar
  * ties to WHICH is resolved at click time by {@link MusicEngine.toggleTie} (and logged there),
  * never previewed.
  *
- * `Curve.renderCurve` reads only its params and `renderOptions` — `from`/`to` are used by `draw()`
- * alone, which we never call — so one throwaway note satisfies the constructor without touching
- * the arc. It bows DOWNWARD (direction +1), matching the Keypad's tie key, so the armed tool and
+ * ⭐ It used to build a **throwaway `StaveNote`** here purely to satisfy `new Curve(from, to, …)`,
+ * whose `renderCurve` never read it; U1 took the arc's ink into `engrave/curves/curveInk` and the
+ * fake note went with it. It bows DOWNWARD (direction +1), matching the Keypad's tie key, so the armed tool and
  * the lit key read as one thing, and it STARTS at the cursor rather than straddling it: a tie
  * begins at the note you click and reaches forward, so its head is the part that follows the mouse.
  *
@@ -967,8 +967,6 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
     const x0 = cursorX + START_GAP_PX
     const y = cursorY - LIFT_PX
 
-    // Throwaway anchor: renderCurve never reads it (see above), it only satisfies the ctor.
-    const anchor = new StaveNote({ keys: ['b/4'], duration: 'q' })
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [
       { x: 0, y: CURVE_PX.tieBow },
       { x: 0, y: CURVE_PX.tieBow },
@@ -977,18 +975,18 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
     const group = ctx.openGroup('ghost-tie') as SVGGElement
     try {
       drawCurveArc(
-        { vexContext: ctx },
+        { context: ctx },
         { x: x0, y }, { x: x0 + WIDTH, y },
-        cps, DIRECTION, CURVE_PX.thickness, anchor, anchor,
+        cps, DIRECTION, CURVE_PX.thickness,
       )
     } finally {
       ctx.closeGroup()
     }
 
     // Paint it ghost blue at 0.7 opacity through the DOM — a preview, not yet content (mirrors
-    // the other ghosts), and never through the context: see the note above. `renderCurve` strokes
-    // AND fills, so each emitted path carries both and both must be overridden, or the ghost shows
-    // a blue body with a black outline (the same rule as HighlightController.colorTieGroup).
+    // the other ghosts), and never through the context: see the note above. An arc emits TWO paths
+    // — a stroke-only outline and a fill-only body — so set fill AND stroke on each, or the ghost
+    // shows a blue body with a black outline (the same rule as HighlightController.colorTieGroup).
     group.setAttribute('opacity', '0.7')
     group.querySelectorAll('path').forEach(p => {
       p.setAttribute('fill', '#3B82F6')

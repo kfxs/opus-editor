@@ -20,17 +20,20 @@
  *
  * ## ⚠️ What is NOT in a scene today, and it is the honest half
  *
- * ⛔ **Anything a VexFlow object paints itself** — noteheads, stems, flags, beams, the stave's own
- * lines, accidentals, the ghosts built from `StaveNote`s. Those go through `RenderPass.vexContext`
- * and never touch a `DrawContext`, so the recorder cannot see them. ⭐ **That is exactly the residue
- * `npm run lint:paint` counts, so the scene's coverage and the migration's progress are the same
- * number** — every P3/P4 commit that stops a VexFlow object painting itself adds its ink here, for
- * free.
+ * ⛔ **Anything a VexFlow object paints itself.** ⭐ That list is now SHORT — P3, P4, P5 and U1 took
+ * the note's five drawing calls, the beam's lines, the staff's own lines, the header run and both
+ * curves — and what is left of it is the MODIFIERS a `StaveNote` still hangs on itself
+ * (accidentals, articulations, dots), the fan's own heads, and the ghosts built from `StaveNote`s.
+ * Those go through `RenderPass.vexContext` and never touch a `DrawContext`, so the recorder cannot
+ * see them. ⭐ **That is exactly the residue `npm run lint:paint` counts, so the scene's coverage
+ * and the migration's progress are the same number** — every commit that stops a VexFlow object
+ * painting itself adds its ink here, for free.
  *
  * ✅ What IS in it today: barlines and their joins, key signatures, the grouping signs and the
- * systemic barline, hairpins, trills, octave lines, pedals, the dynamics line, tempo lines, slur and
- * tie arcs' surrounding groups, the staff-scale groups, the page sheets, and every cursor ghost that
- * draws through our own primitives.
+ * systemic barline, the staff's own five lines and the whole header run (clef, meter, opening
+ * barline), **every slur and tie arc** (U1), hairpins, trills, octave lines, pedals, the dynamics
+ * line, tempo lines, the staff-scale groups, the page sheets, and every cursor ghost that draws
+ * through our own primitives.
  */
 import type { Affine } from '@/engine/paint/Affine'
 
@@ -42,10 +45,14 @@ export interface SceneStyle {
   lineDash?: readonly number[]
 }
 
-/** One step of a path, in the order it was issued. */
+/** One step of a path, in the order it was issued.
+ *
+ * ⚠️ A `bezierCurveTo` keeps its two control points, so a reader can re-evaluate the cubic rather
+ * than only see where it ended — which is what makes a slur's or a tie's arch measurable here. */
 export type ScenePathOp =
   | { op: 'moveTo'; x: number; y: number }
   | { op: 'lineTo'; x: number; y: number }
+  | { op: 'bezierCurveTo'; cp1x: number; cp1y: number; cp2x: number; cp2y: number; x: number; y: number }
   | { op: 'closePath' }
 
 /** The face a run of text was drawn in. ⚠️ `size` is whatever the caller handed the context —

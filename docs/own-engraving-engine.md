@@ -73,6 +73,12 @@ delaying engraving work by one day.
 > three chores. All three were found by pulling on P1e on 2026-09-01, two of them for the second
 > time. ⇒ ⭐ **§5's "THE UNLETTERED WORK" (U1–U3) is where they now live**; read it before assuming
 > the lettered sequence is a complete plan.
+>
+> ✅✅ **U1 IS DONE (2026-09-14) — the curve's INK is ours**, and it is the **first step that moved
+> the P1e gate**: `lint:paint` **18 → 9**, where P3, P4 and P5 had each left it at 18. ⇒ ⭐⭐ the only
+> VexFlow object still painting its own ink is **the fan's bare `NoteHead`s and `Accidental`s** (U2,
+> blocked on U3); the other five uses are the beam's and the stem's `.draw()` plumbing, and four
+> `.svg` read-backs that are MEASUREMENTS, ⛔ not painting.
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled
@@ -475,15 +481,18 @@ This row used to say *"BLOCKED until P3"*, and P3 finished on 2026-09-01 without
 
 ⭐⭐ **The measurable form of that condition is `npm run lint:paint`'s `vexContext` count, and P3 and
 P4 did not move it: 18/18, exactly as when P1d was written.** Taking the note's five drawing calls
-and the beam's lines did not reduce it, because the objects still painting themselves are others:
+and the beam's lines did not reduce it, because the objects still painting themselves were others —
+⭐ and **U1 is the step that finally moved it, 18 → 9** (2026-09-14):
 
 | still paints itself | where | which phase takes it |
 |---|---|---|
-| **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ⭐ **P5a ✅ took the LINES** (2026-09-01), **P5b ✅ the CLEF's GLYPH** (2026-09-02), **✅ the METER's** (2026-09-12) and **✅ the opening BARLINE's** (2026-09-13); all three PLACEMENTS are what is left of **P5b** |
-| **`Curve`** — the tie's and slur's arc | `rendering/curveArc` (4), `TieRenderer` (1) | ⛔ **unlettered** — the largest single block left |
+| **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
+| ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
 | **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` (2) | ⛔ **unlettered** — ⚠️ and BLOCKED on the highlight, see U2 |
 
-⚠️ The remaining four `vexContext` uses are `vexContext?.svg` — **measurement escapes**, not painting
+⇒ ⭐⭐ **ONE ROW IS LEFT, and it is the fan's.** The other five code uses are the beam's and the
+stem's `.draw()` plumbing (their INK is already ours — P3c/P4a — and what goes through `vexContext`
+is the object's own group) and the four `vexContext?.svg` **measurement escapes**, not painting
 (`tempoAnchorInk`, `tempoLinePass`, `tempoNudgePass`, `markPreviewPass` reach for the SVG to measure
 text). ⛔ A different problem from this table's, and not one a painter of ours solves.
 
@@ -498,7 +507,7 @@ because nothing had written them down.** They are recorded here so that stops ha
 scheduled, none is a defect list, and the order below is the order they UNBLOCK each other in — ⛔ not
 a priority.
 
-#### U1 — the `Curve`: ties and slurs
+#### U1 — the `Curve`: ties and slurs ✅ **DONE 2026-09-14**
 
 **5 of the painting uses, the biggest single block.** ⭐ **HIS CALL, 2026-09-01:** *"about the curve
 experiment… i want still to leave the answer open so for the curve we should do it too and leave the
@@ -508,6 +517,40 @@ experiment open and we can decide after our engine is ready."*
 beam's quads became ours (P4a) while *which slope rule is right* stayed a live table with a console
 knob (P4b), the arc's drawing can move while `__slur`'s experiment keeps running. ⛔ Taking the ink
 does NOT close the shape question, and this row exists to say so before somebody assumes it does.
+
+⇒ **`engine/engrave/curves/curveInk.ts`** — a port of `Curve.renderCurve` (MIT, attributed), with
+`xShift`/`yShift` folded out (always 0 here) and the `lineDash` branch dropped (nothing dashes a
+slur). `rendering/curveArc` keeps the WEIGHT (the outline pin + `curveFillGap`); `TieRenderer`,
+`SlurRenderer` ×4, the pending tie and the ghost tie all take `context` now. ⛔ No pixel moved —
+6301 unit + 284 e2e green.
+
+**What it found, and none of it was the arc:**
+
+1. ⭐⭐ **`fromNote`/`toNote` were never read.** They existed only to satisfy `new Curve(from, to, …)`
+   — `renderCurve` uses its params and `renderOptions` and nothing else — so the ghost tie was
+   **building a throwaway `StaveNote`** to have one to hand over. Both parameters are gone from
+   `drawCurveArc` and `drawTieArc`, and with them the fake note.
+2. ⭐⭐ **The control-point math had TWO owners and now has one.** `curveArcPoints` (the sampler every
+   hit-test, obstacle and bbox reads) mirrored VexFlow's control points *from the outside*; its own
+   comment worried about *"a second sampler that could drift from this one"* while being exactly
+   that. It moved into `curveInk` beside the ink, and both call `curveControlPoints`. ⇒ **the drawn
+   arc and the hit geometry cannot disagree** — asserted, in jsdom.
+3. 🚨 **A path OUTLIVES the paint, and the recorder had assumed otherwise.** `renderCurve` strokes
+   the OPEN figure, then closes it, then fills — and `SVGContext` only clears its path in
+   `beginPath`, so the page gets **two `<path>` elements**: a stroke-only outline with no `Z` and a
+   fill-only body with one. `SceneRecorder` had been clearing on every paint, which would have
+   recorded the body as *a path made of one `closePath` and nothing else*. ⭐ Fixed to the real
+   lifetime, with the *"painted twice unchanged ⇒ one primitive marked `both`"* case kept: the two
+   cases are different pictures. ⚠️ The old spec had ANTICIPATED the curve and guessed wrong about
+   it — *a fixture written for code that does not exist yet is a hypothesis, not a test.*
+4. ⭐ **`DrawContext` gained its 20th primitive**, `bezierCurveTo` — the first since the set was
+   measured, and the reason is that **a curve is the only thing in this engine not made of straight
+   edges**. ⛔ `quadraticCurveTo` and `arc` stayed out.
+
+⭐ **The dividend:** a slur's and a tie's arc are in the SCENE, so *"the tie runs between its
+noteheads and bows clear of the stems"* is a jsdom assertion (`VexFlowRenderer.scene.test.ts`), and
+the arch's shape is arithmetic on the control points (`curveInk.test.ts`). ⛔ Still not an ink
+extent.
 
 #### U2 — the fan's member group, and why the fan's NOTEHEADS are not a ten-line move
 
@@ -607,7 +650,8 @@ tell"*, found in the wild rather than argued.
 
 #### ✅ P1b — `engine/paint/DrawContext.ts` (2026-09-01)
 
-⭐⭐ **`paint/` now exists, and the engine draws through a type of ours.** 19 primitives, declared by
+⭐⭐ **`paint/` now exists, and the engine draws through a type of ours.** 19 primitives (20 since
+U1 added `bezierCurveTo`, the only curved one), declared by
 us, importing nothing — and **satisfied structurally by VexFlow's `SVGContext`**, which is what makes
 this a type change with no pixel in it. ⛔ Nothing is implemented; the object flowing through every
 renderer is the same object it was.

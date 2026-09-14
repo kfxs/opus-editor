@@ -62,13 +62,12 @@ function staffLineYs(stave: Stave | undefined): number[] {
  * the cursor previews do.
  */
 export function drawTieArc(
-  // ⛔ `vexContext`: the arc itself is drawn by VexFlow's `Curve` — see `./curveArc`.
-  pass: Pick<RenderPass, 'vexContext'>,
+  // ⭐ Our own surface: the arc's ink is `engrave/curves/curveInk` (U1) — see `./curveArc`.
+  pass: Pick<RenderPass, 'context'>,
   geom: { firstX: number; lastX: number; y: number; direction: number },
-  notes: { from: StaveNote; to: StaveNote },
   stave?: Stave,
 ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
-  if (!pass.vexContext) return null
+  if (!pass.context) return null
   try {
     // A staff line running ALONGSIDE the arc is the fault (Gould p. 61). The repair makes the arc
     // ROUNDER and leaves the tips on their noteheads — his eye, 2026-08-16, on a translation that
@@ -87,7 +86,7 @@ export function drawTieArc(
     ]
     const arc = drawCurveArc(
       pass, { x: geom.firstX, y: geom.y }, { x: geom.lastX, y: geom.y }, cps,
-      geom.direction, CURVE_PX.thickness, notes.from, notes.to,
+      geom.direction, CURVE_PX.thickness,
     )
     return { bbox: arc.bbox, points: arc.points }
   } catch (e) {
@@ -175,7 +174,6 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // scale covers the whole thing.
             const staffIndex = staffIndexOfId(score, slot.staffId)
             inStaffSpace(pass, staffIndex, tieGroup, () => {
-              const notes = { from: fromInfo.staveNote, to: toInfo.staveNote }
               const register = (
                 arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null,
                 /** ⭐ THIS arc's own system — a cross-system tie draws one on each, and the obstacle
@@ -215,7 +213,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   lastX: tieEndpointX(toHead, 'to'),
                   y: tieEndpointY(fromHead.headY, tieDirection),
                   direction: tieDirection,
-                }, notes, fromInfo.staveNote.getStave()), fromLine)
+                }, fromInfo.staveNote.getStave()), fromLine)
               } else {
                 // ⭐ Across a system break: two independent flat arcs, each running to its own
                 // system's margin — the same construction the SLUR uses (`./systemEdges`), where
@@ -234,7 +232,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: rightEdge / scale,
                     y: tieEndpointY(fromHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, notes, fromInfo.staveNote.getStave()), fromLine, 'end')
+                  }, fromInfo.staveNote.getStave()), fromLine, 'end')
                 }
                 if (leftEdge !== undefined) {
                   register(drawTieArc(pass, {
@@ -242,7 +240,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: tieEndpointX(toHead, 'to'),
                     y: tieEndpointY(toHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, notes, toInfo.staveNote.getStave()), toLine, 'start')
+                  }, toInfo.staveNote.getStave()), toLine, 'start')
                 }
               }
             })

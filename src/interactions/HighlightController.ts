@@ -757,9 +757,9 @@ export class HighlightController {
 
   /** Colour the tie inside its OWN `<g class="vf-tie">` group — never a document-wide
    *  bbox path-scan, which bled onto staff lines whose bbox fell inside the tie's
-   *  rectangle (mirrors the slur fix). Curve.renderCurve strokes AND fills, so each
-   *  `<path>` carries both — override both, or a selected tie shows a coloured body
-   *  with a black outline (see curveArc.ts). */
+   *  rectangle (mirrors the slur fix). An arc emits TWO paths — a stroke-only outline
+   *  and a fill-only body (`engrave/curves/curveInk`) — so set fill AND stroke on each,
+   *  or a selected tie shows a coloured body with a black outline (see curveArc.ts). */
   private colorTieGroup(group: SVGGElement, tieColor: string): void {
     group.querySelectorAll('path').forEach(el => {
       this.setAttr(el, 'fill', tieColor)
@@ -1948,9 +1948,9 @@ export class HighlightController {
     const slur = engine.getScore().slurs?.find(s => s.id === slurId)
     const voice = slur ? (engine.getNote(slur.startNoteId)?.voice ?? 0) : 0
     const SELECTION_COLOR = voiceFillColor(voice)
-    // Curve.renderCurve strokes AND fills, so each <path> carries both a stroke and a
-    // fill — override both, or a selected slur shows an orange body with a dark outline
-    // (see docs/slur-plan.md §7.3). A re-render redraws the slur black, so no explicit
+    // An arc emits TWO paths — a stroke-only outline and a fill-only body
+    // (`engrave/curves/curveInk`) — so set fill AND stroke on each, or a selected slur
+    // shows an orange body with a dark outline (see docs/slur-plan.md §7.3). A re-render redraws the slur black, so no explicit
     // clear is needed on deselect.
     group.querySelectorAll('path').forEach(el => {
       this.setAttr(el, 'fill', SELECTION_COLOR)

@@ -17,12 +17,14 @@
  * wedge, the octave line, the pedal's dashes, page sheets. Their coordinates are arithmetic over
  * stave geometry and the layout, and jsdom computes all of it.
  *
- * ⛔ **Anything a VexFlow object still paints itself** — today the ties and slurs (`Curve`) and the
- * fan's own noteheads. Those go through `vexContext`, never reach a `DrawContext`, and are invisible
- * to the recorder. ⭐ That gap is the migration's remaining work rather than a defect of the scene,
- * and it shrinks with every commit: the noteheads, stems, flags and ledger lines arrived with P3,
- * the beams with P4, and the staff's five lines, the clef, the meter and the opening barline with
- * P5 — ⇒ ⭐⭐ **nothing a score STAVE draws is outside the scene any more.** The browser suite stays for exactly that half.
+ * ⛔ **Anything a VexFlow object still paints itself** — today the fan's own noteheads and
+ * accidentals (U2, blocked on U3's highlight) and the modifiers a `StaveNote` hangs on itself.
+ * Those go through `vexContext`, never reach a `DrawContext`, and are invisible to the recorder.
+ * ⭐ That gap is the migration's remaining work rather than a defect of the scene, and it shrinks
+ * with every commit: the noteheads, stems, flags and ledger lines arrived with P3, the beams with
+ * P4, the staff's five lines, the clef, the meter and the opening barline with P5 — ⇒ ⭐⭐ **nothing
+ * a score STAVE draws is outside the scene any more** — and **every slur and tie arc with U1**.
+ * The browser suite stays for exactly that half.
  *
  * ⛔ **And still not INK EXTENTS.** A glyph's drawn width needs a font. The scene says *where a
  * glyph was stamped and which codepoint it was*, ⛔ never how wide it came out.
@@ -801,6 +803,59 @@ describe('⭐⭐ P5b — the OPENING BARLINE in the scene, and the DOM repair th
       .flatMap(g => scenePrimitives(g))
       .flatMap(p => (p.kind === 'path' && p.ops[0]?.op === 'moveTo' ? [p.ops[0].x] : [])))
     expect(five.filter(r => Math.abs(r.x - staveX) < 1e-6), 'one, and only one').toHaveLength(1)
+  })
+})
+
+describe('⭐⭐ U1 — the CURVE in the scene: a tie’s arc, drawn by us', () => {
+  /** Two quarter C4s in bar 1, the first tied to the second. */
+  function tiedPair(): ScoreModel {
+    const model = new ScoreModel()
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    if (!a || !b) throw new Error('fixture')
+    model.updateNote(a.id, { tiedTo: b.id })
+    model.updateNote(b.id, { tiedFrom: a.id })
+    return model
+  }
+
+  /** The paths drawn inside a `tie` group. */
+  function tiePaths(scene: ReturnType<typeof render>['scene']) {
+    return sceneGroups(scene, 'tie')
+      .flatMap(g => scenePrimitives(g))
+      .flatMap(p => (p.kind === 'path' ? [p] : []))
+  }
+
+  it('⭐⭐ a tie’s ARC is in the scene — ⛔ it used to be `Curve` painting itself', () => {
+    const { scene } = renderModel(tiedPair())
+    const paths = tiePaths(scene)
+    // ⭐ Two: the stroked outline and the filled body (`engrave/curves/curveInk`). Before U1 the
+    // `tie` group was here and EMPTY — the surrounding group drew through our context, the ink
+    // through VexFlow's.
+    expect(paths.map(p => p.painted), 'an outline and a body').toEqual(['stroke', 'fill'])
+    for (const p of paths) {
+      expect(p.ops.filter(o => o.op === 'bezierCurveTo'), 'two cubic passes').toHaveLength(2)
+    }
+  })
+
+  it('⭐⭐ …and it runs between its two noteheads, bowing clear of them', () => {
+    const { scene } = renderModel(tiedPair())
+    const [outline] = tiePaths(scene)
+    const start = outline.ops[0]
+    const out = outline.ops[1]
+    if (start.op !== 'moveTo' || out.op !== 'bezierCurveTo') throw new Error('not an arc')
+    // ⭐ The geometry that needed a browser until today: left end before right end, and both on
+    // one y because a tie joins one pitch (`TieRenderer`'s *"flat, symmetric"*).
+    expect(out.x, 'the arc runs left to right').toBeGreaterThan(start.x)
+    expect(out.y, 'both ends share a y').toBeCloseTo(start.y, 10)
+    // ⭐ Two stemmed C4s below the middle line take stems UP, so the tie bows BELOW them: its
+    // control points sit further down the page than its ends.
+    expect(out.cp1y, 'bowed away from the stems').toBeGreaterThan(start.y)
+  })
+
+  // 🚨 The break-test: an assertion over "the tie group's paths" says nothing if no tie was asked
+  // for — an empty `toEqual([])` would pass on a score with no ties at all.
+  it('🚨 the break-test — no tie in the score, no arc in the scene', () => {
+    expect(tiePaths(render(2).scene), 'nothing draws a curve on its own').toHaveLength(0)
   })
 })
 

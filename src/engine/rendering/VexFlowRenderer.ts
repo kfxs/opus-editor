@@ -4848,14 +4848,13 @@ export class VexFlowRenderer {
       staffIndexOfId(score, foundStaffId),
       `pendingtie-${noteId}`,
       () => drawTieArc(
-        { vexContext: this.context! },
+        { context: this.context! },
         {
           firstX,
           lastX: firstX + CURVE_PX.tieStubLength,
           y: tieEndpointY(head.headY, tieDirection),
           direction: tieDirection,
         },
-        { from: info.staveNote, to: info.staveNote },
         info.staveNote.getStave(),
       ),
     )

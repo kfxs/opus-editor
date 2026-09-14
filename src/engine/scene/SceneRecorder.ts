@@ -117,8 +117,21 @@ export class SceneRecorder implements DrawContext {
   private state: StyleState = {}
   private readonly stack: StyleState[] = []
 
-  /** The path being built by `beginPath`/`moveTo`/`lineTo`, until a `stroke` or `fill` closes it. */
+  /**
+   * The path being built by `beginPath`/`moveTo`/`lineTo`/`bezierCurveTo`.
+   *
+   * ⚠️ **It lives until the next `beginPath`, ⛔ not until it is painted** — that is the real
+   * context's lifetime (`SVGContext` only clears `this.path` in `beginPath`), and a curve is what
+   * proves it matters: `renderCurve` strokes the open outline, THEN closes the figure, THEN fills
+   * it. Clearing on paint would have recorded the fill as a path made of one `closePath` and
+   * nothing else — a scene that disagrees with the picture, which is worse than no scene.
+   */
   private path: ScenePathOp[] = []
+
+  /** The primitive the current path was last emitted as, while it is still unchanged — so a second
+   *  paint of the SAME ops upgrades it to `'both'` instead of emitting a duplicate. Cleared by any
+   *  op, and by anything that changes where a primitive would land. */
+  private paintedAs: (ScenePrimitive & { kind: 'path' }) | null = null
 
   /**
    * @param forward the real painter to tee onto. ⭐ Omit it and this records without drawing —
@@ -159,22 +172,34 @@ export class SceneRecorder implements DrawContext {
 
   beginPath(): void {
     this.path = []
+    this.paintedAs = null
     this.forward?.beginPath()
   }
 
   moveTo(x: number, y: number): void {
-    this.path.push({ op: 'moveTo', x, y })
+    this.pushOp({ op: 'moveTo', x, y })
     this.forward?.moveTo(x, y)
   }
 
   lineTo(x: number, y: number): void {
-    this.path.push({ op: 'lineTo', x, y })
+    this.pushOp({ op: 'lineTo', x, y })
     this.forward?.lineTo(x, y)
   }
 
+  bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void {
+    this.pushOp({ op: 'bezierCurveTo', cp1x, cp1y, cp2x, cp2y, x, y })
+    this.forward?.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)
+  }
+
   closePath(): void {
-    this.path.push({ op: 'closePath' })
+    this.pushOp({ op: 'closePath' })
     this.forward?.closePath()
+  }
+
+  private pushOp(op: ScenePathOp): void {
+    this.path.push(op)
+    // The path has changed since it was last painted, so the next paint is a new primitive.
+    this.paintedAs = null
   }
 
   stroke(): void {
@@ -188,18 +213,26 @@ export class SceneRecorder implements DrawContext {
   }
 
   /**
-   * ⚠️ **A path can be painted TWICE** — `renderCurve` strokes and then fills the same path, and the
-   * selection highlight has to override both. So a second paint of a still-open path upgrades the
-   * primitive to `'both'` rather than emitting a second one.
+   * ⚠️ **A path can be painted TWICE, and the two cases are different pictures.**
+   *
+   * - Painted twice **unchanged** — `stroke()` then `fill()` with nothing between — is ONE shape
+   *   wearing both, so the primitive is upgraded to `'both'` rather than duplicated. The selection
+   *   highlight has to override both, and a reader counting ink must not see two.
+   * - Painted twice with the path **grown between** — which is exactly what a curve does, closing
+   *   the figure after stroking it — is two `<path>` elements on the page, one stroke-only and one
+   *   fill-only. ⭐ So it is two primitives here, each carrying the ops it was actually painted with.
    */
   private finishPath(painted: 'stroke' | 'fill'): void {
-    if (this.path.length === 0) {
-      const last = this.here.children[this.here.children.length - 1]
-      if (last && last.kind === 'path' && last.painted !== painted) last.painted = 'both'
+    if (this.path.length === 0) return
+    if (this.paintedAs) {
+      if (this.paintedAs.painted !== painted) this.paintedAs.painted = 'both'
       return
     }
-    this.emit({ kind: 'path', ops: this.path, painted, style: this.styleNow() })
-    this.path = []
+    // ⚠️ A COPY: the path outlives the paint (see {@link SceneRecorder.path}) and may still grow.
+    const primitive: ScenePrimitive & { kind: 'path' } =
+      { kind: 'path', ops: [...this.path], painted, style: this.styleNow() }
+    this.emit(primitive)
+    this.paintedAs = primitive
   }
 
   // ── Rectangles ─────────────────────────────────────────────────────────────────────────────────
@@ -276,6 +309,7 @@ export class SceneRecorder implements DrawContext {
    * re-placed without being rebuilt.
    */
   scale(x: number, y: number): void {
+    this.paintedAs = null
     const group: SceneGroup = {
       kind: 'group', cls: 'ctx-scale', placement: { a: x, b: 0, c: 0, d: y, e: 0, f: 0 },
       tags: {}, children: [],
@@ -289,6 +323,9 @@ export class SceneRecorder implements DrawContext {
   // ── Grouping ───────────────────────────────────────────────────────────────────────────────────
 
   openGroup(cls?: string, id?: string): OpenedGroup {
+    // ⚠️ A primitive in the group we are LEAVING can no longer be upgraded in place: the next paint
+    // would land in a different container, so it is a new primitive there.
+    this.paintedAs = null
     const group: SceneGroup = { kind: 'group', cls, id, placement: IDENTITY, tags: {}, children: [] }
     this.here.children.push(group)
     this.open.push(group)
@@ -302,6 +339,7 @@ export class SceneRecorder implements DrawContext {
   }
 
   closeGroup(): void {
+    this.paintedAs = null
     // ⚠️ Never pop the root: an unbalanced `closeGroup` is a caller bug that must not corrupt the
     // scene into having no container at all.
     if (this.open.length > 1) this.open.pop()

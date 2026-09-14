@@ -60,8 +60,6 @@ const ALLOWED = new Map([
   ['engine/rendering/fanArticulations.ts', 'P3: VexFlow `Articulation`s painting themselves'],
   ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],
   ['engine/rendering/markPreviewPass.ts', 'reads the context STATE; prose only, plus one cast'],
-  ['engine/rendering/curveArc.ts', "P3: VexFlow's `Curve` renders the arc"],
-  ['engine/rendering/TieRenderer.ts', 'threads the curve context through to `curveArc`'],
   ['engine/rendering/TempoLayout.ts', 'its runs resolve two font categories — see glyphPainter'],
   ['engine/rendering/tempoAnchorInk.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
   ['engine/rendering/tempoLinePass.ts', 'reads the drawn `.svg` back — a reach into the PAGE'],
@@ -70,8 +68,14 @@ const ALLOWED = new Map([
 
 /** ⚠️ The ceilings, not targets. Lower one when a migration lands; ⛔ never raise either.
  *  ⭐ 24 → 18 when this check stopped counting comment lines (see {@link isComment}) — the residue
- *  did not shrink, the measurement got honest. */
-const VEX_CONTEXT_CEILING = 18
+ *  did not shrink, the measurement got honest.
+ *  ⭐⭐ 18 → 9 with **U1** (2026-09-14), the curve's ink: the first step to move this number at all,
+ *  because P3, P4 and P5 took the ink of objects that go on painting through it. What is left is
+ *  FIVE painting uses — the beam's and the stem's `.draw()` plumbing, and the fan's three (U2,
+ *  blocked on U3's highlight) — plus FOUR `.svg` read-backs, which are measurement escapes and not
+ *  a painter's problem at all. ⇒ ⭐ the only VexFlow object still painting its own INK is the fan's
+ *  bare `NoteHead`s and `Accidental`s. */
+const VEX_CONTEXT_CEILING = 9
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
 const SVG_NODE_CEILING = 10
 

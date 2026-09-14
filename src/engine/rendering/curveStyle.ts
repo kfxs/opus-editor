@@ -241,7 +241,7 @@ export const CURVE = {
    * decision at source: LilyPond and MuseScore share one weight between the two as well.
    *
    * ⭐⭐ **This IS the drawn midpoint thickness now** — §12 Phase 4, 2026-08-16. It used to be the
-   * `renderCurve` FILL GAP, so the ink actually measured `0.75 × gap + outline` and the authored
+   * FILL GAP, so the ink actually measured `0.75 × gap + outline` and the authored
    * number was a third under what landed on the page: 0.27 written, **0.30 drawn**. The gap is
    * derived from this in `./curveArc`, which is Verovio's `GetBezierThicknessCoefficient`
    * (`boundingbox.cpp:945`) — it narrows the fill by the stroke so fill + outline equals the nominal
@@ -401,7 +401,7 @@ export function curvePx(staffSpaces: number): number {
 }
 
 /**
- * The same table in PIXELS, derived once — what the draw sites actually pass to `renderCurve`.
+ * The same table in PIXELS, derived once — what the draw sites actually pass to `drawCurveArc`.
  *
  * ⚠️ Every value here is EXACTLY the literal it replaced (`curveStyle.test.ts` pins all nine), so
  * introducing this file moved no ink. ⛔ Never author a number here: change the staff-space one.

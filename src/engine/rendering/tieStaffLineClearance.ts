@@ -73,7 +73,7 @@ function nearestLine(y: number, lineYs: readonly number[]): number | undefined {
 export function tieArcGrowth(ink: TieInk): number {
   if (ink.lineYs.length === 0) return 0
 
-  // ⚠️ The fill swells AWAY from the notehead — the return pass of `renderCurve`'s closed lens is
+  // ⚠️ The fill swells AWAY from the notehead — the return pass of the arc's closed lens is
   // the FAR edge — so the arc itself is the near edge and the ink extends beyond it. Measured off a
   // real path, not assumed: getting this backwards is what let an earlier version of this rule pass
   // its own break-test.

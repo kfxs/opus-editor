@@ -946,7 +946,7 @@ export interface EngravingOverride {
 }
 
 /**
- * Two cubic Bézier control-point **deltas** fed to VexFlow `Curve.renderCurve` — the
+ * Two cubic Bézier control-point **deltas** fed to `engrave/curves/curveInk` — the
  * editable "handle" data for a slur/curve shape. Each `{x,y}` is an offset on top of
  * the spacing-based base control point, so an edit rides along when the anchor notes
  * move. See docs/slur-plan.md §6–§7 and {@link CurveShapeOverride}.

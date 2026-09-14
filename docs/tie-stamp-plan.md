@@ -65,8 +65,9 @@ else a let-ring tie into whatever is there — `MusicEngine.toggleTie`). So ther
 Instead it is **engraved as a real tie**: the same `drawCurveArc` primitive with the same `TIE_BOW` /
 `TIE_THICKNESS` an engraved tie uses (exported from `TieRenderer` for exactly this), so it swells at
 the belly and pinches to a point at each tip — and change those constants and the ghost follows.
-`Curve.renderCurve` reads only its params and `renderOptions`; `from`/`to` are used by `draw()`
-alone, which we never call, so one throwaway note satisfies the constructor.
+⚠️ **Superseded 2026-09-14 (U1):** the arc's ink is ours now (`engine/engrave/curves/curveInk`), and
+the throwaway `StaveNote` this paragraph used to describe — built purely to satisfy
+`new Curve(from, to, …)`, which never read it — is **gone** with the constructor.
 
 It says *"tie tool armed"* and no more — which note ties to which is resolved at click time, and
 logged there. That is the deliberate trade: previewing the real arc **on the hovered note** would
@@ -80,9 +81,10 @@ constants in `renderScoreWithTieGhost`: `START_GAP_PX`, `WIDTH`, `LIFT_PX`. It b
 
 Two things it does differently from the other ghosts:
 
-- **Stroked AND filled.** `renderCurve` does both, so each emitted `<path>` carries both and both
-  must be overridden — or the ghost shows a blue body with a black outline (the same rule
-  `HighlightController.colorTieGroup` carries). The other ghosts' pass sets `fill` only.
+- **Stroked AND filled.** An arc emits **two** `<path>`s — a stroke-only outline and a fill-only
+  body (`engrave/curves/curveInk`) — so a recolour must override `fill` AND `stroke` on each, or the
+  ghost shows a blue body with a black outline (the same rule `HighlightController.colorTieGroup`
+  carries). The other ghosts' pass sets `fill` only.
 - **No bbox, no transform.** It is positioned by absolute path coordinates, so it needs no measure
   and no `translate` — unlike the glyph ghosts, whose VexFlow-internal positions must be measured
   and shifted onto the cursor.
@@ -133,7 +135,7 @@ This **deleted `applySelectionTieHighlight`**, which lit an arc only when BOTH e
 selected — a strict subset of "the from-note is selected", so it became unreachable. One consequence,
 deliberate: a range selection now lights ties whose far end falls *outside* the selection.
 
-Both paths must be painted (`renderCurve` strokes AND fills), or the arc shows a coloured body with a
+Both paths must be painted (an arc strokes AND fills — see above), or it shows a coloured body with a
 black outline — the rule `colorTieGroup` already carried.
 
 ## 5. Fixes found alongside

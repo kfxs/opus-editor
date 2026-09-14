@@ -306,6 +306,15 @@ VexFlow 5.0.0 ships a purpose-built `Curve` class that draws a **cubic** Bézier
 - **`node_modules/vexflow/build/esm/src/curve.js`** — implementation.
 - **`node_modules/vexflow/build/types/src/curve.d.ts`** — types (`CurveOptions`, `Curve`).
 
+> ✅ **SUPERSEDED 2026-09-14 (U1) — we no longer call any of this.** `renderCurve` was PORTED into
+> `engine/engrave/curves/curveInk.ts` (MIT, attributed), so the arc's ink is ours and the `Curve`
+> object is gone from the codebase. ⭐ §7.1–7.2 are kept because the *math* is unchanged and this is
+> where it was read out of `curve.js`; ⛔ read them as archaeology, not as what runs.
+> ⭐ Two things the port settled: `from`/`to` were never read (the row below said so and the code
+> still carried them — including a throwaway `StaveNote` in the ghost), and §7.2's mirrored
+> control-point math is no longer a MIRROR: `curveControlPoints` is the one owner, and the drawn arc
+> and the hit geometry now come from it. ⛔ The SHAPE question (`__slur`) stays open — his call.
+
 ### 7.1 The bits we use
 
 | VexFlow symbol | Location | What it gives us |

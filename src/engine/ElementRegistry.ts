@@ -465,7 +465,7 @@ export interface ElementInfo {
   /** The two on-screen cubic control points (C0, C1) of a slur arc, in pixels.
    *  Drawn as draggable handles when the slur is selected (Phase 7). */
   controlPoints?: [{ x: number; y: number }, { x: number; y: number }]
-  /** The slur arc's endpoint geometry, so a handle drag can invert renderCurve's
+  /** The slur arc's endpoint geometry, so a handle drag can invert `curveControlPoints`'
    *  control-point math (cp = f(handlePixel, endpoints)) back into pixel control-point
    *  deltas. */
   slurEndpoints?: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number }

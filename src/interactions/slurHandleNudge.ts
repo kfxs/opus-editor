@@ -14,7 +14,7 @@
  * ZERO*, and the first arrow press would fling the control point down onto the chord line.
  *
  * So the baseline is what the last render actually DREW — the control points the registry carries,
- * inverted back through `renderCurve`'s math ({@link cpsFromDrawnControlPoints}) — which is precisely
+ * inverted back through `curveControlPoints`' math ({@link cpsFromDrawnControlPoints}) — which is precisely
  * what a drag does on mousedown. One press therefore reads the arc on screen, moves ONE control point
  * by the delta, and writes both back. Consequences worth naming:
  *
@@ -43,7 +43,9 @@ type ShapeEngine = Pick<MusicEngine,
   | 'resetSlurShape' | 'resetSlurEndpointOffset' | 'resetSlurSegmentEndpointOffset'>
 
 /**
- * Invert `Curve.renderCurve`'s control-point math (the same math `drawCurveArc` uses forward) to
+ * Invert `engrave/curves/curveInk`'s `curveControlPoints` — ⭐ the one owner of that math, which
+ * `drawCurveArc` runs FORWARD to draw the very arc these handles sit on (it was VexFlow's
+ * `Curve.renderCurve` until U1, 2026-09-14) — to
  * recover the **pixel** control-point deltas from the two on-screen control points and the arc's
  * endpoint geometry (the caller converts to staff-spaces before storing). With xShift/yShift = 0 and
  * `cps.length === 2`, `spacing = (p1.x - p0.x) / 4`, `C0 = (p0.x+spacing+cp0.x, p0.y+cp0.y·dir)` and
