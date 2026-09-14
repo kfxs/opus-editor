@@ -652,3 +652,43 @@ test('⭐ …and the two are within half a space of each other', async ({ score 
   const natural = await slurDepthBelow(score, 0)
   expect(Math.abs(sharp.deepest - natural.deepest)).toBeLessThan(5)
 })
+
+/**
+ * 🚨🚨 **HIS REPORT, 2026-09-14 — five sixteenths, and the slur was "completely crazy".** Measured
+ * before the fix: `M180 65 C198 −313.7, 234 −261.7, 252 45` — an arch **380 px above a 72 px span**,
+ * clean off the sheet.
+ *
+ * ⭐ **The slur was innocent.** The obstacle solver was handed a box of `{x: 0, y: −33, w: 258,
+ * h: 122}` for one of the notes it covers — the whole system, from the origin — and lifted the arch
+ * 361 px to clear it. The box came from `StaveNote.getBoundingBox()` merging a FLAG that had never
+ * been positioned, because P3b took the flag's ink without keeping VexFlow's `setX`/`setY`
+ * write-back (`rendering/EngravedNote`, and `EngravedNote.test.ts` asserts the box itself).
+ *
+ * ⚠️ **Why the shape belongs in the browser suite even though the cause is a unit test**: the arch
+ * is where the two meet, and it is the thing he was looking at. The unit test says the ruler is
+ * honest; this says the drawing is sane.
+ *
+ * ⭐ The FIFTH note is the one that matters: four sixteenths beam into a beat and the last stands
+ * alone with a flag — `hasFlag()` is `codeFlagUp !== undefined && !this.beam`, so only the unbeamed
+ * one ever consulted the broken box.
+ */
+test('🚨🚨 five sixteenths, the last one FLAGGED — the arch stays on the page', async ({ score }) => {
+  const r = await score.evaluate(async () => {
+    const h = window.__h
+    h.engine.addMeasure()
+    const ids = [['C', 5], ['D', 5], ['E', 5], ['F', 5], ['G', 5]].map(([step, octave], i) =>
+      h.engine.addNoteAtBeat({
+        step: step as string, octave: octave as number, duration: '16', measure: 2, beat: h.frac(i, 4),
+      })!.id)
+    h.engine.createSlur(ids)
+    await h.render()
+    const ys = h.curveSamples('g.vf-slur path', 40).map(p => p.y)
+    const staff = h.staves().find(s => s.measure === 2)!
+    return { highest: Math.min(...ys), top: staff.top, bottom: staff.bottom }
+  })
+  // A slur over one beat of sixteenths arches about a staff space over the heads. ⭐ The assertion
+  // is deliberately loose — it is a SANITY bound, not a shape decision (`__slur` is his experiment).
+  // Before the fix this read −196; the staff's top line is at 60.
+  expect(r.highest, 'the arc stays near the staff it belongs to').toBeGreaterThan(r.top - 4 * (r.bottom - r.top))
+  expect(r.highest, '…and above the notes, which is the side it is on').toBeLessThan(r.bottom)
+})

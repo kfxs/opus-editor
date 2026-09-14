@@ -828,6 +828,13 @@ order they come back in, what each one costs, and the research per piece.
 > `measureText`**: the identical mechanism that put every whole rest ~9.7 px off-centre until
 > `musicFontReady` gated the first render, and it answers **0 in jsdom**.
 >
+> 🚨🚨 **AND IT SHIPPED THE PLAN'S FIRST REGRESSION, found 2026-09-14 — read §5's P6b note and
+> `docs/note-engraving-plan.md` §1b.5.** VexFlow's `drawFlag` writes the flag's POSITION as a side
+> effect of painting (`setX`/`setY`), and `getBoundingBox()` merges that box for any unbeamed flagged
+> note. Taking the ink without the write-back left every such note reporting a box merged with the
+> ORIGIN for thirteen days. ⛔ **"No pixel moved" was true and not sufficient**: it means no ink
+> moved, ⛔ never that no RULER moved.
+>
 > ⭐⭐ **P3b's real contribution is that the dependency is now a NAMED ARGUMENT** — `flagPlacement`'s
 > `glyphReach` — instead of a call buried inside a draw method. ⛔ It did **not** re-source it:
 > `fonts/flagDropFromTip` has answered the same question from Bravura since P2, and 🚨 the room a bar
@@ -1539,7 +1546,33 @@ it instead ⇒ the **SIXTH** *"the room and the ink come from two sources"* numb
 overhang, the stem thickness, the flag reach, the notehead glyph and the articulation's centring.
 ⛔ It MOVES PIXELS, so it is a taste call and not this step's.
 
-⏭️ **Next kinds:** the DOT and the ARTICULATION — both already open a named group with an id, and the
+##### 🚨🚨 …AND THE NEXT KIND IS THE NOTE'S OWN BOX — reordered 2026-09-14, by a BUG
+
+His report the same day: a slur over five sixteenths *"completely crazy"*, drawn 380 px above a 72 px
+span. ⭐ **The slur was innocent**: its obstacle solver was handed `{x: 0, y: −33, w: 258, h: 122}`
+for one covered note — the whole system, from the origin — and lifted the arch 361 px to clear it.
+The box came from `StaveNote.getBoundingBox()` merging a FLAG that had never been positioned, because
+**P3b took the flag's ink and dropped VexFlow's `setX`/`setY` write-back** thirteen days earlier
+(`docs/note-engraving-plan.md` §1b.5, where the fix, the family audit and the spec live).
+
+⭐⭐ **Why it belongs in THIS document and not only in P3's:** it is the first time the ruler being
+VexFlow's cost a visible defect, and it is a defect **this section's premise makes impossible.**
+*A box is COMPUTED from what was drawn, ⛔ not asked of an object* — and a box derived from the scene
+has no field for a draw to forget to write. The flag's glyph was in the scene, and on the page, in
+the right place, the whole time; what was wrong was a *field*. ⇒ P6 is not only an independence
+argument and a reflow argument. **It removes a whole failure class**, and that class has now fired.
+
+⏭️ **So the queue changes.** The NOTE's own box goes ahead of the dot and the articulation: it has
+the most consumers, it is the one that failed, and taking it also retires `rendering/noteInkBox`'s
+splice hack — lifting the dynamics `Annotation` out of VexFlow's live modifier array, asking
+`getBoundingBox()`, and putting it back, because *"a union cannot be un-merged"*. ⭐ `sceneInkBox`
+answers that natively (*the caller chooses which children count*), and P3f/P3g's per-mark groups are
+what make each child findable.
+⚠️ **Check first**: whether anything asks a note for its box BEFORE it is drawn. VexFlow's is
+meaningless then too, but it answers a rectangle rather than null — so a caller may be leaning on the
+number without knowing it. ⛔ Ours must not learn to guess in order to match that.
+
+⏭️ **Then** the DOT and the ARTICULATION — both already open a named group with an id, and the
 articulation's is the one whose VexFlow box goes NaN in jsdom, so it should follow its own taste call
 rather than lead.
 

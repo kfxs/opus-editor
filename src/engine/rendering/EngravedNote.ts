@@ -23,6 +23,19 @@
  * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
  *
+ * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
+ *
+ * Emptying a `draw()` also removes whatever that draw WROTE, and VexFlow writes position as a side
+ * effect of painting: `drawFlag` is `setX(...).setY(...).drawWithStyle()`, `NoteHead.draw` sets its
+ * own `x`, `Accidental.draw` writes `this.x`/`this.y`. Every one of those fields is then read by
+ * `getBoundingBox()` — the RULER this whole file exists to keep intact.
+ *
+ * ⇒ **an override that takes the ink must reproduce the write-back**, and {@link EngravedNote.drawFlag}
+ * carries the cost of learning it: for thirteen days an unbeamed flagged note reported a bounding box
+ * merged with the ORIGIN, and the symptom that surfaced it was a SLUR arching 361 px off the page
+ * (his report, 2026-09-14). ⭐ A missing write-back is silent in the picture and loud everywhere the
+ * geometry is read — which is the opposite of where you look.
+ *
  * ⚠️ **Not every `StaveNote` in the app is one of these.** `GhostRenderer` builds plain ones for the
  * cursor preview, and they keep VexFlow's ledger drawing — deliberately, because §7.2 says a ghost
  * is *"a scene with a style"* and most of those 1,217 lines are deletion rather than migration. The
@@ -272,10 +285,34 @@ export class EngravedNote extends StaveNote {
     const tipY = (up ? yBottom : yTop) - this.checkStem().getHeight()
     const metrics = this.flag.getTextMetrics()
     const reach = up ? metrics.actualBoundingBoxAscent : metrics.actualBoundingBoxDescent
+    const at = flagPlacement({ x: this.getStemX(), tipY, up }, Stem.WIDTH, reach)
+
+    // 🚨🚨 **THE WRITE-BACK, and it is the whole reason this class keeps the object.** VexFlow's own
+    // `drawFlag` is `this.flag.setContext(ctx).setX(flagX).setY(flagY).drawWithStyle()` — the
+    // position is written ONTO the `Flag` as a side effect of painting it, and
+    // `StaveNote.getBoundingBox()` then merges `this.flag.getBoundingBox()` whenever `hasFlag()`
+    // (⭐ which is false for a BEAMED note — `codeFlagUp !== undefined && !this.beam`, so only an
+    // unbeamed flagged note ever consults it).
+    //
+    // ⛔ Taking the INK without the write-back left the flag at the ORIGIN, and an `Element`'s box
+    // is `(x + xShift, y + yShift − ascent, …)` ⇒ every eighth, sixteenth and thirty-second that is
+    // not beamed reported a box merged with (0, −ascent): measured on his score at
+    // `{x: 0, y: −33, w: 258, h: 122}` — the whole system. HIS REPORT, 2026-09-14, was the SLUR:
+    // the obstacle solver read that box as an intrusion spanning the bar and lifted the arch 361 px.
+    // ⭐ *A `Modifier` drawn at explicit coordinates without its own x/y drags a note's bbox to
+    // zero* was already a written rule here (`reference: vexflow modifier bbox needs x y`), and
+    // `EngravedAccidental`, `EngravedDot` and the notehead's `setX` above all obey it; this was the
+    // one member of the family that stopped painting without keeping its answer.
+    //
+    // ⚠️ The numbers are VexFlow's own, not a re-derivation: `flagPlacement` folds its two branches
+    // into one subtraction, and `Stem.WIDTH` IS `Tables.STEM_WIDTH`. ⇒ the box is what it was.
+    this.flag.setX(at.x)
+    this.flag.setY(at.baselineY)
+
     drawFlag(
       this.inkSurface ?? this.checkContext(),
       this.flag.getText(),
-      flagPlacement({ x: this.getStemX(), tipY, up }, Stem.WIDTH, reach),
+      at,
       // ⭐ The face VexFlow resolved for this note when it built the flag — handed over as a value,
       // which is what keeps `engrave/` free of `vexflow` (see that module's header).
       this.flag.fontInfo,

@@ -10,6 +10,11 @@
 > ink), ⭐⭐ **and with P3g every glyph an ordinary bar draws is in the SCENE** — that is the census,
 > asserted, in `VexFlowRenderer.scene.test.ts`. ⏳ **What is left is the stem's LENGTH**, gated on
 > `docs/stem-length-research.md`.
+>
+> 🚨🚨 **READ §1b.5 BEFORE EMPTYING ANOTHER `draw()`.** VexFlow writes POSITION as a side effect of
+> painting, so an override that takes the ink must reproduce the **write-back** — P3b did not, and an
+> unbeamed flagged note reported a bounding box merged with the origin for thirteen days. ⛔ *"No
+> pixel moved"* does not mean *"no ruler moved"*.
 
 ---
 
@@ -171,6 +176,89 @@ stem-length question, and that is P3's stem piece.
 **⛔ NO PIXEL MOVED.** The glyph, its x, its baseline and its FACE are the ones VexFlow used — the
 face is handed over as a value (`this.flag.fontInfo`), which is also what keeps `engrave/` free of
 `vexflow`. 6060+ unit tests and 275 browser tests green.
+
+### 1b.5 🚨🚨 …AND IT MOVED A RULER IT NEVER DREW ON — the bug this step shipped (found 2026-09-14)
+
+⛔ *"No pixel moved"* was true and **not sufficient**, and that is the finding worth more than the
+step itself.
+
+**`Flag.draw` is not only ink: it is where the flag learns WHERE IT IS.** VexFlow's own
+`StaveNote.drawFlag` is `this.flag.setContext(ctx).setX(flagX).setY(flagY).drawWithStyle()` — the
+position is written onto the object **as a side effect of painting it**. And
+`StaveNote.getBoundingBox()` then merges `this.flag.getBoundingBox()` whenever `hasFlag()`.
+
+⇒ taking the ink without the write-back left every **unbeamed flagged note** (an eighth, a
+sixteenth, a thirty-second not in a beam) reporting a box merged with the ORIGIN: an `Element`'s box
+is `(x + xShift, y + yShift − ascent, w, h)`, so an untouched flag contributes `(0, −ascent)`.
+Measured on his score: **`{x: 0, y: −33, w: 258, h: 122}` — the whole system.**
+
+🚨 **It surfaced as a SLUR**, thirteen days later (his report: *"the slur is completely crazy"*).
+Five sixteenths, four beamed into a beat and a fifth standing alone: the slur's obstacle solver read
+that note's box as an intrusion spanning the bar and lifted the arch **361 px**, drawing
+`M180 65 C198 −313.7, 234 −261.7, 252 45`. ⭐ Every part of the slur code was correct — it was
+handed a false measurement, and *a guessing fallback gets believed* has a twin: **a ruler that
+answers confidently gets believed too.**
+
+⭐ **THE RULE, and it now stands at the top of `EngravedNote`:** *an override that takes the ink must
+reproduce the WRITE-BACK.* `EngravedAccidental` and `EngravedDot` state it for `this.x`/`this.y`, and
+the notehead's `setX` obeys it — the flag was the one member of the family that stopped painting
+without keeping its answer, because it is the only one whose write-back is somebody ELSE's field.
+
+⚠️ **Why no test caught it for thirteen days:** the picture was right (the ink is stamped at the same
+place either way), the scene was right (it records what we draw), and `lint:paint` was right (the
+ink is ours). **The only witness is a geometry READER**, and the note's box had no spec.
+`EngravedNote.test.ts` is that spec now — and `npm run audit:tests` had been listing this module as
+untested the whole time. ⭐ A jsdom test is enough: the flag's box has no measurable SIZE without a
+font, but `mergeWith` merges the POINT, so `x === 0` is visible with no font at all.
+
+#### 1b.5a ⭐ THE WHOLE FAMILY, AUDITED — one missed write-back implies others
+
+Read from vexflow 5's source: what each base `draw()` ASSIGNS, and whether our override reproduces
+it. ⭐ The flag was the only gap.
+
+| base method | what it writes | ours |
+|---|---|---|
+| `StaveNote.drawFlag` | `this.flag.setX(…).setY(…)` | ❌ → **fixed 2026-09-14** |
+| `NoteHead.draw` | `this.x = this.getAbsoluteX()` | ✅ `head.setX(x)` in `drawNoteHeads`, documented as a write-back |
+| `Dot.draw` | `this.x`, `this.y` | ✅ `EngravedDot` |
+| `Articulation.draw` | `this.x`, `this.y` | ✅ — we cut at `renderText`, so `draw()` still runs and writes them |
+| `Accidental.draw` | `this.x`, `this.y` | ✅ `EngravedAccidental` |
+| `Stem.draw` | nothing but `setRendered()` | ✅ |
+| `Beam.draw`, `Stave.draw` | nothing | ✅ |
+
+🚨 **And the reason the flag was the one that got missed is worth keeping**: it is the only override
+whose write-back is on **somebody ELSE'S object**. Every other one writes `this.x`/`this.y` on the
+class being overridden, so reading the method you are replacing shows it to you. `drawFlag` writes
+`this.flag`'s fields — a different object, which the method you are reading only *mentions*.
+⇒ ⭐ **the check is not "what does this method assign", it is "what does this method assign
+ANYWHERE".**
+
+#### 1b.5b ⭐⭐ WHAT IT SAYS ABOUT P6, and it reorders that queue — his question, 2026-09-14
+
+> *"the whole project is to get rid of vexflow at the end, correct? so is the fix correct based on
+> this?"*
+
+⭐ **Yes, and the write-back is temporary BY CONSTRUCTION**: those two lines are calls *on* the object
+being deleted, so they cannot be left behind — they go when the `Flag` does. While `StaveNote` is
+still the RULER (§2.3: seven renderers, the registry, six highlight maps), an override that stops
+writing a field the base wrote is a regression, and restoring it is the only honest answer.
+
+⭐⭐ **But the deeper answer is that this bug is the strongest evidence yet for P6's premise**, and not
+for the reason P6 was written down. *A box is COMPUTED from what was drawn, ⛔ not asked of an
+object* — and **under a scene-derived box this bug is structurally impossible**: there is no field
+for a draw to forget to write. The flag's glyph was in the scene, and on the page, in the right
+place, the whole time. What was wrong was a *field*. That failure mode belongs to *asking an object
+where it is*, and it does not exist on the other side.
+
+⇒ ⏭️ **P6b's next kind should be the NOTE's own box, ⛔ not the dot or the articulation.** It is the
+box with the most consumers, it is the one this bug cost an afternoon on, and taking it would also
+retire `rendering/noteInkBox`'s splice hack — which today lifts the dynamics `Annotation` out of
+VexFlow's LIVE modifier array, asks `getBoundingBox()`, and puts it back, because *"a union cannot be
+un-merged"*. ⭐ The scene answer to that is `sceneInkBox`'s *"the caller chooses which children
+count"*, which P6a built and which P3f/P3g's per-mark groups made findable.
+⚠️ **The one thing to check before starting it**: whether any caller asks a note for its box BEFORE
+it is drawn. VexFlow's is meaningless then too, but it returns a rectangle rather than null, so
+something may be leaning on the number without knowing it.
 
 ### 1b.4 ⚠️ The one rule it bends, and the sentence that keeps it honest
 
