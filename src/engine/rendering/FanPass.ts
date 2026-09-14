@@ -60,7 +60,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { followingSpace } from '@/engine/layout/spacing'
 import { MIN_COLUMN_GAP } from '@/engine/layout/spacingPadding'
 import { staffSpacesToPixels } from './staffSpace'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -777,7 +777,7 @@ function fanSlotDrawing(input: {
       // exactly as it was, the extra width piling up between the group and what follows (his report,
       // 2026-07-30). A fan spreads with its bar like anything else; what it must not do is spread
       // into room the solve gave to somebody else, and THAT is what this clamp still says.
-      spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : stave.getNoteEndX())
+      spanEndX: (nextNote ? nextNote.getNoteHeadBeginX() : barFrame(stave).noteEndX)
         - fanTrailingSpacePx(score, measureNumber, slot),
       stemOffset: note.getStemX() - headX,
       // MEASURED from the notehead itself, like the two-note tremolo's flag clearance: heads a

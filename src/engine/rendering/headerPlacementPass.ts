@@ -64,7 +64,7 @@ import { meterOriginX } from '@/engine/engrave/header/meter'
 import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { keySignatureInkRight } from './KeySignaturePass'
 import { THIN_BARLINE_PX } from './barlineInk'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveFrame } from './staveFrame'
 
 /**
  * Place every header sign this bar draws that we have a rule for.
@@ -96,7 +96,7 @@ function placeOpeningClef(stave: Stave, clef: Clef): void {
   const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
   if (!modifier) return
   const space = staveFrame(stave).spacePx
-  const target = clefOriginX(stave.getX(), CLEF_INDENT, glyphBox(clefGlyph(clef)).left, space)
+  const target = clefOriginX(barFrame(stave).x, CLEF_INDENT, glyphBox(clefGlyph(clef)).left, space)
   const dx = target - modifier.getX()
   if (dx === 0) return
   for (const other of stave.getModifiers(StaveModifierPosition.BEGIN)) {
@@ -163,7 +163,7 @@ function meterOrigin(
   //   the boundary (`engrave/staff/openingBarline`'s rule 2), so its ink ends a thickness later.
   if (!clefModifier) {
     return meterOriginX(
-      stave.getX() + THIN_BARLINE_PX + armedBarlineMeterInk() * space, bearing, space)
+      barFrame(stave).x + THIN_BARLINE_PX + armedBarlineMeterInk() * space, bearing, space)
   }
   // ⚠️ The clef's ink from the FONT, ⛔ not its modifier box: the box is a `measureText`, and a
   // placement built on one cannot be checked without a browser. ⭐ `firstSignX` already reads the

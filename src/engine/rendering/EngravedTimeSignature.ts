@@ -59,7 +59,7 @@ import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawMeter, stampMeter, type MeterRow } from '@/engine/engrave/header/meter'
 import type { InkSurfaceAware } from './inkSurface'
 import { staveFrame } from './staveFrame'
-import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAware {
   /**
@@ -84,7 +84,7 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
     this.setRendered()
     drawMeter(
       this.inkSurface ?? stave.checkContext(),
-      this.meterRows(stave, this.getX()),
+      this.meterRows(staveFrame(stave), this.getX()),
       this.getAttribute('id'),
     )
   }
@@ -107,7 +107,7 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
    */
   override drawAt(ctx: DrawContext, stave: Stave, x: number): void {
     this.setRendered()
-    stampMeter(ctx, this.meterRows(stave, x))
+    stampMeter(ctx, this.meterRows(staveFrame(stave), x))
   }
 
   /**
@@ -119,8 +119,7 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
    * leaving the sign's own `xShift`. ⛔ Transcribed rather than simplified to `x`, because the day
    * something sets `this.x` and the caller's `x` apart, the cancellation is the behaviour.
    */
-  private meterRows(stave: Stave, x: number): MeterRow[] {
-    const frame = staveFrame(stave)
+  private meterRows(frame: StaffFrame, x: number): MeterRow[] {
     if (!this.isNumeric) {
       return [this.rowOf(this, x - this.getX(), staffLineY(frame, this.getLine()))]
     }

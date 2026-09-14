@@ -118,7 +118,7 @@ import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
 import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveBox, staveFrame } from './staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
@@ -2175,7 +2175,8 @@ export class VexFlowRenderer {
 
       try {
         const vexVoices = built.map(b => b.voice)
-        const noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX()
+        const noteArea = barFrame(stave)
+        const noteAreaWidth = noteArea.noteEndX - noteArea.noteStartX
         // Format into the note area MINUS whatever space the user authored into this bar — the
         // stave was already widened by it (MeasureLayout). Without the subtraction the notes
         // spread across the widened bar and the shift below pushes the last one through the
@@ -2205,7 +2206,7 @@ export class VexFlowRenderer {
         //   would spread the same columns over its own (larger, in its own units) note area and
         //   drift from its neighbour bar by bar.
         const room =
-          ((stave.getNoteEndX() - noteStartOf(stave)) * placement.scale - userSpacePx) / STAFF_SPACE_PX
+          ((noteArea.noteEndX - noteStartOf(stave)) * placement.scale - userSpacePx) / STAFF_SPACE_PX
         // ⭐ KEPT, not just applied: a fan's members are columns of this solve that no tick context
         //   can be written to, and `FanPass` spends their room later (`RenderPass.solvedColumns`).
         const solved = applySpacingPass(formatter, vexVoices, {
@@ -2753,7 +2754,7 @@ export class VexFlowRenderer {
       measureY: y,
       measureWidth: width,
       noteStartX: noteStartOf(stave) * scale,
-      noteEndX: stave.getNoteEndX() * scale,
+      noteEndX: barFrame(stave).noteEndX * scale,
       headerToNote,
     })
   }
@@ -2849,8 +2850,8 @@ export class VexFlowRenderer {
     const signatureEnds = headerKey !== undefined && headerKey.alterations.length > 0
       && headerInk !== undefined
       && Math.abs(headerInk - keySignatureInkRight(stave, clef, headerKey)) < 0.01
-    const bareLeft = headerInk ?? stave.getNoteStartX()
-    const bareRight = stave.getNoteEndX()
+    const bareLeft = headerInk ?? barFrame(stave).noteStartX
+    const bareRight = barFrame(stave).noteEndX
     // ⭐⭐ The room the rest may OCCUPY, where both bounds have a row — else the bare gap, unchanged.
     const freeSpaceLeft = signatureEnds ? bareLeft + pairPadding('accidental', 'rest') * space : bareLeft
     const freeSpaceRight = signatureEnds ? bareRight - pairPadding('rest', 'barline') * space : bareRight
@@ -3228,7 +3229,7 @@ export class VexFlowRenderer {
       if (mode === 'lastNote') return undefined
       const lane = voiceNotes.get(voice) ?? []
       const next = lane[lane.indexOf(lastNote) + 1]
-      if (!next) return stave.getNoteEndX() - BRACKET_END_GAP
+      if (!next) return barFrame(stave).noteEndX - BRACKET_END_GAP
       return mode === 'division' ? next.getAbsoluteX() : next.getAbsoluteX() - BRACKET_END_GAP
     }
 
@@ -3580,13 +3581,13 @@ export class VexFlowRenderer {
     scale: number = 1,
   ): void {
     try {
-      const staveBox = stave.getBoundingBox()
-      if (staveBox) {
+      const staffBox = staveBox(stave)
+      if (staffBox) {
         this.elementRegistry.add({
           type: 'staff',
           measure: measure.number,
           staff: staffIndex,
-          bbox: { x: staveBox.x, y: staveBox.y, width: staveBox.w, height: staveBox.h },
+          bbox: staffBox,
         })
       }
 
@@ -3604,7 +3605,7 @@ export class VexFlowRenderer {
         lineYPositions,
         lineSpacing: lineYPositions[1] - lineYPositions[0],
         noteStartX: noteStartOf(stave),
-        noteEndX: stave.getNoteEndX(),
+        noteEndX: barFrame(stave).noteEndX,
         clef,
       })
     } catch (_e) { /* getBoundingBox or getYForLine may fail */ }
@@ -3684,18 +3685,18 @@ export class VexFlowRenderer {
           : hasClefChange
             ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
             : 0) / scale
-      const staleShift = x - stave.getX()
+      const staleShift = x - barFrame(stave).x
       const inkX = meterModifier
         ? meterModifier.getX() + staleShift - digit.left * space
         : x + clefOffset
       const inkWidth = meterModifier
         ? (digit.right + digit.left) * space
-        : Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, stave.getNoteStartX() - (x + clefOffset))
+        : Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, barFrame(stave).noteStartX - (x + clefOffset))
       // ⚠️ Still clamped off the note area: the box is the handle for a glyph, and a box that reached
       //    past `noteStartX` would swallow presses meant for the first note (the clamp's original
       //    reason, and it costs nothing now that the width is real ink).
       const tsX = inkX
-      const tsWidth = Math.min(inkWidth, stave.getNoteStartX() + staleShift - tsX)
+      const tsWidth = Math.min(inkWidth, barFrame(stave).noteStartX + staleShift - tsX)
       if (tsWidth > 0) {
         this.elementRegistry.add({
           type: 'timeSignature',
@@ -5131,7 +5132,7 @@ export class VexFlowRenderer {
 export { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
 
 function noteStartOf(stave: Stave): number {
-  return stave.getNoteStartX() + NOTE_AREA_PADDING_PX
+  return barFrame(stave).noteStartX + NOTE_AREA_PADDING_PX
 }
 
 /**
@@ -5154,7 +5155,7 @@ function noteStartOf(stave: Stave): number {
  */
 function spreadHeaderToSystem(stave: Stave, scale: number): void {
   if (scale === 1) return
-  const x0 = stave.getX()
+  const x0 = barFrame(stave).x
   for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
     modifier.setX(x0 + (modifier.getX() - x0) / scale)
   }

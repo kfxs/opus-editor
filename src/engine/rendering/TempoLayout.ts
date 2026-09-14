@@ -34,7 +34,7 @@ import type { RenderPass } from './RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveFrame } from './staveFrame'
 import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -228,7 +228,7 @@ export function anchorX(
   const target = columns && targetColumn(columns, mark)
   if (target) {
     const here = drawnAtBeat(target.beat, slots, staveNotes)
-    if (here === 'measure-rest') return stave.getNoteStartX() // the centred-rest exception, below
+    if (here === 'measure-rest') return barFrame(stave).noteStartX // the centred-rest exception, below
     if (here !== undefined) return here // this staff has the column's own element — exact
     const derived = columnXFromNeighbour(target, columns, slots, staveNotes, scale)
     if (derived !== undefined) return derived
@@ -248,8 +248,8 @@ export function anchorX(
 
   // 3. Nothing to point at (an empty bar, a beat past the last note): where the bar's music would
   //    start. ⛔ Not `stave.getX()`, the barline — Gould p. 183 forbids it by name, and
-  //    `getNoteStartX` is her *"after the clef and key signature"*.
-  return stave.getNoteStartX()
+  //    `noteStartX` is her *"after the clef and key signature"*.
+  return barFrame(stave).noteStartX
 }
 
 /** The grid point the mark hangs off: the first column at-or-after its beat, ⛔ never the BARLINE

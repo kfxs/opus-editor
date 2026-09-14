@@ -29,7 +29,7 @@ import { lineLeftCurveX, lineRightEdgeX } from './systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { staveFrame } from './staveFrame'
-import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /** A cubic's drawn apex is 0.75 × its control height — the tie's 0.53 sp bow gives 0.40 sp. */
 const APEX_OF_BOW = 0.75
@@ -47,9 +47,8 @@ function headOf(info: { staveNote: StaveNote; noteIndex: number }): TieHead | nu
 }
 
 /** Every staff line's y, for the clearance test. Empty when the stave isn't laid out yet. */
-function staffLineYs(stave: Stave | undefined): number[] {
-  if (!stave) return []
-  const frame = staveFrame(stave)
+function staffLineYs(frame: StaffFrame | undefined): number[] {
+  if (!frame) return []
   const ys: number[] = []
   for (let line = 0; line < frame.lineCount; line++) ys.push(staffLineY(frame, line))
   return ys
@@ -80,7 +79,7 @@ export function drawTieArc(
       apexRise: APEX_OF_BOW * CURVE_PX.tieBow,
       inkThickness: APEX_OF_BOW * CURVE_PX.thickness + CURVE_PX.outline,
       direction: geom.direction,
-      lineYs: staffLineYs(stave),
+      lineYs: staffLineYs(stave && staveFrame(stave)),
     })
     const bow = CURVE_PX.tieBow + growth / APEX_OF_BOW
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [

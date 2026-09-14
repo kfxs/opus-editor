@@ -51,12 +51,12 @@ const MAP = 'docs/vexflow-removal-map.md'
 const VF = `${sep}node_modules${sep}vexflow${sep}`
 
 /**
- * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0) and S2a (R1 174 → 85). Lower them as
+ * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
-  'R1 staff coords': 85,
+  'R1 staff coords': 57,
   'R2 note ruler': 198,
   'R3 placement rules': 438,
   'R4 formatter': 98,

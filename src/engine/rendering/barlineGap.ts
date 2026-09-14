@@ -35,7 +35,7 @@ import type { BarlinePlacement } from './BarlineRenderer'
 import { staffBarlineExtent } from './barlineInk'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
-import { staveFrame } from './staveFrame'
+import { staleShift, staveFrame } from './staveFrame'
 
 /**
  * ⭐⭐ **THE GAP INK IS THE SCORE'S, NOT EITHER STAFF'S** — so its staff-space is the score's own
@@ -108,7 +108,7 @@ export interface BarlineGap {
  * translated with its stale stave. That is exactly where the neighbour's shelter runs out.
  */
 function lineY(p: BarlinePlacement, which: 'top' | 'bottom'): number {
-  const dy = p.y / p.scale - p.stave.getY()
+  const { dy } = staleShift(p)
   // ⭐⭐ **The MIDDLE of the outer line, ⛔ not its edge** — the same rule the bars above and below
   // this gap stop at (`engrave/staff/barlineExtent`). ⚠️ So this piece OVERLAPS the outer half of
   // both lines it runs between, which is what makes the join one continuous stroke rather than a

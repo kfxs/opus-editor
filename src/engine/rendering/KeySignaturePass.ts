@@ -10,7 +10,7 @@ import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawGroupOf } from './svgDrawGroup'
 import { STAVE_LINE_WIDTH_PX, fillStaffLine, staffLinesInk } from '@/engine/engrave/staff/staffLines'
-import { staveFrame } from './staveFrame'
+import { barFrame, staleShift, staveFrame } from './staveFrame'
 import { noteLineY, staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
 
@@ -115,12 +115,6 @@ export const SIGN_CHARS: Partial<Record<GlyphName, string>> = {
  */
 export const SIGN_FONT_SIZE = 30
 
-/** How far this render moved the bar since its stave was built — `BarlineRenderer.staleShift`. */
-function staleShift(placement: KeySignaturePlacement): { dx: number; dy: number } {
-  const { stave, scale } = placement
-  return { dx: placement.x / scale - stave.getX(), dy: placement.y / scale - stave.getY() }
-}
-
 /**
  * ⭐⭐ **Where the first sign's INK starts** — {@link CLEF_TO_KEY_INK} past where the clef's ink ENDS,
  * or {@link BARLINE_TO_KEY_INK} past the barline on a bar that draws no clef. Both numbers are
@@ -141,7 +135,7 @@ export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
   const space = staveFrame(stave).spacePx
   const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
     .find(m => m.getCategory() === 'Clef')
-  if (!clefModifier) return stave.getX() + dx + BARLINE_TO_KEY_INK * space
+  if (!clefModifier) return barFrame(stave).x + dx + BARLINE_TO_KEY_INK * space
   const inkRight = clefModifier.getX() + clefShiftOf(clefModifier)
     + glyphBox(clefGlyph(clef)).right * space
   return inkRight + dx + CLEF_TO_KEY_INK * space
@@ -250,7 +244,7 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
   const space = frame.spacePx
   // The bar's closing barline is at its right edge — the placement's, never the stave's (see the
   // header's staleShift note).
-  const barlineX = stave.getX() + dx + placement.width / placement.scale
+  const barlineX = barFrame(stave).x + dx + placement.width / placement.scale
   const group = drawGroupOf(pass.context.openGroup?.(
     'keysig', `keysig-caution-${placement.measureNumber}-${staffIndex}`,
   ))

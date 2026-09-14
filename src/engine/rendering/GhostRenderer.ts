@@ -56,7 +56,7 @@ import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGho
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { ghostCursorOffset } from './ghostCursor'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -271,7 +271,8 @@ export function drawNoteGhost(
     }).setMode(Voice.Mode.SOFT)
     voice.addTickables(tickables)
 
-    const noteAreaWidth = tempStave.getNoteEndX() - tempStave.getNoteStartX()
+    const tempBar = barFrame(tempStave)
+    const noteAreaWidth = tempBar.noteEndX - tempBar.noteStartX
     const rightPadding = 15
     const formatWidth = noteAreaWidth > 0 ? Math.max(noteAreaWidth - rightPadding, 50) : staveWidth - 100
     new Formatter().joinVoices([voice]).format([voice], formatWidth)

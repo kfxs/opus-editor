@@ -35,6 +35,21 @@ export interface StaffFrame {
   readonly lineCount: number
 }
 
+/**
+ * ⭐ **Where one BAR sits along its staff** — the horizontal half of the frame (S2b). No arithmetic
+ * lives here: these are the answers the casting-off and the lead-in already decided, asked of the bar
+ * rather than of a drawing library's object.
+ */
+export interface BarFrame {
+  /** The bar's left edge — its opening boundary, in the stave's own space. */
+  readonly x: number
+  readonly width: number
+  /** Where the note area begins — after the header and its gap (the note-area padding is not in it). */
+  readonly noteStartX: number
+  /** Where the note area ends. */
+  readonly noteEndX: number
+}
+
 /** The lines a note line is numbered against — `Stave.getYForNote`'s literal `5` (`stave.js:217`). */
 const NOTE_LINE_STAFF_LINES = 5
 

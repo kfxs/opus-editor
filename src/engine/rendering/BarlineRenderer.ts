@@ -72,7 +72,7 @@ import { inStaffSpace } from './staffScaleGroup'
 import { drawBarlineGap } from './barlineGap'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
-import { staveFrame } from './staveFrame'
+import { barFrame, staleShift, staveFrame } from './staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -106,19 +106,6 @@ export interface BarlinePlacement {
   /** The staff's drawn scale. `x`/`y`/`width` are SVG-space; the stave lives in its own scaled
    *  space, so the two are compared after dividing by this. */
   scale: number
-}
-
-/**
- * 🚨 **How far this render moved the bar since its stave was built** — see {@link BarlinePlacement.x}.
- *
- * Zero for every bar that was re-engraved (the stave was built at the plan's own coordinates), and
- * non-zero for exactly the bars that were reused and translated. Everything this pass reads off the
- * stave — `getX`, `getWidth`, `getTopLineTopY`, `getYForLine`, `getNoteStartX` — is in the stave's
- * own space, so the shift is applied there and not in the SVG's.
- */
-function staleShift(placement: BarlinePlacement): { dx: number; dy: number } {
-  const { stave, scale } = placement
-  return { dx: placement.x / scale - stave.getX(), dy: placement.y / scale - stave.getY() }
 }
 
 /** Which end of a bar a sign was drawn at — only ever used to make the SVG group's id unique. */
@@ -483,7 +470,8 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
  */
 function endBoundaryX(stave: Stave): number {
   const endBarline = stave.getModifiers(StaveModifierPosition.END, Barline.CATEGORY)[0]
-  return endBarline ? endBarline.getX() : stave.getX() + stave.getWidth()
+  const bar = barFrame(stave)
+  return endBarline ? endBarline.getX() : bar.x + bar.width
 }
 
 /**
@@ -611,13 +599,13 @@ export function renderBarlines(
     const prev = lineOf(n - 1) === line ? byNumber.get(n - 1) : undefined
     const startKind = signAtBoundary(prev, measure)
     if (startKind) {
-      const startX = stave.getX() + dx
+      const startX = barFrame(stave).x + dx
       drawSign(pass, placement, startX, startKind, 'start', audience, wingsOn(prev, measure))
       // ⭐ This bar picked up a boundary the previous bar could not draw — so the line ends bar
       // `n − 1`, and it is one only when that bar is on THIS system: at a system start the boundary
       // that ends it is at the end of the line above, and this ink is not it (`prev` is exactly that
       // test, and it is why this is not simply `n - 1`).
-      joinBelow(startX, startKind, 'start', b => b.stave.getX() + shiftOf(b), prev ? n - 1 : null)
+      joinBelow(startX, startKind, 'start', b => barFrame(b.stave).x + shiftOf(b), prev ? n - 1 : null)
     }
   }
 }

@@ -50,7 +50,7 @@ import { EngravedTimeSignature } from './EngravedTimeSignature'
 import { acceptsInkSurface } from './inkSurface'
 import { drawGlyph, measureGlyph } from './glyphPainter'
 import { MEASURE_NUMBER_SIZE_PT } from '@/engine/engrave/inheritedFonts'
-import { staveFrame } from './staveFrame'
+import { barFrame, staveFrame } from './staveFrame'
 import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
 
 export class EngravedStave extends Stave {
@@ -145,7 +145,7 @@ export class EngravedStave extends Stave {
       // are the same face at `Stave.fontSize` — and this branch never runs (above).
       const label = '' + this.measure
       const textWidth = measureGlyph('EngravedStave.measure', label, MEASURE_NUMBER_SIZE_PT)
-      drawGlyph(vex, 'EngravedStave.measure', label, this.getX() - textWidth / 2, textRowAboveY(staveFrame(this), 0) + 3, MEASURE_NUMBER_SIZE_PT)
+      drawGlyph(vex, 'EngravedStave.measure', label, barFrame(this).x - textWidth / 2, textRowAboveY(staveFrame(this), 0) + 3, MEASURE_NUMBER_SIZE_PT)
     }
   }
 
@@ -217,7 +217,8 @@ export class EngravedStave extends Stave {
     for (let line = 0; line < frame.lineCount; line++) {
       if (this.options.lineConfig[line].visible) ys.push(staffLineY(frame, line))
     }
-    return staffLinesInk(this.getX(), this.getWidth(), ys, STAVE_LINE_WIDTH_PX)
+    const bar = barFrame(this)
+    return staffLinesInk(bar.x, bar.width, ys, STAVE_LINE_WIDTH_PX)
   }
 }
 

@@ -63,7 +63,7 @@ import {
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
-import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -760,7 +760,7 @@ function drawTrill(
     // "should we draw" flag: one is a decision the score records and the other is arithmetic.
     const drawsLine = trill.extension !== 'none' && lineEnd > lineStart
     if (drawsLine) {
-      drawWiggle(pass, lineStart, lineEnd, y, stave)
+      drawWiggle(pass, lineStart, lineEnd, y, staveFrame(stave))
     }
 
     // ⭐ ONE REGISTRY ENTRY PER FRAGMENT, all carrying the trill's id — so either half of a split
@@ -916,8 +916,8 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
  * repeat and this draws nothing rather than looping forever — which is also why every assertion
  * about the wiggle lives in the browser suite.
  */
-function drawWiggle(pass: RenderPass, startX: number, endX: number, y: number, stave: Stave): void {
-  const size = staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, staveFrame(stave))
+function drawWiggle(pass: RenderPass, startX: number, endX: number, y: number, frame: StaffFrame): void {
+  const size = staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, frame)
   const unit = measureGlyph('TrillRenderer.wiggle', TRILL_WIGGLE_GLYPH, size)
   if (!(unit > 0)) return
 
