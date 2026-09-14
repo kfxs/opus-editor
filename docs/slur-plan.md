@@ -1951,7 +1951,23 @@ and three separate approval gates cost three round trips where one side-by-side 
 - ➡️ **Moved out:** the tie's padded-rectangle hit-target now lands in **Phase 3b**, where
   `drawCurveArc` hands us the sampled points as a by-product (§12.0 #2).
 
-### Phase 8 — interior notes — ⏳ FIRST PASS BUILT 2026-08-16
+### Phase 8 — interior notes — ⏳ FIRST PASS BUILT 2026-08-16, **MECHANISM REPLACED 2026-09-14**
+
+> 🚨🚨 **READ THIS BEFORE THE REST OF THE SECTION.** Everything below describes **Verovio's
+> two-control solve**, which shipped on 2026-08-16 and was **replaced on 2026-09-14 by LilyPond's
+> single `fit_factor`** — his call, after a slur over five staccato sixteenths came out bent.
+> The account, the measurements and the sources are `docs/slur-tie-research.md` §8; the module header
+> of `rendering/slurObstacles.ts` states the new mechanism.
+>
+> ⭐ **What changed, in one line:** an obstacle no longer lifts ONE control point (which changes the
+> arch's shape — measured, a 35.5° launch became 67.3° and a 2:1 arch 3.4:1); it scales **both**
+> control heights by one factor, so the ratio — the shape — cannot move. ⛔ And obstacles within
+> `SLUR_EDGE_DISCOUNT_SPACES` **2.5 sp** of either end no longer count at all; the ENDPOINT rules
+> answer there instead (`rendering/slurArticulationEndpoint.ts`).
+>
+> ⚠️ What survives unchanged from the account below: the obstacles are still what VexFlow DREW, the
+> solve is still one feed-forward pass with no loop, it still samples the real (leaning) curve rather
+> than a symmetric idealisation, and a hand-edited shape still opts out.
 
 > ⭐⭐ **His case, and the reason it started:** twelve sixteenths climbing C5 → G6, slurred from the
 > first of them to a note in the bar after. Both ends are LOW; the run's middle is an octave above;

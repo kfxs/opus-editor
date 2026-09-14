@@ -692,3 +692,53 @@ test('🚨🚨 five sixteenths, the last one FLAGGED — the arch stays on the p
   expect(r.highest, 'the arc stays near the staff it belongs to').toBeGreaterThan(r.top - 4 * (r.bottom - r.top))
   expect(r.highest, '…and above the notes, which is the side it is on').toBeLessThan(r.bottom)
 })
+
+/**
+ * 🚨🚨 **HIS REPORT, 2026-09-14 — a slur over five STACCATO sixteenths came out bent.**
+ * *"the articulation is bending the slur, while in my opinion they should not change the slur ANGLE
+ * but move it up a little"* (`docs/slur-tie-research.md` §8).
+ *
+ * ⭐⭐ **The assertion is the RATIO of the two control heights, and that is deliberate.** The
+ * complaint was never the height — his own hand-tuned target was TALLER than what we now draw. It
+ * was that the arch's shape changed: a 2:1 arch became 3.4:1 and a 35.5° launch became 67.3°,
+ * because the old solver lifted ONE control per obstacle. Both mechanisms that replaced it — the
+ * endpoint rule and LilyPond's uniform `fit_factor` — preserve the ratio by construction, so the
+ * ratio is what a regression would show first.
+ */
+async function slurShape(score: import('@playwright/test').Page, staccato: boolean) {
+  return score.evaluate(async (staccato: boolean) => {
+    const h = window.__h
+    h.engine.addMeasure()
+    const ids = [['C', 1], ['D', 1], ['E', 0], ['F', -1], ['G', 1]].map(([step, alter], i) => {
+      const n = h.engine.addNoteAtBeat({
+        step: step as string, alter: alter as number, octave: 5, duration: '16',
+        measure: 2, beat: h.frac(i, 4),
+      } as never)!
+      if (staccato) h.engine.toggleArticulation(n.id, 'staccato')
+      return n.id
+    })
+    h.engine.createSlur(ids)
+    await h.render()
+    const d = document.querySelector('g.vf-slur path')!.getAttribute('d')!
+    const n = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => parseFloat(m[0]))
+    // M p0 C c0 , c1 , p1 — the first eight numbers.
+    return { h0: n[1] - n[3], h1: n[7] - n[5] }
+  }, staccato)
+}
+
+test('🚨🚨 staccato marks MOVE a slur without BENDING it — his rule of 2026-09-14', async ({ score }) => {
+  const marked = await slurShape(score, true)
+  expect(marked.h0, 'a real arch, above').toBeGreaterThan(0)
+  // ⭐ 2.2 is the arch's own lean ratio at this span and interval; the broken version read 3.45.
+  expect(marked.h0 / marked.h1).toBeLessThan(2.6)
+})
+
+test('⭐⭐ …and the shape is the SAME one the bar draws with no marks at all', async ({ score }) => {
+  const marked = await slurShape(score, true)
+  const bare = await slurShape(score, false)
+  // ⚠️ NOT equality, and the reason is worth stating: the endpoint rule moves the two ends by
+  //    DIFFERENT amounts (each clears its own mark), so `dy` changes and the arch's lean follows it
+  //    — measured 2.25 against 2.08, an 8% drift. The BROKEN version read 3.45 against the same
+  //    2.08, a 66% one. ⭐ The bound sits between them, where a regression cannot hide.
+  expect(Math.abs(marked.h0 / marked.h1 - bare.h0 / bare.h1)).toBeLessThan(0.4)
+})

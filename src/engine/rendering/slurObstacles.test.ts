@@ -1,6 +1,14 @@
+/**
+ * ⭐⭐ **ONE FACTOR OVER THE WHOLE ARCH** — LilyPond's `fit_factor`, adopted 2026-09-14 in place of
+ * Verovio's two-control solve (`docs/slur-tie-research.md` §8; the module header has the why).
+ *
+ * 🚨 **The property these specs exist for is the RATIO.** His report was not that the slur was too
+ * tall — it was that it was BENT: *"they should not change the slur angle but move it up a little"*.
+ * A scale applied to both control heights cannot change their ratio, and that is asserted directly.
+ */
 import { describe, it, expect } from 'vitest'
-import { slurArchClearance, slurObstacleMarginPx, type SlurObstacle } from './slurObstacles'
-import { CURVE_PX, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
+import { maxArchScale, slurArchFit, slurObstacleMarginPx, type SlurObstacle } from './slurObstacles'
+import { CURVE_PX, SLUR_EDGE_DISCOUNT_SPACES } from './curveStyle'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const SP = STAFF_SPACE_PX
@@ -10,126 +18,117 @@ const BELOW = 1
 const head = (x: number, y: number): SlurObstacle =>
   ({ x: x - 0.6 * SP, y: y - 0.5 * SP, width: 1.2 * SP, height: SP })
 
-// A flat slur above, spanning 10 spaces at y = 0, with a 1.4 sp arch (its apex sits 1.05 above).
+// A flat slur spanning 20 spaces at y = 0 — long enough that the 2.5 sp edge band leaves a middle.
 const p0 = { x: 0, y: 0 }
-const p1 = { x: 10 * SP, y: 0 }
-const ARCH = 1.4 * SP
+const p1 = { x: 20 * SP, y: 0 }
+const H0 = 1.8 * SP
+const H1 = 1.0 * SP
 
-describe('slurArchClearance — Verovio\'s single pass (§12 Phase 8)', () => {
-  it('asks for nothing when the music is below the curve', () => {
-    expect(slurArchClearance(p0, p1, ARCH, ABOVE, [head(5 * SP, 2 * SP)])).toEqual({ c0: 0, c1: 0 })
+/** The drawn curve's y at the parameter t, for the arch `(h0, h1)` scaled by `fit`. */
+const curveY = (t: number, fit: number, direction = ABOVE) => {
+  const span = p1.x - p0.x, mt = 1 - t
+  const c0y = p0.y + H0 * fit * direction
+  const c1y = p1.y + H1 * fit * direction
+  return mt ** 3 * p0.y + 3 * mt * mt * t * c0y + 3 * mt * t * t * c1y + t ** 3 * p1.y + 0 * span
+}
+
+describe('the fit factor', () => {
+  it('⭐ asks for nothing when the music is on the other side', () => {
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, 2 * SP)])).toBe(1)
   })
 
-  it('⭐ raises the arch over a note poking through it, by Verovio\'s constraint', () => {
-    // A head 3 spaces above the endpoint line, at the midpoint where the curve reaches only 1.05.
-    const { c0, c1 } = slurArchClearance(p0, p1, ARCH, ABOVE, [head(5 * SP, -3 * SP)])
-    // At the MIDDLE the two controls have equal say, so the pair collapses to the old symmetric
-    // answer. ⚠️ Slightly MORE than the centre-only arithmetic ((3.5 + 0.25 − 1.05)/0.75 = 3.6),
-    // because the whole box has to clear and the curve is lowest at its EDGE, not its centre.
-    expect(c1).toBeCloseTo(c0, 6)
-    expect(c0 / SP).toBeGreaterThan((3.5 + 0.25 - 1.05) / 0.75)
-    expect(c0 / SP).toBeLessThan(4.3)
+  it('⭐ …and nothing when the curve already clears it', () => {
+    // ⚠️ Measured, not guessed: the apex sits 1.05 sp above the chord and the margin at this length
+    //    is the full 0.5 sp, so a box CLEARS only if its top edge is under 0.55 sp. Centred at
+    //    +0.2 sp its top is at −0.3, comfortably below.
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, 0.2 * SP)])).toBe(1)
   })
 
-  it('⭐⭐ puts the lift where the obstacle is — his figure, at four fifths of the span', () => {
-    // At t ≈ 0.64 the second control has 1.8× the say of the first, so it takes 1.8× the lift. That
-    // ratio is what he arrived at by dragging the curve himself (§12 Phase 8).
-    const { c0, c1 } = slurArchClearance(p0, p1, ARCH, ABOVE, [head(6.4 * SP, -3 * SP)])
-    expect(c1).toBeGreaterThan(c0)
-    // 1.78 at the box's centre; the worst sample inside the box shifts it a little.
-    expect(c1 / c0).toBeGreaterThan(1.4)
-    expect(c1 / c0).toBeLessThan(2.1)
+  it('⭐⭐ grows the arch when something stands in the way', () => {
+    const fit = slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, -3 * SP)])
+    expect(fit).toBeGreaterThan(1)
   })
 
-  it('⭐ …and the raised arch then clears it — one pass is enough', () => {
-    const box = head(6.4 * SP, -3 * SP)
-    const lift = slurArchClearance(p0, p1, ARCH, ABOVE, [box])
-    // Feed the answer back in: with those two lifts applied, nothing is left to do. ⭐ This is the
-    // property that makes ONE pass enough — an iterating solver would stop here too.
-    const again = slurArchClearance(p0, p1, ARCH, ABOVE, [box], lift)
-    expect(again.c0).toBeCloseTo(0, 6)
-    expect(again.c1).toBeCloseTo(0, 6)
+  it('⭐⭐ …and the grown arch actually CLEARS it, by the margin', () => {
+    const box = head(10 * SP, -3 * SP)
+    const fit = slurArchFit(p0, p1, H0, H1, ABOVE, [box])
+    // t ≈ 0.5 is over the box's centre on a symmetric span.
+    const clearedBy = box.y - curveY(0.5, fit)
+    expect(clearedBy).toBeGreaterThan(slurObstacleMarginPx(p1.x - p0.x) * 0.9)
   })
 
-  it('takes the componentwise MAX across obstacles, which is what makes one pass safe', () => {
-    const early = head(2.5 * SP, -2.5 * SP)   // asks more of the FIRST control
-    const late = head(7.5 * SP, -2.5 * SP)    // …and more of the second
-    const both = slurArchClearance(p0, p1, ARCH, ABOVE, [early, late])
-    const a = slurArchClearance(p0, p1, ARCH, ABOVE, [early])
-    const b = slurArchClearance(p0, p1, ARCH, ABOVE, [late])
-    expect(both.c0).toBeCloseTo(Math.max(a.c0, b.c0), 6)
-    expect(both.c1).toBeCloseTo(Math.max(a.c1, b.c1), 6)
-    expect(a.c0).toBeGreaterThan(a.c1)
-    expect(b.c1).toBeGreaterThan(b.c0)
+  it('🚨🚨 THE PROPERTY — it is a SCALE, so the arch keeps its ratio', () => {
+    const fit = slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, -3 * SP)])
+    expect(fit).toBeGreaterThan(1)
+    // The caller multiplies BOTH control heights by this one number ⇒ the ratio is untouched.
+    expect((H0 * fit) / (H1 * fit)).toBeCloseTo(H0 / H1, 12)
   })
 
-  it('⛔ ignores anything outside the span — a slur owes nothing to notes it does not cover', () => {
-    expect(slurArchClearance(p0, p1, ARCH, ABOVE, [head(-2 * SP, -5 * SP)])).toEqual({ c0: 0, c1: 0 })
-    expect(slurArchClearance(p0, p1, ARCH, ABOVE, [head(12 * SP, -5 * SP)])).toEqual({ c0: 0, c1: 0 })
+  it('⭐ one factor for many obstacles — the WORST one, ⛔ not their sum', () => {
+    const mild = head(8 * SP, -2 * SP)
+    const worst = head(12 * SP, -3 * SP)
+    const both = slurArchFit(p0, p1, H0, H1, ABOVE, [mild, worst])
+    expect(both).toBe(Math.max(
+      slurArchFit(p0, p1, H0, H1, ABOVE, [mild]),
+      slurArchFit(p0, p1, H0, H1, ABOVE, [worst]),
+    ))
   })
 
-  it('mirrors below the staff', () => {
-    const above = slurArchClearance(p0, p1, ARCH, ABOVE, [head(5 * SP, -3 * SP)])
-    const below = slurArchClearance(p0, p1, ARCH, BELOW, [head(5 * SP, 3 * SP)])
-    expect(below.c0).toBeCloseTo(above.c0, 6)
-    expect(below.c1).toBeCloseTo(above.c1, 6)
+  it('⭐ BELOW is the mirror and answers the same number', () => {
+    const above = slurArchFit(p0, p1, H0, H1, ABOVE, [head(10 * SP, -3 * SP)])
+    const below = slurArchFit(p0, p1, H0, H1, BELOW, [head(10 * SP, 3 * SP)])
+    expect(below).toBeCloseTo(above, 10)
   })
 
-  // ── The margin is MuseScore's length law now, not a flat quarter space (2026-08-17). Its two
-  //    bounds are the number a reader looks for; the ratio is what puts a slur between them.
-  it('leaves the bounds where a reader can find them', () => {
-    expect(CURVE_PX.slurObstacleMarginMin).toBeCloseTo(0.1 * SP, 10)
-    expect(CURVE_PX.slurObstacleMarginMax).toBeCloseTo(0.5 * SP, 10)
+  it('⛔ ignores what lies outside the span', () => {
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(-2 * SP, -5 * SP)])).toBe(1)
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(22 * SP, -5 * SP)])).toBe(1)
+  })
+})
+
+describe('🚨🚨 the EDGE DISCOUNT — what makes a uniform scale possible at all', () => {
+  it('⛔ an obstacle inside the edge band is LEFT UNCLEARED, ⛔ not answered with a spike', () => {
+    const justInside = head(1 * SP, -3 * SP)
+    expect(SLUR_EDGE_DISCOUNT_SPACES).toBe(2.5)
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [justInside])).toBe(1)
   })
 
-  it('the margin grows with the span, floored and capped', () => {
-    expect(slurObstacleMarginPx(1 * SP)).toBeCloseTo(0.1 * SP, 10)    // 0.04 sp → the floor
-    expect(slurObstacleMarginPx(5 * SP)).toBeCloseTo(0.2 * SP, 10)    // 0.04 × 5 sp, in the middle
-    expect(slurObstacleMarginPx(12.5 * SP)).toBeCloseTo(0.5 * SP, 10) // exactly at the cap
-    expect(slurObstacleMarginPx(40 * SP)).toBeCloseTo(0.5 * SP, 10)   // …and stays there
+  it('⭐ …and the same box one band further in DOES count', () => {
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(4 * SP, -3 * SP)])).toBeGreaterThan(1)
   })
 
-  it('a NEGATIVE span (a right-to-left pair) asks for the same margin', () => {
-    // The caller passes `p1.x - p0.x`; nothing guarantees the sign, and a signed margin would be
-    // subtracted from the obstacle instead of added to it.
-    expect(slurObstacleMarginPx(-5 * SP)).toBeCloseTo(slurObstacleMarginPx(5 * SP), 10)
+  it('🚨 the mirror at the far end', () => {
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(19 * SP, -3 * SP)])).toBe(1)
   })
 
-  it('🚨 asks for NOTHING from an obstacle its own endpoint sits on — the curve is pinned there', () => {
-    // His report, 2026-08-18: a slur whose start had been walked onto the next notehead drew a
-    // near-vertical stroke instead of an arc. Cause: both Bézier weights vanish toward an endpoint,
-    // so the least-movement solution diverges like 1/(3t) and the solver demanded a 354 px lift for
-    // a box the same slur clears with 3 px mid-span. A cubic MUST pass through its endpoint, so
-    // there is no lift that clears anything there — the honest answer is to leave it uncleared.
-    const onTheEndpoint = slurArchClearance(p0, p1, ARCH, ABOVE, [head(0.1 * SP, -3 * SP)])
-    expect(onTheEndpoint).toEqual({ c0: 0, c1: 0 })
-    // …and the mirror at the far end, which the same bound covers without naming it.
-    expect(slurArchClearance(p0, p1, ARCH, ABOVE, [head(9.9 * SP, -3 * SP)])).toEqual({ c0: 0, c1: 0 })
+  it('🚨🚨 his 2026-09-14 case: the driver sat 1.0 sp from the end and is now discounted', () => {
+    // Five staccato sixteenths; the obstacle that bent the slur was the SECOND note's box, whose
+    // left edge stood one staff space from the endpoint (measured, §8.1).
+    expect(slurArchFit(p0, p1, H0, H1, ABOVE, [head(1.6 * SP, -3 * SP)])).toBe(1)
+  })
+})
+
+describe('the cap — a spike is not a clearance', () => {
+  it('⭐⭐ an impossible obstacle is refused rather than answered', () => {
+    const wall: SlurObstacle = { x: 9 * SP, y: -40 * SP, width: 2 * SP, height: 39 * SP }
+    const fit = slurArchFit(p0, p1, H0, H1, ABOVE, [wall])
+    expect(fit).toBe(maxArchScale(p0, p1, H0, H1))
   })
 
-  it('⭐ …while an obstacle the curve CAN act on is still cleared, and by no more than the bound', () => {
-    // The point of the bound is that it only bites where the arithmetic was diverging. A head at a
-    // quarter of the span is ordinary music under an ordinary slur and must still be lifted over.
-    const { c0, c1 } = slurArchClearance(p0, p1, ARCH, ABOVE, [head(2.5 * SP, -3 * SP)])
-    expect(c0).toBeGreaterThan(0)
-    expect(c1).toBeGreaterThan(0)
-    // ⚠️ A ceiling, not an equality: `deficit` is measured off the worst sample in the box, so the
-    // claim is that the answer stays in the same order as the gap it closes, not a fixed multiple.
-    expect(c0).toBeLessThan(SLUR_OBSTACLE_MAX_LIFT_RATIO * 4 * SP)
+  it('⭐ the cap is LilyPond’s `max_h` with our quarter-span inset — 0.2795 × the chord', () => {
+    const len = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+    expect(maxArchScale(p0, p1, H0, H1)).toBeCloseTo((0.2795 * len) / ((H0 + H1) / 2), 3)
   })
 
-  it('⭐ a LONG slur clears an interior stem by more than a short one does', () => {
-    // His report, 2026-08-17: a 15.6 sp slur cleared an interior stem by 0.243 sp and read as
-    // touching it. Same obstacle, same arch, two spans — the long one must ask for more.
-    // ⚠️ The obstacle sits at the MIDPOINT of each span, so the two controls have equal say in both
-    // and the only difference left is the margin — 0.24 sp for the short one, the 0.5 sp cap for the
-    // long. Put it at a fixed x instead and the comparison measures Bézier weights, not clearance.
-    const box = (x: number) => ({ x: x - 0.5 * SP, y: -3 * SP, width: SP, height: SP })
-    const shortSpan = slurArchClearance({ x: 0, y: 0 }, { x: 6 * SP, y: 0 }, ARCH, ABOVE, [box(3 * SP)])
-    const longSpan = slurArchClearance({ x: 0, y: 0 }, { x: 20 * SP, y: 0 }, ARCH, ABOVE, [box(10 * SP)])
-    // ⛔ The ORDERING is all this can claim. The difference is not the margin difference divided by
-    // 0.75: the worst sample is the one at the box's EDGE, and a 1 sp box covers a wider stretch of
-    // a short span's curve than of a long one's, so the two deficits differ for a second reason too.
-    expect(longSpan.c1).toBeGreaterThan(shortSpan.c1)
+  it('⛔ never below 1 — a cap may not SHRINK an arch the laws chose', () => {
+    expect(maxArchScale(p0, p1, 40 * SP, 40 * SP)).toBe(1)
+    expect(maxArchScale(p0, p1, 0, 0)).toBe(1)
+  })
+})
+
+describe('the margin it clears by', () => {
+  it('⭐ grows with the slur’s length, between MuseScore’s two bounds', () => {
+    expect(slurObstacleMarginPx(2 * SP)).toBe(CURVE_PX.slurObstacleMarginMin)
+    expect(slurObstacleMarginPx(40 * SP)).toBe(CURVE_PX.slurObstacleMarginMax)
   })
 })

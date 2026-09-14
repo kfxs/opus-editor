@@ -14,7 +14,15 @@
 > (`rendering/slurShapeExperiment.ts`), and his standing judgement that *her DRAWING beats the
 > formula*. Nothing below settles either.
 >
-> **Status 2026-09-14: researched, measured, ⛔ nothing changed.**
+> **Status 2026-09-14: researched, measured — and §8 SHIPPED a change; §§1–7 changed nothing.**
+>
+> ⭐⭐ **§8 (ARTICULATION ↔ SLUR) was added later the same day, from his report** — a slur over five
+> staccato sixteenths drawn *"very ugly"* — and it is the one section of this document that **did**
+> change code. It carries the isolation experiment that says WHY (a 0.4 sp dot moving the arc 2.3 sp),
+> the four books' placement rule **and their plates measured**, the three engines' mechanisms read
+> twice, and ✅ **§8.6, what was built**: the endpoint rule and LilyPond's `fit_factor`, with his
+> sign-off (*"the articulation slur looks much better now"*). ⛔ The rest of this document still
+> decides nothing.
 
 ---
 
@@ -327,7 +335,7 @@ Searched pp. 136–143 in full, plus `grep -n` over the extracted full text for 
 
 ---
 
-### 2.3 ⭐⭐ STONE, *Music Notation in the Twentieth Century* — printed pp. 35–39
+### 2.3 ⭐⭐ STONE, *Music Notation in the Twentieth Century* — printed pp. 35–39, **and §11 at pp. 42–43** (§8.7)
 
 **Never read for this question before**, and it turns out to be the book with the most
 *system-break* content of the four.
@@ -799,3 +807,284 @@ behind it.
 - **Gedan, *Notenschrift für Fortgeschrittene*** — quoted in `docs/slur-plan.md` §11.7 (2026-08-15) for the melodic-direction rule and the two labelled faults. ⛔ **It is not in `reference/`** and was not re-read today; that material is second-hand here.
 - **The practitioner's length→height table** (0.7 / 1.7 / 3 / 3.25 sp) and the Finale/Sibelius figures in §11.7 — from the notat.io forum, ⛔ **not re-verified today**.
 - **Wanske, *Musiknotation*** — LilyPond's tie-direction comment cites *"[Wanske p231]"* by name (`lily/tie.cc:86`). ⛔ **Not on disk, never fetched.** A fifth treatise that two of our sources point at (Wanske here, Ross via LilyPond's same comment) and that this library does not hold.
+
+---
+
+## 8. ⭐⭐ ARTICULATION ↔ SLUR — added 2026-09-14, from his report
+
+### 8.0 The report, and the correction it needed
+
+> *"the slur at bar 2 looks very ugly"* … *"the staccato is bending the slur but in any case the
+> staccato ink is so small and even the bbox that i don't know why it bends the slur so much"*
+
+Five sixteenths (C♯5 D♯5 E♮5 F♭5 G♯5), every one carrying a **staccato** dot, one slur over all five.
+⚠️ It was first read as an ACCIDENTAL problem — his own first message said so and was a misspelling,
+and the briefs that went out carried the error. **The measurement below settles it the other way:
+the articulation is the dominant term**, and the accidental's role is real but secondary and of a
+different kind. ⭐ *Measure before ranking* applied to a bug report as much as to a library.
+
+### 8.1 ⭐⭐ WHAT WE DRAW — measured four ways, same five pitches, same slur
+
+Isolated by rendering the same bar four times and changing one thing (`e2e` probe, Chromium):
+
+| accidentals | staccato | obstacle lift c0 / c1 | control height | apex above staff | launch angle |
+|---|---|---|---|---|---|
+| — | — | **0 / 0** | 19.8 px | 1.93 sp | 34.5° |
+| ✔ | — | 8.8 / 3.6 | 28.4 px | 2.26 sp | 45.6° |
+| — | ✔ | 14.3 / 4.4 | 34.1 px | 2.44 sp | 49.8° |
+| ✔ | ✔ | **46.8 / 22.7** | **66.4 px** | **4.26 sp** | **67.3°** |
+
+🚨 **The two are SUPER-ADDITIVE: 8.8 + 14.3 = 23, together 46.8.** Twice the sum.
+
+⭐ **One obstacle drives every case, and it is the SECOND note** — never the first, never the
+accidental-heavy middle:
+
+```
+both:        t=0.109   box top 51.00   deficit 12.37   × 3.8 leverage  →  46.8 px
+accid only:  t=0.109   box top 61.04   deficit  2.33   × 3.8           →   8.8 px
+stacc only:  t=0.234   box top 51.00   deficit  6.45   × 2.2           →  14.3 px
+```
+
+#### 🚨🚨 Why 0.4 sp of ink moves the arc 2.3 sp — three findings, and none of them is the dot's size
+
+Measured through our own ruler (`sceneInkBox`, P6a) on the D♯, the second note:
+
+```
+the note's obstacle box   x 210.3 … 235.1   top 51.0    ← ONE rectangle, 24.8 × 32.9 px
+  the sharp's own ink     x 210.3 … 220.3   top 56.0
+  the dot's own ink       x 227.3 … 231.3   top 51.0    ← 4 × 4 px = 0.4 × 0.4 sp
+```
+
+1. ⛔ **The obstacle is a BOUNDING BOX, not ink.** The dot sets the top of the whole rectangle, so a
+   0.4 sp dot becomes a **2.5 sp-wide wall** at the dot's height. His instinct was exactly right: the
+   ink is tiny, and the ink is not what the solver reads.
+2. 🚨 **The slur meets that wall where the dot ISN'T.** The curve climbs left to right, so its worst
+   deficit inside the box is at the box's **left edge** — which is the *accidental's* left edge. The
+   real ink there is 5 px lower and the dot is 17 px to the right. **The arc is lifted to clear a dot
+   at an x the dot does not occupy.**
+3. 🚨 **And that left edge is the worst place on the curve to be pushed.** It falls at t = 0.109,
+   where a control point contributes only 26% of its own height. Gain **3.8×**.
+
+⇒ ⭐⭐ **THE ACCIDENTAL'S REAL COST IS HORIZONTAL, NOT VERTICAL.** Its ink hangs LEFT of its own
+notehead, so it widens the box leftward by ~1.3 sp and drags the collision from t = 0.234 to
+t = 0.109 — out of the part of the curve that can move and into the part that cannot. The staccato
+supplies the HEIGHT, the accidental supplies the REACH, and the single rectangle multiplies them.
+
+⚠️ **The existing guard missed it by 5%.** `SLUR_OBSTACLE_MAX_LIFT_RATIO = 4` exists for exactly this
+divergence, but it was calibrated for *"an obstacle the endpoint sits on top of"*, where the gain
+goes to infinity. This one has a gain of **3.8** and sails under the ceiling.
+
+⚠️ **And the symptom has a name in our own code.** `rendering/slurArchHeight` records that the height
+law was replaced on 2026-08-16 partly to kill a 61° launch angle — LilyPond's source calls it *"a
+certain hookiness at the end"* — and that LilyPond's law brings it to 43°. **The obstacle lift
+re-creates it at 67°, unbounded.** ⇒ a bound on the arch that the obstacle solve can walk straight
+past is not a bound.
+
+### 8.2 THE BOOKS — the PLACEMENT rule is settled, by four of them
+
+| source | printed p. | the rule |
+|---|---|---|
+| **Gould** | 121 | *"The smallest signs go closest to the notehead"* … *"Usually, **only tenuto lines and staccato marks may go inside the first and last notes of a slur**"* |
+| **Gould** | 122 | *"**Articulation marks in the middle of a slur go inside the slur.** Accents at the beginning and end of a slur usually go outside the slur, so that the slur can remain closer to the noteheads."* |
+| **Gould** | 122 | the horizontal anchor: *"Centre a slur on a stem. With the addition of a tenuto line between the slur and a stem, centre the slur, like the tenuto line, on the notehead (**when there is a staccato dot, the slur centres on the stem**)."* |
+| **Ross** | 130 | *"With the exception of the beginning and ending of a phrase, all marks or articulation should appear **inside of a slur**."* ⚠️ His plate draws only accents and fermatas outside — the blanket wording overstates his own drawing |
+| **Stone** | 42 | *"In slurred passages with accents and other articulation signs, the slur should **begin and end between the note-head (or stem-end) and the accent**. All other accents, etc., should be **covered by the slur**."* |
+| **Stone** | 43 | *"**Staccato dots and tenuto lines in slurred passages, unlike accents, should all appear between the note-heads (or stem-ends) and the slur** (this applies equally to the first and last notes)."* |
+| **Gerou & Lusk** | 128 | *"The beginning or ending of a slur is placed **outside staccato and tenuto** marks. **Center** over or under the articulation"*; *"**Articulations between** the beginning and ending notes remain inside the slur"* |
+
+#### ⭐⭐ 8.2a THE PLATES, MEASURED — because none of the four states a distance
+
+Calibration = each figure's own five staff lines, `pdftoppm -r 450`, ink profile. **Gap = clear
+white, ink edge to ink edge.**
+
+| plate | PDF | 1 sp | marks ↔ slur: first / middle / last | slur apex | bulges? |
+|---|---|---|---|---|---|
+| **Gould 121** upper — 3 tenuto under a slur | 141 | 20.13 px | **0.60 / 1.34 / 0.60 sp** | 2.73 sp | none |
+| **Gould 121** lower — 3 staccato under a slur | 141 | 20.13 px | **0.65 / 1.19 / 0.55 sp** | 2.16 sp | none |
+| **Gould 122** — accents out, dots inside | 142 | 19.90 px | **0.60 / 1.21 / 0.60 sp** | 2.69 sp | none |
+| **Gould 111** | 131 | 20.10 px | **0.70 / 2.19 / 0.65 sp** | 3.58 sp | none |
+| **Ross 142** tenuto pair | 154 | 25.25 px | **0.20 / — / 0.24 sp** | 1.64 sp | none |
+| **Ross 142** staccato pair, same music | 154 | 25.25 px | **0.16 / — / 0.36 sp** | 1.82 sp | none |
+| **Stone 43** — descending 16ths, 4 dots | 32 R | 21.40 px | **0.51 / 0.56 / 0.61 sp** | — | none |
+| **G&L 128** | 66 L | 38.50 px | dots **0.36**; tenuto **0.73 / 0.78 / 1.06 sp** | — | none |
+
+⭐⭐ **Gould's three independent plates agree to 0.05 sp: ≈0.6 sp at the ENDS, ≈1.2–1.3 sp at the
+apex.** ⇒ the gap is a **residual of one even arc**, tightest where the slur lands — ⛔ not a
+clearance applied per mark. Cross-book the number is TASTE: Ross 0.2 · Stone 0.55 · Gould 0.6 ·
+G&L 0.8. Other numbers off the same plates: slur ink 0.35 sp at the apex; staccato dot Ø 0.40 sp;
+dot→notehead clear gap 0.55 sp.
+
+⭐⭐ **NO PLATE IN ANY OF THE FOUR BOOKS BULGES OVER AN INDIVIDUAL MARK** — every slur's inner edge is
+monotone from tip to apex and back. **The marks buy the slur one step of height, once.**
+
+#### ⭐⭐ 8.2b THE MARKS' OWN ALIGNMENT — a ROW is drawn, and labelled as the ERROR
+
+> **Gould p. 119**, *Distance from noteheads*: *"Articulation marks are best placed **a consistent
+> distance from each notehead**, so that the eye can follow them most easily"* — with an *and / not*
+> pair.
+
+⭐ Measured (PDF 139): in the **not** drawing the three marks sit at a common centre — **y 74.0 to the
+pixel** — while the noteheads step; in the **and** drawing they step with the notes. ⇒ **the marks
+follow the CONTOUR**, and all eight plates do.
+⚠️ **But the contour is QUANTISED, not offset**: Gould 121's heads are 1.0 sp apart and her marks only
+**0.5 sp** apart, because of p. 119's other rule — *"Place articulation marks no closer than the first
+clear stave-space from the note. Centre tenuto lines and staccato dots in a stave-space."*
+
+#### 8.2c STACCATO vs TENUTO
+
+⭐ **Vertically identical**: Gould p. 119 centres both in a stave-space; Stone p. 5 *"Tenuto lines are
+spaced like staccato dots"*; Ross's own side-by-side pair measures 1.64 vs 1.82 sp of apex, inside his
+scan's noise. ⭐ **The real difference is HORIZONTAL** — Gould p. 122, and her plate engraves it: with
+a tenuto the slur's end centres on the **notehead**, with a staccato dot on the **stem** (measured on
+PDF 142: right tip at x 374 against a stem at 361.5 and a head centre at 373).
+⚠️ **Stone p. 43 adds one exception the rest do not**: *"in cases of very wide, slurred intervals…
+the first or last **accent** should be placed between the note-head and the slur"* — accents only.
+
+⭐⭐ **SETTLED: staccato dots and tenuto lines go INSIDE the slur, including on the first and last
+notes.** Accents and fermatas go outside at the ends, inside in the middle. So the height the marks
+add is legitimate — ⛔ **what is not legitimate is adding it per mark, at the wrong x, amplified.**
+
+### 8.3 🚨 THE BOOKS ON THE SHAPE — and a CITATION THAT WAS MISAPPLIED (corrected 2026-09-14)
+
+⛔ **An earlier draft of this section made Gould p. 111 the operative rule for this bug. It is not,
+and HE caught it** (*"in my example the slur is not on the stem side"*):
+
+> Gould p. 111, under the heading ***Slurs at stem end***: *"Where other notes or stems will not be
+> obstructed, the slur may move slightly closer to the noteheads, beside the stems, so as to be more
+> conspicuous."* … *"Where staccato and tenuto marks fall within the slur, **the slur cannot move
+> towards the noteheads but must remain at the ends of the stems**."*
+
+⭐ The whole passage is about a slur on the **STEM** side, and what the marks forbid is the *inward*
+move toward the noteheads. **Both of his cases put the slur on the NOTEHEAD side** (stems down with
+the slur above; stems up with the slur below), where there is no such inward move to forbid. ⇒ the
+sentence is true and irrelevant here. ⚠️ *A rule being right is not its door being open.*
+
+**What the books DO give for the notehead side:**
+- the marks are **inside** the slur — §8.2, four sources, and that is settled;
+- the curve should be even — Gould p. 109 *"Aim for as consistent a curve as possible"*, Ross
+  pp. 140–141 *"a straight line with both ends bending uniformly"*. ⚠️ General shape statements,
+  ⛔ **not** articulation-specific.
+
+⛔⛔ **AND THAT IS THE WHOLE OF IT. No book on disk states how a slur clears articulation marks on the
+notehead side.** §2.1 C already recorded the same negative for an interior note. The rule has to come
+from the engines (§8.4), from measured plates, or from his eye — and it must be labelled as whichever
+it is.
+
+⚠️ ⛔ **THE GAP IS STILL UNKNOWN.** No book gives a distance between the marks and the slur. §2.1 C
+already records the same negative for an interior note. MuseScore's **0.20 sp** (§4.2) is the only
+number in the field.
+
+### 8.4 THE ENGINES — nobody drops the obstacle; everybody discounts the EDGE
+
+| | obstacle set | edge handling | anti-spike |
+|---|---|---|---|
+| **LilyPond** | accidental included but reduced to **ONE point chosen by the glyph's shape** (`slur-scoring.cc:865-877`), penalty **3** against `head-encompass-penalty` **1000** (`layout-slur.scm:21-34`); staccato is `avoid-slur . inside` (`script.scm:397-403`) | ⭐⭐ the two **extreme note-columns contribute no avoid-point at all** (`slur-scoring.cc:666-671`); anything within **`close-to-edge-length` 2.5 sp** is dropped from the height fit (`slur-configuration.cc:112-119`) | the arch is a **closed form** obstacles may only SCALE, capped at `max_h` — the largest height keeping `\|bez'(0)\| < \|bez'(.5)\|`, so **a spike is geometrically unrepresentable** (`:165-194`) |
+| **MuseScore** | full shapes; a *"Remove items that the slur shouldn't try to avoid"* filter drops ledgers, text, endCR articulations, other voices, fermatas, ornament accidentals (`slurtielayout.cpp:1264-1319`) | endCR items dropped; accidentals also dropped at system-break continuations (`:170-172`) | shape sampled into ~20 rects (`npoints = 20`), `MAX_ITER` 30, step clamped to **1.5 sp** (`:1424-1435`), and *"Enforce non-ugliness rules / 1) Slur cannot be taller than it is wide"* (`:1140-1144`) |
+| **Verovio** | full shapes, `ACCID` first in the class list (`slur.cpp:209-212`); start/end **elements** exempt but ⛔ not their accidentals | ⭐ only obstacles with `\|0.5 − ratio\| < 0.45` contribute — *"Ignore obstacles close to the endpoints, because this would result in very large shifts"* (`adjustslursfunctor.cpp:604-607`) | partial-shift radius with quadratic fade (`:876-900`); `AdjustSlurShape` re-imposes min angle, convexity, `p1.x ≤ c1.x ≤ c2.x ≤ p2.x` (`:687-766`) |
+| **Finale** (⚠️ settings only, from `musxdom`; the algorithm is **UNKNOWN**) | `slurAvoidAccidentals` is a **toggle** with its own `slurAcciPadding`, plus a per-slur `SlurAvoidAccidentalsState {Auto, Off, On}` | — | `maxSlurLift`, `maxSlurStretch`, `maxSlurAngle`, `slurSymmetry`, `articAvoidSlurAmt` exist as named limits |
+
+#### ⭐⭐ 8.4a A RUN OF MARKS — all three reduce it to ONE quantity (second reading, 2026-09-14)
+
+| | how a RUN of marks is answered | the ends | order |
+|---|---|---|---|
+| **LilyPond** | ⭐⭐ **ONE scalar `fit_factor`** — the largest ratio over every avoid-point — scaling the whole arch: `height = max(height, min(height * ff, max_h))` (`slur-configuration.cc:93-132`, `:191-195`) | obstacles within `close-to-edge-length` **2.5 sp** are skipped by the fit (`:112-119`); attachment range pre-widened by `encompass-object-range-overshoot` 0.5 sp | per type: `avoid-slur inside` ⇒ the SLUR yields and the mark never moves; `outside`/`around` ⇒ the MARK moves (`slur.cc:372-402`) |
+| **MuseScore** | collisions collapse to three booleans (left/mid/right) driving the two control points, `0.30 sp` per iteration, ≤ `MAX_ITER` 30 (`slurtielayout.cpp:1010-1090`) | the tip moves **outside** the first/last staccato/tenuto by `slurTipToArticVertDist` **0.5 sp**, x re-anchored to the mark's centre (`:889-923`); `leftBalance` drops 0.4 → **0.1** when a mark is present | marks placed (passes 1–2) → slur → `layoutArticulations3` moves **only the outside marks on the slur's own end chords** (`chordlayout.cpp:1172-1175`) |
+| **Verovio** | every box becomes a linear constraint on the two control heights; **one** weighted-average solve satisfies all, clamped toward symmetry (`adjustslursfunctor.cpp:559-682`) | ⭐ a named case — the **"portato slur"**: a boundary note with an inside artic re-anchors the endpoint to the note's drawing top (`slur.cpp:688-696`, `:1058-1086`); obstacles in the outer 5 % ignored | outside artics → outside artics on boundary notes pushed clear of the slur → slur (`page.cpp:418-552`) |
+
+**Clearance numbers, slur→mark:** MuseScore **0.20 sp** (`articulationClearance`), LilyPond
+`extra-encompass-free-distance` **0.3 sp** (a demerit, not a constraint), Verovio one global
+`slurMargin` = **0.5 sp** for every obstacle class (⛔ no ARTIC row exists).
+**Which marks sit inside:** LilyPond staccato/staccatissimo/tenuto/**marcato** inside, accent and
+fermata `around`; MuseScore and Verovio staccato/staccatissimo/tenuto inside, accent and marcato
+outside. ⚠️ Marcato is the one they disagree about.
+**Anti-spike:** LilyPond `max_h` from `|bez'(0)| < |bez'(.5)|`; MuseScore *"Slur cannot be taller than
+it is wide"* + the tangent rule; Verovio a 30° minimum control angle and 3° convexity.
+⛔ **No engine has an articulation ROW**; LilyPond's `Script_row` groups one timestep only.
+
+⭐⭐ **The line that matters: no engine solves this by removing the obstacle. All three solve it by
+discounting the EDGES** — and two of the three additionally bound the SHAPE so that no obstacle,
+however mismeasured, can produce a spike. We do neither.
+
+⭐ **Layout ORDER, where it was found:** MuseScore lays articulations *close to the note* first
+(`articulation.cpp:264-271`, `isStaccato() || isTenuto()`), then slurs, then `layoutArticulations3`
+— *"Called after layouting slurs // Fix up articulations that need to go outside the slur"*
+(`chordlayout.cpp:1172-1175`). Verovio fixes the same order in `page.cpp:386-420`.
+
+### 8.5 ⛔ THE ACCIDENTAL — closed, as a side question
+
+**No treatise on disk states that a slur clears an accidental.** Gould's slur section mentions the
+word once, and horizontally: p. 112, *"the slur starts after the clef, key signature and time
+signature, **but before any accidental**"*. The only two COLLISION rules in the book resolve by
+changing SIDE, never by raising the arc:
+
+> p. 130 (grace notes): *"A slur should always be **placed above the notes** when it would otherwise
+> collide with the accidentals of a measured value."*
+> p. 71 (ties): *"**Curve a tie away** from an added note with an accidental, so that the two do not
+> collide."*
+
+⇒ our arch's response to an accidental — *lift* — has **no source behind it** in this library.
+
+### ✅ 8.6 WHAT WAS BUILT (2026-09-14) — two mechanisms, two jobs
+
+⭐⭐ **His specification was one sentence** — *"they should not change the slur angle but move it up a
+little"* — and it took two changes, because the marks at the ENDS and the marks in the MIDDLE reach
+the curve by different routes.
+
+**1. `rendering/slurArticulationEndpoint.ts` — the ENDS move the ENDPOINT.** A staccato or tenuto on
+the first or last note stands between that note and the slur, so the endpoint's lift is measured from
+the MARK rather than from the notehead, plus `CURVE.slurArticulationGap` **0.5 sp**
+(MuseScore's `slurTipToArticVertDist`; Verovio's portato re-anchor is the same rule spelled
+differently). ⭐ Moving the ends TRANSLATES the curve, and a translation cannot change its shape —
+the property the whole-curve offset override already relies on.
+
+**2. `rendering/slurObstacles.ts` — the MIDDLE scales the WHOLE arch.** Verovio's two-control solve
+is replaced by LilyPond's single `fit_factor` (§8.4a), multiplying both control heights by one
+number. ⛔ With it goes `SLUR_OBSTACLE_MAX_LIFT_RATIO`, **deleted rather than tuned**: it was a
+ceiling of 4 written for an obstacle the endpoint sits on top of, and his case came in at **3.8**,
+passing under it while spending 4.68 sp of control height to buy 1.24 sp of clearance. ⭐ Its job is
+done instead by `SLUR_EDGE_DISCOUNT_SPACES` **2.5 sp** — LilyPond's `close-to-edge-length`, which
+removes the obstacle rather than capping the answer. *A ceiling the bad case fits under is not a
+bound.*
+
+#### ⭐ Measured, both configurations (his two scores)
+
+| slur ABOVE, five staccato 16ths | apex | launch | controls | ratio |
+|---|---|---|---|---|
+| as he reported it | 4.26 sp | 67.3° | 66.4 / 32.3 | 2.06 |
+| + the endpoint rule only | 3.33 sp | 55.0° | 39.8 / 11.5 | 3.45 |
+| **+ the fit factor (shipped)** | **2.78 sp** | **35.9°** | **20.1 / 9.1** | **2.21** |
+| *his own hand-tuned target* | — | — | *24.8 / 11.5* | *2.15* |
+| the same bar with no marks | 1.93 sp | 34.5° | 19.8 / 9.8 | 2.02 |
+
+⭐⭐ **The launch angle is back to the plain arch's and the ratio matches his to 0.06.** ⚠️ We sit
+~0.5 sp LOWER than his hand-drag — that is SIZE, not shape, and its knob is the endpoint gap: ours is
+MuseScore's 0.5 sp where **Gould's own plates draw 0.6** (§8.2a). ⏭️ His call.
+
+⭐ **The slur BELOW (the same figure an octave down) was solved by the endpoint rule alone** — its
+obstacle factor is 1, and its control ratio went 0.28 → 0.59 against the auto arch's 0.49.
+🚨 There the articulation is **100 % of the cause**: with the slur below, the accidentals are above
+and to the left of the noteheads and reach nothing.
+
+#### ⚠️ One change beyond the reported bug, stated rather than buried
+
+A slur over notes with **accidentals but no marks** used to take a small lift (8.8 / 3.6 px) and now
+takes none — it renders identically to plain notes (1.92 vs 1.93 sp of apex). ⭐ That follows the
+books (§8.5: no treatise says a slur clears an accidental; Gould's two collision rules change SIDE,
+never height) and it follows the edge discount, but it was not what he reported. ✅ He looked and
+accepted it: *"the articulation slur looks much better now"*.
+
+#### ⏳ STILL OPEN
+
+1. **The gap number.** Ours 0.5 sp (MuseScore). Gould's plates 0.6; Stone 0.55; Ross 0.2; G&L 0.8.
+2. **The mid-run clearance**, unchanged at `slurObstacleMarginMin/Max` 0.1–0.5 sp; MuseScore's
+   articulation row is 0.20 sp and we do not distinguish marks from noteheads there.
+3. **The horizontal rule is NOT built** — Gould p. 122 and her plate: with a tenuto the slur's end
+   centres on the notehead, with a staccato dot on the **stem** (§8.2c). We always centre on the note.
+4. **Marcato's side** — LilyPond keeps it inside, MuseScore and Verovio put it outside (§8.4a).
+
+### 8.7 ⚠️ A correction to §2.3's heading
+
+Stone's slur/tie material does **not** stop at printed p. 39: **§11 *Slurs and ties in combination
+with articulation signs* is printed pp. 42–43 (PDF 32)**, and it is the fullest statement in the
+library of the ends rule. The 2-UP formula in `reference/README.md` (`PDF n = printed 2n−22 / 2n−21`)
+is correct and was used to reach it.

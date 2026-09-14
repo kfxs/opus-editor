@@ -120,6 +120,21 @@ export const CURVE = {
   /** Extra arch height per nesting level, so concentric slurs don't collide (§8, `slurNestDepths`). */
   slurNestGap: 1.0,
   /**
+   * ⭐⭐ **The air between a slur's ENDPOINT and its own note's articulation mark** —
+   * `./slurArticulationEndpoint`, his report of 2026-09-14.
+   *
+   * ⛔ **No book gives it.** `docs/slur-tie-research.md` §8.3 records that no treatise on disk states
+   * how a slur clears articulation on the NOTEHEAD side at all; what they settle is only that
+   * staccato and tenuto go INSIDE the slur (§8.2, four sources).
+   *
+   * ⭐ **So it is MuseScore's, attributed**: `slurTipToArticVertDist = spatium * 0.5` — the distance
+   * its `fixArticulations` puts between the slur tip and the first/last staccato or tenuto
+   * (`slurtielayout.cpp:889-923`). ⚠️ Verovio solves the same case by re-anchoring the endpoint to
+   * the note's drawing top (its "portato slur") and so publishes no gap; LilyPond does not move the
+   * endpoint at all. One of the three states a number, and this is it.
+   */
+  slurArticulationGap: 0.5,
+  /**
    * ⭐⭐ **The air a slur leaves above (or below) a note it has to clear** — §12 Phase 8, and since
    * 2026-08-17 a RANGE rather than one number, because the amount depends on how long the slur is.
    *
@@ -370,29 +385,40 @@ export const SLUR_CONTROL_ANGLE = { min: 30, boostMax: 15, fullBelowSpaces: 4 } 
 export const SLUR_OBSTACLE_MARGIN_RATIO = 0.04
 
 /**
- * ⭐⭐ **THE MOST A CONTROL POINT MAY BE ASKED TO MOVE PER UNIT OF DEFICIT** — the bound that stops
- * the obstacle solver demanding the impossible near an endpoint.
+ * ⭐⭐ **HOW FAR IN FROM EACH END AN OBSTACLE STOPS COUNTING** — LilyPond's `close-to-edge-length`
+ * (`scm/define-grobs.scm`, consumed at `slur-configuration.cc:112-119`), in staff spaces.
  *
- * 🚨 **A cubic is PINNED at its two ends.** Raising the controls does nothing at all at `t = 0` or
- * `t = 1`, and very little just inside them, so the least-movement solution
- * (`x = deficit·w₀/(w₀²+w₁²)`, see `./slurObstacles`) **diverges like 1/(3t)** as an obstacle
- * approaches an endpoint. Measured, 2026-08-18: one notehead-sized box, one 200 px slur, margin
- * unchanged — the demanded first-control lift runs 3.35 px with the box comfortably inside the span,
- * 12 px at a fifth of the way in, 51 px at a tenth, and **354 px once the endpoint sits on the box**.
- * The drawn result is a near-vertical departure that reads as a stroke, not a slur.
+ * 🚨 **It is not a tuning knob; it is what makes a uniform arch scale possible at all.** A cubic is
+ * PINNED at its ends, so the curve's distance from the chord line goes to zero there — and a factor
+ * that has to carry the curve past an obstacle sitting at that point is unbounded. LilyPond's own
+ * regression note says it plainly: *"Slur shaping is not adapted to accommodate objects towards the
+ * edges of slur. Said objects are thus ignored, which should make the slur in this regtest flat."*
  *
- * ⚠️ It became reachable when an endpoint could be nudged onto a neighbouring notehead (the offset
- * override, and then `interactions/slurEndpointWalk`), but it was always there: the arithmetic has no
- * answer to "clear this thing I start on top of", because there is none — the curve must pass
- * through its endpoint. So the honest response is to stop asking, and let that one obstacle be
- * uncleared.
+ * ⭐ Verovio does the same thing with a different spelling — only obstacles with `|0.5 − ratio| <
+ * 0.45` contribute, *"because this would result in very large shifts"* — and MuseScore halves the
+ * step for edge collisions. All three engines have this rule; ⛔ we had none, and the hole is what
+ * his 2026-09-14 report walked into (`docs/slur-tie-research.md` §8.1).
  *
- * ⭐ **A ratio, not a t-band**, though it implies one (≈ the first and last 8% of the parameter):
- * this is the quantity that actually misbehaves, it reads as the sentence above, and it bounds both
- * ends without naming either. The value is a bound, not a rule from a book — no treatise discusses
- * a slur that begins on top of a note, because an engraver would not draw one.
+ * ⚠️ An obstacle inside this band is left UNCLEARED rather than answered with a spike. That is the
+ * trade the three engines make, and the END is where the endpoint rules answer instead
+ * (`./slurArticulationEndpoint`).
  */
-export const SLUR_OBSTACLE_MAX_LIFT_RATIO = 4
+export const SLUR_EDGE_DISCOUNT_SPACES = 2.5
+
+/**
+ * ⛔ **`SLUR_OBSTACLE_MAX_LIFT_RATIO` WAS HERE, and it is DELETED rather than tuned** (2026-09-14).
+ *
+ * It bounded *"the most a control point may be asked to move per unit of deficit"* — 4 — because the
+ * least-movement solve it guarded diverged like `1/(3t)` toward an endpoint. 🚨 **It was calibrated
+ * for the wrong case**: it was written for an obstacle the endpoint sits *on top of*, where the gain
+ * is infinite, and his 2026-09-14 report came in at a gain of **3.8**, passing under the ceiling by
+ * 5% while spending 4.68 sp of control height to buy 1.24 sp of clearance.
+ *
+ * ⭐ The per-control solve it guarded is gone (`./slurObstacles` now scales the whole arch by one
+ * factor, LilyPond's), and with it the divergence: the same job is done by
+ * {@link SLUR_EDGE_DISCOUNT_SPACES}, which removes the obstacle instead of capping the answer.
+ * ⛔ A ceiling under which the bad case fits is not a bound.
+ */
 
 /** Staff spaces → pixels for this family: against the score's staff space, ⛔ never a scaled stave
  *  (see the file note). The one place the curve family leaves engraving units. */

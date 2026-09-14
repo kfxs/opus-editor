@@ -20,6 +20,7 @@ import { inStaffSpace } from './staffScaleGroup'
 import { curveArcPoints } from '@/engine/engrave/curves/curveInk'
 import { drawCurveArc } from './curveArc'
 import { CURVE_PX } from './curveStyle'
+import { articulationEdge, endpointLiftOverMark } from './slurArticulationEndpoint'
 import { curveShapeOverrideOf, segmentCurveShapeOverrideOf, reconcileSegmentShape, endpointOffsetOverrideOf, slurOffsetOverrideOf, segmentEndpointOffsetOverrideOf, reconcileSegmentEndpointOffset } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { coveredChordIds, slurSideFromStems } from './slurDirection'
@@ -29,7 +30,7 @@ import { tiltWithThePitches } from './slurMelodicTilt'
 import { archLean, slurArchHeightFor } from './slurArchHeight'
 import { slurIndentFraction } from './slurShapeExperiment'
 import { limitSlurSlant } from './slurSlantLimit'
-import { slurArchClearance, type SlurObstacle } from './slurObstacles'
+import { slurArchFit, type SlurObstacle } from './slurObstacles'
 import { curveObstacleBox } from './accidentalCutOut'
 import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
@@ -43,6 +44,8 @@ import { voiceOf } from '@/utils/lanes'
 // LIFT + ARC/2 peak. Phase 2 of §12 is the one that may replace this height law outright.
 const SLUR_LIFT = CURVE_PX.slurLift       // gap between the notehead and the arc's endpoints
 const SLUR_NEST_GAP = CURVE_PX.slurNestGap // extra bow height per nesting level (concentric slurs)
+// ⭐ …and the air an endpoint leaves beyond its OWN note's staccato/tenuto — `./slurArticulationEndpoint`.
+const SLUR_ARTIC_GAP = CURVE_PX.slurArticulationGap
 // ⭐ The arch HEIGHT is no longer here either: `./slurArchHeight` owns the law that turns a span into
 // a bow. The slur's WEIGHT is not here: it is `CURVE_PX.thickness`, shared
 // with ties, because the two are one weight and only the arch differs. This file used to set
@@ -398,7 +401,8 @@ function slurArchCps(
   p1: { x: number; y: number },
   direction: number,
   extraHeight = 0,
-  lift: { c0: number; c1: number } = { c0: 0, c1: 0 },
+  /** ⭐ How much taller the obstacles under it make the whole arch — `./slurObstacles.slurArchFit`. */
+  fit = 1,
 ): [{ x: number; y: number }, { x: number; y: number }] {
   const dy = p1.y - p0.y
   // HOW TALL is `./slurArchHeight` — a law, not a constant, and the one number in the family with no
@@ -420,11 +424,15 @@ function slurArchCps(
   //    `span/4` in `curveControlPoints`, the one owner of both, so the difference is what goes
   //    in — and 0.25 puts a 0 there, which is what shipped.
   const indent = (slurIndentFraction() - 0.25) * (p1.x - p0.x)
+  // ⭐⭐ **THE OBSTACLE FACTOR SCALES BOTH CONTROLS BY THE SAME NUMBER** — LilyPond's, and the
+  //    property is the point: multiplying a pair by one scalar cannot change their RATIO, so the
+  //    arch keeps its shape and only its size answers the music under it (`./slurObstacles`).
+  //    ⛔ Never two separate lifts — that is what bent his slur (`docs/slur-tie-research.md` §8.1).
   return [
-    { x: indent, y: H + lean + lift.c0 },
+    { x: indent, y: (H + lean) * fit },
     // ⚠️ `0 - indent`, ⛔ not `-indent`: the default puts a NEGATIVE ZERO there, and `toEqual`
     //    tells the two apart — a spec failing on the sign of nothing.
-    { x: 0 - indent, y: H - lean + lift.c1 },
+    { x: 0 - indent, y: (H - lean) * fit },
   ]
 }
 
@@ -442,7 +450,7 @@ export function resolveCps(
   p1: { x: number; y: number },
   direction: number,
   extraHeight: number,
-  lift: { c0: number; c1: number } = { c0: 0, c1: 0 },
+  fit = 1,
 ): [{ x: number; y: number }, { x: number; y: number }] {
   if (override && stave) {
     return [
@@ -450,7 +458,7 @@ export function resolveCps(
       { x: staffSpacesToPixels(override[1].x, stave), y: staffSpacesToPixels(override[1].y, stave) },
     ]
   }
-  return slurArchCps(p0, p1, direction, extraHeight, lift)
+  return slurArchCps(p0, p1, direction, extraHeight, fit)
 }
 
 /**
@@ -741,10 +749,20 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         fromY += off.startY
         toY += off.endY
 
+        // ⭐⭐ **THE ENDPOINT CLEARS ITS OWN MARK** (`./slurArticulationEndpoint`, his report of
+        // 2026-09-14). A staccato or tenuto on the first or last note stands between that note and
+        // the slur, so the endpoint's lift is measured from the MARK rather than from the notehead.
+        // ⭐ It moves the ENDS, which translates the curve; ⛔ it never touches the cps, which would
+        // re-arch it — *"they should not change the slur angle but move it up a little"*.
+        // ⚠️ Computed HERE, after the hand's endpoint nudge and before the shape is solved, so the
+        // arch, its lean and the obstacle solve all see the ends the engraver actually chose.
+        const liftFrom = endpointLiftOverMark(fromY, LIFT, articulationEdge(fromNote, direction), direction, SLUR_ARTIC_GAP)
+        const liftTo = endpointLiftOverMark(toY, LIFT, articulationEdge(toNote, direction), direction, SLUR_ARTIC_GAP)
+
         if (fromLine === toLine) {
           // Same line: a single arc from the start note to the end note.
-          const startY = fromY + LIFT * direction
-          const endY = toY + LIFT * direction
+          const startY = fromY + liftFrom * direction
+          const endY = toY + liftTo * direction
           const p0 = { x: firstX, y: startY }
           const p1 = { x: lastX, y: endY }
           // A hand-edited shape in the engraving-overrides compartment (stored in
@@ -775,9 +793,12 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // move already obeys.
           const autoP0 = { x: p0.x - off.startX, y: p0.y - off.startY }
           const autoP1 = { x: p1.x - off.endX, y: p1.y - off.endY }
+          // ⭐⭐ ONE FACTOR over the whole arch (`./slurObstacles`), ⛔ never two control lifts.
+          const archH = slurArchHeightFor(autoP0, autoP1, nestLift)
+          const archLeanPx = archLean(autoP1.y - autoP0.y, direction, archH)
           const clearance = shapeOverride
-            ? { c0: 0, c1: 0 }
-            : slurArchClearance(autoP0, autoP1, slurArchHeightFor(autoP0, autoP1, nestLift),
+            ? 1
+            : slurArchFit(autoP0, autoP1, archH + archLeanPx, archH - archLeanPx,
               direction, slurObstaclesOf(pass, score, slur, direction))
           const cps = resolveCps(shapeOverride, stave, autoP0, autoP1, direction, nestLift, clearance)
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
@@ -896,7 +917,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             if (seg.type === 'begin') {
               // Start note → system right edge, rising to an OPEN right end that leans toward the
               // music on the next system (`./brokenSlurTilt`, Gould p. 112).
-              const startY = fromY + LIFT * direction
+              const startY = fromY + liftFrom * direction
               const stave = fromNote.getStave()
               const p0 = { x: seg.firstX, y: startY }
               const p1 = {
@@ -925,7 +946,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
               // fix: leftX is the SYSTEM's left margin, not the end note's measure edge. Its open
               // LEFT end leans the opposite way, so the two fragments point at each other.
-              const endY = toY + LIFT * direction
+              const endY = toY + liftTo * direction
               const stave = toNote.getStave()
               // ⛔ NO vertical dodge around the clef: the fragment starts after it, so there is
               // nothing to dodge. LilyPond makes the same point in the strongest available form — it

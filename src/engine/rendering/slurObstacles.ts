@@ -1,44 +1,48 @@
 /**
- * ⭐⭐ **WHAT A SLUR HAS TO CLEAR, AND HOW MUCH HIGHER THAT MAKES IT** — Phase 8, first pass
- * (docs/slur-plan.md §12 Phase 8, §11.6).
+ * ⭐⭐ **WHAT A SLUR HAS TO CLEAR, AND HOW MUCH TALLER THAT MAKES IT** — one factor over the whole
+ * arch (docs/slur-tie-research.md §8; `docs/slur-plan.md` §12 Phase 8).
  *
  * > Gould p. 322: *"**all notes must appear to be included in a slur**"* — and p. 110/111 for the
  * > two other constraints, *"always remain outside a beam"* and *"must not obscure a ledger line"*.
  *
- * ⭐ **The books state the constraints and never the algorithm**, so the algorithm is an engine's.
- * The three differ more here than anywhere else (§11.6): LilyPond scores candidate endpoint pairs on
- * a grid where `head-encompass-penalty` **1000** acts as a veto; MuseScore iterates up to **30
- * times**, alternating shape and endpoints over ~20 sampled rectangles; **Verovio does a single
- * feed-forward pass**, solving `3(1−t)²·x + 3(1−t)t²·y ≥ intersection` for the control-point lifts.
+ * ## ⭐⭐ THE MECHANISM IS LilyPond's, and it replaced Verovio's on 2026-09-14 — HIS call
  *
- * ⭐ **This is Verovio's**, for the reason the plan gives: one pass, no loop, and its constraint math
- * is written for exactly our shape — a cubic driven by two control points. LilyPond's moves the
- * ENDPOINTS, which would fight the endpoint-offset override compartment; MuseScore's loop wants a
- * shape model that can go lopsided, which ours can express but nothing yet drives.
+ * The first version was Verovio's: each obstacle became a linear constraint on the **two control
+ * points**, solved for the least total movement (`x = deficit·w₀/(w₀²+w₁²)`). 🚨 **Raising a control
+ * is changing the SHAPE**, and his report of 2026-09-14 is what that costs — five staccato dots
+ * turned a 35.5° launch into 67.3° and a 2:1 arch into 3.4:1, because the two controls are lifted by
+ * *different* amounts and the near one takes almost all of it.
  *
- * ⭐⭐ **THE TWO LIFTS ARE SOLVED SEPARATELY, and his own hand is why.** The first version added one
- * lift to both control points, which cleared the music but kept the arch's LEAN — and the lean puts
- * the lower control on the side the obstacle is usually on. He dragged the curve into the shape he
- * wanted and sent it back: control 1 **identical to ours to three decimals**, control 2 raised
- * 0.73 sp. That is not a preference, it is a diagnosis — the fullness was in the wrong half.
+ * ⭐ **His words were the specification**: *"they should not change the slur angle but move it up a
+ * little"* — and the shape he then hand-dragged measured as **the auto arch scaled by 1.24, with its
+ * ratio preserved**. That is LilyPond's rule, arrived at by eye:
  *
- * So each obstacle is now solved for BOTH lifts, exactly as Verovio writes it: with `x` on the first
- * control and `y` on the second, `3(1−t)²t·x + 3(1−t)t²·y ≥ deficit`. Those two coefficients are how
- * much say each control has where the obstacle is — at his peak (t ≈ 0.64) the second has **1.8×**
- * the first — and the pair is chosen to satisfy the constraint with the **least total movement**,
- * i.e. `x = deficit·w₀/(w₀²+w₁²)`, `y = deficit·w₁/(w₀²+w₁²)`. ⭐ At t = 0.5 that collapses to the old
- * symmetric answer, `deficit / 0.75`, so nothing about a centred obstacle changed.
+ * ```cpp
+ * // slur-configuration.cc:191-195
+ * Real ff = fit_factor (dz_unit, dz_perp, …, curve, state.dir_, avoid);
+ * height = std::max (height, std::min (height * ff, max_h));
+ * ```
  *
- * ⭐ **Taking the componentwise MAX across obstacles is safe**, and that is why one pass suffices: if
- * `x ≥ xᵢ` and `y ≥ yᵢ` for every obstacle, then `w₀ᵢx + w₁ᵢy ≥ deficitᵢ` for every obstacle too,
- * since the weights are positive. No iteration, no search.
+ * ⭐ `fit_factor` (`:93-132`) is **one scalar** — the largest ratio, over every avoid-point, of how
+ * far the obstacle is from the chord to how far the curve currently is there. Five dots therefore
+ * produce exactly the lift the worst one needs, and ⛔ the arch cannot go lopsided, because the two
+ * control heights are multiplied by the same number.
  *
- * ⛔ **Two rules it obeys, both inherited:** a **hand-edited shape opts out** (the rule the nest lift
- * already follows — the user owns that curve), and it runs **post-layout**, on where the ink
- * actually landed rather than on where the model thinks the notes are.
+ * ⚠️ **Two faithful-translation decisions, because our frame is not theirs:**
+ * 1. LilyPond builds its bow in a frame ROTATED onto the chord, where the arch is symmetric and
+ *    scaling the height scales the whole bow. Ours LEANS instead (`./slurArchHeight.archLean`), so
+ *    the equivalent is to scale **both resolved control heights**, ⛔ not the base height — scaling
+ *    `H` alone would leave the lean unscaled and quietly flatten the ratio (measured: 1.87 against
+ *    the arch's own 2.21 and his 2.15).
+ * 2. The EDGE DISCOUNT comes with it and is not optional: a factor that must carry the curve past an
+ *    obstacle near a pinned end is unbounded. See {@link SLUR_EDGE_DISCOUNT_SPACES}.
+ *
+ * ⛔ **Two rules it keeps from the first version:** a **hand-edited shape opts out** (the user owns
+ * that curve), and it runs **post-layout**, on where the ink actually landed rather than on where
+ * the model thinks the notes are.
  */
-import { CURVE_PX, SLUR_OBSTACLE_MARGIN_RATIO, SLUR_OBSTACLE_MAX_LIFT_RATIO } from './curveStyle'
-import { archLean } from './slurArchHeight'
+import { CURVE_PX, SLUR_EDGE_DISCOUNT_SPACES, SLUR_OBSTACLE_MARGIN_RATIO } from './curveStyle'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /**
  * ⭐⭐ **HOW MUCH AIR THIS slur leaves over what it covers** — MuseScore's length law
@@ -67,52 +71,34 @@ export interface SlurObstacle {
 }
 
 /**
- * How much taller the arch has to be for the curve to clear everything under it, in px — `0` when it
- * already does, which is most slurs.
+ * ⭐⭐ **THE FACTOR THE WHOLE ARCH MUST GROW BY** so the curve clears everything under it — **1 when
+ * it already does**, which is most slurs.
  *
- * `p0`/`p1` are the drawn endpoints, `archHeight` the control height the shape laws produced, and
- * `direction` −1 above / +1 below. Obstacles are filtered here rather than by the caller: only what
- * lies strictly BETWEEN the endpoints can be in the way, and only its edge facing the slur matters.
+ * `p0`/`p1` are the drawn endpoints and `h0`/`h1` the two control heights the shape laws produced
+ * (⚠️ the LEAN included — this scales what is actually drawn). `direction` is −1 above / +1 below.
+ * Obstacles are filtered here rather than by the caller: only what lies strictly BETWEEN the
+ * endpoints can be in the way, only its edge facing the slur matters, and ⛔ only the part of the
+ * span outside {@link SLUR_EDGE_DISCOUNT_SPACES} counts.
+ *
+ * @returns a multiplier ≥ 1, already capped at {@link maxArchScale}.
  */
-interface SlurArchLift {
-  /** Extra height for the FIRST control point (the one nearer `p0`). */
-  c0: number
-  /** …and for the second. */
-  c1: number
-}
-
-export function slurArchClearance(
+export function slurArchFit(
   p0: { x: number; y: number },
   p1: { x: number; y: number },
-  archHeight: number,
+  h0: number,
+  h1: number,
   direction: number,
   obstacles: readonly SlurObstacle[],
-  /** Lifts already applied to the two controls — pass the result back in to check the answer, which
-   *  is what the spec does and what an iterating caller would do (ours does not iterate). */
-  applied: SlurArchLift = { c0: 0, c1: 0 },
-): SlurArchLift {
+): number {
   const span = p1.x - p0.x
-  if (span === 0) return { c0: 0, c1: 0 }
+  if (span === 0 || !isFinite(h0) || !isFinite(h1)) return 1
   const margin = slurObstacleMarginPx(span)
+  const edge = SLUR_EDGE_DISCOUNT_SPACES * STAFF_SPACE_PX
 
-  // ⚠️⚠️ **SAMPLE THE REAL CURVE, both times it would have been tempting not to.**
-  //
-  // (1) The arch LEANS: `slurArchCps` offsets its two controls by `±SLUR_ARCH_TILT · dy`, so a
-  //     symmetric cubic is not what gets drawn. Solving against one under-lifts a slur whose worst
-  //     obstacle sits toward its low end — his report, 2026-08-16, where the term was 0.44 sp
-  //     against a 0.25 sp margin.
-  // (2) x does NOT run linearly with t: with controls a quarter of the span in, `x(0.25)` lands at
-  //     0.227 of the span, so reading `t` off an obstacle's x misplaces it by ~2% of the span — most
-  //     of a staff space on a long slur, and worst where the curve is steepest.
-  //
-  // Sampling costs 64 evaluations per slur and removes both. The curve is convex, so the sample
-  // nearest each obstacle is the one that matters.
-  const dy = p1.y - p0.y
-  // ⭐ THE SAME BOUNDED LEAN THE DRAWING USES (`./slurArchHeight.archLean`) — ⛔ never the raw tilt,
-  //   or this solver bows over a curve nobody draws.
-  const lean = archLean(dy, direction, archHeight)
-  const h0 = archHeight + lean + applied.c0
-  const h1 = archHeight - lean + applied.c1
+  // ⚠️ SAMPLE THE REAL CURVE — the drawn one, lean and all. The two reasons are the ones the
+  // least-movement solver had: (1) a leaning arch is not the symmetric cubic it is tempting to solve
+  // against, and (2) x does not run linearly with t, so reading `t` off an obstacle's x misplaces it
+  // by ~2% of the span. 64 evaluations per slur removes both.
   const c0 = { x: p0.x + span / 4, y: p0.y + h0 * direction }
   const c1 = { x: p1.x - span / 4, y: p1.y + h1 * direction }
   const STEPS = 64
@@ -127,35 +113,63 @@ export function slurArchClearance(
     })
   }
 
-  const lift: SlurArchLift = { c0: 0, c1: 0 }
+  /** How far OUTWARD of the chord line a y sits at this x — the quantity LilyPond's ratio is of. */
+  const outward = (x: number, y: number) => {
+    const chordY = p0.y + ((x - p0.x) / span) * (p1.y - p0.y)
+    return (chordY - y) * -direction
+  }
+
+  let fit = 1
   for (const box of obstacles) {
     const left = Math.min(box.x, box.x + box.width)
     const right = Math.max(box.x, box.x + box.width)
     // The obstacle's edge facing the slur, plus air.
-    const edge = direction === -1 ? box.y : box.y + box.height
-    const wanted = edge + direction * margin
+    const facing = direction === -1 ? box.y : box.y + box.height
+    const wanted = facing + direction * margin
 
     for (const s of samples) {
       if (s.t <= 0 || s.t >= 1) continue
       if (s.x < left || s.x > right) continue
-      const deficit = (s.y - wanted) * direction * -1
-      if (deficit <= 0) continue
-      // How much say each control has where this obstacle is (Verovio's two coefficients).
-      const mt = 1 - s.t
-      const w0 = 3 * mt * mt * s.t
-      const w1 = 3 * mt * s.t * s.t
-      const norm = w0 * w0 + w1 * w1
-      if (norm <= 0) continue
-      // 🚨 …and NOT at any price. Both weights vanish toward an endpoint, so this quotient diverges
-      // like 1/(3t) — 354 px of lift for a box the endpoint sits on, where the same box mid-span
-      // costs 3 px (measured; {@link SLUR_OBSTACLE_MAX_LIFT_RATIO} carries the table). The curve is
-      // pinned at its ends and genuinely cannot clear anything there, so an obstacle that close is
-      // left uncleared rather than answered with a lift that turns the arc into a stroke.
-      if (Math.max(w0, w1) / norm > SLUR_OBSTACLE_MAX_LIFT_RATIO) continue
-      lift.c0 = Math.max(lift.c0, (deficit * w0) / norm)
-      lift.c1 = Math.max(lift.c1, (deficit * w1) / norm)
+      // ⛔ THE EDGE DISCOUNT — see {@link SLUR_EDGE_DISCOUNT_SPACES}. The curve is pinned at its ends
+      //   and no factor can carry it past something standing there.
+      if (s.x - p0.x < edge || p1.x - s.x < edge) continue
+      const here = outward(s.x, s.y)
+      const needed = outward(s.x, wanted)
+      // ⛔ A curve that is ON the chord (or the wrong side of it) cannot be SCALED into place —
+      //   multiplying zero by anything is still zero. Such an obstacle is left uncleared.
+      if (here <= 0 || needed <= here) continue
+      fit = Math.max(fit, needed / here)
     }
   }
-  return lift
+  return Math.min(fit, maxArchScale(p0, p1, h0, h1))
 }
 
+/**
+ * ⭐⭐ **THE CAP: the largest scale that still draws an ARCH rather than a spike** — LilyPond's
+ * `max_h` (`slur-configuration.cc:162-175`), whose comment derives it from `|bez'(0)| < |bez'(.5)|`:
+ * the curve must not leave its endpoint faster than it travels at its own middle.
+ *
+ * ```cpp
+ * Real max_indent = len / 3.1;
+ * Real max_h = sqrt (sqr (len) / 3 - 0.75 * sqr (indent + len / 3));
+ * ```
+ *
+ * ⭐ With our fixed control inset of a quarter of the span, that is `0.2795 × len`. ⚠️ `len` is the
+ * CHORD, not the horizontal span — the same input the height law itself takes
+ * (`./slurArchHeight.slurArchHeightFor`).
+ *
+ * ⛔ **This is a bound on the SHAPE, not on the obstacle.** An obstacle that would need more than
+ * this is left uncleared, exactly as one inside the edge band is — *a spike is not a clearance.*
+ */
+export function maxArchScale(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  h0: number,
+  h1: number,
+): number {
+  const mean = (h0 + h1) / 2
+  if (mean <= 0) return 1
+  const len = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+  const maxH = Math.sqrt(Math.max(0, (len * len) / 3 - 0.75 * Math.pow(len / 4 + len / 3, 2)))
+  return Math.max(1, maxH / mean)
+}
