@@ -77,7 +77,8 @@ delaying engraving work by one day.
 > · S4b0 the clef's and meter's VALUES are ours (`meterSign`, `clefSign`). **→ 1,158 uses.**
 > · S4b1 our walk places the signs, and each holds its own position. **→ 1,125 uses.**
 > · S4c the clef, meter and barline are plain objects of ours in the stave's own list. **→ 1,051 uses.**
-> ⏭️ S4d, the gutter's staves.
+> · S4d the gutter draws its staves without VexFlow's `Stave`. **→ 1,039 uses.**
+> ⏭️ S4e, the staff frame built from the placement.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

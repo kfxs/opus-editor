@@ -90,8 +90,9 @@ export class EngravedStave extends Stave {
   }
 
   /**
-   * ⭐ A clef, at either end of the bar. ⭐ **The GHOST and GUTTER staves are deliberately not affected**:
-   * they are plain `Stave`s, so they keep VexFlow's clef exactly as they keep VexFlow's staff lines.
+   * ⭐ A clef, at either end of the bar. ⭐ **The GHOST staves are deliberately not affected**: they are
+   * plain `Stave`s, so they keep VexFlow's clef exactly as they keep VexFlow's staff lines. (The gutter's
+   * are not staves at all since S4d — `./GutterRenderer` draws the same sign objects itself.)
    */
   addClefSign(clef: ScoreClef, size: ClefSize, side: SignSide = 'opening'): this {
     return this.addSign(new EngravedClef(clef, size), side)
@@ -228,7 +229,7 @@ export function drawStaveInkThrough(staves: readonly Stave[], ctx: DrawContext):
 
 /**
  * ⭐ **The signs a score stave carries** — S4b1. ⛔ Only a stave of ours has any: a plain VexFlow `Stave`
- * (a ghost's, the gutter's) is walked by VexFlow and never reaches a pass that asks.
+ * (a ghost's) is walked by VexFlow and never reaches a pass that asks.
  */
 export function staveSigns(stave: Stave): { opening: StaveSign[]; closing: StaveSign[] } {
   if (!(stave instanceof EngravedStave)) throw new Error('staveSigns: not a score stave')
