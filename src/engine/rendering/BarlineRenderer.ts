@@ -60,7 +60,6 @@
  * The exception is a first-in-line bar that OPENS A REPEAT — there the boundary's sign is `|:`, so
  * the stave's begin bar is turned off and this pass draws it.
  */
-import { Barline, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
 import { staffBarlineExtent } from './barlineInk'
 import { drawGlyph } from './glyphPainter'
@@ -74,6 +73,7 @@ import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
 import { barFrame, staleShift, staveFrame } from './staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { signRun } from './signRun'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -419,14 +419,14 @@ function drawSign(
  */
 function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null {
   // A `NONE` begin bar is still a modifier, so the question is "anything but a barline".
-  const header = stave.getModifiers(StaveModifierPosition.BEGIN).filter(m => m.getCategory() !== 'Barline')
+  const header = signRun(stave).opening.filter(sign => sign.kind !== 'barline')
   if (header.length === 0) return null
   const space = staveFrame(stave).spacePx
   // ⭐ The header's own INK, from the modifiers themselves — `getX() + getWidth()` per modifier is
   // the drawn glyph box (checked against the rendered `<text>`: the meter answers 67…86, and its
   // bbox is 67…86). ⛔ Not `headerExtent`, which is the WIDTH model's estimate of the same thing:
   // where the sign goes is a question about the ink that is actually on the page beside it.
-  const headerRight = Math.max(...header.map(m => m.getX() + m.getWidth()))
+  const headerRight = Math.max(...header.map(sign => sign.x + sign.width))
   return headerRight + dx + (HEADER_TO_REPEAT + signLeft) * space
 }
 
@@ -469,9 +469,9 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
  * `docs/barline-types-plan.md` §4.4a carries the measurement and the citation.
  */
 function endBoundaryX(stave: Stave): number {
-  const endBarline = stave.getModifiers(StaveModifierPosition.END, Barline.CATEGORY)[0]
+  const endBarlineX = signRun(stave).endBarlineX
   const bar = barFrame(stave)
-  return endBarline ? endBarline.getX() : bar.x + bar.width
+  return endBarlineX !== undefined ? endBarlineX : bar.x + bar.width
 }
 
 /**

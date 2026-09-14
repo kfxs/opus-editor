@@ -121,6 +121,7 @@ import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type Rende
 import { barFrame, noteFrame, staveBox, staveFrame } from './staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './noteRuler'
+import { signRun } from './signRun'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -3673,8 +3674,7 @@ export class VexFlowRenderer {
       //    a bar whose shape did not change is reused and moved with a transform, so `modifier.getX()`
       //    is where it was last PAINTED. `staleShift` is that correction — the same one
       //    `KeySignaturePass` and `BarlineRenderer` apply, here written as `x − stave.getX()`.
-      const meterModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
-        .find(m => m.getCategory() === 'TimeSignature')
+      const meterSign = signRun(stave).meter
       const space = staveFrame(stave).spacePx
       const digit = glyphBox('timeSig4')
       // FALLBACK, and it is the old guess: a measure that is never drawn still gets a box, and a
@@ -3687,10 +3687,10 @@ export class VexFlowRenderer {
             ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
             : 0) / scale
       const staleShift = x - barFrame(stave).x
-      const inkX = meterModifier
-        ? meterModifier.getX() + staleShift - digit.left * space
+      const inkX = meterSign
+        ? meterSign.x + staleShift - digit.left * space
         : x + clefOffset
-      const inkWidth = meterModifier
+      const inkWidth = meterSign
         ? (digit.right + digit.left) * space
         : Math.min(LAYOUT_CONFIG.TIME_SIG_HIT_WIDTH, barFrame(stave).noteStartX - (x + clefOffset))
       // ⚠️ Still clamped off the note area: the box is the handle for a glyph, and a box that reached
@@ -5177,13 +5177,12 @@ function spreadHeaderToSystem(stave: Stave, scale: number): void {
 function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined): number | undefined {
   const space = staveFrame(stave).spacePx
   let right = -Infinity
-  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
-    const category = modifier.getCategory()
-    if (category === 'Barline') continue
-    right = Math.max(right, category === 'TimeSignature'
+  for (const sign of signRun(stave).opening) {
+    if (sign.kind === 'barline') continue
+    right = Math.max(right, sign.kind === 'meter'
       // Every timeSig digit shares one box, so any of them names the ink's right reach.
-      ? modifier.getX() + glyphBox('timeSig4').right * space
-      : modifier.getX() + modifier.getWidth())
+      ? sign.x + glyphBox('timeSig4').right * space
+      : sign.x + sign.width)
   }
   if (key && key.alterations.length > 0) {
     right = Math.max(right, keySignatureInkRight(stave, clef, key))

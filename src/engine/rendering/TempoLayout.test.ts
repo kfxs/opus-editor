@@ -17,7 +17,7 @@ const fakeStave = (timeSigX: number | null = 60, x = 20, noteStartX = 100) =>
   ({
     getX: () => x,
     getNoteStartX: () => noteStartX,
-    getModifiers: () => (timeSigX === null ? [] : [{ getX: () => timeSigX }]),
+    getModifiers: () => (timeSigX === null ? [] : [{ getCategory: () => 'TimeSignature', getX: () => timeSigX }]),
   }) as unknown as Stave
 const fakeNotes = (...xs: number[]) => xs.map(x => ({ getAbsoluteX: () => x })) as unknown as StaveNote[]
 const slotsAt = (...beats: number[]) => beats.map(b => ({ beat: frac(b, 1) })) as unknown as ChordRest[]

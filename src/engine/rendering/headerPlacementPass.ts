@@ -65,6 +65,7 @@ import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { keySignatureInkRight } from './KeySignaturePass'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { barFrame, staveFrame } from './staveFrame'
+import { signRun } from './signRun'
 
 /**
  * Place every header sign this bar draws that we have a rule for.
@@ -156,12 +157,12 @@ function meterOrigin(
   if (key && key.alterations.length > 0) {
     return meterOriginX(keySignatureInkRight(stave, clef, key) + KEY_TO_METER_INK * space, bearing, space)
   }
-  const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
+  const clefSign = signRun(stave).clef
   // ⭐ Nothing in front of it but the boundary ⇒ a MID-LINE meter change, and the books give that
   //   pair its own number (`layout/barlineMeterGap` — Stone p. 46, armed at 1.0 by his call).
   //   ⚠️ The anchor is the barline's INK RIGHT, ⛔ not the boundary: the line grows RIGHTWARD from
   //   the boundary (`engrave/staff/openingBarline`'s rule 2), so its ink ends a thickness later.
-  if (!clefModifier) {
+  if (!clefSign) {
     return meterOriginX(
       barFrame(stave).x + THIN_BARLINE_PX + armedBarlineMeterInk() * space, bearing, space)
   }
@@ -170,7 +171,7 @@ function meterOrigin(
   // clef this way to place the key signature, so this is the same measurement, not a second opinion.
   // 🚨 `getX()` alone is never the answer — a hand offset lives in `getXShift()`
   // (`reference: a clef's getX is its unshifted origin`).
-  const inkRight = clefModifier.getX() + clefModifier.getXShift()
+  const inkRight = clefSign.x + clefSign.xShift
     + glyphBox(clefGlyph(clef)).right * space
   return meterOriginX(inkRight + armedClefMeterInk() * space, bearing, space)
 }

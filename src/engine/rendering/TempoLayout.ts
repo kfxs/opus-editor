@@ -20,7 +20,6 @@
  * `./glyphPainter` — the same text/glyph primitive `StaveTempo.draw()` uses internally — so we lose
  * no engraving quality, only its opinions.
  */
-import { StaveModifierPosition, TimeSignature } from 'vexflow'
 import type { Stave, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawGlyph, drawTextRun } from './glyphPainter'
@@ -37,6 +36,7 @@ import { staffSpacesToPixels } from './staffSpace'
 import { barFrame, staveFrame } from './staveFrame'
 import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
 import { noteRuler } from './noteRuler'
+import { signRun } from './signRun'
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
@@ -208,8 +208,8 @@ export function anchorX(
 ): number {
   // 1. A mark on the downbeat of a bar that PRINTS a time signature takes the time signature's left
   //    edge — the one branch of the old rule that was already right, and the one every source states.
-  const [timeSig] = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)
-  if (timeSig && fracToNumber(mark.beat) === 0) return timeSig.getX()
+  const meter = signRun(stave).meter
+  if (meter && fracToNumber(mark.beat) === 0) return meter.x
 
   // 2. Otherwise the first notational element at-or-after the mark's beat — downbeat and mid-bar
   //    alike, which is why they are one loop rather than two rules.

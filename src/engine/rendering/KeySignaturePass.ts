@@ -1,4 +1,4 @@
-import { StaveModifierPosition, type Stave } from 'vexflow'
+import type { Stave } from 'vexflow'
 import { drawGlyph } from './glyphPainter'
 import type { Clef, KeySignature } from '@/types/music'
 import type { RenderPass } from './RenderPass'
@@ -13,6 +13,7 @@ import { STAVE_LINE_WIDTH_PX, fillStaffLine, staffLinesInk } from '@/engine/engr
 import { barFrame, staleShift, staveFrame } from './staveFrame'
 import { noteLineY, staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
+import { signRun } from './signRun'
 
 /**
  * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
@@ -133,15 +134,14 @@ export const SIGN_FONT_SIZE = 30
  */
 export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
   const space = staveFrame(stave).spacePx
-  const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
-    .find(m => m.getCategory() === 'Clef')
-  if (!clefModifier) return barFrame(stave).x + dx + BARLINE_TO_KEY_INK * space
-  const inkRight = clefModifier.getX() + clefShiftOf(clefModifier)
+  const clefSign = signRun(stave).clef
+  if (!clefSign) return barFrame(stave).x + dx + BARLINE_TO_KEY_INK * space
+  const inkRight = clefSign.x + clefSign.xShift
     + glyphBox(clefGlyph(clef)).right * space
   return inkRight + dx + CLEF_TO_KEY_INK * space
 }
 
-/**
+/*
  * 🚨🚨 **A CLEF'S `getX()` IS ITS UNSHIFTED ORIGIN — the shift is a separate number, and reading one
  * without the other puts everything after the clef in the wrong place.**
  *
@@ -153,10 +153,10 @@ export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
  *
  * ⭐ This is the `reference_vexflow_clefnote_xshift_is_inert` family: VexFlow's clefs answer about
  * where they were PLACED, never about where they were DRAWN. ⇒ ⛔ never measure from `getX()` alone.
+ *
+ * ⭐ S4a: the shift is now `HeaderSign.xShift` (`engrave/staff/signRun`), which a reader gets beside
+ * the `x` it belongs to.
  */
-function clefShiftOf(clefModifier: { getX(): number }): number {
-  return (clefModifier as unknown as { getXShift?(): number }).getXShift?.() ?? 0
-}
 
 /**
  * ⭐⭐ **Where the signature's ink ENDS, in the stave's own space** — the one owner of that answer,

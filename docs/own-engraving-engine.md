@@ -73,7 +73,8 @@ delaying engraving work by one day.
 > (`engine/engrave/staff/staffFrame`) · S2b the bar's horizontal frame (`BarFrame`) and ONE stale shift.
 > · S2c a note's frame. **1,449 → 1,236 uses; R7 50 → 0, R1 175 → 19** (R1 re-measured: 22 were misfiled).
 > · S3a the readers of a drawn note's parts ask a `NoteRuler`. **→ 1,193 uses; R2 203 → 161.**
-> ⏭️ P6b's box readers, one at a time, then S4 (the stave object).
+> · S4a the readers of a bar's signs ask a `SignRun`. **→ 1,179 uses.**
+> ⏭️ S4b, our own walk places the signs.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

@@ -258,7 +258,7 @@ function remember(pass: RenderPass, id: string, ink: Partial<{ left: number; rig
  * ⚠️ The baseline is the drawn `y` PLUS the mark's own translate — the same trap as `markInkX`, one
  * axis over (`dynamicMarkTransform.dynamicMarkTranslate`).
  */
-function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null {
+function markInkY(pass: RenderPass, dyn: Dynamic, frame: StaffFrame): InkBand | null {
   // Hidden behind its editor: the band it had when the editor opened. ⚠️ Unlike the horizontal
   // reach this does NOT track the typing — the overlay's font size is fixed, so its height is.
   if (pass.suppressedDynamicId === dyn.id) {
@@ -274,8 +274,8 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
   if (reach) {
     const baseline = Number(text.getAttribute('y') ?? 0) + moved
     const band = {
-      top: baseline - staffSpacesToPixels(reach.above, staveFrame(stave)),
-      bottom: baseline + staffSpacesToPixels(reach.below, staveFrame(stave)),
+      top: baseline - staffSpacesToPixels(reach.above, frame),
+      bottom: baseline + staffSpacesToPixels(reach.below, frame),
     }
     remember(pass, dyn.id, band)
     return band
@@ -347,7 +347,7 @@ function markGaps(
       // wedge nudged clear of the mark — is not in its way, and a hole cut for nothing is worse
       // than nothing: the break exists to let a letter THROUGH (`hairpinBreaks.inksClash`).
       const wedge = wedgeBandAt(placement.line, (ink.left + ink.right) / 2)
-      const mark = markInkY(pass, dyn, placement.stave)
+      const mark = markInkY(pass, dyn, staveFrame(placement.stave))
       if (wedge && mark && !inksClash(wedge, mark)) continue
       gaps.push({ line: placement.line, left: ink.left - pad, right: ink.right + pad })
     }
