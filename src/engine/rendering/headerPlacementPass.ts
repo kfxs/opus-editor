@@ -32,7 +32,7 @@
  *
  * ## ⛔ What this does NOT place, and why each is left
  *
- * | ⛔ still `Stave.format()`'s walk | why |
+ * | ⛔ still just the WALK's position (`engrave/staff/signWalk`, ours since S4b1) | why |
  * |---|---|
  * | a **MID-LINE clef change** | it sits at VexFlow's 0.5 sp — *its own barline's width*. ⏳ **UNCHOSEN**, and choosing it is a rule about a clef after a barline (Gould p. 42–43 allows *"a stave-space… on either side of a barline"*), which belongs to the CLEF REVIEW and is HIS. ⛔ A migration may not decide it |
  * | ~~a **MID-LINE meter change** with no clef~~ | ✅ **taken 2026-09-13** — the books state this one (Stone p. 46, *"one staff-line space after the barline"*), armed at 1.0 in `layout/barlineMeterGap` |
@@ -49,11 +49,11 @@
  * This must run **after** `applyLeadIn` has forced `Stave.format()` (a modifier has no `x` before
  * that) and **before** `spreadHeaderToSystem` (which divides every BEGIN modifier's offset from the
  * stave by the staff's scale — a page distance added afterwards would live in a scaled space and a
- * small staff's header would land 1/k too far right). ⛔ And `setX`, ⛔ never `setXShift`: only `setX`
- * is what that pass converts. ⭐ A hand nudge (`clefOffsetPass`) is a `setXShift` applied later still,
+ * small staff's header would land 1/k too far right). ⛔ And the sign's `signX`, ⛔ never its `signShift`:
+ * only `signX` is what that pass converts. ⭐ A hand nudge (`clefOffsetPass`) is a `signShift` applied later still,
  * so the two compose rather than fight.
  */
-import { Barline, Clef as VexClef, StaveModifierPosition, TimeSignature, type Stave } from 'vexflow'
+import type { EngravedStave } from './EngravedStave'
 import type { Clef, KeySignature } from '@/types/music'
 import { CLEF_INDENT } from '@/engine/layout/headerInk'
 import { KEY_TO_METER_INK } from '@/engine/layout/keySignatureLayout'
@@ -71,10 +71,10 @@ import { signRun } from './signRun'
  * Place every header sign this bar draws that we have a rule for.
  *
  * ⛔ Silent about everything else: a bar with no clef and no meter, a mid-line change, the cautionary
- * signs at the END — all keep the positions `Stave.format()` gave them.
+ * signs at the END — all keep the positions the stave's walk gave them (`engrave/staff/signWalk`).
  */
 export function placeHeaderRun(
-  stave: Stave,
+  stave: EngravedStave,
   isFirstInLine: boolean,
   clef: Clef,
   key: KeySignature | undefined,
@@ -93,16 +93,17 @@ export function placeHeaderRun(
  * for yet — it keeps its distance from the clef instead of being left behind, which is the behaviour
  * `clefIndentPass` had and the reason it moved more than the clef.
  */
-function placeOpeningClef(stave: Stave, clef: Clef): void {
-  const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
-  if (!modifier) return
+function placeOpeningClef(stave: EngravedStave, clef: Clef): void {
+  const { opening } = stave.signs()
+  const clefSign = opening.find(sign => sign.signKind === 'clef')
+  if (!clefSign) return
   const space = staveFrame(stave).spacePx
   const target = clefOriginX(barFrame(stave).x, CLEF_INDENT, glyphBox(clefGlyph(clef)).left, space)
-  const dx = target - modifier.getX()
+  const dx = target - clefSign.signX
   if (dx === 0) return
-  for (const other of stave.getModifiers(StaveModifierPosition.BEGIN)) {
-    if (other.getCategory() === Barline.CATEGORY) continue
-    other.setX(other.getX() + dx)
+  for (const other of opening) {
+    if (other.signKind === 'barline') continue
+    other.signX += dx
   }
 }
 
@@ -124,12 +125,12 @@ function placeOpeningClef(stave: Stave, clef: Clef): void {
  * ⛔ Declines when nothing it has a rule for precedes the meter — a mid-line meter change with no
  * clef keeps the walk's position. See the module header's table.
  */
-function placeMeter(stave: Stave, clef: Clef, key: KeySignature | undefined): void {
-  const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)[0]
-  if (!modifier) return
+function placeMeter(stave: EngravedStave, clef: Clef, key: KeySignature | undefined): void {
+  const meterSign = stave.signs().opening.find(sign => sign.signKind === 'meter')
+  if (!meterSign) return
   const origin = meterOrigin(stave, clef, key, staveFrame(stave).spacePx)
   if (origin === undefined) return
-  modifier.setX(origin)
+  meterSign.signX = origin
 }
 
 /**
@@ -151,7 +152,7 @@ function placeMeter(stave: Stave, clef: Clef, key: KeySignature | undefined): vo
  * the meter** and **which gap belongs to that pair** — which is all they ever should have.
  */
 function meterOrigin(
-  stave: Stave, clef: Clef, key: KeySignature | undefined, space: number,
+  stave: EngravedStave, clef: Clef, key: KeySignature | undefined, space: number,
 ): number | undefined {
   const bearing = glyphBox('timeSig4').left
   if (key && key.alterations.length > 0) {

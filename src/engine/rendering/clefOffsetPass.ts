@@ -21,12 +21,12 @@
  * is a stave modifier laid out by the header, which is precisely the clef he excluded.
  */
 import type { ClefNote, Stave } from 'vexflow'
-import { Clef, StaveModifierPosition } from 'vexflow'
 import type { Fraction, Measure, Score } from '@/types/music'
 import { clefOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { fracEq, fracIsZero } from '@/utils/fraction'
 import { staveFrame } from './staveFrame'
+import { staveSigns } from './EngravedStave'
 
 /** One drawn inline clef: the beat it stands at, and the glyph VexFlow will draw. */
 export interface InlineClef {
@@ -106,8 +106,8 @@ export function applyStaveClefOffset(
   if (!change) return
   const off = clefOffsetOverrideOf(score, change.id)
   if (!off || off.x === 0) return
-  for (const clef of stave.getModifiers(StaveModifierPosition.BEGIN, Clef.CATEGORY)) {
-    shiftClef(clef as unknown as { getXShift(): number; setXShift(v: number): void },
-      staffSpacesToPixels(off.x, staveFrame(stave)))
+  // ⭐ S4b1: the stave's clef holds its own hand offset (`./staveSign`), which it adds when it draws.
+  for (const clef of staveSigns(stave).opening) {
+    if (clef.signKind === 'clef') clef.signShift += staffSpacesToPixels(off.x, staveFrame(stave))
   }
 }

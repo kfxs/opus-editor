@@ -75,7 +75,8 @@ delaying engraving work by one day.
 > · S3a the readers of a drawn note's parts ask a `NoteRuler`. **→ 1,193 uses; R2 203 → 161.**
 > · S4a the readers of a bar's signs ask a `SignRun`. **→ 1,179 uses.**
 > · S4b0 the clef's and meter's VALUES are ours (`meterSign`, `clefSign`). **→ 1,158 uses.**
-> ⏭️ S4b1, our own walk places the signs.
+> · S4b1 our walk places the signs, and each holds its own position. **→ 1,125 uses.**
+> ⏭️ S4c, the sign classes stop extending VexFlow's.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

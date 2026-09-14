@@ -5,7 +5,9 @@ import {
   MODIFIER_LEFT_OFFSET_PX,
   NOTE_AREA_PADDING_PX,
   NOTE_GLYPH_SCALE,
+  METER_PADDING_PX,
   STAFF_BOTTOM_EDGE_PX,
+  STAVE_SIGN_PADDING_PX,
   STEM_THICKNESS_PX,
   TREMOLO_FONT_SIZE,
   TREMOLO_STROKE_STEP_PX,
@@ -45,5 +47,10 @@ describe('the inherited defaults are the values the editor has always drawn with
 
   it('a staff’s bottom edge hangs 1 px below its last line — `Stave.getBottomLineBottomY`', () => {
     expect(STAFF_BOTTOM_EDGE_PX).toBe(1)
+  })
+
+  it('a stave sign pads 10 px and a meter 15 — `StaveModifier.padding`, `customPadding`', () => {
+    expect(STAVE_SIGN_PADDING_PX).toBe(10)
+    expect(METER_PADDING_PX).toBe(15)
   })
 })

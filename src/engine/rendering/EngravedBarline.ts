@@ -47,7 +47,8 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **The x** — still `Stave.format()`'s BEGIN-modifier walk. The rest of P5b.
+ * ✅ **The x is ours since S4b1** — {@link EngravedBarline.signX}, set by the stave's walk
+ * (`engrave/staff/signWalk`).
  *
  * ⛔ **Every other TYPE.** `super.draw()` keeps them, and the ink module's header says why at length:
  * this repo replaced VexFlow's rules for the final bar, the repeats and the double bar
@@ -58,7 +59,7 @@
  * keeps VexFlow's own empty `<g>` exactly where it has always been in the SVG.
  *
  * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedClef` and `EngravedTimeSignature` are
- * ones.** Everything read below is public API (`getX`, `getType`, `getAttribute`, and the stave's own
+ * ones.** Everything read below is public API (`getAttribute`, and the stave's own
  * `getYForLine` / `getNumLines` through `staveBarlineExtent`).
  */
 import { Barline, BarlineType } from 'vexflow'
@@ -66,9 +67,12 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawOpeningBarline, openingBarlineInk } from '@/engine/engrave/staff/openingBarline'
 import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
 import type { InkSurfaceAware } from './inkSurface'
+import type { StaveSign } from './staveSign'
+import { BARLINE_ROWS, type BarlineKind } from '@/engine/engrave/staff/barlineMetrics'
+import type { WalkSign } from '@/engine/engrave/staff/signWalk'
 import { staveFrame } from './staveFrame'
 
-export class EngravedBarline extends Barline implements InkSurfaceAware {
+export class EngravedBarline extends Barline implements InkSurfaceAware, StaveSign {
   /**
    * The surface this line draws on — the stave's own, handed over by `EngravedStave` a line before it
    * draws its modifiers. Null until then, and then the line falls back to the stave's
@@ -80,6 +84,35 @@ export class EngravedBarline extends Barline implements InkSurfaceAware {
   /** @see EngravedBarline.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  readonly signKind = 'barline' as const
+  /** ⭐ S4b1 — where this line stands, OURS: set by the stave's walk (`engrave/staff/signWalk`). */
+  signX = 0
+  /** A hand offset — nothing offsets a barline today; every stave sign has one. */
+  signShift = 0
+
+  /** Which barline this is, as ours — kept in step with VexFlow's type by {@link setType}. */
+  private kind: BarlineKind
+
+  constructor(type: BarlineType) {
+    super(type)
+    // ⚠️ Set AGAIN here: `Barline`'s constructor calls `setType` before this class's fields exist, and a
+    //   class field is (re)defined once `super()` returns (`useDefineForClassFields`).
+    this.kind = barlineKindOf(type)
+  }
+
+  /** `setBegBarType` / `setEndBarType` write the type through here, so the kind follows it. */
+  override setType(type: string | BarlineType): this {
+    super.setType(type)
+    this.kind = barlineKindOf(type)
+    return this
+  }
+
+  /** The walk's view of this line — `engrave/staff/barlineMetrics`' row for its kind. */
+  walkInput(): WalkSign {
+    const row = BARLINE_ROWS[this.kind]
+    return { kind: 'barline', barline: this.kind, padding: row.padding, width: row.width, layout: row.layout }
   }
 
   /**
@@ -94,7 +127,7 @@ export class EngravedBarline extends Barline implements InkSurfaceAware {
    * the second line to change.
    */
   override draw(): void {
-    if (this.getType() !== BarlineType.SINGLE) {
+    if (this.kind !== 'single') {
       super.draw()
       return
     }
@@ -103,8 +136,26 @@ export class EngravedBarline extends Barline implements InkSurfaceAware {
     const extent = staffBarlineExtent(staveFrame(stave))
     drawOpeningBarline(
       this.inkSurface ?? stave.checkContext(),
-      openingBarlineInk(this.getX(), extent.topY, extent.bottomY, THIN_BARLINE_PX),
+      openingBarlineInk(this.signX, extent.topY, extent.bottomY, THIN_BARLINE_PX),
       this.getAttribute('id'),
     )
   }
+}
+
+/** VexFlow's barline type → ours. */
+const KIND_OF_TYPE = new Map<BarlineType, BarlineKind>([
+  [BarlineType.SINGLE, 'single'],
+  [BarlineType.DOUBLE, 'double'],
+  [BarlineType.END, 'end'],
+  [BarlineType.REPEAT_BEGIN, 'repeatBegin'],
+  [BarlineType.REPEAT_END, 'repeatEnd'],
+  [BarlineType.REPEAT_BOTH, 'repeatBoth'],
+  [BarlineType.NONE, 'none'],
+])
+
+/** ⛔ A type named by STRING has no row here — nothing in this editor names one, so it is refused loudly. */
+function barlineKindOf(type: string | BarlineType): BarlineKind {
+  const kind = typeof type === 'string' ? undefined : KIND_OF_TYPE.get(type)
+  if (!kind) throw new Error(`EngravedBarline: no row for barline type ${String(type)}`)
+  return kind
 }

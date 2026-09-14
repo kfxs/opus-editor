@@ -20,15 +20,16 @@
  * ⭐⭐ **Nothing this stave draws is VexFlow's ink any more.** P5b took the CLEF (`EngravedClef` +
  * `engrave/header/clef`, 2026-09-02), the METER (`EngravedTimeSignature` + `engrave/header/meter`,
  * 2026-09-12) and the opening BARLINE (`EngravedBarline` + `engrave/staff/openingBarline`,
- * 2026-09-13); {@link EngravedStave.addClef}, {@link EngravedStave.addTimeSignature} and the
+ * 2026-09-13); {@link EngravedStave.addClef}, {@link EngravedStave.addMeter} and the
  * constructor below are what put ours on every stave of the page.
  * ⚠️ The key signature was never among the modifiers at all — `stave.addKeySignature` is never called
  * in this repo; `KeySignaturePass` draws it, and already through our own context.
  *
  * ⭐ **And the parent plan's other half has followed it** — *"`headerInk.ts` already MEASURES what a
  * clef and a meter cost; `Stave` still PLACES them"*. `rendering/headerPlacementPass` now places the
- * line-opening clef and the meter from INK; ⛔ what is still `Stave.format()`'s walk is a MID-BAR
- * clef or meter change, which sits at VexFlow's 0.5 sp because nobody has chosen otherwise.
+ * line-opening clef and the meter from INK, and ⭐ since S4b1 the walk under them is ours too
+ * ({@link EngravedStave.format}); a MID-BAR clef change still sits at the walk's 0.5 sp because nobody
+ * has chosen otherwise.
  *
  * ⚠️ **A subclass, for the reason `EngravedBeam` and `EngravedStem` are ones.** Every number read
  * below is public API (`getX`, `getWidth`, `getYForLine`, `getNumLines`, `options`) or `protected`
@@ -49,6 +50,8 @@ import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
 import { acceptsInkSurface } from './inkSurface'
+import { isStaveSign, type StaveSign } from './staveSign'
+import { walkSigns } from '@/engine/engrave/staff/signWalk'
 import { drawGlyph, measureGlyph } from './glyphPainter'
 import { MEASURE_NUMBER_SIZE_PT } from '@/engine/engrave/inheritedFonts'
 import { barFrame, staveFrame } from './staveFrame'
@@ -77,18 +80,77 @@ export class EngravedStave extends Stave {
    * way — but it is still READ as a position (`endBoundaryX`), and one owner for a pair is the whole
    * point of a family. ⚠️ The type is carried over, so this changes no picture.
    *
-   * ⛔ **`format()` can still splice PLAIN barlines into its own local lists**, and both arms are
-   * worth knowing: a `new Barline(NONE)` before the end modifiers (`stave.js:387`), which draws
-   * nothing; and a `new Barline(SINGLE)` before a REPEAT_BEGIN's other modifiers (`stave.js:384`),
-   * which WOULD draw 1 px of VexFlow's own ink. ⭐ Unreachable here — nothing in this repo ever sets a
-   * begin bar to `REPEAT_BEGIN` (`BarlineRenderer` draws every repeat itself, and
-   * `VexFlowRenderer.drawMeasureContent` only ever sets `NONE`) — ⚠️ and the day something does, that
-   * spliced line is the one that will not be ours.
+   * ⭐ **The barlines the walk invents are VALUES since S4b1** (`engrave/staff/signWalk`): an empty one
+   * before a closing meter, a plain one before a start repeat's header. They take room and draw nothing —
+   * ⛔ VexFlow's `format()`, which spliced a real `new Barline(SINGLE)` that WOULD have drawn 1 px of its
+   * own ink, no longer runs on a score stave.
    */
   constructor(x: number, y: number, width: number, options?: StaveOptions) {
     super(x, y, width, options)
     this.modifiers[0] = this.engraved(this.modifiers[0] as Barline)
     this.modifiers[1] = this.engraved(this.modifiers[1] as Barline)
+  }
+
+  /**
+   * ⭐⭐ **S4b1 — OUR walk places this stave's signs** (`engrave/staff/signWalk`, a port of `Stave.format()`).
+   *
+   * The inputs are the signs' own ({@link StaveSign.walkInput}) and the answers go back onto them
+   * ({@link StaveSign.signX}), with the note area's start and end — so nothing here reads or writes
+   * VexFlow's `x` on a sign. ⚠️ It runs exactly when `format()` always ran: the first time the note area
+   * is asked for (`applyLeadIn`'s `setNoteStartX`), and again only after a sign is added.
+   */
+  override format(): void {
+    const { opening, closing } = this.signs()
+    const bar = barFrame(this)
+    const walk = walkSigns(bar.x, bar.width, opening.map(sign => sign.walkInput()), closing.map(sign => sign.walkInput()))
+    opening.forEach((sign, i) => { sign.signX = walk.opening[i] })
+    closing.forEach((sign, i) => { sign.signX = walk.closing[i] })
+    this.noteStart = walk.noteStartX
+    this.noteEnd = walk.noteEndX
+    this.formatted = true
+  }
+
+  /**
+   * ⭐ **Where the note area starts and ends is ours too** (S4b1): the walk writes it here, `applyLeadIn`
+   * moves the start, and VexFlow's own `startX`/`endX` are no longer read — `Stave`'s note-area getters are
+   * overridden below, and nothing else in VexFlow that this editor uses reads those fields.
+   */
+  private noteStart = 0
+  private noteEnd = 0
+
+  /** `Stave.getNoteStartX` — walked first if a sign was added since. */
+  override getNoteStartX(): number {
+    if (!this.formatted) this.format()
+    return this.noteStart
+  }
+
+  /** `Stave.setNoteStartX` — the walk runs first, then the lead-in's start replaces its own. */
+  override setNoteStartX(x: number): this {
+    if (!this.formatted) this.format()
+    this.noteStart = x
+    return this
+  }
+
+  /** `Stave.getNoteEndX` — walked first if a sign was added since. */
+  override getNoteEndX(): number {
+    if (!this.formatted) this.format()
+    return this.noteEnd
+  }
+
+  /**
+   * Every sign this stave carries, OPENING and CLOSING, in the order they were added.
+   * ⛔ Refuses a modifier that is not one of ours — the walk has no inputs for it.
+   */
+  signs(): { opening: StaveSign[]; closing: StaveSign[] } {
+    const opening: StaveSign[] = []
+    const closing: StaveSign[] = []
+    for (const modifier of this.modifiers) {
+      if (!isStaveSign(modifier)) throw new Error('EngravedStave: a stave modifier that is not one of our signs')
+      const position = modifier.getPosition()
+      if (position === StaveModifierPosition.BEGIN) opening.push(modifier)
+      else if (position === StaveModifierPosition.END) closing.push(modifier)
+    }
+    return { opening, closing }
   }
 
   /** One of VexFlow's barlines as one of ours — same type, same position, same stave. */
@@ -233,4 +295,13 @@ export function drawStaveInkThrough(staves: readonly Stave[], ctx: DrawContext):
   for (const stave of staves) {
     if (stave instanceof EngravedStave) stave.setInkSurface(ctx)
   }
+}
+
+/**
+ * ⭐ **The signs a score stave carries** — S4b1. ⛔ Only a stave of ours has any: a plain VexFlow `Stave`
+ * (a ghost's, the gutter's) is walked by VexFlow and never reaches a pass that asks.
+ */
+export function staveSigns(stave: Stave): { opening: StaveSign[]; closing: StaveSign[] } {
+  if (!(stave instanceof EngravedStave)) throw new Error('staveSigns: not a score stave')
+  return stave.signs()
 }

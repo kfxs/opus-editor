@@ -3,7 +3,8 @@ import { anchorX, splitRuns } from './TempoLayout'
 import { fracCreate as frac } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { ChordRest, TempoMark } from '@/types/music'
-import type { Stave, StaveNote } from 'vexflow'
+import type { StaveNote } from 'vexflow'
+import { EngravedStave } from './EngravedStave'
 
 const mark = (extra: Partial<TempoMark>): TempoMark => ({ id: 't', beat: frac(0, 1), ...extra })
 
@@ -13,12 +14,16 @@ const mark = (extra: Partial<TempoMark>): TempoMark => ({ id: 't', beat: frac(0,
  * signature (i.e. every bar but an opening or a change) — null, not undefined, so passing it
  * explicitly doesn't just re-trigger the default.
  */
-const fakeStave = (timeSigX: number | null = 60, x = 20, noteStartX = 100) =>
-  ({
-    getX: () => x,
-    getNoteStartX: () => noteStartX,
-    getModifiers: () => (timeSigX === null ? [] : [{ getCategory: () => 'TimeSignature', getX: () => timeSigX }]),
-  }) as unknown as Stave
+const fakeStave = (timeSigX: number | null = 60, x = 20, noteStartX = 100) => {
+  // A real score stave (S4b1: its signs hold their own positions), with the meter and the note area put
+  // where the case needs them rather than where a font-less walk would leave them.
+  const stave = new EngravedStave(x, 0, 300)
+  if (timeSigX !== null) stave.addMeter({ numerator: 4, denominator: 4 })
+  stave.setNoteStartX(noteStartX)
+  const meter = stave.signs().opening.find(sign => sign.signKind === 'meter')
+  if (meter && timeSigX !== null) meter.signX = timeSigX
+  return stave
+}
 const fakeNotes = (...xs: number[]) => xs.map(x => ({ getAbsoluteX: () => x })) as unknown as StaveNote[]
 const slotsAt = (...beats: number[]) => beats.map(b => ({ beat: frac(b, 1) })) as unknown as ChordRest[]
 

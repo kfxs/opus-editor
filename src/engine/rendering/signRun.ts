@@ -1,41 +1,35 @@
-import { Barline, Clef, StaveModifierPosition, TimeSignature } from 'vexflow'
-import type { Stave, StaveModifier } from 'vexflow'
-import type { HeaderSign, SignKind, SignRun } from '@/engine/engrave/staff/signRun'
+import type { Stave } from 'vexflow'
+import type { HeaderSign, SignRun } from '@/engine/engrave/staff/signRun'
+import { staveSigns } from './EngravedStave'
+import type { StaveSign } from './staveSign'
 
 /**
- * ⭐ **THE ONE PLACE a bar's signs are read off a VexFlow `Stave`'s modifiers** — S4a of
- * `docs/vexflow-removal-map.md`. Everything else asks the {@link SignRun}.
+ * ⭐ **A bar's sign run, answered from our own signs** — S4a's seam, and since S4b1 no longer a read of
+ * VexFlow's modifiers: each sign holds its own position (`./staveSign`), set by the stave's walk and moved
+ * by the header placement. Everything else asks the {@link SignRun}.
  *
- * A SEAM, the same shape as `./staveFrame`'s `barFrame` and `./noteRuler`: every field is a getter, so
- * each value is read at the moment a reader asks. ⚠️ That matters twice here — a modifier has no `x`
- * until `Stave.format()` has walked the run, and `./headerPlacementPass` and `spreadHeaderToSystem`
- * MOVE the signs after that walk, so a copy taken at any other moment would be someone else's answer.
+ * ⚠️ Still a getter per field, so a reader sees the positions as they are at the moment it asks — the walk
+ * runs when the note area is first asked for, and the placement passes move the signs after that.
  */
 export function signRun(stave: Stave): SignRun {
-  const firstOpening = (category: string): HeaderSign | undefined => {
-    const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, category)[0]
-    return modifier ? headerSign(modifier) : undefined
-  }
   return {
-    get opening() { return stave.getModifiers(StaveModifierPosition.BEGIN).map(headerSign) },
-    get clef() { return firstOpening(Clef.CATEGORY) },
-    get meter() { return firstOpening(TimeSignature.CATEGORY) },
-    get endBarlineX() { return stave.getModifiers(StaveModifierPosition.END, Barline.CATEGORY)[0]?.getX() },
+    get opening() { return staveSigns(stave).opening.map(headerSign) },
+    get clef() { return firstOf(staveSigns(stave).opening, 'clef') },
+    get meter() { return firstOf(staveSigns(stave).opening, 'meter') },
+    get endBarlineX() { return staveSigns(stave).closing.find(sign => sign.signKind === 'barline')?.signX },
   }
 }
 
-function headerSign(modifier: StaveModifier): HeaderSign {
-  return {
-    kind: kindOf(modifier.getCategory()),
-    get x() { return modifier.getX() },
-    get xShift() { return modifier.getXShift() },
-    get width() { return modifier.getWidth() },
-  }
+function firstOf(signs: readonly StaveSign[], kind: StaveSign['signKind']): HeaderSign | undefined {
+  const sign = signs.find(candidate => candidate.signKind === kind)
+  return sign ? headerSign(sign) : undefined
 }
 
-function kindOf(category: string): SignKind {
-  if (category === Barline.CATEGORY) return 'barline'
-  if (category === Clef.CATEGORY) return 'clef'
-  if (category === TimeSignature.CATEGORY) return 'meter'
-  return 'other'
+function headerSign(sign: StaveSign): HeaderSign {
+  return {
+    kind: sign.signKind,
+    get x() { return sign.signX },
+    get xShift() { return sign.signShift },
+    get width() { return sign.walkInput().width },
+  }
 }

@@ -18,9 +18,8 @@
  *
  * ## ⛔ What this does NOT take, and it is most of P5b
  *
- * ⛔ **The PLACEMENT.** A clef's `x` is still `Stave.format()`'s BEGIN-modifier walk (`x += padding;
- * modifier.setX(x); x += width`), and its width is still `Element.getWidth()`, a runtime
- * `measureText`. The clef is PLACED by `headerPlacementPass` at the engraved 0.7 sp, and a hand offset still nudges
+ * ✅ **The PLACEMENT is ours since S4b1** — {@link EngravedClef.signX} is walked by the stave
+ * (`engrave/staff/signWalk`), from a width measured here through `./glyphPainter`. The clef is PLACED by `headerPlacementPass` at the engraved 0.7 sp, and a hand offset still nudges
  * indentation, `clefOffsetPass` for a hand offset — and both still work by `setX`/`setXShift` on
  * this very object, which is why every one of those numbers is READ here rather than replaced.
  * ⭐ That is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after, and it is the next
@@ -35,7 +34,7 @@
  * ⏭️ It becomes ours when `ClefNote` does.
  *
  * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedBeam` and `EngravedNote` are ones.**
- * Everything read below is public API (`getX`, `getXShift`, `getYShift`) or `protected` and therefore ours by inheritance (`y`) — the body is VexFlow's own
+ * Everything read below is public API (`getYShift`) or `protected` and therefore ours by inheritance (`y`) — the body is VexFlow's own
  * arithmetic MOVED, ⛔ not rewritten.
  */
 import { Clef } from 'vexflow'
@@ -44,10 +43,14 @@ import type { Clef as ScoreClef } from '@/types/music'
 import { clefSign, type ClefSign, type ClefSize } from '@/engine/engrave/header/clefSign'
 import { clefPlacement, drawClef } from '@/engine/engrave/header/clef'
 import type { InkSurfaceAware } from './inkSurface'
+import type { StaveSign } from './staveSign'
+import { measureGlyph } from './glyphPainter'
+import { STAVE_SIGN_PADDING_PX } from '@/engine/engrave/inheritedDefaults'
+import type { WalkSign } from '@/engine/engrave/staff/signWalk'
 import { staveFrame } from './staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
-export class EngravedClef extends Clef implements InkSurfaceAware {
+export class EngravedClef extends Clef implements InkSurfaceAware, StaveSign {
   /**
    * The surface this clef's glyph draws on — the stave's own, handed over by `EngravedStave` a line
    * before it draws its modifiers. Null until then, and then the clef falls back to
@@ -68,6 +71,14 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
    */
   private readonly sign: ClefSign
 
+  readonly signKind = 'clef' as const
+  /** ⭐ S4b1 — where this clef stands, OURS: walked by the stave, moved by `./headerPlacementPass`. */
+  signX = 0
+  /** A hand offset (`./clefOffsetPass`), added when the clef is drawn. */
+  signShift = 0
+  /** How wide the walk counts this clef — its glyph measured in its own face, as VexFlow measured it. */
+  private readonly walkWidth: number
+
   constructor(clef: string, size?: string, annotation?: string) {
     // ⛔ An ANNOTATED clef (8va/8vb) has no row in `clefSign`, and nothing in this editor adds one — so
     //   it is refused LOUDLY, the day something does, rather than drawn from a table we do not have.
@@ -78,6 +89,12 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
     // `Clef.getPoint` reads anything but 'default' as small, and an absent size as 'default'.
     const signSize: ClefSize = size === undefined || size === 'default' ? 'default' : 'small'
     this.sign = clefSign(clef as ScoreClef, signSize)
+    this.walkWidth = measureGlyph('EngravedClef.walk', this.sign.glyph, this.sign.font.size)
+  }
+
+  /** The walk's view of this clef. */
+  walkInput(): WalkSign {
+    return { kind: 'clef', padding: STAVE_SIGN_PADDING_PX, width: this.walkWidth }
   }
 
   /**
@@ -99,7 +116,7 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
     drawClef(
       this.inkSurface ?? this.checkContext(),
       this.sign.glyph,
-      clefPlacement({ x: this.getX() + this.getXShift(), lineY: this.y + this.getYShift() }),
+      clefPlacement({ x: this.signX + this.signShift, lineY: this.y + this.getYShift() }),
       this.sign.font,
       this.getAttribute('id'),
     )

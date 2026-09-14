@@ -67,3 +67,13 @@ export const NOTE_GLYPH_SCALE = 1
  * key signature's hit box and the flat slur's baseline, which were placed against it.
  */
 export const STAFF_BOTTOM_EDGE_PX = 1
+
+/**
+ * The blank a stave sign asks for in front of itself — `StaveModifier.padding` = 10 (`stavemodifier.js:23`).
+ * ⚠️ The sign walk grants it only from the THIRD sign on (`getPadding(index)` answers 0 below 2), so a
+ * clef right after the opening barline gets none (`engrave/staff/signWalk`).
+ */
+export const STAVE_SIGN_PADDING_PX = 10
+
+/** A time signature's own padding in that walk — `TimeSignature`'s `customPadding` default 15 (`timesignature.js:18`). */
+export const METER_PADDING_PX = 15

@@ -5155,11 +5155,11 @@ function noteStartOf(stave: Stave): number {
  * ⛔ BEGIN only: the cautionary clef and meter at the END hang off the closing barline, which is the
  * other edge of the same bar and not this rule's anchor.
  */
-function spreadHeaderToSystem(stave: Stave, scale: number): void {
+function spreadHeaderToSystem(stave: EngravedStave, scale: number): void {
   if (scale === 1) return
   const x0 = barFrame(stave).x
-  for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
-    modifier.setX(x0 + (modifier.getX() - x0) / scale)
+  for (const sign of stave.signs().opening) {
+    sign.signX = x0 + (sign.signX - x0) / scale
   }
 }
 
