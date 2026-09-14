@@ -42,6 +42,7 @@
  */
 import { Clef } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { clefFont } from '@/engine/engrave/inheritedFonts'
 import { clefPlacement, drawClef } from '@/engine/engrave/header/clef'
 import type { InkSurfaceAware } from './inkSurface'
 
@@ -68,9 +69,9 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
    * offset clef is measured from that box"* — the registry's hit box, and the clef SEGMENT that
    * pixel↔pitch lookup reads. ⛔ Dropping it would move no ink and break both.
    *
-   * ⚠️ **The face is the one VexFlow resolved for this clef** — `Metrics.getFontInfo('Clef')` sized
-   * by `Clef.getPoint(size)` — handed to the ink as a value, exactly as `EngravedNote` hands over
-   * the flag's. That is what keeps `engrave/` free of `vexflow` (`lint:boundary`).
+   * ⚠️ **The face is `engrave/inheritedFonts.clefFont`** — the `Math.floor(Clef.getPoint(size))`
+   * VexFlow used to resolve, as a row of ours — handed to the ink as a value, exactly as
+   * `EngravedNote` hands over the flag's. That is what keeps `engrave/` free of `vexflow` (`lint:boundary`).
    */
   override draw(): void {
     const stave = this.checkStave()
@@ -80,7 +81,7 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
       this.inkSurface ?? this.checkContext(),
       this.getText(),
       clefPlacement({ x: this.getX() + this.getXShift(), lineY: this.y + this.getYShift() }),
-      this.fontInfo,
+      clefFont(this.size),
       this.getAttribute('id'),
     )
   }

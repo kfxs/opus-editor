@@ -41,6 +41,7 @@ import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
 import { layoutTupletMark, drawTupletMark } from './ScoreTuplet'
 import { CenteredTremolo } from './CenteredTremolo'
 import { buildDynamicAnnotation, enlargeDynamicGlyphRuns } from './DynamicsLayout'
+import { DYNAMIC_ANNOTATION_FONT } from './dynamicStyle'
 import { drawTempoText } from './TempoLayout'
 import { convertDuration, restKey, restSupportingLedgerLine, drawsTimeSignature, ARTICULATION_RENDER_ORDER } from './NoteBuilder'
 import { drawCurveArc } from './curveArc'
@@ -292,11 +293,10 @@ export function drawNoteGhost(
     staveNote.setContext(ctx).draw()
 
     // The armed tuplet's number, over the ghost — "this click STARTS a 5:4", which a notehead
-    // alone cannot say. Drawn the way VexFlow draws a real one: a `new Element('Tuplet')`, so the
-    // font is whatever `Metrics` says the Tuplet category is (Bravura at its own size) rather
-    // than a hardcoded stack that goes stale the day VexFlow retunes, and the text is SMuFL
-    // tuplet digits (see tupletMarkText). Same geometry too — VexFlow puts the number a line and
-    // a half above the top staff line, less its own textYOffset.
+    // alone cannot say. Drawn by the engraved mark's own `layoutTupletMark`, so the font is the
+    // page's (Bravura at the tuplet's own size) rather than a second copy that goes stale, and the
+    // text is SMuFL tuplet digits (see tupletMarkText). Same geometry too — VexFlow puts the number
+    // a line and a half above the top staff line, less its own textYOffset.
     //
     // Drawn INSIDE the childrenBefore window on purpose: it is then swept into `.ghost-note-group`
     // and tinted with the rest of the ghost by the code below, instead of needing its own
@@ -305,7 +305,6 @@ export function drawNoteGhost(
       // Laid out by the SAME function the engraved mark uses, so the preview's runs are the page's
       // runs at the page's sizes — a ghost drawn any other way previews a different mark.
       const mark = layoutTupletMark(ghostNote.tupletLabel)
-      for (const { el } of mark.pieces) el.setContext(ctx)
       // The number rides the NOTE, not the staff: it floats a fixed gap above whatever the note's
       // highest point is — the stem TIP when the stem is up, the NOTEHEAD when it hangs down.
       //
@@ -685,13 +684,11 @@ function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cur
     // The dynamic glyph's <text> carries no explicit font-size — it inherits it
     // from its ancestors in the score. Extracting it to the SVG root breaks that
     // chain (the glyph would shrink to the browser default), so re-apply the
-    // annotation's resolved font on the group for the <text> to inherit.
-    const f = annotation.fontInfo
-    if (f) {
-      group.setAttribute('font-family', f.family)
-      group.setAttribute('font-size', typeof f.size === 'number' ? `${f.size}pt` : String(f.size))
-      if (f.style) group.setAttribute('font-style', f.style)
-    }
+    // annotation's font — the one `buildDynamicAnnotation` set — on the group for the <text> to inherit.
+    const f = DYNAMIC_ANNOTATION_FONT
+    group.setAttribute('font-family', f.family)
+    group.setAttribute('font-size', `${f.size}pt`)
+    group.setAttribute('font-style', f.style)
     // Move just the annotation group out (detaches it from the note's group)…
     if (annoEl) group.appendChild(annoEl)
     // …then discard the leftover temp stave/notehead/stem elements.

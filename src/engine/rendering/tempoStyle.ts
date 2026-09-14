@@ -17,6 +17,9 @@
 import type { Clearance, MarkInk } from '@/engine/layout/inkBand'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { drawnFontPx } from './drawnFontSize'
+import { MUSIC_FONT_STACK } from '@/engine/engrave/inheritedFonts'
+import { textFirstFamily } from '@/utils/fontStack'
+import type { TextRunFont } from './glyphPainter'
 
 /**
  * The size of the metronome's note glyph (`♩`), overriding VexFlow's default.
@@ -60,6 +63,23 @@ export const TEMPO_GLYPH_FONT_SIZE = 20
  * 10 pt. ⚠️ Taste from here on — one constant.
  */
 export const TEMPO_TEXT_FONT_SIZE = 18
+
+/**
+ * ⭐ The face of a tempo mark's WORDS — bold, at {@link TEMPO_TEXT_FONT_SIZE}: what VexFlow's
+ * `StaveTempo.name` category resolved (`fontWeight: 'bold'`, `metrics.js:158`), as a row of ours.
+ *
+ * ⚠️ The family is the music stack with its music fonts moved to the BACK. VexFlow's stack LEADS
+ * with the music font (`'Bravura,Academico'`): the letters fall through to the text face and look
+ * right, but the SPACES do not — Bravura has a space glyph, and a music font's space is next to
+ * nothing wide, which is why the mark once engraved as `Allegro(♩=144)` however many spaces were in
+ * the string. The glyph runs keep the music font first ({@link TEMPO_GLYPH_FONT_SIZE}).
+ */
+export const TEMPO_TEXT_FONT: TextRunFont = {
+  family: textFirstFamily(MUSIC_FONT_STACK),
+  sizePt: TEMPO_TEXT_FONT_SIZE,
+  weight: 'bold',
+  style: 'normal',
+}
 
 /**
  * ⚠️ **First cut BY EYE, exactly as `dynamicStyle`'s 0.68/0.18 and `trillStyle`'s 0.62/0.04 were** —

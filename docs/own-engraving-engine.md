@@ -68,8 +68,9 @@ delaying engraving work by one day.
 >
 > ✅ **Progress (2026-09-14):** S0 the census · S1a the fonts are ours (`engine/fonts/fontFiles` +
 > `rendering/musicFontFaces` — the page no longer depends on VexFlow's import to have Bravura) · S1b the
-> inherited numbers are rows (`engine/engrave/inheritedDefaults`). **1,449 → 1,427 uses; R7 50 → 29.**
-> ⏭️ S1c, the font categories.
+> inherited numbers are rows (`engine/engrave/inheritedDefaults`) · S1c the faces each category resolved
+> are rows (`engine/engrave/inheritedFonts`). **1,449 → 1,382 uses; R7 50 → 0.**
+> ⏭️ S2, the staff frame.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

@@ -40,9 +40,9 @@
  * this module is handed — `'TrillRenderer.sign'`, `'BarlineRenderer.wing'` — is a name of OURS with
  * no row in VexFlow's metrics table, so they all resolve to the same default (a stack LEADING with
  * the music font, per `reference: vexflow music font first in stack`). ⚠️ A tag that IS a VexFlow
- * category resolves differently and deliberately — `'StaveTempo.glyph'` vs `'StaveTempo.name'` is
- * the whole mechanism `TempoLayout.drawTempoText` runs on — which is why that pass keeps its own
- * `Element` and is **not** ported to this module.
+ * category resolves differently — `TempoLayout` once ran on exactly that (`'StaveTempo.glyph'` vs
+ * `'StaveTempo.name'`), until S1c of `docs/vexflow-removal-map.md` made its two faces rows of ours.
+ * ⛔ So never name a tag after a VexFlow category: it would pick up that category's font.
  *
  * ⭐ So the tag stays a parameter: it is load-bearing, and it doubles as the debug label it has
  * always been.
@@ -51,9 +51,9 @@
  *
  * `engrave/notes/flag.ts` (P3b) calls `ctx.setFont` + `ctx.fillText` itself. That is not a second
  * copy of this module: what this one owns is **font RESOLUTION** (a tag → a `FontInfo`, via
- * `Element`), and the flag's face is **already resolved** — VexFlow assigned it when it built the
- * flag, and the adapter hands it over as a value. With nothing left to resolve, `Element.renderText`
- * is exactly those two primitives.
+ * `Element`), and the flag's face is **already resolved** — a row of `engrave/inheritedFonts`, which
+ * the adapter hands over as a value. With nothing left to resolve, `Element.renderText` is exactly
+ * those two primitives.
  *
  * ⭐ And it has to be that way round: `engrave/` may not import `vexflow` (§8.2 rule 11), so a layer
  * that needed an `Element` to put a glyph down could never be painted to PDF or recorded as a
@@ -77,15 +77,9 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
  * `setFont` and `fillText`, both of which {@link DrawContext} declares. So the cast is sound by the
  * source, not by hope, and putting it HERE is what lets every caller speak our type instead.
  *
- * ⭐ **Exported for the two passes that must keep their own `Element`** — `TempoLayout` (its runs
- * resolve two different font categories, `'StaveTempo.glyph'` vs `'StaveTempo.name'`) and
- * `ScoreTuplet` (it holds elements across layout and draw). They get the same soundness argument
- * and the same one-line escape, rather than each keeping a `RenderContext` in its own signature and
- * pulling VexFlow back up into the passes that call them.
- *
  * ⏭️ It disappears with the `vexflow` import, when `fonts/` can answer *which face, at what size*.
  */
-export function asGlyphPaintContext(ctx: DrawContext): RenderContext {
+function asGlyphPaintContext(ctx: DrawContext): RenderContext {
   return ctx as unknown as RenderContext
 }
 

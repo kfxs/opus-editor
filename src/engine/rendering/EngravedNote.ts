@@ -44,6 +44,7 @@
  */
 import { StaveNote, Stem } from 'vexflow'
 import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
@@ -246,7 +247,7 @@ export class EngravedNote extends StaveNote {
           glyph: head.getText(),
           x: originX,
           y: head.getY() + head.getYShift(),
-          font: head.fontInfo,
+          font: NOTE_FONT,
         }, () => this.drawModifiers(head))
       } finally {
         vex.restore()
@@ -314,9 +315,9 @@ export class EngravedNote extends StaveNote {
       this.inkSurface ?? this.checkContext(),
       this.flag.getText(),
       at,
-      // ⭐ The face VexFlow resolved for this note when it built the flag — handed over as a value,
+      // ⭐ The note's face, which its flag shares (`engrave/inheritedFonts`) — handed over as a value,
       // which is what keeps `engrave/` free of `vexflow` (see that module's header).
-      this.flag.fontInfo,
+      NOTE_FONT,
     )
   }
 }

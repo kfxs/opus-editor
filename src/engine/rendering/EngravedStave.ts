@@ -48,6 +48,8 @@ import { EngravedBarline } from './EngravedBarline'
 import { EngravedClef } from './EngravedClef'
 import { EngravedTimeSignature } from './EngravedTimeSignature'
 import { acceptsInkSurface } from './inkSurface'
+import { drawGlyph, measureGlyph } from './glyphPainter'
+import { MEASURE_NUMBER_SIZE_PT } from '@/engine/engrave/inheritedFonts'
 
 export class EngravedStave extends Stave {
   /**
@@ -137,9 +139,11 @@ export class EngravedStave extends Stave {
     // ⚠️ Transcribed for completeness and ⛔ unreachable in this repo: `setMeasure` is never called,
     // so `measure` is always 0. Kept so that calling it would still draw, rather than silently not.
     if (this.measure > 0) {
-      vex.setFont(this.fontInfo)
-      const textWidth = vex.measureText('' + this.measure).width
-      vex.fillText('' + this.measure, this.getX() - textWidth / 2, this.getYForTopText(0) + 3)
+      // ⚠️ Upstream measured through the SVG context; the glyph painter measures on a canvas. Both
+      // are the same face at `Stave.fontSize` — and this branch never runs (above).
+      const label = '' + this.measure
+      const textWidth = measureGlyph('EngravedStave.measure', label, MEASURE_NUMBER_SIZE_PT)
+      drawGlyph(vex, 'EngravedStave.measure', label, this.getX() - textWidth / 2, this.getYForTopText(0) + 3, MEASURE_NUMBER_SIZE_PT)
     }
   }
 

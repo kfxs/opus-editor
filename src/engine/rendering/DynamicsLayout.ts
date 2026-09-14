@@ -17,7 +17,7 @@ import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
 import { splitDynamicRuns, dynamicLabel, composeDynamicGlyphs } from '@/utils/dynamics'
-import { DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
+import { DYNAMIC_ANNOTATION_FONT, DYNAMIC_GLYPH_SIZE, DYNAMIC_TEXT_SIZE, DYNAMIC_TEXT_FONT, DYNAMIC_GLYPH_INK_ABOVE, DYNAMIC_GLYPH_INK_BELOW } from './dynamicStyle'
 import { dynamicOffsetOverrideOf } from '../models/engravingOverrides'
 import { setDynamicMarkNudge, shiftDynamicMark } from './dynamicMarkTransform'
 import { drawnTextOrigin, firstDrawnText } from './drawnText'
@@ -208,7 +208,7 @@ export function buildDynamicAnnotation(dyn: Dynamic): Annotation {
 
   // Italic serif for words, music font appended as the per-character fallback so glyph runs still
   // draw as the SMuFL glyph. Text size for ALL marks so they share one baseline (see above).
-  annotation.setFont({ family: `${DYNAMIC_TEXT_FONT}, Bravura`, size: DYNAMIC_TEXT_SIZE, style: 'italic' })
+  annotation.setFont(DYNAMIC_ANNOTATION_FONT)
 
   // Zero the modifier width (AFTER setFont, which re-measures) so the formatter
   // reserves no horizontal space — the mark never pushes the notes apart. The

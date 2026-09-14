@@ -44,6 +44,7 @@
  */
 import { Articulation } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawArticulation } from '@/engine/engrave/notes/articulation'
 import type { InkSurfaceAware } from './inkSurface'
 
@@ -79,7 +80,7 @@ export class EngravedArticulation extends Articulation implements InkSurfaceAwar
       glyph: this.getText(),
       x: xPos + this.getX() + this.getXShift(),
       y: yPos + this.getY() + this.getYShift(),
-      font: this.fontInfo,
+      font: MUSIC_GLYPH_FONT,
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id'),

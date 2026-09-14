@@ -54,3 +54,15 @@ export const DYNAMIC_GLYPH_INK_BELOW = drawnFontPx(DYNAMIC_GLYPH_SIZE) * 0.18 //
 /** Serif stack for custom-text dynamics — has a true italic face (the music font
  *  doesn't), so expression text actually slants. Styling will be user-configurable later. */
 export const DYNAMIC_TEXT_FONT = 'Georgia, "Times New Roman", Times, serif'
+
+/**
+ * ⭐ The face a dynamic's annotation is set in — italic serif first, the music font LAST as the
+ * per-character fallback, every mark at the TEXT size (`DynamicsLayout.buildDynamicAnnotation` says
+ * why). ONE value, because the ghost has to re-apply it on the group it lifts the glyph into.
+ */
+export const DYNAMIC_ANNOTATION_FONT = {
+  family: `${DYNAMIC_TEXT_FONT}, Bravura`,
+  size: DYNAMIC_TEXT_SIZE,
+  weight: 'normal',
+  style: 'italic',
+}

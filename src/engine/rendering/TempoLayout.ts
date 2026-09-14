@@ -16,43 +16,24 @@
  *
  * So we draw the mark's string ourselves — which turns out to be less code than the workarounds
  * were. It is split into RUNS: the note characters (`♩`) are engraved from the music font as real
- * SMuFL glyphs, everything else in the text font, laid left to right. `Element` is VexFlow's own
- * text/glyph primitive with its own metrics — the same one `StaveTempo.draw()` uses internally —
- * so we lose no engraving quality, only its opinions.
+ * SMuFL glyphs, everything else in the text font, laid left to right. Each run is stamped through
+ * `./glyphPainter` — the same text/glyph primitive `StaveTempo.draw()` uses internally — so we lose
+ * no engraving quality, only its opinions.
  */
-import { Element, Metrics, MetricsDefaults, StaveModifierPosition, TimeSignature } from 'vexflow'
+import { StaveModifierPosition, TimeSignature } from 'vexflow'
 import type { Stave, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { asGlyphPaintContext } from './glyphPainter'
+import { drawGlyph, drawTextRun } from './glyphPainter'
 import type { ChordRest, Fraction, Measure, NoteDuration, TempoMark } from '@/types/music'
 import { fracCompare, fracToNumber } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import type { SpacedColumns } from './spacingPass'
 import { UNIT_GLYPH, MET_NOTE_GLYPH, MET_AUGMENTATION_DOT } from '@/utils/tempoText'
-import { textFirstFamily } from '@/utils/fontStack'
-import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT_SIZE } from './tempoStyle'
+import { TEMPO_GLYPH_FONT_SIZE, TEMPO_INK_ABOVE, TEMPO_INK_BELOW, TEMPO_TEXT_FONT } from './tempoStyle'
 import type { RenderPass } from './RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
-
-/**
- * Apply the mark's two sizes (`./tempoStyle`, where they live because the ink extents and the row's
- * clearance are stated against them).
- *
- * `MetricsDefaults` is VexFlow's override surface, but it is GLOBAL and read at `Element`
- * construction, so this is a one-time write at import. `Metrics.getFontInfo` memoizes per key, so
- * the stale FontInfo must be evicted or the write is silently ignored — and **both** keys need
- * evicting, since `StaveTempo.name` inherits its size from `StaveTempo` rather than declaring one.
- *
- * ⭐ The WORDS' size is ours now too. It used to be whatever VexFlow's metric said (14), which
- * measured ~15% under the engraving standard for our staff — see {@link TEMPO_TEXT_FONT_SIZE} for
- * the derivation.
- */
-MetricsDefaults.StaveTempo.fontSize = TEMPO_TEXT_FONT_SIZE
-MetricsDefaults.StaveTempo.glyph.fontSize = TEMPO_GLYPH_FONT_SIZE
-Metrics.clear('StaveTempo.glyph')
-Metrics.clear('StaveTempo.name')
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
@@ -140,29 +121,17 @@ export function splitRuns(text: string): Run[] {
  * Engrave a tempo mark's string at (x, y) — the shared draw used by the score and by the armed
  * tool's ghost preview, so the preview cannot drift from the thing it previews.
  *
- * `Element` is VexFlow's text/glyph primitive: it carries the font from Metrics and measures its
- * own width, which is how the runs are laid end to end.
+ * Each run is stamped through `./glyphPainter`, which answers how wide it was drawn — that is how the
+ * runs are laid end to end.
  */
 export function drawTempoText(ctx: DrawContext, text: string, x: number, y: number): void {
-  const paint = asGlyphPaintContext(ctx)
   for (const run of splitRuns(text)) {
-    // 'StaveTempo.name' is the mark's text font (bold, VexFlow's text face); 'StaveTempo.glyph' is
-    // the music font, at the size set above. Both resolved from Metrics, exactly as StaveTempo did.
-    const el = new Element(run.glyph ? 'StaveTempo.glyph' : 'StaveTempo.name')
-
-    if (!run.glyph) {
-      // …except that VexFlow resolves BOTH from a stack that LEADS with the music font
-      // ('Bravura,Academico'). The letters fall through to the text face and look right, but the
-      // SPACES do not: Bravura has a space glyph, and a music font's space is next to nothing
-      // wide — which is why the mark engraved as `Allegro(♩=144)` however many spaces were in the
-      // string. Text runs take the text face first; the glyph run still wants Bravura.
-      const f = el.fontInfo
-      el.setFont(textFirstFamily(f.family), f.size, f.weight, f.style)
-    }
-
-    el.setText(run.glyph ?? keepSpaces(run.text!))
-    el.renderText(paint, x, y)
-    x += el.getWidth()
+    // A glyph run is the music font at the glyph size; a text run is the words' face, with the music
+    // font moved to the back (`./tempoStyle` says why). The two faces VexFlow's `StaveTempo.glyph`
+    // and `StaveTempo.name` categories resolved, as rows of ours.
+    x += run.glyph
+      ? drawGlyph(ctx, 'TempoLayout.glyph', run.glyph, x, y, TEMPO_GLYPH_FONT_SIZE)
+      : drawTextRun(ctx, 'TempoLayout.text', keepSpaces(run.text!), x, y, TEMPO_TEXT_FONT)
   }
 }
 

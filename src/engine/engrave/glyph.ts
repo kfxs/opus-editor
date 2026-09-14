@@ -7,8 +7,8 @@
  * `glyphPainter` is *"the one place VexFlow still paints a glyph"*, and it earns that name by owning
  * **font RESOLUTION**: `new Element(tag)` runs `Metrics.getFontInfo(tag)`, and its own header warns
  * that *"the tag is not a comment — it selects the font"*. ⭐ Everything here happens **after** that
- * question is settled: the caller was handed a face by the object that owns the glyph (a `Flag`'s or
- * a `NoteHead`'s own `fontInfo`, assigned by VexFlow when it built them), so there is nothing left
+ * question is settled: the caller was handed a face as a value (a row of `./inheritedFonts` — what
+ * VexFlow used to assign a `Flag` or a `NoteHead` as its `fontInfo`), so there is nothing left
  * to resolve and `Element.renderText` reduces to the two primitives we already own — measured in
  * vexflow 5.0.0's source, `element.js:331`:
  *

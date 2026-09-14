@@ -55,6 +55,7 @@
  */
 import { Accidental } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { accidentalFont } from '@/engine/engrave/inheritedFonts'
 import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
 import type { SceneBox } from '@/engine/scene/sceneBox'
 import type { InkSurfaceAware } from './inkSurface'
@@ -116,11 +117,12 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
       return
     }
 
+    const glyph = this.getText()
     const ink: AccidentalInk = {
-      glyph: this.getText(),
+      glyph,
       x: this.x + this.getXShift(),
       y: this.y + this.getYShift(),
-      font: this.fontInfo,
+      font: accidentalFont(glyph),
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id'),

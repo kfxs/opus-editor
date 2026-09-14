@@ -55,6 +55,7 @@
  */
 import { TimeSignature, type Element, type Stave } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
+import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawMeter, stampMeter, type MeterRow } from '@/engine/engrave/header/meter'
 import type { InkSurfaceAware } from './inkSurface'
 
@@ -153,7 +154,7 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
       glyph: el.getText(),
       x: x + el.getX() + el.getXShift(),
       lineY: lineY + el.getY() + el.getYShift(),
-      font: el.fontInfo,
+      font: MUSIC_GLYPH_FONT,
     }
   }
 }

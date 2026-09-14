@@ -429,6 +429,7 @@ files, which is also what the PDF outlines.
 **Already ours:**
 - `fonts/bravuraMetrics.ts:119` `GLYPH_BOXES` and `:339` `ENGRAVING_DEFAULTS`.
 - `fonts/fontMetrics.ts:84,142` `glyphBox`, `engravingDefault`.
+- ✅ S1: `engrave/inheritedDefaults.ts` (the numbers) and `engrave/inheritedFonts.ts` (the faces each category resolved).
 - The row-table pattern (`layout/dotGap.ts`, `layout/accidentalGap.ts`).
 
 **The step (S1).**
@@ -452,7 +453,7 @@ step (`steps.cjs`, 0 unassigned).
 | # | step | removes (uses / files) | needs | pixels | end signal |
 |---|---|---|---|---|---|
 | **S0** ✅ | **Census ratchet** — `npm run lint:vexflow` (`scripts/check-vexflow-census.mjs`, in `build:check`), per-role ceilings that may only fall | 0 — makes every later number checkable | — | none | the census runs in `build:check` |
-| **S1** | **Fonts + numbers**: our `@font-face` from `public/fonts/`; `Metrics`/`Tables` constants → attributed rows; font categories → our table — ✅ **S1a** fonts (`engine/fonts/fontFiles` + `rendering/musicFontFaces`) · ✅ **S1b** numbers (`engine/engrave/inheritedDefaults`, R7 50 → 29) · ⏳ **S1c** font categories (`fontInfo`, `MetricsDefaults`, `Metrics.clear`) | **41 / 13** + the import side effect | — | none (if font versions match — §8.1 UNKNOWN) | no `Metrics`, `MetricsDefaults`, `Stem.WIDTH`, `fontInfo` outside the adapter; glyphs render with VexFlow's faces unloaded |
+| **S1** | **Fonts + numbers**: our `@font-face` from `public/fonts/`; `Metrics`/`Tables` constants → attributed rows; font categories → our table — ✅ **S1a** fonts (`engine/fonts/fontFiles` + `rendering/musicFontFaces`) · ✅ **S1b** numbers (`engine/engrave/inheritedDefaults`, R7 50 → 29) · ✅ **S1c** font categories (`engine/engrave/inheritedFonts`, R7 29 → 0; the tempo and tuplet marks stamp through `glyphPainter` with faces of ours, and VexFlow's own `Tuplet.textElement` is sized per tuplet instead of by a global `MetricsDefaults` write) | **41 / 13** + the import side effect | — | none (if font versions match — §8.1 UNKNOWN) | no `Metrics`, `MetricsDefaults`, `Stem.WIDTH`, `fontInfo` outside the adapter; glyphs render with VexFlow's faces unloaded |
 | **S2** | **Staff frame** (§2) | **165 / 25**; frees 4 files | — | none (exact port) | no `Stave.getYForLine` / `getSpacingBetweenLines` / `getNoteStartX` / `getYForNote` outside `engrave/vexflow/` |
 | **S3** | **Note ruler seam** — `NoteGeometry`, captured after draw; P6b's readers generalised (§3) | **170 / 21**; with S2 frees 7 more files (Tie, Trill, Ottava, Pedal, Hairpin, `dynamicsLinePass`, `dynamicNudgePass`) | S2 (readers take both) | none (copied values) | no `StaveNote` type outside `engrave/vexflow/` + `NoteBuilder`; no registry box from `getBoundingBox()` |
 | **S4** | **The stave object**: header + barline signs placed by us; `Stave` → frame + a sign run; END modifiers and the **mid-line clef change ported at today's 0.5 sp as a row** (rule 13 — ⛔ not waiting on the clef review) | **181 / 12** (EngravedStave 34, EngravedTimeSignature 30, GutterRenderer 28, VexFlowRenderer 25, headerPlacementPass 17…) | S2 | none | no `Stave`, `Clef`, `TimeSignature`, `Barline`, `StaveModifierPosition` import; gutter on our painter's API |
