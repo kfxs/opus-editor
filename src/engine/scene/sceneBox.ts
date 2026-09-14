@@ -36,7 +36,9 @@
  *
  * **It never guesses.** A `text` whose codepoint is not one of the 71 glyphs we measured has NO box,
  * and a union containing one is INCOMPLETE — {@link sceneInkBox} answers `null` rather than a
- * rectangle that is silently too small. ⭐ *"A guessing fallback gets believed"* is the rule this
+ * rectangle that is silently too small. ⭐ **And the same for a coordinate that is not a NUMBER**
+ * ({@link SceneBoxDetail.nonFinite}): a NaN spreads through every `min`/`max` it meets while still
+ * looking like a measurement. ⭐ *"A guessing fallback gets believed"* is the rule this
  * whole plan is written around, and a box is the most believable guess of all: nothing downstream
  * can tell a measured rectangle from an invented one.
  * ⇒ {@link sceneInkBoxDetail} is the same walk with its workings shown, so a caller (or a spec) can
@@ -70,6 +72,25 @@ export interface SceneBoxDetail {
   box: SceneBox | null
   /** The drawn strings whose glyph we have no measurement for, in draw order. */
   unmeasured: string[]
+  /**
+   * ⭐⭐ **The primitives whose own coordinates were NOT NUMBERS**, by kind, in draw order — a
+   * `NaN` or an ∞ that arrived from whoever computed the drawing.
+   *
+   * 🚨 It is the same situation as an unmeasured glyph and it is kept apart for one reason: a
+   * caller can say WHICH. *"I have no measurement for U+E4A1"* and *"this text was stamped at NaN"*
+   * are different faults with different owners.
+   *
+   * ⚠️ **Today's only producer is VexFlow, and only in jsdom**: `Articulation.draw` centres a mark
+   * with `setOrigin`, which divides by a glyph width that a page-less test measures as 0. ⛔ This
+   * guard is NOT written for that bug — it is written because **a box is either honest or absent**,
+   * and a NaN rectangle is the most believable wrong answer of all: it LOOKS like a number to
+   * everything downstream, and `min`/`max` spread it silently through every union it touches.
+   * ⭐ Our own painter will not produce one; this stays true when it doesn't.
+   *
+   * ⚠️ A GROUP can appear here too, and it means its PLACEMENT was not a finite matrix — a
+   * different fault from any one child's, which is why the kind is recorded rather than a count.
+   */
+  nonFinite: SceneNode['kind'][]
 }
 
 /** Which nodes count toward a box. Defaults to *every ink primitive* — see {@link INK_ONLY}. */
@@ -116,7 +137,7 @@ export function sceneInkBox(
   include?: NodeFilter,
 ): SceneBox | null {
   const detail = sceneInkBoxDetail(node, spacePx, include)
-  return detail.unmeasured.length === 0 ? detail.box : null
+  return detail.unmeasured.length === 0 && detail.nonFinite.length === 0 ? detail.box : null
 }
 
 /** {@link sceneInkBox}, with what it could not measure. */
@@ -129,9 +150,10 @@ export function sceneInkBoxDetail(
     spacePx,
     keep: n => INK_ONLY(n) && (include?.(n) ?? true),
     unmeasured: [],
+    nonFinite: [],
   }
   const box = 'kind' in node ? boxOf(node, walk) : unionOf(node.children, walk)
-  return { box, unmeasured: walk.unmeasured }
+  return { box, unmeasured: walk.unmeasured, nonFinite: walk.nonFinite }
 }
 
 /** One traversal's state: what counts, how to read a size, and what it could not measure. */
@@ -139,11 +161,20 @@ interface Walk {
   spacePx: SpacePxReader
   keep: NodeFilter
   unmeasured: string[]
+  nonFinite: SceneNode['kind'][]
 }
 
 function boxOf(node: SceneNode, walk: Walk): SceneBox | null {
   if (!walk.keep(node)) return null
-  return node.kind === 'group' ? groupBox(node, walk) : primitiveBox(node, walk)
+  const box = node.kind === 'group' ? groupBox(node, walk) : primitiveBox(node, walk)
+  // ⭐⭐ **A coordinate that is not a number is not a measurement** — see {@link SceneBoxDetail.nonFinite}.
+  // ⚠️ Checked HERE, on the way out, so it catches every source at once: a primitive stamped at NaN,
+  // a path whose pen went there, and a group whose PLACEMENT was singular or infinite.
+  if (box && !isFinite(box.x + box.y + box.width + box.height)) {
+    walk.nonFinite.push(node.kind)
+    return null
+  }
+  return box
 }
 
 /**

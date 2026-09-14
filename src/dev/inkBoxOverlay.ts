@@ -29,10 +29,12 @@
  * nearly empty scene (measured, one barline out of a page). Harmless but not free, unlike `show()`,
  * which only reads the registry.
  *
- * 🚨 **What it cannot measure is the most useful part of the picture.** A group holding a glyph we
- * have no metrics for gets no box — so it is drawn DASHED and RED over whatever else it contains,
- * labelled with the codepoint that stopped it, and a group with nothing measurable at all is
- * counted in the console line. ⛔ *"The ruler declined"* and *"there was nothing there"* must never
+ * 🚨 **What it cannot measure is the most useful part of the picture.** A group it cannot measure
+ * gets no box — so it is drawn DASHED and RED over whatever else it contains, labelled with WHY, and
+ * a group with nothing measurable at all is counted in the console line. ⭐ Two reasons, and they are
+ * different faults: a glyph we have no metrics for (named by codepoint), and ink drawn at a
+ * coordinate that is **not a number** (named by kind — today only VexFlow's `setOrigin` in a
+ * page-less test, but a NaN from anywhere must never look like a measurement). ⛔ *"The ruler declined"* and *"there was nothing there"* must never
  * look the same, which is the same rule `sceneInkBox` follows by answering null.
  */
 import type { MusicEngine } from '@/engine/MusicEngine'
@@ -118,9 +120,15 @@ function outline(overlay: SVGGElement, group: SceneGroup): 'box' | 'refused' | '
   // from, and comparing against the original would reject the root and answer null every time.
   const root: SceneGroup = { ...group, placement: IDENTITY_PLACEMENT }
   const ownInk = (node: SceneNode) => node === root || node.kind !== 'group'
-  const { box, unmeasured } = drawnInkBoxDetail(root, ownInk)
-  if (!box || box.width <= 0 || box.height <= 0) return unmeasured.length ? refuse(overlay, group, unmeasured) : 'empty'
-  if (unmeasured.length) return refuse(overlay, group, unmeasured, box)
+  const { box, unmeasured, nonFinite } = drawnInkBoxDetail(root, ownInk)
+  // ⭐ TWO reasons the ruler declines, and they read differently on the page: *"I have no
+  // measurement for this glyph"* and *"this was drawn at a coordinate that is not a number"*.
+  const why = [
+    ...unmeasured.map(u => `unmeasured ${codepoint(u)}`),
+    ...nonFinite.map(kind => `${kind} at NaN`),
+  ]
+  if (!box || box.width <= 0 || box.height <= 0) return why.length ? refuse(overlay, group, why) : 'empty'
+  if (why.length) return refuse(overlay, group, why, box)
 
   const color = COLOR[group.cls ?? ''] ?? '#94a3b8'
   overlay.appendChild(rect(box, color, false))
@@ -128,16 +136,16 @@ function outline(overlay: SVGGElement, group: SceneGroup): 'box' | 'refused' | '
   return 'box'
 }
 
-/** ⚠️ A box we DECLINED to compute — dashed, and named. ⛔ Never silently absent. */
+/** ⚠️ A box we DECLINED to compute — dashed, and named with WHY. ⛔ Never silently absent. */
 function refuse(
   overlay: SVGGElement,
   group: SceneGroup,
-  unmeasured: string[],
+  why: string[],
   partial?: { x: number; y: number; width: number; height: number },
 ): 'refused' {
   if (partial) {
     overlay.appendChild(rect(partial, '#dc2626', true))
-    overlay.appendChild(label(partial, `${group.cls} ⚠️ unmeasured: ${unmeasured.map(codepoint).join(' ')}`, '#dc2626'))
+    overlay.appendChild(label(partial, `${group.cls} ⚠️ ${why.join(' · ')}`, '#dc2626'))
   }
   return 'refused'
 }

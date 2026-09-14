@@ -1421,6 +1421,21 @@ and a union containing one answers **null** rather than a rectangle that is sile
 `sceneInkBoxDetail` is the same walk with its workings shown, so a caller can ask *what* stopped it.
 *A guessing fallback gets believed*, and a box is the most believable guess of all.
 
+⭐ **…and as of 2026-09-14 the same for a coordinate that is not a NUMBER** (`nonFinite`). 🚨 A NaN
+is the most believable wrong answer there is — it LOOKS like a measurement, and one of them spreads
+through every `min`/`max` it meets until a whole page's box is NaN with nothing to say which
+primitive did it. ⚠️ **Today's only producer is VexFlow, and only in jsdom**: `Articulation.draw`
+centres a mark with `setOrigin`, which divides by a glyph width a page-less test measures as 0.
+⛔ **The guard is not written for that bug** — his question was the right one (*"we will not use
+vexflow in the future, so how should we proceed?"*), and the answer is that this half is a property
+of OUR ruler that outlives the dependency: **a box is either honest or absent.** ⭐ The OTHER half —
+the cause — is P3b's playbook and belongs on the taste list: the centring should come from
+`GLYPH_BOXES` (which holds every articulation glyph) as a NAMED ARGUMENT rather than from a runtime
+`measureText`, measured table-vs-canvas in a browser first, ⇒ the FIFTH *"the room and the ink come
+from two sources"* number, beside the ledger overhang, the stem thickness, the flag reach and the
+notehead glyph. ⚠️ And unlike those four it moves the HIT BOX too, because `getBoundingBox` reads
+the same shift.
+
 **Two seams it needed, and both were boundary questions rather than plumbing:**
 
 1. **`GLYPH_CODEPOINTS`** — the generator already knew each glyph's codepoint from SMuFL's own

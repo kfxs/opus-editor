@@ -91,6 +91,39 @@ describe('⛔ what it refuses to answer', () => {
       .toEqual({ x: 0, y: 0, width: 10, height: 10 })
   })
 
+  it('🚨🚨 ink stamped at a coordinate that is NOT A NUMBER is refused, ⛔ not unioned', () => {
+    // ⭐ A NaN is the most believable wrong answer there is: it LOOKS like a measurement, and one of
+    // them spreads through every `min`/`max` it meets, so a whole page's box comes back as NaN with
+    // nothing to say which primitive did it.
+    // ⚠️ Today's only producer is VexFlow in jsdom — `Articulation.draw` centres a mark with
+    // `setOrigin`, which divides by a glyph width a page-less test measures as 0 — but the rule is
+    // about OUR ruler: a box is either honest or absent.
+    const nowhere: SceneNode = { kind: 'rect', x: NaN, y: 10, width: 4, height: 4, style: NO_STYLE }
+    expect(sceneInkBox(scene([rect(0, 0, 10, 10), nowhere]), spacePx)).toBeNull()
+  })
+
+  it('⭐ …and it says WHICH KIND went wrong — a different fault from an unmeasured glyph', () => {
+    const detail = sceneInkBoxDetail(scene([rect(0, 0, 10, 10), {
+      kind: 'text', text: '\ue4a0', x: NaN, y: NaN, font: { family: 'Bravura', size: 40 }, style: NO_STYLE,
+    }]), spacePx)
+    expect(detail.nonFinite, 'the glyph IS measured — it was put nowhere').toEqual(['text'])
+    expect(detail.unmeasured, '⛔ and that is not the same complaint').toEqual([])
+  })
+
+  it('🚨 the break-test — without the guard the union would hand back a NaN RECTANGLE', () => {
+    // ⚠️ This is what `Math.min`/`Math.max` do with a NaN, and it is why the guard is not optional:
+    // the arithmetic below is the union's, run by hand, and its answer looks like a box.
+    expect(Math.min(0, NaN)).toBeNaN()
+    const detail = sceneInkBoxDetail(scene([rect(0, 0, 10, 10)]), spacePx)
+    expect(detail.nonFinite, 'ordinary ink reports nothing, so the list means something').toEqual([])
+  })
+
+  it('⚠️ a GROUP whose PLACEMENT is not finite is refused too — its children were fine', () => {
+    const placed = group([rect(0, 0, 10, 10)], { placement: { ...IDENTITY, e: NaN } })
+    expect(sceneInkBox(placed, spacePx)).toBeNull()
+    expect(sceneInkBoxDetail(placed, spacePx).nonFinite).toEqual(['group'])
+  })
+
   it('🚨 a size in a dialect the reader does not speak is UNMEASURED, ⛔ not assumed', () => {
     const em: SceneNode = {
       kind: 'text', text: '', x: 0, y: 0, font: { family: 'Bravura', size: '2em' }, style: NO_STYLE,
