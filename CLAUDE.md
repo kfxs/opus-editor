@@ -33,6 +33,14 @@ This file provides guidance to Claude Code when working with this repository.
   a book's engraving can be measured, which is how Gould's p. 111 examples were found to disagree
   with the formula attributed to her.
 
+- **⛔ An engraving NUMBER is never a blocker.** Every distance, thickness, ratio or slope is one
+  house style's DEFAULT, and the user will be able to change it — so no default is definitive.
+  When work needs a number that is unresearched or undecided: use what runs today (or the
+  best-sourced option), build it as a changeable row rather than a constant, note the research as a
+  follow-up, and keep going. Research is still wanted (it becomes the preset menu); it never stops a
+  phase. Before calling a number "open", grep the feature's own module — it may already be decided.
+  See `docs/own-engraving-engine.md` §0.3 rule 13.
+
 ## Project Overview
 
 A music score editor built with VexFlow and WebAudioFont, in plain TypeScript (no UI framework —

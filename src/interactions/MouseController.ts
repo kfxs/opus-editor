@@ -18,6 +18,7 @@ import { DynamicTextSource } from './DynamicTextSource'
 import { fracToNumber, fracEq } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
+import { nearestSlotBoundaryBeat } from '../engine/layout/slotBoundary'
 import { entryAlteration } from '../engine/models/entryAlteration'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
@@ -810,19 +811,9 @@ export class MouseController {
    * Returns the slot's exact Fraction beat when available.
    */
   private resolveSlotBeat(engine: MusicEngine, x: number, measureNum: number): Fraction {
-    const registry = engine.getElementRegistry()
-    const els = registry.getByMeasure(measureNum)
-      .filter(e => (e.type === 'note' || e.type === 'rest') && e.beat !== undefined)
-
-    let bestBeatNum = 0
-    let bestDist = Infinity
-    for (const e of els) {
-      const dist = Math.abs(x - e.bbox.x)
-      if (dist < bestDist) {
-        bestDist = dist
-        bestBeatNum = e.beat as number
-      }
-    }
+    // Where each slot's ink begins — asked of the head and its accidental (`layout/slotBoundary`),
+    // ⛔ no longer of VexFlow's union box. An empty bar resolves to beat 0, as it always has.
+    const bestBeatNum = nearestSlotBoundaryBeat(engine.getElementRegistry(), x, measureNum) ?? 0
 
     // Recover the slot's exact Fraction beat from the model (numbers lose tuplet precision).
     const measure = engine.getScore().measures.find(m => m.number === measureNum)

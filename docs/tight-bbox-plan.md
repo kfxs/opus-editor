@@ -261,8 +261,10 @@ nothing in this plan touches them.**
 > for notes, but its readers are moving off it one at a time (`docs/own-engraving-engine.md`
 > §5 P6b): `ElementRegistry.headCentreX` (`headX`, else the box centre) now drives
 > `findNotesLeftRight`, `findNearestNoteOrRest` and `MusicEngine.pixelToPosition`, so a
-> left-hanging accidental no longer pulls a click toward the wrong side of its note. The box's
-> EDGES are still read by `resolveSlotBeat`, `measuredRoom` and `getInRect`.
+> left-hanging accidental no longer pulls a click toward the wrong side of its note. And a
+> beat-anchored mark (`resolveSlotBeat`) now finds where a slot begins from the head and its
+> accidental (`layout/slotBoundary`). The box's EDGES are still read by `measuredRoom` and
+> `getInRect`.
 
 ### 4b. Dynamics — *ink* box at registration (rebuild the stored box)
 Dynamics **register a tight box** by reading the rendered SVG. `registerDynamics`

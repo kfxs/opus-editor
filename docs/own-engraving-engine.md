@@ -52,6 +52,15 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
+> ⭐⭐ **THE PRIORITY, his call 2026-09-14: GET RID OF VexFlow FIRST. The engine GROWS after that.**
+> Anything that is not a step toward removing the dependency waits, however good an idea it is —
+> ⏭️ in particular **ONE HOUSE-STYLE OBJECT** (every sourced table — `dotGap`, `accidentalGap`,
+> `beamSlope`, the spacing law, the header ladder — gathered into one thing a PRESET loads) is
+> agreed as the direction and ⛔ deferred until after removal. ⭐ Take it into account meanwhile:
+> a new number is written as a changeable ROW (rule 13), so the gathering later is a move, not a
+> rewrite. The research waves (`docs/engraving-number-inventory.md`) run in the background and
+> ⛔ never block a removal step.
+
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**
 >
@@ -130,6 +139,12 @@ than the one it argued; §5 and this section remain the authority on the order.
 | 10 | ⛔ **Only `engrave/vexflow/` imports `vexflow`, and nothing outside it holds a `StaveNote`.** Its LOC is the migration's progress bar. | **P1** | §8.2 |
 | 11 | ⛔ **`layout/` and `engrave/` import no DOM and no `vexflow`** (one named exception). | partly **now** — `engine/layout/` and `engine/fonts/` are already fenced by `lint:boundary` | §8.2, `ARCHITECTURE.md` |
 | 12 | ⛔ **`paint/` may not import `models/`.** It knows the scene and nothing else — that is what makes a second painter cost nothing. | **P1** | §8.2 |
+| 13 | ⛔⛔ **A NUMBER IS NEVER A BLOCKER.** Every engraving number is one house style's DEFAULT that the user will be able to change, so no default is definitive. When a step needs a number nobody has researched or chosen: **use what runs today** (or the best-sourced option), **build it as a changeable row, not a constant**, record the research as a follow-up, and **keep building**. The research is still wanted — it becomes the preset menu — but ⛔ it never stops a phase. | **now** — his rule, 2026-09-14 | `memory: house style`; `docs/engraving-number-inventory.md` |
+
+⚠️ **Rule 13 supersedes older wording in this document.** Where a phase below says a piece is
+*"gated on research"*, *"blocked on his pick"* or *"nothing to build without his pick"* because of a
+NUMBER (the stem-shortening slope, the beam slope, the ledger overhang, the flag reach, the stem
+thickness…), read it as: *the default is what runs today, and the options are future preset rows*.
 
 ### 0.4 ⭐⭐ The one-line test, for any drawn feature
 
@@ -1585,7 +1600,7 @@ and the readers lean on its EDGES, not its presence:
 |---|---|---|
 | clicking a note (`hitsNoteOrRestBody`) | ⛔ nothing — pitch + `headX` | already right (`tight-bbox-plan.md` §4a) |
 | note entry (`findNotesLeftRight`, `findNearestNoteOrRest`, `pixelToPosition`) | centre | **where the head stands** ✅ |
-| a beat-anchored mark (`MouseController.resolveSlotBeat`) | left edge — the ACCIDENTALS | where the column starts |
+| a beat-anchored mark (`MouseController.resolveSlotBeat`) | left edge — the ACCIDENTALS | where the slot's ink begins ✅ |
 | the bar-width drag (`measuredRoom`, bar-end room) | right edge — the DOTS | where the last ink ends |
 | Shift-box select (`getInRect`) | the whole rectangle | does the box touch any of the note's parts |
 | a slur's obstacles | `noteInkBox`, its own union | the note's ink minus the dynamic |
@@ -1603,7 +1618,14 @@ left/right choice (`NoteEntryCoordinator.resolveClickToBeat`), the nearest colum
 to agree with the lookup it follows. A rest carries no `headX`, so it answers what it did. ⚠️ Also
 switched, for consistency: `findClosestNote` and `findNotesNearX`, which **nothing calls**.
 Spec `ElementRegistry.noteEntry.test.ts`, every case built so the box centre gives the other answer.
-⏭️ Next readers: `resolveSlotBeat` · `measuredRoom`'s bar-end room · `getInRect` · the slur's
+✅ **Reader 2 — where a beat-anchored mark lands** (`resolveSlotBeat`: clef change, dynamic, tempo…).
+`layout/slotBoundary.nearestSlotBoundaryBeat`: a slot begins at the leftmost of each head's left edge
+(`headCentreX` − half the font's `noteheadInk` × the staff's line spacing) and its ACCIDENTAL's hit
+box, which is ours since P6b's first kind. ⭐ The rule did not change — *"snaps to the nearest slot
+boundary"* (`588b817`), and a sharp is still part of its slot; only the ruler did. ⚠️ A rest still
+answers VexFlow's glyph box, and a note without `headX` falls back to its union box. Spec
+`layout/slotBoundary.test.ts`, whose note fixtures carry a deliberately wrong `bbox.x`.
+⏭️ Next readers: `measuredRoom`'s bar-end room (needs the DOT's box first) · `getInRect` · the slur's
 `noteInkBox`.
 
 ⏭️ **Then** the DOT and the ARTICULATION — both already open a named group with an id, and the
