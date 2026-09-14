@@ -33,9 +33,18 @@
  * 3. ⭐ **When a step lands, lower the ceilings to what it prints.** ⛔ Never raise one.
  *
  * `node scripts/check-vexflow-census.mjs --detail` prints the busiest members and files per role.
+ *
+ * ## ⭐⭐ …and the NAMES (his rule, 2026-09-14 — `docs/vexflow-removal-map.md` §9.3)
+ *
+ * Removing the package is not enough: a file called `VexFlowRenderer.ts` or a variable called
+ * `vexContext` compiles without VexFlow and names something that no longer exists. So beside the
+ * uses this counts the NAMES — file names, identifiers, and VexFlow's `vf-` SVG prefix — each a
+ * ceiling that may only fall. ⚠️ Case-SENSITIVE (`vex|Vex|VEX`): `/vex/i` would count `staveX`.
+ * ⛔ Comments are never counted: a port's licence attribution is the one place the word stays.
  */
 import ts from 'typescript'
-import { resolve, relative, sep } from 'node:path'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, resolve, relative, sep } from 'node:path'
 
 const ROOT = resolve('.')
 const MAP = 'docs/vexflow-removal-map.md'
@@ -56,6 +65,17 @@ const CEILINGS = {
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
 const TEST_CEILING = 262
+
+/** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3). Same rule: lower them as renames land;
+ *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */
+const NAME_CEILINGS = {
+  'files': 8,
+  'identifiers': 142,
+  'identifiers in tests': 160,
+  'vf- in code': 39,
+  'vf- in tests': 418,
+}
+const NAME = /vex|Vex|VEX/
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // 1. THE SCAN — every VexFlow use in src/, resolved to its declaration
@@ -129,6 +149,8 @@ function receiverName(expr) {
 }
 
 const uses = []
+/** One entry per NAME occurrence: { bucket, file, line, text }. */
+const names = []
 
 for (const sf of program.getSourceFiles()) {
   if (!inSrc(sf.fileName)) continue
@@ -139,7 +161,19 @@ for (const sf of program.getSourceFiles()) {
     uses.push({ file, line: line + 1, test, ...fields })
   }
 
+  const recordName = (node, bucket, text) => {
+    const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf))
+    names.push({ bucket, file, line: line + 1, text })
+  }
+
   const visit = node => {
+    // NAMES — an identifier called vex-anything, or a string carrying VexFlow's `vf-` prefix.
+    if ((ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) && NAME.test(node.text)) {
+      recordName(node, test ? 'identifiers in tests' : 'identifiers', node.text)
+    }
+    if (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      for (let i = 0; i < (node.text.match(/vf-/g) || []).length; i++) recordName(node, test ? 'vf- in tests' : 'vf- in code', 'vf-')
+    }
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && /^vexflow/.test(node.moduleSpecifier.text)) {
       // An import specifier is not a use: what it brings in is counted where it is used.
       if (!node.importClause) record(node, { kind: 'import-side-effect', cls: node.moduleSpecifier.text, member: '' })
@@ -209,6 +243,32 @@ for (const sf of program.getSourceFiles()) {
 // Keep `vexflowBaseOf` honest: a class of ours that extends VexFlow is itself an R6 use (`extends`),
 // and calls resolving to its OWN overrides are ours — which is why they are never recorded above.
 void vexflowBaseOf
+
+// The NAMES the compiler cannot see: file names in src/ and e2e/, and the browser suite, which is
+// outside tsconfig.json — scanned as text, comment lines skipped.
+function walkFiles(dir) {
+  const out = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) out.push(...walkFiles(full))
+    else out.push(full)
+  }
+  return out
+}
+for (const full of [...walkFiles(resolve(ROOT, 'src')), ...walkFiles(resolve(ROOT, 'e2e'))]) {
+  const file = relative(ROOT, full).split(sep).join('/')
+  const base = file.split('/').pop()
+  if (/vex/i.test(base)) names.push({ bucket: 'files', file, line: 0, text: base })
+  if (!file.startsWith('e2e/') || !file.endsWith('.ts')) continue
+  readFileSync(full, 'utf8').split('\n').forEach((text, i) => {
+    const t = text.trim()
+    if (t.startsWith('*') || t.startsWith('//') || t.startsWith('/*')) return
+    for (const id of text.match(/[A-Za-z_$][\w$]*/g) || []) {
+      if (NAME.test(id)) names.push({ bucket: 'identifiers in tests', file, line: i + 1, text: id })
+    }
+    for (let k = 0; k < (text.match(/vf-/g) || []).length; k++) names.push({ bucket: 'vf- in tests', file, line: i + 1, text: 'vf-' })
+  })
+}
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 // 2. THE ROLES — the map's R1–R7 (§1), so the counts can be argued with
@@ -303,7 +363,25 @@ if (rose.length || testUses > TEST_CEILING) {
 `)
 }
 
+const nameCounts = Object.fromEntries(Object.keys(NAME_CEILINGS).map(b => [b, 0]))
+for (const n of names) nameCounts[n.bucket]++
+const namesRose = Object.entries(nameCounts).filter(([b, n]) => n > NAME_CEILINGS[b])
+if (namesRose.length) {
+  failed = true
+  console.error('\n✗ VexFlow NAMES grew:\n')
+  for (const [b, n] of namesRose) console.error(`    ${b}: ${n}, ceiling ${NAME_CEILINGS[b]}`)
+  console.error(`
+  Nothing new is named after VexFlow (${MAP} §9.3): call it what it IS. \`--detail\` lists them.
+`)
+}
+
 if (process.argv.includes('--detail')) {
+  for (const b of Object.keys(NAME_CEILINGS)) {
+    const m = new Map()
+    for (const n of names.filter(x => x.bucket === b)) m.set(n.text, (m.get(n.text) || 0) + 1)
+    console.log(`\n## names — ${b}: ${nameCounts[b]}`)
+    console.log('  ' + [...m].sort((x, y) => y[1] - x[1]).slice(0, 20).map(([k, n]) => `${k} ${n}`).join(' · '))
+  }
   for (const [r, list] of [...byRole].sort()) {
     const tally = key => {
       const m = new Map()
@@ -325,9 +403,16 @@ if (fell.length || testUses < TEST_CEILING) {
   for (const [r, n] of fell) console.log(`    '${r}': ${n},   (was ${CEILINGS[r]})`)
   if (testUses < TEST_CEILING) console.log(`    TEST_CEILING = ${testUses}   (was ${TEST_CEILING})`)
 }
+const namesFell = Object.entries(nameCounts).filter(([b, n]) => n < NAME_CEILINGS[b])
+if (namesFell.length) {
+  console.log('⭐ VexFlow NAMES fell — lower NAME_CEILINGS to:')
+  for (const [b, n] of namesFell) console.log(`    '${b}': ${n},   (was ${NAME_CEILINGS[b]})`)
+}
 
 console.log(
   `✓ VexFlow census: ${total} uses outside the specs (` +
   Object.entries(counts).map(([r, n]) => `${r.split(' ')[0]} ${n}`).join(' · ') +
-  `), ${testUses} in specs. None may rise — ${MAP}.`,
+  `), ${testUses} in specs; names: ` +
+  Object.entries(nameCounts).map(([b, n]) => `${b} ${n}`).join(' · ') +
+  `. None may rise — ${MAP}.`,
 )

@@ -493,6 +493,28 @@ step (`steps.cjs`, 0 unassigned).
 4. The fonts render from our own faces; the ports carry VexFlow's MIT notice, attributed per module.
 5. `e2e/` green and `VexFlowRenderer.scene.test.ts` green, **with no pixel moved except rows recorded
    under rule 13** (S1's font version, S6's glyph width, S9's audit result).
+6. ⭐⭐ **No VexFlow NAME is left either** (his rule, 2026-09-14): no file, function, variable, constant
+   or class in `src/` or `e2e/` is called anything with `vex` / `Vex` / `VEX` in it, and the SVG no
+   longer uses VexFlow's `vf-` id/class prefix. The ONE place the word stays is the **licence
+   attribution** of a ported algorithm (MIT requires it) — a comment giving credit, ⛔ never a name.
+   `lint:vexflow` counts the names beside the uses (§9.3).
+
+### 9.3 ⭐⭐ Names — everything called "VexFlow" gets the name of what it really is
+
+⛔ **Removing the package is not enough.** A file called `VexFlowRenderer.ts` or a variable called
+`vexContext` compiles perfectly well without VexFlow and describes something that no longer exists.
+The map's counts (§0) are USES; this section is the NAMES, measured 2026-09-14:
+
+| kind | today | what happens to it |
+|---|---|---|
+| **file names** | `VexFlowRenderer.ts` + its 7 specs `VexFlowRenderer.*.test.ts` | **renamed** to what the file does (e.g. `ScoreRenderer.ts`), specs with it — ONE commit of its own near the end (S12/S14), a `git mv` so `git log --follow` keeps the history (§8.2's *"never a big rename"* protects the history; a rename alone in its commit keeps it) |
+| **names that TRANSLATE into VexFlow's format** | `durationToVexflow`, `spellingToVexflowKey`, `timeSignatureVexKey`, `articulationVexCodes`, `vexDuration`, `vexNote`, `vexVoices`, `vexTuplet(s)` | **deleted, not renamed** — with no VexFlow there is nothing to translate into; they go with the step that stops building VexFlow objects (S4–S11) |
+| **names of things that STAY** | `vexContext` → e.g. `drawContext`; `VEXFLOW_ACCIDENTAL_STANDOFF`, `VEXFLOW_DOT_SPACING`, `VEXFLOW_DOT_BASE_GAP`, `VEXFLOW_MAX_SLOPE` → the name of the quantity (`ACCIDENTAL_STANDOFF`…); `vexFontSpacePx`, `vexflowCorrection`, `vexflowAccidentalGapSpaces` | **renamed** in the step that already rewrites that file — ⛔ never renamed twice |
+| **the SVG prefix** `vf-` (`g.vf-notehead`, `vf-slur`…) — read by the highlight and 200+ e2e selectors | | **S13**, together with moving the highlight and the e2e readers (§11 row "the `vf-` ids") |
+| **comments** explaining what VexFlow does (≈1,200 lines) | | rewritten when their file is touched; a last sweep at S14. ⭐ **Kept:** the attribution line of each port, e.g. `// Based on VexFlow's beam slope calculation (MIT licence, © VexFlow authors)`, plus a NOTICE file |
+
+⚠️ Measuring names needs CASE: `/vex/i` also matches `staveX` and `relativeX`. The count is
+`vex|Vex|VEX`, on identifiers only (so a comment is never counted).
 
 ---
 
