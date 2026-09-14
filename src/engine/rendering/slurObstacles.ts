@@ -127,9 +127,19 @@ export function slurArchFit(
     const facing = direction === -1 ? box.y : box.y + box.height
     const wanted = facing + direction * margin
 
-    for (const s of samples) {
-      if (s.t <= 0 || s.t >= 1) continue
-      if (s.x < left || s.x > right) continue
+    // ⭐⭐ **A DEGENERATE obstacle is a POINT, and it is measured at the nearest sample.**
+    //    `slurAccidentalPoint` emits zero-width boxes (LilyPond's one-point accidental), and the
+    //    same branch quietly fixes a latent fault: a box NARROWER than the sampling step used to
+    //    fall between two samples and be ignored altogether.
+    const within = samples.filter(s => s.t > 0 && s.t < 1 && s.x >= left && s.x <= right)
+    const mid = (left + right) / 2
+    const nearest = samples.reduce((a, b) =>
+      Math.abs(b.x - mid) < Math.abs(a.x - mid) && b.t > 0 && b.t < 1 ? b : a)
+    const relevant = within.length > 0
+      ? within
+      : (mid > p0.x && mid < p1.x && nearest.t > 0 && nearest.t < 1 ? [nearest] : [])
+
+    for (const s of relevant) {
       // ⛔ THE EDGE DISCOUNT — see {@link SLUR_EDGE_DISCOUNT_SPACES}. The curve is pinned at its ends
       //   and no factor can carry it past something standing there.
       if (s.x - p0.x < edge || p1.x - s.x < edge) continue

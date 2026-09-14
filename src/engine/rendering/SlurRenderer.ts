@@ -31,7 +31,8 @@ import { archLean, slurArchHeightFor } from './slurArchHeight'
 import { slurIndentFraction } from './slurShapeExperiment'
 import { limitSlurSlant } from './slurSlantLimit'
 import { slurArchFit, type SlurObstacle } from './slurObstacles'
-import { curveObstacleBox } from './accidentalCutOut'
+import { accidentalAvoidPoint } from './slurAccidentalPoint'
+import { EngravedAccidental } from './EngravedAccidental'
 import { noteInkBox } from './noteInkBox'
 import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -266,6 +267,9 @@ export function slurTrueEndpoints(
  * attached to its note as an `Annotation` and VexFlow unions every modifier into the note's box. A
  * mark the dynamics line will translate somewhere else is not what the slur is bowing over.
  */
+/** VexFlow's category for the signs `./slurAccidentalPoint` measures one at a time instead. */
+const ACCIDENTAL_ONLY: ReadonlySet<string> = new Set(['Accidental'])
+
 function slurObstaclesOf(
   pass: RenderPass,
   score: Score,
@@ -277,10 +281,21 @@ function slurObstaclesOf(
   for (const id of coveredChordIds(score, slur.startNoteId, slur.endNoteId)) {
     const note = pass.staveNoteMap.get(id)?.staveNote
     if (!note) continue
-    // ⭐ …and the box a CURVE clears is not quite the note's ink: an accidental has a NOTCH, and a
-    //   slur is allowed into it (`./accidentalCutOut`, Verovio's rule and his two reports).
-    const box = curveObstacleBox(note, direction, note.getStave?.())
+    // ⭐⭐ **THE NOTE WITHOUT ITS ACCIDENTALS IS A BOX; EACH ACCIDENTAL IS A POINT** — LilyPond's
+    //    rule, his call 2026-09-14 (`./slurAccidentalPoint`, which carries the why). The head, the
+    //    stem and the beam are a rectangle honestly; an accidental is a shape whose tall part is at
+    //    one end, and a rectangle around it either over-reserves or — as ours did — lets the curve
+    //    in. ⛔ `accidentalCutOut`'s tuck was DELETED with this: it granted a notch earned at one
+    //    corner across the whole box.
+    const box = noteInkBox(note, ACCIDENTAL_ONLY)
     if (box) boxes.push(box)
+    for (const modifier of note.getModifiers?.() ?? []) {
+      if (!(modifier instanceof EngravedAccidental)) continue
+      const ink = modifier.drawnInk()
+      if (!ink) continue
+      const point = accidentalAvoidPoint(ink, modifier.type, direction)
+      if (point) boxes.push(point)
+    }
   }
   return boxes
 }

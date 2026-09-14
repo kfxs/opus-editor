@@ -20,8 +20,10 @@
 > staccato sixteenths drawn *"very ugly"* — and it is the one section of this document that **did**
 > change code. It carries the isolation experiment that says WHY (a 0.4 sp dot moving the arc 2.3 sp),
 > the four books' placement rule **and their plates measured**, the three engines' mechanisms read
-> twice, and ✅ **§8.6, what was built**: the endpoint rule and LilyPond's `fit_factor`, with his
-> sign-off (*"the articulation slur looks much better now"*). ⛔ The rest of this document still
+> twice, and ✅ **§8.6 and §8.8, what was built**: the endpoint rule, LilyPond's `fit_factor`, and
+> LilyPond's one-point accidental — with his sign-off on the first (*"the articulation slur looks
+> much better now"*). ⭐⭐ **Its through-line is one sentence, earned twice in one afternoon:**
+> *a rectangle grants at one x what is only true at another.* ⛔ The rest of this document still
 > decides nothing.
 
 ---
@@ -1024,6 +1026,11 @@ changing SIDE, never by raising the arc:
 
 ⇒ our arch's response to an accidental — *lift* — has **no source behind it** in this library.
 
+⚠️ **REOPENED THE SAME DAY — see §8.8.** Closing it *"as a side question"* was right about the BOOKS
+and wrong about the code: three hours later he reported the accidentals themselves grazing the slur.
+⭐ The engines all DO treat an accidental as an obstacle (§8.4); what none of them uses is a
+rectangle.
+
 ### ✅ 8.6 WHAT WAS BUILT (2026-09-14) — two mechanisms, two jobs
 
 ⭐⭐ **His specification was one sentence** — *"they should not change the slur angle but move it up a
@@ -1076,6 +1083,7 @@ accepted it: *"the articulation slur looks much better now"*.
 #### ⏳ STILL OPEN
 
 1. **The gap number.** Ours 0.5 sp (MuseScore). Gould's plates 0.6; Stone 0.55; Ross 0.2; G&L 0.8.
+   ⏭️ **And the last note's own accidental**, which no rule reaches: §8.8's reverted experiment.
 2. **The mid-run clearance**, unchanged at `slurObstacleMarginMin/Max` 0.1–0.5 sp; MuseScore's
    articulation row is 0.20 sp and we do not distinguish marks from noteheads there.
 3. **The horizontal rule is NOT built** — Gould p. 122 and her plate: with a tenuto the slur's end
@@ -1088,3 +1096,91 @@ Stone's slur/tie material does **not** stop at printed p. 39: **§11 *Slurs and 
 with articulation signs* is printed pp. 42–43 (PDF 32)**, and it is the fullest statement in the
 library of the ends rule. The 2-UP formula in `reference/README.md` (`PDF n = printed 2n−22 / 2n−21`)
 is correct and was used to reach it.
+
+### ✅ 8.8 THE ACCIDENTALS — the same afternoon, the same shape of fault (2026-09-14)
+
+> *"in this case is accidental that are almost colliding with the slur; the angle of the slur looks
+> good to me, but the distance is not optimal"*
+
+Five sixteenths, accidentals, **no** articulations. Measured, the arc passed **0.03 sp** from a flat
+and INSIDE the sharps either side.
+
+#### 🚨🚨 The first diagnosis was WRONG, and the record says so
+
+⛔ I reported that *"VexFlow's note box under-reports the accidental's ink by half a staff space"*.
+**It does not.** Instrumented before our own post-processing, `StaveNote.getBoundingBox()` gave
+`61 · 56 · 51 · 42 · 41` against our scene ink's `61 · 56 · 51.4 · 42.4 · 41`. ⭐ The short box was
+produced **one line later, by us**.
+
+#### ⭐⭐ The real cause: a NOTCH earned at one corner, granted at every x
+
+`rendering/accidentalCutOut` let a curve dip into the notch in an accidental's outline — Verovio's
+rule, and right in principle. ⛔ It applied the notch's DEPTH to the whole **rectangle**:
+
+| sign | where its notch starts | what we granted |
+|---|---|---|
+| sharp | x = 0.84 of a 0.996-wide glyph — the rightmost **16 %** | 0.504 sp everywhere |
+| natural | x = 0.192 | 0.588 sp everywhere |
+| **flat** | x = 0.252 of 0.904 — the right 72 % | **1.100 sp** everywhere, including over the ascender at its LEFT |
+
+⭐⭐ *A rectangle grants at one x what is only true at another* — **the second time in one afternoon**
+(§8.1 is the first, with a staccato dot). ⇒ the sentence is not about articulations; it is about
+rectangles.
+
+#### ⭐⭐ LilyPond's answer, adopted whole — HIS call
+
+`lily/slur-scoring.cc:865-877`: an accidental is **one POINT**, its x chosen by the glyph's own shape,
+consumed at `slur-configuration.cc:429` as `extents_[X_AXIS].linear_combination (idx_)`.
+
+```cpp
+if (alt == FLAT_ALTERATION || alt == DOUBLE_FLAT_ALTERATION) xp = LEFT;
+else if (alt == SHARP_ALTERATION)   xp = 0.5 * dir_;
+else if (alt == NATURAL_ALTERATION) xp = -dir_;
+```
+
+⭐ **A flat is met at its LEFT — its tall ascender** — which is the exact opposite of granting it the
+notch, and the flat is the sign his eye caught. ⚠️ **The point carries the glyph's FULL reach**:
+LilyPond expresses the notch by choosing WHERE TO STAND, ⛔ never by lowering the obstacle.
+⚠️ `dir_` is the opposite sign to ours (theirs +1 = above); converted once, in
+`rendering/slurAccidentalPoint`, ⛔ not left for a reader to trip on.
+⚠️ **The double sharp is OURS** — LilyPond's table has three branches and no `##`; we put it at the
+centre and label it as ours in the module and the spec.
+
+⇒ ✅ `rendering/slurAccidentalPoint.ts`; the note now contributes its head/stem/beam box **without**
+accidentals, plus one point per accidental. ⛔ `rendering/accidentalCutOut.ts` **and its spec are
+DELETED** — the tuck was the fault, not a tuning.
+⭐ `slurArchFit` gained one branch with it: a **degenerate** obstacle is measured at the nearest
+sample. That is what makes a point an obstacle at all — and it quietly fixed a latent fault, since a
+box narrower than the sampling step used to fall between two samples and be ignored.
+
+#### ⭐ Measured, against his own hand-tuned override
+
+| accidental | before | **now** | his override |
+|---|---|---|---|
+| D♯ | −0.30 sp | **−0.08** | −0.05 |
+| E♮ | +0.35 | **+0.82** | +0.67 |
+| **F♭** | −0.03 | **+0.41** | +0.37 |
+| G♯ | −0.17 | **−0.05** | +0.32 |
+| **shape ratio** | 2.04 | **2.04** | **2.04** |
+
+⭐⭐ Three of four on his override, the flat nearly exact, and **the arch is untouched** — a uniform
+scale of ×1.427, ratio 2.04 either side. ⏳ The last note's sharp still grazes at −0.05 sp.
+
+#### ⏭️ TRIED AND REVERTED — the endpoint clearing its own accidental
+
+The G♯ sits inside the span, under the curve, and inside the edge band the solver discounts, so
+nothing clears it. Extending the endpoint rule to a note's own accidental (with an x test, so the
+START note's — which stands before the first head — is left alone) **fixes it and costs more than it
+buys**: only ONE end has an accidental inside the span, so only one end rises and the arch TILTS.
+
+| | point rule only | + the endpoint | his hand-tuned |
+|---|---|---|---|
+| the D♯ near the start | −0.08 sp | **−0.22** | −0.05 |
+| the G♯ at the end | −0.05 | +0.66 | +0.32 |
+| **shape ratio** | **2.04** | **2.95** | **2.04** |
+
+⛔ Reverted on his standing rule (*"they should not change the slur angle"*) and on his own look at
+it: *"no the endpoint is too far now"*. ⭐ The account stays in `slurArticulationEndpoint`'s header so
+the next reader does not re-run it. ⏭️ The variant that would NOT tilt is to give BOTH endpoints the
+larger of the two lifts, so the curve translates — ⛔ a further invention with no engine behind it,
+and his to ask for.

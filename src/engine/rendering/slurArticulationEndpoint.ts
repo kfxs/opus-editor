@@ -107,3 +107,26 @@ export function endpointLiftOverMark(
   //   same trick `./slurObstacles` uses for its deficit.
   return Math.max(baseLift, (markEdge - anchorY) * direction + gap)
 }
+
+/**
+ * ⏭️ **TRIED AND REVERTED, 2026-09-14 — the endpoint clearing its own ACCIDENTAL.**
+ *
+ * His last accidental (a G♯ just left of the final notehead) sits inside the slur's span, under the
+ * curve, and inside the edge band the obstacle solver discounts — so nothing clears it and the arc
+ * passed 0.05 sp from its ink. The obvious extension is for the endpoint to clear it the way it
+ * clears a staccato, with an x test so the START note's accidental (which sits BEFORE the first
+ * head, under nothing) is left alone.
+ *
+ * 🚨 **Measured, it trades one tight spot for another and skews the arch**, because only ONE end has
+ * an accidental inside the span, so only one end rises:
+ *
+ * | | point rule only | + this | his hand-tuned |
+ * |---|---|---|---|
+ * | the D♯ near the start | −0.08 sp | **−0.22** | −0.05 |
+ * | the G♯ at the end | −0.05 | **+0.66** | +0.32 |
+ * | **shape ratio** | **2.04** | **2.95** | **2.04** |
+ *
+ * ⛔ Reverted on his standing rule — *"they should not change the slur angle"*. ⏭️ If it is wanted
+ * again, the variant that does NOT tilt is to give BOTH endpoints the larger of the two lifts, so
+ * the curve translates; that is a further invention with no engine behind it and would need his eye.
+ */
