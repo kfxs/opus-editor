@@ -257,6 +257,13 @@ limitation: it only works for things with a computable geometric anchor (a note 
 pitch → a staff line). A rest has no pitch; a clef is a free glyph. **Notes keep this;
 nothing in this plan touches them.**
 
+> ⭐ **2026-09-14 — note ENTRY now measures from the head too.** The union box still stands
+> for notes, but its readers are moving off it one at a time (`docs/own-engraving-engine.md`
+> §5 P6b): `ElementRegistry.headCentreX` (`headX`, else the box centre) now drives
+> `findNotesLeftRight`, `findNearestNoteOrRest` and `MusicEngine.pixelToPosition`, so a
+> left-hanging accidental no longer pulls a click toward the wrong side of its note. The box's
+> EDGES are still read by `resolveSlotBeat`, `measuredRoom` and `getInRect`.
+
 ### 4b. Dynamics — *ink* box at registration (rebuild the stored box)
 Dynamics **register a tight box** by reading the rendered SVG. `registerDynamics`
 (`DynamicsLayout.ts`) takes the annotation's `<text>` element, uses its `getBBox()` for

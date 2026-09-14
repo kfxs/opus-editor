@@ -46,6 +46,7 @@ import type { KeySignature, Score, Note, NoteParams, Fraction, PixelCoordinates,
 import { dynamicLabel } from '@/utils/dynamics'
 import { tempoLabel } from '@/utils/tempoMap'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
+import { headCentreX } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import type { TrillAuxiliary } from '@/utils/trillPitch'
 import type { TrillSpan } from '@/engine/models/trillOps'
@@ -6059,7 +6060,9 @@ export class MusicEngine {
     let beat: number
     const nearestElement = registry.findNearestNoteOrRest(coords.x, measureNumber, staff)
     if (nearestElement && nearestElement.beat !== undefined
-      && Math.abs(coords.x - (nearestElement.bbox.x + nearestElement.bbox.width / 2)) < nearestElement.bbox.width * 1.5) {
+      // ⚠️ Measured from the HEAD, the same point `findNearestNoteOrRest` chose it by — ⛔ a box centre
+      // here would disagree with the lookup whenever the note carries an accidental.
+      && Math.abs(coords.x - headCentreX(nearestElement)) < nearestElement.bbox.width * 1.5) {
       // Right on top of a note: take its beat verbatim, unrounded — this is the one path that can
       // return an exact triplet beat.
       beat = nearestElement.beat

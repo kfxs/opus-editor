@@ -1571,6 +1571,40 @@ what make each child findable.
 ⚠️ **Check first**: whether anything asks a note for its box BEFORE it is drawn. VexFlow's is
 meaningless then too, but it answers a rectangle rather than null — so a caller may be leaning on the
 number without knowing it. ⛔ Ours must not learn to guess in order to match that.
+✅ **Checked 2026-09-14 — nothing does.** The registry files a note in `registerSlotElements`, after
+`voice.draw`; the slur's `noteInkBox` runs in the slur pass; a fan member registers right after its
+head draws; `layout/`, `models/` and the registry ask no note for a box.
+
+##### ⭐⭐ …and HIS QUESTION turned it from ONE SWAP into ONE READER AT A TIME (2026-09-14)
+
+🚨 **A note's registry box is not a note's ink.** `StaveNote.getBoundingBox()` unions the heads, the
+stem tip, the flag **and every modifier** — accidentals, dots, articulations, the dynamic, a tremolo —
+and the readers lean on its EDGES, not its presence:
+
+| reader | reads the box's… | what it actually means |
+|---|---|---|
+| clicking a note (`hitsNoteOrRestBody`) | ⛔ nothing — pitch + `headX` | already right (`tight-bbox-plan.md` §4a) |
+| note entry (`findNotesLeftRight`, `findNearestNoteOrRest`, `pixelToPosition`) | centre | **where the head stands** ✅ |
+| a beat-anchored mark (`MouseController.resolveSlotBeat`) | left edge — the ACCIDENTALS | where the column starts |
+| the bar-width drag (`measuredRoom`, bar-end room) | right edge — the DOTS | where the last ink ends |
+| Shift-box select (`getInRect`) | the whole rectangle | does the box touch any of the note's parts |
+| a slur's obstacles | `noteInkBox`, its own union | the note's ink minus the dynamic |
+
+⇒ swapping in a box of ours with fewer parts in it would have moved the bar-width floor and note
+entry, and a box with ALL the parts falls back to VexFlow's wherever a part is not ours yet (a
+tremolo). ⭐ His question — *"why we need a rectangle per note?"* — has a plain answer: **we don't;
+`ElementInfo` requires a `bbox` of every kind, so a note got VexFlow's.** So each reader is moved to
+the question it means, and when none is left the note's rectangle can shrink to its head.
+⛔ *"One union swap"* is not the plan any more.
+
+✅ **Reader 1 — note entry.** `ElementRegistry.headCentreX(el)` = `headX ?? box centre`: the
+left/right choice (`NoteEntryCoordinator.resolveClickToBeat`), the nearest column
+(`findNearestNoteOrRest`) and `MusicEngine.pixelToPosition`'s *"right on top of it"* check — which has
+to agree with the lookup it follows. A rest carries no `headX`, so it answers what it did. ⚠️ Also
+switched, for consistency: `findClosestNote` and `findNotesNearX`, which **nothing calls**.
+Spec `ElementRegistry.noteEntry.test.ts`, every case built so the box centre gives the other answer.
+⏭️ Next readers: `resolveSlotBeat` · `measuredRoom`'s bar-end room · `getInRect` · the slur's
+`noteInkBox`.
 
 ⏭️ **Then** the DOT and the ARTICULATION — both already open a named group with an id, and the
 articulation's is the one whose VexFlow box goes NaN in jsdom, so it should follow its own taste call

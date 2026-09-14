@@ -577,6 +577,19 @@ export interface ElementInfo {
 }
 
 /**
+ * ⭐ **WHERE A NOTE OR REST STANDS, for anything that asks "how far is this click from it?"** — the
+ * head's own centre ({@link ElementInfo.headX}) when the entry has one, the box's centre otherwise.
+ *
+ * ⚠️ A note's `bbox` is VexFlow's union of every modifier, so a sharp hanging left drags its centre
+ * off the head the user is looking at. A rest's box is its own glyph and it carries no `headX`, so a
+ * rest answers exactly what it did before. ⭐ First reader moved off the note's union rectangle
+ * (`docs/own-engraving-engine.md` §5 P6) — the note-entry lookups, 2026-09-14.
+ */
+export function headCentreX(element: ElementInfo): number {
+  return element.headX ?? element.bbox.x + element.bbox.width / 2
+}
+
+/**
  * Translate one registered element by (dx, dy) — P5.4b, a measure that **moved** rather than
  * changed (docs/render-performance-plan.md §7a).
  *
@@ -1565,8 +1578,7 @@ export class ElementRegistry {
     let minDistance = Infinity
 
     for (const el of notesAndRests) {
-      const centerX = el.bbox.x + el.bbox.width / 2
-      const distance = Math.abs(x - centerX)
+      const distance = Math.abs(x - headCentreX(el))
       if (distance < minDistance) {
         minDistance = distance
         nearest = el
@@ -1659,7 +1671,7 @@ export class ElementRegistry {
     let minDistance = Infinity
 
     for (const note of notes) {
-      const centerX = note.bbox.x + note.bbox.width / 2
+      const centerX = headCentreX(note)
       const xDist = Math.abs(x - centerX)
 
       // Only consider notes within X tolerance
@@ -1669,7 +1681,7 @@ export class ElementRegistry {
         let noteY: number
         if (note.pitch !== undefined) {
           // Calculate actual Y position from pitch using staff geometry (clef region at the note's X)
-          const pitchY = this.pitchToPixelY(note.pitch, measure, note.bbox.x + note.bbox.width / 2, note.staff)
+          const pitchY = this.pitchToPixelY(note.pitch, measure, centerX, note.staff)
           noteY = pitchY !== null ? pitchY : note.bbox.y + note.bbox.height / 2
         } else {
           noteY = note.bbox.y + note.bbox.height / 2
@@ -1890,7 +1902,7 @@ export class ElementRegistry {
     return notesAndRests
       .map(el => ({
         el,
-        distance: Math.abs(x - (el.bbox.x + el.bbox.width / 2))
+        distance: Math.abs(x - headCentreX(el))
       }))
       .filter(({ distance }) => distance <= tolerance)
       .sort((a, b) => a.distance - b.distance)
@@ -1924,8 +1936,7 @@ export class ElementRegistry {
     let rightDistance = Infinity
 
     for (const el of notesAndRests) {
-      const centerX = el.bbox.x + el.bbox.width / 2
-      const distance = centerX - x  // Positive = right, negative = left
+      const distance = headCentreX(el) - x  // Positive = right, negative = left
 
       if (distance <= 0) {
         // Element is to the left (or at click position)
