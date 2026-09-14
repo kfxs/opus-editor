@@ -6,6 +6,7 @@ import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesD
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
+import { armedStandoffPx, placeAccidentals } from './accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
@@ -69,6 +70,8 @@ import { slurShapeGeneration } from './slurShapeExperiment'
 import { beamSlopeGeneration } from './beamSlopeExperiment'
 import { spacingGeneration } from '@/engine/layout/spacing'
 import { headerGapGeneration } from '@/engine/layout/headerAccidentalLadder'
+import { dotGapGeneration } from '@/engine/layout/dotGap'
+import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
 import { clefMeterGapGeneration } from '@/engine/layout/clefMeterGap'
 import { barlineMeterGapGeneration } from '@/engine/layout/barlineMeterGap'
 import { attachDynamicsToSlots, layoutCoLocatedDynamics, applyDynamicOffsets, registerDynamics, applyMixedDynamicRuns } from './DynamicsLayout'
@@ -748,6 +751,12 @@ export class VexFlowRenderer {
       //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
       clefMeterGapGeneration(),
       barlineMeterGapGeneration(),
+      // 🚨 And the armed DOT-GAP row (2026-09-14) — also a WIDTH: the gap is bought per dot, so a
+      //    dotted bar is wider or narrower for it and the casting-off has to be redone.
+      dotGapGeneration(),
+      // 🚨 …and the armed ACCIDENTAL gap, for the same reason: `accidentalExtent` prices the room
+      //    from it, so a bar carrying an accidental is wider or narrower for the armed row.
+      accidentalGapGeneration(),
       [...this.linearStaffSpacing.entries()].sort((a, b) => a[0].localeCompare(b[0])),
       this.suppressedDynamicId,
       this.suppressedTempoId,
@@ -2206,7 +2215,12 @@ export class VexFlowRenderer {
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
         // pass on purpose — reserving the room would make bar width depend on the clef, which this
         // editor measured its way out of (`ledgerAccidentalClearance` states the three measurements).
-        clearLedgersForAccidentals(staveNotes)
+        // ⭐ First, the armed accidental GAP (`layout/accidentalGap`, `__accidentals.gap(…)`): the
+        // whole column steps out or in by the difference from VexFlow's standoff. ⚠️ BEFORE the
+        // ledger pass, which is then told where the sign actually stands — ⛔ otherwise a wide row
+        // buys the ledger clearance twice.
+        placeAccidentals(staveNotes)
+        clearLedgersForAccidentals(staveNotes, armedStandoffPx())
         // …and an augmentation dot stands half a staff space off its notehead, not the 2px VexFlow
         // leaves it. Same window, same reason: the ink moves here, the room was bought in the builder.
         placeDots(staveNotes)

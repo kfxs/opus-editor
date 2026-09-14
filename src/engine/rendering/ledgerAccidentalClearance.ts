@@ -139,10 +139,15 @@ export function accidentalMeetsLedger(accidentalLine: number, headLines: number[
  *
  * ⚠️ It must stay OUT of `NoteBuilder`: that builder is the width path too (see the header).
  *
+ * ⚠️ **`standoffPx` is where the sign ACTUALLY stands**, which since 2026-09-14 is not always
+ * VexFlow's: `rendering/accidentalPlacement` runs first and may have moved the whole column to the
+ * armed gap (`layout/accidentalGap`). ⛔ Reading the constant here would buy the clearance twice on
+ * any row but `house`. The default keeps every existing caller and spec honest.
+ *
  * Every sign of an affected note moves by the SAME amount — they are a column, and a per-sign shift
  * would rake it.
  */
-export function clearLedgersForAccidentals(notes: StaveNote[]): void {
+export function clearLedgersForAccidentals(notes: StaveNote[], standoffPx = VEXFLOW_ACCIDENTAL_STANDOFF): void {
   for (const note of notes) {
     if (note.isRest()) continue
     const accidentals = note.getModifiers().filter((m): m is Accidental => m instanceof Accidental)
@@ -153,7 +158,7 @@ export function clearLedgersForAccidentals(notes: StaveNote[]): void {
       props[acc.checkIndex()]?.line ?? 0,
       headLines,
       LEDGER_OVERHANG_BESIDE_ACCIDENTAL,
-      VEXFLOW_ACCIDENTAL_STANDOFF,
+      standoffPx,
     )))
     if (shift <= 0) continue
     // The line gives up a third of its overhang…

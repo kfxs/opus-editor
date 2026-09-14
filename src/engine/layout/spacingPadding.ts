@@ -40,6 +40,7 @@
 import type { NoteDuration } from '@/types/music'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { restStaffLine } from './restPlacement'
+import { armedAccidentalGap } from './accidentalGap'
 
 /**
  * What sits at one edge of a gap. Not "what the event IS" — what its ink at that edge IS, which is
@@ -99,7 +100,14 @@ export const INK = {
   dotStep: 0.9,
   /** The dot glyph's own width. */
   dotWidth: 0.4,
-  /** The gap VexFlow leaves between the nearest accidental column and the notehead. */
+  /**
+   * The extra separation the measured total showed between the nearest accidental column and the
+   * notehead — ⚠️ **⛔ NOT the white gap the page draws.** That gap is **0.30 sp** and it is already
+   * inside `ACCIDENTAL_WIDTH`, which came out of the same measurement (a sharp's column is 1.30
+   * against the glyph's own ≈0.99 of ink). ⚠️ Worth saying because the two were confused once, on
+   * 2026-09-14: *"0.1 against 0.3"* looked like a two-sources mismatch and is two different
+   * quantities. ⭐ What the armed row moves is the gap INSIDE the column — see {@link accidentalExtent}.
+   */
   accidentalToHead: 0.1,
   /**
    * ⭐ **How far a FLAG reaches past its notehead's right edge** — 1.0 staff space, measured: an
@@ -256,6 +264,11 @@ export const STEM_REACH = 3.5
  * is this width plus {@link INK.accidentalToHead}. Two sharps measured 2.70 and three 4.00 — one
  * more column each, exactly 1.30 apart.
  */
+/** VexFlow's own accidental→notehead white, in staff spaces — the number baked into the measured
+ *  {@link ACCIDENTAL_WIDTH}s above, and the `house` row of `layout/accidentalGap`. ⛔ Restated here
+ *  rather than imported from `rendering/`: `layout/` may not reach into the renderer. */
+const VEXFLOW_ACCIDENTAL_GAP = 0.3
+
 const ACCIDENTAL_WIDTH: Record<string, number> = {
   '#': 1.3,
   'b': 1.2,
@@ -326,7 +339,14 @@ export function accidentalExtent(signs: { position: number; sign: string }[]): n
       columns.push({ lowest: position, width })
     }
   }
-  return INK.accidentalToHead + columns.reduce((total, column) => total + column.width, 0)
+  // ⭐⭐ **ONE number for the room AND the ink** — `layout/accidentalGap`, armed by
+  // `__accidentals.gap(…)`. The measured widths above already carry VexFlow's own 0.30 sp of white,
+  // so what the armed row contributes here is the DIFFERENCE, applied once: it is the gap between
+  // the nearest column and the head, ⛔ not a gap between columns.
+  // ⚠️ The armed `house` row IS VexFlow's 0.30, so this term is 0 and nothing moved when the table
+  // arrived — which is what every extent spec in this folder pins.
+  const armedDelta = armedAccidentalGap().gap - VEXFLOW_ACCIDENTAL_GAP
+  return INK.accidentalToHead + armedDelta + columns.reduce((total, column) => total + column.width, 0)
 }
 
 /** How far right of the notehead column `dots` augmentation dots reach, in staff spaces. */

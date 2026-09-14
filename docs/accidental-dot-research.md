@@ -260,6 +260,25 @@ One staff space is **10 px** (`STAFF_SPACE_PX`).
 
 ⛔ No recommendation is attached to any of these, and none of them is a task.
 
+> ✅ **2026-09-14 — D1 and D8 ARE NOW KNOBS** (his call: *"put the dot gap and the accidental gap on
+> console knobs… and settle them by eye"*). The rows of this survey are live tables:
+> **`engine/layout/accidentalGap`** (`__accidentals.gap(…)` — house 0.30 · musescore 0.25 ·
+> lilypond 0.35 · ross 0.54) and **`engine/layout/dotGap`** (`__dots.gap(…)` — eight rows, both
+> columns). ⛔ **Neither changed what is drawn**: the armed row in each is the number already on the
+> page, so the tables moved no ink and no width. ⭐ What they changed is that the ROOM and the INK now
+> read one number in each case, so no row can move one without the other.
+>
+> ⏭️ **D2 is the open one his eye asked about** — *"is the default position of accidental we are
+> doing now following gould?"*, same day. The honest answer is **half**: our 0.30 sits inside her
+> drawn range for sharps and naturals and is ≈0.1 sp too loose for FLATS, which she draws at
+> 0.19–0.23. A per-SIGN column is the shape that would answer it; nobody has asked for one yet.
+>
+> ⚠️ **And one claim in §4 was misread on the way to the knob**: the row noting `INK.accidentalToHead`
+> = 0.10 against a drawn 0.30 was taken as a two-sources mismatch. ⛔ It is not — the 0.30 of white is
+> already inside the measured `ACCIDENTAL_WIDTH` (a sharp's column is 1.30 against ≈0.99 of glyph)
+> and the 0.10 is a separate residue of the same measurement. ⭐ Eight spacing specs said so within a
+> minute of "closing" it.
+
 | # | the question | what makes it a question |
 |---|---|---|
 | **D1** | **Should the accidental's standoff from its notehead become ours, and at what number?** | Today it is VexFlow's 0.3 sp of ink, arrived at as 1 px of metric plus a 2 px literal. Gould's plate draws 0.19–0.38 sp; Ross states 1½ sp left-to-left, which is 0.54 sp of ink. Nobody has chosen between them |

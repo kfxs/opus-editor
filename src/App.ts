@@ -50,6 +50,8 @@ import { groupSignConsole } from './dev/groupSignConsole'
 import { slurShapeConsole } from './dev/slurShapeConsole'
 import { beamSlopeConsole } from './dev/beamSlopeConsole'
 import { headerGapConsole } from './dev/headerGapConsole'
+import { dotGapConsole } from './dev/dotGapConsole'
+import { accidentalGapConsole } from './dev/accidentalGapConsole'
 import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
@@ -922,6 +924,14 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // ACCIDENTAL. ✅ Default = MuseScore's 1.5 floor, HIS CHOICE after comparing all four rows on his
     // own music (src/dev/headerGapConsole.ts).
     w.__header = headerGapConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-14) — the AUGMENTATION DOT's two gaps, off the back of the survey
+    // that found no shared law: Gould's plate draws them unequal, Ross's equal, and the four engines
+    // split four ways (src/engine/layout/dotGap.ts). Armed row = what his 2026-08 report put on the
+    // page, so building the table moved nothing.
+    w.__dots = dotGapConsole(() => renderer.renderScore())
+    // ⚠️ EXPERIMENT, HIS (2026-09-14) — the ACCIDENTAL's gap, and the step that CLOSED the 0.10-vs-
+    // 0.30 mismatch between what the model reserved and what the page drew (engine/layout/accidentalGap).
+    w.__accidentals = accidentalGapConsole(() => renderer.renderScore())
     // ⏱ 2026-08-30 — **THE LOG ITSELF IS A COST, and it has to be switchable to be measured.**
     //   His report: a held arrow key *"freezes somehow"*, *"sometime ok sometime not"*. The console
     //   is charged per character AND per line, and DevTools charges more as its buffer fills — so a
@@ -942,6 +952,8 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     dbg("[beams] slope experiment: __beams.rule('vexflow'|'musescore'|'interval'|'lilypond'|'verovio') / .dump() / .reset()")
     dbg("[header] accidental gap: __header.rule('musescore'|'gouldDrawn'|'gould'|'lilypond'|'none') / .dump() / .reset()")
     dbg("[header] CLEF→METER gap: __header.clefMeter('stone'|'books'|'rossCompass'|'lilypond') / .dumpClefMeter() / .resetClefMeter()")
+    dbg("[accidentals] accidental→notehead gap: __accidentals.gap('house'|'musescore'|'lilypond'|'ross') / .dump() / .reset()")
+    dbg("[dots] augmentation-dot gaps: __dots.gap('house'|'gould'|'gouldDrawn'|'ross'|'lilypond'|'musescore'|'verovio'|'vexflow') / .dump() / .reset() — ⚠️ look at a DOUBLE dot")
     dbg("[spacing] law experiment: __spacing.law('lilypond'|'gould'|'musescore'|'verovio'|'finale'|'dorico'|'even'|'proportional') / .dump() / .reset()")
   }
 

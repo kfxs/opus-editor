@@ -117,6 +117,9 @@ src/
                           #   never a constant elsewhere) + kerning (⭐ two inks only clash where
                           #   they share a vertical BAND — the located ink boxes and what may
                           #   tuck under what) + measureColumns (a measure → its COLUMNS)
+                          #   + dotGap / accidentalGap (⭐ the two gaps the 2026-09-14 survey found
+                          #   NO shared law for — sourced ROWS, armed by `__dots` / `__accidentals`;
+                          #   ⭐ ONE number feeds the ROOM and the INK in each)
                           #   + barWidthRoom (the gesture's closed form) + measuredRoom (what
                           #   the ElementRegistry says a column/bar can still give up)
                           #   + barlineSign (⭐ WHAT SIGN a boundary carries and what it is

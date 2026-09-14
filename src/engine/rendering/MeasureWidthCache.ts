@@ -1,3 +1,5 @@
+import { dotGapGeneration } from '@/engine/layout/dotGap'
+import { accidentalGapGeneration } from '@/engine/layout/accidentalGap'
 import { renderProbe } from '@/engine/RenderProbe' // TEMPORARY — the §9 layout-breakdown probes
 import type { Measure } from '@/types/music'
 import { spacingGeneration } from '@/engine/layout/spacing'
@@ -135,6 +137,12 @@ export function laneFingerprint(lane: Measure): string {
       //    wider, so it must invalidate memoised widths AND re-cast the score (`layout/clefMeterGap`).
       clefMeterGapGeneration(),
       barlineMeterGapGeneration(),
+      // 🚨 …and the armed DOT-GAP row (2026-09-14): the gap is bought as a `setWidth` on every dot
+      //    (`rendering/dotPlacement.reserveDotRoom`), so a wider one makes a dotted bar WIDER.
+      //    ⛔ Out of this key, arming a row would hand back memoised widths and move nothing.
+      dotGapGeneration(),
+      // 🚨 …and the armed ACCIDENTAL gap: `accidentalExtent` prices a sign's room from it.
+      accidentalGapGeneration(),
       lane.slots,
       lane.clefs ?? null,
       // ⚠️ The key signature is here for what it does to the NOTES, not for the room it takes: it

@@ -18,10 +18,12 @@
  * and the only notes that escape it are the stem-up flagged ones the dot has to clear a flag on —
  * which is why those were the ones that looked right to him.
  *
- * ## The rule
+ * ## The rule — ⭐⭐ **A TABLE SINCE 2026-09-14**, and the armed row is his
  *
  * ⭐ **Half a staff space, edge to edge — and the same gap twice.** One number settles both, and at
- * 10px per space it is **5px**.
+ * 10px per space it is **5px**. ⭐ That is the `house` row of **`engine/layout/dotGap`**, armed by
+ * `__dots.gap(…)`; the eight sourced alternatives are there, and this file no longer holds a
+ * constant at all. ⛔ Building the table moved no ink.
  *
  * 🚨 **THE CITATION WAS WRONG, corrected 2026-09-14 by `docs/accidental-dot-research.md`.** This
  * paragraph used to credit Gould with the half space *between the dots*. She does not say it: her
@@ -59,32 +61,52 @@
  */
 import { Dot, Stem, StaveNote } from 'vexflow'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
-
-/** Half a space, as a fraction of one — the gap after the notehead AND between two dots.
- *  ⚠️ ⛔ **Not "Gould's"** — see the misattribution corrected in this file's header: hers is the
- *  notehead→dot gap alone (p. 54); the dot→dot half space is Ross p. 171. */
-export const DOT_GAP_SPACES = 0.5
+import { armedDotGap } from '@/engine/layout/dotGap'
 
 /**
- * …in pixels. Pinned to the score's staff space rather than read per stave, so the room reserved on
- * the width path (which has no stave) and the ink placed on the draw path can never disagree.
+ * ⭐⭐ **THE TWO GAPS ARE A TABLE NOW** — `engine/layout/dotGap`, armed by `__dots.gap(…)`
+ * (2026-09-14). ⛔ The armed default is what this file already drew, so the table moved no ink.
  *
- * ⭐ A staff can now BE drawn small, and this needed no change: the ink is drawn inside that
- * staff's own `<g transform="scale(k)">`, so it shrinks with everything else. ⛔ Multiplying it by
- * the staff's size here would scale it twice (docs/staff-size-plan.md §1).
+ * ⚠️ **Read through a function, ⛔ never captured in a module constant.** A `const` computed at
+ * import time would freeze whichever row was armed when the module first loaded, and the console
+ * would then report a change the drawing had never seen — the same trap the spacing law and the
+ * header ladder each carry a warning about.
  */
-export const DOT_GAP_PX = DOT_GAP_SPACES * STAFF_SPACE_PX
+function dotGapSpaces(): number {
+  return armedDotGap().head
+}
+
+/** …in pixels. Pinned to the score's staff space rather than read per stave, so the room reserved on
+ *  the width path (which has no stave) and the ink placed on the draw path can never disagree.
+ *
+ *  ⭐ A staff can be drawn SMALL and this needs no change: the ink is drawn inside that staff's own
+ *  `<g transform="scale(k)">`, so it shrinks with everything else. ⛔ Multiplying by the staff's size
+ *  here would scale it twice (docs/staff-size-plan.md §1). */
+function dotGapPx(): number {
+  return dotGapSpaces() * STAFF_SPACE_PX
+}
+
+/** The DOT→DOT gap in pixels — ⚠️ a different number from {@link dotGapPx} in five of the eight
+ *  sourced rows, and the whole reason the table has two columns. */
+function dotToDotPx(): number {
+  return armedDotGap().dot * STAFF_SPACE_PX
+}
 
 /** `Dot.format`'s own dot-to-dot gap — a literal `dotSpacing = 1` in VexFlow. */
 export const VEXFLOW_DOT_SPACING = 1
 
 /**
- * The extra width each dot reserves: what the half-space gap asks for beyond the 1px VexFlow
+ * The extra width each dot reserves: what the **DOT→DOT** gap asks for beyond the 1px VexFlow
  * already leaves. It is spent twice over, which is the point — `Dot.format` steps the next dot along
- * by `width + dotSpacing` (so two dots end up half a space apart) and adds the total to the note's
+ * by `width + dotSpacing` (so two dots end up the armed gap apart) and adds the total to the note's
  * `rightShift` (so the formatter buys the room the first dot's own shift will need).
+ *
+ * ⭐ It reads the `dot` column and {@link dotShift} reads the `head` one — which used to be the same
+ * number and is not in five of the eight rows (`layout/dotGap`).
  */
-export const DOT_RESERVATION_PX = Math.max(0, DOT_GAP_PX - VEXFLOW_DOT_SPACING)
+export function dotReservationPx(): number {
+  return Math.max(0, dotToDotPx() - VEXFLOW_DOT_SPACING)
+}
 
 /**
  * Buy the room, in the builder. ⚠️ Call it AFTER the dots are attached — a modifier attached to a
@@ -92,7 +114,8 @@ export const DOT_RESERVATION_PX = Math.max(0, DOT_GAP_PX - VEXFLOW_DOT_SPACING)
  * trap `ledgerAccidentalClearance` documents for accidentals).
  */
 export function reserveDotRoom(note: StaveNote): void {
-  for (const dot of Dot.getDots(note)) dot.setWidth(dot.getWidth() + DOT_RESERVATION_PX)
+  const extra = dotReservationPx()
+  for (const dot of Dot.getDots(note)) dot.setWidth(dot.getWidth() + extra)
 }
 
 /**
@@ -115,7 +138,7 @@ export const VEXFLOW_DOT_BASE_GAP = 2
  * than a fault — and pulling it in would move ink he did not report.
  */
 export function dotShift(clearsFlag: boolean): number {
-  return clearsFlag ? 0 : Math.max(0, DOT_GAP_PX - VEXFLOW_DOT_BASE_GAP)
+  return clearsFlag ? 0 : Math.max(0, dotGapPx() - VEXFLOW_DOT_BASE_GAP)
 }
 
 /**
