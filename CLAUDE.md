@@ -137,14 +137,18 @@ src/
                           #   ⛔ never the dots. docs/barline-join-plan.md)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
-    scene/                # ⭐⭐ WHAT WAS DRAWN, as VALUES — `Scene` + `SceneRecorder`, a
+    scene/                # ⭐⭐ WHAT WAS DRAWN, as VALUES — `Scene` + `SceneRecorder` + `sceneBox`
+                          #   (⭐ THE RULER: a box COMPUTED from the drawing, ⛔ never measured off
+                          #   the page nor asked of a VexFlow object — P6a; it answers NULL rather
+                          #   than guess at a glyph we have not measured), a
                           #   `DrawContext` that records instead of painting. ⛔ no DOM, ⛔ no
                           #   vexflow, ⛔ no models. `VexFlowRenderer.recordScene(fn)` tees it onto
                           #   the real painter ⇒ ⭐ GEOMETRY IS A UNIT TEST. ⚠️ It sees OUR
                           #   primitives only; what VexFlow paints itself is the work LEFT.
                           #   docs/own-engraving-engine.md §7.2, P1d
-    paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (19
-                          #   primitives) + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
+    paint/                # ⭐⭐ THE SURFACE WE DRAW ON, declared by US — `DrawContext` (20
+                          #   primitives; the 20th is `bezierCurveTo`, U1's curve)
+                          #   + `DrawGroup` (placement/inkBox/discard/tag/tagLast)
                           #   + `Affine` (⭐ a PLACEMENT is a matrix, ⛔ never an x/y).
                           #   ⛔ no DOM, ⛔ no vexflow, ⛔ no models. A pass takes
                           #   `RenderPass.context`; `RenderPass.vexContext` and `svgNode()` are

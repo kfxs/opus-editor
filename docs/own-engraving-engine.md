@@ -1380,7 +1380,63 @@ scene's coverage are the same number.
 ⚠️ **Two things to settle when it starts, ⛔ not now:** whether `ElementRegistry` keeps STORING boxes
 or starts QUERYING the scene (storing is a cache; a cache of a derived value is a staleness bug
 waiting), and whether an ink extent stays in pixels or becomes staff spaces like the rest of
-`fonts/`.
+`fonts/`. ⭐ **P6a did not need either answer** — it computes and proves, and changes no consumer —
+so both are still open at P6b.
+
+#### ✅ P6a — THE BOX ITSELF (2026-09-14): computed, and checked against the page
+
+⭐ **`engine/scene/sceneBox`** — a rect from itself; a path from the EXACT bounds of its ops (⭐ a
+cubic's true extrema, ⛔ not its control hull, which would reserve room the ink never reaches); a
+glyph from Bravura's own outline; a group as the union of its children, **with the caller choosing
+which children count**. ⛔ Nothing is wired in: `ElementRegistry` still stores VexFlow's boxes.
+
+⭐⭐ **It never guesses.** A `text` whose codepoint is not one of our 71 measured glyphs has NO box,
+and a union containing one answers **null** rather than a rectangle that is silently too small —
+`sceneInkBoxDetail` is the same walk with its workings shown, so a caller can ask *what* stopped it.
+*A guessing fallback gets believed*, and a box is the most believable guess of all.
+
+**Two seams it needed, and both were boundary questions rather than plumbing:**
+
+1. **`GLYPH_CODEPOINTS`** — the generator already knew each glyph's codepoint from SMuFL's own
+   `glyphnames.json` and threw it away. A scene records the CHARACTER that was drawn, so the box
+   needs the way back; `fonts/glyphNameOf()` is that inversion and answers null off the table.
+   ⛔ Read, ⛔ never transcribed — 96 insertions to the generated file and **no measured number moved**.
+2. **The pt→px dialect is a PARAMETER** (`SpacePxReader`). A bare `30` handed to `setFont` means
+   POINTS — a fact about **VexFlow**, not about the drawing. `scene/` may not know it, and ⛔ nor may
+   `fonts/`, which *"must not know who draws with it"*. ⇒ `rendering/sceneInk` speaks that dialect
+   and hands it in. ⭐ P3b's flag reach again: **the unit is a named argument.**
+
+##### 🚨 What checking it against a browser FOUND — three, and none of them arithmetic
+
+⛔ *"Our box equals `getBBox()`"* is false in three different ways, and each is worth owning
+(`e2e/sceneBox.e2e.ts` asserts all three):
+
+| family | the page | ours | ⇒ |
+|---|---|---|---|
+| a barline (filled rect) | **2 px** wide | **1.6 px** | ⚠️ the PIXEL HINT — `barlineInk.hintBarlines` snaps the rect onto the device grid AFTER it is drawn. Both true, of different moments |
+| a stem / a tie (stroked path) | the GEOMETRY — **0 px wide** for a stem | geometry **+ the pen** | ⭐ a ruler that agreed with the page would report a stem as having no width |
+| a notehead (`<text>`) | the FONT'S LINE BOX, >3× the glyph | the glyph's outline | ⚠️ the instrument, not us — and the reason a hit box built from it was never the ink |
+
+🚨 **And a fourth, about the scene itself: `recordScene` on an unchanged score records almost
+nothing.** A render that follows no edit REUSES its measures (P5.4) and a reused bar draws nothing —
+measured, ONE barline out of a whole page. ⇒ `VexFlowRenderer.forgetReuse()` + the
+`MusicEngine.recordFullScene()` pair, and ⭐ **anything that wants "the scene of what is on screen"
+must say so explicitly.**
+
+##### ⭐ `__bbox.ink()` — his ask, and why it is a second command
+
+> *"remember we have `__bbox.show()` in the console… in any case this should show OUR bbox and not
+> vexflow bbox"* — 2026-09-14
+
+⭐ Right as the END STATE. Today `show()` draws what `ElementRegistry` holds, which is **what a click
+actually resolves against** — so while the registry is still VexFlow-derived, that is the honest
+thing for it to draw, and `dev/inkBoxOverlay` draws OURS beside it. ⛔ One command showing the other's
+numbers would hide the very disagreement P6 exists to close. They become one picture at P6b.
+⭐ A group we could not measure is drawn **dashed and red**, labelled with the codepoint that stopped
+it: *"the ruler declined"* and *"there was nothing there"* must not look the same.
+
+⏭️ **P6b** is the switch: `ElementRegistry` fed from the scene instead of from `Element.getBoundingBox()`
+— and it is where the two open decisions above finally have to be answered.
 
 ### ⛔ Not on this list
 **Accidental column stacking** (`Accidental.format`) and **articulation placement**

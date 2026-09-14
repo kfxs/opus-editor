@@ -20,6 +20,8 @@
  * layout box (160px tall for a notehead), not its ink.
  */
 import { MusicEngine } from '@/engine/MusicEngine'
+import { walkScene } from '@/engine/scene/Scene'
+import { drawnInkBox } from '@/engine/rendering/sceneInk'
 import { musicFontReady } from '@/engine/rendering/musicFontReady'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
@@ -72,6 +74,15 @@ export interface Harness {
   engine: MusicEngine
   /** `beat` is an exact Fraction everywhere in the model — never a float. */
   frac: typeof fracCreate
+  /**
+   * ⭐⭐ **P6: OUR RULER, in the browser.** `walkScene` walks what a `recordScene` render wrote down
+   * and `drawnInkBox` computes a box from it (`engine/scene/sceneBox` + `rendering/sceneInk`), so a
+   * spec can hold our answer against the page's own `getBBox()` — which is the whole of P6a's
+   * proof. ⛔ Re-exported rather than reimplemented: a spec that computed its own box would be
+   * agreeing with itself.
+   */
+  walkScene: typeof walkScene
+  drawnInkBox: typeof drawnInkBox
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
   render(): Promise<void>
   /** Every glyph matching `selector` (default: all of them), left to right. */
@@ -266,6 +277,8 @@ const inRange = (first: number, last: number) => (glyph: Glyph): boolean => {
 const harness: Harness = {
   engine,
   frac: fracCreate,
+  walkScene,
+  drawnInkBox,
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that

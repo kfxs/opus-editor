@@ -39,6 +39,7 @@ import {
   ENGRAVING_DEFAULTS,
   GLYPH_ANCHORS,
   GLYPH_BOXES,
+  GLYPH_CODEPOINTS,
   type GlyphName,
 } from './bravuraMetrics'
 import type { NoteDuration } from '@/types/music'
@@ -83,6 +84,35 @@ export interface GlyphBox {
 export function glyphBox(name: GlyphName): GlyphBox {
   return GLYPH_BOXES[name]
 }
+
+/**
+ * ⭐⭐ **THE WAY BACK FROM A DRAWN CHARACTER TO A MEASURED GLYPH** — P6's prerequisite.
+ *
+ * A {@link GlyphBox} is keyed by SMuFL NAME, but a SCENE records what was actually stamped: the
+ * CHARACTER. So computing a text primitive's ink box needs this inversion, and it is built from the
+ * generated {@link GLYPH_CODEPOINTS} — ⛔ never from a hand-written table, which is the drift
+ * `bravuraMetrics` exists to end.
+ *
+ * ⚠️ **Returns null for a codepoint we have not measured, ⛔ never a plausible box.** We measure 71
+ * of Bravura's 3,434 glyphs; everything else — a text annotation, a tuplet numeral in a text font, a
+ * glyph a future feature adds — has no box here, and *"no answer"* is the only honest one. A caller
+ * that guessed would put a made-up rectangle into the spacing model, which is exactly the failure
+ * `reference: vexflow measures glyphs at render time` describes one layer down.
+ *
+ * @param char the drawn string. ⚠️ A SMuFL glyph is ONE code point but may be a surrogate PAIR in
+ *   JS, so this reads a code point rather than a char code — and a run of more than one glyph is not
+ *   a glyph and answers null.
+ */
+export function glyphNameOf(char: string): GlyphName | null {
+  const codepoint = char.codePointAt(0)
+  if (codepoint === undefined || String.fromCodePoint(codepoint).length !== char.length) return null
+  return CODEPOINT_TO_NAME.get(codepoint) ?? null
+}
+
+/** Built once: the generated name→codepoint map, inverted. */
+const CODEPOINT_TO_NAME = new Map<number, GlyphName>(
+  (Object.entries(GLYPH_CODEPOINTS) as [GlyphName, number][]).map(([name, cp]) => [cp, name]),
+)
 
 /**
  * A named attachment point on a glyph — `[x, y]` in staff spaces from its origin, **y UP** (the

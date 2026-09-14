@@ -169,6 +169,9 @@ const metadata = JSON.parse(read(METADATA, "Steinberg's metadata, for the anchor
 const SPACE = font.unitsPerEm / 4
 
 const boxes = {}
+/** ⭐ The codepoint each measured glyph is at — SMuFL's own answer, so a CHARACTER can be resolved
+ *  back to a measured box (P6: a scene holds the character a primitive drew, not its name). */
+const codepoints = {}
 const anchors = {}
 const missing = []
 const empty = []
@@ -203,6 +206,7 @@ for (const name of REQUESTED) {
     continue
   }
 
+  codepoints[name] = codepoint
   boxes[name] = {
     left: round(-box.x1 / SPACE),
     right: round(box.x2 / SPACE),
@@ -286,6 +290,16 @@ const boxLines = Object.entries(GLYPHS)
   })
   .join('\n')
 
+const codepointLines = Object.entries(GLYPHS)
+  .map(([group, list]) => {
+    const rows = list
+      .filter(name => codepoints[name] !== undefined)
+      .map(name => `  ${quote(name)}: ${codepoints[name]},`)
+      .join('\n')
+    return `  // ${group}\n${rows}`
+  })
+  .join('\n')
+
 const anchorLines = Object.entries(anchors)
   .map(([name, set]) => {
     const rows = Object.entries(set)
@@ -346,6 +360,19 @@ ${names.map(name => `  | ${str(name)}`).join('\n')}
 /** The ink each glyph draws, in staff spaces from its own origin. See {@link GlyphBox}. */
 export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
 ${boxLines}
+}
+
+/**
+ * ⭐⭐ **WHICH CODEPOINT EACH MEASURED GLYPH IS** — SMuFL's own \`glyphnames.json\`, read rather than
+ * transcribed, and emitted so the map can be inverted.
+ *
+ * ⚠️ **P6 is why this exists.** A SCENE records the CHARACTER a text primitive drew, ⛔ not the name
+ * it was looked up by — so computing that primitive's ink box needs the way back. \`glyphNameOf()\`
+ * in \`./fontMetrics\` is that inversion, and it answers **null** for a codepoint we have not
+ * measured, ⛔ never a plausible box.
+ */
+export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
+${codepointLines}
 }
 
 /**

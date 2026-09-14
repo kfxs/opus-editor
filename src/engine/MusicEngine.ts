@@ -14,6 +14,7 @@ import type { PedalLiftTarget, PedalSlotTarget, PedalStaffSlotTarget } from './m
 import { PEDAL_SIGN_GAP } from './rendering/pedalStyle'
 import { staveHeightPx, systemStaffTops, minSpacingAboveSpaces, spacingAbovePx, MIN_SPACING_ABOVE_AT_PAGE_TOP } from './layout/staffStride'
 import { VexFlowRenderer } from './rendering/VexFlowRenderer'
+import type { Scene } from './scene/Scene'
 import type { MarkPreviewKind } from './rendering/markPreviewPass'
 import type { ViewMode, GutterState, GutterStaffState } from './rendering/layoutConfig'
 import type { ToolGhost } from './rendering/ghostTypes'
@@ -6209,6 +6210,38 @@ export class MusicEngine {
    */
   getElementRegistry(): ElementRegistry {
     return this.renderer.getElementRegistry()
+  }
+
+  /**
+   * ⭐⭐ **RENDER, AND HAND BACK WHAT WAS DRAWN** — a one-line delegation to
+   * {@link VexFlowRenderer.recordScene}, which TEES: the page paints exactly as normal and a
+   * {@link Scene} of plain values comes back as well (`docs/own-engraving-engine.md` P1d).
+   *
+   * ⛔ **Not a feature, and nothing in the editor's own flow calls it.** It exists because the two
+   * things that need to compare *what we computed* against *what the page holds* live outside the
+   * engine — the dev ink-box overlay (`dev/inkBoxOverlay`) and the browser suite — and the renderer
+   * is private. ⭐ The facade's rule allows the one line; the logic is in those modules.
+   *
+   * @example engine.recordScene(() => engine.renderScore())
+   */
+  recordScene<T>(fn: () => T): { scene: Scene; result: T } {
+    return this.renderer.recordScene(fn)
+  }
+
+  /**
+   * ⭐ **Record the scene of the score AS IT STANDS** — the pair `recordScene` needs to be useful
+   * from outside a real edit.
+   *
+   * 🚨 A render that follows no change REUSES its measures, and a reused bar draws nothing — so
+   * `recordScene(() => renderScore())` on an unchanged score hands back a nearly EMPTY scene
+   * (measured: one barline out of a page). {@link VexFlowRenderer.forgetReuse} is the lever, and
+   * this is the two calls in the right order so no caller has to know that.
+   *
+   * ⚠️ Costs a full redraw. ⛔ For instruments and specs, never the editor's own flow.
+   */
+  recordFullScene(): Scene {
+    this.renderer.forgetReuse()
+    return this.renderer.recordScene(() => this.renderScore()).scene
   }
 
   /**

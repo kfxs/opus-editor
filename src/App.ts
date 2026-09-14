@@ -54,6 +54,7 @@ import { spacingConsole } from './dev/spacingConsole'
 import { dumpSpacingCensus, spacingBars } from './dev/spacingCensus' // P0 instrument — temporary
 import { dumpBarlineCensus, barlineBoxes } from './dev/barlineCensus' // barline census — temporary
 import { setRenderProbe } from './engine/RenderProbe'
+import { createInkBoxOverlay } from './dev/inkBoxOverlay'
 import { mountDevToolbar } from './dev/devToolbar'
 import { mountLiveBoundaryMark } from './dev/liveBoundaryMark'
 import { mountScoreJsonPanel } from './dev/scoreJsonPanel'
@@ -824,6 +825,7 @@ export function createEditorApp(host: HTMLElement): EditorApp {
     // docs/tight-bbox-plan.md §7 (it made the fat rest-carrying-a-dynamic box visible) and kept as a
     // general debugging aid. __bbox.show() draws all (labelled `type W×H`); __bbox.show('rest')
     // filters to one type; __bbox.hide() clears.
+    const inkBoxOverlay = createInkBoxOverlay(() => engine)
     w.__bbox = {
       show: (only?: string) => {
         if (!engine) return
@@ -859,8 +861,14 @@ export function createEditorApp(host: HTMLElement): EditorApp {
         svg.appendChild(overlay)
         console.log(`[bbox] drew ${n} hit-box(es)${only ? ` type=${only}` : ''}. Rest boxes are red. __bbox.hide() to clear.`)
       },
+      // ⭐⭐ P6: the SAME picture, drawn from OUR ruler — `dev/inkBoxOverlay`. His ask, 2026-09-14:
+      // *"this should show our bbox and not vexflow bbox"*. It is two commands rather than one
+      // while the registry still stores VexFlow's, because the disagreement between them IS the
+      // migration's remaining work, and a visualiser that hid it would be worse than useless.
+      ink: (only?: string) => inkBoxOverlay.ink(only),
       hide: () => {
         document.querySelector('#bbox-overlay')?.remove()
+        inkBoxOverlay.hide()
         console.log('[bbox] overlay cleared')
       },
     }

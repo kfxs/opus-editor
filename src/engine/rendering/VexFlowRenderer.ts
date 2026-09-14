@@ -4579,6 +4579,26 @@ export class VexFlowRenderer {
     this.layoutReusable = reusable
   }
 
+  /**
+   * ⭐ **Make the NEXT render draw every bar again**, by forgetting what the last one drew.
+   *
+   * 🚨 **Why it had to exist (P6a, 2026-09-14).** A render that follows no model change REUSES its
+   * measures — `snapshots` replays each bar's group instead of drawing it — which is the whole point
+   * of P5.4 and is invisible almost everywhere. But a `recordScene` render records only what is
+   * actually DRAWN, so re-rendering an unchanged score hands back a nearly EMPTY scene: measured,
+   * one `stavebarline` out of a whole page. ⇒ anything that wants *"the scene of what is on screen
+   * right now"* — the dev ink-box overlay, a browser spec — must first say this.
+   *
+   * ⛔ **Not `clear()`**, which also tears down the SVG and `measureLayoutInfo` and leaves the next
+   * render with *"No width info for measure 1"*. This forgets the REUSE, and nothing else.
+   *
+   * ⚠️ It costs a full redraw, so it is for instruments and specs — ⛔ never the editor's own flow.
+   */
+  forgetReuse(): void {
+    this.snapshots = new Map()
+    this.layoutReusable = false
+  }
+
   /** Is this measure inside the window this render is painting? Tier 1 runs for it either way. */
   private inCullWindow(p: Omit<MeasurePlacement, 'stave'>, staveHeight: number): boolean {
     const w = this.cullWindow

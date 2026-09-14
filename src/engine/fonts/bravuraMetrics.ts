@@ -204,6 +204,102 @@ export const GLYPH_BOXES: Record<GlyphName, GlyphBox> = {
 }
 
 /**
+ * ⭐⭐ **WHICH CODEPOINT EACH MEASURED GLYPH IS** — SMuFL's own `glyphnames.json`, read rather than
+ * transcribed, and emitted so the map can be inverted.
+ *
+ * ⚠️ **P6 is why this exists.** A SCENE records the CHARACTER a text primitive drew, ⛔ not the name
+ * it was looked up by — so computing that primitive's ink box needs the way back. `glyphNameOf()`
+ * in `./fontMetrics` is that inversion, and it answers **null** for a codepoint we have not
+ * measured, ⛔ never a plausible box.
+ */
+export const GLYPH_CODEPOINTS: Record<GlyphName, number> = {
+  // noteheads
+  noteheadDoubleWhole: 57504,
+  noteheadWhole: 57506,
+  noteheadHalf: 57507,
+  noteheadBlack: 57508,
+  // rests
+  restWhole: 58595,
+  restHalf: 58596,
+  restQuarter: 58597,
+  rest8th: 58598,
+  rest16th: 58599,
+  rest32nd: 58600,
+  // accidentals
+  accidentalSharp: 57954,
+  accidentalFlat: 57952,
+  accidentalNatural: 57953,
+  accidentalDoubleSharp: 57955,
+  accidentalDoubleFlat: 57956,
+  // flags
+  flag8thUp: 57920,
+  flag8thDown: 57921,
+  flag16thUp: 57922,
+  flag16thDown: 57923,
+  flag32ndUp: 57924,
+  flag32ndDown: 57925,
+  // dots
+  augmentationDot: 57831,
+  repeatDot: 57412,
+  // barlineWings
+  bracketTop: 57347,
+  bracketBottom: 57348,
+  reversedBracketTop: 57349,
+  reversedBracketBottom: 57350,
+  // clefs
+  gClef: 57424,
+  fClef: 57442,
+  cClef: 57436,
+  // timeSignatures
+  timeSig0: 57472,
+  timeSig1: 57473,
+  timeSig2: 57474,
+  timeSig3: 57475,
+  timeSig4: 57476,
+  timeSig5: 57477,
+  timeSig6: 57478,
+  timeSig7: 57479,
+  timeSig8: 57480,
+  timeSig9: 57481,
+  // dynamics
+  dynamicPiano: 58656,
+  dynamicMezzo: 58657,
+  dynamicForte: 58658,
+  dynamicRinforzando: 58659,
+  dynamicSforzando: 58660,
+  dynamicZ: 58661,
+  dynamicNiente: 58662,
+  // articulations
+  articAccentAbove: 58528,
+  articAccentBelow: 58529,
+  articStaccatoAbove: 58530,
+  articStaccatoBelow: 58531,
+  articTenutoAbove: 58532,
+  articTenutoBelow: 58533,
+  articMarcatoAbove: 58540,
+  articMarcatoBelow: 58541,
+  articStaccatissimoAbove: 58534,
+  articStaccatissimoBelow: 58535,
+  // lines
+  ornamentTrill: 58726,
+  keyboardPedalPed: 58960,
+  keyboardPedalUp: 58965,
+  ottavaAlta: 58641,
+  ottavaBassaVb: 58652,
+  // tremolos
+  tremolo1: 57888,
+  tremolo2: 57889,
+  tremolo3: 57890,
+  // groupings
+  brace: 57344,
+  braceSmall: 62464,
+  braceLarge: 62465,
+  braceLarger: 62466,
+  braceFlat: 62467,
+  bracket: 57346,
+}
+
+/**
  * ⭐ **P3's prerequisite**: where a stem meets a head, where a flag hangs, where a dot tucks in —
  * `[x, y]` in staff spaces from the glyph's origin, y UP.
  *
