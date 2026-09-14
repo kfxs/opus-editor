@@ -51,6 +51,8 @@ import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { acceptsInkSurface } from './inkSurface'
+import { staveFrame } from './staveFrame'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
@@ -164,6 +166,7 @@ export class EngravedNote extends StaveNote {
   override drawLedgerLines(): void {
     if (this.isRest()) return
     const stave = this.checkStave()
+    const frame = staveFrame(stave)
     const runs = ledgerLineRuns(
       this.noteHeads.map(head => ({ line: head.getLine(), x: head.getAbsoluteX() })),
       this.getGlyphWidth(),
@@ -172,7 +175,7 @@ export class EngravedNote extends StaveNote {
     drawLedgerLines(
       this.inkSurface ?? this.checkContext(),
       runs,
-      line => stave.getYForNote(line),
+      line => noteLineY(frame, line),
       // The stave's ledger style with this note's own on top — VexFlow's own merge, kept because
       // `hiddenElements` recolours a note by that second half.
       { ...stave.getDefaultLedgerLineStyle(), ...this.getLedgerLineStyle() },

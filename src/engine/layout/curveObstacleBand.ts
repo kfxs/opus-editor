@@ -80,7 +80,7 @@ export interface CurveWindow {
 /**
  * The stave the answer is stated against — its top line and its space size, both in the staff's own
  * space. Taken as two numbers rather than as a `Stave` so this module stays pure and testable
- * without a renderer (`getYForLine(0)` and `getSpacingBetweenLines()` are what a caller passes).
+ * without a renderer (a caller passes its `engrave/staff/staffFrame`, which carries both).
  */
 export interface StaffFrame {
   topLineY: number

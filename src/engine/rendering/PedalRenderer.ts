@@ -61,6 +61,8 @@ import {
 } from './pedalStyle'
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -174,7 +176,7 @@ function spanX(
   const endX = slotXAtOrAfter(pass, to.view, span.endBeat, barStart(to))
     ?? (barEnd === undefined
       ? undefined
-      : barEnd / to.scale - staffSpacesToPixels(PEDAL_BARLINE_AIR, to.stave))
+      : barEnd / to.scale - staffSpacesToPixels(PEDAL_BARLINE_AIR, staveFrame(to.stave)))
   if (endX === undefined) return null
 
   // ⚠️ No `endX <= startX` guard, for `TrillRenderer.spanX`'s reason: across a system break the two
@@ -355,7 +357,7 @@ export function renderPedals(
       // drawing adds it again where the `✻` lands.
       const onStaff = placements.filter(p => p.staffIndex === staffIndex)
       const wrapped = wrapReleaseOntoNextLine(
-        pass, to.line, x.endX + staffSpacesToPixels(nudgeOf(pass, pedal.id), to.stave),
+        pass, to.line, x.endX + staffSpacesToPixels(nudgeOf(pass, pedal.id), staveFrame(to.stave)),
         to.scale, line => onStaff.some(p => p.line === line))
       // ⭐ The wrapped fragment needs a stave of its own to be drawn on, and the pedal's own bars do
       // not reach that line — so the first bar the render put there stands for it.
@@ -422,14 +424,15 @@ function drawPedal(
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
-    const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
+    const frame = staveFrame(stave)
+    const px = (spaces: number) => staffSpacesToPixels(spaces, frame)
     const baseline = baselineFor(
       pass, here.length ? here : covered, span, staffId, firstStaffId, piece.line, starts)
     // ⭐⭐ THE SHARED VERTICAL NUDGE, on every fragment alike — which is what keeps the pair on one
     // baseline across a system break as well as within one. ⚠️ Screen-signed and added as it is
     // stored: a pedal is always BELOW, so there is no side to convert for (the bracket's `outward`
     // exists only because `x` can flip its side).
-    const y = stave.getYForLine(0) + px(baseline) + px(nudge?.y ?? 0)
+    const y = staffLineY(frame, 0) + px(baseline) + px(nudge?.y ?? 0)
 
     // ⭐ THE LADDER CLAIM — filed for whatever is placed outside this one day. ⚠️ Per FRAGMENT, in
     // that fragment's own beats.
@@ -470,7 +473,7 @@ function drawPedal(
     const guides = firstPiece
       ? [{
         from: { x: signX, y: y - px(PEDAL_MARK_INK.above) },
-        to: { x: x.startX, y: stave.getYForLine(4) },
+        to: { x: x.startX, y: staffBottomLineY(frame) },
       }]
       : undefined
     registerGlyph(pass, pedal.id, from, here[0]?.measureNumber ?? from.measureNumber,

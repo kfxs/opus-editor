@@ -142,8 +142,12 @@ describe('slurTrueEndpoints (re-anchor handle geometry)', () => {
 })
 
 describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
-  // staffSpacesToPixels only reads getSpacingBetweenLines() — stub just that.
-  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  // `staveFrame` reads a stave's three numbers (top line, space, line count) — stub just those.
+  const stave = (spacing: number) => ({
+    getYForLine: (line: number) => line * spacing,
+    getSpacingBetweenLines: () => spacing,
+    getNumLines: () => 5,
+  } as unknown as Stave)
   const p0 = { x: 0, y: 0 }
   const p1 = { x: 100, y: 0 } // flat 100px span
 
@@ -189,8 +193,12 @@ describe('resolveCps (per-segment + single-arc shape resolution, P1)', () => {
 })
 
 describe('slurEndpointOffsetPx (endpoint nudge → px, P0)', () => {
-  // staffSpacesToPixels only reads getSpacingBetweenLines() — stub just that.
-  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  // `staveFrame` reads a stave's three numbers (top line, space, line count) — stub just those.
+  const stave = (spacing: number) => ({
+    getYForLine: (line: number) => line * spacing,
+    getSpacingBetweenLines: () => spacing,
+    getNumLines: () => 5,
+  } as unknown as Stave)
   const offset = (o: Partial<SlurEndpointOffsetOverride>): SlurEndpointOffsetOverride =>
     ({ kind: 'endpointOffset', ...o })
 
@@ -221,7 +229,11 @@ describe('slurEndpointOffsetPx (endpoint nudge → px, P0)', () => {
 })
 
 describe('segmentEndpointOffsetPx (open-join nudge → px, P0)', () => {
-  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  const stave = (spacing: number) => ({
+    getYForLine: (line: number) => line * spacing,
+    getSpacingBetweenLines: () => spacing,
+    getNumLines: () => 5,
+  } as unknown as Stave)
 
   it('no offset → zero delta (caller adds it unconditionally)', () => {
     expect(segmentEndpointOffsetPx(undefined, stave(10))).toEqual({ x: 0, y: 0 })

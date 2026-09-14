@@ -45,6 +45,8 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { clefFont } from '@/engine/engrave/inheritedFonts'
 import { clefPlacement, drawClef } from '@/engine/engrave/header/clef'
 import type { InkSurfaceAware } from './inkSurface'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 export class EngravedClef extends Clef implements InkSurfaceAware {
   /**
@@ -76,7 +78,7 @@ export class EngravedClef extends Clef implements InkSurfaceAware {
   override draw(): void {
     const stave = this.checkStave()
     this.setRendered()
-    this.y = stave.getYForLine(this.line)
+    this.y = staffLineY(staveFrame(stave), this.line)
     drawClef(
       this.inkSurface ?? this.checkContext(),
       this.getText(),

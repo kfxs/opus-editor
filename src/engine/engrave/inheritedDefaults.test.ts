@@ -5,6 +5,7 @@ import {
   MODIFIER_LEFT_OFFSET_PX,
   NOTE_AREA_PADDING_PX,
   NOTE_GLYPH_SCALE,
+  STAFF_BOTTOM_EDGE_PX,
   STEM_THICKNESS_PX,
   TREMOLO_FONT_SIZE,
   TREMOLO_STROKE_STEP_PX,
@@ -40,5 +41,9 @@ describe('the inherited defaults are the values the editor has always drawn with
     expect(TREMOLO_STROKE_STEP_PX).toBe(7)
     expect(TREMOLO_FONT_SIZE).toBe(30)
     expect(NOTE_GLYPH_SCALE).toBe(1)
+  })
+
+  it('a staff’s bottom edge hangs 1 px below its last line — `Stave.getBottomLineBottomY`', () => {
+    expect(STAFF_BOTTOM_EDGE_PX).toBe(1)
   })
 })

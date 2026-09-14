@@ -92,6 +92,7 @@ function recorder() {
 function stave(top: number, numLines = 5): Stave {
   return {
     getYForLine: (line: number) => top + line * 10,
+    getSpacingBetweenLines: () => 10,
     getNumLines: () => numLines,
   } as unknown as Stave
 }

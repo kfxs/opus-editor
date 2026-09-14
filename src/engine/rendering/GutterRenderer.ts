@@ -4,6 +4,8 @@ import { INDICATOR_INK } from '../../utils/selectionColors'
 import { THIN_BARLINE_PX } from './barlineInk'
 import { scaling } from '@/engine/paint/Affine'
 import { drawGroupOf } from './svgDrawGroup'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * The gutter's ink. Sibelius tints its Panorama gutter blue, and the tint is doing real work: it
@@ -97,7 +99,7 @@ export class GutterRenderer {
     // own padding, which we must not guess at. Probe it once, then place each stave so its top
     // LINE lands exactly on the score's — otherwise the gutter's lines sit a few px off the music.
     const probe = new Stave(0, 0, GUTTER_WIDTH)
-    const lineOffset = probe.getYForLine(0)
+    const lineOffset = staffLineY(staveFrame(probe), 0)
 
     const staves: { stave: Stave; size: number }[] = []
     for (const staff of state.staves) {
@@ -141,9 +143,9 @@ export class GutterRenderer {
     if (staves.length > 1) {
       const first = staves[0]
       const last = staves[staves.length - 1]
-      const topY = first.stave.getYForLine(0) * first.size
+      const topY = staffLineY(staveFrame(first.stave), 0) * first.size
       // `+ 1` for the bottom line's own thickness, in that staff's ink and so at its scale.
-      const bottomY = (last.stave.getYForLine(last.stave.getNumLines() - 1) + 1) * last.size
+      const bottomY = (staffBottomLineY(staveFrame(last.stave)) + 1) * last.size
       // Its width is deliberately NOT scaled: a system line belongs to the system, not to either
       // staff's ink — the same call the score makes.
       ctx.fillRect(GUTTER_INSET, topY, THIN_BARLINE_PX, bottomY - topY)

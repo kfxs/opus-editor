@@ -32,9 +32,10 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { dbg } from '@/utils/debug'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import type { BarlinePlacement } from './BarlineRenderer'
-import { staveBarlineExtent } from './barlineInk'
+import { staffBarlineExtent } from './barlineInk'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
+import { staveFrame } from './staveFrame'
 
 /**
  * ⭐⭐ **THE GAP INK IS THE SCORE'S, NOT EITHER STAFF'S** — so its staff-space is the score's own
@@ -113,7 +114,7 @@ function lineY(p: BarlinePlacement, which: 'top' | 'bottom'): number {
   // both lines it runs between, which is what makes the join one continuous stroke rather than a
   // stroke with a notch at each staff: LilyPond's `bar-line::widen-bar-extent-on-span`, arrived at
   // by geometry instead of by a flag.
-  const extent = staveBarlineExtent(p.stave)
+  const extent = staffBarlineExtent(staveFrame(p.stave))
   const local = which === 'top' ? extent.topY : extent.bottomY
   return (local + dy) * p.scale
 }

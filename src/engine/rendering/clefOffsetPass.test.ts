@@ -14,7 +14,11 @@ import type { Stave, ClefNote } from 'vexflow'
 
 const frac = (num: number, den = 1) => ({ num, den })
 /** A staff whose lines are 10 px apart — so one staff-space is 10 px. */
-const stave = { getSpacingBetweenLines: () => 10 } as unknown as Stave
+const stave = {
+  getYForLine: (line: number) => line * 10,
+  getSpacingBetweenLines: () => 10,
+  getNumLines: () => 5,
+} as unknown as Stave
 /**
  * The least of a `ClefNote` this pass touches — ⭐ note that it is the INNER `Clef` element that
  * carries the shift, not the note: `ClefNote.draw` positions its glyph from `getAbsoluteX()`, which

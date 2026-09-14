@@ -42,6 +42,8 @@ import { placeDynamicMark } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { staffDynamics } from '@/engine/models/staffContent'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement` — declared structurally rather than imported, so the
@@ -143,7 +145,8 @@ export function placeDynamicsOnLine(
         // ⚠️ Both sides are in the STAVE's own coordinates, which is what makes this correct for a
         //    measure that merely MOVED: its stave and its ink both keep the coordinates they were
         //    drawn at, and the group's transform carries them to the new place together.
-        const target = placement.stave.getYForLine(0) + staffSpacesToPixels(baseline, placement.stave)
+        const frame = staveFrame(placement.stave)
+        const target = staffLineY(frame, 0) + staffSpacesToPixels(baseline, frame)
 
         // ⭐ And the x: a level is CENTRED on its notehead, prose is anchored to it. Measured off the
         //   drawn `<text>` — the glyph runs are grown to music size after the annotation is built, so

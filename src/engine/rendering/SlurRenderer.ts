@@ -38,6 +38,9 @@ import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
 // `./curveStyle`, where each number carries the research it answers to (docs/slur-plan.md §11–§13).
@@ -331,7 +334,7 @@ function nearestCoveredOuterY(
     if (!note) continue
     try {
       const stave = note.getStave?.()
-      if (!stave || Math.abs(stave.getYForLine(0) - systemTopY) > 1) continue
+      if (!stave || Math.abs(staffLineY(staveFrame(stave), 0) - systemTopY) > 1) continue
       // 🚨 The note's OWN ink — a dynamic hanging off it is not what the open end has to clear
       // (`./noteInkBox`, and the same report the obstacle scan above carries).
       const b = noteInkBox(note)
@@ -469,8 +472,8 @@ export function resolveCps(
 ): [{ x: number; y: number }, { x: number; y: number }] {
   if (override && stave) {
     return [
-      { x: staffSpacesToPixels(override[0].x, stave), y: staffSpacesToPixels(override[0].y, stave) },
-      { x: staffSpacesToPixels(override[1].x, stave), y: staffSpacesToPixels(override[1].y, stave) },
+      { x: staffSpacesToPixels(override[0].x, staveFrame(stave)), y: staffSpacesToPixels(override[0].y, staveFrame(stave)) },
+      { x: staffSpacesToPixels(override[1].x, staveFrame(stave)), y: staffSpacesToPixels(override[1].y, staveFrame(stave)) },
     ]
   }
   return slurArchCps(p0, p1, direction, extraHeight, fit)
@@ -482,7 +485,7 @@ export function resolveCps(
  * (see docs/slur-endpoint-offset-plan.md). A missing offset for an end — or a
  * not-yet-laid-out stave (`undefined`) — yields 0 for that end, so the caller can add the
  * result unconditionally without risking a throw inside `staffSpacesToPixels`. Pure +
- * VexFlow-light (reads only `getSpacingBetweenLines`), mirroring `resolveCps`.
+ * VexFlow-light (reads only the stave's space, through `./staveFrame`), mirroring `resolveCps`.
  */
 export function slurEndpointOffsetPx(
   offset: SlurEndpointOffsetOverride | undefined,
@@ -491,7 +494,7 @@ export function slurEndpointOffsetPx(
 ): { startX: number; startY: number; endX: number; endY: number } {
   const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
     o && stave
-      ? { x: staffSpacesToPixels(o.x, stave), y: staffSpacesToPixels(o.y, stave) }
+      ? { x: staffSpacesToPixels(o.x, staveFrame(stave)), y: staffSpacesToPixels(o.y, staveFrame(stave)) }
       : { x: 0, y: 0 }
   const s = conv(offset?.start, fromStave)
   const e = conv(offset?.end, toStave)
@@ -519,8 +522,8 @@ function slurOffsetPx(
 ): { x: number; y: number } {
   if (!offset || !stave) return { x: 0, y: 0 }
   return {
-    x: staffSpacesToPixels(offset.x ?? 0, stave),
-    y: staffSpacesToPixels(offset.y ?? 0, stave),
+    x: staffSpacesToPixels(offset.x ?? 0, staveFrame(stave)),
+    y: staffSpacesToPixels(offset.y ?? 0, staveFrame(stave)),
   }
 }
 
@@ -565,7 +568,7 @@ export function segmentEndpointOffsetPx(
   stave: Stave | undefined,
 ): { x: number; y: number } {
   if (!offset || !stave) return { x: 0, y: 0 }
-  return { x: staffSpacesToPixels(offset.x, stave), y: staffSpacesToPixels(offset.y, stave) }
+  return { x: staffSpacesToPixels(offset.x, staveFrame(stave)), y: staffSpacesToPixels(offset.y, staveFrame(stave)) }
 }
 
 /**
@@ -843,7 +846,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           registerPartial(arc, undefined, {
             controlPoints: [arc.c0, arc.c1],
             slurEndpoints: { p0, p1, direction },
-            staffSpacePx: stave?.getSpacingBetweenLines(),
+            staffSpacePx: stave ? staveFrame(stave).spacePx : undefined,
             ...(guides.length ? { guides } : {}),
           })
         } else {
@@ -896,7 +899,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             registerPartial(arc, partialType, {
               controlPoints: [arc.c0, arc.c1],
               segmentEndpoints: segEnds,
-              staffSpacePx: stave?.getSpacingBetweenLines(),
+              staffSpacePx: stave ? staveFrame(stave).spacePx : undefined,
               segmentRole,
               ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
               slurSpanCount: spanCount,
@@ -923,7 +926,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // fragment's own anchored endpoint, so the clearance comes back in the same rise unit.
           const openRise = (half: 'begin' | 'end', lengthPx: number, startY: number, stave: Stave | undefined) => {
             const outer = stave === undefined ? undefined
-              : nearestCoveredOuterY(pass, score, slur, stave.getYForLine(0), half, direction)
+              : nearestCoveredOuterY(pass, score, slur, staffLineY(staveFrame(stave), 0), half, direction)
             const clearance = outer === undefined ? 0 : (outer - startY) * direction + LIFT
             return brokenSlurOpenRise(steps ?? 0, half, direction, lengthPx, clearance)
           }
@@ -992,8 +995,8 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               const stave = representativeStaveOnLine(pass, score, seg.line)
               if (!stave) continue
               const baselineY = direction === -1
-                ? stave.getTopLineTopY() - LIFT
-                : stave.getBottomLineBottomY() + LIFT
+                ? staffLineY(staveFrame(stave), 0) - LIFT
+                : staffBottomLineY(staveFrame(stave)) + STAFF_BOTTOM_EDGE_PX + LIFT
               const p0 = { x: seg.leftX, y: baselineY }
               const p1 = { x: seg.rightX, y: baselineY }
               const ordinal = middleOrdinal++

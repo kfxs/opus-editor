@@ -66,6 +66,8 @@ import {
 } from './ottavaStyle'
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -481,7 +483,7 @@ function drawOttava(
   // ⭐ AIR AFTER THE LAST NOTE — his call; see {@link OTTAVA_END_AIR}. ⚠️ Added to the SPAN's end
   // BEFORE cutting into pieces, which is what keeps it off a system break: a fragment that ends at
   // the margin is created by the cut, so it never sees this.
-  const endX = x.endX + staffSpacesToPixels(OTTAVA_END_AIR, from.stave)
+  const endX = x.endX + staffSpacesToPixels(OTTAVA_END_AIR, staveFrame(from.stave))
 
   // ⛔⛔ **THE HAND NUDGE IS DELIBERATELY NOT IN THE NUMBERS ABOVE**, and both halves of that matter.
   //
@@ -501,7 +503,8 @@ function drawOttava(
     // ⭐ THIS FRAGMENT'S OWN SYSTEM — its stave, its own bands, its staff-space size.
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
-    const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
+    const frame = staveFrame(stave)
+    const px = (spaces: number) => staffSpacesToPixels(spaces, frame)
     // ⛔⛔ READ, never recomputed. `planOttavaBands` decided this before the dynamics were planned;
     // by now they have filed their own claims, so asking `baselineFor` again would read them and push
     // the bracket back OUTSIDE the dynamics — the very thing the split exists to prevent. ⚠️ The
@@ -518,7 +521,7 @@ function drawOttava(
     // signed per side; the stored number is not, so that `x` (flip direction) cannot invert a nudge
     // the user already made. See {@link OttavaOffsetOverride}.
     const lift = (nudge?.outward ?? 0) * (side === 'above' ? -1 : 1)
-    const y = stave.getYForLine(0) + px(baseline + lift)
+    const y = staffLineY(frame, 0) + px(baseline + lift)
 
     // ⛔ NO CLAIM IS FILED HERE — `planOttavaBands` already did, before the dynamics line was planned.
     //
@@ -638,7 +641,7 @@ function drawOttava(
               x: startX,
               y: side === 'above' ? y + px(OTTAVA_MARK_INK.below) : y - px(OTTAVA_MARK_INK.above),
             },
-            to: { x: x.startX, y: stave.getYForLine(side === 'above' ? 0 : 4) },
+            to: { x: x.startX, y: side === 'above' ? staffLineY(frame, 0) : staffBottomLineY(frame) },
           }],
         }
         : {}),

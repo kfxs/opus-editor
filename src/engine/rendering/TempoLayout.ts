@@ -34,6 +34,8 @@ import type { RenderPass } from './RenderPass'
 import { setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
+import { staveFrame } from './staveFrame'
+import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
@@ -416,7 +418,7 @@ export function drawTempoMarks(
     // from the `<text>` baseline this puts down. ⛔ Do not compute the real y here: it is a fact
     // about the SYSTEM, and a measure-scope answer would have to join `MeasureRedrawKey`'s shape key
     // (see that pass's header for what that costs).
-    const y = stave.getYForTopText(1)
+    const y = textRowAboveY(staveFrame(stave), 1)
     const x = anchorX(mark, slots, staveNotes, stave, columns, scale)
 
     // OUR group, carrying the mark's id → '#vf-<id>', which is what the registry bbox, the
@@ -479,11 +481,11 @@ export function drawTempoMarks(
           // ⚠️ From the tight extents rather than the font table: a tempo mark is mostly PROSE in a
           // serif face, which Bravura cannot speak for (`./dynamicMarkInk` answers null for exactly
           // this). `TEMPO_INK_BELOW` is the descender depth these constants already state.
-          guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: stave.getYForLine(0) } }],
+          guides: [{ from: { x: box.x, y: y + TEMPO_INK_BELOW }, to: { x, y: staffLineY(staveFrame(stave), 0) } }],
           // ⭐ The stave's line spacing where this mark was DRAWN — what the interpolating walk
           // (`interactions/tempoWalk`) converts a measured pixel gap into staff-spaces with. ⛔ It
           // refuses to guess one, so this is the only route.
-          staffSpacePx: stave.getSpacingBetweenLines(),
+          staffSpacePx: staveFrame(stave).spacePx,
         })
 
         // ⭐⭐ THE HAND NUDGE (client #13, his ask 2026-08-19) — applied AFTER the registration
@@ -502,7 +504,7 @@ export function drawTempoMarks(
           // 🚨 `offset.y` is OUTWARD (+up), the one offset in the compartment that is — see
           // `TempoOffsetOverride`. Screen y grows downward, so it is negated exactly here.
           setTempoMarkOffset(pass, mark.id, group,
-            staffSpacesToPixels(offset.x, stave), staffSpacesToPixels(-offset.y, stave))
+            staffSpacesToPixels(offset.x, staveFrame(stave)), staffSpacesToPixels(-offset.y, staveFrame(stave)))
         }
       }
     } catch {

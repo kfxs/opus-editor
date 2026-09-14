@@ -1,4 +1,4 @@
-import type { Stave } from 'vexflow'
+import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_SPACE_PX } from '../models/staffSize'
 import { THIN_LINE_SPACES } from './thinLineWeight'
 import { STAVE_LINE_WIDTH_PX } from '@/engine/engrave/staff/staffLines'
@@ -37,7 +37,7 @@ export const THIN_BARLINE_PX = THIN_BARLINE_SPACES * STAFF_SPACE_PX
 
 /**
  * ⭐⭐ **HOW FAR ONE STAVE'S BARLINES REACH** — the rule of `engrave/staff/barlineExtent`, asked of a
- * `Stave`. Every vertical line drawn on this staff stops here: the bar-ending signs
+ * staff's frame. Every vertical line drawn on this staff stops here: the bar-ending signs
  * (`BarlineRenderer`), the line that opens a system (`EngravedBarline`), the systemic connector
  * (`systemStart`) and the piece crossing the gap to the next staff (`barlineGap`).
  *
@@ -49,10 +49,10 @@ export const THIN_BARLINE_PX = THIN_BARLINE_SPACES * STAFF_SPACE_PX
  * `getStyle().lineWidth ?? 1` — a hard **1**, VexFlow's own staff-line thickness, which stopped being
  * ours when P5c made a staff line 0.11 sp = **1.1 px**. Two files had hand-written that `1`.
  */
-export function staveBarlineExtent(stave: Stave): BarlineExtent {
+export function staffBarlineExtent(frame: StaffFrame): BarlineExtent {
   return barlineExtent(
-    stave.getYForLine(0),
-    stave.getYForLine(stave.getNumLines() - 1),
+    staffLineY(frame, 0),
+    staffBottomLineY(frame),
     STAVE_LINE_WIDTH_PX,
   )
 }

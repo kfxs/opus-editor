@@ -59,3 +59,11 @@ export const TREMOLO_FONT_SIZE = 30
  * editor has no grace notes, so every note it draws is at 1; a grace note would be a second row.
  */
 export const NOTE_GLYPH_SCALE = 1
+
+/**
+ * How far a staff's bottom EDGE hangs below its last line, for the boxes measured against it — the
+ * `getStyle().lineWidth ?? 1` in `Stave.getBottomLineBottomY` (`stave.js:110`). ⚠️ The library's staff
+ * line, ⛔ not ours (`engrave/staff/staffLines.STAVE_LINE_WIDTH_PX`, 1.1 px since P5c): kept for the
+ * key signature's hit box and the flat slur's baseline, which were placed against it.
+ */
+export const STAFF_BOTTOM_EDGE_PX = 1

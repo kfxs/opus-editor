@@ -57,6 +57,8 @@ import { inStaffSpace } from './staffScaleGroup'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls
@@ -271,8 +273,8 @@ function markInkY(pass: RenderPass, dyn: Dynamic, stave: Stave): InkBand | null 
   if (reach) {
     const baseline = Number(text.getAttribute('y') ?? 0) + moved
     const band = {
-      top: baseline - staffSpacesToPixels(reach.above, stave),
-      bottom: baseline + staffSpacesToPixels(reach.below, stave),
+      top: baseline - staffSpacesToPixels(reach.above, staveFrame(stave)),
+      bottom: baseline + staffSpacesToPixels(reach.below, staveFrame(stave)),
     }
     remember(pass, dyn.id, band)
     return band
@@ -490,7 +492,7 @@ export function hairpinEndpointOffsetPx(
 ): { startX: number; startY: number; endX: number; endY: number } {
   const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
     o && stave
-      ? { x: staffSpacesToPixels(o.x, stave), y: staffSpacesToPixels(o.y, stave) }
+      ? { x: staffSpacesToPixels(o.x, staveFrame(stave)), y: staffSpacesToPixels(o.y, staveFrame(stave)) }
       : { x: 0, y: 0 }
   const s = conv(offset?.start, fromStave)
   const e = conv(offset?.end, toStave)
@@ -509,7 +511,7 @@ function drawWedge(
   from: HairpinPlacement,
   to: HairpinPlacement,
 ): void {
-  const px = (spaces: number, stave: Stave) => staffSpacesToPixels(spaces, stave)
+  const px = (spaces: number, stave: Stave) => staffSpacesToPixels(spaces, staveFrame(stave))
 
   // ⭐⭐ **THE WEDGE SPANS ITS OWN NOTES, and a dynamic does not move it** — his call, 2026-08-31:
   // *"the dynamic is pushing the hairpin… but it should not do it"*.
@@ -573,7 +575,7 @@ function drawWedge(
   // ⭐ The hand-set mouth where there is one, else the automatic length-aware aperture. The steepness
   // cap inside `resolveHairpinShape` applies to both, so an authored mouth on a short wedge is still
   // pulled back from an arrowhead.
-  const lengthSpaces = drawnWidth / from.stave.getSpacingBetweenLines()
+  const lengthSpaces = drawnWidth / staveFrame(from.stave).spacePx
   const shape = resolveHairpinShape(hairpinApertureOverrideOf(pass.score, hairpin.id), lengthSpaces)
   if (!(shape.aperture > 0)) return
 
@@ -593,7 +595,7 @@ function drawWedge(
     const open = fragmentOpening(piece.role, hairpin.type)
     const startNudge = piece === pieces[0] ? nudge.startY : 0
     const endNudge = piece === pieces[pieces.length - 1] ? nudge.endY : 0
-    const centre = stave.getYForLine(0) + px(baseline + axisOffsetSpaces(), stave)
+    const centre = staffLineY(staveFrame(stave), 0) + px(baseline + axisOffsetSpaces(), stave)
       + px(rampAt(shape.startY, shape.endY, t), stave)
       + rampAt(startNudge, endNudge, t)
     const half = px(shape.aperture * rampAt(open.start, open.end, t), stave) / 2
@@ -644,7 +646,7 @@ function drawWedge(
     //   see. `dynamicsLinePlan` levels the whole render's marks before either pass draws.
     const baseline = plan.get(hairpinLineKey(hairpin.id, piece.line))
     if (baseline === undefined) continue
-    const axis = stave.getYForLine(0) + px(baseline + axisOffsetSpaces(), stave)
+    const axis = staffLineY(staveFrame(stave), 0) + px(baseline + axisOffsetSpaces(), stave)
 
     // The two arms, mirrored about the axis. The slant is TWO endpoint deltas (`hairpinShape`), so
     // each end's y is the axis plus its own — never one angle about a pivot.
@@ -724,7 +726,7 @@ function drawWedge(
       // POSITIONAL span attaches to a place, like the tempo mark and unlike the trill (which is
       // defined by a note's pitch). See docs/dynamic-offset-plan.md for that split.
       ...(piece === segments[0]
-        ? { guides: [{ from: { x: piece.x0, y: y0 - h0 }, to: { x: x.startX, y: stave.getYForLine(4) } }] }
+        ? { guides: [{ from: { x: piece.x0, y: y0 - h0 }, to: { x: x.startX, y: staffBottomLineY(staveFrame(stave)) } }] }
         : {}),
     })
   }

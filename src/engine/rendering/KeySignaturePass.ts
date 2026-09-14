@@ -10,6 +10,9 @@ import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawGroupOf } from './svgDrawGroup'
 import { STAVE_LINE_WIDTH_PX, fillStaffLine, staffLinesInk } from '@/engine/engrave/staff/staffLines'
+import { staveFrame } from './staveFrame'
+import { noteLineY, staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
 
 /**
  * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
@@ -135,7 +138,7 @@ function staleShift(placement: KeySignaturePlacement): { dx: number; dy: number 
  * whose ink began left of its origin would need `glyphBox(...).left` added here.
  */
 export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
-  const space = stave.getSpacingBetweenLines()
+  const space = staveFrame(stave).spacePx
   const clefModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
     .find(m => m.getCategory() === 'Clef')
   if (!clefModifier) return stave.getX() + dx + BARLINE_TO_KEY_INK * space
@@ -172,7 +175,7 @@ function clefShiftOf(clefModifier: { getX(): number }): number {
  * anybody had chosen.
  */
 export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature): number {
-  const space = stave.getSpacingBetweenLines()
+  const space = staveFrame(stave).spacePx
   let x = firstSignX(stave, clef, 0)
   key.alterations.forEach((alteration, i) => {
     const glyph = signGlyph(alteration.alter)
@@ -204,6 +207,7 @@ function registerKeySignature(
   pass: RenderPass, placement: KeySignaturePlacement, key: KeySignature, x: number, dy: number,
 ): void {
   const { stave } = placement
+  const frame = staveFrame(stave)
   const left = firstSignX(stave, placement.clef, 0)
   pass.elementRegistry.add({
     type: 'keySignature',
@@ -211,9 +215,9 @@ function registerKeySignature(
     staff: placement.staffIndex,
     bbox: {
       x,
-      y: stave.getTopLineTopY() + dy,
+      y: staffLineY(frame, 0) + dy,
       width: keySignatureInkRight(stave, placement.clef, key) - left,
-      height: stave.getBottomLineBottomY() - stave.getTopLineTopY(),
+      height: staffBottomLineY(frame) + STAFF_BOTTOM_EDGE_PX - staffLineY(frame, 0),
     },
   })
 }
@@ -242,7 +246,8 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
   if (!row || row.alterations.length === 0) return
   const { stave, staffIndex } = placement
   const { dx, dy } = staleShift(placement)
-  const space = stave.getSpacingBetweenLines()
+  const frame = staveFrame(stave)
+  const space = frame.spacePx
   // The bar's closing barline is at its right edge — the placement's, never the stave's (see the
   // header's staleShift note).
   const barlineX = stave.getX() + dx + placement.width / placement.scale
@@ -271,9 +276,9 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
       staff: staffIndex,
       bbox: {
         x: inkLeft,
-        y: stave.getTopLineTopY() + dy,
+        y: staffLineY(frame, 0) + dy,
         width: inkRight - inkLeft,
-        height: stave.getBottomLineBottomY() - stave.getTopLineTopY(),
+        height: staffBottomLineY(frame) + STAFF_BOTTOM_EDGE_PX - staffLineY(frame, 0),
       },
     })
   })
@@ -311,7 +316,8 @@ function drawOpenStaffTail(
   if (toX <= fromX) return
   const { stave } = placement
   const ys: number[] = []
-  for (let line = 0; line < stave.getNumLines(); line++) ys.push(stave.getYForLine(line) + dy)
+  const frame = staveFrame(stave)
+  for (let line = 0; line < frame.lineCount; line++) ys.push(staffLineY(frame, line) + dy)
   // ⭐ **P5a**: the same module the stave's own lines come from, so the tail cannot drift off them.
   // ⛔ Still FILLED rather than stroked — see `fillStaffLine` for why the two primitives stay
   // different — but the y and the extent are now one owner's answer instead of two.
@@ -334,17 +340,18 @@ function drawOpenStaffTail(
 function drawSignRow(
   pass: RenderPass, key: KeySignature, clef: Clef, stave: Stave, startX: number, dy: number,
 ): number {
-  const space = stave.getSpacingBetweenLines()
+  const frame = staveFrame(stave)
+  const space = frame.spacePx
   const lines = keySignatureLines(key, clef)
   let x = startX
   let inkRight = startX
   key.alterations.forEach((alteration, i) => {
     const glyph = signGlyph(alteration.alter)
     if (!glyph) return
-    // ⭐ The row from the measured table, and the y from the STAVE — `getYForLine` counts from the
-    //   top line downward, while the table's line numbers count from the bottom up
-    //   (`staffLineForSpelling`'s convention). The conversion is here, at the one place they meet.
-    const y = stave.getYForLine(5 - lines[i]) + dy
+    // ⭐ The row from the measured table, and the y from the FRAME — the table's line numbers count
+    //   from the bottom up (`staffLineForSpelling`'s convention), which is the frame's NOTE line
+    //   (`engrave/staff/staffFrame.noteLineY`), so the conversion lives there rather than here.
+    const y = noteLineY(frame, lines[i]) + dy
     const char = SIGN_CHARS[glyph]
     if (!char) return
     drawGlyph(pass.context, 'KeySignaturePass.sign', char, x, y, SIGN_FONT_SIZE)

@@ -28,6 +28,8 @@ import { tieArcGrowth } from './tieStaffLineClearance'
 import { lineLeftCurveX, lineRightEdgeX } from './systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /** A cubic's drawn apex is 0.75 × its control height — the tie's 0.53 sp bow gives 0.40 sp. */
 const APEX_OF_BOW = 0.75
@@ -47,8 +49,9 @@ function headOf(info: { staveNote: StaveNote; noteIndex: number }): TieHead | nu
 /** Every staff line's y, for the clearance test. Empty when the stave isn't laid out yet. */
 function staffLineYs(stave: Stave | undefined): number[] {
   if (!stave) return []
+  const frame = staveFrame(stave)
   const ys: number[] = []
-  for (let line = 0; line < stave.getNumLines(); line++) ys.push(stave.getYForLine(line))
+  for (let line = 0; line < frame.lineCount; line++) ys.push(staffLineY(frame, line))
   return ys
 }
 

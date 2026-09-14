@@ -37,6 +37,7 @@ import { setTempoMarkBase, setTempoMarkOffset } from './tempoMarkTransform'
 import { tempoAnchorTravelPx } from './tempoAnchorInk'
 import { staffSpacesToPixels } from './staffSpace'
 import { dbg } from '@/utils/debug'
+import { staveFrame } from './staveFrame'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./tempoLinePass` already declares. */
 interface TempoNudgePlacement {
@@ -102,7 +103,7 @@ export function applyTempoNudges(
         //    downward, so it is negated exactly here — the same negation `drawTempoMarks` makes.
         const offset = tempoOffsetOverrideOf(pass.score, mark.id)
         const base = travel / (placement.scale || 1)
-        const x = staffSpacesToPixels(offset?.x ?? 0, placement.stave)
+        const x = staffSpacesToPixels(offset?.x ?? 0, staveFrame(placement.stave))
         // ⚠️ EXPLORATORY INSTRUMENT (2026-08-31) — the two halves and their sum, per frame. His
         // report survives a trace that says the model is perfect, and BOTH his logs put the whole
         // residual in the FIRST accepted frame (46px against a 45.7px first move; 1px against 1.4px).
@@ -115,7 +116,7 @@ export function applyTempoNudges(
         //    ignores the nudge, which is `./tempoMarkTransform`'s whole reason for keeping them apart.
         setTempoMarkBase(pass, mark.id, el, base)
         setTempoMarkOffset(pass, mark.id, el, x,
-          staffSpacesToPixels(-(offset?.y ?? 0), placement.stave))
+          staffSpacesToPixels(-(offset?.y ?? 0), staveFrame(placement.stave)))
       }
     })
   }

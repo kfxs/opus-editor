@@ -64,6 +64,7 @@ import { meterOriginX } from '@/engine/engrave/header/meter'
 import { clefGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
 import { keySignatureInkRight } from './KeySignaturePass'
 import { THIN_BARLINE_PX } from './barlineInk'
+import { staveFrame } from './staveFrame'
 
 /**
  * Place every header sign this bar draws that we have a rule for.
@@ -94,7 +95,7 @@ export function placeHeaderRun(
 function placeOpeningClef(stave: Stave, clef: Clef): void {
   const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, VexClef.CATEGORY)[0]
   if (!modifier) return
-  const space = stave.getSpacingBetweenLines()
+  const space = staveFrame(stave).spacePx
   const target = clefOriginX(stave.getX(), CLEF_INDENT, glyphBox(clefGlyph(clef)).left, space)
   const dx = target - modifier.getX()
   if (dx === 0) return
@@ -125,7 +126,7 @@ function placeOpeningClef(stave: Stave, clef: Clef): void {
 function placeMeter(stave: Stave, clef: Clef, key: KeySignature | undefined): void {
   const modifier = stave.getModifiers(StaveModifierPosition.BEGIN, TimeSignature.CATEGORY)[0]
   if (!modifier) return
-  const origin = meterOrigin(stave, clef, key, stave.getSpacingBetweenLines())
+  const origin = meterOrigin(stave, clef, key, staveFrame(stave).spacePx)
   if (origin === undefined) return
   modifier.setX(origin)
 }

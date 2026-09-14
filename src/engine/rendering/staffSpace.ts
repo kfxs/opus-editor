@@ -1,4 +1,4 @@
-import type { Stave } from 'vexflow'
+import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * Staff-space ↔ pixel conversion at the render boundary.
@@ -7,19 +7,19 @@ import type { Stave } from 'vexflow'
  * (the distance between two adjacent staff lines), never raw pixels — so a tweak
  * renders correctly at any font / zoom / spacing and rides along when the music
  * reflows (see docs/engraving-overrides-plan.md, invariant "no pixels in the model").
- * These helpers do the conversion against the live stave's line spacing, which is in
- * hand at draw time (`stave.getSpacingBetweenLines()`).
+ * These helpers do the conversion against a staff's space (`engrave/staff/staffFrame`), which is in
+ * hand at draw time (`rendering/staveFrame`).
  *
  * Phase 0 infrastructure: established here with NO callers yet — Phase 1 (migrating
  * slur `cps` into the compartment) is the first client.
  */
 
-/** Pixels → staff-spaces, against a stave's current line spacing. */
-export function pixelsToStaffSpaces(px: number, stave: Stave): number {
-  return px / stave.getSpacingBetweenLines()
+/** Pixels → staff-spaces, against a staff's space. */
+export function pixelsToStaffSpaces(px: number, frame: Pick<StaffFrame, 'spacePx'>): number {
+  return px / frame.spacePx
 }
 
-/** Staff-spaces → pixels, against a stave's current line spacing. */
-export function staffSpacesToPixels(staffSpaces: number, stave: Stave): number {
-  return staffSpaces * stave.getSpacingBetweenLines()
+/** Staff-spaces → pixels, against a staff's space. */
+export function staffSpacesToPixels(staffSpaces: number, frame: Pick<StaffFrame, 'spacePx'>): number {
+  return staffSpaces * frame.spacePx
 }

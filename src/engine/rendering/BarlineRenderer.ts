@@ -62,7 +62,7 @@
  */
 import { Barline, StaveModifierPosition } from 'vexflow'
 import type { Stave } from 'vexflow'
-import { staveBarlineExtent } from './barlineInk'
+import { staffBarlineExtent } from './barlineInk'
 import { drawGlyph } from './glyphPainter'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
@@ -72,6 +72,8 @@ import { inStaffSpace } from './staffScaleGroup'
 import { drawBarlineGap } from './barlineGap'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -316,19 +318,20 @@ function drawSign(
 ): void {
   const ctx = pass.context
   const { stave, staffIndex, measureNumber } = placement
-  const space = stave.getSpacingBetweenLines()
+  const frame = staveFrame(stave)
+  const space = frame.spacePx
   // 🚨 Every number below is the STAVE's, so it is the last render's for a bar that was reused and
   //    translated. See {@link staleShift}.
   const { dy } = staleShift(placement)
   // ⭐ Where a barline STOPS is one rule for the whole family — `engrave/staff/barlineExtent`, via
   // `./barlineInk`. ⛔ Not the staff's outer ink edges, which is what this read before 2026-09-13.
-  const extent = staveBarlineExtent(stave)
+  const extent = staffBarlineExtent(frame)
   const signStaff: SignStaff = {
     space,
     topY: extent.topY + dy,
     botY: extent.bottomY + dy,
-    numLines: stave.getNumLines(),
-    yForLine: line => stave.getYForLine(line) + dy,
+    numLines: frame.lineCount,
+    yForLine: line => staffLineY(frame, line) + dy,
   }
 
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
@@ -431,7 +434,7 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
   // A `NONE` begin bar is still a modifier, so the question is "anything but a barline".
   const header = stave.getModifiers(StaveModifierPosition.BEGIN).filter(m => m.getCategory() !== 'Barline')
   if (header.length === 0) return null
-  const space = stave.getSpacingBetweenLines()
+  const space = staveFrame(stave).spacePx
   // ⭐ The header's own INK, from the modifiers themselves — `getX() + getWidth()` per modifier is
   // the drawn glyph box (checked against the rendered `<text>`: the meter answers 67…86, and its
   // bbox is 67…86). ⛔ Not `headerExtent`, which is the WIDTH model's estimate of the same thing:

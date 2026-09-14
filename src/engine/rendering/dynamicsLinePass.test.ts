@@ -41,6 +41,7 @@ function drawnMark(baselineY: number): { group: SVGGraphicsElement; y: () => num
 const staveAt = (top: number): Stave => ({
   getYForLine: (line: number) => top + line * 10,
   getSpacingBetweenLines: () => 10,
+  getNumLines: () => 5,
 } as unknown as Stave)
 
 const noteBox = (top: number, bottom: number, staff?: string): InkBox =>

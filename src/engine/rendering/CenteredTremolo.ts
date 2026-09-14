@@ -3,6 +3,7 @@ import type { Note } from 'vexflow'
 import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
 import { PENDERECKI_TREMOLO } from '@/utils/tremoloGlyphs'
+import { staveFrame } from './staveFrame'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
@@ -88,7 +89,8 @@ interface TremoloInkRect { x: number; y: number; width: number; height: number }
  */
 export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number; length: number } {
   const { topY, baseY } = note.getStemExtents()
-  const staffSpace = note.getStave()?.getSpacingBetweenLines() ?? 10
+  const stave = note.getStave()
+  const staffSpace = stave ? staveFrame(stave).spacePx : 10
   const noteheadEdge = baseY - note.getStemDirection() * (staffSpace / 2)
   return { tip: topY, noteheadEdge, length: Math.abs(topY - noteheadEdge) }
 }

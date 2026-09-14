@@ -62,6 +62,8 @@ import {
 } from './trillStyle'
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -213,19 +215,19 @@ function trillGeometry(
 ): { startX: number; endX: number; fromLine: number; toLine: number; pieces: TrillPiece[] } | null {
   const x = spanX(pass, span, voice, from, to)
   if (!x) return null
-  const inset = staffSpacesToPixels(TRILL_END_INSET, from.stave)
+  const inset = staffSpacesToPixels(TRILL_END_INSET, staveFrame(from.stave))
 
   // ⭐⭐ **THE SIGN FOLDS TOO** — his report, 2026-08-20: the sign walked to the last note of a system
   // and *"the walk just stops… it should not stop, it should go as offset"*. A trill's stops are
   // notes, so a lane that runs out leaves the ink as the only way onward; without this the `tr` slid
   // into the right margin instead, and the page limit eventually froze it there.
   const start = foldPastSystemEnd(
-    pass, from.line, x.startX + staffSpacesToPixels(nudge.startX ?? 0, from.stave), from.scale)
+    pass, from.line, x.startX + staffSpacesToPixels(nudge.startX ?? 0, staveFrame(from.stave)), from.scale)
 
   const insetEnd = x.endX - inset
   const clamped = from.line === to.line ? Math.max(insetEnd, x.startX + inset) : insetEnd
   // ⛔ AFTER every automatic decision, never inside one — the recorded scar in `drawTrill`.
-  const nudged = clamped + staffSpacesToPixels(nudge.endX ?? 0, to.stave)
+  const nudged = clamped + staffSpacesToPixels(nudge.endX ?? 0, staveFrame(to.stave))
   const end = foldPastSystemEnd(pass, to.line, nudged, from.scale)
 
   // 🚨🚨 **A PIECE MUST SURVIVE, OR THE SIGN GOES WITH IT.** His report, 2026-08-20: an `endX` of
@@ -364,11 +366,10 @@ function curveBandUnder(
 ): InkBand | null {
   const here = covered[0]
   if (!piece || !here) return null
-  const spacePx = here.stave.getSpacingBetweenLines()
   return curveObstacleBand(
     pass.drawnCurves,
     { staff: here.staffIndex, line: here.line, fromX: piece.x0, toX: piece.x1 },
-    { topLineY: here.stave.getYForLine(0), spacePx },
+    staveFrame(here.stave),
   )
 }
 
@@ -681,7 +682,8 @@ function drawTrill(
     // are facts about the system the piece landed on, not about where the trill began.
     const here = covered.filter(p => p.line === piece.line)
     const stave = here[0]?.stave ?? from.stave
-    const px = (spaces: number) => staffSpacesToPixels(spaces, stave)
+    const frame = staveFrame(stave)
+    const px = (spaces: number) => staffSpacesToPixels(spaces, frame)
     // ⛔ READ, never recomputed — and ⛔ NO CLAIM IS FILED HERE. `planTrillBands` did both before the
     // dynamics line was planned, which is what lets the dynamics clear this `tr`. A second claim for
     // one fragment would push everything outside it a band further out, and would compile.
@@ -695,7 +697,7 @@ function drawTrill(
     // signed per side; the stored number is not, so that `x` (flip the side) cannot invert a nudge
     // the user already made. See {@link TrillOffsetOverride}.
     const lift = (nudge?.outward ?? 0) * (side === 'above' ? -1 : 1)
-    const y = stave.getYForLine(0) + px(baseline + lift)
+    const y = staffLineY(frame, 0) + px(baseline + lift)
 
     // ⭐ EVERY FRAGMENT DRAWS ITS OWN SIGN (rule 6) — a continuation system has to say what the
     // wavy line means, so this is outside any "first piece only" condition on purpose.
@@ -915,7 +917,7 @@ export function drawTrillSign(ctx: RenderPass['context'], x: number, y: number, 
  * about the wiggle lives in the browser suite.
  */
 function drawWiggle(pass: RenderPass, startX: number, endX: number, y: number, stave: Stave): void {
-  const size = staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, stave)
+  const size = staffSpacesToPixels(TRILL_GLYPH_SIZE / 10, staveFrame(stave))
   const unit = measureGlyph('TrillRenderer.wiggle', TRILL_WIGGLE_GLYPH, size)
   if (!(unit > 0)) return
 

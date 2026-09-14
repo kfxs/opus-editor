@@ -44,6 +44,7 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { dotBaselineY, drawAugmentationDot } from '@/engine/engrave/notes/augmentationDot'
 import type { InkSurfaceAware } from './inkSurface'
+import { staveFrame } from './staveFrame'
 
 export class EngravedDot extends Dot implements InkSurfaceAware {
   /**
@@ -74,7 +75,7 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
     const start = note.getModifierStartXY(this.position, this.checkIndex(), { forceFlagRight: true })
     // ⚠️ THE WRITE-BACK: `this.x`/`this.y` are what anything asking this dot where it landed reads.
     this.x = start.x
-    this.y = dotBaselineY(start.y, this.dotShiftY, note.checkStave().getSpacingBetweenLines())
+    this.y = dotBaselineY(start.y, this.dotShiftY, staveFrame(note.checkStave()).spacePx)
 
     drawAugmentationDot(this.inkSurface ?? vex, {
       glyph: this.getText(),

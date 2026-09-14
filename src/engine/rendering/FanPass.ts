@@ -60,6 +60,8 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { followingSpace } from '@/engine/layout/spacing'
 import { MIN_COLUMN_GAP } from '@/engine/layout/spacingPadding'
 import { staffSpacesToPixels } from './staffSpace'
+import { staveFrame } from './staveFrame'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * A fanned slot JOINED to the group on its left (docs/fan-beam-join-plan.md), as INDICES into one
@@ -255,7 +257,7 @@ function fanMemberOffsetsPx(score: Score, slot: Chord, stave: Stave): number[] {
     const key = k === 0 ? slot.id : slot.fan.members?.[k - 1]?.pitches[0]?.id
     const x = key ? noteOffsetOverrideOf(score, key)?.x ?? 0 : 0
     if (x !== 0) any = true
-    out.push(x === 0 ? 0 : staffSpacesToPixels(x, stave))
+    out.push(x === 0 ? 0 : staffSpacesToPixels(x, staveFrame(stave)))
   }
   return any ? out : []
 }
@@ -526,7 +528,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
           )
           for (let h = 0; h < memberHeads.length; h++) {
             const { pitch, line, sign } = memberHeads[h]
-            const y = stave.getYForNote(line)
+            const y = noteLineY(staveFrame(stave), line)
             const head = noteHeads[h]
             head.setStave(stave) // resolves y from the line, and hands it the context
             head.setContext(ctx).draw()
@@ -748,7 +750,7 @@ function fanSlotDrawing(input: {
       // 0 (already inside `headX`) and adds the rest without touching the span. See
       // `FanGeometryOptions.memberOffsets`.
       memberOffsets: fanMemberOffsetsPx(score, slot, stave),
-      memberHeadYs: heads.map(pitches => pitches.map(h => stave.getYForNote(h.line))),
+      memberHeadYs: heads.map(pitches => pitches.map(h => noteLineY(staveFrame(stave), h.line))),
       direction: slot.fan.direction,
       beams: slot.fan.beams,
       // The wedge's own ends, RAW — `fannedBeamGeometry` clamps them against the member list it
@@ -806,7 +808,7 @@ function fanSlotDrawing(input: {
       tipY: topY,
       // ⚠️ The LARGER of the two extensions: the beam levels eat into every stem in the group, and
       // a 32nd prefix joined to a one-beam fan is the case that under-reserves otherwise.
-      minStemLength: stave.getSpacingBetweenLines() * FAN_MIN_STEM_SPACES
+      minStemLength: staveFrame(stave).spacePx * FAN_MIN_STEM_SPACES
         + Math.max(
           fanStemExtension(slot.fan.beams, CROSS_SYSTEM_BEAM_WIDTH, slot.fan.spread),
           // ⚠️ No spread: the prefix's levels are ORDINARY beams at the ordinary gap.
@@ -993,7 +995,7 @@ function drawFanLedgerLines(
   drawLedgerLines(
     ctx,
     ledgerLineRuns(heads, glyphWidth, overhang),
-    line => stave.getYForNote(line),
+    line => noteLineY(staveFrame(stave), line),
     // The stave's own ledger style, so these are the same ink as every other ledger on the page.
     stave.getDefaultLedgerLineStyle(),
   )

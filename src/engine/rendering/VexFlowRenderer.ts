@@ -118,6 +118,8 @@ import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
 import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
+import { staveFrame } from './staveFrame'
+import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -1025,7 +1027,8 @@ export class VexFlowRenderer {
       const stem = staveNote.getStem()
       if (!mark || !stem) continue
 
-      const staffSpace = staveNote.getStave()?.getSpacingBetweenLines() ?? 10
+      const ownStave = staveNote.getStave()
+      const staffSpace = ownStave ? staveFrame(ownStave).spacePx : 10
       const needed = mark.strokeStackHeight() + 2 * TREMOLO_STROKE_CLEARANCE * staffSpace
       const fitStretch = Math.max(0, needed - usableStemSpan(staveNote).length)
       // A stemless note has no flag either, so this half is naturally 0 there — no case needed.
@@ -1156,7 +1159,8 @@ export class VexFlowRenderer {
   ): void {
     for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
       const { first, second, strokes, anchorId, slot, joined } = pair
-      const staffSpace = first.getStave()?.getSpacingBetweenLines() ?? 10
+      const ownStave = first.getStave()
+      const staffSpace = ownStave ? staveFrame(ownStave).spacePx : 10
       const stemmed = first.hasStem() && second.hasStem()
       const quads = twoNoteTremoloStrokes({
         strokes,
@@ -2425,7 +2429,7 @@ export class VexFlowRenderer {
       drawLedgerLines(
         ctx,
         [{ line, x1: cx - halfW, x2: cx + halfW }],
-        l => stave.getYForNote(l),
+        l => noteLineY(staveFrame(stave), l),
         ledgerStyle,
       )
     }
@@ -2464,7 +2468,7 @@ export class VexFlowRenderer {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
       const off = noteOffsetOverrideOf(score, slot.id)
-      const px = off && off.x !== 0 ? staffSpacesToPixels(off.x, stave) : 0
+      const px = off && off.x !== 0 ? staffSpacesToPixels(off.x, staveFrame(stave)) : 0
       // Stem-side articulations align to the stem (modern) rather than the notehead (default).
       const stemAlign = slot.type === 'chord' && slot.articulationStemAlign === true && !!slot.articulations?.length
       if (px === 0 && !stemAlign) continue
@@ -2837,7 +2841,7 @@ export class VexFlowRenderer {
     //    `getNoteStartX()`, which is that ink plus the 2.0-space `HEADER_TO_NOTE` gap the music
     //    needs but a centred rest does not. Measured, that put every line-opening whole-bar rest
     //    **half a staff space right** of where MuseScore puts it. Reported by eye, twice.
-    const space = stave.getSpacingBetweenLines()
+    const space = staveFrame(stave).spacePx
     const headerInk = headerInkRightX(stave, clef, headerKey)
     // ⭐ Does the header END in the signature? Only then are both bounds ones this pass has a padding
     //   row for — see the header's scope note. `headerInkRightX` takes the MAX over the header's
@@ -3586,12 +3590,13 @@ export class VexFlowRenderer {
         })
       }
 
+      const frame = staveFrame(stave)
       const lineYPositions: [number, number, number, number, number] = [
-        stave.getYForLine(0),
-        stave.getYForLine(1),
-        stave.getYForLine(2),
-        stave.getYForLine(3),
-        stave.getYForLine(4),
+        staffLineY(frame, 0),
+        staffLineY(frame, 1),
+        staffLineY(frame, 2),
+        staffLineY(frame, 3),
+        staffLineY(frame, 4),
       ]
       this.elementRegistry.setStaffGeometry({
         measure: measure.number,
@@ -3611,9 +3616,10 @@ export class VexFlowRenderer {
     // gets a half-staff-space pad top and bottom so a treble clef's overhanging
     // curl (below the bottom line) and top (above the top line) still register
     // clicks; the TS and barline sit within the lines and hug them exactly.
-    const lineTop = stave.getYForLine(0)
-    const staffSpan = stave.getYForLine(4) - lineTop
-    const clefPad = (stave.getYForLine(1) - lineTop) / 2
+    const lineFrame = staveFrame(stave)
+    const lineTop = staffLineY(lineFrame, 0)
+    const staffSpan = staffLineY(lineFrame, 4) - lineTop
+    const clefPad = (staffLineY(lineFrame, 1) - lineTop) / 2
 
     // Register the opening clef (beat 0) when a clef glyph is drawn at the
     // measure start: at line starts (full clef) or mid-line clef changes (smaller
@@ -3667,7 +3673,7 @@ export class VexFlowRenderer {
       //    `KeySignaturePass` and `BarlineRenderer` apply, here written as `x − stave.getX()`.
       const meterModifier = stave.getModifiers(StaveModifierPosition.BEGIN)
         .find(m => m.getCategory() === 'TimeSignature')
-      const space = stave.getSpacingBetweenLines()
+      const space = staveFrame(stave).spacePx
       const digit = glyphBox('timeSig4')
       // FALLBACK, and it is the old guess: a measure that is never drawn still gets a box, and a
       // stave built without its meter modifier has nothing to ask. ÷ scale for the reason the header
@@ -3724,7 +3730,7 @@ export class VexFlowRenderer {
     // ⚠️ The straddle is {@link BARLINE_BOX_STRADDLE_PX} rather than a literal 2 (and 4 rather than
     // its double) because the join squares read it BACKWARDS to recover the boundary from the box —
     // see the constant.
-    const signLeftPx = barlineSignExtent(ownEndSignKind(measure)).left * stave.getSpacingBetweenLines()
+    const signLeftPx = barlineSignExtent(ownEndSignKind(measure)).left * staveFrame(stave).spacePx
     const straddle = BARLINE_BOX_STRADDLE_PX
     this.elementRegistry.add({
       type: 'barline',
@@ -5166,7 +5172,7 @@ function spreadHeaderToSystem(stave: Stave, scale: number): void {
  * staff spaces, measured. The key signature is ours and contributes its own ink exactly.
  */
 function headerInkRightX(stave: Stave, clef: Clef, key: KeySignature | undefined): number | undefined {
-  const space = stave.getSpacingBetweenLines()
+  const space = staveFrame(stave).spacePx
   let right = -Infinity
   for (const modifier of stave.getModifiers(StaveModifierPosition.BEGIN)) {
     const category = modifier.getCategory()

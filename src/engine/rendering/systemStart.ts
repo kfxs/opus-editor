@@ -44,7 +44,7 @@ import { drawGlyph } from './glyphPainter'
 import { compose, scaling, translation } from '@/engine/paint/Affine'
 import { drawGroupOf } from './svgDrawGroup'
 import type { Score } from '@/types/music'
-import { THIN_BARLINE_PX, staveBarlineExtent } from './barlineInk'
+import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
 import { STAVE_LINE_WIDTH_PX, staffLineInkBottomY } from '@/engine/engrave/staff/staffLines'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { glyphBox } from '@/engine/fonts/fontMetrics'
@@ -57,6 +57,8 @@ import {
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
 import type { RenderPass } from './RenderPass'
 import { measureGroupKey } from './VexFlowRenderer'
+import { staveFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What this pass needs of a `MeasurePlacement`, declared **structurally** so the renderer that calls
@@ -173,7 +175,7 @@ function registerSignBox(
 
 /** The y a system-spanning sign starts at: the TOP staff's first line, in the SVG's space. */
 function spanTopY(top: SystemStartPlacement): number {
-  return top.stave.getYForLine(0) * top.scale
+  return staffLineY(staveFrame(top.stave), 0) * top.scale
 }
 
 /**
@@ -189,7 +191,7 @@ function spanTopY(top: SystemStartPlacement): number {
  * and both were VexFlow's staff-line thickness rather than ours (P5c: 1.1 px).
  */
 function spanBottomY(bottom: SystemStartPlacement): number {
-  const last = bottom.stave.getYForLine(bottom.stave.getNumLines() - 1)
+  const last = staffBottomLineY(staveFrame(bottom.stave))
   return staffLineInkBottomY(last, STAVE_LINE_WIDTH_PX) * bottom.scale
 }
 
@@ -504,8 +506,8 @@ function drawSystemConnector(
   // 🚨 This used to add a hand-written `+ 1` for "the bottom line's own thickness", naming
   // `Tables.STAVE_LINE_THICKNESS` — VexFlow's number, and a SECOND copy of the one
   // `Stave.getBottomLineBottomY()` adds. Both stopped being ours when P5c made a staff line 1.1 px.
-  const topY = staveBarlineExtent(top.stave).topY * top.scale
-  const bottomY = staveBarlineExtent(bottom.stave).bottomY * bottom.scale
+  const topY = staffBarlineExtent(staveFrame(top.stave)).topY * top.scale
+  const bottomY = staffBarlineExtent(staveFrame(bottom.stave)).bottomY * bottom.scale
   // The staves share an x (barlines align), and it is already in SVG coordinates on the
   // placement — no need to take the scaled staff's word for it.
   //

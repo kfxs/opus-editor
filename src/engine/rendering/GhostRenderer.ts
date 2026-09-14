@@ -56,6 +56,8 @@ import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGho
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { ghostCursorOffset } from './ghostCursor'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
+import { staveFrame } from './staveFrame'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * The preview ghosts (note / clef / time-sig / dynamic / tempo …) each draw into their own
@@ -328,7 +330,7 @@ export function drawNoteGhost(
         ctx,
         mark,
         headCenterX - mark.width / 2,
-        anchorY - GHOST_TUPLET_NUMBER_GAP * tempStave.getSpacingBetweenLines(),
+        anchorY - GHOST_TUPLET_NUMBER_GAP * staveFrame(tempStave).spacePx,
       )
     }
 
@@ -458,7 +460,7 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
       const xBegin = rest.getNoteHeadBeginX()
       const xEnd = rest.getNoteHeadEndX()
       const PAD = 3 // px the line overhangs the glyph on each side — reads as a staff line, not a strike-through
-      const y = tempStave.getYForNote(rest.getLineForRest())
+      const y = noteLineY(staveFrame(tempStave), rest.getLineForRest())
       ctx.beginPath()
       ctx.moveTo(xBegin - PAD, y)
       ctx.lineTo(xEnd + PAD, y)

@@ -64,8 +64,9 @@
 import { Barline, BarlineType } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawOpeningBarline, openingBarlineInk } from '@/engine/engrave/staff/openingBarline'
-import { THIN_BARLINE_PX, staveBarlineExtent } from './barlineInk'
+import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
 import type { InkSurfaceAware } from './inkSurface'
+import { staveFrame } from './staveFrame'
 
 export class EngravedBarline extends Barline implements InkSurfaceAware {
   /**
@@ -99,7 +100,7 @@ export class EngravedBarline extends Barline implements InkSurfaceAware {
     }
     const stave = this.checkStave()
     this.setRendered()
-    const extent = staveBarlineExtent(stave)
+    const extent = staffBarlineExtent(staveFrame(stave))
     drawOpeningBarline(
       this.inkSurface ?? stave.checkContext(),
       openingBarlineInk(this.getX(), extent.topY, extent.bottomY, THIN_BARLINE_PX),

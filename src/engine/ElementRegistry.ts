@@ -13,6 +13,7 @@ import type { PitchSpelling } from '@/types/music'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import { dbg } from '@/utils/debug'
 import { staffOf } from '@/utils/lanes'
+import { staffLineAtY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * Types of elements we track
@@ -1409,12 +1410,10 @@ export class ElementRegistry {
     const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing } = geometry
     const clef = this.clefAtX(geometry, x)
 
-    // Calculate staff line from Y position
-    const topLineY = lineYPositions[0]
-    const staffLine = (y - topLineY) / lineSpacing
+    // Which staff line the y is on — asked of the frame, the one owner of that inverse (rule 5)
+    const staffLine = staffLineAtY(geometryFrame(geometry), y)
 
     // Convert staff line to MIDI pitch using clef-aware calculation, then to spelling
     const midi = this.staffLineToPitch(staffLine, clef)
@@ -1452,11 +1451,10 @@ export class ElementRegistry {
     const geometry = this.staffGeometries.get(this.geomKey(measure, staff))
     if (!geometry) return null
 
-    const { lineYPositions, lineSpacing } = geometry
     const clef = this.clefAtX(geometry, x)
     const staffLine = this.pitchToStaffLine(pitch, clef)
 
-    return lineYPositions[0] + staffLine * lineSpacing
+    return staffLineY(geometryFrame(geometry), staffLine)
   }
 
   /**
@@ -2021,4 +2019,12 @@ export class ElementRegistry {
     const element = this.elements.find(el => el.id === elementId)
     return element?.tupletId
   }
+}
+
+/**
+ * ⭐ A registered staff as a frame (`engrave/staff/staffFrame`) — so the registry's pixel↔line questions
+ * are asked of the one module that owns staff-line arithmetic (rule 5), ⛔ never summed here.
+ */
+export function geometryFrame(geometry: StaffGeometry): StaffFrame {
+  return { topLineY: geometry.lineYPositions[0], spacePx: geometry.lineSpacing, lineCount: geometry.lineYPositions.length }
 }

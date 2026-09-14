@@ -58,6 +58,8 @@ import type { DrawContext } from '@/engine/paint/DrawContext'
 import { MUSIC_GLYPH_FONT } from '@/engine/engrave/inheritedFonts'
 import { drawMeter, stampMeter, type MeterRow } from '@/engine/engrave/header/meter'
 import type { InkSurfaceAware } from './inkSurface'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAware {
   /**
@@ -118,21 +120,22 @@ export class EngravedTimeSignature extends TimeSignature implements InkSurfaceAw
    * something sets `this.x` and the caller's `x` apart, the cancellation is the behaviour.
    */
   private meterRows(stave: Stave, x: number): MeterRow[] {
+    const frame = staveFrame(stave)
     if (!this.isNumeric) {
-      return [this.rowOf(this, x - this.getX(), stave.getYForLine(this.getLine()))]
+      return [this.rowOf(this, x - this.getX(), staffLineY(frame, this.getLine()))]
     }
     // ⭐ A row is centred on the line it names — see `engrave/header/meter`'s header for why that is
     // a BASELINE. ⚠️ `lineShift` is VexFlow's own ±½-line compensation for an oversized glyph, folded
     // in here so the ink never sees it.
     const topY = this.botText.getText().length > 0
-      ? stave.getYForLine(this.topLine - this.lineShift)
+      ? staffLineY(frame, this.topLine - this.lineShift)
       // ⚠️ A lone upper row is centred between the two lines — VexFlow's own midpoint of the two
-      // PLACEMENTS, ⛔ not `getYForLine(2)`: the two differ the moment a staff's lines are not evenly
+      // PLACEMENTS, ⛔ not `staffLineY(frame, 2)`: the two differ the moment a staff's lines are not evenly
       // spaced (`own-engraving-engine.md` §0.3 rule 5).
-      : (stave.getYForLine(this.topLine) + stave.getYForLine(this.bottomLine)) / 2
+      : (staffLineY(frame, this.topLine) + staffLineY(frame, this.bottomLine)) / 2
     return [
       this.rowOf(this.topText, x + this.topStartX, topY),
-      this.rowOf(this.botText, x + this.botStartX, stave.getYForLine(this.bottomLine + this.lineShift)),
+      this.rowOf(this.botText, x + this.botStartX, staffLineY(frame, this.bottomLine + this.lineShift)),
     ]
   }
 

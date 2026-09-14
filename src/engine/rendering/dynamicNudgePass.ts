@@ -34,6 +34,7 @@ import { staffDynamics } from '@/engine/models/staffContent'
 import { dynamicOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { setDynamicMarkNudge } from './dynamicMarkTransform'
 import { staffSpacesToPixels } from './staffSpace'
+import { staveFrame } from './staveFrame'
 
 /** What this pass needs of a `MeasurePlacement` — the shape `./dynamicsLinePass` already declares. */
 interface DynamicNudgePlacement {
@@ -75,8 +76,8 @@ export function applyDynamicNudges(
         //   nudge standing on an element nobody redrew.
         const offset = dynamicOffsetOverrideOf(pass.score, dyn.id)
         setDynamicMarkNudge(pass, dyn.id, el,
-          staffSpacesToPixels(offset?.x ?? 0, placement.stave),
-          staffSpacesToPixels(offset?.y ?? 0, placement.stave))
+          staffSpacesToPixels(offset?.x ?? 0, staveFrame(placement.stave)),
+          staffSpacesToPixels(offset?.y ?? 0, staveFrame(placement.stave)))
       }
     })
   }

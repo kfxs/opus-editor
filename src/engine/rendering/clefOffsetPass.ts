@@ -26,6 +26,7 @@ import type { Fraction, Measure, Score } from '@/types/music'
 import { clefOffsetOverrideOf } from '@/engine/models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { fracEq, fracIsZero } from '@/utils/fraction'
+import { staveFrame } from './staveFrame'
 
 /** One drawn inline clef: the beat it stands at, and the glyph VexFlow will draw. */
 export interface InlineClef {
@@ -56,7 +57,7 @@ export function applyClefOffsets(
     if (!change) continue
     const off = clefOffsetOverrideOf(score, change.id)
     if (!off || off.x === 0) continue
-    shiftClef(clefNote.getClef(), staffSpacesToPixels(off.x, stave))
+    shiftClef(clefNote.getClef(), staffSpacesToPixels(off.x, staveFrame(stave)))
   }
 }
 
@@ -107,6 +108,6 @@ export function applyStaveClefOffset(
   if (!off || off.x === 0) return
   for (const clef of stave.getModifiers(StaveModifierPosition.BEGIN, Clef.CATEGORY)) {
     shiftClef(clef as unknown as { getXShift(): number; setXShift(v: number): void },
-      staffSpacesToPixels(off.x, stave))
+      staffSpacesToPixels(off.x, staveFrame(stave)))
   }
 }

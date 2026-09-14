@@ -47,6 +47,8 @@ import { drawnTextOrigin, firstDrawnText } from './drawnText'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { placeTempoMark } from './tempoMarkTransform'
+import { staveFrame } from './staveFrame'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 /** What the pass needs of a `MeasurePlacement` — declared structurally, the shape the dynamics and
  *  trill passes already use, so the renderer that calls this is not imported back by it. */
@@ -156,7 +158,8 @@ export function placeTempoMarksOnLine(
         // ⚠️ Both sides in the STAVE's own coordinates, which is what makes this correct for a
         //    measure that merely MOVED: its stave and its ink keep the coordinates they were drawn
         //    at, and the group's transform carries them to the new place together.
-        const target = placement.stave.getYForLine(0) + staffSpacesToPixels(baseline, placement.stave)
+        const frame = staveFrame(placement.stave)
+        const target = staffLineY(frame, 0) + staffSpacesToPixels(baseline, frame)
         placeTempoMark(pass, mark.id, el, target - drawn)
       }
     })

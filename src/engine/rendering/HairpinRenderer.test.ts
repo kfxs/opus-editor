@@ -13,8 +13,12 @@ import { hairpinEndpointOffsetPx } from './HairpinRenderer'
  * a half-laid-out score from throwing inside it.
  */
 describe('hairpinEndpointOffsetPx', () => {
-  // staffSpacesToPixels only reads getSpacingBetweenLines() — stub just that.
-  const stave = (spacing: number) => ({ getSpacingBetweenLines: () => spacing } as unknown as Stave)
+  // `staveFrame` reads a stave's three numbers (top line, space, line count) — stub just those.
+  const stave = (spacing: number) => ({
+    getYForLine: (line: number) => line * spacing,
+    getSpacingBetweenLines: () => spacing,
+    getNumLines: () => 5,
+  } as unknown as Stave)
   const offset = (o: Partial<HairpinEndpointOffsetOverride>): HairpinEndpointOffsetOverride =>
     ({ kind: 'hairpinEndpointOffset', ...o })
 
