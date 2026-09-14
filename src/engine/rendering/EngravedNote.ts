@@ -103,6 +103,10 @@ export class EngravedNote extends StaveNote {
    */
   private inkSurface: DrawContext | null = null
 
+  /** The centre x of each head's stamped glyph, filled by {@link EngravedNote.drawNoteHeads} and
+   *  read by {@link EngravedNote.headCentreX}. ⚠️ Indexed as `keys` are, and only valid after a draw. */
+  private drawnHeadCentreX: number[] = []
+
   /**
    * How far this note's ledger lines run past its heads, in px. VexFlow's own default, kept exactly
    * ({@link StaveNote.LEDGER_LINE_OFFSET}, 3) — ⛔ **not** the font's `legerLineExtension` (0.4
@@ -206,7 +210,8 @@ export class EngravedNote extends StaveNote {
   override drawNoteHeads(): void {
     const vex = this.checkContext()
     const surface = this.inkSurface ?? vex
-    for (const head of this.noteHeads) {
+    this.drawnHeadCentreX = []
+    for (const [index, head] of this.noteHeads.entries()) {
       head.setContext(vex)
       vex.save()
       head.applyStyle(vex)
@@ -217,12 +222,15 @@ export class EngravedNote extends StaveNote {
         // is exactly why `NoteHead.draw` reads the raw `x` field instead. (It threw here first.)
         const x = head.getAbsoluteX()
         head.setX(x)
+        const originX = x + head.getXShift()
+        // ⭐ WHERE THIS HEAD ACTUALLY LANDED — see {@link EngravedNote.headCentreX}.
+        this.drawnHeadCentreX[index] = originX + head.getWidth() / 2
         // ⭐ The ink itself is `engrave/notes/noteheads`, shared with `FanPass` — see that module's
         // header for why a second owner was what earned it a module.
         drawNoteHead(surface, {
           id: head.getAttribute('id'),
           glyph: head.getText(),
-          x: x + head.getXShift(),
+          x: originX,
           y: head.getY() + head.getYShift(),
           font: head.fontInfo,
         }, () => this.drawModifiers(head))
@@ -230,6 +238,29 @@ export class EngravedNote extends StaveNote {
         vex.restore()
       }
     }
+  }
+
+  /**
+   * ⭐⭐ **WHERE EACH HEAD'S INK ACTUALLY LANDED**, indexed as `keys` are — the centre of the glyph
+   * this note stamped, ⛔ not a position re-derived from the note afterwards.
+   *
+   * 🚨 **His report, 2026-09-14**: in a chord C♯4+E4+G4+A♭4+C♯5 the **A♭4 is a SECOND above the
+   * G4**, so VexFlow displaces its head to the other side of the stem — and clicking that head
+   * selected the whole MEASURE instead of the note. The registry was filing ONE head centre
+   * (`getNoteHeadBeginX()`…`getNoteHeadEndX()`, which is the note's undisplaced column) against
+   * EVERY pitch of the chord, so the displaced head's hit box sat a notehead-width away from its
+   * own ink. ⭐ Exactly *"a hit box written from a constant drifts off its glyph — ask the DRAWN
+   * element, in ink"*.
+   *
+   * ⚠️ **⛔ And it may NOT be re-derived by asking the head again**: `NoteHead.getAbsoluteX()` folds
+   * the displacement in every time it is called, so a second call displaces twice — the same trap
+   * the `setX` write-back above carries. ⇒ the drawn value is recorded once, here, as it is drawn.
+   *
+   * @returns undefined before this note has been drawn, so a caller falls back rather than reads a
+   *   position nothing painted.
+   */
+  headCentreX(index: number): number | undefined {
+    return this.drawnHeadCentreX[index]
   }
 
   override drawFlag(): void {

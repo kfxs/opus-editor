@@ -297,8 +297,12 @@ The engine survey above is about implementations; this is the other half. ⛔ Do
   "what is on the line" split from a published standard.
 - ❌ **MOLA's own guidelines say nothing about hairpins** (full text extracted; dynamics appear once,
   about language). It cites Gould/Ross/Stone rather than restating them.
-- ❌ **Ross (1970) and Stone (1980)**: not obtainable — Archive copies are lending-only. Their
-  hairpin geometry, if any, remains unread.
+- ~~❌ **Ross (1970) and Stone (1980)**: not obtainable — Archive copies are lending-only.~~
+  🚨 **STALE, corrected 2026-09-14: both have been ON DISK since 2026-08-18** (`reference/README.md`
+  is the manifest). The slur/tie survey found the same sentence in `slur-plan.md` §11.7 and got a
+  full chapter out of each — Ross pp. 136–143, Stone pp. 35–39. ⏭️ **Their hairpin geometry is
+  therefore unread rather than unobtainable**, and nobody has asked them. ⭐ A "not obtainable" note
+  is a fact about a DAY, not about the library — re-check the manifest before believing one.
 
 **Gould's own rules about the gradient**, which are consequences of the above rather than extra
 numbers: start the hairpin at the **left-hand edge** of its first note and finish at the

@@ -9,7 +9,13 @@
 > **Sources**: four treatises on disk, all read on RENDERED pages, never from the OCR layer
 > (`reference/README.md` says why). **Gould: PDF page = printed page + 20. Ross: PDF page = printed
 > page + 12. Stone: the PDF is 2-UP — printed pp. 48–49 are PDF page 35, left and right halves.**
-> Gerou & Lusk's PDF is 1-up with its own printed numbers. Three engines at
+> ~~Gerou & Lusk's PDF is 1-up with its own printed numbers.~~ 🚨 **WRONG, corrected 2026-09-14:
+> Gerou & Lusk's PDF is 2-UP like Stone's — printed page P is on PDF page P/2 + 2 (PDF *n* carries
+> printed 2n−4 and 2n−3).** Verified independently by two investigations
+> (`docs/accidental-dot-research.md`, `docs/slur-tie-research.md`) on two pages each. ⚠️ **Every
+> G&L citation in this document was found under the 1-up assumption and is owed a re-check** — the
+> printed page numbers quoted may be right (they were read off the page) but the route to them was
+> not. Three engines at
 > `~/dev/engine-sources/{lilypond,MuseScore,verovio}` at the commits `reference/README.md` records.
 >
 > ⭐⭐ **The headline surprise: STONE HAS A FULL STEM-LENGTH CHAPTER (pp. 47–49) and this library had

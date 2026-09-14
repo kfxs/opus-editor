@@ -861,9 +861,16 @@ All three have it. Their shapes differ, which matters if we ever build one:
 A fourth agent read the published literature. **Obtained**: Gould, *Behind Bars* (full OCR + page
 scans, `archive.org/details/behind-bars-by-elaine-gould`); Gedan, *Notenschrift für Fortgeschrittene*
 (German, PDF); Byrd, *Music Notation by Computer* (1984); the notat.io engravers' forum; SMuFL/Bravura.
-**Not obtainable** (lending-restricted, so *unknown* rather than silent): **Ross**, **Read**, **Stone**,
-**Chlapik**, and Boosey & Hawkes' house manual. ❌ **MOLA's guidelines are genuinely silent** — checked
-in full, no slur or tie content at all.
+~~**Not obtainable** (lending-restricted, so *unknown* rather than silent): **Ross**, **Read**,
+**Stone**, **Chlapik**, and Boosey & Hawkes' house manual.~~ ❌ **MOLA's guidelines are genuinely
+silent** — checked in full, no slur or tie content at all.
+
+> 🚨 **STALE — corrected 2026-09-14.** **Ross and Stone have been on disk since 2026-08-18**
+> (`reference/README.md` is the manifest), three days after this section was written, and nobody
+> re-asked them. Each has a full treatment of the curve — **Ross printed pp. 136–143, Stone
+> pp. 35–39** — now read in `docs/slur-tie-research.md`. ⭐ **A "not obtainable" line is a fact about
+> a DAY, not about the library**: the header's own *"⛔ don't redo"* is what kept it standing for a
+> month. ⇒ ⛔ Read the manifest before believing any such note.
 
 **⭐⭐ THE DIRECTION SCAN IS GOULD'S RULE, and so is the tie-break.** Both were built on three
 implementations agreeing; the book says both outright.

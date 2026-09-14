@@ -943,6 +943,26 @@ against the printed folio on the rendered page** — Gould +20 (printed 8 = PDF 
 | ⛔ Ross's mid-bar plate, measured | **Ross p. 167**, first figure | ⚠️ **Attempted and abandoned.** The plate (a mid-bar bass clef between two notes) reproduces at 450 dpi with the staff lines, stems and clef running together at every usable threshold; the clef→note gap reads anywhere between **0.3 and 0.9 sp** depending on where the edge is called. ⛔ Not quotable. (Same cause as the 2026-09-01 note that his thin lines measure 0.081 sp against Gould's 0.110 — a reproduction difference.) |
 | ⛔ a NUMBER for note → clef, from anyone | — | **UNKNOWN — no source states one.** Gould prices only the space *after* a clef (1 sp, p. 42) and the cramped floor *around* one (½ sp, p. 43); Ross, Stone and G&L give the clef's POSITION in the rhythm and no distance at all. Every note→clef figure above is a measurement. |
 
+### What was asked of it on 2026-09-14 (the ACCIDENTAL and the DOT), and what came back
+
+The question was the **ACCIDENTAL** and the **AUGMENTATION DOT** — their gaps, their vertical
+anchors, a chord's accidental columns, and the dot on a line — asked because P3 took both glyphs'
+INK on 2026-09-14 and left every one of their placements with VexFlow. Written up in full as
+`docs/accidental-dot-research.md` (§2 per book, §3 unanimity, §4 what we draw, §5 the open
+decisions). ⭐ Answered **entirely from the four books on disk**: no web route was used, so none was
+found dead.
+
+🚨 **A MANIFEST-LEVEL CORRECTION, and it affects every existing Gerou & Lusk citation: THEIR PDF IS
+2-UP.** PDF page *n* holds printed pages **2n − 4** and **2n − 3** — verified twice, by reading the
+running heads off PDF 5 (printed **6–7**, *Accidentals*) and PDF 70 (printed **136–137**, the
+*Stems* entry `docs/stem-length-research.md` cites). ⛔ `docs/stem-length-research.md`'s header says
+*"Gerou & Lusk's PDF is 1-up with its own printed numbers"* — **that is wrong**, and it is the
+second 2-up PDF in this directory after Stone's.
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ how far does an accidental stand off its notehead, and how far does an augmentation dot? | **Gould pp. 54, 77–78, 87–90** · **Ross pp. 131–135, 169–171** · **Stone pp. 45, 53, 125** · **Gerou & Lusk pp. 3–9, 21–24** — all MEASURED at 600 dpi | ⭐ **The DOT: Gould p. 54 states *"usually a half stave-space's distance"* and her plate draws 0.37–0.44 sp edge to edge; Ross p. 169 writes *"approximately a space"* and his own plate draws 0.33–0.53 sp — his DRAWING engraves her SENTENCE.** 🚨 And the double-dot gap this repo attributes to Gould is **not hers**: she gives no number (*"close together and evenly spaced"*) and draws 0.26 sp, tighter than her own first gap; the ½-space-between-dots figure is **ROSS p. 171** and the equal-gaps principle is **GEROU & LUSK p. 22**. ⭐ **The ACCIDENTAL: only Ross states a gap — p. 131, *"one space and a half before the note"*, and his plate carries a dotted ruler proving it is LEFT EDGE to LEFT EDGE (measured 1.51 sp ⇒ 0.54 sp of ink); Gould gives none and draws 0.19–0.38 sp, flats closer than sharps.** ⭐⭐ Her p. 88 states the column MINIMUM geometrically — *"the closest that two sharps may be placed together is so that the edges of their crossbars align vertically"* — drawn abutting at **0.98 sp** of pitch with no air, and the overlapped version drawn and rejected. 🚨 **The column-sharing threshold is the one place the books split three ways: Gould an OCTAVE (7th and 6th conditional on the glyph), Ross a flat SEVENTH, Gerou & Lusk GREATER THAN A SIXTH** — and VexFlow's `Accidental.checkCollision` (3.0 lines, 2.5 under a flat) is Gould p. 88 almost verbatim. ⛔ **UNKNOWN in every book: whether a ledger line shortens for an accidental** — only LilyPond's *Essay*, node *Ledger lines*, says it, with no amount and a Bärenreiter plate for evidence; Gould p. 26 and G&L p. 84 sanction shortening only for *cramped conditions* / touching leger lines. ⛔ **Stone removes himself in so many words** (p. 45: *"too complex to be included in these rather general guidelines"*, footnoted to Ross) |
+
 ## Still missing — UNKNOWN, not silent
 
 ✅ **Ross and Stone are NO LONGER missing — both are complete on disk since 2026-08-18** (rows in the
@@ -973,3 +993,31 @@ brace quotations were got (2026-08-28). ⭐ And `usermanuals.finalemusic.com`'s 
 fine, **images included** — a dialog screenshot is what settled Finale's nine bracket shapes.
 
 ⛔ `www.finaletips.nu` is **DNS-dead**; the Finale plug-in reference lives at `pdk.finalelua.com`.
+
+### What was asked of it on 2026-09-14, and what came back
+
+The question was **the SLUR and the TIE** — thickness, arch, attachment, avoidance, the system break
+— for `docs/slur-tie-research.md`, written because the arc's INK became ours that day
+(`engine/engrave/curves/curveInk.ts`) while its SHAPE was deliberately left open. ⭐ The first time
+**Ross and Stone** were asked this: `docs/slur-plan.md` §11.7 (2026-08-15) lists both as
+*"not obtainable"*, and both have been on disk since 2026-08-18. **All four treatises answer.**
+
+| asked | source | answer |
+|---|---|---|
+| ⭐⭐ **a page offset nobody had recorded** | **Gerou & Lusk**, the whole PDF | 🚨 **THE G&L PDF IS 2-UP**, like Stone's — printed page P sits on **PDF page P/2 + 2** (even LEFT, odd RIGHT), calibrated on PDF 62 = printed 120/121 and PDF 73 = printed 142/143. Slurs printed **pp. 121–127** = PDF 62–65; ties printed **pp. 143–148** = PDF 73–76. ⛔ Not a simple `+n`. |
+| where the material is | all four | **Gould** ties pp. 60–72, slurs pp. 109–114 (PDF +20) · **Ross** *Ties, Slurs, and Phrase Marks* pp. 136–143 (PDF +12) · **Stone** *Slurs and Ties* pp. 35–39 (2-UP: pp. 36/37 = PDF 29, pp. 38/39 = PDF 30) · **G&L** as above. |
+| ⭐⭐ the tie's *"1–1½ stave-spaces deep"* — apex or total reach? | **Gould p. 62**, MEASURED at 450 dpi | **The APEX over the chord.** Her page draws the SAME two-note tie three times, labelled *centre* / *edge* / *slightly after*: apex **1.52 / 0.97 / 0.47 sp**, i.e. the two ends of her own stated band in the first two. ⭐ This closes the ambiguity `docs/slur-plan.md` §13.2 left open — and it closes it **against** every engine, none of which reaches 1 sp. ⛔ The tie's height is HIS decision (§13.1) and was not re-opened. |
+| ⭐⭐ does her DRAWING match her endpoint sentence? | **Gould p. 62**, same plate | ✅ **Yes, for once.** *"Centre of the notehead"* draws the tip over the head's centre to **±0.27 sp**; *"edge of the notehead"* draws it on the edge to **±0.15 sp**. ⭐ And a third fact no book states and no engine models: the three variants differ in DEPTH by **3×** on the same two notes. |
+| a slur/tie THICKNESS, from any book | **all four** | ⛔ **UNKNOWN — none gives a number.** Gould specifies a thickness for beams, hairpins, tenuto lines, barlines, ledger lines and rests, and for the curve says only *"tapered arc"*. Ross: *"a thick center which gradually tapers to uniformly thin ends"*, no figure. Stone and G&L: nothing. ⭐ **MEASURED instead**: Gould's own ties are **0.30 sp** at the belly (≈2.8× her 0.106 sp staff line), on both p. 61 and p. 62. |
+| a slur ARCH HEIGHT, from any book | **all four** | ⛔ **UNKNOWN.** Gould constrains only the direction — *"the curve of a long slur is flattened … may be completely flat in the middle"* (p. 109) — and **Ross states the same thing independently**: *"A long slur is a straight line with both ends bending uniformly towards the enclosed notes"* (pp. 140–141). ⚠️ **G&L p. 145 is the dissent**, and only for the tie: *"Adjust curve for longer ties. Raise or lower the center of the curve to the next space"* — i.e. a LONG tie gets DEEPER, quantised to whole spaces. |
+| 🚨 Stone's tie-direction rule, which READS as a contradiction | **Stone p. 37**, the PLATE (PDF 29, right half, 300 dpi) | *"If both tied note-heads point down, the tie also curves downward"* reads as *stem down ⇒ tie below* — the opposite of everyone. **It is not.** His plate draws **stems UP with the tie BELOW**: Stone's *"the note-head points down"* means *the head hangs at the bottom of its stem*. ⭐ Same rule as Gould/Ross/G&L. The scan did not overturn the sentence, it **disambiguated** one that would otherwise have been written up as a fourth opinion. |
+| ⭐⭐ the one number for ties in a CHORD | **Gould p. 65** | *"Place ties that are in the same direction **a minimum of one stave-space apart**. This applies to ties both on and outside the stave."* The only inter-tie number in any book; we have none. |
+| 🚨 the INNER tie of a chord — a real three-way split | **Gould p. 65** vs **Ross p. 138** + **G&L p. 147** | Ross and G&L both place inner ties **by position on the staff** (above the middle line ⇒ above). **Gould prints that rule and labels it *not recommended***, preferring even ⇒ equal numbers each way / odd ⇒ the majority away from the stem. ⇒ 2 books vs 1, with the 1 having read the 2. |
+| may a TIE end on a STEM? | **Gould p. 60** vs **Ross p. 136** | Gould: no, definitionally — *"if one or both ends point to a stem, the arc becomes a slur"*. **Ross: yes, with a drawn example** — *"It is also possible for the tie to extend from stem to notehead"*. |
+| ⭐ does the SLUR get the staff-line rule too? | **Gould p. 110** + **Ross pp. 139–140** | **Yes, and we only apply it to the tie.** Gould: *"On a stave, the arc should be placed in a stave-space in order to be most conspicuous"* (with an *and/not* pair). Ross draws a **NOT CLEAR / CLEAR** pair for a short slur crossing staff lines. |
+| the two halves of a BROKEN curve — should they match? | **all four books** + all five engines | ⛔ **Nobody asks them to match.** Each book constrains each half's *own* shape and the *direction*: a broken **slur** must be **angled** (Gould p. 112, G&L p. 125, Stone p. 38), a broken **tie** must stay **level/symmetrical** (Gould p. 65 with a *"ties too flat"* counter-example, G&L p. 146). ⇒ the repo's belief is confirmed from the books as well as the code. |
+| ⭐ Stone is the fullest source on the system break | **Stone pp. 37–39** | The only book covering a line that ends with a **time-signature change** or a **clef change** (*"stop just before the new clef"*), and the only one that admits the consequence out loud: keeping the direction across the break *"will occasionally result in **wrong-looking** slur and/or tie positions"*. |
+| ⛔ Ross on the system break | **Ross pp. 136–143** | **UNKNOWN — silent.** Read in full plus a full-text grep for `line to line`, `next line`, `system`. ⛔ Do not check again. |
+| ⛔ Stone on any shape number | **Stone pp. 35–39** + his index | **Nothing** — no thickness, no arch, no gap. His section is position, direction and the line break only. ⛔ Do not check again. |
+| ⛔ Gould's SLUR arch, as a measured table | — | **NOT MEASURED.** Her slur plates run the arc over noteheads, stems and beams inside the same x-window, so a column ink profile cannot separate curve from music without hand-tracing. `gould-scans/` p. 111 stays the only slur plate this project has measured. A real piece of work, not done. |
+| ⛔ a fifth treatise both our sources point at | **Wanske, *Musiknotation*** | **UNKNOWN — not on disk, never fetched.** LilyPond's tie-direction code cites it by name and page: `/* Default: Put the tie oppositie of the stem [Wanske p231] … The direction of the Tie is more complicated (See [Ross] p136 and further). */` (`lily/tie.cc:84-93`). ⭐ Note that its **other** citation, Ross p. 136ff, **is** on disk and was read for the first time today. |

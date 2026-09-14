@@ -20,10 +20,21 @@
  *
  * ## The rule
  *
- * ⭐ **Half a staff space, edge to edge — and the same gap twice.** Gould gives half a space between
- * the dots of a double-dotted note (measured from the dot's EDGE, not its centre), and the standing
- * engraving principle is that *the notehead-to-first-dot distance equals the dot-to-dot distance*.
- * One number therefore settles both, and at 10px per space it is **5px**.
+ * ⭐ **Half a staff space, edge to edge — and the same gap twice.** One number settles both, and at
+ * 10px per space it is **5px**.
+ *
+ * 🚨 **THE CITATION WAS WRONG, corrected 2026-09-14 by `docs/accidental-dot-research.md`.** This
+ * paragraph used to credit Gould with the half space *between the dots*. She does not say it: her
+ * half space (p. 54) is the **notehead→dot** distance, and about the dots themselves she says only
+ * *"close together and evenly spaced"*. ⭐ The number we ship has two real sources — **Ross p. 171**
+ * for half a space between dots (his plate draws 0.35–0.53 sp) and **Gerou & Lusk p. 22** for the
+ * equal-gaps principle — ⛔ but neither is the one that was named here.
+ *
+ * ⚠️ And the survey found that *equal* is nobody's drawing: **Gould's own plate measures 0.37 sp
+ * after the notehead and 0.26 sp between the dots** — tighter, not equal — and the engines split
+ * four ways (LilyPond 0.45/0.45, MuseScore 0.50/0.25, Verovio 0.30/0.35, VexFlow 0.20/0.10;
+ * `docs/accidental-dot-engines.md`). ⭐ **The 0.5 stands — it is HIS call off the page** — and it is
+ * now a house-style choice with its sources straight, ⛔ not a rule the books share.
  *
  * ⭐ It also settles the ledger case with nothing ledger-specific in it: a ledger line overhangs the
  * notehead by 3px, so a dot standing 5px off the head clears its tip by 2. That matters beyond
@@ -49,7 +60,9 @@
 import { Dot, Stem, StaveNote } from 'vexflow'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
-/** Gould's half a space, as a fraction of one — the gap after the notehead AND between two dots. */
+/** Half a space, as a fraction of one — the gap after the notehead AND between two dots.
+ *  ⚠️ ⛔ **Not "Gould's"** — see the misattribution corrected in this file's header: hers is the
+ *  notehead→dot gap alone (p. 54); the dot→dot half space is Ross p. 171. */
 export const DOT_GAP_SPACES = 0.5
 
 /**

@@ -6,7 +6,7 @@ import { TREMOLO_PAIR_GROUP, pairDrawing, pairIsJoined, pairRoleAt, pairStrokesD
 import { fanStemExtension } from './FannedBeam'
 import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
-import { drawNoteInkThrough } from './EngravedNote'
+import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -3392,10 +3392,20 @@ export class VexFlowRenderer {
             // True notehead-center X (excludes accidentals/dots, unlike the full bbox
             // whose center skews left when an accidental hangs off the head). Used to
             // place the head hit-box so the click target lands ON the notehead.
-            let headCenterX: number | undefined
+            //
+            // 🚨🚨 **ONE VALUE CANNOT SPEAK FOR A CHORD.** This is the note's UNDISPLACED column, and
+            // a chord containing a SECOND puts one head on the other side of the stem — so filing
+            // this against every pitch left the displaced head's hit box a notehead-width from its
+            // own ink, and clicking it selected the MEASURE (his report, 2026-09-14, with a
+            // picture). ⇒ it is now only the FALLBACK, for a note whose ink is not ours yet (a
+            // ghost's plain `StaveNote`); an `EngravedNote` is asked where each head actually
+            // landed. ⛔ Never re-derive it by asking the head — `NoteHead.getAbsoluteX()` folds the
+            // displacement in on every call, so asking twice displaces twice.
+            let columnCenterX: number | undefined
             try {
-              headCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
+              columnCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
             } catch (_e) { /* not available before draw */ }
+            const engraved = staveNote instanceof EngravedNote ? staveNote : undefined
 
             for (let keyIndex = 0; keyIndex < sortedPitches.length; keyIndex++) {
               const pitch = sortedPitches[keyIndex]
@@ -3411,7 +3421,7 @@ export class VexFlowRenderer {
                 duration: slot.duration,
                 tupletId: slot.tupletId,
                 bbox: { x: box.x, y: box.y, width: box.w, height: box.h },
-                headX: headCenterX,
+                headX: engraved?.headCentreX(keyIndex) ?? columnCenterX,
               })
 
               // keyIndex matches VexFlow's sorted pitch order
