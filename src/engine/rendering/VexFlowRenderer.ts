@@ -3466,16 +3466,21 @@ export class VexFlowRenderer {
               // courtesy/auto natural (alter 0, not forced) that shows because an
               // earlier note in the measure altered this pitch. The inner loop only
               // acts when an Accidental modifier exists, so no guard on alter/force.
+              //
+              // 🚨🚨 **A modifier names its own pitch — ASK IT.** `getIndex()` is the index
+              // `addModifier(acc, idx)` put there, and it is public API. This used to try that,
+              // then a non-existent `note_index`, and then fall back to *"the Nth accidental
+              // belongs to the Nth pitch of the chord"* — which is false the moment a chord has
+              // more notes than accidentals: in C4+E4+G4+A4+C5 with a natural on G4 and a sharp
+              // on C5, the fallback filed the NATURAL under C4, and selecting C4 lit it (his
+              // report, 2026-09-14, with a picture). ⭐ A GUESSING FALLBACK GETS BELIEVED — and an
+              // `||` chain makes the guess WIN, because it only runs when the true answer said no.
               {
                 try {
-                  const modifiers = staveNote.getModifiers()
-                  for (const modifier of modifiers) {
+                  for (const modifier of staveNote.getModifiers()) {
                     if (modifier.getCategory() === 'Accidental') {
                       const accidental = modifier as Accidental
-                      const accInternal = accidental as unknown as { index?: number; note_index?: number }
-                      if (accInternal.index === keyIndex ||
-                          accInternal.note_index === keyIndex ||
-                          modifiers.filter(m => m.getCategory() === 'Accidental').indexOf(modifier) === keyIndex) {
+                      if (accidental.getIndex() === keyIndex) {
                         const accBox = accidental.getBoundingBox()
                         if (accBox) {
                           const accStr = pitch.alter === 2 ? '##' : pitch.alter === 1 ? '#'

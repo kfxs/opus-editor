@@ -35,6 +35,7 @@ import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLi
 import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
+import { acceptsInkSurface } from './inkSurface'
 
 /**
  * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
@@ -267,6 +268,14 @@ export function drawNoteInkThrough(notes: readonly StaveNote[], ctx: DrawContext
     if (note instanceof EngravedNote) note.setInkSurface(ctx)
     const stem = note.getStem()
     if (stem instanceof EngravedStem) stem.setInkSurface(ctx)
+    // ⭐ …and every MODIFIER that can take one — today the accidental and the augmentation dot
+    // (2026-09-14). ⚠️ Asked as a MEMBERSHIP, ⛔ not as a third and fourth `instanceof`: that is
+    // the family `./inkSurface` exists for, and joining it is what a new one implements. A
+    // modifier that does not (an `Articulation`, a `CenteredTremolo`, an `Annotation`) keeps
+    // painting itself on VexFlow's context, which is the honest state of the migration.
+    for (const modifier of note.getModifiers()) {
+      if (acceptsInkSurface(modifier)) modifier.setInkSurface(ctx)
+    }
   }
 }
 

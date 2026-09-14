@@ -17,9 +17,12 @@
  * wedge, the octave line, the pedal's dashes, page sheets. Their coordinates are arithmetic over
  * stave geometry and the layout, and jsdom computes all of it.
  *
- * ⛔ **Anything a VexFlow object still paints itself** — today the fan's own noteheads and
- * accidentals (U2, blocked on U3's highlight) and the modifiers a `StaveNote` hangs on itself.
- * Those go through `vexContext`, never reach a `DrawContext`, and are invisible to the recorder.
+ * ⛔ **Anything a VexFlow object still paints itself** — today the ARTICULATION, and the fan's own
+ * noteheads and accidentals (U2, blocked on U3's highlight). 🚨 ⛔ **And `lint:paint` will not tell
+ * you which**: it counts the identifier `vexContext`, which a MODIFIER never writes — the accidental
+ * and the dot were missing from this file's scenes for four migration steps without moving that
+ * number by one (`docs/note-engraving-plan.md` §1f). ⭐ Hence the CENSUS below: the page's glyphs,
+ * diffed against the scene's.
  * ⭐ That gap is the migration's remaining work rather than a defect of the scene, and it shrinks
  * with every commit: the noteheads, stems, flags and ledger lines arrived with P3, the beams with
  * P4, the staff's five lines, the clef, the meter and the opening barline with P5 — ⇒ ⭐⭐ **nothing
@@ -856,6 +859,67 @@ describe('⭐⭐ U1 — the CURVE in the scene: a tie’s arc, drawn by us', () 
   // for — an empty `toEqual([])` would pass on a score with no ties at all.
   it('🚨 the break-test — no tie in the score, no arc in the scene', () => {
     expect(tiePaths(render(2).scene), 'nothing draws a curve on its own').toHaveLength(0)
+  })
+})
+
+describe('⭐⭐ the note’s MODIFIERS — the accidental and the dot in the scene', () => {
+  /** A bar with a sharp on the first note and a dot on the second. */
+  function marked(articulate = false): ScoreModel {
+    const model = new ScoreModel()
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), alter: 1 })
+    model.addNote({
+      step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), dots: 1,
+      ...(articulate ? { articulations: ['staccato' as const] } : {}),
+    })
+    model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(5, 2) })
+    return model
+  }
+
+  /** Every glyph the scene holds, as codepoints. */
+  function sceneGlyphs(scene: ReturnType<typeof render>['scene']): string[] {
+    return scenePrimitives(scene).flatMap(p => (p.kind === 'text' ? [p.text] : []))
+  }
+
+  /** Every glyph the PAGE holds — the other side of the same census. */
+  function pageGlyphs(renderer: VexFlowRenderer): string[] {
+    const svg = renderer.getSVGElement()
+    return [...(svg?.querySelectorAll('text') ?? [])].map(t => t.textContent ?? '')
+  }
+
+  const SHARP = '\ue262'
+  const AUGMENTATION_DOT = '\ue1e7'
+
+  it('⭐⭐ an accidental and a dot are OURS — the last two glyphs of an ordinary bar', () => {
+    const glyphs = sceneGlyphs(renderModel(marked()).scene)
+    expect(glyphs, 'the sharp').toContain(SHARP)
+    expect(glyphs, 'the augmentation dot').toContain(AUGMENTATION_DOT)
+  })
+
+  it('⭐⭐ THE CENSUS: every glyph the page draws is in the scene, and in the same order', () => {
+    // 🚨 This is the assertion the step was for, and it is the one that found the gap in the first
+    // place: `lint:paint` counts `vexContext`, and a modifier never mentions it — it takes its
+    // context from `voice.draw(ctx)` by way of `StaveNote.drawModifiers`. So the accidental and the
+    // dot were VexFlow ink through all of P3, P4, P5 and U1, invisible to the ceiling AND to the
+    // scene. ⭐ A ceiling nobody re-measured reads as coverage; this counts the ink itself.
+    const { renderer, scene } = renderModel(marked())
+    expect(pageGlyphs(renderer)).toEqual(sceneGlyphs(scene))
+  })
+
+  it('🚨 …and it is a census of a PLAIN bar: an ARTICULATION is still VexFlow’s', () => {
+    // ⭐ A PASSING assertion that states the boundary, so the day the articulation's ink moves it
+    // fails and says so — the idiom the barline extent and the header walk both used.
+    const { renderer, scene } = renderModel(marked(true))
+    // ⚠️ A MULTISET difference, ⛔ not `includes`: VexFlow draws a staccato with the augmentation
+    // dot's own codepoint, so a membership test says "present" while the page holds TWO of them and
+    // the scene one. The first draft of this test passed for exactly that reason.
+    const bag = sceneGlyphs(scene)
+    const missing = pageGlyphs(renderer).filter(g => {
+      const at = bag.indexOf(g)
+      if (at < 0) return true
+      bag.splice(at, 1)
+      return false
+    })
+    expect(missing.length, 'the articulation, and nothing else, is still a VexFlow modifier').toBe(1)
   })
 })
 

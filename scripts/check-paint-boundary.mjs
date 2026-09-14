@@ -33,6 +33,19 @@
  *    use is either the EDITOR being handed ink to highlight later, or a recolour/hide done through
  *    the page. ⭐ Both are real seams; ⛔ neither is a capability the SCENE will need.
  *
+ * ## 🚨🚨 WHAT THIS NUMBER IS NOT — measured 2026-09-14, and it cost a whole migration step
+ *
+ * It counts the identifier `vexContext`. ⛔ **It is not a measure of how much VexFlow ink is left.**
+ * A `StaveNote`'s MODIFIERS — every accidental, every augmentation dot — take their context from
+ * `StaveNote.drawModifiers`, which reads `checkContext()`; the word `vexContext` appears nowhere near
+ * them. So they were VexFlow ink through P3, P4, P5 and U1, while this gauge fell 24 → 9 without
+ * ever having seen them (`docs/note-engraving-plan.md` §1f).
+ *
+ * ⭐ The measure of INK is the SCENE: render, and diff the page's primitives against the recorded
+ * ones. That census lives in `VexFlowRenderer.scene.test.ts` and it is the number to trust for
+ * *"how much is left"*. ⇒ **this file measures COUPLING** — how many places still need VexFlow's own
+ * context — which is what a ratchet can enforce, and it is the only claim it makes.
+ *
  * ⭐ Both numbers are expected to fall to zero. When they do, `paint/` can be given an implementation
  * that is not VexFlow's, and `scene/` a recording one — which is the golden net P3 is gated on.
  */

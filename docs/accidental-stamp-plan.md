@@ -58,6 +58,38 @@ element by bbox on **both** axes (an X-only match would grab a chord neighbour's
 notehead in the column), scoped to the note's own `vf-stavenote` group, via the logged `setAttr` so
 `clearHighlights` reverts it.
 
+### 🚨🚨 2026-09-14 — the highlight was right and the REGISTRY was wrong
+
+**His report, with a picture**: a chord C4+E4+G4+A4+C5 carrying a forced natural on G4 and a sharp on
+C5 — *"i selected C and the natural is highlighted, but C is not the owner of the natural"*.
+
+⭐ **Nothing above is at fault.** The bbox match did exactly what it promised; it was handed a box
+filed under the wrong pitch. `VexFlowRenderer`'s registration loop decided which pitch an accidental
+belonged to like this:
+
+```js
+accInternal.index === keyIndex ||                                     // the truth
+accInternal.note_index === keyIndex ||                                // a field VexFlow has not had
+modifiers.filter(isAccidental).indexOf(modifier) === keyIndex         // ⛔ A GUESS
+```
+
+The third clause reads *"the Nth accidental belongs to the Nth pitch of the chord"*, which is false
+the moment a chord has more notes than accidentals: the accidental list was `[natural(G4),
+sharp(C5)]`, so accidental **#0 — the natural — was filed under pitch #0, C4**.
+
+⭐⭐ **Two lessons, and the second is the sharper one:**
+
+1. **A GUESSING FALLBACK GETS BELIEVED.** Nothing downstream can tell a guessed answer from a real
+   one, so the highlight lit what it was told.
+2. 🚨 **An `||` chain makes the guess WIN.** It runs *only when the true answer has already said no* —
+   i.e. exactly in the cases the truth was there to exclude. A fallback that fires on "no" is not a
+   fallback at all; it is an override.
+
+⇒ The loop now asks the modifier which pitch it belongs to (`Accidental.getIndex()`, **public API** —
+the `as unknown as` cast was never needed either) and registers nothing when the answer is no.
+Regression spec: `VexFlowRenderer.accidentalRegistry.test.ts`, which builds his chord and asserts the
+natural and the sharp are filed under G4 and C5 while C4/E4/A4 own none.
+
 ## 4. Same for articulations (they're additive)
 
 The articulation equivalent of §2, differing because articulations **stack** (a note carries a set,

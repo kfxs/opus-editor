@@ -1,5 +1,7 @@
-import { StaveNote, Voice, Accidental, Articulation, Modifier, Dot } from 'vexflow'
+import { StaveNote, Voice, Articulation, Modifier } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
+import { EngravedAccidental } from './EngravedAccidental'
+import { attachEngravedDots } from './EngravedDot'
 import { CenteredTremolo } from './CenteredTremolo'
 import { reserveDotRoom } from './dotPlacement'
 import type { Measure, NoteDuration, Clef, ArticulationType, Chord, ChordRest, Fraction, KeySignature } from '@/types/music'
@@ -184,7 +186,7 @@ export function createStaveNotesFromSlots(
       const vexDuration = convertDuration(slot.duration, slot.dots || 0)
       const staveNote = new EngravedNote({ keys: [restKey(slot.duration)], duration: vexDuration + 'r' })
       for (let d = 0; d < (slot.dots || 0); d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
+        attachEngravedDots(staveNote)
       }
       // Multi-voice: lift V1 rests / drop V2 rests so the two streams don't collide.
       if (shift) staveNote.setKeyLine(0, staveNote.getLineForRest() + shift)
@@ -304,13 +306,13 @@ export function createStaveNotesFromSlots(
     // ledger line is therefore a DRAW-time pass, not a wider accidental here.
     sortedPitches.forEach((p, idx) => {
       const acc = displayAccidentals.get(p.id) ?? null
-      if (acc) staveNote.addModifier(new Accidental(acc), idx)
+      if (acc) staveNote.addModifier(new EngravedAccidental(acc), idx)
     })
 
     // Dots — none on a fanned slot; see the drawn-value note above.
     if (!fanned) {
       for (let d = 0; d < (slot.dots || 0); d++) {
-        Dot.buildAndAttach([staveNote], { all: true })
+        attachEngravedDots(staveNote)
       }
       // ⭐ …and each one buys the room to stand half a staff space off the notehead, which is
       // where a dot belongs (`dotPlacement`). Uniform per dot, never a function of where the note

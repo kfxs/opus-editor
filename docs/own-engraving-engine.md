@@ -79,6 +79,15 @@ delaying engraving work by one day.
 > VexFlow object still painting its own ink is **the fan's bare `NoteHead`s and `Accidental`s** (U2,
 > blocked on U3); the other five uses are the beam's and the stem's `.draw()` plumbing, and four
 > `.svg` read-backs that are MEASUREMENTS, ⛔ not painting.
+>
+> 🚨🚨 **…AND THE SAME DAY, THAT NUMBER WAS SHOWN NOT TO BE A COVERAGE MEASURE.** P3f took the note's
+> MODIFIERS — the accidental and the augmentation dot — and **neither had ever been counted by it**:
+> `lint:paint` matches the identifier `vexContext`, and a modifier never writes one, because
+> `StaveNote.drawModifiers` hands it `checkContext()`. Every accidental and every dot on every page
+> was VexFlow ink through all of P3, P4, P5 and U1, invisible to the gauge AND to the scene. ⭐ Found
+> by CENSUS — the page's glyphs diffed against the scene's — which is now a test
+> (`note-engraving-plan.md` §1f). ⇒ ⭐⭐ **count the INK, not the identifier**; the ceiling measures
+> COUPLING and always did.
 
 ⚠️ The previous order — *P2 → P3 → P1* — was **circular and could not be started**: P3 is gated on a
 verification net, the best net is the SCENE (§7.2), the scene ships with P1, and P1 was scheduled

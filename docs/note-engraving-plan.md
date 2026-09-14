@@ -52,7 +52,8 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3c** | **the stem's INK** | ⭐ a third element with **three owners** (VexFlow's `Stem.draw` + `FanPass` twice); ⛔ the LENGTH left behind deliberately — see below | ✅ **2026-09-01** |
 | **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line. ⚠️ Its ink stayed INLINE in `EngravedNote` until 2026-09-01, when it moved to **`engrave/notes/noteheads.ts`** beside its three siblings — see §1d.5 | ✅ **2026-09-01** |
 | **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
-| … | the dots, the accidentals | modifiers — they draw from inside a head's group, and both are selectable kinds with registered hit boxes | ⏭️ |
+| **P3f** | **the MODIFIERS — the accidental and the augmentation dot** | ⭐ they draw from inside a head's group, and both are selectable kinds with registered hit boxes. 🚨 **And they were the last glyph ink on an ordinary bar, invisible to the gauge**: `lint:paint` counts `vexContext`, and a modifier never mentions it — see §1f | ✅ **2026-09-14** |
+| … | the ARTICULATION | ⛔ **not ink alone**: its `draw()` is a placement RULE (above/below, clear of the staff, between lines), so it is gated on research the way the stem's length is | ⏭️ |
 | **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; **§1e** has the audit | ⏸️ |
 
 ⚠️ **A CORRECTION to the parent plan, found by doing the work.** `own-engraving-engine.md` §5 says
@@ -302,6 +303,78 @@ may only fall. Attempted and reverted 2026-09-01 — the measurements are
 it is a **fourth** *"the room reserved and the ink drawn come from two sources"* candidate — beside
 the ledger overhang (§3.1), the stem's thickness (§1c.3) and the flag's reach (§3.3, measured). ⛔ Like
 the other three, his call rather than a tidy-up.
+
+---
+
+## 1f. ✅ P3f — THE MODIFIERS: the accidental and the augmentation dot (2026-09-14)
+
+### 1f.1 🚨 How they were found, and why nothing had noticed
+
+⭐⭐ **By CENSUS, not by reading the plan.** A bar with a sharp and a dotted eighth was rendered
+through `recordScene`, and the page's `<text>` elements were diffed against the scene's:
+
+```
+SCENE 10 glyphs · PAGE 12
+IN THE PAGE, NOT IN THE SCENE:  U+E262 accidentalSharp · U+E1E7 augmentationDot
+```
+
+🚨🚨 **Neither had ever appeared in the gauge.** `npm run lint:paint` counts the identifier
+`vexContext`, and a modifier never mentions it: `StaveNote.drawModifiers` hands each one
+`this.checkContext()`, which came from `voice.draw(ctx)`. So through P3a–P3d, P4, P5 and U1 — every
+step that drove the residue from 24 to 9 — every accidental and every dot on every page was VexFlow
+ink, uncounted and unrecorded. ⇒ ⭐⭐ **a ceiling nobody re-measured reads as coverage**, and the
+answer is to count the INK rather than the identifier.
+
+⭐ That census is now a test (`VexFlowRenderer.scene.test.ts`): *"every glyph the page draws is in
+the scene, and in the same order"*, beside a second one that states the boundary — an ARTICULATION is
+still VexFlow's, asserted as a passing fact so the day it moves, it fails and says so.
+
+### 1f.2 What landed
+
+| | where |
+|---|---|
+| the accidental's ink + **its one rule** (*it hangs LEFT: the ink's right edge meets the point the note offers*) | `engine/engrave/notes/accidental.ts` |
+| the dot's ink + **its one rule** (*lifted out of a staff line by half a space, in STAFF SPACES so a small staff lifts less*) | `engine/engrave/notes/augmentationDot.ts` |
+| the seams | `rendering/EngravedAccidental.ts`, `rendering/EngravedDot.ts` |
+
+⭐ Both are `InkSurfaceAware` — the membership `EngravedStave`'s modifier walk already asked
+(P5b, `rendering/inkSurface.ts`). `drawNoteInkThrough` now walks `note.getModifiers()` and hands the
+surface to anything that accepts one, so ⛔ **the third and fourth members were a ROW, not a third and
+fourth `instanceof`** (`CLAUDE.md`'s rule: *a slice too thin to be logic is still a slice*).
+
+⚠️ **`Dot.buildAndAttach` had to be replaced too** — it is a STATIC that says `new Dot()` inside
+itself, so substituting the class means substituting the builder (`attachEngravedDots`).
+
+### 1f.2b 🚨 The bug it surfaced, and it was NOT in the ink
+
+⭐ Looking hard at accidentals is what found it. On the same day he built a five-note chord with a
+natural on G4 and a sharp on C5, selected **C4**, and the **natural** lit up.
+
+⛔ Nothing in P3f caused it: the DOM order, the groups and the glyphs are byte-identical (284 e2e).
+The fault was in `VexFlowRenderer`'s registration loop, which decided which pitch an accidental
+belonged to with a three-clause `||` ending in a **guess** — *"the Nth accidental belongs to the Nth
+pitch"* — so the natural was filed under C4. ⇒ 🚨 **an `||` fallback only runs when the true answer
+said NO, which makes a guess an override, not a fallback.** Now it asks `Accidental.getIndex()`
+(public API) and registers nothing when the answer is no. Written up in
+`docs/accidental-stamp-plan.md` §2; spec `VexFlowRenderer.accidentalRegistry.test.ts`.
+
+### 1f.3 ⛔ What P3f did NOT take
+
+⛔ **`getModifierStartXY`** — where a note offers its modifiers a place to stand, and this repo's one
+live monkeypatch (§2.4 of the parent calls it *"the shape of the whole problem"*). Both classes ask
+the same question at the same moment and get the same answer.
+
+⛔ **`Accidental.format`** (which column of a chord's stack a sign takes) and **`Dot.format`** (which
+way a dot dodges its line when a chord stacks them). Both are real engraving rules; ⭐ the survey that
+would let us choose our own is **`docs/accidental-dot-research.md`** (the treatises) and
+**`docs/accidental-dot-engines.md`** (LilyPond / MuseScore / Verovio / VexFlow), commissioned
+2026-09-14 for exactly this reason. ⛔ Until they are read, the placement stays VexFlow's — the same
+split the clef took in P5b.
+
+⚠️ **Two VexFlow branches are deliberately not transcribed**, and both are guarded rather than
+assumed away: a cautionary accidental's bracket `children` (nothing calls `setAsCautionary` in this
+repo) and the `TabNote` case in `Dot.draw` (no tablature here). Each class hands those back to
+`super.draw()`, so *"not transcribed"* can never become *"silently not drawn"*.
 
 ---
 

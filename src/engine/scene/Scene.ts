@@ -21,13 +21,16 @@
  * ## ⚠️ What is NOT in a scene today, and it is the honest half
  *
  * ⛔ **Anything a VexFlow object paints itself.** ⭐ That list is now SHORT — P3, P4, P5 and U1 took
- * the note's five drawing calls, the beam's lines, the staff's own lines, the header run and both
- * curves — and what is left of it is the MODIFIERS a `StaveNote` still hangs on itself
- * (accidentals, articulations, dots), the fan's own heads, and the ghosts built from `StaveNote`s.
- * Those go through `RenderPass.vexContext` and never touch a `DrawContext`, so the recorder cannot
- * see them. ⭐ **That is exactly the residue `npm run lint:paint` counts, so the scene's coverage
- * and the migration's progress are the same number** — every commit that stops a VexFlow object
- * painting itself adds its ink here, for free.
+ * the note's five drawing calls, its ACCIDENTALS and DOTS, the beam's lines, the staff's own lines,
+ * the header run and both curves — and what is left of it is the ARTICULATION, the fan's own heads,
+ * and the ghosts built from `StaveNote`s.
+ *
+ * 🚨🚨 **⛔ And `lint:paint`'s count does NOT tell you which — that claim was wrong and it cost a
+ * step.** The check counts the identifier `vexContext`; a MODIFIER never writes one, because
+ * `StaveNote.drawModifiers` hands it `checkContext()`. So every accidental and every dot sat outside
+ * this scene through four migration steps while that number fell 24 → 9, and nothing said so
+ * (`docs/note-engraving-plan.md` §1f). ⇒ ⭐ **the honest measure of what is missing is a CENSUS**
+ * against the page — `VexFlowRenderer.scene.test.ts` — and `lint:paint` measures COUPLING.
  *
  * ✅ What IS in it today: barlines and their joins, key signatures, the grouping signs and the
  * systemic barline, the staff's own five lines and the whole header run (clef, meter, opening
