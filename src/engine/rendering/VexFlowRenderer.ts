@@ -120,6 +120,7 @@ import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/la
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
 import { barFrame, noteFrame, staveBox, staveFrame } from './staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
 // these from the renderer before they moved to ./layoutConfig.
@@ -1031,7 +1032,7 @@ export class VexFlowRenderer {
       const needed = mark.strokeStackHeight() + 2 * TREMOLO_STROKE_CLEARANCE * staffSpace
       const fitStretch = Math.max(0, needed - usableStemSpan(staveNote).length)
       // A stemless note has no flag either, so this half is naturally 0 there — no case needed.
-      const flagStretch = staveNote.hasFlag() ? staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH : 0
+      const flagStretch = noteRuler(staveNote).hasFlag ? staveNote.getStemLength() * TREMOLO_FLAG_STEM_STRETCH : 0
       // ⭐ NOTHING MOVES UNLESS IT HAS TO. Both halves are shortfalls, so a mark that already fits its
       // stem is left exactly where it was — the vertical placement everywhere else is right, and only
       // the case that would collide is adjusted (his rule).
@@ -1159,21 +1160,21 @@ export class VexFlowRenderer {
     for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
       const { first, second, strokes, anchorId, slot, joined } = pair
       const staffSpace = noteFrame(first)?.spacePx ?? 10
-      const stemmed = first.hasStem() && second.hasStem()
+      const stemmed = noteRuler(first).hasStem && noteRuler(second).hasStem
       const quads = twoNoteTremoloStrokes({
         strokes,
-        leftX: stemmed ? first.getStemX() : first.getAbsoluteX() + first.getGlyphWidth(),
+        leftX: stemmed ? noteRuler(first).stemX : noteRuler(first).originX + noteRuler(first).glyphWidth,
         leftAnchorY: usableStemSpan(first).tip,
-        rightX: stemmed ? second.getStemX() : second.getAbsoluteX(),
+        rightX: stemmed ? noteRuler(second).stemX : noteRuler(second).originX,
         rightAnchorY: usableStemSpan(second).tip,
-        stemDirection: first.getStemDirection(),
+        stemDirection: noteRuler(first).stemDirection,
         tipOffset: this.twoNoteTremoloTipOffset(pair),
         // A pair drawn APART hangs a FLAG off a stem tip, standing in the gap right where the
         // strokes end — the plain clearance rule knows nothing about it, so the flag's own width
         // becomes the floor. MEASURED, not chosen: `getGlyphWidth()` is the notehead's width (a
         // flag is about that), so it follows the staff size instead of pinning a pixel count that
         // would be wrong the day the scale changes.
-        minClearance: !pair.beamed && pair.flags > 0 ? first.getGlyphWidth() : 0,
+        minClearance: !pair.beamed && pair.flags > 0 ? noteRuler(first).glyphWidth : 0,
         joined,
         staffSpace,
         beamWidth: CROSS_SYSTEM_BEAM_WIDTH,
@@ -1306,9 +1307,11 @@ export class VexFlowRenderer {
     beat: number,
   ): void {
     try {
-      if (!staveNote.hasStem()) return
-      const x = staveNote.getStemX()
-      const { topY, baseY } = staveNote.getStemExtents()
+      const stemRuler = noteRuler(staveNote)
+      if (!stemRuler.hasStem) return
+      const x = stemRuler.stemX
+      const topY = stemRuler.stemTipY
+      const baseY = stemRuler.stemBaseY
       const y = Math.min(topY, baseY)
       const height = Math.abs(baseY - topY)
       if (!Number.isFinite(x) || !Number.isFinite(y) || height <= 0) return
@@ -1462,7 +1465,7 @@ export class VexFlowRenderer {
         const stem = note.getStem()
         if (stem) {
           // getStemDirection returns 1 for up, -1 for down
-          const direction = note.getStemDirection()
+          const direction = noteRuler(note).stemDirection
           if (direction === 1) stemsUp++
           else if (direction === -1) stemsDown++
         } else {
@@ -2403,8 +2406,8 @@ export class VexFlowRenderer {
 
       // Span only the rest GLYPH (head begin→end), NOT the note's bounding box — the latter
       // includes the augmentation dot, which would stretch the ledger out under the dot.
-      const xBegin = sn.getNoteHeadBeginX()
-      const xEnd = sn.getNoteHeadEndX()
+      const xBegin = noteRuler(sn).headLeftX
+      const xEnd = noteRuler(sn).headRightX
       const cx = (xBegin + xEnd) / 2
       const halfW = (xEnd - xBegin) / 2 + PAD
 
@@ -2871,7 +2874,7 @@ export class VexFlowRenderer {
         // `getAbsoluteX()` reads the stave, and the voice does not set it on its tickables until
         // draw time. Setting it here is what draw would do a moment later, verbatim.
         note.setStave(stave)
-        const center = note.getAbsoluteX() + note.getGlyphWidth() / 2
+        const center = noteRuler(note).originX + noteRuler(note).glyphWidth / 2
         note.setCenterXShift(note.getCenterXShift() + (areaCenter - center))
       }
     }
@@ -3110,11 +3113,11 @@ export class VexFlowRenderer {
     // `engrave/beams`' arithmetic rather than this method's: {@link beamLevelRun} walks the levels and
     // {@link beamLineStartX} answers where a line sits on its stem. What stays here is the only part
     // that is genuinely the renderer's — where the stub ENDS, which depends on `measureBounds`.
-    const firstStemX = staveNotes[0].getStemX()
+    const firstStemX = noteRuler(staveNotes[0]).stemX
     const beamThickness = beam.renderOptions.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
-      const startX = beamLineStartX(edge.getStemX(), STEM_THICKNESS_PX)
+      const startX = beamLineStartX(noteRuler(edge).stemX, STEM_THICKNESS_PX)
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       fillBeamRun(pass.context, beamLevelRun(
         { startX, endX }, beamY0, beamThickness, levels,
@@ -3164,9 +3167,9 @@ export class VexFlowRenderer {
     stem.setContext(pass.vexContext).drawWithStyle()
 
     const levels = side.members[0].beamCount
-    const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * note.getStemDirection()
+    const beamThickness = CROSS_SYSTEM_BEAM_WIDTH * noteRuler(note).stemDirection
     const beamY0 = stem.getExtents().topY // the stem tip, flat — a lone note has no slope to continue.
-    const startX = beamLineStartX(note.getStemX(), STEM_THICKNESS_PX)
+    const startX = beamLineStartX(noteRuler(note).stemX, STEM_THICKNESS_PX)
     // Left is the short fixed stub; right runs to the barline (see crossSystemOverhangEndX).
     const leftEndX = this.crossSystemOverhangEndX(side, startX, -1, scale)
     const rightEndX = this.crossSystemOverhangEndX(side, startX, 1, scale)
@@ -3228,7 +3231,7 @@ export class VexFlowRenderer {
       const lane = voiceNotes.get(voice) ?? []
       const next = lane[lane.indexOf(lastNote) + 1]
       if (!next) return barFrame(stave).noteEndX - BRACKET_END_GAP
-      return mode === 'division' ? next.getAbsoluteX() : next.getAbsoluteX() - BRACKET_END_GAP
+      return mode === 'division' ? noteRuler(next).originX : noteRuler(next).originX - BRACKET_END_GAP
     }
 
     for (const vexTuplet of vexTuplets) {
@@ -3306,7 +3309,7 @@ export class VexFlowRenderer {
           // gap/height) drifted off the real bracket — badly in multi-voice / flipped
           // tuplets, where VexFlow anchors a top bracket above the whole system.
           const bracketPadding = 5
-          const xStart = bracketed ? firstNote.getTieLeftX() - bracketPadding : firstNote.getStemX()
+          const xStart = bracketed ? noteRuler(firstNote).tieLeftX - bracketPadding : noteRuler(firstNote).stemX
           // The END is read back off the tuplet, not recomputed from the last note: with a
           // `division` or `beforeNext` bracket the line runs PAST that note, and a hit-box measured
           // from the notehead would stop where the ink does not. `width` is what draw() just used.
@@ -3422,7 +3425,7 @@ export class VexFlowRenderer {
             // displacement in on every call, so asking twice displaces twice.
             let columnCenterX: number | undefined
             try {
-              columnCenterX = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2
+              columnCenterX = (noteRuler(staveNote).headLeftX + noteRuler(staveNote).headRightX) / 2
             } catch (_e) { /* not available before draw */ }
             const engraved = staveNote instanceof EngravedNote ? staveNote : undefined
 
@@ -4886,14 +4889,15 @@ export class VexFlowRenderer {
     const tieDirection = tieSide(
       foundNotePitch, foundBeat, foundMeasure,
       effectiveClefAt(score, foundMeasure.number, foundBeat, foundStaffId),
-      [info.staveNote.getStemDirection?.()].filter((d): d is number => d !== undefined),
+      [noteRuler(info.staveNote).stemDirection],
     )
-    const ys = info.staveNote.getYs()
+    const pendingRuler = noteRuler(info.staveNote)
+    const ys = pendingRuler.headYs
     const headY = ys[info.noteIndex] ?? ys[0]
     if (headY === undefined || isNaN(headY)) return
     const head = {
-      leftX: info.staveNote.getNoteHeadBeginX(),
-      rightX: info.staveNote.getNoteHeadEndX(),
+      leftX: pendingRuler.headLeftX,
+      rightX: pendingRuler.headRightX,
       headY,
     }
     const firstX = tieEndpointX(head, 'from')

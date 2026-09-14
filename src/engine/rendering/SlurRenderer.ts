@@ -40,6 +40,8 @@ import { voiceOf } from '@/utils/lanes'
 import { noteFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
+import { noteRuler } from './noteRuler'
+import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
 // `./curveStyle`, where each number carries the research it answers to (docs/slur-plan.md §11–§13).
@@ -107,11 +109,11 @@ interface SlurEnd {
  * — MuseScore skips its whole stem block when `stem1` is null (`slurtielayout.cpp:617`), and Verovio
  * tests `startStemLen == 0` in the *same condition* as a stem pointing away (`slur.cpp:677`).
  */
-function stemTipOf(staveNote: StaveNote): number | undefined {
+function stemTipOf(ruler: NoteRuler): number | undefined {
   try {
-    if (!staveNote.hasStem?.()) return undefined
-    const tipY = staveNote.getStemExtents?.()?.topY
-    return tipY !== undefined && !isNaN(tipY) ? tipY : undefined
+    if (!ruler.hasStem) return undefined
+    const tipY = ruler.stemTipY
+    return !isNaN(tipY) ? tipY : undefined
   } catch (_e) {
     return undefined
   }
@@ -139,18 +141,19 @@ function resolveSlurEnd(pass: RenderPass, noteId: string): SlurEnd | undefined {
   // ⭐ ALL the chord's head ys — the arc springs from the OUTER one on the side it takes, which is
   // `slurStemEndpoint`'s call to make (§12 Phase 7). `noteIndex` is the pitch the user anchored to
   // and no longer decides the geometry.
-  const ys = staveNote.getYs()
+  const ruler = noteRuler(staveNote)
+  const ys = ruler.headYs
   // The head's own extent, which is where the arc belongs — NOT `getTieRightX()`, which adds the
   // glyph width AND any modifier shift, i.e. the far side of everything hanging off the note.
-  const headLeft = staveNote.getNoteHeadBeginX()
-  const headRight = staveNote.getNoteHeadEndX()
+  const headLeft = ruler.headLeftX
+  const headRight = ruler.headRightX
   return {
     staveNote,
     centerX: (headLeft + headRight) / 2,
     attach: {
-      headYs: ys.length ? ys : [0],
-      stemTipY: stemTipOf(staveNote),
-      stemDirection: staveNote.getStemDirection?.() ?? -1,
+      headYs: ys.length ? [...ys] : [0],
+      stemTipY: stemTipOf(ruler),
+      stemDirection: ruler.stemDirection,
       headHalfWidth: (headRight - headLeft) / 2,
     },
   }
@@ -628,7 +631,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
     // answer and VexFlow's differ. A covered chord that was not rendered contributes nothing.
     const coveredIds = coveredChordIds(score, slur.startNoteId, slur.endNoteId)
     const coveredStems = coveredIds
-      .map(id => pass.staveNoteMap.get(id)?.staveNote.getStemDirection?.())
+      .map(id => { const note = pass.staveNoteMap.get(id)?.staveNote; return note ? noteRuler(note).stemDirection : undefined })
       .filter((d): d is number => d !== undefined)
     // ⭐⭐ …and the same scan, one step further: the covered notes as INK, so the attachment can be
     // told what the slur has to get over (`./slurEncompass`). The two ANCHORED columns drop out —

@@ -63,6 +63,7 @@ import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -106,8 +107,7 @@ function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undef
   if (!noteId) return undefined
   const note = pass.staveNoteMap.get(noteId)?.staveNote
   if (!note) return undefined
-  const head = (note as unknown as { getNoteHeadBeginX?: () => number }).getNoteHeadBeginX
-  return head ? head.call(note) : note.getTieLeftX()
+  return noteRuler(note).headLeftX
 }
 
 /**

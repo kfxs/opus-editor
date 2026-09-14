@@ -14,7 +14,6 @@
  * WHICH WAY the arc bows is {@link ./tieDirection}; WHERE it attaches is {@link ./tieEndpoints};
  * whether a staff line runs through it is {@link ./tieStaffLineClearance}. This file draws.
  */
-import { StaveNote } from 'vexflow'
 import type { Score } from '@/types/music'
 import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
@@ -29,18 +28,20 @@ import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
 import { noteFrame } from './staveFrame'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
+import type { NoteRuler } from '@/engine/engrave/notes/noteRuler'
 
 /** A cubic's drawn apex is 0.75 × its control height — the tie's 0.53 sp bow gives 0.40 sp. */
 const APEX_OF_BOW = 0.75
 
 /** The head extent + y a tie attaches to, for one end of it. */
-function headOf(info: { staveNote: StaveNote; noteIndex: number }): TieHead | null {
-  const ys = info.staveNote.getYs()
-  const headY = ys[info.noteIndex] ?? ys[0]
+function headOf(ruler: NoteRuler, noteIndex: number): TieHead | null {
+  const ys = ruler.headYs
+  const headY = ys[noteIndex] ?? ys[0]
   if (headY === undefined || isNaN(headY)) return null
   return {
-    leftX: info.staveNote.getNoteHeadBeginX(),
-    rightX: info.staveNote.getNoteHeadEndX(),
+    leftX: ruler.headLeftX,
+    rightX: ruler.headRightX,
     headY,
   }
 }
@@ -148,7 +149,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // disagree — and, when they do, away from the middle line of the clef in force. That
             // clef is read positionally like every other; it used to be the literal 'treble'.
             const stems = [fromInfo.staveNote, toInfo.staveNote]
-              .map(n => n.getStemDirection?.())
+              .map(n => noteRuler(n).stemDirection)
               .filter((d): d is number => d !== undefined)
             const tieDirection = tieSide(
               pitch, slot.beat, measure,
@@ -158,8 +159,8 @@ export function renderTies(pass: RenderPass, score: Score): void {
             // note alias for registry callbacks below
             const note = { id: pitch.id, tiedTo: pitch.tiedTo, measure: fromMeasure }
 
-            const fromHead = headOf(fromInfo)
-            const toHead = headOf(toInfo)
+            const fromHead = headOf(noteRuler(fromInfo.staveNote), fromInfo.noteIndex)
+            const toHead = headOf(noteRuler(toInfo.staveNote), toInfo.noteIndex)
             if (!fromHead || !toHead) continue
 
             // One SVG group per tie (keyed by its from-note id; both cross-line partials

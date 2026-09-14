@@ -68,6 +68,7 @@ import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -147,24 +148,20 @@ function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undef
   if (!noteId) return undefined
   const note = pass.staveNoteMap.get(noteId)?.staveNote
   if (!note) return undefined
-  const head = (note as unknown as { getNoteHeadBeginX?: () => number }).getNoteHeadBeginX
-  return head ? head.call(note) : note.getTieLeftX()
+  return noteRuler(note).headLeftX
 }
 
 /**
  * A rendered notehead's RIGHT edge — ⭐ **the quantity Gould's rule 2 is stated in**, and the reason
  * this function exists next to {@link noteLeftX} rather than being folded into it.
  *
- * `getNoteHeadEndX` is exactly the far side of the head. The fallback is `getTieRightX`, which is the
- * same point for our purposes but named for a different question (it is where a tie would leave the
- * note), kept only so a VexFlow build without the newer method still draws something sane.
+ * The ruler's `headRightX` is exactly the far side of the head.
  */
 function noteRightX(pass: RenderPass, noteId: string | undefined): number | undefined {
   if (!noteId) return undefined
   const note = pass.staveNoteMap.get(noteId)?.staveNote
   if (!note) return undefined
-  const end = (note as unknown as { getNoteHeadEndX?: () => number }).getNoteHeadEndX
-  return end ? end.call(note) : note.getTieRightX()
+  return noteRuler(note).headRightX
 }
 
 /**

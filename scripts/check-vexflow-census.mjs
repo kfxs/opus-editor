@@ -52,17 +52,17 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
 
 /**
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 19,
-  'R2 note ruler': 203,
+  'R2 note ruler': 161,
   'R3 placement rules': 455,
   'R4 formatter': 98,
   'R5 paint+leftovers': 136,
-  'R6 object graph': 325,
+  'R6 object graph': 324,
   'R7 numbers+fonts': 0,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */

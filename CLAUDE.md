@@ -148,6 +148,11 @@ src/
                           #   ⛔ never the dots. docs/barline-join-plan.md)
                           #   + glyphPainter (⭐⭐ THE ONE PLACE VexFlow still paints a glyph —
                           #   ⛔ never `new Element(...)` in your own file)
+                          #   + staveFrame / noteRuler (⭐⭐ THE ONE PLACES a VexFlow `Stave` /
+                          #   `StaveNote` is asked where its lines, bar, heads or stem are —
+                          #   docs/vexflow-removal-map.md S2/S3. ⚠️ LIVE getters, ⛔ never a
+                          #   snapshot: `getNoteStartX` formats the stave, and readers ask a note
+                          #   BEFORE its draw too. ⛔ Never call those methods in your own file)
     scene/                # ⭐⭐ WHAT WAS DRAWN, as VALUES — `Scene` + `SceneRecorder` + `sceneBox`
                           #   (⭐ THE RULER: a box COMPUTED from the drawing, ⛔ never measured off
                           #   the page nor asked of a VexFlow object — P6a; it answers NULL rather
@@ -173,6 +178,12 @@ src/
                           #   `measureText`). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
+                          #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line
+                          #   arithmetic — `StaffFrame` + `BarFrame`; ⛔ never `top + n × space`
+                          #   in a reader, rule 5) + `notes/noteRuler` (the questions a reader asks
+                          #   of a drawn note — ⛔ not its BOX, which is P6b's per-reader work)
+                          #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces
+                          #   taken from VexFlow, today's values as sourced ROWS)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
   types/music.ts    # TypeScript interfaces (Note, Measure, Score, etc.)
   utils/            # Pure helpers — fraction, meter, rebar, restFill,

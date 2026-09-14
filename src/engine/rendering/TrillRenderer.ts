@@ -64,6 +64,7 @@ import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -144,8 +145,7 @@ function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undef
   // centres on it, and the dynamics' "a level is centred on its notehead" is the wrong rule to
   // borrow here. `getNoteHeadBeginX` is that edge; `getTieLeftX` (the hairpin's) is the same point
   // for our purposes but is named for a different question.
-  const head = (note as unknown as { getNoteHeadBeginX?: () => number }).getNoteHeadBeginX
-  return head ? head.call(note) : note.getTieLeftX()
+  return noteRuler(note).headLeftX
 }
 
 /**
@@ -838,7 +838,7 @@ function trilledNoteAnchor(
 ): { x: number; y: number } | undefined {
   const slotId = slotIdAt(from.view, voice, span.startBeat)
   const note = pass.staveNoteMap.get(slotId ?? '')?.staveNote
-  const ys = note?.getYs?.()
+  const ys = note ? noteRuler(note).headYs : undefined
   const x = noteLeftX(pass, slotId)
   if (!ys?.length || x === undefined) return undefined
   // 🚨🚨 **BOTH COORDINATES COME FROM THE NOTE**, and the x used to be handed in as the geometry's

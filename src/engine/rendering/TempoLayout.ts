@@ -36,6 +36,7 @@ import { tempoOffsetOverrideOf } from '../models/engravingOverrides'
 import { staffSpacesToPixels } from './staffSpace'
 import { barFrame, staveFrame } from './staveFrame'
 import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * The SMuFL glyph each note character is engraved as (`♩` → `metNoteQuarterUp`) — the same
@@ -240,7 +241,7 @@ export function anchorX(
     // ⭐ The centred-rest exception, above: a measure rest is drawn mid-bar whatever its beat says.
     if (slot.type === 'rest' && slot.isMeasureRest) break
     try {
-      return staveNotes[i].getAbsoluteX()
+      return noteRuler(staveNotes[i]).originX
     } catch {
       break // not formatted (shouldn't happen post-draw) — fall through to the bar's opening
     }
@@ -276,7 +277,7 @@ function drawnAtBeat(
     if (fracCompare(slot.beat, beat) !== 0) continue
     if (slot.type === 'rest' && slot.isMeasureRest) return 'measure-rest'
     try {
-      return staveNotes[i].getAbsoluteX()
+      return noteRuler(staveNotes[i]).originX
     } catch {
       return undefined // not formatted (shouldn't happen post-draw)
     }

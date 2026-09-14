@@ -59,6 +59,7 @@ import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls
@@ -118,7 +119,7 @@ function slotIdAt(view: Measure, beat: Fraction): string | undefined {
 function noteLeftX(pass: RenderPass, noteId: string | undefined): number | undefined {
   if (!noteId) return undefined
   const note = pass.staveNoteMap.get(noteId)?.staveNote
-  return note ? note.getTieLeftX() : undefined
+  return note ? noteRuler(note).tieLeftX : undefined
 }
 
 /**

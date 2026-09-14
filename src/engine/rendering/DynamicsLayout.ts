@@ -31,6 +31,7 @@ import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
 import { noteFrame, staveFrame } from './staveFrame'
 import { staffBottomLineY } from '@/engine/engrave/staff/staffFrame'
+import { noteRuler } from './noteRuler'
 
 /**
  * ⭐ **The slot a mark hangs off**, by the fall-forward rule: the first slot at-or-after its beat,
@@ -354,10 +355,10 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // (HighlightController.applyAnchorGuideLine) — never hit-testing. The annotation carries
         // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
         const note = annotation.getNote() as StaveNote | undefined
-        const ys = note?.getYs?.()
+        const ys = note ? noteRuler(note).headYs : undefined
         const anchorFrame = note ? noteFrame(note) : undefined
         const anchorY = ys?.length ? Math.max(...ys) : anchorFrame && staffBottomLineY(anchorFrame)
-        const anchor = note && anchorY !== undefined ? { x: note.getAbsoluteX(), y: anchorY } : undefined
+        const anchor = note && anchorY !== undefined ? { x: noteRuler(note).originX, y: anchorY } : undefined
         const spacing = anchorFrame?.spacePx
 
         // Default: the group box (correct for pure-TEXT marks — their pointer-rect is small). For any
