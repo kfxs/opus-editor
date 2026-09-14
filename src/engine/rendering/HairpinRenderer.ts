@@ -58,7 +58,7 @@ import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
 import { staveFrame } from './staveFrame'
-import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls
@@ -487,15 +487,15 @@ export function renderHairpins(
  */
 export function hairpinEndpointOffsetPx(
   offset: HairpinEndpointOffsetOverride | undefined,
-  fromStave: Stave | undefined,
-  toStave: Stave | undefined,
+  fromFrame: StaffFrame | undefined,
+  toFrame: StaffFrame | undefined,
 ): { startX: number; startY: number; endX: number; endY: number } {
-  const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
-    o && stave
-      ? { x: staffSpacesToPixels(o.x, staveFrame(stave)), y: staffSpacesToPixels(o.y, staveFrame(stave)) }
+  const conv = (o: { x: number; y: number } | undefined, frame: StaffFrame | undefined) =>
+    o && frame
+      ? { x: staffSpacesToPixels(o.x, frame), y: staffSpacesToPixels(o.y, frame) }
       : { x: 0, y: 0 }
-  const s = conv(offset?.start, fromStave)
-  const e = conv(offset?.end, toStave)
+  const s = conv(offset?.start, fromFrame)
+  const e = conv(offset?.end, toFrame)
   return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
 }
 
@@ -542,7 +542,7 @@ function drawWedge(
   // outline — and therefore through the handles, which are read off that outline. An offset applied
   // per piece afterwards would move the ink and leave the squares behind.
   const nudge = hairpinEndpointOffsetPx(
-    hairpinEndpointOffsetOverrideOf(pass.score, hairpin.id), from.stave, to.stave)
+    hairpinEndpointOffsetOverrideOf(pass.score, hairpin.id), staveFrame(from.stave), staveFrame(to.stave))
   startX += nudge.startX
   endX += nudge.endX
   // …but never past each other: a wedge squeezed to nothing by its neighbours keeps a sliver rather

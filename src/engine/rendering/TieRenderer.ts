@@ -15,7 +15,6 @@
  * whether a staff line runs through it is {@link ./tieStaffLineClearance}. This file draws.
  */
 import { StaveNote } from 'vexflow'
-import type { Stave } from 'vexflow'
 import type { Score } from '@/types/music'
 import { effectiveClefAt } from '@/utils/clefUtils'
 import type { RenderPass } from './RenderPass'
@@ -28,7 +27,7 @@ import { tieArcGrowth } from './tieStaffLineClearance'
 import { lineLeftCurveX, lineRightEdgeX } from './systemEdges'
 import { staffIndexOfId } from '@/engine/models/staffContent'
 import { inStaffSpace } from './staffScaleGroup'
-import { staveFrame } from './staveFrame'
+import { noteFrame } from './staveFrame'
 import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /** A cubic's drawn apex is 0.75 × its control height — the tie's 0.53 sp bow gives 0.40 sp. */
@@ -67,7 +66,7 @@ export function drawTieArc(
   // ⭐ Our own surface: the arc's ink is `engrave/curves/curveInk` (U1) — see `./curveArc`.
   pass: Pick<RenderPass, 'context'>,
   geom: { firstX: number; lastX: number; y: number; direction: number },
-  stave?: Stave,
+  frame?: StaffFrame,
 ): { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[] } | null {
   if (!pass.context) return null
   try {
@@ -79,7 +78,7 @@ export function drawTieArc(
       apexRise: APEX_OF_BOW * CURVE_PX.tieBow,
       inkThickness: APEX_OF_BOW * CURVE_PX.thickness + CURVE_PX.outline,
       direction: geom.direction,
-      lineYs: staffLineYs(stave && staveFrame(stave)),
+      lineYs: staffLineYs(frame),
     })
     const bow = CURVE_PX.tieBow + growth / APEX_OF_BOW
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [
@@ -215,7 +214,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                   lastX: tieEndpointX(toHead, 'to'),
                   y: tieEndpointY(fromHead.headY, tieDirection),
                   direction: tieDirection,
-                }, fromInfo.staveNote.getStave()), fromLine)
+                }, noteFrame(fromInfo.staveNote)), fromLine)
               } else {
                 // ⭐ Across a system break: two independent flat arcs, each running to its own
                 // system's margin — the same construction the SLUR uses (`./systemEdges`), where
@@ -234,7 +233,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: rightEdge / scale,
                     y: tieEndpointY(fromHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, fromInfo.staveNote.getStave()), fromLine, 'end')
+                  }, noteFrame(fromInfo.staveNote)), fromLine, 'end')
                 }
                 if (leftEdge !== undefined) {
                   register(drawTieArc(pass, {
@@ -242,7 +241,7 @@ export function renderTies(pass: RenderPass, score: Score): void {
                     lastX: tieEndpointX(toHead, 'to'),
                     y: tieEndpointY(toHead.headY, tieDirection),
                     direction: tieDirection,
-                  }, toInfo.staveNote.getStave()), toLine, 'start')
+                  }, noteFrame(toInfo.staveNote)), toLine, 'start')
                 }
               }
             })

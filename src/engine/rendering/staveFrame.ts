@@ -1,4 +1,4 @@
-import type { Stave } from 'vexflow'
+import type { Note, Stave } from 'vexflow'
 import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -16,6 +16,20 @@ export function staveFrame(stave: Stave): StaffFrame {
     spacePx: stave.getSpacingBetweenLines(),
     lineCount: stave.getNumLines(),
   }
+}
+
+/**
+ * ⭐ **The frame of the staff a NOTE is on** — S2c. `undefined` while the note has no stave (not yet
+ * laid out), which every reader already treats as "nothing to convert against".
+ */
+export function noteFrame(note: Note): StaffFrame | undefined {
+  const stave = note.getStave()
+  return stave ? staveFrame(stave) : undefined
+}
+
+/** …for a reader that cannot run without one: it throws exactly where `Note.checkStave` did. */
+export function requireNoteFrame(note: Note): StaffFrame {
+  return staveFrame(note.checkStave())
 }
 
 /**

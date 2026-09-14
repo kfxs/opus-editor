@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Stave } from 'vexflow'
+import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import type { HairpinEndpointOffsetOverride } from '@/types/music'
 import { hairpinEndpointOffsetPx } from './HairpinRenderer'
 
@@ -13,34 +13,30 @@ import { hairpinEndpointOffsetPx } from './HairpinRenderer'
  * a half-laid-out score from throwing inside it.
  */
 describe('hairpinEndpointOffsetPx', () => {
-  // `staveFrame` reads a stave's three numbers (top line, space, line count) — stub just those.
-  const stave = (spacing: number) => ({
-    getYForLine: (line: number) => line * spacing,
-    getSpacingBetweenLines: () => spacing,
-    getNumLines: () => 5,
-  } as unknown as Stave)
+  // The helpers read only a staff frame's space.
+  const frame = (spacePx: number): StaffFrame => ({ topLineY: 0, spacePx, lineCount: 5 })
   const offset = (o: Partial<HairpinEndpointOffsetOverride>): HairpinEndpointOffsetOverride =>
     ({ kind: 'hairpinEndpointOffset', ...o })
 
   it('no offset → all-zero deltas, so the caller adds them unconditionally', () => {
-    expect(hairpinEndpointOffsetPx(undefined, stave(10), stave(10)))
+    expect(hairpinEndpointOffsetPx(undefined, frame(10), frame(10)))
       .toEqual({ startX: 0, startY: 0, endX: 0, endY: 0 })
   })
 
   it('⭐ converts each end against ITS OWN stave — a split wedge can span two staff sizes', () => {
     const o = offset({ start: { x: 0.5, y: -1 }, end: { x: 2, y: 1 } })
-    expect(hairpinEndpointOffsetPx(o, stave(10), stave(8)))
+    expect(hairpinEndpointOffsetPx(o, frame(10), frame(8)))
       .toEqual({ startX: 5, startY: -10, endX: 16, endY: 8 })
   })
 
   it('a missing end contributes 0 for that end only — one end may be nudged alone', () => {
-    expect(hairpinEndpointOffsetPx(offset({ end: { x: 1, y: 1 } }), stave(10), stave(10)))
+    expect(hairpinEndpointOffsetPx(offset({ end: { x: 1, y: 1 } }), frame(10), frame(10)))
       .toEqual({ startX: 0, startY: 0, endX: 10, endY: 10 })
   })
 
   it('an undefined stave yields 0 for that end rather than throwing', () => {
     const o = offset({ start: { x: 3, y: 3 }, end: { x: 3, y: 3 } })
-    expect(hairpinEndpointOffsetPx(o, undefined, stave(10)))
+    expect(hairpinEndpointOffsetPx(o, undefined, frame(10)))
       .toEqual({ startX: 0, startY: 0, endX: 30, endY: 30 })
   })
 })

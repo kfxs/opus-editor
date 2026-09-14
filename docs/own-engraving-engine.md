@@ -71,8 +71,8 @@ delaying engraving work by one day.
 > inherited numbers are rows (`engine/engrave/inheritedDefaults`) · S1c the faces each category resolved
 > are rows (`engine/engrave/inheritedFonts`) · S2a the staff's lines are asked of ONE module
 > (`engine/engrave/staff/staffFrame`) · S2b the bar's horizontal frame (`BarFrame`) and ONE stale shift.
-> **1,449 → 1,263 uses; R7 50 → 0, R1 175 → 57.**
-> ⏭️ S2c, a note's frame (`Note.getStave`).
+> · S2c a note's frame. **1,449 → 1,236 uses; R7 50 → 0, R1 175 → 19** (R1 re-measured: 22 were misfiled).
+> ⏭️ S3, the note ruler seam.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

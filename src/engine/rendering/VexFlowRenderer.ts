@@ -118,7 +118,7 @@ import { dbg } from '@/utils/debug'
 import { voiceOf } from '@/utils/lanes'
 import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
 import { applyHiddenTreatment, hiddenTreatment, HIDDEN_ELEMENT_COLOR, type RenderAudience } from './hiddenElements'
-import { barFrame, staveBox, staveFrame } from './staveFrame'
+import { barFrame, noteFrame, staveBox, staveFrame } from './staveFrame'
 import { noteLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 
 // Re-exported for existing importers (MusicEngine, App.ts, RenderPass) that referenced
@@ -1027,8 +1027,7 @@ export class VexFlowRenderer {
       const stem = staveNote.getStem()
       if (!mark || !stem) continue
 
-      const ownStave = staveNote.getStave()
-      const staffSpace = ownStave ? staveFrame(ownStave).spacePx : 10
+      const staffSpace = noteFrame(staveNote)?.spacePx ?? 10
       const needed = mark.strokeStackHeight() + 2 * TREMOLO_STROKE_CLEARANCE * staffSpace
       const fitStretch = Math.max(0, needed - usableStemSpan(staveNote).length)
       // A stemless note has no flag either, so this half is naturally 0 there — no case needed.
@@ -1159,8 +1158,7 @@ export class VexFlowRenderer {
   ): void {
     for (const pair of this.twoNoteTremoloPairs(slots, staveNotes)) {
       const { first, second, strokes, anchorId, slot, joined } = pair
-      const ownStave = first.getStave()
-      const staffSpace = ownStave ? staveFrame(ownStave).spacePx : 10
+      const staffSpace = noteFrame(first)?.spacePx ?? 10
       const stemmed = first.hasStem() && second.hasStem()
       const quads = twoNoteTremoloStrokes({
         strokes,
@@ -4913,7 +4911,7 @@ export class VexFlowRenderer {
           y: tieEndpointY(head.headY, tieDirection),
           direction: tieDirection,
         },
-        info.staveNote.getStave(),
+        noteFrame(info.staveNote),
       ),
     )
   }

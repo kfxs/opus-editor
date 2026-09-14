@@ -29,7 +29,7 @@ import { STAFF_SPACE_PX } from '../models/staffSize'
 import { staffSpacesToPixels } from './staffSpace'
 import type { RenderPass } from './RenderPass'
 import { voiceOf } from '@/utils/lanes'
-import { staveFrame } from './staveFrame'
+import { noteFrame, staveFrame } from './staveFrame'
 import { staffBottomLineY } from '@/engine/engrave/staff/staffFrame'
 
 /**
@@ -355,11 +355,10 @@ export function registerDynamics(pass: RenderPass, measure: Measure): void {
         // its anchor note (VexFlow Modifier.getNote); positions are final here (post-draw).
         const note = annotation.getNote() as StaveNote | undefined
         const ys = note?.getYs?.()
-        const noteStave = note?.getStave?.()
-        const noteFrame = noteStave ? staveFrame(noteStave) : undefined
-        const anchorY = ys?.length ? Math.max(...ys) : noteFrame && staffBottomLineY(noteFrame)
+        const anchorFrame = note ? noteFrame(note) : undefined
+        const anchorY = ys?.length ? Math.max(...ys) : anchorFrame && staffBottomLineY(anchorFrame)
         const anchor = note && anchorY !== undefined ? { x: note.getAbsoluteX(), y: anchorY } : undefined
-        const spacing = noteFrame?.spacePx
+        const spacing = anchorFrame?.spacePx
 
         // Default: the group box (correct for pure-TEXT marks — their pointer-rect is small). For any
         // mark containing a GLYPH run — a bare level OR a mixed `mp dolce` — the group box unions

@@ -9,7 +9,6 @@
  * `./slurDirection` and WHERE IT ATTACHES at each end is `./slurStemEndpoint`.
  */
 import { StaveNote } from 'vexflow'
-import type { Stave } from 'vexflow'
 import type { Score, CurveControlPointDeltas, SlurEndpointOffsetOverride } from '@/types/music'
 import { slurNestDepths } from '@/utils/slurs'
 import type { ElementInfo, GuideLine } from '@/engine/ElementRegistry'
@@ -38,8 +37,8 @@ import { brokenSlurOpenRise } from './brokenSlurTilt'
 import { spellingDiatonicPos } from '@/utils/pitchSpelling'
 import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } from './systemEdges'
 import { voiceOf } from '@/utils/lanes'
-import { staveFrame } from './staveFrame'
-import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { noteFrame } from './staveFrame'
+import { staffBottomLineY, staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
 
 // Vertical geometry shared by all slur arcs, in pixels — ⛔ authored in STAFF SPACES in
@@ -321,7 +320,7 @@ function nearestCoveredOuterY(
   pass: RenderPass,
   score: Score,
   slur: { startNoteId: string; endNoteId: string },
-  /** The `getYForLine(0)` of the fragment's own stave — the system's identity. */
+  /** The top line of the fragment's own staff (`staffLineY(frame, 0)`) — the system's identity. */
   systemTopY: number,
   /** `begin` takes the LAST covered note on that system, `end` the FIRST — the one its open end leaves. */
   half: 'begin' | 'end',
@@ -333,8 +332,8 @@ function nearestCoveredOuterY(
     const note = pass.staveNoteMap.get(id)?.staveNote
     if (!note) continue
     try {
-      const stave = note.getStave?.()
-      if (!stave || Math.abs(staffLineY(staveFrame(stave), 0) - systemTopY) > 1) continue
+      const frame = noteFrame(note)
+      if (!frame || Math.abs(staffLineY(frame, 0) - systemTopY) > 1) continue
       // 🚨 The note's OWN ink — a dynamic hanging off it is not what the open end has to clear
       // (`./noteInkBox`, and the same report the obstacle scan above carries).
       const b = noteInkBox(note)
@@ -379,19 +378,20 @@ function slurDiatonicInterval(score: Score, startNoteId: string, endNoteId: stri
 }
 
 /**
- * A live `Stave` from any chord/rest rendered on `line`, used only for a MIDDLE
+ * The staff frame of any chord/rest rendered on `line`, used only for a MIDDLE
  * segment's vertical reference (staff top/bottom line). Returns undefined if the
  * line has no rendered element in `staveNoteMap` (e.g. not yet laid out).
  */
-function representativeStaveOnLine(
+function representativeFrameOnLine(
   pass: RenderPass, score: Score, line: number,
-): Stave | undefined {
+): StaffFrame | undefined {
   for (const m of score.measures) {
     if ((pass.measureLayoutInfo.get(m.number)?.lineNumber ?? 0) !== line) continue
     for (const s of m.slots) {
       const id = s.type === 'rest' ? s.id : s.type === 'chord' ? s.notes[0]?.id : undefined
-      const stave = id ? pass.staveNoteMap.get(id)?.staveNote.getStave?.() : undefined
-      if (stave) return stave
+      const staveNote = id ? pass.staveNoteMap.get(id)?.staveNote : undefined
+      const frame = staveNote ? noteFrame(staveNote) : undefined
+      if (frame) return frame
     }
   }
   return undefined
@@ -456,24 +456,24 @@ function slurArchCps(
 
 /**
  * Resolve the cubic `cps` for one arc: a hand-edited override (stored in **staff-spaces**,
- * anchor-relative) converted to pixels against the live `stave`, else the auto arch. Shared
+ * anchor-relative) converted to pixels against the staff's `frame`, else the auto arch. Shared
  * by the single-arc path and each cross-system segment (BEGIN/MIDDLE/END), so the
  * staff-space→pixel conversion lives in exactly one place. `extraHeight` only affects the
  * auto arch (a manual shape is fully authored — no nest lift on top).
  */
 export function resolveCps(
   override: CurveControlPointDeltas | undefined,
-  stave: Stave | undefined,
+  frame: StaffFrame | undefined,
   p0: { x: number; y: number },
   p1: { x: number; y: number },
   direction: number,
   extraHeight: number,
   fit = 1,
 ): [{ x: number; y: number }, { x: number; y: number }] {
-  if (override && stave) {
+  if (override && frame) {
     return [
-      { x: staffSpacesToPixels(override[0].x, staveFrame(stave)), y: staffSpacesToPixels(override[0].y, staveFrame(stave)) },
-      { x: staffSpacesToPixels(override[1].x, staveFrame(stave)), y: staffSpacesToPixels(override[1].y, staveFrame(stave)) },
+      { x: staffSpacesToPixels(override[0].x, frame), y: staffSpacesToPixels(override[0].y, frame) },
+      { x: staffSpacesToPixels(override[1].x, frame), y: staffSpacesToPixels(override[1].y, frame) },
     ]
   }
   return slurArchCps(p0, p1, direction, extraHeight, fit)
@@ -489,15 +489,15 @@ export function resolveCps(
  */
 export function slurEndpointOffsetPx(
   offset: SlurEndpointOffsetOverride | undefined,
-  fromStave: Stave | undefined,
-  toStave: Stave | undefined,
+  fromFrame: StaffFrame | undefined,
+  toFrame: StaffFrame | undefined,
 ): { startX: number; startY: number; endX: number; endY: number } {
-  const conv = (o: { x: number; y: number } | undefined, stave: Stave | undefined) =>
-    o && stave
-      ? { x: staffSpacesToPixels(o.x, staveFrame(stave)), y: staffSpacesToPixels(o.y, staveFrame(stave)) }
+  const conv = (o: { x: number; y: number } | undefined, frame: StaffFrame | undefined) =>
+    o && frame
+      ? { x: staffSpacesToPixels(o.x, frame), y: staffSpacesToPixels(o.y, frame) }
       : { x: 0, y: 0 }
-  const s = conv(offset?.start, fromStave)
-  const e = conv(offset?.end, toStave)
+  const s = conv(offset?.start, fromFrame)
+  const e = conv(offset?.end, toFrame)
   return { startX: s.x, startY: s.y, endX: e.x, endY: e.y }
 }
 
@@ -518,12 +518,12 @@ export function slurEndpointOffsetPx(
  */
 function slurOffsetPx(
   offset: { x?: number; y?: number } | undefined,
-  stave: Stave | undefined,
+  frame: StaffFrame | undefined,
 ): { x: number; y: number } {
-  if (!offset || !stave) return { x: 0, y: 0 }
+  if (!offset || !frame) return { x: 0, y: 0 }
   return {
-    x: staffSpacesToPixels(offset.x ?? 0, staveFrame(stave)),
-    y: staffSpacesToPixels(offset.y ?? 0, staveFrame(stave)),
+    x: staffSpacesToPixels(offset.x ?? 0, frame),
+    y: staffSpacesToPixels(offset.y ?? 0, frame),
   }
 }
 
@@ -565,10 +565,10 @@ export function endpointGuide(
  */
 export function segmentEndpointOffsetPx(
   offset: { x: number; y: number } | undefined,
-  stave: Stave | undefined,
+  frame: StaffFrame | undefined,
 ): { x: number; y: number } {
-  if (!offset || !stave) return { x: 0, y: 0 }
-  return { x: staffSpacesToPixels(offset.x, staveFrame(stave)), y: staffSpacesToPixels(offset.y, staveFrame(stave)) }
+  if (!offset || !frame) return { x: 0, y: 0 }
+  return { x: staffSpacesToPixels(offset.x, frame), y: staffSpacesToPixels(offset.y, frame) }
 }
 
 /**
@@ -755,13 +755,13 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
         // …and the stem dodge (`./slurStemEndpoint`) rides along on the same two x's: an endpoint
         // that landed beside a stem steps past it, so the arc leaves from beyond the stem rather
         // than across it. It is 0 for every end with no stem in the way.
-        const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), fromNote.getStave(), toNote.getStave())
+        const off = slurEndpointOffsetPx(endpointOffsetOverrideOf(score, slur.id), noteFrame(fromNote), noteFrame(toNote))
         // ⭐⭐ …and the WHOLE curve's own offset (`SlurOffsetOverride`), which is NOT folded in here:
         // it is added to the resolved endpoints below, once each branch has solved its shape, so the
         // curve translates instead of re-arching. See `slurOffsetPx` for why the order is the feature.
         const wholeOffset = slurOffsetOverrideOf(score, slur.id)
-        const wholeFrom = slurOffsetPx(wholeOffset, fromNote.getStave())
-        const wholeTo = slurOffsetPx(wholeOffset, toNote.getStave())
+        const wholeFrom = slurOffsetPx(wholeOffset, noteFrame(fromNote))
+        const wholeTo = slurOffsetPx(wholeOffset, noteFrame(toNote))
         const firstX = fromEnd.centerX + off.startX + placement.from.dx
         const lastX = toEnd.centerX + off.endX + placement.to.dx
         fromY += off.startY
@@ -786,7 +786,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // A hand-edited shape in the engraving-overrides compartment (stored in
           // staff-spaces) overrides the auto arch; absent → auto. Convert the override's
           // deltas to pixels against the live stave (resolution-independent storage).
-          const stave = fromNote.getStave()
+          const frame = noteFrame(fromNote)
           // ⭐ PHASE 8, first pass: raise the arch over anything it covers (`./slurObstacles`).
           // ⛔ Only the AUTO arch — a hand-edited shape is the user's and opts out, the same rule the
           // nest lift follows, so the lift is folded in as extra height rather than applied after.
@@ -818,7 +818,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             ? 1
             : slurArchFit(autoP0, autoP1, archH + archLeanPx, archH - archLeanPx,
               direction, slurObstaclesOf(pass, score, slur, direction))
-          const cps = resolveCps(shapeOverride, stave, autoP0, autoP1, direction, nestLift, clearance)
+          const cps = resolveCps(shapeOverride, frame, autoP0, autoP1, direction, nestLift, clearance)
           // ⭐⭐ THE RIGID MOVE, and this line's POSITION is the whole of it: the shape (arch, tilt,
           // obstacle lift, or the hand-edited cps) is already decided, and the cps are endpoint-
           // relative, so translating both endpoints now moves the drawn curve and changes nothing
@@ -846,7 +846,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           registerPartial(arc, undefined, {
             controlPoints: [arc.c0, arc.c1],
             slurEndpoints: { p0, p1, direction },
-            staffSpacePx: stave ? staveFrame(stave).spacePx : undefined,
+            staffSpacePx: frame?.spacePx,
             ...(guides.length ? { guides } : {}),
           })
         } else {
@@ -878,7 +878,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             arc: { bbox: { x: number; y: number; width: number; height: number }; points: { x: number; y: number }[]; c0: { x: number; y: number }; c1: { x: number; y: number } },
             partialType: 'start' | 'end' | 'middle',
             segEnds: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number },
-            stave: Stave | undefined,
+            frame: StaffFrame | undefined,
             segmentRole: 'begin' | 'middle' | 'end',
             segmentOrdinal?: number,
           ) => {
@@ -899,7 +899,7 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
             registerPartial(arc, partialType, {
               controlPoints: [arc.c0, arc.c1],
               segmentEndpoints: segEnds,
-              staffSpacePx: stave ? staveFrame(stave).spacePx : undefined,
+              staffSpacePx: frame?.spacePx,
               segmentRole,
               ...(segmentOrdinal !== undefined ? { segmentOrdinal } : {}),
               slurSpanCount: spanCount,
@@ -924,9 +924,9 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
           // ⭐⭐ …and it leans from the height of the music BESIDE it (LilyPond), not from a constant
           // off the far anchor — `nearestCoveredOuterY` + `./brokenSlurTilt`. `startY` is the
           // fragment's own anchored endpoint, so the clearance comes back in the same rise unit.
-          const openRise = (half: 'begin' | 'end', lengthPx: number, startY: number, stave: Stave | undefined) => {
-            const outer = stave === undefined ? undefined
-              : nearestCoveredOuterY(pass, score, slur, staffLineY(staveFrame(stave), 0), half, direction)
+          const openRise = (half: 'begin' | 'end', lengthPx: number, startY: number, frame: StaffFrame | undefined) => {
+            const outer = frame === undefined ? undefined
+              : nearestCoveredOuterY(pass, score, slur, staffLineY(frame, 0), half, direction)
             const clearance = outer === undefined ? 0 : (outer - startY) * direction + LIFT
             return brokenSlurOpenRise(steps ?? 0, half, direction, lengthPx, clearance)
           }
@@ -936,16 +936,16 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // Start note → system right edge, rising to an OPEN right end that leans toward the
               // music on the next system (`./brokenSlurTilt`, Gould p. 112).
               const startY = fromY + liftFrom * direction
-              const stave = fromNote.getStave()
+              const frame = noteFrame(fromNote)
               const p0 = { x: seg.firstX, y: startY }
               const p1 = {
                 x: seg.rightX,
-                y: startY + openRise('begin', seg.rightX - seg.firstX, startY, stave) * direction,
+                y: startY + openRise('begin', seg.rightX - seg.firstX, startY, frame) * direction,
               }
               // Open RIGHT end nudge (the true start p0 carries `endpointOffset` instead).
-              const o = segmentEndpointOffsetPx(segEndOff.begin, stave)
+              const o = segmentEndpointOffsetPx(segEndOff.begin, frame)
               p1.x += o.x; p1.y += o.y
-              const cps = resolveCps(segShape.begin, stave, p0, p1, direction, nestLift)
+              const cps = resolveCps(segShape.begin, frame, p0, p1, direction, nestLift)
               // ⭐ Filed before the translation: this fragment carries the START end's own nudge,
               // and the whole-curve offset is still to come. Its open right end keeps `o` — that
               // one re-arched (see {@link fileCurve}).
@@ -958,14 +958,14 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               p1.x += wholeFrom.x; p1.y += wholeFrom.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
-                'end', { p0, p1, direction }, stave, 'begin',
+                'end', { p0, p1, direction }, frame, 'begin',
               )
             } else if (seg.type === 'end') {
               // System left edge → end note, the mirror of BEGIN. THIS is the 2-line
               // fix: leftX is the SYSTEM's left margin, not the end note's measure edge. Its open
               // LEFT end leans the opposite way, so the two fragments point at each other.
               const endY = toY + liftTo * direction
-              const stave = toNote.getStave()
+              const frame = noteFrame(toNote)
               // ⛔ NO vertical dodge around the clef: the fragment starts after it, so there is
               // nothing to dodge. LilyPond makes the same point in the strongest available form — it
               // EXCLUDES Clef, KeySignature and TimeSignature from the code that lifts a slur's
@@ -973,53 +973,53 @@ export function renderSlurs(pass: RenderPass, score: Score): void {
               // curve. Raising a slur to clear the clef is the wrong fix, and I shipped it once.
               const p0 = {
                 x: seg.leftX,
-                y: endY + openRise('end', seg.lastX - seg.leftX, endY, stave) * direction,
+                y: endY + openRise('end', seg.lastX - seg.leftX, endY, frame) * direction,
               }
               const p1 = { x: seg.lastX, y: endY }
               // Open LEFT end nudge (the true end p1 carries `endpointOffset` instead).
-              const o = segmentEndpointOffsetPx(segEndOff.end, stave)
+              const o = segmentEndpointOffsetPx(segEndOff.end, frame)
               p0.x += o.x; p0.y += o.y
-              const cps = resolveCps(segShape.end, stave, p0, p1, direction, nestLift)
+              const cps = resolveCps(segShape.end, frame, p0, p1, direction, nestLift)
               // ⭐ The mirror of BEGIN: the true END's nudge comes off, the open left end's stays.
               fileCurve(autoArc(p0, { x: p1.x - off.endX, y: p1.y - off.endY }, cps, direction), toLine)
               p0.x += wholeTo.x; p0.y += wholeTo.y
               p1.x += wholeTo.x; p1.y += wholeTo.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
-                'start', { p0, p1, direction }, stave, 'end',
+                'start', { p0, p1, direction }, frame, 'end',
               )
             } else if (seg.type === 'middle') {
               // A full-width bow across a system the slur merely passes over. Both ends
               // sit flat at a staff-relative baseline (above the top line / below the
               // bottom line per the slur's side); slurArchCps bows it symmetrically.
-              const stave = representativeStaveOnLine(pass, score, seg.line)
-              if (!stave) continue
+              const frame = representativeFrameOnLine(pass, score, seg.line)
+              if (!frame) continue
               const baselineY = direction === -1
-                ? staffLineY(staveFrame(stave), 0) - LIFT
-                : staffBottomLineY(staveFrame(stave)) + STAFF_BOTTOM_EDGE_PX + LIFT
+                ? staffLineY(frame, 0) - LIFT
+                : staffBottomLineY(frame) + STAFF_BOTTOM_EDGE_PX + LIFT
               const p0 = { x: seg.leftX, y: baselineY }
               const p1 = { x: seg.rightX, y: baselineY }
               const ordinal = middleOrdinal++
               // Both open ends nudge independently (left + right) — ordinal-keyed, reset on a
               // count change with the rest of the middles.
               const mo = segEndOff.middles[ordinal]
-              const ol = segmentEndpointOffsetPx(mo?.left, stave)
-              const or = segmentEndpointOffsetPx(mo?.right, stave)
+              const ol = segmentEndpointOffsetPx(mo?.left, frame)
+              const or = segmentEndpointOffsetPx(mo?.right, frame)
               p0.x += ol.x; p0.y += ol.y
               p1.x += or.x; p1.y += or.y
-              const cps = resolveCps(segShape.middles[ordinal], stave, p0, p1, direction, nestLift)
+              const cps = resolveCps(segShape.middles[ordinal], frame, p0, p1, direction, nestLift)
               // ⭐ A MIDDLE has no true end at all, so only the whole-curve offset below is the
               // hand's — and it is filed before that lands.
               fileCurve(autoArc(p0, p1, cps, direction), seg.line)
               // ⚠️ A MIDDLE is anchored to nothing but its system's margins, and it takes the offset
               // all the same: the user moved the CURVE, and a fragment of it left behind would break
               // the line the eye follows across the break.
-              const wholeMid = slurOffsetPx(wholeOffset, stave)
+              const wholeMid = slurOffsetPx(wholeOffset, frame)
               p0.x += wholeMid.x; p0.y += wholeMid.y
               p1.x += wholeMid.x; p1.y += wholeMid.y
               registerSeg(
                 drawCurveArc(pass, p0, p1, cps, direction, CURVE_PX.thickness),
-                'middle', { p0, p1, direction }, stave, 'middle', ordinal,
+                'middle', { p0, p1, direction }, frame, 'middle', ordinal,
               )
             }
           }
