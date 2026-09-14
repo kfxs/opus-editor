@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveModifierPosition, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Barline, Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -2598,7 +2598,7 @@ export class VexFlowRenderer {
     // there `endX` is walked back through each one's layout metrics, where `NONE` and `SINGLE`
     // differ. `barWidth.e2e` is the instrument; ⛔ jsdom measures every glyph as 0×0 and will agree
     // with whatever it is told.
-    stave.setEndBarType(Barline.type.NONE)
+    stave.setClosingBarline('none')
 
     // The BEGIN bar is still VexFlow's — it opens a stave rather than dividing two bars (see
     // `BarlineRenderer`'s header).
@@ -2632,22 +2632,22 @@ export class VexFlowRenderer {
     // VexFlow would have drawn, plus the gaps. ⛔ A SINGLE-staff score keeps VexFlow's — it has no
     // connector, so suppressing there would erase the line entirely.
     if (!(measure.number === 1 || isFirstInLine) || this.systemHasConnector) {
-      stave.setBegBarType(Barline.type.NONE)
+      stave.setOpeningBarline('none')
     }
 
     if (measure.number === 1 || isFirstInLine) {
       // Line start: full-size clef showing the effective clef for this measure
-      stave.addClef(clef)
+      stave.addClefSign(clef, 'default')
     } else if (hasClefChange) {
       // Mid-line clef change: smaller clef at the start of the measure it applies to
-      stave.addClef(clef, 'small')
+      stave.addClefSign(clef, 'small')
     }
     if (drawsTimeSignature(measure)) {
       stave.addMeter(measure.timeSignature)
     }
     if (cautionaryEndClef) {
       // Cautionary clef before a line break: warns of the next line's new clef.
-      stave.addEndClef(cautionaryEndClef, 'small')
+      stave.addClefSign(cautionaryEndClef, 'small', 'closing')
     }
     if (cautionaryEndTimeSig) {
       // Cautionary time signature before a line break: warns of the next line's new
@@ -2659,7 +2659,7 @@ export class VexFlowRenderer {
       //    `BarlineRenderer` draws at the stave's right EDGE since it took the end barlines over.
       //    ⛔ Not fixed here — it moves ink. The finding, the citation and the fix's shape are
       //    `docs/barline-types-plan.md` §4.4a.
-      stave.addMeter(cautionaryEndTimeSig, StaveModifierPosition.END)
+      stave.addMeter(cautionaryEndTimeSig, 'closing')
     }
 
     // ⭐⭐ Where this staff's notes START is a SYSTEM answer, never this lane's: the measure's own

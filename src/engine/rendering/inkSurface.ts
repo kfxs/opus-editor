@@ -1,23 +1,23 @@
 /**
- * ⭐ **WHO CAN BE HANDED OUR SURFACE** — the one-line family that `EngravedStave`'s modifier walk asks.
+ * ⭐ **WHO CAN BE HANDED OUR SURFACE** — the one-line family a NOTE's modifier walk asks.
  *
- * A stave draws its lines on `RenderPass.context` (the recorder during a `recordScene` render, the
- * real painter otherwise) and then walks its modifiers, which still take VexFlow's context because
- * most of them still paint themselves. ⭐ **One at a time, they stopped** — the CLEF on 2026-09-02,
- * the METER on 2026-09-12, the opening BARLINE on 2026-09-13 (`docs/own-engraving-engine.md` P5b) —
- * and each one that has needs telling which surface to draw on. ⚠️ That is every modifier a score
- * stave carries today, ⛔ which does not close the family: `Barline`'s other types, a `Repetition`,
- * a `Volta` and the rest of VexFlow's `StaveModifier`s are all still unmigrated members-in-waiting.
+ * A note draws its heads on `RenderPass.context` (the recorder during a `recordScene` render, the real
+ * painter otherwise) and then walks its modifiers, which still take VexFlow's context because most of
+ * them still paint themselves. ⭐ **One at a time, they stopped** — the accidental, the augmentation dot
+ * and the articulation (P3f/P3g) — and each one that has needs telling which surface to draw on.
+ *
+ * ⚠️ **The stave's signs left this family in S4c** (`docs/vexflow-removal-map.md`): the clef, the meter
+ * and the opening barline joined it in P5b, and are now plain objects of ours that the stave hands its
+ * surface directly (`./staveSign`'s `drawSign`).
  *
  * 🚨 **This exists so that the third one is a ROW and not a third `instanceof`.** `CLAUDE.md`'s rule:
  * *"A SLICE TOO THIN TO BE LOGIC IS STILL A SLICE — if what you are adding is the twelfth `case` in a
  * family, add the twelfth MODULE and a ROW in its table."* The modifier walk was one `instanceof`
  * away from being that family; implementing this interface is now the whole of joining it.
  *
- * ⚠️ **The guard is structural on purpose.** The members are `EngravedClef`,
- * `EngravedTimeSignature` and `EngravedBarline`, which have no common base but `StaveModifier` —
- * VexFlow's own class tree —
- * and inventing one would mean subclassing across two unrelated VexFlow classes. ⭐ The `implements`
+ * ⚠️ **The guard is structural on purpose.** The members are `EngravedAccidental`, `EngravedDot` and
+ * `EngravedArticulation`, which have no common base but VexFlow's `Modifier` — and inventing one would
+ * mean subclassing across unrelated VexFlow classes. ⭐ The `implements`
  * clause on each member is what makes the set checkable at compile time; this only finds them again.
  */
 import type { DrawContext } from '@/engine/paint/DrawContext'

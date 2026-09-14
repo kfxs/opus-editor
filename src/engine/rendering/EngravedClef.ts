@@ -1,94 +1,49 @@
 /**
- * ⭐⭐ **THE SEAM WHERE THE CLEF'S INK COMES BACK TO US — P5b**
- * (`docs/own-engraving-engine.md` P5; the ink itself is `engrave/header/clef`).
+ * ⭐⭐ **A CLEF ON A SCORE STAVE — a sign of ours, with no VexFlow class underneath** (S4c of
+ * `docs/vexflow-removal-map.md`; the ink itself is `engrave/header/clef`).
  *
- * `Clef.draw()` is four things, and only the third is the drawing:
+ * It began (P5b) as a subclass of VexFlow's `Clef` whose `draw()` moved the ink into our module. Piece
+ * by piece everything else followed:
  *
- * ```js
- * ctx.openGroup('clef', id)
- * this.y = stave.getYForLine(this.line)   // ← the RULE, as a side effect
- * this.renderText(ctx, 0, 0)              // ← the INK; the zeros are load-bearing
- * ctx.closeGroup()
- * ```
+ * | | ours since | where |
+ * |---|---|---|
+ * | the INK | P5b | `engrave/header/clef` |
+ * | the GLYPH, the LINE it names, the FACE | S4b0 | `engrave/header/clefSign` — today's `Clef.types` lines and `Clef.getPoint` ⅔, as rows |
+ * | the POSITION | S4b1 | {@link EngravedClef.signX}, walked by the stave (`engrave/staff/signWalk`), placed by `./headerPlacementPass`, nudged by `./clefOffsetPass` |
+ * | the OBJECT | S4c | this plain class, held in `EngravedStave`'s own sign list |
  *
- * ⭐ **So P5b's first step is the same shape P5a and P3b were**: the ink moves to a module of ours,
- * the object keeps answering every question it answered before, and **no pixel moves**. What is
- * bought is that a clef is now IN THE SCENE — *"a clef is stamped at this x, on this line, as this
- * codepoint"* is arithmetic in jsdom, where before it needed a browser and a font.
+ * ⭐ **A clef is IN THE SCENE** — *"a clef is stamped at this x, on this line, as this codepoint"* is
+ * arithmetic in jsdom.
  *
- * ## ⛔ What this does NOT take, and it is most of P5b
- *
- * ✅ **The PLACEMENT is ours since S4b1** — {@link EngravedClef.signX} is walked by the stave
- * (`engrave/staff/signWalk`), from a width measured here through `./glyphPainter`. The clef is PLACED by `headerPlacementPass` at the engraved 0.7 sp, and a hand offset still nudges
- * indentation, `clefOffsetPass` for a hand offset — and both still work by `setX`/`setXShift` on
- * this very object, which is why every one of those numbers is READ here rather than replaced.
- * ⭐ That is the *"`headerInk` MEASURES, `Stave` PLACES"* pair P5 is named after, and it is the next
- * step, not this one.
- *
- * ✅ **The ANCHOR LINE and the SIZE are rows of ours since S4b0** — `engrave/header/clefSign`, with
- * today's `Clef.types` lines and `Clef.getPoint` ⅔ exactly. The clef research (`docs/clef-research.md`)
- * becomes their preset menu (rule 13) rather than a reason to keep reading them off VexFlow.
- *
- * ⛔ **The INLINE clef.** A clef change at `beat > 0` is a `ClefNote` tickable that builds its own
- * `Clef` internally (`VexFlowRenderer.interleaveClefNotes`), and it never passes through here.
- * ⏭️ It becomes ours when `ClefNote` does.
- *
- * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedBeam` and `EngravedNote` are ones.**
- * Everything read below is public API (`getYShift`) or `protected` and therefore ours by inheritance (`y`) — the body is VexFlow's own
- * arithmetic MOVED, ⛔ not rewritten.
+ * ⛔ **The INLINE clef is not this.** A clef change at `beat > 0` is a `ClefNote` tickable that builds
+ * VexFlow's own `Clef` internally (`VexFlowRenderer.interleaveClefNotes`). ⏭️ It becomes ours when
+ * `ClefNote` does.
  */
-import { Clef } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Clef as ScoreClef } from '@/types/music'
 import { clefSign, type ClefSign, type ClefSize } from '@/engine/engrave/header/clefSign'
 import { clefPlacement, drawClef } from '@/engine/engrave/header/clef'
-import type { InkSurfaceAware } from './inkSurface'
-import type { StaveSign } from './staveSign'
+import { newSignId, type StaveSign } from './staveSign'
 import { measureGlyph } from './glyphPainter'
 import { STAVE_SIGN_PADDING_PX } from '@/engine/engrave/inheritedDefaults'
 import type { WalkSign } from '@/engine/engrave/staff/signWalk'
-import { staveFrame } from './staveFrame'
-import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { staffLineY, type StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
-export class EngravedClef extends Clef implements InkSurfaceAware, StaveSign {
-  /**
-   * The surface this clef's glyph draws on — the stave's own, handed over by `EngravedStave` a line
-   * before it draws its modifiers. Null until then, and then the clef falls back to
-   * `checkContext()`, so an unset surface is a lost SCENE entry and ⛔ never a lost pixel.
-   * (`EngravedStave.inkSurface` and `EngravedNote.inkSurface` carry the same contract, and
-   * `./inkSurface` is how the stave's modifier walk finds the members that take one.)
-   */
-  private inkSurface: DrawContext | null = null
-
-  /** @see EngravedClef.inkSurface */
-  setInkSurface(ctx: DrawContext): void {
-    this.inkSurface = ctx
-  }
-
-  /**
-   * ⭐ **What this clef draws, as ours** — S4b0 (`engrave/header/clefSign`): the glyph, the line it
-   * names, its face.
-   */
-  private readonly sign: ClefSign
-
+export class EngravedClef implements StaveSign {
   readonly signKind = 'clef' as const
-  /** ⭐ S4b1 — where this clef stands, OURS: walked by the stave, moved by `./headerPlacementPass`. */
+  readonly id = newSignId()
+  /** ⭐ Where this clef stands — walked by the stave, moved by `./headerPlacementPass`. */
   signX = 0
   /** A hand offset (`./clefOffsetPass`), added when the clef is drawn. */
   signShift = 0
+
+  /** What this clef draws — `engrave/header/clefSign`: the glyph, the line it names, its face. */
+  private readonly sign: ClefSign
   /** How wide the walk counts this clef — its glyph measured in its own face, as VexFlow measured it. */
   private readonly walkWidth: number
 
-  constructor(clef: string, size?: string, annotation?: string) {
-    // ⛔ An ANNOTATED clef (8va/8vb) has no row in `clefSign`, and nothing in this editor adds one — so
-    //   it is refused LOUDLY, the day something does, rather than drawn from a table we do not have.
-    if (annotation !== undefined) {
-      throw new Error(`EngravedClef: an annotated clef ('${annotation}') has no row in engrave/header/clefSign`)
-    }
-    super(clef, size)
-    // `Clef.getPoint` reads anything but 'default' as small, and an absent size as 'default'.
-    const signSize: ClefSize = size === undefined || size === 'default' ? 'default' : 'small'
-    this.sign = clefSign(clef as ScoreClef, signSize)
+  constructor(clef: ScoreClef, size: ClefSize) {
+    this.sign = clefSign(clef, size)
     this.walkWidth = measureGlyph('EngravedClef.walk', this.sign.glyph, this.sign.font.size)
   }
 
@@ -98,27 +53,16 @@ export class EngravedClef extends Clef implements InkSurfaceAware, StaveSign {
   }
 
   /**
-   * ⭐ **OURS as of P5b** — the glyph, through our own primitives.
-   *
-   * ⚠️ **`this.y` is still assigned**, and it is not bookkeeping: `Element.getBoundingBox()` is built
-   * from `this.x`/`this.y`, and `clefOffsetPass` says outright that *"everything downstream of an
-   * offset clef is measured from that box"* — the registry's hit box, and the clef SEGMENT that
-   * pixel↔pitch lookup reads. ⛔ Dropping it would move no ink and break both.
-   *
-   * ⚠️ **The glyph, the line and the face are `engrave/header/clefSign`'s** — handed to the ink as
-   * values, exactly as `EngravedNote` hands over the flag's. That is what keeps `engrave/` free of
-   * `vexflow` (`lint:boundary`).
+   * ⭐ The glyph, through our own primitives, on the line it names — that line's y is the BASELINE
+   * (`engrave/header/clef`'s rule).
    */
-  override draw(): void {
-    const stave = this.checkStave()
-    this.setRendered()
-    this.y = staffLineY(staveFrame(stave), this.sign.line)
+  drawSign(surface: DrawContext, frame: StaffFrame): void {
     drawClef(
-      this.inkSurface ?? this.checkContext(),
+      surface,
       this.sign.glyph,
-      clefPlacement({ x: this.signX + this.signShift, lineY: this.y + this.getYShift() }),
+      clefPlacement({ x: this.signX + this.signShift, lineY: staffLineY(frame, this.sign.line) }),
       this.sign.font,
-      this.getAttribute('id'),
+      this.id,
     )
   }
 }

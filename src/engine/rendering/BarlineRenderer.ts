@@ -49,7 +49,7 @@
  *
  * ## ⚠️ What this pass does NOT take
  *
- * **The line at a system's LEFT EDGE.** ⚠️ It is still placed by VexFlow's `setBegBarType`, and it is
+ * **The line at a system's LEFT EDGE.** ⚠️ It is the stave's own opening barline (`EngravedStave.setOpeningBarline`), and it is
  * a different mark: it opens a stave rather than dividing two bars, it has no neighbour to agree
  * with, and the grand staff's own connector is already drawn by hand beside it. ⭐ **Its INK is ours
  * as of 2026-09-13** — `EngravedBarline` + `engrave/staff/openingBarline` (P5b), ⛔ which does not
@@ -448,12 +448,14 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
  * index 0 at the right edge working LEFTWARDS — so a trailing meter is deliberately placed OUTSIDE
  * the barline and a trailing clef INSIDE it, which is exactly what the books say.
  *
- * 🚨 **What broke it was ours**: since this pass took the end barlines over (`setEndBarType(NONE)`
+ * 🚨 **What broke it was ours**: since this pass took the end barlines over (`setClosingBarline('none')`
  * on every stave), it drew at `stave.getX() + stave.getWidth()`. That EQUALS the barline modifier's
  * own x for an ordinary bar — and ⛔ not for one carrying END MODIFIERS, where the walk steps back
  * past each of them. ⇒ the line landed to the RIGHT of the cautionary meter it should precede.
  *
- * ⭐⭐ **So the fix is to stop deriving a number VexFlow already computed.** Reading the modifier's
+ * ⭐⭐ **So the fix is to stop deriving a number the walk already computed.** ⚠️ Since S4b1 the walk is
+ * ours (`engrave/staff/signWalk`, the same end walk transcribed) and the closing barline's x is its own
+ * `signX`, read through the `SignRun`. Reading that x
  * x is also what keeps a cautionary CLEF correct: `getEndX()` would be wrong there (it is walked back
  * PAST the clef, which must stay inside the bar), and a bar carrying both gets clef · line · meter
  * left to right, which is the picture both rules want.

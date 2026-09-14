@@ -1,112 +1,48 @@
 /**
- * ⭐⭐ **THE SEAM WHERE THE OPENING BARLINE'S INK COMES BACK TO US — P5b**
- * (`docs/own-engraving-engine.md` P5; the ink itself is `engrave/staff/openingBarline`).
+ * ⭐⭐ **A STAVE'S OWN BARLINE — a sign of ours, with no VexFlow class underneath** (S4c of
+ * `docs/vexflow-removal-map.md`; the ink itself is `engrave/staff/openingBarline`).
  *
- * `Barline.draw()` is a group around a switch on the sign's type, and only ONE arm of it can be
- * reached from a score stave in this repo:
+ * Every stave has one at each end, as VexFlow's `Stave` constructor gave it. It began (P5b) as a
+ * subclass of VexFlow's `Barline` whose `draw()` moved the plain line's ink into our module:
  *
- * ```js
- * draw() {
- *   ctx.openGroup('stavebarline', id)
- *   switch (this.type) {
- *     case SINGLE: this.drawVerticalBar(stave, this.x, false); break   // ← ours, below
- *     case DOUBLE / END / REPEAT_*: …                                  // ⛔ never set here
- *     default: break                                                   // NONE — draws nothing
- *   }
- *   ctx.closeGroup()
- * }
- * drawVerticalBar(stave, x) {
- *   staveCtx.fillRect(x, stave.getTopLineTopY(), 1, stave.getBottomLineBottomY() - topY)
- * }
- * ```
+ * | | ours since | where |
+ * |---|---|---|
+ * | the INK of a plain line — 0.16 sp wide, spanning the staff's full ink | P5b | `engrave/staff/openingBarline` (it also DELETED the DOM repair `barlineInk.inkBarlines`) |
+ * | the ROOM each kind takes in the walk | S4b1 | `engrave/staff/barlineMetrics` |
+ * | the POSITION | S4b1 | {@link EngravedBarline.signX}, set by the stave's walk |
+ * | the OBJECT and its KIND | S4c | this plain class; the stave sets the kind directly |
  *
- * ⚠️ **Both of those numbers have since moved**, and neither is transcribed here any more: the WIDTH
- * is ours (below), and the vertical EXTENT is `staveBarlineExtent` — a barline stops at the MIDDLE of
- * each outer staff line rather than at its edge (`engrave/staff/barlineExtent`, three engines and
- * LilyPond's stated reason).
- *
- * ⭐ Same shape as P5a, `EngravedClef` and `EngravedTimeSignature`: the ink moves to a module of ours
- * and enters the SCENE, and the object keeps answering every question it answered before. ⚠️ **The
- * MOVE moved no pixel; the EXTENT RULE that followed it did** — a separate commit, as a rule change
- * must be. What is bought is that *"a system opens with a line spanning its staff"* is arithmetic in
- * jsdom, where before it was a `<rect>` only a browser could see.
- *
- * ⭐⭐ **And this one ALSO DELETES A PASS, which the other three did not.** A plain opening barline
- * used to be drawn three times over: VexFlow's 1 px `fillRect`, then `barlineInk.inkBarlines`
- * rewriting that rect's `width` in the DOM to the 0.16 sp we actually want, then
- * `barlineInk.hintBarlines` rewriting its `x`. ⇒ the WIDTH is now drawn right the first time and
- * `inkBarlines` is gone — ⭐ **the same "draw it right rather than repair it" that
- * `BarlineRenderer`'s header claims for every other line on the page**, finally applied to the one
- * line that pass deliberately left out. ⚠️ The hinting stays: it is a page-wide pass over marks four
- * modules drew, ⛔ not this line's business.
- *
- * 🚨 **A DOM repair is invisible to the SCENE, and that is why folding it in is not tidying.** Had
- * the ink moved here at VexFlow's literal `1`, `recordScene` would have recorded a 1 px barline while
- * the page carried a 1.6 px one — a scene that DISAGREES with the picture is worse than no scene, and
- * every assertion written against it afterwards would have been asserting the wrong number.
- *
- * ## ⛔ What this does NOT take
- *
- * ✅ **The x is ours since S4b1** — {@link EngravedBarline.signX}, set by the stave's walk
- * (`engrave/staff/signWalk`).
- *
- * ⛔ **Every other TYPE.** `super.draw()` keeps them, and the ink module's header says why at length:
- * this repo replaced VexFlow's rules for the final bar, the repeats and the double bar
- * (`BarlineRenderer`), so transcribing them into `engrave/` would import rules we have already
- * overruled. ⭐ Nothing in this repo can reach them — a score stave's BEGIN bar is `SINGLE` or
- * `NONE` and its END bar is always `NONE` (`VexFlowRenderer.drawMeasureContent`) — so the fall-through
- * is a guard against a future caller, ⛔ not a case that runs. ⚠️ `NONE` goes through it too, which
- * keeps VexFlow's own empty `<g>` exactly where it has always been in the SVG.
- *
- * ⚠️ **A subclass, for the reason `EngravedStave`, `EngravedClef` and `EngravedTimeSignature` are
- * ones.** Everything read below is public API (`getAttribute`, and the stave's own
- * `getYForLine` / `getNumLines` through `staveBarlineExtent`).
+ * ⛔ **Only two kinds are drawn here, and that is a statement about the page, not a gap.** A score
+ * stave's opening barline is plain or none and its closing one is always none — `BarlineRenderer`
+ * draws every line that ENDS a bar, and every repeat, double and final bar, by rules that replaced
+ * VexFlow's. So a stave asked to draw any other kind refuses loudly instead of importing rules this
+ * repo has already overruled.
  */
-import { Barline, BarlineType } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { drawOpeningBarline, openingBarlineInk } from '@/engine/engrave/staff/openingBarline'
 import { THIN_BARLINE_PX, staffBarlineExtent } from './barlineInk'
-import type { InkSurfaceAware } from './inkSurface'
-import type { StaveSign } from './staveSign'
+import { newSignId, type StaveSign } from './staveSign'
 import { BARLINE_ROWS, type BarlineKind } from '@/engine/engrave/staff/barlineMetrics'
 import type { WalkSign } from '@/engine/engrave/staff/signWalk'
-import { staveFrame } from './staveFrame'
+import type { StaffFrame } from '@/engine/engrave/staff/staffFrame'
 
-export class EngravedBarline extends Barline implements InkSurfaceAware, StaveSign {
-  /**
-   * The surface this line draws on — the stave's own, handed over by `EngravedStave` a line before it
-   * draws its modifiers. Null until then, and then the line falls back to the stave's
-   * `checkContext()`, so an unset surface is a lost SCENE entry and ⛔ never a lost pixel.
-   * (`EngravedClef` and `EngravedTimeSignature` carry the same contract.)
-   */
-  private inkSurface: DrawContext | null = null
-
-  /** @see EngravedBarline.inkSurface */
-  setInkSurface(ctx: DrawContext): void {
-    this.inkSurface = ctx
-  }
-
+export class EngravedBarline implements StaveSign {
   readonly signKind = 'barline' as const
-  /** ⭐ S4b1 — where this line stands, OURS: set by the stave's walk (`engrave/staff/signWalk`). */
+  readonly id = newSignId()
+  /** ⭐ Where this line stands — set by the stave's walk. */
   signX = 0
   /** A hand offset — nothing offsets a barline today; every stave sign has one. */
   signShift = 0
 
-  /** Which barline this is, as ours — kept in step with VexFlow's type by {@link setType}. */
   private kind: BarlineKind
 
-  constructor(type: BarlineType) {
-    super(type)
-    // ⚠️ Set AGAIN here: `Barline`'s constructor calls `setType` before this class's fields exist, and a
-    //   class field is (re)defined once `super()` returns (`useDefineForClassFields`).
-    this.kind = barlineKindOf(type)
+  constructor(kind: BarlineKind) {
+    this.kind = kind
   }
 
-  /** `setBegBarType` / `setEndBarType` write the type through here, so the kind follows it. */
-  override setType(type: string | BarlineType): this {
-    super.setType(type)
-    this.kind = barlineKindOf(type)
-    return this
+  /** The stave changes which barline this is (`EngravedStave.setOpeningBarline` / `setClosingBarline`). */
+  setKind(kind: BarlineKind): void {
+    this.kind = kind
   }
 
   /** The walk's view of this line — `engrave/staff/barlineMetrics`' row for its kind. */
@@ -116,46 +52,27 @@ export class EngravedBarline extends Barline implements InkSurfaceAware, StaveSi
   }
 
   /**
-   * ⭐ **OURS as of P5b** — the line that opens a stave, through our own primitives, inside the group
-   * it has always been drawn in.
+   * ⭐ A plain line, through our own primitives, inside the `stavebarline` group it has always had.
    *
-   * ⚠️ **The thickness is in the STAVE's own space by inheritance, ⛔ not by conversion**, and that is
-   * unchanged rather than chosen: the rect lands inside the bar's `<g>`, which carries the staff's
-   * scale, so a cue-size staff gets a proportionally thinner opening line exactly as it did when
-   * `inkBarlines` wrote the same number into the same group. ⭐ `BarlineRenderer.drawSign`'s note is
-   * the argument for keeping it that way — and the day `docs/small-staff-spacing` revisits it, this is
-   * the second line to change.
+   * ⚠️ **The thickness is in the STAVE's own space by inheritance, ⛔ not by conversion**: the rect lands
+   * inside the bar's `<g>`, which carries the staff's scale, so a cue-size staff gets a proportionally
+   * thinner opening line — `BarlineRenderer.drawSign`'s note is the argument for keeping it so.
+   *
+   * ⚠️ **A `none` line still opens and closes its group, on the PAGE's context**: VexFlow's `Barline.draw`
+   * did exactly that — an empty `<g class="vf-stavebarline">` on the context it painted with — so the SVG
+   * keeps that group where it has always been, and the scene records nothing it never recorded.
    */
-  override draw(): void {
-    if (this.kind !== 'single') {
-      super.draw()
+  drawSign(surface: DrawContext, frame: StaffFrame, page: DrawContext): void {
+    if (this.kind === 'single') {
+      const extent = staffBarlineExtent(frame)
+      drawOpeningBarline(surface, openingBarlineInk(this.signX, extent.topY, extent.bottomY, THIN_BARLINE_PX), this.id)
       return
     }
-    const stave = this.checkStave()
-    this.setRendered()
-    const extent = staffBarlineExtent(staveFrame(stave))
-    drawOpeningBarline(
-      this.inkSurface ?? stave.checkContext(),
-      openingBarlineInk(this.signX, extent.topY, extent.bottomY, THIN_BARLINE_PX),
-      this.getAttribute('id'),
-    )
+    if (this.kind === 'none') {
+      page.openGroup('stavebarline', this.id)
+      page.closeGroup()
+      return
+    }
+    throw new Error(`EngravedBarline: a '${this.kind}' barline is drawn by BarlineRenderer, never by the stave`)
   }
-}
-
-/** VexFlow's barline type → ours. */
-const KIND_OF_TYPE = new Map<BarlineType, BarlineKind>([
-  [BarlineType.SINGLE, 'single'],
-  [BarlineType.DOUBLE, 'double'],
-  [BarlineType.END, 'end'],
-  [BarlineType.REPEAT_BEGIN, 'repeatBegin'],
-  [BarlineType.REPEAT_END, 'repeatEnd'],
-  [BarlineType.REPEAT_BOTH, 'repeatBoth'],
-  [BarlineType.NONE, 'none'],
-])
-
-/** ⛔ A type named by STRING has no row here — nothing in this editor names one, so it is refused loudly. */
-function barlineKindOf(type: string | BarlineType): BarlineKind {
-  const kind = typeof type === 'string' ? undefined : KIND_OF_TYPE.get(type)
-  if (!kind) throw new Error(`EngravedBarline: no row for barline type ${String(type)}`)
-  return kind
 }
