@@ -448,7 +448,7 @@ step (`steps.cjs`, 0 unassigned).
 
 | # | step | removes (uses / files) | needs | pixels | end signal |
 |---|---|---|---|---|---|
-| **S0** | **Census ratchet** — commit `scan.cjs` as `npm run lint:vexflow` with per-role ceilings that may only fall | 0 — makes every later number checkable | — | none | the census runs in `build:check` |
+| **S0** ✅ | **Census ratchet** — `npm run lint:vexflow` (`scripts/check-vexflow-census.mjs`, in `build:check`), per-role ceilings that may only fall | 0 — makes every later number checkable | — | none | the census runs in `build:check` |
 | **S1** | **Fonts + numbers**: our `@font-face` from `public/fonts/`; `Metrics`/`Tables` constants → attributed rows; font categories → our table | **41 / 13** + the import side effect | — | none (if font versions match — §8.1 UNKNOWN) | no `Metrics`, `MetricsDefaults`, `Stem.WIDTH`, `fontInfo` outside the adapter; glyphs render with VexFlow's faces unloaded |
 | **S2** | **Staff frame** (§2) | **165 / 25**; frees 4 files | — | none (exact port) | no `Stave.getYForLine` / `getSpacingBetweenLines` / `getNoteStartX` / `getYForNote` outside `engrave/vexflow/` |
 | **S3** | **Note ruler seam** — `NoteGeometry`, captured after draw; P6b's readers generalised (§3) | **170 / 21**; with S2 frees 7 more files (Tie, Trill, Ottava, Pedal, Hairpin, `dynamicsLinePass`, `dynamicNudgePass`) | S2 (readers take both) | none (copied values) | no `StaveNote` type outside `engrave/vexflow/` + `NoteBuilder`; no registry box from `getBoundingBox()` |
@@ -525,9 +525,40 @@ step (`steps.cjs`, 0 unassigned).
 
 ---
 
+## 11. ⭐⭐ What each step must KEEP from `own-engraving-engine.md` (added 2026-09-14)
+
+This map counts the dependency and orders its removal. The engine plan carries standing rules about
+**what we build in its place**, and a removal step that ignores them would trade VexFlow's
+assumptions for the same assumptions written in our own files. ⛔ A step is not done because its
+count reached zero; it is done when its count reached zero **and** the rows below still hold.
+
+| from `own-engraving-engine.md` | binds at | what the step must do |
+|---|---|---|
+| **Rule 5** — no inverse mapping written as straight-staff arithmetic; ask the placement. **§0.4** — *"if the staff were a circle, how many files would change?"* — the answer must be TWO (the staff module, the placement) | **S2**, and every later reader | The staff frame is the ONLY place that does line arithmetic, and readers ASK it — ⛔ never copy `top + line × spacing` into the 25 files that asked `Stave`. Fold existing straight-staff readers in while there: `ElementRegistry.pixelYToPitch` computes `(y − topLineY) / lineSpacing` itself (`ElementRegistry.ts` ~1417), and `StaffGeometry` (`:308`) is the editor's copy of the same assumption. |
+| **Rule 6** — a staff is a SPINE plus a thickness, one module owns where the lines go | **S2** | Already honoured by S2's design (§2); keep `staffLinesInk` reading the frame. |
+| **Rules 7–8** — the rigid unit is a FRAGMENT (a bar, a beamed group) placed by an `Affine`, ⛔ never flattened into absolute x/y | **S4, S12, S13** | Keep group placements as matrices through `paint/DrawGroup.setPlacement`; ⛔ no step bakes a group's transform into its children's coordinates. |
+| **Rule 9** — the registry records the SPACE an element was drawn in, beside its box (`withScale(k)` → `withSpace(affine)`) | **S3** | S3 rebuilds where the registry's boxes come from; that is the cheapest moment to add the space, and the rule's trigger (*"the next time a coordinate field is added to `ElementInfo`"*) has already fired unnoticed. |
+| **The `vf-` ids and classes are a SEAM** — the selection highlight finds ink through them (`getSVGElement`: 22 uses in 7 rendering files) and the browser suite reads them (`vf-notehead` 52 selectors, `vf-ghost` 32, `vf-slur` 23, … over 200 in `e2e/`) | **S12, S13** (and U3, *"the root of the knot"*) | Either keep emitting the same ids/classes from our painter, or move the highlight and the e2e readers onto our own handles FIRST. ⛔ Dropping one fails SILENTLY — P3c's stem id is the recorded example. |
+| **The four standing painter gotchas** (P1 section): `save`/`restore` are no-ops, the `vf-` prefix, the `setStyle` context leak, `getElementById` is document-wide | **S13** | S13's checklist; each must be decided, not inherited by accident. |
+| **PDF export** renders through the same drawing (`engine/export/scoreSvg.ts`, `pdfExport.ts`) — and *"paper wins the tie-break"* | **S1, S13** | S1's own `@font-face` must also reach the PDF path; S13 must keep the export working. The scene plan's promise is that PDF stops being a second renderer. |
+| **Goal order §0.1** — professional engraving first; contemporary notation and eye music *never designed for, never foreclosed* | every PORT step (S5–S9) | A port reproduces VexFlow's result on a straight staff; ⛔ it must not add NEW straight-staff assumptions of its own (rule 5 again). |
+| **`recordScene` on an unchanged score records almost nothing** — a reused bar draws nothing | every step whose net is a scene test | Use `MusicEngine.recordFullScene()` / `forgetReuse()`, or the test passes vacuously. |
+| **Taking a `draw()` must keep its write-back** — VexFlow writes position while painting (the flag bug) | **S5, S6, S10** | Before emptying a draw, list every ASSIGNMENT in the base method and reproduce it; assert the object's box in a spec. *"No pixel moved" ≠ "no ruler moved".* |
+| **Rule 13** — a number is never a blocker; **rule 3** — port attributed | every PORT step | Already in §1; the port's number is the DEFAULT row, and the MIT notice travels with it (S14). |
+| **§8.2's tree** — a file migrates on the commit that touches it, ⛔ never a big rename | every step | New modules go in `engrave/` / `paint/` / `scene/`; existing files move only when a step already rewrites them. |
+
+---
+
 ## Appendix A — how to re-run the census
 
-The three scripts live outside the repo, in `/tmp/claude-1000/vexflow-removal-map/`:
+✅ **S0 landed (2026-09-14): the scan and the R1–R7 classifier are `scripts/check-vexflow-census.mjs`**,
+run by `npm run lint:vexflow` inside `build:check` (≈6 s). It fails if any role's count rises above
+its ceiling or a use falls in no role, and prints the new ceilings when a count falls;
+`--detail` lists the busiest members and files per role. Its first run reproduced this map's
+counts exactly (1,449 · R1 175 · R2 199 · R3 439 · R4 98 · R5 147 · R6 341 · R7 50 · specs 262).
+The per-step assignment (`steps.cjs`) and the appendix generator were not carried over.
+
+The original scripts lived outside the repo, in `/tmp/claude-1000/vexflow-removal-map/`:
 
 | script | what it does |
 |---|---|

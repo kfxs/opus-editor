@@ -60,6 +60,11 @@ delaying engraving work by one day.
 > a new number is written as a changeable ROW (rule 13), so the gathering later is a move, not a
 > rewrite. The research waves (`docs/engraving-number-inventory.md`) run in the background and
 > ⛔ never block a removal step.
+>
+> ⭐⭐ **THE ORDER is `docs/vexflow-removal-map.md` §9 (S0–S14)** — measured with the TypeScript
+> compiler, and it supersedes this document's phase order where §10 of the map says they disagree.
+> ⭐ **THE GAUGE is `npm run lint:vexflow`** (S0, in `build:check`): 1,449 VexFlow uses outside the
+> specs in seven roles, each a ceiling that may only fall.
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**
