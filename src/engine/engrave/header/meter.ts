@@ -105,8 +105,9 @@ export function meterRowBaseline(lineY: number): number {
  * the `+ left` form read **0.80** in the browser against the armed 1.0 and was "corrected" to
  * `− left`, which read 0.96. ⇒ 🚨 **both readings were ≈0.17 sp too small**, because
  * `getBoundingClientRect` rounds every ink box OUTWARD by up to a device pixel per side and a white
- * gap therefore reads ~2 px short ([[reference_the_browser_ink_reader_inflates_every_box]] — the
- * calibration is in `e2e/headerGap`). The true drawn gaps were **1.0** and **1.16**.
+ * gap therefore reads ~2 px short (the calibration is in `e2e/headerGap`). The true drawn gaps were
+ * **1.0** and **1.16**. ⚠️ Found 2026-09-14: that excess belonged to VexFlow's embedded Bravura
+ * build, which the page drew in then; with the fonts we ship the reader is within half a pixel.
  *
  * ✅ **So `+ left` is right**, and it is what all three engines compute: LilyPond's own line is
  * `offsets[next] = extents[idx][RIGHT] + distance − extents[next][LEFT]`

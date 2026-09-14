@@ -137,7 +137,8 @@ test('⭐⭐ the METER moved over for the signature — the room reserved is the
   //   from the clef's ink by the same conversion this arm uses, and that conversion's bearing had
   //   the wrong SIGN — it read as correct because the browser's ink reader under-reports a white gap
   //   by ~0.2 sp, more than the 0.16 the two signs differ by
-  //   (`e2e/headerGap`'s `readerInflation` calibration). ⇒ the no-key meter moved 1.6 px LEFT, onto
+  //   (`e2e/headerGap`'s `readerInflation` calibration — ⚠️ a bias of VexFlow's embedded Bravura
+  //   build, found 2026-09-14; the fonts we ship read within half a pixel). ⇒ the no-key meter moved 1.6 px LEFT, onto
   //   the armed 1.0 of clear white it was always supposed to have, and this delta grew by exactly
   //   that. ⛔ The WITH-key placement did not move — the assertion below is unchanged, and that is
   //   the proof this was the baseline and not the signature.

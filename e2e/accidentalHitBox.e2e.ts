@@ -39,8 +39,8 @@ async function sharp(score: import('@playwright/test').Page) {
 
 test('⭐⭐ the hit box sits ON the sign’s drawn ink — the page agrees about WHERE', async ({ score }) => {
   const { box, page } = await sharp(score)
-  // ⚠️ ±1 px each side: the browser's own reader inflates a box by about a pixel per side
-  // (`reference: the browser ink reader inflates every box`).
+  // ⚠️ ±1 px each side: the browser's reader reports whole device pixels. (It also used to inflate
+  // a glyph by about a pixel per side — that was VexFlow's embedded Bravura build, gone since S1.)
   expect(box.x).toBeGreaterThan(page.x - 1.5)
   expect(box.x + box.width).toBeLessThan(page.x + page.width + 1.5)
   expect(box.y, 'and the ink sits inside the line box vertically').toBeGreaterThan(page.y - 1.5)

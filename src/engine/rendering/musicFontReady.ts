@@ -48,6 +48,8 @@
  * had written this requirement out separately; the one that had not was the app.
  */
 
+import { registerMusicFontFaces } from './musicFontFaces'
+
 /**
  * Memoized: `document.fonts.ready` is replaced by a fresh pending promise whenever a NEW load
  * starts, so a later web font (a UI face, say) would make a caller wait again for something that
@@ -68,8 +70,10 @@ let firstSettle: Promise<void> | undefined
  * touching it is a `ReferenceError` rather than `undefined`.
  */
 export function musicFontReady(): Promise<void> {
+  // ⭐ Our own faces go in first (`./musicFontFaces`, S1 of docs/vexflow-removal-map.md) — the
+  // browser no longer depends on VexFlow's import to have the music font at all.
   firstSettle ??= typeof document === 'undefined'
     ? Promise.resolve()
-    : Promise.resolve(document.fonts?.ready).then(() => undefined)
+    : registerMusicFontFaces().then(() => document.fonts?.ready).then(() => undefined)
   return firstSettle
 }

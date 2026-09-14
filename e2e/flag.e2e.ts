@@ -21,7 +21,10 @@
  *
  * 🚨 **Chromium reports `actualBoundingBox*` as whole device pixels** — every probe came back an
  * integer — so the canvas *cannot* say 0.36. Both its answers are the font's own number rounded up
- * to the next pixel, and the flag's anchor is a fraction of a pixel either way. ⭐ So the placement
+ * to the next pixel, and the flag's anchor is a fraction of a pixel either way.
+ * ⚠️ **"Rounded up" was a fact about VexFlow's embedded Bravura** (2026-09-14): with the `.otf` we
+ * ship the canvas answers **0 px and 1 px** — the font's number rounded to the NEAREST pixel — and a
+ * page with only VexFlow's faces left still answers 1 and 1. The agreement within a pixel holds either way. ⭐ So the placement
  * **can** stop depending on a runtime measurement: the table is not merely as good, it is finer.
  * ⛔ Not swapped here — it moves ink by ~0.6 px and moving ink is his call.
  *
@@ -123,12 +126,17 @@ test('⭐⭐ §3.3 — Bravura’s own table and the canvas agree about the flag
   // ⭐⭐ THE ANSWER. Chromium reports these metrics as whole device pixels — the probes come back
   // integers — so the canvas cannot resolve a third of a pixel and the font can. Agreement therefore
   // means "within one device pixel", and it is the canvas that is the coarse instrument here.
-  expect(canvasUp % 1, 'the canvas answers in whole pixels — the reason for the tolerance').toBe(0)
+  // ⚠️ `+ 0` because a zero ascent comes back as −0, which is a whole pixel but not `Object.is` 0.
+  const px = (v: number) => v + 0
+  expect(Number.isInteger(px(canvasUp)), 'the canvas answers in whole pixels — the reason for the tolerance').toBe(true)
+  expect(Number.isInteger(px(canvasDown))).toBe(true)
   expect(Math.abs(canvasUp - fontUp), 'up-stem: one glyph, two rulers, under a pixel apart').toBeLessThan(1)
   expect(Math.abs(canvasDown - fontDown), 'down-stem: the same, on the other side').toBeLessThan(1)
 
-  // ⭐ …and the canvas's answer is the font's rounded UP to the next whole pixel, which is the exact
-  // shape of the difference rather than a tolerance that happens to hold.
-  expect(canvasUp, 'the coarse ruler rounds the fine one up').toBe(Math.ceil(fontUp))
-  expect(canvasDown).toBe(Math.ceil(fontDown))
+  // ⭐ …and the canvas's answer is the font's rounded to the NEAREST whole pixel (0.36 → 0, 0.56 → 1).
+  // ⚠️ Measured 2026-09-14 with the faces we ship. VexFlow's embedded Bravura rounded BOTH up (1, 1),
+  // which is what this test pinned until S1 of docs/vexflow-removal-map.md — a fact about that font
+  // build, not about the canvas: the same page with only VexFlow's faces left still answers 1 and 1.
+  expect(px(canvasUp), 'the coarse ruler rounds the fine one to the nearest pixel').toBe(Math.round(fontUp))
+  expect(px(canvasDown)).toBe(Math.round(fontDown))
 })

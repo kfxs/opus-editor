@@ -26,6 +26,15 @@
  * ⭐⭐ **So the RULE is asserted on the ORIGIN we placed** — the `<text>` `x` attribute, exact, no
  * rounding — and the ink is asserted only as far as the reader can honestly resolve.
  * ⚠️ ⛔ Do not "tighten" the ink assertion back: the number it would agree with is not the truth.
+ *
+ * ## 🚨🚨 …AND THE BIAS WAS NOT THE READER (2026-09-14)
+ *
+ * The "1–2 px too wide" above was measured while the page drew in **VexFlow's embedded Bravura**.
+ * Since S1 of `docs/vexflow-removal-map.md` it draws in the `.otf` we ship, and the same reader on the
+ * same page reads a notehead at 1.20 sp and a G clef at 2.70 (the font says 1.18 and 2.684) — within
+ * half a pixel. With only VexFlow's faces left it still reads 1.30 / 2.90. ⇒ the excess belonged to
+ * that font BUILD. ⭐ The origin rule stands anyway: whole-pixel rounding still leaves up to a pixel
+ * (0.1 sp at size 1) between two ink edges, which is most of a 0.16 sp difference.
  */
 import { test, expect } from './fixtures'
 
@@ -110,7 +119,7 @@ test('⭐⭐ the clef→meter gap is the ARMED rule — asserted on the ORIGIN, 
  * the day `getBoundingClientRect` starts reporting sub-pixel boxes, which would be good news and
  * should be noticed.
  */
-test('🚨 readerInflation — every ink box measures ~1 px per side TOO WIDE', async ({ score }) => {
+test('⭐ readerInflation — the ink reader is within half a pixel of the fonts we ship', async ({ score }) => {
   const rows = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: { num: 0, den: 1 } })
@@ -135,12 +144,16 @@ test('🚨 readerInflation — every ink box measures ~1 px per side TOO WIDE', 
   //    the measurement converges on the FONT — which is what proves the excess is the reader.
   expect(big.headWidthSp, 'a big staff reads the font’s own notehead width').toBeCloseTo(1.18, 1)
   expect(big.clefWidthSp, '…and its own clef width').toBeCloseTo(2.684, 1)
-  // ⚠️ …while at staff size 1 both read WIDE, by roughly a pixel a side.
-  expect(small.headWidthSp - big.headWidthSp, 'the notehead is inflated at 1×').toBeGreaterThan(0.05)
-  expect(small.clefWidthSp - big.clefWidthSp, 'and so is the clef').toBeGreaterThan(0.05)
-  // 🚨 ⇒ a WHITE GAP between two boxes is under-reported by the sum of two inflated edges. THAT is
-  //    why the rule above is asserted on origins: this error (~0.2 sp) is larger than the 0.16 sp
-  //    that told two conversions apart.
+  // ⭐ …and at staff size 1 they read within HALF a pixel of it: measured 2026-09-14 at 1.20 sp and
+  //    2.70 sp, the font's width rounded to whole device pixels.
+  // 🚨 This test used to assert the OPPOSITE — ~1 px per side too wide (1.30 / 2.90) — and that excess
+  //    was never the reader. It was VexFlow's embedded Bravura build: the same page with only
+  //    VexFlow's faces left still reads 1.30 / 2.90, and with ours 1.20 / 2.70 (S1 of
+  //    docs/vexflow-removal-map.md, when the page started drawing in the fonts we ship).
+  expect(small.headWidthSp - big.headWidthSp, 'the notehead reads within half a pixel of the font at 1×').toBeLessThan(0.05)
+  expect(small.clefWidthSp - big.clefWidthSp, 'and so does the clef').toBeLessThan(0.05)
+  // ⚠️ Origins are still the honest measure of a gap: whole-pixel rounding leaves up to a pixel
+  //    (0.1 sp at size 1) between two ink edges, which is most of a 0.16 sp difference.
 })
 
 /**
@@ -148,7 +161,7 @@ test('🚨 readerInflation — every ink box measures ~1 px per side TOO WIDE', 
  * (`engine/layout/barlineMeterGap`, armed at 0.75 by his call on 2026-09-13).
  *
  * ⚠️ Asserted on the ORIGIN for the reason the rule above is: this distance is 0.75 sp and the ink
- * reader's bias is 0.2 — see `readerInflation`.
+ * reader resolves whole pixels only (0.1 sp at size 1) — see `readerInflation`.
  */
 test('⭐⭐ a mid-line meter change stands the ARMED distance after the barline', async ({ score }) => {
   const placed = await score.evaluate(async () => {

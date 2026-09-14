@@ -374,6 +374,10 @@ test('⭐ the FEATHER ghost keeps its SIZE across a stamp — it is a notehead, 
         head: h.inkSizes('.ghost-fan-group .vf-notehead text')[0],
       }
     }
+    // ⚠️ The fonts first — and WITHOUT rendering the score, which is the condition this regression
+    // needs. A ghost drawn before the gate is measured in whatever face the page happens to hold,
+    // and the one after the stamp in ours (13 px against 12 at this size, 2026-09-14).
+    await h.fontReady()
     const before = ghost()
 
     // What the stamp writes: a note of the dialog's value carrying the fan. The RENDER is the part

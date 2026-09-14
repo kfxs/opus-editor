@@ -23,6 +23,7 @@ import { MusicEngine } from '@/engine/MusicEngine'
 import { walkScene } from '@/engine/scene/Scene'
 import { drawnInkBox } from '@/engine/rendering/sceneInk'
 import { musicFontReady } from '@/engine/rendering/musicFontReady'
+import { isOwnFontFace } from '@/engine/rendering/musicFontFaces'
 import { A4_NORMAL, SKETCH_CANVAS } from '@/engine/layout/surface'
 import { exportScorePdf } from '@/engine/export/pdfExport'
 import { censusColumns, type BarSpacing } from '@/dev/spacingCensus'
@@ -83,6 +84,11 @@ export interface Harness {
    */
   walkScene: typeof walkScene
   drawnInkBox: typeof drawnInkBox
+  /** Whether a face in `document.fonts` is one WE installed (`rendering/musicFontFaces`, removal S1). */
+  isOwnFontFace: typeof isOwnFontFace
+  /** Wait for the score's fonts WITHOUT rendering — `engine/rendering/musicFontReady`, the gate every
+   *  engraving path takes. A spec that draws before `render()` must await this first. */
+  fontReady(): Promise<void>
   /** Re-engrave. Awaits the font before the first one, so nothing measures fallback metrics. */
   render(): Promise<void>
   /** Every glyph matching `selector` (default: all of them), left to right. */
@@ -279,6 +285,8 @@ const harness: Harness = {
   frac: fracCreate,
   walkScene,
   drawnInkBox,
+  isOwnFontFace,
+  fontReady: musicFontReady,
 
   async render(): Promise<void> {
     // VexFlow ships Bravura/Academico as web fonts and every glyph is a `<text>`, so a render that
