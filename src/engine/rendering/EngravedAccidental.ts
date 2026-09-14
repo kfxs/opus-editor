@@ -37,11 +37,28 @@
  * ⛔ **`Accidental.format`** — which column of a chord's accidental stack this one stands in. Porting
  * it drags 1,813 LOC for an opinion we do not have; our own `chordAccidentalColumns` already owns the
  * part we DO have an opinion about (Gould's ORDER).
+ *
+ * ## ⭐⭐ …and since 2026-09-14 it is also the RULER for its own sign (P6b)
+ *
+ * {@link EngravedAccidental.drawnInk} answers what the stamp covered, computed from the stamp —
+ * and `VexFlowRenderer` files THAT as the accidental's hit box. ⇒ *"a click here selects that
+ * sharp"* is arithmetic in jsdom for the first time.
+ *
+ * ⚠️ **The SIZE is ours; the PLACE is still VexFlow's, and the two now come from different
+ * sources.** `accidentalOriginX(start.x, this.getWidth())` hangs the sign left by a width VexFlow
+ * measured with a runtime `measureText` — 0 in jsdom, so a page-less test draws the glyph with its
+ * left edge on the note's modifier-start point. `fonts/GLYPH_BOXES` holds every one of the five
+ * signs' advances and could answer it instead. ⭐ That is the SIXTH *"the room and the ink come from
+ * two sources"* number (beside the ledger overhang, the stem thickness, the flag reach, the notehead
+ * glyph and the articulation's centring) — and like all of them it MOVES PIXELS, so it is a taste
+ * call and ⛔ not this file's to make.
  */
 import { Accidental } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
-import { accidentalOriginX, drawAccidental } from '@/engine/engrave/notes/accidental'
+import { accidentalOriginX, drawAccidental, type AccidentalInk } from '@/engine/engrave/notes/accidental'
+import type { SceneBox } from '@/engine/scene/sceneBox'
 import type { InkSurfaceAware } from './inkSurface'
+import { drawnInkBoxOf } from './sceneInk'
 
 export class EngravedAccidental extends Accidental implements InkSurfaceAware {
   /**
@@ -51,9 +68,28 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
    */
   private inkSurface: DrawContext | null = null
 
+  /** @see EngravedAccidental.drawnInk */
+  private ink: SceneBox | null = null
+
   /** @see EngravedAccidental.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /**
+   * ⭐⭐ **WHAT THIS SIGN'S INK COVERS — P6b's first hit box** (`docs/own-engraving-engine.md` §5 P6).
+   *
+   * Computed from the stamp itself ({@link drawnInkBoxOf}), so it is the glyph's own outline in the
+   * coordinates the glyph was drawn in — ⛔ not `getBoundingBox()`, whose height is the FONT'S LINE
+   * BOX (measured in `e2e/sceneBox.e2e.ts` at more than three times the sign) hung off this object's
+   * `x`/`y` fields.
+   *
+   * @returns null when this accidental did not draw its own ink — a CAUTIONARY one (brackets, see
+   *   {@link EngravedAccidental.draw}) hands the whole job back to VexFlow, and then the only ruler
+   *   for it is VexFlow's. ⛔ Never a box "about right": an unmeasured glyph answers null too.
+   */
+  drawnInk(): SceneBox | null {
+    return this.ink
   }
 
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */
@@ -61,6 +97,10 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
     const vex = this.checkContext()
     const note = this.checkAttachedNote()
     this.setRendered()
+
+    // ⚠️ Cleared FIRST, so a draw that takes the cautionary branch below — or throws — can never
+    // leave the previous render's box standing as if it were this one's.
+    this.ink = null
 
     const start = note.getModifierStartXY(this.position, this.checkIndex())
     // ⚠️ THE WRITE-BACK, and it must happen before the stamp reads these — see the header.
@@ -76,7 +116,7 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
       return
     }
 
-    drawAccidental(this.inkSurface ?? vex, {
+    const ink: AccidentalInk = {
       glyph: this.getText(),
       x: this.x + this.getXShift(),
       y: this.y + this.getYShift(),
@@ -84,6 +124,9 @@ export class EngravedAccidental extends Accidental implements InkSurfaceAware {
       // ⭐ The sign's own id, so its GROUP can be matched back to the hit box the registry
       //   files for it — P6b's seam (`docs/own-engraving-engine.md` §5 P6).
       id: this.getAttribute('id'),
-    })
+    }
+    drawAccidental(this.inkSurface ?? vex, ink)
+    // ⭐ THE RULER, from the same call that just painted — see {@link EngravedAccidental.drawnInk}.
+    this.ink = drawnInkBoxOf(ctx => drawAccidental(ctx, ink))
   }
 }

@@ -8,6 +8,7 @@ import { drawFannedBeams, drawCrossBarFanBeams, type FanJoin } from './FanPass'
 import { clearLedgersForAccidentals } from './ledgerAccidentalClearance'
 import { armedStandoffPx, placeAccidentals } from './accidentalPlacement'
 import { EngravedNote, drawNoteInkThrough } from './EngravedNote'
+import { accidentalHitBox } from './drawnHitBox'
 import { drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { placeDots } from './dotPlacement'
 import { GHOST_GROUP_SELECTOR, drawNoteGhost, drawToolGhost } from './GhostRenderer'
@@ -3505,7 +3506,7 @@ export class VexFlowRenderer {
                     if (modifier.getCategory() === 'Accidental') {
                       const accidental = modifier as Accidental
                       if (accidental.getIndex() === keyIndex) {
-                        const accBox = accidental.getBoundingBox()
+                        const accBox = accidentalHitBox(accidental)
                         if (accBox) {
                           const accStr = pitch.alter === 2 ? '##' : pitch.alter === 1 ? '#'
                             : pitch.alter === -1 ? 'b' : pitch.alter === -2 ? 'bb' : 'n'
@@ -3517,7 +3518,7 @@ export class VexFlowRenderer {
                             beat: fracToNumber(slot.beat),
                             pitch: pitchMidi,
                             accidentalType: accStr,
-                            bbox: { x: accBox.x, y: accBox.y, width: accBox.w, height: accBox.h },
+                            bbox: accBox,
                           })
                         }
                         break

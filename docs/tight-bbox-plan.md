@@ -25,6 +25,17 @@ highlight bleed, text overlays + caret land correctly, and the box-select edge c
 left: route accidental/artic/dot/mid-clef through `addGlyphElement` for SOURCE enforcement
 too (the §6a-ii tripwire already RESULT-polices them, so low priority).
 
+> ⭐⭐ **2026-09-14 — the ACCIDENTAL has left this plan's world entirely.** Everything below
+> is about getting VexFlow's own box *down to* the glyph: pick the LEAF object, not the
+> container, and police the result. **P6b now computes that box from the ink we drew**
+> (`rendering/drawnHitBox` ← `sceneInk.drawnInkBoxOf`, `docs/own-engraving-engine.md` §5 P6),
+> so for this one kind there is no container to fall back into and no measurement to
+> inflate: the box IS the glyph's outline, by construction. ⭐ Measured: in jsdom VexFlow
+> answers `0×0` for a sharp and ours answers 9.96 × 27.92 px — which is also the first time
+> a hit box could be asserted outside a browser. ⚠️ Every OTHER kind is still exactly as
+> described below, and the §6a-ii tripwire still polices all four; the dot and the
+> articulation are the next to migrate.
+
 When the user clicks the score, the wrong element is sometimes selected, or a
 selection highlight bleeds onto a neighbour. Root cause: some registered clickable
 boxes are much larger than the visible ink of their glyph. The flagship case: a bar

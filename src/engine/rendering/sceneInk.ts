@@ -16,11 +16,15 @@
  * ⇒ the dialect lives HERE, with the painter whose dialect it is, and the box arithmetic takes it as
  * a named argument. ⭐ When P1e's own painter writes sizes, this is the one file that changes.
  *
- * ⚠️ **Nothing is wired into the editor yet.** P6a computes and PROVES (`sceneBox.test.ts`, and
- * `e2e/sceneBox.e2e.ts` against the real page); `ElementRegistry` still stores VexFlow's own boxes.
+ * ⚠️ **ONE consumer so far** (P6b, 2026-09-14): the ACCIDENTAL's hit box, through
+ * {@link drawnInkBoxOf} — `rendering/EngravedAccidental` measures what it stamped and the registry
+ * files that. ⛔ Every other element still stores VexFlow's own box; this file's job is to make the
+ * switch one kind at a time, ⛔ never a flag day.
  */
 import { drawnFontPx } from './drawnFontSize'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { Scene, SceneFont, SceneNode } from '@/engine/scene/Scene'
+import { SceneRecorder } from '@/engine/scene/SceneRecorder'
 import type { NodeFilter, SceneBox, SceneBoxDetail, SpacePxReader } from '@/engine/scene/sceneBox'
 import { sceneInkBox, sceneInkBoxDetail } from '@/engine/scene/sceneBox'
 
@@ -63,4 +67,34 @@ export function drawnInkBox(node: SceneNode | Scene, include?: NodeFilter): Scen
 /** {@link drawnInkBox}, with the list of drawn strings it had no measurement for. */
 export function drawnInkBoxDetail(node: SceneNode | Scene, include?: NodeFilter): SceneBoxDetail {
   return sceneInkBoxDetail(node, vexFontSpacePx, include)
+}
+
+/**
+ * ⭐⭐ **THE BOX OF WHAT A DRAWING DRAWS** — hand it the same call that paints, get back what that
+ * call covers. This is P6b's seam: a hit box computed from the ink, ⛔ not asked of a VexFlow object
+ * and ⛔ not measured off the page.
+ *
+ * ```ts
+ * drawAccidental(surface, ink)                        // the paint
+ * const box = drawnInkBoxOf(ctx => drawAccidental(ctx, ink))   // its measure
+ * ```
+ *
+ * ⭐⭐ **Why it takes the DRAWING and not the glyph's four numbers**, which is the whole reason this
+ * exists rather than a `glyphBox(text, x, y, font)` helper: a mirror of the stamp would be a SECOND
+ * OWNER of what the stamp does, and *"the second owner is the tell"* has been this migration's
+ * finding in the ledger line, the stem, the beam quad and the curve's control points. Replaying the
+ * real call into a recorder cannot drift from it — the font normalisation, the origin convention and
+ * the group nesting are all the ones that actually ran.
+ *
+ * ⚠️ The recorder has **no forward**, so this paints nothing: it is a measurement, and calling it
+ * must never be able to put a mark on the page. ⇒ the caller draws once for the page and once for
+ * the ruler; the second is a handful of plain objects and ⛔ no DOM, no reflow (which is the point —
+ * `getBBox()` forces a style+layout flush, `dev/layoutFlushCensus`).
+ *
+ * @returns null when any part of what was drawn could not be measured — see {@link drawnInkBox}.
+ */
+export function drawnInkBoxOf(draw: (ctx: DrawContext) => void): SceneBox | null {
+  const recorder = new SceneRecorder()
+  draw(recorder)
+  return drawnInkBox(recorder.scene)
 }

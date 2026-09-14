@@ -475,6 +475,12 @@ its own.**
 `dot`, `articulation`) and carrying the drawn sign's own id — which is P6b's seam: a scene group that
 can be matched to the hit box a click already resolves against.
 
+✅ **And P6b took the first of the three the same day** (2026-09-14): the **ACCIDENTAL's hit box is
+now computed from its own stamp** (`rendering/drawnHitBox`), so the box the registry files and the
+box `__bbox.ink()` draws are the same rectangle. ⚠️ The dot and the articulation still store
+`Element.getBoundingBox()` — and the articulation should follow its own taste call rather than lead,
+because its VexFlow box is the one that goes NaN in jsdom (§1g.4 above).
+
 ⚠️ **It is a DOM change, and the only one this family has made.** What makes it safe is that every
 selector that reaches these glyphs is a DESCENDANT search — `group.querySelectorAll('text')` for the
 accidental and the dots, and the articulation's `'text, path'` walk **whose index 0 is still the

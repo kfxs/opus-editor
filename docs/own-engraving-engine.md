@@ -1406,8 +1406,10 @@ scene's coverage are the same number.
 ⚠️ **Two things to settle when it starts, ⛔ not now:** whether `ElementRegistry` keeps STORING boxes
 or starts QUERYING the scene (storing is a cache; a cache of a derived value is a staleness bug
 waiting), and whether an ink extent stays in pixels or becomes staff spaces like the rest of
-`fonts/`. ⭐ **P6a did not need either answer** — it computes and proves, and changes no consumer —
-so both are still open at P6b.
+`fonts/`. ⭐ **P6a did not need either answer** — it computes and proves, and changes no consumer.
+✅ **Both were answered on 2026-09-14 by P6b's first kind — STORE, and PIXELS** — and the reasoning is
+under *"the two decisions"* below, because each turned on a fact the first real consumer surfaced
+rather than on a preference.
 
 #### ✅ P6a — THE BOX ITSELF (2026-09-14): computed, and checked against the page
 
@@ -1476,8 +1478,9 @@ numbers would hide the very disagreement P6 exists to close. They become one pic
 ⭐ A group we could not measure is drawn **dashed and red**, labelled with the codepoint that stopped
 it: *"the ruler declined"* and *"there was nothing there"* must not look the same.
 
-⏭️ **P6b** is the switch: `ElementRegistry` fed from the scene instead of from `Element.getBoundingBox()`
-— and it is where the two open decisions above finally have to be answered.
+⏳ **P6b** is the switch: `ElementRegistry` fed from the ink instead of from `Element.getBoundingBox()`
+— ✅ **STARTED 2026-09-14, one element kind (the ACCIDENTAL)**, and both open decisions above are
+answered below.
 
 ##### ⭐⭐ P6b GAINED ITS SEAM ON 2026-09-14, and it came from looking at `__bbox.ink()`
 
@@ -1493,6 +1496,52 @@ chooses which children count"*, used for the first time, which is also the answe
 `noteInkBox`'s complaint arriving from our side of the ruler.
 ⚠️ ⛔ SELECTION did not change and did not need to: a click resolves against the registry, which has
 filed a separate box per mark all along (`docs/note-engraving-plan.md` §1g.6).
+
+##### ✅ P6b, FIRST KIND — THE ACCIDENTAL'S HIT BOX IS OURS (2026-09-14)
+
+⭐⭐ **The registry now files what the sign's ink COVERS**, computed from the stamp that drew it:
+`rendering/drawnHitBox.accidentalHitBox` ← `EngravedAccidental.drawnInk()` ← `sceneInk.drawnInkBoxOf`.
+⛔ One kind only — the dot, the articulation and the rest still store `Element.getBoundingBox()`.
+
+⭐⭐ **THE PAYOFF, MEASURED: in jsdom VexFlow's ruler answers `0×0` for a sharp and ours answers
+9.96 × 27.92 px.** So *"the hit box is the glyph's own outline"* is now **7 unit tests**
+(`drawnHitBox.test.ts`), and the accidental's registry spec — whose header used to say *"these
+assert the ANCHOR, ⛔ not geometry… whether the box sits under the glyph is the browser suite's
+question"* — asserts the box. ⭐ That header is the before-and-after of P6 in one paragraph.
+
+⭐⭐ **`drawnInkBoxOf(draw)` takes the DRAWING, ⛔ not the glyph's four numbers**, and that is the
+design decision in the step. A `glyphBox(text, x, y, font)` helper would be a SECOND OWNER of what
+the stamp does — the tell this migration has met in the ledger line, the stem, the beam quad and the
+curve's control points. Replaying the real call into a forward-less `SceneRecorder` cannot drift from
+it: the font normalisation, the baseline convention and the group nesting are the ones that ran.
+⚠️ It paints nothing and costs no reflow (which is the point — `getBBox()` forces a layout flush).
+
+##### ⭐⭐ …and the TWO DECISIONS the plan reserved for P6b are answered — by the first real case
+
+1. **STORE, ⛔ do not query.** The objection was *"a cache of a derived value is a staleness bug
+   waiting"*, and the answer is that this cache cannot go stale **because the same `draw()` writes
+   both**: the ink and its box are one call, and a render that does not redraw a bar does not
+   re-register it either. 🚨 The alternative was ruled out by P6a's own finding — a render REUSES its
+   measures, and **a reused bar draws nothing**, so a scene to query is exactly what a normal render
+   does not have (it is why `recordFullScene()` had to exist).
+2. **PIXELS, in the drawing's own (pre-transform) coordinates** — the same space
+   `getBoundingBox()` answered in, so `ElementRegistry.add`'s `scale(k)` still applies and a small
+   staff needs nothing. ⭐ Staff spaces stay in `fonts/`, where a number means the same at every size;
+   a hit box is compared against a mouse event, and that arrives in pixels.
+
+##### 🚨 What the first kind found: the SIZE is ours, the PLACE is still VexFlow's
+
+`accidentalOriginX(start.x, this.getWidth())` hangs the sign left by a width VexFlow measures with a
+runtime `measureText` — **0 in jsdom**, so a page-less test stamps the glyph with its left edge on
+the modifier-start point (`e2e/accidentalHitBox.e2e.ts` is where the placement is checked, and it is
+the half that needs a browser). `fonts/GLYPH_BOXES` holds all five signs' advances and could answer
+it instead ⇒ the **SIXTH** *"the room and the ink come from two sources"* number, beside the ledger
+overhang, the stem thickness, the flag reach, the notehead glyph and the articulation's centring.
+⛔ It MOVES PIXELS, so it is a taste call and not this step's.
+
+⏭️ **Next kinds:** the DOT and the ARTICULATION — both already open a named group with an id, and the
+articulation's is the one whose VexFlow box goes NaN in jsdom, so it should follow its own taste call
+rather than lead.
 
 ### ⛔ Not on this list
 **Accidental column stacking** (`Accidental.format`) and **articulation placement**
