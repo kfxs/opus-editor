@@ -24,6 +24,8 @@ import { describe, it, expect } from 'vitest'
 import { Formatter, Renderer, Stave, Voice } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
 import { noteRuler } from './noteRuler'
+import { requireNoteFrame } from './staveFrame'
+import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 
 /** One bar of `durations`, drawn through the real pipeline — a flag only exists after a draw. */
 function drawnNotes(durations: string[], keys = ['c/5']): EngravedNote[] {
@@ -71,6 +73,21 @@ describe('⭐ S5a — where the note offers its modifiers a place to stand is OU
     note.setMarkAnchor(undefined)
     expect(note.getModifierStartXY(ABOVE, 0)).toEqual(before)
     expect(() => new EngravedNote({ keys: ['c/4'], duration: 'q' }).getModifierStartXY(ABOVE, 0)).toThrow()
+  })
+})
+
+describe('⭐ S6c — each head’s y is the staff frame’s', () => {
+  it('a C4 + E4 chord in treble stands on note lines 0 and 1 of its own frame, in key order', () => {
+    const [chord] = drawnNotes(['q'], ['c/4', 'e/4'])
+    const frame = requireNoteFrame(chord)
+    expect(chord.getYs()).toEqual([noteLineY(frame, 0), noteLineY(frame, 1)])
+  })
+
+  it('a fresh array each ask — no reader can change what the next one sees', () => {
+    const [note] = drawnNotes(['q'], ['g/4'])
+    const first = note.getYs()
+    first[0] = -1
+    expect(note.getYs()[0]).not.toBe(-1)
   })
 })
 

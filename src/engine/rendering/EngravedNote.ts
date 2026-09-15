@@ -25,6 +25,7 @@
  * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
  * | where the heads and stem stand along the staff (`getNoteHeadBeginX`/`EndX`, `getCenterGlyphX`, `getStemX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6a, 2026-09-15 |
  * | the displaced heads' room and the tie's left end (`calcNoteDisplacements`, `getTieLeftX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6b, 2026-09-15 |
+ * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 · ⏳ the heads' own `y` field and `getNoteHeadBounds` stay VexFlow's until S6d owns the heads |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -242,6 +243,8 @@ export class EngravedNote extends StaveNote {
     const vex = this.checkContext()
     const surface = this.inkSurface ?? vex
     this.drawnHeadCentreX = []
+    // ⭐ S6c — each head is stamped at OUR y for its line, the same answer every reader of `getYs()` gets.
+    const ys = this.getYs()
     for (const [index, head] of this.heads().entries()) {
       head.setContext(vex)
       vex.save()
@@ -262,7 +265,7 @@ export class EngravedNote extends StaveNote {
           id: head.getAttribute('id'),
           glyph: this.headGlyph(index),
           x: originX,
-          y: head.getY() + head.getYShift(),
+          y: ys[index] + head.getYShift(),
           font: NOTE_FONT,
         }, () => this.drawModifiers(head))
       } finally {
@@ -378,6 +381,24 @@ export class EngravedNote extends StaveNote {
     })
   }
 
+  /**
+   * ⭐⭐ OURS as of S6c — each head's y, in key order: its line through the staff frame (`noteLineY`, rule 5 —
+   * ⛔ never `top + line × space` here). VexFlow's own `StaveTie`, `Beam`, `Articulation` and `Annotation`
+   * ask this, and so do the ruler and the modifier start.
+   *
+   * ⚠️ **Equal to VexFlow's, and bit-for-bit on every fixture measured** (S6c's probe against HEAD: 183
+   * note numbers, 992 scene numbers, none different) — but only GUARANTEED to within a rounding: its
+   * `getYForNote` sums the same terms in a different order (`y + 4·space + 5·space − line·space` against
+   * the frame's `(y + 4·space) + (5 − line)·space`), and a staff at some other y could differ in the last
+   * bit. ⚠️ A fresh array per call — no reader keeps or mutates it.
+   * ⏳ The heads' own `y` field, which `getNoteHeadBounds` and the stem's y bounds read, is still VexFlow's
+   * until S6d owns the heads.
+   */
+  override getYs(): number[] {
+    const frame = requireNoteFrame(this)
+    return this.heads().map(head => noteLineY(frame, head.getLine()))
+  }
+
   /** The glyph head `index` is drawn with — ONE read of it, for the stamp and for the modifier start. */
   private headGlyph(index: number): string {
     return this.heads()[index].getText()
@@ -395,7 +416,7 @@ export class EngravedNote extends StaveNote {
    * rule is ours for all of them while their stacking rules are still VexFlow's (S5b–e).
    *
    * ⚠️ A note asked too early still THROWS, through the ruler rather than a guard of its own: before it
-   * stands on a stave its heads have no ys (`getYs()`'s `NoYValues`), and before the formatter gives it
+   * stands on a stave its heads have no ys (`getYs()` asks the stave's frame, `NoStave`), and before the formatter gives it
    * a tick context it has no origin (`getAbsoluteX()`'s `NoTickContext`). VexFlow's extra
    * `UnformattedNote` check is not transcribed — the formatter builds the tick contexts and pre-formats
    * in the same `format()` call, so nothing asks in between (and `fanArticulations`' probe, which orders

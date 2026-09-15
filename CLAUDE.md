@@ -175,7 +175,11 @@ src/
                           #   ⛔ no DOM, ⛔ no vexflow (lint:boundary). `notes/ledgerLines` (P3a — the
                           #   ONE owner of the rule AND its ink, where three copies used to be) and
                           #   `notes/flag` (P3b — ⭐ its FONT REACH is a named argument, not a hidden
-                          #   `measureText`). ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   `measureText`) + `notes/modifierStart` (S5a — where a note offers its
+                          #   modifiers a place to stand; the old monkeypatch is its `MarkAnchor` input)
+                          #   + `notes/noteGeometry` (S6 — a note's x's, its displaced heads' room, the
+                          #   tie's left end; `EngravedNote` answers VexFlow's getters from it, so
+                          #   VexFlow's own Beam/Tuplet/StaveTie ask OUR rule). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line
