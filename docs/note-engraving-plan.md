@@ -453,7 +453,9 @@ said NO, which makes a guess an override, not a fallback.** Now it asks `Acciden
 
 ⛔ **`getModifierStartXY`** — where a note offers its modifiers a place to stand, and this repo's one
 live monkeypatch (§2.4 of the parent calls it *"the shape of the whole problem"*). Both classes ask
-the same question at the same moment and get the same answer.
+the same question at the same moment and get the same answer. ✅ **Taken since by S5a (2026-09-15)**:
+`engrave/notes/modifierStart`, answered by `EngravedNote`, and the monkeypatch is gone
+(`docs/vexflow-removal-map.md` §9).
 
 ⛔ **`Accidental.format`** (which column of a chord's stack a sign takes) and **`Dot.format`** (which
 way a dot dodges its line when a chord stacks them). Both are real engraving rules; ⭐ the survey that

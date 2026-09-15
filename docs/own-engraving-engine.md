@@ -79,7 +79,8 @@ delaying engraving work by one day.
 > · S4c the clef, meter and barline are plain objects of ours in the stave's own list. **→ 1,051 uses.**
 > · S4d the gutter draws its staves without VexFlow's `Stave`. **→ 1,039 uses.**
 > · S4e a bar's PLACED frame for ink outside its group; `staleShift` deleted. **→ 1,036 uses.**
-> ⏭️ S5, modifier placement (`docs/vexflow-removal-map.md` §9).
+> · S5a where a note offers its modifiers a place to stand (`engrave/notes/modifierStart`); the monkeypatch is gone. **→ 1,031 uses.**
+> ⏭️ S5b, the dots' placement (`Dot.format`, `docs/vexflow-removal-map.md` §9).
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**
@@ -311,7 +312,7 @@ music goes is above it.**
 | Comments naming VexFlow in `engine/rendering/` | **381** |
 | …of those, in the "it does X and we need Y" register | **72** |
 | Casts through `as unknown as` (reaching past the public type) | **26** |
-| Live monkeypatches of a VexFlow method | **1** |
+| Live monkeypatches of a VexFlow method | **1** (✅ **0** since S5a, 2026-09-15 — the offset and stem alignment are an input of `engrave/notes/modifierStart`) |
 | Distinct drawing primitives our own renderers use | **20** |
 
 The monkeypatch is worth naming because it is the shape of the whole problem.

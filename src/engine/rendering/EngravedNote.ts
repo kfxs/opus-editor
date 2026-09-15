@@ -22,6 +22,7 @@
  * | **noteheads** | ⭐ **us** — `engrave/glyph`'s stamp | P3d, 2026-09-01 |
  * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
+ * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -51,8 +52,15 @@ import { flagPlacement, drawFlag } from '@/engine/engrave/notes/flag'
 import { drawStem } from '@/engine/engrave/notes/stem'
 import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
 import { acceptsInkSurface } from './inkSurface'
-import { staveFrame } from './staveFrame'
+import { requireNoteFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
+import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
+import { noteRuler } from './noteRuler'
+
+/** VexFlow's `ModifierPosition` numbers in our words — CENTER 0 · LEFT 1 · RIGHT 2 · ABOVE 3 · BELOW 4. */
+const SIDE_OF_POSITION: Readonly<Record<number, ModifierSide>> = {
+  0: 'center', 1: 'left', 2: 'right', 3: 'above', 4: 'below',
+}
 
 /**
  * ⭐⭐ **THE STEM'S HALF OF THE SEAM — P3c.** A `Stem` that strokes its line through OUR primitives
@@ -247,7 +255,7 @@ export class EngravedNote extends StaveNote {
         // header for why a second owner was what earned it a module.
         drawNoteHead(surface, {
           id: head.getAttribute('id'),
-          glyph: head.getText(),
+          glyph: this.headGlyph(index),
           x: originX,
           y: head.getY() + head.getYShift(),
           font: NOTE_FONT,
@@ -279,6 +287,59 @@ export class EngravedNote extends StaveNote {
    */
   headCentreX(index: number): number | undefined {
     return this.drawnHeadCentreX[index]
+  }
+
+  /**
+   * ⭐ S5a — the editor's hold on this note's marks above and below: its hand offset and stem alignment
+   * (`engrave/notes/modifierStart`'s {@link MarkAnchor}). Set by `VexFlowRenderer.applyNoteOffsets`
+   * after the format; absent on every note that needs neither.
+   */
+  private markAnchor: MarkAnchor | undefined
+
+  /** @see EngravedNote.markAnchor */
+  setMarkAnchor(anchor: MarkAnchor | undefined): void {
+    this.markAnchor = anchor
+  }
+
+  /** The glyph head `index` is drawn with — ONE read of it, for the stamp and for the modifier start. */
+  private headGlyph(index: number): string {
+    return this.noteHeads[index].getText()
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S5a** — where this note offers a modifier a place to stand. The rule is
+   * `engrave/notes/modifierStart`; this override hands it what only the note can answer. Every modifier
+   * asks through here — VexFlow's own `Accidental`/`Dot`/`Articulation`/`Annotation` included — so the
+   * rule is ours for all of them while their stacking rules are still VexFlow's (S5b–e).
+   *
+   * ⚠️ A note asked too early still THROWS, through the ruler rather than a guard of its own: before it
+   * stands on a stave its heads have no ys (`getYs()`'s `NoYValues`), and before the formatter gives it
+   * a tick context it has no origin (`getAbsoluteX()`'s `NoTickContext`). VexFlow's extra
+   * `UnformattedNote` check is not transcribed — the formatter builds the tick contexts and pre-formats
+   * in the same `format()` call, so nothing asks in between (and `fanArticulations`' probe, which orders
+   * itself by that throw, is a plain `StaveNote` that keeps it).
+   */
+  override getModifierStartXY(
+    position: number, index: number, options: { forceFlagRight?: boolean } = {},
+  ): { x: number; y: number } {
+    const ruler = noteRuler(this)
+    const headY = ruler.headYs[index]
+    return modifierStart(SIDE_OF_POSITION[position] ?? 'center', index, {
+      originX: ruler.originX,
+      glyphWidth: ruler.glyphWidth,
+      xShift: this.getXShift(),
+      stemDirection: ruler.stemDirection,
+      hasFlag: ruler.hasFlag,
+      flagWidth: () => this.flag.getWidth(),
+      hasStem: ruler.hasStem,
+      stemX: () => ruler.stemX,
+      // One y per head — the same count VexFlow's `keyProps` has, asked of the ruler.
+      headCount: ruler.headYs.length,
+      headY,
+      headGlyph: this.headGlyph(index),
+      spacePx: requireNoteFrame(this).spacePx,
+      markAnchor: this.markAnchor,
+    }, !!options.forceFlagRight)
   }
 
   override drawFlag(): void {

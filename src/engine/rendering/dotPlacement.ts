@@ -62,6 +62,7 @@
 import { Dot, Stem, StaveNote } from 'vexflow'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedDotGap } from '@/engine/layout/dotGap'
+import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
 
 /**
  * ⭐⭐ **THE TWO GAPS ARE A TABLE NOW** — `engine/layout/dotGap`, armed by `__dots.gap(…)`
@@ -119,13 +120,12 @@ export function reserveDotRoom(note: StaveNote): void {
 }
 
 /**
- * The gap VexFlow leaves by itself: the literal `2` in `StaveNote.getModifierStartXY`'s RIGHT case.
- *
- * ⚠️ Re-stated here rather than measured, because it CANNOT be measured in this window:
- * `getModifierStartXY` throws `NoYValues` until the note has been drawn (the same rule as
- * `getNoteHeadBeginX` — geometry is not real until the draw), and by then the dot is on the page.
+ * The gap a dot already gets before this rule adds any: where a RIGHT modifier starts past the head
+ * (`engrave/notes/modifierStart`, S5a). ⭐ Read from that row rather than re-stated — it used to be a
+ * second copy of VexFlow's literal `2`, from the days when the note's own answer could not be asked in
+ * this window (`getModifierStartXY` throws `NoYValues` until the note has been drawn).
  */
-export const VEXFLOW_DOT_BASE_GAP = 2
+export const VEXFLOW_DOT_BASE_GAP = MODIFIER_RIGHT_GAP_PX
 
 /**
  * How much further out a dot has to stand. `clearsFlag` is the one case VexFlow already handles —

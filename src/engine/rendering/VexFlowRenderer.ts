@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Modifier, Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -2467,7 +2467,6 @@ export class VexFlowRenderer {
    * `getModifierStartXY` base x. See docs/note-offset-plan.md.
    */
   private applyNoteOffsets(slots: ChordRest[], staveNotes: StaveNote[], score: Score, stave: Stave): void {
-    const { ABOVE, BELOW } = Modifier.Position
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i]
       const off = noteOffsetOverrideOf(score, slot.id)
@@ -2488,30 +2487,19 @@ export class VexFlowRenderer {
         }
       }
       // Articulations sit ABOVE/BELOW. Two VexFlow facts make shifting THEIR xShift useless:
-      //   1. getModifierStartXY's ABOVE/BELOW branch returns `getAbsoluteX() + glyphWidth/2` and
-      //      does NOT add the note's xShift (unlike the dots' RIGHT branch), so the base is the
-      //      UNshifted note center.
+      //   1. a note's ABOVE/BELOW modifier start is the UNshifted head centre (unlike the dots' RIGHT one);
       //   2. Articulation.draw() re-centers any within-staff mark with `setOrigin(0.5, 0.5)`, and
       //      Element.setOriginX OVERWRITES xShift (recomputed from this.x) — discarding a manual
       //      shift (repro: an ABOVE accent never followed; a BELOW one did — docs/note-offset-plan.md).
-      // So we drive both effects through the value both reads — this note's ABOVE/BELOW base x:
-      //   • note offset  → add `px` (match the px the notehead moved by), for BOTH sides.
-      //   • stem-align   → for the STEM side only, snap to `getStemX()` (the stem centerline, which
-      //                    already includes xShift, so the offset is folded in there too).
-      // Fresh StaveNote per render ⇒ no accumulation.
-      if ((px !== 0 || stemAlign) && sn.getModifiers().some(m => m instanceof Articulation)) {
-        const origStartXY = sn.getModifierStartXY.bind(sn)
-        ;(sn as unknown as { getModifierStartXY: typeof origStartXY }).getModifierStartXY = (position, index, options) => {
-          const r = origStartXY(position, index, options)
-          if (position === ABOVE || position === BELOW) {
-            const stemDir = sn.getStemDirection()
-            const isStemSide = (position === ABOVE && stemDir === 1) || (position === BELOW && stemDir === -1)
-            // A stemless note (whole note) has no stem to align to — keep notehead alignment there.
-            if (stemAlign && isStemSide && sn.hasStem()) r.x = sn.getStemX()
-            else r.x += px
-          }
-          return r
-        }
+      // ⭐ So both effects go into the value both read — that start, which is OURS since S5a
+      //   (`engrave/notes/modifierStart`'s MarkAnchor): the offset for BOTH sides, the stem alignment for
+      //   the stem side. ⛔ No longer a per-note replacement of the note's method (the repo's one
+      //   monkeypatch). Fresh StaveNote per render ⇒ no accumulation.
+      // ⚠️ Still only on a note that CARRIES an articulation — the condition the patch ran under — so any
+      //   other mark above/below an offset note without one keeps the unshifted centre, as it always has.
+      if ((px !== 0 || stemAlign) && sn instanceof EngravedNote
+        && sn.getModifiers().some(m => m instanceof Articulation)) {
+        sn.setMarkAnchor({ offsetPx: px, stemAlign })
       }
       if (px !== 0 || stemAlign) dbg(`[NoteOffset] slot ${slot.id} px=${px.toFixed(1)} stemAlign=${stemAlign}`)
     }

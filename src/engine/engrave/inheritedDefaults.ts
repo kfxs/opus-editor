@@ -47,6 +47,26 @@ export const ACCIDENTAL_NOTEHEAD_PADDING_PX = 1
 /** Where every LEFT modifier begins, before its own padding — the literal `-1 * 2` in `StaveNote.getModifierStartXY`. */
 export const MODIFIER_LEFT_OFFSET_PX = 2
 
+/** Where every RIGHT modifier begins past the head and the note's own shift — the literal `+ 2` in `StaveNote.getModifierStartXY`. */
+export const MODIFIER_RIGHT_GAP_PX = 2
+
+/**
+ * How far a modifier's y moves off a REST's own line, in staff spaces, by the rest's glyph — the switch in
+ * `StaveNote.getModifierStartXY`. ⚠️ Keyed by codepoint (`restWhole` U+E4E3 …), because that switch keys by
+ * the head's drawn text; a head absent from the table moves 0.
+ */
+export const REST_MODIFIER_LINE_SHIFT: Readonly<Record<string, number>> = {
+  '': 0.5,   // restDoubleWhole
+  '': 0.5,   // restWhole
+  '': -0.5,  // restHalf
+  '': -0.5,  // restQuarter
+  '': -0.5,  // rest8th
+  '': -0.5,  // rest16th
+  '': -1.5,  // rest32nd
+  '': -1.5,  // rest64th
+  '': -2.5,  // rest128th
+}
+
 /** One tremolo stroke to the next — `Tremolo.spacing` = 7 (`metrics.js:212`). */
 export const TREMOLO_STROKE_STEP_PX = 7
 

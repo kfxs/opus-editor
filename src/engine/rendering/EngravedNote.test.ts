@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest'
 import { Formatter, Renderer, Stave, Voice } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
+import { noteRuler } from './noteRuler'
 
 /** One bar of `durations`, drawn through the real pipeline — a flag only exists after a draw. */
 function drawnNotes(durations: string[], keys = ['c/5']): EngravedNote[] {
@@ -40,6 +41,38 @@ function drawnNotes(durations: string[], keys = ['c/5']): EngravedNote[] {
   voice.draw(context, stave)
   return notes
 }
+
+/** VexFlow's `ModifierPosition` numbers — the vocabulary a modifier asks the note in. */
+const ABOVE = 3
+const BELOW = 4
+
+describe('⭐ S5a — where the note offers its modifiers a place to stand is OURS', () => {
+  it('a mark above or below follows the note’s hand offset, on both sides', () => {
+    const [note] = drawnNotes(['q'], ['c/4'])
+    const above = note.getModifierStartXY(ABOVE, 0).x
+    const below = note.getModifierStartXY(BELOW, 0).x
+    note.setMarkAnchor({ offsetPx: 7, stemAlign: false })
+    expect(note.getModifierStartXY(ABOVE, 0).x).toBe(above + 7)
+    expect(note.getModifierStartXY(BELOW, 0).x).toBe(below + 7)
+  })
+
+  it('stem alignment puts only the STEM-side mark on the stem', () => {
+    const [note] = drawnNotes(['q'], ['c/4'])
+    const below = note.getModifierStartXY(BELOW, 0).x
+    note.setMarkAnchor({ offsetPx: 7, stemAlign: true })
+    expect(noteRuler(note).stemDirection, 'c/4 stands stem UP, so ABOVE is its stem side').toBe(1)
+    expect(note.getModifierStartXY(ABOVE, 0).x).toBe(noteRuler(note).stemX)
+    expect(note.getModifierStartXY(BELOW, 0).x, 'the head side follows the offset').toBe(below + 7)
+  })
+
+  it('⛔ no anchor, no change — and the guard VexFlow kept still throws on an unformatted note', () => {
+    const [note] = drawnNotes(['q'], ['c/4'])
+    const before = note.getModifierStartXY(ABOVE, 0)
+    note.setMarkAnchor(undefined)
+    expect(note.getModifierStartXY(ABOVE, 0)).toEqual(before)
+    expect(() => new EngravedNote({ keys: ['c/4'], duration: 'q' }).getModifierStartXY(ABOVE, 0)).toThrow()
+  })
+})
 
 describe('the flag’s write-back', () => {
   it('🚨🚨 an unbeamed FLAGGED note’s box does not reach the origin — his 2026-09-14 slur', () => {
