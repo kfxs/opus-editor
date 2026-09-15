@@ -3670,10 +3670,11 @@ export class VexFlowRenderer {
       //    `modifier.getWidth()`, which is a layout box carrying VexFlow's own padding — the repo's
       //    rule is that every space is decided in INK.
       //
-      // 🚨 **The PLACEMENT's x, never the stave's** (`reference_a_reused_bars_stave_reports_where_it_WAS`):
-      //    a bar whose shape did not change is reused and moved with a transform, so `modifier.getX()`
-      //    is where it was last PAINTED. `staleShift` is that correction — the same one
-      //    `KeySignaturePass` and `BarlineRenderer` apply, here written as `x − stave.getX()`.
+      // ⭐ **The BUILT frame is this render's here, and that is not luck** (S4e): this runs only from
+      //    `registerTier1`, which built the stave at this very `x` a moment ago. A bar that is REUSED
+      //    never comes here — `replaySnapshot` carries these boxes by the group's own translate
+      //    (`ElementRegistry.addAll(…, dx, dy)`). ⛔ So no correction, and ⛔ never the placed frame:
+      //    these boxes are the bar's own, and they ride with it.
       const meterSign = signRun(stave).meter
       const space = staveFrame(stave).spacePx
       const digit = glyphBox('timeSig4')
@@ -3686,9 +3687,8 @@ export class VexFlowRenderer {
           : hasClefChange
             ? LAYOUT_CONFIG.CLEF_CHANGE_HIT_WIDTH
             : 0) / scale
-      const staleShift = x - barFrame(stave).x
       const inkX = meterSign
-        ? meterSign.x + staleShift - digit.left * space
+        ? meterSign.x - digit.left * space
         : x + clefOffset
       const inkWidth = meterSign
         ? (digit.right + digit.left) * space
@@ -3697,7 +3697,7 @@ export class VexFlowRenderer {
       //    past `noteStartX` would swallow presses meant for the first note (the clamp's original
       //    reason, and it costs nothing now that the width is real ink).
       const tsX = inkX
-      const tsWidth = Math.min(inkWidth, barFrame(stave).noteStartX + staleShift - tsX)
+      const tsWidth = Math.min(inkWidth, barFrame(stave).noteStartX - tsX)
       if (tsWidth > 0) {
         this.elementRegistry.add({
           type: 'timeSignature',

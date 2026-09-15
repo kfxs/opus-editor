@@ -18,7 +18,7 @@
  * A bar whose shape has not changed is **REUSED**: the renderer keeps the old `Stave` object and
  * moves the drawn group with a `transform`. Every score-level pass therefore has to take its
  * coordinates from the **placement** — this render's own plan — because the stave reports where the
- * bar *was last painted* (`BarlinePlacement.x`'s header; `rendering/barlineGap.ts`'s `staleShift`).
+ * bar *was last painted* (`BarlinePlacement.x`'s header; the PLACED frame, `rendering/staveFrame`).
  *
  * ⭐ **This pass is the ONE exemption, and it is not a judgement call — it is a guard in the reuse
  * decision:**

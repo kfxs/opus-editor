@@ -78,7 +78,8 @@ delaying engraving work by one day.
 > · S4b1 our walk places the signs, and each holds its own position. **→ 1,125 uses.**
 > · S4c the clef, meter and barline are plain objects of ours in the stave's own list. **→ 1,051 uses.**
 > · S4d the gutter draws its staves without VexFlow's `Stave`. **→ 1,039 uses.**
-> ⏭️ S4e, the staff frame built from the placement.
+> · S4e a bar's PLACED frame for ink outside its group; `staleShift` deleted. **→ 1,036 uses.**
+> ⏭️ S5, modifier placement (`docs/vexflow-removal-map.md` §9).
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

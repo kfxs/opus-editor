@@ -11,8 +11,10 @@
  * | the SIGNS themselves | S4c | one list of plain objects of ours ({@link EngravedStave.signs}), ⛔ not VexFlow's `modifiers` |
  *
  * ⚠️ **What is still VexFlow's**: the object itself — its x, y, width and line spacing (read through
- * `./staveFrame`), its context and id, its ledger style. ⏭️ S4e builds the frame from the placement, and
- * the stave object goes with the last of its readers.
+ * `./staveFrame`), its context and id, its ledger style. ⭐ Since S4e nothing outside a bar's group reads
+ * its position: a score-level pass asks the PLACED frame (`./staveFrame`'s header), so this object's
+ * x and y are only ever where the bar was BUILT. ⏭️ It stops extending `Stave` when a note no longer
+ * needs one to stand on (`Note.setStave`, S6/S9).
  *
  * ⚠️ VexFlow's own constructor still puts two `Barline`s in its `modifiers`. Nothing reads them any
  * more — `format`, `draw` and the note-area getters are overridden, and `getModifiers` /

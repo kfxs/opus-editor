@@ -71,9 +71,9 @@ import { inStaffSpace } from './staffScaleGroup'
 import { drawBarlineGap } from './barlineGap'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
-import { barFrame, staleShift, staveFrame } from './staveFrame'
+import { placedBarFrame, placedStaffFrame } from './staveFrame'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
-import { signRun } from './signRun'
+import { placedSignRun } from './signRun'
 
 /**
  * What the pass needs of a `MeasurePlacement`, declared structurally so the renderer that calls this
@@ -99,6 +99,8 @@ export interface BarlinePlacement {
    * ⭐ This is the SAME trap the barline selection highlight fell into once already
    * (docs/barline-selection.md: *"the coordinates LIE"*), which is why the fix is the same shape:
    * take the position from the PLACEMENT — the plan for THIS render — and never from the stave.
+   * ⭐ Since S4e that is the PLACED frame and sign run (`./staveFrame`, `./signRun`), which is every
+   * frame this pass asks.
    */
   x: number
   y: number
@@ -146,8 +148,8 @@ const WING_GLYPHS = {
   left: { top: '\uE005', bottom: '\uE006' },   // reversedBracketTop / reversedBracketBottom
 } as const
 
-/** The staff a sign is drawn ON, as the numbers painting it needs — taken from a `Stave`, through
- *  {@link staleShift}. Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
+/** The staff a sign is drawn ON, as the numbers painting it needs — taken from the bar's PLACED frame
+ *  (`./staveFrame`). Its own type so {@link paintBarlineSign} reads as ink on a staff rather than
  *  as five loose parameters. */
 interface SignStaff {
   /** Space between two staff lines, in the drawing's own units — every part of the sign scales by it. */
@@ -158,7 +160,7 @@ interface SignStaff {
   /** How many lines, which is what decides WHICH two spaces the repeat dots sit in. */
   numLines: number
   /** The y of one staff line, 0 = top. Its own function because a `Stave`'s answer is not
-   *  `topY + line × space` — the line has a thickness, and the pass's y's carry `staleShift`. */
+   *  `topY + line × space` — the line has a thickness, and the pass's y's are the placed frame's. */
   yForLine(line: number): number
 }
 
@@ -304,21 +306,20 @@ function drawSign(
   wings: boolean,
 ): void {
   const ctx = pass.context
-  const { stave, staffIndex, measureNumber } = placement
-  const frame = staveFrame(stave)
+  const { staffIndex, measureNumber } = placement
+  // 🚨 The PLACED frame: this ink is outside the bar's group, so a reused bar's stave would put it
+  //    where the bar was last painted. See {@link BarlinePlacement.x}.
+  const frame = placedStaffFrame(placement)
   const space = frame.spacePx
-  // 🚨 Every number below is the STAVE's, so it is the last render's for a bar that was reused and
-  //    translated. See {@link staleShift}.
-  const { dy } = staleShift(placement)
   // ⭐ Where a barline STOPS is one rule for the whole family — `engrave/staff/barlineExtent`, via
   // `./barlineInk`. ⛔ Not the staff's outer ink edges, which is what this read before 2026-09-13.
   const extent = staffBarlineExtent(frame)
   const signStaff: SignStaff = {
     space,
-    topY: extent.topY + dy,
-    botY: extent.bottomY + dy,
+    topY: extent.topY,
+    botY: extent.bottomY,
     numLines: frame.lineCount,
-    yForLine: line => staffLineY(frame, line) + dy,
+    yForLine: line => staffLineY(frame, line),
   }
 
   // ⚠️ Drawn inside a `stavebarline` group though VexFlow is not drawing it — `drawSystemConnector`'s
@@ -417,17 +418,17 @@ function drawSign(
  * @returns the x to centre the sign on, or `null` when the bar has no header and the sign belongs on
  *          its own boundary.
  */
-function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null {
+function displacedRepeatX(placement: BarlinePlacement, signLeft: number): number | null {
   // A `NONE` begin bar is still a modifier, so the question is "anything but a barline".
-  const header = signRun(stave).opening.filter(sign => sign.kind !== 'barline')
+  const header = placedSignRun(placement).opening.filter(sign => sign.kind !== 'barline')
   if (header.length === 0) return null
-  const space = staveFrame(stave).spacePx
+  const space = placedStaffFrame(placement).spacePx
   // ⭐ The header's own INK, from the modifiers themselves — `getX() + getWidth()` per modifier is
   // the drawn glyph box (checked against the rendered `<text>`: the meter answers 67…86, and its
   // bbox is 67…86). ⛔ Not `headerExtent`, which is the WIDTH model's estimate of the same thing:
   // where the sign goes is a question about the ink that is actually on the page beside it.
   const headerRight = Math.max(...header.map(sign => sign.x + sign.width))
-  return headerRight + dx + (HEADER_TO_REPEAT + signLeft) * space
+  return headerRight + (HEADER_TO_REPEAT + signLeft) * space
 }
 
 /**
@@ -470,9 +471,9 @@ function displacedRepeatX(stave: Stave, signLeft: number, dx = 0): number | null
  *
  * `docs/barline-types-plan.md` §4.4a carries the measurement and the citation.
  */
-function endBoundaryX(stave: Stave): number {
-  const endBarlineX = signRun(stave).endBarlineX
-  const bar = barFrame(stave)
+function endBoundaryX(placement: BarlinePlacement): number {
+  const endBarlineX = placedSignRun(placement).endBarlineX
+  const bar = placedBarFrame(placement)
   return endBarlineX !== undefined ? endBarlineX : bar.x + bar.width
 }
 
@@ -513,7 +514,6 @@ export function renderBarlines(
       || ends?.repeatEnd?.winged === true
       || begins?.repeatStart?.winged === true
     const line = lineOf(n)
-    const stave = placement.stave
     const neighbour = (offset: -1 | 1): BarlinePlacement | undefined =>
       lineOf(n + offset) === line ? at.get(`${n + offset}:${placement.staffIndex}`) : undefined
 
@@ -550,27 +550,23 @@ export function renderBarlines(
         endsMeasure,
       })
     }
-    /** A placement's own `staleShift` dx, for a boundary read off ITS stave. */
-    const shiftOf = (p: BarlinePlacement): number => staleShift(p).dx
-
     // ---- The boundary this bar ENDS at.
     //
     // ⭐ Its neighbour counts only if that bar is on this system AND was drawn AND puts its repeat on
     // this boundary rather than after a header of its own. Any of those three failing means the
     // neighbour's `|:` is not standing here, so nothing of this bar's is suppressed.
     const nextPlacement = neighbour(1)
-    const next = nextPlacement && displacedRepeatX(nextPlacement.stave, 0, 0) === null
+    const next = nextPlacement && displacedRepeatX(nextPlacement, 0) === null
       ? byNumber.get(n + 1)
       : undefined
     const endKind = signAtBoundary(measure, next)
-    // 🚨 The boundary comes from the PLACEMENT, never from `stave.getX() + stave.getWidth()` — a
-    //    reused bar's stave reports where it was last painted. See {@link staleShift}.
-    const { dx } = staleShift(placement)
+    // 🚨 The boundary comes from the PLACED run, never from the stave's — a reused bar's stave
+    //    reports where it was last painted. See {@link BarlinePlacement.x}.
     if (endKind) {
-      const endX = endBoundaryX(stave) + dx
+      const endX = endBoundaryX(placement)
       drawSign(pass, placement, endX, endKind, 'end', audience, wingsOn(measure, next))
       // The plain case: a sign at a bar's end IS the boundary that ends it.
-      joinBelow(endX, endKind, 'end', b => endBoundaryX(b.stave) + shiftOf(b), n)
+      joinBelow(endX, endKind, 'end', endBoundaryX, n)
     }
 
     // ---- The boundary this bar BEGINS at, and only when it opens a repeat.
@@ -578,7 +574,7 @@ export function renderBarlines(
 
     // ⭐ A header displaces the sign into the bar, after the clef/key/meter — see `displacedRepeatX`.
     const signLeft = barlineSignParts('repeatStart').extent.left
-    const displaced = displacedRepeatX(stave, signLeft, dx)
+    const displaced = displacedRepeatX(placement, signLeft)
     if (displaced !== null) {
       // ⛔ Always `repeatStart` alone, never the back-to-back form: the previous bar's own end sign
       // is a different mark at a different x now, and combining them would draw one sign in the
@@ -589,7 +585,7 @@ export function renderBarlines(
       // ⛔ `null`: a DISPLACED `|:` stands inside the bar, past its header, at no boundary at all —
       // so its gap ink is drawn and deliberately not clickable as a barline.
       joinBelow(displaced, 'repeatStart', 'start',
-        b => displacedRepeatX(b.stave, signLeft, shiftOf(b)) ?? Number.NaN, null)
+        b => displacedRepeatX(b, signLeft) ?? Number.NaN, null)
       continue
     }
 
@@ -601,13 +597,13 @@ export function renderBarlines(
     const prev = lineOf(n - 1) === line ? byNumber.get(n - 1) : undefined
     const startKind = signAtBoundary(prev, measure)
     if (startKind) {
-      const startX = barFrame(stave).x + dx
+      const startX = placedBarFrame(placement).x
       drawSign(pass, placement, startX, startKind, 'start', audience, wingsOn(prev, measure))
       // ⭐ This bar picked up a boundary the previous bar could not draw — so the line ends bar
       // `n − 1`, and it is one only when that bar is on THIS system: at a system start the boundary
       // that ends it is at the end of the line above, and this ink is not it (`prev` is exactly that
       // test, and it is why this is not simply `n - 1`).
-      joinBelow(startX, startKind, 'start', b => barFrame(b.stave).x + shiftOf(b), prev ? n - 1 : null)
+      joinBelow(startX, startKind, 'start', b => placedBarFrame(b).x, prev ? n - 1 : null)
     }
   }
 }

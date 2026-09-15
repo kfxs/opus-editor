@@ -5,10 +5,22 @@ import type { BarFrame, StaffFrame } from '@/engine/engrave/staff/staffFrame'
  * ⭐ **THE ONE PLACE a staff's lines are read off a VexFlow `Stave`** — S2 of
  * `docs/vexflow-removal-map.md`. Everything else asks the frame (`engrave/staff/staffFrame`).
  *
- * A SEAM, not a port: the three numbers are the stave's own, so no reader's answer changes. That
- * includes a REUSED bar's stave, which still reports where it was last painted — the frame carries the
- * same staleness, and the readers that correct for it ({@link staleShift}) keep doing so. ⏭️ When the
- * stave object goes (S4) this is built from the placement instead, and those corrections go with it.
+ * A SEAM, not a port: the three numbers are the stave's own, so no reader's answer changes.
+ *
+ * ⭐⭐ **TWO frames for one bar, and the reader picks by WHERE ITS INK GOES** (S4e):
+ *
+ * | the frame | the coordinates | for |
+ * |---|---|---|
+ * | {@link staveFrame} / {@link barFrame} / `signRun` | where the bar was BUILT | ink INSIDE the bar's group, and tier 1 building it |
+ * | {@link placedStaffFrame} / {@link placedBarFrame} / `placedSignRun` | where the bar IS this render | ink drawn OUTSIDE every bar's group — the score-level passes |
+ *
+ * They differ for exactly one kind of bar: one whose shape did not change is REUSED, not re-engraved.
+ * The renderer keeps its old `Stave` and moves the drawn group with `transform: translate(dx, dy)`
+ * (`replaySnapshot`), so the stave's own numbers are where the bar was last PAINTED. Ink inside the group
+ * rides the transform and must use those (`dynamicsLinePass`'s and `tempoLinePass`'s own notes say so);
+ * ink outside it does not ride anything, and asks the placement — the plan for THIS render. ⛔ A reader
+ * never corrects one into the other itself: that was `staleShift`, three copies of it and then one, and
+ * the trap it guarded (*"the final bar … stolen from the first stave"*) is now a choice of frame.
  */
 export function staveFrame(stave: Stave): StaffFrame {
   return {
@@ -51,22 +63,54 @@ export function barFrame(stave: Stave): BarFrame {
 }
 
 /**
- * 🚨 **How far this render moved the bar since its stave was built** — the ONE copy of it (S2b; there
- * were three, in `./BarlineRenderer`, `./KeySignaturePass` and `./barlineGap`).
- *
- * A bar whose shape has not changed is REUSED rather than re-engraved: the renderer keeps the old
- * `Stave` object and moves the drawn group with a `transform: translate(dx, dy)` (`replaySnapshot`).
- * The stave's own numbers are therefore **where the bar was last PAINTED** — and a score-level pass
- * draws OUTSIDE that group, so nothing carries its ink along. The placement is the plan for THIS
- * render, so the difference between the two is what has to be added back.
- *
- * Zero for every bar that was re-engraved (the stave was built at the plan's own coordinates), and
- * non-zero for exactly the bars that were reused and translated. ⚠️ In the stave's OWN space — the
- * placement is SVG-space, hence the divide by its scale.
+ * What a placed frame is built from — satisfied by `MeasurePlacement`. `x`/`y`/`width` are where the bar
+ * lands in the SVG this render; the stave is built at `x/scale, y/scale, width/scale` inside a `scale(k)`
+ * group (`registerTier1`), so every answer below is in the staff's OWN space, like {@link staveFrame}'s.
  */
-export function staleShift(
-  placement: { x: number; y: number; scale: number; stave: Stave },
-): { dx: number; dy: number } {
+export interface PlacedBar {
+  x: number
+  y: number
+  width: number
+  scale: number
+  stave: Stave
+}
+
+/**
+ * ⭐⭐ **Where the staff's lines are THIS render** — S4e. For ink drawn OUTSIDE the bar's group; see the
+ * header for which frame a reader asks.
+ */
+export function placedStaffFrame(placement: PlacedBar): StaffFrame {
+  const built = staveFrame(placement.stave)
+  return { ...built, topLineY: built.topLineY + carriedBy(placement).dy }
+}
+
+/**
+ * ⭐⭐ **Where the bar sits along its staff THIS render** — S4e, the horizontal half of
+ * {@link placedStaffFrame}. The edges are the placement's own; the note area is the walk's answer
+ * (a fact of the bar's SHAPE, which a reused bar shares by definition), carried to where the bar now is.
+ * ⚠️ Read when read, for {@link barFrame}'s reason.
+ */
+export function placedBarFrame(placement: PlacedBar): BarFrame {
+  const built = barFrame(placement.stave)
+  return {
+    get x() { return placement.x / placement.scale },
+    get width() { return placement.width / placement.scale },
+    get noteStartX() { return built.noteStartX + carriedBy(placement).dx },
+    get noteEndX() { return built.noteEndX + carriedBy(placement).dx },
+  }
+}
+
+/**
+ * How far this render carried the bar from where its stave was built — zero for every bar tier 1
+ * rebuilt (it built the stave at the placement's own `x/scale, y/scale`), non-zero for exactly the
+ * reused, translated ones.
+ *
+ * ⚠️ **Private, and added rather than re-derived.** An answer is `stave's + carried` instead of
+ * `placement's + (stave's − stave's origin)` so that a rebuilt bar adds an exact 0 and every number it
+ * produced before S4e comes out bit-identical. ⚠️ Exported for `./signRun`'s placed run alone —
+ * ⛔ a reader asks a placed frame, never this.
+ */
+export function carriedBy(placement: PlacedBar): { dx: number; dy: number } {
   const { stave, scale } = placement
   return { dx: placement.x / scale - stave.getX(), dy: placement.y / scale - stave.getY() }
 }

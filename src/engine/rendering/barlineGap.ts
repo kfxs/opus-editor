@@ -35,7 +35,7 @@ import type { BarlinePlacement } from './BarlineRenderer'
 import { staffBarlineExtent } from './barlineInk'
 import { applyHiddenTreatment, type RenderAudience } from './hiddenElements'
 import type { RenderPass } from './RenderPass'
-import { staleShift, staveFrame } from './staveFrame'
+import { placedStaffFrame } from './staveFrame'
 
 /**
  * ⭐⭐ **THE GAP INK IS THE SCORE'S, NOT EITHER STAFF'S** — so its staff-space is the score's own
@@ -98,25 +98,23 @@ export interface BarlineGap {
  *
  * A reused bar keeps its old `Stave` and is moved with a transform, so everything the stave reports
  * is where it was last PAINTED ({@link BarlinePlacement.x}'s header, and the report that produced
- * it: *"the final bar … stolen from the first stave"*). The placement is this render's own plan, so
- * the difference between them is what has to be added back.
+ * it: *"the final bar … stolen from the first stave"*). This ink is outside every bar's group, so it
+ * asks the PLACED frame (`./staveFrame`'s header).
  *
- * ⚠️ **`drawSystemConnector` reads the stave directly and is still correct — ⛔ do not conclude that
+ * ⚠️ **`drawSystemConnector` reads the built frame and is still correct — ⛔ do not conclude that
  * this may.** Its exemption is a guard in the reuse decision: `if (multiStaff && plan.isFirstInLine)
  * return` sends a system's OPENING bar down the rebuild path, so a connector's two staves are always
  * freshly built. A gap segment is drawn at EVERY boundary, and a bar that is not first-in-line is
  * translated with its stale stave. That is exactly where the neighbour's shelter runs out.
  */
 function lineY(p: BarlinePlacement, which: 'top' | 'bottom'): number {
-  const { dy } = staleShift(p)
   // ⭐⭐ **The MIDDLE of the outer line, ⛔ not its edge** — the same rule the bars above and below
   // this gap stop at (`engrave/staff/barlineExtent`). ⚠️ So this piece OVERLAPS the outer half of
   // both lines it runs between, which is what makes the join one continuous stroke rather than a
   // stroke with a notch at each staff: LilyPond's `bar-line::widen-bar-extent-on-span`, arrived at
   // by geometry instead of by a flag.
-  const extent = staffBarlineExtent(staveFrame(p.stave))
-  const local = which === 'top' ? extent.topY : extent.bottomY
-  return (local + dy) * p.scale
+  const extent = staffBarlineExtent(placedStaffFrame(p))
+  return (which === 'top' ? extent.topY : extent.bottomY) * p.scale
 }
 
 /**

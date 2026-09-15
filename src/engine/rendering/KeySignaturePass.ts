@@ -10,10 +10,13 @@ import { clefGlyph, glyphBox, type GlyphName } from '@/engine/fonts/fontMetrics'
 import { inStaffSpace } from './staffScaleGroup'
 import { drawGroupOf } from './svgDrawGroup'
 import { STAVE_LINE_WIDTH_PX, fillStaffLine, staffLinesInk } from '@/engine/engrave/staff/staffLines'
-import { barFrame, staleShift, staveFrame } from './staveFrame'
-import { noteLineY, staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { barFrame, placedBarFrame, placedStaffFrame, staveFrame } from './staveFrame'
+import {
+  noteLineY, staffBottomLineY, staffLineY, type BarFrame, type StaffFrame,
+} from '@/engine/engrave/staff/staffFrame'
+import type { SignRun } from '@/engine/engrave/staff/signRun'
 import { STAFF_BOTTOM_EDGE_PX } from '@/engine/engrave/inheritedDefaults'
-import { signRun } from './signRun'
+import { placedSignRun, signRun } from './signRun'
 
 /**
  * ⭐⭐ **THE KEY SIGNATURE — ours, not VexFlow's** (docs/key-signature-plan.md §4).
@@ -35,8 +38,10 @@ import { signRun } from './signRun'
  *
  * 🚨 **Positions come from the PLACEMENT, never from the stave.** A bar whose shape has not changed
  * is reused and moved with a transform, so its `Stave` reports where it was last PAINTED — the trap
- * that once stole a grand staff's barlines onto the wrong staff. `staleShift` below is that
- * correction, and it is `BarlineRenderer`'s, verbatim in intent.
+ * that once stole a grand staff's barlines onto the wrong staff. ⭐ So every position this pass draws
+ * at is asked of the PLACED frame and sign run (`./staveFrame`'s header, S4e), exactly as
+ * `BarlineRenderer` asks. ⚠️ Only a WIDTH may still come off the built stave ({@link keySignatureInkRight}):
+ * a difference of two of its numbers is the same wherever the bar was carried.
  */
 
 /** What this pass needs of a placement — satisfied by `MeasurePlacement`, and deliberately no more. */
@@ -132,13 +137,17 @@ export const SIGN_FONT_SIZE = 30
  * correction is needed on this side. ⛔ That is a fact about those two glyphs, not a rule — a sign
  * whose ink began left of its origin would need `glyphBox(...).left` added here.
  */
-export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
-  const space = staveFrame(stave).spacePx
-  const clefSign = signRun(stave).clef
-  if (!clefSign) return barFrame(stave).x + dx + BARLINE_TO_KEY_INK * space
+export function firstSignX(signs: SignRun, bar: BarFrame, space: number, clef: Clef): number {
+  const clefSign = signs.clef
+  if (!clefSign) return bar.x + BARLINE_TO_KEY_INK * space
   const inkRight = clefSign.x + clefSign.xShift
     + glyphBox(clefGlyph(clef)).right * space
-  return inkRight + dx + CLEF_TO_KEY_INK * space
+  return inkRight + CLEF_TO_KEY_INK * space
+}
+
+/** {@link firstSignX} where the bar was BUILT — for a width, or for the build itself. */
+function builtFirstSignX(stave: Stave, clef: Clef): number {
+  return firstSignX(signRun(stave), barFrame(stave), staveFrame(stave).spacePx, clef)
 }
 
 /*
@@ -170,7 +179,7 @@ export function firstSignX(stave: Stave, clef: Clef, dx: number): number {
  */
 export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature): number {
   const space = staveFrame(stave).spacePx
-  let x = firstSignX(stave, clef, 0)
+  let x = builtFirstSignX(stave, clef)
   key.alterations.forEach((alteration, i) => {
     const glyph = signGlyph(alteration.alter)
     if (!glyph) return
@@ -198,18 +207,18 @@ export function keySignatureInkRight(stave: Stave, clef: Clef, key: KeySignature
  * (`ElementRegistry.withScale`). ⛔ Never after it: the coordinates here are the stave's own.
  */
 function registerKeySignature(
-  pass: RenderPass, placement: KeySignaturePlacement, key: KeySignature, x: number, dy: number,
+  pass: RenderPass, placement: KeySignaturePlacement, key: KeySignature, x: number,
 ): void {
   const { stave } = placement
-  const frame = staveFrame(stave)
-  const left = firstSignX(stave, placement.clef, 0)
+  const frame = placedStaffFrame(placement)
+  const left = builtFirstSignX(stave, placement.clef)
   pass.elementRegistry.add({
     type: 'keySignature',
     measure: placement.measureNumber,
     staff: placement.staffIndex,
     bbox: {
       x,
-      y: staffLineY(frame, 0) + dy,
+      y: staffLineY(frame, 0),
       width: keySignatureInkRight(stave, placement.clef, key) - left,
       height: staffBottomLineY(frame) + STAFF_BOTTOM_EDGE_PX - staffLineY(frame, 0),
     },
@@ -238,23 +247,23 @@ function registerKeySignature(
 function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): void {
   const row = placement.cautionaryKey
   if (!row || row.alterations.length === 0) return
-  const { stave, staffIndex } = placement
-  const { dx, dy } = staleShift(placement)
-  const frame = staveFrame(stave)
+  const { staffIndex } = placement
+  const frame = placedStaffFrame(placement)
   const space = frame.spacePx
   // The bar's closing barline is at its right edge — the placement's, never the stave's (see the
-  // header's staleShift note).
-  const barlineX = barFrame(stave).x + dx + placement.width / placement.scale
+  // header).
+  const bar = placedBarFrame(placement)
+  const barlineX = bar.x + bar.width
   const group = drawGroupOf(pass.context.openGroup?.(
     'keysig', `keysig-caution-${placement.measureNumber}-${staffIndex}`,
   ))
   inStaffSpace(pass, staffIndex, group, () => {
     const inkLeft = barlineX + BARLINE_TO_CAUTIONARY_KEY_INK * space
-    const inkRight = drawSignRow(pass, row, placement.clef, stave, inkLeft, dy)
+    const inkRight = drawSignRow(pass, row, placement.clef, frame, inkLeft)
     // ⚠️ `??`, never `||`: a gap of 0 is a real answer ("no tail after the signs") and must not fall
     //    back to the default.
     const trailing = placement.cautionaryKeyTrailing ?? CAUTIONARY_KEY_TO_LINE_END
-    drawOpenStaffTail(pass, placement, barlineX, inkRight + trailing * space, dy)
+    drawOpenStaffTail(pass, frame, barlineX, inkRight + trailing * space)
     // ⭐⭐ **A PRESS ON THE COURTESY SELECTS THE CHANGE IT ANNOUNCES** — his report, 2026-08-28: *"the
     //    cautionary is not clickable and neither selectable."* One statement, two pieces of ink (this,
     //    and the signature at the head of the new line), so both boxes name the SAME element: the
@@ -270,7 +279,7 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
       staff: staffIndex,
       bbox: {
         x: inkLeft,
-        y: staffLineY(frame, 0) + dy,
+        y: staffLineY(frame, 0),
         width: inkRight - inkLeft,
         height: staffBottomLineY(frame) + STAFF_BOTTOM_EDGE_PX - staffLineY(frame, 0),
       },
@@ -305,13 +314,11 @@ function drawCautionary(pass: RenderPass, placement: KeySignaturePlacement): voi
  * standing thicker than them.
  */
 function drawOpenStaffTail(
-  pass: RenderPass, placement: KeySignaturePlacement, fromX: number, toX: number, dy: number,
+  pass: RenderPass, frame: StaffFrame, fromX: number, toX: number,
 ): void {
   if (toX <= fromX) return
-  const { stave } = placement
   const ys: number[] = []
-  const frame = staveFrame(stave)
-  for (let line = 0; line < frame.lineCount; line++) ys.push(staffLineY(frame, line) + dy)
+  for (let line = 0; line < frame.lineCount; line++) ys.push(staffLineY(frame, line))
   // ⭐ **P5a**: the same module the stave's own lines come from, so the tail cannot drift off them.
   // ⛔ Still FILLED rather than stroked — see `fillStaffLine` for why the two primitives stay
   // different — but the y and the extent are now one owner's answer instead of two.
@@ -332,9 +339,8 @@ function drawOpenStaffTail(
  * makes the same distinction for the head row, and for the same reason.
  */
 function drawSignRow(
-  pass: RenderPass, key: KeySignature, clef: Clef, stave: Stave, startX: number, dy: number,
+  pass: RenderPass, key: KeySignature, clef: Clef, frame: StaffFrame, startX: number,
 ): number {
-  const frame = staveFrame(stave)
   const space = frame.spacePx
   const lines = keySignatureLines(key, clef)
   let x = startX
@@ -345,7 +351,7 @@ function drawSignRow(
     // ⭐ The row from the measured table, and the y from the FRAME — the table's line numbers count
     //   from the bottom up (`staffLineForSpelling`'s convention), which is the frame's NOTE line
     //   (`engrave/staff/staffFrame.noteLineY`), so the conversion lives there rather than here.
-    const y = noteLineY(frame, lines[i]) + dy
+    const y = noteLineY(frame, lines[i])
     const char = SIGN_CHARS[glyph]
     if (!char) return
     drawGlyph(pass.context, 'KeySignaturePass.sign', char, x, y, SIGN_FONT_SIZE)
@@ -372,18 +378,18 @@ export function renderKeySignatures(pass: RenderPass, placements: KeySignaturePl
     const key = placement.headerKey
     if (!key || key.alterations.length === 0) continue
 
-    const { stave, staffIndex } = placement
-    const { dx, dy } = staleShift(placement)
+    const { staffIndex } = placement
+    const frame = placedStaffFrame(placement)
 
     const group = drawGroupOf(pass.context.openGroup?.(
       'keysig', `keysig-${placement.measureNumber}-${staffIndex}`,
     ))
 
     inStaffSpace(pass, staffIndex, group, () => {
-      const x = firstSignX(stave, placement.clef, dx)
+      const x = firstSignX(placedSignRun(placement), placedBarFrame(placement), frame.spacePx, placement.clef)
       // Before the ink, so a drawer that throws still leaves no half-registered box behind.
-      registerKeySignature(pass, placement, key, x, dy)
-      drawSignRow(pass, key, placement.clef, stave, x, dy)
+      registerKeySignature(pass, placement, key, x)
+      drawSignRow(pass, key, placement.clef, frame, x)
     })
 
     pass.context.closeGroup?.()

@@ -7,8 +7,9 @@
  * where those signs landed. They used to ask VexFlow's `Stave` for its modifiers; they ask this
  * instead, and ⏭️ S4b answers it from our own walk without any of those readers changing.
  *
- * ⚠️ **In the stave's OWN space**, like `./staffFrame`, and ⚠️ **for a reused bar, where it was last
- * painted** — readers that draw outside the bar's group still add `staleShift` (`rendering/staveFrame`).
+ * ⚠️ **In the stave's OWN space**, like `./staffFrame`. ⚠️ A bar has two runs, as it has two frames
+ * (S4e): where it was BUILT, for ink inside its group, and where it IS this render, for ink outside it
+ * (`rendering/signRun.placedSignRun`) — `rendering/staveFrame`'s header says which a reader asks.
  *
  * ⛔ The key signature is not a sign in this run: it is drawn by `rendering/KeySignaturePass`, which
  * answers its own ink (`keySignatureInkRight`).
