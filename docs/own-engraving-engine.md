@@ -82,7 +82,8 @@ delaying engraving work by one day.
 > · S5a where a note offers its modifiers a place to stand (`engrave/notes/modifierStart`); the monkeypatch is gone. **→ 1,031 uses.**
 > · S6a where a note's heads and stem stand along the staff (`engrave/notes/noteGeometry`). **→ 1,031 uses.**
 > ⚠️ S5b–e wait for S9 — the formatter calls the modifier rules on VexFlow's base classes (map §9, S5 row).
-> ⏭️ S6b, the note's y's, key props and displaced heads (`docs/vexflow-removal-map.md` §9).
+> · S6b the room a chord's displaced heads take, and where a tie leaves a note on the left. **→ 1,031 uses.**
+> ⏭️ S6c, a note's head y's from our staff frame (`docs/vexflow-removal-map.md` §9, S6 row).
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

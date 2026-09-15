@@ -16,6 +16,8 @@
  * | heads' right edge | that + the head glyph's width |
  * | glyph centre | origin + shift + half the width |
  * | stem x | a REST: the glyph centre · a stem DOWN: the heads' left edge · otherwise their right edge — then moved half a {@link STEM_THICKNESS_PX} INTO the heads, so the stroke's outer edge meets the head's |
+ * | displaced heads' room (S6b) | a chord with a second pushes one head across the stem: a glyph width to the LEFT for a stem down, to the RIGHT for an unflagged stem up (a flag already takes that side) |
+ * | where a tie leaves on the left (S6b) | origin + shift, less the left room |
  *
  * ⚠️ The head width is still MEASURED at run time (`getGlyphWidth`, a `measureText`) — S6d moves it to
  * the font's own box, and that is the step that may move a sub-pixel. ⛔ Not this one.
@@ -24,7 +26,8 @@
  */
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 
-/** A stem pointing DOWN — VexFlow's `Stem.DOWN`. */
+/** A stem pointing UP / DOWN — VexFlow's `Stem.UP` / `Stem.DOWN`. */
+const STEM_UP = 1
 const STEM_DOWN = -1
 
 /** What a note's x's are built from. */
@@ -54,6 +57,33 @@ export function headsRightX(note: NoteXInputs): number {
 /** The head glyph's centre. */
 export function glyphCentreX(note: NoteXInputs): number {
   return note.originX + note.xShift + note.glyphWidth / 2
+}
+
+/** What a note's displaced-head room is built from (S6b). */
+export interface DisplacedRoomInputs {
+  /** Whether any two of the note's keys stand less than a line apart — VexFlow's `displaced`. */
+  displaced: boolean
+  /** `1` up, `-1` down, `0` before the note has one. */
+  stemDirection: number
+  hasFlag: boolean
+  /** The head glyph's width — ⚠️ a thunk, read only when a side takes room, as VexFlow reads it. */
+  glyphWidth: () => number
+}
+
+/**
+ * ⭐ S6b — the room a note's displaced heads take beyond its column, on each side (VexFlow's
+ * `StaveNote.calcNoteDisplacements`). It widens the note for the formatter and moves where a tie leaves it.
+ */
+export function displacedHeadRoom(note: DisplacedRoomInputs): { left: number; right: number } {
+  return {
+    left: note.displaced && note.stemDirection === STEM_DOWN ? note.glyphWidth() : 0,
+    right: !note.hasFlag && note.displaced && note.stemDirection === STEM_UP ? note.glyphWidth() : 0,
+  }
+}
+
+/** ⭐ S6b — where a tie leaves the note on its LEFT: the heads' own left edge, less the displaced room there. */
+export function tieLeftX(note: NoteXInputs, leftRoom: number): number {
+  return note.originX + (note.xShift - leftRoom)
 }
 
 /** Where the stem stands — see the table in the header. */

@@ -24,6 +24,7 @@
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
  * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
  * | where the heads and stem stand along the staff (`getNoteHeadBeginX`/`EndX`, `getCenterGlyphX`, `getStemX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6a, 2026-09-15 |
+ * | the displaced heads' room and the tie's left end (`calcNoteDisplacements`, `getTieLeftX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6b, 2026-09-15 |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -57,7 +58,7 @@ import { requireNoteFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
 import {
-  glyphCentreX, headsLeftX, headsRightX, stemX, type NoteXInputs,
+  displacedHeadRoom, glyphCentreX, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from '@/engine/engrave/notes/noteGeometry'
 import { noteRuler } from './noteRuler'
 
@@ -180,8 +181,8 @@ export class EngravedNote extends StaveNote {
     const stave = this.checkStave()
     const frame = staveFrame(stave)
     const runs = ledgerLineRuns(
-      this.noteHeads.map(head => ({ line: head.getLine(), x: head.getAbsoluteX() })),
-      this.getGlyphWidth(),
+      this.heads().map(head => ({ line: head.getLine(), x: head.getAbsoluteX() })),
+      noteRuler(this).glyphWidth,
       this.ledgerOverhang,
     )
     drawLedgerLines(
@@ -241,7 +242,7 @@ export class EngravedNote extends StaveNote {
     const vex = this.checkContext()
     const surface = this.inkSurface ?? vex
     this.drawnHeadCentreX = []
-    for (const [index, head] of this.noteHeads.entries()) {
+    for (const [index, head] of this.heads().entries()) {
       head.setContext(vex)
       vex.save()
       head.applyStyle(vex)
@@ -344,9 +345,47 @@ export class EngravedNote extends StaveNote {
     return stemX(this.xInputs())
   }
 
+  /**
+   * ⭐ OURS as of S6b — the room this note's displaced heads take on each side (`engrave/notes/noteGeometry`).
+   *
+   * ⚠️ **Called from `StaveNote`'s CONSTRUCTOR** (through `reset()`), before this subclass's own fields
+   * exist — so it reads only the base's state and writes the base's two fields. The stem direction is the
+   * base's FIELD (as VexFlow reads it), ⛔ not the ruler's getter, which throws on a note that has none yet;
+   * and the width is asked only when a side takes room.
+   */
+  override calcNoteDisplacements(): void {
+    const room = this.displacedRoom()
+    this.setLeftDisplacedHeadPx(room.left)
+    this.setRightDisplacedHeadPx(room.right)
+  }
+
+  /**
+   * ⭐ OURS as of S6b — `engrave/notes/noteGeometry`. ⚠️ The left room is asked of the RULE, the same answer
+   * the field holds: nothing it is built from changes without `calcNoteDisplacements` running again.
+   */
+  override getTieLeftX(): number {
+    return tieLeftX(this.xInputs(), this.displacedRoom().left)
+  }
+
+  /** The displaced heads' room — one reading of the base's state, for the two overrides above. */
+  private displacedRoom(): { left: number; right: number } {
+    const ruler = noteRuler(this)
+    return displacedHeadRoom({
+      displaced: this.displaced,
+      stemDirection: this.stemDirection ?? 0,
+      hasFlag: ruler.hasFlag,
+      glyphWidth: () => ruler.glyphWidth,
+    })
+  }
+
   /** The glyph head `index` is drawn with — ONE read of it, for the stamp and for the modifier start. */
   private headGlyph(index: number): string {
-    return this.noteHeads[index].getText()
+    return this.heads()[index].getText()
+  }
+
+  /** The note's heads, in key order — ONE read of VexFlow's list, for the ledger lines, the stamps and the glyphs. */
+  private heads() {
+    return this.noteHeads
   }
 
   /**
@@ -388,7 +427,7 @@ export class EngravedNote extends StaveNote {
   override drawFlag(): void {
     if (!this.shouldDrawFlag()) return
     const { yTop, yBottom } = this.getNoteHeadBounds()
-    const up = this.getStemDirection() !== Stem.DOWN
+    const up = noteRuler(this).stemDirection !== Stem.DOWN
     // ⚠️ `Stem.getHeight()` is SIGNED by the stem's direction, which is what lets one subtraction
     // answer both ways up — VexFlow spells it as two branches and this is the same arithmetic.
     const tipY = (up ? yBottom : yTop) - this.checkStem().getHeight()
