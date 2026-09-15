@@ -80,7 +80,9 @@ delaying engraving work by one day.
 > · S4d the gutter draws its staves without VexFlow's `Stave`. **→ 1,039 uses.**
 > · S4e a bar's PLACED frame for ink outside its group; `staleShift` deleted. **→ 1,036 uses.**
 > · S5a where a note offers its modifiers a place to stand (`engrave/notes/modifierStart`); the monkeypatch is gone. **→ 1,031 uses.**
-> ⏭️ S5b, the dots' placement (`Dot.format`, `docs/vexflow-removal-map.md` §9).
+> · S6a where a note's heads and stem stand along the staff (`engrave/notes/noteGeometry`). **→ 1,031 uses.**
+> ⚠️ S5b–e wait for S9 — the formatter calls the modifier rules on VexFlow's base classes (map §9, S5 row).
+> ⏭️ S6b, the note's y's, key props and displaced heads (`docs/vexflow-removal-map.md` §9).
 
 > 🚨 **CORRECTED AGAIN 2026-09-01: P2 ✅ → P1a–P1d ✅ → P3 (a–d ✅, e ⏳) → P4 ✅ → P5 (a ✅, b ⏳,
 > c ✅) → P1e → P6.**

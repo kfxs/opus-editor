@@ -23,6 +23,7 @@
  * | **flag** | ⭐ **us** — `engrave/notes/flag` | P3b, 2026-09-01 |
  * | the pointer rect | VexFlow | ⏭️ P3 (it is `getBoundingBox`, and that is the ruler, not the ink) |
  * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
+ * | where the heads and stem stand along the staff (`getNoteHeadBeginX`/`EndX`, `getCenterGlyphX`, `getStemX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6a, 2026-09-15 |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -55,6 +56,9 @@ import { acceptsInkSurface } from './inkSurface'
 import { requireNoteFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
+import {
+  glyphCentreX, headsLeftX, headsRightX, stemX, type NoteXInputs,
+} from '@/engine/engrave/notes/noteGeometry'
 import { noteRuler } from './noteRuler'
 
 /** VexFlow's `ModifierPosition` numbers in our words — CENTER 0 · LEFT 1 · RIGHT 2 · ABOVE 3 · BELOW 4. */
@@ -301,6 +305,45 @@ export class EngravedNote extends StaveNote {
     this.markAnchor = anchor
   }
 
+  /**
+   * ⭐ S6a — what this note's x's are built from, read ONCE here: the origin, head width and stem
+   * direction through the ruler, the shift and the rest-by-type off the note itself.
+   * ⚠️ Read on every ask, ⛔ never cached: the formatter moves the origin and the offset moves the shift.
+   */
+  private xInputs(): NoteXInputs {
+    const ruler = noteRuler(this)
+    return {
+      originX: ruler.originX,
+      xShift: this.getXShift(),
+      glyphWidth: ruler.glyphWidth,
+      stemDirection: ruler.stemDirection,
+      isRestType: this.noteType === 'r',
+    }
+  }
+
+  /** ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. */
+  override getNoteHeadBeginX(): number {
+    return headsLeftX(this.xInputs())
+  }
+
+  /** ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. */
+  override getNoteHeadEndX(): number {
+    return headsRightX(this.xInputs())
+  }
+
+  /** ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. */
+  override getCenterGlyphX(): number {
+    return glyphCentreX(this.xInputs())
+  }
+
+  /**
+   * ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. ⚠️ VexFlow's own `Beam`, `Tuplet` and `Annotation`
+   * ask this too, and get our answer.
+   */
+  override getStemX(): number {
+    return stemX(this.xInputs())
+  }
+
   /** The glyph head `index` is drawn with — ONE read of it, for the stamp and for the modifier start. */
   private headGlyph(index: number): string {
     return this.noteHeads[index].getText()
@@ -327,7 +370,7 @@ export class EngravedNote extends StaveNote {
     return modifierStart(SIDE_OF_POSITION[position] ?? 'center', index, {
       originX: ruler.originX,
       glyphWidth: ruler.glyphWidth,
-      xShift: this.getXShift(),
+      xShift: this.xInputs().xShift,
       stemDirection: ruler.stemDirection,
       hasFlag: ruler.hasFlag,
       flagWidth: () => this.flag.getWidth(),
