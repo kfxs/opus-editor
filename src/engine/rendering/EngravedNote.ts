@@ -28,6 +28,7 @@
  * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 |
  * | what each KEY puts on the staff — its line, its head glyph, its second-apart flag (`calculateKeyProps`) | ⭐ **us** — `engrave/notes/keyLines` | S6d, 2026-09-16 · ⭐ VexFlow's note table no longer runs for our notes |
  * | which heads CROSS the stem (`buildNoteHeads`) | ⭐ **us** — `rendering/chordHeadLayout`, the fan's own walk | S6d, 2026-09-16 · ⭐ ONE owner at last |
+ * | how far the stem RUNS — its tip, its base, its stroke length (`Stem.getExtents`/`getHeight`) | ⭐ **us** — `engrave/notes/stemLength` | S6e, 2026-09-16 · ⛔ not how much EXTENSION the note asks for |
  * | the heads' own `y` field, and so `getNoteHeadBounds` and the stem's y bounds | ⭐ **us** — `EngravedStave.getYForNote` | S6d, 2026-09-16 |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
@@ -51,6 +52,7 @@
  */
 import { NoteHead, StaveNote, Stem } from 'vexflow'
 import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
+import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
@@ -111,7 +113,8 @@ const SIDE_OF_POSITION: Readonly<Record<number, ModifierSide>> = {
  * ⛔ So this override must open `openGroup('stem', this.getAttribute('id'))` exactly as VexFlow did:
  * drop the id and stem selection silently stops painting, with nothing failing.
  *
- * ⛔ **The LENGTH is still VexFlow's** — see `engrave/notes/stem`'s header. P3c is the ink.
+ * ⭐ **And as of S6e the LENGTH is ours too** — `engrave/notes/stemLength`, answered by
+ * {@link EngravedStem.getHeight} and {@link EngravedStem.getExtents}. P3c was the ink; this is the reach.
  */
 export class EngravedStem extends Stem {
   /** @see EngravedNote.inkSurface — set by {@link drawNoteInkThrough}, via the note that owns it. */
@@ -121,14 +124,49 @@ export class EngravedStem extends Stem {
     this.inkSurface = ctx
   }
 
+  /** What this stem has to work with, read fresh — the formatter and the beam both move these. */
+  private span(): StemSpan {
+    return {
+      yTop: this.yTop,
+      yBottom: this.yBottom,
+      stemDirection: this.stemDirection,
+      extension: this.stemExtension,
+    }
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S6e — how long the stroke is.** `engrave/notes/stemLength`, and with it
+   * {@link STEM_LENGTH_PX}: 3½ staff spaces, the number VexFlow drew with and the number all four
+   * treatises state (`docs/stem-length-research.md` §1).
+   *
+   * ⚠️ The y-offset branch is kept: it is 0 for every note this editor draws (it is non-zero only for a
+   * head the drawing library replaces, which is tablature), ⛔ but a dropped offset would be silent.
+   */
+  override getHeight(): number {
+    const up = this.stemDirection !== Stem.DOWN
+    return stemLineHeight(this.span(), up ? this.stemUpYOffset : this.stemDownYOffset)
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S6e — where the stem's two ends are.** Every reader of a note's stem tip in this
+   * editor comes through here: slurs, ties, trills, ottavas, pedals, hairpins, the dynamics and tempo
+   * lanes, tuplet brackets and both tremolos, all via `noteRuler`'s `stemTipY` / `stemBaseY`.
+   *
+   * ⚠️ **`topY` is the drawing library's name for the TIP**, not the smaller y — for a stem down it is
+   * below `baseY`. The module says `tipY`; this seam keeps the old key so no reader changes.
+   */
+  override getExtents(): { topY: number; baseY: number } {
+    const { tipY, baseY } = stemExtents(this.span())
+    return { topY: tipY, baseY }
+  }
+
   override draw(): void {
     this.setRendered()
     if (this.hide) return
     const ctx = this.inkSurface ?? this.checkContext()
 
-    // ⚠️ VexFlow's own arithmetic, transcribed with its branches intact — ⛔ not a rule of ours, and
-    // deliberately not tidied into one: which x and which y a stem starts from is exactly the part
-    // `docs/stem-length-research.md` is being written to replace.
+    // ⚠️ VexFlow's own arithmetic for WHICH x and WHICH y the stroke starts from, transcribed with its
+    // branches intact. ⭐ The LENGTH is no longer among them — `getHeight()` above is ours.
     const down = this.stemDirection === Stem.DOWN
     const x = down ? this.xBegin : this.xEnd
     const from = down ? this.yTop + this.stemDownYOffset : this.yBottom - this.stemUpYOffset

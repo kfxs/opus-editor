@@ -3,13 +3,13 @@
  *
  * ## ⛔ What this module is NOT, and the line is the whole point of the commit it arrived in
  *
- * ⛔ **It does not decide how LONG a stem is.** That number is still VexFlow's, and it is the next
- * piece of work rather than an oversight: `docs/own-engraving-engine.md` §6.1 lists stem length
- * among the places *"where we currently have no opinion"*, and §6.1's own rule is that a
- * re-implementation without an opinion is strictly worse than a dependency. ⭐ The opinion exists on
- * the shelf — **Gould's printed pp. 16–19** — and `docs/stem-length-research.md` is where it is
- * being written down. ⛔ Until then, taking the length would be inventing a rule, which this project
- * catches and reverts.
+ * ⛔ **It does not decide how LONG a stem is** — ⭐ **and as of S6e something else does: `./stemLength`.**
+ * When P3c was written that number was still VexFlow's, because `own-engraving-engine.md` §6.1 listed
+ * stem length among the places *"where we currently have no opinion"* and its own rule is that a
+ * re-implementation without an opinion is strictly worse than a dependency. ⭐ The opinion has since
+ * been written down (`docs/stem-length-research.md`) and — the happy part — it agrees with the number
+ * the editor was already drawing: 3½ staff spaces, four treatises for four. ⇒ the length moved without
+ * inventing anything, and this module is still only the ink.
  *
  * ⭐ **So P3c takes the INK and nothing else**, and that is worth doing on its own for the reason
  * P3a was: the ink had **three owners**.

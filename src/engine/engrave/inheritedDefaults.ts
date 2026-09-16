@@ -15,6 +15,7 @@
  * | row | research |
  * |---|---|
  * | {@link STEM_THICKNESS_PX} | `docs/stem-thickness-research.md` (Gould's plates ≈0.11 sp, fonts 0.08–0.20) |
+ * | {@link STEM_LENGTH_PX} | `docs/stem-length-research.md` — ⭐ the one row the research CONFIRMS rather than disputes |
  * | {@link LEDGER_OVERHANG_PX} | `docs/ledger-line-length-research.md` (Gould's and Ross's plates ≈0.40 sp) |
  * | {@link TREMOLO_STROKE_STEP_PX} | `docs/tremolo-tuplet-research.md` (Gould 0.75 sp, MuseScore 0.8) |
  *
@@ -27,6 +28,21 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 /** A stem's stroke — 0.15 staff spaces. Taken from `Tables.STEM_WIDTH` = 1.5 (`tables.js:595`). */
 export const STEM_THICKNESS_PX = (15 * STAFF_SPACE_PX) / 100
+
+/**
+ * ⭐⭐ **A STEM'S DEFAULT LENGTH — 3.5 staff spaces, measured from the notehead the stem stands on.**
+ * Taken from `Tables.STEM_HEIGHT` = 35 (`tables.js:597`), and ⭐ **unusually for this table, the
+ * inherited number is also the RESEARCHED one**: `docs/stem-length-research.md` §1 found all four
+ * treatises saying the same thing in the same words — *a stem is one octave long, 3½ stave-spaces,
+ * measured from the CENTRE of the notehead* (Gould p. 14, Ross p. 83, Stone p. 47, Gerou & Lusk
+ * p. 137; four for four, no dissent). ⚠️ Ross's footnote explains the engravers' alternative phrasing
+ * — *"the stem length is three spaces, measured from the end of the stem to the nearest point on the
+ * notehead"* — and 3½ from the centre is the same rule seen from the other end.
+ *
+ * ⛔ **This is still a ROW, not a law** (rule 13): the research's remaining open questions are the
+ * ATTACHMENT point and the short-note minimums, ⛔ neither of which this number decides.
+ */
+export const STEM_LENGTH_PX = (35 * STAFF_SPACE_PX) / 10
 
 /**
  * How far a ledger line runs past the notehead on each side — 0.3 staff spaces. Taken from

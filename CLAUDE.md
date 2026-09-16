@@ -183,7 +183,10 @@ src/
                           #   + `notes/keyLines` (S6d — ⭐ WHAT EACH KEY PUTS ON THE STAFF: its LINE
                           #   (`staffLineForSpelling`, the rule the fan already used), its head GLYPH, and
                           #   VexFlow's coarse second-apart flag; ⛔ NOT the displacement walk, which is
-                          #   `rendering/chordHeadLayout`'s and answers a different question). ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   `rendering/chordHeadLayout`'s and answers a different question)
+                          #   + `notes/stemLength` (S6e — ⭐ HOW FAR A STEM RUNS: its tip, its base, the
+                          #   signed stroke; 3½ sp is `STEM_LENGTH_PX`, the ONE inherited row the research
+                          #   CONFIRMS; ⛔ not how much EXTENSION the note asks for — that reads a flag). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line
