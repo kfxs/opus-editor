@@ -25,7 +25,8 @@
  * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
  * | where the heads and stem stand along the staff (`getNoteHeadBeginX`/`EndX`, `getCenterGlyphX`, `getStemX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6a, 2026-09-15 |
  * | the displaced heads' room and the tie's left end (`calcNoteDisplacements`, `getTieLeftX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6b, 2026-09-15 |
- * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 · ⏳ the heads' own `y` field and `getNoteHeadBounds` stay VexFlow's until S6d owns the heads |
+ * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 · ⏳ the heads' own `y` field and `getNoteHeadBounds` stay VexFlow's until the heads are ours |
+ * | what each KEY puts on the staff — its line, its head glyph, its second-apart flag (`calculateKeyProps`) | ⭐ **us** — `engrave/notes/keyLines` | S6d, 2026-09-16 · ⭐ VexFlow's note table no longer runs for our notes |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -61,7 +62,23 @@ import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engr
 import {
   displacedHeadRoom, glyphCentreX, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from '@/engine/engrave/notes/noteGeometry'
+import { keyRows, noteDurationOf, type KeyRow } from '@/engine/engrave/notes/keyLines'
 import { noteRuler } from './noteRuler'
+
+/**
+ * 🚨 **`StaveNote.sortedKeyProps` is PRIVATE, and {@link EngravedNote.calculateKeyProps} has to fill
+ * it** — it is the list `buildNoteHeads` walks, so a note whose key rows are ours and whose sorted
+ * list is empty builds no heads at all. ⛔ Not a loophole to reach for elsewhere: a private field is
+ * VexFlow's own state, invisible to `npm run lint:vexflow` (the census resolves symbols, and this one
+ * resolves to nothing), so every use of it is a dependency no number can see. This is the one, it is
+ * named here rather than cast at the call site, and it goes when the heads stop being VexFlow's.
+ */
+function sortedKeyProps(note: EngravedNote): SortedKeyRow[] {
+  return (note as unknown as { sortedKeyProps: SortedKeyRow[] }).sortedKeyProps
+}
+
+/** One entry of that list: a key row and the place it has in the note's own key order. */
+type SortedKeyRow = { keyProps: KeyRow & { line: number }; index: number }
 
 /** VexFlow's `ModifierPosition` numbers in our words — CENTER 0 · LEFT 1 · RIGHT 2 · ABOVE 3 · BELOW 4. */
 const SIDE_OF_POSITION: Readonly<Record<number, ModifierSide>> = {
@@ -155,6 +172,40 @@ export class EngravedNote extends StaveNote {
   override buildStem(): this {
     this.setStem(new EngravedStem({ hide: this.isRest() }))
     return this
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S6d** — what each of this note's keys puts on the staff: the LINE it stands on,
+   * the GLYPH its head is drawn with, and whether it is a second from its neighbour. The rule is
+   * `engrave/notes/keyLines`; everything here is the adapter's half.
+   *
+   * ⭐ **This is the root of the note's geometry, so every reader above it becomes ours at once**:
+   * `buildNoteHeads` places each head on `keyProps.line`, `getYs` (S6c) turns that line into a y,
+   * `Stave.getYForNote` follows it, and VexFlow's own `Beam`, `Accidental` and `getLineNumber` read
+   * `keyProps` directly. ⛔ VexFlow's note table (`Tables.keyProperties`) no longer runs for our notes.
+   *
+   * ⚠️ **Called from `StaveNote`'s CONSTRUCTOR**, before this subclass's own fields exist (they are
+   * `define`d afterwards and would wipe anything written here) — so it reads only the base's state and
+   * writes the base's three: `keyProps`, `sortedKeyProps` and the note-level `displaced` flag.
+   *
+   * ⚠️ The sort is VexFlow's own — by line, ascending, and STABLE, so two keys on one line keep the
+   * order the caller gave them. `buildNoteHeads` walks that list, and reversing a tie would move a
+   * unison's head to the other side of the stem.
+   */
+  override calculateKeyProps(): void {
+    const rows: KeyRow[] = keyRows(
+      this.keys,
+      this.clef,
+      noteDurationOf(this.duration),
+      this.noteType === 'r',
+      this.octaveShift ?? 0,
+    )
+    const props = rows.map(row => ({ ...row }))
+    this.displaced = rows.some(row => row.displaced)
+    this.keyProps.push(...props)
+    const sorted = sortedKeyProps(this)
+    sorted.push(...props.map((keyProps, index) => ({ keyProps, index })))
+    sorted.sort((a, b) => a.keyProps.line - b.keyProps.line)
   }
 
   /** @see EngravedNote.ledgerOverhang — the accidental clearance's one lever. */

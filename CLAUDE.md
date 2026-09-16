@@ -179,7 +179,11 @@ src/
                           #   modifiers a place to stand; the old monkeypatch is its `MarkAnchor` input)
                           #   + `notes/noteGeometry` (S6 — a note's x's, its displaced heads' room, the
                           #   tie's left end; `EngravedNote` answers VexFlow's getters from it, so
-                          #   VexFlow's own Beam/Tuplet/StaveTie ask OUR rule). ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   VexFlow's own Beam/Tuplet/StaveTie ask OUR rule)
+                          #   + `notes/keyLines` (S6d — ⭐ WHAT EACH KEY PUTS ON THE STAFF: its LINE
+                          #   (`staffLineForSpelling`, the rule the fan already used), its head GLYPH, and
+                          #   VexFlow's coarse second-apart flag; ⛔ NOT the displacement walk, which is
+                          #   `rendering/chordHeadLayout`'s and answers a different question). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line

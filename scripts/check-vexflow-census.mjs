@@ -30,7 +30,15 @@
  *    (`docs/own-engraving-engine.md` rule 1).
  * 2. ⛔ **Every use must fall in a role.** An UNCLASSIFIED use is a new kind of dependency, and the
  *    classifier below gets a line for it — with a reason — before it can land.
- * 3. ⭐ **When a step lands, lower the ceilings to what it prints.** ⛔ Never raise one.
+ * 3. ⭐ **When a step lands, lower the ceilings to what it prints.** ⛔ Never raise one —
+ *    ⚠️ **with one authorised exception, and it has a shape you can check.** A PORT that takes a
+ *    VexFlow method makes our file read the state that method used to read PRIVATELY, so the number
+ *    goes up while the dependency does not: the same reads, now countable. That is the opposite of a
+ *    new feature reaching for VexFlow, and §9's own accounting predicts it — a step's assigned uses
+ *    come off when the object stops being VexFlow's, ⛔ not step by step. ⇒ a rise may be recorded
+ *    ONLY when it is (a) a port of a named VexFlow method, (b) proved exact against the original, and
+ *    (c) his call, written down beside the number with the step that spent it. ⛔ Never for new code,
+ *    ⛔ never to get a commit green, and ⛔ never without the line below saying who raised it and why.
  *
  * `node scripts/check-vexflow-census.mjs --detail` prints the busiest members and files per role.
  *
@@ -51,14 +59,20 @@ const MAP = 'docs/vexflow-removal-map.md'
 const VF = `${sep}node_modules${sep}vexflow${sep}`
 
 /**
+ * 🚨 **The one RAISE, and it is the only one** — S6d (R2 159 → **166**, his call, 2026-09-16): taking
+ * `calculateKeyProps` moved seven reads of the note's OWN state (`keys`, `clef`, `duration`, `noteType`,
+ * `octaveShift`, `displaced`, `keyProps`) out of `stavenote.js`'s private body and into ours. ⭐ The
+ * dependency did not grow — it became visible; VexFlow's note table stopped running for our notes, and
+ * `sortedKeyProps` had to be reached through a cast this census can never see. Rule 3's exception, in full.
+ *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 166, the RAISE above). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 19,
-  'R2 note ruler': 159,
+  'R2 note ruler': 166,
   'R3 placement rules': 333,
   'R4 formatter': 98,
   'R5 paint+leftovers': 125,
