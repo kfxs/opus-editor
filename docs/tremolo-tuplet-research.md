@@ -321,7 +321,7 @@ size, except through a small staff's `scale(k)` group.
 - **Gap around the number:** 5 px = **0.5** per side (`ScoreTuplet.ts:172-175`).
 - **Line:** **1 px = 0.10** (`ScoreTuplet.ts:170, 174-175`); legs 1 px wide.
 - **Legs:** 10 px = **1.0** (`:180-181`; mirrored `VexFlowRenderer.ts:3313`).
-- **Height:** VexFlow's `getYPosition()` (§3.3), including the 1.5 sp nesting step (`tuplet.js:19`).
+- **Height:** ⭐ **ours as of S8a** — `engrave/marks/tupletPlacement`, a transcription of VexFlow's `getYPosition()` (§3.3) including the 1.5 sp nesting step (`tuplet.js:19`). ⭐ **U4–U6 below are now this module's preset menu**: the airs are its named `TUPLET_AIR` table, and Gould's two disagreements (U4's stave-line intersection, U5's flush bracket) are written into its header awaiting HIS call.
   - The inner-flip correction reuses VexFlow's per-note terms of 1 and 2 lines (`NoteBuilder.ts:477, 483`).
 - **`beforeNext` end:** 6 px = **0.6** (`VexFlowRenderer.ts:3220`).
 - **Ghost number:** **1.5 sp** above the tip or head to the baseline (`GhostRenderer.ts:81`).

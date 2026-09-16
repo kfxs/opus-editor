@@ -216,10 +216,17 @@ the whole group from there, so the offset never has to be known.
 
 ## 4. Render
 
-**The strokes** — `CenteredTremolo`, our subclass of VexFlow's `Tremolo`, attached in `NoteBuilder`
-beside the articulations (`NoteBuilder.ts:269`). Read
-`node_modules/vexflow/build/esm/src/tremolo.js` before touching this; it is fifteen lines and three
-of them matter:
+**The strokes** — `CenteredTremolo`, attached in `NoteBuilder` beside the articulations
+(`NoteBuilder.ts:269`). ⭐ **As of S8b it is a plain `Modifier`, ⛔ no longer a subclass of VexFlow's
+`Tremolo`**: that class was a constructor setting three fields and a `draw()` this editor had already
+replaced, so nothing was left to inherit. ⚠️ Its `CATEGORY` is still the string `'Tremolo'`, on purpose
+— `noteInkBox` filters the dynamics lane by it, and `ModifierContext` buckets members by it (⭐ and
+never FORMATS one: `Tremolo` is absent from `preFormat`'s dispatch list, which is what made the swap
+safe). The stroke and Penderecki codepoints are both `utils/tremoloGlyphs`', the one source the
+selection highlight already matched drawn strokes against.
+
+`node_modules/vexflow/build/esm/src/tremolo.js` is still worth reading as the ORIGIN of what this
+does — it is fifteen lines and three of them matter:
 
 - It draws **N copies of `tremolo1` (E220)**. It never uses E221–E224. `CenteredTremolo(2)` *is* the
   two-stroke mark — the multi-stroke SMuFL glyphs are for the palette only.
@@ -335,8 +342,9 @@ from `this.x`/`this.y`. `Articulation`, `Accidental` and `Dot` all do:
 this.x = x; this.y = y; this.renderText(ctx, 0, 0)
 ```
 
-VexFlow's `Tremolo` is the one that does **not** — it calls `renderText(ctx, x, y)` and leaves `x`/`y`
-at zero. So a tremolo note's box got dragged back to **x = 0**, and that is the box
+VexFlow's `Tremolo` was the one that did **not** — it calls `renderText(ctx, x, y)` and leaves `x`/`y`
+at zero. (⭐ S8b took that class out of our graph entirely, so the trap is now only in the history; the
+write-back below is ours to keep.) So a tremolo note's box got dragged back to **x = 0**, and that is the box
 `registerSlotElements` stored for the note.
 
 ⚠️ **What it broke, and why it was invisible.** Nearly every hit-test uses `headX`, which stayed

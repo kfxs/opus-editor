@@ -5,6 +5,15 @@ round-trip) — DONE** (tuplet/slur/tie now toggle auto ↔ flipped). Tier-1 use
 (Phase 2) documented but DEFERRED. Tier 2 (self-rendering / handles) explicitly **out of
 scope** for now.
 
+> ⭐ **UPDATE, 2026-09-16 (S8a):** the height rule this document describes is **ours** now —
+> `engine/engrave/marks/tupletPlacement` (`tupletMarkY`), answered by `ScoreTuplet.getYPosition`. It is
+> an exact transcription, so ⭐ **every behaviour described below is unchanged**, including the clamp
+> that causes the multi-voice problem in §4. ⛔ What that means for this plan: the constraints below are
+> no longer *"what VexFlow can and cannot do for us"* — they are **our own module's**, and a Tier-2
+> answer that used to need a rewrite is now a change to one function with a spec around it. ⚠️ The
+> class still `extends Tuplet`, but for the note GRAPH (`setTuplet`/`getTupletStack`), not the height.
+> Read `tuplet.js` below only as the origin of the transcription.
+
 This document records *why* tuplet bracket positioning behaves the way it does, what VexFlow
 can and cannot do for us, and the phased path toward professional tuplet control. The
 immediate goal is narrow: **fix the multi-voice flip inconsistency** using only mechanisms
@@ -27,7 +36,7 @@ Rendering (`src/engine/rendering/VexFlowRenderer.ts`):
     to the outer edges, matching engraving practice);
   - else single-voice → stem-derived default.
 - `drawAndRegisterTuplets()` calls `vexTuplet.draw()` and registers a hit-box in
-  `ElementRegistry`. The hit-box Y is now taken from VexFlow's own `getYPosition()` so it
+  `ElementRegistry`. The hit-box Y is taken from `getYPosition()` (⭐ ours since S8a) so it
   matches the drawn bracket exactly.
 
 `TupletGeometry` (in `ElementRegistry`) carries `bracketLegLength`, `bracketThickness`,
@@ -67,7 +76,9 @@ The drawing side exposes only these knobs (constructor `options`):
 - independent number X position
 - draggable handles
 - placing an *above* bracket anywhere but clamped to ≥1.5 lines above the **top staff line**
-  (`getYPosition()`, `tuplet.js:131-150`) — except by fighting it with `yOffset`.
+  (`getYPosition()` → `engrave/marks/tupletPlacement`'s `TUPLET_AIR.staffAbove`; transcribed from
+  `tuplet.js:131-150`) — except by fighting it with `yOffset`. ⭐ Since S8a that clamp is **one named
+  row in a module of ours**, so Tier 2 no longer has to route around a library.
 
 ---
 
@@ -105,8 +116,9 @@ symmetric and correct. The inconsistency appears **only on flip**:
 
 - Flip **V1 → below** → VexFlow's LOCATION_BOTTOM anchors to the bottom staff line → the
   bracket lands neatly just under V1's own notes. Looks right.
-- Flip **V2 → above** → VexFlow's LOCATION_TOP **clamps the bracket to ≥1.5 lines above the
-  top staff line** (the `min()` against `getYForLine(0)` in `getYPosition`), so the lower
+- Flip **V2 → above** → LOCATION_TOP **clamps the bracket to ≥1.5 lines above the
+  top staff line** (the `Math.min` against the staff's top line in `tupletMarkY`, VexFlow's rule
+  transcribed), so the lower
   voice's bracket jumps to the **top of the whole system, above V1** — and if V1 is also
   above, the two land on the *exact same pixels* and overlap completely.
 
@@ -115,7 +127,7 @@ two same-side brackets can perfectly overlap.
 
 ### Approach (Tier 1 — `yOffset`)
 
-VexFlow adds `options.yOffset` to `getYPosition()`. We compute a `yOffset` that pulls a
+`getYPosition()` adds `options.yOffset` last, unsigned by the side. We compute a `yOffset` that pulls a
 flipped *inner* bracket (one pointing toward the other voice) out of the system-edge clamp and
 places it **adjacent to its own notes** (in the inter-voice gap), so it no longer overshoots
 past the other voice and same-side brackets don't perfectly overlap.
@@ -232,6 +244,8 @@ handles. VexFlow stays the rhythm/spacing engine regardless.
 - `src/engine/ElementRegistry.ts` — `TupletGeometry`, `getTupletAt`.
 - `src/interactions/HighlightController.ts` — `applyTupletSelectionHighlight` (front-floats the
   selected group so overlapping brackets don't hide the highlight).
-- `node_modules/vexflow/build/esm/src/tuplet.js` — `getYPosition()` (lines 125-173),
-  `draw()` (174-207).
+- `src/engine/engrave/marks/tupletPlacement.ts` — ⭐ **the height rule, ours since S8a**, with its
+  `TUPLET_AIR` table and `tupletPlacement.test.ts` beside it.
+- `node_modules/vexflow/build/esm/src/tuplet.js` — `getYPosition()` (lines 125-173) as the ORIGIN of
+  that transcription, and `draw()` (174-207), which this editor replaced long before.
 - `docs/slur-plan.md` — the precedent for Tier-2-style self-rendering + handles.
