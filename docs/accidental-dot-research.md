@@ -40,6 +40,10 @@ Taking the ink did **not** take the placement. Both modules say so in their own 
 - the dot's half-space LIFT arrives *"already decided, as `dotShiftY`"* from `Dot.format`,
   VexFlow's.
 
+⭐ **(2026-09-16) Both rules are now ours as TRANSCRIPTIONS** — `engrave/notes/accidentalStack` (S9d)
+and `engrave/notes/dotStack` (S9c), VexFlow's behaviour kept exactly. Nothing below was acted on; it is
+now the menu for editing those two modules rather than for replacing VexFlow.
+
 So there are three numbers on the page that nobody in this repo has chosen: the accidental's
 standoff, the gap between two accidental columns, and the dot's standoff. One of them —
 the dot's — **was** chosen, by `engine/rendering/dotPlacement.ts`, in answer to his report *"the dot

@@ -60,6 +60,12 @@ export const NOTE_AREA_PADDING_PX = (12 * STAFF_SPACE_PX) / 10
 /** Between a notehead and the accidental in front of it — `Accidental.noteheadAccidentalPadding` = 1 (`metrics.js:74`). */
 export const ACCIDENTAL_NOTEHEAD_PADDING_PX = 1
 
+/** Added after each accidental's width when signs are packed along one line — `Accidental.accidentalSpacing` = 3 (`metrics.js:76`). */
+export const ACCIDENTAL_SPACING_PX = 3
+
+/** The room left past a chord's outermost accidental column — `Accidental.leftPadding` = 2 (`metrics.js:75`). */
+export const ACCIDENTAL_LEFT_PADDING_PX = 2
+
 /** Where every LEFT modifier begins, before its own padding — the literal `-1 * 2` in `StaveNote.getModifierStartXY`. */
 export const MODIFIER_LEFT_OFFSET_PX = 2
 

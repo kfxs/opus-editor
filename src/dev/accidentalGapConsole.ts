@@ -21,7 +21,7 @@
  * ```
  *
  * ⚠️ **Look at a chord with two or three signs**: the whole column moves together, and the gaps
- * BETWEEN columns are still `Accidental.format`'s — this knob moves the stack, not its packing.
+ * BETWEEN columns are the column rule's (`engrave/notes/accidentalStack`) — this knob moves the stack, not its packing.
  *
  * ⛔ **SCAFFOLDING, and it deletes cleanly** — the setting lives in the ENGINE, this is the entry
  * point, `App.ts` wires it. Same contract as `dev/dotGapConsole`.

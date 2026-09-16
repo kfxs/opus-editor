@@ -478,7 +478,9 @@ way a dot dodges its line when a chord stacks them). Both are real engraving rul
 would let us choose our own is **`docs/accidental-dot-research.md`** (the treatises) and
 **`docs/accidental-dot-engines.md`** (LilyPond / MuseScore / Verovio / VexFlow), commissioned
 2026-09-14 for exactly this reason. ⛔ Until they are read, the placement stays VexFlow's — the same
-split the clef took in P5b.
+split the clef took in P5b. ⭐ **Both are OURS as transcriptions since S9c/S9d**
+(`engrave/notes/dotStack`, `engrave/notes/accidentalStack`, run by `rendering/modifierColumns`) — VexFlow's
+rules kept exactly, so choosing another from the surveys is now an edit to those modules.
 
 ⚠️ **Two VexFlow branches are deliberately not transcribed**, and both are guarded rather than
 assumed away: a cautionary accidental's bracket `children` (nothing calls `setAsCautionary` in this

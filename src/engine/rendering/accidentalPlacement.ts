@@ -4,12 +4,10 @@
  *
  * ## What it does, and what it does NOT
  *
- * `Accidental.format` packs a chord's signs into COLUMNS and places the nearest one at VexFlow's own
- * standoff from the notehead. ⭐ This pass moves that whole stack out (or in) by the difference
- * between VexFlow's standoff and the armed row — ⛔ it does not repack, re-order or re-column
- * anything. Which column a sign takes is still `Accidental.format`'s, and the ORDER within a chord is
- * our own `chordAccidentalColumns` (Gould's rule, our packing). ⛔ Porting the packing would drag
- * 1,813 LOC for an opinion we do not have.
+ * `engrave/notes/accidentalStack` (VexFlow's `Accidental.format`, ours since S9d) packs a chord's signs
+ * into COLUMNS and places the nearest one at the inherited standoff from the notehead. ⭐ This pass
+ * moves that whole stack out (or in) by the difference between that standoff and the armed row —
+ * ⛔ it does not repack, re-order or re-column anything.
  *
  * ⚠️ **Every sign of a note moves by the SAME amount** — they are a column, and a per-sign shift
  * would rake it. The same sentence `ledgerAccidentalClearance` carries, for the same reason.
@@ -57,8 +55,8 @@ export function armedStandoffPx(): number {
 }
 
 /**
- * Move every accidental of every note to the armed gap. ⚠️ AFTER `formatter.format` — `Accidental.format`
- * assigns each sign's `xShift` from scratch, so anything written before it is lost.
+ * Move every accidental of every note to the armed gap. ⚠️ AFTER `formatter.format` — the column rule
+ * (`engrave/notes/accidentalStack`) assigns each sign's `xShift` from scratch, so anything written before it is lost.
  */
 export function placeAccidentals(notes: StaveNote[]): void {
   const shift = accidentalShiftPx()

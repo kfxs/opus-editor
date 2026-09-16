@@ -123,7 +123,7 @@ export function accidentalMeetsLedger(accidentalLine: number, headLines: number[
 /**
  * ⭐ Spend it on real notes — **after `formatter.format`, before the draw**.
  *
- * After, because `Accidental.format` writes each sign's `xShift` from scratch (its column position)
+ * After, because the column rule (`engrave/notes/accidentalStack`) writes each sign's `xShift` from scratch (its column position)
  * and would overwrite anything set earlier; before the draw, because both numbers this touches are
  * read while drawing and nothing measured has happened yet. It is the same window the multi-voice
  * re-assert and the note offsets use.

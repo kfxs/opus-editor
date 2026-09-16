@@ -29,14 +29,12 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **`getModifierStartXY`** — where the note offers its modifiers a place to stand. That is
- * VexFlow's, and it is this repo's one live monkeypatch (`docs/own-engraving-engine.md` §2.4 calls it
- * *"the shape of the whole problem"*), so taking the ink deliberately leaves it untouched: this class
- * asks the same question at the same moment and gets the same answer.
+ * ⛔ **`getModifierStartXY`** — where the note offers its modifiers a place to stand. This class asks
+ * the note; the answer has been ours since S5a (`engrave/notes/modifierStart`).
  *
- * ⛔ **`Accidental.format`** — which column of a chord's accidental stack this one stands in. Porting
- * it drags 1,813 LOC for an opinion we do not have; our own `chordAccidentalColumns` already owns the
- * part we DO have an opinion about (Gould's ORDER).
+ * ⛔ **Which column of a chord's accidental stack this one stands in** — ours since S9d, but not
+ * here: `engrave/notes/accidentalStack` (VexFlow's `Accidental.format`, transcribed), run by
+ * `rendering/modifierColumns`. The FAN packs its own members by `chordAccidentalColumns` (Gould's rule).
  *
  * ## ⭐⭐ …and since 2026-09-14 it is also the RULER for its own sign (P6b)
  *

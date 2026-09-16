@@ -17,11 +17,15 @@
  * returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Accidental, Annotation, Articulation, Formatter, Fraction, ModifierContext, StaveNote } from 'vexflow'
+import { Annotation, Articulation, Formatter, Fraction, ModifierContext, StaveNote } from 'vexflow'
 import type { Voice } from 'vexflow'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
+import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
+import { staffLineY } from '@/engine/engrave/staff/staffFrame'
+import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { EngravedNote } from './EngravedNote'
+import { noteFrame } from './staveFrame'
 
 /**
  * The modifier kinds VexFlow formats that this editor never builds (`modifiercontext.js:79–100`).
@@ -49,11 +53,41 @@ export class ColumnModifiers extends ModifierContext {
     }
     StaveNote.format(members.StaveNote as StaveNote[], state)
     this.formatDots()
-    Accidental.format(members.Accidental as Accidental[], state)
+    this.formatAccidentals()
     Articulation.format(members.Articulation as Articulation[], state)
     Annotation.format(members.Annotation as Annotation[], state)
     this.width = state.leftShift + state.rightShift
     this.preFormatted = true
+  }
+
+  /**
+   * ⭐ S9d — the column's accidentals, by `engrave/notes/accidentalStack` (`Accidental.format`,
+   * transcribed). ⚠️ Every sign here is an {@link EngravedAccidental} on an `EngravedNote`.
+   *
+   * ⚠️ The LINE the rule sorts by is VexFlow's two-way choice, kept: the key line when the note has
+   * no stave yet, and `round(y / space × 2) / 2` of that key line's y when it has one.
+   */
+  private formatAccidentals(): void {
+    const signs = this.members.Accidental ?? []
+    if (signs.length === 0) return
+    const ours = signs.map(sign => {
+      if (!(sign instanceof EngravedAccidental)) throw new Error('ColumnModifiers: an accidental that is not an EngravedAccidental')
+      return sign
+    })
+    const { xShifts, leftShift } = stackAccidentals(ours.map(sign => {
+      const note = sign.getNote()
+      if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: an accidental on a note that is not an EngravedNote')
+      const keyLine = note.getKeyProps()[sign.checkIndex()].line
+      const frame = noteFrame(note)
+      return {
+        line: frame ? Math.round((staffLineY(frame, keyLine) / frame.spacePx) * 2) / 2 : keyLine,
+        type: sign.type,
+        width: sign.getWidth(),
+        displacedRoom: note.getLeftDisplacedHeadPx() - note.getXShift(),
+      }
+    }), this.state.leftShift)
+    ours.forEach((sign, i) => sign.setXShift(xShifts[i]))
+    this.state.leftShift = leftShift
   }
 
   /**
