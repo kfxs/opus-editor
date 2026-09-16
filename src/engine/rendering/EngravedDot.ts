@@ -26,9 +26,9 @@
  *
  * ## ⛔ What this does NOT take
  *
- * ⛔ **`Dot.format`** — which decides `dotShiftY`, i.e. WHICH WAY a dot dodges its staff line when a
- * chord stacks them. That is a real engraving rule with no owner of ours yet, and the survey that
- * would let us choose one is `docs/accidental-dot-research.md`.
+ * ⭐ **`Dot.format` is ours since S9c** — which way a dot dodges its staff line when a chord stacks
+ * them is `engrave/notes/dotStack`, VexFlow's rule transcribed; the survey that would let us choose
+ * another is `docs/accidental-dot-research.md`.
  *
  * ⛔ **The GAP from the notehead** — `rendering/dotPlacement` already owns it (half a staff space,
  * edge to edge, his report of a dot standing too close). It moves the dot by `setXShift`, and this
@@ -57,6 +57,18 @@ export class EngravedDot extends Dot implements InkSurfaceAware {
   /** @see EngravedDot.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /**
+   * The dot's vertical shift, in staff spaces (negative is up) — VexFlow's protected `dotShiftY`,
+   * read and written by the column rule (`engrave/notes/dotStack`, S9c) and read by {@link draw}.
+   */
+  getShiftY(): number {
+    return this.dotShiftY
+  }
+
+  setShiftY(spaces: number): void {
+    this.dotShiftY = spaces
   }
 
   /** ⭐ **OURS** — the glyph, through our own primitives, at VexFlow's own point. */

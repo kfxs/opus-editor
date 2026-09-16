@@ -17,8 +17,11 @@
  * returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Accidental, Annotation, Articulation, Dot, Formatter, Fraction, ModifierContext, StaveNote } from 'vexflow'
+import { Accidental, Annotation, Articulation, Formatter, Fraction, ModifierContext, StaveNote } from 'vexflow'
 import type { Voice } from 'vexflow'
+import { stackDots } from '@/engine/engrave/notes/dotStack'
+import { EngravedDot } from './EngravedDot'
+import { EngravedNote } from './EngravedNote'
 
 /**
  * The modifier kinds VexFlow formats that this editor never builds (`modifiercontext.js:79–100`).
@@ -45,12 +48,44 @@ export class ColumnModifiers extends ModifierContext {
       }
     }
     StaveNote.format(members.StaveNote as StaveNote[], state)
-    Dot.format(members.Dot as Dot[], state)
+    this.formatDots()
     Accidental.format(members.Accidental as Accidental[], state)
     Articulation.format(members.Articulation as Articulation[], state)
     Annotation.format(members.Annotation as Annotation[], state)
     this.width = state.leftShift + state.rightShift
     this.preFormatted = true
+  }
+
+  /**
+   * ⭐ S9c — the column's augmentation dots, by `engrave/notes/dotStack` (`Dot.format`, transcribed).
+   * ⚠️ Every dot here is an {@link EngravedDot} (`attachEngravedDots`), on an `EngravedNote`:
+   * anything else is refused rather than placed by a rule that was not written for it.
+   */
+  private formatDots(): void {
+    const dots = this.members.Dot ?? []
+    if (dots.length === 0) return
+    const ours = dots.map(dot => {
+      if (!(dot instanceof EngravedDot)) throw new Error('ColumnModifiers: a dot that is not an EngravedDot')
+      return dot
+    })
+    const { placed, width } = stackDots(ours.map(dot => {
+      const note = dot.getNote()
+      if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: a dot on a note that is not an EngravedNote')
+      return {
+        line: note.getKeyProps()[dot.checkIndex()].line,
+        noteKey: note.getAttribute('id'),
+        isRest: note.isRest(),
+        // `getFirstDotPx`, less its parenthesis term: this context refuses parentheses (above).
+        firstDotPx: note.getRightDisplacedHeadPx(),
+        width: dot.getWidth(),
+        shiftY: dot.getShiftY(),
+      }
+    }))
+    ours.forEach((dot, i) => {
+      dot.setShiftY(placed[i].shiftY)
+      dot.setXShift(placed[i].xShift)
+    })
+    this.state.rightShift += width
   }
 }
 
