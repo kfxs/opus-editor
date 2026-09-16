@@ -186,7 +186,11 @@ src/
                           #   `rendering/chordHeadLayout`'s and answers a different question)
                           #   + `notes/stemLength` (S6e — ⭐ HOW FAR A STEM RUNS: its tip, its base, the
                           #   signed stroke; 3½ sp is `STEM_LENGTH_PX`, the ONE inherited row the research
-                          #   CONFIRMS; ⛔ not how much EXTENSION the note asks for — that reads a flag). ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   CONFIRMS; ⛔ not how much EXTENSION the note asks for — that reads a flag)
+                          #   + `marks/tupletPlacement` (S8a — ⭐ how far OUT a tuplet's mark stands:
+                          #   outside everything on one side, pushed by whichever note reaches FURTHEST;
+                          #   ⛔ a max over the group, never a sum. Airs are a named table, ⚠️ Gould
+                          #   disagrees with two and it is written down, not acted on). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line

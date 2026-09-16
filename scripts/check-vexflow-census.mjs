@@ -59,7 +59,7 @@ const MAP = 'docs/vexflow-removal-map.md'
 const VF = `${sep}node_modules${sep}vexflow${sep}`
 
 /**
- * 🚨 **The RAISES, and they are all S6** — the steps that ported `StaveNote`'s constructor and `Stem`'s reach.
+ * 🚨 **The RAISES** — every one a step that ported a named VexFlow method (rule 3's exception).
  *
  * | | | why |
  * |---|---|---|
@@ -67,6 +67,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R5 | 125 → **127** | the heads are `addChild`ed and typed here now |
  * | R6 | 297 → **301** | `new NoteHead` — the head OBJECTS stay VexFlow's; only the RULE moved |
  * | R3 | 333 → **340** | S6e: `Stem.getExtents`/`getHeight` read the stem's own `yTop`, `yBottom`, direction, extension and both y-offsets |
+ * | R1 | 19 → **20** · R2 169 → **174** · R3 340 → **343** · R4 98 → **104** · R6 301 → **302** | S8a: `Tuplet.getYPosition` reads every note's stem extents, stem direction, rest-ness and modifier-context text lines. ⚠️ R4 is the FORMATTER role — the rule genuinely consults the modifier context's stacked-text state, which S5's correction says is VexFlow's until S9 |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -75,17 +76,17 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) and S6e (R3 333 → 340) — the RAISES above. Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above. Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
-  'R1 staff coords': 19,
-  'R2 note ruler': 169,
-  'R3 placement rules': 340,
-  'R4 formatter': 98,
+  'R1 staff coords': 20,
+  'R2 note ruler': 174,
+  'R3 placement rules': 343,
+  'R4 formatter': 104,
   'R5 paint+leftovers': 127,
-  'R6 object graph': 301,
+  'R6 object graph': 302,
   'R7 numbers+fonts': 2,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
@@ -312,6 +313,12 @@ function role(u) {
   // R4 — the formatter
   if (/^(Voice|VoiceMode|Formatter|TickContext|ModifierContext|AlignmentContexts|Fraction)$/.test(c)) return 'R4 formatter'
   if (c === 'Tickable' && /addToModifierContext|applyTickMultiplier|isCenterAligned|setCenterXShift|getCenterXShift/.test(m)) return 'R4 formatter'
+  // ⭐ The MODIFIER CONTEXT'S STATE — how many rows of text a note already has stacked over or under
+  // it. It arrived with S8a: `Tuplet.getYPosition` genuinely consults it, because a tuplet mark has to
+  // stand clear of an articulation that is already there. ⚠️ It is FORMATTER state, ⛔ not a placement
+  // rule of the tuplet's: the rows are counted while the modifier context pre-formats, which S5's own
+  // correction says stays VexFlow's until S9. ⇒ it clears with the formatter, not with the mark.
+  if (c === 'ModifierContextState' || (c === 'Tickable' && m === 'getModifierContext')) return 'R4 formatter'
   if (/^(preFormat|setTickContext|postFormat|postFormatted|setNoteStartX|getTickables)$/.test(m) && c !== 'Beam') return 'R4 formatter'
   // R5 — the painting surface and the leftovers
   if (/^(Renderer|RendererBackends|SVGContext|RenderContext)$/.test(c)) return 'R5 paint+leftovers'

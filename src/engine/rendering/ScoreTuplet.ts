@@ -1,7 +1,10 @@
 import { Tuplet } from 'vexflow'
+import type { Note } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { TupletMarkRun } from '@/types/music'
 import { drawGlyph, measureGlyph } from './glyphPainter'
+import { tupletMarkY, type TupletNoteReach, type TupletSide } from '@/engine/engrave/marks/tupletPlacement'
+import { staveFrame } from './staveFrame'
 
 /**
  * The tuplet mark's font size, in points — THE knob for how big the numbers are.
@@ -33,6 +36,12 @@ const NOTE_GLYPH_SCALE = 0.55
  * {@link TUPLET_FONT_SIZE} moves. About a thin space at 24px.
  */
 const MARK_SPACE_EM = 0.15
+
+/**
+ * The staff line a BELOW mark starts clear of when no modifier has claimed a lower one — the bottom
+ * line. ⚠️ VexFlow spells it as the literal `4` seeded into its `lineCheck` (`tuplet.js:156`).
+ */
+const STAFF_BOTTOM_LINE = 4
 
 /** Who stamps the mark's glyphs — see `./glyphPainter` (a tag of ours, so it resolves the music stack). */
 const MARK_TAG = 'ScoreTuplet.mark'
@@ -89,10 +98,11 @@ export function drawTupletMark(ctx: DrawContext, mark: LaidOutMark, x: number, b
  * VexFlow's `Tuplet` with OUR bracket: it decides where the bracket ends, and it does not cut a hole
  * in the line for a mark that isn't there.
  *
- * A subclass and not a rewrite. Everything hard about a tuplet mark — which side it goes on, how high
- * above the stems, how it stacks when tuplets nest, how it is clamped to the staff — is
- * `getYPosition()`, and that stays VexFlow's. Only `draw()` is ours, and it is VexFlow's own draw with
- * two changes, both of them things its options cannot express:
+ * A subclass and not a rewrite. ⭐ **As of S8 how far OUT the mark stands is ours too** —
+ * `engrave/marks/tupletPlacement`, answered by {@link ScoreTuplet.getYPosition} below; what stays
+ * VexFlow's is the note graph the rule reads (which tuplets are nested, what the modifier context has
+ * stacked). `draw()` has been ours since the mark was built, and it is VexFlow's own draw with two
+ * changes, both of them things its options cannot express:
  *
  *   • **Where the bracket ends.** VexFlow always stops at the last notehead
  *     (`lastNote.getTieRightX()`). {@link TupletBracketEnd} has three answers and two of them are
@@ -133,6 +143,55 @@ export class ScoreTuplet extends Tuplet {
   setMarkRuns(runs: TupletMarkRun[]): void {
     this.markRuns = runs
     this.textElement.setText(runs.map(r => r.text).join(''))
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S8** — how far out the bracket and numeral stand. The rule is
+   * `engrave/marks/tupletPlacement`: *outside everything on one side, pushed by whichever note reaches
+   * furthest*. Everything here is the adapter's half — the reaches only a formatted note can report.
+   *
+   * ⚠️ **Above and below read DIFFERENT counters of the modifier context**, and that is VexFlow's, not
+   * a slip: above asks `topTextLine` and turns it into a y through the note's own `getYForTopText`;
+   * below asks `textLine + 1` and uses it as a staff LINE NUMBER. ⛔ Not symmetrised — see the module.
+   *
+   * ⚠️ Read on every call, ⛔ never cached: the stem extents are only final once the beams have applied
+   * their extensions, and this is asked during `draw()` precisely because that is when they are.
+   */
+  getYPosition(): number {
+    const side = this.options.location as TupletSide
+    const notes = this.notes
+    return tupletMarkY({
+      side,
+      frame: staveFrame(notes[0].checkStave()),
+      notes: notes.map(note => this.reachOf(note, side)),
+      nestedDepth: this.getNestedTupletCount(),
+      yOffset: this.options.yOffset ?? 0,
+      lowestTextLine: notes.reduce(
+        (line, note) => Math.max(line, (note.getModifierContext()?.getState().textLine ?? -1) + 1),
+        STAFF_BOTTOM_LINE,
+      ),
+    })
+  }
+
+  /** What one note of the group contributes — see `engrave/marks/tupletPlacement`. */
+  private reachOf(note: Note, side: TupletSide): TupletNoteReach {
+    // ⚠️ VexFlow's own predicate: a whole note has no stem but does have extents, and a rest counts too.
+    const reaches = note.hasStem() || note.isRest()
+    if (!reaches) {
+      return { reaches, stemDirection: 1, stemTipY: 0, stemBaseY: 0, textLines: 0, textTopY: 0 }
+    }
+    const { topY, baseY } = note.getStemExtents()
+    const textLines = side === 1 ? note.getModifierContext()?.getState().topTextLine ?? 0 : 0
+    return {
+      reaches,
+      stemDirection: note.getStemDirection(),
+      stemTipY: topY,
+      stemBaseY: baseY,
+      textLines,
+      // ⚠️ Asked only when there IS text — `getYForTopText` reads the stem extents again, and on a
+      // note with nothing stacked over it the answer is never used.
+      textTopY: textLines > 0 ? note.getYForTopText(textLines) : 0,
+    }
   }
 
   draw(): void {
