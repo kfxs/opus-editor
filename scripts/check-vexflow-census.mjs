@@ -67,7 +67,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R5 | 125 → **127** | the heads are `addChild`ed and typed here now |
  * | R6 | 297 → **301** | `new NoteHead` — the head OBJECTS stay VexFlow's; only the RULE moved |
  * | R3 | 333 → **340** | S6e: `Stem.getExtents`/`getHeight` read the stem's own `yTop`, `yBottom`, direction, extension and both y-offsets |
- * | R1 | 19 → **20** · R2 169 → **174** · R3 340 → **343** · R4 98 → **104** · R6 301 → **302** | S8a: `Tuplet.getYPosition` reads every note's stem extents, stem direction, rest-ness and modifier-context text lines. ⚠️ R4 is the FORMATTER role — the rule genuinely consults the modifier context's stacked-text state, which S5's correction says is VexFlow's until S9 |
+ * | R1 | 19 → **20** · R2 169 → **174** · R3 340 → **343** (⭐ 342 after S8b) · R4 98 → **104** · R6 301 → **302** | S8a: `Tuplet.getYPosition` reads every note's stem extents, stem direction, rest-ness and modifier-context text lines. ⚠️ R4 is the FORMATTER role — the rule genuinely consults the modifier context's stacked-text state, which S5's correction says is VexFlow's until S9 |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -76,14 +76,14 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above. Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a. Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
   'R2 note ruler': 174,
-  'R3 placement rules': 343,
+  'R3 placement rules': 342,
   'R4 formatter': 104,
   'R5 paint+leftovers': 127,
   'R6 object graph': 302,

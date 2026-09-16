@@ -121,3 +121,34 @@ describe('CenteredTremolo bounding box', () => {
     expect(new CenteredTremolo(3).text).toBe('\uE220')
   })
 })
+
+/**
+ * ⭐ S8b — the mark is a plain `Modifier` now, so the two things it used to inherit from VexFlow's
+ * `Tremolo` are its own and are pinned here.
+ *
+ * ⚠️ The agreement with what `Tremolo` built was proved by a throwaway probe (every field of the base
+ * state — text, position, category, width, textLine, font, style — identical for 1–5 strokes). ⛔ A
+ * spec of ours does not import `Tremolo` to re-prove it: the census holds the specs' uses at a
+ * ceiling, and the point of the step is that the class is gone.
+ */
+describe('CenteredTremolo is its own modifier', () => {
+  const textOf = (m: CenteredTremolo) => (m as unknown as { text: string }).text
+
+  it('draws strokes with SMuFL tremolo1, the codepoint VexFlow used', () => {
+    expect(textOf(new CenteredTremolo(3)).codePointAt(0)).toBe(0xe220)
+    expect(textOf(new CenteredTremolo(3))).toHaveLength(1)
+  })
+
+  it('draws the Penderecki sign with its own codepoint — ⛔ not the buzz roll (E22A) or E22C', () => {
+    expect(textOf(new CenteredTremolo('penderecki')).codePointAt(0)).toBe(0xe22b)
+  })
+
+  it('⚠️ keeps the category string "Tremolo" — `noteInkBox` filters the dynamics lane by it', () => {
+    // ⚠️ The STATIC is ours; `Element.getCategory()` just reads it off the constructor.
+    expect(CenteredTremolo.CATEGORY).toBe('Tremolo')
+  })
+
+  it('sits CENTER on the note, so it can ride the stem', () => {
+    expect((new CenteredTremolo(2) as unknown as { position: number }).position).toBe(0)
+  })
+})

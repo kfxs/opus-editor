@@ -1,14 +1,23 @@
-import { Tremolo, Stem } from 'vexflow'
+import { Modifier, Stem } from 'vexflow'
 import type { Note } from 'vexflow'
 import { NOTE_GLYPH_SCALE, STEM_THICKNESS_PX, TREMOLO_FONT_SIZE, TREMOLO_STROKE_STEP_PX } from '@/engine/engrave/inheritedDefaults'
 import type { TremoloMark } from '@/types/music'
-import { PENDERECKI_TREMOLO } from '@/utils/tremoloGlyphs'
+import { tremoloGlyph } from '@/utils/tremoloGlyphs'
 import { noteFrame } from './staveFrame'
 
 /**
  * A single-note tremolo whose strokes sit in the MIDDLE of the stem.
  *
- * VexFlow's own `Tremolo` anchors the stack to the stem **tip** and marches toward the notehead at a
+ * ⭐⭐ **It is a plain `Modifier` as of S8b — ⛔ no longer a `Tremolo`.** There was nothing left of that
+ * class to inherit: its whole body is a constructor setting three fields and a `draw()` this file had
+ * already replaced entirely. ⚠️ **Checked before the swap, not assumed**: `Tremolo` is absent from
+ * `ModifierContext.preFormat`'s dispatch list (`modifiercontext.js`), so the category is used only to
+ * BUCKET the modifier and nothing in VexFlow ever formats one. Keeping `CATEGORY` as `'Tremolo'` is
+ * therefore free, and it matters — `noteInkBox` filters the dynamics lane by category string.
+ * ⭐ And the glyph came home with it: both codepoints are `utils/tremoloGlyphs`, which the selection
+ * highlight (no VexFlow there) already matched drawn strokes against.
+ *
+ * VexFlow's own `Tremolo` anchored the stack to the stem **tip** and marched toward the notehead at a
  * fixed step, with no notion of centring:
  *
  * ```js
@@ -67,10 +76,10 @@ export const TREMOLO_FLAG_STEM_STRETCH = 0.25
 export const TREMOLO_STROKE_CLEARANCE = 0.25
 
 /**
- * The Penderecki sign is one VexFlow has no glyph for, so this class sets it as the modifier's text
- * and then places it exactly as it places the strokes. Both codepoints live in
- * `utils/tremoloGlyphs`: the selection highlight recognises a drawn stroke by the same character,
- * and that side of the app has no VexFlow. See docs/tremolo-plan.md §0.
+ * ⭐ **Both codepoints are `utils/tremoloGlyphs`' — S8b made that the only source.** The stroke used to
+ * come from VexFlow's `Tremolo` constructor and the Penderecki sign from here; now the one function
+ * answers for both, which is also what the selection highlight matches drawn strokes against (and that
+ * side of the app has no VexFlow). See docs/tremolo-plan.md §0.
  */
 
 /** A rectangle in the same pixel space the ElementRegistry stores. */
@@ -94,7 +103,18 @@ export function usableStemSpan(note: Note): { tip: number; noteheadEdge: number;
   return { tip: topY, noteheadEdge, length: Math.abs(topY - noteheadEdge) }
 }
 
-export class CenteredTremolo extends Tremolo {
+export class CenteredTremolo extends Modifier {
+  /**
+   * ⚠️ `'Tremolo'` still, on purpose: it is the string `noteInkBox`'s dynamics-lane filter reads, and
+   * VexFlow buckets members by it. ⛔ Renaming it would silently drop the mark out of that filter.
+   */
+  static override get CATEGORY(): string {
+    return 'Tremolo'
+  }
+
+  /** How many strokes the stack has — 1 for the Penderecki sign, which is one glyph. */
+  private readonly num: number
+
   /** Pixels of stem added for {@link TREMOLO_FLAG_STEM_STRETCH}, which the strokes must NOT follow. */
   private stemStretch = 0
 
@@ -118,8 +138,11 @@ export class CenteredTremolo extends Tremolo {
    * the question.
    */
   constructor(mark: TremoloMark) {
-    super(typeof mark === 'number' ? mark : 1)
-    if (mark === 'penderecki') this.text = PENDERECKI_TREMOLO
+    super()
+    this.num = typeof mark === 'number' ? mark : 1
+    // ⚠️ CENTER, as `Tremolo`'s constructor set it: the mark rides the stem, ⛔ not a side of the head.
+    this.position = Modifier.Position.CENTER
+    this.text = tremoloGlyph(mark)
   }
 
   /**
