@@ -556,7 +556,9 @@ without a page.
 
 ⛔ **`Articulation.draw` and `Articulation.format`** — the side, the distance out, the stacking, the
 snap onto a line or into a space. The parent's §"Not on this list" keeps them on a **port-if-needed**
-list for a reason, and no research of ours answers them yet.
+list for a reason, and no research of ours answers them yet. ⭐ **(2026-09-16) The STACKING —
+`Articulation.format` — is ours as a transcription since S9e** (`engrave/notes/articulationStack`);
+`Articulation.draw`'s placement from the text line is still VexFlow's.
 ⭐ One part of the placement was ALREADY ours and stays so: notehead-vs-stem alignment on the stem
 side (`docs/articulation-stem-align.md`), which reaches the ink inside the x.
 

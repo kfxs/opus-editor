@@ -51,6 +51,23 @@ export function drawnFontPx(sizePt: number): number {
   return sizePt * PT_TO_PX
 }
 
+/** VexFlow's CSS unit table (`Font.scaleToPxFrom`), for a size handed over as a string. */
+const PX_PER_UNIT: Readonly<Record<string, number>> = {
+  pt: PT_TO_PX, px: 1, em: 16, '%': 4 / 25, in: 96, mm: 96 / 25.4, cm: 96 / 2.54,
+}
+
+/**
+ * A font size as VexFlow's `Font.convertSizeToPixelValue` reads it: a bare number is POINTS; a string
+ * is a number and a unit (an unknown unit counts as pixels, an unparseable size as 0).
+ */
+export function fontSizeToPx(size: number | string): number {
+  if (typeof size === 'number') return size * PT_TO_PX
+  const value = parseFloat(size)
+  if (isNaN(value)) return 0
+  const unit = size.replace(/[\d.\s]/g, '').toLowerCase()
+  return value * (PX_PER_UNIT[unit] ?? 1)
+}
+
 /**
  * ⭐ **One ink extent, in STAFF SPACES** — `ratio` of the glyph as it is really drawn.
  *

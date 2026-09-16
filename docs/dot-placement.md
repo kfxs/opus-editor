@@ -51,7 +51,7 @@ VexFlow sets a dot's drawn x and its reserved WIDTH in different places, so the 
 - **`reserveDotRoom`** runs in `NoteBuilder` — the draw path *and* the width path — and buys the
   room. Uniform per dot, never a function of where the note sits, so bar width stays
   clef-independent. It also opens the dot-to-dot gap to the same half space for free, because
-  `Dot.format` steps each dot along by `width + dotSpacing`.
+  `Dot.format` (ours since S9c, `engrave/notes/dotStack`) steps each dot along by `width + dotSpacing`.
 - **`placeDots`** runs after `formatter.format` and moves the ink. It must be after: `Dot.format`
   assigns every dot's `xShift` from scratch.
 

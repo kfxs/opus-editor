@@ -60,6 +60,12 @@ export const NOTE_AREA_PADDING_PX = (12 * STAFF_SPACE_PX) / 10
 /** Between a notehead and the accidental in front of it — `Accidental.noteheadAccidentalPadding` = 1 (`metrics.js:74`). */
 export const ACCIDENTAL_NOTEHEAD_PADDING_PX = 1
 
+/** VexFlow's own fixed line distance, px (`Tables.STAVE_LINE_DISTANCE` = 10) — what its modifier rules divide a height by to count it in staff spaces, whatever the stave's real spacing. */
+export const STAVE_LINE_DISTANCE_PX = 10
+
+/** The least room beside a notehead an annotation keeps on its left — `NoteHead.minPadding` = 2 (`metrics.js:106`). */
+export const NOTEHEAD_MIN_PADDING_PX = 2
+
 /** Added after each accidental's width when signs are packed along one line — `Accidental.accidentalSpacing` = 3 (`metrics.js:76`). */
 export const ACCIDENTAL_SPACING_PX = 3
 

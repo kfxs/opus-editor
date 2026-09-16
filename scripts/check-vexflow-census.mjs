@@ -76,6 +76,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R2 173 → **175** · R3 308 → **313** · R4 124 → **127** · R6 304 → **306** | S9c: `Dot.format` reads each dot's note, index, key line, the note's id, rest-ness and right displaced-head room, the dot's width, and writes its x shift and the column's right shift — `dot.js`'s own reads, made visible |
  * | R2 175 → **177** · R3 313 → **317** · R4 127 → **132** · R6 306 → **307** | S9d: `Accidental.format` reads each sign's note, index, key line, type and width, the note's stave (for the y-rounded line), left displaced-head room and x shift, and writes each sign's x shift and the column's left shift — `accidental.js`'s own reads, made visible |
  * | R2 177 → **182** · R3 317 → **326** · R4 132 → **135** · R5 129 → **131** · R6 307 → **308** | S9e: `Articulation.format` reads each mark's note, side, height, width and `betweenLines` (`ArticulationStruct`, a new kind — R3), the note's glyph width, stem, stem direction, stave line count and top/bottom lines, and writes each mark's text line and origin and the column's four counters — `articulation.js`'s own reads, made visible |
+ * | R2 182 → **188** · R3 326 → **330** · R4 135 → **138** · R5 131 → **144** · R6 308 → **309** · R7 2 → **4** | S9f: `Annotation.format` reads each text's note, justification (`AnnotationVerticalJustify`, a new kind — R5 beside its horizontal twin), width and FONT SIZE, and the note's glyph width, stem, note type, stave line count and top/bottom lines, and writes each text line and the column's counters — `annotation.js`'s own reads, made visible. ⚠️ R7's two are `fontInfo.size`, a READ the rule always made (⛔ not a new write like S6d's); the conversion it fed (`Font.convertSizeToPixelValue`) is ported (`rendering/drawnFontSize.fontSizeToPx`) rather than called · specs 273 → **282**: `EngravedAnnotation`'s spec drives VexFlow's own setters on the subclass |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -84,21 +85,21 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above); S9f RAISED (above). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
-  'R2 note ruler': 182,
-  'R3 placement rules': 326,
-  'R4 formatter': 135,
-  'R5 paint+leftovers': 131,
-  'R6 object graph': 308,
-  'R7 numbers+fonts': 2,
+  'R2 note ruler': 188,
+  'R3 placement rules': 330,
+  'R4 formatter': 138,
+  'R5 paint+leftovers': 144,
+  'R6 object graph': 309,
+  'R7 numbers+fonts': 4,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
-const TEST_CEILING = 273
+const TEST_CEILING = 282
 
 /** ⚠️ The NAME ceilings, measured 2026-09-14 (map §9.3). Same rule: lower them as renames land;
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */
@@ -335,7 +336,7 @@ function role(u) {
   // R5 — the painting surface and the leftovers
   if (/^(Renderer|RendererBackends|SVGContext|RenderContext)$/.test(c)) return 'R5 paint+leftovers'
   if (/^(draw|drawWithStyle|setContext|checkContext|getSVGElement|renderText|setRendered|applyStyle|drawModifiers|setAttribute|getAttribute)$/.test(m)) return 'R6 object graph'
-  if (c === 'Annotation' || c === 'AnnotationHorizontalJustify') return 'R5 paint+leftovers'
+  if (c === 'Annotation' || c === 'AnnotationHorizontalJustify' || c === 'AnnotationVerticalJustify') return 'R5 paint+leftovers'
   if (c === 'Element' && /^(getText|setText|text|setFont|setFontSize|textMetrics|getTextMetrics|getCategory|constructor)$/.test(m)) return 'R5 paint+leftovers'
   if (c === 'Element' && u.kind === 'type') return 'R5 paint+leftovers'
   if (c === 'NoteHead' && /constructor|setStave/.test(m)) return 'R5 paint+leftovers'

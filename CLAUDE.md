@@ -134,6 +134,8 @@ src/
                           #   made of — the ONE owner of a final bar's / repeat's extent)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
                           #   PagePass (the sheets, drawn behind the music)
+                          #   + modifierColumns (S9b — ⭐ OUR modifier contexts, built where
+                          #   `joinVoices` built VexFlow's; the modifier rules plug in here)
                           #   + 🚧 ScoreHeaderPass (⛔ A SKETCH — the title + composer at the
                           #     head of page 1; read docs/score-header-sketch.md before
                           #     touching it, and ⛔ do not grow it: the real thing is a FRAME
@@ -190,7 +192,12 @@ src/
                           #   + `marks/tupletPlacement` (S8a — ⭐ how far OUT a tuplet's mark stands:
                           #   outside everything on one side, pushed by whichever note reaches FURTHEST;
                           #   ⛔ a max over the group, never a sum. Airs are a named table, ⚠️ Gould
-                          #   disagrees with two and it is written down, not acted on). ⚠️ A `StaveNote` keeps ANSWERING while it
+                          #   disagrees with two and it is written down, not acted on)
+                          #   + `notes/dotStack` / `accidentalStack` / `articulationStack` /
+                          #   `annotationStack` (S9c–f — ⭐ the MODIFIER RULES a column runs: VexFlow's
+                          #   `Dot/Accidental/Articulation/Annotation.format` transcribed EXACTLY, run by
+                          #   `rendering/modifierColumns` — ⛔ no opinion added; the research docs are
+                          #   their menu). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its
                           #   override list is the progress bar.
                           #   + `staff/staffFrame` (⭐⭐ THE ONE module that does staff-line

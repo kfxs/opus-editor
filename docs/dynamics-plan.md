@@ -124,7 +124,7 @@ we chose as the default, `docs/dynamic-voice-scope-plan.md`); keep a
     producing `<g class="vf-annotation" id="vf-<id>">`. Because every VexFlow `Element` exposes
     `getSVGElement()` (→ `document.getElementById('vf-'+id)`), a dynamic **is individually addressable
     by group** — exactly like notes/tuplets. This supersedes the bbox-scan highlight idea (see Phase 6).
-  - **It participates in `ModifierContext` formatting** (`Annotation.format`): it reserves text lines
+  - **It participates in `ModifierContext` formatting** (`Annotation.format` — ours as a transcription since S9f, `engrave/notes/annotationStack`): it reserves text lines
     and stacks below the staff alongside articulations, so dynamics + articulations **auto-avoid each
     other vertically** for free. A hand-rolled free-floating text element would lose this.
   - **`setVerticalJustification('below')`** places it under the staff (the default placement we want).

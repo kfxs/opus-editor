@@ -13,6 +13,7 @@
  * so it is exported.
  */
 import { Annotation } from 'vexflow'
+import { EngravedAnnotation } from './EngravedAnnotation'
 import type { StaveNote, Stave } from 'vexflow'
 import type { ChordRest, Measure, Dynamic, Fraction } from '@/types/music'
 import { fracCompare, fracGte, fracToNumber } from '@/utils/fraction'
@@ -202,7 +203,8 @@ export function layoutCoLocatedDynamics(pass: RenderPass, groups: string[][]): v
  */
 export function buildDynamicAnnotation(dyn: Dynamic): Annotation {
   // The text IS the display string — glyph runs already hold their SMuFL glyph characters.
-  const annotation = new Annotation(dynamicLabel(dyn))
+  // ⭐ Ours (S9f), so the column rule can read its justification — see `./EngravedAnnotation`.
+  const annotation = new EngravedAnnotation(dynamicLabel(dyn))
   annotation.setAttribute('id', dyn.id)
   annotation.setVerticalJustification(dyn.placement === 'above' ? 'above' : 'below')
   // Left-justify so the FIRST character anchors on the note (the tick), not the

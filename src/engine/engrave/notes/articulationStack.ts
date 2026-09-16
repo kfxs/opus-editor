@@ -25,6 +25,7 @@
  * counted whenever the note has a stem OBJECT (a whole note has one), and the width reduce starts
  * from the first mark.
  */
+import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
 
 /** Which side of the note a mark stands on — VexFlow's `Modifier.Position` ABOVE/BELOW, or neither. */
 export type ArticulationSide = 'above' | 'below' | 'other'
@@ -93,7 +94,7 @@ export function stackArticulations(
 
   let maxGlyphWidth = 0
   const step = (mark: StackedArticulation, line: number, side: 'above' | 'below') =>
-    roundToNearestHalf(roundingFor(line, side), mark.height / 10 + ARTICULATION_STEP_MARGIN)
+    roundToNearestHalf(roundingFor(line, side), mark.height / STAVE_LINE_DISTANCE_PX + ARTICULATION_STEP_MARGIN)
 
   marks.forEach((mark, i) => {
     maxGlyphWidth = Math.max(mark.noteGlyphWidth, maxGlyphWidth)

@@ -1664,6 +1664,9 @@ rather than lead.
 **Accidental column stacking** (`Accidental.format`) and **articulation placement**
 (`Articulation`). They are the only two places where VexFlow does real engraving thinking we have
 never had a complaint about. §6.1 is why that matters more than it sounds.
+⭐ **(2026-09-16) Both STACKING rules were then ported as exact transcriptions** — removing VexFlow
+needed them — `engrave/notes/accidentalStack` and `engrave/notes/articulationStack` (S9d/S9e,
+`docs/vexflow-removal-map.md` §5.2). No opinion was added; `Articulation.draw` stays VexFlow's.
 
 ⚠️ **Read this as PLACEMENT, ⛔ never as the INK** — both marks' glyphs came back to us on
 2026-09-14 (P3f, P3g) without either rule being touched, and the two halves are separable precisely

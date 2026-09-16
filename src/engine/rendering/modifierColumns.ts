@@ -17,12 +17,15 @@
  * returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Annotation, Formatter, Fraction, Modifier, ModifierContext, StaveNote } from 'vexflow'
+import { Formatter, Fraction, Modifier, ModifierContext, StaveNote } from 'vexflow'
 import type { Voice } from 'vexflow'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
 import { type ArticulationSide, stackArticulations } from '@/engine/engrave/notes/articulationStack'
-import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
+import { stackAnnotations } from '@/engine/engrave/notes/annotationStack'
+import { EngravedAnnotation } from './EngravedAnnotation'
+import { fontSizeToPx } from './drawnFontSize'
 import { EngravedArticulation } from './EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from './EngravedAccidental'
@@ -58,9 +61,42 @@ export class ColumnModifiers extends ModifierContext {
     this.formatDots()
     this.formatAccidentals()
     this.formatArticulations()
-    Annotation.format(members.Annotation as Annotation[], state)
+    this.formatAnnotations()
     this.width = state.leftShift + state.rightShift
     this.preFormatted = true
+  }
+
+  /**
+   * ⭐ S9f — the column's text annotations (the dynamics), by `engrave/notes/annotationStack`
+   * (`Annotation.format`, transcribed). ⚠️ Every text here is an {@link EngravedAnnotation} on an
+   * `EngravedNote`.
+   */
+  private formatAnnotations(): void {
+    const texts = this.members.Annotation ?? []
+    if (texts.length === 0) return
+    const ours = texts.map(text => {
+      if (!(text instanceof EngravedAnnotation)) throw new Error('ColumnModifiers: an annotation that is not an EngravedAnnotation')
+      return text
+    })
+    const { textLines, state } = stackAnnotations(ours.map(text => {
+      const note = text.checkAttachedNote()
+      if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: an annotation on a note that is not an EngravedNote')
+      const stem = note.getStem()
+      return {
+        align: text.getAlign(),
+        side: text.getSide(),
+        fontPx: fontSizeToPx(text.fontInfo.size),
+        width: text.getWidth(),
+        noteGlyphWidth: note.getGlyphWidth(),
+        stemDirection: note.hasStem() ? note.getStemDirection() : 1,
+        stemSpaces: stem && note.getNoteType() === 'n' ? Math.abs(stem.getHeight()) / STAVE_LINE_DISTANCE_PX : 0,
+        staffLines: noteFrame(note)?.lineCount ?? 5,
+        topLine: note.getLineNumber(true),
+        bottomLine: note.getLineNumber(),
+      }
+    }), this.state)
+    ours.forEach((text, i) => text.setTextLine(textLines[i]))
+    Object.assign(this.state, state)
   }
 
   /**
@@ -90,8 +126,7 @@ export class ColumnModifiers extends ModifierContext {
         betweenLines: mark.canSitBetweenLines(),
         noteGlyphWidth: note.getGlyphWidth(),
         stemDirection: note.hasStem() ? note.getStemDirection() : 1,
-        // VexFlow divides by its own `Tables.STAVE_LINE_DISTANCE`, which is this 10.
-        stemSpaces: stem ? Math.abs(stem.getHeight()) / STAFF_SPACE_PX : 0,
+        stemSpaces: stem ? Math.abs(stem.getHeight()) / STAVE_LINE_DISTANCE_PX : 0,
         staffLines: noteFrame(note)?.lineCount ?? 5,
         topLine: note.getLineNumber(true),
         bottomLine: note.getLineNumber(),
