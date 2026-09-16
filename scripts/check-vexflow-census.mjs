@@ -70,6 +70,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R1 | 19 → **20** · R2 169 → **174** · R3 340 → **343** (⭐ 342 after S8b) · R4 98 → **104** · R6 301 → **302** | S8a: `Tuplet.getYPosition` reads every note's stem extents, stem direction, rest-ness and modifier-context text lines. ⚠️ R4 is the FORMATTER role — the rule genuinely consults the modifier context's stacked-text state, which S5's correction says is VexFlow's until S9 |
  * | R2 173 → **175** · R3 339 → **347** · R6 302 → **303** | S7b: `Beam.applyStemExtensions` reads each note's stem, its direction and its duration's beam count (`GlyphProps.beamCount`, a new kind — classified R3 beside `KeyProps`), and each stem's extension; writes it back and sets `adjustHeightForBeam`; and reads the beam's own slope, lift, first y and beam width. All were `beam.js`'s private body. Proved exact on 1,867 stems |
  * | R2 175 → **177** | S7c: `Beam.getBeamYToDraw` reads the first note's stem extents (`getStemExtents().topY`). Paid for in R3, 347 → 344: the beam's own `getBeamYToDraw` / `getSlopeY` calls now land on ours |
+ * | R2 177 → **178** · R4 104 → **107** | S7d: `Beam.getBeamLines` reads every note's stem x and its sounding and written TICKS (`getTicks().value()`, `getIntrinsicTicks` — a new kind, classified R4, the formatter's unit). R3 fell 344 → 342: the break and side setters no longer call the base class |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -78,15 +79,15 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344. Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342. Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
-  'R2 note ruler': 177,
-  'R3 placement rules': 344,
-  'R4 formatter': 104,
+  'R2 note ruler': 178,
+  'R3 placement rules': 342,
+  'R4 formatter': 107,
   'R5 paint+leftovers': 127,
   'R6 object graph': 303,
   'R7 numbers+fonts': 2,
@@ -321,7 +322,9 @@ function role(u) {
   // rule of the tuplet's: the rows are counted while the modifier context pre-formats, which S5's own
   // correction says stays VexFlow's until S9. ⇒ it clears with the formatter, not with the mark.
   if (c === 'ModifierContextState' || (c === 'Tickable' && m === 'getModifierContext')) return 'R4 formatter'
-  if (/^(preFormat|setTickContext|postFormat|postFormatted|setNoteStartX|getTickables)$/.test(m) && c !== 'Beam') return 'R4 formatter'
+  // `getTicks` / `getIntrinsicTicks` (S7d): a note's length in VexFlow's TICKS, the formatter's unit —
+  // the beam's line walk reads them, and they go when `Voice`/`TickContext` do (S9).
+  if (/^(preFormat|setTickContext|postFormat|postFormatted|setNoteStartX|getTickables|getTicks|getIntrinsicTicks)$/.test(m) && c !== 'Beam') return 'R4 formatter'
   // R5 — the painting surface and the leftovers
   if (/^(Renderer|RendererBackends|SVGContext|RenderContext)$/.test(c)) return 'R5 paint+leftovers'
   if (/^(draw|drawWithStyle|setContext|checkContext|getSVGElement|renderText|setRendered|applyStyle|drawModifiers|setAttribute|getAttribute)$/.test(m)) return 'R6 object graph'

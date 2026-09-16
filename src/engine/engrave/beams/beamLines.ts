@@ -112,8 +112,8 @@ export function drawBeamLines(
  *
  * ⚠️ It is VexFlow's number (`beam.js:515`) and P4a kept it, but the rule had **three owners**: theirs,
  * inside `getBeamLines`, and both cross-system fragments in `VexFlowRenderer`, each spelling
- * `getStemX() - Stem.WIDTH / 2` by hand. ⭐ This is the one owner on our side of the fence; theirs goes
- * when the x's do (P4c).
+ * `getStemX() - Stem.WIDTH / 2` by hand. ⭐ This is the one owner now: theirs went when the x's did
+ * (S7d — `./beamLineSpans` is fed this).
  *
  * ⭐ Measured in a browser rather than merely transcribed: `e2e/beam.e2e.ts` asserts the drawn beam
  * clears its first stem by exactly this much.

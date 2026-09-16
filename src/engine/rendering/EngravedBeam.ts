@@ -42,10 +42,14 @@ import { Beam, Stem } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { FractionalBeamSide, NoteDuration } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
-import { type BeamLineInk, beamLevelY, drawBeamLines } from '@/engine/engrave/beams/beamLines'
+import { type BeamLineInk, beamLevelY, beamLineStartX, drawBeamLines } from '@/engine/engrave/beams/beamLines'
 import { type BeamShape, beamRiseCap } from '@/engine/engrave/beams/beamSlope'
 import { type BeamSlopeNote, beamLineYAt, fitBeamSlope } from '@/engine/engrave/beams/beamSlopeFit'
 import { beamedStemExtension } from '@/engine/engrave/beams/beamedStems'
+import {
+  type BeamLineSpan, type BeamSide, FRACTIONAL_BEAM_LENGTH_PX, beamLineSpans,
+} from '@/engine/engrave/beams/beamLineSpans'
+import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from './beamSlopeExperiment'
@@ -60,9 +64,10 @@ const BEAM_LEFT = 'L'
 const BEAM_RIGHT = 'R'
 
 /**
- * The durations a beam level exists for, in level order — VexFlow's `validBeamDurations`, kept
- * verbatim. Index IS the level: `'8'` is the primary beam, `'16'` the first secondary, and so on.
- * ⚠️ `'4'` is in the list and draws nothing; it is there so the levels line up with the durations.
+ * The beam levels, in order — VexFlow's `validBeamDurations`, kept verbatim. Index IS the level, and
+ * each name is the note value a note must be SHORTER than to carry that line
+ * (`engrave/beams/beamLineSpans`): `'4'` is the PRIMARY beam, `'8'` the first secondary, and so on.
+ * ⚠️ `'32'` and `'64'` would need 64ths and 128ths, which this editor does not write, so they draw nothing.
  */
 const VALID_BEAM_DURATIONS = ['4', '8', '16', '32', '64']
 
@@ -143,6 +148,49 @@ export class EngravedBeam extends Beam {
       stem.setExtension(beamedStemExtension({ ...reading, extension: stem.getExtension() }, line))
       stem.adjustHeightForBeam()
     }
+  }
+
+  /**
+   * Where the secondary beams break, and each interior fractional beam's side — ours since S7d.
+   * ⚠️ The base class's own copies are private and are now read by nothing (only its `getBeamLines`
+   * did), so the setters below no longer write them.
+   */
+  private secondaryBreaks: readonly number[] = []
+  private readonly forcedSides = new Map<number, BeamSide>()
+
+  override breakSecondaryAt(indexes: number[]): this {
+    this.secondaryBreaks = [...indexes]
+    return this
+  }
+
+  override setPartialBeamSideAt(noteIndex: number, side: BeamSide): this {
+    this.forcedSides.set(noteIndex, side)
+    return this
+  }
+
+  override unsetPartialBeamSideAt(noteIndex: number): this {
+    this.forcedSides.delete(noteIndex)
+    return this
+  }
+
+  /**
+   * ⭐⭐ **S7d — WHICH X'S EACH LINE RUNS BETWEEN is ours**: `engrave/beams/beamLineSpans`, fed the
+   * breaks and fractional sides this beam was told. ⚠️ `duration` is VexFlow's level name — the note
+   * value a note must be SHORTER than to carry the line (`'4'` is the primary beam).
+   */
+  override getBeamLines(duration: string): BeamLineSpan[] {
+    return beamLineSpans({
+      notes: this.notes.map(note => ({
+        lineX: beamLineStartX(note.getStemX(), STEM_THICKNESS_PX),
+        ticks: note.getTicks().value(),
+        intrinsicTicks: note.getIntrinsicTicks(),
+      })),
+      levelDenominator: Number(duration),
+      breakIndexes: this.secondaryBreaks,
+      forcedSides: this.forcedSides,
+      secondaryBreakTicks: this.renderOptions.secondaryBreakTicks,
+      fractionalLength: FRACTIONAL_BEAM_LENGTH_PX,
+    })
   }
 
   /**
@@ -289,8 +337,9 @@ export class EngravedBeam extends Beam {
  * `null` for the first and last slots for this reason, so the two agree by construction rather than
  * by luck.
  *
- * ⛔ Owning `getBeamLines` outright would buy only the ability to draw a stub *outside* its group,
- * which is the thing Gould's p. 157 *"and not"* figure is rejected for.
+ * ⭐ `getBeamLines` is ours since S7d (`engrave/beams/beamLineSpans`), and it still reads the side only
+ * for an interior note: a stub *outside* its group is the thing Gould's p. 157 *"and not"* figure is
+ * rejected for.
  */
 export function applyFractionalBeamSides(beam: Beam, slots: readonly FractionalBeamSlot[]): void {
   const auto = fractionalBeamSides(

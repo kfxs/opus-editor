@@ -270,6 +270,11 @@ groups — without reimplementing `getBeamLines`.
 does not cover a run of two semiquavers, or the last note of a group. A complete **B** means owning
 `getBeamLines`, which is P4c proper.
 
+⭐ **`getBeamLines` IS OURS since S7d** (`engine/engrave/beams/beamLineSpans`, VexFlow's walk transcribed
+exactly — the two branches above still ignore the forced side, on purpose, so no stub moved). ⇒
+completing **B**, and deciding **A** (`FRACTIONAL_BEAM_LENGTH_PX`), are now edits to that module
+rather than a port.
+
 ## 9. What this document does NOT answer — ⛔ UNKNOWN, not "silent"
 
 - **Where a fractional beam sits when the group's stems are MIXED** (some up, some down). Verovio has
