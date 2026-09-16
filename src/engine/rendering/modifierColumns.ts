@@ -17,10 +17,13 @@
  * returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Annotation, Articulation, Formatter, Fraction, ModifierContext, StaveNote } from 'vexflow'
+import { Annotation, Formatter, Fraction, Modifier, ModifierContext, StaveNote } from 'vexflow'
 import type { Voice } from 'vexflow'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
+import { type ArticulationSide, stackArticulations } from '@/engine/engrave/notes/articulationStack'
+import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
+import { EngravedArticulation } from './EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
@@ -54,10 +57,53 @@ export class ColumnModifiers extends ModifierContext {
     StaveNote.format(members.StaveNote as StaveNote[], state)
     this.formatDots()
     this.formatAccidentals()
-    Articulation.format(members.Articulation as Articulation[], state)
+    this.formatArticulations()
     Annotation.format(members.Annotation as Annotation[], state)
     this.width = state.leftShift + state.rightShift
     this.preFormatted = true
+  }
+
+  /**
+   * ⭐ S9e — the column's articulations, by `engrave/notes/articulationStack` (`Articulation.format`,
+   * transcribed). ⚠️ Every mark here is an {@link EngravedArticulation} on an `EngravedNote`; each
+   * mark's origin is still set by VexFlow's `setOrigin`, as the rule did, because it rewrites the
+   * mark's shifts from its own box.
+   */
+  private formatArticulations(): void {
+    const marks = this.members.Articulation ?? []
+    if (marks.length === 0) return
+    const ours = marks.map(mark => {
+      if (!(mark instanceof EngravedArticulation)) throw new Error('ColumnModifiers: an articulation that is not an EngravedArticulation')
+      return mark
+    })
+    const { placed, state } = stackArticulations(ours.map(mark => {
+      const note = mark.checkAttachedNote()
+      if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: an articulation on a note that is not an EngravedNote')
+      const stem = note.getStem()
+      const position = mark.getPosition()
+      const side: ArticulationSide = position === Modifier.Position.ABOVE ? 'above'
+        : position === Modifier.Position.BELOW ? 'below' : 'other'
+      return {
+        side,
+        height: mark.height,
+        width: mark.getWidth(),
+        betweenLines: mark.canSitBetweenLines(),
+        noteGlyphWidth: note.getGlyphWidth(),
+        stemDirection: note.hasStem() ? note.getStemDirection() : 1,
+        // VexFlow divides by its own `Tables.STAVE_LINE_DISTANCE`, which is this 10.
+        stemSpaces: stem ? Math.abs(stem.getHeight()) / STAFF_SPACE_PX : 0,
+        staffLines: noteFrame(note)?.lineCount ?? 5,
+        topLine: note.getLineNumber(true),
+        bottomLine: note.getLineNumber(),
+      }
+    }), this.state)
+    ours.forEach((mark, i) => {
+      const { textLine, origin } = placed[i]
+      if (textLine === null || origin === null) return
+      mark.setTextLine(textLine)
+      mark.setOrigin(origin[0], origin[1])
+    })
+    Object.assign(this.state, state)
   }
 
   /**

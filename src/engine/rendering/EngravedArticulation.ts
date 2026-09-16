@@ -22,6 +22,9 @@
  * }
  * ```
  *
+ * ⭐ (Which TEXT LINE each mark of a column stands on — `Articulation.format` — is ours since S9e,
+ * `engrave/notes/articulationStack`; what `draw` does with that line is still VexFlow's.)
+ *
  * ⭐ Overriding `draw` would mean **transcribing that placement**, and this repo has measured what
  * that costs: `./fanArticulations` hand-rolled a *"one staff space per mark"* rule for a fan's
  * members and landed a staccato 2 px off the identical mark on the next note. ⇒ ⭐⭐ **the narrowest
@@ -59,6 +62,14 @@ export class EngravedArticulation extends Articulation implements InkSurfaceAwar
   /** @see EngravedArticulation.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
+  }
+
+  /**
+   * Whether this mark may sit between the staff lines — VexFlow's protected `articulation.betweenLines`,
+   * read by the column rule (`engrave/notes/articulationStack`, S9e).
+   */
+  canSitBetweenLines(): boolean {
+    return this.articulation.betweenLines ?? false
   }
 
   /**
