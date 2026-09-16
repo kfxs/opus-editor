@@ -33,9 +33,9 @@
  * ## ⚠️ `_ctx: unknown`, and it is a statement rather than a dodge
  *
  * `renderText`'s first parameter is VexFlow's `RenderContext`, and ⛔ **naming that type outside
- * `lint:paint`'s allowlist is the one thing that check refuses** — which is why {@link EngravedBeam}
- * overrides the public `draw()` rather than the `protected drawBeamLines(ctx: RenderContext)` it
- * would rather have. ⭐ Here the honest answer is that **this file does not use VexFlow's context at
+ * `lint:paint`'s allowlist is the one thing that check refuses** — which is why `EngravedBeam`,
+ * while it was still a VexFlow `Beam`, overrode the public `draw()` rather than the
+ * `protected drawBeamLines(ctx: RenderContext)` it would rather have had. ⭐ Here the honest answer is that **this file does not use VexFlow's context at
  * all**: the ink goes to our own surface, and the fallback asks `checkContext()` for the same object
  * the caller would have handed in. Every reachable caller passes exactly that — `Articulation.draw`
  * calls `this.renderText(this.checkContext(), 0, 0)`, and `fanArticulations` calls `setContext(ctx)`

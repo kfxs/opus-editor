@@ -1,44 +1,35 @@
 /**
- * ⭐⭐ **THE SEAM WHERE THE BEAM'S INK COMES BACK TO US — P4a**
- * (`docs/beam-engraving-plan.md`, `docs/own-engraving-engine.md` P4).
+ * ⭐⭐ **A BEAM — OURS, ⛔ no longer a VexFlow `Beam`** (S7e of `docs/vexflow-removal-map.md`;
+ * `docs/beam-engraving-plan.md`, `docs/own-engraving-engine.md` P4).
  *
- * `Beam.draw()` is two things in a fixed order — **the stems**, then **the lines**:
+ * Every answer a beam gives is an `engrave/beams/` rule:
  *
- * ```js
- * ctx.openGroup('beam', id)
- * this.drawStems(ctx)      // ← each note's own Stem, already OURS since P3c (`EngravedStem`)
- * this.drawBeamLines(ctx)  // ← P4a: the quads, now `engrave/beams/beamLines`
- * ctx.closeGroup()
- * ```
+ * | question | rule | since |
+ * |---|---|---|
+ * | how steep it may be | `beamSlope` (HIS open table) | P4b |
+ * | which slope it takes | `beamSlopeFit` | S7a |
+ * | how far each stem runs to meet it | `beamedStems` | S7b |
+ * | where its first line stands | the first stem's tip ({@link EngravedBeam.getBeamYToDraw}) | S7c |
+ * | which x's each line runs between | `beamLineSpans` | S7d |
+ * | which way an interior fractional beam points | `fractionalBeam` ({@link applyFractionalBeamSides}) | P4c |
+ * | the quads | `beamLines` | P4a |
  *
- * ⭐ **So P4a is smaller than it looks, and that is the point of doing P3 first**: a beamed note's
- * stem is drawn by the BEAM rather than by the note (`StaveNote.draw` skips a stem whose `beam` is
- * set), and P3c already moved that ink into `engrave/notes/stem` via the `Stem` subclass. What was
- * left of a beam was the quads.
+ * ## ⚠️ What still touches VexFlow, and why
  *
- * ## ⛔ What this does NOT take, and it is the larger half
+ * - **The NOTES are VexFlow's** (`StaveNote`, until S12), and a note must be TOLD it is beamed:
+ *   `StaveNote.draw` skips its stem and flag while `note.beam` is set, and `StemmableNote.postFormat`
+ *   calls `beam.postFormat()`. Those two — truthiness and `postFormat` — are all VexFlow asks of a beam
+ *   (`VexFlowRenderer`'s `PLACEHOLDER_BEAM` has relied on exactly that since the fan), so the note is
+ *   handed THIS object through `setBeam`, cast to the type its signature names.
+ * - **The STEMS are drawn here, as VexFlow's beam drew them**: a beamed note's stem belongs to the beam.
+ *   Each is an `EngravedStem` whose ink is ours (P3c); it still takes VexFlow's context to hang its
+ *   style on, which is why {@link EngravedBeam.setContext} exists.
  *
- * ⛔ **Which x's a beam line runs between** (`getBeamLines`) is still VexFlow's, called as public
- * API. ⭐ **Where its first line stands is ours as of S7c** ({@link EngravedBeam.getBeamYToDraw}).
- * ⭐ **What SLOPE it takes is ours as of
- * S7a** (`engrave/beams/beamSlopeFit`, answered by {@link EngravedBeam.calculateSlope}), and ⭐ **how far
- * each stem runs to meet it as of S7b** (`engrave/beams/beamedStems`, {@link EngravedBeam.applyStemExtensions}).
- *
- * ⭐⭐ **…except the fractional beams' SIDE, which is ours as of P4c** — the opinion §6.1 of
- * `own-engraving-engine.md` said we did not have is now written down (`docs/beam-hook-research.md`:
- * four treatises, unanimous) and supplied through `setPartialBeamSideAt` by
- * {@link applyFractionalBeamSides}. ⛔ The LENGTH of a stub is still VexFlow's `partialBeamLength`
- * and is still wrong by every source — decision A of that document's §8, and HIS.
- * ⭐ `docs/beaming.md` states this editor's GROUPING rules and they were already ours.
- *
- * ⚠️ **A subclass, for the reason `EngravedStem` is one**: `drawBeamLines` is `protected` and takes
- * VexFlow's `RenderContext`, so an override could not be typed without naming that type — which is
- * the one thing `npm run lint:paint` refuses outside its allowlist. Overriding the public `draw()`
- * instead keeps the adapter honest: every number it reads (`notes`, `slope`, `renderOptions`,
- * `getBeamLines`) is public, and the body below is VexFlow's own
- * arithmetic moved rather than rewritten.
+ * ⛔ VexFlow's `flatBeams`, stemlets, `secondaryBreakTicks`, `autoStem` and tablature branches are not
+ * carried: nothing in this editor reaches them.
  */
-import { Beam, Stem } from 'vexflow'
+import { Stem } from 'vexflow'
+import type { Beam, StaveNote } from 'vexflow'
 import type { DrawContext } from '@/engine/paint/DrawContext'
 import type { FractionalBeamSide, NoteDuration } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
@@ -47,19 +38,21 @@ import { type BeamShape, beamRiseCap } from '@/engine/engrave/beams/beamSlope'
 import { type BeamSlopeNote, beamLineYAt, fitBeamSlope } from '@/engine/engrave/beams/beamSlopeFit'
 import { beamedStemExtension } from '@/engine/engrave/beams/beamedStems'
 import {
-  type BeamLineSpan, type BeamSide, FRACTIONAL_BEAM_LENGTH_PX, beamLineSpans,
+  type BeamLineSpan, type BeamSide, FRACTIONAL_BEAM_LENGTH_PX, TICKS_PER_WHOLE, beamLineSpans,
 } from '@/engine/engrave/beams/beamLineSpans'
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from './beamSlopeExperiment'
+import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
 
 /**
- * VexFlow's `PartialBeamDirection` values. ⚠️ Written as literals because `BEAM_LEFT`/`BEAM_RIGHT`
- * are declared in `beam.js` but ⛔ **not re-exported from the package root** — `require('vexflow')`
- * has no such key. The literal union is what `setPartialBeamSideAt` takes, so this still typechecks
- * against their type rather than around it.
+ * The context VexFlow's own stems still draw on — named through the note's own `setContext`, so this
+ * file never spells VexFlow's context type (`npm run lint:paint`).
  */
+type StemContext = Parameters<StaveNote['setContext']>[0]
+
+/** VexFlow's `PartialBeamDirection` letters, for {@link applyFractionalBeamSides}. */
 const BEAM_LEFT = 'L'
 const BEAM_RIGHT = 'R'
 
@@ -79,22 +72,118 @@ const VALID_BEAM_DURATIONS = ['4', '8', '16', '32', '64']
  */
 const BEAM_END_OVERSHOOT = 1
 
-export class EngravedBeam extends Beam {
+let lastBeamId = 0
+
+export class EngravedBeam {
+  /** The beamed notes, in order. */
+  readonly notes: readonly StaveNote[]
+
+  /** Its SVG group is `vf-<id>` (the painter adds the prefix) — ours, ⛔ not VexFlow's id counter. */
+  readonly id: string
+
+  /**
+   * ⭐ One beam line's thickness, in px — Bravura's `beamThickness`, half a space, which is the 5
+   * VexFlow's `renderOptions.beamWidth` defaulted to (`./beamInk`).
+   */
+  readonly beamWidth = CROSS_SYSTEM_BEAM_WIDTH
+
+  /** Rise over run, solved by {@link calculateSlope}. */
+  slope = 0
+
+  /** How far the line was moved off the first stem's tip to clear an inner stem — VexFlow's `yShift`. */
+  lift = 0
+
+  /** Fixed at construction, from the first note, as VexFlow's beam fixed it. */
+  private readonly stemDirection: number
+
+  private postFormatted = false
+
+  /** @see setContext */
+  private stemContext: StemContext | null = null
+
   /**
    * The surface this beam's own ink draws on — `RenderPass.context`, which is the recorder during a
    * `recordScene` render and the real painter otherwise. Null until {@link drawBeamInkThrough} sets
-   * it, and then the beam falls back to `checkContext()`, so an unset surface is a lost SCENE entry
-   * and ⛔ never a lost pixel. (`EngravedNote.inkSurface` carries the same contract.)
+   * it, and then the beam falls back to the stems' context, so an unset surface is a lost SCENE
+   * entry and ⛔ never a lost pixel. (`EngravedNote.inkSurface` carries the same contract.)
    */
   private inkSurface: DrawContext | null = null
+
+  /** Where the secondary beams break, and each interior fractional beam's side (S7d). */
+  private secondaryBreaks: readonly number[] = []
+  private readonly forcedSides = new Map<number, BeamSide>()
+
+  /**
+   * VexFlow's three refusals, kept — the renderer catches them and draws the notes unbeamed.
+   * ⚠️ Every note is told it is beamed BEFORE anything else reads it, as VexFlow did.
+   */
+  constructor(notes: StaveNote[]) {
+    if (!notes || notes.length === 0) throw new Error('BadArguments: No notes provided for beam.')
+    if (notes.length === 1) throw new Error('BadArguments: Too few notes for beam.')
+    if (notes[0].getIntrinsicTicks() >= TICKS_PER_WHOLE / 4) {
+      throw new Error('BadArguments: Beams can only be applied to notes shorter than a quarter note.')
+    }
+    this.stemDirection = notes[0].getStemDirection()
+    // ⚠️ The cast is the note's signature, ⛔ not a claim: VexFlow reads only truthiness and
+    // `postFormat()` off it (see the header).
+    for (const note of notes) note.setBeam(this as unknown as Beam)
+    this.notes = notes
+    lastBeamId += 1
+    this.id = `beam${lastBeamId}`
+  }
+
+  getStemDirection(): number {
+    return this.stemDirection
+  }
+
+  /** The VexFlow context the STEMS draw on — see the header. */
+  setContext(ctx: StemContext): this {
+    this.stemContext = ctx
+    return this
+  }
 
   /** @see EngravedBeam.inkSurface */
   setInkSurface(ctx: DrawContext): void {
     this.inkSurface = ctx
   }
 
+  breakSecondaryAt(indexes: number[]): this {
+    this.secondaryBreaks = [...indexes]
+    return this
+  }
+
+  setPartialBeamSideAt(noteIndex: number, side: BeamSide): this {
+    this.forcedSides.set(noteIndex, side)
+    return this
+  }
+
+  unsetPartialBeamSideAt(noteIndex: number): this {
+    this.forcedSides.delete(noteIndex)
+    return this
+  }
+
   /**
-   * ⭐⭐ **S7a — THE SLOPE IS OURS**: `engrave/beams/beamSlopeFit` searches, inside the BUDGET
+   * The slope, then the stems — once. ⭐ Also what a note's own `postFormat` calls on its beam.
+   */
+  postFormat(): void {
+    if (this.postFormatted) return
+    this.calculateSlope()
+    this.applyStemExtensions()
+    this.postFormatted = true
+  }
+
+  /**
+   * 🚨 **What the element registry files for a beam — a ZERO-SIZE box at `(0, lift)`, kept exactly.**
+   * It is what VexFlow's generic `Element.getBoundingBox()` answered for a beam, which sets none of
+   * `x`, `width` or `height` and whose `yShift` IS the lift (measured: an empty text's ascent is 0 in
+   * jsdom and in Chromium). ⏸️ What a beam's box SHOULD be is `docs/vexflow-removal-map.md` §9.4 #2.
+   */
+  getBoundingBox(): { x: number; y: number; w: number; h: number } {
+    return { x: 0, y: this.lift, w: 0, h: 0 }
+  }
+
+  /**
+   * ⭐⭐ **S7a — THE SLOPE**: `engrave/beams/beamSlopeFit` searches, inside the BUDGET
    * `engrave/beams/beamSlope` allows (P4b — ⛔ **which rule that is stays open**, his call; see that
    * module's header).
    *
@@ -102,12 +191,11 @@ export class EngravedBeam extends Beam {
    * bound cannot express: a beam is never left cutting through an inner note's stem, because the
    * search still prefers the cheapest total stem extension.
    *
-   * ⚠️ Called by VexFlow's `postFormat` — after the x's are formatted and ⭐ BEFORE
-   * `applyStemExtensions` moves the stem tips, which is the moment {@link beamShape} and the search
-   * both need. `slope` and `yShift` are the two fields `applyStemExtensions` and the draw read.
+   * ⚠️ Runs BEFORE {@link applyStemExtensions} moves the stem tips, which is the moment
+   * {@link beamShape} and the search both need.
    */
-  override calculateSlope(): void {
-    const stemDirection = this.getStemDirection()
+  private calculateSlope(): void {
+    const stemDirection = this.stemDirection
     // ⚠️ Read ONCE, before the stems are lengthened — the shape and the search both want these tips.
     const notes = this.stems()
     const shape = this.beamShape(stemDirection, notes)
@@ -118,19 +206,15 @@ export class EngravedBeam extends Beam {
       : 0
     const { slope, lift } = fitBeamSlope({ stemDirection, notes, range })
     this.slope = slope
-    this.yShift = lift
+    this.lift = lift
   }
 
   /**
-   * ⭐⭐ **S7b — EVERY STEM MEETS THE BEAM, by our rule**: `engrave/beams/beamedStems` answers each
-   * stem's new extension from the line {@link calculateSlope} solved.
-   *
-   * ⚠️ VexFlow's order kept: the line's first y is read ONCE, before any stem changes (the first
-   * stem's own tip is that y), and each note's tip is read just before its own stem is lengthened.
-   * ⛔ The stemlet branch is not transcribed — it runs only under `renderOptions.showStemlets`, which
-   * nothing sets. `adjustHeightForBeam` is the STEM's own state and stays its call.
+   * ⭐⭐ **S7b — EVERY STEM MEETS THE BEAM**: `engrave/beams/beamedStems` answers each stem's new
+   * extension from the line {@link calculateSlope} solved. `adjustHeightForBeam` is the STEM's own
+   * state and stays its call.
    */
-  override applyStemExtensions(): void {
+  private applyStemExtensions(): void {
     // ⚠️ Read up front, which VexFlow did note by note: exact, because lengthening one note's stem
     // moves no other note's tip — and the line's first y IS the first tip, read before any change.
     const stems = this.stems()
@@ -138,9 +222,9 @@ export class EngravedBeam extends Beam {
       firstStemX: stems[0].stemX,
       firstY: this.getBeamYToDraw(),
       slope: this.slope,
-      lift: this.yShift,
-      stemDirection: this.getStemDirection(),
-      beamWidth: this.renderOptions.beamWidth,
+      lift: this.lift,
+      stemDirection: this.stemDirection,
+      beamWidth: this.beamWidth,
     }
     for (const reading of stems) {
       const { stem } = reading
@@ -151,34 +235,11 @@ export class EngravedBeam extends Beam {
   }
 
   /**
-   * Where the secondary beams break, and each interior fractional beam's side — ours since S7d.
-   * ⚠️ The base class's own copies are private and are now read by nothing (only its `getBeamLines`
-   * did), so the setters below no longer write them.
+   * ⭐⭐ **S7d — WHICH X'S EACH LINE RUNS BETWEEN**: `engrave/beams/beamLineSpans`, fed the breaks and
+   * fractional sides this beam was told. ⚠️ `duration` is the level's name — the note value a note
+   * must be SHORTER than to carry the line (`'4'` is the primary beam).
    */
-  private secondaryBreaks: readonly number[] = []
-  private readonly forcedSides = new Map<number, BeamSide>()
-
-  override breakSecondaryAt(indexes: number[]): this {
-    this.secondaryBreaks = [...indexes]
-    return this
-  }
-
-  override setPartialBeamSideAt(noteIndex: number, side: BeamSide): this {
-    this.forcedSides.set(noteIndex, side)
-    return this
-  }
-
-  override unsetPartialBeamSideAt(noteIndex: number): this {
-    this.forcedSides.delete(noteIndex)
-    return this
-  }
-
-  /**
-   * ⭐⭐ **S7d — WHICH X'S EACH LINE RUNS BETWEEN is ours**: `engrave/beams/beamLineSpans`, fed the
-   * breaks and fractional sides this beam was told. ⚠️ `duration` is VexFlow's level name — the note
-   * value a note must be SHORTER than to carry the line (`'4'` is the primary beam).
-   */
-  override getBeamLines(duration: string): BeamLineSpan[] {
+  private getBeamLines(duration: string): BeamLineSpan[] {
     return beamLineSpans({
       notes: this.notes.map(note => ({
         lineX: beamLineStartX(note.getStemX(), STEM_THICKNESS_PX),
@@ -188,7 +249,6 @@ export class EngravedBeam extends Beam {
       levelDenominator: Number(duration),
       breakIndexes: this.secondaryBreaks,
       forcedSides: this.forcedSides,
-      secondaryBreakTicks: this.renderOptions.secondaryBreakTicks,
       fractionalLength: FRACTIONAL_BEAM_LENGTH_PX,
     })
   }
@@ -197,11 +257,8 @@ export class EngravedBeam extends Beam {
    * ⭐ **S7c — where the beam's first line stands: ON THE FIRST STEM'S TIP**, read fresh. Before
    * {@link applyStemExtensions} that is the tip the slope was solved from; after it, the tip the stem
    * was lengthened to — which is what the drawn quads and the cross-bar overhang anchor on.
-   *
-   * ⛔ VexFlow's other branch (`renderOptions.flatBeams` with a `flatBeamOffset`) is not transcribed:
-   * nothing in this editor sets `flatBeams`, so `calculateFlatSlope` never runs either.
    */
-  override getBeamYToDraw(): number {
+  getBeamYToDraw(): number {
     return this.notes[0].getStemExtents().topY
   }
 
@@ -229,7 +286,10 @@ export class EngravedBeam extends Beam {
    * the same choice MuseScore makes (`closestChordsToBeam`). ⚠️ `line` is in VexFlow's units where
    * **1 = a whole space = two diatonic steps**, hence the doubling.
    */
-  private beamShape(stemDirection: number, stems: readonly BeamSlopeNote[]): BeamShape {
+  private beamShape(
+    stemDirection: number,
+    stems: readonly (BeamSlopeNote & { beamLevels: number })[],
+  ): BeamShape {
     const first = this.notes[0]
     const last = this.notes[this.notes.length - 1]
     const firstStem = stems[0]
@@ -242,50 +302,54 @@ export class EngravedBeam extends Beam {
       // ⭐ The two outer stem TIPS as they stand before any slope is solved — VexFlow's own
       // `getStemSlope`, which reads exactly this pair (`beam.js`).
       naturalRiseSpaces: Math.abs(lastStem.tipY - firstStem.tipY) / STAFF_SPACE_PX,
-      beamCount: this.getBeamCount(),
+      // VexFlow's `getBeamCount`: the most lines any note carries.
+      beamCount: stems.map(s => s.beamLevels).reduce((max, n) => (n > max ? n : max)),
     }
   }
 
   /**
-   * ⭐ **OURS as of P4a** — the lines, drawn through our own primitives.
+   * ⭐ The stems, then the lines, inside the beam's own group.
    *
-   * 🚨🚨 **The group is load-bearing and its ID is the seam**, exactly as it was for the stem: the
-   * element registry files a beam's hit box from `getBoundingBox()`, and `Element.getSVGElement()`
-   * resolves ink by `document.getElementById(prefix(id))`. ⛔ So this must open
-   * `openGroup('beam', this.getAttribute('id'))` exactly as VexFlow did.
+   * 🚨 **The group is load-bearing**: the browser suite and the renderer find a beam's ink — and the
+   * beamed stems inside it — as `g.vf-beam`, so keep `openGroup('beam', id)`.
    *
-   * ⚠️ **The stems keep the VexFlow context and that is deliberate**: `drawStems` hands it to each
-   * `Stem`, and an {@link EngravedStem} ignores it in favour of its own ink surface anyway
-   * (P3c). A plain `Stem` — nothing builds one here today — would still paint correctly.
-   *
-   * ⛔ VexFlow's `if (this.unbeamable) return` is NOT transcribed: the field is `private`, and in
-   * VexFlow 5 it is declared and never assigned (`private unbeamable?` in `beam.d.ts`, written
-   * nowhere in `beam.js`), so the guard is dead upstream. Reproducing it would mean casting to read
-   * a field that is always `undefined`.
+   * ⚠️ **The stems keep the VexFlow context and that is deliberate**: each is handed it, and an
+   * `EngravedStem` draws on its own ink surface anyway (P3c).
    */
-  override draw(): void {
-    const vex = this.checkContext()
-    const surface = this.inkSurface ?? vex
-    this.setRendered()
+  draw(): void {
+    const stemCtx = this.stemContext
+    if (!stemCtx) throw new Error('NoContext: No rendering context attached to the beam.')
+    const surface = this.inkSurface ?? stemCtx
     if (!this.postFormatted) this.postFormat()
 
-    surface.openGroup('beam', this.getAttribute('id'))
+    surface.openGroup('beam', this.id)
     try {
-      this.drawStems(vex)
+      this.drawStems(stemCtx)
       drawBeamLines(surface, this.beamLineInk(), this.beamThickness())
     } finally {
       surface.closeGroup()
     }
   }
 
+  /** VexFlow's `Beam.drawStems`: each stem is told its head x, then draws itself with its style. */
+  private drawStems(ctx: StemContext): void {
+    for (const note of this.notes) {
+      const stem = note.getStem()
+      if (!stem) continue
+      const stemX = note.getStemX()
+      stem.setNoteHeadXBounds(stemX, stemX)
+      stem.setContext(ctx).drawWithStyle()
+    }
+  }
+
   /** ⚠️ SIGNED by the stem direction — a stem-down beam stacks upward, and the sign carries it. */
   private beamThickness(): number {
-    return this.renderOptions.beamWidth * this.getStemDirection()
+    return this.beamWidth * this.stemDirection
   }
 
   /**
    * Every line of this beam, as ink — VexFlow's `drawBeamLines` loop with the four `ctx` calls
-   * lifted out. The x's come from `getBeamLines`, the y's from the slope this beam already solved.
+   * lifted out. The x's come from {@link getBeamLines}, the y's from the slope this beam solved.
    */
   private beamLineInk(): BeamLineInk[] {
     const firstStemX = this.notes[0].getStemX()
@@ -322,15 +386,15 @@ export class EngravedBeam extends Beam {
  *
  * ## ⭐ Why `setPartialBeamSideAt` is enough, and ⛔ NOT a half-measure
  *
- * `Beam.setPartialBeamSideAt` is public API (`beam.js:340`) and `lookupBeamDirection` consults it
- * **first** — but only on the `beamAlone` branch, i.e. a note alone at its beam level *between two
+ * `setPartialBeamSideAt` hands the side to the line walk (`engrave/beams/beamLineSpans`, VexFlow's
+ * `getBeamLines` transcribed), which consults it **first** — but only on the `beamAlone` branch, i.e. a note alone at its beam level *between two
  * notes that both lack that level*. That looks like a gap until you ask what the other branches are:
  *
  * | case | who decides | why it is not ours to choose |
  * |---|---|---|
  * | **first** note of a group | VexFlow ⇒ right | ⭐ forced — a left stub would leave the group, and Ross p. 124 / Gerou & Lusk p. 31 both say *"always inside the grouping"* |
  * | **last** note of a group | VexFlow ⇒ left | ⭐ forced, same rule, mirrored |
- * | after a secondary BREAK | VexFlow ⇒ right | that break is already OUR decision (`secondaryBreakIndices`) |
+ * | after a secondary BREAK | the walk ⇒ right | that break is already OUR decision (`secondaryBreakIndices`). 🚨 ⏸️ But the note BEFORE a break points LEFT even when it is the group's first — `docs/vexflow-removal-map.md` §9.4 #1 |
  * | **interior**, alone at its level | ⭐⭐ **US** | the only case where the metre has a free choice — and it is exactly Gould's |
  *
  * ⇒ **the hatch covers every case the books actually legislate.** `fractionalBeamSides` answers
@@ -341,7 +405,7 @@ export class EngravedBeam extends Beam {
  * for an interior note: a stub *outside* its group is the thing Gould's p. 157 *"and not"* figure is
  * rejected for.
  */
-export function applyFractionalBeamSides(beam: Beam, slots: readonly FractionalBeamSlot[]): void {
+export function applyFractionalBeamSides(beam: EngravedBeam, slots: readonly FractionalBeamSlot[]): void {
   const auto = fractionalBeamSides(
     slots.map(slot => ({
       start: slot.beat,
@@ -376,10 +440,7 @@ interface FractionalBeamSlot {
  * the real `SVGContext`, as it must while VexFlow's `draw()` still owns the stems, and a beam that
  * took its quads' surface from there would be invisible to `recordScene`.
  *
- * Takes `Beam[]` because that is what every caller holds.
  */
-export function drawBeamInkThrough(beams: readonly Beam[], ctx: DrawContext): void {
-  for (const beam of beams) {
-    if (beam instanceof EngravedBeam) beam.setInkSurface(ctx)
-  }
+export function drawBeamInkThrough(beams: readonly EngravedBeam[], ctx: DrawContext): void {
+  for (const beam of beams) beam.setInkSurface(ctx)
 }

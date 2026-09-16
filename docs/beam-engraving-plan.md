@@ -232,7 +232,7 @@ into a protected field.
 
 ⭐ Since then S7a–d of `docs/vexflow-removal-map.md` made every one of those answers ours
 (`engrave/beams/beamSlopeFit`, `beamedStems`, `beamLineSpans`); what is left of the base class is the
-object itself (S7e).
+object itself — and since S7e that is ours too: `EngravedBeam` no longer extends `Beam`.
 
 ⚠️ The stems keep the VexFlow context, deliberately: `drawStems` hands it to each `Stem`, and an
 `EngravedStem` ignores it in favour of its own ink surface anyway (P3c).

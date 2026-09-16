@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -1108,8 +1108,8 @@ export class VexFlowRenderer {
    * lines between the two notes, and it is their total that says the speed, so a three-stroke mark
    * on a beamed pair draws the beam plus two strokes.
    */
-  private buildTwoNoteTremoloBeams(slots: ChordRest[], staveNotes: StaveNote[]): Beam[] {
-    const beams: Beam[] = []
+  private buildTwoNoteTremoloBeams(slots: ChordRest[], staveNotes: StaveNote[]): EngravedBeam[] {
+    const beams: EngravedBeam[] = []
     for (const { first, second, beamed } of this.twoNoteTremoloPairs(slots, staveNotes)) {
       if (!beamed) continue
       try {
@@ -2966,9 +2966,9 @@ export class VexFlowRenderer {
      *  A lane whose barline is open cannot be grouped from its own slots alone — a leading
      *  `continue` reads as an orphan — so the plan's answer replaces the per-bar one. */
     inBarGroups?: number[][],
-  ): { beams: Beam[]; fanJoins: FanJoin[] } {
+  ): { beams: EngravedBeam[]; fanJoins: FanJoin[] } {
     const groupIndices = inBarGroups ?? computeBeamGroups(sortedSlots, meter)
-    const beams: Beam[] = []
+    const beams: EngravedBeam[] = []
     const fanJoins: FanJoin[] = []
 
     for (const indices of groupIndices) {
@@ -3104,7 +3104,7 @@ export class VexFlowRenderer {
     // {@link beamLineStartX} answers where a line sits on its stem. What stays here is the only part
     // that is genuinely the renderer's — where the stub ENDS, which depends on `measureBounds`.
     const firstStemX = noteRuler(staveNotes[0]).stemX
-    const beamThickness = beam.renderOptions.beamWidth * beam.getStemDirection()
+    const beamThickness = beam.beamWidth * beam.getStemDirection()
     const beamY0 = beam.getBeamYToDraw()
     const overhang = (edge: StaveNote, direction: number, levels: number) => {
       const startX = beamLineStartX(noteRuler(edge).stemX, STEM_THICKNESS_PX)
@@ -3182,7 +3182,7 @@ export class VexFlowRenderer {
   /** Hit-testing entry for a joined beam, filed under the bar its side starts in. Added after every
    *  measure's registry slice was captured, so it is re-added fresh each render and never lands in
    *  a snapshot that could replay it twice. */
-  private registerCrossBarBeam(beam: Beam, measure: number): void {
+  private registerCrossBarBeam(beam: EngravedBeam, measure: number): void {
     try {
       const box = beam.getBoundingBox()
       if (box) {
@@ -3531,7 +3531,7 @@ export class VexFlowRenderer {
     }
   }
 
-  private registerBeams(beams: Beam[], measure: Measure): void {
+  private registerBeams(beams: EngravedBeam[], measure: Measure): void {
     for (const beam of beams) {
       try {
         const box = beam.getBoundingBox()
