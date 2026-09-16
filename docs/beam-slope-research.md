@@ -450,7 +450,8 @@ Each is a place where the tradition says something we do not currently say.
    outside the staff where the rule does not apply, 63% of the rest are already attached by accident,
    and the failures are *caused by the odd rises* — so it is ~one end in ten, and **half of that would
    fix itself if the rise were quantised** (§3.1b). ⛔ It also moves stem LENGTHS (Ross's `(¼)`
-   straddle supplement), so it belongs with **P3e**, not before it.
+   straddle supplement), so it belongs with **S7's beam stem extensions** (P3e itself landed 2026-09-16 and
+   took the stem's REACH, ⛔ not a beamed note's extension), not before them.
 2. ⭐ **Cap the RISE instead of the angle?** One table, seven rows (MuseScore's, which is Ross's).
    Changes wide intervals in wide bars; leaves 2nds and 3rds where they are.
 3. ⭐⭐ **Add the horizontal-distance rule?** *"Closer than three spaces ⇒ ¼ or ½ regardless of
@@ -522,4 +523,4 @@ the reason is a rule from the same book whose spacing law we already run.
 pixel moved"*; this one changes beams he has been looking at for months, by a quarter of a stave-space
 on most of them. ⇒ one rule, one commit, his eye between.
 
-⛔ #1 waits for P3e — it is where the ruler, the stem lengths and the ink all meet.
+⛔ #1 waited for P3e — it is where the ruler, the stem lengths and the ink all meet. ⭐ **P3e landed on 2026-09-16** (`engrave/notes/stemLength`, S6e), so the gate is the sentence below rather than the code: ⚠️ the stem's own REACH is ours, but how much a BEAMED note extends its stem is still VexFlow's (`applyStemExtensions`, S7) — and #1's straddle supplement moves exactly that. ⇒ #1 now belongs with **S7**, and is no longer blocked on the stem's length.

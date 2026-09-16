@@ -59,7 +59,7 @@ IS the migration's progress**, the same number `lint:paint` reports from the oth
 | **P3b** | **the flag** | ⭐ the only piece with **no owner at all** — no selection kind, no anchor map, no registry entry — and 🚨 it is §3's **bug class in the open**: VexFlow places it with a runtime `measureText` | ✅ **2026-09-01** |
 | **P3c** | **the stem's INK** | ⭐ a third element with **three owners** (VexFlow's `Stem.draw` + `FanPass` twice); ⛔ the LENGTH left behind deliberately — see below | ✅ **2026-09-01** |
 | **P3d** | **the noteheads** | ⭐ the last drawing call, and it needs **no engraving opinion**: the glyph is chosen by duration, the x by our own column solve, the y by the staff line. ⚠️ Its ink stayed INLINE in `EngravedNote` until 2026-09-01, when it moved to **`engrave/notes/noteheads.ts`** beside its three siblings — see §1d.5 | ✅ **2026-09-01** |
-| **P3e** | ⏳ **the stem's LENGTH** | ⛔ **gated**: `docs/stem-length-research.md` must state the rule first (§6.1 of the parent) | ⏭️ |
+| **P3e** | **the stem's LENGTH** | ⛔ was **gated** on `docs/stem-length-research.md` stating the rule first (§6.1 of the parent) — ⭐ and the research CONFIRMED the inherited number rather than replacing it: 3½ stave-spaces from the notehead centre, four treatises for four, which is exactly `Tables.STEM_HEIGHT` = 35. `engrave/notes/stemLength` + `STEM_LENGTH_PX`; no pixel moved | ✅ **2026-09-16** |
 | **P3f** | **the MODIFIERS — the accidental and the augmentation dot** | ⭐ they draw from inside a head's group, and both are selectable kinds with registered hit boxes. 🚨 **And they were the last glyph ink on an ordinary bar, invisible to the gauge**: `lint:paint` counts `vexContext`, and a modifier never mentions it — see §1f | ✅ **2026-09-14** |
 | **P3g** | **the ARTICULATION** | ⚠️ This row used to read *"⛔ **not ink alone**: its `draw()` is a placement RULE (above/below, clear of the staff, between lines), so it is gated on research the way the stem's length is"* — ⭐⭐ **and the correction is the step's whole finding: the ink IS separable, just not at `draw()`.** Cut at `renderText` and the rule keeps its ONE owner — see §1g | ✅ **2026-09-14** |
 | **last** | the pointer rect + `getBoundingBox` | ⛔ **DEFERRED TO P1e — his call, 2026-09-01.** It is not ink and it is not a P3 question; **§1e** has the audit | ⏸️ |
@@ -271,16 +271,32 @@ glyph down could never be painted to PDF or recorded as a scene. Both files now 
 
 ---
 
-## 1c. ✅ P3c — THE STEM'S INK (2026-09-01), ⛔ and NOT its length
+## 1c. ✅ P3c — THE STEM'S INK (2026-09-01), and ✅ P3e — its LENGTH (2026-09-16)
 
 ### 1c.1 The split, and it is the whole point of the commit
 
-⛔ **P3c did not take the stem's LENGTH.** `own-engraving-engine.md` §6.1 lists stem length among
+⛔ **P3c did not take the stem's LENGTH.** `own-engraving-engine.md` §6.1 listed stem length among
 the places *"where we currently have no opinion"*, and its own rule is that a re-implementation
-without an opinion is **strictly worse than a dependency**. ⭐ The opinion turns out to exist — Gould
-prints it on pp. 16–19 — so `docs/stem-length-research.md` is being written before a line of it is
-coded. ⛔ Taking the length now would be inventing a rule, which is the failure mode this project
-catches hardest.
+without an opinion is **strictly worse than a dependency**. ⛔ Taking the length then would have been
+inventing a rule, which is the failure mode this project catches hardest.
+
+⭐⭐ **THE GATE OPENED, AND THE ANSWER WAS THE NUMBER WE ALREADY HAD — P3e, 2026-09-16.**
+`docs/stem-length-research.md` found **four treatises for four**, saying the same thing in the same
+words: *a stem is one octave long, 3½ stave-spaces, measured from the CENTRE of the notehead* (Gould
+p. 14, Ross p. 83, Stone p. 47, Gerou & Lusk p. 137). ⭐ And `Tables.STEM_HEIGHT` is 35 px = 3.5 × 10.
+⇒ the length moved into `engrave/notes/stemLength` (`stemExtents`, `stemLineHeight`) with
+`STEM_LENGTH_PX` in `inheritedDefaults` — **the one row in that table the research confirms rather
+than disputes** — and no pixel moved. Verified against a plain `Stem` over 2,700 combinations of head
+span, direction, extension and both y-offsets.
+
+⭐ **The general lesson, and it is worth more than the stem**: *"we have no opinion"* is a claim with a
+DATE on it. Before treating a port as gated, check whether the opinion has since been written down —
+§6.1's list was written before the research library existed.
+
+⛔ **What P3e did NOT take**: how much EXTENSION a note asks for — a flag's overhang, the per-duration
+beam table, and the ramp that makes a stem reach the middle stave-line (the research's rule 2). It
+reads a MEASURED flag height and is the NOTE's question, not the stem's; it arrives as an input.
+⏭️ It meets `applyStemExtensions` from the other end in `docs/beam-engraving-plan.md` §54.
 
 ⭐ **So the ink came alone, and it earned the trip on its own**, for P3a's reason: three owners.
 

@@ -1,10 +1,23 @@
 # What decides a STEM — its LENGTH, its ATTACHMENT, its THICKNESS
 
-> 📄 This document is the gate on `docs/note-engraving-plan.md` **P3e**. That plan stopped at the
-> stem's INK (§1c) *"⛔ and NOT its length"*, because `docs/own-engraving-engine.md` §6.1 lists stem
-> length among the places *"where we currently have no opinion"* and its own rule is that a
-> re-implementation with no stated rule is **strictly worse than a dependency**. So: the rule first,
-> the code after. ⛔ **This document proposes nothing and names no file to edit.**
+> 📄 This document was the gate on `docs/note-engraving-plan.md` **P3e** — ⭐ **and the gate opened on
+> 2026-09-16.** The plan had stopped at the stem's INK (§1c) *"⛔ and NOT its length"*, because
+> `docs/own-engraving-engine.md` §6.1 listed stem length among the places *"where we currently have no
+> opinion"* and its own rule is that a re-implementation with no stated rule is **strictly worse than a
+> dependency**. So: the rule first, the code after.
+>
+> ⭐⭐ **WHAT §1 FOUND IS NOW CODE, AND IT MOVED NO PIXEL.** The 3½-space rule is
+> `STEM_LENGTH_PX` in `engine/engrave/inheritedDefaults` — ⭐ the one row in that table this library
+> CONFIRMS rather than disputes, because `Tables.STEM_HEIGHT` was already 35 px = 3.5 × 10 — and the
+> reach is `engine/engrave/notes/stemLength` (`stemExtents`, `stemLineHeight`), answered by
+> `EngravedStem`. S6e of `docs/vexflow-removal-map.md`.
+>
+> ⏳ **What this document still gates**, and neither is decided by that number: the **ATTACHMENT**
+> point (§4) and the **short-note minimums**. ⛔ Also still VexFlow's: how much EXTENSION a note asks
+> for — a flag's overhang, the per-duration beam table, and the reach to the middle line (§1 rule 2) —
+> which meets `applyStemExtensions` from the other end in `docs/beam-engraving-plan.md`.
+>
+> ⛔ **Beyond that gate, this document proposes nothing and names no file to edit.**
 >
 > **Sources**: four treatises on disk, all read on RENDERED pages, never from the OCR layer
 > (`reference/README.md` says why). **Gould: PDF page = printed page + 20. Ross: PDF page = printed

@@ -267,7 +267,7 @@ Owed a **decision, not research**: the doc already holds the sources.
 - `SIGN_SEPARATION_SPACES` 0.40 sp, layout/systemStartColumn.ts:82 — a font value borrowed for a gap no book states. braces-brackets-research.md §3.8 answers **UNKNOWN — checked, genuinely absent**.
 - `INK.ledgerLeft/Right` ±0.30 sp overhang, layout/spacingPadding.ts:95-96 — VexFlow's value, not the font's 0.4. font-metrics-plan.md §3.6 #5; accidental-dot-research.md §4 A5.
 - `Stem.WIDTH` 1.5 px @10 = 0.15 sp, engrave/notes/stem.ts:38 — "Nothing supports what we draw … it is HIS call". stem-length-research.md §3.4, §5.4; note-engraving-plan.md §1c.3.
-- stem LENGTH 3.5 sp (VexFlow `STEM_HEIGHT`), engrave/notes/stem.ts:6 — stem-length-research.md (whole doc); note-engraving-plan.md §3.4.
+- ✅ **stem LENGTH 3.5 sp — DECIDED, and the decision was *keep it*.** Now `STEM_LENGTH_PX`, engrave/engrave/inheritedDefaults.ts, used by engrave/notes/stemLength.ts (S6e / P3e, 2026-09-16). ⭐ The one row in that table the research CONFIRMS: four treatises for four state 3½ stave-spaces from the notehead centre, which is exactly VexFlow's `STEM_HEIGHT` = 35. stem-length-research.md §1. ⏳ Still owed by that doc: the ATTACHMENT point (§4) and the short-note minimums.
 - small (mid-score) clef ⅔, engrave/header/clef.ts:34 — VexFlow's. clef-research.md §3 (Gerou & Lusk 75%, Gould ⅔).
 - meter row gap 2.0 sp, engrave/header/meter.ts:39-51 — "UNKNOWN IN EVERY BOOK". header-spacing-research.md §2.8 row H.
 - meter `lineShift` ±½ line, engrave/header/meter.ts:41 — "an unsourced compensation of theirs" (VexFlow). header-spacing-research.md §4.2.

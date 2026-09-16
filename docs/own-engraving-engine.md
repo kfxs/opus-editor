@@ -909,12 +909,15 @@ order they come back in, what each one costs, and the research per piece.
 > pp. 16–19 and nobody had looked. ⭐ The parent's own lesson (§3.1): *"we have no opinion" is a claim
 > about the library shelf, and this project's shelf has to be re-checked per feature.*
 
-> ✅ **P3c — the STEM'S INK (2026-09-01), ⛔ and NOT its length.** §6.1 lists stem length among the
-> places *"where we currently have no opinion"*, and its own rule is that a re-implementation without
-> an opinion is **strictly worse than a dependency** — so the length waits on
-> `docs/stem-length-research.md` (Gould prints the rules on her pp. 16–19). ⭐ The ink earned the trip
-> alone: **three owners again** — `Stem.draw` plus `FanPass` twice, the latter two being the same four
-> lines written out in both places.
+> ✅ **P3c — the STEM'S INK (2026-09-01), ⛔ and NOT its length** — ⭐ **and ✅ P3e, the LENGTH, on
+> 2026-09-16.** §6.1 listed stem length among the places *"where we currently have no opinion"*, so the
+> length waited on `docs/stem-length-research.md`; that research then found four treatises for four and
+> — ⭐⭐ the happy part — **the rule they state is the number the editor already drew** (3½ stave-spaces
+> = `Tables.STEM_HEIGHT` = 35). `engrave/notes/stemLength` + `STEM_LENGTH_PX`, verified over 2,700
+> combinations against a plain `Stem`, **no pixel moved**. ⛔ The note's EXTENSION (a flag's overhang,
+> the beam table, the reach to the middle line) is NOT taken — it reads a measured flag height and is
+> the note's question. ⭐ The ink had earned its own trip first: **three owners again** — `Stem.draw`
+> plus `FanPass` twice, the latter two being the same four lines written out in both places.
 >
 > 🚨 **It is the first piece with a DOWNSTREAM READER, and the seam is an ID.** The editor resolves a
 > stem's ink by `getStem().getSVGElement()` → `getElementById(prefix(attrs.id))`, then recolours the
@@ -998,7 +1001,7 @@ and hooks.
 > `engine/engrave/beams/beamSlope.ts` with a console instrument, the active one is `vexflow`, and
 > **no pixel moved**. ⭐ *"We have no opinion"* (§6.1) can be answered by BUILDING THE OPINIONS AND
 > LETTING HIM LOOK — a third option beside "invent a rule" and "keep the dependency".
-> ⏳ What is left is the hooks (P4c), still ⛔ gated on research the way P3e is.
+> ⏳ What is left is the hooks (P4c) — ⚠️ and the gate has MOVED: `docs/beam-hook-research.md` was finished on 2026-09-01, so P4c is now waiting on **his decisions** (§7 of that doc), ⛔ not on research. ⭐ The same thing happened to P3e, which landed 2026-09-16 once someone re-read its research doc — see §6.1's table.
 
 ### P5 — The staff and the header
 `engine/layout/headerInk.ts` already **measures** what a clef and a meter cost; `Stave` still
@@ -1734,6 +1737,24 @@ rule, her accidental-column zig-zag, LilyPond's `space-alist`, the log law, Muse
 currently have no opinion**, and a re-implementation without an opinion is strictly worse than a
 dependency. This is `vexflow-boundary.md` §4's test, and it still binds — it is why P3 and P4 need
 research committed *before* code, the way the slur and spacing work did.
+
+> 🚨🚨 **THE LIST ABOVE HAS A DATE ON IT, AND TWO OF ITS THREE ENTRIES HAVE SINCE BEEN ANSWERED.**
+> ⛔ Do not read this paragraph as a standing verdict. It was written before the research library
+> existed, and *"we have no opinion"* is a claim about the SHELF at a moment — §3.1's own lesson,
+> which this section then went on to fail twice.
+>
+> | §6.1 said | since |
+> |---|---|
+> | **stem lengths** | ✅ **ANSWERED and TAKEN.** `docs/stem-length-research.md`: four treatises for four, *a stem is one octave, 3½ stave-spaces, from the CENTRE of the notehead* (Gould p. 14, Ross p. 83, Stone p. 47, Gerou & Lusk p. 137). ⭐⭐ And it is **exactly the number the editor already drew** (`Tables.STEM_HEIGHT` = 35), so `engrave/notes/stemLength` took it with no pixel moving — P3e / S6e, 2026-09-16 |
+> | **beam hooks** | ✅ **the RESEARCH is answered** — `docs/beam-hook-research.md`, done 2026-09-01, and ⭐ *"unlike the slope, this one is not a taste call"*: books and engines agree, and we disagree with all of them on two measured counts. ⏳ **But P4c has not landed and §7's decision list is HIS** — ⛔ research answered ≠ decided |
+> | **accidental columns** | ⏳ still open, and it is now the only one of the three |
+>
+> ⭐ **The rule that replaces the paragraph**: before treating a port as gated on *"no opinion"*, ⛔
+> never trust this list — **grep `reference/README.md` and the feature's own research doc first.**
+> Twice now the opinion was already written down and the gate was the stale sentence, not the work.
+>
+> ⚠️ And the gate itself was still right both times: the *order* (research, then code) is what made
+> both of those ports safe. ⛔ The correction is to the list, not to the rule.
 
 ⭐ **…and §6.7 is why this is much less binding than it looks.** Read them together.
 
