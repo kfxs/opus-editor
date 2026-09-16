@@ -25,6 +25,11 @@
  * - a line that runs to its last note and was broken there by a secondary break is NOT given a
  *   stub (its end was just set, so the `end === undefined` test never passes);
  * - the recursion for an interior stub asks each coarser level in turn and gives up LEFT at the primary.
+ *
+ * ⏸️ **TODO / REVIEW after the VexFlow removal** (`docs/vexflow-removal-map.md` §9.4 #1): the two
+ * secondary-BREAK branches never read {@link BeamLevelInput.forcedSides}, so the beat rule
+ * (`./fractionalBeam`) does not reach a note next to a break — and a group's FIRST note with a break
+ * right after it points LEFT, out of the group. Kept as VexFlow drew it: fixing it moves stubs.
  */
 
 /**

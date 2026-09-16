@@ -41,6 +41,8 @@
  * Gerou & Lusk both state *"always inside the grouping"*, so the first note's can only point right
  * and the last note's can only point left — containment, not metre. VexFlow already gets both right,
  * and this module is never consulted for them (see {@link fractionalBeamSide}'s callers).
+ * 🚨 ⏸️ **Except next to a secondary break** — there the first note points LEFT, and no interior told
+ * side is read either. TODO / REVIEW after the VexFlow removal: `docs/vexflow-removal-map.md` §9.4 #1.
  * ⇒ ⭐ the only genuinely free case is an **interior** note, which is exactly where the rule speaks.
  *
  * ⛔ **The LENGTH is not here.** Every source says one notehead and we draw 0.9 sp; that is decision

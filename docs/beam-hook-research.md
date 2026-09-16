@@ -158,6 +158,11 @@ note after a break points right; everything else, including the final fallback
 *"always inside"*. So the failure is precise: **the containment rule is honoured, the beat rule is
 absent.**
 
+🚨 **CORRECTION (2026-09-16): not every branch.** A note a SECONDARY BREAK falls right after takes the
+`else if (shouldBreak)` branch and points LEFT even when it is the group's FIRST note — four
+semiquavers with a break before the second draw the first one's stub outside the group. ⏸️ TODO /
+REVIEW after the VexFlow removal: `docs/vexflow-removal-map.md` §9.4 #1.
+
 ### 4.1 …and the LENGTH is wrong too, independently of the side
 
 `partialBeamLength: 10` (`beam.js:323`), and the drawn stub measures **9.0 px** against
@@ -267,7 +272,8 @@ groups — without reimplementing `getBeamLines`.
 `beamAlone` branch (a note alone at its level *between two notes that both lack that level*). The
 `!nextNoteGetsBeam` branch and the trailing `lastBeam` fallback ignore forced directions entirely.
 ⭐ Gould's failing ⅜ bar **is** a `beamAlone` case, so the hatch covers the measured defect — but it
-does not cover a run of two semiquavers, or the last note of a group. A complete **B** means owning
+does not cover a run of two semiquavers, the last note of a group, or a note next to a secondary
+break (⏸️ TODO / REVIEW, `docs/vexflow-removal-map.md` §9.4 #1). A complete **B** means owning
 `getBeamLines`, which is P4c proper.
 
 ⭐ **`getBeamLines` IS OURS since S7d** (`engine/engrave/beams/beamLineSpans`, VexFlow's walk transcribed

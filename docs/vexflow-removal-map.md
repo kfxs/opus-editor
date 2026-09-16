@@ -522,6 +522,16 @@ The map's counts (§0) are USES; this section is the NAMES, measured 2026-09-14:
 
 ---
 
+### 9.4 ⏸️ TODO / REVIEW after the removal — found during it, ⛔ not part of it
+
+A port copies VexFlow's rule exactly, so a WRONG rule found on the way is written down here and left
+alone: fixing it moves pixels, and that is not what "remove VexFlow" means (his call, 2026-09-16).
+⏭️ **Review this list once S14 is done.**
+
+| # | found in | what | why it waits |
+|---|---|---|---|
+| 1 | S7d, his screenshot 2026-09-16 | **A fractional beam next to a SECONDARY BREAK ignores the beat rule** and can point OUT of its group. Four semiquavers C D E F with a break before D: C's second-level stub points LEFT, outside the group. The beat rule (decision B of `beam-hook-research.md`, decided and built in P4c) says RIGHT, and so does *"always inside the grouping"*. ⚠️ Cause: P4c could only reach VexFlow's walk through `setPartialBeamSideAt`, which is read on ONE branch (a note alone between two neighbours without the level); the break branches never read it, and `fractionalBeamSides` answers `null` for a group's first and last notes on the (false) belief that the walk keeps those inside. ⭐ Proposed fix, now that the walk is ours (`engine/engrave/beams/beamLineSpans`): honour the told side on the break branches too, and keep a group's first note RIGHT and its last LEFT | a rule change that moves stubs; verified identical to VexFlow before and after S7d, so it is old, ⛔ not a regression |
+
 ## 10. ⚠️ Where this contradicts `own-engraving-engine.md`
 
 | # | the doc says | the measurement says | evidence |
