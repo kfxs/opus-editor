@@ -99,6 +99,7 @@ import { BARLINE_BOX_STRADDLE_PX, barlineSignExtent, ownEndSignKind, repeatStart
 import type { Column } from '@/engine/layout/spacing'
 import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
+import { attachModifierColumns } from './modifierColumns'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import {
   previewMarkFamily, type PassEntry, type MarkPreviewKind, type RenderSnapshot,
@@ -2191,7 +2192,10 @@ export class VexFlowRenderer {
         // full ask when the bar could pay it, less when `MAX_MEASURE_WIDTH` clamped the bar. Shares
         // sum to one, which is what keeps a dense fan from pushing the notes after it through the
         // barline (`fanRoom.ts`). Per lane: each voice fills the bar, so each divides it.
-        const formatter = new Formatter().joinVoices(vexVoices)
+        // ⭐ S9b — the modifier contexts are OURS (`./modifierColumns`), built where `joinVoices`
+        //   built VexFlow's; the formatter below finds them already attached.
+        attachModifierColumns(vexVoices)
+        const formatter = new Formatter()
         formatter.format(vexVoices, formatWidth)
         // ⭐⭐ P4 — the model places the columns, and VexFlow's softmax stops deciding anything
         //     horizontal. Between `format()` and `draw()`, so beams, ties, tuplets and the registry
