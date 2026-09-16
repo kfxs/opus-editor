@@ -18,8 +18,9 @@
  *
  * ## ⛔ What this does NOT take, and it is the larger half
  *
- * ⛔ **Which x's a beam line runs between** (`getBeamLines`) and where its first line stands
- * (`getBeamYToDraw`) are still VexFlow's, called as public API. ⭐ **What SLOPE it takes is ours as of
+ * ⛔ **Which x's a beam line runs between** (`getBeamLines`) is still VexFlow's, called as public
+ * API. ⭐ **Where its first line stands is ours as of S7c** ({@link EngravedBeam.getBeamYToDraw}).
+ * ⭐ **What SLOPE it takes is ours as of
  * S7a** (`engrave/beams/beamSlopeFit`, answered by {@link EngravedBeam.calculateSlope}), and ⭐ **how far
  * each stem runs to meet it as of S7b** (`engrave/beams/beamedStems`, {@link EngravedBeam.applyStemExtensions}).
  *
@@ -34,7 +35,7 @@
  * VexFlow's `RenderContext`, so an override could not be typed without naming that type — which is
  * the one thing `npm run lint:paint` refuses outside its allowlist. Overriding the public `draw()`
  * instead keeps the adapter honest: every number it reads (`notes`, `slope`, `renderOptions`,
- * `getBeamLines`, `getBeamYToDraw`) is public, and the body below is VexFlow's own
+ * `getBeamLines`) is public, and the body below is VexFlow's own
  * arithmetic moved rather than rewritten.
  */
 import { Beam, Stem } from 'vexflow'
@@ -142,6 +143,18 @@ export class EngravedBeam extends Beam {
       stem.setExtension(beamedStemExtension({ ...reading, extension: stem.getExtension() }, line))
       stem.adjustHeightForBeam()
     }
+  }
+
+  /**
+   * ⭐ **S7c — where the beam's first line stands: ON THE FIRST STEM'S TIP**, read fresh. Before
+   * {@link applyStemExtensions} that is the tip the slope was solved from; after it, the tip the stem
+   * was lengthened to — which is what the drawn quads and the cross-bar overhang anchor on.
+   *
+   * ⛔ VexFlow's other branch (`renderOptions.flatBeams` with a `flatBeamOffset`) is not transcribed:
+   * nothing in this editor sets `flatBeams`, so `calculateFlatSlope` never runs either.
+   */
+  override getBeamYToDraw(): number {
+    return this.notes[0].getStemExtents().topY
   }
 
   /**

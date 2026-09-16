@@ -18,6 +18,7 @@ import {
   beamLevelRun, beamLineStartX, beamRunInkBox, fillBeamQuad,
   drawBeamLines as fillBeamRun,
 } from '@/engine/engrave/beams/beamLines'
+import { beamLineYAt } from '@/engine/engrave/beams/beamSlopeFit'
 import { EngravedBeam, applyFractionalBeamSides, drawBeamInkThrough } from './EngravedBeam'
 import { EngravedStave, drawStaveInkThrough } from './EngravedStave'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -3110,9 +3111,9 @@ export class VexFlowRenderer {
       const endX = this.crossSystemOverhangEndX(side, startX, direction, scale)
       fillBeamRun(pass.context, beamLevelRun(
         { startX, endX }, beamY0, beamThickness, levels,
-        // ⚠️ The group's own slope, continued past its last stem — VexFlow's `getSlopeY`, which is
-        // why the callback exists rather than a slope number: `engrave/` may not import vexflow.
-        (x, baselineY) => beam.getSlopeY(x, firstStemX, baselineY, beam.slope),
+        // ⚠️ The group's own slope, continued past its last stem — the same line the beam's own
+        // quads are drawn on (`engrave/beams/beamSlopeFit`).
+        (x, baselineY) => beamLineYAt(firstStemX, baselineY, beam.slope, x),
       ), beamThickness)
     }
     if (side.openLeft) overhang(staveNotes[0], -1, side.crossingLeft ?? 0)
