@@ -19,13 +19,14 @@
  * | `verovio` | a step ladder in half-spaces, with a duration guard | ✅ built |
  *
  * ⚠️ **What the seam can and cannot express today, stated so the door is visibly open.** A rule here
- * returns a **BUDGET** — the most the beam may climb — and VexFlow's own solver then picks the best
- * slope within it, which is what keeps its stem-safety behaviour (a beam never cuts through an inner
- * note's stem). ⛔ **A rule that wants to CHOOSE the rise outright rather than bound it** — LilyPond's
- * damping and Verovio's step ladder both do — needs one more line in the adapter:
- * `EngravedBeam.postFormat` would assign `this.slope` after `super.postFormat()` and call
- * `applyStemExtensions()` again. That is a small change *inside this seam*, ⛔ not a redesign — and it
- * is deliberately not written until somebody is actually comparing the two.
+ * returns a **BUDGET** — the most the beam may climb — and the search in `./beamSlopeFit` (VexFlow's,
+ * ours since S7a) then picks the best slope within it, which is what keeps its stem-safety behaviour
+ * (a beam never cuts through an inner note's stem). ⛔ **A rule that wants to CHOOSE the rise outright
+ * rather than bound it** — LilyPond's damping and Verovio's step ladder both do — needs one more line
+ * in the adapter: `EngravedBeam.calculateSlope` would take the chosen slope instead of searching (the
+ * stems are lengthened AFTER it, so nothing has to be re-run). That is a small change *inside this
+ * seam*, ⛔ not a redesign — and it is deliberately not written until somebody is actually comparing
+ * the two.
  *
  * ## What the active rule says, in one sentence
  *

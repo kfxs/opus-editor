@@ -169,10 +169,10 @@ left out**, which is the middle ground between yesterday's picture and the flatt
 - ⭐ `ACTIVE_BEAM_SLOPE_RULE` is **one identifier**. Comparing two algorithms is that word plus
   `npm run dev`.
 - ⚠️ **One honest limit, written down so it is not discovered later**: a rule currently returns a
-  **budget** (the most a beam may climb) and VexFlow's own solver picks inside it. LilyPond and
-  Verovio both want to **choose** the rise outright. ⇒ that needs one more line in
-  `rendering/EngravedBeam.postFormat` — assign `this.slope` after `super.postFormat()` and re-run
-  `applyStemExtensions()`. ⛔ Deliberately not written until somebody is actually comparing, because
+  **budget** (the most a beam may climb) and the search picks inside it — VexFlow's solver, ours
+  since S7a (`engrave/beams/beamSlopeFit`). LilyPond and Verovio both want to **choose** the rise
+  outright. ⇒ that needs one more line in `rendering/EngravedBeam.calculateSlope` — take the chosen
+  slope instead of searching (the stems are lengthened after it, so nothing is re-run). ⛔ Deliberately not written until somebody is actually comparing, because
   an untested branch that exists is worse than a documented one that does not.
 - ⏭️ **If comparing by eye on the same page becomes the job**, the next step is a dev-only setter so
   the rule can be swapped without a rebuild. ⛔ Not built — nobody has asked yet.
