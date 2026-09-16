@@ -17,7 +17,7 @@
  *
  * - **How steep it may be** — the budget is `./beamSlope`'s question (its rows are HIS open
  *   comparison), and it arrives here as `range`.
- * - **Lengthening the stems to the chosen line** — `Beam.applyStemExtensions`, S7b.
+ * - **Lengthening the stems to the chosen line** — `./beamedStems` (S7b).
  * - **A flat beam** (`Beam.calculateFlatSlope`) — only runs under `renderOptions.flatBeams`, which
  *   nothing in this editor sets.
  *
@@ -71,6 +71,11 @@ export interface BeamSlopeFit {
   lift: number
 }
 
+/** The beam line's y at `x`, for a line through (`firstX`, `firstY`) — VexFlow's `Beam.getSlopeY`. */
+export function beamLineYAt(firstX: number, firstY: number, slope: number, x: number): number {
+  return firstY + (x - firstX) * slope
+}
+
 /** ⭐ The cheapest slope within ±`range` — see the module header. */
 export function fitBeamSlope({ stemDirection, notes, range: budget }: BeamSlopeInput): BeamSlopeFit {
   const range = Math.max(budget, FLAT_SLOPE_RANGE)
@@ -90,7 +95,7 @@ export function fitBeamSlope({ stemDirection, notes, range: budget }: BeamSlopeI
     for (let i = 1; i < notes.length; ++i) {
       const note = notes[i]
       if (!note.counts) continue
-      const lineY = first.tipY + (note.stemX - first.stemX) * slope + liftHere
+      const lineY = beamLineYAt(first.stemX, first.tipY, slope, note.stemX) + liftHere
       if (note.tipY * stemDirection < lineY * stemDirection) {
         // The line would cross this stem: move all of it out, and charge every note so far.
         const diff = Math.abs(note.tipY - lineY)

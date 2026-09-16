@@ -18,10 +18,10 @@
  *
  * ## ⛔ What this does NOT take, and it is the larger half
  *
- * ⛔ **Which x's a beam line runs between** (`getBeamLines`), how far the stems are lengthened to
- * meet it (`applyStemExtensions`) and where its first line stands (`getBeamYToDraw`) are still
- * VexFlow's, called as public API. ⭐ **What SLOPE it takes is ours as of S7a**
- * (`engrave/beams/beamSlopeFit`, answered by {@link EngravedBeam.calculateSlope}).
+ * ⛔ **Which x's a beam line runs between** (`getBeamLines`) and where its first line stands
+ * (`getBeamYToDraw`) are still VexFlow's, called as public API. ⭐ **What SLOPE it takes is ours as of
+ * S7a** (`engrave/beams/beamSlopeFit`, answered by {@link EngravedBeam.calculateSlope}), and ⭐ **how far
+ * each stem runs to meet it as of S7b** (`engrave/beams/beamedStems`, {@link EngravedBeam.applyStemExtensions}).
  *
  * ⭐⭐ **…except the fractional beams' SIDE, which is ours as of P4c** — the opinion §6.1 of
  * `own-engraving-engine.md` said we did not have is now written down (`docs/beam-hook-research.md`:
@@ -34,7 +34,7 @@
  * VexFlow's `RenderContext`, so an override could not be typed without naming that type — which is
  * the one thing `npm run lint:paint` refuses outside its allowlist. Overriding the public `draw()`
  * instead keeps the adapter honest: every number it reads (`notes`, `slope`, `renderOptions`,
- * `getBeamLines`, `getSlopeY`, `getBeamYToDraw`) is public, and the body below is VexFlow's own
+ * `getBeamLines`, `getBeamYToDraw`) is public, and the body below is VexFlow's own
  * arithmetic moved rather than rewritten.
  */
 import { Beam, Stem } from 'vexflow'
@@ -43,7 +43,8 @@ import type { FractionalBeamSide, NoteDuration } from '@/types/music'
 import type { Fraction } from '@/utils/fraction'
 import { type BeamLineInk, beamLevelY, drawBeamLines } from '@/engine/engrave/beams/beamLines'
 import { type BeamShape, beamRiseCap } from '@/engine/engrave/beams/beamSlope'
-import { type BeamSlopeNote, fitBeamSlope } from '@/engine/engrave/beams/beamSlopeFit'
+import { type BeamSlopeNote, beamLineYAt, fitBeamSlope } from '@/engine/engrave/beams/beamSlopeFit'
+import { beamedStemExtension } from '@/engine/engrave/beams/beamedStems'
 import { fractionalBeamSides } from '@/engine/engrave/beams/fractionalBeam'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { armedBeamSlopeRule } from './beamSlopeExperiment'
@@ -102,11 +103,7 @@ export class EngravedBeam extends Beam {
   override calculateSlope(): void {
     const stemDirection = this.getStemDirection()
     // ⚠️ Read ONCE, before the stems are lengthened — the shape and the search both want these tips.
-    const notes = this.notes.map(note => ({
-      stemX: note.getStemX(),
-      tipY: note.getStemExtents().topY,
-      counts: note.hasStem() || note.isRest(),
-    }))
+    const notes = this.stems()
     const shape = this.beamShape(stemDirection, notes)
     // ⭐ `armedBeamSlopeRule()` and ⛔ not the module default: WHICH rule is an open question, and
     // `./beamSlopeExperiment` is the knob his console arms it with (`__beams.rule(…)`).
@@ -116,6 +113,50 @@ export class EngravedBeam extends Beam {
     const { slope, lift } = fitBeamSlope({ stemDirection, notes, range })
     this.slope = slope
     this.yShift = lift
+  }
+
+  /**
+   * ⭐⭐ **S7b — EVERY STEM MEETS THE BEAM, by our rule**: `engrave/beams/beamedStems` answers each
+   * stem's new extension from the line {@link calculateSlope} solved.
+   *
+   * ⚠️ VexFlow's order kept: the line's first y is read ONCE, before any stem changes (the first
+   * stem's own tip is that y), and each note's tip is read just before its own stem is lengthened.
+   * ⛔ The stemlet branch is not transcribed — it runs only under `renderOptions.showStemlets`, which
+   * nothing sets. `adjustHeightForBeam` is the STEM's own state and stays its call.
+   */
+  override applyStemExtensions(): void {
+    // ⚠️ Read up front, which VexFlow did note by note: exact, because lengthening one note's stem
+    // moves no other note's tip — and the line's first y IS the first tip, read before any change.
+    const stems = this.stems()
+    const line = {
+      firstStemX: stems[0].stemX,
+      firstY: this.getBeamYToDraw(),
+      slope: this.slope,
+      lift: this.yShift,
+      stemDirection: this.getStemDirection(),
+      beamWidth: this.renderOptions.beamWidth,
+    }
+    for (const reading of stems) {
+      const { stem } = reading
+      if (!stem) continue
+      stem.setExtension(beamedStemExtension({ ...reading, extension: stem.getExtension() }, line))
+      stem.adjustHeightForBeam()
+    }
+  }
+
+  /**
+   * ⭐ Everything the slope search and the stem rule ask of each note, in ONE place — read fresh on
+   * every call, ⛔ never kept: the stems move between the two questions.
+   */
+  private stems() {
+    return this.notes.map(note => ({
+      stem: note.getStem(),
+      stemX: note.getStemX(),
+      tipY: note.getStemExtents().topY,
+      counts: note.hasStem() || note.isRest(),
+      stemDirection: note.getStemDirection(),
+      beamLevels: note.getGlyphProps().beamCount,
+    }))
   }
 
   /**
@@ -183,8 +224,7 @@ export class EngravedBeam extends Beam {
 
   /**
    * Every line of this beam, as ink — VexFlow's `drawBeamLines` loop with the four `ctx` calls
-   * lifted out. ⛔ Nothing here is a rule of ours: the x's come from `getBeamLines`, the y's from
-   * the slope this beam already solved.
+   * lifted out. The x's come from `getBeamLines`, the y's from the slope this beam already solved.
    */
   private beamLineInk(): BeamLineInk[] {
     const firstStemX = this.notes[0].getStemX()
@@ -200,10 +240,10 @@ export class EngravedBeam extends Beam {
         if (!endX) throw new Error('NoLastBeamX: lastBeamX undefined.')
         lines.push({
           startX,
-          startY: this.getSlopeY(startX, firstStemX, beamY, this.slope),
+          startY: beamLineYAt(firstStemX, beamY, this.slope, startX),
           // ⭐ The slope is read at `endX`; only the drawn vertex overshoots — see the constant.
           endX: endX + BEAM_END_OVERSHOOT,
-          endY: this.getSlopeY(endX, firstStemX, beamY, this.slope),
+          endY: beamLineYAt(firstStemX, beamY, this.slope, endX),
         })
       }
     }

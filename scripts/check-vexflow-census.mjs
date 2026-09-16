@@ -68,6 +68,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R6 | 297 → **301** | `new NoteHead` — the head OBJECTS stay VexFlow's; only the RULE moved |
  * | R3 | 333 → **340** | S6e: `Stem.getExtents`/`getHeight` read the stem's own `yTop`, `yBottom`, direction, extension and both y-offsets |
  * | R1 | 19 → **20** · R2 169 → **174** · R3 340 → **343** (⭐ 342 after S8b) · R4 98 → **104** · R6 301 → **302** | S8a: `Tuplet.getYPosition` reads every note's stem extents, stem direction, rest-ness and modifier-context text lines. ⚠️ R4 is the FORMATTER role — the rule genuinely consults the modifier context's stacked-text state, which S5's correction says is VexFlow's until S9 |
+ * | R2 173 → **175** · R3 339 → **347** · R6 302 → **303** | S7b: `Beam.applyStemExtensions` reads each note's stem, its direction and its duration's beam count (`GlyphProps.beamCount`, a new kind — classified R3 beside `KeyProps`), and each stem's extension; writes it back and sets `adjustHeightForBeam`; and reads the beam's own slope, lift, first y and beam width. All were `beam.js`'s private body. Proved exact on 1,867 stems |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -76,17 +77,17 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
-  'R2 note ruler': 173,
-  'R3 placement rules': 339,
+  'R2 note ruler': 175,
+  'R3 placement rules': 347,
   'R4 formatter': 104,
   'R5 paint+leftovers': 127,
-  'R6 object graph': 302,
+  'R6 object graph': 303,
   'R7 numbers+fonts': 2,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
@@ -327,8 +328,9 @@ function role(u) {
   if (c === 'Element' && /^(getText|setText|text|setFont|setFontSize|textMetrics|getTextMetrics|getCategory|constructor)$/.test(m)) return 'R5 paint+leftovers'
   if (c === 'Element' && u.kind === 'type') return 'R5 paint+leftovers'
   if (c === 'NoteHead' && /constructor|setStave/.test(m)) return 'R5 paint+leftovers'
-  // R3 — the placement rules
-  if (/^(Beam|Stem|Tuplet|TupletOptions|Tremolo|Articulation|Accidental|Dot|Modifier|ModifierPosition|Clef|TimeSignature|Barline|BarlineType|StaveModifier|StaveModifierPosition|KeyProps)$/.test(c)) return 'R3 placement rules'
+  // R3 — the placement rules. `GlyphProps` (S7b) is VexFlow's per-DURATION table — a quaver's beam count —
+  // the same kind of row as `KeyProps`, and it goes when the note's duration table is ours.
+  if (/^(Beam|Stem|Tuplet|TupletOptions|Tremolo|Articulation|Accidental|Dot|Modifier|ModifierPosition|Clef|TimeSignature|Barline|BarlineType|StaveModifier|StaveModifierPosition|KeyProps|GlyphProps)$/.test(c)) return 'R3 placement rules'
   if (/^(setStemDirection|setKeyLine|getLineForRest|setStemLength|setStem|buildStem|setBeam|getModifierStartXY|addModifier|getModifiers|isDisplaced|shouldDrawFlag|getLedgerLineStyle|getKeyLine|getKeyProps|getKeys|getBeamCount|hasBeam|getStem|getStemLength|checkStem)$/.test(m) && NOTE_RECV.test(recv + c)) {
     return /^(getModifiers|addModifier|getKeys|getKeyProps|hasBeam|getStem)$/.test(m) ? 'R6 object graph' : 'R3 placement rules'
   }
