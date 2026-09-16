@@ -41,7 +41,7 @@ import { walkSigns } from '@/engine/engrave/staff/signWalk'
 import { drawGlyph, measureGlyph } from './glyphPainter'
 import { MEASURE_NUMBER_SIZE_PT } from '@/engine/engrave/inheritedFonts'
 import { barFrame, staveFrame } from './staveFrame'
-import { staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
+import { noteLineY, staffLineY, textRowAboveY } from '@/engine/engrave/staff/staffFrame'
 
 /** Which end of the bar a sign stands at. */
 export type SignSide = 'opening' | 'closing'
@@ -155,6 +155,25 @@ export class EngravedStave extends Stave {
   override getNoteEndX(): number {
     if (!this.walked) this.format()
     return this.noteEnd
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S6d — the y of a NOTE LINE on this staff, and with it every notehead's own `y`.**
+   *
+   * ⚠️ **One override, and it reaches further than it looks.** The only callers in VexFlow are
+   * `NoteHead.setStave` — which is how each head of a chord gets its `y` field — and the ledger drawing
+   * this editor already replaced. ⇒ making this ours settles the last of S6c's ⏳ list in one place:
+   * the heads' `y`, `getNoteHeadBounds` (which reads it), and the stem's y bounds (which `setStave`
+   * derives from those bounds). ⛔ No `setStave` override of our own, and ⛔ no second walk over the
+   * heads to correct a y that was just written.
+   *
+   * ⚠️ **Equal to `Stave.getYForNote`, but grouped as the frame groups it** — `(y + 4·space) +
+   * (5 − line)·space` against VexFlow's `y + 4·space + 5·space − line·space`. S6c measured that pair as
+   * bit-identical on every fixture; it is only GUARANTEED to a rounding, so a staff at some other y
+   * could differ in the last bit. ⭐ Rule 5: no `top + n × space` here — the arithmetic is the frame's.
+   */
+  override getYForNote(line: number): number {
+    return noteLineY(staveFrame(this), line)
   }
 
   /** @see EngravedStave.inkSurface */

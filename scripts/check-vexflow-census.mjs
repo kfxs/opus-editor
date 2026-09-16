@@ -59,25 +59,33 @@ const MAP = 'docs/vexflow-removal-map.md'
 const VF = `${sep}node_modules${sep}vexflow${sep}`
 
 /**
- * 🚨 **The one RAISE, and it is the only one** — S6d (R2 159 → **166**, his call, 2026-09-16): taking
- * `calculateKeyProps` moved seven reads of the note's OWN state (`keys`, `clef`, `duration`, `noteType`,
- * `octaveShift`, `displaced`, `keyProps`) out of `stavenote.js`'s private body and into ours. ⭐ The
- * dependency did not grow — it became visible; VexFlow's note table stopped running for our notes, and
- * `sortedKeyProps` had to be reached through a cast this census can never see. Rule 3's exception, in full.
+ * 🚨 **The RAISES, and they are all S6d** — the step that ported `StaveNote`'s constructor.
+ *
+ * | | | why |
+ * |---|---|---|
+ * | R2 | 159 → **169** | `calculateKeyProps` + `buildNoteHeads` read the note's OWN state (`keys`, `clef`, `duration`, `noteType`, `octaveShift`, `displaced`, `keyProps`, the stem direction) |
+ * | R5 | 125 → **127** | the heads are `addChild`ed and typed here now |
+ * | R6 | 297 → **301** | `new NoteHead` — the head OBJECTS stay VexFlow's; only the RULE moved |
+ * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
+ *
+ * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
+ * the dependency became visible, not bigger: VexFlow's note table and its displacement walk stopped
+ * running for our notes entirely. ⚠️ And two of the reads the port needs are PRIVATE fields
+ * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 166, the RAISE above). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2 — the RAISES above). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 19,
-  'R2 note ruler': 166,
+  'R2 note ruler': 169,
   'R3 placement rules': 333,
   'R4 formatter': 98,
-  'R5 paint+leftovers': 125,
-  'R6 object graph': 297,
-  'R7 numbers+fonts': 0,
+  'R5 paint+leftovers': 127,
+  'R6 object graph': 301,
+  'R7 numbers+fonts': 2,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
 const TEST_CEILING = 255

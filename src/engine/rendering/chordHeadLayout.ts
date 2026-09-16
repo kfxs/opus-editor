@@ -12,13 +12,20 @@
  * the left, so the UPPER note is the one pushed across; with the stem down it is the LOWER. Both
  * spellings say the same thing — the higher note is always to the right of the lower one.
  *
- * ⚠️ **This module exists because a hand-drawn head gets none of that.** A `StaveNote` sorts its
- * keys and does all of the above in `buildNoteHeads`; the fanned beam's members are bare
- * {@link NoteHead}s placed at coordinates we compute ({@link FanPass}), so a second inside a fan
- * member printed one head on top of the other. The walk below is deliberately VexFlow's own —
- * bottom-to-top for stems up, top-to-bottom for stems down, toggling on each adjacent pair — so a
- * member chord and the fan's own note (which IS a `StaveNote`) can never disagree about the same
- * three pitches.
+ * ⭐⭐ **THE ONE OWNER OF THAT RULE, as of S6d (2026-09-16) — and it has two callers.**
+ *
+ * It was written for the FAN: a fanned beam's members are bare {@link NoteHead}s placed at
+ * coordinates we compute ({@link FanPass}), so a second inside a member printed one head on top of the
+ * other. The walk was made deliberately VexFlow's own — bottom-to-top for stems up, top-to-bottom for
+ * stems down, toggling on each adjacent pair — so that a member chord and the fan's own note could
+ * never disagree about the same three pitches. ⭐ **They cannot disagree now because there is only one
+ * walk**: `rendering/EngravedNote.buildNoteHeads` asks this too, and `StaveNote`'s own forty-line copy
+ * no longer runs for our notes. The agreement is structural rather than kept.
+ *
+ * ⚠️ ⛔ **Not the same question as `keyLines.secondApartFlags`**, which is VexFlow's coarser
+ * `keyProps.displaced` — that marks BOTH members of a close pair and is what a note's displaced-head
+ * ROOM is reserved from. This says which head actually CROSSES. A three-note cluster flags all three
+ * there and crosses only the middle one here.
  *
  * Flags only, in the CALLER's order: the caller hands `displaced` to `NoteHead`, which owns the
  * arithmetic that turns it into an x. Nothing here reorders anything — `member.pitches[0].id` is

@@ -25,8 +25,10 @@
  * | where a MODIFIER stands (`getModifierStartXY`) | ⭐ **us** — `engrave/notes/modifierStart` | S5a, 2026-09-15 |
  * | where the heads and stem stand along the staff (`getNoteHeadBeginX`/`EndX`, `getCenterGlyphX`, `getStemX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6a, 2026-09-15 |
  * | the displaced heads' room and the tie's left end (`calcNoteDisplacements`, `getTieLeftX`) | ⭐ **us** — `engrave/notes/noteGeometry` | S6b, 2026-09-15 |
- * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 · ⏳ the heads' own `y` field and `getNoteHeadBounds` stay VexFlow's until the heads are ours |
+ * | each head's y (`getYs`, and the stamp) | ⭐ **us** — the staff frame's `noteLineY` | S6c, 2026-09-15 |
  * | what each KEY puts on the staff — its line, its head glyph, its second-apart flag (`calculateKeyProps`) | ⭐ **us** — `engrave/notes/keyLines` | S6d, 2026-09-16 · ⭐ VexFlow's note table no longer runs for our notes |
+ * | which heads CROSS the stem (`buildNoteHeads`) | ⭐ **us** — `rendering/chordHeadLayout`, the fan's own walk | S6d, 2026-09-16 · ⭐ ONE owner at last |
+ * | the heads' own `y` field, and so `getNoteHeadBounds` and the stem's y bounds | ⭐ **us** — `EngravedStave.getYForNote` | S6d, 2026-09-16 |
  *
  * ## 🚨🚨 THE STANDING RULE THIS FAMILY LIVES OR DIES BY — **the object keeps ANSWERING**
  *
@@ -47,7 +49,7 @@
  * two pictures are identical today (this commit moved no pixel), so there is nothing to drift yet;
  * ⏭️ the moment a ledger number changes, the ghost has to come with it.
  */
-import { StaveNote, Stem } from 'vexflow'
+import { NoteHead, StaveNote, Stem } from 'vexflow'
 import { LEDGER_OVERHANG_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -63,21 +65,30 @@ import {
   displacedHeadRoom, glyphCentreX, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from '@/engine/engrave/notes/noteGeometry'
 import { keyRows, noteDurationOf, type KeyRow } from '@/engine/engrave/notes/keyLines'
+import { chordHeadDisplacement } from './chordHeadLayout'
 import { noteRuler } from './noteRuler'
 
 /**
- * 🚨 **`StaveNote.sortedKeyProps` is PRIVATE, and {@link EngravedNote.calculateKeyProps} has to fill
- * it** — it is the list `buildNoteHeads` walks, so a note whose key rows are ours and whose sorted
- * list is empty builds no heads at all. ⛔ Not a loophole to reach for elsewhere: a private field is
- * VexFlow's own state, invisible to `npm run lint:vexflow` (the census resolves symbols, and this one
- * resolves to nothing), so every use of it is a dependency no number can see. This is the one, it is
- * named here rather than cast at the call site, and it goes when the heads stop being VexFlow's.
+ * 🚨 **The two pieces of `StaveNote` state a port of its constructor has to reach, both PRIVATE**:
+ * `sortedKeyProps` (the list {@link EngravedNote.calculateKeyProps} fills and
+ * {@link EngravedNote.buildNoteHeads} walks) and `_noteHeads` (the list it fills).
+ *
+ * ⛔ **Not a loophole to reach for elsewhere.** A private field is VexFlow's own state and is invisible
+ * to `npm run lint:vexflow` — the census resolves symbols, and these resolve to nothing — so every use
+ * of one is a dependency no number can see. ⚠️ That cuts the other way too: a role reading 0 does not
+ * mean nothing touches it. These two are named here rather than cast at each call site, so the whole
+ * reach is one block, and they go when the heads stop being VexFlow's.
+ *
+ * 🚨 **`_noteHeads` must be ASSIGNED, ⛔ never mutated through `noteHeads`**: that public getter returns
+ * `this._noteHeads.slice()`, a COPY (`stavenote.js:684`), so filling it in place writes to nothing and
+ * the note ends up with no heads at all — `getGlyphWidth()` then throws on `noteHeads[0]` inside the
+ * constructor. VexFlow assigns the field, and so does this.
  */
-function sortedKeyProps(note: EngravedNote): SortedKeyRow[] {
-  return (note as unknown as { sortedKeyProps: SortedKeyRow[] }).sortedKeyProps
+function stavePrivates(note: EngravedNote): { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] } {
+  return note as unknown as { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] }
 }
 
-/** One entry of that list: a key row and the place it has in the note's own key order. */
+/** One entry of the sorted list: a key row and the place it has in the note's own key order. */
 type SortedKeyRow = { keyProps: KeyRow & { line: number }; index: number }
 
 /** VexFlow's `ModifierPosition` numbers in our words — CENTER 0 · LEFT 1 · RIGHT 2 · ABOVE 3 · BELOW 4. */
@@ -203,9 +214,63 @@ export class EngravedNote extends StaveNote {
     const props = rows.map(row => ({ ...row }))
     this.displaced = rows.some(row => row.displaced)
     this.keyProps.push(...props)
-    const sorted = sortedKeyProps(this)
+    const sorted = stavePrivates(this).sortedKeyProps
     sorted.push(...props.map((keyProps, index) => ({ keyProps, index })))
     sorted.sort((a, b) => a.keyProps.line - b.keyProps.line)
+  }
+
+  /**
+   * ⭐⭐ **OURS as of S6d — and it makes `chordHeadLayout` the ONE owner of the second-interval rule.**
+   *
+   * A chord's heads stand in one column on their own side of the stem, except where two are a SECOND
+   * apart: then the stem runs between them and the inner head crosses. `rendering/chordHeadLayout`
+   * already held that walk — it was written for the FAN, whose members are bare `NoteHead`s we place
+   * by hand, and its header says why it was *"deliberately VexFlow's own … so a member chord and the
+   * fan's own note can never disagree about the same three pitches"*. ⭐ They cannot disagree now
+   * because there is only one walk: this override is the second caller it was waiting for.
+   *
+   * ⚠️ **The head OBJECTS stay VexFlow's, and only the RULE moved.** P3d's note against overriding
+   * this method was about taking the head's INK — *"copying that loop to change one constructor would
+   * re-import the dependency under another name"*. That still holds and is still not done: the ink is
+   * {@link EngravedNote.drawNoteHeads}'s, the rule is the module's, and the forty lines in between are
+   * gone rather than copied.
+   *
+   * ⚠️ **Called from `StaveNote`'s CONSTRUCTOR** (through `reset()`), so it reads only the base's state.
+   * It also runs again on every `reset()` — after `setKeyLine` moves a voice's rest, or `setBeam` —
+   * which is why the lines are read fresh from the key rows and ⛔ never cached.
+   *
+   * 🚨 **The field is ASSIGNED, and it has to be** — see {@link stavePrivates}: the public `noteHeads`
+   * getter hands back a COPY, so a version of this that filled it in place left the note with no heads
+   * and threw inside the constructor. ⚠️ `reset()` reads `_noteHeads` before and after this call (it
+   * saves each head's style and restores it), and reads it through `this` both times, so replacing the
+   * field is what VexFlow itself does and is safe.
+   *
+   * ⛔ **`useDefaultHeadX` is NOT written, and that is deliberate**: it is write-only in VexFlow 5 — two
+   * assignments, zero reads, across `build/esm`, `build/cjs` and the typings. ⚠️ Dropping a write-back
+   * that IS read is this file's most expensive lesson, so this one was checked rather than assumed.
+   */
+  override buildNoteHeads(): NoteHead[] {
+    const stemDirection = this.getStemDirection()
+    const { sortedKeyProps: rows } = stavePrivates(this)
+    // ⭐ In the sorted order the walk expects — bottom-to-top, the stem's base first.
+    const crosses = chordHeadDisplacement(rows.map(row => row.keyProps.line), stemDirection)
+    const heads: NoteHead[] = new Array(rows.length)
+    rows.forEach((row, i) => {
+      const head = new NoteHead({
+        duration: this.duration,
+        noteType: this.noteType,
+        displaced: crosses[i],
+        stemDirection,
+        customGlyphCode: row.keyProps.code,
+        line: row.keyProps.line,
+      })
+      head.fontInfo = this.fontInfo
+      this.addChild(head)
+      // ⚠️ Back into the note's OWN key order — `keys[2]` is `noteHeads[2]`, whatever line it is on.
+      heads[row.index] = head
+    })
+    stavePrivates(this)._noteHeads = heads
+    return heads
   }
 
   /** @see EngravedNote.ledgerOverhang — the accidental clearance's one lever. */
