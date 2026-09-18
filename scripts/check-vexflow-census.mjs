@@ -81,6 +81,7 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * | R2 195 → **201** · R3 335 → **337** · R4 141 → **174** · R6 310 → **311** | S9h-a: `Formatter.format`'s last three steps are ours (`rendering/columnFormat`) — `TickContext.preFormat` transcribed reads each tickable's metrics and writes the column's nine measures (R4, most of the rise), `createTickContexts` transcribed builds them, and `AlignRestsToNotes` reads each tickable's kind, rest-ness, ticks, tuplet, beam and rest line and writes `setKeyLine` — `formatter.js`/`tickcontext.js`'s own reads, made visible (four of them — `Tickable.getMetrics`, `shouldIgnoreTicks`, `getTuplet` and the `Tickable` type — a new line in `role()`); the renderer (23 → 16) and `spacingPass` (8 → 4) no longer hold a `Formatter`. ⚠️ Two of the new R4 uses are the one-step BRIDGE to VexFlow's softmax (`Formatter.preFormat` on our columns), gone in S9h-b · specs 281 → **297**: `columnFormat`'s spec builds VexFlow voices, beams and clef notes to drive it |
  * | R2 201 → **202** · R4 174 → **199** | S9h-b: `Formatter.preFormat`'s walk and softmax are ours (`layout/softmaxSpacing`, pure) — the adapter in `rendering/columnFormat` reads each tickable's voice, ticks, x shift, metrics (`NoteMetrics`, a new kind), width and centre alignment, each column's metrics (`TickContextMetrics`, new), longest tickable, ticks and voices, and each voice's ticks — `formatter.js`/`voice.js`'s own reads, made visible (two new lines in `role()`); the S9h-a bridge (a `Formatter` instance, its options, its `preFormat`) is gone. ⏸️ Kept ONLY for a clef change after a bar's last onset, his call — ⏭️ it all goes with the clef review (map §9.4 #5) |
  * | R4 199 → **167** · R5 147 → **148** · R6 311 → **315** | S9i: VexFlow's `Voice` is gone from the render path (`rendering/barVoice`; its tick arithmetic `layout/tickCount`, pure) — R4 falls with every `Voice`, `Formatter.getResolutionMultiplier` and `Fraction` in the bar's walk; `Voice.draw` transcribed (`drawBarVoice`) makes its own three writes on each tickable visible — `setStave` (a new line in `role()`), `setContext`, `drawWithStyle` — plus the `Stave` and `RenderContext` types it takes (R5 +1, R6 +4) · specs 297 → **291** · identifiers 124 → **118** (`vexVoices`) |
+ * | R2 202 → **207** · R5 148 → **154** · R6 315 → **311** · R7 4 → **5** | S10: the fan paints on OUR surface — `NoteHead.draw` transcribed for a member head (`FanPass.drawFanHead` → `engrave/notes/noteheads`) reads the head's absolute x, x/y shifts, y and `fontInfo` (R2 +5, R7 +1), and `Element.drawWithStyle` transcribed for a prefix stem (`EngravedStem.drawWithStyleOn`) reads its STYLE (`ElementStyle`, a new line in `role()` — R5 +6); R6 falls with the `setContext`/`draw`/`drawWithStyle` calls it replaces · identifiers 118 → **116** |
  * | R7 | 0 → **2** | ⚠️ `head.fontInfo = this.fontInfo`, the note handing its own font to its own head. A no-op today (both category defaults are Bravura 30, measured) — ⛔ KEPT anyway, because dropping a write-back that is a no-op *now* is `EngravedNote`'s most expensive lesson. ⚠️ **R7 was a finished role**; this is the one entry that is a real regression rather than a visibility change, and it clears when the heads stop being `NoteHead`s. |
  *
  * ⭐ **Every one of these is the SAME read, moved out of `stavenote.js`'s private body into ours** —
@@ -89,18 +90,18 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above); S9f RAISED (above); S9g RAISED (above); S9h-a RAISED (above); S9h-b RAISED (above); S9i LOWERED R4 199 → 167 and raised R5 + R6 (above). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above); S9f RAISED (above); S9g RAISED (above); S9h-a RAISED (above); S9h-b RAISED (above); S9i LOWERED R4 199 → 167 and raised R5 + R6 (above); S10 LOWERED R6 315 → 311 and raised R2, R5, R7 (above). Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
-  'R2 note ruler': 202,
+  'R2 note ruler': 207,
   'R3 placement rules': 337,
   'R4 formatter': 167,
-  'R5 paint+leftovers': 148,
-  'R6 object graph': 315,
-  'R7 numbers+fonts': 4,
+  'R5 paint+leftovers': 154,
+  'R6 object graph': 311,
+  'R7 numbers+fonts': 5,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
 const TEST_CEILING = 291
@@ -109,7 +110,7 @@ const TEST_CEILING = 291
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */
 const NAME_CEILINGS = {
   'files': 8,
-  'identifiers': 118,
+  'identifiers': 116,
   'identifiers in tests': 150,
   'vf- in code': 39,
   'vf- in tests': 418,
@@ -346,6 +347,9 @@ function role(u) {
   if (c === 'NoteMetrics' || c === 'TickContextMetrics') return 'R4 formatter'
   // R5 — the painting surface and the leftovers
   if (/^(Renderer|RendererBackends|SVGContext|RenderContext)$/.test(c)) return 'R5 paint+leftovers'
+  // S10: `Element.applyStyle` transcribed onto our surface (`EngravedStem.drawWithStyleOn`) reads the
+  // element's STYLE — paint state, not a rule. It goes with the painter.
+  if (c === 'ElementStyle') return 'R5 paint+leftovers'
   if (/^(draw|drawWithStyle|setContext|checkContext|getSVGElement|renderText|setRendered|applyStyle|drawModifiers|setAttribute|getAttribute)$/.test(m)) return 'R6 object graph'
   if (c === 'Annotation' || c === 'AnnotationHorizontalJustify' || c === 'AnnotationVerticalJustify') return 'R5 paint+leftovers'
   if (c === 'Element' && /^(getText|setText|text|setFont|setFontSize|textMetrics|getTextMetrics|getCategory|constructor)$/.test(m)) return 'R5 paint+leftovers'

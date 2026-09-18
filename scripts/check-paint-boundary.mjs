@@ -71,8 +71,7 @@ const ALLOWED = new Map([
   ['engine/rendering/GhostRenderer.ts', 'P3: ghosts built from VexFlow objects that paint themselves'],
   ['engine/rendering/FanGhost.ts', 'P3: same, for the fan'],
   ['engine/rendering/barVoice.ts', 'S9i: `Voice.draw` transcribed — hands the notes the context they still paint themselves on (was `voice.draw(this.context!)` in VexFlowRenderer); goes with S12/S13'],
-  ['engine/rendering/FanPass.ts', 'P3: paints VexFlow `NoteHead`s and `Accidental`s directly'],
-  ['engine/rendering/fanArticulations.ts', 'P3: VexFlow `Articulation`s painting themselves'],
+  ['engine/rendering/fanArticulations.ts', 'P3: a stand-in `Articulation` placed on a swallowing probe context — the INK is ours since S10 (`glyphPainter`)'],
   ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],
   ['engine/rendering/markPreviewPass.ts', 'reads the context STATE; prose only, plus one cast'],
   ['engine/rendering/TempoLayout.ts', 'its runs resolve two font categories — see glyphPainter'],
@@ -89,10 +88,18 @@ const ALLOWED = new Map([
  *  FIVE painting uses — the beam's and the stem's `.draw()` plumbing, and the fan's three (U2,
  *  blocked on U3's highlight) — plus FOUR `.svg` read-backs, which are measurement escapes and not
  *  a painter's problem at all. ⇒ ⭐ the only VexFlow object still painting its own INK is the fan's
- *  bare `NoteHead`s and `Accidental`s. */
-const VEX_CONTEXT_CEILING = 9
+ *  bare `NoteHead`s and `Accidental`s.
+ *  ⭐ 9 → 7 with **S10** (2026-09-18, `docs/vexflow-removal-map.md`): the fan paints on `pass.context` —
+ *  its member heads (`engrave/notes/noteheads`), signs and articulations (`glyphPainter`), prefix stems
+ *  (`EngravedStem.drawWithStyleOn`) and ramp — and `FanPass` left the allowlist. ⇒ no VexFlow object
+ *  paints its own INK on VexFlow's context any more.
+ *  ⚠️ `svgNode` 10 → **11** in the same step, and it is not growth: the member group was ALREADY handed
+ *  to the editor as a DOM node (`fanMemberGroupMap`), through an uncounted `as unknown as SVGGElement`
+ *  cast of VexFlow's `openGroup`. Opening it on our surface makes that escape the counted one, like
+ *  the hairpin's and the slur's — the map predicted exactly this (S10 row). */
+const VEX_CONTEXT_CEILING = 7
 /** ⭐ P1c's number: the group handle's escape hatch to a real DOM node. */
-const SVG_NODE_CEILING = 10
+const SVG_NODE_CEILING = 11
 
 const NAMES = /\b(SVGContext|RenderContext|vexContext)\b/
 

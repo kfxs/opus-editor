@@ -196,6 +196,29 @@ export class EngravedStem extends Stem {
     return { topY: tipY, baseY }
   }
 
+  /**
+   * ⭐ S10 — `Element.drawWithStyle()`, transcribed onto OUR surface: `save`, the style, {@link draw},
+   * `restore`. For a stem drawn by someone other than its note — the fan's PREFIX, whose stems
+   * `StaveNote.draw` skipped — so the caller no longer hands this stem VexFlow's context to get the
+   * style wrapper. The ink already went to the ink surface; this puts it on `surface` too.
+   *
+   * ⚠️ `applyStyle` transcribed with its branches, ⛔ except the SHADOW, which `DrawContext` does not
+   * declare — refused loudly rather than dropped: nothing in this editor styles a stem, so a style
+   * with a shadow here is a new fact to decide about, ⛔ not ink to lose.
+   */
+  drawWithStyleOn(surface: DrawContext): void {
+    this.setInkSurface(surface)
+    surface.save()
+    const style = this.getStyle()
+    if (style.shadowColor || style.shadowBlur) throw new Error('EngravedStem: a shadow has no primitive on DrawContext')
+    if (style.fillStyle) surface.setFillStyle(style.fillStyle)
+    if (style.strokeStyle) surface.setStrokeStyle(style.strokeStyle)
+    if (style.lineWidth) surface.setLineWidth(style.lineWidth)
+    if (style.lineDash) surface.setLineDash(style.lineDash.split(' ').map(Number))
+    this.draw()
+    surface.restore()
+  }
+
   override draw(): void {
     this.setRendered()
     if (this.hide) return

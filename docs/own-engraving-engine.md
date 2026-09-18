@@ -110,8 +110,8 @@ delaying engraving work by one day.
 >
 > ✅✅ **U1 IS DONE (2026-09-14) — the curve's INK is ours**, and it is the **first step that moved
 > the P1e gate**: `lint:paint` **18 → 9**, where P3, P4 and P5 had each left it at 18. ⇒ ⭐⭐ the only
-> VexFlow object still painting its own ink is **the fan's bare `NoteHead`s and `Accidental`s** (U2,
-> blocked on U3); the other five uses are the beam's and the stem's `.draw()` plumbing, and four
+> VexFlow object still painting its own ink is **the fan's bare `NoteHead`s and `Accidental`s** (U2 —
+> ✅ ours since S10, 2026-09-18, see U2); the other five uses are the beam's and the stem's `.draw()` plumbing, and four
 > `.svg` read-backs that are MEASUREMENTS, ⛔ not painting.
 >
 > 🚨🚨 **…AND THE SAME DAY, THAT NUMBER WAS SHOWN NOT TO BE A COVERAGE MEASURE.** P3f took the note's
@@ -549,7 +549,7 @@ and the beam's lines did not reduce it, because the objects still painting thems
 |---|---|---|
 | **`Stave`** — ⛔ no longer for INK, ⭐ but it still PLACES the clef/meter `headerInk` already measures | `VexFlowRenderer` | ✅ **P5 took all of it**: the LINES (2026-09-01), the CLEF's glyph (09-02), the METER's (09-12), the opening BARLINE's (09-13) and the header's PLACEMENT (09-13) |
 | ~~**`Curve`** — the tie's and slur's arc~~ | ~~`rendering/curveArc` (4), `TieRenderer` (1)~~ | ✅ **U1, 2026-09-14** — `engine/engrave/curves/curveInk` |
-| **`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote` | `rendering/FanPass` (2) | ⛔ **unlettered** — ⚠️ and BLOCKED on the highlight, see U2 |
+| ~~**`NoteHead` / `Accidental`** painted directly, ⛔ not through an `EngravedNote`~~ | ~~`rendering/FanPass` (2)~~ | ✅ **S10, 2026-09-18** — on our surface; see U2 |
 
 ⇒ ⭐⭐ **ONE ROW IS LEFT, and it is the fan's.** The other five code uses are the beam's and the
 stem's `.draw()` plumbing (their INK is already ours — P3c/P4a — and what goes through `vexContext`
@@ -614,6 +614,16 @@ the arch's shape is arithmetic on the control points (`curveInk.test.ts`). ⛔ S
 extent.
 
 #### U2 — the fan's member group, and why the fan's NOTEHEADS are not a ten-line move
+
+> ✅✅ **DONE as S10 of `docs/vexflow-removal-map.md` (2026-09-18) — and U3 did NOT have to come first.**
+> The whole member moved in ONE step, so none of the four reasons below still holds: the member group
+> opens on `pass.context` and reaches the editor through the counted `svgNode` escape (`lint:paint`
+> 10 → 11 — ⚠️ not growth: the node was already handed over by an uncounted `as unknown as SVGGElement`
+> cast); the heads (`engrave/notes/noteheads`), signs and articulations (`glyphPainter`), ledgers,
+> stems and the prefix's stems (`EngravedStem.drawWithStyleOn`) ALL paint on that one surface, so
+> nothing splits across two contexts; and `vexContext` fell 9 → 7 with `FanPass` off the allowlist.
+> Proved exact: 80 fan-heavy scores, SVG and hit boxes byte-identical to the previous commit.
+> Kept below as the record of why the 2026-09-01 attempt was reverted.
 
 `FanPass` builds bare `NoteHead`s for a fanned group's members and paints them on `vexContext`. Its
 own comment calls this *"P3's own territory"*, which makes it look like the smallest job on the list.

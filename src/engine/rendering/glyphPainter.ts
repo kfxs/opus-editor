@@ -168,3 +168,16 @@ export function drawTextRun(
   el.renderText(asGlyphPaintContext(ctx), x, y)
   return widthOf(el)
 }
+
+/**
+ * ⭐ **PAINT A VEXFLOW ELEMENT'S OWN GLYPH ON OUR SURFACE** — `el.renderText(ctx, 0, 0)`, with the
+ * element's own text, face, x/y and shifts, onto a {@link DrawContext} (S10).
+ *
+ * For the objects that still decide WHERE their glyph goes (a fan member's `Accidental`, a fan
+ * member's `Articulation` after its `draw` placed it) but must no longer be handed VexFlow's context
+ * to put it there. ⭐ The same one cast as {@link drawGlyph}, for the same reason: `renderText` only
+ * ever calls `setFont` and `fillText`, and it stamps the element's `children` too, exactly as before.
+ */
+export function paintElementText(ctx: DrawContext, el: Element): void {
+  el.renderText(asGlyphPaintContext(ctx), 0, 0)
+}

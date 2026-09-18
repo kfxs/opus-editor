@@ -4,6 +4,8 @@ import {
 } from 'vexflow'
 import type { ArticulationType, Clef } from '@/types/music'
 import { ARTICULATION_RENDER_ORDER } from './NoteBuilder'
+import type { DrawContext } from '@/engine/paint/DrawContext'
+import { paintElementText } from './glyphPainter'
 
 /**
  * ⭐ **Every member of a fan wears its OWN articulations.**
@@ -105,7 +107,7 @@ interface FanMemberArticulationTarget {
  * member of the group shares it; `stemDirection` is the group's.
  */
 export function drawFanMemberArticulations(
-  ctx: RenderContext,
+  ctx: DrawContext,
   stave: Stave,
   target: FanMemberArticulationTarget,
   opts: { position: number; stemDirection: number },
@@ -163,9 +165,9 @@ export function drawFanMemberArticulations(
   for (let i = 0; i < marks.length; i++) {
     const art = marks[i]
     art.setContext(PROBE_CONTEXT).draw() // computes x/y (and the origin shifts) — ink discarded
-    art.setContext(ctx)
     art.setX(art.getX() + dx)
-    art.renderText(ctx, 0, 0)
+    // ⭐ S10 — the ink on OUR surface, the mark's own glyph, face and shifts (`glyphPainter`).
+    paintElementText(ctx, art)
     // The rect the CALLER registers, so a member's mark can be clicked like the owner's. Taken from
     // the glyph the same way the owner's is (`modifier.getBoundingBox()`), and only after the draw —
     // geometry is only real once the ink is down.

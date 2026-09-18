@@ -23,6 +23,7 @@ import { FAN_GROUP } from '@/utils/fannedBeam'
 import { fracCreate as frac } from '@/utils/fraction'
 import { spacingPositionKey } from '../models/engravingOverrides'
 import type { FanMark } from '@/types/music'
+import { sceneGroups, scenePrimitives, type SceneGroup } from '@/engine/scene/Scene'
 
 const FAN: FanMark = { direction: 'accel', count: 6, beams: 3 }
 
@@ -777,5 +778,53 @@ describe('a fan joined across a barline', () => {
     renderer.renderScore(model.getScore())
     expect(fanGroups(container)).toHaveLength(1)
     expect(renderer.getElementRegistry().getById(fanned.id)).not.toBeNull()
+  })
+})
+
+/**
+ * ⭐ S10 — the fan paints on OUR surface, so what it draws is in the SCENE (`recordScene`). Before, its
+ * member heads, signs and prefix stems were VexFlow objects painting on VexFlow's context, which the
+ * recorder never sees. ⚠️ That the PAGE is unchanged was proved once by an A/B of the SVG and the hit
+ * boxes (`docs/vexflow-removal-map.md` S10); pinned here is where the ink now goes.
+ */
+describe('the fan draws through the scene', () => {
+  it('each member is a group holding its own notehead, its sign and its stem', () => {
+    const model = new ScoreModel('fan scene')
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.setFan(note.id, {
+      ...FAN,
+      count: 3,
+      members: [
+        { pitches: [{ id: 'm1', step: 'F', alter: 1, octave: 4 }] },
+        { pitches: [{ id: 'm2', step: 'A', alter: 0, octave: 4 }] },
+      ],
+    })
+    const { renderer } = makeRenderer()
+    const { scene } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
+
+    const members = sceneGroups(scene, 'fanhead')
+    expect(members, 'one group per member after the real note').toHaveLength(2)
+    for (const member of members) {
+      expect(sceneGroups(member, 'notehead'), 'its head').toHaveLength(1)
+      expect(sceneGroups(member, 'stem').length + scenePrimitives(member).filter(p => p.kind === 'path').length,
+        'its stem').toBeGreaterThan(0)
+    }
+    const texts = (g: SceneGroup) => scenePrimitives(g).filter(p => p.kind === 'text')
+    // The sharp on member 1 is a second glyph in ITS group, beside the head.
+    expect(texts(members[0]), 'head + sharp').toHaveLength(2)
+    expect(texts(members[1]), 'head only').toHaveLength(1)
+  })
+
+  it('a joined prefix stem is drawn inside the fan group, on our surface', () => {
+    const model = new ScoreModel('fan scene join')
+    model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const fanned = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })
+    model.setFan(fanned.id, FAN)
+    model.updateNote(fanned.id, { beam: 'continue' })
+    const { renderer } = makeRenderer()
+    const { scene } = renderer.recordScene(() => renderer.renderScore(model.getScore()))
+    const [fan] = sceneGroups(scene, FAN_GROUP)
+    expect(fan, 'the fan group is in the scene').toBeDefined()
+    expect(sceneGroups(fan, 'stem').length, 'the prefix note’s own stem, re-aimed').toBeGreaterThan(0)
   })
 })

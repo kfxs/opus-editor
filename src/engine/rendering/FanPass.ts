@@ -14,7 +14,8 @@
  *  - {@link drawCrossBarFanBeams} — the fans whose beam LEAVES its bar, drawn outside every one.
  * Both build {@link FanSlotDrawing}s and hand them to {@link drawFanGroups}.
  */
-import { Stave, StaveNote, NoteHead, Accidental, type SVGContext } from 'vexflow'
+import { Stave, StaveNote, NoteHead, Accidental } from 'vexflow'
+import type { DrawContext } from '@/engine/paint/DrawContext'
 import { STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import type { Score, Clef, Chord, ChordRest, FanMemberChord, Fraction, KeySignature, NotePitch } from '@/types/music'
 import { fracToNumber } from '@/utils/fraction'
@@ -39,6 +40,10 @@ import { CROSS_SYSTEM_BEAM_WIDTH } from './beamInk'
 import { fillBeamQuad } from '@/engine/engrave/beams/beamLines'
 import { ledgerLineRuns, drawLedgerLines } from '@/engine/engrave/notes/ledgerLines'
 import { drawStem } from '@/engine/engrave/notes/stem'
+import { drawNoteHead } from '@/engine/engrave/notes/noteheads'
+import { drawGroupOf, svgNode } from './svgDrawGroup'
+import { paintElementText } from './glyphPainter'
+import { EngravedStem } from './EngravedNote'
 import type { CrossBarFanJoin } from './CrossBarBeams'
 import type { ElementRegistry } from '@/engine/ElementRegistry'
 import type { RenderPass } from './RenderPass'
@@ -455,7 +460,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
       // PLACEHOLDER beam, so `StaveNote.draw` skipped those stems and nobody else is coming for
       // them — put them back at their natural length rather than leave a row of stemless heads.
       // Degraded either way (the flag is suppressed too), but a stem is not missing ink.
-      drawFanPrefixStems(pass.vexContext, prefixNotes, [])
+      drawFanPrefixStems(pass.context, prefixNotes, [])
       continue
     }
 
@@ -465,9 +470,10 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
     // could never be selected. The heads are added in the draw loop below.
     registerFanInk(pass.elementRegistry, geometry, headX, baseY, measureNumber, staffIndex, prefixNotes, joinQuads)
 
-    // ⛔ `vexContext`: this pass still paints VexFlow `NoteHead`s and `Accidental`s directly
-    // (`head.setContext(ctx).draw()` below) — it is P3's own territory, and the name says so.
-    const ctx = pass.vexContext
+    // ⭐ S10 — OUR surface. The member heads, their signs, ledgers and stems, the prefix's stems and
+    // the ramp all paint through it; the VexFlow objects left here only say WHERE (a `NoteHead`'s x,
+    // an `Accidental`'s glyph and width), ⛔ none of them is handed VexFlow's context any more.
+    const ctx = pass.context
     ctx.openGroup('fan', `${FAN_GROUP}-${slot.id}`)
     try {
       // ⭐ THE REAL NOTE'S STEM, TOPPED UP. When a member's pitch pushes the beam line away, the
@@ -494,7 +500,9 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
         // ⭐ ONE GROUP PER MEMBER, so a member is a thing on the page and not a rectangle of
         // painted ink: the head, its sign and its ledger lines land inside it together, which is
         // what lets P3 highlight one by an ordinary recolour. ⚠️ `openGroup` prefixes `vf-`.
-        const memberGroup = ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)
+        // ⚠️ The highlight and the incremental redraw read this group back as a DOM node
+        // (`fanMemberGroupMap`) — the counted `svgNode` escape, like the hairpin's and the slur's.
+        const memberGroup = svgNode(drawGroupOf(ctx.openGroup(FAN_HEAD_GROUP, `${FAN_HEAD_GROUP}-${slot.id}-${k}`)))
         try {
           const memberHeads = heads[k] ?? []
           const glyphWidth = note.getGlyphWidth()
@@ -530,8 +538,8 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
             const { pitch, line, sign } = memberHeads[h]
             const y = noteLineY(staveFrame(stave), line)
             const head = noteHeads[h]
-            head.setStave(stave) // resolves y from the line, and hands it the context
-            head.setContext(ctx).draw()
+            head.setStave(stave) // resolves y from the line
+            drawFanHead(ctx, head)
             // ⭐ P3: the member becomes CLICKABLE and HIGHLIGHTABLE — but only when it is a member
             // of its own (a fallback head is the slot's pitch, and that id is already the real
             // note's). Registered as a `note` because that is what it is; ⚠️ it carries the SLOT's
@@ -552,7 +560,7 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               })
               // The group is this member's whole ink — head, sign, ledgers, stem — so the highlight
               // is an ordinary recolour of ink we own, not a rectangle painted over someone else's.
-              pass.fanMemberGroupMap.set(pitch.id, { group: memberGroup as unknown as SVGGElement, noteIndex: h })
+              if (memberGroup) pass.fanMemberGroupMap.set(pitch.id, { group: memberGroup, noteIndex: h })
               // …and WHERE it landed, so a slur can spring from it. Measured from the geometry that
               // placed the head, not re-derived — the same rule the ink rect follows.
               pass.fanMemberAnchorMap.set(pitch.id, {
@@ -573,9 +581,8 @@ function drawFanGroups(pass: RenderPass, drawings: FanSlotDrawing[], fanJoins: F
               // zig-zag; `chordAccidentalColumns`). One x for all of them printed two signs on top
               // of each other the moment a member became a real chord.
               const acc = new Accidental(sign)
-              acc.setContext(ctx)
               acc.setX(accidentals.xs[signedHeads.indexOf(h)]).setY(y)
-              acc.renderText(ctx, 0, 0)
+              paintElementText(ctx, acc)
             }
           }
           // ⭐ P3c — the same ink as every other stem on the page (`engrave/notes/stem`), where
@@ -887,6 +894,34 @@ function setFanJoinApexes(members: FanSlotDrawing[], tentative: FanGeometry[]): 
 }
 
 /**
+ * ⭐ S10 — a fan member's head, on OUR surface: `NoteHead.draw()` transcribed onto
+ * `engrave/notes/noteheads` — the second owner that module's header was waiting for.
+ *
+ * 🚨 The x WRITE-BACK is kept, once, exactly where `NoteHead.draw` did it: the registry's hit box
+ * for the head (`addGlyph` → `getBoundingBox`) reads `x` afterwards. The caller already read its
+ * `getAbsoluteX()` BEFORE this, for the ledgers and the signs — the same order as before.
+ * ⛔ No `drawModifiers`: a bare member head has no parent. ⚠️ A head with `children` (extra glyphs
+ * `renderText` would stamp) is refused loudly — nothing gives one any, and the ink here is ONE glyph.
+ */
+function drawFanHead(ctx: DrawContext, head: NoteHead): void {
+  if ((head as unknown as { children: unknown[] }).children.length) {
+    throw new Error('drawFanHead: a notehead with child glyphs')
+  }
+  head.setRendered()
+  // ⚠️ KEPT, not read back with `getX()`: a `NoteHead` is a `Tickable`, whose `getX()` throws
+  // `NoTickContext` — why `NoteHead.draw` reads the raw field (and `EngravedNote.drawNoteHeads` too).
+  const x = head.getAbsoluteX()
+  head.setX(x)
+  drawNoteHead(ctx, {
+    id: head.getAttribute('id'),
+    glyph: head.getText(),
+    x: x + head.getXShift(),
+    y: head.getY() + head.getYShift(),
+    font: head.fontInfo,
+  })
+}
+
+/**
  * 🚨 The PREFIX's stems — the notes a fan is joined to — drawn as each note's OWN `Stem` object,
  * never as a hand-drawn line whatever it costs: the selection highlight resolves a stem by that
  * object's SVG element (`VexFlowRenderer.getStaveNoteSVGGroup`), so ink drawn any other way could
@@ -896,7 +931,7 @@ function setFanJoinApexes(members: FanSlotDrawing[], tentative: FanGeometry[]): 
  * With `tips`, each stem is re-aimed onto the joined line first. Without (the fan drew nothing),
  * they keep the length they were formatted with.
  */
-function drawFanPrefixStems(ctx: SVGContext, prefixNotes: StaveNote[], tips: { tipY: number }[]): void {
+function drawFanPrefixStems(ctx: DrawContext, prefixNotes: StaveNote[], tips: { tipY: number }[]): void {
   for (let k = 0; k < prefixNotes.length; k++) {
     const prefixNote = prefixNotes[k]
     const stem = prefixNote.getStem()
@@ -910,7 +945,10 @@ function drawFanPrefixStems(ctx: SVGContext, prefixNotes: StaveNote[], tips: { t
       stem.setExtension(stem.getExtension() + grow)
     }
     stem.adjustHeightForBeam() // the flag's height fudge swapped for the beam's; the tip stays put.
-    stem.setContext(ctx).drawWithStyle()
+    // ⭐ S10 — on OUR surface, style wrapper and all (`EngravedStem.drawWithStyleOn`). ⛔ A stem that
+    // is not ours has no way onto it, and every prefix note is an `EngravedNote` — refused loudly.
+    if (!(stem instanceof EngravedStem)) throw new Error('drawFanPrefixStems: a prefix stem that is not an EngravedStem')
+    stem.drawWithStyleOn(ctx)
   }
 }
 
@@ -980,13 +1018,11 @@ function registerFanInk(
  * coincidence maintained in two places. All that remains here is the fan's own three answers: which
  * heads, how wide its glyph is, and how far it overhangs.
  *
- * ⚠️ Still drawn on the fan's own `ctx` (`pass.vexContext`), ⛔ not on a recording surface: this
- * whole pass paints VexFlow `NoteHead`s and `Accidental`s into groups opened on that context, and
- * splitting one member's ink across two contexts would nest the scene wrongly. The member heads are
- * P3's own territory and the ledgers travel with them.
+ * ⭐ S10 — drawn on `pass.context` with the rest of the member's ink, so the scene sees it: the
+ * member's head, sign, ledgers and stem all land in the member's one group, on one surface.
  */
 function drawFanLedgerLines(
-  ctx: SVGContext,
+  ctx: DrawContext,
   stave: Stave,
   heads: { line: number; x: number }[],
   glyphWidth: number,
