@@ -322,6 +322,9 @@ changed.
    notes are safe.) This was the "V3 stem down, `x` won't flip" bug.
 4. **Horizontally X-shifts a colliding notehead** (`setXShift(voiceXShift + 2)`) — a voice gets pushed
    right of the others instead of stacking under them. This was the "voice 2 offset to the right" bug.
+   ⚠️ **But a SECOND must be offset** (Gould p. 53: *"Offset the lower part to the right… Keep noteheads
+   separate"*) — and this re-assert undoes that too, so two voices a second apart draw their heads on
+   top of each other (his report, 2026-09-18). Logged, not fixed: `vexflow-removal-map.md` §9.4 #4.
 
 Fix (all in the post-format `if (multiVoice)` loop of `renderMeasure`): capture each rest's intended
 lane line, each note's intended stem, and each note's intended X-shift **before** format, then re-assert
