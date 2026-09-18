@@ -12,25 +12,27 @@
  *   `joinVoices` used to run, transcribed — so the contexts are OUR class;
  * - {@link ColumnModifiers.preFormat} is VexFlow's dispatch list, kept in its order.
  *
- * ⛔ **No rule changed in this step.** The rules it calls are still VexFlow's, and ten of VexFlow's
- * fifteen are skipped because this editor builds none of those modifiers — each of their `format`s
- * returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
+ * ⭐ **All five rules this editor needs are ours now** (S9c–g: `engrave/notes/voiceStack`,
+ * `dotStack`, `accidentalStack`, `articulationStack`, `annotationStack` — each VexFlow's, transcribed
+ * exactly). Ten of VexFlow's fifteen are skipped because this editor builds none of those modifiers —
+ * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Formatter, Fraction, Modifier, ModifierContext, StaveNote } from 'vexflow'
+import { Formatter, Fraction, Modifier, ModifierContext } from 'vexflow'
 import type { Voice } from 'vexflow'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
 import { type ArticulationSide, stackArticulations } from '@/engine/engrave/notes/articulationStack'
-import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
+import { STAVE_LINE_DISTANCE_PX, UNISON_SHARES_HEAD } from '@/engine/engrave/inheritedDefaults'
 import { stackAnnotations } from '@/engine/engrave/notes/annotationStack'
+import { stackVoices } from '@/engine/engrave/notes/voiceStack'
 import { EngravedAnnotation } from './EngravedAnnotation'
 import { fontSizeToPx } from './drawnFontSize'
 import { EngravedArticulation } from './EngravedArticulation'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
-import { EngravedNote } from './EngravedNote'
+import { EngravedNote, columnVoiceNoteOf } from './EngravedNote'
 import { noteFrame } from './staveFrame'
 
 /**
@@ -45,7 +47,7 @@ const NO_RULE_KINDS = [
 /** One column's modifier context — the notes that start together, and what they carry. */
 export class ColumnModifiers extends ModifierContext {
   /**
-   * VexFlow's `ModifierContext.preFormat`, in its order: the notes (multi-voice), then the dots,
+   * VexFlow's `ModifierContext.preFormat`, in its order: the voices (S9g), then the dots,
    * the accidentals, the articulations, the annotations. Each rule reads and writes the SAME
    * `state` (`leftShift`, `rightShift`, `textLine`, `topTextLine`), so the order is part of it.
    */
@@ -57,13 +59,41 @@ export class ColumnModifiers extends ModifierContext {
         throw new Error(`ColumnModifiers: no rule for a ${kind} — this editor never built one before`)
       }
     }
-    StaveNote.format(members.StaveNote as StaveNote[], state)
+    this.formatVoices()
     this.formatDots()
     this.formatAccidentals()
     this.formatArticulations()
     this.formatAnnotations()
     this.width = state.leftShift + state.rightShift
     this.preFormatted = true
+  }
+
+  /**
+   * ⭐ S9g — the column's voices making room for each other, by `engrave/notes/voiceStack`
+   * (`StaveNote.format`, transcribed). The steps land through the notes' own setters, in the rule's
+   * order, BEFORE the dots, accidentals, articulations and annotations are stacked — they read what
+   * this moved. ⚠️ Most of it is undone again by the renderer's multi-voice re-assert (see
+   * `voiceStack`'s header for what survives).
+   */
+  private formatVoices(): void {
+    const members = this.members.StaveNote ?? []
+    // One note has nothing to make room for — VexFlow's rule returns at once, before reading it.
+    if (members.length < 2) return
+    const notes = members.map(note => {
+      if (!(note instanceof EngravedNote)) throw new Error('ColumnModifiers: a note that is not an EngravedNote')
+      return note
+    })
+    const { steps, rightShift } = stackVoices(notes.map(columnVoiceNoteOf), UNISON_SHARES_HEAD)
+    for (const step of steps) {
+      const note = notes[step.note]
+      switch (step.kind) {
+        case 'hide': (note.renderOptions as { draw?: boolean }).draw = false; break
+        case 'moveRest': note.setKeyLine(0, note.getKeyLine(0) + step.lines); break
+        case 'xShift': note.setXShift(step.px); break
+        case 'stem': note.setStemDirection(step.direction); break
+      }
+    }
+    this.state.rightShift += rightShift
   }
 
   /**

@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { Voice, Formatter, StaveNote, Beam } from 'vexflow'
 import { createStaveNotesFromSlots } from './NoteBuilder'
+import { attachModifierColumns } from './modifierColumns'
 import type { ChordRest } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
 // Regression guard for the 3-voice stem bug (docs/multi-voice-plan.md §13).
 //
-// When three voices collide at one tick, VexFlow's StaveNote.format() REASSIGNS
+// When three voices collide at one tick, the multi-voice rule (VexFlow's StaveNote.format, ours
+// since S9g as `engrave/notes/voiceStack`) REASSIGNS
 // stem directions to spread the noteheads — overriding both our voice-parity default
 // AND the user's `x` stem override. VexFlowRenderer defeats this by capturing each
 // note's intended stem BEFORE format and re-asserting it after. These tests pin both
@@ -33,7 +35,10 @@ function format(groups: StaveNote[][]) {
     v.addTickables(sn)
     return v
   })
-  new Formatter().joinVoices(voices).format(voices, 300)
+  // As the renderer does: OUR contexts (`./modifierColumns`), so the multi-voice rule that runs is
+  // ours (`engrave/notes/voiceStack`, S9g), not VexFlow's.
+  attachModifierColumns(voices)
+  new Formatter().format(voices, 300)
 }
 
 describe('multi-voice stem direction', () => {

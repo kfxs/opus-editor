@@ -125,3 +125,10 @@ export const STAVE_SIGN_PADDING_PX = 10
 
 /** A time signature's own padding in that walk — `TimeSignature`'s `customPadding` default 15 (`timesignature.js:18`). */
 export const METER_PADDING_PX = 15
+
+/**
+ * Whether two voices' heads of ONE pitch may share a notehead instead of standing side by side —
+ * `Tables.UNISON` = true (`tables.js:593`), which nothing in this editor ever set. Read by
+ * `engrave/notes/voiceStack` (S9g).
+ */
+export const UNISON_SHARES_HEAD = true

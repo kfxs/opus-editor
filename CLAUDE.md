@@ -193,9 +193,9 @@ src/
                           #   outside everything on one side, pushed by whichever note reaches FURTHEST;
                           #   ⛔ a max over the group, never a sum. Airs are a named table, ⚠️ Gould
                           #   disagrees with two and it is written down, not acted on)
-                          #   + `notes/dotStack` / `accidentalStack` / `articulationStack` /
-                          #   `annotationStack` (S9c–f — ⭐ the MODIFIER RULES a column runs: VexFlow's
-                          #   `Dot/Accidental/Articulation/Annotation.format` transcribed EXACTLY, run by
+                          #   + `notes/voiceStack` / `dotStack` / `accidentalStack` / `articulationStack` /
+                          #   `annotationStack` (S9c–g — ⭐ the RULES a column runs: VexFlow's `StaveNote/
+                          #   Dot/Accidental/Articulation/Annotation.format` transcribed EXACTLY, run by
                           #   `rendering/modifierColumns` — ⛔ no opinion added; the research docs are
                           #   their menu). ⚠️ A `StaveNote` keeps ANSWERING while it
                           #   stops PAINTING — `rendering/EngravedNote` is that seam, and its

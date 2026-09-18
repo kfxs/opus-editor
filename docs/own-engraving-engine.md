@@ -331,7 +331,8 @@ Beside it, the standing repairs:
 - `renderOptions` written as a field, not an API: un-setting `draw = false` on rests VexFlow merged
   away, `strokePx` for ledger overhang, reading `beamWidth` for beam thickness.
 - After `format()` we **re-assert** stem directions, the rest lines we decided, measure-rest centring
-  and clear VexFlow's auto x-shift — `StaveNote.format()` rewrites all four for multi-voice.
+  and clear VexFlow's auto x-shift — `StaveNote.format()` rewrites all four for multi-voice. (⭐ That
+  rule is ours since S9g, 2026-09-18 — `engrave/notes/voiceStack`, transcribed; the re-assert stands.)
 - `Stave.padding` = 12px with **no setter** is why `barline↔note` is 1.2 staff spaces and not the
   1.0 the model wants (LilyPond: 0.9). ⭐ **A stated rule we cannot express**, open since July, and
   the only item on `vexflow-boundary.md` §3 that survived every other fix.
@@ -386,7 +387,8 @@ And the books are unanimous where the engines differ — Gould pp. 34–37, Ross
 Lusk pp. 114–115, Stone p. 135, agreeing that **the SIGN is positional, the MAGNITUDE is derived
 from surrounding content, and the RESULT is quantised to whole staff spaces.**
 
-⛔ **VexFlow's entire contribution is `rest.line += 1`** — one nudge, in `StaveNote.format`, gated on
+⛔ **VexFlow's entire contribution is `rest.line += 1`** — one nudge, in `StaveNote.format` (ours since
+S9g as `engrave/notes/voiceStack`, the nudge kept), gated on
 notes at the **same start tick**; `Formatter.AlignRestsToNotes` is per-voice and default off. ⭐⭐ And
 **we already suppress even that**, by re-asserting `intendedRestLine` after `format()` (correctly —
 its nudge is wrong for our voice model). So **100% of this rule comes from us, and there is no

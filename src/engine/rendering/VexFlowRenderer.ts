@@ -2063,7 +2063,8 @@ export class VexFlowRenderer {
           - restNeutralLine(restDrawnDuration(slot))
       }
       // Our intended rest line / stem direction / horizontal shift per StaveNote, captured
-      // BEFORE formatting. VexFlow's StaveNote.format rewrites all three for same-tick
+      // BEFORE formatting. The multi-voice rule (`engrave/notes/voiceStack` — VexFlow's
+      // StaveNote.format, transcribed, run by `format()`) rewrites all three for same-tick
       // multi-voice collisions — it nudges rests apart (can lift V1's centred rest off the
       // middle line), REASSIGNS stem directions (a 3rd voice forced up gets flipped down, and
       // the user's `x` override with it), and X-SHIFTS a colliding notehead sideways (a voice
@@ -2239,7 +2240,7 @@ export class VexFlowRenderer {
         // leaves it. Same window, same reason: the ink moves here, the room was bought in the builder.
         placeDots(staveNotes)
 
-        // VexFlow's StaveNote.format() rewrites same-tick multi-voice notes: it hides one
+        // The multi-voice rule (`engrave/notes/voiceStack`) rewrites same-tick notes: it hides one
         // of two same-duration rests (renderOptions.draw = false), vertically nudges rests
         // that collide, REASSIGNS stem directions, and X-shifts a colliding notehead. All
         // fight our voice model, so undo them — re-enable every rest, restore each rest to its

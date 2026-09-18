@@ -310,6 +310,11 @@ changed.
 
 ⚠️ **VexFlow rewrites same-tick multi-voice notes, and we undo it.** `StaveNote.format` (runs inside
 `Formatter.format`) does four things to colliding voices that fight our voice model:
+
+> ⭐ **2026-09-18 (S9g):** the rule is OURS now — `engine/engrave/notes/voiceStack`, VexFlow's
+> `StaveNote.format` transcribed exactly, run by `rendering/modifierColumns`. Nothing below changed: it
+> still does these four things, and the renderer still undoes them.
+
 1. **Vertically nudges rests** to dodge collisions (can lift V1's centred rest off the middle line).
 2. **Hides one of two same-duration rests** (`renderOptions.draw = false`).
 3. **Reassigns stem directions** — a 3rd voice forced up (parity) gets flipped **down**, and the user's
