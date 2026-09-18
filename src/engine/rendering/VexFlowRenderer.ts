@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Voice, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -100,6 +100,7 @@ import type { Column } from '@/engine/layout/spacing'
 import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { attachModifierColumns } from './modifierColumns'
+import { formatColumns, type TickColumns } from './columnFormat'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import {
   previewMarkFamily, type PassEntry, type MarkPreviewKind, type RenderSnapshot,
@@ -137,7 +138,7 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
  * and `Formatter.postFormat()` runs *inside* `format()` — so shifting a TickContext after `format()`
  * returns is the last word on where everything in that column lands. Which is the whole trick:
  *
- * - every voice at that tick moves with it, because `joinVoices` gives them ONE shared TickContext;
+ * - every voice at that tick moves with it, because they share ONE tick column (`./columnFormat`);
  * - beams, tuplets and ties read note x at draw time, so they follow;
  * - `ElementRegistry` registers post-draw, so hit-testing is correct with nothing extra.
  *
@@ -177,12 +178,10 @@ function probeSub(part: RenderLayoutPart, t0: number): void {
   if (probe.recording) probe.layoutSub(part, performance.now() - t0)
 }
 
-function applyLeadingSpaces(formatter: Formatter, voices: Voice[], score: Score, measure: Measure): void {
+function applyLeadingSpaces(contexts: TickColumns, voices: Voice[], score: Score, measure: Measure): void {
   const spaces = measureLeadingSpaces(score, measure.id)
   if (spaces.length === 0 || voices.length === 0) return
 
-  const contexts = formatter.getTickContexts()
-  if (!contexts) return
   const { list, map, resolutionMultiplier } = contexts
 
   // Ticks per quarter note, asked of VexFlow rather than assumed. A Voice's total ticks is
@@ -2196,8 +2195,9 @@ export class VexFlowRenderer {
         // ⭐ S9b — the modifier contexts are OURS (`./modifierColumns`), built where `joinVoices`
         //   built VexFlow's; the formatter below finds them already attached.
         attachModifierColumns(vexVoices)
-        const formatter = new Formatter()
-        formatter.format(vexVoices, formatWidth)
+        // ⭐ S9h — the rest of `Formatter.format` is ours too (`./columnFormat`): the beamed rests, the
+        //   tick columns, and (for now) the softmax walk that `spacingPass` then overwrites.
+        const tickColumns = formatColumns(vexVoices, formatWidth)
         // ⭐⭐ P4 — the model places the columns, and VexFlow's softmax stops deciding anything
         //     horizontal. Between `format()` and `draw()`, so beams, ties, tuplets and the registry
         //     all follow. ⭐ P5 — and a bar holding a FAN is no longer an exception: the group's own
@@ -2217,7 +2217,7 @@ export class VexFlowRenderer {
           ((noteArea.noteEndX - noteStartOf(stave)) * placement.scale - userSpacePx) / STAFF_SPACE_PX
         // ⭐ KEPT, not just applied: a fan's members are columns of this solve that no tick context
         //   can be written to, and `FanPass` spends their room later (`RenderPass.solvedColumns`).
-        const solved = applySpacingPass(formatter, vexVoices, {
+        const solved = applySpacingPass(tickColumns, vexVoices, {
           columns: placement.system.columns,
           firstX: leadIn.extent,
           targetWidth: room - leadIn.extent,
@@ -2225,7 +2225,7 @@ export class VexFlowRenderer {
           scale: placement.scale,
         })
         if (solved) pass.solvedColumns.set(measure.number, solved)
-        applyLeadingSpaces(formatter, vexVoices, pass.score, measure)
+        applyLeadingSpaces(tickColumns, vexVoices, pass.score, measure)
         this.centerMeasureRests(vexVoices, stave, placement.clef, placement.headerKey)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
         // pass on purpose — reserving the room would make bar width depend on the clef, which this

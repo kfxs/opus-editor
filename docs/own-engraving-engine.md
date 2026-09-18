@@ -389,7 +389,9 @@ from surrounding content, and the RESULT is quantised to whole staff spaces.**
 
 ⛔ **VexFlow's entire contribution is `rest.line += 1`** — one nudge, in `StaveNote.format` (ours since
 S9g as `engrave/notes/voiceStack`, the nudge kept), gated on
-notes at the **same start tick**; `Formatter.AlignRestsToNotes` is per-voice and default off. ⭐⭐ And
+notes at the **same start tick**; `Formatter.AlignRestsToNotes` is per-voice and default off (⚠️ for
+UNBEAMED rests only — a beamed rest on the middle line is still moved, `vexflow-removal-map.md` §5.1 #2;
+ours since S9h as `engrave/notes/restAlign`). ⭐⭐ And
 **we already suppress even that**, by re-asserting `intendedRestLine` after `format()` (correctly —
 its nudge is wrong for our voice model). So **100% of this rule comes from us, and there is no
 library behaviour to fall back on.** What we had instead was a fixed four-lane table

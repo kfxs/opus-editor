@@ -38,6 +38,7 @@
  * - a note's stem length is divided by a literal 10 — VexFlow's own space, {@link STAVE_LINE_DISTANCE_PX}.
  */
 import { STAVE_LINE_DISTANCE_PX } from '@/engine/engrave/inheritedDefaults'
+import { midLine } from './midLine'
 
 /** One note of the column, as the rule needs it — in VexFlow's line units (a space is a half). */
 export interface ColumnVoiceNote {
@@ -91,18 +92,6 @@ interface Reach {
   isRest: boolean
   stemDirection: number
   voiceShift: number
-}
-
-/** VexFlow's `roundN`: `x` to a multiple of `n`, half up — truncating toward zero first. */
-function roundN(x: number, n: number): number {
-  return x % n >= n / 2 ? parseInt(`${x / n}`, 10) * n + n : parseInt(`${x / n}`, 10) * n
-}
-
-/** VexFlow's `midLine`: halfway, snapped to a half line when it lands off one. */
-function midLine(a: number, b: number): number {
-  let mid = b + (a - b) / 2
-  if (mid % 2 > 0) mid = roundN(mid * 10, 5) / 10
-  return mid
 }
 
 /**

@@ -1,4 +1,5 @@
-import type { Formatter, Voice } from 'vexflow'
+import type { Voice } from 'vexflow'
+import type { TickColumns } from './columnFormat'
 import type { Column } from '@/engine/layout/spacing'
 import { spaceColumns } from '@/engine/layout/spacing'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
@@ -11,7 +12,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * SPLIT: VexFlow shares a bar's room out by `softmax(ticks / voice.totalTicks)`, so a quarter came
  * out 1.54× a 16th where Gould's rule says 2.0, and half a bar of silence got 9% of the width for
  * 50% of the time (both measured on his own scores). This writes the model's answer onto the tick
- * contexts instead.
+ * contexts instead — our own columns since S9h (`./columnFormat`).
  *
  * ## Why a `setX` after `format()` is the last word
  *
@@ -21,7 +22,7 @@ import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
  * `postFormat()` runs inside `format()`: it only does `if (opts.stave)` and we pass none, and
  * `TickContext.postFormat` is a no-op latch anyway.) Everything downstream follows for free:
  *
- * - every voice at that tick moves together — `joinVoices` gives them ONE shared TickContext;
+ * - every voice at that tick moves together — they share ONE tick column (`./columnFormat`);
  * - beams, tuplets, ties and slurs read note x at draw time;
  * - `ElementRegistry` registers post-draw, so hit-testing needs nothing extra.
  *
@@ -109,12 +110,10 @@ export interface SpacedColumns {
  * could not be placed (no contexts, a meter that makes no sense), leaving VexFlow's own answer
  * untouched.
  */
-export function applySpacingPass(formatter: Formatter, voices: Voice[], target: SpacingTarget): SpacedColumns | null {
+export function applySpacingPass(contexts: TickColumns, voices: Voice[], target: SpacingTarget): SpacedColumns | null {
   const { columns, firstX, targetWidth, meterQuarters, scale } = target
   if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0) || !(scale > 0)) return null
 
-  const contexts = formatter.getTickContexts()
-  if (!contexts) return null
   const { map, resolutionMultiplier } = contexts
 
   // Ticks per quarter, asked of VexFlow rather than assumed: a Voice's total ticks is
