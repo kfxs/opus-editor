@@ -8,17 +8,20 @@
  * |---|---|---|
  * | `alignRests` — a beamed middle-line rest takes the notes' height | ⭐ {@link alignVoiceRests} → `engrave/notes/restAlign` | S9h-a |
  * | `createTickContexts` — one context per tick, every voice sharing it | ⭐ {@link createTickColumns}, contexts of OUR class {@link TickColumn} | S9h-a |
- * | `preFormat` — each context's metrics, a first x walk, then the SOFTMAX | ⚠️ still VexFlow's `Formatter.preFormat`, run on OUR contexts | ⏭️ S9h-b takes it |
+ * | `preFormat` — each context's metrics, a first x walk, then the SOFTMAX | ⭐ {@link formatColumns} → `layout/softmaxSpacing` | S9h-b |
  *
- * ⚠️ **The softmax is kept for ONE step, on purpose.** `spacingPass` overwrites every x it wrote
- * except a context no column names — the clef change appended at a bar's END tick — so dropping it
- * moves that clef, and that is his call (S9h-b). Keeping it here makes this step exact. It reaches
- * VexFlow's `Formatter` through its two protected fields (`voices`, `tickContexts`) — ⛔ a bridge
- * with one step to live, not a pattern.
+ * ⏸️ **The softmax is kept, and only for ONE x.** `spacingPass` overwrites every x it writes except a
+ * context no column names — a clef change after a bar's last onset. ⭐ His call (2026-09-18): keep
+ * that clef's picture exactly until the CLEF review decides where it stands (`docs/clef.md` §0,
+ * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
+ * instance is made any more — only its static `getResolutionMultiplier`.
  */
 import { ClefNote, Formatter, Fraction, Note, StaveNote, TickContext } from 'vexflow'
 import type { Tickable, Voice } from 'vexflow'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
+import {
+  SOFTMAX_FACTOR, softmaxColumns, type SoftmaxColumn, type SoftmaxTickable, type SoftmaxVoice,
+} from '@/engine/layout/softmaxSpacing'
 
 /**
  * One tick's context — the tickables of every voice that start there. ⭐ Ours so its METRICS (how
@@ -124,19 +127,79 @@ export function alignVoiceRests(voices: readonly Voice[]): void {
 }
 
 /**
+ * What `layout/softmaxSpacing` needs of a bar, read AFTER every column's pre-format — the same values
+ * `Formatter.preFormat` read live.
+ */
+function softmaxInputs(voices: readonly Voice[], columns: TickColumns) {
+  const voiceIndex = new Map<Voice, number>(voices.map((v, i) => [v, i]))
+  const tickables: SoftmaxTickable[] = []
+  const order: Tickable[] = []
+  const indexOf = new Map<Tickable, number>()
+  const softmaxColumnsIn: SoftmaxColumn[] = columns.list.map((tick, c) => {
+    const column = columns.map[tick]
+    const own = column.getTickables().map(t => {
+      const metrics = t.getMetrics()
+      const voice = voiceIndex.get(t.getVoice())
+      if (voice === undefined) throw new Error('formatColumns: a tickable of a voice it was not given')
+      const i = tickables.push({
+        column: c,
+        voice,
+        ticks: t.getTicks().value(),
+        xShift: t.getXShift(),
+        notePx: metrics.notePx,
+        modLeftPx: metrics.modLeftPx,
+        modRightPx: metrics.modRightPx,
+        leftDisplacedHeadPx: metrics.leftDisplacedHeadPx,
+        rightDisplacedHeadPx: metrics.rightDisplacedHeadPx,
+        width: t.getWidth(),
+        centerAligned: t.isCenterAligned(),
+      }) - 1
+      indexOf.set(t, i)
+      order.push(t)
+      return i
+    })
+    const byVoice = column.getTickablesByVoice()
+    const metrics = column.getMetrics()
+    const maxTickable = column.getMaxTickable()
+    return {
+      width: column.getWidth(),
+      notePx: metrics.notePx,
+      totalLeftPx: metrics.totalLeftPx,
+      totalRightPx: metrics.totalRightPx,
+      maxTicks: column.getMaxTicks().value(),
+      maxTickable: maxTickable ? indexOf.get(maxTickable) : undefined,
+      byVoice: Object.keys(byVoice).map(v => [Number(v), indexOf.get(byVoice[v]) as number] as const),
+      tickables: own,
+    }
+  })
+  const softmaxVoices: SoftmaxVoice[] = voices.map(voice => {
+    const ticksUsed = voice.getTicksUsed().value()
+    // `Voice.reCalculateExpTicksUsed`, in its order — a sum is not associative in floating point.
+    const expTicksUsed = voice.getTickables()
+      .map(t => Math.pow(SOFTMAX_FACTOR, t.getTicks().value() / ticksUsed))
+      .reduce((a, b) => a + b, 0)
+    return { ticksUsed, totalTicks: voice.getTotalTicks().value(), expTicksUsed }
+  })
+  return { tickables, order, columns: softmaxColumnsIn, voices: softmaxVoices }
+}
+
+/**
  * ⭐ Format a bar's voices into `width` — what `new Formatter().format(voices, width)` did, with the
  * modifier contexts already attached (`attachModifierColumns`). Returns the tick columns, which
  * `spacingPass` and the leading spaces then place.
+ *
+ * ⏸️ The softmax still runs (`layout/softmaxSpacing`) — ⭐ his call, 2026-09-18: its ONLY surviving x
+ * is a clef change after a bar's last onset, kept exactly until the clef review decides where that
+ * clef stands (`vexflow-removal-map.md` §9.4 #5).
  */
 export function formatColumns(voices: Voice[], width: number): TickColumns {
-  const formatter = new Formatter()
-  // `format()` hands every voice the formatter's softmax factor; only the softmax reads it.
-  const softmaxFactor = (formatter as unknown as { formatterOptions: { softmaxFactor: number } }).formatterOptions.softmaxFactor
-  if (softmaxFactor) voices.forEach(v => v.setSoftmaxFactor(softmaxFactor))
   alignVoiceRests(voices)
   const columns = createTickColumns(voices)
-  // ⚠️ S9h-a's bridge: VexFlow's walk + softmax, on OUR columns. Gone in S9h-b.
-  Object.assign(formatter as unknown as { voices: Voice[]; tickContexts: TickColumns }, { voices, tickContexts: columns })
-  formatter.preFormat(width)
+  // `Formatter.preFormat`'s walk pre-formats each column in tick order — the modifier rules run here.
+  for (const tick of columns.list) columns.map[tick].preFormat()
+  const inputs = softmaxInputs(voices, columns)
+  const { xs, centerXShifts } = softmaxColumns(inputs.columns, inputs.tickables, inputs.voices, width)
+  columns.list.forEach((tick, c) => columns.map[tick].setX(xs[c]))
+  for (const [t, shift] of centerXShifts) inputs.order[t].setCenterXShift(shift)
   return columns
 }

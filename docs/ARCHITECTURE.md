@@ -17,7 +17,8 @@ files (historical/working plans). For *how the pieces fit together*, read this.
 > plus a padding table keyed by the PAIR of things); `measureColumns.ts` turns a measure into columns
 > carrying both; `MeasureLayout` asks them for a bar's width; and `rendering/spacingPass.ts` writes
 > the x's onto the tick contexts between `format()` and `draw()`, so VexFlow's tick-proportional
-> softmax no longer decides anything horizontal. Measured on the page, to the hundredth: a 32nd
+> softmax no longer decides anything horizontal (⏸️ one exception, his call: a clef change after a bar's
+> last onset — `layout/softmaxSpacing`, `vexflow-removal-map.md` §9.4 #5). Measured on the page, to the hundredth: a 32nd
 > **1.50**, a 16th **1.80**, an eighth **2.40**, a quarter **3.60**.
 >
 > ⭐⭐ **And a column is a position in the SYSTEM, so every staff of a measure is handed the same

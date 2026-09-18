@@ -128,6 +128,9 @@ export function applySpacingPass(contexts: TickColumns, voices: Voice[], target:
   let placed = 0
   for (const [i, column] of columns.entries()) {
     // The BARLINE column is a position, not an event: nothing is drawn there and no context exists.
+    // ⏸️ Except ONE: a clef change after the bar's last onset sits at the bar's END tick, so it keeps
+    //   the softmax's x (`layout/softmaxSpacing`) — his call, until the clef review gives it a column
+    //   (`vexflow-removal-map.md` §9.4 #5).
     if (i === columns.length - 1) break
     const tick = Math.round((column.beat.num / column.beat.den) * ticksPerQuarter)
     const context = map[tick]

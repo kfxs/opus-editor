@@ -132,12 +132,15 @@ src/
                           #   the ElementRegistry says a column/bar can still give up)
                           #   + barlineSign (⭐ WHAT SIGN a boundary carries and what it is
                           #   made of — the ONE owner of a final bar's / repeat's extent)
+                          #   + ⏸️ softmaxSpacing (VexFlow's softmax, PORTED only because a clef change
+                          #   after a bar's last onset still stands where it puts it — his call;
+                          #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)
     rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
                           #   PagePass (the sheets, drawn behind the music)
                           #   + modifierColumns (S9b — ⭐ OUR modifier contexts, built where
                           #   `joinVoices` built VexFlow's; the modifier rules plug in here)
                           #   + columnFormat (S9h — ⭐ OUR `Formatter.format`: the beamed rests, the
-                          #   tick columns; ⚠️ the softmax still VexFlow's until S9h-b)
+                          #   tick columns, and the softmax walk that `spacingPass` then overwrites)
                           #   + 🚧 ScoreHeaderPass (⛔ A SKETCH — the title + composer at the
                           #     head of page 1; read docs/score-header-sketch.md before
                           #     touching it, and ⛔ do not grow it: the real thing is a FRAME

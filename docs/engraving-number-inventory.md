@@ -253,6 +253,13 @@ Several S rows also carry a D *choice of row* (e.g. `DOT_GAP_RULES` armed `house
 - **hairpins & dynamics:** `DYNAMICS_LINE.padding` 0.6 sp (layout/dynamicsLine.ts:79, LilyPond; ⚠️ same comment says "By eye … where the tuning starts") · `DYNAMICS_LINE.minFromStaff` 2.1 sp (:96, derived) · `HAIRPIN.AUTHORED_MIN_APERTURE` 1.0 (hairpinShape.ts:71, Dorico) · `MAX_APERTURE` 2.0 (:216, Gould p. 103) · `BOUND_PADDING` 1.0 (:256, LilyPond + Gould) · `BREAK_PADDING` 0.5 (:311, Gould p. 107 measured) · `MIN_FRAGMENT` 1.0 (:322, Verovio) · fragment thirds (:469-472, LilyPond + Verovio).
 - **tempo & text / trills:** `DYNAMIC_TEXT_SIZE` 16 pt (dynamicStyle.ts:37, MuseScore + LilyPond) · `PT_TO_PX` 4/3 (drawnFontSize.ts:43, VexFlow unit) · `TEMPO_TEXT_FONT_SIZE` 18 pt (tempoStyle.ts:62, LilyPond + MuseScore) · `SCORE_TEXT_SPECS.title.sizeSpaces` 4.44 (ScoreHeaderPass.ts:90, MuseScore; 🚧 sketch) · `TRILL_SIGN_GAP` 0.3 sp (trillStyle.ts:187, LilyPond `bound-padding`).
 
+**Added after the sweep (S9g–S9h, 2026-09-18)** — ported VexFlow rules, each number a row citing its
+`file:line`, all **S (engine)**: `engrave/notes/voiceStack` `VOICE_SIDE_STEP_PAD_PX` 2 (`StaveNote.format`'s
+`voiceXShift + 2`); `engrave/inheritedDefaults` `UNISON_SHARES_HEAD` true (`Tables.UNISON`, tables.js:593);
+`layout/softmaxSpacing` `SOFTMAX_FACTOR` 10 (tables.js:594), `END_PADDING_MIN_PX` 5 / `END_PADDING_MAX_PX` 10 /
+`STAVE_PADDING_PX` 12 (metrics.js:132–134), `MAX_ITERATIONS` 5 (`Formatter` default). ⏸️ The softmax ones decide
+only a clef change after a bar's last onset, and go with the clef review (`vexflow-removal-map.md` §9.4 #5).
+
 ## 5. The F list (font facts, 37), condensed
 
 - **fonts/bravuraMetrics.ts** (generated): `GLYPH_BOXES` 71 glyphs (:121), `GLYPH_ANCHORS` (:309), `ENGRAVING_DEFAULTS` 29 weights/gaps (:339). `fonts/fontMetrics.ts` compositions `secondDisplacement` 1.12, `flagInkRight`, `flagDropFromTip` 3.24, `ledgerExtension` 0.40 (:248-301). ⚠️ fontMetrics.ts holds **no** non-font house defaults. Its `ENGRAVING_DEFAULTS` are Bravura's own values, and several are overridden in the drawing (staff line 0.11, stem 0.15, ledger overhang 0.3).
