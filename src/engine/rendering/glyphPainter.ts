@@ -181,3 +181,19 @@ export function drawTextRun(
 export function paintElementText(ctx: DrawContext, el: Element): void {
   el.renderText(asGlyphPaintContext(ctx), 0, 0)
 }
+
+/**
+ * ⭐ **DRAW A NOTE'S MARK ON OUR SURFACE, BY ITS OWN `draw()`** — for a mark whose PLACEMENT is still
+ * VexFlow's (`Articulation.draw` works out where it stands off its note) but whose ink must land on a
+ * {@link DrawContext}: the mark ghosts (S11b). A mark that takes an ink surface is handed this one.
+ *
+ * ⭐ The same one cast, and sound for the same reason: every mark this is used on only ever paints
+ * through `renderText` — `setFont` and `fillText` — or through its ink surface: `EngravedArticulation`
+ * (`renderText` overridden onto the surface; the base `draw` asks the context for nothing else),
+ * `EngravedAccidental` and `EngravedDot` (the context is their unset-surface fallback only),
+ * `CenteredTremolo` (`Element.renderText`).
+ */
+export function drawMarkOn(surface: DrawContext, mark: Element & { setInkSurface?: (ctx: DrawContext) => void }): void {
+  mark.setInkSurface?.(surface)
+  mark.setContext(asGlyphPaintContext(surface)).draw()
+}

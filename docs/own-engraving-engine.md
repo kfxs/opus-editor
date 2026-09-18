@@ -2223,7 +2223,7 @@ has never been a second place to put anything.
 | `HairpinRenderer`, `OttavaRenderer`, `PedalRenderer`, `TrillRenderer`, `*Style`, `dynamicsLine*`, `tempoLinePass` | `engrave/lines/` | already ours outright |
 | `TempoLayout`, `DynamicsLayout`, `drawnText` | `engrave/text/` | |
 | `PagePass`, `GutterRenderer`, `barlineInk`, `staveGeometry`, `staffSpace`, `systemEdges` | `engrave/staff/` | |
-| `GhostRenderer` + `FanGhost` (**1,217**) | ⛔ **mostly deleted** | a ghost is a scene with a style |
+| `GhostRenderer` + `FanGhost` (**1,217**) | ⛔ **mostly deleted** — ⭐ in progress as S11 of `vexflow-removal-map.md` (2026-09-18: clef/meter → `HeaderSignGhost`, marks → `MarkGhost`, each built from the score's own classes) | a ghost is a scene with a style |
 | `MeasureLayout`, `spacingPass`, `MeasureWidthCache`, `measureRenderRoles` | `layout/` | ⚠️ they are layout and always were — misfiled by history, not by design |
 | `MeasureRedrawKey`, `RenderPass`, `MeasureSnapshot` | `scene/` | becomes a scene diff |
 | `hiddenElements`, the colour modules | `paint/` | ⭐ audience (screen vs print) is a PAINT concern, not an engraving one |

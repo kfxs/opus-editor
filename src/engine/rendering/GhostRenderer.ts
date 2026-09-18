@@ -9,8 +9,10 @@
  *    therefore needs the render's own layout (which bar sits where, and how far the staff-spacing
  *    overrides push its system down), which is why those arrive as arguments.
  *  - the cursor ghosts (`drawClefGhost`, `drawRestGhost`, `drawDynamicGhost`, …) — ONE glyph shown
- *    loose, following the pointer. They are drawn on a throwaway 0-line stave and translated to the
- *    cursor, so they need nothing from the score at all.
+ *    loose, following the pointer, parked by their own ink box, so they need nothing from the score.
+ *    ⭐ S11 (`docs/vexflow-removal-map.md`) is moving them out one family at a time, each drawn by the
+ *    score's OWN classes on our surface: the clef + meter (`./HeaderSignGhost`) and the marks
+ *    (`./MarkGhost`) so far. What is still here builds a throwaway VexFlow stave, note or formatter.
  *
  * Every one of them is an **overlay** (docs/render-performance-plan.md §5b): it draws into its own
  * class-tagged `<g>` appended last, so putting one up or taking it down is a DOM append/remove
@@ -25,7 +27,7 @@
  * an empty articulation list): that is about the MARK, not about the page.
  */
 import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
-import type { Score, Clef, GhostNote, Dynamic, TempoMark, NoteDuration, TremoloMark, PitchStep, Accidental as ScoreAccidental, ArticulationType } from '@/types/music'
+import type { Score, Clef, GhostNote, Dynamic, TempoMark, NoteDuration, PitchStep, ArticulationType } from '@/types/music'
 import type { GhostColor, ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
@@ -54,8 +56,8 @@ import { drawPedalGhost, PEDAL_GHOST_GROUP_CLASS } from './PedalGhost'
 import { drawBarlineGhost, BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
 import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGhost'
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
-import { ghostCursorOffset } from './ghostCursor'
 import { drawClefGhost, drawTimeSignatureGhost } from './HeaderSignGhost'
+import { drawArticulationGhost, drawAccidentalGhost, drawTremoloGhost, drawDotGhost } from './MarkGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 import { barFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
@@ -603,218 +605,6 @@ function drawDynamicGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cur
 }
 
 /**
- * Render the score with a free-floating translucent ghost articulation (accent/staccato/tenuto
- * glyph) that follows the cursor — the preview for the armed articulation stamp tool. On click the
- * articulation is added to the clicked note (see MouseController).
- *
- * Unlike the dynamic ghost, we do NOT keep the modifier's own SVG group and discard a temp note:
- * an Articulation's `draw()` opens no group of its own (it renders straight onto the context via
- * `renderText`, and normally lands INSIDE the note's `vf-stavenote` group), so there is nothing to
- * extract. Instead — like the tempo ghost — we open OUR group, draw ONLY the articulation into it,
- * and close: `note.setStave()` populates the note's Y-values and `Formatter.format()` its tick
- * position, which is everything `Articulation.draw()` reads, so it renders standalone without the
- * note ever being drawn. The group carries VexFlow's `vf-` prefix (→ `.vf-ghost-articulation`,
- * registered in {@link GHOST_GROUP_SELECTOR}).
- *
- * ADDITIVE: `types` may hold more than one armed articulation; they are drawn STACKED (sorted by
- * {@link ARTICULATION_RENDER_ORDER}, an explicit `textLine` per glyph) exactly as a real note with
- * several articulations engraves — so the ghost reads as everything the click will stamp.
- * @returns true if a ghost articulation was drawn
- */
-function drawArticulationGhost(ctx: SVGContext, cursorX: number, cursorY: number, types: ArticulationType[]): boolean {
-  if (types.length === 0) return false
-
-  try {
-    const tempStave = new Stave(0, cursorY, 200)
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const articulationVexCodes: Record<ArticulationType, string> = { accent: 'a>', staccato: 'a.', tenuto: 'a-' }
-    const sorted = types.slice().sort(
-      (a, b) => ARTICULATION_RENDER_ORDER.indexOf(a) - ARTICULATION_RENDER_ORDER.indexOf(b)
-    )
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    note.setStave(tempStave) // populates note.ys (what Articulation.draw reads for its Y)
-    const articulations = sorted.map(t => {
-      const art = new Articulation(articulationVexCodes[t]).setPosition(Modifier.Position.ABOVE)
-      note.addModifier(art, 0) // attaches the note to the modifier (checkAttachedNote)
-      return art
-    })
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-    note.setStave(tempStave)
-
-    const group = ctx.openGroup('ghost-articulation') as SVGGElement
-    try {
-      // Stack them: an explicit textLine per glyph so multiple armed articulations don't overlap
-      // (we draw the modifiers by hand, so the note's ModifierContext isn't doing the spacing).
-      articulations.forEach((art, i) => art.setTextLine(i).setContext(ctx).draw())
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Paint it the ghost blue at 0.7 opacity — a preview, not yet content (mirrors the tempo ghost).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    // Centre the glyph on the cursor horizontally, but lift it a few px so the lowest glyph
-    // (staccato) doesn't sit right under the pointer — a small breathing gap reads cleaner.
-    const CURSOR_GAP_PX = 8
-    const dx = cursorX - (gbox.x + gbox.width / 2)
-    const dy = cursorY - (gbox.y + gbox.height / 2) - CURSOR_GAP_PX
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
- * Draw ONE translucent ghost accidental (♯/♭/♮) following the cursor — the preview for the armed
- * accidental stamp tool. Same standalone-draw approach as {@link drawArticulationGhost}:
- * an `Accidental`'s `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
- * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
- * then draw ONLY the accidental into OUR `vf-`-prefixed group (`.vf-ghost-accidental`, in
- * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Single-valued: a note has one
- * accidental, so there is nothing to stack.
- * @returns true if a ghost accidental was drawn
- */
-function drawAccidentalGhost(ctx: SVGContext, cursorX: number, cursorY: number, accidental: ScoreAccidental): boolean {
-  try {
-    const tempStave = new Stave(0, cursorY, 200)
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    note.setStave(tempStave) // populates note.ys (what Accidental.draw reads for its Y)
-    const acc = new Accidental(accidental) // '#' | 'b' | 'n' are VexFlow accidental codes as-is
-    note.addModifier(acc, 0) // attaches the note to the modifier (checkAttachedNote)
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-    note.setStave(tempStave)
-
-    const group = ctx.openGroup('ghost-accidental') as SVGGElement
-    try {
-      acc.setContext(ctx).draw()
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    // Park it to the LEFT of the pointer rather than centred on it — an accidental is engraved to
-    // the left of its notehead, so this reads as where the sign will land (the mirror of the dot
-    // ghost, which sits right for the same reason), and the arrow stops covering the very glyph
-    // it is previewing. Covers all three signs: ♯ ♭ ♮ share this one draw.
-    //
-    // ⭐⭐ And this position is now THE REFERENCE for every sign-shaped ghost — his call, 2026-08-17:
-    // *"maybe you should take the position of the ghost accidental as reference."* The `tr`, the
-    // octave numerals and `Ped.` all park through {@link ghostCursorOffset}, which is why the
-    // arithmetic moved there instead of staying a local `GAP_X` two files would have to agree about.
-    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
- * Draw the translucent ghost tremolo STROKES following the cursor — the preview for the armed
- * tremolo stamp. Same standalone-draw recipe as {@link drawArticulationGhost}: a
- * throwaway note + stave, `setStave` then `Formatter.format` (between them they populate
- * everything the modifier's `draw()` reads), then draw ONLY the modifier into OUR `vf-`-prefixed
- * group (`.vf-ghost-tremolo`, registered in {@link GHOST_GROUP_SELECTOR} — a group missing from
- * that list is never taken down, and the ghost smears a trail across the score).
- *
- * The ghost is the **real mark**, not the palette's picture: the dev palette draws a note wearing
- * its strokes because a button has to be recognisable, while this draws exactly what the click
- * adds — N copies of `tremolo1`, or the single Penderecki sign. It takes the {@link TremoloMark}
- * rather than a count precisely so those two cannot diverge: one modifier, one placement.
- *
- * ⚠️ Where this differs from every sibling ghost: an `Articulation` positions itself off the
- * NOTEHEAD, but `Tremolo` positions itself off `note.getStemExtents().topY` — so the strokes land
- * far above the throwaway note's origin. The bbox-centring below absorbs that on purpose: it
- * measures where the glyphs ACTUALLY landed and moves the whole group from there, so the offset
- * never has to be known.
- * @returns true if a ghost tremolo was drawn
- */
-function drawTremoloGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TremoloMark): boolean {
-  try {
-    const tempStave = new Stave(0, cursorY, 200)
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    note.setStave(tempStave) // populates the note's Y values (Tremolo.draw reads its stem extents)
-    const tremolo = new CenteredTremolo(mark)
-    note.addModifier(tremolo, 0) // attaches the note to the modifier (checkAttachedNote)
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-    note.setStave(tempStave)
-
-    const group = ctx.openGroup('ghost-tremolo') as SVGGElement
-    try {
-      tremolo.setContext(ctx).draw()
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    // Centred on the pointer: the strokes ride the STEM, so there is no notehead side for them to
-    // sit off — unlike the accidental (left) and dot (right) ghosts, which preview a horizontal
-    // relationship to the note they will join.
-    const dx = cursorX - (gbox.x + gbox.width / 2)
-    const dy = cursorY - (gbox.y + gbox.height / 2)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
  * Draw ONE translucent ghost tie following the cursor — the preview for the armed tie stamp tool.
  * A tie is a RELATION between two notes, not a glyph, so there is no `draw()` to borrow the way
  * the articulation/accidental ghosts borrow theirs. Instead it is engraved as a REAL tie: the same
@@ -878,69 +668,6 @@ function drawTieGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolea
       p.setAttribute('fill', '#3B82F6')
       p.setAttribute('stroke', '#3B82F6')
     })
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
- * Draw ONE translucent ghost augmentation dot at the cursor — the preview for the armed dot stamp
- * tool. Same standalone-draw approach as {@link drawAccidentalGhost}: a `Dot` is a
- * Modifier whose `draw()` reads its note's stave-Y (`setStave`) and formatted tick-X
- * (`Formatter.format`) but opens no group of its own, so we attach it to a throwaway note, format,
- * then draw ONLY the dot into OUR `vf-`-prefixed group (`.vf-ghost-dot`, in
- * {@link GHOST_GROUP_SELECTOR}) — the note itself is never drawn. Valueless: the dot is on or off,
- * so there is nothing to stack or swap.
- * @returns true if a ghost dot was drawn
- */
-function drawDotGhost(ctx: SVGContext, cursorX: number, cursorY: number): boolean {
-  try {
-    const tempStave = new Stave(0, cursorY, 200)
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.setContext(ctx)
-
-    const note = new StaveNote({ keys: ['b/4'], duration: 'q' })
-    note.setStave(tempStave) // populates note.ys (what Dot.draw reads for its Y)
-    Dot.buildAndAttach([note], { all: true })
-    const dot = note.getModifiers().find(m => m.getCategory() === 'Dot')
-    if (!dot) return false
-
-    const voice = new Voice({ numBeats: 1, beatValue: 4 })
-    voice.setStrict(false)
-    voice.addTickables([note])
-    new Formatter().joinVoices([voice]).format([voice], 150) // sets the note's tick X position
-    note.setStave(tempStave)
-
-    const group = ctx.openGroup('ghost-dot') as SVGGElement
-    try {
-      dot.setContext(ctx).draw()
-    } finally {
-      ctx.closeGroup()
-    }
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (!gbox || gbox.width === 0) {
-      group.remove()
-      return false
-    }
-
-    // Paint it ghost blue at 0.7 opacity — a preview, not yet content (mirrors the other ghosts).
-    group.setAttribute('opacity', '0.7')
-    group.querySelectorAll('text, path').forEach(el => {
-      if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', '#3B82F6')
-    })
-
-    // Park it clear of the pointer, to the RIGHT and slightly up, rather than centred on it: a dot
-    // is ~3px, so the arrow would simply cover it (the arrow's body extends down-right from its
-    // tip). Same reason the articulation ghost lifts by CURSOR_GAP_PX and the tie starts right of
-    // the cursor. It also reads the way the stamp works — the dot lands to the right of the head.
-    const GAP_X = 10
-    const LIFT_Y = 4
-    const dx = cursorX + GAP_X - (gbox.x + gbox.width / 2)
-    const dy = cursorY - LIFT_Y - (gbox.y + gbox.height / 2)
-    group.setAttribute('transform', `translate(${dx}, ${dy})`)
     return true
   } catch (_e) {
     return false

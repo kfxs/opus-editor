@@ -84,6 +84,12 @@ export function drawSignGhost(
   cursorX: number,
   cursorY: number,
   drawSign: () => void,
+  /**
+   * Where the measured ghost goes — the offset that moves its ink box into place. Defaults to
+   * {@link ghostCursorOffset} (left of the pointer, the accidental's reference). ⭐ The mark ghosts
+   * each keep their own (S11b): a dot parks RIGHT, an articulation lifts, a tremolo centres.
+   */
+  park: (box: { x: number; y: number; width: number; height: number }, cursorX: number, cursorY: number) => { dx: number; dy: number } = ghostCursorOffset,
 ): boolean {
   try {
     const group = drawGroupOf(ctx.openGroup(groupName))
@@ -116,7 +122,7 @@ export function drawSignGhost(
       if (el.getAttribute('fill') !== 'none') el.setAttribute('fill', GHOST_BLUE)
     })
 
-    const { dx, dy } = ghostCursorOffset(gbox, cursorX, cursorY)
+    const { dx, dy } = park(gbox, cursorX, cursorY)
     group.setPlacement(translation(dx, dy))
     return true
   } catch (_e) {

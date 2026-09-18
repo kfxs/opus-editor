@@ -135,7 +135,9 @@ src/
                           #   + ⏸️ softmaxSpacing (VexFlow's softmax, PORTED only because a clef change
                           #   after a bar's last onset still stands where it puts it — his call;
                           #   ⛔ don't build on it: it goes with the clef review, map §9.4 #5)
-    rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer,
+    rendering/            # VexFlowRenderer, CoordinateMapper, FanPass, GhostRenderer
+                          #   (+ HeaderSignGhost / MarkGhost — S11: a ghost drawn by the score's OWN
+                          #   classes on our surface, ⛔ never a throwaway VexFlow stave/voice/formatter),
                           #   PagePass (the sheets, drawn behind the music)
                           #   + modifierColumns (S9b — ⭐ OUR modifier contexts, built where
                           #   `joinVoices` built VexFlow's; the modifier rules plug in here)
