@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { Voice, Formatter, StaveNote, Beam } from 'vexflow'
+import { StaveNote, Beam } from 'vexflow'
 import { createStaveNotesFromSlots } from './NoteBuilder'
 import { attachModifierColumns } from './modifierColumns'
+import { formatColumns } from './columnFormat'
+import { BarVoice } from './barVoice'
 import type { ChordRest } from '@/types/music'
 import { fracCreate } from '@/utils/fraction'
 
@@ -30,15 +32,11 @@ function buildThreeVoices() {
 }
 
 function format(groups: StaveNote[][]) {
-  const voices = groups.map(sn => {
-    const v = new Voice({ numBeats: 4, beatValue: 4 }).setMode(2)
-    v.addTickables(sn)
-    return v
-  })
+  const voices = groups.map(sn => new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(sn))
   // As the renderer does: OUR contexts (`./modifierColumns`), so the multi-voice rule that runs is
   // ours (`engrave/notes/voiceStack`, S9g), not VexFlow's.
   attachModifierColumns(voices)
-  new Formatter().format(voices, 300)
+  formatColumns(voices, 300)
 }
 
 describe('multi-voice stem direction', () => {

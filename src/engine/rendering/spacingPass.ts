@@ -1,4 +1,5 @@
-import type { Voice } from 'vexflow'
+import { ticksValue } from '@/engine/layout/tickCount'
+import type { BarVoice } from './barVoice'
 import type { TickColumns } from './columnFormat'
 import type { Column } from '@/engine/layout/spacing'
 import { spaceColumns } from '@/engine/layout/spacing'
@@ -110,17 +111,16 @@ export interface SpacedColumns {
  * could not be placed (no contexts, a meter that makes no sense), leaving VexFlow's own answer
  * untouched.
  */
-export function applySpacingPass(contexts: TickColumns, voices: Voice[], target: SpacingTarget): SpacedColumns | null {
+export function applySpacingPass(contexts: TickColumns, voices: readonly BarVoice[], target: SpacingTarget): SpacedColumns | null {
   const { columns, firstX, targetWidth, meterQuarters, scale } = target
   if (voices.length === 0 || columns.length < 2 || !(meterQuarters > 0) || !(scale > 0)) return null
 
   const { map, resolutionMultiplier } = contexts
 
-  // Ticks per quarter, asked of VexFlow rather than assumed: a Voice's total ticks is
-  // numBeats/beatValue in VexFlow's own resolution, so dividing by the same meter in quarters
-  // cancels the resolution out — exact in 4/4, 6/8 and 7/16 alike. (`Tables.RESOLUTION` is not on
-  // the package's public entry, cf. `Glyphs`, which is CJS-only and undefined in the browser.)
-  const ticksPerQuarter = (voices[0].getTotalTicks().value() / meterQuarters) * resolutionMultiplier
+  // Ticks per quarter, from the voice rather than assumed: a voice's total ticks is numBeats/beatValue
+  // in the tick clock's resolution (`layout/tickCount`), so dividing by the same meter in quarters
+  // cancels the resolution out — exact in 4/4, 6/8 and 7/16 alike.
+  const ticksPerQuarter = (ticksValue(voices[0].totalTicks) / meterQuarters) * resolutionMultiplier
   if (!(ticksPerQuarter > 0)) return null
 
   const xs = spaceColumns(columns, targetWidth)

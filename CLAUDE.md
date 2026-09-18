@@ -141,6 +141,9 @@ src/
                           #   `joinVoices` built VexFlow's; the modifier rules plug in here)
                           #   + columnFormat (S9h — ⭐ OUR `Formatter.format`: the beamed rests, the
                           #   tick columns, and the softmax walk that `spacingPass` then overwrites)
+                          #   + barVoice (S9i — ⭐ OUR `Voice`: a bar's voice, its tick bookkeeping and
+                          #   its draw loop; the arithmetic is `layout/tickCount`, VexFlow's `Fraction`
+                          #   transcribed — ⛔ it never reduces: a column is keyed by a NUMERATOR)
                           #   + 🚧 ScoreHeaderPass (⛔ A SKETCH — the title + composer at the
                           #     head of page 1; read docs/score-header-sketch.md before
                           #     touching it, and ⛔ do not grow it: the real thing is a FRAME

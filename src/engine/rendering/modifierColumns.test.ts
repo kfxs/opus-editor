@@ -5,12 +5,13 @@
  * the seam promises: which notes share a column, and that a kind with no rule is refused.
  */
 import { describe, it, expect } from 'vitest'
-import { Modifier, Parenthesis, StaveNote, Voice } from 'vexflow'
+import { Modifier, Parenthesis, StaveNote } from 'vexflow'
+import { BarVoice } from './barVoice'
 import { ColumnModifiers, attachModifierColumns } from './modifierColumns'
 
 const note = (key: string, duration: string) => new StaveNote({ keys: [key], duration })
 const voiceOf = (...notes: StaveNote[]) =>
-  new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickables(notes)
+  new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(notes)
 
 describe('attachModifierColumns', () => {
   it('gives notes of different voices that START TOGETHER one shared context, of our class', () => {

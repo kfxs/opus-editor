@@ -1,4 +1,4 @@
-import { Renderer, Stave, StaveNote, Voice, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
+import { Renderer, Stave, StaveNote, Accidental, Articulation, Annotation, type Beam, ClefNote } from 'vexflow'
 import { ScoreTuplet } from './ScoreTuplet'
 import { CenteredTremolo, TREMOLO_FLAG_STEM_STRETCH, TREMOLO_STROKE_CLEARANCE, usableStemSpan } from './CenteredTremolo'
 import { twoNoteTremoloStrokes } from './TwoNoteTremolo'
@@ -82,7 +82,6 @@ import { placeDynamicsOnLine, MARK_INK } from './dynamicsLinePass'
 import { drawTempoMarks } from './TempoLayout'
 import { placeTempoMarksOnLine } from './tempoLinePass'
 import {
-  chooseVoiceMode,
   createStaveNotesFromSlots,
   restSupportingLedgerLine,
   makeClefResolver,
@@ -101,6 +100,9 @@ import { headerExtent, headerToNoteGap } from '@/engine/layout/headerInk'
 import { applySpacingPass, type SpacedColumns } from './spacingPass'
 import { attachModifierColumns } from './modifierColumns'
 import { formatColumns, type TickColumns } from './columnFormat'
+import { BarVoice, drawBarVoice } from './barVoice'
+import { pickVoiceMode } from '@/utils/restFill'
+import { ticksValue } from '@/engine/layout/tickCount'
 import { renderProbe, type RenderLayoutPart } from '@/engine/RenderProbe' // P0 instrument seam — temporary, see §8
 import {
   previewMarkFamily, type PassEntry, type MarkPreviewKind, type RenderSnapshot,
@@ -155,9 +157,8 @@ export { LAYOUT_CONFIG, VIEWPORT_HEIGHT, type MeasureWidthInfo }
  * grand staff drifts apart. Dropping `staffId` from the key exists to prevent exactly that.
  *
  * So: convert the beat to VexFlow ticks and shift the first context at or after it, plus every
- * later one. Ticks-per-quarter is *derived* from the voice (`getTotalTicks()` over the meter's
- * quarters) rather than hard-coded, because `Tables.RESOLUTION` is not on the package's public
- * entry — cf. `Glyphs`, which is CJS-only and undefined in the browser.
+ * later one. Ticks-per-quarter is *derived* from the voice (its `totalTicks` over the meter's
+ * quarters) rather than hard-coded, so it follows the tick clock (`layout/tickCount`).
  */
 /**
  * ⏱ **TEMPORARY** — the pair that carves up a render (docs/render-performance-plan.md §12.7,
@@ -178,18 +179,18 @@ function probeSub(part: RenderLayoutPart, t0: number): void {
   if (probe.recording) probe.layoutSub(part, performance.now() - t0)
 }
 
-function applyLeadingSpaces(contexts: TickColumns, voices: Voice[], score: Score, measure: Measure): void {
+function applyLeadingSpaces(contexts: TickColumns, voices: readonly BarVoice[], score: Score, measure: Measure): void {
   const spaces = measureLeadingSpaces(score, measure.id)
   if (spaces.length === 0 || voices.length === 0) return
 
   const { list, map, resolutionMultiplier } = contexts
 
-  // Ticks per quarter note, asked of VexFlow rather than assumed. A Voice's total ticks is
-  // numBeats/beatValue expressed in VexFlow's own resolution, so dividing by the same meter in
+  // Ticks per quarter note, from the voice rather than assumed. A voice's total ticks is
+  // numBeats/beatValue expressed in the tick clock's resolution, so dividing by the same meter in
   // quarters cancels the resolution out — exact in 4/4, 6/8, 7/16 alike.
   const meterQuarters = (measure.timeSignature.numerator * 4) / measure.timeSignature.denominator
   if (!(meterQuarters > 0)) return
-  const ticksPerQuarter = (voices[0].getTotalTicks().value() / meterQuarters) * resolutionMultiplier
+  const ticksPerQuarter = (ticksValue(voices[0].totalTicks) / meterQuarters) * resolutionMultiplier
   if (!(ticksPerQuarter > 0)) return
 
   // Half a tick: context ticks are integers, so this absorbs the float division above without ever
@@ -2116,9 +2117,9 @@ export class VexFlowRenderer {
       const meter = getMeterInfo(measure.timeSignature)
       const capacity = measureCapacityFrac(measure)
 
-      // One VexFlow Voice per group. Mid-measure clef glyphs are staff-wide, so only
+      // One voice per group (`./barVoice`). Mid-measure clef glyphs are staff-wide, so only
       // the primary voice carries the inline ClefNotes (they're tickless, so the
-      // voices still share a tick total and Formatter.joinVoices won't mismatch).
+      // voices still share a tick total and `sharedResolution` won't mismatch).
       const built = groups.map((g, gi) => {
         let tickables: (StaveNote | ClefNote)[]
         let clefNoteByBeat: Array<{ beat: Fraction; clef: Clef; clefNote: ClefNote }> = []
@@ -2129,11 +2130,10 @@ export class VexFlowRenderer {
         } else {
           tickables = g.staveNotes
         }
-        const voice = new Voice({
-          numBeats: measure.timeSignature.numerator,
-          beatValue: measure.timeSignature.denominator,
-        }).setMode(chooseVoiceMode(g.slots, capacity))
-        voice.addTickables(tickables)
+        // `capacity` is the bar's playable length (override or nominal), so a pickup bar is judged
+        // against its true length.
+        const voice = new BarVoice(measure.timeSignature, pickVoiceMode(g.slots, capacity))
+          .addAll(tickables)
         // This lane's beams. When a cross-barline plan owns the lane it decides BOTH halves: which
         // groups this bar builds itself, and which of its notes are waiting for a beam that spans
         // the barline (docs/cross-barline-beaming-plan.md).
@@ -2178,7 +2178,7 @@ export class VexFlowRenderer {
       })
 
       try {
-        const vexVoices = built.map(b => b.voice)
+        const barVoices = built.map(b => b.voice)
         const noteArea = barFrame(stave)
         const noteAreaWidth = noteArea.noteEndX - noteArea.noteStartX
         // Format into the note area MINUS whatever space the user authored into this bar — the
@@ -2194,10 +2194,10 @@ export class VexFlowRenderer {
         // barline (`fanRoom.ts`). Per lane: each voice fills the bar, so each divides it.
         // ⭐ S9b — the modifier contexts are OURS (`./modifierColumns`), built where `joinVoices`
         //   built VexFlow's; the formatter below finds them already attached.
-        attachModifierColumns(vexVoices)
+        attachModifierColumns(barVoices)
         // ⭐ S9h — the rest of `Formatter.format` is ours too (`./columnFormat`): the beamed rests, the
         //   tick columns, and (for now) the softmax walk that `spacingPass` then overwrites.
-        const tickColumns = formatColumns(vexVoices, formatWidth)
+        const tickColumns = formatColumns(barVoices, formatWidth)
         // ⭐⭐ P4 — the model places the columns, and VexFlow's softmax stops deciding anything
         //     horizontal. Between `format()` and `draw()`, so beams, ties, tuplets and the registry
         //     all follow. ⭐ P5 — and a bar holding a FAN is no longer an exception: the group's own
@@ -2217,7 +2217,7 @@ export class VexFlowRenderer {
           ((noteArea.noteEndX - noteStartOf(stave)) * placement.scale - userSpacePx) / STAFF_SPACE_PX
         // ⭐ KEPT, not just applied: a fan's members are columns of this solve that no tick context
         //   can be written to, and `FanPass` spends their room later (`RenderPass.solvedColumns`).
-        const solved = applySpacingPass(tickColumns, vexVoices, {
+        const solved = applySpacingPass(tickColumns, barVoices, {
           columns: placement.system.columns,
           firstX: leadIn.extent,
           targetWidth: room - leadIn.extent,
@@ -2225,8 +2225,8 @@ export class VexFlowRenderer {
           scale: placement.scale,
         })
         if (solved) pass.solvedColumns.set(measure.number, solved)
-        applyLeadingSpaces(tickColumns, vexVoices, pass.score, measure)
-        this.centerMeasureRests(vexVoices, stave, placement.clef, placement.headerKey)
+        applyLeadingSpaces(tickColumns, barVoices, pass.score, measure)
+        this.centerMeasureRests(barVoices, stave, placement.clef, placement.headerKey)
         // ⭐ An accidental beside a ledger line: the line trims back, the sign steps out. A DRAW-time
         // pass on purpose — reserving the room would make bar width depend on the clef, which this
         // editor measured its way out of (`ledgerAccidentalClearance` states the three measurements).
@@ -2290,13 +2290,13 @@ export class VexFlowRenderer {
           measure, keyStaffId(pass.score, staffIndex), built[0]?.clefNoteByBeat ?? [], pass.score, stave)
 
         // ⭐ P3a — the parts of a note that are OURS draw on OUR surface (`EngravedNote`: the ledger
-        // lines, so far). `voice.draw` below hands VexFlow the real `SVGContext`, as it must while
+        // lines, so far). `drawBarVoice` below hands VexFlow the real `SVGContext`, as it must while
         // VexFlow's objects paint themselves, and a note taking its surface from there would be
         // invisible to `recordScene`. One line, and the ink we have taken back stays in the scene.
         drawNoteInkThrough(staveNotes, pass.context)
 
         for (const b of built) {
-          b.voice.draw(this.context!, stave)
+          drawBarVoice(b.voice, this.context!, stave)
           // ⭐ P4a — and the beams' lines are ours too (`EngravedBeam`). Same line, same reason as
           // the note's ink above: `setContext` below hands VexFlow the real `SVGContext`, as it must
           // while `Beam.draw` still owns the stems and the group.
@@ -2824,7 +2824,7 @@ export class VexFlowRenderer {
    * measures from `GetLeftBarLineRight()`, which the mid-system keySig alignment sits left of.
    */
   private centerMeasureRests(
-    voices: Voice[], stave: Stave, clef: Clef, headerKey: KeySignature | undefined,
+    voices: readonly BarVoice[], stave: Stave, clef: Clef, headerKey: KeySignature | undefined,
   ): void {
     // ⚠️ **`getNoteStartX()` and NOT `noteStartOf`, and the difference is 6 px of visible error.**
     //    `noteStartOf` is where a NOTE's ink begins — it carries the `Stave.padding` every note gets
@@ -2863,7 +2863,7 @@ export class VexFlowRenderer {
       ? freeSpaceLeft + (freeSpaceRight - freeSpaceLeft) / 2
       : bareLeft + (bareRight - bareLeft) / 2
     for (const voice of voices) {
-      for (const tickable of voice.getTickables()) {
+      for (const tickable of voice.tickables) {
         if (!tickable.isCenterAligned()) continue
         const note = tickable as StaveNote
         // `getAbsoluteX()` reads the stave, and the voice does not set it on its tickables until

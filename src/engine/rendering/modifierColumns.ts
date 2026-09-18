@@ -18,8 +18,8 @@
  * each of their `format`s returns at once on an empty list, so skipping them is exact. A context that ever holds one REFUSES
  * loudly instead of drawing it wrong.
  */
-import { Formatter, Fraction, Modifier, ModifierContext } from 'vexflow'
-import type { Voice } from 'vexflow'
+import { Modifier, ModifierContext } from 'vexflow'
+import { addTicks } from '@/engine/layout/tickCount'
 import { stackDots } from '@/engine/engrave/notes/dotStack'
 import { stackAccidentals } from '@/engine/engrave/notes/accidentalStack'
 import { type ArticulationSide, stackArticulations } from '@/engine/engrave/notes/articulationStack'
@@ -34,6 +34,7 @@ import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedDot } from './EngravedDot'
 import { EngravedNote, columnVoiceNoteOf } from './EngravedNote'
 import { noteFrame } from './staveFrame'
+import { type BarVoice, sharedResolution } from './barVoice'
 
 /**
  * The modifier kinds VexFlow formats that this editor never builds (`modifiercontext.js:79–100`).
@@ -239,16 +240,16 @@ export class ColumnModifiers extends ModifierContext {
  * transcribed. Call it where `joinVoices` was called, BEFORE `format()`.
  *
  * ⚠️ Kept as VexFlow walked it: a column is keyed by the tickable's STAVE and by the running tick
- * count's NUMERATOR, in VexFlow's own `Fraction` (whose `add` does not reduce), at the voices' shared
+ * count's NUMERATOR, in a sum that does not reduce (`layout/tickCount`, VexFlow's `Fraction.add`), at the voices' shared
  * resolution — so notes of different voices that start together share one context.
  */
-export function attachModifierColumns(voices: readonly Voice[]): void {
+export function attachModifierColumns(voices: readonly BarVoice[]): void {
   if (voices.length === 0) return
-  const resolutionMultiplier = Formatter.getResolutionMultiplier([...voices])
+  const resolutionMultiplier = sharedResolution(voices)
   const byStave = new Map<unknown, Record<number, ColumnModifiers>>()
   for (const voice of voices) {
-    const ticksUsed = new Fraction(0, resolutionMultiplier)
-    for (const tickable of voice.getTickables()) {
+    const ticksUsed = { numerator: 0, denominator: resolutionMultiplier }
+    for (const tickable of voice.tickables) {
       const tick = ticksUsed.numerator
       const stave = tickable.getStave()
       let columns = byStave.get(stave)
@@ -258,7 +259,7 @@ export function attachModifierColumns(voices: readonly Voice[]): void {
       }
       if (!columns[tick]) columns[tick] = new ColumnModifiers()
       tickable.addToModifierContext(columns[tick])
-      ticksUsed.add(tickable.getTicks())
+      addTicks(ticksUsed, tickable.getTicks())
     }
   }
 }

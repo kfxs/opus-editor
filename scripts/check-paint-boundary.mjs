@@ -70,6 +70,7 @@ const ALLOWED = new Map([
   ['engine/rendering/glyphPainter.ts', 'THE ADAPTER — the one place VexFlow still paints a glyph'],
   ['engine/rendering/GhostRenderer.ts', 'P3: ghosts built from VexFlow objects that paint themselves'],
   ['engine/rendering/FanGhost.ts', 'P3: same, for the fan'],
+  ['engine/rendering/barVoice.ts', 'S9i: `Voice.draw` transcribed — hands the notes the context they still paint themselves on (was `voice.draw(this.context!)` in VexFlowRenderer); goes with S12/S13'],
   ['engine/rendering/FanPass.ts', 'P3: paints VexFlow `NoteHead`s and `Accidental`s directly'],
   ['engine/rendering/fanArticulations.ts', 'P3: VexFlow `Articulation`s painting themselves'],
   ['engine/rendering/ScoreTuplet.ts', 'holds `Element`s across layout and draw — see glyphPainter'],

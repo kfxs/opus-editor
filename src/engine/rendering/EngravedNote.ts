@@ -70,6 +70,7 @@ import { keyRows, noteDurationOf, type KeyRow } from '@/engine/engrave/notes/key
 import type { ColumnVoiceNote } from '@/engine/engrave/notes/voiceStack'
 import { chordHeadDisplacement } from './chordHeadLayout'
 import { noteRuler } from './noteRuler'
+import { barVoiceOf } from './barVoice'
 
 /**
  * 🚨 **The two pieces of `StaveNote` state a port of its constructor has to reach, both PRIVATE**:
@@ -87,18 +88,19 @@ import { noteRuler } from './noteRuler'
  * the note ends up with no heads at all — `getGlyphWidth()` then throws on `noteHeads[0]` inside the
  * constructor. VexFlow assigns the field, and so does this.
  */
-function stavePrivates(note: EngravedNote): { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[]; voice?: unknown } {
-  return note as unknown as { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[]; voice?: unknown }
+function stavePrivates(note: EngravedNote): { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] } {
+  return note as unknown as { sortedKeyProps: SortedKeyRow[]; _noteHeads: NoteHead[] }
 }
 
 /**
  * ⭐ S9g — what `engrave/notes/voiceStack` needs of one note of a column, read as `StaveNote.format`
- * read it. Here, beside {@link stavePrivates}, because three of its reads are private: the sorted
- * keys, the rest's head (its glyph's ascent and descent — a runtime `measureText`) and the VOICE,
- * which `getVoice()` would throw on where VexFlow's field is simply unset.
+ * read it. Here, beside {@link stavePrivates}, because two of its reads are private: the sorted
+ * keys and the rest's head (its glyph's ascent and descent — a runtime `measureText`). The VOICE is
+ * the `BarVoice` the note was added to (`./barVoice`, S9i), `undefined` where it was never added
+ * — as VexFlow's unset field was.
  */
 export function columnVoiceNoteOf(note: EngravedNote): ColumnVoiceNote {
-  const { sortedKeyProps: sorted, _noteHeads: heads, voice } = stavePrivates(note)
+  const { sortedKeyProps: sorted, _noteHeads: heads } = stavePrivates(note)
   const bottom = sorted[0].keyProps
   const top = sorted[sorted.length - 1].keyProps
   const isRest = note.isRest()
@@ -120,7 +122,7 @@ export function columnVoiceNoteOf(note: EngravedNote): ColumnVoiceNote {
     topHeadCode: top.code,
     firstKeyDots: note.getModifiers().filter(m => m.getCategory() === 'Dot' && m.getIndex() === 0).length,
     styleKey: JSON.stringify(note.getStyle()),
-    voiceKey: voice,
+    voiceKey: barVoiceOf(note),
   }
 }
 

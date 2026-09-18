@@ -1,4 +1,4 @@
-import { StaveNote, Voice, Modifier } from 'vexflow'
+import { StaveNote, Modifier } from 'vexflow'
 import { EngravedNote } from './EngravedNote'
 import { EngravedAccidental } from './EngravedAccidental'
 import { EngravedArticulation } from './EngravedArticulation'
@@ -10,7 +10,6 @@ import { fracCompare, fracLte } from '@/utils/fraction'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { doubleDuration, durationToVexflow, slotLength } from '@/utils/durations'
 import { pairRoleAt } from '@/utils/tremoloPair'
-import { pickVoiceMode } from '@/utils/restFill'
 import { displayedAccidentals } from '@/utils/accidentalState'
 import { C_MAJOR } from '@/utils/keySignature'
 import { spellingToMidi, spellingToVexflowKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
@@ -65,15 +64,6 @@ export const ARTICULATION_RENDER_ORDER: ArticulationType[] = ['staccato', 'tenut
 
 export function convertDuration(duration: NoteDuration, dots: number = 0): string {
   return durationToVexflow(duration, dots)
-}
-
-/**
- * Map the pure {@link pickVoiceMode} policy onto VexFlow's Voice.Mode enum.
- * `capacity` is the measure's actual playable length (override or nominal), so
- * a pickup bar is judged against its true length.
- */
-export function chooseVoiceMode(slots: ChordRest[], capacity: Fraction): number {
-  return pickVoiceMode(slots, capacity) === 'soft' ? Voice.Mode.SOFT : Voice.Mode.FULL
 }
 
 /**
@@ -172,7 +162,7 @@ export function createStaveNotesFromSlots(
       const shift = resolveRestShift(slot)
       if (slot.isMeasureRest) {
         // Whole-bar (measure) rest: a centred whole rest, drawn the same way at
-        // any bar length. Its voice runs in SOFT mode (see chooseVoiceMode) so
+        // any bar length. Its voice runs in SOFT mode (`utils/restFill.pickVoiceMode`) so
         // the whole rest's fixed tick value never clashes with the bar capacity.
         //
         // ⭐ Placed by the same rule as any other whole rest ({@link restKey}) — the FOURTH line.

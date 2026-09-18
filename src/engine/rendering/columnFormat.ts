@@ -14,10 +14,12 @@
  * context no column names — a clef change after a bar's last onset. ⭐ His call (2026-09-18): keep
  * that clef's picture exactly until the CLEF review decides where it stands (`docs/clef.md` §0,
  * `vexflow-removal-map.md` §9.4 #5); then `layout/softmaxSpacing` is deleted. ⛔ No `Formatter`
- * instance is made any more — only its static `getResolutionMultiplier`.
+ * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
-import { ClefNote, Formatter, Fraction, Note, StaveNote, TickContext } from 'vexflow'
-import type { Tickable, Voice } from 'vexflow'
+import { ClefNote, Note, StaveNote, TickContext } from 'vexflow'
+import type { Tickable } from 'vexflow'
+import { addTicks, ticksValue } from '@/engine/layout/tickCount'
+import { type BarVoice, barVoiceOf, sharedResolution } from './barVoice'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
 import {
   SOFTMAX_FACTOR, softmaxColumns, type SoftmaxColumn, type SoftmaxTickable, type SoftmaxVoice,
@@ -64,18 +66,18 @@ export interface TickColumns {
 
 /**
  * ⭐ One {@link TickColumn} per tick, shared by every voice — `Formatter.createTickContexts`,
- * transcribed. ⚠️ Keyed by the running tick NUMERATOR in VexFlow's own non-reducing `Fraction`, at the
+ * transcribed. ⚠️ Keyed by the running tick NUMERATOR in a non-reducing sum (`layout/tickCount`), at the
  * voices' shared resolution — exactly as `./modifierColumns` keys its contexts, but stave-blind.
  */
-export function createTickColumns(voices: readonly Voice[]): TickColumns {
+export function createTickColumns(voices: readonly BarVoice[]): TickColumns {
   if (voices.length === 0) return { map: {}, array: [], list: [], resolutionMultiplier: 0 }
   const map: Record<number, TickColumn> = {}
   const array: TickColumn[] = []
   const list: number[] = []
-  const resolutionMultiplier = Formatter.getResolutionMultiplier([...voices])
+  const resolutionMultiplier = sharedResolution(voices)
   voices.forEach((voice, voiceIndex) => {
-    const ticksUsed = new Fraction(0, resolutionMultiplier)
-    for (const tickable of voice.getTickables()) {
+    const ticksUsed = { numerator: 0, denominator: resolutionMultiplier }
+    for (const tickable of voice.tickables) {
       const tick = ticksUsed.numerator
       if (!map[tick]) {
         const column = new TickColumn({ tickID: tick })
@@ -84,7 +86,7 @@ export function createTickColumns(voices: readonly Voice[]): TickColumns {
         list.push(tick)
       }
       map[tick].addTickable(tickable, voiceIndex)
-      ticksUsed.add(tickable.getTicks())
+      addTicks(ticksUsed, tickable.getTicks())
     }
   })
   list.sort((a, b) => a - b)
@@ -112,9 +114,9 @@ function restAlignInput(tickable: Tickable) {
  * with `alignAllNotes: false`, by `engrave/notes/restAlign`. ⚠️ Only a `StaveNote` or a `ClefNote` is
  * expected in a voice here; anything else is refused rather than guessed at.
  */
-export function alignVoiceRests(voices: readonly Voice[]): void {
+export function alignVoiceRests(voices: readonly BarVoice[]): void {
   for (const voice of voices) {
-    const tickables = voice.getTickables()
+    const tickables = voice.tickables
     for (const t of tickables) {
       if (!(t instanceof StaveNote) && !(t instanceof ClefNote)) {
         throw new Error('alignVoiceRests: a tickable that is neither a StaveNote nor a ClefNote')
@@ -130,8 +132,8 @@ export function alignVoiceRests(voices: readonly Voice[]): void {
  * What `layout/softmaxSpacing` needs of a bar, read AFTER every column's pre-format — the same values
  * `Formatter.preFormat` read live.
  */
-function softmaxInputs(voices: readonly Voice[], columns: TickColumns) {
-  const voiceIndex = new Map<Voice, number>(voices.map((v, i) => [v, i]))
+function softmaxInputs(voices: readonly BarVoice[], columns: TickColumns) {
+  const voiceIndex = new Map<BarVoice | undefined, number>(voices.map((v, i) => [v, i]))
   const tickables: SoftmaxTickable[] = []
   const order: Tickable[] = []
   const indexOf = new Map<Tickable, number>()
@@ -139,7 +141,7 @@ function softmaxInputs(voices: readonly Voice[], columns: TickColumns) {
     const column = columns.map[tick]
     const own = column.getTickables().map(t => {
       const metrics = t.getMetrics()
-      const voice = voiceIndex.get(t.getVoice())
+      const voice = voiceIndex.get(barVoiceOf(t))
       if (voice === undefined) throw new Error('formatColumns: a tickable of a voice it was not given')
       const i = tickables.push({
         column: c,
@@ -173,12 +175,12 @@ function softmaxInputs(voices: readonly Voice[], columns: TickColumns) {
     }
   })
   const softmaxVoices: SoftmaxVoice[] = voices.map(voice => {
-    const ticksUsed = voice.getTicksUsed().value()
+    const ticksUsed = ticksValue(voice.ticksUsed)
     // `Voice.reCalculateExpTicksUsed`, in its order — a sum is not associative in floating point.
-    const expTicksUsed = voice.getTickables()
+    const expTicksUsed = voice.tickables
       .map(t => Math.pow(SOFTMAX_FACTOR, t.getTicks().value() / ticksUsed))
       .reduce((a, b) => a + b, 0)
-    return { ticksUsed, totalTicks: voice.getTotalTicks().value(), expTicksUsed }
+    return { ticksUsed, totalTicks: ticksValue(voice.totalTicks), expTicksUsed }
   })
   return { tickables, order, columns: softmaxColumnsIn, voices: softmaxVoices }
 }
@@ -192,7 +194,7 @@ function softmaxInputs(voices: readonly Voice[], columns: TickColumns) {
  * is a clef change after a bar's last onset, kept exactly until the clef review decides where that
  * clef stands (`vexflow-removal-map.md` §9.4 #5).
  */
-export function formatColumns(voices: Voice[], width: number): TickColumns {
+export function formatColumns(voices: readonly BarVoice[], width: number): TickColumns {
   alignVoiceRests(voices)
   const columns = createTickColumns(voices)
   // `Formatter.preFormat`'s walk pre-formats each column in tick order — the modifier rules run here.

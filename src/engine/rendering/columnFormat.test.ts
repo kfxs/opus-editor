@@ -5,14 +5,15 @@
  * page of 60 scores (`docs/vexflow-removal-map.md` §5.2); pinned here is what the module promises.
  */
 import { describe, it, expect } from 'vitest'
-import { Beam, ClefNote, StaveNote, Voice } from 'vexflow'
+import { Beam, ClefNote, StaveNote } from 'vexflow'
+import { BarVoice } from './barVoice'
 import { EngravedNote } from './EngravedNote'
 import { attachModifierColumns } from './modifierColumns'
 import { TickColumn, alignVoiceRests, createTickColumns, formatColumns } from './columnFormat'
 
 const note = (key: string, duration: string) => new EngravedNote({ keys: [key], duration })
 const voiceOf = (...tickables: (StaveNote | ClefNote)[]) =>
-  new Voice({ numBeats: 4, beatValue: 4 }).setMode(Voice.Mode.SOFT).addTickables(tickables)
+  new BarVoice({ numerator: 4, denominator: 4 }, 'soft').addAll(tickables)
 
 describe('createTickColumns', () => {
   it('gives notes of different voices that start together ONE column, of our class, ticks sorted', () => {
@@ -38,7 +39,7 @@ describe('alignVoiceRests', () => {
 
   it('⛔ refuses a tickable it was not written for', () => {
     const voice = voiceOf(note('c/4', 'w'))
-    ;(voice.getTickables() as unknown[]).push({})
+    ;(voice.tickables as unknown[]).push({})
     expect(() => alignVoiceRests([voice])).toThrow(/neither a StaveNote nor a ClefNote/)
   })
 })
