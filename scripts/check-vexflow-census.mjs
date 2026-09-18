@@ -90,17 +90,17 @@ const VF = `${sep}node_modules${sep}vexflow${sep}`
  * (`sortedKeyProps`, `_noteHeads`), so they are casts this census can never count at all.
  *
  * ⚠️ The CEILINGS, measured 2026-09-14 (the map's §0.1), lowered by S1b (R7 50 → 29) S1c (R7 29 → 0), S2a (R1 174 → 85) and S2b (R1 85 → 57); then
- * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above); S9f RAISED (above); S9g RAISED (above); S9h-a RAISED (above); S9h-b RAISED (above); S9i LOWERED R4 199 → 167 and raised R5 + R6 (above); S10 LOWERED R6 315 → 311 and raised R2, R5, R7 (above). Lower them as
+ * re-measured, not grown, when `STAVE_RECV` was anchored: R1 57 → 35, R2 198 → 203, R3 438 → 455, total unchanged; S2c (R1 35 → 19, R6 336 → 325); S3a (R2 203 → 161, R6 325 → 324); S4a (R3 455 → 444, R5 136 → 133); S4b0 (R3 444 → 427, R5 133 → 129); S4b1 (R3 427 → 400, R5 129 → 127, R6 324 → 320); S4c (R3 400 → 343, R5 127 → 125, R6 320 → 305); S4d (R3 343 → 336, R6 305 → 300); S4e (R6 300 → 297); S5a (R2 161 → 159, R3 336 → 333); S6d (R2 159 → 169, R5 125 → 127, R6 297 → 301, R7 0 → 2) S6e (R3 333 → 340) and S8a (R1 19 → 20, R2 169 → 174, R3 340 → 343, R4 98 → 104, R6 301 → 302) — the RAISES above; ⭐ S8b LOWERED R3 343 → 342, the first fall since S5a; S7a (R2 174 → 173, R3 342 → 339); S7b RAISED (above); S7c R2 175 → 177 (above), R3 347 → 344; S7d R2 177 → 178, R4 104 → 107 (above), R3 344 → 342; S7e (EngravedBeam no longer extends Beam) R2 178 → 172, R3 342 → 302, R4 107 → 108 (above); S9b RAISED (above); S9c RAISED (above); S9d RAISED (above); S9e RAISED (above); S9f RAISED (above); S9g RAISED (above); S9h-a RAISED (above); S9h-b RAISED (above); S9i LOWERED R4 199 → 167 and raised R5 + R6 (above); S10 LOWERED R6 315 → 311 and raised R2, R5, R7 (above); S11a (the clef + meter ghosts) R3 337 → 323, R5 154 → 152, R6 311 → 305. Lower them as
  * the steps land; ⛔ never raise.
  * The removal is done when every one reads 0 and `vexflow` leaves `package.json` (map §9.2).
  */
 const CEILINGS = {
   'R1 staff coords': 20,
   'R2 note ruler': 207,
-  'R3 placement rules': 337,
+  'R3 placement rules': 323,
   'R4 formatter': 167,
-  'R5 paint+leftovers': 154,
-  'R6 object graph': 311,
+  'R5 paint+leftovers': 152,
+  'R6 object graph': 305,
   'R7 numbers+fonts': 5,
 }
 /** The specs' uses, one number: a spec that imports VexFlow has to move with its subject too. */
@@ -110,7 +110,7 @@ const TEST_CEILING = 291
  *  ⛔ never raise. 'identifiers in tests' and 'vf- in tests' include `e2e/`, scanned as text. */
 const NAME_CEILINGS = {
   'files': 8,
-  'identifiers': 116,
+  'identifiers': 115,
   'identifiers in tests': 150,
   'vf- in code': 39,
   'vf- in tests': 418,

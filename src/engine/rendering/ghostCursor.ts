@@ -123,3 +123,40 @@ export function drawSignGhost(
     return false
   }
 }
+
+/**
+ * ⭐ **SWEEP WHAT `draw` PAINTED INTO ONE CLASS-TAGGED GROUP** — the wrapper the older cursor ghosts
+ * (clef, meter, rest, fan, dynamic) each wrote out for themselves: remember how many children the
+ * `<svg>` had, let `draw` paint, then move everything new into `<g class="{cls}">`, appended last.
+ *
+ * ⚠️ The class is set BARE, ⛔ without `openGroup`'s `vf-` prefix — `.ghost-clef-group` and its
+ * siblings are named that way in `GHOST_GROUP_SELECTOR` and styled that way in `notation.css`. Placing
+ * the group is the caller's: each of these ghosts parks itself its own way.
+ *
+ * @returns the group, or null when `draw` painted nothing (nothing is added then).
+ */
+export function sweepIntoGhostGroup(svg: SVGElement, cls: string, draw: () => void): SVGGElement | null {
+  const childrenBefore = svg.children.length
+  draw()
+  const drawn: Element[] = []
+  for (let i = childrenBefore; i < svg.children.length; i++) drawn.push(svg.children[i])
+  if (drawn.length === 0) return null
+  const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+  group.setAttribute('class', cls)
+  for (const el of drawn) svg.removeChild(el)
+  for (const el of drawn) group.appendChild(el)
+  svg.appendChild(group)
+  return group
+}
+
+/**
+ * Park a swept ghost group with its ink box's CENTRE on the pointer — the clef's and the meter's
+ * placement. ⚠️ No box (jsdom, or nothing measurable) leaves it where it was drawn, as before.
+ */
+export function centreGhostOnCursor(group: SVGGElement, cursorX: number, cursorY: number): void {
+  const box = (group as unknown as SVGGraphicsElement).getBBox?.()
+  if (!box || box.width <= 0) return
+  const dx = cursorX - (box.x + box.width / 2)
+  const dy = cursorY - (box.y + box.height / 2)
+  group.setAttribute('transform', `translate(${dx}, ${dy})`)
+}

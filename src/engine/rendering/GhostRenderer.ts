@@ -25,7 +25,7 @@
  * an empty articulation list): that is about the MARK, not about the page.
  */
 import { Stave, StaveNote, Voice, Formatter, Accidental, Articulation, Modifier, Dot, Barline, type SVGContext } from 'vexflow'
-import type { Score, Clef, GhostNote, TimeSignature, Dynamic, TempoMark, NoteDuration, TremoloMark, PitchStep, Accidental as ScoreAccidental, ArticulationType } from '@/types/music'
+import type { Score, Clef, GhostNote, Dynamic, TempoMark, NoteDuration, TremoloMark, PitchStep, Accidental as ScoreAccidental, ArticulationType } from '@/types/music'
 import type { GhostColor, ToolGhost } from './ghostTypes'
 import { fracToNumber, fracCreate, fracAdd } from '@/utils/fraction'
 import { beatToFrac } from '@/utils/musicUtils'
@@ -55,6 +55,7 @@ import { drawBarlineGhost, BARLINE_GHOST_GROUP_CLASS } from './BarlineGhost'
 import { drawGroupSignGhost, GROUP_SIGN_GHOST_GROUP_CLASS } from './GroupSignGhost'
 import { drawKeySignatureGhost, KEY_SIGNATURE_GHOST_GROUP_CLASS } from './KeySignatureGhost'
 import { ghostCursorOffset } from './ghostCursor'
+import { drawClefGhost, drawTimeSignatureGhost } from './HeaderSignGhost'
 import type { SurfaceMetrics } from '@/engine/layout/surface'
 import { barFrame, staveFrame } from './staveFrame'
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
@@ -399,13 +400,6 @@ export function drawNoteGhost(
 }
 
 /**
- * Render the score, then overlay a free-floating translucent ghost clef that
- * follows the cursor (like the ghost note). The clef glyph is drawn alone (via
- * a 0-line stave so no staff lines appear), wrapped in a `.ghost-clef-group`
- * for CSS tinting, and translated so its center sits at the cursor.
- * @returns true if the ghost clef was drawn
- */
-/**
  * Overlay a free-floating translucent ghost REST that follows the cursor — the preview for the
  * armed rest stamp. Drawn as a real rest {@link StaveNote} of the armed duration + dots, on a
  * 0-line stave (so no staff lines come with it), then translated to the cursor: the same trick
@@ -505,114 +499,6 @@ export function drawRestGhost(ctx: SVGContext, svg: SVGElement, cursorX: number,
   }
 }
 
-function drawClefGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, clef: Clef): boolean {
-  try {
-    const childrenBefore = svg.children.length
-
-    // Draw just the clef glyph: a stave with 0 lines and no barlines renders
-    // only the clef modifier. Initial position is arbitrary — we reposition below.
-    const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.addClef(clef)
-    tempStave.setContext(ctx).draw()
-
-    const newElements: Element[] = []
-    for (let i = childrenBefore; i < svg.children.length; i++) {
-      newElements.push(svg.children[i])
-    }
-    if (newElements.length === 0) return false
-
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'ghost-clef-group')
-    for (const el of newElements) svg.removeChild(el)
-    for (const el of newElements) group.appendChild(el)
-    svg.appendChild(group)
-
-    // Center the glyph on the cursor so it tracks the mouse freely.
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (gbox && gbox.width > 0) {
-      const dx = cursorX - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    }
-
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
- * Render the score with a free-floating translucent ghost time signature that
- * follows the cursor (mirrors {@link drawClefGhost}). Draws just the
- * TS glyph on a 0-line stave, wrapped in a `.ghost-timesig-group` for CSS
- * tinting, translated so its centre sits at the cursor.
- * @returns true if the ghost time signature was drawn
- */
-function drawTimeSignatureGhost(ctx: SVGContext, svg: SVGElement, cursorX: number, cursorY: number, ts: TimeSignature): boolean {
-  try {
-    const childrenBefore = svg.children.length
-
-    const tempStave = new Stave(0, cursorY, 120, { numLines: 0 })
-    tempStave.setBegBarType(Barline.type.NONE)
-    tempStave.setEndBarType(Barline.type.NONE)
-    tempStave.addTimeSignature(timeSignatureVexKey(ts))
-    tempStave.setContext(ctx).draw()
-
-    const newElements: Element[] = []
-    for (let i = childrenBefore; i < svg.children.length; i++) {
-      newElements.push(svg.children[i])
-    }
-    if (newElements.length === 0) return false
-
-    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-    group.setAttribute('class', 'ghost-timesig-group')
-    for (const el of newElements) svg.removeChild(el)
-    for (const el of newElements) group.appendChild(el)
-    svg.appendChild(group)
-
-    const gbox = (group as unknown as SVGGraphicsElement).getBBox?.()
-    if (gbox && gbox.width > 0) {
-      const dx = cursorX - (gbox.x + gbox.width / 2)
-      const dy = cursorY - (gbox.y + gbox.height / 2)
-      group.setAttribute('transform', `translate(${dx}, ${dy})`)
-    }
-
-    return true
-  } catch (_e) {
-    return false
-  }
-}
-
-/**
- * Render the score with a free-floating translucent ghost dynamic that follows
- * the cursor (mirrors {@link drawClefGhost}). Builds the real dynamic
- * Annotation (level glyph in the music font, or custom italic text) on a
- * throwaway note, then keeps only the annotation's SVG group — discarding the
- * temp stave/notehead — wrapped in a `.ghost-dynamic-group` and centred on the
- * cursor. On click the mark is applied to the clicked slot (see MouseController).
- *
- * GOTCHA (font-size inheritance): a dynamic level glyph's `<text>` is emitted
- * with NO explicit `font-size` — VexFlow lets it inherit the size from its
- * ancestors in the score's SVG tree. Re-parenting that `<text>` to a group at
- * the SVG root (as we do here) breaks the inheritance chain, so the glyph would
- * collapse to the browser default (~16px) and look tiny next to a placed mark.
- * We therefore re-apply the annotation's resolved font on the wrapper group
- * below. This is a pure SVG/VexFlow behaviour, unrelated to the UI framework.
- * @returns true if the ghost dynamic was drawn
- */
-/**
- * Render the score with a GHOST tempo mark following the cursor — the preview for the
- * armed tempo tool, mirroring the clef / time-signature / dynamic ghosts. Without it the
- * note-entry ghost is shown while a tempo tool is armed, which says the wrong thing about
- * what the next click will do.
- *
- * Simpler than the dynamic ghost: a dynamic must be hung off a throwaway StaveNote (it is a
- * note modifier), whereas a tempo mark is text painted straight onto the context — so there are
- * no leftover notehead/stem elements to discard afterwards, and no stave is needed at all. It
- * is drawn by the same `drawTempoText` the score uses, so the preview cannot drift from it.
- */
 function drawTempoGhost(ctx: SVGContext, cursorX: number, cursorY: number, mark: TempoMark): boolean {
   if (!mark.text) return false // nothing to preview (a mark that only sounds)
 
