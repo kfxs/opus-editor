@@ -40,24 +40,24 @@ describe('beginDynamicDrag', () => {
   const grab = () => {
     const drag = beginDynamicDrag(host, 'D1')
     vi.advanceTimersByTime(DRAG_TIME_THRESHOLD_MS + 1)
-    drag.move!(engine, 200, 100)
+    drag.move(engine, 200, 100)
     return drag
   }
 
   it('⭐ the baseline is the first frame PAST the threshold — the travel before it is charged to nobody', () => {
     const drag = beginDynamicDrag(host, 'D1')
-    drag.move!(engine, 180, 90) // still a click
+    drag.move(engine, 180, 90) // still a click
     vi.advanceTimersByTime(DRAG_TIME_THRESHOLD_MS + 1)
-    drag.move!(engine, 200, 100) // the baseline: nothing is asked of the walk
+    drag.move(engine, 200, 100) // the baseline: nothing is asked of the walk
     expect(walk.dragDynamic).not.toHaveBeenCalled()
-    drag.move!(engine, 212, 95)
+    drag.move(engine, 212, 95)
     expect(walk.dragDynamic).toHaveBeenCalledWith(engine, 'D1', 212, 12, -5)
   })
 
   it('an accepted frame MOVES the dynamics (a preview), and advances the anchor', () => {
     const drag = grab()
-    drag.move!(engine, 210, 100)
-    drag.move!(engine, 225, 100)
+    drag.move(engine, 210, 100)
+    drag.move(engine, 225, 100)
     expect(walk.dragDynamic.mock.calls.map(c => c[3])).toEqual([10, 15])
     expect(host.render.previewMarks).toHaveBeenCalledWith('dynamic', 'D1')
   })
@@ -65,9 +65,9 @@ describe('beginDynamicDrag', () => {
   it('🚨 a REFUSAL (false) and an undrawn mark (null) both leave the anchor put, and draw nothing', () => {
     walk.dragDynamic.mockReturnValueOnce(false).mockReturnValueOnce(null)
     const drag = grab()
-    drag.move!(engine, 230, 100)
-    drag.move!(engine, 240, 100)
-    drag.move!(engine, 250, 100)
+    drag.move(engine, 230, 100)
+    drag.move(engine, 240, 100)
+    drag.move(engine, 250, 100)
     expect(walk.dragDynamic.mock.calls.map(c => c[3])).toEqual([30, 40, 50])
     expect(previews).toBe(1)
   })
@@ -75,14 +75,14 @@ describe('beginDynamicDrag', () => {
   it('⭐ a LANDING is settled after the draw, and drawn again inside the same event', () => {
     walk.settleDynamicLanding.mockReturnValue(true)
     const drag = grab()
-    drag.move!(engine, 210, 140)
+    drag.move(engine, 210, 140)
     expect(walk.settleDynamicLanding).toHaveBeenCalledWith(engine, 'D1')
     expect(previews).toBe(2)
   })
 
   it('the drop records ONE undo entry and renders for real; a press that stayed a click records none', () => {
     const drag = grab()
-    drag.move!(engine, 210, 100)
+    drag.move(engine, 210, 100)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)

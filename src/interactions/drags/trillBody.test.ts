@@ -71,18 +71,18 @@ describe('beginTrillBodyDrag', () => {
     walk.dragTrillBody.mockReturnValue({ ...FRAME, jumped: true })
     walk.settleTrillLanding.mockReturnValue(true)
     const drag = grab()
-    drag.move!(engine, 100, 20)
+    drag.move(engine, 100, 20)
     expect(order).toEqual(['preview:trill:T1', 'preview:trill:T1'])
   })
 
   it('⭐⭐ a WRAP ends the gesture from inside the frame — and the release that follows finds it over', () => {
     walk.dragTrillBody.mockReturnValue({ ...FRAME, wrapped: true })
     const drag = grab()
-    drag.move!(engine, 110, 50)
+    drag.move(engine, 110, 50)
     expect(order).toEqual(['preview:trill:T1', 'commit', 'render', 'release'])
     expect(commit).toHaveBeenCalledWith('start')
 
-    drag.move!(engine, 150, 50) // the hand is still down and still moving
+    drag.move(engine, 150, 50) // the hand is still down and still moving
     drag.end()                  // …and then comes up
     expect(walk.dragTrillBody).toHaveBeenCalledTimes(1)
     expect(commit).toHaveBeenCalledTimes(1)
@@ -91,8 +91,8 @@ describe('beginTrillBodyDrag', () => {
 
   it('the drop: ONE undo entry, a REAL render, the span forgotten, the release', () => {
     const drag = grab()
-    drag.move!(engine, 110, 50)
-    drag.move!(engine, 120, 50)
+    drag.move(engine, 110, 50)
+    drag.move(engine, 120, 50)
     order.length = 0
     drag.end()
     expect(order).toEqual(['commit', 'render', 'release'])

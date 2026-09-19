@@ -41,13 +41,13 @@ describe('beginSlurHandleDrag', () => {
   })
 
   it('⛔ a CLICK is still a click — nothing is written inside the time threshold', () => {
-    beginSlurHandleDrag(host, 'S1', handle())!.move!(engine, 160, 150)
+    beginSlurHandleDrag(host, 'S1', handle())!.move(engine, 160, 150)
     expect(preview).not.toHaveBeenCalled()
   })
 
   it('⭐ the grabbed dot goes where the hand IS, in STAFF-SPACES; the other stays as the press found it', () => {
     const baseline = cpsFromDrawnControlPoints(controlPoints, slurEndpoints)
-    grab(handle()).move!(engine, 160, 150)
+    grab(handle()).move(engine, 160, 150)
     // cp0: x − p0.x − (p1.x − p0.x)/4 = 160 − 100 − 50 = 10px; y: (150 − 200) × −1 = 50px
     expect(preview).toHaveBeenCalledWith(
       'S1', [{ x: 1, y: 5 }, { x: baseline[1].x / 10, y: baseline[1].y / 10 }], undefined, undefined)
@@ -55,38 +55,38 @@ describe('beginSlurHandleDrag', () => {
 
   it('…and the SECOND dot is measured from the far end', () => {
     const baseline = cpsFromDrawnControlPoints(controlPoints, slurEndpoints)
-    grab(handle({ cpIndex: 1 })).move!(engine, 270, 160)
+    grab(handle({ cpIndex: 1 })).move(engine, 270, 160)
     // cp1: x − p1.x + 50 = 20px; y: (160 − 200) × −1 = 40px
     expect(preview).toHaveBeenCalledWith(
       'S1', [{ x: baseline[0].x / 10, y: baseline[0].y / 10 }, { x: 2, y: 4 }], undefined, undefined)
   })
 
   it('⭐ a SMALL staff writes a bigger number for the same pixels', () => {
-    grab(handle({ staffSpacePx: 5 })).move!(engine, 160, 150)
+    grab(handle({ staffSpacePx: 5 })).move(engine, 160, 150)
     expect(preview.mock.calls[0][1][0]).toEqual({ x: 2, y: 10 })
   })
 
   it('⭐ a cross-system slur\'s handle reshapes ITS segment, with the live span count', () => {
-    grab(handle({ segmentRole: 'middle', segmentOrdinal: 2, slurSpanCount: 4 })).move!(engine, 160, 150)
+    grab(handle({ segmentRole: 'middle', segmentOrdinal: 2, slurSpanCount: 4 })).move(engine, 160, 150)
     expect(preview.mock.calls[0].slice(2)).toEqual([{ role: 'middle', ordinal: 2 }, 4])
     preview.mockClear()
-    grab(handle({ segmentRole: 'begin', slurSpanCount: 2 })).move!(engine, 160, 150)
+    grab(handle({ segmentRole: 'begin', slurSpanCount: 2 })).move(engine, 160, 150)
     expect(preview.mock.calls[0].slice(2)).toEqual([{ role: 'begin' }, 2])
   })
 
   it('an accepted frame renders the score (the handles move); a refused one draws nothing', () => {
     const drag = grab(handle())
-    drag.move!(engine, 160, 150)
+    drag.move(engine, 160, 150)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
     preview.mockReturnValue(false)
-    drag.move!(engine, 170, 150)
+    drag.move(engine, 170, 150)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
   })
 
   it('the drop records ONE undo entry if the shape changed, none otherwise — and always releases', () => {
     const drag = grab(handle())
-    drag.move!(engine, 160, 150)
-    drag.move!(engine, 165, 150)
+    drag.move(engine, 160, 150)
+    drag.move(engine, 165, 150)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
 

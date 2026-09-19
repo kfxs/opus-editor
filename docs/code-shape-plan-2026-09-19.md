@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef done, awaiting his UI check. Only the NOTE drag is still the controller's.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag done, awaiting his UI check — every gesture is now a module. 3.1's one leftover: `ElementChainDeps`' nine `arm*Drag` members.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -297,10 +297,25 @@ Run the e2e suite either side of each step.
    hidden pointer. The clef's slot resolver is the controller's (the marking tools share it) and is
    handed in. The event-driven `MouseController.barWidthDrag` / `.barlineJoinDrag` /
    `.dragRelease` specs passed UNCHANGED; clef and group span had no spec and got their first.
-   `MouseController` kinds 489 → 383, lines 1,478 → 1,228. ⏸️ Awaiting his UI check.*
+   `MouseController` kinds 489 → 383, lines 1,478 → 1,228. ✅ Passed (`ee31698`).*
 
-   *Still the controller's own (no `move`): the NOTE drag — the biggest, entangled with pitch
-   preview and the note-spacing axis.*
+   *Eighth and last — the NOTE drag, `drags/note.ts`: one press, the axis decided from the
+   movement (distance, not time) and then fixed; the spacing half previews and commits once, the
+   pitch half writes each step through `updateNote`. It reads the grabbed note from the SELECTION
+   each frame, as the handler did. `MouseController.noteSpacingDrag.test.ts` (event-driven: both
+   axes, rests, a fanned member) passed UNCHANGED. With it `handleMouseMove`'s chain of sixteen
+   `handle*Drag` probes is ONE line, `Gesture.move` is required, and the controller holds no
+   per-gesture state at all. `MouseController` lines 1,228 → 1,135 — and its code-line ceiling
+   STARTS here, as §2.1 said it would once the hub's step was done. ⏸️ Awaiting his UI check.*
+
+   *⚠️ Noticed, not changed: a PITCH drag files one undo entry per pitch it passes through
+   (`updateNote` each frame), where every other gesture files one for the whole drag. It always
+   did; whether that is wanted is his call.*
+
+   *Left of 3.1: `ElementChainDeps` still carries nine `arm*Drag` members that are now one-line
+   forwards to `begin<Kind>Drag`. Collapsing them into one `begin(gesture)` touches
+   `interactions/elements/chain.ts` and every element module that arms a drag — its own step.*
+
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

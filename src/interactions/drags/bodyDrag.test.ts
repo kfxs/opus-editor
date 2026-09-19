@@ -40,15 +40,15 @@ describe('beginBodyDrag', () => {
 
   it('⛔ a CLICK is still a click — no frame runs inside the time threshold', () => {
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
-    drag.move!(engine, 160, 90)
+    drag.move(engine, 160, 90)
     expect(step).not.toHaveBeenCalled()
   })
 
   it('hands the walk the cursor and its delta since the last ACCEPTED frame, and draws the family', () => {
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 110, 50)
-    drag.move!(engine, 130, 45)
+    drag.move(engine, 110, 50)
+    drag.move(engine, 130, 45)
     expect(step.mock.calls.map(c => c.slice(1))).toEqual([['P1', 110, 10, 0], ['P1', 130, 20, -5]])
     expect(order).toEqual(['preview:pedal:P1', 'preview:pedal:P1'])
   })
@@ -57,8 +57,8 @@ describe('beginBodyDrag', () => {
     step.mockReturnValue({ moved: false, jumped: false })
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 130, 50)
-    drag.move!(engine, 140, 50)
+    drag.move(engine, 130, 50)
+    drag.move(engine, 140, 50)
     expect(step.mock.calls.map(c => c[3])).toEqual([30, 40]) // ⛔ not [30, 10]
     expect(order).toEqual([])
   })
@@ -67,17 +67,17 @@ describe('beginBodyDrag', () => {
     step.mockReturnValueOnce(null)
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 130, 50)
-    drag.move!(engine, 140, 50)
+    drag.move(engine, 130, 50)
+    drag.move(engine, 140, 50)
     expect(step.mock.calls.map(c => c[3])).toEqual([30, 40])
   })
 
   it('⭐ with NO press position the baseline is the first frame PAST the threshold — no opening jump', () => {
     const drag = beginBodyDrag(host, spec, 'P1')
-    drag.move!(engine, 140, 80) // inside the threshold: charged to nobody
+    drag.move(engine, 140, 80) // inside the threshold: charged to nobody
     held()
-    drag.move!(engine, 150, 85) // the baseline
-    drag.move!(engine, 160, 85)
+    drag.move(engine, 150, 85) // the baseline
+    drag.move(engine, 160, 85)
     expect(step.mock.calls.map(c => c.slice(1))).toEqual([['P1', 160, 10, 0]])
   })
 
@@ -86,7 +86,7 @@ describe('beginBodyDrag', () => {
     spec.afterFrame = vi.fn((_e, _id, frame) => { order.push('after'); return frame.jumped })
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 110, 50)
+    drag.move(engine, 110, 50)
     expect(order).toEqual(['preview:pedal:P1', 'after', 'preview:pedal:P1'])
   })
 
@@ -94,7 +94,7 @@ describe('beginBodyDrag', () => {
     spec.afterFrame = () => false
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 110, 50)
+    drag.move(engine, 110, 50)
     expect(order).toEqual(['preview:pedal:P1'])
   })
 
@@ -102,8 +102,8 @@ describe('beginBodyDrag', () => {
     spec.beforeCommit = vi.fn(() => { order.push('settle') })
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 110, 50)
-    drag.move!(engine, 120, 50)
+    drag.move(engine, 110, 50)
+    drag.move(engine, 120, 50)
     order.length = 0
     drag.end()
     expect(order).toEqual(['settle', 'commit', 'render', 'release'])
@@ -119,7 +119,7 @@ describe('beginBodyDrag', () => {
     step.mockReturnValue({ moved: false, jumped: false })
     const drag = beginBodyDrag(host, spec, 'P1', { x: 100, y: 50 })
     held()
-    drag.move!(engine, 130, 50)
+    drag.move(engine, 130, 50)
     drag.end()
     expect(order).toEqual(['release'])
   })

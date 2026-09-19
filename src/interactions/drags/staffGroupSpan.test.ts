@@ -54,29 +54,29 @@ describe('beginStaffGroupSpanDrag', () => {
 
   it('⭐ the BOTTOM square moves the bottom end to the staff under the pointer; the top stays put', () => {
     const drag = beginStaffGroupSpanDrag(host, state, registry, 12, 202)!
-    drag.move!(engine, 12, 320)
+    drag.move(engine, 12, 320)
     expect(preview).toHaveBeenCalledWith('G1', 1, 3)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
   })
 
   it('…and the TOP square moves the top end', () => {
     handles.staffAtPointer.mockReturnValue(0)
-    beginStaffGroupSpanDrag(host, state, registry, 12, 102)!.move!(engine, 12, 40)
+    beginStaffGroupSpanDrag(host, state, registry, 12, 102)!.move(engine, 12, 40)
     expect(preview).toHaveBeenCalledWith('G1', 0, 2)
   })
 
   it('a pointer over NO staff, or over the staff it already reaches, writes nothing', () => {
     const drag = beginStaffGroupSpanDrag(host, state, registry, 12, 202)!
     handles.staffAtPointer.mockReturnValue(null)
-    drag.move!(engine, 12, 500)
+    drag.move(engine, 12, 500)
     handles.staffAtPointer.mockReturnValue(2) // where the bottom end already is
-    drag.move!(engine, 12, 210)
+    drag.move(engine, 12, 210)
     expect(preview).not.toHaveBeenCalled()
   })
 
   it('the drop records ONE undo entry when the span ended up different', () => {
     const drag = beginStaffGroupSpanDrag(host, state, registry, 12, 202)!
-    drag.move!(engine, 12, 320)
+    drag.move(engine, 12, 320)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
     expect(host.release).toHaveBeenCalledTimes(1)
@@ -84,9 +84,9 @@ describe('beginStaffGroupSpanDrag', () => {
 
   it('⭐ …and NONE for a gesture that wandered and came back — it wrote twice and changed nothing', () => {
     const drag = beginStaffGroupSpanDrag(host, state, registry, 12, 202)!
-    drag.move!(engine, 12, 320)               // bottom end → staff 3
+    drag.move(engine, 12, 320)               // bottom end → staff 3
     handles.staffAtPointer.mockReturnValue(2)
-    drag.move!(engine, 12, 210)               // …and back to staff 2
+    drag.move(engine, 12, 210)               // …and back to staff 2
     drag.end()
     expect(preview).toHaveBeenCalledTimes(2)
     expect(commit).not.toHaveBeenCalled()

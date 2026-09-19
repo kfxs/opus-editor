@@ -44,9 +44,9 @@ describe('beginStaffSpacingDrag', () => {
 
   it('the space is the BASELINE plus the hand\'s travel since the press, in staff-spaces', () => {
     const drag = grab()
-    drag.move!(engine, 0, 330) // +30px down at 10px per space, on top of the 2 already there
+    drag.move(engine, 0, 330) // +30px down at 10px per space, on top of the 2 already there
     expect(preview).toHaveBeenCalledWith(1, 5, 5)
-    drag.move!(engine, 0, 290) // measured from the PRESS again, ⛔ not from the last frame
+    drag.move(engine, 0, 290) // measured from the PRESS again, ⛔ not from the last frame
     expect(preview).toHaveBeenLastCalledWith(1, 5, 1)
   })
 
@@ -54,7 +54,7 @@ describe('beginStaffSpacingDrag', () => {
     lineSpacing = 7.5
     const drag = grab(1, 5)
     expect(geometryAsked).toHaveBeenCalledWith(5, 1)
-    drag.move!(engine, 0, 330) // the same 30px is 4 of THIS staff's spaces, not 3
+    drag.move(engine, 0, 330) // the same 30px is 4 of THIS staff's spaces, not 3
     expect(preview).toHaveBeenCalledWith(1, 5, 6)
   })
 
@@ -62,39 +62,39 @@ describe('beginStaffSpacingDrag', () => {
     lineSpacing = 7.5
     const drag = grab()
     lineSpacing = 10
-    drag.move!(engine, 0, 330)
+    drag.move(engine, 0, 330)
     expect(preview).toHaveBeenCalledWith(1, 5, 6)
   })
 
   it('a staff nothing has measured yet falls back to a full-size staff\'s spacing', () => {
     lineSpacing = undefined
-    grab().move!(engine, 0, 330)
+    grab().move(engine, 0, 330)
     expect(preview).toHaveBeenCalledWith(1, 5, 5)
   })
 
   it('⛔ a CLICK is still a click — nothing is written inside the time threshold', () => {
-    beginStaffSpacingDrag(host, 1, 5, 300)!.move!(engine, 0, 360)
+    beginStaffSpacingDrag(host, 1, 5, 300)!.move(engine, 0, 360)
     expect(preview).not.toHaveBeenCalled()
   })
 
   it('an accepted frame renders the score; a refused one (the clamp) draws nothing', () => {
     const drag = grab()
-    drag.move!(engine, 0, 330)
+    drag.move(engine, 0, 330)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
     preview.mockReturnValue(false)
-    drag.move!(engine, 0, 900)
+    drag.move(engine, 0, 900)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
   })
 
   it('the drop records ONE undo entry — and NONE for a press that only wiggled sideways', () => {
     const drag = grab()
-    drag.move!(engine, 0, 320)
-    drag.move!(engine, 0, 340)
+    drag.move(engine, 0, 320)
+    drag.move(engine, 0, 340)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
 
     const tap = grab()
-    tap.move!(engine, 40, 300) // sideways: the space is still the baseline
+    tap.move(engine, 40, 300) // sideways: the space is still the baseline
     tap.end()
     expect(commit).toHaveBeenCalledTimes(1)
     expect(host.release).toHaveBeenCalledTimes(2)

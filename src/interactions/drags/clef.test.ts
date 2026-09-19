@@ -61,34 +61,34 @@ describe('beginClefDrag', () => {
   })
 
   it('⭐ the move starts from the EXACT beat in the model, ⛔ not the registry\'s rounded one', () => {
-    grab().move!(engine, 400, 100)
+    grab().move(engine, 400, 100)
     expect(moveClef).toHaveBeenCalledWith(2, frac(1, 3), 3, frac(2, 1))
   })
 
   it('⭐ the selection FOLLOWS the clef — reassigned, on its own staff', () => {
-    grab().move!(engine, 400, 100)
+    grab().move(engine, 400, 100)
     expect(state.selectedElement).toEqual({ kind: 'clef', measure: 3, beat: 2, staff: 1 })
   })
 
   it('⛔ a CLICK is still a click; and a move onto the slot it is already on writes nothing', () => {
-    beginClefDrag(host, state, clefAt(), slot)!.move!(engine, 400, 100)
+    beginClefDrag(host, state, clefAt(), slot)!.move(engine, 400, 100)
     expect(moveClef).not.toHaveBeenCalled()
     const drag = grab()
-    drag.move!(engine, 400, 100)
-    drag.move!(engine, 405, 100) // the same slot again
+    drag.move(engine, 400, 100)
+    drag.move(engine, 405, 100) // the same slot again
     expect(moveClef).toHaveBeenCalledTimes(1)
   })
 
   it('a REFUSED move leaves the clef, the selection and the picture where they were', () => {
     moveClef.mockReturnValue(false)
-    grab().move!(engine, 400, 100)
+    grab().move(engine, 400, 100)
     expect(state.selectedElement).toMatchObject({ measure: 2 })
     expect(host.render.renderScore).not.toHaveBeenCalled()
   })
 
   it('the drop commits where it ENDED, then takes the ghost down, unfreezes and renders once', () => {
     const drag = grab()
-    drag.move!(engine, 400, 100)
+    drag.move(engine, 400, 100)
     calls.length = 0
     drag.end()
     expect(commit).toHaveBeenCalledWith(3, frac(2, 1))

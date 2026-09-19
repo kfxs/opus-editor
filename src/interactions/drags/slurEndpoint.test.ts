@@ -36,13 +36,13 @@ describe('beginSlurEndpointDrag', () => {
 
   it('⭐ the gesture starts where the press LANDED: the first frame carries the delta from there', () => {
     const drag = grab()
-    drag.move!(engine, 312, 74)
+    drag.move(engine, 312, 74)
     expect(walk.dragArmedSlurEndpoint).toHaveBeenCalledWith(state, engine, 12, -6)
   })
 
   it('⭐ a frame renders the SCORE — the anchor note\'s tint and the guide line move too', () => {
     const drag = grab()
-    drag.move!(engine, 312, 80)
+    drag.move(engine, 312, 80)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)
     expect(host.render.previewMarks).not.toHaveBeenCalled()
   })
@@ -50,8 +50,8 @@ describe('beginSlurEndpointDrag', () => {
   it('🚨 the walk answering null is a REFUSAL: the anchor stays put, and nothing is drawn', () => {
     walk.dragArmedSlurEndpoint.mockReturnValue(null)
     const drag = grab()
-    drag.move!(engine, 330, 80)
-    drag.move!(engine, 340, 80)
+    drag.move(engine, 330, 80)
+    drag.move(engine, 340, 80)
     expect(deltas()).toEqual([[30, 0], [40, 0]])
     expect(host.render.renderScore).not.toHaveBeenCalled()
   })
@@ -59,16 +59,16 @@ describe('beginSlurEndpointDrag', () => {
   it('⭐ a LATCH takes the hold from the walk\'s own report — the next frames are absorbed', () => {
     walk.dragArmedSlurEndpoint.mockReturnValueOnce({ crossings: 1, gapAhead: 40, latched: true, discarded: 4 })
     const drag = grab()
-    drag.move!(engine, 320, 80) // latches: the hold is 30px
-    drag.move!(engine, 330, 80)
-    drag.move!(engine, 340, 80)
+    drag.move(engine, 320, 80) // latches: the hold is 30px
+    drag.move(engine, 330, 80)
+    drag.move(engine, 340, 80)
     expect(walk.dragArmedSlurEndpoint, 'the note has the ink').toHaveBeenCalledTimes(1)
   })
 
   it('the drop records ONE undo entry; a bare press records none', () => {
     const drag = grab()
-    drag.move!(engine, 310, 80)
-    drag.move!(engine, 320, 80)
+    drag.move(engine, 310, 80)
+    drag.move(engine, 320, 80)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
     expect(host.release).toHaveBeenCalledTimes(1)

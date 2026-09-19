@@ -44,7 +44,7 @@ describe('beginSlurBodyDrag', () => {
 
   it('⭐ a frame writes the cursor\'s delta in STAFF-SPACES, and redraws the slurs', () => {
     const drag = grab()
-    drag.move!(engine, 230, 80) // +30px, −20px at 10px per staff-space
+    drag.move(engine, 230, 80) // +30px, −20px at 10px per staff-space
     expect(preview).toHaveBeenCalledWith('S1', 3, -2)
     expect(host.render.previewMarks).toHaveBeenCalledWith('slur', 'S1')
   })
@@ -53,36 +53,36 @@ describe('beginSlurBodyDrag', () => {
     staffSpacePx = 7.5
     const drag = grab()
     staffSpacePx = 10 // whatever the registry says later is not this gesture's scale
-    drag.move!(engine, 230, 100)
+    drag.move(engine, 230, 100)
     expect(preview).toHaveBeenCalledWith('S1', 4, 0)
   })
 
   it('each frame moves by the delta since the LAST accepted one — the write accumulates', () => {
     const drag = grab()
-    drag.move!(engine, 210, 100)
-    drag.move!(engine, 230, 100)
+    drag.move(engine, 210, 100)
+    drag.move(engine, 230, 100)
     expect(preview.mock.calls).toEqual([['S1', 1, 0], ['S1', 2, 0]])
   })
 
   it('🚨 a REFUSED frame (the page or band limit) leaves the anchor put, and draws nothing', () => {
     preview.mockReturnValue(false)
     const drag = grab()
-    drag.move!(engine, 230, 100)
-    drag.move!(engine, 240, 100)
+    drag.move(engine, 230, 100)
+    drag.move(engine, 240, 100)
     expect(preview.mock.calls).toEqual([['S1', 3, 0], ['S1', 4, 0]]) // ⛔ not [3, 1]
     expect(host.render.previewMarks).not.toHaveBeenCalled()
   })
 
   it('⛔ a move that goes nowhere writes nothing', () => {
     const drag = grab()
-    drag.move!(engine, 200, 100)
+    drag.move(engine, 200, 100)
     expect(preview).not.toHaveBeenCalled()
   })
 
   it('the drop records ONE undo entry and renders for real; a bare press records none', () => {
     const drag = grab()
-    drag.move!(engine, 210, 100)
-    drag.move!(engine, 220, 100)
+    drag.move(engine, 210, 100)
+    drag.move(engine, 220, 100)
     drag.end()
     expect(commit).toHaveBeenCalledTimes(1)
     expect(host.render.renderScore).toHaveBeenCalledTimes(1)

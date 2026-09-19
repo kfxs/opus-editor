@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { windows } from '../windows'
 import { openScoreTextWindow } from '../windows/scoreTextWindow'
 import { scoreText } from '../engine/models/scoreTextOps'
-import type { ArticulationType, PitchSpelling, Fraction, Note } from '../types/music'
+import type { ArticulationType, PitchSpelling, Fraction } from '../types/music'
 import type { MusicEngine } from '../engine/MusicEngine'
 import type { ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState, SelectedElement } from './EditorState'
@@ -19,7 +19,6 @@ import { fracToNumber } from '../utils/fraction'
 import { dynamicTextFromTool, DEFAULT_DYNAMIC_TEXT } from '../utils/dynamics'
 import { staffOf } from '@/utils/lanes'
 import { nearestSlotBoundaryBeat } from '../engine/layout/slotBoundary'
-import { entryAlteration } from '../engine/models/entryAlteration'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
 import { tempoInsertStop } from './tempoInsertAnchor'
@@ -32,13 +31,14 @@ import { stampKeySignatureAtClick } from './keySignatureStamp'
 import { STAFF_BAND_PAD_PX } from './staffBand'
 import { ELEMENT_HIT_ORDER, type DoubleClickMark, type ElementChainDeps, type MouseDownCtx } from './elements/chain'
 import { armHairpinEndpointAt } from './elements/hairpinHandles'
-import { DRAG_DISTANCE_THRESHOLD_PX, type DragHost, type Gesture } from './drags/gesture'
+import type { DragHost, Gesture } from './drags/gesture'
 import { beginBarlineJoinDrag } from './drags/barlineJoin'
 import { beginBarWidthDrag } from './drags/barWidth'
 import { beginClefDrag } from './drags/clef'
 import { beginDynamicDrag } from './drags/dynamic'
 import { beginHairpinBodyDrag } from './drags/hairpinBody'
 import { beginMarkEndDrag, type MarkEndKind } from './drags/markEnd'
+import { beginNoteDrag } from './drags/note'
 import { beginOttavaBodyDrag } from './drags/ottavaBody'
 import { beginPedalBodyDrag } from './drags/pedalBody'
 import { beginSlurBodyDrag } from './drags/slurBody'
@@ -61,7 +61,7 @@ import { beatToFrac } from '../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from './measurePassage'
 import { stampGroupAtClick } from './groupStamp'
 import { measureCapacityQuarters } from '../utils/measureCapacity'
-import { spellingToMidi, accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
+import { accidentalToAlter, formatPitch } from '../utils/pitchSpelling'
 
 
 /** Registry element types that are staff background / structure rather than clickable
@@ -97,46 +97,12 @@ export class MouseController {
     this.activeDrag = gesture
     event.preventDefault()
   }
-  private draggedNoteOriginalPitch: PitchSpelling | null = null
-  /**
-   * Which gesture a note/rest drag turned out to be — **decided on the evidence, not on the
-   * press** (the hand/pan plan's shape). `undecided` until the cursor has travelled far enough to
-   * mean something, then the dominant axis picks: vertical → re-pitch, horizontal → note spacing.
-   *
-   * This is why the gate below is a DISTANCE and not the old elapsed-time one. A time gate can only
-   * answer "has the user committed to dragging"; it cannot say to what. Under it, a horizontal drag
-   * that wandered one staff step re-pitched the note before any axis could be read — the pitch edit
-   * fired on the first frame past 150 ms in whichever direction the cursor happened to be.
-   */
-  private noteDragAxis: 'undecided' | 'pitch' | 'spacing' = 'undecided'
-  /** Press point in svg coords — the origin both the axis decision and the spacing delta measure
-   *  from. Null when no note/rest drag is armed. */
-  private noteDragStart: { x: number; y: number } | null = null
-
-  // --- Note-spacing drag (the horizontal branch of the note drag; docs/note-spacing-plan.md §5) ---
-  /** The column being spaced: a space belongs to a (measure, beat), never to the grabbed note. */
-  private spacingDragColumn: { measure: number; beat: Fraction } | null = null
-  /** The space already authored there when the drag began — the delta rides on top of it. */
-  private spacingDragBaseline = 0
-  /** The leftward floor, measured ONCE off the picture the user grabbed. Re-measuring per frame
-   *  would judge the gesture against a score that is moving because of the gesture. */
-  private spacingDragMinSpace = 0
-  /** Staff-line spacing (px) on the grabbed note's own staff — the divisor that turns the cursor's
-   *  pixel delta into staff-spaces. Its OWN, measured at the press: a scale borrowed from another
-   *  gesture would silently run this one at whatever was dragged last. */
-  private spacingDragStaffSpacePx = 10
-  private spacingDragChanged = false
-
   // --- Staff-spacing vertical drag (Sibelius "space above staff" — Client #7) ---
   /** ⭐ The measure box that was showing when THIS press began, remembered across the element
    *  clear so the empty-space fallback can re-grab it ({@link grabSelectedBox}). ⛔ Not state the
    *  app can read: it is alive for the length of one mousedown and means nothing after it. */
   private boxBeforePress: Extract<SelectedElement, { kind: 'measureRange' }> | null = null
 
-  /** Min cursor travel (px) before a note/rest press becomes a drag AND picks its axis. The same
-   *  dead-zone idea as {@link PAN_THRESHOLD_PX}, a little wider: this one also has to tell two
-   *  gestures apart, and 4px of jitter is a coin toss between them. */
-  private readonly NOTE_DRAG_THRESHOLD_PX = DRAG_DISTANCE_THRESHOLD_PX
 
   // --- Hand / grab-to-pan gesture (tool-agnostic navigation) ---
   // A press on empty space ARMS a possible pan but changes nothing yet; we decide
@@ -1311,14 +1277,7 @@ export class MouseController {
         // horizontal axis a meaning that applies to both — a rest occupies a column exactly as a
         // note does. Which axis this press turns out to be is decided later, from the movement.
         if (closestElement.type === 'note' || closestElement.type === 'rest') {
-          const origNote = engine.getNote(closestElement.id)
-          this.activeDrag = { kind: 'note', end: () => this.endNoteDrag() }
-          this.noteDragAxis = 'undecided'
-          this.noteDragStart = { x, y }
-          this.draggedNoteOriginalPitch = origNote && origNote.step
-            ? { step: origNote.step, alter: origNote.alter!, octave: origNote.octave! }
-            : null
-          this.armSpacingDrag(engine, origNote)
+          this.activeDrag = beginNoteDrag(this.dragHost, this.state, engine, closestElement.id, x, y)
           dbg(`Drag ready | ${closestElement.type}:${closestElement.id}`)
           event.preventDefault()
         }
@@ -1982,12 +1941,8 @@ export class MouseController {
     // an armed paste must not draw a TOOL ghost underneath itself either.
     if (this.state.pastePlacementArmed) return
 
-    // A gesture that owns its own state takes every move (`./drags/`); the chain below is the
-    // gestures this controller still drives itself, one family at a time on their way out.
-    if (this.activeDrag?.move && this.activeDrag.move(engine, x, y) !== false) return
-
-    // Live drag gestures — each returns true if it owns the move.
-    if (this.handleNoteDrag(engine, x, y)) return
+    // The gesture in flight takes the move (`./drags/`) — unless it says the move is not yet its own.
+    if (this.activeDrag && this.activeDrag.move(engine, x, y) !== false) return
 
     // A hand/grab pan is armed: bail before the ghost/preview logic. The pan itself is
     // driven by the document-level handlers (handleDocPanMove) so it keeps working when
@@ -2002,135 +1957,6 @@ export class MouseController {
     // draw rather than a re-layout of the whole score. The old 50 ms gate existed only to
     // ration that cost, and capped the preview at 20 fps (docs/render-performance-plan.md §5b).
     this.render.renderToolGhost({ x, y })
-  }
-
-  /**
-   * The note/rest drag — **one press, two gestures, decided from the movement.**
-   *
-   * Vertical wins → re-pitch (what this always did). Horizontal wins → note spacing, the axis
-   * that used to carry no meaning at all. Nothing happens until the cursor leaves a small dead
-   * zone, so a click still cannot nudge anything; and because the decision reads the *shape* of
-   * the movement rather than its age, a horizontal drag can wander a staff step without silently
-   * committing a pitch change on the way past.
-   *
-   * Once decided, the axis is FIXED for the rest of the press. Re-deciding per frame would let a
-   * curved drag re-pitch a note it had already started spacing — and both edits are real writes to
-   * the score, not previews you can take back by moving the mouse elsewhere.
-   *
-   * Returns true while a note/rest drag is active (the move belongs to this gesture).
-   */
-  private handleNoteDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (this.activeDrag?.kind !== 'note' || !this.state.selectedNoteId || !this.noteDragStart) return false
-
-    if (this.noteDragAxis === 'undecided') {
-      const dx = x - this.noteDragStart.x
-      const dy = y - this.noteDragStart.y
-      if (Math.hypot(dx, dy) < this.NOTE_DRAG_THRESHOLD_PX) return true // dead zone: still a click
-      this.noteDragAxis = Math.abs(dx) > Math.abs(dy) ? 'spacing' : 'pitch'
-      dbg(`Note drag axis | ${this.noteDragAxis} (dx:${dx.toFixed(1)} dy:${dy.toFixed(1)})`)
-    }
-
-    if (this.noteDragAxis === 'spacing') return this.dragNoteSpacing(engine, x)
-    if (this.draggedNoteOriginalPitch === null) return true // a rest: nothing to re-pitch
-
-    // ⚠️ Through the ENGINE, not a `getMeasureNotes` walk: that walk reads `slot.notes` and so is
-    // blind to a FANNED MEMBER, which would leave the drag silently doing nothing on exactly the
-    // notes P3 made draggable (his report). `getNote` answers for both.
-    const selectedNote = engine.getNote(this.state.selectedNoteId)
-
-    if (selectedNote && !selectedNote.isRest) {
-      const measure = engine.getScore().measures.find(m => m.number === selectedNote.measure)
-      if (measure) {
-        const barQuarters = measureCapacityQuarters(measure)
-        const position = engine.pixelToPosition({ x, y }, barQuarters)
-        // ⭐ The drag gives a diatomic position — a LETTER — and its alteration is whatever is in
-        //   force there: the bar's running accidental, else the KEY ({@link entryAlteration}, the
-        //   same rule click entry and the arrow keys read). Without it, dragging a note in G major
-        //   lands an F♮ wearing a natural nobody asked for.
-        const cursorSpelling = {
-          ...position.spelling,
-          alter: entryAlteration(
-            engine.getScore(),
-            { measure: selectedNote.measure, beat: selectedNote.beat, staff: selectedNote.staff },
-            position.spelling.step, position.spelling.octave,
-          ),
-        }
-        const cursorMidi = spellingToMidi(cursorSpelling.step, cursorSpelling.alter, cursorSpelling.octave)
-        const noteMidi = spellingToMidi(selectedNote.step!, selectedNote.alter!, selectedNote.octave!)
-
-        if (cursorMidi !== noteMidi) {
-          dbg(`Drag pitch change | midi:${noteMidi} -> ${cursorMidi}`)
-          engine.updateNote(this.state.selectedNoteId, { step: cursorSpelling.step, alter: cursorSpelling.alter, octave: cursorSpelling.octave })
-          this.render.renderScore()
-        }
-      }
-    }
-    return true
-  }
-
-  /**
-   * Arm the horizontal half of a note/rest drag: remember which COLUMN was grabbed, the space
-   * already authored there, and how far left it may go.
-   *
-   * The floor is measured now, once, against the picture the user grabbed — see
-   * `MusicEngine.noteSpacingRoom`. `null` means the last render cannot answer, and then the
-   * spacing branch simply never arms: the press stays a pitch drag rather than moving a column by
-   * a made-up amount.
-   */
-  private armSpacingDrag(engine: MusicEngine, note: Note | undefined): void {
-    this.spacingDragColumn = null
-    this.spacingDragChanged = false
-    if (!note) return
-    // ⭐ A fanned member's own gap, not its group's — `spacingColumnOf` is the address, because the
-    // flat note carries the SLOT's beat (docs/note-spacing-plan.md §7).
-    const column = engine.spacingColumnOf(note.id)
-    if (!column) return
-    const room = engine.noteSpacingRoom(column.measure, column.beat, note.id)
-    if (room === null) return
-    this.spacingDragColumn = { measure: column.measure, beat: column.beat }
-    this.spacingDragBaseline = engine.getNoteSpacing(column.measure, column.beat)
-    this.spacingDragMinSpace = this.spacingDragBaseline - room
-    this.spacingDragStaffSpacePx =
-      engine.getElementRegistry().getStaffGeometry(note.measure, staffOf(note))?.lineSpacing ?? 10
-  }
-
-  /**
-   * Note-spacing drag: the grabbed column follows the cursor horizontally, and everything right of
-   * it slides with it. Live-updates without undo; the drop records one entry (`commitNoteSpacing`).
-   *
-   * The pixel delta is divided by the staff space to become staff-spaces, because the model holds
-   * no pixels. No zoom division: `clientToSvg` goes through `getScreenCTM().inverse()`, so these
-   * coords are already layout px with the zoom transform undone.
-   * Returns true: while the axis is `spacing`, the move is ours.
-   */
-  private dragNoteSpacing(engine: MusicEngine, x: number): boolean {
-    if (!this.spacingDragColumn || !this.noteDragStart) return true
-    const dx = (x - this.noteDragStart.x) / this.spacingDragStaffSpacePx
-    const { measure, beat } = this.spacingDragColumn
-    if (engine.previewNoteSpacing(measure, beat, this.spacingDragBaseline + dx, this.spacingDragMinSpace)) {
-      this.spacingDragChanged = true
-      this.render.renderScore()
-    }
-    return true
-  }
-
-  /** Finish a note/rest drag. A spacing drag that actually moved the column records its one undo
-   *  entry here; a pitch drag already committed each change as it went. */
-  private endNoteDrag(): void {
-    if (this.noteDragAxis === 'spacing' && this.spacingDragChanged) {
-      const engine = this.getEngine()
-      if (engine && this.spacingDragColumn) {
-        engine.commitNoteSpacing()
-        const { measure, beat } = this.spacingDragColumn
-        dbg(`Note spacing set | bar ${measure} beat ${beat.num}/${beat.den} → ${engine.getNoteSpacing(measure, beat)} ss`)
-      }
-    }
-    this.activeDrag = null
-    this.noteDragAxis = 'undecided'
-    this.noteDragStart = null
-    this.draggedNoteOriginalPitch = null
-    this.spacingDragColumn = null
-    this.spacingDragChanged = false
   }
 
   /**
