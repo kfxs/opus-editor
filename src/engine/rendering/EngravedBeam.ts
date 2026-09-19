@@ -159,11 +159,6 @@ export class EngravedBeam {
     return this
   }
 
-  unsetPartialBeamSideAt(noteIndex: number): this {
-    this.forcedSides.delete(noteIndex)
-    return this
-  }
-
   /**
    * The slope, then the stems — once. ⭐ Also what a note's own `postFormat` calls on its beam.
    */

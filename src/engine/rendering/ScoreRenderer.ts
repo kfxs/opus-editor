@@ -43,7 +43,7 @@ import type { Scene } from '@/engine/scene/Scene'
 import './notation.css'
 import type { Score, Measure, Clef, KeySignature, Tuplet, ChordRest, Fraction, GhostNote, TimeSignature } from '@/types/music'
 import { fracToNumber, fracEq, fracCompare, fracLte, fracIsZero } from '@/utils/fraction'
-import { effectiveClefAt, effectiveClefBefore, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
+import { effectiveClefBefore, resolveStaffClefs, type StaffClefs } from '@/utils/clefUtils'
 import { resolveStaffKeys, type StaffKeys } from '@/utils/keySignature'
 import { headerKeyAt } from '@/engine/layout/keySignatureLayout'
 import { pairPadding } from '@/engine/layout/spacingPadding'
@@ -57,10 +57,7 @@ import { ElementRegistry, offsetStaffGeometry, type TupletGeometry, type ClefSeg
 import { measureShapeKey } from './MeasureRedrawKey'
 import { spellingToMidi } from '@/utils/pitchSpelling'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
-import { renderTies, drawTieArc } from './TieRenderer'
-import { tieEndpointX, tieEndpointY } from './tieEndpoints'
-import { CURVE_PX } from './curveStyle'
-import { tieSide } from './tieDirection'
+import { renderTies } from './TieRenderer'
 import { renderSlurs } from './SlurRenderer'
 import { renderHairpins } from './HairpinRenderer'
 import { planTrillBands, renderTrills } from './TrillRenderer'
@@ -4830,78 +4827,6 @@ export class ScoreRenderer {
    *  bbox path-scan (which bled onto staff lines). Must be called after a render. */
   getTieSVGGroup(fromNoteId: string): SVGGElement | null {
     return this.tieGroupMap.get(fromNoteId) ?? null
-  }
-
-  /**
-   * Render a dangling (pending) tie from a note with no target yet — a stub arc reaching right.
-   *
-   * ⭐ **Drawn by the SAME primitive as a real tie** (§12 Phase 3b, his call): this used to be a raw
-   * VexFlow `StaveTie`, whose quadratic is a different shape and a heavier weight than the arc it
-   * previews — so a tie visibly changed the moment you committed it. It shares its length with the
-   * armed tool's ghost, so the two previews are one shape too.
-   */
-  renderPendingTie(noteId: string, score: Score): void {
-    if (!this.context) return
-    const info = this.staveNoteMap.get(noteId)
-    if (!info) return
-
-    // Find the NotePitch and its containing chord/measure
-    let foundNotePitch: import('@/types/music').NotePitch | undefined
-    let foundBeat: Fraction | undefined
-    let foundMeasure: Measure | undefined
-    let foundStaffId: string | undefined
-
-    outer: for (const measure of score.measures) {
-      for (const slot of measure.slots) {
-        if (slot.type === 'chord') {
-          const p = slot.notes.find(n => n.id === noteId)
-          if (p) {
-            foundNotePitch = p
-            foundBeat = slot.beat
-            foundMeasure = measure
-            foundStaffId = slot.staffId
-            break outer
-          }
-        }
-      }
-    }
-
-    if (!foundNotePitch || !foundBeat || !foundMeasure) return
-
-    // A pending tie has only ITS OWN end, so it offers the one stem it has (`./tieDirection`
-    // rule 4 — one stem trivially agrees with itself) and the clef in force under it.
-    const tieDirection = tieSide(
-      foundNotePitch, foundBeat, foundMeasure,
-      effectiveClefAt(score, foundMeasure.number, foundBeat, foundStaffId),
-      [noteRuler(info.staveNote).stemDirection],
-    )
-    const pendingRuler = noteRuler(info.staveNote)
-    const ys = pendingRuler.headYs
-    const headY = ys[info.noteIndex] ?? ys[0]
-    if (headY === undefined || isNaN(headY)) return
-    const head = {
-      leftX: pendingRuler.headLeftX,
-      rightX: pendingRuler.headRightX,
-      headY,
-    }
-    const firstX = tieEndpointX(head, 'from')
-    // Drawn from the note's own coordinates, so it belongs in that note's staff space — the same
-    // rule as the engraved ties next door (docs/staff-size-plan.md §4.3).
-    inScaledStaffGroup(
-      this.createRenderPass(score),
-      staffIndexOfId(score, foundStaffId),
-      `pendingtie-${noteId}`,
-      () => drawTieArc(
-        { context: this.context! },
-        {
-          firstX,
-          lastX: firstX + CURVE_PX.tieStubLength,
-          y: tieEndpointY(head.headY, tieDirection),
-          direction: tieDirection,
-        },
-        noteFrame(info.staveNote),
-      ),
-    )
   }
 
   /**

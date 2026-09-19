@@ -73,10 +73,10 @@ let landed: { id: string; inkY: number } | null = null
 type OttavaWalkEngine = Pick<MusicEngine,
   'getOttavaById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextOttavaStartSlot' | 'nextOttavaEndSlot' | 'ottavaEndSlot'
-  | 'moveOttavaStartToSlot' | 'moveOttavaEndToSlot'
-  | 'nudgeOttavaEndpoint' | 'rebaseOttavaEndpointOffset'
+  | 'moveOttavaStartToSlot'
+  | 'nudgeOttavaEndpoint'
   | 'previewOttavaEnd' | 'previewOttavaEndpointOffset' | 'previewOttavaEndpointRebase'
-  | 'moveOttavaToSlot' | 'nudgeOttava' | 'rebaseOttavaOffset'
+  | 'nudgeOttava'
   | 'previewOttavaSlot' | 'previewOttavaStaffSlot' | 'previewOttavaOffset' | 'previewOttavaOffsetRebase'>
 
 /**

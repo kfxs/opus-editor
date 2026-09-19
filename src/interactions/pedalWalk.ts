@@ -74,11 +74,11 @@ let landed: { id: string; inkY: number } | null = null
 type PedalWalkEngine = Pick<MusicEngine,
   'getPedalById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
   | 'nextPedalStartSlot' | 'nextPedalLift' | 'pedalLiftSlot'
-  | 'movePedalStartToSlot' | 'movePedalLiftTo'
-  | 'nudgePedalEndpoint' | 'rebasePedalEndpointOffset'
+  | 'movePedalStartToSlot'
+  | 'nudgePedalEndpoint'
   | 'previewPedalStartAtSlot' | 'previewPedalLiftAt'
   | 'previewPedalEndpointOffset' | 'previewPedalEndpointRebase'
-  | 'movePedalToSlot' | 'nudgePedal' | 'rebasePedalOffset'
+  | 'movePedalToSlot' | 'nudgePedal'
   | 'previewPedalSlot' | 'previewPedalStaffSlot' | 'previewPedalOffset' | 'previewPedalOffsetRebase'>
 
 /**

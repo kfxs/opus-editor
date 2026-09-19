@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStatement, BarlineStyle, RepeatStart, RepeatEnd, ClefChange, FractionalBeamSide } from '@/types/music'
+import type { KeySignature, PitchInsert, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf, restPositionKey } from './engravingOverrides'
 import { tupletSpan, tupletScale, noteSpansOverlapFrac, splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -770,12 +770,6 @@ export class ScoreModel {
     return hairpinOps.nextHairpinStartSlot(this.score, id, direction)
   }
 
-  /** Put a hairpin's START on the lane slot at `target`, holding its END (the left square's DRAG).
-   *  See {@link hairpinOps.setHairpinStartAtSlot}. */
-  setHairpinStartAtSlot(id: string, target: hairpinOps.HairpinSlotTarget): boolean {
-    return hairpinOps.setHairpinStartAtSlot(this.score, id, target)
-  }
-
   /** The tip's next position, without moving it — what the right square's interpolating WALK looks
    *  ahead at, in the drag's own vocabulary. See {@link hairpinOps.nextHairpinEndStop}. */
   nextHairpinEndStop(id: string, direction: 1 | -1): hairpinOps.HairpinEndStop | null {
@@ -1539,21 +1533,6 @@ export class ScoreModel {
   // §3.2), and the two repeats are owned by DIFFERENT bars: an end repeat by the bar it closes, a
   // start repeat by the bar it opens (ONE OWNER PER LINE).
 
-  /** The style of the line ENDING this bar, or undefined for the plain single line. */
-  getBarline(measureNumber: number): BarlineStatement | undefined {
-    return barlineOps.barlineAt(this.score, measureNumber)
-  }
-
-  /** The repeat this bar OPENS ( `|:` ), or undefined. */
-  getRepeatStart(measureNumber: number): RepeatStart | undefined {
-    return barlineOps.repeatStartAt(this.score, measureNumber)
-  }
-
-  /** The repeat this bar CLOSES ( `:|` ), or undefined. */
-  getRepeatEnd(measureNumber: number): RepeatEnd | undefined {
-    return barlineOps.repeatEndAt(this.score, measureNumber)
-  }
-
   /** Set the style of the line ending this bar; `undefined` clears it back to a plain line.
    *  See {@link barlineOps.setBarlineStyle}. */
   setBarlineStyle(measureNumber: number, style: BarlineStyle | undefined, staffId?: string): boolean {
@@ -1917,12 +1896,6 @@ export class ScoreModel {
     }
     this.reconcileMeasureRests(measure)
     return true
-  }
-
-  /** The measure's actual capacity in quarter beats (override or nominal). */
-  getMeasureCapacityFrac(measureNumber: number): Fraction | undefined {
-    const measure = this.getMeasure(measureNumber)
-    return measure ? measureCapacityFrac(measure) : undefined
   }
 
   /**

@@ -26,15 +26,6 @@ export function middleLineDiatonicPos(clef: Clef): number {
 }
 
 /**
- * Natural (un-forced) stem direction for a single note: at or above the clef's middle
- * line points the stem **down**, below it points **up**. Matches the convention used
- * across the renderer and data model.
- */
-export function naturalStemDirection(step: PitchStep, octave: number, clef: Clef): 'up' | 'down' {
-  return spellingDiatonicPos(step, octave) >= middleLineDiatonicPos(clef) ? 'down' : 'up'
-}
-
-/**
  * VexFlow STAFF LINE of a pitch under a clef — the number a `NoteHead` and `Stave.getYForNote` both
  * speak: **1 is the bottom line, 5 the top, 3 the middle**, and a step is half of one (a note in a
  * space lands on a `.5`). Off the staff continues the same count, which is why a ledger line is

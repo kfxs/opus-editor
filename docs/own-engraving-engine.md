@@ -1724,7 +1724,7 @@ and the readers lean on its EDGES, not its presence:
 | note entry (`findNotesLeftRight`, `findNearestNoteOrRest`, `pixelToPosition`) | centre | **where the head stands** ✅ |
 | a beat-anchored mark (`MouseController.resolveSlotBeat`) | left edge — the ACCIDENTALS | where the slot's ink begins ✅ |
 | the bar-width drag (`measuredRoom`, bar-end room) | right edge — the DOTS | where the last ink ends |
-| Shift-box select (`getInRect`) | the whole rectangle | does the box touch any of the note's parts |
+| ~~Shift-box select (`getInRect`)~~ | — | ⛔ not a reader: it had no caller and was deleted (code-shape plan, Phase 1.5). A box selects a measure PASSAGE, never a rectangle of note boxes |
 | a slur's obstacles | `noteInkBox`, its own union | the note's ink minus the dynamic |
 
 ⇒ swapping in a box of ours with fewer parts in it would have moved the bar-width floor and note
@@ -1747,7 +1747,7 @@ box, which is ours since P6b's first kind. ⭐ The rule did not change — *"sna
 boundary"* (`588b817`), and a sharp is still part of its slot; only the ruler did. ⚠️ A rest still
 answers VexFlow's glyph box, and a note without `headX` falls back to its union box. Spec
 `layout/slotBoundary.test.ts`, whose note fixtures carry a deliberately wrong `bbox.x`.
-⏭️ Next readers: `measuredRoom`'s bar-end room (needs the DOT's box first) · `getInRect` · the slur's
+⏭️ Next readers: `measuredRoom`'s bar-end room (needs the DOT's box first) · the slur's
 `noteInkBox`.
 
 ⏭️ **Then** the DOT and the ARTICULATION — both already open a named group with an id, and the

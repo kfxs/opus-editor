@@ -59,7 +59,6 @@ export class SvgPainter implements DrawContext {
   readonly svg: SVGSVGElement
   width = 0
   height = 0
-  backgroundFillStyle = 'white'
   fontCSSString = ''
   /** The scale and the font — `SVGContext.state`. ⚠️ Public: a pass rewinds it by assignment. */
   state: Attributes & { scaleX: number; scaleY: number }
@@ -132,11 +131,6 @@ export class SvgPainter implements DrawContext {
 
   setFillStyle(style: string): this {
     this.attributes.fill = style
-    return this
-  }
-
-  setBackgroundFillStyle(style: string): this {
-    this.backgroundFillStyle = style
     return this
   }
 

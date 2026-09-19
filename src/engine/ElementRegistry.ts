@@ -1340,21 +1340,6 @@ export class ElementRegistry {
   }
 
   /**
-   * Find all elements within a rectangle (for marquee selection)
-   */
-  getInRect(rect: BoundingBox): ElementInfo[] {
-    return this.elements.filter(el => {
-      const b = el.bbox
-      return (
-        b.x < rect.x + rect.width &&
-        b.x + b.width > rect.x &&
-        b.y < rect.y + rect.height &&
-        b.y + b.height > rect.y
-      )
-    })
-  }
-
-  /**
    * Get count of registered elements
    */
   get count(): number {
@@ -1991,15 +1976,6 @@ export class ElementRegistry {
   }
 
   /**
-   * Get all tuplet elements in a measure
-   * @param measure - Measure number
-   * @returns Array of tuplet element infos
-   */
-  getTupletsByMeasure(measure: number): ElementInfo[] {
-    return this.elements.filter(el => el.type === 'tuplet' && el.measure === measure)
-  }
-
-  /**
    * Get all notes and rests belonging to a specific tuplet
    * @param tupletId - The tuplet's unique ID
    * @returns Array of note/rest element infos that belong to the tuplet
@@ -2008,16 +1984,6 @@ export class ElementRegistry {
     return this.elements.filter(
       el => (el.type === 'note' || el.type === 'rest') && el.tupletId === tupletId
     )
-  }
-
-  /**
-   * Check if an element belongs to a tuplet
-   * @param elementId - The note/rest ID
-   * @returns The tupletId if the element is in a tuplet, undefined otherwise
-   */
-  getElementTupletId(elementId: string): string | undefined {
-    const element = this.elements.find(el => el.id === elementId)
-    return element?.tupletId
   }
 }
 

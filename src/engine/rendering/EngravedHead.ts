@@ -92,11 +92,6 @@ export class EngravedHead {
     return this.line
   }
 
-  setLine(line: number): this {
-    this.line = line
-    return this
-  }
-
   isDisplaced(): boolean {
     return this.displaced
   }

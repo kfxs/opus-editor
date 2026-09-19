@@ -2199,23 +2199,6 @@ export class PaletteController {
   }
 
   /**
-   * ⭐ **REMOVE the grouping sign from the selected staves** — his *"none"*.
-   *
-   * ⛔ APPLY-only, with no arming half, and that is deliberate: arming "remove nothing" and hunting
-   * for a click to spend it on is not a gesture anyone wants. With nothing selected this does
-   * nothing and says so.
-   */
-  pressGroupNone(): void {
-    const target = groupTargetFromSelection(this.state)
-    if (target === null) {
-      dbg('⛔ Group: nothing selected — select the staves whose sign should go')
-      return
-    }
-    const engine = this.getEngine()
-    if (engine && engine.applyGroupSymbol(target.fromStaff, target.toStaff, undefined)) this.renderScore()
-  }
-
-  /**
    * ⭐ **A KEY SIGNATURE PALETTE PRESS** — one method for every signature, because the difference
    * between C and E♭ is an ARGUMENT and not a branch (`utils/keySignature.keyFromFifths` builds the
    * classical ones; a custom signature is the same call with a hand-built list).

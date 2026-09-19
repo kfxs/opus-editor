@@ -64,7 +64,6 @@ export class TickColumn {
   private maxTicks: TickCount = { numerator: 0, denominator: 1 }
   private maxTickable?: ColumnTickable
   private minTicks?: TickCount
-  private minTickable?: ColumnTickable
   readonly tickables: ColumnTickable[] = []
   private readonly tickablesByVoice: Record<number, ColumnTickable> = {}
   notePx = 0
@@ -83,10 +82,6 @@ export class TickColumn {
     this.tickID = options.tickID ?? 0
   }
 
-  getTickID(): number {
-    return this.tickID
-  }
-
   getX(): number {
     return this.x
   }
@@ -100,11 +95,6 @@ export class TickColumn {
 
   getXBase(): number {
     return this.xBase
-  }
-
-  setXBase(xBase: number): void {
-    this.xBase = xBase
-    this.x = xBase + this.xOffset
   }
 
   getXOffset(): number {
@@ -121,11 +111,6 @@ export class TickColumn {
     return this.width + this.padding * 2
   }
 
-  setPadding(padding: number): this {
-    this.padding = padding
-    return this
-  }
-
   getMaxTicks(): TickCount {
     return this.maxTicks
   }
@@ -136,10 +121,6 @@ export class TickColumn {
 
   getMaxTickable(): ColumnTickable | undefined {
     return this.maxTickable
-  }
-
-  getMinTickable(): ColumnTickable | undefined {
-    return this.minTickable
   }
 
   getTickables(): ColumnTickable[] {
@@ -173,10 +154,8 @@ export class TickColumn {
       }
       if (this.minTicks === undefined) {
         this.minTicks = { numerator: ticks.numerator, denominator: ticks.denominator }
-        this.minTickable = tickable
       } else if (subtractTicks({ numerator: ticks.numerator, denominator: ticks.denominator }, this.minTicks).numerator < 0) {
         this.minTicks = { numerator: ticks.numerator, denominator: ticks.denominator }
-        this.minTickable = tickable
       }
     }
     tickable.setTickContext(this)

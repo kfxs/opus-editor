@@ -63,7 +63,7 @@ function staffLineYs(frame: StaffFrame | undefined): number[] {
  * match). `stave` is only for the staff-line clearance — pass undefined to skip it, which is what
  * the cursor previews do.
  */
-export function drawTieArc(
+function drawTieArc(
   // ⭐ Our own surface: the arc's ink is `engrave/curves/curveInk` (U1) — see `./curveArc`.
   pass: Pick<RenderPass, 'context'>,
   geom: { firstX: number; lastX: number; y: number; direction: number },

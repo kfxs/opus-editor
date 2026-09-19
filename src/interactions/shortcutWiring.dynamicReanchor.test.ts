@@ -93,7 +93,7 @@ describe('moving a dynamic from the keyboard', () => {
 
   // 🚨 Still the standing claim after the interpolating walk arrived (2026-08-19): the horizontal
   // ink chords may now hand the anchor along when the ink ARRIVES at the next slot, but they reach
-  // that through `moveDynamicToSlotKeepingOffset` — never through the whole-slot jump this chord
+  // that through `previewDynamicSlotKeepingOffset` — never through the whole-slot jump this chord
   // owns, which wipes the mark's nudge.
   it('🚨 …and the INK chords never reach it — the plain and `Ctrl` arrows still write the offset', () => {
     selectDynamic()

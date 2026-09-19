@@ -1,7 +1,8 @@
 # Code shape plan — 2026-09-19
 
-**Status: PROPOSED.** Nothing here is started. Phases are ordered by value over risk; each one
-stands alone and can be stopped after.
+**Status: IN PROGRESS — Phase 1 items 1–5 done (2026-09-19), 6–8 open.** Phases are ordered by
+value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
+actually happened where that differs from what was planned.
 
 **Reviewed against the code the same day.** The measurements in §1 were re-taken and hold. The
 review changed six things, each marked *(review)* where it landed: the tie undo is a confirmed
@@ -72,21 +73,25 @@ The fix is to change the **contract**, not the rule: a row owns its body.
 
 ### Phase 1 — Safety and dead code (about a day)
 
-1. **Fix the multi-note tie's undo** *(review: confirmed by a probe, not only by reading)*.
+1. ✅ `4dbdeb2` **Fix the multi-note tie's undo** *(review: confirmed by a probe, not only by reading)*.
    `MusicEngine.tieSelection`'s batch calls only `scoreModel.updateNote`, so `runBatch` counts no
    undo request: no history entry, and `isRenderStale()` stays false. Tie three notes, then
    Ctrl+Z: the ties stay and the undo takes the **previous** edit instead (the probe lost the
    third note). The ties are in no snapshot, so a later redo drops them. The fix is one line —
    request undo inside the batch. Add the spec the suite lacks: tie, undo, assert the ties went
    and the notes stayed.
-2. **A dev/test assertion that a public `MusicEngine` call which dirtied the model also requested
+2. ✅ `679f3a0` **A dev/test assertion that a public `MusicEngine` call which dirtied the model also requested
    undo** *(review: moved up from "Later")*. It would have caught item 1, and today the invariant
    is convention across about 400 methods.
-3. **CI runs the unit tests.** `build:check` has no `vitest run`, so a red suite still deploys
+   *Done as `engine/undoInvariant.ts`, armed under the test runner only. A survey of the whole
+   suite found no offender beyond item 1. `preview*` became the named exception — a frame may
+   defer its entry but must mark the model dirty — by PREFIX, since a list of the 51 would be one
+   more per-kind slice. ⚠️ It sees only what a test calls.*
+3. ✅ `22c4510` **CI runs the unit tests.** `build:check` has no `vitest run`, so a red suite still deploys
    (`.github/workflows/deploy.yml`). Add it as a separate job. The e2e suite stays out.
-4. **`engine/models/staffGroupOps.ts` is binary to git** — literal NUL bytes as `join()`
+4. ✅ `c0620bf` **`engine/models/staffGroupOps.ts` is binary to git** — literal NUL bytes as `join()`
    separators. Write them as `'\0'`. Today the file has no diff and no blame.
-5. **Delete dead code**, none of which carries a "kept for later" note unless listed:
+5. ✅ **Delete dead code** *(what is still open is marked ⏭️ below)*, none of which carries a "kept for later" note unless listed:
    - `MusicEngine`: the 18–20 `move*` / `rebase*` methods orphaned when walking keys became runs
      (`b67b0f1`) — check each as it goes: `moveHairpinEndToStop`, `moveOttavaStartToSlot` and
      `movePedalToSlot` each have one reference beyond the quoted string — plus `getPlaybackState`, `getElementAt`, `getTupletElementById`. Remove their
@@ -101,6 +106,25 @@ The fix is to change the **contract**, not the rule: a row owns its body.
    - `naturalStemDirection`; drop the needless `export` on the six knip lists as file-internal.
    - About 17 test-only methods (`setClef`, `removeClef`, `isRendered`, …): decide each — a
      method only tests call is either a missing feature or a test of nothing.
+
+   *Done: 18 `move*` / `rebase*` methods and the three getters off `MusicEngine`, their strings off
+   the six walks' `Pick` lists; the `ScoreModel` four plus `setHairpinStartAtSlot` (orphaned by the
+   first group); the `ElementRegistry` three; `renderPendingTie`; `pressGroupNone`; 13 methods on
+   the ported classes; `naturalStemDirection`. About 540 lines.*
+   - *KEPT: `moveOttavaStartToSlot`, `movePedalStartToSlot`, `movePedalToSlot` — spec and e2e
+     fixtures set up with them, so they are test-only methods, not dead ones.*
+   - *The deleted `rebaseHairpinEndpointOffset` comment was the one home of "a re-base is
+     bookkeeping, so the page limit must not see it"; the rule now lives on
+     `previewHairpinEndpointRebase` and the other re-bases point there (§3: the rule travels).*
+   - ⏭️ *The "six knip lists" could not be identified — the run was not saved, and a fresh one
+     reports 69 unused exports, many of them sourced rows exported on purpose. His call which.*
+   - ⏭️ *The test-only methods wait on his decision, each: `MusicEngine.setClef` / `removeClef` and
+     the three kept above; `ScoreModel.getEngravingOverride(s)` / `getSlotsInMeasure` /
+     `slotIdForNote` / `validateMeasure`; `barlineOps.repeatStartAt` / `repeatEndAt`;
+     `ScoreRenderer.setDrawFilter`; `ElementRegistry.findClosestNote` / `findNotesNearX` / `findAt`;
+     `PaletteController.setDynamic` / `setTempo`; `CoordinateMapper.beatToPixelX` / `getConfig` /
+     `isWithinMeasureBounds`; `ViewportModel.getContentSize`; `PlaybackEngine.getState` (no caller
+     at all) and the reserved `getPlaybackPosition`.*
 6. **Fence what the docs already claim.** Add `engine/rendering`, `engine/layout` and
    `engine/fonts` to the score layer's restricted imports. It fails today on
    `barlineOps.ts` → `layout/barlineSign` (→ font metrics); move the pure half

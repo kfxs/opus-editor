@@ -39,8 +39,8 @@ import { nextAnchorPoint, onsetAnchorX, staffSpacePxOf, tempoAddress } from './t
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type TempoWalkEngine = Pick<MusicEngine,
   'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'moveTempoToSlotKeepingOffset' | 'nudgeTempoOffset'
-  | 'rebaseTempoOffset' | 'previewTempoOffsetRebase'
+  | 'nudgeTempoOffset'
+  | 'previewTempoOffsetRebase'
   | 'previewTempoSlotKeepingOffset' | 'previewTempoOffset' | 'previewTempoSlot'>
 
 /** The port: everything `./markWalk` needs of this mark, and the whole of what is tempo-specific. */

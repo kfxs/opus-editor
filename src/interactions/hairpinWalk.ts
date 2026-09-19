@@ -53,12 +53,12 @@ let landed: { id: string; inkY: number } | null = null
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type HairpinWalkEngine = Pick<MusicEngine,
   'getHairpinById' | 'getScore' | 'getElementRegistry' | 'getNote' | 'runBatch'
-  | 'nextHairpinStartSlot' | 'moveHairpinStartToSlot'
-  | 'nextHairpinEndStop' | 'moveHairpinEndToStop'
-  | 'nudgeHairpinEndpoint' | 'rebaseHairpinEndpointOffset'
+  | 'nextHairpinStartSlot'
+  | 'nextHairpinEndStop'
+  | 'nudgeHairpinEndpoint'
   | 'previewHairpinEnd' | 'previewHairpinEndpointOffset' | 'previewHairpinEndpointRebase'
   | 'previewHairpinSlot' | 'previewHairpinStaffSlot' | 'previewHairpinOffset' | 'previewHairpinOffsetRebase'
-  | 'moveHairpinToSlot' | 'nudgeHairpin' | 'rebaseHairpinOffset' | 'previewHairpinPlacement'>
+  | 'nudgeHairpin' | 'previewHairpinPlacement'>
 
 /**
  * ⭐ **WHAT SEPARATES THE TWO DEVICES, and the whole of it**: a KEY press records its own undo step,

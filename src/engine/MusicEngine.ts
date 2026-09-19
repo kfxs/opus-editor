@@ -535,7 +535,7 @@ export class MusicEngine {
    * keyboard nudge and every drag frame so the two devices cannot disagree about what is allowed.
    *
    * ⛔ **The walk's RE-BASE does not come through here**, and must not: it does not move the drawn
-   * mark at all ({@link rebaseHairpinEndpointOffset}).
+   * mark at all ({@link previewHairpinEndpointRebase}).
    */
   /**
    * ⭐⭐ **Both limits an octave bracket's ink must satisfy** — the wedge's pair, one lane over: it may
@@ -549,7 +549,7 @@ export class MusicEngine {
    *
    * ⚠️ Shared by the keyboard nudge and every drag frame, so the two devices cannot disagree about
    * what is allowed. ⛔ The walk's RE-BASE does not come through here and must not: it moves no ink
-   * ({@link rebaseOttavaEndpointOffset}).
+   * ({@link previewHairpinEndpointRebase}).
    *
    * @param dy SCREEN staff-spaces (+down) — ⚠️ the caller converts its OUTWARD number first, since
    *   both limits predict where INK lands.
@@ -1399,31 +1399,16 @@ export class MusicEngine {
     return this.scoreModel.setDynamicAtStaffSlot(id, target)
   }
 
-  /** The undo-free twin of {@link moveDynamicToSlotKeepingOffset} — one crossing of a dragged mark's
-   *  walk; {@link commitDynamicDrag} records the whole gesture once on the drop. */
+  /** Hand a dynamic onto the lane slot at `target` KEEPING its hand-nudged offset, where
+   *  {@link moveDynamicBySlot} drops it — one crossing of the mark's walk (`interactions/dynamicWalk`).
+   *  No undo entry: {@link commitDynamicDrag} records the whole gesture once. */
   previewDynamicSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitDynamicDrag
     return this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
   }
 
-  /**
-   * ⭐⭐ **RE-BASE a dynamic's ink — the walk's bookkeeping, ⛔ NOT a hand nudge** (2026-08-21, when
-   * the mark was given the cross-system wrap).
-   *
-   * 🚨 The crossing pair *(anchor := the next slot, offset −= the gap)* leaves the DRAWN mark exactly
-   * where it was, so the PAGE LIMIT has no business judging the second half of it: the limit measures
-   * against the LAST RENDER, where the anchor has not moved yet, and reads a re-base as a hand
-   * shoving the mark half a bar sideways. Refused, the anchor has moved and the offset has not, and
-   * the next press crosses again — the runaway `rebaseHairpinEndpointOffset` carries the report for.
-   */
-  rebaseDynamicOffset(dynamicId: string, dx: number): boolean {
-    if (!this.scoreModel.getDynamicById(dynamicId)) return false
-    const ok = this.scoreModel.nudgeDynamicOffset(dynamicId, dx, 0)
-    if (ok) this.saveOnly('Nudge dynamic') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /** The re-base during a DRAG — {@link rebaseDynamicOffset} with no undo entry of its own.
+  /** The walk's RE-BASE: bookkeeping, not a hand nudge, so ⛔ never judged by the page limit
+   *  ({@link previewHairpinEndpointRebase} has the reason). No undo entry of its own.
    *  ⚠️ EXPLORATORY (2026-08-31): a `dy` too, for the same reason `previewHairpinOffsetRebase` has
    *  one — a landing on another staff pays back what the ladder over there gave it, and that
    *  payment leaves the DRAWN mark exactly where the hand has it. */
@@ -1448,24 +1433,6 @@ export class MusicEngine {
     if (!this.scoreModel.getDynamicById(dynamicId)) return false
     this.markModelDirty()
     return this.scoreModel.nudgeDynamicOffset(dynamicId, dx, dy)
-  }
-
-  /**
-   * Hand a dynamic onto the lane slot at `target` **keeping its hand-nudged offset** — the crossing
-   * of the interpolating walk (`interactions/dynamicWalk`), where {@link moveDynamicBySlot} above
-   * drops it. Content, and audible, for that method's reason.
-   *
-   * ⚠️ Saves its own undo entry, so the walk wraps the crossing pair (this write and the re-base
-   * that cancels it) in one `runBatch`: an undo that took back only half would leave the mark
-   * somewhere nobody put it.
-   */
-  moveDynamicToSlotKeepingOffset(id: string, target: DynamicSlotTarget): boolean {
-    const ok = this.scoreModel.setDynamicAtSlotKeepingOffset(id, target)
-    if (ok) {
-      this.commit('Move dynamic')
-      dbg(`[Dynamic] walked ${id} onto m${target.measure} beat ${target.beat.num}/${target.beat.den}`)
-    }
-    return ok
   }
 
   /** Where {@link moveDynamicBySlot} would put the mark, without putting it there — the walk reads
@@ -1703,34 +1670,10 @@ export class MusicEngine {
   }
 
   /**
-   * ⭐⭐ **Move the whole bracket onto `target`, keeping its length** — the BODY walk's crossing write
-   * (`interactions/ottavaWalk.walkOttavaBody`), and ONE undo entry.
-   *
-   * ⚠️ A CONTENT edit: it changes which notes are displaced, and it is AUDIBLE. ⭐ It keeps both ends'
-   * nudges by construction (`ottavaOps` writes no override here), which is what the walk needs — the
-   * crossing is meant to be invisible, and the offset is re-based by the caller rather than wiped.
-   */
-  moveOttavaToSlot(id: string, target: OttavaSlotTarget): boolean {
-    const ok = this.scoreModel.setOttavaAtSlot(id, target)
-    if (ok) this.commit('Move octave line')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **RE-BASE the WHOLE bracket's ink — the body walk's bookkeeping, ⛔ NOT a hand nudge.** Both
-   * ends by the same delta, and ⛔ never judged by the page limit or the band: the pair *(anchor := the
-   * next slot, offset −= the gap)* leaves the drawing exactly where it was
-   * ({@link rebaseOttavaEndpointOffset} carries the report that made this a rule).
-   */
-  rebaseOttavaOffset(id: string, dx: number): boolean {
-    const ok = this.scoreModel.setOttavaOffset(id, dx, 0)
-    if (ok) this.saveOnly('Nudge octave line') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **Move the whole bracket onto `target` during a DRAG** — {@link moveOttavaToSlot} with no undo
-   * entry of its own; {@link commitOttavaOffsetDrag} records the gesture once on the drop.
+   * ⭐⭐ **Move the whole bracket onto `target`, keeping its length** — the body walk's crossing write
+   * (`interactions/ottavaWalk`). It keeps both ends' nudges (`ottavaOps` writes no override here): the
+   * crossing is meant to be invisible, and the caller re-bases the offset rather than wiping it. No
+   * undo entry of its own; {@link commitOttavaOffsetDrag} records the gesture once.
    */
   previewOttavaSlot(id: string, target: OttavaSlotTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitOttavaOffsetDrag
@@ -1768,8 +1711,8 @@ export class MusicEngine {
     return this.scoreModel.setOttavaOffset(id, dx, outward)
   }
 
-  /** The whole bracket's RE-BASE during a DRAG — {@link rebaseOttavaOffset} with no undo of its own,
-   *  and ⛔ never judged by the page limit or the band.
+  /** The whole bracket's RE-BASE — both ends by the same delta, no undo of its own, and ⛔ never
+   *  judged by the page limit or the band ({@link previewHairpinEndpointRebase} has the reason).
    *
    *  ⚠️ `outward` is the second half of the same bookkeeping and is unjudged for the same reason: a
    *  re-base pays back a move the ANCHOR made, so the drawn ink does not move and there is nothing
@@ -1839,34 +1782,6 @@ export class MusicEngine {
     return ok
   }
 
-  /** Put the bracket's END so that it COVERS `target`, holding its beginning — the walk's crossing
-   *  write at the END square, and one undo entry. ⚠️ A CONTENT edit, audible for
-   *  {@link moveOttavaStartToSlot}'s reason, and it keeps that end's nudge for the same one. */
-  moveOttavaEndToSlot(id: string, target: OttavaSlotTarget): boolean {
-    const ok = this.scoreModel.applyOttavaDrag(id, { at: 'end', ...target })
-    if (ok) this.commit('Resize octave line')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **RE-BASE one end's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
-   * the bracket to its next slot it takes the same distance back out of the offset, so the DRAWN
-   * position does not change at all; the pair is an identity.
-   *
-   * 🚨 **Which is why the PAGE LIMIT must not see it** — {@link rebaseHairpinEndpointOffset} carries
-   * the report that made it a rule: the limit judges a delta against the LAST RENDER, where the
-   * anchor has not moved yet, so it reads a re-base as a hand shoving the mark half a bar sideways.
-   * Refused, the anchor has moved and the offset has not, and the next press crosses again — a
-   * runaway to the end of the road.
-   *
-   * ⚠️ `dx` only: the bracket's vertical is ONE number for the whole line and no walk touches it.
-   */
-  rebaseOttavaEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
-    const ok = this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
-    if (ok) this.saveOnly('Nudge octave line') // inside the walk's batch this only counts the request
-    return ok
-  }
-
   /**
    * Live (preview) end-move used **while dragging one of an ottava's squares** — writes the model
    * but does NOT record undo; call {@link commitOttavaDrag} on the drop for the single entry. The
@@ -1915,8 +1830,9 @@ export class MusicEngine {
     return this.scoreModel.setOttavaEndpointOffset(id, which, dx, outward)
   }
 
-  /** The re-base during a DRAG: {@link rebaseOttavaEndpointOffset} with no undo entry of its own —
-   *  and, like it, ⛔ never judged by the page limit. */
+  /** One end's RE-BASE: no undo entry of its own, and ⛔ never judged by the page limit
+   *  ({@link previewHairpinEndpointRebase} has the reason). ⚠️ `dx` only: the bracket's vertical is
+   *  ONE number for the whole line and no walk touches it. */
   previewOttavaEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
     this.markModelDirty() // live drag, undo deferred to commitOttavaDrag
     return this.scoreModel.setOttavaEndpointOffset(id, which, dx, 0)
@@ -2080,8 +1996,8 @@ export class MusicEngine {
     return this.scoreModel.setPedalStartAtSlot(id, target)
   }
 
-  /** Live (preview) re-anchor of the LIFT while dragging the `✻` — {@link movePedalLiftTo} without
-   *  the undo entry, and {@link previewPedalStartAtSlot}'s twin at the other square. */
+  /** Put the LIFT at `target`, holding the press — {@link previewPedalStartAtSlot}'s twin at the
+   *  other square. It keeps that sign's nudge, so the walk can re-base it. No undo entry. */
   previewPedalLiftAt(id: string, target: PedalLiftTarget): boolean {
     this.markModelDirty() // live drag, undo deferred to commitPedalDrag
     return this.scoreModel.setPedalLiftAt(id, target)
@@ -2109,8 +2025,9 @@ export class MusicEngine {
     return this.scoreModel.setPedalEndpointOffset(id, which, step.dx, step.dy)
   }
 
-  /** The re-base during a DRAG: {@link rebasePedalEndpointOffset} with no undo entry of its own —
-   *  and, like it, ⛔ never judged by the page limit. */
+  /** One sign's RE-BASE: no undo entry of its own, and ⛔ never judged by the page limit
+   *  ({@link previewHairpinEndpointRebase} has the reason). ⚠️ `dx` only: the pedal's vertical is
+   *  ONE number for both signs (Gould p. 333) and no walk touches it. */
   previewPedalEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
     this.markModelDirty() // live drag, undo deferred to commitPedalDrag
     return this.scoreModel.setPedalEndpointOffset(id, which, dx, 0)
@@ -2155,35 +2072,6 @@ export class MusicEngine {
   movePedalStartToSlot(id: string, target: PedalSlotTarget): boolean {
     const ok = this.scoreModel.setPedalStartAtSlot(id, target)
     if (ok) this.commit('Move pedal start')
-    return ok
-  }
-
-  /** Put the LIFT at `target`, holding the press — the walk's crossing write at the END square, and
-   *  one undo entry. ⚠️ A CONTENT edit, audible for {@link movePedalStartToSlot}'s reason (it is how
-   *  long the notes RING), and it keeps that sign's nudge for the same one. */
-  movePedalLiftTo(id: string, target: PedalLiftTarget): boolean {
-    const ok = this.scoreModel.setPedalLiftAt(id, target)
-    if (ok) this.commit('Move pedal lift')
-    return ok
-  }
-
-  /**
-   * ⭐⭐ **RE-BASE one sign's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
-   * the pedal to its next stop it takes the same distance back out of the offset, so the DRAWN
-   * position does not change at all; the pair is an identity.
-   *
-   * 🚨 **Which is why the PAGE LIMIT must not see it** — {@link rebaseOttavaEndpointOffset} carries
-   * the report that made it a rule: the limit judges a delta against the LAST RENDER, where the
-   * anchor has not moved yet, so it reads a re-base as a hand shoving the sign half a bar sideways.
-   * Refused, the anchor has moved and the offset has not, and the next press crosses again — a
-   * runaway to the end of the road.
-   *
-   * ⚠️ `dx` only: the pedal's vertical is ONE number for both signs (Gould p. 333) and no walk
-   * touches it.
-   */
-  rebasePedalEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
-    const ok = this.scoreModel.setPedalEndpointOffset(id, which, dx, 0)
-    if (ok) this.saveOnly('Nudge pedal') // inside the walk's batch this only counts the request
     return ok
   }
 
@@ -2376,18 +2264,6 @@ export class MusicEngine {
   }
 
   /**
-   * ⭐⭐ **RE-BASE the WHOLE pedal's ink — the body walk's bookkeeping, ⛔ NOT a hand nudge.** Both
-   * signs by the same delta, and ⛔ never judged by the page limit or the band: the pair *(anchor :=
-   * the next slot, offset −= the gap)* leaves the drawing exactly where it was
-   * ({@link rebasePedalEndpointOffset} carries the report that made this a rule).
-   */
-  rebasePedalOffset(id: string, dx: number): boolean {
-    const ok = this.scoreModel.setPedalOffset(id, dx, 0)
-    if (ok) this.saveOnly('Nudge pedal') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /**
    * ⭐⭐ **Move the whole pedal onto `target` during a DRAG** — {@link movePedalToSlot} with no undo
    * entry of its own; {@link commitPedalOffsetDrag} records the gesture once on the drop.
    */
@@ -2429,8 +2305,8 @@ export class MusicEngine {
     return this.scoreModel.setPedalOffset(id, dx, dy)
   }
 
-  /** The whole pedal's RE-BASE during a DRAG — {@link rebasePedalOffset} with no undo of its own, and
-   *  ⛔ never judged by the page limit or the band.
+  /** The whole pedal's RE-BASE — both signs by the same delta, no undo of its own, and ⛔ never
+   *  judged by the page limit or the band ({@link previewHairpinEndpointRebase} has the reason).
    *
    *  ⚠️ **EXPLORATORY (2026-08-30): it grew a `dy`** — a LANDING pays the travel of the mark's home
    *  into the offset so the re-anchor does not move the drawing (`interactions/pedalWalk.jumpStaves`),
@@ -2613,43 +2489,12 @@ export class MusicEngine {
   }
 
   /**
-   * Put the hairpin's START on the lane slot at `target`, **holding its end** — the walk's crossing
-   * write, and the keyboard twin of what a drag of the left square does frame by frame.
-   *
-   * ⚠️ A CONTENT edit ({@link moveHairpinStartBySlot}'s own): both model fields in one step, one undo
-   * state, and AUDIBLE — it changes which notes get louder.
-   *
-   * ⭐ It keeps that end's `hairpinEndpointOffset` by construction (`hairpinOps` writes no override
-   * here), which is what the walk needs: the crossing is meant to be invisible, and the offset is
-   * re-based by the caller rather than wiped.
-   * @returns true when the start moved; false when `target` is not a slot of the wedge's own lane,
-   *   or would reach its end.
-   */
-  moveHairpinStartToSlot(id: string, target: HairpinSlotTarget): boolean {
-    const ok = this.scoreModel.setHairpinStartAtSlot(id, target)
-    if (ok) this.commit('Move hairpin start')
-    return ok
-  }
-
-  /**
    * Where {@link resizeHairpinBySlot} would put the TIP, WITHOUT putting it there — a pure read,
    * {@link nextHairpinStartSlot}'s twin at the other end, and named in the drag's vocabulary so the
    * three routes to the tip cannot disagree about where it may stand.
    */
   nextHairpinEndStop(id: string, direction: 1 | -1): HairpinEndStop | null {
     return this.scoreModel.nextHairpinEndStop(id, direction)
-  }
-
-  /**
-   * Put the hairpin's END on `stop`, holding its start — the walk's crossing write at the right
-   * square, and one undo entry. ⚠️ A CONTENT edit ({@link resizeHairpinBySlot}'s own): it changes
-   * how much music the wedge covers, and it keeps that end's `hairpinEndpointOffset` by construction
-   * so the walk can re-base it rather than lose it.
-   */
-  moveHairpinEndToStop(id: string, stop: HairpinDragWrite): boolean {
-    const ok = this.scoreModel.applyHairpinDrag(id, stop)
-    if (ok) this.commit('Resize hairpin')
-    return ok
   }
 
   /**
@@ -2706,22 +2551,15 @@ export class MusicEngine {
   /**
    * ⭐⭐ **RE-BASE one end's ink — the walk's bookkeeping, ⛔ NOT a hand nudge.** When the walk hands
    * the wedge to its next stop it takes the same distance back out of the offset, so the DRAWN
-   * position does not change at all; the pair is an identity.
+   * position does not change at all; the pair *(anchor := the next stop, offset −= the gap)* is an
+   * identity. No undo entry of its own.
    *
-   * 🚨 **Which is why the PAGE LIMIT must not see it** (his report, 2026-08-20: a start wrapped onto
-   * the previous line and then "jumped to the first measure without going to the others"). The limit
-   * judges a delta against the LAST RENDER's ink, where the anchor has not moved yet — so it read a
-   * re-base as "shove the whole wedge ten spaces towards the margin" and refused it. The anchor moved
-   * anyway, the offset did not, and the next press crossed again: a runaway to the start of the
+   * 🚨 **Which is why the PAGE LIMIT must not see it**, here or in any family's re-base. The limit
+   * judges a delta against the LAST RENDER's ink, where the anchor has not moved yet — so it reads a
+   * re-base as a hand shoving the mark half a bar sideways and refuses it. Refused, the anchor has
+   * moved and the offset has not, and the next press crosses again: a runaway to the end of the
    * score. ⚠️ A rule about where INK may go can only be asked of a gesture that MOVES ink.
    */
-  rebaseHairpinEndpointOffset(id: string, which: 'start' | 'end', dx: number): boolean {
-    const ok = this.scoreModel.setHairpinEndpointOffset(id, which, dx, 0)
-    if (ok) this.saveOnly('Reshape hairpin') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /** The re-base during a DRAG: {@link rebaseHairpinEndpointOffset} with no undo entry of its own. */
   previewHairpinEndpointRebase(id: string, which: 'start' | 'end', dx: number): boolean {
     this.markModelDirty() // live drag, undo deferred to commitHairpinDrag
     return this.scoreModel.setHairpinEndpointOffset(id, which, dx, 0)
@@ -2766,17 +2604,6 @@ export class MusicEngine {
     return this.scoreModel.setHairpinAtStaffSlot(id, target)
   }
 
-  /**
-   * ⭐⭐ **Move the whole wedge onto `target` from the KEYBOARD** — {@link previewHairpinSlot}'s
-   * committing twin, one undo entry. ⚠️ A CONTENT edit, and AUDIBLE: it changes which notes get
-   * louder.
-   */
-  moveHairpinToSlot(id: string, target: HairpinSlotTarget): boolean {
-    const ok = this.scoreModel.setHairpinAtSlot(id, target)
-    if (ok) this.commit('Move hairpin')
-    return ok
-  }
-
   /** Live (preview) flip of which SIDE of its staff a wedge is drawn on — the body drag's step
    *  between "below this staff" and "above it", before any question of another system arises. No undo
    *  entry; the drop commits once. */
@@ -2785,15 +2612,7 @@ export class MusicEngine {
     return !!this.scoreModel.updateHairpin(id, { placement })
   }
 
-  /** The whole wedge's RE-BASE on the KEYBOARD — {@link rebaseHairpinEndpointOffset}'s twin for both
-   *  ends at once, and ⛔ outside the page limit for its reason. */
-  rebaseHairpinOffset(id: string, dx: number): boolean {
-    const ok = this.scoreModel.setHairpinOffset(id, dx, 0)
-    if (ok) this.saveOnly('Move hairpin') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /** The whole wedge's RE-BASE — {@link rebaseHairpinEndpointOffset} for both ends at once, and ⛔
+  /** The whole wedge's RE-BASE — {@link previewHairpinEndpointRebase} for both ends at once, and ⛔
    *  outside the page limit for its reason: the pair (anchor moves, ink gives the same back) does not
    *  move the drawn wedge at all. */
   previewHairpinOffsetRebase(id: string, dx: number, dy = 0): boolean {
@@ -3623,28 +3442,6 @@ export class MusicEngine {
     return this.scoreModel.setTrillPlacement(id, side)
   }
 
-  /**
-   * ⭐⭐ **MOVE THE WHOLE ORNAMENT ONTO ANOTHER NOTE, KEEPING ITS EXTENT** — the crossing of the
-   * ornament's own walk (`interactions/trillWalk`'s third port, the arrows with a trill selected and
-   * NO square armed).
-   *
-   * ⚠️ `commit`, not `saveOnly`: which notes a trill covers is which notes get the alternation.
-   */
-  moveTrill(id: string, startNoteId: string, endNoteId?: string): boolean {
-    const ok = this.scoreModel.moveTrillTo(id, startNoteId, endNoteId)
-    if (ok) this.commit('Move trill')
-    return ok
-  }
-
-  /** ⭐ The whole ornament's RE-BASE — {@link nudgeTrill} without the page limit, for the crossing's
-   *  second half. 🚨 Bookkeeping: it does not move the drawn ink, so no rule about ink may refuse it
-   *  (see {@link rebaseTrillEndpointOffset}). */
-  rebaseTrillOffset(id: string, dx: number): boolean {
-    const ok = this.scoreModel.setTrillOffset(id, dx, 0)
-    if (ok) this.saveOnly('Nudge trill') // inside the walk's batch this only counts the request
-    return ok
-  }
-
   /** Live (preview) nudge of the WHOLE ornament's ink — a BODY drag. {@link nudgeTrill} without the
    *  undo, and accumulating like it; the page limit still refuses the write. */
   previewTrillOffset(id: string, dx: number, outward: number): boolean {
@@ -3654,8 +3451,8 @@ export class MusicEngine {
     return this.scoreModel.setTrillOffset(id, dx, outward)
   }
 
-  /** The whole ornament's re-base during a DRAG — {@link rebaseTrillOffset} with no undo of its own,
-   *  and ⛔ never judged by the page limit. */
+  /** The whole ornament's RE-BASE — no undo of its own, and ⛔ never judged by the page limit: it
+   *  does not move the drawn ink (see {@link rebaseTrillEndpointOffset}). */
   previewTrillOffsetRebase(id: string, dx: number, dy = 0): boolean {
     this.markModelDirty()
     return this.scoreModel.setTrillOffset(id, dx, dy)
@@ -4394,23 +4191,9 @@ export class MusicEngine {
     return ok
   }
 
-  /**
-   * Hand a tempo mark onto `target` **keeping its hand-nudged offset** — the crossing of the
-   * interpolating walk (`interactions/tempoWalk`), where {@link moveTempoBySlot} above drops it.
-   * Content, and audible, for that method's reason. ⚠️ Saves its own undo entry, so the walk wraps
-   * the crossing pair in one `runBatch`.
-   */
-  moveTempoToSlotKeepingOffset(id: string, target: TempoStop): boolean {
-    const ok = this.scoreModel.setTempoAtSlotKeepingOffset(id, target)
-    if (ok) {
-      this.commit('Move tempo mark')
-      dbg(`[Tempo] walked ${id} onto m${target.measure} beat ${target.beat.num}/${target.beat.den}`)
-    }
-    return ok
-  }
-
-  /** The undo-free twin of {@link moveTempoToSlotKeepingOffset} — one crossing of a dragged mark's
-   *  walk; {@link commitTempoDrag} records the whole gesture once on the drop. */
+  /** Hand a tempo mark onto `target` KEEPING its hand-nudged offset, where {@link moveTempoBySlot}
+   *  drops it — one crossing of the mark's walk (`interactions/tempoWalk`). No undo entry:
+   *  {@link commitTempoDrag} records the whole gesture once. */
   previewTempoSlotKeepingOffset(id: string, target: TempoStop): boolean {
     this.markModelDirty() // live drag, undo deferred to commitTempoDrag
     return this.scoreModel.setTempoAtSlotKeepingOffset(id, target)
@@ -4423,17 +4206,9 @@ export class MusicEngine {
     return this.scoreModel.setTempoAtSlot(id, target)
   }
 
-  /** ⭐⭐ **RE-BASE a tempo mark's ink — the walk's bookkeeping, ⛔ NOT a hand nudge**, and ⛔ never
-   *  judged by the page limit ({@link rebaseDynamicOffset} carries the reasoning). ⚠️ `dx` only: no
-   *  walk has a vertical, so the mark's OUTWARD `dy` never comes through here. */
-  rebaseTempoOffset(id: string, dx: number): boolean {
-    if (!this.scoreModel.getTempoMarkById(id)) return false
-    const ok = this.scoreModel.nudgeTempoOffset(id, dx, 0)
-    if (ok) this.saveOnly('Nudge tempo mark') // inside the walk's batch this only counts the request
-    return ok
-  }
-
-  /** The re-base during a DRAG — {@link rebaseTempoOffset} with no undo entry of its own. */
+  /** The walk's RE-BASE: bookkeeping, not a hand nudge, so ⛔ never judged by the page limit
+   *  ({@link previewHairpinEndpointRebase} has the reason). No undo entry of its own. ⚠️ `dx` only:
+   *  no walk has a vertical, so the mark's OUTWARD `dy` never comes through here. */
   previewTempoOffsetRebase(id: string, dx: number): boolean {
     if (!this.scoreModel.getTempoMarkById(id)) return false
     this.markModelDirty()
@@ -6119,13 +5894,6 @@ export class MusicEngine {
   }
 
   /**
-   * Get playback state
-   */
-  getPlaybackState() {
-    return this.playbackEngine.getState()
-  }
-
-  /**
    * Current playback position. Reserved for the transport bar's playhead readout (no caller
    * yet, apart from tests). Keep alongside {@link seekToMeasure} / {@link setVolume}.
    */
@@ -6255,13 +6023,6 @@ export class MusicEngine {
   }
 
   /**
-   * Find element at a specific pixel coordinate
-   */
-  getElementAt(coords: PixelCoordinates): ElementInfo | null {
-    return this.renderer.getElementRegistry().getAt(coords.x, coords.y)
-  }
-
-  /**
    * Find element by its ID (for notes/rests)
    */
   getElementById(id: string): ElementInfo | null {
@@ -6324,13 +6085,6 @@ export class MusicEngine {
     const last = staffList.length - 1
     const height = topPx[last] - topPx[0] + staveHeightPx(sizes[last])
     return { x: b.measureX, y: b.measureY, width: b.measureWidth, height }
-  }
-
-  /**
-   * Find tuplet element by its tuplet ID
-   */
-  getTupletElementById(tupletId: string): ElementInfo | null {
-    return this.renderer.getElementRegistry().getTupletById(tupletId)
   }
 
   /**

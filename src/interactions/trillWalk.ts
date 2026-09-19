@@ -77,7 +77,7 @@ type TrillWalkEngine = TrillAnchorEngine & Pick<MusicEngine,
   | 'previewTrillAnchor' | 'previewTrillEndpointOffset' | 'previewTrillEndpointRebase'
   | 'previewTrillPlacement' | 'previewTrillMove' | 'resetTrillOffset'
   | 'setTrillExtension' | 'previewTrillExtension'
-  | 'moveTrill' | 'nudgeTrill' | 'rebaseTrillOffset' | 'commitTrillDrag'
+  | 'nudgeTrill' | 'commitTrillDrag'
   | 'previewTrillOffset' | 'previewTrillOffsetRebase'>
 
 /**
@@ -555,7 +555,7 @@ function traceTrillFrame(
  * ({@link commitTrillKeyRun}) — `MusicEngine.commitPreviewed` pushes the state after the walk, so
  * one `Ctrl+Z` returns to where the key went down.
  *
- * 🚨 **And it is also the freeze.** Every `moveTrill`/`nudgeTrill` recorded its own entry, i.e. a
+ * 🚨 **And it is also the freeze.** A write that records its own entry (as `nudgeTrill` does) takes a
  * SNAPSHOT of the whole score — 450 KB on his Prelude — inside a ~33 ms key repeat, measured at
  * ~25 ms of walk per press with the drawing already down to ~1 ms.
  *

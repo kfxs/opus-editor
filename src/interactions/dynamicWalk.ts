@@ -60,8 +60,8 @@ import { dbg } from '../utils/debug'
 /** What the walk needs off the engine — a Pick, so a spec can stand it up without a renderer. */
 type DynamicWalkEngine = Pick<MusicEngine,
   'getDynamicById' | 'getScore' | 'getElementRegistry' | 'getNote'
-  | 'nextDynamicSlot' | 'moveDynamicToSlotKeepingOffset' | 'nudgeDynamicOffset' | 'runBatch'
-  | 'rebaseDynamicOffset' | 'previewDynamicOffsetRebase'
+  | 'nextDynamicSlot' | 'nudgeDynamicOffset' | 'runBatch'
+  | 'previewDynamicOffsetRebase'
   | 'previewDynamicSlotKeepingOffset' | 'previewDynamicOffset' | 'previewDynamicSlot'
   | 'previewDynamicPlacement'>
 

@@ -66,9 +66,7 @@ describe('resizing a hairpin from the keyboard', () => {
       resizeHairpinBySlot: resize,
       moveHairpinStartBySlot: moveStart,
       nextHairpinStartSlot: nextStop,
-      moveHairpinStartToSlot: vi.fn(() => true),
       nextHairpinEndStop: nextEndStop,
-      moveHairpinEndToStop: vi.fn(() => true),
       // The walk also reads the score (for the end's address) and the drawn wedge (for the system's
       // edge). Neither says anything here, which is the "no picture, no limit" answer.
       getScore: () => ({ measures: [] }),

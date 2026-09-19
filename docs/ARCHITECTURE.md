@@ -490,6 +490,15 @@ Every mutation in `MusicEngine` must push the new score into `PlaybackEngine`
 *and* snapshot for undo. Forgetting the resync silently desyncs audio from the
 score — this is exactly the class of bug the `commit()` helper exists to prevent.
 
+**The undo half is checked, not promised.** `runBatch` decides whether to push a history entry by
+counting undo REQUESTS, so a mutator that writes the model and asks for nothing gets no entry and
+no stale render, and the next Ctrl+Z takes the edit before it (the multi-note tie did exactly
+this). `engine/undoInvariant.ts` wraps every method of an engine under the test runner and throws,
+at the outermost call, when the score changed and nothing was asked. Its exceptions are named:
+undo / redo / load replace the score, the render repairs gaps, and a gesture's frame defers its
+entry to the gesture's commit — ⭐ which makes **`preview*` a contract, not a habit**: a method so
+named may skip the undo request but must mark the model dirty, and no other method may skip it.
+
 ### ⚠️ A setter nobody reads is not a feature
 
 `PlaybackEngine.seekToMeasure` stored `currentMeasure` and `play()` never looked at it. The method

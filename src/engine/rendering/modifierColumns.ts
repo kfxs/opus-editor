@@ -88,10 +88,6 @@ export class ColumnModifiers {
     return this.width
   }
 
-  getLeftShift(): number {
-    return this.state.leftShift
-  }
-
   getRightShift(): number {
     return this.state.rightShift
   }

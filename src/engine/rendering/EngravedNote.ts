@@ -64,7 +64,7 @@ import { NoteTicks, type TickCount } from '@/engine/layout/tickCount'
 import type { ScoreTuplet } from './ScoreTuplet'
 import type { DrawGroup } from '@/engine/paint/DrawGroup'
 import { drawGroupOf, svgNode } from './svgDrawGroup'
-import { EngravedHead, type HeadStyle } from './EngravedHead'
+import { EngravedHead } from './EngravedHead'
 import { LEDGER_OVERHANG_PX, NOTE_AREA_PADDING_PX, NOTEHEAD_MIN_PADDING_PX, NOTE_ANNOTATION_SPACING_PX, NOTE_DURATION_ROWS, NOTE_GLYPH_SCALE, STEM_LENGTH_PX, STEM_THICKNESS_PX } from '@/engine/engrave/inheritedDefaults'
 import { stemExtents, stemLineHeight, type StemSpan } from '@/engine/engrave/notes/stemLength'
 import { NOTE_FONT } from '@/engine/engrave/inheritedFonts'
@@ -78,7 +78,7 @@ import { maybeStaveOf, requireNoteFrame, staveFrame, staveOf } from './staveFram
 import { noteLineY } from '@/engine/engrave/staff/staffFrame'
 import { modifierStart, type MarkAnchor, type ModifierSide } from '@/engine/engrave/notes/modifierStart'
 import {
-  displacedHeadRoom, glyphCentreX, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
+  displacedHeadRoom, headsLeftX, headsRightX, stemX, tieLeftX, type NoteXInputs,
 } from '@/engine/engrave/notes/noteGeometry'
 import { keyRows, noteDurationOf, type KeyRow } from '@/engine/engrave/notes/keyLines'
 import type { ColumnVoiceNote } from '@/engine/engrave/notes/voiceStack'
@@ -761,10 +761,6 @@ export class EngravedNote {
     return this.ledgerLineStyle
   }
 
-  setLedgerLineStyle(style: Record<string, unknown>): void {
-    this.ledgerLineStyle = style
-  }
-
   /**
    * The surface this note's OWN ink draws on — `RenderPass.context`, which is the recorder during a
    * `recordScene` render and the real painter otherwise. Read by every override above.
@@ -816,11 +812,6 @@ export class EngravedNote {
     const multiplier = this.tickMultiplierOurs ?? { numerator: 1, denominator: 1 }
     this.tickMultiplierOurs = { numerator: multiplier.numerator * numerator, denominator: multiplier.denominator * denominator }
     this.recountTicks()
-  }
-
-  getTickMultiplier(): NoteTicks {
-    const { numerator, denominator } = this.tickMultiplierOurs ?? { numerator: 1, denominator: 1 }
-    return new NoteTicks(numerator, denominator)
   }
 
   /** The note's ticks — `numerator`/`denominator` unreduced, and `value()`. */
@@ -940,11 +931,6 @@ export class EngravedNote {
     return this
   }
 
-  setKeyStyle(index: number, style: HeadStyle): this {
-    this.heads()[index].setStyle(style)
-    return this
-  }
-
   /** `StaveNote.getGlyphWidth`: its first head's width. */
   getGlyphWidth(): number {
     return this.heads()[0].getWidth()
@@ -957,11 +943,6 @@ export class EngravedNote {
 
   isDisplaced(): boolean {
     return this.displaced
-  }
-
-  setNoteDisplaced(displaced: boolean): this {
-    this.displaced = displaced
-    return this
   }
 
   /** `StaveNote.getTieRightX`: past the head, its shifts, a right-displaced head and the column's right room. */
@@ -1507,11 +1488,6 @@ export class EngravedNote {
   /** ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. */
   getNoteHeadEndX(): number {
     return headsRightX(this.xInputs())
-  }
-
-  /** ⭐ OURS as of S6a — `engrave/notes/noteGeometry`. */
-  getCenterGlyphX(): number {
-    return glyphCentreX(this.xInputs())
   }
 
   /**
