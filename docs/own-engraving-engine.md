@@ -64,6 +64,11 @@ delaying engraving work by one day.
 
 ### 0.2 The BUILD ORDER
 
+> ✅✅ **2026-09-19: DONE — VexFlow is removed, S0–S15, and `docs/vexflow-removal-map.md` is CLOSED**
+> (his call). ⭐⭐ **The engine GROWS now, and this document is where that work lives: its open list
+> is §0.5** — the removal's leftovers that need his decision, folded in here from the map's §9.4.
+> The block below is the priority as it stood during the removal, kept as its record.
+>
 > ⭐⭐ **THE PRIORITY, his call 2026-09-14: GET RID OF VexFlow FIRST. The engine GROWS after that.**
 > Anything that is not a step toward removing the dependency waits, however good an idea it is —
 > ⏭️ in particular **ONE HOUSE-STYLE OBJECT** (every sourced table — `dotGap`, `accidentalGap`,
@@ -161,6 +166,53 @@ implement *their* interface too. (✅ 2026-09-19: no VexFlow object paints any m
 🚨 §9 still carries the pre-correction sentence *"the one thing to do now: P1"*. It is marked stale
 there — ⚠️ note that its *conclusion* has now come back round to being right, by a different route
 than the one it argued; §5 and this section remain the authority on the order.
+
+### 0.5 ⏭️ OPEN — carried over from the VexFlow removal (2026-09-19)
+
+⭐ Folded in from `docs/vexflow-removal-map.md` §9.4 when the map was closed (his call). Each row was
+re-checked against the code on 2026-09-19 and still holds; the map keeps the full evidence (repro,
+cause, sources) under the same number. ⛔ **This is a DECISION list, not a queue** — each item that
+moves pixels waits for his eye, ONE at a time.
+
+**A. His decisions** (the map's §9.4 numbers):
+
+| # | What | Kind | Proposed |
+|---|---|---|---|
+| **3** | Two voices can turn the stem of a BEAMED note, which drops its beam (`EngravedNote.setStemDirection` clears `beam`): three branches of `engrave/notes/voiceStack`'s two-voice rule (the `setStem` calls at the unison branch and the two `lineDiff ≥ 1` branches) have no `hasBeam` guard; the three-voice branch has. By reading — ⛔ not yet reproduced in the editor | a bug, no taste | a `hasBeam` guard on the three calls + a spec; pixels move only where it is broken |
+| **1** | A fractional beam beside a SECONDARY break can point OUT of its group (his screenshot, C D E F with a break before D) — the told side is read on one branch of `engrave/beams/beamLineSpans` only | a rule change — stubs move | honour P4c's beat rule on the break branches too; first note RIGHT, last LEFT |
+| **4** | Two voices a SECOND apart draw their heads on top of each other: `voiceStack` offsets the lower part, then `ScoreRenderer.drawMeasureContent`'s multi-voice re-assert (`intendedXShift`) puts every voice back on the shared x | a rule of our own — picture change | offset the lower part ONLY for a second / an unshareable unison (Gould p. 53), overlap case on the left, everything else shared |
+| **6** | A mid-bar clef change keys every later column of its voice 64 ticks late (`EngravedClefChange.getTicks` = a 256th), so two voices after it may not be displaced against each other — the key shift MEASURED, its two-voice effect by reading | a rule change | `getTicks()` → 0; first check it shows on a page |
+| **2** | A beam's hit box is a zero-size box at `(0, lift)` (`EngravedBeam.getBoundingBox`) | design | should a beam be hittable at all, and is its box its quads' ink? |
+| **5** | The ported softmax (`layout/softmaxSpacing`) lives on for ONE x — a clef change after a bar's last onset | parked — HIS clef review | delete it once that clef has a rule and a column (`clef.md` §0.1 row 8) |
+| — | ⭐ **ONE HOUSE-STYLE OBJECT** (every sourced table gathered into one thing a PRESET loads) — agreed as the direction, deferred until after the removal (§0.2) | design — now unblocked | his call when |
+
+**B. Found during the removal and its doc sweep — small, mostly no taste:**
+
+- The **SCENE does not see the TUPLET** — its number and bracket are drawn straight on the painter
+  (`ScoreTuplet`, `vexTuplet.draw(this.context)` in `ScoreRenderer`), and the `pointerRect` hit
+  targets neither (measured on a triplet). Handing it the pass's surface is engine work.
+- **The articulation-code table is written FOUR times** — `NoteBuilder`, `GhostRenderer`, `MarkGhost`,
+  `fanArticulations` (`ARTICULATION_CODES` / `articulationCodes`, all `{ accent: 'a>', staccato: 'a.',
+  tenuto: 'a-' }`).
+- **`ScoreModel.validateMeasure` is not staff-aware** — it lumps every staff's voice 0 together (the
+  test-mode integrity check, `checkMeasuresWellFormed`, is). Found fixing #7.
+- #7's fix covers both entry paths, but the spec reaches only `addNoteAtBeat` — the click path
+  (`addNoteAtPosition`) needs the registry's pixel geometry to test.
+- **Spec TITLES still say what VexFlow does in the present tense** (*"the note's own group is still
+  VexFlow's"*, *"VexFlow.format flips the V3 stem down"*…) — a sweep like the docs' of 2026-09-19.
+- **≈1,200 lines of comments explain what VexFlow does** — rewritten when their file is touched
+  (the map's rule); the port attribution lines stay.
+- **Stale references, not VexFlow's** (left by the doc sweep): `clef.md` names `clefIndentPass` (now
+  `rendering/headerPlacementPass`); `header-spacing-research.md` cites
+  `ScoreRenderer.placeMeterAfterKeySignature()`, which no longer exists by that name;
+  `fan-ramp-range-plan.md` cites `VexFlowRenderer.fan.test.ts` (now `FanPass.test.ts`);
+  `note-spacing-plan.md` / `engraving-overrides-plan.md` cite `VEXFLOW_DEFAULT_STAFF_SPACE_PX`
+  (renamed); many docs cite `ScoreRenderer.ts:NNNN` line numbers that have drifted.
+- **UNSURE, left by the doc sweep** (each doc says so where it stands): whether the export host still
+  needs to be first in the document (`pdf-export.md`, `export/scoreSvg.ts`'s comment); whether our
+  `EngravedNote.setStyle` keeps VexFlow's context leak (`rest-hide-plan.md` §6); whether
+  `EngravedAccidental` keeps the `setWidth`-before-attach trap (`accidental-ledger-clearance.md`);
+  whether the shipped Bravura's GSUB holds the dynamics ligatures (`dynamics-text-as-truth-plan.md`).
 
 ### 0.3 The RULES, ranked by when they bind
 

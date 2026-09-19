@@ -1,5 +1,9 @@
 # The VexFlow removal map — what VexFlow still does here, measured, and the order to take it out
 
+> ⛔⛔ **CLOSED 2026-09-19 (his call).** The removal is done (S0–S15) and this map is its RECORD. Its open
+> items — §9.4 and the follow-ups found on the way — were FOLDED INTO `docs/own-engraving-engine.md`
+> §0.5, which is where the work continues. ⛔ Don't add new work here.
+>
 > ⭐⭐ **STATUS, 2026-09-19: VexFlow is REMOVED.** S0–S14 are done — nothing in `src/` or `e2e/`
 > imports it, it is gone from `package.json`, `lint:boundary` refuses it in every file, and `NOTICE`
 > carries its MIT licence for the ports. ✅ **S15, the names**, is done too (`ScoreRenderer`, the `vf-`
@@ -617,7 +621,7 @@ The map's counts (§0) are USES; this section is the NAMES, measured 2026-09-14:
 
 A port copies VexFlow's rule exactly, so a WRONG rule found on the way is written down here and left
 alone: fixing it moves pixels, and that is not what "remove VexFlow" means (his call, 2026-09-16).
-⏭️ **Review this list once S14 is done.** ⭐ Reviewed 2026-09-19: every item re-checked against the code and still holds; #7 fixed.
+⏭️ **Review this list once S14 is done.** ⭐ Reviewed 2026-09-19: every item re-checked against the code and still holds; #7 fixed. ⛔⛔ **MOVED 2026-09-19** — the open rows below now live in `own-engraving-engine.md` §0.5 (same numbers); this table is their evidence, kept as it was.
 
 | # | found in | what | why it waits |
 |---|---|---|---|
