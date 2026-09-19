@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags done, awaiting his UI check. Ten gestures are still the controller's.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE and ENDPOINT drags done, awaiting his UI check. Seven gestures are still the controller's.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -255,10 +255,35 @@ Run the e2e suite either side of each step.
    ported onto it in the same step; its spec passed unchanged before the frame-level tests moved
    to `heldDrag.test.ts`. `MouseController.markEndDrag.test.ts` (event-driven, all four families)
    passed UNCHANGED. `MouseController` kinds 742 → 718, lines 1,891 → 1,792. ⏸️ Awaiting his UI
-   check — the squares, and the trill body again since it was re-seated.*
+   check — the squares, and the trill body again since it was re-seated. ✅ Passed (`6d903c3`).*
 
-   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffSpacing,
-   staffGroupSpan, slurHandle, slurEndpoint, dynamic, tempo.*
+   *Fifth — the slur's HANDLE and ENDPOINT drags. `drags/slurEndpoint.ts` is a `heldDrag` row: the
+   controller's inlined hold (4 fields, 2 constants, `catchupGainFor`, ~150 comment lines) was the
+   ORIGINAL `dragHold` was extracted from — same 0.8, same 30 px cap, same derived gain — so it is
+   deleted, after the two rules only its comments held (neighbouring regions ABUT with zero margin;
+   the gain quantises reachable positions) were carried into `dragHold.catchupGain`. `heldDrag`
+   gained `family: 'score'`: a full render per frame and none at the drop, which is what this
+   gesture always did (its frames re-tint the anchor note and move the guide line).
+   `drags/slurHandle.ts` is its own small gesture — a control point is where the hand IS, so it
+   sets rather than accumulates. First specs for both. `MouseController` kinds 718 → 594, lines
+   1,792 → 1,640.*
+
+   *🚨 Found on the way: `draggedStaffSpacePx` was ONE field shared by the slur-handle drag and the
+   STAFF-SPACING drag, and only a slur grab ever wrote it — so dragging a staff's spacing ran at
+   10 px per space unless a slur handle on a small staff had been dragged earlier in the session
+   (the hazard `spacingDragStaffSpacePx`'s own comment warned of, one field over). The coupling is
+   gone with the slur's state; the staff-spacing drag now divides by a constant 10, which is what
+   it did in any session without a slur grab.*
+
+   *✅ FIXED at his word, in the same step: the staff-spacing drag is `drags/staffSpacing.ts` and
+   measures the GRABBED staff's own line spacing at the press. The stored distance is in that
+   staff's own spaces (`staffStride.spacingAbovePx`), so this is what makes a pixel of hand a
+   pixel of staff on a small staff too — ⚠️ a deliberate behaviour change there, the only one in
+   this phase. Its first spec. ⏸️ Awaiting his UI check (both slur drags, and this one on a small
+   staff).*
+
+   *Still the controller's own (no `move`): note, barWidth, barlineJoin, clef, staffGroupSpan,
+   dynamic, tempo.*
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
 

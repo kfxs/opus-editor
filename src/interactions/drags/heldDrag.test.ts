@@ -133,6 +133,17 @@ describe('beginHeldDrag', () => {
     expect(host.release).toHaveBeenCalledTimes(1)
   })
 
+  it("⭐ `family: 'score'` renders the SCORE each frame — and the drop draws nothing more", () => {
+    spec.family = 'score'
+    const drag = grab()
+    drag.move!(engine, 110, 50)
+    drag.move!(engine, 120, 50)
+    expect(order).toEqual(['render', 'render'])
+    order.length = 0
+    drag.end()
+    expect(order).toEqual(['commit', 'done', 'release']) // ⛔ no third render: the last frame IS the picture
+  })
+
   it('⛔ a press that never became a drag records nothing — but is still done, and releases', () => {
     const drag = beginHeldDrag(host, spec, 100, 50)
     drag.end()

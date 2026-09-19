@@ -61,6 +61,21 @@ export const HOLD_MAX_PX = 30
  *
  * ⚠️ 1 (no amplification) when there is no room to repay: nothing ahead, or a hold that swallowed the
  * whole gap. Better to leave a small debt standing than to divide by zero.
+ *
+ * ⚠️ **Two neighbouring anchors' regions ABUT, with zero margin** — worth knowing before anyone
+ * changes this. Oh Snap §5.2 warns that *"future implementations would have to take great care not
+ * to overlap the snap and catch-up regions of different snappable lines"*; hold + catch-up comes to
+ * `h + (gap − h) = gap` for any hold and any spacing, so they can never overlap — and anything that
+ * repaid the debt more SLOWLY than this would push one anchor's catch-up into the next one's hold.
+ *
+ * ⚠️ **The gain quantises the positions the ink can reach** (theirs too, §3.1: *"if the ratio is 2,
+ * a position 3 pixels away from a snap line is unreachable"*), and `1/(1 − 0.8)` is a ratio of 5.
+ * It lands inside the catch-up stretch only — once the debt is paid the ink tracks the cursor 1:1 —
+ * and the walk's LATCH is what makes the one position that matters, offset zero at the anchor,
+ * reachable exactly rather than by luck.
+ *
+ * ⚠️ The feel depends on two things, {@link HOLD_RATIO} and the one-pixel jitter guard in
+ * {@link spendHold} that decides how easily a hold RELEASES. A retune should move one at a time.
  */
 export function catchupGain(holdPx: number, gapPx: number): number {
   if (gapPx <= 0 || holdPx <= 0 || holdPx >= gapPx) return 1

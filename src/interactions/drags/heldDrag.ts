@@ -47,8 +47,11 @@ export type HeldFrame = (DragFrame & { jumped?: boolean }) | null
 /** One gesture's row. */
 export interface HeldDragSpec {
   kind: DragKind
-  /** The family a frame redraws. */
-  family: MarkPreviewKind
+  /** What a frame draws: one family against the last render (and then the drop renders for real),
+   *  or `'score'` — a full render every frame, for a gesture whose frames change more than one
+   *  family's ink (a slur's end re-anchoring re-tints its anchor note and redraws its guide line).
+   *  The last frame is then already the real picture, so the drop draws nothing more. */
+  family: MarkPreviewKind | 'score'
   /** For the hold's log and the drop's. */
   label: string
   /** The mark. */
@@ -73,13 +76,18 @@ export function beginHeldDrag(host: DragHost, spec: HeldDragSpec, x: number, y: 
   let ended = false
   const pressedAt = Date.now()
 
+  const draw = (): void => {
+    if (spec.family === 'score') host.render.renderScore()
+    else host.render.previewMarks(spec.family, spec.id)
+  }
+
   const end = (): void => {
     if (ended) return
     ended = true
     const engine = host.getEngine()
     if (engine && changed) {
       spec.commit(engine)
-      host.render.renderScore()
+      if (spec.family !== 'score') host.render.renderScore()
       dbg(`${spec.label} dragged | id:${spec.id}`)
     }
     spec.done?.()
@@ -110,8 +118,8 @@ export function beginHeldDrag(host: DragHost, spec: HeldDragSpec, x: number, y: 
         lastX = mx
         lastY = my
         changed = true
-        host.render.previewMarks(spec.family, spec.id)
-        if (spec.afterFrame?.(engine, frame)) host.render.previewMarks(spec.family, spec.id)
+        draw()
+        if (spec.afterFrame?.(engine, frame)) draw()
       }
       spec.trace?.(engine, mx)
       if (frame.wrapped) end()

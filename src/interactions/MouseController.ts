@@ -2,7 +2,7 @@ import { dbg } from '@/utils/debug'
 import { windows } from '../windows'
 import { openScoreTextWindow } from '../windows/scoreTextWindow'
 import { scoreText } from '../engine/models/scoreTextOps'
-import type { ArticulationType, PitchSpelling, Fraction, Note, SlurSegmentAddress } from '../types/music'
+import type { ArticulationType, PitchSpelling, Fraction, Note } from '../types/music'
 import type { MusicEngine, BarWidthRoom } from '../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry, ElementType } from '../engine/ElementRegistry'
 import type { EditorState, SelectedElement } from './EditorState'
@@ -22,8 +22,6 @@ import { nearestSlotBoundaryBeat } from '../engine/layout/slotBoundary'
 import { entryAlteration } from '../engine/models/entryAlteration'
 import { stampFanAtClick } from './fanStamp'
 import { stampSlurAtClick } from './slurStamp'
-import { cpsFromDrawnControlPoints } from './slurHandleNudge'
-import { dragArmedSlurEndpoint } from './slurEndpointWalk'
 import { dragDynamic, settleDynamicLanding } from './dynamicWalk'
 import { dragTempo, tempoAnchorXOf } from './tempoDrag'
 import { tempoInsertStop } from './tempoInsertAnchor'
@@ -42,6 +40,9 @@ import { beginMarkEndDrag, type MarkEndKind } from './drags/markEnd'
 import { beginOttavaBodyDrag } from './drags/ottavaBody'
 import { beginPedalBodyDrag } from './drags/pedalBody'
 import { beginSlurBodyDrag } from './drags/slurBody'
+import { beginSlurEndpointDrag } from './drags/slurEndpoint'
+import { beginSlurHandleDrag } from './drags/slurHandle'
+import { beginStaffSpacingDrag } from './drags/staffSpacing'
 import { beginTrillBodyDrag } from './drags/trillBody'
 import { armOttavaEndpointAt } from './elements/ottavaHandles'
 import { startTrace, traceFrame } from './dragTrace'
@@ -119,9 +120,8 @@ export class MouseController {
    *  would judge the gesture against a score that is moving because of the gesture. */
   private spacingDragMinSpace = 0
   /** Staff-line spacing (px) on the grabbed note's own staff — the divisor that turns the cursor's
-   *  pixel delta into staff-spaces. Its OWN field, not the slur drag's `draggedStaffSpacePx`:
-   *  that one is written only when a slur handle is grabbed, so borrowing it would silently scale
-   *  this gesture by whatever slur was dragged last. */
+   *  pixel delta into staff-spaces. Its OWN, measured at the press: a scale borrowed from another
+   *  gesture would silently run this one at whatever was dragged last. */
   private spacingDragStaffSpacePx = 10
   private spacingDragChanged = false
 
@@ -179,174 +179,6 @@ export class MouseController {
   private draggedClefStartBeat: Fraction | null = null   // beat at drag start (no-op check)
   private clefDragStartTime: number | null = null
 
-  // --- Slur control-point handle drag (reshape the selected slur's curve) ---
-  private draggedSlurId: string | null = null
-  private draggedCpIndex: 0 | 1 | undefined = undefined
-  private draggedSlurEndpoints: { p0: { x: number; y: number }; p1: { x: number; y: number }; direction: number } | null = null
-  /** The slur's [cp0, cp1] at drag start; the non-dragged control point is held fixed. */
-  private draggedSlurBaselineCps: [{ x: number; y: number }, { x: number; y: number }] | null = null
-  /** Stave line spacing (px) where the dragged slur was drawn — converts the new pixel
-   *  shape to staff-spaces before storing (the override is resolution-independent). */
-  private draggedStaffSpacePx = 10
-  /** For a cross-system slur, which segment the grabbed handle reshapes (begin/end/middle
-   *  ordinal). Undefined = a same-line single arc → routes to the slur's `curveShape`. */
-  private draggedSlurSegment: SlurSegmentAddress | undefined = undefined
-  /** Live system count carried from the handle, written as the `segmentCurveShape` reset
-   *  signature (only used when `draggedSlurSegment` is set). */
-  private draggedSlurSpanCount: number | undefined = undefined
-  private slurDragChanged = false
-  private slurDragStartTime: number | null = null
-
-  // --- Slur endpoint handle drag (re-anchor the selected slur's in/out point) ---
-  private draggedEndpointSlurId: string | null = null
-  private draggedEndpoint: 'start' | 'end' | undefined = undefined
-  /** True once a preview re-anchor fired, so the drop records one undo entry. */
-  private slurEndpointDragChanged = false
-  private slurEndpointDragStartTime: number | null = null
-  /** Cursor position at the last ACCEPTED endpoint-drag frame (see `handleSlurEndpointDrag`). */
-  private slurEndpointLastX = 0
-  private slurEndpointLastY = 0
-  /** Motor pixels still to be absorbed by the hold at the note just crossed, and the direction that
-   *  crossing was travelling (so turning back releases instead of fighting). */
-  private slurEndpointHoldPx = 0
-  private slurEndpointHoldDir = 0
-  /** Motor pixels the holds have swallowed and the CATCH-UP still owes back — see
-   *  {@link catchupGainFor}. */
-  private slurEndpointDebtPx = 0
-  /** …and the gain that repays it, fixed when the hold was taken (it depends on that gap). */
-  private slurEndpointGain = 1
-  /** Horizontal travel this gesture has asked of the CURSOR and given to the INK. Their difference is
-   *  the deviation the hold introduces, and the whole point of the catch-up is that it comes back to
-   *  zero at every note — so it is logged per frame rather than trusted. */
-  private slurEndpointCursorTravel = 0
-  private slurEndpointInkTravel = 0
-
-  /**
-   * ⭐⭐ **THE HOLD — how far the cursor travels while the ink stays on the note it just reached.**
-   *
-   * Snap-and-go (Baudisch, Cutrell, Hinckley & Eversole, CHI 2005), which is the model this drag
-   * already follows: *don't* teleport the ink within a radius of the anchor — that is traditional
-   * snapping, and it makes the band either side of every note physically unreachable. Insert motor
-   * space at the anchor instead. The ink arrives, is held for a stretch of cursor travel, and then
-   * carries on, so every intermediate position stays placeable and the note still feels magnetic.
-   *
-   * ⭐ The value is theirs: participants preferred the two strongest attractors they tested (18 and
-   * 34 px) and the authors state most users prefer friction of **20–30**. Fernquist et al.'s
-   * *Oh Snap* (INTERACT 2011) recommends a 10 px snap width with a 20 px catch-up, and warns that the
-   * regions of adjacent snap lines must not overlap — see {@link SLUR_ENDPOINT_HOLD_MAX_PX} for how
-   * that rule actually lands on us. Both papers are on disk (`reference/`), with what each answered
-   * in that directory's manifest.
-   *
-   * 🚨 **Snap-and-go itself never gives the swallowed motor distance back** — read from the paper,
-   * 2026-08-19: its 1-D code returns `x − w + 1` past an attractor, a permanent `w−1` offset per
-   * attractor, and it resyncs the POINTER to the object instead (*"it misses code for updating the
-   * mouse pointer to keep knob and pointer together"*). We cannot do that — a score is not a widget
-   * and the cursor is not ours to move — which is why the catch-up below is not optional here.
-   *
-   * ⚠️ It is **motor** distance, not model distance: the cursor moves, the ink does not, and the two
-   * re-synchronise the moment the hold is spent. That is the whole trick, and it is why this lives
-   * with the gesture rather than in `slurEndpointWalk` — the module knows staff-spaces, and this is
-   * a fact about hands.
-   *
-   * ⭐⭐ **A MULTIPLE OF THE GAP JUST CROSSED, not a pixel count** (his ask for a stronger hold,
-   * twice, 2026-08-18). A fixed pixel hold is a different gesture at every zoom and in every density
-   * of music: 24 px is over half the gap between quavers in a busy bar and a tenth of it between two
-   * whole notes. A multiple of the gap is the same gesture everywhere.
-   *
-   * ⚠️ **It may exceed 1, and their non-overlap rule is satisfied by construction rather than
-   * dodged.** 🚨 An earlier version of this comment said the rule did not apply because "their scheme
-   * captures the pointer inside a radius" — **that was a misreading, corrected 2026-08-19 against the
-   * paper, which is now on disk** (`reference/oh-snap-fernquist-interact2011.pdf`). Oh Snap does not
-   * capture anything: §3 is our gesture exactly — *"The object remains stationary unless the user's
-   * finger travels a small distance (the snap-width) beyond where snapping has occurred. Once the
-   * finger travels beyond the snap-width, the object starts moving at a rate faster than the finger
-   * is moving."*
-   *
-   * ⭐ So their warning does bear on us — §5.2, *"future Oh Snap implementations would have to take
-   * great care not to overlap the snap and catch-up regions of different snappable lines"* — and the
-   * derived gain below is what answers it: hold + catch-up comes to `h + (gap − h) = gap` for any
-   * hold and any spacing, so two neighbouring notes' regions ABUT and can never overlap. ⚠️ With zero
-   * margin, which is worth knowing before anyone changes the gain: the two are exactly adjacent, and
-   * anything that repaid the debt more slowly than `1/(1−r)` would push this one's catch-up into the
-   * next one's hold.
-   *
-   * ⚠️ And there IS a precision cost, theirs too (§3.1): the gain quantises the reachable positions —
-   * *"if the ratio (and super pixel size) is 2, a position 3 pixels away from a snap line is
-   * unreachable"* — and `1/(1−0.8)` is a ratio of **5**. It lands inside the catch-up stretch only
-   * (once the debt is paid the ink tracks the cursor 1:1), and the endpoint LATCH is what makes the
-   * one position that matters — offset zero at the note — reachable exactly rather than by luck.
-   *
-   * 🚨 **CAPPED IN PIXELS by {@link SLUR_ENDPOINT_HOLD_MAX_PX}, and that cap is not a detail** — his
-   * logs, 2026-08-18. A fraction of the gap is right for dense music and absurd for sparse: a
-   * whole-note gap here measures 220 px, so 0.8 of it is a **176 px hold**, and mid-hold the cursor
-   * sits 176 px past the note the ink is resting on. Cumulative bookkeeping cannot fix that — the hand
-   * and the ink are simply in different places. A hold is a HAND-scale distance (Baudisch tested
-   * 18–34 px), so the ratio governs dense music and the cap governs the rest.
-   *
-   * ⭐ The only real cost is TRAVEL: with hold `h` over a gap `g`, carrying an endpoint across one note
-   * costs `g` of cursor movement either way — `h` of it standing still, the rest amplified.
-   *
-   * ⭐⭐ **0.8 is HIS, found by hand and not by argument** (2026-08-18). The whole sweep, since a
-   * later reader will otherwise "improve" it: **24 px flat** → asked for stronger; **0.75** → *"i
-   * think can be stronger"*; **1.0** (a note holding the ink for as long as it then takes to reach the
-   * next) → *"now is too much"*; **0.85** → *"is too much already"*. ⛔ Do not round it. Nothing in
-   * the papers picks between these — Baudisch's own preference study landed on a RANGE (18–34 px),
-   * not a number, and for exactly this reason.
-   *
-   * ⚠️ And the ratio is not the only thing the feel depends on: the jitter guard below decides how
-   * easily a hold RELEASES, and it arrived in the same step as 0.85 — so a future retune should move
-   * one of the two at a time, which this one did not.
-   */
-  private readonly SLUR_ENDPOINT_HOLD_RATIO = 0.8
-
-  /**
-   * ⭐⭐ **THE CATCH-UP — how the hold gives back the travel it swallowed**, so the cursor and the ink
-   * do not drift apart.
-   *
-   * 🚨 **A hold without this is a bug, and it was ours** (his report, 2026-08-18: *"the hold is making
-   * not correspond the x with the notes… i have to go further to reach the longer notes"*). Every hold
-   * consumes motor distance the ink never travelled, so after two notes the cursor leads the endpoint
-   * by two holds and the score no longer sits where the hand says it does. It gets worse with every
-   * note crossed, which is why it reads as the notes having moved.
-   *
-   * ⭐ Fernquist, Shoemaker & Booth, *Oh Snap* (INTERACT 2011) has the second half: snap on contact,
-   * hold for the snap width, **then catch up** over a catch-up width at a gain of
-   * `(snap + catchup)/catchup` — their published pair is 10 px and 20 px, i.e. a gain of 1.5.
-   *
-   * 🚨🚨 **AND THE GAIN IS NOT A FREE PARAMETER — taking their 1.5 with our hold was a bug** (his
-   * second report: *"the far i go the far the x position of the mouse deviate more and more"*). The
-   * debt has only until the NEXT note to be repaid. Repaying `h` while the ink covers one `gap` needs
-   * `(G−1)/G ≥ h/gap`, so with `h = 0.8·gap` a gain of 1.5 repays just `0.33·gap` and every note
-   * crossed adds `0.47·gap` of permanent drift. Their 1.5 is self-consistent only with THEIR hold —
-   * 10 px against a spacing of 30 or more, i.e. a third of a gap.
-   *
-   * ⭐⭐ So it is DERIVED: `G = 1/(1 − r)`. Then cursor travel per gap is exactly
-   * `r·gap + gap/G = gap` — one-to-one, with the debt back at zero on arrival at every note. The
-   * hold ratio is now the only dial: raise it and the ink is stickier at each note AND flies faster
-   * between them, because those are the same statement.
-   *
-   * ⚠️ Turning back CANCELS the debt rather than repaying it backwards. The hold was a statement about
-   * travel in one direction; a change of mind is not the place to hand back distance the hand did not
-   * ask for.
-   */
-  private readonly SLUR_ENDPOINT_HOLD_MAX_PX = 30
-
-  /**
-   * ⭐⭐ The gain that repays THIS latch's hold over THIS gap: `G = 1/(1 − h/gap)`.
-   *
-   * Derived per latch rather than fixed, because the hold is now capped: `h/gap` is 0.8 between two
-   * quavers and 0.14 between two whole notes, so one gain cannot serve both. Solving
-   * `(G−1)·c = h` with `G·c = gap` gives the formula, and then the debt reaches zero at the exact
-   * moment the ink reaches the next note — cursor travel per gap is the gap, at any spacing.
-   *
-   * ⚠️ 1 (no amplification) when there is no room to repay: nothing ahead, or a hold that swallowed
-   * the whole gap. Better to leave a small debt standing than to divide by zero.
-   */
-  private catchupGainFor(holdPx: number, gapPx: number): number {
-    if (gapPx <= 0 || holdPx <= 0 || holdPx >= gapPx) return 1
-    return 1 / (1 - holdPx / gapPx)
-  }
-
   // --- Dynamic drag (docs/dynamic-offset-plan.md, the RE-ANCHOR section). ⚠️ No square and nothing
   //     to arm first: a dynamic is a POINT, so the MARK is its own handle and this arms on the very
   //     press that selects it. The drag walks the mark's lane, the mouse twin of `Ctrl+Shift+←/→`. ---
@@ -380,14 +212,6 @@ export class MouseController {
    *  clear so the empty-space fallback can re-grab it ({@link grabSelectedBox}). ⛔ Not state the
    *  app can read: it is alive for the length of one mousedown and means nothing after it. */
   private boxBeforePress: Extract<SelectedElement, { kind: 'measureRange' }> | null = null
-  private draggedSpacingStaff = 0            // staff index being spaced
-  private draggedSpacingMeasure = 0          // a measure on the target SYSTEM (per-system key)
-  private draggedSpacingBaseline = 0         // its `above` (staff-spaces) at drag start
-  private draggedSpacingStartY = 0           // cursor Y (px) at drag start
-  private staffSpacingDragChanged = false
-  private staffSpacingDragStartTime: number | null = null
-
-
   private readonly DRAG_TIME_THRESHOLD_MS = DRAG_TIME_THRESHOLD_MS
 
   /** Min cursor travel (px) before a note/rest press becomes a drag AND picks its axis. The same
@@ -1391,21 +1215,9 @@ export class MouseController {
     // resolve to the wrong segment (§4a). cpIndex disambiguates the two dots within it.
     if (pick?.kind === 'control') {
       const handle = pick.entry
-      if (handle.cpIndex !== undefined && handle.slurEndpoints && handle.controlPoints) {
-      this.activeDrag = { kind: 'slurHandle', end: () => this.endSlurHandleDrag() }
-      this.draggedSlurId = selectedSlur.id
-      this.draggedCpIndex = handle.cpIndex
-      this.draggedSlurEndpoints = handle.slurEndpoints
-      // The keyboard nudge inverts the same math from the same registry fields, so the conversion
-      // lives next to it (`./slurHandleNudge`) rather than being kept twice.
-      this.draggedSlurBaselineCps = cpsFromDrawnControlPoints(handle.controlPoints, handle.slurEndpoints)
-      this.draggedStaffSpacePx = handle.staffSpacePx ?? 10
-      this.draggedSlurSegment = handle.segmentRole === undefined ? undefined
-        : handle.segmentRole === 'middle' ? { role: 'middle', ordinal: handle.segmentOrdinal ?? 0 }
-        : { role: handle.segmentRole }
-      this.draggedSlurSpanCount = handle.slurSpanCount
-      this.slurDragChanged = false
-      this.slurDragStartTime = Date.now()
+      const gesture = beginSlurHandleDrag(this.dragHost, selectedSlur.id, handle)
+      if (gesture && handle.cpIndex !== undefined) {
+      this.activeDrag = gesture
       // Grabbing a round (angle) handle PICKS that dot, and by construction disarms any armed
       // endpoint square — the two are different editing targets, so the arrows shouldn't keep
       // nudging an endpoint after you reach for the curve shape (slur-endpoint-offset-plan).
@@ -1432,20 +1244,8 @@ export class MouseController {
     // different note.
     if (pick?.kind === 'endpoint' && pick.entry.endpoint) {
       const endHandle = pick.entry
-      this.activeDrag = { kind: 'slurEndpoint', end: () => this.endSlurEndpointDrag() }
-      this.draggedEndpointSlurId = selectedSlur.id
-      this.draggedEndpoint = endHandle.endpoint
-      this.slurEndpointDragChanged = false
-      this.slurEndpointDragStartTime = Date.now()
-      // The drag carries the ink by the cursor's DELTA, so the gesture starts from where the press
-      // landed — not from the square's centre, which would jerk the end by the grab offset.
-      this.slurEndpointLastX = x
-      this.slurEndpointLastY = y
-      this.slurEndpointHoldPx = 0 // no note is holding the ink until this gesture reaches one
-      this.slurEndpointDebtPx = 0
-      this.slurEndpointGain = 1
-      this.slurEndpointCursorTravel = 0
-      this.slurEndpointInkTravel = 0
+      const which = pick.entry.endpoint
+      this.activeDrag = beginSlurEndpointDrag(this.dragHost, this.state, selectedSlur.id, which, x, y)
       // Click = select this point for keyboard nudging; drag (decided on move) re-anchors.
       // Either way the point stays armed afterward, so arrows can fine-tune it. Re-render so
       // the selected square's highlighted border shows immediately (slur-endpoint-offset-plan).
@@ -1522,8 +1322,7 @@ export class MouseController {
     // ⭐ Put the box back before arming: the drag reads the selected staff off it, the highlight
     //   paints from it, and this press cleared it on its way past the element chain.
     this.state.selectedElement = box
-    if (!this.armStaffSpacingDrag(engine, measure, y)) return false
-    dbg(`Staff-spacing drag ready | measure:${measure} staff:${staff} baseline:${this.draggedSpacingBaseline} ss`)
+    if (!this.armStaffSpacingDrag(measure, y)) return false
     event.preventDefault()
     return true
   }
@@ -1538,16 +1337,11 @@ export class MouseController {
    *  (docs/linear-view-plan.md §4.2b). Same gesture, and the engine decides which — so nothing
    *  keyed to a system can be written from a view that has no system worth naming (§4.1).
    *  @returns true if a drag was armed. */
-  private armStaffSpacingDrag(engine: MusicEngine, measure: number, startY: number): boolean {
+  private armStaffSpacingDrag(measure: number, startY: number): boolean {
     const staff = selectedOf(this.state, 'measureRange')?.staff ?? 0
-    this.activeDrag = { kind: 'staffSpacing', end: () => this.endStaffSpacingDrag() }
-    this.draggedSpacingStaff = staff
-    this.draggedSpacingMeasure = measure
-    this.draggedSpacingBaseline = engine.getStaffSpacingAbove(staff, measure)
-    this.draggedSpacingStartY = startY
-    this.staffSpacingDragChanged = false
-    this.staffSpacingDragStartTime = Date.now()
-    return true
+    const gesture = beginStaffSpacingDrag(this.dragHost, staff, measure, startY)
+    if (gesture) this.activeDrag = gesture
+    return gesture !== null
   }
 
   /**
@@ -1809,17 +1603,17 @@ export class MouseController {
    *
    * This is why plain measure-select fires on DOWN: a tap that never drags still lands here,
    * selects the box, and — since the drag never crosses the move threshold — commits nothing
-   * (endStaffSpacingDrag is a no-op), leaving exactly the old tap-to-select behavior.
+   * (the gesture records nothing — `./drags/staffSpacing`), leaving exactly the old tap-to-select behavior.
    */
   private beginBoxSelectOrPan(ctx: MouseDownCtx): void {
-    const { engine, event, x, y } = ctx
+    const { event, x, y } = ctx
     // ⭐ A press on empty space INSIDE the box that was already showing keeps that selection exactly
     //   as it is — a passage extended over several bars survives its own grab — and only arms the
     //   drag. ⛔ Before the re-select below, which would collapse such a passage to one bar.
     if (this.grabSelectedBox(ctx)) return
     if (this.selectMeasureAt(x, y)) {
       this.render.renderScore()
-      this.armStaffSpacingDrag(engine, selectedOf(this.state, 'measureRange')!.anchor, y)
+      this.armStaffSpacingDrag(selectedOf(this.state, 'measureRange')!.anchor, y)
       event.preventDefault()
       return
     }
@@ -1872,45 +1666,6 @@ export class MouseController {
       engine.setLayoutFrozen(false)
       this.render.renderScore()
     }
-  }
-
-  /** Finish a slur-handle drag: record one undo entry if the shape changed, then reset. */
-  private endSlurHandleDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.slurDragChanged) {
-      engine.commitSlurShape()
-      dbg(`Slur reshaped | id:${this.draggedSlurId}`)
-    }
-    this.activeDrag = null
-    this.draggedSlurId = null
-    this.draggedCpIndex = undefined
-    this.draggedSlurEndpoints = null
-    this.draggedSlurBaselineCps = null
-    this.draggedSlurSegment = undefined
-    this.draggedSlurSpanCount = undefined
-    this.slurDragChanged = false
-    this.slurDragStartTime = null
-  }
-
-  /**
-   * Vertical staff-spacing drag: turn the cursor's Y travel since grab into a new "space
-   * above" for the selected staff and preview it live (no undo until drop — mirrors the slur
-   * handle). Screen-down (+dy) widens the space (pushes the staff and everything below it
-   * down); the box highlight follows because the model re-renders each move. One staff-space
-   * = the stored line spacing (px), so dy ÷ that is the delta in staff-spaces.
-   */
-  private handleStaffSpacingDrag(engine: MusicEngine, _x: number, y: number): boolean {
-    if (this.activeDrag?.kind !== 'staffSpacing') return false
-    if (this.staffSpacingDragStartTime !== null && Date.now() - this.staffSpacingDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const dy = y - this.draggedSpacingStartY
-    const above = this.draggedSpacingBaseline + dy / this.draggedStaffSpacePx
-    if (engine.previewStaffSpacing(this.draggedSpacingStaff, this.draggedSpacingMeasure, above)) {
-      // Only a real change from the baseline arms the commit — so a press that never moves
-      // vertically (a plain tap-to-select, or a horizontal wiggle) records no undo entry.
-      if (above !== this.draggedSpacingBaseline) this.staffSpacingDragChanged = true
-      this.render.renderScore()
-    }
-    return true
   }
 
   /**
@@ -2089,19 +1844,6 @@ export class MouseController {
     this.barlineJoinDrag = null
   }
 
-  /** Finish a staff-spacing drag: record one undo entry if it actually moved, then reset. */
-  private endStaffSpacingDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.staffSpacingDragChanged) {
-      engine.commitStaffSpacing()
-      dbg(`Staff spacing set | staff:${this.draggedSpacingStaff} → ${engine.getStaffSpacingAbove(this.draggedSpacingStaff, this.draggedSpacingMeasure)} ss`)
-    }
-    this.activeDrag = null
-    this.staffSpacingDragChanged = false
-    this.staffSpacingDragStartTime = null
-  }
-
-
   /** Finish a tempo drag: record one undo entry if the mark actually moved, then reset. The mark
    *  stays selected — the drop ends the gesture, not the selection. */
   private endTempoDrag(): void {
@@ -2161,22 +1903,6 @@ export class MouseController {
 
 
 
-
-  /** Finish a slur-endpoint drag: record the one undo entry for the whole gesture, then reset. The
-   *  end stays ARMED — the drop ends the gesture, not the selection — so the arrows carry on from
-   *  where the hand stopped, which is the same road (`slurEndpointWalk`). */
-  private endSlurEndpointDrag(): void {
-    const engine = this.getEngine()
-    if (engine && this.slurEndpointDragChanged) {
-      engine.commitSlurEndpoint()
-      dbg(`Slur endpoint dragged | id:${this.draggedEndpointSlurId} end:${this.draggedEndpoint}`)
-    }
-    this.activeDrag = null
-    this.draggedEndpointSlurId = null
-    this.draggedEndpoint = undefined
-    this.slurEndpointDragChanged = false
-    this.slurEndpointDragStartTime = null
-  }
 
   handleClick(event: MouseEvent): void {
     // A pan just ended: swallow the trailing click so a drag in entry mode doesn't drop a
@@ -2786,11 +2512,8 @@ export class MouseController {
     // Live drag gestures — each returns true if it owns the move.
     if (this.handleBarWidthDrag(engine, x)) return
     if (this.handleNoteDrag(engine, x, y)) return
-    if (this.handleSlurHandleDrag(engine, x, y)) return
     if (this.handleTempoDrag(engine, x, y)) return
     if (this.handleDynamicDrag(engine, x, y)) return
-    if (this.handleSlurEndpointDrag(engine, x, y)) return
-    if (this.handleStaffSpacingDrag(engine, x, y)) return
     if (this.handleStaffGroupSpanDrag(engine, y)) return
     if (this.handleBarlineJoinDrag(engine, y)) return
     if (this.handleClefDrag(engine, x, y)) return
@@ -2937,38 +2660,6 @@ export class MouseController {
     this.draggedNoteOriginalPitch = null
     this.spacingDragColumn = null
     this.spacingDragChanged = false
-  }
-
-  /**
-   * Slur handle drag: the grabbed control point follows the cursor. Invert the
-   * `curveControlPoints` math to a cps delta, hold the other control point fixed, live-update
-   * (no undo) and re-render — the re-render redraws the handles at the new spots.
-   * Returns true while a slur-handle drag is active.
-   */
-  private handleSlurHandleDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'slurHandle' && this.draggedSlurId && this.draggedCpIndex !== undefined
-        && this.draggedSlurEndpoints && this.draggedSlurBaselineCps)) return false
-    if (this.slurDragStartTime !== null && Date.now() - this.slurDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const { p0, p1, direction } = this.draggedSlurEndpoints
-    const spacing = (p1.x - p0.x) / 4
-    const dragged = this.draggedCpIndex === 0
-      ? { x: x - p0.x - spacing, y: (y - p0.y) * direction }
-      : { x: x - p1.x + spacing, y: (y - p1.y) * direction }
-    const cps: [{ x: number; y: number }, { x: number; y: number }] = this.draggedCpIndex === 0
-      ? [dragged, this.draggedSlurBaselineCps[1]]
-      : [this.draggedSlurBaselineCps[0], dragged]
-    // The drag math is in pixels; the override is stored in staff-spaces (resolution-
-    // independent), so divide by the stave line spacing before handing it to the model.
-    const ss = this.draggedStaffSpacePx
-    const cpsStaffSpaces: [{ x: number; y: number }, { x: number; y: number }] = [
-      { x: cps[0].x / ss, y: cps[0].y / ss },
-      { x: cps[1].x / ss, y: cps[1].y / ss },
-    ]
-    if (engine.previewSlurShape(this.draggedSlurId, cpsStaffSpaces, this.draggedSlurSegment, this.draggedSlurSpanCount)) {
-      this.slurDragChanged = true
-      this.render.renderScore()
-    }
-    return true
   }
 
   /**
@@ -3156,109 +2847,6 @@ export class MouseController {
   private armMarkEndDrag(kind: MarkEndKind, coords: { x: number; y: number }): void {
     const gesture = beginMarkEndDrag(this.dragHost, kind, selectedOf(this.state, kind), coords.x, coords.y)
     if (gesture) this.activeDrag = gesture
-  }
-
-  /**
-   * ⭐⭐ **One frame of a slur ENDPOINT drag: the ink follows the hand, and the anchor comes along
-   * when the ink reaches a note** (`slurEndpointWalk`, 2026-08-18). The arrow keys' gesture with a
-   * mouse in it — same arithmetic, same module, same model state at the end of an equal journey.
-   *
-   * ⭐ It used to SNAP: nearest notehead within 60 px, re-anchored outright every frame. That
-   * teleported the ink, could never place an end between two notes, and wiped this end's nudge and
-   * the arc's shape on the way past (`slurOps.setSlurEndpoint`). The candidate tint existed to
-   * explain a jump that no longer happens; what shows now is the anchor itself, tinted for as long
-   * as the square is armed (`HighlightController.applyArmedSlurAnchorNote`), plus the dotted line
-   * back to where the engraver would have put the end.
-   *
-   * ⚠️ **The delta is measured from the last ACCEPTED frame**, the hairpin body drag's rule: the
-   * module accumulates rather than sets, and on a refusal (the page limit) leaving the anchor put is
-   * what lets the gesture re-synchronise when the cursor comes back, instead of the ink jumping by
-   * the distance it never travelled.
-   */
-  private handleSlurEndpointDrag(engine: MusicEngine, x: number, y: number): boolean {
-    if (!(this.activeDrag?.kind === 'slurEndpoint' && this.draggedEndpointSlurId && this.draggedEndpoint)) return false
-    if (this.slurEndpointDragStartTime !== null
-        && Date.now() - this.slurEndpointDragStartTime < this.DRAG_TIME_THRESHOLD_MS) return true
-    const dy = y - this.slurEndpointLastY
-    const rawDx = x - this.slurEndpointLastX
-    let dx = rawDx
-
-    // ⭐⭐ THE HOLD (see {@link SLUR_ENDPOINT_HOLD_RATIO}). While a note is holding the ink, horizontal
-    // travel is absorbed rather than passed on — the cursor moves, the end does not. Two rules keep
-    // it from feeling like a snag: only motion CONTINUING past the note is absorbed (turn back and
-    // the hold releases at once, so the note you just left is never sticky in both directions), and
-    // the vertical is never held, so the hand can still lift the end while the note has it.
-    if (this.slurEndpointHoldPx > 0) {
-      if (Math.sign(dx) === this.slurEndpointHoldDir) {
-        const absorbed = Math.min(Math.abs(dx), this.slurEndpointHoldPx)
-        this.slurEndpointHoldPx -= absorbed
-        this.slurEndpointDebtPx += absorbed // …to be handed back by the catch-up below
-        dx -= this.slurEndpointHoldDir * absorbed
-      } else if (Math.abs(dx) > 1) {
-        // ⚠️ A whole pixel of it, deliberately: a hand held still still sends frames whose delta
-        // wobbles either side of zero, and releasing on the first negative crumb would make a strong
-        // hold feel intermittent instead of firm. Sub-pixel motion the other way is jitter, not a
-        // change of mind — it neither releases the hold nor is absorbed by it.
-        this.slurEndpointHoldPx = 0
-        this.slurEndpointDebtPx = 0
-      } else {
-        dx = 0
-      }
-    }
-
-    // ⭐⭐ THE CATCH-UP (see {@link slurEndpointCatchupGain}). Once the note lets go, the ink runs
-    // faster than the hand until it has been given back every pixel the holds swallowed — so cursor
-    // travel and score distance agree again by the time the next note is reached, and the hand never
-    // has to reach further than the notes actually are.
-    if (this.slurEndpointDebtPx > 0 && dx !== 0) {
-      if (Math.sign(dx) === this.slurEndpointHoldDir) {
-        const repaid = Math.min(Math.abs(dx) * (this.slurEndpointGain - 1), this.slurEndpointDebtPx)
-        this.slurEndpointDebtPx -= repaid
-        dx += this.slurEndpointHoldDir * repaid
-      } else {
-        this.slurEndpointDebtPx = 0 // a change of mind cancels the debt; it is not repaid backwards
-      }
-    }
-    if (dx === 0 && dy === 0) {
-      // The frame was entirely absorbed: nothing moved, but the cursor did, so the anchor for the
-      // next delta has to advance or the absorbed travel would be paid out twice.
-      // ⚠️ …and the CURSOR total still has to count it, or the deviation instrument below reads the
-      // hold as free travel and reports a drift that is its own arithmetic (it did, 2026-08-18).
-      this.slurEndpointCursorTravel += rawDx
-      this.slurEndpointLastX = x
-      return true
-    }
-
-    const move = dragArmedSlurEndpoint(this.state, engine, dx, dy)
-    if (move !== null) {
-      // ⭐ A LATCH hands the ink to the note it stopped on, for a fraction of the gap AHEAD of it, in
-      // the direction it was going (the distance the debt then has to be repaid over). It fires both ways — onto the next note and back onto the one the
-      // end already had (his ask, 2026-08-18) — because the module reports the event rather than the
-      // cause. Several crossings in one frame (a fast sweep) leave one hold, not N: a hand moving
-      // that fast is plainly not asking to be stopped at each note on the way.
-      //
-      // ⚠️ The latch cut the frame short, so what it dropped goes on the debt — the catch-up hands it
-      // back, and the cursor stays level with the ink.
-      if (move.latched) {
-        this.slurEndpointHoldPx = Math.min(
-          move.gapAhead * this.SLUR_ENDPOINT_HOLD_RATIO, this.SLUR_ENDPOINT_HOLD_MAX_PX)
-        this.slurEndpointGain = this.catchupGainFor(this.slurEndpointHoldPx, move.gapAhead)
-        this.slurEndpointHoldDir = Math.sign(dx)
-        this.slurEndpointDebtPx += move.discarded
-      }
-      this.slurEndpointLastX = x
-      this.slurEndpointLastY = y
-      this.slurEndpointDragChanged = true
-      // ⭐ The deviation, MEASURED rather than reasoned about: what the cursor has been asked to
-      // travel against what the ink was actually given. The hold makes it non-zero mid-gap by design
-      // (up to one hold's worth); the catch-up is supposed to bring it back to ~0 at every note, so a
-      // value that GROWS note after note is the bug, not a value that oscillates.
-      this.slurEndpointCursorTravel += rawDx
-      this.slurEndpointInkTravel += dx
-      dbg(`Endpoint drag | dx ${rawDx.toFixed(1)}→${dx.toFixed(1)} hold:${this.slurEndpointHoldPx.toFixed(1)} debt:${this.slurEndpointDebtPx.toFixed(1)} cursorΣ:${this.slurEndpointCursorTravel.toFixed(1)} inkΣ:${this.slurEndpointInkTravel.toFixed(1)} DEVIATION:${(this.slurEndpointCursorTravel - this.slurEndpointInkTravel).toFixed(1)}px${move.latched ? ' LATCH' : ''}${move.crossings ? ` cross×${move.crossings}` : ''}`)
-      this.render.renderScore()
-    }
-    return true
   }
 
   /**
