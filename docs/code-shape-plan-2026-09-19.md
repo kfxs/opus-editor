@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 items 1–6 done (2026-09-19), 7–8 open.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 items 1–7 done (2026-09-19), 8 open.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -135,10 +135,16 @@ The fix is to change the **contract**, not the rule: a row owns its body.
    `wingsAllowed` was NOT pure — it read the sign's parts, hence the font — so the core states it
    as a total table and `barlineSign.test.ts` holds that table to `hasThickLine`, the same answer
    read off the parts.*
-7. Cheap settings: `noImplicitOverride` (0 errors), `noImplicitReturns` (2), drop the leftover
+7. ✅ Cheap settings: `noImplicitOverride` (0 errors), `noImplicitReturns` (2), drop the leftover
    `jsx` / `*.tsx` settings, drop `@types/uuid`. Decide prettier: run it once with
    `.git-blame-ignore-revs` and a CI check, or remove it — today it is configured and never run.
    Decide before Phase 6, whose file moves cost the same blame.
+   *Done: both flags on (the two `noImplicitReturns` sites were shortcut handlers that fell off
+   the end where they meant "consumed"; they now say `return true`, the same thing to
+   `ShortcutManager`, which only tests `=== false`), `jsx` / `*.tsx` gone, `@types/uuid` gone.
+   **Prettier REMOVED — decided, not drifted:** measured on a scratch copy it would rewrite 888 of
+   1,064 files (~48k diff lines), most of it re-breaking code laid out by hand on purpose. The
+   style is held by eslint and by the surrounding code.*
 8. Retire `lint:vexflow` (509 lines, 6.4 s, all zeros; the import ban already guards) and shrink
    `lint:paint` to its one live ceiling.
 

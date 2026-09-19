@@ -1582,6 +1582,7 @@ export function wireShortcuts(
       const cell = keypadCellForCode(keypadPageSelection.get(), event.code)
       if (!cell) return false
       pressKeypadCell(cell)
+      return true
     },
     // Straight to a NAMED Keypad page, rather than stepping the `+` ring to reach it. The seam is
     // the same one the panel and the numpad read, so the pad follows whether or not it is open.
@@ -1818,6 +1819,7 @@ export function wireShortcuts(
       const eng = getEngine()
       if (!eng || !repeatSelectedPassage(eng, state, selection)) return false
       renderer.renderScore()
+      return true
     },
     toggleDot: () => palette.toggleDot(),
     // One handler per preset, generated from the SAME table the keys are — see tupletPresets. The M
