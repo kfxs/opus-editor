@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE**, bar his UI check of the `ElementChainDeps` collapse. 3.2 (the `keys` column) is next.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2 DONE. Phase 3.1: the hairpin / ottava / pedal body drags done and checked; the trill's too (`cdb7f05`); the slur's too (`69e927c`); the four SQUARE drags too (`6d903c3`); the slur HANDLE / ENDPOINT and staff-spacing drags too (`8f28f79`); the DYNAMIC and TEMPO drags too (`9a04f88`); bar width, barline join, group span and clef too (`ee31698`); the NOTE drag too (`7d2898e`) — every gesture is a module. **Phase 3.1 DONE** (`25f70a6`). 3.2 started: the `keys` column + dispatcher, and the HAIRPIN family on it — awaiting his UI check.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -321,10 +321,24 @@ Run the e2e suite either side of each step.
    ⚠️ The plan said `begin(gesture)`; a builder rather than a built gesture is what lets a closed
    door cost nothing. The seven one-line `arm…Drag` forwarders left the controller; the four
    element specs that asserted `arm<Kind>Drag(id, x, y)` now assert what the builder builds.
-   `MouseController` kinds 383 → 307, lines 1,135 → 1,100. ⏸️ Awaiting his UI check.*
+   `MouseController` kinds 383 → 307, lines 1,135 → 1,100. ✅ Passed (`25f70a6`).*
 
 2. **A `keys` column on `ELEMENT_SPECS`** — `{ nudge, reset }` first — and one dispatcher.
    Replaces the four `||` chains and the 61 closures.
+
+   *Started, one family at a time as 3.1 went. `elements/keys.ts` is the contract
+   (`ElementKeys { nudge, reset }`, a `KeysCtx`, `KeysOf<'kind'>`), `ElementKindSpec` has the
+   `keys?` column, and `shortcutWiring` has ONE dispatcher pair — `nudgeSelectedElement(dx, dy)` /
+   `resetSelectedElement()` — at the HEAD of every chain: the four vertical ones, the two plain
+   horizontal arrows, `Ctrl+←/→` and `resetMove` (nine, not four). ⭐ Dispatch on the kind is sound
+   because `selectedElement` is ONE element — the chains were disjoint by construction; what is
+   not disjoint (an armed square against the whole mark) is one kind, and its module decides.
+   `dx`/`dy` are SCREEN staff-spaces, so a kind with its own convention (the tempo's outward `y`)
+   converts inside its row. First family: the HAIRPIN — `elements/hairpinKeys.ts` replaced four
+   closures and 17 chain links. `shortcutWiring` kinds 465 → 406. ⏸️ Awaiting his UI check.*
+   *Still in the chains: slur, ottava, pedal, trill, dynamic, tempo, clef offset — and the three
+   that key off the NOTE selection rather than `selectedElement` (rest, note spacing, bar width),
+   which stay where they are.*
 
    *(review)* **`delete` reverses a recorded decision and is his call.** `chain.ts`'s header (and
    CLAUDE.md, "the two sites that stay switches") says a `delete?` row was sketched and refused:

@@ -40,6 +40,7 @@ import type { MusicEngine } from '../../engine/MusicEngine'
 import type { ElementInfo, ElementRegistry } from '../../engine/ElementRegistry'
 import type { EditorState, SelectedElement } from '../EditorState'
 import type { DragHost, Gesture } from '../drags/gesture'
+import type { ElementKeys } from './keys'
 import type { Fraction } from '../../types/music'
 import type { ScoreTextField } from '@/engine/models/scoreTextOps'
 import type { HighlightController } from '../HighlightController'
@@ -181,6 +182,11 @@ export interface ElementKindSpec {
   hit?: ElementHit
   /** What extra painting this kind gets when it is the ONE selected element. */
   highlight: (h: HighlightController) => void
+  /** What the arrows and their backspace do to this kind when it is selected (`./keys`). ABSENT
+   *  = the kind does not answer them, and the key falls through. ⚠️ Typed for the union here; a
+   *  kind's own module types its row with `KeysOf<'kind'>`, and the dispatcher hands each row the
+   *  element whose `kind` selected it. */
+  keys?: ElementKeys
 }
 
 /** A kind a PRESS can resolve to — i.e. one with an entry in {@link ELEMENT_HIT_ORDER}. */

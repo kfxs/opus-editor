@@ -12,6 +12,7 @@ import { dbg } from '@/utils/debug'
 import type { ClickableElementSpec } from './chain'
 import { distToSegment } from './slur'
 import { beginHairpinBodyDrag } from '../drags/hairpinBody'
+import { HAIRPIN_KEYS } from './hairpinKeys'
 
 export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   kind: 'hairpin',
@@ -52,4 +53,5 @@ export const HAIRPIN_ELEMENT: ClickableElementSpec = {
   // (the dynamic's own arrangement), because a passage box can now select this kind too and the
   // ink has to paint for every selected one — not only for the one a click picked.
   highlight: h => { h.applyAnchorGuideLine(); h.applyHairpinHandles() },
+  keys: HAIRPIN_KEYS,
 }
