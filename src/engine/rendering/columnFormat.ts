@@ -17,8 +17,8 @@
  * instance is made any more, and ⭐ S9i: no `Voice` either — a bar's voices are `./barVoice`.
  */
 import { addTicks, subtractTicks, ticksGreaterThan, ticksValue, type TickCount } from '@/engine/layout/tickCount'
-import { type BarTickable, type BarVoice, barVoiceOf, isEngravedNote, sharedResolution } from './barVoice'
-import type { EngravedNote } from './EngravedNote'
+import { type BarTickable, type BarVoice, barVoiceOf, sharedResolution } from './barVoice'
+import { isEngravedNote, type EngravedNote } from './EngravedNote'
 import { EngravedClefChange } from './EngravedClefChange'
 import { alignRestsToNotes } from '@/engine/engrave/notes/restAlign'
 import {

@@ -56,7 +56,7 @@ import {
 } from '@/engine/layout/systemStartColumn'
 import { ENGRAVING_DEFAULTS } from '@/engine/fonts/bravuraMetrics'
 import type { RenderPass } from './RenderPass'
-import { measureGroupKey } from './ScoreRenderer'
+import { measureGroupKey } from './renderTypes'
 import { staveFrame } from './staveFrame'
 import { staffBottomLineY, staffLineY } from '@/engine/engrave/staff/staffFrame'
 

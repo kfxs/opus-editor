@@ -3,7 +3,8 @@ import { lineLeftCurveX, lineLeftEdgeX, lineRightEdgeX, type SystemEdgeLookup } 
 import { HEADER_TO_NOTE } from '@/engine/layout/headerInk'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 import { CURVE } from './curveStyle'
-import type { MeasureWidthInfo, MeasureBounds } from './ScoreRenderer'
+import type { MeasureWidthInfo } from './ScoreRenderer'
+import type { MeasureBounds } from './renderTypes'
 
 /**
  * Fabricate the narrow {@link SystemEdgeLookup} slice these helpers read. Only `lineNumber`,

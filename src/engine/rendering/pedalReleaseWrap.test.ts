@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { wrapReleaseOntoNextLine } from './pedalReleaseWrap'
 import { type SystemEdgeLookup } from './systemEdges'
-import type { MeasureWidthInfo, MeasureBounds } from './ScoreRenderer'
+import type { MeasureWidthInfo } from './ScoreRenderer'
+import type { MeasureBounds } from './renderTypes'
 
 /**
  * ⭐⭐ **A `✻` pushed past the end of its line is drawn on the next one** — his ask, 2026-08-21, and

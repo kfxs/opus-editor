@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { coveredPlacements, foldPastSystemEnd } from './TrillRenderer'
 import type { SystemEdgeLookup } from './systemEdges'
-import type { MeasureWidthInfo, MeasureBounds } from './ScoreRenderer'
+import type { MeasureWidthInfo } from './ScoreRenderer'
+import type { MeasureBounds } from './renderTypes'
 
 /**
  * 🚨🚨 **THE FOLD** — a trill's ink pushed past the end of its line continues at the start of the

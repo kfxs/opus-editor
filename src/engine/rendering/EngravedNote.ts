@@ -1690,3 +1690,10 @@ export function drawNoteInkThrough(notes: readonly EngravedNote[], ctx: DrawCont
 export function trimLedgers(note: EngravedNote, overhang: number): void {
   note.setLedgerOverhang(overhang)
 }
+
+/** A note of ours, as against an inline clef — asked of a bar's tickables (`./barVoice`). It lives
+ *  beside the class because `instanceof` needs the class at RUNTIME, and `barVoice` importing that
+ *  would close a cycle: this file imports `barVoiceOf` from it. */
+export function isEngravedNote(tickable: unknown): tickable is EngravedNote {
+  return tickable instanceof EngravedNote
+}

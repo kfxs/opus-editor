@@ -1,6 +1,6 @@
 # Code shape plan — 2026-09-19
 
-**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2: item 1 done.** Phases are ordered by
+**Status: IN PROGRESS — Phase 1 DONE (2026-09-19), bar item 5's two ⏭️ decisions. Phase 2: items 1–2 done.** Phases are ordered by
 value over risk; each one stands alone and can be stopped after. A done item carries ✅ and what
 actually happened where that differs from what was planned.
 
@@ -174,9 +174,15 @@ The fix is to change the **contract**, not the rule: a row owns its body.
    code lines: `MusicEngine` 1130 · 2774, `ScoreModel` 1105 · 2012, `ScoreRenderer` 901 · 2293,
    `MouseController` 970 · 2122, `PaletteController` 504 · 1351, `HighlightController` 316 · 1172,
    `shortcutWiring` 465 · 806, `PropertiesWidget` 187 · 977, `selectionSnapshot` 7 · 44.*
-2. **`engine/rendering/renderTypes.ts`**: `ScoreRenderer`'s exported types plus
+2. ✅ **`engine/rendering/renderTypes.ts`**: `ScoreRenderer`'s exported types plus
    `measureGroupKey`; move `isEngravedNote` into `EngravedNote.ts`. Removes both runtime cycles
    and dissolves the 35-file import cluster.
+   *Done: `MeasureBounds`, `MeasurePlacement` and `measureGroupKey` are `renderTypes.ts`; nine
+   importers no longer name `ScoreRenderer`. Runtime cycles 2 → **0** (madge, type imports
+   skipped). ⚠️ `isEngravedNote` takes `unknown` now — `BarTickable` lives in `barVoice`, and
+   importing it back would only re-draw the loop as a type one. The `LAYOUT_CONFIG` /
+   `VIEWPORT_HEIGHT` / `MeasureWidthInfo` re-export stays until item 3 moves `layoutConfig`, so
+   its importers are repointed once. `ScoreRenderer`'s kind ceiling 901 → 891.*
 3. **Move `MeasureLayout`, `MeasureWidthCache`, `layoutConfig`, `thinLineWeight` to
    `engine/layout/`** (with `drawsTimeSignature` and `PagePass`'s two constants). All five
    backwards `layout → rendering` imports go, and the arrow becomes lintable. Specs move with

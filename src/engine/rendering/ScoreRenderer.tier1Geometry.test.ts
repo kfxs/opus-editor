@@ -18,7 +18,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
-import { ScoreRenderer, type MeasureBounds } from './ScoreRenderer'
+import { ScoreRenderer } from './ScoreRenderer'
+import { type MeasureBounds } from './renderTypes'
 import { fracCreate as frac } from '@/utils/fraction'
 
 /** A score with two staves, three bars, notes, an accidental and a mid-measure clef change. */

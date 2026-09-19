@@ -18,7 +18,7 @@
  * tuplet or a two-note tremolo scales that through `applyTickMultiplier` (`NoteBuilder`). They go when
  * the notes stop being VexFlow tickables (S12).
  */
-import { EngravedNote } from './EngravedNote'
+import type { EngravedNote } from './EngravedNote'
 import type { EngravedStave } from './EngravedStave'
 import type { EngravedClefChange } from './EngravedClefChange'
 import type { DrawContext } from '@/engine/paint/DrawContext'
@@ -112,9 +112,4 @@ export function drawBarVoice(voice: BarVoice, context: DrawContext, stave: Engra
     tickable.setContext(context)
     tickable.drawWithStyle()
   }
-}
-
-/** A note of ours, as against an inline clef. */
-export function isEngravedNote(tickable: BarTickable): tickable is EngravedNote {
-  return tickable instanceof EngravedNote
 }

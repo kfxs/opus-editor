@@ -46,7 +46,7 @@ import type { Score } from '@/types/music'
 import type { ElementType } from '@/engine/ElementRegistry'
 // ⚠️ TYPE-ONLY, and it must stay that way: `ScoreRenderer` imports this module, so a value import
 // here would close a runtime cycle. A type import is erased entirely.
-import type { MeasurePlacement } from './ScoreRenderer'
+import type { MeasurePlacement } from './renderTypes'
 import type { RenderPass } from './RenderPass'
 import { planOttavaBands, renderOttavas } from './OttavaRenderer'
 import { renderPedals } from './PedalRenderer'

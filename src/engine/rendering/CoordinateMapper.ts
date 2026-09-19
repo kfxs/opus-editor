@@ -1,5 +1,5 @@
 import type { PixelCoordinates, PitchStep, PitchSpelling } from '@/types/music'
-import type { MeasureBounds } from './ScoreRenderer'
+import type { MeasureBounds } from './renderTypes'
 import { spellingToMidi, midiToSpelling } from '@/utils/pitchSpelling'
 
 /** Treble-clef reference: F5 sits on staff line 0 (top line). diatonicPos = 5*7+3 = 38 */
